@@ -110,6 +110,17 @@ test("strokes are addressed by buffer index across erase and restore", () => {
   assert.equal(fills.length, 1);
 });
 
+test("on screen it leaves strokes the page's SVG already shows to the SVG", () => {
+  const { canvas, fills } = recordingCanvas();
+  const renderer = new CanvasInkRenderer({ canvas });
+  const buffer = new InkPageBuffer(page(["pen", "pen"]));
+  renderer.setStrokes(buffer.allStrokes());
+  renderer.setShown(1);
+  renderer.draw();
+  // Stroke 0 is drawn by the sheet's SVG; only the unacknowledged one is wet.
+  assert.equal(fills.length, 1);
+});
+
 test("capture paints white and the paper under the ink into a fresh canvas", async () => {
   const { canvas } = recordingCanvas();
   const target = recordingCanvas();
