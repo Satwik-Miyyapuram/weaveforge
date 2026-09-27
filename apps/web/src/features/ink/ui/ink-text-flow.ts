@@ -13,9 +13,9 @@
  * wraps at roughly that, and a row's slack at the page foot is invisible.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
-import { INK_UNDERLAY } from "./ink-sheet-underlay";
+import { INK_UNDERLAY, pureInkPageText } from "./ink-sheet-underlay";
 
 export interface TextFlowMetrics {
   /** Rows of text a page holds. */
@@ -117,4 +117,29 @@ export function useFlowedTextPages(
     return metrics ? flowTextPages(pages, metrics) : [...pages];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, pageSize.width, pageSize.height, scale]);
+}
+
+/**
+ * The host's stored pages as the sheet shows them: each page's pure text,
+ * flowed on to the next where it does not fit. Pages it runs past are made
+ * real through `ensurePageCount`, so the pen can land on them.
+ */
+export function useSheetTextPages(
+  textPages: readonly string[],
+  pageCount: number,
+  pageSize: { width: number; height: number },
+  scale: number,
+  ensurePageCount: (count: number) => void,
+): string[] {
+  const key = textPages.join("␞");
+  const pure = useMemo(
+    () => textPages.map((text) => pureInkPageText(text)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [key, pageCount],
+  );
+  const flowed = useFlowedTextPages(pure, pageSize, scale);
+  useEffect(() => {
+    if (flowed.length > pageCount) ensurePageCount(flowed.length);
+  }, [ensurePageCount, flowed.length, pageCount]);
+  return flowed;
 }

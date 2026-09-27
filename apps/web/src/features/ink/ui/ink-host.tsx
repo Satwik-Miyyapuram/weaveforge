@@ -36,61 +36,39 @@ import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
   INK_PEN_WIDTH,
-  blankInkPage,
-  clampInkPageSize,
-  encodeInkChunk,
-  inkAttachmentIndex,
-  inkPageBackground,
-  inkPageFigures,
-  joinInkTextLayer,
-  newInkChunkId,
   readInkNoteBody,
   splitInkTextLayer,
-  withInkPageBackground,
-  writeInkNoteBody,
-  type InkColour,
   type InkHand,
   type InkPaper,
   type InkNoteMeta,
-  type InkPage as InkPageModel,
-  type InkRecogniser,
-  type InkRecognitionHints,
   type RecognisedLine,
 } from "@weaveforge/core";
 
-import { usePenCapture } from "../application/use-pen-capture";
-import type { PenHaptics } from "../application/pen-haptics";
-import { trailStyle } from "../application/ink-trail";
 import {
   INK_RENDER_COLOURS,
   paletteHex,
-  readThemePalette,
-  samePalette,
   type InkPalette,
 } from "../render/ink-palette";
-import { backingRatio } from "../render/ink-renderer";
 import type {
-  InkWorkerEvent,
   InkWorkerMessage,
 } from "../application/capture-protocol";
 import {
-  loadInkPages,
-  type InkChunkStore,
   type InkStoredPage,
 } from "../application/ink-chunk-store";
-import { availableInkChunkCodec } from "../application/ink-chunk-codec";
 import { pageListProblem, selectedPdfPages } from "../application/pdf-pages";
-import { InkBar, type InkBarTool } from "./ink-bar";
+import { InkBar } from "./ink-bar";
 import { InkFigures } from "./ink-figures";
 import { fitScale } from "./ink-page-math";
-import { InkSheetTextUnderlay, pureInkPageText } from "./ink-sheet-underlay";
+import { InkSheetTextUnderlay } from "./ink-sheet-underlay";
 import { useInkSelection } from "./use-ink-selection";
 import { InkPage } from "./ink-page";
 import { InkRail } from "./ink-rail";
 import { InkTextLayer } from "./ink-text-layer";
-import { useFlowedTextPages } from "./ink-text-flow";
+import { useSheetTextPages } from "./ink-text-flow";
 import { useDecodedStrokes } from "./use-decoded-strokes";
 import { InkPageInk } from "./ink-page-ink";
+import { useLiveSheetInk } from "./use-live-sheet-ink";
+import { useInkEditActions } from "./use-ink-edit-actions";
 import { useGhostImages } from "./use-ghost-images";
 import { useInkSheetImages } from "./use-ink-sheet-images";
 import { InkActiveFigureEditor, useFigureDrop, useInkFigures } from "./use-ink-figures";
@@ -108,7 +86,7 @@ import { InkPrintPreview } from "./ink-print-preview";
 import { usePageExport } from "./use-page-export";
 import { pageGapPx } from "./ink-bar-more";
 import { usePageGap } from "./use-page-gap";
-import type { InkHostDeps, InkHostPage, InkHostProps } from "./ink-host-types";
+import type { InkHostProps } from "./ink-host-types";
 
 export type { InkHostDeps, InkHostPage, InkHostProps } from "./ink-host-types";
 
@@ -179,7 +157,6 @@ export function InkHost({
    * because the trail's style and the native overlay's tool depend on it.
    */
   const [palette, setPalette] = useState<InkPalette>(INK_RENDER_COLOURS);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * The worker's answers, by request id (§use-ink-worker-rpc): history counts,
@@ -197,7 +174,6 @@ export function InkHost({
   });
   const {
     history,
-    strokes,
     setStrokes,
     selection,
     setSelection,
@@ -281,34 +257,14 @@ export function InkHost({
     live: sheetInk,
   });
 
-  /**
-   * The live sheet's ink (§ink-page-ink): the worker's own list once it has
-   * answered for this page, the saved chunk until then — never the list of
-   * the page just left, which is what the sheet would show for the frame a
-   * flip takes. A held selection is left to the canvas, which draws it where
-   * the drag has it.
-   */
-  const liveInk = sheetInk?.pageIndex === pageIndex ? sheetInk : null;
-  const sheetStrokes = liveInk ? liveInk.strokes : strokesMap.get(pageIndex);
-  const hiddenInk = useMemo(() => {
-    if (!liveInk || selection.length === 0) return undefined;
-    const held = new Set(selection);
-    const out = new Set<number>();
-    liveInk.ids.forEach((id, at) => {
-      if (held.has(id)) out.add(at);
-    });
-    return out;
-  }, [liveInk, selection]);
-  // Painted: the canvas can let go of what the sheet now draws.
-  useEffect(() => {
-    if (!liveInk) return;
-    const last = liveInk.ids[liveInk.ids.length - 1];
-    sendRef.current?.({
-      type: "ink-shown",
-      pageIndex: liveInk.pageIndex,
-      count: last === undefined ? 0 : last + 1,
-    });
-  }, [liveInk]);
+  /** The live sheet's ink (§use-live-sheet-ink). */
+  const { strokes: sheetStrokes, hidden: hiddenInk } = useLiveSheetInk({
+    sheetInk,
+    pageIndex,
+    saved: strokesMap.get(pageIndex),
+    selection,
+    sendRef,
+  });
 
   /**
    * The pen (§use-ink-pen): capture, haptics, and the one worker door it
@@ -433,12 +389,10 @@ export function InkHost({
     wrapRef,
   });
   const {
-    inserting,
     backgroundPath,
     setBackgroundPath,
     pageAsk,
     answerPdfPages,
-    onSetPageBackground,
     onRemovePageBackground,
     onAddFigure,
     onInsertPage,
@@ -512,7 +466,7 @@ export function InkHost({
    * the bridge that inks over the page itself and hands each finished stroke
    * back, kept told where the page is and what the pen looks like.
    */
-  const native = useInkNativeOverlay({
+  useInkNativeOverlay({
     canvasRef,
     scrollRef,
     sheetRef,
@@ -605,45 +559,22 @@ export function InkHost({
     setZoom,
   });
 
-  /** One finger dragged the page: scroll the other way, so the paper follows. */
-  const onPan = useCallback((dx: number, dy: number) => {
-    scrollRef.current?.scrollBy(-dx, -dy);
-  }, []);
+  /** Pan, pinch, erase, undo, redo (§use-ink-edit-actions). */
+  const { onPan, onPinch, onErase, onUndo, onRedo } = useInkEditActions({
+    send,
+    scheduleSave,
+    scrollRef,
+    setZoom,
+  });
 
-  /** Two fingers pinched: zoom, clamped like the wheel is. */
-  const onPinch = useCallback((factor: number) => {
-    setZoom((value) => Math.min(4, Math.max(0.5, value * factor)));
-  }, []);
-
-  const onErase = useCallback(
-    (from: { x: number; y: number }, to: { x: number; y: number }) => {
-      send({ type: "erase", from, to });
-      scheduleSave();
-    },
-    [scheduleSave, send],
+  // The text as shown, flowed across pages (§ink-text-flow).
+  const flowedText = useSheetTextPages(
+    textPagesRef.current,
+    pageCount,
+    pageSize,
+    scale,
+    ensurePageCount,
   );
-
-  const onUndo = useCallback(() => {
-    send({ type: "undo" });
-    scheduleSave();
-  }, [scheduleSave, send]);
-  const onRedo = useCallback(() => {
-    send({ type: "redo" });
-    scheduleSave();
-  }, [scheduleSave, send]);
-
-  // The text as shown: each page's own text, flowed on to the next where it
-  // does not fit (§ink-text-flow). Pages it runs past are made real, so the
-  // pen can land on them.
-  const pureTextPages = useMemo(
-    () => textPagesRef.current.map((text) => pureInkPageText(text)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [textPagesRef.current.join("␞"), pageCount],
-  );
-  const flowedText = useFlowedTextPages(pureTextPages, pageSize, scale);
-  useEffect(() => {
-    if (flowedText.length > pageCount) ensurePageCount(flowedText.length);
-  }, [ensurePageCount, flowedText.length, pageCount]);
   const pureText = flowedText[pageIndex] ?? "";
   pageTextRef.current = pureText;
 

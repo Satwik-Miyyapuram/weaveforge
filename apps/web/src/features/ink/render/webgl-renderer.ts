@@ -68,12 +68,11 @@ import {
   type CaptureTarget,
 } from "./webgl-offscreen";
 import { InkBatches } from "./webgl-batches";
-import { linkProgram, supportsWebglInk } from "./webgl-support";
+import { linkProgram, pageScissor } from "./webgl-support";
 
 import {
   INK_RENDER_COLOURS,
   type InkPalette,
-  type InkRgb,
 } from "./ink-palette";
 export { INK_RENDER_COLOURS } from "./ink-palette";
 
@@ -462,18 +461,6 @@ export class WebglInkRenderer implements InkRenderer {
    * figures are DOM the worker does not know about and the sheet's white
    * would cover them).
    */
-  /** The page's box on the drawing surface, as the scissor: GL counts rows from the foot. */
-  private scissorToPage(): void {
-    const gl = this.gl;
-    const k = this.transform.scale * this.dpr;
-    const left = Math.max(0, Math.floor(this.transform.offsetX * this.dpr));
-    const top = Math.max(0, Math.floor(this.transform.offsetY * this.dpr));
-    const right = Math.min(this.width, Math.ceil(this.transform.offsetX * this.dpr + this.pageWidth * k));
-    const bottom = Math.min(this.height, Math.ceil(this.transform.offsetY * this.dpr + this.pageHeight * k));
-    gl.enable(gl.SCISSOR_TEST);
-    gl.scissor(left, this.height - Math.max(top, bottom), Math.max(0, right - left), Math.max(0, bottom - top));
-  }
-
   private render(
     framebuffer: WebGLFramebuffer | null,
     transparent = false,
@@ -492,7 +479,8 @@ export class WebglInkRenderer implements InkRenderer {
 
     // Nothing is drawn past the page's edge (the canvas renderer's clip, and
     // the static SVG's): after the clear, which a scissor would also cut.
-    this.scissorToPage();
+    gl.enable(gl.SCISSOR_TEST);
+    gl.scissor(...pageScissor(this.transform, this.dpr, this.pageWidth, this.pageHeight, this.width, this.height));
     // On screen the canvas carries only the wet ink: the stroke being written
     // and a held selection. The page's image and its finished strokes are the
     // sheet's own DOM (§ink-page-ink), which scrolls with the paper; the
