@@ -2723,6 +2723,10 @@
   margin: 0;
   padding: 0;
 }
+/* An image sat at its natural pixels while the text around it grew with the
+   sheet, so a wider sheet (focus, a wide pane) shrank it against the page and
+   re-flowed the text beside it. Same zoom as the diagram: it is page content. */
+.ink-sheet-text-underlay img { zoom: var(--ink-diagram-zoom, 1); }
 .ink-sheet-text-underlay .md-table { margin: 0; }
 .ink-sheet-text-underlay .md-code code { background: none; padding: 0; font-size: inherit; }
 
