@@ -32,15 +32,16 @@ import { CollabBodyHost } from "@/features/collab";
 // sibling only through its index (CONTRIBUTING.md § SOLID). A paper's
 // `paperimg:` and a section's `reportimg:` resolve here because the resolvers
 // are theirs, not because this screen learned the prefixes.
-import { InkHost, InkReader } from "@/features/ink";
+import { InkHost } from "@/features/ink";
 import { PaperMarkdown, paperImageMarkdown } from "@/features/papers";
 import { PaperPdfPane } from "@/features/reader";
 import { ReportSectionMarkdown, reportImageMarkdown } from "@/features/report";
-import { VaultMarkdown, type WikilinkEntry } from "@/features/vault";
+import { NoteReadView, VaultMarkdown, type WikilinkEntry } from "@/features/vault";
 import { editorImageUpload } from "@/lib/editor-image-upload";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
+import type { EditorCitationFormat } from "@/lib/citation-format-preference";
 import type { DocumentMode, TabRef } from "../application/pane-tree";
-import { ImageSizeControl } from "./image-size-control";
+import { ImageSizeControl } from "@/components/image-size-control";
 import { documentKind, hasInkView, hasPdfView } from "./kind";
 import { LivePreview, useMdPreviewMode } from "./md-live-preview";
 
@@ -85,6 +86,15 @@ export interface DocumentHostProps {
   handleRef?: EditorHandleRef;
   /** Where an upload failure is shown. */
   onError?: (message: string | null) => void;
+  /** Read mode: the note a `![[title]]` embed names, where the host knows. */
+  resolveEmbed?: (title: string) => string | null;
+  /** What an `@` citation inserts; the Editor keeps the wikilink default. */
+  citationFormat?: EditorCitationFormat;
+  /**
+   * A shared section read by someone else: its experiment artifacts are the
+   * owner's, so the read view does not try to resolve them.
+   */
+  skipArtifactResolve?: boolean;
 }
 
 /** 1-based `Ln`/`Col` for a character offset, without importing CodeMirror values. */
@@ -128,11 +138,6 @@ export function rendererFor(kind: string, mode: DocumentMode, body = ""): Render
       : "markdown";
   }
   return "editor";
-}
-
-/** Whether Edit / Read applies to a kind. */
-export function supportsEditMode(kind: string): boolean {
-  return documentKind(kind) === "text" || hasInkView(kind);
 }
 
 type ImageStore = Pick<Parameters<typeof editorImageUpload>[0], "store" | "toMarkdown">;
@@ -196,6 +201,9 @@ export function DocumentHost({
   onCreateNote,
   handleRef,
   onError,
+  resolveEmbed,
+  citationFormat,
+  skipArtifactResolve = false,
 }: DocumentHostProps) {
   // Held in a ref so the editor's `onViewCreated` identity never changes: it is
   // a dependency of the CodeMirror stack, and rebuilding that stack would throw
@@ -267,11 +275,12 @@ export function DocumentHost({
       wikilinkCompletions: completions,
       tags,
       imagePaste,
+      citationFormat,
       onCreateNote: canCreate
         ? (title: string, opts?: { open?: boolean }) => createRef.current?.(title, opts)
         : undefined,
     }),
-    [completions, tags, imagePaste, canCreate],
+    [completions, tags, imagePaste, canCreate, citationFormat],
   );
 
   // The renderers' own click handler pushes a route (`/notes?page=…`), which is
@@ -317,7 +326,7 @@ export function DocumentHost({
       tab.kind === "paper" ? (
         <PaperMarkdown body={text} className="document-read-body" />
       ) : tab.kind === "report_section" ? (
-        <ReportSectionMarkdown body={text} className="document-read-body" />
+        <ReportSectionMarkdown body={text} className="document-read-body" skipArtifactResolve={skipArtifactResolve} />
       ) : (
         <VaultMarkdown
           body={text}
@@ -328,7 +337,7 @@ export function DocumentHost({
           onCreateNote={onCreateNote}
         />
       ),
-    [tab.kind, links, onCreateNote],
+    [tab.kind, links, onCreateNote, skipArtifactResolve],
   );
 
   // A paper's own Notes tab is also an ink sheet (§paper), and its images are
@@ -360,15 +369,31 @@ export function DocumentHost({
     // Read mode of an ink note: the same sheet as Ink with the pen down, so
     // everything drawn on it — strokes, figures, diagrams, images — is there
     // to read. It takes no `onSave`: there is nothing to edit.
-    return (
-      <InkReader noteId={tab.id} body={body} deps={getContainer().ink} paperId={sheetPaperId} />
-    );
+    return <NoteReadView ink noteId={tab.id} body={body} paperId={sheetPaperId} />;
   }
 
   if (renderer === "pdf" || renderer === "pdf_ink") {
     // The reader's paper half, in the tab. The route is the same component
     // with a header around it; the PDF is not loaded twice.
     return <PaperPdfPane paperId={tab.id} inkRail={renderer === "pdf_ink"} />;
+  }
+
+  if (renderer === "markdown" && tab.kind !== "paper" && tab.kind !== "report_section") {
+    // A note reads through the renderer `/notes` uses too, so the two agree.
+    return (
+      <NoteReadView
+        ink={false}
+        noteId={tab.id}
+        body={body}
+        onSave={onSave}
+        onClickCapture={onReadClick}
+        notes={links?.notes ?? []}
+        papers={links?.papers ?? []}
+        sections={links?.sections ?? []}
+        onCreateNote={onCreateNote}
+        resolveEmbed={resolveEmbed}
+      />
+    );
   }
 
   if (renderer === "markdown") {

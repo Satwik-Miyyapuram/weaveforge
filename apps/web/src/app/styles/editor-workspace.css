@@ -617,7 +617,7 @@
    `.ink-bar.ink-palette`, inside `.workspace-shell.is-focus` on a note and
    inside `.pdf-reader.is-focus` in the reader. It carries `data-dock`, so the
    rules below are written once. */
-.workspace-shell.is-focus .ink-palette,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette,
 .pdf-reader.is-focus .ink-palette {
   position: absolute;
   z-index: 5;
@@ -640,34 +640,34 @@
 
 /* The eight docks. Edges centre along their axis (by auto margins, see
    above); corners sit 10px in. */
-.workspace-shell.is-focus .ink-palette[data-dock="left"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="left"],
 .pdf-reader.is-focus .ink-palette[data-dock="left"] {
   inset-inline-start: 10px; inset-block: 0; margin-block: auto; height: max-content; max-height: calc(100% - 20px); overflow-y: auto;
 }
-.workspace-shell.is-focus .ink-palette[data-dock="right"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="right"],
 .pdf-reader.is-focus .ink-palette[data-dock="right"] {
   inset-inline-end: 10px; inset-block: 0; margin-block: auto; height: max-content; max-height: calc(100% - 20px); overflow-y: auto;
 }
-.workspace-shell.is-focus .ink-palette[data-dock="top"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="top"],
 .pdf-reader.is-focus .ink-palette[data-dock="top"] {
   inset-block-start: 10px; inset-inline: 0; margin-inline: auto;
 }
-.workspace-shell.is-focus .ink-palette[data-dock="bottom"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom"],
 .pdf-reader.is-focus .ink-palette[data-dock="bottom"] {
   inset-block-end: 10px; inset-inline: 0; margin-inline: auto;
 }
-.workspace-shell.is-focus .ink-palette[data-dock="top-left"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="top-left"],
 .pdf-reader.is-focus .ink-palette[data-dock="top-left"] { inset-block-start: 10px; inset-inline-start: 10px; }
-.workspace-shell.is-focus .ink-palette[data-dock="top-right"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="top-right"],
 .pdf-reader.is-focus .ink-palette[data-dock="top-right"] { inset-block-start: 10px; inset-inline-end: 10px; }
-.workspace-shell.is-focus .ink-palette[data-dock="bottom-left"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom-left"],
 .pdf-reader.is-focus .ink-palette[data-dock="bottom-left"] { inset-block-end: 10px; inset-inline-start: 10px; }
-.workspace-shell.is-focus .ink-palette[data-dock="bottom-right"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom-right"],
 .pdf-reader.is-focus .ink-palette[data-dock="bottom-right"] { inset-block-end: 10px; inset-inline-end: 10px; }
 
 /* Along the top and bottom edges the palette runs as a row. */
-.workspace-shell.is-focus .ink-palette[data-dock="top"],
-.workspace-shell.is-focus .ink-palette[data-dock="bottom"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="top"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom"],
 .pdf-reader.is-focus .ink-palette[data-dock="top"],
 .pdf-reader.is-focus .ink-palette[data-dock="bottom"] {
   flex-direction: row;
@@ -679,28 +679,28 @@
 /* The bar in focus — both surfaces are this one bar now
    (`features/ink/ui/ink-bar`), so this is one rule rather than two: what a
    hand needs mid-stroke stays, and everything else is chrome for later. */
-.workspace-shell.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more):not(.ink-menu-insert),
-.pdf-reader.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more):not(.ink-menu-insert) {
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more),
+.pdf-reader.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more) {
   display: none;
 }
 
 /* Folded: the handles and the tools, nothing else. */
-.workspace-shell.is-focus .ink-palette[data-collapsed] > :not(.ink-palette-handles):not(.ink-bar-tools),
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-collapsed] > :not(.ink-palette-handles):not(.ink-bar-tools),
 .pdf-reader.is-focus .ink-palette[data-collapsed] > :not(.ink-palette-handles):not(.ink-bar-tools) {
   display: none;
 }
 
 /* The handles exist only once the palette floats. */
 .ink-palette-handles { display: none; }
-.workspace-shell.is-focus .ink-palette-handles,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette-handles,
 .pdf-reader.is-focus .ink-palette-handles {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
 }
-.workspace-shell.is-focus .ink-palette[data-dock="top"] .ink-palette-handles,
-.workspace-shell.is-focus .ink-palette[data-dock="bottom"] .ink-palette-handles,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="top"] .ink-palette-handles,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom"] .ink-palette-handles,
 .pdf-reader.is-focus .ink-palette[data-dock="top"] .ink-palette-handles,
 .pdf-reader.is-focus .ink-palette[data-dock="bottom"] .ink-palette-handles {
   flex-direction: row;
@@ -723,20 +723,20 @@
   pointer-events: none;
 }
 
-.workspace-shell.is-focus .ink-palette .ink-bar-group,
-.workspace-shell.is-focus .ink-palette .ink-swatches,
-.workspace-shell.is-focus .ink-palette .ink-page-pill,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-bar-group,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-swatches,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-page-pill,
 .pdf-reader.is-focus .ink-palette .ink-bar-group,
 .pdf-reader.is-focus .ink-palette .ink-swatches {
   flex-direction: column;
   align-items: center;
 }
-.workspace-shell.is-focus .ink-palette[data-dock="top"] .ink-bar-group,
-.workspace-shell.is-focus .ink-palette[data-dock="top"] .ink-swatches,
-.workspace-shell.is-focus .ink-palette[data-dock="top"] .ink-page-pill,
-.workspace-shell.is-focus .ink-palette[data-dock="bottom"] .ink-bar-group,
-.workspace-shell.is-focus .ink-palette[data-dock="bottom"] .ink-swatches,
-.workspace-shell.is-focus .ink-palette[data-dock="bottom"] .ink-page-pill,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="top"] .ink-bar-group,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="top"] .ink-swatches,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="top"] .ink-page-pill,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom"] .ink-bar-group,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom"] .ink-swatches,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom"] .ink-page-pill,
 .pdf-reader.is-focus .ink-palette[data-dock="top"] .ink-bar-group,
 .pdf-reader.is-focus .ink-palette[data-dock="top"] .ink-swatches,
 .pdf-reader.is-focus .ink-palette[data-dock="bottom"] .ink-bar-group,
@@ -746,46 +746,46 @@
 
 /* Targets for a pen held mid-air, not a mouse: 36px buttons, 26px swatches,
    and a little more air between them. */
-.workspace-shell.is-focus .ink-palette .ink-tool,
-.workspace-shell.is-focus .ink-palette .ink-page-pill .ink-tool,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-tool,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-page-pill .ink-tool,
 .pdf-reader.is-focus .ink-palette .ink-tool { width: 36px; height: 36px; }
-.workspace-shell.is-focus .ink-palette .ink-tool svg,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-tool svg,
 .pdf-reader.is-focus .ink-palette .ink-tool svg { width: 18px; height: 18px; }
-.workspace-shell.is-focus .ink-palette .ink-bar-group,
-.workspace-shell.is-focus .ink-palette .ink-page-pill,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-bar-group,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-page-pill,
 .pdf-reader.is-focus .ink-palette .ink-bar-group { gap: 4px; padding: 3px; border-radius: 10px; }
-.workspace-shell.is-focus .ink-palette .ink-swatches,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-swatches,
 .pdf-reader.is-focus .ink-palette .ink-swatches { gap: 9px; padding: 8px 5px; }
-.workspace-shell.is-focus .ink-palette .ink-swatch,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-swatch,
 .pdf-reader.is-focus .ink-palette .ink-swatch { width: 26px; height: 26px; }
-.workspace-shell.is-focus .ink-bar .ink-page-count {
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-bar .ink-page-count {
   flex-direction: column;
   gap: 0;
   padding: 4px 0;
   font-size: 0.8rem;
   line-height: 1.1;
 }
-.workspace-shell.is-focus .ink-bar .ink-page-count .ink-page-sep { display: none; }
-.workspace-shell.is-focus .ink-bar .ink-page-count .ink-page-now { font-weight: 700; color: var(--text); }
-.workspace-shell.is-focus .ink-bar .ink-page-count .ink-page-total {
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-bar .ink-page-count .ink-page-sep { display: none; }
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-bar .ink-page-count .ink-page-now { font-weight: 700; color: var(--text); }
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-bar .ink-page-count .ink-page-total {
   margin-top: 3px;
   padding-top: 3px;
   border-top: 1px solid var(--border-strong);
   font-size: 0.7rem;
 }
-.workspace-shell.is-focus .ink-bar .ink-menu { justify-content: center; }
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-bar .ink-menu { justify-content: center; }
 
 /* The list opens beside the palette, not under it — hung from the button's
    bottom, since the paper menu is the palette's last item — and nothing
    clamps it to the (now narrow) bar. */
-.workspace-shell.is-focus .ink-bar .ink-menu-list {
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-bar .ink-menu-list {
   top: auto;
   bottom: 0;
   right: auto;
   left: calc(100% + 8px);
   transform: none;
 }
-.workspace-shell.is-focus .ink-bar[data-dock$="right"] .ink-menu-list {
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-bar[data-dock$="right"] .ink-menu-list {
   left: auto;
   right: calc(100% + 8px);
 }
@@ -2407,13 +2407,22 @@
  * over them (§figure). The layer itself is a positioned box the size of the
  * sheet; each figure is a box in page units scaled to the sheet, so a zoom
  * moves a figure exactly as it moves the ink.
+ *
+ * A figure may hang half off its page, but only the page shows it: a page is
+ * drawn twice (its static slot and, while current, the live layer above every
+ * slot), and a part past the edge was on show over the next page only while
+ * this page was the live one, so it came and went as the scroll went by.
  */
 .ink-figures {
   position: absolute;
   inset: 0;
   z-index: 0;
+  overflow: clip;
   pointer-events: none;
 }
+/* Except while one is held: a figure dragged past the edge is on its way to
+   the next page, and must be seen going there (§useFigureDrop). */
+.ink-figures.has-active { overflow: visible; }
 .ink-figure {
   pointer-events: none;
   background: color-mix(in srgb, var(--surface) 85%, transparent);
@@ -2518,10 +2527,54 @@
   height: 100%;
   object-fit: fill;
 }
+/* Crop mode wears a different border from a selected image, as Google Docs
+   does: a thin dark rule with heavy L-shaped marks at the corners and bars
+   at the edge midpoints, where a selection has an accent outline and dots. */
 .ink-figure-crop-kept {
   background: var(--surface);
-  outline-style: dashed;
+  outline: 1px solid var(--text);
+  outline-offset: 0;
+  box-shadow: 0 0 0 1px var(--surface);
 }
+.ink-figure-crop-kept:focus-visible {
+  outline-width: 1px;
+}
+.ink-figure-crop-kept .ink-figure-handle,
+.ink-figure-crop-kept .ink-figure-handle[data-handle] {
+  width: 20px;
+  height: 20px;
+  margin: -2px;
+  border: 0 solid var(--text);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+/* A bigger, invisible hit area than the mark itself. */
+.ink-figure-crop-kept .ink-figure-handle::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+.ink-figure-crop-kept .ink-figure-handle[data-handle="nw"] { border-width: 4px 0 0 4px; }
+.ink-figure-crop-kept .ink-figure-handle[data-handle="ne"] { border-width: 4px 4px 0 0; }
+.ink-figure-crop-kept .ink-figure-handle[data-handle="sw"] { border-width: 0 0 4px 4px; }
+.ink-figure-crop-kept .ink-figure-handle[data-handle="se"] { border-width: 0 4px 4px 0; }
+.ink-figure-crop-kept .ink-figure-handle[data-handle="n"],
+.ink-figure-crop-kept .ink-figure-handle[data-handle="s"] {
+  width: 24px;
+  height: 0;
+  margin-left: -12px;
+}
+.ink-figure-crop-kept .ink-figure-handle[data-handle="n"] { border-top-width: 4px; }
+.ink-figure-crop-kept .ink-figure-handle[data-handle="s"] { border-bottom-width: 4px; }
+.ink-figure-crop-kept .ink-figure-handle[data-handle="e"],
+.ink-figure-crop-kept .ink-figure-handle[data-handle="w"] {
+  width: 0;
+  height: 24px;
+  margin-top: -12px;
+}
+.ink-figure-crop-kept .ink-figure-handle[data-handle="e"] { border-right-width: 4px; }
+.ink-figure-crop-kept .ink-figure-handle[data-handle="w"] { border-left-width: 4px; }
 .ink-figure-crop-clip {
   position: absolute;
   inset: 0;
@@ -2571,14 +2624,16 @@
   margin: 0 3px;
   background: var(--border);
 }
-.ink-figure-hint {
-  font-size: 0.68rem;
-  color: var(--faint);
-  padding: 0 6px;
+.ink-figure-button-icon {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 5px;
+}
+.ink-figure-button-remove {
+  color: var(--danger);
 }
 .ink-figure-button-remove:hover {
-  background: color-mix(in srgb, #b33 14%, transparent);
-  color: #b33;
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
 }
 
 .ink-text {
@@ -2668,6 +2723,10 @@
   margin: 0;
   padding: 0;
 }
+/* An image sat at its natural pixels while the text around it grew with the
+   sheet, so a wider sheet (focus, a wide pane) shrank it against the page and
+   re-flowed the text beside it. Same zoom as the diagram: it is page content. */
+.ink-sheet-text-underlay img { zoom: var(--ink-diagram-zoom, 1); }
 .ink-sheet-text-underlay .md-table { margin: 0; }
 .ink-sheet-text-underlay .md-code code { background: none; padding: 0; font-size: inherit; }
 
@@ -2752,10 +2811,8 @@
 .ink-quick-colours { gap: 10px; padding: 2px 6px; }
 
 /* Insert: a labelled drop-down, apart from ⋯. */
-.ink-insert-trigger { display: inline-flex; align-items: center; gap: 2px; padding: 0 6px; }
 /* Portalled to <body> and fixed under its button: the reader's bar scrolls
    sideways and its chrome clips, so a list hung inside either was cut off. */
-.ink-menu-insert-list { position: fixed; right: auto; z-index: 1000; min-width: 220px; transform: none; }
 
 /* The zoom pill reads like the page pill; its level resets to fit. */
 .ink-zoom-level {

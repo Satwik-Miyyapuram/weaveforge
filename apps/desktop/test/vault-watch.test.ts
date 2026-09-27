@@ -100,7 +100,7 @@ test("stopping drops what was pending", () => {
 });
 
 test("a quiet folder reports nothing", () => {
-  const { watch, batches, quiet } = harness();
+  const { batches, quiet } = harness();
   quiet();
   assert.deepEqual(batches, []);
 });

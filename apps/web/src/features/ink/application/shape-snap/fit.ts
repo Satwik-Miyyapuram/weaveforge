@@ -13,7 +13,6 @@ import {
   type ShapeRecognition,
   type SnapGeometry,
   type SnapPoint,
-  type SnapShape,
 } from "./geometry";
 import { fitArrow } from "./arrow";
 import { fitEllipse } from "./ellipse";

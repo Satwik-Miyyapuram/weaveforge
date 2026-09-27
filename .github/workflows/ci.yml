@@ -248,6 +248,11 @@ jobs:
       - name: Bundle budget
         run: npm run bundle:budget
 
+      # Also reads build output: a package the browser build holds twice, which
+      # the budget cannot see when both copies load on demand.
+      - name: No duplicate packages in the browser build
+        run: npm run bundle:duplicates
+
       # A desktop release left as a draft is invisible to every installed copy,
       # and nothing about the app says so — it simply reports no update. This
       # is the only place that would notice.

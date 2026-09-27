@@ -30,16 +30,40 @@
   gap: 10px 22px;
   min-height: 36px;
 }
-.record-back {
+/* The one back control (components/back-button.tsx): a square chevron box and
+   the name of where it goes, the same on every detail page. */
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font: inherit;
   font-size: 0.88rem;
   color: var(--muted);
   background: none;
   border: none;
-  padding: 4px 0;
+  padding: 0;
   cursor: pointer;
+  text-decoration: none;
+  flex: none;
 }
-.record-back:hover { color: var(--text); }
+.back-btn-box {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  box-shadow: var(--sh-sm, none);
+}
+.back-btn-box svg { width: 16px; height: 16px; }
+@media (hover: hover) {
+  .back-btn:hover { color: var(--text); }
+  .back-btn:hover .back-btn-box { background: var(--surface2); }
+}
+.back-btn:active .back-btn-box { transform: var(--press-t, none); box-shadow: var(--sh-press, none); }
+:root[data-theme="crt"] .back-btn-box { background: #f29731; color: #2b222b; box-shadow: var(--sh-btn-2); }
 .record-bar-id { white-space: nowrap; }
 
 .record-state { display: inline-flex; align-items: center; gap: 8px; }
@@ -133,6 +157,9 @@
 }
 .record-main,
 .record-aside { min-width: 0; }
+/* Writing takes the page: the side column steps aside while Edit is on. */
+.record-grid--editing { grid-template-columns: minmax(0, 1fr); }
+.record-grid--editing > .record-aside { display: none; }
 
 @media (max-width: 900px) {
   .record-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
@@ -155,20 +182,9 @@
   color: var(--muted);
 }
 .record-section-tag { color: var(--faint); font-weight: 400; }
-.record-tag-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  color: var(--faint);
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-}
-.record-tag-btn:hover { color: var(--text); }
+/* The word count beside the Editor's Edit / Read / Ink switch. */
+.record-mode-tag { display: inline-flex; align-items: center; gap: 12px; }
+.record-mode-tag .pane-mode { margin: 0; font-family: var(--font-sans); letter-spacing: 0; }
 
 .record-empty {
   margin: 0;
@@ -194,6 +210,47 @@
 }
 .record-note-empty:hover { border-color: var(--border-strong); color: var(--muted); }
 
+/* A note read on its page is the Editor's Read view (§NoteReadView). An ink
+   note's sheet scrolls inside its own frame, so it is given a height. */
+.record-note-read--ink {
+  height: min(78vh, 1100px);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+/* Ink on a note: the Editor's own sheet, framed at the reading height. */
+.record-doc--ink .ink-wrap {
+  height: min(78vh, 1100px);
+  border: 1px solid var(--border);
+}
+/* Ink in focus (components/ink-focus.tsx): the sheet full-bleed over the page,
+   the pen palette floating on it (editor-workspace.css), one corner exit. */
+.record-ink-focus.is-focus {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--surface-alt);
+}
+.record-ink-focus.is-focus .ink-wrap { height: 100%; border: 0; }
+.record-ink-focus.is-focus > .focus-exit { position: fixed; z-index: 51; }
+.record-focus-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+@media (hover: hover) { .record-focus-btn:hover { color: var(--text); } }
+/* Edit on a record page: the Editor's writing surface at the same height, not
+   the height of its first few lines. */
+.record-doc--edit .md-live {
+  height: min(78vh, 1100px);
+  border: 1px solid var(--border);
+}
 .record-main .summary,
 .record-note { font-size: 0.98rem; line-height: 1.75; margin: 0; }
 .record-abstract {

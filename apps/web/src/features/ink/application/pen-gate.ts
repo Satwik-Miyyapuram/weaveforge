@@ -96,9 +96,6 @@ export class InkPenGate {
   private activeId: number | null = null;
   private activeIsTouch = false;
   private activeStartedAt = 0;
-  /** Where the stroke in progress began, and the box it began on. */
-  private activeOrigin: { x: number; y: number } | null = null;
-  private activeBounds: PenGateEvent["bounds"];
   private lastPenDownAt = Number.NEGATIVE_INFINITY;
   private readonly deferred = new Map<number, { x: number; y: number }>();
 
@@ -225,8 +222,6 @@ export class InkPenGate {
     this.activeId = event.pointerId;
     this.activeIsTouch = event.pointerType === "touch";
     this.activeStartedAt = event.t;
-    this.activeOrigin = { x: event.clientX ?? 0, y: event.clientY ?? 0 };
-    this.activeBounds = event.bounds;
     if (decision === "defer") {
       this.deferred.set(event.pointerId, {
         x: event.clientX ?? 0,
@@ -261,8 +256,6 @@ export class InkPenGate {
   private release(): void {
     this.activeId = null;
     this.activeIsTouch = false;
-    this.activeOrigin = null;
-    this.activeBounds = undefined;
   }
 
   /** The stroke ended, however it ended. */

@@ -369,6 +369,11 @@ body > canvas.hiddenCanvasElement { display: none; }
      through to the text layer and text selection keeps working. */
   z-index: 2;
 }
+/* A picture's editor (the ink note's): over the marks, transparent to the
+   pointer except for its own frame, handles and bar. */
+.pdf-reader-picture-editor {
+  position: absolute; inset: 0; z-index: 3; pointer-events: none;
+}
 .pdf-reader-ann {
   position: absolute; pointer-events: auto; border: none; padding: 0;
   opacity: 0.35; cursor: pointer;
@@ -528,7 +533,6 @@ body > canvas.hiddenCanvasElement { display: none; }
 }
 .pdf-reader-refs-meta { font-size: 0.75rem; }
 .reader-screen-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; min-width: 0; }
-.reader-screen-back { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; flex: none; }
 .reader-screen-title {
   margin: 0; flex: 1 1 auto; min-width: 0; font-size: 1.1rem;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

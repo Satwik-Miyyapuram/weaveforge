@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { NavIcon } from "@/app/nav-icon";
 import { Select } from "@/components/select";
+import { FocusGlyph } from "@/components/focus-glyph";
 import type { Crumb } from "../application/breadcrumbs";
 import { shortcutTable, type WorkspaceCommand } from "../application/keybindings";
 import {
@@ -18,16 +19,9 @@ import {
   type PaneSplit,
   type TabRef,
 } from "../application/pane-tree";
+import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { Breadcrumbs } from "./breadcrumbs";
 import { kindIcon, kindSuffix, kindTintClass, modesFor } from "./kind";
-
-const MODE_LABELS: Record<DocumentMode, string> = { edit: "Edit", read: "Read", ink: "Ink", pdf: "PDF" };
-const MODE_TITLES: Record<DocumentMode, string> = {
-  edit: "Edit source (⌘E)",
-  read: "Read view (⌘E)",
-  ink: "Ink — write by hand",
-  pdf: "The paper's PDF",
-};
 
 export interface PaneActions {
   onActivate: (paneId: string, index: number) => void;
@@ -72,18 +66,6 @@ export interface PaneViewProps extends PaneActions {
  * binding, so switching tabs would silently discard the thing tabs exist to
  * preserve.
  */
-/** Four corners drawn in (focus on) or out (exit focus). */
-export function FocusGlyph({ on }: { on: boolean }) {
-  const d = on
-    ? "M9 3H4v5M15 3h5v5M9 21H4v-5M15 21h5v-5"
-    : "M4 8V3h5M20 8V3h-5M4 16v5h5M20 16v5h-5";
-  return (
-    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={d} />
-    </svg>
-  );
-}
-
 export function PaneView(props: PaneViewProps) {
   return (
     <div className="pane-root">
@@ -267,20 +249,11 @@ function PaneLeafView({
           ) : null}
           {leaf.tabs.length > 0 && showing ? (
             // Edit / Read / Ink / PDF, per tab.
-            <div className="pane-mode" role="group" aria-label="Document mode">
-              {modesFor(showing.kind).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  className={`pane-mode-btn${editing === mode ? " is-on" : ""}`}
-                  aria-pressed={editing === mode}
-                  title={MODE_TITLES[mode]}
-                  onClick={() => onSetMode(leaf.id, leaf.activeIndex, mode)}
-                >
-                  {MODE_LABELS[mode]}
-                </button>
-              ))}
-            </div>
+            <DocumentModeSwitch
+              modes={modesFor(showing.kind)}
+              mode={editing}
+              onMode={(mode) => onSetMode(leaf.id, leaf.activeIndex, mode)}
+            />
           ) : null}
           {peerNames.length > 0 ? (
             // Collaboration exists, but it used to be announced *inside* the

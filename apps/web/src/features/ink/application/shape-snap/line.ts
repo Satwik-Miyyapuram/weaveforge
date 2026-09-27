@@ -10,7 +10,6 @@ import {
   principalAxis,
   resamplePath,
   snapBounds,
-  snapPoints,
   type LineGeometry,
   type ResampleOptions,
   type ShapeFit,

@@ -33,6 +33,7 @@
     grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
     align-items: start;
   }
+  .section-note-layout--editing { grid-template-columns: minmax(0, 1fr); }
 }
 .section-excerpts {
   border: 1px solid var(--line);

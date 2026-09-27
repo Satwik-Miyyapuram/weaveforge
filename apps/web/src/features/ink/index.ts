@@ -204,6 +204,12 @@ export { InkPage, type InkPageProps } from "./ui/ink-page";
 export { strokePath } from "./application/ink-svg";
 export { InkPrintPreview } from "./ui/ink-print-preview";
 export {
+  InkFigures,
+  InkFigureEditor,
+  type InkFiguresProps,
+  type InkFigureEditorProps,
+} from "./ui/ink-figures";
+export {
   InkStrokes,
   type InkRenderStroke,
   type InkStrokesProps,

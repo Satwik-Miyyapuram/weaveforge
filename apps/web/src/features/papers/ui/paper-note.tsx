@@ -1,13 +1,14 @@
 "use client";
 
 import { InlineError } from "@/components/form-error";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
+import { isInkNoteBody, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { confirmRemovePaper } from "./remove-paper";
 import { formatError } from "@/lib/format-error";
-import { BellIcon, BellOffIcon, CommentsIcon, DeleteIcon, EditIcon } from "@/components/view-icons";
+import { BellIcon, BellOffIcon, CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
+import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
 import {
   RecordActivity,
   RecordEmpty,
@@ -18,13 +19,14 @@ import {
 } from "@/components/record";
 import { RelatedPanel } from "@/components/related-panel";
 import { CommentsPanel, ShareButton, PinnedPaperBadge } from "@/features/sharing";
-import { PaperMarkdown } from "./paper-markdown";
-import { paperImageMarkdown, materializePaperBlobImages } from "../lib/paper-images-md";
+import { materializePaperBlobImages } from "../lib/paper-images-md";
 import { reconcileTagsFromBodyOrDefer } from "../lib/note-tags";
 import type { EditorHandle } from "@/components/editor-handle";
 import { AttachImageButton } from "@/components/attach-image-button";
-import { MarkdownCodeEditor } from "@/components/markdown/markdown-code-editor-lazy";
-import { editorImageUpload } from "@/lib/editor-image-upload";
+import { BackButton } from "@/components/back-button";
+import { DocumentBody } from "@/components/document-body";
+import { DocumentModeSwitch } from "@/components/document-mode-switch";
+import { InkFocusButton, InkFocusExit, useInkFocus } from "@/components/ink-focus";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { CitationFormatSelect } from "@/components/citation-format-select";
 import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
@@ -41,7 +43,10 @@ import { RelatedPapersPanel } from "./related-papers-panel";
 import { TagEditor } from "./tag-editor";
 import { Modal } from "@/components/modal";
 
-/** How far along reading a paper is, as the dots in the bar. */
+/** A paper note's three views, in the order the Editor's pane header lists them. */
+const NOTE_MODES = ["edit", "read", "ink"] as const;
+type NoteMode = (typeof NOTE_MODES)[number];
+
 function QuoteIcon() {
   return (
     <svg className="vicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -84,8 +89,14 @@ export function PaperNote({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(paper.summary ?? "");
+  // Read, Edit or Ink, as in the Editor's pane header. A paper's note opens read.
+  const [mode, setMode] = useState<NoteMode>("read");
+  const inkFocus = useInkFocus(mode === "ink");
+  const modeRef = useRef<NoteMode>("read");
+  modeRef.current = mode;
+  const editing = mode !== "read";
+  /** The body last written from Edit or Ink, reconciled into tags once put away. */
+  const pendingTagsRef = useRef<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [trackingCitations, setTrackingCitations] = useState<boolean | null>(null);
   const [trackingBusy, setTrackingBusy] = useState(false);
@@ -95,10 +106,12 @@ export function PaperNote({
   const [copied, setCopied] = useState(false);
   // Filled in while the editor is on screen, so the button can insert at the caret.
   const editorHandle = useRef<EditorHandle | null>(null);
-  const { titles: wikilinkTitles, completions: wikilinkCompletions } = useCiteLinkCatalog();
+  const { completions } = useCiteLinkCatalog();
   const [citationFormat, setCitationFormat] = useCitationFormatPreference();
 
-  useEffect(() => { if (!editing) setDraft(paper.summary ?? ""); }, [paper.summary, editing]);
+  useEffect(() => {
+    setMode("read");
+  }, [paper.id]);
   useEffect(() => {
     let cancelled = false;
     setTrackingCitations(null);
@@ -109,7 +122,6 @@ export function PaperNote({
       cancelled = true;
     };
   }, [paper.id]);
-  const dirty = draft.trim() !== (paper.summary ?? "");
   const hasSummary = !!paper.summary && paper.summary !== "No summary yet.";
   const canTrackCitations = Boolean(paper.doi || paper.arxivId);
   const readerHref = useMemo(() => {
@@ -129,38 +141,54 @@ export function PaperNote({
     finally { setBusy(false); }
   }
 
-  async function saveSummary() {
-    setBusy(true);
-    setSaveError(null);
-    try {
+  /** Tags are derived solely from the note body's #hashtags. */
+  const reconcileTags = useCallback(
+    async (body: string, saved?: Paper) => {
       const papers = getContainer().papers;
-      const body = await materializePaperBlobImages(draft, paper.id, (id, blob, ext) =>
-        papers.uploadImage(id, blob, ext),
-      );
-      const saved = await papers.updatePaper.setSummary(paper.id, body);
-      // Tags are derived solely from the note body's #hashtags.
-      onReplace((await reconcileTagsFromBodyOrDefer(papers, paper.id, body)) ?? saved);
-      setEditing(false);
-    } catch (err) {
-      setSaveError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  /** Accepting a pasted image. Stored against the paper, referenced as `paperimg:`. */
-  const imagePaste = useMemo(
-    () =>
-      editorImageUpload({
-        store: (blob, ext) => getContainer().papers.uploadImage(paper.id, blob, ext),
-        toMarkdown: paperImageMarkdown,
-        onError: setSaveError,
-      }),
-    [paper.id],
+      // Offline, the tags wait for the connection; the saved paper stands in.
+      const next = (await reconcileTagsFromBodyOrDefer(papers, paper.id, body)) ?? saved;
+      if (next) onReplace(next);
+    },
+    [onReplace, paper.id],
   );
+
+  /**
+   * Every body write, from any mode — the host saves as it goes, the way it
+   * does in the Editor. The tags follow from Read at once, and from Edit or
+   * Ink once the surface is put away: a new paper arriving mid-edit would
+   * rebuild the surface under the writer.
+   */
+  const saveBody = useCallback(
+    async (nextBody: string) => {
+      setSaveError(null);
+      try {
+        const papers = getContainer().papers;
+        const body = await materializePaperBlobImages(nextBody, paper.id, (id, blob, ext) =>
+          papers.uploadImage(id, blob, ext),
+        );
+        const saved = await papers.updatePaper.setSummary(paper.id, body);
+        if (modeRef.current === "read") await reconcileTags(body, saved);
+        else pendingTagsRef.current = body;
+      } catch (err) {
+        setSaveError(formatError(err));
+      }
+    },
+    [paper.id, reconcileTags],
+  );
+
+  /** The switch in the section head. Leaving Edit or Ink settles the tags. */
+  function chooseMode(next: NoteMode) {
+    if (next === mode) return;
+    setSaveError(null);
+    const pending = pendingTagsRef.current;
+    pendingTagsRef.current = null;
+    if (pending !== null) void reconcileTags(pending).catch((err) => setSaveError(formatError(err)));
+    setMode(next);
+  }
 
   /** Explicit re-render of the source-note template — never silent on load (C1). */
   function reRenderTemplate() {
+    const draft = editorHandle.current?.text() ?? paper.summary ?? "";
     const hasMarkers = /<!--\s*\/?wf:(generated|editable):/.test(draft);
     if (!hasMarkers && draft.trim()) {
       // A three-way decision, asked as two buttons. It used to be a
@@ -184,7 +212,7 @@ export function PaperNote({
       doi: paper.doi,
       citeKey: resolveCiteKey(paper),
     });
-    setDraft(next);
+    editorHandle.current?.replaceAll(next);
     setSaveError(null);
     setTemplateChoiceOpen(false);
   }
@@ -222,11 +250,6 @@ export function PaperNote({
     }
   }
 
-  function startEditing() {
-    setDraft(paper.summary ?? "");
-    setEditing(true);
-  }
-
   const citeKey = typeof paper.metadata?.["citeKey"] === "string" ? paper.metadata["citeKey"] : "";
   const fileName = typeof paper.metadata?.["fileName"] === "string" ? paper.metadata["fileName"] : null;
   const words = wordCount(paper.summary);
@@ -253,7 +276,7 @@ export function PaperNote({
   return (
     <article className="record">
       <nav className="record-bar" aria-label="Paper">
-        <button type="button" className="record-back" onClick={onBack}>← Papers</button>
+        <BackButton label="Papers" onClick={onBack} />
         <span className="record-mono record-bar-id">Record {citeKey || paper.id.slice(0, 6)}</span>
         {readOnly ? (
           <PinnedPaperBadge ownerName={sharedByName} />
@@ -281,6 +304,12 @@ export function PaperNote({
               {canTrackCitations ? <BellIcon /> : <BellOffIcon />}
               <span>{trackingCitations ? "Watching" : "Watch"}</span>
             </button>
+          )}
+          {!readOnly && (
+            <Link className="record-action" href={`${WORKSPACE_PATH}?open=${encodeURIComponent(`paper:${paper.id}`)}`}>
+              <OpenIcon />
+              <span>Open in editor</span>
+            </Link>
           )}
           <button
             type="button"
@@ -343,72 +372,70 @@ export function PaperNote({
           ))}
       </header>
 
-      <div className="record-grid">
+      <div className={mode === "edit" ? "record-grid record-grid--editing" : "record-grid"}>
         <div className="record-main">
           <RecordSection
             label="Note"
             tag={
-              !readOnly && !editing ? (
-                <button type="button" className="record-tag-btn" onClick={startEditing}>
-                  <EditIcon size={13} /> {hasSummary ? wordsLabel : "Write"}
-                </button>
+              !readOnly ? (
+                <span className="record-mode-tag">
+                  {hasSummary && <span>{wordsLabel}</span>}
+                  <DocumentModeSwitch modes={NOTE_MODES} mode={mode} onMode={chooseMode} />
+                  {mode === "ink" && <InkFocusButton onClick={inkFocus.toggle} />}
+                </span>
               ) : hasSummary ? (
                 wordsLabel
               ) : null
             }
           >
-            {!editing ? (
-              hasSummary ? (
-                <PaperMarkdown body={paper.summary!} className="summary record-note" />
-              ) : readOnly ? (
+            {mode === "read" && !hasSummary ? (
+              readOnly ? (
                 <RecordEmpty>No note on this paper.</RecordEmpty>
               ) : (
-                <button type="button" className="record-note-empty" onClick={startEditing}>
+                <button type="button" className="record-note-empty" onClick={() => chooseMode("edit")}>
                   Write what this paper is for, in your own words. #hashtags place it in the graph.
                 </button>
               )
             ) : (
-              <div className="summary-editor">
-                <div className="summary-editor-bar">
-                  <CitationFormatSelect value={citationFormat} onChange={setCitationFormat} disabled={busy} />
-                  <button
-                    type="button"
-                    className="link-btn"
-                    onClick={reRenderTemplate}
-                    disabled={busy}
-                    title="Refresh generated metadata; your edits are preserved"
-                  >
-                    Re-render template
-                  </button>
-                  <AttachImageButton editor={editorHandle} onError={setSaveError} disabled={busy} />
-                </div>
-                <MarkdownCodeEditor
-                  className="summary-input markdown-code-editor--notes"
-                  value={draft}
-                  placeholder="Write your note… Use #hashtags to link this paper in the graph. Math: $E = mc^2$ or $$\\frac{a}{b}$$."
-                  disabled={busy}
-                  onChange={setDraft}
-                  wikilinkTitles={wikilinkTitles}
-                  wikilinkCompletions={wikilinkCompletions}
+              <div
+                className={
+                  mode !== "read"
+                    ? `record-doc record-doc--${mode}${inkFocus.focus ? " record-ink-focus is-focus" : ""}`
+                    : isInkNoteBody(paper.summary ?? "")
+                      ? "record-note-read record-note-read--ink"
+                      : "record-note-read"
+                }
+              >
+                {inkFocus.focus && <InkFocusExit onClick={inkFocus.toggle} />}
+                {mode === "edit" && (
+                  <div className="summary-editor-bar">
+                    <CitationFormatSelect value={citationFormat} onChange={setCitationFormat} />
+                    <button
+                      type="button"
+                      className="link-btn"
+                      onClick={reRenderTemplate}
+                      title="Refresh generated metadata; your edits are preserved"
+                    >
+                      Re-render template
+                    </button>
+                    <AttachImageButton editor={editorHandle} onError={setSaveError} />
+                  </div>
+                )}
+                {/* The Editor's own document host, as a paper tab mounts it:
+                    Edit, Read and Ink here are that code, not a copy of it. */}
+                <DocumentBody
+                  tab={{ kind: "paper", id: paper.id }}
+                  mode={mode}
+                  body={paper.summary ?? ""}
+                  completions={completions}
                   citationFormat={citationFormat}
-                  imagePaste={imagePaste}
+                  onSave={readOnly ? async () => undefined : saveBody}
                   handleRef={editorHandle}
+                  onError={setSaveError}
                 />
-                <div className="summary-editor-foot">
-                  {saveError && <InlineError>{saveError}</InlineError>}
-                  <button type="button" className="link-btn" onClick={() => setEditing(false)} disabled={busy}>cancel</button>
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={() => void saveSummary()}
-                    disabled={busy || !dirty}
-                  >
-                    {busy ? "Saving…" : "Save note"}
-                  </button>
-                </div>
               </div>
             )}
-            {!editing && saveError && <InlineError>{saveError}</InlineError>}
+            {saveError && <InlineError>{saveError}</InlineError>}
             {!editing && !readOnly && <TagEditor paper={paper} onReplace={onReplace} />}
           </RecordSection>
 
@@ -510,7 +537,7 @@ export function PaperNote({
             <button type="button" className="btn-secondary danger" onClick={() => applyTemplate("")}>
               Replace
             </button>
-            <button type="button" className="btn-primary" onClick={() => applyTemplate(draft)}>
+            <button type="button" className="btn-primary" onClick={() => applyTemplate(editorHandle.current?.text() ?? paper.summary ?? "")}>
               Append
             </button>
           </div>

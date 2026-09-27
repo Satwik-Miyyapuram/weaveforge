@@ -424,11 +424,6 @@ export async function disableSemanticSearch(): Promise<void> {
   await vectorStore().clear();
 }
 
-/** Passages currently embedded, for the settings panel. */
-export function semanticSize(): number {
-  return semantic?.size ?? 0;
-}
-
 /**
  * Answer the local MCP server's ranking requests while this window is open.
  *

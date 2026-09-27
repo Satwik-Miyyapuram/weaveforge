@@ -1,13 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
-  ComputeNeed,
   ISupervisionRepository,
   LogEntry,
-  LogKind,
-  LogLink,
   Milestone,
-  MilestoneDependency,
-  MilestoneStatus,
 } from "@weaveforge/core";
 import {
   milestoneToDomain,

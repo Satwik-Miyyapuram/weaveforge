@@ -2,8 +2,6 @@ import {
   type ILogEntryRepository,
   type LogEntry,
   type LogEntryFilter,
-  type LogKind,
-  type LogLink,
 } from "@weaveforge/core";
 import { logEntryToDomain, logEntryToRow, type LogEntryRow } from "./log-entry-rows";
 import { deleteRowById, rowById, rows, run } from "@/backend/providers/supabase/row-access";

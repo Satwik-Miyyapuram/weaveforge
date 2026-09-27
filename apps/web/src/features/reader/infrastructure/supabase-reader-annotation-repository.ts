@@ -1,17 +1,12 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
-  CombinedPdfAnchor,
-  ICurrentUserProvider,
   IReaderAnnotationSink,
   IReaderAnnotationSource,
   NewReaderAnnotation,
   ReaderAnnotation,
   ReaderAnnotationPatch,
-  ReaderAnnotationType,
   WorkspaceAnnotation,
 } from "@weaveforge/core";
-import { buildAnnotationSortIndex, isAnnotationSyncState, isReaderAnnotationType } from "@weaveforge/core";
-import type { ProjectContext } from "@/lib/project-context";
+import { buildAnnotationSortIndex, isReaderAnnotationType } from "@weaveforge/core";
 import { ProjectScopedSupabaseRepository } from "@/backend/providers/supabase/project-scoped-repository";
 import {
   type ReaderAnnotationRow,

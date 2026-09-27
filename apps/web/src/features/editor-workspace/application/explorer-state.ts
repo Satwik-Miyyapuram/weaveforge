@@ -166,29 +166,6 @@ export function toggleExpanded(expanded: ReadonlySet<string>, key: string): Set<
   return next;
 }
 
-/** Close every branch at once — the explorer's single most-wanted control. */
-export function collapseAll(): Set<string> {
-  return new Set();
-}
-
-/**
- * Open every branch the tree has.
- *
- * Separate from `toggleExpanded` because "expand all" has to walk the tree: a
- * key that was never expanded must still be found, and only branches (nodes
- * with children) belong in the set.
- */
-export function expandAll(nodes: readonly WorkspaceTreeNode[]): Set<string> {
-  const keys = new Set<string>();
-  const walk = (node: WorkspaceTreeNode) => {
-    if (node.children.length === 0) return;
-    keys.add(node.key);
-    for (const child of node.children) walk(child);
-  };
-  for (const node of nodes) walk(node);
-  return keys;
-}
-
 /**
  * The sections the explorer stacks, each collapsible on its own.
  *
@@ -206,8 +183,6 @@ export interface ExplorerSection {
   /** Sections that start collapsed, like VS Code's Outline. */
   collapsedByDefault?: boolean;
 }
-
-export const DEFAULT_OPEN_SECTIONS: readonly string[] = ["files", "lists"];
 
 /** Which sections are open. Anything not in the set is closed. */
 export interface SectionState {

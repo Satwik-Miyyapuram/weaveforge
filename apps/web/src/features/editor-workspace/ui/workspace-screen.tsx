@@ -21,7 +21,6 @@ import { outlineRows } from "../application/outline";
 import {
   activateTab,
   activeTabRef,
-  activeTabKey,
   closeTab,
   emptyLayout,
   focusPane,
@@ -47,15 +46,25 @@ import { DocumentHost, type DocumentMetrics } from "./document-host";
 import { ExplorerPanel } from "./explorer-panel";
 import { creationKindFor, creationTarget, draftMakes, type Draft } from "../application/explorer-edit";
 import { readHidden, writeHidden } from "../application/explorer-state";
-import { FocusGlyph, PaneView, openTabs } from "./pane-view";
+import { FocusGlyph } from "@/components/focus-glyph";
+import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
-import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, kindSuffix, linkGroupOf, memberRank, openModeFor, segmentsFor } from "./kind";
+import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, linkGroupOf, openModeFor, segmentsFor } from "./kind";
 import { FormError } from "@/components/form-error";
 import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
 
 function store(): Storage | undefined {
   return typeof localStorage === "undefined" ? undefined : localStorage;
+}
+
+/** The tab named by `?open=kind:id`, if the URL names one. */
+function requestedTab(): TabRef | null {
+  const raw = new URLSearchParams(window.location.search).get("open");
+  if (!raw) return null;
+  const [kind, ...rest] = raw.split(":");
+  const id = rest.join(":");
+  return kind && id ? { kind, id } : null;
 }
 
 /**
@@ -178,8 +187,18 @@ export function WorkspaceScreen() {
         // same answer a click on it in the explorer gets.
         const open = new Set(loaded.map((doc) => tabKey(doc)));
         const bodyOf = new Map(loaded.map((doc) => [tabKey(doc), doc.body]));
-        const pruned = pruneLayout(readLayout(store()), (tab) => open.has(tabKey(tab)));
-        setLayout(hydrateTabModes(pruned, (tab) => openModeFor(tab.kind, bodyOf.get(tabKey(tab)) ?? "")));
+        let restored = pruneLayout(readLayout(store()), (tab) => open.has(tabKey(tab)));
+        // `?open=kind:id` is how another screen hands a document over — the
+        // note screen's Edit on a handwritten note, which only this screen can
+        // write in. It opens on top of the restored panes, then leaves the URL
+        // so a reload does not open it again.
+        const requested = requestedTab();
+        if (requested && open.has(tabKey(requested))) {
+          restored = openTab(restored, requested);
+          writeLayout(store(), restored);
+        }
+        if (requested) window.history.replaceState(null, "", window.location.pathname);
+        setLayout(hydrateTabModes(restored, (tab) => openModeFor(tab.kind, bodyOf.get(tabKey(tab)) ?? "")));
       } catch (err) {
         if (!cancelled) setError(formatError(err));
       }

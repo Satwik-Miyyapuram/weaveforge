@@ -289,11 +289,6 @@ export function toggleTabModeAt(layout: PaneLayout, paneId: string, index: numbe
   return setTabMode(layout, tab, tabMode(tab) === "edit" ? "read" : "edit");
 }
 
-/** Flip a document between Edit and Read. */
-export function toggleTabMode(layout: PaneLayout, target: TabRef): PaneLayout {
-  return setTabMode(layout, target, tabMode(target) === "edit" ? "read" : "edit");
-}
-
 /**
  * Drop tabs whose entity no longer exists, then collapse whatever that empties.
  *

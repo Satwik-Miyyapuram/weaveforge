@@ -24,7 +24,7 @@
  * memory.
  */
 
-import type { InkColour, InkPage } from "@weaveforge/core";
+import type { InkColour, InkPage, InkStroke } from "@weaveforge/core";
 
 import type { InkPalette } from "../render/ink-palette";
 
@@ -129,6 +129,11 @@ export type InkWorkerMessage =
    * image — writes the index back instead of zeroing it.
    */
   | { type: "set-background"; image: ImageBitmap | null; index?: number }
+  /**
+   * The sheet's SVG now shows every stroke below `count`, as the last
+   * `page-state` for `pageIndex` listed them: the canvas can stop drawing them.
+   */
+  | { type: "ink-shown"; pageIndex: number; count: number }
   /** The theme's ink colours, read off the document by the host (§6.1). */
   | { type: "palette"; colours: InkPalette }
   /**
@@ -198,6 +203,15 @@ export type InkWorkerEvent =
       /** The page's size in 0.1 mm: an inserted PDF page keeps its own aspect. */
       width: number;
       height: number;
+      /**
+       * The page's finished ink, for the screen to draw. The canvas draws only
+       * the stroke being written and a held selection; every finished stroke
+       * on screen is the SVG every other page is drawn with (§ink-page-ink),
+       * so the ink scrolls with its paper rather than a frame behind it.
+       */
+      ink: InkStroke[];
+      /** The buffer index of each stroke in `ink`: how a selection names them. */
+      ids: number[];
     }
   /** The strokes an erase removed, so the screen can undo it. */
   | { type: "erased"; indices: number[] }

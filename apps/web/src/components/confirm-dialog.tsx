@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 
 import { Modal } from "./modal";
 
@@ -59,19 +58,4 @@ export function ConfirmDialog({
       </div>
     </Modal>
   );
-}
-
-/**
- * The state a confirm needs, so a call site does not hand-roll a boolean and a
- * pending target. `ask(target)` opens it; `target` is what the confirm will act
- * on, which is how two dialogs on one screen stay independent.
- */
-export function useConfirm<T>() {
-  const [target, setTarget] = useState<T | null>(null);
-  return {
-    target,
-    ask: (next: T) => setTarget(next),
-    clear: () => setTarget(null),
-    open: target !== null,
-  };
 }

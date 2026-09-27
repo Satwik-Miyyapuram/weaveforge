@@ -36,63 +36,42 @@ import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
   INK_PEN_WIDTH,
-  blankInkPage,
-  clampInkPageSize,
-  encodeInkChunk,
-  inkAttachmentIndex,
-  inkPageBackground,
-  inkPageFigures,
-  joinInkTextLayer,
-  newInkChunkId,
   readInkNoteBody,
   splitInkTextLayer,
-  withInkPageBackground,
-  writeInkNoteBody,
-  type InkColour,
   type InkHand,
   type InkPaper,
   type InkNoteMeta,
-  type InkPage as InkPageModel,
-  type InkRecogniser,
-  type InkRecognitionHints,
   type RecognisedLine,
 } from "@weaveforge/core";
 
-import { usePenCapture } from "../application/use-pen-capture";
-import type { PenHaptics } from "../application/pen-haptics";
-import { trailStyle } from "../application/ink-trail";
 import {
   INK_RENDER_COLOURS,
   paletteHex,
-  readThemePalette,
-  samePalette,
   type InkPalette,
 } from "../render/ink-palette";
-import { backingRatio } from "../render/ink-renderer";
 import type {
-  InkWorkerEvent,
   InkWorkerMessage,
 } from "../application/capture-protocol";
 import {
-  loadInkPages,
-  type InkChunkStore,
   type InkStoredPage,
 } from "../application/ink-chunk-store";
-import { availableInkChunkCodec } from "../application/ink-chunk-codec";
 import { pageListProblem, selectedPdfPages } from "../application/pdf-pages";
-import { InkBar, type InkBarTool } from "./ink-bar";
+import { InkBar } from "./ink-bar";
 import { InkFigures } from "./ink-figures";
 import { fitScale } from "./ink-page-math";
-import { InkSheetTextUnderlay, pureInkPageText } from "./ink-sheet-underlay";
+import { InkSheetTextUnderlay } from "./ink-sheet-underlay";
 import { useInkSelection } from "./use-ink-selection";
 import { InkPage } from "./ink-page";
 import { InkRail } from "./ink-rail";
 import { InkTextLayer } from "./ink-text-layer";
-import { useFlowedTextPages } from "./ink-text-flow";
+import { useSheetTextPages } from "./ink-text-flow";
 import { useDecodedStrokes } from "./use-decoded-strokes";
+import { InkPageInk } from "./ink-page-ink";
+import { useLiveSheetInk } from "./use-live-sheet-ink";
+import { useInkEditActions } from "./use-ink-edit-actions";
 import { useGhostImages } from "./use-ghost-images";
 import { useInkSheetImages } from "./use-ink-sheet-images";
-import { InkActiveFigureEditor, useInkFigures } from "./use-ink-figures";
+import { InkActiveFigureEditor, useFigureDrop, useInkFigures } from "./use-ink-figures";
 import { useInkLayout } from "./use-ink-layout";
 import { useInkNativeOverlay } from "./use-ink-native-overlay";
 import { useInkNoteStore } from "./use-ink-note-store";
@@ -107,7 +86,7 @@ import { InkPrintPreview } from "./ink-print-preview";
 import { usePageExport } from "./use-page-export";
 import { pageGapPx } from "./ink-bar-more";
 import { usePageGap } from "./use-page-gap";
-import type { InkHostDeps, InkHostPage, InkHostProps } from "./ink-host-types";
+import type { InkHostProps } from "./ink-host-types";
 
 export type { InkHostDeps, InkHostPage, InkHostProps } from "./ink-host-types";
 
@@ -178,7 +157,6 @@ export function InkHost({
    * because the trail's style and the native overlay's tool depend on it.
    */
   const [palette, setPalette] = useState<InkPalette>(INK_RENDER_COLOURS);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * The worker's answers, by request id (§use-ink-worker-rpc): history counts,
@@ -196,13 +174,13 @@ export function InkHost({
   });
   const {
     history,
-    strokes,
     setStrokes,
     selection,
     setSelection,
     selectionBounds,
     setSelectionBounds,
     pageSize,
+    sheetInk,
     onEvent,
     requestModel,
     requestSave,
@@ -219,7 +197,7 @@ export function InkHost({
     paper: metaRef.current.paper,
   };
 
-  /** The rail's ghosts, fetched once per page (§use-ghost-images). */
+  /** Every page's image, the live one's too (§use-ghost-images). */
   const ghostImages = useGhostImages({
     fetchBlob: deps.assets.fetchBlob,
     textPagesRef,
@@ -276,8 +254,16 @@ export function InkHost({
   const strokesMap = useDecodedStrokes({
     pages: pagesRef.current,
     version: chunkVersion,
-    activePageIndex: pageIndex,
-    strokesCount: strokes,
+    live: sheetInk,
+  });
+
+  /** The live sheet's ink (§use-live-sheet-ink). */
+  const { strokes: sheetStrokes, hidden: hiddenInk } = useLiveSheetInk({
+    sheetInk,
+    pageIndex,
+    saved: strokesMap.get(pageIndex),
+    selection,
+    sendRef,
   });
 
   /**
@@ -391,6 +377,7 @@ export function InkHost({
     scheduleSave,
     onFiguresChange,
     figuresRef,
+    selectFigure: figureState.setFigureControls,
     setUnavailable,
     onBackgroundReady: (image, index) =>
       send({ type: "set-background", image, index }, [image]),
@@ -402,12 +389,10 @@ export function InkHost({
     wrapRef,
   });
   const {
-    inserting,
     backgroundPath,
     setBackgroundPath,
     pageAsk,
     answerPdfPages,
-    onSetPageBackground,
     onRemovePageBackground,
     onAddFigure,
     onInsertPage,
@@ -432,6 +417,7 @@ export function InkHost({
     setBackgroundPath,
     setFigures,
     setFigureControls,
+    takePendingControls: figureState.takePendingControls,
     requestModel,
     recognitionReset: recognition.reset,
     // The recognition hook's own `useCallback`s, stable by contract, so the
@@ -444,7 +430,7 @@ export function InkHost({
    * the theme, the worker's viewport told where the page is, the pane
    * measured, and the rail's scroll watched for a page flip.
    */
-  const { ensurePageAt } = useInkLayout({
+  const { ensurePageAt, goToPage: flipToPage, pageSlotAt } = useInkLayout({
     send,
     backend: pen.backend,
     canvasRef,
@@ -463,12 +449,24 @@ export function InkHost({
     sessionActive: penSessionActive,
   });
 
+  /** A figure let go of after a move: kept on its page, or moved to the one it was dropped on. */
+  const onFigureDrop = useFigureDrop({
+    state: figureState,
+    textPagesRef,
+    sheetRef,
+    scale,
+    pageSize,
+    pageIndex,
+    pageSlotAt,
+    goToPage: flipToPage,
+  });
+
   /*
    * The native shell's ink overlay, when there is one (§use-ink-native-overlay):
    * the bridge that inks over the page itself and hands each finished stroke
    * back, kept told where the page is and what the pen looks like.
    */
-  const native = useInkNativeOverlay({
+  useInkNativeOverlay({
     canvasRef,
     scrollRef,
     sheetRef,
@@ -561,45 +559,22 @@ export function InkHost({
     setZoom,
   });
 
-  /** One finger dragged the page: scroll the other way, so the paper follows. */
-  const onPan = useCallback((dx: number, dy: number) => {
-    scrollRef.current?.scrollBy(-dx, -dy);
-  }, []);
+  /** Pan, pinch, erase, undo, redo (§use-ink-edit-actions). */
+  const { onPan, onPinch, onErase, onUndo, onRedo } = useInkEditActions({
+    send,
+    scheduleSave,
+    scrollRef,
+    setZoom,
+  });
 
-  /** Two fingers pinched: zoom, clamped like the wheel is. */
-  const onPinch = useCallback((factor: number) => {
-    setZoom((value) => Math.min(4, Math.max(0.5, value * factor)));
-  }, []);
-
-  const onErase = useCallback(
-    (from: { x: number; y: number }, to: { x: number; y: number }) => {
-      send({ type: "erase", from, to });
-      scheduleSave();
-    },
-    [scheduleSave, send],
+  // The text as shown, flowed across pages (§ink-text-flow).
+  const flowedText = useSheetTextPages(
+    textPagesRef.current,
+    pageCount,
+    pageSize,
+    scale,
+    ensurePageCount,
   );
-
-  const onUndo = useCallback(() => {
-    send({ type: "undo" });
-    scheduleSave();
-  }, [scheduleSave, send]);
-  const onRedo = useCallback(() => {
-    send({ type: "redo" });
-    scheduleSave();
-  }, [scheduleSave, send]);
-
-  // The text as shown: each page's own text, flowed on to the next where it
-  // does not fit (§ink-text-flow). Pages it runs past are made real, so the
-  // pen can land on them.
-  const pureTextPages = useMemo(
-    () => textPagesRef.current.map((text) => pureInkPageText(text)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [textPagesRef.current.join("␞"), pageCount],
-  );
-  const flowedText = useFlowedTextPages(pureTextPages, pageSize, scale);
-  useEffect(() => {
-    if (flowedText.length > pageCount) ensurePageCount(flowedText.length);
-  }, [ensurePageCount, flowedText.length, pageCount]);
   const pureText = flowedText[pageIndex] ?? "";
   pageTextRef.current = pureText;
 
@@ -612,9 +587,15 @@ export function InkHost({
       className={`ink-wrap${showTextLayer ? "" : " ink-text-hidden"}`}
       // Focusable but not a tab stop: the pane takes focus when it is clicked,
       // which is what a paste is aimed at and what the keyboard shortcuts above
-      // already assume.
+      // already assume. A focusable thing inside it — a selected figure's
+      // frame — takes the focus itself, so its own keys (copy, cut, nudge)
+      // reach it: the frame cancels the pointer's default, which would
+      // otherwise have focused it.
       tabIndex={-1}
-      onPointerDownCapture={() => wrapRef.current?.focus({ preventScroll: true })}
+      onPointerDownCapture={(event) => {
+        const own = (event.target as Element).closest<HTMLElement>("[tabindex]");
+        (own ?? wrapRef.current)?.focus({ preventScroll: true });
+      }}
     >
       <input
         ref={pdfInputRef}
@@ -739,10 +720,23 @@ export function InkHost({
           editingFigure={figureControls}
           onFigureChange={onFigureChange}
           onFigureActivate={(index) => setFigureControls(index)}
+          onFigureDrop={onFigureDrop}
           ensurePage={ensurePageAt}
           penActive={penSessionActive}
           below={
             <>
+              {/* The page's image, as the rail's static slot draws it: the live
+                  sheet sits over that slot, so without its own copy a PDF page
+                  vanished the moment it became the page being written on. */}
+              {ghostImages.get(pageIndex) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  className="ink-ghost-image"
+                  src={ghostImages.get(pageIndex)}
+                  alt=""
+                  draggable={false}
+                />
+              ) : null}
               <InkSheetTextUnderlay
                 text={pureText}
                 scale={scale}
@@ -754,6 +748,12 @@ export function InkHost({
                 imageUrls={figureUrls}
                 activeIndex={figureControls}
               />
+              <InkPageInk
+                strokes={sheetStrokes}
+                pageSize={pageSize}
+                palette={palette}
+                hidden={hiddenInk}
+              />
             </>
           }
           above={
@@ -762,6 +762,8 @@ export function InkHost({
               scale={scale}
               pageSize={pageSize}
               imageUrls={figureUrls}
+              noteId={noteId}
+              onDrop={onFigureDrop}
             />
           }
         />

@@ -8,7 +8,7 @@
  * already hydrated, and the screen only has to put the result into state.
  */
 
-import { isInkNoteBody, normalizeTitleKey } from "@weaveforge/core";
+import { normalizeTitleKey } from "@weaveforge/core";
 
 import { getContainer } from "@/bootstrap";
 import { paperCiteLabel, type CiteCompletion } from "@/lib/hooks/use-cite-links";
@@ -29,9 +29,6 @@ import {
  * suffix. `ink_page` stays in the kind table for tabs saved before this.
  */
 export const noteKind = (_body: string): "vault_page" => "vault_page";
-
-/** Whether a note's body says it is written in ink, so its tab opens in Ink mode. */
-export const noteOpensInInk = (body: string): boolean => isInkNoteBody(body);
 export interface Document {
   kind: string;
   id: string;

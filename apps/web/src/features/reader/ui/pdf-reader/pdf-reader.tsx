@@ -14,22 +14,11 @@ import {
   clampScale,
   readerKeyboardCommand,
   resolveTextAnchor,
-  canJoinInkGroup,
-  inkPathsHitTest,
-  inkWidthForPressure,
   inkNoteWidthToPdfPoints,
-  meanPressure,
-  screenPointToPdf,
-  shouldAppendInkPoint,
   translateInkPaths,
   INK_HIGHLIGHTER_WIDTH,
-  INK_DEFAULT_WIDTH,
-  type PageProjection,
-  type PageTextGeometry,
   type AnchorConfidence,
-  type ReaderContainerSize,
   type ReaderPageSize,
-  type DocumentPageText,
   type DocumentSearchMatch,
   type ReaderAnnotationType,
   type FigureTarget,
@@ -47,33 +36,23 @@ import {
 } from "@/features/ink";
 import { useReaderPrint } from "./use-reader-print";
 import { getContainer } from "@/bootstrap";
-import { sanitizePdfUrl, originalUrlFromProxy, isAllowedPdfProxyUrl, isReaderObjectUrl } from "../../application/sanitize-reader-url";
 import { pageNumberFromSelection, selectionRangeFromDom } from "../../application/dom-selection-range";
 import {
-  appendInkStroke,
   draftFromTextSelection,
-  draftImageRegion,
-  draftInkAnnotation,
   draftTextBox,
 } from "../../application/draft-local-annotation";
 import {
-  annotationPinKey,
-  applyAnnotationPatch,
-  isInkTool,
-  optimisticAnnotationFromDraft,
-  PENDING_ANNOTATION_PREFIX,
   READER_ANNOTATION_COLORS,
   toolOwnsThePage,
   type ReaderCreateTool,
 } from "../../application/reader-annotation-helpers";
 import { draftPicture } from "../../application/reader-picture";
-import { useReaderViewport } from "../use-reader-viewport";
 import { ReaderToolbar } from "../reader-toolbar";
 import { ReaderSearchBar } from "../reader-search-bar";
-import { ReaderOutline, type ReaderOutlineItem } from "../reader-outline";
+import { ReaderOutline } from "../reader-outline";
 import { AnnotationOverlay } from "../annotation-overlay";
 import { bucketAnnotationsByPage } from "../../application/project-annotation-geometry";
-import { AnnotationSidebar, type ReportSectionOption } from "../annotation-sidebar";
+import { AnnotationSidebar } from "../annotation-sidebar";
 import { SelectionCreateBar, selectionAnchor, type SelectionAnchor } from "../selection-create-bar";
 import type { ReaderAnnotation } from "@weaveforge/core";
 import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
@@ -81,6 +60,7 @@ import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { ColourMenu } from "@/components/colour-menu";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { FocusGlyph } from "@/components/focus-glyph";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink, TextBoxComposer } from "./overlays";
 import { layoutMarginNotes } from "../../application/margin-notes";
 import { useAnnotationContext } from "./use-annotation-context";
@@ -88,6 +68,7 @@ import { useDarkPdf } from "./use-dark-pdf";
 import { useAnnotationActions } from "./use-annotation-actions";
 import { usePdfRendering } from "./use-pdf-rendering";
 import { usePagePointer } from "./use-page-pointer";
+import { usePdfPictures } from "./use-pdf-pictures";
 import { usePenTextSelect } from "./use-pen-text-select";
 import { useReaderGestures } from "../use-reader-gestures";
 import { useInkUndo } from "./use-ink-undo";
@@ -101,43 +82,20 @@ import { ReferencesPanel } from "../references-panel";
 import { buildLocusLink } from "../../application/build-locus-link";
 
 import type {
-  DraftShape,
-  InkGroup,
-  InkMove,
   JumpState,
-  PdfDocument,
-  PdfLib,
   PdfReaderProps,
-  RenderTask,
-  PendingTextBox,
 } from "./types";
 import {
   CREATE_TOOL_HINTS,
   EMPTY_ANNOTATIONS,
-  ERASER_RADIUS,
-  INK_MOVE_THRESHOLD,
-  MIN_TEXT_BOX_PDF_SIZE,
 } from "./constants";
 import {
   buildPageText,
   isEditableTarget,
   loadPdfLib,
-  mapOutline,
   pageScopedLocus,
   textItemsFromContent,
 } from "./pdf-document";
-
-/** The workspace's focus glyph: corners pointing in (on) or out (off). */
-function FocusGlyph({ on }: { on: boolean }) {
-  const d = on
-    ? "M9 3H4v5M15 3h5v5M9 21H4v-5M15 21h5v-5"
-    : "M4 8V3h5M20 8V3h-5M4 16v5h5M20 16v5h-5";
-  return (
-    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={d} />
-    </svg>
-  );
-}
 
 export function PdfReader({
   url,
@@ -324,7 +282,6 @@ export function PdfReader({
     pdf,
     numPages,
     pageSize,
-    containerSize,
     pageTexts,
     pageItems,
     pageLinks,
@@ -409,6 +366,19 @@ export function PdfReader({
     persistDraft,
     removeLocal,
     saveAnchor,
+  });
+  const pictures = usePdfPictures({
+    canCreate,
+    createTool,
+    scale,
+    rotation,
+    pageSize,
+    pageGeometries,
+    annotations,
+    annotationsByPage,
+    saveAnchor,
+    updateLocal,
+    removeLocal,
   });
   usePenTextSelect(containerRef, canCreate && createTool === "select");
 
@@ -1503,20 +1473,26 @@ export function PdfReader({
               // Two fingers are the page's own gesture, so they are asked for
               // first: a pinch that the tool also saw would draw a stroke and
               // zoom the paper at once.
+              // A placed picture is asked next: a mouse on one drags it, as
+              // on an ink note, and the pen writes over it.
               onPointerDown={(e) => {
                 if (gestures.begin(e)) return;
+                if (pictures.pointerDown(n, e)) return;
                 onPagePointerDown(n, e);
               }}
               onPointerMove={(e) => {
                 if (gestures.move(e)) return;
+                if (pictures.pointerMove(e)) return;
                 onPagePointerMove(e);
               }}
               onPointerUp={(e) => {
                 if (gestures.end(e)) return;
+                if (pictures.pointerUp(e)) return;
                 onPagePointerUp(n, e);
               }}
               onPointerCancel={(e) => {
                 if (gestures.end(e)) return;
+                if (pictures.pointerUp(e)) return;
                 onPagePointerUp(n, e);
               }}
             >
@@ -1550,6 +1526,11 @@ export function PdfReader({
                     inkSelectedIds={inkEditable ? lassoed : undefined}
                     onSelect={setSelectedAnnId}
                     fetchPicture={fetchPicture}
+                    pictureEdit={pictures.edit?.pageNumber === n ? pictures.edit : null}
+                    onPictureChange={pictures.change}
+                    onPictureReorder={pictures.reorder}
+                    onPictureRemove={pictures.remove}
+                    onPictureClose={pictures.close}
                   />
                 )}
                 {/* Inside the page, because it decorates the page's own text

@@ -48,6 +48,7 @@
     "check:docs": "node scripts/update-docs.mjs --check && node scripts/build-atlas.mjs --check",
     "check:ci-parity": "node scripts/check-ci-parity.mjs",
     "bundle:budget": "node scripts/check-bundle-budget.mjs",
+    "bundle:duplicates": "node scripts/check-bundle-duplicates.mjs",
     "generate:deployment": "node --import tsx scripts/generate-deployment-registry.mjs",
     "check:deployment-surface": "node --import tsx scripts/check-deployment-surface.mjs",
     "check:release-drafts": "node scripts/check-release-drafts.mjs",

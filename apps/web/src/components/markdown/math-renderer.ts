@@ -47,17 +47,6 @@ export function loadMathRenderer(): Promise<MathRenderer> {
 }
 
 /**
- * A test seam: put a renderer in place without loading the real one.
- *
- * Used by the tests that assert *what* is rendered for maths; the loading
- * behaviour is asserted separately, on `contains` and on the placeholder.
- */
-export function setMathRendererForTest(renderer: MathRenderer | null): void {
-  loaded = renderer;
-  inFlight = renderer ? Promise.resolve(renderer) : null;
-}
-
-/**
  * Whether this text has anything the renderer would treat as maths.
  *
  * Mirrors the delimiters `renderProseMarkdown` recognises: `$$…$$`, a single-line

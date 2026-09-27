@@ -13,7 +13,6 @@ import { writeFrontmatter } from "./frontmatter.js";
 import { toRelativeBlobLinks } from "./blob-links.js";
 import { isInkNoteBody, readInkNoteBody, writeInkNoteMeta } from "../ink/ink-note.js";
 import {
-  ENTITY_DIRS,
   WORKSPACE_META_DIR,
   flatPath,
   logPath,

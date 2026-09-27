@@ -1,5 +1,4 @@
 import {
-  RELATION_TYPES,
   extractHashtags,
   extractWikilinks,
   normalizeTitleKey,

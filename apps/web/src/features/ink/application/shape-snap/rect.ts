@@ -12,7 +12,6 @@ import {
   pathLength,
   resamplePath,
   snapBounds,
-  snapPoints,
   type RectGeometry,
   type ResampleOptions,
   type ShapeFit,

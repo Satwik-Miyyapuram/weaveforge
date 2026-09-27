@@ -107,6 +107,15 @@ export function VaultScreen() {
     [flat, selectedId],
   );
 
+  // A list reload hands back summaries, and the open note is fetched in full
+  // again. Until it lands the note keeps the full page it had, so the editor
+  // stays mounted — and its Edit / Read / Ink mode with it — instead of
+  // dropping to "Opening note…" and coming back in Read.
+  const [heldPage, setHeldPage] = useState<VaultPage | null>(null);
+  if (selected && isHydratedPage(selected) && selected !== heldPage) setHeldPage(selected);
+  const shownPage: VaultPage | VaultPageSummary | null =
+    selected && !isHydratedPage(selected) && heldPage?.id === selected.id ? heldPage : selected;
+
   useEffect(() => {
     if (!selected) return;
     rememberRecentTarget(getContainer().projects.context.projectId, {
@@ -312,6 +321,9 @@ export function VaultScreen() {
 
   return (
     <section className="screen vault-screen">
+      {/* An open note is a record page, as a paper is: its own bar carries
+          the way back and its actions, so the list head steps aside. */}
+      {!selected && (
       <ScreenHead eyebrow={hasNotes ? `${ownedNotes.length} ${ownedNotes.length === 1 ? "note" : "notes"}` : undefined}>
         <button
           className="btn-primary"
@@ -353,6 +365,7 @@ export function VaultScreen() {
           }}
         />
       </ScreenHead>
+      )}
 
       {composeOpen && (
         <Modal
@@ -441,15 +454,15 @@ export function VaultScreen() {
                 page, show the loading row instead. `isHydratedPage` tests for
                 the property, not its value, so an intentionally empty note
                 still reaches the editor. */}
-            {!isHydratedPage(selected) ? (
+            {!shownPage || !isHydratedPage(shownPage) ? (
               <ScreenLoading status="Opening note…" />
             ) : (
               <PageEditor
-                page={selected}
-                readOnly={isReadOnlyPage(selected.id)}
-                sharedPage={isSharedPage(selected.id)}
-                sharedByName={sharedOwnerName(selected.id)}
-                canComment={vaultCanComment.get(selected.id) ?? false}
+                page={shownPage}
+                readOnly={isReadOnlyPage(shownPage.id)}
+                sharedPage={isSharedPage(shownPage.id)}
+                sharedByName={sharedOwnerName(shownPage.id)}
+                canComment={vaultCanComment.get(shownPage.id) ?? false}
                 notes={noteEntries}
                 papers={paperEntries}
                 sections={sectionEntries}

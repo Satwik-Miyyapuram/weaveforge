@@ -329,7 +329,10 @@ export function markdownEditorExtensions(opts: MarkdownEditorExtensionOptions): 
       ".cm-content": { padding: "10px 0", minHeight: "100%" },
       ".cm-gutter": { minHeight: "100%" },
       ".cm-line": { padding: "0 4px 0 2px" },
-      ".cm-gutters": { borderRight: "1px solid var(--line)" },
+      // No rule beside the numbers: the gap and the fainter numerals already
+      // part them from the text, and a hairline read as a dotted line under
+      // the CRT scanlines.
+      ".cm-gutters": { borderRight: "none" },
     }),
   ];
 

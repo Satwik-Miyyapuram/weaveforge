@@ -20,10 +20,6 @@
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
-  inkEnumValue,
-  INK_COLOURS,
-  INK_SHAPES,
-  INK_TOOLS,
   type InkColour,
   type InkLineRecord,
   type InkPage,
@@ -132,6 +128,13 @@ export class InkPageBuffer {
 
   private strokes: InkStrokeGeometry[] = [];
   private alive: Uint8Array = new Uint8Array(0);
+  /** The buffer index of each live stroke, in `liveStrokes` order. */
+  liveIndices(): number[] {
+    const out: number[] = [];
+    for (let i = 0; i < this.strokes.length; i += 1) if (this.alive[i]) out.push(i);
+    return out;
+  }
+
   /** Strokes ever added, dead ones included. Monotonic, so indices are stable. */
   private added = 0;
   /**
@@ -365,18 +368,5 @@ export function fromGeometry(stroke: InkStrokeGeometry): InkStroke {
     t0: 0,
     shape: stroke.shape,
     lineIndex: stroke.line,
-  };
-}
-
-/** The tool/colour/shape at an index, for a chunk read without the model. */
-export function geometryMeta(stroke: InkStrokeGeometry): {
-  tool: InkTool;
-  colour: InkColour;
-  shape: InkShape;
-} {
-  return {
-    tool: inkEnumValue(INK_TOOLS, INK_TOOLS.indexOf(stroke.tool)),
-    colour: inkEnumValue(INK_COLOURS, INK_COLOURS.indexOf(stroke.colour)),
-    shape: inkEnumValue(INK_SHAPES, INK_SHAPES.indexOf(stroke.shape)),
   };
 }

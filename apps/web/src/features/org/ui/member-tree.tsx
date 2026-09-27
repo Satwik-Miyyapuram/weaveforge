@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
-import { ROLE_LABELS, ROLE_RANK, memberRoleLabel, type Member } from "@weaveforge/core";
+import { ROLE_RANK, memberRoleLabel, type Member } from "@weaveforge/core";
 
 /** A member plus the people who report (transitively) to them. */
 export interface MemberNode {
@@ -45,15 +45,6 @@ function buildMemberForest(members: Member[]): MemberNode[] {
   return roots;
 }
 
-/** Every id in the forest — handy for "expand all" defaults. */
-function collectIds(forest: MemberNode[], into: Set<string> = new Set()): Set<string> {
-  for (const n of forest) {
-    into.add(n.member.id);
-    collectIds(n.children, into);
-  }
-  return into;
-}
-
 interface TreeProps {
   forest: MemberNode[];
   /** When set, rows are buttons and the chosen id is highlighted. */
@@ -70,7 +61,6 @@ interface TreeProps {
  * parents. Used both as a static org chart and inside the supervisor picker.
  */
 function MemberTree({ forest, selectedId, onSelect, meId, inLab = true }: TreeProps) {
-  const allIds = useMemo(() => collectIds(forest), [forest]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const toggle = (id: string) =>

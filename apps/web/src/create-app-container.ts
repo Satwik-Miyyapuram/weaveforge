@@ -95,7 +95,7 @@ import {
 import { BlobInkChunkStore } from "@/features/ink/infrastructure/blob-ink-chunk-store";
 import { FsInkChunkStore } from "@/features/ink/infrastructure/fs-ink-chunk-store";
 import { RoutedInkChunkStore } from "@/features/ink/infrastructure/routed-ink-chunk-store";
-import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
+import { activeWorkspaceFs, folderRestored } from "@/features/workspace/application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import type { ProjectContext } from "@/lib/project-context";
 import { randomBytes, systemClock, uuidIds } from "@/lib/system";
@@ -192,7 +192,10 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   // can be chosen or forgotten while the app is running.
   const fsInkChunks = new FsInkChunkStore(activeWorkspaceFs);
   const blobInkChunks = new BlobInkChunkStore(encryptedBlobStore, backend.session);
-  const inkChunkStore = new RoutedInkChunkStore(() => (activeWorkspaceFs() ? fsInkChunks : blobInkChunks));
+  const inkChunkStore = new RoutedInkChunkStore(
+    () => (activeWorkspaceFs() ? fsInkChunks : blobInkChunks),
+    folderRestored,
+  );
 
   const manageProject = new ManageProjectUseCase({
     repository: backend.projectRepository,

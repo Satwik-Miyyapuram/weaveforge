@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 /**
  * What happens when a `[[link]]` names a note that does not exist.
@@ -45,24 +45,6 @@ export function writeWikilinkCreateMode(mode: WikilinkCreateMode): void {
     // Private mode: the change still applies to this session through the event.
   }
   window.dispatchEvent(new Event(CHANGE_EVENT));
-}
-
-/** The current mode in a ref, so an open editor follows a change in settings. */
-export function useWikilinkCreateModeRef(): { current: WikilinkCreateMode } {
-  const ref = useRef<WikilinkCreateMode>(readWikilinkCreateMode());
-  useEffect(() => {
-    ref.current = readWikilinkCreateMode();
-    const notify = () => {
-      ref.current = readWikilinkCreateMode();
-    };
-    window.addEventListener(CHANGE_EVENT, notify);
-    window.addEventListener("storage", notify);
-    return () => {
-      window.removeEventListener(CHANGE_EVENT, notify);
-      window.removeEventListener("storage", notify);
-    };
-  }, []);
-  return ref;
 }
 
 /**

@@ -9,7 +9,6 @@ import { readStorageConfig, type StorageConfig } from "../config";
 import { coldBlobConfig, r2BlobConfig, S3BlobStore } from "../providers/s3/s3-blob-store";
 import { PostgresBlobRegistry } from "@/storage/providers/postgres/blob-registry";
 import { SupabaseBlobRegistry } from "../providers/supabase/blob-registry";
-import { bearerToken } from "@/lib/bearer-token";
 
 class FixedUserSession implements ICurrentUserProvider {
   constructor(private readonly uid: string) {}

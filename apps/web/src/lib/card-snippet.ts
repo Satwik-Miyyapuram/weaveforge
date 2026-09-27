@@ -10,7 +10,11 @@
  */
 export function cardSnippet(body: string, max = 180): string {
   const text = body
+    // Comments (an ink page marker) and an image or comment cut off by a
+    // preview's length limit are markup too.
+    .replace(/<!--[^]*?(?:-->|$)/g, "")
     .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/!\[[^\]]*(?:\]\([^)]*)?$/, "")
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
     .replace(/[#>*_`~]+/g, " ")
     .replace(/\s+/g, " ")

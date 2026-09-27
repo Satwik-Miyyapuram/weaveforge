@@ -3,9 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   EXPLORER_STORAGE_KEY,
-  collapseAll,
   defaultExpanded,
-  expandAll,
   isSectionOpen,
   readExpanded,
   readSections,
@@ -223,27 +221,27 @@ function nestedTree(): WorkspaceTreeNode[] {
   });
 }
 
-test("collapse all closes every branch", () => {
-  const opened = expandAll(nestedTree());
-  assert.ok(opened.size > 0);
-  assert.equal(collapseAll().size, 0);
-});
+/** Every branch key in the tree, so the filter tests start from all rows painted. */
+function allBranches(nodes: readonly WorkspaceTreeNode[]): Set<string> {
+  const keys = new Set<string>();
+  const walk = (node: WorkspaceTreeNode) => {
+    if (node.children.length === 0) return;
+    keys.add(node.key);
+    node.children.forEach(walk);
+  };
+  nodes.forEach(walk);
+  return keys;
+}
 
-test("collapse all leaves one row per root and nothing else", () => {
+test("with nothing open there is one row per root and nothing else", () => {
   assert.deepEqual(
-    visibleRows(nestedTree(), collapseAll()).map((row) => row.node.label),
+    visibleRows(nestedTree(), new Set()).map((row) => row.node.label),
     ["Notes", "Papers", "Report", "Log"],
   );
 });
 
-test("expand all opens every branch that has children", () => {
-  const rows = visibleRows(nestedTree(), expandAll(nestedTree()));
-  assert.ok(rows.some((row) => row.node.label === "Baselines"));
-  assert.ok(rows.some((row) => row.node.label === "β-VAE"));
-});
-
 test("the filter keeps a match, its ancestors and its subtree", () => {
-  const rows = visibleRows(nestedTree(), expandAll(nestedTree()));
+  const rows = visibleRows(nestedTree(), allBranches(nestedTree()));
   const { rows: kept, expand } = filterRows(rows, "Baselines");
   const labels = kept.map((row) => row.node.label);
 
@@ -254,7 +252,7 @@ test("the filter keeps a match, its ancestors and its subtree", () => {
 });
 
 test("the filter matches the mirrored path as well as the label", () => {
-  const rows = visibleRows(nestedTree(), expandAll(nestedTree()));
+  const rows = visibleRows(nestedTree(), allBranches(nestedTree()));
   const { rows: kept } = filterRows(rows, ".paper.md");
   assert.deepEqual(
     kept.filter((row) => row.node.kind === "paper").map((row) => row.node.title),
@@ -270,7 +268,7 @@ test("an empty query returns the visible rows and opens nothing", () => {
 });
 
 test("a filter that matches nothing paints nothing", () => {
-  const rows = visibleRows(nestedTree(), expandAll(nestedTree()));
+  const rows = visibleRows(nestedTree(), allBranches(nestedTree()));
   assert.equal(filterRows(rows, "zzzz").rows.length, 0);
 });
 

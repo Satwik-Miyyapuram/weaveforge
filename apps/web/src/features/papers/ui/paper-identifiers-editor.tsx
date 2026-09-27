@@ -24,7 +24,7 @@ export function PaperIdentifiersEditor({
   const [doi, setDoi] = useState(paper.doi ?? "");
   const [arxivId, setArxivId] = useState(paper.arxivId ?? "");
 
-  const { busy, error, setError, submit: save } = useSubmit(async () => {
+  const { busy, error, submit: save } = useSubmit(async () => {
     onReplace(
       await getContainer().papers.updatePaper.setIdentifiers(paper.id, { doi, arxivId }),
     );

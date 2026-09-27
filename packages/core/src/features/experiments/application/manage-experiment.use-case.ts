@@ -4,7 +4,6 @@
  */
 import {
   createExperiment,
-  ExperimentValidationError,
   statusPatchForExperiment,
   type Experiment,
   type ExperimentStatus,

@@ -8,7 +8,6 @@ import {
   type GroupBy,
   type LayoutMode,
   type ReadingList,
-  type RelationType,
 } from "@weaveforge/core";
 import { MultiSelect } from "@/components/multi-select";
 import { ColourSection, Section } from "./graph-colour-section";
@@ -193,7 +192,8 @@ export function GraphSettingsDrawer({
               <button
                 key={l}
                 type="button"
-                className={`seg-btn${settings.layout === l ? " on" : ""}`}
+                className={`seg-btn${settings.layout === l ? " seg-on" : ""}`}
+                aria-pressed={settings.layout === l}
                 onClick={() => onChange({ layout: l })}
               >
                 {l}
@@ -212,7 +212,8 @@ export function GraphSettingsDrawer({
               <button
                 key={g}
                 type="button"
-                className={`seg-btn${settings.groupBy === g ? " on" : ""}`}
+                className={`seg-btn${settings.groupBy === g ? " seg-on" : ""}`}
+                aria-pressed={settings.groupBy === g}
                 onClick={() => onChange({ groupBy: g, colorBy: g === "list" ? "list" : settings.colorBy })}
               >
                 {g}
@@ -229,7 +230,8 @@ export function GraphSettingsDrawer({
               <button
                 key={m}
                 type="button"
-                className={`seg-btn${settings.edgeMode === m ? " on" : ""}`}
+                className={`seg-btn${settings.edgeMode === m ? " seg-on" : ""}`}
+                aria-pressed={settings.edgeMode === m}
                 onClick={() => onChange({ edgeMode: m })}
               >
                 {m}

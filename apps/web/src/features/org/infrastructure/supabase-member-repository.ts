@@ -5,7 +5,6 @@ import {
   type ICurrentUserProvider,
   type IMemberRepository,
   type Member,
-  type Role,
 } from "@weaveforge/core";
 import { singleFlight } from "@/lib/cache/single-flight";
 import {

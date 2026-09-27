@@ -21,7 +21,6 @@ import {
   buildSupervisionStats,
   type SupervisionStats,
 } from "./build-supervision-stats";
-import { fetchSuperviseeMilestonesAndLogs } from "./fetch-supervisee-data";
 
 /** Ports the dashboard stats loader depends on (DIP). */
 export interface DashboardStatsPorts {

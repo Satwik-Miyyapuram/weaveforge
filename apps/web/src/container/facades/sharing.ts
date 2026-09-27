@@ -13,7 +13,6 @@ import type {
   PinSharedResourceUseCase,
   RedeemShareLinkUseCase,
   RevokeShareLinkUseCase,
-  Share,
   ShareableType,
 } from "@weaveforge/core";
 import type { ISharedReader } from "@/features/sharing/domain/shared-reader";

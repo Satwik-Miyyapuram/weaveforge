@@ -1,11 +1,14 @@
 "use client";
 
 /**
- * The WebGL2 renderer's plumbing: program linking and the capability probe.
+ * The WebGL2 renderer's plumbing: program linking, the capability probe and
+ * the page scissor.
  *
  * Split out of `webgl-renderer.ts` when that file crossed the repository's
  * hygiene ceiling. Nothing here knows about strokes.
  */
+
+import type { InkViewTransform } from "./ink-renderer";
 
 /** Compile and link a program, or throw with the driver's own log. */
 export function linkProgram(
@@ -67,3 +70,23 @@ export function supportsWebglInk(
   }
 }
 
+
+/**
+ * The page's box on a drawing surface of `width` × `height` device pixels, as
+ * `gl.scissor`'s arguments: GL counts rows from the foot.
+ */
+export function pageScissor(
+  transform: InkViewTransform,
+  dpr: number,
+  pageWidth: number,
+  pageHeight: number,
+  width: number,
+  height: number,
+): [number, number, number, number] {
+  const k = transform.scale * dpr;
+  const left = Math.max(0, Math.floor(transform.offsetX * dpr));
+  const top = Math.max(0, Math.floor(transform.offsetY * dpr));
+  const right = Math.min(width, Math.ceil(transform.offsetX * dpr + pageWidth * k));
+  const bottom = Math.min(height, Math.ceil(transform.offsetY * dpr + pageHeight * k));
+  return [left, height - Math.max(top, bottom), Math.max(0, right - left), Math.max(0, bottom - top)];
+}

@@ -1,7 +1,7 @@
 import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { searchRevision, toPdfSearchDocs, toSearchDocs, type SearchDoc, type WorkspaceSnapshot } from "@weaveforge/core";
+import { searchRevision, toPdfSearchDocs, toSearchDocs, type SearchDoc } from "@weaveforge/core";
 import { SEARCH_SCHEMA_VERSION, buildSearchIndex, miniSearchIndexFactory } from "../infrastructure/minisearch-index";
 
 const note = (id: string, title: string, body = "") =>

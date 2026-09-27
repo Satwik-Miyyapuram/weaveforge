@@ -25,12 +25,6 @@ export interface ImageAlt {
   width?: string;
 }
 
-export function parseImageAlt(raw: string): ImageAlt {
-  const parts = parseMdImageAlt(raw);
-  // The width face only: crop and alignment are the figure module's.
-  return { alt: parts.alt, ...(parts.width ? { width: parts.width } : {}) };
-}
-
 /** The alt text to write for a width, keeping any crop or alignment. */
 export function withImageWidth(alt: string, width: string | null): string {
   const parts = parseMdImageAlt(alt);
@@ -43,28 +37,6 @@ export function withImageWidth(alt: string, width: string | null): string {
 
 /** Every image reference the renderer accepts, alt and target captured. */
 const IMAGE_REF = /!\[([^\]]*)\]\(([^\s)]+)\)/g;
-
-/**
- * Rewrite the `ordinal`-th image whose (bare) alt is `alt`, in document order.
- *
- * Matched by alt rather than by target because the read view has already
- * swapped every target for a blob URL by the time a picture is clicked, and the
- * blob URL says nothing about the markdown behind it. Returns the body
- * unchanged when nothing matches.
- */
-export function setImageWidth(
-  body: string,
-  alt: string,
-  ordinal: number,
-  width: string | null,
-): string {
-  let seen = 0;
-  return body.replace(IMAGE_REF, (match, rawAlt: string, target: string) => {
-    if (parseMdImageAlt(rawAlt).alt !== alt) return match;
-    if (seen++ !== ordinal) return match;
-    return `![${withImageWidth(rawAlt, width)}](${target})`;
-  });
-}
 
 /** The placement a figure's alt carries, in the figure module's own types. */
 export function parseImagePlacement(raw: string): {

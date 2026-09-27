@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { BackButton } from "@/components/back-button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { decodeLocus, type PdfLocus, type ReaderAnnotation } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
@@ -131,16 +131,7 @@ export function ReaderScreen() {
           The page count, zoom and find sit in the reader's own bar below. */}
       <div className="reader-screen-bar">
         {paperId && (
-          <Link
-            className="btn-secondary btn-sm reader-screen-back"
-            href={`/papers?paper=${encodeURIComponent(paperId)}`}
-            aria-label="Back to paper"
-            title="Back to paper"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M15 6l-6 6 6 6" />
-            </svg>
-          </Link>
+          <BackButton label="Paper" href={`/papers?paper=${encodeURIComponent(paperId)}`} />
         )}
         <h1 className="reader-screen-title">{title ?? "Reader"}</h1>
         <div className="reader-screen-actions">

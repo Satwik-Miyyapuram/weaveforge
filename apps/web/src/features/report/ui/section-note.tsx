@@ -1,13 +1,13 @@
 "use client";
 
 import { InlineError } from "@/components/form-error";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { REPORT_STATUSES, type ReportSection, type ReportStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
-import { MarkdownCodeEditor } from "@/components/markdown/markdown-code-editor-lazy";
-import { editorImageUpload } from "@/lib/editor-image-upload";
-import { EditIcon } from "@/components/view-icons";
+import { BackButton } from "@/components/back-button";
+import { DocumentBody } from "@/components/document-body";
+import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { CardMenu } from "@/components/card-menu";
 import { ShareButton, CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
 import type { EditorHandle } from "@/components/editor-handle";
@@ -16,17 +16,18 @@ import { formatError } from "@/lib/format-error";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { CitationFormatSelect } from "@/components/citation-format-select";
 import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
-import {
-  materializeReportBlobImages,
-  reportImageMarkdown,
-} from "../lib/report-images-md";
-import { ReportSectionMarkdown } from "./report-section-markdown";
+import { materializeReportBlobImages } from "../lib/report-images-md";
 import { SectionRelatedExcerpts } from "./section-related-excerpts";
 import { ExperimentArtifactPicker } from "./experiment-artifact-picker";
 
+/** A section's two views, in the order the Editor's pane header lists them. */
+const SECTION_MODES = ["edit", "read"] as const;
+type SectionMode = (typeof SECTION_MODES)[number];
+
 /**
  * Full-page section writing view: back, status and word progress, one
- * toolbar (edit, comments, share, more), then read or edit the draft.
+ * toolbar (Edit / Read, comments, share, more), then the section through the
+ * Editor's document host.
  */
 export function SectionNote({
   section,
@@ -49,29 +50,20 @@ export function SectionNote({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(section.notes ?? "");
+  // Read or Edit, as in the Editor's pane header. A section opens read.
+  const [mode, setMode] = useState<SectionMode>("read");
+  const editing = !readOnly && mode === "edit";
   const [saveError, setSaveError] = useState<string | null>(null);
-  // Filled in while the editor is on screen, so the button can insert at the caret.
+  // Filled in while the editor is on screen, so the buttons can insert at the caret.
   const editorHandle = useRef<EditorHandle | null>(null);
-  const { titles: wikilinkTitles, completions: wikilinkCompletions } = useCiteLinkCatalog();
+  const { completions } = useCiteLinkCatalog();
   const [citationFormat, setCitationFormat] = useCitationFormatPreference();
 
   useEffect(() => {
-    setEditing(false);
-    setDraft(section.notes ?? "");
+    setMode("read");
     setSaveError(null);
-    // Resets on section *identity* only. `section.notes` is deliberately not a
-    // dep — including it would drop the user out of edit mode on every
-    // save/refetch; the effect below owns note-content sync.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section.id]);
 
-  useEffect(() => {
-    if (!editing) setDraft(section.notes ?? "");
-  }, [section.notes, editing]);
-
-  const dirty = draft !== (section.notes ?? "");
   const hasNotes = Boolean(section.notes?.trim());
   const meta = [
     section.targetWords
@@ -94,35 +86,35 @@ export function SectionNote({
     }
   }
 
-  async function saveNotes() {
-    setBusy(true);
-    setSaveError(null);
-    try {
-      const report = getContainer().report;
-      const body = await materializeReportBlobImages(draft, section.id, (id, blob, ext) =>
-        report.uploadImage(id, blob, ext),
-      );
-      const updated = await report.manageReportSection.setNotes(section.id, body);
-      onReplace(updated);
-      setDraft(updated.notes ?? body);
-      setEditing(false);
-    } catch (err) {
-      setSaveError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  /** Accepting a pasted image. Stored against the section, referenced as `reportimg:`. */
-  const imagePaste = useMemo(
-    () =>
-      editorImageUpload({
-        store: (blob, ext) => getContainer().report.uploadImage(section.id, blob, ext),
-        toMarkdown: reportImageMarkdown,
-        onError: setSaveError,
-      }),
-    [section.id],
+  /** Every body write. The host saves as it goes, the way it does in the Editor. */
+  const saveNotes = useCallback(
+    async (nextBody: string) => {
+      setSaveError(null);
+      try {
+        const report = getContainer().report;
+        const body = await materializeReportBlobImages(nextBody, section.id, (id, blob, ext) =>
+          report.uploadImage(id, blob, ext),
+        );
+        onReplace(await report.manageReportSection.setNotes(section.id, body));
+      } catch (err) {
+        setSaveError(formatError(err));
+      }
+    },
+    [onReplace, section.id],
   );
+
+  /**
+   * A snippet from the pickers: at the caret while editing, else added to the
+   * end of the section, which stays in Read so the reader sees it land.
+   */
+  function insertSnippet(snippet: string) {
+    const editor = editorHandle.current;
+    if (editing && editor) {
+      editor.insert(`\n\n${snippet}\n`);
+      return;
+    }
+    void saveNotes(`${(section.notes ?? "").trimEnd()}\n\n${snippet}\n`);
+  }
 
   async function remove() {
     if (!confirm(`Delete "${section.title}"?`)) return;
@@ -137,9 +129,7 @@ export function SectionNote({
 
   return (
     <div className="paper-note">
-      <button type="button" className="btn-secondary paper-back" onClick={onBack}>
-        ← Report
-      </button>
+      <BackButton label="Report" onClick={onBack} />
 
       {/* Status, then one toolbar, then the title: the order of the phone mock
           (PhoneSectionDetail), which reads the same on a wide screen. Delete is
@@ -175,22 +165,7 @@ export function SectionNote({
       </div>
 
       <div className="paper-note-head section-note-toolbar" role="toolbar" aria-label="Section">
-        {!readOnly && !editing && (
-          <button
-            type="button"
-            className="btn-primary section-note-edit"
-            onClick={() => {
-              setDraft(section.notes ?? "");
-              setEditing(true);
-            }}
-          >
-            <EditIcon />
-            {hasNotes ? "Edit" : "Write"}
-          </button>
-        )}
-        {!readOnly && editing && (
-          <AttachImageButton editor={editorHandle} onError={setSaveError} disabled={busy} />
-        )}
+        {!readOnly && <DocumentModeSwitch modes={SECTION_MODES} mode={mode} onMode={setMode} />}
         <CommentsToggle
           resourceType="report_section"
           resourceId={section.id}
@@ -225,79 +200,43 @@ export function SectionNote({
         {section.title}
       </h1>
 
-      <div className="section-note-layout">
+      <div className={editing ? "section-note-layout section-note-layout--editing" : "section-note-layout"}>
       <div className="paper-note-body">
-        {!editing ? (
-          hasNotes ? (
-            <ReportSectionMarkdown
-              body={section.notes!}
-              className="summary"
-              skipArtifactResolve={sharedContent}
-            />
+        {!editing && !hasNotes ? (
+          readOnly ? (
+            <p className="muted summary-empty">No note yet.</p>
           ) : (
-            <p className="muted summary-empty">
-              {readOnly ? "No note yet." : "No note yet — use “Write note” to start."}
-            </p>
+            <button type="button" className="record-note-empty" onClick={() => setMode("edit")}>
+              No note yet. Start writing — cite with [[ or @, math with $E = mc^2$.
+            </button>
           )
         ) : (
-          <div className="summary-editor">
-            <div className="summary-editor-bar">
-              <CitationFormatSelect
-                value={citationFormat}
-                onChange={setCitationFormat}
-                disabled={busy}
-              />
-              <ExperimentArtifactPicker
-                disabled={busy}
-                onInsert={(snippet) => {
-                  setDraft((prev) => `${prev.trimEnd()}\n\n${snippet}\n`);
-                  setSaveError(null);
-                }}
-              />
-            </div>
-            <MarkdownCodeEditor
-              className="summary-input markdown-code-editor--notes"
-              value={draft}
-              placeholder="Write this section… Cite with [[ or @. Math: $E = mc^2$."
-              disabled={busy}
-              onChange={setDraft}
-              wikilinkTitles={wikilinkTitles}
-              wikilinkCompletions={wikilinkCompletions}
+          <div className={editing ? "record-doc record-doc--edit" : "summary"}>
+            {editing && (
+              <div className="summary-editor-bar">
+                <CitationFormatSelect value={citationFormat} onChange={setCitationFormat} />
+                <ExperimentArtifactPicker disabled={busy} onInsert={insertSnippet} />
+                <AttachImageButton editor={editorHandle} onError={setSaveError} />
+              </div>
+            )}
+            {/* The Editor's own document host, as a section tab mounts it:
+                Edit and Read here are that code, not a copy of it. */}
+            <DocumentBody
+              tab={{ kind: "report_section", id: section.id }}
+              mode={editing ? "edit" : "read"}
+              body={section.notes ?? ""}
+              completions={completions}
               citationFormat={citationFormat}
-              imagePaste={imagePaste}
+              skipArtifactResolve={sharedContent}
+              onSave={readOnly ? async () => undefined : saveNotes}
               handleRef={editorHandle}
+              onError={setSaveError}
             />
-            <div className="summary-editor-foot">
-              {saveError && <InlineError>{saveError}</InlineError>}
-              <button
-                type="button"
-                className="btn-ghost btn-cancel"
-                onClick={() => setEditing(false)}
-                disabled={busy}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => void saveNotes()}
-                disabled={busy || !dirty}
-              >
-                {busy ? "Saving…" : "Save note"}
-              </button>
-            </div>
           </div>
         )}
+        {saveError && <InlineError>{saveError}</InlineError>}
       </div>
-      {!readOnly && (
-        <SectionRelatedExcerpts
-          section={section}
-          onInsert={(snippet) => {
-            setDraft((prev) => `${prev.trimEnd()}\n\n${snippet}`);
-            setEditing(true);
-          }}
-        />
-      )}
+      {!readOnly && !editing && <SectionRelatedExcerpts section={section} onInsert={insertSnippet} />}
       </div>
     </div>
   );

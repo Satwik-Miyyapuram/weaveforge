@@ -12,7 +12,7 @@
  */
 
 import { useCallback, useRef, useState } from "react";
-import type { InkPage } from "@weaveforge/core";
+import type { InkPage, InkStroke } from "@weaveforge/core";
 
 import type { InkWorkerEvent, InkWorkerMessage } from "../application/capture-protocol";
 import { PNG_EXPORT_SCALE } from "./use-page-export";
@@ -41,6 +41,13 @@ export interface InkWorkerRpcDeps {
  * worker answers by id, so a late answer for an ask that is already off is
  * still delivered to whoever asked, not dropped on the floor.
  */
+/** A page's finished strokes and the buffer index each one has in the worker. */
+export interface InkSheetInk {
+  pageIndex: number;
+  strokes: readonly InkStroke[];
+  ids: readonly number[];
+}
+
 export function useInkWorkerRpc(deps: InkWorkerRpcDeps) {
   const sendRef = deps.sendRef;
   const send = useCallback(
@@ -56,6 +63,8 @@ export function useInkWorkerRpc(deps: InkWorkerRpcDeps) {
     readonly [number, number, number, number] | null
   >(null);
   const [pageSize, setPageSize] = useState(deps.initialPageSize);
+  /** The live page's finished ink as the worker last listed it (§ink-page-ink). */
+  const [sheetInk, setSheetInk] = useState<InkSheetInk | null>(null);
   const requestSeq = useRef(0);
   const pendingModel = useRef(new Map<number, (page: InkPage) => void>());
   const pendingSave = useRef(new Map<number, (bytes: Uint8Array | null) => void>());
@@ -69,6 +78,7 @@ export function useInkWorkerRpc(deps: InkWorkerRpcDeps) {
         break;
       case "page-state":
         setStrokes(event.strokes);
+        setSheetInk({ pageIndex: event.pageIndex, strokes: event.ink, ids: event.ids });
         setPageSize((size) =>
           size.width === event.width && size.height === event.height
             ? size
@@ -146,6 +156,7 @@ export function useInkWorkerRpc(deps: InkWorkerRpcDeps) {
     setSelectionBounds,
     pageSize,
     setPageSize,
+    sheetInk,
     onEvent,
     requestModel,
     requestSave,

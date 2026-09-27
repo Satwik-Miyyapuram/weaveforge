@@ -1,7 +1,6 @@
 import type {
   Experiment,
   ExperimentFilter,
-  ExperimentStatus,
   IExperimentRepository,
 } from "@weaveforge/core";
 import { experimentToDomain, experimentToRow, type ExperimentRow } from "./experiment-rows";

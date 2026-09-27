@@ -26,6 +26,7 @@ import type {
 import {
   InkPageBuffer,
   boundsOf,
+  fromGeometry,
   type InkBounds,
 } from "../application/page-buffer";
 import { InkStrokeIndex } from "../application/stroke-index";
@@ -68,6 +69,8 @@ export function reportState(
     backend: state.renderer?.backend ?? "none",
     width: state.buffer.width,
     height: state.buffer.height,
+    ink: state.buffer.liveStrokes().map(fromGeometry),
+    ids: state.buffer.liveIndices(),
   });
 }
 
@@ -143,6 +146,8 @@ export function installPage(
   );
   state.renderer?.setBackground(state.background);
   state.renderer?.setStrokes(state.buffer.allStrokes());
+  // The canvas draws the page until the sheet's SVG says it has it.
+  state.renderer?.setShown(0);
   state.renderer?.setSelection([], { x: 0, y: 0 });
   reportState(state, post);
   reportHistory(state, post);

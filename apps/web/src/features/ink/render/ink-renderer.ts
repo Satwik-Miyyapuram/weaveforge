@@ -31,7 +31,7 @@ import {
   type InkTool,
 } from "@weaveforge/core";
 
-import type { InkBounds, InkStrokeGeometry } from "../application/page-buffer";
+import type { InkStrokeGeometry } from "../application/page-buffer";
 import type { InkPalette } from "./ink-palette";
 
 /** Which renderer is actually drawing. Reported in the status bar. */
@@ -131,6 +131,13 @@ export interface InkRenderer {
    * `shift` page units while a drag is in progress. Empty clears it.
    */
   setSelection(indices: readonly number[], shift: InkShift): void;
+  /**
+   * The sheet's SVG now draws every stroke below `count` (buffer indices), so
+   * the on-screen frame may leave them out. Until the page says so, a stroke
+   * just committed stays on the canvas: the SVG shows it a message and a
+   * render later, and dropping it sooner blinks it out for a frame.
+   */
+  setShown(count: number): void;
   setTransform(transform: InkViewTransform): void;
   /** Resize the drawing surface. CSS pixels; the renderer applies the DPR. */
   resize(cssWidth: number, cssHeight: number, devicePixelRatio: number): void;
@@ -183,26 +190,6 @@ export const INK_SEGMENT_SUBDIVISIONS = 3;
 /** How many instances a stroke of `points` samples packs to. */
 export function strokeInstanceCount(points: number): number {
   return Math.max(0, points - 1) * INK_SEGMENT_SUBDIVISIONS;
-}
-
-/**
- * Uniform Catmull-Rom: the curve through `p1` and `p2` at `u` in [0, 1], with
- * `p0` and `p3` as the neighbours that set the tangents.
- */
-export function catmullRom(
-  p0: number,
-  p1: number,
-  p2: number,
-  p3: number,
-  u: number,
-): number {
-  return (
-    0.5 *
-    (2 * p1 +
-      (-p0 + p2) * u +
-      (2 * p0 - 5 * p1 + 4 * p2 - p3) * u * u +
-      (-p0 + 3 * p1 - 3 * p2 + p3) * u * u * u)
-  );
 }
 
 /**
@@ -505,48 +492,7 @@ export function radiusAt(
   return base * pressureScale * velocityScaleFactor;
 }
 
-/** The colour a stroke paints with, as a palette index the shader reads. */
-export function colourIndex(
-  colour: InkColour,
-  palette: readonly InkColour[],
-): number {
-  const index = palette.indexOf(colour);
-  return index < 0 ? 0 : index;
-}
-
 /** Whether a stroke is drawn translucent and deduped through the stencil. */
 export function usesHighlighterPass(tool: InkTool): boolean {
   return tool === "highlighter";
-}
-
-/** The page's drawn extent, which is what an export has to contain. */
-export function pageExtent(
-  width: number,
-  height: number,
-  transform: InkViewTransform,
-): { width: number; height: number } {
-  return {
-    width: Math.max(
-      1,
-      Math.round(width * transform.scale * transform.devicePixelRatio),
-    ),
-    height: Math.max(
-      1,
-      Math.round(height * transform.scale * transform.devicePixelRatio),
-    ),
-  };
-}
-
-/** A page-unit box as canvas pixels, for a debug overlay or a hit-test box. */
-export function boundsToClip(
-  bounds: InkBounds,
-  transform: InkViewTransform,
-): { x: number; y: number; width: number; height: number } {
-  const scale = transform.scale * transform.devicePixelRatio;
-  return {
-    x: bounds[0] * scale + transform.offsetX * transform.devicePixelRatio,
-    y: bounds[1] * scale + transform.offsetY * transform.devicePixelRatio,
-    width: (bounds[2] - bounds[0]) * scale,
-    height: (bounds[3] - bounds[1]) * scale,
-  };
 }

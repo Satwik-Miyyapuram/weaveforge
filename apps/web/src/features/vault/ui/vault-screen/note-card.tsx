@@ -8,7 +8,7 @@ import { CardMenu } from "@/components/card-menu";
 import { ShareButton, PinnedPaperBadge } from "@/features/sharing";
 import { ListPicker } from "@/features/reading-lists";
 import { cardSnippet } from "@/lib/card-snippet";
-import { isHydratedPage, noteBodyText } from "@/lib/page-text";
+import { isHydratedPage, noteBodyText, readableText } from "@/lib/page-text";
 
 /**
  * Re-exported so the screens and panels that already imported them from here do
@@ -47,7 +47,7 @@ export function NoteCard({
   // picked, and the dialog it opened has to outlive that.
   const [shareOpen, setShareOpen] = useState(false);
   const preview = noteBodyText(page);
-  const excerpt = cardSnippet(preview);
+  const excerpt = cardSnippet(readableText(preview));
   const tags = useMemo(() => extractHashtags(preview), [preview]);
 
   async function togglePin() {

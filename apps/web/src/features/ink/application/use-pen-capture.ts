@@ -29,7 +29,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { nibWidth, type InkColour, type InkHand } from "@weaveforge/core";
+import { type InkColour, type InkHand } from "@weaveforge/core";
 
 import { NibFilter, type FilteredNibSample } from "./one-euro-filter";
 import {
@@ -43,15 +43,11 @@ import {
 import {
   InkPenGate,
   TOUCH_DEFER_MS,
-  type PenClaim,
-  type PenDecision,
   type PenGateEvent,
 } from "./pen-gate";
 import {
-  InkToolChoice,
   PenCaptureSession,
   PenPointerEvent,
-  type PenCaptureDeps,
 } from "./pen-capture-session";
 import {
   requestInkPresenter,

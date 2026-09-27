@@ -10,7 +10,6 @@ import {
   canRename,
   creatableUnder,
   creationTarget,
-  draftIcon,
   draftPlaceholder,
   dropParentId,
   rootKey,

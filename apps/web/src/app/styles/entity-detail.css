@@ -162,7 +162,7 @@ a.related-paper-url:hover { text-decoration: underline; }
   display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
   padding-bottom: 2px;
 }
-.citation-format-select { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; }
+.citation-format-select { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; white-space: nowrap; }
 .citation-format-select .select { min-width: 0; }
 .experiment-artifact-picker {
   display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px;

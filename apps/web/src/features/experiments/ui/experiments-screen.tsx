@@ -605,9 +605,6 @@ function AddExperimentForm({ onAdded }: { onAdded: () => void }) {
   const [config, setConfig] = useState("");
   const [status, setStatus] = useState<ExperimentStatus>("planned");
   const [busy, setBusy] = useState(false);
-  // Held here, not inside the menu: the menu closes on pick, and the share
-  // sheet it opened has to outlive that.
-  const [shareOpen, setShareOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {

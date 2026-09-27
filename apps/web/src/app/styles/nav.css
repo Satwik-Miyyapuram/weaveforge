@@ -310,6 +310,31 @@ button.nav-link {
     font-size: 0.62rem; line-height: 1.15; text-align: center;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+  /* 4px of side padding, not 8: the longest label ("Experiments") needs the
+     wider row this leaves, and at 60px it ellipsised to "Experime…". */
+  .layout.nav-collapsed .nav { padding-left: 4px; padding-right: 4px; }
+  .layout.nav-collapsed .nav-links .nav-link { width: 64px; padding: 6px 0; }
+  .layout.nav-collapsed .nav-links .nav-label { letter-spacing: -0.01em; }
+}
+
+@media (min-width: 900px) {
+  /* The mark, centred on the icons under it. The chevron sat beside it inside
+     one centred box, which put the logo 5px left of the column's axis; it now
+     hangs off the logo's right edge and takes no width. */
+  .layout.nav-collapsed .nav-brand-toggle { position: relative; width: 100%; }
+  .layout.nav-collapsed .nav-brand-toggle > .chev {
+    position: absolute; left: calc(50% + 14px); top: 50%; translate: 0 -50%;
+  }
+  /* The active pill's hard shadow falls below the row; the scroller clipped
+     it. Room for it, inside the scroller. */
+  .layout.nav-collapsed .nav-links { padding: 0 0 4px; }
+  /* No thumb in the rail: it sat over the pills' right edge and the list is
+     short enough to scroll with the wheel. */
+  .layout.nav-collapsed .overlay-scrollbar-nav { display: none; }
+  /* The account button at the rail's own size, not the phone touch target: a
+     44px box under 40px icons read as a different control. The rail only
+     exists at desktop widths. */
+  .layout.nav-collapsed .nav-account-row .header-overflow-btn { width: 40px; height: 40px; }
 }
 
 /* Workspace focus (`⌘⇧F`, editor-workspace.css): the rail goes with the rest
@@ -571,9 +596,12 @@ button.nav-group-label:focus-visible {
  * nothing about it should look pressed, focused or chosen. `:not(:disabled)`
  * keeps the specificity above that global rule rather than relying on order.
  */
-button.nav-brand-toggle:not(:disabled):active,
-button.nav-brand-toggle:focus,
-button.nav-brand-toggle:focus-visible {
+/* `:root` in front: CRT's dashed focus ring is `:root[data-theme="crt"]
+   :focus-visible` and outranked the bare selector, drawing a dashed box round
+   the logo whenever focus came back to it. */
+:root button.nav-brand-toggle:not(:disabled):active,
+:root button.nav-brand-toggle:focus,
+:root button.nav-brand-toggle:focus-visible {
   background-color: transparent;
   outline: none;
 }

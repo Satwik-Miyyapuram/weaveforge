@@ -36,7 +36,6 @@ export interface MdImageAlt {
 }
 
 const CROP_TOKEN = /\bc=([0-9]{1,3}(?:,[0-9]{1,3}){3})(?![0-9])/;
-const ALIGN_WORD = /\b(left|right|center)\b/;
 
 /**
  * Split an image alt into its parts: the alt's own text, its crop, its

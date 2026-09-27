@@ -16,6 +16,11 @@
  * page index rather than closing over its own.
  */
 
+import {
+  parseFigureClip,
+  pastedFigurePlace,
+  type FigureClip,
+} from "../application/figure-clipboard";
 import { useCallback, useEffect, useState } from "react";
 import {
   INK_A4_WIDTH,
@@ -80,6 +85,8 @@ export interface InkPageMediaDeps {
   /** The figures on the current page, replaced by an add or a remove. */
   onFiguresChange: (next: readonly FigureGeometry[]) => void;
   figuresRef: { current: readonly FigureGeometry[] };
+  /** Open a figure's controls, by index: a pasted figure comes selected. */
+  selectFigure?: (index: number) => void;
   /** Where a message for the text column goes. */
   setUnavailable: (message: string | null) => void;
   /** Tell the worker the decoded background bitmap and its attachment index. */
@@ -306,6 +313,32 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
     [deps, onSetPageBackground],
   );
 
+  const pasteFigure = useCallback(
+    async (clip: FigureClip) => {
+      let { path } = clip.figure;
+      if (clip.noteId !== deps.noteId) {
+        setInserting(true);
+        try {
+          const blob = await deps.assets.fetchBlob(path);
+          const ext = path.split(".").pop() || "png";
+          path = await deps.assets.upload(deps.noteId, blob, ext);
+        } catch (error) {
+          deps.setUnavailable(
+            `The figure could not be pasted: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return;
+        } finally {
+          setInserting(false);
+        }
+      }
+      const onPage = deps.figuresRef.current;
+      const placed = pastedFigurePlace({ ...clip.figure, path }, onPage, deps.pageSize);
+      deps.onFiguresChange([...onPage, placed]);
+      deps.selectFigure?.(onPage.length);
+    },
+    [deps],
+  );
+
   /**
    * A pasted screenshot (§4.8).
    *
@@ -329,6 +362,15 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         return;
       const wrap = deps.wrapRef.current;
       if (!wrap || !wrap.contains(document.activeElement)) return;
+      // A figure copied from a note (§figure-clipboard) comes back as itself,
+      // box and crop. In the note that owns its attachment it shows the same
+      // one; in another note the bytes are uploaded again, as this note's own.
+      const clip = parseFigureClip(event.clipboardData?.getData("text/plain"));
+      if (clip) {
+        event.preventDefault();
+        void pasteFigure(clip);
+        return;
+      }
       const file = imageFileFromClipboard(event.clipboardData);
       if (!file) return;
       event.preventDefault();
@@ -338,7 +380,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
     return () => window.removeEventListener("paste", onPaste);
     // `deps` is the host's object for this hook; `onAddFigure` is the flow above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deps, onAddFigure]);
+  }, [deps, onAddFigure, pasteFigure]);
 
   /**
    * A PDF's pages or an image as new pages (§4.8): each one laid on an A4

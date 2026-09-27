@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-import { chooseDesktopFolder, folderSession } from "../application/workspace-folder";
+import { chooseDesktopFolder, folderSession, markFolderRestored } from "../application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 
 /**
@@ -37,11 +37,14 @@ export function WorkspaceFolderRestore() {
     if (!desktop()) return;
     // Already connected: a folder picked earlier in this session wins, because
     // reconnecting over it would silently swap where the next write lands.
-    if (folderSession()) return;
-    void chooseDesktopFolder({ git: false, reuse: true }).catch(() => {
-      // A path that has gone — an unplugged drive, a dead network share —
-      // leaves `activeFs` as it was. Nothing to report: the reader never asked.
-    });
+    if (folderSession()) return markFolderRestored();
+    void chooseDesktopFolder({ git: false, reuse: true })
+      .catch(() => {
+        // A path that has gone — an unplugged drive, a dead network share —
+        // leaves `activeFs` as it was. Nothing to report: the reader never asked.
+      })
+      // Whatever the answer, the readers held for it can go ahead.
+      .finally(markFolderRestored);
   }, []);
 
   return null;

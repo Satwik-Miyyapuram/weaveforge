@@ -1,13 +1,9 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AnnotationQuotationType,
   IAnnotationQuotationTypeRepository,
-  ICurrentUserProvider,
-  QuotationType,
   SaveAnnotationQuotationTypeInput,
 } from "@weaveforge/core";
 import { isQuotationType } from "@weaveforge/core";
-import type { ProjectContext } from "@/lib/project-context";
 import { ProjectScopedSupabaseRepository } from "@/backend/providers/supabase/project-scoped-repository";
 import {
   type AnnotationQuotationTypeRow,

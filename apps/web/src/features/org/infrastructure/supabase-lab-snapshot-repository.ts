@@ -1,12 +1,8 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
-  ICurrentUserProvider,
   ILabSnapshotRepository,
   LabSnapshot,
-  LabSnapshotContent,
   PublishLabSnapshotInput,
 } from "@weaveforge/core";
-import type { ProjectContext } from "@/lib/project-context";
 import { ProjectScopedSupabaseRepository } from "@/backend/providers/supabase/project-scoped-repository";
 import {
   type LabSnapshotRow,

@@ -14,7 +14,7 @@ const siteChrome: Settings = {
   gutterBackground: "transparent",
   gutterForeground: "var(--muted)",
   gutterActiveForeground: "var(--ink)",
-  gutterBorder: "var(--line)",
+  gutterBorder: "transparent",
   fontFamily: "var(--font-mono)",
 };
 

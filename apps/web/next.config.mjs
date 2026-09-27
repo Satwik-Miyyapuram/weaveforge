@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import bundleAnalyzer from "@next/bundle-analyzer";
 import withSerwistInit from "@serwist/next";
+import { ClientPackagesPlugin } from "./scripts/lib/client-packages-plugin.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -217,6 +218,10 @@ const nextConfig = {
       type: "javascript/auto",
       resolve: { fullySpecified: false },
     });
+
+    // Records which package copies the browser build holds, for
+    // `npm run bundle:duplicates`; a production build drops module paths.
+    if (!isServer && !dev) config.plugins.push(new ClientPackagesPlugin());
 
     if (!isServer) {
       config.resolve.alias = {

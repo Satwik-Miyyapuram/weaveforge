@@ -107,6 +107,8 @@ export class CanvasInkRenderer implements InkRenderer {
   private nextIndex = 0;
   /** The lasso's selection, by stroke index, and where a drag is showing it. */
   private selected = new Set<number>();
+  /** Strokes below this index are on the sheet's SVG; see `setShown`. */
+  private shown = 0;
   private shift: InkShift = { x: 0, y: 0 };
 
   constructor(options: CanvasInkRendererOptions) {
@@ -185,7 +187,7 @@ export class CanvasInkRenderer implements InkRenderer {
   draw(): void {
     const context = this.context;
     if (!context) return;
-    this.paint(context, this.transform, this.width, this.height, false);
+    this.paint(context, this.transform, this.width, this.height, false, true);
   }
 
   async capture(scale: number, transparent = false): Promise<Blob | null> {
@@ -204,6 +206,10 @@ export class CanvasInkRenderer implements InkRenderer {
       !transparent,
     );
     return target.convertToBlob({ type: "image/png" });
+  }
+
+  setShown(count: number): void {
+    this.shown = count;
   }
 
   setSelection(indices: readonly number[], shift: InkShift): void {
@@ -227,6 +233,12 @@ export class CanvasInkRenderer implements InkRenderer {
     width: number,
     height: number,
     opaque: boolean,
+    /**
+     * On screen: only the wet ink, the stroke being written and a held
+     * selection. The page's image and finished strokes are the sheet's own
+     * DOM (§ink-page-ink), as the WebGL renderer's on-screen frame is.
+     */
+    wetOnly = false,
   ): void {
     context.setTransform(1, 0, 0, 1, 0, 0);
     if (opaque) {
@@ -244,11 +256,20 @@ export class CanvasInkRenderer implements InkRenderer {
       transform.offsetX * transform.devicePixelRatio,
       transform.offsetY * transform.devicePixelRatio,
     );
+    // Nothing is drawn past the page's edge. The canvas covers the whole
+    // pane, over the neighbouring pages, but a page's ink is its own: the
+    // static rendering of the same page (an SVG) stops at the sheet, and ink
+    // that showed past it only while the page was live seemed to jump as the
+    // scroll made another page the live one.
+    context.save();
+    context.beginPath();
+    context.rect(0, 0, this.pageWidth, this.pageHeight);
+    context.clip();
     if (opaque)
       paintPaper(context, this.paper, this.pageWidth, this.pageHeight);
     // The page image goes under the ink in page units, so it pans and zooms
     // with the strokes and lands in an export at the export's scale.
-    if (this.background) {
+    if (this.background && !wetOnly) {
       context.drawImage(this.background, 0, 0, this.pageWidth, this.pageHeight);
     }
 
@@ -284,6 +305,7 @@ export class CanvasInkRenderer implements InkRenderer {
         const highlighter = stroke.tool === "highlighter";
         if ((pass === "highlighter") !== highlighter) continue;
         const held = this.selected.has(index);
+        if (wetOnly && !held && index < this.shown) continue;
         if (held) {
           context.save();
           context.translate(this.shift.x, this.shift.y);
@@ -312,6 +334,7 @@ export class CanvasInkRenderer implements InkRenderer {
         this.palette,
       );
     }
+    context.restore();
   }
 }
 

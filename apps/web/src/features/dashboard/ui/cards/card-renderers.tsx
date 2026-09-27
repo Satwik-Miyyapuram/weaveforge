@@ -7,7 +7,6 @@ import { Select } from "@/components/select";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import type { DashboardStats } from "../../application/build-dashboard-stats";
 import type { SupervisionStats } from "../../application/build-supervision-stats";
-import { isStatCard } from "../../application/card-registry";
 
 export interface CardRenderProps {
   stats: DashboardStats;

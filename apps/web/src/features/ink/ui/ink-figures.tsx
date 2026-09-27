@@ -34,6 +34,7 @@ import {
   type FigureHandle,
   type FigureOrderStep,
 } from "@weaveforge/core";
+import { DeleteIcon } from "@/components/view-icons";
 
 export interface InkFiguresProps {
   /** The figures the page's text layer places. */
@@ -60,7 +61,7 @@ export function InkFigures({
   activeIndex = null,
 }: InkFiguresProps) {
   return (
-    <div className="ink-figures" aria-hidden="true">
+    <div className={`ink-figures${activeIndex !== null ? " has-active" : ""}`} aria-hidden="true">
       {figures.map((one, index) => {
         const url = imageUrls.get(one.path);
         // A crop hides part of the image without touching the box: the
@@ -138,6 +139,12 @@ export interface InkFigureEditorProps {
   onRemove: () => void;
   /** The editor closed without doing anything more. */
   onClose: () => void;
+  /** A move of the figure ended: where it lands is the host's (§useFigureDrop). */
+  onDrop?: () => void;
+  /** Ctrl+C: the figure to the clipboard. */
+  onCopy?: () => void;
+  /** Ctrl+X: the figure to the clipboard, and off the page. */
+  onCut?: () => void;
 }
 
 /** A pointer drag in progress on the selected figure. */
@@ -200,6 +207,7 @@ function useFrameDrag(
   scale: number,
   onDrag: (held: EditorDrag, dx: number, dy: number, event: React.PointerEvent) => void,
   box: () => { x: number; y: number; w: number; h: number },
+  onEnd?: (handle: FigureHandle | "move") => void,
 ) {
   const drag = useRef<EditorDrag | null>(null);
   const begin = useCallback(
@@ -233,13 +241,18 @@ function useFrameDrag(
     },
     [onDrag, scale],
   );
-  const end = useCallback((event: React.PointerEvent) => {
-    if (drag.current?.pointerId !== event.pointerId) return;
-    drag.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  }, []);
+  const end = useCallback(
+    (event: React.PointerEvent) => {
+      const held = drag.current;
+      if (held?.pointerId !== event.pointerId) return;
+      drag.current = null;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      onEnd?.(held.handle);
+    },
+    [onEnd],
+  );
   return { begin, move, end };
 }
 
@@ -369,6 +382,9 @@ export function InkFigureEditor({
   onReorder,
   onRemove,
   onClose,
+  onDrop,
+  onCopy,
+  onCut,
 }: InkFigureEditorProps) {
   const [cropping, setCropping] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -381,20 +397,47 @@ export function InkFigureEditor({
     if (!cropping) rootRef.current?.focus({ preventScroll: true });
   }, [index, cropping]);
 
+  // A figure cut or removed from the keyboard takes its frame, and the focus
+  // with it; hand the focus back to the pane, so a paste right after lands.
+  useEffect(() => {
+    const pane = editorRef.current?.parentElement?.closest<HTMLElement>("[tabindex]");
+    return () => {
+      const lost = !document.activeElement || document.activeElement === document.body;
+      if (lost && pane?.isConnected) pane.focus({ preventScroll: true });
+    };
+  }, []);
+
+  // A press off the picture and its toolbar lets it go. The press itself is
+  // not spent: a pen that lands on the page still starts its stroke, and a
+  // mouse on another picture selects that one. The crop tool has its own.
+  // The editor's box takes no pointer events, so only the frame and the
+  // toolbar can be the target inside it.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => {
+    if (cropping || typeof document === "undefined") return;
+    const onOutside = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node) || editorRef.current?.contains(target)) return;
+      onCloseRef.current();
+    };
+    document.addEventListener("pointerdown", onOutside, true);
+    return () => document.removeEventListener("pointerdown", onOutside, true);
+  }, [cropping]);
+
   const { begin, move, end } = useFrameDrag(
     scale,
     useCallback(
       (held, dx, dy, event) => {
         if (held.handle === "move") {
-          // A move keeps the box and goes where the pointer goes, clamped so
-          // at least half of it stays on the paper.
+          // A move keeps the box and goes where the pointer goes, clamped
+          // sideways so at least half of it stays on the paper; up and down it
+          // may leave for the next page, and the drop decides (§onDrop).
           onChange({
             x: Math.round(
               Math.min(Math.max(held.box.x + dx, -held.box.w / 2), pageSize.width - held.box.w / 2),
             ),
-            y: Math.round(
-              Math.min(Math.max(held.box.y + dy, -held.box.h / 2), pageSize.height - held.box.h / 2),
-            ),
+            y: Math.round(held.box.y + dy),
             w: held.box.w,
             h: held.box.h,
             crop: figure.crop,
@@ -406,12 +449,15 @@ export function InkFigureEditor({
           crop: figure.crop,
         });
       },
-      [figure.crop, onChange, pageSize.height, pageSize.width],
+      [figure.crop, onChange, pageSize.width],
     ),
     useCallback(
       () => ({ x: figure.x, y: figure.y, w: figure.w, h: figure.h }),
       [figure.h, figure.w, figure.x, figure.y],
     ),
+    useCallback((handle: FigureHandle | "move") => {
+      if (handle === "move") onDrop?.();
+    }, [onDrop]),
   );
 
   const onKeyDown = useCallback(
@@ -431,6 +477,12 @@ export function InkFigureEditor({
       } else if (event.key === "Escape") {
         event.preventDefault();
         onClose();
+      } else if ((event.key === "c" || event.key === "C") && (event.ctrlKey || event.metaKey) && onCopy) {
+        event.preventDefault();
+        onCopy();
+      } else if ((event.key === "x" || event.key === "X") && (event.ctrlKey || event.metaKey) && onCut) {
+        event.preventDefault();
+        onCut();
       } else if (event.key === "]" && (event.ctrlKey || event.metaKey)) {
         event.preventDefault();
         onReorder(event.shiftKey ? "front" : "forward");
@@ -439,7 +491,7 @@ export function InkFigureEditor({
         onReorder(event.shiftKey ? "back" : "backward");
       }
     },
-    [figure, onChange, onClose, onRemove, onReorder],
+    [figure, onChange, onClose, onCopy, onCut, onRemove, onReorder],
   );
 
   if (cropping) {
@@ -452,7 +504,6 @@ export function InkFigureEditor({
           onChange(next);
           setCropping(false);
         }}
-        onCancel={() => setCropping(false)}
       />
     );
   }
@@ -463,7 +514,6 @@ export function InkFigureEditor({
     width: figure.w * scale,
     height: figure.h * scale,
   };
-  const cropped = figure.crop !== undefined && figure.crop.some((n) => n > 0);
   const atTop = index >= count - 1;
   const atBottom = index <= 0;
   return (
@@ -492,19 +542,15 @@ export function InkFigureEditor({
         style={popoverStyle(px, visible, popoverWidth)}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <button type="button" className="ink-figure-button" title="Crop (double-click)" onClick={() => setCropping(true)}>
-          Crop
+        <button
+          type="button"
+          className="ink-figure-button ink-figure-button-icon"
+          aria-label="Crop"
+          title="Crop (double-click)"
+          onClick={() => setCropping(true)}
+        >
+          <CropIcon />
         </button>
-        {cropped ? (
-          <button
-            type="button"
-            className="ink-figure-button"
-            title="Show the whole image again"
-            onClick={() => onChange({ ...uncroppedFigureBox(figure), crop: undefined })}
-          >
-            Uncrop
-          </button>
-        ) : null}
         <span className="ink-figure-sep" />
         <button
           type="button"
@@ -543,16 +589,15 @@ export function InkFigureEditor({
           Back
         </button>
         <span className="ink-figure-sep" />
+        {/* No Done: a press off the picture, or Esc, lets it go. */}
         <button
           type="button"
-          className="ink-figure-button ink-figure-button-remove"
+          className="ink-figure-button ink-figure-button-icon ink-figure-button-remove"
+          aria-label="Remove"
           title="Remove (Delete)"
           onClick={onRemove}
         >
-          Remove
-        </button>
-        <button type="button" className="ink-figure-button" title="Done (Esc)" onClick={onClose}>
-          Done
+          <DeleteIcon size={18} />
         </button>
       </div>
     </div>
@@ -562,29 +607,26 @@ export function InkFigureEditor({
 /**
  * The crop tool, in place: the whole picture is shown where it would sit
  * with the crop lifted, dimmed, and the kept rectangle is drawn over it with
- * its own handles. Apply makes the kept rectangle the figure's box — what
- * was visible stays where it was — and writes the rest as insets. The file
- * is never touched.
+ * its own crop marks. There is no Apply: a press anywhere outside the kept
+ * rectangle (or Enter, or Esc) commits it, as a crop does in Google Docs. The
+ * kept rectangle becomes the figure's box — what was visible stays where it
+ * was — and the rest is written as insets. Dragging the marks back out to the
+ * picture's edges is how a crop is lifted. The file is never touched.
  */
 function InkFigureCropTool({
   figure,
   scale,
   imageUrl,
   onApply,
-  onCancel,
 }: {
   figure: FigureGeometry;
   scale: number;
   imageUrl: string | undefined;
   onApply: (next: Pick<FigureGeometry, "x" | "y" | "w" | "h" | "crop">) => void;
-  onCancel: () => void;
 }) {
   const full = useMemo(() => uncroppedFigureBox(figure), [figure]);
   const [kept, setKept] = useState({ x: figure.x, y: figure.y, w: figure.w, h: figure.h });
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const editorRef = useRef<HTMLDivElement | null>(null);
-  const visible = useVisibleWindow(editorRef);
-  const [popoverRef, popoverWidth] = usePopoverWidth();
   useEffect(() => {
     rootRef.current?.focus({ preventScroll: true });
   }, []);
@@ -619,17 +661,30 @@ function InkFigureCropTool({
   );
 
   const apply = () => onApply(cropFigureTo(full, kept));
+  // The listener below is bound once; it reads the latest kept rectangle here.
+  const applyRef = useRef(apply);
+  applyRef.current = apply;
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const onOutside = (event: PointerEvent) => {
+      const root = rootRef.current;
+      if (root && event.target instanceof Node && root.contains(event.target)) return;
+      // The press that ends a crop is spent on ending it: a pen on the page
+      // must not also start a stroke there. Only the press is stopped, so a
+      // button pressed outside still gets its click.
+      event.stopPropagation();
+      applyRef.current();
+    };
+    document.addEventListener("pointerdown", onOutside, true);
+    return () => document.removeEventListener("pointerdown", onOutside, true);
+  }, []);
   const fullPx = { left: full.x * scale, top: full.y * scale, width: full.w * scale, height: full.h * scale };
   const keptPx = { left: kept.x * scale, top: kept.y * scale, width: kept.w * scale, height: kept.h * scale };
   return (
     <div
       className="ink-figure-editor is-cropping"
-      ref={editorRef}
       onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          onCancel();
-        } else if (event.key === "Enter") {
+        if (event.key === "Escape" || event.key === "Enter") {
           event.preventDefault();
           apply();
         }
@@ -678,31 +733,17 @@ function InkFigureCropTool({
         </div>
         <FrameHandles begin={begin} move={move} end={end} />
       </div>
-      <div
-        ref={popoverRef}
-        className="ink-figure-popover"
-        role="toolbar"
-        aria-label="Crop this image"
-        style={popoverStyle(keptPx, visible, popoverWidth)}
-        onPointerDown={(event) => event.stopPropagation()}
-      >
-        <span className="ink-figure-hint">Drag the handles to choose what stays</span>
-        <button
-          type="button"
-          className="ink-figure-button"
-          title="Keep the whole image"
-          onClick={() => setKept({ x: full.x, y: full.y, w: full.w, h: full.h })}
-        >
-          All
-        </button>
-        <button type="button" className="ink-figure-button" title="Apply (Enter)" onClick={apply}>
-          Apply
-        </button>
-        <button type="button" className="ink-figure-button btn-cancel" title="Cancel (Esc)" onClick={onCancel}>
-          Cancel
-        </button>
-      </div>
     </div>
+  );
+}
+
+/** The crop glyph: two overlapping right angles. */
+function CropIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 2v14a2 2 0 0 0 2 2h14" />
+      <path d="M18 22V8a2 2 0 0 0-2-2H2" />
+    </svg>
   );
 }
 

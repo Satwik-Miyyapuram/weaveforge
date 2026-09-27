@@ -68,12 +68,11 @@ import {
   type CaptureTarget,
 } from "./webgl-offscreen";
 import { InkBatches } from "./webgl-batches";
-import { linkProgram, supportsWebglInk } from "./webgl-support";
+import { linkProgram, pageScissor } from "./webgl-support";
 
 import {
   INK_RENDER_COLOURS,
   type InkPalette,
-  type InkRgb,
 } from "./ink-palette";
 export { INK_RENDER_COLOURS } from "./ink-palette";
 
@@ -146,6 +145,8 @@ export class WebglInkRenderer implements InkRenderer {
   /** The lasso's selection, by stroke index, and where a drag is showing it. */
   private selected = new Set<number>();
   private shift: InkShift = { x: 0, y: 0 };
+  /** Strokes below this index are on the sheet's SVG; see `setShown`. */
+  private shown = 0;
   private readonly backgroundProgram: WebGLProgram;
   private readonly backgroundPageSizeUniform: WebGLUniformLocation | null;
   private readonly backgroundCameraUniform: WebGLUniformLocation | null;
@@ -297,6 +298,10 @@ export class WebglInkRenderer implements InkRenderer {
 
   setTransform(transform: InkViewTransform): void {
     this.transform = transform;
+  }
+
+  setShown(count: number): void {
+    this.shown = count;
   }
 
   setSelection(indices: readonly number[], shift: InkShift): void {
@@ -472,7 +477,17 @@ export class WebglInkRenderer implements InkRenderer {
     gl.clearStencil(0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
-    this.drawBackground();
+    // Nothing is drawn past the page's edge (the canvas renderer's clip, and
+    // the static SVG's): after the clear, which a scissor would also cut.
+    gl.enable(gl.SCISSOR_TEST);
+    gl.scissor(...pageScissor(this.transform, this.dpr, this.pageWidth, this.pageHeight, this.width, this.height));
+    // On screen the canvas carries only the wet ink: the stroke being written
+    // and a held selection. The page's image and its finished strokes are the
+    // sheet's own DOM (§ink-page-ink), which scrolls with the paper; the
+    // canvas is repainted by this worker a frame or more after a scroll, so
+    // anything drawn here slid against its page. An export draws everything.
+    const wetOnly = framebuffer === null;
+    if (!wetOnly) this.drawBackground();
 
     gl.useProgram(this.program);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.cornerBuffer);
@@ -548,6 +563,17 @@ export class WebglInkRenderer implements InkRenderer {
     // ones shifted.
     for (const batch of this.batchPool.all()) {
       if (batch.highlighter || batch.used === 0) continue;
+      const wet = batch === this.liveBatch;
+      if (wetOnly && !wet) {
+        for (const record of batch.records) {
+          const held = isSelected(record);
+          if (!held && record.stroke < this.shown) continue;
+          if (held) gl.uniform2f(this.shiftUniform, this.shift.x, this.shift.y);
+          drawn += this.batchPool.draw(batch, undefined, record.offset, record.count);
+          if (held) gl.uniform2f(this.shiftUniform, 0, 0);
+        }
+        continue;
+      }
       if (!selecting || !batch.records.some(isSelected)) {
         drawn += this.batchPool.draw(batch);
       } else {
@@ -590,15 +616,17 @@ export class WebglInkRenderer implements InkRenderer {
       gl.enable(gl.STENCIL_TEST);
       let k = 0;
       for (const batch of highlighter) {
-        const ranges: [number, number, boolean][] =
+        const ranges: [number, number, boolean, boolean][] =
           batch.records.length > 0
             ? batch.records.map((record) => [
                 record.offset,
                 record.count,
                 isSelected(record),
+                record.stroke >= this.shown,
               ])
-            : [[0, batch.used, false]];
-        for (const [offset, count, held] of ranges) {
+            : [[0, batch.used, false, true]];
+        for (const [offset, count, held, fresh] of ranges) {
+          if (wetOnly && !held && !fresh && batch !== this.liveBatch) continue;
           k += 1;
           if (k > 255) {
             gl.clear(gl.STENCIL_BUFFER_BIT);
@@ -619,6 +647,8 @@ export class WebglInkRenderer implements InkRenderer {
       gl.disable(gl.STENCIL_TEST);
       gl.uniform1i(this.coverageUniform, 0);
     }
+
+    gl.disable(gl.SCISSOR_TEST);
 
     this.stats = {
       backend: "webgl2",
