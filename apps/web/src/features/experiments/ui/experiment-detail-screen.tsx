@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -9,7 +9,7 @@ import { getContainer } from "@/bootstrap";
 import { BackButton } from "@/components/back-button";
 import { Select } from "@/components/select";
 import { ScreenLoader } from "@/components/weaveforge-loader";
-import { CommentsPanel, ShareButton } from "@/features/sharing";
+import { NoteComments, ShareButton } from "@/features/sharing";
 import { commitUrl } from "@/features/sync";
 import { CommentsIcon } from "@/components/view-icons";
 import {
@@ -41,6 +41,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   // and replaces the whole screen. A failed upload must not do that.
   const [attachError, setAttachError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const resultRef = useRef<HTMLParagraphElement>(null);
   const paperTitle = usePaperTitle(exp?.relatedPaper);
 
   const load = useCallback(async () => {
@@ -186,7 +187,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
 
             <RecordSection label="Result" tag={exp.resultNote ? undefined : "Open"}>
               {exp.resultNote ? (
-                <p className="record-abstract">{exp.resultNote}</p>
+                <p ref={resultRef} className="record-abstract">{exp.resultNote}</p>
               ) : (
                 <RecordEmpty>No result written yet. The SDK&apos;s <code>run.finish(note=…)</code> fills this in.</RecordEmpty>
               )}
@@ -198,9 +199,14 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
               </RecordSection>
             )}
 
-            <RecordSection label="Comments" id="record-comments">
-              <CommentsPanel resourceType="experiment" resourceId={exp.id} canComment />
-            </RecordSection>
+            <NoteComments
+              resourceType="experiment"
+              resourceId={exp.id}
+              canComment
+              isOwner
+              contentRef={resultRef}
+              contentKey={exp.resultNote ?? ""}
+            />
           </div>
 
           <aside className="record-aside">

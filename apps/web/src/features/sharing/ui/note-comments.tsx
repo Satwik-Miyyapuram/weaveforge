@@ -10,9 +10,9 @@ import { formatError } from "@/lib/format-error";
 import { anchorAt, locateAnchor, type TextSpan } from "../domain/text-anchor";
 
 /**
- * Margin comments on a note, the way a shared doc does them: select a passage,
- * comment on it, and the thread sits beside the note with the passage lit up in
- * the text. Threads take replies and resolve; resolved ones fold away.
+ * The one comment system: threads with replies that resolve and fold away. Given
+ * the rendered text (`contentRef`), a selected passage can be commented on and
+ * its thread lights it up, the way a shared doc does.
  *
  * Anchors live in the rendered text (what the reader selected), not the
  * markdown source, so a quote across bold or a link still matches. The
@@ -34,24 +34,28 @@ export function NoteComments({
   resourceType,
   resourceId,
   canComment,
-  isOwner,
+  isOwner = false,
   contentRef,
-  contentKey,
+  contentKey = "",
+  embedded = false,
 }: {
   resourceType: string;
   resourceId: string;
   canComment: boolean;
   /** The viewer owns the note, so may resolve anyone's thread. The server checks too. */
-  isOwner: boolean;
-  /** The rendered note. Null while the note is being edited. */
-  contentRef: RefObject<HTMLElement | null>;
+  isOwner?: boolean;
+  /** The rendered text threads anchor to. Absent: page-level threads only. */
+  contentRef?: RefObject<HTMLElement | null>;
   /** Changes whenever the rendered text may have, so spans are found again. */
-  contentKey: string;
+  contentKey?: string;
+  /** Inside a sheet that has its own toggle: no header, always open. */
+  embedded?: boolean;
 }) {
   const { profile, team } = useProfile();
   const [comments, setComments] = useState<Comment[]>([]);
   const [members, setMembers] = useState<Member[]>(team);
   const [open, setOpen] = useState(true);
+  const shown = open || embedded;
   const [showResolved, setShowResolved] = useState(false);
   const [pending, setPending] = useState<CommentAnchor | null>(null);
   const [draft, setDraft] = useState("");
@@ -107,7 +111,7 @@ export function NoteComments({
 
   // The rendered text, re-read whenever the note re-renders.
   useEffect(() => {
-    setText(contentRef.current?.textContent ?? "");
+    setText(contentRef?.current?.textContent ?? "");
   }, [contentRef, contentKey]);
 
   const threads = useMemo(() => {
@@ -126,10 +130,11 @@ export function NoteComments({
 
   // Light the open threads' passages, and the active one more strongly.
   useEffect(() => {
-    const el = contentRef.current;
+    const el = contentRef?.current;
     const reg = typeof CSS !== "undefined" ? (CSS as unknown as { highlights?: Map<string, unknown> }).highlights : undefined;
     const HighlightCtor = (globalThis as { Highlight?: new (...r: Range[]) => unknown }).Highlight;
-    if (!reg || !HighlightCtor) return;
+    // No text to light; leave the page-wide highlights to the instance that has one.
+    if (!contentRef || !reg || !HighlightCtor) return;
     const all: Range[] = [];
     const active: Range[] = [];
     if (el) {
@@ -151,7 +156,7 @@ export function NoteComments({
   // Selecting text in the note offers a comment on it; clicking a lit passage
   // brings its thread forward.
   useEffect(() => {
-    const el = contentRef.current;
+    const el = contentRef?.current;
     if (!el || !canComment) return;
     const onSelect = () => {
       const sel = window.getSelection();
@@ -176,7 +181,7 @@ export function NoteComments({
   }, [contentRef, canComment, contentKey]);
 
   useEffect(() => {
-    const el = contentRef.current;
+    const el = contentRef?.current;
     if (!el) return;
     const onClick = () => {
       const sel = window.getSelection();
@@ -291,13 +296,18 @@ export function NoteComments({
   }
 
   return (
-    <section className={`record-section note-comments${open ? " is-open" : ""}`} id="record-comments">
-      <h2 className="record-section-head">
-        <button type="button" className="note-comments-toggle" aria-expanded={open} onClick={toggleOpen}>
-          <span>Comments</span>
-          <span className="record-section-tag">{openThreads.length > 0 ? String(openThreads.length) : "None"}</span>
-        </button>
-      </h2>
+    <section
+      className={`${embedded ? "" : "record-section "}note-comments${shown ? " is-open" : ""}`}
+      id={embedded ? undefined : "record-comments"}
+    >
+      {!embedded && (
+        <h2 className="record-section-head">
+          <button type="button" className="note-comments-toggle" aria-expanded={open} onClick={toggleOpen}>
+            <span>Comments</span>
+            <span className="record-section-tag">{openThreads.length > 0 ? String(openThreads.length) : "None"}</span>
+          </button>
+        </h2>
+      )}
 
       {selection && (
         <button
@@ -312,7 +322,7 @@ export function NoteComments({
         </button>
       )}
 
-      {open && (
+      {shown && (
         <div className="note-comments-body">
           {canComment && (
             <div className="comment-add">
@@ -325,7 +335,7 @@ export function NoteComments({
                 ref={composerRef}
                 rows={2}
                 value={draft}
-                placeholder={pending ? "Comment on this passage…" : "Comment on the note, or select text to pin one…"}
+                placeholder={pending ? "Comment on this passage…" : contentRef ? "Comment, or select text to pin one…" : "Leave feedback…"}
                 onChange={(e) => setDraft(e.target.value)}
               />
               <div className="note-thread-actions">

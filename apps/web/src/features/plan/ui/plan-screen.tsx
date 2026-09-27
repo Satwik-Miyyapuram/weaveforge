@@ -421,6 +421,7 @@ function MilestoneCard({
           resourceType="milestone"
           resourceId={m.id}
           canComment={readOnly ? canComment : true}
+          isOwner={!readOnly}
         />
       }
     >

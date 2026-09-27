@@ -170,6 +170,7 @@ export function SectionNote({
           resourceType="report_section"
           resourceId={section.id}
           canComment={readOnly ? canComment : true}
+          isOwner={!readOnly}
           variant="detail"
         />
         {!readOnly && (

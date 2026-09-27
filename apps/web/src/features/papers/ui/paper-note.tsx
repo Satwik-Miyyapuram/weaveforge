@@ -18,7 +18,7 @@ import {
   wordCount,
 } from "@/components/record";
 import { RelatedPanel } from "@/components/related-panel";
-import { CommentsPanel, ShareButton, PinnedPaperBadge } from "@/features/sharing";
+import { NoteComments, ShareButton, PinnedPaperBadge } from "@/features/sharing";
 import { materializePaperBlobImages } from "../lib/paper-images-md";
 import { reconcileTagsFromBodyOrDefer } from "../lib/note-tags";
 import type { EditorHandle } from "@/components/editor-handle";
@@ -106,6 +106,7 @@ export function PaperNote({
   const [copied, setCopied] = useState(false);
   // Filled in while the editor is on screen, so the button can insert at the caret.
   const editorHandle = useRef<EditorHandle | null>(null);
+  const noteTextRef = useRef<HTMLDivElement>(null);
   const { completions } = useCiteLinkCatalog();
   const [citationFormat, setCitationFormat] = useCitationFormatPreference();
 
@@ -398,6 +399,7 @@ export function PaperNote({
               )
             ) : (
               <div
+                ref={noteTextRef}
                 className={
                   mode !== "read"
                     ? `record-doc record-doc--${mode}${inkFocus.focus ? " record-ink-focus is-focus" : ""}`
@@ -474,9 +476,14 @@ export function PaperNote({
                 </RecordSection>
               )}
 
-              <RecordSection label="Comments" id="record-comments">
-                <CommentsPanel resourceType="paper" resourceId={paper.id} canComment={readOnly ? canComment : true} />
-              </RecordSection>
+              <NoteComments
+                resourceType="paper"
+                resourceId={paper.id}
+                canComment={readOnly ? canComment : true}
+                isOwner={!readOnly}
+                contentRef={noteTextRef}
+                contentKey={`${mode}:${paper.summary ?? ""}`}
+              />
             </>
           )}
         </div>

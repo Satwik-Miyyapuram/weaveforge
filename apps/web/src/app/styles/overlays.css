@@ -134,9 +134,7 @@
   background: var(--surface);
   box-shadow: var(--shadow);
 }
-.comments { display: grid; gap: 10px; margin: 0; border: none; padding: 0; }
 .comments-empty { margin: 0; font-size: 0.85rem; }
-.comment-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .comment-head { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; min-width: 0; }
 .comment-del {
   width: 28px;
@@ -145,7 +143,6 @@
 }
 .comment-author { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .comment-time { font-size: 0.74rem; margin-left: auto; flex: none; }
-.comment-body { margin: 2px 0 0; padding-left: 36px; white-space: pre-wrap; font-size: 0.9rem; }
 .comment-add { display: grid; gap: 6px; justify-items: end; }
 .comment-add textarea { min-height: 64px; }
 .comment-add .btn-primary { width: auto; }

@@ -502,6 +502,7 @@ function ListNode(props: ListNodeProps) {
           resourceType="reading_list"
           resourceId={list.id}
           canComment={readOnly ? canComment : true}
+          isOwner={!readOnly}
         />
       </div>
 
