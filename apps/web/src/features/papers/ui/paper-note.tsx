@@ -3,7 +3,7 @@
 import { InlineError } from "@/components/form-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
+import { isInkNoteBody, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { confirmRemovePaper } from "./remove-paper";
 import { formatError } from "@/lib/format-error";
@@ -386,7 +386,15 @@ export function PaperNote({
                 </button>
               )
             ) : (
-              <div className={mode === "read" ? "record-note-read" : `record-doc record-doc--${mode}`}>
+              <div
+                className={
+                  mode !== "read"
+                    ? `record-doc record-doc--${mode}`
+                    : isInkNoteBody(paper.summary ?? "")
+                      ? "record-note-read record-note-read--ink"
+                      : "record-note-read"
+                }
+              >
                 {mode === "edit" && (
                   <div className="summary-editor-bar">
                     <CitationFormatSelect value={citationFormat} onChange={setCitationFormat} />

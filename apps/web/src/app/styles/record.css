@@ -155,20 +155,6 @@
   color: var(--muted);
 }
 .record-section-tag { color: var(--faint); font-weight: 400; }
-.record-tag-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  color: var(--faint);
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-}
-.record-tag-btn:hover { color: var(--text); }
 /* The word count beside the Editor's Edit / Read / Ink switch. */
 .record-mode-tag { display: inline-flex; align-items: center; gap: 12px; }
 .record-mode-tag .pane-mode { margin: 0; font-family: var(--font-sans); letter-spacing: 0; }
@@ -204,8 +190,8 @@
   border: 1px solid var(--border);
   overflow: hidden;
 }
-/* Edit on an ink note: the Editor's own sheet, framed at the reading height. */
-.record-ink-edit .ink-wrap {
+/* Ink on a note: the Editor's own sheet, framed at the reading height. */
+.record-doc--ink .ink-wrap {
   height: min(78vh, 1100px);
   border: 1px solid var(--border);
 }
