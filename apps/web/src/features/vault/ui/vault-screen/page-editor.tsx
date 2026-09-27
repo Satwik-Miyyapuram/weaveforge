@@ -14,6 +14,7 @@ import { AttachImageButton } from "@/components/attach-image-button";
 import type { EditorHandle } from "@/components/editor-handle";
 import { CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
 import { RecordEmpty, RecordFacts, RecordSection, recordDate, wordCount } from "@/components/record";
+import { BackButton } from "@/components/back-button";
 import { DocumentBody } from "@/components/document-body";
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { RelatedPanel } from "@/components/related-panel";
@@ -169,7 +170,7 @@ export function PageEditor({
   return (
     <article className="record">
       <nav className="record-bar" aria-label="Note">
-        {onBack && <button type="button" className="record-back" onClick={onBack}>← Notes</button>}
+        {onBack && <BackButton label="Notes" onClick={onBack} />}
         {sharedPage && <span className="record-mono record-bar-id">Shared</span>}
         {sharedByName && <PinnedPaperBadge ownerName={sharedByName} />}
         <div className="record-actions">
@@ -224,7 +225,7 @@ export function PageEditor({
         <p className="record-mono record-meta">{meta}</p>
       </header>
 
-      <div className="record-grid">
+      <div className={view === "edit" ? "record-grid record-grid--editing" : "record-grid"}>
         <div className="record-main">
           <RecordSection
             label={ink ? "Pages" : "Text"}

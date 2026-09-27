@@ -183,11 +183,6 @@
   min-width: 0;
   overflow-x: clip;
 }
-.paper-back {
-  margin: 0 0 6px;
-  min-height: 36px;
-  padding: 6px 12px;
-}
 .paper-note-head {
   display: flex;
   align-items: center;

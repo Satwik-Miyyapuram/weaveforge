@@ -23,6 +23,7 @@ import { materializePaperBlobImages } from "../lib/paper-images-md";
 import { reconcileTagsFromBodyOrDefer } from "../lib/note-tags";
 import type { EditorHandle } from "@/components/editor-handle";
 import { AttachImageButton } from "@/components/attach-image-button";
+import { BackButton } from "@/components/back-button";
 import { DocumentBody } from "@/components/document-body";
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
@@ -273,7 +274,7 @@ export function PaperNote({
   return (
     <article className="record">
       <nav className="record-bar" aria-label="Paper">
-        <button type="button" className="record-back" onClick={onBack}>← Papers</button>
+        <BackButton label="Papers" onClick={onBack} />
         <span className="record-mono record-bar-id">Record {citeKey || paper.id.slice(0, 6)}</span>
         {readOnly ? (
           <PinnedPaperBadge ownerName={sharedByName} />
@@ -369,7 +370,7 @@ export function PaperNote({
           ))}
       </header>
 
-      <div className="record-grid">
+      <div className={mode === "edit" ? "record-grid record-grid--editing" : "record-grid"}>
         <div className="record-main">
           <RecordSection
             label="Note"

@@ -30,16 +30,40 @@
   gap: 10px 22px;
   min-height: 36px;
 }
-.record-back {
+/* The one back control (components/back-button.tsx): a square chevron box and
+   the name of where it goes, the same on every detail page. */
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font: inherit;
   font-size: 0.88rem;
   color: var(--muted);
   background: none;
   border: none;
-  padding: 4px 0;
+  padding: 0;
   cursor: pointer;
+  text-decoration: none;
+  flex: none;
 }
-.record-back:hover { color: var(--text); }
+.back-btn-box {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  box-shadow: var(--sh-sm, none);
+}
+.back-btn-box svg { width: 16px; height: 16px; }
+@media (hover: hover) {
+  .back-btn:hover { color: var(--text); }
+  .back-btn:hover .back-btn-box { background: var(--surface2); }
+}
+.back-btn:active .back-btn-box { transform: var(--press-t, none); box-shadow: var(--sh-press, none); }
+:root[data-theme="crt"] .back-btn-box { background: #f29731; color: #2b222b; box-shadow: var(--sh-btn-2); }
 .record-bar-id { white-space: nowrap; }
 
 .record-state { display: inline-flex; align-items: center; gap: 8px; }
@@ -133,6 +157,9 @@
 }
 .record-main,
 .record-aside { min-width: 0; }
+/* Writing takes the page: the side column steps aside while Edit is on. */
+.record-grid--editing { grid-template-columns: minmax(0, 1fr); }
+.record-grid--editing > .record-aside { display: none; }
 
 @media (max-width: 900px) {
   .record-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
@@ -192,6 +219,12 @@
 }
 /* Ink on a note: the Editor's own sheet, framed at the reading height. */
 .record-doc--ink .ink-wrap {
+  height: min(78vh, 1100px);
+  border: 1px solid var(--border);
+}
+/* Edit on a record page: the Editor's writing surface at the same height, not
+   the height of its first few lines. */
+.record-doc--edit .md-live {
   height: min(78vh, 1100px);
   border: 1px solid var(--border);
 }

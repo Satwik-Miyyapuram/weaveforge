@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { REPORT_STATUSES, type ReportSection, type ReportStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
+import { BackButton } from "@/components/back-button";
 import { DocumentBody } from "@/components/document-body";
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { CardMenu } from "@/components/card-menu";
@@ -128,9 +129,7 @@ export function SectionNote({
 
   return (
     <div className="paper-note">
-      <button type="button" className="btn-secondary paper-back" onClick={onBack}>
-        ← Report
-      </button>
+      <BackButton label="Report" onClick={onBack} />
 
       {/* Status, then one toolbar, then the title: the order of the phone mock
           (PhoneSectionDetail), which reads the same on a wide screen. Delete is
@@ -201,7 +200,7 @@ export function SectionNote({
         {section.title}
       </h1>
 
-      <div className="section-note-layout">
+      <div className={editing ? "section-note-layout section-note-layout--editing" : "section-note-layout"}>
       <div className="paper-note-body">
         {!editing && !hasNotes ? (
           readOnly ? (
@@ -237,7 +236,7 @@ export function SectionNote({
         )}
         {saveError && <InlineError>{saveError}</InlineError>}
       </div>
-      {!readOnly && <SectionRelatedExcerpts section={section} onInsert={insertSnippet} />}
+      {!readOnly && !editing && <SectionRelatedExcerpts section={section} onInsert={insertSnippet} />}
       </div>
     </div>
   );

@@ -533,7 +533,6 @@ body > canvas.hiddenCanvasElement { display: none; }
 }
 .pdf-reader-refs-meta { font-size: 0.75rem; }
 .reader-screen-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; min-width: 0; }
-.reader-screen-back { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; flex: none; }
 .reader-screen-title {
   margin: 0; flex: 1 1 auto; min-width: 0; font-size: 1.1rem;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

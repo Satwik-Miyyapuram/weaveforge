@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   EXPERIMENT_STATUSES, isStaleRunningExperiment, shortSha, type Experiment, type ExperimentStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { BackButton } from "@/components/back-button";
 import { Select } from "@/components/select";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { CommentsPanel, ShareButton } from "@/features/sharing";
@@ -98,9 +99,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   if (error || !exp) {
     return (
       <section className="screen">
-        <button type="button" className="btn-secondary paper-back" onClick={goBackToList}>
-          ← Experiments
-        </button>
+        <BackButton label="Experiments" onClick={goBackToList} />
         <FormError>{error ?? "Experiment not found."}</FormError>
       </section>
     );
@@ -128,7 +127,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
     <section className="screen exp-detail">
       <article className="record">
         <nav className="record-bar" aria-label="Experiment">
-          <button type="button" className="record-back" onClick={goBackToList}>← Experiments</button>
+          <BackButton label="Experiments" onClick={goBackToList} />
           <span className="record-mono record-bar-id">Run {exp.id.slice(0, 6)}</span>
           <span className="record-state">
             <RecordDots filled={STATUS_DOTS[exp.status] ?? 0} total={2} label={`Status: ${exp.status}`} />
