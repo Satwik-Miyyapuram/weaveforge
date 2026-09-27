@@ -201,6 +201,11 @@
   border: 1px solid var(--border);
   overflow: hidden;
 }
+/* Edit on an ink note: the Editor's own sheet, framed at the reading height. */
+.record-ink-edit .ink-wrap {
+  height: min(78vh, 1100px);
+  border: 1px solid var(--border);
+}
 .record-main .summary,
 .record-note { font-size: 0.98rem; line-height: 1.75; margin: 0; }
 .record-abstract {
