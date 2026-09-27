@@ -5,10 +5,10 @@ import { isPlaceholderTitle, titleFromFileName, type Paper, type PaperStatus, ty
 import { getContainer } from "@/bootstrap";
 import { confirmRemovePaper } from "./remove-paper";
 import { EntityCard } from "@/components/entity-card";
-import { CardMenu } from "@/components/card-menu";
+import { EntityCardMenu } from "@/components/entity-card-menu";
 import { PaperCardThumbs } from "@/components/card-thumbs";
 import { cardSnippet } from "@/lib/card-snippet";
-import { ShareButton, PinnedPaperBadge } from "@/features/sharing";
+import { PinnedPaperBadge } from "@/features/sharing";
 import { ListPicker } from "@/features/reading-lists";
 import { PaperStatusControl } from "./paper-status";
 
@@ -36,9 +36,6 @@ export function PaperCard({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  // Held here rather than inside the menu: the menu closes the moment an item is
-  // picked, and the dialog it opened has to outlive that.
-  const [shareOpen, setShareOpen] = useState(false);
 
   async function changeStatus(status: PaperStatus) {
     setBusy(true);
@@ -67,52 +64,42 @@ export function PaperCard({
   const snippet = cardSnippet(paper.summary ?? "");
 
   return (
-    <>
-      <EntityCard
-        className={`paper-card paper-card--${paper.status}`}
-        onActivate={onOpen}
-        // Rows imported before titles were cleaned still carry the filename.
-        title={titleFromFileName(paper.title)}
-        status={
-          readOnly ? (
-            <PinnedPaperBadge ownerName={sharedByName} />
-          ) : (
-            <PaperStatusControl status={paper.status} disabled={busy} onChange={(s) => void changeStatus(s)} />
-          )
-        }
-        meta={metaBits.length > 0 ? metaBits.join(" · ") : undefined}
-        tags={paper.tags}
-        // Status stays on the card — it is the one control worth a tap, and the
-        // reason the cards are scanned. Share, filing and delete are occasional
-        // and move behind the kebab; the card body opens the paper.
-        menu={
-          readOnly ? undefined : (
-            <CardMenu
-              items={[
-                { id: "share", label: "Share", onSelect: () => setShareOpen(true) },
-                { id: "list", label: "Add to list", onSelect: () => {}, submenu: () => <ListPicker target={{ kind: "paper", id: paper.id }} /> },
-                { id: "delete", label: "Delete", danger: true, disabled: busy, onSelect: () => void remove() },
-              ]}
-            />
-          )
-        }
-      >
-        <div className="card-body-row">
-          {snippet ? <p className="entity-card-snippet">{snippet}</p> : null}
-          <PaperCardThumbs paper={paper} />
-        </div>
-      </EntityCard>
-      {/* Mounted above the card: the shell's dialog host renders the share sheet,
-          and the list picker has to survive the refresh the card's own change
-          event triggers. */}
-      <ShareButton
-        hideTrigger
-        resourceType="paper"
-        resourceId={paper.id}
-        title={`Share: ${paper.title}`}
-        open={shareOpen}
-        onOpenChange={setShareOpen}
-      />
-    </>
+    <EntityCard
+      className={`paper-card paper-card--${paper.status}`}
+      onActivate={onOpen}
+      // Rows imported before titles were cleaned still carry the filename.
+      title={titleFromFileName(paper.title)}
+      status={
+        readOnly ? (
+          <PinnedPaperBadge ownerName={sharedByName} />
+        ) : (
+          <PaperStatusControl status={paper.status} disabled={busy} onChange={(s) => void changeStatus(s)} />
+        )
+      }
+      meta={metaBits.length > 0 ? metaBits.join(" · ") : undefined}
+      tags={paper.tags}
+      // Status stays on the card — it is the one control worth a tap, and the
+      // reason the cards are scanned. Share, filing and delete are occasional
+      // and move behind the kebab; the card body opens the paper.
+      menu={
+        readOnly ? undefined : (
+          <EntityCardMenu
+            resourceType="paper"
+            resourceId={paper.id}
+            title={`Share: ${paper.title}`}
+            deleteDisabled={busy}
+            onDelete={() => void remove()}
+            extraItems={[
+              { id: "list", label: "Add to list", onSelect: () => {}, submenu: () => <ListPicker target={{ kind: "paper", id: paper.id }} /> },
+            ]}
+          />
+        )
+      }
+    >
+      <div className="card-body-row">
+        {snippet ? <p className="entity-card-snippet">{snippet}</p> : null}
+        <PaperCardThumbs paper={paper} />
+      </div>
+    </EntityCard>
   );
 }

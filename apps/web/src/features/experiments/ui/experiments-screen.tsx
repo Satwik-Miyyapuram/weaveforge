@@ -13,7 +13,7 @@ import { CompareViewIcon, FilterIcon, ListViewIcon } from "@/components/view-ico
 import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { EntityCard } from "@/components/entity-card";
-import { CardMenu } from "@/components/card-menu";
+import { EntityCardMenu } from "@/components/entity-card-menu";
 import { ExperimentCardThumbs } from "@/components/card-thumbs";
 import { cardSnippet } from "@/lib/card-snippet";
 import { ShareButton, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
@@ -520,9 +520,6 @@ function ExperimentCard({
   const router = useRouter();
   const { beginNavigation } = useNavPending();
   const [busy, setBusy] = useState(false);
-  // Held here, not inside the menu: the menu closes on pick, and the share
-  // sheet it opened has to outlive that.
-  const [shareOpen, setShareOpen] = useState(false);
   const openDetail = useCallback(() => {
     const dest = experimentHref(exp.id);
     beginNavigation(dest);
@@ -542,8 +539,7 @@ function ExperimentCard({
     }
   }
   return (
-    <>
-      <EntityCard
+    <EntityCard
       as="li"
       id={`exp-${exp.id}`}
       className={`exp-item exp-item--${exp.status}`}
@@ -569,11 +565,12 @@ function ExperimentCard({
       // occasional and destructive controls move behind one ⋯.
       menu={
         readOnly ? undefined : (
-          <CardMenu
-            items={[
-              { id: "share", label: "Share", onSelect: () => setShareOpen(true) },
-              { id: "delete", label: "Delete", danger: true, disabled: busy, onSelect: () => void remove() },
-            ]}
+          <EntityCardMenu
+            resourceType="experiment"
+            resourceId={exp.id}
+            title={`Share: ${exp.name}`}
+            deleteDisabled={busy}
+            onDelete={() => void remove()}
           />
         )
       }
@@ -584,16 +581,7 @@ function ExperimentCard({
         {exp.resultNote && <p className="entity-card-snippet">{cardSnippet(exp.resultNote)}</p>}
         <ExperimentCardThumbs artifacts={exp.artifacts} />
       </div>
-      </EntityCard>
-      <ShareButton
-        hideTrigger
-        resourceType="experiment"
-        resourceId={exp.id}
-        title={`Share: ${exp.name}`}
-        open={shareOpen}
-        onOpenChange={setShareOpen}
-      />
-    </>
+    </EntityCard>
   );
 }
 

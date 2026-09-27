@@ -4,8 +4,8 @@ import { useMemo, useState } from "react";
 import { extractHashtags, type VaultPage, type VaultPageSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { EntityCard } from "@/components/entity-card";
-import { CardMenu } from "@/components/card-menu";
-import { ShareButton, PinnedPaperBadge } from "@/features/sharing";
+import { EntityCardMenu } from "@/components/entity-card-menu";
+import { PinnedPaperBadge } from "@/features/sharing";
 import { ListPicker } from "@/features/reading-lists";
 import { cardSnippet } from "@/lib/card-snippet";
 import { isHydratedPage, noteBodyText, readableText } from "@/lib/page-text";
@@ -43,9 +43,6 @@ export function NoteCard({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  // Held here rather than inside the menu: the menu closes the moment an item is
-  // picked, and the dialog it opened has to outlive that.
-  const [shareOpen, setShareOpen] = useState(false);
   const preview = noteBodyText(page);
   const excerpt = cardSnippet(readableText(preview));
   const tags = useMemo(() => extractHashtags(preview), [preview]);
@@ -72,41 +69,32 @@ export function NoteCard({
   }
 
   return (
-    <>
-      <EntityCard
-        className="paper-card"
-        onActivate={onOpen}
-        title={page.title}
-        meta={editedLabel(page.updatedAt)}
-        status={readOnly ? <PinnedPaperBadge ownerName={sharedByName} /> : undefined}
-        tags={tags}
-        // One overflow menu instead of a delete icon and a share button on every
-        // card in the grid; the body of the card opens the note.
-        menu={
-          readOnly ? undefined : (
-            <CardMenu
-              items={[
-                { id: "pin", label: page.pinned ? "Unpin" : "Pin", disabled: busy, onSelect: () => void togglePin() },
-                { id: "share", label: "Share", onSelect: () => setShareOpen(true) },
-                { id: "list", label: "Add to list", onSelect: () => {}, submenu: () => <ListPicker target={{ kind: "note", id: page.id }} /> },
-                { id: "delete", label: "Delete", danger: true, disabled: busy, onSelect: () => void remove() },
-              ]}
-            />
-          )
-        }
-      >
-        {excerpt ? <p className="entity-card-snippet">{excerpt}</p> : null}
-      </EntityCard>
-      {/* Both dialogs live above the card so a list refresh that remounts it
-          cannot close them mid-decision. */}
-      <ShareButton
-        hideTrigger
-        resourceType="vault_page"
-        resourceId={page.id}
-        title={`Share: ${page.title}`}
-        open={shareOpen}
-        onOpenChange={setShareOpen}
-      />
-    </>
+    <EntityCard
+      className="paper-card"
+      onActivate={onOpen}
+      title={page.title}
+      meta={editedLabel(page.updatedAt)}
+      status={readOnly ? <PinnedPaperBadge ownerName={sharedByName} /> : undefined}
+      tags={tags}
+      // One overflow menu instead of a delete icon and a share button on every
+      // card in the grid; the body of the card opens the note.
+      menu={
+        readOnly ? undefined : (
+          <EntityCardMenu
+            resourceType="vault_page"
+            resourceId={page.id}
+            title={`Share: ${page.title}`}
+            deleteDisabled={busy}
+            onDelete={() => void remove()}
+            extraItems={[
+              { id: "pin", label: page.pinned ? "Unpin" : "Pin", disabled: busy, onSelect: () => void togglePin() },
+              { id: "list", label: "Add to list", onSelect: () => {}, submenu: () => <ListPicker target={{ kind: "note", id: page.id }} /> },
+            ]}
+          />
+        )
+      }
+    >
+      {excerpt ? <p className="entity-card-snippet">{excerpt}</p> : null}
+    </EntityCard>
   );
 }
