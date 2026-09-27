@@ -34,6 +34,7 @@ import {
   type FigureHandle,
   type FigureOrderStep,
 } from "@weaveforge/core";
+import { DeleteIcon } from "@/components/view-icons";
 
 export interface InkFiguresProps {
   /** The figures the page's text layer places. */
@@ -537,16 +538,15 @@ export function InkFigureEditor({
           Back
         </button>
         <span className="ink-figure-sep" />
+        {/* No Done: a press off the picture, or Esc, lets it go. */}
         <button
           type="button"
-          className="ink-figure-button ink-figure-button-remove"
+          className="ink-figure-button ink-figure-button-icon ink-figure-button-remove"
+          aria-label="Remove"
           title="Remove (Delete)"
           onClick={onRemove}
         >
-          Remove
-        </button>
-        <button type="button" className="ink-figure-button" title="Done (Esc)" onClick={onClose}>
-          Done
+          <DeleteIcon size={18} />
         </button>
       </div>
     </div>

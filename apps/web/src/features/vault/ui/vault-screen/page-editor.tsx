@@ -16,7 +16,7 @@ import { AttachImageButton } from "@/components/attach-image-button";
 import { CitationFormatSelect } from "@/components/citation-format-select";
 import type { EditorHandle } from "@/components/editor-handle";
 import { MarkdownCodeEditor } from "@/components/markdown/markdown-code-editor-lazy";
-import { CommentsIcon, DeleteIcon, EditIcon } from "@/components/view-icons";
+import { CommentsIcon, DeleteIcon, EditIcon, OpenIcon } from "@/components/view-icons";
 import { RecordEmpty, RecordFacts, RecordSection, recordDate, wordCount } from "@/components/record";
 import { RelatedPanel } from "@/components/related-panel";
 import { CollabBodyHost } from "@/features/collab";
@@ -27,7 +27,7 @@ import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-pre
 import { useCiteLinkCatalog, type CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
 import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
-import { VaultMarkdown } from "../vault-markdown";
+import { NoteReadView } from "../note-read-view";
 import { NoteTagEditor } from "./note-tag-editor";
 
 export function PageEditor({
@@ -129,9 +129,10 @@ export function PageEditor({
     if (page.id) setEditing(false);
   }, [page.id]);
 
-  // A handwritten note keeps its ink header and page markers in the body. The
-  // page shows the text layer under them, and the plain editor stays shut: it
-  // would hand the header to the person to break. Ink is written in the Editor.
+  // A handwritten note keeps its ink header and page markers in the body. It
+  // is read as its sheet (`NoteReadView`), counted by the text layer under
+  // them, and the markdown editor stays shut: it would hand the header to the
+  // person to break. Ink is written in the Editor.
   const ink = isInkNoteBody(page.body);
   const readBody = useMemo(
     () =>
@@ -225,6 +226,16 @@ export function PageEditor({
     wordsLabel,
   ].filter(Boolean).join(" / ");
 
+  /** An image placed from the read view writes the body back, as in the Editor. */
+  const saveReadBody = useCallback(
+    async (body: string) => {
+      await getContainer().vault.manageVaultPage.update(page.id, { body });
+      await onChanged();
+    },
+    [onChanged, page.id],
+  );
+  const editorHref = `${WORKSPACE_PATH}?open=${encodeURIComponent(`vault_page:${page.id}`)}`;
+
   function startEditing() {
     setDraft(page.body);
     setTitle(page.title);
@@ -238,20 +249,18 @@ export function PageEditor({
         <span className="record-mono record-bar-id">Note{sharedPage ? " · shared" : ""}</span>
         {sharedByName && <PinnedPaperBadge ownerName={sharedByName} />}
         <div className="record-actions">
+          {/* Two ways to write: Edit is the markdown, here on the page; Open
+              in editor is the full Editor, the only place ink is written. */}
           {!showEditor && canEditBody && (
             <button type="button" className="record-action" onClick={startEditing}>
               <EditIcon />
               <span>{hasBody ? "Edit" : "Write"}</span>
             </button>
           )}
-          {/* Ink is written only in the Editor, so Edit goes there with the note open. */}
-          {ink && !readOnly && (
-            <Link
-              className="record-action"
-              href={`${WORKSPACE_PATH}?open=${encodeURIComponent(`vault_page:${page.id}`)}`}
-            >
-              <EditIcon />
-              <span>Edit</span>
+          {!readOnly && !sharedPage && (
+            <Link className="record-action" href={editorHref}>
+              <OpenIcon />
+              <span>Open in editor</span>
             </Link>
           )}
           {!readOnly && !sharedPage && (
@@ -303,11 +312,13 @@ export function PageEditor({
             }
           >
             {!showEditor ? (
-              hasBody ? (
-                <div ref={noteTextRef}>
-                  <VaultMarkdown
-                    body={readBody}
-                    className="summary record-note"
+              hasBody || ink ? (
+                <div ref={noteTextRef} className={ink ? "record-note-read record-note-read--ink" : "record-note-read"}>
+                  <NoteReadView
+                    noteId={page.id}
+                    body={page.body}
+                    ink={ink}
+                    onSave={canEditBody ? saveReadBody : undefined}
                     notes={notes}
                     papers={papers}
                     sections={sections}
@@ -315,8 +326,6 @@ export function PageEditor({
                     resolveEmbed={resolveEmbed}
                   />
                 </div>
-              ) : ink ? (
-                <RecordEmpty>Handwritten, with no recognised text yet. Edit opens it in the Editor.</RecordEmpty>
               ) : canEditBody ? (
                 <button type="button" className="record-note-empty" onClick={startEditing}>
                   Nothing written yet. Start typing — #hashtags and [[wikilinks]] join this note to the graph.

@@ -32,15 +32,15 @@ import { CollabBodyHost } from "@/features/collab";
 // sibling only through its index (CONTRIBUTING.md § SOLID). A paper's
 // `paperimg:` and a section's `reportimg:` resolve here because the resolvers
 // are theirs, not because this screen learned the prefixes.
-import { InkHost, InkReader } from "@/features/ink";
+import { InkHost } from "@/features/ink";
 import { PaperMarkdown, paperImageMarkdown } from "@/features/papers";
 import { PaperPdfPane } from "@/features/reader";
 import { ReportSectionMarkdown, reportImageMarkdown } from "@/features/report";
-import { VaultMarkdown, type WikilinkEntry } from "@/features/vault";
+import { NoteReadView, VaultMarkdown, type WikilinkEntry } from "@/features/vault";
 import { editorImageUpload } from "@/lib/editor-image-upload";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import type { DocumentMode, TabRef } from "../application/pane-tree";
-import { ImageSizeControl } from "./image-size-control";
+import { ImageSizeControl } from "@/components/image-size-control";
 import { documentKind, hasInkView, hasPdfView } from "./kind";
 import { LivePreview, useMdPreviewMode } from "./md-live-preview";
 
@@ -360,15 +360,30 @@ export function DocumentHost({
     // Read mode of an ink note: the same sheet as Ink with the pen down, so
     // everything drawn on it — strokes, figures, diagrams, images — is there
     // to read. It takes no `onSave`: there is nothing to edit.
-    return (
-      <InkReader noteId={tab.id} body={body} deps={getContainer().ink} paperId={sheetPaperId} />
-    );
+    return <NoteReadView ink noteId={tab.id} body={body} paperId={sheetPaperId} />;
   }
 
   if (renderer === "pdf" || renderer === "pdf_ink") {
     // The reader's paper half, in the tab. The route is the same component
     // with a header around it; the PDF is not loaded twice.
     return <PaperPdfPane paperId={tab.id} inkRail={renderer === "pdf_ink"} />;
+  }
+
+  if (renderer === "markdown" && tab.kind !== "paper" && tab.kind !== "report_section") {
+    // A note reads through the renderer `/notes` uses too, so the two agree.
+    return (
+      <NoteReadView
+        ink={false}
+        noteId={tab.id}
+        body={body}
+        onSave={onSave}
+        onClickCapture={onReadClick}
+        notes={links?.notes ?? []}
+        papers={links?.papers ?? []}
+        sections={links?.sections ?? []}
+        onCreateNote={onCreateNote}
+      />
+    );
   }
 
   if (renderer === "markdown") {

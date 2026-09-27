@@ -194,6 +194,13 @@
 }
 .record-note-empty:hover { border-color: var(--border-strong); color: var(--muted); }
 
+/* A note read on its page is the Editor's Read view (§NoteReadView). An ink
+   note's sheet scrolls inside its own frame, so it is given a height. */
+.record-note-read--ink {
+  height: min(78vh, 1100px);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
 .record-main .summary,
 .record-note { font-size: 0.98rem; line-height: 1.75; margin: 0; }
 .record-abstract {

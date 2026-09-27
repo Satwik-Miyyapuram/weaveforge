@@ -11,3 +11,9 @@ export { VaultScreen } from "./ui/vault-screen";
  * start disagreeing about what a callout or a wikilink looks like.
  */
 export { VaultMarkdown, type WikilinkEntry } from "./ui/vault-markdown";
+
+/**
+ * A note, read — ink as its sheet, markdown through `VaultMarkdown`. The one
+ * read view `/notes` and the Editor's Read mode share.
+ */
+export { NoteReadView } from "./ui/note-read-view";

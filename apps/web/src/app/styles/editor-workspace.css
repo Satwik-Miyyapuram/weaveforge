@@ -2620,9 +2620,11 @@
   align-items: center;
   padding: 2px 5px;
 }
+.ink-figure-button-remove {
+  color: var(--danger);
+}
 .ink-figure-button-remove:hover {
-  background: color-mix(in srgb, #b33 14%, transparent);
-  color: #b33;
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
 }
 
 .ink-text {
