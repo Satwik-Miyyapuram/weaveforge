@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { decodeInkChunk, pageFromChunk, type InkPage, type InkStroke } from "@weaveforge/core";
+import { decodeInkChunk, pageFromChunk, type InkStroke } from "@weaveforge/core";
 import { availableInkChunkCodec } from "../application/ink-chunk-codec";
 import type { InkStoredPage } from "../application/ink-chunk-store";
 
@@ -9,23 +9,23 @@ export interface UseDecodedStrokesOptions {
   pages: readonly InkStoredPage[] | null;
   /** Bumped when a page's chunk is rewritten in place; the list stays the same. */
   version?: number;
-  activePageIndex: number;
-  activeModel?: InkPage | null;
-  strokesCount?: number;
+  /**
+   * The live page's strokes as the worker last listed them, which run ahead of
+   * its saved chunk: a page just left keeps what was written on it.
+   */
+  live?: { pageIndex: number; strokes: readonly InkStroke[] } | null;
 }
 
 /**
  * Decodes and caches the ink strokes for pages in a note.
  *
- * Used to render strokes on adjacent pages (prev and next) in the 3-page continuous
- * window, as well as on all pages in Read mode.
+ * What every page's SVG ink (§ink-page-ink) draws from, in Ink mode and in
+ * Read mode alike.
  */
 export function useDecodedStrokes({
   pages,
   version = 0,
-  activePageIndex,
-  activeModel,
-  strokesCount,
+  live,
 }: UseDecodedStrokesOptions): ReadonlyMap<number, readonly InkStroke[]> {
   const [strokesMap, setStrokesMap] = useState<ReadonlyMap<number, readonly InkStroke[]>>(
     new Map(),
@@ -71,15 +71,16 @@ export function useDecodedStrokes({
     };
   }, [pages, version]);
 
-  // Keep active page's strokes in sync when activeModel changes.
+  // The live page's own list, which a save has not reached yet.
   useEffect(() => {
-    if (!activeModel?.strokes) return;
+    if (!live) return;
     setStrokesMap((prev) => {
+      if (prev.get(live.pageIndex) === live.strokes) return prev;
       const next = new Map(prev);
-      next.set(activePageIndex, activeModel.strokes);
+      next.set(live.pageIndex, live.strokes);
       return next;
     });
-  }, [activePageIndex, activeModel, strokesCount]);
+  }, [live]);
 
   return strokesMap;
 }

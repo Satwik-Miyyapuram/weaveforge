@@ -88,10 +88,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
   }, [deps.chunks, noteId, meta]);
 
   // Decode strokes for all pages.
-  const strokesMap = useDecodedStrokes({
-    pages,
-    activePageIndex: 0,
-  });
+  const strokesMap = useDecodedStrokes({ pages });
 
   // Track text layers and background images for each page.
   const textPagesRef = useRef(textPages);

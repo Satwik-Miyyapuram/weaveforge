@@ -525,6 +525,12 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         state.renderer?.resize(message.width, message.height, message.dpr);
         break;
       }
+      case "ink-shown": {
+        if (message.pageIndex !== state.pageIndex) break;
+        state.renderer?.setShown(message.count);
+        ensureLoop();
+        break;
+      }
       case "viewport": {
         state.renderer?.setTransform(message.transform);
         break;

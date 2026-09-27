@@ -5,16 +5,15 @@
  * background, text underlay, figures, and vector ink strokes — without
  * mounting a live WebGL canvas or web worker.
  *
- * Used for:
- * 1. The previous and next pages in Ink mode's 3-page continuous scroll window.
- * 2. All pages in Read mode, providing a crisp, non-interactive reading experience.
+ * Used for every page in Read mode, and for every slot of Ink mode's rail —
+ * the live page's sheet sits over its slot and draws its ink through the same
+ * `InkPageInk` (§ink-page-ink), so each page on screen is drawn one way.
  */
 
-import { useMemo } from "react";
 import type { FigureGeometry, InkStroke } from "@weaveforge/core";
-import { INK_RENDER_COLOURS, paletteCss, type InkPalette } from "../render/ink-palette";
+import type { InkPalette } from "../render/ink-palette";
 import { InkFigures } from "./ink-figures";
-import { InkStrokes, type InkRenderStroke } from "./ink-strokes";
+import { InkPageInk } from "./ink-page-ink";
 import { InkSheetTextUnderlay, inkSheetRuleStyle } from "./ink-sheet-underlay";
 
 export interface InkPageStaticProps {
@@ -59,27 +58,11 @@ export function InkPageStatic({
   pureText,
   resolveImageSrc,
   strokes,
-  palette = INK_RENDER_COLOURS,
+  palette,
   onLoadError,
 }: InkPageStaticProps) {
   const width = Math.max(1, Math.round(pageSize.width * scale));
   const height = Math.max(1, Math.round(pageSize.height * scale));
-
-  /**
-   * The page's strokes as the one renderer takes them: the colour *name*
-   * resolved through the live palette, and the tool carried as the flag the
-   * renderer draws with — a highlighter is wide and translucent, a pen is not.
-   */
-  const drawn = useMemo<InkRenderStroke[]>(
-    () =>
-      (strokes ?? []).map((stroke) => ({
-        points: stroke.points,
-        width: stroke.width,
-        colour: paletteCss(palette, stroke.colour),
-        highlighter: stroke.tool === "highlighter",
-      })),
-    [strokes, palette],
-  );
 
   return (
     <div className="ink-page" data-page={index}>
@@ -110,22 +93,7 @@ export function InkPageStatic({
             imageUrls={figureUrls ?? new Map()}
           />
         ) : null}
-        {strokes && strokes.length > 0 ? (
-          <InkStrokes
-            className="ink-strokes-static"
-            viewBox={`0 0 ${pageSize.width} ${pageSize.height}`}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              pointerEvents: "none",
-              zIndex: 1,
-            }}
-            strokes={drawn}
-          />
-        ) : null}
+        <InkPageInk strokes={strokes} pageSize={pageSize} palette={palette} />
         <span className="ink-ghost-label">{index + 1}</span>
       </div>
     </div>

@@ -90,6 +90,7 @@ import { InkRail } from "./ink-rail";
 import { InkTextLayer } from "./ink-text-layer";
 import { useFlowedTextPages } from "./ink-text-flow";
 import { useDecodedStrokes } from "./use-decoded-strokes";
+import { InkPageInk } from "./ink-page-ink";
 import { useGhostImages } from "./use-ghost-images";
 import { useInkSheetImages } from "./use-ink-sheet-images";
 import { InkActiveFigureEditor, useInkFigures } from "./use-ink-figures";
@@ -203,6 +204,7 @@ export function InkHost({
     selectionBounds,
     setSelectionBounds,
     pageSize,
+    sheetInk,
     onEvent,
     requestModel,
     requestSave,
@@ -276,9 +278,37 @@ export function InkHost({
   const strokesMap = useDecodedStrokes({
     pages: pagesRef.current,
     version: chunkVersion,
-    activePageIndex: pageIndex,
-    strokesCount: strokes,
+    live: sheetInk,
   });
+
+  /**
+   * The live sheet's ink (§ink-page-ink): the worker's own list once it has
+   * answered for this page, the saved chunk until then — never the list of
+   * the page just left, which is what the sheet would show for the frame a
+   * flip takes. A held selection is left to the canvas, which draws it where
+   * the drag has it.
+   */
+  const liveInk = sheetInk?.pageIndex === pageIndex ? sheetInk : null;
+  const sheetStrokes = liveInk ? liveInk.strokes : strokesMap.get(pageIndex);
+  const hiddenInk = useMemo(() => {
+    if (!liveInk || selection.length === 0) return undefined;
+    const held = new Set(selection);
+    const out = new Set<number>();
+    liveInk.ids.forEach((id, at) => {
+      if (held.has(id)) out.add(at);
+    });
+    return out;
+  }, [liveInk, selection]);
+  // Painted: the canvas can let go of what the sheet now draws.
+  useEffect(() => {
+    if (!liveInk) return;
+    const last = liveInk.ids[liveInk.ids.length - 1];
+    sendRef.current?.({
+      type: "ink-shown",
+      pageIndex: liveInk.pageIndex,
+      count: last === undefined ? 0 : last + 1,
+    });
+  }, [liveInk]);
 
   /**
    * The pen (§use-ink-pen): capture, haptics, and the one worker door it
@@ -765,6 +795,12 @@ export function InkHost({
                 scale={scale}
                 imageUrls={figureUrls}
                 activeIndex={figureControls}
+              />
+              <InkPageInk
+                strokes={sheetStrokes}
+                pageSize={pageSize}
+                palette={palette}
+                hidden={hiddenInk}
               />
             </>
           }

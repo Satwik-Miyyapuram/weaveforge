@@ -131,6 +131,13 @@ export interface InkRenderer {
    * `shift` page units while a drag is in progress. Empty clears it.
    */
   setSelection(indices: readonly number[], shift: InkShift): void;
+  /**
+   * The sheet's SVG now draws every stroke below `count` (buffer indices), so
+   * the on-screen frame may leave them out. Until the page says so, a stroke
+   * just committed stays on the canvas: the SVG shows it a message and a
+   * render later, and dropping it sooner blinks it out for a frame.
+   */
+  setShown(count: number): void;
   setTransform(transform: InkViewTransform): void;
   /** Resize the drawing surface. CSS pixels; the renderer applies the DPR. */
   resize(cssWidth: number, cssHeight: number, devicePixelRatio: number): void;

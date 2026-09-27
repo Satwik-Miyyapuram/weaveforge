@@ -132,6 +132,13 @@ export class InkPageBuffer {
 
   private strokes: InkStrokeGeometry[] = [];
   private alive: Uint8Array = new Uint8Array(0);
+  /** The buffer index of each live stroke, in `liveStrokes` order. */
+  liveIndices(): number[] {
+    const out: number[] = [];
+    for (let i = 0; i < this.strokes.length; i += 1) if (this.alive[i]) out.push(i);
+    return out;
+  }
+
   /** Strokes ever added, dead ones included. Monotonic, so indices are stable. */
   private added = 0;
   /**
