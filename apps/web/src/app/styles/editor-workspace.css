@@ -617,7 +617,7 @@
    `.ink-bar.ink-palette`, inside `.workspace-shell.is-focus` on a note and
    inside `.pdf-reader.is-focus` in the reader. It carries `data-dock`, so the
    rules below are written once. */
-.workspace-shell.is-focus .ink-palette,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette,
 .pdf-reader.is-focus .ink-palette {
   position: absolute;
   z-index: 5;
@@ -640,34 +640,34 @@
 
 /* The eight docks. Edges centre along their axis (by auto margins, see
    above); corners sit 10px in. */
-.workspace-shell.is-focus .ink-palette[data-dock="left"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="left"],
 .pdf-reader.is-focus .ink-palette[data-dock="left"] {
   inset-inline-start: 10px; inset-block: 0; margin-block: auto; height: max-content; max-height: calc(100% - 20px); overflow-y: auto;
 }
-.workspace-shell.is-focus .ink-palette[data-dock="right"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="right"],
 .pdf-reader.is-focus .ink-palette[data-dock="right"] {
   inset-inline-end: 10px; inset-block: 0; margin-block: auto; height: max-content; max-height: calc(100% - 20px); overflow-y: auto;
 }
-.workspace-shell.is-focus .ink-palette[data-dock="top"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="top"],
 .pdf-reader.is-focus .ink-palette[data-dock="top"] {
   inset-block-start: 10px; inset-inline: 0; margin-inline: auto;
 }
-.workspace-shell.is-focus .ink-palette[data-dock="bottom"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom"],
 .pdf-reader.is-focus .ink-palette[data-dock="bottom"] {
   inset-block-end: 10px; inset-inline: 0; margin-inline: auto;
 }
-.workspace-shell.is-focus .ink-palette[data-dock="top-left"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="top-left"],
 .pdf-reader.is-focus .ink-palette[data-dock="top-left"] { inset-block-start: 10px; inset-inline-start: 10px; }
-.workspace-shell.is-focus .ink-palette[data-dock="top-right"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="top-right"],
 .pdf-reader.is-focus .ink-palette[data-dock="top-right"] { inset-block-start: 10px; inset-inline-end: 10px; }
-.workspace-shell.is-focus .ink-palette[data-dock="bottom-left"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom-left"],
 .pdf-reader.is-focus .ink-palette[data-dock="bottom-left"] { inset-block-end: 10px; inset-inline-start: 10px; }
-.workspace-shell.is-focus .ink-palette[data-dock="bottom-right"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom-right"],
 .pdf-reader.is-focus .ink-palette[data-dock="bottom-right"] { inset-block-end: 10px; inset-inline-end: 10px; }
 
 /* Along the top and bottom edges the palette runs as a row. */
-.workspace-shell.is-focus .ink-palette[data-dock="top"],
-.workspace-shell.is-focus .ink-palette[data-dock="bottom"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="top"],
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom"],
 .pdf-reader.is-focus .ink-palette[data-dock="top"],
 .pdf-reader.is-focus .ink-palette[data-dock="bottom"] {
   flex-direction: row;
@@ -679,28 +679,28 @@
 /* The bar in focus — both surfaces are this one bar now
    (`features/ink/ui/ink-bar`), so this is one rule rather than two: what a
    hand needs mid-stroke stays, and everything else is chrome for later. */
-.workspace-shell.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more),
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more),
 .pdf-reader.is-focus .ink-bar > :not(.ink-palette-handles):not(.ink-bar-group):not(.ink-swatches):not(.ink-page-pill):not(.ink-menu-paper):not(.ink-menu-more) {
   display: none;
 }
 
 /* Folded: the handles and the tools, nothing else. */
-.workspace-shell.is-focus .ink-palette[data-collapsed] > :not(.ink-palette-handles):not(.ink-bar-tools),
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-collapsed] > :not(.ink-palette-handles):not(.ink-bar-tools),
 .pdf-reader.is-focus .ink-palette[data-collapsed] > :not(.ink-palette-handles):not(.ink-bar-tools) {
   display: none;
 }
 
 /* The handles exist only once the palette floats. */
 .ink-palette-handles { display: none; }
-.workspace-shell.is-focus .ink-palette-handles,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette-handles,
 .pdf-reader.is-focus .ink-palette-handles {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
 }
-.workspace-shell.is-focus .ink-palette[data-dock="top"] .ink-palette-handles,
-.workspace-shell.is-focus .ink-palette[data-dock="bottom"] .ink-palette-handles,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="top"] .ink-palette-handles,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom"] .ink-palette-handles,
 .pdf-reader.is-focus .ink-palette[data-dock="top"] .ink-palette-handles,
 .pdf-reader.is-focus .ink-palette[data-dock="bottom"] .ink-palette-handles {
   flex-direction: row;
@@ -723,20 +723,20 @@
   pointer-events: none;
 }
 
-.workspace-shell.is-focus .ink-palette .ink-bar-group,
-.workspace-shell.is-focus .ink-palette .ink-swatches,
-.workspace-shell.is-focus .ink-palette .ink-page-pill,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-bar-group,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-swatches,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-page-pill,
 .pdf-reader.is-focus .ink-palette .ink-bar-group,
 .pdf-reader.is-focus .ink-palette .ink-swatches {
   flex-direction: column;
   align-items: center;
 }
-.workspace-shell.is-focus .ink-palette[data-dock="top"] .ink-bar-group,
-.workspace-shell.is-focus .ink-palette[data-dock="top"] .ink-swatches,
-.workspace-shell.is-focus .ink-palette[data-dock="top"] .ink-page-pill,
-.workspace-shell.is-focus .ink-palette[data-dock="bottom"] .ink-bar-group,
-.workspace-shell.is-focus .ink-palette[data-dock="bottom"] .ink-swatches,
-.workspace-shell.is-focus .ink-palette[data-dock="bottom"] .ink-page-pill,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="top"] .ink-bar-group,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="top"] .ink-swatches,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="top"] .ink-page-pill,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom"] .ink-bar-group,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom"] .ink-swatches,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom"] .ink-page-pill,
 .pdf-reader.is-focus .ink-palette[data-dock="top"] .ink-bar-group,
 .pdf-reader.is-focus .ink-palette[data-dock="top"] .ink-swatches,
 .pdf-reader.is-focus .ink-palette[data-dock="bottom"] .ink-bar-group,
@@ -746,46 +746,46 @@
 
 /* Targets for a pen held mid-air, not a mouse: 36px buttons, 26px swatches,
    and a little more air between them. */
-.workspace-shell.is-focus .ink-palette .ink-tool,
-.workspace-shell.is-focus .ink-palette .ink-page-pill .ink-tool,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-tool,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-page-pill .ink-tool,
 .pdf-reader.is-focus .ink-palette .ink-tool { width: 36px; height: 36px; }
-.workspace-shell.is-focus .ink-palette .ink-tool svg,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-tool svg,
 .pdf-reader.is-focus .ink-palette .ink-tool svg { width: 18px; height: 18px; }
-.workspace-shell.is-focus .ink-palette .ink-bar-group,
-.workspace-shell.is-focus .ink-palette .ink-page-pill,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-bar-group,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-page-pill,
 .pdf-reader.is-focus .ink-palette .ink-bar-group { gap: 4px; padding: 3px; border-radius: 10px; }
-.workspace-shell.is-focus .ink-palette .ink-swatches,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-swatches,
 .pdf-reader.is-focus .ink-palette .ink-swatches { gap: 9px; padding: 8px 5px; }
-.workspace-shell.is-focus .ink-palette .ink-swatch,
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-swatch,
 .pdf-reader.is-focus .ink-palette .ink-swatch { width: 26px; height: 26px; }
-.workspace-shell.is-focus .ink-bar .ink-page-count {
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-bar .ink-page-count {
   flex-direction: column;
   gap: 0;
   padding: 4px 0;
   font-size: 0.8rem;
   line-height: 1.1;
 }
-.workspace-shell.is-focus .ink-bar .ink-page-count .ink-page-sep { display: none; }
-.workspace-shell.is-focus .ink-bar .ink-page-count .ink-page-now { font-weight: 700; color: var(--text); }
-.workspace-shell.is-focus .ink-bar .ink-page-count .ink-page-total {
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-bar .ink-page-count .ink-page-sep { display: none; }
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-bar .ink-page-count .ink-page-now { font-weight: 700; color: var(--text); }
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-bar .ink-page-count .ink-page-total {
   margin-top: 3px;
   padding-top: 3px;
   border-top: 1px solid var(--border-strong);
   font-size: 0.7rem;
 }
-.workspace-shell.is-focus .ink-bar .ink-menu { justify-content: center; }
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-bar .ink-menu { justify-content: center; }
 
 /* The list opens beside the palette, not under it — hung from the button's
    bottom, since the paper menu is the palette's last item — and nothing
    clamps it to the (now narrow) bar. */
-.workspace-shell.is-focus .ink-bar .ink-menu-list {
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-bar .ink-menu-list {
   top: auto;
   bottom: 0;
   right: auto;
   left: calc(100% + 8px);
   transform: none;
 }
-.workspace-shell.is-focus .ink-bar[data-dock$="right"] .ink-menu-list {
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-bar[data-dock$="right"] .ink-menu-list {
   left: auto;
   right: calc(100% + 8px);
 }

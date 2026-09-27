@@ -17,6 +17,7 @@ import { RecordEmpty, RecordFacts, RecordSection, recordDate, wordCount } from "
 import { BackButton } from "@/components/back-button";
 import { DocumentBody } from "@/components/document-body";
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
+import { InkFocusButton, InkFocusExit, useInkFocus } from "@/components/ink-focus";
 import { RelatedPanel } from "@/components/related-panel";
 import { NoteComments, ShareButton, PinnedPaperBadge } from "@/features/sharing";
 import { formatError } from "@/lib/format-error";
@@ -96,6 +97,7 @@ export function PageEditor({
   const canEditTitle = canEditBody && !ink && !sharedPage;
   const view: NoteMode = canEditBody ? mode : "read";
   const hasBody = !!readBody.trim();
+  const inkFocus = useInkFocus(view === "ink");
 
   /**
    * Every body write, from any mode — the host saves as it goes, the way it
@@ -234,6 +236,7 @@ export function PageEditor({
                 <span className="record-mode-tag">
                   {hasBody && <span>{wordsLabel}</span>}
                   <DocumentModeSwitch modes={NOTE_MODES} mode={view} onMode={chooseMode} />
+                  {view === "ink" && <InkFocusButton onClick={inkFocus.toggle} />}
                 </span>
               ) : hasBody ? wordsLabel : undefined
             }
@@ -249,8 +252,9 @@ export function PageEditor({
             ) : (
               <div
                 ref={noteTextRef}
-                className={view === "read" ? (ink ? "record-note-read record-note-read--ink" : "record-note-read") : `record-doc record-doc--${view}`}
+                className={view === "read" ? (ink ? "record-note-read record-note-read--ink" : "record-note-read") : `record-doc record-doc--${view}${inkFocus.focus ? " record-ink-focus is-focus" : ""}`}
               >
+                {inkFocus.focus && <InkFocusExit onClick={inkFocus.toggle} />}
                 {view === "edit" && (
                   <div className="summary-editor-bar">
                     <AttachImageButton editor={editorHandle} onError={setSaveError} />

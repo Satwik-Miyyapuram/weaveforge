@@ -222,6 +222,29 @@
   height: min(78vh, 1100px);
   border: 1px solid var(--border);
 }
+/* Ink in focus (components/ink-focus.tsx): the sheet full-bleed over the page,
+   the pen palette floating on it (editor-workspace.css), one corner exit. */
+.record-ink-focus.is-focus {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--surface-alt);
+}
+.record-ink-focus.is-focus .ink-wrap { height: 100%; border: 0; }
+.record-ink-focus.is-focus > .focus-exit { position: fixed; z-index: 51; }
+.record-focus-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+@media (hover: hover) { .record-focus-btn:hover { color: var(--text); } }
 /* Edit on a record page: the Editor's writing surface at the same height, not
    the height of its first few lines. */
 .record-doc--edit .md-live {

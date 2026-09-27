@@ -26,6 +26,7 @@ import { AttachImageButton } from "@/components/attach-image-button";
 import { BackButton } from "@/components/back-button";
 import { DocumentBody } from "@/components/document-body";
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
+import { InkFocusButton, InkFocusExit, useInkFocus } from "@/components/ink-focus";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { CitationFormatSelect } from "@/components/citation-format-select";
 import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
@@ -90,6 +91,7 @@ export function PaperNote({
   const [busy, setBusy] = useState(false);
   // Read, Edit or Ink, as in the Editor's pane header. A paper's note opens read.
   const [mode, setMode] = useState<NoteMode>("read");
+  const inkFocus = useInkFocus(mode === "ink");
   const modeRef = useRef<NoteMode>("read");
   modeRef.current = mode;
   const editing = mode !== "read";
@@ -379,6 +381,7 @@ export function PaperNote({
                 <span className="record-mode-tag">
                   {hasSummary && <span>{wordsLabel}</span>}
                   <DocumentModeSwitch modes={NOTE_MODES} mode={mode} onMode={chooseMode} />
+                  {mode === "ink" && <InkFocusButton onClick={inkFocus.toggle} />}
                 </span>
               ) : hasSummary ? (
                 wordsLabel
@@ -397,12 +400,13 @@ export function PaperNote({
               <div
                 className={
                   mode !== "read"
-                    ? `record-doc record-doc--${mode}`
+                    ? `record-doc record-doc--${mode}${inkFocus.focus ? " record-ink-focus is-focus" : ""}`
                     : isInkNoteBody(paper.summary ?? "")
                       ? "record-note-read record-note-read--ink"
                       : "record-note-read"
                 }
               >
+                {inkFocus.focus && <InkFocusExit onClick={inkFocus.toggle} />}
                 {mode === "edit" && (
                   <div className="summary-editor-bar">
                     <CitationFormatSelect value={citationFormat} onChange={setCitationFormat} />

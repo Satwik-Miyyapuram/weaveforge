@@ -81,6 +81,7 @@ import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { ColourMenu } from "@/components/colour-menu";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { FocusGlyph } from "@/components/focus-glyph";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink, TextBoxComposer } from "./overlays";
 import { layoutMarginNotes } from "../../application/margin-notes";
 import { useAnnotationContext } from "./use-annotation-context";
@@ -127,18 +128,6 @@ import {
   pageScopedLocus,
   textItemsFromContent,
 } from "./pdf-document";
-
-/** The workspace's focus glyph: corners pointing in (on) or out (off). */
-function FocusGlyph({ on }: { on: boolean }) {
-  const d = on
-    ? "M9 3H4v5M15 3h5v5M9 21H4v-5M15 21h5v-5"
-    : "M4 8V3h5M20 8V3h-5M4 16v5h5M20 16v5h-5";
-  return (
-    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={d} />
-    </svg>
-  );
-}
 
 export function PdfReader({
   url,
