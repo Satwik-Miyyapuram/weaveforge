@@ -437,9 +437,3 @@ export function documentKind(kind: string): KindMeta["document"] {
 export function segmentsFor(kind: string): readonly SegmentKey[] {
   return kindMeta(kind).segments;
 }
-
-/** The label a tab, crumb and palette row append to a title. */
-export function labelledTitle(title: string, kind: string): string {
-  const suffix = kindSuffix(kind);
-  return suffix ? `${title}${suffix}` : title;
-}

@@ -10,14 +10,18 @@ import {
   createCoalescer,
   nextManifest,
   readMirrorBase,
-  readMirrorManifest,
   writeMirrorManifest,
 } from "../application/mirror-manifest";
+
+/** The paths a manifest claims, in order: the keys of its base. */
+async function manifestPaths(fs: MemoryWorkspaceFs): Promise<string[]> {
+  return Object.keys(await readMirrorBase(fs)).sort();
+}
 
 test("a manifest round trips, sorted and deduplicated", async () => {
   const fs = new MemoryWorkspaceFs();
   await writeMirrorManifest(fs, ["b.md", "a.md", "b.md"]);
-  assert.deepEqual(await readMirrorManifest(fs), ["a.md", "b.md"]);
+  assert.deepEqual(await manifestPaths(fs), ["a.md", "b.md"]);
 });
 
 test("the base digests round trip with the paths", async () => {
@@ -38,14 +42,14 @@ test("a version 1 manifest keeps its paths and offers no base", async () => {
   const fs = new MemoryWorkspaceFs();
   await fs.mkdirp(MIRROR_MANIFEST_PATH.split("/").slice(0, -1).join("/"));
   await fs.writeFile(MIRROR_MANIFEST_PATH, JSON.stringify({ version: 1, paths: ["a.md"] }));
-  assert.deepEqual(await readMirrorManifest(fs), ["a.md"]);
+  assert.deepEqual(await manifestPaths(fs), ["a.md"]);
   // Empty rather than absent: the path is still ours to remove, but nothing is
   // known about what it said when the two sides last agreed.
   assert.deepEqual(await readMirrorBase(fs), { "a.md": "" });
 });
 
 test("an absent manifest reads as remove-nothing rather than throwing", async () => {
-  assert.deepEqual(await readMirrorManifest(new MemoryWorkspaceFs()), []);
+  assert.deepEqual(await manifestPaths(new MemoryWorkspaceFs()), []);
 });
 
 test("a truncated or foreign manifest also removes nothing", async () => {
@@ -53,18 +57,18 @@ test("a truncated or foreign manifest also removes nothing", async () => {
   await fs.mkdirp(MIRROR_MANIFEST_PATH.split("/")[0]!);
 
   await fs.writeFile(MIRROR_MANIFEST_PATH, '{"paths": ["a.md"');
-  assert.deepEqual(await readMirrorManifest(fs), []);
+  assert.deepEqual(await manifestPaths(fs), []);
 
   // Valid JSON, wrong shape — something else's file living at our path.
   await fs.writeFile(MIRROR_MANIFEST_PATH, '{"files": ["a.md"]}');
-  assert.deepEqual(await readMirrorManifest(fs), []);
+  assert.deepEqual(await manifestPaths(fs), []);
 });
 
 test("non-string entries are dropped rather than trusted", async () => {
   const fs = new MemoryWorkspaceFs();
   await fs.mkdirp(MIRROR_MANIFEST_PATH.split("/")[0]!);
   await fs.writeFile(MIRROR_MANIFEST_PATH, '{"paths": ["a.md", 7, null, "b.md"]}');
-  assert.deepEqual(await readMirrorManifest(fs), ["a.md", "b.md"]);
+  assert.deepEqual(await manifestPaths(fs), ["a.md", "b.md"]);
 });
 
 test("the next manifest keeps what stayed, drops what left, adds what was written", () => {

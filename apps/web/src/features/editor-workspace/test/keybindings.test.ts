@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { chordFor, commandForChord, isTypingTarget, shortcutTable } from "../application/keybindings";
+import { commandForChord, isTypingTarget, shortcutTable } from "../application/keybindings";
 
 test("Ctrl and Cmd mean the same thing, because both keyboards exist", () => {
   assert.equal(commandForChord({ key: "p", ctrlKey: true }), "quick-open");
@@ -40,13 +40,6 @@ test("the shortcut table lists every command exactly once", () => {
   for (const command of ["quick-open", "toggle-mode", "split-right", "close-tab", "next-tab", "previous-tab"]) {
     assert.ok(table[command as keyof typeof table], `${command} has no chord`);
   }
-});
-
-test("a printed chord round-trips through the chord parser", () => {
-  assert.equal(chordFor("quick-open"), "⌘P");
-  assert.equal(chordFor("toggle-mode"), "⌘E");
-  assert.equal(chordFor("close-tab"), "⌘W");
-  assert.equal(chordFor("split-right"), "⌘\\");
 });
 
 test("an unmodified key is a keystroke, not a command", () => {

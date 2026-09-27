@@ -28,10 +28,6 @@ import {
  */
 export const MIRROR_MANIFEST_PATH = `${WORKSPACE_META_DIR}/mirror.json`;
 
-export async function readMirrorManifest(fs: IWorkspaceFs): Promise<string[]> {
-  return Object.keys(await readMirrorBase(fs)).sort();
-}
-
 /**
  * What each mirrored file said when the two sides last agreed, by path.
  *

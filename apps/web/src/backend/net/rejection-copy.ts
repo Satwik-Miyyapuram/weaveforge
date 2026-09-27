@@ -24,8 +24,3 @@ const REJECTION_COPY: Record<UrlRejection, string> = {
 export function describeRejection(reason: UrlRejection): string {
   return REJECTION_COPY[reason];
 }
-
-/** Everything this module can explain, for the test that checks it explains all of it. */
-export function describedRejections(): readonly UrlRejection[] {
-  return Object.keys(REJECTION_COPY) as UrlRejection[];
-}

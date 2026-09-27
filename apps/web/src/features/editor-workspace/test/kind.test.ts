@@ -15,7 +15,6 @@ import {
   kindOwner,
   kindSuffix,
   kindTintClass,
-  labelledTitle,
   linkGroupOf,
   memberRank,
   segmentsFor,
@@ -58,7 +57,6 @@ test("an ink note is its own row: ink, the ink tint, .ink.md, the ink renderer",
   assert.equal(kindSuffix("ink_page"), ".ink.md");
   assert.equal(documentKind("ink_page"), "ink");
   assert.equal(documentSuffix("ink_page"), ".ink.md");
-  assert.equal(labelledTitle("Supervisor meeting", "ink_page"), "Supervisor meeting.ink.md");
   assert.equal(isDocumentKind("ink_page"), true);
   // A note, so it resolves against the notes table and a `[[link]]` can point
   // at it exactly as it points at a typed note.
@@ -171,12 +169,6 @@ test("a tint is a class, never a colour written in code", () => {
   assert.equal(kindTintClass("reading_list"), "kind-tint-accent");
   assert.equal(kindTintClass("report_section"), "kind-tint-good");
   assert.equal(kindTintClass("folder"), null);
-});
-
-test("a label carries its suffix where the row's context is gone", () => {
-  assert.equal(labelledTitle("Baselines", "vault_page"), "Baselines.note.md");
-  assert.equal(labelledTitle("Higgins 2017", "paper"), "Higgins 2017.paper.md");
-  assert.equal(labelledTitle("Latent spaces", "reading_list"), "Latent spaces.list.md");
 });
 
 test("the table says which kinds are documents and which are groupings", () => {

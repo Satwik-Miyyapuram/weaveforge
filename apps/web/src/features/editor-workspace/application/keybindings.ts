@@ -81,10 +81,6 @@ export function shortcutTable(): Record<WorkspaceCommand, string> {
   return { ...CHORDS };
 }
 
-export function chordFor(command: WorkspaceCommand): string {
-  return CHORDS[command];
-}
-
 /**
  * Whether a shortcut should be ignored because the user is typing.
  *

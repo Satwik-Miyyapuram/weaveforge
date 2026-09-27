@@ -82,11 +82,6 @@ export const DEFAULT_EMBEDDING_MODEL = ARCTIC_EMBED_M;
 
 const KNOWN = new Map([ARCTIC_EMBED_M, MINILM_L6].map((profile) => [profile.id, profile]));
 
-/** Whether vectors built by `id` can still be queried correctly. */
-export function isKnownEmbeddingModel(id: string): boolean {
-  return KNOWN.has(id);
-}
-
 /**
  * A developer override for the target encoder, to exercise an upgrade in a
  * real build without shipping one: `localStorage["thesis.search.semanticModel"]`

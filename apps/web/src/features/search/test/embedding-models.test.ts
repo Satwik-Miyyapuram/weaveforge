@@ -5,7 +5,6 @@ import {
   DEFAULT_EMBEDDING_MODEL,
   MINILM_L6,
   embeddingProfile,
-  isKnownEmbeddingModel,
   planEmbeddingStart,
   targetEmbeddingModel,
 } from "@/features/search/infrastructure/embedding-models";
@@ -31,7 +30,6 @@ test("an upgrade serves the old vectors when the old model is still known", () =
   assert.equal(planEmbeddingStart("someone/retired-model", ARCTIC_EMBED_M.id), "rebuild");
 });
 
-test("the default model is known, so a later upgrade can serve its vectors", () => {
-  assert.equal(isKnownEmbeddingModel(DEFAULT_EMBEDDING_MODEL.id), true);
+test("the target model is the default", () => {
   assert.equal(targetEmbeddingModel().id, DEFAULT_EMBEDDING_MODEL.id);
 });
