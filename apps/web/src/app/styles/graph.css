@@ -99,6 +99,11 @@
 .graph-side-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 .graph-side-section { margin-top: 12px; }
 .graph-side-list { list-style: none; padding: 0; margin: 6px 0 0; font-size: 0.8rem; }
+/* A `<button>` centres its own label, so every list in the panel read as centred
+   prose — the relations list had been fixed one rule at a time and the papers,
+   notes and co-occurring lists had not. They are rows of text: they start left. */
+.graph-side-list .link-btn,
+.graph-side-section .link-btn { text-align: left; }
 .graph-side-list li { margin: 4px 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .tag-chip-btn { cursor: pointer; border: none; font: inherit; }
 .graph-merge-box { display: grid; gap: 6px; margin: 8px 0; padding: 8px; background: var(--surface2); border-radius: 8px; }
