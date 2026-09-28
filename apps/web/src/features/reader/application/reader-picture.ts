@@ -9,6 +9,7 @@
 
 import {
   buildAnnotationSortIndex,
+  parseFigureCrop,
   type FigureGeometry,
   type NewReaderAnnotation,
   type ReaderAnnotation,
@@ -45,10 +46,8 @@ export function pictureMeta(
       const z = Number(value);
       if (Number.isFinite(z)) meta.z = z;
     } else if (key === "c") {
-      const parts = (value ?? "").split(",").map(Number);
-      if (parts.length === 4 && parts.every(Number.isFinite)) {
-        meta.crop = parts.map((n) => Math.min(99, Math.max(0, n))) as PictureMeta["crop"];
-      }
+      const crop = parseFigureCrop(value ?? "");
+      if (crop) meta.crop = crop;
     }
   }
   return meta;
@@ -100,8 +99,8 @@ export function pagePictures(
     if (meta.crop) figure.crop = meta.crop;
     out.push({ id: annotation.id, figure, z: meta.z });
   }
-  // Stable: pictures with one z keep the order they were placed in.
-  return out.map((one, i) => ({ one, i })).sort((a, b) => a.one.z - b.one.z || a.i - b.i).map((e) => e.one);
+  // Array sort is stable: pictures with one z keep the order they were placed in.
+  return out.sort((a, b) => a.z - b.z);
 }
 
 /** A figure's box back as the PDF rectangle it came from. */
