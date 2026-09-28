@@ -17,7 +17,7 @@ const settings: AiAccessSettings = {
 const grant: AiSessionGrant = {
   id: "grant-1", workspaceId: "workspace-1", expiresAt: "2026-07-15T00:00:00.000Z",
   readable: [{ sourceId: "paper-note:paper-1", resourceType: "paper_note", resourceId: "paper-1" }],
-  allowedTools: ["propose_append_paper_note"], proposalCapabilities: ["append_paper_note"],
+  allowedTools: ["suggest_append_paper_note"], proposalCapabilities: ["append_paper_note"],
   requiresConfirmationForWrites: true,
 };
 
@@ -30,7 +30,7 @@ test("the generic MCP draft command persists an encrypted-store-ready pending pr
   });
 
   const proposal = await useCase.execute({
-    id: "proposal-1", kind: "append_paper_note", tool: "propose_append_paper_note",
+    id: "proposal-1", kind: "append_paper_note", tool: "suggest_append_paper_note",
     resourceId: "paper-1", resourceType: "paper_note", content: "Append to paper note:\n\nDraft addition",
     payload: { addition: "Draft addition" }, settings, grant, encryptionUnlocked: true,
     now: "2026-07-14T12:00:00.000Z",
@@ -50,7 +50,7 @@ test("the generic MCP draft command refuses a proposal whose capability was not 
 
   await assert.rejects(
     useCase.execute({
-      id: "proposal-2", kind: "create_log_entry", tool: "propose_create_log_entry", resourceId: "proposal-2",
+      id: "proposal-2", kind: "create_log_entry", tool: "suggest_create_log_entry", resourceId: "proposal-2",
       content: "Create a log entry", payload: { body: "Draft" }, settings, grant, encryptionUnlocked: true,
       now: "2026-07-14T12:00:00.000Z",
     }),

@@ -36,6 +36,12 @@ export const AI_PROPOSAL_KINDS = [
   "zotero_import",
   "milestone_follow_up",
   "experiment_follow_up",
+  "edit_vault_note",
+  "append_vault_note",
+  "report_edit",
+  "milestone_status",
+  "experiment_update",
+  "paper_annotation",
 ] as const;
 export type AiProposalKind = (typeof AI_PROPOSAL_KINDS)[number];
 
@@ -46,18 +52,23 @@ export const AI_TOOL_NAMES = [
   "search_workspace",
   "get_source_excerpt",
   "get_workspace_outline",
-  "propose_append_paper_note",
-  "propose_create_vault_note",
-  "propose_create_log_entry",
-  "propose_paper_update",
-  "propose_paper_field_value",
-  "propose_reading_list_change",
-  "propose_relation",
-  "propose_zotero_import",
-  "propose_milestone_follow_up",
-  "propose_experiment_follow_up",
+  "suggest_append_paper_note",
+  "suggest_create_vault_note",
+  "suggest_create_log_entry",
+  "suggest_paper_update",
+  "suggest_paper_field_value",
+  "suggest_reading_list_change",
+  "suggest_relation",
+  "suggest_zotero_import",
+  "suggest_milestone_follow_up",
+  "suggest_experiment_follow_up",
 ] as const;
 export type AiToolName = (typeof AI_TOOL_NAMES)[number];
+
+/** Pre-rename `propose_*` names still resolve; they are accepted, never listed. */
+export function canonicalAiToolName(name: string): string {
+  return name.startsWith("propose_") ? `suggest_${name.slice("propose_".length)}` : name;
+}
 
 /**
  * A provider identifier. Open on purpose: any OpenAI- or Anthropic-compatible

@@ -1,5 +1,6 @@
 import {
   ASSET_DIR,
+  FOLDER_DRAFTS_DIR,
   NoOpWorkspaceGit,
   WORKSPACE_META_DIR,
   changedSide,
@@ -390,12 +391,24 @@ function watchFolderForChanges(): void {
   if (!bridge || folderSession()?.kind !== "desktop") return;
   unwatchFolder = bridge.onVaultChange((paths) => {
     const before = external.size;
+    let drafts = false;
     for (const path of paths) {
+      // MCP suggestions go to the review queue, not the changed-files list.
+      if (path.startsWith(`${FOLDER_DRAFTS_DIR}/`)) drafts = true;
       // The search cache is the app's own write, not somebody else's edit.
-      if (path !== MIRROR_MANIFEST_PATH && !path.startsWith(`${WORKSPACE_META_DIR}/cache/`)) external.add(path);
+      else if (path !== MIRROR_MANIFEST_PATH && !path.startsWith(`${WORKSPACE_META_DIR}/cache/`)) external.add(path);
     }
     if (external.size !== before) announceExternal();
+    if (drafts) for (const listener of [...draftListeners]) listener();
   });
+}
+
+const draftListeners = new Set<() => void>();
+
+/** Called when the local MCP leaves or changes a suggestion in the folder. */
+export function onFolderDraftsChanged(listener: () => void): () => void {
+  draftListeners.add(listener);
+  return () => draftListeners.delete(listener);
 }
 
 export async function folderHistory(limit = 20): Promise<readonly WorkspaceCommit[]> {

@@ -69,8 +69,8 @@ export function resolveAppFile(
 /**
  * Whether a missed request was for a page rather than an asset.
  *
- * A page the offline build does not carry (`/org`, `/supervision`: other
- * people's accounts, which need the server) used to answer an empty 404, and
+ * A page the offline build does not carry (`/org`: other people's accounts,
+ * which need the server) used to answer an empty 404, and
  * the window showed a blank screen with no way back. A page miss is answered
  * with the bundle's own not-found page instead, which has navigation; an asset
  * miss stays a bare 404 so a missing chunk still fails loudly.

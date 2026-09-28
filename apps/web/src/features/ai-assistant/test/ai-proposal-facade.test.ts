@@ -36,3 +36,15 @@ test("review facade rejects without calling a workspace writer", async () => {
   assert.equal(wrote, false);
   assert.deepEqual(audits, ["rejected"]);
 });
+
+test("a batch approve counts the drafts whose target changed", async () => {
+  const items = new Map([["a", draft("a")], ["b", draft("b")]]);
+  const facade = new AiProposalFacade({
+    proposals: { async save(value) { items.set(value.id, value); }, async getById(id) { return items.get(id) ?? null; }, async listPending() { return [...items.values()].filter((i) => i.status === "pending"); } },
+    audit: { async save() {} },
+    executors: new AiProposalExecutorRegistry([{ kind: "append_paper_note", async execute(proposal) { return proposal.id === "b" ? "conflicted" : "accepted"; } }]),
+    newId: () => "audit-3", now: () => "2026-07-15T00:01:00.000Z",
+  });
+  assert.equal(await facade.approveSafeBatch(["a", "b"]), 1);
+  assert.equal(items.get("b")?.status, "conflicted");
+});

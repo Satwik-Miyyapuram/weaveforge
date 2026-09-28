@@ -283,11 +283,11 @@ test("a real MCP client drives the real browser loop through the relay", async (
     api.tool("search_workspace", { query: "attention" }),
     api.tool("get_source_excerpt", { sourceId: paperSource.sourceId }),
     api.tool("get_workspace_outline", {}),
-    api.tool("propose_append_paper_note", {
+    api.tool("suggest_append_paper_note", {
       paperId: "paper-1", addition: "Worth revisiting for the ablation section.",
       sourceId: paperSource.sourceId, quoteExact: "attention entirely",
     }),
-    api.tool("propose_create_vault_note", { title: "Denied", body: "Not in the grant." }),
+    api.tool("suggest_create_vault_note", { title: "Denied", body: "Not in the grant." }),
   ]);
 
   assert.ok(Array.isArray(search.result) && search.result.length > 0, "search reached the real retrieval path");

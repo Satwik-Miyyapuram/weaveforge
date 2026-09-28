@@ -79,6 +79,17 @@ Email and password work the same as they do in the browser, with no round trip
 through anything. If you use both, they are the same account only if the
 addresses match.
 
+## Sharing and supervision
+
+A signed-in window has the same **Sharing** entry in the account menu as the
+browser (**Supervision & sharing** when you supervise students). It shows what
+others shared with you and what you shared, and **Share my work** shares a whole
+kind of thing at once: every note, every paper, the whole report or plan,
+including items you add later. These pages read from the server, so they need
+the connection; your own notes keep working offline either way.
+
+Organisation admin (members, invites) stays in the browser.
+
 ## Updating
 
 Most of WeaveForge does not need updating at all. The window loads the app from

@@ -6,11 +6,13 @@ import {
   highlightWithinExcerpt, type AiEvidence, type AiWriteProposal } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Markdown } from "@/components/markdown/markdown";
+import { EntityCard } from "@/components/entity-card";
 import { ScreenHead } from "@/components/screen-head";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/reader";
 import { loadCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { formatError } from "@/lib/format-error";
+import { splitProposalContent } from "../application/proposal-preview";
 
 /** What a source id points at, once resolved to something a person can read. */
 interface SourceTarget {
@@ -74,6 +76,9 @@ const label: Record<AiWriteProposal["kind"], string> = {
   reading_list_change: "Reading-list change", relation: "Graph relation",
   zotero_import: "Zotero import", milestone_follow_up: "Milestone follow-up",
   experiment_follow_up: "Experiment follow-up",
+  edit_vault_note: "Edit note", append_vault_note: "Append to note",
+  report_edit: "Report section notes", milestone_status: "Milestone status",
+  experiment_update: "Experiment update", paper_annotation: "Paper highlight",
 };
 
 function reviewHeading(item: AiWriteProposal): string {
@@ -95,7 +100,20 @@ function reviewHeading(item: AiWriteProposal): string {
       ? `Set field «${claimed}» (id ${shown}) on this paper`
       : `Set field ${shown} on this paper`;
   }
-  return "Review required";
+  return label[item.kind];
+}
+
+/** Card tint: green adds, yellow changes what is there, lilac links things. */
+function toneFor(kind: AiWriteProposal["kind"]): string {
+  switch (kind) {
+    case "append_paper_note": case "create_vault_note": case "create_log_entry":
+    case "append_vault_note": case "paper_annotation":
+      return "done";
+    case "relation": case "milestone_follow_up": case "experiment_follow_up": case "zotero_import":
+      return "review";
+    default:
+      return "planned";
+  }
 }
 
 function approveLabel(item: AiWriteProposal): string {
@@ -182,16 +200,22 @@ export function AiProposalReviewScreen() {
   async function run(id: string, action: "approve" | "reject") {
     setBusy(id); setError(null);
     try {
-      if (action === "approve") await getContainer().aiProposals.approve(id);
+      let conflicted = false;
+      if (action === "approve") conflicted = (await getContainer().aiProposals.approve(id)) === "conflicted";
       else await getContainer().aiProposals.reject(id);
       changed(); await reload();
+      if (conflicted) setError("Not applied: the target changed since this was suggested.");
     } catch (err) { setError(formatError(err)); }
     finally { setBusy(null); }
   }
   async function approveAll() {
     if (!appendOnly.length) return;
     setBusy("all"); setError(null);
-    try { await getContainer().aiProposals.approveSafeBatch(appendOnly.map((item) => item.id)); changed(); await reload(); }
+    try {
+      const conflicted = await getContainer().aiProposals.approveSafeBatch(appendOnly.map((item) => item.id));
+      changed(); await reload();
+      if (conflicted) setError(`${conflicted} not applied: the target changed since it was suggested.`);
+    }
     catch (err) { setError(formatError(err)); }
     finally { setBusy(null); }
   }
@@ -204,15 +228,22 @@ export function AiProposalReviewScreen() {
       <div className="card ai-review-toolbar"><div><strong>{items.length} pending suggestion{items.length === 1 ? "" : "s"}</strong><span className="muted"> · Each one waits for you. Additions only add text; nothing is overwritten.</span></div>{appendOnly.length > 1 && <button className="btn-primary" disabled={busy !== null} onClick={() => void approveAll()}>Approve the {appendOnly.length} that only add</button>}</div>
       <div className="ai-review-list">{items.map((item) => {
         const evidence = item.evidence ?? [];
-        return <article className={`card ai-review-card${evidence.length ? " ai-review-card--split" : ""}`} key={item.id}>
-          <div className="ai-review-card-head"><div><span className={`ai-kind ai-kind--${item.kind}`}>{label[item.kind]}</span><h2>{reviewHeading(item)}</h2></div><time>{new Date(item.createdAt).toLocaleString()}</time></div>
+        const preview = splitProposalContent(item.content);
+        return <EntityCard
+          key={item.id}
+          className={`ai-review-card${evidence.length ? " ai-review-card--split" : ""}`}
+          tone={toneFor(item.kind)}
+          title={preview.title ?? reviewHeading(item)}
+          badge={<span className={`ai-kind ai-kind--${item.kind}`}>{label[item.kind]}</span>}
+          meta={<><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>{preview.why && <> · {preview.why}</>}</>}
+        >
           <div className="ai-review-body">
-            <div className="ai-review-proposed">
-              <h3 className="ai-review-colhead">Proposed write</h3>
-              <Markdown className="ai-proposal-content">{item.content}</Markdown>
-            </div>
+            {preview.body && <div className="ai-review-proposed">
+              {evidence.length > 0 && <h4 className="ai-review-colhead">Proposed write</h4>}
+              <Markdown className="ai-proposal-content">{preview.body}</Markdown>
+            </div>}
             {evidence.length > 0 && <div className="ai-review-evidence">
-              <h3 className="ai-review-colhead">Evidence</h3>
+              <h4 className="ai-review-colhead">Evidence</h4>
               {evidence.map((ev, i) => <EvidencePane key={`${item.id}-${ev.sourceId}-${i}`} evidence={ev} />)}
             </div>}
           </div>
@@ -237,7 +268,7 @@ export function AiProposalReviewScreen() {
             </p>
           )}
           <div className="ai-review-actions"><button className="btn-ghost btn-cancel" disabled={busy !== null} onClick={() => void run(item.id, "reject")}>Reject</button><button className="btn-primary" disabled={busy !== null} onClick={() => void run(item.id, "approve")}>{busy === item.id ? "Applying…" : approveLabel(item)}</button></div>
-        </article>;
+        </EntityCard>;
       })}</div>
     </>}
   </section>;

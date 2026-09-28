@@ -437,12 +437,8 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
           updatePaper,
           paperFields: managePaperFields,
           addPaper,
-          // The outcome is dropped on purpose. This executor's contract is
-          // accepted-or-conflicted, and a Zotero push that failed is neither: the
-          // paper *was* added, so "conflicted" would be a lie and a throw would
-          // report failure for a write that landed. A failed push is survivable —
-          // the paper simply has no item behind it — and the outcome is there for
-          // a caller that wants to say so.
+          // Outcome dropped: the paper landed either way, so a failed push is neither
+          // a conflict nor a failure of this accept.
           pushZotero: async (paper) => {
             await pushToZotero.execute(paper);
           },
@@ -450,6 +446,10 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
           relations: addRelation,
           milestones: manageMilestone,
           experiments: manageExperiment,
+          vaultPages: vaultPageRepository,
+          reportSections: manageReportSection,
+          reportSectionById: (id) => reportSectionRepository.getById(id),
+          annotations: backend.readerAnnotationRepository,
         })
       : [],
   );
@@ -740,6 +740,9 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       labSnapshots: backend.labSnapshotRepository,
       milestones: backend.milestoneRepository,
       logs: backend.logEntryRepository,
+      experiments: experimentRepository,
+      reportSections: reportSectionRepository,
+      countAiAccepted: () => aiAuditStore.countAccepted(),
     }),
     sharing: new SharingFacade({
       sharing: manageSharing,

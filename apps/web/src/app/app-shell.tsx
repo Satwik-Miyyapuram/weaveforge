@@ -40,6 +40,10 @@ const PdfTextFolderSync = dynamic(
   () => import("@/features/workspace/ui/pdf-text-folder-sync").then((m) => m.PdfTextFolderSync),
   { ssr: false },
 );
+const FolderDraftInbox = dynamic(
+  () => import("@/features/ai-assistant/ui/folder-draft-inbox").then((m) => m.FolderDraftInbox),
+  { ssr: false },
+);
 
 /**
  * Top-level shell: gates on auth, then on a selected project. Brand header
@@ -75,6 +79,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     screen that loaded while signed out loads again. */}
                 <ProjectProvider key={sessionEpoch}>
                   <PdfTextFolderSync />
+                  <FolderDraftInbox />
                   <ProjectScopedShell>{children}</ProjectScopedShell>
                 </ProjectProvider>
               </OrgSetupGate>

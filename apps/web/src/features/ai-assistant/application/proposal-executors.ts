@@ -1,11 +1,11 @@
 import type {
   AddLogEntryUseCase, AddPaperUseCase, AddRelationUseCase, AiProposalExecution,
-  AiWriteProposal, IAiPaperNoteAppender, IAiProposalExecutor, ManageExperimentUseCase,
-  ManageMilestoneUseCase, ManagePaperFieldsUseCase, ManageReadingListUseCase, ManageVaultPageUseCase,
-  NewExperimentInput, NewLogEntryInput, NewMilestoneInput, NewPaperInput,
+  AiWriteProposal, IAiPaperNoteAppender, IAiProposalExecutor, IReaderAnnotationSink, ManageExperimentUseCase,
+  ManageMilestoneUseCase, ManagePaperFieldsUseCase, ManageReadingListUseCase, ManageReportSectionUseCase,
+  ManageVaultPageUseCase, NewExperimentInput, NewLogEntryInput, NewMilestoneInput, NewPaperInput,
   PaperFieldValueData, PaperStatus, UpdatePaperUseCase,
 } from "@weaveforge/core";
-import { proposalApplies } from "@weaveforge/core";
+import { EXPERIMENT_STATUSES, isInkNoteBody, proposalApplies } from "@weaveforge/core";
 
 /** Typed browser-only approval executors. Invalid drafts fail closed before a write. */
 export function createAiProposalExecutors(deps: {
@@ -21,7 +21,18 @@ export function createAiProposalExecutors(deps: {
   relations: AddRelationUseCase;
   milestones: ManageMilestoneUseCase;
   experiments: ManageExperimentUseCase;
+  vaultPages: { getById(id: string): Promise<{ id: string; body: string; updatedAt: string } | null> };
+  reportSections: Pick<ManageReportSectionUseCase, "setNotes">;
+  reportSectionById: (id: string) => Promise<{ id: string; updatedAt?: string } | null>;
+  annotations: Pick<IReaderAnnotationSink, "create">;
 }): readonly IAiProposalExecutor[] {
+  // Ink notes are strokes behind a header line; a text edit would destroy them.
+  const editableNote = async (proposal: AiWriteProposal) => {
+    const page = await deps.vaultPages.getById(proposal.resourceId);
+    if (!proposalApplies(page, proposal.expectedRevision)) return null;
+    if (isInkNoteBody(page.body)) throw new Error("Ink notes cannot be edited by a suggestion.");
+    return page;
+  };
   return [
     executor("append_paper_note", async (proposal) => { const payload = proposal.payload; const addition = payload && typeof payload.addition === "string" ? payload.addition : proposal.content; return (await deps.paperNotes.appendPaperNote({ paperId: proposal.resourceId, addition, expectedRevision: proposal.expectedRevision })) === "appended" ? "accepted" : "conflicted"; }),
     executor("create_vault_note", async (proposal) => { const p = object(proposal); await deps.vault.add({ title: text(p, "title"), body: text(p, "body"), parentId: optionalText(p, "parentId") }); return "accepted"; }),
@@ -67,6 +78,66 @@ export function createAiProposalExecutors(deps: {
     executor("zotero_import", async (proposal) => { const p = object(proposal); const paper = await deps.addPaper.addManual(p as unknown as NewPaperInput); await deps.pushZotero(paper); return "accepted"; }),
     executor("milestone_follow_up", async (proposal) => { await deps.milestones.add(object(proposal) as unknown as NewMilestoneInput); return "accepted"; }),
     executor("experiment_follow_up", async (proposal) => { await deps.experiments.add(object(proposal) as unknown as NewExperimentInput); return "accepted"; }),
+    executor("edit_vault_note", async (proposal) => {
+      const page = await editableNote(proposal);
+      if (!page) return "conflicted";
+      const p = object(proposal); const title = optionalText(p, "title"); const body = typeof p.body === "string" ? p.body : undefined;
+      if (title === undefined && body === undefined) throw new Error("Note edit proposal contains no changes.");
+      await deps.vault.update(page.id, { title, body });
+      return "accepted";
+    }),
+    executor("append_vault_note", async (proposal) => {
+      const page = await editableNote(proposal);
+      if (!page) return "conflicted";
+      const addition = text(object(proposal), "addition");
+      await deps.vault.update(page.id, { body: page.body.trimEnd() ? `${page.body.trimEnd()}
+
+${addition}` : addition });
+      return "accepted";
+    }),
+    executor("report_edit", async (proposal) => {
+      const section = await deps.reportSectionById(proposal.resourceId);
+      if (!section) return "conflicted";
+      if (proposal.expectedRevision && section.updatedAt !== proposal.expectedRevision) return "conflicted";
+      const p = object(proposal);
+      if (typeof p.notes !== "string") throw new Error("Proposal notes is required.");
+      await deps.reportSections.setNotes(section.id, p.notes);
+      return "accepted";
+    }),
+    executor("milestone_status", async (proposal) => {
+      const status = enumValue(object(proposal), "status", ["planned", "in_progress", "done", "blocked"] as const);
+      if (!status) throw new Error("Proposal status is required.");
+      await deps.milestones.setStatus(proposal.resourceId, status);
+      return "accepted";
+    }),
+    executor("experiment_update", async (proposal) => {
+      const p = object(proposal);
+      const status = enumValue(p, "status", EXPERIMENT_STATUSES);
+      const metrics = p.metrics === undefined ? undefined : record(p, "metrics");
+      const artifacts = stringArray(p, "artifacts");
+      if (!status && !metrics && !artifacts) throw new Error("Experiment update proposal contains no allowed changes.");
+      if (status) await deps.experiments.setStatus(proposal.resourceId, status);
+      if (metrics) await deps.experiments.recordMetrics(proposal.resourceId, metrics);
+      if (artifacts) await deps.experiments.addArtifacts(proposal.resourceId, artifacts);
+      return "accepted";
+    }),
+    executor("paper_annotation", async (proposal) => {
+      const paper = await deps.papers.getById(proposal.resourceId);
+      if (!paper) return "conflicted";
+      const p = object(proposal);
+      const pageIndex = optionalNumber(p, "pageIndex") ?? 0;
+      if (!Number.isInteger(pageIndex) || pageIndex < 0) throw new Error("Proposal pageIndex is invalid.");
+      // Quote-anchored: the reader finds the words on the page, no rects needed.
+      await deps.annotations.create(paper.id, {
+        type: enumValue(p, "type", ["highlight", "note"] as const) ?? "highlight",
+        color: optionalText(p, "color") ?? "#ffd400",
+        text: text(p, "quote"),
+        comment: optionalText(p, "comment"),
+        anchor: { locus: { quote: { type: "TextQuoteSelector", exact: text(p, "quote") } } },
+        pageIndex,
+      });
+      return "accepted";
+    }),
   ];
 }
 
@@ -75,6 +146,7 @@ function object(proposal: AiWriteProposal): Record<string, unknown> { if (!propo
 function text(value: Record<string, unknown>, key: string): string { const v = value[key]; if (typeof v !== "string" || !v.trim()) throw new Error(`Proposal ${key} is required.`); return v.trim(); }
 function optionalText(value: Record<string, unknown>, key: string): string | undefined { const v = value[key]; return typeof v === "string" && v.trim() ? v.trim() : undefined; }
 function optionalNumber(value: Record<string, unknown>, key: string): number | undefined { const v = value[key]; if (v === undefined) return undefined; if (typeof v !== "number" || !Number.isFinite(v)) throw new Error(`Proposal ${key} must be a number.`); return v; }
+function record(value: Record<string, unknown>, key: string): Record<string, unknown> { const v = value[key]; if (!v || typeof v !== "object" || Array.isArray(v)) throw new Error(`Proposal ${key} must be an object.`); return v as Record<string, unknown>; }
 function stringArray(value: Record<string, unknown>, key: string): string[] | undefined { const v = value[key]; if (v === undefined) return undefined; if (!Array.isArray(v) || v.some((item) => typeof item !== "string")) throw new Error(`Proposal ${key} must be a string list.`); return v; }
 function enumValue<T extends string>(value: Record<string, unknown>, key: string, allowed: readonly T[]): T | undefined { const v = value[key]; if (v === undefined) return undefined; if (typeof v !== "string" || !allowed.includes(v as T)) throw new Error(`Proposal ${key} is invalid.`); return v as T; }
 function fieldValueData(value: Record<string, unknown>, key: string): PaperFieldValueData {

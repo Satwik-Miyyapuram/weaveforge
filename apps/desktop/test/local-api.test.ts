@@ -146,19 +146,12 @@ test("initialize answers with the workspace server", async () => {
 
 test("the tool list names what the folder can be asked", async () => {
   const { body } = await mcp(await vault(), "tools/list");
-  assert.deepEqual(
-    (body.result.tools as { name: string }[]).map((tool) => tool.name),
-    [
-      "search_workspace",
-      "list_workspace",
-      "get_report_section",
-      "list_experiments",
-      "get_experiment",
-      "get_paper",
-      "propose_report_edit",
-      "read_entry",
-    ],
-  );
+  const names = (body.result.tools as { name: string }[]).map((tool) => tool.name);
+  for (const name of ["search_workspace", "list_workspace", "read_entry", "get_note", "get_paper_text", "suggest_note_edit", "suggest_report_edit"]) {
+    assert.ok(names.includes(name), name);
+  }
+  // Every write is a suggestion; the old propose_ names stay callable but unlisted.
+  assert.deepEqual(names.filter((name) => !/^(search|list|read|get)_/.test(name) && !name.startsWith("suggest_")), []);
 });
 
 test("a search comes back fenced and told to be treated as data", async () => {
@@ -223,7 +216,9 @@ test("a name that matches two sections is a question, not a coin flip", async ()
 });
 
 test("a proposal lands beside the report, never in it", async () => {
-  const session = await vaultWithReport(["01-methods"]);
+  const session = await vault();
+  const methods = "---\nweaveforge-id: sec-1\nweaveforge-type: report_section\ntitle: 01-methods\n---\n# 01-methods\nsome prose\n";
+  assert.equal((await writeVaultFile(session, "report/01-methods.md", methods)).ok, true);
   const { body } = await mcp(session, "tools/call", {
     name: "propose_report_edit",
     arguments: { section: "methods", proposal: "A shorter method.", rationale: "It repeats itself." },
@@ -232,7 +227,7 @@ test("a proposal lands beside the report, never in it", async () => {
 
   // The section itself is untouched; the suggestion waits in its own folder.
   const section = await readVaultFile(session, "report/01-methods.md");
-  assert.equal(section.ok && section.value, "# 01-methods\nsome prose\n");
+  assert.equal(section.ok && section.value, methods);
 
   const at = /Left at (\S+)\./.exec(body.result.content[0].text as string)?.[1] ?? "";
   assert.match(at, /^\.weaveforge\/proposals\//);
