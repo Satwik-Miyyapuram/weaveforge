@@ -19,6 +19,7 @@ import {
 } from "../application/build-graph-data";
 import { cloneLinks, filterGraphByNodes, localSubgraph } from "../application/local-graph";
 import { EdgeDetailPopover } from "./graph-side-panel";
+import { useEscapeToClear, useFollowSeed } from "./graph-canvas-hooks";
 import { useGraphColours } from "./graph-colours";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { setGravity } from "./graph-gravity";
@@ -207,22 +208,8 @@ export function GraphCanvas({
   const [availableH, setAvailableH] = useState<number | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<{ edge: PaperRelation; x: number; y: number } | null>(null);
 
-  /**
-   * Escape leaves the selected edge.
-   *
-   * The popover's close is a small ✕ in its corner and nothing else clears the
-   * selection — a click on the background lands on the graph, which either keeps
-   * the popover or opens another one, so the edge state looked impossible to
-   * leave. Escape is what closes every other overlay in the app.
-   */
-  useEffect(() => {
-    if (!selectedEdge) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSelectedEdge(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [selectedEdge]);
+  const closeEdge = useCallback(() => setSelectedEdge(null), []);
+  useEscapeToClear(selectedEdge !== null, closeEdge);
 
   useEffect(() => {
     if (fill) return;
@@ -668,26 +655,7 @@ export function GraphCanvas({
     if (searchHits && searchHits.size > 0) centerOnSearch();
   }, [searchHits, centerOnSearch]);
 
-  /**
-   * Follow the node the side panel just picked.
-   *
-   * Choosing a paper in the panel's Papers list re-seeds the graph around that
-   * node, but a seed somewhere off-screen looks like the click did nothing, and
-   * the panel swapping to the paper is easy to miss. The view moves to it the
-   * way it moves to a search hit. One tick later, because a freshly seeded node
-   * has no coordinates until the layout has placed it.
-   */
-  useEffect(() => {
-    if (!localSeed) return;
-    const timer = setTimeout(() => {
-      const node = data.nodes.find((n) => n.id === localSeed);
-      if (node?.x == null || node.y == null) return;
-      autoFitRef.current = false;
-      fgRef.current?.centerAt?.(node.x, node.y, 400);
-      fgRef.current?.zoom?.(1.2, 400);
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [localSeed, data.nodes]);
+  useFollowSeed(localSeed, data.nodes, fgRef, autoFitRef);
 
   return (
     <div
