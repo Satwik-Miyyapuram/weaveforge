@@ -42,6 +42,12 @@ function haveDotnet() {
   return probe.status === 0;
 }
 
+// Windows-only helper; mac and Linux runners can't publish win-* single files.
+if (process.platform !== "win32") {
+  console.log("build-ink-recogniser: not Windows; skipping the Windows Ink helper.");
+  process.exit(0);
+}
+
 if (!haveDotnet()) {
   console.log("build-ink-recogniser: no .NET SDK on this machine; skipping the Windows Ink helper.");
   console.log("  The app falls back to the web recogniser, which is a supported configuration.");
