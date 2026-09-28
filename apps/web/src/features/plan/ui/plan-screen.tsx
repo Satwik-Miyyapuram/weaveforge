@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import {
   DEPENDENCY_KINDS, MILESTONE_STATUSES, type ComputeNeed, type DependencyKind, type Experiment, type Milestone, type MilestoneDependency, type MilestoneStatus, type Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
 import { Select } from "@/components/select";
@@ -353,6 +354,8 @@ function MilestoneCard({
 }) {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  /** Whether the delete confirmation is up. */
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   async function setStatus(status: MilestoneStatus) {
     const updated = await getContainer().plan.manageMilestone.setStatus(m.id, status);
@@ -361,7 +364,7 @@ function MilestoneCard({
   }
 
   async function remove() {
-    if (!confirm(`Delete milestone "${m.title}"?`)) return;
+    setConfirmOpen(false);
     setBusy(true);
     try {
       await getContainer().plan.manageMilestone.remove(m.id);
@@ -392,6 +395,7 @@ function MilestoneCard({
   const due = m.targetDate ? daysUntil(m.targetDate) : null;
 
   return (
+    <>
     <EntityCard
       as="li"
       id={`milestone-${m.id}`}
@@ -437,7 +441,7 @@ function MilestoneCard({
           resourceType="milestone"
           resourceId={m.id}
           title={`Share: ${m.title}`}
-          onDelete={readOnly ? undefined : () => void remove()}
+          onDelete={readOnly ? undefined : () => setConfirmOpen(true)}
           deleteLabel="Delete milestone"
           deleteDisabled={busy}
           extraItems={readOnly ? [] : [{ id: "edit", label: "Edit", onSelect: () => setEditing(true) }]}
@@ -477,6 +481,19 @@ function MilestoneCard({
         </div>
       )}
     </EntityCard>
+
+    {confirmOpen && (
+      <ConfirmDialog
+        title="Delete this milestone?"
+        body={`“${m.title}” comes off the plan, and anything that points at it loses its target.`}
+        confirmLabel="Delete milestone"
+        danger
+        busy={busy}
+        onConfirm={() => void remove()}
+        onClose={() => setConfirmOpen(false)}
+      />
+    )}
+    </>
   );
 }
 
