@@ -338,3 +338,13 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 .wiki-recent-list li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .wiki-recent-list li:last-child { border-bottom: 0; }
 .wiki-recent-list a { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Phone Plan/Log: the tab names the page, search and add share one row, the calendar leads. */
+@media (max-width: 900px) {
+  :is(.plan-screen, .log-screen) .screen-title-block { display: none; }
+  :is(.plan-screen, .log-screen) .screen-actions { flex-wrap: nowrap; }
+  :is(.plan-screen, .log-screen) .screen-actions > .search-input { flex: 1 1 auto; width: auto; min-width: 0; }
+  :is(.plan-screen, .log-screen) .screen-actions > .btn-primary { flex: 0 0 auto; }
+  .log-publish { display: none; }
+  .log-side { display: block; position: static; order: -1; }
+  .log-kinds { display: none; }
+}

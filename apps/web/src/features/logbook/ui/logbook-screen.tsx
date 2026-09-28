@@ -44,12 +44,12 @@ export function LogbookScreen() {
   }
 
   return (
-    <section className="screen">
+    <section className="screen log-screen">
       <ScreenHead
         eyebrow={logEyebrow(entries)}
         search={entries.length > 0 ? { value: search, onChange: setSearch, label: "Search the log" } : undefined}
       >
-        <button type="button" className="btn-secondary" onClick={() => setPublishOpen(true)}>
+        <button type="button" className="btn-secondary log-publish" onClick={() => setPublishOpen(true)}>
           Publish snapshot
         </button>
         <button className="btn-primary" onClick={() => setAddOpen(true)}>New entry</button>

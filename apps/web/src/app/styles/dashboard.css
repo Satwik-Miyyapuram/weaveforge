@@ -327,8 +327,8 @@
   .screen-actions .btn-primary,
   .screen-actions .btn-secondary { padding: 9px 14px; }
 
-  /* Progress lives on Home; hide on phone list screens to free chrome. */
-  .progress-card { display: none; }
+  /* Progress lives on Home; Plan keeps its timeline. */
+  .screen:not(.plan-screen) .progress-card { display: none; }
 
   /* Sticky SubNav must clear the notch once the brand row scrolls away. */
   .sub-nav { top: env(safe-area-inset-top, 0px); }

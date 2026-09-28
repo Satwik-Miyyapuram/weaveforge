@@ -179,7 +179,7 @@ export function PlanScreen() {
   }
 
   return (
-    <section className="screen">
+    <section className="screen plan-screen">
       <ScreenHead
         eyebrow={planEyebrow(progressItems.length, done)}
         search={items.length > 0 ? { value: search, onChange: setSearch, label: "Search milestones" } : undefined}
