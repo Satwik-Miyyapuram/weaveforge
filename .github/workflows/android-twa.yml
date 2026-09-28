@@ -78,6 +78,11 @@ jobs:
       - name: Configure Bubblewrap non-interactively
         run: |
           set -euo pipefail
+          # Bubblewrap 1.24.1 wants $ANDROID_HOME/tools/bin/sdkmanager; the runner SDK has only cmdline-tools.
+          if [ ! -e "$ANDROID_HOME/tools" ] && [ ! -e "$ANDROID_HOME/bin" ]; then
+            ln -s "$ANDROID_HOME/cmdline-tools/latest" "$ANDROID_HOME/tools"
+          fi
+          test -x "$ANDROID_HOME/tools/bin/sdkmanager" || test -x "$ANDROID_HOME/bin/sdkmanager"
           mkdir -p "$HOME/.bubblewrap"
           cat > "$HOME/.bubblewrap/config.json" <<JSON
           {
