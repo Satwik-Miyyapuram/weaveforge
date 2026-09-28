@@ -67,8 +67,8 @@ function desktopIpc() {
 /** The tools an assistant may call, taken from the dispatch it is checked against. */
 function mcpTools() {
   const relay = switchCases("apps/web/src/features/ai-assistant/infrastructure/mcp-browser-relay.ts");
-  const reads = relay.filter((tool) => !tool.startsWith("propose_"));
-  const proposals = relay.filter((tool) => tool.startsWith("propose_"));
+  const reads = relay.filter((tool) => !tool.startsWith("suggest_"));
+  const proposals = relay.filter((tool) => tool.startsWith("suggest_"));
   const workspace = [...read("apps/desktop/src/local-mcp.ts").matchAll(/name: "([a-z_]+)"/g)]
     .map((match) => match[1])
     .filter((name) => name !== "weaveforge-workspace");

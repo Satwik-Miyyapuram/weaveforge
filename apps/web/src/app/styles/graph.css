@@ -99,6 +99,11 @@
 .graph-side-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 .graph-side-section { margin-top: 12px; }
 .graph-side-list { list-style: none; padding: 0; margin: 6px 0 0; font-size: 0.8rem; }
+/* A `<button>` centres its own label, so every list in the panel read as centred
+   prose — the relations list had been fixed one rule at a time and the papers,
+   notes and co-occurring lists had not. They are rows of text: they start left. */
+.graph-side-list .link-btn,
+.graph-side-section .link-btn { text-align: left; }
 .graph-side-list li { margin: 4px 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .tag-chip-btn { cursor: pointer; border: none; font: inherit; }
 .graph-merge-box { display: grid; gap: 6px; margin: 8px 0; padding: 8px; background: var(--surface2); border-radius: 8px; }
@@ -296,6 +301,11 @@
   padding: 6px 8px; border-radius: 8px; background: var(--surface2); flex-wrap: nowrap;
 }
 .graph-side-rel .link-btn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+/* The row's own delete: pushed to the end, quiet until it is wanted. */
+.graph-side-rel .graph-side-rel-remove {
+  margin-left: auto; flex: none; padding: 2px 6px; color: var(--muted);
+}
+.graph-side-rel .graph-side-rel-remove:hover { color: var(--danger); text-decoration: none; }
 .graph-side-rel-kind {
   flex: none; font-size: 0.72rem; font-weight: 700; padding: 1px 8px;
   border: 2px solid; border-radius: 999px;

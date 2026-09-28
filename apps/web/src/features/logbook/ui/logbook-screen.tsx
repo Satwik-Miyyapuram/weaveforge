@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { LOG_KINDS, type LogEntry, type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
 import { AddLogEntryForm } from "./add-log-entry-form";
@@ -169,10 +170,12 @@ function PublishLabSnapshotForm({ onPublished }: { onPublished: () => void }) {
 
 function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void }) {
   const [editing, setEditing] = useState(false);
+  /** Whether the delete confirmation is up. */
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const { headline, rest } = splitHeadline(entry.body);
 
   async function remove() {
-    if (!confirm(`Delete log entry from ${entry.entryDate}?`)) return;
+    setConfirmOpen(false);
     await getContainer().logbook.addLogEntry.remove(entry.id);
     try { await getContainer().logbook.removeLog(entry); } catch { /* git sync best-effort */ }
     await onChanged();
@@ -194,32 +197,45 @@ function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void 
   }
 
   return (
-    <EntityCard
-      as="li"
-      className="log-item"
-      tone={entry.kind}
-      // Same card as papers, notes, experiments, milestones and report
-      // sections: what identifies the row on the card, the occasional and
-      // destructive controls behind one ⋯. A log entry has no share type yet,
-      // so the menu carries Edit and Delete and gains Share with it.
-      title={headline}
-      status={
-        <>
-          <time className="log-time" dateTime={entry.createdAt}>{timeOf(entry.createdAt)}</time>
-          <span className={`status status-${entry.kind}`}>{statusLabel(entry.kind)}</span>
-        </>
-      }
-      menu={
-        <EntityCardMenu
-          shareable={false}
-          deleteLabel="Delete log entry"
-          onDelete={() => void remove()}
-          extraItems={[{ id: "edit", label: "Edit", onSelect: () => setEditing(true) }]}
+    <>
+      <EntityCard
+        as="li"
+        className="log-item"
+        tone={entry.kind}
+        // Same card as papers, notes, experiments, milestones and report
+        // sections: what identifies the row on the card, the occasional and
+        // destructive controls behind one ⋯. A log entry has no share type yet,
+        // so the menu carries Edit and Delete and gains Share with it.
+        title={headline}
+        status={
+          <>
+            <time className="log-time" dateTime={entry.createdAt}>{timeOf(entry.createdAt)}</time>
+            <span className={`status status-${entry.kind}`}>{statusLabel(entry.kind)}</span>
+          </>
+        }
+        menu={
+          <EntityCardMenu
+            shareable={false}
+            deleteLabel="Delete log entry"
+            onDelete={() => setConfirmOpen(true)}
+            extraItems={[{ id: "edit", label: "Edit", onSelect: () => setEditing(true) }]}
+          />
+        }
+      >
+        {rest && <Markdown className="log-body">{rest}</Markdown>}
+      </EntityCard>
+
+      {confirmOpen && (
+        <ConfirmDialog
+          title="Delete this log entry?"
+          body={`The entry from ${entry.entryDate} goes away. Its text is not kept.`}
+          confirmLabel="Delete entry"
+          danger
+          onConfirm={() => void remove()}
+          onClose={() => setConfirmOpen(false)}
         />
-      }
-    >
-      {rest && <Markdown className="log-body">{rest}</Markdown>}
-    </EntityCard>
+      )}
+    </>
   );
 }
 

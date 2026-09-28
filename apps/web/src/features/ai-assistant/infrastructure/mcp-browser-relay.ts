@@ -1,6 +1,7 @@
-import type {
-  AiAccessSettings,
-  AiEvidence,
+import {
+  canonicalAiToolName,
+  type AiAccessSettings,
+  type AiEvidence,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { decodeBase64, encodeBase64 } from "@/lib/bytea";
@@ -161,21 +162,22 @@ export async function handleRelayBatch(deps: RelayBatchDeps, batch: readonly Rel
 
 /** Run one decrypted tool call. Every argument is untrusted until checked here. */
 export async function dispatchMcpTool(ai: McpToolHost, sessionId: string, settings: AiAccessSettings, command: { tool?: string; arguments?: Record<string, unknown> }): Promise<unknown> {
-  if (!GENERATED_MCP_ENABLED || !command.tool || !GENERATED_MCP_TOOL_NAMES.includes(command.tool as (typeof GENERATED_MCP_TOOL_NAMES)[number])) {
+  const tool = command.tool ? canonicalAiToolName(command.tool) : "";
+  if (!GENERATED_MCP_ENABLED || !tool || !GENERATED_MCP_TOOL_NAMES.includes(tool as (typeof GENERATED_MCP_TOOL_NAMES)[number])) {
     throw new Error("This MCP tool is not enabled for this deployment.");
   }
   const args = command.arguments ?? {};
-  switch (command.tool) {
+  switch (tool) {
     case "search_workspace": return ai.searchWorkspace({ sessionId, settings, query: String(args.query ?? ""), limit: Number(args.limit) || undefined });
     case "get_source_excerpt": return ai.getSourceExcerpt({ sessionId, settings, sourceId: String(args.sourceId ?? "") });
     case "get_workspace_outline": return ai.getWorkspaceOutline({ sessionId, settings });
-    case "propose_zotero_import": return ai.proposeZoteroImport({
+    case "suggest_zotero_import": return ai.proposeZoteroImport({
       sessionId, settings, title: String(args.title ?? ""),
       authors: Array.isArray(args.authors) ? args.authors.map(String) : [], doi: typeof args.doi === "string" ? args.doi : undefined,
       url: typeof args.url === "string" ? args.url : undefined, year: typeof args.year === "string" || typeof args.year === "number" ? args.year : undefined,
       abstract: typeof args.abstract === "string" ? args.abstract : undefined,
     });
-    case "propose_append_paper_note": {
+    case "suggest_append_paper_note": {
       const addition = required(args, "addition");
       const paperId = required(args, "paperId");
       const sourceId = optional(args, "sourceId");
@@ -189,7 +191,7 @@ export async function dispatchMcpTool(ai: McpToolHost, sessionId: string, settin
           })
         : undefined;
       return ai.proposeDraft({
-        sessionId, settings, kind: "append_paper_note", tool: "propose_append_paper_note",
+        sessionId, settings, kind: "append_paper_note", tool: "suggest_append_paper_note",
         resourceId: paperId, resourceType: "paper_note",
         expectedRevision: optional(args, "expectedRevision"),
         content: `Append to paper note:\n\n${addition}`,
@@ -197,10 +199,10 @@ export async function dispatchMcpTool(ai: McpToolHost, sessionId: string, settin
         evidence,
       });
     }
-    case "propose_create_vault_note": return ai.proposeDraft({ sessionId, settings, kind: "create_vault_note", tool: "propose_create_vault_note", content: `Create vault note: ${required(args, "title")}`, payload: { title: required(args, "title"), body: required(args, "body"), parentId: optional(args, "parentId") } });
-    case "propose_create_log_entry": return ai.proposeDraft({ sessionId, settings, kind: "create_log_entry", tool: "propose_create_log_entry", content: `Create log entry:\n\n${required(args, "body")}`, payload: { body: required(args, "body"), entryDate: optional(args, "entryDate"), kind: optional(args, "kind") ?? "daily" } });
-    case "propose_paper_update": return ai.proposeDraft({ sessionId, settings, kind: "paper_update", tool: "propose_paper_update", resourceId: required(args, "paperId"), resourceType: "paper", expectedRevision: optional(args, "expectedRevision"), content: `Update paper metadata`, payload: { status: optional(args, "status"), rating: typeof args.rating === "number" ? args.rating : undefined, tags: stringList(args.tags) } });
-    case "propose_paper_field_value": {
+    case "suggest_create_vault_note": return ai.proposeDraft({ sessionId, settings, kind: "create_vault_note", tool: "suggest_create_vault_note", content: `Create vault note: ${required(args, "title")}`, payload: { title: required(args, "title"), body: required(args, "body"), parentId: optional(args, "parentId") } });
+    case "suggest_create_log_entry": return ai.proposeDraft({ sessionId, settings, kind: "create_log_entry", tool: "suggest_create_log_entry", content: `Create log entry:\n\n${required(args, "body")}`, payload: { body: required(args, "body"), entryDate: optional(args, "entryDate"), kind: optional(args, "kind") ?? "daily" } });
+    case "suggest_paper_update": return ai.proposeDraft({ sessionId, settings, kind: "paper_update", tool: "suggest_paper_update", resourceId: required(args, "paperId"), resourceType: "paper", expectedRevision: optional(args, "expectedRevision"), content: `Update paper metadata`, payload: { status: optional(args, "status"), rating: typeof args.rating === "number" ? args.rating : undefined, tags: stringList(args.tags) } });
+    case "suggest_paper_field_value": {
       const paperId = required(args, "paperId");
       const fieldId = required(args, "fieldId");
       const value = parseFieldValue(args.value);
@@ -218,7 +220,7 @@ export async function dispatchMcpTool(ai: McpToolHost, sessionId: string, settin
       // getSourceExcerpt), and a hard-coded "paper" metadata grant would fail
       // least-privilege note-only sessions.
       return ai.proposeDraft({
-        sessionId, settings, kind: "paper_field_value", tool: "propose_paper_field_value",
+        sessionId, settings, kind: "paper_field_value", tool: "suggest_paper_field_value",
         resourceId: paperId,
         expectedRevision: optional(args, "expectedRevision"),
         // fieldId is authoritative; optional fieldName is an unverified hint only.
@@ -231,10 +233,10 @@ export async function dispatchMcpTool(ai: McpToolHost, sessionId: string, settin
         evidence,
       });
     }
-    case "propose_reading_list_change": return ai.proposeDraft({ sessionId, settings, kind: "reading_list_change", tool: "propose_reading_list_change", resourceId: required(args, "listId"), resourceType: "reading_list", content: "Add an item to a reading list", payload: { listId: required(args, "listId"), paperId: optional(args, "paperId"), vaultPageId: optional(args, "vaultPageId"), note: optional(args, "note") } });
-    case "propose_relation": return ai.proposeDraft({ sessionId, settings, kind: "relation", tool: "propose_relation", resourceId: required(args, "fromPaper"), resourceType: "paper", content: `Add ${required(args, "relation")} relation`, payload: { fromPaper: required(args, "fromPaper"), toPaper: required(args, "toPaper"), relation: required(args, "relation") } });
-    case "propose_milestone_follow_up": return ai.proposeDraft({ sessionId, settings, kind: "milestone_follow_up", tool: "propose_milestone_follow_up", content: `Create milestone: ${required(args, "title")}`, payload: { title: required(args, "title"), description: optional(args, "description"), targetDate: optional(args, "targetDate") } });
-    case "propose_experiment_follow_up": return ai.proposeDraft({ sessionId, settings, kind: "experiment_follow_up", tool: "propose_experiment_follow_up", content: `Create experiment: ${required(args, "name")}`, payload: { name: required(args, "name"), hypothesis: optional(args, "hypothesis"), relatedPaper: optional(args, "relatedPaper") } });
+    case "suggest_reading_list_change": return ai.proposeDraft({ sessionId, settings, kind: "reading_list_change", tool: "suggest_reading_list_change", resourceId: required(args, "listId"), resourceType: "reading_list", content: "Add an item to a reading list", payload: { listId: required(args, "listId"), paperId: optional(args, "paperId"), vaultPageId: optional(args, "vaultPageId"), note: optional(args, "note") } });
+    case "suggest_relation": return ai.proposeDraft({ sessionId, settings, kind: "relation", tool: "suggest_relation", resourceId: required(args, "fromPaper"), resourceType: "paper", content: `Add ${required(args, "relation")} relation`, payload: { fromPaper: required(args, "fromPaper"), toPaper: required(args, "toPaper"), relation: required(args, "relation") } });
+    case "suggest_milestone_follow_up": return ai.proposeDraft({ sessionId, settings, kind: "milestone_follow_up", tool: "suggest_milestone_follow_up", content: `Create milestone: ${required(args, "title")}`, payload: { title: required(args, "title"), description: optional(args, "description"), targetDate: optional(args, "targetDate") } });
+    case "suggest_experiment_follow_up": return ai.proposeDraft({ sessionId, settings, kind: "experiment_follow_up", tool: "suggest_experiment_follow_up", content: `Create experiment: ${required(args, "name")}`, payload: { name: required(args, "name"), hypothesis: optional(args, "hypothesis"), relatedPaper: optional(args, "relatedPaper") } });
     default: throw new Error("This MCP tool is not enabled for live execution.");
   }
 }
@@ -283,7 +285,7 @@ function parseFieldValue(value: unknown): string | number | string[] {
 /**
  * Resolve one paper-scoped evidence item, or refuse.
  *
- * `quoteExact` is optional because `propose_append_paper_note` accepts evidence
+ * `quoteExact` is optional because `suggest_append_paper_note` accepts evidence
  * without one; where a tool requires the quote it is `requiredRaw` at the call
  * site, so an absent quote here means the tool allowed it.
  */

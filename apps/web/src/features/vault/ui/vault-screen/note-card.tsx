@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { extractHashtags, type VaultPage, type VaultPageSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { PinnedPaperBadge } from "@/features/sharing";
@@ -34,6 +35,8 @@ export function NoteCard({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  /** Whether the delete confirmation is up. */
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const preview = noteBodyText(page);
   const excerpt = cardSnippet(readableText(preview));
   const tags = useMemo(() => extractHashtags(preview), [preview]);
@@ -48,8 +51,9 @@ export function NoteCard({
     }
   }
 
+  /** The menu item only asks; the app's own dialog is what deletes. */
   async function remove() {
-    if (!confirm(`Delete “${page.title}”?`)) return;
+    setConfirmOpen(false);
     setBusy(true);
     try {
       await getContainer().vault.manageVaultPage.remove(page.id);
@@ -60,32 +64,46 @@ export function NoteCard({
   }
 
   return (
-    <EntityCard
-      className="paper-card"
-      onActivate={onOpen}
-      title={page.title}
-      badge={readOnly ? <PinnedPaperBadge ownerName={sharedByName} /> : undefined}
-      tags={tags}
-      tintTag={tags[0]}
-      // One overflow menu instead of a delete icon and a share button on every
-      // card in the grid; the body of the card opens the note.
-      menu={
-        readOnly ? undefined : (
-          <EntityCardMenu
-            resourceType="vault_page"
-            resourceId={page.id}
-            title={`Share: ${page.title}`}
-            deleteDisabled={busy}
-            onDelete={() => void remove()}
-            extraItems={[
-              { id: "pin", label: page.pinned ? "Unpin" : "Pin", disabled: busy, onSelect: () => void togglePin() },
-              { id: "list", label: "Add to list", onSelect: () => {}, submenu: () => <ListPicker target={{ kind: "note", id: page.id }} /> },
-            ]}
-          />
-        )
-      }
-    >
-      {excerpt ? <p className="entity-card-snippet">{excerpt}</p> : null}
-    </EntityCard>
+    <>
+      <EntityCard
+        className="paper-card"
+        onActivate={onOpen}
+        title={page.title}
+        badge={readOnly ? <PinnedPaperBadge ownerName={sharedByName} /> : undefined}
+        tags={tags}
+        tintTag={tags[0]}
+        // One overflow menu instead of a delete icon and a share button on every
+        // card in the grid; the body of the card opens the note.
+        menu={
+          readOnly ? undefined : (
+            <EntityCardMenu
+              resourceType="vault_page"
+              resourceId={page.id}
+              title={`Share: ${page.title}`}
+              deleteDisabled={busy}
+              onDelete={() => setConfirmOpen(true)}
+              extraItems={[
+                { id: "pin", label: page.pinned ? "Unpin" : "Pin", disabled: busy, onSelect: () => void togglePin() },
+                { id: "list", label: "Add to list", onSelect: () => {}, submenu: () => <ListPicker target={{ kind: "note", id: page.id }} /> },
+              ]}
+            />
+          )
+        }
+      >
+        {excerpt ? <p className="entity-card-snippet">{excerpt}</p> : null}
+      </EntityCard>
+
+      {confirmOpen && (
+        <ConfirmDialog
+          title="Delete this note?"
+          body={`“${page.title}” goes away, and so do the links that point at it. Its text is not kept.`}
+          confirmLabel="Delete note"
+          danger
+          busy={busy}
+          onConfirm={() => void remove()}
+          onClose={() => setConfirmOpen(false)}
+        />
+      )}
+    </>
   );
 }

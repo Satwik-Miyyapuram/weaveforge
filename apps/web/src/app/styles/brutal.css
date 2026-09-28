@@ -1118,11 +1118,9 @@
 
 /* ── AI review ─────────────────────────────────────────────────────────── */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-toolbar { box-shadow: var(--sh-card); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-card { padding: 20px 22px; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-card h2 { font-size: 1.05rem; font-weight: 700; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-card time { font-family: var(--font-mono); font-size: 0.74rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-card .entity-card-meta { font-family: var(--font-mono); font-size: 0.76rem; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind {
-  display: inline-block; margin-bottom: 4px; padding: 2px 10px;
+  display: inline-block; padding: 2px 10px;
   border: var(--bw) solid var(--bw-line); border-radius: 999px;
   background: var(--chip-reading); color: var(--text);
   font-size: 0.74rem; font-weight: 700; letter-spacing: 0;
@@ -1133,7 +1131,7 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-colhead { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-proposal-content {
   background: var(--surface2); border: var(--bw) solid var(--bw-line);
-  border-left: 6px solid var(--chip-read); border-radius: var(--radius-sm);
+  border-radius: var(--radius-sm);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-evidence {
   background: var(--surface); border: var(--bw) dashed var(--bw-line); border-radius: var(--radius-sm);
@@ -1180,8 +1178,8 @@
   border: var(--bw) solid var(--bw-line); background: var(--surface2); color: var(--text);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-status.s-done, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-status.s-daily { background: var(--chip-read); color: var(--text); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-status.s-in_progress, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-status.s-weekly { background: var(--chip-to-read); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-status.s-blocked { background: var(--danger-soft); color: var(--text); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-status:is(.s-in_progress, .s-weekly, .s-running, .s-drafting, .s-review) { background: var(--chip-to-read); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-status:is(.s-blocked, .s-failed) { background: var(--danger-soft); color: var(--text); }
 
 /* ── Shared with me ────────────────────────────────────────────────────── */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-filter { padding: 0; gap: 0; border: var(--bw) solid var(--bw-line); border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--sh-sm); overflow: hidden; }

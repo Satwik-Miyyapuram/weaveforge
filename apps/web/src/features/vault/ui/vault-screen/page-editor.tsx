@@ -9,6 +9,7 @@ import {
   type VaultPage,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { readableText } from "@/lib/page-text";
 import { AttachImageButton } from "@/components/attach-image-button";
 import type { EditorHandle } from "@/components/editor-handle";
@@ -74,6 +75,8 @@ export function PageEditor({
   const noteTextRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  /** Whether the delete confirmation is up. */
+  const [deleteOpen, setDeleteOpen] = useState(false);
   // Filled in while the editor is on screen, for the image button.
   const editorHandle = useRef<EditorHandle | null>(null);
   const { completions } = useCiteLinkCatalog();
@@ -141,8 +144,9 @@ export function PageEditor({
     }
   }
 
+  /** Deleting is asked in the app's own dialog; the button only opens it. */
   async function remove() {
-    if (!confirm(`Delete “${page.title}”?`)) return;
+    setDeleteOpen(false);
     await getContainer().vault.manageVaultPage.remove(page.id);
     onDeleted();
   }
@@ -196,7 +200,7 @@ export function PageEditor({
             <button
               type="button"
               className="record-action danger"
-              onClick={() => void remove()}
+              onClick={() => setDeleteOpen(true)}
               disabled={busy}
               aria-label="Delete note"
               title="Delete"
@@ -325,6 +329,17 @@ export function PageEditor({
           <RelatedPanel seedKind="note" seedId={page.id} variant="record" />
         </aside>
       </div>
+
+      {deleteOpen && (
+        <ConfirmDialog
+          title="Delete this note?"
+          body={`“${page.title}” goes away, and so do the links that point at it. Its text is not kept.`}
+          confirmLabel="Delete note"
+          danger
+          onConfirm={() => void remove()}
+          onClose={() => setDeleteOpen(false)}
+        />
+      )}
     </article>
   );
 }

@@ -27,11 +27,9 @@ import { fileURLToPath } from "node:url";
  *     into the local database over the loopback API now, so a copy with no
  *     account has experiments to show. Opening one is `?experiment=<id>` on the
  *     list rather than a page of its own — see `experiment-href.ts`.
- *   - **`app/org`, `app/shared`, `app/supervision`.** Other people's accounts,
- *     read over the network, always (D3). Their modules are marked
- *     `requiresNetwork`, so the offline build already has no nav entry and no
- *     link to them; holding the directories aside is what makes the pages
- *     absent rather than merely unreachable (D10).
+ *   - **`app/org`.** It talks to `/api/org/*`, which the export has no server
+ *     for. `/shared` and `/supervision` do ship: they read through the
+ *     container, which a signed-in window routes to the server.
  *
  * Moving directories in the working tree is a blunt instrument, so it is done
  * carefully: they are restored in a `finally`, restored on a signal, and the
@@ -50,7 +48,7 @@ const destination = path.join(root, "dist/web");
 
 /** Route directories held aside for the build, as `[real, holding]` pairs. */
 const heldAside = [
-  ["api", "org", "shared", "supervision"].map((name) => [name, name]),
+  ["api", "org"].map((name) => [name, name]),
   // The list stays; only the page-per-experiment goes.
   [["experiments/[id]", "experiment-detail"]],
 ]

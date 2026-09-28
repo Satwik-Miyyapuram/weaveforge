@@ -156,6 +156,18 @@ function PaperPanel({
     }
   }
 
+  /**
+   * Unlink one relation from here.
+   *
+   * Deleting an edge used to mean clicking it on the canvas — a target a few
+   * pixels wide, and one that sits off-screen whenever either end is out of
+   * view. The panel already lists the relations, so the row carries the action.
+   */
+  async function removeRelation(id: string) {
+    await getContainer().graph.removeRelation(id);
+    onRefresh();
+  }
+
   return (
     <div className="graph-side-body">
       <h3 className="graph-side-title">{paper.title}</h3>
@@ -194,6 +206,15 @@ function PaperPanel({
                     {paperLabel(papers, otherId)}
                   </button>
                   {e.source === "auto" && <span className="muted"> (auto)</span>}
+                  <button
+                    type="button"
+                    className="link-btn graph-side-rel-remove"
+                    aria-label={`Delete relation with ${paperLabel(papers, otherId)}`}
+                    title="Delete relation"
+                    onClick={() => void removeRelation(e.id)}
+                  >
+                    ✕
+                  </button>
                 </li>
               );
             })}

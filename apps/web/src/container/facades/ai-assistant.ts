@@ -333,7 +333,7 @@ export class AiAssistantFacade {
         DOI: input.doi?.trim() || undefined, url: input.url?.trim() || undefined,
         date: input.year == null ? undefined : String(input.year), abstractNote: input.abstract?.trim() || undefined,
     };
-    return this.proposeDraft({ sessionId: input.sessionId, settings: input.settings, kind: "zotero_import", tool: "propose_zotero_import", content: `Import “${title}” into Zotero`, payload: { title, authors: input.authors ?? [], doi: input.doi, url: input.url, year: input.year, abstract: input.abstract, item } });
+    return this.proposeDraft({ sessionId: input.sessionId, settings: input.settings, kind: "zotero_import", tool: "suggest_zotero_import", content: `Import “${title}” into Zotero`, payload: { title, authors: input.authors ?? [], doi: input.doi, url: input.url, year: input.year, abstract: input.abstract, item } });
   }
 
   private requireActiveSession(sessionId: string): AiActiveSession {
@@ -540,7 +540,10 @@ export class AiProposalFacade {
     await this.deps.audit.save({ id: this.deps.newId(), proposalId: id, action: "rejected", createdAt: this.deps.now() });
   }
 
-  async approveSafeBatch(ids: readonly string[]): Promise<void> {
-    for (const id of ids) await this.approve(id);
+  /** Returns how many were not applied because their target changed. */
+  async approveSafeBatch(ids: readonly string[]): Promise<number> {
+    let conflicted = 0;
+    for (const id of ids) if ((await this.approve(id)) === "conflicted") conflicted += 1;
+    return conflicted;
   }
 }

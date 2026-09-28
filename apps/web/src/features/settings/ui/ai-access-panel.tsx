@@ -34,6 +34,12 @@ const PROPOSAL_LABELS: Record<AiProposalKind, string> = {
   zotero_import: "Propose Zotero imports",
   milestone_follow_up: "Create milestone follow-ups",
   experiment_follow_up: "Create experiment follow-ups",
+  edit_vault_note: "Suggest note edits",
+  append_vault_note: "Suggest additions to notes",
+  report_edit: "Suggest report section notes",
+  milestone_status: "Suggest milestone status changes",
+  experiment_update: "Suggest experiment updates",
+  paper_annotation: "Suggest paper highlights",
 };
 
 const DEFAULT_AI_ACCESS: AiAccessSettings = {

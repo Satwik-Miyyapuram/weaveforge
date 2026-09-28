@@ -6,7 +6,7 @@ test("MCP manifest declares every tool as browser-paired and proposals as confir
   const manifest = aiMcpToolManifest();
   assert.deepEqual(manifest.map((tool) => tool.name), AI_TOOL_NAMES);
   assert.ok(manifest.every((tool) => tool.requiresBrowserPairing));
-  assert.ok(manifest.filter((tool) => tool.name.startsWith("propose_")).every((tool) => tool.requiresUserConfirmation));
+  assert.ok(manifest.filter((tool) => tool.name.startsWith("suggest_")).every((tool) => tool.requiresUserConfirmation));
 });
 
 test("gateway pairing failure is explicit and fail-closed", () => {

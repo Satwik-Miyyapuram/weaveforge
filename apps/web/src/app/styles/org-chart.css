@@ -12,7 +12,7 @@
    (`entity-detail.css`), rather than a literal pair: those two hex values were
    fixed for a light background and lost their text contrast on Amoled. */
 .superv-status.s-done { background: var(--st-positive-bg); color: var(--st-positive-fg); }
-.superv-status.s-blocked { background: var(--st-danger-bg); color: var(--st-danger-fg); }
+.superv-status:is(.s-blocked, .s-failed) { background: var(--st-danger-bg); color: var(--st-danger-fg); }
 
 /* ---- Member tree (org chart + supervisor picker) ---- */
 .member-tree { font-size: 0.9rem; }

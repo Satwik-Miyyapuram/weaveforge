@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   type LabSnapshot,
   type LogEntry,
@@ -80,6 +81,9 @@ export function SupervisionScreen() {
             />
           </div>
         )}
+        <Link className="btn-secondary" href="/shared">
+          Sharing
+        </Link>
       </ScreenHead>
       {supervisees.length === 0 ? (
         <p className="muted">Nobody is assigned under you yet.</p>
@@ -190,6 +194,12 @@ function SuperviseePanel({ member }: { member: Member }) {
                 </option>
               ))}
             </Select>
+            {selectedSnapshot?.content.aiAssisted !== undefined && (
+              <p className="muted superv-meta">
+                AI-assisted: {selectedSnapshot.content.aiAssisted} accepted{" "}
+                {selectedSnapshot.content.aiAssisted === 1 ? "suggestion" : "suggestions"}
+              </p>
+            )}
             {selectedSnapshot?.note && (
               <div className="superv-note">
                 <span className="superv-note-label">Note from {member.fullName?.split(" ")[0] || "them"}</span>
@@ -252,6 +262,54 @@ function SuperviseePanel({ member }: { member: Member }) {
           </ul>
         )}
       </div>
+
+      {selectedSnapshot?.content.experiments && (
+        <div className="card add-form">
+          <h3 className="settings-group superv-panel-head">
+            <span>Experiments ({selectedSnapshot.content.experiments.length})</span>
+            <span className="superv-source superv-source--snapshot">Snapshot</span>
+          </h3>
+          {selectedSnapshot.content.experiments.length === 0 ? (
+            <p className="muted">No experiments yet.</p>
+          ) : (
+            <ul className="superv-list">
+              {selectedSnapshot.content.experiments.map((e) => (
+                <li key={e.id} className="superv-item">
+                  <div className="superv-item-head">
+                    <span className="superv-item-title">{e.name}</span>
+                    <span className={`superv-status s-${e.status}`}>{statusLabel(e.status)}</span>
+                  </div>
+                  {e.resultNote && <p className="superv-body">{e.resultNote}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {selectedSnapshot?.content.report && (
+        <div className="card add-form">
+          <h3 className="settings-group superv-panel-head">
+            <span>Report progress ({selectedSnapshot.content.report.length})</span>
+            <span className="superv-source superv-source--snapshot">Snapshot</span>
+          </h3>
+          {selectedSnapshot.content.report.length === 0 ? (
+            <p className="muted">No report sections yet.</p>
+          ) : (
+            <ul className="superv-list">
+              {selectedSnapshot.content.report.map((r) => (
+                <li key={r.id} className="superv-item">
+                  <div className="superv-item-head">
+                    <span className="superv-item-title">{r.title}</span>
+                    <span className={`superv-status s-${r.status}`}>{statusLabel(r.status)}</span>
+                  </div>
+                  <span className="muted superv-meta">{r.wordCount} words</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }

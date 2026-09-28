@@ -108,4 +108,17 @@ export class SupabaseAiAuditStore implements IAiAuditStore {
       created_at: record.createdAt,
     }));
   }
+
+  /** Suggestions accepted in the active project, for lab snapshots. */
+  async countAccepted(): Promise<number> {
+    const projectId = this.projectId();
+    if (!projectId) return 0;
+    const { count, error } = await this.db
+      .from("ai_audit_records")
+      .select("id", { count: "exact", head: true })
+      .eq("project_id", projectId)
+      .eq("action", "accepted");
+    if (error) throw error;
+    return count ?? 0;
+  }
 }

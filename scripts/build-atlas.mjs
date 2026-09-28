@@ -50,7 +50,7 @@ function values() {
   const relay = switchCases(
     "apps/web/src/features/ai-assistant/infrastructure/mcp-browser-relay.ts",
   );
-  const proposals = relay.filter((tool) => tool.startsWith("propose_"));
+  const proposals = relay.filter((tool) => tool.startsWith("suggest_"));
   const workspaceTools = [
     ...read("apps/desktop/src/local-mcp.ts").matchAll(/name: "([a-z_]+)"/g),
   ].filter((match) => match[1] !== "weaveforge-workspace");

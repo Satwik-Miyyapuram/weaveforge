@@ -15,6 +15,20 @@ import { NavIcon } from "@/app/nav-icon";
 import Link from "next/link";
 import { ScreenHead } from "@/components/screen-head";
 import { sharedItemTypeLabel } from "@/features/sharing/ui/shared-item-routes";
+import { Modal } from "@/components/modal";
+import { ShareButton } from "@/features/sharing/ui/share-button";
+import { useProfile } from "@/features/org";
+import type { ShareableType } from "@weaveforge/core";
+
+/** Blanket shares: every item of a type you own, including later ones. */
+const SHARE_ALL: { type: ShareableType; title: string; desc: string }[] = [
+  { type: "vault_page", title: "All notes", desc: "Every note, now and later." },
+  { type: "paper", title: "All papers", desc: "Every paper in your library." },
+  { type: "experiment", title: "All experiments", desc: "Every experiment run." },
+  { type: "report_section", title: "Whole report", desc: "Every report section." },
+  { type: "milestone", title: "Whole plan", desc: "Every milestone." },
+  { type: "reading_list", title: "All reading lists", desc: "Every reading list." },
+];
 
 type SharedWithMeView = {
   items: SharedItemDetail[];
@@ -33,6 +47,10 @@ export function SharedWithMeScreen() {
   }, []);
 
   const { data, loading, error } = useScreenData("shared-with-me", loadScreen);
+  const { profile } = useProfile();
+  const canSupervise = !!profile && profile.role !== "masters";
+  const [hubOpen, setHubOpen] = useState(false);
+  const [shareType, setShareType] = useState<ShareableType | null>(null);
   const items = data?.items ?? emptyArray<LoadSharedWithMeScreenData["items"][number]>();
   const nameOf = data?.nameOf ?? emptyMap<string, string>();
 
@@ -76,7 +94,49 @@ export function SharedWithMeScreen() {
             ))}
           </div>
         )}
+        {canSupervise && (
+          <Link className="btn-secondary" href="/supervision">
+            Supervision
+          </Link>
+        )}
+        <button className="btn-primary" type="button" onClick={() => setHubOpen(true)}>
+          Share my work
+        </button>
       </ScreenHead>
+
+      {hubOpen && (
+        <Modal title="Share my work" onClose={() => setHubOpen(false)}>
+          <div className="org-modal-choices">
+            {SHARE_ALL.map((c) => (
+              <button
+                key={c.type}
+                type="button"
+                className="org-choice-card"
+                onClick={() => {
+                  setHubOpen(false);
+                  setShareType(c.type);
+                }}
+              >
+                <span className="org-choice-title">{c.title}</span>
+                <p className="org-choice-desc">{c.desc}</p>
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
+
+      {shareType && (
+        <ShareButton
+          resourceType={shareType}
+          resourceId={null}
+          title={`Share ${SHARE_ALL.find((c) => c.type === shareType)?.title.toLowerCase() ?? "all"}`}
+          hideTrigger
+          open
+          onOpenChange={(open) => {
+            if (!open) setShareType(null);
+          }}
+        />
+      )}
       {error && <FormError>{error}</FormError>}
       {!error && items.length === 0 && (
         <EmptyState

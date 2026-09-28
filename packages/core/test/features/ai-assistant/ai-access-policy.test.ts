@@ -18,7 +18,7 @@ const grant: AiSessionGrant = {
   workspaceId: "workspace-1",
   expiresAt: "2026-07-15T00:00:00.000Z",
   readable: [{ sourceId: "source-1", resourceType: "paper", resourceId: "paper-1" }],
-  allowedTools: ["get_source_excerpt", "propose_append_paper_note"],
+  allowedTools: ["get_source_excerpt", "suggest_append_paper_note"],
   proposalCapabilities: ["append_paper_note"],
   requiresConfirmationForWrites: true,
 };
@@ -78,13 +78,13 @@ for (const [name, change, reason] of [
 test("proposal permissions require both settings and the short-lived grant", () => {
   const policy = new AiAccessPolicy();
   assert.deepEqual(
-    policy.evaluate({ ...base, tool: "propose_append_paper_note", proposalKind: "append_paper_note" }),
+    policy.evaluate({ ...base, tool: "suggest_append_paper_note", proposalKind: "append_paper_note" }),
     { allowed: true },
   );
   assert.deepEqual(
     policy.evaluate({
       ...base,
-      tool: "propose_append_paper_note",
+      tool: "suggest_append_paper_note",
       proposalKind: "create_log_entry",
     }),
     { allowed: false, reason: "proposal_not_allowed" },
@@ -95,7 +95,7 @@ test("policy permits review-only Zotero import proposals without exposing creden
   const zoteroSettings: AiAccessSettings = { ...settings, proposalKinds: ["zotero_import"] };
   const zoteroGrant: AiSessionGrant = {
     ...grant,
-    allowedTools: ["propose_zotero_import"],
+    allowedTools: ["suggest_zotero_import"],
     proposalCapabilities: ["zotero_import"],
   };
   assert.deepEqual(
@@ -103,7 +103,7 @@ test("policy permits review-only Zotero import proposals without exposing creden
       ...base,
       settings: zoteroSettings,
       grant: zoteroGrant,
-      tool: "propose_zotero_import",
+      tool: "suggest_zotero_import",
       proposalKind: "zotero_import",
     }),
     { allowed: true },
@@ -121,7 +121,7 @@ test("tools that name no resource still evaluate on tool and proposal rules alon
   assert.deepEqual(
     new AiAccessPolicy().evaluate({
       ...base,
-      tool: "propose_append_paper_note",
+      tool: "suggest_append_paper_note",
       resourceType: undefined,
       resourceId: undefined,
       proposalKind: "append_paper_note",

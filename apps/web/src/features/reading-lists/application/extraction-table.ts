@@ -60,7 +60,7 @@ export function buildProposeFillPrompt(input: {
     "For each paper below:",
     "1. Call get_source_excerpt on an approved paper/note/annotation source.",
     "2. Extract the value for this column from the source.",
-    "3. Call propose_paper_field_value with paperId, fieldId, value, fieldName, sourceId, and quoteExact (required). Optionally quotePrefix, quoteSuffix, page.",
+    "3. Call suggest_paper_field_value with paperId, fieldId, value, fieldName, sourceId, and quoteExact (required). Optionally quotePrefix, quoteSuffix, page.",
     "Do not write cells directly — every value must land as a pending proposal for /ai-review.",
     "",
     "Papers:",

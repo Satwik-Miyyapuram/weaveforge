@@ -42,6 +42,10 @@ function fieldValueExecutors(
       relations: {} as never,
       milestones: {} as never,
       experiments: {} as never,
+      vaultPages: {} as never,
+      reportSections: {} as never,
+      reportSectionById: async () => null,
+      annotations: {} as never,
     }),
   );
 }
@@ -50,7 +54,7 @@ test("every proposal kind is handled by the browser-only executor registry", asy
   const calls: string[] = [];
   const registry = new AiProposalExecutorRegistry(createAiProposalExecutors({
     paperNotes: { async appendPaperNote() { calls.push("append"); return "appended"; } },
-    vault: { async add() { calls.push("vault"); return {} as never; } } as never,
+    vault: { async add() { calls.push("vault"); return {} as never; }, async update(_id: string, patch: { body?: string }) { calls.push(`note-update:${patch.body}`); return {} as never; } } as never,
     logs: { async add() { calls.push("log"); return {} as never; } } as never,
     papers: { async getById() { return { id: "paper-1", updatedAt: "rev-1" }; } },
     updatePaper: { async setStatus() { calls.push("paper-status"); return {} as never; }, async setRating() { calls.push("paper-rating"); return {} as never; }, async mergeTags() { calls.push("paper-tags"); return {} as never; } } as never,
@@ -62,8 +66,17 @@ test("every proposal kind is handled by the browser-only executor registry", asy
     pushZotero: async () => { calls.push("zotero"); },
     lists: { async addPaperToList() { calls.push("list"); return {} as never; }, async addNoteToList() { calls.push("list-note"); return {} as never; } } as never,
     relations: { async add() { calls.push("relation"); return {} as never; } } as never,
-    milestones: { async add() { calls.push("milestone"); return {} as never; } } as never,
-    experiments: { async add() { calls.push("experiment"); return {} as never; } } as never,
+    milestones: { async add() { calls.push("milestone"); return {} as never; }, async setStatus() { calls.push("milestone-status"); return {} as never; } } as never,
+    experiments: {
+      async add() { calls.push("experiment"); return {} as never; },
+      async setStatus() { calls.push("exp-status"); return {} as never; },
+      async recordMetrics() { calls.push("exp-metrics"); return {} as never; },
+      async addArtifacts() { calls.push("exp-artifacts"); return {} as never; },
+    } as never,
+    vaultPages: { async getById() { return { id: "paper-1", body: "Old", updatedAt: "rev-1" }; } },
+    reportSections: { async setNotes() { calls.push("report"); return {} as never; } },
+    reportSectionById: async () => ({ id: "paper-1", updatedAt: "rev-1" }),
+    annotations: { async create() { calls.push("annotation"); return {} as never; } },
   }));
   const inputs: [AiProposalKind, Record<string, unknown>][] = [
     ["append_paper_note", {}], ["create_vault_note", { title: "Note", body: "Body" }],
@@ -71,9 +84,13 @@ test("every proposal kind is handled by the browser-only executor registry", asy
     ["paper_field_value", { fieldId: "f1", value: "VAE" }],
     ["reading_list_change", { listId: "list-1", paperId: "paper-1" }], ["relation", { fromPaper: "paper-1", toPaper: "paper-2", relation: "extends" }],
     ["zotero_import", { title: "Imported paper", authors: ["Ada"] }], ["milestone_follow_up", { title: "Follow up" }], ["experiment_follow_up", { name: "Run follow up" }],
+    ["edit_vault_note", { body: "New" }], ["append_vault_note", { addition: "More" }], ["report_edit", { notes: "Draft" }],
+    ["milestone_status", { status: "done" }], ["experiment_update", { status: "done", metrics: { acc: 0.9 }, artifacts: ["model.pt"] }],
+    ["paper_annotation", { quote: "a key sentence" }],
   ];
   for (const [kind, payload] of inputs) assert.equal(await registry.execute(draft(kind, payload)), "accepted");
-  assert.deepEqual(calls, ["append", "vault", "log", "paper-status", "paper-rating", "paper-tags", "field:f1:VAE", "list", "relation", "paper", "zotero", "milestone", "experiment"]);
+  assert.deepEqual(calls, ["append", "vault", "log", "paper-status", "paper-rating", "paper-tags", "field:f1:VAE", "list", "relation", "paper", "zotero", "milestone", "experiment",
+    "note-update:New", "note-update:Old\n\nMore", "report", "milestone-status", "exp-status", "exp-metrics", "exp-artifacts", "annotation"]);
 });
 
 test("paper_field_value conflicts when expectedRevision mismatches", async () => {
@@ -123,4 +140,55 @@ test("paper_field_value rejects empty value payload", async () => {
     () => registry.execute(draft("paper_field_value", { fieldId: "f1", value: ["  ", ""] })),
     /non-empty string list/i,
   );
+});
+
+/** A bag for the suggestion kinds: doubles that record what they were asked to write. */
+function suggestionExecutors(opts: { noteBody?: string; noteRev?: string; sectionRev?: string; paper?: boolean } = {}) {
+  const writes: unknown[] = [];
+  const registry = new AiProposalExecutorRegistry(createAiProposalExecutors({
+    paperNotes: {} as never, vault: { async update(id: string, patch: unknown) { writes.push({ id, patch }); return {} as never; } } as never,
+    logs: {} as never, papers: { async getById() { return opts.paper === false ? null : { id: "paper-1", updatedAt: "rev-1" }; } },
+    updatePaper: {} as never, paperFields: {} as never, addPaper: {} as never, pushZotero: async () => undefined,
+    lists: {} as never, relations: {} as never, milestones: {} as never, experiments: {} as never,
+    vaultPages: { async getById() { return { id: "paper-1", body: opts.noteBody ?? "Body", updatedAt: opts.noteRev ?? "rev-1" }; } },
+    reportSections: { async setNotes(id: string, notes: string) { writes.push({ id, notes }); return {} as never; } },
+    reportSectionById: async () => ({ id: "paper-1", updatedAt: opts.sectionRev ?? "rev-1" }),
+    annotations: { async create(paperId, annotation) { writes.push({ paperId, annotation }); return {} as never; } },
+  }));
+  return { registry, writes };
+}
+
+test("note edits conflict when the note changed since the suggestion", async () => {
+  const { registry, writes } = suggestionExecutors({ noteRev: "rev-2" });
+  assert.equal(await registry.execute({ ...draft("edit_vault_note", { body: "New" }), expectedRevision: "rev-1" }), "conflicted");
+  assert.deepEqual(writes, []);
+});
+
+test("note edits refuse ink notes rather than overwrite the strokes", async () => {
+  const { registry, writes } = suggestionExecutors({ noteBody: "<!-- weaveforge-ink -->\n" });
+  await assert.rejects(registry.execute(draft("append_vault_note", { addition: "More" })), /Ink notes/);
+  assert.deepEqual(writes, []);
+});
+
+test("report_edit conflicts on a stale section revision", async () => {
+  const { registry, writes } = suggestionExecutors({ sectionRev: "rev-2" });
+  assert.equal(await registry.execute({ ...draft("report_edit", { notes: "x" }), expectedRevision: "rev-1" }), "conflicted");
+  assert.deepEqual(writes, []);
+});
+
+test("paper_annotation writes a quote-anchored highlight and conflicts on a missing paper", async () => {
+  const { registry, writes } = suggestionExecutors();
+  assert.equal(await registry.execute(draft("paper_annotation", { quote: "the words", comment: "why", pageIndex: 2 })), "accepted");
+  assert.deepEqual(writes, [{ paperId: "paper-1", annotation: {
+    type: "highlight", color: "#ffd400", text: "the words", comment: "why",
+    anchor: { locus: { quote: { type: "TextQuoteSelector", exact: "the words" } } }, pageIndex: 2,
+  } }]);
+  const missing = suggestionExecutors({ paper: false });
+  assert.equal(await missing.registry.execute(draft("paper_annotation", { quote: "x" })), "conflicted");
+});
+
+test("milestone_status and experiment_update reject empty or unknown values", async () => {
+  const { registry } = suggestionExecutors();
+  await assert.rejects(registry.execute(draft("milestone_status", { status: "someday" })));
+  await assert.rejects(registry.execute(draft("experiment_update", {})));
 });

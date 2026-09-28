@@ -110,7 +110,7 @@ test("emptyCellPaperIds and buildProposeFillPrompt target empty cells", () => {
     fieldName: "Method",
     papers: [{ id: "p2", title: "B" }],
   });
-  assert.match(prompt, /propose_paper_field_value/);
+  assert.match(prompt, /suggest_paper_field_value/);
   assert.match(prompt, /quoteExact/);
   assert.match(prompt, /p2 — B/);
   assert.match(prompt, /list-1/);

@@ -83,10 +83,16 @@ const ROUTE_ALLOWANCES_KB = {
   "/papers": 425,
   "/report": 415,
   "/notes": 405,
-  "/settings": 388,
+  // the AI review panel and the proposal executors it configures live in the
+  // container every route boots, so every route carries their code: +1 KB.
+  "/settings": 391,
   "/graph": 375,
   // screen search (useScreenSearch) put the hybrid index on /experiments
   "/experiments": 345,
+  // the shared shell itself: the container gained the MCP draft, proposal and
+  // lab-snapshot code, all of it reached from the layout.
+  "/layout": 343,
+  "/dashboard": 344,
 };
 
 /** The allowance for a route, longest matching prefix first, plus the environment's. */

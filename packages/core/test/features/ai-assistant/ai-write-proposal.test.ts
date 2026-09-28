@@ -21,7 +21,7 @@ const settings: AiAccessSettings = {
 const grant: AiSessionGrant = {
   id: "grant-1", workspaceId: "workspace-1", expiresAt: "2026-07-15T00:00:00.000Z",
   readable: [{ sourceId: "source-1", resourceType: "paper_note", resourceId: "paper-1" }],
-  allowedTools: ["propose_append_paper_note"], proposalCapabilities: ["append_paper_note"], requiresConfirmationForWrites: true,
+  allowedTools: ["suggest_append_paper_note"], proposalCapabilities: ["append_paper_note"], requiresConfirmationForWrites: true,
 };
 
 test("paper note additions are append-only", () => {

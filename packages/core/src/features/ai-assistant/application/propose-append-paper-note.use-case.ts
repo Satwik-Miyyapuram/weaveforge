@@ -31,7 +31,7 @@ export class ProposeAppendPaperNoteUseCase {
       grant: input.grant,
       encryptionUnlocked: input.encryptionUnlocked,
       now: input.now,
-      tool: "propose_append_paper_note",
+      tool: "suggest_append_paper_note",
       resourceType: "paper_note",
       resourceId: input.paperId,
       proposalKind: "append_paper_note",

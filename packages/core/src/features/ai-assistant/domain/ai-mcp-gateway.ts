@@ -30,7 +30,7 @@ export function aiMcpToolManifest(): readonly AiMcpToolManifestEntry[] {
     name,
     readOnly: READ_TOOLS.includes(name),
     requiresBrowserPairing: true,
-    requiresUserConfirmation: name.startsWith("propose_"),
+    requiresUserConfirmation: name.startsWith("suggest_"),
     resultsAreUntrusted: READ_TOOLS.includes(name),
   }));
 }

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   EXPERIMENT_STATUSES, experimentActivityAt, isStaleRunningExperiment, type Experiment, type ExperimentStatus, type MetricPoint } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useNavPending } from "@/lib/nav-pending";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
@@ -509,6 +510,8 @@ function ExperimentCard({
   const router = useRouter();
   const { beginNavigation } = useNavPending();
   const [busy, setBusy] = useState(false);
+  /** Whether the delete confirmation is up. */
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const openDetail = useCallback(() => {
     const dest = experimentHref(exp.id);
     beginNavigation(dest);
@@ -518,7 +521,7 @@ function ExperimentCard({
     onReplace(await getContainer().experiments.manageExperiment.setStatus(exp.id, status));
   }
   async function remove() {
-    if (!confirm(`Delete experiment "${exp.name}"?`)) return;
+    setConfirmOpen(false);
     setBusy(true);
     try {
       await getContainer().experiments.manageExperiment.remove(exp.id);
@@ -528,6 +531,7 @@ function ExperimentCard({
     }
   }
   return (
+    <>
     <EntityCard
       id={`exp-${exp.id}`}
       className="exp-item"
@@ -554,7 +558,7 @@ function ExperimentCard({
             resourceId={exp.id}
             title={`Share: ${exp.name}`}
             deleteDisabled={busy}
-            onDelete={() => void remove()}
+            onDelete={() => setConfirmOpen(true)}
           />
         )
       }
@@ -566,6 +570,19 @@ function ExperimentCard({
         <ExperimentCardThumbs artifacts={exp.artifacts} />
       </div>
     </EntityCard>
+
+    {confirmOpen && (
+      <ConfirmDialog
+        title="Delete this experiment?"
+        body={`“${exp.name}” and its runs and metrics go away. Nothing here is kept.`}
+        confirmLabel="Delete experiment"
+        danger
+        busy={busy}
+        onConfirm={() => void remove()}
+        onClose={() => setConfirmOpen(false)}
+      />
+    )}
+    </>
   );
 }
 

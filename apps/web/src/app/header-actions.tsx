@@ -10,7 +10,6 @@ import { getContainer } from "@/bootstrap";
 import { Popover } from "@/components/popover";
 import { ThemeToggle } from "./theme-toggle";
 import { accountLinks, type AccountLinkId } from "./account-links";
-import { isOfflineBuild } from "@/deployment/build-target";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
 
 
@@ -30,12 +29,6 @@ const GridIcon = () => (
   </svg>
 );
 
-const EyeIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="action-icon">
-    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
-    <circle cx="12" cy="12" r="3" />
-  </svg>
-);
 const ShareIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="action-icon">
     <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
@@ -106,8 +99,7 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
 
   const ICONS: Record<AccountLinkId, () => JSX.Element> = {
     projects: GridIcon,
-    supervise: EyeIcon,
-    shared: ShareIcon,
+    sharing: ShareIcon,
     "ai-review": () => <></>,
     settings: GearIcon,
     docs: HelpIcon,
@@ -116,8 +108,7 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
   };
   const TITLES: Partial<Record<AccountLinkId, string>> = {
     projects: "Projects",
-    supervise: "Supervisor view",
-    shared: "Shared with me",
+    sharing: canSupervise ? "Supervision & sharing" : "Shared with me and by me",
     "ai-review": "Review AI suggestions",
     settings: "Settings",
     docs: "Documentation",
@@ -142,10 +133,6 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
         hasProject: !!current,
         pendingProposals,
         local,
-        // Whether the routes exist here is a build fact, not a session one: the
-        // desktop export does not contain `/supervision` or `/shared` even when
-        // it is signed in. See `account-links.ts`.
-        hasRoutes: !isOfflineBuild(),
       }).map((link) => {
         const Icon = ICONS[link.id];
 

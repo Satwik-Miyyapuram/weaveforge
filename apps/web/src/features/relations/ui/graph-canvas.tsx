@@ -19,6 +19,7 @@ import {
 } from "../application/build-graph-data";
 import { cloneLinks, filterGraphByNodes, localSubgraph } from "../application/local-graph";
 import { EdgeDetailPopover } from "./graph-side-panel";
+import { useEscapeToClear, useFollowSeed } from "./graph-canvas-hooks";
 import { useGraphColours } from "./graph-colours";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { setGravity } from "./graph-gravity";
@@ -206,6 +207,9 @@ export function GraphCanvas({
    */
   const [availableH, setAvailableH] = useState<number | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<{ edge: PaperRelation; x: number; y: number } | null>(null);
+
+  const closeEdge = useCallback(() => setSelectedEdge(null), []);
+  useEscapeToClear(selectedEdge !== null, closeEdge);
 
   useEffect(() => {
     if (fill) return;
@@ -650,6 +654,8 @@ export function GraphCanvas({
   useEffect(() => {
     if (searchHits && searchHits.size > 0) centerOnSearch();
   }, [searchHits, centerOnSearch]);
+
+  useFollowSeed(localSeed, data.nodes, fgRef, autoFitRef);
 
   return (
     <div

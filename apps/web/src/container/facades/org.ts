@@ -1,9 +1,12 @@
+import { buildLabSnapshotContent } from "@weaveforge/core";
 import type {
   CreateMemberUseCase,
+  IExperimentRepository,
   ILabSnapshotRepository,
   ILogEntryRepository,
   IMemberRepository,
   IMilestoneRepository,
+  IReportSectionRepository,
   Member,
 } from "@weaveforge/core";
 import type { ISupervisionRepository } from "@weaveforge/core";
@@ -17,6 +20,10 @@ export class OrgFacade {
       labSnapshots: ILabSnapshotRepository;
       milestones: IMilestoneRepository;
       logs: ILogEntryRepository;
+      experiments: IExperimentRepository;
+      reportSections: IReportSectionRepository;
+      /** Accepted AI suggestions in the active project; absent where there is no audit trail. */
+      countAiAccepted?: () => Promise<number>;
     },
   ) {}
 
@@ -53,28 +60,18 @@ export class OrgFacade {
   }
 
   async publishLabSnapshot(input: { title: string; note?: string }) {
-    const [milestones, logs] = await Promise.all([
+    const [milestones, logs, experiments, report, aiAssisted] = await Promise.all([
       this.deps.milestones.list(),
       this.deps.logs.list(),
+      this.deps.experiments.list(),
+      this.deps.reportSections.list(),
+      // A missing count must not block publishing the rest.
+      this.deps.countAiAccepted?.().catch(() => undefined),
     ]);
     return this.deps.labSnapshots.publish({
       title: input.title,
       note: input.note,
-      content: {
-        milestones: milestones.map((m) => ({
-          id: m.id,
-          title: m.title,
-          description: m.description,
-          status: m.status,
-          targetDate: m.targetDate,
-        })),
-        logs: logs.map((l) => ({
-          id: l.id,
-          entryDate: l.entryDate,
-          kind: l.kind,
-          body: l.body,
-        })),
-      },
+      content: buildLabSnapshotContent({ milestones, logs, experiments, report, aiAssisted }),
     });
   }
 
