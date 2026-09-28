@@ -34,12 +34,6 @@
       "dist/**",
       "package.json"
     ],
-    "extraResources": [
-      {
-        "from": "native/ink-recogniser/${os}-${arch}",
-        "to": "native/ink-recogniser/${os}-${arch}"
-      }
-    ],
     "directories": {
       "output": "release"
     },
@@ -75,7 +69,13 @@
         }
       ],
       "icon": "build/icon.ico",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": false,
+      "extraResources": [
+        {
+          "from": "native/ink-recogniser/${os}-${arch}",
+          "to": "native/ink-recogniser/${os}-${arch}"
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
