@@ -3,6 +3,7 @@ import {
   assertAllowedBlobBucket, assertBlobPathOwned, } from "@/storage/server/blob-access";
 import { buildTieredBlobStoreForToken } from "@/storage/server/blob-api";
 import { blobFailure, tieredBlobToken } from "../_shared";
+import { jsonBodyError } from "@/lib/format-error";
 
 export async function POST(request: Request) {
   const gate = await tieredBlobToken(request);
@@ -12,8 +13,8 @@ export async function POST(request: Request) {
   let body: { bucket?: string; path?: string };
   try {
     body = (await request.json()) as { bucket?: string; path?: string };
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
+  } catch (err) {
+    return NextResponse.json({ error: jsonBodyError(err) }, { status: 400 });
   }
   if (!body.bucket || !body.path) {
     return NextResponse.json({ error: "bucket and path are required." }, { status: 400 });

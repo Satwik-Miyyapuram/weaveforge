@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyDeleteAccountOtp } from "@/backend/account/delete-account-otp";
 import { resolveDeleteAccountCaller } from "./_shared";
+import { jsonBodyError } from "@/lib/format-error";
 
 const CONFIRMATION = "DELETE_USER";
 
@@ -18,8 +19,8 @@ export async function POST(request: Request) {
   let body: { confirmation?: string; otp?: string };
   try {
     body = (await request.json()) as { confirmation?: string; otp?: string };
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  } catch (err) {
+    return NextResponse.json({ error: jsonBodyError(err) }, { status: 400 });
   }
 
   if (body.confirmation !== CONFIRMATION) {

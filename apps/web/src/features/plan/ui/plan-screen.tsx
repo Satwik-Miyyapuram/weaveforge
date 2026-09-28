@@ -10,7 +10,8 @@ import { ScreenLoading } from "@/components/screen-loading";
 import { Select } from "@/components/select";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
-import { EmptyState } from "@/components/empty-state";
+import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
+import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { NavIcon } from "@/app/nav-icon";
 import { ShareButton, CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
@@ -21,6 +22,8 @@ import { formatError } from "@/lib/format-error";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { planPace, planTimeline } from "@/features/plan/application/plan-timeline";
+import { PlanTimelineBar } from "@/features/plan/ui/plan-timeline-bar";
+import { StatusSelect, statusLabel } from "@/components/status-select";
 
 type PlanViewData = PlanScreenData & { ownerNames: Map<string, string> };
 
@@ -35,6 +38,8 @@ export function PlanScreen() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeMode, setComposeMode] = useState<"menu" | "new">("menu");
   const [shareOpen, setShareOpen] = useState(false);
+  const [showDone, setShowDone] = useState(false);
+  const [search, setSearch] = useState("");
 
   const isSharedView = searchParams.get("shared") === "1";
   const focusFromUrl = searchParams.get("milestone");
@@ -68,8 +73,10 @@ export function PlanScreen() {
       return;
     }
     if (appliedFocus.current === focusFromUrl) return;
-    if (items.some((m) => m.id === focusFromUrl)) {
+    const focused = items.find((m) => m.id === focusFromUrl);
+    if (focused) {
       appliedFocus.current = focusFromUrl;
+      if (focused.status === "done") setShowDone(true);
       requestAnimationFrame(() => {
         document.getElementById(`milestone-${focusFromUrl}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
       });
@@ -124,13 +131,59 @@ export function PlanScreen() {
   const pct = progressItems.length ? Math.round((done / progressItems.length) * 100) : 0;
   const timeline = useMemo(() => planTimeline(progressItems), [progressItems]);
 
+  // Open milestones by due date first; finished ones fold away so a long plan
+  // stays about what is left.
+  const match = useScreenSearch(search, "milestone");
+  const ordered = useMemo(
+    () => match([...items].sort(byDue), (m) => m.id, (m) => `${m.title} ${m.description ?? ""}`),
+    [items, match],
+  );
+  const openItems = ordered.filter((m) => m.status !== "done");
+  const doneItems = ordered.filter((m) => m.status === "done");
+  const doneVisible = showDone || openItems.length === 0;
+
+  const jumpTo = useCallback(
+    (id: string) => {
+      if (items.find((m) => m.id === id)?.status === "done") setShowDone(true);
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`milestone-${id}`);
+        if (!el) return;
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("is-jumped");
+        window.setTimeout(() => el.classList.remove("is-jumped"), 1400);
+      });
+    },
+    [items],
+  );
+
   if (loading) {
     return <ScreenLoading status="Loading plan…" />;
   }
 
+  function renderCard(m: Milestone) {
+    return (
+      <MilestoneCard
+        key={m.id}
+        milestone={m}
+        labels={labels}
+        papers={papers}
+        experiments={experiments}
+        milestones={items}
+        readOnly={isReadOnlyMilestone(m.id)}
+        sharedByName={sharedOwnerName(m.id)}
+        canComment={milestoneCanComment.get(m.id) ?? false}
+        onReplace={replace}
+        onChanged={load}
+      />
+    );
+  }
+
   return (
-    <section className="screen">
-      <ScreenHead eyebrow={planEyebrow(progressItems.length, done)}>
+    <section className="screen plan-screen">
+      <ScreenHead
+        eyebrow={planEyebrow(progressItems.length, done)}
+        search={items.length > 0 ? { value: search, onChange: setSearch, label: "Search milestones" } : undefined}
+      >
         <button
           className="btn-primary"
           type="button"
@@ -204,35 +257,7 @@ export function PlanScreen() {
             {timeline ? <small className="plan-pace">{planPace(progressItems)}</small> : <strong>{pct}%</strong>}
           </div>
           {timeline ? (
-            // The plan in time: a mark per dated milestone, a line for today.
-            <div
-              className="plan-timeline"
-              role="progressbar"
-              aria-label="Plan progress"
-              aria-valuenow={pct}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            >
-              <div className="plan-track">
-                <span style={{ width: `${timeline.today}%` }} />
-              </div>
-              <span className="plan-today" style={{ left: `${timeline.today}%` }}>
-                <em>Today</em>
-              </span>
-              {timeline.marks.map((mk) => (
-                <span
-                  key={mk.id}
-                  className={`plan-mark plan-mark--${mk.status}`}
-                  style={{ left: `${mk.at}%` }}
-                  title={mk.title}
-                />
-              ))}
-              <div className="plan-months" aria-hidden>
-                {timeline.months.map((mo) => (
-                  <span key={`${mo.label}-${mo.at}`} style={{ left: `${mo.at}%` }}>{mo.label}</span>
-                ))}
-              </div>
-            </div>
+            <PlanTimelineBar timeline={timeline} pct={pct} onJump={jumpTo} />
           ) : (
             <div
               className="progress-bar"
@@ -267,25 +292,35 @@ export function PlanScreen() {
         />
       )}
 
-      <ul className="exp-list plan-list">
-        {items.map((m) => (
-          <MilestoneCard
-            key={m.id}
-            milestone={m}
-            labels={labels}
-            papers={papers}
-            experiments={experiments}
-            milestones={items}
-            readOnly={isReadOnlyMilestone(m.id)}
-            sharedByName={sharedOwnerName(m.id)}
-            canComment={milestoneCanComment.get(m.id) ?? false}
-            onReplace={replace}
-            onChanged={load}
-          />
-        ))}
-      </ul>
+      {items.length > 0 && ordered.length === 0 && (
+        <EmptyState
+          variant="no-results"
+          body="No milestones match."
+          action={<ClearFiltersButton onClear={() => setSearch("")} />}
+        />
+      )}
+      <ul className="exp-list plan-list">{openItems.map(renderCard)}</ul>
+      {doneItems.length > 0 && openItems.length > 0 && (
+        <button
+          type="button"
+          className="btn-ghost plan-done-toggle"
+          aria-expanded={doneVisible}
+          onClick={() => setShowDone((v) => !v)}
+        >
+          {doneVisible ? "Hide" : "Show"} {doneItems.length} done
+        </button>
+      )}
+      {doneVisible && doneItems.length > 0 && (
+        <ul className="exp-list plan-list">{doneItems.map(renderCard)}</ul>
+      )}
     </section>
   );
+}
+
+/** Dated milestones soonest first, undated ones after. */
+function byDue(a: Milestone, b: Milestone): number {
+  if (a.targetDate && b.targetDate) return a.targetDate.localeCompare(b.targetDate);
+  return a.targetDate ? -1 : b.targetDate ? 1 : 0;
 }
 
 function daysUntil(date: string): number {
@@ -360,36 +395,28 @@ function MilestoneCard({
     <EntityCard
       as="li"
       id={`milestone-${m.id}`}
-      className={`exp-item milestone-item milestone-item--${m.status}${
-        due != null && m.status !== "done" && due <= 14 ? " milestone-item--soon" : ""
-      }`}
+      className="exp-item milestone-item"
+      tone={m.status}
       title={m.title}
       leading={
-        readOnly ? undefined : (
-          <input
-            type="checkbox"
-            className="themed-check milestone-check"
-            checked={m.status === "done"}
-            onChange={(e) => void setStatus(e.target.checked ? "done" : "planned")}
-            aria-label={m.status === "done" ? `Reopen ${m.title}` : `Mark ${m.title} done`}
-          />
-        )
+        <input
+          type="checkbox"
+          className="themed-check milestone-check"
+          checked={m.status === "done"}
+          disabled={readOnly}
+          onChange={(e) => void setStatus(e.target.checked ? "done" : "planned")}
+          aria-label={m.status === "done" ? `Reopen ${m.title}` : `Mark ${m.title} done`}
+        />
       }
+      badge={readOnly ? <PinnedPaperBadge ownerName={sharedByName} /> : undefined}
       status={
-        readOnly ? (
-          <PinnedPaperBadge ownerName={sharedByName} />
-        ) : (
-          <Select
-            className="status-select"
-            value={m.status}
-            onChange={(e) => void setStatus(e.target.value as MilestoneStatus)}
-            aria-label="Milestone status"
-          >
-            {MILESTONE_STATUSES.map((s) => (
-              <option key={s} value={s}>{statusLabel(s)}</option>
-            ))}
-          </Select>
-        )
+        <StatusSelect
+          value={m.status}
+          statuses={MILESTONE_STATUSES}
+          disabled={readOnly}
+          onChange={(st) => void setStatus(st)}
+          label="Milestone status"
+        />
       }
       meta={
         m.targetDate
@@ -421,6 +448,7 @@ function MilestoneCard({
           resourceType="milestone"
           resourceId={m.id}
           canComment={readOnly ? canComment : true}
+          isOwner={!readOnly}
         />
       }
     >
@@ -732,8 +760,3 @@ function planEyebrow(total: number, done: number): string | undefined {
   return `${total} ${total === 1 ? "milestone" : "milestones"} · ${done} done`;
 }
 
-/** "in_progress" reads "In progress". */
-function statusLabel(status: MilestoneStatus): string {
-  const words = status.replace("_", " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}

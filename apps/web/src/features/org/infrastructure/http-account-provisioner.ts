@@ -1,5 +1,6 @@
 import type { IAccountProvisioner, Member, NewMemberInput } from "@weaveforge/core";
 import type { IAuthService } from "@/features/auth/domain/auth";
+import { responseError } from "@/lib/format-error";
 
 /**
  * Provisions accounts by POSTing to our own privileged server route
@@ -29,7 +30,7 @@ export class HttpAccountProvisioner implements IAccountProvisioner {
       error?: string;
     };
     if (!res.ok || !payload.member) {
-      throw new Error(payload.error ?? `Failed to create account (${res.status}).`);
+      throw responseError(res, payload.error, res.ok ? "Account created but no member returned." : "Failed to create account.");
     }
     return payload.member;
   }

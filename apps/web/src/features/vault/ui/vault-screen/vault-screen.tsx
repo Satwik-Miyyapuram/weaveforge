@@ -19,12 +19,11 @@ import { emptyArray, emptyMap, emptySet } from "@/lib/empty";
 import { usePersistedState } from "@/lib/hooks/use-persisted-state";
 import { formatError } from "@/lib/format-error";
 import { rememberRecentTarget } from "@/lib/recent-targets";
-import { rankedFilter } from "@/features/search/application/rank-filter";
-import { useSearchIndex } from "@/lib/hooks/use-search-index";
+import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { NoteCard, noteBodyText, isHydratedPage } from "./note-card";
 import { PageEditor } from "./page-editor";
 import type { VaultViewData } from "./types";
-import { ListTagFilters } from "@/components/list-tag-filters";
+import { FilterRow } from "@/components/filter-row";
 import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { ScreenHead } from "@/components/screen-head";
@@ -64,7 +63,6 @@ export function VaultScreen() {
   }, []);
 
   const { data, loading, error: loadError, reload: load, setData } = useScreenData("vault", loadScreen);
-  const searchIndex = useSearchIndex();
 
   useEffect(() => {
     setError(loadError);
@@ -280,9 +278,9 @@ export function VaultScreen() {
     return [...set].sort();
   }, [flat]);
 
-  const activeFilters = (listFilter.length ? 1 : 0) + (tagFilter.length ? 1 : 0);
   const hasNotes = ownedNotes.length > 0 || pinnedPages.length > 0;
 
+  const match = useScreenSearch(search, "note");
   const filterNotes = useCallback(
     (notes: (VaultPageSummary | VaultPage)[]) => {
       const inAnyList = (id: string) =>
@@ -296,16 +294,9 @@ export function VaultScreen() {
           (listFilter.length === 0 || inAnyList(p.id)) &&
           (tagFilter.length === 0 || hasAnyTag(p)),
       );
-      return rankedFilter({
-        items: scoped,
-        query: search,
-        kinds: ["note"],
-        search: searchIndex,
-        idOf: (p) => p.id,
-        fallbackText: (p) => `${p.title}\n${noteBodyText(p)}`,
-      });
+      return match(scoped, (p) => p.id, (p) => `${p.title}\n${noteBodyText(p)}`);
     },
-    [search, listFilter, tagFilter, membership, searchIndex],
+    [listFilter, tagFilter, membership, match],
   );
 
   const visibleOwned = useMemo(() => filterNotes(ownedNotes), [ownedNotes, filterNotes]);
@@ -324,7 +315,10 @@ export function VaultScreen() {
       {/* An open note is a record page, as a paper is: its own bar carries
           the way back and its actions, so the list head steps aside. */}
       {!selected && (
-      <ScreenHead eyebrow={hasNotes ? `${ownedNotes.length} ${ownedNotes.length === 1 ? "note" : "notes"}` : undefined}>
+      <ScreenHead
+        eyebrow={hasNotes ? `${ownedNotes.length} ${ownedNotes.length === 1 ? "note" : "notes"}` : undefined}
+        search={hasNotes ? { value: search, onChange: setSearch, label: "Search notes" } : undefined}
+      >
         <button
           className="btn-primary"
           type="button"
@@ -420,27 +414,26 @@ export function VaultScreen() {
       {importMsg && <p className="muted vault-import-msg">{importMsg}</p>}
 
       {!error && !selected && hasNotes && (
-        <div className="controls-row">
-          <input
-            className="search-input"
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search title or content…"
-            aria-label="Search notes"
-          />
-          <ListTagFilters
-            idPrefix="fn"
-            lists={lists}
-            listFilter={listFilter}
-            onListFilter={setListFilter}
-            allTags={allTags}
-            tagFilter={tagFilter}
-            onTagFilter={setTagFilter}
-            activeFilters={activeFilters}
-            onClear={() => { setListFilter([]); setTagFilter([]); }}
-          />
-        </div>
+        <FilterRow
+          label="Filter notes"
+          facets={[
+            {
+              id: "fnlist",
+              label: "Lists",
+              chipPrefix: "List: ",
+              values: listFilter,
+              onChange: setListFilter,
+              options: lists.map((l) => ({ value: l.id, label: l.name })),
+            },
+            {
+              id: "fntags",
+              label: "Tags",
+              values: tagFilter,
+              onChange: setTagFilter,
+              options: allTags.map((t) => ({ value: t, label: `#${t}` })),
+            },
+          ]}
+        />
       )}
 
       {!error && (

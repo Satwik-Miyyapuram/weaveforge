@@ -1,13 +1,13 @@
 import type { IBlobRegistry, IBlobStore } from "@weaveforge/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { StorageConfig } from "./config";
-import { coldBlobConfig, r2BlobConfig, S3BlobStore } from "./providers/s3/s3-blob-store";
+import { coldBlobConfig, missingR2ConfigError, r2BlobConfig, S3BlobStore } from "./providers/s3/s3-blob-store";
 import { SupabaseBlobRegistry } from "./providers/supabase/blob-registry";
 import { TieredBlobStore } from "./providers/tiered/tiered-blob-store";
 
 function requireHotConfig(config: StorageConfig): void {
   if (!r2BlobConfig(config)) {
-    throw new Error("Tiered storage requires R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET.");
+    throw missingR2ConfigError(config);
   }
 }
 

@@ -8,6 +8,7 @@ import {
   type PaperRef,
 } from "@weaveforge/core";
 import { authHeaders } from "@/lib/auth-headers";
+import { formatError } from "@/lib/format-error";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { HTML_FINAL_URL_HEADER, HTML_PROXY_PATH } from "@/features/reader/application/paper-html-rules";
 
@@ -67,8 +68,8 @@ export class UrlMetadataSource implements IMetadataSource {
     let res: Response;
     try {
       res = await this.fetchFn(`${HTML_PROXY_PATH}?url=${encodeURIComponent(target)}`);
-    } catch {
-      throw new Error("Could not reach that site. Check the connection and try again.");
+    } catch (err) {
+      throw new Error(`Could not reach that site. Check the connection and try again. (${formatError(err)})`);
     }
     if (!res.ok) {
       // The relay answers `{ error }`; show its words, not the JSON around them.
@@ -77,10 +78,10 @@ export class UrlMetadataSource implements IMetadataSource {
         .then((body: { error?: string }) => body?.error?.trim().slice(0, 200) ?? "")
         .catch(() => "");
       if (res.status === 415) {
-        throw new Error("That link is not a web page. If it is a PDF, add the paper by DOI or arXiv id and use Load PDF….");
+        throw new Error(`That link is not a web page. If it is a PDF, add the paper by DOI or arXiv id and use Load PDF….${detail ? ` (${detail})` : ""}`);
       }
       if (res.status === 400) throw new Error(detail || "That address cannot be fetched. Use an https link.");
-      if (res.status === 403) throw new Error("That site refused the request. Try the DOI or arXiv id instead.");
+      if (res.status === 403) throw new Error(`That site refused the request. Try the DOI or arXiv id instead.${detail ? ` (${detail})` : ""}`);
       throw new Error(`Could not read that page${detail ? `: ${detail}` : ` (${res.status})`}.`);
     }
     const html = await res.text();

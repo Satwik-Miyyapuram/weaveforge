@@ -45,7 +45,35 @@ export interface WidgetBounds {
   y: number;
 }
 
-export const PLAN_WIDGET_SIZE = { width: 320, height: 380 } as const;
+export const PLAN_WIDGET_SIZE = { width: 320, height: 432 } as const;
+
+/** The colours the widget takes from the app, by the CSS variable each one sets. */
+export const WIDGET_PALETTE_KEYS = [
+  "bg",
+  "well",
+  "line",
+  "text",
+  "muted",
+  "accent",
+  "accent-ink",
+  "late",
+  "late-ink",
+  "soon",
+  "soon-ink",
+] as const;
+export type WidgetPalette = Record<(typeof WIDGET_PALETTE_KEYS)[number], string>;
+
+/** A palette from the app with every key a `#rrggbb` colour, or null. */
+export function cleanWidgetPalette(value: unknown): WidgetPalette | null {
+  if (!value || typeof value !== "object") return null;
+  const out: Partial<WidgetPalette> = {};
+  for (const key of WIDGET_PALETTE_KEYS) {
+    const colour = (value as Record<string, unknown>)[key];
+    if (typeof colour !== "string" || !/^#[0-9a-f]{6}$/i.test(colour)) return null;
+    out[key] = colour.toLowerCase();
+  }
+  return out as WidgetPalette;
+}
 
 /**
  * Where the widget was left, read back from the preference file.

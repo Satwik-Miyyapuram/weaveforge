@@ -44,8 +44,11 @@
   transition: background-color 300ms;
 }
 .page[data-look="crt"] .chip { border-radius: var(--rs); }
-.c-toread { background: var(--to-read); } .c-reading { background: var(--reading); } .c-read { background: var(--read); }
-.c-draft { background: var(--hl2); } .c-none { background: var(--surface2); color: var(--ink); }
+.c-toread { --tone: var(--to-read); } .c-reading { --tone: var(--reading); } .c-read { --tone: var(--read); }
+.c-draft { --tone: var(--hl2); } .c-none { --tone: var(--surface2); color: var(--ink); }
+.chip { background: var(--tone, var(--surface2)); }
+/* The app's status select: the pill carries a chevron. */
+.pill { gap: 3px; padding-right: 6px; }
 
 /* ---------- header ---------- */
 /* Floats: a bar inset from the edges with its own border and shadow, so the
@@ -133,6 +136,12 @@
 .card .t { font-weight: 800; font-size: 16px; line-height: 1.25; }
 .card .m { font-size: 13px; color: var(--muted); }
 .card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.card-head .t { flex: 1; min-width: 0; font-size: 15px; }
+/* Status wash, as the app tints an entity card by its status. */
+.card.tinted { background: color-mix(in srgb, var(--tone) 24%, var(--surface)); }
+.kebab { margin-inline: -4px -6px; padding: 0 4px; font-weight: 800; color: var(--muted); opacity: 0.6; line-height: 1; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { padding: 0 6px; font-family: var(--mono); font-size: 11px; line-height: 1.6; border: var(--bw) solid var(--line); border-radius: var(--rs); background: color-mix(in srgb, var(--surface) 70%, transparent); }
 .scroll-cue { display: inline-flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 13px; color: var(--muted); }
 .scroll-cue i { display: block; width: 2px; height: 28px; background: var(--ink); animation: cue 1.6s ease-in-out infinite; transform-origin: top; }
 @keyframes cue { 0% { transform: scaleY(0.2); } 50% { transform: scaleY(1); } 100% { transform: scaleY(0.2); } }

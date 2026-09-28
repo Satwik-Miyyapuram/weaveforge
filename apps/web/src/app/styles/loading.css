@@ -1,86 +1,82 @@
-/* Branded gate loader — orbit motif + rotating feature tips */
+/* Branded gate loader: logo, stripe bar, status, rotating tip.
+   Brutal themes draw ink borders + hard shadows via --bw / --sh-*. */
 .weaveforge-loader-screen {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: min(72vh, 640px);
-  padding: 24px 20px 48px;
+  min-height: 100dvh;
+  padding: 24px 16px 48px;
 }
 .weaveforge-loader {
   width: min(420px, 100%);
-  text-align: center;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0;
+  align-items: stretch;
+  gap: 14px;
 }
-.weaveforge-loader-mark {
+.weaveforge-loader-brand { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 6px; }
+.weaveforge-loader-brand svg {
+  width: 56px;
+  height: 56px;
+  border: var(--bw, 0) solid var(--bw-line, transparent);
+  border-radius: 22%;
+  box-shadow: var(--sh-btn, none);
+}
+.weaveforge-loader-brand strong {
+  font-family: var(--display, inherit);
+  font-weight: var(--display-weight, 800);
+  font-size: 2rem;
+  letter-spacing: -0.01em;
+  color: var(--text, var(--ink));
+}
+.weaveforge-loader-bar {
   position: relative;
-  width: 88px;
-  height: 88px;
-  margin-bottom: 20px;
-}
-.weaveforge-loader-core {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-}
-.weaveforge-loader-core .dot {
-  width: 14px;
   height: 14px;
-  border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent);
-  animation: weaveforge-loader-pulse 2.4s ease-in-out infinite;
+  overflow: hidden;
+  border: var(--bw, 1px) solid var(--bw-line, var(--line));
+  border-radius: var(--radius-pill, 999px);
+  background: var(--surface, var(--panel));
+  box-shadow: var(--sh-btn, none);
 }
-.weaveforge-loader-orbit {
+.weaveforge-loader-bar span {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 8px;
-  height: 8px;
-  margin: -4px 0 0 -4px;
-  border-radius: 999px;
-  background: var(--ink);
-  opacity: 0.55;
-  transform-origin: 0 0;
-  animation: weaveforge-loader-spin 9s linear infinite;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-right: var(--bw, 0) solid var(--bw-line, transparent);
+  background: repeating-linear-gradient(-45deg, var(--accent) 0 8px, color-mix(in srgb, var(--accent) 70%, var(--surface, #fff)) 8px 16px);
+  animation: weaveforge-loader-slide 1.3s ease-in-out infinite;
 }
-.weaveforge-loader-orbit--a { animation-duration: 7s; background: var(--accent); opacity: 0.9; }
-.weaveforge-loader-orbit--b { animation-duration: 9s; animation-delay: -2s; }
-.weaveforge-loader-orbit--c { animation-duration: 11s; animation-delay: -4.5s; width: 6px; height: 6px; margin: -3px 0 0 -3px; }
-.weaveforge-loader-orbit--d { animation-duration: 13s; animation-delay: -1s; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; opacity: 0.35; }
-@keyframes weaveforge-loader-spin {
-  from { transform: rotate(0deg) translateX(38px) rotate(0deg); }
-  to   { transform: rotate(360deg) translateX(38px) rotate(-360deg); }
+@keyframes weaveforge-loader-slide {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(250%); }
 }
-@keyframes weaveforge-loader-pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.08); opacity: 0.88; }
-}
-.weaveforge-loader-brand {
-  font-family: var(--font-serif);
-  font-weight: 600;
-  font-size: 1.35rem;
-  letter-spacing: -0.02em;
-  margin: 0 0 6px;
-  color: var(--ink);
+@media (prefers-reduced-motion: reduce) {
+  .weaveforge-loader-bar span { animation: none; width: 100%; opacity: 0.6; }
 }
 .weaveforge-loader-status {
-  margin: 0 0 18px;
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-mono);
   font-size: 0.82rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
   color: var(--muted);
+}
+.weaveforge-loader-slow {
+  margin: 0;
+  text-align: center;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text, var(--ink));
 }
 .weaveforge-loader-tip {
   display: grid;
   gap: 6px;
+  margin-top: 6px;
   padding: 14px 16px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--panel) 88%, var(--accent-soft));
+  border-radius: var(--radius, var(--radius-sm));
+  border: var(--bw, 1px) solid var(--bw-line, var(--line));
+  box-shadow: var(--sh-card, none);
+  background: color-mix(in srgb, var(--chip-reading, var(--accent-soft)) 35%, var(--surface, var(--panel)));
   text-align: left;
   opacity: 0;
   transform: translateY(6px);
@@ -89,6 +85,17 @@
 .weaveforge-loader-tip--in {
   opacity: 1;
   transform: none;
+}
+.weaveforge-loader-tip em {
+  justify-self: start;
+  padding: 1px 8px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-style: normal;
+  text-transform: uppercase;
+  border: var(--bw, 1px) solid var(--bw-line, var(--line));
+  border-radius: var(--radius-pill, 999px);
+  background: var(--surface, var(--panel));
 }
 .weaveforge-loader-tip strong {
   display: block;
@@ -114,29 +121,8 @@
 .weaveforge-loader--inline {
   width: min(400px, 100%);
 }
-.weaveforge-loader--inline .weaveforge-loader-mark {
-  width: 64px;
-  height: 64px;
-  margin-bottom: 14px;
-}
-.weaveforge-loader-mark--compact .weaveforge-loader-orbit--a,
-.weaveforge-loader-mark--compact .weaveforge-loader-orbit--b,
-.weaveforge-loader-mark--compact .weaveforge-loader-orbit--c,
-.weaveforge-loader-mark--compact .weaveforge-loader-orbit--d {
-  animation-name: weaveforge-loader-spin-compact;
-}
-.weaveforge-loader-mark--compact .weaveforge-loader-core .dot {
-  width: 11px;
-  height: 11px;
-}
-@keyframes weaveforge-loader-spin-compact {
-  from { transform: rotate(0deg) translateX(26px) rotate(0deg); }
-  to   { transform: rotate(360deg) translateX(26px) rotate(-360deg); }
-}
-.weaveforge-loader--inline .weaveforge-loader-status {
-  margin-bottom: 14px;
-  font-size: 0.78rem;
-}
+.weaveforge-loader--inline .weaveforge-loader-bar { height: 10px; }
+.weaveforge-loader--inline .weaveforge-loader-status { font-size: 0.78rem; }
 .weaveforge-loader--inline .weaveforge-loader-tip {
   width: 100%;
 }
@@ -181,6 +167,8 @@
 .long-list > * {
   content-visibility: auto;
   contain-intrinsic-size: auto 170px;
+  /* Paint containment would cut off hard shadows and the hover lift. */
+  overflow-clip-margin: 16px;
 }
 .route-pending .weaveforge-loader-wrap--compact {
   min-height: min(40vh, 320px);

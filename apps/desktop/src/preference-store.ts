@@ -27,6 +27,7 @@ export const PREFERENCE_NAMES = [
   "local-api",
   "plan-widget",
   "plan-widget-bounds",
+  "plan-widget-theme",
 ] as const;
 export type PreferenceName = (typeof PREFERENCE_NAMES)[number];
 

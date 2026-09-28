@@ -3,7 +3,7 @@
 import { useId, useRef, useState } from "react";
 import { CommentsIcon } from "@/components/view-icons";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
-import { CommentsPanel } from "./comments-panel";
+import { NoteComments } from "./note-comments";
 
 /**
  * Comments trigger. Cards use the compact icon; detail pages use a labeled
@@ -13,11 +13,14 @@ export function CommentsToggle({
   resourceType,
   resourceId,
   canComment,
+  isOwner = false,
   variant = "compact",
 }: {
   resourceType: string;
   resourceId: string;
   canComment: boolean;
+  /** May resolve anyone's thread. */
+  isOwner?: boolean;
   variant?: "compact" | "detail";
 }) {
   const [open, setOpen] = useState(false);
@@ -48,7 +51,7 @@ export function CommentsToggle({
       </button>
       {open && (
         <div id={panelId} className="comments-sheet" role="region" aria-label="Comments">
-          <CommentsPanel resourceType={resourceType} resourceId={resourceId} canComment={canComment} />
+          <NoteComments embedded resourceType={resourceType} resourceId={resourceId} canComment={canComment} isOwner={isOwner} />
         </div>
       )}
     </div>

@@ -200,6 +200,8 @@ export const CHANNELS = {
   planWidgetData: "weaveforge:plan-widget-data",
   planWidgetOpen: "weaveforge:plan-widget-open",
   planWidgetHide: "weaveforge:plan-widget-hide",
+  /** The app's palette, app -> main -> widget, so the widget wears the app's theme. */
+  planWidgetTheme: "weaveforge:plan-widget-theme",
 } as const;
 
 /**

@@ -232,6 +232,20 @@
   font-size: 0.9rem;
 }
 
+/* The [[, @ and # suggestions wear the app's menu, not CodeMirror's default skin. */
+.cm-editor .cm-tooltip.cm-tooltip-autocomplete {
+  padding: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+}
+.cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul { font-family: var(--font-mono); font-size: 0.82rem; }
+.cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li { padding: 5px 8px; border-radius: 4px; }
+.cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--status-neutral); color: var(--ink); }
+.cm-editor .cm-tooltip.cm-tooltip-autocomplete .cm-completionDetail { color: var(--muted); }
+
 /* VS Code–style rainbow ATX heading colors (edit mode) */
 :root {
   --cm-md-h1: #c0392b;

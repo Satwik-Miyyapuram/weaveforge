@@ -2,7 +2,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import type { Milestone } from "@weaveforge/core";
 
-import { planPace, planTimeline } from "../plan-timeline";
+import { clusterMarks, planPace, planTimeline } from "../plan-timeline";
 
 const ms = (id: string, targetDate: string | undefined, status: Milestone["status"] = "planned") =>
   ({ id, title: id, targetDate, status, dependencies: [], compute: [] }) as unknown as Milestone;
@@ -36,4 +36,11 @@ test("month ticks are thinned to six at most", () => {
 test("pace counts overdue and due-soon milestones, ignoring done ones", () => {
   assert.equal(planPace([ms("a", "2026-10-01"), ms("b", "2026-12-01")], now), "on track · 1 due soon");
   assert.equal(planPace([ms("a", "2026-09-01"), ms("b", "2026-09-01", "done")], now), "1 overdue");
+});
+
+test("marks closer than the gap fold into one cluster", () => {
+  const mk = (id: string, at: number) => ({ id, title: id, status: "planned" as const, at });
+  const c = clusterMarks([mk("a", 10), mk("b", 11), mk("c", 12.5), mk("d", 40)], 2);
+  assert.deepEqual(c.map((x) => x.marks.map((m) => m.id)), [["a", "b", "c"], ["d"]]);
+  assert.equal(c[0]?.at, 11.25);
 });

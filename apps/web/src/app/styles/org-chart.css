@@ -121,7 +121,7 @@
 .org-node-role { font-size: 0.74rem; }
 
 /* ---- Dashboard ---- */
-.dashboard-head-row {
+.dashboard-screen .head-row {
   justify-content: flex-start;
   align-items: center;
   gap: 8px;

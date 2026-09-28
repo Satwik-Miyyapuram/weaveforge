@@ -25,6 +25,8 @@ export interface MainLocalDbDeps {
   workspaceRoot: () => string | undefined;
   /** Settles once the folder from the last session has been taken back up. */
   rootRestored: () => Promise<void>;
+  /** Told of each statement the app runs that is not a read. */
+  onWrite?: (sql: string) => void;
 }
 
 export function registerMainLocalDb(deps: MainLocalDbDeps): {
@@ -291,9 +293,11 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
    */
   const shutDownLocalDb = (): Promise<void> => backUpLocalDb().then(() => localDb.close());
   
-  deps.ipc.handle(CHANNELS.dbQuery, (_event, sql: unknown, params: unknown) =>
-    localDb.query(sql, params),
-  );
+  deps.ipc.handle(CHANNELS.dbQuery, async (_event, sql: unknown, params: unknown) => {
+    const result = await localDb.query(sql, params);
+    if (result.ok && typeof sql === "string" && !/^\s*select\b/i.test(sql)) deps.onWrite?.(sql);
+    return result;
+  });
   deps.ipc.handle(CHANNELS.dbState, () => ({ ok: true, value: localDb.state() }));
   deps.ipc.handle(CHANNELS.dbReset, () => localDb.reset());
 

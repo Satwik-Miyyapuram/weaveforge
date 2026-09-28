@@ -1,10 +1,5 @@
-.dashboard-head-row > .screen-title {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.dashboard-screen .screen-title-block { flex: 1 1 auto; min-width: 0; }
+.dashboard-screen .screen-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dashboard-customize-btn {
   flex: none;
   display: inline-flex;
@@ -35,11 +30,11 @@
   min-width: 0;
 }
 .dashboard-edit-bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.dashboard-head-row:has(.dashboard-edit-bar--editing) {
+.dashboard-screen .head-row:has(.dashboard-edit-bar--editing) {
   flex-wrap: wrap;
   row-gap: 10px;
 }
-.dashboard-head-row:has(.dashboard-edit-bar--editing) > .screen-title {
+.dashboard-screen .head-row:has(.dashboard-edit-bar--editing) > * {
   flex: 1 1 100%;
 }
 .dashboard-edit-bar--editing {
@@ -332,8 +327,8 @@
   .screen-actions .btn-primary,
   .screen-actions .btn-secondary { padding: 9px 14px; }
 
-  /* Progress lives on Home; hide on phone list screens to free chrome. */
-  .progress-card { display: none; }
+  /* Progress lives on Home; Plan keeps its timeline. */
+  .screen:not(.plan-screen) .progress-card { display: none; }
 
   /* Sticky SubNav must clear the notch once the brand row scrolls away. */
   .sub-nav { top: env(safe-area-inset-top, 0px); }
@@ -360,7 +355,7 @@
     top: calc(98px + env(safe-area-inset-top, 0px));
   }
 
-  .dashboard-head-row > .screen-title { flex: 1 1 auto; }
+  .dashboard-screen .screen-title-block { flex: 1 1 auto; }
   .dashboard-screen .screen-actions { flex-wrap: wrap; row-gap: 8px; }
   .dashboard-card { padding: 8px 10px; border-radius: 14px; }
   .dashboard-card--stat { padding: 8px 10px 10px; }
@@ -383,9 +378,6 @@
     max-width: none;
     width: auto;
   }
-  .report-screen .section-item .card-foot-right {
-    gap: 10px;
-  }
   .paper-card-head,
   .entity-card-head { flex-direction: row; align-items: flex-start; gap: 8px; }
 
@@ -402,13 +394,20 @@
 
 }
 
+/* Phone head: search owns a row, the head's buttons share the next evenly. */
+@media (max-width: 479px) {
+  .screen-actions > .search-input { flex: 1 1 100%; }
+  .screen-actions > :is(.btn-primary, .btn-secondary, .popover, a):not(.dashboard-customize-btn) { flex: 1 1 0; justify-content: center; }
+  .screen-actions > .popover > button { width: 100%; }
+}
+
 /* Tall-phone / short-height density (21:9 and similar). */
 @media (max-width: 899px) and (max-height: 740px) {
   .mobile-only { margin-bottom: 6px; }
   .sub-nav { margin: 6px 0 2px; }
   .app-shell { padding-top: 12px; }
   .controls-row,
-  .papers-filters { margin-top: 8px; }
+  .filter-row { margin-top: 8px; }
   .vault-editor {
     min-height: 240px !important;
   }

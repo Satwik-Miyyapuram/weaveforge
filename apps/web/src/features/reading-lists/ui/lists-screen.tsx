@@ -31,6 +31,7 @@ import { emptyArray, emptyMap } from "@/lib/empty";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { ReadingListsScreenData } from "@/features/reading-lists/application/load-reading-lists-screen.use-case";
 import { ScreenHead } from "@/components/screen-head";
+import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { FormError } from "@/components/form-error";
 
 /** A list's three views, as icon buttons named by their tooltip. */
@@ -141,6 +142,14 @@ export function ListsScreen() {
 
   // Two panes: the rail picks one list, the right pane shows it and its sublists.
   const [storedSelected, setSelected] = usePersistedState<string>("thesis.lists.selected", "");
+  const [search, setSearch] = useState("");
+  const match = useScreenSearch(search, "list");
+  const railTree = useMemo(() => {
+    if (!search.trim()) return tree;
+    const hits = new Set(match(flat, (l) => l.id, (l) => l.name).map((l) => l.id));
+    return matchTree(tree, hits);
+  }, [tree, flat, search, match]);
+  const railPinned = useMemo(() => match(pinnedLists, (l) => l.id, (l) => l.name), [pinnedLists, match]);
   useEffect(() => {
     if (focusFromUrl) setSelected(focusFromUrl);
   }, [focusFromUrl, setSelected]);
@@ -193,7 +202,10 @@ export function ListsScreen() {
 
   return (
     <section className="screen lists-screen">
-      <ScreenHead eyebrow={listsEyebrow(flat)}>
+      <ScreenHead
+        eyebrow={listsEyebrow(flat)}
+        search={flat.length > 0 ? { value: search, onChange: setSearch, label: "Search lists" } : undefined}
+      >
         <button className="btn-primary" onClick={() => setAddOpen(true)}>New list</button>
       </ScreenHead>
 
@@ -221,8 +233,8 @@ export function ListsScreen() {
       {!error && selectedNode && (
         <div className="lists-two-pane">
           <ListsRail
-            tree={tree}
-            pinned={pinnedLists}
+            tree={railTree}
+            pinned={railPinned}
             selectedId={selectedNode.list.id}
             onSelect={setSelected}
           />
@@ -258,6 +270,15 @@ export function ListsScreen() {
       )}
     </section>
   );
+}
+
+/** Lists the search found, with their whole subtree, plus the parents leading to them. */
+function matchTree(nodes: readonly ReadingListTreeNode[], hits: ReadonlySet<string>): ReadingListTreeNode[] {
+  return nodes.flatMap((n) => {
+    if (hits.has(n.list.id)) return [n];
+    const children = matchTree(n.children, hits);
+    return children.length ? [{ ...n, children }] : [];
+  });
 }
 
 function collectListIdsFromNode(node: ReadingListTreeNode): string[] {
@@ -502,6 +523,7 @@ function ListNode(props: ListNodeProps) {
           resourceType="reading_list"
           resourceId={list.id}
           canComment={readOnly ? canComment : true}
+          isOwner={!readOnly}
         />
       </div>
 

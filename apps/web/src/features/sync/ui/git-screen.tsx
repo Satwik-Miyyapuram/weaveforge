@@ -8,6 +8,7 @@ import { gitConnection } from "../domain/integration-fields";
 import type { GitBranch, GitCommit } from "../infrastructure/git-client";
 import { ScreenHead } from "@/components/screen-head";
 import { EmptyState } from "@/components/empty-state";
+import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { NavIcon } from "@/app/nav-icon";
 import Link from "next/link";
 import { ScreenLoader } from "@/components/weaveforge-loader";
@@ -25,6 +26,8 @@ export function GitScreen() {
   const [integration, setIntegration] = useState<Integration | null>(null);
   const [branches, setBranches] = useState<GitBranch[]>([]);
   const [commits, setCommits] = useState<GitCommit[]>([]);
+  const [search, setSearch] = useState("");
+  const match = useScreenSearch(search);
   const [branch, setBranch] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +103,10 @@ export function GitScreen() {
 
   return (
     <section className="screen git-screen">
-      <ScreenHead eyebrow="Code for the experiments">
+      <ScreenHead
+        eyebrow="Code for the experiments"
+        search={integration ? { value: search, onChange: setSearch, label: "Search commits" } : undefined}
+      >
         <Link className="btn-secondary" href="/settings">
           Settings
         </Link>
@@ -155,7 +161,7 @@ export function GitScreen() {
                 {loading && <ScreenLoader status="Refreshing git history…" showTips={false} compact />}
               </div>
               <ul className="commit-list">
-                {commits.map((c) => (
+                {match(commits, (c) => c.sha, (c) => `${c.message} ${c.author ?? ""} ${c.shortSha}`).map((c) => (
                   <li key={c.sha} className="commit-item">
                     <div className="commit-main">
                       <span className="commit-msg">{c.message}</span>

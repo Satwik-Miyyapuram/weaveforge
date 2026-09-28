@@ -144,6 +144,19 @@ test("a rewrite that shortens a document does not leave its old tail behind", as
   assert.equal(index.size, 1, "every former passage was retracted");
 });
 
+test("one long document is embedded in bounded batches, not one pass", async () => {
+  const embedder = new TopicEmbedder();
+  const index = new SemanticIndex(embedder);
+  await index.build(CORPUS);
+  embedder.calls = [];
+
+  await index.update([doc("note:x", "Long", "The transformer weighs positions. ".repeat(2000))]);
+
+  assert.ok(embedder.calls.length > 1, "several passes");
+  assert.ok(embedder.calls.every((call) => call.texts.length <= 16), "no pass larger than a batch");
+  assert.ok(index.size > 40);
+});
+
 test("removing a document removes all of its passages", async () => {
   const index = new SemanticIndex(new TopicEmbedder());
   await index.build([doc("note:x", "Long", "The transformer weighs positions. ".repeat(80))]);
@@ -279,4 +292,56 @@ test("a reload with nothing changed embeds nothing", async () => {
   second.load(first.serialize()!);
   assert.equal(await second.sync(CORPUS, () => true), false);
   assert.equal(embedder.calls.length, 0);
+});
+
+test("an interrupted build resumes from its checkpoint, embedding only what it had not finished", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  const many = Array.from({ length: 64 }, (_, i) => doc(`note:${i}`, `Note ${i}`, "The transformer weighs positions."));
+  const controller = new AbortController();
+  const checkpoints: NonNullable<ReturnType<SemanticIndex["serialize"]>>[] = [];
+  const first = new SemanticIndex(new TopicEmbedder());
+  const build = first.build(many, {
+    signal: controller.signal,
+    onProgress: ({ done }) => {
+      if (done === 32) t.mock.timers.tick(60_000);
+      if (done === 48) controller.abort();
+    },
+    onCheckpoint: (partial) => checkpoints.push(partial),
+  });
+  await assert.rejects(build, /cancelled/i);
+  const saved = checkpoints.at(-1);
+  assert.ok(saved, "a checkpoint was handed out");
+  assert.equal(Object.keys(saved.hashes).length, 32);
+
+  const embedder = new TopicEmbedder();
+  const second = new SemanticIndex(embedder);
+  assert.ok(second.load(saved));
+  assert.equal(await second.sync(many, () => true), true);
+  const embedded = embedder.calls.flatMap((call) => call.texts);
+  assert.equal(embedded.length, 32, "only the unfinished half is embedded");
+  assert.equal(embedder.calls.length, 2, "in full batches, not one pass per note");
+  assert.equal(second.size, 64);
+});
+
+test("a resumed build checkpoints as it catches up and counts progress over the whole index", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  const many = Array.from({ length: 64 }, (_, i) => doc(`note:${i}`, `Note ${i}`, "The transformer weighs positions."));
+  const first = new SemanticIndex(new TopicEmbedder());
+  await first.build(many.slice(0, 16));
+
+  const second = new SemanticIndex(new TopicEmbedder());
+  assert.ok(second.load(first.serialize()!));
+  const progress: { done: number; total: number }[] = [];
+  const checkpoints: NonNullable<ReturnType<SemanticIndex["serialize"]>>[] = [];
+  await second.sync(many, () => true, {
+    onProgress: (p) => {
+      progress.push(p);
+      if (p.done === 32) t.mock.timers.tick(60_000);
+    },
+    onCheckpoint: (partial) => checkpoints.push(partial),
+  });
+  assert.deepEqual(progress[0], { done: 32, total: 64 }, "starts from what was already stored");
+  assert.deepEqual(progress.at(-1), { done: 64, total: 64 });
+  assert.equal(checkpoints.length, 1);
+  assert.equal(Object.keys(checkpoints[0]!.hashes).length, 32, "an update mid-way keeps 32, not the 16 it started with");
 });

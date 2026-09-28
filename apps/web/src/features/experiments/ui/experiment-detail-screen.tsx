@@ -1,20 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   EXPERIMENT_STATUSES, isStaleRunningExperiment, shortSha, type Experiment, type ExperimentStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { BackButton } from "@/components/back-button";
-import { Select } from "@/components/select";
 import { ScreenLoader } from "@/components/weaveforge-loader";
-import { CommentsPanel, ShareButton } from "@/features/sharing";
+import { NoteComments, ShareButton } from "@/features/sharing";
 import { commitUrl } from "@/features/sync";
 import { CommentsIcon } from "@/components/view-icons";
 import {
   RecordActivity,
-  RecordDots,
   RecordEmpty,
   RecordFacts,
   RecordSection,
@@ -25,11 +23,9 @@ import { formatError } from "@/lib/format-error";
 import { AttachArtifactsButton } from "./attach-artifacts-button";
 import { EXPERIMENTS_HREF } from "./experiment-href";
 import { Artifacts, MetricCurves, usePaperTitle } from "./experiment-panels";
-import { experimentStatusLabel } from "./experiment-status-label";
+import { StatusSelect } from "@/components/status-select";
 import { FormError } from "@/components/form-error";
 
-/** How far along a run is: planned, under way, settled (done, failed or abandoned). */
-const STATUS_DOTS: Partial<Record<ExperimentStatus, number>> = { running: 1, done: 2, failed: 2, abandoned: 2 };
 
 export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   const router = useRouter();
@@ -41,6 +37,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   // and replaces the whole screen. A failed upload must not do that.
   const [attachError, setAttachError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const resultRef = useRef<HTMLParagraphElement>(null);
   const paperTitle = usePaperTitle(exp?.relatedPaper);
 
   const load = useCallback(async () => {
@@ -129,19 +126,12 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
         <nav className="record-bar" aria-label="Experiment">
           <BackButton label="Experiments" onClick={goBackToList} />
           <span className="record-mono record-bar-id">Run {exp.id.slice(0, 6)}</span>
-          <span className="record-state">
-            <RecordDots filled={STATUS_DOTS[exp.status] ?? 0} total={2} label={`Status: ${exp.status}`} />
-            <Select
-              className="record-state-select"
-              value={exp.status}
-              onChange={(ev) => void setStatus(ev.target.value as ExperimentStatus)}
-              aria-label="Run status"
-            >
-              {EXPERIMENT_STATUSES.map((st) => (
-                <option key={st} value={st}>{experimentStatusLabel(st)}</option>
-              ))}
-            </Select>
-          </span>
+          <StatusSelect
+            value={exp.status}
+            statuses={EXPERIMENT_STATUSES}
+            onChange={(st) => void setStatus(st)}
+            label="Run status"
+          />
           {live && (
             <span className="live-dot" title="Run in progress — auto-refreshing every 5s">● live</span>
           )}
@@ -186,7 +176,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
 
             <RecordSection label="Result" tag={exp.resultNote ? undefined : "Open"}>
               {exp.resultNote ? (
-                <p className="record-abstract">{exp.resultNote}</p>
+                <p ref={resultRef} className="record-abstract">{exp.resultNote}</p>
               ) : (
                 <RecordEmpty>No result written yet. The SDK&apos;s <code>run.finish(note=…)</code> fills this in.</RecordEmpty>
               )}
@@ -198,9 +188,14 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
               </RecordSection>
             )}
 
-            <RecordSection label="Comments" id="record-comments">
-              <CommentsPanel resourceType="experiment" resourceId={exp.id} canComment />
-            </RecordSection>
+            <NoteComments
+              resourceType="experiment"
+              resourceId={exp.id}
+              canComment
+              isOwner
+              contentRef={resultRef}
+              contentKey={exp.resultNote ?? ""}
+            />
           </div>
 
           <aside className="record-aside">

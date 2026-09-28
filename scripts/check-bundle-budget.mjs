@@ -84,7 +84,9 @@ const ROUTE_ALLOWANCES_KB = {
   "/report": 415,
   "/notes": 405,
   "/settings": 388,
-  "/graph": 370,
+  "/graph": 375,
+  // screen search (useScreenSearch) put the hybrid index on /experiments
+  "/experiments": 345,
 };
 
 /** The allowance for a route, longest matching prefix first, plus the environment's. */

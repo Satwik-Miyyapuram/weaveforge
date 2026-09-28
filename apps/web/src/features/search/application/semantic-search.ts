@@ -194,8 +194,12 @@ async function run(options: EnableOptions): Promise<void> {
     // `sync` edits the live index, which is what incremental updates do anyway.
     const current = semantic;
     attach(projectId);
-    const changed = await current.sync(docs, () => true, (done, total) => {
-      setStatus({ phase: "embedding", done, total });
+    const changed = await current.sync(docs, () => true, {
+      onProgress: ({ done, total }) => setStatus({ phase: "embedding", done, total }),
+      // Catching up can take as long as a build; save as it goes so an update or close keeps the work.
+      onCheckpoint: (partial) => {
+        if (current === semantic) void vectorStore().set(projectId, { ...partial, revision });
+      },
     });
     if (current !== semantic) return;
     if (changed || !stored.hashes) persistNow(projectId, revision);
@@ -205,10 +209,17 @@ async function run(options: EnableOptions): Promise<void> {
     return;
   } else {
     setStatus({ phase: "embedding", done: 0, total: 0 });
-    await semantic.build(docs, {
+    const building = semantic;
+    await building.build(docs, {
       onProgress: (progress) => {
         setStatus({ phase: "embedding", done: progress.done, total: progress.total });
         options.onProgress?.(progress);
+      },
+      // Saved partway so a restart resumes through `sync` instead of starting over.
+      onCheckpoint: (partial) => {
+        if (building !== semantic) return;
+        void vectorStore().set(projectId, { ...partial, revision });
+        rememberPreference(true);
       },
       signal: options.signal,
     });

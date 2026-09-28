@@ -35,7 +35,26 @@ export interface EmbedProgress {
 
 export interface SemanticBuildOptions {
   onProgress?(progress: EmbedProgress): void;
+  /** Now and then mid-build, the finished documents so far; storing them makes the build resumable. */
+  onCheckpoint?(partial: PackedIndex): void;
   signal?: AbortSignal;
+}
+
+export type SyncOptions = Pick<SemanticBuildOptions, "onProgress" | "onCheckpoint">;
+
+const CHECKPOINT_MS = 30_000;
+
+export interface PackedIndex {
+  model: string;
+  dimensions: number;
+  ids: string[];
+  vectors: ArrayBuffer;
+  hashes: Record<string, string>;
+}
+
+function pack(model: string, index: VectorIndex, embedded: Map<string, string>): PackedIndex {
+  const { ids, vectors } = index.toBytes();
+  return { model, dimensions: index.dimensions, ids, vectors, hashes: Object.fromEntries(embedded) };
 }
 
 /** `note:n1` → `note:n1#2` for its third passage. */
@@ -117,11 +136,14 @@ export class SemanticIndex {
    */
   async build(docs: readonly SearchDoc[], options: SemanticBuildOptions = {}): Promise<void> {
     const passages: { id: string; text: string }[] = [];
+    // Where each document's passages end: it counts as embedded only once all are in.
+    const ends: { end: number; doc: SearchDoc }[] = [];
     for (const doc of docs) {
       const chunks = chunkForEmbedding(embeddableText(doc), { maxChars: CHUNK_CHARS });
       chunks.forEach((chunk, position) => {
         passages.push({ id: passageId(doc.id, position), text: chunk.text });
       });
+      ends.push({ end: passages.length, doc });
     }
 
     if (passages.length === 0) {
@@ -131,6 +153,9 @@ export class SemanticIndex {
     }
 
     const index = new VectorIndex(this.embedder.dimensions || 384, passages.length);
+    const embedded = new Map<string, string>();
+    let finished = 0;
+    let lastCheckpoint = Date.now();
     for (let start = 0; start < passages.length; start += BATCH) {
       if (options.signal?.aborted) throw new Error("Indexing was cancelled.");
       const batch = passages.slice(start, start + BATCH);
@@ -140,12 +165,21 @@ export class SemanticIndex {
         signal: options.signal,
       });
       index.add(batch.map((passage, i) => ({ id: passage.id, vector: vectors[i]! })));
-      options.onProgress?.({ done: Math.min(start + BATCH, passages.length), total: passages.length });
+      const done = Math.min(start + BATCH, passages.length);
+      while (finished < ends.length && ends[finished]!.end <= done) {
+        const { doc } = ends[finished++]!;
+        embedded.set(doc.id, hashOf(doc));
+      }
+      options.onProgress?.({ done, total: passages.length });
+      if (options.onCheckpoint && done < passages.length && Date.now() - lastCheckpoint > CHECKPOINT_MS) {
+        lastCheckpoint = Date.now();
+        options.onCheckpoint(pack(this.embedder.id, index, embedded));
+      }
     }
 
     this.index = index;
     this.embedderId = this.embedder.id;
-    this.embedded = new Map(docs.map((doc) => [doc.id, hashOf(doc)]));
+    this.embedded = embedded;
   }
 
   /**
@@ -205,28 +239,55 @@ export class SemanticIndex {
   }
 
   /** Re-embed one document's passages, leaving the rest of the index alone. */
-  async update(docs: readonly SearchDoc[], onProgress?: (done: number, total: number) => void): Promise<void> {
+  async update(docs: readonly SearchDoc[], options: SyncOptions = {}): Promise<void> {
     const index = this.index;
     if (!index) return;
 
-    let done = 0;
-    for (const doc of docs) {
-      onProgress?.(done++, docs.length);
-      // Passage counts change with the text, so old ones are retracted by
-      // prefix rather than by position — a shortened note must not leave its
-      // former tail behind.
-      const stale = index.allIds().filter((id) => documentIdOf(id) === doc.id);
-      index.remove(stale);
+    // Passage counts change with the text, so old ones are retracted by
+    // prefix rather than by position — a shortened note must not leave its
+    // former tail behind. Their hashes go too, so a checkpoint never claims them.
+    const updating = new Set(docs.map((doc) => doc.id));
+    index.remove(index.allIds().filter((id) => updating.has(documentIdOf(id))));
+    for (const id of updating) this.embedded.delete(id);
 
-      const chunks = chunkForEmbedding(embeddableText(doc), { maxChars: CHUNK_CHARS });
-      if (chunks.length === 0) continue;
-      const vectors = await this.embedder.embed({
-        texts: chunks.map((chunk) => chunk.text),
-        kind: "passage",
-      });
-      index.add(chunks.map((_, i) => ({ id: passageId(doc.id, i), vector: vectors[i]! })));
-      this.embedded.set(doc.id, hashOf(doc));
+    const pieces = docs.map((doc) => ({
+      doc,
+      texts: chunkForEmbedding(embeddableText(doc), { maxChars: CHUNK_CHARS }).map((chunk) => chunk.text),
+    }));
+    // Progress counts the whole index, so a resumed build carries on from where it was, not from 0.
+    const total = index.size + pieces.reduce((sum, piece) => sum + piece.texts.length, 0);
+    let lastCheckpoint = Date.now();
+
+    // Documents are grouped into full batches: one forward pass per short note made a resumed build crawl.
+    let group: typeof pieces = [];
+    let pending = 0;
+    const flush = async () => {
+      const texts = group.flatMap((entry) => entry.texts);
+      // A long paper alone can be hundreds of passages; one pass over all of them exhausts the WASM heap (std::bad_alloc).
+      const vectors: Float32Array[] = [];
+      for (let start = 0; start < texts.length; start += BATCH) {
+        vectors.push(...(await this.embedder.embed({ texts: texts.slice(start, start + BATCH), kind: "passage" })));
+      }
+      let at = 0;
+      for (const { doc, texts: own } of group) {
+        index.add(own.map((_, i) => ({ id: passageId(doc.id, i), vector: vectors[at + i]! })));
+        at += own.length;
+        this.embedded.set(doc.id, hashOf(doc));
+      }
+      group = [];
+      pending = 0;
+      options.onProgress?.({ done: index.size, total });
+      if (options.onCheckpoint && index.size < total && Date.now() - lastCheckpoint > CHECKPOINT_MS) {
+        lastCheckpoint = Date.now();
+        options.onCheckpoint(pack(this.embedderId, index, this.embedded));
+      }
+    };
+    for (const piece of pieces) {
+      group.push(piece);
+      pending += piece.texts.length;
+      if (pending >= BATCH) await flush();
     }
+    if (group.length > 0) await flush();
   }
 
   /**
@@ -242,7 +303,7 @@ export class SemanticIndex {
   async sync(
     docs: readonly SearchDoc[],
     owns: (docId: string) => boolean,
-    onProgress?: (done: number, total: number) => void,
+    options: SyncOptions = {},
   ): Promise<boolean> {
     const index = this.index;
     if (!index) return false;
@@ -252,7 +313,7 @@ export class SemanticIndex {
     if (gone.length > 0) this.removeDocuments(gone);
 
     const changed = docs.filter((doc) => this.embedded.get(doc.id) !== hashOf(doc));
-    if (changed.length > 0) await this.update(changed, onProgress);
+    if (changed.length > 0) await this.update(changed, options);
     return gone.length > 0 || changed.length > 0;
   }
 
@@ -271,22 +332,8 @@ export class SemanticIndex {
    * Vectors from one encoder are meaningless to another — the tag is what stops
    * a model change from silently returning nonsense instead of re-embedding.
    */
-  serialize(): {
-    model: string;
-    dimensions: number;
-    ids: string[];
-    vectors: ArrayBuffer;
-    hashes: Record<string, string>;
-  } | null {
-    if (!this.index) return null;
-    const { ids, vectors } = this.index.toBytes();
-    return {
-      model: this.embedderId,
-      dimensions: this.index.dimensions,
-      ids,
-      vectors,
-      hashes: Object.fromEntries(this.embedded),
-    };
+  serialize(): PackedIndex | null {
+    return this.index ? pack(this.embedderId, this.index, this.embedded) : null;
   }
 
   /**

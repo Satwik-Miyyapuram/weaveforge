@@ -7,6 +7,7 @@ import { THEME_BOOT_SCRIPT } from "@/lib/theme/theme";
 import { ThemeColorMeta } from "./theme-color-meta";
 import { WindowScrollbar } from "@/components/window-scrollbar";
 import { DesktopTitleBar, TITLE_BAR_BOOT_SCRIPT } from "@/components/desktop-title-bar";
+import { PlanWidgetTheme } from "@/components/plan-widget-theme";
 import { ReactiveMotion } from "./reactive-motion";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { ClientRuntimeRecovery } from "@/components/client-runtime-recovery";
@@ -72,6 +73,7 @@ export default function RootLayout({
         <SyncLoop />
         <WindowScrollbar />
         <DesktopTitleBar />
+        <PlanWidgetTheme />
         <AuthProvider>
           <AppShell>{children}</AppShell>
         </AuthProvider>

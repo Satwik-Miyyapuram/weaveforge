@@ -5,7 +5,7 @@ import type {
 } from "@weaveforge/core";
 import type { IProjectBibliographyCollectionStore } from "@weaveforge/core";
 import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
-import { formatError, readJsonBody } from "@/lib/format-error";
+import { formatError, GENERIC_ERROR, httpContext, readJsonBody, responseError } from "@/lib/format-error";
 
 /** A personal access token as the settings API reports it — never the secret. */
 export interface ApiTokenRecord {
@@ -48,7 +48,7 @@ async function defaultAccessToken(): Promise<string | null> {
  */
 function errorMessage(payload: Record<string, unknown>, fallback: string): string {
   const reported = formatError(payload.error ?? payload);
-  return reported === "Something went wrong." ? fallback : reported;
+  return reported === GENERIC_ERROR ? fallback : reported;
 }
 
 export class SettingsFacade {
@@ -117,7 +117,7 @@ export class SettingsFacade {
       },
     });
     const payload = await readJsonBody(response);
-    if (!response.ok) throw new Error(errorMessage(payload, opts.fallback));
+    if (!response.ok) throw new Error(`${errorMessage(payload, opts.fallback)} ${httpContext(response)}`);
     return payload as T;
   }
 
@@ -170,7 +170,7 @@ export class SettingsFacade {
           headers: { Authorization: `Bearer ${token}` },
         });
         const payload = (await response.json().catch(() => ({}))) as { tokens?: McpTokenRecord[]; error?: string };
-        if (!response.ok) throw new Error(formatError(payload.error ?? payload));
+        if (!response.ok) throw responseError(response, payload.error ?? payload, GENERIC_ERROR);
         return payload.tokens ?? [];
       },
       create: async (): Promise<{ record?: McpTokenRecord; plaintext: string }> => {

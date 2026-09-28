@@ -59,10 +59,14 @@ export function rootOf(node: Pick<WorkspaceTreeNode, "key" | "kind" | "isMember"
   return ROOT_OF_KIND[node.kind] ?? null;
 }
 
-/** The kinds a draft under `node` may take; empty for Papers, lists and headings. */
-export function creatableUnder(node: Pick<WorkspaceTreeNode, "key" | "kind" | "isMember" | "headingLevel">): readonly CreateKind[] {
+/** The kinds a draft under `node` may take; empty for Papers, lists and headings. A folder only goes under a folder. */
+export function creatableUnder(
+  node: Pick<WorkspaceTreeNode, "key" | "kind" | "isMember" | "headingLevel"> & { children?: readonly unknown[] },
+): readonly CreateKind[] {
   const root = rootOf(node);
-  return root ? CREATABLE[root] : [];
+  if (!root) return [];
+  const leafNote = isDocumentNode(node) && !node.children?.length;
+  return leafNote ? CREATABLE[root].filter((k) => k !== "folder") : CREATABLE[root];
 }
 
 /** The root a *kind* belongs to — the kind-only half of `rootOf`. */

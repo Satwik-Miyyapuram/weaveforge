@@ -14,7 +14,7 @@
   padding: 6px 8px;
   /* Controls stay on one line and the strip scrolls. Wrapping produced four
      ragged rows on a phone and ate a third of the screen. */
-  flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin;
+  flex-wrap: nowrap; overflow-x: auto;
 }
 .pdf-reader-tools { border-top: 1px solid var(--line); }
 /* Where there is room, the tools row wraps instead of scrolling: a scrolled
@@ -639,7 +639,6 @@ body > canvas.hiddenCanvasElement { display: none; }
   border-top: 1px solid var(--line);
   flex-wrap: nowrap;
   overflow-x: auto;
-  scrollbar-width: thin;
 }
 /* In focus it floats (editor-workspace.css): the strip's own frame goes. */
 .pdf-reader.is-focus .ink-bar { border-top: 0; }

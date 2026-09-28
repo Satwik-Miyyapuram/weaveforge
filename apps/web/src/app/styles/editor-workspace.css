@@ -1047,34 +1047,7 @@
    Edit / Read, per tab (§3.9)
    ---------------------------------------------------------------------- */
 
-.pane-mode {
-  display: inline-flex;
-  align-items: center;
-  gap: 1px;
-  margin-inline-end: 4px;
-  padding: 1px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-}
-
-.pane-mode-btn {
-  padding: 2px 7px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.7rem;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.pane-mode-btn:hover { color: var(--text); background: var(--surface2); }
-
-.pane-mode-btn.is-on {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-}
+.pane-mode { margin-inline-end: 4px; }
 
 /* The close control lives in a 16px slot that is the dirty dot until the tab
    is hovered — the standard gesture, and it takes the permanent `×` off every
@@ -1649,36 +1622,9 @@
 .md-live-choice {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 4px 8px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
-  font-size: 0.72rem;
-  color: var(--muted);
-}
-.md-live-choice-label {
-  margin-right: 4px;
-  font-family: var(--font-mono);
-  letter-spacing: 0.04em;
-  font-size: 0.64rem;
-}
-.md-live-option {
-  padding: 1px 8px;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.72rem;
-  cursor: pointer;
-}
-.md-live-option:hover {
-  color: var(--text);
-  background: color-mix(in srgb, var(--faint) 10%, transparent);
-}
-.md-live-option.is-on {
-  color: var(--accent-ink);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 /* The rendered view is prose, so it gets the reading measure rather than the
@@ -1817,7 +1763,6 @@
 @media (prefers-reduced-motion: reduce) {
   .explorer-row,
   .pane-tab,
-  .pane-mode-btn,
   .breadcrumb-btn,
   .explorer-action {
     transition: none !important;

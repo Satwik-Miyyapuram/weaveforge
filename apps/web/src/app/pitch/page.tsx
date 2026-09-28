@@ -7,6 +7,7 @@ import { SECTIONS } from "./sections";
 import "./looks.css";
 import { BrandMark, GitHubMark, ThemePicker, themeAttrs, useSiteTheme } from "./site-chrome";
 import { useScrolly } from "./use-scrolly";
+import { ChevronIcon } from "@/components/chevron-icon";
 
 /**
  * Public product pitch, told as a scroll.
@@ -96,20 +97,39 @@ export default function PitchPage() {
 
 /* ---------- shared pieces ---------- */
 
-function Card({ at, className, style, children }: { at?: number; className?: string; style?: CSSProperties; children: ReactNode }) {
+/** A stage card; `tone` washes it in its status colour, as the app's entity cards do. */
+function Card({ at, tone, className, style, children }: { at?: number; tone?: string; className?: string; style?: CSSProperties; children: ReactNode }) {
   return (
-    <article className={k(`obj card${className ? ` ${className}` : ""}`)} data-at={at} style={style}>
+    <article className={k(`obj card${tone ? ` tinted ${tone}` : ""}${className ? ` ${className}` : ""}`)} data-at={at} style={style}>
       {children}
     </article>
   );
 }
 
-function Head({ label, chip, tone }: { label: string; chip?: string; tone?: string }) {
+/** The app's card head: title, status pill and kebab, under a kind label. Without a title, just the label and pill. */
+function Head({ label, chip, tone, title }: { label: string; chip?: string; tone?: string; title?: string }) {
   return (
-    <div className={s["card-head"]}>
-      <span className={s.label}>{label}</span>
-      {chip && <span className={k(`chip ${tone}`)}>{chip}</span>}
-    </div>
+    <>
+      {title && <span className={s.label}>{label}</span>}
+      <div className={s["card-head"]}>
+        {title ? <span className={s.t}>{title}</span> : <span className={s.label}>{label}</span>}
+        {chip && (
+          <span className={k(`chip pill ${tone}`)}>
+            {chip}
+            {title && <ChevronIcon size={12} />}
+          </span>
+        )}
+        {title && <span className={s.kebab}>⋮</span>}
+      </div>
+    </>
+  );
+}
+
+function Tags({ tags }: { tags: string[] }) {
+  return (
+    <span className={s.tags}>
+      {tags.map((t) => <span key={t} className={s.tag}>#{t}</span>)}
+    </span>
   );
 }
 
@@ -189,10 +209,10 @@ const Kbd = ({ children }: { children: ReactNode }) => <span className={s.kbd}>{
 /* ---------- hero ---------- */
 
 const DECK = [
-  { label: "papers", chip: "to read", tone: "c-toread", t: "β-VAE: learning basic visual concepts", m: "Higgins et al. · ICLR 2017", rot: -2 },
-  { label: "notes", chip: "drafting", tone: "c-draft", t: "Disentanglement reading cluster", m: "linked to β-VAE · to verify", rot: 1 },
-  { label: "experiments", chip: "done", tone: "c-read", t: "β-VAE sweep, seed 42", m: "val_loss 0.1826 · main @ a1b2c3d", rot: -1 },
-  { label: "report", chip: "not started", tone: "c-none", t: "3.2 Graph-prior module", m: "0 / 2,400 words · 3 runs attached", rot: 2 },
+  { label: "papers", chip: "To read", tone: "c-toread", t: "β-VAE: learning basic visual concepts", m: "Higgins et al. · 2017", tags: ["vae", "disentangling"], rot: -2 },
+  { label: "notes", chip: "Drafting", tone: "c-draft", t: "Disentanglement reading cluster", m: "linked to β-VAE · to verify", tags: ["reading"], rot: 1 },
+  { label: "experiments", chip: "Done", tone: "c-read", t: "β-VAE sweep, seed 42", m: "val_loss 0.1826 · main @ a1b2c3d", rot: -1 },
+  { label: "report", chip: "Not started", tone: "c-none", t: "3.2 Graph-prior module", m: "0 / 2,400 words · 3 runs attached", rot: 2 },
 ];
 
 function Hero() {
@@ -220,12 +240,12 @@ function Hero() {
         {DECK.map((c, i) => (
           <div
             key={c.t}
-            className={s.card}
+            className={k(`card tinted ${c.tone}`)}
             style={{ "--i": i, transform: `rotate(${c.rot}deg)`, zIndex: i + 1 } as CSSProperties}
           >
-            <Head label={c.label} chip={c.chip} tone={c.tone} />
-            <span className={s.t}>{c.t}</span>
+            <Head label={c.label} chip={c.chip} tone={c.tone} title={c.t} />
             <span className={s.m}>{c.m}</span>
+            {c.tags && <Tags tags={c.tags} />}
           </div>
         ))}
       </div>
@@ -268,7 +288,6 @@ const CHAIN_STEPS: StepText[] = [
   },
 ];
 
-const T15: CSSProperties = { fontSize: 15 };
 
 function ChainAct() {
   return (
@@ -291,33 +310,29 @@ function ChainAct() {
             still points to p. 4
           </div>
 
-          <Card at={1} style={{ left: 10, top: 10, width: 280 }}>
-            <Head label="papers" chip="reading" tone="c-reading" />
-            <span className={s.t} style={T15}>β-VAE: learning basic visual concepts</span>
-            <span className={s.m}>Higgins et al. · ICLR 2017 · p. 4</span>
+          <Card at={1} tone="c-reading" style={{ left: 10, top: 10, width: 280 }}>
+            <Head label="papers" chip="Reading" tone="c-reading" title="β-VAE: learning basic visual concepts" />
+            <span className={s.m}>Higgins et al. · 2017 · p. 4</span>
             <span style={{ fontSize: 13, lineHeight: 1.35 }}>
               “<mark className={s.ex} data-at="2">β &gt; 1 pushes the latents to factorise</mark>, at a cost to reconstruction.”
             </span>
           </Card>
 
-          <Card at={2} style={{ left: 330, top: 50, width: 280 }}>
-            <Head label="notes" chip="drafting" tone="c-draft" />
-            <span className={s.t} style={T15}>Disentanglement reading cluster</span>
+          <Card at={2} tone="c-draft" style={{ left: 330, top: 50, width: 280 }}>
+            <Head label="notes" chip="Drafting" tone="c-draft" title="Disentanglement reading cluster" />
             <p className={s.quote}>β &gt; 1 pushes the latents to factorise</p>
             <span style={{ fontSize: 13 }}>I doubt this holds past 3 seeds.</span>
             <span className={s["back-link"]}>↳ Higgins 2017, p. 4</span>
           </Card>
 
-          <Card at={3} style={{ left: 10, top: 250, width: 280 }}>
-            <Head label="plan · milestone" chip="in progress" tone="c-reading" />
-            <span className={s.t} style={T15}>Graph-prior module</span>
+          <Card at={3} tone="c-reading" style={{ left: 10, top: 250, width: 280 }}>
+            <Head label="plan · milestone" chip="In progress" tone="c-reading" title="Graph-prior module" />
             <Kv k="compute" v="60 GPU-h" />
             <Kv k="after" v="ResNet-18 baseline ✓" />
           </Card>
 
-          <Card at={4} style={{ left: 330, top: 310, width: 280 }}>
-            <Head label="experiments" chip="done" tone="c-read" />
-            <span className={s.t} style={T15}>β-VAE sweep, seed 42</span>
+          <Card at={4} tone="c-read" style={{ left: 330, top: 310, width: 280 }}>
+            <Head label="experiments" chip="Done" tone="c-read" title="β-VAE sweep, seed 42" />
             <svg className={s.curve} data-at="4" width="244" height="44" viewBox="0 0 244 44" aria-label="Validation loss falling to 0.1826">
               <path d="M2 6 C 40 26, 80 34, 130 38 S 210 41, 242 41" stroke="var(--reading)" />
               <path d="M2 10 C 50 24, 100 28, 150 31 S 220 33, 242 33" stroke="var(--danger)" strokeDasharray="5 5" />
@@ -325,10 +340,9 @@ function ChainAct() {
             <span className={s.mono} style={{ fontSize: 12 }}>val_loss 0.1826 · main @ a1b2c3d</span>
           </Card>
 
-          <Card at={5} style={{ left: 60, top: 486, width: 500, flexDirection: "row", gap: 14, alignItems: "stretch" }}>
+          <Card at={5} tone="c-draft" style={{ left: 60, top: 486, width: 500, flexDirection: "row", gap: 14, alignItems: "stretch" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 0 }}>
-              <Head label="report · section 3.2" chip="drafting" tone="c-draft" />
-              <span className={s.t} style={T15}>3.2 Graph-prior module</span>
+              <Head label="report · section 3.2" chip="Drafting" tone="c-draft" title="3.2 Graph-prior module" />
               <span style={{ fontSize: 13, lineHeight: 1.45 }}>
                 Following Higgins et al. <span className={s.cite}>[12]</span>, we set β = 4 and hold it across three seeds (Fig. 3).
               </span>
@@ -388,11 +402,12 @@ function ExperimentsAct() {
             <Ln n={9} hot="3"><span className={s.cm}># branch, commit and config travel with the run</span></Ln>
           </div>
           <Card at={2} style={{ left: 0, top: 318, width: 300, height: 236 }}>
+            <span className={s.label}>experiments · live</span>
             <div className={s["card-head"]}>
-              <span className={s.label}>experiments · live</span>
+              <span className={s.t}>β-VAE sweep, seed 42</span>
               <span className={k("chip c-reading")} data-runchip>running</span>
+              <span className={s.kebab}>⋮</span>
             </div>
-            <span className={s.t}>β-VAE sweep, seed 42</span>
             <span className={s.metric} data-metric>0.1826</span>
             <span className={s.label} style={{ marginTop: -4 }}>val_loss · epoch <span data-epoch>50</span> / 50</span>
             <Kv k="branch" v="main" hot="3" />

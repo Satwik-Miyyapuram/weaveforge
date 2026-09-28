@@ -123,6 +123,21 @@ export class S3BlobStore implements IBlobStore {
 }
 
 /** R2 hot-tier client config from {@link StorageConfig}-like fields. */
+const R2_ENV_NAMES = {
+  r2AccountId: "R2_ACCOUNT_ID",
+  r2AccessKeyId: "R2_ACCESS_KEY_ID",
+  r2SecretAccessKey: "R2_SECRET_ACCESS_KEY",
+  r2Bucket: "R2_BUCKET",
+} as const;
+
+/** Error naming the unset R2 env vars (names only, never values). */
+export function missingR2ConfigError(fields: Partial<Record<keyof typeof R2_ENV_NAMES, string>>): Error {
+  const missing = (Object.keys(R2_ENV_NAMES) as (keyof typeof R2_ENV_NAMES)[])
+    .filter((key) => !fields[key])
+    .map((key) => R2_ENV_NAMES[key]);
+  return new Error(`Tiered storage is not configured: missing ${missing.join(", ") || "none"}.`);
+}
+
 export function r2BlobConfig(fields: {
   r2AccountId?: string;
   r2AccessKeyId?: string;

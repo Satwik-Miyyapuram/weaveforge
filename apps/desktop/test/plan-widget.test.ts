@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  cleanWidgetPalette,
   hwndFromHandle,
+  WIDGET_PALETTE_KEYS,
   parseBounds,
   pinScript,
   placeWidget,
@@ -113,4 +115,15 @@ test("pinScript reports the TaskbarCreated message, and only a registered id is 
   assert.equal(parseTaskbarCreated(""), null);
   assert.equal(parseTaskbarCreated("16"), null);
   assert.equal(parseTaskbarCreated("abc"), null);
+});
+
+test("cleanWidgetPalette keeps a full palette of #rrggbb colours and refuses anything else", () => {
+  const full = Object.fromEntries(WIDGET_PALETTE_KEYS.map((key) => [key, "#A0b1C2"]));
+  assert.deepEqual(cleanWidgetPalette(full), Object.fromEntries(WIDGET_PALETTE_KEYS.map((key) => [key, "#a0b1c2"])));
+  assert.equal(cleanWidgetPalette({ ...full, bg: "red" }), null);
+  assert.equal(cleanWidgetPalette({ ...full, bg: "#fff;x" }), null);
+  const { line: _line, ...missing } = full;
+  assert.equal(cleanWidgetPalette(missing), null);
+  assert.equal(cleanWidgetPalette(null), null);
+  assert.equal(cleanWidgetPalette("#000000"), null);
 });

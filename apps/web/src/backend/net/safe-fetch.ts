@@ -9,6 +9,7 @@ import {
   type OutboundFetchLimits,
 } from "@weaveforge/core";
 import { describeRejection } from "./rejection-copy";
+import { formatError } from "@/lib/format-error";
 
 /**
  * Fetching a URL a visitor chose, from the server, without becoming a way into
@@ -225,8 +226,13 @@ export async function checkUrlReachable(
   let addresses: string[];
   try {
     addresses = await resolve(url.hostname);
-  } catch {
-    return { ok: false, kind: "unreachable", status: 502, message: "That host could not be resolved." };
+  } catch (err) {
+    return {
+      ok: false,
+      kind: "unreachable",
+      status: 502,
+      message: `That host could not be resolved: ${url.hostname} (${formatError(err)}).`,
+    };
   }
 
   if (addresses.length === 0) {
@@ -337,8 +343,13 @@ export async function safeFetch(input: string, options: SafeFetchOptions = {}): 
           "Accept-Language": "en-US,en;q=0.9",
         },
       });
-    } catch {
-      return { ok: false, kind: "unreachable", status: 502, message: "That site could not be reached." };
+    } catch (err) {
+      return {
+        ok: false,
+        kind: "unreachable",
+        status: 502,
+        message: `That site could not be reached: ${url.host} (${formatError(err)}).`,
+      };
     }
 
     if (response.status >= 300 && response.status < 400) {
@@ -351,7 +362,12 @@ export async function safeFetch(input: string, options: SafeFetchOptions = {}): 
       try {
         url = new URL(location, url);
       } catch {
-        return { ok: false, kind: "upstream", status: 502, message: "That site redirected somewhere unreadable." };
+        return {
+          ok: false,
+          kind: "upstream",
+          status: 502,
+          message: `That site redirected somewhere unreadable: ${location.slice(0, 200)}`,
+        };
       }
       continue;
     }

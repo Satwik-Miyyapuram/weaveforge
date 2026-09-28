@@ -25,6 +25,7 @@ import { DashboardEditBar } from "./dashboard-edit-bar";
 import { CardPickerSheet } from "./card-picker-sheet";
 import { useDashboardStats } from "./use-dashboard-stats";
 import { FormError } from "@/components/form-error";
+import { ScreenHead } from "@/components/screen-head";
 
 const layoutCache = new Map<string, DashboardLayout>();
 registerDashboardUiCacheClear(() => layoutCache.clear());
@@ -221,18 +222,15 @@ export function DashboardScreen() {
 
   return (
     <section className="screen dashboard-screen">
-      <header className="screen-head">
-        <div className="head-row dashboard-head-row">
-          <h1 className="screen-title">{project?.name ?? "Home"}</h1>
-          <DashboardEditBar
-            editing={editing}
-            onCustomize={() => setEditing(true)}
-            onDone={handleDone}
-            onReset={handleReset}
-            onAdd={() => setPickerOpen(true)}
-          />
-        </div>
-      </header>
+      <ScreenHead title={project?.name ?? "Home"}>
+        <DashboardEditBar
+          editing={editing}
+          onCustomize={() => setEditing(true)}
+          onDone={handleDone}
+          onReset={handleReset}
+          onAdd={() => setPickerOpen(true)}
+        />
+      </ScreenHead>
 
       {layoutLoading && <ScreenLoader status="Loading dashboard…" compact />}
       {layoutError && <FormError>{layoutError}</FormError>}

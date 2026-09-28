@@ -107,7 +107,9 @@ a.related-paper-url:hover { text-decoration: underline; }
 /* Capped chip rows (tags, metrics, git) stay on a single line on a card; the
    overflow is reported as a "+N" chip rather than wrapping. */
 .chip-row--capped { flex-wrap: nowrap; overflow: hidden; }
-.chip-row--capped > * { min-width: 0; }
+/* A chip that must shrink ends in an ellipsis instead of spilling into the next. */
+.chip-row--capped > :is(*, .git-chip, .metric-chip, .tag-chip) { min-width: 0; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip-row--capped > .chip-more { flex: none; }
 .chip-more { color: var(--muted); font-style: italic; flex: 0 0 auto; }
 .image-thumb .image-loading { position: absolute; inset: 0; }
 
@@ -245,7 +247,7 @@ a.related-paper-url:hover { text-decoration: underline; }
    day's entries, and the month and kinds beside it on a wide screen. */
 .log-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
 .log-timeline { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 18px; }
-.log-day { position: relative; display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 0 34px; }
+.log-day { position: relative; scroll-margin-top: calc(var(--titlebar-h, 0px) + 16px); display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 0 34px; }
 .log-day::before {
   content: ""; position: absolute; left: 92px; top: 0; bottom: -18px; width: 1px; background: var(--line);
 }
@@ -259,13 +261,23 @@ a.related-paper-url:hover { text-decoration: underline; }
 .log-day-mark span { color: var(--muted); font-size: 0.78rem; }
 .log-side { display: grid; gap: 16px; position: sticky; top: 16px; }
 .log-calendar h2, .log-kinds h2 { margin: 0 0 12px; font-size: 1.15rem; }
+.log-calendar-top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.log-calendar-top h2 { flex: 1; margin: 0; text-align: center; }
+.log-calendar-top button:disabled { opacity: 0.35; cursor: default; }
 .log-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
 .log-calendar-head { color: var(--muted); font-size: 0.72rem; }
 .log-calendar-day {
   display: grid; place-items: center; aspect-ratio: 1; font-size: 0.82rem; border-radius: 6px;
   border: 1px solid transparent;
 }
+button.log-calendar-day { position: relative; padding: 0; font: inherit; font-size: 0.82rem; color: inherit; cursor: pointer; }
 .log-calendar-day.is-logged { background: color-mix(in srgb, var(--accent) 22%, transparent); font-weight: 600; }
+.log-calendar-day.is-logged:hover { border-color: var(--text); }
+/* More than one entry that day: a count in the corner, headlines in the tooltip. */
+.log-calendar-count {
+  position: absolute; top: -6px; right: -6px; min-width: 15px; padding: 0 3px; border-radius: 8px;
+  background: var(--text); color: var(--bg); font-size: 0.6rem; line-height: 15px;
+}
 .log-calendar-day.is-today { border-color: var(--accent); font-weight: 700; }
 .log-kinds ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .log-kinds li { display: flex; align-items: center; justify-content: space-between; }
@@ -294,9 +306,22 @@ a.related-paper-url:hover { text-decoration: underline; }
 .plan-track { position: absolute; left: -11px; right: -11px; top: 7px; height: 10px; background: var(--surface2); border-radius: 999px; overflow: hidden; }
 .plan-track > span { display: block; height: 100%; background: var(--accent); }
 .plan-mark {
-  position: absolute; top: 1px; width: 22px; height: 22px; margin-left: -11px;
+  position: absolute; top: 1px; width: 22px; height: 22px; min-height: 0; margin-left: -11px; padding: 0;
+  display: flex; align-items: stretch; overflow: visible; cursor: pointer;
   border-radius: 50%; background: var(--surface); border: 2px solid var(--border-strong);
 }
+/* One stripe per milestone in the mark: a cluster shows every status it holds. */
+.plan-mark > span { flex: 1; min-width: 0; }
+.plan-mark > span:first-child { border-radius: 999px 0 0 999px; }
+.plan-mark > span:last-of-type { border-radius: 0 999px 999px 0; }
+.plan-mark > span:only-of-type { border-radius: inherit; }
+.plan-mark-count {
+  position: absolute; top: -9px; right: -10px; min-width: 16px; padding: 0 3px;
+  border-radius: 999px; background: var(--text); color: var(--surface);
+  font: 600 0.62rem/16px var(--font-mono); text-align: center;
+}
+.plan-done-toggle { display: block; margin: 12px auto; }
+.card.is-jumped, .log-day.is-jumped .card { outline: 3px solid var(--accent); outline-offset: 3px; }
 .plan-mark--done { background: var(--chip-read, var(--accent)); }
 .plan-mark--in_progress { background: var(--chip-reading, var(--accent)); }
 .plan-mark--blocked { background: var(--danger); }
@@ -313,3 +338,13 @@ a.related-paper-url:hover { text-decoration: underline; }
 .wiki-recent-list li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .wiki-recent-list li:last-child { border-bottom: 0; }
 .wiki-recent-list a { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Phone Plan/Log: the tab names the page, search and add share one row, the calendar leads. */
+@media (max-width: 900px) {
+  :is(.plan-screen, .log-screen) .screen-title-block { display: none; }
+  :is(.plan-screen, .log-screen) .screen-actions { flex-wrap: nowrap; }
+  :is(.plan-screen, .log-screen) .screen-actions > .search-input { flex: 1 1 auto; width: auto; min-width: 0; }
+  :is(.plan-screen, .log-screen) .screen-actions > .btn-primary { flex: 0 0 auto; }
+  .log-publish { display: none; }
+  .log-side { display: block; position: static; order: -1; }
+  .log-kinds { display: none; }
+}

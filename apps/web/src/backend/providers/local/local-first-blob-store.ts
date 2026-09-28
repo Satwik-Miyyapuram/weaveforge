@@ -14,8 +14,7 @@ import type { LocalQuery } from "./pglite-client";
  *
  * Reads look here first and ask the server only for what this computer does
  * not have — a picture another device added, say. What the server returns is
- * not copied down: the offline cache (`offline_blobs`) owns which PDFs a
- * device keeps and how much space they may take.
+ * not copied down; PDFs are kept in the workspace folder instead.
  */
 export class LocalFirstBlobStore implements IBlobFetcher {
   private readonly local: LocalBlobStore;

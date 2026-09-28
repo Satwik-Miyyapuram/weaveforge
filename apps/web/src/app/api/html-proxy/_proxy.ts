@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { formatError } from "@/lib/format-error";
 import { safeFetch, type SafeFetchOptions, type SafeFetchResult } from "@/backend/net/safe-fetch";
 import { isAllowedPdfProxyUrl } from "@/features/reader/application/sanitize-reader-url";
 import {
@@ -57,8 +58,12 @@ export async function proxyAllowlistedHtml(startUrl: string, options: HtmlProxyO
             Accept: "text/html,application/xhtml+xml",
           },
         });
-      } catch {
-        return refuse(abort.signal.aborted ? 504 : 502, abort.signal.aborted ? "Upstream timed out" : "Upstream fetch failed");
+      } catch (err) {
+        const host = new URL(current).host;
+        return refuse(
+          abort.signal.aborted ? 504 : 502,
+          abort.signal.aborted ? `Upstream ${host} timed out` : `Upstream fetch failed for ${host}: ${formatError(err)}`,
+        );
       }
       if (upstream.status >= 300 && upstream.status < 400) {
         const location = upstream.headers.get("location");
@@ -78,7 +83,7 @@ export async function proxyAllowlistedHtml(startUrl: string, options: HtmlProxyO
       const type = upstream.headers.get("content-type");
       if (!isHtmlContentType(type)) {
         void upstream.body.cancel().catch(() => undefined);
-        return refuse(415, "Upstream did not return a web page");
+        return refuse(415, `Upstream did not return a web page (content-type: ${type ?? "none"})`);
       }
       if (Number(upstream.headers.get("content-length") ?? "0") > HTML_PROXY_MAX_BYTES) {
         void upstream.body.cancel().catch(() => undefined);

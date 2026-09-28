@@ -116,10 +116,6 @@ export function CalendarFeedPanel() {
       <FormError>{error}</FormError>
 
       <div className="calendar-feed-options">
-        <label className="calendar-feed-check">
-          <input type="checkbox" className="themed-check" checked={includeDone} onChange={(e) => setIncludeDone(e.target.checked)} />
-          Include finished milestones
-        </label>
         <div className="field">
           <label htmlFor="calendar-reminder">Reminder</label>
           <Select id="calendar-reminder" value={reminder} onChange={(e) => setReminder(e.target.value)}>
@@ -130,6 +126,10 @@ export function CalendarFeedPanel() {
             ))}
           </Select>
         </div>
+        <label className="calendar-feed-check">
+          <input type="checkbox" className="themed-check" checked={includeDone} onChange={(e) => setIncludeDone(e.target.checked)} />
+          Include finished milestones
+        </label>
       </div>
 
       {loading ? (

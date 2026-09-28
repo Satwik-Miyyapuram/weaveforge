@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireMcpRelayUser } from "@/app/api/sdk/_shared";
-import { formatErrorForResponse } from "@/lib/format-error";
+import { formatErrorForResponse, jsonBodyError } from "@/lib/format-error";
 import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
 import {
   exceedsDeclaredLimit,
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Relay body is too large." }, { status: 413 });
   }
   let body: { sessionId?: unknown; envelope?: unknown; ttlMs?: number };
-  try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 }); }
+  try { body = await request.json(); } catch (err) { return NextResponse.json({ error: jsonBodyError(err) }, { status: 400 }); }
   if (!body.sessionId || !validEnvelope(body.envelope)) return NextResponse.json({ error: "sessionId and encrypted envelope are required." }, { status: 400 });
   // A `uuid` column, so free text is not a smaller version of the right value —
   // it is a 22P02 that would otherwise surface as a 500.
@@ -70,7 +70,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Relay body is too large." }, { status: 413 });
   }
   let body: { id?: unknown; envelope?: unknown; status?: "complete" | "cancelled" };
-  try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 }); }
+  try { body = await request.json(); } catch (err) { return NextResponse.json({ error: jsonBodyError(err) }, { status: 400 }); }
   if (!body.id || (body.status !== "cancelled" && !validEnvelope(body.envelope))) return NextResponse.json({ error: "id and encrypted response are required." }, { status: 400 });
   if (!isUuid(body.id)) return NextResponse.json({ error: "id must be a UUID." }, { status: 400 });
   const { data, error } = await auth.db.from("ai_mcp_relay_requests").update({

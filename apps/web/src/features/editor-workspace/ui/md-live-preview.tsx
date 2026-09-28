@@ -100,20 +100,21 @@ function PreviewToggle({
     { value: "below", label: "below", hint: "The preview under the editor, one column" },
   ];
   return (
-    <div className="md-live-choice" role="group" aria-label="Live preview">
-      <span className="md-live-choice-label">preview</span>
-      {choices.map((choice) => (
-        <button
-          key={choice.value}
-          type="button"
-          className={`md-live-option${mode === choice.value ? " is-on" : ""}`}
-          aria-pressed={mode === choice.value}
-          title={choice.hint}
-          onClick={() => onModeChange(choice.value)}
-        >
-          {choice.label}
-        </button>
-      ))}
+    <div className="md-live-choice">
+      <div className="seg seg--sm" role="group" aria-label="Live preview">
+        {choices.map((choice) => (
+          <button
+            key={choice.value}
+            type="button"
+            className={mode === choice.value ? "seg-on" : ""}
+            aria-pressed={mode === choice.value}
+            title={choice.hint}
+            onClick={() => onModeChange(choice.value)}
+          >
+            {choice.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

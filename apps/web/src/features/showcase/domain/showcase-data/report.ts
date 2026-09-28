@@ -15,18 +15,18 @@ export interface ShowcaseReportSection {
 }
 
 export const SHOWCASE_REPORT: ShowcaseReportSection[] = [
-  { section_no: "1", title: "Introduction", status: "drafting", word_count: 1200, target_words: 2500, deadline: "2026-08-15" },
+  { section_no: "1", title: "Introduction", status: "drafting", target_words: 2500, deadline: "2026-08-15" },
   { section_no: "1.1", parent: "1", title: "Problem statement", status: "review", word_count: 780, target_words: 900, notes: "Supervisor: open with the Locatello impossibility result." },
   { section_no: "1.2", parent: "1", title: "Contributions", status: "drafting", word_count: 400, target_words: 800 },
   { section_no: "1.3", parent: "1", title: "Thesis outline", status: "not_started", target_words: 300 },
-  { section_no: "2", title: "Background", status: "drafting", word_count: 3400, target_words: 4500, deadline: "2026-08-01" },
-  { section_no: "2.1", parent: "2", title: "Generative models", status: "drafting", word_count: 1800, target_words: 2200 },
+  { section_no: "2", title: "Background", status: "drafting", target_words: 4500, deadline: "2026-08-01" },
+  { section_no: "2.1", parent: "2", title: "Generative models", status: "drafting", target_words: 2200 },
   { section_no: "2.1.1", parent: "2.1", title: "VAE variants", status: "done", word_count: 920, target_words: 900 },
   { section_no: "2.1.2", parent: "2.1", title: "Disentanglement literature", status: "drafting", word_count: 640, target_words: 900, notes: "Table 2: β-VAE / FactorVAE / TC-VAE / DIP-VAE on one axis." },
   { section_no: "2.1.3", parent: "2.1", title: "Other generative families", status: "not_started", target_words: 400, notes: "GAN, diffusion, flows — one paragraph each." },
   { section_no: "2.2", parent: "2", title: "Graph neural networks", status: "drafting", word_count: 1100, target_words: 1800 },
   { section_no: "2.3", parent: "2", title: "Disentanglement metrics", status: "drafting", word_count: 500, target_words: 700, notes: "From the systematic review list." },
-  { section_no: "3", title: "Method", status: "drafting", word_count: 1500, target_words: 5000, deadline: "2026-08-25" },
+  { section_no: "3", title: "Method", status: "drafting", target_words: 5000, deadline: "2026-08-25" },
   { section_no: "3.1", parent: "3", title: "Encoder architecture", status: "drafting", word_count: 900, target_words: 2200 },
   { section_no: "3.2", parent: "3", title: "Graph-prior module", status: "drafting", word_count: 600, target_words: 2400, notes: "Justify sum aggregation via GIN." },
   { section_no: "3.3", parent: "3", title: "Training objective", status: "not_started", target_words: 800 },

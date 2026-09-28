@@ -3,7 +3,7 @@
 import { InlineError } from "@/components/form-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { isInkNoteBody, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
+import { PAPER_STATUSES, isInkNoteBody, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { confirmRemovePaper } from "./remove-paper";
 import { formatError } from "@/lib/format-error";
@@ -18,7 +18,7 @@ import {
   wordCount,
 } from "@/components/record";
 import { RelatedPanel } from "@/components/related-panel";
-import { CommentsPanel, ShareButton, PinnedPaperBadge } from "@/features/sharing";
+import { NoteComments, ShareButton, PinnedPaperBadge } from "@/features/sharing";
 import { materializePaperBlobImages } from "../lib/paper-images-md";
 import { reconcileTagsFromBodyOrDefer } from "../lib/note-tags";
 import type { EditorHandle } from "@/components/editor-handle";
@@ -37,7 +37,7 @@ import { reRenderPaperSourceNote } from "../application/paper-source-note-scaffo
 import { PaperAnnotations } from "./paper-annotations";
 import { PaperFieldsStrip } from "./paper-fields";
 import { PaperFirstPage } from "./paper-first-page";
-import { PaperStatusControl, statusLabel } from "./paper-status";
+import { StatusSelect, statusLabel } from "@/components/status-select";
 import { PaperIdentifiersEditor } from "./paper-identifiers-editor";
 import { RelatedPapersPanel } from "./related-papers-panel";
 import { TagEditor } from "./tag-editor";
@@ -108,6 +108,7 @@ export function PaperNote({
   const [copied, setCopied] = useState(false);
   // Filled in while the editor is on screen, so the button can insert at the caret.
   const editorHandle = useRef<EditorHandle | null>(null);
+  const noteTextRef = useRef<HTMLDivElement>(null);
   const { completions } = useCiteLinkCatalog();
   const [citationFormat, setCitationFormat] = useCitationFormatPreference();
 
@@ -259,8 +260,8 @@ export function PaperNote({
       await navigator.clipboard.writeText(text);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setSaveError("The clipboard is not available here.");
+    } catch (err) {
+      setSaveError(`The clipboard is not available here: ${formatError(err)}`);
     }
   }
 
@@ -292,11 +293,8 @@ export function PaperNote({
       <nav className="record-bar" aria-label="Paper">
         <BackButton label="Papers" onClick={onBack} />
         <span className="record-mono record-bar-id">Record {citeKey || paper.id.slice(0, 6)}</span>
-        {readOnly ? (
-          <PinnedPaperBadge ownerName={sharedByName} />
-        ) : (
-          <PaperStatusControl status={paper.status} disabled={busy} onChange={(s) => void changeStatus(s)} />
-        )}
+        {readOnly && <PinnedPaperBadge ownerName={sharedByName} />}
+        <StatusSelect value={paper.status} statuses={PAPER_STATUSES} disabled={readOnly || busy} onChange={(st) => void changeStatus(st)} label="Reading status" />
         <div className="record-actions">
           {!readOnly && (
             // Without an identifier this opens the editor that adds one, rather
@@ -412,6 +410,7 @@ export function PaperNote({
               )
             ) : (
               <div
+                ref={noteTextRef}
                 className={
                   mode !== "read"
                     ? `record-doc record-doc--${mode}${inkFocus.focus ? " record-ink-focus is-focus" : ""}`
@@ -478,19 +477,20 @@ export function PaperNote({
                 )}
               </RecordSection>
 
-              <RecordSection label="Fields">
-                <PaperFieldsStrip paperId={paper.id} readOnly={readOnly} />
-              </RecordSection>
-
               {!readOnly && (
                 <RecordSection label="Linked papers" tag="By hand">
                   <RelatedPapersPanel paper={paper} onChanged={onChanged} />
                 </RecordSection>
               )}
 
-              <RecordSection label="Comments" id="record-comments">
-                <CommentsPanel resourceType="paper" resourceId={paper.id} canComment={readOnly ? canComment : true} />
-              </RecordSection>
+              <NoteComments
+                resourceType="paper"
+                resourceId={paper.id}
+                canComment={readOnly ? canComment : true}
+                isOwner={!readOnly}
+                contentRef={noteTextRef}
+                contentKey={`${mode}:${paper.summary ?? ""}`}
+              />
             </>
           )}
         </div>
@@ -515,6 +515,9 @@ export function PaperNote({
               ]}
             />
             <PaperExternalLink paper={paper} />
+          </RecordSection>
+          <RecordSection label="Fields">
+            <PaperFieldsStrip paperId={paper.id} readOnly={readOnly} />
           </RecordSection>
           {/* What the graph, the wording and the meaning put next to this
               paper — including things nobody linked by hand. */}

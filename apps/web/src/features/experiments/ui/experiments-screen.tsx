@@ -8,17 +8,16 @@ import { getContainer } from "@/bootstrap";
 import { useNavPending } from "@/lib/nav-pending";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
-import { Popover } from "@/components/popover";
-import { CompareViewIcon, FilterIcon, ListViewIcon } from "@/components/view-icons";
+import { CompareViewIcon, ListViewIcon } from "@/components/view-icons";
 import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { EntityCard } from "@/components/entity-card";
-import { CardMenu } from "@/components/card-menu";
+import { EntityCardMenu } from "@/components/entity-card-menu";
 import { ExperimentCardThumbs } from "@/components/card-thumbs";
+import { CardColumns } from "@/components/card-columns";
 import { cardSnippet } from "@/lib/card-snippet";
 import { ShareButton, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { Select } from "@/components/select";
-import { MultiSelect } from "@/components/multi-select";
 import { usePersistedState } from "@/lib/hooks/use-persisted-state";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
@@ -32,9 +31,12 @@ import {
   ExperimentTitleLink,
 } from "./experiment-panels";
 import { ScreenHead } from "@/components/screen-head";
+import { FilterRow } from "@/components/filter-row";
+import { ViewSwitch } from "@/components/view-switch";
+import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { isOfflineBuild } from "@/deployment/build-target";
 import { experimentHref } from "./experiment-href";
-import { experimentStatusLabel } from "./experiment-status-label";
+import { StatusSelect, statusLabel } from "@/components/status-select";
 import { ExperimentDetailScreen } from "./experiment-detail-screen";
 import { FormError } from "@/components/form-error";
 
@@ -73,6 +75,7 @@ export function ExperimentsScreen() {
 
   const [statusFilter, setStatusFilter] = usePersistedState<string[]>("thesis.experiments.status", []);
   const [view, setView] = usePersistedState<string>("thesis.experiments.view", "list");
+  const [search, setSearch] = useState("");
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeMode, setComposeMode] = useState<"menu" | "new">("menu");
   const [shareAllOpen, setShareAllOpen] = useState(false);
@@ -139,10 +142,12 @@ export function ExperimentsScreen() {
     };
   }, [load]);
 
+  const match = useScreenSearch(search, "experiment");
   const visible = useMemo(() => {
     const set = new Set(statusFilter);
-    return set.size === 0 ? items : items.filter((e) => set.has(e.status));
-  }, [items, statusFilter]);
+    const byStatus = set.size === 0 ? items : items.filter((e) => set.has(e.status));
+    return match(byStatus, (e) => e.id, (e) => [e.name, e.hypothesis, e.branch, e.resultNote].join(" "));
+  }, [items, statusFilter, match]);
 
   // The static build has no page per experiment, so the list's own route stands
   // in for one: with `?experiment=` set it *is* the experiment's page, the way
@@ -157,7 +162,10 @@ export function ExperimentsScreen() {
 
   return (
     <section className="screen">
-      <ScreenHead eyebrow={experimentsEyebrow(items)}>
+      <ScreenHead
+        eyebrow={experimentsEyebrow(items)}
+        search={items.length > 0 ? { value: search, onChange: setSearch, label: "Search experiments" } : undefined}
+      >
         {hasLiveRunning && (
           // The tick is 5s, but a tick does not necessarily refresh anything:
           // `useScreenData` serves the cached payload and only re-fetches once
@@ -229,54 +237,29 @@ export function ExperimentsScreen() {
       )}
 
       {items.length > 0 && (
-        <div className="controls-row">
-          <Popover
-            label={<FilterIcon />}
-            ariaLabel="Filters"
-            iconOnly
-            count={statusFilter.length ? 1 : 0}
-            align="right"
-          >
-            <div className="filters">
-              <MultiSelect
-                id="fprogress"
-                values={statusFilter}
-                onChange={setStatusFilter}
-                allLabel="All statuses"
-                ariaLabel="Filter by progress"
-                options={EXPERIMENT_STATUSES.map((s) => ({ value: s, label: experimentStatusLabel(s) }))}
-              />
-              {statusFilter.length > 0 && (
-                <button type="button" className="link-btn" onClick={() => setStatusFilter([])}>
-                  Clear filters
-                </button>
-              )}
-            </div>
-          </Popover>
-          <div className="controls-spacer" />
-          <div className="seg" role="tablist" aria-label="Experiments view">
-            <button
-              type="button"
-              role="tab"
-              aria-label="List view"
-              aria-selected={view === "list"}
-              className={view === "list" ? "seg-on" : ""}
-              onClick={() => setView("list")}
-            >
-              <ListViewIcon />
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-label="Compare view"
-              aria-selected={view === "compare"}
-              className={view === "compare" ? "seg-on" : ""}
-              onClick={() => setView("compare")}
-            >
-              <CompareViewIcon />
-            </button>
-          </div>
-        </div>
+        <FilterRow
+          label="Filter experiments"
+          facets={[
+            {
+              id: "fprogress",
+              label: "Status",
+              chipPrefix: "Status: ",
+              values: statusFilter,
+              onChange: setStatusFilter,
+              options: EXPERIMENT_STATUSES.map((s) => ({ value: s, label: statusLabel(s) })),
+            },
+          ]}
+        >
+          <ViewSwitch
+            label="Experiments view"
+            value={view}
+            onChange={setView}
+            options={[
+              { value: "list", label: "List", icon: <ListViewIcon /> },
+              { value: "compare", label: "Compare", icon: <CompareViewIcon /> },
+            ]}
+          />
+        </FilterRow>
       )}
 
       {error && <FormError>{error}</FormError>}
@@ -300,8 +283,8 @@ export function ExperimentsScreen() {
       {items.length > 0 && visible.length === 0 && (
         <EmptyState
           variant="no-results"
-          body="No experiments match the filter."
-          action={<ClearFiltersButton onClear={() => setStatusFilter([])} />}
+          body="No experiments match."
+          action={<ClearFiltersButton onClear={() => { setStatusFilter([]); setSearch(""); }} />}
         />
       )}
 
@@ -309,18 +292,24 @@ export function ExperimentsScreen() {
         (view === "compare" ? (
           <CompareView experiments={visible} />
         ) : (
-          <ul className={`exp-list ${visible.length > 20 ? "long-list" : ""}`}>
-            {visible.map((e) => (
+          // Masonry like Papers and Notes, wider: a run card carries charts and chips.
+          <CardColumns
+            className="exp-columns"
+            items={visible}
+            getKey={(e) => e.id}
+            minColumnWidth={380}
+            gap={16}
+            deferOffscreen={visible.length > 20}
+            renderItem={(e) => (
               <ExperimentCard
-                key={e.id}
                 exp={e}
                 readOnly={isReadOnlyExperiment(e.id)}
                 sharedByName={sharedOwnerName(e.id)}
                 onReplace={replace}
                 onChanged={load}
               />
-            ))}
-          </ul>
+            )}
+          />
         ))}
 
     </section>
@@ -520,9 +509,6 @@ function ExperimentCard({
   const router = useRouter();
   const { beginNavigation } = useNavPending();
   const [busy, setBusy] = useState(false);
-  // Held here, not inside the menu: the menu closes on pick, and the share
-  // sheet it opened has to outlive that.
-  const [shareOpen, setShareOpen] = useState(false);
   const openDetail = useCallback(() => {
     const dest = experimentHref(exp.id);
     beginNavigation(dest);
@@ -542,38 +528,33 @@ function ExperimentCard({
     }
   }
   return (
-    <>
-      <EntityCard
-      as="li"
+    <EntityCard
       id={`exp-${exp.id}`}
-      className={`exp-item exp-item--${exp.status}`}
+      className="exp-item"
+      tone={exp.status}
       onActivate={openDetail}
       title={exp.name}
+      badge={readOnly ? <PinnedPaperBadge ownerName={sharedByName} /> : undefined}
       status={
-        readOnly ? (
-          <PinnedPaperBadge ownerName={sharedByName} />
-        ) : (
-          <Select
-            className="status-select"
-            value={exp.status}
-            onChange={(ev) => void setStatus(ev.target.value as ExperimentStatus)}
-          >
-            {EXPERIMENT_STATUSES.map((st) => (
-              <option key={st} value={st}>{experimentStatusLabel(st)}</option>
-            ))}
-          </Select>
-        )
+        <StatusSelect
+          value={exp.status}
+          statuses={EXPERIMENT_STATUSES}
+          disabled={readOnly}
+          onChange={(st) => void setStatus(st)}
+          label="Run status"
+        />
       }
       meta={exp.hypothesis || undefined}
       // Same card shape as papers and notes: status stays on the card, the
       // occasional and destructive controls move behind one ⋯.
       menu={
         readOnly ? undefined : (
-          <CardMenu
-            items={[
-              { id: "share", label: "Share", onSelect: () => setShareOpen(true) },
-              { id: "delete", label: "Delete", danger: true, disabled: busy, onSelect: () => void remove() },
-            ]}
+          <EntityCardMenu
+            resourceType="experiment"
+            resourceId={exp.id}
+            title={`Share: ${exp.name}`}
+            deleteDisabled={busy}
+            onDelete={() => void remove()}
           />
         )
       }
@@ -584,16 +565,7 @@ function ExperimentCard({
         {exp.resultNote && <p className="entity-card-snippet">{cardSnippet(exp.resultNote)}</p>}
         <ExperimentCardThumbs artifacts={exp.artifacts} />
       </div>
-      </EntityCard>
-      <ShareButton
-        hideTrigger
-        resourceType="experiment"
-        resourceId={exp.id}
-        title={`Share: ${exp.name}`}
-        open={shareOpen}
-        onOpenChange={setShareOpen}
-      />
-    </>
+    </EntityCard>
   );
 }
 
@@ -615,7 +587,7 @@ function AddExperimentForm({ onAdded }: { onAdded: () => void }) {
       let parsed: Record<string, unknown> | undefined;
       if (config.trim()) {
         try { parsed = JSON.parse(config); }
-        catch { throw new Error("Config must be valid JSON."); }
+        catch (err) { throw new Error(`Config must be valid JSON: ${formatError(err)}`); }
       }
       await getContainer().experiments.manageExperiment.add({
         name, branch: branch || undefined, commitSha: commit || undefined,
@@ -642,7 +614,7 @@ function AddExperimentForm({ onAdded }: { onAdded: () => void }) {
         <div className="field">
           <label htmlFor="estatus">Status</label>
           <Select id="estatus" value={status} onChange={(e) => setStatus(e.target.value as ExperimentStatus)}>
-            {EXPERIMENT_STATUSES.map((st) => <option key={st} value={st}>{experimentStatusLabel(st)}</option>)}
+            {EXPERIMENT_STATUSES.map((st) => <option key={st} value={st}>{statusLabel(st)}</option>)}
           </Select>
         </div>
       </div>

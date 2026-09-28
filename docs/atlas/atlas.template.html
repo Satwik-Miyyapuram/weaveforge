@@ -943,8 +943,6 @@ flowchart TB
   MERGE -->|"clean"| STATE["sync-state.ts<br/>cursor advances"]
   MERGE -->|"divergent"| CONFLICT["conflicts.ts<br/>surfaced to the user"]
   ADOPT["adoption.ts<br/>a local-only workspace signs in"] --> OUTBOX
-  SCOPE["offline-scope.ts<br/>what is eligible to cache"] --> PULLER
-  BLOBS["blob-cache.ts"] --> SCOPE
 </pre>
       </div>
 

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { GraphExperimentEntry, Paper, PaperRelation, ReadingList, ReportSection, VaultPage } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
+import { ScreenHead } from "@/components/screen-head";
 import { ScreenLoading } from "@/components/screen-loading";
 import { useProject } from "@/features/projects";
 import { AddEdgeForm } from "./add-edge-form";
@@ -226,39 +227,24 @@ export function GraphScreen() {
   }
 
   const header = (
-    <header className={`screen-head${focus ? " graph-focus-head" : ""}`}>
-      <div className="head-row">
-        {/* ScreenHead's title block, by hand: this header also rides into
-            focus mode, where it takes the focus-head class. The classic themes
-            hide the auto title; the brutal ones draw it, as on every list. */}
-        <div className="screen-title-block">
-          <p className="screen-eyebrow">
-            {visiblePapers.length} {visiblePapers.length === 1 ? "paper" : "papers"} · {visibleEdges.length} {visibleEdges.length === 1 ? "link" : "links"}
-          </p>
-          <h1 className="screen-title screen-title--auto">Graph</h1>
-        </div>
-        <div className="screen-actions">
-          {!loading && hasVisibleItems && (
-            <input
-              type="search"
-              className="input graph-head-search"
-              placeholder="Search graph"
-              aria-label="Search graph"
-              value={settings.searchQuery}
-              onChange={(e) => patchSettings({ searchQuery: e.target.value })}
-            />
-          )}
-          <button
-            className="btn-primary"
-            type="button"
-            disabled={linking}
-            onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
-          >
-            {linking ? "Linking…" : "+ Graph"}
-          </button>
-        </div>
-      </div>
-    </header>
+    <ScreenHead
+      className={focus ? "graph-focus-head" : undefined}
+      eyebrow={`${visiblePapers.length} ${visiblePapers.length === 1 ? "paper" : "papers"} · ${visibleEdges.length} ${visibleEdges.length === 1 ? "link" : "links"}`}
+      search={
+        !loading && hasVisibleItems
+          ? { value: settings.searchQuery, onChange: (searchQuery) => patchSettings({ searchQuery }), label: "Search graph" }
+          : undefined
+      }
+    >
+      <button
+        className="btn-primary"
+        type="button"
+        disabled={linking}
+        onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+      >
+        {linking ? "Linking…" : "+ Graph"}
+      </button>
+    </ScreenHead>
   );
 
   const canvas = !loading && hasVisibleItems ? (

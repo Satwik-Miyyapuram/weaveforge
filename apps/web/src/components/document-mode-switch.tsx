@@ -29,12 +29,12 @@ export function DocumentModeSwitch<M extends DocumentModeName>({
   onMode: (mode: M) => void;
 }) {
   return (
-    <div className="pane-mode" role="group" aria-label="Document mode">
+    <div className="seg seg--sm pane-mode" role="group" aria-label="Document mode">
       {modes.map((each) => (
         <button
           key={each}
           type="button"
-          className={`pane-mode-btn${mode === each ? " is-on" : ""}`}
+          className={mode === each ? "seg-on" : ""}
           aria-pressed={mode === each}
           title={MODE_TITLES[each]}
           onClick={() => onMode(each)}

@@ -22,6 +22,7 @@ import type { IpcSurface } from "./ipc-guard";
 import type { LocalDbHost } from "./local-db-host";
 import type { PreferenceStore } from "./preference-store";
 import {
+  cleanWidgetPalette,
   hwndFromHandle,
   parseBounds,
   pinScript,
@@ -32,6 +33,7 @@ import {
   powershellArgs,
   widgetDataFromRows,
   type PlanWidgetRow,
+  type WidgetPalette,
 } from "./plan-widget";
 
 /** The argument the login item starts the app with: widget only, no window. */
@@ -63,7 +65,7 @@ export interface MainPlanWidget {
   launch(createWindow: () => BrowserWindow): void;
   /** Whether the widget window is up. */
   isOpen(): boolean;
-  /** Re-read the plan now, if the widget is up. */
+  /** Re-read the plan soon, if the widget is up; calls close together read once. */
   refresh(): void;
   /**
    * Whether the widget was taken down by something else and is about to come
@@ -86,6 +88,9 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
   /** The helper keeping the widget on the desktop, while it runs. */
   let helper: ChildProcess | null = null;
   let quitting = false;
+  let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The app's palette, kept so a widget opened later wears it before the app sends it again. */
+  let palette: WidgetPalette | null = null;
   let returning = false;
   app.on("before-quit", () => {
     quitting = true;
@@ -132,6 +137,14 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
       if (helper === child) helper = null;
       if (code) console.warn(`[plan-widget] desktop placement failed (${code}): ${errors.trim().slice(0, 300)}`);
     });
+  }
+
+  async function sendTheme(target: BrowserWindow): Promise<void> {
+    if (!palette) {
+      const saved = await deps.preferenceStore().read("plan-widget-theme");
+      palette = saved.ok && typeof saved.value === "string" ? parseJsonPalette(saved.value) : null;
+    }
+    if (palette && !target.isDestroyed()) target.webContents.send(CHANNELS.planWidgetTheme, palette);
   }
 
   function saveBounds(): void {
@@ -202,6 +215,7 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
     target.webContents.on("will-navigate", (event) => event.preventDefault());
     target.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     target.webContents.once("did-finish-load", () => {
+      void sendTheme(target);
       void refresh();
       target.showInactive();
       pin(target);
@@ -248,6 +262,14 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
    * the app's origin, and the widget is a local file — so each is checked
    * against the one window allowed to send it instead.
    */
+  deps.ipc.on(CHANNELS.planWidgetTheme, (_event, value: unknown) => {
+    const next = cleanWidgetPalette(value);
+    if (!next || JSON.stringify(next) === JSON.stringify(palette)) return;
+    palette = next;
+    void deps.preferenceStore().write("plan-widget-theme", JSON.stringify(next));
+    if (win && !win.isDestroyed()) void sendTheme(win);
+  });
+
   const fromWidget = (event: IpcMainEvent) => !!win && !win.isDestroyed() && event.sender === win.webContents;
   ipcMain.on(CHANNELS.planWidgetOpen, (event) => {
     if (fromWidget(event)) deps.showMainWindow("/plan");
@@ -301,7 +323,18 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
     resume,
     launch,
     isOpen: () => !!win && !win.isDestroyed(),
-    refresh: () => void refresh(),
+    refresh: () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => void refresh(), 400);
+    },
     isReturning: () => returning,
   };
+}
+
+function parseJsonPalette(value: string): WidgetPalette | null {
+  try {
+    return cleanWidgetPalette(JSON.parse(value));
+  } catch {
+    return null;
+  }
 }

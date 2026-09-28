@@ -15,40 +15,27 @@
 }
 .papers-table td.papers-col-open { padding: 6px 8px; }
 
-/* The header: title and progress on the left, find and add on the right. */
-.papers-head-row {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 14px 24px;
-}
-.papers-head-title { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.papers-head .screen-title { margin: 18px 0 0; }
-.papers-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 0 1 auto;
-  min-width: 0;
-}
-.papers-head-actions .search-input { margin: 0; width: 300px; min-width: 0; flex: 0 1 300px; }
-.papers-head-actions .btn-primary,
-.papers-head-actions .popover { flex: none; }
+.screen-actions .search-input { margin: 0; width: 300px; min-width: 0; flex: 0 1 300px; }
 
 /* The filter row: one dropdown per facet, the active values as removable
    chips, and the layout switch pushed to the far end. */
-.papers-filters {
+.filter-row {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  container-type: inline-size;
   gap: 10px;
   margin: 18px 0 8px;
 }
-.papers-filters .custom-select-container.papers-filter { width: auto; flex: none; }
-.papers-filters .papers-filter .custom-select-button { padding: 7px 12px; min-width: 116px; }
-.papers-layout-seg { margin-left: auto; flex: none; }
-.papers-layout-seg button { display: inline-flex; align-items: center; gap: 6px; }
+.filter-row > * { flex: none; }
+.filter-row > .filter-chip:not(.filter-chip--more) { flex: 0 1 auto; min-width: 6em; max-width: 16em; }
+/* Too narrow for chips: the select labels already name the picks. */
+@container (max-width: 900px) { .filter-row .filter-chip { display: none; } }
+.filter-chip--more { padding-right: 10px; cursor: default; }
+.filter-row .custom-select-container.filter-select { width: auto; flex: none; }
+.filter-row .filter-select .custom-select-button { padding: 7px 12px; min-width: 116px; }
+.view-switch { margin-left: auto; flex: none; }
+.view-switch button { display: inline-flex; align-items: center; gap: 6px; }
 .filter-chip {
   display: inline-flex;
   align-items: center;
@@ -59,7 +46,9 @@
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 999px;
+  white-space: nowrap;
 }
+.filter-chip-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .filter-chip-x {
   display: grid;
   place-items: center;
@@ -75,8 +64,10 @@
 .filter-chip-x:hover { filter: brightness(0.8); color: var(--ink); }
 
 @media (max-width: 899px) {
-  .papers-head-actions { flex-basis: 100%; }
-  .papers-head-actions .search-input { flex: 1 1 auto; width: auto; }
+  /* One scrolling row; select menus portal out so the scroll can't clip them. */
+  .filter-row { overflow-x: auto; scrollbar-width: none; }
+  .filter-row > * { flex: none; }
+  .screen-actions .search-input { flex: 1 1 auto; width: auto; }
 }
 
 .papers-table-scroll {
@@ -260,7 +251,6 @@
   margin-left: auto;
   overflow: visible;
 }
-.entity-card-foot,
 .paper-note-head { overflow: visible; }
 .form-foot { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
 
@@ -321,6 +311,9 @@
   display: grid; grid-template-columns: minmax(90px, 140px) minmax(0, 1fr);
   gap: 8px; align-items: start; min-width: 0;
 }
+/* The side column is too narrow for label and control side by side. */
+.record-aside .paper-field-row { grid-template-columns: 1fr; gap: 4px; }
+.record-aside :is(.paper-field-label, .paper-field-row dt) { padding-top: 0; }
 @media (max-width: 520px) {
   .paper-field-row {
     grid-template-columns: 1fr;
@@ -391,21 +384,6 @@
  * boxes, status as dots and a word, occasional actions out of sight until the
  * pointer is on the card. The grid carries titles, not controls. */
 
-.papers-ledger {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 0.82rem;
-  color: var(--muted);
-}
-.papers-ledger-bar {
-  width: 120px;
-  height: 4px;
-  background: var(--border);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.papers-ledger-bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.3s ease; }
 
 /* Library upkeep, as a band across the screen rather than a line of small
    print: what needs doing, why it matters, and the one button that does it. */
@@ -459,21 +437,7 @@
 }
 :is(.papers-screen, .vault-screen) .paper-card .entity-card-title { font-size: 1.04rem; line-height: 1.32; }
 :is(.papers-screen, .vault-screen) .paper-card .entity-card-snippet { -webkit-line-clamp: 2; line-clamp: 2; color: var(--faint); }
-:is(.papers-screen, .vault-screen) .paper-card .entity-card-foot { border-top: none; padding-top: 2px; }
-:is(.papers-screen, .vault-screen) .paper-card .tag-chip {
-  padding: 0;
-  background: none;
-  border: none;
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  letter-spacing: 0.04em;
-  color: var(--faint);
-}
-:is(.papers-screen, .vault-screen) .paper-card .tag-chips { gap: 10px; }
 
-/* Status first in the foot, the kebab last and hidden until wanted. */
-:is(.papers-screen, .vault-screen) .paper-card .card-foot-right { width: 100%; justify-content: space-between; }
-:is(.papers-screen, .vault-screen) .paper-card .card-foot-right > :last-child { margin-left: auto; }
 /* Faint rather than hidden: on a touch-only screen there is no hover to
    reveal it with. */
 :is(.papers-screen, .vault-screen) .paper-card .card-menu-trigger {

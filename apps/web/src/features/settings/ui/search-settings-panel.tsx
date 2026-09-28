@@ -1,7 +1,7 @@
 "use client";
 
 import { DEFAULT_EMBEDDING_MODEL } from "@/features/search/infrastructure/embedding-models";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   MAX_FIELD_WEIGHT,
   MIN_FIELD_WEIGHT,
@@ -41,6 +41,7 @@ import {
   type SemanticStatus,
 } from "@/features/search/application/semantic-search";
 import { FormError } from "@/components/form-error";
+import { StepProgress, type Step } from "@/components/step-progress";
 
 /** Fields a user can reweight, with names that mean something outside the code. */
 const FIELD_LABELS: Record<SearchField, string> = {
@@ -216,85 +217,95 @@ function LibraryPdfIndexing() {
     }
   }
 
+  const steps: Step[] = [
+    {
+      label: "Find papers without text",
+      state: pending !== null || shown || done ? "done" : busy ? "active" : "pending",
+      detail: pending !== null && !shown && !done ? `${pending} to index` : undefined,
+    },
+    {
+      label: background.running && !progress ? "Fetch and index PDFs (background)" : "Fetch and index PDFs",
+      state: shown ? "active" : done || pending === 0 ? "done" : "pending",
+      value: shown ? shown.done / Math.max(shown.total, 1) : undefined,
+      detail: shown ? `${shown.done} of ${shown.total}${shown.current ? ` — ${shown.current}` : ""}` : undefined,
+    },
+  ];
+
   return (
-    <div className="field">
-      <label htmlFor="index-library">Search inside PDFs</label>
-      <p className="muted jump-to-meta">
-        PDFs are indexed as you read them, at no cost. Indexing the whole library fetches every
-        paper you have not opened yet — from arXiv and the other open-access hosts, not from us,
-        so it pauses a few seconds between papers to stay a welcome guest. Expect it to run in
-        the background for a while on a large library.
-      </p>
-      <label className="field-inline">
-        <input
-          type="checkbox"
-          className="themed-check"
-          checked={auto}
-          onChange={(e) => {
-            setAuto(e.target.checked);
-            setAutoIndexEnabled(e.target.checked);
-          }}
-        />
-        Index new papers automatically
-      </label>
-      {error && <FormError>{error}</FormError>}
-      {shown && (
-        <p className="muted" aria-live="polite">
-          {background.running && !progress ? "In the background: " : ""}
-          {shown.done} of {shown.total}
-          {shown.current ? ` — ${shown.current}` : ""}
+    <div className="field field-with-steps">
+      <div>
+        <label htmlFor="index-library">Search inside PDFs</label>
+        <p className="muted jump-to-meta">
+          PDFs are indexed as you read them, at no cost. Indexing the whole library fetches every
+          paper you have not opened yet — from arXiv and the other open-access hosts, not from us,
+          so it pauses a few seconds between papers to stay a welcome guest. Expect it to run in
+          the background for a while on a large library.
         </p>
-      )}
-      {!shown && !done && background.last && (
-        <p className="muted">
-          Last background run: indexed {background.last.indexed}
-          {background.last.failed ? `, ${background.last.failed} could not be read (retried in a week)` : ""}.
-        </p>
-      )}
-      {done && <p className="muted">{done}</p>}
-      {/*
-        What could not be read, and why. Grouped by reason rather than listed per
-        paper: eighteen lines all saying the same thing is noise, and the reason
-        is the part that tells the reader whether to do anything.
-      */}
-      {Object.keys(reasons).length > 0 && (
-        <ul className="wiki-lint-list">
-          {Object.entries(
-            Object.entries(reasons).reduce<Record<string, string[]>>((groups, [title, why]) => {
-              (groups[why] ??= []).push(title);
-              return groups;
-            }, {}),
-          ).map(([why, titles]) => (
-            <li key={why} data-severity="info">
-              <strong>{titles.length}</strong> — {why}
-              {titles.length <= 3 && <span className="jump-to-meta"> ({titles.join(", ")})</span>}
-            </li>
-          ))}
-        </ul>
-      )}
-      {pending !== null && !progress && !done && (
-        <p className="muted">
-          {pending === 0
-            ? "Every PDF in your library is already indexed."
-            : `${pending} paper${pending === 1 ? "" : "s"} not yet indexed.`}
-        </p>
-      )}
-      <div className="screen-actions">
-        <button
-          id="index-library"
-          className="btn-secondary"
-          type="button"
-          disabled={busy}
-          onClick={() => void check()}
-        >
-          Check what is missing
-        </button>
-        {pending !== null && pending > 0 && (
-          <button className="btn-secondary" type="button" disabled={busy || background.running} onClick={() => void run()}>
-            {busy ? "Indexing…" : `Index ${pending} PDF${pending === 1 ? "" : "s"}`}
-          </button>
+        <label className="field-inline">
+          <input
+            type="checkbox"
+            className="themed-check"
+            checked={auto}
+            onChange={(e) => {
+              setAuto(e.target.checked);
+              setAutoIndexEnabled(e.target.checked);
+            }}
+          />
+          Index new papers automatically
+        </label>
+        {error && <FormError>{error}</FormError>}
+        {!shown && !done && background.last && (
+          <p className="muted">
+            Last background run: indexed {background.last.indexed}
+            {background.last.failed ? `, ${background.last.failed} could not be read (retried in a week)` : ""}.
+          </p>
         )}
+        {done && <p className="muted">{done}</p>}
+        {/*
+          What could not be read, and why. Grouped by reason rather than listed per
+          paper: eighteen lines all saying the same thing is noise, and the reason
+          is the part that tells the reader whether to do anything.
+        */}
+        {Object.keys(reasons).length > 0 && (
+          <ul className="wiki-lint-list">
+            {Object.entries(
+              Object.entries(reasons).reduce<Record<string, string[]>>((groups, [title, why]) => {
+                (groups[why] ??= []).push(title);
+                return groups;
+              }, {}),
+            ).map(([why, titles]) => (
+              <li key={why} data-severity="info">
+                <strong>{titles.length}</strong> — {why}
+                {titles.length <= 3 && <span className="jump-to-meta"> ({titles.join(", ")})</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+        {pending !== null && !progress && !done && (
+          <p className="muted">
+            {pending === 0
+              ? "Every PDF in your library is already indexed."
+              : `${pending} paper${pending === 1 ? "" : "s"} not yet indexed.`}
+          </p>
+        )}
+        <div className="screen-actions">
+          <button
+            id="index-library"
+            className="btn-secondary"
+            type="button"
+            disabled={busy}
+            onClick={() => void check()}
+          >
+            Check what is missing
+          </button>
+          {pending !== null && pending > 0 && (
+            <button className="btn-secondary" type="button" disabled={busy || background.running} onClick={() => void run()}>
+              {busy ? "Indexing…" : `Index ${pending} PDF${pending === 1 ? "" : "s"}`}
+            </button>
+          )}
+        </div>
       </div>
+      {(pending !== null || shown || done) && <StepProgress steps={steps} label="PDF indexing" />}
     </div>
   );
 }
@@ -384,11 +395,13 @@ function SemanticSearchToggle() {
   async function toggle(next: boolean) {
     setBusy(true);
     setError(null);
+    // Ticked at once: enabling resolves only after the download and the index, and the steps render while on.
+    setOn(next);
     try {
       if (next) await enableSemanticSearch();
       else await disableSemanticSearch();
-      setOn(next);
     } catch (err) {
+      setOn(!next);
       setError(formatError(err));
     } finally {
       setBusy(false);
@@ -398,27 +411,76 @@ function SemanticSearchToggle() {
   const working = status.phase === "downloading" || status.phase === "loading" || status.phase === "embedding";
 
   return (
-    <div className="field">
-      <label className="field-inline">
-        <input
-          type="checkbox"
-          className="themed-check"
-          checked={on}
-          disabled={busy || working}
-          onChange={(e) => void toggle(e.target.checked)}
-        />
-        Also search by meaning, not just words
-      </label>
-      <p className="muted jump-to-meta">
-        Finds a passage that answers your question even when it shares no words with it. Runs
-        entirely on this device: a one-time ~{DEFAULT_EMBEDDING_MODEL.downloadMb} MB model download, then a pass over your
-        workspace. Keyword search keeps working throughout, and both are combined in the results.
-      </p>
+    <div className="field field-with-steps">
+      <div>
+        <label className="field-inline">
+          <input
+            type="checkbox"
+            className="themed-check"
+            checked={on}
+            disabled={busy || working}
+            onChange={(e) => void toggle(e.target.checked)}
+          />
+          Also search by meaning, not just words
+        </label>
+        <p className="muted jump-to-meta">
+          Finds a passage that answers your question even when it shares no words with it. Runs
+          entirely on this device: a one-time ~{DEFAULT_EMBEDDING_MODEL.downloadMb} MB model download, then a pass over your
+          workspace. Keyword search keeps working throughout, and both are combined in the results.
+        </p>
 
-      {error && <FormError>{error}</FormError>}
-      {on && <SemanticStatusLine status={status} />}
+        {error && <FormError>{error}</FormError>}
+        {on && <SemanticStatusLine status={status} />}
+      </div>
+      {on && <SemanticSteps status={status} />}
     </div>
   );
+}
+
+const SEMANTIC_PHASES = ["downloading", "loading", "embedding"] as const;
+
+/** Download, start, read: one bar per stage beside the toggle. An error marks the stage it broke in. */
+function SemanticSteps({ status }: { status: SemanticStatus }) {
+  const lastAt = useRef(-1);
+  const at =
+    status.phase === "error"
+      ? lastAt.current
+      : status.phase === "ready"
+        ? SEMANTIC_PHASES.length
+        : SEMANTIC_PHASES.indexOf(status.phase as (typeof SEMANTIC_PHASES)[number]);
+  if (status.phase !== "error") lastAt.current = at;
+  const state = (i: number): Step["state"] =>
+    i < at ? "done" : i === at ? (status.phase === "error" ? "error" : "active") : "pending";
+
+  const steps: Step[] = [
+    {
+      label: "Download the model",
+      state: state(0),
+      value: status.phase === "downloading" ? status.loaded / Math.max(status.total, 1) : undefined,
+    },
+    { label: "Start the model", state: state(1) },
+    {
+      label: "Read your workspace",
+      state: state(2),
+      value: status.phase === "embedding" && status.total ? status.done / status.total : undefined,
+      detail:
+        status.phase === "embedding" && status.total
+          ? `${status.done.toLocaleString()} of ${status.total.toLocaleString()} passages`
+          : status.phase === "ready"
+            ? `${status.passages.toLocaleString()} passages`
+            : undefined,
+    },
+  ];
+  if (status.phase === "ready" && status.upgrading) {
+    const up = status.upgrading;
+    steps.push({
+      label: `Upgrade to ${up.to}`,
+      state: "active",
+      value: up.total ? up.done / up.total : undefined,
+      detail: up.total ? `${up.done.toLocaleString()} of ${up.total.toLocaleString()} passages` : undefined,
+    });
+  }
+  return <StepProgress steps={steps} label="Meaning search setup" />;
 }
 
 /** One line saying what the arm is doing, and when it is done, that it works. */
@@ -447,18 +509,9 @@ function SemanticStatusLine({ status }: { status: SemanticStatus }) {
         return "Waiting to start…";
     }
   })();
-  const progress =
-    status.phase === "embedding" && status.total
-      ? status.done / status.total
-      : status.phase === "ready" && status.upgrading?.total
-        ? status.upgrading.done / status.upgrading.total
-      : status.phase === "downloading"
-        ? status.loaded / Math.max(status.total, 1)
-        : null;
   return (
     <div className="semantic-status" data-phase={status.phase} aria-live="polite">
       <p className={status.phase === "error" ? "form-error" : "muted"}>{text}</p>
-      {progress !== null && <progress max={1} value={progress} />}
     </div>
   );
 }

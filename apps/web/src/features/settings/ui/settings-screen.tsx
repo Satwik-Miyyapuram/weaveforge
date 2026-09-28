@@ -33,7 +33,7 @@ import { AiAccessPanel } from "./ai-access-panel";
 import { CardTintPicker } from "./card-tint-picker";
 import { ThemeConfigPanel } from "./theme-config-panel";
 import { ThemeCardPicker } from "./theme-card-picker";
-import { OfflineStoragePanel, SyncIssuesPanel, SyncSettingsPanel } from "@/features/offline-sync";
+import { SyncIssuesPanel, SyncSettingsPanel } from "@/features/offline-sync";
 import { DesktopUpdatePanel, useDesktopUpdate } from "./desktop-update-panel";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
@@ -770,7 +770,6 @@ export function SettingsScreen() {
           <div id="settings-sync" className="settings-anchor" role="tabpanel" aria-labelledby="settings-tab-sync">
             <SyncSettingsPanel />
           <SyncIssuesPanel />
-          <OfflineStoragePanel />
             <SyncSettings />
           </div>
         ))}

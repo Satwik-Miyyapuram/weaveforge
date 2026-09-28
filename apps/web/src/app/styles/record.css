@@ -66,29 +66,6 @@
 :root[data-theme="crt"] .back-btn-box { background: #f29731; color: #2b222b; box-shadow: var(--sh-btn-2); }
 .record-bar-id { white-space: nowrap; }
 
-.record-state { display: inline-flex; align-items: center; gap: 8px; }
-.record-state .custom-select-container { width: auto; }
-.record-state .custom-select-button {
-  padding: 2px 4px;
-  gap: 6px;
-  background: none;
-  border: none;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.1em;
-  color: var(--muted);
-}
-.record-state .custom-select-button:hover { color: var(--text); }
-
-.record-dots { display: inline-flex; gap: 4px; }
-.record-dots > span {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  border: 1px solid var(--muted);
-}
-.record-dots > span.is-on { background: var(--text); border-color: var(--text); }
-
 .record-actions {
   display: flex;
   align-items: center;
