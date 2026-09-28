@@ -6,13 +6,13 @@ Once the domain is verified via Digital Asset Links, the URL bar is hidden.
 
 ## Releases
 
-Android ships on **`android-v*`** tags (e.g. `android-v6`). Python SDK uses
+Android ships on **`android-v*`** tags (e.g. `android-v7`). Python SDK uses
 **`vX.Y.Z`**. See [docs/building/release.md](../../../docs/building/release.md).
 
 ```bash
 # after bumping appVersion* in twa-manifest.json and merging to main:
-git tag android-v6   # the number is appVersionCode, not the app version
-git push origin android-v6
+git tag android-v7   # the number is appVersionCode, not the app version
+git push origin android-v7
 ```
 
 ## What is committed, and what is not

@@ -16,7 +16,7 @@
   (http://192.168.1.10:3000) is allowed for a debug build.
 
 .PARAMETER Release
-  Build the release variant (unsigned unless a signingConfig is added).
+  Build the release variant (unsigned unless the ANDROID_KEYSTORE_* env vars are set).
 #>
 param(
     [string]$Url = "",

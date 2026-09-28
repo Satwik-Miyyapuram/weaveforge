@@ -19,6 +19,60 @@ tracks at once.
 
 ### Android
 
+## [0.7.0] - 2026-09-29
+
+Desktop (`v0.7.0`) and Android (`android-v7`, version code 7). The Python SDK
+keeps its own number.
+
+### Added
+- **A new look on every screen.** The neo-brutalist ("Poster") design covers
+  every page, the reader and ink notes, with one shared screen header, filters,
+  view switch, dialog shell and card, a tint picker, and phone layouts. The
+  desktop window has its own title bar, menus and icon.
+- **Local-first desktop.** Work happens on the local copy and syncs in the
+  background; attachments and notes open offline.
+- **Ink notes.** Pen, handwriting recognition, figures, markdown on the sheet,
+  focus mode, quick colours and print preview.
+- **A reader that follows citations.** Scholar-style citation links, a reference
+  popover and references tab, a pen rail, and PDF analysis.
+- **AI suggestions you approve.** The local MCP server's `suggest_*` tools write
+  drafts to the workspace instead of changing anything; the AI review page shows
+  each as a card to approve or reject. The MCP endpoint and token are shown
+  under Settings → AI.
+- **A sharing hub** in the account menu: what you share, and what is shared with
+  you as a supervisor.
+- **Deadlines** as a calendar feed and a widget on the Windows wallpaper.
+- Pinned notes, anchored comments on notes, each experiment as one node in the
+  graph, and when each report section was last edited.
+- A demo workspace with offline PDF fetch.
+- A themed Windows installer, and a free macOS `.dmg` that shows a notice when
+  an update is out.
+- Installable iPad web app with an offline page.
+
+### Fixed
+- A row the server's policy refuses no longer halts the sync queue.
+- Related papers and other places show names instead of raw ids.
+- "Open in reader" from the citation popover no longer opens a black window.
+- The local Zotero read imports papers, not only annotations.
+- A refused origin no longer reports the network as down, and a lost sign-in
+  says "sign in to sync" instead of showing permission errors.
+- Search by meaning downloads its model on the web again.
+- The Linux build has a usable icon; borderless mode and reactive motion cover
+  every control.
+- Findings from the September code and design audits.
+
+### Android
+- The phone layout follows the new design: sections, a reader pill, settings
+  search, and reader controls that fold instead of scrolling sideways.
+- Nothing on a phone-width screen overflows sideways any more.
+- The native ink app gains a deadlines widget for the home screen.
+- The `android-v7` tag builds, signs and attaches both apps: the TWA and the
+  native ink app (`weaveforge-ink.apk` / `.aab`, from `apps/android`).
+
+### Notes
+- Installers are still not code-signed. The only integrity check on an update
+  is the SHA-512 in `latest.yml`, served from the same release.
+
 ## [0.6.0] - 2026-08-28
 
 ### Added
@@ -282,6 +336,8 @@ following landed earlier but had never been carried in a tagged release.
 - Project OSS hygiene: `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates,
   `CHANGELOG.md`, and a Python CI job (pytest + ruff + mypy).
 
-[Unreleased]: https://github.com/Satwik-Miyyapuram/weaveforge/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/Satwik-Miyyapuram/weaveforge/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.7.0
+[0.6.0]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.6.0
 [0.5.1]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.5.1
 [0.5.0]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.5.0
