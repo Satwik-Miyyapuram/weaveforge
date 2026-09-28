@@ -97,6 +97,8 @@ export function PaperNote({
   const editing = mode !== "read";
   /** The body last written from Edit or Ink, reconciled into tags once put away. */
   const pendingTagsRef = useRef<string | null>(null);
+  /** Set once the page has closed: a save that lands after that settles its tags at once. */
+  const closedRef = useRef(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [trackingCitations, setTrackingCitations] = useState<boolean | null>(null);
   const [trackingBusy, setTrackingBusy] = useState(false);
@@ -110,9 +112,6 @@ export function PaperNote({
   const { completions } = useCiteLinkCatalog();
   const [citationFormat, setCitationFormat] = useCitationFormatPreference();
 
-  useEffect(() => {
-    setMode("read");
-  }, [paper.id]);
   useEffect(() => {
     let cancelled = false;
     setTrackingCitations(null);
@@ -168,13 +167,28 @@ export function PaperNote({
           papers.uploadImage(id, blob, ext),
         );
         const saved = await papers.updatePaper.setSummary(paper.id, body);
-        if (modeRef.current === "read") await reconcileTags(body, saved);
+        if (modeRef.current === "read" || closedRef.current) await reconcileTags(body, saved);
         else pendingTagsRef.current = body;
       } catch (err) {
         setSaveError(formatError(err));
       }
     },
     [paper.id, reconcileTags],
+  );
+
+  // Closing the page mid-edit (Back, another paper) settles the tags too, or a
+  // #hashtag written in Edit or Ink would never reach the paper. A ref, so the
+  // cleanup runs on close only, not whenever `onReplace` changes identity.
+  const reconcileTagsRef = useRef(reconcileTags);
+  reconcileTagsRef.current = reconcileTags;
+  useEffect(
+    () => () => {
+      closedRef.current = true;
+      const pending = pendingTagsRef.current;
+      pendingTagsRef.current = null;
+      if (pending !== null) void reconcileTagsRef.current(pending).catch(() => undefined);
+    },
+    [],
   );
 
   /** The switch in the section head. Leaving Edit or Ink settles the tags. */

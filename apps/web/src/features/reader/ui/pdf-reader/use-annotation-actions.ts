@@ -48,7 +48,12 @@ export interface AnnotationActions {
   pendingRemove: string | null;
   clearPendingRemove: () => void;
   pinLocal: (ann: ReaderAnnotation, sectionId: string | null) => Promise<void>;
-  saveAnchor: (ann: ReaderAnnotation, anchor: ReaderAnnotation["anchor"]) => Promise<void>;
+  /** Move a mark; `comment`, when given, is written in the same request. */
+  saveAnchor: (
+    ann: ReaderAnnotation,
+    anchor: ReaderAnnotation["anchor"],
+    comment?: string,
+  ) => Promise<void>;
 }
 
 /**
@@ -211,17 +216,22 @@ export function useAnnotationActions({
   );
 
   const saveAnchor = useCallback(
-    async (ann: ReaderAnnotation, anchor: ReaderAnnotation["anchor"]) => {
+    async (ann: ReaderAnnotation, anchor: ReaderAnnotation["anchor"], comment?: string) => {
       if (!onAnnotationsChange) return;
       const change: ChangeAnnotations = onAnnotationsChange;
-      const previous = ann.anchor;
-      change((prev) => prev.map((a) => (a.id === ann.id ? { ...a, anchor } : a)));
+      // A comment that moves with the anchor (a picture's crop) goes in the same
+      // write: two writes would each reconcile with the row they got back, and
+      // whichever answered last would undo the other on screen.
+      const before = { anchor: ann.anchor, comment: ann.comment };
+      const patch = comment === undefined ? { anchor } : { anchor, comment };
+      change((prev) => prev.map((a) => (a.id === ann.id ? applyAnnotationPatch({ ...a, anchor }, patch) : a)));
       setAnnError(null);
       try {
-        const updated = await getContainer().papers.updateReaderAnnotation(ann.id, { anchor });
+        const updated = await getContainer().papers.updateReaderAnnotation(ann.id, patch);
         change((prev) => prev.map((a) => (a.id === ann.id ? updated : a)));
       } catch (err) {
-        change((prev) => prev.map((a) => (a.id === ann.id ? { ...a, anchor: previous } : a)));
+        const restore = comment === undefined ? { anchor: before.anchor } : before;
+        change((prev) => prev.map((a) => (a.id === ann.id ? { ...a, ...restore } : a)));
         setAnnError(err instanceof Error ? err.message : "Could not move the annotation.");
       }
     },

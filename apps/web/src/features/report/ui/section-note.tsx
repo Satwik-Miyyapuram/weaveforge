@@ -63,11 +63,6 @@ export function SectionNote({
   const { completions } = useCiteLinkCatalog();
   const [citationFormat, setCitationFormat] = useCitationFormatPreference();
 
-  useEffect(() => {
-    setMode("read");
-    setSaveError(null);
-  }, [section.id]);
-
   const hasNotes = Boolean(section.notes?.trim());
   const { words, target, pct: progress } = rolled ?? sectionProgress({ section, children: [] });
   const meta = [

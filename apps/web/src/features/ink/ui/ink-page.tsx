@@ -17,6 +17,7 @@
  */
 
 import { useCallback, useRef, useState } from "react";
+import { figureCornerHit } from "@weaveforge/core";
 
 import { isPenEraserPointer } from "../application/eraser-tip";
 import {
@@ -212,8 +213,7 @@ export function InkPage({
     (at: { x: number; y: number }):
       | { index: number; corner: FigureCorner | null }
       | null => {
-      const slack = 18 / scale;
-      const hit = 12 / scale + slack;
+      const hit = figureCornerHit(scale);
       for (let index = figures.length - 1; index >= 0; index -= 1) {
         const one = figures[index];
         if (!one || index === editingFigure) continue;
