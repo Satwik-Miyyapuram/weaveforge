@@ -394,6 +394,13 @@
 
 }
 
+/* Phone head: search owns a row, the head's buttons share the next evenly. */
+@media (max-width: 479px) {
+  .screen-actions > .search-input { flex: 1 1 100%; }
+  .screen-actions > :is(.btn-primary, .btn-secondary, .popover, a):not(.dashboard-customize-btn) { flex: 1 1 0; justify-content: center; }
+  .screen-actions > .popover > button { width: 100%; }
+}
+
 /* Tall-phone / short-height density (21:9 and similar). */
 @media (max-width: 899px) and (max-height: 740px) {
   .mobile-only { margin-bottom: 6px; }

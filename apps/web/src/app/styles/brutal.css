@@ -619,6 +619,10 @@
   font-size: 2.4rem;
   line-height: 1.05;
 }
+@media (max-width: 479px) {
+  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .screen-head .screen-title { font-size: 1.75rem; }
+  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .screen-eyebrow { margin-top: 10px; font-size: 0.7rem; }
+}
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-card-heading {
   font-family: var(--font-mono);
   font-weight: 400;

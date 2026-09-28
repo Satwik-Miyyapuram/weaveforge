@@ -360,10 +360,9 @@ body {
 @media (pointer: coarse) {
   .sub-tab { min-height: 44px; }
 }
-/* Library has six tabs; at phone width the default 15px padding pushed the
-   last one and a half off the strip. Tighter padding fits all six at 360px. */
+/* Library's six tabs must fit 360px, bold themes included. */
 @media (max-width: 480px) {
-  .sub-tab { padding: 6px 7px; }
+  .sub-tab { padding: 6px 4px; font-size: 0.78rem; }
 }
 
 /* Respect users who prefer reduced motion. */

@@ -61,7 +61,9 @@
 .filter-chip-x:hover { filter: brightness(0.8); color: var(--ink); }
 
 @media (max-width: 899px) {
-  .filter-row { flex-wrap: wrap; }
+  /* One scrolling row; select menus portal out so the scroll can't clip them. */
+  .filter-row { overflow-x: auto; scrollbar-width: none; }
+  .filter-row > * { flex: none; }
   .screen-actions .search-input { flex: 1 1 auto; width: auto; }
 }
 

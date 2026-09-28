@@ -105,13 +105,15 @@
 .settings-find-hit .muted { font-size: 0.78rem; }
 .settings-find-empty { padding: 8px 12px; margin: 0; }
 @media (max-width: 900px) {
-  /* Groups wrap as chips under the field instead of one sideways strip, and
-     the open group's tabs follow as their own row: without it a phone could
-     never reach Paste, Workspace, Org or Updates. */
-  .settings-rail { flex-wrap: wrap; overflow-x: visible; gap: 6px; }
-  .settings-find, .settings-find-hits { flex: 1 1 100%; }
+  /* Groups sit in an even two-column grid under the field, and the open
+     group's tabs follow as their own row: without it a phone could never
+     reach Paste, Workspace, Org or Updates. */
+  .settings-rail { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: visible; gap: 6px; }
+  .settings-find, .settings-find-hits { grid-column: 1 / -1; }
+  .settings-rail-head { width: 100%; justify-content: center; text-align: center; padding: 8px 10px; }
+  .settings-rail-label { font-size: 0.9rem; }
   .settings-rail-group.is-open .settings-rail-tabs {
-    display: flex; flex-wrap: wrap; gap: 4px 14px; order: 99; flex: 1 1 100%;
+    display: flex; flex-wrap: wrap; gap: 4px 14px; order: 99; grid-column: 1 / -1;
     margin: 2px 0 0; padding: 6px 0 0; border-left: 0; border-top: 2px solid var(--line);
   }
 }
