@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { formatError } from "@/lib/format-error";
 
 /**
  * The Semantic Scholar relay's forwarding half.
@@ -81,8 +82,8 @@ export async function relaySemanticScholar(
       await wait(1000 * (attempt + 1));
       upstream = await send();
     }
-  } catch {
-    return refuse(502, "Upstream fetch failed");
+  } catch (err) {
+    return refuse(502, `Semantic Scholar fetch failed: ${formatError(err)}`);
   }
 
   // The status and the body are the upstream's; the headers are not. The API's

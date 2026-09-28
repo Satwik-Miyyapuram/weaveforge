@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { formatError } from "@/lib/format-error";
 import {
   isAllowedPdfProxyUrl,
   PDF_PROXY_MAX_BYTES,
@@ -270,9 +271,13 @@ export async function proxyAllowlistedPdf(
           Accept: "application/pdf,*/*",
         },
       });
-    } catch {
+    } catch (err) {
       clearTimeout(headerTimer);
-      return NextResponse.json({ error: "Upstream fetch failed" }, { status: 502 });
+      const why = hopAbort.signal.aborted ? "no response headers in time" : formatError(err);
+      return NextResponse.json(
+        { error: `Upstream fetch failed for ${new URL(current).host}: ${why}` },
+        { status: 502 },
+      );
     }
     clearTimeout(headerTimer);
 
@@ -301,7 +306,11 @@ export async function proxyAllowlistedPdf(
       const status = upstream.status;
       void upstream.body?.cancel().catch(() => undefined);
       return NextResponse.json(
-        { error: "Upstream fetch failed" },
+        {
+          error: upstream.body
+            ? `Upstream ${new URL(current).host} answered HTTP ${status}`
+            : `Upstream ${new URL(current).host} sent no body (HTTP ${status})`,
+        },
         { status: status >= 400 && status < 600 ? status : 502 },
       );
     }
@@ -321,7 +330,10 @@ export async function proxyAllowlistedPdf(
 
     if (!isPdfContentType(upstream.headers.get("content-type"))) {
       void upstream.body.cancel().catch(() => undefined);
-      return NextResponse.json({ error: "Upstream is not a PDF" }, { status: 415 });
+      return NextResponse.json(
+        { error: `Upstream is not a PDF (content-type: ${upstream.headers.get("content-type") ?? "none"})` },
+        { status: 415 },
+      );
     }
 
     // The body phase: one budget from the first byte of the magic window to the
@@ -332,10 +344,11 @@ export async function proxyAllowlistedPdf(
     let prefixed: Awaited<ReturnType<typeof readPrefix>>;
     try {
       prefixed = await readPrefix(upstream.body.getReader(), 5, PDF_MAGIC_WINDOW, deadline);
-    } catch {
+    } catch (err) {
       // The deadline fired mid-read, or the connection dropped.
       deadline.stop();
-      return NextResponse.json({ error: "Upstream body did not arrive in time" }, { status: 504 });
+      const why = hopAbort.signal.aborted ? "in time" : `(read failed: ${formatError(err)})`;
+      return NextResponse.json({ error: `Upstream body did not arrive ${why}` }, { status: 504 });
     }
     if (!prefixed) {
       deadline.stop();

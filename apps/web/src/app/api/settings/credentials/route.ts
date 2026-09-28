@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSdkUser } from "@/app/api/sdk/_shared";
 import { sealCredentialString, openCredentialString } from "@/features/settings/infrastructure/settings-credential-crypto";
-import { formatErrorForResponse } from "@/lib/format-error";
+import { formatErrorForResponse, jsonBodyError } from "@/lib/format-error";
 
 export const dynamic = "force-dynamic";
 
@@ -68,8 +68,8 @@ export async function POST(request: Request) {
   let body: Secrets;
   try {
     body = (await request.json()) as Secrets;
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  } catch (err) {
+    return NextResponse.json({ error: jsonBodyError(err) }, { status: 400 });
   }
   const secrets = clean(body);
   const credentials_enc = Object.keys(secrets).length > 0 ? sealCredentialString(JSON.stringify(secrets)) : null;

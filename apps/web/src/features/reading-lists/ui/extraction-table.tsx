@@ -128,8 +128,8 @@ export function ExtractionTable({
       await navigator.clipboard.writeText(text);
       setMsg(kind === "md" ? "Copied markdown table" : "Copied CSV");
       window.setTimeout(() => setMsg(null), 1500);
-    } catch {
-      setError("Clipboard unavailable");
+    } catch (err) {
+      setError(`Clipboard unavailable: ${formatError(err)}`);
     }
   }
 
@@ -168,8 +168,8 @@ export function ExtractionTable({
           : `Copied fill prompt for ${promptPapers.length} paper${promptPapers.length === 1 ? "" : "s"}`,
       );
       window.setTimeout(() => setMsg(null), 2500);
-    } catch {
-      setError("Clipboard unavailable");
+    } catch (err) {
+      setError(`Clipboard unavailable: ${formatError(err)}`);
     }
   }
 

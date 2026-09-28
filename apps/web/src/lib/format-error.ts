@@ -9,7 +9,8 @@ import { isSessionLost, isSignedOutRefusal, SESSION_LOST_MESSAGE } from "./sessi
  * report. Shown raw it reads like a bug in the app rather than something the
  * reader can act on.
  */
-const NETWORK_FAILURES = ["failed to fetch", "networkerror", "load failed"];
+// Word-bounded so "Upload failed" is not mistaken for Safari's "Load failed".
+const NETWORK_FAILURE = /\b(failed to fetch|networkerror|load failed)\b/i;
 
 /**
  * Whether `err` is a request that never reached a server — as a thrown
@@ -23,8 +24,7 @@ export function isNetworkFailure(err: unknown): boolean {
       : typeof err === "object" && err !== null && typeof (err as { message?: unknown }).message === "string"
         ? (err as { message: string }).message
         : "";
-  const lower = message.toLowerCase();
-  return NETWORK_FAILURES.some((phrase) => lower.includes(phrase));
+  return NETWORK_FAILURE.test(message);
 }
 
 function networkFailureMessage(message: string): string | null {
@@ -32,7 +32,7 @@ function networkFailureMessage(message: string): string | null {
   if (lower.includes("dynamically imported module")) {
     return "Could not load part of the app. This usually means a new version was deployed while this tab was open — reload the page.";
   }
-  if (!NETWORK_FAILURES.some((phrase) => lower.includes(phrase))) return null;
+  if (!NETWORK_FAILURE.test(message)) return null;
   // The client names the host it was going to (see providers/supabase/client),
   // and this app talks to two of them — keep it, because "which one" is the
   // whole of what a reader can pass on to whoever can fix it.
@@ -78,20 +78,58 @@ function networkFailureMessage(message: string): string | null {
       : "";
   return `${what} The request never left this browser, so check your connection, VPN, or any extension blocking it, then try again.${hint}`;
 }
+export const GENERIC_ERROR = "Something went wrong.";
+
+// Runtime error names worth keeping: "TypeError: x is undefined" says far more in a bug report than "x is undefined".
+const RUNTIME_ERROR_NAMES = new Set([
+  "TypeError", "RangeError", "ReferenceError", "SyntaxError", "EvalError", "URIError",
+  "AbortError", "TimeoutError", "NotAllowedError", "QuotaExceededError", "SecurityError",
+  "NotFoundError", "InvalidStateError", "DataError", "NotReadableError", "OperationError",
+]);
+
+/** The `cause` chain of an Error, innermost last, capped so a cycle cannot loop. */
+function causeChain(err: Error): string {
+  const parts: string[] = [];
+  let cause: unknown = err.cause;
+  for (let depth = 0; cause != null && depth < 3; depth++) {
+    if (cause instanceof Error) {
+      const code = (cause as { code?: unknown }).code;
+      parts.push(`${cause.name}: ${cause.message || "(no message)"}${typeof code === "string" ? ` [${code}]` : ""}`);
+      cause = cause.cause;
+    } else {
+      parts.push(typeof cause === "string" ? cause : describeForLog(cause));
+      break;
+    }
+  }
+  return parts.length ? ` (cause: ${parts.join(" ← ")})` : "";
+}
+
+function describeErrorInstance(err: Error, withCause: boolean): string {
+  const trimmed = err.message?.trim();
+  if (!trimmed || trimmed === "[object Object]") {
+    return `${err.name || "Error"} (no message)${withCause ? causeChain(err) : ""}`;
+  }
+  const network = networkFailureMessage(trimmed);
+  if (network) return network;
+  const named = RUNTIME_ERROR_NAMES.has(err.name) && !trimmed.includes(err.name) ? `${err.name}: ${trimmed}` : trimmed;
+  return withCause ? named + causeChain(err) : named;
+}
+
 /** Extract a human-readable message from unknown thrown values (incl. Supabase/PostgREST). */
 export function formatError(err: unknown): string {
-  if (err == null) return "Something went wrong.";
+  return formatErrorWith(err, true);
+}
+
+function formatErrorWith(err: unknown, withCause: boolean): string {
+  if (err == null) return GENERIC_ERROR;
   if (isSessionLost() && signedOutRefusal(err)) return SESSION_LOST_MESSAGE;
 
   if (typeof err === "string") {
     const trimmed = err.trim();
-    return trimmed && trimmed !== "[object Object]" ? trimmed : "Something went wrong.";
+    return trimmed && trimmed !== "[object Object]" ? trimmed : GENERIC_ERROR;
   }
 
-  if (err instanceof Error) {
-    const trimmed = err.message?.trim();
-    if (trimmed && trimmed !== "[object Object]") return networkFailureMessage(trimmed) ?? trimmed;
-  }
+  if (err instanceof Error) return describeErrorInstance(err, withCause);
 
   if (typeof err === "object") {
     const record = err as Record<string, unknown>;
@@ -113,15 +151,15 @@ export function formatError(err: unknown): string {
       // wording has to be reachable from here too, not only from Error.
       return networkFailureMessage(trimmed) ?? trimmed;
     }
-    if (message != null && typeof message === "object") return formatError(message);
+    if (message != null && typeof message === "object") return formatErrorWith(message, withCause);
 
     const code = typeof record.code === "string" ? record.code : null;
     const details = typeof record.details === "string" ? record.details : null;
     const hint = typeof record.hint === "string" ? record.hint : null;
     const errorField = record.error;
     if (errorField != null && errorField !== err) {
-      const nested = formatError(errorField);
-      if (nested !== "Something went wrong.") return nested;
+      const nested = formatErrorWith(errorField, withCause);
+      if (nested !== GENERIC_ERROR) return nested;
     }
 
     const parts: string[] = [];
@@ -145,7 +183,7 @@ export function formatError(err: unknown): string {
     /* ignore */
   }
 
-  return "Something went wrong.";
+  return GENERIC_ERROR;
 }
 
 /** Whether `err` is the server refusing a request that carried no sign-in. */
@@ -156,6 +194,31 @@ function signedOutRefusal(err: unknown): boolean {
   const message = typeof record.message === "string" ? record.message : "";
   const code = typeof record.code === "string" ? record.code : null;
   return isSignedOutRefusal(message, code);
+}
+
+/** "(HTTP 502 Bad Gateway from /api/x)": path only, a query can carry tokens. */
+export function httpContext(res: Response): string {
+  let path = "";
+  try {
+    path = res.url ? new URL(res.url).pathname : "";
+  } catch {
+    /* relative or empty url */
+  }
+  const status = `HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ""}`;
+  return path ? `(${status} from ${path})` : `(${status})`;
+}
+
+/** An Error for a non-ok response: the server's words (or `fallback`) plus status and path. */
+export function responseError(res: Response, serverMessage: unknown, fallback: string): Error {
+  const said = serverMessage == null ? "" : formatError(serverMessage);
+  const text = said && said !== GENERIC_ERROR ? said : fallback;
+  return new Error(`${text} ${httpContext(res)}`);
+}
+
+/** Response text for a body that failed to parse, keeping the parser's reason. */
+export function jsonBodyError(err: unknown): string {
+  const why = err instanceof Error && err.message ? err.message : String(err);
+  return `Invalid JSON body: ${why}`;
 }
 
 /** Parse a fetch response body; empty or invalid JSON becomes a safe object. */
@@ -169,7 +232,8 @@ export async function readJsonBody(res: Response): Promise<Record<string, unknow
     }
     return { data: parsed };
   } catch {
-    return { error: text.slice(0, 300) || `Request failed (${res.status}).` };
+    const snippet = text.slice(0, 300).trim();
+    return { error: `${snippet ? `Server sent non-JSON: ${snippet}` : "Request failed."} ${httpContext(res)}` };
   }
 }
 
@@ -308,7 +372,11 @@ function describeForLog(err: unknown): string {
  */
 export function formatErrorForResponse(err: unknown, context = "api"): string {
   const code = databaseCode(err);
-  if (code === null) return formatError(err);
+  if (code === null) {
+    // Causes can carry internal hosts or driver text: log them, keep them out of the body.
+    if (err instanceof Error && err.cause != null) console.error(`[${context}] ${describeForLog(err)}${causeChain(err)}`);
+    return formatErrorWith(err, false);
+  }
 
   const safe = MIGRATION_INCOMPLETE.has(code) ? MIGRATION_HINT : CALLER_FAULT_MESSAGES[code];
   console.error(`[${context}] database error ${code}: ${describeForLog(err)}`);

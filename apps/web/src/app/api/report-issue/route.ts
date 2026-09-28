@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSdkUser } from "@/app/api/sdk/_shared";
 import { RateLimiter } from "@/backend/net/rate-limit";
 import { fileIssue } from "@/lib/error-report/file-issue";
-import { formatErrorForResponse } from "@/lib/format-error";
+import { formatErrorForResponse, jsonBodyError } from "@/lib/format-error";
 import { redactAndCap } from "@/lib/error-report/redact";
 
 /**
@@ -71,8 +71,8 @@ export async function POST(request: Request) {
   let body: ReportBody;
   try {
     body = (await request.json()) as ReportBody;
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
+  } catch (err) {
+    return NextResponse.json({ error: jsonBodyError(err) }, { status: 400 });
   }
 
   const title = text(body.title, MAX_TITLE).trim();

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatError, formatErrorForResponse, readJsonBody } from "../format-error";
+import { formatError, formatErrorForResponse, jsonBodyError, readJsonBody, responseError } from "../format-error";
 
 test("formatError: null/undefined -> generic message", () => {
   assert.equal(formatError(null), "Something went wrong.");
@@ -285,4 +285,35 @@ test("a refusal while signed out says to sign in, and only while signed out", as
   } finally {
     setSessionLost(false);
   }
+});
+
+test("formatError: keeps runtime error names and the cause chain", () => {
+  assert.equal(formatError(new TypeError("x is undefined")), "TypeError: x is undefined");
+  assert.equal(formatError(new Error("")), "Error (no message)");
+  const err = new Error("Upload failed", { cause: Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }) });
+  assert.equal(formatError(err), "Upload failed (cause: Error: connect ECONNREFUSED [ECONNREFUSED])");
+});
+
+test("formatErrorForResponse: never puts the cause in the body", () => {
+  const original = console.error;
+  console.error = () => {};
+  try {
+    const err = new Error("Upload failed", { cause: new Error("connect 10.0.0.5:5432") });
+    assert.equal(formatErrorForResponse(err), "Upload failed");
+  } finally {
+    console.error = original;
+  }
+});
+
+test("responseError: server words plus status and path, never the query", () => {
+  const res = new Response("", { status: 502, statusText: "Bad Gateway" });
+  Object.defineProperty(res, "url", { value: "https://x.test/api/blobs/upload?token=secret" });
+  assert.equal(responseError(res, "R2 down", "Upload failed.").message, "R2 down (HTTP 502 Bad Gateway from /api/blobs/upload)");
+  assert.equal(responseError(res, undefined, "Upload failed.").message, "Upload failed. (HTTP 502 Bad Gateway from /api/blobs/upload)");
+});
+
+test("jsonBodyError keeps the parser's reason", () => {
+  let parseErr: unknown;
+  try { JSON.parse("{"); } catch (e) { parseErr = e; }
+  assert.match(jsonBodyError(parseErr), /^Invalid JSON body: .+/);
 });

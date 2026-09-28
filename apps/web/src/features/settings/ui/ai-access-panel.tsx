@@ -297,8 +297,8 @@ export function AiAccessPanel({ settings, onChange }: {
       await navigator.clipboard.writeText(value);
       setCopied(label);
       window.setTimeout(() => setCopied(null), 1200);
-    } catch {
-      setSessionError("Your browser blocked copying this value. Allow clipboard access and try again.");
+    } catch (err) {
+      setSessionError(`Your browser blocked copying this value. Allow clipboard access and try again. (${formatError(err)})`);
     }
   }
 

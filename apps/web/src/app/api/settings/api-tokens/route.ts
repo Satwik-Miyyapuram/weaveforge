@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiTokenService } from "@/features/settings/infrastructure/api-token-service";
 import { bearerToken } from "@/lib/bearer-token";
-import { formatError } from "@/lib/format-error";
+import { formatError, jsonBodyError } from "@/lib/format-error";
 
 function authError(message: string, status = 401) {
   return NextResponse.json({ error: message }, { status });
@@ -29,8 +29,8 @@ export async function POST(request: Request) {
   let body: { name?: string; expiresInDays?: number | null };
   try {
     body = (await request.json()) as { name?: string; expiresInDays?: number | null };
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  } catch (err) {
+    return NextResponse.json({ error: jsonBodyError(err) }, { status: 400 });
   }
 
   try {

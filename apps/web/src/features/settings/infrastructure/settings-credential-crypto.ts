@@ -41,11 +41,16 @@ export function openCredentialString(envelope: string): string {
   try {
     parsed = JSON.parse(envelope) as Envelope;
   } catch {
-    throw new Error("Stored credential envelope is invalid.");
+    throw new Error("Stored credential envelope is invalid (not JSON).");
   }
   const raw = unb64(parsed.ciphertext);
-  if (raw.length <= 16) throw new Error("Stored credential envelope is invalid.");
+  if (raw.length <= 16) throw new Error("Stored credential envelope is invalid (ciphertext too short).");
   const decipher = createDecipheriv("aes-256-gcm", key(), unb64(parsed.iv));
   decipher.setAuthTag(raw.subarray(-16));
-  return Buffer.concat([decipher.update(raw.subarray(0, -16)), decipher.final()]).toString("utf8");
+  try {
+    return Buffer.concat([decipher.update(raw.subarray(0, -16)), decipher.final()]).toString("utf8");
+  } catch {
+    // GCM auth failure: wrong key or altered data. Never echo the envelope.
+    throw new Error("Stored credential could not be decrypted (auth tag mismatch: wrong key or altered data).");
+  }
 }

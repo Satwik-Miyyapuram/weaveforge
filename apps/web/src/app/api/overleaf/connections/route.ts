@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSdkUser } from "@/app/api/sdk/_shared";
 import { sealOverleafToken } from "@/features/overleaf/infrastructure/overleaf-token-crypto";
-import { formatErrorForResponse } from "@/lib/format-error";
+import { formatErrorForResponse, jsonBodyError } from "@/lib/format-error";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   const auth = await requireSdkUser(request);
   if (!auth.ok) return auth.response;
   let body: { name?: string; token?: string };
-  try { body = await request.json() as typeof body; } catch { return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 }); }
+  try { body = await request.json() as typeof body; } catch (err) { return NextResponse.json({ error: jsonBodyError(err) }, { status: 400 }); }
   const name = body.name?.trim();
   const token = body.token?.trim();
   if (!name || !token) return NextResponse.json({ error: "Connection name and token are required." }, { status: 400 });

@@ -587,7 +587,7 @@ function AddExperimentForm({ onAdded }: { onAdded: () => void }) {
       let parsed: Record<string, unknown> | undefined;
       if (config.trim()) {
         try { parsed = JSON.parse(config); }
-        catch { throw new Error("Config must be valid JSON."); }
+        catch (err) { throw new Error(`Config must be valid JSON: ${formatError(err)}`); }
       }
       await getContainer().experiments.manageExperiment.add({
         name, branch: branch || undefined, commitSha: commit || undefined,

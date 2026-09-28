@@ -1,17 +1,17 @@
 import { getSupabase } from "@/lib/supabase";
 import { authHeaders as bearerHeaders } from "@/lib/auth-headers";
 import { singleFlight } from "@/lib/cache/single-flight";
+import { responseError } from "@/lib/format-error";
 import type { OrgMembershipView } from "@weaveforge/core";
 import { MEMBERSHIP_ROW_COLUMNS, membershipViewFromRow } from "./membership-row";
 
 const SERVICE_ROLE_HINT = "Lab create/join is not available on this deployment yet.";
 
-function orgApiError(message: string | undefined, fallback: string): Error {
-  const text = message ?? fallback;
-  if (text.includes("Missing Supabase service role")) {
+function orgApiError(res: Response, message: string | undefined, fallback: string): Error {
+  if (message?.includes("Missing Supabase service role")) {
     return new Error(SERVICE_ROLE_HINT);
   }
-  return new Error(text);
+  return responseError(res, message, fallback);
 }
 
 const authHeaders = () => bearerHeaders({ "Content-Type": "application/json" });
@@ -36,7 +36,7 @@ export async function createOrg(name: string) {
     body: JSON.stringify({ name }),
   });
   const body = (await res.json()) as { error?: string };
-  if (!res.ok) throw orgApiError(body.error, "Failed to create lab.");
+  if (!res.ok) throw orgApiError(res, body.error, "Failed to create lab.");
   return body;
 }
 
@@ -51,7 +51,7 @@ export async function joinOrg(input: {
     body: JSON.stringify(input),
   });
   const body = (await res.json()) as { error?: string };
-  if (!res.ok) throw orgApiError(body.error, "Failed to join lab.");
+  if (!res.ok) throw orgApiError(res, body.error, "Failed to join lab.");
   return body;
 }
 
@@ -87,7 +87,7 @@ export async function previewOrgCode(code: string) {
     professors?: { id: string; label: string }[];
     phds?: { id: string; label: string }[];
   };
-  if (!res.ok) throw new Error(body.error ?? "Invalid code.");
+  if (!res.ok) throw responseError(res, body.error, "Invalid code.");
   return body;
 }
 
@@ -98,7 +98,7 @@ export async function regenerateOrgCode(orgId: string, targetRole: string) {
     body: JSON.stringify({ orgId, targetRole }),
   });
   const body = (await res.json()) as { error?: string; code?: string; targetRole?: string };
-  if (!res.ok) throw orgApiError(body.error, "Failed to regenerate code.");
+  if (!res.ok) throw orgApiError(res, body.error, "Failed to regenerate code.");
   return body;
 }
 
@@ -108,7 +108,7 @@ export async function fetchOwnedOrgs() {
     error?: string;
     organizations?: { id: string; name: string; ownerId: string }[];
   };
-  if (!res.ok) throw orgApiError(body.error, "Failed to load labs.");
+  if (!res.ok) throw orgApiError(res, body.error, "Failed to load labs.");
   return body.organizations ?? [];
 }
 
@@ -140,7 +140,7 @@ async function fetchMembershipsUncached(): Promise<OrgMembershipView[]> {
     error?: string;
     memberships?: OrgMembershipView[];
   };
-  if (!res.ok) throw orgApiError(body.error, "Failed to load labs.");
+  if (!res.ok) throw orgApiError(res, body.error, "Failed to load labs.");
   return body.memberships ?? [];
 }
 

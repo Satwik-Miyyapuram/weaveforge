@@ -6,7 +6,7 @@ import { getPgPool } from "@/backend/providers/postgres/pool";
 import { PgRunner } from "@/backend/providers/postgres/pg-runner";
 import { buildTieredBlobStoreFromConfig, buildTieredBlobStoreFromRegistry } from "../build-tiered-blob-store";
 import { readStorageConfig, type StorageConfig } from "../config";
-import { coldBlobConfig, r2BlobConfig, S3BlobStore } from "../providers/s3/s3-blob-store";
+import { coldBlobConfig, missingR2ConfigError, r2BlobConfig, S3BlobStore } from "../providers/s3/s3-blob-store";
 import { PostgresBlobRegistry } from "@/storage/providers/postgres/blob-registry";
 import { SupabaseBlobRegistry } from "../providers/supabase/blob-registry";
 
@@ -76,7 +76,7 @@ export async function blobRegistryForToken(
 
 function hotColdStores(config: StorageConfig = readStorageConfig()): { hot: S3BlobStore; cold: S3BlobStore } {
   const hotCfg = r2BlobConfig(config);
-  if (!hotCfg) throw new Error("Tiered storage requires R2_* env vars.");
+  if (!hotCfg) throw missingR2ConfigError(config);
   const hot = S3BlobStore.fromConfig(hotCfg);
   const coldCfg = coldBlobConfig(config);
   const cold = coldCfg ? S3BlobStore.fromConfig(coldCfg) : hot;

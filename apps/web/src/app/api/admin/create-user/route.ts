@@ -7,7 +7,7 @@ import {
 } from "@weaveforge/core";
 import type { Role } from "@weaveforge/core";
 import { getAdminProvisioner } from "@/backend/wire-backend";
-import { formatError, formatErrorForResponse } from "@/lib/format-error";
+import { formatError, formatErrorForResponse, jsonBodyError } from "@/lib/format-error";
 
 /**
  * The auth provider's "that address is taken" wording.
@@ -87,8 +87,8 @@ export async function POST(request: Request) {
   let body: unknown;
   try {
     body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  } catch (err) {
+    return NextResponse.json({ error: jsonBodyError(err) }, { status: 400 });
   }
   const raw = body as {
     email?: string;

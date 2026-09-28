@@ -260,8 +260,8 @@ export function PaperNote({
       await navigator.clipboard.writeText(text);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setSaveError("The clipboard is not available here.");
+    } catch (err) {
+      setSaveError(`The clipboard is not available here: ${formatError(err)}`);
     }
   }
 

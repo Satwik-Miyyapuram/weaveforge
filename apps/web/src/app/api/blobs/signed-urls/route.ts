@@ -3,6 +3,7 @@ import { blobRegistryForToken } from "@/storage/server/blob-api";
 import { blobContentUrl } from "@/storage/server/blob-view-token";
 import { clampTtlSeconds, MAX_SIGNED_URL_PATHS } from "@/storage/signed-url-limits";
 import { blobFailure, tieredBlobToken } from "../_shared";
+import { jsonBodyError } from "@/lib/format-error";
 
 /**
  * Mint signed content URLs for a batch of blobs.
@@ -27,8 +28,8 @@ export async function POST(request: Request) {
   let body: { bucket?: string; paths?: string[]; ttlSeconds?: number };
   try {
     body = (await request.json()) as { bucket?: string; paths?: string[]; ttlSeconds?: number };
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
+  } catch (err) {
+    return NextResponse.json({ error: jsonBodyError(err) }, { status: 400 });
   }
   if (!body.bucket || !Array.isArray(body.paths)) {
     return NextResponse.json({ error: "bucket and paths are required." }, { status: 400 });

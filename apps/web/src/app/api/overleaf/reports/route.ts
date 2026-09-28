@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSdkUser } from "@/app/api/sdk/_shared";
-import { formatErrorForResponse } from "@/lib/format-error";
+import { formatErrorForResponse, jsonBodyError } from "@/lib/format-error";
 import {
   entryFileError,
   externalUrl,
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   const auth = await requireSdkUser(request);
   if (!auth.ok) return auth.response;
   let body: { projectId?: string; connectionId?: string; title?: string; overleafProjectId?: string; entryFile?: string };
-  try { body = await request.json() as typeof body; } catch { return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 }); }
+  try { body = await request.json() as typeof body; } catch (err) { return NextResponse.json({ error: jsonBodyError(err) }, { status: 400 }); }
   const projectId = body.projectId?.trim();
   const connectionId = body.connectionId?.trim();
   const title = body.title?.trim();
@@ -62,7 +62,7 @@ export async function PATCH(request: Request) {
   const auth = await requireSdkUser(request);
   if (!auth.ok) return auth.response;
   let body: { id?: string; title?: string; overleafProjectId?: string; entryFile?: string; sectionTargets?: unknown };
-  try { body = await request.json() as typeof body; } catch { return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 }); }
+  try { body = await request.json() as typeof body; } catch (err) { return NextResponse.json({ error: jsonBodyError(err) }, { status: 400 }); }
 
   const id = body.id?.trim();
   if (!id) return NextResponse.json({ error: "Report id required." }, { status: 400 });
