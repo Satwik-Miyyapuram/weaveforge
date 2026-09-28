@@ -20,6 +20,7 @@ import { PasteSettingsPanel } from "./paste-settings-panel";
 import { EditorSettingsPanel } from "./editor-settings-panel";
 import { WorkspaceFolderPanel } from "./workspace-folder-panel";
 import { AiProviderPanel } from "./ai-provider-panel";
+import { LocalApiPanel } from "./local-api-panel";
 import { AccountInfoPanel } from "./account-info-panel";
 import { PrivacyNotice } from "./privacy-notice";
 import { ExportDataPanel } from "./export-data-panel";
@@ -52,11 +53,8 @@ const CalendarFeedPanel = dynamic(() => import("./calendar-feed-panel").then((m)
 const DeleteAccountPanel = dynamic(() => import("./delete-account-panel").then((m) => m.DeleteAccountPanel), { ssr: false });
 
 /**
- * Settings sections, as tabs. This screen used to render all eight stacked
- * with a sticky jump nav on top; adding the appearance controls pushed it past
- * the point where the nav was doing enough, so only the selected section
- * renders now. Same `.seg` / `role="tablist"` idiom as the papers layout
- * switch, which is the app's one tab control.
+ * Settings sections, as tabs: only the selected one renders, in the app's one
+ * tab idiom (`.seg` / `role="tablist"`, as the papers layout switch uses).
  */
 const SETTINGS_TABS = [
   { id: "account", label: "Account" },
@@ -635,6 +633,8 @@ export function SettingsScreen() {
           </button>
         </div>
       )}
+      {/* Desktop: MCP is served by the shell on loopback instead. */}
+      {tab === "ai" && !hasServerRoutes() && <LocalApiPanel />}
 
       {(tab === "tokens" || tab === "integrations") && loading && (
         <ScreenLoader status="Loading settings…" compact />

@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ImportDiff, WorkspaceCommit } from "@weaveforge/core";
 import { formatError } from "@/lib/format-error";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { LocalApiPanel } from "./local-api-panel";
 import {
   applyFolderImport,
   chooseDesktopFolder,
@@ -348,7 +347,6 @@ export function WorkspaceFolderPanel() {
       </div>
       {diff && <ImportPreview diff={diff} onApplied={(msg) => { setStatus(msg); setDiff(null); }} />}
 
-      {hasShell && <LocalApiPanel />}
     </section>
   );
 }
