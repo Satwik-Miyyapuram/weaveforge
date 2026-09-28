@@ -209,29 +209,15 @@ body {
    no bar until the thumb appears. */
 *::-webkit-scrollbar { width: 10px; height: 10px; }
 
-/* Firefox's half: a thin bar that is transparent until hovered, which the
-   `:hover` rules at the foot of this file swap for a visible thumb. Chromium
-   ignores both properties, which is why the `::-webkit-scrollbar` rules above
-   are the ones that matter in the desktop app.
- *
- * **Not applied to a container that has the overlay component.** Chromium does
- * implement `scrollbar-width`, and it wins: with it set the engine takes its own
- * standard-scrollbar path and ignores `::-webkit-scrollbar`, so the component's
- * container would get an 11px reserved gutter beside a component that reserves
- * nothing. Measured: this rule turned the component's containers from 0px of
- * gutter into 11px, which is a layout change on the window's own scrollbar —
- * the one the reader said was already correct. Excluding them keeps the width at
- * the 10px the webkit rule asks for.
- *
- * `html` is excluded for the same reason it always was: it carries the window's
- * own overlay. */
-/* Wrapped in `:where()` so it weighs nothing: as a bare `*:not():not()` it
- * scored (0,2,0) and beat every single-class `scrollbar-width: none` — the
- * sidebar rail's among them, whose hidden bar came back as a thumb beside the
- * icons. A default must lose to any container that says otherwise. */
-:where(body, *:not(.overlay-scrollbar-track):not(html)) {
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
+/* Firefox's half: a thin bar, transparent until hovered. Gated off in Chromium,
+   where `scrollbar-width` switches to the standard bar (11px, arrows) and
+   drops the `::-webkit-scrollbar` pill above. `html` and the overlay
+   component's track draw their own. */
+@supports not selector(::-webkit-scrollbar) {
+  :where(body, *:not(.overlay-scrollbar-track):not(html)) {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
 }
 
 /* Nothing painted at rest. `border: 3px solid transparent` with `padding-box`
@@ -407,11 +393,8 @@ body {
   background: var(--scrollbar-thumb-hover);
   background-clip: padding-box;
 }
-/* Firefox's reveal. Kept separate from the webkit rules above because the two
-   engines read different properties and neither understands the other's: this
-   one is only ever read by a browser that supports `@supports` for it, so it
-   cannot clobber the Chromium path. */
-@supports (scrollbar-color: red blue) {
+/* Firefox's reveal, gated off in Chromium like the rest state above. */
+@supports (scrollbar-color: red blue) and (not selector(::-webkit-scrollbar)) {
   *:hover { scrollbar-color: var(--scrollbar-thumb) transparent; }
 }
 

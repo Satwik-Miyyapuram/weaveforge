@@ -23,6 +23,8 @@ export function ScreenHead({
   title,
   eyebrow,
   note,
+  search,
+  className,
   children,
 }: {
   title?: string;
@@ -30,6 +32,10 @@ export function ScreenHead({
   eyebrow?: ReactNode;
   /** Status line under the actions, e.g. the result of a sync. */
   note?: ReactNode;
+  /** The screen's search box, first in the actions. */
+  search?: { value: string; onChange: (value: string) => void; label: string };
+  /** Extra class on the header, e.g. the graph's focus-mode head. */
+  className?: string;
   children?: ReactNode;
 }) {
   const pathname = usePathname() ?? "/";
@@ -38,7 +44,7 @@ export function ScreenHead({
     ? null
     : labelForPath(pathname, [registry.homeNavItem, ...registry.allModules.flatMap((m) => m.navItems)]);
   return (
-    <header className="screen-head">
+    <header className={className ? `screen-head ${className}` : "screen-head"}>
       <div className="head-row">
         {title || hidden ? (
           <div className="screen-title-block">
@@ -46,7 +52,19 @@ export function ScreenHead({
             <h1 className={title ? "screen-title" : "screen-title screen-title--auto"}>{title ?? hidden}</h1>
           </div>
         ) : null}
-        <div className="screen-actions">{children}</div>
+        <div className="screen-actions">
+          {search && (
+            <input
+              className="search-input"
+              type="search"
+              value={search.value}
+              onChange={(e) => search.onChange(e.target.value)}
+              placeholder={search.label}
+              aria-label={search.label}
+            />
+          )}
+          {children}
+        </div>
       </div>
       {note}
     </header>

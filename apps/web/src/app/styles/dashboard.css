@@ -1,10 +1,5 @@
-.dashboard-head-row > .screen-title {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.dashboard-screen .screen-title-block { flex: 1 1 auto; min-width: 0; }
+.dashboard-screen .screen-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dashboard-customize-btn {
   flex: none;
   display: inline-flex;
@@ -35,11 +30,11 @@
   min-width: 0;
 }
 .dashboard-edit-bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.dashboard-head-row:has(.dashboard-edit-bar--editing) {
+.dashboard-screen .head-row:has(.dashboard-edit-bar--editing) {
   flex-wrap: wrap;
   row-gap: 10px;
 }
-.dashboard-head-row:has(.dashboard-edit-bar--editing) > .screen-title {
+.dashboard-screen .head-row:has(.dashboard-edit-bar--editing) > * {
   flex: 1 1 100%;
 }
 .dashboard-edit-bar--editing {
@@ -360,7 +355,7 @@
     top: calc(98px + env(safe-area-inset-top, 0px));
   }
 
-  .dashboard-head-row > .screen-title { flex: 1 1 auto; }
+  .dashboard-screen .screen-title-block { flex: 1 1 auto; }
   .dashboard-screen .screen-actions { flex-wrap: wrap; row-gap: 8px; }
   .dashboard-card { padding: 8px 10px; border-radius: 14px; }
   .dashboard-card--stat { padding: 8px 10px 10px; }
@@ -382,9 +377,6 @@
     min-width: 7.5rem;
     max-width: none;
     width: auto;
-  }
-  .report-screen .section-item .card-foot-right {
-    gap: 10px;
   }
   .paper-card-head,
   .entity-card-head { flex-direction: row; align-items: flex-start; gap: 8px; }
@@ -408,7 +400,7 @@
   .sub-nav { margin: 6px 0 2px; }
   .app-shell { padding-top: 12px; }
   .controls-row,
-  .papers-filters { margin-top: 8px; }
+  .filter-row { margin-top: 8px; }
   .vault-editor {
     min-height: 240px !important;
   }

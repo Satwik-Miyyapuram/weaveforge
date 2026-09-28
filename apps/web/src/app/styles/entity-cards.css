@@ -177,14 +177,21 @@
      the same title wrapped raggedly on /papers and evenly on the pitch. */
   text-wrap: balance;
 }
-/* Status lives in the foot with actions so the title can use full width. */
-.entity-card-status {
-  flex: none;
-  max-width: none;
-}
-.entity-card-foot .entity-card-status {
+/* Every card: status and controls float top-right; the title wraps around them. */
+.entity-card-heading { flex: 1; min-width: 0; display: flow-root; }
+.entity-card-actions {
+  float: right;
   display: flex;
   align-items: center;
+  gap: 6px;
+  margin: -4px -6px 2px 10px;
+}
+.entity-card-heading > .entity-card-title { text-wrap: pretty; }
+.entity-card-status {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .entity-card-status .status-select,
 .entity-card-status .custom-select-container {
@@ -195,11 +202,6 @@
 .entity-card-status .status-select .custom-select-button {
   padding: 4px 10px;
   min-height: var(--control-sm);
-}
-.entity-card-foot .card-foot-right {
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 6px;
 }
 .entity-card-meta,
 .paper-card-authors {
@@ -225,7 +227,6 @@
   line-clamp: 3;
   overflow: hidden;
 }
-.entity-card-foot,
 .paper-card-foot {
   margin-top: 2px;
   padding-top: 6px;
@@ -247,10 +248,17 @@
   margin: 2px 0 0;
   gap: 4px;
 }
-.entity-card .tag-chip,
-.paper-card .tag-chip {
-  font-size: 0.7rem;
+/* One quiet tag chip on every card, in every theme. */
+.card.entity-card .tag-chips > .tag-chip {
   padding: 2px 7px;
+  border: 0;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0;
+  line-height: 1.4;
 }
 /* Icon-only card/list actions (open, share, comments, edit, delete, …). */
 .entity-icon-btn,

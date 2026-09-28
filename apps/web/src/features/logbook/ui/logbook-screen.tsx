@@ -10,7 +10,8 @@ import { Select } from "@/components/select";
 import { Markdown } from "@/components/markdown/markdown";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
-import { EmptyState } from "@/components/empty-state";
+import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
+import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { NavIcon } from "@/app/nav-icon";
 import { CollabBodyHost } from "@/features/collab";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
@@ -18,6 +19,7 @@ import { emptyArray } from "@/lib/empty";
 import { formatError } from "@/lib/format-error";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
+import { statusLabel } from "@/components/status-select";
 
 /**
  * Logbook screen. Presentation + view-state only; all data access goes through
@@ -26,11 +28,16 @@ import { FormError } from "@/components/form-error";
 export function LogbookScreen() {
   const [addOpen, setAddOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [search, setSearch] = useState("");
 
   const loadEntries = useCallback(() => getContainer().logbook.loadEntries(), []);
   const { data, loading, error, reload: load } = useScreenData("logbook", loadEntries);
   const entries = data ?? emptyArray<LogEntry>();
-  const days = useMemo(() => groupByDay(entries), [entries]);
+  const match = useScreenSearch(search, "log");
+  const days = useMemo(
+    () => groupByDay(match(entries, (e) => e.id, (e) => `${e.kind} ${e.body}`)),
+    [entries, match],
+  );
 
   if (loading) {
     return <ScreenLoading status="Loading logbook…" />;
@@ -38,7 +45,10 @@ export function LogbookScreen() {
 
   return (
     <section className="screen">
-      <ScreenHead eyebrow={logEyebrow(entries)}>
+      <ScreenHead
+        eyebrow={logEyebrow(entries)}
+        search={entries.length > 0 ? { value: search, onChange: setSearch, label: "Search the log" } : undefined}
+      >
         <button type="button" className="btn-secondary" onClick={() => setPublishOpen(true)}>
           Publish snapshot
         </button>
@@ -72,11 +82,18 @@ export function LogbookScreen() {
         />
       )}
 
+      {entries.length > 0 && days.length === 0 && (
+        <EmptyState
+          variant="no-results"
+          body="No entries match."
+          action={<ClearFiltersButton onClear={() => setSearch("")} />}
+        />
+      )}
       {entries.length > 0 && (
         <div className="log-layout">
           <ol className={`log-timeline ${entries.length > 20 ? "long-list" : ""}`}>
             {days.map(([date, dayEntries], i) => (
-              <li key={date} className="log-day">
+              <li key={date} id={`log-day-${date}`} className="log-day">
                 <DayMark
                   date={date}
                   showMonth={date.slice(0, 7) !== (i === 0 ? ymdOf(new Date()) : days[i - 1]![0]).slice(0, 7)}
@@ -180,6 +197,7 @@ function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void 
     <EntityCard
       as="li"
       className="log-item"
+      tone={entry.kind}
       // Same card as papers, notes, experiments, milestones and report
       // sections: what identifies the row on the card, the occasional and
       // destructive controls behind one ⋯. A log entry has no share type yet,
@@ -188,7 +206,7 @@ function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void 
       status={
         <>
           <time className="log-time" dateTime={entry.createdAt}>{timeOf(entry.createdAt)}</time>
-          <span className={`status status-${entry.kind}`}>{capitalise(entry.kind)}</span>
+          <span className={`status status-${entry.kind}`}>{statusLabel(entry.kind)}</span>
         </>
       }
       menu={
@@ -275,7 +293,7 @@ function EditLogForm({
         <label htmlFor={`kind-${entry.id}`}>Kind</label>
         <Select id={`kind-${entry.id}`} value={kind} onChange={(e) => setKind(e.target.value as LogKind)}>
           {LOG_KINDS.map((k) => (
-            <option key={k} value={k}>{capitalise(k)}</option>
+            <option key={k} value={k}>{statusLabel(k)}</option>
           ))}
         </Select>
       </div>
@@ -319,10 +337,6 @@ function ymdOf(date: Date): string {
   return `${date.getFullYear()}-${m}-${d}`;
 }
 
-function capitalise(word: string): string {
-  return word.charAt(0).toUpperCase() + word.slice(1);
-}
-
 /** The clock time an entry was written, as the card shows it beside its kind. */
 function timeOf(iso: string): string {
   const at = new Date(iso);
@@ -331,14 +345,15 @@ function timeOf(iso: string): string {
 
 /**
  * The body's first line is the card's title and the rest its text, so a
- * one-line entry is all headline. Leading heading marks are dropped.
+ * one-line entry is all headline. Heading and emphasis marks are dropped.
  */
 function splitHeadline(body: string): { headline: string; rest: string } {
   const trimmed = body.trim();
   const cut = trimmed.indexOf("\n");
   const first = cut < 0 ? trimmed : trimmed.slice(0, cut);
   const rest = cut < 0 ? "" : trimmed.slice(cut + 1).trim();
-  return { headline: first.replace(/^#+\s*/, "") || "Untitled entry", rest };
+  const headline = first.replace(/^#+\s*/, "").replace(/(\*\*|__|\*|`)(.+?)\1/g, "$2");
+  return { headline: headline || "Untitled entry", rest };
 }
 
 /** Consecutive days with an entry, counting back from today (or yesterday). */
@@ -379,36 +394,68 @@ function DayMark({ date, showMonth }: { date: string; showMonth: boolean }) {
   );
 }
 
-/** This month, Monday first, with the days that have an entry stamped. */
+/**
+ * A month, Monday first, with ‹ › to page through. A logged day wears its
+ * kind's colour (split when a day has both), counts its entries when there is
+ * more than one, and jumps to that day in the timeline.
+ */
 function LogCalendar({ entries }: { entries: readonly LogEntry[] }) {
   const now = new Date();
-  const logged = new Set(entries.map((e) => e.entryDate));
-  const first = new Date(now.getFullYear(), now.getMonth(), 1);
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const lead = (first.getDay() + 6) % 7;
+  const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
+  const byDay = useMemo(() => new Map(groupByDay(entries)), [entries]);
+  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const lead = (month.getDay() + 6) % 7;
   const cells: (number | null)[] = [
     ...Array.from({ length: lead }, () => null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
+  const monthKey = ymdOf(month).slice(0, 7);
+  const loggedThisMonth = [...byDay.keys()].filter((d) => d.startsWith(monthKey)).length;
+  const isCurrent = month.getFullYear() === now.getFullYear() && month.getMonth() === now.getMonth();
+  const step = (by: number) => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + by, 1));
+
+  function jump(ymd: string) {
+    const el = document.getElementById(`log-day-${ymd}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    el.classList.add("is-jumped");
+    window.setTimeout(() => el.classList.remove("is-jumped"), 1400);
+  }
+
   return (
     <div className="card log-calendar">
-      <h2>{now.toLocaleDateString(undefined, { month: "long" })}</h2>
-      <div className="log-calendar-grid" role="group" aria-label={`Days logged this month: ${[...logged].filter((d) => d.startsWith(ymdOf(first).slice(0, 7))).length}`}>
+      <div className="log-calendar-top">
+        <button type="button" className="entity-icon-btn" aria-label="Previous month" onClick={() => step(-1)}>‹</button>
+        <h2>{month.toLocaleDateString(undefined, isCurrent ? { month: "long" } : { month: "long", year: "numeric" })}</h2>
+        <button type="button" className="entity-icon-btn" aria-label="Next month" disabled={isCurrent} onClick={() => step(1)}>›</button>
+      </div>
+      <div className="log-calendar-grid" role="group" aria-label={`Days logged this month: ${loggedThisMonth}`}>
         {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
           <span key={`h${i}`} className="log-calendar-head" aria-hidden="true">{d}</span>
         ))}
         {cells.map((d, i) => {
           if (d == null) return <span key={`e${i}`} />;
-          const ymd = ymdOf(new Date(now.getFullYear(), now.getMonth(), d));
-          const cls = [
-            "log-calendar-day",
-            logged.has(ymd) ? "is-logged" : "",
-            d === now.getDate() ? "is-today" : "",
-          ].filter(Boolean).join(" ");
+          const ymd = ymdOf(new Date(month.getFullYear(), month.getMonth(), d));
+          const today = isCurrent && d === now.getDate();
+          const dayEntries = byDay.get(ymd);
+          if (!dayEntries) {
+            return <span key={ymd} className={today ? "log-calendar-day is-today" : "log-calendar-day"}>{d}</span>;
+          }
+          const kinds = new Set(dayEntries.map((e) => e.kind));
+          const names = dayEntries.map((e) => `${statusLabel(e.kind)}: ${splitHeadline(e.body).headline}`);
           return (
-            <span key={ymd} className={cls} title={logged.has(ymd) ? `Logged ${ymd}` : undefined}>
+            <button
+              key={ymd}
+              type="button"
+              className={["log-calendar-day", "is-logged", kinds.size > 1 ? "is-mixed" : "", today ? "is-today" : ""].filter(Boolean).join(" ")}
+              data-status={kinds.has("weekly") && kinds.size === 1 ? "weekly" : "daily"}
+              title={names.join("\n")}
+              aria-label={`${ymd}: ${names.join(", ")}`}
+              onClick={() => jump(ymd)}
+            >
               {d}
-            </span>
+              {dayEntries.length > 1 && <b className="log-calendar-count">{dayEntries.length}</b>}
+            </button>
           );
         })}
       </div>
@@ -424,7 +471,7 @@ function LogKinds({ entries }: { entries: readonly LogEntry[] }) {
       <ul>
         {LOG_KINDS.map((kind) => (
           <li key={kind}>
-            <span className={`status status-${kind}`}>{capitalise(kind)}</span>
+            <span className={`status status-${kind}`}>{statusLabel(kind)}</span>
             <span className="log-kinds-count">{entries.filter((e) => e.kind === kind).length}</span>
           </li>
         ))}

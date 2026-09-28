@@ -17,6 +17,7 @@ import { MemberTreeSelect } from "./member-tree";
 import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
+import { statusLabel } from "@/components/status-select";
 
 /**
  * Supervisor view: browse the people beneath you and follow their published
@@ -128,11 +129,6 @@ function initials(member: Member): string {
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
 }
 
-function capitalise(text: string): string {
-  const spaced = text.replace(/_/g, " ");
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-}
-
 function SuperviseePanel({ member }: { member: Member }) {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -219,7 +215,7 @@ function SuperviseePanel({ member }: { member: Member }) {
               <li key={m.id} className="superv-item">
                 <div className="superv-item-head">
                   <span className="superv-item-title">{m.title}</span>
-                  <span className={`superv-status s-${m.status}`}>{capitalise(m.status)}</span>
+                  <span className={`superv-status s-${m.status}`}>{statusLabel(m.status)}</span>
                 </div>
                 {"targetDate" in m && m.targetDate && (
                   <span className="muted superv-meta">Target date {m.targetDate}</span>
@@ -248,7 +244,7 @@ function SuperviseePanel({ member }: { member: Member }) {
               <li key={l.id} className="superv-item superv-log-item">
                 <time className="superv-log-date">{l.entryDate}</time>
                 <div>
-                  <span className={`superv-status s-${l.kind}`}>{capitalise(l.kind)}</span>
+                  <span className={`superv-status s-${l.kind}`}>{statusLabel(l.kind)}</span>
                   <p className="superv-body">{l.body}</p>
                 </div>
               </li>

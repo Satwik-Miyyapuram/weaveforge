@@ -1,16 +1,15 @@
 "use client";
 
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
-import { DeleteIcon, OpenIcon } from "@/components/view-icons";
+import { tagTone } from "@/lib/tag-tone";
 
 /**
  * Shared entity list card chrome — papers, report sections, notes, experiments,
  * milestones. Fill slots; don't fork the layout per screen.
  *
- * Layout: [leading?] title          (full width)
+ * Layout: [leading?] title ……… badge · status · actions · menu
  *         meta
  *         tags / body
- *         delete ……… status · actions · open
  */
 const MAX_CARD_TAGS = 3;
 
@@ -22,16 +21,14 @@ export function EntityCard({
   onActivate,
   leading,
   title,
+  badge,
   status,
+  tone,
   meta,
   tags,
+  tintTag,
   children,
-  onDelete,
-  deleteDisabled = false,
-  deleteAriaLabel = "Delete",
   actions,
-  onOpen,
-  openLabel = "Open",
   menu,
 }: {
   as?: "div" | "li";
@@ -41,24 +38,19 @@ export function EntityCard({
   onActivate?: () => void;
   leading?: ReactNode;
   title: ReactNode;
+  /** Who shared it, on a card from someone else. Status still shows, locked. */
+  badge?: ReactNode;
   status?: ReactNode;
+  /** The status key that colours the card, from the shared map in brutal.css. */
+  tone?: string;
   meta?: ReactNode;
   tags?: string[];
+  /** Colours a card that has no status by this tag's tone (notes). */
+  tintTag?: string;
   children?: ReactNode;
-  onDelete?: () => void;
-  deleteDisabled?: boolean;
-  deleteAriaLabel?: string;
+  /** Live controls beside the menu (a comment count). */
   actions?: ReactNode;
-  onOpen?: () => void;
-  openLabel?: string;
-  /**
-   * The overflow menu, when the card has one.
-   *
-   * Replaces the inline delete / actions / open controls rather than joining
-   * them: those were three targets per card and two of them destructive. A card
-   * that passes a menu keeps only the status select and the menu, and the card
-   * body is the way in.
-   */
+  /** The overflow menu: share, delete and the occasional actions. */
   menu?: ReactNode;
 }) {
   const interactive = Boolean(onActivate);
@@ -71,7 +63,8 @@ export function EntityCard({
     .filter(Boolean)
     .join(" ");
 
-  const showFoot = Boolean(onDelete || status || actions || onOpen || menu);
+  const hasControls = Boolean(badge != null || status != null || actions || menu);
+  const hasMeta = meta != null && meta !== "";
 
   function stop(e: MouseEvent | KeyboardEvent) {
     e.stopPropagation();
@@ -90,6 +83,8 @@ export function EntityCard({
     <Tag
       id={id}
       className={shell}
+      data-status={tone}
+      data-tag-tone={tintTag ? tagTone(tintTag) : undefined}
       role={interactive ? "button" : undefined}
       tabIndex={interactive ? 0 : undefined}
       onClick={onActivate}
@@ -97,10 +92,21 @@ export function EntityCard({
     >
       <div className="entity-card-head">
         {leading}
-        <h3 className="entity-card-title">{title}</h3>
+        {/* Controls float right so a long title wraps beside them, then runs full width. */}
+        <div className="entity-card-heading">
+          {hasControls && (
+            <div className="entity-card-actions" onClick={stop} onKeyDown={stop}>
+              {badge}
+              {status != null && <div className="entity-card-status">{status}</div>}
+              {actions}
+              {menu}
+            </div>
+          )}
+          <h3 className="entity-card-title">{title}</h3>
+        </div>
       </div>
 
-      {meta != null && meta !== "" && <p className="entity-card-meta">{meta}</p>}
+      {hasMeta && <p className="entity-card-meta">{meta}</p>}
 
       {tags && tags.length > 0 && (
         // A heavily tagged entity would otherwise wrap to three rows and push
@@ -118,46 +124,6 @@ export function EntityCard({
       )}
 
       {children}
-
-      {showFoot && (
-        <div className="card-foot entity-card-foot" onClick={stop} onKeyDown={stop}>
-          {onDelete && !menu ? (
-            <button
-              type="button"
-              className="entity-icon-btn danger card-del"
-              onClick={onDelete}
-              disabled={deleteDisabled}
-              aria-label={deleteAriaLabel}
-              title={deleteAriaLabel}
-            >
-              <DeleteIcon />
-            </button>
-          ) : (
-            <span />
-          )}
-          <div className="card-foot-right">
-            {status != null && (
-              <div className="entity-card-status">{status}</div>
-            )}
-            {/* A card with a menu still keeps whatever `actions` it has: those are
-                live controls (a comment count), not the share and delete buttons
-                the menu absorbed. */}
-            {actions}
-            {menu}
-            {onOpen && !menu && (
-              <button
-                type="button"
-                className="entity-icon-btn entity-open-icon"
-                onClick={onOpen}
-                aria-label={openLabel}
-                title={openLabel}
-              >
-                <OpenIcon />
-              </button>
-            )}
-          </div>
-        </div>
-      )}
     </Tag>
   );
 }

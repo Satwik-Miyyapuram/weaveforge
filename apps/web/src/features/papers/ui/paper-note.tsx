@@ -3,7 +3,7 @@
 import { InlineError } from "@/components/form-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { isInkNoteBody, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
+import { PAPER_STATUSES, isInkNoteBody, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { confirmRemovePaper } from "./remove-paper";
 import { formatError } from "@/lib/format-error";
@@ -37,7 +37,7 @@ import { reRenderPaperSourceNote } from "../application/paper-source-note-scaffo
 import { PaperAnnotations } from "./paper-annotations";
 import { PaperFieldsStrip } from "./paper-fields";
 import { PaperFirstPage } from "./paper-first-page";
-import { PaperStatusControl, statusLabel } from "./paper-status";
+import { StatusSelect, statusLabel } from "@/components/status-select";
 import { PaperIdentifiersEditor } from "./paper-identifiers-editor";
 import { RelatedPapersPanel } from "./related-papers-panel";
 import { TagEditor } from "./tag-editor";
@@ -279,11 +279,8 @@ export function PaperNote({
       <nav className="record-bar" aria-label="Paper">
         <BackButton label="Papers" onClick={onBack} />
         <span className="record-mono record-bar-id">Record {citeKey || paper.id.slice(0, 6)}</span>
-        {readOnly ? (
-          <PinnedPaperBadge ownerName={sharedByName} />
-        ) : (
-          <PaperStatusControl status={paper.status} disabled={busy} onChange={(s) => void changeStatus(s)} />
-        )}
+        {readOnly && <PinnedPaperBadge ownerName={sharedByName} />}
+        <StatusSelect value={paper.status} statuses={PAPER_STATUSES} disabled={readOnly || busy} onChange={(st) => void changeStatus(st)} label="Reading status" />
         <div className="record-actions">
           {!readOnly && (
             // Without an identifier this opens the editor that adds one, rather

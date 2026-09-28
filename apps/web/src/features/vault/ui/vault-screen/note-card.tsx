@@ -19,15 +19,6 @@ import { isHydratedPage, noteBodyText, readableText } from "@/lib/page-text";
  */
 export { isHydratedPage, noteBodyText };
 
-/** "Edited 22 Sep"; the year only when it is not this one. */
-function editedLabel(iso: string | undefined): string | undefined {
-  if (!iso) return undefined;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return undefined;
-  const sameYear = d.getFullYear() === new Date().getFullYear();
-  return `Edited ${d.toLocaleDateString(undefined, { day: "numeric", month: "short", ...(sameYear ? {} : { year: "numeric" }) })}`;
-}
-
 /** Papers-style card for a note: title + excerpt; click opens the full note. */
 export function NoteCard({
   page,
@@ -73,9 +64,9 @@ export function NoteCard({
       className="paper-card"
       onActivate={onOpen}
       title={page.title}
-      meta={editedLabel(page.updatedAt)}
-      status={readOnly ? <PinnedPaperBadge ownerName={sharedByName} /> : undefined}
+      badge={readOnly ? <PinnedPaperBadge ownerName={sharedByName} /> : undefined}
       tags={tags}
+      tintTag={tags[0]}
       // One overflow menu instead of a delete icon and a share button on every
       // card in the grid; the body of the card opens the note.
       menu={

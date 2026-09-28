@@ -9,11 +9,11 @@ import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
 import { CardsViewIcon, ListViewIcon } from "@/components/view-icons";
 import { CardColumns } from "@/components/card-columns";
-import { rankedFilter } from "@/features/search/application/rank-filter";
-import { useHybridSearchIndex, type WorkspaceSearchFn } from "@/lib/hooks/use-search-index";
+import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { usePinnedOwnerNames } from "@/features/sharing";
 import { AddPaperForm } from "./add-paper-form";
-import { MultiSelect } from "@/components/multi-select";
+import { FilterRow } from "@/components/filter-row";
+import { ViewSwitch } from "@/components/view-switch";
 import { usePersistedState } from "@/lib/hooks/use-persisted-state";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
@@ -26,9 +26,11 @@ import { LibraryTidyNotice } from "./library-tidy";
 import { PaperNote } from "./paper-note";
 import { PapersTable } from "./papers-table";
 import { Popover } from "@/components/popover";
+import { ScreenHead } from "@/components/screen-head";
 import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { FormError } from "@/components/form-error";
+import { statusLabel } from "@/components/status-select";
 
 type PapersViewData = PapersScreenData & { ownerNames: Map<string, string> };
 
@@ -82,32 +84,7 @@ export function PapersScreen() {
   }, []);
 
   const { data, loading, error: loadError, reload: load, refresh, setData } = useScreenData("papers", loadScreen);
-  // Only a typed query ranks through the index; building it for an untouched
-  // list would read the whole project on every visit to the screen.
-  const { search: keywordSearch, searchHybrid, ready: indexReady } = useHybridSearchIndex(
-    search.trim().length > 0,
-  );
-  // The hybrid answer for the query currently typed, once it arrives. Keyword
-  // ranking answers immediately; this replaces it when the semantic arm is on,
-  // so a paper found by meaning rather than wording appears here as it does in
-  // the jump palette. Tagged with its query so a slow answer to an older one is
-  // never applied to a newer one.
-  const [hybrid, setHybrid] = useState<{ query: string; hits: ReturnType<WorkspaceSearchFn> } | null>(null);
-  useEffect(() => {
-    const q = search.trim();
-    if (!q || !indexReady) return;
-    let live = true;
-    void searchHybrid(q, { kinds: ["paper"], limit: 500 }).then((hits) => {
-      if (live) setHybrid({ query: q, hits });
-    });
-    return () => {
-      live = false;
-    };
-  }, [search, indexReady, searchHybrid]);
-  const searchIndex = useCallback<WorkspaceSearchFn>(
-    (q, options) => (hybrid && hybrid.query === q.trim() ? hybrid.hits : keywordSearch(q, options)),
-    [hybrid, keywordSearch],
-  );
+  const match = useScreenSearch(search, "paper");
 
   usePinnedOwnerNames(data, setData);
 
@@ -304,9 +281,6 @@ export function PapersScreen() {
   );
 
   const readCount = papers.filter((p) => p.status === "read").length;
-  const pct = papers.length ? Math.round((readCount / papers.length) * 100) : 0;
-  const activeFilters =
-    (statusFilter.length ? 1 : 0) + (listFilter.length ? 1 : 0) + (tagFilter.length ? 1 : 0);
 
   // Every distinct tag across the library (for the tag filter dropdown).
   const allTags = useMemo(() => {
@@ -329,15 +303,8 @@ export function PapersScreen() {
     );
     // Now also matches on abstract, summary, venue, and identifiers — not just
     // title and author.
-    return rankedFilter({
-      items: scoped,
-      query: search,
-      kinds: ["paper"],
-      search: searchIndex,
-      idOf: (p) => p.id,
-      fallbackText: (p) => `${p.title}\n${p.authors.join(" ")}`,
-    });
-  }, [papers, statusFilter, listFilter, tagFilter, membership, search, searchIndex]);
+    return match(scoped, (p) => p.id, (p) => `${p.title}\n${p.authors.join(" ")}`);
+  }, [papers, statusFilter, listFilter, tagFilter, membership, match]);
 
   /*
    * The open paper must be the hydrated row, never the list's summary.
@@ -394,85 +361,49 @@ export function PapersScreen() {
 
   return (
     <section className="screen papers-screen">
-      {/* The screen's own header, not the shared `ScreenHead`: the library is
-          the one list screen with enough controls to need a hierarchy. Where you
-          are and how far through it you are on the left; the two things you do
-          most (find, add) on the right; the occasional actions behind "More". */}
-      <header className="screen-head papers-head">
-        <div className="papers-head-row">
-          <div className="papers-head-title">
-            <h1 className="screen-title">Papers</h1>
-            {papers.length > 0 && (
-              <div className="papers-ledger">
-                <span>
-                  {papers.length} {papers.length === 1 ? "paper" : "papers"} · {readCount} read
-                </span>
-                <span
-                  className="papers-ledger-bar"
-                  role="progressbar"
-                  aria-label="Reading progress"
-                  aria-valuenow={pct}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
+      <ScreenHead
+        eyebrow={papers.length > 0 ? `${papers.length} ${papers.length === 1 ? "paper" : "papers"} · ${readCount} read` : undefined}
+        search={papers.length > 0 ? { value: search, onChange: setSearch, label: "Search papers" } : undefined}
+        note={syncMsg && <p className="muted">{syncMsg}</p>}
+      >
+        <button
+          className="btn-primary"
+          type="button"
+          disabled={syncing}
+          onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+        >
+          {syncing ? "Syncing…" : "Add paper"}
+        </button>
+        {/* The wiki reads the papers and notes together and proposes pages;
+            the citation check looks for new work citing the library. Both
+            are occasional, so they sit one click away rather than beside
+            Add paper. */}
+        <Popover label="More" ariaLabel="More actions" align="right">
+          {(close) => (
+            <ul className="card-menu-list">
+              <li>
+                <button
+                  type="button"
+                  className="card-menu-item"
+                  onClick={() => { close(); router.push("/wiki"); }}
                 >
-                  <span style={{ width: `${pct}%` }} />
-                </span>
-                <span>{pct}%</span>
-              </div>
-            )}
-          </div>
-          <div className="papers-head-actions">
-            {papers.length > 0 && (
-              <input
-                className="search-input"
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search papers"
-                aria-label="Search papers"
-              />
-            )}
-            <button
-              className="btn-primary"
-              type="button"
-              disabled={syncing}
-              onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
-            >
-              {syncing ? "Syncing…" : "Add paper"}
-            </button>
-            {/* The wiki reads the papers and notes together and proposes pages;
-                the citation check looks for new work citing the library. Both
-                are occasional, so they sit one click away rather than beside
-                Add paper. */}
-            <Popover label="More" ariaLabel="More actions" align="right">
-              {(close) => (
-                <ul className="card-menu-list">
-                  <li>
-                    <button
-                      type="button"
-                      className="card-menu-item"
-                      onClick={() => { close(); router.push("/wiki"); }}
-                    >
-                      Wiki
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      className="card-menu-item"
-                      disabled={checkingAlerts}
-                      onClick={() => { close(); void checkCitationAlerts(); }}
-                    >
-                      {checkingAlerts ? "Checking citations…" : "Check citations"}
-                    </button>
-                  </li>
-                </ul>
-              )}
-            </Popover>
-          </div>
-        </div>
-        {syncMsg && <p className="muted">{syncMsg}</p>}
-      </header>
+                  Wiki
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  className="card-menu-item"
+                  disabled={checkingAlerts}
+                  onClick={() => { close(); void checkCitationAlerts(); }}
+                >
+                  {checkingAlerts ? "Checking citations…" : "Check citations"}
+                </button>
+              </li>
+            </ul>
+          )}
+        </Popover>
+      </ScreenHead>
 
       {composeOpen && (
         <Modal
@@ -534,91 +465,44 @@ export function PapersScreen() {
       )}
 
       {papers.length > 0 && (
-        <div className="papers-filters" role="group" aria-label="Filter papers">
-          <MultiSelect
-            id="fstatus"
-            className="papers-filter"
-            values={statusFilter}
-            onChange={setStatusFilter}
-            allLabel="Status"
-            ariaLabel="Filter by status"
-            options={PAPER_STATUSES.map((s) => ({ value: s, label: statusLabel(s) }))}
+        <FilterRow
+          label="Filter papers"
+          facets={[
+            {
+              id: "fstatus",
+              label: "Status",
+              chipPrefix: "Status: ",
+              values: statusFilter,
+              onChange: setStatusFilter,
+              options: PAPER_STATUSES.map((s) => ({ value: s, label: statusLabel(s) })),
+            },
+            {
+              id: "flist",
+              label: "Lists",
+              chipPrefix: "List: ",
+              values: listFilter,
+              onChange: setListFilter,
+              options: lists.map((l) => ({ value: l.id, label: l.name })),
+            },
+            {
+              id: "ftags",
+              label: "Tags",
+              values: tagFilter,
+              onChange: setTagFilter,
+              options: allTags.map((t) => ({ value: t, label: `#${t}` })),
+            },
+          ]}
+        >
+          <ViewSwitch
+            label="Papers layout"
+            value={layout}
+            onChange={setLayout}
+            options={[
+              { value: "cards", label: "Cards", icon: <CardsViewIcon /> },
+              { value: "list", label: "List", icon: <ListViewIcon /> },
+            ]}
           />
-          {lists.length > 0 && (
-            <MultiSelect
-              id="flist"
-              className="papers-filter"
-              values={listFilter}
-              onChange={setListFilter}
-              allLabel="Lists"
-              ariaLabel="Filter by list"
-              options={lists.map((l) => ({ value: l.id, label: l.name }))}
-            />
-          )}
-          {allTags.length > 0 && (
-            <MultiSelect
-              id="ftags"
-              className="papers-filter"
-              values={tagFilter}
-              onChange={setTagFilter}
-              allLabel="Tags"
-              ariaLabel="Filter by tags"
-              options={allTags.map((t) => ({ value: t, label: `#${t}` }))}
-            />
-          )}
-          {statusFilter.map((v) => (
-            <FilterChip
-              key={`s:${v}`}
-              label={`Status: ${statusLabel(v)}`}
-              onRemove={() => setStatusFilter(statusFilter.filter((x) => x !== v))}
-            />
-          ))}
-          {listFilter.map((v) => (
-            <FilterChip
-              key={`l:${v}`}
-              label={`List: ${lists.find((l) => l.id === v)?.name ?? "removed list"}`}
-              onRemove={() => setListFilter(listFilter.filter((x) => x !== v))}
-            />
-          ))}
-          {tagFilter.map((v) => (
-            <FilterChip
-              key={`t:${v}`}
-              label={`#${v}`}
-              onRemove={() => setTagFilter(tagFilter.filter((x) => x !== v))}
-            />
-          ))}
-          {activeFilters > 0 && (
-            <button
-              type="button"
-              className="link-btn"
-              onClick={() => { setStatusFilter([]); setListFilter([]); setTagFilter([]); }}
-            >
-              Clear
-            </button>
-          )}
-          <div className="seg papers-layout-seg" role="tablist" aria-label="Papers layout">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={layout === "cards"}
-              className={layout === "cards" ? "seg-on" : ""}
-              onClick={() => setLayout("cards")}
-            >
-              <CardsViewIcon />
-              Cards
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={layout === "list"}
-              className={layout === "list" ? "seg-on" : ""}
-              onClick={() => setLayout("list")}
-            >
-              <ListViewIcon />
-              List
-            </button>
-          </div>
-        </div>
+        </FilterRow>
       )}
 
       <LibraryTidyNotice papers={ownPapers} onChanged={refresh} />
@@ -687,24 +571,5 @@ export function PapersScreen() {
       )}
 
     </section>
-  );
-}
-
-function statusLabel(status: string): string {
-  const words = status.replace("_", " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-/** One active filter, removable on its own. */
-function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
-  return (
-    <span className="filter-chip">
-      {label}
-      <button type="button" className="filter-chip-x" aria-label={`Remove filter ${label}`} onClick={onRemove}>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
-          <path d="M6 6l12 12M18 6L6 18" />
-        </svg>
-      </button>
-    </span>
   );
 }

@@ -4,8 +4,8 @@ import { useMemo, useState } from "react";
 import { PAPER_STATUSES, type Paper, type PaperStatus, type PaperSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { OpenIcon } from "@/components/view-icons";
-import { Select } from "@/components/select";
 import { paperExternalLink } from "./paper-external-link";
+import { StatusSelect } from "@/components/status-select";
 
 /**
  * Tabular list — same chrome as experiments Compare (`cmp-table`).
@@ -172,21 +172,13 @@ function PaperTableRow({
       </td>
       <td className="papers-col-year">{paper.year ?? "—"}</td>
       <td className="papers-col-status">
-        {readOnly ? (
-          <span className="muted">{paper.status.replace("_", " ")}</span>
-        ) : (
-          <Select
-            className="status-select"
-            value={paper.status}
-            disabled={busy}
-            onChange={(e) => void changeStatus(e.target.value as PaperStatus)}
-            aria-label={`Status for ${paper.title}`}
-          >
-            {PAPER_STATUSES.map((s) => (
-              <option key={s} value={s}>{s.replace("_", " ")}</option>
-            ))}
-          </Select>
-        )}
+        <StatusSelect
+          value={paper.status}
+          statuses={PAPER_STATUSES}
+          disabled={readOnly || busy}
+          onChange={(st) => void changeStatus(st)}
+          label={`Status for ${paper.title}`}
+        />
       </td>
       <td className="papers-col-link">
         {link ? (

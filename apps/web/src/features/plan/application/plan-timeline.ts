@@ -59,6 +59,31 @@ export function planTimeline(milestones: readonly Milestone[], now: Date = new D
   return { marks, months, today: at(todayMs) };
 }
 
+/** Marks close enough to overlap on the track, drawn as one stacked mark. */
+export interface PlanTimelineCluster {
+  at: number;
+  marks: PlanTimelineMark[];
+}
+
+/**
+ * Folds marks nearer than `minGap` (track percent, about one mark's width) into
+ * clusters, so milestones due on the same days never hide one another.
+ */
+export function clusterMarks(marks: readonly PlanTimelineMark[], minGap: number): PlanTimelineCluster[] {
+  const out: PlanTimelineCluster[] = [];
+  for (const mark of marks) {
+    const last = out[out.length - 1];
+    const lastAt = last?.marks[last.marks.length - 1]?.at;
+    if (last && lastAt != null && mark.at - lastAt < minGap) {
+      last.marks.push(mark);
+      last.at = (last.marks[0]!.at + mark.at) / 2;
+    } else {
+      out.push({ at: mark.at, marks: [mark] });
+    }
+  }
+  return out;
+}
+
 /** "on track", or how many are overdue, then how many fall due within two weeks. */
 export function planPace(milestones: readonly Milestone[], now: Date = new Date()): string {
   const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();

@@ -92,14 +92,3 @@ export function RecordActivity({ events }: { events: readonly { at: string; what
     </ol>
   );
 }
-
-/** Progress as filled dots — reading status, experiment stage. */
-export function RecordDots({ filled, total = 3, label }: { filled: number; total?: number; label: string }) {
-  return (
-    <span className="record-dots" role="img" aria-label={label} title={label}>
-      {Array.from({ length: total }, (_, i) => (
-        <span key={i} className={i < filled ? "is-on" : undefined} />
-      ))}
-    </span>
-  );
-}

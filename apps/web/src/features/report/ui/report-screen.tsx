@@ -13,7 +13,6 @@ import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
 import { PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { AddSectionForm, type ReportParentOption } from "./add-section-form";
-import { Select } from "@/components/select";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
@@ -27,10 +26,12 @@ import type { ReportScreenData } from "@/features/report/application/load-report
 import { SectionNote } from "./section-note";
 import { editedLabel } from "../lib/edited-label";
 import { countSectionSources } from "../lib/section-sources";
+import { outlineProgress, sectionProgress, type SectionProgress } from "../lib/section-progress";
 import { Markdown } from "@/components/markdown/markdown";
 import { rememberRecentTarget } from "@/lib/recent-targets";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
+import { StatusSelect, statusLabel } from "@/components/status-select";
 
 type ReportViewData = ReportScreenData & {
   ownerNames: Map<string, string>;
@@ -207,6 +208,7 @@ export function ReportScreen() {
         <SectionNote
           key={openSection.id}
           section={openSection}
+          progress={progressOf(tree, openSection.id)}
           readOnly={isReadOnlySection(openSection.id)}
           sharedByName={sharedOwnerName(openSection.id)}
           sharedContent={isSharedView || pinnedSharedBy.has(openSection.id)}
@@ -228,7 +230,7 @@ export function ReportScreen() {
 
   return (
     <section className="screen report-screen">
-      <ScreenHead title="Sections" eyebrow={sectionsEyebrow(ownedFlat)}>
+      <ScreenHead title="Sections" eyebrow={sectionsEyebrow(ownedFlat.length, tree.filter((n) => ownedIds.has(n.section.id)))}>
         <button
           className="btn-primary"
           type="button"
@@ -323,6 +325,16 @@ export function ReportScreen() {
   );
 }
 
+/** Rolled-up words for the section with this id, when it is in the outline. */
+function progressOf(nodes: readonly ReportSectionTreeNode[], id: string): SectionProgress | undefined {
+  for (const n of nodes) {
+    if (n.section.id === id) return sectionProgress(n);
+    const inChild = progressOf(n.children, id);
+    if (inChild) return inChild;
+  }
+  return undefined;
+}
+
 function collectSectionIds(node: ReportSectionTreeNode): string[] {
   return [node.section.id, ...node.children.flatMap(collectSectionIds)];
 }
@@ -410,6 +422,7 @@ function SectionRow({
     <li id={`section-${s.id}`} className="section-node">
       <SectionCard
         section={s}
+        progress={sectionProgress(node)}
         readOnly={readOnly}
         sharedByName={sharedByName}
         busy={busy}
@@ -447,6 +460,7 @@ function sectionCardPreviewMd(body: string): string {
 
 function SectionCard({
   section: s,
+  progress: rolled,
   readOnly = false,
   sharedByName,
   busy = false,
@@ -457,6 +471,8 @@ function SectionCard({
   onOpen,
 }: {
   section: ReportSection;
+  /** Words under this section, subsections included; its own text when absent. */
+  progress?: SectionProgress;
   readOnly?: boolean;
   sharedByName?: string;
   busy?: boolean;
@@ -468,17 +484,15 @@ function SectionCard({
 }) {
   const hasNotes = Boolean(s.notes?.trim());
   const sources = countSectionSources(s.notes);
+  const { words, target, pct: progress } = rolled ?? sectionProgress({ section: s, children: [] });
   const meta = [
-    s.targetWords ? `${s.wordCount} / ${s.targetWords} words` : `${s.wordCount} words`,
+    target ? `${words.toLocaleString()} / ${target.toLocaleString()} words` : `${words.toLocaleString()} words`,
     s.deadline ? `due ${s.deadline}` : null,
     sources > 0 ? `${sources} source${sources === 1 ? "" : "s"}` : null,
     editedLabel(s.updatedAt),
   ]
     .filter(Boolean)
     .join(" · ");
-  const progress = s.targetWords
-    ? Math.min(100, Math.round((s.wordCount / s.targetWords) * 100))
-    : null;
 
   return (
     <EntityCard
@@ -507,23 +521,15 @@ function SectionCard({
           {s.title}
         </>
       }
+      badge={readOnly ? <PinnedPaperBadge ownerName={sharedByName} /> : undefined}
       status={
-        readOnly ? (
-          <PinnedPaperBadge ownerName={sharedByName} />
-        ) : (
-          <Select
-            className="status-select"
-            value={s.status}
-            onChange={(e) => onStatusChange?.(e.target.value as ReportStatus)}
-            aria-label={`Status for ${s.title}`}
-          >
-            {REPORT_STATUSES.map((st) => (
-              <option key={st} value={st}>
-                {statusLabel(st)}
-              </option>
-            ))}
-          </Select>
-        )
+        <StatusSelect
+          value={s.status}
+          statuses={REPORT_STATUSES}
+          disabled={readOnly}
+          onChange={(st) => onStatusChange?.(st)}
+          label={`Status for ${s.title}`}
+        />
       }
       meta={meta}
       menu={
@@ -551,20 +557,12 @@ function SectionCard({
   );
 }
 
-/** "not_started" reads "Not started". */
-function statusLabel(status: ReportStatus): string {
-  const words = status.replace("_", " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-/** "4 sections · 4,210 of 12,000 words" above the title. */
-function sectionsEyebrow(sections: readonly ReportSection[]): string | undefined {
-  if (!sections.length) return undefined;
-  const words = sections.reduce((sum, s) => sum + (s.wordCount ?? 0), 0);
-  const target = sections.reduce((sum, s) => sum + (s.targetWords ?? 0), 0);
-  const count = `${sections.length} ${sections.length === 1 ? "section" : "sections"}`;
-  const fmt = (n: number) => n.toLocaleString();
+/** "4 sections · 4,210 of 12,000 words" above the title, words rolled up from the top-level sections. */
+function sectionsEyebrow(count: number, roots: readonly ReportSectionTreeNode[]): string | undefined {
+  if (!count) return undefined;
+  const { words, target } = outlineProgress(roots);
+  const label = `${count} ${count === 1 ? "section" : "sections"}`;
   return target
-    ? `${count} · ${fmt(words)} of ${fmt(target)} words`
-    : `${count} · ${fmt(words)} words`;
+    ? `${label} · ${words.toLocaleString()} of ${target.toLocaleString()} words`
+    : `${label} · ${words.toLocaleString()} words`;
 }

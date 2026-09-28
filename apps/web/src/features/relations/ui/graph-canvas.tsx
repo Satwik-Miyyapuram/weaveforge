@@ -20,6 +20,7 @@ import {
 import { cloneLinks, filterGraphByNodes, localSubgraph } from "../application/local-graph";
 import { EdgeDetailPopover } from "./graph-side-panel";
 import { useGraphColours } from "./graph-colours";
+import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { setGravity } from "./graph-gravity";
 import { paintStamp, paintStampLabel, stampRadius } from "./graph-stamp";
 
@@ -439,15 +440,11 @@ export function GraphCanvas({
     fgRef.current?.refresh?.();
   }, [settings.searchQuery, settings.textFadeThreshold, pinned]);
 
-  const searchQ = settings.searchQuery.trim().toLowerCase();
-  const searchHits = useMemo(() => {
-    if (!searchQ) return null;
-    const hits = new Set<string>();
-    for (const n of data.nodes) {
-      if (n.label.toLowerCase().includes(searchQ)) hits.add(n.id);
-    }
-    return hits;
-  }, [data.nodes, searchQ]);
+  const match = useScreenSearch(settings.searchQuery, "paper", "note", "section", "experiment");
+  const searchHits = useMemo(
+    () => (settings.searchQuery.trim() ? new Set(match(data.nodes, (n) => n.id, (n) => n.label).map((n) => n.id)) : null),
+    [data.nodes, settings.searchQuery, match],
+  );
 
   const isSearchHit = (id: string) => !searchHits || searchHits.has(id);
 

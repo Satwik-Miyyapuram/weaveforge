@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { isPlaceholderTitle, titleFromFileName, type Paper, type PaperStatus, type PaperSummary } from "@weaveforge/core";
+import { PAPER_STATUSES, isPlaceholderTitle, titleFromFileName, type Paper, type PaperStatus, type PaperSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { confirmRemovePaper } from "./remove-paper";
 import { EntityCard } from "@/components/entity-card";
@@ -10,7 +10,7 @@ import { PaperCardThumbs } from "@/components/card-thumbs";
 import { cardSnippet } from "@/lib/card-snippet";
 import { PinnedPaperBadge } from "@/features/sharing";
 import { ListPicker } from "@/features/reading-lists";
-import { PaperStatusControl } from "./paper-status";
+import { StatusSelect } from "@/components/status-select";
 
 /** Compact paper card in the grid; clicking opens the full note page. */
 export function PaperCard({
@@ -65,16 +65,20 @@ export function PaperCard({
 
   return (
     <EntityCard
-      className={`paper-card paper-card--${paper.status}`}
+      className="paper-card"
+      tone={paper.status}
       onActivate={onOpen}
       // Rows imported before titles were cleaned still carry the filename.
       title={titleFromFileName(paper.title)}
+      badge={readOnly ? <PinnedPaperBadge ownerName={sharedByName} /> : undefined}
       status={
-        readOnly ? (
-          <PinnedPaperBadge ownerName={sharedByName} />
-        ) : (
-          <PaperStatusControl status={paper.status} disabled={busy} onChange={(s) => void changeStatus(s)} />
-        )
+        <StatusSelect
+          value={paper.status}
+          statuses={PAPER_STATUSES}
+          disabled={readOnly || busy}
+          onChange={(st) => void changeStatus(st)}
+          label="Reading status"
+        />
       }
       meta={metaBits.length > 0 ? metaBits.join(" · ") : undefined}
       tags={paper.tags}

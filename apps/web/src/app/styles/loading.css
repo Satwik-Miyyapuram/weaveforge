@@ -181,6 +181,8 @@
 .long-list > * {
   content-visibility: auto;
   contain-intrinsic-size: auto 170px;
+  /* Paint containment would cut off hard shadows and the hover lift. */
+  overflow-clip-margin: 16px;
 }
 .route-pending .weaveforge-loader-wrap--compact {
   min-height: min(40vh, 320px);

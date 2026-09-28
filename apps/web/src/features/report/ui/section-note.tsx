@@ -4,7 +4,6 @@ import { InlineError } from "@/components/form-error";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { REPORT_STATUSES, type ReportSection, type ReportStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { Select } from "@/components/select";
 import { BackButton } from "@/components/back-button";
 import { DocumentBody } from "@/components/document-body";
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
@@ -17,8 +16,10 @@ import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { CitationFormatSelect } from "@/components/citation-format-select";
 import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
 import { materializeReportBlobImages } from "../lib/report-images-md";
+import { sectionProgress, type SectionProgress } from "../lib/section-progress";
 import { SectionRelatedExcerpts } from "./section-related-excerpts";
 import { ExperimentArtifactPicker } from "./experiment-artifact-picker";
+import { StatusSelect } from "@/components/status-select";
 
 /** A section's two views, in the order the Editor's pane header lists them. */
 const SECTION_MODES = ["edit", "read"] as const;
@@ -31,6 +32,7 @@ type SectionMode = (typeof SECTION_MODES)[number];
  */
 export function SectionNote({
   section,
+  progress: rolled,
   readOnly = false,
   sharedByName,
   sharedContent = false,
@@ -40,6 +42,8 @@ export function SectionNote({
   onChanged,
 }: {
   section: ReportSection;
+  /** Words under this section, subsections included; its own text when absent. */
+  progress?: SectionProgress;
   readOnly?: boolean;
   sharedByName?: string;
   /** True for shared/pinned sections — skip viewer-scoped artifact resolve. */
@@ -65,17 +69,13 @@ export function SectionNote({
   }, [section.id]);
 
   const hasNotes = Boolean(section.notes?.trim());
+  const { words, target, pct: progress } = rolled ?? sectionProgress({ section, children: [] });
   const meta = [
-    section.targetWords
-      ? `${section.wordCount} / ${section.targetWords} words`
-      : `${section.wordCount} words`,
+    target ? `${words.toLocaleString()} / ${target.toLocaleString()} words` : `${words.toLocaleString()} words`,
     section.deadline ? `due ${section.deadline}` : null,
   ]
     .filter(Boolean)
     .join(" · ");
-  const progress = section.targetWords
-    ? Math.min(100, Math.round((section.wordCount / section.targetWords) * 100))
-    : null;
 
   async function changeStatus(status: ReportStatus) {
     setBusy(true);
@@ -136,26 +136,17 @@ export function SectionNote({
           behind the ⋯ menu, not one stray tap beside Share. */}
       <div className="section-note-status">
         <div className="section-note-status-row">
-          {readOnly ? (
-            <PinnedPaperBadge ownerName={sharedByName} />
-          ) : (
-            <span className="paper-note-status">
-              <Select
-                className="status-select"
-                value={section.status}
-                disabled={busy}
-                onChange={(e) => void changeStatus(e.target.value as ReportStatus)}
-                aria-label="Section status"
-              >
-                {REPORT_STATUSES.map((st) => (
-                  <option key={st} value={st}>
-                    {st.replace("_", " ")}
-                  </option>
-                ))}
-              </Select>
-            </span>
-          )}
           {meta && <span className="muted section-note-meta">{meta}</span>}
+          {readOnly && <PinnedPaperBadge ownerName={sharedByName} />}
+          <span className="paper-note-status">
+            <StatusSelect
+              value={section.status}
+              statuses={REPORT_STATUSES}
+              disabled={readOnly || busy}
+              onChange={(st) => void changeStatus(st)}
+              label="Section status"
+            />
+          </span>
         </div>
         {progress !== null && (
           <div className="progress-bar section-note-progress" aria-hidden="true">
