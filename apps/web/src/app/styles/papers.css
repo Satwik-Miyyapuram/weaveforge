@@ -22,13 +22,15 @@
 .filter-row {
   display: flex;
   align-items: center;
-  /* A tight row wraps rather than crushing chips to their remove button. */
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  container-type: inline-size;
   gap: 10px;
   margin: 18px 0 8px;
 }
 .filter-row > * { flex: none; }
-.filter-row > .filter-chip:not(.filter-chip--more) { flex: 0 1 auto; min-width: 7.5em; max-width: 16em; }
+.filter-row > .filter-chip:not(.filter-chip--more) { flex: 0 1 auto; min-width: 6em; max-width: 16em; }
+/* Too narrow for chips: the select labels already name the picks. */
+@container (max-width: 900px) { .filter-row .filter-chip { display: none; } }
 .filter-chip--more { padding-right: 10px; cursor: default; }
 .filter-row .custom-select-container.filter-select { width: auto; flex: none; }
 .filter-row .filter-select .custom-select-button { padding: 7px 12px; min-width: 116px; }
@@ -63,7 +65,7 @@
 
 @media (max-width: 899px) {
   /* One scrolling row; select menus portal out so the scroll can't clip them. */
-  .filter-row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .filter-row { overflow-x: auto; scrollbar-width: none; }
   .filter-row > * { flex: none; }
   .screen-actions .search-input { flex: 1 1 auto; width: auto; }
 }
