@@ -16,6 +16,7 @@ import {
   clearExternalChanges,
   keepBothTitle,
   type ConflictResolution,
+  type FolderSession,
   externalChanges,
   onExternalChange,
   previewFolderImport,
@@ -25,21 +26,7 @@ import {
 } from "@/features/workspace/application/workspace-folder";
 import { FormError } from "@/components/form-error";
 
-/**
- * Where the local database is.
- *
- * The shell resolves this per call. Shown rather than described, on the
- * principle that a database a person cannot find is one they cannot back up.
- *
- * **This used to be a heading of its own with a paragraph under it, and the
- * paragraph said the database was in the workspace folder — because for one
- * commit it was.** It is not, and the tab's opening copy still claimed "both live
- * in the folder you choose", so the same screen made both statements. It is now a
- * row in the status block, where the reader is already looking for it, and the
- * copy in one place says one thing.
- *
- * Desktop only: a browser has no local database to point at.
- */
+/** Where the local database is (desktop only: a browser has none). */
 function useDatabaseLocation(): { dataDir: string; failure: string | null } | null {
   const [state, setState] = useState<{ dataDir: string; failure: string | null } | null>(null);
   useEffect(() => {
@@ -51,10 +38,7 @@ function useDatabaseLocation(): { dataDir: string; failure: string | null } | nu
       .then((value) => {
         if (live) setState({ dataDir: value.dataDir, failure: value.failure });
       })
-      .catch(() => {
-        // An older shell with no such channel: the row simply does not appear,
-        // which is the same rule `LocalApiPanel` follows.
-      });
+      .catch(() => {}); // an older shell without the channel: no row
     return () => {
       live = false;
     };
@@ -62,22 +46,7 @@ function useDatabaseLocation(): { dataDir: string; failure: string | null } | nu
   return state;
 }
 
-/**
- * One labelled fact, so the reader can see the state of the thing before
- * deciding what to do about it.
- *
- * The tab previously opened with three paragraphs of explanation and no facts:
- * whether a folder was connected could only be inferred from which buttons were
- * on screen, and where the database actually was needed a separate heading and a
- * paragraph of its own. A definition list answers "what is true right now" at a
- * glance and gives the prose below it something to be about.
- *
- * Reuses `.account-info-grid`, the status grid the Account tab already
- * established. Its columns come from `display: contents` on a real `.account-info-row`
- * element around each pair, so this renders a `div` and not a fragment — the
- * fragment version lays out as `dt`/`dd` directly in the grid and silently loses
- * the two-column alignment.
- */
+/** One labelled fact in the `.account-info-grid`; a real row element keeps the two columns. */
 function StatusRow({
   label,
   children,
@@ -102,26 +71,30 @@ function PathValue({ path }: { path: string }) {
   );
 }
 
-/**
- * Settings → Workspace.
- *
- * The tab answers three questions in the order they are asked, and says which
- * is which:
- *
- *   1. **What is true now** — a status block: connected or not, to what, where
- *      the database lives.
- *   2. **What you can do about it** — the folder chooser, or the mirror and
- *      import actions when one is connected.
- *   3. **The optional parts** — git history and the local HTTP surface.
- *
- * It used to be an undifferentiated column: three paragraphs of explanation,
- * then a database heading, then either a chooser or four buttons, then an import
- * section, then the local API. Everything sat at the same visual weight and the
- * opening copy contradicted the middle of the page — it claimed the database was
- * in the folder while the database section said it was not. The rewrite puts the
- * facts first, gives each action group a heading, and keeps one statement about
- * where the database is.
- */
+/** The desktop folder's path; the shell keeps it, the page only reads it. */
+function useFolderPath(session: FolderSession | null): string | null {
+  const [path, setPath] = useState<string | null>(null);
+  useEffect(() => {
+    const bridge = desktop();
+    if (session?.kind !== "desktop" || !bridge) {
+      setPath(null);
+      return;
+    }
+    let live = true;
+    void bridge
+      .vaultRoot()
+      .then((root) => {
+        if (live) setPath(root?.path ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [session]);
+  return path;
+}
+
+/** Settings → Workspace: facts first, then one section per job, each with its own buttons. */
 export function WorkspaceFolderPanel() {
   const [session, setSession] = useState(folderSession());
   const [git, setGit] = useState(false);
@@ -131,32 +104,20 @@ export function WorkspaceFolderPanel() {
   const [history, setHistory] = useState<readonly WorkspaceCommit[]>([]);
   const [diff, setDiff] = useState<(ImportDiff & { skipped?: string[] }) | null>(null);
   const archiveInput = useRef<HTMLInputElement | null>(null);
-  // Resolved after mount, never during render: the server has no shell, and a
-  // first render that disagreed with it would be a hydration mismatch.
+  // Resolved after mount: the server has no shell, and disagreeing would be a hydration mismatch.
   const [hasShell, setHasShell] = useState(false);
   useEffect(() => setHasShell(desktop() !== null), []);
   const database = useDatabaseLocation();
+  const folderPath = useFolderPath(session);
 
-  /**
-   * What somebody else changed in the folder, where the shell can see it.
-   *
-   * Shown, not applied: the reader gets the same diff they would get from
-   * "Check folder for changes", having been told there is something to check.
-   */
+  // Files something else changed in the folder; shown, never applied.
   const [outside, setOutside] = useState<string[]>([]);
   useEffect(() => {
     setOutside(externalChanges());
     return onExternalChange(setOutside);
   }, []);
 
-  /**
-   * Take up the folder the desktop shell already remembers.
-   *
-   * The shell re-checks that the path still exists before answering, so this
-   * reconnects a folder across restarts without ever opening a dialog the user
-   * did not ask for. A folder already chosen this session wins: reconnecting
-   * over it would silently swap where the next write lands.
-   */
+  // Reconnect the folder the shell remembers, without opening a dialog.
   useEffect(() => {
     if (!hasShell || session) return;
     let live = true;
@@ -164,14 +125,10 @@ export function WorkspaceFolderPanel() {
       .then((adopted) => {
         if (live && adopted) setSession(folderSession());
       })
-      .catch(() => {
-        // A remembered folder that has since gone -- an unplugged drive, a
-        // dead network share -- leaves the panel exactly as it was.
-      });
+      .catch(() => {});
     return () => {
       live = false;
     };
-    // Runs for the empty state only; once connected there is nothing to adopt.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasShell]);
 
@@ -187,12 +144,16 @@ export function WorkspaceFolderPanel() {
     }
   };
 
-  const connectedTo =
-    session === null
-      ? "Nothing yet"
-      : session.kind === "opfs"
-        ? "Browser storage"
-        : "A folder on this device";
+  const folderValue =
+    session === null ? (
+      "Not connected"
+    ) : session.kind === "opfs" ? (
+      "Browser storage (not visible in Explorer or Finder)"
+    ) : folderPath ? (
+      <PathValue path={folderPath} />
+    ) : (
+      "A folder picked in this browser"
+    );
 
   return (
     <section
@@ -202,48 +163,32 @@ export function WorkspaceFolderPanel() {
       aria-labelledby="settings-tab-workspace"
     >
       <h3 className="settings-group">Workspace</h3>
+      <p className="muted jump-to-meta">
+        Your work lives in the app&rsquo;s database and is mirrored to the folder as Markdown
+        you can open in Obsidian, VS Code or Explorer. The database is backed up separately.
+      </p>
 
-      {/*
-        The status block. Facts first: every claim the rest of the tab makes is
-        about one of these four rows, so they come before the buttons rather than
-        being scattered through the prose.
-      */}
       <dl className="account-info-grid">
-        <StatusRow label="Folder">
-          {connectedTo}
-          {session?.git === "isomorphic" ? ", with git history" : ""}
-          {session === null && hasShell ? " — choose one below" : ""}
-        </StatusRow>
+        <StatusRow label="Folder">{folderValue}</StatusRow>
+        {session && (
+          <StatusRow label="Mirror">
+            On — each edit is written a moment later
+            {session.git === "isomorphic" ? ", with git history" : ""}
+          </StatusRow>
+        )}
+        {session && (
+          <StatusRow label="Outside edits">
+            {outside.length === 0
+              ? "None"
+              : `${outside.length} file${outside.length === 1 ? "" : "s"} changed outside WeaveForge — not in the app yet`}
+          </StatusRow>
+        )}
         {database?.dataDir && (
           <StatusRow label="Database">
             <PathValue path={database.dataDir} />
           </StatusRow>
         )}
-        <StatusRow label="Mirror">
-          {session === null
-            ? "Idle until a folder is connected"
-            : "Automatic — each edit is written out a moment later"}
-        </StatusRow>
       </dl>
-
-      {/*
-        One statement about where things live, and it agrees with the rows above
-        and with the docs. The database is deliberately *not* claimed to be in the
-        folder: it is not, and the version of this text that said it did was
-        describing a change that was reverted because it corrupted data.
-      */}
-      <p className="muted jump-to-meta">
-        Your work is stored in the app&rsquo;s local database and mirrored to the folder as
-        Markdown you can open in Obsidian, VS Code or Finder — so the folder is the copy to
-        back up. The database lives in WeaveForge&rsquo;s own directory, shown above, and is
-        backed up separately.{" "}
-        {session === null && (
-          <>
-            The folder does not have to be empty: if it holds your own files, WeaveForge keeps its
-            workspace in a <strong>WeaveForge</strong> folder inside it so the two never mix.
-          </>
-        )}
-      </p>
 
       {error && <FormError>{error}</FormError>}
       {status && <p className="muted">{status}</p>}
@@ -251,10 +196,10 @@ export function WorkspaceFolderPanel() {
 
       <h4 className="settings-group">Folder</h4>
       {!session ? (
-        <div className="field">
+        <>
           <p className="muted jump-to-meta">
-            The connected folder is named in the File menu, which can also open it. Choosing one
-            starts the mirror immediately.
+            Pick any folder; if it holds other files, WeaveForge keeps its own in a{" "}
+            <strong>WeaveForge</strong> subfolder.
           </p>
           <label className="field-inline">
             <input
@@ -263,34 +208,18 @@ export function WorkspaceFolderPanel() {
               checked={git}
               onChange={(e) => setGit(e.target.checked)}
             />
-            Keep a git history of the folder
+            Keep a local git history of the folder
           </label>
-          <p className="muted jump-to-meta">
-            Local history only — commits stay on this device. There is no push, pull, or merge.
-          </p>
           <div className="screen-actions">
-            {hasShell && (
-              <button
-                className="btn-primary"
-                type="button"
-                disabled={busy !== null}
-                onClick={() =>
-                  void run("desktop", async () => {
-                    if (await chooseDesktopFolder({ git })) setSession(folderSession());
-                  })
-                }
-              >
-                {busy === "desktop" ? "Choosing…" : "Choose a folder…"}
-              </button>
-            )}
-            {!hasShell && supportsDirectoryPicker() && (
+            {(hasShell || supportsDirectoryPicker()) && (
               <button
                 className="btn-primary"
                 type="button"
                 disabled={busy !== null}
                 onClick={() =>
                   void run("pick", async () => {
-                    if (await chooseFolder({ git })) setSession(folderSession());
+                    const picked = hasShell ? await chooseDesktopFolder({ git }) : await chooseFolder({ git });
+                    if (picked) setSession(folderSession());
                   })
                 }
               >
@@ -312,23 +241,14 @@ export function WorkspaceFolderPanel() {
             </button>
           </div>
           {!hasShell && !supportsDirectoryPicker() && (
-            <p className="muted jump-to-meta">
-              Choosing a real folder needs a Chromium-based browser. Browser storage works
-              everywhere, but the files are not visible in Finder or Explorer.
-            </p>
+            <p className="muted jump-to-meta">Choosing a real folder needs a Chromium-based browser.</p>
           )}
-        </div>
+        </>
       ) : (
-        <div className="field">
-          {outside.length > 0 && (
-            <p className="muted jump-to-meta">
-              {outside.length === 1
-                ? "One file was changed"
-                : `${outside.length} files were changed`}{" "}
-              in this folder by something other than WeaveForge. Nothing in the app has changed —
-              use “Check for changes” below to see the difference first.
-            </p>
-          )}
+        <>
+          <p className="muted jump-to-meta">
+            The mirror runs by itself. Write now before opening the folder in another editor.
+          </p>
           <div className="screen-actions">
             <button
               className="btn-secondary"
@@ -364,35 +284,25 @@ export function WorkspaceFolderPanel() {
               Disconnect
             </button>
           </div>
-          <p className="muted jump-to-meta">
-            The mirror keeps up on its own; “Write everything now” is for the moment before you
-            open the folder in another editor, when waiting a second is not what you want.
-          </p>
-
           {history.length > 0 && (
-            <>
-              <h4 className="settings-group">History</h4>
-              <ul className="wiki-lint-list">
-                {history.map((commit) => (
-                  <li key={commit.oid}>
-                    {commit.message}
-                    <span className="jump-to-meta"> · {commit.authoredAt.slice(0, 10)}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
+            <ul className="wiki-lint-list">
+              {history.map((commit) => (
+                <li key={commit.oid}>
+                  {commit.message}
+                  <span className="jump-to-meta"> · {commit.authoredAt.slice(0, 10)}</span>
+                </li>
+              ))}
+            </ul>
           )}
-        </div>
+        </>
       )}
 
       <h4 className="settings-group">Bring changes back in</h4>
       <p className="muted jump-to-meta">
-        Edited the files somewhere else? Import them here. Notes are matched by their recorded
-        id, so renames are handled. You see the diff before anything is written.
+        Import notes edited outside the app, from the folder or a ZIP. You see the diff before
+        anything is written.
       </p>
-      {/* The native control is driven by a real button rather than shown raw:
-          an unstyled "Choose File / No file chosen" is the one element on the
-          screen that does not belong to this app. */}
+      {/* A real button drives the hidden input: the raw "Choose File" control is off-brand. */}
       <input
         ref={archiveInput}
         type="file"
@@ -410,7 +320,7 @@ export function WorkspaceFolderPanel() {
       <div className="screen-actions">
         {session && (
           <button
-            className="btn-secondary"
+            className={outside.length > 0 ? "btn-primary" : "btn-secondary"}
             type="button"
             disabled={busy !== null}
             onClick={() =>
@@ -420,7 +330,11 @@ export function WorkspaceFolderPanel() {
               })
             }
           >
-            {busy === "preview" ? "Reading…" : "Check for changes"}
+            {busy === "preview"
+              ? "Reading…"
+              : outside.length > 0
+                ? `Review ${outside.length} outside edit${outside.length === 1 ? "" : "s"}`
+                : "Check for changes"}
           </button>
         )}
         <button
@@ -432,10 +346,9 @@ export function WorkspaceFolderPanel() {
           {busy === "zip" ? "Reading…" : "Import a ZIP…"}
         </button>
       </div>
+      {diff && <ImportPreview diff={diff} onApplied={(msg) => { setStatus(msg); setDiff(null); }} />}
 
       {hasShell && <LocalApiPanel />}
-
-      {diff && <ImportPreview diff={diff} onApplied={(msg) => { setStatus(msg); setDiff(null); }} />}
     </section>
   );
 }

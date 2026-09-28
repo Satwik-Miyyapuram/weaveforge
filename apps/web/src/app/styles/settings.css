@@ -102,12 +102,11 @@
 .integration-item .integration-main strong { font-size: 0.95rem; font-weight: 700; }
 .integration-item .integration-main span { font-size: 0.875rem; }
 
-/* One panel per sync concern (Sync, Needs you, Kept on this device): a
+/* One panel per sync concern (Sync, Needs you): a
    heading, a muted line, then its controls, as the Appearance panels read. */
 .settings-block { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
 .settings-block > .settings-group { margin: 0; }
 .settings-block > p { margin: 0; font-size: 0.875rem; }
-.settings-block progress { width: 100%; max-width: 320px; }
 .sync-conflict { display: grid; gap: 8px; }
 /* A write sync gave up on: what, why, then its two ways out. A row of the
    panel, divided like the connection rows, not a heading of its own. */
@@ -192,8 +191,8 @@
   border: 1px solid var(--line); border-radius: var(--radius-sm);
 }
 /* Settings → Calendar: the deadline feed link. */
-.calendar-feed-options { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 24px; margin-bottom: 12px; }
-.calendar-feed-options .field { margin: 0; min-width: 180px; }
+.calendar-feed-options { display: grid; justify-items: start; gap: 14px; margin-bottom: 12px; }
+.calendar-feed-options .field { margin: 0; width: min(100%, 240px); }
 .calendar-feed-check { display: inline-flex; align-items: center; gap: 8px; }
 .calendar-feed-links { display: grid; gap: 10px; margin-bottom: 12px; }
 .calendar-feed-row { display: flex; gap: 8px; }
@@ -202,3 +201,24 @@
 .calendar-feed-help a { color: var(--accent-ink); text-decoration: underline; }
 .calendar-feed-actions { display: flex; align-items: center; gap: 16px; }
 .calendar-feed-desktop { margin-top: 22px; padding-top: 16px; border-top: var(--bw, 1px) solid var(--hair, var(--border)); }
+
+/* A long job beside the setting that starts it: one bar per stage, stacked under 720px. */
+.field-with-steps { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 260px); gap: 12px 20px; align-items: start; }
+@media (max-width: 720px) { .field-with-steps { grid-template-columns: 1fr; } }
+.step-progress { list-style: none; margin: 0; padding: 12px; display: grid; gap: 10px; border: var(--bw, 1px) solid var(--bw-line, var(--border)); border-radius: var(--radius-sm, 8px); background: var(--surface2); }
+.step-progress-step { display: grid; gap: 4px; }
+.step-progress-head { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; }
+.step-progress-mark { display: inline-grid; place-items: center; width: 18px; height: 18px; flex: none; font: 700 0.68rem var(--font-mono, ui-monospace, monospace); border: var(--bw, 1px) solid var(--bw-line, var(--border)); border-radius: 999px; background: var(--surface); }
+.step-progress-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.step-progress-pct { font: 0.72rem var(--font-mono, ui-monospace, monospace); color: var(--muted); }
+.step-progress-detail { font-size: 0.72rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.step-progress-step[data-state="pending"] { opacity: 0.55; }
+.step-progress-step[data-state="done"] .step-progress-mark { background: var(--chip-read, var(--accent)); color: #12110f; }
+.step-progress-step[data-state="active"] .step-progress-mark { background: var(--accent); color: #12110f; }
+.step-progress-step[data-state="error"] .step-progress-mark { background: var(--danger); color: #fff; }
+.step-progress-step[data-state="done"] .step-progress-bar > span { background: var(--chip-read, var(--accent)); }
+.step-progress-bar[data-indeterminate] > span { background: repeating-linear-gradient(-45deg, var(--accent) 0 8px, color-mix(in srgb, var(--accent) 55%, transparent) 8px 16px); background-size: 22.6px 100%; animation: step-progress-crawl 0.8s linear infinite; }
+@keyframes step-progress-crawl { to { background-position: 22.6px 0; } }
+@media (prefers-reduced-motion: reduce) { .step-progress-bar[data-indeterminate] > span { animation: none; } }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .step-progress-bar { height: 10px; background: var(--surface); border: var(--bw) solid var(--bw-line); }
+:root[data-theme="crt"] :is(.step-progress-bar, .step-progress-mark) { border-radius: var(--radius-sm); }
