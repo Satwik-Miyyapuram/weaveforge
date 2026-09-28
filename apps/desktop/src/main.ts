@@ -487,6 +487,10 @@ const { localDb, shutDownLocalDb } = registerMainLocalDb({
   ipc,
   workspaceRoot: () => vault.root?.path,
   rootRestored: () => rootRestored,
+  // A milestone changed in the app shows on the widget at once, not on its next minute.
+  onWrite: (sql) => {
+    if (/\b(milestones|projects)\b/i.test(sql)) planWidget.refresh();
+  },
 });
 
 /**

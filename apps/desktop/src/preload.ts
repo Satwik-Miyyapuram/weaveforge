@@ -119,6 +119,7 @@ const bridge: DesktopBridge = {
   setLocalApi: (enabled) => call<DesktopLocalApi>(CHANNELS.localApiSet, enabled),
   planWidgetState: () => call<DesktopPlanWidget>(CHANNELS.planWidgetState),
   setPlanWidget: (on) => call<DesktopPlanWidget>(CHANNELS.planWidgetSet, on === true),
+  setPlanWidgetTheme: (palette) => ipcRenderer.send(CHANNELS.planWidgetTheme, palette),
   readSecret: (name) => call<string | null>(CHANNELS.secretRead, name),
   writeSecret: async (name, value) => {
     await call<null>(CHANNELS.secretWrite, name, value);

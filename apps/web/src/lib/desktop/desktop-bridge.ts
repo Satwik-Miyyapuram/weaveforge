@@ -330,6 +330,8 @@ export interface DesktopBridge {
    */
   planWidgetState?(): Promise<DesktopPlanWidget>;
   setPlanWidget?(on: boolean): Promise<DesktopPlanWidget>;
+  /** The theme's colours for the widget, each a `#rrggbb`, keyed as the widget's own CSS variables. */
+  setPlanWidgetTheme?(palette: Record<string, string>): void;
 }
 
 /** Mirrored in `apps/desktop/src/channels.ts` (`PlanWidgetStatePayload`). */

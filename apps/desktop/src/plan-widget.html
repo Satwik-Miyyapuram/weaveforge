@@ -13,8 +13,11 @@
     --text: #12110f;
     --muted: #574e3f;
     --accent: #ffc536;
+    --accent-ink: #12110f;
     --late: #ff654d;
+    --late-ink: #12110f;
     --soon: #ffe5a9;
+    --soon-ink: #12110f;
     --sh: 5px 5px 0 #12110f;
     --sh-sm: 2px 2px 0 #12110f;
   }
@@ -26,8 +29,11 @@
       --text: #f2e1c4;
       --muted: #b8a98f;
       --accent: #ffc536;
+      --accent-ink: #12110f;
       --late: #ff654d;
+      --late-ink: #12110f;
       --soon: #5a4a1e;
+      --soon-ink: #f2e1c4;
       --sh: 5px 5px 0 #000;
       --sh-sm: 2px 2px 0 #000;
     }
@@ -61,7 +67,7 @@
     padding: 12px 14px 10px;
     border-bottom: 2px solid var(--line);
     background: var(--accent);
-    color: #12110f;
+    color: var(--accent-ink);
     /* The header is the handle: drag it to move the widget. */
     -webkit-app-region: drag;
     cursor: grab;
@@ -73,9 +79,10 @@
     font-size: 12px;
     font-weight: 700;
     padding: 1px 7px;
-    border: 2px solid #12110f;
+    border: 2px solid var(--accent-ink);
     border-radius: 4px;
     background: var(--late);
+    color: var(--late-ink);
   }
   ol { list-style: none; margin: 0; padding: 6px 0; flex: 1; overflow: hidden; }
   li {
@@ -113,9 +120,9 @@
     background: var(--well);
     box-shadow: var(--sh-sm);
   }
-  .when.soon { background: var(--soon); }
-  .when.late { background: var(--late); color: #12110f; }
-  .blocked { color: var(--late); font-weight: 700; }
+  .when.soon { background: var(--soon); color: var(--soon-ink); }
+  .when.late { background: var(--late); color: var(--late-ink); }
+  .blocked { color: var(--late-ink); font-weight: 700; }
   .empty { padding: 22px 14px; color: var(--muted); font-size: 14px; }
   footer {
     display: flex;
@@ -143,7 +150,7 @@
   button:hover { filter: brightness(1.06); }
   button:active { transform: translate(2px, 2px); box-shadow: none; }
   button:focus-visible { outline: 2px solid var(--line); outline-offset: 2px; }
-  button.primary { background: var(--accent); color: #12110f; }
+  button.primary { background: var(--accent); color: var(--accent-ink); }
 </style>
 </head>
 <body>
@@ -228,6 +235,13 @@
   document.getElementById("open").addEventListener("click", () => window.planWidget.open());
   document.getElementById("hide").addEventListener("click", () => window.planWidget.hide());
   window.planWidget.onData(render);
+  // The app's own colours, so the widget matches its theme rather than the system's.
+  window.planWidget.onTheme((palette) => {
+    const root = document.documentElement.style;
+    for (const [key, value] of Object.entries(palette)) root.setProperty(`--${key}`, value);
+    root.setProperty("--sh", `5px 5px 0 ${palette.line}`);
+    root.setProperty("--sh-sm", `2px 2px 0 ${palette.line}`);
+  });
 </script>
 </body>
 </html>
