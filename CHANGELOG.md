@@ -65,8 +65,9 @@ keeps its own number.
 - The phone layout follows the new design: sections, a reader pill, settings
   search, and reader controls that fold instead of scrolling sideways.
 - Nothing on a phone-width screen overflows sideways any more.
-- The native ink app gains a deadlines widget for the home screen. It is built
-  from `apps/android`; the `android-v7` tag builds the TWA only.
+- The native ink app gains a deadlines widget for the home screen.
+- The `android-v7` tag builds, signs and attaches both apps: the TWA and the
+  native ink app (`weaveforge-ink.apk` / `.aab`, from `apps/android`).
 
 ### Notes
 - Installers are still not code-signed. The only integrity check on an update

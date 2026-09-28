@@ -117,7 +117,7 @@ auto-update: they show a "new version" notice that opens the release page
 Do not re-use a PyPI version — it cannot be replaced or deleted and re-uploaded.
 Prefer Trusted Publishing; `PYPI_API_TOKEN` is the fallback.
 
-## Android TWA (`android-vN`)
+## Android (`android-vN`)
 
 The number in the tag is `appVersionCode`, not the app version — that is the
 track that has to increase for Play, and it is why the older `android-v0.5.2`
@@ -148,9 +148,9 @@ number only has to match the manifest you are shipping.
    git tag android-v7      # match appVersionCode
    git push origin android-v7
    ```
-4. `android-twa.yml` builds, uploads artifacts, and attaches APK/AAB to the GitHub Release (creates the release if needed).
+4. `android-twa.yml` builds both apps with the same keystore secrets and attaches them to the GitHub Release (creates it if needed): job `build` the TWA (`app-release-signed.apk` / `app-release-bundle.aab`), job `native` the ink app from `apps/android` (`weaveforge-ink.apk` / `.aab`). Bump `versionCode` in `apps/android/app/build.gradle.kts` too; it is its own track.
 
-Manual rebuild without a tag: **Actions → Build Android TWA → Run workflow**.
+Manual rebuild without a tag: **Actions → Build Android → Run workflow**.
 
 ### URL bar / Digital Asset Links
 
