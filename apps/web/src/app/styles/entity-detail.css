@@ -166,12 +166,6 @@ a.related-paper-url:hover { text-decoration: underline; }
 }
 .citation-format-select { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; white-space: nowrap; }
 .citation-format-select .select { min-width: 0; }
-.experiment-artifact-picker {
-  display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px;
-  padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm);
-  background: var(--surface);
-}
-.experiment-artifact-picker .error { color: var(--danger); font-size: 0.8rem; }
 
 .brave-graph-warning {
   display: flex; align-items: flex-start; gap: 12px;

@@ -4,6 +4,7 @@ import { InlineError } from "@/components/form-error";
 import { useEffect, useState } from "react";
 import type { Experiment } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { Modal, ModalActions } from "@/components/modal";
 import { Select } from "@/components/select";
 import { artifactBasename, serialiseArtifactRef } from "../application/artifact-refs";
 import { formatError } from "@/lib/format-error";
@@ -114,71 +115,77 @@ export function ExperimentArtifactPicker({
     setOpen(false);
   }
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        className="link-btn"
-        disabled={disabled}
-        onClick={() => setOpen(true)}
-        title="Insert experiment artifact"
-      >
-        /experiment
-      </button>
-    );
-  }
+  const trigger = (
+    <button
+      type="button"
+      className="link-btn"
+      disabled={disabled}
+      onClick={() => setOpen(true)}
+      title="Insert experiment artifact"
+    >
+      /experiment
+    </button>
+  );
+  if (!open) return trigger;
 
   return (
-    <div className="experiment-artifact-picker" role="dialog" aria-label="Insert experiment artifact">
-      <Select
-        aria-label="Experiment"
-        value={experimentId}
-        disabled={busy || experiments.length === 0}
-        onChange={(e) => {
-          const id = e.target.value;
-          setExperimentId(id);
-          const next = experiments.find((item) => item.id === id);
-          setArtifactName(next?.artifacts?.[0] ?? "");
-        }}
-      >
-        {experiments.length === 0 ? (
-          <option value="">No experiments</option>
-        ) : (
-          experiments.map((exp) => (
-            <option key={exp.id} value={exp.id}>
-              {exp.name}
-            </option>
-          ))
-        )}
-      </Select>
-      <Select
-        aria-label="Artifact"
-        value={artifactName}
-        disabled={busy || artifacts.length === 0}
-        onChange={(e) => setArtifactName(e.target.value)}
-      >
-        {artifacts.length === 0 ? (
-          <option value="">No artifacts</option>
-        ) : (
-          artifacts.map((name) => (
-            <option key={name} value={name}>
-              {artifactLabel(name, artifacts)}
-            </option>
-          ))
-        )}
-      </Select>
-      {error && <InlineError>{error}</InlineError>}
-      <button type="button" className="btn-ghost btn-cancel" onClick={() => setOpen(false)} disabled={busy}>
-        Cancel
-      </button>
-      <button
-        type="button"
-        className="btn-primary"
-        onClick={insert}
-        disabled={busy || !experimentId || !artifactName.trim()}
-      >
-        Insert
-      </button>
-    </div>
+    <>
+      {trigger}
+      <Modal title="Insert experiment artifact" onClose={() => { if (!busy) setOpen(false); }}>
+        <div className="form-stack">
+          <Select
+            aria-label="Experiment"
+            value={experimentId}
+            disabled={busy || experiments.length === 0}
+            onChange={(e) => {
+              const id = e.target.value;
+              setExperimentId(id);
+              const next = experiments.find((item) => item.id === id);
+              setArtifactName(next?.artifacts?.[0] ?? "");
+            }}
+          >
+            {experiments.length === 0 ? (
+              <option value="">No experiments</option>
+            ) : (
+              experiments.map((exp) => (
+                <option key={exp.id} value={exp.id}>
+                  {exp.name}
+                </option>
+              ))
+            )}
+          </Select>
+          <Select
+            aria-label="Artifact"
+            value={artifactName}
+            disabled={busy || artifacts.length === 0}
+            onChange={(e) => setArtifactName(e.target.value)}
+          >
+            {artifacts.length === 0 ? (
+              <option value="">No artifacts</option>
+            ) : (
+              artifacts.map((name) => (
+                <option key={name} value={name}>
+                  {artifactLabel(name, artifacts)}
+                </option>
+              ))
+            )}
+          </Select>
+          {error && <InlineError>{error}</InlineError>}
+          <ModalActions>
+            <button type="button" className="btn-ghost btn-cancel" onClick={() => setOpen(false)} disabled={busy}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={insert}
+              disabled={busy || !experimentId || !artifactName.trim()}
+            >
+              Insert
+            </button>
+          </ModalActions>
+        </div>
+      </Modal>
+    </>
   );
 }

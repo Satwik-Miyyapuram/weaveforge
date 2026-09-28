@@ -56,7 +56,7 @@ export function ReaderToolbar({ viewport, numPages, hideFit = false, children }:
           aria-label="Zoom out"
           title="Zoom out (−)"
         >
-          −
+          <ZoomGlyph />
         </button>
         <span className="pdf-reader-toolbar-label" aria-live="polite">
           {percent}%
@@ -68,7 +68,7 @@ export function ReaderToolbar({ viewport, numPages, hideFit = false, children }:
           aria-label="Zoom in"
           title="Zoom in (+)"
         >
-          +
+          <ZoomGlyph plus />
         </button>
       </div>
       {/* On a phone, fit and rotate live behind "More": pinch zooms, and the
@@ -130,5 +130,14 @@ export function ReaderToolbar({ viewport, numPages, hideFit = false, children }:
       </label>
       {children}
     </div>
+  );
+}
+
+/** Drawn, not typed: the theme fonts render "−" and "+" as specks. */
+function ZoomGlyph({ plus = false }: { plus?: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
+      <path d={plus ? "M5 12h14M12 5v14" : "M5 12h14"} />
+    </svg>
   );
 }

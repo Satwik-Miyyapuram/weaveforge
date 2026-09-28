@@ -29,6 +29,8 @@ interface AnnotationBox {
   underline: boolean;
   /** The stored file of a placed picture (`reader-picture.ts`), drawn in the box. */
   picture: string | null;
+  /** A text box's words, drawn in the box; null for every other mark. */
+  text: string | null;
 }
 
 interface AnnotationStroke {
@@ -173,6 +175,7 @@ export function projectPageAnnotationGeometry(
           color: ann.color,
           underline: ann.type === "underline",
           picture: picturePath(ann),
+          text: ann.type === "text" ? ann.text : null,
         });
       }
     }

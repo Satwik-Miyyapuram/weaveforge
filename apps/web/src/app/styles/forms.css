@@ -398,7 +398,7 @@ label.mp-row input[type="checkbox"]:disabled,
  * button sits the declaration was honoured in exactly one shape: a button that
  * is a direct child of `.add-form`, the add/edit forms, which are a
  * single-column grid. Everywhere else the button's parent is a flex row —
- * `.head-row`, `.form-foot`, `.card-foot`, `.ai-access-modal-actions` — where
+ * `.head-row`, `.form-foot`, `.card-foot`, `.modal-actions` — where
  * the property did nothing, and those rows already push it to the end with
  * `justify-content: flex-end`.
  *

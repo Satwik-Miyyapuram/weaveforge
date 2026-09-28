@@ -56,7 +56,15 @@
 /* "Page 3 / 15" is orientation, not a command: it leads the bar. */
 .pdf-reader-page-jump { font-size: 0.85rem; order: -1; }
 .pdf-reader-page-jump input {
-  width: 3.5rem; padding: 4px 6px; text-align: center;
+  width: 3.5rem; height: 32px; padding: 0 6px; text-align: center;
+}
+/* Page and zoom are one kind of group: flat 32px tiles, no frame in a frame. */
+:root .pdf-reader-toolbar .pdf-reader-page-jump.pdf-reader-group input {
+  height: 32px; border: 0; border-radius: 5px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+:root .pdf-reader-toolbar .pdf-reader-group .btn-secondary.pdf-reader-icon-btn {
+  width: 32px; min-width: 32px; padding: 0; font-size: 1.2rem; font-weight: 700;
 }
 /* The tool group sits in a nowrap flex strip: it keeps its size. */
 .pdf-reader-tool-seg { flex: none; }
@@ -394,6 +402,17 @@ body > canvas.hiddenCanvasElement { display: none; }
   opacity: 0.6;
 }
 .pdf-reader-ann.is-underline { opacity: 1; }
+/* A text box shows its words on the page; the same box is its editor. */
+.pdf-reader-ann.is-text,
+.pdf-reader-text-edit {
+  opacity: 1; color: #111; text-align: left; line-height: 1.25;
+  padding: 0.2em 0.35em; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere;
+  font-family: system-ui, sans-serif;
+}
+.pdf-reader-text-edit {
+  position: absolute; z-index: 4; box-sizing: border-box; resize: none;
+  background: rgba(255, 255, 255, 0.85); border: none; outline: 2px solid var(--accent);
+}
 .pdf-reader--dark .pdf-reader-textlayer {
   opacity: 0.45; mix-blend-mode: difference;
 }
@@ -419,8 +438,8 @@ body > canvas.hiddenCanvasElement { display: none; }
    content so it scrolls with the words (`selection-create-bar.tsx`). */
 .pdf-reader-create-bar {
   position: absolute; z-index: 6; transform: translateY(-100%);
-  display: flex; gap: 8px; align-items: center; white-space: nowrap;
-  padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; white-space: nowrap;
+  max-width: calc(100% - 16px); padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
   background: var(--surface); box-shadow: var(--shadow);
   touch-action: manipulation;
 }
@@ -430,6 +449,13 @@ body > canvas.hiddenCanvasElement { display: none; }
   width: 18px; height: 18px; border-radius: 3px; border: 1px solid var(--border); padding: 0; cursor: pointer;
 }
 .pdf-reader-create-swatch.is-active { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pdf-reader-create-icon,
+.pdf-reader-create-close { min-width: 32px; display: inline-flex; align-items: center; justify-content: center; }
+/* Phone: tighter so the close button stays on the row. `:root` outranks the theme's `.btn-sm`. */
+@media (max-width: 480px) {
+  .pdf-reader-create-bar { flex-wrap: nowrap; gap: 4px; padding: 4px; }
+  :root .pdf-reader-create-bar .btn-sm { padding-inline: 8px; font-size: 0.8rem; }
+}
 .pdf-reader-sidebar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .pdf-reader-sidebar-edit { display: grid; gap: 6px; margin-top: 4px; }
 .pdf-reader-sidebar-edit textarea,
@@ -468,6 +494,8 @@ body > canvas.hiddenCanvasElement { display: none; }
    app's own dark surface would be just as wrong here as the white one. */
 .pdf-reader--dark .pdf-reader-page { background: #000; }
 .pdf-reader--dark .pdf-reader-ann { mix-blend-mode: screen; }
+.pdf-reader--dark .pdf-reader-ann.is-text { color: #eee; mix-blend-mode: normal; }
+.pdf-reader--dark .pdf-reader-text-edit { color: #eee; background: rgba(0, 0, 0, 0.85); }
 /* Minimal: a footnote-sized card — title, one metadata line, one row of quiet
    text actions. Same surface as `.popover-panel`; every colour is a theme
    token so it reads the same on the light, dark and high-contrast themes. */
@@ -712,7 +740,8 @@ body > canvas.hiddenCanvasElement { display: none; }
     background: var(--surface); border: 1px solid var(--line);
     box-shadow: 0 6px 20px rgb(0 0 0 / 0.16);
   }
-  .pdf-reader-pill-colours { display: flex; gap: 8px; }
+  /* Inset so the checked ring clears the pill's rounded end. */
+  .pdf-reader-pill-colours { display: flex; gap: 10px; padding-inline: 5px; }
   .pdf-reader-pill-swatch {
     width: 30px; height: 30px; min-width: 0; padding: 0; border-radius: 50%;
     border: 1px solid var(--line); cursor: pointer;

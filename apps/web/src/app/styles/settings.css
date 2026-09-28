@@ -22,7 +22,7 @@
   background: var(--surface2);
 }
 .ai-access-panel { margin-bottom: 24px; padding: 0; }
-.ai-access-modal { max-width: 640px; }.ai-access-modal .ai-access-panel { margin: 0; }.ai-access-modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.ai-access-modal { max-width: 640px; }.ai-access-modal .ai-access-panel { margin: 0; }
 .ai-access-launcher-icon { display: grid; place-items: center; color: var(--accent-fg); font-size: 1rem; background: var(--accent); }
 
 /* Hero */

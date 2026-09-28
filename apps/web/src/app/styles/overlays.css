@@ -11,6 +11,10 @@
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
   /* Do not use .card here — card stacking/overflow rules must not apply. */
 }
+/* Palette: no head, sits high so a growing result list extends downward. */
+.modal-backdrop--palette { padding-top: 12vh; }
+.modal--palette { width: min(38rem, 100%); max-height: 70vh; gap: 8px; padding: 12px; overflow: hidden; }
+.modal--palette > ul { overflow-y: auto; min-height: 0; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .modal-head h3 { margin: 0; font-family: var(--font-serif); font-weight: 600; }
 /* Add-forms are self-contained cards; flatten them inside a modal so we don't
@@ -21,6 +25,11 @@
 }
 .modal .form-foot { margin-top: 6px; padding-top: 2px; }
 .modal .add-form > .settings-group:first-child { display: none; }
+/* The one dialog footer (`ModalActions`). */
+.modal-actions {
+  display: flex; align-items: center; justify-content: flex-end; gap: 9px;
+  padding-top: 14px; border-top: 1px solid var(--line);
+}
 
 /* ---- Header action cluster (Sync / Add / Filters live here) ---- */
 .screen-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
@@ -58,6 +67,43 @@
   margin: 0;
 }
 .popover-panel .filters { margin: 0; gap: 10px; }
+
+/* Phone: dialogs and anchored panels become bottom sheets, palettes drop from the top. */
+@media (max-width: 900px) {
+  .modal-backdrop { align-items: flex-end; padding: 0; }
+  .modal {
+    width: 100%;
+    max-height: 88dvh;
+    overflow-y: auto;
+    border-radius: 14px 14px 0 0;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+  .modal-backdrop--palette { align-items: flex-start; padding: 0; }
+  .modal--palette {
+    max-height: 80dvh;
+    border-radius: 0 0 14px 14px;
+    padding: calc(12px + env(safe-area-inset-top)) 12px 12px;
+  }
+  .modal.quick-open { padding: env(safe-area-inset-top) 0 0; }
+  .modal-actions { gap: 8px; }
+  .modal-actions > :is(button, a) { flex: 1 1 0; justify-content: center; min-height: 44px; }
+  /* Point popovers share the sheet; :root outranks their later-loaded desktop rules. */
+  :root :is(.popover-panel, .pdf-reader-ref-popover, .graph-edge-popover) {
+    top: auto !important;
+    left: 0 !important;
+    transform: none;
+    margin: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    max-height: 80dvh;
+    overflow-y: auto;
+    border-radius: 14px 14px 0 0;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+}
 /* Was: `.popover-panel .custom-select-menu` constraining the menu to the
    panel's width. A portalled menu is no longer inside the panel, and its width
    comes from the measured trigger instead. */

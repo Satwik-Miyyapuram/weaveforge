@@ -22,15 +22,11 @@ code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono);
 .btn-primary.btn-danger:hover { background: color-mix(in srgb, var(--danger) 88%, var(--ink)); }
 
 /* Confirmation dialogs: one sentence, then the two choices. */
-.confirm-dialog-body { margin: 0 0 18px; font-size: 0.9rem; line-height: 1.6; }
-.confirm-dialog-actions {
-  display: flex; align-items: center; justify-content: flex-end; gap: 9px;
-  padding-top: 14px; border-top: 1px solid var(--line);
-}
+.confirm-dialog-body { margin: 0; font-size: 0.9rem; line-height: 1.6; }
 
 /* A dialog that asks for a value rather than a yes: one labelled field between
    the sentence and the choices. */
-.prompt-dialog-field { display: block; margin: 0 0 4px; }
+.prompt-dialog-field { display: block; margin: 14px 0 0; }
 .prompt-dialog-field > span {
   display: block; margin-bottom: 6px;
   font-size: 0.78rem; font-weight: 600; color: var(--muted);

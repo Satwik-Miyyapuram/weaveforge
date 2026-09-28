@@ -188,7 +188,7 @@ export function usePagePointer({
   } = usePointerPreviews();
   /** Region a text annotation was drawn over, awaiting its text. */
   const [pendingTextBox, setPendingTextBox] = useState<PendingTextBox | null>(null);
-  /** Sticky note awaiting its comment, with the colour chosen for it. */
+  /** Comment awaiting its text, with the colour chosen for it. */
   const [pendingNote, setPendingNote] = useState<{ color: string } | null>(null);
   /**
    * Changing tool — or putting the pen down — lets the lasso go.
@@ -693,8 +693,7 @@ export function usePagePointer({
         pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize.height;
       const width = Math.abs(d.x1 - d.x0);
       const height = Math.abs(d.y1 - d.y0);
-      // Hand off to the in-app composer rather than window.prompt, which is an
-      // unstyled OS dialog and on mobile hides the page you are annotating.
+      // Opens the box for typing on the page itself.
       setPendingTextBox({
         pageIndex: pageNumber - 1,
         pageHeight,

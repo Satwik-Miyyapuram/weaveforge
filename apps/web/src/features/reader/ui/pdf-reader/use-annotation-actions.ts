@@ -35,7 +35,7 @@ export interface AnnotationActions {
   persistDraft: (draft: NewReaderAnnotation) => Promise<ReaderAnnotation | null>;
   updateLocal: (
     id: string,
-    patch: { comment?: string; tags?: string[]; color?: string },
+    patch: { comment?: string; tags?: string[]; color?: string; text?: string },
   ) => Promise<void>;
   /** Delete now, no question asked. Every caller that needs one goes through `askRemove`. */
   removeLocal: (id: string) => Promise<void>;
@@ -126,7 +126,7 @@ export function useAnnotationActions({
   );
 
   const updateLocal = useCallback(
-    async (id: string, patch: { comment?: string; tags?: string[]; color?: string }) => {
+    async (id: string, patch: { comment?: string; tags?: string[]; color?: string; text?: string }) => {
       if (!onAnnotationsChange) return;
       const change: ChangeAnnotations = onAnnotationsChange;
       // A colour change repaints the highlight, so waiting for the write shows a

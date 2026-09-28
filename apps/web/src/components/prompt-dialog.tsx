@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { FormError } from "./form-error";
-import { Modal } from "./modal";
+import { Modal, ModalActions } from "./modal";
 
 /**
  * A question the app draws, not the OS.
@@ -72,14 +72,14 @@ export function PromptDialog({
           />
         </label>
         <FormError>{problem}</FormError>
-        <div className="confirm-dialog-actions">
+        <ModalActions>
           <button type="button" className="btn-secondary btn-cancel" onClick={onClose}>
             Cancel
           </button>
           <button type="submit" className="btn-primary">
             {confirmLabel}
           </button>
-        </div>
+        </ModalActions>
       </form>
     </Modal>
   );

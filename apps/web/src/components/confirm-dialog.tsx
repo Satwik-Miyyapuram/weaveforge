@@ -1,7 +1,7 @@
 "use client";
 
 
-import { Modal } from "./modal";
+import { Modal, ModalActions } from "./modal";
 
 /**
  * A confirmation the app draws, not the OS.
@@ -43,7 +43,7 @@ export function ConfirmDialog({
   return (
     <Modal title={title} onClose={busy ? undefined : onClose} dismissible={!busy}>
       <p className="muted confirm-dialog-body">{body}</p>
-      <div className="confirm-dialog-actions">
+      <ModalActions>
         <button type="button" className="btn-secondary" onClick={onClose} disabled={busy} autoFocus>
           {cancelLabel}
         </button>
@@ -55,7 +55,7 @@ export function ConfirmDialog({
         >
           {busy ? "Working…" : confirmLabel}
         </button>
-      </div>
+      </ModalActions>
     </Modal>
   );
 }
