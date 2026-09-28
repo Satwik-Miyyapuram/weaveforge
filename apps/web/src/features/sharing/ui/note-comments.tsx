@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { Comment, CommentAnchor, Member } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { ChevronIcon } from "@/components/chevron-icon";
 import { CommentsIcon, DeleteIcon } from "@/components/view-icons";
 import { FormError } from "@/components/form-error";
 import { useProfile } from "@/features/org";
@@ -305,6 +306,7 @@ export function NoteComments({
           <button type="button" className="note-comments-toggle" aria-expanded={open} onClick={toggleOpen}>
             <span>Comments</span>
             <span className="record-section-tag">{openThreads.length > 0 ? String(openThreads.length) : "None"}</span>
+            <ChevronIcon open={shown} size={14} />
           </button>
         </h2>
       )}

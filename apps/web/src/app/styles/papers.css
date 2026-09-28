@@ -22,10 +22,13 @@
 .filter-row {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px;
   margin: 18px 0 8px;
 }
+.filter-row > * { flex: none; }
+.filter-row > .filter-chip:not(.filter-chip--more) { flex: 0 1 auto; min-width: 0; }
+.filter-chip--more { padding-right: 10px; cursor: default; }
 .filter-row .custom-select-container.filter-select { width: auto; flex: none; }
 .filter-row .filter-select .custom-select-button { padding: 7px 12px; min-width: 116px; }
 .view-switch { margin-left: auto; flex: none; }
@@ -40,7 +43,9 @@
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 999px;
+  white-space: nowrap;
 }
+.filter-chip-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .filter-chip-x {
   display: grid;
   place-items: center;
@@ -56,6 +61,7 @@
 .filter-chip-x:hover { filter: brightness(0.8); color: var(--ink); }
 
 @media (max-width: 899px) {
+  .filter-row { flex-wrap: wrap; }
   .screen-actions .search-input { flex: 1 1 auto; width: auto; }
 }
 
@@ -300,6 +306,9 @@
   display: grid; grid-template-columns: minmax(90px, 140px) minmax(0, 1fr);
   gap: 8px; align-items: start; min-width: 0;
 }
+/* The side column is too narrow for label and control side by side. */
+.record-aside .paper-field-row { grid-template-columns: 1fr; gap: 4px; }
+.record-aside :is(.paper-field-label, .paper-field-row dt) { padding-top: 0; }
 @media (max-width: 520px) {
   .paper-field-row {
     grid-template-columns: 1fr;

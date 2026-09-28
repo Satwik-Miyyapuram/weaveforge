@@ -463,10 +463,6 @@ export function PaperNote({
                 )}
               </RecordSection>
 
-              <RecordSection label="Fields">
-                <PaperFieldsStrip paperId={paper.id} readOnly={readOnly} />
-              </RecordSection>
-
               {!readOnly && (
                 <RecordSection label="Linked papers" tag="By hand">
                   <RelatedPapersPanel paper={paper} onChanged={onChanged} />
@@ -505,6 +501,9 @@ export function PaperNote({
               ]}
             />
             <PaperExternalLink paper={paper} />
+          </RecordSection>
+          <RecordSection label="Fields">
+            <PaperFieldsStrip paperId={paper.id} readOnly={readOnly} />
           </RecordSection>
           {/* What the graph, the wording and the meaning put next to this
               paper — including things nobody linked by hand. */}

@@ -381,7 +381,7 @@
 /* Margin comments on a note (note-comments.tsx). */
 .note-comments-toggle {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   width: 100%;
@@ -394,8 +394,7 @@
   cursor: pointer;
 }
 .note-comments-toggle:hover { filter: brightness(1.15); }
-.note-comments-toggle::after { content: "▸"; margin-left: auto; transition: transform 0.15s; }
-.note-comments.is-open .note-comments-toggle::after { transform: rotate(90deg); }
+.note-comments-toggle .chev { margin-left: auto; }
 .note-comments-body { display: grid; gap: 12px; }
 .note-threads { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .note-thread {

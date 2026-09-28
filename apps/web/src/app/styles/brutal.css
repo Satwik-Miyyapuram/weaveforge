@@ -343,9 +343,8 @@
   border: var(--bw) solid transparent;
   border-radius: var(--radius-sm);
 }
-/* A card's icon actions share one size: the comments toggle was 32px beside a
-   36px menu button on the same row. */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.entity-card, .paper-card) .entity-icon-btn {
+/* Card and list-row icon actions share one size. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.entity-card, .paper-card, .list-row) .entity-icon-btn {
   min-width: 36px;
   min-height: 36px;
 }
@@ -718,11 +717,6 @@
   font-family: var(--display); font-weight: var(--display-weight);
   font-size: 1.9rem; line-height: 1.05;
 }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row .entity-icon-btn {
-  width: 44px; height: 44px; border: var(--bw) solid var(--bw-line);
-  border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--sh-sm);
-}
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row .entity-icon-btn.is-active { background: var(--accent); color: var(--accent-fg); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-body > .list-add-trigger { font-size: 0.95rem; padding: 12px 16px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .screen-eyebrow + .screen-title { margin-top: 14px; }
 

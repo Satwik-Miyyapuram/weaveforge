@@ -46,11 +46,11 @@ function findOr(nodes: readonly WorkspaceTreeNode[], key: string): WorkspaceTree
   }
 }
 
-test("rules: Notes takes notes and folders; Report takes sections; Papers takes nothing", () => {
+test("rules: Notes takes notes, and folders under a folder; Report takes sections; Papers takes nothing", () => {
   const roots = tree();
   assert.deepEqual(creatableUnder(find(roots, rootKey("notes"))), ["note", "folder"]);
   assert.deepEqual(creatableUnder(find(roots, "vault_page:n2")), ["note", "folder"]);
-  assert.deepEqual(creatableUnder(find(roots, "ink_page:n3")), ["note", "folder"]);
+  assert.deepEqual(creatableUnder(find(roots, "ink_page:n3")), ["note"]);
   assert.deepEqual(creatableUnder(find(roots, rootKey("report"))), ["section"]);
   assert.deepEqual(creatableUnder(find(roots, "report_section:s2")), ["section"]);
   assert.deepEqual(creatableUnder(find(roots, "papers")), []);
