@@ -1,6 +1,6 @@
 # Redesign audit — verification and remediation log
 
-What was checked in [redesign-suggestions.md](redesign-suggestions.md) against
+What was checked in redesign-suggestions.md against
 the code as it stands, what was still broken and is now fixed, and what was
 re-read and found **not** to be a defect.
 
@@ -13,7 +13,7 @@ re-read, and why.
 The audit was anchored at `d2dcc35` (2026-09-11). This pass is at `071490b`
 (2026-09-19) — four merged pulls and a good deal of reader, ink and citation
 work later. Every one of R1–R14 was re-read in the current tree before anything
-was changed, the way [`review-2-fixes.md`](review-2-fixes.md) records doing for
+was changed, the way `review-2-fixes.md` records doing for
 the pass-2 review.
 
 Most of the audit had already been actioned, by four commits:
