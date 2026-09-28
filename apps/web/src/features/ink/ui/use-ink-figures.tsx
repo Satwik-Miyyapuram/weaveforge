@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import {
   inkPageFigures,
+  keepFigureOnPage,
   reorderFigures,
   withInkPageFigures,
   type FigureGeometry,
@@ -83,16 +84,6 @@ export function useInkFigures(deps: {
   };
 }
 
-/** A figure's box, clamped so at least half of it stays on the paper. */
-export function clampFigureToPage<T extends FigureGeometry>(
-  one: T,
-  pageSize: { width: number; height: number },
-): T {
-  const x = Math.round(Math.min(Math.max(one.x, -one.w / 2), pageSize.width - one.w / 2));
-  const y = Math.round(Math.min(Math.max(one.y, -one.h / 2), pageSize.height - one.h / 2));
-  return x === one.x && y === one.y ? one : { ...one, x, y };
-}
-
 /**
  * A figure let go of after a move (§figure). A drag may carry a figure past
  * its page's edge: when its middle ends up on another page, it moves there —
@@ -121,13 +112,13 @@ export function useFigureDrop(deps: {
       const middle = sheet.top + (one.y + one.h / 2) * scale;
       const slot = middle < sheet.top || middle > sheet.bottom ? pageSlotAt(middle) : null;
       if (!slot || slot.index === pageIndex) {
-        const parked = clampFigureToPage(one, pageSize);
+        const parked = keepFigureOnPage(one, pageSize);
         if (parked !== one) {
           onFiguresChange(figuresRef.current.map((each, i) => (i === index ? parked : each)));
         }
         return;
       }
-      const moved = clampFigureToPage(
+      const moved = keepFigureOnPage(
         {
           ...one,
           x: Math.round((sheet.left + one.x * scale - slot.left) / scale),
@@ -163,15 +154,16 @@ export function useFigureDrop(deps: {
  * and the figure itself as text for a paste back into a note
  * (§figure-clipboard). The PNG is a promise so the write keeps the key
  * press's permission while the bytes are read; a clipboard that will not take
- * the picture still gets the text, which is all a note needs.
+ * the picture still gets the text, which is all a note needs. True once the
+ * clipboard holds the figure.
  */
 export async function copyFigureToClipboard(
   noteId: string,
   figure: FigureGeometry,
   imageUrl: string | undefined,
-): Promise<void> {
+): Promise<boolean> {
   const text = figureClipText({ noteId, figure });
-  if (typeof navigator === "undefined" || !navigator.clipboard) return;
+  if (typeof navigator === "undefined" || !navigator.clipboard) return false;
   if (imageUrl && typeof ClipboardItem !== "undefined") {
     // Read through an <img>, not fetch: the picture is a blob: URL, which the
     // page's img-src takes and its connect-src does not.
@@ -190,12 +182,15 @@ export async function copyFigureToClipboard(
           "image/png": png,
         }),
       ]);
-      return;
+      return true;
     } catch {
       // see above: the text alone
     }
   }
-  await navigator.clipboard.writeText(text).catch(() => undefined);
+  return navigator.clipboard.writeText(text).then(
+    () => true,
+    () => false,
+  );
 }
 
 /**
@@ -256,9 +251,13 @@ export function InkActiveFigureEditor({
       onDrop={onDrop ? () => onDrop(figureControls) : undefined}
       onCopy={() => void copyFigureToClipboard(noteId, figure, imageUrls.get(figure.path))}
       onCut={() => {
-        void copyFigureToClipboard(noteId, figure, imageUrls.get(figure.path));
-        onFiguresChange(figuresRef.current.filter((_, i) => i !== figureControls));
-        setFigureControls(null);
+        // Taken off the page only once the clipboard holds it: a cut whose copy
+        // failed (no focus, no permission) would lose the figure.
+        void copyFigureToClipboard(noteId, figure, imageUrls.get(figure.path)).then((copied) => {
+          if (!copied) return;
+          onFiguresChange(figuresRef.current.filter((one) => one !== figure));
+          setFigureControls(null);
+        });
       }}
     />
   );

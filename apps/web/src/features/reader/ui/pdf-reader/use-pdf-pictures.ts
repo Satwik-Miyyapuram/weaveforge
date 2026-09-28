@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  figureCornerHit,
+  keepFigureOnPage,
   reorderFigures,
   resizeFigureBox,
   type FigureGeometry,
@@ -108,11 +110,16 @@ export function usePdfPictures(deps: PdfPicturesDeps) {
       if (!ann || !meta || !position) return;
       const rect = pictureRect(box, pageHeight(pageNumber));
       const was = position.rects?.[0];
-      if (!was || rect.some((n, i) => Math.abs(n - (was[i] ?? 0)) > 0.01)) {
-        void saveAnchor(ann, { ...ann.anchor, zoteroPosition: { ...position, rects: [rect] } });
-      }
-      if ((box.crop ?? []).join(",") !== (meta.crop ?? []).join(",")) {
-        void updateLocal(id, { comment: pictureComment({ ...meta, crop: box.crop }) });
+      const moved = !was || rect.some((n, i) => Math.abs(n - (was[i] ?? 0)) > 0.01);
+      const comment =
+        (box.crop ?? []).join(",") !== (meta.crop ?? []).join(",")
+          ? pictureComment({ ...meta, crop: box.crop })
+          : undefined;
+      // One write when both changed (§saveAnchor), so neither undoes the other.
+      if (moved) {
+        void saveAnchor(ann, { ...ann.anchor, zoteroPosition: { ...position, rects: [rect] } }, comment);
+      } else if (comment !== undefined) {
+        void updateLocal(id, { comment });
       }
     },
     [pageHeight, saveAnchor, updateLocal],
@@ -199,7 +206,7 @@ export function usePdfPictures(deps: PdfPicturesDeps) {
   /** The picture a press is over, and which corner: the ink note's `figureAt`. */
   const pictureAt = useCallback(
     (pageNumber: number, at: { x: number; y: number }) => {
-      const hit = (12 + 18) / scale;
+      const hit = figureCornerHit(scale);
       const list = picturesOn(pageNumber);
       for (let index = list.length - 1; index >= 0; index -= 1) {
         const one = list[index]!;
@@ -283,11 +290,7 @@ export function usePdfPictures(deps: PdfPicturesDeps) {
         // Clamped so at least half of it stays on the paper, as on a note.
         const width = pageWidth(held.pageNumber);
         const height = pageHeight(held.pageNumber);
-        change({
-          ...box,
-          x: Math.round(Math.min(Math.max(box.x + dx, -box.w / 2), width - box.w / 2)),
-          y: Math.round(Math.min(Math.max(box.y + dy, -box.h / 2), height - box.h / 2)),
-        });
+        change(keepFigureOnPage({ ...box, x: box.x + dx, y: box.y + dy }, { width, height }));
       } else {
         change({ ...resizeFigureBox(box, held.corner, dx, dy, { free: event.shiftKey }), crop: box.crop });
       }
