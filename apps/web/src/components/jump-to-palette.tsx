@@ -10,6 +10,7 @@ import {
   type SearchHit,
 } from "@weaveforge/core";
 import { useRouter } from "next/navigation";
+import { Modal } from "@/components/modal";
 import { loadCiteLinkCatalog, type CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { getContainer } from "@/bootstrap";
 import { useHybridSearchIndex } from "@/lib/hooks/use-search-index";
@@ -158,7 +159,6 @@ export function JumpToPalette() {
         e.preventDefault();
         openPalette();
       }
-      if (e.key === "Escape") setOpen(false);
     }
     window.addEventListener("keydown", onKey);
     window.addEventListener(OPEN_SEARCH_EVENT, openPalette);
@@ -310,102 +310,95 @@ export function JumpToPalette() {
   if (!open) return null;
 
   return (
-    <div
-      className="jump-to-backdrop"
-      role="presentation"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) setOpen(false);
+    <Modal
+      variant="palette"
+      title="Jump to"
+      onClose={() => setOpen(false)}
+      className="jump-to-dialog"
+      onKeyDown={(e) => {
+        // Ctrl+J/K and Ctrl+N/P alongside the arrows, so hands stay on the
+        // home row. Ctrl is required: plain j/k must still type.
+        const vimDown = e.ctrlKey && (e.key === "j" || e.key === "n");
+        const vimUp = e.ctrlKey && (e.key === "k" || e.key === "p");
+        if (e.key === "ArrowDown" || vimDown) {
+          e.preventDefault();
+          setActive((i) => Math.min(i + 1, filtered.length - 1));
+        } else if (e.key === "ArrowUp" || vimUp) {
+          e.preventDefault();
+          setActive((i) => Math.max(i - 1, 0));
+        } else if (e.key === "Enter" && filtered[active]) {
+          e.preventDefault();
+          go(filtered[active]!);
+        }
       }}
     >
-      <div
-        className="jump-to-dialog"
-        role="dialog"
-        aria-label="Jump to"
-        onKeyDown={(e) => {
-          // Ctrl+J/K and Ctrl+N/P alongside the arrows, so hands stay on the
-          // home row. Ctrl is required: plain j/k must still type.
-          const vimDown = e.ctrlKey && (e.key === "j" || e.key === "n");
-          const vimUp = e.ctrlKey && (e.key === "k" || e.key === "p");
-          if (e.key === "ArrowDown" || vimDown) {
-            e.preventDefault();
-            setActive((i) => Math.min(i + 1, filtered.length - 1));
-          } else if (e.key === "ArrowUp" || vimUp) {
-            e.preventDefault();
-            setActive((i) => Math.max(i - 1, 0));
-          } else if (e.key === "Enter" && filtered[active]) {
-            e.preventDefault();
-            go(filtered[active]!);
-          }
+      <input
+        autoFocus
+        placeholder="Jump to paper, note, or section…"
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setActive(0);
         }}
-      >
-        <input
-          autoFocus
-          placeholder="Jump to paper, note, or section…"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setActive(0);
-          }}
-          aria-label="Search"
-        />
-        {!query.trim() && history.length > 0 && (
-          <ul className="jump-to-history" aria-label="Recent searches">
-            {history.slice(0, 6).map((entry) => (
-              <li key={entry}>
-                <button type="button" className="jump-to-chip" onClick={() => setQuery(entry)}>
-                  {entry}
-                </button>
-                {/* A search you regret is a search you should be able to drop,
-                    without clearing the five useful ones next to it. */}
-                <button
-                  type="button"
-                  className="jump-to-chip-remove"
-                  aria-label={`Remove “${entry}” from recent searches`}
-                  onClick={() => {
-                    const next = forgetSearchQuery(history, entry);
-                    setHistory(next);
-                    writeHistory(next);
-                  }}
-                >
-                  ×
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <ul className="jump-to-list" role="listbox">
-          {filtered.map((c, i) => (
-            <li key={`${c.kind}-${c.id}`} role="option" aria-selected={i === active}>
-              <button type="button" onClick={() => go(c)}>
-                <div>{c.label}</div>
-                {c.excerpt && c.excerpt.text && (
-                  <div className="jump-to-excerpt">
-                    {excerptSegments(c.excerpt).map((segment, index) =>
-                      segment.highlighted ? (
-                        <mark key={index}>{segment.text}</mark>
-                      ) : (
-                        <span key={index}>{segment.text}</span>
-                      ),
-                    )}
-                  </div>
-                )}
-                {c.detail && (
-                  <div className="jump-to-meta">{c.recent ? `recent · ${c.detail}` : c.detail}</div>
-                )}
+        aria-label="Search"
+      />
+      {!query.trim() && history.length > 0 && (
+        <ul className="jump-to-history" aria-label="Recent searches">
+          {history.slice(0, 6).map((entry) => (
+            <li key={entry}>
+              <button type="button" className="jump-to-chip" onClick={() => setQuery(entry)}>
+                {entry}
+              </button>
+              {/* A search you regret is a search you should be able to drop,
+                  without clearing the five useful ones next to it. */}
+              <button
+                type="button"
+                className="jump-to-chip-remove"
+                aria-label={`Remove “${entry}” from recent searches`}
+                onClick={() => {
+                  const next = forgetSearchQuery(history, entry);
+                  setHistory(next);
+                  writeHistory(next);
+                }}
+              >
+                ×
               </button>
             </li>
           ))}
-          {filtered.length === 0 && (
-            <li>
-              {/* A search that finds nothing is often a note that should exist. */}
-              <button type="button" className="jump-to-create" onClick={() => void createFromQuery()}>
-                Create note “{query.trim()}”
-              </button>
-            </li>
-          )}
         </ul>
-        <p className="muted jump-to-meta">Ctrl/Cmd+K · Ctrl+J/K to move · Esc to close</p>
-      </div>
-    </div>
+      )}
+      <ul className="jump-to-list" role="listbox">
+        {filtered.map((c, i) => (
+          <li key={`${c.kind}-${c.id}`} role="option" aria-selected={i === active}>
+            <button type="button" onClick={() => go(c)}>
+              <div>{c.label}</div>
+              {c.excerpt && c.excerpt.text && (
+                <div className="jump-to-excerpt">
+                  {excerptSegments(c.excerpt).map((segment, index) =>
+                    segment.highlighted ? (
+                      <mark key={index}>{segment.text}</mark>
+                    ) : (
+                      <span key={index}>{segment.text}</span>
+                    ),
+                  )}
+                </div>
+              )}
+              {c.detail && (
+                <div className="jump-to-meta">{c.recent ? `recent · ${c.detail}` : c.detail}</div>
+              )}
+            </button>
+          </li>
+        ))}
+        {filtered.length === 0 && (
+          <li>
+            {/* A search that finds nothing is often a note that should exist. */}
+            <button type="button" className="jump-to-create" onClick={() => void createFromQuery()}>
+              Create note “{query.trim()}”
+            </button>
+          </li>
+        )}
+      </ul>
+      <p className="muted jump-to-meta">Ctrl/Cmd+K · Ctrl+J/K to move · Esc to close</p>
+    </Modal>
   );
 }

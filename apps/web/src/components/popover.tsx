@@ -4,6 +4,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties
 import { createPortal } from "react-dom";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { ChevronIcon } from "./chevron-icon";
+import { focusFirstField } from "./modal";
 
 const VIEWPORT_PAD = 12;
 
@@ -109,17 +110,14 @@ export function Popover({
   // click can select it. `useDismissOnOutside` takes a list for this.
   useDismissOnOutside(open, () => setOpen(false), portal ? [ref, panelRef] : ref);
 
-  // Move focus into the panel on open; restore it to the trigger on close.
+  // Focus once placed: a visibility:hidden panel ignores focus(). Restore to the trigger on close.
+  const shown = open && panelPos.visibility === "visible";
   useEffect(() => {
-    if (!open) return;
+    if (!shown) return;
     const trigger = triggerRef.current;
-    const panel = panelRef.current;
-    const first = panel?.querySelector<HTMLElement>(
-      'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])',
-    );
-    (first ?? panel)?.focus();
+    focusFirstField(panelRef.current);
     return () => trigger?.focus();
-  }, [open]);
+  }, [shown]);
 
   return (
     <div className="popover" ref={ref}>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { LintFinding, WikiPagePlan } from "@weaveforge/core";
-import { Modal } from "@/components/modal";
+import { Modal, ModalActions } from "@/components/modal";
 import { formatError } from "@/lib/format-error";
 import {
   activeProviderLabel,
@@ -469,7 +469,7 @@ function MergeDialog({
 
           <pre className="wiki-merge-preview">{preview.result.body}</pre>
 
-          <div className="screen-actions">
+          <ModalActions>
             <button className="btn-ghost btn-cancel" type="button" onClick={onClose}>
               Cancel
             </button>
@@ -490,7 +490,7 @@ function MergeDialog({
             >
               {busy ? "Merging…" : "Merge"}
             </button>
-          </div>
+          </ModalActions>
         </>
       )}
     </Modal>

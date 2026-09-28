@@ -10,7 +10,7 @@ import {
   isUserIntegrationConnected,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { Modal } from "@/components/modal";
+import { Modal, ModalActions } from "@/components/modal";
 import { ScreenHead } from "@/components/screen-head";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
@@ -758,7 +758,7 @@ export function SettingsScreen() {
           <form className="add-form ai-access-modal" onSubmit={(event) => { void submit(event).then(() => setAiAccessOpen(false)); }}>
             <AiAccessPanel settings={settings} onChange={setSettings} />
             {error && <FormError>{error}</FormError>}
-            <div className="ai-access-modal-actions"><button type="button" className="btn-secondary btn-cancel" onClick={() => setAiAccessOpen(false)}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</button></div>
+            <ModalActions><button type="button" className="btn-secondary btn-cancel" onClick={() => setAiAccessOpen(false)}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</button></ModalActions>
           </form>
         </Modal>
       )}

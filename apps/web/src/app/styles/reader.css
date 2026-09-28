@@ -419,8 +419,8 @@ body > canvas.hiddenCanvasElement { display: none; }
    content so it scrolls with the words (`selection-create-bar.tsx`). */
 .pdf-reader-create-bar {
   position: absolute; z-index: 6; transform: translateY(-100%);
-  display: flex; gap: 8px; align-items: center; white-space: nowrap;
-  padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; white-space: nowrap;
+  max-width: calc(100% - 16px); padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm);
   background: var(--surface); box-shadow: var(--shadow);
   touch-action: manipulation;
 }

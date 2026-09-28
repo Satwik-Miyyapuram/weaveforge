@@ -41,7 +41,7 @@ import { StatusSelect, statusLabel } from "@/components/status-select";
 import { PaperIdentifiersEditor } from "./paper-identifiers-editor";
 import { RelatedPapersPanel } from "./related-papers-panel";
 import { TagEditor } from "./tag-editor";
-import { Modal } from "@/components/modal";
+import { Modal, ModalActions } from "@/components/modal";
 
 /** A paper note's three views, in the order the Editor's pane header lists them. */
 const NOTE_MODES = ["edit", "read", "ink"] as const;
@@ -542,7 +542,7 @@ export function PaperNote({
             This note has no template markers. Add a fresh metadata block above your text, or start
             from a clean template — the latter discards the draft you have now.
           </p>
-          <div className="confirm-dialog-actions">
+          <ModalActions>
             <button
               type="button"
               className="btn-secondary btn-cancel"
@@ -557,7 +557,7 @@ export function PaperNote({
             <button type="button" className="btn-primary" onClick={() => applyTemplate(editorHandle.current?.text() ?? paper.summary ?? "")}>
               Append
             </button>
-          </div>
+          </ModalActions>
         </Modal>
       ) : null}
     </article>

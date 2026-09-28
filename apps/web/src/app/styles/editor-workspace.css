@@ -1242,29 +1242,13 @@
   padding: 0.4rem 0.75rem;
 }
 
-/* Quick open sits high rather than centred: the results grow downward, and a
-   list that grows from the middle of the screen moves under the reader's eye. */
-.quick-open-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  display: flex;
-  justify-content: center;
-  padding-block-start: 12vh;
-  background: var(--sel-ring);
-  backdrop-filter: blur(2px);
-}
-
-.quick-open {
+/* Frame comes from `.modal--palette`; the input sits flush on its top edge. */
+.modal.quick-open {
   display: flex;
   flex-direction: column;
-  width: min(38rem, 92vw);
-  max-height: 60vh;
+  padding: 0;
+  gap: 0;
   overflow: hidden;
-  background: var(--elev);
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
-  box-shadow: var(--shadow);
 }
 
 .quick-open-input {

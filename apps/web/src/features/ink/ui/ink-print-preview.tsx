@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 
-import { Modal } from "@/components/modal";
+import { Modal, ModalActions } from "@/components/modal";
 
 /**
  * The page before it is printed: the print document in a frame of its own,
@@ -30,7 +30,7 @@ export function InkPrintPreview({
           title={title}
           srcDoc={html}
         />
-        <div className="confirm-dialog-actions">
+        <ModalActions>
           <button type="button" className="btn-secondary" onClick={onClose}>
             Close
           </button>
@@ -46,7 +46,7 @@ export function InkPrintPreview({
           >
             Print…
           </button>
-        </div>
+        </ModalActions>
       </div>
     </Modal>
   );

@@ -377,9 +377,7 @@
   :root[data-motion="reactive"] :is(
     .header-menu,
     .proj-menu,
-    .popover-panel,
-    .quick-open,
-    .jump-to-dialog
+    .popover-panel
   ) {
     opacity: 1;
     translate: 0;
@@ -392,9 +390,7 @@
     :root[data-motion="reactive"] :is(
       .header-menu,
       .proj-menu,
-      .popover-panel,
-      .quick-open,
-      .jump-to-dialog
+      .popover-panel
     ) {
       opacity: 0;
       translate: 0 -6px;

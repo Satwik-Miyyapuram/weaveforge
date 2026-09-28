@@ -3,7 +3,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { pdfPointToScreen, pdfRectToScreenBox, type PageProjection } from "@weaveforge/core";
 import { sanitizePdfUrl } from "../../application/sanitize-reader-url";
-import { Modal } from "@/components/modal";
+import { Modal, ModalActions } from "@/components/modal";
 import { InkStrokes } from "@/features/ink";
 import type { DraftShape } from "./types";
 import type { MarginNote } from "../../application/margin-notes";
@@ -155,7 +155,10 @@ export function TextBoxComposer({
             onChange={(e) => setText(e.target.value)}
           />
         </label>
-        <div className="screen-actions">
+        <ModalActions>
+          <button type="button" className="btn-secondary btn-cancel" onClick={onCancel}>
+            Cancel
+          </button>
           <button
             type="button"
             className="btn-primary"
@@ -164,10 +167,7 @@ export function TextBoxComposer({
           >
             {submitLabel}
           </button>
-          <button type="button" className="btn-secondary btn-cancel" onClick={onCancel}>
-            Cancel
-          </button>
-        </div>
+        </ModalActions>
       </div>
     </Modal>
   );

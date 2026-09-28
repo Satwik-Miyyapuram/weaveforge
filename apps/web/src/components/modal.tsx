@@ -1,22 +1,45 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+
+const FOCUSABLE = 'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])';
+const FIELD =
+  '[autofocus],[data-autofocus],textarea:not([disabled]),input:not([type=hidden]):not([disabled]),select:not([disabled])';
+
+/** Focus the first field in `root` so typing starts at once; buttons only when there is no field. */
+export function focusFirstField(root: HTMLElement | null) {
+  if (!root || root.contains(document.activeElement)) return;
+  (root.querySelector<HTMLElement>(FIELD) ?? root.querySelector<HTMLElement>(FOCUSABLE) ?? root).focus();
+}
+
+/** A dialog's closing choices, Cancel first and the primary last: a right-hand row on desktop, equal buttons on phones. */
+export function ModalActions({ children }: { children: ReactNode }) {
+  return <div className="modal-actions">{children}</div>;
+}
 
 /**
  * Viewport dialog. Always portaled to `document.body` so card overflow /
  * transform / filter ancestors cannot clip or trap `position: fixed`.
+ * `dialog` is centred on desktop and a bottom sheet on phones; `palette` has no
+ * head, sits high on desktop and drops from the top on phones.
  */
 export function Modal({
   title,
   onClose,
   dismissible = true,
+  variant = "dialog",
+  className,
+  onKeyDown,
   children,
 }: {
   title: string;
   onClose?: () => void;
   /** When false, hide close control and ignore ESC / backdrop click. */
   dismissible?: boolean;
+  variant?: "dialog" | "palette";
+  className?: string;
+  onKeyDown?: (e: ReactKeyboardEvent<HTMLDivElement>) => void;
   children: ReactNode;
 }) {
   const [mounted, setMounted] = useState(false);
@@ -67,12 +90,10 @@ export function Modal({
     const focusables = () =>
       node
         ? Array.from(
-            node.querySelectorAll<HTMLElement>(
-              'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])',
-            ),
+            node.querySelectorAll<HTMLElement>(FOCUSABLE),
           ).filter((el) => el.offsetParent !== null)
         : [];
-    (focusables()[0] ?? node)?.focus();
+    focusFirstField(node);
     function onKey(e: KeyboardEvent) {
       if (e.key !== "Tab") return;
       const items = focusables();
@@ -101,7 +122,7 @@ export function Modal({
 
   return createPortal(
     <div
-      className="modal-backdrop"
+      className={`modal-backdrop modal-backdrop--${variant}`}
       role="presentation"
       onPointerDown={(e) => {
         pressedBackdropRef.current = e.target === e.currentTarget;
@@ -114,21 +135,25 @@ export function Modal({
     >
       <div
         ref={dialogRef}
-        className="modal"
+        className={`modal modal--${variant}${className ? ` ${className}` : ""}`}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={titleId}
+        aria-labelledby={variant === "dialog" ? titleId : undefined}
+        aria-label={variant === "palette" ? title : undefined}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={onKeyDown}
       >
-        <div className="modal-head">
-          <h3 id={titleId}>{title}</h3>
-          {dismissible && onClose ? (
-            <button type="button" className="link-btn" aria-label="Close" onClick={onClose}>
-              ✕
-            </button>
-          ) : null}
-        </div>
+        {variant === "dialog" ? (
+          <div className="modal-head">
+            <h3 id={titleId}>{title}</h3>
+            {dismissible && onClose ? (
+              <button type="button" className="link-btn modal-close" aria-label="Close" onClick={onClose}>
+                ✕
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         {children}
       </div>
     </div>,

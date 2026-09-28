@@ -58,14 +58,15 @@ export function SelectionCreateBar({
 }: SelectionCreateBarProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [left, setLeft] = useState<number | null>(null);
-  // Centred on the words, then kept inside the scroller's width.
+  // Centred on the words, then kept inside the part of the scroller on screen.
   useLayoutEffect(() => {
     const el = ref.current;
     const scroller = el?.offsetParent as HTMLElement | null;
     if (!el || !scroller) return;
     const width = el.offsetWidth;
-    const max = Math.max(GAP, scroller.scrollWidth - width - GAP);
-    setLeft(Math.min(max, Math.max(GAP, at.x - width / 2)));
+    const min = scroller.scrollLeft + GAP;
+    const max = Math.max(min, scroller.scrollLeft + scroller.clientWidth - width - GAP);
+    setLeft(Math.min(max, Math.max(min, at.x - width / 2)));
   }, [at.x]);
   const style: CSSProperties = {
     left: left ?? at.x,

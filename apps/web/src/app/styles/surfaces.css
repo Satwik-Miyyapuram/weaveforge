@@ -15,7 +15,6 @@
   .paper-note-body,
   .paper-ids-editor,
   .paper-fields-manager,
-  .experiment-artifact-picker,
   .artifact-card,
   .artifact-thumbs a,
   .image-thumb,
@@ -132,14 +131,12 @@
   .popover-panel,
   .proj-menu,
   .header-menu,
-  .jump-to-dialog,
   .graph-link-tooltip,
   .graph-settings-drawer,
   .pdf-reader-chrome,
   .pdf-reader-group,
   .pdf-reader-search,
-  .pdf-reader-sidebar,
-  .quick-open
+  .pdf-reader-sidebar
 ) {
   border-color: transparent;
   box-shadow: var(--e3), var(--rim);

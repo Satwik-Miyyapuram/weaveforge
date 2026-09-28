@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Paper, ReportSectionTreeNode } from "@weaveforge/core";
 import { downloadOverleafExportPackage } from "@/features/overleaf/application/download-overleaf-export";
-import { Modal } from "@/components/modal";
+import { Modal, ModalActions } from "@/components/modal";
 import { FormError } from "@/components/form-error";
 import { Select } from "@/components/select";
 import { formatError } from "@/lib/format-error";
@@ -149,14 +149,14 @@ export function ExportOverleafPackagePanel({
                 {warnings.length > 8 ? <li>…and {warnings.length - 8} more</li> : null}
               </ul>
             )}
-            <div className="screen-actions">
-              <button className="btn-primary" type="button" disabled={busy} onClick={() => void run()}>
-                {busy ? "Building…" : "Download ZIP"}
-              </button>
+            <ModalActions>
               <button className="btn-secondary btn-cancel" type="button" disabled={busy} onClick={close}>
                 Cancel
               </button>
-            </div>
+              <button className="btn-primary" type="button" disabled={busy} onClick={() => void run()}>
+                {busy ? "Building…" : "Download ZIP"}
+              </button>
+            </ModalActions>
           </div>
         </Modal>
       )}
