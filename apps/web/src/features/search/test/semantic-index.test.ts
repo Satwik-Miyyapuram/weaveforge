@@ -144,6 +144,19 @@ test("a rewrite that shortens a document does not leave its old tail behind", as
   assert.equal(index.size, 1, "every former passage was retracted");
 });
 
+test("one long document is embedded in bounded batches, not one pass", async () => {
+  const embedder = new TopicEmbedder();
+  const index = new SemanticIndex(embedder);
+  await index.build(CORPUS);
+  embedder.calls = [];
+
+  await index.update([doc("note:x", "Long", "The transformer weighs positions. ".repeat(2000))]);
+
+  assert.ok(embedder.calls.length > 1, "several passes");
+  assert.ok(embedder.calls.every((call) => call.texts.length <= 16), "no pass larger than a batch");
+  assert.ok(index.size > 40);
+});
+
 test("removing a document removes all of its passages", async () => {
   const index = new SemanticIndex(new TopicEmbedder());
   await index.build([doc("note:x", "Long", "The transformer weighs positions. ".repeat(80))]);

@@ -263,7 +263,11 @@ export class SemanticIndex {
     let pending = 0;
     const flush = async () => {
       const texts = group.flatMap((entry) => entry.texts);
-      const vectors = texts.length > 0 ? await this.embedder.embed({ texts, kind: "passage" }) : [];
+      // A long paper alone can be hundreds of passages; one pass over all of them exhausts the WASM heap (std::bad_alloc).
+      const vectors: Float32Array[] = [];
+      for (let start = 0; start < texts.length; start += BATCH) {
+        vectors.push(...(await this.embedder.embed({ texts: texts.slice(start, start + BATCH), kind: "passage" })));
+      }
       let at = 0;
       for (const { doc, texts: own } of group) {
         index.add(own.map((_, i) => ({ id: passageId(doc.id, i), vector: vectors[at + i]! })));
