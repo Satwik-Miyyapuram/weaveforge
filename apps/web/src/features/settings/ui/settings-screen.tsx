@@ -53,11 +53,8 @@ const CalendarFeedPanel = dynamic(() => import("./calendar-feed-panel").then((m)
 const DeleteAccountPanel = dynamic(() => import("./delete-account-panel").then((m) => m.DeleteAccountPanel), { ssr: false });
 
 /**
- * Settings sections, as tabs. This screen used to render all eight stacked
- * with a sticky jump nav on top; adding the appearance controls pushed it past
- * the point where the nav was doing enough, so only the selected section
- * renders now. Same `.seg` / `role="tablist"` idiom as the papers layout
- * switch, which is the app's one tab control.
+ * Settings sections, as tabs: only the selected one renders, in the app's one
+ * tab idiom (`.seg` / `role="tablist"`, as the papers layout switch uses).
  */
 const SETTINGS_TABS = [
   { id: "account", label: "Account" },
