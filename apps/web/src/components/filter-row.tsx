@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { MultiSelect } from "@/components/multi-select";
 
-/** Chips drawn before the rest fold into "+N others", keeping the row to one line. */
+/** Chips drawn before the rest fold into "+N others", keeping the row short. */
 const SHOWN_CHIPS = 2;
 
 export type FilterFacet = {
