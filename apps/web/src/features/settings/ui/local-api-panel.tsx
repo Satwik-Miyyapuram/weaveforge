@@ -6,20 +6,16 @@ import { desktop, type DesktopLocalApi } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
 
 /**
- * Settings → Folder → the local HTTP surface.
+ * Settings → AI → MCP and the local HTTP surface, desktop only.
  *
- * A door, and the user opens it. Nothing here is on by default, the token is
- * shown once and never again, and switching the door off throws the key away
- * rather than keeping it for next time.
- *
- * Desktop only. There is no browser equivalent and there should not be one: a
- * page cannot listen on a port, and anything that could would be a service
- * running on somebody's machine without a window to close.
+ * Off by default. The token is shown once and never again; a new one stops
+ * the old one working, and switching off throws the key away.
  */
 export function LocalApiPanel() {
   const [state, setState] = useState<DesktopLocalApi | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,7 +37,8 @@ export function LocalApiPanel() {
 
   if (!state) return null;
 
-  const toggle = async (enabled: boolean) => {
+  // Switching on while already on issues a fresh token.
+  const setEnabled = async (enabled: boolean) => {
     setBusy(true);
     setError(null);
     try {
@@ -57,14 +54,25 @@ export function LocalApiPanel() {
     }
   };
 
+  const copy = async (label: string, value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(label);
+      window.setTimeout(() => setCopied(null), 1200);
+    } catch (err) {
+      setError(`Copying was blocked. (${formatError(err)})`);
+    }
+  };
+
+  const mcpUrl = `${state.url}/mcp`;
+
   return (
-    <>
-      <h4 className="settings-group">Let other apps in</h4>
-      <p className="muted jump-to-meta">
-        Serve the folder over HTTP on this machine only, using the same routes as
-        Obsidian&rsquo;s local REST API, so tools written for that already work. Training
-        scripts can use it too: point the Python SDK at this address and its runs land here.
-        Nothing outside this computer can reach it.
+    <div id="settings-ai" className="card add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-ai">
+      <h3 className="settings-group">AI & MCP</h3>
+      <p className="muted">
+        Let an MCP client such as Claude or Codex read and search your Notes, over HTTP on this
+        computer only. The same address serves Obsidian&rsquo;s local REST routes and the Python
+        SDK. Nothing outside this computer can reach it.
       </p>
       {error && <FormError>{error}</FormError>}
       <label className="field-inline">
@@ -73,20 +81,32 @@ export function LocalApiPanel() {
           className="themed-check"
           checked={state.enabled}
           disabled={busy}
-          onChange={(e) => void toggle(e.target.checked)}
+          onChange={(e) => void setEnabled(e.target.checked)}
         />
-        Serve the folder at {state.url}
+        Serve MCP at {state.url}
       </label>
       {state.reason && <FormError>{state.reason}</FormError>}
-      {token && (
-        <div className="field">
-          <p className="muted jump-to-meta">
-            This is the only time this token is shown. Copy it now; switching the surface off and
-            on again issues a new one and stops this one working.
-          </p>
-          <code className="wiki-lint-list">{token}</code>
-        </div>
+      {state.enabled && (
+        <>
+          <div className="ai-connection-value">
+            <span><small>MCP endpoint</small><code>{mcpUrl}</code></span>
+            <button type="button" className="btn-secondary" onClick={() => void copy("url", mcpUrl)}>{copied === "url" ? "Copied" : "Copy"}</button>
+          </div>
+          <div className="ai-connection-value">
+            {token ? (
+              <>
+                <span><small>Bearer token — shown once, copy it now</small><code>••••••••••••••••••••••••</code></span>
+                <button type="button" className="btn-secondary" onClick={() => void copy("token", token)}>{copied === "token" ? "Copied" : "Copy"}</button>
+              </>
+            ) : (
+              <>
+                <span><small>Bearer token</small><small className="muted">Hidden once issued. A new one stops the old one working.</small></span>
+                <button type="button" className="btn-secondary" disabled={busy} onClick={() => void setEnabled(true)}>New token</button>
+              </>
+            )}
+          </div>
+        </>
       )}
-    </>
+    </div>
   );
 }
