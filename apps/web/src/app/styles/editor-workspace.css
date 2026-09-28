@@ -2079,9 +2079,10 @@
   user-select: none;
 }
 
-/* The window's own (`WindowScrollbar`): over the viewport, above everything. */
+/* The window's own (`WindowScrollbar`): over the viewport, above everything, below the title bar. */
 .overlay-scrollbar-track.overlay-scrollbar-window {
   position: fixed;
+  top: var(--titlebar-h, 0px);
   z-index: 1000;
 }
 

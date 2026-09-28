@@ -35,6 +35,21 @@ export function selectionAnchor(range: Range, scroller: HTMLElement): SelectionA
   };
 }
 
+const CREATE_ACTIONS = [
+  { type: "highlight", label: "Highlight", path: "m9 11-6 6v3h9l3-3M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" },
+  { type: "underline", label: "Underline", path: "M6 4v6a6 6 0 0 0 12 0V4M4 20h16" },
+  { type: "note", label: "Comment", path: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" },
+] as const;
+
+// Drawn, not typed: icons keep the bar short, and the theme fonts render "×" as a speck.
+function Glyph({ d }: { d: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={d} />
+    </svg>
+  );
+}
+
 interface SelectionCreateBarProps {
   at: SelectionAnchor;
   busy?: boolean;
@@ -84,38 +99,28 @@ export function SelectionCreateBar({
       // A press here must not clear the selection it is about.
       onMouseDown={(event) => event.preventDefault()}
     >
-      <div className="pdf-reader-create-colors" role="group" aria-label="Colour">
-        {READER_ANNOTATION_COLORS.map((swatch) => (
-          <button
-            key={swatch}
-            type="button"
-            className={`pdf-reader-create-swatch${swatch === color ? " is-active" : ""}`}
-            style={{ background: swatch }}
-            aria-label={`Highlight ${swatch}`}
-            aria-pressed={swatch === color}
-            disabled={busy}
-            onClick={() => onCreate("highlight", swatch)}
-          />
-        ))}
-      </div>
+      {CREATE_ACTIONS.map(({ type, label, path }) => (
+        <button
+          key={type}
+          type="button"
+          className="btn-secondary btn-sm pdf-reader-create-icon"
+          aria-label={label}
+          title={label}
+          disabled={busy}
+          onClick={() => onCreate(type, color)}
+        >
+          <Glyph d={path} />
+        </button>
+      ))}
       <button
         type="button"
-        className="btn-secondary btn-sm"
+        className="btn-ghost btn-sm pdf-reader-create-close"
+        aria-label="Close"
+        title="Close"
         disabled={busy}
-        onClick={() => onCreate("underline", color)}
+        onClick={onCancel}
       >
-        Underline
-      </button>
-      <button
-        type="button"
-        className="btn-secondary btn-sm"
-        disabled={busy}
-        onClick={() => onCreate("note", color)}
-      >
-        Note
-      </button>
-      <button type="button" className="btn-ghost btn-cancel btn-sm" disabled={busy} onClick={onCancel}>
-        Cancel
+        <Glyph d="M6 6l12 12M18 6L6 18" />
       </button>
     </div>
   );

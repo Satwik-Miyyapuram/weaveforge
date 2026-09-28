@@ -50,7 +50,7 @@ import { draftPicture } from "../../application/reader-picture";
 import { ReaderToolbar } from "../reader-toolbar";
 import { ReaderSearchBar } from "../reader-search-bar";
 import { ReaderOutline } from "../reader-outline";
-import { AnnotationOverlay } from "../annotation-overlay";
+import { AnnotationOverlay, type TextEdit } from "../annotation-overlay";
 import { bucketAnnotationsByPage } from "../../application/project-annotation-geometry";
 import { AnnotationSidebar } from "../annotation-sidebar";
 import { SelectionCreateBar, selectionAnchor, type SelectionAnchor } from "../selection-create-bar";
@@ -381,6 +381,59 @@ export function PdfReader({
     removeLocal,
   });
   usePenTextSelect(containerRef, canCreate && createTool === "select");
+
+  // A text box is typed into where it sits: a new one as drawn, an old one tapped with the Text tool.
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const textEdit = useMemo((): { page: number; edit: TextEdit } | null => {
+    if (pendingTextBox) {
+      const { pageIndex, x, y, width = 120, height = 24 } = pendingTextBox;
+      return { page: pageIndex + 1, edit: { id: null, rect: [x, y, x + width, y + height], text: "" } };
+    }
+    const ann = editingTextId ? annotations.find((a) => a.id === editingTextId) : undefined;
+    const position = ann?.anchor.zoteroPosition;
+    const rect = position?.rects?.[0];
+    if (!ann || !position || !rect || rect.length < 4) return null;
+    return {
+      page: position.pageIndex + 1,
+      edit: { id: ann.id, rect: [rect[0]!, rect[1]!, rect[2]!, rect[3]!], text: ann.text },
+    };
+  }, [pendingTextBox, editingTextId, annotations]);
+  const commitText = useCallback(
+    (text: string) => {
+      if (pendingTextBox) {
+        const { pageIndex, pageHeight, x, y, width, height } = pendingTextBox;
+        setPendingTextBox(null);
+        void persistDraft(
+          draftTextBox({
+            color: createColor,
+            pageIndex,
+            pageHeight,
+            text,
+            x,
+            y,
+            ...(width != null && height != null ? { width, height } : {}),
+          }),
+        );
+        return;
+      }
+      const ann = annotations.find((a) => a.id === editingTextId);
+      setEditingTextId(null);
+      if (ann && text.trim() !== ann.text) void updateLocal(ann.id, { text });
+    },
+    [pendingTextBox, setPendingTextBox, persistDraft, createColor, annotations, editingTextId, updateLocal],
+  );
+  const cancelText = useCallback(() => {
+    setPendingTextBox(null);
+    setEditingTextId(null);
+  }, [setPendingTextBox]);
+  const selectOnPage = useCallback(
+    (id: string) => {
+      setSelectedAnnId(id);
+      const ann = annotations.find((a) => a.id === id);
+      if (canCreate && createTool === "text" && ann?.type === "text" && ann.origin === "local") setEditingTextId(id);
+    },
+    [annotations, canCreate, createTool],
+  );
 
   /**
    * The pinch, previewed and then committed.
@@ -1004,7 +1057,7 @@ export function PdfReader({
     if (!pendingCreate) return;
     const geometry = pageGeometries.current.get(pendingCreate.pageNumber);
     if (!geometry) return;
-    // A sticky note needs its text first. Collect it in the app rather than an
+    // A comment needs its text first. Collect it in the app rather than an
     // OS prompt, then finish through the same path.
     if (type === "note") {
       setPendingNote({ color });
@@ -1478,6 +1531,8 @@ export function PdfReader({
               onPointerDown={(e) => {
                 if (gestures.begin(e)) return;
                 if (pictures.pointerDown(n, e)) return;
+                // A tap on a text box opens it; it does not start another box.
+                if (createTool === "text" && (e.target as Element).closest(".pdf-reader-ann.is-text")) return;
                 onPagePointerDown(n, e);
               }}
               onPointerMove={(e) => {
@@ -1524,13 +1579,16 @@ export function PdfReader({
                     // `undefined` is a stable prop where a fresh `[]` would
                     // re-render every page's overlay on every frame.
                     inkSelectedIds={inkEditable ? lassoed : undefined}
-                    onSelect={setSelectedAnnId}
+                    onSelect={selectOnPage}
                     fetchPicture={fetchPicture}
                     pictureEdit={pictures.edit?.pageNumber === n ? pictures.edit : null}
                     onPictureChange={pictures.change}
                     onPictureReorder={pictures.reorder}
                     onPictureRemove={pictures.remove}
                     onPictureClose={pictures.close}
+                    textEdit={textEdit?.page === n ? textEdit.edit : null}
+                    onTextCommit={commitText}
+                    onTextCancel={cancelText}
                   />
                 )}
                 {/* Inside the page, because it decorates the page's own text
@@ -1686,39 +1744,15 @@ export function PdfReader({
       />
       {pendingNote && (
         <TextBoxComposer
-          title="Sticky note"
+          title="Comment"
           label="Comment"
-          submitLabel="Add note"
-          placeholder="What do you want to remember about this passage?"
+          submitLabel="Add comment"
+          placeholder="What do you want to say about this passage?"
           onCancel={() => setPendingNote(null)}
           onSubmit={(comment) => {
             const { color } = pendingNote;
             setPendingNote(null);
             void createNoteWithComment(color, comment);
-          }}
-        />
-      )}
-      {pendingTextBox && (
-        <TextBoxComposer
-          title="Text annotation"
-          label="Note"
-          submitLabel="Add note"
-          placeholder="What does this part of the page say?"
-          onCancel={() => setPendingTextBox(null)}
-          onSubmit={(text) => {
-            const { pageIndex, pageHeight, x, y, width, height } = pendingTextBox;
-            setPendingTextBox(null);
-            void persistDraft(
-              draftTextBox({
-                color: createColor,
-                pageIndex,
-                pageHeight,
-                text,
-                x,
-                y,
-                ...(width != null && height != null ? { width, height } : {}),
-              }),
-            );
           }}
         />
       )}
@@ -1733,7 +1767,7 @@ export function PdfReader({
           body={
             removeTarget
               ? `This ${removeTarget.type} mark${
-                  removeTarget.comment ? " and the note on it" : ""
+                  removeTarget.comment ? " and the comment on it" : ""
                 } will be deleted from this paper.`
               : "This mark will be deleted from this paper."
           }
@@ -1757,9 +1791,9 @@ const READER_TOOL_CHOICES: ReadonlyArray<{
   label: string;
   hint: string;
 }> = [
-  { value: "select", label: "Highlight", hint: "Highlight text" },
+  { value: "select", label: "Select", hint: "Select text to highlight, underline or comment on" },
   { value: "image", label: "Clip", hint: "Clip a region" },
-  { value: "text", label: "Comment", hint: "Write a note on the page" },
+  { value: "text", label: "Text", hint: "Type a text box on the page" },
 ];
 
 /** Mirror the ink mode into `?pen=1` so a reload or a shared link lands in it. */

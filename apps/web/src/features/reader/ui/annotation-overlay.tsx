@@ -1,7 +1,12 @@
 "use client";
 
-import { memo, useMemo } from "react";
-import type { FigureGeometry, FigureOrderStep, ReaderAnnotation } from "@weaveforge/core";
+import { memo, useMemo, useRef } from "react";
+import {
+  pdfRectToScreenBox,
+  type FigureGeometry,
+  type FigureOrderStep,
+  type ReaderAnnotation,
+} from "@weaveforge/core";
 import {
   INK_SELECTION_HALO_PX,
   InkFigureEditor,
@@ -44,6 +49,18 @@ interface AnnotationOverlayProps {
   onPictureReorder?: (step: FigureOrderStep) => void;
   onPictureRemove?: () => void;
   onPictureClose?: () => void;
+  /** The text box being typed into on this page; given to that one page only. */
+  textEdit?: TextEdit | null;
+  onTextCommit?: (text: string) => void;
+  onTextCancel?: () => void;
+}
+
+/** A text box open for typing: an existing one by id, or a new one (id null). */
+export interface TextEdit {
+  id: string | null;
+  /** PDF user-space rect, bottom-left origin. */
+  rect: [number, number, number, number];
+  text: string;
 }
 
 const NO_PICTURES = async () => null;
@@ -81,6 +98,9 @@ function AnnotationOverlayInner({
   onPictureReorder,
   onPictureRemove,
   onPictureClose,
+  textEdit = null,
+  onTextCommit,
+  onTextCancel,
 }: AnnotationOverlayProps) {
   // Projection is the reader's per-frame cost: ~1.7 ms for a page holding 100
   // ink annotations, 6.5 ms at 400. Drawing a stroke re-renders this component
@@ -141,7 +161,7 @@ function AnnotationOverlayInner({
   const activeIndex = pictureEdit ? pictures.findIndex((one) => one.id === pictureEdit.id) : -1;
   const active = activeIndex >= 0 ? pictures[activeIndex] : undefined;
 
-  if (boxes.length === 0 && ink.length === 0) return null;
+  if (boxes.length === 0 && ink.length === 0 && !textEdit) return null;
 
   return (
     <>
@@ -170,7 +190,7 @@ function AnnotationOverlayInner({
         haloGrow={INK_SELECTION_HALO_PX}
       />
       {boxes.map((box, i) =>
-        box.picture && upright ? null : box.picture ? (
+        (box.picture && upright) || (textEdit && box.id === textEdit.id) ? null : box.picture ? (
           <button
             key={`${box.id}-${i}`}
             type="button"
@@ -186,20 +206,34 @@ function AnnotationOverlayInner({
             type="button"
             className={`pdf-reader-ann${selectedId === box.id ? " is-selected" : ""}${
               box.underline ? " is-underline" : ""
-            }`}
+            }${box.text != null ? " is-text" : ""}`}
             style={{
               left: box.left,
               top: box.top,
               width: Math.max(box.width, 2),
               height: Math.max(box.height, 2),
-              background: box.underline ? "transparent" : box.color,
+              background: box.underline || box.text != null ? "transparent" : box.color,
               borderBottom: box.underline ? `2px solid ${box.color}` : undefined,
+              borderLeft: box.text != null ? `3px solid ${box.color}` : undefined,
+              fontSize: box.text != null ? 11 * scale : undefined,
             }}
             onClick={onSelect ? () => onSelect(box.id) : undefined}
-          />
+          >
+            {box.text}
+          </button>
         ),
       )}
     </div>
+    {textEdit && onTextCommit && (
+      <TextBoxEditor
+        // A fresh editor per box, so one saved box never blocks the next.
+        key={`${textEdit.id ?? "new"}:${textEdit.rect.join()}`}
+        edit={textEdit}
+        projection={{ pageWidth, pageHeight, scale, rotation }}
+        onCommit={onTextCommit}
+        onCancel={onTextCancel ?? (() => undefined)}
+      />
+    )}
     {active && onPictureChange && (
       // The editor's presses are its own: the page row under it would
       // otherwise start a stroke, or close the editor, with the same press.
@@ -225,6 +259,50 @@ function AnnotationOverlayInner({
       </div>
     )}
     </>
+  );
+}
+
+/** Typing straight into the box on the page: Enter or leaving saves, Escape drops. */
+function TextBoxEditor({
+  edit,
+  projection,
+  onCommit,
+  onCancel,
+}: {
+  edit: TextEdit;
+  projection: { pageWidth: number; pageHeight: number; scale: number; rotation: number };
+  onCommit: (text: string) => void;
+  onCancel: () => void;
+}) {
+  // Enter saves and unmounts, which blurs: without this the box saves twice.
+  const done = useRef(false);
+  const box = pdfRectToScreenBox(edit.rect, projection);
+  const finish = (text: string | null) => {
+    if (done.current) return;
+    done.current = true;
+    if (text == null || text.trim() === "") onCancel();
+    else onCommit(text);
+  };
+  return (
+    <textarea
+      className="pdf-reader-text-edit"
+      aria-label="Text box"
+      placeholder="Type here"
+      autoFocus
+      defaultValue={edit.text}
+      style={{ left: box.left, top: box.top, width: box.width, height: box.height, fontSize: 11 * projection.scale }}
+      // The page row under it would start a new box with the same press.
+      onPointerDown={(event) => event.stopPropagation()}
+      onPointerUp={(event) => event.stopPropagation()}
+      onBlur={(event) => finish(event.currentTarget.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") finish(null);
+        else if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          finish(event.currentTarget.value);
+        }
+      }}
+    />
   );
 }
 

@@ -15,11 +15,12 @@ export function annotationPinKey(ann: Pick<ReaderAnnotation, "id" | "zoteroKey">
  */
 export function applyAnnotationPatch(
   ann: ReaderAnnotation,
-  patch: { comment?: string; tags?: string[]; color?: string },
+  patch: { comment?: string; tags?: string[]; color?: string; text?: string },
 ): ReaderAnnotation {
   return {
     ...ann,
     ...(patch.color !== undefined ? { color: patch.color.trim() || "#ffd400" } : {}),
+    ...(patch.text !== undefined ? { text: patch.text.trim() } : {}),
     ...(patch.comment !== undefined ? { comment: patch.comment.trim() } : {}),
     ...(patch.tags !== undefined ? { tags: [...patch.tags] } : {}),
   };

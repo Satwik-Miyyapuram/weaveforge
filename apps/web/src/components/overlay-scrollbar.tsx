@@ -64,11 +64,13 @@ export function OverlayScrollbar({
     const thumb = thumbRef.current;
     if (!thumb || !overflow) return;
 
+    // The track can be shorter than the scroller: the window's starts under the title bar.
+    const trackH = trackRef.current?.clientHeight || clientHeight;
     const minThumbH = 32;
-    const thumbH = Math.max(minThumbH, Math.round((clientHeight / scrollHeight) * clientHeight));
+    const thumbH = Math.max(minThumbH, Math.round((clientHeight / scrollHeight) * trackH));
     const maxScroll = scrollHeight - clientHeight;
     const scrollRatio = maxScroll > 0 ? scrollTop / maxScroll : 0;
-    const maxThumbTop = clientHeight - thumbH;
+    const maxThumbTop = trackH - thumbH;
     const thumbTop = Math.round(scrollRatio * maxThumbTop);
 
     if (thumb && "style" in thumb && thumb.style) {
@@ -147,9 +149,10 @@ export function OverlayScrollbar({
     const deltaY = e.clientY - dragStartYRef.current;
     const clientHeight = el.clientHeight;
     const scrollHeight = el.scrollHeight;
+    const trackH = trackRef.current?.clientHeight || clientHeight;
     const minThumbH = 32;
-    const thumbH = Math.max(minThumbH, Math.round((clientHeight / scrollHeight) * clientHeight));
-    const maxThumbTop = clientHeight - thumbH;
+    const thumbH = Math.max(minThumbH, Math.round((clientHeight / scrollHeight) * trackH));
+    const maxThumbTop = trackH - thumbH;
     const maxScroll = scrollHeight - clientHeight;
 
     if (maxThumbTop > 0) {
@@ -182,7 +185,7 @@ export function OverlayScrollbar({
     const scrollHeight = el.scrollHeight;
     const maxScroll = scrollHeight - clientHeight;
 
-    const targetRatio = clickY / clientHeight;
+    const targetRatio = clickY / trackRect.height;
     el.scrollTo({
       top: targetRatio * maxScroll,
       behavior: "smooth",
