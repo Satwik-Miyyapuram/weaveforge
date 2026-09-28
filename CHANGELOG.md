@@ -21,7 +21,8 @@ tracks at once.
 
 ## [0.7.0] - 2026-09-29
 
-Desktop track. The Python SDK and the Android build keep their own numbers.
+Desktop (`v0.7.0`) and Android (`android-v7`, version code 7). The Python SDK
+keeps its own number.
 
 ### Added
 - **A new look on every screen.** The neo-brutalist ("Poster") design covers
@@ -59,6 +60,13 @@ Desktop track. The Python SDK and the Android build keep their own numbers.
 - The Linux build has a usable icon; borderless mode and reactive motion cover
   every control.
 - Findings from the September code and design audits.
+
+### Android
+- The phone layout follows the new design: sections, a reader pill, settings
+  search, and reader controls that fold instead of scrolling sideways.
+- Nothing on a phone-width screen overflows sideways any more.
+- The native ink app gains a deadlines widget for the home screen. It is built
+  from `apps/android`; the `android-v7` tag builds the TWA only.
 
 ### Notes
 - Installers are still not code-signed. The only integrity check on an update

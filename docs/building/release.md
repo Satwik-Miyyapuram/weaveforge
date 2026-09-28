@@ -121,8 +121,8 @@ Prefer Trusted Publishing; `PYPI_API_TOKEN` is the fallback.
 
 The number in the tag is `appVersionCode`, not the app version — that is the
 track that has to increase for Play, and it is why the older `android-v0.5.2`
-tags were replaced. `android-v4` was code 4; with the manifest at code 6, the
-next release is `android-v6`. The workflow triggers on `android-v*`, so the
+tags were replaced. `android-v4` was code 4; with the manifest at code 7, the
+next release is `android-v7`. The workflow triggers on `android-v*`, so the
 number only has to match the manifest you are shipping.
 
 1. PR: bump `appVersion` / `appVersionName` / `appVersionCode` in `apps/web/twa/twa-manifest.json` (and regenerate Bubblewrap project files if you change icons/name/host).
@@ -145,8 +145,8 @@ number only has to match the manifest you are shipping.
 3. Merge, then on `main`:
    ```bash
    git pull origin main
-   git tag android-v6      # match appVersionCode
-   git push origin android-v6
+   git tag android-v7      # match appVersionCode
+   git push origin android-v7
    ```
 4. `android-twa.yml` builds, uploads artifacts, and attaches APK/AAB to the GitHub Release (creates the release if needed).
 
