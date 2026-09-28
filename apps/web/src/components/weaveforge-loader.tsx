@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 
 const FEATURE_TIPS = [
   {
@@ -40,6 +41,8 @@ const FEATURE_TIPS = [
 const TIP_INTERVAL_MS = 3200;
 /** Fade-out before the swap; must match the `.weaveforge-loader-tip` transition. */
 const TIP_FADE_MS = 220;
+/** Past this a gate says it is slow and offers a reload, so a hang is reportable. */
+const SLOW_AFTER_MS = 12_000;
 
 export type ThesisLoaderProps = {
   /** Short status line under the brand, e.g. "Loading…" or "Unlocking…" */
@@ -53,21 +56,22 @@ export type ThesisLoaderProps = {
   className?: string;
 };
 
-function ThesisLoaderMark({ compact }: { compact?: boolean }) {
+function ThesisLoaderBar() {
   return (
-    <div
-      className={`weaveforge-loader-mark${compact ? " weaveforge-loader-mark--compact" : ""}`}
-      aria-hidden
-    >
-      <span className="weaveforge-loader-orbit weaveforge-loader-orbit--a" />
-      <span className="weaveforge-loader-orbit weaveforge-loader-orbit--b" />
-      <span className="weaveforge-loader-orbit weaveforge-loader-orbit--c" />
-      <span className="weaveforge-loader-orbit weaveforge-loader-orbit--d" />
-      <span className="weaveforge-loader-core">
-        <span className="dot" />
-      </span>
+    <div className="weaveforge-loader-bar" aria-hidden>
+      <span />
     </div>
   );
+}
+
+function useSlow(enabled: boolean): boolean {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!enabled) return;
+    const id = window.setTimeout(() => setSlow(true), SLOW_AFTER_MS);
+    return () => window.clearTimeout(id);
+  }, [enabled]);
+  return slow;
 }
 
 function ThesisLoader({
@@ -104,6 +108,7 @@ function ThesisLoader({
   }, [showTips]);
 
   const tip = FEATURE_TIPS[tipIndex]!;
+  const slow = useSlow(!inline);
 
   return (
     <div
@@ -119,9 +124,22 @@ function ThesisLoader({
       aria-live="polite"
       aria-busy="true"
     >
-      <ThesisLoaderMark compact={inline} />
-      {!inline && <p className="weaveforge-loader-brand">WeaveForge</p>}
+      {!inline && (
+        <div className="weaveforge-loader-brand">
+          <WeaveForgeLogo />
+          <strong>WeaveForge</strong>
+        </div>
+      )}
+      <ThesisLoaderBar />
       <p className="weaveforge-loader-status">{status}</p>
+      {slow ? (
+        <p className="weaveforge-loader-slow">
+          Still on “{status.replace(/…$/, "")}” after {SLOW_AFTER_MS / 1000}s. Taking longer than usual.{" "}
+          <button type="button" className="auth-link" onClick={() => window.location.reload()}>
+            Reload
+          </button>
+        </p>
+      ) : null}
       {showTips ? (
         /*
          * Hidden from assistive tech, and the status line above is the only
@@ -143,6 +161,7 @@ function ThesisLoader({
           key={tipIndex}
           aria-hidden
         >
+          <em>Tip</em>
           <strong>{tip.title}</strong>
           <span>{tip.detail}</span>
         </div>
