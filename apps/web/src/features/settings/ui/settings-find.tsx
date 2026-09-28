@@ -13,7 +13,7 @@ const SETTINGS_KEYWORDS: Readonly<Record<string, readonly string[]>> = {
   paste: ["Paste", "Clipboard", "Paste as markdown"],
   editor: ["Editor", "Spell check", "Line width", "Vim", "Ink", "Page spacing"],
   workspace: ["Workspace folder", "Local files", "Notes folder"],
-  ai: ["AI provider", "Model", "API key", "MCP", "Claude"],
+  ai: ["AI provider", "Model", "API key", "MCP", "MCP token", "Local API", "Claude"],
   tokens: ["API tokens", "Access token"],
   integrations: ["Zotero", "Overleaf", "GitHub"],
   sync: ["Sync", "Cloud", "Conflicts", "Offline"],

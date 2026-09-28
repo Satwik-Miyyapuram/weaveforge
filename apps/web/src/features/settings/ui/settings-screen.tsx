@@ -20,6 +20,7 @@ import { PasteSettingsPanel } from "./paste-settings-panel";
 import { EditorSettingsPanel } from "./editor-settings-panel";
 import { WorkspaceFolderPanel } from "./workspace-folder-panel";
 import { AiProviderPanel } from "./ai-provider-panel";
+import { LocalApiPanel } from "./local-api-panel";
 import { AccountInfoPanel } from "./account-info-panel";
 import { PrivacyNotice } from "./privacy-notice";
 import { ExportDataPanel } from "./export-data-panel";
@@ -635,6 +636,8 @@ export function SettingsScreen() {
           </button>
         </div>
       )}
+      {/* Desktop: MCP is served by the shell on loopback instead. */}
+      {tab === "ai" && !hasServerRoutes() && <LocalApiPanel />}
 
       {(tab === "tokens" || tab === "integrations") && loading && (
         <ScreenLoader status="Loading settings…" compact />
