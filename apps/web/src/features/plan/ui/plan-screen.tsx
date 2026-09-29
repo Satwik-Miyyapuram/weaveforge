@@ -37,8 +37,6 @@ export function PlanScreen() {
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
-  const [composeMode, setComposeMode] = useState<"menu" | "new">("menu");
-  const [shareOpen, setShareOpen] = useState(false);
   const [showDone, setShowDone] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -185,70 +183,46 @@ export function PlanScreen() {
         eyebrow={planEyebrow(progressItems.length, done)}
         search={items.length > 0 ? { value: search, onChange: setSearch, label: "Search milestones" } : undefined}
       >
+        {/*
+         * The header offers the two actions the spec names (ui-spec §3.8), and
+         * "New milestone" opens the form itself.
+         *
+         * It used to open a "Plan actions" chooser first, whose entire contents
+         * were one or two bordered choice cards — so a button labelled "New
+         * milestone" produced a modal holding nothing but an outlined box, with
+         * the form one click further on. The chooser existed to carry the
+         * blanket "Share plan" action, which belongs in the header beside it.
+         */}
+        {progressItems.length > 0 && (
+          <ShareButton
+            resourceType="milestone"
+            resourceId={null}
+            title="Share your whole plan"
+            label="⇅ Share plan"
+            showLabel
+          />
+        )}
         <button
           className="btn-primary"
           type="button"
-          onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+          onClick={() => setComposeOpen(true)}
         >
           New milestone
         </button>
       </ScreenHead>
 
       {composeOpen && (
-        <Modal
-          title={composeMode === "new" ? "Add a milestone" : "Plan actions"}
-          onClose={() => { setComposeOpen(false); setComposeMode("menu"); }}
-        >
-          {composeMode === "menu" ? (
-            <div className="org-modal-choices">
-              <button
-                type="button"
-                className="org-choice-card"
-                onClick={() => setComposeMode("new")}
-              >
-                <span className="org-choice-title">Add milestone</span>
-                <p className="org-choice-desc">Sketch the next goal on your roadmap.</p>
-              </button>
-              {progressItems.length > 0 && (
-                <button
-                  type="button"
-                  className="org-choice-card"
-                  onClick={() => {
-                    setComposeOpen(false);
-                    setComposeMode("menu");
-                    setShareOpen(true);
-                  }}
-                >
-                  <span className="org-choice-title">Share plan</span>
-                  <p className="org-choice-desc">Share every milestone in this project.</p>
-                </button>
-              )}
-            </div>
-          ) : (
-            <MilestoneForm
-              papers={papers}
-              experiments={experiments}
-              milestones={items}
-              onSaved={() => {
-                setComposeOpen(false);
-                setComposeMode("menu");
-                void load();
-              }}
-            />
-          )}
+        <Modal title="Add a milestone" onClose={() => setComposeOpen(false)}>
+          <MilestoneForm
+            papers={papers}
+            experiments={experiments}
+            milestones={items}
+            onSaved={() => {
+              setComposeOpen(false);
+              void load();
+            }}
+          />
         </Modal>
-      )}
-
-      {progressItems.length > 0 && (
-        <ShareButton
-          resourceType="milestone"
-          resourceId={null}
-          title="Share your whole plan"
-          label="⇅ Share plan"
-          hideTrigger
-          open={shareOpen}
-          onOpenChange={setShareOpen}
-        />
       )}
 
       {progressItems.length > 0 && (
@@ -285,7 +259,7 @@ export function PlanScreen() {
             <button
               type="button"
               className="btn-primary"
-              onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+              onClick={() => setComposeOpen(true)}
             >
               New milestone
             </button>

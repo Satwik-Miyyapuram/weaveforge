@@ -45,6 +45,19 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       NEXT_PUBLIC_BACKEND_PROVIDER: supabase
+      # Auth stays on Supabase; the tables do not. Without these the bundled
+      # app falls back to the sign-in project's own REST endpoint, whose schema
+      # is frozen at migration 0111 — which is exactly what v0.7.0 shipped:
+      # `column vault_pages.pinned does not exist`, `report_sections.updated_at`
+      # missing, `ensure_user_provisioned` a 404, and every write refused by
+      # RLS because the rows it wrote belonged to nobody in that database.
+      #
+      # `NEXT_PUBLIC_*` is inlined when the web export is built, so a copy
+      # already installed cannot be redirected at runtime: the only fix for a
+      # bad build is a new one. The web build sets the same two — see ci.yml,
+      # whose comment describes this failure before it happened to a release.
+      NEXT_PUBLIC_DATA_URL: https://api.weaveforge.org
+      NEXT_PUBLIC_REALTIME_URL: https://api.weaveforge.org
     steps:
       - uses: actions/checkout@v7
 
@@ -90,6 +103,32 @@ jobs:
       - name: Build the installers (manual run — no release)
         if: "!startsWith(github.ref, 'refs/tags/v')"
         run: npm run package --workspace @weaveforge/desktop -- --publish never
+
+      # The failure this guards was silent, and it left the building: v0.7.0
+      # installed, launched, signed in, and showed an empty workspace, because
+      # the export had no data API baked in and quietly read the pre-cutover
+      # database instead. Nothing in the app's own log says "wrong database" —
+      # it says a missing column and a refused write, which reads like ten bugs.
+      #
+      # `NEXT_PUBLIC_*` is inlined at export time, so the built files are the
+      # only place the answer can be read, and reading it costs a second. The
+      # *export* is checked rather than the packed app: electron-builder packs
+      # `dist/**`, and the main process's sourcemaps name this host inside a
+      # comment, so a check aimed at the whole bundle would pass on a build
+      # that never had the variable set — which is the bug, not the fix.
+      - name: Verify the export carries the data API
+        shell: bash
+        run: |
+          export_dir="apps/desktop/dist/web"
+          if [ ! -f "$export_dir/index.html" ]; then
+            echo "::error::$export_dir is not an export — the web build step did not run."
+            exit 1
+          fi
+          if ! grep -rqF "https://api.weaveforge.org" "$export_dir/_next"; then
+            echo "::error::The exported app never names https://api.weaveforge.org, so an installed copy would read Supabase's frozen schema (migration 0111) instead of the OCI database. Check NEXT_PUBLIC_DATA_URL and NEXT_PUBLIC_REALTIME_URL in this job's env."
+            exit 1
+          fi
+          echo "The export points at the OCI data API."
 
       # The themed setup window with the NSIS installer inside it — what the
       # download page offers. The NSIS file stays on the release as well: the

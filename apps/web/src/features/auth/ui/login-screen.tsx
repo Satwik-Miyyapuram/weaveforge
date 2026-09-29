@@ -282,7 +282,7 @@ function AuthArt() {
       <div className="auth-art-copy">
         <h1 className="auth-art-title">Research,<br />unified.</h1>
         <p className="auth-art-lede">
-          Papers, notes, experiments and the thesis that ties them together, in one place that works offline.
+          Papers, notes and experiments, woven into one space.
         </p>
       </div>
       <div className="auth-art-cards" aria-hidden="true">
