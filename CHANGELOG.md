@@ -19,6 +19,23 @@ tracks at once.
 
 ### Android
 
+## [0.7.2] - 2026-09-29
+
+Desktop (`v0.7.2`). The Python SDK and Android keep their own numbers.
+
+### Fixed
+- **A device is synced only by the account that owns it.** A window signed in as
+  somebody else - or signed out - went on pumping the local outbox, pushing the
+  adopting account's rows under whichever session was to hand and failing every
+  one of them. Only the owning account drives the device now; any other window
+  reads the server and leaves the local copy alone.
+- **A workspace whose only work is notes is no longer adopted without asking.**
+  The check that decides whether a device may be merged into an account silently
+  looked at projects and papers only, so a local history of notes, experiments or
+  reading lists answered "nothing of its own" and was absorbed into the account.
+  It now counts every synced table that carries an owner, read from the sync
+  registry rather than listed by hand.
+
 ## [0.7.1] - 2026-09-29
 
 Desktop (`v0.7.1`). The Python SDK and Android keep their own numbers.

@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createCycleRunner } from "@/features/offline-sync/ui/sync-loop";
+import {
+  createCycleRunner,
+  mayDriveDevice,
+  ownedRowCountSql,
+} from "@/features/offline-sync/ui/sync-loop";
 
 /**
  * The sync loop's concurrency guard.
@@ -79,4 +83,28 @@ test("concurrent callers each settle, even though only one ran", async () => {
   first.release();
   await Promise.all([one, two]);
   assert.equal(started, 1, "and the dropped caller does not hang waiting for work it never did");
+});
+
+test("only the account that owns the device may drive it", () => {
+  assert.equal(mayDriveDevice("a", "a"), true);
+  // A window signed in as somebody else must not push this device's rows as its
+  // own: every row carries the adopting account's user_id and would be refused.
+  assert.equal(mayDriveDevice("b", "a"), false);
+  // Signed out: a cycle could only fail row after row. The window stays on the
+  // server and leaves the local copy alone.
+  assert.equal(mayDriveDevice(null, "a"), false);
+  // Never adopted: there is no account for the outbox to belong to.
+  assert.equal(mayDriveDevice("a", null), false);
+});
+
+test("the adoption check counts every table adoption would move", () => {
+  const sql = ownedRowCountSql(["vault_pages", "reading_lists"]);
+
+  assert.ok(sql);
+  assert.match(sql, /from "vault_pages" where user_id = \$1/);
+  assert.match(sql, /from "reading_lists" where user_id = \$1/);
+  // Nothing to count is also "nothing of its own".
+  assert.equal(ownedRowCountSql([]), null);
+  // A name that needs quoting cannot escape its identifier.
+  assert.match(ownedRowCountSql(['we"ird'])!, /"we""ird"/);
 });
