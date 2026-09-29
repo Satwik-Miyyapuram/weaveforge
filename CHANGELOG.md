@@ -19,6 +19,33 @@ tracks at once.
 
 ### Android
 
+## [0.7.1] - 2026-09-29
+
+Desktop (`v0.7.1`). The Python SDK and Android keep their own numbers.
+
+### Fixed
+- **The installed app was reading the wrong database.** The 0.7.0 installers
+  were built without `NEXT_PUBLIC_DATA_URL`, so every request went to the
+  sign-in project's REST endpoint, whose schema stops at migration 0111:
+  `column vault_pages.pinned does not exist`, `report_sections.updated_at`
+  missing, `ensure_user_provisioned` a 404, and every write refused by row-level
+  security — which read as ten separate bugs and an empty workspace. The release
+  workflow bakes the data and realtime URLs into every installer now, and
+  refuses to publish an export that does not name them.
+- **"New milestone" opened a box, not a form.** The Plan screen's button
+  produced a modal whose entire contents were one bordered choice card; it opens
+  the form, and "share plan" moved into the header beside it.
+
+### Changed
+- **A new setup window.** The installer's left half is the sign-in screen's —
+  brand, headline, the three status cards, the foot line — in the app's own CRT
+  palette, with the cards at the source's angles and their offsets scaled for a
+  248px column. The progress bar is one solid colour rather than a diagonal
+  fill, the window opens on the theme's felt instead of flashing the old dark
+  base, and the NSIS sidebar art is re-rendered from its source to match.
+- "Papers, notes and experiments, woven into one space." replaces "…woven into
+  one thesis." on the sign-in screen, in the installer and in its sidebar art.
+
 ## [0.7.0] - 2026-09-29
 
 Desktop (`v0.7.0`) and Android (`android-v7`, version code 7). The Python SDK
