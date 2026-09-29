@@ -4,113 +4,213 @@
 <meta charset="utf-8">
 <title>WeaveForge setup</title>
 <style>
-/* Mocha, as the app draws it, with the neo-brutalist line and shadow. */
+/* Rubik, at the path `main.rs` serves it from. */
 @font-face { font-family: Rubik; src: url(/rubik.woff2) format("woff2"); font-weight: 300 900; }
+
+/*
+ * CRT — the app's own theme, values from `apps/web/src/app/themes/crt.css`.
+ *
+ * The left half is the sign-in screen's, copied from `AuthArt` in
+ * `features/auth/ui/login-screen.tsx` and its styles in `styles/loading.css`:
+ * brand, headline, lede, the same three cards, the foot line. Two differences,
+ * both because this window is 760x480 and cannot resize: everything is smaller,
+ * and the cards' offsets are 6px and 3px where the source uses 28px and 40% of a
+ * 15rem card — the same shift in a 208px column would push a card out of the
+ * panel. Their angles are the source's angles.
+ *
+ * The pixel display face (Jersey 10) is deliberately absent: it is a second font
+ * file and a fourth route out of `main.rs`, not a style change.
+ */
 :root {
-  --base: #1e1e2e; --mantle: #181825; --crust: #11111b;
-  --surface0: #313244; --surface1: #45475a; --overlay: #6c7086;
-  --text: #cdd6f4; --subtext: #a6adc8;
-  --mauve: #cba6f7; --pink: #f5c2e7; --blue: #89b4fa; --yellow: #f9e2af; --green: #a6e3a1; --red: #f38ba8;
-  --line: 3px solid var(--crust);
+  --bg: #e7cfa6; --surface: #ffe7c1; --surface2: #f1d5a7;
+  --line: #2b222b; --text: #2b222b; --muted: #5c4b51;
+  --accent: #1f6dab; --accent-fg: #ffe7c1;
+  --green: #6cbf81; --red: #c73729;
+  --chip-to-read: #f29731; --chip-reading: #8db7d0; --chip-read: #6cbf81;
+  --radius: 8px; --bw: 3px;
+  --sh-card: 0 6px 0 #2b222b;
+  --sh-btn: 0 3px 0 #2b222b;
+  --sh-accent: 0 5px 0 #12466e;
+  --mono: ui-monospace, Consolas, monospace;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; }
 body {
-  display: grid; grid-template-columns: 250px 1fr;
-  background: var(--base); color: var(--text);
-  font: 400 14px/1.5 Rubik, "Segoe UI", sans-serif;
+  display: grid; grid-template-columns: 248px 1fr;
+  background: var(--bg); color: var(--text);
+  font: 400 13.5px/1.5 Rubik, "Segoe UI", sans-serif;
   user-select: none; cursor: default;
-  border: 1px solid var(--crust);
+  border: 1px solid var(--line);
 }
 button { font: inherit; }
+/* `hidden` on the version chip has to beat `display: inline-block`, or an empty
+   accent pill sits beside the heading until `init` arrives. */
+[hidden] { display: none !important; }
 
-/* The art panel, the same picture as the NSIS sidebar. */
-.art { position: relative; background: var(--mantle); border-right: var(--line); overflow: hidden; }
-.stripe { height: 12px; }
-.stripe.a { background: var(--mauve); } .stripe.b { background: var(--pink); } .stripe.c { background: var(--blue); }
-.art img {
-  display: block; width: 104px; height: 104px; margin: 60px auto 0;
-  border-radius: 24px; border: var(--line); box-shadow: 6px 6px 0 var(--crust);
+/* The art panel: the sign-in screen's left half, at this window's size. */
+.art {
+  position: relative; overflow: hidden; background: var(--surface2);
+  display: flex; flex-direction: column; gap: 11px;
+  padding: 24px 18px 14px; min-width: 0;
+  border-right: var(--bw) solid var(--line);
 }
-.art h2 { margin: 26px 0 0; text-align: center; font-size: 26px; font-weight: 800; letter-spacing: -0.4px; }
-.art p { margin: 10px 26px 0; text-align: center; font-size: 13px; color: var(--subtext); }
-.chips { position: absolute; left: 0; right: 0; bottom: 28px; display: flex; justify-content: center; gap: 8px; }
-.chips span { font-size: 12px; font-weight: 600; padding: 3px 9px; border: 2px solid var(--crust); border-radius: 7px; color: var(--crust); }
+.auth-brand { display: flex; align-items: center; gap: 8px; }
+.auth-brand svg { width: 26px; height: 26px; flex: none; }
+.auth-brand strong { font-size: 14px; font-weight: 700; letter-spacing: -.2px; }
+.auth-title { margin: 2px 0 0; font-size: 19px; font-weight: 800; line-height: 1.02; letter-spacing: -.4px; }
+.auth-lede { margin: 0; font-size: 11px; line-height: 1.4; color: var(--muted); }
+.auth-cards { display: grid; gap: 9px; padding: 3px 2px; max-width: 100%; }
+.auth-card {
+  display: grid; gap: 3px; align-content: start;
+  padding: 7px 9px; border: var(--bw) solid var(--line); border-radius: var(--radius);
+  background: color-mix(in srgb, var(--chip-fill) 35%, var(--surface));
+  box-shadow: var(--sh-card);
+}
+/* The source's orientation: -2.5deg, 2deg, -1deg — the middle card sitting
+   lower and the third shifted right, as they do there, at a sixth of the offset. */
+.auth-card--reading { --chip-fill: var(--chip-reading); transform: rotate(-2.5deg); }
+.auth-card--running { --chip-fill: var(--chip-read); transform: rotate(2deg) translateY(6px); }
+.auth-card--draft { --chip-fill: var(--chip-to-read); transform: rotate(-1deg) translateX(3px); }
+.auth-card strong { font-size: 10.5px; font-weight: 700; line-height: 1.3; }
+.auth-chip {
+  justify-self: start; padding: 1px 7px; border-radius: 999px;
+  border: var(--bw) solid var(--line); background: var(--chip-fill);
+  font-family: var(--mono); font-size: 9px;
+}
+.auth-meta { font-family: var(--mono); font-size: 9px; color: var(--muted); }
+.auth-foot {
+  margin: auto 0 0; font-family: var(--mono); font-size: 9px; color: var(--muted);
+  max-width: 100%; overflow-wrap: anywhere;
+}
 
 /* The right side: its own title bar, then one page at a time. */
-.main { position: relative; display: flex; flex-direction: column; min-width: 0; }
-.bar { height: 40px; display: flex; align-items: center; justify-content: flex-end; padding-left: 20px; }
-.bar .title { margin-right: auto; font-size: 12px; color: var(--overlay); }
+.main { display: flex; flex-direction: column; min-width: 0; }
+.bar { height: 38px; display: flex; align-items: center; padding-left: 22px; }
+.bar .title { margin-right: auto; font-size: 11.5px; letter-spacing: .04em; color: var(--muted); }
 .win {
-  width: 46px; height: 40px; border: 0; background: none; color: var(--subtext);
+  width: 46px; height: 38px; border: 0; background: none; color: var(--muted);
   display: grid; place-items: center;
 }
-.win:hover { background: var(--surface0); color: var(--text); }
-.win.close:hover { background: var(--red); color: var(--crust); }
-.win svg { width: 11px; height: 11px; }
+.win:hover { background: var(--surface2); color: var(--text); }
+.win.close:hover { background: var(--red); color: var(--accent-fg); }
+.win svg { width: 10px; height: 10px; }
+.hairline { height: 1px; margin-left: 22px; background: var(--line); }
 
-.page { display: none; flex: 1; flex-direction: column; padding: 14px 40px 32px; }
+.page { display: none; flex: 1; flex-direction: column; padding: 22px 26px 20px; min-height: 0; }
 .page.on { display: flex; animation: in 180ms ease-out; }
-@keyframes in { from { opacity: 0; transform: translateY(6px); } }
-h1 { margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.6px; line-height: 1.15; }
-.lead { margin: 12px 0 0; color: var(--subtext); max-width: 420px; }
+@keyframes in { from { opacity: 0; transform: translateY(5px); } }
+
+.eyebrow {
+  margin: 0 0 8px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .11em; text-transform: uppercase; color: var(--muted);
+}
+h1 { margin: 0; font-size: 27px; font-weight: 800; letter-spacing: -.2px; line-height: 1.16; }
+.lead { margin: 10px 0 0; color: var(--muted); max-width: 400px; }
 .version {
-  display: inline-block; margin-left: 10px; vertical-align: 6px;
-  font-size: 12px; font-weight: 600; padding: 2px 8px;
-  background: var(--yellow); color: var(--crust); border: 2px solid var(--crust); border-radius: 7px;
+  display: inline-block; margin-left: 9px; vertical-align: 6px;
+  font-size: 11px; font-weight: 700; padding: 2px 8px;
+  background: var(--accent); color: var(--accent-fg);
+  border: 2px solid var(--line); border-radius: 7px;
 }
 
-label.field { display: block; margin-top: 28px; font-size: 12px; font-weight: 600; color: var(--subtext); }
-.path { display: flex; gap: 10px; margin-top: 6px; }
+label.field { display: block; margin-top: 24px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.path { display: flex; gap: 8px; margin-top: 7px; }
 .path output {
   flex: 1; min-width: 0; padding: 9px 12px;
-  background: var(--mantle); border: var(--line); border-radius: 8px;
+  background: var(--surface); border: var(--bw) solid var(--line); border-radius: var(--radius);
+  font: 400 12.5px/1.35 var(--mono);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left;
 }
-.note { margin-top: 10px; font-size: 12px; color: var(--overlay); }
+.note { margin-top: 9px; font-size: 12px; color: var(--muted); }
 
-.actions { margin-top: auto; display: flex; justify-content: flex-end; gap: 12px; }
+.actions { margin-top: auto; display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .btn {
-  min-width: 108px; padding: 9px 18px; border-radius: 8px; border: var(--line);
-  background: var(--surface0); color: var(--text); font-weight: 600;
-  box-shadow: 4px 4px 0 var(--crust); transition: filter 120ms, transform 80ms, box-shadow 80ms;
+  min-width: 96px; padding: 9px 16px; border-radius: var(--radius);
+  border: var(--bw) solid var(--line); background: var(--surface); color: var(--text);
+  font-weight: 600; cursor: pointer; box-shadow: var(--sh-btn);
+  transition: background 120ms, transform 80ms, box-shadow 80ms;
 }
-.btn:hover { filter: brightness(1.15); }
-.btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--crust); }
-.btn.primary { background: var(--mauve); color: var(--crust); }
-.btn.ghost { background: none; border-color: transparent; box-shadow: none; color: var(--subtext); }
-.btn.ghost:hover { filter: none; color: var(--text); background: var(--surface0); }
-.btn:focus-visible, .win:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+.btn:hover { background: var(--surface2); }
+/* The theme's buttons sit on a solid shadow and drop into it. */
+.btn:active { transform: translateY(3px); box-shadow: 0 0 0 var(--line); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); box-shadow: var(--sh-accent); }
+.btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, #ffffff); }
+.btn.primary:active { transform: translateY(5px); box-shadow: 0 0 0 var(--sh-accent); }
+.btn.ghost { background: none; border-color: transparent; box-shadow: none; color: var(--muted); }
+.btn.ghost:hover { background: var(--surface2); color: var(--text); }
+.btn.ghost:active { transform: none; }
+.btn:disabled { opacity: .5; }
+.btn:focus-visible, .win:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button:focus:not(:focus-visible) { outline: none; }
 
-/* Progress: the brutal bar, filled with the stripes. */
-.meter { margin-top: 34px; height: 30px; border: var(--line); border-radius: 8px; background: var(--mantle); overflow: hidden; box-shadow: 4px 4px 0 var(--crust); }
-.fill {
-  height: 100%; width: 0%;
-  background: repeating-linear-gradient(-45deg, var(--mauve) 0 14px, var(--pink) 14px 28px);
-  background-size: 40px 40px; border-right: var(--line);
-  transition: width 220ms linear; animation: slide 900ms linear infinite;
+/* Progress: one solid bar. The percentage beside it is what says "busy" — the
+   -45deg stripes the old window drew said the same thing a second time, on a
+   slant, which is the one shape neither theme uses anywhere else. */
+.meter {
+  margin-top: 26px; height: 14px; border-radius: var(--radius);
+  background: var(--surface); border: var(--bw) solid var(--line); overflow: hidden;
 }
-@keyframes slide { to { background-position: 40px 0; } }
-.status { display: flex; justify-content: space-between; margin-top: 14px; font-size: 13px; color: var(--subtext); }
-.status b { color: var(--text); font-weight: 600; }
+.fill { height: 100%; width: 0%; background: var(--accent); transition: width 220ms linear; }
+.status { display: flex; align-items: baseline; justify-content: space-between; margin-top: 12px; font-size: 12.5px; color: var(--muted); }
+.status b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.spinner {
+  display: inline-block; width: 11px; height: 11px; margin-right: 7px; vertical-align: -1px;
+  border: 2px solid var(--line); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 700ms linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .tick {
-  width: 56px; height: 56px; margin-bottom: 20px; border-radius: 14px;
-  display: grid; place-items: center; border: var(--line); box-shadow: 4px 4px 0 var(--crust);
+  width: 46px; height: 46px; margin-bottom: 16px; border-radius: var(--radius);
+  display: grid; place-items: center;
+  border: var(--bw) solid var(--line); box-shadow: var(--sh-card);
 }
-.tick.ok { background: var(--green); } .tick.bad { background: var(--red); }
-.tick svg { width: 28px; height: 28px; color: var(--crust); }
-.error { margin-top: 14px; padding: 10px 12px; border: 2px solid var(--red); border-radius: 8px; color: var(--text); background: rgba(243, 139, 168, 0.08); font-size: 13px; }
+.tick.ok { background: var(--green); color: var(--text); }
+.tick.bad { background: var(--red); color: var(--accent-fg); }
+.tick svg { width: 24px; height: 24px; }
+.error {
+  margin-top: 12px; padding: 10px 12px; font-size: 12.5px; line-height: 1.45;
+  background: var(--surface); border: var(--bw) solid var(--red); border-radius: var(--radius);
+}
 </style>
 </head>
 <body>
   <aside class="art" data-drag>
-    <div class="stripe a"></div><div class="stripe b"></div><div class="stripe c"></div>
-    <img src="/icon.png" alt="">
-    <h2>WeaveForge</h2>
-    <p>Papers, notes and experiments, woven into one thesis.</p>
-    <div class="chips"><span style="background:var(--blue)">Read</span><span style="background:var(--yellow)">Note</span><span style="background:var(--green)">Write</span></div>
+    <div class="auth-brand">
+      <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="WeaveForge">
+        <rect width="512" height="512" rx="115" fill="var(--surface2)" />
+        <path d="M 230 125 L 194 125 A 54 54 0 0 0 140 179 L 140 355 A 54 54 0 0 0 194 409 L 318 409 A 54 54 0 0 0 372 355 L 372 265"
+              fill="none" stroke="var(--text)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" />
+        <line x1="264" y1="125" x2="264" y2="215" stroke="var(--text)" stroke-width="12" stroke-linecap="round" />
+        <line x1="264" y1="215" x2="356" y2="139" stroke="var(--text)" stroke-width="12" stroke-linecap="round" />
+        <line x1="264" y1="215" x2="372" y2="229" stroke="var(--text)" stroke-width="12" stroke-linecap="round" />
+        <circle cx="264" cy="125" r="22" fill="var(--text)" />
+        <circle cx="264" cy="215" r="22" fill="var(--text)" />
+        <circle cx="356" cy="139" r="22" fill="var(--accent)" />
+        <circle cx="372" cy="229" r="22" fill="var(--text)" />
+      </svg>
+      <strong>WeaveForge</strong>
+    </div>
+    <h1 class="auth-title">Research,<br>unified.</h1>
+    <p class="auth-lede">Papers, notes and experiments, woven into one space.</p>
+    <div class="auth-cards" aria-hidden="true">
+      <div class="auth-card auth-card--reading">
+        <span class="auth-chip">Reading</span>
+        <strong>Locating and editing factual associations in GPT</strong>
+        <span class="auth-meta">Meng et al. · 2022</span>
+      </div>
+      <div class="auth-card auth-card--running">
+        <span class="auth-chip">Running</span>
+        <strong>EXP-07 ROME layer sweep</strong>
+        <span class="auth-meta">epoch 6 of 10</span>
+      </div>
+      <div class="auth-card auth-card--draft">
+        <span class="auth-chip">Draft</span>
+        <strong>Chapter 3 outline</strong>
+        <span class="auth-meta">612 words · 2 backlinks</span>
+      </div>
+    </div>
+    <p class="auth-foot">Private by default · works offline</p>
   </aside>
 
   <section class="main">
@@ -119,8 +219,10 @@ button:focus:not(:focus-visible) { outline: none; }
       <button class="win" id="min" aria-label="Minimize" tabindex="-1"><svg viewBox="0 0 10 10"><path d="M0 5h10" stroke="currentColor" stroke-width="1.2"/></svg></button>
       <button class="win close" id="x" aria-label="Close" tabindex="-1"><svg viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1.2"/></svg></button>
     </header>
+    <div class="hairline"></div>
 
     <div class="page on" id="welcome">
+      <p class="eyebrow">Step 1 of 1</p>
       <h1><span id="heading">Install WeaveForge</span><span class="version" id="version" hidden></span></h1>
       <p class="lead" id="lead">Your papers, notes, experiments and thesis in one place, on your own machine.</p>
       <label class="field" for="dir">Install location</label>
@@ -136,14 +238,16 @@ button:focus:not(:focus-visible) { outline: none; }
     </div>
 
     <div class="page" id="progress">
+      <p class="eyebrow">In progress</p>
       <h1 id="progress-heading">Installing</h1>
       <p class="lead">This takes about a minute. WeaveForge will close first if it is open.</p>
       <div class="meter"><div class="fill" id="fill"></div></div>
-      <div class="status"><span id="label">Unpacking</span><b id="percent">0%</b></div>
+      <div class="status"><span><i class="spinner"></i><span id="label">Unpacking</span></span><b id="percent">0%</b></div>
     </div>
 
     <div class="page" id="done">
       <div class="tick ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+      <p class="eyebrow">Finished</p>
       <h1 id="done-heading">WeaveForge is ready</h1>
       <p class="lead">It is in your Start menu and on your desktop. Updates install themselves from now on.</p>
       <div class="actions">
@@ -154,6 +258,7 @@ button:focus:not(:focus-visible) { outline: none; }
 
     <div class="page" id="failed">
       <div class="tick bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg></div>
+      <p class="eyebrow">Stopped</p>
       <h1>Setup did not finish</h1>
       <div class="error" id="error"></div>
       <div class="actions">

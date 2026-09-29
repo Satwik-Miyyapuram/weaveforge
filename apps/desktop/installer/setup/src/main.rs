@@ -236,7 +236,9 @@ fn main() -> wry::Result<()> {
     let webview = WebViewBuilder::new()
         .with_custom_protocol("wf".into(), |_id, request| protocol(request))
         .with_url("wf://localhost/")
-        .with_background_color((30, 30, 46, 255))
+        // The CRT theme's own felt. It is what the page paints first, so a
+        // window that opened on the old Mocha base flashed dark for a frame.
+        .with_background_color((231, 207, 166, 255))
         .with_hotkeys_zoom(false)
         .with_browser_accelerator_keys(false)
         .with_ipc_handler(move |request: Request<String>| {
