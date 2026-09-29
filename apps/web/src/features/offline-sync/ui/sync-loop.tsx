@@ -71,6 +71,23 @@ const FOCUS_MS = 30 * 1000;
  * Extracted and exported so that property is testable without a DOM, a database
  * or a network.
  */
+/**
+ * Whether this window may drive the device's outbox.
+ *
+ * The queued rows carry the `user_id` of the account the device was adopted by,
+ * so a cycle run under a *different* session pushes one account's work as
+ * another's — every row refused — and a cycle run with no session at all fails
+ * the same way and leaves the queue where it was. Only the account that owns the
+ * device drives it; anyone else's window stays on the server, which is what
+ * "another account's copy: keep syncing it" was trying to say and did not.
+ */
+export function mayDriveDevice(
+  signedInUserId: string | null,
+  adoptedAccountId: string | null,
+): boolean {
+  return adoptedAccountId !== null && signedInUserId === adoptedAccountId;
+}
+
 export function createCycleRunner(run: () => Promise<void>): () => Promise<void> {
   let running = false;
   return async () => {
@@ -114,10 +131,13 @@ export function SyncLoop() {
       }
       if (cancelled) return;
 
+      // This window's session has to be the account the device belongs to. A
+      // window signed in as somebody else — or signed out — must not pump, and
+      // it shows the server rather than someone else's local copy.
+      const owner = mayDriveDevice(signedIn?.id ?? null, current.accountId) ? signedIn : null;
+      if (!owner) return;
+
       const engine = syncEngine(liveAccessToken(client));
-      // Another account's copy: keep syncing it, but this window stays on the
-      // server rather than showing someone else's work.
-      const owner = signedIn && signedIn.id === current.accountId ? signedIn : null;
 
       const settle = (result: CycleResult) => {
         const caughtUp = result.pushed.stoppedBecause === null && !result.pulled.more;
@@ -175,11 +195,40 @@ export function SyncLoop() {
   return null;
 }
 
-/** Whether the local database holds no work made before signing in. */
+/**
+ * The synced tables that carry an owner, read from the registry rather than
+ * listed here — so a table added to the sync set cannot be forgotten below.
+ */
+export const OWNED_SYNC_TABLES_SQL = `select s.table_name from sync_tables s
+   where exists (select 1 from information_schema.columns c
+                  where c.table_schema = 'public' and c.table_name = s.table_name
+                    and c.column_name = 'user_id')
+   order by s.table_name`;
+
+/**
+ * One count per table, summed. Null when there is nothing to count, which is
+ * also "nothing of its own".
+ */
+export function ownedRowCountSql(tables: readonly string[]): string | null {
+  if (tables.length === 0) return null;
+  const one = (table: string) =>
+    `select count(*)::int as n from "${table.replace(/"/g, '""')}" where user_id = $1`;
+  return `select coalesce(sum(n), 0)::int as n from (${tables.map(one).join(" union all ")}) owned`;
+}
+
+/**
+ * Whether the local database holds no work made before signing in.
+ *
+ * This decides whether a device may be adopted *without asking*, so it has to
+ * see all of the work adoption would move. It used to look at `projects` and
+ * `papers` only: a workspace whose entire local history was notes — or
+ * experiments, or a reading list — answered "nothing of its own" and was merged
+ * into an account silently.
+ */
 async function nothingOfItsOwn(runner: LocalRunner): Promise<boolean> {
-  const rows = await runner.query<{ found: number }>(
-    "select 1 as found from projects where user_id = $1 union all select 1 from papers where user_id = $1 limit 1",
-    [LOCAL_USER_ID],
-  );
-  return rows.length === 0;
+  const tables = await runner.query<{ table_name: string }>(OWNED_SYNC_TABLES_SQL);
+  const sql = ownedRowCountSql(tables.map((table) => table.table_name));
+  if (!sql) return true;
+  const rows = await runner.query<{ n: number }>(sql, [LOCAL_USER_ID]);
+  return (rows[0]?.n ?? 0) === 0;
 }
