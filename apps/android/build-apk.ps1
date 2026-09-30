@@ -27,7 +27,7 @@ $ErrorActionPreference = "Stop"
 $src = $PSScriptRoot
 $dst = Join-Path $env:LOCALAPPDATA "weaveforge-android-build"
 
-if (-not $env:JAVA_HOME) {
+if (-not $env:JAVA_HOME -or $env:JAVA_HOME -match "25") {
     $jdk = Get-ChildItem "$env:USERPROFILE\.jdks" -Directory -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -match "jdk-(17|21)" } | Select-Object -First 1
     if ($jdk) { $env:JAVA_HOME = $jdk.FullName }

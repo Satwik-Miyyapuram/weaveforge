@@ -13,15 +13,23 @@ import { writeFrontmatter } from "./frontmatter.js";
 import { toRelativeBlobLinks } from "./blob-links.js";
 import { isInkNoteBody, readInkNoteBody, writeInkNoteMeta } from "../ink/ink-note.js";
 import {
-  WORKSPACE_META_DIR,
   flatPath,
   logPath,
+  projectDir,
+  projectMetaDir,
   treePaths,
   type WorkspaceEntityType,
+  type WorkspaceProject,
 } from "./folder-layout.js";
 
-/** Format version of the folder layout, stamped into the manifest. */
-export const WORKSPACE_SCHEMA_VERSION = 1;
+/**
+ * Format version of the folder layout, stamped into the manifest.
+ *
+ * 1 wrote every entity into `notes/`, `papers/`, `report/` … at the top of the
+ * workspace. 2 writes each project into its own folder, with that project's
+ * bookkeeping in `<project>/.weaveforge/`.
+ */
+export const WORKSPACE_SCHEMA_VERSION = 2;
 
 export interface SerializedWorkspace {
   /** Markdown and JSON, keyed by folder-relative path. */
@@ -80,12 +88,21 @@ export function obsidianTags(tags: readonly string[] | undefined): string[] | un
   return out.length > 0 ? [...new Set(out)] : undefined;
 }
 
-export function serializeWorkspace(snapshot: WorkspaceSnapshot): SerializedWorkspace {
+export function serializeWorkspace(
+  snapshot: WorkspaceSnapshot,
+  project: WorkspaceProject,
+): SerializedWorkspace {
   const files: Record<string, string> = {};
   const assets: SerializedWorkspace["assets"] = [];
+  // Every path below is inside this project's folder. The two exceptions are
+  // deliberate and named at the bottom: `assets/` and `.weaveforge/` are shared
+  // by every project, which is why they are built from the constant rather than
+  // from `root`.
+  const root = projectDir(project);
+  const meta = projectMetaDir(root);
 
   // --- notes, reading lists, report sections: nested by parentId ------------
-  const notePaths = treePaths(snapshot.vaultPages, "vault_page");
+  const notePaths = treePaths(snapshot.vaultPages, "vault_page", root);
   for (const page of snapshot.vaultPages) {
     const stamps = { title: page.title, "updated-at": page.updatedAt, "created-at": page.createdAt };
     if (isInkNoteBody(page.body)) {
@@ -105,6 +122,7 @@ export function serializeWorkspace(snapshot: WorkspaceSnapshot): SerializedWorks
   const listPaths = treePaths(
     snapshot.readingLists.map((l) => ({ id: l.id, title: l.name, parentId: l.parentId })),
     "reading_list",
+    root,
   );
   for (const list of snapshot.readingLists) {
     const path = listPaths.get(list.id)!;
@@ -118,7 +136,7 @@ export function serializeWorkspace(snapshot: WorkspaceSnapshot): SerializedWorks
     );
   }
 
-  const sectionPaths = treePaths(snapshot.reportSections, "report_section");
+  const sectionPaths = treePaths(snapshot.reportSections, "report_section", root);
   for (const section of snapshot.reportSections) {
     const path = sectionPaths.get(section.id)!;
     files[path] = markdown(
@@ -140,7 +158,7 @@ export function serializeWorkspace(snapshot: WorkspaceSnapshot): SerializedWorks
 
   // --- flat entities --------------------------------------------------------
   for (const paper of snapshot.papers) {
-    const path = flatPath("paper", paper.id, paper.title);
+    const path = flatPath("paper", paper.id, paper.title, root);
     files[path] = markdown(
       path,
       paper.id,
@@ -167,7 +185,7 @@ export function serializeWorkspace(snapshot: WorkspaceSnapshot): SerializedWorks
   }
 
   for (const experiment of snapshot.experiments) {
-    const path = flatPath("experiment", experiment.id, experiment.name);
+    const path = flatPath("experiment", experiment.id, experiment.name, root);
     files[path] = markdown(
       path,
       experiment.id,
@@ -191,7 +209,7 @@ export function serializeWorkspace(snapshot: WorkspaceSnapshot): SerializedWorks
   }
 
   for (const milestone of snapshot.milestones) {
-    const path = flatPath("milestone", milestone.id, milestone.title);
+    const path = flatPath("milestone", milestone.id, milestone.title, root);
     files[path] = markdown(
       path,
       milestone.id,
@@ -208,7 +226,7 @@ export function serializeWorkspace(snapshot: WorkspaceSnapshot): SerializedWorks
   }
 
   for (const entry of snapshot.logEntries) {
-    const path = logPath(entry.id, entry.entryDate);
+    const path = logPath(entry.id, entry.entryDate, root);
     files[path] = markdown(
       path,
       entry.id,
@@ -220,11 +238,15 @@ export function serializeWorkspace(snapshot: WorkspaceSnapshot): SerializedWorks
   }
 
   // --- data with no natural prose form -------------------------------------
-  files[`${WORKSPACE_META_DIR}/relations.json`] = stableJson(snapshot.relations);
-  files[`${WORKSPACE_META_DIR}/tags.json`] = stableJson(snapshot.tags);
-  files[`${WORKSPACE_META_DIR}/reading-list-items.json`] = stableJson(snapshot.readingListItems);
+  // Data with no natural prose form, in the project's own bookkeeping. Beside
+  // the project's files rather than in a shared folder at the root: these
+  // describe one project, and a run for another project must not read them as
+  // its own.
+  files[`${meta}/relations.json`] = stableJson(snapshot.relations);
+  files[`${meta}/tags.json`] = stableJson(snapshot.tags);
+  files[`${meta}/reading-list-items.json`] = stableJson(snapshot.readingListItems);
 
-  files[`${WORKSPACE_META_DIR}/manifest.json`] = stableJson({
+  files[`${meta}/manifest.json`] = stableJson({
     schemaVersion: WORKSPACE_SCHEMA_VERSION,
     generatedAt: snapshot.collectedAt,
     app: "WeaveForge",
@@ -240,12 +262,24 @@ export function serializeWorkspace(snapshot: WorkspaceSnapshot): SerializedWorks
     "identifies the entity — renaming or moving a file is safe, and the id is",
     "how a re-import matches it back up. A file without one is treated as new.",
     "",
-    "Folders mirror the app: notes/, papers/, report/, experiments/, plan/,",
-    "logbook/, reading-lists/. A note with children becomes a folder holding a",
+    "One folder per project, holding that project's own files:",
+    "",
+    "    <project>/notes/  papers/  report/  experiments/  plan/  logbook/",
+    "    <project>/reading-lists/",
+    "",
+    "A project's folder is its name plus a short id (`msc-thesis--8d7317`), so two",
+    "projects may share a name. A note with children becomes a folder holding a",
     "same-named file for its own text.",
     "",
-    "`.weaveforge/` holds data with no natural prose form (relations, tags) and",
-    "a rebuildable manifest.",
+    "Two things sit at the top of the folder because every project shares them:",
+    "",
+    "- `assets/` — images and figures a note or a paper refers to.",
+    "- `.weaveforge/db` — the local database itself, and its backups.",
+    "",
+    "Each project keeps its own bookkeeping in `<project>/.weaveforge/`: the edges",
+    "between its papers, their tags, reading-list membership, a summary of what is",
+    "here, and the manifest the mirror writes so it can tell its own files from",
+    "every other project's.",
     "",
   ].join("\n");
 

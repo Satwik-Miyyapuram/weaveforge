@@ -15,7 +15,8 @@ import {
 // application layer never compares a kind against `"paper"`.
 import { memberRank } from "../ui/kind";
 
-const EMPTY: WorkspaceTreeInput = { notes: [], papers: [], reportSections: [], logEntries: [] };
+/** `""` is the flat layout: these tests are about the shape of a tree, not about a folder. */
+const EMPTY: WorkspaceTreeInput = { projectRoot: "", notes: [], papers: [], reportSections: [], logEntries: [] };
 
 function roots(input: Partial<WorkspaceTreeInput> = {}) {
   const tree = buildWorkspaceTree({ ...EMPTY, ...input });
@@ -284,6 +285,7 @@ test("a duplicate is hidden: that decision belongs to the screening screen", () 
 
 test("quick open never lists a member row, which would be the same document twice", () => {
   const files = buildWorkspaceTree({
+    projectRoot: "",
     notes: [],
     papers: [{ id: "p1", title: "β-VAE: Learning", hasNote: true }],
     reportSections: [],

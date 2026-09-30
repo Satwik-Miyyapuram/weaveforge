@@ -20,17 +20,24 @@ folder up backs up the app. That is the arrangement:
 
 ```
 <your chosen folder>/
-├── notes/  papers/  reading-lists/  report/  experiments/  plan/  logbook/
-├── assets/                       images and figures
+├── <project>/                    one folder per project: name--id, e.g. thesis--8d7317
+│   ├── notes/  papers/  reading-lists/  report/  experiments/  plan/  logbook/
+│   └── .weaveforge/
+│       ├── mirror.json           the last-agreed copy of this project's files
+│       ├── manifest.json         a summary of what is in this project
+│       └── tags.json, relations.json …
+├── assets/                       images and figures, shared by every project
 └── .weaveforge/
-    ├── db/                       the local database
-    ├── db-backups/               compressed snapshots of it
-    ├── manifest.json             what the mirror believes it wrote
-    ├── mirror.json               the last-agreed copy of each file
-    └── tags.json, relations.json …
+    ├── db/                       the local database, shared by every project
+    └── db-backups/               compressed snapshots of it
 ```
 
-Everything under `.weaveforge/` is the app's own bookkeeping. Move the whole
+A project's folder is its name plus a short id, so two projects may share a name
+and renaming one moves its folder rather than merging it with another's. Its
+Markdown, its PDFs and its own bookkeeping travel together; the database and the
+assets are shared, because a note in one project may show a figure from another.
+
+Everything under a `.weaveforge/` is the app's own bookkeeping. Move the whole
 folder to another machine, point WeaveForge at it, and you have everything —
 including the database.
 
@@ -64,6 +71,84 @@ reports, it does not apply.
 
 Every file carries a `weaveforge-id` in its frontmatter, and that id — not the
 filename — is the identity. Rename a note in Finder and it is the same note.
+
+### What the folder can change
+
+Two things in the folder are read back in, through the same preview. The Markdown,
+and the three JSON data files each project keeps in `<project>/.weaveforge/`:
+
+- `relations.json` — the typed edges between papers,
+- `tags.json` — the project's tags,
+- `reading-list-items.json` — which papers and notes are in which reading list.
+
+Add an edge by hand, rename a tag, drop a paper from a list: the import offers it
+the way it offers an edited note — created, changed or removed, with the counts
+shown and nothing written until you agree. A row whose id already exists is
+updated rather than duplicated, and an edit made in the app *and* in the folder
+since they last agreed is a conflict to settle rather than a guess.
+
+Three things are the app's own and are never imported:
+
+- the database and its backups — `.weaveforge/db`, `.weaveforge/db-backups`,
+- the caches — `papers/pdf`, `papers/html`, `.weaveforge/cache`,
+- the mirror's record of what it wrote — `mirror.json` and `manifest.json`. That
+  record is what lets the app tell its own writes from yours: the mirror rewrites
+  these files whenever the data changes, and without it every sync would report
+  itself as an outside edit.
+
+**The mirror never writes over a file you have edited since it last wrote it.**
+A change made in the folder is left exactly where it is, reported as an outside
+change, and applied only when you say so through the import. Once it has been
+applied the two sides agree again, and the next sync writes normally.
+
+### Resolving a conflict
+
+A file both sides changed is only a conflict when the changes collide. A tag added
+in the folder while a paragraph was rewritten here is two edits to one note, and
+the import settles it without asking: a frontmatter key only one side moved is
+taken from that side.
+
+What is left is shown file by file, and settled the way git settles it:
+
+- **Frontmatter, per key, three-way.** The base is the value the two sides last
+  agreed on, which the mirror recorded, so a key is in dispute only when both
+  sides moved it *differently* — and both values are shown against the base.
+- **The body, hunk by hunk, two-way.** `-` is this app's copy and `+` the
+  folder's, and each hunk is kept or taken on its own. A hunk you do not touch
+  stays as this app has it. There is no base text to show, because the mirror
+  keeps a digest of a body rather than a copy of it.
+- **Whole-file shortcuts**, for when one side obviously wins: keep this app's
+  copy, take the folder's, or keep both — the last imports the folder's copy as a
+  second note named `… (from folder)` and discards nothing.
+
+**Or settle it in your editor.** "Write conflict markers" puts both copies into
+the file, marked:
+
+```
+<<<<<<< this app
+…
+=======
+…
+>>>>>>> the folder
+```
+
+Two-way on purpose: a three-way block needs the text the sides last agreed on,
+and a digest is not text. Frontmatter is not marked at all — it is key-value
+data, and where two keys disagree the app settles them one at a time. A file
+still carrying markers is **unresolved**: it is never imported, the mirror never
+writes over it, and it keeps being reported as an outside change. Take the
+markers out and the file as it stands is the answer — the next import shows it as
+an ordinary edit.
+
+Nothing on any of these paths is written until you say so, and a conflict you
+leave alone keeps this app's copy.
+
+**Handwriting overlaps.** An ink note's strokes are pages in `.ink/<note id>/`,
+written beside the note rather than inside it, so settling a conflict decides the
+note's *text* and nothing else: both sides' pages stay and are drawn together.
+Strokes have one home — the workspace folder while one is open, the account's
+storage otherwise — so two devices' handwriting meets where their homes meet.
+
 
 ## Syncing to your account
 

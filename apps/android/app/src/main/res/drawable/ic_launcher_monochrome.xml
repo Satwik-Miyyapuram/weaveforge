@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 13+ Themed/Monochrome App Icon -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <!-- Document Outline -->
+    <path
+        android:pathData="M 230,125 L 194,125 A 54,54 0 0,0 140,179 L 140,355 A 54,54 0 0,0 194,409 L 318,409 A 54,54 0 0,0 372,355 L 372,265"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="22"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Connectors -->
+    <path
+        android:pathData="M 264,125 L 264,215 M 264,215 L 356,139 M 264,215 L 372,229"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="12"
+        android:strokeLineCap="round" />
+
+    <!-- Nodes -->
+    <path
+        android:pathData="M 242,125 a 22,22 0 1,0 44,0 a 22,22 0 1,0 -44,0"
+        android:fillColor="#FFFFFF" />
+    <path
+        android:pathData="M 242,215 a 22,22 0 1,0 44,0 a 22,22 0 1,0 -44,0"
+        android:fillColor="#FFFFFF" />
+    <path
+        android:pathData="M 334,139 a 22,22 0 1,0 44,0 a 22,22 0 1,0 -44,0"
+        android:fillColor="#FFFFFF" />
+    <path
+        android:pathData="M 350,229 a 22,22 0 1,0 44,0 a 22,22 0 1,0 -44,0"
+        android:fillColor="#FFFFFF" />
+</vector>

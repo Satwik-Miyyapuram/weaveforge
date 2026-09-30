@@ -29,11 +29,14 @@ const paper = (over: Record<string, unknown> = {}) =>
     createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-02-01T00:00:00.000Z", ...over,
   }) as never;
 
+const PROJECT = { id: "8d731734-bdcd-4f08-b648-efd15fdf75da", name: "MSc Thesis" };
+
 // ------------------------------------------------------------------- aliases
 
 test("every mirrored file declares its title as an alias", () => {
   const { files } = serializeWorkspace(
     snapshot({ vaultPages: [note({ title: "Method Notes" })] }),
+    PROJECT,
   );
   const [path] = Object.keys(files);
   // The suffix is what makes the alias necessary: the basename is not the title.
@@ -42,7 +45,7 @@ test("every mirrored file declares its title as an alias", () => {
 });
 
 test("papers carry an alias too, so a citation key is not the only handle", () => {
-  const { files } = serializeWorkspace(snapshot({ papers: [paper()] }));
+  const { files } = serializeWorkspace(snapshot({ papers: [paper()] }), PROJECT);
   const [path] = Object.keys(files);
   assert.deepEqual(readFrontmatter(files[path!]!).frontmatter.aliases, ["Attention"]);
 });
@@ -50,6 +53,7 @@ test("papers carry an alias too, so a citation key is not the only handle", () =
 test("an alias survives a round trip back into the workspace", () => {
   const { files } = serializeWorkspace(
     snapshot({ vaultPages: [note({ title: "Method Notes" })] }),
+    PROJECT,
   );
   const parsed = parseWorkspaceFolder(files);
   // The extra key is ignored on the way in: identity is still the id.
@@ -76,6 +80,7 @@ test("no tags means no key, not an empty list", () => {
 test("a paper's tags reach the file in their safe form", () => {
   const { files } = serializeWorkspace(
     snapshot({ papers: [paper({ tags: ["machine learning"] })] }),
+    PROJECT,
   );
   const [path] = Object.keys(files);
   assert.deepEqual(readFrontmatter(files[path!]!).frontmatter.tags, ["machine-learning"]);

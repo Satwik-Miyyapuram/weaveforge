@@ -102,6 +102,18 @@ export class GraphFacade {
     return this.deps.removeRelation.execute(id);
   }
 
+  /**
+   * The edges themselves, for the folder import.
+   *
+   * The use-cases cover adding and removing one edge at a time; reading the
+   * whole graph and writing a row the folder supplied — keeping its id — is what
+   * importing `relations.json` needs, and the repository is the only thing that
+   * can do it.
+   */
+  get relations() {
+    return this.deps.relations;
+  }
+
   get addRelation() {
     return this.deps.addRelation;
   }

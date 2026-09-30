@@ -5,6 +5,7 @@
 
 import type { IPdfByteCache, PdfSourceResolution } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { activeProjectRoot } from "@/features/workspace/application/active-project";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { IndexedDbPdfByteCache } from "../infrastructure/indexeddb-pdf-byte-cache";
 import {
@@ -32,7 +33,7 @@ export function getReaderPdfByteCache(): IPdfByteCache | undefined {
   if (!hasBrowser && !activeWorkspaceFs()) return undefined;
   if (!sharedCache) {
     const browser = hasBrowser ? new IndexedDbPdfByteCache(CACHE_CAP) : null;
-    const folder = new WorkspacePdfStore(activeWorkspaceFs);
+    const folder = new WorkspacePdfStore(activeWorkspaceFs, activeProjectRoot);
     sharedCache = new RoutedPdfByteCache(() =>
       activeWorkspaceFs() ? folder : (browser ?? folder),
     );

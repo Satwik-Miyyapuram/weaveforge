@@ -11,3 +11,8 @@ export { SyncSettingsPanel } from "./ui/sync-settings-panel";
 export * from "./domain/merge";
 export * from "./domain/conflicts";
 export { SyncIssuesPanel } from "./ui/sync-issues-panel";
+export * from "./domain/live-sync";
+export { useLiveSync } from "./ui/use-live-sync";
+export { SyncStatusIndicator } from "./ui/sync-status-indicator";
+export { OfflineWorkModal } from "./ui/offline-work-modal";
+

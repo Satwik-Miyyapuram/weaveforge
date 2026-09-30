@@ -17,6 +17,7 @@ import { buildWorkspaceTree, type WorkspaceTreeNode } from "../application/works
 
 function tree() {
   return buildWorkspaceTree({
+    projectRoot: "",
     notes: [
       { id: "n1", title: "Methods", parentId: undefined },
       { id: "n2", title: "Sampling", parentId: "n1" },

@@ -57,30 +57,15 @@ import { syncEngine } from "./use-sync";
  * sync offer in Settings, which asks before merging it into an account.
  */
 
-const CYCLE_MS = 5 * 60 * 1000;
-const FOCUS_MS = 30 * 1000;
+import { onWorkspaceChange } from "@/lib/workspace-changes";
+import { setLiveSyncState, registerSyncTrigger } from "../domain/live-sync";
+import { Adoption } from "../domain/adoption";
+import { ConflictStore } from "../domain/conflicts";
 
-/**
- * Serialise the cycle, because three triggers can fire at once.
- *
- * Without this the interval and the `online` event can overlap: two pushes of the
- * same outbox rows race, and the second one sends what the first has already
- * sent — which the conflict store then reports as a conflict with itself. A
- * dropped tick is free; a doubled push is visible to the reader.
- *
- * Extracted and exported so that property is testable without a DOM, a database
- * or a network.
- */
-/**
- * Whether this window may drive the device's outbox.
- *
- * The queued rows carry the `user_id` of the account the device was adopted by,
- * so a cycle run under a *different* session pushes one account's work as
- * another's — every row refused — and a cycle run with no session at all fails
- * the same way and leaves the queue where it was. Only the account that owns the
- * device drives it; anyone else's window stays on the server, which is what
- * "another account's copy: keep syncing it" was trying to say and did not.
- */
+const CYCLE_MS = 45 * 1000;
+const FOCUS_MS = 15 * 1000;
+const DEBOUNCE_CHANGE_MS = 1500;
+
 export function mayDriveDevice(
   signedInUserId: string | null,
   adoptedAccountId: string | null,
@@ -112,7 +97,10 @@ export function SyncLoop() {
     let stop: (() => void) | undefined;
 
     void (async () => {
-      if (isLocalMode()) return;
+      if (isLocalMode()) {
+        setLiveSyncState({ phase: "offline", enabled: false, isOnline: false });
+        return;
+      }
       const config = readBackendConfig();
       const client = createSupabaseClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "");
       const runner = new LocalRunner();
@@ -124,10 +112,26 @@ export function SyncLoop() {
       if (current.accountId === null) {
         // Not adopted: there is no account for the outbox to belong to, and
         // asking the server would be a request per tick that can only be refused.
-        if (cancelled || !signedIn || !(await nothingOfItsOwn(runner))) return;
-        await enableSync();
-        current = await state.read();
-        if (current.accountId === null) return;
+        if (cancelled || !signedIn) return;
+
+        const adoption = new Adoption(runner, LOCAL_USER_ID);
+        const { data: remote } = await client.from("projects").select("name");
+        const remoteNames = (remote ?? []).map((r: { name: string }) => r.name);
+        const summary = await adoption.inspect(remoteNames);
+
+        if (summary.totalCount === 0) {
+          await enableSync();
+          current = await state.read();
+          if (current.accountId === null) return;
+        } else {
+          // Has offline work waiting for user review or 1-click adoption:
+          setLiveSyncState({
+            phase: "needs-adoption",
+            offlineWorkCount: summary.totalCount,
+            offlineSummary: summary,
+          });
+          return;
+        }
       }
       if (cancelled) return;
 
@@ -136,6 +140,19 @@ export function SyncLoop() {
       // it shows the server rather than someone else's local copy.
       const owner = mayDriveDevice(signedIn?.id ?? null, current.accountId) ? signedIn : null;
       if (!owner) return;
+
+      setLiveSyncState({
+        enabled: true,
+        accountId: current.accountId,
+        phase: typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "idle",
+        isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
+      });
+
+      const conflictStore = new ConflictStore(runner);
+      const updateConflicts = async () => {
+        const open = await conflictStore.openConflicts().catch(() => []);
+        setLiveSyncState({ conflictsCount: open.length });
+      };
 
       const engine = syncEngine(liveAccessToken(client));
 
@@ -156,31 +173,61 @@ export function SyncLoop() {
       let lastRun = 0;
       const cycle = createCycleRunner(async () => {
         lastRun = Date.now();
+        setLiveSyncState({ phase: "syncing" });
         try {
           settle(await engine.cycle());
+          setLiveSyncState({
+            phase: "idle",
+            lastSyncAt: Date.now(),
+            isOnline: true,
+          });
+          void updateConflicts();
         } catch {
-          // A cycle that throws has already recorded what it could: the puller
-          // writes `lastPullAt` on success and leaves the watermark alone on
-          // failure, so the next tick resumes from the same place. There is
-          // nothing here for the reader to act on mid-session, and the settings
-          // row shows the age of the last successful pull.
+          // A cycle that throws records what it could: the puller
+          // writes `lastPullAt` on success and leaves the watermark alone on failure.
+          setLiveSyncState({
+            phase: typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "error",
+            isOnline: typeof navigator !== "undefined" ? navigator.onLine : false,
+          });
         }
       });
 
-      void cycle();
+      const unregisterTrigger = registerSyncTrigger(() => void cycle());
 
-      const onOnline = () => void cycle();
+      void cycle();
+      void updateConflicts();
+
+      let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+      const unsubChange = onWorkspaceChange(() => {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          void cycle();
+        }, DEBOUNCE_CHANGE_MS);
+      });
+
+      const onOnline = () => {
+        setLiveSyncState({ isOnline: true });
+        void cycle();
+      };
+      const onOffline = () => {
+        setLiveSyncState({ isOnline: false, phase: "offline" });
+      };
       const onFocus = () => {
         if (Date.now() - lastRun >= FOCUS_MS) void cycle();
       };
       window.addEventListener("online", onOnline);
+      window.addEventListener("offline", onOffline);
       window.addEventListener("focus", onFocus);
       const timer = window.setInterval(() => void cycle(), CYCLE_MS);
 
       stop = () => {
         window.removeEventListener("online", onOnline);
+        window.removeEventListener("offline", onOffline);
         window.removeEventListener("focus", onFocus);
         window.clearInterval(timer);
+        if (debounceTimer) clearTimeout(debounceTimer);
+        unsubChange();
+        unregisterTrigger();
       };
       // The effect may have been torn down while the adoption state was loading.
       if (cancelled) stop();

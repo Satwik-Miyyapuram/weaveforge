@@ -372,6 +372,40 @@ html[data-workspace-focus] .layout.editor-route .nav { display: none; }
 }
 .nav-bottom .local-mode-badge, .desktop-only .local-mode-badge { align-self: flex-start; margin-bottom: 6px; }
 
+.sync-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em;
+  color: var(--muted); border: 1px solid var(--border); background: transparent;
+  cursor: pointer; text-decoration: none; transition: all 0.15s ease;
+}
+.sync-badge:hover {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.04));
+  border-color: var(--border-hover, currentColor);
+}
+.sync-badge.syncing {
+  color: var(--primary, #2563eb); border-color: currentColor;
+}
+.sync-badge.needs-adoption, .sync-badge.conflict {
+  color: var(--warning, #d97706); border-color: currentColor;
+}
+.sync-badge.synced {
+  color: var(--text-secondary, #4b5563);
+}
+.sync-dot {
+  width: 6px; height: 6px; border-radius: 50%; display: inline-block;
+}
+.sync-dot.green { background-color: #10b981; }
+.sync-dot.amber { background-color: #f59e0b; }
+.sync-dot.muted { background-color: var(--muted, #9ca3af); }
+.sync-spin-icon {
+  animation: sync-spin 1.2s linear infinite;
+}
+@keyframes sync-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* Below 461px the bottom bar cannot hold six words, so it holds six icons.
    Measured: each slot is `(width - 40) / 6`, and "Experiments" needs 64px of
    content — so it fits from a slot of about 68px, which is a 448px window, and

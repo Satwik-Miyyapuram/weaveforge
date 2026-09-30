@@ -7,7 +7,8 @@
  * may have been edited by hand, and nothing unsanitised reaches the frame.
  */
 
-import { PAPER_HTML_DIR, paperHtmlPath, type IWorkspaceFs } from "@weaveforge/core";
+import { entityDir, paperHtmlPath, type IWorkspaceFs } from "@weaveforge/core";
+import { activeProjectRoot } from "@/features/workspace/application/active-project";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import {
   buildPaperHtmlDocument,
@@ -23,10 +24,14 @@ export interface PaperHtmlStore {
 }
 
 class FolderPaperHtmlStore implements PaperHtmlStore {
-  constructor(private readonly fs: IWorkspaceFs) {}
+  /** The root is asked per call: the reader can switch project mid-session. */
+  constructor(
+    private readonly fs: IWorkspaceFs,
+    private readonly projectRoot: () => Promise<string>,
+  ) {}
 
   async get(paperId: string): Promise<PaperHtmlPage | null> {
-    const path = paperHtmlPath(paperId);
+    const path = paperHtmlPath(paperId, await this.projectRoot());
     if (!(await this.fs.stat(path))) return null;
     const page = parsePaperHtmlDocument(paperId, await this.fs.readText(path));
     if (!page) return null;
@@ -34,12 +39,13 @@ class FolderPaperHtmlStore implements PaperHtmlStore {
   }
 
   async set(page: PaperHtmlPage): Promise<void> {
-    await this.fs.mkdirp(PAPER_HTML_DIR);
-    await this.fs.writeFile(paperHtmlPath(page.paperId), buildPaperHtmlDocument(page));
+    const root = await this.projectRoot();
+    await this.fs.mkdirp(entityDir("paper", root) + "/html");
+    await this.fs.writeFile(paperHtmlPath(page.paperId, root), buildPaperHtmlDocument(page));
   }
 
   async remove(paperId: string): Promise<void> {
-    const path = paperHtmlPath(paperId);
+    const path = paperHtmlPath(paperId, await this.projectRoot());
     if (await this.fs.stat(path)) await this.fs.remove(path);
   }
 }
@@ -97,7 +103,7 @@ class IndexedDbPaperHtmlStore implements PaperHtmlStore {
 /** Decided per call: a folder can open or close mid-session. */
 export function paperHtmlStore(): PaperHtmlStore | null {
   const fs = activeWorkspaceFs();
-  if (fs) return new FolderPaperHtmlStore(fs);
+  if (fs) return new FolderPaperHtmlStore(fs, activeProjectRoot);
   if (typeof indexedDB === "undefined") return null;
   return new IndexedDbPaperHtmlStore();
 }

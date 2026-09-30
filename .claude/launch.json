@@ -44,6 +44,34 @@
         "3012"
       ],
       "port": 3012
+    },
+    {
+      "name": "web-prod",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "start",
+        "-w",
+        "apps/web",
+        "--",
+        "-p",
+        "3013"
+      ],
+      "port": 3013
+    },
+    {
+      "name": "web-worktree",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "C:/Users/Satwik/Documents/MSc/wf-widget/apps/web",
+        "run",
+        "dev",
+        "--",
+        "-p",
+        "3014"
+      ],
+      "port": 3014
     }
   ]
 }

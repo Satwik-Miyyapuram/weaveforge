@@ -12,6 +12,7 @@ import { buildWorkspaceTree, flattenTree } from "../application/workspace-tree";
 
 const DOCUMENTS = flattenTree(
   buildWorkspaceTree({
+    projectRoot: "",
     notes: [
       { id: "n1", title: "Baselines" },
       { id: "n2", title: "Planning" },

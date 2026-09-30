@@ -99,3 +99,23 @@ test("loadInkPages keeps declared order, appends orphans, and makes one page fro
   assert.deepEqual([...pages[1]!.chunk!], [1]);
   assert.equal(pages[2]!.paper, "ruled");
 });
+
+test("strokes from two sides are kept together, and settling one never clears the other", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const store = new FsInkChunkStore(() => fs);
+  // Two sides' pages for one note. Ids are minted per page, so the two sets
+  // cannot collide and neither write replaces the other.
+  const ours = newInkChunkId();
+  const theirs = newInkChunkId();
+  await store.write(NOTE, ours, new Uint8Array([1]));
+  await store.write(NOTE, theirs, new Uint8Array([2]));
+
+  assert.deepEqual(await store.list(NOTE), [ours, theirs].sort());
+
+  // Removing one page removes that page. The other side's handwriting is not
+  // collateral -- which is the property "take this app's copy" depends on when
+  // it settles the *text* of a note whose strokes both sides added to.
+  await store.remove(NOTE, ours);
+  assert.deepEqual(await store.list(NOTE), [theirs]);
+  assert.deepEqual([...(await store.read(NOTE, theirs))!], [2]);
+});

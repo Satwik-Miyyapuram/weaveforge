@@ -14,6 +14,7 @@ import { getContainer } from "@/bootstrap";
 import { paperCiteLabel, type CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { isHydratedPage, noteBodyText } from "@/lib/page-text";
 import { logPath } from "@weaveforge/core";
+import { activeProjectRoot } from "@/features/workspace/application/active-project";
 import { memberRank } from "../ui/kind";
 import {
   buildListsTree,
@@ -66,6 +67,9 @@ export interface WorkspaceData {
  * keeps its full body as long as the summary still describes it.
  */
 export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Promise<WorkspaceData> {
+  // One lookup for the whole load: the tree, the log rows and every other path
+  // here describe the same project's folder.
+  const projectRoot = await activeProjectRoot();
   const container = getContainer();
   const [vault, papers, report, lists, log] = await Promise.all([
     container.vault.loadScreenData(),
@@ -148,7 +152,7 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
       title: entry.entryDate,
       body: entry.body,
       hydrated: true,
-      path: logPath(entry.id, entry.entryDate),
+      path: logPath(entry.id, entry.entryDate, projectRoot),
     })),
   ];
 
@@ -175,6 +179,7 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
   }
   const completions = rows;
   const tree = buildWorkspaceTree({
+      projectRoot,
       notes: vault.flat.map((page) => ({
         id: page.id,
         title: page.title,

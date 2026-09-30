@@ -46,6 +46,7 @@ function writerKinds(): string[] {
 test("every kind the Files tree shows as a document has an editor writer", () => {
   const writers = new Set(writerKinds());
   const tree = buildWorkspaceTree({
+    projectRoot: "",
     notes: [{ id: "n1", title: "A note" }],
     papers: [{ id: "p1", title: "A paper", hasNote: true }],
     reportSections: [{ id: "s1", title: "A section" }],
@@ -70,6 +71,7 @@ test("a log entry is a text document, and is in the tree", () => {
   assert.equal(kindMeta("log_entry").suffix, ".log.md");
   // And it is reachable: a tree built with one has a row for it.
   const tree = buildWorkspaceTree({
+    projectRoot: "",
     notes: [],
     papers: [],
     reportSections: [],

@@ -1,0 +1,373 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Tiles & Ambient Hearth -->
+    <radialGradient id="wf-bg-glow" cx="50%" cy="46%" r="60%">
+      <stop offset="0%" stop-color="#FF5500" stop-opacity="0.22" />
+      <stop offset="45%" stop-color="#8014B7" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#06070B" stop-opacity="0" />
+    </radialGradient>
+
+    <linearGradient id="wf-bg-base" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141622" />
+      <stop offset="50%" stop-color="#0B0C12" />
+      <stop offset="100%" stop-color="#050608" />
+    </linearGradient>
+
+    <linearGradient id="wf-tile-border" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF9500" stop-opacity="0.4" />
+      <stop offset="30%" stop-color="#FFFFFF" stop-opacity="0.15" />
+      <stop offset="70%" stop-color="#7B2CBF" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.05" />
+    </linearGradient>
+
+    <!-- Warp Strand 1 (Solar Molten: Left Horn to Center) -->
+    <linearGradient id="wf-warp-1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE483" />
+      <stop offset="18%" stop-color="#FF9500" />
+      <stop offset="52%" stop-color="#FF3DF1" />
+      <stop offset="85%" stop-color="#7928CA" />
+      <stop offset="100%" stop-color="#3B82F6" />
+    </linearGradient>
+
+    <!-- Warp Strand 2 (Tempered Flame: Right Horn to Center) -->
+    <linearGradient id="wf-warp-2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00F0FF" />
+      <stop offset="20%" stop-color="#3B82F6" />
+      <stop offset="55%" stop-color="#9333EA" />
+      <stop offset="82%" stop-color="#FF2E93" />
+      <stop offset="100%" stop-color="#FF8A00" />
+    </linearGradient>
+
+    <!-- Weft Collar (Horizontal Plain Weave Band) -->
+    <linearGradient id="wf-weft-front" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF4500" />
+      <stop offset="25%" stop-color="#FFB300" />
+      <stop offset="50%" stop-color="#FFF4CC" />
+      <stop offset="75%" stop-color="#FF9100" />
+      <stop offset="100%" stop-color="#FF2A6D" />
+    </linearGradient>
+
+    <linearGradient id="wf-weft-back" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4B1220" />
+      <stop offset="50%" stop-color="#1E1233" />
+      <stop offset="100%" stop-color="#0F1B38" />
+    </linearGradient>
+
+    <!-- Core Plasma Filaments (High-Voltage Core) -->
+    <linearGradient id="wf-plasma-core" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9" />
+      <stop offset="50%" stop-color="#FFF2A3" stop-opacity="0.75" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.9" />
+    </linearGradient>
+
+    <!-- Forge Spark Radial Core -->
+    <radialGradient id="wf-spark-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="22%" stop-color="#FFE082" />
+      <stop offset="55%" stop-color="#FF6B00" stop-opacity="0.7" />
+      <stop offset="100%" stop-color="#FF2A00" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Drop Shadows for Realistic Occlusion -->
+    <filter id="wf-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="7" stdDeviation="6" flood-color="#020305" flood-opacity="0.85" />
+    </filter>
+
+    <filter id="wf-deep-shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#000000" flood-opacity="0.95" />
+    </filter>
+
+    <!-- Bloom / Incandescent Glow Filter -->
+    <filter id="wf-bloom" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="7" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <filter id="wf-micro-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2.5" result="glow" />
+      <feMerge>
+        <feMergeNode in="glow" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- APP SQUIRCLE TILE -->
+  <g id="app-tile">
+    <rect x="20" y="20" width="472" height="472" rx="108" fill="url(#wf-bg-base)" />
+    <!-- Ambient Internal Hearth Glow -->
+    <rect x="20" y="20" width="472" height="472" rx="108" fill="url(#wf-bg-glow)" />
+    <!-- Fine Border Sheen -->
+    <rect x="20" y="20" width="472" height="472" rx="108" fill="none" stroke="url(#wf-tile-border)" stroke-width="2.5" />
+    <!-- Inner Glass Lip -->
+    <rect x="22" y="22" width="468" height="234" rx="106" fill="none" stroke="#FFFFFF" stroke-opacity="0.06" stroke-width="1.5" />
+  </g>
+
+  <!-- LOOM & FORGE PRECISION ALIGNMENT GEOMETRY (Subtle Architectural Grid) -->
+  <g id="loom-grid" opacity="0.14" stroke="#FFF" stroke-width="1" stroke-dasharray="3 7">
+    <circle cx="256" cy="275" r="160" fill="none" />
+    <circle cx="256" cy="275" r="110" fill="none" />
+    <line x1="256" y1="90" x2="256" y2="440" stroke-dasharray="4 8" />
+    <line x1="100" y1="290" x2="412" y2="290" stroke-dasharray="4 8" />
+  </g>
+
+  <!-- MASTER EMBLEM: THE WOVEN ANVIL (WEAVE + FORGE) -->
+  <g id="weaveforge-emblem" transform="translate(0, -6)">
+
+    <!-- LAYER 1: BACK WEFT BAND (Loops behind the warp columns) -->
+    <path d="M 135 292 C 170 280, 215 274, 256 274 C 297 274, 342 280, 377 292" 
+          fill="none" 
+          stroke="url(#wf-weft-back)" 
+          stroke-width="26" 
+          stroke-linecap="round" />
+
+    <!-- LAYER 2: THE FULL WARP 'W' SKELETON (Interwoven Base) -->
+    <!-- Left Horn -> Left Foot -> Center Saddle -> Right Foot -> Right Horn -->
+    <g id="warp-strands" filter="url(#wf-shadow)">
+
+      <!-- Left-to-Center Half (Warp 1) -->
+      <path id="warp-left"
+            d="M 115 160 
+               C 138 138, 175 148, 192 195 
+               C 202 225, 198 258, 182 292 
+               C 164 332, 150 365, 166 392 
+               C 176 408, 202 408, 218 392 
+               C 238 372, 248 320, 256 220"
+            fill="none"
+            stroke="url(#wf-warp-1)"
+            stroke-width="30"
+            stroke-linecap="round"
+            stroke-linejoin="round" />
+
+      <!-- Center-to-Right Half (Warp 2) -->
+      <path id="warp-right"
+            d="M 256 220 
+               C 264 320, 274 372, 294 392 
+               C 310 408, 336 408, 346 392 
+               C 362 365, 348 332, 330 292 
+               C 314 258, 310 225, 320 195 
+               C 337 148, 374 138, 397 160"
+            fill="none"
+            stroke="url(#wf-warp-2)"
+            stroke-width="30"
+            stroke-linecap="round"
+            stroke-linejoin="round" />
+    </g>
+
+    <!-- LAYER 3: 3D INTERLACED OCCLUSIONS (The Plain Weave Topology) -->
+
+    <!-- [Crossing A]: Weft Front Section 1 (Passes OVER Outer-Left Leg 1) -->
+    <!-- Occlusion shadow cast onto Leg 1 under the Weft -->
+    <path d="M 170 274 C 178 288, 182 300, 186 312" 
+          fill="none" 
+          stroke="#000000" 
+          stroke-width="34" 
+          stroke-linecap="round" 
+          opacity="0.65" 
+          filter="url(#wf-shadow)" />
+
+    <!-- Weft Ribbon: Left Flank Crossing over Leg 1 -->
+    <path d="M 135 292 C 165 304, 198 309, 230 310" 
+          fill="none" 
+          stroke="url(#wf-weft-front)" 
+          stroke-width="26" 
+          stroke-linecap="round" 
+          filter="url(#wf-shadow)" />
+
+    <!-- [Crossing B]: Inner-Left Riser (Leg 2) passes OVER the Weft Ribbon -->
+    <!-- Occlusion shadow cast onto Weft under Leg 2 -->
+    <ellipse cx="236" cy="310" rx="14" ry="18" fill="#000000" opacity="0.6" filter="url(#wf-shadow)" />
+
+    <!-- Leg 2 Interlaced Surface Patch -->
+    <path d="M 226 350 C 236 325, 244 285, 256 220" 
+          fill="none" 
+          stroke="url(#wf-warp-1)" 
+          stroke-width="30" 
+          stroke-linecap="round" />
+
+    <!-- [Crossing C]: Center Saddle Apex (Leg 2 passes OVER Leg 3 at Hearth Core) -->
+    <!-- Shadow cast by Left Riser onto Right Riser -->
+    <path d="M 252 232 C 255 255, 258 275, 262 295" 
+          fill="none" 
+          stroke="#000000" 
+          stroke-width="32" 
+          stroke-linecap="round" 
+          opacity="0.6" 
+          filter="url(#wf-shadow)" />
+
+    <!-- Overpassing Crest of the 'W' -->
+    <path d="M 244 260 C 248 238, 252 225, 256 220 C 260 225, 263 234, 266 248" 
+          fill="none" 
+          stroke="url(#wf-warp-1)" 
+          stroke-width="30" 
+          stroke-linecap="round" />
+
+    <!-- [Crossing D]: Weft Front Section 2 (Passes OVER Inner-Right Leg 3) -->
+    <!-- Occlusion shadow cast onto Leg 3 under Weft -->
+    <path d="M 276 280 C 279 295, 283 310, 288 325" 
+          fill="none" 
+          stroke="#000000" 
+          stroke-width="34" 
+          stroke-linecap="round" 
+          opacity="0.65" 
+          filter="url(#wf-shadow)" />
+
+    <!-- Weft Ribbon: Right Inner Crossing over Leg 3 -->
+    <path d="M 252 310 C 285 310, 318 304, 348 296" 
+          fill="none" 
+          stroke="url(#wf-weft-front)" 
+          stroke-width="26" 
+          stroke-linecap="round" 
+          filter="url(#wf-shadow)" />
+
+    <!-- [Crossing E]: Outer-Right Flank (Leg 4) passes OVER the Weft Ribbon -->
+    <!-- Occlusion shadow cast onto Weft under Leg 4 -->
+    <ellipse cx="338" cy="296" rx="14" ry="18" fill="#000000" opacity="0.6" filter="url(#wf-shadow)" />
+
+    <!-- Leg 4 Interlaced Surface Patch -->
+    <path d="M 342 340 C 334 308, 324 275, 320 235" 
+          fill="none" 
+          stroke="url(#wf-warp-2)" 
+          stroke-width="30" 
+          stroke-linecap="round" />
+
+    <!-- Weft Right Terminal Finial (Looping to back) -->
+    <path d="M 345 297 C 356 295, 367 293, 377 292" 
+          fill="none" 
+          stroke="url(#wf-weft-front)" 
+          stroke-width="26" 
+          stroke-linecap="round" />
+
+    <!-- LAYER 4: HIGH-VOLTAGE INDUCTION FILAMENTS (Laser-forged internal light pipes) -->
+    <g id="plasma-spines" opacity="0.9" filter="url(#wf-micro-glow)">
+      <!-- Left Spine -->
+      <path d="M 115 160 
+               C 138 138, 175 148, 192 195 
+               C 202 225, 198 258, 182 292 
+               C 164 332, 150 365, 166 392 
+               C 176 408, 202 408, 218 392 
+               C 238 372, 248 320, 256 220" 
+            fill="none" 
+            stroke="url(#wf-plasma-core)" 
+            stroke-width="5" 
+            stroke-linecap="round" />
+
+      <!-- Right Spine -->
+      <path d="M 256 220 
+               C 264 320, 274 372, 294 392 
+               C 310 408, 336 408, 346 392 
+               C 362 365, 348 332, 330 292 
+               C 314 258, 310 225, 320 195 
+               C 337 148, 374 138, 397 160" 
+            fill="none" 
+            stroke="#FFFFFF" 
+            stroke-opacity="0.85" 
+            stroke-width="5" 
+            stroke-linecap="round" />
+
+      <!-- Weft Core Spine -->
+      <path d="M 142 293 C 210 312, 302 312, 370 293" 
+            fill="none" 
+            stroke="#FFF7D6" 
+            stroke-opacity="0.8" 
+            stroke-width="4" 
+            stroke-linecap="round" />
+    </g>
+
+    <!-- LAYER 5: FORGED ANVIL HORN TERMINALS (Chiseled faceted end-caps) -->
+    <!-- Left Horn Cap -->
+    <g id="left-horn-cap">
+      <ellipse cx="115" cy="160" rx="15" ry="8" transform="rotate(-40 115 160)" fill="#FFE89E" />
+      <circle cx="115" cy="160" r="4.5" fill="#FFFFFF" filter="url(#wf-micro-glow)" />
+    </g>
+
+    <!-- Right Horn Cap -->
+    <g id="right-horn-cap">
+      <ellipse cx="397" cy="160" rx="15" ry="8" transform="rotate(40 397 160)" fill="#7DF2FF" />
+      <circle cx="397" cy="160" r="4.5" fill="#FFFFFF" filter="url(#wf-micro-glow)" />
+    </g>
+
+    <!-- LAYER 6: THE FORGE STRIKE (Crucible Spark, Anamorphic Flares, & Embers) -->
+
+    <!-- Radial Crucible Hearth Glow -->
+    <circle cx="256" cy="165" r="75" fill="url(#wf-spark-glow)" opacity="0.65" />
+
+    <!-- Anamorphic Horizontal Flare Lens Beam -->
+    <path d="M 160 165 Q 256 161 352 165 Q 256 169 160 165 Z" 
+          fill="#FFFFFF" 
+          opacity="0.75" 
+          filter="url(#wf-bloom)" />
+    <path d="M 200 165 Q 256 163 312 165 Q 256 167 200 165 Z" 
+          fill="#FFDF79" 
+          opacity="0.9" />
+
+    <!-- Vertical Anamorphic Needle -->
+    <path d="M 256 100 Q 254 165 256 230 Q 258 165 256 100 Z" 
+          fill="#FFFFFF" 
+          opacity="0.75" 
+          filter="url(#wf-bloom)" />
+
+    <!-- Primary 4-Point Diamond Forge Spark -->
+    <path d="M 256 122 
+             Q 256 165 298 165 
+             Q 256 165 256 208 
+             Q 256 165 214 165 
+             Q 256 165 256 122 Z" 
+          fill="#FFFFFF" 
+          filter="url(#wf-bloom)" />
+
+    <!-- Secondary 45-Degree Diamond Spark -->
+    <path d="M 256 138 
+             Q 256 165 282 165 
+             Q 256 165 256 192 
+             Q 256 165 230 165 
+             Q 256 165 256 138 Z" 
+          transform="rotate(45 256 165)" 
+          fill="#FFB700" 
+          opacity="0.85" />
+
+    <!-- Incandescent Center Core -->
+    <circle cx="256" cy="165" r="5" fill="#FFFFFF" />
+
+    <!-- Molten Sparks & Micro Embers (Rising from the strike) -->
+    <g id="sparks-embers" fill="#FFF" opacity="0.85">
+      <!-- Upper Floating Sparks -->
+      <circle cx="242" cy="118" r="2.5" fill="#FFD000" filter="url(#wf-micro-glow)" />
+      <circle cx="274" cy="128" r="2" fill="#FF8C00" />
+      <circle cx="256" cy="85" r="1.8" fill="#FFF" />
+      <circle cx="225" cy="142" r="1.5" fill="#FF5E00" />
+      <circle cx="292" cy="138" r="2.2" fill="#FFE58F" />
+
+      <!-- Left Flank Sparks -->
+      <circle cx="150" cy="210" r="2.2" fill="#FF9500" />
+      <circle cx="132" cy="235" r="1.5" fill="#FF375F" />
+      <circle cx="188" cy="132" r="1.8" fill="#FFCC00" />
+
+      <!-- Right Flank Sparks -->
+      <circle cx="362" cy="210" r="2.2" fill="#00E5FF" />
+      <circle cx="380" cy="235" r="1.5" fill="#7928CA" />
+      <circle cx="324" cy="132" r="1.8" fill="#60A5FA" />
+
+      <!-- 4-Point Micro Diamond Embers -->
+      <path d="M 230 98 Q 230 103 235 103 Q 230 103 230 108 Q 230 103 225 103 Q 230 103 230 98 Z" fill="#FFE27A" />
+      <path d="M 284 104 Q 284 108 288 108 Q 284 108 284 112 Q 284 108 280 108 Q 284 108 284 104 Z" fill="#FF9E40" />
+    </g>
+
+  </g>
+
+  <!-- SUBTLE BRAND INTEGRATION (Architectural Signature at Base) -->
+  <g id="brand-signature" opacity="0.6">
+    <text x="256" y="468" 
+          text-anchor="middle" 
+          font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Inter, sans-serif" 
+          font-size="12" 
+          font-weight="700" 
+          letter-spacing="0.38em" 
+          fill="#84889E">WEAVEFORGE</text>
+    <circle cx="166" cy="464" r="1.5" fill="#FF8C00" />
+    <circle cx="346" cy="464" r="1.5" fill="#00D2FF" />
+  </g>
+</svg>

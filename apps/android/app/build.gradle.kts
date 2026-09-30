@@ -47,9 +47,16 @@ val appIsCleartext: Boolean = (appUri?.scheme ?: "https").lowercase() == "http"
  */
 val appAllowedHosts: String = buildList {
     add("app.weaveforge.org")
+    add("api.weaveforge.org")
+    add("weaveforge.org")
+    add("supabase.co")
+    add("google.com")
+    add("gstatic.com")
+    add("googleusercontent.com")
+    add("cloudflarestorage.com")
     // A development URL names its own host, and it is the only other one the
     // shell may ever load.
-    if (appHost.isNotBlank() && appHost != "app.weaveforge.org") add(appHost)
+    if (appHost.isNotBlank() && !contains(appHost)) add(appHost)
 }.joinToString(",")
 
 /**

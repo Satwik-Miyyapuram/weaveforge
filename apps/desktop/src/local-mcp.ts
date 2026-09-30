@@ -181,13 +181,24 @@ interface Entry extends ParsedEntity {
   raw: string;
 }
 
-/** Every parsed entry of one kind; junk and hidden files skipped. */
+/**
+ * Every parsed entry of one kind; junk and hidden files skipped.
+ *
+ * The whole folder is walked, not `ENTITY_DIRS[kind]` at the root: each project
+ * keeps its own `papers/`, `notes/`, `report/` … inside its own folder, and this
+ * server answers about the folder rather than about whichever project a window
+ * happens to have open. A file is identified by `parseWorkspaceFile` — its
+ * frontmatter first, then the directory it sits in — so all this has to do is
+ * hand it the candidates, and `hidden` keeps the app's own bookkeeping out.
+ */
 async function loadEntries(session: VaultSession, kind: WorkspaceEntityType): Promise<Entry[]> {
   const files: string[] = [];
-  await walkVault(session, ENTITY_DIRS[kind], files);
+  await walkVault(session, "", files);
+  const dir = ENTITY_DIRS[kind];
   const entries: Entry[] = [];
   for (const file of files) {
     if (!file.endsWith(".md") || hidden(file)) continue;
+    if (!file.split("/").slice(0, -1).includes(dir)) continue;
     const raw = await readText(session, file);
     const parsed = raw === null ? null : parseWorkspaceFile(file, raw);
     if (parsed && raw !== null && (parsed.type === kind || (kind === "vault_page" && parsed.type === "ink_page"))) {
@@ -390,7 +401,14 @@ async function callTool(
     }
     case "get_paper": {
       const paper = pick(await papers(), params.paper, "paper");
-      const pdf = paper.id ? paperPdfPath(paper.id) : null;
+      // The PDF sits beside the paper's own folder, so the project comes from the
+      // path that was just read rather than from anywhere global — and a folder
+      // written before projects had folders still resolves (`/papers/` absent,
+      // so the root is the folder itself).
+      const projectRoot = paper.path.includes("/papers/")
+        ? paper.path.slice(0, paper.path.indexOf("/papers/"))
+        : "";
+      const pdf = paper.id ? paperPdfPath(paper.id, projectRoot) : null;
       const stat = pdf ? await statVaultFile(session, pdf) : null;
       const hasPdf = !!(stat?.ok && stat.value);
       return content([

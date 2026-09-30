@@ -15,6 +15,7 @@ import { readFrontmatter, frontmatterString } from "./frontmatter.js";
 import type { WorkspaceEntityType } from "./folder-layout.js";
 import { WORKSPACE_META_DIR, parseKindSuffix, stripKindSuffix } from "./folder-layout.js";
 import { INK_NOTE_TYPE, readInkNoteMeta, writeInkNoteBody } from "../ink/ink-note.js";
+import { hasConflictMarkers } from "./text-diff.js";
 
 export interface ParsedEntity {
   /** Absent when the file carries no `weaveforge-id` — a hand-created file. */
@@ -40,7 +41,15 @@ const KNOWN_TYPES = new Set<string>([
   "log_entry",
 ]);
 
-/** Infer the type from the top-level directory when frontmatter omits it. */
+/**
+ * Infer the type from the directory when frontmatter omits it.
+ *
+ * The first segment that names an entity type wins, so both layouts read:
+ * `notes/idea.md` at the root, and `msc-thesis--8d7317/notes/idea.md` once the
+ * folder is scoped to a project. A hand-written file inside a project folder is
+ * the case this is for: it carries no `weaveforge-type` and no kind suffix, so
+ * the directory is the only thing that can say what it is.
+ */
 const DIR_TYPES: Record<string, WorkspaceEntityType> = {
   notes: "vault_page",
   papers: "paper",
@@ -52,12 +61,15 @@ const DIR_TYPES: Record<string, WorkspaceEntityType> = {
 };
 
 export function parseWorkspaceFile(path: string, content: string): ParsedEntity | null {
-  if (path.startsWith(`${WORKSPACE_META_DIR}/`) || !path.endsWith(".md")) return null;
-  if (path === "README.md") return null;
+  const segments = path.split("/");
+  // `.weaveforge/` at the root, or beside a project's files: bookkeeping either
+  // way, and never an entity.
+  if (segments.includes(WORKSPACE_META_DIR) || !path.endsWith(".md")) return null;
+  if (segments[segments.length - 1] === "README.md") return null;
 
   const { frontmatter, body } = readFrontmatter(content);
   const declared = frontmatterString(frontmatter, "weaveforge-type");
-  const fromDir = DIR_TYPES[path.split("/")[0] ?? ""];
+  const fromDir = DIR_TYPES[segments[0] ?? ""] ?? DIR_TYPES[segments[1] ?? ""];
   // Frontmatter, then the directory, then the filename suffix. The suffix is
   // last because a file dragged into another directory is what its directory
   // says it is, and it is present at all so a loose `ideas.note.md` still
@@ -128,7 +140,15 @@ export interface DiffOptions {
   origin?(path: string): ChangeSide;
 }
 
-export type ImportAction = "created" | "updated" | "unchanged" | "conflict";
+/**
+ * What an import would do to one thing.
+ *
+ * `removed` is only ever produced by the JSON data files: a markdown entity has
+ * no row to delete — a file that goes is simply no longer mirrored — whereas a
+ * relation, a tag or a membership that the folder stopped listing is a row the
+ * reader deleted, and saying so is the honest report of it.
+ */
+export type ImportAction = "created" | "updated" | "unchanged" | "conflict" | "removed";
 
 /**
  * Why an entry conflicts, which decides what may be done about it.
@@ -138,7 +158,7 @@ export type ImportAction = "created" | "updated" | "unchanged" | "conflict";
  * in the file belongs to a different kind of entity, so there is nothing to
  * update, and importing the file as a new note is the only safe outcome.
  */
-export type ConflictKind = "both-changed" | "type-mismatch";
+export type ConflictKind = "both-changed" | "type-mismatch" | "markers";
 
 export interface ImportDiffEntry {
   action: ImportAction;
@@ -154,6 +174,45 @@ export interface ImportDiffEntry {
    * user is asked about the disagreement rather than about the file.
    */
   conflictFields?: readonly string[];
+  /**
+   * Everything the resolver needs to offer a choice, when one was prepared.
+   *
+   * Filled by the folder import, not here: this module compares copies and has
+   * no merge of its own. Present only on a `both-changed` conflict that the
+   * per-field merge could not settle.
+   */
+  merge?: ImportMergeDetail;
+}
+
+/**
+ * One key both sides moved, with all three sides so a person can pick.
+ *
+ * `ours` is the workspace's value and `theirs` the folder's, matching the
+ * direction the rest of the import defaults in: an unsettled difference keeps
+ * what is already in the app.
+ */
+export interface MergeFieldDispute {
+  field: string;
+  base: unknown;
+  ours: unknown;
+  theirs: unknown;
+}
+
+/**
+ * What the resolver has to work with for one conflicted file.
+ *
+ * `fields` and `body` are the merged result — every change only one side made is
+ * already applied — so composing a settlement is: take these, then override the
+ * disputed keys and body hunks with the person's choices. `bodySides` is present
+ * only when the body itself is in dispute, and holds the two copies because
+ * there is no base text to show: the manifest keeps a digest of a body, never a
+ * copy of it.
+ */
+export interface ImportMergeDetail {
+  fields: Record<string, unknown>;
+  body: string;
+  disputed: readonly MergeFieldDispute[];
+  bodySides?: { ours: string; theirs: string };
 }
 
 export interface ImportDiff {
@@ -187,6 +246,19 @@ export function diffWorkspace(
   const entries: ImportDiffEntry[] = [];
 
   for (const entity of parsed) {
+    // A file still holding this app's markers is an unfinished resolution, not
+    // an edit. Importing it would write `<<<<<<< this app` into a note, so it
+    // stays a conflict until the markers are gone — whatever its id claims.
+    if (hasConflictMarkers(entity.body)) {
+      entries.push({
+        action: "conflict",
+        entity,
+        kind: "markers",
+        reason: `${entity.path} still holds conflict markers. Take them out in the folder and it imports as an ordinary edit.`,
+      });
+      continue;
+    }
+
     if (!entity.id) {
       entries.push({ action: "created", entity });
       continue;
@@ -242,6 +314,7 @@ export function diffWorkspace(
     updated: 0,
     unchanged: 0,
     conflict: 0,
+    removed: 0,
   };
   for (const entry of entries) counts[entry.action] += 1;
 
