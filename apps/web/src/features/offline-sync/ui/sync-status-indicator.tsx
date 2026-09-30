@@ -2,9 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useLiveSync } from "./use-live-sync";
-import { OfflineWorkModal } from "./offline-work-modal";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+
+const OfflineWorkModal = dynamic(
+  () => import("./offline-work-modal").then((m) => m.OfflineWorkModal),
+  { ssr: false },
+);
 
 export function SyncStatusIndicator() {
   const router = useRouter();

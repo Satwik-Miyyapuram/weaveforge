@@ -6,12 +6,16 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/features/auth";
 import { useProfile } from "@/features/org/ui/profile-provider";
 import { useProject } from "@/features/projects";
-import { getContainer } from "@/bootstrap";
 import { Popover } from "@/components/popover";
+import dynamic from "next/dynamic";
 import { ThemeToggle } from "./theme-toggle";
 import { accountLinks, type AccountLinkId } from "./account-links";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
-import { SyncStatusIndicator } from "@/features/offline-sync";
+
+const SyncStatusIndicator = dynamic(
+  () => import("@/features/offline-sync/ui/sync-status-indicator").then((m) => m.SyncStatusIndicator),
+  { ssr: false },
+);
 
 
 /** A person, for the account menu. The ellipsis said "more things"; this says
