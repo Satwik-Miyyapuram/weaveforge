@@ -14,7 +14,7 @@ import { useNavPending } from "@/lib/nav-pending";
  */
 const EDGE = 24;
 const IGNORE =
-  ".graph-wrap, .graph-canvas, .dashboard-grid-wrap, .table-scroll, .papers-table-scroll, .filter-row, input, textarea, select, .custom-select-menu, .sub-nav, .ink-wrap, .ink-page, .ink-canvas, .ink-host, .ink-page-scroll, [data-ink], .workspace-screen, .editor-workspace, .document-host, .editor-pane, canvas, [style*='touch-action: none']";
+  ".graph-wrap, .graph-canvas, .dashboard-grid-wrap, .table-scroll, .papers-table-scroll, input, textarea, select, .custom-select-menu, .sub-nav, .ink-wrap, .ink-page, .ink-canvas, .ink-host, .ink-page-scroll, [data-ink], .workspace-screen, .editor-workspace, .document-host, .editor-pane, canvas, [style*='touch-action: none']";
 
 export function SwipeViews({
   children,

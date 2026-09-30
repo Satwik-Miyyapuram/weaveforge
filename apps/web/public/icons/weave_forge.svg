@@ -24,8 +24,6 @@
     </style>
   </defs>
 
-  <!-- Background Squircle -->
-  <rect width="512" height="512" rx="115" class="bg-rect" />
 
   <!-- Document Outline (Thick) -->
   <path 

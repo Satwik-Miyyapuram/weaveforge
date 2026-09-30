@@ -1,66 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- WeaveForge official logo: connected research page -->
+<!-- A pen nib: the shell exists for the stylus. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="512"
-    android:viewportHeight="512">
-
-    <!-- Subtle shadow for contrast on both light and dark wallpapers -->
+    android:viewportWidth="108"
+    android:viewportHeight="108">
     <path
-        android:pathData="M 230,125 L 194,125 A 54,54 0 0,0 140,179 L 140,355 A 54,54 0 0,0 194,409 L 318,409 A 54,54 0 0,0 372,355 L 372,265"
-        android:strokeColor="#33000000"
-        android:strokeWidth="28"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-
-    <!-- Main Document Outline (Crisp White) -->
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,24 L72,42 L48,66 L36,72 L42,60 Z" />
     <path
-        android:pathData="M 230,125 L 194,125 A 54,54 0 0,0 140,179 L 140,355 A 54,54 0 0,0 194,409 L 318,409 A 54,54 0 0,0 372,355 L 372,265"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="22"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-
-    <!-- Connectors Shadow -->
-    <path
-        android:pathData="M 264,125 L 264,215 M 264,215 L 356,139 M 264,215 L 372,229"
-        android:strokeColor="#33000000"
-        android:strokeWidth="16"
-        android:strokeLineCap="round" />
-
-    <!-- Connectors -->
-    <path
-        android:pathData="M 264,125 L 264,215 M 264,215 L 356,139 M 264,215 L 372,229"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="12"
-        android:strokeLineCap="round" />
-
-    <!-- Node Shadows -->
-    <path
-        android:pathData="M 239,125 a 25,25 0 1,0 50,0 a 25,25 0 1,0 -50,0"
-        android:fillColor="#33000000" />
-    <path
-        android:pathData="M 239,215 a 25,25 0 1,0 50,0 a 25,25 0 1,0 -50,0"
-        android:fillColor="#33000000" />
-    <path
-        android:pathData="M 331,139 a 25,25 0 1,0 50,0 a 25,25 0 1,0 -50,0"
-        android:fillColor="#33000000" />
-    <path
-        android:pathData="M 347,229 a 25,25 0 1,0 50,0 a 25,25 0 1,0 -50,0"
-        android:fillColor="#33000000" />
-
-    <!-- Nodes (White & Blue) -->
-    <path
-        android:pathData="M 242,125 a 22,22 0 1,0 44,0 a 22,22 0 1,0 -44,0"
-        android:fillColor="#FFFFFF" />
-    <path
-        android:pathData="M 242,215 a 22,22 0 1,0 44,0 a 22,22 0 1,0 -44,0"
-        android:fillColor="#FFFFFF" />
-    <path
-        android:pathData="M 334,139 a 22,22 0 1,0 44,0 a 22,22 0 1,0 -44,0"
-        android:fillColor="#3B82F6" />
-    <path
-        android:pathData="M 350,229 a 22,22 0 1,0 44,0 a 22,22 0 1,0 -44,0"
-        android:fillColor="#FFFFFF" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M32,80 H76 V84 H32 Z" />
 </vector>

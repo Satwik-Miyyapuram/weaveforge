@@ -132,9 +132,9 @@ export function CardColumns<T>({
           key={index}
           style={{ gap }}
         >
-          {column.map(({ item, key, hue }, itemIndex) => (
+          {column.map(({ item, key, hue }) => (
             <div
-              className={deferOffscreen && itemIndex >= 4 ? "card-columns-item is-deferred" : "card-columns-item"}
+              className={deferOffscreen ? "card-columns-item is-deferred" : "card-columns-item"}
               data-card-hue={hue}
               key={key}
             >
