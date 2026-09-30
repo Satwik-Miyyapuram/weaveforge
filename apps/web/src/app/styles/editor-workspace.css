@@ -2079,6 +2079,13 @@
   user-select: none;
 }
 
+@media (pointer: coarse) {
+  .overlay-scrollbar-track,
+  .overlay-scrollbar-thumb {
+    pointer-events: none !important;
+  }
+}
+
 /* The window's own (`WindowScrollbar`): over the viewport, above everything, below the title bar. */
 .overlay-scrollbar-track.overlay-scrollbar-window {
   position: fixed;

@@ -385,6 +385,12 @@
  * pointer is on the card. The grid carries titles, not controls. */
 
 
+.papers-screen {
+  max-width: min(var(--app-max), 100%);
+  width: 100%;
+  overflow-x: clip;
+}
+
 /* Library upkeep, as a band across the screen rather than a line of small
    print: what needs doing, why it matters, and the one button that does it. */
 .tidy-notice {

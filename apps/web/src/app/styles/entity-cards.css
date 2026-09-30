@@ -87,6 +87,8 @@
   display: flex;
   align-items: flex-start;
   margin: 8px 0;
+  max-width: 100%;
+  overflow-x: clip;
 }
 .card-columns-col {
   flex: 1 1 0;
@@ -120,14 +122,23 @@
      swallow clicks meant for the card underneath it. */
   pointer-events: none;
 }
+@media (max-width: 768px), (pointer: coarse) {
+  .card-columns-item.is-deferred {
+    padding: 0;
+    margin: 0;
+  }
+}
 .card-columns-item.is-deferred > * {
   pointer-events: auto;
 }
 /* Hover raises the card to `--e2` (~34px below), which is deeper than the
    padding above. Dropping containment for the one card under the pointer lets
-   that larger shadow paint in full; every other card stays deferred. */
-.card-columns-item.is-deferred:has(:hover) {
-  content-visibility: visible;
+   that larger shadow paint in full; every other card stays deferred. Only active
+   for pointers that actually hover — touch down must not trigger containment loss. */
+@media (hover: hover) {
+  .card-columns-item.is-deferred:has(:hover) {
+    content-visibility: visible;
+  }
 }
 .entity-card,
 .paper-card {
