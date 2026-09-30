@@ -52,7 +52,7 @@ export type HunkPick = "ours" | "theirs" | "both";
 const MAX_DIFF_CELLS = 4_000_000;
 
 function splitLines(text: string): string[] {
-  return text.split("\n");
+  return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
 }
 
 /** The interleaved line view, with no hunk grouping. */
@@ -174,21 +174,63 @@ export const MARKER_OURS = "<<<<<<< this app";
 export const MARKER_SEPARATOR = "=======";
 export const MARKER_THEIRS = ">>>>>>> the folder";
 
-/** The two copies, marked, for a person to settle in whatever they edit in. */
+/**
+ * Write git-style conflict markers into the text.
+ *
+ * Markers wrap only the disagreeing hunks, leaving agreed lines outside as
+ * clean context — exactly as git merge does. If the entire text differs, markers
+ * wrap the entire text.
+ */
 export function writeConflictMarkers(oursText: string, theirsText: string): string {
-  return [MARKER_OURS, oursText, MARKER_SEPARATOR, theirsText, MARKER_THEIRS].join("\n");
+  const lines = diffLines(oursText, theirsText);
+  if (lines.length === 0) return "";
+  if (lines.every((l) => l.op === "same")) return oursText;
+
+  const out: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    if (lines[i]!.op === "same") {
+      out.push(lines[i]!.text);
+      i += 1;
+      continue;
+    }
+    const oursHunk: string[] = [];
+    const theirsHunk: string[] = [];
+    while (i < lines.length && lines[i]!.op !== "same") {
+      if (lines[i]!.op === "ours") {
+        oursHunk.push(lines[i]!.text);
+      } else {
+        theirsHunk.push(lines[i]!.text);
+      }
+      i += 1;
+    }
+    out.push(MARKER_OURS);
+    if (oursHunk.length > 0) out.push(...oursHunk);
+    out.push(MARKER_SEPARATOR);
+    if (theirsHunk.length > 0) out.push(...theirsHunk);
+    out.push(MARKER_THEIRS);
+  }
+
+  return out.join("\n");
 }
 
 /**
- * Whether a body still holds this app's markers.
+ * Whether a body still holds conflict markers (ours or git's standard markers).
  *
- * Both labels are required, in order, and matched from the start of a line.
+ * Checks for both WeaveForge labels (`<<<<<<< this app` / `>>>>>>> the folder`)
+ * and universal git conflict markers (`<<<<<<< HEAD`, `>>>>>>> branch`, etc.).
+ *
  * A bare run of `=======` is a setext heading in ordinary markdown, so matching
  * it alone would call a large part of a normal vault conflicted.
  */
 export function hasConflictMarkers(text: string): boolean {
   const lines = splitLines(text);
-  const open = lines.findIndex((line) => line.startsWith(MARKER_OURS));
+  const open = lines.findIndex(
+    (line) => line.startsWith(MARKER_OURS) || /^<{7}(\s|$)/.test(line),
+  );
   if (open < 0) return false;
-  return lines.slice(open + 1).some((line) => line.startsWith(MARKER_THEIRS));
+  return lines
+    .slice(open + 1)
+    .some((line) => line.startsWith(MARKER_THEIRS) || /^>{7}(\s|$)/.test(line));
 }

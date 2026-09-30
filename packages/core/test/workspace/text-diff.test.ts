@@ -48,15 +48,43 @@ test("a body neither side touched has no hunks and merges to itself", () => {
   assert.equal(mergeHunks(OURS, OURS), OURS);
 });
 
-test("markers are written both ways and read back", () => {
+test("markers wrap only conflicting hunks and preserve agreed context", () => {
   const marked = writeConflictMarkers(OURS, THEIRS);
 
-  assert.ok(marked.startsWith(MARKER_OURS));
-  assert.ok(marked.includes(`\n${MARKER_THEIRS}`));
+  // The agreed heading stays at the top outside any marker.
+  assert.ok(marked.startsWith("# Method\n\n<<<<<<< this app\nWe ran three seeds.\n=======\nWe ran five seeds.\n>>>>>>> the folder"));
+  // Agreed text in the middle is outside markers too.
+  assert.match(marked, />>>>>>> the folder\nThe effect held\.\n/);
   assert.equal(hasConflictMarkers(marked), true);
-  // The two copies are both in there, in full.
   assert.match(marked, /We ran three seeds\./);
   assert.match(marked, /We ran five seeds\./);
+});
+
+test("markers wrap the entire body when there is no agreed text", () => {
+  const marked = writeConflictMarkers("All ours", "All theirs");
+  assert.equal(marked, `${MARKER_OURS}\nAll ours\n=======\nAll theirs\n${MARKER_THEIRS}`);
+  assert.equal(hasConflictMarkers(marked), true);
+});
+
+test("detects standard git conflict markers as well as app markers", () => {
+  const gitMarker = ["<<<<<<< HEAD", "ours from git", "=======", "theirs from git", ">>>>>>> branch"].join("\n");
+  assert.equal(hasConflictMarkers(gitMarker), true);
+
+  const shortMarker = ["<<<<<<<", "foo", "=======", "bar", ">>>>>>>"].join("\n");
+  assert.equal(hasConflictMarkers(shortMarker), true);
+});
+
+test("CRLF line endings normalize and diff without false line changes", () => {
+  const oursCrlf = "# Title\r\n\r\nParagraph 1.\r\n";
+  const theirsCrlf = "# Title\r\n\r\nParagraph 1.\r\n";
+  const { hunks } = diffBody(oursCrlf, theirsCrlf);
+  assert.deepEqual(hunks, []);
+
+  const theirsEdited = "# Title\r\n\r\nParagraph 2.\r\n";
+  const diff = diffBody(oursCrlf, theirsEdited);
+  assert.equal(diff.hunks.length, 1);
+  assert.deepEqual(diff.hunks[0]!.ours, ["Paragraph 1."]);
+  assert.deepEqual(diff.hunks[0]!.theirs, ["Paragraph 2."]);
 });
 
 test("a setext heading is not a conflict marker", () => {

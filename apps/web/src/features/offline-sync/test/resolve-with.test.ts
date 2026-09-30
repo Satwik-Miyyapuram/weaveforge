@@ -90,4 +90,22 @@ describe("resolving a conflict by hand", () => {
     assert.equal((await conflicts.openConflicts()).length, 1);
     await db.close();
   });
+
+  it("applies custom overrides (such as git conflict markers) when specified", async () => {
+    const { db, conflicts, outbox } = await store();
+    await openConflict(db, { ...base, title: "Theirs", read: true });
+
+    const [open] = await conflicts.openConflicts();
+    await conflicts.resolveWith(open!.id, {}, { title: "<<<<<<< Mine\n=======\n>>>>>>> Theirs" });
+
+    assert.equal((await conflicts.openConflicts()).length, 0);
+    const row = await db.queryOne<{ title: string }>(
+      "select title from public.projects where id = $1",
+      [ROW],
+    );
+    assert.equal(row!.title, "<<<<<<< Mine\n=======\n>>>>>>> Theirs");
+    const [entry] = await outbox.pending();
+    assert.equal((entry!.payload as { title: string }).title, "<<<<<<< Mine\n=======\n>>>>>>> Theirs");
+    await db.close();
+  });
 });

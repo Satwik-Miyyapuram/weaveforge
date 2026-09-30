@@ -11,6 +11,7 @@ import { Popover } from "@/components/popover";
 import { ThemeToggle } from "./theme-toggle";
 import { accountLinks, type AccountLinkId } from "./account-links";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
+import { SyncStatusIndicator } from "@/features/offline-sync";
 
 
 /** A person, for the account menu. The ellipsis said "more things"; this says
@@ -209,23 +210,28 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
     return (
       <div className="header-actions">
         <LocalModeBadge />
+        <SyncStatusIndicator />
         {links(() => {})}
       </div>
     );
   }
 
   return (
-    <Popover
-      portal
-      align="right"
-      // The person icon says what it is; a caret beside it made the control look
-      // like a disclosure that folds, and animated on every open.
-      iconOnly
-      ariaLabel="Account"
-      triggerClassName="header-overflow-btn"
-      label={<UserIcon />}
-    >
-      {links}
-    </Popover>
+    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <LocalModeBadge />
+      <SyncStatusIndicator />
+      <Popover
+        portal
+        align="right"
+        // The person icon says what it is; a caret beside it made the control look
+        // like a disclosure that folds, and animated on every open.
+        iconOnly
+        ariaLabel="Account"
+        triggerClassName="header-overflow-btn"
+        label={<UserIcon />}
+      >
+        {links}
+      </Popover>
+    </div>
   );
 }

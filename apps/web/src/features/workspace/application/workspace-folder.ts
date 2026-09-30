@@ -14,6 +14,7 @@ import {
   jsonKindOfPath,
   parseJsonData,
   projectDir,
+  idSuffix,
   fromRelativeBlobLinks,
   readFrontmatter,
   mergeVaultPage,
@@ -127,14 +128,7 @@ export function markFolderRestored(): void {
 
 
 
-/**
- * Asset bytes from the most recent preview, keyed by folder path.
- *
- * Held between preview and apply because the preview must not upload anything —
- * looking at a diff is not consent to write — and by apply time the archive is
- * long gone. Cleared when the import is applied or the folder is closed.
- */
-let pendingAssets = new Map<string, Uint8Array>();
+import { clearPendingAssets, setPendingAssets } from "./folder-import-apply";
 
 export interface FolderSession {
   kind: "picked" | "opfs" | "desktop";
@@ -257,7 +251,7 @@ export function closeFolder(): void {
   unwatchFolder?.();
   unwatchFolder = null;
   clearExternalChanges();
-  pendingAssets = new Map();
+  clearPendingAssets();
 }
 
 export interface SyncOutcome {
@@ -450,18 +444,39 @@ function watchFolderForChanges(): void {
  * that would be the app reporting itself. The project's manifest holds the
  * digest of what it wrote, so a file still holding that is its own write.
  */
-async function reportFolderChanges(paths: readonly string[]): Promise<void> {
+function reportFolderChanges(paths: readonly string[]): void {
   const before = external.size;
   let drafts = false;
   const jsonCandidates: string[] = [];
+
+  let currentIdSuffix: string | null = null;
+  try {
+    const id = getContainer().projects.context.projectId;
+    if (id) currentIdSuffix = idSuffix(id);
+  } catch {
+    currentIdSuffix = null;
+  }
+
   for (const path of paths) {
     // MCP suggestions go to the review queue, not the changed-files list.
-    if (path.startsWith(`${FOLDER_DRAFTS_DIR}/`)) drafts = true;
-    else if (isAppOwnedPath(path)) continue;
+    if (path.startsWith(`${FOLDER_DRAFTS_DIR}/`)) {
+      drafts = true;
+      continue;
+    }
+    if (isAppOwnedPath(path)) continue;
+
+    // When scoped to a project, ignore outside changes that belong to another project's subfolder:
+    const subfolderMatch = path.match(/^[^\/]+--([a-zA-Z0-9]{1,8})\//);
+    if (subfolderMatch && currentIdSuffix) {
+      if (subfolderMatch[1] !== currentIdSuffix) {
+        continue;
+      }
+    }
+
     // Markdown is reported at once — nothing else has to be read to know it is
     // somebody's edit. A JSON data file is reported below, once the manifest has
     // said whether the app is the one that wrote it.
-    else if (jsonKindOfPath(path) !== null) jsonCandidates.push(path);
+    if (jsonKindOfPath(path) !== null) jsonCandidates.push(path);
     else external.add(path);
   }
 
@@ -469,18 +484,20 @@ async function reportFolderChanges(paths: readonly string[]): Promise<void> {
   if (drafts) for (const listener of [...draftListeners]) listener();
   if (jsonCandidates.length === 0) return;
 
-  const fs = activeFs;
-  const project = await activeProjectOrNull().catch(() => null);
-  const base = fs && project ? await readMirrorBase(fs, projectDir(project)) : {};
-  const beforeJson = external.size;
-  for (const path of jsonCandidates) {
-    if (fs) {
-      const text = await fs.readText(path).catch(() => null);
-      if (text !== null && !jsonEditSince(base, path, text)) continue;
+  void (async () => {
+    const fs = activeFs;
+    const project = await activeProjectOrNull().catch(() => null);
+    const base = fs && project ? await readMirrorBase(fs, projectDir(project)) : {};
+    const beforeJson = external.size;
+    for (const path of jsonCandidates) {
+      if (fs) {
+        const text = await fs.readText(path).catch(() => null);
+        if (text !== null && !jsonEditSince(base, path, text)) continue;
+      }
+      external.add(path);
     }
-    external.add(path);
-  }
-  if (external.size !== beforeJson) announceExternal();
+    if (external.size !== beforeJson) announceExternal();
+  })();
 }
 
 const draftListeners = new Set<() => void>();
@@ -513,16 +530,29 @@ export async function previewFolderImport(): Promise<ImportDiff & { json: JsonDi
   const base = await readMirrorBase(activeFs, projectRoot);
   const bases = await readMirrorBases(activeFs, projectRoot);
 
+  const hasProjectDir = (await activeFs.stat(projectRoot).catch(() => null)) !== null;
+
   const jsonFiles: Record<string, string> = {};
   for await (const entry of activeFs.walk("")) {
+    // Only import files for this project (or legacy flat files if no project subfolder exists yet)
+    const isThisProject = entry.path.startsWith(`${projectRoot}/`);
+    const isLegacyFlat =
+      !hasProjectDir &&
+      !/^[^\/]+--[a-zA-Z0-9]{1,8}\//.test(entry.path) &&
+      !entry.path.startsWith(`${WORKSPACE_META_DIR}/`);
+
     if (entry.path.endsWith(".md")) {
-      files[entry.path] = await activeFs.readText(entry.path);
+      if (isThisProject || isLegacyFlat) {
+        files[entry.path] = await activeFs.readText(entry.path);
+      }
       continue;
     }
     // The project's own three data files. Read from the folder rather than
     // assumed, so a file somebody added by hand is diffed like any other.
     if (entry.path.endsWith(".json") && jsonKindOfPath(entry.path) !== null) {
-      jsonFiles[entry.path] = await activeFs.readText(entry.path);
+      if (isThisProject || isLegacyFlat) {
+        jsonFiles[entry.path] = await activeFs.readText(entry.path);
+      }
       continue;
     }
     if (!entry.path.startsWith(`${ASSET_DIR}/`)) continue;
@@ -598,7 +628,7 @@ async function diffAgainstWorkspace(
     })),
   ];
 
-  pendingAssets = assets;
+  setPendingAssets(assets);
   const owned = ownedAssetFolderPaths(workspaceBodies(snapshot));
   const parsed = parseWorkspaceFolder(files).map((entity) => ({
     ...entity,
@@ -661,139 +691,6 @@ export {
   type ConflictResolution,
 };
 
-/**
- * Apply an import.
- *
- * Only notes are written. Papers, experiments, and the rest carry structured
- * fields that a markdown body cannot round-trip faithfully, and half-importing
- * a paper — body updated, metadata silently stale — is worse than not
- * importing it.
- *
- * A conflict is applied only where the caller says how to settle it, and
- * `keep` is the default: a file both sides changed is never written over on a
- * guess.
- */
-export async function applyFolderImport(
-  diff: ImportDiff & { json?: JsonDiff },
-  resolutions: Readonly<Record<string, ConflictResolution>> = {},
-): Promise<{ created: number; updated: number }> {
-  // The mirror stands down for the duration. Every write below changes the
-  // workspace, and a sync waking up halfway through would write the folder from
-  // a half-imported snapshot — then be asked to import that back.
-  syncs.suspended = true;
-  try {
-    const result = await applyEntries(diff, resolutions);
-    const appliedJson = await applyJsonEntries(diff.json);
-    // What was applied, the two sides now agree on: the folder's text becomes
-    // the base, or the mirror would keep holding those files back for an edit
-    // that has already landed.
-    await refreshMirrorBase(activeFs, [
-      ...diff.entries.filter((entry) => entry.action === "created" || entry.action === "updated").map((entry) => entry.entity.path),
-      ...appliedJson,
-    ]);
-    return result;
-  } finally {
-    syncs.suspended = false;
-    requestSync();
-  }
-}
+export { applyFolderImport, writeMarkersFor } from "./folder-import-apply";
 
-/** See `writeConflictMarkersTo`: this window's folder gets the markers. */
-export function writeMarkersFor(entry: ImportDiffEntry): Promise<boolean> {
-  const fs = activeFs;
-  return fs ? writeConflictMarkersTo(fs, entry) : Promise.resolve(false);
-}
-
-async function applyEntries(
-  diff: ImportDiff,
-  resolutions: Readonly<Record<string, ConflictResolution>>,
-): Promise<{ created: number; updated: number }> {
-  const container = getContainer();
-  // Read once: the set only has to describe the workspace as it stood before
-  // the import, and re-reading it per note would be a request per note.
-  const owned = ownedAssetFolderPaths(workspaceBodies(await container.workspace.snapshot()));
-  // A claimed file joins *this* project's manifest, so the next mirror for it
-  // removes the hand-written copy the same way it removes any file it replaced.
-  const projectRoot = projectDir(await activeProject());
-  let created = 0;
-  let updated = 0;
-
-  // Only text is written here. An ink note's strokes are pages in `.ink/<id>/`,
-  // written by the chunk store and never by the mirror, so settling a conflict
-  // decides the note's text and leaves every page of handwriting alone: both
-  // sides' strokes stay and are drawn together.
-  for (const raw of diff.entries) {
-    if (raw.entity.type !== "vault_page") continue;
-    if (raw.action === "unchanged") continue;
-
-    const entry = settleConflict(raw, resolutions);
-    if (!entry) continue;
-
-    if (entry.action === "created") {
-      // The page has to exist before its images can be uploaded — storage keys
-      // are `{userId}/{pageId}/…`, so there is no id to file them under until
-      // the row is written. The body lands relative, then gets rewritten.
-      const page = await container.vault.manageVaultPage.add({
-        title: entry.entity.title,
-        body: entry.entity.body,
-      });
-      const body = await reanchorAssets(entry.entity.body, page.id, owned);
-      if (body !== entry.entity.body) {
-        await container.vault.manageVaultPage.update(page.id, { title: page.title, body });
-      }
-      // The file it came from now belongs to that page, so say so in the file.
-      // Skipped for an archive import, which has no folder to write back to.
-      if (activeFs && entry.entity.path) {
-        await claimImportedFile(activeFs, entry.entity.path, page.id, projectRoot).catch(
-          () => false,
-        );
-      }
-      created += 1;
-      continue;
-    }
-
-    if (!entry.entity.id) continue;
-    const page = await container.vault.getPage(entry.entity.id);
-    if (!page) continue;
-    await container.vault.manageVaultPage.update(page.id, {
-      title: entry.entity.title,
-      body: await reanchorAssets(entry.entity.body, page.id, owned),
-    });
-    updated += 1;
-  }
-
-  pendingAssets = new Map();
-  return { created, updated };
-}
-
-/**
- * Turn an imported body's relative image links back into storage references.
- *
- * The decision of what may resolve lives in `planAssetReanchor`; this only
- * carries it out. Anything the plan leaves unresolved stays as written, which
- * renders as a broken image — visible and harmless, unlike a fabricated key
- * that happens to resolve to someone else's object.
- */
-async function reanchorAssets(
-  body: string,
-  pageId: string,
-  owned: ReadonlySet<string>,
-): Promise<string> {
-  const plan = planAssetReanchor(body, owned, new Set(pendingAssets.keys()));
-  if (plan.keep.length === 0 && plan.upload.length === 0) return body;
-
-  const resolved = new Map<string, string>();
-  for (const ref of plan.keep) resolved.set(ref.folderPath, ref.storagePath);
-
-  for (const ref of plan.upload) {
-    const bytes = pendingAssets.get(ref.folderPath)!;
-    const ext = assetExtension(ref.storagePath);
-    const blob = new Blob([bytes as BlobPart], { type: assetMimeType(ext) });
-    resolved.set(ref.folderPath, await getContainer().vault.uploadAsset(pageId, blob, ext));
-  }
-
-  return fromRelativeBlobLinks(body, {
-    resolve: (scope, path) => resolved.get(`${ASSET_DIR}/${scope}/${path}`) ?? null,
-  });
-}
 

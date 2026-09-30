@@ -125,7 +125,11 @@ export class ConflictStore {
    * so the other device sees a decision rather than a silent revert. Fields
    * they left alone keep the server's value, which is already what is stored.
    */
-  async resolveWith(id: string, picks: Record<string, "local" | "remote">): Promise<void> {
+  async resolveWith(
+    id: string,
+    picks: Record<string, "local" | "remote">,
+    overrides?: Record<string, unknown>,
+  ): Promise<void> {
     const row = await this.sql.queryOne<ConflictRow>(
       `select ${COLUMNS} from sync_conflicts where id = $1 and resolved_at is null`,
       [id],
@@ -138,6 +142,11 @@ export class ConflictStore {
     const chosen: Row = { ...remote };
     for (const [field, side] of Object.entries(picks)) {
       if (side === "local") chosen[field] = row.local[field];
+    }
+    if (overrides) {
+      for (const [field, val] of Object.entries(overrides)) {
+        chosen[field] = val;
+      }
     }
 
     await this.sql.exec("select sync_apply($1, $2::jsonb)", [

@@ -27,6 +27,7 @@ import {
   type Tag,
   type WorkspaceJsonKind,
   type WorkspaceProject,
+  vaultPageBase,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { activeProjectOrNull } from "./active-project";
@@ -144,6 +145,8 @@ export async function refreshMirrorBase(
     const text = await fs.readText(path).catch(() => null);
     if (text === null) continue;
     base[path] = baseDigest(text);
+    const pageBase = vaultPageBase(path, text);
+    if (pageBase) bases[path] = pageBase;
     touched = true;
   }
   if (touched) await writeMirrorManifest(fs, projectRoot, Object.keys(base), base, bases);

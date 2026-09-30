@@ -370,9 +370,10 @@ function ImportPreview({
    */
   const [resolutions, setResolutions] = useState<Record<string, ConflictResolution>>({});
   const conflicts = diff.entries.filter((entry) => entry.action === "conflict");
-  const settled = conflicts.filter(
-    (entry) => (resolutions[entry.entity.path] ?? "keep") !== "keep",
-  ).length;
+  const settled = conflicts.filter((entry) => {
+    const res = resolutions[entry.entity.path];
+    return res !== undefined && res !== "keep" && res !== "markers";
+  }).length;
   const writable = diff.counts.created + diff.counts.updated + diff.counts.removed + settled;
 
   return (

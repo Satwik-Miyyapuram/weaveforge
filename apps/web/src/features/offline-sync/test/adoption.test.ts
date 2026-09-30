@@ -127,4 +127,17 @@ describe("adoption", () => {
       AlreadyAdoptedError,
     );
   });
+
+  it("inspects offline work and detects colliding projects with proposed renames", async () => {
+    const { sql } = await deviceWith(["Thesis", "New Lab"]);
+    const adoption = new Adoption(sql, LOCAL_USER_ID);
+
+    const summary = await adoption.inspect(["Thesis"], "laptop");
+    assert.equal(summary.projects.length, 2);
+    assert.equal(summary.collidingProjects.length, 1);
+    assert.equal(summary.collidingProjects[0]!.localName, "Thesis");
+    assert.equal(summary.collidingProjects[0]!.willRenameTo, "Thesis (laptop)");
+    assert.ok(summary.totalCount >= 2);
+  });
 });
+

@@ -27,6 +27,13 @@ export interface AdoptionResult {
   renamed: readonly { id: string; from: string; to: string }[];
 }
 
+export interface OfflineChangeSummary {
+  totalCount: number;
+  tables: Record<string, number>;
+  projects: Array<{ id: string; name: string }>;
+  collidingProjects: Array<{ id: string; localName: string; willRenameTo: string }>;
+}
+
 export class AlreadyAdoptedError extends Error {
   constructor(readonly accountId: string) {
     super("This device already syncs with an account.");
@@ -47,6 +54,61 @@ export class Adoption {
     private readonly localUserId: string,
   ) {
     this.state = new SyncStateStore(sql);
+  }
+
+  /**
+   * Preview offline work waiting to be adopted by an account.
+   */
+  async inspect(
+    remoteProjectNames: readonly string[] = [],
+    deviceLabel = "this device",
+  ): Promise<OfflineChangeSummary> {
+    const local = await this.sql.query<ProjectRow>(
+      "select id, name from projects where user_id = $1 and deleted_at is null order by name",
+      [this.localUserId],
+    ).catch(() => []);
+
+    const taken = new Set(remoteProjectNames);
+    const collidingProjects: Array<{ id: string; localName: string; willRenameTo: string }> = [];
+    for (const p of local) {
+      if (taken.has(p.name)) {
+        collidingProjects.push({
+          id: p.id,
+          localName: p.name,
+          willRenameTo: uniqueName(p.name, deviceLabel, taken),
+        });
+      }
+    }
+
+    const tables = await this.sql.query<{ table_name: string }>(
+      `select s.table_name from sync_tables s
+       where exists (select 1 from information_schema.columns c
+                      where c.table_schema = 'public' and c.table_name = s.table_name
+                        and c.column_name = 'user_id')
+       order by s.table_name`,
+    ).catch(() => []);
+
+    const tableCounts: Record<string, number> = {};
+    let totalCount = 0;
+
+    for (const { table_name } of tables) {
+      const row = await this.sql.queryOne<{ n: number }>(
+        `select count(*)::int as n from "${table_name.replace(/"/g, '""')}" where user_id = $1`,
+        [this.localUserId],
+      ).catch(() => null);
+      const count = Number(row?.n ?? 0);
+      if (count > 0) {
+        tableCounts[table_name] = count;
+        totalCount += count;
+      }
+    }
+
+    return {
+      totalCount,
+      tables: tableCounts,
+      projects: local,
+      collidingProjects,
+    };
   }
 
   async run(request: AdoptionRequest): Promise<AdoptionResult> {
