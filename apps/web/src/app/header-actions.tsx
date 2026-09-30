@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/features/auth";
 import { useProfile } from "@/features/org/ui/profile-provider";
 import { useProject } from "@/features/projects";
+import { getContainer } from "@/bootstrap";
 import { Popover } from "@/components/popover";
 import dynamic from "next/dynamic";
 import { ThemeToggle } from "./theme-toggle";
