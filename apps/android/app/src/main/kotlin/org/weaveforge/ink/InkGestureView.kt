@@ -57,6 +57,7 @@ class InkGestureView @JvmOverloads constructor(
         }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+        if (toolMode == InkToolMode.NONE) return false
         route = router.route(ev.flatten(), toolMode, route)
         // `true` makes the framework cancel whichever child had the gesture, which is
         // what stops a pan already in progress. The event is then handed to
@@ -65,6 +66,7 @@ class InkGestureView @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (toolMode == InkToolMode.NONE) return false
         return when (route) {
             GestureRoute.PASS_THROUGH ->
                 // Not reachable through the framework — interception was false, so the

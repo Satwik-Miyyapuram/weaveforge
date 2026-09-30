@@ -118,6 +118,10 @@ class MainActivity : AppCompatActivity() {
                 .replace(Regex("Version/[0-9.]+ "), "")
         }
 
+        webView.isVerticalScrollBarEnabled = false
+        webView.isHorizontalScrollBarEnabled = false
+        webView.overScrollMode = View.OVER_SCROLL_NEVER
+
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(
                 view: WebView?,
@@ -289,6 +293,7 @@ class MainActivity : AppCompatActivity() {
             }
             gesture.post {
                 gesture.toolMode = mode
+                overlay.visibility = if (mode == InkToolMode.INK) View.VISIBLE else View.GONE
                 overlay.penOnly = penOnly
             }
         }

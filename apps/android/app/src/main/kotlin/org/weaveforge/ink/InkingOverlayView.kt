@@ -148,7 +148,7 @@ class InkingOverlayView @JvmOverloads constructor(
     )
 
     init {
-        setZOrderOnTop(true)
+        setZOrderMediaOverlay(true)
         holder.setFormat(PixelFormat.TRANSLUCENT)
         isFocusable = false
     }

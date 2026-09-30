@@ -27,5 +27,6 @@
     <org.weaveforge.ink.InkingOverlayView
         android:id="@+id/inkOverlay"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:visibility="gone" />
 </org.weaveforge.ink.InkGestureView>
