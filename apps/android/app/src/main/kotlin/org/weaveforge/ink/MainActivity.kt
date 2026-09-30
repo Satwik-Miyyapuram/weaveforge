@@ -99,9 +99,15 @@ class MainActivity : AppCompatActivity() {
             allowFileAccess = false
             allowContentAccess = false
             setGeolocationEnabled(false)
-            // The web app checks for the bridge object, not the UA, but a
-            // distinct token makes the shell visible in logs.
-            userAgentString = "$userAgentString WeaveForgeInk/${BuildConfig.VERSION_NAME}"
+            // Google OAuth blocks generic Android WebViews with error 403: disallowed_useragent
+            // when the User-Agent contains '; wv' or 'Version/4.0'.
+            // Stripping those markers yields standard Chrome Mobile so Google OAuth and
+            // external providers function properly. The web app detects the native bridge
+            // via window.AndroidInkingBridge, not by User-Agent token.
+            val rawUa = userAgentString
+            userAgentString = rawUa
+                .replace("; wv", "")
+                .replace(Regex("Version/[0-9.]+ "), "")
         }
 
         webView.webViewClient = object : WebViewClient() {
@@ -109,16 +115,20 @@ class MainActivity : AppCompatActivity() {
                 view: WebView?,
                 request: WebResourceRequest?,
             ): Boolean {
-                val uri = request?.url
+                val uri = request?.url ?: return false
                 if (isAllowed(uri)) return false
-                // Refused, not handed to another app: the shell is a viewer for
-                // one origin, and an off-origin document must never reach a
-                // WebView that has the ink bridge attached. Loads of
-                // `about:blank` are teardown and are allowed through.
-                if (uri?.scheme != "about") {
-                    Log.w(TAG, "Refused navigation to ${uri?.host ?: "an unknown host"}")
+                if (uri.scheme == "about") return false
+
+                // If navigation is to an external origin, hand it off to the system browser
+                // so the user can open links without breaking the inking shell.
+                return try {
+                    val intent = Intent(Intent.ACTION_VIEW, uri)
+                    view?.context?.startActivity(intent)
+                    true
+                } catch (e: Exception) {
+                    Log.w(TAG, "Refused navigation to ${uri.host ?: "unknown host"}: ${e.message}")
+                    true
                 }
-                return uri?.scheme != "about"
             }
 
             override fun shouldInterceptRequest(

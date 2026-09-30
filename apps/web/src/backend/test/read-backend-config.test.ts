@@ -73,10 +73,10 @@ describe("readBackendConfig", () => {
       );
     });
 
-    it("leaves dataUrl undefined when unset, so the client stays on Supabase", () => {
+    it("defaults dataUrl to https://api.weaveforge.org when unset so DB retrieval goes to the data API", () => {
       withEnv({ NEXT_PUBLIC_SUPABASE_URL: "https://proj.supabase.co" }, () => {
         delete process.env.NEXT_PUBLIC_DATA_URL;
-        assert.equal(readBackendConfig().dataUrl, undefined);
+        assert.equal(readBackendConfig().dataUrl, "https://api.weaveforge.org");
       });
     });
   });

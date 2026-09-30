@@ -2,7 +2,6 @@ import {
   ASSET_DIR,
   fromRelativeBlobLinks,
   projectDir,
-  type ConflictResolution,
   type ImportDiff,
   type ImportDiffEntry,
 } from "@weaveforge/core";
@@ -15,9 +14,12 @@ import {
   planAssetReanchor,
   workspaceBodies,
 } from "./asset-reanchor";
-import { claimImportedFile, refreshMirrorBase, applyJsonEntries } from "./folder-json-import";
-import { writeConflictMarkersTo } from "./folder-merge";
+import { refreshMirrorBase, applyJsonEntries } from "./folder-json-import";
+import { claimImportedFile } from "./mirror-manifest";
+import { writeConflictMarkersTo, type ConflictResolution, settleConflict } from "./folder-merge";
 import { activeWorkspaceFs, syncToFolder } from "./workspace-folder";
+
+export type { ConflictResolution };
 
 let pendingAssets = new Map<string, Uint8Array>();
 
@@ -43,7 +45,9 @@ export async function applyFolderImport(
   if (!fs) return { created: 0, updated: 0 };
 
   const result = await applyEntries(fs, diff, resolutions);
-  const appliedJson = await applyJsonEntries(diff.json);
+  const appliedJson = (diff as { json?: import("@weaveforge/core").JsonDiff }).json
+    ? await applyJsonEntries((diff as { json?: import("@weaveforge/core").JsonDiff }).json!)
+    : [];
   // What was applied, the two sides now agree on: the folder's text becomes
   // the base, or the mirror would keep holding those files back for an edit
   // that has already landed. Settled conflicts are included here.
@@ -75,14 +79,15 @@ async function applyEntries(
   const appliedPaths: string[] = [];
 
   for (const raw of diff.entries) {
-    const entry = raw.action === "conflict" ? resolutions[raw.entity.path] ?? raw : raw;
+    const entry = raw.action === "conflict" ? settleConflict(raw, resolutions) : raw;
+    if (!entry) continue;
 
-    if (entry.action === "conflict" || entry.action === "unchanged" || entry.action === "deleted") {
+    if (entry.action === "conflict" || entry.action === "unchanged" || entry.action === "removed") {
       continue;
     }
 
     if (entry.action === "created") {
-      const page = await container.vault.manageVaultPage.create({
+      const page = await container.vault.manageVaultPage.add({
         title: entry.entity.title,
         body: await reanchorAssets(entry.entity.body, "new", owned),
       });

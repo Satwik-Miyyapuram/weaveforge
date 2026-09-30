@@ -56,13 +56,16 @@ function pick<T extends string>(value: string | undefined, allowed: readonly T[]
   return (allowed as readonly string[]).includes(value ?? "") ? (value as T) : fallback;
 }
 
+const DEFAULT_DATA_URL = "https://api.weaveforge.org";
+const DEFAULT_REALTIME_URL = "https://api.weaveforge.org";
+
 function fromEnv(env: EnvReader): BackendConfig {
   const provider = pick(env.NEXT_PUBLIC_BACKEND_PROVIDER, PROVIDERS, "supabase");
   return {
     provider,
     supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
-    dataUrl: env.NEXT_PUBLIC_DATA_URL,
-    realtimeUrl: env.NEXT_PUBLIC_REALTIME_URL,
+    dataUrl: env.NEXT_PUBLIC_DATA_URL || DEFAULT_DATA_URL,
+    realtimeUrl: env.NEXT_PUBLIC_REALTIME_URL || DEFAULT_REALTIME_URL,
     supabaseAnonKey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     supabaseServiceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
     supabaseJwtSecret: env.SUPABASE_JWT_SECRET,
@@ -119,8 +122,8 @@ export function readBackendConfig(env?: EnvReader): BackendConfig {
   return {
     provider: pick(process.env.NEXT_PUBLIC_BACKEND_PROVIDER, PROVIDERS, "supabase"),
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    dataUrl: process.env.NEXT_PUBLIC_DATA_URL,
-    realtimeUrl: process.env.NEXT_PUBLIC_REALTIME_URL,
+    dataUrl: process.env.NEXT_PUBLIC_DATA_URL || DEFAULT_DATA_URL,
+    realtimeUrl: process.env.NEXT_PUBLIC_REALTIME_URL || DEFAULT_REALTIME_URL,
     supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
     supabaseJwtSecret: process.env.SUPABASE_JWT_SECRET,
