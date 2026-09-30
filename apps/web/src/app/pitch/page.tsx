@@ -220,7 +220,7 @@ function Hero() {
     <section id="overview" className={k("wrap hero")} data-section="overview">
       <div className={s["hero-copy"]}>
         <span className={s.eyebrow}>Open source · AGPL-3.0 · self-hostable</span>
-        <h1 className={s.display}>By the time you write it, you won’t remember why.</h1>
+        <h1 className={s.display}>Never lose the thread between your papers, experiments, and writing.</h1>
         <p className={s.lede}>
           A thesis, a PhD, a postdoc: months of reading, runs and decisions spread across six tools that each forget
           the other five. WeaveForge keeps the thread.

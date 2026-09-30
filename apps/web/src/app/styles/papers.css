@@ -453,3 +453,9 @@
 .tidy-option { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; font-size: 0.85rem; }
 .tidy-option input[type="checkbox"] { flex: none; margin: 3px 0 0; }
 .tidy-option > span { display: grid; min-width: 0; }
+
+.papers-screen {
+  overflow-x: clip;
+  max-width: min(var(--app-max), 100%);
+  width: 100%;
+}

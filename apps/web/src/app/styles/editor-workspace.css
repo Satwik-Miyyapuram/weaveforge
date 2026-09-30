@@ -2110,6 +2110,13 @@
   background: var(--scrollbar-thumb-hover);
 }
 
+@media (pointer: coarse) {
+  .overlay-scrollbar-track,
+  .overlay-scrollbar-thumb {
+    pointer-events: none !important;
+  }
+}
+
 
 /*
  * The live layer: the one copy of the page being written on, rendered once
