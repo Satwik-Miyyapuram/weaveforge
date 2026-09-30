@@ -19,6 +19,18 @@ tracks at once.
 
 ### Android
 
+## [0.7.4] - 2026-10-01
+
+Desktop (`v0.7.4`). The Python SDK and Android keep their own numbers.
+
+### Changed
+- **Restored clean UI:** Rolled back UI styling to the v0.7.2 baseline, removing intrusive scrollbar overlays, bulky card wraps, and sticky layout quirks across editor, papers, entity cards, and navigation.
+- **Pitch hero headline:** Updated pitch copy to *"Never lose the thread between your papers, experiments, and writing."*
+
+### Fixed
+- **Papers page mobile scroll:** Eliminated horizontal scroll jitter and touch gesture interception on mobile touchscreens without altering desktop card columns or layout.
+- **Brand iconography:** Standardized web app and manifest icons on the official transparent vector emblem (`weave_forge.svg`).
+
 ## [0.7.3] - 2026-09-30
 
 Desktop (`v0.7.3`). The Python SDK and Android keep their own numbers.
@@ -394,7 +406,8 @@ following landed earlier but had never been carried in a tagged release.
 - Project OSS hygiene: `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates,
   `CHANGELOG.md`, and a Python CI job (pytest + ruff + mypy).
 
-[Unreleased]: https://github.com/Satwik-Miyyapuram/weaveforge/compare/v0.7.3...HEAD
+[Unreleased]: https://github.com/Satwik-Miyyapuram/weaveforge/compare/v0.7.4...HEAD
+[0.7.4]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.7.4
 [0.7.3]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.7.3
 [0.7.2]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.7.2
 [0.7.0]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.7.0
