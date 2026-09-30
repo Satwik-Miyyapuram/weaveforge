@@ -33,6 +33,7 @@ export function OverlayScrollbar({
   const trackRef = useRef<HTMLDivElement | null>(null);
   const thumbRef = useRef<HTMLDivElement | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rafIdRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const dragStartYRef = useRef(0);
   const dragStartScrollTopRef = useRef(0);
@@ -53,13 +54,13 @@ export function OverlayScrollbar({
     }, autoHideDelay);
   }, [autoHideDelay, clearHideTimer, isHovered]);
 
-  const updateThumb = useCallback(() => {
+  const performUpdate = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
 
     const { scrollTop, scrollHeight, clientHeight } = el;
     const overflow = scrollHeight > clientHeight + 1;
-    setHasOverflow(overflow);
+    setHasOverflow((prev) => (prev === overflow ? prev : overflow));
 
     const thumb = thumbRef.current;
     if (!thumb || !overflow) return;
@@ -79,13 +80,27 @@ export function OverlayScrollbar({
     }
   }, [scrollRef]);
 
+  const updateThumb = useCallback(() => {
+    if (typeof requestAnimationFrame === "function") {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+      rafIdRef.current = requestAnimationFrame(() => {
+        rafIdRef.current = null;
+        performUpdate();
+      });
+    } else {
+      performUpdate();
+    }
+  }, [performUpdate]);
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
     const onScroll = () => {
       updateThumb();
-      setIsVisible(true);
+      setIsVisible((prev) => (prev ? prev : true));
       scheduleHide();
     };
 
@@ -109,17 +124,22 @@ export function OverlayScrollbar({
     });
     mutationObserver.observe(el, { childList: true, subtree: true });
 
-    updateThumb();
+    performUpdate();
 
     return () => {
       clearHideTimer();
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
       scrollTarget.removeEventListener("scroll", onScroll);
       resizeObserver.disconnect();
       mutationObserver.disconnect();
     };
-  }, [scrollRef, updateThumb, scheduleHide, clearHideTimer]);
+  }, [scrollRef, updateThumb, performUpdate, scheduleHide, clearHideTimer]);
 
   const onThumbPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "touch") return;
     e.preventDefault();
     e.stopPropagation();
 
@@ -175,6 +195,7 @@ export function OverlayScrollbar({
   const onTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
     // If click is on the thumb itself, ignore
     if (e.target === thumbRef.current) return;
+    if (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches) return;
     const el = scrollRef.current;
     const track = trackRef.current;
     if (!el || !track) return;
