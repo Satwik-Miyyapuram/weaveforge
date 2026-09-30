@@ -53,6 +53,9 @@ val appAllowedHosts: String = buildList {
     add("google.com")
     add("gstatic.com")
     add("googleusercontent.com")
+    add("googleapis.com")
+    add("google-analytics.com")
+    add("googletagmanager.com")
     add("cloudflarestorage.com")
     // A development URL names its own host, and it is the only other one the
     // shell may ever load.
@@ -126,8 +129,8 @@ android {
         applicationId = "org.weaveforge.ink"
         minSdk = 29
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.7.0"
+        versionCode = 8
+        versionName = "0.7.3"
         buildConfigField("String", "APP_URL", "\"$appUrl\"")
         // Comma-separated. The navigation policy reads this; nothing in the page
         // can add to it.
