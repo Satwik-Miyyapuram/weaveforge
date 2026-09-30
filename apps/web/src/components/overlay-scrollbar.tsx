@@ -120,6 +120,7 @@ export function OverlayScrollbar({
   }, [scrollRef, updateThumb, scheduleHide, clearHideTimer]);
 
   const onThumbPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "touch") return;
     e.preventDefault();
     e.stopPropagation();
 
@@ -173,6 +174,7 @@ export function OverlayScrollbar({
   };
 
   const onTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches) return;
     // If click is on the thumb itself, ignore
     if (e.target === thumbRef.current) return;
     const el = scrollRef.current;
