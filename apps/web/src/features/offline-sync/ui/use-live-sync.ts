@@ -7,7 +7,6 @@ import {
   requestSync,
   type LiveSyncState,
 } from "../domain/live-sync";
-import { enableSync } from "./enable-sync";
 
 export function useLiveSync() {
   const [state, setState] = useState<LiveSyncState>(getLiveSyncState);
@@ -21,6 +20,7 @@ export function useLiveSync() {
   }, []);
 
   const adoptNow = useCallback(async () => {
+    const { enableSync } = await import("./enable-sync");
     await enableSync();
     requestSync();
   }, []);

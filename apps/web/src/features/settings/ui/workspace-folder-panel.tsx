@@ -24,7 +24,12 @@ import {
   openBrowserStorageFolder,
 } from "@/features/workspace/application/workspace-folder";
 import { FormError } from "@/components/form-error";
-import { FolderConflictCard } from "./folder-conflict-card";
+import dynamic from "next/dynamic";
+
+const FolderConflictCard = dynamic(
+  () => import("./folder-conflict-card").then((m) => m.FolderConflictCard),
+  { ssr: false },
+);
 
 /** Where the local database is (desktop only: a browser has none). */
 function useDatabaseLocation(): { dataDir: string; failure: string | null } | null {

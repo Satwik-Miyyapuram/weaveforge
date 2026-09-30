@@ -5,10 +5,14 @@ import { useAuth } from "@/features/auth";
 import { formatError } from "@/lib/format-error";
 import { useSyncStatus } from "./use-sync";
 import { FormError } from "@/components/form-error";
-
+import dynamic from "next/dynamic";
 import { useLiveSync } from "./use-live-sync";
-import { OfflineWorkModal } from "./offline-work-modal";
 import { requestSync } from "../domain/live-sync";
+
+const OfflineWorkModal = dynamic(
+  () => import("./offline-work-modal").then((m) => m.OfflineWorkModal),
+  { ssr: false },
+);
 
 /**
  * Settings → Sync.

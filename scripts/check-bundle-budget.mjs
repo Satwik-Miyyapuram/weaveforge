@@ -85,10 +85,11 @@ const ROUTE_ALLOWANCES_KB = {
   "/notes": 405,
   // the AI review panel and the proposal executors it configures live in the
   // container every route boots, so every route carries their code: +1 KB.
-  "/settings": 391,
-  "/graph": 375,
-  // screen search (useScreenSearch) put the hybrid index on /experiments
-  "/experiments": 345,
+  // Settings houses workspace folder mirror, git 3-way conflict resolution, and sync issues:
+  "/settings": 400,
+  // graph and experiments share the top navigation with live sync status indicators:
+  "/graph": 380,
+  "/experiments": 350,
   // the shared shell itself: the container gained the MCP draft, proposal and
   // lab-snapshot code, all of it reached from the layout.
   "/layout": 343,
