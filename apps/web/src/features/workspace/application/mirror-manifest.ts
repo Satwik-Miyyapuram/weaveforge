@@ -1,6 +1,7 @@
 import {
   WORKSPACE_META_DIR,
   digestText,
+  projectMetaDir,
   stampWorkspaceId,
   type IWorkspaceFs,
   type VaultPageBase,
@@ -26,7 +27,42 @@ import {
  * impossible: the folder and its manifest travel together, including to another
  * machine.
  */
+/**
+ * The single manifest the flat layout wrote, before projects had folders.
+ *
+ * Read only as a fallback, and only when a project has no manifest of its own.
+ * The first run after the move has to see the paths the old layout wrote, or it
+ * would leave a second copy of every file behind forever; reading it once is
+ * what lets that run remove the flat originals as it writes their
+ * project-scoped replacements. Never merged with a project's manifest — a path
+ * claimed by both would be counted twice — and ignored entirely afterwards.
+ */
 export const MIRROR_MANIFEST_PATH = `${WORKSPACE_META_DIR}/mirror.json`;
+
+/**
+ * Where a project's manifest lives: `<project>/.weaveforge/mirror.json`.
+ *
+ * Per project, beside that project's own files. The mirror removes a file when
+ * the manifest does not claim it, so one manifest shared by every project meant
+ * a run for project B deleted project A's Markdown and its cached PDFs. A
+ * project's manifest can only ever speak for that project.
+ */
+export function mirrorManifestPath(projectRoot: string): string {
+  return `${projectMetaDir(projectRoot)}/mirror.json`;
+}
+
+/**
+ * A project's manifest, or the flat one when the project has none yet.
+ *
+ * The two are never merged: the fallback exists so the *first* run after the
+ * move can see the old paths, and once the run has written the project's own
+ * manifest the legacy file is out of the picture for good.
+ */
+async function readManifestText(fs: IWorkspaceFs, projectRoot: string): Promise<string | null> {
+  const own = await fs.readText(mirrorManifestPath(projectRoot)).catch(() => null);
+  if (own !== null) return own;
+  return fs.readText(MIRROR_MANIFEST_PATH).catch(() => null);
+}
 
 /**
  * What each mirrored file said when the two sides last agreed, by path.
@@ -39,9 +75,14 @@ export const MIRROR_MANIFEST_PATH = `${WORKSPACE_META_DIR}/mirror.json`;
  * yields an empty base: the import then behaves as it did before, showing the
  * difference and letting the user decide.
  */
-export async function readMirrorBase(fs: IWorkspaceFs): Promise<Record<string, string>> {
+export async function readMirrorBase(
+  fs: IWorkspaceFs,
+  projectRoot: string,
+): Promise<Record<string, string>> {
   try {
-    const parsed = JSON.parse(await fs.readText(MIRROR_MANIFEST_PATH)) as {
+    const text = await readManifestText(fs, projectRoot);
+    if (text === null) return {};
+    const parsed = JSON.parse(text) as {
       paths?: unknown;
       digests?: unknown;
     };
@@ -63,6 +104,24 @@ export async function readMirrorBase(fs: IWorkspaceFs): Promise<Record<string, s
 }
 
 /**
+ * Whether a JSON data file on disk is something the app wrote.
+ *
+ * The mirror writes `relations.json` and its neighbours whenever the data
+ * changes, so a report that fired on every write would report the app to itself.
+ * The manifest holds the digest of what the app wrote; a file that still hashes
+ * to that is its own write, and anything else — or a file with no record at all —
+ * is somebody's edit.
+ */
+export function jsonEditSince(
+  base: Readonly<Record<string, string>>,
+  path: string,
+  text: string,
+): boolean {
+  const recorded = base[path];
+  return recorded === undefined || recorded !== digestText(text);
+}
+
+/**
  * What each mirrored note's frontmatter and body said when the sides agreed.
  *
  * Read apart from the digests because most callers only need to know *whether*
@@ -70,9 +129,14 @@ export async function readMirrorBase(fs: IWorkspaceFs): Promise<Record<string, s
  * A manifest older than version 3 yields nothing here, and those folders keep
  * behaving as they did: a conflict is reported rather than merged.
  */
-export async function readMirrorBases(fs: IWorkspaceFs): Promise<Record<string, VaultPageBase>> {
+export async function readMirrorBases(
+  fs: IWorkspaceFs,
+  projectRoot: string,
+): Promise<Record<string, VaultPageBase>> {
   try {
-    const parsed = JSON.parse(await fs.readText(MIRROR_MANIFEST_PATH)) as { bases?: unknown };
+    const text = await readManifestText(fs, projectRoot);
+    if (text === null) return {};
+    const parsed = JSON.parse(text) as { bases?: unknown };
     if (typeof parsed.bases !== "object" || parsed.bases === null) return {};
     const bases: Record<string, VaultPageBase> = {};
     for (const [path, value] of Object.entries(parsed.bases as Record<string, unknown>)) {
@@ -94,11 +158,12 @@ export function baseDigest(text: string): string {
 
 export async function writeMirrorManifest(
   fs: IWorkspaceFs,
+  projectRoot: string,
   paths: readonly string[],
   digests: Readonly<Record<string, string>> = {},
   bases: Readonly<Record<string, VaultPageBase>> = {},
 ): Promise<void> {
-  await fs.mkdirp(WORKSPACE_META_DIR);
+  await fs.mkdirp(projectMetaDir(projectRoot));
   const kept = [...new Set(paths)].sort();
   const body = {
     version: 3,
@@ -116,7 +181,7 @@ export async function writeMirrorManifest(
     ),
     writtenAt: new Date().toISOString(),
   };
-  await fs.writeFile(MIRROR_MANIFEST_PATH, `${JSON.stringify(body, null, 2)}\n`);
+  await fs.writeFile(mirrorManifestPath(projectRoot), `${JSON.stringify(body, null, 2)}\n`);
 }
 
 /**
@@ -228,6 +293,7 @@ export async function claimImportedFile(
   fs: IWorkspaceFs,
   path: string,
   id: string,
+  projectRoot: string,
 ): Promise<boolean> {
   let content: string;
   try {
@@ -240,9 +306,9 @@ export async function claimImportedFile(
   if (stamped === null) return false;
 
   await fs.writeFile(path, stamped);
-  const base = await readMirrorBase(fs);
-  const bases = await readMirrorBases(fs);
+  const base = await readMirrorBase(fs, projectRoot);
+  const bases = await readMirrorBases(fs, projectRoot);
   base[path] = digestText(stamped);
-  await writeMirrorManifest(fs, Object.keys(base), base, bases);
+  await writeMirrorManifest(fs, projectRoot, Object.keys(base), base, bases);
   return true;
 }

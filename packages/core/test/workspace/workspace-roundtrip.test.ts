@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { MemoryWorkspaceFs } from "../../src/testing/memory-workspace-fs.js";
 import {
+  projectDir,
   WORKSPACE_META_DIR,
   WorkspacePathError,
   diffWorkspace,
@@ -151,6 +152,14 @@ test("import re-anchors assets and never trusts a written storage path", () => {
   assert.equal(reanchored, "![](vault:me/n9/secret.png)");
 });
 
+/**
+ * Every mirrored path is inside one project's folder now, so the tests name the
+ * project once and prefix the paths they expect with its folder.
+ */
+const PROJECT = { id: "8d731734-bdcd-4f08-b648-efd15fdf75da", name: "MSc Thesis" };
+const ROOT = projectDir(PROJECT);
+const at = (path: string) => `${ROOT}/${path}`;
+
 // -------------------------------------------------------------- round trip
 
 test("serialize → parse preserves id, type, title, and body", () => {
@@ -168,6 +177,7 @@ test("serialize → parse preserves id, type, title, and body", () => {
         { id: "l1", entryDate: "2026-03-14", kind: "daily", body: "Ran it.", links: [], createdAt: "2026-03-14T00:00:00.000Z" } as never,
       ],
     }),
+    PROJECT,
   ).files;
 
   const parsed = parseWorkspaceFolder(files);
@@ -185,27 +195,31 @@ test("serialize → parse preserves id, type, title, and body", () => {
 test("serializing twice is byte-identical, so git diffs stay meaningful", () => {
   const input = snapshot({ vaultPages: [note(), note({ id: "n2", title: "Other" })] });
 
-  assert.deepEqual(serializeWorkspace(input).files, serializeWorkspace(input).files);
+  assert.deepEqual(
+    serializeWorkspace(input, PROJECT).files,
+    serializeWorkspace(input, PROJECT).files,
+  );
 });
 
 test("metadata and README are written but are not entities", () => {
-  const files = serializeWorkspace(snapshot({ vaultPages: [note()] })).files;
+  const files = serializeWorkspace(snapshot({ vaultPages: [note()] }), PROJECT).files;
 
-  assert.ok(files[`${WORKSPACE_META_DIR}/manifest.json`]);
+  // The project's own bookkeeping, beside its files rather than at the root.
+  assert.ok(files[at(`${WORKSPACE_META_DIR}/manifest.json`)]);
   assert.ok(files["README.md"]);
   assert.equal(parseWorkspaceFolder(files).length, 1, "only the note is an entity");
 });
 
 test("the folder can be written to a filesystem and read back", async () => {
   const fs = new MemoryWorkspaceFs(() => "2026-08-05T00:00:00.000Z");
-  const { files } = serializeWorkspace(snapshot({ vaultPages: [note()] }));
+  const { files } = serializeWorkspace(snapshot({ vaultPages: [note()] }), PROJECT);
   for (const [path, content] of Object.entries(files)) await fs.writeFile(path, content);
 
   const seen: string[] = [];
-  for await (const entry of fs.walk("notes")) seen.push(entry.path);
+  for await (const entry of fs.walk(at("notes"))) seen.push(entry.path);
 
-  assert.deepEqual(seen, ["notes/method.note.md"]);
-  assert.match(await fs.readText("notes/method.note.md"), /weaveforge-id: n1/);
+  assert.deepEqual(seen, [at("notes/method.note.md")]);
+  assert.match(await fs.readText(at("notes/method.note.md")), /weaveforge-id: n1/);
 });
 
 // -------------------------------------------------------------------- diff
@@ -215,7 +229,7 @@ const existing = (over: Partial<ExistingEntity> = {}): ExistingEntity => ({
 });
 
 function parsedFrom(snap: WorkspaceSnapshot) {
-  return parseWorkspaceFolder(serializeWorkspace(snap).files);
+  return parseWorkspaceFolder(serializeWorkspace(snap, PROJECT).files);
 }
 
 test("an unchanged folder reports no writes", () => {
@@ -258,6 +272,7 @@ test("an id claiming a different entity type is a conflict, never a write", () =
           { id: "n1", title: "Impostor", authors: [], tags: [], createdAt: "", updatedAt: "" } as never,
         ],
       }),
+      PROJECT,
     ).files,
   );
 

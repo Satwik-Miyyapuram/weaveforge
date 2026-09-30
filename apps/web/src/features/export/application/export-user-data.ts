@@ -3,9 +3,11 @@ import {
   serializeWorkspace,
   vaultAssetPathsInBody,
   workspaceSnapshotCounts,
+  type WorkspaceProject,
   type WorkspaceSnapshot,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { activeProject } from "@/features/workspace/application/active-project";
 import { downloadBlob } from "@/lib/blob-output";
 
 export { downloadBlob };
@@ -128,9 +130,13 @@ export async function buildExportFiles(
  */
 async function buildWorkspaceFolderFiles(
   snapshot: WorkspaceSnapshot,
+  project: WorkspaceProject,
   assets: ExportAssetReaders,
 ): Promise<Record<string, Uint8Array>> {
-  const { files, assets: refs } = serializeWorkspace(snapshot);
+  // Inside the project's folder, exactly as the folder mirror writes it: an
+  // export and a mirrored folder have to be the same tree, or re-importing one
+  // of them finds none of its files where it left them.
+  const { files, assets: refs } = serializeWorkspace(snapshot, project);
   const out: Record<string, Uint8Array> = {};
   for (const [path, content] of Object.entries(files)) out[path] = strToU8(content);
 
@@ -163,7 +169,7 @@ async function buildWorkspaceFolderFiles(
 export async function downloadWorkspaceFolder(): Promise<void> {
   const c = getContainer();
   const snapshot = await c.workspace.snapshot();
-  const files = await buildWorkspaceFolderFiles(snapshot, {
+  const files = await buildWorkspaceFolderFiles(snapshot, await activeProject(), {
     fetchVaultAssets: (paths) => c.vault.fetchAssetBlobs(paths),
     fetchPaperImages: (paths) => c.papers.fetchImageBlobs(paths),
   });

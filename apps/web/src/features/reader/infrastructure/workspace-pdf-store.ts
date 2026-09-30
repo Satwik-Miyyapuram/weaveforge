@@ -10,19 +10,27 @@
  */
 
 import {
-  PAPER_PDF_DIR,
+  entityDir,
   paperPdfPath,
   type IPdfByteCache,
   type IWorkspaceFs,
 } from "@weaveforge/core";
 
 export class WorkspacePdfStore implements IPdfByteCache {
-  constructor(private readonly fs: () => IWorkspaceFs | null) {}
+  /**
+   * `projectRoot` is a function, not a string: the reader can switch project
+   * without this store being rebuilt, and a cached root would then file one
+   * project's PDFs under another's folder.
+   */
+  constructor(
+    private readonly fs: () => IWorkspaceFs | null,
+    private readonly projectRoot: () => Promise<string>,
+  ) {}
 
   async get(key: string): Promise<ArrayBuffer | null> {
     const fs = this.fs();
     if (!fs) return null;
-    const path = paperPdfPath(key);
+    const path = paperPdfPath(key, await this.projectRoot());
     if (!(await fs.stat(path))) return null;
     const bytes = await fs.readFile(path);
     return bytes.buffer.slice(
@@ -34,28 +42,32 @@ export class WorkspacePdfStore implements IPdfByteCache {
   async set(key: string, bytes: ArrayBuffer): Promise<void> {
     const fs = this.fs();
     if (!fs) return;
-    await fs.mkdirp(PAPER_PDF_DIR);
-    await fs.writeFile(paperPdfPath(key), new Uint8Array(bytes));
+    const root = await this.projectRoot();
+    await fs.mkdirp(entityDir("paper", root) + "/pdf");
+    await fs.writeFile(paperPdfPath(key, root), new Uint8Array(bytes));
   }
 
   async remove(key: string): Promise<void> {
     const fs = this.fs();
     if (!fs) return;
-    const path = paperPdfPath(key);
+    const path = paperPdfPath(key, await this.projectRoot());
     if (await fs.stat(path)) await fs.remove(path);
   }
 
   async clear(): Promise<void> {
     const fs = this.fs();
     if (!fs) return;
-    if (await fs.stat(PAPER_PDF_DIR))
-      await fs.remove(PAPER_PDF_DIR, { recursive: true });
+    // This project's copies only: another project's PDFs are not this cache's.
+    const dir = entityDir("paper", await this.projectRoot()) + "/pdf";
+    if (await fs.stat(dir)) await fs.remove(dir, { recursive: true });
   }
 
   async size(): Promise<number> {
     const fs = this.fs();
-    if (!fs || !(await fs.stat(PAPER_PDF_DIR))) return 0;
-    const entries = await fs.list(PAPER_PDF_DIR);
+    if (!fs) return 0;
+    const dir = entityDir("paper", await this.projectRoot()) + "/pdf";
+    if (!(await fs.stat(dir))) return 0;
+    const entries = await fs.list(dir);
     return entries.filter((entry) => entry.kind === "file").length;
   }
 }

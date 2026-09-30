@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WeaveForge setup — redesign preview</title>
+<!--
+  A preview of the Windows setup window, for review before any of it reaches
+  `setup/ui/index.html`.
+
+  Everything here is CSS and inline SVG on purpose. The real window serves
+  exactly three routes from `main.rs` — `/`, `/icon.png`, `/rubik.woff2` — so a
+  redesign that needed a fourth asset would be a Rust change too. This one does
+  not: the only images are the app's own 512px icon and inline SVG.
+
+  The four options share one DOM and one set of class names, so the difference
+  between them is a variable block and a handful of overrides. That is also how
+  the change would land: `setup/ui/index.html` swaps its <style> and keeps every
+  id, every `data-drag`, and the `window.wf.receive` contract the Rust side calls.
+
+  "Current" is the shipped design rebuilt on this DOM so the options can be
+  flipped between without reloading; it is not the file itself.
+-->
+<style>
+/* The window's own font, at the path the real one serves. */
+@font-face {
+  font-family: Rubik;
+  src: url(setup/ui/rubik.woff2) format("woff2");
+  font-weight: 300 900;
+  font-display: swap;
+}
+
+:root {
+  --ui: Rubik, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+/* ---- the review chrome: not part of the design ------------------------- */
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: #0d0d14;
+  color: #e8e8f0;
+  font: 400 14px/1.5 var(--ui);
+  padding: 28px 28px 40px;
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+}
+.toolbar {
+  width: 760px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 12.5px; color: #9a9ab0;
+}
+.toolbar .spacer { margin-left: auto; }
+.seg { display: inline-flex; border: 1px solid #2b2b3d; border-radius: 9px; overflow: hidden; }
+.seg button {
+  font: 600 12.5px/1 var(--ui); color: #b9b9cc; background: #16161f;
+  border: 0; border-right: 1px solid #2b2b3d; padding: 8px 12px; cursor: pointer;
+}
+.seg button:last-child { border-right: 0; }
+.seg button:hover { background: #1d1d29; color: #e8e8f0; }
+.seg button[aria-pressed="true"] { background: #cba6f7; color: #11111b; }
+.caption { width: 760px; font-size: 12px; color: #7d7d93; margin: -6px 0 0; }
+
+/* ---- the window -------------------------------------------------------- *
+ * Fixed at 760x480 because the real one is: `main.rs` builds the window with
+ * `LogicalSize::new(760.0, 480.0)` and `with_resizable(false)`. A layout that
+ * only works when it can grow is a layout that does not work here.
+ */
+.window {
+  width: 760px; height: 480px; overflow: hidden;
+  display: grid; grid-template-columns: var(--panel-w) 1fr;
+  background: var(--bg); color: var(--ink);
+  font: 400 13.5px/1.5 var(--ui);
+  border: var(--win-edge); border-radius: var(--win-radius);
+  box-shadow: 0 30px 80px rgba(0,0,0,.55);
+  user-select: none; cursor: default;
+}
+
+/* ---- theme: CRT (default) --------------------------------------------- *
+ * The app's own CRT theme, palette only. `apps/web/src/app/themes/crt.css` is
+ * the source: cream felt #e7cfa6, well #d9c095, paper #ffe7c1, ink #2b222b,
+ * accent blue #1f6dab carrying #ffe7c1, and the three chip colours the app uses
+ * for status.
+ *
+ * Two things from the theme are deliberately not here:
+ *
+ *  - the pixel display face (Jersey 10). The installer serves exactly three
+ *    routes — `/`, `/icon.png`, `/rubik.woff2` — so a second font would be a new
+ *    file *and* a Rust change, not a style change. Rubik carries it.
+ *  - the tilt. The theme's progress fill and its table felt are drawn in -45deg
+ *    stripes, and that diagonal is the one part of the look that reads as
+ *    decoration rather than as state. The meter is a solid accent bar here.
+ */
+.window { --panel-w: 248px; }
+[data-dir="crt"] {
+  --bg: #e7cfa6; --panel: #d9c095; --surface: #ffe7c1; --surface-2: #f1d5a7;
+  --ink: #2b222b; --muted: #5c4b51; --faint: #7d696c;
+  --line: #2b222b; --line-strong: #2b222b;
+  --accent: #1f6dab; --accent-ink: #ffe7c1;
+  /* The app's chip trio — to-read amber, reading powder blue, read green — and
+     its red. The sign-in panel's three cards tint themselves from the first
+     three, which is what `styles/loading.css` does with the same names. */
+  --pink: #f29731; --blue: #8db7d0; --green: #6cbf81; --red: #c73729;
+  --chip-to-read: #f29731; --chip-reading: #8db7d0; --chip-read: #6cbf81;
+  --win-edge: 1px solid #2b222b; --win-radius: 12px;
+  --line-w: 3px; --radius: 8px; --shadow: 0 6px 0 #2b222b; --meter-h: 14px;
+  --track: #ffe7c1;
+  /* The theme's buttons sit on a solid shadow and drop into it. */
+  --press: translateY(3px); --press-btn: translateY(5px);
+  --btn-shadow: #12466e;
+}
+
+/* ---- theme: Paper ------------------------------------------------------ *
+ * The same window for daylight and for a printed-thesis mood: warm paper, ink
+ * text, one accent, rules instead of boxes. No shadows at all — a drop shadow
+ * on a paper surface reads as a mistake rather than as depth.
+ */
+[data-dir="paper"] {
+  --bg: #f7f4ef; --panel: #ece5da; --surface: #fffdfa; --surface-2: #f1ece4;
+  --ink: #23201c; --muted: #6b6355; --faint: #8d8474;
+  --line: rgba(35,32,28,.14); --line-strong: rgba(35,32,28,.28);
+  --accent: #1f6dab; --accent-ink: #ffffff;
+  --pink: #b4633a; --blue: #1f6dab; --green: #3f7a52; --red: #a83b2f;
+  --chip-to-read: #d9a26a; --chip-reading: #9fb8c9; --chip-read: #7fa07d;
+  --win-edge: 1px solid rgba(35,32,28,.22); --win-radius: 10px;
+  --line-w: 1px; --radius: 8px; --shadow: none; --meter-h: 10px;
+  --track: rgba(35,32,28,.10);
+}
+
+/* ---- theme: Fluent ---------------------------------------------------- *
+ * A native-feeling Windows installer: one column, no art panel, a compact
+ * header, 6px radii and a small meter. Closest to what a reader expects an
+ * installer to look like, furthest from the app's own loudness.
+ */
+[data-dir="fluent"] {
+  --bg: #f3f3f3; --panel: transparent; --surface: #ffffff; --surface-2: #f7f7f7;
+  --ink: #1b1b1b; --muted: #5d5d5d; --faint: #767676;
+  --line: #e5e5e5; --line-strong: #d6d6d6;
+  --accent: #5b5bd6; --accent-ink: #ffffff;
+  --pink: #c2410c; --blue: #5b5bd6; --green: #0f7b0f; --red: #c42b1c;
+  --win-edge: 1px solid #d9d9d9; --win-radius: 8px;
+  --line-w: 1px; --radius: 6px; --shadow: none; --meter-h: 6px;
+  --track: #e6e6e6;
+}
+/* Fluent has no art panel: the window is one column and the name moves into the
+   header, which is what a Fluent installer does.
+ *
+ * `grid-template-columns: 1fr`, not `--panel-w: 0px`. Hiding the art panel takes
+ * it out of the grid, so `.main` becomes the *first* item and lands in the first
+ * track — which is why shrinking that track to zero made the whole page 52px
+ * wide and 766px tall. The track has to go, not shrink. */
+[data-dir="fluent"] .window { grid-template-columns: 1fr; }
+[data-dir="fluent"] .art { display: none; }
+[data-dir="fluent"] .brand { display: flex; }
+[data-dir="fluent"] .hairline { display: none; }
+
+/* ---- theme: Current (what ships today) -------------------------------- *
+ * Reconstructed from `setup/ui/index.html` — 3px crust borders, hard offset
+ * shadows, 250px art panel, 30px striped meter. Kept so the new directions can
+ * be judged against it side by side.
+ */
+[data-dir="current"] {
+  --bg: #1e1e2e; --panel: #181825; --surface: #313244; --surface-2: #45475a;
+  --ink: #cdd6f4; --muted: #a6adc8; --faint: #6c7086;
+  --line: #11111b; --line-strong: #11111b;
+  --accent: #cba6f7; --accent-ink: #11111b;
+  --pink: #f5c2e7; --blue: #89b4fa; --green: #a6e3a1; --red: #f38ba8;
+  --win-edge: 1px solid #11111b; --win-radius: 0;
+  --line-w: 3px; --radius: 8px; --shadow: 4px 4px 0 #11111b; --meter-h: 30px;
+  --track: #181825;
+}
+[data-dir="current"] .window { --panel-w: 250px; }
+[data-dir="current"] .shadowed { box-shadow: var(--shadow); }
+
+/* ---- art panel -------------------------------------------------------- *
+ * The new directions are the sign-in screen's left half, at the size a 248x480
+ * strip allows: `features/auth/ui/login-screen.tsx` `AuthArt` and its styles in
+ * `styles/loading.css`. Brand, headline, lede, three status cards, foot line —
+ * the same words, the same order, the same cards.
+ *
+ * Two deliberate departures from the source:
+ *
+ *  - the tilt is gone. There the cards are rotated -2.5deg, 2deg and -1deg with
+ *    offsets, which reads as a poster on a wide half-screen; squared up and
+ *    stacked into a strip, the same three cards read as the app's own list,
+ *    which is what they are.
+ *  - everything is smaller. The source sizes are for a half-viewport: a 4rem
+ *    headline and 15rem cards do not fit 248px.
+ *
+ * The mark is the inlined `WeaveForgeLogo` — shapes in the page, painting from
+ * theme tokens — so it needs no fourth route from `main.rs`.
+ *
+ * "Current" keeps the shipped panel for comparison: stripes, big icon tile,
+ * wordmark, and the `Read · Note · Write` chips, which name no feature and are
+ * not the installer's to promise.
+ */
+.art {
+  position: relative; background: var(--panel); overflow: hidden;
+  border-right: var(--line-w) solid var(--line);
+  display: flex; flex-direction: column; min-width: 0;
+}
+.panel { display: none; flex: 1; flex-direction: column; min-width: 0; }
+[data-dir="crt"] .panel-auth, [data-dir="paper"] .panel-auth {
+  display: flex; background: var(--surface-2); gap: 11px;
+  padding: 24px 18px 14px; box-sizing: border-box; max-width: 100%;
+}
+[data-dir="fluent"] .art { display: none; }
+
+/* Brand: the source's 56px mark and 1.75rem name, at a third of the size. */
+.auth-brand { display: flex; align-items: center; gap: 8px; }
+.auth-brand svg { width: 26px; height: 26px; border-radius: 7px; flex: none; }
+.auth-brand strong { font-size: 14px; font-weight: 700; letter-spacing: -.2px; color: var(--ink); }
+
+.auth-title {
+  margin: 2px 0 0; font-size: 19px; font-weight: 800; line-height: 1.02;
+  letter-spacing: -.4px; color: var(--ink);
+}
+.auth-lede { margin: 0; font-size: 11px; line-height: 1.4; color: var(--muted); }
+
+/* One column, not the source's two 15rem columns: 208px of content is one
+   column of cards and always will be. */
+.auth-cards { display: grid; gap: 9px; padding: 3px 2px; box-sizing: border-box; max-width: 100%; }
+.auth-card {
+  display: grid; gap: 3px; align-content: start;
+  padding: 7px 9px; border: var(--line-w) solid var(--line);
+  border-radius: var(--radius); background: var(--card-tint, var(--surface));
+  box-shadow: var(--shadow, none);
+}
+.auth-card strong { font-size: 10.5px; font-weight: 700; line-height: 1.3; color: var(--ink); }
+/* The source's orientation, kept: the three are rotated -2.5deg, 2deg and
+   -1deg, and the offsets carry the same idea — the middle one sits lower, the
+   third shifts right. `loading.css` uses 28px and 40% of a 15rem card; here they
+   are 6px, because the same shift in a 208px column would push a card out of the
+   panel. The cards are also smaller than the source's, which is what makes the
+   angles survivable at this width. */
+.auth-card--reading { --card-tint: color-mix(in srgb, var(--chip-reading) 35%, var(--surface)); transform: rotate(-2.5deg); }
+.auth-card--running { --card-tint: color-mix(in srgb, var(--chip-read) 35%, var(--surface)); transform: rotate(2deg) translateY(6px); }
+.auth-card--draft { --card-tint: color-mix(in srgb, var(--chip-to-read) 35%, var(--surface)); transform: rotate(-1deg) translateX(3px); }
+.auth-chip {
+  justify-self: start; padding: 1px 7px; border-radius: 999px;
+  border: var(--line-w) solid var(--line); background: var(--chip-fill, var(--surface));
+  font-family: var(--mono); font-size: 9px; color: var(--ink);
+}
+.auth-card--reading .auth-chip { --chip-fill: var(--chip-reading); }
+.auth-card--running .auth-chip { --chip-fill: var(--chip-read); }
+.auth-card--draft .auth-chip { --chip-fill: var(--chip-to-read); }
+.auth-meta { font-family: var(--mono); font-size: 9px; color: var(--muted); }
+.auth-foot { margin: auto 0 0; font-family: var(--mono); font-size: 9px; color: var(--muted); max-width: 100%; overflow-wrap: anywhere; }
+
+/* What ships today. */
+[data-dir="current"] .panel-ship { display: flex; align-items: center; padding: 58px 22px 0; }
+.stripe { position: absolute; left: 0; right: 0; height: 12px; }
+.stripe.a { top: 0; background: #cba6f7; }
+.stripe.b { top: 12px; background: #f5c2e7; }
+.stripe.c { top: 24px; background: #89b4fa; }
+
+.icon-tile {
+  width: 104px; height: 104px; border-radius: 24px; display: block;
+  border: var(--line-w) solid var(--line); box-shadow: 6px 6px 0 #11111b;
+}
+.wordmark { margin: 26px 0 0; font-size: 25px; font-weight: 800; letter-spacing: -.5px; color: var(--ink); }
+.promise { margin: 10px 0 0; text-align: center; font-size: 12.5px; color: var(--muted); max-width: 190px; }
+.chips { position: absolute; left: 0; right: 0; bottom: 26px; display: flex; justify-content: center; gap: 7px; }
+.chips span {
+  font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 7px;
+  color: #11111b; border: var(--line-w) solid var(--line);
+}
+
+/* Fluent carries the name in the header instead of the art panel, so the small
+   title text goes rather than appearing twice. */
+[data-dir="fluent"] .bar .title { display: none; }
+
+/* ---- main column ------------------------------------------------------ */
+.main { display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
+.bar { height: 38px; display: flex; align-items: center; padding-left: 22px; }
+[data-dir="current"] .bar { height: 40px; padding-left: 20px; }
+.bar .title { margin-right: auto; font-size: 11.5px; letter-spacing: .04em; color: var(--faint); }
+.brand { display: none; align-items: center; gap: 10px; margin-right: auto; font-weight: 600; color: var(--ink); }
+.brand svg { width: 18px; height: 18px; color: var(--accent); }
+.win {
+  width: 46px; height: 38px; border: 0; background: none; color: var(--muted);
+  display: grid; place-items: center; cursor: default;
+}
+[data-dir="current"] .win { height: 40px; color: var(--subtext, var(--muted)); }
+.win:hover { background: var(--surface-2); color: var(--ink); }
+.win.close:hover { background: var(--red); color: var(--accent-ink); }
+.win svg { width: 10px; height: 10px; }
+
+.hairline { height: 1px; background: var(--line); margin: 0 0 0 22px; }
+[data-dir="current"] .hairline { background: var(--line); height: 3px; margin: 0; }
+
+.page { display: none; flex: 1; flex-direction: column; padding: 22px 26px 20px; min-height: 0; }
+[data-dir="current"] .page { padding: 14px 40px 32px; }
+.page[data-on] { display: flex; animation: in 180ms ease-out; }
+@keyframes in { from { opacity: 0; transform: translateY(5px); } }
+
+.eyebrow {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase;
+  color: var(--faint); margin: 0 0 8px;
+}
+h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.5px; line-height: 1.16; color: var(--ink); }
+[data-dir="crt"] h1 { font-size: 27px; letter-spacing: -.2px; }
+[data-dir="current"] h1 { font-size: 30px; font-weight: 800; letter-spacing: -.6px; }
+[data-dir="paper"] h1 { font-weight: 700; letter-spacing: -.2px; }
+[data-dir="fluent"] h1 { font-size: 22px; font-weight: 600; letter-spacing: 0; }
+.lead { margin: 10px 0 0; color: var(--muted); max-width: 400px; }
+[data-dir="fluent"] .lead { max-width: 440px; }
+
+.version {
+  display: inline-block; vertical-align: 5px; margin-left: 9px;
+  font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 7px;
+  background: var(--accent); color: var(--accent-ink);
+}
+[data-dir="crt"] .version { border: 2px solid var(--line); vertical-align: 6px; }
+[data-dir="current"] .version { background: #f9e2af; color: #11111b; border: 2px solid #11111b; vertical-align: 6px; font-weight: 600; }
+
+.field-label { display: block; margin-top: 24px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.path { display: flex; gap: 8px; margin-top: 7px; }
+.path output {
+  flex: 1; min-width: 0; padding: 9px 12px; border-radius: var(--radius);
+  background: var(--surface); border: var(--line-w) solid var(--line);
+  font: 400 12.5px/1.35 var(--mono);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left;
+}
+[data-dir="current"] .path output { background: #181825; padding: 9px 12px; }
+.note { margin-top: 9px; font-size: 12px; color: var(--faint); }
+/* The theme's own faint ink is tuned for a page behind a card; on the window's
+   own felt a step darker keeps 12px copy readable. */
+[data-dir="crt"] .note, [data-dir="crt"] .eyebrow, [data-dir="crt"] .bar .title { color: var(--muted); }
+
+.actions { margin-top: auto; display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+[data-dir="current"] .actions { gap: 12px; }
+.btn {
+  min-width: 96px; padding: 9px 16px; border-radius: var(--radius);
+  border: var(--line-w) solid var(--line); background: var(--surface); color: var(--ink);
+  font: 600 13px/1.2 var(--ui); cursor: pointer;
+  transition: filter 120ms, transform 80ms, box-shadow 80ms, background 120ms, border-color 120ms;
+}
+[data-dir="current"] .btn { min-width: 108px; padding: 9px 18px; }
+[data-dir="crt"] .btn { background: var(--surface); box-shadow: 0 3px 0 var(--line); }
+[data-dir="crt"] .btn:hover { filter: none; background: var(--surface-2); }
+[data-dir="crt"] .btn:active { transform: var(--press); box-shadow: 0 0 0 var(--line); }
+.btn:hover { filter: brightness(1.12); border-color: var(--line-strong); }
+.btn:active { transform: translateY(1px); }
+[data-dir="current"] .btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 #11111b; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+[data-dir="crt"] .btn.primary { border-color: var(--line); box-shadow: 0 5px 0 var(--btn-shadow); }
+[data-dir="crt"] .btn.primary:hover { background: var(--accent); filter: brightness(1.06); }
+[data-dir="crt"] .btn.primary:active { transform: var(--press-btn); box-shadow: 0 0 0 var(--btn-shadow); }
+[data-dir="current"] .btn.primary { border: 3px solid #11111b; }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.ghost { background: none; border-color: transparent; color: var(--muted); }
+[data-dir="crt"] .btn.ghost { box-shadow: none; }
+[data-dir="crt"] .btn.ghost:active { transform: none; }
+.btn.ghost:hover { background: var(--surface-2); color: var(--ink); filter: none; }
+.btn[disabled] { opacity: .5; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:focus:not(:focus-visible) { outline: none; }
+
+/* ---- progress --------------------------------------------------------- *
+ * One honest thing to show: the Rust side sends `label` and a 0..1 `value`, and
+ * nothing else. So the bar is the percentage, the percentage is the number, and
+ * the copy under it is the label it was actually sent.
+ *
+ * The fill is one solid colour. The shipped window fills with -45deg stripes,
+ * which is a diagonal drawn to say "busy" — the percentage beside it already
+ * says that, and nothing else in either theme is drawn on a slant.
+ */
+.meter {
+  margin-top: 26px; height: var(--meter-h); border-radius: calc(var(--meter-h) / 2);
+  background: var(--track); border: var(--line-w) solid var(--line); overflow: hidden;
+}
+[data-dir="crt"] .meter { border-radius: var(--radius); }
+[data-dir="current"] .meter { margin-top: 34px; border-radius: 8px; }
+.fill {
+  height: 100%; width: 0%; background: var(--accent);
+  border-radius: var(--radius); transition: width 220ms linear;
+}
+[data-dir="current"] .fill {
+  background: repeating-linear-gradient(-45deg, #cba6f7 0 14px, #f5c2e7 14px 28px);
+  background-size: 40px 40px; border-right: 3px solid #11111b; border-radius: 0;
+  animation: slide 900ms linear infinite;
+}
+@keyframes slide { to { background-position: 40px 0; } }
+.status { display: flex; align-items: baseline; justify-content: space-between; margin-top: 12px; font-size: 12.5px; color: var(--muted); }
+.status b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.spinner { display: inline-block; width: 11px; height: 11px; margin-right: 7px; vertical-align: -1px; border: 2px solid var(--line-strong); border-top-color: var(--accent); border-radius: 50%; animation: spin 700ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.tick {
+  width: 46px; height: 46px; margin-bottom: 16px; border-radius: 13px;
+  display: grid; place-items: center; background: var(--green); color: var(--accent-ink);
+}
+[data-dir="crt"] .tick { border: var(--line-w) solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); color: var(--ink); }
+[data-dir="current"] .tick { width: 56px; height: 56px; border-radius: 14px; border: 3px solid #11111b; box-shadow: 4px 4px 0 #11111b; color: #11111b; margin-bottom: 20px; }
+.tick.bad { background: var(--red); }
+[data-dir="crt"] .tick.bad { color: var(--accent-ink); }
+.tick svg { width: 24px; height: 24px; }
+[data-dir="current"] .tick svg { width: 28px; height: 28px; }
+.error {
+  margin-top: 12px; padding: 10px 12px; border-radius: var(--radius);
+  border: var(--line-w) solid var(--red); background: var(--surface); color: var(--ink);
+  font-size: 12.5px; line-height: 1.45;
+}
+</style>
+</head>
+<body data-dir="crt">
+
+<div class="toolbar">
+  <div class="seg" id="dirs">
+    <button data-dir="current" aria-pressed="false">Current</button>
+    <button data-dir="crt" aria-pressed="true">CRT</button>
+    <button data-dir="paper" aria-pressed="false">Paper</button>
+    <button data-dir="fluent" aria-pressed="false">Fluent</button>
+  </div>
+  <div class="seg" id="states">
+    <button data-state="welcome" aria-pressed="true">Welcome</button>
+    <button data-state="progress" aria-pressed="false">Installing</button>
+    <button data-state="done" aria-pressed="false">Ready</button>
+    <button data-state="failed" aria-pressed="false">Failed</button>
+  </div>
+  <span class="spacer"></span>
+  <span>760 × 480 · the real window is exactly this size</span>
+</div>
+
+<div class="window" data-dir="crt" id="win">
+  <aside class="art">
+    <!-- The sign-in screen's left half, squared up and scaled to fit a strip.
+         Source: features/auth/ui/login-screen.tsx (AuthArt), styles/loading.css.
+         Same words, same order, same three cards; no rotation. -->
+    <div class="panel panel-auth">
+      <div class="auth-brand">
+        <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="WeaveForge">
+          <rect width="512" height="512" rx="115" fill="var(--surface-2)" />
+          <path d="M 230 125 L 194 125 A 54 54 0 0 0 140 179 L 140 355 A 54 54 0 0 0 194 409 L 318 409 A 54 54 0 0 0 372 355 L 372 265"
+                fill="none" stroke="var(--ink)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" />
+          <line x1="264" y1="125" x2="264" y2="215" stroke="var(--ink)" stroke-width="12" stroke-linecap="round" />
+          <line x1="264" y1="215" x2="356" y2="139" stroke="var(--ink)" stroke-width="12" stroke-linecap="round" />
+          <line x1="264" y1="215" x2="372" y2="229" stroke="var(--ink)" stroke-width="12" stroke-linecap="round" />
+          <circle cx="264" cy="125" r="22" fill="var(--ink)" />
+          <circle cx="264" cy="215" r="22" fill="var(--ink)" />
+          <circle cx="356" cy="139" r="22" fill="var(--accent)" />
+          <circle cx="372" cy="229" r="22" fill="var(--ink)" />
+        </svg>
+        <strong>WeaveForge</strong>
+      </div>
+      <h2 class="auth-title">Research,<br>unified.</h2>
+      <p class="auth-lede">Papers, notes and experiments, woven into one space.</p>
+      <div class="auth-cards">
+        <div class="auth-card auth-card--reading">
+          <span class="auth-chip">Reading</span>
+          <strong>Locating and editing factual associations in GPT</strong>
+          <span class="auth-meta">Meng et al. · 2022</span>
+        </div>
+        <div class="auth-card auth-card--running">
+          <span class="auth-chip">Running</span>
+          <strong>EXP-07 ROME layer sweep</strong>
+          <span class="auth-meta">epoch 6 of 10</span>
+        </div>
+        <div class="auth-card auth-card--draft">
+          <span class="auth-chip">Draft</span>
+          <strong>Chapter 3 outline</strong>
+          <span class="auth-meta">612 words · 2 backlinks</span>
+        </div>
+      </div>
+      <p class="auth-foot">Private by default · works offline</p>
+    </div>
+
+    <!-- What ships today, for the comparison. -->
+    <div class="panel panel-ship">
+      <div class="stripe a"></div><div class="stripe b"></div><div class="stripe c"></div>
+      <img class="icon-tile" src="../../web/public/icons/icon-512.png" alt="">
+      <h2 class="wordmark">WeaveForge</h2>
+      <p class="promise">Papers, notes and experiments, woven into one space.</p>
+      <div class="chips">
+        <span style="background:#89b4fa">Read</span>
+        <span style="background:#f9e2af">Note</span>
+        <span style="background:#a6e3a1">Write</span>
+      </div>
+    </div>
+  </aside>
+
+  <section class="main">
+    <header class="bar">
+      <span class="title">WeaveForge setup</span>
+      <span class="brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M4 7h16M4 12h16M4 17h16M8 4v16M16 4v16"/>
+        </svg>
+        WeaveForge setup
+      </span>
+      <button class="win" aria-label="Minimize" tabindex="-1">
+        <svg viewBox="0 0 10 10"><path d="M0 5h10" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>
+      <button class="win close" aria-label="Close" tabindex="-1">
+        <svg viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>
+    </header>
+    <div class="hairline"></div>
+
+    <!-- 1. welcome -->
+    <div class="page" data-page="welcome" data-on>
+      <p class="eyebrow">Step 1 of 1</p>
+      <h1>Install WeaveForge<span class="version">v0.7.1</span></h1>
+      <p class="lead">Your papers, notes, experiments and thesis in one place, on your own machine.</p>
+      <label class="field-label">Install location</label>
+      <div class="path">
+        <output>C:\Users\Satwik\AppData\Local\Programs\WeaveForge</output>
+        <button class="btn" id="browse">Change…</button>
+      </div>
+      <p class="note">Installs for you only. No admin rights needed.</p>
+      <div class="actions">
+        <button class="btn ghost">Cancel</button>
+        <button class="btn primary shadowed" data-goto="progress">Install</button>
+      </div>
+    </div>
+
+    <!-- 2. progress -->
+    <div class="page" data-page="progress">
+      <p class="eyebrow">In progress</p>
+      <h1>Installing</h1>
+      <p class="lead">This takes about a minute. WeaveForge will close first if it is open.</p>
+      <div class="meter"><div class="fill" id="fill"></div></div>
+      <div class="status">
+        <span><i class="spinner"></i><span id="label">Unpacking</span></span>
+        <b id="percent">0%</b>
+      </div>
+      <div class="actions"><span class="note" style="margin:0 auto 0 0">You can leave this window open.</span></div>
+    </div>
+
+    <!-- 3. done -->
+    <div class="page" data-page="done">
+      <div class="tick">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      </div>
+      <p class="eyebrow">Finished</p>
+      <h1>WeaveForge is ready</h1>
+      <p class="lead">It is in your Start menu and on your desktop. Updates install themselves from now on.</p>
+      <div class="actions">
+        <button class="btn ghost">Close</button>
+        <button class="btn primary shadowed">Open WeaveForge</button>
+      </div>
+    </div>
+
+    <!-- 4. failed -->
+    <div class="page" data-page="failed">
+      <div class="tick bad">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg>
+      </div>
+      <p class="eyebrow">Stopped</p>
+      <h1>Setup did not finish</h1>
+      <div class="error">The installer stopped with code 2. Close WeaveForge if it is open, then try again.</div>
+      <div class="actions">
+        <button class="btn ghost">Close</button>
+        <button class="btn primary shadowed" data-goto="progress">Try again</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<p class="caption" id="caption"></p>
+
+<script>
+const CAPTIONS = {
+  current: "The shipped window, rebuilt here: 250px art panel, 3px crust borders, 4px offset shadows, 30px striped meter, and the Read · Note · Write chips.",
+  crt: "CRT: the app's own CRT palette — cream felt, ink rules, solid shadows, buttons that sit on one and drop into it. The vague chips and the woven band are gone, the meter is solid rather than slanted.",
+  paper: "Paper: the same window in daylight — warm surface, ink text, one accent, rules instead of boxes, no shadows at all.",
+  fluent: "Fluent: the one that looks like an installer — single column, name in the header, small meter, native greys.",
+};
+
+const win = document.getElementById("win");
+const caption = document.getElementById("caption");
+
+function setDir(dir) {
+  document.body.dataset.dir = dir;
+  win.dataset.dir = dir;
+  for (const b of document.querySelectorAll("#dirs button")) {
+    b.setAttribute("aria-pressed", String(b.dataset.dir === dir));
+  }
+  caption.textContent = CAPTIONS[dir];
+}
+
+function setState(state) {
+  for (const p of document.querySelectorAll(".page")) {
+    p.toggleAttribute("data-on", p.dataset.page === state);
+  }
+  for (const b of document.querySelectorAll("#states button")) {
+    b.setAttribute("aria-pressed", String(b.dataset.state === state));
+  }
+  if (state === "progress") runProgress();
+}
+
+/* The real thing is driven by the Rust side; this is the same call it makes. */
+let timer = null;
+function runProgress() {
+  clearInterval(timer);
+  const fill = document.getElementById("fill");
+  const label = document.getElementById("label");
+  const percent = document.getElementById("percent");
+  const stages = [[0, "Unpacking"], [0.08, "Installing"], [0.55, "Registering"], [1, "Done"]];
+  let t = 0;
+  fill.style.width = "0%";
+  percent.textContent = "0%";
+  label.textContent = "Unpacking";
+  timer = setInterval(() => {
+    t = Math.min(1, t + 0.035);
+    fill.style.width = (t * 100).toFixed(1) + "%";
+    percent.textContent = Math.round(t * 100) + "%";
+    for (const [at, name] of stages) if (t >= at) label.textContent = name;
+    if (t >= 1) clearInterval(timer);
+  }, 90);
+}
+
+document.getElementById("dirs").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (b) setDir(b.dataset.dir);
+});
+document.getElementById("states").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (b) setState(b.dataset.state);
+});
+for (const b of document.querySelectorAll("[data-goto]")) {
+  b.addEventListener("click", () => setState(b.dataset.goto));
+}
+
+/* `?dir=paper&state=progress` opens straight into one combination, so a
+   direction or a state can be sent to somebody as a link — and so the
+   combinations can be captured without clicking. `at=0.42` parks the meter
+   mid-run, which is what a screenshot wants. */
+const query = new URLSearchParams(location.search);
+setDir(CAPTIONS[query.get("dir")] ? query.get("dir") : "crt");
+if (query.get("state") && document.querySelector(`.page[data-page="${query.get("state")}"]`)) {
+  setState(query.get("state"));
+  if (query.has("at")) {
+    clearInterval(timer);
+    const at = Math.max(0, Math.min(1, Number(query.get("at"))));
+    const fill = document.getElementById("fill");
+    fill.style.transition = "none";
+    fill.style.width = (at * 100).toFixed(1) + "%";
+    document.getElementById("percent").textContent = Math.round(at * 100) + "%";
+    document.getElementById("label").textContent = at < 0.08 ? "Unpacking" : at < 1 ? "Installing" : "Done";
+  }
+}
+
+/* `?probe=1` measures the layout and reports the numbers, so the frame can be
+ * checked by something that cannot see it: an image beacon to a socket the
+ * reviewer is listening on. It exists because the one thing a design preview
+ * must not do is overflow a window that is fixed at 760x480 and cannot scroll —
+ * and a measurement catches that where a glance at a screenshot does not. */
+if (query.has("probe")) {
+  const frame = document.getElementById("win").getBoundingClientRect();
+  const shown = document.querySelector(".page[data-on]");
+  const spills = [];
+  for (const el of shown.querySelectorAll("*")) {
+    const r = el.getBoundingClientRect();
+    if (r.bottom > frame.bottom + 0.5 || r.right > frame.right + 0.5 || r.height < 0.5) {
+      spills.push((el.className || el.tagName) + "@" + Math.round(r.bottom - frame.bottom) + "," + Math.round(r.right - frame.right));
+    }
+  }
+  /* The art panel is its own column with `overflow: hidden`, so a card that
+     sticks out is clipped rather than pushed — and the sign-in panel's cards are
+     rotated, which grows their boxes. Measure them against the panel, not the
+     window. */
+  const panel = document.querySelector(".art").getBoundingClientRect();
+  const panelSpills = [];
+  for (const el of document.querySelectorAll(".art *")) {
+    const r = el.getBoundingClientRect();
+    if (r.width < 0.5) continue;
+    if (r.left < panel.left - 0.5 || r.right > panel.right + 0.5 || r.bottom > panel.bottom + 0.5) {
+      panelSpills.push((el.className || el.tagName) + "@r" + Math.round(r.right - panel.right) + ",b" + Math.round(r.bottom - panel.bottom));
+    }
+  }
+  const auth = document.querySelector(".panel-auth");
+  const authShown = auth ? auth.getBoundingClientRect().height > 0 : false;
+  const report = {
+    dir: document.body.dataset.dir,
+    page: shown.dataset.page,
+    frame: Math.round(frame.width) + "x" + Math.round(frame.height),
+    content: Math.round(shown.getBoundingClientRect().width) + "x" + Math.round(shown.getBoundingClientRect().height),
+    room: Math.round(frame.bottom - shown.querySelector(".actions").getBoundingClientRect().bottom),
+    panel: Math.round(document.querySelector(".art").getBoundingClientRect().width),
+    heading: getComputedStyle(document.querySelector("h1")).fontFamily.split(",")[0],
+    progress: document.getElementById("fill").style.width || "0%",
+    spills: spills.length ? spills : "none",
+    authHeight: authShown ? Math.round(auth.getBoundingClientRect().height) : "hidden",
+    panelSpills: panelSpills.length ? panelSpills : "none",
+  };
+  document.title = "PROBE " + JSON.stringify(report);
+  const url = "http://127.0.0.1:" + (query.get("port") || "8799") + "/?p=" + encodeURIComponent(JSON.stringify(report));
+  let attempts = 0;
+  const send = () => {
+    new Image().src = url + "&n=" + (attempts += 1);
+    if (attempts < 4) setTimeout(send, 300);
+  };
+  send();
+}
+</script>
+</body>
+</html>

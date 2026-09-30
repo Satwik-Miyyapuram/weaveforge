@@ -316,7 +316,7 @@ test("the mirror lifts the header into frontmatter and folds it back on import",
     readingLists: [], readingListItems: [], reportSections: [], experiments: [],
     milestones: [], logEntries: [], relations: [], tags: [],
     collectedAt: "2026-01-01T00:00:00Z",
-  });
+  }, { id: "8d731734-bdcd-4f08-b648-efd15fdf75da", name: "MSc Thesis" });
   const path = Object.keys(out.files).find((file) => file.endsWith(".ink.md"));
   assert.ok(path, "an ink note is written as .ink.md");
   const content = out.files[path!]!;

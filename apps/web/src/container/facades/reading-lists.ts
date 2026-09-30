@@ -67,6 +67,11 @@ export class ReadingListsFacade {
     return this.deps.listItems.listsForNote(vaultPageId);
   }
 
+  /** Membership rows, for the folder import's `reading-list-items.json`. */
+  get items() {
+    return this.deps.listItems;
+  }
+
   get manageReadingList() {
     return this.deps.manageReadingList;
   }

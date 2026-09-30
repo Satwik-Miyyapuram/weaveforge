@@ -1,4 +1,9 @@
-import { ASSET_DIR, relativeAssetPaths, toRelativeBlobLinks } from "@weaveforge/core";
+import {
+  ASSET_DIR,
+  relativeAssetPaths,
+  toRelativeBlobLinks,
+  type WorkspaceSnapshot,
+} from "@weaveforge/core";
 
 /**
  * Deciding what an imported body's image links are allowed to point at.
@@ -101,4 +106,12 @@ export function assetExtension(path: string): string {
   const slash = path.lastIndexOf("/");
   if (dot <= slash + 1) return "png";
   return path.slice(dot + 1).toLowerCase();
+}
+
+/** Every body the workspace holds that can carry an image reference. */
+export function workspaceBodies(snapshot: WorkspaceSnapshot): string[] {
+  return [
+    ...snapshot.vaultPages.map((page) => page.body),
+    ...snapshot.papers.map((paper) => paper.summary ?? ""),
+  ];
 }

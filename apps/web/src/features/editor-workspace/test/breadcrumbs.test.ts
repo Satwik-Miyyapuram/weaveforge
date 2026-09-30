@@ -11,6 +11,7 @@ import {
 
 function files(): WorkspaceTreeNode[] {
   return buildWorkspaceTree({
+    projectRoot: "",
     notes: [
       { id: "c", title: "Baselines", parentId: "b" },
       { id: "b", title: "Chapter two", parentId: "a" },

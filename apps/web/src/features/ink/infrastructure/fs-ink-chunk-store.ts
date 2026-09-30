@@ -4,6 +4,13 @@
  * The folder is the mirror the user can see, sync and put under git, so this
  * is the store that makes an ink note an ordinary file. It lists the directory,
  * which is what lets a chunk another device wrote appear as an orphan page.
+ *
+ * That listing is also why handwriting from two sides overlaps instead of
+ * fighting: a note has no single "current strokes" value to replace, only a
+ * directory of pages. A write adds one, a remove takes the one it names, and
+ * nothing here removes a directory -- so settling the text of a note that both
+ * sides drew on leaves every page where it was, and the two sets are drawn
+ * together.
  */
 
 import {

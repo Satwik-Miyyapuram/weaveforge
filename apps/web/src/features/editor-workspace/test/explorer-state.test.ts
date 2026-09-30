@@ -28,6 +28,7 @@ import {
  * shut. A test that spells the four keys by hand would have had the same gap.
  */
 const ROOTS = buildWorkspaceTree({
+  projectRoot: "",
   notes: [],
   papers: [],
   reportSections: [],
@@ -164,6 +165,7 @@ test("toggling is a new set, so React sees the change", () => {
 
 test("only the open rows are painted, and each knows its indent", () => {
   const tree = buildWorkspaceTree({
+    projectRoot: "",
     notes: [
       { id: "a", title: "Method" },
       { id: "b", title: "Baselines", parentId: "a" },
@@ -210,6 +212,7 @@ const SECTIONS: ExplorerSection[] = [
 
 function nestedTree(): WorkspaceTreeNode[] {
   return buildWorkspaceTree({
+    projectRoot: "",
     notes: [
       { id: "c", title: "Baselines", parentId: "b" },
       { id: "b", title: "Chapter two", parentId: "a" },

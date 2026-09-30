@@ -15,6 +15,7 @@
 import {
   ENTITY_DIRS,
   KIND_SUFFIX,
+  entityDir,
   flatPath,
   logPath,
   treePaths,
@@ -95,6 +96,15 @@ export interface LogEntry {
 }
 
 export interface WorkspaceTreeInput {
+  /**
+   * The project's folder, which every path in this tree is inside.
+   *
+   * Required: the tree is the shape of the folder on disk, so a tree built from
+   * the root while the folder holds project folders is a tree of paths that do
+   * not exist. An empty string is the old flat layout, which only a test that is
+   * about the shape of a tree has any business asking for.
+   */
+  projectRoot: string;
   notes: readonly NoteNode[];
   papers: readonly PaperEntry[];
   reportSections: readonly FolderNode[];
@@ -115,12 +125,13 @@ function nestedRoot(
   label: string,
   type: WorkspaceEntityType,
   nodes: readonly NoteNode[],
+  projectRoot: string,
 ): WorkspaceTreeNode {
-  const paths = treePaths(nodes, type);
+  const paths = treePaths(nodes, type, projectRoot);
   const built = new Map<string, WorkspaceTreeNode>();
   for (const node of nodes) {
     const kind = node.kind ?? type;
-    let path = paths.get(node.id) ?? ENTITY_DIRS[type];
+    let path = paths.get(node.id) ?? entityDir(type, projectRoot);
     // An ink note mirrors as `.ink.md` in the same place a note would be.
     if (kind !== type) path = path.replace(/\.[a-z_]+\.md$/, `.${KIND_SUFFIX[kind]}.md`);
     built.set(node.id, {
@@ -145,7 +156,15 @@ function nestedRoot(
 
   for (const node of built.values()) node.children.sort(byLabel);
   roots.sort(byLabel);
-  return { key: ENTITY_DIRS[type], kind: "folder", label, path: ENTITY_DIRS[type], children: roots };
+  // The key stays the bare directory name: it identifies the subtree, and it is
+  // what the explorer remembers as expanded. The path is where it really is.
+  return {
+    key: ENTITY_DIRS[type],
+    kind: "folder",
+    label,
+    path: entityDir(type, projectRoot),
+    children: roots,
+  };
 }
 
 export function buildWorkspaceTree(input: WorkspaceTreeInput): WorkspaceTreeNode[] {
@@ -156,7 +175,7 @@ export function buildWorkspaceTree(input: WorkspaceTreeInput): WorkspaceTreeNode
   const papers: WorkspaceTreeNode[] = input.papers
     .map((paper) => {
       const label = paper.title.trim() || "Untitled";
-      const notesPath = flatPath("paper", paper.id, paper.title);
+      const notesPath = flatPath("paper", paper.id, paper.title, input.projectRoot);
       return {
         key: `papers/${paper.id}`,
         kind: "folder" as const,
@@ -196,26 +215,26 @@ export function buildWorkspaceTree(input: WorkspaceTreeInput): WorkspaceTreeNode
       kind: "log_entry" as const,
       id: entry.id,
       label: entry.entryDate,
-      path: logPath(entry.id, entry.entryDate),
+      path: logPath(entry.id, entry.entryDate, input.projectRoot),
       children: [],
     }))
     .sort((a, b) => b.label.localeCompare(a.label));
 
   return [
-    nestedRoot("Notes", "vault_page", input.notes),
+    nestedRoot("Notes", "vault_page", input.notes, input.projectRoot),
     {
       key: ENTITY_DIRS.paper,
       kind: "folder",
       label: "Papers",
-      path: ENTITY_DIRS.paper,
+      path: entityDir("paper", input.projectRoot),
       children: papers,
     },
-    nestedRoot("Report", "report_section", input.reportSections),
+    nestedRoot("Report", "report_section", input.reportSections, input.projectRoot),
     {
       key: ENTITY_DIRS.log_entry,
       kind: "folder",
       label: "Log",
-      path: ENTITY_DIRS.log_entry,
+      path: entityDir("log_entry", input.projectRoot),
       children: logEntries,
     },
   ];

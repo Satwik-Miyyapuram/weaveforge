@@ -13,7 +13,7 @@ import {
   folderSession,
   previewArchiveImport,
   clearExternalChanges,
-  keepBothTitle,
+  writeMarkersFor,
   type ConflictResolution,
   type FolderSession,
   externalChanges,
@@ -24,6 +24,7 @@ import {
   openBrowserStorageFolder,
 } from "@/features/workspace/application/workspace-folder";
 import { FormError } from "@/components/form-error";
+import { FolderConflictCard } from "./folder-conflict-card";
 
 /** Where the local database is (desktop only: a browser has none). */
 function useDatabaseLocation(): { dataDir: string; failure: string | null } | null {
@@ -372,63 +373,31 @@ function ImportPreview({
   const settled = conflicts.filter(
     (entry) => (resolutions[entry.entity.path] ?? "keep") !== "keep",
   ).length;
-  const writable = diff.counts.created + diff.counts.updated + settled;
+  const writable = diff.counts.created + diff.counts.updated + diff.counts.removed + settled;
 
   return (
     <div className="field">
       <p className="muted">
-        {diff.counts.created} new · {diff.counts.updated} changed · {diff.counts.unchanged}{" "}
-        unchanged · {diff.counts.conflict} conflict{diff.counts.conflict === 1 ? "" : "s"}
+        {diff.counts.created} new · {diff.counts.updated} changed · {diff.counts.removed} removed ·{" "}
+        {diff.counts.unchanged} unchanged · {diff.counts.conflict} conflict
+        {diff.counts.conflict === 1 ? "" : "s"}
         {diff.skipped?.length ? ` · ${diff.skipped.length} file(s) skipped as unsafe` : ""}
       </p>
 
       {conflicts.length > 0 && (
         <ul className="wiki-lint-list">
-          {conflicts.slice(0, 10).map((entry, index) => {
+          {conflicts.slice(0, 10).map((entry) => {
             const path = entry.entity.path;
-            const chosen = resolutions[path] ?? "keep";
-            const choose = (resolution: ConflictResolution) =>
-              setResolutions((current) => ({ ...current, [path]: resolution }));
             return (
-              <li key={`${path}-${index}`} data-severity="error">
-                {entry.reason ?? path}
-                <div className="screen-actions">
-                  <button
-                    className={chosen === "keep" ? "btn-secondary" : "btn-ghost"}
-                    type="button"
-                    aria-pressed={chosen === "keep"}
-                    onClick={() => choose("keep")}
-                  >
-                    Keep this app&apos;s copy
-                  </button>
-                  {/* Not offered for a type mismatch: the id in the file names a
-                      paper or an experiment, so there is no note to write over. */}
-                  {entry.kind !== "type-mismatch" && (
-                    <button
-                      className={chosen === "folder" ? "btn-secondary" : "btn-ghost"}
-                      type="button"
-                      aria-pressed={chosen === "folder"}
-                      onClick={() => choose("folder")}
-                    >
-                      Take the folder&apos;s copy
-                    </button>
-                  )}
-                  <button
-                    className={chosen === "both" ? "btn-secondary" : "btn-ghost"}
-                    type="button"
-                    aria-pressed={chosen === "both"}
-                    onClick={() => choose("both")}
-                  >
-                    Keep both
-                  </button>
-                </div>
-                {chosen === "both" && (
-                  <p className="muted jump-to-meta">
-                    Imported as “{keepBothTitle(entry.entity.title)}”, leaving this app&apos;s
-                    copy as it is.
-                  </p>
-                )}
-              </li>
+              <FolderConflictCard
+                key={path}
+                entry={entry}
+                chosen={resolutions[path] ?? "keep"}
+                onChoose={(resolution) =>
+                  setResolutions((current) => ({ ...current, [path]: resolution }))
+                }
+                onWriteMarkers={() => writeMarkersFor(entry)}
+              />
             );
           })}
         </ul>
