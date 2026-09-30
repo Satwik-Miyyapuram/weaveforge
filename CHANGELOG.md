@@ -19,6 +19,20 @@ tracks at once.
 
 ### Android
 
+## [0.7.3] - 2026-09-30
+
+Desktop (`v0.7.3`). The Python SDK and Android keep their own numbers.
+
+### Added
+- **Continuous sync & robust background loop:** Added persistent background syncing that continuously flushes pending changes when signed in and saves workspace edits with debouncing.
+- **Git-style 3-way conflict resolution:** Folder import and sync now feature git-style diff inspections, hunk resolution, and manual conflict marker (`<<<<<<<`, `=======`, `>>>>>>>`) insertion directly into conflicting files.
+- **Offline change comparison and adoption:** Robust handling of offline work when signing in, comparing local changes against server state across all synced tables and preventing destructive overwrite.
+
+### Fixed
+- **Android Google Sign-In & CORS:** Allowed OAuth navigation flow by cleaning WebView user agent tokens, broadened allowed host permissions, and directed database retrieval to `https://api.weaveforge.org`.
+- **Android App Icon:** Replaced placeholder icon with the official WeaveForge emblem with transparent background across all adaptive icon mipmaps and vectors.
+- **Boundary gate DRY import:** Fixed inline type imports in `folder-import-apply.ts` to satisfy `check:dry` architectural boundaries.
+
 ## [0.7.2] - 2026-09-29
 
 Desktop (`v0.7.2`). The Python SDK and Android keep their own numbers.
@@ -380,7 +394,9 @@ following landed earlier but had never been carried in a tagged release.
 - Project OSS hygiene: `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates,
   `CHANGELOG.md`, and a Python CI job (pytest + ruff + mypy).
 
-[Unreleased]: https://github.com/Satwik-Miyyapuram/weaveforge/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/Satwik-Miyyapuram/weaveforge/compare/v0.7.3...HEAD
+[0.7.3]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.7.3
+[0.7.2]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.7.2
 [0.7.0]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.7.0
 [0.6.0]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.6.0
 [0.5.1]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.5.1

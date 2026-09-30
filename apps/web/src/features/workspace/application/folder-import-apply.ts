@@ -4,6 +4,8 @@ import {
   projectDir,
   type ImportDiff,
   type ImportDiffEntry,
+  type IWorkspaceFs,
+  type JsonDiff,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { activeProject } from "./active-project";
@@ -45,8 +47,8 @@ export async function applyFolderImport(
   if (!fs) return { created: 0, updated: 0 };
 
   const result = await applyEntries(fs, diff, resolutions);
-  const appliedJson = (diff as { json?: import("@weaveforge/core").JsonDiff }).json
-    ? await applyJsonEntries((diff as { json?: import("@weaveforge/core").JsonDiff }).json!)
+  const appliedJson = (diff as { json?: JsonDiff }).json
+    ? await applyJsonEntries((diff as { json?: JsonDiff }).json!)
     : [];
   // What was applied, the two sides now agree on: the folder's text becomes
   // the base, or the mirror would keep holding those files back for an edit
@@ -67,7 +69,7 @@ export function writeMarkersFor(entry: ImportDiffEntry): Promise<boolean> {
 }
 
 async function applyEntries(
-  fs: import("@weaveforge/core").IWorkspaceFs,
+  fs: IWorkspaceFs,
   diff: ImportDiff,
   resolutions: Readonly<Record<string, ConflictResolution>>,
 ): Promise<{ created: number; updated: number; appliedPaths: string[] }> {
