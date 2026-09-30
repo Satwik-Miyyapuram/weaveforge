@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
+import android.webkit.CookieManager
 import android.webkit.SafeBrowsingResponse
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -74,9 +75,16 @@ class MainActivity : AppCompatActivity() {
         inkGesture.webView = webView
         inkGesture.overlay = inkOverlay
 
+        CookieManager.getInstance().apply {
+            setAcceptCookie(true)
+            setAcceptThirdPartyCookies(webView, true)
+        }
+
         with(webView.settings) {
             javaScriptEnabled = true
             domStorageEnabled = true
+            databaseEnabled = true
+            javaScriptCanOpenWindowsAutomatically = true
             // A tap is required before anything plays. Off, any loaded page could
             // start audio and video unprompted — and a note can carry a
             // collaborator's link.
