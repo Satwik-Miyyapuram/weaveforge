@@ -141,7 +141,7 @@ class InkGestureRouter {
          * to be delicate, which is why there is no calibration knob here.
          */
         const val PALM_MAJOR_PX = 180f
-        const val PALM_SIZE = 0.42f
+        const val PALM_SIZE = 0.65f
 
         /** Fingers allowed to keep a page gesture. A third is not a page gesture. */
         const val MAX_PAGE_FINGERS = 2
