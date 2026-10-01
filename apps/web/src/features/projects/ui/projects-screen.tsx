@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
-import { ConfirmDialog } from "@/components/confirm-dialog";
-import { EntityCardMenu } from "@/components/entity-card-menu";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "./project-provider";
 import { useSubmit } from "@/lib/hooks/use-submit";
@@ -14,6 +12,11 @@ import { EmptyState } from "@/components/empty-state";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { loadLocalDemoWorkspace } from "@/features/showcase/application/load-local-demo";
+import dynamic from "next/dynamic";
+
+// Lazy: this screen sits in the root layout, which has a tight JS budget.
+const ConfirmDialog = dynamic(() => import("@/components/confirm-dialog").then((m) => m.ConfirmDialog), { ssr: false });
+const EntityCardMenu = dynamic(() => import("@/components/entity-card-menu").then((m) => m.EntityCardMenu), { ssr: false });
 
 /**
  * Project picker / creator. Shown when no project is selected. Choosing a
