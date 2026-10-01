@@ -584,6 +584,8 @@ button.nav-group-label:focus-visible {
     content: ""; width: 7px; height: 7px; border-radius: 50%;
     background: var(--muted); opacity: 0.6; margin-right: 2px;
   }
+  /* Same 14px inset as the account row above it. */
+  .layout:not(.nav-collapsed) .nav-bottom .sync-badge { margin-left: 14px; }
   /* The account button already carries `--touch-min` as its own height, and it
      is the tallest thing in the row, so the row is that tall and the button
      fills it. Nothing to restate. */

@@ -18,4 +18,8 @@ export class ManageProjectUseCase {
     await this.deps.repository.save(project);
     return project;
   }
+  /** Deletes the project; the database cascades to everything inside it. */
+  async remove(id: string): Promise<void> {
+    await this.deps.repository.delete(id);
+  }
 }

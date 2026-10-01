@@ -20,3 +20,11 @@ test("create rejects empty name", async () => {
   const uc = new ManageProjectUseCase({ repository: repo, clock, ids: seqIds() });
   await assert.rejects(() => uc.create({ name: "  " }));
 });
+
+test("remove deletes the project", async () => {
+  const repo = new InMemoryProjectRepository();
+  const uc = new ManageProjectUseCase({ repository: repo, clock, ids: seqIds() });
+  const p = await uc.create({ name: "Old" });
+  await uc.remove(p.id);
+  assert.equal(await repo.getById(p.id), null);
+});
