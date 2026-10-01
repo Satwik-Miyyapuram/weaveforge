@@ -15,6 +15,7 @@ tracks at once.
 
 ### Desktop
 
+- **Fixed:** Reconnecting the workspace folder no longer lists every note the app just wrote as changed outside WeaveForge.
 - **Changed:** The app icon is now a solid tile in the theme colours, cream on a light taskbar and dark on a dark one, so it reads at taskbar size.
 - **Fixed:** Tagging the same paper with the same tag on two devices before either synced no longer shows a sync conflict.
 

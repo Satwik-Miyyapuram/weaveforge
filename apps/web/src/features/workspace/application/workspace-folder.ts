@@ -449,7 +449,7 @@ function watchFolderForChanges(): void {
 function reportFolderChanges(paths: readonly string[]): void {
   const before = external.size;
   let drafts = false;
-  const jsonCandidates: string[] = [];
+  const candidates: string[] = [];
 
   let currentIdSuffix: string | null = null;
   try {
@@ -475,30 +475,29 @@ function reportFolderChanges(paths: readonly string[]): void {
       }
     }
 
-    // Markdown is reported at once — nothing else has to be read to know it is
-    // somebody's edit. A JSON data file is reported below, once the manifest has
-    // said whether the app is the one that wrote it.
-    if (jsonKindOfPath(path) !== null) jsonCandidates.push(path);
-    else external.add(path);
+    // Notes too: reconnecting rewrites every file, and a slow write outlives the shell's echo window.
+    candidates.push(path);
   }
 
   if (external.size !== before) announceExternal();
   if (drafts) for (const listener of [...draftListeners]) listener();
-  if (jsonCandidates.length === 0) return;
+  if (candidates.length === 0) return;
 
   void (async () => {
     const fs = activeFs;
     const project = await activeProjectOrNull().catch(() => null);
     const base = fs && project ? await readMirrorBase(fs, projectDir(project)) : {};
-    const beforeJson = external.size;
-    for (const path of jsonCandidates) {
+    const beforeRead = external.size;
+    for (const path of candidates) {
       if (fs) {
         const text = await fs.readText(path).catch(() => null);
         if (text !== null && !jsonEditSince(base, path, text)) continue;
       }
+      // Folder closed meanwhile: these belong to a folder no longer shown.
+      if (activeFs !== fs) return;
       external.add(path);
     }
-    if (external.size !== beforeJson) announceExternal();
+    if (external.size !== beforeRead) announceExternal();
   })();
 }
 
