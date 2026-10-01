@@ -94,6 +94,7 @@ export class SyncEngine {
    * the conflict is reported rather than quietly resolved.
    */
   async cycle(): Promise<CycleResult> {
+    await this.conflicts.recheck();
     const pushed = await this.push();
     // Nothing to pull if the network just refused the push — the pull would
     // only fail the same way, and a thrown pull loses the push's report.
