@@ -1,4 +1,4 @@
-import { Outbox, type OutboxEntry } from "./outbox";
+import type { Outbox, OutboxEntry } from "./outbox";
 import type { ConflictStore } from "./conflicts";
 import type { SendOutcome, SyncTransport } from "./sync-ports";
 
@@ -11,7 +11,7 @@ import type { SendOutcome, SyncTransport } from "./sync-ports";
  * everything behind it alone.
  *
  * A conflict is not a failure and does not stop the run: it is a fact about one
- * row, handed to the caller to merge, while the ops behind it keep flowing.
+ * row, merged here when the server's row is at hand, while other rows keep flowing.
  */
 
 export interface PumpResult {
@@ -43,34 +43,67 @@ export class OutboxPump {
 
   async run(limit = 100): Promise<PumpResult> {
     const result: PumpResult = { sent: 0, conflicts: [], stoppedBecause: null };
+    // A row whose op stalled sends nothing more this run: a later op would guard on a stale base.
+    const stalled = new Set<string>();
     for (const entry of await this.outbox.pending(limit)) {
+      const key = `${entry.table}:${entry.rowId}`;
+      if (stalled.has(key)) continue;
       const outcome = await this.attempt(entry);
       if (outcome.status === "offline") {
         result.stoppedBecause = "offline";
         break;
       }
       if (outcome.status === "accepted") {
-        await this.outbox.settle(entry.opId);
+        await this.outbox.settleSent(entry, outcome.newVersion);
+        if (outcome.newVersion != null && entry.op !== "delete") {
+          await this.outbox.ack(entry.table, entry.rowId, outcome.newVersion);
+        }
         result.sent += 1;
         continue;
       }
+      stalled.add(key);
       if (outcome.status === "conflict") {
         result.conflicts.push({ entry, serverVersion: outcome.serverVersion });
-        // Opened with two of the three sides. The puller carries the third.
-        await this.conflicts?.open(entry, outcome.serverVersion);
-        // Held, not dropped: the merge decides what happens to it, and until
-        // then it is still work this device has not delivered.
-        await this.outbox.fail(
-          entry.opId,
-          outcome.serverVersion == null
-            ? "A newer version on the server."
-            : `Newer version ${outcome.serverVersion} on the server.`,
-        );
+        await this.conflict(entry, outcome.serverVersion, outcome.serverRow);
         continue;
       }
       await this.outbox.fail(entry.opId, outcome.reason);
     }
     return result;
+  }
+
+  /**
+   * Stale op: merge three ways now when the server's row came back with the
+   * refusal, rather than waiting for a pull that may already be past it.
+   */
+  private async conflict(
+    entry: OutboxEntry,
+    serverVersion: number | null,
+    serverRow: Record<string, unknown> | null | undefined,
+  ): Promise<void> {
+    // Delete wins over an edit made elsewhere: re-aim at the version the server holds.
+    if (entry.op === "delete") {
+      if (serverVersion != null) await this.outbox.rebase(entry.table, entry.rowId, serverVersion);
+      await this.outbox.fail(entry.opId, "Deleted here, edited elsewhere; retrying the delete.");
+      return;
+    }
+    // Updated row gone from the server: their delete wins, as ours does.
+    if (serverRow === null && entry.op === "update") {
+      await this.outbox.dropRow(entry.table, entry.rowId);
+      return;
+    }
+    if (!this.conflicts || !serverRow) {
+      await this.outbox.fail(
+        entry.opId,
+        serverVersion == null
+          ? "A newer version on the server."
+          : `Newer version ${serverVersion} on the server.`,
+      );
+      return;
+    }
+    await this.conflicts.openFor(entry.table, entry.rowId, serverVersion);
+    await this.conflicts.applyRemote(entry.table, serverRow);
+    await this.conflicts.settle(entry.table, entry.rowId, serverRow, serverVersion);
   }
 
   /**

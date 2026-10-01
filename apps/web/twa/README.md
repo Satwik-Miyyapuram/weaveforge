@@ -6,8 +6,9 @@ Once the domain is verified via Digital Asset Links, the URL bar is hidden.
 
 ## Releases
 
-Android ships on **`android-v*`** tags (e.g. `android-v7`). Python SDK uses
-**`vX.Y.Z`**. See [docs/building/release.md](../../../docs/building/release.md).
+**Not released any more.** From 0.8.0 the only Android release is the native app in
+[`apps/android`](../../android/README.md); this project is kept for reference. See
+[docs/building/release.md](../../../docs/building/release.md).
 
 ```bash
 # after bumping appVersion* in twa-manifest.json and merging to main:
@@ -58,7 +59,7 @@ manifest or the committed project is wrong; decide which, and commit the result.
 - Bubblewrap CLI, **pinned**:
   `npm i -g @bubblewrap/cli@1.24.1`
 - Repo secrets: `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`,
-  `ANDROID_KEY_PASSWORD`, `ANDROID_KEY_ALIAS` (see `.github/workflows/android-twa.yml`)
+  `ANDROID_KEY_PASSWORD`, `ANDROID_KEY_ALIAS` (used by the retired TWA workflow; see git history)
 
 ### Why the CLI version is pinned
 

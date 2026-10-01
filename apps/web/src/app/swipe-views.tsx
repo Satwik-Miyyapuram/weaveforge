@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { groupForPath } from "@/registry";
+import { activeNavItem, groupForPath } from "@/registry";
 import { useNavGroups } from "@/lib/hooks/use-nav-groups";
 import { useNavPending } from "@/lib/nav-pending";
 
@@ -32,7 +32,8 @@ export function SwipeViews({
   const navGroups = useNavGroups();
   const group = groupForPath(pathname, navGroups);
   const items = group?.items ?? [];
-  const idx = items.findIndex((it) => pathname?.startsWith(it.path));
+  const current = activeNavItem(items, pathname);
+  const idx = current ? items.indexOf(current) : -1;
 
   function onTouchStart(e: React.TouchEvent) {
     if (disabled || items.length < 2) return;

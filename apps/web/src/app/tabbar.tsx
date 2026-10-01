@@ -1,9 +1,11 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useNavPending } from "@/lib/nav-pending";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
+import { activeNavItem } from "@/registry";
 import { prefetchScreenForPath } from "@/lib/cache/prefetch-screen";
 import type { LayoutBreakpoint, NavEnterAnim } from "@/lib/hooks/use-layout-breakpoint";
 import { NavIcon } from "./nav-icon";
@@ -15,6 +17,12 @@ import { OrgSwitcher } from "@/features/org";
 import { HeaderActions } from "./header-actions";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
+
+// Lazy: pulls the local database client, which only the desktop build has.
+const SyncStatusIndicator = dynamic(
+  () => import("@/features/offline-sync/ui/sync-status-indicator").then((m) => m.SyncStatusIndicator),
+  { ssr: false },
+);
 
 /**
  * Primary navigation, rendered from the module registry. One markup, two
@@ -169,7 +177,7 @@ export function TabBar({
                   {open && (
                     <div className="nav-group-items" id={`nav-group-${group.key}`}>
                       {group.items.map((item) => {
-                        const active = Boolean(pathname?.startsWith(item.path));
+                        const active = activeNavItem(group.items, pathname)?.key === item.key;
                         return (
                           <Link
                             key={item.key}
@@ -234,6 +242,7 @@ export function TabBar({
             <HeaderActions variant="menu" />
           </div>
           <LocalModeBadge />
+          <SyncStatusIndicator attentionOnly />
         </div>
       )}
     </nav>

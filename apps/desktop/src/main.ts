@@ -38,6 +38,7 @@ import {
   writeVaultFile,
 } from "./vault-handlers";
 import { registerMainAppLog } from "./main-app-log";
+import { followTaskbarTheme } from "./taskbar-icon";
 import { registerMainInk } from "./main-ink";
 import { applyMemorySwitches, registerMemoryTrimming } from "./memory-trim";
 import { registerMainLocalDb } from "./main-local-db";
@@ -263,10 +264,9 @@ function createWindow(): BrowserWindow {
   });
 
   mainWindow = window;
-  window.on("closed", () => {
-    if (mainWindow === window) mainWindow = null;
-  });
+  window.on("closed", () => { if (mainWindow === window) mainWindow = null; });
   registerMemoryTrimming(window);
+  followTaskbarTheme(window);
   // "Maximize" reads "Restore" once it has been, so the page's menu is stale.
   window.on("maximize", () => window.webContents.send(CHANNELS.menuChanged));
   window.on("unmaximize", () => window.webContents.send(CHANNELS.menuChanged));

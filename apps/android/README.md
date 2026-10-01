@@ -9,10 +9,9 @@ at the digitiser's rate and refuses the palm before the nib lands. Design:
 overlay is the reason it exists: a Trusted Web Activity runs in Chrome Custom Tabs,
 which allow no native view on top. So if you want ink, you install this — which makes
 it a real deliverable, and it has a real release path (signing config and R8, below).
-The Bubblewrap TWA in [`apps/web/twa`](../web/twa/README.md) is the *other* app, for
-people who want the web app alone. Both ship on `android-v*` tags (this one from the
-`native` job in `android-twa.yml`) and install side by side (`app.weaveforge.twa` vs
-`org.weaveforge.ink`).
+It is the only Android release: `android.yml` builds it on `android-v*` tags as
+`WeaveForge-<version>-Android.apk`. The Bubblewrap TWA in
+[`apps/web/twa`](../web/twa/README.md) is no longer released.
 
 ## Release configuration, and the one rule it depends on
 

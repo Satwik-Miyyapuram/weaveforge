@@ -8,10 +8,19 @@ by accident.
 Nothing is stored differently. Sign in on the desktop and the browser sees the
 same notes a moment later, because both are talking to the same account.
 
+## Installing on Windows
+
+Download the installer for your chip from the
+[releases page](https://github.com/Satwik-Miyyapuram/weaveforge/releases/latest):
+`WeaveForge-<version>-Windows-x64-Installer.exe` for Intel and AMD, or
+`WeaveForge-<version>-Windows-arm64-Installer.exe` for Snapdragon and other Arm
+PCs. Not sure? **Settings → System → About → System type** says which. The
+`-update.exe` files on the same page are for the app's own updater; you can
+ignore them.
+
 ## Installing on a Mac
 
-Download `WeaveForge-<version>-arm64.dmg` (Apple silicon: M1 and later) or
-`WeaveForge-<version>.dmg` (Intel) from the
+Download `WeaveForge-<version>-macOS.dmg` (one file for Apple silicon and Intel) from the
 [releases page](https://github.com/Satwik-Miyyapuram/weaveforge/releases/latest),
 open it, and drag WeaveForge into Applications.
 

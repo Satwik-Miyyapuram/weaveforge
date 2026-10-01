@@ -1,0 +1,92 @@
+/* ---- Card status tint ---------------------------------------------------- */
+/* Any entity card with a data-status (or, for a note, a data-tag-tone) takes
+   its colour from the maps below, under the card-tint setting on <html>:
+   full colours the card, bar a thick left edge, border the outline, none
+   leaves it plain. Every theme: Poster and CRT name their own colours, the
+   rest fall back to their status ramp. papers.css reads --status-fill and --status-edge so its
+   flat list rows take the tint too. Imported after brutal.css to win its ties. */
+:root[data-tint="full"] .card.entity-card:is([data-status], [data-tag-tone]) {
+  --card-tint: var(--status-tint);
+  --status-fill: var(--status-tint);
+}
+/* Bar: a 10px band of the status colour down the left, ruled off from the
+   card by a line of the border's weight, inside the card's own outline. Drawn
+   as a background layer so the outline, the radius and the shadow stay the
+   card's; the text moves over by the band's width. */
+:root[data-tint="bar"] .card.entity-card:is([data-status], [data-tag-tone]) {
+  --status-bar: linear-gradient(to right, var(--status-chip) 0 10px, var(--bw-line, var(--border)) 10px calc(10px + var(--bw, 1px)), transparent calc(10px + var(--bw, 1px)));
+  background-image: var(--status-bar);
+  padding-left: calc(12px + 10px + var(--bw, 1px));
+}
+/* papers.css and brutal.css restyle library cards at (0,6,0); match it. */
+:root[data-tint="bar"] :is(.papers-screen, .vault-screen) .card.entity-card:is([data-status], [data-tag-tone]) {
+  background-image: var(--status-bar);
+  padding-left: calc(16px + 10px + var(--bw, 1px));
+}
+/* Border colours the whole outline. On a phone the edge bar reads as a
+   stray stripe, so it becomes a border there too. */
+:root[data-tint="border"] .card.entity-card:is([data-status], [data-tag-tone]) {
+  --status-edge: var(--status-chip);
+  border-color: var(--status-chip);
+  border-width: 3px;
+}
+@media (max-width: 767px) {
+  :root[data-tint="bar"] .card.entity-card:is([data-status], [data-tag-tone]) {
+    --status-bar: none;
+    --status-edge: var(--status-chip);
+    background-image: none;
+    padding-left: 12px;
+    border-color: var(--status-chip);
+    border-width: 3px;
+  }
+  :root[data-tint="bar"] :is(.papers-screen, .vault-screen) .card.entity-card:is([data-status], [data-tag-tone]) { padding-left: 16px; }
+}
+
+/* ---- Status colours ------------------------------------------------------
+   One map for every screen: each status names a chip colour and a card wash.
+   Status chips, status selects and entity cards (data-status) all read it, so
+   a card and its own status can never disagree. */
+:is(.status-to_read, [data-status="to_read"], .status-planned, [data-status="planned"]) {
+  --status-chip: var(--chip-to-read, var(--s-neutral));
+  --status-tint: var(--tint-to-read, color-mix(in srgb, var(--s-neutral) 24%, var(--surface)));
+  --status-ink: #12110f;
+}
+:is(.status-reading, [data-status="reading"], .status-running, [data-status="running"], .status-in_progress, [data-status="in_progress"], .status-drafting, [data-status="drafting"], .status-weekly, [data-status="weekly"]) {
+  --status-chip: var(--chip-reading, var(--s-info));
+  --status-tint: var(--tint-reading, color-mix(in srgb, var(--s-info) 24%, var(--surface)));
+  --status-ink: #12110f;
+}
+:is(.status-read, [data-status="read"], .status-done, [data-status="done"], .status-daily, [data-status="daily"]) {
+  --status-chip: var(--chip-read, var(--s-good));
+  --status-tint: var(--tint-read, color-mix(in srgb, var(--s-good) 24%, var(--surface)));
+  --status-ink: #12110f;
+}
+:is(.status-skimmed, [data-status="skimmed"], .status-review, [data-status="review"]) {
+  --status-chip: var(--chip-skimmed, var(--s-warn));
+  --status-tint: var(--tint-skimmed, color-mix(in srgb, var(--s-warn) 24%, var(--surface)));
+  --status-ink: #12110f;
+}
+:is(.status-failed, [data-status="failed"], .status-blocked, [data-status="blocked"]) {
+  --status-chip: var(--chip-danger, var(--s-danger));
+  --status-tint: var(--danger-soft, color-mix(in srgb, var(--s-danger) 24%, var(--surface)));
+  --status-ink: #12110f;
+}
+:is(.status-abandoned, [data-status="abandoned"], .status-not_started, [data-status="not_started"]) {
+  --status-chip: var(--well, var(--s-mute));
+  --status-tint: var(--well, var(--s-mute-bg));
+  --status-ink: var(--text);
+}
+/* Notes: six tints per theme, a card coloured by its first tag. */
+[data-tag-tone="1"] { --status-chip: var(--tag-1-chip, var(--s-info)); --status-tint: var(--tag-1-tint, color-mix(in srgb, var(--s-info) 24%, var(--surface))); }
+[data-tag-tone="2"] { --status-chip: var(--tag-2-chip, var(--s-good)); --status-tint: var(--tag-2-tint, color-mix(in srgb, var(--s-good) 24%, var(--surface))); }
+[data-tag-tone="3"] { --status-chip: var(--tag-3-chip, var(--s-warn)); --status-tint: var(--tag-3-tint, color-mix(in srgb, var(--s-warn) 24%, var(--surface))); }
+[data-tag-tone="4"] { --status-chip: var(--tag-4-chip, var(--s-danger)); --status-tint: var(--tag-4-tint, color-mix(in srgb, var(--s-danger) 24%, var(--surface))); }
+[data-tag-tone="5"] { --status-chip: var(--tag-5-chip, var(--accent)); --status-tint: var(--tag-5-tint, color-mix(in srgb, var(--accent) 24%, var(--surface))); }
+[data-tag-tone="6"] { --status-chip: var(--tag-6-chip, var(--s-neutral)); --status-tint: var(--tag-6-tint, color-mix(in srgb, var(--s-neutral) 24%, var(--surface))); }
+/* Flat themes: on a tinted card the status pill goes solid, as on the pitch
+   page, so the card reads as a lighter shade of its pill. */
+:root[data-tint="full"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.entity-card[data-status] :is(.status, .custom-select-button)[class*="status-"] {
+  background: var(--status-chip);
+  color: var(--bg);
+  border-color: transparent;
+}

@@ -5,6 +5,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { LocalRunner } from "@/backend/providers/local/local-runner";
 import { ConflictStore, type OpenConflict } from "../domain/conflicts";
 import { Outbox, type OutboxEntry } from "../domain/outbox";
+import { useLiveSync } from "./use-live-sync";
 
 /**
  * The two things sync can leave for a person to decide: rows two devices
@@ -14,8 +15,6 @@ import { Outbox, type OutboxEntry } from "../domain/outbox";
  * device with neither has nothing to say — the panel that reads this renders
  * nothing rather than an empty "all clear" the reader has to parse.
  */
-
-import { writeConflictMarkers } from "@weaveforge/core";
 
 export interface SyncIssues {
   conflicts: OpenConflict[];
@@ -32,10 +31,7 @@ export interface SyncIssuesHandle {
     picks: Record<string, "local" | "remote">,
     overrides?: Record<string, unknown>,
   ) => Promise<void>;
-  keepAllLocal: (id: string) => Promise<void>;
-  keepAllRemote: (id: string) => Promise<void>;
   keepAllConflicts: (side: "local" | "remote") => Promise<void>;
-  resolveWithMarkers: (id: string, field: string) => Promise<void>;
   retry: (opId: string) => Promise<void>;
   discard: (opId: string) => Promise<void>;
 }
@@ -56,7 +52,9 @@ export function useSyncIssues(): SyncIssuesHandle {
       .catch(() => setIssues(NONE));
   }, []);
 
-  useEffect(refresh, [refresh]);
+  // The sync loop owns the count; re-read whenever it moves so the panel never shows stale rows.
+  const { conflictsCount } = useLiveSync();
+  useEffect(refresh, [refresh, conflictsCount]);
 
   const act = useCallback(
     (run: (sql: LocalRunner) => Promise<void>) => run(new LocalRunner()).then(refresh),
@@ -69,31 +67,9 @@ export function useSyncIssues(): SyncIssuesHandle {
     [act],
   );
 
-  const keepAllLocal = useCallback(
-    (id: string) => {
-      const conflict = issues.conflicts.find((c) => c.id === id);
-      if (!conflict) return Promise.resolve();
-      const picks: Record<string, "local" | "remote"> = {};
-      for (const f of conflict.fields) picks[f.field] = "local";
-      return keep(id, picks);
-    },
-    [issues.conflicts, keep],
-  );
-
-  const keepAllRemote = useCallback(
-    (id: string) => {
-      const conflict = issues.conflicts.find((c) => c.id === id);
-      if (!conflict) return Promise.resolve();
-      const picks: Record<string, "local" | "remote"> = {};
-      for (const f of conflict.fields) picks[f.field] = "remote";
-      return keep(id, picks);
-    },
-    [issues.conflicts, keep],
-  );
-
   const keepAllConflicts = useCallback(
     async (side: "local" | "remote") => {
-      for (const conflict of issues.conflicts) {
+      for (const conflict of issues.conflicts.filter((c) => c.fields.length > 0)) {
         const picks: Record<string, "local" | "remote"> = {};
         for (const f of conflict.fields) picks[f.field] = side;
         await keep(conflict.id, picks);
@@ -102,26 +78,11 @@ export function useSyncIssues(): SyncIssuesHandle {
     [issues.conflicts, keep],
   );
 
-  const resolveWithMarkers = useCallback(
-    (id: string, field: string) => {
-      const conflict = issues.conflicts.find((c) => c.id === id);
-      if (!conflict) return Promise.resolve();
-      const localVal = String(conflict.local[field] ?? "");
-      const remoteVal = String(conflict.remote ? conflict.remote[field] ?? "" : "");
-      const marked = writeConflictMarkers(localVal, remoteVal);
-      return keep(id, {}, { [field]: marked });
-    },
-    [issues.conflicts, keep],
-  );
-
   return {
     issues,
     refresh,
     keep,
-    keepAllLocal,
-    keepAllRemote,
     keepAllConflicts,
-    resolveWithMarkers,
     retry: (opId) => act((sql) => new Outbox(sql).revive(opId)),
     discard: (opId) => act((sql) => new Outbox(sql).settle(opId)),
   };

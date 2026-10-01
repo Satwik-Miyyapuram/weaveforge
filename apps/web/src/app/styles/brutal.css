@@ -161,6 +161,12 @@
   box-shadow: none;
   border-width: var(--bw);
 }
+/* A form flattened into a modal stays flat: the modal is its card. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .modal :is(.add-form, .list-add).card {
+  border: none;
+  background: none;
+  box-shadow: none;
+}
 /* A modal's choices (Add papers, org setup): each one a stamped button,
    ink edge and small shadow, pressed in like the others. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .org-choice-card {
@@ -212,37 +218,11 @@
 
 /* ---- Card status tint ---------------------------------------------------- */
 /* papers.css lays library cards flat with a (0,6,0) selector, so this matches
-   its shape to take the card back. Any entity card with a data-status (or, for
-   a note, a data-tag-tone) takes its colour from the maps below, under the card-tint setting on <html>:
-   full colours the card, bar a thick left edge, border the outline, none
-   leaves it plain. */
+   its shape to take the card back. The tint itself lives in card-tint.css. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.entity-card.paper-card {
   background: var(--card-tint, var(--surface));
-  border-color: var(--bw-line);
+  border-color: var(--status-edge, var(--bw-line));
   box-shadow: var(--sh-card);
-}
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="full"] .card.entity-card:is([data-status], [data-tag-tone]) { --card-tint: var(--status-tint); }
-/* Bar: a 10px band of the status colour down the left, ruled off from the
-   card by a line of the border's weight, inside the card's own outline. Drawn
-   as a background layer so the outline, the radius and the shadow stay the
-   card's; the text moves over by the band's width. */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card:is([data-status], [data-tag-tone]) {
-  background-image: linear-gradient(to right, var(--status-band) 0 10px, var(--bw-line) 10px calc(10px + var(--bw)), transparent calc(10px + var(--bw)));
-  padding-left: calc(12px + 10px + var(--bw));
-}
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] :is(.papers-screen, .vault-screen) .card.entity-card:is([data-status], [data-tag-tone]) {
-  padding-left: calc(16px + 10px + var(--bw));
-}
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card:is([data-status], [data-tag-tone]) { --status-band: var(--status-chip); }
-/* Border colours the whole outline. On a phone the edge bar reads as a
-   stray stripe, so it becomes a border there too. */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="border"] .card.entity-card:is([data-status], [data-tag-tone]) { border-color: var(--status-chip); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="border"] .card.entity-card:is([data-status], [data-tag-tone]) { border-width: 3px; }
-@media (max-width: 767px) {
-  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card:is([data-status], [data-tag-tone]) { background-image: none; padding-left: 12px; }
-  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] :is(.papers-screen, .vault-screen) .card.entity-card:is([data-status], [data-tag-tone]) { padding-left: 16px; }
-  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card:is([data-status], [data-tag-tone]) { border-width: 3px; }
-  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"])[data-tint="bar"] .card.entity-card:is([data-status], [data-tag-tone]) { border-color: var(--status-chip); }
 }
 
 /* ---- Buttons ------------------------------------------------------------- */
@@ -416,28 +396,12 @@
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .status { border-radius: 999px; font-size: 0.72rem; }
 :root[data-theme="crt"] .status { border-radius: var(--radius-sm); }
-/* ---- Status colours ------------------------------------------------------
-   One map for every screen: each status names a chip colour and a card wash.
-   Status chips, status selects and entity cards (data-status) all read it, so
-   a card and its own status can never disagree. */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-to_read, [data-status="to_read"], .status-planned, [data-status="planned"]) { --status-chip: var(--chip-to-read); --status-tint: var(--tint-to-read); --status-ink: #12110f; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-reading, [data-status="reading"], .status-running, [data-status="running"], .status-in_progress, [data-status="in_progress"], .status-drafting, [data-status="drafting"], .status-weekly, [data-status="weekly"]) { --status-chip: var(--chip-reading); --status-tint: var(--tint-reading); --status-ink: #12110f; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-read, [data-status="read"], .status-done, [data-status="done"], .status-daily, [data-status="daily"]) { --status-chip: var(--chip-read); --status-tint: var(--tint-read); --status-ink: #12110f; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-skimmed, [data-status="skimmed"], .status-review, [data-status="review"]) { --status-chip: var(--chip-skimmed); --status-tint: var(--tint-skimmed); --status-ink: #12110f; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-failed, [data-status="failed"], .status-blocked, [data-status="blocked"]) { --status-chip: var(--chip-danger); --status-tint: var(--danger-soft); --status-ink: #12110f; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status-abandoned, [data-status="abandoned"], .status-not_started, [data-status="not_started"]) { --status-chip: var(--well); --status-tint: var(--well); --status-ink: var(--text); }
+/* Status chips fill with the colour card-tint.css maps for their status. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status, .custom-select-button):is(.status-to_read, .status-planned, .status-reading, .status-running, .status-in_progress, .status-drafting, .status-weekly, .status-read, .status-done, .status-daily, .status-skimmed, .status-review, .status-failed, .status-blocked, .status-abandoned, .status-not_started) { background: var(--status-chip); color: var(--status-ink); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.tag-chip, .chip) {
   border: var(--bw) solid var(--bw-line);
   font-family: var(--font-mono);
 }
-/* Notes: six tints per theme, a card coloured by its first tag. */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) [data-tag-tone="1"] { --status-chip: var(--tag-1-chip); --status-tint: var(--tag-1-tint); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) [data-tag-tone="2"] { --status-chip: var(--tag-2-chip); --status-tint: var(--tag-2-tint); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) [data-tag-tone="3"] { --status-chip: var(--tag-3-chip); --status-tint: var(--tag-3-tint); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) [data-tag-tone="4"] { --status-chip: var(--tag-4-chip); --status-tint: var(--tag-4-tint); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) [data-tag-tone="5"] { --status-chip: var(--tag-5-chip); --status-tint: var(--tag-5-tint); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) [data-tag-tone="6"] { --status-chip: var(--tag-6-chip); --status-tint: var(--tag-6-tint); }
 
 /* Segmented controls: ink-filled selection. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .seg {
@@ -1227,6 +1191,15 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.integration-item + .integration-item, .sync-issue) {
   border-top: var(--bw) solid color-mix(in srgb, var(--bw-line) 20%, transparent);
 }
+/* Conflict cards and their pickers wear the hard ink edge and offset shadow. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-conflict {
+  border: var(--bw) solid var(--bw-line); border-radius: var(--radius); box-shadow: var(--sh-sm);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.sync-side, .sync-seg, .sync-diff, .sync-edit) {
+  border-color: var(--bw-line); border-width: var(--bw);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-side { border-left-width: 4px; border-left-color: var(--side); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-side[aria-checked="true"] { box-shadow: var(--sh-sm); background: var(--card-tint, var(--surface)); }
 /* The read view's picture control floats like any other menu. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .image-size {
   background: var(--card-tint, var(--surface));
@@ -1238,3 +1211,9 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.image-size-heading, .image-size-key) {
   font-family: var(--font-mono);
 }
+/* The sync attention badge: a hard-edged sticker, not a soft pill. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-badge {
+  border: var(--bw) solid var(--bw-line); border-radius: 0; background: var(--accent); color: var(--accent-fg);
+  box-shadow: 2px 2px 0 var(--bw-line);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-badge .sync-dot { background: currentColor; border-radius: 0; }

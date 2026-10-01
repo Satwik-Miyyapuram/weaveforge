@@ -409,25 +409,25 @@
 :root :is(.papers-screen, .vault-screen) .card.entity-card.paper-card {
   gap: 6px;
   padding: 14px 16px 10px;
-  background: transparent;
+  background-color: var(--status-fill, transparent);
   box-shadow: none;
-  border-color: var(--border);
+  border-color: var(--status-edge, var(--border));
 }
 :root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card {
-  border-color: transparent;
-  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  border-color: var(--status-edge, transparent);
+  background-color: var(--status-fill, color-mix(in srgb, var(--surface) 70%, transparent));
 }
 /* Not in Poster/CRT: at (0,6,0) this beat their card hover and dropped the
    status tint and the stamped shadow. Pointer only, as a tap left it stuck. */
 @media (hover: hover) {
 :root:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card[role="button"]:hover {
   box-shadow: none;
-  background: color-mix(in srgb, var(--surface2) 55%, transparent);
+  background-color: color-mix(in srgb, var(--surface2) 55%, transparent);
   border-color: var(--border-strong);
 }
 :root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card[role="button"]:hover {
   border-color: transparent;
-  background: var(--surface2);
+  background-color: var(--surface2);
 }
 /* No hover lift unless reactive motion is on — then its tilt is the feedback,
    and cancelling `transform` here would silently switch that setting off. */

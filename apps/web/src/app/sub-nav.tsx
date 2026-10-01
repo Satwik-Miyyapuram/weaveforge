@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useNavPending } from "@/lib/nav-pending";
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
-import { groupForPath } from "@/registry";
+import { activeNavItem, groupForPath } from "@/registry";
 import { useNavGroups } from "@/lib/hooks/use-nav-groups";
 import { prefetchScreenForPath } from "@/lib/cache/prefetch-screen";
 
@@ -26,6 +26,7 @@ export function SubNav() {
   // they are the same set of destinations seen two ways. See `NavItem.mobile`.
   const items = group?.items.filter((it) => it.mobile !== false) ?? [];
   const multi = items.length > 1;
+  const activeItem = activeNavItem(items, pathname);
   const warmPath = useCallback((href: string) => {
     prefetchScreenForPath(href.split(/[?#]/)[0] ?? href);
   }, []);
@@ -68,11 +69,7 @@ export function SubNav() {
         />
       )}
       {items.map((it) => {
-        const matches = items.filter(
-          (item) => pathname === item.path || pathname?.startsWith(`${item.path}/`),
-        );
-        const best = [...matches].sort((a, b) => b.path.length - a.path.length)[0];
-        const active = best?.key === it.key;
+        const active = activeItem?.key === it.key;
         return (
           <Link
             key={it.key}

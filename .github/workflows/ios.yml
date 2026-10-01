@@ -1,0 +1,78 @@
+name: Build iOS
+
+# Builds the WKWebView shell (apps/ios) and attaches one unsigned ipa,
+# WeaveForge-<version>-iOS.ipa, to the release. Install by sideloading
+# (AltStore, Sideloadly), which re-signs it with the user's Apple ID.
+# Trigger: tag ios-v* (e.g. ios-v0.8.0) or workflow_dispatch.
+
+on:
+  push:
+    tags: ["ios-v*"]
+  workflow_dispatch:
+
+env:
+  RELEASE_NOTES: >-
+    WeaveForge for iPhone and iPad: WeaveForge-<version>-iOS.ipa is unsigned; install it with
+    AltStore or Sideloadly, which sign it with your Apple ID.
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: apps/ios
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the tag matches the app version
+        if: startsWith(github.ref, 'refs/tags/ios-v')
+        run: |
+          tag="${GITHUB_REF_NAME#ios-v}"
+          ver=$(awk '/MARKETING_VERSION:/ {print $2; exit}' project.yml)
+          [ "$tag" = "$ver" ] || { echo "tag ios-v$tag does not match project.yml $ver" >&2; exit 1; }
+
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build unsigned
+        run: |
+          set -euo pipefail
+          xcodebuild -project WeaveForge.xcodeproj -scheme WeaveForge \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" build
+
+      - name: Package the ipa
+        run: |
+          set -euo pipefail
+          ver=$(awk '/MARKETING_VERSION:/ {print $2; exit}' project.yml)
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/WeaveForge.app Payload/
+          zip -qry "WeaveForge-$ver-iOS.ipa" Payload
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: weaveforge-ios
+          path: apps/ios/WeaveForge-*-iOS.ipa
+          if-no-files-found: error
+
+      - name: Attach artifacts to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/ios-v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          # The desktop updater reads GitHub's "latest" release, so that must stay on a v* tag.
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title "iOS ${TAG#ios-}" \
+              --latest=false \
+              --notes "$RELEASE_NOTES" || gh release view "$TAG" >/dev/null
+          fi
+          gh release upload "$TAG" WeaveForge-*-iOS.ipa --clobber

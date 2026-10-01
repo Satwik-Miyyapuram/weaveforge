@@ -107,3 +107,14 @@ export function groupForPath(
   if (!pathname) return undefined;
   return groups.find((g) => g.items.some((it) => pathname.startsWith(it.path)));
 }
+
+/** The item a path belongs to: exact or deepest `path/` prefix, so /report/overleaf is not also /report. */
+export function activeNavItem<T extends { path: string }>(
+  items: readonly T[],
+  pathname: string | null | undefined,
+): T | undefined {
+  if (!pathname) return undefined;
+  return items
+    .filter((it) => pathname === it.path || pathname.startsWith(`${it.path}/`))
+    .sort((a, b) => b.path.length - a.path.length)[0];
+}

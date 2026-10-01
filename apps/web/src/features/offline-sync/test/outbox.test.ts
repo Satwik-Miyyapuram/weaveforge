@@ -112,3 +112,48 @@ describe("the sync watermark", () => {
     assert.equal((await state.read()).accountId, account);
   });
 });
+
+describe("settling what was sent", () => {
+  it("removes an op the server took unchanged", async () => {
+    const { box } = await outbox();
+    const sent = await box.append({ table: "papers", rowId: ROW, op: "insert", payload: { title: "one" } });
+    await box.settleSent(sent, 1);
+    assert.deepEqual(await box.pending(), []);
+  });
+
+  it("keeps an edit made during the send, now an update on the server's version", async () => {
+    const { box, db } = await outbox();
+    const sent = await box.append({ table: "papers", rowId: ROW, op: "insert", payload: { title: "one" } });
+    // The capture trigger coalesces a later edit into the op in flight.
+    await db.exec("update sync_outbox set payload = $2::jsonb where op_id = $1", [
+      sent.opId,
+      JSON.stringify({ title: "two" }),
+    ]);
+
+    await box.settleSent(sent, 1);
+
+    const [left] = await box.pending();
+    assert.equal(left!.op, "update");
+    assert.equal(left!.baseVersion, 1);
+    assert.deepEqual(left!.basePayload, { title: "one" });
+    assert.deepEqual(left!.payload, { title: "two" });
+  });
+
+  it("acks a version onto the local row and the ops still owed for it", async () => {
+    const { box, db } = await outbox();
+    await db.exec("create table if not exists sync_tables (table_name text primary key)");
+    await db.exec("create table if not exists public.projects (id uuid primary key, row_version int)");
+    await db.exec("insert into sync_tables values ('projects') on conflict do nothing");
+    await db.exec("insert into public.projects values ($1, 4)", [ROW]);
+    await box.append({ table: "projects", rowId: ROW, op: "update", payload: {}, baseVersion: 4 });
+
+    await box.ack("projects", ROW, 2);
+
+    const row = await db.queryOne<{ row_version: number }>(
+      "select row_version from public.projects where id = $1",
+      [ROW],
+    );
+    assert.equal(row!.row_version, 2);
+    assert.equal((await box.pending())[0]!.baseVersion, 2);
+  });
+});

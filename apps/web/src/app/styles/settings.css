@@ -107,12 +107,73 @@
 .settings-block { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
 .settings-block > .settings-group { margin: 0; }
 .settings-block > p { margin: 0; font-size: 0.875rem; }
-.sync-conflict { display: grid; gap: 8px; }
-/* A write sync gave up on: what, why, then its two ways out. A row of the
-   panel, divided like the connection rows, not a heading of its own. */
-.sync-issue { display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid var(--border); }
-.sync-issue > p { margin: 0; font-size: 0.875rem; }
-.sync-issue-more { align-self: flex-start; }
+/* Needs you: one card per conflicting row, git-style. Mine reads red (−),
+   cloud green (+), as a diff does; the chosen side carries the accent. */
+.sync-issues-head { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+.sync-issues-head p, .sync-issues-head h3, .sync-issues-head h4 { margin: 0; }
+.sync-issues-head h4 { font-size: 0.9rem; }
+.sync-chip {
+  display: inline-block; padding: 1px 7px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; color: var(--muted);
+}
+.sync-conflict {
+  --mine: var(--danger, #c0392b); --cloud: var(--success, #2e8b57);
+  display: grid; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--card-tint, var(--surface));
+}
+.sync-conflict-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.sync-conflict-head .muted { font-size: 0.8rem; margin-left: auto; }
+.sync-conflict-name { overflow-wrap: anywhere; }
+.sync-field { display: grid; gap: 6px; }
+.sync-field-label { display: flex; align-items: baseline; gap: 8px; font-size: 0.82rem; font-weight: 600; }
+.sync-field-label .muted { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.sync-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sync-side {
+  display: grid; gap: 2px; padding: 8px 10px; text-align: left; cursor: pointer; color: var(--text);
+  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--side);
+  border-radius: var(--radius-sm); transition: border-color var(--dur-base, 150ms), box-shadow var(--dur-base, 150ms);
+}
+.sync-side[data-side="local"] { --side: var(--mine); }
+.sync-side[data-side="remote"] { --side: var(--cloud); }
+.sync-side:hover { border-color: var(--border-strong); border-left-color: var(--side); }
+.sync-side[aria-checked="true"] { border-color: var(--accent); border-left-color: var(--side); box-shadow: 0 0 0 1px var(--accent); }
+.sync-side-tag { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+.sync-side-value { font-size: 0.875rem; overflow-wrap: anywhere; }
+.sync-seg { display: inline-flex; justify-self: start; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; }
+.sync-seg > button, .sync-hunk-pick > button {
+  padding: 3px 10px; font-size: 0.78rem; background: var(--surface); color: var(--text); border: 0; cursor: pointer;
+}
+.sync-seg > button + button { border-left: 1px solid var(--border-strong); }
+.sync-seg > button[aria-checked="true"], .sync-hunk-pick > button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+.sync-text { display: grid; gap: 6px; }
+.sync-diff {
+  max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); font-family: var(--font-mono, ui-monospace, monospace); font-size: 0.78rem;
+}
+.sync-diff-line { display: grid; grid-template-columns: 1.5em 1fr; padding: 0 8px; }
+.sync-diff-line > span { color: var(--muted); user-select: none; }
+.sync-diff-line > code { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; background: none; padding: 0; }
+.sync-diff-line[data-op="ours"] { background: color-mix(in srgb, var(--mine) 14%, transparent); }
+.sync-diff-line[data-op="ours"] > span { color: var(--mine); }
+.sync-diff-line[data-op="theirs"] { background: color-mix(in srgb, var(--cloud) 14%, transparent); }
+.sync-diff-line[data-op="theirs"] > span { color: var(--cloud); }
+.sync-hunk { border-block: 1px dashed var(--border); }
+.sync-hunk-pick { display: flex; justify-content: flex-end; gap: 1px; padding: 3px 6px; background: var(--surface2); }
+.sync-hunk-pick > button { padding: 1px 8px; border-radius: var(--radius-sm); font-size: 0.72rem; }
+.sync-edit {
+  width: 100%; min-height: 120px; padding: 8px; resize: vertical; font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.8rem; background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+}
+.sync-text > p { margin: 0; font-size: 0.8rem; color: var(--mine); }
+.sync-conflict-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
+.sync-conflict-foot > .muted { font-size: 0.8rem; }
+.sync-conflict-actions { display: flex; gap: 6px; margin-left: auto; }
+@media (max-width: 640px) { .sync-sides { grid-template-columns: 1fr; } }
+/* A write sync gave up on: what, why, then its two ways out. */
+.sync-dead { display: grid; gap: 8px; }
+.sync-issue { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
+.sync-issue p { margin: 0; font-size: 0.875rem; }
+.sync-dead > .btn-ghost { justify-self: start; }
 .integration-item .status { margin-left: auto; }
 
 /* GitHub link card (Settings) */

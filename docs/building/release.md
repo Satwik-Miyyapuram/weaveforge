@@ -1,15 +1,14 @@
 # Releasing WeaveForge
 
-This monorepo ships **three release tracks**, one tag prefix each. Do not mix them.
+This monorepo ships **four release tracks**, one tag prefix each. Do not mix them.
 
-| | **Desktop app** | **Python SDK** | **Android TWA** |
-|---|---|---|---|
-| Tag | `vX.Y.Z` (e.g. `v0.6.0`) | `py-vX.Y.Z` (e.g. `py-v0.6.0`) | `android-vN` (e.g. `android-v4`) |
-| Covers | Electron shell + the offline web build inside it | The `weaveforge` SDK on PyPI | APK + AAB |
-| Artifact | GitHub Release: installers per platform, plus the `latest*.yml` the in-app updater reads | PyPI wheel + sdist | Signed Android bundle on the GitHub Release |
-| Workflow | `release-desktop.yml` | `publish-python.yml` | `android-twa.yml` |
-| Changelog | [`../CHANGELOG.md`](../../CHANGELOG.md) | Same | Same |
-| Web app | Deploys continuously on `main` (Vercel); the tag marks the version | — | Same host; Digital Asset Links must match the signing key |
+| | **Desktop app** | **Python SDK** | **Android** | **iOS** |
+|---|---|---|---|---|
+| Tag | `vX.Y.Z` | `py-vX.Y.Z` | `android-vX.Y.Z` | `ios-vX.Y.Z` |
+| Covers | Electron shell + the offline web build inside it | The `weaveforge` SDK on PyPI | Native app (`apps/android`) | WKWebView shell (`apps/ios`) |
+| Artifact | One installer per Windows chip (x64, arm64), one universal macOS dmg, one Linux AppImage, plus the `latest*.yml` the in-app updater reads | PyPI wheel + sdist | `WeaveForge-<v>-Android.apk` | `WeaveForge-<v>-iOS.ipa` (unsigned) |
+| Workflow | `release-desktop.yml` | `publish-python.yml` | `android.yml` | `ios.yml` |
+| Changelog | [`../CHANGELOG.md`](../../CHANGELOG.md) | Same | Same | Same |
 
 **Why the desktop keeps the bare `vX.Y.Z`.** Copies already installed look for
 `v*` releases (`apps/desktop/src/update-check.ts`), so moving that track to
@@ -26,7 +25,8 @@ is what changed *in that track*.
 |---|---|---|
 | Desktop app | `apps/desktop/package.json` | independently |
 | Python SDK | `python/weaveforge/__init__.py` `__version__` | independently |
-| Android TWA | `apps/web/twa/twa-manifest.json` | independently |
+| Android | `apps/android/app/build.gradle.kts` `versionName` / `versionCode` | independently |
+| iOS | `apps/ios/project.yml` `MARKETING_VERSION` | independently |
 
 `package.json`, `apps/web/package.json` and `packages/core/package.json` are
 **not** release numbers. Core is consumed as `"*"` by every workspace that uses
@@ -92,7 +92,7 @@ integrity check on a downloaded update is the SHA-512 in `latest.yml`, served
 over HTTPS from the same release. Say so in the notes; do not describe the
 update as verified.
 
-The macOS `.dmg`s (arm64 and x64) carry an ad-hoc signature only
+The universal macOS `.dmg` carries an ad-hoc signature only
 (`apps/desktop/scripts/after-pack.cjs`), which is free and keeps Apple silicon
 from calling the app "damaged", but is not a Developer ID and is not notarised.
 Squirrel.Mac will not install updates on such a build, so macOS copies do not
@@ -117,54 +117,39 @@ auto-update: they show a "new version" notice that opens the release page
 Do not re-use a PyPI version — it cannot be replaced or deleted and re-uploaded.
 Prefer Trusted Publishing; `PYPI_API_TOKEN` is the fallback.
 
-## Android (`android-vN`)
+## Android (`android-vX.Y.Z`)
 
-The number in the tag is `appVersionCode`, not the app version — that is the
-track that has to increase for Play, and it is why the older `android-v0.5.2`
-tags were replaced. `android-v4` was code 4; with the manifest at code 7, the
-next release is `android-v7`. The workflow triggers on `android-v*`, so the
-number only has to match the manifest you are shipping.
+One file: `WeaveForge-<version>-Android.apk`, the native app in
+[`apps/android`](../../apps/android/README.md) (`org.weaveforge.ink`), signed
+with the release keystore. The Bubblewrap TWA in `apps/web/twa` is no longer
+built or released.
 
-1. PR: bump `appVersion` / `appVersionName` / `appVersionCode` in `apps/web/twa/twa-manifest.json` (and regenerate Bubblewrap project files if you change icons/name/host).
-2. Confirm `apps/web/public/.well-known/assetlinks.json` lists **both** signing
-   certificates — the fingerprint is checked against the package and the
-   relation by the workflow, and a mismatch brings the Chrome URL bar back:
-   ```bash
-   gh workflow run android-fingerprint.yml
-   gh run watch
-   # 1. upload cert: copy SHA-256 from the job summary (or keytool, below)
-   # 2. Play app-signing cert: Play Console -> Release -> Setup -> App integrity
-   #    -> App signing key certificate -> SHA-256 certificate fingerprint
-   # Replace the placeholder entry in assetlinks.json, PR + deploy web
-   ```
-   For a sideload-only build the upload certificate alone is enough. The moment
-   you upload the AAB to Play, Play re-signs it, and the installed app carries
-   Play's certificate instead — so the fingerprint that verifies a Play install
-   is the one from the console, and `keytool -printcert -jarfile` on the AAB
-   gives you the *upload* signature, not that one.
-3. Merge, then on `main`:
+1. PR: bump `versionName` (the app version) and `versionCode` (must only ever
+   go up, or Android refuses the update) in `apps/android/app/build.gradle.kts`.
+2. Merge, then on `main`:
    ```bash
    git pull origin main
-   git tag android-v7      # match appVersionCode
-   git push origin android-v7
+   git tag android-vX.Y.Z      # match versionName
+   git push origin android-vX.Y.Z
    ```
-4. `android-twa.yml` builds both apps with the same keystore secrets and attaches them to the GitHub Release (creates it if needed): job `build` the TWA (`app-release-signed.apk` / `app-release-bundle.aab`), job `native` the ink app from `apps/android` (`weaveforge-ink.apk` / `.aab`). Bump `versionCode` in `apps/android/app/build.gradle.kts` too; it is its own track.
+3. `android.yml` builds and signs the APK, prints its certificate SHA-256, and
+   attaches it to the GitHub Release (creating it if needed).
 
-Manual rebuild without a tag: **Actions → Build Android → Run workflow**.
+Manual rebuild without a tag: **Actions → Build Android → Run workflow** (the
+APK lands on the run as an artifact, no release).
 
-### URL bar / Digital Asset Links
+## iOS (`ios-vX.Y.Z`)
 
-Deployed file must serve the signing cert fingerprint:
+One file: `WeaveForge-<version>-iOS.ipa`, the WKWebView shell in
+[`apps/ios`](../../apps/ios/README.md). It is **unsigned**: there is no Apple
+developer account behind the project, so it installs only through a sideloading
+tool that re-signs it with the user's own Apple ID (AltStore, Sideloadly).
 
-`https://app.weaveforge.org/.well-known/assetlinks.json`
-
-- Sideload / self-signed builds → fingerprint of `android-keystore.jks` (alias `weaveforge`).
-- Play App Signing → **also** add Google Play’s app-signing cert SHA-256 from Play Console. The committed file carries this entry as a visibly invalid placeholder (`REPLACE_WITH_...`) so it cannot be mistaken for a working fingerprint; the workflow warns while it is present.
-
-`assetlinks.json` may hold several statements for the same package; Chrome
-accepts the install if any one of them matches. Package id: `app.weaveforge.twa`.
-
-Tester: https://developers.google.com/digital-asset-links/tools/generator  
+1. PR: bump `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in
+   `apps/ios/project.yml`.
+2. Merge, then tag `ios-vX.Y.Z` on `main` and push it.
+3. `ios.yml` generates the Xcode project, builds on macOS, and attaches the ipa
+   to the GitHub Release.
 
 ## Web app (no product tag)
 

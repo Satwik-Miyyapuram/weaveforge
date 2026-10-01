@@ -18,11 +18,18 @@
 const { execFileSync } = require("node:child_process");
 const path = require("node:path");
 
+const { Arch } = require("builder-util");
 const stampExe = require("./stamp-exe.cjs").default;
+
+const universalTarget = (context) =>
+  [].concat(context.packager.config.mac?.target ?? []).some((t) => [].concat(t?.arch ?? []).includes("universal"));
 
 exports.default = async function afterPack(context) {
   if (context.electronPlatformName === "win32") return stampExe(context);
   if (context.electronPlatformName !== "darwin") return;
+  // Universal build: the x64 and arm64 halves are packed first and merged after;
+  // signing a half makes their files differ and the merge refuses.
+  if (context.arch !== Arch.universal && universalTarget(context)) return;
   const app = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`);
   execFileSync("codesign", ["--force", "--deep", "--sign", "-", app], { stdio: "inherit" });
   execFileSync("codesign", ["--verify", "--deep", "--strict", app], { stdio: "inherit" });

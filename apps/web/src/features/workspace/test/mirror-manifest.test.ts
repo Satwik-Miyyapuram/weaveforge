@@ -11,6 +11,7 @@ import {
   baseDigest,
   claimImportedFile,
   createCoalescer,
+  followProjectRename,
   nextManifest,
   readMirrorBase,
   writeMirrorManifest,
@@ -295,4 +296,39 @@ test("a JSON data file is somebody's edit unless it still holds what the app wro
   // at all — a hand-made one, or one an older layout wrote.
   assert.equal(jsonEditSince({ [path]: digestText(written) }, path, '[{"id":"r1"}]'), true);
   assert.equal(jsonEditSince({}, path, written), true);
+});
+
+test("a renamed project carries its folder and manifest to the new name", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const note = `${ROOT}/notes/a.md`;
+  await fs.writeFile(note, "hello");
+  await writeMirrorManifest(fs, ROOT, [note], { [note]: digestText("hello") });
+  await fs.writeFile(`${OTHER_ROOT}/notes/b.md`, "other");
+
+  const renamed = { ...PROJECT, name: "Thesis Final" };
+  const newRoot = projectDir(renamed);
+  assert.equal(await followProjectRename(fs, renamed), ROOT);
+
+  const moved = `${newRoot}/notes/a.md`;
+  assert.equal(await fs.readText(moved), "hello");
+  assert.equal(await fs.stat(ROOT), null);
+  assert.deepEqual(await readMirrorBase(fs, newRoot), { [moved]: digestText("hello") });
+  assert.equal(await fs.readText(`${OTHER_ROOT}/notes/b.md`), "other");
+});
+
+test("following a rename does nothing when the folder already has the new name", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.writeFile(`${ROOT}/notes/a.md`, "x");
+  assert.equal(await followProjectRename(fs, PROJECT), null);
+  assert.equal(await fs.readText(`${ROOT}/notes/a.md`), "x");
+});
+
+test("following a rename leaves two candidate folders alone", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const suffix = ROOT.slice(ROOT.lastIndexOf("--"));
+  await fs.writeFile(`one${suffix}/a.md`, "1");
+  await fs.writeFile(`two${suffix}/a.md`, "2");
+  assert.equal(await followProjectRename(fs, PROJECT), null);
+  assert.equal(await fs.readText(`one${suffix}/a.md`), "1");
+  assert.equal(await fs.readText(`two${suffix}/a.md`), "2");
 });

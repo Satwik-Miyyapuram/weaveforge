@@ -1,14 +1,12 @@
-## WeaveForge Android android-vN
+## WeaveForge Android android-vX.Y.Z
 
-Signed TWA build for `app.weaveforge.twa` → `https://my-weaveforge-web.vercel.app`.
+Native app `org.weaveforge.ink` (ink overlay + deadlines widget).
 
 ### Install
-- **APK** (sideload): download `app-release-signed.apk` from this release
-- **Play**: upload `app-release-bundle.aab` to Play Console
+- Download `WeaveForge-<version>-Android.apk` from this release and open it on the device (allow installs from your browser when asked).
 
 ### Checklist
-- [ ] `assetlinks.json` SHA-256 matches this keystore (and Play signing cert if applicable)
-- [ ] `appVersion` / `appVersionCode` bumped in `twa-manifest.json`
-- [ ] URL bar hidden after reinstall (Digital Asset Links OK)
+- [ ] `versionName` / `versionCode` bumped in `apps/android/app/build.gradle.kts`
+- [ ] Certificate SHA-256 printed by the workflow matches the previous release (else Android refuses the update)
 
 See [docs/building/release.md](../docs/building/release.md).

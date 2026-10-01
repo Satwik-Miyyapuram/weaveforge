@@ -139,6 +139,59 @@ export class Outbox {
   }
 
   /**
+   * The server took this op. Removed only if it is still what was sent: an edit
+   * made during the send coalesced into it, and that edit is still owed — now
+   * an update based on the version the server just gave.
+   */
+  async settleSent(entry: OutboxEntry, newVersion?: number): Promise<void> {
+    const gone = await this.sql.query<{ seq: string }>(
+      "delete from sync_outbox where op_id = $1 and op = $2 and payload = $3::jsonb returning seq",
+      [entry.opId, entry.op, JSON.stringify(entry.payload)],
+    );
+    if (gone.length > 0) return;
+    await this.sql.exec(
+      `update sync_outbox
+          set op = case when op = 'insert' then 'update' else op end,
+              base_version = coalesce($2, base_version), base_payload = $3::jsonb
+        where op_id = $1`,
+      [entry.opId, newVersion ?? null, JSON.stringify(entry.payload)],
+    );
+  }
+
+  /** Later ops on a row now build on `version`, the one the server holds. */
+  async rebase(table: string, rowId: string, version: number): Promise<void> {
+    await this.sql.exec(
+      `update sync_outbox set base_version = $3
+        where table_name = $1 and row_id = $2 and dead_at is null and op <> 'insert'`,
+      [table, rowId, version],
+    );
+  }
+
+  /** The server now holds `version` of this row; local row and later ops follow it. */
+  async ack(table: string, rowId: string, version: number): Promise<void> {
+    await this.sql.exec("select sync_ack($1, $2, $3)", [table, rowId, version]);
+    await this.rebase(table, rowId, version);
+  }
+
+  /** Every live op for one row, oldest first. */
+  async forRow(table: string, rowId: string): Promise<OutboxEntry[]> {
+    const rows = await this.sql.query<OutboxRow>(
+      `select ${COLUMNS} from sync_outbox
+        where table_name = $1 and row_id = $2 and dead_at is null order by seq`,
+      [table, rowId],
+    );
+    return rows.map(toEntry);
+  }
+
+  /** Forget what this device owed for a row; a merge now speaks for it. */
+  async dropRow(table: string, rowId: string): Promise<void> {
+    await this.sql.exec(
+      "delete from sync_outbox where table_name = $1 and row_id = $2 and dead_at is null",
+      [table, rowId],
+    );
+  }
+
+  /**
    * The attempt failed. Record why, and stop retrying once that has happened
    * enough times — the entry stays, so it can be shown and retried by hand.
    */

@@ -134,8 +134,12 @@
     content-visibility: visible;
   }
 }
+/* Phones: one column of tall cards, so the 170px guess is half the real height
+   and the page grew under the finger mid-fling (stalls + jumps). Render all. */
 @media (max-width: 768px), (pointer: coarse) {
   .card-columns-item.is-deferred {
+    content-visibility: visible;
+    contain-intrinsic-size: none;
     padding: 0;
     margin: 0;
   }
