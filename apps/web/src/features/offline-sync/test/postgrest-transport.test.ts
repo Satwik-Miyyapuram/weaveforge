@@ -216,3 +216,21 @@ test("a failing feed throws, so the watermark is never moved on a guess", async 
   const { transport } = harness([{ status: 500, body: { message: "boom" } }]);
   await assert.rejects(() => transport.changesSince(0, 10), /boom/);
 });
+
+test("a duplicate paper_tags insert is accepted at the server's version", async () => {
+  const { transport } = harness([
+    { status: 409, body: { code: "23505" } },
+    { status: 200, body: [{ id: "x", row_version: 4 }] },
+  ]);
+  const outcome = await transport.send(entry({ table: "paper_tags", op: "insert", baseVersion: null }));
+  assert.deepEqual(outcome, { status: "accepted", newVersion: 4 });
+});
+
+test("a 409 on another table's insert is still a conflict", async () => {
+  const { transport } = harness([
+    { status: 409, body: { code: "23505" } },
+    { status: 200, body: [{ id: "x", row_version: 4 }] },
+  ]);
+  const outcome = await transport.send(entry({ op: "insert", baseVersion: null }));
+  assert.equal(outcome.status, "conflict");
+});
