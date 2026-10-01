@@ -19,6 +19,18 @@ tracks at once.
 
 ### Android
 
+## [0.7.5] - 2026-10-01
+
+Desktop (`v0.7.5`) and Android (`android-v0.7.5`). The Python SDK keeps its own numbers.
+
+### Desktop
+- **Packaging robustness:** Bundled transparent high-resolution 512px icon rendered directly from the brand vector emblem (`weave_forge.svg`), ensuring reliable installer compilation across Windows, macOS, and Linux.
+- **Rollback stability:** Verified full parity across desktop shell and in-app updater with the restored clean UI and mobile scroll fixes.
+
+### Android
+- **Version alignment:** Synchronized native Android ink app (`org.weaveforge.ink`) and TWA web wrapper (`app.weaveforge.twa`) to version `0.7.5` (version code `10`).
+- **OAuth & icon fixes:** Carried forward Google OAuth 2FA WebView fixes and clean transparent vector iconography.
+
 ## [0.7.4] - 2026-10-01
 
 Desktop (`v0.7.4`). The Python SDK and Android keep their own numbers.
@@ -406,7 +418,8 @@ following landed earlier but had never been carried in a tagged release.
 - Project OSS hygiene: `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates,
   `CHANGELOG.md`, and a Python CI job (pytest + ruff + mypy).
 
-[Unreleased]: https://github.com/Satwik-Miyyapuram/weaveforge/compare/v0.7.4...HEAD
+[Unreleased]: https://github.com/Satwik-Miyyapuram/weaveforge/compare/v0.7.5...HEAD
+[0.7.5]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.7.5
 [0.7.4]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.7.4
 [0.7.3]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.7.3
 [0.7.2]: https://github.com/Satwik-Miyyapuram/weaveforge/releases/tag/v0.7.2
