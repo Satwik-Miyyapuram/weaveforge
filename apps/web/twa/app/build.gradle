@@ -65,8 +65,8 @@ android {
         applicationId "app.weaveforge.twa"
         minSdkVersion 21
         targetSdkVersion 35
-        versionCode 9
-        versionName "0.7.4"
+        versionCode 10
+        versionName "0.7.5"
 
         // The name for the application
         resValue "string", "appName", twaManifest.name
