@@ -15,6 +15,8 @@ tracks at once.
 
 ### Desktop
 
+- **Fixed:** Reconnecting the workspace folder no longer lists every note the app just wrote as changed outside WeaveForge.
+
 ### Python SDK
 
 ### Android
