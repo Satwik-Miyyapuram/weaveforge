@@ -15,6 +15,7 @@ tracks at once.
 
 ### Desktop
 
+- **Changed:** The app icon is now a solid tile in the theme colours, cream on a light taskbar and dark on a dark one, so it reads at taskbar size.
 - **Fixed:** Tagging the same paper with the same tag on two devices before either synced no longer shows a sync conflict.
 
 ### Python SDK
@@ -29,6 +30,8 @@ Desktop (`v0.8.1`). Android and iOS stay on 0.8.0: their shells load the web app
 
 ### Desktop
 - **Paper tags sync:** tags put on a paper now sync between desktop devices and the server, including removals. Removing a tag and adding it back before a sync goes up as one change.
+- **Changed:** The app icon is now a solid tile in the theme colours, cream on a light taskbar and dark on a dark one, so it reads at taskbar size.
+
 
 ## [0.8.0] - 2026-10-01
 
@@ -36,6 +39,8 @@ Desktop (`v0.8.0`), Android (`android-v0.8.0`) and iOS (`ios-v0.8.0`). The Pytho
 
 ### Desktop
 - **One file per platform:** Windows ships one installer per chip (`WeaveForge-0.8.0-Windows-x64-Installer.exe`, `…-arm64-Installer.exe`), macOS one universal `WeaveForge-0.8.0-macOS.dmg` (Intel and Apple silicon), Linux one AppImage.
+- **Changed:** The app icon is now a solid tile in the theme colours, cream on a light taskbar and dark on a dark one, so it reads at taskbar size.
+
 - **Taskbar icon:** on Windows the window icon follows the taskbar theme (cream mark on a dark taskbar); the default icon is outlined so it reads on either.
 - **Sync:** hardened conflict resolution and a redesigned conflict screen.
 - **UI:** card tint on every theme, nav highlight, modal outlines.
@@ -53,6 +58,8 @@ Desktop (`v0.7.5`) and Android (`android-v0.7.5`). The Python SDK keeps its own 
 
 ### Desktop
 - **Packaging robustness:** Bundled transparent high-resolution 512px icon rendered directly from the brand vector emblem (`weave_forge.svg`), ensuring reliable installer compilation across Windows, macOS, and Linux.
+- **Changed:** The app icon is now a solid tile in the theme colours, cream on a light taskbar and dark on a dark one, so it reads at taskbar size.
+
 - **Rollback stability:** Verified full parity across desktop shell and in-app updater with the restored clean UI and mobile scroll fixes.
 
 ### Android
