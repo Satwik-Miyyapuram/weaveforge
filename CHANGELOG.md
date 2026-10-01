@@ -21,6 +21,13 @@ tracks at once.
 
 ### iOS
 
+## [0.8.1] - 2026-10-01
+
+Desktop (`v0.8.1`). Android and iOS stay on 0.8.0: their shells load the web app, which needs no change.
+
+### Desktop
+- **Paper tags sync:** tags put on a paper now sync between desktop devices and the server, including removals. Removing a tag and adding it back before a sync goes up as one change.
+
 ## [0.8.0] - 2026-10-01
 
 Desktop (`v0.8.0`), Android (`android-v0.8.0`) and iOS (`ios-v0.8.0`). The Python SDK keeps its own numbers.

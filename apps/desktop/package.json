@@ -1,6 +1,6 @@
 {
   "name": "@weaveforge/desktop",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "private": true,
   "license": "AGPL-3.0-only",
   "description": "Electron shell around the WeaveForge web app: the same UI, plus what only a desktop can do.",
