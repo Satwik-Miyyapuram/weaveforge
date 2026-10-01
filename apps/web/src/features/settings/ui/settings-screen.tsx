@@ -168,14 +168,10 @@ export function SettingsScreen() {
   const [tab, setTab] = useState<SettingsTabId>("account");
   const [findQuery, setFindQuery] = useState("");
 
-  // Hash is read once on mount rather than tracked: `selectTab` writes it with
-  // replaceState, and reacting to a hash we just wrote would fight the click.
-  // `hashchange` only fires for real hash navigations (the sync badge), never for replaceState.
+  // Read on mount and on real hash navigations (the sync badge); `selectTab`'s
+  // replaceState fires no `hashchange`, so it never fights the click.
   useEffect(() => {
-    const read = () => {
-      const fromHash = tabFromHash(window.location.hash);
-      if (fromHash) setTab(fromHash);
-    };
+    const read = () => { const fromHash = tabFromHash(window.location.hash); if (fromHash) setTab(fromHash); };
     read();
     window.addEventListener("hashchange", read);
     return () => window.removeEventListener("hashchange", read);
