@@ -170,6 +170,13 @@
   /* Paint containment would cut off hard shadows and the hover lift. */
   overflow-clip-margin: 16px;
 }
+/* Same placeholder misfit as card columns on phones; see entity-cards.css. */
+@media (max-width: 768px), (pointer: coarse) {
+  .long-list > * {
+    content-visibility: visible;
+    contain-intrinsic-size: none;
+  }
+}
 .route-pending .weaveforge-loader-wrap--compact {
   min-height: min(40vh, 320px);
 }

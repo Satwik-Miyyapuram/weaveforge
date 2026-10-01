@@ -115,7 +115,7 @@ apps/web/twa/android-keystore.jks
 # `gradle/`, `gradlew`, `gradlew.bat`, `build.gradle`, `settings.gradle` and
 # `gradle.properties`. The result was that `git ls-files apps/web/twa` returned
 # only the README and `twa-manifest.json`, while
-# `.github/workflows/android-twa.yml` claimed to build "from the committed
+# the TWA workflow (now retired) claimed to build "from the committed
 # Bubblewrap project": nothing under the Android tree had ever been reviewed or
 # could be reproduced from a clone. `bubblewrap update` calls
 # `TwaGenerator.removeTwaProject()` and then regenerates the whole module from

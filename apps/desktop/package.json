@@ -1,6 +1,6 @@
 {
   "name": "@weaveforge/desktop",
-  "version": "0.7.5",
+  "version": "0.8.0",
   "private": true,
   "license": "AGPL-3.0-only",
   "description": "Electron shell around the WeaveForge web app: the same UI, plus what only a desktop can do.",
@@ -11,7 +11,7 @@
     "start": "electron .",
     "typecheck": "tsc --noEmit",
     "build:web": "node scripts/build-web.mjs",
-    "package": "node scripts/build.mjs && node scripts/build-web.mjs && npm run build:ink && electron-builder",
+    "package": "node scripts/build.mjs && node scripts/build-web.mjs && npm run build:ink && node scripts/package.mjs",
     "pack:setup": "node scripts/pack-setup.mjs",
     "test": "node --import tsx --test test/*.test.ts",
     "build:ink": "node scripts/build-ink-recogniser.mjs",
@@ -44,29 +44,24 @@
         {
           "target": "dmg",
           "arch": [
-            "arm64",
-            "x64"
+            "universal"
           ]
         }
       ],
-      "identity": null
+      "identity": null,
+      "artifactName": "WeaveForge-${version}-macOS.${ext}"
     },
     "linux": {
       "target": [
         "AppImage"
       ],
       "category": "Office",
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "artifactName": "WeaveForge-${version}-Linux-${arch}.${ext}"
     },
     "win": {
       "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
-        }
+        "nsis"
       ],
       "icon": "build/icon.ico",
       "signAndEditExecutable": false,
@@ -88,7 +83,8 @@
       "uninstallerSidebar": "installer/sidebar.bmp",
       "installerHeader": "installer/header.bmp",
       "shortcutName": "WeaveForge",
-      "include": "installer/installer.nsh"
+      "include": "installer/installer.nsh",
+      "artifactName": "WeaveForge-${version}-${arch}-update.${ext}"
     },
     "npmRebuild": false,
     "publish": [

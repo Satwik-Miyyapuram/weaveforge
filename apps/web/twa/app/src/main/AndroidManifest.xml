@@ -38,7 +38,7 @@
         and the storage all live in Chrome's profile, which this app cannot back
         up and must not try to. Bubblewrap's template defaults this to true, so
         a regeneration would quietly turn it back on — the consistency check in
-        .github/workflows/android-twa.yml is what would notice, and this comment
+        the retired TWA workflow was what would notice, and this comment
         is here for whoever has to decide whether to keep it off.
     -->
     <application

@@ -28,7 +28,23 @@ permissions:
   contents: write
 
 jobs:
+  # Made once, before the builds, so the three jobs upload into one draft
+  # instead of racing to create it.
+  prepare:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Create the draft release
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --draft --title "WeaveForge $tag" --notes ""
+
   build:
+    needs: prepare
+    if: ${{ !cancelled() && needs.prepare.result != 'failure' }}
     strategy:
       # One platform failing must not withdraw the installers that did build:
       # a release with Windows and Linux on it is worth more than no release.
@@ -86,9 +102,14 @@ jobs:
       - name: Build Core package
         run: npm run build:core
 
+      # The Windows half needs both rust targets for the per-chip setup window.
+      - name: Add the Windows rust targets
+        if: runner.os == 'Windows'
+        run: rustup target add x86_64-pc-windows-msvc aarch64-pc-windows-msvc
+
       # Builds the app, exports the offline web build into it, and uploads the
-      # installers plus the update feed to the release for this tag, creating
-      # the release (as a draft) if it does not exist yet.
+      # installers plus the update feed to the draft. Windows builds one
+      # installer per chip and never publishes here; see scripts/package.mjs.
       - name: Build and publish the installers
         if: startsWith(github.ref, 'refs/tags/v')
         run: npm run package --workspace @weaveforge/desktop -- --publish always
@@ -130,17 +151,23 @@ jobs:
           fi
           echo "The export points at the OCI data API."
 
-      # The themed setup window with the NSIS installer inside it — what the
-      # download page offers. The NSIS file stays on the release as well: the
-      # updater's `latest.yml` names it, and it is what installed copies run.
-      - name: Pack the themed Windows setup
+      # One themed setup per chip, each carrying that chip's NSIS installer.
+      # The `-update.exe` files stay on the release too: the merged
+      # `latest.yml` names them, and the updater runs them silently.
+      - name: Pack the themed Windows setups
         if: runner.os == 'Windows'
-        run: npm run pack:setup --workspace @weaveforge/desktop
+        run: |
+          npm run pack:setup --workspace @weaveforge/desktop -- --arch x64
+          npm run pack:setup --workspace @weaveforge/desktop -- --arch arm64
 
-      - name: Add the themed setup to the release
+      - name: Add the Windows files to the release
         if: runner.os == 'Windows' && startsWith(github.ref, 'refs/tags/v')
         shell: bash
-        run: gh release upload "${GITHUB_REF#refs/tags/}" apps/desktop/release/WeaveForge-*-Windows-Installer.exe --clobber
+        run: |
+          cd apps/desktop/release
+          gh release upload "${GITHUB_REF#refs/tags/}" --clobber \
+            WeaveForge-*-Windows-*-Installer.exe \
+            WeaveForge-*-update.exe WeaveForge-*-update.exe.blockmap latest.yml
 
       - name: Upload the installers as workflow artifacts
         if: "!startsWith(github.ref, 'refs/tags/v')"
@@ -149,6 +176,7 @@ jobs:
           name: installers-${{ matrix.os }}
           path: |
             apps/desktop/release/*.exe
+            apps/desktop/release/*.blockmap
             apps/desktop/release/*.dmg
             apps/desktop/release/*.AppImage
             apps/desktop/release/latest*.yml

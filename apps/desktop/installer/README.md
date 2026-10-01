@@ -21,8 +21,8 @@ in-app updater downloads and runs it silently, so updates never see the window.
 The uninstaller is still NSIS's, in the Mocha colours from `installer.nsh`.
 
 ```
-npm run package --workspace @weaveforge/desktop   # makes release/WeaveForge Setup <v>.exe
-npm run pack:setup --workspace @weaveforge/desktop # makes release/WeaveForge-<v>-Windows-Installer.exe
+npm run package --workspace @weaveforge/desktop   # makes release/WeaveForge-<v>-<arch>-update.exe per chip
+npm run pack:setup --workspace @weaveforge/desktop -- --arch x64 # makes release/WeaveForge-<v>-Windows-x64-Installer.exe
 ```
 
 `pack-setup.mjs` builds the window with cargo and appends the NSIS file, a

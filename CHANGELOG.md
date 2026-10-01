@@ -4,8 +4,8 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and every track
 follows [Semantic Versioning](https://semver.org/).
 
-**Three tracks, three version numbers.** The desktop app, the Python SDK and the
-Android build are released separately and number themselves separately — see
+**Four tracks, four version numbers.** The desktop app, the Python SDK, the
+Android app and the iOS app are released separately and number themselves separately — see
 [`docs/building/release.md`](docs/building/release.md). Entries go under the
 track they belong to, and a release heading names its track. 0.6.0 and every
 release before it were cut in lockstep, so those headings cover all three
@@ -18,6 +18,25 @@ tracks at once.
 ### Python SDK
 
 ### Android
+
+### iOS
+
+## [0.8.0] - 2026-10-01
+
+Desktop (`v0.8.0`), Android (`android-v0.8.0`) and iOS (`ios-v0.8.0`). The Python SDK keeps its own numbers.
+
+### Desktop
+- **One file per platform:** Windows ships one installer per chip (`WeaveForge-0.8.0-Windows-x64-Installer.exe`, `…-arm64-Installer.exe`), macOS one universal `WeaveForge-0.8.0-macOS.dmg` (Intel and Apple silicon), Linux one AppImage.
+- **Taskbar icon:** on Windows the window icon follows the taskbar theme (cream mark on a dark taskbar); the default icon is outlined so it reads on either.
+- **Sync:** hardened conflict resolution and a redesigned conflict screen.
+- **UI:** card tint on every theme, nav highlight, modal outlines.
+
+### Android
+- **One APK:** the native app (`WeaveForge-0.8.0-Android.apk`) is the only Android release; the TWA wrapper is no longer published.
+- **Smoother scrolling:** Papers and other long lists no longer stall and jump mid-scroll on phones.
+
+### iOS
+- **New:** WKWebView shell (`apps/ios`), released as one unsigned `WeaveForge-0.8.0-iOS.ipa` for sideloading.
 
 ## [0.7.5] - 2026-10-01
 

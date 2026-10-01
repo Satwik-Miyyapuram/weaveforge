@@ -1,0 +1,4 @@
+WeaveForge.xcodeproj/
+WeaveForge/Info.plist
+build/
+*.ipa
