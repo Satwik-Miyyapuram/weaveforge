@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { ImportDiff, WorkspaceCommit } from "@weaveforge/core";
 import { formatError } from "@/lib/format-error";
 import { desktop } from "@/lib/desktop/desktop-bridge";
@@ -24,7 +24,7 @@ import {
   openBrowserStorageFolder,
 } from "@/features/workspace/application/workspace-folder";
 import { FormError } from "@/components/form-error";
-import { useProject } from "@/features/projects";
+import { ProjectContext } from "@/features/projects";
 import dynamic from "next/dynamic";
 
 const FolderConflictCard = dynamic(
@@ -104,7 +104,8 @@ function useFolderPath(session: FolderSession | null): string | null {
 export function WorkspaceFolderPanel() {
   const [session, setSession] = useState(folderSession());
   const [git, setGit] = useState(false);
-  const { current } = useProject();
+  // No provider in some renders (tests); no project then.
+  const current = useContext(ProjectContext)?.current ?? null;
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
