@@ -1,13 +1,13 @@
 import { mergeRows, type FieldConflict, type Row } from "./merge";
-import { Outbox, type OutboxEntry, type SqlRunner } from "./outbox";
+import { Outbox, type SqlRunner } from "./outbox";
 
 /**
  * The disagreements the device could not settle, and how they get settled.
  *
- * A conflict is opened by the pump, which learns only that the server has a
- * newer version, and completed by the puller, which is what actually carries
- * the server's row. In between it holds two of the three sides, which is the
- * honest state: something disagrees, and we have not yet heard what.
+ * A conflict is opened when the server turns out to hold a newer version of a
+ * row this device still owes edits for — by the pump on a refusal, or by the
+ * puller when the change feed brings it — and settled once the server's row
+ * is in hand.
  *
  * Most completed conflicts resolve themselves. Two devices editing different
  * fields of the same row collide on the version and not on the work, and
@@ -44,60 +44,99 @@ export class ConflictStore {
   constructor(private readonly sql: SqlRunner) {}
 
   /**
-   * The pump's half: this op was refused as stale.
+   * Two sides of a disagreement, taken from what this device still owes for
+   * the row: the base its first unsent edit started from, and its latest
+   * state. The ops are dropped — the conflict now speaks for them, and the
+   * merge queues one op of its own.
    *
-   * An insert has no base, so there is nothing to merge against and nothing
-   * useful to record — the row already exists on the server and the puller will
-   * bring it.
-   *
-   * `serverVersion` may be null (the transport could not read it). The column is
-   * nullable and stays that way through the re-queue: `resolveWith` hands it
-   * back as the next attempt's `baseVersion`, and a 0 written here would become
-   * a guard on a version no row has — an op that conflicts for ever instead of
-   * dead-lettering once.
+   * An insert has no base; `{}` makes every field the two sides set
+   * differently a question, which is what "both created it" means.
    */
-  async open(entry: OutboxEntry, serverVersion: number | null): Promise<void> {
-    if (!entry.basePayload) return;
+  async openFor(table: string, rowId: string, serverVersion: number | null): Promise<void> {
+    const outbox = new Outbox(this.sql);
+    const ops = (await outbox.forRow(table, rowId)).filter((op) => op.op !== "delete");
+    const first = ops[0];
+    const last = ops[ops.length - 1];
+    if (!first || !last) return;
     await this.sql.exec(
       `insert into sync_conflicts (table_name, row_id, base, local, server_version)
        values ($1, $2, $3::jsonb, $4::jsonb, $5)
-       on conflict (table_name, row_id) where resolved_at is null do nothing`,
+       on conflict (table_name, row_id) where resolved_at is null
+       do update set local = excluded.local, server_version = excluded.server_version`,
       [
-        entry.table,
-        entry.rowId,
-        JSON.stringify(entry.basePayload),
-        JSON.stringify(entry.payload),
+        table,
+        rowId,
+        JSON.stringify(first.basePayload ?? {}),
+        JSON.stringify(last.payload),
         serverVersion,
       ],
     );
+    await outbox.dropRow(table, rowId);
+  }
+
+  /** Write the server's row locally without queueing it back. */
+  async applyRemote(table: string, row: Row): Promise<void> {
+    await this.sql.exec("select sync_apply($1, $2::jsonb)", [table, JSON.stringify(row)]);
   }
 
   /**
-   * The puller's half: here is what the server actually says.
+   * The server's side has arrived; merge.
    *
-   * Returns the merged row when the two sides turn out to be compatible, so the
-   * caller can write it and be done. A real disagreement stays open, and the
-   * server's row stands locally until the reader chooses — a device showing its
-   * own unsent version would be showing something nobody else can see.
+   * A clean merge is written locally and queued as one update on the server's
+   * version, so nobody is asked about two edits to different fields. A real
+   * disagreement stays open with the server's row standing until the reader
+   * chooses — a device showing its own unsent version would be showing
+   * something nobody else can see.
    */
-  async settle(table: string, rowId: string, remote: Row): Promise<Row | null> {
+  async settle(
+    table: string,
+    rowId: string,
+    remote: Row,
+    remoteVersion?: number | null,
+  ): Promise<Row | null> {
     const row = await this.sql.queryOne<ConflictRow>(
       `select ${COLUMNS} from sync_conflicts
         where table_name = $1 and row_id = $2 and resolved_at is null`,
       [table, rowId],
     );
     if (!row) return null;
+    const version =
+      remoteVersion ?? (typeof remote.row_version === "number" ? remote.row_version : null);
 
     const { merged, conflicts } = mergeRows(row.base, row.local, remote);
     if (conflicts.length === 0) {
+      await this.write(table, rowId, merged, remote, version);
       await this.resolve(row.id);
       return merged;
     }
     await this.sql.exec(
-      "update sync_conflicts set remote = $1::jsonb, fields = $2::jsonb where id = $3",
-      [JSON.stringify(remote), JSON.stringify(conflicts), row.id],
+      "update sync_conflicts set remote = $1::jsonb, fields = $2::jsonb, server_version = $3 where id = $4",
+      [JSON.stringify(remote), JSON.stringify(conflicts), version, row.id],
     );
     return null;
+  }
+
+  /** The decided row, stored locally and owed to the server unless it already holds it. */
+  private async write(
+    table: string,
+    rowId: string,
+    chosen: Row,
+    remote: Row,
+    version: number | null,
+  ): Promise<void> {
+    const outbox = new Outbox(this.sql);
+    await outbox.dropRow(table, rowId);
+    // Local may still hold this device's side; the server hears only of a change.
+    await this.applyRemote(table, chosen);
+    if (sameRow(chosen, remote)) return;
+    await outbox.append({
+      table,
+      rowId,
+      op: "update",
+      payload: chosen,
+      basePayload: remote,
+      baseVersion: version,
+    });
   }
 
   async openConflicts(): Promise<OpenConflict[]> {
@@ -139,7 +178,8 @@ export class ConflictStore {
     // Nothing to decide against until the server's row has arrived.
     if (!remote) return;
 
-    const chosen: Row = { ...remote };
+    // Start from the merge, so a field only this device changed survives the pick.
+    const chosen: Row = { ...mergeRows(row.base, row.local, remote).merged };
     for (const [field, side] of Object.entries(picks)) {
       if (side === "local") chosen[field] = row.local[field];
     }
@@ -149,18 +189,7 @@ export class ConflictStore {
       }
     }
 
-    await this.sql.exec("select sync_apply($1, $2::jsonb)", [
-      row.table_name,
-      JSON.stringify(chosen),
-    ]);
-    await new Outbox(this.sql).append({
-      table: row.table_name,
-      rowId: row.row_id,
-      op: "update",
-      payload: chosen,
-      basePayload: remote,
-      baseVersion: row.server_version,
-    });
+    await this.write(row.table_name, row.row_id, chosen, remote, row.server_version);
     await this.resolve(id);
   }
 
@@ -168,4 +197,10 @@ export class ConflictStore {
   async resolve(id: string): Promise<void> {
     await this.sql.exec("update sync_conflicts set resolved_at = now() where id = $1", [id]);
   }
+}
+
+function sameRow(a: Row, b: Row): boolean {
+  return Object.keys({ ...a, ...b }).every(
+    (k) => JSON.stringify(a[k] ?? null) === JSON.stringify(b[k] ?? null),
+  );
 }

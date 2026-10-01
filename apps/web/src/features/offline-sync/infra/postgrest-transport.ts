@@ -56,7 +56,8 @@ export class PostgrestTransport implements SyncTransport {
       if (entry.op === "delete" && (await this.gone(entry))) return { status: "accepted" };
       return this.conflict(entry);
     }
-    return { status: "accepted" };
+    const version = (attempt.rows?.[0] as { row_version?: unknown } | undefined)?.row_version;
+    return typeof version === "number" ? { status: "accepted", newVersion: version } : { status: "accepted" };
   }
 
   async changesSince(since: number, limit: number): Promise<RemoteChange[]> {
@@ -122,11 +123,16 @@ export class PostgrestTransport implements SyncTransport {
       const table = encodeURIComponent(entry.table);
       const found = await this.request(
         "GET",
-        `/${table}?id=eq.${encodeURIComponent(entry.rowId)}&select=row_version`,
+        `/${table}?id=eq.${encodeURIComponent(entry.rowId)}&select=*`,
       );
-      const row = Array.isArray(found.rows) ? found.rows[0] : undefined;
-      const version = (row as { row_version?: unknown } | undefined)?.row_version;
-      return { status: "conflict", serverVersion: typeof version === "number" ? version : null };
+      const row = (Array.isArray(found.rows) ? found.rows[0] : undefined) as
+        | Record<string, unknown>
+        | undefined;
+      const version = row?.row_version;
+      const serverVersion = typeof version === "number" ? version : null;
+      // An unreadable answer says nothing about the row; leave it out rather than claim "gone".
+      if (found.status >= 400 || !Array.isArray(found.rows)) return { status: "conflict", serverVersion };
+      return { status: "conflict", serverVersion, serverRow: row ?? null };
     } catch {
       return { status: "conflict", serverVersion: null };
     }

@@ -1188,9 +1188,18 @@
   text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 3px;
 }
 /* Settings rows divide by the design's faint ink rule, straight, not a rounded hairline. */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.integration-item + .integration-item, .sync-issue, .sync-conflict) {
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.integration-item + .integration-item, .sync-issue) {
   border-top: var(--bw) solid color-mix(in srgb, var(--bw-line) 20%, transparent);
 }
+/* Conflict cards and their pickers wear the hard ink edge and offset shadow. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-conflict {
+  border: var(--bw) solid var(--bw-line); border-radius: var(--radius); box-shadow: var(--sh-sm);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.sync-side, .sync-seg, .sync-diff, .sync-edit) {
+  border-color: var(--bw-line); border-width: var(--bw);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-side { border-left-width: 4px; border-left-color: var(--side); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-side[aria-checked="true"] { box-shadow: var(--sh-sm); background: var(--card-tint, var(--surface)); }
 /* The read view's picture control floats like any other menu. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .image-size {
   background: var(--card-tint, var(--surface));

@@ -59,13 +59,35 @@ test("an update is guarded by the version it was based on", async () => {
   assert.equal(calls[0]!.headers.authorization, "Bearer jwt");
 });
 
+test("an accepted write reports the server's new version when it returns one", async () => {
+  const { transport } = harness([{ status: 200, body: [{ id: "x", row_version: 4 }] }]);
+  assert.deepEqual(await transport.send(entry()), { status: "accepted", newVersion: 4 });
+});
+
 test("a guarded write that matched no row is a conflict, with the server's version", async () => {
   const { transport, calls } = harness([
     { status: 200, body: [] },
     { status: 200, body: [{ row_version: 7 }] },
   ]);
-  assert.deepEqual(await transport.send(entry()), { status: "conflict", serverVersion: 7 });
+  assert.deepEqual(await transport.send(entry()), {
+    status: "conflict",
+    serverVersion: 7,
+    serverRow: { row_version: 7 },
+  });
   assert.equal(calls[1]!.method, "GET");
+  assert.match(calls[1]!.url, /select=\*/);
+});
+
+test("a conflict on a row the server no longer has says so", async () => {
+  const { transport } = harness([
+    { status: 200, body: [] },
+    { status: 200, body: [] },
+  ]);
+  assert.deepEqual(await transport.send(entry()), {
+    status: "conflict",
+    serverVersion: null,
+    serverRow: null,
+  });
 });
 
 test("an op with no base version is sent unguarded, not guarded on zero", async () => {
@@ -117,6 +139,7 @@ test("a delete of a row someone edited since is a conflict", async () => {
   assert.deepEqual(await transport.send(entry({ op: "delete" })), {
     status: "conflict",
     serverVersion: 5,
+    serverRow: { row_version: 5 },
   });
 });
 

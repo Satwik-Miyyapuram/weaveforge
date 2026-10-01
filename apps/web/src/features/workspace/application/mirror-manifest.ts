@@ -1,10 +1,13 @@
 import {
   WORKSPACE_META_DIR,
   digestText,
+  idSuffix,
+  projectDir,
   projectMetaDir,
   stampWorkspaceId,
   type IWorkspaceFs,
   type VaultPageBase,
+  type WorkspaceProject,
 } from "@weaveforge/core";
 
 /**
@@ -149,6 +152,57 @@ export async function readMirrorBases(
   } catch {
     return {};
   }
+}
+
+/**
+ * Carry a renamed project's folder over to its new `slug--id6` name.
+ *
+ * Without this the new name has no manifest, so the mirror writes a second full
+ * copy and edits made in the old folder are never imported. Returns the old
+ * folder when one was moved.
+ */
+export async function followProjectRename(
+  fs: IWorkspaceFs,
+  project: WorkspaceProject,
+): Promise<string | null> {
+  const root = projectDir(project);
+  if (await fs.stat(root)) return null;
+  const tail = `--${idSuffix(project.id)}`;
+  const found = (await fs.list("")).filter((e) => e.kind === "dir" && e.path.endsWith(tail));
+  // Two folders sharing the id suffix: no safe pick.
+  if (found.length !== 1) return null;
+  const old = found[0]!.path;
+  const moved = (path: string) => (path.startsWith(`${old}/`) ? root + path.slice(old.length) : path);
+
+  const files: string[] = [];
+  for await (const entry of fs.walk(old)) files.push(entry.path);
+  for (const path of files) {
+    const to = moved(path);
+    await fs.mkdirp(to.slice(0, to.lastIndexOf("/")));
+    await fs.rename(path, to);
+  }
+
+  const manifest = mirrorManifestPath(root);
+  const text = await fs.readText(manifest).catch(() => null);
+  if (text !== null) {
+    try {
+      const parsed = JSON.parse(text) as Record<string, unknown>;
+      const rekey = (value: unknown) =>
+        typeof value === "object" && value !== null
+          ? Object.fromEntries(Object.entries(value).map(([k, v]) => [moved(k), v]))
+          : value;
+      if (Array.isArray(parsed.paths)) {
+        parsed.paths = parsed.paths.map((p: unknown) => (typeof p === "string" ? moved(p) : p));
+      }
+      parsed.digests = rekey(parsed.digests);
+      parsed.bases = rekey(parsed.bases);
+      await fs.writeFile(manifest, `${JSON.stringify(parsed, null, 2)}\n`);
+    } catch {
+      // Unreadable manifest: files still moved; the next run re-learns them.
+    }
+  }
+  await fs.remove(old, { recursive: true }).catch(() => undefined);
+  return old;
 }
 
 /** The digest a file's text is recorded under. Change detection only. */

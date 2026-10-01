@@ -62,6 +62,11 @@ export function mergeRows(base: Row, local: Row, remote: Row): FieldMergeResult 
       merged[field] = l;
       continue;
     }
+    // An edit stamp is not work: the later one wins.
+    if (field === "updated_at") {
+      merged[field] = String(l) > String(r) ? l : r;
+      continue;
+    }
     // Both moved it somewhere different. The remote value stands in the merged
     // row so the device stays consistent with the server until the reader
     // decides; the conflict carries all three sides so they can.

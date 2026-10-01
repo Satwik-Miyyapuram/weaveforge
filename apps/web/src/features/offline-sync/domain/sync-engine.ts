@@ -27,6 +27,8 @@ export interface SyncQuota {
 
 /** 200 pages of 500: a hundred thousand rows before the next tick takes over. */
 const MAX_PAGES_PER_CYCLE = 200;
+/** Push batches per cycle; a backlog drains now rather than 100 ops per tick. */
+const MAX_PUSH_ROUNDS = 50;
 
 export const unlimitedSync: SyncQuota = {
   check: async () => ({ allowed: true }),
@@ -79,7 +81,7 @@ export class SyncEngine {
     const verdict = await this.quota.check(request.accountId);
     if (!verdict.allowed) throw new SyncRefusedError(verdict.reason);
     const result = await this.adoption.run(request);
-    await this.pump.run();
+    await this.push();
     return result;
   }
 
@@ -92,7 +94,7 @@ export class SyncEngine {
    * the conflict is reported rather than quietly resolved.
    */
   async cycle(): Promise<CycleResult> {
-    const pushed = await this.pump.run();
+    const pushed = await this.push();
     // Nothing to pull if the network just refused the push — the pull would
     // only fail the same way, and a thrown pull loses the push's report.
     if (pushed.stoppedBecause === "offline") {
@@ -108,5 +110,17 @@ export class SyncEngine {
       applied += pulled.applied;
     }
     return { pushed, pulled: { ...pulled, applied } };
+  }
+
+  private async push(): Promise<PumpResult> {
+    const total: PumpResult = { sent: 0, conflicts: [], stoppedBecause: null };
+    for (let round = 0; round < MAX_PUSH_ROUNDS; round += 1) {
+      const step = await this.pump.run();
+      total.sent += step.sent;
+      total.conflicts.push(...step.conflicts);
+      total.stoppedBecause = step.stoppedBecause;
+      if (step.sent === 0 || step.stoppedBecause) break;
+    }
+    return total;
   }
 }

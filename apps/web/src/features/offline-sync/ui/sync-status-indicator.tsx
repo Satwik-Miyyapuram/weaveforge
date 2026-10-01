@@ -1,15 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
 import { useLiveSync } from "./use-live-sync";
+import { setLiveSyncState } from "../domain/live-sync";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-
-const OfflineWorkModal = dynamic(
-  () => import("./offline-work-modal").then((m) => m.OfflineWorkModal),
-  { ssr: false },
-);
 
 /** `attentionOnly`: render only states the person must act on (offline work, conflicts). */
 export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?: boolean } = {}) {
@@ -20,32 +14,13 @@ export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?:
     enabled,
     isOnline,
     conflictsCount,
-    offlineWorkCount,
     lastSyncAt,
+    lastAdoption,
     syncNow,
   } = useLiveSync();
 
-  const [modalOpen, setModalOpen] = useState(false);
-
   // Desktop only
   if (!desktop()) return null;
-
-  if (phase === "needs-adoption" && offlineWorkCount > 0) {
-    return (
-      <>
-        <button
-          type="button"
-          className="sync-badge needs-adoption"
-          onClick={() => setModalOpen(true)}
-          title="You have offline work from before signing in. Click to review and sync."
-        >
-          <span className="sync-dot amber" />
-          <span>Offline work ({offlineWorkCount})</span>
-        </button>
-        <OfflineWorkModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
-      </>
-    );
-  }
 
   if (conflictsCount > 0) {
     return (
@@ -66,6 +41,29 @@ export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?:
   }
 
   if (attentionOnly) return null;
+
+  // Signing in merged this device's branch into the account's; say so once.
+  if (lastAdoption && lastAdoption.claimed + lastAdoption.queued + lastAdoption.renamed.length > 0) {
+    const renamed = lastAdoption.renamed;
+    return (
+      <button
+        type="button"
+        className="sync-badge merged"
+        onClick={() => setLiveSyncState({ lastAdoption: null })}
+        title={
+          (renamed.length > 0
+            ? `Renamed to avoid clashing with your account:\n${renamed.map((r) => `${r.from} → ${r.to}`).join("\n")}\n`
+            : "") + "Click to dismiss."
+        }
+      >
+        <span className="sync-dot green" />
+        <span>
+          Merged with your account{renamed.length > 0 ? ` · ${renamed.length} renamed` : ""}
+        </span>
+        <span aria-hidden="true">×</span>
+      </button>
+    );
+  }
 
   if (phase === "syncing") {
     return (

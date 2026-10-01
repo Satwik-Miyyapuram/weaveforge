@@ -17,14 +17,20 @@ import type { OutboxEntry } from "./outbox";
  * retrying it is noise. `offline` is neither — the op is still owed.
  */
 export type SendOutcome =
-  | { status: "accepted" }
+  /** `newVersion` is the server's `row_version` after the write, when it said. */
+  | { status: "accepted"; newVersion?: number }
   /**
    * The server has a version this op was not based on. `serverVersion` is
    * `null` when the transport could not read it — unknown, and kept unknown
    * rather than defaulted to 0, because this value is what the next attempt
    * guards on.
    */
-  | { status: "conflict"; serverVersion: number | null }
+  | {
+      status: "conflict";
+      serverVersion: number | null;
+      /** The server's row when it could be read, so the merge need not wait for a pull. */
+      serverRow?: Record<string, unknown> | null;
+    }
   | { status: "refused"; reason: string }
   | { status: "offline" };
 

@@ -47,24 +47,24 @@ import { syncEngine } from "./use-sync";
  * window also syncs, at most every thirty seconds, since that is when someone
  * expects to see what they did elsewhere.
  *
- * ## Local-first
+ * ## Signing in
  *
- * A signed-in desktop whose database holds nothing of its own is adopted by the
- * account without asking: there is nothing to merge, so nothing to decide. Once
- * the first download has caught up the window is marked local-first and
- * reloaded, and from then on it reads and writes its own copy (see
- * `local-first.ts`). A database with work made before signing in is left to the
- * sync offer in Settings, which asks before merging it into an account.
+ * Signing in merges this device's branch with the account's: local work is
+ * adopted (colliding project names kept side by side), pushed, and the account's
+ * rows pulled, with rows changed on both sides merged field by field. Only a
+ * field both sides changed differently waits for a person. Once caught up the
+ * window is marked local-first and reloaded (see `local-first.ts`). Signing out
+ * stops the loop; a window signed in as another account never drives it.
  */
 
 import { onWorkspaceChange } from "@/lib/workspace-changes";
 import { setLiveSyncState, registerSyncTrigger } from "../domain/live-sync";
-import { Adoption } from "../domain/adoption";
 import { ConflictStore } from "../domain/conflicts";
 
 const CYCLE_MS = 45 * 1000;
 const FOCUS_MS = 15 * 1000;
 const DEBOUNCE_CHANGE_MS = 1500;
+const BOOT_RETRY_MS = 30 * 1000;
 
 export function mayDriveDevice(
   signedInUserId: string | null,
@@ -88,62 +88,71 @@ export function createCycleRunner(run: () => Promise<void>): () => Promise<void>
   };
 }
 
+/** What a window does for the session it holds: the device's account drives it. */
+export type SessionAction = "idle" | "adopt" | "drive" | "foreign";
+
+export function sessionAction(
+  signedInUserId: string | null,
+  adoptedAccountId: string | null,
+): SessionAction {
+  if (!signedInUserId) return "idle";
+  if (adoptedAccountId === null) return "adopt";
+  return mayDriveDevice(signedInUserId, adoptedAccountId) ? "drive" : "foreign";
+}
+
 export function SyncLoop() {
   useEffect(() => {
     const bridge = desktop();
     if (!bridge) return;
+    if (isLocalMode()) {
+      setLiveSyncState({ phase: "offline", enabled: false, isOnline: false });
+      return;
+    }
 
+    const config = readBackendConfig();
+    const client = createSupabaseClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "");
+    const runner = new LocalRunner();
+    const state = new SyncStateStore(runner);
     let cancelled = false;
     let stop: (() => void) | undefined;
+    let drivenBy: string | null = null;
+    // Auth events arrive in bursts; each boot waits for the one before it.
+    let booting: Promise<void> = Promise.resolve();
 
-    void (async () => {
-      if (isLocalMode()) {
-        setLiveSyncState({ phase: "offline", enabled: false, isOnline: false });
-        return;
-      }
-      const config = readBackendConfig();
-      const client = createSupabaseClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "");
-      const runner = new LocalRunner();
-      const state = new SyncStateStore(runner);
+    const halt = () => {
+      stop?.();
+      stop = undefined;
+      drivenBy = null;
+    };
+
+    const boot = async (user: { id: string; email?: string | null } | null) => {
+      if (cancelled) return;
+      if (user && drivenBy === user.id) return;
+      halt();
       let current = await state.read();
-      const { data } = await client.auth.getSession();
-      const signedIn = data.session?.user ?? null;
-
-      if (current.accountId === null) {
-        // Not adopted: there is no account for the outbox to belong to, and
-        // asking the server would be a request per tick that can only be refused.
-        if (cancelled || !signedIn) return;
-
-        const adoption = new Adoption(runner, LOCAL_USER_ID);
-        const { data: remote } = await client.from("projects").select("name");
-        const remoteNames = (remote ?? []).map((r: { name: string }) => r.name);
-        const summary = await adoption.inspect(remoteNames);
-
-        if (summary.totalCount === 0) {
-          await enableSync();
-          current = await state.read();
-          if (current.accountId === null) return;
-        } else {
-          // Has offline work waiting for user review or 1-click adoption:
-          setLiveSyncState({
-            phase: "needs-adoption",
-            offlineWorkCount: summary.totalCount,
-            offlineSummary: summary,
-          });
-          return;
-        }
+      let action = sessionAction(user?.id ?? null, current.accountId);
+      if (action === "adopt") {
+        // Signing in merges the two branches: local work joins the account,
+        // name collisions are kept side by side, and the first cycle pulls the rest.
+        setLiveSyncState({ phase: "syncing" });
+        const adopted = await enableSync();
+        setLiveSyncState({ lastAdoption: adopted });
+        current = await state.read();
+        action = sessionAction(user?.id ?? null, current.accountId);
       }
       if (cancelled) return;
+      if (action !== "drive" || !user) {
+        setLiveSyncState({ enabled: false, accountId: current.accountId, phase: "idle" });
+        return;
+      }
+      drivenBy = user.id;
+      stop = drive(user);
+    };
 
-      // This window's session has to be the account the device belongs to. A
-      // window signed in as somebody else — or signed out — must not pump, and
-      // it shows the server rather than someone else's local copy.
-      const owner = mayDriveDevice(signedIn?.id ?? null, current.accountId) ? signedIn : null;
-      if (!owner) return;
-
+    const drive = (owner: { id: string; email?: string | null }) => {
       setLiveSyncState({
         enabled: true,
-        accountId: current.accountId,
+        accountId: owner.id,
         phase: typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "idle",
         isOnline: typeof navigator !== "undefined" ? navigator.onLine : true,
       });
@@ -159,7 +168,7 @@ export function SyncLoop() {
 
       const settle = (result: CycleResult) => {
         const caughtUp = result.pushed.stoppedBecause === null && !result.pulled.more;
-        if (caughtUp && owner && localFirstAccount()?.id !== owner.id) {
+        if (caughtUp && localFirstAccount()?.id !== owner.id) {
           setLocalFirstAccount({ id: owner.id, email: owner.email ?? null });
           window.location.reload();
           return;
@@ -177,42 +186,31 @@ export function SyncLoop() {
         setLiveSyncState({ phase: "syncing" });
         try {
           settle(await engine.cycle());
-          setLiveSyncState({
-            phase: "idle",
-            lastSyncAt: Date.now(),
-            isOnline: true,
-          });
-          void updateConflicts();
+          setLiveSyncState({ phase: "idle", lastSyncAt: Date.now(), isOnline: true });
         } catch {
-          // A cycle that throws records what it could: the puller
-          // writes `lastPullAt` on success and leaves the watermark alone on failure.
+          // The puller leaves the watermark alone on failure; the next tick retries.
           setLiveSyncState({
             phase: typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "error",
             isOnline: typeof navigator !== "undefined" ? navigator.onLine : false,
           });
         }
+        void updateConflicts();
       });
 
       const unregisterTrigger = registerSyncTrigger(() => void cycle());
-
       void cycle();
-      void updateConflicts();
 
       let debounceTimer: ReturnType<typeof setTimeout> | null = null;
       const unsubChange = onWorkspaceChange(() => {
         if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-          void cycle();
-        }, DEBOUNCE_CHANGE_MS);
+        debounceTimer = setTimeout(() => void cycle(), DEBOUNCE_CHANGE_MS);
       });
 
       const onOnline = () => {
         setLiveSyncState({ isOnline: true });
         void cycle();
       };
-      const onOffline = () => {
-        setLiveSyncState({ isOnline: false, phase: "offline" });
-      };
+      const onOffline = () => setLiveSyncState({ isOnline: false, phase: "offline" });
       const onFocus = () => {
         if (Date.now() - lastRun >= FOCUS_MS) void cycle();
       };
@@ -221,7 +219,7 @@ export function SyncLoop() {
       window.addEventListener("focus", onFocus);
       const timer = window.setInterval(() => void cycle(), CYCLE_MS);
 
-      stop = () => {
+      return () => {
         window.removeEventListener("online", onOnline);
         window.removeEventListener("offline", onOffline);
         window.removeEventListener("focus", onFocus);
@@ -230,13 +228,35 @@ export function SyncLoop() {
         unsubChange();
         unregisterTrigger();
       };
-      // The effect may have been torn down while the adoption state was loading.
-      if (cancelled) stop();
-    })().catch(() => undefined);
+    };
+
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    const queue = (user: { id: string; email?: string | null } | null) => {
+      if (retry) clearTimeout(retry);
+      retry = null;
+      booting = booting.then(() => boot(user)).catch(() => {
+        setLiveSyncState({ phase: "error" });
+        // A merge that failed (offline at sign-in) tries again rather than waiting for the next sign-in.
+        if (user && !cancelled) retry = setTimeout(() => queue(user), BOOT_RETRY_MS);
+      });
+    };
+
+    // Signing in or out while the window is open starts or stops the loop.
+    const { data: sub } = client.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        queue(null);
+        return;
+      }
+      if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "USER_UPDATED") {
+        queue(session?.user ?? null);
+      }
+    });
 
     return () => {
       cancelled = true;
-      stop?.();
+      if (retry) clearTimeout(retry);
+      sub.subscription.unsubscribe();
+      halt();
     };
   }, []);
 

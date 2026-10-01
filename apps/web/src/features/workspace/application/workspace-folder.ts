@@ -60,6 +60,7 @@ import {
   jsonEditSince,
   claimImportedFile,
   createCoalescer,
+  followProjectRename,
   nextManifest,
   readMirrorBase,
   readMirrorBases,
@@ -270,6 +271,7 @@ export async function syncToFolder(): Promise<SyncOutcome> {
   const fs = activeFs;
   const container = getContainer();
   const project = await activeProject();
+  await followProjectRename(fs, project);
   const projectRoot = projectDir(project);
   const snapshot = await container.workspace.snapshot();
   // This project's manifest, and only this project's: the paths in it are the
@@ -526,6 +528,7 @@ export async function previewFolderImport(): Promise<ImportDiff & { json: JsonDi
   const assets = new Map<string, Uint8Array>();
   let assetBytes = 0;
   const project = await activeProject();
+  await followProjectRename(activeFs, project);
   const projectRoot = projectDir(project);
   const base = await readMirrorBase(activeFs, projectRoot);
   const bases = await readMirrorBases(activeFs, projectRoot);

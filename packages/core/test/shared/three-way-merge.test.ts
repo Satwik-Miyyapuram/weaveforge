@@ -51,4 +51,14 @@ describe("the three-way merge", () => {
     assert.deepEqual(result.conflicts, []);
     assert.equal(result.merged.row_version, 4);
   });
+
+  it("keeps the later edit stamp instead of asking", () => {
+    const result = mergeRows(
+      { ...base, updated_at: "2026-01-01T00:00:00Z" },
+      { ...base, title: "Mine", updated_at: "2026-01-03T00:00:00Z" },
+      { ...base, done: true, updated_at: "2026-01-02T00:00:00Z" },
+    );
+    assert.deepEqual(result.conflicts, []);
+    assert.equal(result.merged.updated_at, "2026-01-03T00:00:00Z");
+  });
 });

@@ -108,3 +108,12 @@ test("the adoption check counts every table adoption would move", () => {
   // A name that needs quoting cannot escape its identifier.
   assert.match(ownedRowCountSql(['we"ird'])!, /"we""ird"/);
 });
+
+test("signing in adopts a device no account owns yet", async () => {
+  const { sessionAction } = await import("@/features/offline-sync/ui/sync-loop");
+  assert.equal(sessionAction("a", null), "adopt");
+  assert.equal(sessionAction("a", "a"), "drive");
+  assert.equal(sessionAction("b", "a"), "foreign");
+  assert.equal(sessionAction(null, "a"), "idle");
+  assert.equal(sessionAction(null, null), "idle");
+});
