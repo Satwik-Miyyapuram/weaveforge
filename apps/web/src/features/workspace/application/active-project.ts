@@ -31,7 +31,7 @@ export async function activeProject(): Promise<WorkspaceProject> {
     throw new Error(
       id
         ? `The open project (${id}) is not in the project list, so its folder cannot be named. Reopen it, then try again.`
-        : "No project is open, so there is nowhere to put this workspace. Open a project, then try again.",
+        : "Each project has its own subfolder in the workspace folder. Open a project to write it.",
     );
   }
   return project;

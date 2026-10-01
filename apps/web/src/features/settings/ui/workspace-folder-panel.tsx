@@ -24,6 +24,7 @@ import {
   openBrowserStorageFolder,
 } from "@/features/workspace/application/workspace-folder";
 import { FormError } from "@/components/form-error";
+import { useProject } from "@/features/projects";
 import dynamic from "next/dynamic";
 
 const FolderConflictCard = dynamic(
@@ -103,6 +104,7 @@ function useFolderPath(session: FolderSession | null): string | null {
 export function WorkspaceFolderPanel() {
   const [session, setSession] = useState(folderSession());
   const [git, setGit] = useState(false);
+  const { current } = useProject();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -252,13 +254,15 @@ export function WorkspaceFolderPanel() {
       ) : (
         <>
           <p className="muted jump-to-meta">
-            The mirror runs by itself. Write now before opening the folder in another editor.
+            {current
+              ? "The mirror runs by itself. Write now before opening the folder in another editor."
+              : "One folder for your account; each project writes its own subfolder. Open a project to write it."}
           </p>
           <div className="screen-actions">
             <button
               className="btn-secondary"
               type="button"
-              disabled={busy !== null}
+              disabled={busy !== null || !current}
               onClick={() =>
                 void run("sync", async () => {
                   const result = await syncToFolder();

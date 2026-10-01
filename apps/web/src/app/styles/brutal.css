@@ -282,11 +282,11 @@
 /* Destructive: the filled danger button, and the red-text secondary. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary.btn-danger {
   background: var(--danger-fill);
-  color: var(--s-danger);
+  color: var(--danger-on, var(--s-danger));
 }
 @media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary.btn-danger:hover:not(:disabled) {
   background: var(--danger-fill);
-  color: var(--s-danger);
+  color: var(--danger-on, var(--s-danger));
 } }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-secondary.danger {
   color: var(--danger-text);

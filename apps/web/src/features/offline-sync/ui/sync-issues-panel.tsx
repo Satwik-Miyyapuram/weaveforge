@@ -360,6 +360,7 @@ function deviceMarkers(ours: string, theirs: string): string {
 }
 
 function kindOf(table: string): string {
+  if (table === "vault_pages") return "Note";
   const kind = table.replace(/_/g, " ").replace(/s$/, "");
   return kind.charAt(0).toUpperCase() + kind.slice(1);
 }
