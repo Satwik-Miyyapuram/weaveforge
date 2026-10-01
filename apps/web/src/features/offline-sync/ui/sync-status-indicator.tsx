@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useLiveSync } from "./use-live-sync";
 import { desktop } from "@/lib/desktop/desktop-bridge";
@@ -11,8 +11,10 @@ const OfflineWorkModal = dynamic(
   { ssr: false },
 );
 
-export function SyncStatusIndicator() {
+/** `attentionOnly`: render only states the person must act on (offline work, conflicts). */
+export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?: boolean } = {}) {
   const router = useRouter();
+  const pathname = usePathname();
   const {
     phase,
     enabled,
@@ -50,7 +52,11 @@ export function SyncStatusIndicator() {
       <button
         type="button"
         className="sync-badge conflict"
-        onClick={() => router.push("/settings")}
+        onClick={() => {
+          // Same-page push does not fire hashchange; setting the hash does, and Settings listens.
+          if (pathname === "/settings") window.location.hash = "settings-sync";
+          else router.push("/settings#settings-sync");
+        }}
         title={`${conflictsCount} conflict${conflictsCount === 1 ? "" : "s"} require your attention. Click to resolve.`}
       >
         <span className="sync-dot amber" />
@@ -58,6 +64,8 @@ export function SyncStatusIndicator() {
       </button>
     );
   }
+
+  if (attentionOnly) return null;
 
   if (phase === "syncing") {
     return (

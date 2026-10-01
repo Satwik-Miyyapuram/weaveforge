@@ -274,6 +274,7 @@ button.nav-link {
   .layout.nav-collapsed .proj-switcher,
   .layout.nav-collapsed .org-switcher,
   .layout.nav-collapsed .local-mode-badge,
+  .layout.nav-collapsed .sync-badge > span:not(.sync-dot),
   .layout.nav-collapsed .nav-bottom .header-link span,
   .layout.nav-collapsed .nav-bottom .signout span,
   .layout.nav-collapsed .theme-toggle span { display: none; }
@@ -371,6 +372,20 @@ html[data-workspace-focus] .layout.editor-route .nav { display: none; }
   color: var(--muted); border: 1px solid var(--border); background: transparent;
 }
 .nav-bottom .local-mode-badge, .desktop-only .local-mode-badge { align-self: flex-start; margin-bottom: 6px; }
+/* Sync needs a decision: louder than the storage badge, since it is the one way to find conflicts. */
+.sync-badge {
+  display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+  padding: 4px 10px; margin-bottom: 6px; border-radius: 999px;
+  font: inherit; font-size: 0.72rem; font-weight: 600; cursor: pointer;
+  color: var(--text); background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid var(--accent);
+}
+.sync-badge:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+.sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+.sync-dot.muted { background: var(--muted); }
+.sync-dot.green { background: var(--success, #2e9d5b); }
+.sync-spin-icon { animation: sync-spin 1s linear infinite; }
+@keyframes sync-spin { to { transform: rotate(360deg); } }
 
 /* Below 461px the bottom bar cannot hold six words, so it holds six icons.
    Measured: each slot is `(width - 40) / 6`, and "Experiments" needs 64px of

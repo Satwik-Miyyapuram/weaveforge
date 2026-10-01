@@ -25,15 +25,23 @@ export function SyncIssuesPanel() {
     discard,
   } = useSyncIssues();
   const [showAll, setShowAll] = useState(false);
-  const { conflicts, dead } = issues;
+  const { dead } = issues;
+  // A conflict with no cloud copy yet has nothing to choose between; the next pull settles or fills it.
+  const conflicts = issues.conflicts.filter((c) => c.fields.length > 0);
+  const waiting = issues.conflicts.length - conflicts.length;
   const shown = showAll ? dead : dead.slice(0, DEAD_SHOWN);
-  if (conflicts.length === 0 && dead.length === 0) return null;
+  if (conflicts.length === 0 && dead.length === 0 && waiting === 0) return null;
 
   return (
     <div className="card settings-block">
       <h3 className="settings-group">Needs you</h3>
+      {waiting > 0 && (
+        <p className="muted">
+          {waiting} {waiting === 1 ? "edit was" : "edits were"} refused as out of date. Waiting for the cloud copy to compare.
+        </p>
+      )}
       {conflicts.length > 1 && (
-        <div className="field-inline" style={{ marginBottom: "12px" }}>
+        <div className="field-inline">
           <button
             type="button"
             className="btn-secondary"
@@ -66,7 +74,7 @@ export function SyncIssuesPanel() {
         <ConflictRow
           key={conflict.id}
           fields={conflict.fields.map((field) => field.field)}
-          label={`${conflict.table} · ${conflict.rowId.slice(0, 8)}`}
+          label={rowLabel(conflict.table, conflict.local, conflict.remote)}
           values={conflict.fields}
           onKeep={(picks) => void keep(conflict.id, picks)}
           onKeepAllLocal={() => void keepAllLocal(conflict.id)}
@@ -126,11 +134,11 @@ function ConflictRow({
 
   return (
     <div className="sync-conflict">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
-        <p style={{ margin: 0 }}>
+      <div className="sync-conflict-head">
+        <p>
           <strong>{label}</strong> changed in two places.
         </p>
-        <div className="field-inline" style={{ margin: 0 }}>
+        <div className="field-inline">
           <button type="button" className="btn-ghost btn-sm" onClick={onKeepAllLocal} title="Keep all fields from this device">
             Keep this device
           </button>
@@ -145,7 +153,7 @@ function ConflictRow({
           (value.local.includes("\n") || value.local.length > 60);
 
         return (
-          <div key={value.field} style={{ margin: "8px 0" }}>
+          <div key={value.field} className="sync-conflict-field">
             <div className="field-inline">
               <span className="muted">{value.field}</span>
               <button
@@ -185,27 +193,16 @@ function ConflictRow({
               )}
             </div>
             {expandedDiff === value.field && (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "8px",
-                  margin: "8px 0",
-                  padding: "8px",
-                  background: "var(--bg-muted, rgba(0,0,0,0.05))",
-                  borderRadius: "4px",
-                  fontSize: "0.82rem",
-                }}
-              >
+              <div className="sync-conflict-diff">
                 <div>
                   <strong>This device (local):</strong>
-                  <pre style={{ whiteSpace: "pre-wrap", maxHeight: "180px", overflowY: "auto", margin: "4px 0" }}>
+                  <pre>
                     {String(value.local)}
                   </pre>
                 </div>
                 <div>
                   <strong>Cloud (remote):</strong>
-                  <pre style={{ whiteSpace: "pre-wrap", maxHeight: "180px", overflowY: "auto", margin: "4px 0" }}>
+                  <pre>
                     {String(value.remote)}
                   </pre>
                 </div>
@@ -219,6 +216,16 @@ function ConflictRow({
       </button>
     </div>
   );
+}
+
+/** "Paper “Attention is all you need”" rather than a table name and a uuid. */
+function rowLabel(table: string, local: Record<string, unknown>, remote: Record<string, unknown> | null): string {
+  const kind = table.replace(/_/g, " ").replace(/s$/, "");
+  const name = [local, remote ?? {}]
+    .flatMap((row) => [row.title, row.name, row.label])
+    .find((v): v is string => typeof v === "string" && v.trim() !== "");
+  const head = kind.charAt(0).toUpperCase() + kind.slice(1);
+  return name ? `${head} “${name.length > 60 ? `${name.slice(0, 60)}…` : name}”` : head;
 }
 
 function show(value: unknown): string {

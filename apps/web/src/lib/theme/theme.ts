@@ -41,12 +41,6 @@ export type ControlSizeId = (typeof CONTROL_SIZES)[number];
 export const DEFAULT_LIGHT_THEME: LightThemeId = "brutal";
 export const DEFAULT_DARK_THEME: DarkThemeId = "brutal-dark";
 
-/** The redesign's themes: hard borders, offset shadows, status-tinted cards. */
-const BRUTAL_THEMES = new Set<string>(["brutal", "brutal-dark", "crt"]);
-export function isBrutalTheme(id: string): boolean {
-  return BRUTAL_THEMES.has(id);
-}
-
 export const CONTROL_SIZE_OPTIONS: ReadonlyArray<{ id: ControlSizeId; label: string }> = [
   { id: "compact", label: "Compact" },
   { id: "default", label: "Default" },
@@ -151,7 +145,7 @@ export function sanitizeCardTint(id: string | null | undefined): CardTint {
   return id === "bar" || id === "border" || id === "none" ? id : "full";
 }
 
-/** styles/brutal.css reads `data-tint`; other themes never look at it. */
+/** styles/card-tint.css reads `data-tint`, in every theme. */
 export function applyCardTint(tint: CardTint): void {
   document.documentElement.dataset.tint = sanitizeCardTint(tint);
 }

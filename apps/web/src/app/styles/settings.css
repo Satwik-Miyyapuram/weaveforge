@@ -107,7 +107,16 @@
 .settings-block { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
 .settings-block > .settings-group { margin: 0; }
 .settings-block > p { margin: 0; font-size: 0.875rem; }
-.sync-conflict { display: grid; gap: 8px; }
+.sync-conflict { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
+.sync-conflict-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.sync-conflict-head > p, .sync-conflict-head > .field-inline { margin: 0; }
+.sync-conflict-field { margin: 4px 0; }
+.sync-conflict-diff {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; padding: 8px;
+  background: var(--surface-2, var(--bg)); border-radius: 4px; font-size: 0.82rem;
+}
+.sync-conflict-diff pre { white-space: pre-wrap; max-height: 180px; overflow-y: auto; margin: 4px 0; }
+@media (max-width: 640px) { .sync-conflict-diff { grid-template-columns: 1fr; } }
 /* A write sync gave up on: what, why, then its two ways out. A row of the
    panel, divided like the connection rows, not a heading of its own. */
 .sync-issue { display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid var(--border); }

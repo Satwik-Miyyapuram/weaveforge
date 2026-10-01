@@ -2,16 +2,16 @@ import { CARD_TINT_OPTIONS, type CardTint } from "@/lib/theme/theme";
 
 /**
  * How reading status colours a paper card, each choice drawn as a small card
- * so the picker previews what it does. Poster and CRT only.
+ * so the picker previews what it does.
  */
 export function CardTintPicker({ value: cardTint, onChange }: { value: CardTint; onChange: (id: CardTint) => void }) {
   return (
     <div className="appearance-row appearance-row--stack">
       <div className="appearance-row-text">
         <span className="appearance-label" id="cardTint">
-          Card tint <span className="appearance-tag">Poster and CRT</span>
+          Card tint
         </span>
-        <p>How reading status colours a paper card. Only shown for the Poster and CRT themes.</p>
+        <p>How status colours a card.</p>
       </div>
       <span />
       <div className="tint-picker" role="radiogroup" aria-labelledby="cardTint">

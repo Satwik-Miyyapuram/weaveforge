@@ -5,6 +5,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { LocalRunner } from "@/backend/providers/local/local-runner";
 import { ConflictStore, type OpenConflict } from "../domain/conflicts";
 import { Outbox, type OutboxEntry } from "../domain/outbox";
+import { useLiveSync } from "./use-live-sync";
 
 /**
  * The two things sync can leave for a person to decide: rows two devices
@@ -56,7 +57,9 @@ export function useSyncIssues(): SyncIssuesHandle {
       .catch(() => setIssues(NONE));
   }, []);
 
-  useEffect(refresh, [refresh]);
+  // The sync loop owns the count; re-read whenever it moves so the panel never shows stale rows.
+  const { conflictsCount } = useLiveSync();
+  useEffect(refresh, [refresh, conflictsCount]);
 
   const act = useCallback(
     (run: (sql: LocalRunner) => Promise<void>) => run(new LocalRunner()).then(refresh),
@@ -93,7 +96,7 @@ export function useSyncIssues(): SyncIssuesHandle {
 
   const keepAllConflicts = useCallback(
     async (side: "local" | "remote") => {
-      for (const conflict of issues.conflicts) {
+      for (const conflict of issues.conflicts.filter((c) => c.fields.length > 0)) {
         const picks: Record<string, "local" | "remote"> = {};
         for (const f of conflict.fields) picks[f.field] = side;
         await keep(conflict.id, picks);

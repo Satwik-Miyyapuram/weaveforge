@@ -28,7 +28,7 @@ import { GitHubLinkCard } from "./github-link-card";
 import { Select } from "@/components/select";
 import { userIntegrationsForConfig } from "@/integrations/descriptors-resolve";
 import { isOfflineBuild } from "@/deployment/build-target";
-import { isBrutalTheme, sanitizeCardTint, type CardTint, DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_STYLE_OPTIONS, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, sanitizeThemeId, sanitizeControlSize, sanitizeSurfaceStyle, type ControlSizeId, type SurfaceStyle, type ThemeConfig } from "@/lib/theme/theme";
+import { sanitizeCardTint, type CardTint, DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_STYLE_OPTIONS, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, sanitizeThemeId, sanitizeControlSize, sanitizeSurfaceStyle, type ControlSizeId, type SurfaceStyle, type ThemeConfig } from "@/lib/theme/theme";
 import { persistThemeChange, readLocalAppearance } from "@/lib/theme/theme-persistence";
 import { AiAccessPanel } from "./ai-access-panel";
 import { CardTintPicker } from "./card-tint-picker";
@@ -170,9 +170,15 @@ export function SettingsScreen() {
 
   // Hash is read once on mount rather than tracked: `selectTab` writes it with
   // replaceState, and reacting to a hash we just wrote would fight the click.
+  // `hashchange` only fires for real hash navigations (the sync badge), never for replaceState.
   useEffect(() => {
-    const fromHash = tabFromHash(window.location.hash);
-    if (fromHash) setTab(fromHash);
+    const read = () => {
+      const fromHash = tabFromHash(window.location.hash);
+      if (fromHash) setTab(fromHash);
+    };
+    read();
+    window.addEventListener("hashchange", read);
+    return () => window.removeEventListener("hashchange", read);
   }, []);
 
   function selectTab(next: SettingsTabId) {
@@ -525,9 +531,7 @@ export function SettingsScreen() {
             value={darkTheme}
             onChange={handleDarkThemeChange}
           />
-          {(isBrutalTheme(lightTheme) || isBrutalTheme(darkTheme)) && (
-            <CardTintPicker value={cardTint} onChange={handleCardTintChange} />
-          )}
+          <CardTintPicker value={cardTint} onChange={handleCardTintChange} />
           <ThemeConfigPanel current={customTheme} onChange={handleCustomThemeChange} />
         </section>
 

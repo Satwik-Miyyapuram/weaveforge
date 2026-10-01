@@ -40,4 +40,5 @@
 @import "./appearance.css"; /* Settings → Appearance, laid out like a record page. */
 @import "./surfaces.css"; /* The borderless surfaces variant. */
 @import "./motion.css"; /* The reactive motion variant. */
-@import "./brutal.css"; /* Neo-brutalist + CRT look, scoped to those themes. Last: wins ties. */
+@import "./brutal.css"; /* Neo-brutalist + CRT look, scoped to those themes. */
+@import "./card-tint.css"; /* Status tint for every theme. Last: wins ties. */
