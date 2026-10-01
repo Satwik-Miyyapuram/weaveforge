@@ -492,6 +492,8 @@ function reportFolderChanges(paths: readonly string[]): void {
       if (fs) {
         const text = await fs.readText(path).catch(() => null);
         if (text !== null && !jsonEditSince(base, path, text)) continue;
+        // Unreadable and never mirrored: a directory event, not a deleted note.
+        if (text === null && base[path] === undefined) continue;
       }
       // Folder closed meanwhile: these belong to a folder no longer shown.
       if (activeFs !== fs) return;
