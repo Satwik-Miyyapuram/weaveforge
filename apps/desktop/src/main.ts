@@ -264,9 +264,7 @@ function createWindow(): BrowserWindow {
   });
 
   mainWindow = window;
-  window.on("closed", () => {
-    if (mainWindow === window) mainWindow = null;
-  });
+  window.on("closed", () => { if (mainWindow === window) mainWindow = null; });
   registerMemoryTrimming(window);
   followTaskbarTheme(window);
   // "Maximize" reads "Restore" once it has been, so the page's menu is stale.
