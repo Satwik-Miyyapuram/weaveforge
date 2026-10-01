@@ -22,6 +22,8 @@ function fakeShell() {
   const bridge = {
     fetchTitle: () => Promise.resolve(null),
     vaultRoot: () => Promise.resolve({ path: "/vault" }),
+    // Every path but a directory reads as a file somebody edited.
+    readVaultFile: (path: string) => Promise.resolve(path.endsWith(".md") ? "edited" : null),
     onVaultChange(cb: (paths: string[]) => void) {
       listeners.push(cb);
       return () => {
@@ -57,6 +59,14 @@ test("the manifest changing is not somebody else's edit", async (t) => {
   t.after(closeFolder);
   const shell = await connected();
   shell.changed([MIRROR_MANIFEST_PATH]);
+  assert.deepEqual(externalChanges(), []);
+});
+
+test("a directory event is not an edit", async (t) => {
+  t.after(closeFolder);
+  const shell = await connected();
+  shell.changed(["thesis--ab12cd34"]);
+  await settle();
   assert.deepEqual(externalChanges(), []);
 });
 
