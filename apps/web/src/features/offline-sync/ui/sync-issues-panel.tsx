@@ -12,6 +12,7 @@ import {
   type HunkPick,
 } from "@weaveforge/core";
 import type { OpenConflict } from "../domain/conflicts";
+import { sameValue } from "../domain/merge";
 import { useSyncIssues } from "./use-sync-issues";
 
 /**
@@ -136,12 +137,14 @@ function ConflictCard({
 }) {
   const [choices, setChoices] = useState<Record<string, Choice>>({});
   const [busy, setBusy] = useState(false);
-  const { fields } = conflict;
+  // Fields equal on both sides need no choice; showing them hid the real difference.
+  const fields = conflict.fields.filter((f) => !sameValue(f.local ?? null, f.remote ?? null));
+  const equal = conflict.fields.filter((f) => !fields.includes(f));
   const settled = fields.filter((f) => isSettled(f, choices[f.field])).length;
   const all = (kind: "local" | "remote") => setChoices(Object.fromEntries(fields.map((f) => [f.field, { kind }])));
 
   const resolve = async () => {
-    const picks: Record<string, "local" | "remote"> = {};
+    const picks: Record<string, "local" | "remote"> = Object.fromEntries(equal.map((f) => [f.field, "local"]));
     const overrides: Record<string, unknown> = {};
     for (const f of fields) {
       const c = choices[f.field]!;
@@ -162,7 +165,7 @@ function ConflictCard({
       <header className="sync-conflict-head">
         <span className="sync-chip">{kindOf(conflict.table)}</span>
         <strong className="sync-conflict-name">{nameOf(conflict)}</strong>
-        <span className="muted">{plural(fields.length, "field")} changed on both sides</span>
+        <span className="muted">changed on both sides: {fields.map((f) => humanize(f.field)).join(", ")}</span>
       </header>
       {fields.map((f) => (
         <FieldMerge
@@ -177,12 +180,16 @@ function ConflictCard({
           {settled} of {fields.length} chosen
         </span>
         <span className="sync-conflict-actions">
-          <button type="button" className="btn-ghost btn-sm" onClick={() => all("local")}>
-            All mine
-          </button>
-          <button type="button" className="btn-ghost btn-sm" onClick={() => all("remote")}>
-            All cloud
-          </button>
+          {fields.length > 1 && (
+            <>
+              <button type="button" className="btn-ghost btn-sm" onClick={() => all("local")}>
+                All mine
+              </button>
+              <button type="button" className="btn-ghost btn-sm" onClick={() => all("remote")}>
+                All cloud
+              </button>
+            </>
+          )}
           <button
             type="button"
             className="btn-primary btn-sm"
@@ -199,11 +206,14 @@ function ConflictCard({
 
 function FieldMerge({ field, choice, onChoose }: { field: Field; choice?: Choice; onChoose: (c: Choice) => void }) {
   const long = isLong(field.local) || isLong(field.remote);
+  // Values that read the same once formatted leave nothing to choose between.
+  const show = format(field.local) === format(field.remote) ? raw : format;
   return (
     <div className="sync-field">
       <div className="sync-field-label">
         <span>{humanize(field.field)}</span>
-        <span className="muted">was {format(field.base)}</span>
+        {/* Both sides created the row: there was no earlier value to show. */}
+        {field.base !== undefined && <span className="muted">was {format(field.base)}</span>}
       </div>
       {long ? (
         <TextMerge field={field} choice={choice} onChoose={onChoose} />
@@ -220,7 +230,7 @@ function FieldMerge({ field, choice, onChoose }: { field: Field; choice?: Choice
               onClick={() => onChoose({ kind: side })}
             >
               <span className="sync-side-tag">{side === "local" ? "This device" : "Cloud"}</span>
-              <span className="sync-side-value">{format(field[side])}</span>
+              <span className="sync-side-value">{show(field[side])}</span>
             </button>
           ))}
         </div>
@@ -388,6 +398,10 @@ function format(value: unknown): string {
   }
   const out = typeof value === "string" ? value : JSON.stringify(value);
   return out.length > 80 ? `${out.slice(0, 80)}…` : out;
+}
+
+function raw(value: unknown): string {
+  return value === undefined ? "missing" : JSON.stringify(value);
 }
 
 function plural(n: number, word: string, many = `${word}s`): string {

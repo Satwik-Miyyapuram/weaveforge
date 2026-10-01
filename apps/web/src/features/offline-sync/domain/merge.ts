@@ -9,6 +9,7 @@
 
 export {
   mergeRows,
+  sameValue,
   type FieldConflict,
   type FieldMergeResult as MergeResult,
   type Row,
