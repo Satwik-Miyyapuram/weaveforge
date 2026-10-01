@@ -36,6 +36,9 @@ function fakeShell() {
   };
 }
 
+/** Changed paths are checked against the manifest before they are reported. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 async function connected() {
   const shell = fakeShell();
   assert.equal(await chooseDesktopFolder({ git: false, reuse: true }), true);
@@ -46,6 +49,7 @@ test("a folder change outside the app is remembered, not applied", async (t) => 
   t.after(closeFolder);
   const shell = await connected();
   shell.changed(["notes/one.note.md", "notes/two.note.md"]);
+  await settle();
   assert.deepEqual(externalChanges(), ["notes/one.note.md", "notes/two.note.md"]);
 });
 
@@ -62,10 +66,13 @@ test("listeners hear the paths, and only when the set grows", async (t) => {
   const heard: string[][] = [];
   const off = onExternalChange((paths) => heard.push(paths));
   shell.changed(["a.md"]);
+  await settle();
   // The same file reported again is the same news.
   shell.changed(["a.md"]);
+  await settle();
   off();
   shell.changed(["b.md"]);
+  await settle();
   assert.deepEqual(heard, [["a.md"]]);
 });
 
@@ -75,6 +82,7 @@ test("clearing forgets them and says so", async (t) => {
   const heard: string[][] = [];
   onExternalChange((paths) => heard.push(paths));
   shell.changed(["a.md"]);
+  await settle();
   clearExternalChanges();
   assert.deepEqual(externalChanges(), []);
   assert.deepEqual(heard.at(-1), []);
@@ -87,5 +95,6 @@ test("disconnecting stops listening", async (t) => {
   closeFolder();
   assert.equal(shell.watching(), 0);
   shell.changed(["a.md"]);
+  await settle();
   assert.deepEqual(externalChanges(), []);
 });
