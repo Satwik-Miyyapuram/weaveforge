@@ -18,7 +18,7 @@ import { loadLocalDemoWorkspace } from "@/features/showcase/application/load-loc
  * project scopes the whole app to it.
  */
 export function ProjectsScreen() {
-  const { projects, loading, setProject, refresh } = useProject();
+  const { projects, loading, current, setProject, refresh } = useProject();
   const [name, setName] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const local = isLocalMode();
@@ -29,6 +29,15 @@ export function ProjectsScreen() {
     setName("");
     setAddOpen(false);
     setProject(p.id);
+  });
+
+  const [removing, setRemoving] = useState<{ id: string; name: string } | null>(null);
+  const { error: removeError, submit: remove } = useSubmit(async () => {
+    if (!removing) return;
+    await getContainer().projects.manageProject.remove(removing.id);
+    if (current?.id === removing.id) setProject(null);
+    setRemoving(null);
+    await refresh();
   });
 
   // The no-account copy starts empty. A filled workspace shows what every
@@ -52,6 +61,15 @@ export function ProjectsScreen() {
       </ScreenHead>
 
       {demoError && <FormError>{demoError}</FormError>}
+      {removeError && <FormError>{removeError}</FormError>}
+      {removing && (
+        <Modal title={`Delete "${removing.name}"?`} onClose={() => setRemoving(null)}>
+          <p>Its papers, Notes, tags, runs and report go with it, on every device. This cannot be undone.</p>
+          <button type="button" className="btn-primary btn-danger" onClick={() => void remove()}>
+            Delete project
+          </button>
+        </Modal>
+      )}
 
       {addOpen && (
         <Modal title="New project" onClose={() => setAddOpen(false)}>
@@ -113,6 +131,14 @@ export function ProjectsScreen() {
               >
                 <span className="project-dot" style={{ background: p.color ?? "#7c9885" }} />
                 <span className="project-name">{p.name}</span>
+              </button>
+              <button
+                type="button"
+                className="btn-ghost btn-sm project-delete"
+                aria-label={`Delete ${p.name}`}
+                onClick={() => setRemoving(p)}
+              >
+                Delete
               </button>
             </li>
           ))}
