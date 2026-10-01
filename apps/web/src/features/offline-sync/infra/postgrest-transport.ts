@@ -36,7 +36,16 @@ export class PostgrestTransport implements SyncTransport {
       // still owed, so it must not burn an attempt.
       return { status: "offline" };
     }
-    if (attempt.status === 409) return this.conflict(entry);
+    if (attempt.status === 409) {
+      const outcome = await this.conflict(entry);
+      // paper_tags ids hash the key, so a duplicate insert is the same link another device already made.
+      if (entry.op === "insert" && entry.table === "paper_tags" && outcome.status === "conflict" && outcome.serverRow) {
+        return outcome.serverVersion == null
+          ? { status: "accepted" }
+          : { status: "accepted", newVersion: outcome.serverVersion };
+      }
+      return outcome;
+    }
     // 5xx is the server having a bad moment. Retrying is right; dead-lettering
     // an op because a deploy was in flight is not.
     if (attempt.status >= 500) return { status: "offline" };

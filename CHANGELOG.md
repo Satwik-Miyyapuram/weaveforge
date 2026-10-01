@@ -16,6 +16,7 @@ tracks at once.
 ### Desktop
 
 - **Fixed:** Reconnecting the workspace folder no longer lists every note the app just wrote as changed outside WeaveForge.
+- **Fixed:** Tagging the same paper with the same tag on two devices before either synced no longer shows a sync conflict.
 
 ### Python SDK
 
