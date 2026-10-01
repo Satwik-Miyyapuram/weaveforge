@@ -61,4 +61,18 @@ describe("the three-way merge", () => {
     assert.deepEqual(result.conflicts, []);
     assert.equal(result.merged.updated_at, "2026-01-03T00:00:00Z");
   });
+
+  it("reads one instant in two offsets as the same value", () => {
+    const result = mergeRows(
+      {},
+      { started_at: "2026-08-27T19:24:39.357+05:00" },
+      { started_at: "2026-08-27T14:24:39.357+00:00" },
+    );
+    assert.deepEqual(result.conflicts, []);
+  });
+
+  it("ignores key order inside structures", () => {
+    const result = mergeRows({}, { config: { lr: 1, batch: 2 } }, { config: { batch: 2, lr: 1 } });
+    assert.deepEqual(result.conflicts, []);
+  });
 });

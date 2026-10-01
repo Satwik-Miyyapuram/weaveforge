@@ -48,8 +48,8 @@ export function mergeRows(base: Row, local: Row, remote: Row): FieldMergeResult 
     const l = local[field];
     const r = remote[field];
 
-    const localChanged = !same(b, l);
-    const remoteChanged = !same(b, r);
+    const localChanged = !sameValue(b, l);
+    const remoteChanged = !sameValue(b, r);
 
     // Nobody touched it, or only one side did: there is nothing to decide.
     if (!localChanged) continue;
@@ -58,13 +58,13 @@ export function mergeRows(base: Row, local: Row, remote: Row): FieldMergeResult 
       continue;
     }
     // Both moved it to the same place. Agreement is not a conflict.
-    if (same(l, r)) {
+    if (sameValue(l, r)) {
       merged[field] = l;
       continue;
     }
     // An edit stamp is not work: the later one wins.
     if (field === "updated_at") {
-      merged[field] = String(l) > String(r) ? l : r;
+      merged[field] = instant(l) > instant(r) ? l : r;
       continue;
     }
     // Both moved it somewhere different. The remote value stands in the merged
@@ -79,13 +79,32 @@ export function mergeRows(base: Row, local: Row, remote: Row): FieldMergeResult 
 /**
  * Equality as the database means it.
  *
- * JSON round-tripping, because a jsonb column comes back as a structure and two
- * structurally identical values are the same value — comparing by reference
- * would report every untouched object as an edit.
+ * A timestamp is an instant: Postgres hands one back in UTC and PGlite in the
+ * device's offset, so the same moment must not read as an edit. Structures
+ * compare by value with keys sorted, since jsonb does not keep key order.
  */
-function same(a: unknown, b: unknown): boolean {
+export function sameValue(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (a == null || b == null) return a == null && b == null;
-  if (typeof a !== "object" && typeof b !== "object") return false;
-  return JSON.stringify(a) === JSON.stringify(b);
+  if (typeof a === "string" && typeof b === "string") {
+    const x = instant(a);
+    return !Number.isNaN(x) && x === instant(b);
+  }
+  if (typeof a !== "object" || typeof b !== "object") return false;
+  return canonical(a) === canonical(b);
+}
+
+const TIMESTAMP = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
+
+/** Epoch ms for a timestamp string, NaN for anything else. */
+function instant(value: unknown): number {
+  return typeof value === "string" && TIMESTAMP.test(value) ? Date.parse(value) : Number.NaN;
+}
+
+function canonical(value: unknown): string {
+  return JSON.stringify(value, (_key, v: unknown) =>
+    v && typeof v === "object" && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : v,
+  );
 }
