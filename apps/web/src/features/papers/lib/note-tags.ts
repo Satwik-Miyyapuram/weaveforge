@@ -59,8 +59,8 @@ export function reconcileTagsFromBody(
  * {@link reconcileTagsFromBody}, but a note that saved locally is not undone
  * by a tag index the network cannot reach.
  *
- * The note body syncs; the paper↔tag links (`paper_tags`) still live only on
- * the server. With no connection the body is already saved, so the links are
+ * On the web the paper↔tag links (`paper_tags`) live only on the server (the
+ * desktop keeps them locally). With no connection the body is saved, so links are
  * left for later: the paper is remembered and reconciled from its (then
  * current) body when the browser comes back online. Returns `null` when it
  * deferred, so the caller keeps the paper it already has.

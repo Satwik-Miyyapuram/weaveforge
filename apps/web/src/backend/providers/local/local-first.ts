@@ -31,7 +31,7 @@ import { LocalRunner } from "./local-runner";
  * adopted and has its first download, and cleared by a deliberate sign-out.
  */
 
-/** The tables the change feed carries: see `0118_sync_change_feed.sql` and `0120`. */
+/** The tables the change feed carries: see `0118_sync_change_feed.sql`, `0120` and `0138`. */
 export const SYNCED_TABLES: ReadonlySet<string> = new Set([
   "projects",
   "papers",
@@ -50,6 +50,7 @@ export const SYNCED_TABLES: ReadonlySet<string> = new Set([
   "library_pins",
   "vault_pages",
   "screening_decisions",
+  "paper_tags",
 ]);
 
 /**

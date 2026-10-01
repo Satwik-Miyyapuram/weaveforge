@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { testDb } from "./pg-test-db";
+import { SYNCED_TABLES } from "../providers/local/local-first";
 
 /**
  * The change feed, against the real migrations.
@@ -18,6 +19,12 @@ describe("the sync change feed", () => {
         where to_regclass(format('public.%I', t.table_name)) is null`,
     );
     assert.deepEqual(rows, []);
+  });
+
+  it("keeps the desktop's local tables the same as the registry", async () => {
+    const db = await testDb();
+    const rows = await db.sql<{ table_name: string }>("select table_name from sync_tables order by table_name");
+    assert.deepEqual(rows.map((r) => r.table_name), [...SYNCED_TABLES].sort());
   });
 
   it("stamps a watermark that moves on insert and again on update", async () => {
@@ -145,5 +152,37 @@ describe("the sync change feed", () => {
       [page[0]!.server_seq],
     );
     assert.equal(next[0]!.table_name, "papers");
+  });
+
+  it("carries paper tags under a derived id, and their deletes to the paper's owner", async () => {
+    const db = await testDb();
+    const user = await db.createUser();
+    const other = await db.createUser();
+    const as = db.as(user);
+    const [paper] = await as.sql<{ id: string }>(
+      "insert into papers (user_id, title) values ($1, $2) returning id",
+      [user, "tagged"],
+    );
+    const [tag] = await as.sql<{ id: string }>(
+      "insert into tags (user_id, name) values ($1, $2) returning id",
+      [user, "methods"],
+    );
+    const [link] = await as.sql<{ id: string; expected: string }>(
+      `insert into paper_tags (paper_id, tag_id) values ($1, $2)
+       returning id, md5($1::text || ':' || $2::text || ':manual')::uuid as expected`,
+      [paper!.id, tag!.id],
+    );
+    assert.equal(link!.id, link!.expected);
+    const live = await as.sql("select 1 from sync_changes(0, 2000) where row_id = $1", [link!.id]);
+    assert.equal(live.length, 1);
+    await as.sql("delete from paper_tags where id = $1", [link!.id]);
+    const gone = await as.sql<{ deleted_at: string | null }>(
+      "select deleted_at from sync_changes(0, 2000) where row_id = $1",
+      [link!.id],
+    );
+    assert.equal(gone.length, 1);
+    assert.notEqual(gone[0]!.deleted_at, null);
+    const seen = await db.as(other).sql("select 1 from sync_changes(0, 2000) where row_id = $1", [link!.id]);
+    assert.equal(seen.length, 0);
   });
 });
