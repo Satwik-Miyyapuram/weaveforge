@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { EntityCardMenu } from "@/components/entity-card-menu";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "./project-provider";
 import { useSubmit } from "@/lib/hooks/use-submit";
@@ -32,7 +34,7 @@ export function ProjectsScreen() {
   });
 
   const [removing, setRemoving] = useState<{ id: string; name: string } | null>(null);
-  const { error: removeError, submit: remove } = useSubmit(async () => {
+  const { busy: removeBusy, error: removeError, submit: remove } = useSubmit(async () => {
     if (!removing) return;
     await getContainer().projects.manageProject.remove(removing.id);
     if (current?.id === removing.id) setProject(null);
@@ -63,12 +65,15 @@ export function ProjectsScreen() {
       {demoError && <FormError>{demoError}</FormError>}
       {removeError && <FormError>{removeError}</FormError>}
       {removing && (
-        <Modal title={`Delete "${removing.name}"?`} onClose={() => setRemoving(null)}>
-          <p>Its papers, Notes, tags, runs and report go with it, on every device. This cannot be undone.</p>
-          <button type="button" className="btn-primary btn-danger" onClick={() => void remove()}>
-            Delete project
-          </button>
-        </Modal>
+        <ConfirmDialog
+          title={`Delete "${removing.name}"?`}
+          body="Its papers, Notes, tags, runs and report go with it, on every device. This cannot be undone."
+          confirmLabel="Delete project"
+          danger
+          busy={removeBusy}
+          onConfirm={() => void remove()}
+          onClose={() => setRemoving(null)}
+        />
       )}
 
       {addOpen && (
@@ -115,7 +120,7 @@ export function ProjectsScreen() {
       {!loading && projects.length > 0 && (
         <ul className="project-list">
           {projects.map((p) => (
-            <li key={p.id}>
+            <li key={p.id} className="project-row">
               {/*
                * A real `<button>`, not a `<li>` with an `onClick`. This is the
                * first screen a signed-in user with no project sees, and the
@@ -132,14 +137,12 @@ export function ProjectsScreen() {
                 <span className="project-dot" style={{ background: p.color ?? "#7c9885" }} />
                 <span className="project-name">{p.name}</span>
               </button>
-              <button
-                type="button"
-                className="btn-ghost btn-sm project-delete"
-                aria-label={`Delete ${p.name}`}
-                onClick={() => setRemoving(p)}
-              >
-                Delete
-              </button>
+              <EntityCardMenu
+                shareable={false}
+                title={p.name}
+                onDelete={() => setRemoving(p)}
+                deleteLabel="Delete project"
+              />
             </li>
           ))}
         </ul>
