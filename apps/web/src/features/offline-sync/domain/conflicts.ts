@@ -1,4 +1,4 @@
-import { mergeRows, type FieldConflict, type Row } from "./merge";
+import { mergeRows, sameValue, type FieldConflict, type Row } from "./merge";
 import { Outbox, type SqlRunner } from "./outbox";
 
 /**
@@ -139,6 +139,16 @@ export class ConflictStore {
     });
   }
 
+  /** Re-merge open conflicts, so ones an older, stricter merge raised settle themselves. */
+  async recheck(): Promise<void> {
+    const rows = await this.sql.query<ConflictRow>(
+      `select ${COLUMNS} from sync_conflicts where resolved_at is null and remote is not null`,
+    );
+    for (const row of rows) {
+      await this.settle(row.table_name, row.row_id, row.remote!, row.server_version);
+    }
+  }
+
   async openConflicts(): Promise<OpenConflict[]> {
     const rows = await this.sql.query<ConflictRow>(
       `select ${COLUMNS} from sync_conflicts where resolved_at is null order by created_at`,
@@ -200,7 +210,5 @@ export class ConflictStore {
 }
 
 function sameRow(a: Row, b: Row): boolean {
-  return Object.keys({ ...a, ...b }).every(
-    (k) => JSON.stringify(a[k] ?? null) === JSON.stringify(b[k] ?? null),
-  );
+  return Object.keys({ ...a, ...b }).every((k) => sameValue(a[k] ?? null, b[k] ?? null));
 }
