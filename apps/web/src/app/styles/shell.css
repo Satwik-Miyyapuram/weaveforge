@@ -209,6 +209,8 @@
   display: flex; align-items: center; gap: 10px; cursor: pointer;
   width: 100%; text-align: start; font: inherit; color: var(--ink);
 }
+.project-row { display: flex; align-items: center; gap: 6px; }
+.project-row > .project-card { flex: 1; min-width: 0; }
 .project-card:hover { border-color: var(--accent); }
 .project-name { font-size: 1.02rem; font-weight: 600; letter-spacing: -0.01em; }
 

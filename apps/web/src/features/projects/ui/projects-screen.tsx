@@ -12,13 +12,18 @@ import { EmptyState } from "@/components/empty-state";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { loadLocalDemoWorkspace } from "@/features/showcase/application/load-local-demo";
+import dynamic from "next/dynamic";
+
+// Lazy: this screen sits in the root layout, which has a tight JS budget.
+const ConfirmDialog = dynamic(() => import("@/components/confirm-dialog").then((m) => m.ConfirmDialog), { ssr: false });
+const EntityCardMenu = dynamic(() => import("@/components/entity-card-menu").then((m) => m.EntityCardMenu), { ssr: false });
 
 /**
  * Project picker / creator. Shown when no project is selected. Choosing a
  * project scopes the whole app to it.
  */
 export function ProjectsScreen() {
-  const { projects, loading, setProject, refresh } = useProject();
+  const { projects, loading, current, setProject, refresh } = useProject();
   const [name, setName] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const local = isLocalMode();
@@ -29,6 +34,15 @@ export function ProjectsScreen() {
     setName("");
     setAddOpen(false);
     setProject(p.id);
+  });
+
+  const [removing, setRemoving] = useState<{ id: string; name: string } | null>(null);
+  const { busy: removeBusy, error: removeError, submit: remove } = useSubmit(async () => {
+    if (!removing) return;
+    await getContainer().projects.manageProject.remove(removing.id);
+    if (current?.id === removing.id) setProject(null);
+    setRemoving(null);
+    await refresh();
   });
 
   // The no-account copy starts empty. A filled workspace shows what every
@@ -52,6 +66,18 @@ export function ProjectsScreen() {
       </ScreenHead>
 
       {demoError && <FormError>{demoError}</FormError>}
+      {removeError && <FormError>{removeError}</FormError>}
+      {removing && (
+        <ConfirmDialog
+          title={`Delete "${removing.name}"?`}
+          body="Its papers, Notes, tags, runs and report go with it, on every device. This cannot be undone."
+          confirmLabel="Delete project"
+          danger
+          busy={removeBusy}
+          onConfirm={() => void remove()}
+          onClose={() => setRemoving(null)}
+        />
+      )}
 
       {addOpen && (
         <Modal title="New project" onClose={() => setAddOpen(false)}>
@@ -97,7 +123,7 @@ export function ProjectsScreen() {
       {!loading && projects.length > 0 && (
         <ul className="project-list">
           {projects.map((p) => (
-            <li key={p.id}>
+            <li key={p.id} className="project-row">
               {/*
                * A real `<button>`, not a `<li>` with an `onClick`. This is the
                * first screen a signed-in user with no project sees, and the
@@ -114,6 +140,12 @@ export function ProjectsScreen() {
                 <span className="project-dot" style={{ background: p.color ?? "#7c9885" }} />
                 <span className="project-name">{p.name}</span>
               </button>
+              <EntityCardMenu
+                shareable={false}
+                title={p.name}
+                onDelete={() => setRemoving(p)}
+                deleteLabel="Delete project"
+              />
             </li>
           ))}
         </ul>
