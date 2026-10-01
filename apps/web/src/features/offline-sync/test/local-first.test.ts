@@ -95,6 +95,31 @@ describe("local-first: local writes become ops", () => {
     const [op] = await ops(project);
     assert.equal(op!.op, "delete");
   });
+
+  it("sends a re-tag (delete, then the same link again) as one update", async () => {
+    const { db, account, project, ops } = await adoptedDevice();
+    const as = db.as(account);
+    const [paper] = await as.sql<{ id: string }>(
+      "insert into papers (user_id, project_id, title) values ($1, $2, 'Tagged') returning id",
+      [account, project],
+    );
+    const [tag] = await as.sql<{ id: string }>(
+      "insert into tags (user_id, project_id, name) values ($1, $2, 'methods') returning id",
+      [account, project],
+    );
+    const [link] = await as.sql<{ id: string }>(
+      "insert into paper_tags (paper_id, tag_id, source) values ($1, $2, 'note') returning id",
+      [paper!.id, tag!.id],
+    );
+    await db.sql("delete from sync_outbox");
+    await as.sql("delete from paper_tags where paper_id = $1", [paper!.id]);
+    await as.sql("insert into paper_tags (paper_id, tag_id, source) values ($1, $2, 'note')", [paper!.id, tag!.id]);
+    const all = await ops(link!.id);
+    assert.equal(all.length, 1);
+    assert.equal(all[0]!.op, "update");
+    assert.equal(all[0]!.payload.tag_id, tag!.id);
+    assert.equal("id" in all[0]!.payload, false);
+  });
 });
 
 describe("local-first: pulled rows", () => {
@@ -140,6 +165,29 @@ describe("local-first: pulled rows", () => {
     ]);
     const rows = await db.sql("select 1 from log_entries where id = $1", [entry]);
     assert.equal(rows.length, 1);
+  });
+
+  it("applies a pulled paper tag under the id the server derived", async () => {
+    const { db, account, project, ops } = await adoptedDevice();
+    const as = db.as(account);
+    const [paper] = await as.sql<{ id: string }>(
+      "insert into papers (user_id, project_id, title) values ($1, $2, 'Pulled') returning id",
+      [account, project],
+    );
+    const [tag] = await as.sql<{ id: string }>(
+      "insert into tags (user_id, project_id, name) values ($1, $2, 'pulled') returning id",
+      [account, project],
+    );
+    const [{ id: linkId }] = (await db.sql<{ id: string }>(
+      "select md5($1 || ':' || $2 || ':manual')::uuid as id",
+      [paper!.id, tag!.id],
+    )) as [{ id: string }];
+    const row = { id: linkId, paper_id: paper!.id, tag_id: tag!.id, source: "manual", row_version: 1, server_seq: 7 };
+    await as.sql("select sync_apply('paper_tags', $1::jsonb)", [JSON.stringify(row)]);
+    await as.sql("select sync_apply('paper_tags', $1::jsonb)", [JSON.stringify({ ...row, row_version: 2 })]);
+    const local = await db.sql<{ row_version: number }>("select row_version from paper_tags where id = $1", [linkId]);
+    assert.deepEqual(local, [{ row_version: 2 }]);
+    assert.equal((await ops(linkId)).length, 0);
   });
 
   it("removes the local row when the server sends a tombstone", async () => {
