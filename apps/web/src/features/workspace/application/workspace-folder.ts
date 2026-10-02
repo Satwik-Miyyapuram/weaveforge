@@ -260,13 +260,22 @@ export interface SyncOutcome {
   commit: WorkspaceCommit | null;
 }
 
+/** The sync writing right now; folder events wait for it so its own writes are not reported. */
+let syncInFlight: Promise<unknown> = Promise.resolve();
+
 /**
  * Write the workspace to the folder, then commit if versioning is on.
  *
  * Unchanged files are skipped, so a sync with nothing to do writes nothing and
  * produces no commit — which is what keeps the history readable.
  */
-export async function syncToFolder(): Promise<SyncOutcome> {
+export function syncToFolder(): Promise<SyncOutcome> {
+  const run = runSyncToFolder();
+  syncInFlight = run.catch(() => undefined);
+  return run;
+}
+
+async function runSyncToFolder(): Promise<SyncOutcome> {
   if (!activeFs) throw new Error("No folder is connected.");
   const fs = activeFs;
   const container = getContainer();
@@ -484,6 +493,8 @@ function reportFolderChanges(paths: readonly string[]): void {
   if (candidates.length === 0) return;
 
   void (async () => {
+    // A mirror run writes its files before its manifest; checked mid-run, every one reads as foreign.
+    await syncInFlight;
     const fs = activeFs;
     const project = await activeProjectOrNull().catch(() => null);
     const base = fs && project ? await readMirrorBase(fs, projectDir(project)) : {};
@@ -596,6 +607,14 @@ export async function previewArchiveImport(
   };
 }
 
+/** Only notes import; an experiment or paper file would otherwise read as a new note. */
+export function importableEntities<T extends { type: string; id?: string | null }>(
+  parsed: readonly T[],
+  noteIds: ReadonlySet<string>,
+): T[] {
+  return parsed.filter((entity) => entity.type === "vault_page" || (!!entity.id && noteIds.has(entity.id)));
+}
+
 async function diffAgainstWorkspace(
   files: Record<string, string>,
   assets: Map<string, Uint8Array>,
@@ -634,7 +653,8 @@ async function diffAgainstWorkspace(
 
   setPendingAssets(assets);
   const owned = ownedAssetFolderPaths(workspaceBodies(snapshot));
-  const parsed = parseWorkspaceFolder(files).map((entity) => ({
+  const noteIds = new Set(snapshot.vaultPages.map((page) => page.id));
+  const parsed = importableEntities(parseWorkspaceFolder(files), noteIds).map((entity) => ({
     ...entity,
     // Restore links to assets this account already owns before comparing.
     // Without it every note holding an image reads as changed on every import,
