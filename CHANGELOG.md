@@ -15,15 +15,27 @@ tracks at once.
 
 ### Desktop
 
-- **Fixed:** Reconnecting the workspace folder no longer lists every note the app just wrote as changed outside WeaveForge.
-- **Changed:** The app icon is now a solid tile in the theme colours, cream on a light taskbar and dark on a dark one, so it reads at taskbar size.
-- **Fixed:** Tagging the same paper with the same tag on two devices before either synced no longer shows a sync conflict.
-
 ### Python SDK
 
 ### Android
 
 ### iOS
+
+## [0.8.2] - 2026-10-02
+
+Desktop (`v0.8.2`) and Android (`android-v0.8.2`). iOS stays on 0.8.0.
+
+### Desktop
+- **Fixed:** Reconnecting the workspace folder no longer lists every note the app just wrote as changed outside WeaveForge, and folder events no longer count as edits.
+- **Fixed:** Tagging the same paper with the same tag on two devices before either synced no longer shows a sync conflict.
+- **Fixed:** Notes and paper tags no longer fail to sync because a server-computed column was sent; screening decisions made before sign-in now sync.
+- **New:** Delete a project from the project list, with a confirmation dialog.
+- **Changed:** The same paper can sit in several projects.
+- **Fixed:** The workspace folder settings explain that each project writes its own subfolder instead of saying no project is open.
+- **Fixed:** The delete button text is readable on the dark theme.
+
+### Android
+- Rebuilt on 0.8.2; the shell loads the updated web app.
 
 ## [0.8.1] - 2026-10-01
 
