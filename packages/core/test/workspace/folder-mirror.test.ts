@@ -361,3 +361,19 @@ test("the mirror never reaches into the ink sidecar", async () => {
   assert.ok(second.removed.includes(at("notes/method.note.md")));
   assert.notEqual(await fs.stat(inkPath), null);
 });
+
+test("the root README, rewritten by another project's mirror, is not held back", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const other: WorkspaceProject = { id: "407c3746-13be-4230-bdfa-47c065d7c189", name: "Offline Trial" };
+  const first = await mirrorWorkspace(snapshot(), fs, { project: THESIS });
+  await mirrorWorkspace(snapshot({ collectedAt: "2026-08-06T00:00:00.000Z" }), fs, { project: other });
+
+  const second = await mirrorWorkspace(snapshot({ collectedAt: "2026-08-07T00:00:00.000Z" }), fs, {
+    project: THESIS,
+    previousPaths: first.written,
+    base: first.mirrored,
+  });
+
+  assert.deepEqual(second.heldBack, []);
+  assert.match(await fs.readText("README.md"), /2026-08-07/);
+});
