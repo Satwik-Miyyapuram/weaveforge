@@ -24,6 +24,18 @@ interface Attempt {
   rows: unknown[] | null;
 }
 
+/** Columns the server computes; PostgREST refuses any write that names them. */
+const GENERATED: Record<string, readonly string[]> = {
+  vault_pages: ["body_preview"],
+  paper_tags: ["id"],
+};
+
+function writable(table: string, payload: Record<string, unknown> | undefined): Record<string, unknown> {
+  const body = { ...(payload ?? {}) };
+  for (const col of GENERATED[table] ?? []) delete body[col];
+  return body;
+}
+
 export class PostgrestTransport implements SyncTransport {
   constructor(private readonly config: PostgrestConfig) {}
 
@@ -85,7 +97,7 @@ export class PostgrestTransport implements SyncTransport {
   private dispatch(entry: OutboxEntry): Promise<Attempt> {
     const table = encodeURIComponent(entry.table);
     if (entry.op === "insert") {
-      return this.request("POST", `/${table}`, entry.payload ?? {}, "return=representation");
+      return this.request("POST", `/${table}`, writable(entry.table, entry.payload), "return=representation");
     }
     // Guard only on a version we actually hold. An unknown base version used to
     // be spelled `?? 0`, which turns "we never recorded one" into a specific and
@@ -102,7 +114,7 @@ export class PostgrestTransport implements SyncTransport {
     if (entry.op === "delete") {
       return this.request("DELETE", `/${table}${guard}`, undefined, "return=representation");
     }
-    return this.request("PATCH", `/${table}${guard}`, entry.payload ?? {}, "return=representation");
+    return this.request("PATCH", `/${table}${guard}`, writable(entry.table, entry.payload), "return=representation");
   }
 
   /** Whether the row is absent on the server. A failed read is not proof. */
