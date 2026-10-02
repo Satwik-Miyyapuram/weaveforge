@@ -26,6 +26,7 @@ test("the three data files are the reader's, the machinery is not", () => {
     `${ROOT}/.weaveforge/relations.json`,
     `${ROOT}/.weaveforge/tags.json`,
     `${ROOT}/.weaveforge/reading-list-items.json`,
+    `${ROOT}/notes/README.md`,
   ];
   for (const path of data) assert.equal(isAppOwnedPath(path), false, path);
 
@@ -39,6 +40,9 @@ test("the three data files are the reader's, the machinery is not", () => {
     `.weaveforge/mirror.json`,
     `${ROOT}/.weaveforge/manifest.json`,
     `${ROOT}/.weaveforge/db-relocated`,
+    `.git/index`,
+    `.git/objects/28/db3fc3006ab17501aafae99b609a4f777235c2`,
+    `README.md`,
   ];
   for (const path of machinery) assert.equal(isAppOwnedPath(path), true, path);
 });
