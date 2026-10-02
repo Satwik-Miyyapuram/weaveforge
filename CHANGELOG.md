@@ -21,6 +21,16 @@ tracks at once.
 
 ### iOS
 
+## [0.8.3] - 2026-10-02
+
+Desktop (`v0.8.3`). Android stays on 0.8.2 (its shell loads the web app); iOS stays on 0.8.0.
+
+### Desktop
+- **New:** Choose which events post to Mattermost (daily and weekly log entries, new milestones, milestone status changes, new-citation alerts), all off until switched on.
+- **New:** Send every Mattermost event to the default channel, or give each event its own channel.
+- **New:** New logbook entries post to Mattermost when that event is on.
+- **Fixed:** Dropdowns inside a settings dialog open above the dialog instead of behind it.
+
 ## [0.8.2] - 2026-10-02
 
 Desktop (`v0.8.2`) and Android (`android-v0.8.2`). iOS stays on 0.8.0.
