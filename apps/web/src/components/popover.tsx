@@ -86,7 +86,8 @@ export function Popover({
         top,
         left,
         right: "auto",
-        zIndex: 60,
+        // Portalled panels can open from inside a modal, so they stack above it.
+        zIndex: portal ? "var(--z-menu)" : "var(--z-popover)",
         visibility: "visible",
       });
     };
@@ -103,7 +104,7 @@ export function Popover({
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
     };
-  }, [open, align, children]);
+  }, [open, align, portal, children]);
 
   // A portalled panel is outside `ref`, so it has to be named as "inside" too —
   // otherwise the mousedown that lands on an option closes the menu before the

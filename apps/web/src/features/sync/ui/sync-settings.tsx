@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
+import { Popover } from "@/components/popover";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
 import { emptyIntegration, type Integration } from "../domain/integration";
 import { projectSyncDescriptorsForConfig, sharedProviderHint } from "@/integrations/descriptors-resolve";
 import type { ProjectSyncDescriptor } from "@/integrations/descriptors-types";
 import { gitConnectionReady, mattermostConnectionReady } from "../domain/integration-fields";
+import { MATTERMOST_EVENTS, mattermostOptions, type MattermostOptions } from "../domain/mattermost-options";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 
@@ -153,6 +155,9 @@ function IntegrationRow({
                 />
               </div>
             ))}
+            {descriptor.provider === "mattermost" && (
+              <MattermostEventControls value={value} onChange={patch} onError={setError} />
+            )}
             {error && <FormError>{error}</FormError>}
             {saved && <p className="muted">Saved.</p>}
             <button type="button" className="btn-primary" onClick={() => void save()} disabled={saving}>
@@ -162,5 +167,107 @@ function IntegrationRow({
         </Modal>
       )}
     </>
+  );
+}
+
+/** Which events post, and to which channel. Nothing posts until an event is switched on. */
+function MattermostEventControls({
+  value,
+  onChange,
+  onError,
+}: {
+  value: Integration;
+  onChange: (p: Partial<Integration>) => void;
+  onError: (e: string | null) => void;
+}) {
+  const opts = mattermostOptions(value);
+  const onCount = MATTERMOST_EVENTS.filter((e) => opts.events[e.id] === true).length;
+  const [testing, setTesting] = useState(false);
+  const [tested, setTested] = useState<string | null>(null);
+
+  function set(next: Partial<MattermostOptions>) {
+    onChange({ options: { ...opts, ...next } });
+    setTested(null);
+  }
+
+  async function test() {
+    setTesting(true);
+    onError(null);
+    setTested(null);
+    try {
+      const channels = await getContainer().sync.testMattermost(value);
+      setTested(
+        channels.length === 0
+          ? "Nothing is switched on, so nothing was sent."
+          : `Test sent to ${channels.length} channel${channels.length === 1 ? "" : "s"}.`,
+      );
+    } catch (err) {
+      onError(formatError(err));
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  return (
+    <div className="mm-events">
+      <strong>What gets posted</strong>
+      <p className="muted" style={{ margin: 0 }}>Nothing is posted until you switch an event on.</p>
+      <div className="integration-enable">
+        <span>Use the same channel for everything</span>
+        <button
+          type="button"
+          className={`toggle${opts.sameChannel ? " on" : ""}`}
+          role="switch"
+          aria-checked={opts.sameChannel}
+          aria-label="Use the same channel for everything"
+          onClick={() => set({ sameChannel: !opts.sameChannel })}
+        >
+          <span className="knob" />
+        </button>
+      </div>
+      <div className="integration-enable">
+        <span>Events</span>
+        <Popover label={onCount === 0 ? "None" : `${onCount} on`} ariaLabel="Events to post" align="right" portal>
+          <div className="mm-event-menu">
+            {MATTERMOST_EVENTS.map((e) => {
+              const on = opts.events[e.id] === true;
+              return (
+                <button
+                  type="button"
+                  key={e.id}
+                  aria-pressed={on}
+                  className={`custom-select-item ms-item${on ? " sel" : ""}`}
+                  onClick={() => set({ events: { ...opts.events, [e.id]: !on } })}
+                >
+                  <span className={`ms-check${on ? " on" : ""}`} aria-hidden />
+                  <span>
+                    {e.label}
+                    <span className="muted mm-event-hint">{e.hint}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </Popover>
+      </div>
+      {!opts.sameChannel &&
+        MATTERMOST_EVENTS.filter((e) => opts.events[e.id] === true).map((e) => (
+          <div className="field" key={e.id}>
+            <label htmlFor={`mm-ch-${e.id}`}>{e.label} channel ID</label>
+            <input
+              id={`mm-ch-${e.id}`}
+              type="text"
+              value={opts.channels[e.id] ?? ""}
+              onChange={(ev) => set({ channels: { ...opts.channels, [e.id]: ev.target.value } })}
+              placeholder="Blank = default channel"
+              autoComplete="off"
+            />
+          </div>
+        ))}
+      <button type="button" className="btn-ghost" onClick={() => void test()} disabled={testing}>
+        {testing ? "Sending…" : "Send test message"}
+      </button>
+      {tested && <p className="muted" style={{ margin: 0 }}>{tested}</p>}
+    </div>
   );
 }

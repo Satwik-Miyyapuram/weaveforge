@@ -63,6 +63,8 @@ export interface INotificationIntegration {
   readonly providerId: string;
   notifyMilestone(event: "added" | "status", milestone: Milestone): Promise<void>;
   notifyCitationAlert(trackedPaper: Paper, citingPapers: CitationCandidate[]): Promise<void>;
+  /** A log entry was just created (not edited). */
+  notifyLogEntry(entry: LogEntry): Promise<void>;
 }
 
 export interface ILogSyncIntegration {

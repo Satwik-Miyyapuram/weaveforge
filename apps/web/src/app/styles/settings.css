@@ -215,6 +215,11 @@
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 4px 0 2px; font-size: 0.9rem;
 }
+.mm-events { display: grid; gap: 8px; padding-top: 6px; border-top: 1px solid var(--line); }
+.mm-event-menu { display: grid; gap: 2px; }
+.mm-event-menu .ms-check { margin-top: 2px; }
+.mm-event-menu .custom-select-item { align-items: flex-start; }
+.mm-event-hint { display: block; font-size: 0.78rem; font-weight: 400; }
 .toggle {
   flex: none; width: 44px; height: 24px; border-radius: 999px; border: none; cursor: pointer;
   background: var(--line); position: relative; transition: background var(--dur-base);

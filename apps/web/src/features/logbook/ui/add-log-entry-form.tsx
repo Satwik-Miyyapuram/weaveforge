@@ -20,6 +20,7 @@ export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
     const logbook = getContainer().logbook;
     const entry = await logbook.addLogEntry.add({ body, kind });
     try { await logbook.pushLog(entry); } catch { /* git sync best-effort */ }
+    try { await logbook.notifyNewLog(entry); } catch { /* chat post best-effort */ }
     setBody("");
     onAdded?.();
   });
