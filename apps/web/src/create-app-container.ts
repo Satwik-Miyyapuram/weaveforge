@@ -649,6 +649,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       logEntries: logEntryRepository,
       addLogEntry,
       logSync,
+      notifications,
     }),
     report: new ReportFacade({
       load: loadReportScreen,

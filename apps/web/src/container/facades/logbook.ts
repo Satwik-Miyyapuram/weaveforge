@@ -1,4 +1,4 @@
-import type { AddLogEntryUseCase, ILogSyncIntegration, ILogEntryRepository, LogEntry } from "@weaveforge/core";
+import type { AddLogEntryUseCase, ILogSyncIntegration, ILogEntryRepository, INotificationIntegration, LogEntry } from "@weaveforge/core";
 
 export class LogbookFacade {
   constructor(
@@ -6,6 +6,7 @@ export class LogbookFacade {
       logEntries: ILogEntryRepository;
       addLogEntry: AddLogEntryUseCase;
       logSync: ILogSyncIntegration;
+      notifications: INotificationIntegration;
     },
   ) {}
 
@@ -40,6 +41,11 @@ export class LogbookFacade {
 
   pushLog(entry: LogEntry) {
     return this.deps.logSync.pushLog(entry);
+  }
+
+  /** Announce a newly created entry; edits are not re-posted. */
+  notifyNewLog(entry: LogEntry) {
+    return this.deps.notifications.notifyLogEntry(entry);
   }
 
   removeLog(entry: LogEntry) {

@@ -16,7 +16,7 @@ export class SupabaseIntegrationsStore {
   async get(projectId: string, provider: SyncProvider): Promise<Integration> {
     const { data, error } = await this.db
       .from("project_integrations")
-      .select("provider,enabled,token,repo,branch")
+      .select("provider,enabled,token,repo,branch,options")
       .eq("project_id", projectId)
       .eq("provider", provider)
       .maybeSingle();
@@ -29,6 +29,7 @@ export class SupabaseIntegrationsStore {
       token: r.token ?? undefined,
       repo: r.repo ?? undefined,
       branch: r.branch ?? "main",
+      options: r.options ?? undefined,
     };
   }
 
@@ -41,6 +42,7 @@ export class SupabaseIntegrationsStore {
         token: integration.token ?? null,
         repo: integration.repo ?? null,
         branch: integration.branch || "main",
+        options: integration.options ?? {},
         updated_at: new Date().toISOString(),
       },
       { onConflict: "project_id,provider" },

@@ -13,4 +13,5 @@ export interface IntegrationRow {
   token: string | null;
   repo: string | null;
   branch: string | null;
+  options?: Record<string, unknown> | null;
 }

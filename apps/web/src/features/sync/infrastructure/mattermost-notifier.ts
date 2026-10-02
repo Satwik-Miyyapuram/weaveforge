@@ -1,4 +1,4 @@
-import type { CitationCandidate, Milestone, Paper } from "@weaveforge/core";
+import type { CitationCandidate, LogEntry, Milestone, Paper } from "@weaveforge/core";
 import type { Integration } from "../domain/integration";
 import { mattermostConnection, mattermostConnectionReady } from "../domain/integration-fields";
 
@@ -9,9 +9,11 @@ import { mattermostConnection, mattermostConnectionReady } from "../domain/integ
 export class MattermostNotifier {
   constructor(private readonly fetchFn: typeof fetch = (...a) => fetch(...a)) {}
 
-  async post(integration: Integration, message: string): Promise<void> {
+  /** `channel` overrides the connection's main channel (per-event routing). */
+  async post(integration: Integration, message: string, channel?: string): Promise<void> {
     if (!mattermostConnectionReady(integration)) return;
-    const { botToken, serverUrl, channelId } = mattermostConnection(integration);
+    const { botToken, serverUrl } = mattermostConnection(integration);
+    const channelId = channel?.trim() || mattermostConnection(integration).channelId;
     let origin: string;
     try {
       const url = new URL(serverUrl);
@@ -68,4 +70,10 @@ export function citationAlertMessage(tracked: Paper, citing: CitationCandidate[]
   }
   if (citing.length > 10) lines.push(`- …and ${citing.length - 10} more`);
   return lines.join("\n");
+}
+
+export function logEntryMessage(e: LogEntry): string {
+  const head = e.kind === "weekly" ? `:spiral_calendar_pad: **Weekly log — ${e.entryDate}**` : `:memo: **Daily log — ${e.entryDate}**`;
+  return `${head}
+${e.body}`;
 }

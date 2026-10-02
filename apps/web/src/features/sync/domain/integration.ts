@@ -16,6 +16,8 @@ export interface Integration {
   repo?: string;
   /** GitHub/GitLab: branch. Mattermost: channel id. */
   branch: string;
+  /** Provider-specific settings (Mattermost: see `mattermost-options.ts`). */
+  options?: Record<string, unknown>;
 }
 
 export function emptyIntegration(provider: SyncProvider): Integration {

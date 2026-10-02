@@ -215,6 +215,12 @@
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 4px 0 2px; font-size: 0.9rem;
 }
+.mm-events { display: grid; gap: 8px; padding-top: 6px; border-top: 1px solid var(--line); }
+.mm-event { display: grid; gap: 6px; }
+.mm-event-head { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; font-size: 0.9rem; }
+.mm-event-head input { flex: none; width: auto; margin-top: 3px; }
+.mm-event-head > span { flex: 1; }
+.mm-event-hint { display: block; font-size: 0.78rem; }
 .toggle {
   flex: none; width: 44px; height: 24px; border-radius: 999px; border: none; cursor: pointer;
   background: var(--line); position: relative; transition: background var(--dur-base);

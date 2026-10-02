@@ -1,6 +1,7 @@
 import type {
   CitationCandidate,
   INotificationIntegration,
+  LogEntry,
   Milestone,
   Paper,
 } from "@weaveforge/core";
@@ -14,6 +15,10 @@ export class NoopNotificationIntegration implements INotificationIntegration {
   }
 
   async notifyCitationAlert(_tracked: Paper, _citing: CitationCandidate[]): Promise<void> {
+    /* notifications off */
+  }
+
+  async notifyLogEntry(_entry: LogEntry): Promise<void> {
     /* notifications off */
   }
 }
