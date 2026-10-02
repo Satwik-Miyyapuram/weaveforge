@@ -43,6 +43,8 @@ test("the three data files are the reader's, the machinery is not", () => {
     `.git/index`,
     `.git/objects/28/db3fc3006ab17501aafae99b609a4f777235c2`,
     `README.md`,
+    `${ROOT}/papers/pdf/5f1c2e9a.pdf`,
+    `papers/html/p1.html`,
   ];
   for (const path of machinery) assert.equal(isAppOwnedPath(path), true, path);
 });
@@ -78,6 +80,24 @@ test("an id nothing has is a creation, and a matching row is unchanged", () => {
 
   const unchanged = diffJsonData(parsed, [{ id: "r1", fromPaper: "a", toPaper: "b" }]);
   assert.equal(unchanged.counts.unchanged, 1);
+});
+
+test("a stored field holding undefined matches a file that leaves it out", () => {
+  const relations = parseJsonData("p", '[{"id":"r1","fromPaper":"a","toPaper":"b"}]', "relations");
+  const tags = parseJsonData("t", '[{"id":"t1","name":"ml"}]', "tags");
+  assert.ok(relations && tags);
+
+  const r = diffJsonData(relations, [{ id: "r1", fromPaper: "a", toPaper: "b", note: undefined }]);
+  assert.equal(r.counts.unchanged, 1);
+  const t = diffJsonData(tags, [{ id: "t1", name: "ml", color: undefined }]);
+  assert.equal(t.counts.unchanged, 1);
+});
+
+test("a file neither side moved since the last sync is not an update", () => {
+  const parsed = parseJsonData("p", '[{"id":"r1","note":"same"}]', "relations");
+  assert.ok(parsed);
+  const diff = diffJsonData(parsed, [{ id: "r1", note: "differs" }], { origin: () => "neither" });
+  assert.equal(diff.counts.updated, 0);
 });
 
 test("which side moved decides between an update, silence and a conflict", () => {
