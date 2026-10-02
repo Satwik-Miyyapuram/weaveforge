@@ -14,6 +14,7 @@ import type { WorkspaceSnapshot } from "./workspace-snapshot.js";
 import type { WorkspaceProject } from "./folder-layout.js";
 import { vaultPageBase, type VaultPageBase } from "./merge-vault-page.js";
 import { serializeWorkspace } from "./serialize-workspace.js";
+import { isAppOwnedPath } from "./json-entities.js";
 
 export interface MirrorResult {
   written: string[];
@@ -125,7 +126,8 @@ export async function mirrorWorkspace(
       // The folder's copy differs from what the app would write. If the app
       // wrote this path before and the file has moved on since, that difference
       // is the reader's edit: leave it, and say so.
-      if (await editedSinceBase(path, content)) {
+      // The root README is shared by every project's mirror, so it never matches one project's base.
+      if (!isAppOwnedPath(path) && (await editedSinceBase(path, content))) {
         hold(path);
         continue;
       }
