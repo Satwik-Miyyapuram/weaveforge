@@ -28,16 +28,19 @@ export function useDismissOnOutside(
       onDismiss();
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onDismiss();
+      if (event.key !== "Escape") return;
+      // Escape closes only the popover, not a modal it opened from.
+      event.stopPropagation();
+      onDismiss();
     };
 
     // `mousedown` rather than `click`: a click that starts inside the panel and
     // ends outside it is a drag-select, not a dismissal.
     document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, true);
     return () => {
       document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
     };
     // `onDismiss` is a setter or a small closure at every call site; including
     // it would re-install both listeners on each render.

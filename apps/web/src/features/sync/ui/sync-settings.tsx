@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
+import { Popover } from "@/components/popover";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
 import { emptyIntegration, type Integration } from "../domain/integration";
@@ -180,6 +181,7 @@ function MattermostEventControls({
   onError: (e: string | null) => void;
 }) {
   const opts = mattermostOptions(value);
+  const onCount = MATTERMOST_EVENTS.filter((e) => opts.events[e.id] === true).length;
   const [testing, setTesting] = useState(false);
   const [tested, setTested] = useState<string | null>(null);
 
@@ -223,34 +225,45 @@ function MattermostEventControls({
           <span className="knob" />
         </button>
       </div>
-      {MATTERMOST_EVENTS.map((e) => {
-        const on = opts.events[e.id] === true;
-        return (
-          <div className="mm-event" key={e.id}>
-            <label className="mm-event-head">
-              <input
-                type="checkbox"
-                checked={on}
-                onChange={() => set({ events: { ...opts.events, [e.id]: !on } })}
-              />
-              <span>
-                {e.label}
-                <span className="muted mm-event-hint">{e.hint}</span>
-              </span>
-            </label>
-            {on && !opts.sameChannel && (
-              <input
-                type="text"
-                aria-label={`${e.label} channel ID`}
-                value={opts.channels[e.id] ?? ""}
-                onChange={(ev) => set({ channels: { ...opts.channels, [e.id]: ev.target.value } })}
-                placeholder="Channel ID (blank = default channel)"
-                autoComplete="off"
-              />
-            )}
+      <div className="integration-enable">
+        <span>Events</span>
+        <Popover label={onCount === 0 ? "None" : `${onCount} on`} ariaLabel="Events to post" align="right" portal>
+          <div className="mm-event-menu">
+            {MATTERMOST_EVENTS.map((e) => {
+              const on = opts.events[e.id] === true;
+              return (
+                <button
+                  type="button"
+                  key={e.id}
+                  aria-pressed={on}
+                  className={`custom-select-item ms-item${on ? " sel" : ""}`}
+                  onClick={() => set({ events: { ...opts.events, [e.id]: !on } })}
+                >
+                  <span className={`ms-check${on ? " on" : ""}`} aria-hidden />
+                  <span>
+                    {e.label}
+                    <span className="muted mm-event-hint">{e.hint}</span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        );
-      })}
+        </Popover>
+      </div>
+      {!opts.sameChannel &&
+        MATTERMOST_EVENTS.filter((e) => opts.events[e.id] === true).map((e) => (
+          <div className="field" key={e.id}>
+            <label htmlFor={`mm-ch-${e.id}`}>{e.label} channel ID</label>
+            <input
+              id={`mm-ch-${e.id}`}
+              type="text"
+              value={opts.channels[e.id] ?? ""}
+              onChange={(ev) => set({ channels: { ...opts.channels, [e.id]: ev.target.value } })}
+              placeholder="Blank = default channel"
+              autoComplete="off"
+            />
+          </div>
+        ))}
       <button type="button" className="btn-ghost" onClick={() => void test()} disabled={testing}>
         {testing ? "Sending…" : "Send test message"}
       </button>
