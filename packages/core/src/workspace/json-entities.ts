@@ -67,6 +67,8 @@ const MACHINERY_FILES = new Set(["mirror.json", "manifest.json"]);
 export function isAppOwnedPath(path: string): boolean {
   const parts = path.split("/");
   const name = parts[parts.length - 1] ?? "";
+  // The folder's git history and its root README are written by the mirror itself.
+  if (parts.includes(".git") || path === "README.md") return true;
   const metaAt = parts.lastIndexOf(WORKSPACE_META_DIR);
   if (metaAt >= 0 && MACHINERY_DIRS.has(parts[metaAt + 1] ?? "")) return true;
   if (MACHINERY_FILES.has(name)) return true;
