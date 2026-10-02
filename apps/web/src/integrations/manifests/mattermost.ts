@@ -1,4 +1,3 @@
-import { MattermostNotifier } from "@/features/sync/infrastructure/mattermost-notifier";
 import { MattermostNotificationIntegration } from "../providers/mattermost/notification-integration";
 import type { WireIntegrationsDeps } from "../wire-integrations";
 import type { NotificationIntegrationManifest } from "./types";
@@ -28,7 +27,6 @@ export const mattermostNotificationManifest: NotificationIntegrationManifest = {
     return new MattermostNotificationIntegration({
       projectId,
       integrations: deps.integrationsStore,
-      notifier: new MattermostNotifier(),
     });
   },
 };
