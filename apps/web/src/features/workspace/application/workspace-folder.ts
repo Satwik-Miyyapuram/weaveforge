@@ -260,15 +260,15 @@ export interface SyncOutcome {
   commit: WorkspaceCommit | null;
 }
 
+/** The sync writing right now; folder events wait for it so its own writes are not reported. */
+let syncInFlight: Promise<unknown> = Promise.resolve();
+
 /**
  * Write the workspace to the folder, then commit if versioning is on.
  *
  * Unchanged files are skipped, so a sync with nothing to do writes nothing and
  * produces no commit — which is what keeps the history readable.
  */
-/** The sync writing right now; folder events wait for it so its own writes are not reported. */
-let syncInFlight: Promise<unknown> = Promise.resolve();
-
 export function syncToFolder(): Promise<SyncOutcome> {
   const run = runSyncToFolder();
   syncInFlight = run.catch(() => undefined);
