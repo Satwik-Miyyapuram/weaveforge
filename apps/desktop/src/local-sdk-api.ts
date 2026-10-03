@@ -97,8 +97,10 @@ async function saveExperiment(query: SdkQuery, row: Record<string, unknown>): Pr
   if (!id) return bad(400, "Experiment must include id.");
 
   const columns: string[] = ["user_id"];
-  const placeholders: string[] = ["$1"];
-  const params: SdkParam[] = [LOCAL_USER_ID];
+  // The query runs as the device's user (the adopted account once synced), so
+  // policies demand that id, not the local-only one.
+  const placeholders: string[] = ["auth.uid()"];
+  const params: SdkParam[] = [];
 
   for (const column of EXPERIMENT_COLUMNS) {
     if (!(column in row)) continue;
@@ -130,7 +132,7 @@ async function appendMetrics(query: SdkQuery, body: Record<string, unknown>): Pr
   if (points.length === 0) return json(200, { ok: true, received: 0, stored: 0 });
 
   const values: string[] = [];
-  const params: SdkParam[] = [LOCAL_USER_ID];
+  const params: SdkParam[] = [];
   for (const raw of points as Record<string, unknown>[]) {
     const step = Number(raw.step ?? 0);
     const value = Number(raw.value);
@@ -139,7 +141,7 @@ async function appendMetrics(query: SdkQuery, body: Record<string, unknown>): Pr
     }
     params.push(bind(raw.experiment_id), bind(raw.metric), step, value, bind(raw.wall_time));
     const first = params.length - 4;
-    values.push(`($1, $${first}, $${first + 1}, $${first + 2}, $${first + 3}, $${first + 4})`);
+    values.push(`(auth.uid(), $${first}, $${first + 1}, $${first + 2}, $${first + 3}, $${first + 4})`);
   }
 
   const written = await query(
@@ -180,7 +182,9 @@ export async function routeSdkRequest(
   const route = path.slice(SDK_PREFIX.length).replace(/\/$/, "");
 
   if (route === "whoami") {
-    return json(200, { userId: LOCAL_USER_ID, email: null, fullName: null });
+    const me = await query("select auth.uid() as id", []);
+    const id = me.ok ? (me.value[0] as { id?: string } | undefined)?.id : undefined;
+    return json(200, { userId: id ?? LOCAL_USER_ID, email: null, fullName: null });
   }
 
   if (route === "projects") {

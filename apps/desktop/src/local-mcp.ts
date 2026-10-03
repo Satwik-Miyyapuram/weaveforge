@@ -632,6 +632,7 @@ export async function routeMcpRequest(
   session: VaultSession,
   request: JsonRpcRequest,
   rank?: SemanticRanker,
+  canSuggest = true,
 ): Promise<JsonRpcResponse | null> {
   const id = request.id ?? null;
   const params = request.params ?? {};
@@ -648,10 +649,15 @@ export async function routeMcpRequest(
     case "ping":
       return ok(id, {});
     case "tools/list":
-      return ok(id, { tools: TOOLS });
+      return ok(id, { tools: canSuggest ? TOOLS : TOOLS.filter((t) => !t.name.startsWith("suggest_")) });
     case "tools/call": {
       const name = typeof params.name === "string" ? params.name : "";
       const args = (params.arguments as Record<string, unknown> | undefined) ?? {};
+      if (!canSuggest && canonicalAiToolName(name).startsWith("suggest_"))
+        return ok(id, {
+          isError: true,
+          content: [{ type: "text", text: "This token may read only; it cannot leave drafts." }],
+        });
       try {
         return ok(id, await callTool(session, name, args, rank));
       } catch (error) {

@@ -14,7 +14,7 @@ const SETTINGS_KEYWORDS: Readonly<Record<string, readonly string[]>> = {
   editor: ["Editor", "Spell check", "Line width", "Vim", "Ink", "Page spacing"],
   workspace: ["Workspace folder", "Local files", "Notes folder"],
   ai: ["AI provider", "Model", "API key", "MCP", "MCP token", "Local API", "Claude"],
-  tokens: ["API tokens", "Access token"],
+  tokens: ["API tokens", "Access token", "Python SDK", "SDK token", "Experiments upload", "Local API"],
   integrations: ["Zotero", "Overleaf", "GitHub"],
   sync: ["Sync", "Cloud", "Conflicts", "Offline"],
   data: ["Backup", "Export", "Import", "App log"],
