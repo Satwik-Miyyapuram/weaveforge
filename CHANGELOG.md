@@ -21,6 +21,22 @@ tracks at once.
 
 ### iOS
 
+## [0.8.4] - 2026-10-04
+
+Desktop (`v0.8.4`) and Python SDK (`py-v0.7.0`). Android stays on 0.8.2; iOS stays on 0.8.0.
+
+### Desktop
+- **New:** Local API tokens get their own permissions and an expiry date; revoking one asks first.
+- **New:** The local API accepts artifact uploads from the SDK and keeps them on this computer.
+- **New:** Experiment images open in a full-screen viewer with zoom, pan and arrow keys.
+- **New:** An experiment's result note can be edited in place.
+- **Fixed:** Metric history is read from both ends, so long runs show their latest points.
+- **Fixed:** The image viewer toolbar is no longer hidden under the window controls.
+- **Fixed:** The PDF reader uses the full window width instead of a 1200px column.
+
+### Python SDK
+- **New:** `track(run_id=...)` reruns the same experiment in place, keeping its creation date and result note and clearing old curves. `update=False` keeps creating a new experiment each time.
+
 ## [0.8.3] - 2026-10-02
 
 Desktop (`v0.8.3`). Android stays on 0.8.2 (its shell loads the web app); iOS stays on 0.8.0.
