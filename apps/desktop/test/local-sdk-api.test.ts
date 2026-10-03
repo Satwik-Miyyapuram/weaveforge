@@ -160,3 +160,32 @@ test("a route the SDK does not have is a 404, not a fall-through", async () => {
   const { query } = db();
   assert.equal((await route(query, { url: "/api/sdk/artifacts" })).status, 404);
 });
+
+test("an artifact upload is saved to disk and its URL handed back", async () => {
+  const { query } = db([[{ id: "exp-1" }]]);
+  const saved: Array<[string, string, string]> = [];
+  const save = async (exp: string, name: string, bytes: Buffer) => {
+    saved.push([exp, name, bytes.toString()]);
+    return `app://artifacts/${exp}/u/${name}`;
+  };
+  const { request, url, path } = ask({
+    method: "POST",
+    url: "/api/sdk/artifacts",
+    body: JSON.stringify({ experimentId: "exp-1", name: "a.png", dataBase64: Buffer.from("png").toString("base64") }),
+  });
+  const answer = await routeSdkRequest(query, request, url, path, save);
+  assert.equal(answer?.status, 200);
+  assert.equal(JSON.parse(answer!.body).url, "app://artifacts/exp-1/u/a.png");
+  assert.deepEqual(saved, [["exp-1", "a.png", "png"]]);
+});
+
+test("an artifact name that could leave its folder is refused", async () => {
+  const { query } = db();
+  const { request, url, path } = ask({
+    method: "POST",
+    url: "/api/sdk/artifacts",
+    body: JSON.stringify({ experimentId: "exp-1", name: "../x", dataBase64: "" }),
+  });
+  const answer = await routeSdkRequest(query, request, url, path, async () => "never");
+  assert.equal(answer?.status, 400);
+});

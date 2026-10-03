@@ -49,6 +49,7 @@ import { registerMainVaultWatch } from "./main-vault-watch";
 import { fetchZoteroLocal } from "./zotero-local";
 import { probeTex } from "./tex";
 import { registerMainTex } from "./main-tex";
+import { ARTIFACT_HOST, serveLocalArtifact } from "./local-artifacts";
 import { MODEL_HOST, serveModelFile } from "./model-cache";
 import { handleOverleafRead } from "./overleaf-source";
 import {
@@ -440,6 +441,9 @@ function serveBundle(): void {
         request.url,
       );
     }
+    if (host === ARTIFACT_HOST) {
+      return serveLocalArtifact(path.join(app.getPath("userData"), "artifacts"), request.url);
+    }
     if (host !== APP_HOST) return new Response(null, { status: 404 });
     // The `/api/*` routes the web app has on a server, relayed by the shell.
     const relayed = answerRelay(request, net.fetch);
@@ -656,6 +660,7 @@ const localApiDoor = registerMainLocalApi({
   mainWindow: () => mainWindow,
   preferenceStore,
   secretStore,
+  artifactRoot: path.join(app.getPath("userData"), "artifacts"),
 });
 
 /** The plan widget on the desktop (§main-plan-widget), off until switched on. */

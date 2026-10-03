@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
 import { routeMcpRequest, type JsonRpcRequest, type SemanticRanker } from "./local-mcp";
+import type { SaveArtifact } from "./local-artifacts";
 import { routeSdkRequest, SDK_PREFIX, type SdkQuery } from "./local-sdk-api";
 import type { VaultSession } from "./vault-handlers";
 import { listVaultFiles, readVaultFile, removeVaultFile, writeVaultFile } from "./vault-handlers";
@@ -177,6 +178,7 @@ export async function routeLocalRequest(
   expected: string | readonly LocalApiGrant[],
   query?: SdkQuery,
   rank?: SemanticRanker,
+  saveArtifact?: SaveArtifact,
 ): Promise<LocalApiResponse> {
   const may = grantPermissions(request.authorization, expected);
   if (!may) return fail(401, UNAUTHORIZED);
@@ -190,7 +192,7 @@ export async function routeLocalRequest(
   // from. Without one — a shell that has never opened the local database — the
   // paths are simply not served, rather than served and failing.
   if (query) {
-    const answered = await routeSdkRequest(query, request, url, path);
+    const answered = await routeSdkRequest(query, request, url, path, saveArtifact);
     if (answered) return answered;
   }
 

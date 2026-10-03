@@ -13,6 +13,7 @@ import type { PreferenceStore } from "./preference-store";
 import type { SecretStore } from "./secret-store";
 import { CHANNELS } from "./channels";
 import { LOCAL_API_PERMISSIONS } from "./local-api";
+import { localArtifactWriter } from "./local-artifacts";
 import type { IpcSurface } from "./ipc-guard";
 import {
   LOCAL_API_HOST,
@@ -41,6 +42,8 @@ export interface MainLocalApiDeps {
   preferenceStore: () => PreferenceStore;
   /** Where the token lives. */
   secretStore: () => SecretStore;
+  /** Folder SDK artifact uploads are written to. */
+  artifactRoot: string;
 }
 
 export interface MainLocalApi {
@@ -139,6 +142,7 @@ export function registerMainLocalApi(
         () => cachedGrants,
         (sql, params) => localDb.query(sql, params),
         rankSemantically,
+        localArtifactWriter(deps.artifactRoot),
       );
       return undefined;
     } catch (error) {

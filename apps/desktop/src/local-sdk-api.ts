@@ -1,6 +1,7 @@
 import { LOCAL_USER_ID } from "@weaveforge/core";
 
 import type { LocalApiRequest, LocalApiResponse } from "./local-api";
+import { isSafeSegment, MAX_LOCAL_ARTIFACT_BYTES, type SaveArtifact } from "./local-artifacts";
 
 /**
  * The Python SDK's `/api/sdk/*` routes, answered from the local database.
@@ -20,8 +21,8 @@ import type { LocalApiRequest, LocalApiResponse } from "./local-api";
  *   because it is protecting shared storage from a thousand clients; a local
  *   file is one person's, and the `experiment_metrics` view already collapses
  *   a re-ingest onto its primary key.
- * - Artifacts are absent. They are blobs, and blobs belong to the blob store,
- *   not to a route that only knows how to run SQL.
+ * - Artifacts are written to this disk by `saveArtifact` and recorded as
+ *   `app://artifacts/...` URLs; the shell has no server login to upload with.
  */
 
 /** What the local database accepts as a bound value. */
@@ -166,6 +167,24 @@ async function appendMetrics(query: SdkQuery, body: Record<string, unknown>): Pr
   return json(200, { ok: true, received: points.length, stored: points.length });
 }
 
+async function saveArtifactRequest(
+  query: SdkQuery,
+  save: SaveArtifact,
+  body: Record<string, unknown>,
+): Promise<LocalApiResponse> {
+  const { experimentId, name, dataBase64 } = body;
+  if (!isSafeSegment(experimentId) || !isSafeSegment(name) || typeof dataBase64 !== "string") {
+    return bad(400, "Body must include a plain experimentId, name and dataBase64.");
+  }
+  const bytes = Buffer.from(dataBase64, "base64");
+  if (bytes.length > MAX_LOCAL_ARTIFACT_BYTES) return bad(413, "Artifact is too large.");
+  const owned = await query("select id from experiments where id = $1 limit 1", [experimentId]);
+  if (!owned.ok) return bad(500, owned.message);
+  if (!owned.value.length) return bad(404, "Experiment not found.");
+  const url = await save(experimentId, name, bytes);
+  return json(200, { path: url, url });
+}
+
 /**
  * Answer an `/api/sdk/*` request, or return `null` when the path is not one.
  *
@@ -177,6 +196,7 @@ export async function routeSdkRequest(
   request: LocalApiRequest,
   url: URL,
   path: string,
+  saveArtifact?: SaveArtifact,
 ): Promise<LocalApiResponse | null> {
   if (!path.startsWith(SDK_PREFIX)) return null;
   const route = path.slice(SDK_PREFIX.length).replace(/\/$/, "");
@@ -221,6 +241,13 @@ export async function routeSdkRequest(
     const body = parseBody(request);
     if (!body) return bad(400, "Invalid JSON body.");
     return appendMetrics(query, body);
+  }
+
+  if (route === "artifacts" && saveArtifact) {
+    if (request.method !== "POST") return bad(405, "That method is not served here.");
+    const body = parseBody(request);
+    if (!body) return bad(400, "Invalid JSON body.");
+    return saveArtifactRequest(query, saveArtifact, body);
   }
 
   return bad(404, "No such route.");

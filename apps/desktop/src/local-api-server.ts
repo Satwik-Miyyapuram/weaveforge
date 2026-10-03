@@ -1,3 +1,4 @@
+import type { SaveArtifact } from "./local-artifacts";
 import { createHash, randomBytes } from "node:crypto";
 import { createServer, type Server } from "node:http";
 
@@ -77,6 +78,7 @@ export function startLocalApi(
   token: () => string | readonly LocalApiGrant[],
   query?: SdkQuery,
   rank?: SemanticRanker,
+  saveArtifact?: SaveArtifact,
 ): Promise<LocalApi> {
   const server: Server = createServer((req, res) => {
     if (!isLoopbackHost(req.headers.host, LOCAL_API_PORT)) {
@@ -163,7 +165,7 @@ export function startLocalApi(
         authorization: req.headers.authorization,
         body: Buffer.concat(chunks).toString("utf8"),
       };
-      void routeLocalRequest(session, request, token(), query, rank)
+      void routeLocalRequest(session, request, token(), query, rank, saveArtifact)
         .then((answer) => {
           // No CORS header at all, deliberately.
           //
