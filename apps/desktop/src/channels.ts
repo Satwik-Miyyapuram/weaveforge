@@ -121,6 +121,8 @@ export const CHANNELS = {
   texProbe: "weaveforge:tex-probe",
   texCompile: "weaveforge:tex-compile",
   localApiSet: "weaveforge:local-api-set",
+  localApiTokenCreate: "weaveforge:local-api-token-create",
+  localApiTokenRevoke: "weaveforge:local-api-token-revoke",
   /**
    * Main -> renderer, like `signIn`: somebody else changed the folder.
    *

@@ -1,6 +1,7 @@
 import { LOCAL_USER_ID } from "@weaveforge/core";
 
 import type { LocalApiRequest, LocalApiResponse } from "./local-api";
+import { isSafeSegment, MAX_LOCAL_ARTIFACT_BYTES, type SaveArtifact } from "./local-artifacts";
 
 /**
  * The Python SDK's `/api/sdk/*` routes, answered from the local database.
@@ -20,8 +21,8 @@ import type { LocalApiRequest, LocalApiResponse } from "./local-api";
  *   because it is protecting shared storage from a thousand clients; a local
  *   file is one person's, and the `experiment_metrics` view already collapses
  *   a re-ingest onto its primary key.
- * - Artifacts are absent. They are blobs, and blobs belong to the blob store,
- *   not to a route that only knows how to run SQL.
+ * - Artifacts are written to this disk by `saveArtifact` and recorded as
+ *   `app://artifacts/...` URLs; the shell has no server login to upload with.
  */
 
 /** What the local database accepts as a bound value. */
@@ -97,8 +98,10 @@ async function saveExperiment(query: SdkQuery, row: Record<string, unknown>): Pr
   if (!id) return bad(400, "Experiment must include id.");
 
   const columns: string[] = ["user_id"];
-  const placeholders: string[] = ["$1"];
-  const params: SdkParam[] = [LOCAL_USER_ID];
+  // The query runs as the device's user (the adopted account once synced), so
+  // policies demand that id, not the local-only one.
+  const placeholders: string[] = ["auth.uid()"];
+  const params: SdkParam[] = [];
 
   for (const column of EXPERIMENT_COLUMNS) {
     if (!(column in row)) continue;
@@ -130,7 +133,7 @@ async function appendMetrics(query: SdkQuery, body: Record<string, unknown>): Pr
   if (points.length === 0) return json(200, { ok: true, received: 0, stored: 0 });
 
   const values: string[] = [];
-  const params: SdkParam[] = [LOCAL_USER_ID];
+  const params: SdkParam[] = [];
   for (const raw of points as Record<string, unknown>[]) {
     const step = Number(raw.step ?? 0);
     const value = Number(raw.value);
@@ -139,7 +142,7 @@ async function appendMetrics(query: SdkQuery, body: Record<string, unknown>): Pr
     }
     params.push(bind(raw.experiment_id), bind(raw.metric), step, value, bind(raw.wall_time));
     const first = params.length - 4;
-    values.push(`($1, $${first}, $${first + 1}, $${first + 2}, $${first + 3}, $${first + 4})`);
+    values.push(`(auth.uid(), $${first}, $${first + 1}, $${first + 2}, $${first + 3}, $${first + 4})`);
   }
 
   const written = await query(
@@ -164,6 +167,24 @@ async function appendMetrics(query: SdkQuery, body: Record<string, unknown>): Pr
   return json(200, { ok: true, received: points.length, stored: points.length });
 }
 
+async function saveArtifactRequest(
+  query: SdkQuery,
+  save: SaveArtifact,
+  body: Record<string, unknown>,
+): Promise<LocalApiResponse> {
+  const { experimentId, name, dataBase64 } = body;
+  if (!isSafeSegment(experimentId) || !isSafeSegment(name) || typeof dataBase64 !== "string") {
+    return bad(400, "Body must include a plain experimentId, name and dataBase64.");
+  }
+  const bytes = Buffer.from(dataBase64, "base64");
+  if (bytes.length > MAX_LOCAL_ARTIFACT_BYTES) return bad(413, "Artifact is too large.");
+  const owned = await query("select id from experiments where id = $1 limit 1", [experimentId]);
+  if (!owned.ok) return bad(500, owned.message);
+  if (!owned.value.length) return bad(404, "Experiment not found.");
+  const url = await save(experimentId, name, bytes);
+  return json(200, { path: url, url });
+}
+
 /**
  * Answer an `/api/sdk/*` request, or return `null` when the path is not one.
  *
@@ -175,12 +196,15 @@ export async function routeSdkRequest(
   request: LocalApiRequest,
   url: URL,
   path: string,
+  saveArtifact?: SaveArtifact,
 ): Promise<LocalApiResponse | null> {
   if (!path.startsWith(SDK_PREFIX)) return null;
   const route = path.slice(SDK_PREFIX.length).replace(/\/$/, "");
 
   if (route === "whoami") {
-    return json(200, { userId: LOCAL_USER_ID, email: null, fullName: null });
+    const me = await query("select auth.uid() as id", []);
+    const id = me.ok ? (me.value[0] as { id?: string } | undefined)?.id : undefined;
+    return json(200, { userId: id ?? LOCAL_USER_ID, email: null, fullName: null });
   }
 
   if (route === "projects") {
@@ -213,10 +237,26 @@ export async function routeSdkRequest(
   }
 
   if (route === "metrics") {
+    if (request.method === "DELETE") {
+      const id = url.searchParams.get("experiment_id")?.trim();
+      if (!id) return bad(400, "Missing experiment_id.");
+      for (const table of ["experiment_metric_points", "experiment_metric_chunks"]) {
+        const gone = await query(`delete from ${table} where experiment_id = $1`, [id]);
+        if (!gone.ok) return bad(500, gone.message);
+      }
+      return json(200, { ok: true });
+    }
     if (request.method !== "POST") return bad(405, "That method is not served here.");
     const body = parseBody(request);
     if (!body) return bad(400, "Invalid JSON body.");
     return appendMetrics(query, body);
+  }
+
+  if (route === "artifacts" && saveArtifact) {
+    if (request.method !== "POST") return bad(405, "That method is not served here.");
+    const body = parseBody(request);
+    if (!body) return bad(400, "Invalid JSON body.");
+    return saveArtifactRequest(query, saveArtifact, body);
   }
 
   return bad(404, "No such route.");

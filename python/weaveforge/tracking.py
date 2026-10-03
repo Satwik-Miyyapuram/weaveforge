@@ -22,6 +22,7 @@ convenience:
 from __future__ import annotations
 
 import inspect
+import uuid
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from functools import partial, wraps
@@ -70,6 +71,17 @@ def _release_mirror(mirror: Mirror | None) -> None:
     best_effort("close the mirror", lambda: mirror.finish("failed"))
 
 
+#: Fixed namespace so the same key always maps to the same experiment id.
+_RUN_KEY_NAMESPACE = uuid.UUID("3b0f7c2e-6a1d-5e4b-9c8f-2d7a1e5b4c60")
+
+
+def run_key_id(container: object, run_id: str) -> str:
+    """Experiment id for a user-chosen key, unique per account and project."""
+    user = getattr(container, "user_id", "") or ""
+    project = getattr(container, "project_id", "") or ""
+    return str(uuid.uuid5(_RUN_KEY_NAMESPACE, f"{user}/{project}/{run_id}"))
+
+
 def _start_run(
     container: TrackingContainer,
     name: str,
@@ -80,6 +92,8 @@ def _start_run(
     registry: SyncRegistry,
     extra_input: Mapping[str, Any],
     mirror: Mirror | None = None,
+    run_id: str | None = None,
+    update: bool = True,
 ) -> Run:
     input_kw = dict(extra_input)
     if capture_git:
@@ -93,7 +107,10 @@ def _start_run(
         status="running",
         **input_kw,
     )
-    experiment = container.manage_experiment.add(data)
+    if run_id and update:
+        experiment = container.manage_experiment.upsert(data, run_key_id(container, run_id))
+    else:
+        experiment = container.manage_experiment.add(data)
     return Run(
         container.manage_experiment,
         experiment,
@@ -116,6 +133,8 @@ def track(
     container: TrackingContainer | None = None,
     project: str | None = None,
     registry: SyncRegistry | None = None,
+    run_id: str | None = None,
+    update: bool = True,
     **experiment_fields: Any,
 ) -> Iterator[Run]:
     """Context manager around one run.
@@ -127,6 +146,11 @@ def track(
     project so it shows under it in the dashboard. Pass ``container`` to reuse a
     connection or inject an in-memory one in tests; otherwise a Supabase
     connection is opened.
+
+    ``run_id`` is your own key for the run (e.g. ``"hnvae-paper"``). With
+    ``update=True`` (default) running again with the same key overwrites that
+    experiment in place, clearing its old curves, summary and links; with
+    ``update=False`` every call creates a new experiment as if no key was given.
 
     A connection *this* call opened is closed on exit; a ``container`` you passed
     in is yours, so it is left open (you may still hold the ``Run``).
@@ -155,6 +179,8 @@ def track(
                 registry=sources,
                 extra_input=experiment_fields,
                 mirror=mirror_handle,
+                run_id=run_id,
+                update=update,
             )
         except BaseException:
             _release_mirror(mirror_handle)

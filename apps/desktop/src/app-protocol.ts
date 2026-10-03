@@ -126,6 +126,8 @@ export function appHeaders(contentType: string): Record<string, string> {
  * *rejects* rather than returning a miss, so the library received a rejection
  * where it expected a `Response`.
  *
+ * `app://artifacts` in `img-src` shows SDK uploads kept on this disk.
+ *
  * Both are schemes rather than wildcards: `app:` still confines this to the app's
  * own protocol, and `cache:` is the whole of what the Cache API needs.
  */
@@ -133,7 +135,7 @@ const APP_CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https:",
+  "img-src 'self' app://artifacts data: blob: https:",
   "font-src 'self' data:",
   "connect-src 'self' app: cache: https: wss: http://localhost:* http://127.0.0.1:*",
   "worker-src 'self' blob:",

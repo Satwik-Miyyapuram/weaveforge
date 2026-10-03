@@ -49,13 +49,10 @@ import { registerMainVaultWatch } from "./main-vault-watch";
 import { fetchZoteroLocal } from "./zotero-local";
 import { probeTex } from "./tex";
 import { registerMainTex } from "./main-tex";
+import { ARTIFACT_HOST, serveLocalArtifact } from "./local-artifacts";
 import { MODEL_HOST, serveModelFile } from "./model-cache";
 import { handleOverleafRead } from "./overleaf-source";
-import {
-  handleFetchImage,
-  handleFetchTitle,
-  mayOpenExternally,
-} from "./handlers";
+import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
 import { answerRelay } from "./app-relays";
 import { installApiCors } from "./api-cors";
 import { startAuthLoopback } from "./auth-loopback";
@@ -434,11 +431,9 @@ function serveBundle(): void {
     const host = new URL(request.url).hostname;
     // `app://models/...` is the encoder's weights, cached on the disk so the
     // feature keeps working with the network unplugged.
-    if (host === MODEL_HOST) {
-      return serveModelFile(
-        path.join(app.getPath("userData"), "models"),
-        request.url,
-      );
+    if (host === MODEL_HOST) return serveModelFile(path.join(app.getPath("userData"), "models"), request.url);
+    if (host === ARTIFACT_HOST) {
+      return serveLocalArtifact(path.join(app.getPath("userData"), "artifacts"), request.url);
     }
     if (host !== APP_HOST) return new Response(null, { status: 404 });
     // The `/api/*` routes the web app has on a server, relayed by the shell.
@@ -656,6 +651,7 @@ const localApiDoor = registerMainLocalApi({
   mainWindow: () => mainWindow,
   preferenceStore,
   secretStore,
+  artifactRoot: path.join(app.getPath("userData"), "artifacts"),
 });
 
 /** The plan widget on the desktop (§main-plan-widget), off until switched on. */

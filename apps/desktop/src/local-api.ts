@@ -1,7 +1,8 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 
 import { routeMcpRequest, type JsonRpcRequest, type SemanticRanker } from "./local-mcp";
-import { routeSdkRequest, type SdkQuery } from "./local-sdk-api";
+import type { SaveArtifact } from "./local-artifacts";
+import { routeSdkRequest, SDK_PREFIX, type SdkQuery } from "./local-sdk-api";
 import type { VaultSession } from "./vault-handlers";
 import { listVaultFiles, readVaultFile, removeVaultFile, writeVaultFile } from "./vault-handlers";
 
@@ -67,6 +68,45 @@ export function tokenMatches(header: string | undefined, expected: string): bool
   const a = Buffer.from(offered);
   const b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** A live token as the router sees it: a hash, what it may reach, and when it stops. */
+export interface LocalApiGrant {
+  /** sha256 hex of the token. */
+  hash: string;
+  permissions: readonly LocalApiPermission[];
+  expiresAt: string | null;
+}
+
+/** What a token may reach: SDK routes, the Obsidian-style REST routes, MCP. */
+export const LOCAL_API_PERMISSIONS = [
+  "experiments",
+  "rest:read",
+  "rest:write",
+  "mcp:read",
+  "mcp:suggest",
+] as const;
+export type LocalApiPermission = (typeof LOCAL_API_PERMISSIONS)[number];
+
+/** What the offered token may reach, or null when it matches no live grant. */
+export function grantPermissions(
+  header: string | undefined,
+  expected: string | readonly LocalApiGrant[],
+  now = Date.now(),
+): ReadonlySet<LocalApiPermission> | null {
+  if (typeof expected === "string")
+    return tokenMatches(header, expected) ? new Set(LOCAL_API_PERMISSIONS) : null;
+  const offered = /^Bearer (.+)$/.exec(header ?? "")?.[1];
+  if (!offered) return null;
+  const a = createHash("sha256").update(offered).digest();
+  let found: ReadonlySet<LocalApiPermission> | null = null;
+  for (const grant of expected) {
+    const b = Buffer.from(grant.hash, "hex");
+    if (a.length !== b.length || !timingSafeEqual(a, b)) continue;
+    if (grant.expiresAt && Date.parse(grant.expiresAt) <= now) continue;
+    found = new Set(grant.permissions);
+  }
+  return found;
 }
 
 /** Every file under `dir`, depth-first, up to a cap. */
@@ -135,24 +175,29 @@ async function simpleSearch(session: VaultSession, query: string): Promise<Local
 export async function routeLocalRequest(
   session: VaultSession,
   request: LocalApiRequest,
-  expected: string,
+  expected: string | readonly LocalApiGrant[],
   query?: SdkQuery,
   rank?: SemanticRanker,
+  saveArtifact?: SaveArtifact,
 ): Promise<LocalApiResponse> {
-  if (!tokenMatches(request.authorization, expected)) return fail(401, UNAUTHORIZED);
+  const may = grantPermissions(request.authorization, expected);
+  if (!may) return fail(401, UNAUTHORIZED);
 
   const url = new URL(request.url, "http://127.0.0.1");
   const path = decodeURIComponent(url.pathname);
+  const denied = (need: LocalApiPermission) => fail(403, `This token lacks the ${need} permission.`);
+  if (path.startsWith(SDK_PREFIX) && !may.has("experiments")) return denied("experiments");
 
   // The Python SDK's routes, when this copy has a database to answer them
   // from. Without one — a shell that has never opened the local database — the
   // paths are simply not served, rather than served and failing.
   if (query) {
-    const answered = await routeSdkRequest(query, request, url, path);
+    const answered = await routeSdkRequest(query, request, url, path, saveArtifact);
     if (answered) return answered;
   }
 
   if (path === "/mcp") {
+    if (!may.has("mcp:read")) return denied("mcp:read");
     if (request.method !== "POST") return fail(405, "MCP is spoken over POST.");
     let parsed: JsonRpcRequest;
     try {
@@ -160,12 +205,17 @@ export async function routeLocalRequest(
     } catch {
       return json(400, { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Not JSON." } });
     }
-    const answer = await routeMcpRequest(session, parsed, rank);
+    const answer = await routeMcpRequest(session, parsed, rank, may.has("mcp:suggest"));
     // A notification is answered with no body at all, which is what a client
     // sending `notifications/initialized` waits for.
     return answer === null
       ? { status: 202, contentType: "application/json", body: "" }
       : json(200, answer);
+  }
+
+  if (path === "/search/simple/" || path.startsWith("/vault/")) {
+    const need = request.method === "GET" || path === "/search/simple/" ? "rest:read" : "rest:write";
+    if (!may.has(need)) return denied(need);
   }
 
   if (path === "/search/simple/" && request.method === "POST") {

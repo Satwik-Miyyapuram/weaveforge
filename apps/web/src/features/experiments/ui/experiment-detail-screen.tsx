@@ -74,6 +74,19 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
     return () => clearInterval(t);
   }, [live, load]);
 
+  const [resultDraft, setResultDraft] = useState<string | null>(null);
+  const [resultError, setResultError] = useState<string | null>(null);
+  async function saveResult() {
+    if (!exp || resultDraft === null) return;
+    try {
+      setExp(await getContainer().experiments.manageExperiment.setResultNote(exp.id, resultDraft));
+      setResultDraft(null);
+      setResultError(null);
+    } catch (err) {
+      setResultError(formatError(err));
+    }
+  }
+
   async function setStatus(status: ExperimentStatus) {
     if (!exp) return;
     setExp(await getContainer().experiments.manageExperiment.setStatus(exp.id, status));
@@ -174,11 +187,39 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
               )}
             </RecordSection>
 
-            <RecordSection label="Result" tag={exp.resultNote ? undefined : "Open"}>
-              {exp.resultNote ? (
+            <RecordSection
+              label="Result"
+              tag={
+                resultDraft === null ? (
+                  <button type="button" className="record-action" onClick={() => setResultDraft(exp.resultNote ?? "")}>
+                    {exp.resultNote ? "Edit" : "Write result"}
+                  </button>
+                ) : undefined
+              }
+            >
+              {resultError && <FormError>{resultError}</FormError>}
+              {resultDraft !== null ? (
+                <div className="exp-result-edit">
+                  <textarea
+                    autoFocus
+                    rows={5}
+                    value={resultDraft}
+                    placeholder="What came out of this run? Does it confirm the hypothesis?"
+                    onChange={(e) => setResultDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) void saveResult();
+                      if (e.key === "Escape") setResultDraft(null);
+                    }}
+                  />
+                  <div className="exp-result-actions">
+                    <button type="button" className="btn-secondary" onClick={() => setResultDraft(null)}>Cancel</button>
+                    <button type="button" className="btn-primary" onClick={() => void saveResult()}>Save result</button>
+                  </div>
+                </div>
+              ) : exp.resultNote ? (
                 <p ref={resultRef} className="record-abstract">{exp.resultNote}</p>
               ) : (
-                <RecordEmpty>No result written yet. The SDK&apos;s <code>run.finish(note=…)</code> fills this in.</RecordEmpty>
+                <RecordEmpty>No result written yet. Write one here, or the SDK&apos;s <code>run.finish(note=…)</code> fills it in.</RecordEmpty>
               )}
             </RecordSection>
 

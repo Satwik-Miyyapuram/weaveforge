@@ -54,6 +54,33 @@ export const SYNCED_TABLES: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Metric reads that must see both ends: the desktop SDK API writes points to the
+ * local database and the hosted SDK route to the server, and metrics do not sync.
+ */
+const BOTH_END_RPCS: ReadonlySet<string> = new Set(["metric_history", "latest_metric_activity"]);
+
+type RpcReply = { data: unknown; error: unknown };
+
+/** Rows from both ends; one end failing leaves the other's answer standing. */
+async function bothEnds(
+  local: SupabaseClient,
+  server: SupabaseClient,
+  fn: string,
+  args?: Record<string, unknown>,
+): Promise<RpcReply> {
+  const [here, there] = (await Promise.all([local.rpc(fn, args), server.rpc(fn, args)])) as RpcReply[];
+  if (here!.error && there!.error) return there!;
+  const rows = (r: RpcReply) => (!r.error && Array.isArray(r.data) ? r.data : []);
+  // A run's history lives on one end; preferring local keeps the budget-reduced
+  // series intact instead of interleaving two reductions.
+  if (fn === "metric_history") {
+    const mine = rows(here!);
+    return { data: mine.length ? mine : rows(there!), error: null };
+  }
+  return { data: [...rows(here!), ...rows(there!)], error: null };
+}
+
+/**
  * One client with two ends: synced tables go to the local database, the rest
  * of the client — tables that do not sync, RPCs, auth, storage, realtime — to
  * the server.
@@ -67,6 +94,10 @@ export function routedClient(
     get(target, prop, receiver) {
       if (prop === "from") {
         return (table: string) => (synced.has(table) ? local.from(table) : target.from(table));
+      }
+      if (prop === "rpc") {
+        return (fn: string, args?: Record<string, unknown>) =>
+          BOTH_END_RPCS.has(fn) ? bothEnds(local, target, fn, args) : target.rpc(fn, args);
       }
       const value = Reflect.get(target, prop, receiver) as unknown;
       return typeof value === "function" ? (value as (...a: unknown[]) => unknown).bind(target) : value;

@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { routeLocalRequest, tokenMatches, type LocalApiRequest } from "../src/local-api";
+import { routeLocalRequest, tokenMatches, type LocalApiGrant, type LocalApiRequest } from "../src/local-api";
+import { hashLocalApiToken, makeLocalApiToken, parseLocalApiTokens } from "../src/local-api-server";
 import {
   adoptRoot,
   newVaultSession,
@@ -277,4 +278,56 @@ test("a notification is answered with nothing to answer", async () => {
   );
   assert.equal(answer.status, 202);
   assert.equal(answer.body, "");
+});
+
+function grant(permissions: LocalApiGrant["permissions"], expiresAt: string | null = null): LocalApiGrant[] {
+  return [{ hash: hashLocalApiToken(TOKEN), permissions, expiresAt }];
+}
+
+test("a token without a permission gets 403 for that surface", async () => {
+  const only = grant(["experiments"]);
+  for (const url of ["/vault/notes/a.note.md", "/search/simple/?query=tea"]) {
+    const answer = await routeLocalRequest(await vault(), ask({ url }), only);
+    assert.equal(answer.status, 403);
+  }
+  const mcp = await routeLocalRequest(
+    await vault(),
+    ask({ method: "POST", url: "/mcp", body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) }),
+    only,
+  );
+  assert.equal(mcp.status, 403);
+});
+
+test("Notes read does not allow writes", async () => {
+  const read = grant(["rest:read"]);
+  assert.equal((await routeLocalRequest(await vault(), ask({}), read)).status, 200);
+  const put = await routeLocalRequest(await vault(), ask({ method: "PUT", body: "x" }), read);
+  assert.equal(put.status, 403);
+});
+
+test("an expired token is refused", async () => {
+  const answer = await routeLocalRequest(await vault(), ask({}), grant(["rest:read"], "2000-01-01T00:00:00Z"));
+  assert.equal(answer.status, 401);
+});
+
+test("MCP read without drafts hides the suggest tools", async () => {
+  const answer = await routeLocalRequest(
+    await vault(),
+    ask({ method: "POST", url: "/mcp", body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) }),
+    grant(["mcp:read"]),
+  );
+  assert.equal(answer.status, 200);
+  const names: string[] = JSON.parse(answer.body).result.tools.map((t: { name: string }) => t.name);
+  assert.ok(names.length > 0);
+  assert.ok(!names.some((n) => n.startsWith("suggest_")));
+});
+
+test("stored tokens keep only a hash; a legacy plaintext token migrates with every permission", () => {
+  const { record, token } = makeLocalApiToken("x", ["experiments"], null);
+  assert.equal(record.hash, hashLocalApiToken(token));
+  assert.ok(!JSON.stringify(record).includes(token));
+  const legacy = parseLocalApiTokens(TOKEN);
+  assert.equal(legacy.legacy, true);
+  assert.equal(legacy.records[0]?.permissions.length, 5);
+  assert.deepEqual(parseLocalApiTokens(JSON.stringify([record])).records, [record]);
 });

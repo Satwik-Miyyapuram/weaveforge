@@ -65,7 +65,7 @@ const SETTINGS_TABS = [
   { id: "editor", label: "Editor" },
   { id: "workspace", label: "Workspace" },
   { id: "ai", label: "AI" },
-  { id: "tokens", label: "Tokens" },
+  { id: "tokens", label: "Access tokens" },
   { id: "integrations", label: "Integrations" },
   { id: "sync", label: "Sync" },
   { id: "calendar", label: "Calendar" },
@@ -364,7 +364,6 @@ export function SettingsScreen() {
     setSaved(false);
   }
 
-
   const showBibliographyCollection =
     activeProvider?.providerId === integrationConfig.bibliography &&
     integrationConfig.bibliography !== "none";
@@ -378,7 +377,8 @@ export function SettingsScreen() {
     // Nothing behind these without an account: no lab to administer, no server
     // to issue a token, no second device to reconcile with.
     if (t.id === "org") return hasOrgs;
-    if (t.id === "tokens") return hasApiTokens;
+    // Desktop issues its token from the shell, account or not.
+    if (t.id === "tokens") return hasApiTokens || isDesktop;
     if (t.id === "sync") return hasSync;
     return true;
   });
@@ -640,7 +640,8 @@ export function SettingsScreen() {
         <ScreenLoader status="Loading settings…" compact />
       )}
 
-      {tab === "tokens" && !loading && <ApiTokensPanel />}
+      {tab === "tokens" && isDesktop && <LocalApiPanel purpose="sdk" />}
+      {tab === "tokens" && !loading && hasApiTokens && <ApiTokensPanel />}
 
       {tab === "integrations" && !loading && (
         <>

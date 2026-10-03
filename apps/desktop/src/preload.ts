@@ -117,6 +117,8 @@ const bridge: DesktopBridge = {
   setTitleBarColors: (colors) => ipcRenderer.send(CHANNELS.titleBarColors, colors),
   compileTex: (files, entryFile) => call<DesktopTexCompileResult>(CHANNELS.texCompile, files, entryFile),
   setLocalApi: (enabled) => call<DesktopLocalApi>(CHANNELS.localApiSet, enabled),
+  createLocalApiToken: (request) => call<DesktopLocalApi>(CHANNELS.localApiTokenCreate, request),
+  revokeLocalApiToken: (id) => call<DesktopLocalApi>(CHANNELS.localApiTokenRevoke, id),
   planWidgetState: () => call<DesktopPlanWidget>(CHANNELS.planWidgetState),
   setPlanWidget: (on) => call<DesktopPlanWidget>(CHANNELS.planWidgetSet, on === true),
   setPlanWidgetTheme: (palette) => ipcRenderer.send(CHANNELS.planWidgetTheme, palette),

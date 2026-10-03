@@ -60,8 +60,9 @@ export class ExperimentArtifactStore {
   }
 }
 
-/** `http(s)` only — a bare path must not be mistaken for a hosted link. */
+/** `http(s)`, or a desktop-local `app://artifacts/` upload; a bare path must not pass as a link. */
 export function isAbsoluteUrl(value: string): boolean {
+  if (value.startsWith("app://artifacts/")) return true;
   try {
     const { protocol } = new URL(value);
     return protocol === "http:" || protocol === "https:";

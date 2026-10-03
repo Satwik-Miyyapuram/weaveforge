@@ -44,13 +44,18 @@ test("a path that is not the SDK's is left for the rest of the API", async () =>
   assert.equal(await routeSdkRequest(query, request, url, path), null);
 });
 
-test("there is one user here, and it is the local one", async () => {
-  const { query, asked } = db();
+test("whoami names the user queries run as", async () => {
+  const { query, asked } = db([[{ id: "acct-1" }]]);
   const answer = await route(query, { url: "/api/sdk/whoami" });
   assert.equal(answer.status, 200);
+  assert.equal(answer.body.userId, "acct-1");
+  assert.match(asked[0]!.sql, /auth\.uid\(\)/);
+});
+
+test("whoami falls back to the local user", async () => {
+  const { query } = db([[]]);
+  const answer = await route(query, { url: "/api/sdk/whoami" });
   assert.equal(answer.body.userId, LOCAL_USER_ID);
-  // No round trip: the answer is a constant, not a row.
-  assert.equal(asked.length, 0);
 });
 
 test("a project is found by name", async () => {
@@ -66,7 +71,7 @@ test("a project nobody named is refused rather than searched for", async () => {
   assert.equal(asked.length, 0);
 });
 
-test("saving an experiment writes the local user and casts the JSON columns", async () => {
+test("saving an experiment is owned by the querying user and casts the JSON columns", async () => {
   const { query, asked } = db([[{ id: "exp-1" }]]);
   const answer = await route(query, {
     method: "POST",
@@ -81,10 +86,9 @@ test("saving an experiment writes the local user and casts the JSON columns", as
   assert.equal(answer.status, 200);
   const { sql, params } = asked[0]!;
   assert.match(sql, /insert into experiments \(user_id, id, name, status, config\)/);
-  assert.match(sql, /\$5::jsonb/);
+  assert.match(sql, /values \(auth\.uid\(\), \$1, \$2, \$3, \$4::jsonb\)/);
   assert.match(sql, /on conflict \(id\) do update set user_id = excluded\.user_id, name = excluded\.name/);
-  assert.equal(params[0], LOCAL_USER_ID);
-  assert.equal(params[4], '{"lr":0.01}');
+  assert.equal(params[3], '{"lr":0.01}');
 });
 
 test("a column nobody declared is dropped, not interpolated", async () => {
@@ -128,10 +132,9 @@ test("metric points go in as one statement, and the run is marked running", asyn
   assert.equal(answer.status, 200);
   assert.equal(answer.body.stored, 2);
   assert.equal(asked.length, 2);
-  assert.match(asked[0]!.sql, /values \(\$1, \$2, \$3, \$4, \$5, \$6\), \(\$1, \$7, \$8, \$9, \$10, \$11\)$/);
-  assert.equal(asked[0]!.params[0], LOCAL_USER_ID);
-  assert.equal(asked[0]!.params[5], "2026-08-27T00:00:00Z");
-  assert.equal(asked[0]!.params[10], null);
+  assert.match(asked[0]!.sql, /values \(auth\.uid\(\), \$1, \$2, \$3, \$4, \$5\), \(auth\.uid\(\), \$6, \$7, \$8, \$9, \$10\)$/);
+  assert.equal(asked[0]!.params[4], "2026-08-27T00:00:00Z");
+  assert.equal(asked[0]!.params[9], null);
   assert.match(asked[1]!.sql, /update experiments set started_at = now\(\)/);
   assert.deepEqual(asked[1]!.params, ["exp-1"]);
 });
@@ -147,6 +150,22 @@ test("a point whose value is not a number is refused before anything is written"
   assert.equal(asked.length, 0);
 });
 
+test("clearing a run's metrics empties both the points and the chunks", async () => {
+  const { query, asked } = db();
+  const answer = await route(query, { method: "DELETE", url: "/api/sdk/metrics?experiment_id=exp-1" });
+  assert.equal(answer.status, 200);
+  assert.equal(asked.length, 2);
+  assert.match(asked[0]!.sql, /delete from experiment_metric_points where experiment_id = \$1/);
+  assert.match(asked[1]!.sql, /delete from experiment_metric_chunks where experiment_id = \$1/);
+  assert.deepEqual(asked[1]!.params, ["exp-1"]);
+});
+
+test("clearing metrics without a run is refused", async () => {
+  const { query, asked } = db();
+  assert.equal((await route(query, { method: "DELETE", url: "/api/sdk/metrics" })).status, 400);
+  assert.equal(asked.length, 0);
+});
+
 test("an empty flush is not a statement", async () => {
   const { query, asked } = db();
   assert.equal((await route(query, { method: "POST", url: "/api/sdk/metrics", body: '{"points":[]}' })).status, 200);
@@ -156,4 +175,33 @@ test("an empty flush is not a statement", async () => {
 test("a route the SDK does not have is a 404, not a fall-through", async () => {
   const { query } = db();
   assert.equal((await route(query, { url: "/api/sdk/artifacts" })).status, 404);
+});
+
+test("an artifact upload is saved to disk and its URL handed back", async () => {
+  const { query } = db([[{ id: "exp-1" }]]);
+  const saved: Array<[string, string, string]> = [];
+  const save = async (exp: string, name: string, bytes: Buffer) => {
+    saved.push([exp, name, bytes.toString()]);
+    return `app://artifacts/${exp}/u/${name}`;
+  };
+  const { request, url, path } = ask({
+    method: "POST",
+    url: "/api/sdk/artifacts",
+    body: JSON.stringify({ experimentId: "exp-1", name: "a.png", dataBase64: Buffer.from("png").toString("base64") }),
+  });
+  const answer = await routeSdkRequest(query, request, url, path, save);
+  assert.equal(answer?.status, 200);
+  assert.equal(JSON.parse(answer!.body).url, "app://artifacts/exp-1/u/a.png");
+  assert.deepEqual(saved, [["exp-1", "a.png", "png"]]);
+});
+
+test("an artifact name that could leave its folder is refused", async () => {
+  const { query } = db();
+  const { request, url, path } = ask({
+    method: "POST",
+    url: "/api/sdk/artifacts",
+    body: JSON.stringify({ experimentId: "exp-1", name: "../x", dataBase64: "" }),
+  });
+  const answer = await routeSdkRequest(query, request, url, path, async () => "never");
+  assert.equal(answer?.status, 400);
 });

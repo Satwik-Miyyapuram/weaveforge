@@ -10,6 +10,7 @@ import { commitUrl } from "@/features/sync";
 import { formatMetricCell, MetricChart } from "./metric-chart";
 import { isAbsoluteUrl } from "../infrastructure/experiment-artifact-store";
 import { FormError } from "@/components/form-error";
+import { ImageViewer } from "@/components/image-viewer";
 import { formatError } from "@/lib/format-error";
 
 function isImageUrl(url: string): boolean {
@@ -146,6 +147,7 @@ export function Artifacts({ urls: entries, detail = false }: { urls: string[]; d
   // flowed column-major, which read as "images spilling onto the next line"
   // on a narrow phone.
   const thumbClass = detail ? "artifact-figures" : "artifact-thumbs";
+  const [open, setOpen] = useState<number | null>(null);
   return (
     <div className="artifacts">
       {images.length > 0 && (
@@ -158,6 +160,13 @@ export function Artifacts({ urls: entries, detail = false }: { urls: string[]; d
               rel="noreferrer"
               title={figureLabel(url, i)}
               className={detail ? "card artifact-card" : undefined}
+              onClick={(e) => {
+                // Modified clicks keep the browser's own open-in-tab behaviour.
+                if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                setOpen(i);
+              }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={url} alt={figureLabel(url, i)} loading="lazy" />
@@ -165,6 +174,14 @@ export function Artifacts({ urls: entries, detail = false }: { urls: string[]; d
             </a>
           ))}
         </div>
+      )}
+      {open !== null && (
+        <ImageViewer
+          images={images.map((src, i) => ({ src, label: figureLabel(src, i) }))}
+          index={open}
+          onIndex={setOpen}
+          onClose={() => setOpen(null)}
+        />
       )}
       {links.length > 0 && (
         <div className="git-chips">

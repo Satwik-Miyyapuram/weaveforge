@@ -19,6 +19,9 @@ class InMemoryMetricRepository:
         # Nothing to time out against: kept for port parity.
         self._points.extend(points)
 
+    def clear(self, experiment_id: str) -> None:
+        self._points = [p for p in self._points if p.experiment_id != experiment_id]
+
     def history(
         self, experiment_id: str, metric: str | None = None
     ) -> list[MetricPoint]:

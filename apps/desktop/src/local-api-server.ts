@@ -1,7 +1,14 @@
-import { randomBytes } from "node:crypto";
+import type { SaveArtifact } from "./local-artifacts";
+import { createHash, randomBytes } from "node:crypto";
 import { createServer, type Server } from "node:http";
 
-import { routeLocalRequest, type LocalApiRequest } from "./local-api";
+import {
+  LOCAL_API_PERMISSIONS,
+  routeLocalRequest,
+  type LocalApiGrant,
+  type LocalApiPermission,
+  type LocalApiRequest,
+} from "./local-api";
 import type { SemanticRanker } from "./local-mcp";
 import type { SdkQuery } from "./local-sdk-api";
 import type { VaultSession } from "./vault-handlers";
@@ -68,9 +75,10 @@ export interface LocalApi {
  */
 export function startLocalApi(
   session: VaultSession,
-  token: () => string,
+  token: () => string | readonly LocalApiGrant[],
   query?: SdkQuery,
   rank?: SemanticRanker,
+  saveArtifact?: SaveArtifact,
 ): Promise<LocalApi> {
   const server: Server = createServer((req, res) => {
     if (!isLoopbackHost(req.headers.host, LOCAL_API_PORT)) {
@@ -157,7 +165,7 @@ export function startLocalApi(
         authorization: req.headers.authorization,
         body: Buffer.concat(chunks).toString("utf8"),
       };
-      void routeLocalRequest(session, request, token(), query, rank)
+      void routeLocalRequest(session, request, token(), query, rank, saveArtifact)
         .then((answer) => {
           // No CORS header at all, deliberately.
           //
@@ -187,4 +195,79 @@ export function startLocalApi(
       resolve({ close: () => new Promise((done) => server.close(() => done())) });
     });
   });
+}
+
+/** How many local API tokens may be live at once. */
+export const MAX_LOCAL_API_TOKENS = 5;
+
+/** A stored token: only its hash is kept, so it can never be shown again. */
+export interface LocalApiTokenRecord extends LocalApiGrant {
+  id: string;
+  name: string;
+  prefix: string;
+  createdAt: string;
+}
+
+export function hashLocalApiToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+export function makeLocalApiToken(
+  name: string,
+  permissions: readonly LocalApiPermission[],
+  expiresAt: string | null,
+): { record: LocalApiTokenRecord; token: string } {
+  const token = newLocalApiToken();
+  const now = Date.now();
+  return {
+    token,
+    record: {
+      id: randomBytes(8).toString("hex"),
+      name,
+      hash: hashLocalApiToken(token),
+      prefix: token.slice(0, 6),
+      permissions: [...permissions],
+      createdAt: new Date(now).toISOString(),
+      expiresAt,
+    },
+  };
+}
+
+/**
+ * The stored list. Older builds kept one plaintext token (a bare hex string);
+ * it is hashed here and reported via `legacy` so the caller rewrites the store.
+ */
+export function parseLocalApiTokens(stored: string): { records: LocalApiTokenRecord[]; legacy: boolean } {
+  try {
+    const parsed: unknown = JSON.parse(stored);
+    if (Array.isArray(parsed))
+      return {
+        legacy: false,
+        records: parsed.filter(
+          (t): t is LocalApiTokenRecord =>
+            !!t &&
+            typeof t.id === "string" &&
+            typeof t.name === "string" &&
+            typeof t.hash === "string" &&
+            Array.isArray(t.permissions),
+        ),
+      };
+  } catch {
+    // Not JSON: the legacy single token.
+  }
+  if (!/^[0-9a-f]{64}$/.test(stored)) return { records: [], legacy: false };
+  return {
+    legacy: true,
+    records: [
+      {
+        id: "legacy",
+        name: "Token 1",
+        hash: hashLocalApiToken(stored),
+        prefix: stored.slice(0, 6),
+        permissions: [...LOCAL_API_PERMISSIONS],
+        createdAt: new Date(0).toISOString(),
+        expiresAt: null,
+      },
+    ],
+  };
 }

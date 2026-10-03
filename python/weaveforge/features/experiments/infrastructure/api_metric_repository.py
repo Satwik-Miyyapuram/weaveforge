@@ -41,6 +41,10 @@ class ApiMetricRepository:
             chunk = rows[start : start + MAX_POINTS_PER_REQUEST]
             self._api.post("/api/sdk/metrics", json={"points": chunk}, timeout=timeout)
 
+    def clear(self, experiment_id: str) -> None:
+        """Drop every stored point of one run, so a re-run starts its curves empty."""
+        self._api.delete("/api/sdk/metrics", params={"experiment_id": experiment_id})
+
     def history(self, experiment_id: str, metric: str | None = None) -> list[MetricPoint]:
         raise MetricHistoryUnavailable(
             "Reading metric history over the SDK API is not implemented: "
@@ -55,7 +59,7 @@ class ApiMetricRepository:
         The proactive form of the same answer: a caller can ask before it calls,
         where ``history()`` only reports the gap by raising.
         """
-        return frozenset({"append"})
+        return frozenset({"append", "clear"})
 
 
 class MetricHistoryUnavailable(NotImplementedError):

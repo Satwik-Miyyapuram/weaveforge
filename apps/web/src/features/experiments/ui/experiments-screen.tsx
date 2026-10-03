@@ -26,6 +26,8 @@ import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { ExperimentsScreenData } from "@/features/experiments/application/load-experiments-screen.use-case";
 import { formatMetricCell, MetricChart } from "./metric-chart";
 import { formatError } from "@/lib/format-error";
+import { desktop } from "@/lib/desktop/desktop-bridge";
+import { LocalApiTokenCreate, useLocalApiState } from "@/components/local-api-tokens";
 import {
   ExpGitChips,
   ExpMetricChips,
@@ -78,7 +80,7 @@ export function ExperimentsScreen() {
   const [view, setView] = usePersistedState<string>("thesis.experiments.view", "list");
   const [search, setSearch] = useState("");
   const [composeOpen, setComposeOpen] = useState(false);
-  const [composeMode, setComposeMode] = useState<"menu" | "new">("menu");
+  const [composeMode, setComposeMode] = useState<"menu" | "new" | "sdk">("menu");
   const [shareAllOpen, setShareAllOpen] = useState(false);
 
   const replace = useCallback(
@@ -185,7 +187,7 @@ export function ExperimentsScreen() {
 
       {composeOpen && (
         <Modal
-          title={composeMode === "new" ? "Log an experiment" : "Experiment actions"}
+          title={composeMode === "new" ? "Log an experiment" : composeMode === "sdk" ? "Python SDK token" : "Experiment actions"}
           onClose={() => { setComposeOpen(false); setComposeMode("menu"); }}
         >
           {composeMode === "menu" ? (
@@ -198,6 +200,16 @@ export function ExperimentsScreen() {
                 <span className="org-choice-title">Log run</span>
                 <p className="org-choice-desc">Record a new experiment run.</p>
               </button>
+              {desktop() && (
+                <button
+                  type="button"
+                  className="org-choice-card"
+                  onClick={() => setComposeMode("sdk")}
+                >
+                  <span className="org-choice-title">Python SDK token</span>
+                  <p className="org-choice-desc">Copy or create a token so training scripts log runs here.</p>
+                </button>
+              )}
               {items.length > 0 && (
                 <button
                   type="button"
@@ -213,6 +225,8 @@ export function ExperimentsScreen() {
                 </button>
               )}
             </div>
+          ) : composeMode === "sdk" ? (
+            <SdkTokenView />
           ) : (
             <AddExperimentForm
               onAdded={() => {
@@ -256,7 +270,7 @@ export function ExperimentsScreen() {
             value={view}
             onChange={setView}
             options={[
-              { value: "list", label: "List", icon: <ListViewIcon /> },
+              { value: "list", label: "Cards", icon: <ListViewIcon /> },
               { value: "compare", label: "Compare", icon: <CompareViewIcon /> },
             ]}
           />
@@ -640,5 +654,20 @@ function AddExperimentForm({ onAdded }: { onAdded: () => void }) {
       {error && <FormError>{error}</FormError>}
       <button className="btn-primary" disabled={busy}>{busy ? "Adding…" : "Add experiment"}</button>
     </form>
+  );
+}
+
+/** Token picker for `pip install weaveforge` scripts talking to this desktop app. */
+function SdkTokenView() {
+  const [state, setState] = useLocalApiState();
+  if (!state) return <p className="muted">Loading…</p>;
+  return (
+    <div className="add-form">
+      <p className="muted">
+        Scripts on this computer log runs with <code>pip install weaveforge</code>. Set{" "}
+        <code>WEAVEFORGE_PROJECT</code> to this project&rsquo;s name.
+      </p>
+      <LocalApiTokenCreate state={state} onChange={setState} permissions={["experiments"]} />
+    </div>
   );
 }
