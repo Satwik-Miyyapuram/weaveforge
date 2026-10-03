@@ -67,5 +67,7 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
 
 /* PDF reader (R0+). */
 .reader-screen { display: flex; flex-direction: column; min-height: 0; }
+/* A PDF page wants the whole window, not the 1200px reading column. */
+.screen.reader-screen { max-width: none; }
 .ai-review-lede { margin: -8px 0 16px; max-width: 72ch; }
 .ai-review-toolbar { padding: 14px 18px; flex-wrap: wrap; }
