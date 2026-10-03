@@ -42,6 +42,34 @@ describe("the local-first client", () => {
   });
 });
 
+describe("metric reads on the local-first client", () => {
+  function ends(local: unknown[], server: unknown[] | Error) {
+    const reply = (r: unknown[] | Error) => async () =>
+      r instanceof Error ? { data: null, error: r } : { data: r, error: null };
+    return routedClient(
+      { rpc: reply(local) } as unknown as SupabaseClient,
+      { rpc: reply(server) } as unknown as SupabaseClient,
+    );
+  }
+
+  it("draws a run whose points are only on this computer", async () => {
+    const { data } = await ends([{ step: 1 }], []).rpc("metric_history", {});
+    assert.deepEqual(data, [{ step: 1 }]);
+  });
+
+  it("falls back to the server when this computer has none", async () => {
+    const { data } = await ends([], [{ step: 2 }]).rpc("metric_history", {});
+    assert.deepEqual(data, [{ step: 2 }]);
+  });
+
+  it("joins activity from both ends and survives one failing", async () => {
+    const both = await ends([{ id: "a" }], [{ id: "b" }]).rpc("latest_metric_activity", {});
+    assert.deepEqual(both.data, [{ id: "a" }, { id: "b" }]);
+    const one = await ends([{ id: "a" }], new Error("offline")).rpc("latest_metric_activity", {});
+    assert.deepEqual(one.data, [{ id: "a" }]);
+  });
+});
+
 describe("the local-first marker", () => {
   const store = new Map<string, string>();
   const g = globalThis as { window?: unknown };

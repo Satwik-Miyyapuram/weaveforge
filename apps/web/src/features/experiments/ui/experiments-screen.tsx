@@ -270,7 +270,7 @@ export function ExperimentsScreen() {
             value={view}
             onChange={setView}
             options={[
-              { value: "list", label: "List", icon: <ListViewIcon /> },
+              { value: "list", label: "Cards", icon: <ListViewIcon /> },
               { value: "compare", label: "Compare", icon: <CompareViewIcon /> },
             ]}
           />
