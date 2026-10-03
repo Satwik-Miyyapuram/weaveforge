@@ -364,7 +364,6 @@ export function SettingsScreen() {
     setSaved(false);
   }
 
-
   const showBibliographyCollection =
     activeProvider?.providerId === integrationConfig.bibliography &&
     integrationConfig.bibliography !== "none";

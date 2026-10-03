@@ -4,7 +4,7 @@ import { useState } from "react";
 import { formatError } from "@/lib/format-error";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
-import { LocalApiTokenCreate, LocalApiTokenTable, useLocalApiState } from "./local-api-tokens";
+import { LocalApiTokenCreate, LocalApiTokenTable, useLocalApiState } from "@/components/local-api-tokens";
 
 /**
  * Settings → AI → MCP and the local HTTP surface, desktop only.

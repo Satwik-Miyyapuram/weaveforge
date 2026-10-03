@@ -27,7 +27,7 @@ import type { ExperimentsScreenData } from "@/features/experiments/application/l
 import { formatMetricCell, MetricChart } from "./metric-chart";
 import { formatError } from "@/lib/format-error";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { LocalApiTokenCreate, useLocalApiState } from "@/features/settings/ui/local-api-tokens";
+import { LocalApiTokenCreate, useLocalApiState } from "@/components/local-api-tokens";
 import {
   ExpGitChips,
   ExpMetricChips,

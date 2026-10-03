@@ -52,11 +52,7 @@ import { registerMainTex } from "./main-tex";
 import { ARTIFACT_HOST, serveLocalArtifact } from "./local-artifacts";
 import { MODEL_HOST, serveModelFile } from "./model-cache";
 import { handleOverleafRead } from "./overleaf-source";
-import {
-  handleFetchImage,
-  handleFetchTitle,
-  mayOpenExternally,
-} from "./handlers";
+import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
 import { answerRelay } from "./app-relays";
 import { installApiCors } from "./api-cors";
 import { startAuthLoopback } from "./auth-loopback";
@@ -435,12 +431,7 @@ function serveBundle(): void {
     const host = new URL(request.url).hostname;
     // `app://models/...` is the encoder's weights, cached on the disk so the
     // feature keeps working with the network unplugged.
-    if (host === MODEL_HOST) {
-      return serveModelFile(
-        path.join(app.getPath("userData"), "models"),
-        request.url,
-      );
-    }
+    if (host === MODEL_HOST) return serveModelFile(path.join(app.getPath("userData"), "models"), request.url);
     if (host === ARTIFACT_HOST) {
       return serveLocalArtifact(path.join(app.getPath("userData"), "artifacts"), request.url);
     }

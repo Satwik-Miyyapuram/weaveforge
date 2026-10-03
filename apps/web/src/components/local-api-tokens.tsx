@@ -8,6 +8,8 @@ import {
   type DesktopLocalApiPermission,
 } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
+import { Select } from "@/components/select";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 const MAX_TOKENS = 5;
 const EXPIRY_CHOICES = [
@@ -257,7 +259,7 @@ export function LocalApiTokenCreate({
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
-          <select
+          <Select
             aria-label="Expires"
             value={expiry}
             onChange={(e) => setExpiry(e.target.value as ExpiryId)}
@@ -267,7 +269,7 @@ export function LocalApiTokenCreate({
                 Expires: {c.label}
               </option>
             ))}
-          </select>
+          </Select>
           {expiry === "custom" && (
             <input
               type="date"
@@ -304,9 +306,9 @@ export function LocalApiTokenTable({
   const tokens = state.tokens ?? [];
   const now = Date.now();
 
-  const revoke = async (id: string, name: string) => {
-    if (!window.confirm(`Revoke "${name}"? Scripts using it stop working.`))
-      return;
+  const [pending, setPending] = useState<{ id: string; name: string } | null>(null);
+
+  const revoke = async (id: string) => {
     const bridge = desktop();
     if (!bridge) return;
     setBusy(true);
@@ -317,6 +319,7 @@ export function LocalApiTokenTable({
       setError(formatError(err));
     } finally {
       setBusy(false);
+      setPending(null);
     }
   };
 
@@ -357,7 +360,7 @@ export function LocalApiTokenTable({
                       type="button"
                       className="btn-secondary"
                       disabled={busy}
-                      onClick={() => void revoke(t.id, t.name)}
+                      onClick={() => setPending({ id: t.id, name: t.name })}
                     >
                       Revoke
                     </button>
@@ -368,6 +371,17 @@ export function LocalApiTokenTable({
           </tbody>
         </table>
       </div>
+      {pending && (
+        <ConfirmDialog
+          title={`Revoke "${pending.name}"?`}
+          body="Scripts using it stop working."
+          confirmLabel="Revoke"
+          danger
+          busy={busy}
+          onConfirm={() => void revoke(pending.id)}
+          onClose={() => setPending(null)}
+        />
+      )}
     </>
   );
 }
