@@ -131,7 +131,8 @@
 .list-tree-panel { padding: 8px 10px; margin: 8px 0; }
 /* Full-screen figure viewer */
 .image-viewer {
-  position: fixed; inset: 0; z-index: 1000;
+  /* Starts under the desktop title bar so its window controls do not cover the toolbar. */
+  position: fixed; inset: env(titlebar-area-height, 0px) 0 0 0; z-index: 1000;
   display: flex; flex-direction: column;
   background: rgba(0, 0, 0, 0.92); color: #fff;
 }
