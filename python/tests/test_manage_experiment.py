@@ -99,3 +99,20 @@ def test_mutate_missing_raises():
 def test_short_sha():
     assert short_sha("a1b2c3d4e5f6") == "a1b2c3d"
     assert short_sha(None) is None
+
+
+def test_upsert_creates_then_restarts_in_place():
+    repo, metrics, uc = make_uc(with_metrics=True)
+    first = uc.upsert(NewExperimentInput(name="a", status="running", config={"lr": 1}), "key-id")
+    uc.record_metrics(first.id, {"loss": 1.0})
+    uc.add_artifacts(first.id, ["x.png"])
+    uc.record_history([MetricPoint(experiment_id="key-id", metric="loss", step=0, value=1.0)])
+    uc.set_status(first.id, "done")
+
+    again = uc.upsert(NewExperimentInput(name="b", status="running", config={"lr": 2}), "key-id")
+    assert again.id == "key-id"
+    assert again.name == "b" and again.config == {"lr": 2}
+    assert again.status == "running" and again.finished_at is None
+    assert again.metrics == {} and again.artifacts == []
+    assert metrics.history("key-id") == []
+    assert len(repo.list()) == 1

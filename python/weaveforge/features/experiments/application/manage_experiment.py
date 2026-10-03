@@ -43,6 +43,23 @@ class ManageExperimentUseCase:
         self._repo.save(exp)
         return exp
 
+    def upsert(self, data: NewExperimentInput, id: str) -> Experiment:
+        """Create ``id``, or restart it as a fresh run: old summary, links and curves go.
+
+        Created time, result note and paper are kept unless ``data`` sets them.
+        """
+        fresh = create_experiment(data, clock=self._clock, ids=self._ids, id=id)
+        old = self._repo.get_by_id(id)
+        if old is not None:
+            fresh.created_at = old.created_at
+            fresh.result_note = fresh.result_note or old.result_note
+            fresh.related_paper = fresh.related_paper or old.related_paper
+            clear = getattr(self._metrics, "clear", None)
+            if callable(clear):
+                clear(id)
+        self._repo.save(fresh)
+        return fresh
+
     def set_status(
         self,
         id: str,

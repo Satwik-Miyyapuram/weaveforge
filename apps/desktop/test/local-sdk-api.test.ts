@@ -150,6 +150,22 @@ test("a point whose value is not a number is refused before anything is written"
   assert.equal(asked.length, 0);
 });
 
+test("clearing a run's metrics empties both the points and the chunks", async () => {
+  const { query, asked } = db();
+  const answer = await route(query, { method: "DELETE", url: "/api/sdk/metrics?experiment_id=exp-1" });
+  assert.equal(answer.status, 200);
+  assert.equal(asked.length, 2);
+  assert.match(asked[0]!.sql, /delete from experiment_metric_points where experiment_id = \$1/);
+  assert.match(asked[1]!.sql, /delete from experiment_metric_chunks where experiment_id = \$1/);
+  assert.deepEqual(asked[1]!.params, ["exp-1"]);
+});
+
+test("clearing metrics without a run is refused", async () => {
+  const { query, asked } = db();
+  assert.equal((await route(query, { method: "DELETE", url: "/api/sdk/metrics" })).status, 400);
+  assert.equal(asked.length, 0);
+});
+
 test("an empty flush is not a statement", async () => {
   const { query, asked } = db();
   assert.equal((await route(query, { method: "POST", url: "/api/sdk/metrics", body: '{"points":[]}' })).status, 200);

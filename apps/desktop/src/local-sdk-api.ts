@@ -237,6 +237,15 @@ export async function routeSdkRequest(
   }
 
   if (route === "metrics") {
+    if (request.method === "DELETE") {
+      const id = url.searchParams.get("experiment_id")?.trim();
+      if (!id) return bad(400, "Missing experiment_id.");
+      for (const table of ["experiment_metric_points", "experiment_metric_chunks"]) {
+        const gone = await query(`delete from ${table} where experiment_id = $1`, [id]);
+        if (!gone.ok) return bad(500, gone.message);
+      }
+      return json(200, { ok: true });
+    }
     if (request.method !== "POST") return bad(405, "That method is not served here.");
     const body = parseBody(request);
     if (!body) return bad(400, "Invalid JSON body.");

@@ -405,3 +405,19 @@ def test_the_decorator_does_not_inject_a_run_the_caller_already_passed(monkeypat
 
     assert train(mine) is True
 
+
+
+def test_track_run_id_updates_same_experiment(monkeypatch):
+    _no_git(monkeypatch)
+    c = MemoryContainer()
+    with track("one", container=c, run_id="paper") as r1:
+        r1.log_summary({"acc": 0.1})
+    with track("two", container=c, run_id="paper") as r2:
+        pass
+    assert r1.id == r2.id
+    assert len(c.experiments.list()) == 1
+    assert c.experiments.get_by_id(r2.id).name == "two"
+    with track("three", container=c, run_id="paper", update=False) as r3:
+        pass
+    assert r3.id != r1.id
+    assert len(c.experiments.list()) == 2

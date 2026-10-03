@@ -70,7 +70,7 @@ class ExperimentValidationError(Exception):
 
 
 def create_experiment(
-    data: NewExperimentInput, *, clock: Clock, ids: IdGenerator
+    data: NewExperimentInput, *, clock: Clock, ids: IdGenerator, id: str | None = None
 ) -> Experiment:
     name = (data.name or "").strip()
     if not name:
@@ -78,7 +78,7 @@ def create_experiment(
     now = clock.now_iso()
     status: ExperimentStatus = data.status or "planned"
     return Experiment(
-        id=ids.new_id(),
+        id=id or ids.new_id(),
         name=name,
         hypothesis=data.hypothesis,
         status=status,
