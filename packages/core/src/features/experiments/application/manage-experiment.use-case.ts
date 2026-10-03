@@ -61,6 +61,12 @@ export class ManageExperimentUseCase {
     });
   }
 
+  /** Blank clears the note, so a run can go back to "no result yet". */
+  async setResultNote(id: string, note: string): Promise<Experiment> {
+    const trimmed = note.trim();
+    return this.mutate(id, (e) => ({ ...e, resultNote: trimmed || undefined }));
+  }
+
   async remove(id: string): Promise<void> {
     await this.deps.repository.delete(id);
   }
