@@ -194,13 +194,22 @@ export interface DesktopBridge {
   /** Whether the local HTTP surface is listening, and on what. */
   localApiState(): Promise<DesktopLocalApi>;
   /**
-   * Switch the local HTTP surface on or off.
-   *
-   * Switching it on generates a token and answers with it once. Nothing shows
-   * it again: a token that can be re-read from a settings panel is a token
-   * that can be re-read by anything that can reach the panel.
+   * Switch the local HTTP surface on or off. Tokens survive switching off;
+   * the first switch-on issues one when there are none.
    */
   setLocalApi(enabled: boolean): Promise<DesktopLocalApi>;
+  /**
+   * Add a token without touching the others; refused past the cap of five.
+   * The answer's `issued` carries the token, once; only its hash is kept.
+   */
+  createLocalApiToken(request: {
+    name?: string;
+    permissions: DesktopLocalApiPermission[];
+    /** ISO time, or null for no expiry. */
+    expiresAt: string | null;
+  }): Promise<DesktopLocalApi>;
+  /** Revoke one token; the rest keep working. */
+  revokeLocalApiToken(id: string): Promise<DesktopLocalApi>;
   /**
    * One read of the Zotero API running on this computer.
    *
@@ -435,12 +444,27 @@ export interface DesktopCommitResult {
   reason?: string;
 }
 
+/** SDK routes, the Obsidian-style REST routes (read/write), MCP (read/leave drafts). */
+export type DesktopLocalApiPermission = "experiments" | "rest:read" | "rest:write" | "mcp:read" | "mcp:suggest";
+
+export interface DesktopLocalApiToken {
+  id: string;
+  name: string;
+  /** First characters, to tell tokens apart; the rest is never shown again. */
+  prefix: string;
+  permissions: DesktopLocalApiPermission[];
+  createdAt: string;
+  expiresAt: string | null;
+}
+
 export interface DesktopLocalApi {
   enabled: boolean;
   /** Loopback only. Present whether or not it is currently listening. */
   url: string;
-  /** The token, once, on the call that generated it. Never afterwards. */
-  token?: string;
+  /** Live tokens, at most five. Absent on older shells. */
+  tokens?: DesktopLocalApiToken[];
+  /** The token just created, on that one answer only. */
+  issued?: { id: string; token: string };
   /** Why it is not listening, when that was not the user's choice. */
   reason?: string;
 }

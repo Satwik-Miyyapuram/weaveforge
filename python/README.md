@@ -42,12 +42,13 @@ The SDK sends the token to your WeaveForge instance, which validates it and appl
 ### Against the desktop app, with no account
 
 The desktop app serves the same routes from the database in your folder, so a
-training script can write into a copy that has never signed in. Turn the local
-API on in **Settings → Let other apps in**, copy the token it shows, and point the SDK
-at the loopback port:
+training script can write into a copy that has never signed in. Open a project's
+**Experiments → Experiment actions → Python SDK token** (or **Settings → Access
+tokens** to pick permissions and expiry), create a token, copy it once — only its
+hash is kept — and point the SDK at the loopback port:
 
 ```bash
-export WEAVEFORGE_TOKEN=<the token the app shows>
+export WEAVEFORGE_TOKEN=<the token the app shows once>
 export WEAVEFORGE_API_URL=http://127.0.0.1:27123
 export WEAVEFORGE_PROJECT="My Thesis"
 ```

@@ -213,11 +213,13 @@ start can open. Three things stand between that and losing your notes:
 ### Training scripts write into it too
 
 The local HTTP API also answers the Python SDK's routes, so a run logged from a
-training script lands in the same folder-sized database as everything else. Turn
-the API on in **Settings → Let other apps in**, then:
+training script lands in the same folder-sized database as everything else. Create
+a token in **Experiments → Experiment actions → Python SDK token** (experiments
+only) or **Settings → Access tokens** (pick permissions and expiry). It shows once;
+only its hash is kept. Then:
 
 ```bash
-export WEAVEFORGE_TOKEN=<the token the app shows>
+export WEAVEFORGE_TOKEN=<the token the app shows once>
 export WEAVEFORGE_API_URL=http://127.0.0.1:27123
 ```
 
