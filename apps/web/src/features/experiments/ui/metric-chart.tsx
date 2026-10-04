@@ -6,7 +6,7 @@ import "uplot/dist/uPlot.min.css";
 import type { MetricPoint } from "@weaveforge/core";
 import { formatMetricValue } from "@weaveforge/core";
 import { EntityCard } from "@/components/entity-card";
-import { Select } from "@/components/select";
+import { CardMenu } from "@/components/card-menu";
 import { useGridHeight } from "./metric-grid";
 
 // Lives in core so Node tests can import it without this file's CSS import.
@@ -276,16 +276,14 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
     });
 
   const smoothing = (
-    <label className="metric-chart-smooth muted">
-      smoothing
-      <Select aria-label="Smoothing" value={String(smooth)} onChange={(e) => setSmooth(Number(e.target.value))}>
-        {SMOOTHING.map((a) => (
-          <option key={a} value={String(a)}>
-            {a === 0 ? "none" : `ema ${a}`}
-          </option>
-        ))}
-      </Select>
-    </label>
+    <CardMenu
+      label="Chart options"
+      items={SMOOTHING.map((a) => ({
+        id: String(a),
+        label: `${a === smooth ? "✓ " : ""}smoothing: ${a === 0 ? "none" : `ema ${a}`}`,
+        onSelect: () => setSmooth(a),
+      }))}
+    />
   );
 
   return (

@@ -104,8 +104,8 @@
   color: inherit; text-decoration: none; font-weight: inherit;
 }
 .exp-title-link:hover { color: var(--accent-ink); text-decoration: underline; }
-.metric-chart { display: grid; gap: 10px; min-width: 0; }
-.metric-chart-stats { display: inline-flex; gap: 14px; font-size: 0.78rem; white-space: nowrap; }
+.metric-chart { display: grid; gap: 10px; min-width: 0; container-type: inline-size; }
+.metric-chart-stats { display: inline-flex; flex-wrap: wrap; gap: 2px 14px; font-size: 0.78rem; white-space: nowrap; }
 .metric-chart-stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .metric-chart-legend { display: flex; flex-wrap: wrap; gap: 6px; }
 .metric-chart-run {
@@ -116,9 +116,11 @@
 }
 .metric-chart-run[aria-pressed="false"] { opacity: 0.4; text-decoration: line-through; }
 .metric-chart-swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
-.metric-chart-smooth { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; }
-.metric-chart-smooth select { font: inherit; font-size: 0.78rem; padding: 2px 6px; }
-.metric-chart-plot-wrap { position: relative; min-width: 0; }
+.metric-chart-plot-wrap { position: relative; min-width: 0; overflow: hidden; }
+/* Narrow card (many per row): long titles wrap. */
+@container (max-width: 300px) {
+  .metric-chart .entity-card-title { overflow-wrap: anywhere; }
+}
 .metric-chart-plot { width: 100%; }
 .metric-chart-plot .uplot { font-family: inherit; color: var(--ink); }
 .metric-chart-plot .u-cursor-x, .metric-chart-plot .u-cursor-y { border-color: var(--muted); }

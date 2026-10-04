@@ -7,10 +7,10 @@ const MAX_COLS = 10;
 
 const ColsContext = createContext(1);
 
-/** Charts get shorter as more share a row, down to `floor`. */
-export function useGridHeight(base: number, floor = 140): number {
+/** Height shrinks with width so every zoom keeps the 1-per-row shape; `floor` keeps the axes drawable. */
+export function useGridHeight(base: number, floor = 80): number {
   const cols = useContext(ColsContext);
-  return Math.max(floor, Math.round(base * (1 - (cols - 1) * 0.08)));
+  return Math.max(floor, Math.round(base / cols));
 }
 
 function readCols(fallback: number): number {
