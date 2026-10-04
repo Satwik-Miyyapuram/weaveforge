@@ -15,20 +15,6 @@ begin
 end;
 $$;
 
-drop trigger if exists local_metric_follow_owner on experiments;
-create trigger local_metric_follow_owner
-  after update of user_id on experiments
-  for each row when (old.user_id is distinct from new.user_id)
-  execute function local_metric_follow_owner();
-
--- Devices adopted before this fix.
-update experiment_metric_points p set user_id = e.user_id
-  from experiments e
- where e.id = p.experiment_id and p.user_id <> e.user_id;
-update experiment_metric_chunks c set user_id = e.user_id
-  from experiments e
- where e.id = c.experiment_id and c.user_id <> e.user_id;
-
 create table if not exists public.local_metric_dirty (
   experiment_id uuid not null,
   metric_id int not null,
@@ -48,6 +34,26 @@ begin
 end;
 $$;
 
+-- The sync tests load only these migrations, without the experiment tables.
+do $guard$
+begin
+  if to_regclass('public.experiments') is null or to_regclass('public.experiment_metric_points') is null then
+    return;
+  end if;
+  execute $sql$
+drop trigger if exists local_metric_follow_owner on experiments;
+create trigger local_metric_follow_owner
+  after update of user_id on experiments
+  for each row when (old.user_id is distinct from new.user_id)
+  execute function local_metric_follow_owner();
+
+-- Devices adopted before this fix.
+update experiment_metric_points p set user_id = e.user_id
+  from experiments e
+ where e.id = p.experiment_id and p.user_id <> e.user_id;
+update experiment_metric_chunks c set user_id = e.user_id
+  from experiments e
+ where e.id = c.experiment_id and c.user_id <> e.user_id;
 drop trigger if exists local_metric_mark_dirty on experiment_metric_points;
 create trigger local_metric_mark_dirty
   after insert on experiment_metric_points
@@ -62,3 +68,6 @@ select s.experiment_id, s.metric_id
   left join local_metric_pushes p on p.experiment_id = s.experiment_id and p.metric = n.name
  where p.step is null or p.step < s.tip
 on conflict do nothing;
+  $sql$;
+end;
+$guard$;
