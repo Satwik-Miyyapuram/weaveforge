@@ -244,6 +244,14 @@ export async function routeSdkRequest(
         const gone = await query(`delete from ${table} where experiment_id = $1`, [id]);
         if (!gone.ok) return bad(500, gone.message);
       }
+      // The server copy is cleared by the renderer's push before new points go.
+      for (const sql of [
+        "delete from local_metric_pushes where experiment_id = $1",
+        "insert into local_metric_resets (experiment_id) values ($1) on conflict do nothing",
+      ]) {
+        const done = await query(sql, [id]);
+        if (!done.ok) return bad(500, done.message);
+      }
       return json(200, { ok: true });
     }
     if (request.method !== "POST") return bad(405, "That method is not served here.");
