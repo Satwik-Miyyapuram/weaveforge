@@ -1,20 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import type { MetricPoint } from "@weaveforge/core";
 import { formatMetricValue } from "@weaveforge/core";
+import { EntityCard } from "@/components/entity-card";
 
-/**
- * `formatMetricCell` lives in core, beside `formatMetricValue`.
- *
- * It moved because a Node test cannot import this module: line 5 pulls in
- * uPlot's stylesheet, and `node --test` parses that as JavaScript and dies on
- * the first `.uplot` selector. The formatter is pure and has no React in it, so
- * core is where it can actually be tested — and re-exported here so the two
- * screens that already import it from this file keep working.
- */
+// Lives in core so Node tests can import it without this file's CSS import.
 export { formatMetricCell } from "@weaveforge/core";
 
 export interface MetricSeries {
@@ -32,7 +25,7 @@ interface MetricChartProps {
   metric: string;
   series: MetricSeries[];
   height?: number;
-  /** uPlot series legend; defaults on when this chart overlays 2+ runs. */
+  /** Run toggles; default on when this chart overlays 2+ runs. */
   showLegend?: boolean;
 }
 
@@ -66,14 +59,67 @@ function alignSeries(series: MetricSeries[]) {
 }
 
 const DEFAULT_COLORS = ["#5b8def", "#e06c75", "#98c379", "#d19a66", "#c678dd", "#56b6c2"];
+const SMOOTHING = [0, 0.6, 0.8, 0.95] as const;
+
+/** Debiased EMA over non-null values; gaps stay gaps. */
+function emaSmooth(values: (number | null)[], alpha: number): (number | null)[] {
+  if (alpha <= 0) return values;
+  let acc = 0;
+  let n = 0;
+  return values.map((v) => {
+    if (v == null) return null;
+    acc = alpha * acc + (1 - alpha) * v;
+    n += 1;
+    return acc / (1 - alpha ** n);
+  });
+}
+
+interface Prefs {
+  hidden: string[];
+  smooth: number;
+}
+
+// Session-only view prefs per metric: kept across reloads, not across sessions.
+function readPrefs(metric: string): Prefs {
+  try {
+    const raw = sessionStorage.getItem(`metric-chart:${metric}`);
+    if (raw) return { hidden: [], smooth: 0, ...(JSON.parse(raw) as Partial<Prefs>) };
+  } catch {}
+  return { hidden: [], smooth: 0 };
+}
+
+function writePrefs(metric: string, prefs: Prefs) {
+  try {
+    sessionStorage.setItem(`metric-chart:${metric}`, JSON.stringify(prefs));
+  } catch {}
+}
+
+interface Hover {
+  step: number;
+  left: number;
+  top: number;
+  flip: boolean;
+  rows: { label: string; color: string; value: number }[];
+}
 
 /**
- * Canvas line chart (uPlot) for experiment metrics. Titles and series come from
- * whatever names the user logs via the SDK — no hard-coded accuracy/loss layout.
+ * Canvas line chart (uPlot) in a card. Titles and series come from whatever
+ * names the user logs via the SDK — no hard-coded accuracy/loss layout.
  */
 export function MetricChart({ metric, series, height = 240, showLegend }: MetricChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
+  // Run id for each uPlot series after x; raw lines are not the run's "main" line.
+  const ownerRef = useRef<{ id: string; main: boolean }[]>([]);
+  const [hidden, setHidden] = useState<Set<string>>(() => new Set(readPrefs(metric).hidden));
+  const [smooth, setSmooth] = useState<number>(() => readPrefs(metric).smooth);
+  const [hover, setHover] = useState<Hover | null>(null);
+  const hiddenRef = useRef(hidden);
+  hiddenRef.current = hidden;
+
+  useEffect(() => {
+    writePrefs(metric, { hidden: [...hidden], smooth });
+  }, [metric, hidden, smooth]);
 
   const prepared = useMemo(() => {
     const nonEmpty = series
@@ -82,15 +128,16 @@ export function MetricChart({ metric, series, height = 240, showLegend }: Metric
     if (nonEmpty.length === 0) return null;
     const { steps, aligned } = alignSeries(nonEmpty);
     if (steps.length === 0) return null;
-    const data: uPlot.AlignedData = [steps];
-    for (const s of aligned) data.push(s.values);
-    return { steps, aligned, data, multi: aligned.length > 1 };
+    const runs = aligned.map((s, i) => ({ ...s, color: s.color ?? DEFAULT_COLORS[i % DEFAULT_COLORS.length]! }));
+    return { steps, runs, multi: runs.length > 1 };
   }, [series]);
 
-  const range = useMemo(() => {
-    const vals = series.flatMap((s) => s.points.map((p) => p.value));
-    if (vals.length === 0) return null;
-    return { min: Math.min(...vals), max: Math.max(...vals) };
+  const stats = useMemo(() => {
+    const points = series.flatMap((s) => s.points);
+    if (points.length === 0) return null;
+    const vals = points.map((p) => p.value);
+    const latest = points.reduce((a, b) => (b.step >= a.step ? b : a));
+    return { min: Math.min(...vals), max: Math.max(...vals), last: latest.value };
   }, [series]);
 
   useEffect(() => {
@@ -105,69 +152,93 @@ export function MetricChart({ metric, series, height = 240, showLegend }: Metric
 
       const muted = readCssVar("--muted", "#8b949e");
       const line = readCssVar("--line", "#30363d");
-      const accent = readCssVar("--accent", "#3e5a78");
-      const chip = readCssVar("--chip", "#161b22");
+      const surface = readCssVar("--surface", "#ffffff");
       const width = Math.max(el.clientWidth || 0, 1);
-      const wantLegend = showLegend ?? prepared.multi;
+      const font = "11px system-ui, sans-serif";
+      const labelFont = "600 11px system-ui, sans-serif";
 
-      const seriesOpts: uPlot.Series[] = [
-        {},
-        ...prepared.aligned.map((s, i) => ({
-          label: s.label,
-          stroke: s.color ?? DEFAULT_COLORS[i % DEFAULT_COLORS.length] ?? accent,
-          width: 2,
-          spanGaps: true,
-        })),
-      ];
+      // Per run: faint raw line when smoothed, then the drawn line.
+      const data: uPlot.AlignedData = [prepared.steps];
+      const seriesOpts: uPlot.Series[] = [{}];
+      const owner: { id: string; main: boolean }[] = [];
+      for (const r of prepared.runs) {
+        const show = !hiddenRef.current.has(r.id);
+        if (smooth > 0) {
+          data.push(r.values);
+          seriesOpts.push({ label: `${r.label} raw`, stroke: `${r.color}40`, width: 1, spanGaps: true, show, points: { show: false } });
+          owner.push({ id: r.id, main: false });
+        }
+        data.push(emaSmooth(r.values, smooth));
+        seriesOpts.push({ label: r.label, stroke: r.color, width: 2, spanGaps: true, show });
+        owner.push({ id: r.id, main: true });
+      }
+      ownerRef.current = owner;
+
+      const axis = (extra: Partial<uPlot.Axis>): uPlot.Axis => ({
+        stroke: muted,
+        grid: { stroke: line, width: 1 },
+        ticks: { stroke: line, width: 1, size: 4 },
+        font,
+        labelFont,
+        gap: 4,
+        ...extra,
+      });
 
       const opts: uPlot.Options = {
         width,
         height,
         pxAlign: true,
+        padding: [12, 14, 0, 0],
         scales: { x: { time: false }, y: { auto: true } },
         axes: [
-          {
-            stroke: muted,
-            grid: { stroke: line, width: 1 },
-            ticks: { stroke: muted },
-            label: "step",
-            labelFont: "12px system-ui, sans-serif",
-            labelGap: 8,
-            font: "11px system-ui, sans-serif",
-            gap: 6,
-          },
-          {
-            stroke: muted,
-            grid: { stroke: line, width: 1 },
-            ticks: { stroke: muted },
-            side: 3,
-            size: 56,
-            font: "11px system-ui, sans-serif",
+          axis({ label: "step", labelSize: 22 }),
+          axis({
+            label: metric,
+            labelSize: 20,
+            size: 54,
             values: (_u, splits) => splits.map((v) => formatMetricValue(metric, v)),
-          },
+          }),
         ],
         series: seriesOpts,
-        legend: { show: wantLegend && prepared.multi, live: false },
+        legend: { show: false },
         cursor: {
           drag: { x: true, y: false, setScale: true },
-          points: { show: prepared.aligned.length <= 6, size: 5 },
+          points: { size: (_u, i) => (owner[i - 1]?.main ? 10 : 0), width: 2, fill: surface },
         },
         hooks: {
-          drawClear: [
+          setCursor: [
             (u) => {
-              u.ctx.fillStyle = chip;
-              u.ctx.fillRect(0, 0, u.bbox.width, u.bbox.height);
+              const idx = u.cursor.idx;
+              const left = u.cursor.left ?? -1;
+              if (idx == null || left < 0) {
+                setHover(null);
+                return;
+              }
+              const rows: Hover["rows"] = [];
+              owner.forEach((o, k) => {
+                const s = u.series[k + 1]!;
+                const v = u.data[k + 1]![idx];
+                if (o.main && s.show && v != null) rows.push({ label: String(s.label), color: String(s.stroke), value: v });
+              });
+              const offset = u.bbox.left / devicePixelRatio;
+              setHover(
+                rows.length
+                  ? {
+                      step: u.data[0][idx]!,
+                      left: left + offset,
+                      top: (u.cursor.top ?? 0) + u.bbox.top / devicePixelRatio,
+                      flip: left > u.bbox.width / devicePixelRatio / 2,
+                      rows,
+                    }
+                  : null,
+              );
             },
           ],
         },
       };
 
-      if (plotRef.current) {
-        plotRef.current.setSize({ width, height });
-        plotRef.current.setData(prepared.data);
-      } else {
-        plotRef.current = new UPlot(opts, prepared.data, el);
-      }
+      plotRef.current?.destroy();
+      plotRef.current = new UPlot(opts, data, el);
 
       resizeObserver = new ResizeObserver(() => {
         const w = el.clientWidth;
@@ -182,19 +253,89 @@ export function MetricChart({ metric, series, height = 240, showLegend }: Metric
       plotRef.current?.destroy();
       plotRef.current = null;
     };
-  }, [metric, height, prepared, showLegend]);
+  }, [metric, height, prepared, smooth]);
 
-  if (!prepared || !range) return null;
+  // A toggle flips series in place, so new data never brings a hidden run back.
+  useEffect(() => {
+    const u = plotRef.current;
+    if (!u) return;
+    ownerRef.current.forEach((o, k) => u.setSeries(k + 1, { show: !hidden.has(o.id) }));
+  }, [hidden]);
+
+  if (!prepared || !stats) return null;
+  const wantLegend = showLegend ?? prepared.multi;
+  const toggle = (id: string) =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const smoothing = (
+    <label className="metric-chart-smooth muted">
+      smoothing
+      <select value={smooth} onChange={(e) => setSmooth(Number(e.target.value))}>
+        {SMOOTHING.map((a) => (
+          <option key={a} value={a}>
+            {a === 0 ? "none" : `ema ${a}`}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 
   return (
-    <figure className="metric-chart">
-      <figcaption>
-        <span className="metric-chart-title">{metric}</span>
-        <span className="muted metric-chart-range">
-          {formatMetricValue(metric, range.min)} – {formatMetricValue(metric, range.max)}
+    <EntityCard
+      className="metric-chart"
+      title={metric}
+      actions={smoothing}
+      meta={
+        <span className="metric-chart-stats">
+          <span>
+            last <b>{formatMetricValue(metric, stats.last)}</b>
+          </span>
+          <span>
+            min <b>{formatMetricValue(metric, stats.min)}</b>
+          </span>
+          <span>
+            max <b>{formatMetricValue(metric, stats.max)}</b>
+          </span>
         </span>
-      </figcaption>
-      <div className="metric-chart-plot" ref={containerRef} role="img" aria-label={`${metric} over steps`} />
-    </figure>
+      }
+    >
+      {wantLegend && (
+        <div className="metric-chart-legend" role="group" aria-label="Runs">
+          {prepared.runs.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              className="metric-chart-run"
+              aria-pressed={!hidden.has(r.id)}
+              onClick={() => toggle(r.id)}
+              title={hidden.has(r.id) ? "Show run" : "Hide run"}
+            >
+              <span className="metric-chart-swatch" style={{ background: r.color }} />
+              {r.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="metric-chart-plot-wrap">
+        <div className="metric-chart-plot" ref={containerRef} role="img" aria-label={`${metric} over steps`} />
+        {hover && (
+          <div className="metric-chart-tip" data-flip={hover.flip || undefined} style={{ left: hover.left, top: hover.top }}>
+            <div className="metric-chart-tip-step">step {hover.step}</div>
+            {hover.rows.map((row) => (
+              <div key={row.label} className="metric-chart-tip-row">
+                <span className="metric-chart-swatch" style={{ background: row.color }} />
+                <span>{row.label}</span>
+                <b>{formatMetricValue(metric, row.value)}</b>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </EntityCard>
   );
 }
