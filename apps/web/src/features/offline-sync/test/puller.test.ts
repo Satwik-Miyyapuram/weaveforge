@@ -34,6 +34,12 @@ function change(over: Partial<RemoteChange> & { row: Record<string, unknown> }):
   };
 }
 
+/** The database is shared by the file; held rows and the watermark are not. */
+async function fresh(db: Awaited<ReturnType<typeof testDb>>) {
+  await db.sql("delete from sync_pull_held");
+  await db.sql("update sync_state set watermark = 0");
+}
+
 describe("the puller", () => {
   it("writes a pulled row with the server's own watermark and version", async () => {
     const db = await testDb();
@@ -116,14 +122,89 @@ describe("the puller", () => {
     assert.equal(stored.length, 0);
   });
 
-  it("refuses to write a table that is not part of sync", async () => {
+  it("holds a change for a table it does not know and still moves on", async () => {
+    // A table the server adds later must not stall an older app forever.
     const db = await testDb();
+    await fresh(db);
     const sql = sqlRunner((q, p) => db.sql(q, p as unknown[]));
     const state = new SyncStateStore(sql);
-    await assert.rejects(
-      new Puller(sql, state, transport([[change({ table: "api_tokens", row: { id: "x" } })]])).pull(),
-      /not a synced table/,
-    );
+    const result = await new Puller(sql, state, transport([[change({ table: "api_tokens", row: { id: "x" }, serverSeq: 7 })]])).pull();
+    assert.equal(result.applied, 0);
+    assert.equal(result.held, 1);
+    assert.equal((await state.read()).watermark, 7);
+  });
+});
+
+describe("the puller meeting a row that will not apply", () => {
+  async function setup() {
+    const db = await testDb();
+    await fresh(db);
+    const user = await db.createUser();
+    const sql = sqlRunner((q, p) => db.sql(q, p as unknown[]));
+    const project = randomUUID();
+    await db.sql("insert into projects (id, user_id, name) values ($1, $2, 'p')", [project, user]);
+    return { db, user, sql, project, state: new SyncStateStore(sql) };
+  }
+  const page = (project: string, user: string, id: string, title: string, seq: number) =>
+    change({ table: "vault_pages", serverSeq: seq, row: { id, user_id: user, project_id: project, title, body: "", sort_order: 0, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", server_seq: seq, row_version: 2 } });
+
+  it("parks it, applies the rest, and advances the watermark", async () => {
+    const { db, user, sql, project, state } = await setup();
+    const bad = change({ table: "vault_pages", serverSeq: 5, row: { id: randomUUID(), user_id: user, project_id: project, title: null } });
+    const good = page(project, user, randomUUID(), "fine", 6);
+
+    const result = await new Puller(sql, state, transport([[bad, good]])).pull();
+
+    assert.equal(result.applied, 1);
+    assert.equal(result.held, 1);
+    assert.equal((await state.read()).watermark, 6);
+    assert.equal((await db.sql("select 1 from vault_pages where title = 'fine'")).length, 1);
+  });
+
+  it("retries a held change and lets it go once it lands", async () => {
+    const { db, user, sql, project, state } = await setup();
+    const id = randomUUID();
+    const blocker = randomUUID();
+    await db.sql("insert into vault_pages (id, user_id, project_id, title) values ($1, $2, $3, 'Taken')", [blocker, user, project]);
+    await db.sql("delete from sync_outbox");
+
+    const first = await new Puller(sql, state, transport([[page(project, user, id, "taken", 3)]])).pull();
+    assert.equal(first.held, 1);
+
+    await db.sql("update vault_pages set title = 'Other' where id = $1", [blocker]);
+    const second = await new Puller(sql, state, transport([[]])).pull();
+    assert.equal(second.held, 0);
+    assert.equal(second.applied, 1);
+    assert.equal((await db.sql("select 1 from vault_pages where id = $1", [id])).length, 1);
+  });
+
+  it("lands two notes that swapped titles on the server", async () => {
+    const { db, user, sql, project, state } = await setup();
+    const a = randomUUID();
+    const b = randomUUID();
+    await db.sql("insert into vault_pages (id, user_id, project_id, title) values ($1, $2, $3, 'x'), ($4, $2, $3, 'y')", [a, user, project, b]);
+    await db.sql("delete from sync_outbox");
+
+    const result = await new Puller(sql, state, transport([[page(project, user, b, "x", 2), page(project, user, a, "y", 3)]])).pull();
+
+    assert.equal(result.held, 0);
+    const rows = await db.sql<{ id: string; title: string }>("select id::text, title from vault_pages where project_id = $1 order by title", [project]);
+    assert.deepEqual(rows.map((r) => r.id), [b, a]);
+  });
+
+  it("never takes a local note for a twin by its project alone", async () => {
+    // The title index is on lower(title); matching its plain columns only would
+    // pick any unsent note in the project.
+    const { db, user, sql, project, state } = await setup();
+    const local = randomUUID();
+    await db.sql("insert into vault_pages (id, user_id, project_id, title) values ($1, $2, $3, 'Mine')", [local, user, project]);
+    const other = randomUUID();
+    await db.sql("insert into vault_pages (id, user_id, project_id, title) values ($1, $2, $3, 'Clash')", [other, user, project]);
+
+    await new Puller(sql, state, transport([[page(project, user, randomUUID(), "clash", 4)]])).pull();
+
+    assert.equal((await db.sql("select 1 from vault_pages where id = $1", [local])).length, 1);
+    assert.equal((await db.sql("select 1 from vault_pages where id = $1", [other])).length, 1);
   });
 });
 
