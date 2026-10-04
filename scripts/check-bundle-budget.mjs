@@ -87,15 +87,16 @@ const ROUTE_ALLOWANCES_KB = {
   // container every route boots, so every route carries their code: +1 KB.
   // Settings houses workspace folder mirror, git 3-way conflict resolution, and sync issues:
   // Plus the local API token panel (create, table, revoke dialog): +3 KB.
-  "/settings": 403,
+  "/settings": 405,
   // graph and experiments share the top navigation with live sync status indicators;
   // experiments added the image viewer, result editor and token create form, and
   // graph shares the chunk that carries them: +3 KB each.
-  "/graph": 383,
-  "/experiments": 353,
+  "/graph": 386,
+  "/experiments": 355,
   // the shared shell itself: the container gained the MCP draft, proposal and
-  // lab-snapshot code, all of it reached from the layout.
-  "/layout": 343,
+  // lab-snapshot code, all of it reached from the layout. The puller's hold
+  // queue and local-twin drop run on every page: +2 KB on the shell.
+  "/layout": 345,
   "/dashboard": 344,
 };
 
