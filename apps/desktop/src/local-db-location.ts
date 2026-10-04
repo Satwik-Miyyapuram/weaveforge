@@ -89,22 +89,23 @@ export interface RelocateOptions {
  * process being replaced still held it, and the guard trusted the name. Every
  * launch then tried the same directory, failed, and let `recover` move it aside.
  *
- * So the directory is **verified before it is chosen**, and a copy that will not
- * open is skipped in favour of the app's own directory. That is a temporary
- * fallback rather than a permanent one: the marker is not written, so once the
- * lock clears the workspace copy is used again on the next launch.
+ * A copy that will not open is retried and then reported; the app directory is
+ * never opened in its place while a folder is chosen.
  */
-export async function databaseDirFor(
-  appDir: string,
-  workspaceMetaDir: string | null,
-  verify?: VerifyDatabase,
-): Promise<string> {
+export function databaseDirFor(appDir: string, workspaceMetaDir: string | null): string {
   if (!workspaceMetaDir) return appDir;
   const target = path.join(workspaceMetaDir, "db");
-  if (!isDatabase(target)) return appDir;
-  if (!verify) return target;
-  const usable = await verify(target).catch(() => false);
-  return usable ? target : appDir;
+  // With a folder chosen the database lives there only; never a silent switch.
+  if (!isDatabase(target) && isDatabase(appDir)) throw new StrandedDatabaseError(appDir, target);
+  return target;
+}
+
+/** The workspace has no database but the app directory does: the move did not happen. */
+export class StrandedDatabaseError extends Error {
+  constructor(readonly appDir: string, readonly target: string) {
+    super(`the workspace database is missing (${target}); your data is still in ${appDir}`);
+    this.name = "StrandedDatabaseError";
+  }
 }
 
 /**

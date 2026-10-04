@@ -57,6 +57,8 @@ const DEVICE_ONLY_TABLES = new Map([
   ["local_secrets", "device-local secret store (migrations-local)"],
   ["local_metric_pushes", "device-local metric push watermark (migrations-local)"],
   ["local_metric_resets", "device-local metric reset queue (migrations-local)"],
+  ["local_metric_dirty", "device-local metric push queue (migrations-local)"],
+  ["sync_pull_held", "device-local held pull changes (migrations-local)"],
 ]);
 
 /**

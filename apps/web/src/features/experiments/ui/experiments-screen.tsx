@@ -25,6 +25,7 @@ import { emptyArray, emptyMap } from "@/lib/empty";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { ExperimentsScreenData } from "@/features/experiments/application/load-experiments-screen.use-case";
 import { formatMetricCell, MetricChart } from "./metric-chart";
+import { MetricGrid } from "./metric-grid";
 import { formatError } from "@/lib/format-error";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { LocalApiTokenCreate, useLocalApiState } from "@/components/local-api-tokens";
@@ -164,7 +165,7 @@ export function ExperimentsScreen() {
   }
 
   return (
-    <section className="screen">
+    <section className="screen screen--wide">
       <ScreenHead
         eyebrow={experimentsEyebrow(items)}
         search={items.length > 0 ? { value: search, onChange: setSearch, label: "Search experiments" } : undefined}
@@ -487,7 +488,7 @@ function OverlayCharts({ experiments }: { experiments: Experiment[] }) {
     return <p className="muted">Selected runs have no logged curves to overlay yet.</p>;
 
   return (
-    <div className="metric-curves metric-curves--compare">
+    <MetricGrid variant="compare" defaultCols={2}>
       {metrics.map((m) => (
         <MetricChart
           key={m}
@@ -504,7 +505,7 @@ function OverlayCharts({ experiments }: { experiments: Experiment[] }) {
             .filter((s) => s.points.length > 0)}
         />
       ))}
-    </div>
+    </MetricGrid>
   );
 }
 
