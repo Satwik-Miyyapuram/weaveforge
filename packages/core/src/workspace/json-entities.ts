@@ -55,6 +55,8 @@ export function jsonKindOfPath(path: string): WorkspaceJsonKind | null {
 const MACHINERY_DIRS = new Set(["db", "db-backups", "cache"]);
 /** Files that are the app's record of what it wrote, never something to import. */
 const MACHINERY_FILES = new Set(["mirror.json", "manifest.json"]);
+/** Folders under `papers/` that cache downloads, never data. */
+const CACHE_DIRS = new Set(["pdf", "html"]);
 
 /**
  * Whether a changed folder path is the app's own machinery.
@@ -67,9 +69,14 @@ const MACHINERY_FILES = new Set(["mirror.json", "manifest.json"]);
 export function isAppOwnedPath(path: string): boolean {
   const parts = path.split("/");
   const name = parts[parts.length - 1] ?? "";
+  // The folder's git history and its root README are written by the mirror itself.
+  if (parts.includes(".git") || path === "README.md") return true;
   const metaAt = parts.lastIndexOf(WORKSPACE_META_DIR);
   if (metaAt >= 0 && MACHINERY_DIRS.has(parts[metaAt + 1] ?? "")) return true;
   if (MACHINERY_FILES.has(name)) return true;
+  // Downloaded paper PDFs and HTML snapshots are caches the app fills itself.
+  const cacheAt = parts.lastIndexOf("papers");
+  if (cacheAt >= 0 && CACHE_DIRS.has(parts[cacheAt + 1] ?? "")) return true;
   // Anything else sitting directly in a `.weaveforge/` is the app's bookkeeping
   // too — a relocation marker, a scratch file — but the three data files are
   // the exception, and they are what this module exists for.
@@ -151,11 +158,12 @@ export interface JsonDiffOptions {
   origin?(path: string): ChangeSide;
 }
 
-/** Two rows are the same row when every field the file carries matches. */
+/**
+ * Two rows are the same row when every field matches. A key holding
+ * `undefined` counts as absent: the file is JSON, which cannot spell one.
+ */
 function sameRow(a: JsonRow, b: JsonRow): boolean {
-  const keys = Object.keys(a);
-  if (keys.length !== Object.keys(b).length) return false;
-  for (const key of keys) {
+  for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
     if (JSON.stringify(a[key]) !== JSON.stringify(b[key])) return false;
   }
   return true;
@@ -194,7 +202,8 @@ export function diffJsonData(
     }
 
     const side = options.origin?.(parsed.path) ?? "unknown";
-    if (side === "workspace") {
+    // "neither": the file is what the mirror would write now, so nothing to import.
+    if (side === "workspace" || side === "neither") {
       entries.push({ action: "unchanged", kind: parsed.kind, path: parsed.path, row, existing: current });
       continue;
     }

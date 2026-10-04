@@ -432,7 +432,7 @@ function ImportPreview({
               .finally(() => setBusy(false));
           }}
         >
-          {busy ? "Importing…" : `Import ${writable} note${writable === 1 ? "" : "s"}`}
+          {busy ? "Importing…" : `Import ${writable} change${writable === 1 ? "" : "s"}`}
         </button>
       </div>
       <p className="muted jump-to-meta">
