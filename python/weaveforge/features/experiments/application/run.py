@@ -39,6 +39,8 @@ _MAX_BUFFERED = 20 * _FLUSH_EVERY
 _AUTO_FLUSH_TIMEOUT = 10.0
 _CONTENT_TYPES = {
     "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
     "webp": "image/webp",
     "svg": "image/svg+xml",
     "pdf": "application/pdf",

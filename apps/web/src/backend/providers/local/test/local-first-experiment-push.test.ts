@@ -84,7 +84,7 @@ describe("pushing desktop runs to the server", () => {
     server = fakeServer();
     blobs = new Blobs();
     const store = new LocalFirstBlobStore(run, blobs, () => true);
-    push = new ExperimentPush(run, server.client, store, "acct", async () => new Blob(["png"], { type: "image/png" }));
+    push = new ExperimentPush(run, server.client, store, "acct", async () => new Blob(["png"], { type: "image/png" }), async (b) => b);
   });
 
   it("sends each metric point once, as the signed-in account", async () => {
@@ -121,6 +121,19 @@ describe("pushing desktop runs to the server", () => {
     assert.deepEqual(row!.artifacts, [`acct/${EXP}/u1/a.png`, "keep"]);
     assert.ok(blobs.stored.has(`experiment-artifacts/acct/${EXP}/u1/a.png`));
     assert.deepEqual(server.rows.get(EXP), [`acct/${EXP}/u1/a.png`, "keep"]);
+  });
+
+  it("sends png/jpg up as webp and keeps svg as it is", async () => {
+    const webp = async (b: Blob) => (b.type === "image/png" ? new Blob(["w"], { type: "image/webp" }) : b);
+    const files: Record<string, Blob> = {
+      a: new Blob(["png"], { type: "image/png" }),
+      b: new Blob(["<svg/>"], { type: "image/svg+xml" }),
+    };
+    push = new ExperimentPush(run, server.client, new LocalFirstBlobStore(run, blobs, () => true), "acct",
+      async (u) => files[u.endsWith(".png") ? "a" : "b"]!, webp);
+    await run("insert into experiments values ($1, $2::jsonb)", [EXP, JSON.stringify([`app://artifacts/${EXP}/u1/a.png`, `app://artifacts/${EXP}/u2/b.svg`])]);
+    await push.push();
+    assert.deepEqual(server.rows.get(EXP), [`acct/${EXP}/u1/a.webp`, `acct/${EXP}/u2/b.svg`]);
   });
 
   it("sends up paths an older build rewrote only here", async () => {

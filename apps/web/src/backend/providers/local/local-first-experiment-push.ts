@@ -21,6 +21,7 @@ export class ExperimentPush {
     private readonly blobs: LocalFirstBlobStore,
     private readonly accountId: string,
     private readonly fetchLocal: (url: string) => Promise<Blob> = fetchBlob,
+    private readonly compress: (blob: Blob) => Promise<Blob> = toWebp,
   ) {}
 
   push(): Promise<void> {
@@ -93,8 +94,10 @@ export class ExperimentPush {
           continue;
         }
         // `{experimentId}/{uuid}/{name}` keeps its uuid, so a re-run is the same path.
-        const path = `${this.accountId}/${rest}`;
-        const blob = await this.fetchLocal(entry as string);
+        const raw = await this.fetchLocal(entry as string);
+        const blob = await this.compress(raw);
+        const name = blob === raw ? rest : rest.replace(/\.(png|jpe?g)$/i, ".webp");
+        const path = `${this.accountId}/${name}`;
         await this.blobs.upload(ARTIFACT_BUCKET, path, blob, blob.type);
         next.push(path);
       }
@@ -143,6 +146,21 @@ async function fetchBlob(url: string): Promise<Blob> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${url}: ${res.status}`);
   return res.blob();
+}
+
+// Server copy of png/jpg goes up as webp; svg and other files stay as they are.
+export async function toWebp(blob: Blob): Promise<Blob> {
+  if (!/^image\/(png|jpeg)$/.test(blob.type) || typeof OffscreenCanvas === "undefined") return blob;
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    canvas.getContext("2d")!.drawImage(bitmap, 0, 0);
+    bitmap.close();
+    const webp = await canvas.convertToBlob({ type: "image/webp", quality: 0.9 });
+    return webp.type === "image/webp" && webp.size < blob.size ? webp : blob;
+  } catch {
+    return blob;
+  }
 }
 
 /** Push on a timer and when the network comes back; failures wait for the next turn. */
