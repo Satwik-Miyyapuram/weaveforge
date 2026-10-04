@@ -1,0 +1,46 @@
+name: Docs
+
+# Regenerates the generated doc blocks on every same-repo PR and commits them,
+# so nobody has to remember `npm run docs:generate`. CI's check:docs stays as the gate.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: docs-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  regenerate:
+    # Forks and dependabot get no write token; their PRs fall back to check:docs.
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+          # A PAT push re-runs CI on the new commit; GITHUB_TOKEN pushes do not.
+          token: ${{ secrets.DOCS_PUSH_TOKEN || github.token }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - run: npm run docs:generate
+
+      - name: Commit regenerated docs
+        run: |
+          if git diff --quiet; then
+            echo "Docs already current."
+            exit 0
+          fi
+          git config user.name "S.Miyyapuram"
+          git config user.email "pandu.satwik@gmail.com"
+          git commit -s -am "docs: regenerate generated blocks"
+          git push
