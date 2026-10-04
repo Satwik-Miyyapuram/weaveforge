@@ -34,6 +34,7 @@ export class ExperimentPush {
     await this.pushResets();
     await this.pushMetrics();
     await this.pushArtifacts();
+    await this.repairServerArtifacts();
   }
 
   private async pushResets(): Promise<void> {
@@ -97,7 +98,35 @@ export class ExperimentPush {
         await this.blobs.upload(ARTIFACT_BUCKET, path, blob, blob.type);
         next.push(path);
       }
+      // Raw local writes skip the outbox, so the server row is set here too.
+      const { error } = await this.server.from("experiments").update({ artifacts: next }).eq("id", row.id);
+      if (error) throw new Error(error.message);
       await this.run("update experiments set artifacts = $2::jsonb where id = $1", [row.id, JSON.stringify(next)]);
+    }
+  }
+
+  // Builds before this fix rewrote only the local row; send those paths up once.
+  private async repairServerArtifacts(): Promise<void> {
+    const local = (await this.run(
+      "select id, artifacts from experiments where artifacts::text like $1",
+      [`%"${this.accountId}/%`],
+    )) as { id: string; artifacts: unknown }[];
+    if (!local.length) return;
+    const { data, error } = await this.server
+      .from("experiments")
+      .select("id, artifacts")
+      .in("id", local.map((r) => r.id));
+    if (error) throw new Error(error.message);
+    const stale = new Set(
+      ((data ?? []) as { id: string; artifacts: unknown }[])
+        .filter((r) => JSON.stringify(r.artifacts ?? null).includes(ARTIFACT_PREFIX))
+        .map((r) => r.id),
+    );
+    for (const row of local) {
+      if (!stale.has(row.id)) continue;
+      const artifacts = typeof row.artifacts === "string" ? (JSON.parse(row.artifacts) as unknown) : row.artifacts;
+      const { error: e } = await this.server.from("experiments").update({ artifacts }).eq("id", row.id);
+      if (e) throw new Error(e.message);
     }
   }
 }

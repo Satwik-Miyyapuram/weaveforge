@@ -18,6 +18,7 @@ const EXP = "11111111-1111-1111-1111-111111111111";
 function fakeServer() {
   const inserted: Record<string, unknown>[] = [];
   const deleted: string[] = [];
+  const rows = new Map<string, unknown>();
   let fail = false;
   const client = {
     from: (table: string) => ({
@@ -26,6 +27,18 @@ function fakeServer() {
         inserted.push(...rows);
         return { error: null };
       },
+      select: () => ({
+        in: async (_: string, ids: string[]) => ({
+          data: ids.filter((id) => rows.has(id)).map((id) => ({ id, artifacts: rows.get(id) })),
+          error: null,
+        }),
+      }),
+      update: (patch: { artifacts: unknown }) => ({
+        eq: async (_: string, id: string) => {
+          rows.set(id, patch.artifacts);
+          return { error: null };
+        },
+      }),
       delete: () => ({
         eq: async (_: string, id: string) => {
           deleted.push(`${table} ${id}`);
@@ -34,7 +47,7 @@ function fakeServer() {
       }),
     }),
   };
-  return { client: client as unknown as SupabaseClient, inserted, deleted, setFail: (f: boolean) => (fail = f) };
+  return { client: client as unknown as SupabaseClient, inserted, deleted, rows, setFail: (f: boolean) => (fail = f) };
 }
 
 class Blobs implements IBlobStore {
@@ -107,5 +120,13 @@ describe("pushing desktop runs to the server", () => {
     const [row] = (await run("select artifacts from experiments", [])) as { artifacts: string[] }[];
     assert.deepEqual(row!.artifacts, [`acct/${EXP}/u1/a.png`, "keep"]);
     assert.ok(blobs.stored.has(`experiment-artifacts/acct/${EXP}/u1/a.png`));
+    assert.deepEqual(server.rows.get(EXP), [`acct/${EXP}/u1/a.png`, "keep"]);
+  });
+
+  it("sends up paths an older build rewrote only here", async () => {
+    await run("insert into experiments values ($1, $2::jsonb)", [EXP, JSON.stringify([`acct/${EXP}/u1/a.png`])]);
+    server.rows.set(EXP, [`app://artifacts/${EXP}/u1/a.png`]);
+    await push.push();
+    assert.deepEqual(server.rows.get(EXP), [`acct/${EXP}/u1/a.png`]);
   });
 });
