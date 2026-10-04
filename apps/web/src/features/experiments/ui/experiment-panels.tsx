@@ -8,12 +8,14 @@ import { figureLabel } from "./figure-label";
 import { getContainer } from "@/bootstrap";
 import { commitUrl } from "@/features/sync";
 import { formatMetricCell, MetricChart } from "./metric-chart";
+import { MetricGrid } from "./metric-grid";
 import { isAbsoluteUrl } from "../infrastructure/experiment-artifact-store";
 import { FormError } from "@/components/form-error";
 import { ImageViewer } from "@/components/image-viewer";
 import { formatError } from "@/lib/format-error";
 
 function isImageUrl(url: string): boolean {
+  if (url.startsWith("data:")) return url.startsWith("data:image/");
   try {
     const path = new URL(url).pathname.toLowerCase();
     return /\.(png|jpe?g|webp|gif|svg|avif)$/.test(path);
@@ -260,7 +262,7 @@ export function MetricCurves({
     );
 
   return (
-    <div className="metric-curves metric-curves--detail">
+    <MetricGrid variant="detail">
       {byMetric.map(([metric, pts]) => (
         <MetricChart
           key={metric}
@@ -269,7 +271,7 @@ export function MetricCurves({
           series={[{ id: experimentId, points: pts }]}
         />
       ))}
-    </div>
+    </MetricGrid>
   );
 }
 

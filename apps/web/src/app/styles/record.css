@@ -137,6 +137,13 @@
 /* Writing takes the page: the side column steps aside while Edit is on. */
 .record-grid--editing { grid-template-columns: minmax(0, 1fr); }
 .record-grid--editing > .record-aside { display: none; }
+/* Shut side column folds to a rail holding only its toggle. */
+.record-aside { position: relative; }
+.record-aside-toggle { position: absolute; top: 0; right: 0; z-index: 1; }
+.record-aside-toggle svg { transform: rotate(-90deg); }
+.record-grid--aside-shut { grid-template-columns: minmax(0, 1fr) auto; gap: 16px; }
+.record-grid--aside-shut .record-aside-toggle { position: static; }
+.record-grid--aside-shut .record-aside-toggle svg { transform: rotate(90deg); }
 
 @media (max-width: 900px) {
   .record-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
