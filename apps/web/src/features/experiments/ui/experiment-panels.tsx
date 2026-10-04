@@ -15,6 +15,7 @@ import { ImageViewer } from "@/components/image-viewer";
 import { formatError } from "@/lib/format-error";
 
 function isImageUrl(url: string): boolean {
+  if (url.startsWith("data:")) return url.startsWith("data:image/");
   try {
     const path = new URL(url).pathname.toLowerCase();
     return /\.(png|jpe?g|webp|gif|svg|avif)$/.test(path);

@@ -7,6 +7,7 @@ import type { MetricPoint } from "@weaveforge/core";
 import { formatMetricValue } from "@weaveforge/core";
 import { EntityCard } from "@/components/entity-card";
 import { Select } from "@/components/select";
+import { useGridHeight } from "./metric-grid";
 
 // Lives in core so Node tests can import it without this file's CSS import.
 export { formatMetricCell } from "@weaveforge/core";
@@ -107,7 +108,8 @@ interface Hover {
  * Canvas line chart (uPlot) in a card. Titles and series come from whatever
  * names the user logs via the SDK — no hard-coded accuracy/loss layout.
  */
-export function MetricChart({ metric, series, height = 240, showLegend }: MetricChartProps) {
+export function MetricChart({ metric, series, height: baseHeight = 240, showLegend }: MetricChartProps) {
+  const height = useGridHeight(baseHeight);
   const containerRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
   // Run id for each uPlot series after x; raw lines are not the run's "main" line.

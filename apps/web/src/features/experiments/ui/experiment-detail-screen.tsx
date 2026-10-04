@@ -25,6 +25,7 @@ import { EXPERIMENTS_HREF } from "./experiment-href";
 import { Artifacts, MetricCurves, usePaperTitle } from "./experiment-panels";
 import { StatusSelect } from "@/components/status-select";
 import { FormError } from "@/components/form-error";
+import { ChevronIcon } from "@/components/chevron-icon";
 
 
 export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
@@ -37,6 +38,20 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   // and replaces the whole screen. A failed upload must not do that.
   const [attachError, setAttachError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [asideOpen, setAsideOpen] = useState(() => {
+    try {
+      return sessionStorage.getItem("record-aside:shut") !== "1";
+    } catch {
+      return true;
+    }
+  });
+  const toggleAside = () =>
+    setAsideOpen((open) => {
+      try {
+        sessionStorage.setItem("record-aside:shut", open ? "1" : "0");
+      } catch {}
+      return !open;
+    });
   const resultRef = useRef<HTMLParagraphElement>(null);
   const paperTitle = usePaperTitle(exp?.relatedPaper);
 
@@ -163,7 +178,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
           {meta && <p className="record-mono record-meta">{meta}</p>}
         </header>
 
-        <div className="record-grid">
+        <div className={`record-grid${asideOpen ? "" : " record-grid--aside-shut"}`}>
           <div className="record-main">
             <RecordSection label="Metrics" tag={live ? "Live" : undefined}>
               <MetricCurves experimentId={exp.id} live={live} chartHeight={300} />
@@ -240,6 +255,18 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
           </div>
 
           <aside className="record-aside">
+            <button
+              type="button"
+              className="entity-icon-btn record-aside-toggle"
+              onClick={toggleAside}
+              aria-expanded={asideOpen}
+              aria-label={asideOpen ? "Hide side panel" : "Show side panel"}
+              title={asideOpen ? "Hide side panel" : "Show side panel"}
+            >
+              <ChevronIcon />
+            </button>
+            {asideOpen && (
+            <>
             <RecordSection label="Record">
               <RecordFacts
                 rows={[
@@ -289,6 +316,8 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
               <RecordSection label="Activity">
                 <RecordActivity events={activity} />
               </RecordSection>
+            )}
+            </>
             )}
           </aside>
         </div>

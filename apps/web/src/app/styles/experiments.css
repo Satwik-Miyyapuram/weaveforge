@@ -119,7 +119,7 @@
 .metric-chart-smooth { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; }
 .metric-chart-smooth select { font: inherit; font-size: 0.78rem; padding: 2px 6px; }
 .metric-chart-plot-wrap { position: relative; min-width: 0; }
-.metric-chart-plot { width: 100%; min-height: 200px; }
+.metric-chart-plot { width: 100%; }
 .metric-chart-plot .uplot { font-family: inherit; color: var(--ink); }
 .metric-chart-plot .u-cursor-x, .metric-chart-plot .u-cursor-y { border-color: var(--muted); }
 .metric-chart-tip {

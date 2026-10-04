@@ -23,4 +23,5 @@ test("keeps a malformed escape instead of throwing", () => {
 
 test("falls back to a positional label when there is no filename", () => {
   assert.equal(figureLabel("https://cdn.example.com/", 4), "figure 5");
+  assert.equal(figureLabel("data:image/png;base64,iVBORw0KGgo/AAA", 1), "figure 2");
 });

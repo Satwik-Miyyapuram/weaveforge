@@ -1,9 +1,17 @@
 "use client";
 
-import { Children, useEffect, useState, type ReactNode, type WheelEvent } from "react";
+import { Children, createContext, useContext, useEffect, useState, type ReactNode, type WheelEvent } from "react";
 
 const KEY = "metric-grid:cols";
 const MAX_COLS = 10;
+
+const ColsContext = createContext(1);
+
+/** Charts get shorter as more share a row, down to `floor`. */
+export function useGridHeight(base: number, floor = 140): number {
+  const cols = useContext(ColsContext);
+  return Math.max(floor, Math.round(base * (1 - (cols - 1) * 0.08)));
+}
 
 function readCols(fallback: number): number {
   try {
@@ -69,7 +77,7 @@ export function MetricGrid({
         </label>
       )}
       <div className={`metric-curves metric-curves--${variant}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-        {children}
+        <ColsContext.Provider value={cols}>{children}</ColsContext.Provider>
       </div>
     </div>
   );
