@@ -21,6 +21,20 @@ tracks at once.
 
 ### iOS
 
+## [0.8.5] - 2026-10-04
+
+Desktop (`v0.8.5`). Python SDK stays on 0.7.0; Android stays on 0.8.2; iOS stays on 0.8.0.
+
+### Desktop
+- **New:** Metric chart cards with axes, tooltips, smoothing and per-run toggles, in a zoomable grid.
+- **New:** PNG and JPG figures are pushed as WebP; SVG stays as is.
+- **Fixed:** Metrics and artifacts from SDK runs now reach the server; metrics are pushed from a queue of changed series.
+- **Fixed:** A pulled change that will not apply is held and retried instead of stopping sync.
+- **Fixed:** An unsent local copy that clashes with the server's copy no longer blocks sync.
+- **Fixed:** The app never falls back to its own database while a workspace folder is chosen, and clears junk files before opening it.
+- **Fixed:** Deleting a project removes its workspace folder.
+- **Fixed:** The app no longer treats its own writes to the workspace folder as outside edits, imports only notes from it, and "Check for changes" no longer lists unchanged rows.
+
 ## [0.8.4] - 2026-10-04
 
 Desktop (`v0.8.4`) and Python SDK (`py-v0.7.0`). Android stays on 0.8.2; iOS stays on 0.8.0.
