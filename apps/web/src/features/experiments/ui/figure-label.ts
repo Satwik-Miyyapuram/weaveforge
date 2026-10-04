@@ -13,6 +13,8 @@ function decodeOrRaw(text: string): string {
 
 /** Human label for an artifact, from an absolute URL or a storage path. */
 export function figureLabel(url: string, index: number): string {
+  // Inline data has no filename.
+  if (url.startsWith("data:")) return `figure ${index + 1}`;
   let part: string | undefined;
   try {
     part = new URL(url).pathname.split("/").pop();

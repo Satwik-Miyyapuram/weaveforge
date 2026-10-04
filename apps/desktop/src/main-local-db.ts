@@ -16,7 +16,8 @@ import type { IpcSurface } from "./ipc-guard";
 import type { LocalClient } from "./local-db";
 import { LocalDbBackups, readBackup } from "./local-db-backup";
 import { LocalDbHost } from "./local-db-host";
-import { databaseDirFor, relocateDatabaseOnce } from "./local-db-location";
+import { databaseDirFor, relocateDatabaseOnce, StrandedDatabaseError } from "./local-db-location";
+import { prepareDataDir } from "./local-db-prepare";
 import { applyDeferredMove, moveAside } from "./local-db-reset";
 
 export interface MainLocalDbDeps {
@@ -70,6 +71,7 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
   
   /** Opens a directory and reads one row; the only honest test of "can it open". */
   async function verifyDatabase(dir: string): Promise<boolean> {
+    prepareDataDir(dir);
     const { PGlite } = await import("@electric-sql/pglite");
     const client = (await PGlite.create({ dataDir: dir })) as unknown as LocalClient;
     try {
@@ -99,6 +101,7 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       workspaceMetaDir: metaDir,
       verify: verifyDatabase,
       dump: async (dir) => {
+        prepareDataDir(dir);
         const { PGlite } = await import("@electric-sql/pglite");
         const client = (await PGlite.create({ dataDir: dir })) as unknown as LocalClient & {
           dumpDataDir?: (c: "gzip") => Promise<Blob>;
@@ -119,14 +122,9 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
         await client.close();
       },
     });
-    // A workspace copy that exists but will not open right now — a lock held by a
-    // process being replaced, most often — falls back to the app's own database
-    // for this launch. The marker is not written, so the next launch tries the
-    // workspace again once the lock has cleared.
-    storageDir = await databaseDirFor(appDbDir, metaDir, verifyDatabase);
-    if (storageDir !== result.dir) {
-      console.warn(`[local-db] the workspace copy did not open; using ${storageDir} for this launch`);
-    }
+    // Pointed at the workspace first so nothing below can touch the app copy.
+    storageDir = path.join(metaDir, "db");
+    storageDir = databaseDirFor(appDbDir, metaDir);
     console.log(`[local-db] ${result.note}: ${storageDir}`);
     return storageDir;
   }
@@ -150,6 +148,7 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
   
   /** Start the engine on the current data directory, from a backup's bytes when given some. */
   async function openEngine(loadDataDir?: Blob): Promise<LocalClient> {
+    prepareDataDir(localDbDir());
     const { PGlite, types } = await import("@electric-sql/pglite");
     const { pgcrypto } = await import("@electric-sql/pglite/contrib/pgcrypto");
     return (await PGlite.create({
@@ -250,6 +249,8 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       return openEngineWithRetry();
     },
     recover: async (cause) => {
+      // Surfaced, not repaired: a restore here would hide where the data is.
+      if (cause instanceof StrandedDatabaseError) return null;
       const latest = await localDbBackups.latest();
       if (!latest) return null;
       console.warn(`[local-db] open failed (${String(cause)}); restoring from ${latest}`);
