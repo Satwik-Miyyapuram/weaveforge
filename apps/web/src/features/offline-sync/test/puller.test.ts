@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { describe, it } from "node:test";
 import { testDb } from "../../../backend/test/pg-test-db";
 import { sqlRunner } from "./local-sql";
@@ -123,6 +124,32 @@ describe("the puller", () => {
       new Puller(sql, state, transport([[change({ table: "api_tokens", row: { id: "x" } })]])).pull(),
       /not a synced table/,
     );
+  });
+});
+
+describe("the puller meeting a local twin", () => {
+  it("drops an unsent local paper that clashes with the server's copy, so the pull goes on", async () => {
+    const db = await testDb();
+    const user = await db.createUser();
+    const sql = sqlRunner((q, p) => db.sql(q, p as unknown[]));
+    const project = randomUUID();
+    const local = randomUUID();
+    const server = randomUUID();
+    await db.sql("insert into projects (id, user_id, name) values ($1, $2, 'p')", [project, user]);
+    await db.sql("insert into papers (id, user_id, project_id, title, authors, arxiv_id) values ($1, $2, $3, 'twin', '{}', '2002.02886')", [local, user, project]);
+    if ((await db.sql("select 1 from sync_outbox where row_id = $1 and op = 'insert'", [local])).length === 0) {
+      await new Outbox(sql).append({ table: "papers", rowId: local, op: "insert", payload: {} });
+    }
+    // The feed sends whole rows; the server's copy differs only by id.
+    const [twin] = await db.sql<{ r: Record<string, unknown> }>("select to_jsonb(p) as r from papers p where id = $1", [local]);
+    const row = { ...twin!.r, id: server, server_seq: 9, row_version: 1 };
+
+    const result = await new Puller(sql, new SyncStateStore(sql), transport([[change({ table: "papers", row, serverSeq: 9 })]])).pull();
+
+    assert.equal(result.applied, 1);
+    const ids = (await db.sql<{ id: string }>("select id from papers where project_id = $1", [project])).map((r) => r.id);
+    assert.deepEqual(ids, [server]);
+    assert.equal((await db.sql("select 1 from sync_outbox where row_id = $1", [local])).length, 0);
   });
 });
 

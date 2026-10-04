@@ -97,9 +97,70 @@ export class Puller {
   }
 
   private async write(change: RemoteChange): Promise<void> {
-    await this.sql.exec("select sync_apply($1, $2::jsonb)", [
+    const run = () =>
+      this.sql.exec("select sync_apply($1, $2::jsonb)", [change.table, JSON.stringify(change.row)]);
+    try {
+      await run();
+    } catch (error) {
+      if (!(await this.dropLocalTwin(change, error))) throw error;
+      await run();
+    }
+  }
+
+  /**
+   * A row made here that never reached the server can clash on a natural key
+   * (same paper added twice) with the server's copy; one such row blocked every
+   * later pull. Drop it when nothing points at it, so the server copy lands.
+   */
+  private async dropLocalTwin(change: RemoteChange, error: unknown): Promise<boolean> {
+    const constraint = /unique constraint "([^"]+)"/.exec(String((error as Error)?.message))?.[1];
+    if (!constraint) return false;
+    const cols = (
+      await this.sql.query<{ name: string }>(
+        `select a.attname as name from pg_index x
+           join pg_class i on i.oid = x.indexrelid
+           join pg_class t on t.oid = x.indrelid
+           join pg_attribute a on a.attrelid = t.oid and a.attnum = any(x.indkey)
+          where x.indisunique and i.relname = $1 and t.relname = $2`,
+        [constraint, change.table],
+      )
+    ).map((r) => r.name);
+    if (cols.length === 0 || cols.includes("id")) return false;
+    const match = cols.map((c) => `t.${quote(c)} is not distinct from r.${quote(c)}`).join(" and ");
+    const twin = await this.sql.queryOne<{ id: string }>(
+      `select t.id::text as id from public.${quote(change.table)} t,
+              jsonb_populate_record(null::public.${quote(change.table)}, $1) r
+        where ${match} and t.id <> r.id`,
+      [JSON.stringify(change.row)],
+    );
+    if (!twin) return false;
+    const localOnly = await this.sql.queryOne(
+      "select 1 from sync_outbox where table_name = $1 and row_id = $2 and op = 'insert'",
+      [change.table, twin.id],
+    );
+    if (!localOnly) return false;
+    const refs = await this.sql.query<{ child: string; col: string }>(
+      `select ch.relname as child, a.attname as col from pg_constraint c
+         join pg_class p on p.oid = c.confrelid
+         join pg_class ch on ch.oid = c.conrelid
+         join pg_attribute a on a.attrelid = ch.oid and a.attnum = c.conkey[1]
+        where c.contype = 'f' and p.relname = $1 and p.relnamespace = 'public'::regnamespace`,
+      [change.table],
+    );
+    for (const ref of refs) {
+      const used = await this.sql.queryOne(
+        `select 1 from public.${quote(ref.child)} where ${quote(ref.col)} = $1 limit 1`,
+        [twin.id],
+      );
+      if (used) return false;
+    }
+    await this.sql.exec("delete from sync_outbox where table_name = $1 and row_id = $2", [
       change.table,
-      JSON.stringify(change.row),
+      twin.id,
     ]);
+    await this.sql.exec(`delete from public.${quote(change.table)} where id = $1`, [twin.id]);
+    return true;
   }
 }
+
+const quote = (name: string) => `"${name.replace(/"/g, '""')}"`;
