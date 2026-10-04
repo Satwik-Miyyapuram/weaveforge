@@ -21,6 +21,13 @@ tracks at once.
 
 ### iOS
 
+## [py-0.7.1] - 2026-10-05
+
+Python SDK (`py-v0.7.1`).
+
+### Python SDK
+- **Fixed:** `.jpg` and `.jpeg` figures upload with an image content type.
+
 ## [0.8.5] - 2026-10-04
 
 Desktop (`v0.8.5`). Python SDK stays on 0.7.0; Android stays on 0.8.2; iOS stays on 0.8.0.
