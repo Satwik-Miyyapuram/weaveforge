@@ -62,6 +62,7 @@ function alignSeries(series: MetricSeries[]) {
 
 const DEFAULT_COLORS = ["#5b8def", "#e06c75", "#98c379", "#d19a66", "#c678dd", "#56b6c2"];
 const SMOOTHING = [0, 0.6, 0.8, 0.95] as const;
+const COMPACT_PX = 260;
 
 /** Debiased EMA over non-null values; gaps stay gaps. */
 function emaSmooth(values: (number | null)[], alpha: number): (number | null)[] {
@@ -117,6 +118,8 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
   const [hidden, setHidden] = useState<Set<string>>(() => new Set(readPrefs(metric).hidden));
   const [smooth, setSmooth] = useState<number>(() => readPrefs(metric).smooth);
   const [hover, setHover] = useState<Hover | null>(null);
+  // Narrow cards (many per row) drop axis titles so the plot keeps its width.
+  const [compact, setCompact] = useState(false);
   const hiddenRef = useRef(hidden);
   hiddenRef.current = hidden;
 
@@ -157,6 +160,7 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
       const line = readCssVar("--line", "#30363d");
       const surface = readCssVar("--surface", "#ffffff");
       const width = Math.max(el.clientWidth || 0, 1);
+      setCompact(width < COMPACT_PX);
       const font = "11px system-ui, sans-serif";
       const labelFont = "600 11px system-ui, sans-serif";
 
@@ -194,11 +198,9 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
         padding: [12, 14, 0, 0],
         scales: { x: { time: false }, y: { auto: true } },
         axes: [
-          axis({ label: "step", labelSize: 22 }),
+          axis(compact ? { size: 24 } : { label: "step", labelSize: 22 }),
           axis({
-            label: metric,
-            labelSize: 20,
-            size: 54,
+            ...(compact ? { size: 50 } : { label: metric, labelSize: 20, size: 54 }),
             values: (_u, splits) => splits.map((v) => formatMetricValue(metric, v)),
           }),
         ],
@@ -246,6 +248,7 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
       resizeObserver = new ResizeObserver(() => {
         const w = el.clientWidth;
         if (w > 0) plotRef.current?.setSize({ width: w, height });
+        if (w > 0) setCompact(w < COMPACT_PX);
       });
       resizeObserver.observe(el);
     });
@@ -256,7 +259,7 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
       plotRef.current?.destroy();
       plotRef.current = null;
     };
-  }, [metric, height, prepared, smooth]);
+  }, [metric, height, prepared, smooth, compact]);
 
   // A toggle flips series in place, so new data never brings a hidden run back.
   useEffect(() => {
@@ -289,17 +292,22 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
   return (
     <EntityCard
       className="metric-chart"
-      title={metric}
+      title={metric.split(/(?<=[/_])/).map((part, i) => (
+        <span key={i}>
+          {i > 0 && <wbr />}
+          {part}
+        </span>
+      ))}
       menu={smoothing}
       meta={
         <span className="metric-chart-stats">
           <span>
             last <b>{formatMetricValue(metric, stats.last)}</b>
           </span>
-          <span>
+          <span className="metric-chart-range">
             min <b>{formatMetricValue(metric, stats.min)}</b>
           </span>
-          <span>
+          <span className="metric-chart-range">
             max <b>{formatMetricValue(metric, stats.max)}</b>
           </span>
         </span>

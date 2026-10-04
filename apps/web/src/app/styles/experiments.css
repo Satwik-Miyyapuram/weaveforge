@@ -117,9 +117,10 @@
 .metric-chart-run[aria-pressed="false"] { opacity: 0.4; text-decoration: line-through; }
 .metric-chart-swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
 .metric-chart-plot-wrap { position: relative; min-width: 0; overflow: hidden; }
-/* Narrow card (many per row): long titles wrap. */
+/* Narrow card (many per row): titles wrap, only the last value shows. */
 @container (max-width: 300px) {
   .metric-chart .entity-card-title { overflow-wrap: anywhere; }
+  .metric-chart-range { display: none; }
 }
 .metric-chart-plot { width: 100%; }
 .metric-chart-plot .uplot { font-family: inherit; color: var(--ink); }

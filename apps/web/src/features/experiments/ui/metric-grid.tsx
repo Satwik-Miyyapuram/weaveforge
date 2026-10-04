@@ -1,9 +1,11 @@
 "use client";
 
-import { Children, createContext, useContext, useEffect, useState, type ReactNode, type WheelEvent } from "react";
+import { Children, createContext, useContext, useEffect, useRef, useState, type ReactNode, type WheelEvent } from "react";
 
 const KEY = "metric-grid:cols";
 const MAX_COLS = 10;
+// Narrower cards squash plots past reading.
+const MIN_CARD_PX = 220;
 
 const ColsContext = createContext(1);
 
@@ -21,7 +23,7 @@ function readCols(fallback: number): number {
   return fallback;
 }
 
-/** Chart grid with a snapping zoom slider: 1 per row is fully zoomed in, out to 10 per row. */
+/** Chart grid with a snapping zoom slider: 1 per row is fully zoomed in, out to 10 per row, as many as fit. */
 export function MetricGrid({
   variant,
   defaultCols = 1,
@@ -31,7 +33,16 @@ export function MetricGrid({
   defaultCols?: number;
   children: ReactNode;
 }) {
-  const max = Math.min(MAX_COLS, Math.max(1, Children.count(children)));
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState(MAX_COLS);
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setFit(Math.max(1, Math.floor(el.clientWidth / MIN_CARD_PX))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const max = Math.min(MAX_COLS, fit, Math.max(1, Children.count(children)));
   const [want, setWant] = useState(() => readCols(defaultCols));
   const cols = Math.min(want, max);
 
@@ -76,7 +87,7 @@ export function MetricGrid({
           <span className="seg-on metric-grid-count">{cols} / row</span>
         </label>
       )}
-      <div className={`metric-curves metric-curves--${variant}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+      <div ref={gridRef} className={`metric-curves metric-curves--${variant}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
         <ColsContext.Provider value={cols}>{children}</ColsContext.Provider>
       </div>
     </div>
