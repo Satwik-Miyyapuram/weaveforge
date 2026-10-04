@@ -55,6 +55,8 @@ const DEVICE_ONLY_TABLES = new Map([
   ["local_blobs", "device-local blob store (migrations-local)"],
   ["local_blob_uploads", "device-local blob upload queue (migrations-local)"],
   ["local_secrets", "device-local secret store (migrations-local)"],
+  ["local_metric_pushes", "device-local metric push watermark (migrations-local)"],
+  ["local_metric_resets", "device-local metric reset queue (migrations-local)"],
 ]);
 
 /**

@@ -13,6 +13,7 @@ import type { BackendParts } from "../supabase/wire-supabase-backend";
 import { createLocalClient, type LocalQuery } from "./pglite-client";
 import type { LocalFirstAccount } from "./local-first-marker";
 import { keepFlushing, LocalFirstBlobStore } from "./local-first-blob-store";
+import { ExperimentPush, keepPushing } from "./local-first-experiment-push";
 import { LocalSessionProvider } from "./local-identity";
 import { LocalRunner } from "./local-runner";
 
@@ -118,6 +119,7 @@ export function localFirstParts(
   const session = new LocalSessionProvider(account.id);
   const blobStore = new LocalFirstBlobStore(query, wireStorage({ supabaseDb: server }));
   keepFlushing(blobStore);
+  keepPushing(new ExperimentPush(query, server, blobStore, account.id));
   return {
     db,
     session,

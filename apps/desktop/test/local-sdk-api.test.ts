@@ -154,7 +154,8 @@ test("clearing a run's metrics empties both the points and the chunks", async ()
   const { query, asked } = db();
   const answer = await route(query, { method: "DELETE", url: "/api/sdk/metrics?experiment_id=exp-1" });
   assert.equal(answer.status, 200);
-  assert.equal(asked.length, 2);
+  assert.equal(asked.length, 4);
+  assert.match(asked[3]!.sql, /insert into local_metric_resets/);
   assert.match(asked[0]!.sql, /delete from experiment_metric_points where experiment_id = \$1/);
   assert.match(asked[1]!.sql, /delete from experiment_metric_chunks where experiment_id = \$1/);
   assert.deepEqual(asked[1]!.params, ["exp-1"]);
