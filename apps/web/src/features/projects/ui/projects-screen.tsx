@@ -40,6 +40,7 @@ export function ProjectsScreen() {
   const { busy: removeBusy, error: removeError, submit: remove } = useSubmit(async () => {
     if (!removing) return;
     await getContainer().projects.manageProject.remove(removing.id);
+    await removeLocalFolder(removing);
     if (current?.id === removing.id) setProject(null);
     setRemoving(null);
     await refresh();
@@ -152,4 +153,15 @@ export function ProjectsScreen() {
       )}
     </section>
   );
+}
+
+/** Delete the project's workspace folder too; the row is already gone, so a failure only warns. */
+async function removeLocalFolder(project: { id: string; name: string }): Promise<void> {
+  const [{ activeWorkspaceFs }, { removeProjectFolder }] = await Promise.all([
+    import("@/features/workspace/application/workspace-folder"),
+    import("@/features/workspace/application/remove-project-folder"),
+  ]);
+  const fs = activeWorkspaceFs();
+  if (!fs) return;
+  await removeProjectFolder(fs, project).catch((e) => console.warn("project folder not removed", e));
 }
