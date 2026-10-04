@@ -281,11 +281,25 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
   const smoothing = (
     <CardMenu
       label="Chart options"
-      items={SMOOTHING.map((a) => ({
-        id: String(a),
-        label: `${a === smooth ? "✓ " : ""}smoothing: ${a === 0 ? "none" : `ema ${a}`}`,
-        onSelect: () => setSmooth(a),
-      }))}
+      items={[
+        {
+          id: "smoothing",
+          label: "Smoothing",
+          onSelect: () => undefined,
+          submenu: () => (
+            <ul className="card-menu-list">
+              {SMOOTHING.map((a) => (
+                <li key={a}>
+                  <button type="button" className="card-menu-item" aria-pressed={a === smooth} onClick={() => setSmooth(a)}>
+                    {a === smooth ? "✓ " : ""}
+                    {a === 0 ? "none" : `ema ${a}`}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ),
+        },
+      ]}
     />
   );
 
@@ -299,8 +313,9 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
         </span>
       ))}
       menu={smoothing}
+      // Small cards give the plot the stats row; the tooltip still shows values.
       meta={
-        <span className="metric-chart-stats">
+        compact ? undefined : <span className="metric-chart-stats">
           <span>
             last <b>{formatMetricValue(metric, stats.last)}</b>
           </span>
