@@ -290,7 +290,7 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
     <EntityCard
       className="metric-chart"
       title={metric}
-      actions={smoothing}
+      menu={smoothing}
       meta={
         <span className="metric-chart-stats">
           <span>
