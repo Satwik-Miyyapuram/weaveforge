@@ -118,7 +118,7 @@
 .metric-chart-swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
 .metric-chart-smooth { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; }
 .metric-chart-smooth select { font: inherit; font-size: 0.78rem; padding: 2px 6px; }
-.metric-chart-plot-wrap { position: relative; }
+.metric-chart-plot-wrap { position: relative; min-width: 0; }
 .metric-chart-plot { width: 100%; min-height: 200px; }
 .metric-chart-plot .uplot { font-family: inherit; color: var(--ink); }
 .metric-chart-plot .u-cursor-x, .metric-chart-plot .u-cursor-y { border-color: var(--muted); }
@@ -182,3 +182,9 @@
 .exp-result-edit textarea { width: 100%; min-height: 110px; resize: vertical; font: inherit; }
 .exp-result-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 .exp-detail .record-abstract { white-space: pre-wrap; }
+
+.metric-grid { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.metric-grid-zoom { align-self: flex-end; align-items: center; }
+.metric-grid-zoom button:disabled { opacity: 0.4; cursor: default; }
+.metric-grid-zoom input[type="range"] { width: 140px; margin: 0 6px; accent-color: var(--accent); }
+.metric-grid-count { padding: 0 8px; font-variant-numeric: tabular-nums; }

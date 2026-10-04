@@ -134,7 +134,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   ].filter((e): e is { at: string; what: string } => e !== null && e.at !== "");
 
   return (
-    <section className="screen exp-detail">
+    <section className="screen exp-detail screen--wide">
       <article className="record">
         <nav className="record-bar" aria-label="Experiment">
           <BackButton label="Experiments" onClick={goBackToList} />
