@@ -63,8 +63,8 @@ export function MetricGrid({
     <div className={`metric-grid metric-grid--${variant}`}>
       {max > 1 && (
         <label className="seg metric-grid-zoom" onWheel={onWheel} title="Scroll to zoom">
-          <button type="button" aria-label="Zoom in" disabled={cols <= 1} onClick={() => set(cols - 1)}>
-            +
+          <button type="button" aria-label="Zoom out" disabled={cols >= max} onClick={() => set(cols + 1)}>
+            −
           </button>
           <input
             type="range"
@@ -72,17 +72,18 @@ export function MetricGrid({
             max={max}
             step={1}
             list={`metric-grid-ticks-${variant}`}
-            value={cols}
-            aria-label="Charts per row"
-            onChange={(e) => set(Number(e.target.value))}
+            // Right is zoom in (fewer, bigger charts), same as the + beside it.
+            value={max + 1 - cols}
+            aria-label="Chart size"
+            onChange={(e) => set(max + 1 - Number(e.target.value))}
           />
           <datalist id={`metric-grid-ticks-${variant}`}>
             {Array.from({ length: max }, (_, i) => (
               <option key={i} value={i + 1} />
             ))}
           </datalist>
-          <button type="button" aria-label="Zoom out" disabled={cols >= max} onClick={() => set(cols + 1)}>
-            −
+          <button type="button" aria-label="Zoom in" disabled={cols <= 1} onClick={() => set(cols - 1)}>
+            +
           </button>
           <span className="seg-on metric-grid-count">{cols} / row</span>
         </label>

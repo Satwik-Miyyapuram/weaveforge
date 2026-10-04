@@ -39,12 +39,20 @@ function fakeServer() {
           return { error: null };
         },
       }),
-      delete: () => ({
-        eq: async (_: string, id: string) => {
-          deleted.push(`${table} ${id}`);
-          return { error: null };
-        },
-      }),
+      delete: () => {
+        const keys: unknown[] = [];
+        const chain = {
+          eq: (_: string, v: unknown) => {
+            keys.push(v);
+            return chain;
+          },
+          then: (done: (r: { error: null }) => void) => {
+            deleted.push(`${table} ${keys.join(" ")}`);
+            done({ error: null });
+          },
+        };
+        return chain;
+      },
     }),
   };
   return { client: client as unknown as SupabaseClient, inserted, deleted, rows, setFail: (f: boolean) => (fail = f) };
@@ -67,9 +75,14 @@ async function database(): Promise<LocalQuery> {
     await pg.exec(readFileSync(path.join(MIGRATIONS, file), "utf8"));
   }
   await pg.exec(`
-    create table experiments (id uuid primary key, artifacts jsonb);
-    create table experiment_metrics (experiment_id uuid, metric text, step int, value float8, wall_time timestamptz);
+    create table experiments (id uuid primary key, artifacts jsonb, user_id uuid);
+    create table experiment_metric_names (id serial primary key, name text unique);
+    create table experiment_metric_points (experiment_id uuid, metric_id int, step int, value float8, wall_time timestamptz,
+      user_id uuid, primary key (experiment_id, metric_id, step));
+    create table experiment_metric_chunks (experiment_id uuid, user_id uuid);
+    insert into experiment_metric_names (name) values ('loss');
   `);
+  await pg.exec(readFileSync(path.join(MIGRATIONS, "0014_metric_push_queue.sql"), "utf8"));
   return async (sql, params) => (await pg.query(sql, params as unknown[])).rows;
 }
 
@@ -88,18 +101,28 @@ describe("pushing desktop runs to the server", () => {
   });
 
   it("sends each metric point once, as the signed-in account", async () => {
-    await run("insert into experiment_metrics values ($1, 'loss', 0, 1.5, null), ($1, 'loss', 1, 1.2, null)", [EXP]);
+    await run("insert into experiment_metric_points values ($1, 1, 0, 1.5, null), ($1, 1, 1, 1.2, null)", [EXP]);
     await push.push();
     await push.push();
     assert.equal(server.inserted.length, 2);
     assert.equal(server.inserted[0]!.user_id, "acct");
-    await run("insert into experiment_metrics values ($1, 'loss', 2, 1.0, null)", [EXP]);
+    await run("insert into experiment_metric_points values ($1, 1, 2, 1.0, null)", [EXP]);
     await push.push();
     assert.deepEqual(server.inserted.map((r) => r.step), [0, 1, 2]);
   });
 
+  it("thins long runs for the server and keeps every point here", async () => {
+    await run("insert into experiment_metric_points select $1, 1, g, g, null from generate_series(0, 39999) g", [EXP]);
+    await push.push();
+    const steps = server.inserted.map((r) => r.step as number);
+    assert.equal(steps.length - server.deleted.length, 20001);
+    assert.ok(steps.includes(39999));
+    assert.equal(((await run("select count(*)::int as n from experiment_metric_points", [])) as { n: number }[])[0]!.n, 40000);
+    assert.equal((await run("select * from local_metric_dirty", [])).length, 0);
+  });
+
   it("tries again later when the server refuses", async () => {
-    await run("insert into experiment_metrics values ($1, 'loss', 0, 1.5, null)", [EXP]);
+    await run("insert into experiment_metric_points values ($1, 1, 0, 1.5, null)", [EXP]);
     server.setFail(true);
     await assert.rejects(push.push());
     server.setFail(false);

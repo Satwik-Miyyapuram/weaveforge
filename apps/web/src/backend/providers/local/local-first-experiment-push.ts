@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { planSeriesIngest } from "@weaveforge/core";
 import type { LocalFirstBlobStore } from "./local-first-blob-store";
 import type { LocalQuery } from "./pglite-client";
 
@@ -49,32 +50,53 @@ export class ExperimentPush {
     }
   }
 
+  // Full resolution stays here; the server gets the same thinned curve the web SDK route stores.
   private async pushMetrics(): Promise<void> {
-    for (;;) {
-      const rows = (await this.run(
-        `select m.experiment_id, m.metric, m.step, m.value, m.wall_time
-           from experiment_metrics m
-           left join local_metric_pushes p on p.experiment_id = m.experiment_id and p.metric = m.metric
-          where p.step is null or m.step > p.step
-          order by m.experiment_id, m.metric, m.step
-          limit ${BATCH}`,
-        [],
-      )) as MetricRow[];
-      if (!rows.length) return;
-      const { error } = await this.server
-        .from("experiment_metrics")
-        .insert(rows.map((r) => ({ ...r, user_id: this.accountId })));
-      if (error) throw new Error(error.message);
-      const tips = new Map<string, MetricRow>();
-      for (const r of rows) tips.set(`${r.experiment_id}\u0000${r.metric}`, r);
-      for (const r of tips.values()) {
+    const series = (await this.run(
+      `select d.experiment_id, d.metric_id, n.name as metric, p.step as pushed
+         from local_metric_dirty d
+         join experiment_metric_names n on n.id = d.metric_id
+         left join local_metric_pushes p on p.experiment_id = d.experiment_id and p.metric = n.name`,
+      [],
+    )) as { experiment_id: string; metric_id: number; metric: string; pushed: number | null }[];
+    for (const s of series) {
+      let pushed = s.pushed;
+      for (;;) {
+        const rows = (await this.run(
+          `select step, value, wall_time from experiment_metric_points
+            where experiment_id = $1 and metric_id = $2 and step > $3
+            order by step limit ${BATCH}`,
+          [s.experiment_id, s.metric_id, pushed ?? -2147483648],
+        )) as Omit<MetricRow, "experiment_id" | "metric">[];
+        if (!rows.length) break;
+        const { keep, supersededTipStep } = planSeriesIngest(rows, pushed);
+        const { error } = await this.server
+          .from("experiment_metrics")
+          .insert(keep.map((r) => ({ ...r, experiment_id: s.experiment_id, metric: s.metric, user_id: this.accountId })));
+        if (error) throw new Error(error.message);
+        if (supersededTipStep !== null) {
+          await this.server
+            .from("experiment_metrics")
+            .delete()
+            .eq("experiment_id", s.experiment_id)
+            .eq("metric", s.metric)
+            .eq("step", supersededTipStep);
+        }
+        pushed = rows[rows.length - 1]!.step;
         await this.run(
           `insert into local_metric_pushes (experiment_id, metric, step) values ($1, $2, $3)
            on conflict (experiment_id, metric) do update set step = excluded.step`,
-          [r.experiment_id, r.metric, r.step],
+          [s.experiment_id, s.metric, pushed],
         );
+        if (rows.length < BATCH) break;
       }
-      if (rows.length < BATCH) return;
+      // Points that landed while this ran keep the series queued.
+      await this.run(
+        `delete from local_metric_dirty d where experiment_id = $1 and metric_id = $2
+           and not exists (select 1 from experiment_metric_points m
+                            where m.experiment_id = d.experiment_id and m.metric_id = d.metric_id and m.step > $3)`,
+        [s.experiment_id, s.metric_id, pushed ?? -2147483648],
+      );
     }
   }
 
