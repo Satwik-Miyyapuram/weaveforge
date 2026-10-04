@@ -71,3 +71,14 @@ on conflict do nothing;
   $sql$;
 end;
 $guard$;
+
+revoke all on function local_metric_follow_owner() from public;
+revoke all on function local_metric_mark_dirty() from public;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon') then
+    revoke all on function local_metric_follow_owner() from anon;
+    revoke all on function local_metric_mark_dirty() from anon;
+  end if;
+end;
+$$;

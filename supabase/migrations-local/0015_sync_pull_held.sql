@@ -38,3 +38,16 @@ begin
   return n;
 end;
 $$;
+
+-- Same grants as the other sync definers in 0008: `authenticated` only, never `anon`.
+revoke all on function sync_apply_group(text, jsonb) from public;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon') then
+    revoke all on function sync_apply_group(text, jsonb) from anon;
+  end if;
+  if exists (select 1 from pg_roles where rolname = 'authenticated') then
+    grant execute on function sync_apply_group(text, jsonb) to authenticated;
+  end if;
+end;
+$$;
