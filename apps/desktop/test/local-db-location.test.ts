@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { after, describe, it } from "node:test";
 
-import { databaseDirFor, isDatabase, relocateDatabaseOnce } from "../src/local-db-location";
+import { databaseDirFor, isDatabase, relocateDatabaseOnce, StrandedDatabaseError } from "../src/local-db-location";
 
 /**
  * The relocation's safety properties.
@@ -144,72 +144,26 @@ describe("relocating the database into the workspace", () => {
 });
 
 describe("choosing which directory to open", () => {
-  it("prefers the workspace when a database is there", async () => {
+  it("uses the workspace when a database is there", () => {
     const { app, meta } = scratch();
     fs.mkdirSync(path.join(meta, "db"), { recursive: true });
     fs.writeFileSync(path.join(meta, "db", "PG_VERSION"), "17\n", "utf8");
-    assert.equal(await databaseDirFor(app, meta, async () => true), path.join(meta, "db"));
+    assert.equal(databaseDirFor(app, meta), path.join(meta, "db"));
   });
 
-  it("falls back to the app directory when there is none, or no folder at all", async () => {
-    const { app, meta } = scratch();
-    assert.equal(await databaseDirFor(app, meta, async () => true), app);
-    assert.equal(await databaseDirFor(app, null, async () => true), app);
+  it("uses the app directory only when no folder is chosen", () => {
+    const { app } = scratch();
+    assert.equal(databaseDirFor(app, null), app);
   });
 
-  it("does not mistake an empty directory for a database", async () => {
-    // A destination whose load was interrupted can leave the folder without
-    // PG_VERSION behind. Trusting the name alone would open it.
+  it("starts a fresh database in the workspace when there is none anywhere", () => {
     const { app, meta } = scratch();
-    fs.mkdirSync(path.join(meta, "db"), { recursive: true });
-    assert.equal(await databaseDirFor(app, meta, async () => true), app);
+    fs.rmSync(app, { recursive: true });
+    assert.equal(databaseDirFor(app, meta), path.join(meta, "db"));
   });
 
-  it("refuses a copy that looks like a database but will not open", async () => {
-    /*
-     * The second crash loop this feature caused, pinned.
-     *
-     * The workspace held a real 318 MB database with a `PG_VERSION` file, and it
-     * was declared "already in the workspace folder" — but the engine could not
-     * open it at boot, because the process being replaced still held it. The
-     * guard asked whether the directory *looked* right and never asked whether
-     * it *opened*, so every launch chose it, failed, and let `recover` move it
-     * aside: one 318 MB database discarded per launch.
-     *
-     * A copy that will not open must fall back to the app's own directory. That
-     * is temporary on purpose — no marker is written — so once the lock clears
-     * the workspace copy is used again.
-     */
+  it("refuses to fall back to the app copy when the workspace has none", () => {
     const { app, meta } = scratch();
-    fs.mkdirSync(path.join(meta, "db"), { recursive: true });
-    fs.writeFileSync(path.join(meta, "db", "PG_VERSION"), "17\n", "utf8");
-
-    assert.equal(await databaseDirFor(app, meta, async () => false), app);
-  });
-
-  it("treats a verification that throws as a refusal, not as consent", async () => {
-    // Fail closed: an engine that cannot answer the question is not a reason to
-    // open a directory anyway.
-    const { app, meta } = scratch();
-    fs.mkdirSync(path.join(meta, "db"), { recursive: true });
-    fs.writeFileSync(path.join(meta, "db", "PG_VERSION"), "17\n", "utf8");
-
-    assert.equal(
-      await databaseDirFor(app, meta, async () => {
-        throw new Error("engine unavailable");
-      }),
-      app,
-    );
-  });
-
-  it("falls back to the name check when the caller has no engine", async () => {
-    // No verifier means no way to ask, so `isDatabase` is all there is. Recorded
-    // rather than asserted as desirable: the shell always passes one, and this
-    // documents what the fallback is rather than implying it is a good idea.
-    const { app, meta } = scratch();
-    fs.mkdirSync(path.join(meta, "db"), { recursive: true });
-    fs.writeFileSync(path.join(meta, "db", "PG_VERSION"), "17\n", "utf8");
-
-    assert.equal(await databaseDirFor(app, meta), path.join(meta, "db"));
+    assert.throws(() => databaseDirFor(app, meta), StrandedDatabaseError);
   });
 });
