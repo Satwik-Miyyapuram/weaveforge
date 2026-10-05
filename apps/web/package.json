@@ -36,8 +36,8 @@
     "build:embedding-worker": "node scripts/build-embedding-worker.mjs"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1144.0",
-    "@aws-sdk/s3-request-presigner": "^3.1144.0",
+    "@aws-sdk/client-s3": "^3.1145.0",
+    "@aws-sdk/s3-request-presigner": "^3.1145.0",
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.11.1",
     "@codemirror/lang-markdown": "^6.5.2",
@@ -57,8 +57,8 @@
     "dompurify": "^3.4.16",
     "fflate": "^0.8.3",
     "flatbush": "^4.6.2",
-    "isomorphic-git": "^1.42.5",
-    "katex": "^0.18.10",
+    "isomorphic-git": "^1.42.6",
+    "katex": "^0.19.0",
     "mermaid": "^11.17.2",
     "minisearch": "^7.2.0",
     "next": "^14.2.35",
