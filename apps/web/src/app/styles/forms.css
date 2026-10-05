@@ -408,3 +408,20 @@ label.mp-row input[type="checkbox"]:disabled,
 .add-form > .btn-primary {
   justify-self: end;
 }
+
+/* Date picker: themed via the select classes; only the calendar layout lives here. */
+.date-picker-panel { width: 264px; min-width: 0; max-height: none; overflow: visible; padding: 8px; gap: 6px; }
+.date-picker-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.date-picker-title { font-weight: 600; font-size: 0.9rem; color: var(--ink); }
+.date-picker-nav {
+  width: 28px; height: 28px; font: inherit; font-size: 1.1rem; line-height: 1; color: var(--ink);
+  background: none; border: none; border-radius: 4px; cursor: pointer;
+}
+.date-picker-nav:hover { background: var(--status-neutral); }
+.date-picker-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.date-picker-dow { text-align: center; font-size: 0.72rem; padding: 2px 0; }
+.custom-select-item.date-picker-day { justify-content: center; padding: 6px 0; font-size: 0.84rem; font-variant-numeric: tabular-nums; }
+.date-picker-day.out { opacity: 0.4; }
+.date-picker-day.today:not(.sel) { color: var(--accent); font-weight: 600; }
+.date-picker-foot { display: flex; justify-content: space-between; }
+.custom-select-item.date-picker-day:disabled { opacity: 0.3; cursor: default; }

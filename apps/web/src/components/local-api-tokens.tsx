@@ -9,6 +9,7 @@ import {
 } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
 import { Select } from "@/components/select";
+import { DatePicker } from "@/components/date-picker";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 
 const MAX_TOKENS = 5;
@@ -271,12 +272,11 @@ export function LocalApiTokenCreate({
             ))}
           </Select>
           {expiry === "custom" && (
-            <input
-              type="date"
+            <DatePicker
               aria-label="Custom expiry date"
               value={customDate}
               min={new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)}
-              onChange={(e) => setCustomDate(e.target.value)}
+              onChange={setCustomDate}
             />
           )}
           <button type="submit" className="btn-primary" disabled={busy}>
