@@ -121,6 +121,8 @@
 @container (max-width: 300px) {
   .metric-chart .entity-card-title { overflow-wrap: anywhere; }
   .metric-chart-range { display: none; }
+  .metric-chart-legend { gap: 4px; }
+  .metric-chart-run { padding: 3px; }
 }
 .metric-chart-plot { width: 100%; }
 .metric-chart-plot .uplot { font-family: inherit; color: var(--ink); }

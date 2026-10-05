@@ -1,19 +1,11 @@
 "use client";
 
-import { Children, createContext, useContext, useEffect, useRef, useState, type ReactNode, type WheelEvent } from "react";
+import { Children, useEffect, useRef, useState, type ReactNode, type WheelEvent } from "react";
+
+import { MIN_CARD_PX } from "./plot-size";
 
 const KEY = "metric-grid:cols";
 const MAX_COLS = 10;
-// Narrower cards squash plots past reading.
-const MIN_CARD_PX = 220;
-
-const ColsContext = createContext(1);
-
-/** Height shrinks with width so every zoom keeps the 1-per-row shape; `floor` keeps the axes drawable. */
-export function useGridHeight(base: number, floor = 80): number {
-  const cols = useContext(ColsContext);
-  return Math.max(floor, Math.round(base / cols));
-}
 
 function readCols(fallback: number): number {
   try {
@@ -89,7 +81,7 @@ export function MetricGrid({
         </label>
       )}
       <div ref={gridRef} className={`metric-curves metric-curves--${variant}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-        <ColsContext.Provider value={cols}>{children}</ColsContext.Provider>
+        {children}
       </div>
     </div>
   );

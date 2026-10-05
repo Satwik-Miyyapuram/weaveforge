@@ -7,7 +7,7 @@ import type { MetricPoint } from "@weaveforge/core";
 import { formatMetricValue } from "@weaveforge/core";
 import { EntityCard } from "@/components/entity-card";
 import { CardMenu } from "@/components/card-menu";
-import { useGridHeight } from "./metric-grid";
+import { COMPACT_PX, plotHeight } from "./plot-size";
 
 // Lives in core so Node tests can import it without this file's CSS import.
 export { formatMetricCell } from "@weaveforge/core";
@@ -62,7 +62,6 @@ function alignSeries(series: MetricSeries[]) {
 
 const DEFAULT_COLORS = ["#5b8def", "#e06c75", "#98c379", "#d19a66", "#c678dd", "#56b6c2"];
 const SMOOTHING = [0, 0.6, 0.8, 0.95] as const;
-const COMPACT_PX = 260;
 
 /** Debiased EMA over non-null values; gaps stay gaps. */
 function emaSmooth(values: (number | null)[], alpha: number): (number | null)[] {
@@ -110,7 +109,6 @@ interface Hover {
  * names the user logs via the SDK — no hard-coded accuracy/loss layout.
  */
 export function MetricChart({ metric, series, height: baseHeight = 240, showLegend }: MetricChartProps) {
-  const height = useGridHeight(baseHeight);
   const containerRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
   // Run id for each uPlot series after x; raw lines are not the run's "main" line.
@@ -119,7 +117,8 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
   const [smooth, setSmooth] = useState<number>(() => readPrefs(metric).smooth);
   const [hover, setHover] = useState<Hover | null>(null);
   // Narrow cards (many per row) drop axis titles so the plot keeps its width.
-  const [compact, setCompact] = useState(false);
+  const [width, setWidth] = useState(0);
+  const compact = width > 0 && width < COMPACT_PX;
   const hiddenRef = useRef(hidden);
   hiddenRef.current = hidden;
 
@@ -159,8 +158,8 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
       const muted = readCssVar("--muted", "#8b949e");
       const line = readCssVar("--line", "#30363d");
       const surface = readCssVar("--surface", "#ffffff");
-      const width = Math.max(el.clientWidth || 0, 1);
-      setCompact(width < COMPACT_PX);
+      const w0 = Math.max(el.clientWidth || 0, 1);
+      setWidth(w0);
       const font = "11px system-ui, sans-serif";
       const labelFont = "600 11px system-ui, sans-serif";
 
@@ -192,8 +191,8 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
       });
 
       const opts: uPlot.Options = {
-        width,
-        height,
+        width: w0,
+        height: plotHeight(w0, baseHeight),
         pxAlign: true,
         padding: [12, 14, 0, 0],
         scales: { x: { time: false }, y: { auto: true } },
@@ -247,8 +246,9 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
 
       resizeObserver = new ResizeObserver(() => {
         const w = el.clientWidth;
-        if (w > 0) plotRef.current?.setSize({ width: w, height });
-        if (w > 0) setCompact(w < COMPACT_PX);
+        if (w <= 0) return;
+        plotRef.current?.setSize({ width: w, height: plotHeight(w, baseHeight) });
+        setWidth(w);
       });
       resizeObserver.observe(el);
     });
@@ -259,7 +259,7 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
       plotRef.current?.destroy();
       plotRef.current = null;
     };
-  }, [metric, height, prepared, smooth, compact]);
+  }, [metric, baseHeight, prepared, smooth, compact]);
 
   // A toggle flips series in place, so new data never brings a hidden run back.
   useEffect(() => {
@@ -337,10 +337,11 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
               className="metric-chart-run"
               aria-pressed={!hidden.has(r.id)}
               onClick={() => toggle(r.id)}
-              title={hidden.has(r.id) ? "Show run" : "Hide run"}
+              title={`${r.label}: ${hidden.has(r.id) ? "show" : "hide"}`}
+              aria-label={r.label}
             >
               <span className="metric-chart-swatch" style={{ background: r.color }} />
-              {r.label}
+              {!compact && r.label}
             </button>
           ))}
         </div>
