@@ -105,11 +105,13 @@
 }
 .exp-title-link:hover { color: var(--accent-ink); text-decoration: underline; }
 .metric-chart { display: grid; gap: 10px; min-width: 0; container-type: inline-size; }
-.metric-chart-stats { display: inline-flex; flex-wrap: wrap; gap: 2px 14px; font-size: 0.78rem; white-space: nowrap; }
+.metric-chart-stats { display: inline-flex; flex-wrap: nowrap; max-width: 100%; overflow: hidden; gap: 2px 14px; font-size: 0.78rem; white-space: nowrap; }
 .metric-chart-stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
-.metric-chart-legend { display: flex; flex-wrap: wrap; gap: 6px; }
+/* One row, measured: names drop to swatches when the row overflows. */
+.metric-chart-legend { display: flex; flex-wrap: nowrap; overflow: hidden; gap: 6px; }
+.metric-chart-legend[data-names="false"] { flex-wrap: wrap; gap: 4px; }
 .metric-chart-run {
-  display: inline-flex; align-items: center; gap: 6px;
+  display: inline-flex; flex: none; align-items: center; gap: 6px;
   font: inherit; font-size: 0.78rem; color: var(--ink);
   padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px;
   background: transparent; cursor: pointer;
@@ -118,12 +120,7 @@
 .metric-chart-swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
 .metric-chart-plot-wrap { position: relative; min-width: 0; overflow: hidden; }
 .metric-chart-run-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Medium/compact cards: one tight legend row so it never outgrows the plot. */
-.metric-chart-legend:not([data-tier="full"]) { flex-wrap: nowrap; gap: 4px; overflow: hidden; }
-.metric-chart-legend[data-tier="medium"] .metric-chart-run { min-width: 0; padding: 2px 7px; font-size: 0.72rem; }
-.metric-chart-legend[data-tier="compact"] { flex-wrap: wrap; }
-.metric-chart-legend[data-tier="compact"] .metric-chart-run { padding: 3px; }
-.metric-chart-stats:not([data-tier="full"]) { font-size: 0.74rem; }
+.metric-chart-legend[data-names="false"] .metric-chart-run { padding: 3px; }
 @container (max-width: 360px) {
   .metric-chart .entity-card-title { overflow-wrap: anywhere; }
 }

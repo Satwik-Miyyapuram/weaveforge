@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import type { MetricPoint } from "@weaveforge/core";
@@ -119,7 +119,10 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
   // Narrower cards step down chrome so the plot keeps most of the card.
   const [width, setWidth] = useState(0);
   const tier = plotTier(width);
-  const compact = tier === "compact";
+  // Chrome drops by measured fit: max, then min, then legend names.
+  const statsRef = useRef<HTMLSpanElement>(null);
+  const legendRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState({ stats: 3, names: true });
   const hiddenRef = useRef(hidden);
   hiddenRef.current = hidden;
 
@@ -265,6 +268,13 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
     };
   }, [metric, baseHeight, prepared, smooth, tier]);
 
+  useLayoutEffect(() => setFit((f) => (f.stats === 3 && f.names ? f : { stats: 3, names: true })), [width, prepared, stats]);
+  useLayoutEffect(() => {
+    const over = (el: HTMLElement | null) => !!el && el.scrollWidth > el.clientWidth + 1;
+    if (fit.stats > 1 && over(statsRef.current)) setFit({ ...fit, stats: fit.stats - 1 });
+    else if (fit.names && over(legendRef.current)) setFit({ ...fit, names: false });
+  }, [fit, width, prepared, stats]);
+
   // A toggle flips series in place, so new data never brings a hidden run back.
   useEffect(() => {
     const u = plotRef.current;
@@ -317,27 +327,26 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
         </span>
       ))}
       menu={smoothing}
-      // Narrow cards keep only the last value; the tooltip still shows the rest.
       meta={
-        <span className="metric-chart-stats" data-tier={tier}>
+        <span className="metric-chart-stats" ref={statsRef}>
           <span>
             last <b>{formatMetricValue(metric, stats.last)}</b>
           </span>
-          {tier === "full" && (
-            <>
-              <span className="metric-chart-range">
-                min <b>{formatMetricValue(metric, stats.min)}</b>
-              </span>
-              <span className="metric-chart-range">
-                max <b>{formatMetricValue(metric, stats.max)}</b>
-              </span>
-            </>
+          {fit.stats >= 2 && (
+            <span className="metric-chart-range">
+              min <b>{formatMetricValue(metric, stats.min)}</b>
+            </span>
+          )}
+          {fit.stats >= 3 && (
+            <span className="metric-chart-range">
+              max <b>{formatMetricValue(metric, stats.max)}</b>
+            </span>
           )}
         </span>
       }
     >
       {wantLegend && (
-        <div className="metric-chart-legend" role="group" aria-label="Runs" data-tier={tier}>
+        <div className="metric-chart-legend" role="group" aria-label="Runs" ref={legendRef} data-names={fit.names}>
           {prepared.runs.map((r) => (
             <button
               key={r.id}
@@ -349,7 +358,7 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
               aria-label={r.label}
             >
               <span className="metric-chart-swatch" style={{ background: r.color }} />
-              {!compact && <span className="metric-chart-run-label">{r.label}</span>}
+              {fit.names && <span className="metric-chart-run-label">{r.label}</span>}
             </button>
           ))}
         </div>

@@ -1,6 +1,6 @@
 export type PlotTier = "full" | "medium" | "compact";
 
-// Card widths where chrome steps down: medium drops axis titles and min/max, compact keeps only swatches.
+// Card widths where axes step down: medium drops axis titles, compact tightens gutters.
 export const MEDIUM_PX = 560;
 export const COMPACT_PX = 360;
 // Narrower cards squash plots past reading, so the zoom slider stops there.
