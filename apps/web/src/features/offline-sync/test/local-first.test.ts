@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { LOCAL_USER_ID } from "@weaveforge/core";
 import { testDb } from "../../../backend/test/pg-test-db";
@@ -222,5 +223,52 @@ describe("local-first: adoption as the local user", () => {
     const [row] = await db.sql<{ user_id: string }>("select user_id from projects where id = $1", [project]);
     assert.equal(row!.user_id, account);
     await db.sql("update sync_state set account_id = null");
+  });
+});
+
+describe("local-first: queued payloads the server can take", () => {
+  it("strips generated columns from any appended op", async () => {
+    const { db, project } = await adoptedDevice();
+    const page = id();
+    await db.sql(
+      "insert into sync_outbox (table_name, row_id, op, payload) values ('vault_pages', $1, 'update', $2::jsonb)",
+      [page, JSON.stringify({ id: page, project_id: project, title: "T", body_preview: "x" })],
+    );
+    const [op] = await db.sql<Op>("select payload from sync_outbox where row_id = $1", [page]);
+    assert.equal("body_preview" in op!.payload, false);
+    assert.equal(op!.payload.title, "T");
+  });
+
+  it("claim re-owns payloads already queued for the local user", async () => {
+    const { db, account } = await adoptedDevice();
+    const row = id();
+    await db.sql(
+      "insert into sync_outbox (table_name, row_id, op, payload) values ('screening_decisions', $1, 'insert', $2::jsonb)",
+      [row, JSON.stringify({ id: row, reviewer_id: LOCAL_USER_ID, state: "included" })],
+    );
+    await db.sql("select sync_claim($1, $2)", [account, LOCAL_USER_ID]);
+    const [op] = await db.sql<Op>("select payload from sync_outbox where row_id = $1", [row]);
+    assert.equal(op!.payload.reviewer_id, account);
+  });
+
+  it("repair drops dead duplicate inserts and revives the rest", async () => {
+    const { db, project } = await adoptedDevice();
+    const dup = id();
+    const page = id();
+    const dead =
+      "insert into sync_outbox (table_name, row_id, op, payload, dead_at, attempts, last_error) values ($1, $2, $3, $4::jsonb, now(), 8, $5)";
+    await db.sql(dead, ["papers", dup, "insert", JSON.stringify({ id: dup }), "A newer version on the server."]);
+    await db.sql(dead, ["vault_pages", page, "update", JSON.stringify({ id: page, project_id: project }), "x"]);
+    const migration = readFileSync(
+      new URL("../../../../../../supabase/migrations-local/0016_outbox_clean_payloads.sql", import.meta.url),
+      "utf8",
+    );
+    await db.sql(migration.slice(migration.lastIndexOf("do $$")));
+    assert.equal((await db.sql("select 1 from sync_outbox where row_id = $1", [dup])).length, 0);
+    const [op] = await db.sql<{ dead_at: string | null; attempts: number }>(
+      "select dead_at, attempts from sync_outbox where row_id = $1",
+      [page],
+    );
+    assert.deepEqual(op, { dead_at: null, attempts: 0 });
   });
 });

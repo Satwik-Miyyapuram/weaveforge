@@ -92,6 +92,11 @@ export class OutboxPump {
       await this.outbox.dropRow(entry.table, entry.rowId);
       return;
     }
+    // Insert refused but no row at this id: the server holds the same thing under another id, and its copy wins.
+    if (serverRow === null && entry.op === "insert") {
+      await this.outbox.dropRow(entry.table, entry.rowId);
+      return;
+    }
     if (!this.conflicts || !serverRow) {
       await this.outbox.fail(
         entry.opId,

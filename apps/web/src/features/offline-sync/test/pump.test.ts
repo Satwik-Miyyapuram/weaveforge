@@ -130,6 +130,18 @@ describe("the outbox pump", () => {
     assert.deepEqual(await outbox.pending(), []);
   });
 
+  it("drops an insert the server holds under another id", async () => {
+    const db = await localSqlDb();
+    open.push(db);
+    const outbox = new Outbox(db);
+    await outbox.append({ table: "papers", rowId: ROW, op: "insert", payload: { id: ROW } });
+    await new OutboxPump(
+      outbox,
+      transport([{ status: "conflict", serverVersion: null, serverRow: null }]),
+    ).run();
+    assert.deepEqual(await outbox.pending(), []);
+  });
+
   it("keeps a delete that met a newer version, re-aimed at it", async () => {
     const db = await localSqlDb();
     open.push(db);
