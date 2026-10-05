@@ -2,7 +2,7 @@
 
 import { Children, useEffect, useRef, useState, type ReactNode, type WheelEvent } from "react";
 
-import { MIN_CARD_PX } from "./plot-size";
+import { fitCols } from "./plot-size";
 
 const KEY = "metric-grid:cols";
 const MAX_COLS = 10;
@@ -30,7 +30,7 @@ export function MetricGrid({
   useEffect(() => {
     const el = gridRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setFit(Math.max(1, Math.floor(el.clientWidth / MIN_CARD_PX))));
+    const ro = new ResizeObserver(() => setFit(fitCols(el.clientWidth, parseFloat(getComputedStyle(el).columnGap) || 0)));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);

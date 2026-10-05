@@ -7,7 +7,7 @@ import type { MetricPoint } from "@weaveforge/core";
 import { formatMetricValue } from "@weaveforge/core";
 import { EntityCard } from "@/components/entity-card";
 import { CardMenu } from "@/components/card-menu";
-import { COMPACT_PX, plotHeight } from "./plot-size";
+import { axisSpec, plotHeight, plotTier } from "./plot-size";
 
 // Lives in core so Node tests can import it without this file's CSS import.
 export { formatMetricCell } from "@weaveforge/core";
@@ -116,9 +116,10 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
   const [hidden, setHidden] = useState<Set<string>>(() => new Set(readPrefs(metric).hidden));
   const [smooth, setSmooth] = useState<number>(() => readPrefs(metric).smooth);
   const [hover, setHover] = useState<Hover | null>(null);
-  // Narrow cards (many per row) drop axis titles so the plot keeps its width.
+  // Narrower cards step down chrome so the plot keeps most of the card.
   const [width, setWidth] = useState(0);
-  const compact = width > 0 && width < COMPACT_PX;
+  const tier = plotTier(width);
+  const compact = tier === "compact";
   const hiddenRef = useRef(hidden);
   hiddenRef.current = hidden;
 
@@ -160,8 +161,9 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
       const surface = readCssVar("--surface", "#ffffff");
       const w0 = Math.max(el.clientWidth || 0, 1);
       setWidth(w0);
-      const font = "11px system-ui, sans-serif";
-      const labelFont = "600 11px system-ui, sans-serif";
+      const spec = axisSpec(plotTier(w0));
+      const font = `${spec.font}px system-ui, sans-serif`;
+      const labelFont = `600 ${spec.font}px system-ui, sans-serif`;
 
       // Per run: faint raw line when smoothed, then the drawn line.
       const data: uPlot.AlignedData = [prepared.steps];
@@ -197,9 +199,11 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
         padding: [12, 14, 0, 0],
         scales: { x: { time: false }, y: { auto: true } },
         axes: [
-          axis(compact ? { size: 24 } : { label: "step", labelSize: 22 }),
+          axis({ size: spec.xSize, space: spec.xSpace, ...(spec.titles ? { label: "step", labelSize: 22 } : {}) }),
           axis({
-            ...(compact ? { size: 50 } : { label: metric, labelSize: 20, size: 54 }),
+            size: spec.ySize,
+            space: spec.ySpace,
+            ...(spec.titles ? { label: metric, labelSize: 20 } : {}),
             values: (_u, splits) => splits.map((v) => formatMetricValue(metric, v)),
           }),
         ],
@@ -259,7 +263,7 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
       plotRef.current?.destroy();
       plotRef.current = null;
     };
-  }, [metric, baseHeight, prepared, smooth, compact]);
+  }, [metric, baseHeight, prepared, smooth, tier]);
 
   // A toggle flips series in place, so new data never brings a hidden run back.
   useEffect(() => {
@@ -313,23 +317,27 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
         </span>
       ))}
       menu={smoothing}
-      // Small cards give the plot the stats row; the tooltip still shows values.
+      // Narrow cards keep only the last value; the tooltip still shows the rest.
       meta={
-        compact ? undefined : <span className="metric-chart-stats">
+        <span className="metric-chart-stats" data-tier={tier}>
           <span>
             last <b>{formatMetricValue(metric, stats.last)}</b>
           </span>
-          <span className="metric-chart-range">
-            min <b>{formatMetricValue(metric, stats.min)}</b>
-          </span>
-          <span className="metric-chart-range">
-            max <b>{formatMetricValue(metric, stats.max)}</b>
-          </span>
+          {tier === "full" && (
+            <>
+              <span className="metric-chart-range">
+                min <b>{formatMetricValue(metric, stats.min)}</b>
+              </span>
+              <span className="metric-chart-range">
+                max <b>{formatMetricValue(metric, stats.max)}</b>
+              </span>
+            </>
+          )}
         </span>
       }
     >
       {wantLegend && (
-        <div className="metric-chart-legend" role="group" aria-label="Runs">
+        <div className="metric-chart-legend" role="group" aria-label="Runs" data-tier={tier}>
           {prepared.runs.map((r) => (
             <button
               key={r.id}
@@ -341,7 +349,7 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
               aria-label={r.label}
             >
               <span className="metric-chart-swatch" style={{ background: r.color }} />
-              {!compact && r.label}
+              {!compact && <span className="metric-chart-run-label">{r.label}</span>}
             </button>
           ))}
         </div>
