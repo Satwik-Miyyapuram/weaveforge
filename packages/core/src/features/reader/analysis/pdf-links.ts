@@ -40,7 +40,12 @@ export function nativeCitationMentions(page: AnalyzePdfPage, refs: readonly Pars
     const numeric = /^\[?\s*(\d{1,3})\s*\]?$/.exec(printed);
     const numericRef = numeric ? refs.find((ref) => ref.label && ref.index === Number(numeric[1])) : undefined;
     const indexes = positioned ? [positioned.index] : printedRefs.length ? printedRefs : numericRef ? [numericRef.index] : [];
-    if (!namedCitation && !printedRefs.length && !numericRef) return;
+    const isLikelyCitation =
+      namedCitation ||
+      printedRefs.length > 0 ||
+      Boolean(numericRef) ||
+      (/\b(?:19|20)\d{2}[a-z]?\b/u.test(printed) && !/^(?:section|figure|table|page|equation|appendix)/i.test(printed));
+    if (!isLikelyCitation) return;
     // Unmeasured named annotations may corroborate a parsed citation, but cannot
     // directly link an invented substring or an entire overlapping glyph run.
     mentions.push({

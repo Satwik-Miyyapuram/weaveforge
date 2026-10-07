@@ -115,17 +115,14 @@ export function PdfReader({
 }: PdfReaderProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [jump, setJump] = useState<JumpState>({ status: locus ? "searching" : "idle" });
-  const [showOutline, setShowOutline] = useState(false);
+  const [activeSideTab, setActiveSideTab] = useState<"outline" | "references" | "annotations">("outline");
+  const [searchOpen, setSearchOpen] = useState(false);
   /**
    * Phones: which folded part of the chrome is open. The two rows used to
    * scroll sideways to reach a dozen controls; now the row holds the page,
    * zoom and the annotation tools, and find and the rest open on demand.
    */
   const [phonePanel, setPhonePanel] = useState<"none" | "search" | "more">("none");
-  const [showReferences, setShowReferences] = useState(false);
-  // Narrow screens stack the side column under the page, where an always-open
-  // annotation list took 40% of a phone's height. There it waits behind this.
-  const [showAnnotationList, setShowAnnotationList] = useState(false);
   const [find, setFind] = useState<{ matches: DocumentSearchMatch[]; active: number }>({ matches: [], active: -1 });
   const [flashPage, setFlashPage] = useState<number | null>(null);
   const [captionTarget, setCaptionTarget] = useState<FigureTarget | null>(null);
@@ -141,6 +138,24 @@ export function PdfReader({
       writeSideCollapsed(!v);
       return !v;
     });
+  const selectSideTab = useCallback(
+    (tab: "outline" | "references" | "annotations") => {
+      setSideCollapsed((collapsed) => {
+        if (collapsed) {
+          writeSideCollapsed(false);
+          setActiveSideTab(tab);
+          return false;
+        }
+        if (activeSideTab === tab) {
+          writeSideCollapsed(true);
+          return true;
+        }
+        setActiveSideTab(tab);
+        return false;
+      });
+    },
+    [activeSideTab],
+  );
   useEffect(() => setPenOpen(inkRail), [inkRail]);
   const pen = usePenPrefs();
   const createTool: ReaderCreateTool = penOpen ? pen.prefs.tool : pickedTool;
@@ -242,6 +257,10 @@ export function PdfReader({
   // Bucket once per annotation change rather than rescanning the whole list in
   // every page's overlay on every zoom, scroll, and rotation.
   const annotationsByPage = useMemo(() => bucketAnnotationsByPage(annotations), [annotations]);
+  const textAnnotationsCount = useMemo(
+    () => annotations.filter((a) => Boolean(a.text?.trim())).length,
+    [annotations],
+  );
 
   /**
    * The annotations to paint on one page, with the mark being dragged shifted
@@ -723,12 +742,12 @@ export function PdfReader({
     onFigureTarget,
   });
   useEffect(() => {
-    if (showReferences) {
+    if (!sideCollapsed && activeSideTab === "references") {
       refs.startPrefetch();
     } else {
       refs.stopPrefetch();
     }
-  }, [showReferences, refs]);
+  }, [sideCollapsed, activeSideTab, refs]);
 
 
   const printAnnotationsOn = useCallback(
@@ -938,6 +957,11 @@ export function PdfReader({
     if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "f") {
       event.preventDefault();
       toggleFocus();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "f") {
+      event.preventDefault();
+      setSearchOpen((prev) => !prev);
       return;
     }
     if (event.key === "Escape" && focus && !isEditableTarget(event.target)) {
@@ -1215,85 +1239,53 @@ export function PdfReader({
         <div className="pdf-reader-tools">
         <ReaderSearchBar
           pages={pageTexts}
+          isOpen={searchOpen}
+          onOpenChange={setSearchOpen}
           onJump={(match) => {
             viewport.setPage(match.pageIndex + 1);
           }}
           onMatches={(matches, active) => setFind({ matches, active })}
         />
         <div className="pdf-reader-group pdf-reader-more">
-          {/* Outline, citations and references all live in the side column the
-              pen hides, so their toggles stand down with it rather than offering
-              a switch that would appear to do nothing. The search bar stays: it
-              is the page's own control. */}
           {!penOpen && (
-            <button
-              type="button"
-              className={`btn-secondary btn-sm${showOutline ? " is-active" : ""}`}
-              aria-pressed={showOutline}
-              onClick={() => {
-                setShowOutline((v) => {
-                  const next = !v;
-                  if (next) {
-                    setShowReferences(false);
-                    setSideCollapsed(false);
-                  }
-                  return next;
-                });
-              }}
-            >
-              {outline.some((item) => item.y !== undefined) ? "Sections (detected)" : "Outline"}
-            </button>
-          )}
-          {!penOpen && (
-            <button
-              type="button"
-              className={`btn-secondary btn-sm${refs.enabled ? " is-active" : ""}`}
-              aria-pressed={refs.enabled}
-              onClick={refs.toggle}
-            >
-              Link citations
-            </button>
-          )}
-          {!penOpen && (
-            <button
-              type="button"
-              className={`btn-secondary btn-sm${showReferences ? " is-active" : ""}`}
-              aria-pressed={showReferences}
-              onClick={() => {
-                setShowReferences((v) => {
-                  const next = !v;
-                  if (next) {
-                    setShowOutline(false);
-                    setSideCollapsed(false);
-                  }
-                  return next;
-                });
-              }}
-            >
-              References{refs.index.references.length ? ` (${refs.index.references.length})` : ""}
-            </button>
-          )}
-          {!penOpen && (annotations.length > 0 || canCreate) && (
-            <button
-              type="button"
-              className={`btn-secondary btn-sm pdf-reader-narrow-only pdf-reader-wide-only${
-                !showOutline && !showReferences && (showAnnotationList || !sideCollapsed) ? " is-active" : ""
-              }`}
-              aria-pressed={!showOutline && !showReferences && (showAnnotationList || !sideCollapsed)}
-              onClick={() => {
-                if (showOutline || showReferences) {
-                  setShowOutline(false);
-                  setShowReferences(false);
-                  setSideCollapsed(false);
-                  setShowAnnotationList(true);
-                } else {
-                  setSideCollapsed((collapsed) => !collapsed);
-                  setShowAnnotationList((open) => !open);
-                }
-              }}
-            >
-              Annotations{annotations.length ? ` (${annotations.length})` : ""}
-            </button>
+            <div className="seg pdf-reader-side-seg" role="tablist" aria-label="Sidebar view">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={!sideCollapsed && activeSideTab === "outline"}
+                className={!sideCollapsed && activeSideTab === "outline" ? "seg-on" : undefined}
+                title="Table of contents / outline"
+                onClick={() => selectSideTab("outline")}
+              >
+                Outline
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={!sideCollapsed && activeSideTab === "references"}
+                className={!sideCollapsed && activeSideTab === "references" ? "seg-on" : undefined}
+                title="Document references & citations"
+                onClick={() => selectSideTab("references")}
+              >
+                {refs.index.references.length
+                  ? `References (${refs.index.references.length})`
+                  : textAnnotationsCount > 0
+                  ? `References (${textAnnotationsCount})`
+                  : "References"}
+              </button>
+              {(annotations.length > 0 || canCreate) && (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={!sideCollapsed && activeSideTab === "annotations"}
+                  className={!sideCollapsed && activeSideTab === "annotations" ? "seg-on" : undefined}
+                  title="Annotations & highlights"
+                  onClick={() => selectSideTab("annotations")}
+                >
+                  {annotations.length ? `Annotations (${annotations.length})` : "Annotations"}
+                </button>
+              )}
+            </div>
           )}
           {toolbarExtra}
         </div>
@@ -1472,11 +1464,11 @@ export function PdfReader({
           {!penOpen && (
             <button
               type="button"
-              className={`btn-secondary btn-sm pdf-reader-icon-btn${showAnnotationList ? " is-active" : ""}`}
-              aria-pressed={showAnnotationList}
+              className={`btn-secondary btn-sm pdf-reader-icon-btn${!sideCollapsed && activeSideTab === "annotations" ? " is-active" : ""}`}
+              aria-pressed={!sideCollapsed && activeSideTab === "annotations"}
               aria-label={`Annotations${annotations.length ? ` (${annotations.length})` : ""}`}
               title="Annotations"
-              onClick={() => setShowAnnotationList((v) => !v)}
+              onClick={() => selectSideTab("annotations")}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                 <path d="M5 6h14M5 12h14M5 18h9" />
@@ -1495,7 +1487,7 @@ export function PdfReader({
       )}
       <div
         className={`pdf-reader-body${
-          !penOpen && (showOutline || annotations.length > 0 || canCreate)
+          !penOpen && (outline.length > 0 || refs.index.references.length > 0 || annotations.length > 0 || canCreate)
             ? sideCollapsed
               ? " pdf-reader-body--rail"
               : " pdf-reader-body--outline"
@@ -1687,7 +1679,7 @@ export function PdfReader({
             by drawing a loop round it. */}
         {/* Collapsed, the whole column folds to one vertical tab that still
             says how many annotations wait behind it. */}
-        {!penOpen && sideCollapsed && (showOutline || showReferences || annotations.length > 0 || canCreate) && (
+        {!penOpen && sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || annotations.length > 0 || canCreate) && (
           <button
             type="button"
             className="pdf-reader-side-rail"
@@ -1697,37 +1689,79 @@ export function PdfReader({
             onClick={toggleSide}
           >
             <span>
-              {showOutline
+              {activeSideTab === "outline"
                 ? "Outline"
-                : showReferences
-                ? `References ${refs.index.references.length ? `(${refs.index.references.length})` : ""}`
+                : activeSideTab === "references"
+                ? refs.index.references.length
+                  ? `References (${refs.index.references.length})`
+                  : textAnnotationsCount > 0
+                  ? `References (${textAnnotationsCount})`
+                  : "References"
                 : `Annotations ${annotations.length ? `(${annotations.length})` : ""}`}
             </span>
           </button>
         )}
-        {!penOpen && !sideCollapsed && (showOutline || showReferences || annotations.length > 0 || canCreate) && (
-          <div className={`pdf-reader-side${showAnnotationList ? " is-list-open" : ""}`}>
-            <button
-              type="button"
-              className="btn-secondary btn-sm pdf-reader-icon-btn pdf-reader-side-collapse"
-              aria-expanded
-              aria-label="Hide the side panel"
-              title="Hide the side panel"
-              onClick={toggleSide}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M9 6l6 6-6 6" />
-              </svg>
-            </button>
-            {showOutline ? (
+        {!penOpen && !sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || annotations.length > 0 || canCreate) && (
+          <div className="pdf-reader-side is-list-open">
+            <div className="pdf-reader-side-header">
+              <div className="seg pdf-reader-side-seg" role="tablist" aria-label="Sidebar view">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeSideTab === "outline"}
+                  className={activeSideTab === "outline" ? "seg-on" : undefined}
+                  onClick={() => setActiveSideTab("outline")}
+                >
+                  Outline
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeSideTab === "references"}
+                  className={activeSideTab === "references" ? "seg-on" : undefined}
+                  onClick={() => setActiveSideTab("references")}
+                >
+                  {refs.index.references.length
+                    ? `References (${refs.index.references.length})`
+                    : textAnnotationsCount > 0
+                    ? `References (${textAnnotationsCount})`
+                    : "References"}
+                </button>
+                {(annotations.length > 0 || canCreate) && (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeSideTab === "annotations"}
+                    className={activeSideTab === "annotations" ? "seg-on" : undefined}
+                    onClick={() => setActiveSideTab("annotations")}
+                  >
+                    {annotations.length ? `Annotations (${annotations.length})` : "Annotations"}
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                className="btn-secondary btn-sm pdf-reader-icon-btn pdf-reader-side-collapse"
+                aria-expanded
+                aria-label="Hide the side panel"
+                title="Hide the side panel"
+                onClick={toggleSide}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+              </button>
+            </div>
+            {activeSideTab === "outline" ? (
               <ReaderOutline items={outline} onNavigate={(n) => viewport.setPage(n)} />
-            ) : showReferences ? (
+            ) : activeSideTab === "references" ? (
               <ReferencesPanel
                 references={refs.index.references}
                 resolutions={refs.resolutions}
                 pageNumber={viewport.page}
                 loading={pageItems.size < numPages}
                 parseFailed={pageItems.size >= numPages && refs.index.references.length === 0}
+                annotations={annotations}
                 onJumpToMention={(ref) => {
                   // Land on the first mention itself, not just its page: the
                   // page-only jump did nothing when the mention was on the
