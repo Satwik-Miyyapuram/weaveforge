@@ -218,7 +218,7 @@ export function WorkspaceFolderPanel() {
             />
             Keep a local git history of the folder
           </label>
-          <div className="screen-actions">
+          <div className="screen-actions screen-actions--start">
             {(hasShell || supportsDirectoryPicker()) && (
               <button
                 className="btn-primary"
@@ -259,7 +259,7 @@ export function WorkspaceFolderPanel() {
               ? "The mirror runs by itself. Write now before opening the folder in another editor."
               : "One folder for your account; each project writes its own subfolder. Open a project to write it."}
           </p>
-          <div className="screen-actions">
+          <div className="screen-actions screen-actions--start">
             <button
               className="btn-secondary"
               type="button"
@@ -327,7 +327,7 @@ export function WorkspaceFolderPanel() {
           });
         }}
       />
-      <div className="screen-actions">
+      <div className="screen-actions screen-actions--start">
         {session && (
           <button
             className={outside.length > 0 ? "btn-primary" : "btn-secondary"}
@@ -416,7 +416,7 @@ function ImportPreview({
 
       {error && <FormError>{error}</FormError>}
 
-      <div className="screen-actions">
+      <div className="screen-actions screen-actions--start">
         <button
           className="btn-primary"
           type="button"
