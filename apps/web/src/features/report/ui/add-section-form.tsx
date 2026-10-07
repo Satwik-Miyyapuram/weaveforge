@@ -1,5 +1,6 @@
 "use client";
 
+import { DatePicker } from "@/components/date-picker";
 import { useState } from "react";
 import { useSubmit } from "@/lib/hooks/use-submit";
 import type { ReportSection } from "@weaveforge/core";
@@ -100,11 +101,10 @@ export function AddSectionForm({
         </div>
         <div className="field">
           <label htmlFor="deadline">Deadline</label>
-          <input
+          <DatePicker
             id="deadline"
-            type="date"
             value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
+            onChange={setDeadline}
           />
         </div>
       </div>
