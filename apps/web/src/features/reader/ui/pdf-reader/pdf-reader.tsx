@@ -1230,7 +1230,16 @@ export function PdfReader({
               type="button"
               className={`btn-secondary btn-sm${showOutline ? " is-active" : ""}`}
               aria-pressed={showOutline}
-              onClick={() => setShowOutline((v) => !v)}
+              onClick={() => {
+                setShowOutline((v) => {
+                  const next = !v;
+                  if (next) {
+                    setShowReferences(false);
+                    setSideCollapsed(false);
+                  }
+                  return next;
+                });
+              }}
             >
               {outline.some((item) => item.y !== undefined) ? "Sections (detected)" : "Outline"}
             </button>
@@ -1250,7 +1259,16 @@ export function PdfReader({
               type="button"
               className={`btn-secondary btn-sm${showReferences ? " is-active" : ""}`}
               aria-pressed={showReferences}
-              onClick={() => setShowReferences((v) => !v)}
+              onClick={() => {
+                setShowReferences((v) => {
+                  const next = !v;
+                  if (next) {
+                    setShowOutline(false);
+                    setSideCollapsed(false);
+                  }
+                  return next;
+                });
+              }}
             >
               References{refs.index.references.length ? ` (${refs.index.references.length})` : ""}
             </button>
@@ -1258,9 +1276,21 @@ export function PdfReader({
           {!penOpen && (annotations.length > 0 || canCreate) && (
             <button
               type="button"
-              className={`btn-secondary btn-sm pdf-reader-narrow-only pdf-reader-wide-only${showAnnotationList ? " is-active" : ""}`}
-              aria-pressed={showAnnotationList}
-              onClick={() => setShowAnnotationList((v) => !v)}
+              className={`btn-secondary btn-sm pdf-reader-narrow-only pdf-reader-wide-only${
+                !showOutline && !showReferences && (showAnnotationList || !sideCollapsed) ? " is-active" : ""
+              }`}
+              aria-pressed={!showOutline && !showReferences && (showAnnotationList || !sideCollapsed)}
+              onClick={() => {
+                if (showOutline || showReferences) {
+                  setShowOutline(false);
+                  setShowReferences(false);
+                  setSideCollapsed(false);
+                  setShowAnnotationList(true);
+                } else {
+                  setSideCollapsed((collapsed) => !collapsed);
+                  setShowAnnotationList((open) => !open);
+                }
+              }}
             >
               Annotations{annotations.length ? ` (${annotations.length})` : ""}
             </button>
@@ -1662,11 +1692,17 @@ export function PdfReader({
             type="button"
             className="pdf-reader-side-rail"
             aria-expanded={false}
-            aria-label={`Show the side panel${annotations.length ? `, ${annotations.length} annotations` : ""}`}
+            aria-label="Show the side panel"
             title="Show the side panel"
             onClick={toggleSide}
           >
-            <span>Annotations{annotations.length ? ` ${annotations.length}` : ""}</span>
+            <span>
+              {showOutline
+                ? "Outline"
+                : showReferences
+                ? `References ${refs.index.references.length ? `(${refs.index.references.length})` : ""}`
+                : `Annotations ${annotations.length ? `(${annotations.length})` : ""}`}
+            </span>
           </button>
         )}
         {!penOpen && !sideCollapsed && (showOutline || showReferences || annotations.length > 0 || canCreate) && (
@@ -1683,10 +1719,9 @@ export function PdfReader({
                 <path d="M9 6l6 6-6 6" />
               </svg>
             </button>
-            {showOutline && (
+            {showOutline ? (
               <ReaderOutline items={outline} onNavigate={(n) => viewport.setPage(n)} />
-            )}
-            {showReferences && (
+            ) : showReferences ? (
               <ReferencesPanel
                 references={refs.index.references}
                 resolutions={refs.resolutions}
@@ -1711,8 +1746,7 @@ export function PdfReader({
                   onFigureTarget({ page: ref.page, x: ref.x, y: ref.y });
                 }}
               />
-            )}
-            {(annotations.length > 0 || canCreate) && (
+            ) : (annotations.length > 0 || canCreate) ? (
               <AnnotationSidebar
                 annotations={annotations}
                 quotationTypes={quotationTypes}
@@ -1734,7 +1768,7 @@ export function PdfReader({
                   if (typeof pageIdx === "number") viewport.setPage(pageIdx + 1);
                 }}
               />
-            )}
+            ) : null}
           </div>
         )}
       </div>

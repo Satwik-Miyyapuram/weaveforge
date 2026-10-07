@@ -73,12 +73,35 @@ function pieceOf(node: Node, textLayer: Element): { span: HTMLElement; from: num
   return null;
 }
 
-function offsetInTextLayer(
+function resolveTargetNode(
   node: Node,
   offset: number,
   textLayer: Element,
   edge: "start" | "end",
+): { node: Node; offset: number } {
+  if (node === textLayer) {
+    const children = textLayer.querySelectorAll<HTMLElement>("span[data-item-index]");
+    if (children.length === 0) return { node, offset };
+    if (edge === "start") {
+      const idx = Math.min(Math.max(0, offset), children.length - 1);
+      const child = children[idx]!;
+      return { node: child, offset: 0 };
+    } else {
+      const idx = Math.max(0, Math.min(offset > 0 ? offset - 1 : 0, children.length - 1));
+      const child = children[idx]!;
+      return { node: child, offset: child.childNodes.length };
+    }
+  }
+  return { node, offset };
+}
+
+function offsetInTextLayer(
+  rawNode: Node,
+  rawOffset: number,
+  textLayer: Element,
+  edge: "start" | "end",
 ): ItemTextOffset | null {
+  const { node, offset } = resolveTargetNode(rawNode, rawOffset, textLayer, edge);
   const piece = pieceOf(node, textLayer);
   if (!piece) return null;
   const raw = piece.span.getAttribute("data-item-index");
@@ -86,33 +109,53 @@ function offsetInTextLayer(
   const itemIndex = Number(raw);
   if (!Number.isInteger(itemIndex) || itemIndex < 0) return null;
 
-  if (node.nodeType === Node.TEXT_NODE && node.parentElement === piece.span) {
-    // A plain, undecorated span: the offset is into the item as written.
-    const from = piece.span.dataset.from ? piece.from : 0;
-    return { itemIndex, offset: from + Math.max(0, offset) };
+  // 1. Exact measurement using DOM Range in browser environments
+  if (typeof document !== "undefined" && typeof document.createRange === "function") {
+    try {
+      const subRange = document.createRange();
+      subRange.selectNodeContents(piece.span);
+      const maxOffset =
+        node.nodeType === Node.TEXT_NODE
+          ? (node.textContent?.length ?? 0)
+          : node.childNodes.length;
+      subRange.setEnd(node, Math.min(Math.max(0, offset), maxOffset));
+      const charOffset = subRange.toString().length;
+      const base = piece.span.dataset.from ? piece.from : 0;
+      return { itemIndex, offset: base + charOffset };
+    } catch {
+      // Fall through to manual offset calculation if Range throws
+    }
   }
 
-  if (node === piece.span) {
-    // Between two pieces: an offset of `n` means the selection starts after the
-    // first `n` child pieces, so it begins at the n-th piece's first character.
-    const children = [...piece.span.childNodes];
-    let chars = 0;
-    for (let i = 0; i < offset && i < children.length; i++) {
-      chars += children[i]!.textContent?.length ?? 0;
+  // 2. Tree-traversal fallback: sum preceding text node lengths inside piece.span
+  let offsetInSpan = 0;
+  function traverse(n: Node): boolean {
+    if (n === node) {
+      if (n.nodeType === Node.TEXT_NODE) {
+        offsetInSpan += Math.min(Math.max(0, offset), n.textContent?.length ?? 0);
+      } else {
+        const children = [...n.childNodes];
+        for (let i = 0; i < offset && i < children.length; i++) {
+          offsetInSpan += children[i]!.textContent?.length ?? 0;
+        }
+      }
+      return true;
     }
-    return { itemIndex, offset: piece.from + chars };
+    if (n.nodeType === Node.TEXT_NODE) {
+      offsetInSpan += n.textContent?.length ?? 0;
+      return false;
+    }
+    for (const child of n.childNodes) {
+      if (traverse(child)) return true;
+    }
+    return false;
   }
 
-  // Inside a decorated anchor: walk up to the anchor and use its own bounds.
-  let anchor: Node | null = node;
-  while (anchor && anchor !== piece.span) {
-    if (anchor instanceof HTMLElement && anchor.hasAttribute("data-from")) {
-      const from = Number(anchor.dataset.from);
-      const base = Number.isFinite(from) ? from : piece.from;
-      return { itemIndex, offset: base + Math.max(0, offset) };
-    }
-    anchor = anchor.parentElement;
+  if (traverse(piece.span)) {
+    const base = piece.span.dataset.from ? piece.from : 0;
+    return { itemIndex, offset: base + offsetInSpan };
   }
+
   return { itemIndex, offset: edge === "end" ? piece.to : piece.from };
 }
 

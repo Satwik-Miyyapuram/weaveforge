@@ -598,7 +598,6 @@ export function PaperPdfPane({
             onActivity={(kind, message) => activityRef.current?.(kind, message)}
             onSourceFailure={handleSourceFailure}
             inkRail={inkRail}
-            toolbarExtra={loadButton}
           />
           {aside}
         </div>

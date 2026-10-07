@@ -98,11 +98,12 @@ export function ReaderToolbar({ viewport, numPages, hideFit = false, children }:
         )}
         <button
           type="button"
-          className="btn-secondary btn-sm"
+          className="btn-secondary btn-sm pdf-reader-icon-btn"
           onClick={viewport.rotateClockwise}
+          aria-label="Rotate clockwise (r)"
           title="Rotate (r)"
         >
-          Rotate
+          <RotateGlyph />
         </button>
       </div>
       <label className="pdf-reader-page-jump pdf-reader-group">
@@ -130,6 +131,16 @@ export function ReaderToolbar({ viewport, numPages, hideFit = false, children }:
       </label>
       {children}
     </div>
+  );
+}
+
+/** Drawn, not typed: clockwise rotate symbol. */
+function RotateGlyph() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.72 2.24" />
+      <path d="M21 3v5h-5" />
+    </svg>
   );
 }
 

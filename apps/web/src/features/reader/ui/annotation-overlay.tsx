@@ -217,7 +217,19 @@ function AnnotationOverlayInner({
               borderLeft: box.text != null ? `3px solid ${box.color}` : undefined,
               fontSize: box.text != null ? 11 * scale : undefined,
             }}
-            onClick={onSelect ? () => onSelect(box.id) : undefined}
+            onClick={(event) => {
+              if (typeof document !== "undefined") {
+                const elements = document.elementsFromPoint(event.clientX, event.clientY);
+                const cite = elements
+                  .find((el) => el.closest("a.pdf-reader-cite"))
+                  ?.closest<HTMLAnchorElement>("a.pdf-reader-cite");
+                if (cite) {
+                  cite.click();
+                  return;
+                }
+              }
+              onSelect?.(box.id);
+            }}
           >
             {box.text}
           </button>
