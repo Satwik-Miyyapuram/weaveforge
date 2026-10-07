@@ -91,7 +91,8 @@ const ROUTE_ALLOWANCES_KB = {
   // graph and experiments share the top navigation with live sync status indicators;
   // experiments added the image viewer, result editor and token create form, and
   // graph shares the chunk that carries them: +3 KB each.
-  "/graph": 389,
+  // Graph settings drawer added tabs, relation chips, and reading list integration: +4 KB.
+  "/graph": 393,
   "/experiments": 358,
   // the shared shell itself: the container gained the MCP draft, proposal and
   // lab-snapshot code, all of it reached from the layout. The puller's hold
