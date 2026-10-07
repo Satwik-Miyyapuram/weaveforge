@@ -43,8 +43,9 @@ export function paintStamp(
   fill: string,
   trace: (dx: number, dy: number, r: number) => void,
 ): void {
-  const line = Math.max(0.9, 1.6 / zoom);
-  const drop = Math.max(1.2, 2.6 / zoom);
+  const z = Math.max(0.01, zoom);
+  const line = Math.min(4, Math.max(0.4, 1.5 / z));
+  const drop = Math.min(6, Math.max(0.6, 2.2 / z));
   trace(drop, drop, r);
   ctx.fillStyle = style.ink;
   ctx.fill();
@@ -78,7 +79,8 @@ export function paintStampLabel(
   const box = { x1: x - w / 2 - padX, y1: y - fontSize - padY, x2: x + w / 2 + padX, y2: y + padY };
   ctx.fillStyle = style.surface;
   ctx.fillRect(box.x1, box.y1, box.x2 - box.x1, box.y2 - box.y1);
-  ctx.lineWidth = Math.max(0.6, 1.2 / zoom);
+  const z = Math.max(0.01, zoom);
+  ctx.lineWidth = Math.min(3, Math.max(0.3, 1.1 / z));
   ctx.strokeStyle = style.ink;
   ctx.strokeRect(box.x1, box.y1, box.x2 - box.x1, box.y2 - box.y1);
   ctx.fillStyle = style.ink;

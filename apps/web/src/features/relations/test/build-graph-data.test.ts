@@ -323,4 +323,57 @@ describe("experiment nodes", () => {
     assert.equal(neighbors.get("p1")?.has("e1"), true);
     assert.equal(neighbors.get("e1")?.has("p1"), true);
   });
+
+  it("creates concept nodes and links for reading lists when enabled", () => {
+    const papers = [paper("p1", "Paper One"), paper("p2", "Paper Two")];
+    const lists = [
+      { id: "l1", name: "Thesis Core", color: "#3b82f6", sortOrder: 0, createdAt: "2026-01-01", updatedAt: "2026-01-01" },
+    ];
+    const membership = new Map<string, Set<string>>([["l1", new Set(["p1", "p2"])]]);
+
+    const { data, neighbors, tagToPapers } = buildGraphData(
+      papers,
+      [],
+      { ...DEFAULT_GRAPH_SETTINGS, showConcepts: true, includeListsAsConcepts: true, hideOrphans: false },
+      membership,
+      lists,
+    );
+
+    const listNode = data.nodes.find((n) => n.id === "list:l1");
+    assert.ok(listNode);
+    assert.equal(listNode.label, "📋 Thesis Core");
+    assert.equal(listNode.kind, "tag");
+    assert.equal(listNode.tagName, "Thesis Core");
+
+    // Check links
+    const listLinks = data.links.filter((l) => l.target === "list:l1" || l.source === "list:l1");
+    assert.equal(listLinks.length, 2);
+
+    // Neighbors
+    assert.equal(neighbors.get("p1")?.has("list:l1"), true);
+    assert.equal(neighbors.get("p2")?.has("list:l1"), true);
+
+    // tagToPapers
+    assert.deepEqual(tagToPapers.get("Thesis Core"), ["p1", "p2"]);
+  });
+
+  it("does not create list concept nodes when includeListsAsConcepts is false", () => {
+    const papers = [paper("p1", "Paper One")];
+    const lists = [
+      { id: "l1", name: "Thesis Core", color: "#3b82f6", sortOrder: 0, createdAt: "2026-01-01", updatedAt: "2026-01-01" },
+    ];
+    const membership = new Map<string, Set<string>>([["l1", new Set(["p1"])]]);
+
+    const { data } = buildGraphData(
+      papers,
+      [],
+      { ...DEFAULT_GRAPH_SETTINGS, showConcepts: true, includeListsAsConcepts: false, hideOrphans: false },
+      membership,
+      lists,
+    );
+
+    const listNode = data.nodes.find((n) => n.id === "list:l1");
+    assert.equal(listNode, undefined);
+  });
 });
+

@@ -167,6 +167,9 @@ export function buildGraphData(
   const tagUse = new Map<string, number>();
   const paperTagCount = new Map<string, number>();
   const noteTagCount = new Map<string, number>();
+  const noteIds = new Set(notes.map((n) => n.id));
+  const includeLists = settings.includeListsAsConcepts !== false;
+
   if (showConceptEdges(settings)) {
     for (const p of papers) {
       for (const t of p.tags) {
@@ -200,6 +203,41 @@ export function buildGraphData(
         });
         bump(n.id);
         bump(tagId);
+      }
+    }
+    if (includeLists) {
+      for (const l of lists) {
+        const memberPaperIds = [...(membership.get(l.id) ?? [])].filter((pid) => paperIds.has(pid));
+        const memberNoteIds = [...(membership.get(l.id) ?? [])].filter((nid) => noteIds.has(nid));
+        if (memberPaperIds.length + memberNoteIds.length === 0) continue;
+        const listNodeId = `list:${l.id}`;
+        const lColor = listDisplayColor(l);
+        for (const pid of memberPaperIds) {
+          paperTagCount.set(pid, (paperTagCount.get(pid) ?? 0) + 1);
+          links.push({
+            id: `pl:${pid}:${l.id}`,
+            source: pid,
+            target: listNodeId,
+            color: lColor,
+            width: 0.6 * settings.linkThickness,
+            kind: "tag",
+          });
+          bump(pid);
+          bump(listNodeId);
+        }
+        for (const nid of memberNoteIds) {
+          noteTagCount.set(nid, (noteTagCount.get(nid) ?? 0) + 1);
+          links.push({
+            id: `nl:${nid}:${l.id}`,
+            source: nid,
+            target: listNodeId,
+            color: lColor,
+            width: 0.6 * settings.linkThickness,
+            kind: "tag",
+          });
+          bump(nid);
+          bump(listNodeId);
+        }
       }
     }
   }
@@ -266,6 +304,20 @@ export function buildGraphData(
       tagToNotes.set(t, arr);
     }
   }
+  if (includeLists) {
+    for (const l of lists) {
+      const memberPaperIds = [...(membership.get(l.id) ?? [])].filter((pid) => paperIds.has(pid));
+      const memberNoteIds = [...(membership.get(l.id) ?? [])].filter((nid) => noteIds.has(nid));
+      if (memberPaperIds.length > 0) {
+        const existing = tagToPapers.get(l.name) ?? [];
+        tagToPapers.set(l.name, [...new Set([...existing, ...memberPaperIds])]);
+      }
+      if (memberNoteIds.length > 0) {
+        const existing = tagToNotes.get(l.name) ?? [];
+        tagToNotes.set(l.name, [...new Set([...existing, ...memberNoteIds])]);
+      }
+    }
+  }
 
   // Direct [[wikilink]] edges from vault / paper notes / report sections.
   const wikiLinked = new Set<string>();
@@ -318,10 +370,15 @@ export function buildGraphData(
 
   for (const p of papers) {
     const tagsOnPaper = p.tags.filter((t) => !showConceptEdges(settings) || visibleTags.has(t));
+    const inVisibleList =
+      showConceptEdges(settings) &&
+      includeLists &&
+      lists.some((l) => membership.get(l.id)?.has(p.id) ?? false);
     if (
       settings.hideOrphans &&
       isOrphan(p, relDegree, paperTagCount.get(p.id) ?? 0) &&
       tagsOnPaper.length === 0 &&
+      !inVisibleList &&
       !wikiLinked.has(p.id)
     ) {
       continue;
@@ -339,10 +396,15 @@ export function buildGraphData(
 
   for (const n of notes) {
     const tagsOnNote = noteTags(n).filter((t) => !showConceptEdges(settings) || visibleTags.has(t));
+    const inVisibleList =
+      showConceptEdges(settings) &&
+      includeLists &&
+      lists.some((l) => membership.get(l.id)?.has(n.id) ?? false);
     if (
       settings.hideOrphans &&
       (noteTagCount.get(n.id) ?? 0) === 0 &&
       tagsOnNote.length === 0 &&
+      !inVisibleList &&
       !wikiLinked.has(n.id)
     ) {
       continue;
@@ -422,6 +484,22 @@ export function buildGraphData(
         color: tagColor(t),
         tagName: t,
       });
+    }
+    if (includeLists) {
+      for (const l of lists) {
+        const memberPaperIds = [...(membership.get(l.id) ?? [])].filter((pid) => paperIds.has(pid));
+        const memberNoteIds = [...(membership.get(l.id) ?? [])].filter((nid) => noteIds.has(nid));
+        const total = memberPaperIds.length + memberNoteIds.length;
+        if (total === 0) continue;
+        nodes.push({
+          id: `list:${l.id}`,
+          kind: "tag",
+          label: `📋 ${l.name}`,
+          val: (1.8 + Math.sqrt(total) * 1.6) * settings.nodeSize,
+          color: listDisplayColor(l),
+          tagName: l.name,
+        });
+      }
     }
   }
 
