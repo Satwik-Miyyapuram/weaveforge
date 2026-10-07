@@ -72,3 +72,76 @@ export function useEscapeToClear(active: boolean, onEscape: () => void): void {
     return () => window.removeEventListener("keydown", onKey);
   }, [active, onEscape]);
 }
+
+export interface FgHandle {
+  refresh?: () => void;
+  zoomToFit?: (ms?: number, padding?: number) => void;
+  getGraphBbox?: () => { x: [number, number]; y: [number, number] } | null;
+  centerAt?: (x?: number, y?: number, ms?: number) => void;
+  zoom?: (k?: number, ms?: number) => void;
+  d3ReheatSimulation?: () => void;
+  d3Force?: (
+    name: string,
+    force?: unknown,
+  ) => {
+    strength?: (v: number) => void;
+    distance?: (v: number) => void;
+  } | undefined;
+}
+
+export function fitPadding(width: number, height: number): number {
+  return Math.max(72, Math.round(Math.min(width, height) * 0.1));
+}
+
+export function fitGraphView(fg: FgHandle, nodes: { x?: number; y?: number }[], width: number, height: number, ms = 0): boolean {
+  if (nodes.length === 0) return false;
+  if (!nodes.every((n) => Number.isFinite(n.x) && Number.isFinite(n.y))) return false;
+  const pad = fitPadding(width, height);
+  const labelMargin = 42;
+  const bbox = fg.getGraphBbox?.();
+  if (!bbox) {
+    fg.zoomToFit?.(ms, pad + labelMargin);
+    return true;
+  }
+  const xSpan = Math.max(bbox.x[1] - bbox.x[0] + labelMargin * 2, 1);
+  const ySpan = Math.max(bbox.y[1] - bbox.y[0] + labelMargin * 2, 1);
+  const cx = (bbox.x[0] + bbox.x[1]) / 2;
+  const cy = (bbox.y[0] + bbox.y[1]) / 2;
+  const zoomK = Math.min((width - pad * 2) / xSpan, (height - pad * 2) / ySpan);
+  fg.centerAt?.(cx, cy, ms);
+  fg.zoom?.(Math.min(Math.max(zoomK, 0.04), 2.5), ms);
+  return true;
+}
+
+/** Reuse simulation node objects so x/y/vx/vy survive graph updates. */
+export function mergeSimNodes<T extends { id: string; label: string; val: number; color: string; kind: string; paperId?: string; noteId?: string; tagName?: string; x?: number; y?: number; fx?: number; fy?: number }>(
+  incoming: T[],
+  cache: Map<string, T>,
+  pinned: Map<string, { x: number; y: number }>,
+  laneX: ((node: T) => number | null) | null,
+): T[] {
+  const next = new Map<string, T>();
+  for (const n of incoming) {
+    const prev = cache.get(n.id);
+    const node: T = prev
+      ? { ...prev, label: n.label, val: n.val, color: n.color, kind: n.kind, paperId: n.paperId, noteId: n.noteId, tagName: n.tagName }
+      : { ...n };
+    const pin = pinned.get(n.id);
+    const lane = laneX?.(node) ?? null;
+    if (pin) {
+      node.fx = pin.x;
+      node.fy = pin.y;
+    } else if (lane !== null) {
+      node.fx = lane;
+      delete node.fy;
+    } else {
+      delete node.fx;
+      delete node.fy;
+    }
+    next.set(n.id, node);
+  }
+  cache.clear();
+  for (const [id, node] of next) cache.set(id, node);
+  return [...next.values()];
+}
+

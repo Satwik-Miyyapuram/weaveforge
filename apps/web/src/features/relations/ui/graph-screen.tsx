@@ -97,8 +97,11 @@ export function GraphScreen() {
         set.add(m.replace(/^#+/, "").toLowerCase());
       }
     }
+    if (settings.includeListsAsConcepts !== false) {
+      for (const l of lists) set.add(l.name.toLowerCase());
+    }
     return [...set].sort();
-  }, [papers, notes]);
+  }, [papers, notes, lists, settings.includeListsAsConcepts]);
 
   const visiblePapers = useMemo(() => {
     if (selectedLists.length === 0 && selectedTags.length === 0) return papers;
@@ -155,7 +158,7 @@ export function GraphScreen() {
 
   function handleNodeClick(node: GNode) {
     if (node.kind === "tag") {
-      const name = node.tagName ?? node.id.replace(/^tag:/, "");
+      const name = node.tagName ?? node.id.replace(/^tag:/, "").replace(/^list:/, "");
       setSelectedConcept(name);
       setSelectedPaperId(null);
       setSelectedNoteId(null);

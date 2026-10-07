@@ -90,6 +90,10 @@ export interface GraphViewSettings {
   nodeColors: Partial<Record<NodeColorKey, string>>;
   /** Rules for `colorBy: "groups"`, in priority order. */
   colorGroups: ColorGroup[];
+  /** When true, reading lists act as concept nodes linking member papers and notes. */
+  includeListsAsConcepts?: boolean;
+  /** When true, node and text screen sizes are clamped during high zoom to prevent occlusion of edges. */
+  boundedZoomScale?: boolean;
 }
 
 export const DEFAULT_GRAPH_SETTINGS: GraphViewSettings = {
@@ -113,6 +117,8 @@ export const DEFAULT_GRAPH_SETTINGS: GraphViewSettings = {
   nodePalette: "theme",
   nodeColors: {},
   colorGroups: [],
+  includeListsAsConcepts: true,
+  boundedZoomScale: true,
 };
 
 const EDGE_MODES = new Set<EdgeMode>(["cites", "tags", "both"]);
@@ -201,6 +207,14 @@ export function normalizeGraphViewSettings(raw: unknown): GraphViewSettings {
       : DEFAULT_GRAPH_SETTINGS.nodePalette,
     nodeColors: normalizeNodeColors(o.nodeColors),
     colorGroups: normalizeColorGroups(o.colorGroups),
+    includeListsAsConcepts:
+      typeof o.includeListsAsConcepts === "boolean"
+        ? o.includeListsAsConcepts
+        : DEFAULT_GRAPH_SETTINGS.includeListsAsConcepts,
+    boundedZoomScale:
+      typeof o.boundedZoomScale === "boolean"
+        ? o.boundedZoomScale
+        : DEFAULT_GRAPH_SETTINGS.boundedZoomScale,
   };
 }
 

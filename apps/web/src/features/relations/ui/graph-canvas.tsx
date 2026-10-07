@@ -19,7 +19,13 @@ import {
 } from "../application/build-graph-data";
 import { cloneLinks, filterGraphByNodes, localSubgraph } from "../application/local-graph";
 import { EdgeDetailPopover } from "./graph-side-panel";
-import { useEscapeToClear, useFollowSeed } from "./graph-canvas-hooks";
+import {
+  type FgHandle,
+  fitGraphView,
+  mergeSimNodes,
+  useEscapeToClear,
+  useFollowSeed,
+} from "./graph-canvas-hooks";
 import { useGraphColours } from "./graph-colours";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { setGravity } from "./graph-gravity";
@@ -30,22 +36,6 @@ import { paintStamp, paintStampLabel, stampRadius } from "./graph-stamp";
 // disable d3Force/forceCollide/autoFit/refresh.
 const ForceGraph2D = dynamic(() => import("./force-graph-2d"), { ssr: false });
 
-interface FgHandle {
-  refresh?: () => void;
-  zoomToFit?: (ms?: number, padding?: number) => void;
-  getGraphBbox?: () => { x: [number, number]; y: [number, number] } | null;
-  centerAt?: (x?: number, y?: number, ms?: number) => void;
-  zoom?: (k?: number, ms?: number) => void;
-  d3ReheatSimulation?: () => void;
-  d3Force?: (
-    name: string,
-    force?: unknown,
-  ) => {
-    strength?: (v: number) => void;
-    distance?: (v: number) => void;
-  } | undefined;
-}
-
 const FG = ForceGraph2D as unknown as React.ComponentType<
   Record<string, unknown> & { innerRef?: React.Ref<FgHandle> }
 >;
@@ -53,79 +43,6 @@ const FG = ForceGraph2D as unknown as React.ComponentType<
 const DIM = "rgba(140, 133, 124, 0.12)";
 /** Canvas units between one publication year and the next in the timeline layout. */
 const YEAR_SPACING = 90;
-
-function fitPadding(width: number, height: number): number {
-  return Math.max(72, Math.round(Math.min(width, height) * 0.1));
-}
-
-function fitGraphView(fg: FgHandle, nodes: GNode[], width: number, height: number, ms = 0) {
-  if (nodes.length === 0) return false;
-  if (!nodes.every((n) => Number.isFinite(n.x) && Number.isFinite(n.y))) return false;
-  const pad = fitPadding(width, height);
-  const labelMargin = 42;
-  const bbox = fg.getGraphBbox?.();
-  if (!bbox) {
-    fg.zoomToFit?.(ms, pad + labelMargin);
-    return true;
-  }
-  const xSpan = Math.max(bbox.x[1] - bbox.x[0] + labelMargin * 2, 1);
-  const ySpan = Math.max(bbox.y[1] - bbox.y[0] + labelMargin * 2, 1);
-  const cx = (bbox.x[0] + bbox.x[1]) / 2;
-  const cy = (bbox.y[0] + bbox.y[1]) / 2;
-  const zoomK = Math.min((width - pad * 2) / xSpan, (height - pad * 2) / ySpan);
-  fg.centerAt?.(cx, cy, ms);
-  fg.zoom?.(Math.min(Math.max(zoomK, 0.04), 2.5), ms);
-  return true;
-}
-
-/** Reuse simulation node objects so x/y/vx/vy survive graph updates. */
-function mergeSimNodes(
-  incoming: GNode[],
-  cache: Map<string, GNode>,
-  pinned: Map<string, { x: number; y: number }>,
-  /**
-   * Where a node belongs on the timeline, or null if it is not on one.
-   *
-   * Pinning x rather than pulling it there with a force, because a force loses.
-   * `forceX` closes a fraction of the remaining gap each tick while the link
-   * and charge forces pull the other way, and the pull from a single citation
-   * across five years is enough to leave a paper the better part of a year out
-   * of its lane — measured at up to 149px on a 90px spacing, which puts two
-   * papers from the same year a full year apart. A timeline that is only
-   * approximately chronological is worse than no timeline, because it still
-   * invites you to read distance as time. Raising the strength does not fix
-   * it; d3 treats strength above 1 as overshoot, and it still drifted 85px.
-   */
-  laneX: ((node: GNode) => number | null) | null,
-): GNode[] {
-  const next = new Map<string, GNode>();
-  for (const n of incoming) {
-    const prev = cache.get(n.id);
-    const node: GNode = prev
-      ? { ...prev, label: n.label, val: n.val, color: n.color, kind: n.kind, paperId: n.paperId, noteId: n.noteId, tagName: n.tagName }
-      : { ...n };
-    const pin = pinned.get(n.id);
-    const lane = laneX?.(node) ?? null;
-    if (pin) {
-      // A node the reader pinned themselves stays exactly where they put it,
-      // timeline or not. They asked for that position out loud.
-      node.fx = pin.x;
-      node.fy = pin.y;
-    } else if (lane !== null) {
-      node.fx = lane;
-      // y stays free, so related work still finds its own height and the
-      // clusters the forces produce survive.
-      delete node.fy;
-    } else {
-      delete node.fx;
-      delete node.fy;
-    }
-    next.set(n.id, node);
-  }
-  cache.clear();
-  for (const [id, node] of next) cache.set(id, node);
-  return [...next.values()];
-}
 
 export function GraphCanvas({
   papers,
@@ -304,7 +221,7 @@ export function GraphCanvas({
     settings.edgeMode, settings.relationTypes, settings.showConcepts,
     settings.minConceptDegree, settings.showConceptCooccurrence, settings.hideOrphans,
     settings.nodeSize, settings.linkThickness, settings.showAutoStyle,
-    settings.colorBy, settings.groupBy,
+    settings.colorBy, settings.groupBy, settings.includeListsAsConcepts,
   ]);
 
   useEffect(() => {
@@ -488,22 +405,38 @@ export function GraphCanvas({
 
   // The stamp's outline eats into a small shape, so the brutal themes draw
   // every node a size up; hit areas and labels follow the drawn size.
-  const nodeR = (n: GNode) => (stampOn ? stampRadius(Math.max(3, n.val)) : Math.max(3, n.val));
+  const rawNodeR = useCallback(
+    (n: GNode) => (stampOn ? stampRadius(Math.max(3, n.val)) : Math.max(3, n.val)),
+    [stampOn],
+  );
+
+  const nodeR = useCallback(
+    (n: GNode, zoom = zoomKRef.current || 1) => {
+      const baseR = rawNodeR(n);
+      if (settings.boundedZoomScale === false) return baseR;
+      const z = Math.max(0.01, zoom);
+      const maxScreenR = n.kind === "tag" ? 16 : 18;
+      const minScreenR = 4;
+      // Sublinear scaling: on-screen radius stays bounded while distances between nodes expand
+      const targetScreenR = Math.max(
+        minScreenR,
+        Math.min(maxScreenR, baseR * Math.pow(Math.max(0.35, z), 0.22)),
+      );
+      return targetScreenR / z;
+    },
+    [rawNodeR, settings.boundedZoomScale],
+  );
+
   // Hit target matches the drawn shape (plus a hair) so neighbouring hit areas
   // don't overlap and steal each other's clicks in the pointer buffer.
-  //
-  // But force-graph resolves clicks by sampling ONE pixel of an offscreen
-  // buffer at pointerPos * devicePixelRatio. On Windows display scaling the DPR
-  // is fractional (e.g. 1.5625), and a small zoomed-out node has no solid-colour
-  // interior pixel — the sample lands on an anti-aliased edge, matches nothing,
-  // and the node becomes unclickable. Enforce a minimum on-screen hit radius
-  // (graph units = screen px / zoom) so there's always a pure-colour pixel to
-  // hit. Collision spacing keeps this from overlapping neighbours in practice.
   const POINTER_MIN_SCREEN_PX = 7;
   const hoverR = useCallback(
-    (n: GNode) => Math.max(nodeR(n) + 1, POINTER_MIN_SCREEN_PX / (zoomKRef.current || 1)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- nodeR only reads stampOn
-    [stampOn],
+    (n: GNode) => {
+      const z = zoomKRef.current || 1;
+      const r = nodeR(n, z);
+      return Math.max(r + 1 / z, POINTER_MIN_SCREEN_PX / z);
+    },
+    [nodeR],
   );
 
   const labelVisible = useCallback(
@@ -549,8 +482,7 @@ export function GraphCanvas({
       ctx.fillStyle = fillColor;
       ctx.fill();
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- nodeR only reads stampOn
-    [traceShape, stampOn],
+    [traceShape, nodeR],
   );
 
   const css = typeof window !== "undefined" ? getComputedStyle(document.documentElement) : null;
@@ -714,6 +646,7 @@ export function GraphCanvas({
         nodeCanvasObjectMode={() => "replace"}
         nodeCanvasObject={(node: GNode, ctx: CanvasRenderingContext2D, zoom: number) => {
           zoomKRef.current = zoom;
+          const r = nodeR(node, zoom);
           // Two independent reasons to fade: the search has excluded it, or a
           // hover elsewhere has. Kept distinct so a node one hop from the
           // pointer still dims when the search has ruled it out.
@@ -721,29 +654,29 @@ export function GraphCanvas({
           ctx.globalAlpha = dimmed ? 0.12 : 1;
           const fill = colours.fills.get(node.color) ?? node.color;
           if (colours.stamp) {
-            paintStamp(ctx, node, nodeR(node), zoom, colours.stamp, fill, (dx, dy, r) => traceShape(node, ctx, r, dx, dy));
+            paintStamp(ctx, node, r, zoom, colours.stamp, fill, (dx, dy, radius) => traceShape(node, ctx, radius, dx, dy));
           } else {
-            paintShape(node, ctx, fill);
+            paintShape(node, ctx, fill, r);
             if (node.kind === "experiment") {
-              // A run's second ring, as in every theme: it is what tells a run
-              // from a paper of the same colour.
-              traceShape(node, ctx, nodeR(node) + 1.6);
+              const ringOffset = 1.6 / (settings.boundedZoomScale !== false ? zoom : 1);
+              traceShape(node, ctx, r + ringOffset);
               ctx.strokeStyle = fill;
-              ctx.lineWidth = 0.8;
+              ctx.lineWidth = 0.8 / (settings.boundedZoomScale !== false ? zoom : 1);
               ctx.stroke();
             }
           }
           if (labelVisible(node)) {
             const label = node.label.length > 28 ? `${node.label.slice(0, 27)}…` : node.label;
-            // Graph units, so the label scales with the canvas; but never under
-            // ~10.5px on screen, where it stopped being text. Zoomed out, the
-            // clash check below then shows fewer labels rather than tiny ones.
-            const fontSize = Math.max(node.kind === "tag" ? 4 : 4.5, 10.5 / zoom);
+            const targetScreenFont = node.kind === "tag" ? 10 : 10.5;
+            const fontSize = settings.boundedZoomScale !== false
+              ? targetScreenFont / Math.max(0.01, zoom)
+              : Math.max(node.kind === "tag" ? 4 : 4.5, 10.5 / zoom);
             ctx.font = colours.stamp ? `700 ${fontSize}px ${fontFamily}` : `${fontSize}px ${fontFamily}`;
             const lx = node.x ?? 0;
-            const ly = (node.y ?? 0) - nodeR(node) - (colours.stamp ? 2 + fontSize * 0.4 : 2);
+            const gap = 2 / Math.max(0.01, zoom);
+            const ly = (node.y ?? 0) - r - (colours.stamp ? gap + fontSize * 0.4 : gap);
             const w = ctx.measureText(label).width + (colours.stamp ? fontSize : 0);
-            const box = { x1: lx - w / 2, y1: ly - fontSize, x2: lx + w / 2, y2: ly + 1 };
+            const box = { x1: lx - w / 2, y1: ly - fontSize, x2: lx + w / 2, y2: ly + 1 / Math.max(0.01, zoom) };
             // The hovered node and tags always win; everything else yields to a
             // label already placed on the same pixels this frame.
             const priority = node.kind === "tag" || node.id === hoverRef.current.nodeId;
@@ -768,7 +701,7 @@ export function GraphCanvas({
             }
           }
           if (pinned.has(node.id)) {
-            traceShape(node, ctx, nodeR(node));
+            traceShape(node, ctx, r);
             ctx.strokeStyle = inkColor;
             ctx.lineWidth = 0.8 / zoom;
             ctx.stroke();

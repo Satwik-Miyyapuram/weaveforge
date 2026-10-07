@@ -55,3 +55,24 @@ test("colour groups keep valid rules, capped, and new colour modes survive", () 
   assert.deepEqual(normalizeGraphViewSettings({ colorGroups: "nope" }).colorGroups, []);
   assert.equal(normalizeGraphViewSettings({ colorBy: "rainbow" }).colorBy, "status");
 });
+
+test("includeListsAsConcepts and boundedZoomScale sanitize properly", () => {
+  const defaults = normalizeGraphViewSettings({});
+  assert.equal(defaults.includeListsAsConcepts, true);
+  assert.equal(defaults.boundedZoomScale, true);
+
+  const disabled = normalizeGraphViewSettings({
+    includeListsAsConcepts: false,
+    boundedZoomScale: false,
+  });
+  assert.equal(disabled.includeListsAsConcepts, false);
+  assert.equal(disabled.boundedZoomScale, false);
+
+  const invalid = normalizeGraphViewSettings({
+    includeListsAsConcepts: "invalid",
+    boundedZoomScale: 42,
+  });
+  assert.equal(invalid.includeListsAsConcepts, true);
+  assert.equal(invalid.boundedZoomScale, true);
+});
+
