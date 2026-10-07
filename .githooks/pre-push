@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# Run full offline verification suite
+node scripts/check-pre-push.mjs

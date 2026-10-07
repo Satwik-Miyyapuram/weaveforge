@@ -15,11 +15,37 @@ on:
   #   - cron: "30 3 * * *"
   workflow_dispatch:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
+  wait-for-docs:
+    name: wait-for-docs
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wait for Docs regenerate workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for i in $(seq 1 30); do
+            STATUS=$(gh run list --workflow=docs.yml --branch="${{ github.head_ref }}" --limit 1 --json status -q '.[0].status' 2>/dev/null || echo "completed")
+            if [ "$STATUS" = "completed" ] || [ -z "$STATUS" ]; then
+              echo "Docs workflow finished."
+              break
+            fi
+            echo "Waiting for Docs regenerate workflow ($i/30, status: $STATUS)..."
+            sleep 4
+          done
+
   build-and-test:
+    needs: [wait-for-docs]
+    if: always() && (needs.wait-for-docs.result == 'success' || needs.wait-for-docs.result == 'skipped')
     runs-on: ubuntu-latest
     env:
       # Job-scoped (not workflow-scoped) so a bad secret eval fails the job, not startup.
@@ -335,9 +361,10 @@ jobs:
           retention-days: 7
 
   dco:
+    needs: [wait-for-docs]
     # Only on pull requests: the rule is enforced on what a PR adds, and the
     # history before this job existed has no sign-offs to find.
-    if: github.event_name == 'pull_request'
+    if: always() && github.event_name == 'pull_request' && (needs.wait-for-docs.result == 'success' || needs.wait-for-docs.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -368,6 +395,8 @@ jobs:
           "${{ github.event.pull_request.head.sha }}"
 
   python-sdk:
+    needs: [wait-for-docs]
+    if: always() && (needs.wait-for-docs.result == 'success' || needs.wait-for-docs.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

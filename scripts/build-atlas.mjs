@@ -258,6 +258,10 @@ if (process.argv.includes("--check")) {
   }
   console.log("atlas: up to date");
 } else {
-  writeFileSync(out, text);
-  console.log(current === text ? `atlas: unchanged — ${OUT}` : `atlas: wrote ${OUT}`);
+  if (current === text) {
+    console.log(`atlas: unchanged — ${OUT}`);
+  } else {
+    writeFileSync(out, text);
+    console.log(`atlas: wrote ${OUT}`);
+  }
 }
