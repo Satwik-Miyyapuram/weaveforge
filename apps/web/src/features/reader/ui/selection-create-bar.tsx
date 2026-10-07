@@ -96,8 +96,19 @@ export function SelectionCreateBar({
       role="toolbar"
       aria-label="Create annotation"
       style={style}
-      // A press here must not clear the selection it is about.
-      onMouseDown={(event) => event.preventDefault()}
+      // A press here must not clear or alter the selection it is about,
+      // and must not bubble pointer events to the scroller.
+      onPointerDown={(event) => {
+        event.stopPropagation();
+        event.preventDefault();
+      }}
+      onPointerUp={(event) => {
+        event.stopPropagation();
+      }}
+      onMouseDown={(event) => {
+        event.stopPropagation();
+        event.preventDefault();
+      }}
     >
       {CREATE_ACTIONS.map(({ type, label, path }) => (
         <button

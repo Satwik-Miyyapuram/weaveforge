@@ -58,7 +58,10 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
   }, []);
 
   const referencePages = useMemo(
-    () => [...pageItems].map(([pageNumber, items]) => ({ pageNumber, items, links: pageLinks.get(pageNumber) ?? [] })),
+    () =>
+      [...pageItems]
+        .map(([pageNumber, items]) => ({ pageNumber, items, links: pageLinks.get(pageNumber) ?? [] }))
+        .sort((a, b) => a.pageNumber - b.pageNumber),
     [pageItems, pageLinks],
   );
   const { index, analysis, progress: analysisProgress, isAnalyzing } = useDocumentAnalyzer({
@@ -184,7 +187,13 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
       return;
     }
     const entry = hit.refIndexes.map((i) => index.byIndex.get(i)).find(Boolean);
-    if (!entry) return;
+    if (!entry) {
+      if (hit.target) {
+        setPage(hit.target.page);
+        onFigureTarget?.(hit.target);
+      }
+      return;
+    }
     setNotice(null);
     setOpen({ hit, entry, anchor, confidence: hit.confidence });
     const current = resolutions.get(entry.index);
