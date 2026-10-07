@@ -1,36 +1,21 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
 import { Popover } from "./popover";
+import { Menu, type MenuItem } from "./menu";
 
-export interface CardMenuItem {
-  id: string;
-  label: string;
-  /** Destructive: drawn in the danger colour, and the reason the menu exists. */
-  danger?: boolean;
-  disabled?: boolean;
-  onSelect: () => void;
-  /**
-   * A panel that opens beside this row instead of an action. Selecting the row
-   * opens the submenu rather than closing the menu: filing is a second step, not
-   * a choice, and the lists belong next to the item they file.
-   */
-  submenu?: () => ReactNode;
-}
+export type CardMenuItem = MenuItem;
+export { Menu, SubmenuFlyout, computeSubmenuPosition } from "./menu";
 
 /**
  * The card's overflow menu.
  *
- * The foot of an entity card carried three separate controls — a delete icon, a
- * share button and an open icon — on every card in a grid, beside the status
- * select. Two of those are occasional and one is destructive, and a grid of
- * forty cards was forty delete buttons one stray tap from a deletion. They sit
- * behind a single kebab now; the card itself is the open affordance, which it
- * already was (`EntityCard` is `role="button"` with the activation handler).
+ * Inherits from the common Menu and Submenu architecture (`@/components/menu`).
+ * All cards across the app (papers, notes, experiments, logbook, plan, projects,
+ * lists, report) share this menu, ensuring single-origin styling, accessibility,
+ * and automatic collision-detected submenus.
  *
  * Built on `Popover`, which owns placement, Esc, outside-click, focus entry and
- * focus return. A second implementation of those is how two menus in one app
- * start behaving differently.
+ * focus return.
  */
 export function CardMenu({
   items,
@@ -39,7 +24,6 @@ export function CardMenu({
   items: CardMenuItem[];
   label?: string;
 }) {
-  const [openSub, setOpenSub] = useState<string | null>(null);
   if (items.length === 0) return null;
   return (
     <Popover
@@ -53,41 +37,7 @@ export function CardMenu({
       triggerClassName="entity-icon-btn card-menu-trigger"
       label={<KebabIcon />}
     >
-      {(close) => (
-        <ul className="card-menu-list">
-          {items.map((item) => (
-            <li key={item.id} className={item.submenu ? "card-menu-row" : undefined}>
-              <button
-                type="button"
-                className={`card-menu-item${item.danger ? " danger" : ""}`}
-                disabled={item.disabled}
-                aria-haspopup={item.submenu ? "menu" : undefined}
-                aria-expanded={item.submenu ? openSub === item.id : undefined}
-                onClick={() => {
-                  if (item.submenu) {
-                    setOpenSub((prev) => (prev === item.id ? null : item.id));
-                    return;
-                  }
-                  // Close first: Share opens a dialog above the screen, and the
-                  // menu must not be left open underneath it.
-                  close();
-                  item.onSelect();
-                }}
-              >
-                {item.label}
-                {item.submenu && (
-                  <span className="card-menu-more" aria-hidden="true">
-                    ›
-                  </span>
-                )}
-              </button>
-              {item.submenu && openSub === item.id && (
-                <div className="card-menu-flyout card">{item.submenu()}</div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+      {(close) => <Menu items={items} onClose={close} />}
     </Popover>
   );
 }

@@ -98,6 +98,8 @@ const ROUTE_ALLOWANCES_KB = {
   // queue and local-twin drop run on every page: +2 KB on the shell.
   "/layout": 345,
   "/dashboard": 346,
+  // Lists screen carries reading lists, membership management, and EntityCardMenu:
+  "/lists": 345,
 };
 
 /** The allowance for a route, longest matching prefix first, plus the environment's. */
