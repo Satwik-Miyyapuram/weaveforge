@@ -300,18 +300,11 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
           id: "smoothing",
           label: "Smoothing",
           onSelect: () => undefined,
-          submenu: () => (
-            <ul className="card-menu-list">
-              {SMOOTHING.map((a) => (
-                <li key={a}>
-                  <button type="button" className="card-menu-item" aria-pressed={a === smooth} onClick={() => setSmooth(a)}>
-                    {a === smooth ? "✓ " : ""}
-                    {a === 0 ? "none" : `ema ${a}`}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ),
+          submenu: SMOOTHING.map((a) => ({
+            id: `smooth-${a}`,
+            label: `${a === smooth ? "✓ " : ""}${a === 0 ? "none" : `ema ${a}`}`,
+            onSelect: () => setSmooth(a),
+          })),
         },
       ]}
     />

@@ -26,6 +26,7 @@ import { LibraryTidyNotice } from "./library-tidy";
 import { PaperNote } from "./paper-note";
 import { PapersTable } from "./papers-table";
 import { Popover } from "@/components/popover";
+import { Menu } from "@/components/menu";
 import { ScreenHead } from "@/components/screen-head";
 import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
@@ -380,27 +381,22 @@ export function PapersScreen() {
             Add paper. */}
         <Popover label="More" ariaLabel="More actions" align="right">
           {(close) => (
-            <ul className="card-menu-list">
-              <li>
-                <button
-                  type="button"
-                  className="card-menu-item"
-                  onClick={() => { close(); router.push("/wiki"); }}
-                >
-                  Wiki
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  className="card-menu-item"
-                  disabled={checkingAlerts}
-                  onClick={() => { close(); void checkCitationAlerts(); }}
-                >
-                  {checkingAlerts ? "Checking citations…" : "Check citations"}
-                </button>
-              </li>
-            </ul>
+            <Menu
+              onClose={close}
+              items={[
+                {
+                  id: "wiki",
+                  label: "Wiki",
+                  onSelect: () => router.push("/wiki"),
+                },
+                {
+                  id: "citations",
+                  label: checkingAlerts ? "Checking citations…" : "Check citations",
+                  disabled: checkingAlerts,
+                  onSelect: () => void checkCitationAlerts(),
+                },
+              ]}
+            />
           )}
         </Popover>
       </ScreenHead>
