@@ -86,8 +86,8 @@ const ROUTE_ALLOWANCES_KB = {
   // the AI review panel and the proposal executors it configures live in the
   // container every route boots, so every route carries their code: +1 KB.
   // Settings houses workspace folder mirror, git 3-way conflict resolution, and sync issues:
-  // Plus the local API token panel (create, table, revoke dialog): +3 KB.
-  "/settings": 405,
+  // Plus the local API token panel (create, table, revoke dialog) and DatePicker: +4 KB.
+  "/settings": 408,
   // graph and experiments share the top navigation with live sync status indicators;
   // experiments added the image viewer, result editor and token create form, and
   // graph shares the chunk that carries them: +3 KB each.

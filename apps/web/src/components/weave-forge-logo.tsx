@@ -6,8 +6,7 @@
  * fallback colours no matter which theme was active. Inlining puts the shapes in
  * the page's own DOM, where the cascade reaches them.
  *
- * Paints straight from the theme tokens — no logo-specific colours exist, so
- * the mark cannot drift from the rest of the UI.
+ * Strokes take the theme primary (`--logo-ink`, else `--accent`); the one dot takes `--text`.
  *
  * The static file at /icons/weave_forge.svg is kept for the favicon and apple
  * touch icon, which the browser fetches outside any page and cannot theme.
@@ -26,20 +25,20 @@ export function WeaveForgeLogo({ className }: { className?: string }) {
       <path
         d="M 230 125 L 194 125 A 54 54 0 0 0 140 179 L 140 355 A 54 54 0 0 0 194 409 L 318 409 A 54 54 0 0 0 372 355 L 372 265"
         fill="none"
-        stroke="var(--text)"
+        stroke="var(--logo-ink, var(--accent))"
         strokeWidth="22"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
 
-      <line x1="264" y1="125" x2="264" y2="215" stroke="var(--text)" strokeWidth="12" strokeLinecap="round" />
-      <line x1="264" y1="215" x2="356" y2="139" stroke="var(--text)" strokeWidth="12" strokeLinecap="round" />
-      <line x1="264" y1="215" x2="372" y2="229" stroke="var(--text)" strokeWidth="12" strokeLinecap="round" />
+      <line x1="264" y1="125" x2="264" y2="215" stroke="var(--logo-ink, var(--accent))" strokeWidth="12" strokeLinecap="round" />
+      <line x1="264" y1="215" x2="356" y2="139" stroke="var(--logo-ink, var(--accent))" strokeWidth="12" strokeLinecap="round" />
+      <line x1="264" y1="215" x2="372" y2="229" stroke="var(--logo-ink, var(--accent))" strokeWidth="12" strokeLinecap="round" />
 
-      <circle cx="264" cy="125" r="22" fill="var(--text)" />
-      <circle cx="264" cy="215" r="22" fill="var(--text)" />
-      <circle cx="356" cy="139" r="22" fill="var(--accent)" />
-      <circle cx="372" cy="229" r="22" fill="var(--text)" />
+      <circle cx="264" cy="125" r="22" fill="var(--logo-ink, var(--accent))" />
+      <circle cx="264" cy="215" r="22" fill="var(--logo-ink, var(--accent))" />
+      <circle cx="356" cy="139" r="22" fill="var(--text)" />
+      <circle cx="372" cy="229" r="22" fill="var(--logo-ink, var(--accent))" />
     </svg>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { DatePicker } from "@/components/date-picker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -605,11 +606,10 @@ function MilestoneForm({
       <div className="field-row-equal">
         <div className="field">
           <label htmlFor={`mdate-${initial?.id ?? "new"}`}>Target date</label>
-          <input
+          <DatePicker
             id={`mdate-${initial?.id ?? "new"}`}
-            type="date"
             value={targetDate}
-            onChange={(e) => setTargetDate(e.target.value)}
+            onChange={setTargetDate}
           />
         </div>
         <div className="field">

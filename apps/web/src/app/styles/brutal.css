@@ -1216,3 +1216,9 @@
   box-shadow: 2px 2px 0 var(--bw-line);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-badge .sync-dot { background: currentColor; border-radius: 0; }
+
+/* Mark in theme primary with heavier strokes. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) { --logo-ink: var(--nav-on-bg); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) svg[aria-label="WeaveForge"] path { stroke-width: 34; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) svg[aria-label="WeaveForge"] line { stroke-width: 20; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) svg[aria-label="WeaveForge"] circle { r: 28px; }
