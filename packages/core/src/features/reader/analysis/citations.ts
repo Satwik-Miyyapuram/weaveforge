@@ -100,11 +100,10 @@ export function findPatternCitationMentions(
   mode: EngineMode,
   excluded: readonly PageTextRange[] = [],
 ): CitationMention[] {
-  if (!refs.length) return [];
-  if (mode === "legacy" && (!style || page.number >= Math.min(...refs.map((ref) => ref.page)))) return [];
+  if (mode === "legacy" && refs.length > 0 && (!style || page.number >= Math.min(...refs.map((ref) => ref.page)))) return [];
   const out: CitationMention[] = [];
   const add = (start: number, end: number, indexes: number[], source: CitationMention["source"]) => {
-    if (!indexes.length) return;
+    if (!indexes.length && refs.length > 0) return;
     if (inReferenceList(page.number, start, end, excluded) || end <= start) return;
     if (out.some((hit) => start < hit.end && end > hit.start)) return;
     const rects = mentionRects(page.items, start, end);
@@ -113,13 +112,16 @@ export function findPatternCitationMentions(
       page: page.number, start, end, text: page.text.slice(start, end), rects,
       referenceIndexes: indexes,
       source,
-      confidence: indexes.length > 1 ? 0.72 : 0.9,
+      confidence: indexes.length > 0 ? (indexes.length > 1 ? 0.72 : 0.9) : 0.6,
       spanSource: "text",
     });
   };
   for (const candidate of findCitationCandidates(page.items)) {
-    const indexes = candidate.source === "numeric" ? numericIndexes(candidate.text, refs)
-      : referenceIndexes(candidate.authors!, candidate.year!, refs);
+    const indexes = refs.length === 0
+      ? []
+      : candidate.source === "numeric"
+        ? numericIndexes(candidate.text, refs)
+        : referenceIndexes(candidate.authors!, candidate.year!, refs);
     add(candidate.start, candidate.end, indexes, candidate.source);
   }
   return out.sort((a, b) => a.start - b.start);

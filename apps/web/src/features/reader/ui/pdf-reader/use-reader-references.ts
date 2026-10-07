@@ -13,11 +13,7 @@ import { useDocumentAnalyzer } from "./use-document-analyzer";
 const LINK_CITATIONS_KEY = "weaveforge.reader.linkCitations";
 
 function readLinkCitations(): boolean {
-  try {
-    return window.localStorage.getItem(LINK_CITATIONS_KEY) !== "off";
-  } catch {
-    return true;
-  }
+  return true;
 }
 
 export interface OpenMention {
@@ -186,13 +182,32 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
       }
       return;
     }
-    const entry = hit.refIndexes.map((i) => index.byIndex.get(i)).find(Boolean);
-    if (!entry) {
+    const existingEntry = hit.refIndexes
+      .map((i) => index.byIndex.get(i))
+      .find((ref): ref is ParsedReference => Boolean(ref));
+    let entry: ParsedReference;
+    if (existingEntry) {
+      entry = existingEntry;
+    } else {
       if (hit.target) {
         setPage(hit.target.page);
         onFigureTarget?.(hit.target);
       }
-      return;
+      let h = 0;
+      for (let i = 0; i < hit.key.length; i++) {
+        h = (h * 31 + hit.key.charCodeAt(i)) | 0;
+      }
+      const fallbackIdx = -Math.abs(h || 1);
+      const labelText = hit.label?.trim() || "Citation";
+      entry = {
+        index: fallbackIdx,
+        raw: labelText,
+        title: labelText,
+        authors: [],
+        page: hit.target?.page ?? 1,
+        x: hit.target?.x ?? 0,
+        y: hit.target?.y ?? 0,
+      };
     }
     setNotice(null);
     setOpen({ hit, entry, anchor, confidence: hit.confidence });

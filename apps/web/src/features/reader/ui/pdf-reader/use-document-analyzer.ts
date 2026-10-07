@@ -81,11 +81,11 @@ export function useDocumentAnalyzer({
   // Start the worker while the PDF is still being read, so the first
   // analysis does not also pay for spawning it and loading its bundle.
   useEffect(() => {
-    if (enabled) getWorker();
-  }, [enabled]);
+    getWorker();
+  }, []);
 
   useEffect(() => {
-    if (!enabled || !pages.length) {
+    if (!pages.length) {
       setIndex(EMPTY_INDEX);
       setAnalysis(EMPTY_ANALYSIS);
       setProgress(0);
