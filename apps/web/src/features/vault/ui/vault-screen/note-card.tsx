@@ -24,12 +24,14 @@ export { isHydratedPage, noteBodyText };
 export function NoteCard({
   page,
   readOnly = false,
+  isPinned = false,
   sharedByName,
   onOpen,
   onChanged,
 }: {
   page: VaultPageSummary | VaultPage;
   readOnly?: boolean;
+  isPinned?: boolean;
   sharedByName?: string;
   onOpen: () => void;
   onChanged: () => void;
@@ -37,6 +39,7 @@ export function NoteCard({
   const [busy, setBusy] = useState(false);
   /** Whether the delete confirmation is up. */
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmUnpinOpen, setConfirmUnpinOpen] = useState(false);
   const preview = noteBodyText(page);
   const excerpt = cardSnippet(readableText(preview));
   const tags = useMemo(() => extractHashtags(preview), [preview]);
@@ -63,6 +66,17 @@ export function NoteCard({
     }
   }
 
+  async function unpin() {
+    setConfirmUnpinOpen(false);
+    setBusy(true);
+    try {
+      await getContainer().sharing.unpinShared("vault_page", page.id);
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <EntityCard
@@ -75,15 +89,16 @@ export function NoteCard({
         // One overflow menu instead of a delete icon and a share button on every
         // card in the grid; the body of the card opens the note.
         menu={
-          readOnly ? undefined : (
+          readOnly && !isPinned ? undefined : (
             <EntityCardMenu
               resourceType="vault_page"
               resourceId={page.id}
               title={`Share: ${page.title}`}
               deleteDisabled={busy}
-              onDelete={() => setConfirmOpen(true)}
+              deleteLabel={isPinned ? "Remove from library" : "Delete note"}
+              onDelete={isPinned ? () => setConfirmUnpinOpen(true) : () => setConfirmOpen(true)}
               extraItems={[
-                { id: "pin", label: page.pinned ? "Unpin" : "Pin", disabled: busy, onSelect: () => void togglePin() },
+                ...(readOnly ? [] : [{ id: "pin", label: page.pinned ? "Unpin" : "Pin", disabled: busy, onSelect: () => void togglePin() }]),
                 { id: "list", label: "Add to list", onSelect: () => {}, submenu: () => <ListPicker target={{ kind: "note", id: page.id }} /> },
               ]}
             />
@@ -102,6 +117,18 @@ export function NoteCard({
           busy={busy}
           onConfirm={() => void remove()}
           onClose={() => setConfirmOpen(false)}
+        />
+      )}
+
+      {confirmUnpinOpen && (
+        <ConfirmDialog
+          title="Remove shared note?"
+          body={`“${page.title}” will be removed from your workspace. The original will stay intact for ${sharedByName ?? "its owner"}.`}
+          confirmLabel="Remove from library"
+          danger
+          busy={busy}
+          onConfirm={() => void unpin()}
+          onClose={() => setConfirmUnpinOpen(false)}
         />
       )}
     </>

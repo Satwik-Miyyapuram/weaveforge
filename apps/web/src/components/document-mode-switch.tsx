@@ -28,6 +28,7 @@ export function DocumentModeSwitch<M extends DocumentModeName>({
   mode: M;
   onMode: (mode: M) => void;
 }) {
+  if (modes.length <= 1) return null;
   return (
     <div className="seg seg--sm pane-mode" role="group" aria-label="Document mode">
       {modes.map((each) => (

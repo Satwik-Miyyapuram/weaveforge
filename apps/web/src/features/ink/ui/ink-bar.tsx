@@ -245,6 +245,7 @@ export function InkBar({
       <div className="ink-swatches ink-pen-pick">
         <Popover
           iconOnly
+          portal
           ariaLabel="Pen colour and nib"
           triggerClassName="colour-menu-trigger ink-pen-trigger"
           label={

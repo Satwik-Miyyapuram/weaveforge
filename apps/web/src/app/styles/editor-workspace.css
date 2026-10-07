@@ -579,7 +579,7 @@
   /* Clear of the overlay scrollbar's 12px track, and above it: a thumb
      parked at the top of a scrolled page must not sit over the way out. */
   inset-inline-end: 16px;
-  z-index: 11;
+  z-index: 55;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -620,7 +620,7 @@
 :is(.workspace-shell, .record-ink-focus).is-focus .ink-palette,
 .pdf-reader.is-focus .ink-palette {
   position: absolute;
-  z-index: 5;
+  z-index: 40;
   display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
@@ -1630,6 +1630,13 @@
   padding: 8px;
 }
 .paper-pdf-pane .reader-main { flex: 1; min-height: 0; }
+:is(.workspace-shell, .record-ink-focus).is-focus .paper-pdf-pane {
+  padding: 0;
+  height: 100%;
+}
+:is(.workspace-shell, .record-ink-focus).is-focus .paper-pdf-pane .reader-main {
+  height: 100%;
+}
 .paper-pdf-pane .empty-state { margin: auto; }
 /* The address a person types for a paper that came without a PDF. */
 .paper-pdf-fetch {

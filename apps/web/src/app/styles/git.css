@@ -52,6 +52,7 @@
 .metric-chip { background: var(--chip); border: 1px solid var(--line); }
 .git-chip em, .metric-chip em { font-style: normal; color: var(--muted); font-size: 0.72rem; }
 .git-chip.link { color: var(--s-info); }
+button.git-chip { border: 0; cursor: pointer; font-family: inherit; }
 
 /* Experiments: live indicator + view switch + compare table */
 .live-dot {

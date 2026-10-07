@@ -13,6 +13,7 @@ import { gitConnectionReady, mattermostConnectionReady } from "../domain/integra
 import { MATTERMOST_EVENTS, mattermostOptions, type MattermostOptions } from "../domain/mattermost-options";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
+import { MattermostLoginForm } from "./mattermost-login-form";
 
 export function SyncSettings() {
   const { current } = useProject();
@@ -85,6 +86,27 @@ function IntegrationRow({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isMattermost = descriptor.provider === "mattermost";
+  // Sign-in vs bot token is a per-reader choice about how the token in the
+  // `token` slot was obtained, not a stored field — both end up as one token.
+  const modeKey = `wf.mm-signin.${projectId}`;
+  const [signIn, setSignIn] = useState(false);
+  useEffect(() => {
+    try {
+      setSignIn(localStorage.getItem(modeKey) === "1");
+    } catch {
+      /* private mode: default to bot token */
+    }
+  }, [modeKey]);
+  function chooseSignIn(on: boolean) {
+    setSignIn(on);
+    try {
+      localStorage.setItem(modeKey, on ? "1" : "0");
+    } catch {
+      /* best effort */
+    }
+  }
+
   const connected =
     descriptor.provider === "mattermost"
       ? mattermostConnectionReady(value)
@@ -99,13 +121,14 @@ function IntegrationRow({
     setSaved(false);
   }
 
-  async function save() {
+  async function save(next: Integration = value, close = true) {
     setSaving(true);
     setError(null);
     try {
-      await getContainer().sync.integrations.save(projectId, value);
+      await getContainer().sync.integrations.save(projectId, next);
+      if (next !== value) onChange(next);
       setSaved(true);
-      setOpen(false);
+      if (close) setOpen(false);
     } catch (err) {
       setError(formatError(err));
     } finally {
@@ -143,18 +166,44 @@ function IntegrationRow({
                 <span className="knob" />
               </button>
             </div>
-            {descriptor.fields.map((field) => (
-              <div className="field" key={field.key}>
-                <label>{field.label}</label>
-                <input
-                  type={field.type}
-                  value={value[field.key] ?? ""}
-                  onChange={(e) => patch({ [field.key]: e.target.value })}
-                  placeholder={field.placeholder}
-                  autoComplete="off"
-                />
+            {isMattermost && (
+              <div className="integration-enable">
+                <span>Sign in with Mattermost instead of a bot token</span>
+                <button
+                  type="button"
+                  className={`toggle${signIn ? " on" : ""}`}
+                  role="switch"
+                  aria-checked={signIn}
+                  onClick={() => chooseSignIn(!signIn)}
+                >
+                  <span className="knob" />
+                </button>
               </div>
-            ))}
+            )}
+            {descriptor.fields.map((field) => {
+              const greyToken = isMattermost && signIn && field.key === "token";
+              return (
+                <div className="field" key={field.key}>
+                  <label>{field.label}</label>
+                  <input
+                    type={field.type}
+                    value={value[field.key] ?? ""}
+                    onChange={(e) => patch({ [field.key]: e.target.value })}
+                    placeholder={greyToken ? "using browser sign-in token" : field.placeholder}
+                    autoComplete="off"
+                    disabled={greyToken}
+                  />
+                  {greyToken && <p className="muted">Using browser sign-in token.</p>}
+                </div>
+              );
+            })}
+            {isMattermost && signIn && (
+              <MattermostLoginForm
+                serverUrl={value.repo ?? ""}
+                submitLabel="Sign in & save"
+                onToken={(token) => save({ ...value, token }, false)}
+              />
+            )}
             {descriptor.provider === "mattermost" && (
               <MattermostEventControls value={value} onChange={patch} onError={setError} />
             )}

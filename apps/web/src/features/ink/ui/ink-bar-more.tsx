@@ -10,6 +10,7 @@
  * reader, which has none of them, gets no ⋯ at all.
  */
 
+import { createPortal } from "react-dom";
 import { INK_PAPERS, type InkHand, type InkPaper } from "@weaveforge/core";
 
 import { paperLabel } from "./ink-bar-glyphs";
@@ -76,7 +77,7 @@ export function MoreMenu({
   hand,
   onHand,
 }: MoreMenuProps) {
-  const { open, setOpen, menuRef, listRef } = useBarMenu();
+  const { open, setOpen, menuRef, listRef, pos } = useBarMenu();
   /** Close the menu, then run what was chosen. */
   const choose = (run: () => void) => () => {
     setOpen(false);
@@ -106,13 +107,25 @@ export function MoreMenu({
           <circle cx="19" cy="12" r="1.8" />
         </svg>
       </button>
-      {open ? (
-        <div
-          className="ink-menu-list ink-menu-more-list"
-          role="menu"
-          aria-label="More ink options"
-          ref={listRef}
-        >
+      {open && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="ink-menu-list ink-menu-more-list"
+              role="menu"
+              aria-label="More ink options"
+              ref={listRef}
+              style={{
+                position: "fixed",
+                top: `${pos.top}px`,
+                left: `${pos.left}px`,
+                right: "auto",
+                bottom: "auto",
+                width: "max-content",
+                maxWidth: "min(340px, calc(100vw - 16px))",
+                zIndex: 100,
+                transform: "none",
+              }}
+            >
           {paper && onPaper ? (
             <div className="ink-menu-section" role="group" aria-label="Paper">
               <span className="ink-menu-heading">Paper</span>
@@ -237,8 +250,10 @@ export function MoreMenu({
               ) : null}
             </div>
           ) : null}
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

@@ -29,6 +29,7 @@ export function useBarMenu() {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number }>({ top: -9999, left: -9999 });
 
   useEffect(() => {
     if (!open) return;
@@ -50,21 +51,51 @@ export function useBarMenu() {
 
   useLayoutEffect(() => {
     if (!open) return;
+    const menu = menuRef.current;
     const list = listRef.current;
-    const bar = list?.closest(".ink-bar");
-    if (!list || !bar) return;
-    const box = list.getBoundingClientRect();
-    const bounds = bar.getBoundingClientRect();
-    const margin = 8;
-    let shift = 0;
-    if (box.left < bounds.left + margin) shift = bounds.left + margin - box.left;
-    else if (box.right > bounds.right - margin) {
-      shift = bounds.right - margin - box.right;
-    }
-    list.style.setProperty("--ink-menu-shift", `${Math.round(shift)}px`);
+    if (!menu || !list) return;
+
+    const place = () => {
+      const mr = menu.getBoundingClientRect();
+      const lr = list.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const pad = 8;
+      const lw = lr.width || 240;
+      const lh = lr.height || 260;
+
+      const palette = menu.closest<HTMLElement>(".ink-palette");
+      const dock = palette?.getAttribute("data-dock") ?? "";
+
+      let top = mr.bottom + 6;
+      let left = mr.right - lw;
+
+      if (dock === "left" || (dock.includes("left") && mr.left < 100)) {
+        left = mr.right + 6;
+        top = mr.top;
+      } else if (dock === "right" || (dock.includes("right") && mr.right > vw - 100)) {
+        left = mr.left - lw - 6;
+        top = mr.top;
+      } else if (dock === "bottom" || mr.top > vh / 2) {
+        top = mr.top - lh - 6;
+      }
+
+      left = Math.max(pad, Math.min(left, vw - lw - pad));
+      top = Math.max(pad, Math.min(top, vh - lh - pad));
+
+      setPos({ top: Math.round(top), left: Math.round(left) });
+    };
+
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
   }, [open]);
 
-  return { open, setOpen, menuRef, listRef };
+  return { open, setOpen, menuRef, listRef, pos };
 }
 
 export interface PrintMenuProps {

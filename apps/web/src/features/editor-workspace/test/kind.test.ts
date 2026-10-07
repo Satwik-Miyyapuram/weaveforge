@@ -96,8 +96,8 @@ test("Ink on the PDF row is the PDF with the pen rail up; on a paper's notes an 
   assert.equal(rendererFor("report_section", "ink"), "editor");
 });
 
-test("a kind's modes come from the table: PDF and Ink for the PDF row, Edit/Read(/Ink) for text", () => {
-  assert.deepEqual(modesFor("paper_pdf"), ["pdf", "ink"]);
+test("a kind's modes come from the table: PDF for the PDF row, Edit/Read(/Ink) for text", () => {
+  assert.deepEqual(modesFor("paper_pdf"), ["pdf"]);
   assert.deepEqual(modesFor("paper"), ["edit", "read", "ink"]);
   assert.deepEqual(modesFor("vault_page"), ["edit", "read", "ink"]);
   assert.deepEqual(modesFor("report_section"), ["edit", "read"]);

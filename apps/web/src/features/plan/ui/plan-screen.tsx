@@ -100,7 +100,7 @@ export function PlanScreen() {
     }
   }, [focusFromUrl, items, isSharedView, pinnedSharedBy, setData]);
 
-  const { isReadOnly: isReadOnlyMilestone, sharedOwnerName } = usePinnedSharing({ isSharedView, pinnedSharedBy, ownerNames });
+  const { isReadOnly: isReadOnlyMilestone, sharedOwnerName, isPinned: isPinnedMilestone } = usePinnedSharing({ isSharedView, pinnedSharedBy, ownerNames });
 
 
   const replace = useCallback(
@@ -170,10 +170,12 @@ export function PlanScreen() {
         experiments={experiments}
         milestones={items}
         readOnly={isReadOnlyMilestone(m.id)}
+        isPinned={isPinnedMilestone(m.id)}
         sharedByName={sharedOwnerName(m.id)}
         canComment={milestoneCanComment.get(m.id) ?? false}
         onReplace={replace}
         onChanged={load}
+        onJump={jumpTo}
       />
     );
   }
@@ -311,10 +313,12 @@ function MilestoneCard({
   experiments,
   milestones,
   readOnly = false,
+  isPinned = false,
   sharedByName,
   canComment = false,
   onReplace,
   onChanged,
+  onJump,
 }: {
   milestone: Milestone;
   labels: Map<string, string>;
@@ -322,15 +326,18 @@ function MilestoneCard({
   experiments: Experiment[];
   milestones: Milestone[];
   readOnly?: boolean;
+  isPinned?: boolean;
   sharedByName?: string;
   canComment?: boolean;
   onReplace: (m: Milestone) => void;
   onChanged: () => void;
+  onJump?: (id: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   /** Whether the delete confirmation is up. */
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmUnpinOpen, setConfirmUnpinOpen] = useState(false);
 
   async function setStatus(status: MilestoneStatus) {
     const updated = await getContainer().plan.manageMilestone.setStatus(m.id, status);
@@ -343,6 +350,17 @@ function MilestoneCard({
     setBusy(true);
     try {
       await getContainer().plan.manageMilestone.remove(m.id);
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function unpin() {
+    setConfirmUnpinOpen(false);
+    setBusy(true);
+    try {
+      await getContainer().sharing.unpinShared("milestone", m.id);
       onChanged();
     } finally {
       setBusy(false);
@@ -399,7 +417,7 @@ function MilestoneCard({
       }
       meta={
         m.targetDate
-          ? [
+            ? [
               `Due ${m.targetDate}`,
               due != null && m.status !== "done"
                 ? due < 0
@@ -416,8 +434,8 @@ function MilestoneCard({
           resourceType="milestone"
           resourceId={m.id}
           title={`Share: ${m.title}`}
-          onDelete={readOnly ? undefined : () => setConfirmOpen(true)}
-          deleteLabel="Delete milestone"
+          onDelete={isPinned ? () => setConfirmUnpinOpen(true) : readOnly ? undefined : () => setConfirmOpen(true)}
+          deleteLabel={isPinned ? "Remove from plan" : "Delete milestone"}
           deleteDisabled={busy}
           extraItems={readOnly ? [] : [{ id: "edit", label: "Edit", onSelect: () => setEditing(true) }]}
         />
@@ -434,12 +452,31 @@ function MilestoneCard({
       {m.description && <p className="summary">{m.description}</p>}
       {m.dependencies.length > 0 && (
         <div className="git-chips">
-          {m.dependencies.map((d, i) => (
-            <span key={i} className="git-chip">
-              <em>{d.kind}</em>{" "}
-              {d.kind === "external" ? d.label : labels.get(d.refId ?? "") ?? d.label ?? d.refId}
-            </span>
-          ))}
+          {m.dependencies.map((d, i) => {
+            const labelText = d.kind === "external" ? d.label : labels.get(d.refId ?? "") ?? d.label ?? d.refId;
+            const targetMilestoneId = d.kind === "milestone" ? (d.refId || milestones.find((x) => x.title === d.label)?.id) : undefined;
+            if (targetMilestoneId && onJump) {
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  className="git-chip link"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onJump(targetMilestoneId);
+                  }}
+                  title={`Jump to ${labelText}`}
+                >
+                  <em>{d.kind}</em> {labelText}
+                </button>
+              );
+            }
+            return (
+              <span key={i} className="git-chip">
+                <em>{d.kind}</em> {labelText}
+              </span>
+            );
+          })}
         </div>
       )}
       {m.compute.length > 0 && (
@@ -466,6 +503,18 @@ function MilestoneCard({
         busy={busy}
         onConfirm={() => void remove()}
         onClose={() => setConfirmOpen(false)}
+      />
+    )}
+
+    {confirmUnpinOpen && (
+      <ConfirmDialog
+        title="Remove shared milestone?"
+        body={`“${m.title}” will be removed from your plan. The original will stay intact for ${sharedByName ?? "its owner"}.`}
+        confirmLabel="Remove from plan"
+        danger
+        busy={busy}
+        onConfirm={() => void unpin()}
+        onClose={() => setConfirmUnpinOpen(false)}
       />
     )}
     </>
@@ -497,11 +546,22 @@ function MilestoneForm({
   const [targetDate, setTargetDate] = useState(initial?.targetDate ?? "");
   const [status, setStatus] = useState<MilestoneStatus>(initial?.status ?? "planned");
   const [deps, setDeps] = useState<DepDraft[]>(
-    (initial?.dependencies ?? []).map((d) => ({
-      kind: d.kind,
-      refId: d.refId ?? "",
-      label: d.label ?? "",
-    })),
+    (initial?.dependencies ?? []).map((d) => {
+      let refId = d.refId ?? "";
+      if (!refId && d.kind !== "external" && d.label) {
+        const opts = d.kind === "milestone" ? milestones : d.kind === "experiment" ? experiments : papers;
+        const match = opts.find((o) => {
+          const itemTitle = "title" in o ? o.title : "name" in o ? o.name : "";
+          return itemTitle.trim().toLowerCase() === d.label?.trim().toLowerCase();
+        });
+        if (match) refId = match.id;
+      }
+      return {
+        kind: d.kind,
+        refId,
+        label: d.label ?? "",
+      };
+    }),
   );
   const [compute, setCompute] = useState<ComputeDraft[]>(
     (initial?.compute ?? []).map((c) => ({
@@ -649,7 +709,12 @@ function MilestoneForm({
             ) : (
               <Select
                 value={d.refId}
-                onChange={(e) => patchDep(i, { refId: e.target.value })}
+                onChange={(e) => {
+                  const refId = e.target.value;
+                  const kind = d.kind as Exclude<DependencyKind, "external">;
+                  const label = refOptions[kind]?.find((o) => o.id === refId)?.label ?? "";
+                  patchDep(i, { refId, label });
+                }}
                 aria-label={`${d.kind} reference`}
               >
                 <option value="">pick…</option>

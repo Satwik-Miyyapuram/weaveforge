@@ -11,11 +11,13 @@ import { cardSnippet } from "@/lib/card-snippet";
 import { PinnedPaperBadge } from "@/features/sharing";
 import { ListPicker } from "@/features/reading-lists";
 import { StatusSelect } from "@/components/status-select";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 /** Compact paper card in the grid; clicking opens the full note page. */
 export function PaperCard({
   paper,
   readOnly = false,
+  isPinned = false,
   sharedByName,
   onOpen,
   onReplace,
@@ -30,12 +32,14 @@ export function PaperCard({
    */
   paper: PaperSummary | Paper;
   readOnly?: boolean;
+  isPinned?: boolean;
   sharedByName?: string;
   onOpen: () => void;
   onReplace: (p: Paper) => void;
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [unpinOpen, setUnpinOpen] = useState(false);
 
   async function changeStatus(status: PaperStatus) {
     setBusy(true);
@@ -47,6 +51,17 @@ export function PaperCard({
   }
 
   const remove = () => confirmRemovePaper(paper, setBusy, onChanged);
+
+  async function unpin() {
+    setUnpinOpen(false);
+    setBusy(true);
+    try {
+      await getContainer().sharing.unpinShared("paper", paper.id);
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const authorsLine =
     paper.authors.length > 0
@@ -86,14 +101,15 @@ export function PaperCard({
       // reason the cards are scanned. Share, filing and delete are occasional
       // and move behind the kebab; the card body opens the paper.
       menu={
-        readOnly ? undefined : (
+        readOnly && !isPinned ? undefined : (
           <EntityCardMenu
             resourceType="paper"
             resourceId={paper.id}
             title={`Share: ${paper.title}`}
             deleteDisabled={busy}
-            onDelete={() => void remove()}
-            extraItems={[
+            deleteLabel={isPinned ? "Remove from library" : "Delete paper"}
+            onDelete={isPinned ? () => setUnpinOpen(true) : readOnly ? undefined : () => void remove()}
+            extraItems={readOnly ? [] : [
               { id: "list", label: "Add to list", onSelect: () => {}, submenu: () => <ListPicker target={{ kind: "paper", id: paper.id }} /> },
             ]}
           />
@@ -104,6 +120,18 @@ export function PaperCard({
         {snippet ? <p className="entity-card-snippet">{snippet}</p> : null}
         <PaperCardThumbs paper={paper} />
       </div>
+
+      {unpinOpen && (
+        <ConfirmDialog
+          title="Remove shared paper?"
+          body={`Remove “${paper.title}” from your library? The original will stay intact for ${sharedByName ?? "its owner"}.`}
+          confirmLabel="Remove from library"
+          danger
+          busy={busy}
+          onConfirm={() => void unpin()}
+          onClose={() => setUnpinOpen(false)}
+        />
+      )}
     </EntityCard>
   );
 }
