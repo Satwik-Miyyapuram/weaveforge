@@ -561,6 +561,7 @@ export function PapersScreen() {
             <PaperCard
               paper={p}
               readOnly={isReadOnlyPaper(p.id)}
+              isPinned={pinnedSharedBy.has(p.id)}
               sharedByName={sharedOwnerName(p.id)}
               onOpen={() => openPaperById(p.id)}
               onReplace={replace}

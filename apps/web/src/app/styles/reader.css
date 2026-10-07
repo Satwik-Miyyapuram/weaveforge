@@ -138,33 +138,42 @@
    annotation list go too. The pen rail belongs to the document, not the
    chrome, and stays. One control remains — the corner exit — because a
    shortcut nobody can see is a trap. */
-.pdf-reader.is-focus {
-  position: fixed; inset: 0; z-index: 50;
+:is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) {
   gap: 0; padding: 0;
   background: var(--surface-alt);
 }
-.pdf-reader.is-focus .pdf-reader-chrome {
+.pdf-reader.is-focus {
+  position: fixed; inset: 0; z-index: 50;
+}
+:is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader {
+  position: relative; height: 100%; min-height: 0; flex: 1;
+}
+:is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .pdf-reader-chrome {
   border: 0; border-radius: 0; background: transparent;
   /* The pen palette floats out of it (editor-workspace.css, `.ink-palette`):
      nothing here may clip it, and the empty chrome takes no room. */
   overflow: visible; position: static;
 }
-.pdf-reader.is-focus .pdf-reader-chrome > :not(.ink-bar),
-.pdf-reader.is-focus .pdf-reader-side,
-.pdf-reader.is-focus .pdf-reader-side-rail,
-.pdf-reader.is-focus .pdf-reader-tool-hint,
-.pdf-reader.is-focus .pdf-reader-banner {
+:is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .pdf-reader-chrome > :not(.ink-bar),
+:is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .pdf-reader-side,
+:is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .pdf-reader-side-rail,
+:is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .pdf-reader-tool-hint,
+:is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .pdf-reader-banner {
   display: none;
 }
-.pdf-reader.is-focus .pdf-reader-body { flex: 1; grid-template-columns: minmax(0, 1fr); }
-.pdf-reader.is-focus .pdf-reader-scroll-wrap { flex: 1; }
-.pdf-reader.is-focus .pdf-reader-scroll {
-  flex: 1; max-height: none; border-radius: 0; padding: 24px 12px;
+:is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .pdf-reader-body {
+  flex: 1; grid-template-columns: minmax(0, 1fr); height: 100%; min-height: 0;
+}
+:is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .pdf-reader-scroll-wrap {
+  flex: 1; height: 100%; min-height: 0;
+}
+:is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .pdf-reader-scroll {
+  flex: 1; max-height: none; height: 100%; border-radius: 0; padding: 24px 12px;
 }
 .pdf-reader-focus-btn { flex: none; padding-inline: 8px; }
 /* The corner exit sits above the reader's own chrome. `.focus-exit` itself
    is styled with the workspace's (editor-workspace.css). */
-.pdf-reader.is-focus > .focus-exit { position: fixed; z-index: 51; }
+.pdf-reader.is-focus > .focus-exit { position: fixed; z-index: 55; }
 
 /* One page and, while the pen is out, the writing strip beside it.
    The row — not the page box — is the drawing surface, because the strip sits
@@ -668,8 +677,10 @@ body > canvas.hiddenCanvasElement { display: none; }
   flex-wrap: nowrap;
   overflow-x: auto;
 }
-/* In focus it floats (editor-workspace.css): the strip's own frame goes. */
-.pdf-reader.is-focus .ink-bar { border-top: 0; }
+/* In focus it floats (editor-workspace.css): restore complete border on all sides. */
+:is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .ink-bar.ink-palette {
+  border: 1px solid var(--border);
+}
 
 /* The writing margin (§pen-margin): a page-wide strip to the right of each
    page while the pen is out. It is a sibling of the page box inside the page's

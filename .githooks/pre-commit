@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+# Automatically purge rogue desktop.ini files from .git and workspace
+node scripts/clean-desktop-ini.mjs
+
+# Automatically regenerate architecture map and atlas, staging them if modified
+npm run docs:generate
+git add docs/building/architecture-map.md docs/atlas.html

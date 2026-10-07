@@ -540,6 +540,7 @@ export function VaultScreen() {
                     <NoteCard
                       page={p}
                       readOnly
+                      isPinned={pinnedSharedBy.has(p.id)}
                       sharedByName={sharedOwnerName(p.id)}
                       onOpen={() => openPage(p.id)}
                       onChanged={load}

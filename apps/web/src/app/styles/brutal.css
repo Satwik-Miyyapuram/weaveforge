@@ -126,7 +126,7 @@
   .card-menu-flyout,
   .header-menu,
   .proj-menu,
-  .ink-menu,
+  .ink-menu-list,
   .comments-sheet,
   .graph-edge-popover
 ) {
@@ -143,12 +143,23 @@
   .card-menu-flyout,
   .header-menu,
   .proj-menu,
-  .ink-menu,
+  .ink-menu-list,
   .graph-edge-popover,
   .pdf-reader-create-bar
 ) {
   box-shadow: var(--sh-sm);
   border-radius: var(--radius-sm);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ink-menu-more > .ink-tool:is(:hover, :focus-visible, [aria-expanded="true"]) {
+  background: var(--surface);
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--sh-sm);
+  color: var(--text);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.workspace-shell, .record-ink-focus).is-focus .ink-palette,
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader.is-focus .ink-palette {
+  border: var(--bw) solid var(--bw-line);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .cm-editor .cm-tooltip.cm-tooltip-autocomplete {
   border: var(--bw) solid var(--bw-line);

@@ -313,8 +313,14 @@ export function ReportScreen() {
                 <SectionCard
                   section={s}
                   readOnly
+                  isPinned
                   sharedByName={sharedOwnerName(s.id)}
                   onOpen={openSectionById}
+                  onUnpin={async () => {
+                    if (!confirm(`Remove "${s.title}" from your report? The original will stay intact for ${sharedOwnerName(s.id) ?? "its owner"}.`)) return;
+                    await getContainer().sharing.unpinShared("report_section", s.id);
+                    await load();
+                  }}
                 />
               </li>
             ))}
@@ -462,24 +468,28 @@ function SectionCard({
   section: s,
   progress: rolled,
   readOnly = false,
+  isPinned = false,
   sharedByName,
   busy = false,
   collapse,
   nested = false,
   onStatusChange,
   onRemove,
+  onUnpin,
   onOpen,
 }: {
   section: ReportSection;
   /** Words under this section, subsections included; its own text when absent. */
   progress?: SectionProgress;
   readOnly?: boolean;
+  isPinned?: boolean;
   sharedByName?: string;
   busy?: boolean;
   collapse?: { open: boolean; onToggle: () => void };
   nested?: boolean;
   onStatusChange?: (status: ReportStatus) => void;
   onRemove?: () => void;
+  onUnpin?: () => void | Promise<void>;
   onOpen?: (id: string) => void;
 }) {
   const hasNotes = Boolean(s.notes?.trim());
@@ -537,8 +547,8 @@ function SectionCard({
           resourceType="report_section"
           resourceId={s.id}
           title={`Share: ${s.title}`}
-          onDelete={readOnly || !onRemove ? undefined : onRemove}
-          deleteLabel="Delete section"
+          onDelete={isPinned ? onUnpin : (readOnly || !onRemove ? undefined : onRemove)}
+          deleteLabel={isPinned ? "Remove from report" : "Delete section"}
           deleteDisabled={busy}
         />
       }

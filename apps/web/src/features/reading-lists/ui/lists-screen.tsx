@@ -138,7 +138,7 @@ export function ListsScreen() {
     }
   }, [focusFromUrl, flat, isSharedView, pinnedSharedBy, setData]);
 
-  const { isReadOnly: isReadOnlyList, sharedOwnerName } = usePinnedSharing({ isSharedView, pinnedSharedBy, ownerNames });
+  const { isReadOnly: isReadOnlyList, sharedOwnerName, isPinned: isPinnedList } = usePinnedSharing({ isSharedView, pinnedSharedBy, ownerNames });
 
   // Two panes: the rail picks one list, the right pane shows it and its sublists.
   const [storedSelected, setSelected] = usePersistedState<string>("thesis.lists.selected", "");
@@ -261,6 +261,7 @@ export function ListsScreen() {
                 depth={0}
                 isCollapsed={false}
                 readOnly={isReadOnlyList(selectedNode.list.id) || !ownedIds.has(selectedNode.list.id)}
+                isPinned={isPinnedList(selectedNode.list.id)}
                 sharedByName={sharedOwnerName(selectedNode.list.id)}
                 canComment={listCanComment.get(selectedNode.list.id) ?? false}
               />
@@ -347,6 +348,7 @@ interface ListNodeProps extends ListTreeContext {
   depth: number;
   isCollapsed: boolean;
   readOnly?: boolean;
+  isPinned?: boolean;
   sharedByName?: string;
   canComment?: boolean;
 }
@@ -367,6 +369,7 @@ function ListNode(props: ListNodeProps) {
     onChanged,
     onReload,
     readOnly = false,
+    isPinned = false,
     sharedByName,
     canComment = false,
   } = props;
@@ -445,6 +448,17 @@ function ListNode(props: ListNodeProps) {
     }
   }
 
+  async function unpinList() {
+    if (!confirm(`Remove "${list.name}" from your reading lists? The original will stay intact for ${sharedByName ?? "its owner"}.`)) return;
+    setDeleteBusy(true);
+    try {
+      await getContainer().sharing.unpinShared("reading_list", list.id);
+      onReload();
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
+
   async function reorderItems(dragId: string, targetId: string) {
     if (dragId === targetId) return;
     const ids = items.map((i) => i.id);
@@ -504,9 +518,8 @@ function ListNode(props: ListNodeProps) {
             </button>
           ))}
         </div>
-        {readOnly ? (
-          <PinnedPaperBadge ownerName={sharedByName} />
-        ) : (
+        {readOnly && <PinnedPaperBadge ownerName={sharedByName} />}
+        {(!readOnly || isPinned) && (
           // Share and Delete sit behind one ⋯, as on every entity card: deleting
           // a list is rare, and a red icon on every row was the loudest thing
           // on the screen. `deleteList` still asks before it removes anything.
@@ -514,8 +527,8 @@ function ListNode(props: ListNodeProps) {
             resourceType="reading_list"
             resourceId={list.id}
             title={`Share: ${list.name}`}
-            onDelete={() => void deleteList()}
-            deleteLabel="Delete list…"
+            onDelete={isPinned ? () => void unpinList() : () => void deleteList()}
+            deleteLabel={isPinned ? "Remove from lists" : "Delete list…"}
             deleteDisabled={deleteBusy}
           />
         )}

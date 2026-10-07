@@ -16,6 +16,8 @@ export interface PinnedSharing {
   isReadOnly: (id: string) => boolean;
   /** The display name of whoever shared a row, or undefined for the reader's own. */
   sharedOwnerName: (id: string) => string | undefined;
+  /** True if this row was pinned to the reader's library from someone else. */
+  isPinned: (id: string) => boolean;
 }
 
 export function usePinnedSharing({
@@ -50,5 +52,10 @@ export function usePinnedSharing({
     [pinnedSharedBy, ownerNames],
   );
 
-  return { isReadOnly, sharedOwnerName };
+  const isPinned = useCallback(
+    (id: string) => pinnedSharedBy.has(id),
+    [pinnedSharedBy],
+  );
+
+  return { isReadOnly, sharedOwnerName, isPinned };
 }

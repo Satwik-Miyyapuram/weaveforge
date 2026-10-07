@@ -1,6 +1,7 @@
 import type { CitationCandidate, LogEntry, Milestone, Paper } from "@weaveforge/core";
 import type { Integration } from "../domain/integration";
 import { mattermostConnection, mattermostConnectionReady } from "../domain/integration-fields";
+import { emitMattermostSignedOut } from "./mattermost-session";
 
 /**
  * Posts plan updates directly from the unlocked browser. The Mattermost admin
@@ -31,6 +32,9 @@ export class MattermostNotifier {
       }),
     });
     if (!res.ok) {
+      // An expired or revoked session token reads as 401/403: tell the UI so it
+      // can offer re-sign-in, then still throw for the caller's own handling.
+      if (res.status === 401 || res.status === 403) emitMattermostSignedOut({ serverUrl: origin });
       const d = await res.text().catch(() => "");
       throw new Error(`Mattermost post failed (${res.status}). ${d}`.trim());
     }

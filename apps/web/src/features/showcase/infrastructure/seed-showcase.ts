@@ -101,19 +101,30 @@ export async function resetShowcaseProject(db: Db, userId: string, name: string)
 }
 
 async function seedMilestonesAndLog(db: Db, userId: string, projectId: string, now: Date, milestones: ShowcaseMilestone[], log: ShowcaseLogEntry[]) {
+  const milestoneIds = new Map(milestones.map((m) => [m.title, crypto.randomUUID()]));
   const ms = await insertRows<{ id: string; title: string }>(
     db,
     "milestones",
-    milestones.map((m) => ({
-      user_id: userId,
-      project_id: projectId,
-      title: m.title,
-      description: m.description ?? null,
-      status: m.status,
-      target_date: m.target_date,
-      dependencies: m.dependencies ?? [],
-      compute: m.compute ?? [],
-    })),
+    milestones.map((m) => {
+      const id = milestoneIds.get(m.title)!;
+      const dependencies = (m.dependencies ?? []).map((d: any) => {
+        if (d.kind === "milestone" && !d.refId && d.label && milestoneIds.has(d.label)) {
+          return { ...d, refId: milestoneIds.get(d.label) };
+        }
+        return d;
+      });
+      return {
+        id,
+        user_id: userId,
+        project_id: projectId,
+        title: m.title,
+        description: m.description ?? null,
+        status: m.status,
+        target_date: m.target_date,
+        dependencies,
+        compute: m.compute ?? [],
+      };
+    }),
     "id, title",
   );
   await insertRows(

@@ -44,6 +44,10 @@ const FolderDraftInbox = dynamic(
   () => import("@/features/ai-assistant/ui/folder-draft-inbox").then((m) => m.FolderDraftInbox),
   { ssr: false },
 );
+const MattermostSignedOutHost = dynamic(
+  () => import("@/features/sync/ui/mattermost-signed-out-host").then((m) => m.MattermostSignedOutHost),
+  { ssr: false },
+);
 
 /**
  * Top-level shell: gates on auth, then on a selected project. Brand header
@@ -80,6 +84,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <ProjectProvider key={sessionEpoch}>
                   <PdfTextFolderSync />
                   <FolderDraftInbox />
+                  <MattermostSignedOutHost />
                   <ProjectScopedShell>{children}</ProjectScopedShell>
                 </ProjectProvider>
               </OrgSetupGate>

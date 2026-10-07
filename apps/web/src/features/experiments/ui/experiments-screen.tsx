@@ -108,7 +108,7 @@ export function ExperimentsScreen() {
     router.replace(`/experiments/${focusFromUrl}`);
   }, [focusFromUrl, router]);
 
-  const { isReadOnly: isReadOnlyExperiment, sharedOwnerName } = usePinnedSharing({ isSharedView, pinnedSharedBy, ownerNames });
+  const { isReadOnly: isReadOnlyExperiment, sharedOwnerName, isPinned: isPinnedExperiment } = usePinnedSharing({ isSharedView, pinnedSharedBy, ownerNames });
 
 
   // Poll while a run is actually in progress so metrics/status stay fresh.
@@ -320,6 +320,7 @@ export function ExperimentsScreen() {
               <ExperimentCard
                 exp={e}
                 readOnly={isReadOnlyExperiment(e.id)}
+                isPinned={isPinnedExperiment(e.id)}
                 sharedByName={sharedOwnerName(e.id)}
                 onReplace={replace}
                 onChanged={load}
@@ -512,12 +513,14 @@ function OverlayCharts({ experiments }: { experiments: Experiment[] }) {
 function ExperimentCard({
   exp,
   readOnly = false,
+  isPinned = false,
   sharedByName,
   onReplace,
   onChanged,
 }: {
   exp: Experiment;
   readOnly?: boolean;
+  isPinned?: boolean;
   sharedByName?: string;
   onReplace: (e: Experiment) => void;
   onChanged: () => void;
@@ -527,6 +530,7 @@ function ExperimentCard({
   const [busy, setBusy] = useState(false);
   /** Whether the delete confirmation is up. */
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmUnpinOpen, setConfirmUnpinOpen] = useState(false);
   const openDetail = useCallback(() => {
     const dest = experimentHref(exp.id);
     beginNavigation(dest);
@@ -540,6 +544,16 @@ function ExperimentCard({
     setBusy(true);
     try {
       await getContainer().experiments.manageExperiment.remove(exp.id);
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function unpin() {
+    setConfirmUnpinOpen(false);
+    setBusy(true);
+    try {
+      await getContainer().sharing.unpinShared("experiment", exp.id);
       onChanged();
     } finally {
       setBusy(false);
@@ -567,13 +581,14 @@ function ExperimentCard({
       // Same card shape as papers and notes: status stays on the card, the
       // occasional and destructive controls move behind one ⋯.
       menu={
-        readOnly ? undefined : (
+        readOnly && !isPinned ? undefined : (
           <EntityCardMenu
             resourceType="experiment"
             resourceId={exp.id}
             title={`Share: ${exp.name}`}
             deleteDisabled={busy}
-            onDelete={() => setConfirmOpen(true)}
+            deleteLabel={isPinned ? "Remove from experiments" : "Delete experiment"}
+            onDelete={isPinned ? () => setConfirmUnpinOpen(true) : readOnly ? undefined : () => setConfirmOpen(true)}
           />
         )
       }
@@ -595,6 +610,18 @@ function ExperimentCard({
         busy={busy}
         onConfirm={() => void remove()}
         onClose={() => setConfirmOpen(false)}
+      />
+    )}
+
+    {confirmUnpinOpen && (
+      <ConfirmDialog
+        title="Remove shared experiment?"
+        body={`“${exp.name}” will be removed from your workspace. The original will stay intact for ${sharedByName ?? "its owner"}.`}
+        confirmLabel="Remove from experiments"
+        danger
+        busy={busy}
+        onConfirm={() => void unpin()}
+        onClose={() => setConfirmUnpinOpen(false)}
       />
     )}
     </>

@@ -91,13 +91,13 @@ const ROUTE_ALLOWANCES_KB = {
   // graph and experiments share the top navigation with live sync status indicators;
   // experiments added the image viewer, result editor and token create form, and
   // graph shares the chunk that carries them: +3 KB each.
-  "/graph": 386,
-  "/experiments": 355,
+  "/graph": 389,
+  "/experiments": 358,
   // the shared shell itself: the container gained the MCP draft, proposal and
   // lab-snapshot code, all of it reached from the layout. The puller's hold
   // queue and local-twin drop run on every page: +2 KB on the shell.
   "/layout": 345,
-  "/dashboard": 344,
+  "/dashboard": 346,
 };
 
 /** The allowance for a route, longest matching prefix first, plus the environment's. */

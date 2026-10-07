@@ -399,7 +399,7 @@ export function documentSuffix(kind: string): string {
  */
 export function modesFor(kind: string): readonly DocumentMode[] {
   const meta = kindMeta(kind);
-  if (meta.document === "pdf") return ["pdf", "ink"];
+  if (meta.document === "pdf") return ["pdf"];
   return meta.ink ? ["edit", "read", "ink"] : ["edit", "read"];
 }
 
