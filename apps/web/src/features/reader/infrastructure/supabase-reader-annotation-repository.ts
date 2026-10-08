@@ -72,6 +72,7 @@ export class SupabaseReaderAnnotationRepository extends ProjectScopedSupabaseRep
     const dbRow = await oneRow<ReaderAnnotationRow>(this.db
       .from(TABLE)
       .insert({
+        ...(draft.id ? { id: draft.id } : {}),
         user_id: userId,
         project_id: this.projectId,
         paper_id: paperId,

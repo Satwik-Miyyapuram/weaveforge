@@ -88,3 +88,18 @@ test("InMemoryReaderAnnotationRepository rejects unknown types", async () => {
     /Invalid annotation type/,
   );
 });
+
+test("InMemoryReaderAnnotationRepository brings a removed mark back under its old id", async () => {
+  const repo = new InMemoryReaderAnnotationRepository();
+  const draft = {
+    type: "highlight" as const,
+    color: "#ffd400",
+    pageIndex: 0,
+    anchor: { zoteroPosition: { pageIndex: 0, rects: [[1, 2, 3, 4]] } },
+  };
+  const first = await repo.create("paper-1", draft);
+  await repo.remove(first.id);
+  const back = await repo.create("paper-1", { ...draft, id: first.id });
+  assert.equal(back.id, first.id);
+  assert.deepEqual((await repo.list("paper-1")).map((a) => a.id), [first.id]);
+});

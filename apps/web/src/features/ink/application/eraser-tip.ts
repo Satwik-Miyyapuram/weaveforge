@@ -38,3 +38,60 @@ export function isPenEraserPointer(event: PenEraserEvent): boolean {
   if (event.button === PEN_ERASER_BUTTON) return true;
   return ((event.buttons ?? 0) & PEN_ERASER_BIT) !== 0;
 }
+
+/** What a sweep needs from a pointer event; a React or DOM `PointerEvent` fits. */
+export interface EraserSweepEvent extends PenEraserEvent {
+  pointerId: number;
+  currentTarget: unknown;
+}
+
+type Styled = { style: { cursor: string } };
+const styled = (target: unknown): target is Styled =>
+  typeof target === "object" && target !== null && "style" in target;
+
+/**
+ * One erase sweep, down to up: whether a down erases, which pointer owns the
+ * sweep, and the eraser cursor while it lasts. Notes and the reader share it so
+ * the back tip behaves the same on a sheet and on a PDF page.
+ */
+export class EraserSweep {
+  private pointer: number | null = null;
+  private target: Styled | null = null;
+  private cursorBefore = "";
+
+  constructor(private readonly cursor: string) {}
+
+  /**
+   * Starts a sweep when the armed tool erases, or when `tipErases` and the
+   * pen's back tip made the contact. False leaves the down to the caller.
+   */
+  begin(event: EraserSweepEvent, toolErases: boolean, tipErases: boolean): boolean {
+    if (!toolErases && !(tipErases && isPenEraserPointer(event))) return false;
+    this.restoreCursor();
+    this.pointer = event.pointerId;
+    if (styled(event.currentTarget)) {
+      this.target = event.currentTarget;
+      this.cursorBefore = this.target.style.cursor;
+      this.target.style.cursor = this.cursor;
+    }
+    return true;
+  }
+
+  /** Whether `pointerId` is the one sweeping. */
+  owns(pointerId: number): boolean {
+    return this.pointer === pointerId;
+  }
+
+  /** Ends the sweep `pointerId` owns; false when it owned none. */
+  end(pointerId: number): boolean {
+    if (this.pointer !== pointerId) return false;
+    this.pointer = null;
+    this.restoreCursor();
+    return true;
+  }
+
+  private restoreCursor(): void {
+    if (this.target) this.target.style.cursor = this.cursorBefore;
+    this.target = null;
+  }
+}

@@ -12,8 +12,9 @@ import type { ProjectSyncDescriptor } from "@/integrations/descriptors-types";
 import { gitConnectionReady, mattermostConnectionReady } from "../domain/integration-fields";
 import { MATTERMOST_EVENTS, mattermostOptions, type MattermostOptions } from "../domain/mattermost-options";
 import { formatError } from "@/lib/format-error";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
-import { MattermostLoginForm } from "./mattermost-login-form";
+import { DEFAULT_MATTERMOST_SERVER, MattermostSignInButton } from "./mattermost-sign-in-button";
 
 export function SyncSettings() {
   const { current } = useProject();
@@ -93,10 +94,13 @@ function IntegrationRow({
   const [signIn, setSignIn] = useState(false);
   useEffect(() => {
     try {
-      setSignIn(localStorage.getItem(modeKey) === "1");
+      const stored = localStorage.getItem(modeKey);
+      // Sign-in is the default; a saved bot token keeps its own mode.
+      setSignIn(stored === "1" || (stored === null && !value.token));
     } catch {
-      /* private mode: default to bot token */
+      setSignIn(!value.token);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mode is chosen once per project
   }, [modeKey]);
   function chooseSignIn(on: boolean) {
     setSignIn(on);
@@ -166,6 +170,13 @@ function IntegrationRow({
                 <span className="knob" />
               </button>
             </div>
+            {isMattermost && !desktop()?.mattermostPost && (
+              <p className="muted">
+                Posting from the website only works if your Mattermost server allows it. Servers run by
+                universities and other institutions usually block it, so if test messages fail here, connect
+                Mattermost from the desktop app instead.
+              </p>
+            )}
             {isMattermost && (
               <div className="integration-enable">
                 <span>Sign in with Mattermost instead of a bot token</span>
@@ -180,30 +191,33 @@ function IntegrationRow({
                 </button>
               </div>
             )}
-            {descriptor.fields.map((field) => {
-              const greyToken = isMattermost && signIn && field.key === "token";
-              return (
+            {isMattermost && signIn && (
+              <>
+                {value.token && <p className="muted">Signed in to {value.repo || DEFAULT_MATTERMOST_SERVER}.</p>}
+                <MattermostSignInButton
+                  serverUrl={value.repo ?? ""}
+                  label={value.token ? "Sign in again" : "Sign in with Mattermost"}
+                  onToken={(token) =>
+                    save({ ...value, token, repo: value.repo?.trim() || DEFAULT_MATTERMOST_SERVER }, false)
+                  }
+                />
+              </>
+            )}
+            {descriptor.fields
+              // Sign-in brings its own token and server; only the channel is asked for.
+              .filter((field) => !(isMattermost && signIn && field.key !== "branch"))
+              .map((field) => (
                 <div className="field" key={field.key}>
                   <label>{field.label}</label>
                   <input
                     type={field.type}
                     value={value[field.key] ?? ""}
                     onChange={(e) => patch({ [field.key]: e.target.value })}
-                    placeholder={greyToken ? "using browser sign-in token" : field.placeholder}
+                    placeholder={field.placeholder}
                     autoComplete="off"
-                    disabled={greyToken}
                   />
-                  {greyToken && <p className="muted">Using browser sign-in token.</p>}
                 </div>
-              );
-            })}
-            {isMattermost && signIn && (
-              <MattermostLoginForm
-                serverUrl={value.repo ?? ""}
-                submitLabel="Sign in & save"
-                onToken={(token) => save({ ...value, token }, false)}
-              />
-            )}
+              ))}
             {descriptor.provider === "mattermost" && (
               <MattermostEventControls value={value} onChange={patch} onError={setError} />
             )}

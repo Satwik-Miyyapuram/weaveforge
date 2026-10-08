@@ -34,7 +34,7 @@ export class InMemoryReaderAnnotationRepository
       draft.sortIndex?.trim() ||
       buildAnnotationSortIndex(pageIndex, 0, 0);
     const row: ReaderAnnotation & { paperId: string } = {
-      id: `local-ann-${this.seq}`,
+      id: draft.id ?? `local-ann-${this.seq}`,
       origin: "local",
       zoteroKey: null,
       type: draft.type,

@@ -24,6 +24,7 @@ export {
   type PenDecision,
   type PenGateEvent,
 } from "./application/pen-gate";
+export { EraserSweep, isPenEraserPointer } from "./application/eraser-tip";
 
 export {
   PenCaptureSession,
