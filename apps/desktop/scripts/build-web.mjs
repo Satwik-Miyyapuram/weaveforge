@@ -31,9 +31,10 @@ import { fileURLToPath } from "node:url";
  *     for. `/shared` and `/supervision` do ship: they read through the
  *     container, which a signed-in window routes to the server.
  *
- * Moving directories in the working tree is a blunt instrument, so it is done
- * carefully: they are restored in a `finally`, restored on a signal, and the
- * build refuses to start if a previous run left a holding directory behind.
+ * The routes are held aside by renaming their files, not their directories:
+ * Windows refuses to rename a directory an editor or language server watches,
+ * but renames files inside it freely. They are restored in a `finally`, on a
+ * signal, and the build refuses to start if a previous run left one held.
  */
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -46,17 +47,16 @@ const web = path.resolve(root, "../web");
 const exported = path.join(web, ".next-desktop");
 const destination = path.join(root, "dist/web");
 
-/** Route directories held aside for the build, as `[real, holding]` pairs. */
-const heldAside = [
-  ["api", "org"].map((name) => [name, name]),
-  // The list stays; only the page-per-experiment goes.
-  [["experiments/[id]", "experiment-detail"]],
-]
-  .flat()
-  .map(([route, holding]) => [
-    path.join(web, "src/app", route),
-    path.join(web, `src/.${holding}-held-for-desktop-build`),
-  ]);
+/** Route directories whose files are held aside for the build. */
+const heldRoutes = ["api", "org", "experiments/[id]"].map((route) => path.join(web, "src/app", route));
+const HELD = ".held-for-desktop-build";
+
+function filesUnder(dir) {
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir, { withFileTypes: true, recursive: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => path.join(entry.parentPath ?? entry.path, entry.name));
+}
 
 // Next bakes `NEXT_PUBLIC_*` into the bundle at build time. A bundle built
 // without the sign-in settings throws before auth starts, and the installed app
@@ -73,24 +73,22 @@ if (missingEnv.length > 0) {
   throw new Error(`Set ${missingEnv.join(" and ")} in apps/web/.env.local or the environment before bundling the app.`);
 }
 
-for (const [real, holding] of heldAside) {
-  if (fs.existsSync(holding)) {
-    throw new Error(
-      `${holding} already exists, which means an earlier desktop build did not finish. ` +
-        `Move its contents back to ${real} before building again — this script will not ` +
-        "guess which of the two is the real one.",
-    );
-  }
+const leftHeld = heldRoutes.flatMap(filesUnder).filter((file) => file.endsWith(HELD));
+if (leftHeld.length > 0) {
+  throw new Error(
+    `${leftHeld[0]} (and ${leftHeld.length - 1} more) is still held from an earlier desktop build that did not ` +
+      `finish. Drop the ${HELD} suffix from each before building again — this script will not guess which ` +
+      "copy is the real one.",
+  );
 }
 
-for (const [real, holding] of heldAside) {
-  if (fs.existsSync(real)) fs.renameSync(real, holding);
-}
+const held = heldRoutes.flatMap(filesUnder);
+for (const file of held) fs.renameSync(file, file + HELD);
 
 /** Put the routes back. Safe to call twice; the second call finds nothing. */
 function restore() {
-  for (const [real, holding] of heldAside) {
-    if (fs.existsSync(holding) && !fs.existsSync(real)) fs.renameSync(holding, real);
+  for (const file of held) {
+    if (fs.existsSync(file + HELD) && !fs.existsSync(file)) fs.renameSync(file + HELD, file);
   }
 }
 

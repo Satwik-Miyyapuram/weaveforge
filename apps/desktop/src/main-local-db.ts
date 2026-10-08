@@ -18,7 +18,9 @@ import { LocalDbBackups, readBackup } from "./local-db-backup";
 import { LocalDbHost } from "./local-db-host";
 import { databaseDirFor, relocateDatabaseOnce, StrandedDatabaseError } from "./local-db-location";
 import { prepareDataDir } from "./local-db-prepare";
-import { applyDeferredMove, moveAside } from "./local-db-reset";
+import { acquireDbLock, DatabaseInUseError, releaseDbLock } from "./local-db-lock";
+import { applyDeferredMove, claimRelaunch, clearRelaunch, moveAside } from "./local-db-reset";
+import { clearRestoreLeftovers, restoreNewestGood } from "./local-db-restore";
 
 export interface MainLocalDbDeps {
   ipc: IpcSurface;
@@ -68,7 +70,15 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
    */
   let storageDir: string | null = null;
   const localDbDir = (): string => storageDir ?? appDbDir;
-  
+
+  /** The directory this process holds the lock for; see `local-db-lock.ts`. */
+  let lockedDir: string | null = null;
+  const releaseLock = (): void => {
+    if (lockedDir) releaseDbLock(lockedDir);
+  };
+  // A crash skips `shutDownLocalDb`; a dead pid's lock is taken over anyway.
+  process.on("exit", releaseLock);
+
   /** Opens a directory and reads one row; the only honest test of "can it open". */
   async function verifyDatabase(dir: string): Promise<boolean> {
     prepareDataDir(dir);
@@ -146,13 +156,13 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
     },
   });
   
-  /** Start the engine on the current data directory, from a backup's bytes when given some. */
-  async function openEngine(loadDataDir?: Blob): Promise<LocalClient> {
-    prepareDataDir(localDbDir());
+  /** Start the engine on `dir` (the data directory), from a backup's bytes when given some. */
+  async function openEngine(loadDataDir?: Blob, dir: string = localDbDir()): Promise<LocalClient> {
+    prepareDataDir(dir);
     const { PGlite, types } = await import("@electric-sql/pglite");
     const { pgcrypto } = await import("@electric-sql/pglite/contrib/pgcrypto");
     return (await PGlite.create({
-      dataDir: localDbDir(),
+      dataDir: dir,
       extensions: { pgcrypto },
       // Rows cross to the renderer shaped as PostgREST would send them, and the
       // repositories were written against that: a `date` is its `YYYY-MM-DD`
@@ -203,6 +213,7 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       try {
         return await openEngine();
       } catch (cause) {
+        if (cause instanceof DatabaseInUseError) throw cause;
         last = cause;
         if (attempt < OPEN_ATTEMPTS - 1) {
           const wait = Math.min(OPEN_BACKOFF_MS * 2 ** attempt, OPEN_BACKOFF_MAX_MS);
@@ -214,6 +225,26 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
     throw last;
   }
   
+  /**
+   * Rebuild the missing data directory from the newest backup that opens, then
+   * open it. Backups of a broken directory are broken too, so each is proven in a
+   * scratch directory first; see `local-db-restore.ts`.
+   */
+  async function restoreAndOpen(): Promise<{ client: LocalClient; from: string } | null> {
+    const from = await restoreNewestGood(localDbDir(), await localDbBackups.all(), async (dir, file) => {
+      const client = await openEngine(await readBackup(file), dir);
+      try {
+        await client.query("select 1");
+      } finally {
+        await client.close().catch(() => undefined);
+      }
+    });
+    if (!from) return null;
+    const client = await openEngine();
+    clearRelaunch(localDbDir());
+    return { client, from };
+  }
+
   const localDb = new LocalDbHost({
     migrations: [
       path.join(__dirname, "migrations"),
@@ -229,15 +260,20 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       // is a pure lookup — see `local-db-location.ts` for why it is shaped that
       // way rather than being a copy on every launch.
       await ensureDatabaseLocation();
+      // Before anything touches the directory: a second app on it corrupts it.
+      if (lockedDir !== localDbDir()) releaseLock();
+      acquireDbLock(localDbDir(), app.getName());
+      lockedDir = localDbDir();
+      clearRestoreLeftovers(localDbDir());
       // A reset the previous run could only write down; see `local-db-reset.ts`.
       applyDeferredMove(localDbDir());
       // No database at all -- a fresh install, or a reset -- but a backup: the
       // backup is what the person had, so it is what they get back.
       if (!fs.existsSync(localDbDir())) {
-        const latest = await localDbBackups.latest();
-        if (latest) {
-          console.log(`[local-db] no database; restoring from ${latest}`);
-          return openEngine(await readBackup(latest));
+        const restored = await restoreAndOpen();
+        if (restored) {
+          console.log(`[local-db] no database; restored from ${restored.from}`);
+          return restored.client;
         }
       }
       // The database exists, so a failure to open it here is a failure, not a
@@ -246,23 +282,29 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       // thing this file can do. It is worth three patient attempts first: a lock
       // held by a process that is still exiting clears in about a second, and
       // must not cost the reader their afternoon.
-      return openEngineWithRetry();
+      const client = await openEngineWithRetry();
+      clearRelaunch(localDbDir());
+      return client;
     },
     recover: async (cause) => {
       // Surfaced, not repaired: a restore here would hide where the data is.
       if (cause instanceof StrandedDatabaseError) return null;
+      // Another app has it open: nothing is broken, so nothing is moved.
+      if (cause instanceof DatabaseInUseError) return null;
       const latest = await localDbBackups.latest();
       if (!latest) return null;
-      console.warn(`[local-db] open failed (${String(cause)}); restoring from ${latest}`);
+      console.warn(`[local-db] open failed (${String(cause)}); restoring from a backup`);
       // The engine that failed may still hold the directory. When it does, the
       // move waits for a process that has never opened it -- this one,
       // relaunched -- and that boot finds no directory and restores (above).
       if ((await moveAside(localDbDir())) === "deferred") {
+        // A relaunched boot that fails again shows the error instead of looping.
+        if (!claimRelaunch(localDbDir())) return null;
         app.relaunch();
         app.exit(0);
         return null;
       }
-      return { client: await openEngine(await readBackup(latest)), from: latest };
+      return restoreAndOpen();
     },
     discard: async () => {
       // As in `recover`, for the button on the page.
@@ -292,7 +334,10 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
    * which runs this before the installer is spawned — and the `will-quit` that
    * follows it do not fight over the same files.
    */
-  const shutDownLocalDb = (): Promise<void> => backUpLocalDb().then(() => localDb.close());
+  const shutDownLocalDb = (): Promise<void> =>
+    backUpLocalDb()
+      .then(() => localDb.close())
+      .finally(releaseLock);
   
   deps.ipc.handle(CHANNELS.dbQuery, async (_event, sql: unknown, params: unknown) => {
     const result = await localDb.query(sql, params);

@@ -1,14 +1,16 @@
 import type { CitationCandidate, LogEntry, Milestone, Paper } from "@weaveforge/core";
 import type { Integration } from "../domain/integration";
 import { mattermostConnection, mattermostConnectionReady } from "../domain/integration-fields";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import { emitMattermostSignedOut } from "./mattermost-session";
 
 /**
- * Posts plan updates directly from the unlocked browser. The Mattermost admin
- * must allow this app's origin in AllowCorsFrom; there is no credential proxy.
+ * Posts plan updates. In the desktop app the shell sends them, so the server
+ * needs no CORS rule; in a browser the Mattermost admin must allow this
+ * origin in AllowCorsFrom. There is no credential proxy.
  */
 export class MattermostNotifier {
-  constructor(private readonly fetchFn: typeof fetch = (...a) => fetch(...a)) {}
+  constructor(private readonly fetchFn?: typeof fetch) {}
 
   /** `channel` overrides the connection's main channel (per-event routing). */
   async post(integration: Integration, message: string, channel?: string): Promise<void> {
@@ -23,21 +25,24 @@ export class MattermostNotifier {
     } catch {
       throw new Error("Mattermost server URL must be a valid http(s) URL.");
     }
-    const res = await this.fetchFn(`${origin}/api/v4/posts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${botToken}` },
-      body: JSON.stringify({
-        channel_id: channelId,
-        message,
-      }),
-    });
-    if (!res.ok) {
+    const res = await this.send(origin, botToken, channelId, message);
+    if (res.status < 200 || res.status >= 300) {
       // An expired or revoked session token reads as 401/403: tell the UI so it
       // can offer re-sign-in, then still throw for the caller's own handling.
       if (res.status === 401 || res.status === 403) emitMattermostSignedOut({ serverUrl: origin });
-      const d = await res.text().catch(() => "");
-      throw new Error(`Mattermost post failed (${res.status}). ${d}`.trim());
+      throw new Error(`Mattermost post failed (${res.status}). ${res.body}`.trim());
     }
+  }
+
+  private async send(origin: string, token: string, channelId: string, message: string) {
+    const viaShell = this.fetchFn ? undefined : desktop()?.mattermostPost;
+    if (viaShell) return viaShell({ serverUrl: origin, token, channelId, message });
+    const res = await (this.fetchFn ?? fetch)(`${origin}/api/v4/posts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ channel_id: channelId, message }),
+    });
+    return { status: res.status, body: res.ok ? "" : await res.text().catch(() => "") };
   }
 }
 

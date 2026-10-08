@@ -21,7 +21,7 @@ import {
 // The shared palm rules, through ink's public API: an ink note needs the same
 // three layers this reader already had, so they live in one place rather than in
 // two implementations that would drift.
-import { InkPenGate } from "@/features/ink";
+import { ERASER_CURSOR, EraserSweep, InkPenGate } from "@/features/ink";
 import {
   appendInkStroke,
   draftImageRegion,
@@ -174,6 +174,8 @@ export function usePagePointer({
   const inkMove = useRef<InkMove | null>(null);
   /** Ink deleted by the current eraser drag, so one pass deletes each mark once. */
   const erasedIds = useRef<Set<string>>(new Set());
+  /** The erase in flight, by tool or by the pen's back tip; shared with Notes. */
+  const sweep = useRef(new EraserSweep(ERASER_CURSOR));
   const dragRect = useRef<{
     pageNumber: number;
     x0: number;
@@ -411,10 +413,23 @@ export function usePagePointer({
     return inkWidthForPressure(event.pressure, nibBase);
   }
 
+  function startErase(pageNumber: number, event: React.PointerEvent<HTMLDivElement>, pt: { x: number; y: number }) {
+    event.preventDefault();
+    erasedIds.current = new Set();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    eraseAt(pageNumber, pt.x, pt.y);
+  }
+
   function onPagePointerDown(pageNumber: number, event: React.PointerEvent<HTMLDivElement>) {
     if (!canCreate || !pageSize) return;
     const host = event.currentTarget;
     const pt = screenToPdf(host, event.clientX, event.clientY);
+
+    // The pen's back tip erases whatever tool is armed, as on a sheet of Notes.
+    if (sweep.current.begin(event, false, inkEditable && createTool !== "lasso")) {
+      startErase(pageNumber, event, pt);
+      return;
+    }
 
     // The lasso is the sheet's gesture on a paper, and the *only* thing its
     // tool does: a drag from anywhere draws a loop, and what is inside is
@@ -455,10 +470,8 @@ export function usePagePointer({
     if (!pointerMayDraw(event)) return;
     event.preventDefault();
 
-    if (createTool === "erase") {
-      erasedIds.current = new Set();
-      host.setPointerCapture(event.pointerId);
-      eraseAt(pageNumber, pt.x, pt.y);
+    if (sweep.current.begin(event, createTool === "erase", false)) {
+      startErase(pageNumber, event, pt);
       return;
     }
 
@@ -511,6 +524,11 @@ export function usePagePointer({
       return;
     }
 
+    if (sweep.current.owns(event.pointerId)) {
+      eraseAt(pageNumber, pt.x, pt.y);
+      return;
+    }
+
     if (lassoPointerId.current === event.pointerId) {
       // A loop is a shape, and samples inside the pointer's own jitter carry
       // none of it: the rule the stroke path uses keeps the polygon short too.
@@ -518,11 +536,6 @@ export function usePagePointer({
         lasso.current.push(pt.x, pt.y);
         publishLasso(lasso.current);
       }
-      return;
-    }
-
-    if (createTool === "erase" && event.buttons !== 0) {
-      eraseAt(pageNumber, pt.x, pt.y);
       return;
     }
 
@@ -651,7 +664,7 @@ export function usePagePointer({
       return;
     }
 
-    if (createTool === "erase") {
+    if (sweep.current.end(event.pointerId) || createTool === "erase") {
       erasedIds.current = new Set();
       return;
     }

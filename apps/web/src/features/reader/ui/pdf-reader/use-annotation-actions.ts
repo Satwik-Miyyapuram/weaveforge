@@ -37,16 +37,8 @@ export interface AnnotationActions {
     id: string,
     patch: { comment?: string; tags?: string[]; color?: string; text?: string },
   ) => Promise<void>;
-  /** Delete now, no question asked. Every caller that needs one goes through `askRemove`. */
+  /** Delete now, no question asked; Ctrl+Z brings it back (`use-ink-undo.ts`). */
   removeLocal: (id: string) => Promise<void>;
-  /**
-   * Open the app's own confirmation for a delete. The reader draws the dialog —
-   * a hook cannot — so this only names the annotation being asked about.
-   */
-  askRemove: (id: string) => void;
-  /** The annotation a confirmation is open for, or null when none is. */
-  pendingRemove: string | null;
-  clearPendingRemove: () => void;
   pinLocal: (ann: ReaderAnnotation, sectionId: string | null) => Promise<void>;
   /** Move a mark; `comment`, when given, is written in the same request. */
   saveAnchor: (
@@ -76,7 +68,6 @@ export function useAnnotationActions({
 }: AnnotationActionsDeps): AnnotationActions {
   const [annError, setAnnError] = useState<string | null>(null);
   const [createBusy, setCreateBusy] = useState(false);
-  const [pendingRemove, setPendingRemove] = useState<string | null>(null);
 
   const persistDraft = useCallback(
     async (draft: NewReaderAnnotation): Promise<ReaderAnnotation | null> => {
@@ -155,23 +146,7 @@ export function useAnnotationActions({
     [onAnnotationsChange, onActivity],
   );
 
-  /**
-   * Delete a local annotation. No confirmation lives here any more.
-   *
-   * This used to call `window.confirm` unless the caller passed
-   * `{ confirm: false }`, which left the reader with an unstyled OS dialog in
-   * the middle of a themed surface — the exact thing `ConfirmDialog` exists to
-   * replace, and the last call site of it outside the two error boundaries
-   * (which keep the platform dialog on purpose: they may be rendering because
-   * the tree that draws `Modal` is what failed).
-   *
-   * A hook cannot render a dialog, so the question moved to the caller: the
-   * paths a person chooses — the sidebar's Delete button and the Delete key on
-   * a selected mark — go through `askRemove`, which names the annotation and
-   * lets `pdf-reader.tsx` draw `ConfirmDialog` over it. The paths that are
-   * already deliberate gestures — the eraser, ink undo — call this directly,
-   * which is what they asked for before by passing `confirm: false`.
-   */
+  /** Delete a local annotation. No dialog: undo is the safety net. */
   const removeLocal = useCallback(
     async (id: string) => {
       if (!onAnnotationsChange) return;
@@ -196,9 +171,6 @@ export function useAnnotationActions({
     },
     [onAnnotationsChange, onActivity, selectedAnnId, setSelectedAnnId],
   );
-
-  const askRemove = useCallback((id: string) => setPendingRemove(id), []);
-  const clearPendingRemove = useCallback(() => setPendingRemove(null), []);
 
   const pinLocal = useCallback(
     async (ann: ReaderAnnotation, sectionId: string | null) => {
@@ -245,9 +217,6 @@ export function useAnnotationActions({
     persistDraft,
     updateLocal,
     removeLocal,
-    askRemove,
-    pendingRemove,
-    clearPendingRemove,
     pinLocal,
     saveAnchor,
   };

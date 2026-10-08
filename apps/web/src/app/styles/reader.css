@@ -20,13 +20,12 @@
 /* Where there is room, the tools row wraps instead of scrolling: a scrolled
    strip hid the annotation tool and its colour off the right edge. */
 @media (min-width: 721px) {
-  /* One continuous bar: page, zoom, fit/rotate, then find and the tools.
-     Controls stay on a single line and scroll horizontally if width is restricted. */
+  /* One bar: view controls, then find and the tools. Too narrow (side panel
+     open) and the tools drop to a second row rather than scroll. */
   .pdf-reader-chrome {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
-    overflow-x: auto;
   }
   .pdf-reader-chrome > .pdf-reader-toolbar {
     flex: 0 0 auto;
@@ -69,6 +68,10 @@
 }
 /* "Page 3 / 15" is orientation, not a command: it leads the bar. */
 .pdf-reader-page-jump { font-size: 0.85rem; order: -1; }
+/* Same side room as the other tiles; without it "Page" and "/ N" hugged the frame. */
+.pdf-reader-page-jump > .muted { padding: 0 8px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pdf-reader-page-jump > .muted:first-child { padding-right: 2px; }
+.pdf-reader-page-jump > .muted:last-child { padding-left: 2px; }
 .pdf-reader-page-jump input {
   width: 3.5rem; height: 32px; padding: 0 6px; text-align: center;
 }
@@ -248,9 +251,12 @@
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   margin-bottom: 8px;
 }
-.pdf-reader-side-header .pdf-reader-side-collapse {
-  position: static; flex: none; width: 28px; height: 28px; min-width: 28px; padding: 0;
+/* :root outranks the brutal .btn-sm padding, which squeezed the arrow to 0px. */
+:root .pdf-reader-side-header .pdf-reader-side-collapse.pdf-reader-icon-btn {
+  position: static; flex: none; width: 28px; height: 28px; min-width: 28px; min-height: 28px; padding: 0;
+  justify-content: center;
 }
+.pdf-reader-side-collapse svg { flex-shrink: 0; }
 .pdf-reader-side-seg {
   display: inline-flex; flex: 1 1 auto;
 }
@@ -295,7 +301,8 @@
   .pdf-reader-side:not(.is-list-open) .pdf-reader-sidebar { display: none; }
 }
 @media (min-width: 861px) {
-  .pdf-reader-narrow-only, .pdf-reader-chrome .pdf-reader-group .pdf-reader-narrow-only { display: none; }
+  .pdf-reader-narrow-only, .pdf-reader-chrome .pdf-reader-more.pdf-reader-narrow-only,
+  .pdf-reader-chrome .pdf-reader-group .pdf-reader-narrow-only { display: none; }
 }
 .pdf-reader-outline {
   /* `vh` then `dvh`, the fallback pair base.css uses on `body` — a cap inside a

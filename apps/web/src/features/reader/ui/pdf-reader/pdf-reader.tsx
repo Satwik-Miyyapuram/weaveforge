@@ -60,7 +60,6 @@ import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
 import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { ColourMenu } from "@/components/colour-menu";
-import { ConfirmDialog } from "@/components/confirm-dialog";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink, TextBoxComposer } from "./overlays";
 import { layoutMarginNotes } from "../../application/margin-notes";
@@ -224,39 +223,45 @@ export function PdfReader({
     createBusy,
     updateLocal,
     pinLocal,
-    askRemove,
-    pendingRemove,
-    clearPendingRemove,
   } = actions;
-  // Stroke writes go through the undo stack while the rail is up; the
-  // wrapped writes are the raw ones otherwise, so nothing else changes.
-  const inkUndo = useInkUndo(actions, annotations, penOpen);
+  // Every local write goes through the undo stack, in read mode and ink mode.
+  const inkUndo = useInkUndo(actions, annotations);
   const { persistDraft, removeLocal, saveAnchor, reset: resetInkUndo } = inkUndo;
   useEffect(() => resetInkUndo(), [url, resetInkUndo]);
-  // Undo and redo belong to the pen: with the rail up, Ctrl+Z takes back the
-  // last stroke, and Ctrl+Shift+Z or Ctrl+Y puts it back. Listened for on the
-  // window, the ink note's way, so it answers wherever focus went after the
-  // last tap — a rail button, the page, nowhere — and not only while the
-  // reader's root holds it.
-  const inkUndoRef = useRef(inkUndo);
-  inkUndoRef.current = inkUndo;
+  // Ctrl+Z/Y, Ctrl+F and Delete on the window, so they answer after a click on
+  // the page or a rail button; skipped when focus sits in another pane.
+  const canCreate = Boolean(paperId && onAnnotationsChange);
+  const keysRef = useRef({ inkUndo, removeLocal, selectedAnnId, annotations, canCreate });
+  keysRef.current = { inkUndo, removeLocal, selectedAnnId, annotations, canCreate };
   useEffect(() => {
-    if (!penOpen) return;
     const onKey = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
-      if (isEditableTarget(event.target)) return;
+      if (event.defaultPrevented || isEditableTarget(event.target)) return;
+      const active = document.activeElement;
+      const ours = !active || active === document.body || rootRef.current?.contains(active);
+      if (!ours) return;
+      const k = keysRef.current;
       const key = event.key.toLowerCase();
-      if (key !== "z" && key !== "y") return;
-      event.preventDefault();
-      void (key === "y" || event.shiftKey ? inkUndoRef.current.redo() : inkUndoRef.current.undo());
+      const mod = (event.ctrlKey || event.metaKey) && !event.altKey;
+      if (mod && (key === "z" || key === "y")) {
+        event.preventDefault();
+        void (key === "y" || event.shiftKey ? k.inkUndo.redo() : k.inkUndo.undo());
+      } else if (mod && key === "f" && !event.shiftKey) {
+        event.preventDefault();
+        setSearchOpen((prev) => !prev);
+      } else if ((event.key === "Delete" || event.key === "Backspace") && k.selectedAnnId && k.canCreate) {
+        const selected = k.annotations.find((a) => a.id === k.selectedAnnId);
+        if (selected?.origin !== "local") return;
+        event.preventDefault();
+        setSelectedAnnId(null);
+        void k.removeLocal(selected.id);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [penOpen]);
+  }, []);
 
   /** Stable identity so a memoised page overlay is not re-rendered by a new closure. */
   const selectAnnotation = useCallback((id: string) => setSelectedAnnId(id), []);
-  const canCreate = Boolean(paperId && onAnnotationsChange);
   // Bucket once per annotation change rather than rescanning the whole list in
   // every page's overlay on every zoom, scroll, and rotation.
   const annotationsByPage = useMemo(() => bucketAnnotationsByPage(annotations), [annotations]);
@@ -962,33 +967,10 @@ export function PdfReader({
       toggleFocus();
       return;
     }
-    if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "f") {
-      event.preventDefault();
-      setSearchOpen((prev) => !prev);
-      return;
-    }
     if (event.key === "Escape" && focus && !isEditableTarget(event.target)) {
       event.preventDefault();
       setFocus(false);
       return;
-    }
-    // Delete the selected annotation from the page itself. Deleting was only
-    // reachable by finding the same annotation again in the sidebar list.
-    if (
-      (event.key === "Delete" || event.key === "Backspace") &&
-      selectedAnnId &&
-      canCreate &&
-      !isEditableTarget(event.target)
-    ) {
-      const selected = annotations.find((a) => a.id === selectedAnnId);
-      if (selected?.origin === "local") {
-        event.preventDefault();
-        // Ask first, and let the reader draw the question: a keypress is easy
-        // to make by accident, and `ConfirmDialog` is the app's own dialog
-        // rather than the OS one this used to raise.
-        askRemove(selectedAnnId);
-        return;
-      }
     }
     const command = readerKeyboardCommand({
       key: event.key,
@@ -1186,15 +1168,6 @@ export function PdfReader({
     );
   }
 
-  /**
-   * The mark the delete dialog is asking about, so the question can name it.
-   * Looked up rather than stored: the list is the truth about what exists, and
-   * a copy in state could describe a mark that has already gone.
-   */
-  const removeTarget = pendingRemove
-    ? annotations.find((a) => a.id === pendingRemove)
-    : undefined;
-
   return (
     <div
       className={`pdf-reader${darkPdf ? " pdf-reader--dark" : ""}${focus ? " is-focus" : ""}`}
@@ -1279,9 +1252,11 @@ export function PdfReader({
           }}
           onMatches={(matches, active) => setFind({ matches, active })}
         />
-        <div className="pdf-reader-group pdf-reader-more">
+        {/* Wide screens switch tabs in the expanded sidebar; an empty group drew a stray box. */}
+        {(!penOpen || toolbarExtra) && (
+        <div className={`pdf-reader-group pdf-reader-more${toolbarExtra ? "" : " pdf-reader-narrow-only"}`}>
           {!penOpen && (
-            <div className="seg pdf-reader-side-seg" role="tablist" aria-label="Sidebar view">
+            <div className="seg pdf-reader-side-seg pdf-reader-narrow-only" role="tablist" aria-label="Sidebar view">
               <button
                 type="button"
                 role="tab"
@@ -1322,6 +1297,7 @@ export function PdfReader({
           )}
           {toolbarExtra}
         </div>
+        )}
         <button
           type="button"
           className="btn-secondary btn-sm pdf-reader-focus-btn pdf-reader-more"
@@ -1823,7 +1799,7 @@ export function PdfReader({
                   selectedAnnId ? backlinksForAnnotation(backlinkHits, selectedAnnId) : []
                 }
                 onUpdateLocal={updateLocal}
-                onRemoveLocal={askRemove}
+                onRemoveLocal={removeLocal}
                 onPinLocal={pinLocal}
                 onSelect={(id) => {
                   setSelectedAnnId(id);
@@ -1854,31 +1830,6 @@ export function PdfReader({
           }}
         />
       )}
-      {/* The delete the app draws, in place of the `window.confirm` the write
-          hook used to raise. Only the paths a person chooses arrive here — the
-          sidebar's Delete and the Delete key on a selected mark. The eraser and
-          ink undo call `removeLocal` directly: a dialog per stroke would make
-          rubbing out a word unusable, and both are already deliberate. */}
-      {pendingRemove ? (
-        <ConfirmDialog
-          title="Delete this annotation?"
-          body={
-            removeTarget
-              ? `This ${removeTarget.type} mark${
-                  removeTarget.comment ? " and the comment on it" : ""
-                } will be deleted from this paper.`
-              : "This mark will be deleted from this paper."
-          }
-          confirmLabel="Delete"
-          danger
-          onConfirm={() => {
-            const id = pendingRemove;
-            clearPendingRemove();
-            void removeLocal(id);
-          }}
-          onClose={clearPendingRemove}
-        />
-      ) : null}
     </div>
   );
 }

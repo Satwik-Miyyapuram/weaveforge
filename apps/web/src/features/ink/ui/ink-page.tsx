@@ -19,9 +19,10 @@
 import { useCallback, useRef, useState } from "react";
 import { figureCornerHit } from "@weaveforge/core";
 
-import { isPenEraserPointer } from "../application/eraser-tip";
+import { EraserSweep } from "../application/eraser-tip";
 import {
   claimPointer,
+  ERASER_CURSOR,
   inkToolCursor,
   pointsAttribute,
   releasePointer,
@@ -199,7 +200,7 @@ export function InkPage({
     [],
   );
 
-  const erasing = useRef(false);
+  const sweep = useRef(new EraserSweep(ERASER_CURSOR));
   /** A finger that landed on a figure and selected it: nothing to draw. */
   const figureTap = useRef(false);
 
@@ -271,10 +272,7 @@ export function InkPage({
       ensurePage?.(event.clientX, event.clientY);
       // The pen's back tip erases whatever the bar says (eraser-tip.ts): the
       // decision is made once, here, and the sweep keeps it to the end.
-      const erase =
-        tool === "eraser" || (tool !== "lasso" && isPenEraserPointer(event));
-      erasing.current = erase;
-      if (erase) {
+      if (sweep.current.begin(event, tool === "eraser", tool !== "lasso")) {
         const at = project(event.clientX, event.clientY);
         if (!at) return;
         lastErase.current = at;
@@ -346,7 +344,7 @@ export function InkPage({
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.pointerType === "touch" && touchMove(event)) return;
       if (figureTap.current) return;
-      if (erasing.current) {
+      if (sweep.current.owns(event.pointerId)) {
         if (!lastErase.current) return;
         event.preventDefault();
         const at = project(event.clientX, event.clientY);
@@ -495,8 +493,7 @@ export function InkPage({
         if (held.corner === null) onFigureDrop?.(held.index);
         return;
       }
-      if (erasing.current) {
-        erasing.current = false;
+      if (sweep.current.end(event.pointerId)) {
         lastErase.current = null;
         releasePointer(event);
         return;

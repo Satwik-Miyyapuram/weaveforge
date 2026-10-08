@@ -63,3 +63,22 @@ test("same-channel mode ignores per-event channels", () => {
   const i: Integration = { ...base, options: { sameChannel: true, events: { dailyLogs: true }, channels: { dailyLogs: "logs-ch" } } };
   assert.equal(mattermostChannelFor(i, "dailyLogs"), "main-ch");
 });
+
+test("in the desktop app the shell sends the post, so the server needs no CORS rule", async () => {
+  const sent: unknown[] = [];
+  const g = globalThis as { window?: unknown };
+  const before = g.window;
+  g.window = {
+    weaveforge: {
+      fetchTitle: () => {},
+      mattermostPost: async (req: unknown) => (sent.push(req), { status: sent.length === 1 ? 201 : 403, body: "denied" }),
+    },
+  };
+  try {
+    await new MattermostNotifier().post(base, "hello");
+    assert.deepEqual(sent[0], { serverUrl: "https://chat.example.com", token: "t", channelId: "main-ch", message: "hello" });
+    await assert.rejects(new MattermostNotifier().post(base, "again"), /failed \(403\)\. denied/);
+  } finally {
+    g.window = before;
+  }
+});

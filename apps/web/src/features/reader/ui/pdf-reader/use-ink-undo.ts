@@ -1,21 +1,15 @@
 "use client";
 
 /**
- * Undo and redo for pen strokes, wired over the reader's annotation writes.
+ * Undo and redo for every local mark on a paper: strokes, highlights, notes,
+ * pictures. Deletes ask no question, so Ctrl+Z is how a slip comes back.
  *
- * The stack itself lives in core (`ink-undo.ts`); this hook records each
- * stroke write into it and replays the inverse through the same writes, so an
- * undone stroke leaves storage exactly as if it had never been drawn. Only ink
- * and highlighter strokes are tracked — highlights and notes have their own
- * flows and their own confirmations, and a Ctrl+Z that silently deleted a
- * paragraph's worth of comment would be worse than no undo at all.
- *
- * Recreating a removed stroke gives it a new id, so after every recreate the
- * stack is told the new id (`renameInkUndoId`); the same stroke may be undone
- * and redone any number of times without the stack losing track of it.
+ * The stack lives in core (`ink-undo.ts`); this hook records each write and
+ * replays the inverse through the same writes. A recreated mark keeps its id,
+ * so pins and links to it survive an undo.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   EMPTY_INK_UNDO,
   pushInkUndo,
@@ -29,7 +23,6 @@ import {
   type ReaderAnnotation,
 } from "@weaveforge/core";
 
-import { picturePath } from "../../application/reader-picture";
 import type { AnnotationActions } from "./use-annotation-actions";
 
 type StrokeWrites = Pick<AnnotationActions, "persistDraft" | "removeLocal" | "saveAnchor">;
@@ -43,14 +36,10 @@ export interface InkUndo extends StrokeWrites {
   reset: () => void;
 }
 
-/** What undo keeps a history of: the pen's strokes, and the pictures laid down beside them. */
-function isStroke(ann: Pick<ReaderAnnotation, "type" | "comment">): boolean {
-  return ann.type === "ink" || picturePath(ann) !== null;
-}
-
-/** The draft that would recreate `ann` byte-for-byte, save its id. */
+/** The draft that recreates `ann` byte-for-byte, id included. */
 function draftFromAnnotation(ann: ReaderAnnotation): NewReaderAnnotation {
   return {
+    id: ann.id,
     type: ann.type,
     color: ann.color,
     ...(ann.text ? { text: ann.text } : {}),
@@ -75,7 +64,6 @@ function draftFromAnnotation(ann: ReaderAnnotation): NewReaderAnnotation {
 export function useInkUndo(
   actions: StrokeWrites,
   annotations: readonly ReaderAnnotation[],
-  enabled: boolean,
 ): InkUndo {
   // The stack is a ref so a step can pop it synchronously and then await the
   // write; the counter re-renders whoever shows the undo/redo buttons.
@@ -89,8 +77,6 @@ export function useInkUndo(
   annotationsRef.current = annotations;
   const actionsRef = useRef(actions);
   actionsRef.current = actions;
-  const enabledRef = useRef(enabled);
-  enabledRef.current = enabled;
   // Undo and redo are async; a second Ctrl+Z before the first lands would
   // pop the wrong step. One at a time.
   const busy = useRef(false);
@@ -98,7 +84,7 @@ export function useInkUndo(
   const persistDraft = useCallback(
     async (draft: NewReaderAnnotation) => {
       const created = await actionsRef.current.persistDraft(draft);
-      if (created && enabledRef.current && isStroke(created)) {
+      if (created) {
         setState((s) => pushInkUndo(s, { kind: "create", annotation: created }));
       }
       return created;
@@ -110,7 +96,7 @@ export function useInkUndo(
     async (id: string) => {
       const ann = annotationsRef.current.find((a) => a.id === id);
       await actionsRef.current.removeLocal(id);
-      if (ann && enabledRef.current && isStroke(ann)) {
+      if (ann) {
         setState((s) => pushInkUndo(s, { kind: "remove", annotation: ann }));
       }
     },
@@ -120,15 +106,13 @@ export function useInkUndo(
   const saveAnchor = useCallback(
     async (ann: ReaderAnnotation, anchor: ReaderAnnotation["anchor"], comment?: string) => {
       await actionsRef.current.saveAnchor(ann, anchor, comment);
-      if (enabledRef.current && isStroke(ann)) {
-        const after = { ...ann, anchor };
-        setState((s) =>
-          refreshInkUndoAnnotation(
-            pushInkUndo(s, { kind: "anchor", id: ann.id, before: ann.anchor, after: anchor }),
-            after,
-          ),
-        );
-      }
+      const after = { ...ann, anchor };
+      setState((s) =>
+        refreshInkUndoAnnotation(
+          pushInkUndo(s, { kind: "anchor", id: ann.id, before: ann.anchor, after: anchor }),
+          after,
+        ),
+      );
     },
     [setState],
   );
@@ -138,7 +122,8 @@ export function useInkUndo(
     const raw = actionsRef.current;
     const recreate = async (ann: ReaderAnnotation) => {
       const created = await raw.persistDraft(draftFromAnnotation(ann));
-      if (created) setState((s) => renameInkUndoId(s, ann.id, created.id));
+      // Same id unless the store refused it; then the stack follows the new one.
+      if (created && created.id !== ann.id) setState((s) => renameInkUndoId(s, ann.id, created.id));
     };
     const remove = (ann: ReaderAnnotation) => raw.removeLocal(ann.id);
     switch (entry.kind) {
@@ -175,9 +160,6 @@ export function useInkUndo(
   );
 
   const reset = useCallback(() => setState(() => EMPTY_INK_UNDO), [setState]);
-  useEffect(() => {
-    if (!enabled) reset();
-  }, [enabled, reset]);
 
   return {
     persistDraft,
