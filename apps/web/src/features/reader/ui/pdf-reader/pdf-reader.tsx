@@ -377,6 +377,7 @@ export function PdfReader({
     onPagePointerDown,
     onPagePointerMove,
     onPagePointerUp,
+    onPagePointerLeave,
   } = usePagePointer({
     canCreate,
     createTool,
@@ -1581,6 +1582,7 @@ export function PdfReader({
                 if (pictures.pointerUp(e)) return;
                 onPagePointerUp(n, e);
               }}
+              onPointerLeave={onPagePointerLeave}
             >
               <div
                 className={`pdf-reader-page${
