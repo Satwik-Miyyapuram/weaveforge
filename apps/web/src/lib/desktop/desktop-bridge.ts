@@ -231,6 +231,11 @@ export interface DesktopBridge {
    */
   mattermostSignIn?(serverUrl: string): Promise<string | null>;
   /**
+   * Sends one Mattermost post from the shell, where the server's CORS policy
+   * does not apply. Optional: builds before 0.8.9 do not have it.
+   */
+  mattermostPost?(req: { serverUrl: string; token: string; channelId: string; message: string }): Promise<{ status: number; body: string }>;
+  /**
    * Answer the MCP server's ranking requests while this window is open.
    *
    * Returning null means "no opinion", and the server keeps the order its word

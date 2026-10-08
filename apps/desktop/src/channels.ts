@@ -122,6 +122,8 @@ export const CHANNELS = {
   texCompile: "weaveforge:tex-compile",
   /** Mattermost sign-in in its own window; answers the session token, or null if closed. See `mattermost-signin.ts`. */
   mattermostSignIn: "weaveforge:mattermost-sign-in",
+  /** One Mattermost post sent from main, where CORS does not apply. */
+  mattermostPost: "weaveforge:mattermost-post",
   localApiSet: "weaveforge:local-api-set",
   localApiTokenCreate: "weaveforge:local-api-token-create",
   localApiTokenRevoke: "weaveforge:local-api-token-revoke",

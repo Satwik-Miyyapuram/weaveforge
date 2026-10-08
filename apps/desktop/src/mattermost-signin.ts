@@ -88,6 +88,34 @@ export function signInToMattermost(origin: string, parent: BrowserWindow | null)
   });
 }
 
+export interface MattermostPostRequest {
+  serverUrl: string;
+  token: string;
+  channelId: string;
+  message: string;
+}
+
+/** Posts from the main process: the renderer's fetch is a cross-origin request most servers refuse (no CORS for app://). */
+export async function postToMattermost(
+  req: unknown,
+  fetchFn: typeof fetch = fetch,
+): Promise<{ status: number; body: string }> {
+  const r = (req ?? {}) as Partial<MattermostPostRequest>;
+  const origin = mattermostOrigin(r.serverUrl);
+  if (!origin) throw new Error("Mattermost server URL must be a valid http(s) URL.");
+  if (typeof r.token !== "string" || typeof r.channelId !== "string" || typeof r.message !== "string") {
+    throw new Error("Mattermost post needs a token, a channel and a message.");
+  }
+  const res = await fetchFn(`${origin}/api/v4/posts`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${r.token}` },
+    body: JSON.stringify({ channel_id: r.channelId, message: r.message }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  const body = res.ok ? (await res.body?.cancel().catch(() => {}), "") : (await res.text().catch(() => "")).slice(0, 2000);
+  return { status: res.status, body };
+}
+
 export function registerMattermostSignIn(deps: { ipc: IpcSurface; mainWindow: () => BrowserWindow | null }): void {
   let open: Promise<string | null> | null = null;
   deps.ipc.handle(CHANNELS.mattermostSignIn, async (_event, serverUrl: unknown) => {
@@ -96,5 +124,12 @@ export function registerMattermostSignIn(deps: { ipc: IpcSurface; mainWindow: ()
     // One window at a time; a second click joins the open one.
     open ??= signInToMattermost(origin, deps.mainWindow()).finally(() => { open = null; });
     return { ok: true, value: await open };
+  });
+  deps.ipc.handle(CHANNELS.mattermostPost, async (_event, req: unknown) => {
+    try {
+      return { ok: true, value: await postToMattermost(req) };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : "Could not reach the Mattermost server." };
+    }
   });
 }

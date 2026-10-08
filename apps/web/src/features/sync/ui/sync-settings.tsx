@@ -12,6 +12,7 @@ import type { ProjectSyncDescriptor } from "@/integrations/descriptors-types";
 import { gitConnectionReady, mattermostConnectionReady } from "../domain/integration-fields";
 import { MATTERMOST_EVENTS, mattermostOptions, type MattermostOptions } from "../domain/mattermost-options";
 import { formatError } from "@/lib/format-error";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
 import { DEFAULT_MATTERMOST_SERVER, MattermostSignInButton } from "./mattermost-sign-in-button";
 
@@ -169,6 +170,13 @@ function IntegrationRow({
                 <span className="knob" />
               </button>
             </div>
+            {isMattermost && !desktop()?.mattermostPost && (
+              <p className="muted">
+                Posting from the website only works if your Mattermost server allows it. Servers run by
+                universities and other institutions usually block it, so if test messages fail here, connect
+                Mattermost from the desktop app instead.
+              </p>
+            )}
             {isMattermost && (
               <div className="integration-enable">
                 <span>Sign in with Mattermost instead of a bot token</span>

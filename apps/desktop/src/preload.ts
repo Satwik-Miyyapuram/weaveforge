@@ -93,6 +93,7 @@ const bridge: DesktopBridge = {
     call<DesktopOverleafSource>(CHANNELS.overleafRead, projectId, entryFile),
   probeTex: () => call<DesktopTexTool | null>(CHANNELS.texProbe),
   mattermostSignIn: (serverUrl) => call<string | null>(CHANNELS.mattermostSignIn, serverUrl),
+  mattermostPost: (req) => call<{ status: number; body: string }>(CHANNELS.mattermostPost, req),
   inkAvailable: () => call<boolean>(CHANNELS.inkAvailable),
   inkRecognise: (request: DesktopInkRequest) => call<DesktopInkResult>(CHANNELS.inkRecognise, request),
   inkHapticsAvailable: () => call<boolean>(CHANNELS.inkHapticsAvailable),
