@@ -21,13 +21,12 @@ import {
 // The shared palm rules, through ink's public API: an ink note needs the same
 // three layers this reader already had, so they live in one place rather than in
 // two implementations that would drift.
-import { ERASER_CURSOR, EraserSweep, InkPenGate } from "@/features/ink";
+import { ERASER_CURSOR, InkGesture, InkPenGate, StrokeEdgeSplit, type InkToolKind } from "@/features/ink";
 import {
   appendInkStroke,
   draftImageRegion,
   draftInkAnnotation,
 } from "../../application/draft-local-annotation";
-import { clipSegmentToArea, pointInArea } from "../../application/clip-to-area";
 import { isInkTool, type ReaderCreateTool } from "../../application/reader-annotation-helpers";
 import {
   EMPTY_ANNOTATIONS,
@@ -165,17 +164,13 @@ export function usePagePointer({
   const [penSeen, setPenSeen] = useState(false);
   /** The ink annotation the last stroke went into, for stroke grouping. */
   const inkGroup = useRef<InkGroup | null>(null);
-  /**
-   * Whether the pen is off the paper right now, and where it was last seen in
-   * client pixels — the point the clip is measured from when it comes back.
-   */
-  const inkOutside = useRef(false);
-  const lastInkPoint = useRef<{ x: number; y: number } | null>(null);
+  /** The stroke against the page's edge; shared with Notes. */
+  const edge = useRef(new StrokeEdgeSplit());
   const inkMove = useRef<InkMove | null>(null);
   /** Ink deleted by the current eraser drag, so one pass deletes each mark once. */
   const erasedIds = useRef<Set<string>>(new Set());
-  /** The erase in flight, by tool or by the pen's back tip; shared with Notes. */
-  const sweep = useRef(new EraserSweep(ERASER_CURSOR));
+  /** Each pointer's route from down to up; shared with Notes. */
+  const gesture = useRef(new InkGesture(ERASER_CURSOR));
   const dragRect = useRef<{
     pageNumber: number;
     x0: number;
@@ -420,58 +415,63 @@ export function usePagePointer({
     eraseAt(pageNumber, pt.x, pt.y);
   }
 
+  /** The armed tool as the shared gesture sees it; the lasso needs editable ink. */
+  function toolKind(): InkToolKind {
+    if (createTool === "select") return "none";
+    if (createTool === "lasso") return inkEditable ? "lasso" : "none";
+    if (createTool === "erase") return "eraser";
+    if (isInkTool(createTool)) return "draw";
+    return "region";
+  }
+
   function onPagePointerDown(pageNumber: number, event: React.PointerEvent<HTMLDivElement>) {
     if (!canCreate || !pageSize) return;
     const host = event.currentTarget;
     const pt = screenToPdf(host, event.clientX, event.clientY);
 
-    // The pen's back tip erases whatever tool is armed, as on a sheet of Notes.
-    if (sweep.current.begin(event, false, inkEditable && createTool !== "lasso")) {
+    const route = gesture.current.down(event, {
+      tool: toolKind(),
+      // The pen's back tip erases whatever tool is armed, as on a sheet of Notes.
+      tipErases: inkEditable && createTool !== "lasso",
+      admit: () => pointerMayDraw(event),
+      hitSelection: () => {
+        const held = selectionIds();
+        return held.length > 0 && inkAnnotationsAt(pageNumber, pt.x, pt.y, ERASER_RADIUS).some((ann) => held.includes(ann.id));
+      },
+    });
+    // No tool, or a pointer the palm rules refuse: a press is the page's, so a
+    // stroke lying over a paragraph does not stand between the pen and the words.
+    if (!route) return;
+    event.preventDefault();
+
+    if (route === "erase") {
       startErase(pageNumber, event, pt);
       return;
     }
 
-    // The lasso is the sheet's gesture on a paper, and the *only* thing its
-    // tool does: a drag from anywhere draws a loop, and what is inside is
-    // picked up. Anywhere, not only on a mark — a hand rings the marks it wants
-    // and should not have to start exactly on one — and the page's text is not
-    // in the way, because with this tool armed the text layer takes no pointer
-    // (`.pdf-reader-page--draw`, reader.css). A press *inside* a selection
-    // already made drags it instead, which is how a loop is moved.
-    if (createTool === "lasso" && inkEditable) {
-      const held = selectionIds();
-      const hit = inkAnnotationsAt(pageNumber, pt.x, pt.y, ERASER_RADIUS);
-      event.preventDefault();
-      if (held.length > 0 && hit.some((ann) => held.includes(ann.id))) {
-        inkMove.current = {
-          annotationIds: held,
-          pointerId: event.pointerId,
-          pageNumber,
-          fromX: pt.x,
-          fromY: pt.y,
-          dx: 0,
-          dy: 0,
-        };
-      } else {
-        lasso.current = [pt.x, pt.y];
-        lassoPointerId.current = event.pointerId;
-        lassoPage.current = pageNumber;
-        setLassoed([]);
-        publishLasso(lasso.current);
-      }
+    // The lasso is the sheet's gesture on a paper: a drag from anywhere draws a
+    // loop and picks up what is inside, and a press inside a selection drags it.
+    // The text layer takes no pointer with it armed (`.pdf-reader-page--draw`).
+    if (route === "drag") {
+      inkMove.current = {
+        annotationIds: selectionIds(),
+        pointerId: event.pointerId,
+        pageNumber,
+        fromX: pt.x,
+        fromY: pt.y,
+        dx: 0,
+        dy: 0,
+      };
       host.setPointerCapture(event.pointerId);
       return;
     }
-
-    // The reader's own pointer: a press is the page's, so a stroke lying over a
-    // paragraph does not stand between the pen and the words.
-    if (createTool === "select") return;
-
-    if (!pointerMayDraw(event)) return;
-    event.preventDefault();
-
-    if (sweep.current.begin(event, createTool === "erase", false)) {
-      startErase(pageNumber, event, pt);
+    if (route === "lasso") {
+      lasso.current = [pt.x, pt.y];
+      lassoPointerId.current = event.pointerId;
+      lassoPage.current = pageNumber;
+      setLassoed([]);
+      publishLasso(lasso.current);
+      host.setPointerCapture(event.pointerId);
       return;
     }
 
@@ -483,8 +483,7 @@ export function usePagePointer({
       inkPath.current = [pt.x, pt.y];
       inkPressures.current = [event.pressure];
       // A stroke begins on the paper: the press that started it landed here.
-      inkOutside.current = false;
-      lastInkPoint.current = { x: event.clientX, y: event.clientY };
+      edge.current.begin({ x: event.clientX, y: event.clientY });
       scheduleDraft({
         kind: "ink",
         pageNumber,
@@ -524,7 +523,7 @@ export function usePagePointer({
       return;
     }
 
-    if (sweep.current.owns(event.pointerId)) {
+    if (gesture.current.route(event.pointerId) === "erase") {
       eraseAt(pageNumber, pt.x, pt.y);
       return;
     }
@@ -545,7 +544,7 @@ export function usePagePointer({
       // A stroke in hand, *or* a pen that is off the paper: cutting the stroke at
       // the edge empties the path, and the return that starts the next one has
       // to be let in — it is the same gesture, and the contact is still ours.
-      (inkPath.current.length >= 2 || inkOutside.current)
+      (inkPath.current.length >= 2 || edge.current.outside)
     ) {
       /*
        * The stroke is cut at the edge of the row — the page and the writing
@@ -561,23 +560,16 @@ export function usePagePointer({
        */
       const nibPx = inkWidthForEvent(event) * scale;
       const area = drawArea(host, nibPx / 2);
-      const at = { x: event.clientX, y: event.clientY };
-      const previous = lastInkPoint.current ?? at;
-      const onPaper = !area || pointInArea(area, at.x, at.y);
+      const step = edge.current.move({ x: event.clientX, y: event.clientY }, area);
 
-      if (inkOutside.current) {
-        if (!onPaper) {
-          // Still outside: the pen's travel leaves no mark at all.
-          lastInkPoint.current = at;
-          return;
-        }
+      // Still outside: the pen's travel leaves no mark at all.
+      if (step.kind === "outside") return;
+
+      if (step.kind === "enter") {
         // Back on the paper: a new stroke, beginning where the pen crossed in.
-        const crossing = area ? clipSegmentToArea(area, previous, at) : null;
-        const entry = screenToPdf(host, crossing?.from.x ?? at.x, crossing?.from.y ?? at.y);
+        const entry = screenToPdf(host, step.at.x, step.at.y);
         inkPath.current = [entry.x, entry.y];
         inkPressures.current = [event.pressure];
-        inkOutside.current = false;
-        lastInkPoint.current = at;
         if (!shouldAppendInkPoint(inkPath.current, pt.x, pt.y)) return;
         inkPath.current.push(pt.x, pt.y);
         inkPressures.current.push(event.pressure);
@@ -591,10 +583,9 @@ export function usePagePointer({
         return;
       }
 
-      if (!onPaper) {
+      if (step.kind === "exit") {
         // The pen has left: finish the stroke at the edge it crossed and wait.
-        const crossing = area ? clipSegmentToArea(area, previous, at) : null;
-        const cut = screenToPdf(host, crossing?.to.x ?? at.x, crossing?.to.y ?? at.y);
+        const cut = screenToPdf(host, step.at.x, step.at.y);
         if (shouldAppendInkPoint(inkPath.current, cut.x, cut.y)) {
           inkPath.current.push(cut.x, cut.y);
           inkPressures.current.push(event.pressure);
@@ -611,13 +602,10 @@ export function usePagePointer({
         }
         inkPath.current = [];
         inkPressures.current = [];
-        inkOutside.current = true;
         clearDraft();
-        lastInkPoint.current = at;
         return;
       }
 
-      lastInkPoint.current = at;
       // Samples inside the pen's own jitter carry no shape and would be stored
       // forever; dropping them here also keeps the live preview cheap.
       if (!shouldAppendInkPoint(inkPath.current, pt.x, pt.y)) return;
@@ -640,6 +628,7 @@ export function usePagePointer({
   }
 
   function onPagePointerUp(pageNumber: number, event: React.PointerEvent<HTMLDivElement>) {
+    const route = gesture.current.up(event.pointerId);
     if (!canCreate || !pageSize) return;
 
     const move = inkMove.current;
@@ -664,7 +653,7 @@ export function usePagePointer({
       return;
     }
 
-    if (sweep.current.end(event.pointerId) || createTool === "erase") {
+    if (route === "erase" || createTool === "erase") {
       erasedIds.current = new Set();
       return;
     }
@@ -680,9 +669,7 @@ export function usePagePointer({
       inkPointerId.current = null;
       // A pen that lifted off the paper has already been cut and written at the
       // edge it crossed; there is nothing left in hand to save.
-      const cutAtEdge = inkOutside.current;
-      inkOutside.current = false;
-      lastInkPoint.current = null;
+      const cutAtEdge = edge.current.end();
       if (!cutAtEdge && path.length >= 4) {
         const pageHeight =
           pageGeometries.current.get(pageNumber)?.pageHeight ?? pageSize.height;

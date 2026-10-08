@@ -19,7 +19,7 @@
 import { useCallback, useRef, useState } from "react";
 import { figureCornerHit } from "@weaveforge/core";
 
-import { EraserSweep } from "../application/eraser-tip";
+import { InkGesture, StrokeEdgeSplit } from "../application/ink-gesture";
 import {
   claimPointer,
   ERASER_CURSOR,
@@ -200,7 +200,8 @@ export function InkPage({
     [],
   );
 
-  const sweep = useRef(new EraserSweep(ERASER_CURSOR));
+  /** Each pointer's route from down to up; shared with the reader. */
+  const inkGesture = useRef(new InkGesture(ERASER_CURSOR));
   /** A finger that landed on a figure and selected it: nothing to draw. */
   const figureTap = useRef(false);
 
@@ -240,39 +241,50 @@ export function InkPage({
     [editingFigure, figures, scale],
   );
 
-  /** Whether the stroke in flight has already been split at the sheet's edge. */
-  const offSheet = useRef(false);
+  /** The stroke against the live sheet's top and bottom; shared with the reader. */
+  const edge = useRef(new StrokeEdgeSplit());
 
-  /** The same pointer event with its `clientY` moved to `y`. */
-  const atY = (
+  /** The same pointer event moved to `at`. */
+  const atPoint = (
     event: React.PointerEvent<HTMLCanvasElement>,
-    y: number,
+    at: { x: number; y: number },
   ): React.PointerEvent<HTMLCanvasElement> =>
     // The synthetic event is a plain object, so a prototype-chained copy
     // works; the native one is not (its getters reject a foreign `this`),
-    // and the capture reads the up sample's position from the synthetic one.
-    Object.create(event, { clientY: { value: y } }) as React.PointerEvent<HTMLCanvasElement>;
-
-  /** Whether `clientY` is above or below the live sheet's box. */
-  const leftSheet = useCallback(
-    (clientY: number): boolean => {
-      const box = sheetRef.current?.getBoundingClientRect();
-      if (!box) return false;
-      return clientY < box.top || clientY > box.bottom;
-    },
-    [sheetRef],
-  );
+    // and the capture reads the sample's position from the synthetic one.
+    Object.create(event, { clientX: { value: at.x }, clientY: { value: at.y } }) as React.PointerEvent<HTMLCanvasElement>;
 
   const onPointerDown = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.pointerType === "touch" && touchDown(event)) return;
-      offSheet.current = false;
+      edge.current.begin({ x: event.clientX, y: event.clientY });
       // Before anything projects: the page under the pointer becomes the live
       // one, so `project` below measures the sheet that is about to be drawn on.
       ensurePage?.(event.clientX, event.clientY);
+      let figureHit: { index: number; corner: FigureCorner | null; from: { x: number; y: number } } | null = null;
       // The pen's back tip erases whatever the bar says (eraser-tip.ts): the
-      // decision is made once, here, and the sweep keeps it to the end.
-      if (sweep.current.begin(event, tool === "eraser", tool !== "lasso")) {
+      // decision is made once, here, and the route keeps it to the end.
+      const route = inkGesture.current.down(event, {
+        tool: tool === "eraser" ? "eraser" : tool === "lasso" ? "lasso" : "draw",
+        tipErases: tool !== "lasso",
+        // A mouse over a figure reaches the figure, not the ink: with a writing
+        // tool the mouse drags the figure, the same division of labour as the
+        // pen (notes) and the hand (paper). Alt reaches the ink under it.
+        intercept: () => {
+          if (event.pointerType !== "mouse" || event.altKey || !onFigureChange) return false;
+          const at = project(event.clientX, event.clientY);
+          const hit = at !== null ? figureAt(at) : null;
+          if (hit && at && figures[hit.index]) figureHit = { ...hit, from: at };
+          return figureHit !== null;
+        },
+        // Down inside the selected box is a drag; anywhere else starts a new loop.
+        hitSelection: () => {
+          const at = project(event.clientX, event.clientY);
+          const b = selectionBounds;
+          return !!(at && b && at.x >= b[0] && at.x <= b[2] && at.y >= b[1] && at.y <= b[3]);
+        },
+      });
+      if (route === "erase") {
         const at = project(event.clientX, event.clientY);
         if (!at) return;
         lastErase.current = at;
@@ -280,40 +292,26 @@ export function InkPage({
         onErase(at, at);
         return;
       }
-      // A mouse over a figure reaches the figure, not the ink: the lasso is
-      // a region the *user* chose, so it keeps the pointer even over a
-      // photograph, but with a writing tool the mouse drags the figure —
-      // the same division of labour as the pen (notes) and the hand (paper).
-      if (
-        event.pointerType === "mouse" &&
-        tool !== "lasso" &&
-        !event.altKey &&
-        onFigureChange
-      ) {
-        const at = project(event.clientX, event.clientY);
-        const hit = at !== null ? figureAt(at) : null;
-        const one = hit ? figures[hit.index] : undefined;
-        if (hit && at && one) {
-          claimPointer(event);
-          // Selecting is the click; the drag that may follow is a bonus.
-          onFigureActivate?.(hit.index);
-          figureDrag.current = {
-            index: hit.index,
-            corner: hit.corner,
-            from: at,
-            box: { x: one.x, y: one.y, w: one.w, h: one.h },
-            aspect: one.w / Math.max(1, one.h),
-          };
-          return;
-        }
+      if (route === "intercept" && figureHit) {
+        const { index, corner, from } = figureHit;
+        const one = figures[index]!;
+        claimPointer(event);
+        // Selecting is the click; the drag that may follow is a bonus.
+        onFigureActivate?.(index);
+        figureDrag.current = {
+          index,
+          corner,
+          from,
+          box: { x: one.x, y: one.y, w: one.w, h: one.h },
+          aspect: one.w / Math.max(1, one.h),
+        };
+        return;
       }
-      if (tool === "lasso") {
+      if (route === "drag" || route === "lasso") {
         const at = project(event.clientX, event.clientY);
         if (!at) return;
         claimPointer(event);
-        // Down inside the selected box is a drag; anywhere else starts a new loop.
-        const b = selectionBounds;
-        if (b && at.x >= b[0] && at.x <= b[2] && at.y >= b[1] && at.y <= b[3]) {
+        if (route === "drag") {
           drag.current = at;
           setDragOffset({ x: 0, y: 0 });
           return;
@@ -344,7 +342,8 @@ export function InkPage({
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       if (event.pointerType === "touch" && touchMove(event)) return;
       if (figureTap.current) return;
-      if (sweep.current.owns(event.pointerId)) {
+      const route = inkGesture.current.route(event.pointerId);
+      if (route === "erase") {
         if (!lastErase.current) return;
         event.preventDefault();
         const at = project(event.clientX, event.clientY);
@@ -434,33 +433,36 @@ export function InkPage({
         publishLasso();
         return;
       }
-      // A stroke that runs off the live sheet onto the next page is split at
-      // the edge: it ends here, the page under the pen becomes the live one,
-      // and a new stroke begins on it from the same sample. Otherwise the tail
-      // is stored past the page's edge, drawn by the live canvas and clipped by
-      // every other view of the page — the ink "vanishes" on scroll.
-      // Tried once per exit: in the gap between pages, or past the last
-      // page, there is nothing to flip to and the stroke carries on as it was.
-      if (penActive?.() && ensurePage && leftSheet(event.clientY)) {
-        if (!offSheet.current) {
-          offSheet.current = true;
-          // The stroke ends on the edge, not where the pen already is: the
-          // sample that crossed is the first one off the page.
-          const box = sheetRef.current!.getBoundingClientRect();
-          const edgeY = Math.min(Math.max(event.clientY, box.top), box.bottom);
-          penHandlers.onPointerUp(atY(event, edgeY));
+      // A stroke that leaves the live sheet is cut at its top or bottom edge,
+      // and the pen's travel through the gap between pages leaves no mark. The
+      // page under the pen becomes the live one, and the stroke starts again
+      // where the pen crosses onto it. Sideways the paper is open: the writing
+      // margin is part of the sheet.
+      if (route === "draw" && ensurePage && (penActive?.() || edge.current.outside)) {
+        const box = sheetRef.current?.getBoundingClientRect();
+        const area = box ? { left: -Infinity, right: Infinity, top: box.top, bottom: box.bottom } : null;
+        const step = edge.current.move({ x: event.clientX, y: event.clientY }, area);
+        if (step.kind === "exit") {
+          penHandlers.onPointerUp(atPoint(event, step.at));
           ensurePage(event.clientX, event.clientY);
-          penHandlers.onPointerDown(event);
+          return;
+        }
+        if (step.kind === "outside") {
+          ensurePage(event.clientX, event.clientY);
+          return;
+        }
+        if (step.kind === "enter") {
+          // Not forwarded as a move: its coalesced samples lie in the gap.
+          penHandlers.onPointerDown(atPoint(event, step.at));
           return;
         }
       } else {
-        offSheet.current = false;
+        edge.current.begin({ x: event.clientX, y: event.clientY });
       }
       penHandlers.onPointerMove(event);
     },
     [
       ensurePage,
-      leftSheet,
       penActive,
       sheetRef,
       onDragSelection,
@@ -477,6 +479,8 @@ export function InkPage({
 
   const onPointerUp = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
+      const route = inkGesture.current.up(event.pointerId);
+      edge.current.end();
       if (event.pointerType === "touch" && touchUp(event)) return;
       if (figureTap.current) {
         figureTap.current = false;
@@ -493,7 +497,7 @@ export function InkPage({
         if (held.corner === null) onFigureDrop?.(held.index);
         return;
       }
-      if (sweep.current.end(event.pointerId)) {
+      if (route === "erase") {
         lastErase.current = null;
         releasePointer(event);
         return;
