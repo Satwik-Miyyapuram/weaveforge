@@ -1,13 +1,15 @@
 # Installer art
 
-The NSIS installer's pictures, in the app's look (the Mocha palette, Rubik).
+The NSIS installer's pictures, in the setup window's look (CRT palette, Rubik),
+so an in-app update and the uninstaller match the downloaded setup.
 
 - `sidebar.bmp` — 164×314, the Welcome and Finish pages, and the uninstaller's.
 - `header.bmp` — 150×57, the top-right of every other page.
 
 NSIS takes 24-bit BMP only. The `.html` files are the sources: render each at
 exactly its size with a headless browser (device scale factor 1), then save the
-PNG as a 24-bit BMP.
+PNG as a 24-bit BMP. `sidebar.html` is `setup/ui/index.html`'s art panel, zoomed
+to fit; change both together.
 
 ## The themed setup window
 
@@ -18,7 +20,7 @@ and runs the NSIS installer silently behind them (`/S /currentuser /D=<dir>`).
 
 The NSIS file is still published unchanged: `latest.yml` names it, and the
 in-app updater downloads and runs it silently, so updates never see the window.
-The uninstaller is still NSIS's, in the Mocha colours from `installer.nsh`.
+The uninstaller is still NSIS's, in the colours from `installer.nsh`.
 
 ```
 npm run package --workspace @weaveforge/desktop   # makes release/WeaveForge-<v>-<arch>-update.exe per chip

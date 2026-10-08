@@ -1,5 +1,22 @@
-<!doctype html><html><head><link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;800&display=swap" rel="stylesheet"><style>html,body{margin:0;overflow:hidden;background:#1e1e2e;color:#cdd6f4;font-family:Rubik,sans-serif}</style><style>
-body{width:150px;height:57px;display:flex;align-items:center;gap:7px;padding-left:9px;box-sizing:border-box;border-bottom:3px solid #cba6f7}
-img{width:28px;height:28px;border-radius:8px;border:2px solid #11111b}
-b{font-size:14px;font-weight:800}
-</style></head><body><img src="../../web/public/icons/icon-512.png"><b>WeaveForge</b></body></html>
+<!doctype html><html><head><meta charset="utf-8"><style>
+/* The setup window's brand row, on its art panel's colour (setup/ui/index.html). */
+@font-face { font-family: Rubik; src: url(setup/ui/rubik.woff2) format("woff2"); font-weight: 300 900; }
+:root { --surface2: #f1d5a7; --text: #2b222b; --accent: #1f6dab; }
+html, body { margin: 0; overflow: hidden; }
+body { width: 150px; height: 57px; box-sizing: border-box; display: flex; align-items: center; gap: 7px; padding-left: 10px; background: var(--surface2); color: var(--text); font-family: Rubik, "Segoe UI", sans-serif; }
+svg { width: 26px; height: 26px; flex: none; }
+b { font-size: 14px; font-weight: 700; letter-spacing: -.2px; }
+</style></head><body>
+      <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="WeaveForge">
+        <rect width="512" height="512" rx="115" fill="var(--surface2)" />
+        <path d="M 230 125 L 194 125 A 54 54 0 0 0 140 179 L 140 355 A 54 54 0 0 0 194 409 L 318 409 A 54 54 0 0 0 372 355 L 372 265"
+              fill="none" stroke="var(--text)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" />
+        <line x1="264" y1="125" x2="264" y2="215" stroke="var(--text)" stroke-width="12" stroke-linecap="round" />
+        <line x1="264" y1="215" x2="356" y2="139" stroke="var(--text)" stroke-width="12" stroke-linecap="round" />
+        <line x1="264" y1="215" x2="372" y2="229" stroke="var(--text)" stroke-width="12" stroke-linecap="round" />
+        <circle cx="264" cy="125" r="22" fill="var(--text)" />
+        <circle cx="264" cy="215" r="22" fill="var(--text)" />
+        <circle cx="356" cy="139" r="22" fill="var(--accent)" />
+        <circle cx="372" cy="229" r="22" fill="var(--text)" />
+      </svg>
+<b>WeaveForge</b></body></html>
