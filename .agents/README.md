@@ -7,7 +7,7 @@ Everything for coding agents lives in `.agents/`. Root `CLAUDE.md` and
 | --- | --- |
 | `README.md` | Rules every agent follows (this file) |
 | `testing.md` | How to test: unit, typecheck, previews, WeaveForge Dev build, CDP |
-| `plugins/marketplace.json` | Codex marketplace entry for `plugins/weaveforge-research` |
+| `.agents/plugins/marketplace.json` | Codex marketplace entry for `plugins/weaveforge-research` |
 
 `plugins/` at the root is product code (deploy-time plugins and the research
 MCP plugin), not agent config.
