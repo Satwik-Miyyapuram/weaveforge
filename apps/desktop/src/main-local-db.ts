@@ -18,7 +18,7 @@ import { LocalDbBackups, readBackup } from "./local-db-backup";
 import { LocalDbHost } from "./local-db-host";
 import { databaseDirFor, relocateDatabaseOnce, StrandedDatabaseError } from "./local-db-location";
 import { prepareDataDir } from "./local-db-prepare";
-import { applyDeferredMove, moveAside } from "./local-db-reset";
+import { applyDeferredMove, claimRelaunch, clearRelaunch, moveAside } from "./local-db-reset";
 
 export interface MainLocalDbDeps {
   ipc: IpcSurface;
@@ -237,7 +237,9 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
         const latest = await localDbBackups.latest();
         if (latest) {
           console.log(`[local-db] no database; restoring from ${latest}`);
-          return openEngine(await readBackup(latest));
+          const restored = await openEngine(await readBackup(latest));
+          clearRelaunch(localDbDir());
+          return restored;
         }
       }
       // The database exists, so a failure to open it here is a failure, not a
@@ -246,7 +248,9 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       // thing this file can do. It is worth three patient attempts first: a lock
       // held by a process that is still exiting clears in about a second, and
       // must not cost the reader their afternoon.
-      return openEngineWithRetry();
+      const client = await openEngineWithRetry();
+      clearRelaunch(localDbDir());
+      return client;
     },
     recover: async (cause) => {
       // Surfaced, not repaired: a restore here would hide where the data is.
@@ -258,11 +262,15 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       // move waits for a process that has never opened it -- this one,
       // relaunched -- and that boot finds no directory and restores (above).
       if ((await moveAside(localDbDir())) === "deferred") {
+        // A relaunched boot that fails again shows the error instead of looping.
+        if (!claimRelaunch(localDbDir())) return null;
         app.relaunch();
         app.exit(0);
         return null;
       }
-      return { client: await openEngine(await readBackup(latest)), from: latest };
+      const client = await openEngine(await readBackup(latest));
+      clearRelaunch(localDbDir());
+      return { client, from: latest };
     },
     discard: async () => {
       // As in `recover`, for the button on the page.

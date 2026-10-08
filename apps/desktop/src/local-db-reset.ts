@@ -67,3 +67,23 @@ export function applyDeferredMove(dataDir: string): void {
   if (legit && fs.existsSync(dataDir)) fs.renameSync(dataDir, target);
   fs.rmSync(marker, { force: true });
 }
+
+/** Written before a recovery relaunch, removed by the next open that succeeds. */
+export function relaunchMarkerPath(dataDir: string): string {
+  return `${dataDir}.relaunched`;
+}
+
+/**
+ * One relaunch per failure: a relaunched boot that fails again stops on the error
+ * page instead of looping (0.8.7 relaunched 38 times on a corrupt backup).
+ */
+export function claimRelaunch(dataDir: string): boolean {
+  const marker = relaunchMarkerPath(dataDir);
+  if (fs.existsSync(marker)) return false;
+  fs.writeFileSync(marker, new Date().toISOString(), "utf8");
+  return true;
+}
+
+export function clearRelaunch(dataDir: string): void {
+  fs.rmSync(relaunchMarkerPath(dataDir), { force: true });
+}
