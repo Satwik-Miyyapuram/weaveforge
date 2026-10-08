@@ -47,6 +47,19 @@ test("draftFromTextSelection returns null for empty selection", () => {
   );
 });
 
+test("draftFromTextSelection preserves exactRects when provided", () => {
+  const exact = [[50, 698, 125, 712]];
+  const draft = draftFromTextSelection({
+    type: "highlight",
+    color: "#ffd400",
+    selection: { startItemIndex: 0, startOffset: 0, endItemIndex: 1, endOffset: 5 },
+    page,
+    exactRects: exact,
+  });
+  assert.ok(draft);
+  assert.deepEqual(draft!.anchor.zoteroPosition?.rects, exact);
+});
+
 test("draftInkAnnotation stores paths, minus the points the shape implies", () => {
   const draft = draftInkAnnotation({
     color: "#2ea8e5",

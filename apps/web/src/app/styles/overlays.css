@@ -282,8 +282,10 @@
 .card-menu-item, .menu-item { display: flex; align-items: center; gap: 8px; width: 100%; }
 .card-menu-more, .menu-more { margin-left: auto; opacity: 0.55; }
 .card-menu-flyout, .menu-flyout {
-  position: absolute; left: calc(100% + 6px); top: -4px; z-index: 5;
-  min-width: 208px; max-height: 320px; overflow-y: auto; padding: 8px;
+  position: absolute; left: calc(100% + 6px); top: -4px; z-index: 20;
+  min-width: 208px; max-height: 320px; overflow-y: auto; padding: 6px;
+  background: var(--elev); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
 }
 /* Flip horizontally to the left when right screen edge is bounded */
 .card-menu-flyout[data-placement-x="left"],

@@ -15,6 +15,7 @@ import {
   readerKeyboardCommand,
   resolveTextAnchor,
   inkNoteWidthToPdfPoints,
+  screenPointToPdf,
   translateInkPaths,
   INK_HIGHLIGHTER_WIDTH,
   type AnchorConfidence,
@@ -77,6 +78,7 @@ import { useReaderReferences } from "./use-reader-references";
 import { ReferencePopoverHost } from "./reference-popover-host";
 import { CitationTextLayer } from "./citation-text-layer";
 import { FindMarks, FindOverlay } from "../find-overlay";
+import { TargetHighlightOverlay } from "./target-highlight-overlay";
 import { findMarks } from "../../application/find-marks";
 import { ReferencesPanel } from "../references-panel";
 import { buildLocusLink } from "../../application/build-locus-link";
@@ -197,6 +199,7 @@ export function PdfReader({
     pageNumber: number;
     quote: string;
     selection: TextSelectionRange;
+    exactRects?: number[][];
     /** Where the popover sits: the selection's box, in the scroller's content. */
     at: SelectionAnchor;
   } | null>(null);
@@ -1066,10 +1069,38 @@ export function PdfReader({
       setPendingCreate(null);
       return;
     }
+
+    // Capture exact PDF user-space rects from active DOM selection client rects
+    const exactRects: number[][] = [];
+    if (sel && sel.rangeCount > 0) {
+      const pageEl = root.querySelector<HTMLElement>(`[data-page="${pageNumber}"] .pdf-reader-page`);
+      if (pageEl) {
+        const pageBox = pageEl.getBoundingClientRect();
+        const domRange = sel.getRangeAt(0);
+        const p = pageProjection(pageNumber);
+        const clientRects = domRange.getClientRects();
+        for (let i = 0; i < clientRects.length; i++) {
+          const cr = clientRects[i]!;
+          if (cr.width < 1 || cr.height < 1) continue;
+          const left = cr.left - pageBox.left;
+          const top = cr.top - pageBox.top;
+          const p1 = screenPointToPdf(left, top, p);
+          const p2 = screenPointToPdf(left + cr.width, top + cr.height, p);
+          exactRects.push([
+            Math.min(p1.x, p2.x),
+            Math.min(p1.y, p2.y),
+            Math.max(p1.x, p2.x),
+            Math.max(p1.y, p2.y),
+          ]);
+        }
+      }
+    }
+
     setPendingCreate({
       pageNumber,
       quote: draft.text ?? "",
       selection: range,
+      exactRects: exactRects.length > 0 ? exactRects : undefined,
       at,
     });
   }
@@ -1092,6 +1123,7 @@ export function PdfReader({
       color,
       selection: pendingCreate.selection,
       page: geometry,
+      exactRects: pendingCreate.exactRects,
       comment: "",
     });
     if (!draft) return;
@@ -1136,6 +1168,7 @@ export function PdfReader({
       color,
       selection: pendingCreate.selection,
       page: geometry,
+      exactRects: pendingCreate.exactRects,
       comment,
     });
     if (!draft) return;
@@ -1624,6 +1657,23 @@ export function PdfReader({
                     selectedKey={refs.open?.hit.key ?? null}
                   />
                 )}
+                {pageSize && find.matches.length > 0 && pageItems.has(n) && (
+                  <FindOverlay
+                    matches={find.matches}
+                    active={find.active}
+                    pageIndex={n - 1}
+                    items={pageItems.get(n)!}
+                    projection={pageProjection(n)}
+                  />
+                )}
+                {captionTarget?.page === n && (
+                  <TargetHighlightOverlay
+                    target={captionTarget}
+                    scale={scale}
+                    pageHeight={pageGeometries.current.get(n)?.pageHeight ?? pageSize?.height ?? 792}
+                    pageWidth={pageGeometries.current.get(n)?.pageWidth ?? pageSize?.width ?? 612}
+                  />
+                )}
               </div>
               {penOpen && pageSize && (
                 <PageMargin
@@ -1631,26 +1681,6 @@ export function PdfReader({
                   width={marginWidth(n)}
                   selectedId={selectedAnnId}
                   onSelect={selectAnnotation}
-                />
-              )}
-              {pageSize && find.matches.length > 0 && pageItems.has(n) && (
-                <FindOverlay
-                  matches={find.matches}
-                  active={find.active}
-                  pageIndex={n - 1}
-                  items={pageItems.get(n)!}
-                  projection={pageProjection(n)}
-                />
-              )}
-              {captionTarget?.page === n && typeof captionTarget.y === "number" && (
-                <div
-                  className="pdf-reader-caption-target"
-                  style={{
-                    left: typeof captionTarget.x === "number" ? `${captionTarget.x * scale}px` : "5%",
-                    top: `${((pageGeometries.current.get(n)?.pageHeight ?? pageSize?.height ?? 792) - captionTarget.y) * scale}px`,
-                    width: typeof captionTarget.x === "number" ? "90%" : "90%",
-                    height: `${Math.max((captionTarget.height ?? 18) * scale, 24)}px`,
-                  }}
                 />
               )}
               {pageSize && draftShape?.pageNumber === n && (

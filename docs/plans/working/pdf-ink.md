@@ -59,7 +59,7 @@ stays a Zotero annotation.
   signed commit (`git commit -s`, conventional subject, ending
   `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`).
 - Verify in the installed desktop app over CDP, not by asking the user: the
-  loop is in the project memory (`desktop-cdp-verify`): build, silent
+  loop is in `.agents/testing.md`: build, silent
   install, launch with `--remote-debugging-port=9222`, drive, screenshot.
 - Generate docs (`npm run docs:generate`) from the tracked tree only (stash
   untracked files first): the generator counts every file it sees, and CI has

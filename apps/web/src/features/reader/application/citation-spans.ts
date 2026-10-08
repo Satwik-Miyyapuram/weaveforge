@@ -33,6 +33,8 @@ export interface CiteSpan {
   end: number;
   text?: string;
   label?: string;
+  kind?: "citation" | "figure" | "url";
+  url?: string;
 }
 
 export interface TextSegment {
@@ -149,14 +151,31 @@ export function decorateCitationSpans(
         continue;
       }
       const anchor = document.createElement("a");
-      anchor.href = "#citation-details";
-      anchor.className = "pdf-reader-cite";
+      const isUrl = segment.mention.kind === "url" || Boolean(segment.mention.url);
+      const isFigure = segment.mention.kind === "figure";
+
+      if (isUrl && segment.mention.url) {
+        anchor.href = segment.mention.url;
+        anchor.target = "_blank";
+        anchor.rel = "noopener noreferrer";
+        anchor.className = "pdf-reader-cite pdf-reader-external-link";
+        anchor.title = `Open ${segment.mention.url}`;
+        anchor.setAttribute("aria-label", `Link: ${segment.mention.url}`);
+      } else {
+        anchor.href = "#citation-details";
+        anchor.className = `pdf-reader-cite${isFigure ? " is-figure-jump" : ""}`;
+        anchor.title = segment.mention.label || segment.mention.text || segment.text;
+        anchor.setAttribute(
+          "aria-label",
+          isFigure
+            ? `Jump to: ${segment.mention.label || segment.text}`
+            : `Reference: ${segment.mention.label || segment.text}`,
+        );
+      }
       anchor.dataset.mentionKey = segment.mention.key;
       anchor.dataset.from = String(segment.from);
       anchor.dataset.to = String(segment.to);
       anchor.textContent = segment.text;
-      anchor.title = segment.mention.label || segment.mention.text || segment.text;
-      anchor.setAttribute("aria-label", `Reference: ${segment.mention.label || segment.text}`);
       anchor.tabIndex = focused.has(segment.mention.key) ? -1 : 0;
       focused.add(segment.mention.key);
       fragment.append(anchor);

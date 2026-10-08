@@ -18,9 +18,13 @@ export function draftFromTextSelection(input: {
   selection: TextSelectionRange;
   page: PageTextGeometry;
   comment?: string;
+  exactRects?: readonly number[][] | null;
 }): NewReaderAnnotation | null {
   const anchor = selectionToAnchor(input.selection, input.page);
   if (!anchor) return null;
+  if (input.exactRects && input.exactRects.length > 0 && anchor.zoteroPosition) {
+    anchor.zoteroPosition.rects = [...input.exactRects];
+  }
   const quote = anchor.locus?.quote?.exact ?? "";
   const charStart = anchor.locus?.position?.start ?? 0;
   const top =

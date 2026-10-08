@@ -74,7 +74,7 @@ export function measureLinkTextRanges(
   });
   const glyphCache = new Map<number, { start: number; end: number; box: DOMRect }[]>();
   return links.map((link) => {
-    if (link.url || (!link.dest && !link.destName)) return link;
+    if (!link.url && !link.dest && !link.destName) return link;
     const projected = viewport.convertToViewportRectangle(link.rect);
     const box = {
       left: origin.left + Math.min(projected[0]!, projected[2]!),
@@ -125,7 +125,7 @@ export async function measurePdfLinks(
   items: readonly PageTextItem[],
   links: readonly PdfLink[],
 ): Promise<PdfLink[]> {
-  if (!links.some((link) => !link.url)) return [...links];
+  if (!links.length) return [...links];
   const shell = document.createElement("div");
   shell.className = "pdf-measure-shell";
   shell.setAttribute("aria-hidden", "true");

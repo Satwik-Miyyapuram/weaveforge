@@ -87,8 +87,8 @@ test("figure and equation mentions resolve to first targets", () => {
   const pages = [{ number: 1, text: "See Fig. 2 and Eq. (3)", items: lines(["See Fig. 2 and Eq. (3)"], 1) },
     { number: 2, text: "Figure 2 A caption", items: [...lines(["Figure 2 A caption"], 2), { ...lines(["(3)"], 2, 500)[0]!, y: 300 }] }];
   const mentions = findFigureMentions(pages);
-  assert.deepEqual(mentions[0]?.target, { page: 2, y: 700, x: 40, height: 10 });
-  assert.deepEqual(mentions[1]?.target, { page: 2, y: 300, x: 500, height: 10 });
+  assert.deepEqual(mentions[0]?.target, { page: 2, y: 700, x: 40, height: 10, label: "Figure 2", kind: "figure" });
+  assert.deepEqual(mentions[1]?.target, { page: 2, y: 300, x: 500, height: 10, label: "Equation (3)", kind: "equation" });
 });
 
 test("title scorer enforces title and year thresholds", () => {

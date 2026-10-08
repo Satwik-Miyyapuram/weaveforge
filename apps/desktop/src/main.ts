@@ -510,9 +510,10 @@ const vaultWatcher = registerMainVaultWatch({
  * The chosen folder outlives the process, so the app comes back to it -- and
  * outlives the app's directory too (`home-config.ts`), so a reinstall does.
  */
+const homeVariant = app.getName() === "WeaveForge Dev" ? "dev" : undefined;
 const rememberRoot: RememberRoot = (root) => {
   void preferenceStore().write("vault-root", root);
-  void writeHomeConfig(app.getPath("home"), { vaultRoot: root });
+  void writeHomeConfig(app.getPath("home"), { vaultRoot: root }, homeVariant);
 };
 
 /**
@@ -529,7 +530,7 @@ const rootRestored: Promise<void> = preferenceStore()
   .read("vault-root")
   .then(async (result) => {
     if (result.ok && typeof result.value === "string" && result.value) return result.value;
-    return (await readHomeConfig(app.getPath("home"))).vaultRoot;
+    return (await readHomeConfig(app.getPath("home"), homeVariant)).vaultRoot;
   })
   .then((remembered) => restoreRoot(vault, remembered, rememberRoot))
   .then((root) => {

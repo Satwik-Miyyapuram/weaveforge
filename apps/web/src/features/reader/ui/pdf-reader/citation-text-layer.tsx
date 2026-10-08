@@ -152,6 +152,10 @@ export function CitationTextLayer({
       // A click that ends a text selection is a selection, not a citation open.
       const selection = window.getSelection();
       if (event.detail > 0 && selection && !selection.isCollapsed) return;
+      if (hit.kind === "url" && hit.url) {
+        // External link: allow native browser link navigation to new tab
+        return;
+      }
       event.preventDefault();
       current.current.onOpen(hit, anchor.getBoundingClientRect());
     };

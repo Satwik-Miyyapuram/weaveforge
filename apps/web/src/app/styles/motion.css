@@ -546,31 +546,49 @@
   .pdf-reader-flash { animation: none; }
 }
 
-/* A caption or figure target pulse indicator when jumping to a figure/table */
+/* A target pulse indicator when jumping to a footnote, figure, table, or section */
 @keyframes pdf-reader-target-pulse {
   0% {
-    outline: 3px solid var(--accent);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent);
-    background-color: color-mix(in srgb, var(--accent) 15%, transparent);
-  }
-  70% {
+    background-color: color-mix(in srgb, var(--accent) 45%, transparent);
     outline: 2px solid var(--accent);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent);
-    background-color: color-mix(in srgb, var(--accent) 8%, transparent);
+    outline-offset: 1px;
+    opacity: 1;
+  }
+  65% {
+    background-color: color-mix(in srgb, var(--accent) 35%, transparent);
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    opacity: 0.9;
   }
   100% {
-    outline: 2px solid transparent;
-    box-shadow: 0 0 0 0 transparent;
     background-color: transparent;
+    outline: 2px solid transparent;
+    outline-offset: 1px;
+    opacity: 0;
   }
+}
+.pdf-reader-target-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+}
+.pdf-reader-target-hit {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 2px;
+  mix-blend-mode: multiply;
+  animation: pdf-reader-target-pulse 2.4s ease-out forwards;
 }
 .pdf-reader-caption-target {
   position: absolute;
   pointer-events: none;
-  border-radius: 4px;
+  border-radius: 2px;
   z-index: 15;
-  animation: pdf-reader-target-pulse 2.2s ease-out forwards;
+  mix-blend-mode: multiply;
+  animation: pdf-reader-target-pulse 2.4s ease-out forwards;
 }
 @media (prefers-reduced-motion: reduce) {
+  .pdf-reader-target-hit,
   .pdf-reader-caption-target { animation: none; outline: 2px solid var(--accent); }
 }
