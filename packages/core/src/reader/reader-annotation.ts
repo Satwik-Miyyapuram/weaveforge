@@ -66,6 +66,8 @@ export interface ReaderAnnotation {
 }
 
 export interface NewReaderAnnotation {
+  /** Given only to bring a deleted mark back under its old id, so pins and links to it hold. */
+  id?: string;
   type: ReaderAnnotationType;
   color: string;
   text?: string;

@@ -157,6 +157,23 @@ test("create defaults the sort index from the page when the draft omits one", as
   assert.equal(inserted.project_id, PROJECT);
 });
 
+test("create sends a given id and omits it otherwise", async () => {
+  const rec = recorder();
+  const repo = makeRepo(row(), rec);
+  const draft = {
+    type: "highlight" as const,
+    color: "#ffd400",
+    pageIndex: 0,
+    anchor: { zoteroPosition: { pageIndex: 0, rects: [[1, 2, 3, 4]] } },
+  };
+
+  await repo.create("paper-1", { ...draft, id: "ann-old" });
+  await repo.create("paper-1", draft);
+
+  assert.equal(rec.inserts[0]!.id, "ann-old");
+  assert.equal("id" in rec.inserts[1]!, false);
+});
+
 test("list returns an empty array rather than throwing without a project", async () => {
   const repo = makeRepo(row(), recorder(), null);
   assert.deepEqual(await repo.list("paper-1"), []);

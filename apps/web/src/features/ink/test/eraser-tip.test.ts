@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   PEN_ERASER_BIT,
   PEN_ERASER_BUTTON,
+  EraserSweep,
   isPenEraserPointer,
 } from "../application/eraser-tip";
 
@@ -37,4 +38,31 @@ test("a writing pen, a hover, a finger and a mouse never erase", () => {
   assert.equal(isPenEraserPointer({ pointerType: "mouse", buttons: PEN_ERASER_BIT }), false);
   // A barrel button (bit 2) is not the eraser either.
   assert.equal(isPenEraserPointer({ pointerType: "pen", button: 2, buttons: 4 }), false);
+});
+
+test("eraser sweep: the back tip erases under any tool and shows the eraser until it lifts", () => {
+  const sweep = new EraserSweep("eraser");
+  const page = { style: { cursor: "crosshair" } };
+  const tip = { pointerType: "pen", button: PEN_ERASER_BUTTON, buttons: PEN_ERASER_BIT, pointerId: 7, currentTarget: page };
+  const nib = { pointerType: "pen", button: 0, buttons: 1, pointerId: 8, currentTarget: page };
+
+  assert.equal(sweep.begin(nib, false, true), false, "the writing end draws");
+  assert.equal(page.style.cursor, "crosshair");
+  assert.equal(sweep.begin(tip, false, false), false, "a tool that forbids the tip (lasso) keeps it");
+  assert.equal(sweep.begin(tip, false, true), true);
+  assert.equal(page.style.cursor, "eraser");
+  assert.equal(sweep.owns(7), true);
+  assert.equal(sweep.owns(8), false);
+  assert.equal(sweep.end(8), false, "another pointer does not end it");
+  assert.equal(sweep.end(7), true);
+  assert.equal(page.style.cursor, "crosshair", "the tool's cursor comes back");
+  assert.equal(sweep.owns(7), false);
+});
+
+test("eraser sweep: the eraser tool sweeps with any pointer", () => {
+  const sweep = new EraserSweep("eraser");
+  const finger = { pointerType: "touch", button: 0, buttons: 1, pointerId: 3, currentTarget: null };
+  assert.equal(sweep.begin(finger, true, false), true);
+  assert.equal(sweep.owns(3), true);
+  assert.equal(sweep.end(3), true);
 });

@@ -75,26 +75,16 @@ export function ReaderToolbar({ viewport, numPages, hideFit = false, children }:
           page already opens at fit width. */}
       <div className="pdf-reader-group pdf-reader-more">
         {!hideFit && (
-          <>
-            <button
-              type="button"
-              className={`btn-secondary btn-sm${viewport.fit === "width" ? " is-active" : ""}`}
-              onClick={viewport.fitWidth}
-              aria-pressed={viewport.fit === "width"}
-              title="Fit width"
-            >
-              Fit width
-            </button>
-            <button
-              type="button"
-              className={`btn-secondary btn-sm${viewport.fit === "page" ? " is-active" : ""}`}
-              onClick={viewport.fitPage}
-              aria-pressed={viewport.fit === "page"}
-              title="Fit page"
-            >
-              Fit page
-            </button>
-          </>
+          // One button, Chrome's way: it shows and does the other fit.
+          <button
+            type="button"
+            className="btn-secondary btn-sm pdf-reader-icon-btn"
+            onClick={viewport.fit === "width" ? viewport.fitPage : viewport.fitWidth}
+            aria-label={viewport.fit === "width" ? "Fit page" : "Fit width"}
+            title={viewport.fit === "width" ? "Fit page" : "Fit width"}
+          >
+            <FitGlyph page={viewport.fit === "width"} />
+          </button>
         )}
         <button
           type="button"
@@ -140,6 +130,25 @@ function RotateGlyph() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.72 2.24" />
       <path d="M21 3v5h-5" />
+    </svg>
+  );
+}
+
+/** Arrows kept inside the frame so they stay legible at 18px: wide frame with ↔ for width, tall page with ↕ for page. */
+function FitGlyph({ page }: { page: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {page ? (
+        <>
+          <rect x="5.5" y="2" width="13" height="20" rx="2" />
+          <path d="M12 6v12M10 8l2-2 2 2M10 16l2 2 2-2" />
+        </>
+      ) : (
+        <>
+          <rect x="2" y="5.5" width="20" height="13" rx="2" />
+          <path d="M6 12h12M8 10l-2 2 2 2M16 10l2 2-2 2" />
+        </>
+      )}
     </svg>
   );
 }
