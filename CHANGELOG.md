@@ -21,6 +21,16 @@ tracks at once.
 
 ### iOS
 
+## [0.8.8] - 2026-10-08
+
+Desktop (`v0.8.8`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+
+### Desktop
+- **Fixed:** The app no longer opens and closes in a loop when the local database fails to open.
+- **Fixed:** The local database is locked, so a second copy of the app cannot open it and set it aside.
+- **Fixed:** Recovery restores only a backup that opens, falling back to older ones.
+- **Fixed:** Mattermost sign-in in the desktop app no longer fails with a 404.
+
 ## [0.8.7] - 2026-10-08
 
 Desktop (`v0.8.7`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
