@@ -24,14 +24,15 @@ export interface HomeConfig {
   vaultRoot: string | null;
 }
 
-export function homeConfigPath(home: string): string {
-  return path.join(home, HOME_CONFIG_DIR, HOME_CONFIG_FILE);
+/** `variant` gives a side-by-side build (WeaveForge Dev) its own pointer, so it never opens the main app's folder. */
+export function homeConfigPath(home: string, variant?: string): string {
+  return path.join(home, HOME_CONFIG_DIR, variant ? `desktop-${variant}.json` : HOME_CONFIG_FILE);
 }
 
 /** What the file says, or an empty config for a file that is not there or not JSON. */
-export async function readHomeConfig(home: string): Promise<HomeConfig> {
+export async function readHomeConfig(home: string, variant?: string): Promise<HomeConfig> {
   try {
-    const parsed: unknown = JSON.parse(await fs.promises.readFile(homeConfigPath(home), "utf8"));
+    const parsed: unknown = JSON.parse(await fs.promises.readFile(homeConfigPath(home, variant), "utf8"));
     const root =
       parsed && typeof parsed === "object" && "vaultRoot" in parsed
         ? (parsed as { vaultRoot: unknown }).vaultRoot
@@ -48,8 +49,8 @@ export async function readHomeConfig(home: string): Promise<HomeConfig> {
  * A write that fails is swallowed: the preference file still has the path,
  * and a home directory that cannot be written is not worth stopping over.
  */
-export async function writeHomeConfig(home: string, config: HomeConfig): Promise<void> {
-  const file = homeConfigPath(home);
+export async function writeHomeConfig(home: string, config: HomeConfig, variant?: string): Promise<void> {
+  const file = homeConfigPath(home, variant);
   try {
     await fs.promises.mkdir(path.dirname(file), { recursive: true });
     const draft = `${file}.${process.pid}.tmp`;

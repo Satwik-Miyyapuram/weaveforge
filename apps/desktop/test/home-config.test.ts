@@ -42,3 +42,12 @@ test("home-config: a home that cannot be written is not an error", async () => {
   fs.writeFileSync(file, "");
   await assert.doesNotReject(() => writeHomeConfig(path.join(file, "x"), { vaultRoot: "D:/n" }));
 });
+
+test("home-config: a variant keeps its own pointer beside the main one", async () => {
+  const dir = home();
+  await writeHomeConfig(dir, { vaultRoot: "D:/main" });
+  await writeHomeConfig(dir, { vaultRoot: "D:/dev" }, "dev");
+  assert.equal(homeConfigPath(dir, "dev"), path.join(dir, ".weaveforge", "desktop-dev.json"));
+  assert.deepEqual(await readHomeConfig(dir), { vaultRoot: "D:/main" });
+  assert.deepEqual(await readHomeConfig(dir, "dev"), { vaultRoot: "D:/dev" });
+});
