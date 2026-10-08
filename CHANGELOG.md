@@ -21,6 +21,20 @@ tracks at once.
 
 ### iOS
 
+## [0.8.7] - 2026-10-08
+
+Desktop (`v0.8.7`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+
+### Desktop
+- **New:** Collapsed navigation rail shows icons only.
+- **New:** Reader highlights the figure or equation a link points to.
+- **New:** Lab switcher in the account menu for people in more than one lab.
+- **New:** Mattermost sign-in goes through a server route.
+- **Fixed:** Reader citation popups, a single-row toolbar, and the references tab link.
+- **Fixed:** Find overlay and citation spans in the reader.
+- **Fixed:** WeaveForge Dev keeps its own workspace pointer, so it never opens the main app's folder.
+- **Security:** Mattermost sign-in refuses private and internal server addresses.
+
 ## [py-0.7.1] - 2026-10-05
 
 Python SDK (`py-v0.7.1`).
