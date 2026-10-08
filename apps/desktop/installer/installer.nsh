@@ -1,5 +1,5 @@
 ; The header strip behind the page title is drawn by NSIS in MUI_BGCOLOR
-; (white by default), which sat pale next to the dark header art. Mocha base
-; and text, so the strip and the art read as one band.
-!define MUI_BGCOLOR 1E1E2E
-!define MUI_TEXTCOLOR CDD6F4
+; (white by default). The setup window's art-panel colours, so the strip and
+; the header art read as one band.
+!define MUI_BGCOLOR F1D5A7
+!define MUI_TEXTCOLOR 2B222B
