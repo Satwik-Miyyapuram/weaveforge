@@ -45,6 +45,12 @@ export interface EraserSweepEvent extends PenEraserEvent {
   currentTarget: unknown;
 }
 
+/** What a hover needs: which pointer, over which surface. */
+export interface EraserHoverEvent {
+  pointerId: number;
+  currentTarget: unknown;
+}
+
 type Styled = { style: { cursor: string } };
 const styled = (target: unknown): target is Styled =>
   typeof target === "object" && target !== null && "style" in target;
@@ -53,9 +59,17 @@ const styled = (target: unknown): target is Styled =>
  * One erase sweep, down to up: whether a down erases, which pointer owns the
  * sweep, and the eraser cursor while it lasts. Notes and the reader share it so
  * the back tip behaves the same on a sheet and on a PDF page.
+ *
+ * A hovering pen reports nothing that tells its ends apart (no button, no bit,
+ * same tilt and size), so after a back-tip lift the cursor stays with that
+ * pointer until it leaves the surface or the front tip touches down. Windows
+ * gives each entry into range a fresh pointerId, so the stickiness ends there.
  */
 export class EraserSweep {
   private pointer: number | null = null;
+  private byTip = false;
+  /** The pointer whose hover still shows the eraser after a back-tip lift. */
+  private sticky: number | null = null;
   private target: Styled | null = null;
   private cursorBefore = "";
 
@@ -66,14 +80,12 @@ export class EraserSweep {
    * pen's back tip made the contact. False leaves the down to the caller.
    */
   begin(event: EraserSweepEvent, toolErases: boolean, tipErases: boolean): boolean {
-    if (!toolErases && !(tipErases && isPenEraserPointer(event))) return false;
-    this.restoreCursor();
+    const byTip = tipErases && isPenEraserPointer(event);
+    if (!toolErases && !byTip) return false;
+    this.sticky = null;
     this.pointer = event.pointerId;
-    if (styled(event.currentTarget)) {
-      this.target = event.currentTarget;
-      this.cursorBefore = this.target.style.cursor;
-      this.target.style.cursor = this.cursor;
-    }
+    this.byTip = byTip;
+    this.show(event.currentTarget);
     return true;
   }
 
@@ -86,12 +98,40 @@ export class EraserSweep {
   end(pointerId: number): boolean {
     if (this.pointer !== pointerId) return false;
     this.pointer = null;
-    this.restoreCursor();
+    if (this.byTip) this.sticky = pointerId;
+    else this.restoreCursor();
     return true;
   }
 
+  /** A hover over `currentTarget`: the sticky pointer brings the eraser cursor along. */
+  hover(event: EraserHoverEvent): void {
+    if (this.sticky !== event.pointerId || this.target === event.currentTarget) return;
+    this.show(event.currentTarget);
+  }
+
+  /** The pointer left the surface: its eraser cursor comes off, and returns on the next hover. */
+  leave(pointerId: number): void {
+    if (this.sticky === pointerId && this.pointer === null) this.restoreCursor();
+  }
+
+  /** A down that did not erase: the back tip is no longer the end in use. */
+  release(pointerId: number): void {
+    if (this.sticky !== pointerId) return;
+    this.sticky = null;
+    this.restoreCursor();
+  }
+
+  private show(target: unknown): void {
+    this.restoreCursor();
+    if (!styled(target)) return;
+    this.target = target;
+    this.cursorBefore = target.style.cursor;
+    target.style.cursor = this.cursor;
+  }
+
+  // A surface that set its own cursor meanwhile (a tool change) keeps it.
   private restoreCursor(): void {
-    if (this.target) this.target.style.cursor = this.cursorBefore;
+    if (this.target && this.target.style.cursor === this.cursor) this.target.style.cursor = this.cursorBefore;
     this.target = null;
   }
 }

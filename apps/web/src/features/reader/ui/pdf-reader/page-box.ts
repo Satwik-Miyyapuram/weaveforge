@@ -1,4 +1,4 @@
-import type { DrawArea } from "../../application/clip-to-area";
+import type { DrawArea } from "@/features/ink";
 
 /**
  * The rendered page box inside a page's row.

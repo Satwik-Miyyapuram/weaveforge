@@ -25,6 +25,20 @@ export {
   type PenGateEvent,
 } from "./application/pen-gate";
 export { EraserSweep, isPenEraserPointer } from "./application/eraser-tip";
+export {
+  clipSegmentToArea,
+  pointInArea,
+  type DrawArea,
+  type Point,
+} from "./application/clip-to-area";
+export {
+  InkGesture,
+  StrokeEdgeSplit,
+  type EdgeStep,
+  type InkDownContext,
+  type InkRoute,
+  type InkToolKind,
+} from "./application/ink-gesture";
 
 export {
   PenCaptureSession,
