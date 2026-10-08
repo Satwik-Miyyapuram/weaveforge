@@ -49,6 +49,7 @@ import { registerMainVaultWatch } from "./main-vault-watch";
 import { fetchZoteroLocal } from "./zotero-local";
 import { probeTex } from "./tex";
 import { registerMainTex } from "./main-tex";
+import { registerMattermostSignIn } from "./mattermost-signin";
 import { ARTIFACT_HOST, serveLocalArtifact } from "./local-artifacts";
 import { MODEL_HOST, serveModelFile } from "./model-cache";
 import { handleOverleafRead } from "./overleaf-source";
@@ -683,6 +684,7 @@ ipc.handle(CHANNELS.texProbe, async () => {
 const mainInk = registerMainInk({ ipc });
 
 registerMainTex({ ipc });
+registerMattermostSignIn({ ipc, mainWindow: () => mainWindow });
 
 ipc.handle(CHANNELS.vaultCommit, async () => {
   // The setting is read here rather than sent by the renderer: a window that

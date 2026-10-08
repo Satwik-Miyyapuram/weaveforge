@@ -5,7 +5,7 @@ import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { useProject } from "@/features/projects";
 import { onMattermostSignedOut } from "../infrastructure/mattermost-session";
-import { MattermostLoginForm } from "./mattermost-login-form";
+import { MattermostSignInButton } from "./mattermost-sign-in-button";
 
 /**
  * One listener near the app root for the "session token stopped working" signal
@@ -36,11 +36,7 @@ export function MattermostSignedOutHost() {
           Your Mattermost session expired, so plan updates stopped posting. Sign
           in again to keep posting to this channel.
         </p>
-        <MattermostLoginForm
-          serverUrl={serverUrl}
-          submitLabel="Sign in & resume"
-          onToken={saveToken}
-        />
+        <MattermostSignInButton serverUrl={serverUrl} label="Sign in again" onToken={saveToken} />
       </div>
     </Modal>
   );

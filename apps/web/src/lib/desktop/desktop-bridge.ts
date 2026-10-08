@@ -225,6 +225,12 @@ export interface DesktopBridge {
    */
   probeTex(): Promise<DesktopTexTool | null>;
   /**
+   * Opens the Mattermost server's own login page in a window and answers the
+   * session token once the reader has signed in, or null if they closed it.
+   * Optional: builds before 0.8.9 do not have it.
+   */
+  mattermostSignIn?(serverUrl: string): Promise<string | null>;
+  /**
    * Answer the MCP server's ranking requests while this window is open.
    *
    * Returning null means "no opinion", and the server keeps the order its word

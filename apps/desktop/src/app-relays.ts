@@ -9,7 +9,6 @@
 import { isArxivProxyRequest, proxyArxiv } from "./arxiv-proxy";
 import { isBlobProxyRequest, proxyBlob } from "./blob-proxy";
 import { isHtmlProxyRequest, proxyHtml } from "./html-proxy";
-import { isMattermostLoginRequest, proxyMattermostLogin } from "./mattermost-login-proxy";
 import { isPdfProxyRequest, proxyPdf } from "./pdf-proxy";
 import { isSemanticScholarProxyRequest, proxySemanticScholar, type ProxyFetch } from "./semantic-scholar-proxy";
 
@@ -25,7 +24,5 @@ export function answerRelay(request: Request, fetchFn: ProxyFetch): Promise<Resp
   if (isArxivProxyRequest(request.url)) return proxyArxiv(request, fetchFn);
   // The blob store's routes (pictures on papers and notes), on the hosted app.
   if (isBlobProxyRequest(request.url)) return proxyBlob(request, fetchFn);
-  // Mattermost sign-in, whose Token header most servers hide from CORS.
-  if (isMattermostLoginRequest(request.url)) return proxyMattermostLogin(request, fetchFn);
   return null;
 }
