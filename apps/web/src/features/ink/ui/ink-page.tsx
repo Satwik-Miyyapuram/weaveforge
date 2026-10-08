@@ -340,6 +340,7 @@ export function InkPage({
 
   const onPointerMove = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
+      inkGesture.current.hover(event);
       if (event.pointerType === "touch" && touchMove(event)) return;
       if (figureTap.current) return;
       const route = inkGesture.current.route(event.pointerId);
@@ -574,6 +575,7 @@ export function InkPage({
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
+          onPointerLeave={(event) => inkGesture.current.leave(event.pointerId)}
           onDoubleClick={(event) => {
             // The double-click is the figure's controls: a click the figure
             // can receive, because a single one is a drag the page routes.

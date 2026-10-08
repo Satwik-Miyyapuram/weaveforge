@@ -7,7 +7,7 @@
  */
 
 import { clipSegmentToArea, pointInArea, type DrawArea, type Point } from "./clip-to-area";
-import { EraserSweep, type EraserSweepEvent } from "./eraser-tip";
+import { EraserSweep, type EraserHoverEvent, type EraserSweepEvent } from "./eraser-tip";
 
 /** The armed tool, as the gesture sees it. */
 export type InkToolKind = "draw" | "eraser" | "lasso" | "region" | "none";
@@ -38,6 +38,7 @@ export class InkGesture {
   /** Picks the route for a down and remembers it; null leaves the down to the caller. */
   down(event: EraserSweepEvent, ctx: InkDownContext): InkRoute | null {
     const route = this.pick(event, ctx);
+    if (route !== "erase") this.sweep.release(event.pointerId);
     if (route) this.routes.set(event.pointerId, route);
     else this.routes.delete(event.pointerId);
     return route;
@@ -64,6 +65,16 @@ export class InkGesture {
     this.routes.delete(pointerId);
     if (route === "erase") this.sweep.end(pointerId);
     return route;
+  }
+
+  /** A move with no gesture under way: keeps a lifted back tip's eraser cursor showing. */
+  hover(event: EraserHoverEvent): void {
+    if (!this.routes.has(event.pointerId)) this.sweep.hover(event);
+  }
+
+  /** The pointer left the surface (or the pen left range). */
+  leave(pointerId: number): void {
+    this.sweep.leave(pointerId);
   }
 }
 

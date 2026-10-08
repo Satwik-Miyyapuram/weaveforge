@@ -112,6 +112,7 @@ export interface PagePointer {
   onPagePointerDown: (pageNumber: number, event: React.PointerEvent<HTMLDivElement>) => void;
   onPagePointerMove: (event: React.PointerEvent<HTMLDivElement>) => void;
   onPagePointerUp: (pageNumber: number, event: React.PointerEvent<HTMLDivElement>) => void;
+  onPagePointerLeave: (event: React.PointerEvent<HTMLDivElement>) => void;
 }
 
 /**
@@ -510,6 +511,7 @@ export function usePagePointer({
   }
 
   function onPagePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    gesture.current.hover(event);
     if (!canCreate) return;
     const host = event.currentTarget;
     const pageNumber = Number(host.dataset.page);
@@ -625,6 +627,10 @@ export function usePagePointer({
       dragRect.current.y1 = pt.y;
       scheduleDraft({ kind: "rect", ...dragRect.current });
     }
+  }
+
+  function onPagePointerLeave(event: React.PointerEvent<HTMLDivElement>) {
+    gesture.current.leave(event.pointerId);
   }
 
   function onPagePointerUp(pageNumber: number, event: React.PointerEvent<HTMLDivElement>) {
@@ -761,5 +767,6 @@ export function usePagePointer({
     onPagePointerDown,
     onPagePointerMove,
     onPagePointerUp,
+    onPagePointerLeave,
   };
 }

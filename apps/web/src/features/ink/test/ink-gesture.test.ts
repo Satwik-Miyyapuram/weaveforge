@@ -47,16 +47,67 @@ test("the eraser tool erases, an intercept wins over drawing, a region tool pick
   assert.equal(gesture.down(pen(4), ctx()), "draw");
 });
 
-test("up returns the route, forgets it, and puts the cursor back after an erase", () => {
+test("up returns the route, forgets it, and puts the cursor back after an eraser-tool sweep", () => {
   const gesture = new InkGesture("cell");
-  const down = backTip(7);
-  assert.equal(gesture.down(down, ctx()), "erase");
+  const down = pen(7);
+  assert.equal(gesture.down(down, ctx({ tool: "eraser" })), "erase");
   assert.equal(down.currentTarget.style.cursor, "cell");
   assert.equal(gesture.route(7), "erase");
   assert.equal(gesture.up(7), "erase");
   assert.equal(down.currentTarget.style.cursor, "crosshair");
   assert.equal(gesture.route(7), null);
   assert.equal(gesture.up(7), null);
+});
+
+// A hover reports nothing that tells the back tip from the front, so the
+// eraser cursor stays with the pointer after a back-tip lift until it leaves.
+test("the back tip's cursor stays through the hover after a lift and goes on leave", () => {
+  const gesture = new InkGesture("cell");
+  const down = backTip(7);
+  gesture.down(down, ctx());
+  assert.equal(gesture.up(7), "erase");
+  assert.equal(down.currentTarget.style.cursor, "cell");
+  gesture.leave(7);
+  assert.equal(down.currentTarget.style.cursor, "crosshair");
+});
+
+test("the hovering back tip carries its cursor to the next surface", () => {
+  const gesture = new InkGesture("cell");
+  const down = backTip(7);
+  gesture.down(down, ctx());
+  gesture.up(7);
+  gesture.leave(7);
+  const next = target();
+  gesture.hover({ pointerId: 7, currentTarget: next });
+  assert.equal(next.style.cursor, "cell");
+  assert.equal(down.currentTarget.style.cursor, "crosshair");
+  gesture.hover({ pointerId: 8, currentTarget: target() });
+  assert.equal(next.style.cursor, "cell");
+});
+
+test("a front-tip down drops the back tip's cursor", () => {
+  const gesture = new InkGesture("cell");
+  const down = backTip(7);
+  gesture.down(down, ctx());
+  gesture.up(7);
+  const front = pen(7);
+  front.currentTarget = down.currentTarget;
+  assert.equal(gesture.down(front, ctx()), "draw");
+  assert.equal(down.currentTarget.style.cursor, "crosshair");
+  gesture.leave(7);
+  const next = target();
+  gesture.hover({ pointerId: 7, currentTarget: next });
+  assert.equal(next.style.cursor, "crosshair");
+});
+
+test("a cursor the surface changed meanwhile is left alone", () => {
+  const gesture = new InkGesture("cell");
+  const down = backTip(7);
+  gesture.down(down, ctx());
+  gesture.up(7);
+  down.currentTarget.style.cursor = "text";
+  gesture.leave(7);
+  assert.equal(down.currentTarget.style.cursor, "text");
 });
 
 const PAGE = { left: 0, top: 0, right: 100, bottom: 100 };
