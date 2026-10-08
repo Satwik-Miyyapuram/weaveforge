@@ -24,8 +24,32 @@ export async function loginForSessionToken(
   loginId: string,
   password: string,
   mfaToken?: string,
-  fetchFn: typeof fetch = (...a) => fetch(...a),
+  fetchFn: typeof fetch = fetch,
 ): Promise<string> {
+  // When running in the browser with standard fetch, proxy through our
+  // Next.js route so the request is same-origin, avoiding browser CORS
+  // restrictions and Mattermost's CorsExposedHeaders requirements.
+  if (typeof window !== "undefined" && fetchFn === fetch) {
+    const res = await fetch("/api/mattermost/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        serverUrl,
+        loginId,
+        password,
+        ...(mfaToken ? { mfaToken } : {}),
+      }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string; token?: string };
+    if (!res.ok) {
+      throw new Error(data.error || `Mattermost sign-in failed (${res.status}).`);
+    }
+    if (!data.token) {
+      throw new Error("Signed in, but the server did not return a session token.");
+    }
+    return data.token;
+  }
+
   const origin = serverOrigin(serverUrl);
   const res = await fetchFn(`${origin}/api/v4/users/login`, {
     method: "POST",

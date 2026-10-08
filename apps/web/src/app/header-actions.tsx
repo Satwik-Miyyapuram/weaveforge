@@ -3,12 +3,14 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/features/auth";
 import { useProfile } from "@/features/org/ui/profile-provider";
 import { useProject } from "@/features/projects";
 import { getContainer } from "@/bootstrap";
 import { Popover } from "@/components/popover";
+import { SubmenuFlyout } from "@/components/menu";
+import { isExplicitLabMembership, ROLE_LABELS, type Role } from "@weaveforge/core";
 import { ThemeToggle } from "./theme-toggle";
 import { accountLinks, type AccountLinkId } from "./account-links";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
@@ -26,6 +28,14 @@ const UserIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="action-icon">
     <circle cx="12" cy="8" r="4" />
     <path d="M4 21a8 8 0 0 1 16 0" />
+  </svg>
+);
+
+const BuildingIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="action-icon">
+    <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
+    <path d="M9 22v-4h6v4" />
+    <path d="M8 6h.01M16 6h.01M12 6h.01M8 10h.01M16 10h.01M12 10h.01M8 14h.01M16 14h.01M12 14h.01" />
   </svg>
 );
 
@@ -76,11 +86,12 @@ const LogoutIcon = () => (
  */
 export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" }) {
   const { user, signOut } = useAuth();
-  const { profile } = useProfile();
+  const { profile, memberships, activeOrgId, switchOrg } = useProfile();
   const { current, setProject } = useProject();
   const router = useRouter();
   const [pendingProposals, setPendingProposals] = useState(0);
   const [local, setLocal] = useState(false);
+  const labs = memberships ? memberships.filter(isExplicitLabMembership) : [];
 
   useEffect(() => {
     const read = () =>
@@ -135,7 +146,15 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
       {/* Theme is one of the account controls, so it is a row of this menu
           rather than a button beside it. Two of each was the bug. */}
       <ThemeToggle />
-            {accountLinks({
+      {labs.length > 1 && (
+        <OrgMenuSubmenu
+          labs={labs}
+          activeOrgId={activeOrgId}
+          switchOrg={switchOrg}
+          closeMenu={close}
+        />
+      )}
+      {accountLinks({
         canSupervise,
         hasProject: !!current,
         pendingProposals,
@@ -235,5 +254,75 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
     >
       {links}
     </Popover>
+  );
+}
+
+function OrgMenuSubmenu({
+  labs,
+  activeOrgId,
+  switchOrg,
+  closeMenu,
+}: {
+  labs: Array<{ orgId: string; orgName: string; role: Role }>;
+  activeOrgId: string | null;
+  switchOrg: (id: string) => Promise<void>;
+  closeMenu: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const active = labs.find((m) => m.orgId === activeOrgId) ?? labs[0]!;
+
+  return (
+    <div className="menu-row card-menu-row" ref={rowRef}>
+      <button
+        type="button"
+        className="header-link menu-item card-menu-item"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title={`Current lab: ${active.orgName}. Click to switch.`}
+      >
+        <BuildingIcon />
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {active.orgName}
+        </span>
+        <span className="card-menu-more menu-more" aria-hidden="true" style={{ marginLeft: "auto", opacity: 0.65 }}>
+          ›
+        </span>
+      </button>
+      {open && (
+        <SubmenuFlyout anchorRef={rowRef} onClose={() => setOpen(false)}>
+          <div className="org-menu-flyout-list" style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: "200px" }}>
+            {labs.map((m) => (
+              <button
+                key={m.orgId}
+                type="button"
+                className={`proj-menu-item${m.orgId === activeOrgId ? " sel" : ""}`}
+                disabled={busy}
+                onClick={async () => {
+                  if (m.orgId === activeOrgId || busy) return;
+                  setBusy(true);
+                  try {
+                    await switchOrg(m.orgId);
+                    setOpen(false);
+                    closeMenu();
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                <span className="org-dot" aria-hidden="true" />
+                <span className="org-menu-label">
+                  <span>{m.orgName}</span>
+                  <span className="muted org-menu-role">{ROLE_LABELS[m.role]}</span>
+                </span>
+                {m.orgId === activeOrgId && <span className="check">✓</span>}
+              </button>
+            ))}
+          </div>
+        </SubmenuFlyout>
+      )}
+    </div>
   );
 }

@@ -20,6 +20,7 @@ import {
   type ParsedReference,
   type PdfLink,
   type ReaderOutlineItem,
+  coveredTextSpans,
 } from "@weaveforge/core";
 import type { FigureTarget } from "@weaveforge/core";
 import { pageTextFromItems } from "./reference-locate";
@@ -28,12 +29,14 @@ import { pageTextFromItems } from "./reference-locate";
 export interface MentionHit {
   /** Stable across re-renders, and unique within the document. */
   key: string;
-  kind: "citation" | "figure";
+  kind: "citation" | "figure" | "url";
   /** Offsets into the page text, as the finders report them. */
   start: number;
   end: number;
   /** Text used for the tooltip and the accessible name. */
   label: string;
+  /** External web URL, when kind === "url". */
+  url?: string;
   /** Reference-list indexes this mention points at, for citations. */
   refIndexes: number[];
   /**
@@ -202,6 +205,49 @@ export function indexFromAnalysis(
       refIndexes: [],
       target: figure.target,
     });
+  }
+
+  // Index external web URLs and non-citation document links from page annotations
+  for (const page of pages) {
+    const pageLinks = page.links ?? [];
+    if (!pageLinks.length) continue;
+    const text = texts.get(page.pageNumber) ?? "";
+    const hits = hitsFor(page.pageNumber);
+    const { spans } = coveredTextSpans({ number: page.pageNumber, items: page.items }, pageLinks);
+    for (const span of spans) {
+      if (span.end <= span.start) continue;
+      // Existing citations and figure detections take precedence
+      if (hits.some((hit) => hit.start < span.end && hit.end > span.start)) continue;
+
+      if (span.link.url) {
+        hits.push({
+          key: `u:${page.pageNumber}:${span.start}-${span.end}`,
+          kind: "url",
+          start: span.start,
+          end: span.end,
+          label: span.link.url,
+          url: span.link.url,
+          refIndexes: [],
+        });
+      } else if (span.link.dest) {
+        const destLabel = mentionLabel(text, span.start, span.end);
+        hits.push({
+          key: `d:${page.pageNumber}:${span.start}-${span.end}`,
+          kind: "figure",
+          start: span.start,
+          end: span.end,
+          label: destLabel || `Page ${span.link.dest.page}`,
+          refIndexes: [],
+          target: {
+            page: span.link.dest.page,
+            y: span.link.dest.y ?? 0,
+            ...(span.link.dest.x != null ? { x: span.link.dest.x } : {}),
+            ...(destLabel ? { label: destLabel } : {}),
+            kind: "dest",
+          },
+        });
+      }
+    }
   }
 
   for (const hits of mentionsByPage.values()) hits.sort((a, b) => a.start - b.start);

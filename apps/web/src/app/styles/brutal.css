@@ -650,6 +650,13 @@
 @media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-account-row :is(.proj-chip, .header-overflow-btn):hover {
   filter: brightness(0.96);
 } }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.card-menu-flyout, .menu-flyout) {
+  background: var(--surface);
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--sh-card);
+  z-index: 20;
+}
 
 /* ---- Screen title ---------------------------------------------------------
    Every mock opens on its page name, big, with a mono count over it. The
@@ -1225,10 +1232,41 @@
 }
 /* The sync attention badge: a hard-edged sticker, not a soft pill. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-badge {
-  border: var(--bw) solid var(--bw-line); border-radius: 0; background: var(--accent); color: var(--accent-fg);
-  box-shadow: 2px 2px 0 var(--bw-line);
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--sh-sm);
+  font-weight: 700;
 }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-badge .sync-dot { background: currentColor; border-radius: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-badge:hover {
+  filter: brightness(0.96);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-badge .sync-dot {
+  border-radius: 2px;
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-badge .sync-dot.amber {
+  background: var(--s-warn-bg, #f29731);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-badge .sync-dot.green {
+  background: var(--s-good-bg, #6cbf81);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-badge .sync-dot.muted {
+  background: var(--muted);
+}
+/* Conflict notification: an unmistakable warning sticker with semantic warning background */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-badge.conflict {
+  background: var(--s-warn-bg, #f29731);
+  color: var(--s-warn, var(--bw-line));
+  border-color: var(--bw-line);
+}
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-badge.conflict .sync-dot {
+  background: var(--s-warn, var(--bw-line));
+}
+:root[data-theme="crt"] .sync-badge {
+  font-family: var(--btn-font);
+  font-size: 1.05rem;
+}
 
 /* Mark in theme primary with heavier strokes. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) { --logo-ink: var(--nav-on-bg); }

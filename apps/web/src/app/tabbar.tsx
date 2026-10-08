@@ -13,7 +13,6 @@ import { ChevronIcon } from "@/components/chevron-icon";
 import { openSearchPalette } from "@/components/jump-to-palette";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { ProjectSwitcher } from "@/features/projects";
-import { OrgSwitcher } from "@/features/org";
 import { HeaderActions } from "./header-actions";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
@@ -237,7 +236,6 @@ export function TabBar({
               does not have. In the rail the two switchers hide in CSS and the
               ⋯ keeps its place, which is where it already was. */}
           <div className="nav-account-row">
-            <OrgSwitcher />
             <ProjectSwitcher />
             <HeaderActions variant="menu" />
           </div>

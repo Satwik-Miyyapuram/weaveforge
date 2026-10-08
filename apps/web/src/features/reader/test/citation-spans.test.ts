@@ -94,3 +94,23 @@ test("a mention reaching past the page text is ignored", () => {
   assert.deepEqual(plan[0]!.map((segment) => segment.text), ["see [12]"]);
   assert.equal(plan[0]![0]!.mention, undefined);
 });
+
+test("url and figure mentions are included in segmentation plan", () => {
+  const urlMention: CiteSpan = {
+    key: "u1",
+    start: 4,
+    end: 8,
+    kind: "url",
+    url: "https://example.com",
+  };
+  const figMention: CiteSpan = {
+    key: "f1",
+    start: 12,
+    end: 16,
+    kind: "figure",
+  };
+  const plan = planCitationSegments(items, [urlMention, figMention]);
+  assert.equal(plan[0]![1]?.mention?.kind, "url");
+  assert.equal(plan[0]![1]?.mention?.url, "https://example.com");
+  assert.equal(plan[2]![0]?.mention?.kind, "figure");
+});

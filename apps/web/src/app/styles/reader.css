@@ -407,6 +407,15 @@ body > canvas.hiddenCanvasElement { display: none; }
   outline: 2px solid var(--reader-cite-color, var(--accent));
   outline-offset: 2px;
 }
+.pdf-reader-textlayer span > a.pdf-reader-cite.pdf-reader-external-link {
+  text-decoration-color: var(--info, #3b82f6);
+}
+.pdf-reader-textlayer span > a.pdf-reader-cite.pdf-reader-external-link:hover {
+  background: color-mix(in srgb, var(--info, #3b82f6) 14%, transparent);
+}
+.pdf-reader-textlayer span > a.pdf-reader-cite.is-figure-jump {
+  text-decoration-style: dashed;
+}
 /* The marker exists only to find the page element. It must not be a box. */
 .pdf-reader-cite-marker { display: none; }
 .pdf-reader-side { display: grid; gap: 8px; align-content: start; position: relative; }
@@ -473,6 +482,9 @@ body > canvas.hiddenCanvasElement { display: none; }
   /* The page canvas is inverted in dark mode, so multiply would darken to mud. */
   mix-blend-mode: screen;
   opacity: 0.35;
+}
+.pdf-reader--dark .pdf-reader-target-hit {
+  mix-blend-mode: screen;
 }
 /* The create popover: raised over a selection once it ends, in the scroller's
    content so it scrolls with the words (`selection-create-bar.tsx`). */

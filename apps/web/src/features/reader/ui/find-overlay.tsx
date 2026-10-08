@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo } from "react";
+import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   pdfRectToScreenBox,
   type DocumentSearchMatch,
@@ -20,14 +20,133 @@ interface FindOverlayProps {
   projection: PageProjection;
 }
 
+export interface FindHitBox {
+  key: string;
+  current: boolean;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Find the text node and character offset inside a text-layer span for an item-local offset.
+ * Traverses text nodes in document order so spans decorated with citations remain measurable.
+ */
+function findTextPointInSpan(
+  span: Node,
+  targetOffset: number,
+): { node: Node; offset: number } | null {
+  const walker = document.createTreeWalker(span, NodeFilter.SHOW_TEXT);
+  let accumulated = 0;
+  let textNode: Node | null = null;
+  let lastTextNode: Node | null = null;
+  while ((textNode = walker.nextNode())) {
+    lastTextNode = textNode;
+    const len = textNode.textContent?.length ?? 0;
+    if (accumulated + len >= targetOffset) {
+      return {
+        node: textNode,
+        offset: Math.max(0, targetOffset - accumulated),
+      };
+    }
+    accumulated += len;
+  }
+  if (lastTextNode) {
+    return {
+      node: lastTextNode,
+      offset: lastTextNode.textContent?.length ?? 0,
+    };
+  }
+  return null;
+}
+
+/**
+ * Measure search matches directly from the rendered PDF.js text layer DOM.
+ * This guarantees search highlights use the exact same layout, line boxes,
+ * and character advances as native browser text selection.
+ */
+export function measureFindDomBoxes(
+  textLayer: HTMLElement,
+  pageBox: HTMLElement,
+  items: readonly PageTextItem[],
+  matches: readonly DocumentSearchMatch[],
+  active: number,
+  pageIndex: number,
+): FindHitBox[] | null {
+  if (typeof document === "undefined" || typeof document.createRange !== "function") return null;
+  const pageRect = pageBox.getBoundingClientRect();
+  if (pageRect.width <= 0 || pageRect.height <= 0) return null;
+
+  let cursor = 0;
+  const itemBounds = items.map((item) => {
+    const start = cursor;
+    const length = item.str.length;
+    cursor += length + (item.hasEOL ? 1 : 0);
+    return { start, end: start + length, length };
+  });
+
+  const out: FindHitBox[] = [];
+  let foundAny = false;
+
+  matches.forEach((match, matchIdx) => {
+    if (match.pageIndex !== pageIndex) return;
+    if (match.end <= match.start) return;
+
+    let subIndex = 0;
+    for (let i = 0; i < items.length; i++) {
+      const b = itemBounds[i]!;
+      if (b.length === 0 || b.end <= match.start || b.start >= match.end) continue;
+
+      const from = Math.max(0, match.start - b.start);
+      const to = Math.min(b.length, match.end - b.start);
+      if (to <= from) continue;
+
+      const span = textLayer.querySelector<HTMLElement>(`[data-item-index="${i}"]`);
+      if (!span) continue;
+
+      const startPoint = findTextPointInSpan(span, from);
+      const endPoint = findTextPointInSpan(span, to);
+      if (!startPoint || !endPoint) continue;
+
+      try {
+        const range = document.createRange();
+        range.setStart(startPoint.node, startPoint.offset);
+        range.setEnd(endPoint.node, endPoint.offset);
+        const rects = range.getClientRects();
+        for (let r = 0; r < rects.length; r++) {
+          const rect = rects[r]!;
+          if (rect.width < 0.5 || rect.height < 0.5) continue;
+          foundAny = true;
+          out.push({
+            key: `${matchIdx}:${subIndex++}`,
+            current: matchIdx === active,
+            left: rect.left - pageRect.left,
+            top: rect.top - pageRect.top,
+            width: rect.width,
+            height: rect.height,
+          });
+        }
+      } catch {
+        /* ignore range measurement errors */
+      }
+    }
+  });
+
+  return foundAny ? out : null;
+}
+
 /**
  * Every hit of the find box, painted on its page; the current one is louder.
- * Sits beside `ReferenceOverlay` and works the same way: offsets into the
- * page text become run rects, which the projection turns into CSS pixels.
+ * Measures against the DOM text layer for exact text-selection alignment,
+ * with synchronous geometric fallback for initial paint and unit tests.
  */
 function FindOverlayInner({ matches, active, pageIndex, items, projection }: FindOverlayProps) {
-  const boxes = useMemo(() => {
-    const out: { key: string; current: boolean; left: number; top: number; width: number; height: number }[] = [];
+  const layerRef = useRef<HTMLDivElement>(null);
+  const [domBoxes, setDomBoxes] = useState<FindHitBox[] | null>(null);
+
+  const fallbackBoxes = useMemo(() => {
+    const out: FindHitBox[] = [];
     matches.forEach((match, index) => {
       if (match.pageIndex !== pageIndex) return;
       const { rects } = locateMention(items, match.start, match.end);
@@ -40,9 +159,47 @@ function FindOverlayInner({ matches, active, pageIndex, items, projection }: Fin
     return out;
   }, [matches, active, pageIndex, items, projection]);
 
+  useLayoutEffect(() => {
+    const layer = layerRef.current;
+    if (!layer || typeof document === "undefined") return;
+    const pageEl = layer.closest<HTMLElement>(".pdf-reader-page") ?? layer.parentElement;
+    if (!pageEl) return;
+    const textLayer = pageEl.querySelector<HTMLElement>(".pdf-reader-textlayer") ??
+      pageEl.closest(".pdf-reader-page-row")?.querySelector<HTMLElement>(".pdf-reader-textlayer");
+    if (!textLayer) {
+      setDomBoxes(null);
+      return;
+    }
+
+    const update = () => {
+      const measured = measureFindDomBoxes(textLayer, pageEl, items, matches, active, pageIndex);
+      setDomBoxes(measured);
+    };
+
+    update();
+
+    const observer = new MutationObserver(update);
+    observer.observe(textLayer, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-item-index"],
+    });
+
+    const onResize = () => update();
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", onResize);
+    };
+  }, [matches, active, pageIndex, items, projection]);
+
+  const boxes = domBoxes && domBoxes.length > 0 ? domBoxes : fallbackBoxes;
+
   if (!boxes.length) return null;
   return (
-    <div className="pdf-reader-find-layer">
+    <div ref={layerRef} className="pdf-reader-find-layer">
       {boxes.map(({ key, current, ...box }) => (
         <span
           key={key}

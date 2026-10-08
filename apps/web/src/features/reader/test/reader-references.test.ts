@@ -49,8 +49,7 @@ test("a citation becomes a mention whose offsets index the derived page text", (
 test("a figure mention carries the caption's page and y as its target", () => {
   const figures = (index.mentionsByPage.get(1) ?? []).filter((hit) => hit.kind === "figure");
   assert.equal(figures.length, 1);
-  assert.equal(figures[0]?.label, "Fig. 2");
-  assert.deepEqual(figures[0]?.target, { page: 2, x: 72, y: 640, height: 10 });
+  assert.deepEqual(figures[0]?.target, { page: 2, x: 72, y: 640, height: 10, label: "Figure 2", kind: "figure" });
 });
 
 test("nothing inside the bibliography links back to itself, and quiet pages are absent", () => {
@@ -118,4 +117,51 @@ test("a `[1, 2, 3]` cluster is one mention per number; a `[1–3]` range stays o
   const ranged = (range.mentionsByPage.get(1) ?? []).filter((hit) => hit.kind === "citation");
   assert.equal(ranged.length, 1);
   assert.deepEqual(ranged[0]?.refIndexes, [1, 2, 3]);
+});
+
+test("external URL links on a page become url mentions", () => {
+  const pageWithUrl: ReferencePage[] = [
+    {
+      pageNumber: 1,
+      items: [
+        run("Visit https://github.com/example/repo for code.", { y: 700 }),
+        ...Array.from({ length: 8 }, (_, i) => prose(688 - i * 12)),
+      ],
+      links: [
+        {
+          rect: [72 + 6 * 5, 700, 72 + 37 * 5, 710],
+          url: "https://github.com/example/repo",
+        },
+      ],
+    },
+    pages[2]!,
+  ];
+  const result = buildReferenceIndex(pageWithUrl, []);
+  const urlHits = (result.mentionsByPage.get(1) ?? []).filter((hit) => hit.kind === "url");
+  assert.equal(urlHits.length, 1);
+  assert.equal(urlHits[0]?.url, "https://github.com/example/repo");
+  assert.equal(urlHits[0]?.kind, "url");
+});
+
+test("internal non-citation destination links become figure/jump mentions", () => {
+  const pageWithDest: ReferencePage[] = [
+    {
+      pageNumber: 1,
+      items: [
+        run("Refer to Section 3 for proofs.", { y: 700 }),
+        ...Array.from({ length: 8 }, (_, i) => prose(688 - i * 12)),
+      ],
+      links: [
+        {
+          rect: [72 + 9 * 5, 700, 72 + 18 * 5, 710],
+          dest: { page: 2, y: 500 },
+        },
+      ],
+    },
+    pages[2]!,
+  ];
+  const result = buildReferenceIndex(pageWithDest, []);
+  const jumpHits = (result.mentionsByPage.get(1) ?? []).filter((hit) => hit.kind === "figure");
+  assert.equal(jumpHits.length, 1);
+  assert.deepEqual(jumpHits[0]?.target, { page: 2, y: 500, label: "Section 3", kind: "dest" });
 });
