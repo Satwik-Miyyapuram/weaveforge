@@ -10,6 +10,16 @@ export interface MattermostLoginInput {
   mfaToken?: string;
 }
 
+/** Mattermost's own `message` (e.g. LDAP vs MFA), so a 401 says which part failed. */
+async function mattermostReason(res: Response): Promise<string | null> {
+  try {
+    const { message } = (await res.json()) as { message?: unknown };
+    return typeof message === "string" && message.trim() ? message.trim().slice(0, 300) : null;
+  } catch {
+    return null;
+  }
+}
+
 function loginUrl(serverUrl: string): URL {
   try {
     const url = new URL(serverUrl);
@@ -69,15 +79,13 @@ export async function mattermostLogin(
     });
 
     if (!res.ok) {
-      await res.body?.cancel().catch(() => {});
-      if (res.status === 401) {
-        return NextResponse.json(
-          { error: "Mattermost rejected those credentials. Check your username, password and MFA code." },
-          { status: 401 },
-        );
-      }
+      const reason = await mattermostReason(res);
+      const generic =
+        res.status === 401
+          ? "Mattermost rejected those credentials. Check your username, password and MFA code."
+          : `Mattermost sign-in failed (${res.status}).`;
       return NextResponse.json(
-        { error: `Mattermost sign-in failed (${res.status}).` },
+        { error: reason ? `Mattermost: ${reason}` : generic },
         { status: res.status >= 400 && res.status < 600 ? res.status : 502 },
       );
     }

@@ -42,6 +42,16 @@ function loginUrl(serverUrl: string): string | null {
   }
 }
 
+/** Mattermost's own `message` (e.g. LDAP vs MFA), so a 401 says which part failed. */
+async function mattermostReason(res: Response): Promise<string | null> {
+  try {
+    const { message } = (await res.json()) as { message?: unknown };
+    return typeof message === "string" && message.trim() ? message.trim().slice(0, 300) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function proxyMattermostLogin(request: Request, fetchFn: ProxyFetch = fetch): Promise<Response> {
   if (request.method.toUpperCase() !== "POST") return reply(405, { error: "Method not allowed" });
   let body: LoginBody;
@@ -73,15 +83,16 @@ export async function proxyMattermostLogin(request: Request, fetchFn: ProxyFetch
   } catch {
     return reply(502, { error: "Unable to reach the Mattermost server." });
   }
-  await res.body?.cancel().catch(() => {});
-  if (res.status === 401) {
-    return reply(401, { error: "Mattermost rejected those credentials. Check your username, password and MFA code." });
-  }
   if (!res.ok) {
-    return reply(res.status >= 400 && res.status < 600 ? res.status : 502, {
-      error: `Mattermost sign-in failed (${res.status}).`,
-    });
+    const reason = await mattermostReason(res);
+    const status = res.status >= 400 && res.status < 600 ? res.status : 502;
+    const generic =
+      res.status === 401
+        ? "Mattermost rejected those credentials. Check your username, password and MFA code."
+        : `Mattermost sign-in failed (${res.status}).`;
+    return reply(status, { error: reason ? `Mattermost: ${reason}` : generic });
   }
+  await res.body?.cancel().catch(() => {});
   const token = res.headers.get("Token");
   if (!token) return reply(502, { error: "Signed in, but Mattermost did not return a session token." });
   return reply(200, { token });

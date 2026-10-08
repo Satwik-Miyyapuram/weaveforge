@@ -60,6 +60,21 @@ test("mattermost login: 401 when upstream returns 401", async () => {
   }
 });
 
+test("mattermost login: passes Mattermost's reason through so LDAP and MFA failures differ", async () => {
+  const body = JSON.stringify({ id: "mfa.validate_token.authenticate.app_error", message: "Invalid MFA token." });
+  const { restore } = stubOutboundFetch(() => new Response(body, { status: 401 }));
+  try {
+    const res = await mattermostLogin(
+      { serverUrl: "https://chat.example.com", loginId: "user", password: "pw" },
+      publicResolver,
+    );
+    assert.equal(res.status, 401);
+    assert.equal((await res.json()).error, "Mattermost: Invalid MFA token.");
+  } finally {
+    restore();
+  }
+});
+
 test("mattermost login: 502 when upstream is unreachable", async () => {
   const { restore } = stubOutboundFetch(() => {
     throw new Error("Connection refused");

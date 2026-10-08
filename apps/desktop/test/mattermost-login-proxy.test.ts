@@ -11,11 +11,11 @@ import type { ProxyFetch } from "../src/semantic-scholar-proxy";
 
 const APP = "app://weaveforge";
 
-function answering(status: number, headers: Record<string, string> = {}) {
+function answering(status: number, headers: Record<string, string> = {}, body = "{}") {
   const calls: { url: string; init?: RequestInit }[] = [];
   const fetchFn: ProxyFetch = (url, init) => {
     calls.push({ url, init });
-    return Promise.resolve(new Response("{}", { status, headers }));
+    return Promise.resolve(new Response(body, { status, headers }));
   };
   return { fetchFn, calls };
 }
@@ -61,6 +61,16 @@ test("maps upstream failures to messages the form shows", async () => {
 
   const down: ProxyFetch = () => Promise.reject(new Error("offline"));
   assert.equal((await proxyMattermostLogin(login(NETID), down)).status, 502);
+});
+
+test("passes Mattermost's reason through so LDAP and MFA failures differ", async () => {
+  const mfa = JSON.stringify({ id: "mfa.validate_token.authenticate.app_error", message: "Invalid MFA token." });
+  const res = await proxyMattermostLogin(login(NETID), answering(401, {}, mfa).fetchFn);
+  assert.equal(res.status, 401);
+  assert.equal((await res.json()).error, "Mattermost: Invalid MFA token.");
+
+  const html = await proxyMattermostLogin(login(NETID), answering(401, {}, "<html>nope</html>").fetchFn);
+  assert.match((await html.json()).error, /rejected those credentials/);
 });
 
 test("refuses bad input without calling upstream", async () => {
