@@ -17,7 +17,9 @@ import path from "node:path";
  * A backup is taken only when something has been written since the last one,
  * on a timer and on the way out. The newest few are kept per place; older ones
  * go, because a database that is 300 MB on disk is 40 MB gzipped and that adds
- * up. What is here never opens a database: it is given a dump and a file name,
+ * up. Older days keep one each (`DAILY_KEEP`), so a run of bad backups cannot
+ * rotate out the last good one: on 2026-10-08 all three kept copies were taken
+ * from an already-corrupt directory and nothing older was left. What is here never opens a database: it is given a dump and a file name,
  * and it reads one back. Restoring is the shell's business (`main.ts`), because
  * that is where the engine is opened.
  */
@@ -33,14 +35,17 @@ export interface LocalDbBackupsOptions {
    * forgotten while the app runs, and a place that does not exist yet is made.
    */
   dirs: () => readonly string[];
-  /** How many to keep in each place. */
+  /** How many of the newest to keep in each place. */
   keep?: number;
+  /** Beyond those, the newest of this many most recent days. */
+  dailyKeep?: number;
   now?: () => Date;
 }
 
 const PREFIX = "local-db-";
 const SUFFIX = ".tar.gz";
 export const DEFAULT_KEEP = 3;
+export const DAILY_KEEP = 7;
 
 /** The file a backup taken at `now` is named: sortable, legal everywhere. */
 export function backupFileName(now: Date): string {
@@ -63,10 +68,12 @@ async function listBackups(dir: string): Promise<string[]> {
 
 export class LocalDbBackups {
   private readonly keep: number;
+  private readonly dailyKeep: number;
   private readonly now: () => Date;
 
   constructor(private readonly options: LocalDbBackupsOptions) {
     this.keep = options.keep ?? DEFAULT_KEEP;
+    this.dailyKeep = options.dailyKeep ?? DAILY_KEEP;
     this.now = options.now ?? (() => new Date());
   }
 
@@ -101,20 +108,32 @@ export class LocalDbBackups {
     return written;
   }
 
-  /** The newest backup in any place, or `null` when there is none. */
-  async latest(): Promise<string | null> {
+  /** Every backup in every place, newest first; a restore tries them in this order. */
+  async all(): Promise<string[]> {
     const all: string[] = [];
     for (const dir of this.options.dirs()) all.push(...(await listBackups(dir)));
-    if (all.length === 0) return null;
     // Newest by name, not by place: the stamp is the same clock everywhere.
-    all.sort((a, b) => path.basename(b).localeCompare(path.basename(a)));
-    return all[0]!;
+    return all.sort((a, b) => path.basename(b).localeCompare(path.basename(a)));
+  }
+
+  /** The newest backup in any place, or `null` when there is none. */
+  async latest(): Promise<string | null> {
+    return (await this.all())[0] ?? null;
   }
 
   private async prune(dir: string): Promise<void> {
     const files = await listBackups(dir);
-    for (const file of files.slice(this.keep)) {
-      await fs.promises.rm(file, { force: true }).catch(() => undefined);
+    const kept = new Set(files.slice(0, this.keep));
+    const days = new Set<string>();
+    for (const file of files) {
+      // `local-db-YYYY-MM-DD…`: newest first, so the first seen of a day is its newest.
+      const day = path.basename(file).slice(PREFIX.length, PREFIX.length + 10);
+      if (days.has(day) || days.size >= this.dailyKeep) continue;
+      days.add(day);
+      kept.add(file);
+    }
+    for (const file of files) {
+      if (!kept.has(file)) await fs.promises.rm(file, { force: true }).catch(() => undefined);
     }
   }
 }

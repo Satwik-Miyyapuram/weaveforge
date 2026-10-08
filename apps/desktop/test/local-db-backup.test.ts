@@ -97,3 +97,35 @@ test("backup: file names sort by time and are legal on every filesystem", () => 
   assert.doesNotMatch(earlier, /:/);
   assert.equal(earlier, "local-db-2026-09-17T10-00-00-000.tar.gz");
 });
+
+test("backup: past the newest few, one per day is kept for the last few days", async () => {
+  const dir = scratch();
+  const day = 24 * 3600 * 1000;
+  // Ten days, two a day, so a bad run in the newest ones still leaves older days.
+  for (let d = 0; d < 10; d++) {
+    const backups = new LocalDbBackups({
+      dirs: () => [dir],
+      keep: 3,
+      dailyKeep: 4,
+      now: ticking(Date.UTC(2026, 9, 1) + d * day),
+    });
+    await backups.take(dumping(`day-${d}-a`));
+    await backups.take(dumping(`day-${d}-b`));
+  }
+  const kept = await Promise.all(
+    fs.readdirSync(dir).sort().map(async (n) => (await readBackup(path.join(dir, n))).text()),
+  );
+  assert.deepEqual(kept, ["day-6-b", "day-7-b", "day-8-b", "day-9-a", "day-9-b"]);
+});
+
+test("backup: all lists every place's backups, newest first", async () => {
+  const a = scratch();
+  const b = scratch();
+  await new LocalDbBackups({ dirs: () => [a], now: ticking() }).take(dumping("old"));
+  await new LocalDbBackups({ dirs: () => [b], now: ticking(Date.UTC(2026, 8, 18)) }).take(dumping("new"));
+  const all = await new LocalDbBackups({ dirs: () => [a, b] }).all();
+  assert.deepEqual(
+    await Promise.all(all.map(async (f) => (await readBackup(f)).text())),
+    ["new", "old"],
+  );
+});

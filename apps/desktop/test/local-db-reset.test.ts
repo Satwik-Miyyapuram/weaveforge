@@ -4,7 +4,15 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { applyDeferredMove, asidePath, markerPath, moveAside } from "../src/local-db-reset";
+import {
+  applyDeferredMove,
+  asidePath,
+  claimRelaunch,
+  clearRelaunch,
+  markerPath,
+  moveAside,
+  relaunchMarkerPath,
+} from "../src/local-db-reset";
 
 /**
  * Moving a database directory aside, on a real filesystem.
@@ -64,4 +72,14 @@ test("local-db-reset: a marker naming somewhere else is discarded, not obeyed", 
 
   assert.equal(fs.existsSync(dataDir), true);
   assert.equal(fs.existsSync(markerPath(dataDir)), false);
+});
+
+test("local-db-reset: recovery relaunches once, then not again until an open succeeds", () => {
+  const dataDir = scratch();
+  assert.equal(claimRelaunch(dataDir), true);
+  assert.equal(claimRelaunch(dataDir), false);
+  assert.equal(claimRelaunch(dataDir), false);
+  clearRelaunch(dataDir);
+  assert.equal(fs.existsSync(relaunchMarkerPath(dataDir)), false);
+  assert.equal(claimRelaunch(dataDir), true);
 });
