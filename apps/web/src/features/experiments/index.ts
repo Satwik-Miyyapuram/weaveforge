@@ -8,4 +8,4 @@ export { ExperimentsScreen } from "./ui/experiments-screen";
  * should not also acquire the right to depend on `experiment-href`'s internals
  * or to be broken by that file moving.
  */
-export { experimentHref } from "./ui/experiment-href";
+export { experimentHref } from "./application/experiment-href";

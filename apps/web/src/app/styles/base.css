@@ -138,6 +138,7 @@ html, body { margin: 0; padding: 0; }
   .sub-nav a:active,
   .entity-icon-btn:active,
   .git-chip.link:active,
+  .plan-chip.link:active,
   button:not(:disabled):active {
     background-color: var(--press);
   }

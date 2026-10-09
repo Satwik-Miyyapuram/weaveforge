@@ -98,7 +98,8 @@ const ROUTE_ALLOWANCES_KB = {
   // lab-snapshot code, all of it reached from the layout. The puller's hold
   // queue and local-twin drop run on every page: +2 KB on the shell.
   // The account menu's lab switcher submenu: +1 KB.
-  "/layout": 346,
+  // Page transitions (lib/view-transition) run on every route: +1 KB.
+  "/layout": 347,
   "/dashboard": 346,
   // Lists screen carries reading lists, membership management, and EntityCardMenu:
   "/lists": 345,

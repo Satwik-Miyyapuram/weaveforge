@@ -3,6 +3,8 @@
 import { useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import { navTransition } from "@/lib/view-transition";
+
 /** Track whether the current detail view was opened via router.push (vs deep link). */
 export function useDetailPushFlag() {
   const pushedRef = useRef(false);
@@ -28,12 +30,12 @@ export function useDetailBack(listPath: string, paramKey: string, consumePushed:
   return useCallback(() => {
     if (!searchParams.get(paramKey)) return;
     if (consumePushed()) {
-      router.back();
+      navTransition("back", () => router.back());
       return;
     }
     const params = new URLSearchParams(searchParams.toString());
     params.delete(paramKey);
     const qs = params.toString();
-    router.replace(qs ? `${listPath}?${qs}` : listPath);
+    navTransition("back", () => router.replace(qs ? `${listPath}?${qs}` : listPath));
   }, [router, searchParams, listPath, paramKey, consumePushed]);
 }

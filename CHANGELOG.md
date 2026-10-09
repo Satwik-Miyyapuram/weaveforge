@@ -21,6 +21,20 @@ tracks at once.
 
 ### iOS
 
+## [0.8.10] - 2026-10-09
+
+Desktop (`v0.8.10`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+
+### Desktop
+- **Changed:** The reader palette replaces the tool switch and colour menu: pick a tool and one of five quick colours in one strip.
+- **Changed:** Tapping a mark in the reader opens a popover with its kind, colour swatches, Delete and its comment.
+- **Fixed:** One tap or click off a selection in the reader clears it and its create bar.
+- **Changed:** Plan dependency chips are pills; linked ones lift and carry an arrow, external ones are dashed.
+- **Changed:** The Back button is a square box with the same lift and press as other buttons.
+- **Changed:** Buttons share one lift, press and shadow motion across themes.
+- **Fixed:** Graph nodes and their outlines stay in proportion when zoomed in, instead of outgrowing the node.
+- **Changed:** With reactive motion on, detail pages slide in and back out, and tab switches cross-fade.
+
 ## [0.8.9] - 2026-10-08
 
 Desktop (`v0.8.9`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.

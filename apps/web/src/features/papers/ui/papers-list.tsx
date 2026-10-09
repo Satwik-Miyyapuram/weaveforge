@@ -32,6 +32,7 @@ import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { FormError } from "@/components/form-error";
 import { statusLabel } from "@/components/status-select";
+import { navTransition } from "@/lib/view-transition";
 
 type PapersViewData = PapersScreenData & { ownerNames: Map<string, string> };
 
@@ -72,7 +73,7 @@ export function PapersScreen() {
       const params = new URLSearchParams(searchParams.toString());
       params.set("paper", id);
       setPushed();
-      router.push(`/papers?${params.toString()}`);
+      navTransition("forward", () => router.push(`/papers?${params.toString()}`));
     },
     [router, searchParams, setPushed],
   );

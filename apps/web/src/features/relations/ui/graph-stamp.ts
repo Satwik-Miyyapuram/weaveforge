@@ -1,4 +1,5 @@
 import type { GNode } from "../application/build-graph-data";
+import type { LabelSize, NodeSize } from "./graph-sizing";
 
 /**
  * The poster look for graph nodes: the chip colours, an ink outline and an
@@ -37,15 +38,11 @@ export function stampRadius(r: number): number {
 export function paintStamp(
   ctx: CanvasRenderingContext2D,
   node: GNode,
-  r: number,
-  zoom: number,
+  { r, line, drop }: NodeSize,
   style: StampStyle,
   fill: string,
   trace: (dx: number, dy: number, r: number) => void,
 ): void {
-  const z = Math.max(0.01, zoom);
-  const line = Math.min(4, Math.max(0.4, 1.5 / z));
-  const drop = Math.min(6, Math.max(0.6, 2.2 / z));
   trace(drop, drop, r);
   ctx.fillStyle = style.ink;
   ctx.fill();
@@ -68,8 +65,7 @@ export function paintStampLabel(
   label: string,
   x: number,
   y: number,
-  fontSize: number,
-  zoom: number,
+  { font: fontSize, line }: LabelSize,
   style: StampStyle,
 ): { x1: number; y1: number; x2: number; y2: number } {
   ctx.font = `700 ${fontSize}px ${style.font}`;
@@ -79,8 +75,7 @@ export function paintStampLabel(
   const box = { x1: x - w / 2 - padX, y1: y - fontSize - padY, x2: x + w / 2 + padX, y2: y + padY };
   ctx.fillStyle = style.surface;
   ctx.fillRect(box.x1, box.y1, box.x2 - box.x1, box.y2 - box.y1);
-  const z = Math.max(0.01, zoom);
-  ctx.lineWidth = Math.min(3, Math.max(0.3, 1.1 / z));
+  ctx.lineWidth = line;
   ctx.strokeStyle = style.ink;
   ctx.strokeRect(box.x1, box.y1, box.x2 - box.x1, box.y2 - box.y1);
   ctx.fillStyle = style.ink;
