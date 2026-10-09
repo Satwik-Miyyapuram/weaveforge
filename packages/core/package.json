@@ -1,6 +1,6 @@
 {
   "name": "@weaveforge/core",
-  "version": "0.8.8",
+  "version": "0.8.9",
   "description": "Shared, framework-agnostic domain contracts and types for WeaveForge.",
   "license": "AGPL-3.0-only",
   "private": true,

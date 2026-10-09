@@ -21,6 +21,19 @@ tracks at once.
 
 ### iOS
 
+## [0.8.9] - 2026-10-08
+
+Desktop (`v0.8.9`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+
+### Desktop
+- **Changed:** Mattermost sign-in opens the server's own login page in a window, so SSO servers work and the app never handles a password.
+- **Fixed:** Mattermost posts reach institution-hosted servers that send no CORS headers.
+- **Changed:** Notes and the reader share one ink engine for pen, eraser, lasso and the page edge.
+- **Fixed:** The eraser cursor stays while the pen's back tip hovers after erasing.
+- **Fixed:** Undo of a deleted reader mark brings back the same mark, not a copy.
+- **Changed:** The reader has one Fit button and a padded page counter.
+- **Changed:** The updater and uninstaller use the setup window's art.
+
 ## [0.8.8] - 2026-10-08
 
 Desktop (`v0.8.8`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
