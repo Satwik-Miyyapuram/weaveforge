@@ -20,6 +20,7 @@ import { EntityCardMenu } from "@/components/entity-card-menu";
 import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { NavIcon } from "@/app/nav-icon";
+import { experimentHref } from "@/features/experiments";
 import { ShareButton, CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
@@ -460,7 +461,7 @@ function MilestoneCard({
         <div className="plan-chips">
           {m.dependencies.map((d, i) => {
             const labelText = d.kind === "external" ? d.label : labels.get(d.refId ?? "") ?? d.label ?? d.refId;
-            const target = planChipTarget(d, labels, milestones);
+            const target = planChipTarget(d, labels, milestones, experimentHref);
             const body = <><em>{d.kind}</em> {labelText}</>;
             const cls = `plan-chip${d.kind === "external" ? " is-ext" : ""}`;
             if (target.kind === "jump" && onJump) {

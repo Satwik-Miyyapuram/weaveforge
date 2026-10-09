@@ -8,7 +8,7 @@ import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
 import { PaletteDockButton } from "@/components/palette-dock";
-import { InkBar } from "@/features/ink/ui/ink-bar";
+import { InkBar } from "@/features/ink";
 import { ReaderPalette } from "../ui/reader-palette";
 import {
   DEFAULT_READER_QUICK_COLOURS,

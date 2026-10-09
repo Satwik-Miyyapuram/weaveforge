@@ -1,7 +1,5 @@
 import type { MilestoneDependency } from "@weaveforge/core";
 
-import { experimentHref } from "@/features/experiments/ui/experiment-href";
-
 /** What a dependency chip does when tapped. */
 export type PlanChipTarget =
   | { kind: "link"; href: string; external: boolean }
@@ -20,6 +18,8 @@ export function planChipTarget(
   dep: MilestoneDependency,
   known: { has(id: string): boolean },
   milestones: readonly { id: string; title: string }[],
+  /** Passed in: the experiments barrel pulls chart CSS into plan's tests. */
+  experimentHref: (id: string) => string,
 ): PlanChipTarget {
   if (dep.kind === "external") {
     const label = dep.label?.trim() ?? "";
