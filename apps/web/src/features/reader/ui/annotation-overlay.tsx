@@ -195,6 +195,7 @@ function AnnotationOverlayInner({
             key={`${box.id}-${i}`}
             type="button"
             className={`pdf-reader-picture${selectedId === box.id ? " is-selected" : ""}`}
+            data-ann-id={box.id}
             style={{ left: box.left, top: box.top, width: box.width, height: box.height }}
             onClick={onSelect ? () => onSelect(box.id) : undefined}
           >
@@ -207,6 +208,8 @@ function AnnotationOverlayInner({
             className={`pdf-reader-ann${selectedId === box.id ? " is-selected" : ""}${
               box.underline ? " is-underline" : ""
             }${box.text != null ? " is-text" : ""}`}
+            // The mark popover finds the tapped mark's boxes by this.
+            data-ann-id={box.id}
             style={{
               left: box.left,
               top: box.top,

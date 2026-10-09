@@ -299,9 +299,8 @@
 .entity-icon-btn:hover,
 .entity-open-icon:hover,
 .paper-open-icon:hover {
-  color: var(--accent-ink);
-  border-color: var(--accent);
-  background: var(--pill);
+  color: var(--text);
+  background: var(--surface);
 }
 .entity-icon-btn:disabled,
 .entity-open-icon:disabled {

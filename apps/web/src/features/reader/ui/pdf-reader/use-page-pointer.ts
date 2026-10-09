@@ -106,8 +106,6 @@ export interface PagePointer {
   cancelStroke: () => void;
   pendingTextBox: PendingTextBox | null;
   setPendingTextBox: (box: PendingTextBox | null) => void;
-  pendingNote: { color: string } | null;
-  setPendingNote: (note: { color: string } | null) => void;
   pageProjection: (pageNumber: number) => PageProjection;
   onPagePointerDown: (pageNumber: number, event: React.PointerEvent<HTMLDivElement>) => void;
   onPagePointerMove: (event: React.PointerEvent<HTMLDivElement>) => void;
@@ -186,8 +184,6 @@ export function usePagePointer({
   } = usePointerPreviews();
   /** Region a text annotation was drawn over, awaiting its text. */
   const [pendingTextBox, setPendingTextBox] = useState<PendingTextBox | null>(null);
-  /** Comment awaiting its text, with the colour chosen for it. */
-  const [pendingNote, setPendingNote] = useState<{ color: string } | null>(null);
   /**
    * Changing tool — or putting the pen down — lets the lasso go.
    *
@@ -761,8 +757,6 @@ export function usePagePointer({
     },
     pendingTextBox,
     setPendingTextBox,
-    pendingNote,
-    setPendingNote,
     pageProjection,
     onPagePointerDown,
     onPagePointerMove,

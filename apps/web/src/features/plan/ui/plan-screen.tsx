@@ -1,7 +1,8 @@
 "use client";
 
 import { DatePicker } from "@/components/date-picker";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   MILESTONE_STATUSES,
@@ -30,6 +31,7 @@ import { planPace, planTimeline } from "@/features/plan/application/plan-timelin
 import { PlanTimelineBar } from "@/features/plan/ui/plan-timeline-bar";
 import { StatusSelect } from "@/components/status-select";
 import { MilestoneForm } from "./milestone-form";
+import { planChipTarget } from "./plan-chip";
 
 type PlanViewData = PlanScreenData & { ownerNames: Map<string, string> };
 
@@ -455,29 +457,47 @@ function MilestoneCard({
     >
       {m.description && <p className="summary">{m.description}</p>}
       {m.dependencies.length > 0 && (
-        <div className="git-chips">
+        <div className="plan-chips">
           {m.dependencies.map((d, i) => {
             const labelText = d.kind === "external" ? d.label : labels.get(d.refId ?? "") ?? d.label ?? d.refId;
-            const targetMilestoneId = d.kind === "milestone" ? (d.refId || milestones.find((x) => x.title === d.label)?.id) : undefined;
-            if (targetMilestoneId && onJump) {
+            const target = planChipTarget(d, labels, milestones);
+            const body = <><em>{d.kind}</em> {labelText}</>;
+            const cls = `plan-chip${d.kind === "external" ? " is-ext" : ""}`;
+            if (target.kind === "jump" && onJump) {
               return (
                 <button
                   key={i}
                   type="button"
-                  className="git-chip link"
+                  className={`${cls} link`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onJump(targetMilestoneId);
+                    onJump(target.milestoneId);
                   }}
                   title={`Jump to ${labelText}`}
                 >
-                  <em>{d.kind}</em> {labelText}
+                  {body}
                 </button>
               );
             }
+            if (target.kind === "link") {
+              const stop = (e: MouseEvent) => e.stopPropagation();
+              return target.external ? (
+                <a key={i} className={`${cls} link`} href={target.href} target="_blank" rel="noreferrer" onClick={stop} title={target.href}>
+                  {body}
+                </a>
+              ) : (
+                <Link key={i} className={`${cls} link`} href={target.href} onClick={stop} title={`Open ${labelText}`}>
+                  {body}
+                </Link>
+              );
+            }
             return (
-              <span key={i} className="git-chip">
-                <em>{d.kind}</em> {labelText}
+              <span
+                key={i}
+                className={`${cls}${target.kind === "missing" ? " is-missing" : ""}`}
+                title={target.kind === "missing" ? `${labelText} was deleted` : undefined}
+              >
+                {body}
               </span>
             );
           })}

@@ -129,3 +129,23 @@ button.git-chip { border: 0; cursor: pointer; font-family: inherit; }
   -webkit-overflow-scrolling: touch;
   isolation: isolate;
 }
+
+/* Plan dependency chips: pills; links lift and carry ↗, external is dashed. */
+.plan-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.plan-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 600 13px var(--font-mono, ui-monospace, monospace);
+  padding: 3px 10px;
+  color: var(--text);
+  background: var(--surface);
+  border: var(--bw, 1px) solid var(--bw-line, var(--border-strong));
+  border-radius: 999px;
+  text-decoration: none;
+}
+.plan-chip em { font-style: normal; font-weight: 400; color: var(--muted); }
+.plan-chip.is-ext { border-style: dashed; }
+.plan-chip.link { cursor: pointer; }
+.plan-chip.link::after { content: "↗"; font-weight: 400; }
+.plan-chip.is-missing { opacity: 0.5; text-decoration: line-through; }

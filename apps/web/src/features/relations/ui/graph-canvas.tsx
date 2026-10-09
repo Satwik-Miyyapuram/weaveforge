@@ -29,6 +29,7 @@ import {
 import { useGraphColours } from "./graph-colours";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { setGravity } from "./graph-gravity";
+import { labelSize, nodeSize } from "./graph-sizing";
 import { paintStamp, paintStampLabel, stampRadius } from "./graph-stamp";
 
 // Wrapper forwards the ref through an `innerRef` prop because next/dynamic's
@@ -410,34 +411,14 @@ export function GraphCanvas({
     [stampOn],
   );
 
-  const nodeR = useCallback(
-    (n: GNode, zoom = zoomKRef.current || 1) => {
-      const baseR = rawNodeR(n);
-      if (settings.boundedZoomScale === false) return baseR;
-      const z = Math.max(0.01, zoom);
-      const maxScreenR = n.kind === "tag" ? 16 : 18;
-      const minScreenR = 4;
-      // Sublinear scaling: on-screen radius stays bounded while distances between nodes expand
-      const targetScreenR = Math.max(
-        minScreenR,
-        Math.min(maxScreenR, baseR * Math.pow(Math.max(0.35, z), 0.22)),
-      );
-      return targetScreenR / z;
-    },
+  const sizeOf = useCallback(
+    (n: GNode, zoom = zoomKRef.current || 1) =>
+      nodeSize(rawNodeR(n), n.kind, zoom, settings.boundedZoomScale !== false),
     [rawNodeR, settings.boundedZoomScale],
   );
-
-  // Hit target matches the drawn shape (plus a hair) so neighbouring hit areas
-  // don't overlap and steal each other's clicks in the pointer buffer.
-  const POINTER_MIN_SCREEN_PX = 7;
-  const hoverR = useCallback(
-    (n: GNode) => {
-      const z = zoomKRef.current || 1;
-      const r = nodeR(n, z);
-      return Math.max(r + 1 / z, POINTER_MIN_SCREEN_PX / z);
-    },
-    [nodeR],
-  );
+  const nodeR = useCallback((n: GNode, zoom?: number) => sizeOf(n, zoom).r, [sizeOf]);
+  // The hit area is the drawn shape and its outline, so neighbours don't steal clicks.
+  const hoverR = useCallback((n: GNode) => sizeOf(n).hit, [sizeOf]);
 
   const labelVisible = useCallback(
     (node: GNode) =>
@@ -646,7 +627,8 @@ export function GraphCanvas({
         nodeCanvasObjectMode={() => "replace"}
         nodeCanvasObject={(node: GNode, ctx: CanvasRenderingContext2D, zoom: number) => {
           zoomKRef.current = zoom;
-          const r = nodeR(node, zoom);
+          const size = sizeOf(node, zoom);
+          const r = size.r;
           // Two independent reasons to fade: the search has excluded it, or a
           // hover elsewhere has. Kept distinct so a node one hop from the
           // pointer still dims when the search has ruled it out.
@@ -654,29 +636,25 @@ export function GraphCanvas({
           ctx.globalAlpha = dimmed ? 0.12 : 1;
           const fill = colours.fills.get(node.color) ?? node.color;
           if (colours.stamp) {
-            paintStamp(ctx, node, r, zoom, colours.stamp, fill, (dx, dy, radius) => traceShape(node, ctx, radius, dx, dy));
+            paintStamp(ctx, node, size, colours.stamp, fill, (dx, dy, radius) => traceShape(node, ctx, radius, dx, dy));
           } else {
             paintShape(node, ctx, fill, r);
             if (node.kind === "experiment") {
-              const ringOffset = 1.6 / (settings.boundedZoomScale !== false ? zoom : 1);
-              traceShape(node, ctx, r + ringOffset);
+              traceShape(node, ctx, r + size.line * 1.2);
               ctx.strokeStyle = fill;
-              ctx.lineWidth = 0.8 / (settings.boundedZoomScale !== false ? zoom : 1);
+              ctx.lineWidth = size.line * 0.6;
               ctx.stroke();
             }
           }
           if (labelVisible(node)) {
             const label = node.label.length > 28 ? `${node.label.slice(0, 27)}…` : node.label;
-            const targetScreenFont = node.kind === "tag" ? 10 : 10.5;
-            const fontSize = settings.boundedZoomScale !== false
-              ? targetScreenFont / Math.max(0.01, zoom)
-              : Math.max(node.kind === "tag" ? 4 : 4.5, 10.5 / zoom);
+            const labelBox = labelSize(node.kind, zoom, settings.boundedZoomScale !== false);
+            const { font: fontSize, gap } = labelBox;
             ctx.font = colours.stamp ? `700 ${fontSize}px ${fontFamily}` : `${fontSize}px ${fontFamily}`;
             const lx = node.x ?? 0;
-            const gap = 2 / Math.max(0.01, zoom);
             const ly = (node.y ?? 0) - r - (colours.stamp ? gap + fontSize * 0.4 : gap);
             const w = ctx.measureText(label).width + (colours.stamp ? fontSize : 0);
-            const box = { x1: lx - w / 2, y1: ly - fontSize, x2: lx + w / 2, y2: ly + 1 / Math.max(0.01, zoom) };
+            const box = { x1: lx - w / 2, y1: ly - fontSize, x2: lx + w / 2, y2: ly + labelBox.line };
             // The hovered node and tags always win; everything else yields to a
             // label already placed on the same pixels this frame.
             const priority = node.kind === "tag" || node.id === hoverRef.current.nodeId;
@@ -692,7 +670,7 @@ export function GraphCanvas({
               // which is the opposite of what the dim is for.
               ctx.globalAlpha = dimmed ? 0.12 : 1;
               if (colours.stamp) {
-                paintStampLabel(ctx, label, lx, ly, fontSize, zoom, colours.stamp);
+                paintStampLabel(ctx, label, lx, ly, labelBox, colours.stamp);
               } else {
                 ctx.fillStyle = inkColor;
                 ctx.textAlign = "center";
@@ -703,7 +681,7 @@ export function GraphCanvas({
           if (pinned.has(node.id)) {
             traceShape(node, ctx, r);
             ctx.strokeStyle = inkColor;
-            ctx.lineWidth = 0.8 / zoom;
+            ctx.lineWidth = size.line * 0.6;
             ctx.stroke();
           }
           ctx.globalAlpha = 1;

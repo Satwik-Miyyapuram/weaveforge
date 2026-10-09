@@ -43,8 +43,11 @@ import {
   draftTextBox,
 } from "../../application/draft-local-annotation";
 import {
+  isDismissTap,
+  listedAnnotations,
   READER_ANNOTATION_COLORS,
   toolOwnsThePage,
+  type PagePress,
   type ReaderCreateTool,
 } from "../../application/reader-annotation-helpers";
 import { draftPicture } from "../../application/reader-picture";
@@ -54,14 +57,17 @@ import { ReaderOutline } from "../reader-outline";
 import { AnnotationOverlay, type TextEdit } from "../annotation-overlay";
 import { bucketAnnotationsByPage } from "../../application/project-annotation-geometry";
 import { AnnotationSidebar } from "../annotation-sidebar";
-import { SelectionCreateBar, selectionAnchor, type SelectionAnchor } from "../selection-create-bar";
+import { SelectionCreateBar, boxAnchor, selectionAnchor, type SelectionAnchor } from "../selection-create-bar";
+import { MarkPopover } from "../mark-popover";
+import { markActions } from "../../application/mark-actions";
 import type { ReaderAnnotation } from "@weaveforge/core";
 import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
 import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { ColourMenu } from "@/components/colour-menu";
+import { ReaderPalette } from "../reader-palette";
+import { useReaderQuickColours } from "./use-reader-quick-colours";
 import { FocusGlyph } from "@/components/focus-glyph";
-import { DraftShapeOverlay, PageMargin, SafeExternalLink, TextBoxComposer } from "./overlays";
+import { DraftShapeOverlay, PageMargin, SafeExternalLink } from "./overlays";
 import { layoutMarginNotes } from "../../application/margin-notes";
 import { useAnnotationContext } from "./use-annotation-context";
 import { useDarkPdf } from "./use-dark-pdf";
@@ -130,6 +136,8 @@ export function PdfReader({
   const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
   const [pickedTool, setCreateTool] = useState<ReaderCreateTool>("select");
   const [pickedColor, setCreateColor] = useState<string>(READER_ANNOTATION_COLORS[0]);
+  // One list for the palette and the phone pill, so a swapped slot shows in both.
+  const [quickColours, setQuickColour] = useReaderQuickColours();
   // The pen bar, once up, is the tool picker: what it holds is what draws. Its
   // choices persist per user (`usePenPrefs`), the PDF toolbar's do not.
   const [penOpen, setPenOpen] = useState(inkRail);
@@ -265,6 +273,7 @@ export function PdfReader({
   // Bucket once per annotation change rather than rescanning the whole list in
   // every page's overlay on every zoom, scroll, and rotation.
   const annotationsByPage = useMemo(() => bucketAnnotationsByPage(annotations), [annotations]);
+  const listed = useMemo(() => listedAnnotations(annotations), [annotations]);
   const textAnnotationsCount = useMemo(
     () => annotations.filter((a) => Boolean(a.text?.trim())).length,
     [annotations],
@@ -371,8 +380,6 @@ export function PdfReader({
     endInkGroup,
     pendingTextBox,
     setPendingTextBox,
-    pendingNote,
-    setPendingNote,
     pageProjection,
     onPagePointerDown,
     onPagePointerMove,
@@ -454,14 +461,35 @@ export function PdfReader({
     setPendingTextBox(null);
     setEditingTextId(null);
   }, [setPendingTextBox]);
+  // A mark tapped on the page, and where its popover sits; the list's selection raises none.
+  const [markAt, setMarkAt] = useState<{ id: string; at: SelectionAnchor } | null>(null);
   const selectOnPage = useCallback(
     (id: string) => {
       setSelectedAnnId(id);
       const ann = annotations.find((a) => a.id === id);
-      if (canCreate && createTool === "text" && ann?.type === "text" && ann.origin === "local") setEditingTextId(id);
+      if (canCreate && createTool === "text" && ann?.type === "text" && ann.origin === "local") {
+        setEditingTextId(id);
+        return;
+      }
+      const scroller = containerRef.current;
+      const boxes = scroller ? [...scroller.querySelectorAll(`[data-ann-id="${CSS.escape(id)}"]`)] : [];
+      if (!scroller || boxes.length === 0) return setMarkAt(null);
+      const rects = boxes.map((el) => el.getBoundingClientRect());
+      const left = Math.min(...rects.map((r) => r.left));
+      const top = Math.min(...rects.map((r) => r.top));
+      const union = new DOMRect(left, top, Math.max(...rects.map((r) => r.right)) - left, Math.max(...rects.map((r) => r.bottom)) - top);
+      const at = boxAnchor(union, scroller);
+      setMarkAt(at ? { id, at } : null);
     },
-    [annotations, canCreate, createTool],
+    [annotations, canCreate, containerRef, createTool],
   );
+  const markPopover = (() => {
+    if (!markAt || markAt.id !== selectedAnnId) return null;
+    const ann = annotations.find((a) => a.id === markAt.id);
+    const actions = ann ? markActions(ann) : null;
+    if (!ann || !actions || (ann.type === "text" && createTool !== "select")) return null;
+    return { ann, actions, at: markAt.at };
+  })();
 
   /**
    * The pinch, previewed and then committed.
@@ -1008,6 +1036,9 @@ export function PdfReader({
   }
 
 
+  /** Where the last press on the page began, so a tap off the create bar dismisses it. */
+  const pressRef = useRef<PagePress | null>(null);
+
   /**
    * The end of a selection — the mouse button up, or the pen lifted — raises
    * the create popover over the words it covers. A press inside the popover is
@@ -1016,6 +1047,13 @@ export function PdfReader({
   function onSelectionEnd(event: React.PointerEvent) {
     if (!canCreate || createTool !== "select") return;
     if ((event.target as Element).closest?.(".pdf-reader-create-bar")) return;
+    const down = pressRef.current;
+    pressRef.current = null;
+    if (isDismissTap(down, { x: event.clientX, y: event.clientY, time: event.timeStamp }, pendingCreate !== null)) {
+      window.getSelection()?.removeAllRanges();
+      setPendingCreate(null);
+      return;
+    }
     // A drag that moved an ink mark is not a text selection.
     if (isMovingInk()) return;
     const root = containerRef.current;
@@ -1089,25 +1127,20 @@ export function PdfReader({
   }
 
   async function createFromPending(
-    type: Extract<ReaderAnnotationType, "highlight" | "underline" | "note">,
+    type: Extract<ReaderAnnotationType, "highlight" | "underline">,
     color: string,
+    comment = "",
   ) {
     if (!pendingCreate) return;
     const geometry = pageGeometries.current.get(pendingCreate.pageNumber);
     if (!geometry) return;
-    // A comment needs its text first. Collect it in the app rather than an
-    // OS prompt, then finish through the same path.
-    if (type === "note") {
-      setPendingNote({ color });
-      return;
-    }
     const draft = draftFromTextSelection({
       type,
       color,
       selection: pendingCreate.selection,
       page: geometry,
       exactRects: pendingCreate.exactRects,
-      comment: "",
+      comment,
     });
     if (!draft) return;
     await persistDraft(draft);
@@ -1141,24 +1174,6 @@ export function PdfReader({
     }
     await persistDraft(draftPicture({ path, pageIndex: pageNumber - 1, pageWidth, pageHeight, aspect }));
   }
-
-  async function createNoteWithComment(color: string, comment: string) {
-    if (!pendingCreate) return;
-    const geometry = pageGeometries.current.get(pendingCreate.pageNumber);
-    if (!geometry) return;
-    const draft = draftFromTextSelection({
-      type: "note",
-      color,
-      selection: pendingCreate.selection,
-      page: geometry,
-      exactRects: pendingCreate.exactRects,
-      comment,
-    });
-    if (!draft) return;
-    await persistDraft(draft);
-  }
-
-
 
   if (error) {
     return (
@@ -1282,7 +1297,7 @@ export function PdfReader({
                   ? `References (${textAnnotationsCount})`
                   : "References"}
               </button>
-              {(annotations.length > 0 || canCreate) && (
+              {(listed.length > 0 || canCreate) && (
                 <button
                   type="button"
                   role="tab"
@@ -1291,7 +1306,7 @@ export function PdfReader({
                   title="Annotations & highlights"
                   onClick={() => selectSideTab("annotations")}
                 >
-                  {annotations.length ? `Annotations (${annotations.length})` : "Annotations"}
+                  {listed.length ? `Annotations (${listed.length})` : "Annotations"}
                 </button>
               )}
             </div>
@@ -1323,51 +1338,30 @@ export function PdfReader({
             Ink mode
           </button>
         )}
-        {canCreate && !penOpen && (
-          <div className="pdf-reader-group pdf-reader-annotate">
-            {/* Named by what each does. The three ink tools are deliberately
-                absent: ink is the ink mode's, with the note's nibs and renderer.
-                What is left is what a reader does *to* a paper. A segmented
-                group, not a menu, so the armed tool is always visible. */}
-            <div className="seg pdf-reader-tool-seg" role="radiogroup" aria-label="Annotation tool">
-              {READER_TOOL_CHOICES.map((choice) => (
-                <button
-                  key={choice.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={createTool === choice.value}
-                  className={createTool === choice.value ? "seg-on" : undefined}
-                  title={choice.hint}
-                  onClick={() => {
-                    // Switching tool ends the mark in progress, so the next stroke
-                    // never merges into one drawn with a different nib.
-                    endInkGroup();
-                    setCreateTool(choice.value);
-                  }}
-                >
-                  {choice.label}
-                </button>
-              ))}
-            </div>
-            <span className="pdf-reader-wide-only">
-            <ColourMenu
-              value={createColor}
-              palette={READER_ANNOTATION_COLORS}
-              recent={READER_ANNOTATION_COLORS.slice(0, 4)}
-              ariaLabel="Annotation colour"
-              onChange={(colour) => {
-                endInkGroup();
-                setCreateColor(colour);
-              }}
-            />
-            </span>
-          </div>
-        )}
         </div>
         {/* The ink note's own bar, not a copy of it: same tools, same swatches,
             same nibs, same fold and move handles. The reader hands it the
             pen's state only — it owns no pages of its own to offer, and a
             paper has no paper menu, print dialog or recogniser to show. */}
+        {/* Read mode's palette: the ink bar's shell, so it docks and floats the same way. */}
+        {canCreate && !penOpen && (
+          <ReaderPalette
+            tool={createTool}
+            colour={createColor}
+            quickColours={quickColours}
+            onQuickColour={setQuickColour}
+            onTool={(tool) => {
+              // Switching tool ends the mark in progress, so the next stroke
+              // never merges into one drawn with a different nib.
+              endInkGroup();
+              setCreateTool(tool);
+            }}
+            onColour={(colour) => {
+              endInkGroup();
+              setCreateColor(colour);
+            }}
+          />
+        )}
         {canCreate && penOpen && (
           <InkBar
             tool={barToolFor(pen.prefs.tool)}
@@ -1436,7 +1430,7 @@ export function PdfReader({
         <div className="pdf-reader-pill" role="toolbar" aria-label="Annotate">
           {!penOpen && (
             <div className="pdf-reader-pill-colours" role="radiogroup" aria-label="Annotation colour">
-              {READER_ANNOTATION_COLORS.slice(0, 4).map((colour) => (
+              {quickColours.slice(0, 4).map((colour) => (
                 <button
                   key={colour}
                   type="button"
@@ -1476,7 +1470,7 @@ export function PdfReader({
               type="button"
               className={`btn-secondary btn-sm pdf-reader-icon-btn${!sideCollapsed && activeSideTab === "annotations" ? " is-active" : ""}`}
               aria-pressed={!sideCollapsed && activeSideTab === "annotations"}
-              aria-label={`Annotations${annotations.length ? ` (${annotations.length})` : ""}`}
+              aria-label={`Annotations${listed.length ? ` (${listed.length})` : ""}`}
               title="Annotations"
               onClick={() => selectSideTab("annotations")}
             >
@@ -1497,7 +1491,7 @@ export function PdfReader({
       )}
       <div
         className={`pdf-reader-body${
-          !penOpen && (outline.length > 0 || refs.index.references.length > 0 || annotations.length > 0 || canCreate)
+          !penOpen && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate)
             ? sideCollapsed
               ? " pdf-reader-body--rail"
               : " pdf-reader-body--outline"
@@ -1520,6 +1514,12 @@ export function PdfReader({
           className="pdf-reader-scroll"
           ref={containerRef}
           onPointerUp={onSelectionEnd}
+          // A press anywhere else puts the mark popover away; its own presses stop short of here.
+          onPointerDown={(e) => {
+            setMarkAt(null);
+            const inBar = (e.target as Element).closest?.(".pdf-reader-create-bar");
+            pressRef.current = inBar ? null : { x: e.clientX, y: e.clientY, time: e.timeStamp };
+          }}
         >
           {!pdf && <div className="pdf-reader-loading">Loading PDF…</div>}
           {/* In the scroller, so it scrolls with the words it is about. */}
@@ -1528,11 +1528,29 @@ export function PdfReader({
               at={pendingCreate.at}
               busy={createBusy}
               color={createColor}
-              onCreate={(type, color) => {
+              onCreate={(type, color, comment) => {
                 setCreateColor(color);
-                void createFromPending(type, color);
+                void createFromPending(type, color, comment);
               }}
               onCancel={() => setPendingCreate(null)}
+            />
+          )}
+          {!pendingCreate && canCreate && !penOpen && markPopover && (
+            <MarkPopover
+              at={markPopover.at}
+              actions={markPopover.actions}
+              colour={markPopover.ann.color}
+              colours={quickColours}
+              onColour={(colour) => void updateLocal(markPopover.ann.id, { color: colour })}
+              onComment={(comment) => {
+                setMarkAt(null);
+                void updateLocal(markPopover.ann.id, { comment });
+              }}
+              onDelete={() => {
+                setMarkAt(null);
+                void removeLocal(markPopover.ann.id);
+              }}
+              onClose={() => setMarkAt(null)}
             />
           )}
           {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => (
@@ -1687,7 +1705,7 @@ export function PdfReader({
             by drawing a loop round it. */}
         {/* Collapsed, the whole column folds to one vertical tab that still
             says how many annotations wait behind it. */}
-        {!penOpen && sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || annotations.length > 0 || canCreate) && (
+        {!penOpen && sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
           <button
             type="button"
             className="pdf-reader-side-rail"
@@ -1705,11 +1723,11 @@ export function PdfReader({
                   : textAnnotationsCount > 0
                   ? `References (${textAnnotationsCount})`
                   : "References"
-                : `Annotations ${annotations.length ? `(${annotations.length})` : ""}`}
+                : `Annotations ${listed.length ? `(${listed.length})` : ""}`}
             </span>
           </button>
         )}
-        {!penOpen && !sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || annotations.length > 0 || canCreate) && (
+        {!penOpen && !sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
           <div className="pdf-reader-side is-list-open">
             <div className="pdf-reader-side-header">
               <div className="seg pdf-reader-side-seg" role="tablist" aria-label="Sidebar view">
@@ -1735,7 +1753,7 @@ export function PdfReader({
                     ? `References (${textAnnotationsCount})`
                     : "References"}
                 </button>
-                {(annotations.length > 0 || canCreate) && (
+                {(listed.length > 0 || canCreate) && (
                   <button
                     type="button"
                     role="tab"
@@ -1743,7 +1761,7 @@ export function PdfReader({
                     className={activeSideTab === "annotations" ? "seg-on" : undefined}
                     onClick={() => setActiveSideTab("annotations")}
                   >
-                    {annotations.length ? `Annotations (${annotations.length})` : "Annotations"}
+                    {listed.length ? `Annotations (${listed.length})` : "Annotations"}
                   </button>
                 )}
               </div>
@@ -1788,9 +1806,9 @@ export function PdfReader({
                   onFigureTarget({ page: ref.page, x: ref.x, y: ref.y });
                 }}
               />
-            ) : (annotations.length > 0 || canCreate) ? (
+            ) : (listed.length > 0 || canCreate) ? (
               <AnnotationSidebar
-                annotations={annotations}
+                annotations={listed}
                 quotationTypes={quotationTypes}
                 paperTitle={paperTitle}
                 selectedId={selectedAnnId}
@@ -1818,34 +1836,9 @@ export function PdfReader({
         refs={refs}
         onOpenInReader={(id) => { window.location.assign(buildLocusLink({ paperId: id })); }}
       />
-      {pendingNote && (
-        <TextBoxComposer
-          title="Comment"
-          label="Comment"
-          submitLabel="Add comment"
-          placeholder="What do you want to say about this passage?"
-          onCancel={() => setPendingNote(null)}
-          onSubmit={(comment) => {
-            const { color } = pendingNote;
-            setPendingNote(null);
-            void createNoteWithComment(color, comment);
-          }}
-        />
-      )}
     </div>
   );
 }
-
-/** What a reader does *to* a paper, in the order the top bar shows it. */
-const READER_TOOL_CHOICES: ReadonlyArray<{
-  value: ReaderCreateTool;
-  label: string;
-  hint: string;
-}> = [
-  { value: "select", label: "Select", hint: "Select text to highlight, underline or comment on" },
-  { value: "image", label: "Clip", hint: "Clip a region" },
-  { value: "text", label: "Text", hint: "Type a text box on the page" },
-];
 
 /** Mirror the ink mode into `?pen=1` so a reload or a shared link lands in it. */
 function syncPenParam(on: boolean) {

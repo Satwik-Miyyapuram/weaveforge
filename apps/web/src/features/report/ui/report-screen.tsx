@@ -32,6 +32,7 @@ import { rememberRecentTarget } from "@/lib/recent-targets";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { StatusSelect, statusLabel } from "@/components/status-select";
+import { navTransition } from "@/lib/view-transition";
 
 type ReportViewData = ReportScreenData & {
   ownerNames: Map<string, string>;
@@ -61,7 +62,7 @@ export function ReportScreen() {
       const params = new URLSearchParams(searchParams.toString());
       params.set("section", id);
       setPushed();
-      router.push(`/report?${params.toString()}`);
+      navTransition("forward", () => router.push(`/report?${params.toString()}`));
     },
     [router, searchParams, setPushed],
   );

@@ -1,6 +1,9 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
+
+import { canTransition, isPlainClick, navTransition } from "@/lib/view-transition";
 
 /**
  * Replays a fade + upward-slide animation on every route change by keying on
@@ -22,6 +25,23 @@ import { usePathname } from "next/navigation";
  */
 export function PageTransition({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  // Top nav and sub-tab links cross-fade. Capture runs before Link's own click,
+  // which then sees defaultPrevented and leaves the push to the transition.
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const link = (e.target as Element | null)?.closest?.<HTMLAnchorElement>("a.nav-link, a.sub-tab");
+      if (!link || !isPlainClick(e) || !canTransition()) return;
+      const url = new URL(link.href, location.href);
+      if (url.origin !== location.origin || url.pathname === location.pathname) return;
+      e.preventDefault();
+      navTransition("tab", () => router.push(url.pathname + url.search));
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, [router]);
+
   const isDashboard =
     pathname === "/dashboard" || (pathname?.startsWith("/dashboard/") ?? false);
   return (

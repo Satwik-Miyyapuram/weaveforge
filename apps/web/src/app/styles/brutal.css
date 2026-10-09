@@ -146,8 +146,7 @@
   .header-menu,
   .proj-menu,
   .ink-menu-list,
-  .graph-edge-popover,
-  .pdf-reader-create-bar
+  .graph-edge-popover
 ) {
   box-shadow: var(--sh-sm);
   border-radius: var(--radius-sm);
@@ -238,6 +237,14 @@
 }
 
 /* ---- Buttons ------------------------------------------------------------- */
+/* The shared motion (buttons.css) with hard shadows: press sinks into them. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) {
+  --btn-sink: 3px 3px;
+  --btn-sink-flat: 2px 2px;
+  --btn-sh-rest: var(--sh-sm);
+  --btn-sh-hover: var(--sh-btn);
+  --btn-pop-line: var(--bw-line);
+}
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-primary, .btn-secondary) {
   min-height: 40px;
   padding: 0 16px;
@@ -246,7 +253,6 @@
   border: var(--bw) solid var(--bw-line);
   border-radius: var(--radius-sm);
   text-transform: none;
-  transition: transform var(--dur-fast) ease, box-shadow var(--dur-fast) ease, filter var(--dur-fast) ease;
 }
 :root[data-theme="crt"] :is(.btn-primary, .btn-secondary) { font-size: 1.25rem; line-height: 1; }
 /* The pixel face is unreadable at the base 0.82rem, so the boxless buttons
@@ -255,12 +261,10 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary {
   background: var(--accent);
   color: var(--accent-fg);
-  box-shadow: var(--sh-btn);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-secondary {
   background: var(--surface);
   color: var(--text);
-  box-shadow: var(--sh-sm);
 }
 :root[data-theme="crt"] .btn-secondary {
   background: #f29731;
@@ -270,14 +274,11 @@
 @media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-primary, .btn-secondary):hover:not(:disabled) {
   filter: brightness(1.06);
 } }
-@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary:hover:not(:disabled) { background: var(--accent); box-shadow: var(--sh-btn); } }
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-primary:hover:not(:disabled) { background: var(--accent); } }
+@media (hover: hover) { :root[data-theme="crt"] .btn-secondary:hover:not(:disabled) { box-shadow: var(--sh-btn-2); } }
 @media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-secondary:hover:not(:disabled) { background: var(--surface); } }
 @media (hover: hover) { :root[data-theme="crt"] .btn-secondary:hover:not(:disabled) { background: #f29731; } }
 @media (hover: hover) { :root[data-theme="brutal-dark"] :is(.btn-primary, .btn-secondary):hover:not(:disabled) { filter: brightness(1.15); } }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-primary, .btn-secondary):active:not(:disabled) {
-  transform: var(--press-t);
-  box-shadow: var(--sh-press);
-}
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-primary, .btn-secondary):disabled {
   opacity: 1;
   background: var(--surface2);
@@ -328,6 +329,12 @@
   color: inherit;
   filter: none;
 } }
+/* Ghost hover frames like the mock: line border and the small hard shadow. */
+@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-ghost:hover:not(:disabled) {
+  border-color: var(--bw-line);
+  box-shadow: var(--sh-sm);
+} }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-ghost:active:not(:disabled) { box-shadow: var(--btn-sh-press); }
 @media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .btn-cancel:hover:not(:disabled) { color: var(--danger-text); } }
 
 /* Icon buttons: plain until active, then the accent tile. */

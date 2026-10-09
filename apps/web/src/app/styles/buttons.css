@@ -43,7 +43,6 @@ code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono);
   cursor: pointer; font: inherit; font-size: 0.82rem; font-weight: 500;
   color: var(--text); background: transparent; border: 1px solid var(--border-strong);
   padding: 8px 14px; border-radius: 9px;
-  transition: background var(--dur-base), border-color var(--dur-base);
   /* Links wear this class too (reader, AI review) — a button that underlines
      itself does not read as a button. */
   display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
@@ -57,13 +56,74 @@ code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono);
 /* Ghost: borderless secondary for low-emphasis chrome (e.g. org setup Back). */
 .btn-ghost {
   cursor: pointer; font: inherit; font-size: 0.82rem; font-weight: 500;
-  color: var(--muted); background: transparent; border: none; padding: 8px 10px;
-  border-radius: 9px; transition: color var(--dur-base), background var(--dur-base);
+  color: var(--muted); background: transparent; border: 1px solid transparent; padding: 7px 9px;
+  border-radius: 9px;
 }
-.btn-ghost:hover { color: var(--ink); background: var(--surface2); }
+.btn-ghost:hover { color: var(--ink); }
 .btn-ghost:disabled { opacity: 0.6; cursor: default; }
 /* Size modifier — compose with .btn-secondary (or .btn-primary) for denser actions. */
 .btn-sm { padding: 6px 12px; font-size: 0.78rem; border-radius: 8px; }
+
+/* One button motion. Raised buttons (primary, secondary, link chips, back) lift
+   and their shadow grows on hover, then sink on press; ghost and icon buttons
+   pop out into the same thing. Themes change the distances and shadows through
+   these tokens (brutal.css), never the motion. */
+:root {
+  --btn-dur: 120ms;
+  --btn-lift: 0 -1px;
+  --btn-sink: 1px 1px;
+  --btn-sink-flat: 0.67px 0.67px;
+  --btn-sh-rest: 0 1px 2px rgba(30, 30, 40, 0.08);
+  --btn-sh-hover: var(--e2);
+  --btn-sh-press: 0 0 0 transparent;
+  --btn-pop-line: var(--border-strong);
+}
+:is([data-theme="dark"], [data-theme="mocha"], [data-theme="dracula"], [data-theme="amoled"], [data-theme="contrast"], [data-theme="vivid-dark"], [data-theme="pastel-dark"], [data-theme="confetti-dark"]) {
+  --btn-sh-rest: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+:is(.btn-primary, .btn-secondary, .btn-ghost, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .back-btn-box, .plan-chip) {
+  translate: 0;
+  transition:
+    translate var(--btn-dur) var(--layout-ease),
+    transform var(--btn-dur) var(--layout-ease),
+    box-shadow var(--btn-dur) var(--layout-ease),
+    background-color var(--btn-dur) var(--layout-ease),
+    border-color var(--btn-dur) var(--layout-ease),
+    color var(--btn-dur) var(--layout-ease);
+}
+:is(.btn-primary, .btn-secondary, .back-btn-box, .plan-chip.link) { box-shadow: var(--btn-sh-rest); }
+@media (hover: hover) {
+  :is(.btn-primary, .btn-secondary, .plan-chip.link):hover:not(:disabled),
+  .back-btn:hover .back-btn-box {
+    translate: var(--btn-lift);
+    box-shadow: var(--btn-sh-hover);
+  }
+  :is(.btn-ghost, .entity-icon-btn, .entity-open-icon, .paper-open-icon):hover:not(:disabled) {
+    translate: var(--btn-lift);
+    border-color: var(--btn-pop-line);
+    background-color: var(--hover);
+    box-shadow: var(--btn-sh-rest);
+  }
+}
+:is(.btn-primary, .btn-secondary, .plan-chip.link):active:not(:disabled),
+.back-btn:active .back-btn-box {
+  translate: var(--btn-sink);
+  box-shadow: var(--btn-sh-press);
+  transition-duration: 60ms;
+}
+:is(.btn-ghost, .entity-icon-btn, .entity-open-icon, .paper-open-icon):active:not(:disabled) {
+  translate: var(--btn-sink-flat);
+  box-shadow: var(--btn-sh-press);
+  transition-duration: 60ms;
+}
+/* The back chevron leans the way it goes. */
+.back-btn-box svg { transition: translate var(--btn-dur) var(--layout-ease); }
+@media (hover: hover) { .back-btn:hover .back-btn-box svg { translate: -2px 0; } }
+/* Three roots: outranks the theme tokens in brutal.css. */
+@media (prefers-reduced-motion: reduce) {
+  :root:root:root { --btn-lift: 0 0; --btn-sink: 0 0; --btn-sink-flat: 0 0; }
+  .back-btn:hover .back-btn-box svg { translate: none; }
+}
 .muted { color: var(--muted); margin: 2px 0; }
 .error { color: var(--danger); }
 /* "Report" after an inline error: quiet, so it reads as an option, not a second alarm. */

@@ -215,147 +215,7 @@
 }
 :root[data-motion="reactive"] .integration-item:active { scale: 0.995; }
 
-/* ---- Controls ---- */
-/* `.link-btn` is deliberately absent: it is a button styled as inline text and
-   usually sits inside a sentence, so lifting it by a pixel moves the baseline
-   of the line around it. Icon buttons have no such neighbours. */
-:root[data-motion="reactive"] :is(
-  .btn-primary,
-  .btn-secondary,
-  .btn-ghost,
-  .entity-icon-btn,
-  .entity-open-icon,
-  .paper-open-icon,
-  .seg button
-) {
-  translate: 0;
-  scale: 1;
-  transition:
-    translate var(--rm-slow) var(--rm-spring),
-    scale var(--rm-fast) var(--layout-ease),
-    box-shadow var(--rm-base) var(--layout-ease),
-    background var(--rm-fast) var(--layout-ease);
-}
-:root[data-motion="reactive"] :is(
-  .btn-primary,
-  .btn-secondary,
-  .btn-ghost,
-  .entity-icon-btn,
-  .entity-open-icon,
-  .paper-open-icon
-):hover {
-  translate: 0 -1px;
-  box-shadow: var(--e2);
-}
-:root[data-motion="reactive"] :is(
-  .btn-primary,
-  .btn-secondary,
-  .btn-ghost,
-  .entity-icon-btn,
-  .entity-open-icon,
-  .paper-open-icon,
-  .seg button
-):active {
-  translate: 0;
-  scale: 0.97;
-}
-
-/* Sub-nav tabs. The baseline hover tint above is the affordance; this adds the
-   physical part. The label itself lifts here rather than an icon, because a
-   sub-tab is text — and the strip is not a touch target that a finger is
-   mid-travel toward, so 1px of movement costs nothing. */
-:root[data-motion="reactive"] .sub-tab {
-  translate: 0;
-  scale: 1;
-  transition:
-    color 0.2s ease,
-    background var(--rm-fast) var(--layout-ease),
-    translate var(--rm-slow) var(--rm-spring),
-    scale var(--rm-fast) var(--layout-ease);
-}
-:root[data-motion="reactive"] .sub-tab:hover { translate: 0 -1px; }
-:root[data-motion="reactive"] .sub-tab:active { translate: 0; scale: 0.97; }
-
-/* Nav glyphs pop on hover. Icon only — the label stays put, so the hit target
-   does not move under a finger already travelling toward it.
-
-   Matched on `.nav-link`, not on the element type. Every entry in the nav is a
-   link except Search, which opens the palette and so is a `<button>` — an
-   `a`-scoped selector animated the whole bar apart from that one item. */
-:root[data-motion="reactive"] :is(.nav, .tabbar) .nav-link :is(.vicon, .nav-icon) {
-  translate: 0;
-  scale: 1;
-  transition:
-    translate var(--rm-slow) var(--rm-spring),
-    scale var(--rm-base) var(--rm-spring);
-}
-:root[data-motion="reactive"] :is(.nav, .tabbar) .nav-link:hover :is(.vicon, .nav-icon) {
-  translate: 0 -2px;
-  scale: 1.09;
-}
-
-/* ---- Top bar ----
-   The brand row (org chip, project chip, theme toggle, overflow menu) is the
-   one piece of chrome that is on screen on every route, and it was the only
-   interactive surface the reactive layer never covered. Same vocabulary as
-   everything else here: spring lift on hover, scale on press, glyph responds
-   a little more than its container. */
-:root[data-motion="reactive"] :is(
-  .proj-chip,
-  .header-link,
-  .header-overflow-btn,
-  .signout
-) {
-  translate: 0;
-  scale: 1;
-  transition:
-    translate var(--rm-slow) var(--rm-spring),
-    scale var(--rm-fast) var(--layout-ease),
-    background var(--rm-fast) var(--layout-ease),
-    color var(--rm-fast) var(--layout-ease);
-}
-
-:root[data-motion="reactive"] :is(
-  .proj-chip,
-  .header-link,
-  .header-overflow-btn,
-  .signout
-):hover {
-  translate: 0 -1px;
-}
-
-:root[data-motion="reactive"] :is(
-  .proj-chip,
-  .header-link,
-  .header-overflow-btn,
-  .signout
-):active {
-  translate: 0;
-  scale: 0.95;
-}
-
-/* Glyphs lead the container slightly — the icon is what the eye tracks. */
-:root[data-motion="reactive"] :is(.header-link, .signout) svg {
-  scale: 1;
-  transition: scale var(--rm-base) var(--rm-spring);
-}
-:root[data-motion="reactive"] :is(.header-link, .signout):hover svg {
-  scale: 1.12;
-}
-
-/* The theme toggle turns its sun/moon rather than just growing it: the control
-   swaps between two glyphs on click, and a rotation on hover telegraphs that
-   it is a switch instead of a link. */
-:root[data-motion="reactive"] .theme-toggle svg {
-  rotate: 0deg;
-  transition:
-    rotate var(--rm-slow) var(--rm-spring),
-    scale var(--rm-base) var(--rm-spring);
-}
-:root[data-motion="reactive"] .theme-toggle:hover svg {
-  rotate: 35deg;
-  scale: 1.12;
-}
+/* Buttons have one motion of their own in buttons.css, outside this layer. */
 
 /* Chevrons point at the menu they opened. Driven by aria-expanded, so the
    animation cannot disagree with what assistive tech is told. */
@@ -591,4 +451,37 @@
 @media (prefers-reduced-motion: reduce) {
   .pdf-reader-target-hit,
   .pdf-reader-caption-target { animation: none; outline: 2px solid var(--accent); }
+}
+
+/* ---- Page transitions (lib/view-transition.ts sets data-nav for one navigation) ----
+   A detail slides in from the right and Back slides it out; tab switches
+   cross-fade. The page's own page-in steps aside while one runs. */
+:root[data-nav] .page-transition {
+  view-transition-name: vt-page;
+  animation: none;
+}
+:root[data-nav="forward"] :is(.record-title, .paper-article-title) { view-transition-name: vt-title; }
+
+::view-transition-group(vt-title) { animation-duration: 260ms; animation-timing-function: var(--layout-ease); }
+::view-transition-old(vt-page),
+::view-transition-new(vt-page) { animation-duration: 260ms; animation-timing-function: var(--layout-ease); }
+:root[data-nav="forward"]::view-transition-old(vt-page) { animation-name: vt-out-left; }
+:root[data-nav="forward"]::view-transition-new(vt-page) { animation-name: vt-in-right; }
+:root[data-nav="back"]::view-transition-old(vt-page) { animation-name: vt-out-right; }
+:root[data-nav="back"]::view-transition-new(vt-page) { animation-name: vt-in-left; }
+:root[data-nav="tab"]::view-transition-old(vt-page),
+:root[data-nav="tab"]::view-transition-new(vt-page) { animation-duration: 150ms; }
+/* The shell stays put; only the page moves. */
+::view-transition-old(root),
+::view-transition-new(root) { animation: none; }
+
+@keyframes vt-in-right { from { translate: 48px 0; opacity: 0; } }
+@keyframes vt-out-left { to { translate: -24px 0; opacity: 0; } }
+@keyframes vt-in-left { from { translate: -48px 0; opacity: 0; } }
+@keyframes vt-out-right { to { translate: 24px 0; opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
 }

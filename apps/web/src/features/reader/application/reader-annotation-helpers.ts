@@ -71,6 +71,30 @@ export const READER_ANNOTATION_COLORS = [
   "#aaaaaa",
 ] as const;
 
+/** The marks the Annotations list shows and counts: ink is drawing, not a note on the text. */
+export function listedAnnotations<T extends Pick<ReaderAnnotation, "type">>(annotations: readonly T[]): T[] {
+  return annotations.filter((a) => a.type !== "ink");
+}
+
+export interface PagePress {
+  x: number;
+  y: number;
+  time: number;
+}
+
+const TAP_SLOP_PX = 6;
+const TAP_MAX_MS = 400;
+
+/**
+ * A short press that barely moved, off an open create bar: it dismisses the bar
+ * and the words under it. A touch tap leaves the selection in place, so without
+ * this the release reads the old words and raises the bar again.
+ */
+export function isDismissTap(down: PagePress | null, up: PagePress, barOpen: boolean): boolean {
+  if (!barOpen || !down) return false;
+  return Math.hypot(up.x - down.x, up.y - down.y) <= TAP_SLOP_PX && up.time - down.time <= TAP_MAX_MS;
+}
+
 /**
  * What a pointer drag on the page does.
  *

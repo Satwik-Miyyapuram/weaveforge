@@ -28,6 +28,7 @@ import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
+import { navTransition } from "@/lib/view-transition";
 
 export function VaultScreen() {
   const router = useRouter();
@@ -198,7 +199,7 @@ export function VaultScreen() {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", id);
     setPushed();
-    router.push(`/notes?${params.toString()}`);
+    navTransition("forward", () => router.push(`/notes?${params.toString()}`));
   }
 
   function closeCompose() {

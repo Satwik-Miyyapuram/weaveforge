@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { pdfPointToScreen, pdfRectToScreenBox, type PageProjection } from "@weaveforge/core";
 import { sanitizePdfUrl } from "../../application/sanitize-reader-url";
-import { Modal, ModalActions } from "@/components/modal";
 import { InkStrokes } from "@/features/ink";
 import type { DraftShape } from "./types";
 import type { MarginNote } from "../../application/margin-notes";
@@ -115,61 +114,6 @@ export function DraftShapeOverlay({
         />
       </svg>
     </div>
-  );
-}
-
-/**
- * In-app composer for a text annotation's contents.
- *
- * Replaces `window.prompt`, which is an unstyled OS dialog that ignores the
- * app's theme and, on a phone, covers the page being annotated.
- */
-export function TextBoxComposer({
-  title,
-  label,
-  submitLabel,
-  placeholder,
-  onSubmit,
-  onCancel,
-}: {
-  title: string;
-  label: string;
-  submitLabel: string;
-  placeholder: string;
-  onSubmit: (text: string) => void;
-  onCancel: () => void;
-}) {
-  const [text, setText] = useState("");
-  const trimmed = text.trim();
-
-  return (
-    <Modal title={title} onClose={onCancel}>
-      <div className="form-stack">
-        <label className="field">
-          {label}
-          <textarea
-            rows={4}
-            value={text}
-            autoFocus
-            placeholder={placeholder}
-            onChange={(e) => setText(e.target.value)}
-          />
-        </label>
-        <ModalActions>
-          <button type="button" className="btn-secondary btn-cancel" onClick={onCancel}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={!trimmed}
-            onClick={() => onSubmit(trimmed)}
-          >
-            {submitLabel}
-          </button>
-        </ModalActions>
-      </div>
-    </Modal>
   );
 }
 

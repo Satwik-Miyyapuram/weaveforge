@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   annotationPinKey,
   applyAnnotationPatch,
+  isDismissTap,
+  listedAnnotations,
   optimisticAnnotationFromDraft,
   READER_ANNOTATION_COLORS,
 } from "../application/reader-annotation-helpers.js";
@@ -102,4 +104,21 @@ test("applyAnnotationPatch does not alias the caller's tag array", () => {
   const patched = applyAnnotationPatch(base, { tags });
   tags.push("two");
   assert.deepEqual(patched.tags, ["one"], "later mutation must not reach the annotation");
+});
+
+test("listedAnnotations leaves ink out of the list and its count", () => {
+  const marks = [{ type: "highlight" }, { type: "ink" }, { type: "note" }, { type: "ink" }, { type: "underline" }] as const;
+  assert.deepEqual(
+    listedAnnotations(marks).map((a) => a.type),
+    ["highlight", "note", "underline"],
+  );
+});
+
+test("isDismissTap: one short tap off an open bar dismisses it", () => {
+  const down = { x: 100, y: 100, time: 0 };
+  assert.equal(isDismissTap(down, { x: 102, y: 101, time: 120 }, true), true);
+  assert.equal(isDismissTap(down, { x: 102, y: 101, time: 120 }, false), false, "no bar, nothing to dismiss");
+  assert.equal(isDismissTap(down, { x: 160, y: 100, time: 120 }, true), false, "a drag is a new selection");
+  assert.equal(isDismissTap(down, { x: 100, y: 100, time: 900 }, true), false, "a long press selects words");
+  assert.equal(isDismissTap(null, { x: 100, y: 100, time: 10 }, true), false);
 });
