@@ -39,7 +39,7 @@ import { FilterRow } from "@/components/filter-row";
 import { ViewSwitch } from "@/components/view-switch";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { isOfflineBuild } from "@/deployment/build-target";
-import { experimentHref } from "./experiment-href";
+import { experimentHref } from "../application/experiment-href";
 import { StatusSelect, statusLabel } from "@/components/status-select";
 import { ExperimentDetailScreen } from "./experiment-detail-screen";
 import { FormError } from "@/components/form-error";

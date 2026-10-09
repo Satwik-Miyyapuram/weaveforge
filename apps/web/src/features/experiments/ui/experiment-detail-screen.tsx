@@ -21,7 +21,7 @@ import {
 import { formatMetricCell } from "./metric-chart";
 import { formatError } from "@/lib/format-error";
 import { AttachArtifactsButton } from "./attach-artifacts-button";
-import { EXPERIMENTS_HREF } from "./experiment-href";
+import { EXPERIMENTS_HREF } from "../application/experiment-href";
 import { Artifacts, MetricCurves, usePaperTitle } from "./experiment-panels";
 import { StatusSelect } from "@/components/status-select";
 import { FormError } from "@/components/form-error";

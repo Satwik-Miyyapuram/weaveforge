@@ -1,6 +1,6 @@
 "use client";
 
-import { experimentHref } from "./experiment-href";
+import { experimentHref } from "../application/experiment-href";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { shortSha, type Experiment, type MetricPoint } from "@weaveforge/core";
