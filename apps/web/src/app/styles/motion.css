@@ -454,31 +454,59 @@
 }
 
 /* ---- Page transitions (lib/view-transition.ts sets data-nav for one navigation) ----
-   A detail slides in from the right and Back slides it out; tab switches
-   cross-fade. The page's own page-in steps aside while one runs. */
+   Calm by default, bigger under Reactive motion, stepped scanlines on CRT. */
 :root[data-nav] .page-transition {
   view-transition-name: vt-page;
   animation: none;
 }
-:root[data-nav="forward"] :is(.record-title, .paper-article-title) { view-transition-name: vt-title; }
+:root[data-nav="forward"][data-motion="reactive"]:not([data-theme="crt"]) :is(.record-title, .paper-article-title) { view-transition-name: vt-title; }
 
-::view-transition-group(vt-title) { animation-duration: 260ms; animation-timing-function: var(--layout-ease); }
+/* Calm (default) */
 ::view-transition-old(vt-page),
-::view-transition-new(vt-page) { animation-duration: 260ms; animation-timing-function: var(--layout-ease); }
+::view-transition-new(vt-page) { animation-duration: 180ms; animation-timing-function: cubic-bezier(.2, .7, .2, 1); }
 :root[data-nav="forward"]::view-transition-old(vt-page) { animation-name: vt-out-left; }
 :root[data-nav="forward"]::view-transition-new(vt-page) { animation-name: vt-in-right; }
 :root[data-nav="back"]::view-transition-old(vt-page) { animation-name: vt-out-right; }
 :root[data-nav="back"]::view-transition-new(vt-page) { animation-name: vt-in-left; }
 :root[data-nav="tab"]::view-transition-old(vt-page),
-:root[data-nav="tab"]::view-transition-new(vt-page) { animation-duration: 150ms; }
+:root[data-nav="tab"]::view-transition-new(vt-page) { animation-duration: 120ms; }
+
+/* Reactive */
+:root[data-motion="reactive"]::view-transition-old(vt-page),
+:root[data-motion="reactive"]::view-transition-new(vt-page) { animation-duration: 260ms; --vt-in: 48px; --vt-out: 24px; --vt-shrink: 0.985; }
+:root[data-motion="reactive"][data-nav="tab"]::view-transition-old(vt-page),
+:root[data-motion="reactive"][data-nav="tab"]::view-transition-new(vt-page) { animation-duration: 160ms; }
+:root[data-motion="reactive"][data-nav="tab"]::view-transition-new(vt-page) { animation-name: vt-rise; }
+::view-transition-group(vt-title) { animation-duration: 300ms; animation-timing-function: var(--rm-spring); }
+
+/* CRT: hard steps, no slide. Listed last so it wins over Reactive at equal specificity. */
+:root[data-theme="crt"][data-nav]::view-transition-old(vt-page) { animation: vt-fade-out 120ms steps(2, end) both; }
+:root[data-theme="crt"][data-nav="forward"]::view-transition-new(vt-page) { animation: vt-wipe-down 200ms steps(8, end) both; }
+:root[data-theme="crt"][data-nav="back"]::view-transition-new(vt-page) { animation: vt-wipe-up 200ms steps(8, end) both; }
+:root[data-theme="crt"][data-nav="tab"]::view-transition-new(vt-page) { animation: vt-flicker-in 120ms steps(3, end) both; }
+:root[data-theme="crt"][data-nav="tab"]::view-transition-old(vt-page) { animation: vt-fade-out 120ms steps(3, end) both; }
+/* CRT + Reactive: the old page powers off, then the wipe. */
+:root[data-theme="crt"][data-motion="reactive"]:is([data-nav="forward"], [data-nav="back"])::view-transition-old(vt-page) { animation: vt-power-off 220ms ease-in both; }
+:root[data-theme="crt"][data-motion="reactive"][data-nav="forward"]::view-transition-new(vt-page) { animation: vt-wipe-down 280ms steps(12, end) 100ms both; }
+:root[data-theme="crt"][data-motion="reactive"][data-nav="back"]::view-transition-new(vt-page) { animation: vt-wipe-up 280ms steps(12, end) 100ms both; }
+
 /* The shell stays put; only the page moves. */
 ::view-transition-old(root),
 ::view-transition-new(root) { animation: none; }
 
-@keyframes vt-in-right { from { translate: 48px 0; opacity: 0; } }
-@keyframes vt-out-left { to { translate: -24px 0; opacity: 0; } }
-@keyframes vt-in-left { from { translate: -48px 0; opacity: 0; } }
-@keyframes vt-out-right { to { translate: 24px 0; opacity: 0; } }
+@keyframes vt-in-right { from { translate: var(--vt-in, 12px) 0; opacity: 0; } }
+@keyframes vt-in-left { from { translate: calc(-1 * var(--vt-in, 12px)) 0; opacity: 0; } }
+@keyframes vt-out-left { to { translate: calc(-1 * var(--vt-out, 6px)) 0; scale: var(--vt-shrink, 1); opacity: 0; } }
+@keyframes vt-out-right { to { translate: var(--vt-out, 6px) 0; scale: var(--vt-shrink, 1); opacity: 0; } }
+@keyframes vt-rise { from { translate: 0 6px; opacity: 0; } }
+@keyframes vt-fade-out { to { opacity: 0; } }
+@keyframes vt-wipe-down { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0); } }
+@keyframes vt-wipe-up { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0); } }
+@keyframes vt-flicker-in { from { opacity: 0; filter: brightness(1.6); } to { opacity: 1; filter: brightness(1); } }
+@keyframes vt-power-off {
+  60% { scale: 1 0.02; filter: brightness(2.2); opacity: 1; }
+  to { scale: 0 0.02; filter: brightness(2.2); opacity: 0; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),

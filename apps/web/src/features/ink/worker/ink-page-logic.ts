@@ -156,7 +156,7 @@ export function installPage(
 
 /** Pack the page as the sidecar stores it, and hand the bytes over. */
 export async function savePage(
-  state: Pick<InkPageState, "buffer" | "pageIndex" | "codec">,
+  state: Pick<InkPageState, "buffer" | "pageIndex" | "codec" | "loading">,
   requestId: number,
   post: (event: InkWorkerEvent, transfer?: Transferable[]) => void,
 ): Promise<void> {
@@ -169,6 +169,7 @@ export async function savePage(
       pageIndex: state.pageIndex,
       bytes: null,
       strokes,
+      cleared: !state.loading,
     });
     return;
   }
@@ -180,6 +181,7 @@ export async function savePage(
       pageIndex: state.pageIndex,
       bytes,
       strokes,
+      cleared: false,
     },
     [bytes.buffer],
   );

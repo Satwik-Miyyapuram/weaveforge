@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { awaitInkWrites, trackInkWrite } from "../application/ink-pending-writes";
+import type { InkSave } from "./use-ink-worker-rpc";
 import {
   joinInkTextLayer,
   newInkChunkId,
@@ -44,7 +45,7 @@ export interface InkNoteStoreDeps {
   /** The text layer's pages, for the body (§4.2). */
   textPagesRef: { current: string[] };
   /** The worker's chunk bytes for the current page. */
-  requestSave: () => Promise<Uint8Array | null>;
+  requestSave: () => Promise<InkSave>;
   /** 0-based: the page whose chunk a save writes. */
   pageIndex: number;
   /** How many pages the note has; a blank-page append lands after the last. */
@@ -124,10 +125,15 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     const current = pages?.[pageIndex];
     if (!pages || !current) return;
     const write = (async () => {
-      const bytes = await requestSave();
-      if (bytes) {
-        await chunks.write(noteId, current.chunkId, bytes);
-        current.chunk = bytes;
+      const saved = await requestSave();
+      if (saved.bytes) {
+        await chunks.write(noteId, current.chunkId, saved.bytes);
+        current.chunk = saved.bytes;
+        setChunkVersion((v) => v + 1);
+      } else if (saved.cleared && saved.pageIndex === pageIndex && current.chunk) {
+        // The last stroke went: drop the stored page so it does not come back.
+        await chunks.remove(noteId, current.chunkId);
+        current.chunk = null;
         setChunkVersion((v) => v + 1);
       }
       await saveBody();
