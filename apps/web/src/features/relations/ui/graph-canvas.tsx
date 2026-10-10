@@ -652,7 +652,7 @@ export function GraphCanvas({
             const { font: fontSize, gap } = labelBox;
             ctx.font = colours.stamp ? `700 ${fontSize}px ${fontFamily}` : `${fontSize}px ${fontFamily}`;
             const lx = node.x ?? 0;
-            const ly = (node.y ?? 0) - r - (colours.stamp ? gap + fontSize * 0.4 : gap);
+            const ly = (node.y ?? 0) - r - gap - fontSize * 0.4;
             const w = ctx.measureText(label).width + (colours.stamp ? fontSize : 0);
             const box = { x1: lx - w / 2, y1: ly - fontSize, x2: lx + w / 2, y2: ly + labelBox.line };
             // The hovered node and tags always win; everything else yields to a

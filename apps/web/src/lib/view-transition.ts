@@ -1,16 +1,21 @@
-/**
- * Page transitions through the View Transitions API: a detail page slides in
- * from the right and Back slides it out, tab switches cross-fade. The look is
- * in motion.css under `:root[data-nav]`.
- */
+/** Page transitions through the View Transitions API, in three tiers (calm, reactive, CRT); the look is in motion.css under :root[data-nav]. */
 export type NavKind = "forward" | "back" | "tab";
 
 const TITLE_NAME = "vt-title";
 const SETTLE_TIMEOUT_MS = 500;
 
-/** Transitions run only with the motion setting on, motion not reduced, and the API there. */
-export function transitionsOn(input: { motion: string | undefined; reducedMotion: boolean; supported: boolean }): boolean {
-  return input.supported && input.motion === "reactive" && !input.reducedMotion;
+export type MotionTier = "off" | "calm" | "reactive" | "crt";
+type TierInput = { motion: string | undefined; theme: string | undefined; reducedMotion: boolean; supported: boolean };
+
+/** Calm by default, bigger with Reactive motion, stepped on CRT; off when reduced or unsupported. */
+export function motionTier(input: TierInput): MotionTier {
+  if (!input.supported || input.reducedMotion) return "off";
+  if (input.theme === "crt") return "crt";
+  return input.motion === "reactive" ? "reactive" : "calm";
+}
+
+export function transitionsOn(input: TierInput): boolean {
+  return motionTier(input) !== "off";
 }
 
 /** A plain left click that a link would follow in this window. */
@@ -26,13 +31,19 @@ function startFn(): StartViewTransition | null {
   return typeof fn === "function" ? fn.bind(document) : null;
 }
 
-export function canTransition(): boolean {
-  if (typeof document === "undefined") return false;
-  return transitionsOn({
-    motion: document.documentElement.dataset.motion,
+function currentTier(): MotionTier {
+  if (typeof document === "undefined") return "off";
+  const root = document.documentElement;
+  return motionTier({
+    motion: root.dataset.motion,
+    theme: root.dataset.theme,
     reducedMotion: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
     supported: startFn() !== null,
   });
+}
+
+export function canTransition(): boolean {
+  return currentTier() !== "off";
 }
 
 /** The card title under the last press, so it can morph into the detail page's title. */
@@ -73,12 +84,14 @@ function routeSettled(before: string): Promise<void> {
 /** Runs a navigation inside a view transition, or straight away when transitions are off. */
 export function navTransition(kind: NavKind, navigate: () => void): void {
   const start = startFn();
-  if (!start || !canTransition()) {
+  const tier = currentTier();
+  if (!start || tier === "off") {
     navigate();
     return;
   }
   const root = document.documentElement;
-  const title = kind === "forward" && lastPressTitle?.isConnected ? lastPressTitle : null;
+  // Only the reactive tier morphs the card title into the page title.
+  const title = kind === "forward" && tier === "reactive" && lastPressTitle?.isConnected ? lastPressTitle : null;
   if (title) title.style.viewTransitionName = TITLE_NAME;
   root.dataset.nav = kind;
   const before = location.href;

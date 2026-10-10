@@ -59,7 +59,7 @@ import { bucketAnnotationsByPage } from "../../application/project-annotation-ge
 import { AnnotationSidebar } from "../annotation-sidebar";
 import { SelectionCreateBar, boxAnchor, selectionAnchor, type SelectionAnchor } from "../selection-create-bar";
 import { MarkPopover } from "../mark-popover";
-import { markActions } from "../../application/mark-actions";
+import { markActions, markPopoverShown } from "../../application/mark-actions";
 import type { ReaderAnnotation } from "@weaveforge/core";
 import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
 import { backlinksForAnnotation } from "../../application/annotation-backlinks";
@@ -466,11 +466,6 @@ export function PdfReader({
   const selectOnPage = useCallback(
     (id: string) => {
       setSelectedAnnId(id);
-      const ann = annotations.find((a) => a.id === id);
-      if (canCreate && createTool === "text" && ann?.type === "text" && ann.origin === "local") {
-        setEditingTextId(id);
-        return;
-      }
       const scroller = containerRef.current;
       const boxes = scroller ? [...scroller.querySelectorAll(`[data-ann-id="${CSS.escape(id)}"]`)] : [];
       if (!scroller || boxes.length === 0) return setMarkAt(null);
@@ -481,13 +476,24 @@ export function PdfReader({
       const at = boxAnchor(union, scroller);
       setMarkAt(at ? { id, at } : null);
     },
-    [annotations, canCreate, containerRef, createTool],
+    [containerRef],
+  );
+  // Double-click edits a text box this reader owns.
+  const editTextOnPage = useCallback(
+    (id: string) => {
+      const ann = annotations.find((a) => a.id === id);
+      if (!canCreate || ann?.type !== "text" || ann.origin !== "local") return;
+      setMarkAt(null);
+      setSelectedAnnId(id);
+      setEditingTextId(id);
+    },
+    [annotations, canCreate],
   );
   const markPopover = (() => {
     if (!markAt || markAt.id !== selectedAnnId) return null;
     const ann = annotations.find((a) => a.id === markAt.id);
     const actions = ann ? markActions(ann) : null;
-    if (!ann || !actions || (ann.type === "text" && createTool !== "select")) return null;
+    if (!ann || !actions || !markPopoverShown(ann, createTool)) return null;
     return { ann, actions, at: markAt.at };
   })();
 
@@ -1535,7 +1541,7 @@ export function PdfReader({
               onCancel={() => setPendingCreate(null)}
             />
           )}
-          {!pendingCreate && canCreate && !penOpen && markPopover && (
+          {!pendingCreate && canCreate && (!penOpen || markPopover?.ann.type === "text") && markPopover && (
             <MarkPopover
               at={markPopover.at}
               actions={markPopover.actions}
@@ -1581,7 +1587,7 @@ export function PdfReader({
               onPointerDown={(e) => {
                 if (gestures.begin(e)) return;
                 if (pictures.pointerDown(n, e)) return;
-                // A tap on a text box opens it; it does not start another box.
+                // A tap on a text box selects it; it does not start another box.
                 if (createTool === "text" && (e.target as Element).closest(".pdf-reader-ann.is-text")) return;
                 onPagePointerDown(n, e);
               }}
@@ -1640,6 +1646,7 @@ export function PdfReader({
                     textEdit={textEdit?.page === n ? textEdit.edit : null}
                     onTextCommit={commitText}
                     onTextCancel={cancelText}
+                    onEditText={editTextOnPage}
                   />
                 )}
                 {/* Inside the page, because it decorates the page's own text

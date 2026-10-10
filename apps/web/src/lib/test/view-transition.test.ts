@@ -1,13 +1,25 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { isPlainClick, navTransition, transitionsOn } from "../view-transition";
+import { isPlainClick, motionTier, navTransition, transitionsOn } from "../view-transition";
 
-test("transitions run only with motion on, not reduced, and the API there", () => {
-  assert.equal(transitionsOn({ motion: "reactive", reducedMotion: false, supported: true }), true);
-  assert.equal(transitionsOn({ motion: undefined, reducedMotion: false, supported: true }), false, "motion setting off");
-  assert.equal(transitionsOn({ motion: "reactive", reducedMotion: true, supported: true }), false, "reduced motion");
-  assert.equal(transitionsOn({ motion: "reactive", reducedMotion: false, supported: false }), false, "no API");
+test("tiers: calm by default, reactive with the setting, CRT by theme, off when reduced or unsupported", () => {
+  const base = { motion: undefined, theme: undefined, reducedMotion: false, supported: true };
+  assert.equal(motionTier(base), "calm");
+  assert.equal(motionTier({ ...base, motion: "reactive" }), "reactive");
+  assert.equal(motionTier({ ...base, theme: "crt" }), "crt");
+  assert.equal(motionTier({ ...base, theme: "crt", motion: "reactive" }), "crt");
+  assert.equal(motionTier({ ...base, theme: "brutal" }), "calm");
+  assert.equal(motionTier({ ...base, reducedMotion: true }), "off");
+  assert.equal(motionTier({ ...base, motion: "reactive", theme: "crt", reducedMotion: true }), "off");
+  assert.equal(motionTier({ ...base, supported: false }), "off");
+});
+
+test("transitions run without the motion setting, never when reduced", () => {
+  const base = { motion: undefined, theme: undefined, reducedMotion: false, supported: true };
+  assert.equal(transitionsOn(base), true);
+  assert.equal(transitionsOn({ ...base, reducedMotion: true }), false);
+  assert.equal(transitionsOn({ ...base, supported: false }), false);
 });
 
 test("only a plain left click is taken over", () => {

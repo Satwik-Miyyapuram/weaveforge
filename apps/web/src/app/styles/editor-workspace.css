@@ -1993,10 +1993,6 @@
   flex-shrink: 0;
 }
 
-.ink-swatch:hover {
-  transform: scale(1.18);
-}
-
 .ink-swatch[aria-pressed="true"] {
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
   transform: scale(1.1);
