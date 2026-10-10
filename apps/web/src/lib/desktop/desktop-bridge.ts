@@ -210,6 +210,12 @@ export interface DesktopBridge {
   }): Promise<DesktopLocalApi>;
   /** Revoke one token; the rest keep working. */
   revokeLocalApiToken(id: string): Promise<DesktopLocalApi>;
+  /** Issue (or reuse) the "AI clients" token, write ~/.weaveforge/mcp.json and the bridge, switch the server on. */
+  connectMcp?(): Promise<DesktopLocalApi>;
+  /** Revoke that token and delete the file. */
+  disconnectMcp?(): Promise<DesktopLocalApi>;
+  /** Hand the install link (Cursor, VS Code) or a .mcpb (Claude Desktop) to the OS; built in the shell. */
+  openMcpClient?(client: "cursor" | "vscode" | "claude-desktop"): Promise<void>;
   /**
    * One read of the Zotero API running on this computer.
    *
@@ -466,6 +472,18 @@ export interface DesktopLocalApiToken {
   permissions: DesktopLocalApiPermission[];
   createdAt: string;
   expiresAt: string | null;
+  /** Since this app started; absent when unused. */
+  lastUsedAt?: string;
+}
+
+/** How AI clients reach the workspace: a stdio bridge run by the app binary as Node. */
+export interface DesktopMcp {
+  connected: boolean;
+  /** The "AI clients" token, when connected. */
+  tokenId?: string;
+  /** Streamable HTTP endpoint, for clients that take a URL. */
+  url: string;
+  launch: { command: string; args: string[]; env: Record<string, string> };
 }
 
 export interface DesktopLocalApi {
@@ -476,6 +494,8 @@ export interface DesktopLocalApi {
   tokens?: DesktopLocalApiToken[];
   /** The token just created, on that one answer only. */
   issued?: { id: string; token: string };
+  /** Settings → AI & MCP. Absent on older shells. */
+  mcp?: DesktopMcp;
   /** Why it is not listening, when that was not the user's choice. */
   reason?: string;
 }

@@ -1,0 +1,12 @@
+{
+  "name": "weaveforge",
+  "version": "0.8.10",
+  "description": "Read and search your WeaveForge workspace, leave drafts for you to approve, and log experiments. Runs on this computer only.",
+  "contextFileName": "plugins/weaveforge-research/skills/weaveforge-research/SKILL.md",
+  "mcpServers": {
+    "weaveforge": {
+      "command": "node",
+      "args": ["${extensionPath}${/}plugins${/}weaveforge-research${/}mcp-server${/}index.mjs"]
+    }
+  }
+}

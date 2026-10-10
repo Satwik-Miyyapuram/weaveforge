@@ -29,3 +29,8 @@ export function markActions(
   const prefill = ann.comment.trim() ? ann.comment : "";
   return { kind: KIND[ann.type], colour: true, comment: prefill ? "Edit comment" : "Comment", prefill };
 }
+
+/** A text box's popover shows under Select or Text; other marks under any tool. */
+export function markPopoverShown(ann: Pick<ReaderAnnotation, "type">, tool: string): boolean {
+  return ann.type !== "text" || tool === "select" || tool === "text";
+}

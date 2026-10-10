@@ -23,22 +23,22 @@ export interface LabelSize {
   gap: number;
 }
 
-const MIN_SCREEN_R = 4;
-const MAX_SCREEN_R = { tag: 16, other: 18 };
-/** Screen size grows with zoom to this power: far gentler than the camera's 1. */
-const GROWTH = 0.15;
 const LINE = 0.14;
 const DROP = 0.22;
 const LABEL_LINE = 0.1;
 const MIN_HIT_PX = 7;
 
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
 export function nodeSize(baseR: number, kind: GNode["kind"], zoom: number, bounded = true): NodeSize {
   const z = Math.max(0.01, zoom);
-  let r = baseR;
   if (bounded) {
-    const max = kind === "tag" ? MAX_SCREEN_R.tag : MAX_SCREEN_R.other;
-    r = Math.max(MIN_SCREEN_R, Math.min(max, baseR * Math.pow(Math.max(0.35, z), GROWTH))) / z;
+    const R = Math.max(5, baseR * clamp(z ** 0.45, 0.6, 3.2));
+    const r = R / z;
+    const line = Math.max(1.2, R * 0.13) / z;
+    return { r, line, drop: Math.max(1.5, R * 0.18) / z, hit: Math.max(r + line, MIN_HIT_PX / z) };
   }
+  const r = baseR;
   const line = r * LINE;
   return { r, line, drop: r * DROP, hit: Math.max(r + line, MIN_HIT_PX / z) };
 }
@@ -46,6 +46,10 @@ export function nodeSize(baseR: number, kind: GNode["kind"], zoom: number, bound
 export function labelSize(kind: GNode["kind"], zoom: number, bounded = true): LabelSize {
   const z = Math.max(0.01, zoom);
   const screen = kind === "tag" ? 10 : 10.5;
-  const font = bounded ? screen / z : Math.max(kind === "tag" ? 4 : 4.5, screen / z);
+  if (bounded) {
+    const font = (screen * clamp(z ** 0.35, 0.85, 2.2)) / z;
+    return { font, line: Math.max(1, font * z * 0.09) / z, gap: 2 / z };
+  }
+  const font = Math.max(kind === "tag" ? 4 : 4.5, screen / z);
   return { font, line: font * LABEL_LINE, gap: font * 0.2 };
 }

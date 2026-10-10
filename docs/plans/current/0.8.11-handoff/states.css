@@ -1,0 +1,425 @@
+/* States and motion for every control, from the design system bundle; generated, edit the DS then regenerate. */
+
+/* ---------- Tiers ---------- */
+:root {
+  --wf-bw: 1px; --wf-press: 1px; --wf-lift: -1px;
+  --wf-rc: 8px; --wf-rp: 10px; --wf-rm: 6px; --wf-rcard: 14px;
+  --wf-t: 120ms; --wf-t-press: 60ms; --wf-t-pop: 120ms; --wf-t-exit: 80ms; --wf-t-modal: 180ms;
+  --wf-ease: cubic-bezier(.2, .7, .2, 1); --wf-ease-hover: var(--wf-ease); --wf-ease-pop: var(--wf-ease);
+  --wf-pop-y: 6px; --wf-pop-s: 1; --wf-tip-y: 4px; --wf-toast-y: 12px; --wf-modal-y: 8px; --wf-modal-s: .98;
+  --wf-stagger: 0ms; --wf-item-anim: none; --wf-sw-hover: 1.08; --wf-back-x: -2px;
+  --wf-line: var(--border-strong);
+  --wf-hover-pct: 6%;
+  --wf-hover: color-mix(in srgb, var(--text) var(--wf-hover-pct), transparent);
+  --wf-press-bg: color-mix(in srgb, var(--text) calc(var(--wf-hover-pct) + 8%), transparent);
+  --wf-focus: var(--type-line, var(--accent));
+  --wf-accent-ink: var(--accent-ink, var(--accent));
+  --wf-surface2: var(--surface2, var(--surface-2));
+  --wf-danger: var(--danger-text, var(--s-danger));
+  --wf-danger-soft: var(--danger-soft, var(--s-danger-bg));
+  --wf-danger-fill: var(--danger-fill, var(--s-danger));
+  --wf-toast-bg: var(--toast-bg, var(--text));
+  --wf-toast-fg: var(--toast-fg, var(--bg));
+  --wf-field-bg: var(--type-bg, var(--bg));
+  --wf-field-sh: var(--type-sh, 0 0 0 2px var(--accent));
+  --wf-field-t: none;
+  --wf-sh-rest: var(--sh-sm, 0 1px 2px rgba(30, 30, 40, .08));
+  --wf-sh-up: var(--sh-btn, 0 2px 4px rgba(30, 30, 40, .07), 0 10px 24px rgba(30, 30, 40, .07));
+  --wf-sh-card: var(--sh-card, var(--wf-sh-rest));
+  --wf-tip-sh: none;
+  --wf-font: var(--btn-font, var(--font-face-sans, var(--font-sans, system-ui)));
+  --wf-fs: 14px; --wf-fs-sm: 13px; --wf-fs-ghost: var(--wf-fs); --wf-fw: 600;
+}
+/* Slate: dark soft themes */
+:root:is([data-theme="dark"], [data-theme="mocha"], [data-theme="dracula"], [data-theme="amoled"], [data-theme="contrast"], [data-theme="vivid-dark"], [data-theme="pastel-dark"], [data-theme="confetti-dark"]) {
+  --wf-hover-pct: 7%;
+  --wf-sh-rest: var(--sh-sm, 0 1px 2px rgba(0, 0, 0, .4));
+  --wf-sh-up: var(--sh-btn, 0 2px 4px rgba(0, 0, 0, .42), 0 10px 24px rgba(0, 0, 0, .38));
+}
+/* Poster */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"]) {
+  --wf-bw: 2px; --wf-press: 3px; --wf-rc: 6px; --wf-rm: 4px; --wf-rcard: 6px; --wf-hover-pct: 8%;
+  --wf-sh-rest: 3px 3px 0 var(--wf-line);
+  --wf-sh-up: 4px 4px 0 var(--wf-line);
+  --wf-tip-sh: var(--wf-sh-rest);
+  --wf-field-t: translate(-2px, -2px);
+}
+:root[data-theme="brutal-dark"] { --wf-hover-pct: 10%; }
+/* CRT: thicker ink, hard steps, pixel face on controls */
+:root[data-theme="crt"] {
+  --wf-bw: 3px; --wf-press: 4px; --wf-rc: 8px; --wf-rm: 6px; --wf-rcard: 12px; --wf-hover-pct: 8%;
+  --wf-ease: steps(3, end); --wf-ease-hover: steps(2, end); --wf-ease-pop: steps(4, end);
+  --wf-pop-y: 0px; --wf-pop-s: 1; --wf-tip-y: 0px;
+  --wf-sh-rest: var(--sh-sm, 3px 3px 0 #2b222b);
+  --wf-sh-up: var(--sh-btn, 5px 5px 0 #12466e);
+  --wf-tip-sh: var(--wf-sh-rest);
+  --wf-field-t: translateY(-2px);
+  --wf-font: var(--btn-font, var(--font-pixel)); --wf-fs: 1.25rem; --wf-fs-sm: 1.1rem; --wf-fs-ghost: 1.15rem; --wf-fw: 400;
+}
+/* Reactive motion: longer, springier, further */
+:root[data-motion="reactive"] {
+  --wf-t: 200ms; --wf-t-pop: 200ms; --wf-t-modal: 260ms; --wf-lift: -2px;
+  --wf-ease-hover: cubic-bezier(.34, 1.56, .64, 1); --wf-ease-pop: cubic-bezier(.34, 1.56, .64, 1);
+  --wf-pop-y: 10px; --wf-pop-s: .97; --wf-tip-y: 6px; --wf-toast-y: 16px; --wf-modal-y: 16px; --wf-modal-s: .94;
+  --wf-stagger: 18ms; --wf-item-anim: wf-item-in; --wf-sw-hover: 1.15; --wf-back-x: -4px;
+}
+/* CRT + Reactive: more steps, still no slide */
+:root[data-theme="crt"][data-motion="reactive"] {
+  --wf-t: 160ms; --wf-t-pop: 160ms; --wf-t-modal: 220ms;
+  --wf-ease: steps(4, end); --wf-ease-hover: steps(4, end); --wf-ease-pop: steps(6, end);
+  --wf-pop-y: 0px; --wf-pop-s: 1; --wf-tip-y: 0px;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:root:root:root {
+    --wf-t: 0ms; --wf-t-press: 0ms; --wf-t-pop: 0ms; --wf-t-exit: 0ms; --wf-t-modal: 0ms;
+    --wf-lift: 0px; --wf-pop-y: 0px; --wf-pop-s: 1; --wf-tip-y: 0px; --wf-toast-y: 0px; --wf-modal-y: 0px; --wf-modal-s: 1;
+    --wf-stagger: 0ms; --wf-item-anim: none; --wf-sw-hover: 1; --wf-back-x: 0px;
+  }
+}
+
+/* ---------- Shared ---------- */
+:root:root :is(:is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle), :is(.wf-back, .back-btn), :is(.wf-tool, .ink-tool, .pdf-reader-create-icon, .pdf-reader-pop-btn), :is(.wf-seg, .seg) > button, :is(.wf-tab, .sub-tab, .pane-tab, .graph-drawer-tab, .mcp-tab), :is(.wf-nav, .nav-link, .header-link), :is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip), :is(.wf-swatch, .ink-swatch, .pdf-reader-pop-swatch, .pdf-reader-create-swatch, .pdf-reader-pill-swatch, .list-color-pick), :is(.wf-toggle, .appearance-switch), :is(.wf-check, .themed-check, .milestone-check), .wf-radio, :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item), :is(.wf-select, .custom-select-button), .wf-card) {
+  -webkit-tap-highlight-color: transparent;
+}
+:root:root :is(:is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle), :is(.wf-back, .back-btn), :is(.wf-link, .link-btn, .link, .auth-link, .auth-link-sm), :is(.wf-tool, .ink-tool, .pdf-reader-create-icon, .pdf-reader-pop-btn), :is(.wf-seg, .seg) > button, :is(.wf-nav, .nav-link, .header-link), a:is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip), button:is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip), :is(.wf-chip-x, .filter-chip-x, .jump-to-chip-remove, .tag-del), :is(.wf-swatch, .ink-swatch, .pdf-reader-pop-swatch, .pdf-reader-create-swatch, .pdf-reader-pill-swatch, .list-color-pick), :is(.wf-toggle, .appearance-switch), :is(.wf-check, .themed-check, .milestone-check), .wf-radio, .wf-card):is(:focus-visible, [data-force~="focus"]) {
+  outline: 3px solid var(--wf-focus); outline-offset: 2px;
+}
+:root:root :is(:is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle), :is(.wf-back, .back-btn), :is(.wf-tool, .ink-tool, .pdf-reader-create-icon, .pdf-reader-pop-btn), :is(.wf-seg, .seg) > button, :is(.wf-tab, .sub-tab, .pane-tab, .graph-drawer-tab, .mcp-tab), :is(.wf-nav, .nav-link, .header-link), :is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip), :is(.wf-swatch, .ink-swatch, .pdf-reader-pop-swatch, .pdf-reader-create-swatch, .pdf-reader-pill-swatch, .list-color-pick), :is(.wf-toggle, .appearance-switch), :is(.wf-check, .themed-check, .milestone-check), .wf-radio, :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item), :is(.wf-input, .themed-input, .paper-field-input, .search-input, .input, .explorer-filter, .graph-search-input, .settings-find, .quick-open-input, .pdf-reader-pop-input), :is(.wf-select, .custom-select-button)):is(:disabled, [aria-disabled="true"]) {
+  opacity: .5; cursor: not-allowed;
+}
+
+/* ---------- Button ---------- */
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle) {
+  --wf-bg: var(--surface); --wf-fg: var(--text); --wf-bd: var(--wf-line);
+  position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font-family: var(--wf-font); font-size: var(--wf-fs); font-weight: var(--wf-fw); line-height: 1.15;
+  padding: 7px 13px; border: var(--wf-bw) solid var(--wf-bd); border-radius: var(--wf-rc);
+  background: var(--wf-bg); color: var(--wf-fg); box-shadow: var(--wf-sh-rest);
+  cursor: pointer; user-select: none; translate: 0 0; white-space: nowrap;
+  transition: translate var(--wf-t) var(--wf-ease-hover), box-shadow var(--wf-t) var(--wf-ease),
+    background-color var(--wf-t) var(--wf-ease), border-color var(--wf-t) var(--wf-ease), color var(--wf-t) var(--wf-ease);
+}
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle):is(:hover, [data-force~="hover"]):not(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
+  translate: 0 var(--wf-lift); box-shadow: var(--wf-sh-up);
+}
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle):is(:active, [data-force~="press"]):not(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
+  translate: var(--wf-press) var(--wf-press); box-shadow: none; transition-duration: var(--wf-t-press);
+}
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle):is(.wf-primary, .btn-primary) { --wf-bg: var(--accent); --wf-fg: var(--accent-fg); }
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle).wf-soft { --wf-bg: var(--accent-soft); }
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle):is(.wf-danger, .btn-danger) { --wf-bg: var(--wf-danger-fill); --wf-fg: var(--accent-fg); }
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle):is(:is(.wf-ghost, .btn-ghost, .btn-cancel, .card-menu-trigger, .header-overflow-btn, .list-toggle), :is(.wf-icon, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn), .wf-danger-ghost) {
+  --wf-bg: transparent; --wf-bd: transparent; box-shadow: none; font-size: var(--wf-fs-ghost);
+}
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle).wf-danger-ghost { --wf-fg: var(--wf-danger); }
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle):is(:is(.wf-ghost, .btn-ghost, .btn-cancel, .card-menu-trigger, .header-overflow-btn, .list-toggle), :is(.wf-icon, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn)):is(:hover, [data-force~="hover"]):not(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
+  --wf-bd: var(--wf-line); --wf-bg: var(--wf-hover); box-shadow: var(--wf-sh-rest);
+}
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle).wf-danger-ghost:is(:hover, [data-force~="hover"]):not(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
+  --wf-bd: var(--wf-danger); --wf-bg: var(--wf-danger-soft); box-shadow: var(--wf-sh-rest);
+}
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle):is(:is(.wf-ghost, .btn-ghost, .btn-cancel, .card-menu-trigger, .header-overflow-btn, .list-toggle), :is(.wf-icon, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn), .wf-danger-ghost):is(:active, [data-force~="press"]):not(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
+  --wf-bg: var(--wf-press-bg); translate: calc(var(--wf-press) * .67) calc(var(--wf-press) * .67); box-shadow: none;
+}
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle).wf-danger-ghost:is(:active, [data-force~="press"]):not(:disabled, [aria-disabled="true"]) { --wf-bg: var(--wf-danger-soft); }
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle):is(.wf-icon, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn) { width: 34px; height: 34px; padding: 5px; }
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle):is(.wf-icon, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn) svg { width: 18px; height: 18px; flex: none; }
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle):is(.wf-sm, .btn-sm) { padding: 5px 10px; font-size: var(--wf-fs-sm); }
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle):is(.wf-icon, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn):is(.wf-sm, .btn-sm) { width: 28px; height: 28px; padding: 4px; }
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle):is(:disabled, [aria-disabled="true"]) { box-shadow: var(--wf-sh-rest); }
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle):is(:is(.wf-ghost, .btn-ghost, .btn-cancel, .card-menu-trigger, .header-overflow-btn, .list-toggle), :is(.wf-icon, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn), .wf-danger-ghost):is(:disabled, [aria-disabled="true"]) { box-shadow: none; }
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle)[aria-busy="true"] { cursor: progress; color: transparent; }
+:root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle)[aria-busy="true"]::after {
+  content: ""; position: absolute; inset: 0; margin: auto; width: 14px; height: 14px; box-sizing: border-box;
+  border: 2px solid var(--wf-fg); border-right-color: transparent; border-radius: 50%;
+  animation: wf-spin .7s linear infinite;
+}
+:root:root:root[data-theme="crt"] :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle)[aria-busy="true"]::after { border-radius: 2px; animation-timing-function: steps(8, end); }
+
+/* ---------- Back button ---------- */
+:root:root :is(.wf-back, .back-btn) {
+  display: inline-flex; align-items: center; gap: 10px; padding: 0; border: 0; background: none;
+  color: var(--text); font-family: var(--wf-font); font-size: var(--wf-fs); font-weight: var(--wf-fw); cursor: pointer;
+  border-radius: var(--wf-rc);
+}
+:root:root :is(.wf-back-box, .back-btn-box) {
+  display: grid; place-items: center; width: 34px; height: 34px; box-sizing: border-box;
+  border: var(--wf-bw) solid var(--wf-line); border-radius: var(--wf-rc); background: var(--surface);
+  box-shadow: var(--wf-sh-rest); translate: 0 0;
+  transition: translate var(--wf-t) var(--wf-ease-hover), box-shadow var(--wf-t) var(--wf-ease), background-color var(--wf-t) var(--wf-ease);
+}
+:root:root :is(.wf-back-box, .back-btn-box) svg { width: 18px; height: 18px; translate: 0 0; transition: translate var(--wf-t) var(--wf-ease-hover); }
+:root:root :is(.wf-back, .back-btn):is(:hover, [data-force~="hover"]):not(:disabled) :is(.wf-back-box, .back-btn-box) { translate: 0 var(--wf-lift); box-shadow: var(--wf-sh-up); background: var(--accent-soft); }
+:root:root :is(.wf-back, .back-btn):is(:hover, [data-force~="hover"]):not(:disabled) :is(.wf-back-box, .back-btn-box) svg { translate: var(--wf-back-x) 0; }
+:root:root :is(.wf-back, .back-btn):is(:active, [data-force~="press"]):not(:disabled) :is(.wf-back-box, .back-btn-box) { translate: var(--wf-press) var(--wf-press); box-shadow: none; transition-duration: var(--wf-t-press); }
+
+/* ---------- Link ---------- */
+:root:root :is(.wf-link, .link-btn, .link, .auth-link, .auth-link-sm) {
+  color: var(--wf-accent-ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); cursor: pointer; border-radius: 2px;
+  transition: text-decoration-color var(--wf-t) var(--wf-ease), text-decoration-thickness var(--wf-t) var(--wf-ease), opacity var(--wf-t-press) linear;
+}
+:root:root :is(.wf-link, .link-btn, .link, .auth-link, .auth-link-sm):is(:hover, [data-force~="hover"]) { text-decoration-color: currentColor; text-decoration-thickness: 2px; }
+:root:root :is(.wf-link, .link-btn, .link, .auth-link, .auth-link-sm):is(:active, [data-force~="press"]) { opacity: .7; }
+
+/* ---------- Tool toggle ---------- */
+:root:root :is(.wf-tool, .ink-tool, .pdf-reader-create-icon, .pdf-reader-pop-btn) {
+  display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; box-sizing: border-box;
+  border: var(--wf-bw) solid transparent; border-radius: var(--wf-rc); background: transparent; color: var(--text); cursor: pointer;
+  transition: background-color var(--wf-t) var(--wf-ease), border-color var(--wf-t) var(--wf-ease), color var(--wf-t) var(--wf-ease), filter var(--wf-t-press) linear;
+}
+:root:root :is(.wf-tool, .ink-tool, .pdf-reader-create-icon, .pdf-reader-pop-btn) svg { width: 18px; height: 18px; }
+:root:root :is(.wf-tool, .ink-tool, .pdf-reader-create-icon, .pdf-reader-pop-btn):is(:hover, [data-force~="hover"]):not(:disabled, [aria-disabled="true"]) { border-color: var(--wf-line); background-color: var(--wf-hover); }
+:root:root :is(.wf-tool, .ink-tool, .pdf-reader-create-icon, .pdf-reader-pop-btn):is(:active, [data-force~="press"]):not(:disabled, [aria-disabled="true"]) { background-color: var(--wf-press-bg); transition-duration: var(--wf-t-press); }
+:root:root :is(.wf-tool, .ink-tool, .pdf-reader-create-icon, .pdf-reader-pop-btn):is([aria-pressed="true"], .seg-on, .is-active, .is-selected, .sel, .on, .active, [aria-checked="true"]) { background-color: var(--accent); color: var(--accent-fg); border-color: var(--wf-line); }
+:root:root :is(.wf-tool, .ink-tool, .pdf-reader-create-icon, .pdf-reader-pop-btn):is([aria-pressed="true"], .seg-on, .is-active, .is-selected, .sel, .on, .active, [aria-checked="true"]):is(:active, [data-force~="press"]) { filter: brightness(.94); }
+
+/* ---------- Segmented ---------- */
+:root:root :is(.wf-seg, .seg) { display: inline-flex; gap: 4px; }
+:root:root :is(.wf-seg, .seg) > button {
+  font-family: var(--wf-font); font-size: var(--wf-fs-sm); font-weight: var(--wf-fw); line-height: 1.2;
+  padding: 4px 10px; border: var(--wf-bw) solid var(--wf-line); border-radius: var(--wf-rc);
+  background: var(--surface); color: var(--text); cursor: pointer;
+  transition: background-color var(--wf-t) var(--wf-ease), color var(--wf-t) var(--wf-ease), filter var(--wf-t-press) linear;
+}
+:root:root :is(.wf-seg, .seg) > button:is(:hover, [data-force~="hover"]):not(:disabled) { background-color: color-mix(in srgb, var(--text) var(--wf-hover-pct), var(--surface)); }
+:root:root :is(.wf-seg, .seg) > button:is(:active, [data-force~="press"]):not(:disabled) { background-color: color-mix(in srgb, var(--text) calc(var(--wf-hover-pct) + 8%), var(--surface)); transition-duration: var(--wf-t-press); }
+:root:root :is(.wf-seg, .seg) > button:is([aria-pressed="true"], .seg-on, .is-active, .is-selected, .sel, .on, .active, [aria-checked="true"], [aria-selected="true"]) { background-color: var(--accent); color: var(--accent-fg); }
+:root:root :is(.wf-seg, .seg) > button:is([aria-pressed="true"], .seg-on, .is-active, .is-selected, .sel, .on, .active, [aria-checked="true"], [aria-selected="true"]):is(:active, [data-force~="press"]) { filter: brightness(.94); }
+
+/* ---------- Tabs ---------- */
+:root:root .wf-tabs { display: flex; gap: 2px; border-bottom: var(--wf-bw) solid var(--wf-line); }
+:root:root :is(.wf-tab, .sub-tab, .pane-tab, .graph-drawer-tab, .mcp-tab) {
+  position: relative; padding: 8px 12px; border: 0; border-radius: var(--wf-rc) var(--wf-rc) 0 0; background: transparent;
+  color: var(--muted); font: inherit; font-size: var(--wf-fs-sm); font-weight: 600; cursor: pointer;
+  transition: color var(--wf-t) var(--wf-ease), background-color var(--wf-t) var(--wf-ease);
+}
+:root:root :is(.wf-tab, .sub-tab, .pane-tab, .graph-drawer-tab, .mcp-tab)::after {
+  content: ""; position: absolute; left: 8px; right: 8px; bottom: calc(-1 * var(--wf-bw)); height: 3px;
+  background: var(--wf-accent-ink); scale: 0 1; transition: scale var(--wf-t) var(--wf-ease-hover);
+}
+:root:root :is(.wf-tab, .sub-tab, .pane-tab, .graph-drawer-tab, .mcp-tab):is(:hover, [data-force~="hover"]):not(:disabled) { color: var(--text); background-color: var(--wf-hover); }
+:root:root :is(.wf-tab, .sub-tab, .pane-tab, .graph-drawer-tab, .mcp-tab):is(:active, [data-force~="press"]):not(:disabled) { background-color: var(--wf-press-bg); transition-duration: var(--wf-t-press); }
+:root:root :is(.wf-tab, .sub-tab, .pane-tab, .graph-drawer-tab, .mcp-tab):is([aria-selected="true"], [aria-current="page"], .active, .is-active) { color: var(--text); }
+:root:root :is(.wf-tab, .sub-tab, .pane-tab, .graph-drawer-tab, .mcp-tab):is([aria-selected="true"], [aria-current="page"], .active, .is-active)::after { scale: 1 1; }
+:root:root :is(.wf-tab, .sub-tab, .pane-tab, .graph-drawer-tab, .mcp-tab):is(:focus-visible, [data-force~="focus"]) { outline: 3px solid var(--wf-focus); outline-offset: -3px; }
+
+/* ---------- Nav item ---------- */
+:root:root :is(.wf-nav, .nav-link, .header-link) {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--wf-rc);
+  color: var(--text); text-decoration: none; font-size: 14px; font-weight: 500; cursor: pointer;
+  transition: background-color var(--wf-t) var(--wf-ease), color var(--wf-t) var(--wf-ease);
+}
+:root:root :is(.wf-nav, .nav-link, .header-link):is(:hover, [data-force~="hover"]) { background-color: var(--wf-hover); }
+:root:root :is(.wf-nav, .nav-link, .header-link):is(:active, [data-force~="press"]) { background-color: var(--wf-press-bg); transition-duration: var(--wf-t-press); }
+:root:root :is(.wf-nav, .nav-link, .header-link):is([aria-current="page"], .active) { background-color: var(--accent-soft); color: var(--wf-accent-ink); font-weight: 600; }
+
+/* ---------- Chip ---------- */
+:root:root :is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip) {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border: var(--wf-bw) solid var(--wf-line);
+  border-radius: 999px; background: var(--surface); color: var(--text); text-decoration: none;
+  font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; font-weight: 600; line-height: 1.3;
+}
+:root:root :is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip).wf-ext { border-style: dashed; }
+:root:root :is(a, button):is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip) {
+  cursor: pointer; box-shadow: var(--wf-sh-rest); translate: 0 0;
+  transition: translate var(--wf-t) var(--wf-ease-hover), box-shadow var(--wf-t) var(--wf-ease), background-color var(--wf-t) var(--wf-ease), color var(--wf-t) var(--wf-ease);
+}
+:root:root a:is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip)[href]::after { content: "\2197"; }
+:root:root :is(a, button):is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip):is(:hover, [data-force~="hover"]):not(:disabled) { translate: 0 var(--wf-lift); box-shadow: var(--wf-sh-up); }
+:root:root :is(a, button):is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip):is(:active, [data-force~="press"]):not(:disabled) { translate: calc(var(--wf-press) * .67) calc(var(--wf-press) * .67); box-shadow: none; transition-duration: var(--wf-t-press); }
+:root:root button:is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip)[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+:root:root :is(.wf-chip-x, .filter-chip-x, .jump-to-chip-remove, .tag-del) {
+  display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: -4px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: inherit; font: inherit; line-height: 1; cursor: pointer;
+  transition: background-color var(--wf-t) var(--wf-ease), color var(--wf-t) var(--wf-ease);
+}
+:root:root :is(.wf-chip-x, .filter-chip-x, .jump-to-chip-remove, .tag-del):is(:hover, [data-force~="hover"]) { background: var(--wf-danger-soft); color: var(--wf-danger); }
+:root:root :is(.wf-chip-x, .filter-chip-x, .jump-to-chip-remove, .tag-del):is(:active, [data-force~="press"]) { scale: .9; }
+
+/* ---------- Swatch ---------- */
+:root:root :is(.wf-swatch, .ink-swatch, .pdf-reader-pop-swatch, .pdf-reader-create-swatch, .pdf-reader-pill-swatch, .list-color-pick) {
+  width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: var(--sw, var(--accent)); cursor: pointer;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 18%, transparent); scale: 1;
+  transition: scale var(--wf-t) var(--wf-ease-hover), box-shadow var(--wf-t) var(--wf-ease);
+}
+:root:root :is(.wf-swatch, .ink-swatch, .pdf-reader-pop-swatch, .pdf-reader-create-swatch, .pdf-reader-pill-swatch, .list-color-pick):is(:hover, [data-force~="hover"]) { scale: var(--wf-sw-hover); }
+:root:root :is(.wf-swatch, .ink-swatch, .pdf-reader-pop-swatch, .pdf-reader-create-swatch, .pdf-reader-pill-swatch, .list-color-pick):is(:active, [data-force~="press"]) { scale: .94; transition-duration: var(--wf-t-press); }
+:root:root :is(.wf-swatch, .ink-swatch, .pdf-reader-pop-swatch, .pdf-reader-create-swatch, .pdf-reader-pill-swatch, .list-color-pick):is([aria-pressed="true"], .seg-on, .is-active, .is-selected, .sel, .on, .active, [aria-checked="true"]) { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
+:root:root :is(.wf-swatch, .ink-swatch, .pdf-reader-pop-swatch, .pdf-reader-create-swatch, .pdf-reader-pill-swatch, .list-color-pick):is(:focus-visible, [data-force~="focus"]) { outline-offset: 5px; }
+:root:root :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) :is(.wf-swatch, .ink-swatch, .pdf-reader-pop-swatch, .pdf-reader-create-swatch, .pdf-reader-pill-swatch, .list-color-pick) { width: 22px; height: 22px; }
+:root:root :is(.wf-swatch, .ink-swatch, .pdf-reader-pop-swatch, .pdf-reader-create-swatch, .pdf-reader-pill-swatch, .list-color-pick).wf-current { width: 30px; height: 30px; }
+
+/* ---------- Toggle (input type=checkbox role=switch) ---------- */
+:root:root :is(.wf-toggle, .appearance-switch) {
+  appearance: none; position: relative; flex: none; width: 36px; height: 20px; margin: 0; box-sizing: border-box;
+  border: var(--wf-bw) solid var(--wf-line); border-radius: 999px; background: var(--wf-surface2); cursor: pointer;
+  transition: background-color var(--wf-t) var(--wf-ease);
+}
+:root:root :is(.wf-toggle, .appearance-switch)::before {
+  content: ""; position: absolute; top: 2px; left: 2px; width: calc(20px - 2 * var(--wf-bw) - 4px); height: calc(20px - 2 * var(--wf-bw) - 4px);
+  border-radius: 999px; background: var(--muted); translate: 0 0;
+  transition: translate var(--wf-t) var(--wf-ease-hover), width var(--wf-t-press) linear, background-color var(--wf-t) var(--wf-ease);
+}
+:root:root :is(.wf-toggle, .appearance-switch):is(:hover, [data-force~="hover"]):not(:disabled) { background-color: color-mix(in srgb, var(--text) var(--wf-hover-pct), var(--wf-surface2)); }
+:root:root :is(.wf-toggle, .appearance-switch):is(:active, [data-force~="press"]):not(:disabled)::before { width: calc(24px - 2 * var(--wf-bw) - 4px); }
+:root:root :is(.wf-toggle, .appearance-switch):checked { background-color: var(--accent); }
+:root:root :is(.wf-toggle, .appearance-switch):checked::before { background: var(--accent-fg); translate: 16px 0; }
+:root:root :is(.wf-toggle, .appearance-switch):checked:is(:active, [data-force~="press"]):not(:disabled)::before { translate: 12px 0; }
+:root:root :is(.wf-toggle, .appearance-switch):checked:is(:hover, [data-force~="hover"]):not(:disabled) { background-color: color-mix(in srgb, var(--text) var(--wf-hover-pct), var(--accent)); }
+
+/* ---------- Checkbox and radio (native inputs) ---------- */
+:root:root :is(.wf-check, .themed-check, .milestone-check), :root:root .wf-radio {
+  appearance: none; position: relative; flex: none; width: 18px; height: 18px; margin: 0; box-sizing: border-box;
+  border: var(--wf-bw) solid var(--wf-line); background: var(--surface); cursor: pointer; scale: 1;
+  transition: background-color var(--wf-t) var(--wf-ease), scale var(--wf-t) var(--wf-ease-hover);
+}
+:root:root :is(.wf-check, .themed-check, .milestone-check) { border-radius: max(2px, calc(var(--wf-rm) - 2px)); }
+:root:root .wf-radio { border-radius: 50%; }
+:root:root :is(:is(.wf-check, .themed-check, .milestone-check), .wf-radio):is(:hover, [data-force~="hover"]):not(:disabled) { background-color: color-mix(in srgb, var(--text) var(--wf-hover-pct), var(--surface)); }
+:root:root :is(:is(.wf-check, .themed-check, .milestone-check), .wf-radio):is(:active, [data-force~="press"]):not(:disabled) { scale: .92; transition-duration: var(--wf-t-press); }
+:root:root :is(.wf-check, .themed-check, .milestone-check)::after {
+  content: ""; position: absolute; left: 50%; top: 45%; width: 4px; height: 8px; border: solid var(--accent-fg);
+  border-width: 0 2px 2px 0; translate: -50% -50%; rotate: 45deg; scale: 0; transition: scale var(--wf-t) var(--wf-ease-hover);
+}
+:root:root :is(.wf-check, .themed-check, .milestone-check):is(:checked, :indeterminate) { background-color: var(--accent); }
+:root:root :is(.wf-check, .themed-check, .milestone-check):checked::after { scale: 1; }
+:root:root :is(.wf-check, .themed-check, .milestone-check):indeterminate::after { top: 50%; width: 8px; height: 0; border-width: 0 0 2px 0; rotate: 0deg; scale: 1; }
+:root:root .wf-radio::after {
+  content: ""; position: absolute; inset: 0; margin: auto; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--wf-accent-ink); scale: 0; transition: scale var(--wf-t) var(--wf-ease-hover);
+}
+:root:root .wf-radio:checked::after { scale: 1; }
+
+/* ---------- Input and select ---------- */
+:root:root :is(.wf-input, .themed-input, .paper-field-input, .search-input, .input, .explorer-filter, .graph-search-input, .settings-find, .quick-open-input, .pdf-reader-pop-input), :root:root :is(.wf-select, .custom-select-button) {
+  font: inherit; font-size: 14px; line-height: 1.3; padding: 7px 10px; box-sizing: border-box;
+  border: var(--wf-bw) solid var(--wf-line); border-radius: var(--wf-rc); background: var(--bg); color: var(--text);
+  transition: background-color var(--wf-t) var(--wf-ease), border-color var(--wf-t) var(--wf-ease),
+    box-shadow var(--wf-t) var(--wf-ease), transform var(--wf-t) var(--wf-ease-hover);
+}
+:root:root :is(.wf-input, .themed-input, .paper-field-input, .search-input, .input, .explorer-filter, .graph-search-input, .settings-find, .quick-open-input, .pdf-reader-pop-input)::placeholder { color: var(--muted); opacity: 1; }
+:root:root :is(:is(.wf-input, .themed-input, .paper-field-input, .search-input, .input, .explorer-filter, .graph-search-input, .settings-find, .quick-open-input, .pdf-reader-pop-input), :is(.wf-select, .custom-select-button)):is(:hover, [data-force~="hover"]):not(:disabled, :focus, [aria-expanded="true"]) { background-color: color-mix(in srgb, var(--text) var(--wf-hover-pct), var(--bg)); }
+:root:root :is(.wf-input, .themed-input, .paper-field-input, .search-input, .input, .explorer-filter, .graph-search-input, .settings-find, .quick-open-input, .pdf-reader-pop-input):is(:focus, [data-force~="focus"]), :root:root :is(.wf-select, .custom-select-button):is(:focus-visible, [data-force~="focus"], [aria-expanded="true"]) {
+  outline: none; background-color: var(--wf-field-bg); border-color: var(--wf-focus); box-shadow: var(--wf-field-sh);
+  transform: var(--type-t, var(--wf-field-t));
+}
+:root:root :is(:is(.wf-input, .themed-input, .paper-field-input, .search-input, .input, .explorer-filter, .graph-search-input, .settings-find, .quick-open-input, .pdf-reader-pop-input), :is(.wf-select, .custom-select-button))[aria-invalid="true"] { border-color: var(--wf-danger); }
+:root:root :is(.wf-input, .themed-input, .paper-field-input, .search-input, .input, .explorer-filter, .graph-search-input, .settings-find, .quick-open-input, .pdf-reader-pop-input):read-only:not(:disabled) { background-color: var(--wf-surface2); }
+:root:root :is(.wf-select, .custom-select-button) { display: inline-flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 160px; text-align: left; cursor: pointer; }
+:root:root :is(.wf-select, .custom-select-button)::after {
+  content: ""; width: 6px; height: 6px; margin-top: -3px; border: solid currentColor; border-width: 0 2px 2px 0;
+  rotate: 45deg; transition: rotate var(--wf-t) var(--wf-ease-hover), margin var(--wf-t) var(--wf-ease-hover);
+}
+:root:root :is(.wf-select, .custom-select-button)[aria-expanded="true"]::after { rotate: 225deg; margin-top: 3px; }
+
+/* ---------- Popover (dropdowns, pickers, menus) ---------- */
+:root:root :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) {
+  box-sizing: border-box; padding: 8px; border: var(--wf-bw) solid var(--wf-line); border-radius: var(--wf-rp);
+  background: var(--elev, var(--surface)); color: var(--text); box-shadow: var(--wf-sh-up);
+  opacity: 1; translate: 0 0; scale: 1; transform-origin: top center;
+  transition: opacity var(--wf-t-pop) var(--wf-ease), translate var(--wf-t-pop) var(--wf-ease-pop), scale var(--wf-t-pop) var(--wf-ease-pop),
+    display var(--wf-t-pop) allow-discrete, overlay var(--wf-t-pop) allow-discrete;
+}
+@starting-style { :root:root :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) { opacity: 0; translate: 0 var(--wf-pop-y); scale: var(--wf-pop-s); } }
+:root:root :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop):is(.wf-closing, [data-state="closed"]) {
+  opacity: 0; translate: 0 calc(var(--wf-pop-y) / 2); scale: var(--wf-pop-s); pointer-events: none;
+  transition-duration: calc(var(--wf-t-pop) * .67); transition-timing-function: ease;
+}
+:root:root:root[data-theme="crt"] :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) {
+  clip-path: inset(0 -12px -12px -12px);
+  transition: clip-path var(--wf-t-pop) var(--wf-ease-pop), display var(--wf-t-pop) allow-discrete, overlay var(--wf-t-pop) allow-discrete;
+}
+@starting-style { :root:root:root[data-theme="crt"] :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) { clip-path: inset(0 -12px 100% -12px); } }
+:root:root:root[data-theme="crt"] :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop):is(.wf-closing, [data-state="closed"]) { opacity: 1; clip-path: inset(0 -12px 100% -12px); transition-timing-function: steps(2, end); }
+
+/* ---------- Menu (inside :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop)) ---------- */
+:root:root :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) { display: flex; flex-direction: column; gap: 2px; min-width: 180px; padding: 6px; }
+:root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item) {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px; box-sizing: border-box;
+  border: 0; border-radius: max(2px, calc(var(--wf-rc) - 2px)); background: transparent; color: var(--text);
+  font: inherit; font-size: 14px; font-weight: 500; text-align: left; text-decoration: none; cursor: pointer;
+  transition: background-color var(--wf-t) var(--wf-ease), color var(--wf-t) var(--wf-ease);
+  animation: var(--wf-item-anim) var(--wf-t-pop) var(--wf-ease) backwards; animation-delay: calc(var(--wf-i, 0) * var(--wf-stagger));
+}
+:root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is(:hover, [data-highlighted], [data-force~="hover"]):not(:disabled, [aria-disabled="true"]) { background-color: var(--wf-hover); }
+:root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is(:focus-visible, [data-force~="focus"]) { outline: none; background-color: var(--wf-hover); box-shadow: inset 0 0 0 2px var(--wf-focus); }
+:root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is(:active, [data-force~="press"]):not(:disabled, [aria-disabled="true"]) { background-color: var(--wf-press-bg); transition-duration: var(--wf-t-press); }
+:root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is([aria-checked="true"], [aria-selected="true"]) { font-weight: 600; color: var(--wf-accent-ink); }
+:root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is([aria-checked="true"], [aria-selected="true"])::after { content: "\2713"; margin-left: auto; }
+:root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is(.wf-danger, .btn-danger) { color: var(--wf-danger); }
+:root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is(.wf-danger, .btn-danger):is(:hover, [data-highlighted], [data-force~="hover"]):not(:disabled, [aria-disabled="true"]) { background-color: var(--wf-danger-soft); }
+:root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item) svg { width: 16px; height: 16px; flex: none; }
+:root:root .wf-kbd { margin-left: auto; padding-left: 12px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--muted); }
+:root:root .wf-sep { height: 0; margin: 4px 2px; border: 0; border-top: var(--wf-bw) solid var(--wf-line); opacity: .35; }
+:root:root .wf-menu-label { padding: 6px 10px 2px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+:root:root :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(2) { --wf-i: 1; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(3) { --wf-i: 2; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(4) { --wf-i: 3; }
+:root:root :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(5) { --wf-i: 4; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(6) { --wf-i: 5; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(7) { --wf-i: 6; }
+:root:root :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(8) { --wf-i: 7; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(n+9) { --wf-i: 8; }
+
+/* ---------- Tooltip ---------- */
+:root:root .wf-has-tip { position: relative; display: inline-flex; }
+:root:root .wf-tip {
+  position: absolute; left: 50%; bottom: calc(100% + 8px); z-index: 20; white-space: nowrap; pointer-events: none;
+  padding: 4px 8px; border-radius: var(--wf-rm); background: var(--wf-toast-bg); color: var(--wf-toast-fg);
+  font-size: 12px; font-weight: 600; line-height: 1.3; box-shadow: var(--wf-tip-sh);
+  opacity: 0; translate: -50% var(--wf-tip-y); transition: opacity var(--wf-t-exit) ease, translate var(--wf-t-exit) ease;
+}
+:root:root .wf-has-tip:hover > .wf-tip, :root:root .wf-tip:is([data-open], [data-force~="open"]) {
+  opacity: 1; translate: -50% 0; transition: opacity var(--wf-t-pop) var(--wf-ease) 500ms, translate var(--wf-t-pop) var(--wf-ease-pop) 500ms;
+}
+:root:root .wf-has-tip:has(> :focus-visible) > .wf-tip { opacity: 1; translate: -50% 0; transition-delay: 0ms; }
+:root:root:root[data-theme="crt"] .wf-tip { transition-timing-function: steps(2, end); }
+
+/* ---------- Toast ---------- */
+:root:root :is(.wf-toast, [data-sonner-toast]) {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--wf-rp);
+  background: var(--wf-toast-bg); color: var(--wf-toast-fg); box-shadow: var(--wf-sh-up); font-size: 14px; font-weight: 500;
+  opacity: 1; translate: 0 0;
+  transition: opacity calc(var(--wf-t-pop) * 1.5) var(--wf-ease), translate calc(var(--wf-t-pop) * 1.5) var(--wf-ease-pop), display 120ms allow-discrete;
+}
+@starting-style { :root:root :is(.wf-toast, [data-sonner-toast]) { opacity: 0; translate: 0 var(--wf-toast-y); } }
+:root:root :is(.wf-toast, [data-sonner-toast]):is(.wf-closing, [data-state="closed"]) { opacity: 0; translate: 0 calc(var(--wf-toast-y) / 2); transition: opacity 120ms ease, translate 120ms ease; }
+:root:root:root[data-theme="crt"] :is(.wf-toast, [data-sonner-toast]) { clip-path: inset(-12px -12px -12px -12px); transition: clip-path calc(var(--wf-t-pop) * 1.5) var(--wf-ease-pop); }
+@starting-style { :root:root:root[data-theme="crt"] :is(.wf-toast, [data-sonner-toast]) { opacity: 1; translate: 0 0; clip-path: inset(100% -12px -12px -12px); } }
+
+/* ---------- Modal, scrim and sheet ---------- */
+:root:root :is(.wf-scrim, .modal-backdrop) { position: fixed; inset: 0; background: rgba(0, 0, 0, .4); opacity: 1; transition: opacity var(--wf-t-modal) ease; }
+@starting-style { :root:root :is(.wf-scrim, .modal-backdrop) { opacity: 0; } }
+:root:root :is(.wf-modal, .modal) {
+  box-sizing: border-box; padding: 20px; border: var(--wf-bw) solid var(--wf-line); border-radius: var(--wf-rcard);
+  background: var(--surface); color: var(--text); box-shadow: var(--wf-sh-card);
+  opacity: 1; translate: 0 0; scale: 1;
+  transition: opacity var(--wf-t-modal) var(--wf-ease), translate var(--wf-t-modal) var(--wf-ease-pop), scale var(--wf-t-modal) var(--wf-ease-pop);
+}
+@starting-style { :root:root :is(.wf-modal, .modal) { opacity: 0; translate: 0 var(--wf-modal-y); scale: var(--wf-modal-s); } }
+:root:root :is(:is(.wf-modal, .modal), :is(.wf-scrim, .modal-backdrop), :is(.wf-sheet, .comments-sheet)):is(.wf-closing, [data-state="closed"]) { opacity: 0; transition-duration: 120ms; transition-timing-function: ease; }
+:root:root:root[data-theme="crt"] :is(.wf-modal, .modal) { clip-path: inset(-12px); transition: clip-path var(--wf-t-modal) steps(4, end); }
+@starting-style { :root:root:root[data-theme="crt"] :is(.wf-modal, .modal) { opacity: 1; translate: 0 0; scale: 1; clip-path: inset(50% 0 50% 0); } }
+:root:root :is(.wf-sheet, .comments-sheet) {
+  box-sizing: border-box; border-left: var(--wf-bw) solid var(--wf-line); background: var(--surface); color: var(--text);
+  box-shadow: var(--wf-sh-card); translate: 0 0; transition: translate var(--wf-t-modal) var(--wf-ease), opacity 120ms ease;
+}
+@starting-style { :root:root :is(.wf-sheet, .comments-sheet) { translate: 100% 0; } }
+:root:root:root[data-theme="crt"] :is(.wf-sheet, .comments-sheet) { transition-timing-function: steps(4, end); }
+
+/* ---------- Card ---------- */
+:root:root .wf-card {
+  display: block; box-sizing: border-box; padding: 14px; border: var(--wf-bw) solid var(--wf-line); border-radius: var(--wf-rcard);
+  background: var(--surface); color: var(--text); box-shadow: var(--wf-sh-card); text-decoration: none;
+}
+:root:root :is(a, button).wf-card, :root:root .wf-card[tabindex] {
+  cursor: pointer; translate: 0 0; text-align: left; font: inherit;
+  transition: translate var(--wf-t) var(--wf-ease-hover), box-shadow var(--wf-t) var(--wf-ease), border-color var(--wf-t) var(--wf-ease);
+}
+:root:root :is(a, button, [tabindex]).wf-card:is(:hover, [data-force~="hover"]) { translate: 0 var(--wf-lift); }
+:root:root :is(a, button, [tabindex]).wf-card:is(:active, [data-force~="press"]) { translate: calc(var(--wf-press) * .67) calc(var(--wf-press) * .67); transition-duration: var(--wf-t-press); }
+
+/* ---------- Keyframes ---------- */
+@keyframes wf-spin { to { rotate: 1turn; } }
+@keyframes wf-item-in { from { opacity: 0; translate: 0 4px; } }
+@media (prefers-reduced-motion: reduce) {
+  :root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item) { animation: none; }
+  :root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle)[aria-busy="true"]::after { animation-duration: 1.6s; }
+  :root:root:root[data-theme="crt"] :is(:is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop), :is(.wf-toast, [data-sonner-toast]), :is(.wf-modal, .modal)) { transition-duration: 0ms; }
+}
