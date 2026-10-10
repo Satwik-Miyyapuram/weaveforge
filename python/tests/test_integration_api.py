@@ -16,6 +16,9 @@ from weaveforge.config import ConfigError, Settings
 
 
 def _settings_or_skip() -> Settings:
+    # Env only: never fall back to the desktop token file and write into a real workspace.
+    if not (os.environ.get("WEAVEFORGE_TOKEN") and os.environ.get("WEAVEFORGE_API_URL")):
+        pytest.skip("WEAVEFORGE_TOKEN and WEAVEFORGE_API_URL not set")
     try:
         return Settings.from_env()
     except ConfigError as exc:

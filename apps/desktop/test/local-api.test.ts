@@ -284,6 +284,31 @@ function grant(permissions: LocalApiGrant["permissions"], expiresAt: string | nu
   return [{ hash: hashLocalApiToken(TOKEN), permissions, expiresAt }];
 }
 
+test("experiment_tracking_setup is offered only to a token that may log runs, and never shows the token", async () => {
+  const home = { apiUrl: "http://127.0.0.1:27123", tokenFile: "/home/me/.weaveforge/mcp.json" };
+  const query = async (sql: string) =>
+    ({ ok: true as const, value: sql.includes("from projects") ? [{ name: "Thesis" }, { name: 'Lab "B"' }] : [] });
+  const rpc = (body: unknown, grants: LocalApiGrant[]) =>
+    routeLocalRequest(vault0, ask({ method: "POST", url: "/mcp", body: JSON.stringify(body) }), grants, query, undefined, undefined, home);
+  const vault0 = await vault();
+  const names = async (grants: LocalApiGrant[]) =>
+    (JSON.parse((await rpc({ jsonrpc: "2.0", id: 1, method: "tools/list" }, grants)).body).result.tools as { name: string }[]).map((t) => t.name);
+
+  assert.ok((await names(grant(["mcp:read", "mcp:suggest", "experiments"]))).includes("experiment_tracking_setup"));
+  assert.ok(!(await names(grant(["mcp:read", "mcp:suggest"]))).includes("experiment_tracking_setup"));
+
+  const call = { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "experiment_tracking_setup", arguments: {} } };
+  const text = JSON.parse((await rpc(call, grant(["mcp:read", "experiments"]))).body).result.content[0].text as string;
+  assert.match(text, /pip install weaveforge/);
+  assert.match(text, /"Thesis", "Lab \\"B\\""/);
+  assert.match(text, /\/home\/me\/\.weaveforge\/mcp\.json/);
+  assert.match(text, /set nothing else/);
+  assert.ok(!text.includes(TOKEN));
+
+  const refused = JSON.parse((await rpc(call, grant(["mcp:read"]))).body).result;
+  assert.equal(refused.isError, true);
+});
+
 test("a token without a permission gets 403 for that surface", async () => {
   const only = grant(["experiments"]);
   for (const url of ["/vault/notes/a.note.md", "/search/simple/?query=tea"]) {

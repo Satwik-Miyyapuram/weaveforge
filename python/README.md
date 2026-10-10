@@ -57,6 +57,13 @@ Nothing else changes: the same `track(...)`, the same runs and curves, and the
 app shows them under **Experiments** as they arrive. The app has to be running,
 and the port only listens on `127.0.0.1` — no other machine can reach it.
 
+If you pressed **Connect** in **Settings → AI & MCP**, you can skip both
+exports: when `WEAVEFORGE_TOKEN` is unset the SDK reads the token and address
+from `~/.weaveforge/mcp.json` (or the file `WEAVEFORGE_MCP_FILE` names). That
+token is only ever sent to the address in the same file. Only
+`WEAVEFORGE_PROJECT` is left to set, and AI agents connected over MCP can ask
+the `experiment_tracking_setup` tool for the project names.
+
 Apply migrations through at least `0017` (metrics + artifacts bucket) — see root [README § Database](../README.md#database).
 
 ## Quick example

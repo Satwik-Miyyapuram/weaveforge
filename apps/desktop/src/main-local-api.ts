@@ -7,18 +7,37 @@
  * optional expiry; each is shown once at creation and revocable on its own.
  */
 
-import type { BrowserWindow } from "electron";
+import path from "node:path";
+import type { App, BrowserWindow, Shell } from "electron";
 
 import type { PreferenceStore } from "./preference-store";
 import type { SecretStore } from "./secret-store";
 import { CHANNELS } from "./channels";
 import { LOCAL_API_PERMISSIONS } from "./local-api";
+import { listedTools } from "./local-mcp";
+import {
+  MCP_CLIENT_PERMISSIONS,
+  MCP_CLIENT_TOKEN_NAME,
+  MCP_BRIDGE_FILE,
+  MCP_OPEN_CLIENTS,
+  cursorInstallLink,
+  mcpLaunch,
+  vscodeInstallLink,
+  writeMcpb,
+  type McpOpenClient,
+  readMcpConnection,
+  removeMcpConnection,
+  writeMcpConnection,
+  mcpPaths,
+  type McpPaths,
+} from "./mcp-connect";
 import { localArtifactWriter } from "./local-artifacts";
 import type { IpcSurface } from "./ipc-guard";
 import {
   LOCAL_API_HOST,
   LOCAL_API_PORT,
   MAX_LOCAL_API_TOKENS,
+  hashLocalApiToken,
   makeLocalApiToken,
   parseLocalApiTokens,
   type LocalApiTokenRecord,
@@ -27,6 +46,16 @@ import {
 } from "./local-api-server";
 import type { LocalDbHost } from "./local-db-host";
 import type { VaultSession } from "./vault-handlers";
+
+/** The Connect deps, read from Electron; the bridge ships beside main.js. */
+export function shellMcpDeps(app: App, shell: Shell, homeVariant: string | undefined, appDir: string) {
+  return {
+    mcpPaths: mcpPaths(app.getPath("home"), homeVariant, path.join(appDir, MCP_BRIDGE_FILE)),
+    execPath: process.execPath,
+    version: app.getVersion(),
+    open: { url: (url: string) => shell.openExternal(url), path: (file: string) => shell.openPath(file) },
+  };
+}
 
 /** What the local API needs from the shell. */
 export interface MainLocalApiDeps {
@@ -44,6 +73,14 @@ export interface MainLocalApiDeps {
   secretStore: () => SecretStore;
   /** Folder SDK artifact uploads are written to. */
   artifactRoot: string;
+  /** Where Connect writes the token file and the bridge. */
+  mcpPaths: McpPaths;
+  /** This app's binary, which runs the bridge as Node. */
+  execPath: string;
+  /** Stamped into the .mcpb manifest. */
+  version: string;
+  /** The OS handlers for a client's install link or file; never fed a URL the page chose. */
+  open: { url(url: string): Promise<void>; path(file: string): Promise<string> };
 }
 
 export interface MainLocalApi {
@@ -61,6 +98,8 @@ export function registerMainLocalApi(
   const { ipc, vault, localDb, preferenceStore, secretStore } = deps;
 
   let localApi: LocalApi | null = null;
+  // Kept so the panel can say why on any later read, not only the click that failed.
+  let startError: string | undefined;
   /** Read once per start and per token change, because a socket cannot await. */
   let cachedGrants: LocalApiTokenRecord[] = [];
 
@@ -82,8 +121,14 @@ export function registerMainLocalApi(
       ? await secretStore().write("local-api-token", JSON.stringify(tokens))
       : await secretStore().clear("local-api-token");
     if (!kept.ok) return { ok: false, message: kept.message };
-    cachedGrants = tokens;
+    remember(tokens);
     return { ok: true };
+  }
+
+  /** Swap in the live grants, keeping each one's in-memory last use. */
+  function remember(tokens: LocalApiTokenRecord[]): void {
+    const used = new Map(cachedGrants.map((g) => [g.id, g.usedAt]));
+    cachedGrants = tokens.map((t) => ({ ...t, usedAt: used.get(t.id) }));
   }
 
   /**
@@ -143,32 +188,53 @@ export function registerMainLocalApi(
         (sql, params) => localDb.query(sql, params),
         rankSemantically,
         localArtifactWriter(deps.artifactRoot),
+        { apiUrl: LOCAL_API_URL, tokenFile: deps.mcpPaths.file },
       );
-      return undefined;
+      return (startError = undefined);
     } catch (error) {
       // The usual reason is another program on the port — Obsidian's own REST
       // plugin, most likely. Reported rather than retried: two things answering
       // on one port is not something to resolve behind the user's back.
-      return error instanceof Error
-        ? error.message
-        : "The port is not available.";
+      if ((error as NodeJS.ErrnoException)?.code === "EADDRINUSE")
+        return (startError = `Another program is using port ${LOCAL_API_PORT}, so AI clients cannot reach WeaveForge. Close it, then tick Serve MCP again.`);
+      return (startError = error instanceof Error ? error.message : "The port is not available.");
     }
   }
 
   async function resume(): Promise<void> {
     const enabled = await preferenceStore().read("local-api");
     if (!enabled.ok || enabled.value !== true) return;
-    cachedGrants = await readTokens();
+    remember(await readTokens());
     if (!cachedGrants.length) return;
     await startIfEnabled();
   }
 
-  async function snapshot(extra?: { reason?: string; issued?: { id: string; token: string } }) {
+  /** The saved connection, when its token is still live. */
+  async function savedMcp(tokens: LocalApiTokenRecord[]) {
+    const saved = await readMcpConnection(deps.mcpPaths.file);
+    const live = saved && tokens.some((t) => t.id === saved.tokenId && t.hash === hashLocalApiToken(saved.token));
+    return live ? saved : null;
+  }
+
+  async function snapshot(extra?: { issued?: { id: string; token: string } }) {
     const enabled = await preferenceStore().read("local-api");
+    const tokens = await readTokens();
+    const used = new Map(cachedGrants.map((g) => [g.id, g.usedAt]));
+    const saved = await savedMcp(tokens);
     return {
       enabled: localApi !== null && enabled.ok && enabled.value === true,
       url: LOCAL_API_URL,
-      tokens: (await readTokens()).map(({ hash: _hash, ...shown }) => shown),
+      tokens: tokens.map(({ hash: _hash, usedAt: _usedAt, ...shown }) => {
+        const at = used.get(shown.id);
+        return at ? { ...shown, lastUsedAt: new Date(at).toISOString() } : shown;
+      }),
+      mcp: {
+        connected: saved !== null,
+        ...(saved && { tokenId: saved.tokenId }),
+        url: `${LOCAL_API_URL}/mcp`,
+        launch: mcpLaunch(deps.mcpPaths, deps.execPath),
+      },
+      ...(localApi === null && startError && { reason: startError }),
       ...extra,
     };
   }
@@ -181,12 +247,13 @@ export function registerMainLocalApi(
       await preferenceStore().write("local-api", false);
       await localApi?.close();
       localApi = null;
+      startError = undefined;
       return { ok: true, value: await snapshot() };
     }
-    cachedGrants = await readTokens();
+    remember(await readTokens());
     await preferenceStore().write("local-api", true);
-    const reason = await startIfEnabled();
-    return { ok: true, value: await snapshot(reason ? { reason } : undefined) };
+    await startIfEnabled();
+    return { ok: true, value: await snapshot() };
   });
 
   ipc.handle(CHANNELS.localApiTokenCreate, async (_event, request: unknown) => {
@@ -214,9 +281,64 @@ export function registerMainLocalApi(
   });
 
   ipc.handle(CHANNELS.localApiTokenRevoke, async (_event, id: unknown) => {
-    const kept = await writeTokens((await readTokens()).filter((t) => t.id !== id));
+    const tokens = await readTokens();
+    const saved = await savedMcp(tokens);
+    const kept = await writeTokens(tokens.filter((t) => t.id !== id));
     if (!kept.ok) return kept;
+    // A revoked token in the file would only make clients fail with a 401.
+    if (saved?.tokenId === id) await removeMcpConnection(deps.mcpPaths.file);
     return { ok: true, value: await snapshot() };
+  });
+
+  ipc.handle(CHANNELS.mcpConnect, async () => {
+    const tokens = await readTokens();
+    let connection = await savedMcp(tokens);
+    if (!connection) {
+      if (tokens.length >= MAX_LOCAL_API_TOKENS)
+        return { ok: false, message: `At most ${MAX_LOCAL_API_TOKENS} tokens. Revoke one in Access tokens first.` };
+      const { record, token } = makeLocalApiToken(MCP_CLIENT_TOKEN_NAME, MCP_CLIENT_PERMISSIONS, null);
+      const kept = await writeTokens([...tokens, record]);
+      if (!kept.ok) return kept;
+      connection = { url: "", apiUrl: "", token, tokenId: record.id };
+    }
+    try {
+      await writeMcpConnection(
+        deps.mcpPaths,
+        { ...connection, url: `${LOCAL_API_URL}/mcp`, apiUrl: LOCAL_API_URL },
+        listedTools(true),
+      );
+    } catch (error) {
+      return { ok: false, message: `Could not write ${deps.mcpPaths.file}: ${error instanceof Error ? error.message : error}` };
+    }
+    remember(await readTokens());
+    await preferenceStore().write("local-api", true);
+    await startIfEnabled();
+    return { ok: true, value: await snapshot() };
+  });
+
+  ipc.handle(CHANNELS.mcpDisconnect, async () => {
+    const tokens = await readTokens();
+    const saved = await readMcpConnection(deps.mcpPaths.file);
+    if (saved) {
+      const kept = await writeTokens(tokens.filter((t) => t.id !== saved.tokenId));
+      if (!kept.ok) return kept;
+    }
+    await removeMcpConnection(deps.mcpPaths.file);
+    return { ok: true, value: await snapshot() };
+  });
+
+  ipc.handle(CHANNELS.mcpOpenClient, async (_event, client: unknown) => {
+    if (!MCP_OPEN_CLIENTS.includes(client as McpOpenClient)) return { ok: false, message: "Unknown client." };
+    if (!(await savedMcp(await readTokens()))) return { ok: false, message: "Connect first." };
+    const launch = mcpLaunch(deps.mcpPaths, deps.execPath);
+    if (client === "cursor") await deps.open.url(cursorInstallLink(launch));
+    else if (client === "vscode") await deps.open.url(vscodeInstallLink(launch));
+    else {
+      const file = await writeMcpb(deps.mcpPaths, listedTools(true), deps.version, launch);
+      const failed = await deps.open.path(file);
+      if (failed) return { ok: false, message: `Claude Desktop did not open ${file}: ${failed}` };
+    }
+    return { ok: true, value: undefined };
   });
 
   async function close(): Promise<void> {

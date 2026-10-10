@@ -88,6 +88,11 @@ fs.mkdirSync(path.join(root, "dist/migrations-local"), { recursive: true });
 for (const file of fs.readdirSync(localMigrations).filter((name) => name.endsWith(".sql"))) {
   fs.copyFileSync(path.join(localMigrations, file), path.join(root, "dist/migrations-local", file));
 }
+// The stdio MCP bridge; Connect copies it out of the asar to a path AI clients can run.
+fs.copyFileSync(
+  path.resolve(root, "../../plugins/weaveforge-research/mcp-server/index.mjs"),
+  path.join(root, "dist/weaveforge-mcp.mjs"),
+);
 fs.writeFileSync(path.join(root, "build/icon.ico"), ico(fs.readFileSync(iconPng)));
 
 /**
