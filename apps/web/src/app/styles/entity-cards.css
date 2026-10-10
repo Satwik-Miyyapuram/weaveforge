@@ -203,8 +203,15 @@
 }
 .entity-card-heading > .entity-card-title { text-wrap: pretty; }
 /* Phone: floated controls left ~85px for the title and split words mid-way. */
+/* Title first, beside its tick box; status and ⋯ take the row under it. */
 @media (max-width: 479px) {
-  .entity-card-actions { float: none; justify-content: flex-end; margin: -4px -6px 6px 0; }
+  .entity-card .entity-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "lead title" "actions actions"; gap: 8px 0; }
+  .entity-card-head:has(> :not(.entity-card-heading)) { column-gap: 12px; }
+  .entity-card-head > :not(.entity-card-heading) { grid-area: lead; }
+  .entity-card-heading { display: contents; }
+  .entity-card-heading > .entity-card-title { grid-area: title; align-self: center; }
+  .entity-card-actions { grid-area: actions; float: none; flex-wrap: wrap; justify-content: flex-start; margin: 0 -6px 0 0; }
+  .entity-card-actions > .entity-card-status { margin-right: auto; }
 }
 .entity-card-status {
   flex: none;
