@@ -417,6 +417,8 @@
 :root[data-theme="crt"] .status { border-radius: var(--radius-sm); }
 /* Status chips fill with the colour card-tint.css maps for their status. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status, .custom-select-button):is(.status-to_read, .status-planned, .status-reading, .status-running, .status-in_progress, .status-drafting, .status-weekly, .status-read, .status-done, .status-daily, .status-skimmed, .status-review, .status-failed, .status-blocked, .status-abandoned, .status-not_started) { background: var(--status-chip); color: var(--status-ink); }
+/* An open status chip keeps its fill; the lift above would paint it --type-bg under dark ink. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .custom-select-button[class*="status-"]:is([aria-expanded="true"], :focus-visible) { background: var(--status-chip); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.tag-chip, .chip) {
   border: var(--bw) solid var(--bw-line);
   font-family: var(--font-mono);

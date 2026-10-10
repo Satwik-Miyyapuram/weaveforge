@@ -299,19 +299,24 @@
     box-shadow var(--wf-t) var(--wf-ease), transform var(--wf-t) var(--wf-ease-hover);
 }
 :root:root :is(.wf-input, .themed-input, .paper-field-input, .search-input, .input, .explorer-filter, .graph-search-input, .settings-find, .quick-open-input, .pdf-reader-pop-input)::placeholder { color: var(--muted); opacity: 1; }
-:root:root :is(:is(.wf-input, .themed-input, .paper-field-input, .search-input, .input, .explorer-filter, .graph-search-input, .settings-find, .quick-open-input, .pdf-reader-pop-input), :is(.wf-select, .custom-select-button)):is(:hover, [data-force~="hover"]):not(:disabled, :focus, [aria-expanded="true"]) { background-color: color-mix(in srgb, var(--text) var(--wf-hover-pct), var(--bg)); }
+:root:root :is(:is(.wf-input, .themed-input, .paper-field-input, .search-input, .input, .explorer-filter, .graph-search-input, .settings-find, .quick-open-input, .pdf-reader-pop-input), :is(.wf-select, .custom-select-button)):is(:hover, [data-force~="hover"]):not(:disabled, :focus, [aria-expanded="true"], [class*="status-"]) { background-color: color-mix(in srgb, var(--text) var(--wf-hover-pct), var(--bg)); }
 :root:root :is(.wf-input, .themed-input, .paper-field-input, .search-input, .input, .explorer-filter, .graph-search-input, .settings-find, .quick-open-input, .pdf-reader-pop-input):is(:focus, [data-force~="focus"]), :root:root :is(.wf-select, .custom-select-button):is(:focus-visible, [data-force~="focus"], [aria-expanded="true"]) {
-  outline: none; background-color: var(--wf-field-bg); border-color: var(--wf-focus); box-shadow: var(--wf-field-sh);
+  outline: none; border-color: var(--wf-focus); box-shadow: var(--wf-field-sh);
   transform: var(--type-t, var(--wf-field-t));
 }
+/* A status chip keeps its fill while open; the fill is the value. */
+:root:root :is(.wf-input, .themed-input, .paper-field-input, .search-input, .input, .explorer-filter, .graph-search-input, .settings-find, .quick-open-input, .pdf-reader-pop-input):is(:focus, [data-force~="focus"]), :root:root :is(.wf-select, .custom-select-button):not([class*="status-"]):is(:focus-visible, [data-force~="focus"], [aria-expanded="true"]) { background-color: var(--wf-field-bg); }
 :root:root :is(:is(.wf-input, .themed-input, .paper-field-input, .search-input, .input, .explorer-filter, .graph-search-input, .settings-find, .quick-open-input, .pdf-reader-pop-input), :is(.wf-select, .custom-select-button))[aria-invalid="true"] { border-color: var(--wf-danger); }
 :root:root :is(.wf-input, .themed-input, .paper-field-input, .search-input, .input, .explorer-filter, .graph-search-input, .settings-find, .quick-open-input, .pdf-reader-pop-input):read-only:not(:disabled) { background-color: var(--wf-surface2); }
-:root:root :is(.wf-select, .custom-select-button) { display: inline-flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 160px; text-align: left; cursor: pointer; }
-:root:root :is(.wf-select, .custom-select-button)::after {
+:root:root :is(.wf-select, .custom-select-button) { display: inline-flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; cursor: pointer; }
+/* custom-select-button sizes to its slot and draws its own .chev. */
+:root:root .wf-select { min-width: 160px; }
+:root:root .status-select .custom-select-button { padding: 4px 10px; }
+:root:root .wf-select::after {
   content: ""; width: 6px; height: 6px; margin-top: -3px; border: solid currentColor; border-width: 0 2px 2px 0;
   rotate: 45deg; transition: rotate var(--wf-t) var(--wf-ease-hover), margin var(--wf-t) var(--wf-ease-hover);
 }
-:root:root :is(.wf-select, .custom-select-button)[aria-expanded="true"]::after { rotate: 225deg; margin-top: 3px; }
+:root:root .wf-select[aria-expanded="true"]::after { rotate: 225deg; margin-top: 3px; }
 
 /* ---------- Popover (dropdowns, pickers, menus) ---------- */
 :root:root :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) {
@@ -346,9 +351,10 @@
 :root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is(:focus-visible, [data-force~="focus"]) { outline: none; background-color: var(--wf-hover); box-shadow: inset 0 0 0 2px var(--wf-focus); }
 :root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is(:active, [data-force~="press"]):not(:disabled, [aria-disabled="true"]) { background-color: var(--wf-press-bg); transition-duration: var(--wf-t-press); }
 :root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is([aria-checked="true"], [aria-selected="true"]) { font-weight: 600; color: var(--wf-accent-ink); }
-:root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is([aria-checked="true"], [aria-selected="true"])::after { content: "\2713"; margin-left: auto; }
-:root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is(.wf-danger, .btn-danger) { color: var(--wf-danger); }
-:root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is(.wf-danger, .btn-danger):is(:hover, [data-highlighted], [data-force~="hover"]):not(:disabled, [aria-disabled="true"]) { background-color: var(--wf-danger-soft); }
+/* A multi-select row draws its own checkbox, so it skips the tick. */
+:root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is([aria-checked="true"], [aria-selected="true"]):not(.ms-item)::after { content: "\2713"; margin-left: auto; }
+:root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is(.wf-danger, .btn-danger, .danger) { color: var(--wf-danger); }
+:root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is(.wf-danger, .btn-danger, .danger):is(:hover, [data-highlighted], [data-force~="hover"]):not(:disabled, [aria-disabled="true"]) { background-color: var(--wf-danger-soft); }
 :root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item) svg { width: 16px; height: 16px; flex: none; }
 :root:root .wf-kbd { margin-left: auto; padding-left: 12px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--muted); }
 :root:root .wf-sep { height: 0; margin: 4px 2px; border: 0; border-top: var(--wf-bw) solid var(--wf-line); opacity: .35; }
