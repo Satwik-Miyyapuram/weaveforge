@@ -424,27 +424,10 @@
   font-family: var(--font-mono);
 }
 
-/* Segmented controls: ink-filled selection. */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .seg {
-  gap: 0;
-  padding: 0;
-  background: var(--surface);
-  border: var(--bw) solid var(--bw-line);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--sh-sm);
-  overflow: hidden;
-}
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .seg button { border-radius: 0; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .seg button + button { border-left: var(--bw) solid var(--bw-line); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .seg button.seg-on {
-  background: var(--text);
-  color: var(--bg);
-  box-shadow: none;
-}
-:root[data-theme="crt"] .seg button.seg-on { background: var(--accent); color: var(--accent-fg); }
+/* Segmented controls are drawn by states.css: separate chips, no frame. */
 
 /* Reader control groups: the group is the one boxed control, and what sits in
-   it is a flat tile. The button and `.seg` rules above are more specific than
+   it is a flat tile. The button and `.seg` rules are more specific than
    reader.css's in-group tiles, so without these each tile kept its own 40px
    height, border and drop shadow, and spilled out of the frame around it --
    zoom's − and +, the fit pair, and the Highlight / Clip / Comment strip. */
@@ -506,16 +489,19 @@
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+/* Same tile as the sidebar's active row: an ink pill hid its ink label. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sub-tab-indicator {
-  background: var(--text);
-  border-radius: 2px;
-  box-shadow: none;
+  background: var(--accent-soft);
+  border: var(--bw) solid var(--bw-line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--sh-sm);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 :root[data-theme="crt"] .sub-tab-indicator { background: var(--accent); border-radius: 5px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sub-tab { color: var(--text); font-weight: 600; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sub-tab.active { color: var(--bg); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sub-tab.active { color: var(--wf-accent-ink); }
+:root:root:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sub-tab.active::after { scale: 0 1; }
 :root[data-theme="crt"] .sub-tab { font-family: var(--btn-font); font-size: 1.15rem; font-weight: 400; }
 :root[data-theme="crt"] .sub-tab.active { color: var(--accent-fg); }
 
@@ -750,10 +736,6 @@
   font-size: 1.25rem;
   line-height: 1;
   box-shadow: var(--sh-btn-2);
-}
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .filter-row .filter-select .custom-select-button[aria-expanded="true"] {
-  transform: var(--press-t);
-  box-shadow: var(--sh-press);
 }
 
 /* ---- Lists ----------------------------------------------------------------

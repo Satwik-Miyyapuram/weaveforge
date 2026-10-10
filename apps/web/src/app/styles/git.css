@@ -60,15 +60,15 @@ button.git-chip { border: 0; cursor: pointer; font-family: inherit; }
   animation: live-pulse 1.6s ease-in-out infinite;
 }
 @keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-.seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
+/* Each button is its own chip (states.css); the group draws no frame. */
+.seg { display: inline-flex; gap: 2px; }
 .seg button {
   padding: 5px 13px; background: transparent; border: 0; border-radius: 6px; color: var(--muted);
   cursor: pointer; font-size: 0.82rem; font-weight: 500; transition: background var(--dur-base), color var(--dur-base);
 }
-.seg button.seg-on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.seg button.seg-on { background: var(--surface); color: var(--ink); }
 .seg button svg { display: block; }
 /* Compact, for pane headers and editor bars. */
-.seg--sm { padding: 2px; }
 .seg--sm button { padding: 2px 9px; font-size: 0.72rem; }
 .seg button[aria-label] {
   min-width: var(--touch-min);
