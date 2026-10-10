@@ -35,3 +35,31 @@ test("without the API the navigation still happens, straight away", () => {
   navTransition("forward", () => went++);
   assert.equal(went, 1);
 });
+
+test("the update settles without animation frames, which the browser pauses inside it", async () => {
+  const g = globalThis as Record<string, unknown>;
+  const saved = ["document", "window", "location", "MutationObserver", "requestAnimationFrame"].map((k) => [k, g[k]] as const);
+  let settled: Promise<void> | null = null;
+  const root = { dataset: {} as Record<string, string> };
+  g.location = { href: "app://weaveforge/papers/" };
+  g.window = { matchMedia: () => ({ matches: false }) };
+  g.requestAnimationFrame = () => 0;
+  g.MutationObserver = class { observe() {} disconnect() {} };
+  g.document = {
+    documentElement: root,
+    body: {},
+    startViewTransition: (update: () => Promise<void>) => {
+      settled = update();
+      return { finished: settled };
+    },
+  };
+  try {
+    navTransition("tab", () => { (g.location as { href: string }).href = "app://weaveforge/notes/"; });
+    const t0 = performance.now();
+    const won = await Promise.race([settled!.then(() => true), new Promise((r) => setTimeout(() => r(false), 1500))]);
+    assert.equal(won, true, "update callback hung waiting for a frame");
+    assert.ok(performance.now() - t0 < 1000);
+  } finally {
+    for (const [k, v] of saved) g[k] = v;
+  }
+});

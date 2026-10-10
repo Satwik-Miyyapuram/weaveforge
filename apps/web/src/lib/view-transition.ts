@@ -69,15 +69,16 @@ function routeSettled(before: string): Promise<void> {
     const observer = new MutationObserver(() => { mutated = true; });
     observer.observe(document.body, { childList: true, subtree: true });
     const started = performance.now();
+    // Timers, not frames: the browser pauses rendering inside the update, so rAF waited out its 4s timeout.
     const tick = () => {
       if ((location.href !== before && mutated) || performance.now() - started > SETTLE_TIMEOUT_MS) {
         observer.disconnect();
-        requestAnimationFrame(() => resolve());
+        resolve();
         return;
       }
-      requestAnimationFrame(tick);
+      setTimeout(tick, 16);
     };
-    requestAnimationFrame(tick);
+    setTimeout(tick, 0);
   });
 }
 
