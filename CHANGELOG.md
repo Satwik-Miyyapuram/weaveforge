@@ -16,10 +16,26 @@ tracks at once.
 ### Desktop
 
 ### Python SDK
+- **Added:** The SDK reads the token file the desktop app's Connect panel writes under `~/.weaveforge`, so it reaches the local API without a pasted token.
 
 ### Android
 
 ### iOS
+
+## [0.8.11] - 2026-10-10
+
+Desktop (`v0.8.11`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+
+### Desktop
+- **Added:** Settings has a Connect panel for Claude, Cursor, VS Code, Gemini and Codex: it writes a scoped token and hands each client its install link or config for the app's local MCP server, with no cloud relay in between.
+- **Fixed:** Long notes no longer go blank past the fold in Edit.
+- **Fixed:** The Notes side preview follows paste, undo and remote edits.
+- **Changed:** A single click on a reader text box shows its Delete popover; a double click edits it.
+- **Fixed:** Erasing the last ink stroke on a Notes page removes the stored page, so it stays empty after reload.
+- **Changed:** Graph node and label sizes follow the zoom with bounds, and labels sit clear of their node.
+- **Changed:** Page transitions are on by default, in calm, reactive and CRT tiers, or off.
+- **Changed:** Every control shares hover, press, focus and disabled states from the design system.
+- **Fixed:** The loading screen's TIP label is centred.
 
 ## [0.8.10] - 2026-10-09
 
