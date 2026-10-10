@@ -1,6 +1,6 @@
 {
   "name": "weaveforge-research",
-  "version": "0.8.10",
+  "version": "0.8.11",
   "description": "Read, draft and track experiments in your WeaveForge workspace, on this computer only.",
   "author": {
     "name": "WeaveForge contributors",
