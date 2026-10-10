@@ -16,6 +16,7 @@ import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/theme/codemi
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
 import { CollaborativeMarkdownEditor } from "./collaborative-markdown-editor.js";
+import { docChangeListener } from "./doc-change-listener";
 
 /**
  * The full markdown editing stack, described as data.
@@ -62,6 +63,7 @@ export function CollabBodyHost({
   readOnly,
   editorClassName,
   onViewCreated,
+  onDocChange,
   handleRef,
 }: {
   resourceType: string;
@@ -76,6 +78,8 @@ export function CollabBodyHost({
   readOnly?: boolean;
   editorClassName?: string;
   onViewCreated?: (view: EditorView) => (() => void) | void;
+  /** Every document change, paste and undo included; may change between renders. */
+  onDocChange?: (view: EditorView) => void;
   /**
    * Filled in while the editor is on screen, so a toolbar button can insert at
    * the caret. A plain box, not a CodeMirror view: handing the screen the view
@@ -155,10 +159,15 @@ export function CollabBodyHost({
     [Boolean(markdownEditing)],
   );
 
+  const docChangeRef = useRef(onDocChange);
+  docChangeRef.current = onDocChange;
+  const docChange = useRef(docChangeListener(docChangeRef)).current;
+
   const extensions = useMemo(() => {
-    if (!markdownExtensions) return extraExtensions;
-    return extraExtensions ? [...markdownExtensions, ...extraExtensions] : markdownExtensions;
-  }, [markdownExtensions, extraExtensions]);
+    // Nothing given: the editor falls back to its own plain stack.
+    if (!markdownExtensions && !extraExtensions) return undefined;
+    return [docChange, ...(markdownExtensions ?? []), ...(extraExtensions ?? [])];
+  }, [docChange, markdownExtensions, extraExtensions]);
 
   const handleViewCreated = useCallback(
     (view: EditorView) => {
