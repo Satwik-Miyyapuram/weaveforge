@@ -1,0 +1,20 @@
+{
+  "name": "weaveforge-research",
+  "displayName": "WeaveForge Research",
+  "version": "0.8.10",
+  "description": "Read and search your WeaveForge workspace, leave drafts for you to approve, and log experiments with the Python SDK. Runs on this computer only.",
+  "author": {
+    "name": "WeaveForge contributors",
+    "url": "https://github.com/Satwik-Miyyapuram/weaveforge"
+  },
+  "homepage": "https://github.com/Satwik-Miyyapuram/weaveforge",
+  "repository": "https://github.com/Satwik-Miyyapuram/weaveforge",
+  "license": "AGPL-3.0-only",
+  "keywords": ["research", "thesis", "mcp", "experiments", "zotero"],
+  "mcpServers": {
+    "weaveforge": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/index.mjs"]
+    }
+  }
+}

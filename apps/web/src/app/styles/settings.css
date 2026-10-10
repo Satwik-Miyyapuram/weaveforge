@@ -288,3 +288,23 @@
 @media (prefers-reduced-motion: reduce) { .step-progress-bar[data-indeterminate] > span { animation: none; } }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .step-progress-bar { height: 10px; background: var(--surface); border: var(--bw) solid var(--bw-line); }
 :root[data-theme="crt"] :is(.step-progress-bar, .step-progress-mark) { border-radius: var(--radius-sm); }
+/* Settings → AI & MCP: the Connect block and the client picker. */
+.mcp-client { border: 2px solid var(--ink); padding: 12px; display: grid; gap: 8px; margin-top: 10px; background: var(--bg); min-width: 0; }
+.mcp-client.mcp-add { margin-top: 14px; }
+.mcp-client header { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mcp-client header strong { font-size: 15px; }
+.mcp-pill { font-family: var(--font-mono); font-size: 11px; padding: 2px 8px; border: 2px solid var(--ink); }
+.mcp-pill.on { background: var(--st-positive-bg); color: var(--st-positive-fg); border-color: var(--st-positive-fg); }
+.mcp-perm { display: flex; gap: 6px; flex-wrap: wrap; }
+.mcp-perm span { font-family: var(--font-mono); font-size: 11px; background: var(--surface2); padding: 2px 6px; }
+.mcp-small { font-size: 13px; color: var(--muted); }
+.mcp-small .mono { font-family: var(--font-mono); overflow-wrap: anywhere; }
+.mcp-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.mcp-pane { display: grid; gap: 8px; min-width: 0; }
+.mcp-pane pre { font-family: var(--font-mono); font-size: 12.5px; background: var(--surface); color: var(--ink); border: 2px solid var(--ink); padding: 10px 12px; overflow-x: auto; margin: 0; white-space: pre; }
+.mcp-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.mcp-tab { font: 500 13px var(--font); border: 2px solid var(--ink); background: var(--surface); color: var(--ink); padding: 4px 9px; cursor: pointer; }
+.mcp-tab[aria-selected="true"] { background: var(--ink); color: var(--surface); }
+.mcp-tab:focus-visible, .mcp-danger:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.mcp-danger { font: 500 14px var(--font); background: transparent; border: 2px solid transparent; color: var(--st-danger-fg); padding: 7px 4px; cursor: pointer; }
+.mcp-danger:hover:not(:disabled) { text-decoration: underline; }

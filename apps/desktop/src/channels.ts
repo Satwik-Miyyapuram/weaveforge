@@ -127,6 +127,9 @@ export const CHANNELS = {
   localApiSet: "weaveforge:local-api-set",
   localApiTokenCreate: "weaveforge:local-api-token-create",
   localApiTokenRevoke: "weaveforge:local-api-token-revoke",
+  mcpConnect: "weaveforge:mcp-connect",
+  mcpDisconnect: "weaveforge:mcp-disconnect",
+  mcpOpenClient: "weaveforge:mcp-open-client",
   /**
    * Main -> renderer, like `signIn`: somebody else changed the folder.
    *

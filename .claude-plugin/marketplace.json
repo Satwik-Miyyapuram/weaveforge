@@ -1,0 +1,17 @@
+{
+  "name": "weaveforge",
+  "owner": {
+    "name": "WeaveForge contributors",
+    "url": "https://github.com/Satwik-Miyyapuram/weaveforge"
+  },
+  "metadata": {
+    "description": "WeaveForge research tools for AI clients: read, draft and track experiments on your own computer."
+  },
+  "plugins": [
+    {
+      "name": "weaveforge-research",
+      "source": "./plugins/weaveforge-research",
+      "description": "Read and search your WeaveForge workspace, leave drafts for you to approve, and log experiments. Local only."
+    }
+  ]
+}

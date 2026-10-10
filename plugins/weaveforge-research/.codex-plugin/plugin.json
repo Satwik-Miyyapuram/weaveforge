@@ -1,7 +1,7 @@
 {
   "name": "weaveforge-research",
-  "version": "0.1.0+codex.20260715130307",
-  "description": "Research workflows and privacy-safe MCP guidance for WeaveForge.",
+  "version": "0.8.10",
+  "description": "Read, draft and track experiments in your WeaveForge workspace, on this computer only.",
   "author": {
     "name": "WeaveForge contributors",
     "url": "https://github.com/Satwik-Miyyapuram/weaveforge"
@@ -13,15 +13,15 @@
     "research",
     "thesis",
     "mcp",
-    "e2ee",
+    "experiments",
     "zotero"
   ],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "WeaveForge Research",
-    "shortDescription": "Use WeaveForge safely from Codex.",
-    "longDescription": "Research-aware Codex guidance and a reserved MCP connection for an explicitly authorised WeaveForge workspace.",
+    "shortDescription": "Use your WeaveForge workspace from Codex.",
+    "longDescription": "Read and search your WeaveForge notes, papers and experiments, leave drafts for you to approve, and log experiments with the weaveforge Python SDK. Talks only to the WeaveForge app on this computer.",
     "developerName": "WeaveForge contributors",
     "category": "Productivity",
     "capabilities": [
@@ -32,9 +32,9 @@
     "websiteURL": "https://github.com/Satwik-Miyyapuram/weaveforge",
     "brandColor": "#45679B",
     "defaultPrompt": [
-      "Help me plan a literature review from my permitted WeaveForge sources.",
-      "Summarize the research evidence I explicitly share from WeaveForge.",
-      "Draft an append-only paper-note addendum with evidence links."
+      "Summarise what my notes say about this topic, with sources.",
+      "Draft a logbook entry for today from my recent experiments.",
+      "Add WeaveForge experiment tracking to this training script."
     ]
   }
 }

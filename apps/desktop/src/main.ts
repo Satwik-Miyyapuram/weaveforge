@@ -43,7 +43,7 @@ import { registerMainInk } from "./main-ink";
 import { applyMemorySwitches, registerMemoryTrimming } from "./memory-trim";
 import { registerMainLocalDb } from "./main-local-db";
 import { registerMainPlanWidget } from "./main-plan-widget";
-import { registerMainLocalApi } from "./main-local-api";
+import { registerMainLocalApi, shellMcpDeps } from "./main-local-api";
 import { registerMainUpdateOffer } from "./main-update-offer";
 import { registerMainVaultWatch } from "./main-vault-watch";
 import { fetchZoteroLocal } from "./zotero-local";
@@ -654,6 +654,7 @@ const localApiDoor = registerMainLocalApi({
   preferenceStore,
   secretStore,
   artifactRoot: path.join(app.getPath("userData"), "artifacts"),
+  ...shellMcpDeps(app, shell, homeVariant, __dirname),
 });
 
 /** The plan widget on the desktop (§main-plan-widget), off until switched on. */

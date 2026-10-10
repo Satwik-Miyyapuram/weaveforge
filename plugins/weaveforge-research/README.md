@@ -1,51 +1,48 @@
-# WeaveForge Research Codex plugin
+# WeaveForge Research plugin
 
-This plugin gives Codex an explicitly authorised, end-to-end encrypted path to
-selected WeaveForge sources. It works only while an unlocked WeaveForge
-browser has an active access session. It does not receive PDFs, encryption keys,
-Zotero credentials, database credentials, account settings, or anything outside
-that session's selected sources.
+Connects AI clients to a WeaveForge workspace on the same computer. Includes
+the `weaveforge` MCP server (a small stdio bridge) and the
+`weaveforge-research` skill.
 
-## Connect an active workspace
+- **Local only.** The bridge talks to the WeaveForge desktop app at
+  `127.0.0.1:27123`. Nothing goes through a WeaveForge server.
+- **Read and search** notes, papers (with PDF text), reading lists,
+  experiments, milestones, the logbook and the report.
+- **Drafts only.** Every write is a draft that waits for your approval in
+  WeaveForge.
+- **Experiment tracking.** `experiment_tracking_setup` tells the agent how to
+  install and use the `weaveforge` Python SDK in the code it writes, without
+  ever showing it the token.
 
-1. In WeaveForge, open **Settings → AI assistant access** and enable it.
-2. Allow the read categories you need, then create an **MCP token**. Copy it at
-   creation time; it is shown only once and can later be revoked in the same
-   panel.
-3. Select sources, choose an access duration (15 minutes to one week), and
-   choose **Start access**.
-4. Copy the session ID and pairing secret shown for that live connection. Keep
-   the browser page open and encryption unlocked.
-5. Configure the plugin process with these environment variables:
+## Set up
 
-```text
-WEAVEFORGE_MCP_URL=https://your-weaveforge.example.com
-WEAVEFORGE_MCP_TOKEN=tt_...
-WEAVEFORGE_MCP_SESSION=<session ID from WeaveForge>
-WEAVEFORGE_MCP_PAIRING_SECRET=<pairing secret from WeaveForge>
-```
+1. Open WeaveForge, go to **Settings → AI & MCP** and press **Connect**. This
+   creates one "AI clients" token and saves it to `~/.weaveforge/mcp.json`
+   (readable only by you). **Disconnect** revokes it.
+2. Add WeaveForge to your client. The **Add to a client** tabs under Connect
+   show the exact steps for this computer; the short version:
 
-The MCP token is reusable until you revoke it. The session ID and pairing
-secret belong to the current browser approval; start a fresh access session when
-it expires or the browser locks. The remembered pairing-secret option stores
-only that secret in your WeaveForge settings.
+| Client | How |
+| --- | --- |
+| Claude Code | `claude plugin marketplace add Satwik-Miyyapuram/weaveforge`, then `claude plugin install weaveforge-research@weaveforge` |
+| Claude Desktop | **Add to Claude Desktop** in Settings opens its extension installer |
+| Gemini CLI | `gemini extensions install https://github.com/Satwik-Miyyapuram/weaveforge` |
+| Codex | Paste the TOML from Settings into `~/.codex/config.toml`, or install this plugin from the repo's Codex marketplace |
+| Cursor, VS Code | **Add to Cursor** / **Add to VS Code** in Settings opens the editor's own confirm dialog |
+| Others | Copy the `mcpServers` JSON from Settings (Windsurf, Cline, Zed, opencode, Goose, LM Studio…) |
 
-## What Codex can do
+The Claude Code plugin and the Gemini extension run the bridge with `node`, so
+they need Node.js 18 or newer on `PATH`. The lines Settings gives you run the
+bridge with the WeaveForge app itself and need no Node install.
 
-- Search the selected metadata, paper notes, synced Zotero annotations/notes,
-  reading lists, vault notes, logbook, and experiment/milestone sources.
-- Retrieve bounded excerpts and an outline of the currently allowed workspace.
-- Never access paper PDFs, attachments, API keys, account settings, report
-  contents, or unselected resources.
+## How the bridge finds the app
 
-Every access request is encrypted between this local plugin process and the
-unlocked browser. The web relay stores opaque envelopes only. Revoking a
-session, disabling AI access, locking encryption, or revoking the MCP token
-stops further access.
+On every request the bridge reads `{ url, token }` from `~/.weaveforge/mcp.json`
+(or the file in `WEAVEFORGE_MCP_FILE`). `WEAVEFORGE_MCP_URL` and
+`WEAVEFORGE_TOKEN` override them. It only talks to loopback addresses. When
+the app is closed it still lists the tools and answers each call with a note
+to open WeaveForge.
 
-## Installation and updates
+## License
 
-The repository marketplace entry is at `.agents/plugins/marketplace.json`.
-Install `weaveforge-research` from that marketplace, then start a new Codex
-thread. After an update, reinstall or refresh the plugin so Codex picks up the
-new cache-busted version before testing a connection.
+AGPL-3.0-only. See [LICENSE](LICENSE).

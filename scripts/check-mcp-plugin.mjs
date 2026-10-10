@@ -1,36 +1,34 @@
 #!/usr/bin/env node
 /**
- * Drive the stdio MCP server the way a client does, and fail if it misbehaves.
+ * Drive the stdio MCP bridge the way a client does, with the app closed, and fail if it misbehaves.
  *
- * Nothing else exercises `plugins/weaveforge-research/mcp-server/index.mjs` — it
- * is outside every workspace, so no unit test imports it and no typecheck sees
- * it. Both bugs this check pins down were found by connecting to it by hand:
- * a request for an unimplemented method got no reply at all (the client waits
- * forever on a connection that looks alive), and one unparseable line on stdin
- * threw out of the "data" handler and killed the process mid-session.
- *
- * No relay is involved. `tools/call` is deliberately not exercised here; it
- * needs an unlocked browser at the other end, which is what the E2E suite is
- * for. Everything below is protocol behaviour the server owns on its own.
+ * Pins two bugs found by hand: an unimplemented method got no reply (the client
+ * waits forever), and one unparseable line killed the process mid-session.
+ * Forwarding to a running app is covered by apps/desktop/test/mcp-bridge.test.ts.
  */
 import { spawn } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readAiToolNames } from "./lib/ai-tool-names.mjs";
+import { listedTools } from "../apps/desktop/src/local-mcp.ts";
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const server = join(root, "plugins/weaveforge-research/mcp-server/index.mjs");
 
+// Nothing bumps the client manifests on release, so a stale one is caught here.
+const version = (file) => JSON.parse(readFileSync(join(root, file), "utf8")).version;
+for (const file of ["plugins/weaveforge-research/.claude-plugin/plugin.json", "plugins/weaveforge-research/.codex-plugin/plugin.json", "gemini-extension.json"])
+  if (version(file) !== version("package.json")) throw new Error(`${file} is version ${version(file)}, the app is ${version("package.json")}.`);
+
+// A fresh home: no token, and the tool list Connect would have cached.
+const home = mkdtempSync(join(tmpdir(), "wf-mcp-check-"));
+mkdirSync(join(home, ".weaveforge", "mcp"), { recursive: true });
+const tools = listedTools(true);
+writeFileSync(join(home, ".weaveforge", "mcp", "tools.json"), JSON.stringify({ tools }));
+
 const child = spawn(process.execPath, [server], {
-  // The server refuses to start without a full connection config. These are
-  // never used: nothing here reaches the relay.
-  env: {
-    ...process.env,
-    WEAVEFORGE_MCP_URL: "http://127.0.0.1:1",
-    WEAVEFORGE_MCP_TOKEN: "unused",
-    WEAVEFORGE_MCP_SESSION: "unused",
-    WEAVEFORGE_MCP_PAIRING_SECRET: "unused",
-  },
+  env: { ...process.env, HOME: home, USERPROFILE: home, WEAVEFORGE_MCP_FILE: join(home, "none.json") },
   stdio: ["pipe", "pipe", "pipe"],
 });
 
@@ -72,9 +70,11 @@ try {
 
   const listed = await request({ jsonrpc: "2.0", id: 2, method: "tools/list" });
   const names = (listed.result?.tools ?? []).map((tool) => tool.name);
-  for (const name of readAiToolNames(root)) {
-    check(names.includes(name), `tools/list offers ${name}`);
-  }
+  for (const { name } of tools) check(names.includes(name), `tools/list offers ${name}`);
+  check(names.includes("experiment_tracking_setup"), "tools/list offers experiment_tracking_setup");
+
+  const call = await request({ jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "list_tags", arguments: {} } });
+  check(call.result?.isError === true && /Connect/.test(call.result.content?.[0]?.text ?? ""), "tools/call without a token says to connect");
   check(
     (listed.result?.tools ?? []).every((tool) => tool.description && tool.inputSchema),
     "every listed tool has a description and an input schema",
