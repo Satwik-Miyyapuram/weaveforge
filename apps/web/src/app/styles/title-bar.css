@@ -58,7 +58,8 @@ html:is([data-workspace-focus], [data-reader-focus], [data-ink-focus]) .title-ba
   position: absolute; top: calc(100% - 2px); left: 0;
   visibility: visible;
   z-index: 1;
-  min-width: 240px; max-width: 360px;
+  min-width: 240px; max-width: min(360px, calc(100vw - 16px));
+  overflow-y: auto; overscroll-behavior: contain;
   padding: 4px; gap: 0; display: block;
 }
 .title-bar-menu .card-menu-list { min-width: 0; }

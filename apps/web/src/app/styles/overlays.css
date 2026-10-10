@@ -89,8 +89,8 @@
   .modal.quick-open { padding: env(safe-area-inset-top) 0 0; }
   .modal-actions { gap: 8px; }
   .modal-actions > :is(button, a) { flex: 1 1 0; justify-content: center; min-height: 44px; }
-  /* Point popovers share the sheet; :root outranks their later-loaded desktop rules. */
-  :root :is(.popover-panel, .pdf-reader-ref-popover, .graph-edge-popover) {
+  /* Point popovers share the sheet; :root outranks their later-loaded desktop rules. The title-bar menu drops from its button. */
+  :root :is(.popover-panel:not(.title-bar-menu), .pdf-reader-ref-popover, .graph-edge-popover) {
     top: auto !important;
     left: 0 !important;
     transform: none;

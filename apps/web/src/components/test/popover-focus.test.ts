@@ -43,3 +43,27 @@ test("a menu row marked danger is painted in the danger colour", () => {
   assert.ok(rule, "danger row rule exists");
   assert.match(rule, /:is\([^)]*\.danger\)/);
 });
+
+test("drop-down triggers share the button motion, and the select menu has no second open animation", () => {
+  const styles = (f: string) => readFileSync(fileURLToPath(new URL(`../../app/styles/${f}`, import.meta.url)), "utf8");
+  const states = styles("states.css");
+  assert.match(states, /\.custom-select-button:hover:not\(:disabled\) \{ translate: 0 var\(--wf-lift\)/);
+  assert.match(states, /\.custom-select-button:is\(:active, \[aria-expanded="true"\]\):not\(:disabled\), [^{]*\.popover-trigger\[aria-expanded="true"\] \{ translate: var\(--wf-press\) var\(--wf-press\); box-shadow: none;/);
+  assert.doesNotMatch(styles("forms.css"), /animation: menu-in/);
+  assert.doesNotMatch(styles("brutal.css"), /\.filter-select \.custom-select-button\[aria-expanded="true"\] \{\s*transform: var\(--press-t\)/);
+});
+
+test("a segmented control is separate chips, with no second frame drawn around them", () => {
+  const styles = (f: string) => readFileSync(fileURLToPath(new URL(`../../app/styles/${f}`, import.meta.url)), "utf8");
+  assert.doesNotMatch(styles("brutal.css"), /\]\) \.seg \{/);
+  assert.match(styles("git.css"), /^\.seg \{ display: inline-flex; gap: 2px; \}$/m);
+});
+
+test("the title-bar menu drops from its button at every width and is fitted to the window", () => {
+  const read = (p: string) => readFileSync(fileURLToPath(new URL(p, import.meta.url)), "utf8");
+  const sheet = read("../../app/styles/overlays.css").split("\n").find((l) => l.includes("top: auto !important") || /:is\(\.popover-panel/.test(l));
+  assert.match(sheet ?? "", /\.popover-panel:not\(\.title-bar-menu\)/);
+  const bar = read("../desktop-title-bar.tsx");
+  assert.match(bar, /panel\.style\.left = /);
+  assert.match(bar, /panel\.style\.maxHeight = /);
+});
