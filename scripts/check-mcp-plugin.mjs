@@ -28,7 +28,7 @@ const tools = listedTools(true);
 writeFileSync(join(home, ".weaveforge", "mcp", "tools.json"), JSON.stringify({ tools }));
 
 const child = spawn(process.execPath, [server], {
-  env: { ...process.env, HOME: home, USERPROFILE: home, WEAVEFORGE_MCP_FILE: join(home, "none.json") },
+  env: { ...process.env, HOME: home, USERPROFILE: home, WEAVEFORGE_MCP_FILE: join(home, "none.json"), WEAVEFORGE_TOKEN: "" },
   stdio: ["pipe", "pipe", "pipe"],
 });
 

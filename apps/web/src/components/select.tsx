@@ -1,18 +1,10 @@
 "use client";
 
-import React, { useCallback, useId, useState, useRef, useEffect } from "react";
+import React, { useId, useState, useRef, useEffect } from "react";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { createPortal } from "react-dom";
 import { ChevronIcon } from "@/components/chevron-icon";
-
-interface MenuRect {
-  left: number;
-  width: number;
-  /** Set when the menu opens downward. */
-  top?: number;
-  /** Set when it opens upward, measured from the viewport bottom. */
-  bottom?: number;
-}
+import { anchoredMenuStyle, useAnchoredMenu } from "@/lib/hooks/use-anchored-menu";
 
 interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "onChange"> {
   onChange?: (e: { target: { value: string } }) => void;
@@ -74,8 +66,6 @@ export function Select({
   searchPlaceholder = "Search…",
 }: SelectProps) {
   const [open, setOpen] = useState(false);
-  const [openUp, setOpenUp] = useState(false);
-  const [menuRect, setMenuRect] = useState<MenuRect | null>(null);
   const [active, setActive] = useState(-1);
   const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -110,30 +100,14 @@ export function Select({
   const selectedOption = options[selectedIndex];
   const buttonClass = `custom-select-button${isStatus ? ` status-${val}` : ""}`;
 
-  /**
-   * Measure the trigger and pin the menu to it in viewport coordinates.
-   *
-   * The menu is portalled to <body> and positioned `fixed`, because an
-   * absolutely positioned menu is clipped by any ancestor that scrolls or hides
-   * overflow — the PDF reader's toolbar does both, which left its dropdown
-   * trapped inside the toolbar strip with nothing selectable.
-   */
-  const placeMenu = useCallback(() => {
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const below = window.innerHeight - rect.bottom;
-    const above = rect.top;
-    const MENU_MAX = searchable ? 320 : 260;
-    const up = below < MENU_MAX && above > below;
-    setOpenUp(up);
-    setMenuRect({
-      left: rect.left,
-      width: rect.width,
-      ...(up
-        ? { bottom: window.innerHeight - rect.top + 4 }
-        : { top: rect.bottom + 4 }),
-    });
-  }, [searchable]);
+  // Portalled and fixed so a scrolling or clipping ancestor (the PDF toolbar) can't trap the menu.
+  const { rect: menuRect, up: openUp, place: placeMenu } = useAnchoredMenu(
+    open,
+    buttonRef,
+    listRef,
+    searchable ? 320 : 260,
+    query,
+  );
 
   // Both refs: the menu is portalled out of the container, so a click inside it
   // would otherwise read as "outside" and close before the option registers.
@@ -145,41 +119,6 @@ export function Select({
     },
     [containerRef, listRef],
   );
-
-  /**
-   * Nudge the menu back on screen after it renders.
-   *
-   * It is left-aligned to the trigger and may be wider than it (status menus use
-   * `width: max-content`), so a trigger near the right edge would otherwise push
-   * its own options off the viewport. Measuring after paint is what makes this
-   * exact — the width is not known before then. Settles in one pass: once the
-   * menu is inside the margin the correction is zero and no state is set.
-   */
-  useEffect(() => {
-    if (!open) return;
-    const el = listRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const MARGIN = 8;
-    const overflowRight = rect.right - (window.innerWidth - MARGIN);
-    const overflowLeft = MARGIN - rect.left;
-    const dx = overflowRight > 0 ? -overflowRight : overflowLeft > 0 ? overflowLeft : 0;
-    if (dx === 0) return;
-    setMenuRect((prev) => (prev ? { ...prev, left: prev.left + dx } : prev));
-  }, [open, menuRect?.left, menuRect?.width, query]);
-
-  // A fixed menu does not travel with its trigger, so follow scroll/resize.
-  // Capture phase catches scrolls in the nested containers the trigger sits in.
-  useEffect(() => {
-    if (!open) return;
-    const reposition = () => placeMenu();
-    window.addEventListener("scroll", reposition, true);
-    window.addEventListener("resize", reposition);
-    return () => {
-      window.removeEventListener("scroll", reposition, true);
-      window.removeEventListener("resize", reposition);
-    };
-  }, [open, placeMenu]);
 
   // Keep the active (keyboard-highlighted) option scrolled into view.
   useEffect(() => {
@@ -321,12 +260,7 @@ export function Select({
           className={`custom-select-menu custom-select-menu--fixed${className ? ` ${className}` : ""}${openUp ? " up" : ""}${searchable ? " searchable" : ""}`}
           role="listbox"
           onKeyDown={onKeyDown}
-          style={{
-            left: menuRect.left,
-            minWidth: menuRect.width,
-            ...(menuRect.top != null ? { top: menuRect.top } : {}),
-            ...(menuRect.bottom != null ? { bottom: menuRect.bottom } : {}),
-          }}
+          style={anchoredMenuStyle(menuRect)}
         >
           {searchable && (
             <div className="custom-select-search">

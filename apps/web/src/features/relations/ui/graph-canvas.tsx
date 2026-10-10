@@ -30,7 +30,7 @@ import { useGraphColours } from "./graph-colours";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { setGravity } from "./graph-gravity";
 import { labelSize, nodeSize } from "./graph-sizing";
-import { paintStamp, paintStampLabel, stampRadius } from "./graph-stamp";
+import { paintStamp, paintStampLabel, stampRadius, textWidth } from "./graph-stamp";
 
 // Wrapper forwards the ref through an `innerRef` prop because next/dynamic's
 // LoadableComponent drops a real `ref`, which would null out fgRef and silently
@@ -653,7 +653,7 @@ export function GraphCanvas({
             ctx.font = colours.stamp ? `700 ${fontSize}px ${fontFamily}` : `${fontSize}px ${fontFamily}`;
             const lx = node.x ?? 0;
             const ly = (node.y ?? 0) - r - gap - fontSize * 0.4;
-            const w = ctx.measureText(label).width + (colours.stamp ? fontSize : 0);
+            const w = textWidth(ctx, label) + (colours.stamp ? fontSize : 0);
             const box = { x1: lx - w / 2, y1: ly - fontSize, x2: lx + w / 2, y2: ly + labelBox.line };
             // The hovered node and tags always win; everything else yields to a
             // label already placed on the same pixels this frame.

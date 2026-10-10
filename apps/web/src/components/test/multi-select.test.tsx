@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { MultiSelect } from "@/components/multi-select";
@@ -14,7 +15,16 @@ import { MultiSelect } from "@/components/multi-select";
 (globalThis as { document?: unknown }).document = {
   addEventListener: () => {},
   removeEventListener: () => {},
+  body: {},
 };
+
+/** A 375px phone with the trigger near the bottom, so the menu must open upward. */
+const VIEWPORT = { innerWidth: 375, innerHeight: 800 };
+const TRIGGER = { left: 300, right: 360, width: 60, top: 700, bottom: 730 };
+Object.assign(globalThis, { window: { ...VIEWPORT, addEventListener: () => {}, removeEventListener: () => {} } });
+
+// react-test-renderer has no portals; render the portalled menu in place.
+createRequire(import.meta.url)("react-dom").createPortal = (node: unknown) => node;
 
 const OPTIONS = [
   { value: "running", label: "Running" },
@@ -74,6 +84,7 @@ async function render(values: string[], onChange: (next: string[]) => void): Pro
         allLabel: "All statuses",
         ariaLabel: "Filter by status",
       }),
+      { createNodeMock: () => ({ getBoundingClientRect: () => TRIGGER, focus: () => {}, querySelector: () => null }) },
     );
   });
   const find = (predicate: (props: Record<string, unknown>) => boolean) =>
@@ -159,4 +170,15 @@ test("MultiSelect: the trigger advertises the listbox it controls, and no unsupp
   // Focus moves onto the options, so the attribute that would be needed only if
   // focus stayed on the trigger must not be there.
   assert.equal(view.trigger()!.props["aria-activedescendant"], undefined);
+});
+
+test("MultiSelect: the menu is fixed to the viewport, not clipped by a scrolling row", async () => {
+  const view = await render([], () => {});
+  view.keyOn(view.trigger()!, "ArrowDown");
+  const list = view.listbox()!;
+
+  assert.match(classNameOf(list), /custom-select-menu--fixed/);
+  // 70px below the trigger against 700 above: opens upward, 4px off its top edge.
+  assert.match(classNameOf(list), /(^| )up($| )/);
+  assert.deepEqual(list.props.style, { left: 300, minWidth: 60, bottom: 104 });
 });

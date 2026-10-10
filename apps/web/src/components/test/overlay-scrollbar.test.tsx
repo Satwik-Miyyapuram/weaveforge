@@ -110,3 +110,37 @@ test("OverlayScrollbar becomes visible on scroll event", () => {
   const jsonStr = JSON.stringify(renderer!.toJSON());
   assert.match(jsonStr, /is-visible/);
 });
+
+test("OverlayScrollbar measures once per frame however many mutations land", () => {
+  const mutationCallbacks: (() => void)[] = [];
+  const frames: (() => void)[] = [];
+  const g = globalThis as unknown as Record<string, unknown>;
+  const saved = { MutationObserver: g.MutationObserver, raf: g.requestAnimationFrame, caf: g.cancelAnimationFrame };
+  g.MutationObserver = class {
+    constructor(cb: () => void) { mutationCallbacks.push(cb); }
+    observe() {}
+    disconnect() {}
+  };
+  g.requestAnimationFrame = (cb: () => void) => frames.push(cb);
+  g.cancelAnimationFrame = () => {};
+  try {
+    let reads = 0;
+    const mockEl = createMockScrollElement({ clientHeight: 400, scrollHeight: 1200 });
+    Object.defineProperty(mockEl, "scrollHeight", { get: () => { reads++; return 1200; } });
+    act(() => {
+      create(createElement(OverlayScrollbar, { scrollRef: { current: mockEl } }));
+    });
+    reads = 0;
+    act(() => {
+      for (let i = 0; i < 50; i++) mutationCallbacks.forEach((cb) => cb());
+    });
+    assert.equal(reads, 0, "no layout read inside the mutation burst");
+    assert.equal(frames.length, 1, "one frame scheduled for the burst");
+    act(() => frames.shift()!());
+    assert.equal(reads, 1);
+  } finally {
+    g.MutationObserver = saved.MutationObserver;
+    g.requestAnimationFrame = saved.raf;
+    g.cancelAnimationFrame = saved.caf;
+  }
+});

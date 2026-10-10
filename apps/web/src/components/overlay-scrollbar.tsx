@@ -97,21 +97,28 @@ export function OverlayScrollbar({
       typeof document !== "undefined" && el === document.documentElement ? window : el;
     scrollTarget.addEventListener("scroll", onScroll, { passive: true });
 
-    // Watch size changes on container & its children
-    const resizeObserver = new ResizeObserver(() => {
-      updateThumb();
-    });
+    // Reading scrollHeight forces layout, so a page render measures once per frame, not once per commit.
+    let frame: number | null = null;
+    const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb: () => void) => setTimeout(cb, 16) as unknown as number;
+    const caf = typeof cancelAnimationFrame === "function" ? cancelAnimationFrame : (id: number) => clearTimeout(id);
+    const scheduleUpdate = () => {
+      if (frame !== null) return;
+      frame = raf(() => {
+        frame = null;
+        updateThumb();
+      });
+    };
+
+    const resizeObserver = new ResizeObserver(scheduleUpdate);
     resizeObserver.observe(el);
 
-    // MutationObserver to catch dynamic content changes
-    const mutationObserver = new MutationObserver(() => {
-      updateThumb();
-    });
+    const mutationObserver = new MutationObserver(scheduleUpdate);
     mutationObserver.observe(el, { childList: true, subtree: true });
 
     updateThumb();
 
     return () => {
+      if (frame !== null) caf(frame);
       clearHideTimer();
       scrollTarget.removeEventListener("scroll", onScroll);
       resizeObserver.disconnect();
