@@ -87,7 +87,7 @@
   transform: none;
 }
 .weaveforge-loader-tip em {
-  justify-self: start;
+  justify-self: center;
   padding: 1px 8px;
   font-family: var(--font-mono);
   font-size: 0.72rem;

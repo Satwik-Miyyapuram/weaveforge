@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { markActions } from "../mark-actions";
+import { markActions, markPopoverShown } from "../mark-actions";
 
 test("a mark with a comment offers Edit comment, prefilled", () => {
   assert.deepEqual(markActions({ type: "highlight", origin: "local", comment: "key claim" }), {
@@ -38,4 +38,11 @@ test("ink, placed pictures and Zotero marks get no popover", () => {
   assert.equal(markActions({ type: "highlight", origin: "zotero", comment: "" }), null);
   const picture = "![picture](p/1.png)";
   assert.equal(markActions({ type: "image", origin: "local", comment: picture }), null);
+});
+
+test("a text box's popover shows under Select or Text only", () => {
+  assert.equal(markPopoverShown({ type: "text" }, "select"), true);
+  assert.equal(markPopoverShown({ type: "text" }, "text"), true);
+  assert.equal(markPopoverShown({ type: "text" }, "highlight"), false);
+  assert.equal(markPopoverShown({ type: "highlight" }, "highlight"), true);
 });

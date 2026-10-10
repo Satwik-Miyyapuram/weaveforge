@@ -41,4 +41,5 @@
 @import "./surfaces.css"; /* The borderless surfaces variant. */
 @import "./motion.css"; /* The reactive motion variant. */
 @import "./brutal.css"; /* Neo-brutalist + CRT look, scoped to those themes. */
+@import "./states.css"; /* Control states and motion from the design system. */
 @import "./card-tint.css"; /* Status tint for every theme. Last: wins ties. */
