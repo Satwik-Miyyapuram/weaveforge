@@ -37,10 +37,13 @@ test("no nav group is emitted without items", async () => {
  * The set comparison above is the real assertion; this is the sanity check that
  * moving the items did not silently delete them.
  */
-test("every module with a nav item is listed in exactly one group", async () => {
+test("every module with a nav item is listed exactly once, in a group or at the top", async () => {
   const { buildModuleRegistry } = await import("../registry");
   const registry = buildModuleRegistry();
-  const listed = registry.navGroups.flatMap((group) => group.items.map((item) => item.key));
+  const listed = [
+    ...registry.topNavItems.map((item) => item.key),
+    ...registry.navGroups.flatMap((group) => group.items.map((item) => item.key)),
+  ];
   const declared = registry.modules
     .flatMap((module) => module.navItems.map((item) => item.key))
     .filter((key) => key !== registry.homeNavItem.key);
@@ -53,4 +56,20 @@ test("every module with a nav item is listed in exactly one group", async () => 
   for (const key of ["git", "experiments"]) {
     if (enabled.has(key)) assert.equal(listed.includes(key), true, `${key} is enabled but unlisted`);
   }
+});
+
+test("the editor sits at the top with Home and Search, not inside Library", async () => {
+  const { buildModuleRegistry } = await import("../registry");
+  const registry = buildModuleRegistry();
+  assert.deepEqual(registry.topNavItems.map((item) => item.key), ["editor-workspace"]);
+  const grouped = registry.navGroups.flatMap((group) => group.items.map((item) => item.key));
+  assert.equal(grouped.includes("editor-workspace"), false);
+});
+
+test("on a phone, swiping on from Notes lands on Graph", async () => {
+  const { buildModuleRegistry, groupForPath, phoneItems } = await import("../registry");
+  const items = phoneItems(groupForPath("/notes", buildModuleRegistry().navGroups)?.items ?? []);
+  const notes = items.findIndex((item) => item.path === "/notes");
+  assert.equal(items[notes + 1]?.path, "/graph");
+  assert.equal(items.some((item) => item.mobile === false), false);
 });

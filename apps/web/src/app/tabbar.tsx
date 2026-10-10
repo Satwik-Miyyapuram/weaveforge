@@ -46,7 +46,7 @@ export function TabBar({
   breakpoint?: LayoutBreakpoint;
 } = {}) {
   const { effectivePath: pathname } = useNavPending();
-  const { homeNavItem, navGroups } = useModuleRegistry();
+  const { homeNavItem, topNavItems, navGroups } = useModuleRegistry();
   const homeActive = pathname === "/dashboard" || pathname?.startsWith("/dashboard/");
 
   /**
@@ -144,6 +144,25 @@ export function TabBar({
           <NavIcon name="search" />
           <span className="nav-label">Search</span>
         </button>
+        {topNavItems
+          .filter((item) => breakpoint === "desktop" || item.mobile !== false)
+          .map((item) => {
+            const active = activeNavItem([item], pathname) !== undefined;
+            return (
+              <Link
+                key={item.key}
+                href={item.path}
+                className={active ? "nav-link active" : "nav-link"}
+                aria-current={active ? "page" : undefined}
+                aria-label={item.label}
+                title={collapsed ? item.label : undefined}
+                onPointerEnter={() => warmPath(item.path)}
+              >
+                <NavIcon name={item.icon ?? "box"} />
+                <span className="nav-label">{item.label}</span>
+              </Link>
+            );
+          })}
         {breakpoint === "desktop"
           ? // The sidebar lists every destination, under its group. The top strip
             // is mobile-only now, so this is the *only* way to reach a view on a
@@ -199,9 +218,8 @@ export function TabBar({
             })
           : // One entry per group on the phone: six slots in the bottom bar, and
             // the strip above the content carries the group's own views. Items
-            // that declared themselves out of the mobile bar — the editor — are
-            // not counted here, and are not in the strip either. See
-            // `NavItem.mobile`.
+            // that declared themselves out of the mobile bar are not counted
+            // here, and are not in the strip either. See `NavItem.mobile`.
             navGroups
               .filter((group) => group.items.some((it) => it.mobile !== false))
               .map((group) => {
