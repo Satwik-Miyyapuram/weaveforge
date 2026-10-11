@@ -224,6 +224,8 @@ export type InkWorkerEvent =
       pageIndex: number;
       bytes: Uint8Array | null;
       strokes: number;
+      /** True when a loaded page has no strokes: its stored chunk should go. */
+      cleared: boolean;
     }
   /** The page as a model, for `page-model`. */
   | { type: "page-model"; requestId: number; pageIndex: number; page: InkPage }

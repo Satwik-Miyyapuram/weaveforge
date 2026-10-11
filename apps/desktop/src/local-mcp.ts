@@ -145,6 +145,57 @@ const TOOLS = [
   }, ["section", "notes"]),
 ];
 
+/** What an agent needs to log runs from code it writes; only for tokens that may log experiments. */
+export interface TrackingSetup {
+  /** The local API the Python SDK talks to. */
+  apiUrl: string;
+  /** The file Connect wrote; the SDK reads the token from it, so the token never enters code. */
+  tokenFile: string;
+  /** Project names to pass as WEAVEFORGE_PROJECT. */
+  projects: () => Promise<string[]>;
+}
+
+const TRACKING_TOOL = tool(
+  "experiment_tracking_setup",
+  "How to log experiment runs, metrics and figures to WeaveForge from code you write: the Python SDK to install, the address, where the token is, and the project names. Call before adding tracking to a training script.",
+  {},
+);
+
+async function trackingSetup(setup: TrackingSetup): Promise<string> {
+  const projects = await setup.projects();
+  // The SDK looks in ~/.weaveforge/mcp.json unless told otherwise (WeaveForge Dev writes mcp-dev.json).
+  const where = /[\\/]mcp\.json$/.test(setup.tokenFile)
+    ? "so set nothing else"
+    : `once WEAVEFORGE_MCP_FILE=${setup.tokenFile} is set`;
+  return [
+    "Log experiments to WeaveForge with its Python SDK (open source, PyPI: weaveforge).",
+    "",
+    "Install: pip install weaveforge",
+    "Extras when the script uses them: weaveforge[figures] (matplotlib/plotly), weaveforge[tensorboard], weaveforge[wandb], weaveforge[lightning], weaveforge[keras], or weaveforge[all].",
+    "",
+    `The token is already on this computer in ${setup.tokenFile}. The SDK reads it and the address (${setup.apiUrl}) from there when WEAVEFORGE_TOKEN is unset, ${where}. Never copy the token into code, notebooks, logs or commits.`,
+    "Pick the WeaveForge project the runs belong to: pass project=\"<name>\" to track(), or set WEAVEFORGE_PROJECT. WeaveForge must be running while the script logs.",
+    "",
+    projects.length
+      ? `Projects: ${projects.map((name) => JSON.stringify(name)).join(", ")}.`
+      : "There are no projects yet; runs without a project go to the default list.",
+    "",
+    "Example:",
+    "```python",
+    "from weaveforge import track",
+    "",
+    'with track("resnet18-baseline", project="<project name>", config={"lr": 3e-4, "epochs": 10}) as run:',
+    "    for epoch in range(10):",
+    "        train_loss, val_loss = train_one_epoch()",
+    '        run.log_metrics({"train_loss": train_loss, "val_loss": val_loss}, step=epoch)',
+    '    run.log_figure(fig, name="confusion-matrix")  # matplotlib or plotly; needs weaveforge[figures]',
+    '    run.log_summary({"val_loss": val_loss})',
+    "```",
+    "Decorator form: @track_experiment(name=..., config=...) on a train(run, ...) function. Existing logs: track(..., sync={\"tensorboard\": \"runs/x\"}) or mirror=\"wandb\".",
+    "Runs show up live under Experiments in WeaveForge.",
+  ].join("\n");
+}
+
 function ok(id: JsonRpcResponse["id"], result: unknown): JsonRpcResponse {
   return { jsonrpc: "2.0", id, result };
 }
@@ -627,12 +678,18 @@ async function callTool(
   }
 }
 
+/** What tools/list answers for a token that may suggest; the bridge caches it for when the app is closed. */
+export function listedTools(withTracking: boolean): readonly unknown[] {
+  return withTracking ? [...TOOLS, TRACKING_TOOL] : TOOLS;
+}
+
 /** Answer one JSON-RPC request; a notification (no id) gets null and nothing is sent. */
 export async function routeMcpRequest(
   session: VaultSession,
   request: JsonRpcRequest,
   rank?: SemanticRanker,
   canSuggest = true,
+  tracking?: TrackingSetup,
 ): Promise<JsonRpcResponse | null> {
   const id = request.id ?? null;
   const params = request.params ?? {};
@@ -648,8 +705,10 @@ export async function routeMcpRequest(
       return null;
     case "ping":
       return ok(id, {});
-    case "tools/list":
-      return ok(id, { tools: canSuggest ? TOOLS : TOOLS.filter((t) => !t.name.startsWith("suggest_")) });
+    case "tools/list": {
+      const tools = canSuggest ? TOOLS : TOOLS.filter((t) => !t.name.startsWith("suggest_"));
+      return ok(id, { tools: tracking ? [...tools, TRACKING_TOOL] : tools });
+    }
     case "tools/call": {
       const name = typeof params.name === "string" ? params.name : "";
       const args = (params.arguments as Record<string, unknown> | undefined) ?? {};
@@ -658,6 +717,14 @@ export async function routeMcpRequest(
           isError: true,
           content: [{ type: "text", text: "This token may read only; it cannot leave drafts." }],
         });
+      if (name === TRACKING_TOOL.name) {
+        if (!tracking)
+          return ok(id, {
+            isError: true,
+            content: [{ type: "text", text: "This token cannot log experiments. Press Connect in WeaveForge again." }],
+          });
+        return ok(id, { content: [{ type: "text", text: await trackingSetup(tracking) }] });
+      }
       try {
         return ok(id, await callTool(session, name, args, rank));
       } catch (error) {

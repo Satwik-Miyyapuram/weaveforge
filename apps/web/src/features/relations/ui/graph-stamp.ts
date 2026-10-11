@@ -14,6 +14,21 @@ export interface StampStyle {
   font: string;
 }
 
+// measureText ran for every label on every simulation frame; labels and fonts repeat.
+const widths = new Map<string, number>();
+
+/** The label's width in the context's current font, cached by font and text. */
+export function textWidth(ctx: CanvasRenderingContext2D, label: string): number {
+  const key = `${ctx.font}\n${label}`;
+  let w = widths.get(key);
+  if (w === undefined) {
+    if (widths.size > 4000) widths.clear();
+    w = ctx.measureText(label).width;
+    widths.set(key, w);
+  }
+  return w;
+}
+
 const BRUTAL_THEMES = new Set(["brutal", "brutal-dark", "crt"]);
 
 /** The stamp style for the current theme, or null when the theme draws plain nodes. */
@@ -69,7 +84,7 @@ export function paintStampLabel(
   style: StampStyle,
 ): { x1: number; y1: number; x2: number; y2: number } {
   ctx.font = `700 ${fontSize}px ${style.font}`;
-  const w = ctx.measureText(label).width;
+  const w = textWidth(ctx, label);
   const padX = fontSize * 0.45;
   const padY = fontSize * 0.28;
   const box = { x1: x - w / 2 - padX, y1: y - fontSize - padY, x2: x + w / 2 + padX, y2: y + padY };

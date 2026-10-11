@@ -1578,7 +1578,15 @@
 .md-live:not(.md-live--side, .md-live--below) .md-live-editor {
   flex: 1;
 }
-.md-live-editor .workspace-editor {
+/* The collab wrapper must take the column's height, or CodeMirror grows past
+   it and only draws the lines inside the shell's clip box. */
+.md-live-host {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.md-live-host > .workspace-editor {
   flex: 1;
   min-height: 0;
 }
@@ -1983,10 +1991,6 @@
   cursor: pointer;
   transition: transform var(--dur-base) ease, box-shadow var(--dur-base) ease;
   flex-shrink: 0;
-}
-
-.ink-swatch:hover {
-  transform: scale(1.18);
 }
 
 .ink-swatch[aria-pressed="true"] {

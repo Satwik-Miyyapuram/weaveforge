@@ -6,15 +6,13 @@ import type { FeatureModule } from "@weaveforge/core";
  * sees them), so on the web those two commands are reached from the strip
  * and the explorer; everything else the workspace does works the same.
  *
- * `mobile: false` — it is a destination on the desktop sidebar and absent from
- * the phone bar and strip. A split pane needs width and a pointer; on a phone
- * the same documents are reached by opening them, which is what the strip is
- * for.
+ * No `navGroup`: it sits with Home and Search. `mobile: false` — absent from
+ * the phone bar, strip and swipe. A split pane needs width and a pointer; on a
+ * phone the same documents are reached by opening them.
  */
 export const editorWorkspaceModule: FeatureModule = {
   id: "editor-workspace",
   title: "Editor",
-  navGroup: "library",
   navItems: [
     { key: "editor-workspace", label: "Editor", path: "/workspace", icon: "pencil", mobile: false },
   ],

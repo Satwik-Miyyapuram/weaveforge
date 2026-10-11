@@ -5,6 +5,7 @@ import { formatError } from "@/lib/format-error";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
 import { LocalApiTokenCreate, LocalApiTokenTable, useLocalApiState } from "@/components/local-api-tokens";
+import { McpClients } from "./mcp-clients";
 
 /**
  * Settings → AI → MCP and the local HTTP surface, desktop only.
@@ -52,9 +53,8 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
         </p>
       ) : (
         <p className="muted">
-          Let an MCP client such as Claude or Codex read and search your Notes, over HTTP on this
-          computer only. The same address serves Obsidian&rsquo;s local REST routes and the Python
-          SDK. Nothing outside this computer can reach it.
+          Let an AI client read and search your workspace and leave drafts for you to approve.
+          Everything stays on this computer, and WeaveForge has to be open.
         </p>
       )}
       {error && <FormError>{error}</FormError>}
@@ -68,7 +68,8 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
         />
         {sdk ? "Serve the local API" : "Serve MCP"} at {state.url}
       </label>
-      {state.enabled && (
+      {!sdk && state.mcp && <McpClients state={state} onChange={setState} />}
+      {state.enabled && !(!sdk && state.mcp) && (
         <>
           {!sdk && (
             <div className="ai-connection-value">

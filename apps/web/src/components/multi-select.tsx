@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
+import { anchoredMenuStyle, useAnchoredMenu } from "@/lib/hooks/use-anchored-menu";
 import { ChevronIcon } from "@/components/chevron-icon";
 
 interface Option {
@@ -72,7 +74,11 @@ export function MultiSelect({
     if (restoreFocus) triggerRef.current?.focus();
   }, []);
 
-  useDismissOnOutside(open, () => close(false), ref);
+  // Portalled like `Select`'s: the phone filter row scrolls sideways and clipped an inline menu.
+  const { rect: menuRect, up, place } = useAnchoredMenu(open, triggerRef, listRef, 260);
+
+  // Both refs: a click in the portalled menu is otherwise "outside" the container.
+  useDismissOnOutside(open, () => close(false), [ref, listRef]);
 
   /**
    * Move focus onto the active row after it changes.
@@ -99,6 +105,7 @@ export function MultiSelect({
   function openAt(row: number) {
     focusOnActive.current = true;
     setActive(Math.max(0, Math.min(rowCount - 1, row)));
+    place();
     setOpen(true);
   }
 
@@ -174,7 +181,7 @@ export function MultiSelect({
         className="custom-select-button"
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-controls={open ? listboxId : undefined}
+        aria-controls={open && menuRect ? listboxId : undefined}
         aria-label={ariaLabel}
         // `detail === 0` is a click the browser synthesised from a key press.
         // The keydown handler above has already opened the menu by then, so
@@ -189,11 +196,12 @@ export function MultiSelect({
         <span className="custom-select-value">{summary}</span>
         <ChevronIcon />
       </button>
-      {open && (
+      {open && menuRect && createPortal(
         <div
           ref={listRef}
           id={listboxId}
-          className="custom-select-menu"
+          className={`custom-select-menu custom-select-menu--fixed${className ? ` ${className}` : ""}${up ? " up" : ""}`}
+          style={anchoredMenuStyle(menuRect)}
           role="listbox"
           aria-multiselectable="true"
           aria-label={ariaLabel}
@@ -237,7 +245,8 @@ export function MultiSelect({
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

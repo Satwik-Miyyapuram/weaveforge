@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { activeNavItem, groupForPath } from "@/registry";
+import { activeNavItem, groupForPath, phoneItems } from "@/registry";
 import { useNavGroups } from "@/lib/hooks/use-nav-groups";
 import { useNavPending } from "@/lib/nav-pending";
 
@@ -31,7 +31,7 @@ export function SwipeViews({
 
   const navGroups = useNavGroups();
   const group = groupForPath(pathname, navGroups);
-  const items = group?.items ?? [];
+  const items = phoneItems(group?.items ?? []);
   const current = activeNavItem(items, pathname);
   const idx = current ? items.indexOf(current) : -1;
 

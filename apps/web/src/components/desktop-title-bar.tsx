@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { desktop, type DesktopMenuGroup, type DesktopMenuItem } from "@/lib/desktop/desktop-bridge";
 import { openSearchPalette } from "./jump-to-palette";
@@ -58,6 +58,7 @@ export function DesktopTitleBar() {
   const [open, setOpen] = useState<number | null>(null);
   const [active, setActive] = useState<number>(-1);
   const barRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -140,6 +141,22 @@ export function DesktopTitleBar() {
     },
     [close, router],
   );
+
+  // Keep the open menu inside the window: slide left at the right edge, scroll when short.
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    const group = panel?.parentElement;
+    if (!panel || !group) return;
+    const fit = () => {
+      const at = group.getBoundingClientRect();
+      const room = window.innerWidth - 8 - at.left - panel.offsetWidth;
+      panel.style.left = `${Math.max(8 - at.left, Math.min(0, room))}px`;
+      panel.style.maxHeight = `${Math.max(120, window.innerHeight - at.bottom - 8)}px`;
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [open]);
 
   // Outside click and Esc close; arrows walk the menu the way a system one does.
   useEffect(() => {
@@ -245,7 +262,7 @@ export function DesktopTitleBar() {
               {group.label}
             </button>
             {open === index ? (
-              <div className="popover-panel title-bar-menu" role="menu" aria-label={group.label}>
+              <div ref={panelRef} className="popover-panel title-bar-menu" role="menu" aria-label={group.label}>
                 <ul className="card-menu-list">
                   {group.items.map((item, at) =>
                     item.kind === "separator" ? (

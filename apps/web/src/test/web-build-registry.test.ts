@@ -9,6 +9,6 @@ test("the editor workspace is in the web build, and the nav reaches it", async (
   const registry = buildModuleRegistry();
   const ids = registry.allModules.map((module) => module.id);
   assert.equal(ids.includes("editor-workspace"), true);
-  const paths = registry.navGroups.flatMap((group) => group.items.map((item) => item.path));
+  const paths = [...registry.topNavItems, ...registry.navGroups.flatMap((group) => group.items)].map((item) => item.path);
   assert.equal(paths.includes("/workspace"), true);
 });

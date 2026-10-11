@@ -86,8 +86,8 @@ const ROUTE_ALLOWANCES_KB = {
   // the AI review panel and the proposal executors it configures live in the
   // container every route boots, so every route carries their code: +1 KB.
   // Settings houses workspace folder mirror, git 3-way conflict resolution, and sync issues:
-  // Plus the local API token panel (create, table, revoke dialog) and DatePicker: +4 KB.
-  "/settings": 408,
+  // Plus the local API token panel, Connect panel for local AI clients (0.8.11), and DatePicker.
+  "/settings": 412,
   // graph and experiments share the top navigation with live sync status indicators;
   // experiments added the image viewer, result editor and token create form, and
   // graph shares the chunk that carries them: +3 KB each.
@@ -99,7 +99,8 @@ const ROUTE_ALLOWANCES_KB = {
   // queue and local-twin drop run on every page: +2 KB on the shell.
   // The account menu's lab switcher submenu: +1 KB.
   // Page transitions (lib/view-transition) run on every route: +1 KB.
-  "/layout": 347,
+  // Portalled anchored menus (Select/MultiSelect) and rAF scrollbar in shared layout: +2 KB.
+  "/layout": 350,
   "/dashboard": 346,
   // Lists screen carries reading lists, membership management, and EntityCardMenu:
   "/lists": 345,

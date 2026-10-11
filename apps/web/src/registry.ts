@@ -38,6 +38,8 @@ export interface ModuleRegistry {
   allModules: readonly FeatureModule[];
   navItems: NavItem[];
   homeNavItem: NavItem;
+  /** Ungrouped destinations, listed under Home and Search. */
+  topNavItems: NavItem[];
   navGroups: NavGroup[];
   webModules: readonly WebFeatureModule[];
 }
@@ -63,9 +65,13 @@ export function buildModuleRegistry(config: IntegrationConfig = readIntegrationC
     path: "/dashboard",
     icon: "home",
   };
+  const topNavItems = modules
+    .filter((m) => !m.navGroup)
+    .flatMap((m) => m.navItems)
+    .filter((item) => item.key !== homeNavItem.key);
   const navGroups = buildNavGroupsFromModules(modules);
   const webModules = [...modules, ...shellModules] as WebFeatureModule[];
-  return { modules, shellModules, allModules, navItems, homeNavItem, navGroups, webModules };
+  return { modules, shellModules, allModules, navItems, homeNavItem, topNavItems, navGroups, webModules };
 }
 
 export interface NavGroup {
@@ -106,6 +112,11 @@ export function groupForPath(
 ): NavGroup | undefined {
   if (!pathname) return undefined;
   return groups.find((g) => g.items.some((it) => pathname.startsWith(it.path)));
+}
+
+/** The views a phone shows of a group: the strip's tabs and the swipe's stops. */
+export function phoneItems<T extends { mobile?: boolean }>(items: readonly T[]): T[] {
+  return items.filter((it) => it.mobile !== false);
 }
 
 /** The item a path belongs to: exact or deepest `path/` prefix, so /report/overleaf is not also /report. */

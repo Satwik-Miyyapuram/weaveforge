@@ -4,7 +4,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties
 import { createPortal } from "react-dom";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { ChevronIcon } from "./chevron-icon";
-import { focusFirstField } from "./modal";
+import { focusFirstControl, focusFirstField } from "./modal";
 
 const VIEWPORT_PAD = 12;
 
@@ -53,6 +53,7 @@ export function Popover({
   const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const openedByPointer = useRef(false);
   const panelId = useId();
   const [panelPos, setPanelPos] = useState<CSSProperties>({ visibility: "hidden" });
 
@@ -116,7 +117,8 @@ export function Popover({
   useEffect(() => {
     if (!shown) return;
     const trigger = triggerRef.current;
-    focusFirstField(panelRef.current);
+    // A click leaves focus on the panel so no row wears the keyboard ring; a key press enters the first row.
+    focusFirstField(panelRef.current, { buttons: !openedByPointer.current });
     return () => trigger?.focus();
   }, [shown]);
 
@@ -132,7 +134,10 @@ export function Popover({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={panelId}
-        onClick={() => setOpen((v) => !v)}
+        onClick={(e) => {
+          openedByPointer.current = e.detail > 0;
+          setOpen((v) => !v);
+        }}
       >
         {label}
         {count ? <span className="popover-badge">{count}</span> : null}
@@ -149,6 +154,12 @@ export function Popover({
               aria-label={ariaLabel}
               tabIndex={-1}
               style={panelPos}
+              onKeyDown={(e) => {
+                if (e.target === e.currentTarget && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+                  e.preventDefault();
+                  focusFirstControl(e.currentTarget);
+                }
+              }}
             >
               {typeof children === "function" ? children(() => setOpen(false)) : children}
             </div>

@@ -8,9 +8,14 @@ const FIELD =
   '[autofocus],[data-autofocus],textarea:not([disabled]),input:not([type=hidden]):not([disabled]),select:not([disabled])';
 
 /** Focus the first field in `root` so typing starts at once; buttons only when there is no field. */
-export function focusFirstField(root: HTMLElement | null) {
+export function focusFirstField(root: HTMLElement | null, { buttons = true }: { buttons?: boolean } = {}) {
   if (!root || root.contains(document.activeElement)) return;
-  (root.querySelector<HTMLElement>(FIELD) ?? root.querySelector<HTMLElement>(FOCUSABLE) ?? root).focus();
+  (root.querySelector<HTMLElement>(FIELD) ?? (buttons ? root.querySelector<HTMLElement>(FOCUSABLE) : null) ?? root).focus();
+}
+
+/** Focus the first focusable control in `root`. */
+export function focusFirstControl(root: HTMLElement | null) {
+  root?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
 }
 
 /** A dialog's closing choices, Cancel first and the primary last: a right-hand row on desktop, equal buttons on phones. */

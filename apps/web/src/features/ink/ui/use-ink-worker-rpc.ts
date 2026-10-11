@@ -48,6 +48,9 @@ export interface InkSheetInk {
   ids: readonly number[];
 }
 
+/** A page's save: its chunk bytes, the page it was for, and whether it is now empty. */
+export type InkSave = { bytes: Uint8Array | null; pageIndex: number; cleared: boolean };
+
 export function useInkWorkerRpc(deps: InkWorkerRpcDeps) {
   const sendRef = deps.sendRef;
   const send = useCallback(
@@ -67,7 +70,7 @@ export function useInkWorkerRpc(deps: InkWorkerRpcDeps) {
   const [sheetInk, setSheetInk] = useState<InkSheetInk | null>(null);
   const requestSeq = useRef(0);
   const pendingModel = useRef(new Map<number, (page: InkPage) => void>());
-  const pendingSave = useRef(new Map<number, (bytes: Uint8Array | null) => void>());
+  const pendingSave = useRef(new Map<number, (save: InkSave) => void>());
   const pendingExport = useRef(new Map<number, (png: Blob | null) => void>());
 
   /** The worker's non-pen replies, matched to what asked for them. */
@@ -90,7 +93,11 @@ export function useInkWorkerRpc(deps: InkWorkerRpcDeps) {
         pendingModel.current.delete(event.requestId);
         break;
       case "page-saved":
-        pendingSave.current.get(event.requestId)?.(event.bytes);
+        pendingSave.current.get(event.requestId)?.({
+          bytes: event.bytes,
+          pageIndex: event.pageIndex,
+          cleared: event.cleared,
+        });
         pendingSave.current.delete(event.requestId);
         break;
       case "exported":
@@ -123,7 +130,7 @@ export function useInkWorkerRpc(deps: InkWorkerRpcDeps) {
 
   /** A request the worker answers by id: the page's chunk bytes. */
   const requestSave = useCallback(() => {
-    return new Promise<Uint8Array | null>((resolve) => {
+    return new Promise<InkSave>((resolve) => {
       const requestId = ++requestSeq.current;
       pendingSave.current.set(requestId, resolve);
       send({ type: "save-page", requestId });

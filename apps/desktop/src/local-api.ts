@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
-import { routeMcpRequest, type JsonRpcRequest, type SemanticRanker } from "./local-mcp";
+import { routeMcpRequest, type JsonRpcRequest, type SemanticRanker, type TrackingSetup } from "./local-mcp";
 import type { SaveArtifact } from "./local-artifacts";
 import { routeSdkRequest, SDK_PREFIX, type SdkQuery } from "./local-sdk-api";
 import type { VaultSession } from "./vault-handlers";
@@ -76,6 +76,8 @@ export interface LocalApiGrant {
   hash: string;
   permissions: readonly LocalApiPermission[];
   expiresAt: string | null;
+  /** Epoch ms of the last request it authorised; in memory only, for "last used". */
+  usedAt?: number;
 }
 
 /** What a token may reach: SDK routes, the Obsidian-style REST routes, MCP. */
@@ -100,11 +102,12 @@ export function grantPermissions(
   if (!offered) return null;
   const a = createHash("sha256").update(offered).digest();
   let found: ReadonlySet<LocalApiPermission> | null = null;
-  for (const grant of expected) {
+  for (const grant of expected as LocalApiGrant[]) {
     const b = Buffer.from(grant.hash, "hex");
     if (a.length !== b.length || !timingSafeEqual(a, b)) continue;
     if (grant.expiresAt && Date.parse(grant.expiresAt) <= now) continue;
     found = new Set(grant.permissions);
+    grant.usedAt = now;
   }
   return found;
 }
@@ -165,6 +168,24 @@ async function simpleSearch(session: VaultSession, query: string): Promise<Local
   return json(200, await searchVault(session, query));
 }
 
+/** Where Connect left the token, and the address the SDK should use. */
+export interface McpHome {
+  apiUrl: string;
+  tokenFile: string;
+}
+
+/** Experiment tracking help for agents whose token may also log runs. */
+function trackingFor(may: ReadonlySet<LocalApiPermission>, query?: SdkQuery, mcp?: McpHome): TrackingSetup | undefined {
+  if (!mcp || !query || !may.has("experiments")) return undefined;
+  return {
+    ...mcp,
+    projects: async () => {
+      const rows = await query("select name from projects order by name", []);
+      return rows.ok ? (rows.value as { name: unknown }[]).map((r) => String(r.name)) : [];
+    },
+  };
+}
+
 /**
  * Answer one request.
  *
@@ -179,6 +200,7 @@ export async function routeLocalRequest(
   query?: SdkQuery,
   rank?: SemanticRanker,
   saveArtifact?: SaveArtifact,
+  mcp?: McpHome,
 ): Promise<LocalApiResponse> {
   const may = grantPermissions(request.authorization, expected);
   if (!may) return fail(401, UNAUTHORIZED);
@@ -205,7 +227,7 @@ export async function routeLocalRequest(
     } catch {
       return json(400, { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Not JSON." } });
     }
-    const answer = await routeMcpRequest(session, parsed, rank, may.has("mcp:suggest"));
+    const answer = await routeMcpRequest(session, parsed, rank, may.has("mcp:suggest"), trackingFor(may, query, mcp));
     // A notification is answered with no body at all, which is what a client
     // sending `notifications/initialized` waits for.
     return answer === null

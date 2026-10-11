@@ -250,16 +250,18 @@ export function DocumentHost({
       // The metrics report runs only where the pane asked for one; the live
       // text is always kept, because the preview is always one toggle away.
       const inner = metricsAsked ? watch(view) : undefined;
-      const onInput = () => setLiveBody(view.state.doc.toString());
-      onInput();
-      view.dom.addEventListener("input", onInput);
-      return () => {
-        view.dom.removeEventListener("input", onInput);
-        inner?.();
-      };
+      setLiveBody(view.state.doc.toString());
+      return inner;
     },
     [metricsAsked, watch],
   );
+  // Paste, undo and remote edits never fire a DOM input event, so the live
+  // text follows CodeMirror's own change report.
+  const onDocChange = useCallback((view: EditorView) => {
+    const text = view.state.doc.toString();
+    setLiveBody(text);
+    metricsRef.current?.({ text, cursor: cursorAt(view) });
+  }, []);
   const [previewMode, choosePreview] = useMdPreviewMode();
 
   const imagePaste = useMemo<ImagePasteConfig | undefined>(() => {
@@ -426,8 +428,10 @@ export function DocumentHost({
         initialBody={body}
         onSave={onSave}
         markdownEditing={markdownEditing}
+        className="md-live-host"
         editorClassName="workspace-editor"
         onViewCreated={liveWatch}
+        onDocChange={onDocChange}
         handleRef={handleRef}
       />
     </LivePreview>

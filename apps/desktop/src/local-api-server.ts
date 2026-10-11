@@ -5,6 +5,7 @@ import { createServer, type Server } from "node:http";
 import {
   LOCAL_API_PERMISSIONS,
   routeLocalRequest,
+  type McpHome,
   type LocalApiGrant,
   type LocalApiPermission,
   type LocalApiRequest,
@@ -79,6 +80,7 @@ export function startLocalApi(
   query?: SdkQuery,
   rank?: SemanticRanker,
   saveArtifact?: SaveArtifact,
+  mcp?: McpHome,
 ): Promise<LocalApi> {
   const server: Server = createServer((req, res) => {
     if (!isLoopbackHost(req.headers.host, LOCAL_API_PORT)) {
@@ -165,7 +167,7 @@ export function startLocalApi(
         authorization: req.headers.authorization,
         body: Buffer.concat(chunks).toString("utf8"),
       };
-      void routeLocalRequest(session, request, token(), query, rank, saveArtifact)
+      void routeLocalRequest(session, request, token(), query, rank, saveArtifact, mcp)
         .then((answer) => {
           // No CORS header at all, deliberately.
           //

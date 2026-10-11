@@ -179,6 +179,7 @@ test("save-page packs the page and load-page brings it back", async () => {
   const saved = last("page-saved");
   assert.equal(saved.requestId, 7);
   assert.equal(saved.strokes, 2);
+  assert.equal(saved.cleared, false);
   assert.ok(saved.bytes);
   const page = pageFromChunk(await decodeInkChunk(saved.bytes));
   assert.equal(page.strokes.length, 2);
@@ -197,6 +198,33 @@ test("an empty page saves as no bytes", async () => {
   send({ type: "save-page", requestId: 1 });
   await settle();
   assert.equal(last("page-saved").bytes, null);
+});
+
+test("an emptied loaded page saves as cleared", async () => {
+  fresh();
+  draw(10, 50);
+  send({ type: "erase", from: { x: 70, y: 20 }, to: { x: 70, y: 80 } });
+  assert.equal(last("page-state").strokes, 0);
+  send({ type: "save-page", requestId: 2 });
+  await settle();
+  const saved = last("page-saved");
+  assert.equal(saved.bytes, null);
+  assert.equal(saved.cleared, true);
+});
+
+test("a page still loading never reports cleared", async () => {
+  fresh();
+  draw(10, 50);
+  send({ type: "save-page", requestId: 1 });
+  await settle();
+  const bytes = last("page-saved").bytes;
+  assert.ok(bytes);
+  fresh();
+  send({ type: "load-page", pageIndex: 1, chunk: bytes });
+  send({ type: "save-page", requestId: 2 });
+  await settle();
+  assert.equal(last("page-saved").requestId, 2);
+  assert.equal(last("page-saved").cleared, false);
 });
 
 test("replace-page swaps the model and page-model answers with the current one", () => {

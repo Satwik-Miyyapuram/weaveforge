@@ -53,6 +53,8 @@ interface AnnotationOverlayProps {
   textEdit?: TextEdit | null;
   onTextCommit?: (text: string) => void;
   onTextCancel?: () => void;
+  /** Double-click on a text box: edit it. */
+  onEditText?: (id: string) => void;
 }
 
 /** A text box open for typing: an existing one by id, or a new one (id null). */
@@ -101,6 +103,7 @@ function AnnotationOverlayInner({
   textEdit = null,
   onTextCommit,
   onTextCancel,
+  onEditText,
 }: AnnotationOverlayProps) {
   // Projection is the reader's per-frame cost: ~1.7 ms for a page holding 100
   // ink annotations, 6.5 ms at 400. Drawing a stroke re-renders this component
@@ -220,6 +223,7 @@ function AnnotationOverlayInner({
               borderLeft: box.text != null ? `3px solid ${box.color}` : undefined,
               fontSize: box.text != null ? 11 * scale : undefined,
             }}
+            onDoubleClick={box.text != null && onEditText ? () => onEditText(box.id) : undefined}
             onClick={(event) => {
               if (typeof document !== "undefined") {
                 const elements = document.elementsFromPoint(event.clientX, event.clientY);

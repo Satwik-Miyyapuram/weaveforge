@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useNavPending } from "@/lib/nav-pending";
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
-import { activeNavItem, groupForPath } from "@/registry";
+import { activeNavItem, groupForPath, phoneItems } from "@/registry";
 import { useNavGroups } from "@/lib/hooks/use-nav-groups";
 import { prefetchScreenForPath } from "@/lib/cache/prefetch-screen";
 
@@ -24,7 +24,7 @@ export function SubNav() {
   const group = groupForPath(pathname, navGroups);
   // A view that declared itself out of the mobile bar is out of the strip too:
   // they are the same set of destinations seen two ways. See `NavItem.mobile`.
-  const items = group?.items.filter((it) => it.mobile !== false) ?? [];
+  const items = phoneItems(group?.items ?? []);
   const multi = items.length > 1;
   const activeItem = activeNavItem(items, pathname);
   const warmPath = useCallback((href: string) => {
