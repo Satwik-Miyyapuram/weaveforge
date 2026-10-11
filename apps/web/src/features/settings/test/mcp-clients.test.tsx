@@ -30,7 +30,7 @@ const on: DesktopLocalApi = {
 
 const render = (state: DesktopLocalApi, initialTab?: "codex") =>
   renderToStaticMarkup(createElement(McpClients, { state, onChange() {}, initialTab }));
-const text = (html: string) => html.replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+const text = (html: string) => html.split(/<[^>]+>/).join("").replaceAll("&quot;", '"').replaceAll("&amp;", "&");
 
 describe("McpClients", () => {
   it("not connected: one Connect, no client tabs", () => {
