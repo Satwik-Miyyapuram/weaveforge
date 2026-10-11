@@ -286,68 +286,8 @@ input[type="range"]::-moz-range-thumb {
   border: 2px solid var(--surface);
   box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 18%, transparent);
 }
-/* Native checkboxes restyled to match ms-check / theme tokens. */
-input[type="checkbox"].themed-check,
-label.graph-check input[type="checkbox"],
-label.mp-row input[type="checkbox"],
-.cmp-table input[type="checkbox"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
-  min-width: 16px;
-  margin: 0;
-  padding: 0;
-  flex: none;
-  border-radius: 5px;
-  border: 1.5px solid var(--line);
-  background: var(--surface2);
-  cursor: pointer;
-  position: relative;
-  vertical-align: middle;
-  transition: background var(--dur-base) ease, border-color var(--dur-base) ease, box-shadow var(--dur-base) ease;
-}
+/* Checkbox alignment for graph drawer labels; full styling handled by states.css */
 label.graph-check input[type="checkbox"] { margin: 2px 0 0; }
-input[type="checkbox"].themed-check:hover:not(:checked),
-label.graph-check input[type="checkbox"]:hover:not(:checked),
-label.mp-row input[type="checkbox"]:hover:not(:checked),
-.cmp-table input[type="checkbox"]:hover:not(:checked) {
-  border-color: var(--border-strong);
-  background: var(--chip);
-}
-input[type="checkbox"].themed-check:checked,
-label.graph-check input[type="checkbox"]:checked,
-label.mp-row input[type="checkbox"]:checked,
-.cmp-table input[type="checkbox"]:checked {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-input[type="checkbox"].themed-check:checked::after,
-label.graph-check input[type="checkbox"]:checked::after,
-label.mp-row input[type="checkbox"]:checked::after,
-.cmp-table input[type="checkbox"]:checked::after {
-  content: "✓";
-  position: absolute;
-  inset: 0;
-  color: var(--accent-fg);
-  font-size: 11px;
-  line-height: 14px;
-  text-align: center;
-}
-input[type="checkbox"].themed-check:focus-visible,
-label.graph-check input[type="checkbox"]:focus-visible,
-label.mp-row input[type="checkbox"]:focus-visible,
-.cmp-table input[type="checkbox"]:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-input[type="checkbox"].themed-check:disabled,
-label.graph-check input[type="checkbox"]:disabled,
-label.mp-row input[type="checkbox"]:disabled,
-.cmp-table input[type="checkbox"]:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
 
 /*
  * The primary action.

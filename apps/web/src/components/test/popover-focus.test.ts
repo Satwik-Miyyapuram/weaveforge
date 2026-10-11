@@ -67,3 +67,17 @@ test("the title-bar menu drops from its button at every width and is fitted to t
   assert.match(bar, /panel\.style\.left = /);
   assert.match(bar, /panel\.style\.maxHeight = /);
 });
+
+test("checkbox checkmarks are centered and forms.css has no legacy tick collision", () => {
+  const styles = (f: string) => readFileSync(fileURLToPath(new URL(`../../app/styles/${f}`, import.meta.url)), "utf8");
+  const forms = styles("forms.css");
+  const states = styles("states.css");
+
+  // forms.css must not define a legacy unicode tick or inset: 0 on checkboxes that breaks positioning
+  assert.doesNotMatch(forms, /input\[type="checkbox"\]\.themed-check/);
+  assert.doesNotMatch(forms, /\.themed-check:checked::after/);
+
+  // states.css centers the checkmark using translate and position
+  assert.match(states, /:is\(\.wf-check, \.themed-check, \.milestone-check\)[^{]*::after\s*\{[^}]*left:\s*50%;\s*top:\s*45%;[^}]*translate:\s*-50%\s*-50%;/);
+  assert.match(states, /:is\(\.wf-check, \.themed-check, \.milestone-check\)[^{]*:is\(:checked, :indeterminate\)\s*\{[^}]*border-color:\s*var\(--accent\);/);
+});

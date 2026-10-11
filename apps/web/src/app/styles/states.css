@@ -269,22 +269,22 @@
 :root:root :is(.wf-toggle, .appearance-switch):checked:is(:hover, [data-force~="hover"]):not(:disabled) { background-color: color-mix(in srgb, var(--text) var(--wf-hover-pct), var(--accent)); }
 
 /* ---------- Checkbox and radio (native inputs) ---------- */
-:root:root :is(.wf-check, .themed-check, .milestone-check), :root:root .wf-radio {
+:root:root :is(.wf-check, .themed-check, .milestone-check):not([role="switch"], .appearance-switch, .wf-toggle), :root:root .wf-radio {
   appearance: none; position: relative; flex: none; width: 18px; height: 18px; margin: 0; box-sizing: border-box;
   border: var(--wf-bw) solid var(--wf-line); background: var(--surface); cursor: pointer; scale: 1;
-  transition: background-color var(--wf-t) var(--wf-ease), scale var(--wf-t) var(--wf-ease-hover);
+  transition: background-color var(--wf-t) var(--wf-ease), border-color var(--wf-t) var(--wf-ease), scale var(--wf-t) var(--wf-ease-hover);
 }
-:root:root :is(.wf-check, .themed-check, .milestone-check) { border-radius: max(2px, calc(var(--wf-rm) - 2px)); }
+:root:root :is(.wf-check, .themed-check, .milestone-check):not([role="switch"], .appearance-switch, .wf-toggle) { border-radius: max(2px, calc(var(--wf-rm) - 2px)); }
 :root:root .wf-radio { border-radius: 50%; }
-:root:root :is(:is(.wf-check, .themed-check, .milestone-check), .wf-radio):is(:hover, [data-force~="hover"]):not(:disabled) { background-color: color-mix(in srgb, var(--text) var(--wf-hover-pct), var(--surface)); }
-:root:root :is(:is(.wf-check, .themed-check, .milestone-check), .wf-radio):is(:active, [data-force~="press"]):not(:disabled) { scale: .92; transition-duration: var(--wf-t-press); }
-:root:root :is(.wf-check, .themed-check, .milestone-check)::after {
+:root:root :is(:is(.wf-check, .themed-check, .milestone-check):not([role="switch"], .appearance-switch, .wf-toggle), .wf-radio):is(:hover, [data-force~="hover"]):not(:disabled) { background-color: color-mix(in srgb, var(--text) var(--wf-hover-pct), var(--surface)); }
+:root:root :is(:is(.wf-check, .themed-check, .milestone-check):not([role="switch"], .appearance-switch, .wf-toggle), .wf-radio):is(:active, [data-force~="press"]):not(:disabled) { scale: .92; transition-duration: var(--wf-t-press); }
+:root:root :is(.wf-check, .themed-check, .milestone-check):not([role="switch"], .appearance-switch, .wf-toggle)::after {
   content: ""; position: absolute; left: 50%; top: 45%; width: 4px; height: 8px; border: solid var(--accent-fg);
   border-width: 0 2px 2px 0; translate: -50% -50%; rotate: 45deg; scale: 0; transition: scale var(--wf-t) var(--wf-ease-hover);
 }
-:root:root :is(.wf-check, .themed-check, .milestone-check):is(:checked, :indeterminate) { background-color: var(--accent); }
-:root:root :is(.wf-check, .themed-check, .milestone-check):checked::after { scale: 1; }
-:root:root :is(.wf-check, .themed-check, .milestone-check):indeterminate::after { top: 50%; width: 8px; height: 0; border-width: 0 0 2px 0; rotate: 0deg; scale: 1; }
+:root:root :is(.wf-check, .themed-check, .milestone-check):not([role="switch"], .appearance-switch, .wf-toggle):is(:checked, :indeterminate) { background-color: var(--accent); border-color: var(--accent); }
+:root:root :is(.wf-check, .themed-check, .milestone-check):not([role="switch"], .appearance-switch, .wf-toggle):checked::after { scale: 1; }
+:root:root :is(.wf-check, .themed-check, .milestone-check):not([role="switch"], .appearance-switch, .wf-toggle):indeterminate::after { top: 50%; width: 8px; height: 0; border-width: 0 0 2px 0; rotate: 0deg; scale: 1; }
 :root:root .wf-radio::after {
   content: ""; position: absolute; inset: 0; margin: auto; width: 8px; height: 8px; border-radius: 50%;
   background: var(--wf-accent-ink); scale: 0; transition: scale var(--wf-t) var(--wf-ease-hover);
