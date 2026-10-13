@@ -191,6 +191,17 @@ export class Outbox {
     );
   }
 
+  /** Send an edit again as the insert the server never got; its payload is the whole row. */
+  async reinsert(opId: string, reason: string): Promise<void> {
+    await this.sql.exec(
+      `update sync_outbox
+          set op = 'insert', base_version = null, base_payload = null,
+              attempts = attempts + 1, last_error = $2
+        where op_id = $1`,
+      [opId, reason],
+    );
+  }
+
   /**
    * The attempt failed. Record why, and stop retrying once that has happened
    * enough times — the entry stays, so it can be shown and retried by hand.
@@ -203,6 +214,18 @@ export class Outbox {
               dead_at = case when attempts + 1 >= $3 then now() else null end
         where op_id = $1`,
       [opId, reason, OUTBOX_MAX_ATTEMPTS],
+    );
+  }
+
+  /**
+   * The attempt failed for a reason that can pass, such as a parent row the
+   * server does not hold yet. Record why, but never stop retrying: given up on,
+   * the row would stay off the server after the parent went up.
+   */
+  async wait(opId: string, reason: string): Promise<void> {
+    await this.sql.exec(
+      "update sync_outbox set attempts = attempts + 1, last_error = $2, dead_at = null where op_id = $1",
+      [opId, reason],
     );
   }
 

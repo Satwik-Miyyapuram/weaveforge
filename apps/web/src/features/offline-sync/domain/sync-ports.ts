@@ -30,8 +30,18 @@ export type SendOutcome =
       serverVersion: number | null;
       /** The server's row when it could be read, so the merge need not wait for a pull. */
       serverRow?: Record<string, unknown> | null;
+      /**
+       * With `serverRow: null`: whether the server records deleting this row.
+       * `false` means it never got it; left out when that could not be read.
+       */
+      deletedElsewhere?: boolean;
     }
-  | { status: "refused"; reason: string }
+  /**
+   * `awaitingParent`: refused because a row this one points at is not on the
+   * server yet. That can change (the parent goes up later, from here or from
+   * another device), so the op is retried without ever being given up on.
+   */
+  | { status: "refused"; reason: string; awaitingParent?: boolean }
   | { status: "offline" };
 
 export interface RemoteChange {
