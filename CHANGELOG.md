@@ -22,6 +22,19 @@ tracks at once.
 
 ### iOS
 
+## [0.8.12] - 2026-10-13
+
+Desktop (`v0.8.12`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+
+### Desktop
+- **Fixed:** Delete account works in the desktop app: the shell relays both confirmation steps to the server instead of answering with its 404 page.
+- **Fixed:** Joining a lab no longer stalls, and the delete-account confirmation code arrives.
+- **Fixed:** Accepting the privacy notice no longer leaves you stuck at it when your lab data fails to load.
+- **Fixed:** A selection that crosses lines no longer paints its highlight twice.
+- **Added:** Zotero annotations sync both ways with the app's own annotations.
+- **Changed:** The PDF reader uses the shared ink toolbar, with one colour palette, a floating bar in full screen, and fit page and fit width based on the PDF page.
+- **Fixed:** Checkbox checkmarks are centred.
+
 ## [0.8.11] - 2026-10-10
 
 Desktop (`v0.8.11`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
