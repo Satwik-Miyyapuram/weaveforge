@@ -6,10 +6,6 @@ import type {
   ManageTagsUseCase,
   PushPaperToZoteroUseCase,
 } from "@weaveforge/core";
-import {
-  applyBibliographyAnnotations,
-  ZOTERO_ATTACHMENT_KEY,
-} from "@/integrations/providers/zotero/bibliography-integration";
 import type {
   ZoteroAnnotationPusher,
   ZoteroAnnotationWriteBackSummary,
@@ -61,6 +57,11 @@ export class ZoteroFacade {
   async syncBibliography() {
     const library = await this.deps.bibliography.syncLibrary();
     const pulled = await this.deps.bibliography.pullAnnotations();
+    // Loaded on Sync, not with the facade: every route boots the container, and
+    // the merge (with the note-tag helpers it pulls in) is only needed here.
+    const { applyBibliographyAnnotations } = await import(
+      "@/integrations/providers/zotero/apply-bibliography-annotations"
+    );
     const annotations = await applyBibliographyAnnotations(
       pulled,
       this.deps.papers,
@@ -80,9 +81,10 @@ export class ZoteroFacade {
     if (this.deps.bibliography.providerId !== "zotero") return null;
     const creds = await this.deps.zoteroCredentials();
     if (!creds.apiKey || !creds.library) return null;
-    const { writeBackZoteroAnnotations } = await import(
-      "@/features/reader/application/write-back-zotero-annotations"
-    );
+    const [{ writeBackZoteroAnnotations }, { ZOTERO_ATTACHMENT_KEY }] = await Promise.all([
+      import("@/features/reader/application/write-back-zotero-annotations"),
+      import("@/integrations/providers/zotero/apply-bibliography-annotations"),
+    ]);
     const pusher = await (this.deps.annotationPusher ?? (() => this.defaultPusher()))();
     return writeBackZoteroAnnotations({
       papers: await this.deps.papers.list(),

@@ -4,7 +4,7 @@ import type { BibliographyAnnotation, Paper } from "@weaveforge/core";
 import {
   applyBibliographyAnnotations,
   ZOTERO_ATTACHMENT_KEY,
-} from "../providers/zotero/bibliography-integration";
+} from "../providers/zotero/apply-bibliography-annotations";
 
 function store(papers: Paper[]) {
   const saved: Paper[] = [];
