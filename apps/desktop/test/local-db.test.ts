@@ -78,4 +78,18 @@ describe("the local database", () => {
     const { rows } = await client.query<{ id: string }>("select id from auth.users");
     assert.deepEqual(rows.map((r) => r.id), [LOCAL_USER_ID]);
   });
+
+  it("recovers when the connection was left in an aborted transaction", async () => {
+    const { db, client } = await open();
+    opened.push(client);
+    await db.migrate(LOCAL_BOOTSTRAP_SQL, MIGRATIONS);
+    await db.ensureLocalUser();
+    // An explicit BEGIN that failed and was never rolled back. PGlite's
+    // transaction() sends its own BEGIN outside its try block, so before the
+    // fix every query after this failed with "current transaction is aborted".
+    await assert.rejects(client.exec("begin; select 1/0;"));
+    await db.query("insert into notes (body) values ($1)", ["after"]);
+    const { rows } = await db.query<{ body: string }>("select body from notes");
+    assert.deepEqual(rows.map((r) => r.body), ["after"]);
+  });
 });

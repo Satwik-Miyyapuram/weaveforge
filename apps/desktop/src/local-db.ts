@@ -82,15 +82,38 @@ export class LocalDatabase {
    */
   async query<T>(sql: string, params: unknown[] = [], userId?: string | null): Promise<LocalQueryResult<T>> {
     const claims = sessionClaims(userId === undefined ? LOCAL_USER_ID : userId);
-    return this.client.transaction(async (tx) => {
-      // Transaction-local, so the claim, the role and the query travel
-      // together; set outside one, they are gone before the query runs.
-      await tx.query(
-        "select set_config('request.jwt.claims', $1, true), set_config('role', 'authenticated', true)",
-        [claims],
-      );
-      return tx.query<T>(sql, params);
-    });
+    return this.recovering(() =>
+      this.client.transaction(async (tx) => {
+        // Transaction-local, so the claim, the role and the query travel
+        // together; set outside one, they are gone before the query runs.
+        await tx.query(
+          "select set_config('request.jwt.claims', $1, true), set_config('role', 'authenticated', true)",
+          [claims],
+        );
+        return tx.query<T>(sql, params);
+      }),
+    );
+  }
+
+  /**
+   * Run `fn`, and if the connection was found stuck in a failed transaction,
+   * roll it back and run `fn` once more.
+   *
+   * PGlite is one connection for the whole app, and its `transaction()` sends
+   * BEGIN before its own try block: once anything leaves that connection in an
+   * aborted transaction, every later BEGIN fails and nothing ever sends the
+   * ROLLBACK that would end it. Every query then reports "current transaction
+   * is aborted" until the app restarts. Retrying is safe because that error
+   * means this statement never ran.
+   */
+  private async recovering<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (error) {
+      if (!isAbortedTransaction(error)) throw error;
+      await this.client.exec("rollback");
+      return fn();
+    }
   }
 
   /**
@@ -102,10 +125,10 @@ export class LocalDatabase {
    * can disagree with the database.
    */
   async ensureLocalUser(): Promise<void> {
-    await this.client.query(
+    await this.recovering(() => this.client.query(
       `insert into auth.users (id, email) values ($1, $2) on conflict (id) do nothing`,
       [LOCAL_USER_ID, "local@weaveforge.invalid"],
-    );
+    ));
   }
 
   /**
@@ -119,8 +142,10 @@ export class LocalDatabase {
    */
   async deviceUser(): Promise<string> {
     try {
-      const { rows } = await this.client.query<{ account_id: string | null }>(
-        "select account_id from sync_state limit 1",
+      // Recovering first: a stuck connection would otherwise answer "never
+      // synced" and the device would quietly read as the wrong user.
+      const { rows } = await this.recovering(() =>
+        this.client.query<{ account_id: string | null }>("select account_id from sync_state limit 1"),
       );
       return rows[0]?.account_id ?? LOCAL_USER_ID;
     } catch {
@@ -136,4 +161,11 @@ export class LocalDatabase {
   async close(): Promise<void> {
     await this.client.close();
   }
+}
+
+/** Postgres's 25P02: the connection is inside a transaction that already failed. */
+function isAbortedTransaction(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const { code, message } = error as { code?: unknown; message?: unknown };
+  return code === "25P02" || (typeof message === "string" && message.startsWith("current transaction is aborted"));
 }
