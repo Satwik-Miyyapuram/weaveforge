@@ -341,9 +341,8 @@ export function PaperNote({
           {!readOnly && (
             <ShareButton resourceType="paper" resourceId={paper.id} title={`Share: ${paper.title}`} showLabel />
           )}
-          <a href="#record-comments" className="record-action">
+          <a href="#record-comments" className="btn-ghost wf-tool" aria-label="Comment" title="Comment">
             <CommentsIcon />
-            <span>Comment</span>
           </a>
           {!readOnly && (
             <button

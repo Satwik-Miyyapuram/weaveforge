@@ -749,6 +749,10 @@
 :is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-tool,
 :is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-page-pill .ink-tool,
 .pdf-reader.is-focus .ink-palette .ink-tool { width: 36px; height: 36px; }
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-tool.ink-menu-trigger,
+.pdf-reader.is-focus .ink-palette .ink-tool.ink-menu-trigger { width: auto; }
+:is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-zoom-pct,
+.pdf-reader.is-focus .ink-palette .ink-zoom-pct { height: 36px; }
 :is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-tool svg,
 .pdf-reader.is-focus .ink-palette .ink-tool svg { width: 18px; height: 18px; }
 :is(.workspace-shell, .record-ink-focus).is-focus .ink-palette .ink-bar-group,
@@ -1883,6 +1887,11 @@
   background: currentColor;
 }
 
+/* A highlighter's nib is a chisel: its size is the stripe's height. */
+.ink-nib-dot.ink-nib-bar {
+  border-radius: 1px;
+}
+
 .ink-swatches {
   display: inline-flex;
   align-items: center;
@@ -1998,12 +2007,12 @@
   transform: scale(1.1);
 }
 
-.ink-swatch-text { background: var(--text); }
-.ink-swatch-accent { background: var(--accent); }
-.ink-swatch-warn { background: var(--s-warn); }
-.ink-swatch-good { background: var(--s-good); }
-.ink-swatch-info { background: var(--s-info); }
-.ink-swatch-danger { background: var(--s-danger); }
+.ink-swatch-text { --sw: var(--text); }
+.ink-swatch-accent { --sw: var(--accent); }
+.ink-swatch-warn { --sw: var(--s-warn); }
+.ink-swatch-good { --sw: var(--s-good); }
+.ink-swatch-info { --sw: var(--s-info); }
+.ink-swatch-danger { --sw: var(--s-danger); }
 
 /* The marker colours: the reader's eight, fixed hex in every theme, so a
    yellow highlight on a note is the yellow on a paper. The ink renderer reads
@@ -2018,14 +2027,14 @@
   --ink-orange: #f19837;
   --ink-grey: #aaaaaa;
 }
-.ink-swatch-yellow { background: var(--ink-yellow); }
-.ink-swatch-red { background: var(--ink-red); }
-.ink-swatch-green { background: var(--ink-green); }
-.ink-swatch-blue { background: var(--ink-blue); }
-.ink-swatch-purple { background: var(--ink-purple); }
-.ink-swatch-pink { background: var(--ink-pink); }
-.ink-swatch-orange { background: var(--ink-orange); }
-.ink-swatch-grey { background: var(--ink-grey); }
+.ink-swatch-yellow { --sw: var(--ink-yellow); }
+.ink-swatch-red { --sw: var(--ink-red); }
+.ink-swatch-green { --sw: var(--ink-green); }
+.ink-swatch-blue { --sw: var(--ink-blue); }
+.ink-swatch-purple { --sw: var(--ink-purple); }
+.ink-swatch-pink { --sw: var(--ink-pink); }
+.ink-swatch-orange { --sw: var(--ink-orange); }
+.ink-swatch-grey { --sw: var(--ink-grey); }
 
 .ink-pen-only {
   display: inline-flex;
@@ -2793,17 +2802,31 @@
 .ink-menu-check, .ink-menu-value { color: var(--muted); font-size: 0.76rem; }
 
 /* Insert and View: a bar button with a caret that opens a short list. */
-.ink-menu-trigger { display: inline-flex; align-items: center; gap: 2px; }
+/* The shared tool rule makes .ink-tool a 32px square grid; a trigger carries
+   a caret beside its icon, so it widens and lays out in a row. */
+:root:root .ink-tool.ink-menu-trigger {
+  display: inline-flex; align-items: center; gap: 2px;
+  width: auto; padding: 0 4px 0 6px;
+}
 .ink-menu-caret { display: inline-flex; opacity: 0.6; }
-.ink-view-zoom { min-width: 2.8rem; text-align: center; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+/* Zoom: − · 100% ▾ · +, the level a plain ghost button. */
+.ink-zoom { display: inline-flex; align-items: center; gap: 2px; flex: none; }
+.ink-zoom-pct {
+  display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+  min-width: 3.7rem; height: 32px; padding: 0 4px 0 8px;
+  border: 1px solid transparent; border-radius: 6px;
+  background: transparent; color: var(--text);
+  font: inherit; font-size: 0.85rem; font-variant-numeric: tabular-nums;
+  white-space: nowrap; cursor: pointer;
+}
+.ink-zoom-pct:hover, .ink-zoom-pct[aria-expanded="true"] { background: var(--wf-hover, var(--chip)); }
+.ink-zoom-pct:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--wf-focus, var(--accent)); }
+.ink-menu-rule { margin: 4px 0; border: 0; border-top: 1px solid var(--border); }
 .ink-menu-insert-list, .ink-menu-view-list { min-width: 200px; }
 .ink-menu-insert-list .ink-menu-item,
 .ink-menu-view-list .ink-menu-item { justify-content: flex-start; gap: 8px; }
 .ink-menu-insert-list .ink-menu-item kbd,
 .ink-menu-view-list .ink-menu-item kbd { margin-left: auto; }
-.ink-menu-zoom { flex-direction: row; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 6px; }
-.ink-menu-zoom .ink-menu-chip { padding: 4px 10px; }
-.ink-menu-zoom-level { flex: 1; text-align: center; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
 .ink-menu-hint { margin: 4px 8px 2px; font-size: 0.72rem; color: var(--muted); white-space: normal; }
 /* The typed page number: as wide as three digits, no spinner. */
 .ink-page-input {

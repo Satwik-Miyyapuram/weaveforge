@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import {
   INK_HIGHLIGHTER_MIN_WIDTH,
   INK_HIGHLIGHTER_WIDTH,
+  INK_HIGHLIGHTER_WIDTHS,
   INK_MAX_WIDTH,
   INK_MIN_WIDTH,
   INK_PEN_WIDTH,
@@ -112,4 +113,12 @@ test("a stroke's stored width is derived from its mean pressure", () => {
   // stored with no per-point pressure and comes out exactly 6 mm.
   assert.equal(strokeBaseWidth([], INK_HIGHLIGHTER_WIDTH), INK_HIGHLIGHTER_WIDTH);
   assert.equal(nibWidth(INK_HIGHLIGHTER_WIDTH), INK_HIGHLIGHTER_WIDTH);
+});
+
+test("every highlighter size still reads as a highlighter, and the default is one of them", () => {
+  for (const width of INK_HIGHLIGHTER_WIDTHS) {
+    assert.ok(width >= INK_HIGHLIGHTER_MIN_WIDTH, `${width} is a highlighter`);
+    assert.ok(width <= INK_MAX_WIDTH, `${width} is drawable`);
+  }
+  assert.ok((INK_HIGHLIGHTER_WIDTHS as readonly number[]).includes(INK_HIGHLIGHTER_WIDTH));
 });

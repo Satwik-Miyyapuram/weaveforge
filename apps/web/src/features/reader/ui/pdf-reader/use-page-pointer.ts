@@ -55,6 +55,8 @@ export interface PagePointerDeps {
   inkEditable: boolean;
   /** Pen nib in PDF points, before pressure. Defaults to `INK_DEFAULT_WIDTH`. */
   inkWidth?: number;
+  /** Highlighter nib in the note's 0.1 mm. Defaults to `INK_HIGHLIGHTER_WIDTH`. */
+  highlighterWidth?: number;
   selectedAnnId: string | null;
   pageSize: ReaderPageSize | null;
   scale: number;
@@ -128,6 +130,7 @@ export function usePagePointer({
   createColor,
   inkEditable,
   inkWidth = INK_DEFAULT_WIDTH,
+  highlighterWidth = INK_HIGHLIGHTER_WIDTH,
   selectedAnnId,
   pageSize,
   scale,
@@ -397,7 +400,7 @@ export function usePagePointer({
    */
   const nibBase =
     createTool === "highlighter"
-      ? inkNoteWidthToPdfPoints(INK_HIGHLIGHTER_WIDTH)
+      ? inkNoteWidthToPdfPoints(highlighterWidth)
       : inkWidth;
 
   /** Nib width for a fresh stroke: the tool's base, scaled by pen pressure. */

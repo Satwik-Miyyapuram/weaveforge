@@ -5,7 +5,7 @@
  *
  * Insert gathers everything that puts something new on a page that is not a
  * stroke: a picture from a file, pages from a PDF, a snipped region, a text box.
- * View gathers how the page is shown: zoom, the two fits and rotation. Each item
+ * View gathers how the page is shown: zoom levels, the two fits and rotation. Each item
  * is drawn only when its handler is handed over, so the note and the PDF reader
  * share one menu and each shows what it can do.
  */
@@ -133,6 +133,8 @@ export interface ViewMenuProps {
   zoomPercent: number;
   onZoomIn: () => void;
   onZoomOut: () => void;
+  /** Jump to one of the preset levels, as a percentage. */
+  onZoomTo?: (percent: number) => void;
   /** Which fit is in force; "custom" once the reader zooms by hand. */
   fit?: "width" | "page" | "custom";
   /** Fit the PDF page itself, not the pane's padding or the ink margin. */
@@ -141,10 +143,19 @@ export interface ViewMenuProps {
   onRotate?: () => void;
 }
 
+/** The levels the zoom menu offers. */
+export const ZOOM_PRESETS = [50, 75, 100, 125, 150, 200] as const;
+
+/**
+ * Zoom out, the level, zoom in. The level is a plain ghost button that opens
+ * the presets, the two fits and rotation; the steps sit outside it so a run of
+ * presses needs no menu.
+ */
 export function ViewMenu({
   zoomPercent,
   onZoomIn,
   onZoomOut,
+  onZoomTo,
   fit,
   onFitPage,
   onFitWidth,
@@ -155,67 +166,100 @@ export function ViewMenu({
     setOpen(false);
     run();
   };
+  const fits = Boolean(onFitPage || onFitWidth);
 
   return (
-    <div className="ink-menu ink-menu-view" ref={open ? menuRef : undefined}>
-      <button
-        type="button"
-        className="ink-tool ink-menu-trigger ink-view-trigger"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={`View, zoom ${zoomPercent}%`}
-        title="Zoom, fit and rotate"
-        onClick={() => setOpen((was) => !was)}
-      >
-        <span className="ink-view-zoom">{zoomPercent}%</span>
-        <Caret />
+    <div className="ink-zoom">
+      <button type="button" className="ink-tool ink-zoom-step" aria-label="Zoom out" title="Zoom out" onClick={onZoomOut}>
+        <ZoomGlyph />
       </button>
-      {open ? (
-        <BarMenuList label="View" className="ink-menu-view-list" listRef={listRef} pos={pos}>
-          {/* Zoom stays open: one press rarely lands on the level wanted. */}
-          <div className="ink-menu-section ink-menu-zoom" role="group" aria-label="Zoom">
-            <button type="button" role="menuitem" className="ink-menu-chip" aria-label="Zoom out" title="Zoom out" onClick={onZoomOut}>
-              <ZoomGlyph />
-            </button>
-            <span className="ink-menu-zoom-level" aria-live="polite">{zoomPercent}%</span>
-            <button type="button" role="menuitem" className="ink-menu-chip" aria-label="Zoom in" title="Zoom in" onClick={onZoomIn}>
-              <ZoomGlyph plus />
-            </button>
-          </div>
-          {onFitPage ? (
-            <button
-              type="button"
-              role="menuitemradio"
-              aria-checked={fit === "page"}
-              className="ink-menu-item"
-              onClick={choose(onFitPage)}
-            >
-              <FitGlyph page />
-              <span>Fit page</span>
-            </button>
-          ) : null}
-          {onFitWidth ? (
-            <button
-              type="button"
-              role="menuitemradio"
-              aria-checked={fit === "width"}
-              className="ink-menu-item"
-              onClick={choose(onFitWidth)}
-            >
-              <FitGlyph />
-              <span>Fit width</span>
-            </button>
-          ) : null}
-          {onRotate ? (
-            <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onRotate)}>
-              <RotateGlyph />
-              <span>Rotate clockwise</span>
-              <kbd>R</kbd>
-            </button>
-          ) : null}
-        </BarMenuList>
-      ) : null}
+      <div className="ink-menu ink-menu-view" ref={open ? menuRef : undefined}>
+        <button
+          type="button"
+          className="ink-zoom-pct"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={`Zoom ${zoomPercent}%, fit and rotate`}
+          title="Zoom, fit and rotate"
+          onClick={() => setOpen((was) => !was)}
+        >
+          {zoomPercent}%
+          <Caret />
+        </button>
+        {open ? (
+          <BarMenuList label="View" className="ink-menu-view-list" listRef={listRef} pos={pos}>
+            {onZoomTo ? <ZoomPresets zoomPercent={zoomPercent} onZoomTo={onZoomTo} onChosen={() => setOpen(false)} /> : null}
+            {onZoomTo && (fits || onRotate) ? <hr className="ink-menu-rule" /> : null}
+            {onFitWidth ? (
+              <button
+                type="button"
+                role="menuitemradio"
+                aria-checked={fit === "width"}
+                className="ink-menu-item"
+                onClick={choose(onFitWidth)}
+              >
+                <FitGlyph />
+                <span>Fit width</span>
+              </button>
+            ) : null}
+            {onFitPage ? (
+              <button
+                type="button"
+                role="menuitemradio"
+                aria-checked={fit === "page"}
+                className="ink-menu-item"
+                onClick={choose(onFitPage)}
+              >
+                <FitGlyph page />
+                <span>Fit page</span>
+              </button>
+            ) : null}
+            {fits && onRotate ? <hr className="ink-menu-rule" /> : null}
+            {onRotate ? (
+              <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onRotate)}>
+                <RotateGlyph />
+                <span>Rotate</span>
+                <kbd>R</kbd>
+              </button>
+            ) : null}
+          </BarMenuList>
+        ) : null}
+      </div>
+      <button type="button" className="ink-tool ink-zoom-step" aria-label="Zoom in" title="Zoom in" onClick={onZoomIn}>
+        <ZoomGlyph plus />
+      </button>
     </div>
+  );
+}
+
+/** The fixed zoom levels, as menu items; the current one is checked. */
+export function ZoomPresets({
+  zoomPercent,
+  onZoomTo,
+  onChosen,
+}: {
+  zoomPercent: number;
+  onZoomTo: (percent: number) => void;
+  onChosen?: () => void;
+}) {
+  return (
+    <>
+      {ZOOM_PRESETS.map((level) => (
+        <button
+          key={level}
+          type="button"
+          role="menuitemradio"
+          aria-checked={zoomPercent === level}
+          className="ink-menu-item"
+          onClick={() => {
+            onChosen?.();
+            onZoomTo(level);
+          }}
+        >
+          <span>{`${level}%`}</span>
+        </button>
+      ))}
+    </>
   );
 }
 
@@ -297,9 +341,9 @@ function Svg({ size = 15, width = 2, children }: { size?: number; width?: number
 function Caret() {
   return (
     <span className="ink-menu-caret" aria-hidden="true">
-      <Svg size={10} width={2.6}>
-        <path d="m6 9 6 6 6-6" />
-      </Svg>
+      <svg width="9" height="9" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">
+        <path d="M1 3h8L5 8z" />
+      </svg>
     </span>
   );
 }

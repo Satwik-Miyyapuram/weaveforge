@@ -165,9 +165,8 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
           )}
           <div className="record-actions">
             <ShareButton resourceType="experiment" resourceId={exp.id} title={`Share: ${exp.name}`} showLabel />
-            <a href="#record-comments" className="record-action">
+            <a href="#record-comments" className="btn-ghost wf-tool" aria-label="Comment" title="Comment">
               <CommentsIcon />
-              <span>Comment</span>
             </a>
           </div>
         </nav>

@@ -17,7 +17,6 @@ import {
   inkNoteWidthToPdfPoints,
   screenPointToPdf,
   translateInkPaths,
-  INK_HIGHLIGHTER_WIDTH,
   type AnchorConfidence,
   type ReaderPageSize,
   type DocumentSearchMatch,
@@ -350,7 +349,7 @@ export function PdfReader({
    * its on-screen size, and the eraser's block. The pointer tool is left
    * alone — it is the arrow and the text I-beam the page already gives it.
    */
-  const nibPoints = createTool === "highlighter" ? inkNoteWidthToPdfPoints(INK_HIGHLIGHTER_WIDTH) : penWidth;
+  const nibPoints = createTool === "highlighter" ? inkNoteWidthToPdfPoints(pen.prefs.highlighterWidth) : penWidth;
   const pageCursor = canCreate
     ? inkCursorFor(createTool, { hex: createColor, diameterPx: nibPoints * scale })
     : undefined;
@@ -392,6 +391,7 @@ export function PdfReader({
     createColor,
     inkEditable,
     inkWidth: penWidth,
+    highlighterWidth: pen.prefs.highlighterWidth,
     selectedAnnId,
     pageSize,
     scale,
@@ -1212,10 +1212,6 @@ export function PdfReader({
       aria-label="PDF reader"
       style={
         {
-          // Tint the live text selection with the colour the highlight will
-          // actually be, so dragging over text previews the result instead of
-          // showing the browser's default blue until you confirm.
-          ["--reader-select-color" as string]: createColor,
           ...(darkPdf ? { ["--pdf-dark-filter" as string]: darkPdfCanvasFilter() } : {}),
         } as CSSProperties
       }
@@ -1324,6 +1320,7 @@ export function PdfReader({
           tool={barToolFor(pen.prefs.tool)}
           colour={penOpen ? pen.prefs.colour : pickedColor}
           width={pen.prefs.width}
+          highlighterWidth={pen.prefs.highlighterWidth}
           canUndo={inkUndo.canUndo}
           canRedo={inkUndo.canRedo}
           page={viewport.page}
@@ -1335,6 +1332,7 @@ export function PdfReader({
             zoomPercent: Math.round(viewport.renderScale * 100),
             onZoomIn: viewport.zoomIn,
             onZoomOut: viewport.zoomOut,
+            onZoomTo: (percent) => viewport.setCustomScale(percent / 100),
             fit: viewport.fit,
             // Fitting re-scales the page under a hand that is writing on it,
             // so the fits stand down while the pen is out.
@@ -1375,6 +1373,10 @@ export function PdfReader({
           onWidth={(width) => {
             endInkGroup();
             pen.setWidth(width);
+          }}
+          onHighlighterWidth={(width) => {
+            endInkGroup();
+            pen.setHighlighterWidth(width);
           }}
           onUndo={() => void inkUndo.undo()}
           onRedo={() => void inkUndo.redo()}
