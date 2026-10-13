@@ -35,8 +35,6 @@ import { PromptDialog } from "@/components/prompt-dialog";
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
-  INK_PEN_WIDTH,
-  INK_HIGHLIGHTER_WIDTH,
   readInkNoteBody,
   splitInkTextLayer,
   type InkHand,
@@ -119,9 +117,8 @@ export function InkHost({
    * each tool remembers — a return from the highlighter hands the pen back
    * its own colour, not a fluorescent yellow.
    */
-  const { tool, setTool, colour, onColourChange, onPenApproach } = useInkPrefs();
-  const [width, setWidth] = useState<number>(INK_PEN_WIDTH);
-  const [highlighterWidth, setHighlighterWidth] = useState<number>(INK_HIGHLIGHTER_WIDTH);
+  const { tool, setTool, colour, onColourChange, onPenApproach, ...widths } = useInkPrefs();
+  const { width, highlighterWidth } = widths;
   const [zoom, setZoom] = useState(1);
   const [pageGap, setPageGap] = usePageGap();
   const [containerWidth, setContainerWidth] = useState(0);
@@ -649,11 +646,8 @@ export function InkHost({
           setTool(next);
         }}
         onColour={onColourChange}
-        onWidth={(next) => {
-          setWidth(next);
-          setTool("pen");
-        }}
-        onHighlighterWidth={setHighlighterWidth}
+        onWidth={widths.onWidth}
+        onHighlighterWidth={widths.setHighlighterWidth}
         onPenOnly={pen.setPenOnly}
         onHand={setHand}
         paper={paper}
