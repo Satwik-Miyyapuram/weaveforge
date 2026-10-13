@@ -84,6 +84,18 @@ export function paletteHex(palette: InkPalette, colour: InkColour): string {
 }
 
 /**
+ * The palette name a stored colour was written from, if any — `paletteHex`
+ * the other way, so a hex picked off a mark can become the bar's colour again.
+ */
+export function paletteName(palette: InkPalette, hex: string): InkColour | null {
+  const wanted = hex.trim().toLowerCase();
+  for (const name of Object.keys(palette) as InkColour[]) {
+    if (paletteHex(palette, name) === wanted) return name;
+  }
+  return null;
+}
+
+/**
  * Parse what `getComputedStyle` answers for a colour: `rgb(r, g, b)`,
  * `rgba(r, g, b, a)`, or the modern `color(srgb r g b)`. Anything else — a
  * token that resolved to nothing — answers `null` so the caller keeps its

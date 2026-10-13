@@ -8,7 +8,6 @@
      and tools slid up under the title bar. */
   position: sticky; top: var(--titlebar-h); z-index: 5;
 }
-.pdf-reader-toolbar,
 .pdf-reader-tools {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 8px;
@@ -27,10 +26,6 @@
     flex-wrap: wrap;
     align-items: center;
   }
-  .pdf-reader-chrome > .pdf-reader-toolbar {
-    flex: 0 0 auto;
-    overflow-x: visible;
-  }
   .pdf-reader-chrome > .pdf-reader-tools {
     flex: 1 1 auto;
     border-top: 0;
@@ -38,7 +33,7 @@
     overflow-x: visible;
     justify-content: flex-end;
   }
-  .pdf-reader-chrome > :not(.pdf-reader-toolbar, .pdf-reader-tools) { flex: 1 1 100%; }
+  .pdf-reader-chrome > :not(.pdf-reader-tools, .ink-bar) { flex: 1 1 100%; }
   .pdf-reader-chrome .pdf-reader-phone-toggles { display: none; }
   .pdf-reader-chrome .pdf-reader-more { display: inline-flex; }
 }
@@ -62,38 +57,11 @@
   border-color: transparent; color: var(--accent-ink);
 }
 .pdf-reader-icon-btn { min-width: 2rem; font-variant-numeric: tabular-nums; }
-.pdf-reader-toolbar-label {
-  font-size: 0.85rem; min-width: 3rem; padding: 0 4px; text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-/* "Page 3 / 15" is orientation, not a command: it leads the bar. */
-.pdf-reader-page-jump { font-size: 0.85rem; order: -1; }
-/* Same side room as the other tiles; without it "Page" and "/ N" hugged the frame. */
-.pdf-reader-page-jump > .muted { padding: 0 8px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.pdf-reader-page-jump > .muted:first-child { padding-right: 2px; }
-.pdf-reader-page-jump > .muted:last-child { padding-left: 2px; }
-.pdf-reader-page-jump input {
-  width: 3.5rem; height: 32px; padding: 0 6px; text-align: center;
-}
-/* Page and zoom are one kind of group: flat 32px tiles, no frame in a frame. */
-:root .pdf-reader-toolbar .pdf-reader-page-jump.pdf-reader-group input {
-  height: 32px; border: 0; border-radius: 5px;
-  background: color-mix(in srgb, var(--text) 8%, transparent);
-}
-:root .pdf-reader-toolbar .pdf-reader-group .btn-secondary.pdf-reader-icon-btn {
-  width: 32px; min-width: 32px; padding: 0; font-size: 1.2rem; font-weight: 700;
-}
-/* The tool group sits in a nowrap flex strip: it keeps its size. */
-.pdf-reader-tool-seg { flex: none; }
-.pdf-reader-tool-seg button { padding: 0 12px; min-height: 32px; }
-/* The colour swatch is one more tile of the strip: the touch minimum made it
-   36px and the annotate group 4px taller than the zoom group beside it. */
-.pdf-reader-group .colour-menu-trigger { width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
 @media (max-width: 720px) {
   /* "Page 3 / 15" is orientation, not a command. Pushing it to the end of a
      scrolling strip hides it; lead with it instead. (Pinning it with sticky
      just parks it on top of whatever scrolls underneath.) */
-  .pdf-reader-toolbar, .pdf-reader-tools { gap: 6px; padding: 5px 6px; }
+  .pdf-reader-tools { gap: 6px; padding: 5px 6px; }
   /* Keep a usable field and let the strip scroll rather than crushing the
      input to a few characters. Scoped through .pdf-reader-chrome so it beats
      the base rule, which is defined later in this file. */
@@ -101,13 +69,11 @@
   .pdf-reader-chrome .pdf-reader-search input { min-width: 9rem; }
   .pdf-reader-phone-toggles { display: inline-flex; }
   .pdf-reader-chrome:not([data-phone-panel="more"]) .pdf-reader-more { display: none; }
-  .pdf-reader-toolbar, .pdf-reader-tools { flex-wrap: wrap; overflow-x: visible; }
+  .pdf-reader-tools { flex-wrap: wrap; overflow-x: visible; }
   .pdf-reader-phone-toggles { margin-left: auto; }
   /* Page, zoom and the two toggles fit one 360px row: tighter icon tiles, and
      "3 / 14" speaks for itself without the word "Page". */
   .pdf-reader-group .pdf-reader-icon-btn { min-width: 28px; padding: 0 6px; }
-  .pdf-reader-toolbar-label { min-width: 2.6rem; padding: 0 2px; }
-  .pdf-reader-page-jump > .muted:first-child { display: none; }
   .pdf-reader-chrome:not([data-phone-panel="search"]) .pdf-reader-tools > .pdf-reader-search { display: none; }
   .pdf-reader-chrome .pdf-reader-tools > .pdf-reader-search { flex: 1 1 100%; max-width: none; }
   .pdf-reader-more.pdf-reader-group, .pdf-reader-annotate { flex-wrap: wrap; flex: 0 1 auto; }
@@ -817,8 +783,6 @@ body > canvas.hiddenCanvasElement { display: none; }
 .pdf-reader-pill { display: none; }
 @media (max-width: 720px) {
   .pdf-reader-wide-only { display: none !important; }
-  /* The pill holds the colours here; the palette keeps its tools. */
-  .reader-palette .ink-swatches, .reader-palette .ink-sep { display: none; }
   .pdf-reader-pill {
     position: fixed; left: 14px; right: 14px;
     bottom: calc(84px + env(safe-area-inset-bottom));

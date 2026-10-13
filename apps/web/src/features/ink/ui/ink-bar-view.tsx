@@ -1,0 +1,391 @@
+"use client";
+
+/**
+ * The bar's Insert and View drop-downs, and the page field.
+ *
+ * Insert gathers everything that puts something new on a page that is not a
+ * stroke: a picture from a file, pages from a PDF, a snipped region, a text box.
+ * View gathers how the page is shown: zoom, the two fits and rotation. Each item
+ * is drawn only when its handler is handed over, so the note and the PDF reader
+ * share one menu and each shows what it can do.
+ */
+
+import { useEffect, useState, type ReactNode } from "react";
+
+import { BarMenuList, useBarMenu } from "./ink-bar-menus";
+
+/** An Insert item that stays armed after it is picked: a tool, not an action. */
+export type InkInsertTool = "clip" | "text";
+
+export interface InsertMenuProps {
+  /** The armed insert tool, if any; the trigger shows pressed while one is. */
+  active?: InkInsertTool | null;
+  onAddPicture?: () => void;
+  /** The note's page image: under the page rather than on it. */
+  onAddImage?: () => void;
+  hasPageBackground?: boolean;
+  onRemovePageBackground?: () => void;
+  onInsertPage?: () => void;
+  onClip?: () => void;
+  onTextBox?: () => void;
+}
+
+export function hasInsertItems(props: InsertMenuProps): boolean {
+  return Boolean(
+    props.onAddPicture ||
+      props.onAddImage ||
+      props.onInsertPage ||
+      props.onClip ||
+      props.onTextBox ||
+      (props.hasPageBackground && props.onRemovePageBackground),
+  );
+}
+
+export function InsertMenu({
+  active = null,
+  onAddPicture,
+  onAddImage,
+  hasPageBackground = false,
+  onRemovePageBackground,
+  onInsertPage,
+  onClip,
+  onTextBox,
+}: InsertMenuProps) {
+  const { open, setOpen, menuRef, listRef, pos } = useBarMenu();
+  const choose = (run: () => void) => () => {
+    setOpen(false);
+    run();
+  };
+  const picture = onAddPicture ?? onAddImage;
+
+  return (
+    <div className="ink-menu ink-menu-insert" ref={open ? menuRef : undefined}>
+      <button
+        type="button"
+        className="ink-tool ink-menu-trigger"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-pressed={active !== null}
+        aria-label="Insert"
+        title="Insert a picture, a snip or a text box"
+        onClick={() => setOpen((was) => !was)}
+      >
+        {active === "clip" ? <ClipGlyph /> : active === "text" ? <TextGlyph /> : <ImageGlyph />}
+        <Caret />
+      </button>
+      {open ? (
+        <BarMenuList label="Insert" className="ink-menu-insert-list" listRef={listRef} pos={pos}>
+          {picture ? (
+            <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(picture)}>
+              <ImageGlyph />
+              <span>
+                {onAddPicture ? "Image from file…" : hasPageBackground ? "Change the page image…" : "Page image from file…"}
+              </span>
+            </button>
+          ) : null}
+          {hasPageBackground && onRemovePageBackground ? (
+            <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onRemovePageBackground)}>
+              <ImageOffGlyph />
+              <span>Remove the page image</span>
+            </button>
+          ) : null}
+          {onInsertPage ? (
+            <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onInsertPage)}>
+              <PdfGlyph />
+              <span>Pages from a PDF or image…</span>
+            </button>
+          ) : null}
+          {onClip ? (
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={active === "clip"}
+              className="ink-menu-item"
+              onClick={choose(onClip)}
+            >
+              <ClipGlyph />
+              <span>Snip a region</span>
+            </button>
+          ) : null}
+          {onTextBox ? (
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={active === "text"}
+              className="ink-menu-item"
+              onClick={choose(onTextBox)}
+            >
+              <TextGlyph />
+              <span>Text box</span>
+            </button>
+          ) : null}
+          {onAddPicture ? (
+            <p className="ink-menu-hint">Or paste an image, or drop one on the page.</p>
+          ) : null}
+        </BarMenuList>
+      ) : null}
+    </div>
+  );
+}
+
+export interface ViewMenuProps {
+  /** The zoom, as a percentage, shown on the trigger. */
+  zoomPercent: number;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  /** Which fit is in force; "custom" once the reader zooms by hand. */
+  fit?: "width" | "page" | "custom";
+  /** Fit the PDF page itself, not the pane's padding or the ink margin. */
+  onFitPage?: () => void;
+  onFitWidth?: () => void;
+  onRotate?: () => void;
+}
+
+export function ViewMenu({
+  zoomPercent,
+  onZoomIn,
+  onZoomOut,
+  fit,
+  onFitPage,
+  onFitWidth,
+  onRotate,
+}: ViewMenuProps) {
+  const { open, setOpen, menuRef, listRef, pos } = useBarMenu();
+  const choose = (run: () => void) => () => {
+    setOpen(false);
+    run();
+  };
+
+  return (
+    <div className="ink-menu ink-menu-view" ref={open ? menuRef : undefined}>
+      <button
+        type="button"
+        className="ink-tool ink-menu-trigger ink-view-trigger"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`View, zoom ${zoomPercent}%`}
+        title="Zoom, fit and rotate"
+        onClick={() => setOpen((was) => !was)}
+      >
+        <span className="ink-view-zoom">{zoomPercent}%</span>
+        <Caret />
+      </button>
+      {open ? (
+        <BarMenuList label="View" className="ink-menu-view-list" listRef={listRef} pos={pos}>
+          {/* Zoom stays open: one press rarely lands on the level wanted. */}
+          <div className="ink-menu-section ink-menu-zoom" role="group" aria-label="Zoom">
+            <button type="button" role="menuitem" className="ink-menu-chip" aria-label="Zoom out" title="Zoom out" onClick={onZoomOut}>
+              <ZoomGlyph />
+            </button>
+            <span className="ink-menu-zoom-level" aria-live="polite">{zoomPercent}%</span>
+            <button type="button" role="menuitem" className="ink-menu-chip" aria-label="Zoom in" title="Zoom in" onClick={onZoomIn}>
+              <ZoomGlyph plus />
+            </button>
+          </div>
+          {onFitPage ? (
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={fit === "page"}
+              className="ink-menu-item"
+              onClick={choose(onFitPage)}
+            >
+              <FitGlyph page />
+              <span>Fit page</span>
+            </button>
+          ) : null}
+          {onFitWidth ? (
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={fit === "width"}
+              className="ink-menu-item"
+              onClick={choose(onFitWidth)}
+            >
+              <FitGlyph />
+              <span>Fit width</span>
+            </button>
+          ) : null}
+          {onRotate ? (
+            <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onRotate)}>
+              <RotateGlyph />
+              <span>Rotate clockwise</span>
+              <kbd>R</kbd>
+            </button>
+          ) : null}
+        </BarMenuList>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The page number, typed. The draft is the field's own so it can be cleared
+ * while typing; a number goes to the page at once, and the field settles on
+ * the clamped page when it loses focus or Enter is pressed. A blank or a
+ * non-number puts the current page back.
+ */
+export function PageField({
+  page,
+  pages,
+  onGoToPage,
+}: {
+  page: number;
+  pages: number;
+  onGoToPage: (page: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(page));
+  useEffect(() => {
+    setDraft(String(page));
+  }, [page]);
+
+  function commit(raw: string) {
+    const trimmed = raw.trim();
+    const next = Number(trimmed);
+    if (trimmed === "" || !Number.isFinite(next)) {
+      setDraft(String(page));
+      return;
+    }
+    const clamped = Math.min(pages, Math.max(1, Math.round(next)));
+    onGoToPage(clamped);
+    setDraft(String(clamped));
+  }
+
+  return (
+    <input
+      className="ink-page-now ink-page-input"
+      type="number"
+      inputMode="numeric"
+      min={1}
+      max={pages}
+      value={draft}
+      aria-label="Page number"
+      onChange={(event) => {
+        const value = event.target.value;
+        setDraft(value);
+        const next = Number(value);
+        if (value.trim() !== "" && Number.isFinite(next)) {
+          onGoToPage(Math.min(pages, Math.max(1, Math.round(next))));
+        }
+      }}
+      onBlur={(event) => commit(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") commit(event.currentTarget.value);
+      }}
+    />
+  );
+}
+
+function Svg({ size = 15, width = 2, children }: { size?: number; width?: number; children: ReactNode }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={width}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function Caret() {
+  return (
+    <span className="ink-menu-caret" aria-hidden="true">
+      <Svg size={10} width={2.6}>
+        <path d="m6 9 6 6 6-6" />
+      </Svg>
+    </span>
+  );
+}
+
+/** The text cursor: Select, which picks text to highlight, underline or comment. */
+export function SelectGlyph() {
+  return (
+    <Svg size={16}>
+      <path d="M9 4h6M9 20h6M12 4v16" />
+    </Svg>
+  );
+}
+
+export function ClipGlyph() {
+  return (
+    <Svg>
+      <path d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2" />
+    </Svg>
+  );
+}
+
+export function TextGlyph() {
+  return (
+    <Svg>
+      <path d="M5 6V4h14v2M12 4v16M9 20h6" />
+    </Svg>
+  );
+}
+
+export function ImageGlyph() {
+  return (
+    <Svg>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
+    </Svg>
+  );
+}
+
+function ImageOffGlyph() {
+  return (
+    <Svg>
+      <path d="M21 13V5a2 2 0 0 0-2-2H8M3 7v12a2 2 0 0 0 2 2h12" />
+      <path d="m2 2 20 20" />
+    </Svg>
+  );
+}
+
+function PdfGlyph() {
+  return (
+    <Svg>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+      <path d="M8 13h8M8 17h5" />
+    </Svg>
+  );
+}
+
+function FitGlyph({ page = false }: { page?: boolean }) {
+  return page ? (
+    <Svg>
+      <rect x="5.5" y="2" width="13" height="20" rx="2" />
+      <path d="M12 6v12M10 8l2-2 2 2M10 16l2 2 2-2" />
+    </Svg>
+  ) : (
+    <Svg>
+      <rect x="2" y="5.5" width="20" height="13" rx="2" />
+      <path d="M6 12h12M8 10l-2 2 2 2M16 10l2 2-2 2" />
+    </Svg>
+  );
+}
+
+function RotateGlyph() {
+  return (
+    <Svg width={2.2}>
+      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.72 2.24" />
+      <path d="M21 3v5h-5" />
+    </Svg>
+  );
+}
+
+function ZoomGlyph({ plus = false }: { plus?: boolean }) {
+  return (
+    <Svg size={14} width={2.6}>
+      <path d="M5 12h14" />
+      {plus ? <path d="M12 5v14" /> : null}
+    </Svg>
+  );
+}

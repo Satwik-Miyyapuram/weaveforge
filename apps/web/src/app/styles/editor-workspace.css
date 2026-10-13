@@ -2792,5 +2792,28 @@
 }
 .ink-menu-check, .ink-menu-value { color: var(--muted); font-size: 0.76rem; }
 
+/* Insert and View: a bar button with a caret that opens a short list. */
+.ink-menu-trigger { display: inline-flex; align-items: center; gap: 2px; }
+.ink-menu-caret { display: inline-flex; opacity: 0.6; }
+.ink-view-zoom { min-width: 2.8rem; text-align: center; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.ink-menu-insert-list, .ink-menu-view-list { min-width: 200px; }
+.ink-menu-insert-list .ink-menu-item,
+.ink-menu-view-list .ink-menu-item { justify-content: flex-start; gap: 8px; }
+.ink-menu-insert-list .ink-menu-item kbd,
+.ink-menu-view-list .ink-menu-item kbd { margin-left: auto; }
+.ink-menu-zoom { flex-direction: row; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 6px; }
+.ink-menu-zoom .ink-menu-chip { padding: 4px 10px; }
+.ink-menu-zoom-level { flex: 1; text-align: center; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.ink-menu-hint { margin: 4px 8px 2px; font-size: 0.72rem; color: var(--muted); white-space: normal; }
+/* The typed page number: as wide as three digits, no spinner. */
+.ink-page-input {
+  width: 3ch; min-width: 2.4rem; padding: 0 2px;
+  border: 0; border-radius: 4px; background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text); font: inherit; text-align: center; font-variant-numeric: tabular-nums;
+  appearance: textfield; -moz-appearance: textfield;
+}
+.ink-page-input::-webkit-inner-spin-button,
+.ink-page-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
 /* Desk between pages, from the ink bar's page spacing (`--ink-page-gap`). */
 .ink-page-scroll > .ink-page + .ink-page { margin-top: var(--ink-page-gap, 0px); }

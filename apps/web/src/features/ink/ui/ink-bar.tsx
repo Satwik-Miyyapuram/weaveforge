@@ -20,7 +20,7 @@
  * and a highlighter ignores them because its nib is the tool's (§6.3).
  */
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import {
   INK_COLOURS,
@@ -34,6 +34,15 @@ import {
 
 import { toolIcon, toolLabel } from "./ink-bar-glyphs";
 import { MoreMenu, type InkPageGap } from "./ink-bar-more";
+import {
+  InsertMenu,
+  PageField,
+  SelectGlyph,
+  ViewMenu,
+  hasInsertItems,
+  type InkInsertTool,
+  type ViewMenuProps,
+} from "./ink-bar-view";
 import { InkQuickColours } from "./ink-quick-colours";
 import { useQuickColours } from "./use-quick-colours";
 import { PaletteDockButton, PaletteFoldButton, usePaletteDock } from "@/components/palette-dock";
@@ -138,6 +147,38 @@ export interface InkBarProps {
   /** The note's zoom, 1 = fit width; absent, no zoom pill. */
   zoom?: number;
   onZoom?: (zoom: number) => void;
+  /**
+   * The PDF reader's view: zoom, fits and rotation behind one drop-down that
+   * shows the zoom. Handed over, it takes the zoom pill's place.
+   */
+  view?: ViewMenuProps;
+  /** Type a page number; handed over, the page count becomes a field. */
+  onGoToPage?: (page: number) => void;
+  /**
+   * Select — pick text to highlight, underline or comment on — as the first
+   * tool. While it, or an Insert tool, is in force no ink tool shows pressed.
+   */
+  selectActive?: boolean;
+  onSelect?: () => void;
+  /** Snip a region of the page (the reader's clip). */
+  onClip?: () => void;
+  /** Put a text box on the page. */
+  onTextBox?: () => void;
+  /** The armed Insert tool, if any. */
+  insertTool?: InkInsertTool | null;
+  /**
+   * The five quick colours, when the surface keeps them itself (the reader
+   * shares them with its mark popover); absent, the bar keeps its own.
+   */
+  quickColours?: readonly (typeof INK_COLOURS)[number][];
+  onQuickColour?: (slot: number, colour: (typeof INK_COLOURS)[number]) => void;
+  /** The surface's own controls, at the bar's end (the reader's phone toggles). */
+  children?: ReactNode;
+  /**
+   * A paper the reader may look at but not mark: the bar keeps its page and
+   * view controls and drops every tool, colour and undo.
+   */
+  readOnly?: boolean;
 }
 
 export function InkBar({
@@ -184,8 +225,33 @@ export function InkBar({
   onPageGap,
   zoom,
   onZoom,
+  view,
+  onGoToPage,
+  selectActive = false,
+  onSelect,
+  onClip,
+  onTextBox,
+  insertTool = null,
+  quickColours: givenQuickColours,
+  onQuickColour,
+  children,
+  readOnly = false,
 }: InkBarProps) {
-  const [quickColours, setQuickColour] = useQuickColours();
+  const [ownQuickColours, setOwnQuickColour] = useQuickColours();
+  const quickColours = givenQuickColours ?? ownQuickColours;
+  const setQuickColour = onQuickColour ?? setOwnQuickColour;
+  /** An ink tool is in force only while neither Select nor an Insert tool is. */
+  const inking = !selectActive && insertTool === null;
+  const insert = {
+    active: insertTool,
+    onAddPicture,
+    onAddImage,
+    hasPageBackground,
+    onRemovePageBackground,
+    onInsertPage,
+    onClip,
+    onTextBox,
+  };
   /**
    * Folded, in focus mode: the palette shrinks to the tools and its own
    * handle, OneNote's way, so the paper is all there is until a hand wants
@@ -201,7 +267,7 @@ export function InkBar({
     <div
       className="ink-bar ink-palette"
       role="toolbar"
-      aria-label="Ink tools"
+      aria-label={readOnly ? "Page controls" : "Ink tools"}
       data-collapsed={collapsed || undefined}
       data-dock={dock}
       data-backend={backend === undefined ? undefined : (backend ?? "starting")}
@@ -212,18 +278,32 @@ export function InkBar({
         <PaletteFoldButton collapsed={collapsed} onToggle={() => setCollapsed((was) => !was)} />
       </div>
 
+      {readOnly ? null : (
+        <>
       {/* 1. Drawing Tools Segmented Pill */}
       <div
         className="ink-bar-group ink-bar-tools"
         role="radiogroup"
         aria-label="Drawing tools"
       >
+        {onSelect ? (
+          <button
+            type="button"
+            className="ink-tool ink-tool-icon-only"
+            aria-pressed={selectActive}
+            aria-label="Select text (V)"
+            title="Select text (V)"
+            onClick={onSelect}
+          >
+            <SelectGlyph />
+          </button>
+        ) : null}
         {INK_BAR_TOOLS.map((entry) => (
           <button
             key={entry}
             type="button"
             className="ink-tool ink-tool-icon-only"
-            aria-pressed={tool === entry}
+            aria-pressed={inking && tool === entry}
             aria-label={`${toolLabel(entry)} (${entry[0]!.toUpperCase()})`}
             title={`${toolLabel(entry)} (${entry[0]!.toUpperCase()})`}
             onClick={() => onTool(entry)}
@@ -250,7 +330,7 @@ export function InkBar({
           triggerClassName="colour-menu-trigger ink-pen-trigger"
           label={
             <span className={`ink-swatch colour-menu-current ink-swatch-${colour}`} aria-hidden>
-              {tool === "pen" ? (
+              {inking && tool === "pen" ? (
                 <span
                   className="ink-pen-trigger-nib"
                   style={{ width: `${3 + width}px`, height: `${3 + width}px` }}
@@ -397,9 +477,12 @@ export function InkBar({
         </>
       ) : null}
 
+        </>
+      )}
+
       {page !== undefined && pages !== undefined && onPrevPage && onNextPage ? (
         <>
-          <span className="ink-sep" aria-hidden="true" />
+          {readOnly ? null : <span className="ink-sep" aria-hidden="true" />}
 
           {/* 5. Page Switcher & Add Page */}
           <div className="ink-page-pill">
@@ -426,7 +509,11 @@ export function InkBar({
               </svg>
             </button>
             <span className="ink-page-count" aria-label={`Page ${page} of ${pages}`}>
-              <span className="ink-page-now">{page}</span>
+              {onGoToPage ? (
+                <PageField page={page} pages={pages} onGoToPage={onGoToPage} />
+              ) : (
+                <span className="ink-page-now">{page}</span>
+              )}
               <span className="ink-page-sep" aria-hidden="true">/</span>
               <span className="ink-page-total">{pages}</span>
             </span>
@@ -478,7 +565,9 @@ export function InkBar({
         </>
       ) : null}
 
-      {zoom !== undefined && onZoom ? (
+      {view ? (
+        <ViewMenu {...view} />
+      ) : zoom !== undefined && onZoom ? (
         <>
           {/* 5b. Zoom: out, the level (click to fit), in */}
           <div className="ink-page-pill ink-zoom-pill">
@@ -514,50 +603,8 @@ export function InkBar({
         </>
       ) : null}
 
-      {/* 5c. Insert: a picture and a PDF, as icons beside the pages. */}
-      {onAddPicture || onAddImage || onInsertPage ? (
-        <div className="ink-bar-group ink-insert-group" role="group" aria-label="Insert">
-          {onAddPicture || onAddImage ? (
-            <button
-              type="button"
-              className="ink-tool ink-tool-icon-only"
-              onClick={onAddPicture ?? onAddImage}
-              title={
-                onAddPicture
-                  ? "Add a picture on this page"
-                  : hasPageBackground
-                    ? "Change the page image"
-                    : "Add an image under this page"
-              }
-              aria-label={onAddPicture ? "Add a picture" : "Add an image"}
-            >
-              <ImageGlyph />
-            </button>
-          ) : null}
-          {hasPageBackground && onRemovePageBackground ? (
-            <button
-              type="button"
-              className="ink-tool ink-tool-icon-only"
-              onClick={onRemovePageBackground}
-              title="Remove the page image"
-              aria-label="Remove the page image"
-            >
-              <ImageOffGlyph />
-            </button>
-          ) : null}
-          {onInsertPage ? (
-            <button
-              type="button"
-              className="ink-tool ink-tool-icon-only"
-              onClick={onInsertPage}
-              title="Add pages from a PDF or image"
-              aria-label="Add pages from a PDF"
-            >
-              <PdfGlyph />
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+      {/* 5c. Insert: a picture, PDF pages, a snip, a text box (`ink-bar-view.tsx`) */}
+      {!readOnly && hasInsertItems(insert) ? <InsertMenu {...insert} /> : null}
 
       {onRecognise ? (
         <>
@@ -608,35 +655,8 @@ export function InkBar({
         hand={hand}
         onHand={onHand}
       />
+      {children}
     </div>
   );
 }
 
-function ImageGlyph() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <circle cx="9" cy="9" r="2" />
-      <path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
-    </svg>
-  );
-}
-
-function ImageOffGlyph() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21 13V5a2 2 0 0 0-2-2H8M3 7v12a2 2 0 0 0 2 2h12" />
-      <path d="m2 2 20 20" />
-    </svg>
-  );
-}
-
-function PdfGlyph() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6" />
-      <path d="M8 13h8M8 17h5" />
-    </svg>
-  );
-}
