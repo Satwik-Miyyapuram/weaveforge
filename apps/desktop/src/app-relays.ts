@@ -6,6 +6,7 @@
  * One entry point keeps the `app://` handler in main.ts a dispatch, not a list.
  */
 
+import { isAccountProxyRequest, proxyAccount } from "./account-proxy";
 import { isArxivProxyRequest, proxyArxiv } from "./arxiv-proxy";
 import { isBlobProxyRequest, proxyBlob } from "./blob-proxy";
 import { isHtmlProxyRequest, proxyHtml } from "./html-proxy";
@@ -24,5 +25,7 @@ export function answerRelay(request: Request, fetchFn: ProxyFetch): Promise<Resp
   if (isArxivProxyRequest(request.url)) return proxyArxiv(request, fetchFn);
   // The blob store's routes (pictures on papers and notes), on the hosted app.
   if (isBlobProxyRequest(request.url)) return proxyBlob(request, fetchFn);
+  // Account deletion: both steps need the server's service-role key.
+  if (isAccountProxyRequest(request.url)) return proxyAccount(request, fetchFn);
   return null;
 }

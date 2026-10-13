@@ -21,7 +21,7 @@ export function isBlobProxyRequest(requestUrl: string): boolean {
   return new URL(requestUrl).pathname.startsWith(BLOB_PROXY_PREFIX);
 }
 
-function refuse(status: number, error: string): Response {
+export function refuse(status: number, error: string): Response {
   return new Response(JSON.stringify({ error }), {
     status,
     headers: { "content-type": "application/json" },
@@ -35,6 +35,18 @@ export async function proxyBlob(request: Request, fetchFn: ProxyFetch = fetch): 
   const rest = url.pathname.slice(BLOB_PROXY_PREFIX.length);
   if (!rest || rest.includes("..") || rest.includes("//")) return refuse(400, "Bad blob path");
 
+  return relayToHostedApp(request, `${BLOB_PROXY_PREFIX}${rest}${url.search}`, fetchFn);
+}
+
+/**
+ * Sends one `app://` request on to the same path on the hosted app.
+ *
+ * Only `authorization` and `content-type` travel, the body goes as bytes, and
+ * a dead network answers 502 rather than throwing into the protocol handler.
+ * The caller decides which paths and methods may go.
+ */
+export async function relayToHostedApp(request: Request, pathAndQuery: string, fetchFn: ProxyFetch = fetch): Promise<Response> {
+  const method = request.method.toUpperCase();
   const headers: Record<string, string> = {};
   const auth = request.headers.get("authorization");
   if (auth) headers.authorization = auth;
@@ -44,7 +56,7 @@ export async function proxyBlob(request: Request, fetchFn: ProxyFetch = fetch): 
 
   let upstream: Response;
   try {
-    upstream = await fetchFn(`${BLOB_UPSTREAM}${BLOB_PROXY_PREFIX}${rest}${url.search}`, {
+    upstream = await fetchFn(`${BLOB_UPSTREAM}${pathAndQuery}`, {
       method,
       headers,
       ...(body !== undefined ? { body } : {}),
