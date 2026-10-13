@@ -296,3 +296,29 @@ test("missingIds answers null when the server cannot be read, so nothing is rese
   const { transport } = harness([{ status: 500, body: { message: "boom" } }]);
   assert.equal(await transport.missingIds("papers", ["11111111-1111-4111-8111-111111111111"]), null);
 });
+
+test("missingIds leaves out rows another device deleted, so they are not brought back", async () => {
+  const a = "11111111-1111-4111-8111-111111111111";
+  const b = "22222222-2222-4222-8222-222222222222";
+  const { transport, calls } = harness([
+    { status: 200, body: [] },
+    { status: 200, body: [{ row_id: a }] },
+  ]);
+  assert.deepEqual(await transport.missingIds("papers", [a, b]), [b]);
+  assert.match(calls[1]!.url, /\/sync_tombstones\?table_name=eq\.papers&row_id=in\.\(/);
+});
+
+test("missingIds answers null when the tombstones cannot be read", async () => {
+  const { transport } = harness([
+    { status: 200, body: [] },
+    { status: 500, body: { message: "boom" } },
+  ]);
+  assert.equal(await transport.missingIds("papers", ["11111111-1111-4111-8111-111111111111"]), null);
+});
+
+test("missingIds asks about tombstones only when something is absent", async () => {
+  const a = "11111111-1111-4111-8111-111111111111";
+  const { transport, calls } = harness([{ status: 200, body: [{ id: a }] }]);
+  assert.deepEqual(await transport.missingIds("papers", [a]), []);
+  assert.equal(calls.length, 1);
+});

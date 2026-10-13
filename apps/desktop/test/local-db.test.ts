@@ -92,4 +92,34 @@ describe("the local database", () => {
     const { rows } = await db.query<{ body: string }>("select body from notes");
     assert.deepEqual(rows.map((r) => r.body), ["after"]);
   });
+
+  it("reads as the local user only when the device has never synced", async () => {
+    const { db, client } = await open();
+    opened.push(client);
+    assert.equal(await db.deviceUser(), LOCAL_USER_ID);
+  });
+
+  it("does not fall back to the local user when the sync state cannot be read", async () => {
+    // An adopted device that answered "local user" on a passing error ran every
+    // query as someone who owns none of its rows, until the app restarted.
+    const failing = {
+      query: async () => {
+        throw Object.assign(new Error("could not read block"), { code: "XX001" });
+      },
+      exec: async () => [],
+    } as unknown as LocalClient;
+    await assert.rejects(new LocalDatabase(failing).deviceUser(), /could not read block/);
+  });
+
+  it("keeps the original error when the rollback fails too", async () => {
+    const failing = {
+      query: async () => {
+        throw Object.assign(new Error("current transaction is aborted"), { code: "25P02" });
+      },
+      exec: async () => {
+        throw new Error("rollback failed");
+      },
+    } as unknown as LocalClient;
+    await assert.rejects(new LocalDatabase(failing).ensureLocalUser(), /current transaction is aborted/);
+  });
 });

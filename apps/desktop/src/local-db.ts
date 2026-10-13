@@ -111,7 +111,12 @@ export class LocalDatabase {
       return await fn();
     } catch (error) {
       if (!isAbortedTransaction(error)) throw error;
-      await this.client.exec("rollback");
+      try {
+        await this.client.exec("rollback");
+      } catch {
+        // The rollback's own failure says less than the error that sent us here.
+        throw error;
+      }
       return fn();
     }
   }
@@ -139,17 +144,20 @@ export class LocalDatabase {
    * be the local user would then see none of them, so the identity has to
    * follow the rows. Read as the database owner, since `sync_state` is the
    * device's own bookkeeping; a database without it has never synced.
+   *
+   * Any other error is thrown, not read as "never synced": the caller caches
+   * the answer, and an adopted device that ran as the local user would see
+   * none of its rows and write new ones under the wrong owner.
    */
   async deviceUser(): Promise<string> {
     try {
-      // Recovering first: a stuck connection would otherwise answer "never
-      // synced" and the device would quietly read as the wrong user.
       const { rows } = await this.recovering(() =>
         this.client.query<{ account_id: string | null }>("select account_id from sync_state limit 1"),
       );
       return rows[0]?.account_id ?? LOCAL_USER_ID;
-    } catch {
-      return LOCAL_USER_ID;
+    } catch (error) {
+      if (isUndefinedTable(error)) return LOCAL_USER_ID;
+      throw error;
     }
   }
 
@@ -164,6 +172,10 @@ export class LocalDatabase {
 }
 
 /** Postgres's 25P02: the connection is inside a transaction that already failed. */
+function isUndefinedTable(error: unknown): boolean {
+  return typeof error === "object" && error !== null && (error as { code?: unknown }).code === "42P01";
+}
+
 function isAbortedTransaction(error: unknown): boolean {
   if (typeof error !== "object" || error === null) return false;
   const { code, message } = error as { code?: unknown; message?: unknown };
