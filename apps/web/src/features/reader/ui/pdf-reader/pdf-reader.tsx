@@ -65,6 +65,7 @@ import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink } from "./overlays";
+import { readWritingPage, writeWritingPage } from "./writing-page";
 import { layoutMarginNotes } from "../../application/margin-notes";
 import { useAnnotationContext } from "./use-annotation-context";
 import { useDarkPdf } from "./use-dark-pdf";
@@ -142,6 +143,15 @@ export function PdfReader({
   // choices persist per user (`usePenPrefs`), the PDF toolbar's do not.
   const [penOpen, setPenOpen] = useState(inkRail);
   const [sideCollapsed, setSideCollapsed] = useState(readSideCollapsed);
+  // The writing page beside each PDF page is a setting, not the pen's: when it
+  // followed the pen, every time the pen came out the pages halved and the
+  // layout jumped from one page to two and back.
+  const [writingPage, setWritingPage] = useState(true);
+  useEffect(() => setWritingPage(readWritingPage()), []);
+  const toggleWritingPage = useCallback((on: boolean) => {
+    writeWritingPage(on);
+    setWritingPage(on);
+  }, []);
   const toggleSide = () =>
     setSideCollapsed((v) => {
       writeSideCollapsed(!v);
@@ -338,7 +348,7 @@ export function PdfReader({
     initialPage: typeof page === "number" ? page + 1 : 1,
     onSourceFailure,
     setJump,
-    pageShare: penOpen ? 0.5 : 1,
+    pageShare: writingPage ? 0.5 : 1,
   });
   const scale = viewport.renderScale;
   const rotation = viewport.rotation;
@@ -1212,6 +1222,10 @@ export function PdfReader({
       aria-label="PDF reader"
       style={
         {
+          // Tint the live text selection with the colour the highlight will
+          // actually be, so dragging over text previews the result instead of
+          // showing the browser's default blue until you confirm.
+          ["--reader-select-color" as string]: createColor,
           ...(darkPdf ? { ["--pdf-dark-filter" as string]: darkPdfCanvasFilter() } : {}),
         } as CSSProperties
       }
@@ -1339,6 +1353,8 @@ export function PdfReader({
             onFitPage: penOpen ? undefined : viewport.fitPage,
             onFitWidth: penOpen ? undefined : viewport.fitWidth,
             onRotate: viewport.rotateClockwise,
+            writingPage,
+            onWritingPage: toggleWritingPage,
           }}
           selectActive={!penOpen && pickedTool === "select"}
           onSelect={() => putPenAway("select")}
@@ -1685,7 +1701,7 @@ export function PdfReader({
                   />
                 )}
               </div>
-              {penOpen && pageSize && (
+              {writingPage && pageSize && (
                 <PageMargin
                   notes={layoutMarginNotes(pageAnnotations(n), pageProjection(n))}
                   width={marginWidth(n)}

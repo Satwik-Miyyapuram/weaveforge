@@ -124,8 +124,12 @@ export class PostgrestTransport implements SyncTransport {
   }
 
   /**
-   * Which of these ids the server does not hold. Null when that cannot be read:
-   * a failed read is not proof the rows are missing.
+   * Which of these ids the server never received. Null when that cannot be
+   * read: a failed read is not proof the rows are missing.
+   *
+   * A row deleted on another device is absent too, and this runs before the
+   * pull that would delete it here. Sent again, it would come back to life on
+   * every device, so ids the server records deleting are left out.
    */
   async missingIds(table: string, ids: string[]): Promise<string[] | null> {
     const missing: string[] = [];
@@ -138,7 +142,15 @@ export class PostgrestTransport implements SyncTransport {
         );
         if (found.status >= 400 || !Array.isArray(found.rows)) return null;
         const held = new Set(found.rows.map((r) => String((r as { id?: unknown }).id)));
-        missing.push(...chunk.filter((id) => !held.has(id)));
+        const absent = chunk.filter((id) => !held.has(id));
+        if (absent.length === 0) continue;
+        const buried = await this.request(
+          "GET",
+          `/sync_tombstones?table_name=eq.${encodeURIComponent(table)}&row_id=in.(${absent.map(encodeURIComponent).join(",")})&select=row_id`,
+        );
+        if (buried.status >= 400 || !Array.isArray(buried.rows)) return null;
+        const deleted = new Set(buried.rows.map((r) => String((r as { row_id?: unknown }).row_id)));
+        missing.push(...absent.filter((id) => !deleted.has(id)));
       } catch {
         return null;
       }
