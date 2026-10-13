@@ -11,7 +11,7 @@ import { PaletteDockButton } from "@/components/palette-dock";
 import { INK_RENDER_COLOURS, InkBar, paletteHex, paletteName } from "@/features/ink";
 import { InsertMenu, PageField, ViewMenu } from "../ui/ink-bar-view";
 import { NibRow } from "../ui/ink-bar";
-import { ZoomPresets } from "../ui/ink-bar-view";
+import { WritingPageItem, ZoomPresets } from "../ui/ink-bar-view";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -113,6 +113,19 @@ test("the reader's View menu: no fits while the pen is out", () => {
     assert.equal(byLabel(tree, "Zoom out").length, 1);
     act(() => tree.unmount());
   });
+});
+
+test("the writing-page switch is a checked menu item that reports a click", () => {
+  let clicks = 0;
+  let tree!: ReactTestRenderer;
+  act(() => {
+    tree = create(createElement(WritingPageItem, { on: true, onChange: () => (clicks += 1) }));
+  });
+  const item = tree.root.find((n) => n.type === "button" && n.props.role === "menuitemcheckbox");
+  assert.equal(item.props["aria-checked"], true);
+  act(() => item.props.onClick());
+  assert.equal(clicks, 1);
+  act(() => tree.unmount());
 });
 
 test("the zoom percent is its own trigger, not a square tool", () => {

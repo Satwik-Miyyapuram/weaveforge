@@ -315,9 +315,16 @@
 .pdf-reader-textlayer[data-main-rotation="90"] { transform: rotate(90deg) translateY(-100%); }
 .pdf-reader-textlayer[data-main-rotation="180"] { transform: rotate(180deg) translate(-100%, -100%); }
 .pdf-reader-textlayer[data-main-rotation="270"] { transform: rotate(270deg) translateX(-100%); }
-/* The selection is the browser's own. Tinting it with the highlight colour
-   painted the swatch through a 0.25 multiply layer and left pale boxes where
-   runs overlap. */
+/* Dragging across text is the highlight's live preview, so paint the selection
+   in the colour the highlight will be rather than the browser's default. The
+   browser's own selection paints its text in HighlightText, which left white
+   ghost glyphs offset over the page. The layer already multiplies over the
+   page, so the swatch colour reads true. */
+.pdf-reader-textlayer ::selection {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background: var(--reader-select-color, Highlight);
+}
 .pdf-reader-textlayer br::selection { background: transparent; }
 /* pdf.js `TextLayer` measures glyphs on a canvas it appends to <body>. Its
    own stylesheet hides it; ours is scoped, so without this rule the inline

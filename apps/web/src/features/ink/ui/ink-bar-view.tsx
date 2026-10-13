@@ -141,6 +141,13 @@ export interface ViewMenuProps {
   onFitPage?: () => void;
   onFitWidth?: () => void;
   onRotate?: () => void;
+  /**
+   * Whether each PDF page sits beside a page as wide as itself to write on. A
+   * setting rather than a side effect of the pen, so the layout holds still:
+   * taking the pen out or putting it away no longer turns one page into two.
+   */
+  writingPage?: boolean;
+  onWritingPage?: (on: boolean) => void;
 }
 
 /** The levels the zoom menu offers. */
@@ -160,6 +167,8 @@ export function ViewMenu({
   onFitPage,
   onFitWidth,
   onRotate,
+  writingPage,
+  onWritingPage,
 }: ViewMenuProps) {
   const { open, setOpen, menuRef, listRef, pos } = useBarMenu();
   const choose = (run: () => void) => () => {
@@ -222,6 +231,12 @@ export function ViewMenu({
                 <kbd>R</kbd>
               </button>
             ) : null}
+            {onWritingPage ? (
+              <>
+                {fits || onRotate || onZoomTo ? <hr className="ink-menu-rule" /> : null}
+                <WritingPageItem on={Boolean(writingPage)} onChange={choose(() => onWritingPage(!writingPage))} />
+              </>
+            ) : null}
           </BarMenuList>
         ) : null}
       </div>
@@ -229,6 +244,16 @@ export function ViewMenu({
         <ZoomGlyph plus />
       </button>
     </div>
+  );
+}
+
+/** The writing-page switch, as a checked menu item. */
+export function WritingPageItem({ on, onChange }: { on: boolean; onChange: () => void }) {
+  return (
+    <button type="button" role="menuitemcheckbox" aria-checked={on} className="ink-menu-item" onClick={onChange}>
+      <WritingPageGlyph />
+      <span>Writing page beside each page</span>
+    </button>
   );
 }
 
@@ -421,6 +446,16 @@ function RotateGlyph() {
     <Svg width={2.2}>
       <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.72 2.24" />
       <path d="M21 3v5h-5" />
+    </Svg>
+  );
+}
+
+/** Two pages side by side: the PDF's, and the blank one beside it. */
+function WritingPageGlyph() {
+  return (
+    <Svg width={2.2}>
+      <rect x="3" y="4" width="8" height="16" rx="1" />
+      <rect x="13" y="4" width="8" height="16" rx="1" />
     </Svg>
   );
 }
