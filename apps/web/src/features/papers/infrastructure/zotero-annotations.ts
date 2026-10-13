@@ -2,6 +2,7 @@ import type { ZoteroCredentialsProvider } from "./zotero-metadata-source";
 import type {
   ZoteroAnnotation,
   ZoteroAnnotationPosition,
+  ZoteroAnnotationPull,
   ZoteroAnnotationType,
 } from "../domain/zotero";
 import {
@@ -33,6 +34,7 @@ interface ZoteroItem {
   key?: string;
   data?: {
     parentItem?: string;
+    contentType?: string;
     annotationText?: string;
     annotationComment?: string;
     annotationColor?: string;
@@ -55,6 +57,11 @@ export class ZoteroAnnotations {
 
   /** Map of Zotero paper key → its annotations, across the whole library. */
   async pullAll(): Promise<Map<string, ZoteroAnnotation[]>> {
+    return (await this.pull()).byPaper;
+  }
+
+  /** The annotations, plus the PDF attachment each paper's annotations hang off. */
+  async pull(): Promise<ZoteroAnnotationPull> {
     const creds = await this.credentials();
     if (!creds.apiKey || !creds.library) {
       throw new Error("Zotero is not configured. Add your API key and library in Settings.");
@@ -88,13 +95,21 @@ export class ZoteroAnnotations {
     ]);
 
     // Pass 1: attachment → parent paper key (library-wide; children are not in collections).
+    // A paper's first PDF is where a write-back would put a new annotation.
     const attachToPaper = new Map<string, string>();
+    const paperPdf = new Map<string, string>();
     for (const it of attachments) {
       if (!it.key || !it.data?.parentItem) continue;
       const paperKey = it.data.parentItem;
       if (allowedPaperKeys && !allowedPaperKeys.has(paperKey)) continue;
       attachToPaper.set(it.key, paperKey);
+      if (it.data.contentType === "application/pdf" && !paperPdf.has(paperKey)) {
+        paperPdf.set(paperKey, it.key);
+      }
     }
+    // But the PDF the reader already annotated in Zotero wins: that is the
+    // file the existing marks are on, so new ones belong beside them.
+    const annotatedPdf = new Map<string, string>();
 
     // Pass 2: annotations, resolved to their paper via the attachment map.
     const byPaper = new Map<string, ZoteroAnnotation[]>();
@@ -102,6 +117,7 @@ export class ZoteroAnnotations {
       const attKey = it.data?.parentItem;
       const paperKey = attKey ? attachToPaper.get(attKey) : undefined;
       if (!paperKey) continue;
+      if (!annotatedPdf.has(paperKey)) annotatedPdf.set(paperKey, attKey!);
       const annotationType = parseAnnotationType(it.data?.annotationType);
       const annotationPosition = parseAnnotationPosition(it.data?.annotationPosition);
       const annotationSortIndex = it.data?.annotationSortIndex || undefined;
@@ -134,7 +150,7 @@ export class ZoteroAnnotations {
       if (list) list.push(note);
       else byPaper.set(paperKey, [note]);
     }
-    return byPaper;
+    return { byPaper, attachments: new Map([...paperPdf, ...annotatedPdf]) };
   }
 
 }

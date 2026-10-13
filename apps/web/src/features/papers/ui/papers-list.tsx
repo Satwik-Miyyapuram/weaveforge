@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PAPER_STATUSES, type Paper, type PaperSummary, type ReadingList } from "@weaveforge/core";
+import { zoteroWriteBackMessage } from "@/features/reader/application/write-back-zotero-annotations";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
@@ -114,10 +115,11 @@ export function PapersScreen() {
     setSyncMsg(null);
     setError(null);
     try {
-      const { library, annotations } = await getContainer().zotero.syncBibliography();
+      const { library, annotations, writeBack } = await getContainer().zotero.syncBibliography();
       const { pushed, pulled, deletedLocal } = library;
       setSyncMsg(
-        `Synced — pushed ${pushed}, pulled ${pulled}, removed ${deletedLocal} · ${annotations} annotations.`,
+        `Synced — pushed ${pushed}, pulled ${pulled}, removed ${deletedLocal} · ${annotations} annotations` +
+          `${zoteroWriteBackMessage(writeBack)}.`,
       );
       await load();
     } catch (err) {

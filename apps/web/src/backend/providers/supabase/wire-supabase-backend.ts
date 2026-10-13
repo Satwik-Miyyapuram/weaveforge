@@ -32,6 +32,7 @@ import type {
   ILabSnapshotRepository,
   IPaperFieldRepository,
   IReaderAnnotationSink,
+  IReaderAnnotationSyncRecorder,
   IReaderAnnotationProjectSource,
   IReaderAnnotationSource,
   IBlobStore,
@@ -124,6 +125,7 @@ export interface WiredSupabaseBackend {
   readonly labSnapshotRepository: ILabSnapshotRepository;
   readonly readerAnnotationRepository: IReaderAnnotationSource &
     IReaderAnnotationSink &
+    IReaderAnnotationSyncRecorder &
     IReaderAnnotationProjectSource;
   readonly paperFieldRepository: IPaperFieldRepository;
 }
@@ -352,7 +354,7 @@ export function wireSupabaseBackend(
   const readerAnnotationRepository = cacheRepo(
     new SupabaseReaderAnnotationRepository(db, projectContext, session),
     ["list", "listForProject"],
-    ["create", "update", "remove"],
+    ["create", "update", "remove", "recordZoteroSync"],
     pid,
     { resourceType: "paper" },
   );

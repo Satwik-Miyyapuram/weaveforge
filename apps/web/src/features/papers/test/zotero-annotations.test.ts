@@ -192,3 +192,27 @@ test("annotation without new fields maps exactly as before", async () => {
     tags: ["method"],
   });
 });
+
+test("pull reports each paper's PDF attachment, preferring the one already annotated", async () => {
+  const fetchFn: typeof fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("itemType=attachment")) {
+      return response([
+        { key: "SNAPSHOT", data: { parentItem: "P1", contentType: "text/html" } },
+        { key: "PDF_A", data: { parentItem: "P1", contentType: "application/pdf" } },
+        { key: "PDF_B", data: { parentItem: "P1", contentType: "application/pdf" } },
+        { key: "ONLY_PDF", data: { parentItem: "P2", contentType: "application/pdf" } },
+      ]);
+    }
+    if (url.includes("itemType=annotation")) {
+      return response([{ key: "A1", data: { parentItem: "PDF_B", annotationType: "highlight" } }]);
+    }
+    return response([]);
+  };
+  const { attachments } = await new ZoteroAnnotations(
+    async () => ({ apiKey: "test", library: "users/1" }),
+    fetchFn,
+  ).pull();
+  assert.equal(attachments.get("P1"), "PDF_B");
+  assert.equal(attachments.get("P2"), "ONLY_PDF");
+});

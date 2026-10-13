@@ -97,7 +97,10 @@ test("syncBibliography applies what it pulled onto papers and tags", async () =>
   const facade = new ZoteroFacade({
     bibliography: {
       syncLibrary: async () => ({ items: 2 }),
-      pullAnnotations: async () => new Map([["PAPER1", [{ key: "A1" }]]]),
+      pullAnnotations: async () => ({
+        byPaper: new Map([["PAPER1", [{ key: "A1" }]]]),
+        attachments: new Map(),
+      }),
     } as never,
     pushToZotero: { execute: async () => "pushed" } as never,
     importLocalZotero: { execute: async () => ({ papers: 0, annotations: 0, items: 0 }) } as never,
@@ -119,6 +122,80 @@ test("syncBibliography applies what it pulled onto papers and tags", async () =>
   // where it lives. What this asserts is that the facade hands it both
   // collaborators rather than calling the integration twice.
   assert.equal(typeof result.annotations, "number");
+});
+
+test("syncBibliography sends this app's annotations back to Zotero (they never left before)", async () => {
+  // The regression: the write-back existed but nothing called it, so a
+  // highlight made in WeaveForge never reached Zotero, however often the
+  // reader pressed Sync.
+  const recorded: { id: string; zoteroKey: string; syncState: string }[] = [];
+  const pushed: { parent: string; ids: string[] }[] = [];
+  const paper = { id: "p1", title: "T", metadata: { zoteroKey: "PAPER1" } };
+  const facade = new ZoteroFacade({
+    bibliography: {
+      providerId: "zotero",
+      syncLibrary: async () => ({ pushed: 0, pulled: 0, deletedLocal: 0 }),
+      pullAnnotations: async () => ({
+        byPaper: new Map(),
+        attachments: new Map([["PAPER1", "ATT1"]]),
+      }),
+    } as never,
+    pushToZotero: { execute: async () => "pushed" } as never,
+    importLocalZotero: { execute: async () => ({ papers: 0, annotations: 0, items: 0 }) } as never,
+    readerAnnotations: {
+      list: async () => [annotation(), annotation({ id: "z", origin: "zotero", zoteroKey: "ZK" })],
+      recordZoteroSync: async (id: string, r: { zoteroKey: string; syncState: string }) => {
+        recorded.push({ id, zoteroKey: r.zoteroKey, syncState: r.syncState });
+      },
+    } as never,
+    papers: {
+      // `applyBibliographyAnnotations` saves the attachment key, so the list
+      // the write-back reads afterwards carries it.
+      list: async () => [paper],
+      getById: async () => null,
+      save: async (next: typeof paper) => Object.assign(paper, next),
+    } as never,
+    manageTags: { reconcileSources: async () => {} } as never,
+    zoteroCredentials: async () => ({ apiKey: "k", library: "users/1" }),
+    annotationPusher: async () => ({
+      push: async (parent, anns) => {
+        pushed.push({ parent, ids: anns.map((a) => a.id) });
+        return { results: [{ id: "a1", outcome: "created" as const, zoteroKey: "NEW1", zoteroVersion: 9 }] };
+      },
+    }),
+  });
+
+  const result = await facade.syncBibliography();
+
+  assert.deepEqual(pushed, [{ parent: "ATT1", ids: ["a1"] }], "only the local mark goes, to the PDF attachment");
+  assert.deepEqual(recorded, [{ id: "a1", zoteroKey: "NEW1", syncState: "synced" }]);
+  assert.equal(result.writeBack?.created, 1);
+});
+
+test("syncBibliography writes nothing back without a cloud key (local Zotero is read-only)", async () => {
+  let pushes = 0;
+  const facade = new ZoteroFacade({
+    bibliography: {
+      providerId: "zotero",
+      syncLibrary: async () => ({ pushed: 0, pulled: 0, deletedLocal: 0 }),
+      pullAnnotations: async () => ({ byPaper: new Map(), attachments: new Map() }),
+    } as never,
+    pushToZotero: { execute: async () => "pushed" } as never,
+    importLocalZotero: { execute: async () => ({ papers: 0, annotations: 0, items: 0 }) } as never,
+    readerAnnotations: { list: async () => [annotation()] } as never,
+    papers: { list: async () => [], getById: async () => null, save: async () => {} } as never,
+    manageTags: { reconcileSources: async () => {} } as never,
+    zoteroCredentials: async () => ({}),
+    annotationPusher: async () => ({
+      push: async () => {
+        pushes += 1;
+        return { results: [] };
+      },
+    }),
+  });
+  const result = await facade.syncBibliography();
+  assert.equal(result.writeBack, null);
+  assert.equal(pushes, 0);
 });
 
 test("custom fields are pass-throughs to the one use case that owns the rules", async () => {

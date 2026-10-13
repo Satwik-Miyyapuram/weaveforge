@@ -76,6 +76,13 @@ export interface IPaperImageStore {
   fetchBlobs(paths: readonly string[]): Promise<Map<string, Blob>>;
 }
 
+export interface ZoteroAnnotationPull {
+  byPaper: Map<string, ZoteroAnnotation[]>;
+  /** Paper key → the PDF attachment its annotations hang off. */
+  attachments: Map<string, string>;
+}
+
 export interface IZoteroAnnotationPull {
+  pull(): Promise<ZoteroAnnotationPull>;
   pullAll(): Promise<Map<string, ZoteroAnnotation[]>>;
 }

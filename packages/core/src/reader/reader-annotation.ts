@@ -105,6 +105,27 @@ export interface IReaderAnnotationProjectSource {
   listForProject(): Promise<WorkspaceAnnotation[]>;
 }
 
+/** What a Zotero write-back learned about one local annotation. */
+export interface ReaderAnnotationSyncRecord {
+  /** The Zotero item key the annotation now lives under. */
+  zoteroKey: string;
+  /** Zotero's version for that item, for the next update's version guard. */
+  zoteroVersion: number | null;
+  syncState: AnnotationSyncState;
+}
+
+/**
+ * Write-back bookkeeping port.
+ *
+ * Separate from `IReaderAnnotationSink.update` on purpose: an edit by the
+ * reader marks a synced row `pending`, while this is the sync itself saying
+ * the row is now in step with Zotero. Routing it through `update` would flag
+ * every successful write-back as owing another one.
+ */
+export interface IReaderAnnotationSyncRecorder {
+  recordZoteroSync(id: string, record: ReaderAnnotationSyncRecord): Promise<void>;
+}
+
 /** Write port — local-only in R3; Zotero-backed in R5. */
 export interface IReaderAnnotationSink {
   create(paperId: string, draft: NewReaderAnnotation): Promise<ReaderAnnotation>;

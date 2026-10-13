@@ -264,7 +264,7 @@ function unionList(a: readonly unknown[], b: readonly unknown[]): unknown[] {
 }
 
 /** Metadata keys that tie a row to one outside record and must not be copied. */
-const OWN_METADATA = new Set(["zoteroKey", "zoteroVersion", "zoteroLibraryId", "mergedFrom"]);
+const OWN_METADATA = new Set(["zoteroKey", "zoteroVersion", "zoteroLibraryId", "zoteroAttachmentKey", "mergedFrom"]);
 
 /**
  * The kept paper with what the duplicate knew and it did not.

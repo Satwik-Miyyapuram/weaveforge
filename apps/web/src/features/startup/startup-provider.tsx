@@ -302,13 +302,13 @@ export function StartupProvider({
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    // A refresh follows an explicit accept, so acceptance is known — skip the
-    // gate and go straight to the parallel batch.
-    applyDecision(false);
+    // Called after an explicit accept, and by ProfileProvider after a lab
+    // change. The second caller is why acceptance is never assumed here: it is
+    // read back, so a refresh can never wave someone past the disclaimer.
     const next = await loadStartupBundle(
       userId,
       {
-        assumeAccepted: true,
+        assumeAccepted: cacheProvesAccepted(readCachedSnapshot(userId)),
         onDecision: (needs, _settings, error) => applyDecision(needs, error),
       },
       loadBundle,

@@ -103,12 +103,12 @@ export class ImportLocalZoteroUseCase {
 
     // Scoped to the same collection as the papers, or the annotations would
     // arrive for papers the import deliberately did not take.
-    const byPaper = await localZoteroAnnotations(bridge, collection).pullAll();
+    const pulled = await localZoteroAnnotations(bridge, collection).pull();
     const annotations = await applyBibliographyAnnotations(
-      byPaper,
+      pulled,
       this.deps.papers,
       this.deps.manageTags,
     );
-    return { papers, annotations, items: byPaper.size };
+    return { papers, annotations, items: pulled.byPaper.size };
   }
 }
