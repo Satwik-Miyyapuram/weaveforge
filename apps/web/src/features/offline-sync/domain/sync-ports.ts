@@ -47,4 +47,9 @@ export interface SyncTransport {
   send(entry: OutboxEntry): Promise<SendOutcome>;
   /** Changes strictly after `since`, in watermark order. */
   changesSince(since: number, limit: number): Promise<RemoteChange[]>;
+  /**
+   * Which of these ids the server does not hold, or null when that cannot be
+   * read. Optional: without it, rows an earlier version lost are not re-sent.
+   */
+  missingIds?(table: string, ids: string[]): Promise<string[] | null>;
 }

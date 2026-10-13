@@ -234,3 +234,34 @@ test("a 409 on another table's insert is still a conflict", async () => {
   const outcome = await transport.send(entry({ op: "insert", baseVersion: null }));
   assert.equal(outcome.status, "conflict");
 });
+
+test("an insert whose parent the server lacks is refused, not read as a conflict", async () => {
+  const { transport, calls } = harness([
+    {
+      status: 409,
+      body: {
+        code: "23503",
+        message: 'insert or update on table "papers" violates foreign key constraint "papers_project_id_fkey"',
+      },
+    },
+  ]);
+  const outcome = await transport.send(entry({ table: "papers", op: "insert", baseVersion: null }));
+  assert.equal(outcome.status, "refused");
+  assert.match((outcome as { reason: string }).reason, /foreign key/);
+  // No lookup by id: a missing parent says nothing about this row being elsewhere.
+  assert.equal(calls.length, 1);
+});
+
+test("missingIds names the ids the server does not hold", async () => {
+  const a = "11111111-1111-4111-8111-111111111111";
+  const b = "22222222-2222-4222-8222-222222222222";
+  const { transport, calls } = harness([{ status: 200, body: [{ id: a }] }]);
+  assert.deepEqual(await transport.missingIds("papers", [a, b]), [b]);
+  assert.equal(calls[0]!.method, "GET");
+  assert.match(calls[0]!.url, /\/papers\?id=in\.\(.*\)&select=id/);
+});
+
+test("missingIds answers null when the server cannot be read, so nothing is resent on a guess", async () => {
+  const { transport } = harness([{ status: 500, body: { message: "boom" } }]);
+  assert.equal(await transport.missingIds("papers", ["11111111-1111-4111-8111-111111111111"]), null);
+});

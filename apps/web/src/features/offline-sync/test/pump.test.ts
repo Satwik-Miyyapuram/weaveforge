@@ -130,7 +130,7 @@ describe("the outbox pump", () => {
     assert.deepEqual(await outbox.pending(), []);
   });
 
-  it("drops an insert the server holds under another id", async () => {
+  it("keeps an insert the server refused without holding a row at its id", async () => {
     const db = await localSqlDb();
     open.push(db);
     const outbox = new Outbox(db);
@@ -139,7 +139,11 @@ describe("the outbox pump", () => {
       outbox,
       transport([{ status: "conflict", serverVersion: null, serverRow: null }]),
     ).run();
-    assert.deepEqual(await outbox.pending(), []);
+    // Nothing on the server speaks for this row, so dropping the op would lose it.
+    const [kept] = await outbox.pending();
+    assert.equal(kept?.rowId, ROW);
+    assert.equal(kept?.attempts, 1);
+    assert.ok(kept?.lastError);
   });
 
   it("keeps a delete that met a newer version, re-aimed at it", async () => {
