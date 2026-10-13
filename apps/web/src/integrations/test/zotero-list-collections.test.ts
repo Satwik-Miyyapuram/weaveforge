@@ -12,7 +12,10 @@ function integrationWith(stored: UserSettings, fetchFn: typeof fetch) {
   return new ZoteroBibliographyIntegration({
     librarySync: { sync: async () => ({ pushed: 0, pulled: 0, deletedLocal: 0 }) },
     exporter: { save: async () => undefined, remove: async () => {} },
-    annotations: { pullAll: async () => new Map() },
+    annotations: {
+      pull: async () => ({ byPaper: new Map(), attachments: new Map() }),
+      pullAll: async () => new Map(),
+    },
     papers: { list: async () => [], save: async () => {} } as never,
     tags: {} as never,
     settings,

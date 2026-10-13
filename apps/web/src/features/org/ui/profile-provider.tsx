@@ -12,6 +12,7 @@ import { hasActiveLab, needsStandaloneRoleSync } from "@weaveforge/core";
 import { useAuth } from "@/features/auth";
 import { useStartupOptional } from "@/features/startup";
 import { continueStandalone, fetchMemberships, switchOrg as switchActiveOrg } from "../infrastructure/org-api";
+import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
 
 const EMPTY_PROFILE_STATE = {
   profile: null as Member | null,
@@ -62,6 +63,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     try {
+      invalidateAllRepoCaches();
+      if (startup?.refreshProfile) {
+        await startup.refreshProfile().catch(() => undefined);
+      }
       const { ensureContainer } = await import("@/bootstrap");
       const org = (await ensureContainer()).org;
       const [mine, members, lab, labs] = await Promise.all([
@@ -78,6 +83,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       if (needsStandaloneRoleSync(profile, labs, inLab)) {
         try {
           await continueStandalone();
+          invalidateAllRepoCaches();
           profile = await org.loadProfile();
           team = await org.loadTeam();
           labRoster = await org.loadLab();
@@ -96,7 +102,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       setLabMembers([]);
       setMemberships([]);
     }
-  }, [user?.id]);
+  }, [user?.id, startup]);
 
   const switchOrg = useCallback(
     async (orgId: string) => {

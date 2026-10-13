@@ -1,5 +1,5 @@
 import type {
-  BibliographyAnnotation,
+  BibliographyAnnotationPull,
   BibliographyCollection,
   BibliographyCredentials,
   BibliographySyncResult,
@@ -15,8 +15,8 @@ export class NoopBibliographyIntegration implements IBibliographyIntegration {
     return { pushed: 0, pulled: 0, deletedLocal: 0 };
   }
 
-  async pullAnnotations(): Promise<Map<string, BibliographyAnnotation[]>> {
-    return new Map();
+  async pullAnnotations(): Promise<BibliographyAnnotationPull> {
+    return { byPaper: new Map(), attachments: new Map() };
   }
 
   async pushPaper(_paper: Paper): Promise<string | undefined> {

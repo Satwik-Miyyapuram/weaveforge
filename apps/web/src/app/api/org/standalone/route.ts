@@ -24,7 +24,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid session." }, { status: 401 });
   }
 
-  const { error } = await db.rpc("complete_org_setup");
+  let { error } = await db.rpc("complete_org_setup");
+  if (error) {
+    await db.rpc("ensure_user_provisioned");
+    const retry = await db.rpc("complete_org_setup");
+    error = retry.error;
+  }
   if (error) {
     // `complete_org_setup` is a definer RPC; when it fails it can report a table
     // or column by name. Sanitised rather than returned verbatim.

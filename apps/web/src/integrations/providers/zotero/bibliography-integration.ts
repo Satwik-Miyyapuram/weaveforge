@@ -1,8 +1,7 @@
-import { extractHashtags, type IPaperRepository, type ManageTagsUseCase } from "@weaveforge/core";
+import type { IPaperRepository, ManageTagsUseCase } from "@weaveforge/core";
 import type { Paper } from "@weaveforge/core";
-import { appendTagHashtags, reconcileTagsFromBody } from "@/features/papers/lib/note-tags";
 import type {
-  BibliographyAnnotation,
+  BibliographyAnnotationPull,
   BibliographyCredentials,
   IBibliographyIntegration,
 } from "@weaveforge/core";
@@ -43,8 +42,8 @@ export class ZoteroBibliographyIntegration implements IBibliographyIntegration {
     return this.deps.librarySync.sync();
   }
 
-  async pullAnnotations(): Promise<Map<string, BibliographyAnnotation[]>> {
-    return this.deps.annotations.pullAll();
+  async pullAnnotations(): Promise<BibliographyAnnotationPull> {
+    return this.deps.annotations.pull();
   }
 
   async pushPaper(paper: Paper) {
@@ -93,36 +92,4 @@ export class ZoteroBibliographyIntegration implements IBibliographyIntegration {
       .map((c) => ({ key: c.data?.key ?? "", name: c.data?.name ?? "" }))
       .filter((c) => c.key);
   }
-}
-
-/** Merge pulled annotations into local papers + tag index. */
-export async function applyBibliographyAnnotations(
-  byPaper: Map<string, BibliographyAnnotation[]>,
-  papers: IPaperRepository,
-  tags: ManageTagsUseCase,
-): Promise<number> {
-  const all = await papers.list();
-  let synced = 0;
-  for (const p of all) {
-    const zk = p.metadata?.["zoteroKey"] as string | undefined;
-    const anns = zk ? byPaper.get(zk) : undefined;
-    if (!anns?.length) continue;
-    // Tags live in the note body as #hashtags — append any Zotero tags (and the
-    // hashtags inside annotation comments/text) to the bottom of the summary,
-    // then reconcile the paper's tag index from the body.
-    const tagNames = anns.filter((a) => a.kind !== "note").flatMap((a) => [
-      ...a.tags,
-      ...extractHashtags(a.comment),
-      ...extractHashtags(a.text),
-    ]);
-    const newSummary = appendTagHashtags(p.summary ?? "", tagNames);
-    await papers.save({
-      ...p,
-      summary: newSummary || undefined,
-      metadata: { ...p.metadata, annotations: anns },
-    });
-    await reconcileTagsFromBody(tags, p.id, newSummary);
-    synced += anns.length;
-  }
-  return synced;
 }

@@ -17,5 +17,5 @@ export interface ISelfProvisioner {
    * Ensure the calling user's identity rows exist. Idempotent and cheap after
    * the first call, so startup may invoke it unconditionally.
    */
-  ensureProvisioned(): Promise<void>;
+  ensureProvisioned(force?: boolean): Promise<void>;
 }

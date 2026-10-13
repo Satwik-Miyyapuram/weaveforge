@@ -2,10 +2,14 @@ import type {
   IBibliographyIntegration,
   IPaperRepository,
   IReaderAnnotationSource,
+  IReaderAnnotationSyncRecorder,
   ManageTagsUseCase,
   PushPaperToZoteroUseCase,
 } from "@weaveforge/core";
-import { applyBibliographyAnnotations } from "@/integrations/providers/zotero/bibliography-integration";
+import type {
+  ZoteroAnnotationPusher,
+  ZoteroAnnotationWriteBackSummary,
+} from "@/features/reader/application/write-back-zotero-annotations";
 import type { ImportLocalZoteroUseCase } from "@/features/papers/application/import-local-zotero.use-case";
 import type { ZoteroCredentialsProvider } from "@/features/papers/infrastructure/zotero-metadata-source";
 
@@ -27,7 +31,7 @@ export class ZoteroFacade {
       pushToZotero: PushPaperToZoteroUseCase;
       /** The local-Zotero workflow, with the desktop bridge it needs injected. */
       importLocalZotero: ImportLocalZoteroUseCase;
-      readerAnnotations: IReaderAnnotationSource;
+      readerAnnotations: IReaderAnnotationSource & IReaderAnnotationSyncRecorder;
       /**
        * Read and written by `applyBibliographyAnnotations`, which matches pulled
        * annotations onto papers by key and reconciles each item's tags.
@@ -36,19 +40,68 @@ export class ZoteroFacade {
       manageTags: ManageTagsUseCase;
       /** Zotero API key + library, read at call time (post-unlock). */
       zoteroCredentials: ZoteroCredentialsProvider;
+      /** Test seam for the live Zotero writer; defaults to the Web API client. */
+      annotationPusher?: () => Promise<ZoteroAnnotationPusher>;
     },
   ) {}
 
-  /** The cloud library, with the API key the reader stored. */
+  /**
+   * The cloud library, with the API key the reader stored, both ways.
+   *
+   * Papers sync, then Zotero's annotations come in, then the ones made here
+   * go out. The last step is what was missing: the pull worked, but nothing
+   * called the write-back, so a highlight made in WeaveForge never reached
+   * Zotero. Pressing Sync is the reader asking for exactly that, which is the
+   * confirmation `pushAnnotationsToZotero` asks callers to get.
+   */
   async syncBibliography() {
     const library = await this.deps.bibliography.syncLibrary();
-    const byPaper = await this.deps.bibliography.pullAnnotations();
+    const pulled = await this.deps.bibliography.pullAnnotations();
+    // Loaded on Sync, not with the facade: every route boots the container, and
+    // the merge (with the note-tag helpers it pulls in) is only needed here.
+    const { applyBibliographyAnnotations } = await import(
+      "@/integrations/providers/zotero/apply-bibliography-annotations"
+    );
     const annotations = await applyBibliographyAnnotations(
-      byPaper,
+      pulled,
       this.deps.papers,
       this.deps.manageTags,
     );
-    return { library, annotations };
+    const writeBack = await this.writeBackAnnotations();
+    return { library, annotations, writeBack };
+  }
+
+  /**
+   * Every paper's owed local annotations, sent to its Zotero PDF.
+   *
+   * Skipped without a cloud API key: the Zotero on this computer answers reads
+   * only, so there is nowhere to write.
+   */
+  private async writeBackAnnotations(): Promise<ZoteroAnnotationWriteBackSummary | null> {
+    if (this.deps.bibliography.providerId !== "zotero") return null;
+    const creds = await this.deps.zoteroCredentials();
+    if (!creds.apiKey || !creds.library) return null;
+    const [{ writeBackZoteroAnnotations }, { ZOTERO_ATTACHMENT_KEY }] = await Promise.all([
+      import("@/features/reader/application/write-back-zotero-annotations"),
+      import("@/integrations/providers/zotero/apply-bibliography-annotations"),
+    ]);
+    const pusher = await (this.deps.annotationPusher ?? (() => this.defaultPusher()))();
+    return writeBackZoteroAnnotations({
+      papers: await this.deps.papers.list(),
+      attachmentOf: (paper) => {
+        const key = paper.metadata?.[ZOTERO_ATTACHMENT_KEY];
+        return typeof key === "string" && key ? key : undefined;
+      },
+      annotations: this.deps.readerAnnotations,
+      pusher,
+    });
+  }
+
+  private async defaultPusher(): Promise<ZoteroAnnotationPusher> {
+    const { ZoteroApiAnnotationWriteBack } = await import(
+      "@/features/reader/infrastructure/zotero-annotation-write-back"
+    );
+    return new ZoteroApiAnnotationWriteBack(this.deps.zoteroCredentials);
   }
 
   /** The Zotero on this computer. See `ImportLocalZoteroUseCase`. */

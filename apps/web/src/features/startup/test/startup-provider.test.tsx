@@ -259,3 +259,39 @@ test("startup: a settings read that failed is reported, not answered", async () 
   assert.equal(harness.current.needsPrivacyAccept, false, "an unknown verdict must not gate");
   await harness.unmount();
 });
+
+test("startup: a refresh never opens the privacy gate on its own", async () => {
+  // ProfileProvider calls refreshProfile after a lab change, for users who may
+  // never have accepted. A refresh that set "accepted" before reading it back
+  // mounted the whole app behind the disclaimer until the read landed — and
+  // for good if the read joined an in-flight load whose decision went to
+  // another caller.
+  const user = userId();
+  let release: () => void = () => {};
+  let loads = 0;
+  const load: StartupBundleLoader = async (_userId, opts) => {
+    loads += 1;
+    if (loads > 1) await new Promise<void>((r) => (release = r));
+    opts?.onDecision?.(true, null, null);
+    return snapshot(true);
+  };
+
+  const harness = await renderHook(() => useStartup(), undefined, {
+    wrapper: withProvider(user, load, false),
+  });
+  await harness.flush();
+  assert.equal(harness.current.needsPrivacyAccept, true);
+
+  const refreshing = harness.current.refreshProfile();
+  await harness.flush();
+  assert.equal(
+    harness.current.needsPrivacyAccept,
+    true,
+    "the disclaimer must stay up while the refresh is still reading",
+  );
+  release();
+  await refreshing;
+  await harness.flush();
+  assert.equal(harness.current.needsPrivacyAccept, true);
+  await harness.unmount();
+});

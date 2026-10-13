@@ -3,15 +3,17 @@ import {
   isReaderAnnotationType,
   type IReaderAnnotationSink,
   type IReaderAnnotationSource,
+  type IReaderAnnotationSyncRecorder,
   type NewReaderAnnotation,
   type ReaderAnnotation,
   type ReaderAnnotationPatch,
+  type ReaderAnnotationSyncRecord,
 } from "../reader/index.js";
 import { NotFoundError } from "../shared/errors.js";
 
 /** Combined source+sink for tests and local-only composition. */
 export class InMemoryReaderAnnotationRepository
-  implements IReaderAnnotationSource, IReaderAnnotationSink
+  implements IReaderAnnotationSource, IReaderAnnotationSink, IReaderAnnotationSyncRecorder
 {
   private readonly items = new Map<string, ReaderAnnotation & { paperId: string }>();
   private seq = 0;
@@ -73,6 +75,12 @@ export class InMemoryReaderAnnotationRepository
     this.items.set(id, next);
     const { paperId: _p, ...ann } = next;
     return structuredClone(ann);
+  }
+
+  async recordZoteroSync(id: string, record: ReaderAnnotationSyncRecord): Promise<void> {
+    const existing = this.items.get(id);
+    if (!existing) throw new NotFoundError("Annotation not found");
+    this.items.set(id, { ...existing, ...record });
   }
 
   async remove(id: string): Promise<void> {

@@ -219,18 +219,30 @@ export function resolveAnnotationConflict(
   return merged;
 }
 
-/** Payload shape for a Zotero Web API annotation create/update (dry-run). */
+/**
+ * Payload shape for a Zotero Web API annotation create/update.
+ *
+ * Two fields follow Zotero's rules rather than our model's, because Zotero
+ * rejects the write otherwise:
+ *
+ * - `annotationPosition` is a JSON **string**, the same form the pull reads
+ *   back (`zotero-annotations.ts`), not an object.
+ * - `annotationText` is only allowed on highlights and underlines, so it is
+ *   left out for every other type.
+ */
 export interface ZoteroAnnotationWritePayload {
   itemType: "annotation";
   parentItem: string;
   annotationType: ReaderAnnotationType;
-  annotationText: string;
+  annotationText?: string;
   annotationComment: string;
   annotationColor: string;
   annotationSortIndex: string;
-  annotationPosition: CombinedPdfAnchor["zoteroPosition"];
+  annotationPosition: string;
   tags: { tag: string }[];
 }
+
+const TEXT_BEARING_TYPES: readonly ReaderAnnotationType[] = ["highlight", "underline"];
 
 export function toZoteroWritePayload(
   ann: ReaderAnnotation,
@@ -240,11 +252,11 @@ export function toZoteroWritePayload(
     itemType: "annotation",
     parentItem: parentItemKey,
     annotationType: ann.type,
-    annotationText: ann.text,
+    ...(TEXT_BEARING_TYPES.includes(ann.type) ? { annotationText: ann.text } : {}),
     annotationComment: ann.comment,
     annotationColor: ann.color,
     annotationSortIndex: ann.sortIndex,
-    annotationPosition: ann.anchor.zoteroPosition,
+    annotationPosition: JSON.stringify(ann.anchor.zoteroPosition ?? {}),
     tags: ann.tags.map((tag) => ({ tag })),
   };
 }
@@ -266,7 +278,11 @@ export function toZoteroWritePayload(
 export function zoteroWriteBackAnnotations(
   annotations: readonly ReaderAnnotation[],
 ): ReaderAnnotation[] {
-  return annotations.filter((ann) => ann.type !== "ink");
+  // Zotero needs a page to hang an annotation on; a mark with no PDF position
+  // (one made on a kept web page, say) has nowhere to go there.
+  return annotations.filter(
+    (ann) => ann.type !== "ink" && typeof ann.anchor.zoteroPosition?.pageIndex === "number",
+  );
 }
 
 export interface IZoteroAnnotationWriteBack {

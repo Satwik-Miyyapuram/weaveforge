@@ -1,9 +1,11 @@
 import type {
   IReaderAnnotationSink,
   IReaderAnnotationSource,
+  IReaderAnnotationSyncRecorder,
   NewReaderAnnotation,
   ReaderAnnotation,
   ReaderAnnotationPatch,
+  ReaderAnnotationSyncRecord,
   WorkspaceAnnotation,
 } from "@weaveforge/core";
 import { buildAnnotationSortIndex, isReaderAnnotationType } from "@weaveforge/core";
@@ -25,7 +27,7 @@ const READER_ANNOTATION_COLUMNS = "id,paper_id,origin,zotero_key,type,color,text
 const TABLE = "reader_annotations";
 
 export class SupabaseReaderAnnotationRepository extends ProjectScopedSupabaseRepository
-  implements IReaderAnnotationSource, IReaderAnnotationSink {
+  implements IReaderAnnotationSource, IReaderAnnotationSink, IReaderAnnotationSyncRecorder {
   protected readonly action = "managing reader annotations";
 
   async list(paperId: string): Promise<ReaderAnnotation[]> {
@@ -126,6 +128,19 @@ export class SupabaseReaderAnnotationRepository extends ProjectScopedSupabaseRep
       .single();
     if (flagError) throw flagError;
     return toDomain(flagged as ReaderAnnotationRow);
+  }
+
+  /** Write-back bookkeeping only; see `IReaderAnnotationSyncRecorder`. */
+  async recordZoteroSync(id: string, record: ReaderAnnotationSyncRecord): Promise<void> {
+    await run(this.db
+      .from(TABLE)
+      .update({
+        zotero_key: record.zoteroKey,
+        zotero_version: record.zoteroVersion,
+        sync_state: record.syncState,
+      })
+      .eq("id", id)
+      .eq("project_id", this.projectId));
   }
 
   async remove(id: string): Promise<void> {

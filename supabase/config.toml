@@ -10,3 +10,7 @@ project_id = "weaveforge"
 enable_signup = true
 enable_confirmations = false
 
+[auth.email.template.magic_link]
+subject = "Your WeaveForge confirmation code"
+content_path = "./templates/magic_link.html"
+

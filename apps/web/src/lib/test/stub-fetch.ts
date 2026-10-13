@@ -60,7 +60,7 @@ export function stubFetch(
   const calls: string[] = [];
   const original = globalThis.fetch;
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
-    const url = String(input);
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     calls.push(url);
     const res = await handler(url, init);
     // `Response.url` is empty unless the response came off the network. Code

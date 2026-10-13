@@ -122,7 +122,7 @@ export function DeleteAccountPanel() {
             </button>
             {otpSent && emailHint && (
               <p className="muted" style={{ marginBottom: 0 }}>
-                Code sent to {emailHint}. It expires after a few minutes.
+                Code sent to {emailHint}. Enter the 6-digit code (or paste the confirmation link).
               </p>
             )}
           </div>
@@ -132,11 +132,10 @@ export function DeleteAccountPanel() {
             <input
               id="delete-otp"
               type="text"
-              inputMode="numeric"
               autoComplete="one-time-code"
               value={otp}
               onChange={(e) => setOtp(e.target.value)}
-              placeholder="6-digit code"
+              placeholder="6-digit code or confirmation link"
               disabled={busy}
             />
           </div>

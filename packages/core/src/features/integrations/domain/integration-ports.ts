@@ -27,6 +27,21 @@ export interface BibliographyAnnotation {
   tags: string[];
 }
 
+/** What one annotation pull brings back. */
+export interface BibliographyAnnotationPull {
+  /** Provider paper key → its annotations and notes. */
+  byPaper: Map<string, BibliographyAnnotation[]>;
+  /**
+   * Provider paper key → the key of the PDF attachment annotations hang off.
+   *
+   * Write-back needs it: Zotero anchors an annotation to the file it was drawn
+   * on, not to the bibliographic item. Also the set of papers the pull covered,
+   * so an empty `byPaper` entry for one of these means "none left", not
+   * "not looked at".
+   */
+  attachments: Map<string, string>;
+}
+
 /**
  * Swappable bibliography / reference-manager integration (Zotero today; Mendeley, etc. later).
  * Implementations live in the app infrastructure layer; domain depends only on this port.
@@ -46,7 +61,7 @@ export type BibliographyCredentials = Readonly<Record<string, string>>;
 export interface IBibliographyIntegration {
   readonly providerId: string;
   syncLibrary(): Promise<BibliographySyncResult>;
-  pullAnnotations(): Promise<Map<string, BibliographyAnnotation[]>>;
+  pullAnnotations(): Promise<BibliographyAnnotationPull>;
   pushPaper(paper: Paper): Promise<string | undefined>;
   removeRemotePaper(remoteKey: string): Promise<void>;
   /** Uses `credentials` when given, else whatever is stored for the provider. */

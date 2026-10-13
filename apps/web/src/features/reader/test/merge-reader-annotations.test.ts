@@ -32,3 +32,16 @@ test("mergeReaderAnnotations prefers local on id collision and sorts", () => {
   assert.equal(merged[1]!.text, "local");
   assert.equal(merged[1]!.origin, "local");
 });
+
+test("a local mark already sent to Zotero is not shown twice when Zotero sends it back", () => {
+  // After write-back the local row carries the Zotero key it was given, and the
+  // next pull brings the same mark in as a Zotero annotation under that key.
+  const merged = mergeReaderAnnotations(
+    [
+      ann({ id: "ZK1", zoteroKey: "ZK1", sortIndex: "00001|000000|00000", text: "echo" }),
+      ann({ id: "ZK2", zoteroKey: "ZK2", sortIndex: "00002|000000|00000", text: "made in Zotero" }),
+    ],
+    [ann({ id: "local-1", origin: "local", zoteroKey: "ZK1", sortIndex: "00001|000000|00000", text: "mine" })],
+  );
+  assert.deepEqual(merged.map((a) => a.id), ["local-1", "ZK2"]);
+});

@@ -21,11 +21,11 @@ const provisioned = new Set<string>();
 export class SupabaseSelfProvisioner implements ISelfProvisioner {
   constructor(private readonly db: SupabaseClient) {}
 
-  async ensureProvisioned(): Promise<void> {
+  async ensureProvisioned(force = false): Promise<void> {
     const { data } = await this.db.auth.getSession();
     const userId = data.session?.user.id;
     // No session means nothing to provision; the caller is on the login screen.
-    if (!userId || provisioned.has(userId)) return;
+    if (!userId || (!force && provisioned.has(userId))) return;
 
     const { error } = await this.db.rpc("ensure_user_provisioned");
     if (error) throw new Error(`Could not set up your account: ${formatError(error)}`);

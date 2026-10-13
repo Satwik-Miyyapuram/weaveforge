@@ -76,9 +76,17 @@ test("a dry run still builds the payload Zotero would receive", async () => {
     annotationComment: "",
     annotationColor: "#ffd400",
     annotationSortIndex: "00002|000000|00080",
-    annotationPosition: { pageIndex: 2, rects: [[1, 2, 3, 4]] },
+    // Zotero stores the position as a JSON string and rejects an object.
+    annotationPosition: JSON.stringify({ pageIndex: 2, rects: [[1, 2, 3, 4]] }),
     tags: [{ tag: "method" }],
   });
+});
+
+test("a note carries no annotationText, which Zotero allows only on highlights and underlines", async () => {
+  const client = new ZoteroApiAnnotationWriteBack(CREDS, stub([], () => ({})));
+  const { payloads } = await client.push("ATTACH01", [ann({ type: "note", text: "stray" })]);
+  assert.equal("annotationText" in payloads[0]!, false);
+  assert.equal(payloads[0]!.annotationType, "note");
 });
 
 test("a live push creates new annotations and returns their Zotero keys", async () => {

@@ -18,6 +18,7 @@ import {
 } from "@weaveforge/core";
 
 import { picturePath } from "./reader-picture";
+import { normalizeHighlightRects } from "./normalize-highlight-rects";
 
 interface AnnotationBox {
   id: string;
@@ -162,7 +163,12 @@ export function projectPageAnnotationGeometry(
       rectSets.push(position.nextPageRects);
     }
 
-    for (const rects of rectSets) {
+    // Text marks are stored as the selection's raw span boxes, which overlap;
+    // painted as-is every overlap shows twice as dark. Regions and notes are
+    // a single box and are left alone.
+    const textMark = ann.type === "highlight" || ann.type === "underline";
+    for (const stored of rectSets) {
+      const rects = textMark ? normalizeHighlightRects(stored.filter(isRect)) : stored;
       for (const rect of rects) {
         if (!isRect(rect)) continue;
         const box = pdfRectToScreenBox(rect as [number, number, number, number], projection);

@@ -1,5 +1,6 @@
 export type {
   BibliographyAnnotation,
+  BibliographyAnnotationPull,
   BibliographyCollection,
   BibliographyCredentials,
   BibliographySyncResult,
