@@ -52,7 +52,7 @@ export class PostgrestTransport implements SyncTransport {
     // and read as one the insert was dropped. Refused, it is kept and retried
     // once the parent has gone up.
     if (attempt.status === 409 && errorCode(attempt.body) === FK_VIOLATION) {
-      return { status: "refused", reason: firstLine(attempt.body) };
+      return { status: "refused", reason: firstLine(attempt.body), awaitingParent: true };
     }
     if (attempt.status === 409) {
       const outcome = await this.conflict(entry);
@@ -182,9 +182,34 @@ export class PostgrestTransport implements SyncTransport {
       const serverVersion = typeof version === "number" ? version : null;
       // An unreadable answer says nothing about the row; leave it out rather than claim "gone".
       if (found.status >= 400 || !Array.isArray(found.rows)) return { status: "conflict", serverVersion };
-      return { status: "conflict", serverVersion, serverRow: row ?? null };
+      if (row) return { status: "conflict", serverVersion, serverRow: row };
+      const deletedElsewhere = await this.tombstoned(entry);
+      return {
+        status: "conflict",
+        serverVersion,
+        serverRow: null,
+        ...(deletedElsewhere === null ? {} : { deletedElsewhere }),
+      };
     } catch {
       return { status: "conflict", serverVersion: null };
+    }
+  }
+
+  /**
+   * Whether the server records deleting this row: no row there can mean
+   * deleted elsewhere or never received, and only one of those may drop an edit.
+   * `null` when the answer could not be read.
+   */
+  private async tombstoned(entry: OutboxEntry): Promise<boolean | null> {
+    try {
+      const found = await this.request(
+        "GET",
+        `/sync_tombstones?table_name=eq.${encodeURIComponent(entry.table)}&row_id=eq.${encodeURIComponent(entry.rowId)}&select=row_id`,
+      );
+      if (found.status >= 400 || !Array.isArray(found.rows)) return null;
+      return found.rows.length > 0;
+    } catch {
+      return null;
     }
   }
 

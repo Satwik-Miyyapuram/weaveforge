@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * The bar's choices: the tool in force, and the colour each tool remembers.
+ * The bar's choices: the tool in force, and the colour and nib width each
+ * drawing tool remembers.
  *
  * The pen and the highlighter keep their own colour, because a return from
  * the highlighter should not hand the pen a fluorescent yellow (§6.3). The
@@ -10,7 +11,11 @@
  */
 
 import { useCallback, useRef, useState } from "react";
-import type { InkColour } from "@weaveforge/core";
+import {
+  INK_HIGHLIGHTER_WIDTH,
+  INK_PEN_WIDTH,
+  type InkColour,
+} from "@weaveforge/core";
 
 import type { InkBarTool } from "./ink-bar";
 
@@ -53,6 +58,8 @@ export function useInkPrefs() {
   const [penColour, setPenColour] = useState<InkColour>("text");
   const [highlighterColour, setHighlighterColour] =
     useState<InkColour>("warn");
+  const [width, setWidthState] = useState<number>(INK_PEN_WIDTH);
+  const [highlighterWidth, setHighlighterWidth] = useState<number>(INK_HIGHLIGHTER_WIDTH);
 
   /**
    * The last pen mode the user chose, which is what the pen returns to.
@@ -98,5 +105,24 @@ export function useInkPrefs() {
     [tool, setTool],
   );
 
-  return { tool, setTool, colour, onColourChange, onPenApproach };
+  /** A pen width is chosen; like a pen colour, it returns the tool to the pen. */
+  const onWidth = useCallback(
+    (next: number) => {
+      setWidthState(next);
+      setTool("pen");
+    },
+    [setTool],
+  );
+
+  return {
+    tool,
+    setTool,
+    colour,
+    onColourChange,
+    onPenApproach,
+    width,
+    onWidth,
+    highlighterWidth,
+    setHighlighterWidth,
+  };
 }

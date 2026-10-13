@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
-import { Outbox } from "../domain/outbox";
+import { Outbox, OUTBOX_MAX_ATTEMPTS } from "../domain/outbox";
 import { OutboxPump } from "../domain/pump";
 import { ConflictStore } from "../domain/conflicts";
 import type { OutboxEntry } from "../domain/outbox";
@@ -121,13 +121,40 @@ describe("the outbox pump", () => {
     assert.deepEqual(entry!.payload, { id: ROW, title: "Mine", read: true });
   });
 
-  it("drops an edit to a row the server no longer has", async () => {
+  it("drops an edit to a row deleted elsewhere", async () => {
+    const outbox = await withOps(1);
+    await new OutboxPump(
+      outbox,
+      transport([{ status: "conflict", serverVersion: null, serverRow: null, deletedElsewhere: true }]),
+    ).run();
+    assert.deepEqual(await outbox.pending(), []);
+  });
+
+  it("sends an edit to a row the server never got as the whole row", async () => {
+    const outbox = await withOps(2);
+    await new OutboxPump(
+      outbox,
+      transport([{ status: "conflict", serverVersion: null, serverRow: null, deletedElsewhere: false }]),
+    ).run();
+    // Dropping it lost papers whose insert never reached the server: the edit
+    // carries the full row, so it goes up as the insert that was missing.
+    const [first, second] = await outbox.pending();
+    assert.equal(first?.op, "insert");
+    assert.equal(first?.baseVersion, null);
+    assert.deepEqual(first?.payload, { n: 0 });
+    assert.equal(second?.op, "update");
+  });
+
+  it("keeps an edit when the server cannot say whether the row was deleted", async () => {
     const outbox = await withOps(1);
     await new OutboxPump(
       outbox,
       transport([{ status: "conflict", serverVersion: null, serverRow: null }]),
     ).run();
-    assert.deepEqual(await outbox.pending(), []);
+    const [kept] = await outbox.pending();
+    assert.equal(kept?.op, "update");
+    assert.equal(kept?.attempts, 1);
+    assert.ok(kept?.lastError);
   });
 
   it("keeps an insert the server refused without holding a row at its id", async () => {
@@ -161,5 +188,26 @@ describe("the outbox pump", () => {
     const outbox = await withOps(1);
     await new OutboxPump(outbox, transport([{ status: "refused", reason: "no such project" }])).run();
     assert.equal((await outbox.pending())[0]!.lastError, "no such project");
+  });
+
+  it("keeps retrying a row refused for a parent the server does not hold yet", async () => {
+    const outbox = await withOps(1);
+    const refusal: SendOutcome = { status: "refused", reason: "violates foreign key constraint", awaitingParent: true };
+    for (let i = 0; i < OUTBOX_MAX_ATTEMPTS + 2; i += 1) {
+      await new OutboxPump(outbox, transport([refusal])).run();
+    }
+    // The parent can still arrive from this device or another; dead-lettered,
+    // the row would never go up after it did.
+    const [owed] = await outbox.pending();
+    assert.equal(owed?.lastError, "violates foreign key constraint");
+    assert.deepEqual(await outbox.dead(), []);
+  });
+
+  it("still gives up on an op the server refuses outright", async () => {
+    const outbox = await withOps(1);
+    for (let i = 0; i < OUTBOX_MAX_ATTEMPTS; i += 1) {
+      await new OutboxPump(outbox, transport([{ status: "refused", reason: "bad column" }])).run();
+    }
+    assert.equal((await outbox.dead()).length, 1);
   });
 });

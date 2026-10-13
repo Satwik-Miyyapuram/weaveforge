@@ -10,6 +10,8 @@ import { act, create, type ReactTestRenderer, type ReactTestInstance } from "rea
 import { PaletteDockButton } from "@/components/palette-dock";
 import { INK_RENDER_COLOURS, InkBar, paletteHex, paletteName } from "@/features/ink";
 import { InsertMenu, PageField, ViewMenu } from "../ui/ink-bar-view";
+import { NibRow } from "../ui/ink-bar";
+import { ZoomPresets } from "../ui/ink-bar-view";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -105,11 +107,66 @@ test("the reader's View menu: no fits while the pen is out", () => {
     const view = tree.root.findByType(ViewMenu);
     assert.equal(view.props.onFitPage, undefined);
     assert.equal(view.props.onFitWidth, undefined);
-    assert.equal(byLabel(tree, "View, zoom 90%").length, 1);
-    // The old zoom pill is not drawn beside the menu.
-    assert.equal(byLabel(tree, "Zoom in").length, 0);
+    assert.equal(byLabel(tree, "Zoom 90%, fit and rotate").length, 1);
+    // One pair of steppers, inside the zoom control.
+    assert.equal(byLabel(tree, "Zoom in").length, 1);
+    assert.equal(byLabel(tree, "Zoom out").length, 1);
     act(() => tree.unmount());
   });
+});
+
+test("the zoom percent is its own trigger, not a square tool", () => {
+  withWindow(new Map(), () => {
+    const tree = render(readerBar({ view: { zoomPercent: 100, onZoomIn: noop, onZoomOut: noop, onZoomTo: noop } }));
+    const trigger = byLabel(tree, "Zoom 100%, fit and rotate")[0]!;
+    // `.ink-tool` is a 32px square everywhere, which clipped the percent.
+    assert.equal(String(trigger.props.className).split(" ").includes("ink-tool"), false);
+    act(() => tree.unmount());
+  });
+});
+
+test("the zoom presets check the current level and zoom to the one picked", () => {
+  const zoomed: number[] = [];
+  let closed = 0;
+  let tree!: ReactTestRenderer;
+  act(() => {
+    tree = create(
+      createElement(ZoomPresets, { zoomPercent: 100, onZoomTo: (p: number) => zoomed.push(p), onChosen: () => (closed += 1) }),
+    );
+  });
+  const item = (text: string) =>
+    tree.root.find((n) => n.props.role === "menuitemradio" && n.findByType("span").children.includes(text));
+  assert.equal(item("100%").props["aria-checked"], true);
+  assert.equal(item("150%").props["aria-checked"], false);
+  act(() => item("150%").props.onClick());
+  assert.deepEqual(zoomed, [150]);
+  assert.equal(closed, 1);
+  act(() => tree.unmount());
+});
+
+test("the highlighter offers its own sizes, and picks one", () => {
+  const picked: number[] = [];
+  let tree!: ReactTestRenderer;
+  act(() => {
+    tree = create(
+      createElement(NibRow, {
+        tool: "highlighter",
+        width: 3,
+        highlighterWidth: 60,
+        onWidth: noop,
+        onHighlighterWidth: (w: number) => picked.push(w),
+      }),
+    );
+  });
+  assert.equal(byLabel(tree, "Pen nib width").length, 0);
+  assert.equal(byLabel(tree, "Highlighter 6 mm")[0]!.props["aria-pressed"], true);
+  act(() => byLabel(tree, "Highlighter 9 mm")[0]!.props.onClick());
+  assert.deepEqual(picked, [90]);
+  // The pen keeps its nibs, and a bar that cannot size the highlighter shows those too.
+  act(() => tree.update(createElement(NibRow, { tool: "highlighter", width: 3, highlighterWidth: 60, onWidth: noop })));
+  assert.equal(byLabel(tree, "Highlighter width").length, 0);
+  assert.equal(byLabel(tree, "Pen nib width").length, 1);
+  act(() => tree.unmount());
 });
 
 test("the page field goes to the typed page, clamped", () => {

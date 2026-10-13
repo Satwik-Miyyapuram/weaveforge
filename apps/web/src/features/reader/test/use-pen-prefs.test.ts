@@ -52,7 +52,7 @@ test("the tool that used to be the lasso comes back as the lasso", () => {
 });
 
 test("a current preference is kept as it was written", () => {
-  const stored = { tool: "highlighter", colour: "yellow", width: INK_PEN_WIDTHS[0] };
+  const stored = { tool: "highlighter", colour: "yellow", width: INK_PEN_WIDTHS[0], highlighterWidth: 90 };
   assert.deepEqual(parsePenPrefs(stored), stored);
 });
 
@@ -65,4 +65,15 @@ test("a preference written before the shared bar migrates instead of resetting",
   // The old nib was in points and has no name in the note's set, so the default
   // stands rather than a width that would be read as 1.42 tenths of a millimetre.
   assert.equal(parsed.width, DEFAULT_PEN_PREFS.width);
+});
+
+test("a highlighter size is kept when it is one of the offered sizes, and dropped when not", () => {
+  assert.equal(parsePenPrefs({ ...DEFAULT_PEN_PREFS, highlighterWidth: 90 }).highlighterWidth, 90);
+  assert.equal(
+    parsePenPrefs({ ...DEFAULT_PEN_PREFS, highlighterWidth: 77 }).highlighterWidth,
+    DEFAULT_PEN_PREFS.highlighterWidth,
+  );
+  // Stored before the highlighter had sizes: the default size.
+  const { highlighterWidth: _gone, ...older } = DEFAULT_PEN_PREFS;
+  assert.equal(parsePenPrefs(older).highlighterWidth, DEFAULT_PEN_PREFS.highlighterWidth);
 });

@@ -64,10 +64,11 @@ export class OutboxPump {
       stalled.add(key);
       if (outcome.status === "conflict") {
         result.conflicts.push({ entry, serverVersion: outcome.serverVersion });
-        await this.conflict(entry, outcome.serverVersion, outcome.serverRow);
+        await this.conflict(entry, outcome.serverVersion, outcome.serverRow, outcome.deletedElsewhere);
         continue;
       }
-      await this.outbox.fail(entry.opId, outcome.reason);
+      if (outcome.awaitingParent) await this.outbox.wait(entry.opId, outcome.reason);
+      else await this.outbox.fail(entry.opId, outcome.reason);
     }
     return result;
   }
@@ -80,6 +81,7 @@ export class OutboxPump {
     entry: OutboxEntry,
     serverVersion: number | null,
     serverRow: Record<string, unknown> | null | undefined,
+    deletedElsewhere?: boolean,
   ): Promise<void> {
     // Delete wins over an edit made elsewhere: re-aim at the version the server holds.
     if (entry.op === "delete") {
@@ -87,9 +89,19 @@ export class OutboxPump {
       await this.outbox.fail(entry.opId, "Deleted here, edited elsewhere; retrying the delete.");
       return;
     }
-    // Updated row gone from the server: their delete wins, as ours does.
     if (serverRow === null && entry.op === "update") {
-      await this.outbox.dropRow(entry.table, entry.rowId);
+      // Deleted elsewhere: their delete wins, as ours does.
+      if (deletedElsewhere === true) {
+        await this.outbox.dropRow(entry.table, entry.rowId);
+        return;
+      }
+      // Never received. Dropping this lost papers whose insert had not landed;
+      // the op carries the whole row, so it goes up as the missing insert.
+      if (deletedElsewhere === false) {
+        await this.outbox.reinsert(entry.opId, "The server never got this row; sending it whole.");
+        return;
+      }
+      await this.outbox.fail(entry.opId, "The server has no row here; kept until it says why.");
       return;
     }
     // Insert refused but no row at this id. Dropping it here lost whole

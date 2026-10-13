@@ -28,6 +28,7 @@ import {
   INK_THEME_COLOURS,
   INK_PEN_WIDTHS,
   INK_HIGHLIGHTER_WIDTH,
+  INK_HIGHLIGHTER_WIDTHS,
   type InkHand,
   type InkPaper,
 } from "@weaveforge/core";
@@ -60,14 +61,16 @@ export const HIGHLIGHTER_NIB = INK_HIGHLIGHTER_WIDTH;
 /**
  * The nib a tool draws with.
  *
- * A highlighter is 6 mm because its tool says so; the eraser and the lasso do not
+ * A highlighter draws with its own width (6 mm unless one of
+ * `INK_HIGHLIGHTER_WIDTHS` is picked), never the pen's; the eraser and the lasso do not
  * draw at all, so their width is only ever read by a test or a status line.
  */
 export function nibForTool(
   tool: InkBarTool | "shape",
   penWidth: number,
+  highlighterWidth: number = HIGHLIGHTER_NIB,
 ): number {
-  if (tool === "highlighter") return HIGHLIGHTER_NIB;
+  if (tool === "highlighter") return highlighterWidth;
   if (tool === "eraser") return 0;
   return penWidth;
 }
@@ -77,6 +80,8 @@ export interface InkBarProps {
   colour: (typeof INK_COLOURS)[number];
   /** The pen's width, in 0.1 mm. */
   width: number;
+  /** The highlighter's width, in 0.1 mm; the nib row shows its sizes while it is the tool. */
+  highlighterWidth?: number;
   /**
    * Everything below is optional, and a section whose props are absent is not
    * drawn. That is what makes this one bar rather than two: the ink note hands
@@ -107,6 +112,8 @@ export interface InkBarProps {
   onTool: (tool: InkBarTool | "shape") => void;
   onColour: (colour: (typeof INK_COLOURS)[number]) => void;
   onWidth: (width: number) => void;
+  /** Absent, the highlighter has the one fixed width and no size row. */
+  onHighlighterWidth?: (width: number) => void;
   onPenOnly?: (value: boolean) => void;
   onHand?: (value: InkHand) => void;
   onPaper?: (value: InkPaper) => void;
@@ -185,6 +192,7 @@ export function InkBar({
   tool,
   colour,
   width,
+  highlighterWidth = HIGHLIGHTER_NIB,
   page,
   pages,
   penOnly,
@@ -201,6 +209,7 @@ export function InkBar({
   onTool,
   onColour,
   onWidth,
+  onHighlighterWidth,
   onPenOnly,
   onHand,
   onPaper,
@@ -368,27 +377,13 @@ export function InkBar({
                   ))}
                 </div>
               ))}
-              <div className="colour-menu-row ink-bar-widths" role="group" aria-label="Pen nib width">
-                {INK_PEN_WIDTHS.map((entry) => {
-                  const dotSize = 3 + entry;
-                  return (
-                    <button
-                      key={entry}
-                      type="button"
-                      className="ink-tool ink-tool-icon-only ink-tool-nib"
-                      aria-pressed={width === entry && tool === "pen"}
-                      aria-label={`Nib ${(entry / 10).toFixed(1)} mm`}
-                      title={`Nib ${(entry / 10).toFixed(1)} mm`}
-                      onClick={() => onWidth(entry)}
-                    >
-                      <span
-                        className="ink-nib-dot"
-                        style={{ width: `${dotSize}px`, height: `${dotSize}px` }}
-                      />
-                    </button>
-                  );
-                })}
-              </div>
+              <NibRow
+                tool={tool}
+                width={width}
+                highlighterWidth={highlighterWidth}
+                onWidth={onWidth}
+                onHighlighterWidth={onHighlighterWidth}
+              />
             </div>
           )}
         </Popover>
@@ -660,3 +655,60 @@ export function InkBar({
   );
 }
 
+/**
+ * The sizes under the pen's colours: the highlighter's own while it is the
+ * tool and the reader lets it be sized, the pen's nibs otherwise.
+ */
+export function NibRow({
+  tool,
+  width,
+  highlighterWidth,
+  onWidth,
+  onHighlighterWidth,
+}: {
+  tool: InkBarTool | "shape";
+  width: number;
+  highlighterWidth: number;
+  onWidth: (width: number) => void;
+  onHighlighterWidth?: (width: number) => void;
+}) {
+  if (tool === "highlighter" && onHighlighterWidth) {
+    return (
+      <div className="colour-menu-row ink-bar-widths" role="group" aria-label="Highlighter width">
+        {INK_HIGHLIGHTER_WIDTHS.map((entry) => (
+          <button
+            key={entry}
+            type="button"
+            className="ink-tool ink-tool-icon-only ink-tool-nib"
+            aria-pressed={highlighterWidth === entry}
+            aria-label={`Highlighter ${entry / 10} mm`}
+            title={`Highlighter ${entry / 10} mm`}
+            onClick={() => onHighlighterWidth(entry)}
+          >
+            <span className="ink-nib-dot ink-nib-bar" style={{ width: "6px", height: `${3 + entry / 10}px` }} />
+          </button>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="colour-menu-row ink-bar-widths" role="group" aria-label="Pen nib width">
+      {INK_PEN_WIDTHS.map((entry) => {
+        const dotSize = 3 + entry;
+        return (
+          <button
+            key={entry}
+            type="button"
+            className="ink-tool ink-tool-icon-only ink-tool-nib"
+            aria-pressed={width === entry && tool === "pen"}
+            aria-label={`Nib ${(entry / 10).toFixed(1)} mm`}
+            title={`Nib ${(entry / 10).toFixed(1)} mm`}
+            onClick={() => onWidth(entry)}
+          >
+            <span className="ink-nib-dot" style={{ width: `${dotSize}px`, height: `${dotSize}px` }} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}

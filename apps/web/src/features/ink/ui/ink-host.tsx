@@ -35,7 +35,6 @@ import { PromptDialog } from "@/components/prompt-dialog";
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
-  INK_PEN_WIDTH,
   readInkNoteBody,
   splitInkTextLayer,
   type InkHand,
@@ -118,8 +117,8 @@ export function InkHost({
    * each tool remembers — a return from the highlighter hands the pen back
    * its own colour, not a fluorescent yellow.
    */
-  const { tool, setTool, colour, onColourChange, onPenApproach } = useInkPrefs();
-  const [width, setWidth] = useState<number>(INK_PEN_WIDTH);
+  const { tool, setTool, colour, onColourChange, onPenApproach, ...widths } = useInkPrefs();
+  const { width, highlighterWidth } = widths;
   const [zoom, setZoom] = useState(1);
   const [pageGap, setPageGap] = usePageGap();
   const [containerWidth, setContainerWidth] = useState(0);
@@ -278,6 +277,7 @@ export function InkHost({
     pageIndex,
     tool,
     width,
+    highlighterWidth,
     colour,
     hand,
     palette,
@@ -625,6 +625,7 @@ export function InkHost({
         tool={tool}
         colour={colour}
         width={width}
+        highlighterWidth={highlighterWidth}
         page={pageIndex + 1}
         pages={Math.max(pageCount, 1)}
         penOnly={pen.penOnly}
@@ -645,10 +646,8 @@ export function InkHost({
           setTool(next);
         }}
         onColour={onColourChange}
-        onWidth={(next) => {
-          setWidth(next);
-          setTool("pen");
-        }}
+        onWidth={widths.onWidth}
+        onHighlighterWidth={widths.setHighlighterWidth}
         onPenOnly={pen.setPenOnly}
         onHand={setHand}
         paper={paper}

@@ -78,10 +78,40 @@ test("a guarded write that matched no row is a conflict, with the server's versi
   assert.match(calls[1]!.url, /select=\*/);
 });
 
-test("a conflict on a row the server no longer has says so", async () => {
+test("a conflict on a row the server deleted says it was deleted", async () => {
+  const { transport, calls } = harness([
+    { status: 200, body: [] },
+    { status: 200, body: [] },
+    { status: 200, body: [{ row_id: "11111111-1111-4111-8111-111111111111" }] },
+  ]);
+  assert.deepEqual(await transport.send(entry()), {
+    status: "conflict",
+    serverVersion: null,
+    serverRow: null,
+    deletedElsewhere: true,
+  });
+  assert.match(calls[2]!.url, /\/sync_tombstones\?table_name=eq\.projects&row_id=eq\.11111111/);
+});
+
+test("a row the server never had is not read as deleted", async () => {
   const { transport } = harness([
     { status: 200, body: [] },
     { status: 200, body: [] },
+    { status: 200, body: [] },
+  ]);
+  assert.deepEqual(await transport.send(entry()), {
+    status: "conflict",
+    serverVersion: null,
+    serverRow: null,
+    deletedElsewhere: false,
+  });
+});
+
+test("an unreadable tombstone leaves the question open", async () => {
+  const { transport } = harness([
+    { status: 200, body: [] },
+    { status: 200, body: [] },
+    { status: 500, body: { message: "down" } },
   ]);
   assert.deepEqual(await transport.send(entry()), {
     status: "conflict",
@@ -248,6 +278,7 @@ test("an insert whose parent the server lacks is refused, not read as a conflict
   const outcome = await transport.send(entry({ table: "papers", op: "insert", baseVersion: null }));
   assert.equal(outcome.status, "refused");
   assert.match((outcome as { reason: string }).reason, /foreign key/);
+  assert.equal((outcome as { awaitingParent?: boolean }).awaitingParent, true);
   // No lookup by id: a missing parent says nothing about this row being elsewhere.
   assert.equal(calls.length, 1);
 });

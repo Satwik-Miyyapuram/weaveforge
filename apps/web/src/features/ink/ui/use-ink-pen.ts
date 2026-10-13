@@ -34,6 +34,8 @@ export interface InkPenDeps {
   tool: InkBarTool | "shape";
   /** The nib's width, in tool units. */
   width: number;
+  /** The highlighter's width, in 0.1 mm; absent, the 6 mm default. */
+  highlighterWidth?: number;
   /** The stroke's colour. */
   colour: InkColour;
   /** The writing hand, for palm rejection. */
@@ -53,7 +55,7 @@ export interface InkPenDeps {
 export function useInkPen(deps: InkPenDeps) {
   const { canvasRef, sheetRef, project, pageIndex, tool, colour, hand, palette } =
     deps;
-  const nib = nibForTool(tool, deps.width);
+  const nib = nibForTool(tool, deps.width, deps.highlighterWidth);
 
   /*
    * The pen's haptics (ink-native-bridges.md §4), where the platform has them.

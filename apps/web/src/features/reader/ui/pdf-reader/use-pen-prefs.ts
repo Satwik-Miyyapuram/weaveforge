@@ -20,6 +20,8 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   INK_COLOURS,
+  INK_HIGHLIGHTER_WIDTH,
+  INK_HIGHLIGHTER_WIDTHS,
   INK_PEN_WIDTH,
   INK_PEN_WIDTHS,
   type InkColour,
@@ -103,6 +105,8 @@ export interface PenPrefs {
   colour: InkColour;
   /** Nib width in the note's unit, 0.1 mm — one of `INK_PEN_WIDTHS`. */
   width: number;
+  /** The highlighter's width, 0.1 mm — one of `INK_HIGHLIGHTER_WIDTHS`. */
+  highlighterWidth: number;
 }
 
 /**
@@ -125,6 +129,7 @@ export const DEFAULT_PEN_PREFS: PenPrefs = {
   tool: "ink",
   colour: "red",
   width: INK_PEN_WIDTHS[2] ?? INK_PEN_WIDTH,
+  highlighterWidth: INK_HIGHLIGHTER_WIDTH,
 };
 
 /** A stored hex back to its name, for the preference shape older builds wrote. */
@@ -168,7 +173,9 @@ export function parsePenPrefs(raw: unknown): PenPrefs {
   const colour = stored ?? DEFAULT_PEN_PREFS.colour;
 
   const width = INK_PEN_WIDTHS.find((w) => w === value.width) ?? DEFAULT_PEN_PREFS.width;
-  return { tool, colour, width };
+  const highlighterWidth =
+    INK_HIGHLIGHTER_WIDTHS.find((w) => w === value.highlighterWidth) ?? DEFAULT_PEN_PREFS.highlighterWidth;
+  return { tool, colour, width, highlighterWidth };
 }
 
 function readPenPrefs(): PenPrefs {
@@ -207,5 +214,9 @@ export function usePenPrefs() {
       [update],
     ),
     setWidth: useCallback((width: number) => update((p) => ({ ...p, width })), [update]),
+    setHighlighterWidth: useCallback(
+      (highlighterWidth: number) => update((p) => ({ ...p, highlighterWidth })),
+      [update],
+    ),
   };
 }

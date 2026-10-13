@@ -38,6 +38,14 @@ export const INK_PEN_WIDTH = 3;
 export const INK_HIGHLIGHTER_WIDTH = 60;
 
 /**
+ * The highlighter widths the ink bar offers, in 0.1 mm: 3, 4.5, 6 and 9 mm —
+ * a single text line, a line and a half, the default, and two lines. Each
+ * stays at or above `INK_HIGHLIGHTER_MIN_WIDTH`, so a stored stroke without a
+ * tool still reads back as a highlighter.
+ */
+export const INK_HIGHLIGHTER_WIDTHS = [30, 45, 60, 90] as const;
+
+/**
  * At or above this width a stroke is painted as a highlighter.
  *
  * The stored `tool` field is authoritative and this is the fallback for a
