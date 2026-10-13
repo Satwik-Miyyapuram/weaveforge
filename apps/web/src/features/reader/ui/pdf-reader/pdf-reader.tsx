@@ -24,14 +24,16 @@ import {
   type ReaderAnnotationType,
   type FigureTarget,
 } from "@weaveforge/core";
-import type { TextSelectionRange } from "@weaveforge/core";
+import type { InkColour, TextSelectionRange } from "@weaveforge/core";
 // The ink note's own bar, palette and nibs: the reader draws no toolbar of its
 // own. See `use-pen-prefs.ts` for how the two tool vocabularies line up.
 import {
   InkBar,
   INK_RENDER_COLOURS,
   paletteHex,
+  paletteName,
   readThemePalette,
+  useQuickColours,
   type InkPalette,
   InkPrintPreview,
 } from "@/features/ink";
@@ -45,13 +47,11 @@ import {
 import {
   isDismissTap,
   listedAnnotations,
-  READER_ANNOTATION_COLORS,
   toolOwnsThePage,
   type PagePress,
   type ReaderCreateTool,
 } from "../../application/reader-annotation-helpers";
 import { draftPicture } from "../../application/reader-picture";
-import { ReaderToolbar } from "../reader-toolbar";
 import { ReaderSearchBar } from "../reader-search-bar";
 import { ReaderOutline } from "../reader-outline";
 import { AnnotationOverlay, type TextEdit } from "../annotation-overlay";
@@ -64,8 +64,6 @@ import type { ReaderAnnotation } from "@weaveforge/core";
 import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
 import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { ReaderPalette } from "../reader-palette";
-import { useReaderQuickColours } from "./use-reader-quick-colours";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink } from "./overlays";
 import { layoutMarginNotes } from "../../application/margin-notes";
@@ -135,9 +133,12 @@ export function PdfReader({
   const [captionTarget, setCaptionTarget] = useState<FigureTarget | null>(null);
   const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
   const [pickedTool, setCreateTool] = useState<ReaderCreateTool>("select");
-  const [pickedColor, setCreateColor] = useState<string>(READER_ANNOTATION_COLORS[0]);
-  // One list for the palette and the phone pill, so a swapped slot shows in both.
-  const [quickColours, setQuickColour] = useReaderQuickColours();
+  // Colours are the ink note's names everywhere; `createColor` below is the
+  // one place a name becomes the hex a stored annotation carries.
+  const [pickedColor, setCreateColor] = useState<InkColour>("yellow");
+  // One list for the bar, the phone pill and the mark popover, shared with the
+  // ink note, so a swapped slot shows in all of them.
+  const [quickColours, setQuickColour] = useQuickColours();
   // The pen bar, once up, is the tool picker: what it holds is what draws. Its
   // choices persist per user (`usePenPrefs`), the PDF toolbar's do not.
   const [penOpen, setPenOpen] = useState(inkRail);
@@ -180,8 +181,8 @@ export function PdfReader({
    */
   const [inkPalette, setInkPalette] = useState<InkPalette>(INK_RENDER_COLOURS);
   useEffect(() => setInkPalette(readThemePalette(document)), []);
-  const penColor = paletteHex(inkPalette, pen.prefs.colour);
-  const createColor = penOpen ? penColor : pickedColor;
+  const createColor = paletteHex(inkPalette, penOpen ? pen.prefs.colour : pickedColor);
+  const quickHexes = quickColours.map((colour) => paletteHex(inkPalette, colour));
   /** The nib in PDF points, from the note's 0.1 mm — one nib set for both surfaces. */
   const penWidth = inkNoteWidthToPdfPoints(pen.prefs.width);
   // Focus, the workspace's way (`⌘⇧F`): the paper and nothing else. Per
@@ -402,6 +403,17 @@ export function PdfReader({
     removeLocal,
     saveAnchor,
   });
+
+  // Select and the Insert tools work on the paper, not with the pen, so
+  // picking one puts the pen away first.
+  const putPenAway = (tool: ReaderCreateTool) => {
+    endInkGroup();
+    if (penOpen) {
+      setPenOpen(false);
+      syncPenParam(false);
+    }
+    setCreateTool(tool);
+  };
   const pictures = usePdfPictures({
     canCreate,
     createTool,
@@ -1237,33 +1249,6 @@ export function PdfReader({
       {/* One panel, two rows: viewport controls above, find/view/annotate below.
           Two free-floating wrapping bars read as scattered chrome. */}
       <div className="pdf-reader-chrome" data-phone-panel={phonePanel}>
-        <ReaderToolbar viewport={viewport} numPages={numPages} hideFit={penOpen}>
-          <div className="pdf-reader-phone-toggles pdf-reader-group">
-            <button
-              type="button"
-              className={`btn-secondary btn-sm pdf-reader-icon-btn pdf-reader-find-toggle${phonePanel === "search" ? " is-active" : ""}`}
-              aria-pressed={phonePanel === "search"}
-              aria-label="Find in document"
-              title="Find"
-              onClick={() => setPhonePanel((v) => (v === "search" ? "none" : "search"))}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
-                <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.2-4.2" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className={`btn-secondary btn-sm pdf-reader-icon-btn${phonePanel === "more" ? " is-active" : ""}`}
-              aria-pressed={phonePanel === "more"}
-              aria-expanded={phonePanel === "more"}
-              aria-label="More reader controls"
-              title="More"
-              onClick={() => setPhonePanel((v) => (v === "more" ? "none" : "more"))}
-            >
-              ⋯
-            </button>
-          </div>
-        </ReaderToolbar>
         <div className="pdf-reader-tools">
         <ReaderSearchBar
           pages={pageTexts}
@@ -1329,80 +1314,99 @@ export function PdfReader({
         >
           <FocusGlyph on={false} />
         </button>
-        {canCreate && (
-          <button
-            type="button"
-            className={`btn-secondary btn-sm pdf-reader-wide-only${penOpen ? " is-active" : ""}`}
-            aria-pressed={penOpen}
-            onClick={() => {
-              endInkGroup();
-              const next = !penOpen;
-              setPenOpen(next);
-              syncPenParam(next);
-            }}
-          >
-            Ink mode
-          </button>
-        )}
         </div>
         {/* The ink note's own bar, not a copy of it: same tools, same swatches,
-            same nibs, same fold and move handles. The reader hands it the
-            pen's state only — it owns no pages of its own to offer, and a
-            paper has no paper menu, print dialog or recogniser to show. */}
-        {/* Read mode's palette: the ink bar's shell, so it docks and floats the same way. */}
-        {canCreate && !penOpen && (
-          <ReaderPalette
-            tool={createTool}
-            colour={createColor}
-            quickColours={quickColours}
-            onQuickColour={setQuickColour}
-            onTool={(tool) => {
-              // Switching tool ends the mark in progress, so the next stroke
-              // never merges into one drawn with a different nib.
-              endInkGroup();
-              setCreateTool(tool);
-            }}
-            onColour={(colour) => {
-              endInkGroup();
-              setCreateColor(colour);
-            }}
-          />
-        )}
-        {canCreate && penOpen && (
-          <InkBar
-            tool={barToolFor(pen.prefs.tool)}
-            colour={pen.prefs.colour}
-            width={pen.prefs.width}
-            canUndo={inkUndo.canUndo}
-            canRedo={inkUndo.canRedo}
-            page={viewport.page}
-            pages={numPages}
-            // What the lasso caught: the bar's two selection actions appear
-            // only then, and Delete takes the whole selection.
-            selected={lassoed.length}
-            onDeleteSelection={() => {
-              const doomed = [...lassoed];
-              clearLasso();
-              for (const id of doomed) void removeLocal(id);
-            }}
-            onTool={(tool) => {
-              endInkGroup();
-              pen.setTool(readerToolFor(tool));
-            }}
-            onColour={(colour) => {
-              endInkGroup();
-              pen.setColour(colour);
-            }}
-            onWidth={(width) => {
-              endInkGroup();
-              pen.setWidth(width);
-            }}
-            onUndo={() => void inkUndo.undo()}
-            onRedo={() => void inkUndo.redo()}
-            onAddPicture={() => pictureInput.current?.click()}
-            onPrintPaper={(withComments) => void readerPrint.print(withComments)}
-          />
-        )}
+            same nibs, same fold and move handles. Select and the Insert tools
+            put the pen away; any ink tool takes it out. A paper the reader may
+            not mark keeps only the page and view controls. */}
+        <InkBar
+          readOnly={!canCreate}
+          tool={barToolFor(pen.prefs.tool)}
+          colour={penOpen ? pen.prefs.colour : pickedColor}
+          width={pen.prefs.width}
+          canUndo={inkUndo.canUndo}
+          canRedo={inkUndo.canRedo}
+          page={viewport.page}
+          pages={Math.max(1, numPages)}
+          onPrevPage={() => viewport.setPage(viewport.page - 1)}
+          onNextPage={() => viewport.setPage(viewport.page + 1)}
+          onGoToPage={viewport.setPage}
+          view={{
+            zoomPercent: Math.round(viewport.renderScale * 100),
+            onZoomIn: viewport.zoomIn,
+            onZoomOut: viewport.zoomOut,
+            fit: viewport.fit,
+            // Fitting re-scales the page under a hand that is writing on it,
+            // so the fits stand down while the pen is out.
+            onFitPage: penOpen ? undefined : viewport.fitPage,
+            onFitWidth: penOpen ? undefined : viewport.fitWidth,
+            onRotate: viewport.rotateClockwise,
+          }}
+          selectActive={!penOpen && pickedTool === "select"}
+          onSelect={() => putPenAway("select")}
+          insertTool={penOpen ? null : pickedTool === "image" ? "clip" : pickedTool === "text" ? "text" : null}
+          onClip={() => putPenAway("image")}
+          onTextBox={() => putPenAway("text")}
+          quickColours={quickColours}
+          onQuickColour={setQuickColour}
+          // What the lasso caught: the bar's two selection actions appear
+          // only then, and Delete takes the whole selection.
+          selected={lassoed.length}
+          onDeleteSelection={() => {
+            const doomed = [...lassoed];
+            clearLasso();
+            for (const id of doomed) void removeLocal(id);
+          }}
+          onTool={(tool) => {
+            // Switching tool ends the mark in progress, so the next stroke
+            // never merges into one drawn with a different nib.
+            endInkGroup();
+            if (!penOpen) {
+              setPenOpen(true);
+              syncPenParam(true);
+            }
+            pen.setTool(readerToolFor(tool));
+          }}
+          onColour={(colour) => {
+            endInkGroup();
+            if (penOpen) pen.setColour(colour);
+            else setCreateColor(colour);
+          }}
+          onWidth={(width) => {
+            endInkGroup();
+            pen.setWidth(width);
+          }}
+          onUndo={() => void inkUndo.undo()}
+          onRedo={() => void inkUndo.redo()}
+          onAddPicture={canCreate ? () => pictureInput.current?.click() : undefined}
+          onPrintPaper={(withComments) => void readerPrint.print(withComments)}
+        >
+            <div className="pdf-reader-phone-toggles pdf-reader-group">
+              <button
+                type="button"
+                className={`btn-secondary btn-sm pdf-reader-icon-btn pdf-reader-find-toggle${phonePanel === "search" ? " is-active" : ""}`}
+                aria-pressed={phonePanel === "search"}
+                aria-label="Find in document"
+                title="Find"
+                onClick={() => setPhonePanel((v) => (v === "search" ? "none" : "search"))}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                  <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.2-4.2" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className={`btn-secondary btn-sm pdf-reader-icon-btn${phonePanel === "more" ? " is-active" : ""}`}
+                aria-pressed={phonePanel === "more"}
+                aria-expanded={phonePanel === "more"}
+                aria-label="More reader controls"
+                title="More"
+                onClick={() => setPhonePanel((v) => (v === "more" ? "none" : "more"))}
+              >
+                ⋯
+              </button>
+            </div>
+        </InkBar>
         {readerPrint.printDoc ? (
           <InkPrintPreview
             html={readerPrint.printDoc.html}
@@ -1410,7 +1414,7 @@ export function PdfReader({
             onClose={readerPrint.closePrint}
           />
         ) : null}
-        {canCreate && penOpen && (
+        {canCreate && (
           <input
             ref={pictureInput}
             type="file"
@@ -1436,15 +1440,15 @@ export function PdfReader({
         <div className="pdf-reader-pill" role="toolbar" aria-label="Annotate">
           {!penOpen && (
             <div className="pdf-reader-pill-colours" role="radiogroup" aria-label="Annotation colour">
-              {quickColours.slice(0, 4).map((colour) => (
+              {quickColours.slice(0, 4).map((colour, i) => (
                 <button
                   key={colour}
                   type="button"
                   role="radio"
-                  aria-checked={createColor === colour}
+                  aria-checked={pickedColor === colour}
                   aria-label={`Colour ${colour}`}
                   className="pdf-reader-pill-swatch"
-                  style={{ background: colour }}
+                  style={{ background: quickHexes[i] }}
                   onClick={() => {
                     endInkGroup();
                     setCreateColor(colour);
@@ -1535,7 +1539,8 @@ export function PdfReader({
               busy={createBusy}
               color={createColor}
               onCreate={(type, color, comment) => {
-                setCreateColor(color);
+                const named = paletteName(inkPalette, color);
+                if (named) setCreateColor(named);
                 void createFromPending(type, color, comment);
               }}
               onCancel={() => setPendingCreate(null)}
@@ -1546,7 +1551,7 @@ export function PdfReader({
               at={markPopover.at}
               actions={markPopover.actions}
               colour={markPopover.ann.color}
-              colours={quickColours}
+              colours={quickHexes}
               onColour={(colour) => void updateLocal(markPopover.ann.id, { color: colour })}
               onComment={(comment) => {
                 setMarkAt(null);

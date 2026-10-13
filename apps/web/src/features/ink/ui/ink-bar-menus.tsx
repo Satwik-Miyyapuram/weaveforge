@@ -12,7 +12,8 @@
  * which prints nothing and has no paper of its own, shows neither.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { type InkPaper } from "@weaveforge/core";
 
 /**
@@ -96,6 +97,48 @@ export function useBarMenu() {
   }, [open]);
 
   return { open, setOpen, menuRef, listRef, pos };
+}
+
+/**
+ * The open list of a bar drop-down, portalled to the body at the spot
+ * `useBarMenu` measured, so a pane's `overflow: hidden` cannot clip it.
+ */
+export function BarMenuList({
+  label,
+  className,
+  listRef,
+  pos,
+  children,
+}: {
+  label: string;
+  className?: string;
+  listRef: RefObject<HTMLDivElement>;
+  pos: { top: number; left: number };
+  children: ReactNode;
+}) {
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      className={className ? `ink-menu-list ${className}` : "ink-menu-list"}
+      role="menu"
+      aria-label={label}
+      ref={listRef}
+      style={{
+        position: "fixed",
+        top: `${pos.top}px`,
+        left: `${pos.left}px`,
+        right: "auto",
+        bottom: "auto",
+        width: "max-content",
+        maxWidth: "min(340px, calc(100vw - 16px))",
+        zIndex: 100,
+        transform: "none",
+      }}
+    >
+      {children}
+    </div>,
+    document.body,
+  );
 }
 
 export interface PrintMenuProps {

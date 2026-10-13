@@ -10,11 +10,10 @@
  * reader, which has none of them, gets no ⋯ at all.
  */
 
-import { createPortal } from "react-dom";
 import { INK_PAPERS, type InkHand, type InkPaper } from "@weaveforge/core";
 
 import { paperLabel } from "./ink-bar-glyphs";
-import { useBarMenu } from "./ink-bar-menus";
+import { BarMenuList, useBarMenu } from "./ink-bar-menus";
 
 /** How much desk shows between two pages of a note. */
 export const INK_PAGE_GAPS = ["none", "small", "large"] as const;
@@ -107,25 +106,8 @@ export function MoreMenu({
           <circle cx="19" cy="12" r="1.8" />
         </svg>
       </button>
-      {open && typeof document !== "undefined"
-        ? createPortal(
-            <div
-              className="ink-menu-list ink-menu-more-list"
-              role="menu"
-              aria-label="More ink options"
-              ref={listRef}
-              style={{
-                position: "fixed",
-                top: `${pos.top}px`,
-                left: `${pos.left}px`,
-                right: "auto",
-                bottom: "auto",
-                width: "max-content",
-                maxWidth: "min(340px, calc(100vw - 16px))",
-                zIndex: 100,
-                transform: "none",
-              }}
-            >
+      {open ? (
+        <BarMenuList label="More ink options" className="ink-menu-more-list" listRef={listRef} pos={pos}>
           {paper && onPaper ? (
             <div className="ink-menu-section" role="group" aria-label="Paper">
               <span className="ink-menu-heading">Paper</span>
@@ -250,10 +232,8 @@ export function MoreMenu({
               ) : null}
             </div>
           ) : null}
-            </div>,
-            document.body,
-          )
-        : null}
+        </BarMenuList>
+      ) : null}
     </div>
   );
 }

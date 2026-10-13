@@ -119,6 +119,7 @@ export {
 export {
   paletteCss,
   paletteHex,
+  paletteName,
   parseCssColour,
   readThemePalette,
   samePalette,
@@ -216,6 +217,7 @@ export {
   type InkBarTool,
 } from "./ui/ink-bar";
 export { InkPage, type InkPageProps } from "./ui/ink-page";
+export { useQuickColours } from "./ui/use-quick-colours";
 export { strokePath } from "./application/ink-svg";
 export { InkPrintPreview } from "./ui/ink-print-preview";
 export {
