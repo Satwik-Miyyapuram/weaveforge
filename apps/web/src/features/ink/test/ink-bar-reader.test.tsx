@@ -9,7 +9,7 @@ import { act, create, type ReactTestRenderer, type ReactTestInstance } from "rea
 
 import { PaletteDockButton } from "@/components/palette-dock";
 import { INK_RENDER_COLOURS, InkBar, paletteHex, paletteName } from "@/features/ink";
-import { InsertMenu, PageField, ViewMenu } from "@/features/ink/ui/ink-bar-view";
+import { InsertMenu, PageField, ViewMenu } from "../ui/ink-bar-view";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
