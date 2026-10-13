@@ -186,8 +186,21 @@ async function loadStartupBundleUncached(
     };
   }
 
-  const batch = speculativeBatch ?? containerPromise.then(loadOrgBatch);
-  const { profile, team, labMembers, memberships } = await batch;
+  let profile: Member | null = null;
+  let team: Member[] = [];
+  let labMembers: Member[] = [];
+  let memberships: OrgMembershipView[] = [];
+  try {
+    const batch = speculativeBatch ?? containerPromise.then(loadOrgBatch);
+    const orgData = await batch;
+    profile = orgData.profile;
+    team = orgData.team;
+    labMembers = orgData.labMembers;
+    memberships = orgData.memberships;
+  } catch {
+    /* Org batch failure must not crash startup or keep the user stuck at the privacy gate.
+       Downstream ProfileProvider handles retrying and profile loading independently. */
+  }
 
   return {
     settings,
@@ -291,10 +304,11 @@ export function StartupProvider({
   const refreshProfile = useCallback(async () => {
     // A refresh follows an explicit accept, so acceptance is known — skip the
     // gate and go straight to the parallel batch.
+    applyDecision(false);
     const next = await loadStartupBundle(
       userId,
       {
-        assumeAccepted: cacheProvesAccepted(readCachedSnapshot(userId)),
+        assumeAccepted: true,
         onDecision: (needs, _settings, error) => applyDecision(needs, error),
       },
       loadBundle,

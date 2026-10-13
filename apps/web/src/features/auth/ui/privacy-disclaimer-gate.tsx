@@ -98,7 +98,7 @@ export function PrivacyDisclaimerGate({
         // that attempt failed (offline for a moment, a slow cold start) this is
         // the last place to recover before the user is simply stuck behind a
         // modal they cannot dismiss. One retry, then report the original error.
-        await light.selfProvisioner.ensureProvisioned().catch(() => {
+        await light.selfProvisioner.ensureProvisioned(true).catch(() => {
           throw first;
         });
         await light.settings.acceptDisclaimer();

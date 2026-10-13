@@ -42,6 +42,15 @@ describe("SupabaseSelfProvisioner", () => {
     assert.equal(calls.length, 1);
   });
 
+  it("retries the round trip when force is true even if already provisioned", async () => {
+    const { db, calls } = stubClient();
+    const provisioner = new SupabaseSelfProvisioner(db);
+    await provisioner.ensureProvisioned();
+    assert.equal(calls.length, 1);
+    await provisioner.ensureProvisioned(true);
+    assert.equal(calls.length, 2);
+  });
+
   it("does nothing without a session", async () => {
     const { db, calls } = stubClient({ userId: null });
     await new SupabaseSelfProvisioner(db).ensureProvisioned();

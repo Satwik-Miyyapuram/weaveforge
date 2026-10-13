@@ -65,7 +65,7 @@ function OrgSetupForm({ onDone }: { onDone: () => void | Promise<void> }) {
       <div className="org-setup-done">
         <p><strong>Lab created.</strong> Share these codes (shown once):</p>
         <CodeList codes={createdCodes} />
-        <button type="button" className="btn-primary" onClick={onDone}>Continue</button>
+        <button type="button" className="btn-primary" onClick={() => void onDone()}>Continue</button>
       </div>
     );
   }
@@ -82,7 +82,7 @@ function OrgSetupForm({ onDone }: { onDone: () => void | Promise<void> }) {
           try {
             const res = (await createOrg(name)) as { codes?: OrgInviteCodePlaintext[] };
             setCreatedCodes(res.codes ?? null);
-            if (!res.codes?.length) onDone();
+            if (!res.codes?.length) await onDone();
           } catch (err) {
             setError(formatError(err));
           } finally {
@@ -104,7 +104,7 @@ function OrgSetupForm({ onDone }: { onDone: () => void | Promise<void> }) {
           setError(null);
           try {
             await joinOrg(input);
-            onDone();
+            await onDone();
           } catch (err) {
             setError(formatError(err));
           } finally {

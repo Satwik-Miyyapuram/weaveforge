@@ -1,6 +1,7 @@
 import { getSupabase } from "@/lib/supabase";
 import { authHeaders as bearerHeaders } from "@/lib/auth-headers";
 import { singleFlight } from "@/lib/cache/single-flight";
+import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { responseError } from "@/lib/format-error";
 import type { OrgMembershipView } from "@weaveforge/core";
 import { MEMBERSHIP_ROW_COLUMNS, membershipViewFromRow } from "./membership-row";
@@ -37,6 +38,7 @@ export async function createOrg(name: string) {
   });
   const body = (await res.json()) as { error?: string };
   if (!res.ok) throw orgApiError(res, body.error, "Failed to create lab.");
+  invalidateAllRepoCaches();
   return body;
 }
 
@@ -52,23 +54,47 @@ export async function joinOrg(input: {
   });
   const body = (await res.json()) as { error?: string };
   if (!res.ok) throw orgApiError(res, body.error, "Failed to join lab.");
+  invalidateAllRepoCaches();
   return body;
 }
 
 /** Marks org onboarding complete — anon key + RPC, no service role. */
 export async function continueStandalone() {
-  const supabase = getSupabase();
-  const { error: rpcErr } = await supabase.rpc("complete_org_setup");
-  if (!rpcErr) return;
+  let rpcErr: { message?: string } | null = null;
+  try {
+    const supabase = getSupabase();
+    const res = await supabase.rpc("complete_org_setup");
+    rpcErr = res.error;
+    if (rpcErr) {
+      try {
+        const { getLightContainer } = await import("@/light-bootstrap");
+        await getLightContainer().selfProvisioner.ensureProvisioned();
+        const retry = await supabase.rpc("complete_org_setup");
+        rpcErr = retry.error;
+      } catch {
+        /* fallback below will handle */
+      }
+    }
+  } catch (err) {
+    rpcErr = err as Error;
+  }
+
+  if (!rpcErr) {
+    invalidateAllRepoCaches();
+    return;
+  }
 
   const res = await fetch("/api/org/standalone", {
     method: "POST",
     headers: await authHeaders(),
   });
   const body = (await res.json()) as { error?: string };
-  if (res.ok) return;
+  if (res.ok) {
+    invalidateAllRepoCaches();
+    return;
+  }
 
-  const message = body.error ?? rpcErr.message;
+  const message = body.error ?? rpcErr.message ?? "Failed to complete org setup.";
   throw migrationHint(message);
 }
 
@@ -147,7 +173,10 @@ async function fetchMembershipsUncached(): Promise<OrgMembershipView[]> {
 export async function switchOrg(orgId: string) {
   const supabase = getSupabase();
   const { error: rpcErr } = await supabase.rpc("switch_active_org", { p_org_id: orgId });
-  if (!rpcErr) return;
+  if (!rpcErr) {
+    invalidateAllRepoCaches();
+    return;
+  }
 
   const res = await fetch("/api/org/switch", {
     method: "POST",
@@ -155,7 +184,10 @@ export async function switchOrg(orgId: string) {
     body: JSON.stringify({ orgId }),
   });
   const body = (await res.json()) as { error?: string };
-  if (res.ok) return;
+  if (res.ok) {
+    invalidateAllRepoCaches();
+    return;
+  }
 
   const message = body.error ?? rpcErr.message;
   throw migrationHint(message);
@@ -165,7 +197,10 @@ export async function switchOrg(orgId: string) {
 export async function leaveOrg(orgId: string) {
   const supabase = getSupabase();
   const { error: rpcErr } = await supabase.rpc("leave_org", { p_org_id: orgId });
-  if (!rpcErr) return;
+  if (!rpcErr) {
+    invalidateAllRepoCaches();
+    return;
+  }
 
   const res = await fetch("/api/org/leave", {
     method: "POST",
@@ -173,7 +208,10 @@ export async function leaveOrg(orgId: string) {
     body: JSON.stringify({ orgId }),
   });
   const body = (await res.json()) as { error?: string };
-  if (res.ok) return;
+  if (res.ok) {
+    invalidateAllRepoCaches();
+    return;
+  }
 
   const message = body.error ?? rpcErr.message;
   throw migrationHint(message);
