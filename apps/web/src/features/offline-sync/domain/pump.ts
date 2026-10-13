@@ -92,9 +92,11 @@ export class OutboxPump {
       await this.outbox.dropRow(entry.table, entry.rowId);
       return;
     }
-    // Insert refused but no row at this id: the server holds the same thing under another id, and its copy wins.
+    // Insert refused but no row at this id. Dropping it here lost whole
+    // projects' papers, notes and annotations whenever the refusal was really
+    // a parent not sent yet; kept, it is retried and stays visible if it never lands.
     if (serverRow === null && entry.op === "insert") {
-      await this.outbox.dropRow(entry.table, entry.rowId);
+      await this.outbox.fail(entry.opId, "The server refused this new row; it is kept and retried.");
       return;
     }
     if (!this.conflicts || !serverRow) {

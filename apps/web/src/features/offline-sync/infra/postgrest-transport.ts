@@ -48,6 +48,12 @@ export class PostgrestTransport implements SyncTransport {
       // still owed, so it must not burn an attempt.
       return { status: "offline" };
     }
+    // A missing parent is not a conflict over this row: nothing sits at its id,
+    // and read as one the insert was dropped. Refused, it is kept and retried
+    // once the parent has gone up.
+    if (attempt.status === 409 && errorCode(attempt.body) === FK_VIOLATION) {
+      return { status: "refused", reason: firstLine(attempt.body) };
+    }
     if (attempt.status === 409) {
       const outcome = await this.conflict(entry);
       // paper_tags ids hash the key, so a duplicate insert is the same link another device already made.
@@ -115,6 +121,29 @@ export class PostgrestTransport implements SyncTransport {
       return this.request("DELETE", `/${table}${guard}`, undefined, "return=representation");
     }
     return this.request("PATCH", `/${table}${guard}`, writable(entry.table, entry.payload), "return=representation");
+  }
+
+  /**
+   * Which of these ids the server does not hold. Null when that cannot be read:
+   * a failed read is not proof the rows are missing.
+   */
+  async missingIds(table: string, ids: string[]): Promise<string[] | null> {
+    const missing: string[] = [];
+    for (let i = 0; i < ids.length; i += MISSING_IDS_CHUNK) {
+      const chunk = ids.slice(i, i + MISSING_IDS_CHUNK);
+      try {
+        const found = await this.request(
+          "GET",
+          `/${encodeURIComponent(table)}?id=in.(${chunk.map(encodeURIComponent).join(",")})&select=id`,
+        );
+        if (found.status >= 400 || !Array.isArray(found.rows)) return null;
+        const held = new Set(found.rows.map((r) => String((r as { id?: unknown }).id)));
+        missing.push(...chunk.filter((id) => !held.has(id)));
+      } catch {
+        return null;
+      }
+    }
+    return missing;
   }
 
   /** Whether the row is absent on the server. A failed read is not proof. */
@@ -191,6 +220,12 @@ function parseRows(text: string): unknown[] | null {
     return null;
   }
 }
+
+/** Postgres `foreign_key_violation`: the row's parent is not on the server yet. */
+const FK_VIOLATION = "23503";
+
+/** Ids per `in.(...)` read; a hundred uuids keep the URL well under any limit. */
+const MISSING_IDS_CHUNK = 100;
 
 /** Postgres `insufficient_privilege`, which is what a failed RLS check raises. */
 const RLS_VIOLATION = "42501";

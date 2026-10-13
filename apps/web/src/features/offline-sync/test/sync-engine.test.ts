@@ -139,4 +139,73 @@ describe("the sync engine", () => {
     assert.equal(result.pulled.applied, 0);
     assert.equal(net.pulls, 0);
   });
+
+  it("queues a project ahead of the papers in it", async () => {
+    const { db, sql } = await device(["Thesis"]);
+    await db.sql(
+      "insert into papers (user_id, project_id, title) select $1, id, 'Attention' from projects where name = 'Thesis' and user_id = $1",
+      [LOCAL_USER_ID],
+    );
+    await new SyncEngine(sql, transport({ status: "offline" }), LOCAL_USER_ID).enable({
+      accountId: await db.createUser(),
+      remoteProjectNames: [],
+      deviceLabel: "desktop",
+    });
+
+    const order = await db.sql<{ table_name: string }>("select table_name from sync_outbox order by seq");
+    const tables = order.map((r) => r.table_name);
+    assert.ok(tables.includes("papers"));
+    assert.ok(tables.indexOf("projects") < tables.indexOf("papers"), tables.join(","));
+  });
+
+  it("sends again only the rows the server never got, once", async () => {
+    const { db, sql } = await device(["Thesis", "Notes"]);
+    const account = await db.createUser();
+    await new SyncEngine(sql, transport(), LOCAL_USER_ID).enable({
+      accountId: account,
+      remoteProjectNames: [],
+      deviceLabel: "desktop",
+    });
+    const projects = await db.sql<{ id: string }>(
+      "select id from projects where user_id = $1 and deleted_at is null order by id",
+      [account],
+    );
+    const lost = projects[0]!.id;
+    await db.sql("update sync_state set resend_checked_at = null");
+    const asked: string[][] = [];
+    const net = Object.assign(transport(), {
+      missingIds: async (table: string, ids: string[]) => {
+        if (table === "projects") asked.push(ids);
+        return table === "projects" ? ids.filter((id) => id === lost) : [];
+      },
+    });
+    const engine = new SyncEngine(sql, net, LOCAL_USER_ID);
+
+    await engine.cycle();
+    assert.deepEqual(asked, [projects.map((p) => p.id)]);
+    assert.equal(net.sent, 1);
+    const [flag] = await db.sql<{ checked: boolean }>("select resend_checked_at is not null as checked from sync_state");
+    assert.equal(flag!.checked, true);
+
+    await engine.cycle();
+    assert.equal(asked.length, 1);
+    assert.equal(net.sent, 1);
+  });
+
+  it("leaves the question open when the server cannot be read", async () => {
+    const { db, sql } = await device(["Thesis"]);
+    await new SyncEngine(sql, transport(), LOCAL_USER_ID).enable({
+      accountId: await db.createUser(),
+      remoteProjectNames: [],
+      deviceLabel: "desktop",
+    });
+    await db.sql("update sync_state set resend_checked_at = null");
+    const net = Object.assign(transport(), { missingIds: async () => null });
+
+    await new SyncEngine(sql, net, LOCAL_USER_ID).cycle();
+
+    assert.equal(net.sent, 0);
+    const [flag] = await db.sql<{ checked: boolean }>("select resend_checked_at is not null as checked from sync_state");
+    assert.equal(flag!.checked, false);
+  });
 });

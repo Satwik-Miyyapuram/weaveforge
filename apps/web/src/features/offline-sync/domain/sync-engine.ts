@@ -54,8 +54,8 @@ export class SyncEngine {
   readonly conflicts: ConflictStore;
 
   constructor(
-    sql: SqlRunner,
-    transport: SyncTransport,
+    private readonly sql: SqlRunner,
+    private readonly transport: SyncTransport,
     localUserId: string,
     private readonly quota: SyncQuota = unlimitedSync,
   ) {
@@ -81,6 +81,8 @@ export class SyncEngine {
     const verdict = await this.quota.check(request.accountId);
     if (!verdict.allowed) throw new SyncRefusedError(verdict.reason);
     const result = await this.adoption.run(request);
+    // The backfill just queued every row, so there is nothing unsent to look for.
+    await this.sql.exec("update sync_state set resend_checked_at = now()");
     await this.push();
     return result;
   }
@@ -95,6 +97,7 @@ export class SyncEngine {
    */
   async cycle(): Promise<CycleResult> {
     await this.conflicts.recheck();
+    await this.recoverUnsent();
     const pushed = await this.push();
     // Nothing to pull if the network just refused the push — the pull would
     // only fail the same way, and a thrown pull loses the push's report.
@@ -111,6 +114,39 @@ export class SyncEngine {
       applied += pulled.applied;
     }
     return { pushed, pulled: { ...pulled, applied } };
+  }
+
+  /**
+   * Queue again the rows this device holds and the server never got.
+   *
+   * Before parents went first, the backfill sent papers ahead of their project;
+   * the server refused them, the pump dropped the ops, and the rows stayed here
+   * alone. Asked once per device: every live row with no op is checked against
+   * the server, and the ones it does not hold go up as inserts, parents first.
+   * A server that cannot be read leaves the question open for the next cycle.
+   */
+  private async recoverUnsent(): Promise<void> {
+    if (!this.transport.missingIds) return;
+    const state = await this.sql.queryOne<{ account_id: string | null; resend_checked_at: string | null }>(
+      "select account_id, resend_checked_at from sync_state",
+    );
+    if (!state?.account_id || state.resend_checked_at) return;
+    const tables = await this.sql.query<{ t: string }>("select sync_tables_parent_first() as t");
+    for (const { t } of tables) {
+      const rows = await this.sql.query<{ id: string }>("select sync_unsent_candidates($1, $2) as id", [
+        t,
+        state.account_id,
+      ]);
+      if (rows.length === 0) continue;
+      const missing = await this.transport.missingIds(t, rows.map((r) => r.id));
+      if (missing === null) return;
+      if (missing.length === 0) continue;
+      await this.sql.exec(
+        "select sync_resend($1, array(select jsonb_array_elements_text($2::jsonb)::uuid))",
+        [t, JSON.stringify(missing)],
+      );
+    }
+    await this.sql.exec("update sync_state set resend_checked_at = now()");
   }
 
   private async push(): Promise<PumpResult> {
