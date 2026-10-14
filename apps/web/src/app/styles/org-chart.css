@@ -129,13 +129,15 @@
 }
 /* Supervision: your team on the left, the chosen person's work on the right. */
 .superv-screen .superv-picker { margin-bottom: 0; }
-.superv-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 18px; align-items: start; }
+.superv-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 18px; align-items: start; }
 .superv-snapshots { grid-column: 1 / -1; }
-.superv-team { padding: 14px; }
+.superv-team { padding: 14px; min-width: 0; box-sizing: border-box; overflow: hidden; }
 .superv-team-head { margin: 0 0 8px; font-size: 0.76rem; font-weight: 500; color: var(--muted); }
-.superv-team ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.superv-team ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; min-width: 0; }
+.superv-team li { min-width: 0; box-sizing: border-box; }
 .superv-team-item {
-  display: flex; align-items: center; gap: 10px; width: 100%;
+  display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; max-width: 100%;
+  box-sizing: border-box; overflow: hidden;
   padding: 7px 8px; border: 0; border-radius: 8px; background: none;
   color: var(--text); text-align: left; cursor: pointer; font: inherit;
 }
@@ -145,9 +147,10 @@
   display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%;
   background: var(--surface2); font-size: 0.68rem; font-weight: 700;
 }
-.superv-team-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.superv-team-role { font-size: 0.7rem; color: var(--muted); white-space: nowrap; }
-.superv-team-item.is-active .superv-team-role { color: inherit; }
+.superv-team-info { display: flex; flex-direction: column; min-width: 0; flex: 1; gap: 1px; }
+.superv-team-name { font-weight: 600; font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.superv-team-role { font-size: 0.7rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.superv-team-item.is-active .superv-team-role { color: inherit; opacity: 0.85; }
 .superv-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .superv-source { font-size: 0.7rem; font-weight: 500; padding: 2px 9px; border-radius: 999px; background: var(--pill); }
 .superv-note { margin-top: 12px; padding: 10px 14px; border-radius: 8px; background: var(--surface-alt); }

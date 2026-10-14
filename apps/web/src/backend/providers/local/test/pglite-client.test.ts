@@ -63,6 +63,26 @@ test("`or` becomes one bracketed predicate", async () => {
   assert.match(seen[0]?.sql ?? "", /where \("from_paper" = \$1 or "to_paper" = \$2\)$/);
 });
 
+test("`or` with `in` filter handles comma-separated values inside parens", async () => {
+  const { run, seen } = recorder();
+  await createLocalClient(run).from("papers").select("*").or("id.in.(p1,p2),user_id.in.(u1,u2)");
+  assert.equal(
+    seen[0]?.sql,
+    'select * from "papers" where ("id" in ($1, $2) or "user_id" in ($3, $4))',
+  );
+  assert.deepEqual(seen[0]?.params, ["p1", "p2", "u1", "u2"]);
+});
+
+test("`not` with `in` filter generates not in predicate", async () => {
+  const { run, seen } = recorder();
+  await createLocalClient(run).from("papers").select("*").not("id", "in", ["p1", "p2"]);
+  assert.equal(
+    seen[0]?.sql,
+    'select * from "papers" where not ("id" in ($1, $2))',
+  );
+  assert.deepEqual(seen[0]?.params, ["p1", "p2"]);
+});
+
 test("`not(col, is, null)` keeps the null on the right side of `is not`", async () => {
   const { run, seen } = recorder();
   await createLocalClient(run).from("metrics").select("*").not("wall_time", "is", null);

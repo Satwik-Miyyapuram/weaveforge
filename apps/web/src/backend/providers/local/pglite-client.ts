@@ -179,6 +179,25 @@ function encode(
   return value as string | number | boolean;
 }
 
+/** Splits top-level comma-separated expressions, ignoring commas inside parentheses like `col.in.(a,b)`. */
+function splitTopLevel(expression: string): string[] {
+  const parts: string[] = [];
+  let current = "";
+  let depth = 0;
+  for (const ch of expression) {
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    if (ch === "," && depth === 0) {
+      if (current.trim()) parts.push(current.trim());
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  if (current.trim()) parts.push(current.trim());
+  return parts;
+}
+
 class Builder<T> implements PromiseLike<Reply<T>> {
   private readonly wheres: string[] = [];
   private readonly params: unknown[] = [];
@@ -250,7 +269,7 @@ class Builder<T> implements PromiseLike<Reply<T>> {
       this.wheres.push("false");
       return this;
     }
-    this.wheres.push(`${ident(column)} in (${values.map((v) => this.hold(v)).join(", ")})`);
+    this.wheres.push(`${ident(column)} in (${values.map((v) => this.hold(v, column)).join(", ")})`);
     return this;
   }
 
@@ -259,33 +278,55 @@ class Builder<T> implements PromiseLike<Reply<T>> {
       this.wheres.push(`${ident(column)} is not ${value === null ? "null" : String(value)}`);
       return this;
     }
+    if (operator === "in") {
+      const items =
+        typeof value === "string"
+          ? value.replace(/^\(|\)$/g, "").split(",").map((s) => s.trim()).filter(Boolean)
+          : Array.isArray(value)
+            ? value
+            : [value];
+      if (items.length === 0) {
+        this.wheres.push("true");
+        return this;
+      }
+      this.wheres.push(`not (${ident(column)} in (${items.map((v) => this.hold(v, column)).join(", ")}))`);
+      return this;
+    }
     const sql = OPERATORS[operator];
     if (!sql) throw new Error(`The local database has no "${operator}" filter.`);
-    this.wheres.push(`not (${ident(column)} ${sql} ${this.hold(value)})`);
+    this.wheres.push(`not (${ident(column)} ${sql} ${this.hold(value, column)})`);
     return this;
   }
 
   filter(column: string, operator: string, value: unknown): this {
     if (operator === "is") return this.is(column, value as null | boolean);
     if (operator === "in") {
-      const inner = typeof value === "string" ? value.replace(/^\(|\)$/g, "").split(",") : (value as unknown[]);
+      const inner =
+        typeof value === "string"
+          ? value.replace(/^\(|\)$/g, "").split(",").map((s) => s.trim()).filter(Boolean)
+          : (value as unknown[]);
       return this.in(column, inner);
     }
     const sql = OPERATORS[operator];
     if (!sql) throw new Error(`The local database has no "${operator}" filter.`);
-    this.wheres.push(`${ident(column)} ${sql} ${this.hold(value)}`);
+    this.wheres.push(`${ident(column)} ${sql} ${this.hold(value, column)}`);
     return this;
   }
 
   /** PostgREST's `"a.eq.1,b.is.null"`, which the app uses for two-sided lookups. */
   or(expression: string): this {
-    const parts = expression.split(",").map((clause) => {
+    const parts = splitTopLevel(expression).map((clause) => {
       const [column = "", operator = "", ...rest] = clause.split(".");
       const raw = rest.join(".");
       if (operator === "is") return `${ident(column)} is ${raw === "null" ? "null" : raw}`;
+      if (operator === "in") {
+        const items = raw.replace(/^\(|\)$/g, "").split(",").map((s) => s.trim()).filter(Boolean);
+        if (items.length === 0) return "false";
+        return `${ident(column)} in (${items.map((v) => this.hold(v, column)).join(", ")})`;
+      }
       const sql = OPERATORS[operator];
       if (!sql) throw new Error(`The local database has no "${operator}" filter.`);
-      return `${ident(column)} ${sql} ${this.hold(raw)}`;
+      return `${ident(column)} ${sql} ${this.hold(raw, column)}`;
     });
     this.wheres.push(`(${parts.join(" or ")})`);
     return this;

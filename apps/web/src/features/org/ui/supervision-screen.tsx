@@ -101,8 +101,10 @@ export function SupervisionScreen() {
                     onClick={() => setSelectedId(m.id)}
                   >
                     <span className={`superv-avatar superv-avatar--${m.role}`} aria-hidden>{initials(m)}</span>
-                    <span className="superv-team-name">{m.fullName || m.email || "Unnamed"}</span>
-                    <span className="superv-team-role">{ROLE_LABELS[m.role]}</span>
+                    <span className="superv-team-info">
+                      <span className="superv-team-name">{m.fullName || m.email || "Unnamed"}</span>
+                      <span className="superv-team-role">{ROLE_LABELS[m.role]}</span>
+                    </span>
                   </button>
                 </li>
               ))}

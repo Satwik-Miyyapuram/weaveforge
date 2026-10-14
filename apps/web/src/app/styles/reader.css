@@ -1,41 +1,77 @@
-.pdf-reader { display: flex; flex-direction: column; min-height: 0; gap: 8px; outline: none; }
-/* One control surface. The rows inside are separated by a hairline rather than
-   floating apart, so the reader reads as a single panel at every width. */
+.pdf-reader {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 8px;
+  outline: none;
+}
+/* One control surface. Either one unified bar when wide, or a clean 2-line
+   layout (tools top, ink bar bottom) when narrow, separated by a hairline. */
 .pdf-reader-chrome {
-  border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
   overflow: hidden;
   /* The bar stays in reach while the screen scrolls: before, the page count
      and tools slid up under the title bar. */
-  position: sticky; top: var(--titlebar-h); z-index: 5;
+  position: sticky;
+  top: var(--titlebar-h);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
 }
 .pdf-reader-tools {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 8px;
-  /* Controls stay on one line and the strip scrolls. Wrapping produced four
-     ragged rows on a phone and ate a third of the screen. */
-  flex-wrap: nowrap; overflow-x: auto;
+  order: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-top: 0;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
-.pdf-reader-tools { border-top: 1px solid var(--line); }
-/* Where there is room, the tools row wraps instead of scrolling: a scrolled
-   strip hid the annotation tool and its colour off the right edge. */
+.pdf-reader-tools::-webkit-scrollbar {
+  display: none;
+}
+.pdf-reader-chrome .ink-bar {
+  order: 2;
+  border: 0;
+  padding: 4px 8px;
+}
 @media (min-width: 721px) {
-  /* One bar: view controls, then find and the tools. Too narrow (side panel
-     open) and the tools drop to a second row rather than scroll. */
-  .pdf-reader-chrome {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-  .pdf-reader-chrome > .pdf-reader-tools {
-    flex: 1 1 auto;
-    border-top: 0;
-    flex-wrap: nowrap;
-    overflow-x: visible;
-    justify-content: flex-end;
-  }
-  .pdf-reader-chrome > :not(.pdf-reader-tools, .ink-bar) { flex: 1 1 100%; }
   .pdf-reader-chrome .pdf-reader-phone-toggles { display: none; }
   .pdf-reader-chrome .pdf-reader-more { display: inline-flex; }
+}
+
+/* Wide screen: single-line toolbar with ink tools on the left and search/focus on the right. */
+@container (min-width: 900px) {
+  .pdf-reader-chrome {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+  }
+  .pdf-reader-chrome .ink-bar {
+    order: 1;
+    flex: 0 0 auto;
+    border-bottom: 0;
+    border-right: 1px solid var(--line);
+    padding: 4px 8px;
+  }
+  .pdf-reader-chrome .ink-bar .ink-bar-spacer {
+    display: none;
+  }
+  .pdf-reader-chrome > .pdf-reader-tools {
+    order: 2;
+    flex: 1 1 auto;
+    min-width: 0;
+    border-bottom: 0;
+    border-left: 0;
+    padding: 4px 8px;
+  }
 }
 /* Related controls sit in a bordered cluster so grouping is visible, not implied. */
 .pdf-reader-group {
@@ -69,14 +105,12 @@
   .pdf-reader-chrome .pdf-reader-search input { min-width: 9rem; }
   .pdf-reader-phone-toggles { display: inline-flex; }
   .pdf-reader-chrome:not([data-phone-panel="more"]) .pdf-reader-more { display: none; }
-  .pdf-reader-tools { flex-wrap: wrap; overflow-x: visible; }
+  .pdf-reader-tools { flex-wrap: nowrap; overflow-x: auto; }
   .pdf-reader-phone-toggles { margin-left: auto; }
   /* Page, zoom and the two toggles fit one 360px row: tighter icon tiles, and
      "3 / 14" speaks for itself without the word "Page". */
   .pdf-reader-group .pdf-reader-icon-btn { min-width: 28px; padding: 0 6px; }
-  .pdf-reader-chrome:not([data-phone-panel="search"]) .pdf-reader-tools > .pdf-reader-search { display: none; }
-  .pdf-reader-chrome .pdf-reader-tools > .pdf-reader-search { flex: 1 1 100%; max-width: none; }
-  .pdf-reader-more.pdf-reader-group, .pdf-reader-annotate { flex-wrap: wrap; flex: 0 1 auto; }
+  .pdf-reader-more.pdf-reader-group, .pdf-reader-annotate { flex-wrap: nowrap; flex: 0 1 auto; }
 }
 .pdf-reader-banner {
   padding: 8px 12px; border-radius: 8px; font-size: 0.86rem;
@@ -145,7 +179,12 @@
 :is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .pdf-reader-scroll {
   flex: 1; max-height: none; height: 100%; border-radius: 0; padding: 24px 12px;
 }
-.pdf-reader-focus-btn { flex: none; padding-inline: 8px; }
+.pdf-reader-focus-btn {
+  margin-left: auto;
+  flex: none;
+  padding-inline: 8px;
+  display: inline-flex !important;
+}
 /* The corner exit sits above the reader's own chrome. `.focus-exit` itself
    is styled with the workspace's (editor-workspace.css). */
 .pdf-reader.is-focus > .focus-exit { position: fixed; z-index: 55; }
@@ -299,6 +338,8 @@
    layout assumes. Nothing here places text; see `pdf-text-layer.ts`. */
 .pdf-reader-textlayer :is(span, br) {
   color: transparent;
+  text-shadow: none !important;
+  -webkit-text-stroke: 0 transparent !important;
   position: absolute;
   white-space: pre;
   cursor: text;
@@ -317,15 +358,23 @@
 .pdf-reader-textlayer[data-main-rotation="270"] { transform: rotate(270deg) translateX(-100%); }
 /* Dragging across text is the highlight's live preview, so paint the selection
    in the colour the highlight will be rather than the browser's default. The
-   browser's own selection paints its text in HighlightText, which left white
-   ghost glyphs offset over the page. The layer already multiplies over the
-   page, so the swatch colour reads true. */
+   layer already multiplies over the page, so the swatch colour reads true.
+   text-shadow and text-stroke must be none so Chromium does not synthesize
+   white ClearType/subpixel shadows behind transparent glyphs. */
 .pdf-reader-textlayer ::selection {
   color: transparent;
   -webkit-text-fill-color: transparent;
+  text-shadow: none !important;
+  -webkit-text-stroke: 0 transparent !important;
+  background: var(--reader-select-color, Highlight);
+}
+.pdf-reader-textlayer ::-moz-selection {
+  color: transparent;
+  text-shadow: none !important;
   background: var(--reader-select-color, Highlight);
 }
 .pdf-reader-textlayer br::selection { background: transparent; }
+.pdf-reader-textlayer br::-moz-selection { background: transparent; }
 /* pdf.js `TextLayer` measures glyphs on a canvas it appends to <body>. Its
    own stylesheet hides it; ours is scoped, so without this rule the inline
    canvas left a 24px line box under the layout and the whole page gained a
@@ -715,10 +764,18 @@ body > canvas.hiddenCanvasElement { display: none; }
    `.ink-bar` element, only here it is a row inside the reader's panel rather
    than the panel's first line — one control surface, one hairline. */
 .pdf-reader-chrome .ink-bar {
+  order: 2;
   border-bottom: 0;
-  border-top: 1px solid var(--line);
+  border-top: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 4px 8px;
   flex-wrap: nowrap;
   overflow-x: auto;
+  scrollbar-width: none;
+}
+.pdf-reader-chrome .ink-bar::-webkit-scrollbar {
+  display: none;
 }
 /* In focus it floats (editor-workspace.css): restore complete border on all sides. */
 :is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .ink-bar.ink-palette {

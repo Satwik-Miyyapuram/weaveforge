@@ -12,6 +12,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 
+import { ChevronIcon } from "@/components/chevron-icon";
 import { BarMenuList, useBarMenu } from "./ink-bar-menus";
 
 /** An Insert item that stays armed after it is picked: a tool, not an action. */
@@ -71,7 +72,7 @@ export function InsertMenu({
         onClick={() => setOpen((was) => !was)}
       >
         {active === "clip" ? <ClipGlyph /> : active === "text" ? <TextGlyph /> : <ImageGlyph />}
-        <Caret />
+        <Caret open={open} />
       </button>
       {open ? (
         <BarMenuList label="Insert" className="ink-menu-insert-list" listRef={listRef} pos={pos}>
@@ -193,7 +194,7 @@ export function ViewMenu({
           onClick={() => setOpen((was) => !was)}
         >
           {zoomPercent}%
-          <Caret />
+          <Caret open={open} />
         </button>
         {open ? (
           <BarMenuList label="View" className="ink-menu-view-list" listRef={listRef} pos={pos}>
@@ -363,14 +364,8 @@ function Svg({ size = 15, width = 2, children }: { size?: number; width?: number
   );
 }
 
-function Caret() {
-  return (
-    <span className="ink-menu-caret" aria-hidden="true">
-      <svg width="9" height="9" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">
-        <path d="M1 3h8L5 8z" />
-      </svg>
-    </span>
-  );
+function Caret({ open, size = 12 }: { open?: boolean; size?: number }) {
+  return <ChevronIcon open={open} size={size} className="ink-menu-caret" />;
 }
 
 /** The text cursor: Select, which picks text to highlight, underline or comment. */

@@ -464,19 +464,16 @@
 /* Calm (default) */
 ::view-transition-old(vt-page),
 ::view-transition-new(vt-page) { animation-duration: 180ms; animation-timing-function: cubic-bezier(.2, .7, .2, 1); }
-:root[data-nav="forward"]::view-transition-old(vt-page) { animation-name: vt-out-left; }
-:root[data-nav="forward"]::view-transition-new(vt-page) { animation-name: vt-in-right; }
-:root[data-nav="back"]::view-transition-old(vt-page) { animation-name: vt-out-right; }
-:root[data-nav="back"]::view-transition-new(vt-page) { animation-name: vt-in-left; }
+:root[data-nav]::view-transition-old(vt-page) { animation-name: vt-fade-out-left; }
+:root[data-nav]::view-transition-new(vt-page) { animation-name: vt-fade-in-left; }
 :root[data-nav="tab"]::view-transition-old(vt-page),
-:root[data-nav="tab"]::view-transition-new(vt-page) { animation-duration: 120ms; }
+:root[data-nav="tab"]::view-transition-new(vt-page) { animation-duration: 140ms; }
 
 /* Reactive */
 :root[data-motion="reactive"]::view-transition-old(vt-page),
-:root[data-motion="reactive"]::view-transition-new(vt-page) { animation-duration: 260ms; --vt-in: 48px; --vt-out: 24px; --vt-shrink: 0.985; }
+:root[data-motion="reactive"]::view-transition-new(vt-page) { animation-duration: 240ms; --vt-in: 32px; --vt-out: 20px; --vt-shrink: 0.99; }
 :root[data-motion="reactive"][data-nav="tab"]::view-transition-old(vt-page),
 :root[data-motion="reactive"][data-nav="tab"]::view-transition-new(vt-page) { animation-duration: 160ms; }
-:root[data-motion="reactive"][data-nav="tab"]::view-transition-new(vt-page) { animation-name: vt-rise; }
 ::view-transition-group(vt-title) { animation-duration: 300ms; animation-timing-function: var(--rm-spring); }
 
 /* CRT: hard steps, no slide. Listed last so it wins over Reactive at equal specificity. */
@@ -494,10 +491,18 @@
 ::view-transition-old(root),
 ::view-transition-new(root) { animation: none; }
 
-@keyframes vt-in-right { from { translate: var(--vt-in, 12px) 0; opacity: 0; } }
-@keyframes vt-in-left { from { translate: calc(-1 * var(--vt-in, 12px)) 0; opacity: 0; } }
-@keyframes vt-out-left { to { translate: calc(-1 * var(--vt-out, 6px)) 0; scale: var(--vt-shrink, 1); opacity: 0; } }
-@keyframes vt-out-right { to { translate: var(--vt-out, 6px) 0; scale: var(--vt-shrink, 1); opacity: 0; } }
+@keyframes vt-fade-in-left {
+  from { translate: calc(-1 * var(--vt-in, 16px)) 0; opacity: 0; }
+  to   { translate: 0 0; opacity: 1; }
+}
+@keyframes vt-fade-out-left {
+  from { translate: 0 0; opacity: 1; scale: 1; }
+  to   { translate: calc(-1 * var(--vt-out, 16px)) 0; scale: var(--vt-shrink, 1); opacity: 0; }
+}
+@keyframes vt-in-right { from { translate: var(--vt-in, 16px) 0; opacity: 0; } }
+@keyframes vt-in-left { from { translate: calc(-1 * var(--vt-in, 16px)) 0; opacity: 0; } }
+@keyframes vt-out-left { to { translate: calc(-1 * var(--vt-out, 16px)) 0; scale: var(--vt-shrink, 1); opacity: 0; } }
+@keyframes vt-out-right { to { translate: var(--vt-out, 16px) 0; scale: var(--vt-shrink, 1); opacity: 0; } }
 @keyframes vt-rise { from { translate: 0 6px; opacity: 0; } }
 @keyframes vt-fade-out { to { opacity: 0; } }
 @keyframes vt-wipe-down { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0); } }

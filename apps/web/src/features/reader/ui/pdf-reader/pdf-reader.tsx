@@ -29,6 +29,9 @@ import type { InkColour, TextSelectionRange } from "@weaveforge/core";
 import {
   InkBar,
   INK_RENDER_COLOURS,
+  PageField,
+  ViewMenu,
+  MoreMenu,
   paletteHex,
   paletteName,
   readThemePalette,
@@ -1260,70 +1263,134 @@ export function PdfReader({
           Two free-floating wrapping bars read as scattered chrome. */}
       <div className="pdf-reader-chrome" data-phone-panel={phonePanel}>
         <div className="pdf-reader-tools">
-        <ReaderSearchBar
-          pages={pageTexts}
-          isOpen={searchOpen}
-          onOpenChange={setSearchOpen}
-          onJump={(match) => {
-            viewport.setPage(match.pageIndex + 1);
-          }}
-          onMatches={(matches, active) => setFind({ matches, active })}
-        />
-        {/* Wide screens switch tabs in the expanded sidebar; an empty group drew a stray box. */}
-        {(!penOpen || toolbarExtra) && (
-        <div className={`pdf-reader-group pdf-reader-more${toolbarExtra ? "" : " pdf-reader-narrow-only"}`}>
-          {!penOpen && (
-            <div className="seg pdf-reader-side-seg pdf-reader-narrow-only" role="tablist" aria-label="Sidebar view">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={!sideCollapsed && activeSideTab === "outline"}
-                className={!sideCollapsed && activeSideTab === "outline" ? "seg-on" : undefined}
-                title="Table of contents / outline"
-                onClick={() => selectSideTab("outline")}
+          <div className="ink-page-pill">
+            <button
+              type="button"
+              className="ink-tool ink-tool-icon-only"
+              onClick={() => viewport.setPage(viewport.page - 1)}
+              disabled={viewport.page <= 1}
+              title="Previous page"
+              aria-label="Previous page"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
               >
-                Outline
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={!sideCollapsed && activeSideTab === "references"}
-                className={!sideCollapsed && activeSideTab === "references" ? "seg-on" : undefined}
-                title="Document references & citations"
-                onClick={() => selectSideTab("references")}
+                <path d="m15 18-6-6 6-6" />
+              </svg>
+            </button>
+            <span className="ink-page-count" aria-label={`Page ${viewport.page} of ${Math.max(1, numPages)}`}>
+              <PageField page={viewport.page} pages={Math.max(1, numPages)} onGoToPage={viewport.setPage} />
+              <span className="ink-page-sep" aria-hidden="true">/</span>
+              <span className="ink-page-total">{Math.max(1, numPages)}</span>
+            </span>
+            <button
+              type="button"
+              className="ink-tool ink-tool-icon-only"
+              onClick={() => viewport.setPage(viewport.page + 1)}
+              disabled={viewport.page >= Math.max(1, numPages)}
+              title="Next page"
+              aria-label="Next page"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
               >
-                {refs.index.references.length
-                  ? `References (${refs.index.references.length})`
-                  : textAnnotationsCount > 0
-                  ? `References (${textAnnotationsCount})`
-                  : "References"}
-              </button>
-              {(listed.length > 0 || canCreate) && (
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={!sideCollapsed && activeSideTab === "annotations"}
-                  className={!sideCollapsed && activeSideTab === "annotations" ? "seg-on" : undefined}
-                  title="Annotations & highlights"
-                  onClick={() => selectSideTab("annotations")}
-                >
-                  {listed.length ? `Annotations (${listed.length})` : "Annotations"}
-                </button>
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            </button>
+          </div>
+          <ViewMenu
+            zoomPercent={Math.round(viewport.renderScale * 100)}
+            onZoomIn={viewport.zoomIn}
+            onZoomOut={viewport.zoomOut}
+            onZoomTo={(percent) => viewport.setCustomScale(percent / 100)}
+            fit={viewport.fit}
+            onFitPage={penOpen ? undefined : viewport.fitPage}
+            onFitWidth={penOpen ? undefined : viewport.fitWidth}
+            onRotate={viewport.rotateClockwise}
+            writingPage={writingPage}
+            onWritingPage={toggleWritingPage}
+          />
+          <ReaderSearchBar
+            pages={pageTexts}
+            isOpen={searchOpen}
+            onOpenChange={setSearchOpen}
+            onJump={(match) => {
+              viewport.setPage(match.pageIndex + 1);
+            }}
+            onMatches={(matches, active) => setFind({ matches, active })}
+          />
+          <MoreMenu onPrintPaper={(withComments) => void readerPrint.print(withComments)} />
+          {/* Wide screens switch tabs in the expanded sidebar; an empty group drew a stray box. */}
+          {(!penOpen || toolbarExtra) && (
+            <div className={`pdf-reader-group pdf-reader-more${toolbarExtra ? "" : " pdf-reader-narrow-only"}`}>
+              {!penOpen && (
+                <div className="seg pdf-reader-side-seg pdf-reader-narrow-only" role="tablist" aria-label="Sidebar view">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={!sideCollapsed && activeSideTab === "outline"}
+                    className={!sideCollapsed && activeSideTab === "outline" ? "seg-on" : undefined}
+                    title="Table of contents / outline"
+                    onClick={() => selectSideTab("outline")}
+                  >
+                    Outline
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={!sideCollapsed && activeSideTab === "references"}
+                    className={!sideCollapsed && activeSideTab === "references" ? "seg-on" : undefined}
+                    title="Document references & citations"
+                    onClick={() => selectSideTab("references")}
+                  >
+                    {refs.index.references.length
+                      ? `References (${refs.index.references.length})`
+                      : textAnnotationsCount > 0
+                      ? `References (${textAnnotationsCount})`
+                      : "References"}
+                  </button>
+                  {(listed.length > 0 || canCreate) && (
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={!sideCollapsed && activeSideTab === "annotations"}
+                      className={!sideCollapsed && activeSideTab === "annotations" ? "seg-on" : undefined}
+                      title="Annotations & highlights"
+                      onClick={() => selectSideTab("annotations")}
+                    >
+                      {listed.length ? `Annotations (${listed.length})` : "Annotations"}
+                    </button>
+                  )}
+                </div>
               )}
+              {toolbarExtra}
             </div>
           )}
-          {toolbarExtra}
-        </div>
-        )}
-        <button
-          type="button"
-          className="btn-secondary btn-sm pdf-reader-focus-btn pdf-reader-more"
-          title="Focus (⌘⇧F)"
-          aria-label="Focus"
-          onClick={toggleFocus}
-        >
-          <FocusGlyph on={false} />
-        </button>
+          <button
+            type="button"
+            className="btn-secondary btn-sm pdf-reader-focus-btn"
+            title="Focus (⌘⇧F)"
+            aria-label="Focus"
+            onClick={toggleFocus}
+          >
+            <FocusGlyph on={false} />
+          </button>
         </div>
         {/* The ink note's own bar, not a copy of it: same tools, same swatches,
             same nibs, same fold and move handles. Select and the Insert tools
@@ -1337,25 +1404,6 @@ export function PdfReader({
           highlighterWidth={pen.prefs.highlighterWidth}
           canUndo={inkUndo.canUndo}
           canRedo={inkUndo.canRedo}
-          page={viewport.page}
-          pages={Math.max(1, numPages)}
-          onPrevPage={() => viewport.setPage(viewport.page - 1)}
-          onNextPage={() => viewport.setPage(viewport.page + 1)}
-          onGoToPage={viewport.setPage}
-          view={{
-            zoomPercent: Math.round(viewport.renderScale * 100),
-            onZoomIn: viewport.zoomIn,
-            onZoomOut: viewport.zoomOut,
-            onZoomTo: (percent) => viewport.setCustomScale(percent / 100),
-            fit: viewport.fit,
-            // Fitting re-scales the page under a hand that is writing on it,
-            // so the fits stand down while the pen is out.
-            onFitPage: penOpen ? undefined : viewport.fitPage,
-            onFitWidth: penOpen ? undefined : viewport.fitWidth,
-            onRotate: viewport.rotateClockwise,
-            writingPage,
-            onWritingPage: toggleWritingPage,
-          }}
           selectActive={!penOpen && pickedTool === "select"}
           onSelect={() => putPenAway("select")}
           insertTool={penOpen ? null : pickedTool === "image" ? "clip" : pickedTool === "text" ? "text" : null}
@@ -1397,34 +1445,7 @@ export function PdfReader({
           onUndo={() => void inkUndo.undo()}
           onRedo={() => void inkUndo.redo()}
           onAddPicture={canCreate ? () => pictureInput.current?.click() : undefined}
-          onPrintPaper={(withComments) => void readerPrint.print(withComments)}
-        >
-            <div className="pdf-reader-phone-toggles pdf-reader-group">
-              <button
-                type="button"
-                className={`btn-secondary btn-sm pdf-reader-icon-btn pdf-reader-find-toggle${phonePanel === "search" ? " is-active" : ""}`}
-                aria-pressed={phonePanel === "search"}
-                aria-label="Find in document"
-                title="Find"
-                onClick={() => setPhonePanel((v) => (v === "search" ? "none" : "search"))}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
-                  <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.2-4.2" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                className={`btn-secondary btn-sm pdf-reader-icon-btn${phonePanel === "more" ? " is-active" : ""}`}
-                aria-pressed={phonePanel === "more"}
-                aria-expanded={phonePanel === "more"}
-                aria-label="More reader controls"
-                title="More"
-                onClick={() => setPhonePanel((v) => (v === "more" ? "none" : "more"))}
-              >
-                ⋯
-              </button>
-            </div>
-        </InkBar>
+        />
         {readerPrint.printDoc ? (
           <InkPrintPreview
             html={readerPrint.printDoc.html}
