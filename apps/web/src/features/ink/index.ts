@@ -216,6 +216,15 @@ export {
   type InkBarProps,
   type InkBarTool,
 } from "./ui/ink-bar";
+export {
+  PageField,
+  ViewMenu,
+  type ViewMenuProps,
+} from "./ui/ink-bar-view";
+export {
+  MoreMenu,
+  type MoreMenuProps,
+} from "./ui/ink-bar-more";
 export { InkPage, type InkPageProps } from "./ui/ink-page";
 export { useQuickColours } from "./ui/use-quick-colours";
 export { strokePath } from "./application/ink-svg";

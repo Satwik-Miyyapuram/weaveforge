@@ -48,6 +48,13 @@ export interface LocalQueryResult<T> {
   rows: T[];
 }
 
+function isAbortedTxError(error: unknown): boolean {
+  if (!error) return false;
+  const msg = error instanceof Error ? error.message : String(error);
+  const code = (error as { code?: string }).code;
+  return code === "25P02" || /current transaction is aborted/i.test(msg);
+}
+
 export class LocalDatabase {
   constructor(private readonly client: LocalClient) {}
 
@@ -59,18 +66,34 @@ export class LocalDatabase {
    * already there, so it runs before them and is written to tolerate rerunning.
    */
   async migrate(bootstrap: string, migrations: readonly Migration[]): Promise<string[]> {
-    await this.client.exec(bootstrap);
-    await this.client.exec(LEDGER);
-    const { rows } = await this.client.query<{ name: string }>(
-      "select name from weaveforge_migrations",
-    );
-    const applied = new Set(rows.map((row) => row.name));
-    return applyMigrations(migrations, (sql) => this.client.exec(sql), {
-      applied,
-      onApplied: async (name) => {
-        await this.client.query("insert into weaveforge_migrations (name) values ($1)", [name]);
-      },
-    });
+    try {
+      await this.client.exec(bootstrap);
+      await this.client.exec(LEDGER);
+      const { rows } = await this.client.query<{ name: string }>(
+        "select name from weaveforge_migrations",
+      );
+      const applied = new Set(rows.map((row) => row.name));
+      return await applyMigrations(
+        migrations,
+        async (sql) => {
+          try {
+            await this.client.exec(sql);
+          } catch (error) {
+            await this.client.exec("ROLLBACK").catch(() => undefined);
+            throw error;
+          }
+        },
+        {
+          applied,
+          onApplied: async (name) => {
+            await this.client.query("insert into weaveforge_migrations (name) values ($1)", [name]);
+          },
+        },
+      );
+    } catch (error) {
+      await this.client.exec("ROLLBACK").catch(() => undefined);
+      throw error;
+    }
   }
 
   /**
@@ -112,7 +135,7 @@ export class LocalDatabase {
     } catch (error) {
       if (!isAbortedTransaction(error)) throw error;
       try {
-        await this.client.exec("rollback");
+        await this.client.exec("ROLLBACK");
       } catch {
         // The rollback's own failure says less than the error that sent us here.
         throw error;
@@ -157,6 +180,7 @@ export class LocalDatabase {
       return rows[0]?.account_id ?? LOCAL_USER_ID;
     } catch (error) {
       if (isUndefinedTable(error)) return LOCAL_USER_ID;
+      await this.client.exec("ROLLBACK").catch(() => undefined);
       throw error;
     }
   }
@@ -179,5 +203,5 @@ function isUndefinedTable(error: unknown): boolean {
 function isAbortedTransaction(error: unknown): boolean {
   if (typeof error !== "object" || error === null) return false;
   const { code, message } = error as { code?: unknown; message?: unknown };
-  return code === "25P02" || (typeof message === "string" && message.startsWith("current transaction is aborted"));
+  return code === "25P02" || (typeof message === "string" && /current transaction is aborted/i.test(message));
 }

@@ -123,3 +123,4 @@ describe("the local database", () => {
     await assert.rejects(new LocalDatabase(failing).ensureLocalUser(), /current transaction is aborted/);
   });
 });
+
