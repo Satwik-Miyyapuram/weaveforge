@@ -128,6 +128,50 @@ def switch_org(client, org_id: str) -> bool:
         return False
 
 
+# Owned tables the run writes to, with the column holding the verify- prefix.
+THROWAWAY = (
+    ("milestones", "title"),
+    ("vault_pages", "title"),
+    ("reading_lists", "name"),
+    ("papers", "title"),
+)
+
+
+def drop(client, table: str, col: str, vals: list) -> None:
+    """Delete rows; a failure fails the run so leftovers never go unnoticed."""
+    vals = [v for v in vals if v]
+    if client is None or not vals:
+        return
+    try:
+        client.table(table).delete().in_(col, vals).execute()
+    except Exception as exc:  # noqa: BLE001
+        print(f"FAIL: cleanup of {table} left rows behind ({type(exc).__name__}: {exc})")
+        FAILURES.append(f"cleanup {table}")
+
+
+def sweep_leftovers(accounts: list[tuple]) -> None:
+    """Remove verify- rows an earlier run left (crash, cancel) before writing new ones."""
+    owned: list[tuple] = []
+    for client, uid in accounts:
+        if client is None or not uid:
+            continue
+        for table, col in THROWAWAY:
+            q = client.table(table).select("id").eq("user_id", uid).like(col, "verify-%")
+            rows = q.execute().data
+            ids = [r["id"] for r in rows]
+            if ids:
+                owned.append((client, table, ids))
+    if not owned:
+        return
+    every = [i for _, _, ids in owned for i in ids]
+    print(f"Sweeping {len(every)} leftover verify- row(s) from an earlier run")
+    for client, _uid in accounts:
+        drop(client, "comments", "resource_id", every)
+        drop(client, "shares", "resource_id", every)
+    for client, table, ids in owned:
+        drop(client, table, "id", ids)
+
+
 def verify_org_switcher(
     accounts: dict[str, tuple],
     *,
@@ -218,6 +262,10 @@ def main() -> int:
             print("Every account was rejected — SUPABASE_URL / SUPABASE_ANON_KEY most likely "
                   "point at a different project than the one holding these users.")
         return 2
+
+    sweep_leftovers(
+        [(a, a_uid), (b, b_uid), (c, c_uid), (d, d_uid), (e, e_uid), (_f, _f_uid), (g, g_uid)]
+    )
 
     tag = uuid.uuid4().hex[:8]
     m_a = m_e = cmt = v_a = rl_a = paper_a = None
@@ -336,24 +384,15 @@ def main() -> int:
             print("SKIP: TT_C/D/E_* not all set — skipping hierarchy checks")
 
     finally:
-        # best-effort cleanup of throwaway data
-        for client, table, col, val in [
-            (b, "comments", "id", cmt),
-            (a, "shares", "resource_id", m_a),
-            (a, "shares", "resource_id", v_a),
-            (a, "shares", "resource_id", rl_a),
-            (e, "shares", "resource_id", m_e),
-            (a, "milestones", "id", m_a),
-            (e, "milestones", "id", m_e),
-            (a, "vault_pages", "id", v_a),
-            (a, "reading_lists", "id", rl_a),
-            (a, "papers", "id", paper_a),
-        ]:
-            try:
-                if client is not None and val:
-                    client.table(table).delete().eq(col, val).execute()
-            except Exception:  # noqa: BLE001
-                pass
+        # Children first: comments and shares point at the resources by id.
+        drop(b, "comments", "id", [cmt])
+        drop(a, "shares", "resource_id", [m_a, v_a, rl_a])
+        drop(e, "shares", "resource_id", [m_e])
+        drop(a, "milestones", "id", [m_a])
+        drop(e, "milestones", "id", [m_e])
+        drop(a, "vault_pages", "id", [v_a])
+        drop(a, "reading_lists", "id", [rl_a])  # items cascade
+        drop(a, "papers", "id", [paper_a])
 
     if FAILURES:
         print(f"\n{len(FAILURES)} check(s) failed.")
