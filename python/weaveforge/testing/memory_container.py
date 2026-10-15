@@ -1,4 +1,4 @@
-"""An in-memory stand-in for the Supabase :class:`Container`, so the ``Run`` /
+"""An in-memory stand-in for the :class:`Container`, so the ``Run`` /
 decorator / context-manager can be driven end-to-end in unit tests with no
 network (Liskov: same surface the real container exposes to ``track``)."""
 

@@ -8,7 +8,7 @@ license = { text = "AGPL-3.0-only" }
 authors = [{ name = "Satwik Miyyapuram" }]
 keywords = [
   "experiment-tracking", "machine-learning", "tensorboard", "wandb",
-  "mlops", "research", "thesis", "supabase",
+  "mlops", "research", "thesis", "postgrest",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",

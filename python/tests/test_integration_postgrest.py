@@ -1,7 +1,7 @@
 """Legacy integration tests — superseded by test_integration_api.py.
 
 The Python SDK now talks to /api/sdk/* over HTTP. These tests remain for
-environments that still wire Supabase adapters directly (not the default).
+environments that still wire PostgREST adapters directly (not the default).
 """
 
 from __future__ import annotations

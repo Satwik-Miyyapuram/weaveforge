@@ -14,7 +14,7 @@ class ApiMetricRepository:
     """The write half of ``IMetricRepository``, over ``/api/sdk/metrics``.
 
     The SDK pushes curves; it does not draw them. The route is POST-only and the
-    dashboard reads ``experiment_metrics`` through Supabase directly, so no
+    dashboard reads ``experiment_metrics`` through PostgREST directly, so no
     endpoint could implement ``history`` — read
     ``apps/web/src/app/api/sdk/metrics/route.ts`` before adding one. Rather than
     invent a call, the read half refuses with a typed error (F4 of the pass-2
@@ -49,8 +49,8 @@ class ApiMetricRepository:
         raise MetricHistoryUnavailable(
             "Reading metric history over the SDK API is not implemented: "
             "apps/web/src/app/api/sdk/metrics/route.ts accepts POST only, and the "
-            "dashboard reads experiment_metrics through Supabase directly. Use a "
-            "SupabaseMetricRepository where a database connection is available."
+            "dashboard reads experiment_metrics through PostgREST directly. Use a "
+            "PostgrestMetricRepository where a database connection is available."
         )
 
     def capabilities(self) -> frozenset[str]:
