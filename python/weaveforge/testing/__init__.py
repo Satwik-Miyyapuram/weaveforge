@@ -1,6 +1,6 @@
 """Test doubles + shared contract suites.
 
-In-memory repositories stand in for the Supabase ones (Liskov); the contract
+In-memory repositories stand in for the database-backed ones (Liskov); the contract
 functions here are run against *every* implementation so behaviour is identical
 from the caller's view (``docs/building/design.md`` §6).
 """

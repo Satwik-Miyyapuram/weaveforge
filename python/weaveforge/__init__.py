@@ -1,6 +1,6 @@
 """weaveforge — Python SDK for WeaveForge.
 
-Push experiments, training curves, and figures into the same Supabase database
+Push experiments, training curves, and figures into the same Postgres database
 the PWA reads, using the decorator as the one entry point::
 
     from weaveforge import track_experiment
@@ -11,8 +11,9 @@ the PWA reads, using the decorator as the one entry point::
         run.log_figure(fig, name="reconstruction")
         return {"val_loss": 0.11}          # recorded as summary metrics
 
-Mirrors the web app's modular shape (``features/<name>/...``); the Supabase
-migrations are the shared source of truth (see ``docs/building/design.md`` §5.4).
+Mirrors the web app's modular shape (``features/<name>/...``); the Postgres
+migrations (``db/migrations``) are the shared source of truth
+(see ``docs/building/design.md`` §5.4).
 """
 
 from .features.experiments import (
