@@ -7,6 +7,7 @@ Four folders, and which one a page belongs in is a question about who reads it.
 For somebody using the app.
 
 - [The desktop and mobile apps](using/desktop.md) — installing on Windows, Mac, and Android, what an installed window can do, and working without an account
+- [Projects and workspaces](using/workspaces.md) — project boundaries, switching, multi-pane editor, and organisation modes
 - [The workspace folder](using/workspace-folder.md) — your notes as files on your own disk
 - [Storage and sync](using/sync.md) — where your work lives, and what syncs when
 - [Collaborative editing](using/collaborative-editing.md) — two people in one document
