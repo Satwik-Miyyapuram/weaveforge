@@ -205,6 +205,42 @@ side, field by field. Nothing is written over until you choose.
 What is *not* merged automatically is the body of a document — two people
 rewriting the same paragraph is reported, not guessed at.
 
+### Syncing between devices
+
+When you use WeaveForge across multiple devices — such as a workstation, a laptop, and a tablet or phone:
+
+```mermaid
+flowchart LR
+    A["Device A (Desktop)<br/>Local PGlite"] -->|"1. Local Outbox Push"| S["Central Cloud (Postgres on OCI)"]
+    S -->|"2. Ordered Change Feed"| B["Device B (Laptop / Mobile)<br/>Local PGlite"]
+    B -->|"3. Automatic Mirror"| M["Device B Workspace Folder<br/>(Markdown / Obsidian)"]
+```
+
+1. **Local-first on every device**:
+   - Each device has its own complete, local copy of the database (powered by embedded PostgreSQL / PGlite).
+   - Reading, writing, searching, and annotating always hit the local engine instantly with zero network latency.
+2. **Outbox queue and ordered push**:
+   - Every mutation (creating a note, highlighting a PDF, editing relations) is saved locally and appended to the device's outbox queue.
+   - When the device is online, the sync worker batches outbox records and pushes them to your account on the central cloud server (Postgres on Oracle Cloud Infrastructure).
+   - Each operation carries a unique idempotency ID, so dropped connections or network retries never produce duplicate entries.
+3. **Change feed and watermark pulls**:
+   - The central server records all accepted changes in a monotonic, strictly ordered change feed.
+   - When other devices (like Device B) sync, they pull changes starting from their own last acknowledged watermark sequence number.
+   - Device B applies the incoming changes transactionally to its local database.
+4. **Mirroring to local files**:
+   - If Device B has a local workspace folder configured, the Markdown mirror automatically updates its files a moment later, keeping external tools (like Obsidian or VS Code) in sync.
+
+#### Working offline on the move
+You can take any device offline — on a flight, in the library, or on a train — without limitation. All notes, PDFs, reading lists, and graphs remain fully available. When you reconnect to Wi-Fi or cellular data:
+- WeaveForge automatically detects network recovery.
+- Unsent operations drain from your outbox queue in exact creation order.
+- The watermark pull fetches any updates made by your other devices while you were away.
+
+#### Settle conflicts between devices
+- **Different fields on the same item**: If you edit a paper's tags on your phone and rewrite its title on your desktop while both are offline, WeaveForge performs a three-way merge automatically. Both changes are kept without interrupting you.
+- **Colliding fields or document bodies**: If both devices edit the exact same paragraph or metadata field, the collision is surfaced in the Sync status view. You see side-by-side diffs and can choose which side to keep or merge manually.
+- **Active live co-editing**: When two devices have the same document open simultaneously, WeaveForge uses CRDTs (Conflict-free Replicated Data Types) so keystrokes converge live in real time without overwriting each other.
+
 ### Working together, live
 
 Two people can edit one document at the same time and see each other's changes

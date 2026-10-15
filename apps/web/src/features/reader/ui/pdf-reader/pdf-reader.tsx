@@ -42,7 +42,12 @@ import {
 } from "@/features/ink";
 import { useReaderPrint } from "./use-reader-print";
 import { getContainer } from "@/bootstrap";
-import { pageNumberFromSelection, selectionRangeFromDom } from "../../application/dom-selection-range";
+import {
+  pageSpanFromSelection,
+  selectionRangeFromDom,
+  startOffsetInTextLayer,
+  textSelectionFromOffsets,
+} from "../../application/dom-selection-range";
 import {
   draftFromTextSelection,
   draftTextBox,
@@ -221,6 +226,7 @@ export function PdfReader({
     quote: string;
     selection: TextSelectionRange;
     exactRects?: number[][];
+    nextPageRects?: number[][];
     /** Where the popover sits: the selection's box, in the scroller's content. */
     at: SelectionAnchor;
   } | null>(null);
@@ -1270,69 +1276,135 @@ export function PdfReader({
     const root = containerRef.current;
     if (!root) return;
     const sel = window.getSelection();
-    const pageNumber = pageNumberFromSelection(sel, root);
-    if (!pageNumber) {
+    const span = pageSpanFromSelection(sel, root);
+    if (!span) {
       setPendingCreate(null);
       return;
     }
-    const layer = root.querySelector(`[data-page="${pageNumber}"] .pdf-reader-textlayer`);
+    const { startPage } = span;
+    const isCrossPage = span.endPage === startPage + 1;
+    const endPage = isCrossPage ? span.endPage : startPage;
+
+    const layer = root.querySelector(`[data-page="${startPage}"] .pdf-reader-textlayer`);
     if (!layer) {
       setPendingCreate(null);
       return;
     }
-    const range = selectionRangeFromDom(sel, layer);
-    const geometry = pageGeometries.current.get(pageNumber);
-    if (!range || !geometry) {
+    const geometry = pageGeometries.current.get(startPage);
+    if (!geometry || geometry.items.length === 0) {
       setPendingCreate(null);
       return;
     }
-    const draft = draftFromTextSelection({
-      type: "highlight",
-      color: createColor,
-      selection: range,
-      page: geometry,
-    });
-    if (!draft) {
-      setPendingCreate(null);
-      return;
+
+    let range: TextSelectionRange | null = null;
+    if (!isCrossPage) {
+      range = selectionRangeFromDom(sel, layer);
+    } else {
+      const startOff = startOffsetInTextLayer(sel, layer);
+      if (startOff) {
+        const lastIdx = geometry.items.length - 1;
+        const lastOff = geometry.items[lastIdx]!.str.length;
+        range = textSelectionFromOffsets(startOff, { itemIndex: lastIdx, offset: lastOff });
+      }
     }
-    const at = sel && sel.rangeCount > 0 ? selectionAnchor(sel.getRangeAt(0), root) : null;
-    if (!at) {
+    if (!range) {
       setPendingCreate(null);
       return;
     }
 
     // Capture exact PDF user-space rects from active DOM selection client rects
     const exactRects: number[][] = [];
-    if (sel && sel.rangeCount > 0) {
-      const pageEl = root.querySelector<HTMLElement>(`[data-page="${pageNumber}"] .pdf-reader-page`);
-      if (pageEl) {
-        const pageBox = pageEl.getBoundingClientRect();
-        const domRange = sel.getRangeAt(0);
-        const p = pageProjection(pageNumber);
+    const nextPageRects: number[][] = [];
+    const domRange = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    if (domRange) {
+      const startPageEl = root.querySelector<HTMLElement>(`[data-page="${startPage}"] .pdf-reader-page`);
+      const endPageEl = isCrossPage
+        ? root.querySelector<HTMLElement>(`[data-page="${endPage}"] .pdf-reader-page`)
+        : null;
+      if (startPageEl) {
+        const startBox = startPageEl.getBoundingClientRect();
+        const endBox = endPageEl?.getBoundingClientRect();
+        const pStart = pageProjection(startPage);
+        const pEnd = isCrossPage ? pageProjection(endPage) : pStart;
         const clientRects = domRange.getClientRects();
+
         for (let i = 0; i < clientRects.length; i++) {
           const cr = clientRects[i]!;
           if (cr.width < 1 || cr.height < 1) continue;
-          const left = cr.left - pageBox.left;
-          const top = cr.top - pageBox.top;
-          const p1 = screenPointToPdf(left, top, p);
-          const p2 = screenPointToPdf(left + cr.width, top + cr.height, p);
-          exactRects.push([
-            Math.min(p1.x, p2.x),
-            Math.min(p1.y, p2.y),
-            Math.max(p1.x, p2.x),
-            Math.max(p1.y, p2.y),
-          ]);
+          const midY = cr.top + cr.height / 2;
+
+          if (isCrossPage && endBox && midY >= endBox.top - 1) {
+            const left = cr.left - endBox.left;
+            const top = cr.top - endBox.top;
+            const p1 = screenPointToPdf(left, top, pEnd);
+            const p2 = screenPointToPdf(left + cr.width, top + cr.height, pEnd);
+            nextPageRects.push([
+              Math.min(p1.x, p2.x),
+              Math.min(p1.y, p2.y),
+              Math.max(p1.x, p2.x),
+              Math.max(p1.y, p2.y),
+            ]);
+          } else {
+            const left = cr.left - startBox.left;
+            const top = cr.top - startBox.top;
+            const p1 = screenPointToPdf(left, top, pStart);
+            const p2 = screenPointToPdf(left + cr.width, top + cr.height, pStart);
+            exactRects.push([
+              Math.min(p1.x, p2.x),
+              Math.min(p1.y, p2.y),
+              Math.max(p1.x, p2.x),
+              Math.max(p1.y, p2.y),
+            ]);
+          }
         }
       }
     }
 
+    const fullText = sel?.toString().trim() || "";
+    const draft = draftFromTextSelection({
+      type: "highlight",
+      color: createColor,
+      selection: range,
+      page: geometry,
+      exactRects: exactRects.length > 0 ? exactRects : undefined,
+      nextPageRects: nextPageRects.length > 0 ? nextPageRects : undefined,
+      fullText: fullText || undefined,
+    });
+    if (!draft) {
+      setPendingCreate(null);
+      return;
+    }
+
+    let at: SelectionAnchor | null = null;
+    if (domRange) {
+      const clientRects = domRange.getClientRects();
+      if (isCrossPage && clientRects.length > 0) {
+        let bestRect = clientRects[clientRects.length - 1]!;
+        let bestDist = Math.abs(bestRect.top + bestRect.height / 2 - event.clientY);
+        for (let i = 0; i < clientRects.length; i++) {
+          const cr = clientRects[i]!;
+          const dist = Math.abs(cr.top + cr.height / 2 - event.clientY);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestRect = cr;
+          }
+        }
+        at = boxAnchor(bestRect, root);
+      } else {
+        at = selectionAnchor(domRange, root);
+      }
+    }
+    if (!at) {
+      setPendingCreate(null);
+      return;
+    }
+
     setPendingCreate({
-      pageNumber,
-      quote: draft.text ?? "",
+      pageNumber: startPage,
+      quote: fullText || draft.text || "",
       selection: range,
       exactRects: exactRects.length > 0 ? exactRects : undefined,
+      nextPageRects: nextPageRects.length > 0 ? nextPageRects : undefined,
       at,
     });
   }
@@ -1351,6 +1423,8 @@ export function PdfReader({
       selection: pendingCreate.selection,
       page: geometry,
       exactRects: pendingCreate.exactRects,
+      nextPageRects: pendingCreate.nextPageRects,
+      fullText: pendingCreate.quote,
       comment,
     });
     if (!draft) return;

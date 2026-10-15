@@ -60,6 +60,25 @@ test("draftFromTextSelection preserves exactRects when provided", () => {
   assert.deepEqual(draft!.anchor.zoteroPosition?.rects, exact);
 });
 
+test("draftFromTextSelection supports cross-page highlights with nextPageRects and fullText", () => {
+  const exact = [[50, 698, 125, 712]];
+  const nextRects = [[40, 750, 200, 765]];
+  const draft = draftFromTextSelection({
+    type: "highlight",
+    color: "#ffd400",
+    selection: { startItemIndex: 0, startOffset: 0, endItemIndex: 1, endOffset: 5 },
+    page,
+    exactRects: exact,
+    nextPageRects: nextRects,
+    fullText: "Hello world spanning onto next page",
+  });
+  assert.ok(draft);
+  assert.deepEqual(draft!.anchor.zoteroPosition?.rects, exact);
+  assert.deepEqual(draft!.anchor.zoteroPosition?.nextPageRects, nextRects);
+  assert.equal(draft!.text, "Hello world spanning onto next page");
+  assert.equal(draft!.anchor.locus?.quote?.exact, "Hello world spanning onto next page");
+});
+
 test("draftInkAnnotation stores paths, minus the points the shape implies", () => {
   const draft = draftInkAnnotation({
     color: "#2ea8e5",

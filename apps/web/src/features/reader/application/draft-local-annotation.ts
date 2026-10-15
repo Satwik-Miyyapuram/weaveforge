@@ -19,11 +19,19 @@ export function draftFromTextSelection(input: {
   page: PageTextGeometry;
   comment?: string;
   exactRects?: readonly number[][] | null;
+  nextPageRects?: readonly number[][] | null;
+  fullText?: string;
 }): NewReaderAnnotation | null {
   const anchor = selectionToAnchor(input.selection, input.page);
   if (!anchor) return null;
   if (input.exactRects && input.exactRects.length > 0 && anchor.zoteroPosition) {
     anchor.zoteroPosition.rects = [...input.exactRects];
+  }
+  if (input.nextPageRects && input.nextPageRects.length > 0 && anchor.zoteroPosition) {
+    anchor.zoteroPosition.nextPageRects = [...input.nextPageRects];
+  }
+  if (input.fullText && anchor.locus?.quote) {
+    anchor.locus.quote.exact = input.fullText;
   }
   const quote = anchor.locus?.quote?.exact ?? "";
   const charStart = anchor.locus?.position?.start ?? 0;
@@ -34,7 +42,7 @@ export function draftFromTextSelection(input: {
   return {
     type: input.type,
     color: input.color,
-    text: quote,
+    text: input.fullText || quote,
     comment: input.comment ?? "",
     pageIndex: input.page.pageIndex,
     anchor,

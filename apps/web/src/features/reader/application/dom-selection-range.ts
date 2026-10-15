@@ -55,6 +55,26 @@ export function selectionRangeFromDom(
   return textSelectionFromOffsets(start, end);
 }
 
+/** Map the start boundary of a DOM selection to an ItemTextOffset in this textLayer. */
+export function startOffsetInTextLayer(
+  selection: Selection | null,
+  textLayer: Element,
+): ItemTextOffset | null {
+  if (!selection || selection.isCollapsed || selection.rangeCount < 1) return null;
+  const range = selection.getRangeAt(0);
+  return offsetInTextLayer(range.startContainer, range.startOffset, textLayer, "start");
+}
+
+/** Map the end boundary of a DOM selection to an ItemTextOffset in this textLayer. */
+export function endOffsetInTextLayer(
+  selection: Selection | null,
+  textLayer: Element,
+): ItemTextOffset | null {
+  if (!selection || selection.isCollapsed || selection.rangeCount < 1) return null;
+  const range = selection.getRangeAt(0);
+  return offsetInTextLayer(range.endContainer, range.endOffset, textLayer, "end");
+}
+
 /** The decorated piece a node belongs to: its bounds and its item. */
 function pieceOf(node: Node, textLayer: Element): { span: HTMLElement; from: number; to: number } | null {
   let cur: Node | null = node;
@@ -95,6 +115,9 @@ function resolveTargetNode(
   return { node, offset };
 }
 
+const ELEMENT_NODE = 1;
+const TEXT_NODE = 3;
+
 function offsetInTextLayer(
   rawNode: Node,
   rawOffset: number,
@@ -115,7 +138,7 @@ function offsetInTextLayer(
       const subRange = document.createRange();
       subRange.selectNodeContents(piece.span);
       const maxOffset =
-        node.nodeType === Node.TEXT_NODE
+        node.nodeType === TEXT_NODE
           ? (node.textContent?.length ?? 0)
           : node.childNodes.length;
       subRange.setEnd(node, Math.min(Math.max(0, offset), maxOffset));
@@ -131,7 +154,7 @@ function offsetInTextLayer(
   let offsetInSpan = 0;
   function traverse(n: Node): boolean {
     if (n === node) {
-      if (n.nodeType === Node.TEXT_NODE) {
+      if (n.nodeType === TEXT_NODE) {
         offsetInSpan += Math.min(Math.max(0, offset), n.textContent?.length ?? 0);
       } else {
         const children = [...n.childNodes];
@@ -141,7 +164,7 @@ function offsetInTextLayer(
       }
       return true;
     }
-    if (n.nodeType === Node.TEXT_NODE) {
+    if (n.nodeType === TEXT_NODE) {
       offsetInSpan += n.textContent?.length ?? 0;
       return false;
     }
@@ -159,16 +182,60 @@ function offsetInTextLayer(
   return { itemIndex, offset: edge === "end" ? piece.to : piece.from };
 }
 
-/** Resolve which page host owns the selection (1-based page number). */
+export interface PageSelectionSpan {
+  startPage: number;
+  endPage: number;
+}
+
+/**
+ * Resolve which page host(s) own the selection (1-based page numbers).
+ * Returns { startPage, endPage } where startPage <= endPage.
+ */
+export function pageSpanFromSelection(
+  selection: Selection | null,
+  scrollRoot: Element,
+): PageSelectionSpan | null {
+  if (!selection || selection.rangeCount < 1) return null;
+  const range = selection.getRangeAt(0);
+
+  function resolvePage(node: Node | null, offset: number, edge: "start" | "end"): number | null {
+    if (!node) return null;
+    let cur: Node | null = node;
+    if (cur.nodeType === ELEMENT_NODE && (cur === scrollRoot || (cur as Element).classList?.contains?.("pdf-reader-pages"))) {
+      const el = cur as Element;
+      if (el.childNodes.length > 0) {
+        const idx =
+          edge === "start"
+            ? Math.min(Math.max(0, offset), el.childNodes.length - 1)
+            : Math.max(0, Math.min(offset > 0 ? offset - 1 : 0, el.childNodes.length - 1));
+        cur = el.childNodes[idx] ?? cur;
+      }
+    }
+    const el = cur.nodeType === ELEMENT_NODE ? (cur as Element) : cur.parentElement;
+    const host = el?.closest?.("[data-page]");
+    if (!host || !scrollRoot.contains(host)) return null;
+    const n = Number((host as HTMLElement).dataset.page);
+    return Number.isInteger(n) && n > 0 ? n : null;
+  }
+
+  const startPage = resolvePage(range.startContainer, range.startOffset, "start");
+  const endPage = resolvePage(range.endContainer, range.endOffset, "end");
+
+  if (!startPage && !endPage) return null;
+  const p1 = startPage ?? endPage!;
+  const p2 = endPage ?? startPage!;
+  return {
+    startPage: Math.min(p1, p2),
+    endPage: Math.max(p1, p2),
+  };
+}
+
+/** Resolve which page host owns the selection (1-based page number). Returns null if cross-page. */
 export function pageNumberFromSelection(
   selection: Selection | null,
   scrollRoot: Element,
 ): number | null {
-  if (!selection || selection.rangeCount < 1) return null;
-  const node = selection.getRangeAt(0).commonAncestorContainer;
-  const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
-  const host = el?.closest?.("[data-page]");
-  if (!host || !scrollRoot.contains(host)) return null;
-  const n = Number((host as HTMLElement).dataset.page);
-  return Number.isInteger(n) && n > 0 ? n : null;
+  const span = pageSpanFromSelection(selection, scrollRoot);
+  if (!span) return null;
+  return span.startPage === span.endPage ? span.startPage : null;
 }
