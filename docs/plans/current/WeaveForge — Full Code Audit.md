@@ -484,7 +484,7 @@ for (const document of request.documents) {
 
 ### WF-P08 — Dead E2EE schema (migrations 0037–0041, 0089–0095) still created in every fresh install
 
-**File:** `supabase/migrations/`
+**File:** `db/migrations/`
 
 **Problem:** The README states these migrations created client-side E2EE key tables, the feature was dropped, nothing reads them — and no migration removes them. Every new self-hosted install provisions dead tables, indexes, and their RLS policies; every schema reader (and every security reviewer) must rediscover that they are inert.
 
