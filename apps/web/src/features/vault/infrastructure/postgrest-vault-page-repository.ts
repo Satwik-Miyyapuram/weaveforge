@@ -85,7 +85,7 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
           : query.eq("parent_id", filter.parentId);
     }
     if (filter?.query) {
-      const pattern = `%${filter.query.replace(/[%_]/g, "\\$&")}%`;
+      const pattern = `%${filter.query.replace(/[\\%_]/g, "\\$&")}%`;
       query = query.or(`title.ilike."${pattern}",body.ilike."${pattern}"`);
     }
     query = query.order("sort_order", { ascending: true }).order("title", { ascending: true });

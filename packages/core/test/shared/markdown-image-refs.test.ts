@@ -79,3 +79,12 @@ test("a stale blob URL keeps its original ref rather than vanishing from the bod
     globalThis.fetch = original;
   }
 });
+
+test("normalizeMarkdownImageSyntax stays linear on unclosed image syntax", () => {
+  for (const unit of ["![\\", "![](blob:", "![](http://"]) {
+    const started = performance.now();
+    normalizeMarkdownImageSyntax(unit.repeat(50_000));
+    assert.ok(performance.now() - started < 500, `slow on repeated ${unit}`);
+  }
+  assert.equal(normalizeMarkdownImageSyntax("![](foo![x]( vault:a.png )"), "![](foo![x](vault:a.png)");
+});
