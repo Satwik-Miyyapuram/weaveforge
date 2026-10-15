@@ -57,6 +57,8 @@ export type ChangeSide = "neither" | "folder" | "workspace" | "both" | "unknown"
  */
 export function changedSide(origin: ChangeOrigin): ChangeSide {
   const { base, folder, workspace } = origin;
+  // The folder already holds what the mirror would write: nothing to import, base or not.
+  if (folder !== undefined && folder === workspace) return "neither";
   if (base === undefined || folder === undefined || workspace === undefined) return "unknown";
   const folderMoved = folder !== base;
   const workspaceMoved = workspace !== base;

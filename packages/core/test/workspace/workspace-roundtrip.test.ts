@@ -289,3 +289,11 @@ test("the diff never reports an action it cannot justify", () => {
 
   assert.equal(total, diff.entries.length);
 });
+
+test("a file neither side touched is unchanged even when its parse is lossy", () => {
+  const parsed = [{ id: "n1", type: "vault_page" as const, title: "Method", body: "Body text.​", path: "p.md", fields: {} }];
+  const existing = [{ id: "n1", type: "vault_page" as const, title: "Method", body: "Body text." }];
+  const diff = diffWorkspace(parsed as never, existing, { origin: () => "neither" });
+  assert.equal(diff.counts.updated, 0);
+  assert.equal(diff.counts.unchanged, 1);
+});

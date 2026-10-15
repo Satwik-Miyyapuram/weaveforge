@@ -30,6 +30,7 @@ import {
   readVaultBytes,
   readVaultFile,
   commitVaultFolder,
+  logVaultFolder,
   removeVaultFile,
   restoreRoot,
   statVaultFile,
@@ -694,6 +695,8 @@ ipc.handle(CHANNELS.vaultCommit, async () => {
   const enabled = await preferenceStore().read("vault-git");
   return commitVaultFolder(vault, enabled.ok && enabled.value === true);
 });
+
+ipc.handle(CHANNELS.vaultLog, (_event, limit: unknown) => logVaultFolder(vault, limit));
 
 /**
  * The one thing `will-quit` waits for, and it is not allowed to wait forever.

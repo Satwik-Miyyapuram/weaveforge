@@ -39,6 +39,17 @@ test("a manifest round trips, sorted and deduplicated", async () => {
   assert.deepEqual(await manifestPaths(fs), ["a.md", "b.md"]);
 });
 
+test("an unchanged manifest is not rewritten, so git sees no change", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await writeMirrorManifest(fs, ROOT, ["a.md"], { "a.md": "d1" });
+  const first = await fs.readText(mirrorManifestPath(ROOT));
+  await new Promise((r) => setTimeout(r, 5));
+  await writeMirrorManifest(fs, ROOT, ["a.md"], { "a.md": "d1" });
+  assert.equal(await fs.readText(mirrorManifestPath(ROOT)), first);
+  await writeMirrorManifest(fs, ROOT, ["a.md"], { "a.md": "d2" });
+  assert.notEqual(await fs.readText(mirrorManifestPath(ROOT)), first);
+});
+
 test("the base digests round trip with the paths", async () => {
   const fs = new MemoryWorkspaceFs();
   await writeMirrorManifest(fs, ROOT, ["a.md", "b.md"], { "a.md": "d1", "b.md": "d2" });

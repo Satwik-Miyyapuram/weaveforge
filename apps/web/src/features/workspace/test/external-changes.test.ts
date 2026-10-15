@@ -6,8 +6,11 @@ import {
   chooseDesktopFolder,
   clearExternalChanges,
   closeFolder,
+  describeSync,
   externalChanges,
+  folderHistory,
   onExternalChange,
+  settleExternalChanges,
 } from "../application/workspace-folder";
 
 /**
@@ -24,6 +27,8 @@ function fakeShell() {
     vaultRoot: () => Promise.resolve({ path: "/vault" }),
     // Every path but a directory reads as a file somebody edited.
     readVaultFile: (path: string) => Promise.resolve(path.endsWith(".md") ? "edited" : null),
+    vaultLog: (limit: number) =>
+      Promise.resolve([{ oid: "abc123", message: `last ${limit}`, authoredAt: "2026-08-27T00:00:00.000Z", author: "WeaveForge" }]),
     onVaultChange(cb: (paths: string[]) => void) {
       listeners.push(cb);
       return () => {
@@ -107,4 +112,34 @@ test("disconnecting stops listening", async (t) => {
   shell.changed(["a.md"]);
   await settle();
   assert.deepEqual(externalChanges(), []);
+});
+
+test("after a preview the outside list is what the preview found changed, no more", async (t) => {
+  t.after(closeFolder);
+  const shell = await connected();
+  shell.changed(["notes/one.note.md", "notes/two.note.md"]);
+  await settle();
+  settleExternalChanges({
+    entries: [
+      { action: "unchanged", entity: { path: "notes/one.note.md" } },
+      { action: "updated", entity: { path: "notes/two.note.md" } },
+    ],
+    json: { entries: [{ action: "removed", path: "data/tags.json" }, { action: "unchanged", path: "data/lists.json" }] },
+  } as never);
+  assert.deepEqual(externalChanges(), ["data/tags.json", "notes/two.note.md"]);
+});
+
+test("a failed commit is reported, not read as up to date", () => {
+  const mirror = { written: [], removed: [] } as never;
+  assert.equal(
+    describeSync({ mirror, commit: null, commitError: "fatal: adding files failed" }),
+    "Wrote 0 files · not committed: fatal: adding files failed",
+  );
+  assert.equal(describeSync({ mirror, commit: null }), "Wrote 0 files — already up to date");
+});
+
+test("a desktop folder's history is the shell's git log, not an empty one", async (t) => {
+  t.after(closeFolder);
+  await connected();
+  assert.deepEqual((await folderHistory(5)).map((c) => c.message), ["last 5"]);
 });

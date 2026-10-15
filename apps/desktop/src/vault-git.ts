@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { appendFile, mkdir, readFile } from "node:fs/promises";
 import * as path from "node:path";
 import { promisify } from "node:util";
 
@@ -30,8 +31,14 @@ const run = promisify(execFile);
 /** Long enough for a large first commit, short enough to not hang a mirror. */
 const TIMEOUT_MS = 30_000;
 
+// Paper paths pass 260 chars on Windows; without longpaths `add -A` skips or refuses them.
+const FLAGS = ["-c", "core.longpaths=true", "-c", "core.autocrlf=false"];
+
+/** This machine's database, cache and lock under the folder root; never history. */
+const LOCAL_ONLY = "/.weaveforge/";
+
 async function git(root: string, args: readonly string[]): Promise<string> {
-  const { stdout } = await run("git", ["-C", root, ...args], {
+  const { stdout } = await run("git", [...FLAGS, "-C", root, ...args], {
     timeout: TIMEOUT_MS,
     maxBuffer: 16 * 1024 * 1024,
     windowsHide: true,
@@ -97,10 +104,14 @@ export class NativeWorkspaceGit implements IWorkspaceGit {
   }
 
   async status(): Promise<readonly GitFileStatus[]> {
-    return parseStatus(await git(this.root, ["status", "--porcelain", "-z", "--untracked-files=all"]));
+    // Root `.weaveforge/` is never committed, so it is not a change to describe.
+    return parseStatus(await git(this.root, ["status", "--porcelain", "-z", "--untracked-files=all"])).filter(
+      (entry) => !`/${entry.path}`.startsWith(LOCAL_ONLY),
+    );
   }
 
   async commitAll(message: string, author: GitAuthor): Promise<WorkspaceCommit | null> {
+    await this.excludeLocalOnly();
     await git(this.root, ["add", "-A"]);
     const staged = await this.status();
     if (staged.length === 0) return null;
@@ -120,6 +131,17 @@ export class NativeWorkspaceGit implements IWorkspaceGit {
     return head ?? null;
   }
 
+  /** Kept out through `info/exclude`, so no file of the user's is written; untracked if an older run added it. */
+  private async excludeLocalOnly(): Promise<void> {
+    const file = path.resolve(this.root, (await git(this.root, ["rev-parse", "--git-path", "info/exclude"])).trim());
+    const current = await readFile(file, "utf8").catch(() => "");
+    if (!current.split(/\r?\n/).includes(LOCAL_ONLY)) {
+      await mkdir(path.dirname(file), { recursive: true });
+      await appendFile(file, `${current && !current.endsWith("\n") ? "\n" : ""}${LOCAL_ONLY}\n`);
+    }
+    await git(this.root, ["rm", "-r", "-q", "--cached", "--ignore-unmatch", "--", ".weaveforge"]);
+  }
+
   async log(options: { path?: string; limit?: number } = {}): Promise<readonly WorkspaceCommit[]> {
     const args = ["log", `--format=%H%x1f%aI%x1f%an%x1f%s`];
     if (options.limit) args.push(`-n${options.limit}`);
@@ -134,7 +156,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit {
 
   async readAt(oid: string, file: string): Promise<Uint8Array | null> {
     try {
-      const { stdout } = await run("git", ["-C", this.root, "show", `${oid}:${file}`], {
+      const { stdout } = await run("git", [...FLAGS, "-C", this.root, "show", `${oid}:${file}`], {
         timeout: TIMEOUT_MS,
         maxBuffer: 64 * 1024 * 1024,
         encoding: "buffer",
@@ -145,6 +167,17 @@ export class NativeWorkspaceGit implements IWorkspaceGit {
       return null;
     }
   }
+}
+
+/** The folder's own history; an enclosing repository's is somebody else's and is not read. */
+export async function vaultLog(
+  root: string,
+  limit: number,
+  repo: IWorkspaceGit = new NativeWorkspaceGit(root),
+  probe: (root: string) => Promise<VaultRepoState> = probeRepo,
+): Promise<readonly WorkspaceCommit[]> {
+  if ((await probe(root)).kind !== "own") return [];
+  return repo.log({ limit });
 }
 
 /** Who the automatic commits are by. Not the user: they did not write them. */
@@ -172,6 +205,13 @@ export async function commitVault(
     if (status.length === 0) return { committed: null };
     return { committed: await repo.commitAll(describeChanges(status), MIRROR_AUTHOR) };
   } catch (error) {
-    return { committed: null, reason: error instanceof Error ? error.message : "Could not commit." };
+    return { committed: null, reason: gitReason(error) };
   }
+}
+
+/** Git's own error lines, not the command echo and per-file warnings around them. */
+export function gitReason(error: unknown): string {
+  const text = error instanceof Error ? error.message : "";
+  const lines = text.split(/\r?\n/).filter((line) => /^(fatal|error):/.test(line));
+  return lines.length > 0 ? lines.join(" ") : text.split(/\r?\n/)[0] || "Could not commit.";
 }

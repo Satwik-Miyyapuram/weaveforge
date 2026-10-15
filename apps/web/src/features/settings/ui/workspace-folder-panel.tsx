@@ -19,7 +19,9 @@ import {
   externalChanges,
   onExternalChange,
   previewFolderImport,
+  settleExternalChanges,
   supportsDirectoryPicker,
+  describeSync,
   syncToFolder,
   openBrowserStorageFolder,
 } from "@/features/workspace/application/workspace-folder";
@@ -118,6 +120,16 @@ export function WorkspaceFolderPanel() {
   const database = useDatabaseLocation();
   const folderPath = useFolderPath(session);
 
+  // The folder's commits show on open, not only after a manual write.
+  useEffect(() => {
+    if (!session) return;
+    let live = true;
+    void folderHistory().then((log) => live && setHistory(log), () => {});
+    return () => {
+      live = false;
+    };
+  }, [session]);
+
   // Files something else changed in the folder; shown, never applied.
   const [outside, setOutside] = useState<string[]>([]);
   useEffect(() => {
@@ -181,7 +193,7 @@ export function WorkspaceFolderPanel() {
         {session && (
           <StatusRow label="Mirror">
             On — each edit is written a moment later
-            {session.git === "isomorphic" ? ", with git history" : ""}
+            {session.git === "isomorphic" || history.length > 0 ? ", with git history" : ""}
           </StatusRow>
         )}
         {session && (
@@ -266,13 +278,7 @@ export function WorkspaceFolderPanel() {
               disabled={busy !== null || !current}
               onClick={() =>
                 void run("sync", async () => {
-                  const result = await syncToFolder();
-                  setStatus(
-                    `Wrote ${result.mirror.written.length} file${result.mirror.written.length === 1 ? "" : "s"}` +
-                      (result.mirror.removed.length ? `, removed ${result.mirror.removed.length}` : "") +
-                      (result.commit ? ` · committed "${result.commit.message}"` : "") +
-                      (result.mirror.written.length === 0 && !result.commit ? " — already up to date" : "."),
-                  );
+                  setStatus(describeSync(await syncToFolder()));
                   setHistory(await folderHistory());
                 })
               }
@@ -335,8 +341,9 @@ export function WorkspaceFolderPanel() {
             disabled={busy !== null}
             onClick={() =>
               void run("preview", async () => {
-                setDiff(await previewFolderImport());
-                clearExternalChanges();
+                const found = await previewFolderImport();
+                setDiff(found);
+                settleExternalChanges(found);
               })
             }
           >
@@ -356,7 +363,7 @@ export function WorkspaceFolderPanel() {
           {busy === "zip" ? "Reading…" : "Import a ZIP…"}
         </button>
       </div>
-      {diff && <ImportPreview diff={diff} onApplied={(msg) => { setStatus(msg); setDiff(null); }} />}
+      {diff && <ImportPreview diff={diff} onApplied={(msg) => { setStatus(msg); setDiff(null); clearExternalChanges(); }} />}
 
     </section>
   );

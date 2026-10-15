@@ -191,6 +191,8 @@ export interface DesktopBridge {
    * are ordinary and neither should cost the caller its write.
    */
   commitVault(): Promise<DesktopCommitResult>;
+  /** The folder's own commits, newest first; empty when it has no repository of its own. */
+  vaultLog(limit: number): Promise<DesktopCommit[]>;
   /** Whether the local HTTP surface is listening, and on what. */
   localApiState(): Promise<DesktopLocalApi>;
   /**

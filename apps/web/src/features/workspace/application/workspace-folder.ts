@@ -7,6 +7,7 @@ import {
   addCounts,
   countJsonActions,
   describeChanges,
+  GIT_OFF,
   diffJsonData,
   diffWorkspace,
   isAppOwnedPath,
@@ -258,6 +259,17 @@ export function closeFolder(): void {
 export interface SyncOutcome {
   mirror: MirrorResult;
   commit: WorkspaceCommit | null;
+  /** Why no commit was made, when git refused or failed. */
+  commitError?: string;
+}
+
+/** One line for the panel; a failed commit is said, not read as "up to date". */
+export function describeSync({ mirror, commit, commitError }: SyncOutcome): string {
+  const wrote = `Wrote ${mirror.written.length} file${mirror.written.length === 1 ? "" : "s"}`;
+  const removed = mirror.removed.length ? `, removed ${mirror.removed.length}` : "";
+  if (commit) return `${wrote}${removed} · committed "${commit.message}".`;
+  if (commitError) return `${wrote}${removed} · not committed: ${commitError}`;
+  return `${wrote}${removed}${mirror.written.length === 0 ? " — already up to date" : "."}`;
 }
 
 /** The sync writing right now; folder events wait for it so its own writes are not reported. */
@@ -319,12 +331,16 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
   }
 
   let commit: WorkspaceCommit | null = null;
+  let commitError: string | undefined;
   const shell = folderSession()?.kind === "desktop" ? desktop() : null;
   if (shell) {
     // The shell reads the setting itself and answers with a reason when it
     // declined, so a folder history that is off -- or refused -- costs the
     // commit and not the mirror run that had already succeeded.
-    commit = (await shell.commitVault().catch(() => null))?.commit ?? null;
+    const result = await shell.commitVault().catch((error: unknown) => ({ commit: null, reason: String(error) }));
+    commit = result.commit ?? null;
+    // History switched off is a choice, not a failure worth a line.
+    if (!commit && result.reason && result.reason !== GIT_OFF) commitError = result.reason;
   } else if (activeGit.kind !== "none") {
     if (!(await activeGit.isRepo())) await activeGit.init();
     const status = await activeGit.status();
@@ -334,7 +350,7 @@ async function runSyncToFolder(): Promise<SyncOutcome> {
     });
   }
 
-  return { mirror, commit };
+  return { mirror, commit, commitError };
 }
 
 export const SYNC_DEBOUNCE_MS = 1_500;
@@ -410,6 +426,15 @@ export function externalChanges(): string[] {
 /** Forget them, once the reader has looked. */
 export function clearExternalChanges(): void {
   external = new Set();
+  announceExternal();
+}
+
+/** After a preview, keep only what it found changed: the button's count then matches the diff. */
+export function settleExternalChanges(diff: ImportDiff & { json?: JsonDiff }): void {
+  const changed = new Set<string>();
+  for (const entry of diff.entries) if (entry.action !== "unchanged") changed.add(entry.entity.path);
+  for (const entry of diff.json?.entries ?? []) if (entry.action !== "unchanged") changed.add(entry.path);
+  external = changed;
   announceExternal();
 }
 
@@ -523,6 +548,9 @@ export function onFolderDraftsChanged(listener: () => void): () => void {
 }
 
 export async function folderHistory(limit = 20): Promise<readonly WorkspaceCommit[]> {
+  // Desktop commits in the shell; the renderer's git is a no-op there.
+  const shell = folderSession()?.kind === "desktop" ? desktop() : null;
+  if (shell) return shell.vaultLog(limit).catch(() => []);
   return activeGit.log({ limit });
 }
 
