@@ -1,5 +1,5 @@
 """In-memory :class:`IMetricRepository`. History is returned step-ordered,
-matching the ``experiment_metrics_series_idx`` ordering the Supabase adapter
+matching the ``experiment_metrics_series_idx`` ordering the PostgREST adapter
 relies on."""
 
 from __future__ import annotations

@@ -1,0 +1,58 @@
+"""PostgREST adapter for :class:`IMetricRepository` (the ``experiment_metrics``
+view over ``experiment_metric_points`` and ``experiment_metric_chunks``).
+Appends are batched into a single insert; ``user_id`` is filled by the column
+default (``auth.uid()``). Writes bypass the ingest route's downsampler, which is
+why ``scripts/prune-metric-series.mjs`` exists as a backstop — see
+``docs/running/metrics-maintenance.md``."""
+
+from __future__ import annotations
+
+from collections.abc import Iterable
+from typing import Any
+
+from ..domain.metric_point import MetricPoint
+
+_TABLE = "experiment_metrics"
+
+
+class PostgrestMetricRepository:
+    def __init__(self, client: Any) -> None:
+        self._db = client
+
+    def append(
+        self, points: Iterable[MetricPoint], *, timeout: float | None = None
+    ) -> None:
+        # `timeout` is accepted for port parity and deliberately unused: this
+        # adapter talks to PostgREST through the caller's client, whose
+        # timeout is that client's configuration, not something a repository
+        # call should override per batch.
+        rows = [
+            {
+                "experiment_id": p.experiment_id,
+                "metric": p.metric,
+                "step": p.step,
+                "value": p.value,
+                "wall_time": p.wall_time,
+            }
+            for p in points
+        ]
+        if rows:
+            self._db.table(_TABLE).insert(rows).execute()
+
+    def history(
+        self, experiment_id: str, metric: str | None = None
+    ) -> list[MetricPoint]:
+        q = self._db.table(_TABLE).select("*").eq("experiment_id", experiment_id)
+        if metric is not None:
+            q = q.eq("metric", metric)
+        res = q.order("metric").order("step").execute()
+        return [
+            MetricPoint(
+                experiment_id=r["experiment_id"],
+                metric=r["metric"],
+                step=r["step"],
+                value=r["value"],
+                wall_time=r.get("wall_time"),
+            )
+            for r in (res.data or [])
+        ]

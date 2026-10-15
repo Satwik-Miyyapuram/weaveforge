@@ -2,8 +2,8 @@
 
 Each function asserts the behavioural contract of an interface against a
 caller-supplied factory, so the *same* checks run against the in-memory and the
-Supabase implementations (Liskov — ``docs/building/design.md`` §6). Integration tests
-pass a factory that builds the Supabase repo; unit tests pass the in-memory one.
+PostgREST implementations (Liskov — ``docs/building/design.md`` §6). Integration tests
+pass a factory that builds the PostgREST repo; unit tests pass the in-memory one.
 """
 
 from __future__ import annotations

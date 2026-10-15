@@ -26,7 +26,7 @@ from .shared.clock import SystemClock, UuidGenerator
 @dataclass
 class Container:
     """Wired dependencies. Everything downstream depends on the interfaces these
-    implement, never on Supabase directly."""
+    implement, never on the database directly."""
 
     user_id: str
     project_id: str | None
