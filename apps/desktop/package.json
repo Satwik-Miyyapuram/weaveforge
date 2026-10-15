@@ -99,7 +99,7 @@
   },
   "author": "WeaveForge",
   "dependencies": {
-    "@electric-sql/pglite": "^0.5.8",
+    "@electric-sql/pglite": "^0.5.9",
     "electron-updater": "^6.8.9"
   }
 }
