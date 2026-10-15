@@ -93,7 +93,8 @@ const ROUTE_ALLOWANCES_KB = {
   // graph shares the chunk that carries them: +3 KB each.
   // Graph settings drawer added tabs, relation chips, and reading list integration: +4 KB.
   "/graph": 393,
-  "/experiments": 358,
+  // Reader zoom keys in the shell and aborted-transaction recovery in the screen loader: +1 KB.
+  "/experiments": 359,
   // the shared shell itself: the container gained the MCP draft, proposal and
   // lab-snapshot code, all of it reached from the layout. The puller's hold
   // queue and local-twin drop run on every page: +2 KB on the shell.
