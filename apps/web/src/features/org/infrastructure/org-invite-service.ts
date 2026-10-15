@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createRestClient } from "@/backend/providers/supabase/client";
+import { createRestClient } from "@/backend/providers/postgrest/client";
 import {
   normalizeOrgInviteCode,
   resolveOrgJoinAssignment,
@@ -19,7 +19,7 @@ import {
   hashOrgInviteCodeInput,
 } from "@weaveforge/core/org-crypto";
 import { MEMBERSHIP_ROW_COLUMNS, membershipViewFromRow } from "./membership-row";
-import { rows, run } from "@/backend/providers/supabase/row-access";
+import { rows, run } from "@/backend/providers/postgrest/row-access";
 
 /**
  * The columns a OrgRow is read as, named rather than starred.

@@ -33,7 +33,7 @@ function networkFailureMessage(message: string): string | null {
     return "Could not load part of the app. This usually means a new version was deployed while this tab was open — reload the page.";
   }
   if (!NETWORK_FAILURE.test(message)) return null;
-  // The client names the host it was going to (see providers/supabase/client),
+  // The client names the host it was going to (see providers/postgrest/client),
   // and this app talks to two of them — keep it, because "which one" is the
   // whole of what a reader can pass on to whoever can fix it.
   const host = /\(could not reach ([^)]+)\)/.exec(message)?.[1];

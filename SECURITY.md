@@ -46,7 +46,7 @@ a few days and will coordinate a fix and disclosure timeline with you.
 ## Scope
 
 In scope: authentication/session handling, Row-Level Security policies in the
-`supabase/migrations/`, secret handling in the web app and Python SDK, and the
+`db/migrations/`, secret handling in the web app and Python SDK, and the
 signed-URL / storage-bucket policies.
 
 Out of scope: issues in your own server or sign-in project configuration, and anything

@@ -57,7 +57,7 @@ export interface Paper extends Identifiable {
  * everything the projection had not fetched (review-2 F6).
  *
  * The fields here are exactly what the card needs and what the summary columns
- * carry (see `PAPER_SUMMARY_COLUMNS` in the Supabase adapter). Absent on
+ * carry (see `PAPER_SUMMARY_COLUMNS` in the PostgREST adapter). Absent on
  * purpose: `abstract`, `bibtex`, `metadata`, `venue`, `rating`.
  */
 export interface PaperSummary {

@@ -87,7 +87,7 @@ invalidation channel down together.
 Nothing about this is visible from the client: `phx_join` still reports
 `SUBSCRIBED`, and the socket reconnects, and the next send kills it again. The
 realtime client therefore pins its encoder to Phoenix's plain-JSON tuple
-([`client.ts`](../../apps/web/src/backend/providers/supabase/client.ts)). Do not
+([`client.ts`](../../apps/web/src/backend/providers/postgrest/client.ts)). Do not
 remove that override without checking the deployed Realtime version.
 
 ### Teardown order
@@ -141,7 +141,7 @@ signing in later leaves it where it is.
 
 | | |
 |---|---|
-| Realtime channel authorization | [`0044_realtime_authorization.sql`](../../supabase/migrations/0044_realtime_authorization.sql) |
+| Realtime channel authorization | [`0044_realtime_authorization.sql`](../../db/migrations/0044_realtime_authorization.sql) |
 | Provider | [`encrypted-yjs-provider.ts`](../../apps/web/src/features/collab/infrastructure/encrypted-yjs-provider.ts) |
 | Editor | [`collaborative-markdown-editor.tsx`](../../apps/web/src/features/collab/ui/collaborative-markdown-editor.tsx) |
 | Regression tests | [`collab-regressions.test.ts`](../../apps/web/src/features/collab/test/collab-regressions.test.ts), [`yjs-provider-teardown.test.ts`](../../apps/web/src/features/collab/test/yjs-provider-teardown.test.ts) |

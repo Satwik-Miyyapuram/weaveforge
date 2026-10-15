@@ -1,7 +1,5 @@
 # Minimal Supabase CLI config.
-# Cloud migrations: supabase/migrations/  (required path for `supabase db push`)
-# Self-hosted only:  supabase/migrations-self-hosted-postgres/
-# See supabase/README.md
+# Kept for auth settings only; migrations live in db/ (see db/README.md).
 project_id = "weaveforge"
 
 [auth]

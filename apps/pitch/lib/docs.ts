@@ -171,7 +171,7 @@ function rewriteHref(href: string, fromRel: string): string {
   const resolved = path.posix.normalize(path.posix.join(fromDir, pathPart ?? ""));
   const suffix = hash ? `#${hash}` : "";
 
-  // Outside docs/ — `../../scripts/foo.mjs`, `../../supabase/migrations/…`.
+  // Outside docs/ — `../../scripts/foo.mjs`, `../../db/migrations/…`.
   if (resolved.startsWith("..")) {
     return `${REPO_BLOB}/${resolved.replace(/^(\.\.\/)+/, "")}${suffix}`;
   }

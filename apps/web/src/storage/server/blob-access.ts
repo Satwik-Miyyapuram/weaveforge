@@ -1,4 +1,4 @@
-import { createRestClient } from "@/backend/providers/supabase/client";
+import { createRestClient } from "@/backend/providers/postgrest/client";
 import type { BlobTier } from "@weaveforge/core";
 import { readBackendConfig } from "@/backend/config";
 

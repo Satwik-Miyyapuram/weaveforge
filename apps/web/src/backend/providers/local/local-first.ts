@@ -4,12 +4,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BackendConfig } from "@/backend/config";
 import { secretsStoreFor } from "@/backend/providers/secrets-store";
 import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
-import { SupabaseSettingsRepository } from "@/features/settings/infrastructure/supabase-settings-repository";
+import { PostgrestSettingsRepository } from "@/features/settings/infrastructure/postgrest-settings-repository";
 import { notifyWorkspaceChange } from "@/lib/workspace-changes";
 import { wireStorage } from "@/storage/wire-storage";
-import { createSupabaseClient } from "../supabase/client";
-import { watchWrites } from "../supabase/watch-writes";
-import type { BackendParts } from "../supabase/wire-supabase-backend";
+import { createDataClient } from "../postgrest/client";
+import { watchWrites } from "../postgrest/watch-writes";
+import type { BackendParts } from "../postgrest/wire-postgrest-backend";
 import { createLocalClient, type LocalQuery } from "./pglite-client";
 import type { LocalFirstAccount } from "./local-first-marker";
 import { keepFlushing, LocalFirstBlobStore } from "./local-first-blob-store";
@@ -111,7 +111,7 @@ export function localFirstParts(
   account: LocalFirstAccount,
   query: LocalQuery = defaultQuery(),
 ): BackendParts {
-  const server = createSupabaseClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "", config.dataUrl);
+  const server = createDataClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "", config.dataUrl);
   const local = createLocalClient(query) as unknown as SupabaseClient;
   const db = watchWrites(routedClient(local, server), notifyWorkspaceChange);
   // The account, not the session: a lapsed session must not turn every
@@ -124,7 +124,7 @@ export function localFirstParts(
     db,
     session,
     auth: new SupabaseAuthService(server),
-    settingsRepository: new SupabaseSettingsRepository(db, session, secretsStoreFor(server)),
+    settingsRepository: new PostgrestSettingsRepository(db, session, secretsStoreFor(server)),
     blobStore,
   };
 }

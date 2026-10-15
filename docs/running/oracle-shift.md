@@ -1066,7 +1066,7 @@ the `anon` / `authenticated` / `service_role` roles — Supabase provides all of
 them implicitly, and the base migrations use them from `0001_papers.sql`
 onwards, which puts a foreign key on `auth.users` and an RLS policy on
 `auth.uid()`. So the self-hosted prerequisites run first, then
-`supabase/migrations/*.sql` in name order, then the remaining follow-ups.
+`db/migrations/*.sql` in name order, then the remaining follow-ups.
 
 Expect roughly **40 tables and 109 policies** on a clean target — that figure
 comes from a clean run against Postgres 16.13, and the repo has gained
@@ -1132,7 +1132,7 @@ NEXT_PUBLIC_REALTIME_URL=https://api.example.org
 ```
 
 Leave `NEXT_PUBLIC_SUPABASE_URL`, the anon key, and
-`NEXT_PUBLIC_BACKEND_PROVIDER=supabase` exactly as they are. Redeploy.
+`NEXT_PUBLIC_BACKEND_PROVIDER=postgrest` exactly as they are. Redeploy.
 
 Table reads and writes now go to your Postgres; sign-in and sessions still go to
 Supabase.
@@ -1394,8 +1394,8 @@ sudo resize2fs /dev/sdX
 | [`infra/oci/docker-compose.yml`](../../infra/oci/docker-compose.yml) | Postgres + PostgREST + MinIO |
 | [`infra/oci/.env.example`](../../infra/oci/.env.example) | Template for the VM's `.env` |
 | [`scripts/`](../../scripts/) | The `migrate:*` commands |
-| [`supabase/migrations/`](../../supabase/migrations/) | Base schema |
-| [`supabase/migrations-self-hosted-postgres/`](../../supabase/migrations-self-hosted-postgres/) | What Supabase provides implicitly and a stock Postgres does not |
+| [`db/migrations/`](../../db/migrations/) | Base schema |
+| [`db/migrations-self-hosted-postgres/`](../../db/migrations-self-hosted-postgres/) | What Supabase provides implicitly and a stock Postgres does not |
 
 ## Related docs
 
@@ -1404,4 +1404,4 @@ sudo resize2fs /dev/sdX
 | [`postgres-provider.md`](postgres-provider.md) | What the `postgres` backend provider selects (the blob registry, not a data layer) |
 | [`../self-host-roadmap.md`](../internal/strategy/self-host-roadmap.md) | Phase index — where each phase stands |
 | [`../storage/r2-setup.md`](storage/r2-setup.md) | Cloudflare R2 hot tier |
-| [`../../supabase/README.md`](../../supabase/README.md) | What each migrations folder means |
+| [`../../db/README.md`](../../db/README.md) | What each migrations folder means |

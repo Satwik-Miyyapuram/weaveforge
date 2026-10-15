@@ -8,7 +8,7 @@ import type {
 /**
  * How a milestone is stored, and how it maps to and from the domain type.
  *
- * Shared by both backend providers. The Supabase and Postgres repositories talk
+ * Shared by both backend providers. The PostgREST and Postgres repositories talk
  * to the *same* table — one through supabase-js, the other through `pg` — so
  * the column shape and the mapping are not per-provider facts, and holding two
  * copies of them meant they drifted: one side had `?? []` fallbacks for fields

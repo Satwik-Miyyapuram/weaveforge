@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { SupabaseMemberRepository } from "../infrastructure/supabase-member-repository";
+import { PostgrestMemberRepository } from "../infrastructure/postgrest-member-repository";
 
 const UID = "user-1";
 
@@ -46,7 +46,7 @@ function fakeDb(counts: Counts): SupabaseClient {
 
 test("concurrent team + lab + profile load shares its profiles reads", async () => {
   const counts: Counts = { profiles: 0, organizations: 0, org_memberships: 0 };
-  const repo = new SupabaseMemberRepository(fakeDb(counts), {
+  const repo = new PostgrestMemberRepository(fakeDb(counts), {
     getCurrentUserId: async () => UID,
     requireUserId: async () => UID,
   });

@@ -1,7 +1,7 @@
 /**
  * Validating an artifact upload, apart from the route that performs it.
  *
- * Separate so the rules can be tested without a Supabase client, a token, or a
+ * Separate so the rules can be tested without a data client, a token, or a
  * network: every one of them is a rule about a string, and the route's job is
  * only to apply them before it writes.
  */

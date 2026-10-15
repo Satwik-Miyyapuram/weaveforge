@@ -10,7 +10,7 @@
  * Three stores answer this port: the workspace folder's `.ink/<id>/` directory
  * when one is open, the encrypted blob bucket the vault's assets already use
  * otherwise, and memory for tests. The host cannot tell them apart, which is
- * the point — an ink note is an ink note whether it sits on disk or in Supabase.
+ * the point — an ink note is an ink note whether it sits on disk or in the database.
  */
 
 import {

@@ -30,7 +30,7 @@ function containerKey(): string {
  * Call after privacy disclaimer acceptance (and from auth only if light path is insufficient).
  *
  * A container is rebuilt whenever the backend or storage provider changes — a
- * self-hoster switching from Supabase to their own Postgres, a desktop build
+ * self-hoster switching from PostgREST to their own Postgres, a desktop build
  * changing storage tier. The previous one is disposed first: it holds two dozen
  * repository-cache registrations, a session-reset hook and a joined private
  * realtime channel, and dropping the reference released none of them.

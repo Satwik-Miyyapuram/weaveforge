@@ -1,8 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notifyWorkspaceChange } from "@/lib/workspace-changes";
-import { SupabaseSettingsRepository } from "@/features/settings/infrastructure/supabase-settings-repository";
-import { watchWrites } from "../supabase/watch-writes";
-import type { BackendParts } from "../supabase/wire-supabase-backend";
+import { PostgrestSettingsRepository } from "@/features/settings/infrastructure/postgrest-settings-repository";
+import { watchWrites } from "../postgrest/watch-writes";
+import type { BackendParts } from "../postgrest/wire-postgrest-backend";
 import { createLocalClient, type LocalQuery } from "./pglite-client";
 import { LocalAuthService, LocalSessionProvider } from "./local-identity";
 import { LocalBlobStore } from "./local-blob-store";
@@ -14,7 +14,7 @@ import { DeviceSecretsStore } from "./device-secrets-store";
  *
  * The repositories are untouched: they get a client with the same shape, an
  * identity that answers without a session, and a blob store that keeps bytes
- * in the local database. Writes are wrapped the same way as the Supabase
+ * in the local database. Writes are wrapped the same way as the PostgREST
  * client's, so the folder mirror, the local HTTP surface and the MCP server
  * hear about a local edit exactly as they hear about a synced one.
  *
@@ -28,7 +28,7 @@ export function localBackendParts(query: LocalQuery = defaultQuery()): BackendPa
   return {
     db,
     session,
-    settingsRepository: new SupabaseSettingsRepository(db, session, new DeviceSecretsStore(query)),
+    settingsRepository: new PostgrestSettingsRepository(db, session, new DeviceSecretsStore(query)),
     auth: new LocalAuthService(),
     blobStore: new LocalBlobStore(query),
   };

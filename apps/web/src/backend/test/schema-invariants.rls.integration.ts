@@ -40,11 +40,11 @@ import { testDb } from "@/backend/test/pg-test-db";
 /**
  * Tables that are one device's own bookkeeping, not shared data.
  *
- * They come from `supabase/migrations-local`, are applied only by the desktop
+ * They come from `db/migrations-local`, are applied only by the desktop
  * app, and hold the outbox, the conflict log and the blob cache for a single
  * user on a single machine. There is no second tenant to isolate them from, so
  * there is no policy to write and RLS is deliberately absent rather than
- * forgotten. Anything in `supabase/migrations` is expected to have it.
+ * forgotten. Anything in `db/migrations` is expected to have it.
  */
 const DEVICE_ONLY_TABLES = new Map([
   ["sync_outbox", "device-local outbox (migrations-local)"],

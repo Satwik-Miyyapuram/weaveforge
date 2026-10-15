@@ -11,7 +11,7 @@ import { LocalFirstBlobStore } from "../local-first-blob-store";
 import { ExperimentPush } from "../local-first-experiment-push";
 import type { LocalQuery } from "../pglite-client";
 
-const MIGRATIONS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../../../../supabase/migrations-local");
+const MIGRATIONS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../../../../db/migrations-local");
 const EXP = "11111111-1111-1111-1111-111111111111";
 
 /** The bits of a PostgREST client the push uses, remembering what it was sent. */

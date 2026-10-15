@@ -1,7 +1,7 @@
 /**
  * Shared CONTRACT test suites for the reading-list repositories.
  *
- * Every implementation (in-memory, Supabase, SQLite) must pass these — the
+ * Every implementation (in-memory, PostgREST, SQLite) must pass these — the
  * basis for Liskov substitutability.
  */
 

@@ -17,7 +17,7 @@ export class PostgresBlobRegistry implements IBlobRegistry {
   /**
    * The same lookup for a whole batch, in one round trip.
    *
-   * Mirror of `SupabaseBlobRegistry.getMany` on the pooled path, so the route
+   * Mirror of `PostgrestBlobRegistry.getMany` on the pooled path, so the route
    * that mints up to 200 signed URLs in one request does one query whichever
    * backend is wired. RLS applies as it does to `get` — the session's user is
    * the filter — and a path the caller cannot see is simply absent from the map.

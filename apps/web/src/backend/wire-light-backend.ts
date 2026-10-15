@@ -2,12 +2,12 @@ import type { IAuthService, ISelfProvisioner, ManageSettingsUseCase } from "@wea
 import { ManageSettingsUseCase as ManageSettingsUseCaseClass } from "@weaveforge/core";
 import type { BackendConfig } from "./config";
 import { readBackendConfig } from "./config";
-import { createSupabaseClient } from "./providers/supabase/client";
-import { SupabaseSessionProvider } from "./providers/supabase/session";
+import { createDataClient } from "./providers/postgrest/client";
+import { SupabaseSessionProvider } from "./providers/supabase-auth/session";
 import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
-import { SupabaseSettingsRepository } from "@/features/settings/infrastructure/supabase-settings-repository";
+import { PostgrestSettingsRepository } from "@/features/settings/infrastructure/postgrest-settings-repository";
 import { secretsStoreFor } from "./providers/secrets-store";
-import { SupabaseSelfProvisioner } from "@/features/org/infrastructure/supabase-self-provisioner";
+import { PostgrestSelfProvisioner } from "@/features/org/infrastructure/postgrest-self-provisioner";
 import { isLocalMode, LocalAuthService } from "./providers/local/local-identity";
 import { localBackendParts } from "./providers/local/wire-local-backend";
 
@@ -27,9 +27,9 @@ export function wireLightBackend(config: BackendConfig = readBackendConfig()): L
   // and a window working on this computer must not be asked to sign in.
   if (isLocalMode()) return wireLocalLightBackend();
 
-  if (config.provider !== "supabase") {
+  if (config.provider !== "postgrest") {
     throw new Error(
-      "Light bootstrap requires NEXT_PUBLIC_BACKEND_PROVIDER=supabase in the browser.",
+      "Light bootstrap requires NEXT_PUBLIC_BACKEND_PROVIDER=postgrest in the browser.",
     );
   }
   const url = config.supabaseUrl;
@@ -42,16 +42,16 @@ export function wireLightBackend(config: BackendConfig = readBackendConfig()): L
 
   // `config.dataUrl` explicitly: this runs before the full container, so the
   // client it builds is the one the whole session gets.
-  const db = createSupabaseClient(url, anonKey, config.dataUrl);
+  const db = createDataClient(url, anonKey, config.dataUrl);
   const session = new SupabaseSessionProvider(db);
   const auth = new SupabaseAuthService(db);
   // The same credentials store the full container will pick, and for the same
   // reason: this container is the one that handles the sign-in and the very
   // first settings write, so on a build with no routes of its own it must not
   // reach for `/api/settings/credentials` either.
-  const settingsRepository = new SupabaseSettingsRepository(db, session, secretsStoreFor(db));
+  const settingsRepository = new PostgrestSettingsRepository(db, session, secretsStoreFor(db));
   const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository });
-  return { auth, manageSettings, selfProvisioner: new SupabaseSelfProvisioner(db) };
+  return { auth, manageSettings, selfProvisioner: new PostgrestSelfProvisioner(db) };
 }
 
 /**

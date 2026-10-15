@@ -153,4 +153,4 @@ tool that re-signs it with the user's own Apple ID (AltStore, Sideloadly).
 
 ## Web app (no product tag)
 
-Merge to `main` → deploy. Document breaking schema changes in `supabase/migrations/`, and add user-visible changes to [`../CHANGELOG.md`](../../CHANGELOG.md) under `[Unreleased]`.
+Merge to `main` → deploy. Document breaking schema changes in `db/migrations/`, and add user-visible changes to [`../CHANGELOG.md`](../../CHANGELOG.md) under `[Unreleased]`.

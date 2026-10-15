@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IProjectBibliographyCollectionStore } from "@weaveforge/core";
-import { run } from "@/backend/providers/supabase/row-access";
+import { run } from "@/backend/providers/postgrest/row-access";
 
 /**
  * Per-project Zotero collection mapping. Reads/writes `projects.zotero_collection`.

@@ -32,8 +32,8 @@ Feature code uses **`IBlobStore`** via `PaperImageStore` — never Supabase Stor
 ## What is actually running
 
 The OCI deployment runs **`BLOB_PROVIDER=tiered`** — R2 (or S3-compatible) hot, **MinIO on the OCI
-box** cold, with the `blob_objects` registry tracking what is where. No files are stored at
-Supabase. The env examples set `tiered`; `apps/web/.env.local.example` has the keys.
+box** cold, with the `blob_objects` registry tracking what is where. No files are stored in
+Supabase Storage. The env examples set `tiered`; `apps/web/.env.local.example` has the keys.
 
 ## Code fallback
 

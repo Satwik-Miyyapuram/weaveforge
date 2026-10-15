@@ -6,7 +6,7 @@
  * depends on `IReadableRepository`; it never gains write power it shouldn't have.
  *
  * These interfaces live in the domain layer. Concrete persistence
- * (Supabase, in-memory, SQLite) implements them in the infrastructure layer.
+ * (PostgREST, in-memory, SQLite) implements them in the infrastructure layer.
  * Nothing here knows how data is stored (Dependency Inversion Principle).
  */
 

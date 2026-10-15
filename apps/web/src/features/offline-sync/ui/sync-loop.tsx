@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 import { readBackendConfig } from "@/backend/config";
-import { createSupabaseClient } from "@/backend/providers/supabase/client";
+import { createDataClient } from "@/backend/providers/postgrest/client";
 import { LocalRunner } from "@/backend/providers/local/local-runner";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { localFirstAccount, setLocalFirstAccount } from "@/backend/providers/local/local-first-marker";
@@ -33,7 +33,7 @@ import { syncEngine } from "./use-sync";
  * database to adopt and therefore nothing to drain.
  *
  * `SyncLoop` is imported through a lazy boundary (`sync-loop-lazy.tsx`), because
- * the engine, the transport and the Supabase client are a sizeable chunk and the
+ * the engine, the transport and the data client are a sizeable chunk and the
  * shell mounts on every route. That is the same reasoning as `bundle:budget`,
  * applied to the thing this file adds.
  *
@@ -110,7 +110,7 @@ export function SyncLoop() {
     }
 
     const config = readBackendConfig();
-    const client = createSupabaseClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "");
+    const client = createDataClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "");
     const runner = new LocalRunner();
     const state = new SyncStateStore(runner);
     let cancelled = false;

@@ -12,6 +12,6 @@ export const AREAS = [
   { dir: "apps/pitch", unit: "lines", what: "The public site and this documentation" },
   { dir: "python/weaveforge", unit: "lines", what: "The SDK training scripts import" },
   { dir: "python/tests", unit: "lines", what: "Its tests" },
-  { dir: "supabase/migrations", unit: "files", what: "The schema, as an ordered sequence" },
+  { dir: "db/migrations", unit: "files", what: "The schema, as an ordered sequence" },
   { dir: "docs", unit: "files", what: "Documentation, this page included" },
 ];

@@ -22,7 +22,7 @@ body:
         - Web app (apps/web)
         - PDF reader / annotations
         - Python SDK (python/)
-        - Database / migrations (supabase/)
+        - Database / migrations (db/)
         - Zotero or Overleaf integration
         - Not sure
     validations:
@@ -70,7 +70,7 @@ body:
         - Node version:
         - Python version (SDK only):
         - SDK extras installed, if relevant: `figures` / `tensorboard` / `wandb`
-        - Deployment: hosted / self-hosted Supabase / self-hosted Postgres
+        - Deployment: hosted / self-hosted PostgREST / self-hosted Postgres
     validations:
       required: false
 

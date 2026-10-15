@@ -4,7 +4,7 @@ import type {
   AuthUser,
   IAuthService,
 } from "@weaveforge/core";
-import { run } from "@/backend/providers/supabase/row-access";
+import { run } from "@/backend/providers/postgrest/row-access";
 
 /**
  * Supabase implementation of IAuthService.

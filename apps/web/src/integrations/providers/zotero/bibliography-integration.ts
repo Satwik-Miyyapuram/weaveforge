@@ -9,7 +9,7 @@ import type { IZoteroLibrarySync, IZoteroExporter, IZoteroAnnotationPull } from 
 import type { ISettingsRepository } from "@weaveforge/core";
 import { getUserIntegrationField } from "@weaveforge/core";
 import { zoteroHeaders, zoteroLibraryUrl } from "@/features/papers/infrastructure/zotero-web-api";
-import { getSupabase } from "@/lib/supabase";
+import { getDataClient } from "@/lib/data-client";
 
 /**
  * Zotero's own settings page shows a bare user id ("123456"), so that is what
@@ -69,7 +69,7 @@ export class ZoteroBibliographyIntegration implements IBibliographyIntegration {
     library = normalizeZoteroLibrary(library);
     if (!apiKey || !library) return [];
     if (!this.deps.fetchFn) {
-      const { data: sessionData } = await getSupabase().auth.getSession();
+      const { data: sessionData } = await getDataClient().auth.getSession();
       const token = sessionData.session?.access_token;
       if (!token) return [];
       const res = await fetch("/api/integrations/zotero/collections", {

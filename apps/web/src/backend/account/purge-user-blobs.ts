@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { readStorageConfig } from "@/storage/config";
 import { buildTieredBlobStoreFromRegistry } from "@/storage/build-tiered-blob-store";
-import { SupabaseBlobRegistry } from "@/storage/providers/supabase/blob-registry";
+import { PostgrestBlobRegistry } from "@/storage/providers/postgrest/blob-registry";
 
 const STORAGE_BUCKETS = [
   "paper-images",
@@ -44,7 +44,7 @@ export async function purgeUserBlobs(
   const config = readStorageConfig();
   const failed: BlobRow[] = [];
   if (config.provider === "tiered" && rows?.length) {
-    const store = buildStore(config, new SupabaseBlobRegistry(admin));
+    const store = buildStore(config, new PostgrestBlobRegistry(admin));
     for (const row of rows as BlobRow[]) {
       try {
         await store.remove(row.bucket, row.path);

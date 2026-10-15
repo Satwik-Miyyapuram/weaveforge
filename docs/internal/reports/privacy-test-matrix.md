@@ -64,7 +64,7 @@ the user accepts the proposal and the normal paper-note write succeeds.
 ## Current operational requirement
 
 The schema and RLS suite (`npm run test:integration:web`) applies every
-migration in `supabase/migrations/` to an in-process Postgres before it runs, so
+migration in `db/migrations/` to an in-process Postgres before it runs, so
 it needs no project and no credentials, and a migration that cannot apply to a
 clean database fails a test rather than a deploy. The RLS policies there are the
 database enforcement behind the "Schema + RLS" rows above. What it does not

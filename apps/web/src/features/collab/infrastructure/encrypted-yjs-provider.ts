@@ -1,11 +1,11 @@
 /**
- * Yjs transport over Supabase Realtime broadcast (plan §7.3).
+ * Yjs transport over Realtime broadcast (plan §7.3).
  * CRDT payloads are stored and broadcast as plaintext bytes (RLS + at-rest).
  */
 
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getRealtimeClient } from "@/backend/providers/supabase/client";
+import { getRealtimeClient } from "@/backend/providers/postgrest/client";
 import type { CompactCrdtLogUseCase, ICrdtUpdateStore } from "@weaveforge/core";
 import type { Awareness } from "y-protocols/awareness";
 import { applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } from "y-protocols/awareness";

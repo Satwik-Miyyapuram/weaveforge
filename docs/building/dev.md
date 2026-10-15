@@ -188,10 +188,10 @@ thing under test *is* the React wiring.
 ## Schema and RLS tests
 
 `npm run test:integration:web` runs the `*.integration.ts` files under
-`apps/web/src/features`. They need no Supabase project, no accounts and no
+`apps/web/src/features`. They need no server, no accounts and no
 secrets: [`backend/test/pg-test-db.ts`](../../apps/web/src/backend/test/pg-test-db.ts)
 starts an in-process Postgres (PGlite), applies every file in
-`supabase/migrations` in order, and lets a test act as a user id:
+`db/migrations` in order, and lets a test act as a user id:
 
 ```ts
 const db = await testDb();

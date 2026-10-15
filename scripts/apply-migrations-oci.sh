@@ -22,8 +22,8 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
 fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-MIGRATIONS="$ROOT/supabase/migrations"
-SELF_HOSTED="$ROOT/supabase/migrations-self-hosted-postgres"
+MIGRATIONS="$ROOT/db/migrations"
+SELF_HOSTED="$ROOT/db/migrations-self-hosted-postgres"
 
 PREREQS="$SELF_HOSTED/0000_self_host_prereqs.sql"
 

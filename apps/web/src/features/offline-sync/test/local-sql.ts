@@ -9,13 +9,13 @@ import type { SqlRunner } from "../domain/outbox";
  * The device-only tables in a real Postgres, and nothing else.
  *
  * The outbox and the watermark do not depend on the app's schema, so this
- * applies only `supabase/migrations-local` — which keeps these tests to a
+ * applies only `db/migrations-local` — which keeps these tests to a
  * second rather than the twenty the full migration set costs, and proves the
  * device-only migrations stand on their own.
  */
 const LOCAL_MIGRATIONS = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  "../../../../../../supabase/migrations-local",
+  "../../../../../../db/migrations-local",
 );
 
 export interface LocalSqlDb extends SqlRunner {

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { watchWrites } from "../providers/supabase/watch-writes";
+import { watchWrites } from "../providers/postgrest/watch-writes";
 import {
   notifyWorkspaceChange,
   onWorkspaceChange,

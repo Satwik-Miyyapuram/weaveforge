@@ -4,7 +4,7 @@
  * Wraps a repository so read methods are memoized per active project, and any
  * write clears the cache. This makes switching tabs instant — screens that call
  * `list()`/`getTree()` on mount hit the cache instead of refetching from
- * Supabase every time — while writes keep the cache correct (no stale data).
+ * the database every time — while writes keep the cache correct (no stale data).
  *
  * The cache lives for the lifetime of the page (the container is a singleton),
  * so it survives client-side tab navigation but not a full reload. Reads are

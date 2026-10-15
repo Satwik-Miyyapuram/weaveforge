@@ -1,7 +1,7 @@
 import type { CompactCrdtLogUseCase, ICrdtUpdateStore } from "@weaveforge/core";
 
 /**
- * Runtime collab session deps (wired in bootstrap; no Supabase types in UI).
+ * Runtime collab session deps (wired in bootstrap; no supabase-js types in UI).
  *
  * There is deliberately no `setSnapshotUpto`. Compaction moves the watermark
  * inside `compact_crdt_log`, in the same transaction as the sweep and behind an

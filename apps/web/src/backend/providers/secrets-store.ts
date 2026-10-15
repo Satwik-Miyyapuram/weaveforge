@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   RouteSecretsStore,
   type SecretsStore,
-} from "@/features/settings/infrastructure/supabase-settings-repository";
+} from "@/features/settings/infrastructure/postgrest-settings-repository";
 import { isOfflineBuild } from "@/deployment/build-target";
 import { DeviceSecretsStore } from "./local/device-secrets-store";
 
@@ -31,7 +31,7 @@ export function secretsStoreFor(
   hasServerRoutes: boolean = !isOfflineBuild(),
 ): SecretsStore {
   if (hasServerRoutes) return new RouteSecretsStore(db);
-  // The shell applies `supabase/migrations-local` on every launch, so this table
+  // The shell applies `db/migrations-local` on every launch, so this table
   // is there whether or not the window is signed in.
   return new DeviceSecretsStore();
 }

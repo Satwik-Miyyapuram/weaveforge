@@ -6,7 +6,7 @@ import { HttpBlobStore } from "./providers/http/http-blob-store";
 import { SupabaseBlobStore } from "./providers/supabase/blob-store";
 
 export interface WireStorageDeps {
-  /** Required when provider = supabase or server-side tiered (Supabase registry). */
+  /** Required when provider = supabase or server-side tiered (PostgREST registry). */
   supabaseDb?: SupabaseClient;
   /** Postgres registry for server-side tiered when backend provider = postgres. */
   blobRegistry?: IBlobRegistry;

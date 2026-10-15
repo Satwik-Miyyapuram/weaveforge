@@ -3,7 +3,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { run } from "@/backend/providers/supabase/row-access";
+import { run } from "@/backend/providers/postgrest/row-access";
 
 const TABLE_BY_TYPE: Record<string, string> = {
   vault_page: "vault_pages",
