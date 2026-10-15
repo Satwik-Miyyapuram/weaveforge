@@ -675,9 +675,7 @@ ipc.handle(CHANNELS.zoteroLocal, async (_event, url: unknown) => {
   }
 });
 
-ipc.handle(CHANNELS.texProbe, async () => {
-  return { ok: true, value: await probeTex() };
-});
+ipc.handle(CHANNELS.texProbe, async () => ({ ok: true, value: await probeTex() }));
 
 /**
  * The handwriting helper's door (§main-ink): started on the first probe,
@@ -695,7 +693,6 @@ ipc.handle(CHANNELS.vaultCommit, async () => {
   const enabled = await preferenceStore().read("vault-git");
   return commitVaultFolder(vault, enabled.ok && enabled.value === true);
 });
-
 ipc.handle(CHANNELS.vaultLog, (_event, limit: unknown) => logVaultFolder(vault, limit));
 
 /**
