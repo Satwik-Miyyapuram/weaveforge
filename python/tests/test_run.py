@@ -22,7 +22,7 @@ class FakeFigure:
 
 def test_decorator_runs_and_records(monkeypatch):
     c = MemoryContainer()
-    # keep the test offline: no real git subprocess, no supabase connect
+    # keep the test offline: no real git subprocess, no API connect
     monkeypatch.setattr("weaveforge.tracking.capture_git_state", lambda cwd=None: {})
 
     @track_experiment(name="beta-vae", config={"latent_dim": 32}, container=c)
