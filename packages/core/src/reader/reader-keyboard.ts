@@ -14,6 +14,7 @@ export type ReaderKeyboardCommand =
 
 export interface ReaderKeyEvent {
   key: string;
+  code?: string;
   ctrlKey?: boolean;
   metaKey?: boolean;
   altKey?: boolean;
@@ -50,10 +51,29 @@ export function readerKeyboardCommand(event: ReaderKeyEvent): ReaderKeyboardComm
   if (event.altKey) return null;
 
   const key = event.key;
-  if (key === "+" || key === "=") return { type: "zoom_in" };
-  if (key === "-" || key === "_") return { type: "zoom_out" };
+  const code = event.code;
+  const mod = Boolean(event.ctrlKey || event.metaKey);
+
+  if (
+    key === "+" ||
+    key === "=" ||
+    key === "Add" ||
+    code === "NumpadAdd" ||
+    (mod && (code === "Equal" || key === "=" || key === "+"))
+  ) {
+    return { type: "zoom_in" };
+  }
+  if (
+    key === "-" ||
+    key === "_" ||
+    key === "Subtract" ||
+    code === "NumpadSubtract" ||
+    (mod && (code === "Minus" || key === "-" || key === "_"))
+  ) {
+    return { type: "zoom_out" };
+  }
   if (key === "r" || key === "R") return { type: "rotate" };
-  if (key === "0" && (event.ctrlKey || event.metaKey)) return { type: "fit_width" };
+  if ((key === "0" || code === "Digit0" || code === "Numpad0") && mod) return { type: "fit_width" };
 
   switch (key) {
     case "ArrowDown":

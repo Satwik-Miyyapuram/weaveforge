@@ -18,6 +18,24 @@ PCs. Not sure? **Settings → System → About → System type** says which. The
 `-update.exe` files on the same page are for the app's own updater; you can
 ignore them.
 
+The Windows build is free and open-source, and is not signed with an expensive
+commercial EV code-signing certificate (which costs hundreds of dollars a year).
+Because of this, Microsoft Defender SmartScreen displays a blue prompt on the
+first run: *"Windows protected your PC — Microsoft Defender SmartScreen prevented an
+unrecognized app from starting."* To install and run:
+
+1. **SmartScreen dialog**: Click **More info** (underneath the warning text),
+   then click the **Run anyway** button that appears at the bottom.
+2. **File Properties unblock**: If Windows blocks running the downloaded file,
+   right-click the installer (`.exe`) → **Properties** → under the **General**
+   tab at the bottom, check the **Unblock** box (*"This file came from another
+   computer and might be blocked to help protect this computer"*) → click **Apply**
+   or **OK**, then double-click the installer.
+3. **In PowerShell**, if you prefer the terminal:
+   ```powershell
+   Unblock-File -Path .\WeaveForge-*-Windows-*.exe
+   ```
+
 ## Installing on a Mac
 
 Download `WeaveForge-<version>-macOS.dmg` (one file for Apple silicon and Intel) from the
@@ -25,24 +43,53 @@ Download `WeaveForge-<version>-macOS.dmg` (one file for Apple silicon and Intel)
 open it, and drag WeaveForge into Applications.
 
 The Mac build is free and is not notarised by Apple, which costs a yearly
-developer fee. So the first time you open it, macOS says it cannot check the
-app for malicious software and offers only **Done**. To open it:
+developer fee. So the first time you open it, macOS Gatekeeper says it cannot
+check the app for malicious software or that the developer cannot be verified,
+and offers only **Done** or **Move to Trash**. To open it:
 
-1. Open **System Settings → Privacy & Security**.
-2. Scroll to the line about WeaveForge being blocked and press **Open Anyway**.
-3. Confirm with your password or Touch ID. From then on it opens normally.
-
-Or, in Terminal, once:
-
-```bash
-xattr -dr com.apple.quarantine /Applications/WeaveForge.app
-```
+1. **System Settings**: Open **System Settings → Privacy & Security**. Scroll
+   down to the **Security** section showing WeaveForge was blocked, and click
+   **Open Anyway**. Confirm with your password or Touch ID. From then on it opens
+   normally.
+2. **Finder Control-Click**: In Finder, open `/Applications`, hold the **Control**
+   key and click (or right-click) **WeaveForge.app**, then select **Open**. In the
+   dialog that appears, click the **Open** button (which is hidden during a regular
+   double-click).
+3. **In Terminal**, once (removes the quarantine attribute applied to downloads):
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/WeaveForge.app
+   ```
 
 The app carries an *ad-hoc* signature: enough for macOS to run it and to notice
 if it has been changed since it was built, but it says nothing about who built
 it. If that matters to you, build it yourself from source.
 
 The Mac build does not update itself; see [Updating](#updating).
+
+## Installing on Android
+
+For Android tablets and phones (especially devices with an active stylus like the
+Samsung Galaxy Tab S-Pen), download `WeaveForge-<version>-Android.apk` from the
+[releases page](https://github.com/Satwik-Miyyapuram/weaveforge/releases).
+
+The Android release is the native inking shell: a front-buffered digitiser surface
+with hardware palm rejection over the full web app, plus a home-screen deadlines
+widget. Because it is distributed directly as an `.apk` (sideloaded) rather than
+through Google Play, Android's security protections will ask for confirmation before
+installing:
+
+1. **Allow unknown apps**: When you tap the downloaded `.apk` in Chrome, Firefox,
+   or your file manager, Android prompts that your phone or tablet is not allowed
+   to install unknown apps from this source. Tap **Settings** on the prompt, turn on
+   **Allow from this source**, press Back, and tap **Install**.
+2. **Google Play Protect warning**: If Google Play Protect displays a prompt
+   (*"Blocked by Play Protect"* or *"Play Protect doesn't recognize this app's
+   developer"*), tap **More details** (or the small drop-down arrow) and select
+   **Install anyway**.
+3. **Via ADB** (optional, for devices connected to a computer via USB):
+   ```bash
+   adb install -r WeaveForge-<version>-Android.apk
+   ```
 
 ## Signing in with Google
 

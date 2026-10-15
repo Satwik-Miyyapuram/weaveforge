@@ -148,18 +148,45 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
     return () => observer.disconnect();
   }, []);
 
-  // Support Ctrl/Cmd + Wheel zoom.
+  // Support Ctrl/Cmd + Wheel / trackpad pinch zoom.
   useEffect(() => {
     const scroller = scrollRef.current;
     if (!scroller) return;
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        setZoom((z) => Math.max(0.5, Math.min(3, z * (1 - e.deltaY * 0.002))));
+        let dy = e.deltaY;
+        if (e.deltaMode === 1) dy *= 24;
+        else if (e.deltaMode === 2) dy *= 100;
+        dy = Math.max(-200, Math.min(200, dy));
+        const factor = Math.exp(-dy * 0.002);
+        setZoom((z) => Math.max(0.5, Math.min(3, z * factor)));
       }
     };
     scroller.addEventListener("wheel", onWheel, { passive: false });
     return () => scroller.removeEventListener("wheel", onWheel);
+  }, []);
+
+  // Keyboard zoom shortcuts (Ctrl++, Ctrl+-, Ctrl+0).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement).tagName)) return;
+      if (e.ctrlKey || e.metaKey) {
+        const key = e.key.toLowerCase();
+        if (key === "+" || key === "=" || e.code === "Equal" || e.code === "NumpadAdd" || e.key === "Add") {
+          e.preventDefault();
+          setZoom((z) => Math.min(3, Math.max(0.5, z * 1.25)));
+        } else if (key === "-" || key === "_" || e.code === "Minus" || e.code === "NumpadSubtract" || e.key === "Subtract") {
+          e.preventDefault();
+          setZoom((z) => Math.min(3, Math.max(0.5, z / 1.25)));
+        } else if (key === "0" || e.code === "Digit0" || e.code === "Numpad0") {
+          e.preventDefault();
+          setZoom(1);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   return (

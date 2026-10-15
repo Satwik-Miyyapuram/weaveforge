@@ -84,6 +84,15 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
         } else if (event.shiftKey && key === "g") {
           event.preventDefault();
           onExportSvg();
+        } else if (key === "+" || key === "=" || event.code === "Equal" || event.code === "NumpadAdd" || event.key === "Add") {
+          event.preventDefault();
+          setZoom((value: number) => Math.min(4, Math.max(0.5, value * 1.25)));
+        } else if (key === "-" || key === "_" || event.code === "Minus" || event.code === "NumpadSubtract" || event.key === "Subtract") {
+          event.preventDefault();
+          setZoom((value: number) => Math.min(4, Math.max(0.5, value / 1.25)));
+        } else if (key === "0" || event.code === "Digit0" || event.code === "Numpad0") {
+          event.preventDefault();
+          setZoom(() => 1);
         }
         return;
       }
@@ -152,6 +161,7 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
     onPrint,
     onExportPng,
     onExportSvg,
+    setZoom,
   ]);
 
   /** Zoom without plumbing a gesture: ⌘/Ctrl and the wheel, or the buttons. */
@@ -161,8 +171,13 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
     const onWheel = (event: WheelEvent) => {
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
+      let dy = event.deltaY;
+      if (event.deltaMode === 1) dy *= 24;
+      else if (event.deltaMode === 2) dy *= 100;
+      dy = Math.max(-200, Math.min(200, dy));
+      const factor = Math.exp(-dy * 0.002);
       setZoom((value: number) =>
-        Math.min(4, Math.max(0.5, value * (event.deltaY < 0 ? 1.1 : 0.9))),
+        Math.min(4, Math.max(0.5, value * factor)),
       );
     };
     element.addEventListener("wheel", onWheel, { passive: false });
