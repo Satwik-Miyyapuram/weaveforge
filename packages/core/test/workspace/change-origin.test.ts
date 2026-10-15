@@ -64,3 +64,8 @@ test("identical copies are unchanged whatever the origin says", () => {
   const same: ParsedEntity = { ...note, title: "Original", body: "in the workspace" };
   assert.equal(diffWorkspace([same], stored, { origin: () => "both" }).entries[0]?.action, "unchanged");
 });
+
+test("a folder already matching the workspace changed nowhere, base or not", () => {
+  assert.equal(changedSide({ folder: "aa", workspace: "aa" }), "neither");
+  assert.equal(changedSide({ folder: "aa", workspace: "bb" }), "unknown");
+});

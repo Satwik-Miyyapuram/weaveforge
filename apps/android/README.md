@@ -13,6 +13,16 @@ It is the only Android release: `android.yml` builds it on `android-v*` tags as
 `WeaveForge-<version>-Android.apk`. The Bubblewrap TWA in
 [`apps/web/twa`](../web/twa/README.md) is no longer released.
 
+## Installing the APK
+
+Download `WeaveForge-<version>-Android.apk` from the GitHub Releases page:
+
+- **Allow unknown apps**: If Android warns that your browser or file manager cannot install unknown apps, tap **Settings**, toggle **Allow from this source**, and continue the installation.
+- **Google Play Protect**: Tap **More details** → **Install anyway** if prompted that the app is unrecognized.
+- **Via ADB**: `adb install -r WeaveForge-<version>-Android.apk`
+
+See [`docs/using/desktop.md`](../../docs/using/desktop.md#installing-on-android).
+
 ## Release configuration, and the one rule it depends on
 
 `isMinifyEnabled = true`, `isShrinkResources = true`, and a `signingConfig` taken

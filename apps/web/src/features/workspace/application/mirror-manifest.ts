@@ -235,7 +235,13 @@ export async function writeMirrorManifest(
     ),
     writtenAt: new Date().toISOString(),
   };
-  await fs.writeFile(mirrorManifestPath(projectRoot), `${JSON.stringify(body, null, 2)}\n`);
+  const file = mirrorManifestPath(projectRoot);
+  // A new time alone is not a change; rewriting it would commit noise on every run.
+  const stamp = /^\s*"writtenAt": ".*"$/m;
+  const current = await fs.readText(file).catch(() => null);
+  const next = `${JSON.stringify(body, null, 2)}\n`;
+  if (current !== null && current.replace(stamp, "") === next.replace(stamp, "")) return;
+  await fs.writeFile(file, next);
 }
 
 /**

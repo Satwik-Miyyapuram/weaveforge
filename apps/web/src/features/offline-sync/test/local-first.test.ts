@@ -271,4 +271,28 @@ describe("local-first: queued payloads the server can take", () => {
     );
     assert.deepEqual(op, { dead_at: null, attempts: 0 });
   });
+
+  it("0018 re-owns owner columns a pre-0012 adoption left on the local user", async () => {
+    // The server has no local user, so these pushes failed 23503 forever.
+    const { db, account, project } = await adoptedDevice();
+    await db.sql("insert into auth.users (id, email) values ($1, 'local@device') on conflict do nothing", [
+      LOCAL_USER_ID,
+    ]);
+    const pin = id();
+    await db.sql(
+      "insert into library_pins (id, user_id, project_id, resource_type, resource_id, owner_id) values ($1, $2, $3, 'paper', $4, $5)",
+      [pin, account, project, id(), LOCAL_USER_ID],
+    );
+    const payload = async () =>
+      (await db.sql<Op>("select payload from sync_outbox where row_id = $1", [pin]))[0]!.payload.owner_id;
+    assert.equal(await payload(), LOCAL_USER_ID);
+    const migration = readFileSync(
+      new URL("../../../../../../supabase/migrations-local/0018_merge_local_twin.sql", import.meta.url),
+      "utf8",
+    );
+    await db.sql(migration.slice(migration.lastIndexOf("do $$")));
+    const [row] = await db.sql<{ owner_id: string }>("select owner_id::text from library_pins where id = $1", [pin]);
+    assert.equal(row!.owner_id, account);
+    assert.equal(await payload(), account);
+  });
 });

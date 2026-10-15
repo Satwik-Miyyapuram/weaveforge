@@ -1,7 +1,7 @@
 {
   "name": "weaveforge-research",
   "displayName": "WeaveForge Research",
-  "version": "0.8.12",
+  "version": "0.8.13",
   "description": "Read and search your WeaveForge workspace, leave drafts for you to approve, and log experiments with the Python SDK. Runs on this computer only.",
   "author": {
     "name": "WeaveForge contributors",

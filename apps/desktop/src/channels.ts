@@ -93,6 +93,7 @@ export const CHANNELS = {
   vaultStat: "weaveforge:vault-stat",
   vaultRemove: "weaveforge:vault-remove",
   vaultCommit: "weaveforge:vault-commit",
+  vaultLog: "weaveforge:vault-log",
   localApiState: "weaveforge:local-api-state",
   /**
    * One read of the Zotero running on this machine, proxied.

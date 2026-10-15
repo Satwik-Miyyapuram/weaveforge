@@ -1,7 +1,9 @@
-import { Outbox, type SqlRunner } from "./outbox";
+import { Outbox, type OutboxEntry, type SqlRunner } from "./outbox";
 import type { SyncStateStore } from "./sync-state";
 import type { RemoteChange, SyncTransport } from "./sync-ports";
 import type { ConflictStore } from "./conflicts";
+
+type Row = Record<string, unknown>;
 
 /**
  * Reads the server's change feed and writes what it says into the local
@@ -155,7 +157,8 @@ export class Puller {
    *
    * A tombstone removes the local row. Keeping it with `deleted_at` set left
    * it on every screen, since no screen filters on that column; the watermark,
-   * not the row, is what records that this change was received.
+   * not the row, is what records that this change was received. Local edits
+   * are never dropped by it: the reader decides (see `tombstone`).
    */
   private async apply(change: RemoteChange): Promise<void> {
     // Refuse before reading the outbox, whose ids only fit synced rows.
@@ -167,15 +170,25 @@ export class Puller {
     if (!this.synced.has(change.table)) throw new Error(`${change.table} is not a synced table`);
     const ops = await this.outbox.forRow(change.table, change.rowId);
     if (change.deletedAt) {
-      // Deleted elsewhere: local edits to it have nowhere to land.
-      if (ops.length > 0) await this.outbox.dropRow(change.table, change.rowId);
-      await this.write(change);
+      await this.tombstone(change, ops);
       return;
     }
     const last = ops[ops.length - 1];
     if (last?.op === "delete") {
-      // Deleted here: the delete wins, now against the version the server holds.
+      // Our own delete's base: nothing changed there since.
+      if (last.baseVersion != null && last.baseVersion >= change.rowVersion) return;
+      // Deleted here, edited elsewhere since: the reader decides.
+      if (this.conflicts && last.baseVersion != null) {
+        await this.conflicts.openDeletedLocal(change.table, change.rowId, change.row, change.rowVersion);
+        return;
+      }
       await this.outbox.rebase(change.table, change.rowId, change.rowVersion);
+      return;
+    }
+    // Deleted here and waiting on the reader: the row stays gone, the newest cloud copy is kept.
+    const open = await this.conflicts?.find(change.table, change.rowId);
+    if (open?.kind === "deleted_local") {
+      await this.conflicts!.settle(change.table, change.rowId, change.row, change.rowVersion);
       return;
     }
     // Our own accepted write coming back: local already holds it and more.
@@ -193,73 +206,112 @@ export class Puller {
     await this.conflicts?.settle(change.table, change.rowId, change.row, change.rowVersion);
   }
 
+  /**
+   * Deleted elsewhere. Local edits to it, or to rows that point at it, are never
+   * thrown away: the row stays and the reader chooses whether it goes.
+   */
+  private async tombstone(change: RemoteChange, ops: OutboxEntry[]): Promise<void> {
+    const { table, rowId } = change;
+    // Deleted here too: nothing to decide.
+    if (ops[ops.length - 1]?.op === "delete") {
+      await this.outbox.dropRow(table, rowId);
+      await this.write(change);
+      return;
+    }
+    const open = await this.conflicts?.find(table, rowId);
+    if (open?.kind === "deleted_remote") return;
+    if (open?.kind === "deleted_local") {
+      // Both sides deleted it.
+      await this.conflicts!.resolve(open.id);
+      await this.write(change);
+      return;
+    }
+    if (ops.length > 0 || open || (await this.referenced(table, rowId))) {
+      if (!this.conflicts) throw new Error("Deleted elsewhere while edited here; kept until decided.");
+      await this.conflicts.openDeletedRemote(table, rowId);
+      return;
+    }
+    await this.write(change);
+  }
+
+  /** Whether an edit still owed to the server points at this row. */
+  private async referenced(table: string, rowId: string): Promise<boolean> {
+    const row = await this.sql.queryOne(
+      `select 1 from sync_outbox o, jsonb_each_text(o.payload) e
+        where o.op <> 'delete' and e.key <> 'id' and e.value = $1
+          and not (o.table_name = $2 and o.row_id::text = $1)
+        limit 1`,
+      [rowId, table],
+    );
+    return row != null;
+  }
+
   private async write(change: RemoteChange): Promise<void> {
     const run = () =>
       this.sql.exec("select sync_apply($1, $2::jsonb)", [change.table, JSON.stringify(change.row)]);
     try {
       await run();
     } catch (error) {
-      if (!(await this.dropLocalTwin(change, error))) throw error;
-      await run();
+      // The merge writes the server row itself.
+      if (!(await this.mergeLocalTwin(change, error))) throw error;
     }
   }
 
   /**
    * A row made here that never reached the server can clash on a natural key
    * (same paper added twice) with the server's copy; one such row blocked every
-   * later pull. Drop it when nothing points at it, so the server copy lands.
-   * Expression indexes are left alone; a partial index's predicate is applied too,
-   * so only the row the index actually covers is taken for the twin.
+   * later pull, and its children every push. Fold it into the server's copy;
+   * where the two copies disagree, the reader decides (an open conflict), as
+   * for children that clashed the same way.
    */
-  private async dropLocalTwin(change: RemoteChange, error: unknown): Promise<boolean> {
+  private async mergeLocalTwin(change: RemoteChange, error: unknown): Promise<boolean> {
     const constraint = /unique constraint "([^"]+)"/.exec(String((error as Error)?.message))?.[1];
     if (!constraint) return false;
-    const index = await this.sql.query<{ name: string; pred: string | null }>(
-      `select a.attname as name, pg_get_expr(x.indpred, x.indrelid) as pred from pg_index x
-         join pg_class i on i.oid = x.indexrelid
-         join pg_class t on t.oid = x.indrelid
-         join pg_attribute a on a.attrelid = t.oid and a.attnum = any(x.indkey)
-        where x.indisunique and i.relname = $1 and t.relname = $2 and x.indexprs is null`,
-      [constraint, change.table],
+    const twin = await this.sql.queryOne<{ id: string | null }>(
+      "select sync_twin_of($1, $2, $3::jsonb)::text as id",
+      [change.table, constraint, JSON.stringify(change.row)],
     );
-    const cols = index.map((r) => r.name);
-    const pred = index[0]?.pred ?? "true";
-    if (cols.length === 0 || cols.includes("id")) return false;
-    const match = cols.map((c) => `t.${quote(c)} is not distinct from r.${quote(c)}`).join(" and ");
-    const twin = await this.sql.queryOne<{ id: string }>(
-      `select id::text as id from (select t.* from public.${quote(change.table)} t,
-              jsonb_populate_record(null::public.${quote(change.table)}, $1) r
-        where ${match} and t.id <> r.id) t where ${pred}`,
-      [JSON.stringify(change.row)],
-    );
-    if (!twin) return false;
+    if (!twin?.id) return false;
     const localOnly = await this.sql.queryOne(
       "select 1 from sync_outbox where table_name = $1 and row_id = $2 and op = 'insert'",
       [change.table, twin.id],
     );
     if (!localOnly) return false;
-    const refs = await this.sql.query<{ child: string; col: string }>(
-      `select ch.relname as child, a.attname as col from pg_constraint c
-         join pg_class p on p.oid = c.confrelid
-         join pg_class ch on ch.oid = c.conrelid
-         join pg_attribute a on a.attrelid = ch.oid and a.attnum = c.conkey[1]
-        where c.contype = 'f' and p.relname = $1 and p.relnamespace = 'public'::regnamespace`,
-      [change.table],
+    const mine = await this.payload(change.table, twin.id);
+    const merged = await this.sql.queryOne<{ folded: FoldedChild[] | string }>(
+      "select sync_merge_twin($1, $2::uuid, $3::jsonb) as folded",
+      [change.table, twin.id, JSON.stringify(change.row)],
     );
-    for (const ref of refs) {
-      const used = await this.sql.queryOne(
-        `select 1 from public.${quote(ref.child)} where ${quote(ref.col)} = $1 limit 1`,
-        [twin.id],
-      );
-      if (used) return false;
+    if (!this.conflicts) return true;
+    if (mine) {
+      const { row_version: _, ...local } = mine;
+      await this.conflicts.openFolded(change.table, change.rowId, { ...local, id: change.rowId }, change.row, change.rowVersion);
     }
-    await this.sql.exec("delete from sync_outbox where table_name = $1 and row_id = $2", [
-      change.table,
-      twin.id,
-    ]);
-    await this.sql.exec(`delete from public.${quote(change.table)} where id = $1`, [twin.id]);
+    const folded = merged?.folded;
+    for (const child of (typeof folded === "string" ? JSON.parse(folded) : folded ?? []) as FoldedChild[]) {
+      const remote = await this.payload(child.table, child.row_id);
+      if (!remote) continue;
+      const version = typeof remote.row_version === "number" ? remote.row_version : null;
+      await this.conflicts.openFolded(child.table, child.row_id, child.local, remote, version);
+    }
     return true;
   }
+
+  /** A local row as the server would hold it, with its version. */
+  private async payload(table: string, id: string): Promise<Row | null> {
+    const row = await this.sql.queryOne<{ row: Row }>(
+      `select sync_payload($1, to_jsonb(t)) || jsonb_build_object('row_version', t.row_version) as row
+         from public.${quote(table)} t where id = $2`,
+      [table, id],
+    );
+    return row?.row ?? null;
+  }
+}
+
+interface FoldedChild {
+  table: string;
+  row_id: string;
+  local: Row;
 }
 
 const quote = (name: string) => `"${name.replace(/"/g, '""')}"`;

@@ -293,7 +293,8 @@ export function diffWorkspace(
     // the mirror wrote it is a silent loss, and the only honest answer when
     // both sides moved is to ask.
     const side = options.origin?.(entity.path) ?? "unknown";
-    if (side === "workspace") {
+    // "neither": the file is what the mirror writes; a difference is the parse's, not an edit.
+    if (side === "workspace" || side === "neither") {
       entries.push({ action: "unchanged", entity });
       continue;
     }

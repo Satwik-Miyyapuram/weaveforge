@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatError, formatErrorForResponse, jsonBodyError, readJsonBody, responseError } from "../format-error";
+import { describeRejection, formatError, formatErrorForResponse, jsonBodyError, readJsonBody, responseError } from "../format-error";
 
 test("formatError: null/undefined -> generic message", () => {
   assert.equal(formatError(null), "Something went wrong.");
@@ -316,4 +316,12 @@ test("jsonBodyError keeps the parser's reason", () => {
   let parseErr: unknown;
   try { JSON.parse("{"); } catch (e) { parseErr = e; }
   assert.match(jsonBodyError(parseErr), /^Invalid JSON body: .+/);
+});
+
+test("describeRejection: a plain-object rejection reads as its message and code, not [object Object]", () => {
+  const text = describeRejection({ message: "current transaction is aborted", code: "25P02", details: null, hint: null });
+  assert.equal(text, "current transaction is aborted (25P02)");
+  assert.equal(describeRejection(new TypeError("boom")), "TypeError boom");
+  assert.equal(describeRejection("plain"), "plain");
+  assert.equal(describeRejection(undefined), "");
 });

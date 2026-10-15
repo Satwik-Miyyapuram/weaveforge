@@ -83,16 +83,25 @@ export class OutboxPump {
     serverRow: Record<string, unknown> | null | undefined,
     deletedElsewhere?: boolean,
   ): Promise<void> {
-    // Delete wins over an edit made elsewhere: re-aim at the version the server holds.
     if (entry.op === "delete") {
+      // Deleted here, edited elsewhere: the reader decides whether the delete stands.
+      if (serverRow && this.conflicts) {
+        await this.conflicts.openDeletedLocal(entry.table, entry.rowId, serverRow, serverVersion);
+        return;
+      }
+      if (serverRow === null && deletedElsewhere === true) {
+        await this.outbox.dropRow(entry.table, entry.rowId);
+        return;
+      }
       if (serverVersion != null) await this.outbox.rebase(entry.table, entry.rowId, serverVersion);
-      await this.outbox.fail(entry.opId, "Deleted here, edited elsewhere; retrying the delete.");
+      await this.outbox.fail(entry.opId, "Deleted here, edited elsewhere; kept until you decide.");
       return;
     }
     if (serverRow === null && entry.op === "update") {
-      // Deleted elsewhere: their delete wins, as ours does.
+      // Deleted elsewhere while edited here: never dropped, the reader decides.
       if (deletedElsewhere === true) {
-        await this.outbox.dropRow(entry.table, entry.rowId);
+        if (this.conflicts) await this.conflicts.openDeletedRemote(entry.table, entry.rowId);
+        else await this.outbox.fail(entry.opId, "Deleted elsewhere, edited here; kept until you decide.");
         return;
       }
       // Never received. Dropping this lost papers whose insert had not landed;

@@ -189,9 +189,16 @@ export function diffJsonData(
 ): JsonDiff {
   const byId = new Map(existing.map((row) => [row.id, row]));
   const entries: JsonDiffEntry[] = [];
+  const side = options.origin?.(parsed.path) ?? "unknown";
+  // The file is stale, not edited: rows sync added or dropped since the mirror are not the reader's.
+  const stale = side === "workspace" || side === "neither";
 
   for (const row of parsed.rows) {
     const current = byId.get(row.id);
+    if (!current && stale) {
+      entries.push({ action: "unchanged", kind: parsed.kind, path: parsed.path, row, existing: row });
+      continue;
+    }
     if (!current) {
       entries.push({ action: "created", kind: parsed.kind, path: parsed.path, row, existing: row });
       continue;
@@ -201,9 +208,8 @@ export function diffJsonData(
       continue;
     }
 
-    const side = options.origin?.(parsed.path) ?? "unknown";
     // "neither": the file is what the mirror would write now, so nothing to import.
-    if (side === "workspace" || side === "neither") {
+    if (stale) {
       entries.push({ action: "unchanged", kind: parsed.kind, path: parsed.path, row, existing: current });
       continue;
     }
@@ -225,6 +231,10 @@ export function diffJsonData(
   const listed = new Set(parsed.rows.map((row) => row.id));
   for (const current of existing) {
     if (listed.has(current.id)) continue;
+    if (stale) {
+      entries.push({ action: "unchanged", kind: parsed.kind, path: parsed.path, row: current, existing: current });
+      continue;
+    }
     entries.push({ action: "removed", kind: parsed.kind, path: parsed.path, existing: current });
   }
 

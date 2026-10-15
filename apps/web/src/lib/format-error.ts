@@ -115,6 +115,16 @@ function describeErrorInstance(err: Error, withCause: boolean): string {
   return withCause ? named + causeChain(err) : named;
 }
 
+/** A rejection reason for the log: PostgREST errors are plain objects, and String() of one says nothing. */
+export function describeRejection(reason: unknown): string {
+  if (reason instanceof Error) return `${reason.name} ${reason.message}`;
+  if (reason == null) return "";
+  if (typeof reason !== "object") return String(reason);
+  const text = formatErrorWith(reason, false);
+  const code = (reason as { code?: unknown }).code;
+  return typeof code === "string" && code && !text.includes(code) ? `${text} (${code})` : text;
+}
+
 /** Extract a human-readable message from unknown thrown values (incl. Supabase/PostgREST). */
 export function formatError(err: unknown): string {
   return formatErrorWith(err, true);

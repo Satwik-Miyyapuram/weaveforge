@@ -143,3 +143,20 @@ test("counts add up across the two halves of one preview", () => {
     removed: 3,
   });
 });
+
+test("rows only the workspace added or dropped since the mirror are not removals or creations", () => {
+  // Sync pulled a new tag and deleted another before the mirror caught up.
+  const parsed = parseJsonData("p", '[{"id":"t1","name":"ml"},{"id":"gone","name":"old"}]', "tags");
+  assert.ok(parsed);
+  const stored = [{ id: "t1", name: "ml" }, { id: "fresh", name: "new" }];
+  for (const side of ["workspace", "neither"] as const) {
+    const diff = diffJsonData(parsed, stored, { origin: () => side });
+    assert.equal(diff.counts.removed, 0, side);
+    assert.equal(diff.counts.created, 0, side);
+    assert.equal(diff.counts.unchanged, 3, side);
+  }
+  // Edited out there: the reader's adds and drops are real.
+  const folder = diffJsonData(parsed, stored, { origin: () => "folder" });
+  assert.equal(folder.counts.removed, 1);
+  assert.equal(folder.counts.created, 1);
+});

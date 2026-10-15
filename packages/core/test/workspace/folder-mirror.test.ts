@@ -51,6 +51,17 @@ test("mirroring twice writes nothing the second time", async () => {
   assert.ok(second.unchanged > 0);
 });
 
+test("a later run with nothing new writes nothing, though the clock moved", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const input = snapshot({ vaultPages: [note("n1", "Method", "Body")] });
+  const first = await mirrorWorkspace(input, fs, { project: THESIS });
+  const second = await mirrorWorkspace({ ...input, collectedAt: "2026-08-06T00:00:00.000Z" }, fs, { project: THESIS });
+
+  // A timestamp alone in README and manifest made a git commit every run.
+  assert.deepEqual(second.written, []);
+  assert.deepEqual(second.mirrored, first.mirrored);
+});
+
 test("an edit rewrites only the file that changed", async () => {
   const fs = new MemoryWorkspaceFs();
   await mirrorWorkspace(
@@ -375,5 +386,6 @@ test("the root README, rewritten by another project's mirror, is not held back",
   });
 
   assert.deepEqual(second.heldBack, []);
-  assert.match(await fs.readText("README.md"), /2026-08-07/);
+  // Only the export time differs, so it is not rewritten either.
+  assert.ok(!second.written.includes("README.md"));
 });

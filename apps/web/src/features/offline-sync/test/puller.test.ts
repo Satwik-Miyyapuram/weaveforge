@@ -5,7 +5,7 @@ import { testDb } from "../../../backend/test/pg-test-db";
 import { sqlRunner } from "./local-sql";
 import { Puller } from "../domain/puller";
 import { Outbox } from "../domain/outbox";
-import { ConflictStore } from "../domain/conflicts";
+import { ConflictStore, deletionFor } from "../domain/conflicts";
 import { SyncStateStore } from "../domain/sync-state";
 import type { RemoteChange, SyncTransport } from "../domain/sync-ports";
 
@@ -232,6 +232,48 @@ describe("the puller meeting a local twin", () => {
     assert.deepEqual(ids, [server]);
     assert.equal((await db.sql("select 1 from sync_outbox where row_id = $1", [local])).length, 0);
   });
+
+  it("merges an unsent local paper that others point at into the server's copy", async () => {
+    // Its list items and relations waited on a parent the server refused (23503) forever.
+    const db = await testDb();
+    const user = await db.createUser();
+    const sql = sqlRunner((q, p) => db.sql(q, p as unknown[]));
+    const project = randomUUID();
+    const local = randomUUID();
+    const other = randomUUID();
+    const server = randomUUID();
+    const list = randomUUID();
+    await db.sql("insert into projects (id, user_id, name) values ($1, $2, 'p')", [project, user]);
+    await db.sql("insert into papers (id, user_id, project_id, title, authors, arxiv_id) values ($1, $2, $3, 'twin', '{}', '1910.10831'), ($4, $2, $3, 'other', '{}', '2203.02053')", [local, user, project, other]);
+    await db.sql("insert into reading_lists (id, user_id, name) values ($1, $2, 'l')", [list, user]);
+    const [item] = await db.sql<{ id: string }>("insert into reading_list_items (list_id, paper_id) values ($1, $2) returning id::text", [list, local]);
+    const [rel] = await db.sql<{ id: string }>("insert into paper_relations (user_id, from_paper, to_paper, relation) values ($1, $2, $3, 'cites') returning id::text", [user, local, other]);
+    const outbox = new Outbox(sql);
+    for (const [table, rowId, payload] of [
+      ["papers", local, {}],
+      ["reading_list_items", item!.id, { id: item!.id, list_id: list, paper_id: local }],
+      ["paper_relations", rel!.id, { id: rel!.id, from_paper: local, to_paper: other }],
+    ] as const) {
+      if ((await db.sql("select 1 from sync_outbox where row_id = $1", [rowId])).length === 0) {
+        await outbox.append({ table, rowId, op: "insert", payload });
+      }
+    }
+    const [twin] = await db.sql<{ r: Record<string, unknown> }>("select to_jsonb(p) as r from papers p where id = $1", [local]);
+    const row = { ...twin!.r, id: server, server_seq: 11, row_version: 1 };
+
+    await new Puller(sql, new SyncStateStore(sql), transport([[change({ table: "papers", row, serverSeq: 11 })]])).pull();
+
+    assert.equal((await db.sql("select 1 from sync_pull_held where row_id = $1", [server])).length, 0);
+    const ids = (await db.sql<{ id: string }>("select id::text from papers where project_id = $1 order by title", [project])).map((r) => r.id);
+    assert.deepEqual(ids, [other, server]);
+    assert.equal((await db.sql<{ p: string }>("select paper_id::text as p from reading_list_items where id = $1", [item!.id]))[0]?.p, server);
+    assert.equal((await db.sql<{ p: string }>("select from_paper::text as p from paper_relations where id = $1", [rel!.id]))[0]?.p, server);
+    const queued = await db.sql<{ table_name: string; payload: Record<string, unknown> }>(
+      "select table_name, payload from sync_outbox where row_id in ($1, $2)", [item!.id, rel!.id]);
+    assert.ok(queued.length > 0);
+    for (const q of queued) assert.doesNotMatch(JSON.stringify(q.payload), new RegExp(local), q.table_name);
+    assert.equal((await db.sql("select 1 from sync_outbox where row_id = $1", [local])).length, 0);
+  });
 });
 
 describe("the puller with work still owed", () => {
@@ -261,28 +303,41 @@ describe("the puller with work still owed", () => {
     assert.equal((await s.outbox.forRow("projects", id)).length, 1);
   });
 
-  it("keeps a local delete, re-aimed at the server's version", async () => {
+  const conflictOn = async (s: Awaited<ReturnType<typeof setup>>, id: string) =>
+    (await s.conflicts.openConflicts()).filter((c) => c.rowId === id);
+
+  it("asks the reader when a local delete meets a newer edit from elsewhere", async () => {
     const id = "00000000-0000-4000-8000-00000000f002";
     const s = await setup(id);
+    await s.db.sql("delete from projects where id = $1", [id]);
+    await s.db.sql("delete from sync_outbox where row_id = $1", [id]);
     await s.outbox.append({ table: "projects", rowId: id, op: "delete", baseVersion: 1 });
 
     await pull(s, change({ rowVersion: 4, serverSeq: 7002, row: { ...s.base, name: "Theirs", row_version: 4, server_seq: 7002 } }));
 
-    const [entry] = await s.outbox.forRow("projects", id);
-    assert.equal(entry!.op, "delete");
-    assert.equal(entry!.baseVersion, 4);
+    const [open] = await conflictOn(s, id);
+    assert.equal(open!.kind, "deleted_local");
+    assert.equal(open!.serverVersion, 4);
+    assert.equal((open!.remote as Record<string, unknown>).name, "Theirs");
+    // Not sent until the reader decides; the row stays gone here.
+    assert.deepEqual(await s.outbox.forRow("projects", id), []);
+    assert.equal((await s.db.sql("select 1 from projects where id = $1", [id])).length, 0);
   });
 
-  it("drops owed edits when the row was deleted elsewhere", async () => {
+  it("keeps owed edits when the row was deleted elsewhere, and asks the reader", async () => {
     const id = "00000000-0000-4000-8000-00000000f003";
     const s = await setup(id);
+    await s.db.sql("update projects set name = 'Mine' where id = $1", [id]);
     await s.outbox.append({ table: "projects", rowId: id, op: "update", payload: { ...s.base, name: "Mine" }, baseVersion: 1 });
 
     await pull(s, change({ rowVersion: 2, serverSeq: 7003, deletedAt: "2026-01-01T00:00:00Z",
       row: { ...s.base, row_version: 2, server_seq: 7003, deleted_at: "2026-01-01T00:00:00Z" } }));
 
-    assert.deepEqual(await s.outbox.forRow("projects", id), []);
-    assert.equal((await s.db.sql("select 1 from projects where id = $1", [id])).length, 0);
+    const [row] = await s.db.sql<{ name: string }>("select name from projects where id = $1", [id]);
+    assert.equal(row!.name, "Mine");
+    const [open] = await conflictOn(s, id);
+    assert.equal(open!.kind, "deleted_remote");
+    assert.equal((open!.local as Record<string, unknown>).name, "Mine");
   });
 
   it("merges edits to different fields of both branches", async () => {
@@ -294,7 +349,7 @@ describe("the puller with work still owed", () => {
 
     const [row] = await s.db.sql<{ name: string; color: string }>("select name, color from projects where id = $1", [id]);
     assert.deepEqual({ ...row }, { name: "Mine", color: "theirs" });
-    assert.deepEqual(await s.conflicts.openConflicts(), []);
+    assert.deepEqual(await conflictOn(s, id), []);
     const [entry] = await s.outbox.forRow("projects", id);
     assert.equal(entry!.baseVersion, 2);
   });
@@ -306,9 +361,176 @@ describe("the puller with work still owed", () => {
 
     await pull(s, change({ rowVersion: 2, serverSeq: 7005, row: { ...s.base, name: "Theirs", row_version: 2, server_seq: 7005 } }));
 
-    const [open] = await s.conflicts.openConflicts();
+    const [open] = await conflictOn(s, id);
     assert.deepEqual(open!.fields.map((f) => f.field), ["name"]);
     assert.equal(open!.serverVersion, 2);
     assert.deepEqual(await s.outbox.forRow("projects", id), []);
+  });
+});
+
+describe("a delete the reader settles", () => {
+  async function setup(id: string) {
+    const db = await testDb();
+    const user = await db.createUser();
+    const sql = sqlRunner((q, p) => db.sql(q, p as unknown[]));
+    await db.sql("insert into projects (id, user_id, name) values ($1, $2, 'Draft')", [id, user]);
+    await db.sql("delete from sync_outbox where row_id = $1", [id]);
+    const base = { id, user_id: user, name: "Draft", color: null, created_at: "2026-01-01T00:00:00Z" };
+    return { db, sql, user, base, state: new SyncStateStore(sql), outbox: new Outbox(sql), conflicts: new ConflictStore(sql) };
+  }
+  type S = Awaited<ReturnType<typeof setup>>;
+  const pull = (s: S, c: RemoteChange) => new Puller(s.sql, s.state, transport([[c]]), s.conflicts).pull();
+  const open = async (s: S, id: string) => (await s.conflicts.openConflicts()).filter((c) => c.rowId === id);
+  const tombstone = (s: S, seq: number) =>
+    change({ rowVersion: 2, serverSeq: seq, deletedAt: "2026-01-01T00:00:00Z", row: { ...s.base, row_version: 2, server_seq: seq, deleted_at: "2026-01-01T00:00:00Z" } });
+  /** Deleted elsewhere while edited here. */
+  async function deletedRemote(id: string, seq: number) {
+    const s = await setup(id);
+    await s.db.sql("update projects set name = 'Mine' where id = $1", [id]);
+    await s.db.sql("delete from sync_outbox where row_id = $1", [id]);
+    await s.outbox.append({ table: "projects", rowId: id, op: "update", payload: { ...s.base, name: "Mine" }, baseVersion: 1 });
+    await pull(s, tombstone(s, seq));
+    return s;
+  }
+  /** Deleted here while edited elsewhere. */
+  async function deletedLocal(id: string, seq: number) {
+    const s = await setup(id);
+    await s.db.sql("delete from projects where id = $1", [id]);
+    await s.db.sql("delete from sync_outbox where row_id = $1", [id]);
+    await s.outbox.append({ table: "projects", rowId: id, op: "delete", baseVersion: 1 });
+    await pull(s, change({ rowVersion: 4, serverSeq: seq, row: { ...s.base, name: "Theirs", row_version: 4, server_seq: seq } }));
+    return s;
+  }
+
+  it("keeps mine: the row stays and goes up whole as an insert", async () => {
+    const id = "00000000-0000-4000-8000-00000000a101";
+    const s = await deletedRemote(id, 8001);
+    const [c] = await open(s, id);
+
+    await s.conflicts.resolveDeletion(c!.id, "keep");
+
+    assert.equal((await s.db.sql<{ name: string }>("select name from projects where id = $1", [id]))[0]?.name, "Mine");
+    const ops = await s.outbox.forRow("projects", id);
+    assert.deepEqual(ops.map((o) => o.op), ["insert"]);
+    assert.equal(ops[0]!.payload.name, "Mine");
+    assert.deepEqual(await open(s, id), []);
+  });
+
+  it("accepts the delete elsewhere: the row and its children go, nothing is queued", async () => {
+    const id = "00000000-0000-4000-8000-00000000a102";
+    const s = await deletedRemote(id, 8002);
+    const paper = randomUUID();
+    await s.db.sql("insert into papers (id, user_id, project_id, title, authors) values ($1, $2, $3, 'child', '{}')", [paper, s.user, id]);
+    await s.db.sql("delete from sync_outbox where row_id = $1", [paper]);
+    await s.outbox.append({ table: "papers", rowId: paper, op: "update", payload: { id: paper, title: "child" }, baseVersion: 1 });
+    const [c] = await open(s, id);
+
+    await s.conflicts.resolveDeletion(c!.id, "delete");
+
+    assert.equal((await s.db.sql("select 1 from projects where id = $1", [id])).length, 0);
+    assert.equal((await s.db.sql("select 1 from papers where id = $1", [paper])).length, 0);
+    assert.equal((await s.db.sql("select 1 from sync_outbox where row_id in ($1, $2)", [id, paper])).length, 0);
+    assert.deepEqual(await open(s, id), []);
+  });
+
+  it("keeps my delete: sent against the version the server holds", async () => {
+    const id = "00000000-0000-4000-8000-00000000a103";
+    const s = await deletedLocal(id, 8003);
+    const [c] = await open(s, id);
+
+    await s.conflicts.resolveDeletion(c!.id, "delete");
+
+    const ops = await s.outbox.forRow("projects", id);
+    assert.deepEqual(ops.map((o) => [o.op, o.baseVersion]), [["delete", 4]]);
+    assert.equal((await s.db.sql("select 1 from projects where id = $1", [id])).length, 0);
+    assert.deepEqual(await open(s, id), []);
+  });
+
+  it("restores the cloud copy: the row comes back as the server has it, nothing queued", async () => {
+    const id = "00000000-0000-4000-8000-00000000a104";
+    const s = await deletedLocal(id, 8004);
+    const [c] = await open(s, id);
+
+    await s.conflicts.resolveDeletion(c!.id, "keep");
+
+    assert.equal((await s.db.sql<{ name: string }>("select name from projects where id = $1", [id]))[0]?.name, "Theirs");
+    assert.deepEqual(await s.outbox.forRow("projects", id), []);
+    assert.deepEqual(await open(s, id), []);
+  });
+
+  it("keeps a later cloud edit as the copy to restore while the reader decides", async () => {
+    const id = "00000000-0000-4000-8000-00000000a105";
+    const s = await deletedLocal(id, 8005);
+
+    await pull(s, change({ rowVersion: 5, serverSeq: 8006, row: { ...s.base, name: "Theirs again", row_version: 5, server_seq: 8006 } }));
+
+    const [c] = await open(s, id);
+    assert.equal(c!.kind, "deleted_local");
+    assert.equal(c!.serverVersion, 5);
+    assert.equal((c!.remote as Record<string, unknown>).name, "Theirs again");
+    assert.equal((await s.db.sql("select 1 from projects where id = $1", [id])).length, 0);
+  });
+
+  it("asks before removing a parent that an owed child edit points at", async () => {
+    const id = "00000000-0000-4000-8000-00000000a106";
+    const s = await setup(id);
+    const paper = randomUUID();
+    await s.db.sql("insert into papers (id, user_id, project_id, title, authors) values ($1, $2, $3, 'new', '{}')", [paper, s.user, id]);
+    await s.db.sql("delete from sync_outbox where row_id = $1", [paper]);
+    await s.outbox.append({ table: "papers", rowId: paper, op: "insert", payload: { id: paper, project_id: id, title: "new" } });
+
+    await pull(s, tombstone(s, 8007));
+
+    assert.equal((await s.db.sql("select 1 from papers where id = $1", [paper])).length, 1);
+    const [c] = await open(s, id);
+    assert.equal(c!.kind, "deleted_remote");
+    assert.equal((await s.outbox.forRow("papers", paper)).length, 1);
+  });
+
+  it("asks nothing when both sides deleted the row", async () => {
+    const id = "00000000-0000-4000-8000-00000000a107";
+    const s = await setup(id);
+    await s.db.sql("delete from projects where id = $1", [id]);
+    await s.db.sql("delete from sync_outbox where row_id = $1", [id]);
+    await s.outbox.append({ table: "projects", rowId: id, op: "delete", baseVersion: 1 });
+
+    await pull(s, tombstone(s, 8008));
+
+    assert.deepEqual(await open(s, id), []);
+    assert.deepEqual(await s.outbox.forRow("projects", id), []);
+  });
+
+  it("removes a row deleted elsewhere when nothing here is owed for it", async () => {
+    const id = "00000000-0000-4000-8000-00000000a108";
+    const s = await setup(id);
+
+    await pull(s, tombstone(s, 8009));
+
+    assert.equal((await s.db.sql("select 1 from projects where id = $1", [id])).length, 0);
+    assert.deepEqual(await open(s, id), []);
+  });
+
+  it("settles both kinds from one bulk pick: mine keeps what this device did", async () => {
+    const remoteId = "00000000-0000-4000-8000-00000000a109";
+    const localId = "00000000-0000-4000-8000-00000000a110";
+    const r = await deletedRemote(remoteId, 8010);
+    const l = await deletedLocal(localId, 8011);
+
+    for (const c of [...(await open(r, remoteId)), ...(await open(l, localId))]) {
+      assert.notEqual(c.kind, "edit");
+      await r.conflicts.resolveDeletion(c.id, deletionFor(c.kind as "deleted_remote" | "deleted_local", "local"));
+    }
+
+    assert.equal((await r.db.sql<{ name: string }>("select name from projects where id = $1", [remoteId]))[0]?.name, "Mine");
+    assert.deepEqual((await r.outbox.forRow("projects", remoteId)).map((o) => o.op), ["insert"]);
+    assert.equal((await l.db.sql("select 1 from projects where id = $1", [localId])).length, 0);
+    assert.deepEqual((await l.outbox.forRow("projects", localId)).map((o) => o.op), ["delete"]);
+  });
+
+  it("maps a bulk pick to each delete kind", () => {
+    assert.equal(deletionFor("deleted_remote", "local"), "keep");
+    assert.equal(deletionFor("deleted_remote", "remote"), "delete");
+    assert.equal(deletionFor("deleted_local", "local"), "delete");
+    assert.equal(deletionFor("deleted_local", "remote"), "keep");
   });
 });

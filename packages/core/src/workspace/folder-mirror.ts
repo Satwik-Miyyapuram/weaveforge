@@ -62,6 +62,12 @@ export interface MirrorResult {
  * left alone. Deleting unrecognised files in a folder the user can see would
  * be an unpleasant surprise the first time it happened.
  */
+/** README and manifest with their export time blanked; a new time alone is not a change worth a commit. */
+function unstamped(path: string, text: string): string {
+  if (path !== "README.md" && !path.endsWith("/manifest.json")) return text;
+  return text.replace(/^Exported .*\.$/m, "Exported").replace(/^(\s*"generatedAt": )".*"/m, "$1");
+}
+
 export async function mirrorWorkspace(
   snapshot: WorkspaceSnapshot,
   fs: IWorkspaceFs,
@@ -119,7 +125,8 @@ export async function mirrorWorkspace(
     const existing = await fs.stat(path).catch(() => null);
     if (existing) {
       const current = await fs.readText(path).catch(() => null);
-      if (current === content) {
+      if (current !== null && (current === content || unstamped(path, current) === unstamped(path, content))) {
+        mirrored[path] = digestText(current);
         unchanged += 1;
         continue;
       }

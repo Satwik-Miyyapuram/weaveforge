@@ -2,7 +2,7 @@ import type { WorkspaceCommit } from "@weaveforge/core";
 
 import type { IpcResult, VaultEntryPayload, VaultRootPayload } from "./channels";
 import { NodeWorkspaceFs, verifyRoot, workspaceRootFor } from "./vault-folder";
-import { commitVault } from "./vault-git";
+import { commitVault, vaultLog } from "./vault-git";
 
 /**
  * What the workspace-folder channels do, with no Electron in sight.
@@ -283,6 +283,16 @@ export async function commitVaultFolder(
     ok: true,
     value: { commit: result.committed, ...(result.reason ? { reason: result.reason } : {}) },
   };
+}
+
+/** The chosen folder's commits, newest first; empty when it has no history of its own. */
+export async function logVaultFolder(
+  session: VaultSession,
+  limit: unknown,
+): Promise<IpcResult<readonly WorkspaceCommit[]>> {
+  if (!session.root) return { ok: false, message: NO_ROOT };
+  const n = typeof limit === "number" && Number.isInteger(limit) && limit > 0 ? Math.min(limit, 200) : 20;
+  return { ok: true, value: await vaultLog(session.root.path, n) };
 }
 
 function messageOf(error: unknown): string {

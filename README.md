@@ -153,7 +153,8 @@ index, and `docs/internal/` holds the working notes that are not a manual.
 | [`docs/using/search.md`](docs/using/search.md) | One search box over papers, notes, experiments, PDF text and annotations |
 | [`docs/using/paste.md`](docs/using/paste.md) | What happens to text pasted from a PDF, terminal, spreadsheet, or chat |
 | [`docs/using/collaborative-editing.md`](docs/using/collaborative-editing.md) | Two people in one note, live cursors, no overwrite prompt |
-| [`docs/using/desktop.md`](docs/using/desktop.md) | The desktop app — same account, own window |
+| [`docs/using/desktop.md`](docs/using/desktop.md) | The desktop & mobile apps — Windows, Mac, Android install & offline mode |
+| [`docs/using/workspaces.md`](docs/using/workspaces.md) | Projects & workspaces — project boundaries, switching, multi-pane editor |
 | [`docs/using/workspace-folder.md`](docs/using/workspace-folder.md) | A folder of plain Markdown that mirrors your workspace, and reads your edits back |
 | [`python/README.md`](python/README.md) | Python SDK — push ML runs into the same dashboard |
 | [`docs/building/mcp.md`](docs/building/mcp.md) | MCP relay for driving WeaveForge from an AI assistant |

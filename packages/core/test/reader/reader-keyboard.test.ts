@@ -11,6 +11,15 @@ test("readerKeyboardCommand maps zoom and rotate keys", () => {
   assert.deepEqual(readerKeyboardCommand({ key: "-" }), { type: "zoom_out" });
   assert.deepEqual(readerKeyboardCommand({ key: "r" }), { type: "rotate" });
   assert.deepEqual(readerKeyboardCommand({ key: "0", ctrlKey: true }), { type: "fit_width" });
+  assert.deepEqual(readerKeyboardCommand({ key: "+", ctrlKey: true }), { type: "zoom_in" });
+  assert.deepEqual(readerKeyboardCommand({ key: "=", ctrlKey: true }), { type: "zoom_in" });
+  assert.deepEqual(readerKeyboardCommand({ key: "-", ctrlKey: true }), { type: "zoom_out" });
+  assert.deepEqual(readerKeyboardCommand({ key: "Add" }), { type: "zoom_in" });
+  assert.deepEqual(readerKeyboardCommand({ key: "Subtract" }), { type: "zoom_out" });
+  assert.deepEqual(readerKeyboardCommand({ key: "=", code: "Equal", ctrlKey: true }), { type: "zoom_in" });
+  assert.deepEqual(readerKeyboardCommand({ key: "-", code: "Minus", ctrlKey: true }), { type: "zoom_out" });
+  assert.deepEqual(readerKeyboardCommand({ key: "0", code: "Digit0", ctrlKey: true }), { type: "fit_width" });
+  assert.deepEqual(readerKeyboardCommand({ key: "0", code: "Numpad0", metaKey: true }), { type: "fit_width" });
 });
 
 test("readerKeyboardCommand maps page navigation", () => {

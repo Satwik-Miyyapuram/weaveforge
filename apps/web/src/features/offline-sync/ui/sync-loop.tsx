@@ -161,7 +161,7 @@ export function SyncLoop() {
       const updateConflicts = async () => {
         const open = await conflictStore.openConflicts().catch(() => []);
         // Only rows the puller has compared need a person; the rest settle themselves.
-        setLiveSyncState({ conflictsCount: open.filter((c) => c.fields.length > 0).length });
+        setLiveSyncState({ conflictsCount: open.filter((c) => c.kind !== "edit" || c.fields.length > 0).length });
       };
 
       const engine = syncEngine(liveAccessToken(client));

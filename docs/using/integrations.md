@@ -1,523 +1,257 @@
-# Web integrations & plugins
+# Integrations
 
-WeaveForge wires third-party services through a **plugin-style integration layer** at the composition root. Feature code and UI depend on **ports** (interfaces in `@weaveforge/core`) and **facades** — never on Zotero, GitLab, Mattermost, or Semantic Scholar directly.
+WeaveForge connects with your existing research tools — reference managers,
+code repositories, writing platforms, lab messaging, citation catalogs, and
+AI assistants.
 
-Swapping a provider (e.g. Zotero → Mendeley) means: implement the port, add a manifest under `integrations/manifests/`, wire via `wire-integrations.ts`, set an env var. No edits to papers/plan/logbook screens.
+Credentials and connections in WeaveForge belong to two distinct scopes:
 
-> **Manifests:** built-in providers declare themselves under `integrations/manifests/` and reach the app through the generated `deployment/generated-registry.ts` (`npm run generate:deployment`). `descriptors-resolve.ts` aggregates Settings UI metadata from those manifests.
-
-> **Not the Python SDK.** `python/weaveforge/integrations/` is a separate extension system for experiment-tracking callbacks (TensorBoard, wandb, Keras). See [CONTRIBUTING.md § Python SDK](../CONTRIBUTING.md#adding-a-sync-source-the-extension-point).
->
-> **Broader extension map:** [`extensions.md`](extensions.md)
-
----
-
-## Architecture at a glance
-
-```
-packages/core/                         apps/web/src/
-├── integration-ports.ts             ├── integrations/
-│   IBibliographyIntegration           │   config.ts          ← env provider selection
-│   INotificationIntegration         │   wire-integrations.ts
-│   ILogSyncIntegration              │   wire-citations.ts
-├── citation-source.ts (ICitationSource)│   descriptors-resolve.ts ← Settings UI metadata
-├── metadata-source.ts (IMetadataSource)│   credentials.ts
-└── user-integration-credentials.ts  │   providers/<name>/   ← concrete adapters
-                                     ├── bootstrap.ts        ← composition root
-                                     └── container/facades/   ← UI entry points
-```
-
-### Two credential scopes
-
-| Scope | Storage | Examples |
-|-------|---------|----------|
-| **User** | `user_settings` (`integrations` JSON bag + legacy columns) | Zotero API key, Semantic Scholar key |
-| **Project** | `project_integrations` table | GitHub/GitLab tokens, Mattermost bot + channel |
-
-User credentials are edited in **Settings → Integrations**. Project connectors are edited in **Settings → Connections** (per active project).
-
-### Zotero + writing surfaces
-
-- Bibliography sync pulls library items and PDF annotations.
-- Annotations upsert vault excerpt notes under `Excerpts/` (`sync-annotation-excerpts.ts`); optional `page` + `report_section_id` frontmatter.
-- Overleaf export maps `[[Paper Title]]` → `\cite{key}` (`markdown-to-latex` + `build-overleaf-export`). Prefer `metadata.citeKey` / bibtex key when set.
-- **Find related papers** (paper note) calls Semantic Scholar recommendations / references; adds via `addPaper.addManual`. User guide: [`citations-and-overleaf.md`](citations-and-overleaf.md).
-
-#### Two rules the Zotero reads depend on
-
-Both were bugs. Neither is obvious from the endpoint names.
-
-**Read `/items/top`, never `/items`.** `/items` returns attachments, child notes
-and annotations alongside bibliography entries, and a Zotero PDF attachment is
-*titled* — "Preprint PDF", "Full Text PDF", "Snapshot". Anything that filters on
-"has a title" imports them as papers. They also duplicate their own parent
-rather than merging with it, because an attachment's URL yields a **versioned**
-arXiv id (`2308.01542v1`) where the paper carries the base id (`2308.01542`), so
-the two never match. On one real library this was 37 of 115 papers. Use
-`zoteroTopLevelPath(collection)`; `scripts/prune-zotero-attachment-papers.mjs`
-cleans up rows already written.
-
-**Page reads in parallel, from `Total-Results`.** Zotero returns the match count
-on the first page, so the remaining offsets are known immediately and are
-fetched four at a time by `fetchAllZoteroItems`; annotations, attachments and
-notes are three independent reads and go out together. Walking them serially
-made a sync take tens of seconds. Two traps: `headers.get` returns `null` when
-the header is absent and `Number(null)` is `0` — which is *finite*, so a naive
-read stops after one page and silently loses everything past the first hundred;
-and `Backoff`/`Retry-After` must pause **every** in-flight request, not just the
-one that carried the header.
-
-#### The Zotero on this computer (desktop only)
-
-Zotero 7 serves a read-only copy of the Web API on `http://127.0.0.1:23119/api`
-as library `users/0`, with no key and no account. "Read Zotero on this
-computer", in the papers screen's add menu, imports papers and then their
-annotations through it — a copy with no account has no other way to fill its
-shelf.
-
-Everything below the origin is the cloud path reused: `zoteroLibraryUrl` already
-took an `apiOrigin`, so `fetchAllZoteroItems`, the attachment-to-paper join and
-the annotation parser are unchanged (`zotero-local.ts`).
-
-Two things are specific to it:
-
-- **The shell makes the request.** A plain-HTTP loopback request from an
-  `app://` or `https://` document is blocked as mixed content, so it goes over
-  the `weaveforge:zotero-local` channel. That channel is a proxy with one
-  destination, not a fetch: `apps/desktop/src/zotero-local.ts` refuses any URL
-  that is not Zotero's own local API, refuses redirects, sends no credentials
-  and returns only the headers the pager reads. A general fetch channel
-  reachable from the renderer would forward requests to anything the machine
-  can reach.
-- **Nothing is written back and nothing is removed.** The read is
-  `ZoteroSync.pull()` alone: items not yet in the library become papers, and
-  annotations are matched on the `zoteroKey` those papers carry. There is no
-  push (the local API answers reads only) and no delete-propagation (the local
-  library may be a subset of the cloud one). Annotations still go *out* via
-  `ZoteroApiAnnotationWriteBack`, which needs an API key because it goes
-  through `api.zotero.org`.
-
-### Runtime flow
-
-1. **`readIntegrationConfig()`** reads `NEXT_PUBLIC_*` env vars (deployment-time plugin selection).
-2. **`wireIntegrations()`** / **`wireCitationSources()`** construct concrete adapters (or noops).
-3. **`bootstrap.ts`** injects ports into use-cases and exposes them via **facades** (`getContainer().papers.syncBibliography()`, etc.).
-4. **`descriptors-resolve.ts`** drives Settings UI; entries are **gated** so disabled providers never appear.
-
-UI components must use facades only — `npm run check:solid` blocks `getContainer().*Repository` in `features/**/ui/**`.
+- **Personal credentials** (**Settings → Integrations**): Your individual API keys
+  (e.g., Zotero API key, Semantic Scholar key). These are associated with your user
+  account and shared across all your projects.
+- **Project connectors** (**Settings → Connections**): Repository links, Overleaf
+  sync, and notification channels tied to the active project. Switching projects
+  automatically switches the active connectors.
 
 ---
 
-## Integration kinds
+## 1. Zotero
 
-| Kind | Core port | Wire function | User vs project creds | Env var |
-|------|-----------|---------------|-------------------------|---------|
-| **Bibliography** | `IBibliographyIntegration`, `IProjectBibliographyCollectionStore` | `wireIntegrations()` | User + per-project collection | `NEXT_PUBLIC_BIBLIOGRAPHY_PROVIDER` |
-| **Citation** | `ICitationSource` | `wireCitationSources()` | User (optional API key) | `NEXT_PUBLIC_CITATION_PROVIDER` |
-| **Notification** | `INotificationIntegration` | `wireIntegrations()` | Project | `NEXT_PUBLIC_NOTIFICATION_PROVIDER` |
-| **Log sync** | `ILogSyncIntegration` | `wireIntegrations()` | Project | `NEXT_PUBLIC_LOG_SYNC_PROVIDER` |
-| **Git read** | `IGitClient` + `IIntegrationsStore` | `wireGitRead()` in `wire-integrations.ts` | Project | `NEXT_PUBLIC_GIT_READ_PROVIDERS` |
+WeaveForge integrates with Zotero in two ways: via cloud API sync (available in both
+the browser and desktop) and direct local loopback to Zotero 7 (desktop only).
 
-**Metadata import** (arXiv, Crossref, URL, Zotero-by-key) uses a separate `IMetadataSource` list in `MetadataResolver`. Bibliography providers may register an extra metadata source (Zotero does).
+### Cloud Sync (Browser & Desktop)
+
+1. **Obtain your credentials**:
+   - Log into [zotero.org/settings/keys](https://www.zotero.org/settings/keys).
+   - Click **Create new private key**. Give it a label (e.g. `WeaveForge`), check
+     **Allow library access**, and click **Save Key**.
+   - Note your **API Key** (shown once) and your numeric **User ID** (displayed at
+     the top of the API keys page: *"Your userID for use in API calls is 1234567"*).
+2. **Configure in WeaveForge**:
+   - Go to **Settings → Integrations**.
+   - Under **Zotero**, enter your **User ID** and **API Key**, then click **Save**.
+3. **Select a Collection (Optional)**:
+   - In **Settings → Connections**, choose which Zotero collection to mirror for the
+     current project, or leave it blank to sync your entire library.
+4. **Syncing your library**:
+   - In the **Papers** screen, click **Sync bibliography**.
+   - Items in your collection are imported into your library with metadata, DOIs,
+     arXiv IDs, and PDF attachments.
+   - Highlights and notes made in Zotero's PDF reader automatically import as
+     markdown notes in your **Vault** under `Excerpts/`, complete with page numbers
+     and links back to the source paper.
+
+### Local Zotero on Desktop (No Account / Key Needed)
+
+If you have Zotero 7 running on the same PC or Mac, WeaveForge Desktop can read from
+it directly without needing an API key:
+
+- Open the **Papers** screen.
+- Click **+ Add Paper → Read Zotero on this computer**.
+- WeaveForge connects to Zotero's local loopback API (`http://127.0.0.1:23119`)
+  through the desktop shell.
+- Your local papers and annotations are imported instantly without needing an
+  Internet connection or an API key.
+
+### Two-Way Annotation Write-Back
+
+When an API key is configured, annotations and notes created in WeaveForge's PDF reader
+can write back to your Zotero cloud library, keeping both libraries synchronized.
 
 ---
 
-## Deployment configuration
+## 2. GitHub & GitLab
 
-Add to `apps/web/.env.local` (all optional — defaults match the stock deployment):
+Connect code repositories to your thesis or research project to browse source
+trees, inspect commits, and pin code revisions directly to experiment runs.
 
-```ini
-# Bibliography / reference manager (default: zotero)
-NEXT_PUBLIC_BIBLIOGRAPHY_PROVIDER=zotero          # zotero | none
+### Setting Up Authentication
 
-# Plan milestone notifications (default: mattermost)
-NEXT_PUBLIC_NOTIFICATION_PROVIDER=mattermost      # mattermost | none
+1. **Generate an access token**:
+   - **GitHub**: Go to **GitHub Settings → Developer settings → Personal access tokens**.
+     Create a token with `repo` scope (or fine-grained with read access to your repository).
+   - **GitLab**: Go to **GitLab Preferences → Access Tokens**. Create a token with
+     `read_repository` scope.
+2. **Connect your project**:
+   - Open **Settings → Connections** in WeaveForge.
+   - Under **GitHub** or **GitLab**, paste your **API Token**.
+   - Specify the repository path (`owner/repository`, e.g. `octocat/thesis-experiments`).
+   - Specify the default branch (`main` or `master`), then save.
 
-# Logbook push to git (default: gitlab)
-NEXT_PUBLIC_LOG_SYNC_PROVIDER=gitlab              # gitlab | none
+### Using the Git Tab
 
-# Citation auto-linking (default: semantic-scholar)
-NEXT_PUBLIC_CITATION_PROVIDER=semantic-scholar    # semantic-scholar | none
+Once connected, the **Git** item appears in the main navigation bar:
 
-# Git tab: which hosts to offer (default: github,gitlab)
-NEXT_PUBLIC_GIT_READ_PROVIDERS=github,gitlab      # comma-separated | none
-```
+- **Branch switching**: Inspect any branch in the repository without leaving WeaveForge.
+- **Commit history**: Browse chronological commits with authors, timestamps, and commit messages.
+- **Diff viewer**: Click any commit to view changed files and side-by-side or inline diffs.
 
-- Set a provider to `none` to disable that port (noop adapter + hidden Settings rows).
-- Set `NEXT_PUBLIC_GIT_READ_PROVIDERS=none` to hide the **Git** nav tab entirely.
-- User/project tokens are **never** in env — they are entered in-app (RLS-isolated).
+### Pinning Commits to Experiments
+
+In the **Git** tab, click **Track as experiment** on any commit. WeaveForge creates
+a linked experiment run tagged with the commit SHA. When you run training scripts using
+the Python SDK (`@track_experiment`), curves and artifacts are pinned to this commit.
 
 ---
 
-## Adding a bibliography provider
+## 3. Overleaf & LaTeX
 
-Example: Mendeley as a Zotero replacement.
+WeaveForge bridges Markdown research notes with formal LaTeX manuscripts in Overleaf.
 
-### 1. Implement the port
+### Connecting Overleaf
 
-Create `apps/web/src/integrations/providers/mendeley/bibliography-integration.ts`:
+1. In **Settings → Connections** (or in **Report → Overleaf**), provide your Overleaf
+   Git URL and token (found in Overleaf under **Menu → Git**).
+2. WeaveForge clones the project via the Overleaf Git bridge (or through this computer's
+   keychain in desktop offline mode).
 
-```ts
-import type { IBibliographyIntegration, Paper } from "@weaveforge/core";
+### Two-Way Sync
 
-export class MendeleyBibliographyIntegration implements IBibliographyIntegration {
-  readonly providerId = "mendeley";
-  // syncLibrary, pullAnnotations, pushPaper, removeRemotePaper, listCollections
-}
-```
+- **Drafting in WeaveForge**: Write sections in Markdown using the distraction-free
+  editor. WeaveForge compiles your Markdown into `.tex` sections and commits them
+  directly into the Overleaf project repository.
+- **Wikilink to `\cite` Resolution**: Any `[[Paper Title]]` reference in your text
+  is automatically resolved into `\cite{citeKey}` in the generated LaTeX.
+- **Automatic `.bib` Generation**: WeaveForge gathers all cited papers across your
+  report and generates a synchronized `.bib` file for your Overleaf compiler.
 
-If the provider supports import-by-ref, also implement `IMetadataSource` (see Zotero's `zotero-metadata-source.ts`).
+For full details on excerpts, citation keys, and Overleaf sync, see
+[`citations-and-overleaf.md`](citations-and-overleaf.md).
 
-### 2. Wire helper
+---
 
-Create `wire-mendeley-bibliography.ts` assembling sync/export/annotation sub-adapters (mirror `providers/zotero/wire-zotero-bibliography.ts`).
+## 4. Mattermost (Team & Deadline Notifications)
 
-Use `createCredentialReader(manageSettings)` for API keys — never read Supabase from the adapter.
+Post updates, deadline alerts, and experiment notifications to your lab or personal
+Mattermost channels.
 
-### 3. Register in config
+### Configuration
 
-In `integrations/config.ts`:
+1. In Mattermost, go to **Integrations → Incoming Webhooks** → **Add Incoming Webhook**.
+2. Select your target channel (e.g. `#thesis-updates`) and copy the generated Webhook URL.
+3. In WeaveForge, open **Settings → Connections**, select **Mattermost**, and paste the
+   **Webhook URL** and **Channel Name**.
 
-```ts
-export type BibliographyProviderId = "zotero" | "mendeley" | "none";
-// add "mendeley" to PROVIDERS.bibliography
-```
+### Automated Notifications
 
-### 4. Switch case
+- **Milestone Deadlines**: WeaveForge checks your **Plan** milestones and posts alerts
+  7 days, 3 days, and 1 day prior to upcoming due dates.
+- **Milestone Completion**: When you mark a milestone complete in WeaveForge, an
+  announcement is posted with progress statistics.
+- **Experiment Runs**: Training script failures or completions logged via the Python SDK
+  can optionally trigger a channel alert.
 
-In `integrations/wire-integrations.ts`:
+---
 
-```ts
-case "mendeley": {
-  const mendeley = wireMendeleyBibliography(deps);
-  bibliography = mendeley.integration;
-  bibliographyMetadataSource = mendeley.metadataSource;
-  projectBibliographyCollection = mendeley.projectCollection;
-  break;
-}
-```
+## 5. Semantic Scholar
 
-### 5. Descriptor (Settings UI)
+Enrich your literature library with automated citation graphs and paper recommendations.
 
-Descriptors live on the manifest itself, not in a central list. In
-`integrations/manifests/mendeley.ts`, set `userDescriptor`:
+### Configuration
 
-```ts
+- Open **Settings → Integrations**.
+- Under **Semantic Scholar**, optionally enter your API key. (An API key is not required
+  for basic lookups, but provides higher rate limits for large libraries).
+
+### Features
+
+- **Automated Citation Graph**: In the **Graph** view, WeaveForge uses Semantic Scholar's
+  citation graph API to discover papers citing each other within your library and draws
+  directional citation edges.
+- **Find Related Papers**: Open any paper in your library and click **Find related papers**.
+  Semantic Scholar evaluates the paper's embedding and reference list to recommend 5–10
+  highly relevant preprints and publications, which you can add to your reading lists in one click.
+
+---
+
+## 6. AI Assistant & MCP (Model Context Protocol)
+
+WeaveForge exposes an MCP server (`plugins/weaveforge-research`) so external AI agents
+(such as Claude Desktop, Cursor, or Gemini CLI) can explore your research workspace and
+propose edits safely.
+
+### Connecting Claude Desktop or Cursor
+
+Add the WeaveForge MCP server to your AI client's configuration file (e.g. `claude_desktop_config.json`):
+
+```json
 {
-  providerId: "mendeley",
-  title: "Mendeley",
-  description: "Two-way paper sync",
-  color: "#a70805",
-  runtimeGate: { kind: "bibliography", providerId: "mendeley" },
-  fields: [
-    { id: "apiKey", label: "API key", type: "password" },
-    { id: "library", label: "Library id", type: "text" },
-  ],
-},
-```
-
-Field `id` values must match what `getUserIntegrationField(settings, "mendeley", fieldId)` expects.
-
-### 6. Legacy credential bridge (optional)
-
-If migrating from flat `user_settings` columns, extend `LEGACY_FIELD_MAP` in `packages/core/.../user-integration-credentials.ts`.
-
-### 7. API proxy (if needed)
-
-Browser CORS usually requires a server route, so create `apps/web/src/app/api/mendeley/route.ts` (mirror `api/zotero/route.ts`).
-
-### 8. Project collection store
-
-Implement `IProjectBibliographyCollectionStore` or return `NoopProjectBibliographyCollectionStore` if N/A.
-
-### 9. Deploy
-
-```ini
-NEXT_PUBLIC_BIBLIOGRAPHY_PROVIDER=mendeley
-```
-
-No facade or papers-screen changes required.
-
----
-
-## Adding a citation provider
-
-Example: OpenCitations.
-
-### 1. Implement `ICitationSource`
-
-```ts
-// features/relations/infrastructure/opencitations-citation-source.ts
-export class OpenCitationsCitationSource implements ICitationSource {
-  readonly id = "opencitations";
-  supports(ref: PaperRef): boolean { /* ... */ }
-  references(ref: PaperRef): Promise<PaperRef[]> { /* ... */ }
-}
-```
-
-### 2. Config + wire
-
-```ts
-// config.ts — add to CitationProviderId + PROVIDERS.citation
-// wire-citations.ts
-case "opencitations":
-  sources.push(new OpenCitationsCitationSource(() => readCred("opencitations", "apiKey")));
-  break;
-```
-
-`LinkCitationsUseCase` already accepts an array of sources — no use-case edits.
-
-### 3. Descriptor + credentials
-
-Add to `USER_INTEGRATION_DESCRIPTORS` with `runtimeGate: { kind: "citation", providerId: "opencitations" }`.
-
-### 4. Deploy
-
-```ini
-NEXT_PUBLIC_CITATION_PROVIDER=opencitations
-```
-
----
-
-## Adding a notification provider
-
-Example: Slack for milestone posts.
-
-### 1. Implement `INotificationIntegration`
-
-```ts
-export class SlackNotificationIntegration implements INotificationIntegration {
-  readonly providerId = "slack";
-  async notifyMilestone(event, milestone) {
-    const cfg = await this.integrations.get(this.projectId(), "slack");
+  "mcpServers": {
+    "weaveforge": {
+      "command": "node",
+      "args": ["<path-to-weaveforge>/plugins/weaveforge-research/dist/index.js"]
+    }
   }
 }
 ```
 
-Read project config via `IIntegrationsStore.get(projectId, "slack")`.
+### Available MCP Tools
 
-### 2. Low-level notifier + API route
+- **Read-only tools**:
+  - `search_workspace`: Search notes, papers, logs, and experiments.
+  - `get_source_excerpt`: Retrieve specific quotes and annotations from a paper.
+  - `get_workspace_outline`: Inspect your current report structure and plan milestones.
+- **Proposal tools**:
+  - `suggest_append_paper_note`: Suggest summary notes on a paper.
+  - `suggest_create_vault_note`: Propose a new synthesized vault note.
+  - `suggest_create_log_entry`: Propose a logbook entry for today.
+  - `suggest_milestone_follow_up`: Propose follow-up tasks for a milestone.
 
-Mirror `MattermostNotifier` + `app/api/mattermost/route.ts`.
+### Human-in-the-Loop Review (`/ai-review`)
 
-### 3. Config, wire, noop
+AI assistants cannot write directly to your database. Any modification suggested by an
+AI assistant is saved as an encrypted proposal in **`/ai-review`**. You can inspect the
+diff, make manual edits, and explicitly click **Accept** or **Reject**. See
+[`../building/mcp.md`](../building/mcp.md) for tool specifications.
 
-```ts
-// wire-integrations.ts
-case "slack":
-  notifications = new SlackNotificationIntegration({ ... });
-  break;
-```
+---
 
-`NoopNotificationIntegration` is used when env is `none`.
+## 7. Web Browser Capture & Paper Import
 
-### 4. Descriptor (project-scoped)
+Capture papers directly into WeaveForge while browsing arXiv, PubMed, IEEE Xplore,
+or university portals:
 
-Add to `PROJECT_SYNC_DESCRIPTORS`:
+- **Direct Import by URL or DOI**: In the WeaveForge **Papers** screen, click
+  **+ Add Paper** and paste any arXiv URL/ID, DOI, Semantic Scholar URL, or direct
+  PDF link. WeaveForge's metadata resolver automatically queries arXiv, Crossref,
+  and Semantic Scholar to extract the title, authors, venue, and abstract, and
+  fetches the PDF into your project library.
+- **Via Zotero Connector**: If you use the Zotero browser extension, saving a paper
+  into your synchronized Zotero collection brings it into WeaveForge with all
+  annotations and PDF attachments on your next sync.
 
-```ts
-{
-  provider: "slack",
-  title: "Slack — plan updates",
-  description: "Post when milestones change.",
-  repoLabel: "Webhook URL",      // reuse Integration.repo
-  branchLabel: "Channel",        // reuse Integration.branch
-  tokenPlaceholder: "xoxb-…",
-  runtimeGate: { kind: "notifications", providerId: "slack" },
-  // ...
-},
-```
+---
 
-### 5. Schema + types
+## Developer Architecture & Adding Providers
 
-- Extend `SyncProvider` in `features/sync/domain/integration.ts`.
-- Migration: add `"slack"` to `project_integrations.provider` check constraint.
+WeaveForge wires third-party services through a **plugin-style integration layer** at
+the composition root. Feature code and UI depend on **ports** (interfaces in `@weaveforge/core`)
+and **facades** — never on concrete SDKs directly.
 
-### 6. Deploy
+### Ports and Integration Kinds
+
+| Kind | Core port | Wire function | Credential scope | Env variable |
+|------|-----------|---------------|------------------|--------------|
+| **Bibliography** | `IBibliographyIntegration` | `wireIntegrations()` | User + project collection | `NEXT_PUBLIC_BIBLIOGRAPHY_PROVIDER` |
+| **Citation** | `ICitationSource` | `wireCitationSources()` | User (optional key) | `NEXT_PUBLIC_CITATION_PROVIDER` |
+| **Notification** | `INotificationIntegration` | `wireIntegrations()` | Project connector | `NEXT_PUBLIC_NOTIFICATION_PROVIDER` |
+| **Log sync** | `ILogSyncIntegration` | `wireIntegrations()` | Project connector | `NEXT_PUBLIC_LOG_SYNC_PROVIDER` |
+| **Git read** | `IGitClient` | `wireGitRead()` in `wire-integrations.ts` | Project connector | `NEXT_PUBLIC_GIT_READ_PROVIDERS` |
+
+### Deployment Configuration (`.env.local`)
 
 ```ini
-NEXT_PUBLIC_NOTIFICATION_PROVIDER=slack
+NEXT_PUBLIC_BIBLIOGRAPHY_PROVIDER=zotero          # zotero | none
+NEXT_PUBLIC_NOTIFICATION_PROVIDER=mattermost      # mattermost | none
+NEXT_PUBLIC_LOG_SYNC_PROVIDER=gitlab              # gitlab | none
+NEXT_PUBLIC_CITATION_PROVIDER=semantic-scholar    # semantic-scholar | none
+NEXT_PUBLIC_GIT_READ_PROVIDERS=github,gitlab      # comma-separated | none
 ```
 
-`PlanFacade.notifyMilestone()` already delegates to the wired port.
+- Set a provider to `none` to disable that port (noop adapter + hidden Settings rows).
+- User and project tokens are **never** in environment variables; they are stored in the
+  database (or local keychain) with RLS isolation.
 
----
-
-## Adding a log-sync provider
-
-Example: push logbook entries to a GitHub repo.
-
-### 1. Implement `ILogSyncIntegration`
-
-```ts
-export class GitHubLogSyncIntegration implements ILogSyncIntegration {
-  readonly providerId = "github-log"; // distinct from git-read "github"
-  async pushLog(entry) { /* ... */ }
-  async removeLog(entry) { /* ... */ }
-}
-```
-
-### 2. Exporter + API route
-
-Mirror `GitLabLogExporter` + `app/api/gitlab/route.ts`.
-
-### 3. Config, wire, descriptor
-
-Same pattern as notification; `runtimeGate: { kind: "logSync", providerId: "..." }`.
-
-### 4. Deploy
-
-```ini
-NEXT_PUBLIC_LOG_SYNC_PROVIDER=github-log
-```
-
----
-
-## Adding a git-read provider
-
-Git read is wired via `wireGitRead()` inside `wire-integrations.ts` (same registry as bibliography/notifications/logSync).
-
-### 1. Extend config
-
-```ts
-export type GitReadProviderId = "github" | "gitlab" | "bitbucket";
-```
-
-### 2. Extend `SyncProvider` + DB constraint
-
-### 3. Update `GitClient`
-
-Add host mapping and proxy path in `features/sync/infrastructure/git-client.ts`.
-
-### 4. API proxy
-
-`app/api/bitbucket/route.ts`
-
-### 5. Descriptor
-
-```ts
-runtimeGate: { kind: "gitRead", providerId: "bitbucket" }
-```
-
-### 6. Git screen
-
-`git-screen.tsx` reads `getContainer().integrationConfig.gitRead` — no hardcoded provider list.
-
-### 7. Deploy
-
-```ini
-NEXT_PUBLIC_GIT_READ_PROVIDERS=github,bitbucket
-```
-
-`SyncFacade.git` receives `registry.gitRead` from `wireIntegrations()` — not from `bootstrap.ts` directly.
-
-### GitLab: two ports, one credential row
-
-GitLab can power **git read** (Git tab) and **log sync** (logbook push) at once. Both use the same `project_integrations` row (`provider = "gitlab"`). When both ports are enabled in env, Settings shows one merged descriptor (`gitlab-combined`). When only one is enabled, you get `gitlab-git-read` or `gitlab-log-sync`.
-
-### Project connector field mapping
-
-`Integration` stores `token`, `repo`, and `branch` for all providers. Use `features/sync/domain/integration-fields.ts` in infrastructure:
-
-| Provider | `token` | `repo` | `branch` |
-|----------|---------|--------|----------|
-| GitHub / GitLab | API token | repo path | branch |
-| Mattermost | bot token | server URL | channel id |
-
-Descriptors map UI labels via `fields[].key`. Do not read `.repo` / `.branch` with implicit meaning in adapters.
-
----
-
-## Adding a metadata source (paper import)
-
-Metadata sources are **not** env-selected individually — they are always registered in `bootstrap.ts`:
-
-```ts
-const metadataResolver = new MetadataResolver([
-  new ArxivMetadataSource(),
-  new CrossrefMetadataSource(),
-  new UrlMetadataSource(),
-  // bibliography provider may add: wiredIntegrations.bibliographyMetadataSource
-]);
-```
-
-To add a new import resolver:
-
-1. Implement `IMetadataSource` (`id`, `supports`, `fetch`).
-2. Register in `bootstrap.ts` (or return from a bibliography wire helper).
-3. No Settings descriptor needed unless the source requires a user API key — then give the manifest a `userDescriptor` gated on a new `runtimeGate` kind (extend `descriptors-resolve.ts` if needed).
-
----
-
-## File checklist (quick reference)
-
-| Step | Bibliography | Citation | Notification | Log sync | Git read |
-|------|:---:|:---:|:---:|:---:|:---:|
-| Core port | ✓ (exists) | ✓ (exists) | ✓ (exists) | ✓ (exists) | `IGitClient` |
-| Provider class | ✓ | ✓ | ✓ | ✓ | `GitClient` |
-| `config.ts` id | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Wire switch | `wire-integrations` | `wire-citations` | `wire-integrations` | `wire-integrations` | `wire-integrations` (`wireGitRead`) |
-| Descriptor | user | user | project | project | project |
-| API route | often | often | often | often | often |
-| DB migration | maybe | — | ✓ | ✓ | ✓ |
-| Env var | ✓ | ✓ | ✓ | ✓ | ✓ |
-
----
-
-## Testing
-
-- **Config parsing:** `apps/web/src/integrations/test/read-integration-config.test.ts`
-- **Credential helpers:** `packages/core/test/features/settings/user-integration-credentials.test.ts`
-- **Contract tests:** implement in-memory fakes for new ports if logic is non-trivial
-- **Manual:** configure provider in Settings, exercise the feature (sync, link citations, post milestone, push log, Git tab)
-
-Run before opening a PR:
-
-```bash
-npm run build:core
-npm test -w @weaveforge/core
-npm run build --workspace @weaveforge/web
-npm test -w @weaveforge/web
-npm run check:solid
-```
-
----
-
-## Conventions
-
-- **Best-effort side effects:** `pushLog`, `notifyMilestone`, and bibliography sync failures must not block local writes. UI catches and surfaces errors; use-cases complete the primary operation first.
-- **Credential reader:** all user keys flow through `createCredentialReader(manageSettings)` — adapters never import the Supabase SDK for settings.
-- **Noops:** when env is `none`, wired noops satisfy the port so facades never null-check.
-- **Nav gating:** `buildModuleRegistry(integrationConfig)` hides modules (e.g. Git) when no providers are enabled.
-- **Legacy columns:** `applyUserIntegrationFields` keeps `zoteroApiKey` etc. in sync with the `integrations` bag for existing DB rows.
-
----
-
-## Overleaf, with no account
-
-A linked Overleaf report does three things, and only one of them needs a
-server. The link itself is an ordinary row. The section tree is a pure
-function in `@weaveforge/core` (`parseLatexSectionTree`). Only holding the
-Overleaf token needs somewhere safe.
-
-On a server that somewhere is a key the browser never sees. A copy running with
-no account has no such key, so the token goes into **this computer's keychain**
-instead, through the shell's `secret-store` (`overleaf-token`). The page asks
-the shell to read the project by name; the token never crosses back. The clone
-itself happens in the Electron main process over the `weaveforge:overleaf-read`
-channel, using the same reader the hosted path uses — imported, not copied.
-
-So with no account you can link a report, rename it, re-point it at another
-project or entry file, set section targets and unlink it, all with the network
-down. **Viewing the contents still needs a network**, because that is a clone
-from `overleaf.com`: offline here means no server of ours, not no Overleaf.
-
-The validation rules both paths share live in
-`features/overleaf/domain/link-rules.ts`, so an Overleaf project id that could
-reshape a clone URL is refused in the same words either way.
-
-## Related docs
-
-- [DESIGN.md](../building/design.md) — SOLID principles, `IMetadataSource`, composition root
-- [dev.md](../building/dev.md) — feature modules, registry, facades
-- [README.md §8](../../README.md#8-integrations-settings) — end-user setup guide
+For comprehensive instructions on writing new adapters, manifests, and contract tests,
+see [`extensions.md`](extensions.md).

@@ -22,6 +22,21 @@ tracks at once.
 
 ### iOS
 
+## [0.8.13] - 2026-10-15
+
+Desktop (`v0.8.13`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+
+### Desktop
+- **Added:** The PDF reader zooms with the mouse wheel and trackpad pinch.
+- **Added:** Highlights can cross page boundaries.
+- **Fixed:** Papers and other screens recover when a local query fails, instead of every later query failing with "current transaction is aborted".
+- **Fixed:** Rows created offline that already exist on the server merge into the server row instead of failing to sync with 409/23503.
+- **Changed:** When sync would delete local edits, the change waits in Sync issues for you to decide instead of being applied.
+- **Fixed:** Workspace folder Check and Review report the same changes.
+- **Fixed:** Writing the workspace folder with nothing new no longer adds a git commit, and commit messages count notes, not the local database.
+- **Fixed:** Folder history commits papers with long Windows paths, keeps the local database out of git, and says why when a commit fails.
+- **Added:** Settings shows the workspace folder's git history when it opens.
+
 ## [0.8.12] - 2026-10-14
 
 Desktop (`v0.8.12`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.

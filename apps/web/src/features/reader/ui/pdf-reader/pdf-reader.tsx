@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import {
   clampScale,
@@ -17,6 +16,8 @@ import {
   inkNoteWidthToPdfPoints,
   screenPointToPdf,
   translateInkPaths,
+  READER_MIN_SCALE,
+  READER_MAX_SCALE,
   type AnchorConfidence,
   type ReaderPageSize,
   type DocumentSearchMatch,
@@ -41,7 +42,12 @@ import {
 } from "@/features/ink";
 import { useReaderPrint } from "./use-reader-print";
 import { getContainer } from "@/bootstrap";
-import { pageNumberFromSelection, selectionRangeFromDom } from "../../application/dom-selection-range";
+import {
+  pageSpanFromSelection,
+  selectionRangeFromDom,
+  startOffsetInTextLayer,
+  textSelectionFromOffsets,
+} from "../../application/dom-selection-range";
 import {
   draftFromTextSelection,
   draftTextBox,
@@ -220,6 +226,7 @@ export function PdfReader({
     quote: string;
     selection: TextSelectionRange;
     exactRects?: number[][];
+    nextPageRects?: number[][];
     /** Where the popover sits: the selection's box, in the scroller's content. */
     at: SelectionAnchor;
   } | null>(null);
@@ -252,34 +259,6 @@ export function PdfReader({
   // Ctrl+Z/Y, Ctrl+F and Delete on the window, so they answer after a click on
   // the page or a rail button; skipped when focus sits in another pane.
   const canCreate = Boolean(paperId && onAnnotationsChange);
-  const keysRef = useRef({ inkUndo, removeLocal, selectedAnnId, annotations, canCreate });
-  keysRef.current = { inkUndo, removeLocal, selectedAnnId, annotations, canCreate };
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || isEditableTarget(event.target)) return;
-      const active = document.activeElement;
-      const ours = !active || active === document.body || rootRef.current?.contains(active);
-      if (!ours) return;
-      const k = keysRef.current;
-      const key = event.key.toLowerCase();
-      const mod = (event.ctrlKey || event.metaKey) && !event.altKey;
-      if (mod && (key === "z" || key === "y")) {
-        event.preventDefault();
-        void (key === "y" || event.shiftKey ? k.inkUndo.redo() : k.inkUndo.undo());
-      } else if (mod && key === "f" && !event.shiftKey) {
-        event.preventDefault();
-        setSearchOpen((prev) => !prev);
-      } else if ((event.key === "Delete" || event.key === "Backspace") && k.selectedAnnId && k.canCreate) {
-        const selected = k.annotations.find((a) => a.id === k.selectedAnnId);
-        if (selected?.origin !== "local") return;
-        event.preventDefault();
-        setSelectedAnnId(null);
-        void k.removeLocal(selected.id);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
 
   /** Stable identity so a memoised page overlay is not re-rendered by a new closure. */
   const selectAnnotation = useCallback((id: string) => setSelectedAnnId(id), []);
@@ -355,6 +334,112 @@ export function PdfReader({
   });
   const scale = viewport.renderScale;
   const rotation = viewport.rotation;
+
+  // Window-level shortcuts: Undo/Redo, Search, Delete annotation, Full-screen focus,
+  // and Viewport zoom / navigation commands (Ctrl++, Ctrl+-, Ctrl+0, +, -, etc.)
+  const keysRef = useRef({
+    inkUndo,
+    removeLocal,
+    selectedAnnId,
+    annotations,
+    canCreate,
+    viewport,
+    numPages,
+    focus,
+    toggleFocus,
+    setFocus,
+    setSearchOpen,
+  });
+  keysRef.current = {
+    inkUndo,
+    removeLocal,
+    selectedAnnId,
+    annotations,
+    canCreate,
+    viewport,
+    numPages,
+    focus,
+    toggleFocus,
+    setFocus,
+    setSearchOpen,
+  };
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || isEditableTarget(event.target)) return;
+      const active = document.activeElement;
+      const ours = !active || active === document.body || rootRef.current?.contains(active);
+      if (!ours) return;
+      const k = keysRef.current;
+      const key = event.key.toLowerCase();
+      const mod = (event.ctrlKey || event.metaKey) && !event.altKey;
+
+      if (mod && event.shiftKey && key === "f") {
+        event.preventDefault();
+        k.toggleFocus();
+        return;
+      }
+      if (event.key === "Escape" && k.focus) {
+        event.preventDefault();
+        k.setFocus(false);
+        return;
+      }
+      if (mod && (key === "z" || key === "y")) {
+        event.preventDefault();
+        void (key === "y" || event.shiftKey ? k.inkUndo.redo() : k.inkUndo.undo());
+        return;
+      }
+      if (mod && key === "f" && !event.shiftKey) {
+        event.preventDefault();
+        k.setSearchOpen((prev) => !prev);
+        return;
+      }
+      if ((event.key === "Delete" || event.key === "Backspace") && k.selectedAnnId && k.canCreate) {
+        const selected = k.annotations.find((a) => a.id === k.selectedAnnId);
+        if (selected?.origin !== "local") return;
+        event.preventDefault();
+        setSelectedAnnId(null);
+        void k.removeLocal(selected.id);
+        return;
+      }
+
+      const command = readerKeyboardCommand({
+        key: event.key,
+        code: event.code,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        altKey: event.altKey,
+        fromEditable: isEditableTarget(event.target),
+      });
+      if (!command) return;
+      event.preventDefault();
+      switch (command.type) {
+        case "zoom_in":
+          k.viewport.zoomIn();
+          break;
+        case "zoom_out":
+          k.viewport.zoomOut();
+          break;
+        case "fit_width":
+          k.viewport.fitWidth();
+          break;
+        case "rotate":
+          k.viewport.rotateClockwise();
+          break;
+        case "page_home":
+          k.viewport.setPage(1);
+          break;
+        case "page_end":
+          k.viewport.setPage(k.numPages);
+          break;
+        case "page_delta":
+          k.viewport.setPage(k.viewport.page + command.delta);
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   /**
    * The pointer the page shows, from the one table both surfaces read
@@ -670,11 +755,17 @@ export function PdfReader({
       const scrollerRect = scroller?.getBoundingClientRect();
       const focusClientX = (scrollerRect?.left ?? 0) + focusX;
       const focusClientY = (scrollerRect?.top ?? 0) + focusY;
-      const page = scrollerRect
-        ? (document
-            .elementFromPoint(focusClientX, focusClientY)
-            ?.closest(".pdf-reader-page-row") as HTMLElement | null)
-        : null;
+      const elementAtPoint = scrollerRect ? document.elementFromPoint(focusClientX, focusClientY) : null;
+      const page = (elementAtPoint?.closest(".pdf-reader-page-row") as HTMLElement | null) ?? (scroller
+        ? ([...scroller.querySelectorAll<HTMLElement>(".pdf-reader-page-row")].find(
+            (r) => {
+              const rect = r.getBoundingClientRect();
+              return rect.bottom > focusClientY && rect.top <= focusClientY;
+            },
+          ) ?? [...scroller.querySelectorAll<HTMLElement>(".pdf-reader-page-row")].find(
+            (r) => r.getBoundingClientRect().bottom > (scrollerRect?.top ?? 0),
+          ) ?? null)
+        : null);
       const before_ = page?.getBoundingClientRect();
       const withinPageX = before_ ? focusClientX - before_.left : 0;
       const withinPageY = before_ ? focusClientY - before_.top : 0;
@@ -757,6 +848,146 @@ export function PdfReader({
     onZoomPreview: (factor, x, y) => setZoomPreview({ factor, x, y }),
     onZoomCommit: (factor, x, y) => commitZoom(factor, x, y),
   });
+
+  const viewportRef = useRef(viewport);
+  viewportRef.current = viewport;
+  const commitZoomRef = useRef(commitZoom);
+  commitZoomRef.current = commitZoom;
+  const cancelStrokeRef = useRef(cancelStroke);
+  cancelStrokeRef.current = cancelStroke;
+
+  /**
+   * Two-finger pinch on trackpad/mousepad, or Ctrl/Cmd + mouse wheel scroll.
+   * Browsers emit trackpad pinch as WheelEvents with ctrlKey = true.
+   * Preview runs via CSS transform each animation frame without expensive pdf.js re-renders;
+   * once the gesture pauses (140ms debounce), commitZoom scales the pages and fixes the anchor.
+   */
+  useEffect(() => {
+    const scroller = containerRef.current;
+    if (!scroller) return;
+
+    let commitTimer: number | null = null;
+    let rafId: number | null = null;
+    let accumulatedFactor = 1;
+    let gestureFocus = { x: 0, y: 0 };
+    let isPinching = false;
+    let baseScale = 1;
+
+    const finishPinch = () => {
+      if (commitTimer != null) {
+        window.clearTimeout(commitTimer);
+        commitTimer = null;
+      }
+      if (rafId != null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      if (!isPinching) return;
+      isPinching = false;
+      const finalFactor = accumulatedFactor;
+      accumulatedFactor = 1;
+      commitZoomRef.current(finalFactor, gestureFocus.x, gestureFocus.y);
+    };
+
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+
+      const rect = scroller.getBoundingClientRect();
+      if (!isPinching) {
+        cancelStrokeRef.current();
+        isPinching = true;
+        accumulatedFactor = 1;
+        baseScale = viewportRef.current.renderScale;
+        gestureFocus = {
+          x: Math.max(0, Math.min(rect.width, event.clientX - rect.left)),
+          y: Math.max(0, Math.min(rect.height, event.clientY - rect.top)),
+        };
+      }
+
+      let dy = event.deltaY;
+      if (event.deltaMode === 1) dy *= 24;
+      else if (event.deltaMode === 2) dy *= 100;
+      dy = Math.max(-200, Math.min(200, dy));
+
+      // Negative dy zooms in (> 1), positive dy zooms out (< 1)
+      const factorDelta = Math.exp(-dy * 0.002);
+      accumulatedFactor *= factorDelta;
+
+      const minFactor = READER_MIN_SCALE / baseScale;
+      const maxFactor = READER_MAX_SCALE / baseScale;
+      accumulatedFactor = Math.min(maxFactor, Math.max(minFactor, accumulatedFactor));
+
+      if (rafId == null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          setZoomPreview({
+            factor: accumulatedFactor,
+            x: gestureFocus.x,
+            y: gestureFocus.y,
+          });
+        });
+      }
+
+      if (commitTimer != null) {
+        window.clearTimeout(commitTimer);
+      }
+      commitTimer = window.setTimeout(finishPinch, 140);
+    };
+
+    const onGestureStart = (e: Event) => {
+      e.preventDefault();
+      cancelStrokeRef.current();
+      const ge = e as unknown as { clientX?: number; clientY?: number };
+      const rect = scroller.getBoundingClientRect();
+      isPinching = true;
+      accumulatedFactor = 1;
+      baseScale = viewportRef.current.renderScale;
+      gestureFocus = {
+        x: Math.max(0, Math.min(rect.width, (ge.clientX ?? rect.left + rect.width / 2) - rect.left)),
+        y: Math.max(0, Math.min(rect.height, (ge.clientY ?? rect.top + rect.height / 2) - rect.top)),
+      };
+    };
+
+    const onGestureChange = (e: Event) => {
+      e.preventDefault();
+      const ge = e as unknown as { scale?: number };
+      if (!isPinching) return;
+      const scaleVal = typeof ge.scale === "number" ? ge.scale : 1;
+      const minFactor = READER_MIN_SCALE / baseScale;
+      const maxFactor = READER_MAX_SCALE / baseScale;
+      accumulatedFactor = Math.min(maxFactor, Math.max(minFactor, scaleVal));
+      if (rafId == null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          setZoomPreview({
+            factor: accumulatedFactor,
+            x: gestureFocus.x,
+            y: gestureFocus.y,
+          });
+        });
+      }
+    };
+
+    const onGestureEnd = (e: Event) => {
+      e.preventDefault();
+      finishPinch();
+    };
+
+    scroller.addEventListener("wheel", onWheel, { passive: false });
+    scroller.addEventListener("gesturestart", onGestureStart, { passive: false });
+    scroller.addEventListener("gesturechange", onGestureChange, { passive: false });
+    scroller.addEventListener("gestureend", onGestureEnd, { passive: false });
+
+    return () => {
+      if (commitTimer != null) window.clearTimeout(commitTimer);
+      if (rafId != null) cancelAnimationFrame(rafId);
+      scroller.removeEventListener("wheel", onWheel);
+      scroller.removeEventListener("gesturestart", onGestureStart);
+      scroller.removeEventListener("gesturechange", onGestureChange);
+      scroller.removeEventListener("gestureend", onGestureEnd);
+    };
+  }, [containerRef]);
 
   /**
    * The size a page takes at a scale, rotation included.
@@ -1019,52 +1250,7 @@ export function PdfReader({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pdf, locus, page, matchOnPage, highlightOnPage, renderPage, clearHighlights]);
 
-  function onKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
-    // Focus toggles on the workspace's chord, and Escape is always the way
-    // out: a mode with every control hidden must answer the key everyone tries.
-    if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "f") {
-      event.preventDefault();
-      toggleFocus();
-      return;
-    }
-    if (event.key === "Escape" && focus && !isEditableTarget(event.target)) {
-      event.preventDefault();
-      setFocus(false);
-      return;
-    }
-    const command = readerKeyboardCommand({
-      key: event.key,
-      ctrlKey: event.ctrlKey,
-      metaKey: event.metaKey,
-      altKey: event.altKey,
-      fromEditable: isEditableTarget(event.target),
-    });
-    if (!command) return;
-    event.preventDefault();
-    switch (command.type) {
-      case "zoom_in":
-        viewport.zoomIn();
-        break;
-      case "zoom_out":
-        viewport.zoomOut();
-        break;
-      case "fit_width":
-        viewport.fitWidth();
-        break;
-      case "rotate":
-        viewport.rotateClockwise();
-        break;
-      case "page_home":
-        viewport.setPage(1);
-        break;
-      case "page_end":
-        viewport.setPage(numPages);
-        break;
-      case "page_delta":
-        viewport.setPage(viewport.page + command.delta);
-        break;
-    }
-  }
+
 
 
   /** Where the last press on the page began, so a tap off the create bar dismisses it. */
@@ -1090,69 +1276,135 @@ export function PdfReader({
     const root = containerRef.current;
     if (!root) return;
     const sel = window.getSelection();
-    const pageNumber = pageNumberFromSelection(sel, root);
-    if (!pageNumber) {
+    const span = pageSpanFromSelection(sel, root);
+    if (!span) {
       setPendingCreate(null);
       return;
     }
-    const layer = root.querySelector(`[data-page="${pageNumber}"] .pdf-reader-textlayer`);
+    const { startPage } = span;
+    const isCrossPage = span.endPage === startPage + 1;
+    const endPage = isCrossPage ? span.endPage : startPage;
+
+    const layer = root.querySelector(`[data-page="${startPage}"] .pdf-reader-textlayer`);
     if (!layer) {
       setPendingCreate(null);
       return;
     }
-    const range = selectionRangeFromDom(sel, layer);
-    const geometry = pageGeometries.current.get(pageNumber);
-    if (!range || !geometry) {
+    const geometry = pageGeometries.current.get(startPage);
+    if (!geometry || geometry.items.length === 0) {
       setPendingCreate(null);
       return;
     }
-    const draft = draftFromTextSelection({
-      type: "highlight",
-      color: createColor,
-      selection: range,
-      page: geometry,
-    });
-    if (!draft) {
-      setPendingCreate(null);
-      return;
+
+    let range: TextSelectionRange | null = null;
+    if (!isCrossPage) {
+      range = selectionRangeFromDom(sel, layer);
+    } else {
+      const startOff = startOffsetInTextLayer(sel, layer);
+      if (startOff) {
+        const lastIdx = geometry.items.length - 1;
+        const lastOff = geometry.items[lastIdx]!.str.length;
+        range = textSelectionFromOffsets(startOff, { itemIndex: lastIdx, offset: lastOff });
+      }
     }
-    const at = sel && sel.rangeCount > 0 ? selectionAnchor(sel.getRangeAt(0), root) : null;
-    if (!at) {
+    if (!range) {
       setPendingCreate(null);
       return;
     }
 
     // Capture exact PDF user-space rects from active DOM selection client rects
     const exactRects: number[][] = [];
-    if (sel && sel.rangeCount > 0) {
-      const pageEl = root.querySelector<HTMLElement>(`[data-page="${pageNumber}"] .pdf-reader-page`);
-      if (pageEl) {
-        const pageBox = pageEl.getBoundingClientRect();
-        const domRange = sel.getRangeAt(0);
-        const p = pageProjection(pageNumber);
+    const nextPageRects: number[][] = [];
+    const domRange = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    if (domRange) {
+      const startPageEl = root.querySelector<HTMLElement>(`[data-page="${startPage}"] .pdf-reader-page`);
+      const endPageEl = isCrossPage
+        ? root.querySelector<HTMLElement>(`[data-page="${endPage}"] .pdf-reader-page`)
+        : null;
+      if (startPageEl) {
+        const startBox = startPageEl.getBoundingClientRect();
+        const endBox = endPageEl?.getBoundingClientRect();
+        const pStart = pageProjection(startPage);
+        const pEnd = isCrossPage ? pageProjection(endPage) : pStart;
         const clientRects = domRange.getClientRects();
+
         for (let i = 0; i < clientRects.length; i++) {
           const cr = clientRects[i]!;
           if (cr.width < 1 || cr.height < 1) continue;
-          const left = cr.left - pageBox.left;
-          const top = cr.top - pageBox.top;
-          const p1 = screenPointToPdf(left, top, p);
-          const p2 = screenPointToPdf(left + cr.width, top + cr.height, p);
-          exactRects.push([
-            Math.min(p1.x, p2.x),
-            Math.min(p1.y, p2.y),
-            Math.max(p1.x, p2.x),
-            Math.max(p1.y, p2.y),
-          ]);
+          const midY = cr.top + cr.height / 2;
+
+          if (isCrossPage && endBox && midY >= endBox.top - 1) {
+            const left = cr.left - endBox.left;
+            const top = cr.top - endBox.top;
+            const p1 = screenPointToPdf(left, top, pEnd);
+            const p2 = screenPointToPdf(left + cr.width, top + cr.height, pEnd);
+            nextPageRects.push([
+              Math.min(p1.x, p2.x),
+              Math.min(p1.y, p2.y),
+              Math.max(p1.x, p2.x),
+              Math.max(p1.y, p2.y),
+            ]);
+          } else {
+            const left = cr.left - startBox.left;
+            const top = cr.top - startBox.top;
+            const p1 = screenPointToPdf(left, top, pStart);
+            const p2 = screenPointToPdf(left + cr.width, top + cr.height, pStart);
+            exactRects.push([
+              Math.min(p1.x, p2.x),
+              Math.min(p1.y, p2.y),
+              Math.max(p1.x, p2.x),
+              Math.max(p1.y, p2.y),
+            ]);
+          }
         }
       }
     }
 
+    const fullText = sel?.toString().trim() || "";
+    const draft = draftFromTextSelection({
+      type: "highlight",
+      color: createColor,
+      selection: range,
+      page: geometry,
+      exactRects: exactRects.length > 0 ? exactRects : undefined,
+      nextPageRects: nextPageRects.length > 0 ? nextPageRects : undefined,
+      fullText: fullText || undefined,
+    });
+    if (!draft) {
+      setPendingCreate(null);
+      return;
+    }
+
+    let at: SelectionAnchor | null = null;
+    if (domRange) {
+      const clientRects = domRange.getClientRects();
+      if (isCrossPage && clientRects.length > 0) {
+        let bestRect = clientRects[clientRects.length - 1]!;
+        let bestDist = Math.abs(bestRect.top + bestRect.height / 2 - event.clientY);
+        for (let i = 0; i < clientRects.length; i++) {
+          const cr = clientRects[i]!;
+          const dist = Math.abs(cr.top + cr.height / 2 - event.clientY);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestRect = cr;
+          }
+        }
+        at = boxAnchor(bestRect, root);
+      } else {
+        at = selectionAnchor(domRange, root);
+      }
+    }
+    if (!at) {
+      setPendingCreate(null);
+      return;
+    }
+
     setPendingCreate({
-      pageNumber,
-      quote: draft.text ?? "",
+      pageNumber: startPage,
+      quote: fullText || draft.text || "",
       selection: range,
       exactRects: exactRects.length > 0 ? exactRects : undefined,
+      nextPageRects: nextPageRects.length > 0 ? nextPageRects : undefined,
       at,
     });
   }
@@ -1171,6 +1423,8 @@ export function PdfReader({
       selection: pendingCreate.selection,
       page: geometry,
       exactRects: pendingCreate.exactRects,
+      nextPageRects: pendingCreate.nextPageRects,
+      fullText: pendingCreate.quote,
       comment,
     });
     if (!draft) return;
@@ -1220,7 +1474,6 @@ export function PdfReader({
       className={`pdf-reader${darkPdf ? " pdf-reader--dark" : ""}${focus ? " is-focus" : ""}`}
       ref={rootRef}
       tabIndex={0}
-      onKeyDown={onKeyDown}
       role="region"
       aria-label="PDF reader"
       style={

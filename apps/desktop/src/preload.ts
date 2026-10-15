@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type {
   DesktopBridge,
+  DesktopCommit,
   DesktopCommitResult,
   DesktopInkHaptics,
   DesktopInkRequest,
@@ -87,6 +88,7 @@ const bridge: DesktopBridge = {
     await call<null>(CHANNELS.vaultRemove, path);
   },
   commitVault: () => call<DesktopCommitResult>(CHANNELS.vaultCommit),
+  vaultLog: (limit) => call<DesktopCommit[]>(CHANNELS.vaultLog, limit),
   localApiState: () => call<DesktopLocalApi>(CHANNELS.localApiState),
   zoteroLocal: (url) => call<DesktopZoteroReply>(CHANNELS.zoteroLocal, url),
   readOverleafProject: (projectId, entryFile) =>
