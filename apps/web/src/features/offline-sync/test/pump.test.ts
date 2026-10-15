@@ -35,6 +35,16 @@ async function withOps(count: number) {
   return outbox;
 }
 
+/** A device database with one synced table, for tests that open conflicts. */
+async function projectsDb() {
+  const db = await localSqlDb();
+  open.push(db);
+  await db.exec("create table if not exists sync_tables (table_name text primary key)");
+  await db.exec("create table if not exists public.projects (id uuid primary key, title text, read boolean)");
+  await db.exec("insert into sync_tables values ('projects') on conflict do nothing");
+  return db;
+}
+
 describe("the outbox pump", () => {
   it("sends in order and clears what the server took", async () => {
     const outbox = await withOps(3);
@@ -121,12 +131,50 @@ describe("the outbox pump", () => {
     assert.deepEqual(entry!.payload, { id: ROW, title: "Mine", read: true });
   });
 
-  it("drops an edit to a row deleted elsewhere", async () => {
+  it("keeps an edit to a row deleted elsewhere when there is no one to ask", async () => {
     const outbox = await withOps(1);
     await new OutboxPump(
       outbox,
       transport([{ status: "conflict", serverVersion: null, serverRow: null, deletedElsewhere: true }]),
     ).run();
+    const [kept] = await outbox.pending();
+    assert.equal(kept?.op, "update");
+    assert.match(kept?.lastError ?? "", /until you decide/);
+  });
+
+  it("asks the reader about an edit to a row deleted elsewhere, keeping the row", async () => {
+    const db = await projectsDb();
+    const outbox = new Outbox(db);
+    const conflicts = new ConflictStore(db);
+    await db.exec("insert into public.projects (id, title, read) values ($1, 'Mine', false)", [ROW]);
+    await outbox.append({ table: "projects", rowId: ROW, op: "update", payload: { id: ROW, title: "Mine", read: false }, baseVersion: 2 });
+
+    await new OutboxPump(
+      outbox,
+      transport([{ status: "conflict", serverVersion: null, serverRow: null, deletedElsewhere: true }]),
+      conflicts,
+    ).run();
+
+    const [open] = await conflicts.openConflicts();
+    assert.equal(open?.kind, "deleted_remote");
+    assert.equal(open?.local.title, "Mine");
+    assert.equal((await db.query("select 1 from public.projects where id = $1", [ROW])).length, 1);
+    assert.deepEqual(await outbox.pending(), []);
+  });
+
+  it("asks the reader about a delete that met an edit from elsewhere", async () => {
+    const db = await projectsDb();
+    const outbox = new Outbox(db);
+    const conflicts = new ConflictStore(db);
+    await outbox.append({ table: "projects", rowId: ROW, op: "delete", baseVersion: 2 });
+    const theirs = { id: ROW, title: "Theirs", read: true };
+
+    await new OutboxPump(outbox, transport([{ status: "conflict", serverVersion: 4, serverRow: theirs }]), conflicts).run();
+
+    const [open] = await conflicts.openConflicts();
+    assert.equal(open?.kind, "deleted_local");
+    assert.equal(open?.serverVersion, 4);
+    assert.deepEqual(open?.remote, theirs);
     assert.deepEqual(await outbox.pending(), []);
   });
 

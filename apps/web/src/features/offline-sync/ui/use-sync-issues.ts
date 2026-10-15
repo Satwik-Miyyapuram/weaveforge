@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { LocalRunner } from "@/backend/providers/local/local-runner";
-import { ConflictStore, type OpenConflict } from "../domain/conflicts";
+import { ConflictStore, deletionFor, type OpenConflict } from "../domain/conflicts";
 import { Outbox, type OutboxEntry } from "../domain/outbox";
 import { useLiveSync } from "./use-live-sync";
 
@@ -31,6 +31,9 @@ export interface SyncIssuesHandle {
     picks: Record<string, "local" | "remote">,
     overrides?: Record<string, unknown>,
   ) => Promise<void>;
+  /** A delete one side made while the other edited: keep the row, or let the delete stand. */
+  resolveDeletion: (id: string, choice: "keep" | "delete") => Promise<void>;
+  /** Every open conflict, edits and deletes alike, settled to one side. */
   keepAllConflicts: (side: "local" | "remote") => Promise<void>;
   retry: (opId: string) => Promise<void>;
   discard: (opId: string) => Promise<void>;
@@ -67,21 +70,32 @@ export function useSyncIssues(): SyncIssuesHandle {
     [act],
   );
 
+  const resolveDeletion = useCallback(
+    (id: string, choice: "keep" | "delete") => act((sql) => new ConflictStore(sql).resolveDeletion(id, choice)),
+    [act],
+  );
+
   const keepAllConflicts = useCallback(
     async (side: "local" | "remote") => {
-      for (const conflict of issues.conflicts.filter((c) => c.fields.length > 0)) {
+      for (const conflict of issues.conflicts) {
+        if (conflict.kind !== "edit") {
+          await resolveDeletion(conflict.id, deletionFor(conflict.kind, side));
+          continue;
+        }
+        if (conflict.fields.length === 0) continue;
         const picks: Record<string, "local" | "remote"> = {};
         for (const f of conflict.fields) picks[f.field] = side;
         await keep(conflict.id, picks);
       }
     },
-    [issues.conflicts, keep],
+    [issues.conflicts, keep, resolveDeletion],
   );
 
   return {
     issues,
     refresh,
     keep,
+    resolveDeletion,
     keepAllConflicts,
     retry: (opId) => act((sql) => new Outbox(sql).revive(opId)),
     discard: (opId) => act((sql) => new Outbox(sql).settle(opId)),

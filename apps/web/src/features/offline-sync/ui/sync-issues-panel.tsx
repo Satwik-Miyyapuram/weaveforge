@@ -26,17 +26,20 @@ import { useSyncIssues } from "./use-sync-issues";
 const DEAD_SHOWN = 5;
 
 export function SyncIssuesPanel() {
-  const { issues, keep, keepAllConflicts, retry, discard } = useSyncIssues();
+  const { issues, keep, resolveDeletion, keepAllConflicts, retry, discard } = useSyncIssues();
   const [showAll, setShowAll] = useState(false);
   const { dead } = issues;
   // A conflict with no cloud copy yet has nothing to choose between; the next pull settles or fills it.
-  const conflicts = issues.conflicts.filter((c) => c.fields.length > 0);
-  const waiting = issues.conflicts.length - conflicts.length;
+  const conflicts = issues.conflicts.filter((c) => c.kind === "edit" && c.fields.length > 0);
+  const deletions = issues.conflicts.filter((c) => c.kind !== "edit");
+  const waiting = issues.conflicts.length - conflicts.length - deletions.length;
+  const decisions = conflicts.length + deletions.length;
   const shown = showAll ? dead : dead.slice(0, DEAD_SHOWN);
-  if (conflicts.length === 0 && dead.length === 0 && waiting === 0) return null;
+  if (decisions === 0 && dead.length === 0 && waiting === 0) return null;
 
   const summary = [
     conflicts.length > 0 && plural(conflicts.length, "conflict"),
+    deletions.length > 0 && plural(deletions.length, "delete to confirm", "deletes to confirm"),
     dead.length > 0 && plural(dead.length, "refused write"),
     waiting > 0 && `${waiting} waiting`,
   ]
@@ -50,7 +53,7 @@ export function SyncIssuesPanel() {
           <h3 className="settings-group">Needs you</h3>
           <p className="muted">{summary}</p>
         </div>
-        {conflicts.length > 1 && (
+        {decisions > 1 && (
           <div className="field-inline">
             <button type="button" className="btn-secondary btn-sm" onClick={() => void keepAllConflicts("local")}>
               Keep all mine
@@ -73,6 +76,9 @@ export function SyncIssuesPanel() {
           conflict={conflict}
           onResolve={(picks, overrides) => keep(conflict.id, picks, overrides)}
         />
+      ))}
+      {deletions.map((conflict) => (
+        <DeletionCard key={conflict.id} conflict={conflict} onResolve={(choice) => resolveDeletion(conflict.id, choice)} />
       ))}
       {dead.length > 0 && (
         <section className="sync-dead">
@@ -116,6 +122,54 @@ export function SyncIssuesPanel() {
         </section>
       )}
     </div>
+  );
+}
+
+/**
+ * One side deleted a row the other edited. Nothing is removed until the reader
+ * picks: the row stays on this device (deleted elsewhere) or the delete waits
+ * (deleted here).
+ */
+function DeletionCard({
+  conflict,
+  onResolve,
+}: {
+  conflict: OpenConflict;
+  onResolve: (choice: "keep" | "delete") => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const here = conflict.kind === "deleted_local";
+  const choose = async (choice: "keep" | "delete") => {
+    setBusy(true);
+    try {
+      await onResolve(choice);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <article className="sync-conflict" data-kind={conflict.kind}>
+      <header className="sync-conflict-head">
+        <span className="sync-chip">{kindOf(conflict.table)}</span>
+        <strong className="sync-conflict-name">{nameOf(conflict)}</strong>
+        <span className="muted">
+          {here ? "deleted on this device, edited in the cloud" : "deleted in the cloud, edited on this device"}
+        </span>
+      </header>
+      <footer className="sync-conflict-foot">
+        <span className="muted">
+          {here ? "Restoring brings back the cloud copy." : "Keeping sends your copy back to the cloud."}
+        </span>
+        <span className="sync-conflict-actions">
+          <button type="button" className="btn-ghost btn-sm" disabled={busy} onClick={() => void choose(here ? "keep" : "delete")}>
+            {here ? "Restore cloud copy" : "Delete it"}
+          </button>
+          <button type="button" className="btn-primary btn-sm" disabled={busy} onClick={() => void choose(here ? "delete" : "keep")}>
+            {here ? "Keep deleted" : "Keep mine"}
+          </button>
+        </span>
+      </footer>
+    </article>
   );
 }
 
