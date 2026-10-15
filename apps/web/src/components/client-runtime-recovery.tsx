@@ -5,6 +5,7 @@ import { recoverClientRuntime } from "@/lib/client-runtime-recovery";
 import { alreadyRecorded, installConsoleCapture, recordError } from "@/lib/error-report/log-buffer";
 import { installRequestLog } from "@/lib/error-report/request-log";
 import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
 
 function looksLikeChunkFailure(message: string): boolean {
   return /ChunkLoadError|Loading chunk [\d]+ failed|Failed to fetch dynamically imported module|error loading dynamically imported module/i.test(
@@ -76,10 +77,7 @@ export function ClientRuntimeRecovery() {
     };
     const onRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
-      const msg =
-        reason instanceof Error
-          ? `${reason.name} ${reason.message}`
-          : String(reason ?? "");
+      const msg = describeRejection(reason);
       // A rejection may be printed by nobody at all, so it is recorded before
       // anything else looks at it.
       recordError(reason instanceof Error ? (reason.stack ?? msg) : msg);

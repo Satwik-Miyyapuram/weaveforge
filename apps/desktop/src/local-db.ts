@@ -48,13 +48,6 @@ export interface LocalQueryResult<T> {
   rows: T[];
 }
 
-function isAbortedTxError(error: unknown): boolean {
-  if (!error) return false;
-  const msg = error instanceof Error ? error.message : String(error);
-  const code = (error as { code?: string }).code;
-  return code === "25P02" || /current transaction is aborted/i.test(msg);
-}
-
 export class LocalDatabase {
   constructor(private readonly client: LocalClient) {}
 
@@ -195,11 +188,12 @@ export class LocalDatabase {
   }
 }
 
-/** Postgres's 25P02: the connection is inside a transaction that already failed. */
+/** Postgres's 42P01: the table does not exist. */
 function isUndefinedTable(error: unknown): boolean {
   return typeof error === "object" && error !== null && (error as { code?: unknown }).code === "42P01";
 }
 
+/** Postgres's 25P02: the connection is inside a transaction that already failed. */
 function isAbortedTransaction(error: unknown): boolean {
   if (typeof error !== "object" || error === null) return false;
   const { code, message } = error as { code?: unknown; message?: unknown };

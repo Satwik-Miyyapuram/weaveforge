@@ -86,6 +86,8 @@ export interface LocalDbHostOptions {
    * failure is shown to anybody.
    */
   recover?: (cause: unknown) => Promise<{ client: LocalClient; from: string } | null>;
+  /** Where failed queries are reported; main's console lands in weaveforge.log. */
+  log?: (line: string) => void;
 }
 
 /** What the page can know about the database without querying it. */
@@ -184,7 +186,13 @@ export class LocalDbHost {
       if (IDENTITY_CHANGES.test(sql)) this.user = undefined;
       return { ok: true, value: rows };
     } catch (error) {
-      return { ok: false, message: error instanceof Error ? error.message : OPEN_FAILED };
+      const message = error instanceof Error ? error.message : OPEN_FAILED;
+      // SQL only, never params: they can hold a person's text.
+      const code = (error as { code?: unknown } | null)?.code;
+      (this.options.log ?? console.error)(
+        `[local-db] query failed${typeof code === "string" ? ` (${code})` : ""}: ${message} | ${sql.replace(/\s+/g, " ").trim().slice(0, 200)}`,
+      );
+      return { ok: false, message };
     }
   }
 

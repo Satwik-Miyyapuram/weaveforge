@@ -7,6 +7,7 @@ import {
 import { idbGetScreenCache, idbSetScreenCache } from "@/lib/cache/screen-cache-idb";
 import { perfNow, recordPerf, recordPerfSince } from "@/lib/perf";
 import { formatError } from "@/lib/format-error";
+import { logToApp } from "@/lib/error-report/app-log";
 import type { ScreenId } from "@/lib/screens";
 
 /**
@@ -119,7 +120,15 @@ export function useScreenData<T>(screen: ScreenId, load: () => Promise<T>) {
       recordPerfSince(`screen.${screen}.fetch_ms`, startedAt);
     } catch (err) {
       if (seq !== requestSeq.current) return;
-      setError(formatError(err));
+      const message = formatError(err);
+      // State alone is gone with the window; the log is what a report can read.
+      logToApp({
+        level: "error",
+        source: "screen",
+        message: `${screen} failed to load: ${message}`,
+        detail: err instanceof Error ? err.stack : undefined,
+      });
+      setError(message);
     } finally {
       if (seq === requestSeq.current) setLoading(false);
     }

@@ -289,6 +289,42 @@ test("local-db-host: a client that cannot dump is simply never backed up", async
   assert.equal(await host.snapshot(), null);
 });
 
+test("local-db-host: a failed query is logged with its code and SQL", async () => {
+  const client: LocalClient = {
+    async exec() {},
+    async query<T>() {
+      return { rows: [] as T[] };
+    },
+    async transaction<T>(fn: (tx: LocalTransaction) => Promise<T>) {
+      return fn({
+        query: async <R>(sql: string) => {
+          if (sql.includes("from papers")) {
+            throw Object.assign(new Error("relation is broken"), { code: "XX001" });
+          }
+          return { rows: [] as R[] };
+        },
+      });
+    },
+    async close() {},
+  };
+  const lines: string[] = [];
+  const host = new LocalDbHost({
+    open: async () => client,
+    migrations: NO_MIGRATIONS,
+    ...ELSEWHERE,
+    log: (line) => lines.push(line),
+  });
+
+  const result = await host.query("select * from papers where id = $1", ["p1"]);
+
+  assert.equal(result.ok, false);
+  assert.equal(lines.length, 1);
+  assert.match(lines[0]!, /XX001/);
+  assert.match(lines[0]!, /relation is broken/);
+  assert.match(lines[0]!, /select \* from papers/);
+  assert.doesNotMatch(lines[0]!, /p1/);
+});
+
 test("local-db-host: queries run as the account once the device is adopted", async () => {
   let account: string | null = null;
   const claims: string[] = [];

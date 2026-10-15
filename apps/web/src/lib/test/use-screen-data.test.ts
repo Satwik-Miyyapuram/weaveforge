@@ -192,3 +192,33 @@ test("screen data: two overlapping reloads keep the newest answer", async () => 
   );
   await harness.unmount();
 });
+
+test("screen data: a failed load is written to the app log, not only to state", async () => {
+  clearAllScreenCaches();
+  const reports: { source: string; message: string }[] = [];
+  const originalWindow = (globalThis as { window?: unknown }).window;
+  (globalThis as { window?: unknown }).window = {
+    weaveforge: {
+      fetchTitle: () => Promise.resolve({}),
+      reportAppLog: (entry: { source: string; message: string }) => void reports.push(entry),
+    },
+  };
+  try {
+    const harness = await renderHook(
+      () =>
+        useScreenData<Payload>(SCREEN, async () => {
+          throw new Error("current transaction is aborted, commands ignored until end of transaction block");
+        }),
+      undefined,
+      { wrapper: withProject },
+    );
+    await harness.flush();
+    assert.match(harness.current.error ?? "", /transaction is aborted/);
+    assert.equal(reports.length, 1);
+    assert.equal(reports[0]?.source, "screen");
+    assert.match(reports[0]?.message ?? "", /papers.*transaction is aborted/);
+    await harness.unmount();
+  } finally {
+    (globalThis as { window?: unknown }).window = originalWindow;
+  }
+});
