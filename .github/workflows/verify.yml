@@ -2,8 +2,9 @@ name: Verify against live Supabase
 
 # Runs live checks on GitHub's runner using repository secrets.
 # Required secrets (Settings → Secrets and variables → Actions):
-#   SUPABASE_URL, SUPABASE_ANON_KEY
+#   SUPABASE_URL, SUPABASE_ANON_KEY (sign-in only)
 #   TT_A_EMAIL … TT_G_EMAIL + matching TT_*_PASSWORD
+# Required variable: DATA_URL, the PostgREST base verify_sharing.py writes to.
 # Account layout must match `local-dev.example/accounts.mjs` / seed-test-users:
 #   A Lab Alpha professor · B Lab Beta professor · C/D phd under B ·
 #   E/F masters under C · G standalone
@@ -41,6 +42,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          DATA_URL: ${{ vars.DATA_URL }}
           TT_A_EMAIL: ${{ secrets.TT_A_EMAIL }}
           TT_A_PASSWORD: ${{ secrets.TT_A_PASSWORD }}
           TT_B_EMAIL: ${{ secrets.TT_B_EMAIL }}

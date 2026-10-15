@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Live end-to-end verification of the 0018 sharing + comments RLS, the org
 hierarchy visibility (migration 0015), vault_page sharing (0035), and org
-switcher RPC (0034), against a real (throwaway) Supabase.
+switcher RPC (0034), with throwaway accounts. Sign-in goes through Supabase Auth;
+every table read and write goes to PostgREST at DATA_URL, where the data lives.
 
 It NEVER prints credentials — only PASS/FAIL lines. Meant to run on a trusted CI
 runner via GitHub Secrets (see .github/workflows/verify.yml), so secrets never
@@ -18,7 +19,8 @@ A/B required for share checks; C is the cross-lab deny account vs Alpha;
 C/D/E unlock hierarchy checks (profiles directory + explicit shares; milestones
 are not auto-visible up the tree after migration 0087).
 
-Env: SUPABASE_URL, SUPABASE_ANON_KEY, and TT_<X>_EMAIL/TT_<X>_PASSWORD for each
+Env: SUPABASE_URL and SUPABASE_ANON_KEY (sign-in), DATA_URL (PostgREST base, for
+example https://api.weaveforge.org), and TT_<X>_EMAIL/TT_<X>_PASSWORD for each
 account X in {A,B,C,D,E,F,G} you want exercised.
 """
 
@@ -29,6 +31,7 @@ import sys
 import uuid
 
 try:
+    from postgrest import SyncPostgrestClient
     from supabase import create_client
 except ImportError:
     print("FAIL: the 'supabase' package is required (pip install supabase).")
@@ -51,7 +54,7 @@ def env(name: str, required: bool = True) -> str | None:
     return v
 
 
-def signin(url: str, key: str, prefix: str, required: bool = True):
+def signin(url: str, key: str, data_url: str, prefix: str, required: bool = True):
     email = env(f"TT_{prefix}_EMAIL", required)
     password = env(f"TT_{prefix}_PASSWORD", required)
     if not (email and password):
@@ -64,7 +67,13 @@ def signin(url: str, key: str, prefix: str, required: bool = True):
         # not a secret; the email/password themselves are never printed.
         print(f"FAIL: sign-in for account {prefix} rejected ({type(exc).__name__}: {exc})")
         return None, None
-    return c, c.auth.get_user().user.id
+    # PostgREST shares Supabase Auth's JWT secret, so the session token works there.
+    rest = SyncPostgrestClient(
+        f"{data_url.rstrip('/')}/rest/v1",
+        headers={"Accept": "application/json", "Content-Type": "application/json", "apikey": key},
+    )
+    rest.auth(c.auth.get_session().access_token)
+    return rest, c.auth.get_user().user.id
 
 
 def sees(client, mid: str) -> bool:
@@ -187,17 +196,18 @@ def verify_org_switcher(
 def main() -> int:
     url = env("SUPABASE_URL")
     key = env("SUPABASE_ANON_KEY")
+    data_url = env("DATA_URL")
 
     # Sign every account in first (none abort on failure) so one run reports the
     # full picture: if ALL fail, SUPABASE_URL/ANON_KEY point at the wrong project;
     # if only some fail, those specific TT_<X>_* secrets are off.
-    a, a_uid = signin(url, key, "A")
-    b, b_uid = signin(url, key, "B")
-    c, c_uid = signin(url, key, "C", required=False)
-    d, d_uid = signin(url, key, "D", required=False)
-    e, e_uid = signin(url, key, "E", required=False)
-    _f, _f_uid = signin(url, key, "F", required=False)
-    g, g_uid = signin(url, key, "G", required=False)
+    a, a_uid = signin(url, key, data_url, "A")
+    b, b_uid = signin(url, key, data_url, "B")
+    c, c_uid = signin(url, key, data_url, "C", required=False)
+    d, d_uid = signin(url, key, data_url, "D", required=False)
+    e, e_uid = signin(url, key, data_url, "E", required=False)
+    _f, _f_uid = signin(url, key, data_url, "F", required=False)
+    g, g_uid = signin(url, key, data_url, "G", required=False)
 
     signed = {n for n, cl in (("A", a), ("B", b), ("C", c), ("D", d), ("E", e), ("F", _f), ("G", g)) if cl}
     attempted = {n for n in ("A", "B", "C", "D", "E", "F", "G") if os.environ.get(f"TT_{n}_EMAIL")}
@@ -251,7 +261,7 @@ def main() -> int:
         check(sees_reading_list(b, rl_a), "B reads reading list A explicitly shared")
         items_ok = list_item_count(b, rl_a) == 1
         if not items_ok and sees_reading_list(b, rl_a):
-            print("SKIP: reading_list_items shared RLS — apply migration 0036 on live Supabase")
+            print("SKIP: reading_list_items shared RLS — apply migration 0036 to the database")
         else:
             check(items_ok, "B reads items on A's shared reading list")
         if c is not None:
