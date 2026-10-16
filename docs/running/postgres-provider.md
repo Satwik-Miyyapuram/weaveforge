@@ -23,7 +23,7 @@ Postgres without PostgREST in front.
 | `pg` pool + RLS session (`request.jwt.claim.sub`) | `backend/providers/postgres/pool.ts`, `pg-runner.ts` |
 | Blob registry | `storage/providers/postgres/blob-registry.ts` |
 | Tiered blob API | `storage/server/blob-api.ts` picks the Postgres registry when backend = postgres |
-| Self-host auth stubs | `supabase/migrations-self-hosted-postgres/0025_self_host_auth.sql` |
+| Self-host auth stubs | `db/migrations-self-hosted-postgres/0025_self_host_auth.sql` |
 
 ## Server-side blob registry
 
@@ -40,9 +40,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
 
 **Order matters.** Apply
-[`supabase/migrations-self-hosted-postgres/`](../../supabase/migrations-self-hosted-postgres/)
-**first**, then every file in [`supabase/migrations/`](../../supabase/migrations/). A stock Postgres
-has none of the furniture Supabase provides implicitly — `auth.users` in a foreign key, `auth.uid()`
+[`db/migrations-self-hosted-postgres/`](../../db/migrations-self-hosted-postgres/)
+**first**, then every file in [`db/migrations/`](../../db/migrations/). A stock Postgres
+has none of the furniture a Supabase-hosted database provides implicitly — `auth.users` in a foreign key, `auth.uid()`
 in every RLS policy, `storage.buckets`, the `anon`/`authenticated`/`service_role` grants — and the
 base chain uses it from the first file, so `0001_papers.sql` fails on line 28 and nothing after it
 runs. This paragraph used to give the two in the opposite order.

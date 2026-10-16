@@ -537,13 +537,13 @@
     <h1>WeaveForge Atlas</h1>
     <p class="standfirst">
       Every surface, every path a byte can take, and every gate it passes on the way out.
-      Three fronts share one core and one schema: a web app on Supabase or Postgres, a
+      Three fronts share one core and one schema: a web app on PostgREST or Postgres, a
       desktop app that owns a folder and a database on disk, and a Python SDK that writes
       into either one.
     </p>
     <div class="facts">
       <div class="fact"><b>186,782</b><span>web app lines</span></div>
-      <div class="fact"><b>52,188</b><span>core lines</span></div>
+      <div class="fact"><b>52,304</b><span>core lines</span></div>
       <div class="fact"><b>17,139</b><span>desktop lines</span></div>
       <div class="fact"><b>3,296</b><span>python sdk</span></div>
       <div class="fact"><b>139</b><span>migrations</span></div>
@@ -597,7 +597,7 @@ flowchart TB
   end
 
   subgraph backends["Backends (pick one)"]
-    SUPA["Supabase<br/>Postgres + Auth + Storage"]
+    SUPA["OCI PostgREST<br/>Postgres + MinIO, Supabase sign-in"]
     PG["Self-hosted Postgres<br/>OCI + object store"]
     PGL["PGlite in the folder<br/>no account, no network"]
   end
@@ -629,7 +629,7 @@ flowchart TB
         <div class="card">
           <h4>Three ways to run it</h4>
           <ul>
-            <li><strong>Hosted</strong> — <code>NEXT_PUBLIC_BACKEND_PROVIDER=supabase</code>, Supabase auth and storage.</li>
+            <li><strong>Hosted</strong> — <code>NEXT_PUBLIC_BACKEND_PROVIDER=postgrest</code>, OCI Postgres and MinIO, Supabase sign-in.</li>
             <li><strong>Self-hosted</strong> — <code>provider=postgres</code>, server-side blob store, migration scripts under <code>npm run migrate</code>.</li>
             <li><strong>Local</strong> — desktop app, PGlite in the chosen folder, no account at all.</li>
           </ul>
@@ -650,13 +650,13 @@ flowchart TB
       <h2>Repository tree</h2>
       <p>
         npm workspaces. <code>packages/*</code> and <code>apps/*</code> are the workspaces;
-        <code>python/</code> ships separately to PyPI; <code>supabase/migrations</code> is
+        <code>python/</code> ships separately to PyPI; <code>db/migrations</code> is
         shared by all of them.
       </p>
 
       <div class="tree">
 <pre><b>weaveforge/</b>
-├── <b>packages/core/src/</b>            <i>52,188 lines — the only place rules live</i>
+├── <b>packages/core/src/</b>            <i>52,304 lines — the only place rules live</i>
 │   ├── <u>features/</u>                 <i>19 slices: papers, experiments, plan, report,</i>
 │   │                              <i>logbook, library, vault, wiki, org, sharing,</i>
 │   │                              <i>collab, tags, relations, reading-lists,</i>
@@ -675,7 +675,7 @@ flowchart TB
 │   │                              <i>offline-sync, sync, workspace, editor-workspace,</i>
 │   │                              <i>auth, search, export, overleaf, reader, startup,</i>
 │   │                              <i>legal</i>
-│   ├── backend/                   <i>provider wiring: supabase | postgres | local</i>
+│   ├── backend/                   <i>provider wiring: postgrest | postgres | local</i>
 │   └── deployment/                <i>generated registry — the one composition root</i>
 │
 ├── <b>apps/desktop/src/</b>              <i>17,139 lines, 61 files, main + preload only</i>
@@ -695,10 +695,10 @@ flowchart TB
 │   ├── integrations/              <i>lightning · keras callbacks</i>
 │   └── tracking.py  container.py  cli.py
 │
-├── <b>supabase/migrations/</b>           <i>0001 → 0140, 7,362 lines</i>
+├── <b>db/migrations/</b>           <i>0001 → 0140, 7,362 lines</i>
 ├── <b>scripts/</b>                       <i>56 files — boundary gates, migration, seeding</i>
 ├── <b>plugins/weaveforge-research/</b>    <i>stdio MCP server, outside every workspace</i>
-└── <b>docs/</b>                          <i>77 files, 27,215 lines</i>
+└── <b>docs/</b>                          <i>77 files, 27,214 lines</i>
 </pre>
       </div>
     </section>

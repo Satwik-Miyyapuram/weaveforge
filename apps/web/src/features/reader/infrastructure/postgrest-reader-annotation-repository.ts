@@ -1,0 +1,154 @@
+import type {
+  IReaderAnnotationSink,
+  IReaderAnnotationSource,
+  IReaderAnnotationSyncRecorder,
+  NewReaderAnnotation,
+  ReaderAnnotation,
+  ReaderAnnotationPatch,
+  ReaderAnnotationSyncRecord,
+  WorkspaceAnnotation,
+} from "@weaveforge/core";
+import { buildAnnotationSortIndex, isReaderAnnotationType } from "@weaveforge/core";
+import { ProjectScopedPostgrestRepository } from "@/backend/providers/postgrest/project-scoped-repository";
+import {
+  type ReaderAnnotationRow,
+  toDomain,
+} from "./reader-annotation-rows";
+import { oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
+
+/**
+ * The columns a ReaderAnnotationRow is read as, named rather than starred.
+ *
+ * Derived from the row type: these are exactly the fields the mapper reads, and a
+ * star would make them "whatever the table grows next".
+ */
+const READER_ANNOTATION_COLUMNS = "id,paper_id,origin,zotero_key,type,color,text,comment,tags,anchor,page_index,sort_index,sync_state,zotero_version,created_at,updated_at";
+
+const TABLE = "reader_annotations";
+
+export class PostgrestReaderAnnotationRepository extends ProjectScopedPostgrestRepository
+  implements IReaderAnnotationSource, IReaderAnnotationSink, IReaderAnnotationSyncRecorder {
+  protected readonly action = "managing reader annotations";
+
+  async list(paperId: string): Promise<ReaderAnnotation[]> {
+    const projectId = this.ctx.projectId;
+    if (!projectId) return [];
+    return (await rows<ReaderAnnotationRow>(this.db
+      .from(TABLE)
+      .select(READER_ANNOTATION_COLUMNS)
+      .eq("project_id", projectId)
+      .eq("paper_id", paperId)
+      .order("sort_index", { ascending: true }))).map(toDomain);
+  }
+
+  /**
+   * Every annotation in the project, for the search index.
+   *
+   * Separate from `list` because that one answers "what is on this paper" and
+   * the caller already knows the paper; here the paper and page have to travel
+   * with each row or a hit cannot open where it came from.
+   */
+  async listForProject(): Promise<WorkspaceAnnotation[]> {
+    const projectId = this.ctx.projectId;
+    if (!projectId) return [];
+    const { data, error } = await this.db
+      .from(TABLE)
+      .select(READER_ANNOTATION_COLUMNS)
+      .eq("project_id", projectId)
+      .order("sort_index", { ascending: true });
+    if (error) throw error;
+    return (data as ReaderAnnotationRow[]).map((row) => ({
+      ...toDomain(row),
+      paperId: row.paper_id,
+      pageIndex: row.page_index,
+    }));
+  }
+
+  async create(paperId: string, draft: NewReaderAnnotation): Promise<ReaderAnnotation> {
+    if (!isReaderAnnotationType(draft.type)) {
+      throw new Error(`Invalid annotation type: ${draft.type}`);
+    }
+    const userId = await this.session.requireUserId();
+    const sortIndex =
+      draft.sortIndex?.trim() || buildAnnotationSortIndex(draft.pageIndex, 0, 0);
+    const dbRow = await oneRow<ReaderAnnotationRow>(this.db
+      .from(TABLE)
+      .insert({
+        ...(draft.id ? { id: draft.id } : {}),
+        user_id: userId,
+        project_id: this.projectId,
+        paper_id: paperId,
+        origin: "local",
+        type: draft.type,
+        color: draft.color.trim() || "#ffd400",
+        text: draft.text?.trim() ?? "",
+        comment: draft.comment?.trim() ?? "",
+        tags: draft.tags ?? [],
+        anchor: draft.anchor,
+        page_index: draft.pageIndex,
+        sort_index: sortIndex,
+        sync_state: "local",
+      })
+      .select(READER_ANNOTATION_COLUMNS)
+      .single());
+    return toDomain(dbRow);
+  }
+
+  async update(id: string, patch: ReaderAnnotationPatch): Promise<ReaderAnnotation> {
+    const updates: Record<string, unknown> = {};
+    if (patch.color !== undefined) updates.color = patch.color.trim() || "#ffd400";
+    if (patch.text !== undefined) updates.text = patch.text.trim();
+    if (patch.comment !== undefined) updates.comment = patch.comment.trim();
+    if (patch.tags !== undefined) updates.tags = patch.tags;
+    if (patch.anchor !== undefined) updates.anchor = patch.anchor;
+    if (patch.sortIndex !== undefined) updates.sort_index = patch.sortIndex;
+
+    const projectId = this.projectId;
+    const { data, error } = await this.db
+      .from(TABLE)
+      .update(updates)
+      .eq("id", id)
+      .eq("project_id", projectId)
+      .select(READER_ANNOTATION_COLUMNS)
+      .single();
+    if (error) throw error;
+
+    // `pending` means "diverged from Zotero and owing a write-back". A row with
+    // no Zotero counterpart can never owe one, so it stays `local` — marking it
+    // pending would surface a sync state the user can never clear.
+    const row = data as ReaderAnnotationRow;
+    if (!row.zotero_key) return toDomain(row);
+
+    const { data: flagged, error: flagError } = await this.db
+      .from(TABLE)
+      .update({ sync_state: "pending" })
+      .eq("id", id)
+      .eq("project_id", projectId)
+      .select(READER_ANNOTATION_COLUMNS)
+      .single();
+    if (flagError) throw flagError;
+    return toDomain(flagged as ReaderAnnotationRow);
+  }
+
+  /** Write-back bookkeeping only; see `IReaderAnnotationSyncRecorder`. */
+  async recordZoteroSync(id: string, record: ReaderAnnotationSyncRecord): Promise<void> {
+    await run(this.db
+      .from(TABLE)
+      .update({
+        zotero_key: record.zoteroKey,
+        zotero_version: record.zoteroVersion,
+        sync_state: record.syncState,
+      })
+      .eq("id", id)
+      .eq("project_id", this.projectId));
+  }
+
+  async remove(id: string): Promise<void> {
+    await run(this.db
+      .from(TABLE)
+      .delete()
+      .eq("id", id)
+      .eq("project_id", this.projectId));
+  }
+}
+

@@ -260,7 +260,7 @@ describe("local-first: queued payloads the server can take", () => {
     await db.sql(dead, ["papers", dup, "insert", JSON.stringify({ id: dup }), "A newer version on the server."]);
     await db.sql(dead, ["vault_pages", page, "update", JSON.stringify({ id: page, project_id: project }), "x"]);
     const migration = readFileSync(
-      new URL("../../../../../../supabase/migrations-local/0016_outbox_clean_payloads.sql", import.meta.url),
+      new URL("../../../../../../db/migrations-local/0016_outbox_clean_payloads.sql", import.meta.url),
       "utf8",
     );
     await db.sql(migration.slice(migration.lastIndexOf("do $$")));
@@ -287,7 +287,7 @@ describe("local-first: queued payloads the server can take", () => {
       (await db.sql<Op>("select payload from sync_outbox where row_id = $1", [pin]))[0]!.payload.owner_id;
     assert.equal(await payload(), LOCAL_USER_ID);
     const migration = readFileSync(
-      new URL("../../../../../../supabase/migrations-local/0018_merge_local_twin.sql", import.meta.url),
+      new URL("../../../../../../db/migrations-local/0018_merge_local_twin.sql", import.meta.url),
       "utf8",
     );
     await db.sql(migration.slice(migration.lastIndexOf("do $$")));

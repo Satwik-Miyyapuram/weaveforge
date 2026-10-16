@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createRestClient } from "@/backend/providers/supabase/client";
+import { createRestClient } from "@/backend/providers/postgrest/client";
 import { readBackendConfig } from "@/backend/config";
 import { bearerToken } from "@/lib/bearer-token";
 import { formatErrorForResponse } from "@/lib/format-error";

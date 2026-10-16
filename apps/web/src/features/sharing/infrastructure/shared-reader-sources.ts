@@ -17,7 +17,7 @@ export const SHARED_SOURCES: Record<
 /**
  * Shape one row into a `SharedItem`.
  *
- * Shared by the Supabase and Postgres readers deliberately: they differ in how
+ * Shared by the PostgREST and Postgres readers deliberately: they differ in how
  * they *fetch* — PostgREST `.or()` filters against SQL `any($n::uuid[])` — but
  * a shared item must look identical whichever backend produced it, and this
  * mapping had drifted into two copies of the same twelve lines.

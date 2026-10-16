@@ -60,7 +60,7 @@ import { PlanFeedLinks } from "@/features/plan/infrastructure/plan-feed-links";
 import { LoadReadingListsScreenUseCase } from "@/features/reading-lists/application/load-reading-lists-screen.use-case";
 import { DuplicateSharedVaultPageUseCase } from "@/features/library/application/duplicate-shared-vault.use-case";
 import { LoadSharedWithMeScreenUseCase } from "@/features/sharing/application/load-shared-with-me-screen.use-case";
-import { SupabaseShareLinkRepository } from "@/features/sharing/infrastructure/supabase-share-link-repository";
+import { PostgrestShareLinkRepository } from "@/features/sharing/infrastructure/postgrest-share-link-repository";
 import { WebCryptoShareLinkTokenHasher } from "@/features/sharing/infrastructure/web-crypto-token-hasher";
 import { HttpAccountProvisioner } from "@/features/org/infrastructure/http-account-provisioner";
 import { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
@@ -132,15 +132,15 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     { wireIntegrations },
     { wireCitationSources },
     { GENERATED_MCP_ENABLED, GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY, GENERATED_MCP_TOOL_NAMES },
-    { SupabaseAiAuditStore, SupabaseAiProposalStore },
-    { SupabaseCrdtUpdateStore },
+    { PostgrestAiAuditStore, PostgrestAiProposalStore },
+    { PostgrestCrdtUpdateStore },
     { CrdtSnapshotStore },
   ] = await Promise.all([
     import("@/integrations/wire-integrations"),
     import("@/integrations/wire-citations"),
     import("@/deployment/generated-registry"),
-    import("@/features/ai-assistant/infrastructure/supabase-ai-proposal-store"),
-    import("@/features/collab/infrastructure/supabase-crdt-update-store"),
+    import("@/features/ai-assistant/infrastructure/postgrest-ai-proposal-store"),
+    import("@/features/collab/infrastructure/postgrest-crdt-update-store"),
     import("@/features/collab/infrastructure/crdt-snapshot-store"),
   ]);
 
@@ -163,7 +163,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     projectLww.watch(backend.db, pid());
   }
 
-  const crdtUpdateStore = new SupabaseCrdtUpdateStore(backend.db);
+  const crdtUpdateStore = new PostgrestCrdtUpdateStore(backend.db);
   const crdtSnapshotStore = new CrdtSnapshotStore(backend.db);
   const compactCrdtLog = new CompactCrdtLogUseCase({ crdtStore: crdtUpdateStore });
 
@@ -178,8 +178,8 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const commentRepository = backend.commentRepository;
   const encryptedBlobStore = new FetchingBlobStore(backend.rawBlobStore);
 
-  const aiProposalStore = new SupabaseAiProposalStore(backend.db, backend.session, pid);
-  const aiAuditStore = new SupabaseAiAuditStore(backend.db, backend.session, pid);
+  const aiProposalStore = new PostgrestAiProposalStore(backend.db, backend.session, pid);
+  const aiAuditStore = new PostgrestAiAuditStore(backend.db, backend.session, pid);
 
   const paperImageStore = new PaperImageStore(encryptedBlobStore, backend.session);
   const vaultAssetStore = new VaultAssetStore(encryptedBlobStore, backend.session);
@@ -347,7 +347,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const manageComments = new ManageCommentsUseCase({ repository: commentRepository });
   const shareLinkTokenHasher = new WebCryptoShareLinkTokenHasher();
   const shareLinkRepository =
-    "db" in backend ? new SupabaseShareLinkRepository(backend.db) : null;
+    "db" in backend ? new PostgrestShareLinkRepository(backend.db) : null;
   const createShareLink =
     shareLinkRepository &&
     new CreateShareLinkUseCase({

@@ -267,7 +267,7 @@ The registry is the single source of truth for three consumers: the decorators, 
 Because the browser writes directly via PostgREST, hard limits live in the database.
 
 ```sql
--- supabase/migrations/01xx_quota_enforcement.sql
+-- db/migrations/01xx_quota_enforcement.sql
 create table plan_entitlements (
   user_id uuid primary key references auth.users(id) on delete cascade,
   plan text not null default 'free',

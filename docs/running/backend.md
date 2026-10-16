@@ -66,9 +66,9 @@ packages/core/                    apps/web/src/
 
 ### What is already abstracted (~80%)
 
-| Layer | Port | Supabase adapter |
+| Layer | Port | Adapter |
 |-------|------|------------------|
-| All entities | `IPaperRepository`, `IProjectRepository`, … (16+ in core) | `Supabase*Repository` |
+| All entities | `IPaperRepository`, `IProjectRepository`, … (16+ in core) | `Postgrest*Repository` |
 | Auth (browser) | `IAuthService` | `SupabaseAuthService` |
 | Session (repos) | `ICurrentUserProvider` | `SupabaseSessionProvider` |
 | Admin create-user | `IAdminUserProvisioner` | `SupabaseAdminUserProvisioner` |
@@ -76,8 +76,8 @@ packages/core/                    apps/web/src/
 
 ### What stays Postgres-specific (for now)
 
-- SQL migrations in `supabase/migrations/` — `auth.uid()`, RLS policies, `SECURITY DEFINER` helpers
-- The `Supabase*` adapters are named for their client library, supabase-js, and speak PostgREST (`.from().select().eq()`) to the OCI server
+- SQL migrations in `db/migrations/` — `auth.uid()`, RLS policies, `SECURITY DEFINER` helpers
+- The `Postgrest*` adapters use supabase-js as their PostgREST client and speak PostgREST (`.from().select().eq()`) to the OCI server
 
 A **postgres** provider reuses the same schema and reimplements adapters with `pg` or an HTTP API — no use-case changes.
 
@@ -92,9 +92,8 @@ NEXT_PUBLIC_REALTIME_URL=https://api.weaveforge.org
 NEXT_PUBLIC_BLOB_PROVIDER=tiered
 BLOB_PROVIDER=tiered
 
-# Backend provider — leave the default. "supabase" names the client library
-# (supabase-js, which speaks PostgREST), not where data is stored.
-NEXT_PUBLIC_BACKEND_PROVIDER=supabase          # supabase | postgres
+# Backend provider — leave the default.
+NEXT_PUBLIC_BACKEND_PROVIDER=postgrest         # postgrest | postgres
 
 # Sign-in (Supabase Auth)
 NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
@@ -138,7 +137,7 @@ long opaque blobs. No account identity is attached, and the reader previews the
 whole payload before sending. It is the only credential in this app that can write
 anywhere.
 
-`NEXT_PUBLIC_BACKEND_PROVIDER=postgres` requires `DATABASE_URL` and selects the **server-side blob registry** — see [`docs/running/postgres-provider.md`](postgres-provider.md). Leave the default, `supabase`.
+`NEXT_PUBLIC_BACKEND_PROVIDER=postgres` requires `DATABASE_URL` and selects the **server-side blob registry** — see [`docs/running/postgres-provider.md`](postgres-provider.md). Leave the default, `postgrest`.
 
 It is **not** the self-hosting switch, and setting it in a deployed app breaks the browser bundle: the client repositories reach the database over HTTP through PostgREST, which a Postgres connection string cannot replace. To move a deployed app onto your own database, set `NEXT_PUBLIC_DATA_URL` — [`docs/running/oracle-shift.md`](oracle-shift.md).
 
@@ -150,13 +149,13 @@ It is **not** the self-hosting switch, and setting it in a deployed app breaks t
 
 ### Steps to add a `postgres` provider
 
-1. **Host Postgres** — apply all files in `supabase/migrations/` (they are plain PostgreSQL; `auth.users` becomes your identity table or you add a `users` table and adjust RLS).
+1. **Host Postgres** — apply all files in `db/migrations/` (they are plain PostgreSQL; `auth.users` becomes your identity table or you add a `users` table and adjust RLS).
 
 2. **Auth** — implement `IAuthService` + `ICurrentUserProvider`:
    - Issue JWTs with `sub` = user uuid.
    - Set `request.jwt.claim.sub` per connection (or replace `auth.uid()` with `current_setting('app.user_id')` in a migration fork).
 
-3. **Repositories** — copy a `Supabase*Repository` → `Postgres*Repository` using `pg` / Drizzle / Kysely. Same tables, same columns; enforce `project_id` filters in app code if you drop RLS.
+3. **Repositories** — copy a `Postgrest*Repository` → `Postgres*Repository` using `pg` / Drizzle / Kysely. Same tables, same columns; enforce `project_id` filters in app code if you drop RLS.
 
 4. **Blob store** — implement `IBlobStore` under `apps/web/src/storage/providers/` (S3/R2, tiered). Wired via `wireStorage()`, not `wire-backend.ts` directly.
 
@@ -203,7 +202,7 @@ Auth: self-hosted [Keycloak](https://www.keycloak.org/), [Authentik](https://goa
 | 1 | Add id to `BackendProviderId` in `backend/config.ts` |
 | 2 | Create `backend/providers/<name>/wire-<name>-backend.ts` |
 | 3 | Implement `IAuthService`, `ICurrentUserProvider`, `IAdminUserProvisioner` |
-| 4 | Implement repository interfaces in `wire-supabase-backend.ts` |
+| 4 | Implement repository interfaces in `wire-postgrest-backend.ts` |
 | 5 | Implement blob adapters in `storage/providers/` + `wire-storage.ts` |
 | 6 | Add `case` in `wire-backend.ts` |
 | 7 | Document env vars in `.env.local.example` |

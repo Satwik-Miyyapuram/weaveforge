@@ -14,6 +14,7 @@
  */
 
 import { normalizeMarkdownImageSyntax } from "../features/vault/domain/vault-page.js";
+import { replaceImageRefs } from "../shared/markdown-image.js";
 import { ASSET_DIR, assetPath } from "./folder-layout.js";
 
 export type BlobScheme = "vault" | "paperimg" | "reportimg";
@@ -24,11 +25,8 @@ const SCHEME_SCOPE: Record<BlobScheme, "notes" | "papers" | "report"> = {
   reportimg: "report",
 };
 
-const BLOB_REF_RE = /!\[([^\]]*)\]\((vault|paperimg|reportimg):([^)\s]+)\)/g;
-const RELATIVE_REF_RE = new RegExp(
-  String.raw`!\[([^\]]*)\]\((?:\.\./)*${ASSET_DIR}/(notes|papers|report)/([^)\s]+)\)`,
-  "g",
-);
+const BLOB_HEAD = /(vault|paperimg|reportimg):/;
+const RELATIVE_HEAD = new RegExp(String.raw`(?:\.\./)*${ASSET_DIR}/(notes|papers|report)/`);
 
 /** How many `../` hops from a file at `depth` directories deep back to root. */
 function upTo(depth: number): string {
@@ -46,15 +44,12 @@ export function toRelativeBlobLinks(
   const depth = filePath.split("/").length - 1;
   const assets: { scheme: BlobScheme; storagePath: string; folderPath: string }[] = [];
 
-  const rewritten = normalizeMarkdownImageSyntax(body).replace(
-    BLOB_REF_RE,
-    (_match, alt: string, scheme: string, storagePath: string) => {
-      const kind = scheme as BlobScheme;
-      const folderPath = assetPath(SCHEME_SCOPE[kind], storagePath);
-      assets.push({ scheme: kind, storagePath, folderPath });
-      return `![${alt}](${upTo(depth)}${folderPath})`;
-    },
-  );
+  const rewritten = replaceImageRefs(normalizeMarkdownImageSyntax(body), BLOB_HEAD, ({ alt, head, rest }) => {
+    const kind = head[1] as BlobScheme;
+    const folderPath = assetPath(SCHEME_SCOPE[kind], rest);
+    assets.push({ scheme: kind, storagePath: rest, folderPath });
+    return `![${alt}](${upTo(depth)}${folderPath})`;
+  });
 
   return { body: rewritten, assets };
 }
@@ -76,26 +71,21 @@ export interface ImportedAssetResolver {
  * object.
  */
 export function fromRelativeBlobLinks(body: string, resolver: ImportedAssetResolver): string {
-  return body.replace(
-    RELATIVE_REF_RE,
-    (match, alt: string, scope: string, rest: string) => {
-      const storagePath = resolver.resolve(scope as "notes" | "papers" | "report", rest);
-      if (!storagePath) return match;
-      const scheme = (Object.keys(SCHEME_SCOPE) as BlobScheme[]).find(
-        (key) => SCHEME_SCOPE[key] === scope,
-      );
-      return scheme ? `![${alt}](${scheme}:${storagePath})` : match;
-    },
-  );
+  return replaceImageRefs(body, RELATIVE_HEAD, ({ alt, head, rest }) => {
+    const scope = head[1] as "notes" | "papers" | "report";
+    const storagePath = resolver.resolve(scope, rest);
+    if (!storagePath) return null;
+    const scheme = (Object.keys(SCHEME_SCOPE) as BlobScheme[]).find((key) => SCHEME_SCOPE[key] === scope);
+    return scheme ? `![${alt}](${scheme}:${storagePath})` : null;
+  });
 }
 
 /** Every folder-relative asset path a body references. */
 export function relativeAssetPaths(body: string): { scope: string; path: string }[] {
   const out: { scope: string; path: string }[] = [];
-  RELATIVE_REF_RE.lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = RELATIVE_REF_RE.exec(body)) !== null) {
-    out.push({ scope: match[2]!, path: match[3]! });
-  }
+  replaceImageRefs(body, RELATIVE_HEAD, ({ head, rest }) => {
+    out.push({ scope: head[1]!, path: rest });
+    return null;
+  });
   return out;
 }

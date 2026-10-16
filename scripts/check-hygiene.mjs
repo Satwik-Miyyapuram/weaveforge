@@ -229,7 +229,7 @@ const OVERSIZED_ALLOWED = new Map([
 // introduces one is left alone.
 // ---------------------------------------------------------------------------
 {
-  const REPO_PATH = /`((?:apps|packages|plugins|python|supabase|scripts)\/[A-Za-z0-9_.\/-]+)`/g;
+  const REPO_PATH = /`((?:apps|packages|plugins|python|supabase|db|scripts)\/[A-Za-z0-9_.\/-]+)`/g;
   const PROPOSES = /\b(?:new|creates?|adds?|proposed?|would|will|when scheduled)\b/i;
   const missing = [];
   for (const doc of tracked("docs/**/*.md", "*.md")) {

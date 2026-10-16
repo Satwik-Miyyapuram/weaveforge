@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { SupabaseCrdtUpdateStore } from "@/features/collab/infrastructure/supabase-crdt-update-store";
+import { PostgrestCrdtUpdateStore } from "@/features/collab/infrastructure/postgrest-crdt-update-store";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
 import { testDb } from "./pg-test-db";
 
@@ -38,14 +38,14 @@ async function pageOwnedBy(ownerId: string) {
 }
 
 function storeFor(db: Awaited<ReturnType<typeof testDb>>, as: string) {
-  return new SupabaseCrdtUpdateStore(
+  return new PostgrestCrdtUpdateStore(
     createLocalClient(db.as(as).sql as LocalQuery) as unknown as SupabaseClient,
   );
 }
 
 /** Append `count` update rows, so there is something to sweep. */
 async function appendUpdates(
-  store: SupabaseCrdtUpdateStore,
+  store: PostgrestCrdtUpdateStore,
   pageId: string,
   count: number,
   authorId: string,

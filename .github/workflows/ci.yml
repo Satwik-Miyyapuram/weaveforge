@@ -51,7 +51,7 @@ jobs:
       # Job-scoped (not workflow-scoped) so a bad secret eval fails the job, not startup.
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-      NEXT_PUBLIC_BACKEND_PROVIDER: supabase
+      NEXT_PUBLIC_BACKEND_PROVIDER: postgrest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -311,7 +311,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_BACKEND_PROVIDER: supabase
+          NEXT_PUBLIC_BACKEND_PROVIDER: postgrest
           # Auth is still Supabase's; the tables are not. Without these the
           # suite reads the pre-cutover copy of the database, where
           # `ensure_user_provisioned` does not exist (404) and `profiles` is

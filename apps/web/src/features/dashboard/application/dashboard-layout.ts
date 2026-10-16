@@ -21,7 +21,7 @@ function layoutStorageKey(projectId: string): string {
   return `thesis.dashboard.layout.${projectId}`;
 }
 
-/** @deprecated Layout is stored in Supabase; clear any legacy localStorage entry. */
+/** @deprecated Layout is stored in the database; clear any legacy localStorage entry. */
 export function clearLegacyLayoutStorage(projectId: string): void {
   try {
     localStorage.removeItem(layoutStorageKey(projectId));

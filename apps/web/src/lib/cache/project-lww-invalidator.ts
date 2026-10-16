@@ -4,7 +4,7 @@
 
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
-import { getRealtimeClient } from "@/backend/providers/supabase/client";
+import { getRealtimeClient } from "@/backend/providers/postgrest/client";
 
 import {
   isKnownResourceType,

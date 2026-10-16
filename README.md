@@ -19,7 +19,7 @@ Most research tools split the job: Zotero for papers, Notion for notes, wandb fo
 | **Best for** | Day-to-day research in the browser | `@track_experiment`, Lightning/Keras callbacks, TensorBoard/wandb import |
 | **Docs** | [Quick start ↓](#quick-start) · [Features ↓](#features) | [Python SDK ↓](#python-sdk) · [`python/README.md`](python/README.md) |
 
-Both talk to the **same Postgres schema** (`supabase/migrations/`; the folder keeps its old name, the database is the self-hosted one on OCI). Log a run in Python → compare it in the dashboard next to the paper it implements.
+Both talk to the **same Postgres schema** (`db/migrations/`; the folder keeps its old name, the database is the self-hosted one on OCI). Log a run in Python → compare it in the dashboard next to the paper it implements.
 
 ---
 
@@ -57,7 +57,7 @@ npm run test:core          # the domain suite — no network, no browser
 
 1. Copy `apps/web/.env.local.example` → `apps/web/.env.local`. Set `NEXT_PUBLIC_DATA_URL` and `NEXT_PUBLIC_REALTIME_URL` to the Caddy gateway (e.g. `https://api.weaveforge.org`), and `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` to the auth project that issues sign-in tokens.
 2. Apply the schema to the OCI Postgres with `psql`, in order:
-   [`supabase/migrations-self-hosted-postgres/`](supabase/migrations-self-hosted-postgres/) **first**, then the main chain — see [`supabase/migrations/README.md`](supabase/migrations/README.md).
+   [`db/migrations-self-hosted-postgres/`](db/migrations-self-hosted-postgres/) **first**, then the main chain — see [`db/migrations/README.md`](db/migrations/README.md).
 3. `npm run dev` → http://localhost:3000 — sign in, create a project, start adding papers.
 
 Full setup (Auth providers, integrations, deploy): sections below and [`docs/building/dev.md`](docs/building/dev.md).
@@ -128,7 +128,7 @@ packages/core/     Domain entities, repository interfaces, use-cases (no React, 
 apps/web/          Next.js PWA — features/{domain,application,infrastructure,ui}
                    bootstrap.ts = composition root; facades/ = UI API (ISP)
 python/            Same contracts for experiment push + sync sources
-supabase/          SQL migrations — single schema source of truth
+db/                SQL migrations — single schema source of truth
 ```
 
 - **Dependency inversion** — UI and scripts depend on interfaces; the PostgREST/Postgres adapters live in infrastructure.
@@ -198,7 +198,7 @@ apps/web/         Next.js PWA
 apps/pitch/       Static export of the pitch site (GitHub Pages)
 apps/desktop/     Electron shell around the web app (see apps/desktop/README.md)
 packages/core/    @weaveforge/core — shared domain + use-cases
-supabase/         SQL migrations 0001…0131 for the OCI Postgres (see supabase/migrations/README.md)
+db/               SQL migrations 0001…0131 for the OCI Postgres (see db/migrations/README.md)
 python/           weaveforge SDK
 docs/             using/ building/ running/, and internal/ working notes
 ```
@@ -207,7 +207,7 @@ docs/             using/ building/ running/, and internal/ working notes
 
 **Data: self-hosted on OCI.** Postgres 16, PostgREST, Realtime and MinIO behind Caddy, from
 [`infra/oci/docker-compose.yml`](infra/oci/docker-compose.yml). Apply
-[`supabase/migrations-self-hosted-postgres/`](supabase/migrations-self-hosted-postgres/) first,
+[`db/migrations-self-hosted-postgres/`](db/migrations-self-hosted-postgres/) first,
 then the main chain.
 
 **Sign-in: Supabase Auth.** It issues the session tokens and nothing else; the OCI stack verifies
@@ -235,12 +235,12 @@ BLOB_PROVIDER=tiered
 ### Database
 
 ```bash
-for f in supabase/migrations-self-hosted-postgres/*.sql supabase/migrations/*.sql; do
+for f in db/migrations-self-hosted-postgres/*.sql db/migrations/*.sql; do
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
 done
 ```
 
-Apply the full chain, self-hosted prerequisites first. Notable groups: org hierarchy (`0015`), sharing (`0018`), vault (`0027`), invite codes (`0028`), library pins (`0029`), share links (`0047`–`0049`), API tokens (`0061`), standalone role (`0064`), Overleaf linked reports (`0075`–`0077`), database hardening (`0078`–`0088`), and experiment metric chunks (`0115`). `0037`–`0041` and `0089`–`0095` created the client-side E2EE key tables; that feature was dropped, nothing reads them, and **`0099` drops the whole schema** — this paragraph used to claim no migration did. Full list: [`supabase/migrations/README.md`](supabase/migrations/README.md).
+Apply the full chain, self-hosted prerequisites first. Notable groups: org hierarchy (`0015`), sharing (`0018`), vault (`0027`), invite codes (`0028`), library pins (`0029`), share links (`0047`–`0049`), API tokens (`0061`), standalone role (`0064`), Overleaf linked reports (`0075`–`0077`), database hardening (`0078`–`0088`), and experiment metric chunks (`0115`). `0037`–`0041` and `0089`–`0095` created the client-side E2EE key tables; that feature was dropped, nothing reads them, and **`0099` drops the whole schema** — this paragraph used to claim no migration did. Full list: [`db/migrations/README.md`](db/migrations/README.md).
 
 ### Collaboration
 

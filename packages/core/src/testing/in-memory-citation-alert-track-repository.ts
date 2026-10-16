@@ -6,7 +6,7 @@ import type {
 
 /**
  * In-memory citation-alert tracks. Scoped to one user + project like the
- * Supabase adapter.
+ * PostgREST adapter.
  */
 export class InMemoryCitationAlertTrackRepository implements ICitationAlertTrackRepository {
   private readonly store = new Map<string, CitationAlertTrack>();

@@ -11,7 +11,7 @@
  * against: the `authenticated` role, and `auth.uid()` reading the `sub` claim
  * out of `request.jwt.claims`. Everything the policies actually evaluate —
  * every `using`, `with check`, trigger, CHECK constraint and security-invoker
- * function — is the real SQL from supabase/migrations. What it does not cover
+ * function — is the real SQL from db/migrations. What it does not cover
  * is Supabase's own auth service: issuing a JWT, validating it, and mapping it
  * to a role. Those are GoTrue's job, not this schema's, and no test here
  * pretends otherwise.
@@ -27,7 +27,7 @@ import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 import { LOCAL_BOOTSTRAP_SQL, applyMigrations, sessionClaims } from "@weaveforge/core";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const MIGRATIONS = path.resolve(HERE, "../../../../../supabase/migrations");
+const MIGRATIONS = path.resolve(HERE, "../../../../../db/migrations");
 /**
  * The device-only tables, applied after the shared ones.
  *
@@ -36,7 +36,7 @@ const MIGRATIONS = path.resolve(HERE, "../../../../../supabase/migrations");
  * `sync_apply`, which is a local function writing a shared table, being exactly
  * that case.
  */
-const LOCAL_MIGRATIONS = path.resolve(HERE, "../../../../../supabase/migrations-local");
+const LOCAL_MIGRATIONS = path.resolve(HERE, "../../../../../db/migrations-local");
 
 export interface TestDb {
   /** Run SQL as the database owner, with RLS bypassed. */

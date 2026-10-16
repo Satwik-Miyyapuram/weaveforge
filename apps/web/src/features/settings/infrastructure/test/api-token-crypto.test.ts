@@ -7,7 +7,7 @@ import {
   hashApiToken,
   isApiTokenFormat,
 } from "../api-token-crypto.js";
-import { signSupabaseAccessJwt } from "../sign-supabase-jwt.js";
+import { signAccessJwt } from "../sign-access-jwt.js";
 
 test("generateApiToken produces tt_ prefix and stable hash", () => {
   const a = generateApiToken();
@@ -31,7 +31,7 @@ test("expiryFromDays returns ISO date or null", () => {
   assert.ok(new Date(iso!).getTime() > Date.now());
 });
 
-test("signSupabaseAccessJwt is a three-part JWT", () => {
-  const jwt = signSupabaseAccessJwt("00000000-0000-4000-8000-000000000001", "test-secret");
+test("signAccessJwt is a three-part JWT", () => {
+  const jwt = signAccessJwt("00000000-0000-4000-8000-000000000001", "test-secret");
   assert.match(jwt, /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
 });

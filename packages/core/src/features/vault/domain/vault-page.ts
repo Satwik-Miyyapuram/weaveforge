@@ -228,11 +228,11 @@ export function stripFrontmatter(md: string): ParsedFrontmatter {
   const collect = (raw: string) =>
     raw
       .split(/[,\s]+/)
-      .map((s) => s.replace(/^["'#]+|["']+$/g, "").trim())
+      .map((s) => trimQuotes(s.replace(/^["'#]+/, "")).trim())
       .filter(Boolean)
       .forEach((t) => tags.add(t));
   for (let i = 0; i < lines.length; i += 1) {
-    const inline = /^(tags|aliases):\s*(.*)$/i.exec(lines[i]!);
+    const inline = /^(tags|aliases):(.*)$/i.exec(lines[i]!);
     if (!inline) continue;
     let rest = inline[2]!.trim();
     if (rest.startsWith("[")) rest = rest.replace(/^\[|\]$/g, "");
@@ -243,6 +243,13 @@ export function stripFrontmatter(md: string): ParsedFrontmatter {
     }
   }
   return { body, tags: [...tags] };
+}
+
+/** Drops trailing quotes without a backtracking `["']+$` regex. */
+function trimQuotes(s: string): string {
+  let end = s.length;
+  while (end > 0 && (s[end - 1] === '"' || s[end - 1] === "'")) end -= 1;
+  return s.slice(0, end);
 }
 
 /**
@@ -272,10 +279,39 @@ export function vaultImageMarkdown(path: string, alt = "image"): string {
 
 /** Collapse whitespace inside markdown image syntax so wrapped refs still match. */
 export function normalizeMarkdownImageSyntax(body: string): string {
-  return body.replace(
-    /!\[([^\]]*)\]\s*\(\s*((?:blob|vault|paperimg|reportimg):[^)\s]+|https?:\/\/[^)\s]+)\s*\)/g,
-    "![$1]($2)",
-  );
+  // Hand-rolled scan: the equivalent regex backtracks quadratically on "![![![…".
+  const isSpace = (i: number) => i < body.length && /\s/.test(body[i]!);
+  let out = "";
+  let copied = 0;
+  let from = 0;
+  for (;;) {
+    const start = body.indexOf("![", from);
+    if (start < 0) break;
+    const close = body.indexOf("]", start + 2);
+    if (close < 0) break;
+    // Every "![" before `close` shares this "]" and what follows, so one try covers them all.
+    from = close + 1;
+    let i = close + 1;
+    while (isSpace(i)) i += 1;
+    if (body[i] !== "(") continue;
+    i += 1;
+    while (isSpace(i)) i += 1;
+    const head = /^(?:blob:|vault:|paperimg:|reportimg:|https?:\/\/)/.exec(body.slice(i, i + 12));
+    if (!head) continue;
+    const urlStart = i;
+    i += head[0].length;
+    const pathStart = i;
+    while (i < body.length && body[i] !== ")" && !isSpace(i)) i += 1;
+    if (i === pathStart) continue;
+    const urlEnd = i;
+    while (isSpace(i)) i += 1;
+    from = Math.max(from, i);
+    if (body[i] !== ")") continue;
+    out += `${body.slice(copied, start)}![${body.slice(start + 2, close)}](${body.slice(urlStart, urlEnd)})`;
+    copied = i + 1;
+    from = copied;
+  }
+  return out + body.slice(copied);
 }
 
 /** Max chars kept for note-card previews from `listSummaries`. */

@@ -1,4 +1,4 @@
-import { getSupabase } from "@/lib/supabase";
+import { getDataClient } from "@/lib/data-client";
 import { authHeaders as bearerHeaders } from "@/lib/auth-headers";
 import { singleFlight } from "@/lib/cache/single-flight";
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
@@ -62,14 +62,14 @@ export async function joinOrg(input: {
 export async function continueStandalone() {
   let rpcErr: { message?: string } | null = null;
   try {
-    const supabase = getSupabase();
-    const res = await supabase.rpc("complete_org_setup");
+    const db = getDataClient();
+    const res = await db.rpc("complete_org_setup");
     rpcErr = res.error;
     if (rpcErr) {
       try {
         const { getLightContainer } = await import("@/light-bootstrap");
         await getLightContainer().selfProvisioner.ensureProvisioned();
-        const retry = await supabase.rpc("complete_org_setup");
+        const retry = await db.rpc("complete_org_setup");
         rpcErr = retry.error;
       } catch {
         /* fallback below will handle */
@@ -149,12 +149,12 @@ export function fetchMemberships(): Promise<OrgMembershipView[]> {
 }
 
 async function fetchMembershipsUncached(): Promise<OrgMembershipView[]> {
-  const supabase = getSupabase();
-  const { data: session } = await supabase.auth.getSession();
+  const db = getDataClient();
+  const { data: session } = await db.auth.getSession();
   const userId = session.session?.user.id;
   if (!userId) throw new Error("Not authenticated.");
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("org_memberships")
     .select(MEMBERSHIP_ROW_COLUMNS)
     .eq("user_id", userId)
@@ -171,8 +171,8 @@ async function fetchMembershipsUncached(): Promise<OrgMembershipView[]> {
 }
 
 export async function switchOrg(orgId: string) {
-  const supabase = getSupabase();
-  const { error: rpcErr } = await supabase.rpc("switch_active_org", { p_org_id: orgId });
+  const db = getDataClient();
+  const { error: rpcErr } = await db.rpc("switch_active_org", { p_org_id: orgId });
   if (!rpcErr) {
     invalidateAllRepoCaches();
     return;
@@ -195,8 +195,8 @@ export async function switchOrg(orgId: string) {
 
 /** Leave a lab — RPC first, service-role API fallback. */
 export async function leaveOrg(orgId: string) {
-  const supabase = getSupabase();
-  const { error: rpcErr } = await supabase.rpc("leave_org", { p_org_id: orgId });
+  const db = getDataClient();
+  const { error: rpcErr } = await db.rpc("leave_org", { p_org_id: orgId });
   if (!rpcErr) {
     invalidateAllRepoCaches();
     return;

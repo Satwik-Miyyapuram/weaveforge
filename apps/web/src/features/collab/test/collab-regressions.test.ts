@@ -9,7 +9,7 @@ import * as Y from "yjs";
 
 import { seedIfEmpty, seedUpdate } from "../domain/seed-document";
 import { shouldPersistBody } from "../domain/save-policy";
-import { encodeRealtimeMessageAsJson } from "@/backend/providers/supabase/client";
+import { encodeRealtimeMessageAsJson } from "@/backend/providers/postgrest/client";
 
 const text = (doc: Y.Doc) => doc.getText("body").toString();
 

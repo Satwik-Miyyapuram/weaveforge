@@ -8,7 +8,7 @@
 - [ ] PDF reader / annotations
 - [ ] Core contracts (`packages/core`)
 - [ ] Python SDK (`python/`)
-- [ ] Database / migrations (`supabase/`)
+- [ ] Database / migrations (`db/`)
 - [ ] Docs / CI
 
 ## Checklist

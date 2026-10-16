@@ -1,6 +1,6 @@
 /**
  * Shared CONTRACT suites for IShareRepository and ICommentRepository. Every
- * implementation (in-memory, Supabase) must pass these identical checks (Liskov).
+ * implementation (in-memory, PostgREST) must pass these identical checks (Liskov).
  * The factories return a repo already scoped to a signed-in user.
  */
 

@@ -118,7 +118,7 @@ MotionEvent.ACTION_MOVE -> {
     area: "apps/web · experiments infrastructure",
     files: [
       "apps/web/src/features/experiments/infrastructure/supabase-metric-repository.ts",
-      "supabase/migrations/0114_*.sql, 0115_*.sql",
+      "db/migrations/0114_*.sql, 0115_*.sql",
     ],
     problem:
       "`const TABLE = \"experiment_metrics\"` is used for both the paged read and the `insert(payload)` in `append()`. Migrations 0114/0115 dropped the `experiment_metrics` table and replaced it with a chunk-aware **view** that `unnest`-expands `experiment_metric_chunks` and unions `experiment_metric_points`. An `insert` through that view requires an `INSTEAD OF INSERT` trigger; if one exists it is an undocumented write path into the chunk expansion, and if one does not, `append` fails at runtime with `cannot insert into a view`. The repository interface is `IMetricRepository`, so a second implementor (a local/PostgREST backend, or a test double built from this class) inherits the same wrong table name. The class doc says 'the Python SDK is the writer' — which is the strongest hint that this method is an unexercised write path against a read-only relation.",
@@ -885,7 +885,7 @@ export const VERIFICATION = [
   "npm run lint               # react-hooks/exhaustive-deps is an error",
   "npm run test:core           # 1214 tests, 0 failures, ~62 s at baseline",
   "npm run test:web            # node --import tsx --test \"src/**/*.test.ts(x)\"",
-  "npm run test:integration:web  # pglite: applies every supabase/migrations file",
+  "npm run test:integration:web  # pglite: applies every db/migrations file",
   "npm run check:boundaries    # solid, dry, api-route-tests, ui, hygiene, mcp-plugin, docs",
   "cd python && ruff check weaveforge tests && mypy && pytest -q",
   "npm run check:all           # adds test:desktop and a real next build",
@@ -1387,7 +1387,7 @@ export const GUARDRAILS: { gate: string; where: string; catches: string }[] = [
     howDiscovered: 'Phase 3 audit of metric storage.',
     why: 'WF-P09 real gap: chunks are an archive written by a batch rollup, but nothing runs that rollup. The view works but grows unbounded without the rollup.',
     fix: 'Two npm scripts and docs/running/metrics-maintenance.md with a suggested cron. Not running it costs space rather than data.',
-    codeLocation: 'supabase/migrations/',
+    codeLocation: 'db/migrations/',
     status: 'confirmed',
     phase: 'Phase 3'
   },

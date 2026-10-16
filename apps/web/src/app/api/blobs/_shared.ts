@@ -15,13 +15,13 @@ import { formatError, formatErrorForResponse } from "@/lib/format-error";
  * Auth is `requireSdkUser` — the same helper `pdf-proxy`, `url-meta` and the
  * SDK routes use. These routes used to run their own `bearerToken()` plus
  * `userIdFromToken()` pair, which was a third variant of the same check and
- * differed from the other two in its status codes: a missing Supabase config
+ * differed from the other two in its status codes: a missing backend config
  * came back as `401 Not authenticated.` rather than the `500`/`503` the shared
  * helper answers, so an operator with a broken deployment was told to sign in
  * again. One helper, one set of codes.
  *
  * What the caller receives is the *access* token, not the header value: an SDK
- * API token (`tt_…`) is not a JWT, and the storage layer builds its Supabase
+ * API token (`tt_…`) is not a JWT, and the storage layer builds its data
  * client from what it is given. `requireSdkUser` mints the JWT for an API token
  * and hands back the caller's own token otherwise.
  *

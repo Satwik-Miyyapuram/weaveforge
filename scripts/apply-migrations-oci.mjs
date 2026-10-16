@@ -38,8 +38,8 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
-const MIGRATIONS = join(root, "supabase/migrations");
-const SELF_HOSTED = join(root, "supabase/migrations-self-hosted-postgres");
+const MIGRATIONS = join(root, "db/migrations");
+const SELF_HOSTED = join(root, "db/migrations-self-hosted-postgres");
 const PREREQS = join(SELF_HOSTED, "0000_self_host_prereqs.sql");
 
 /** Same rule the preflight uses: TLS everywhere except a local socket or loopback. */

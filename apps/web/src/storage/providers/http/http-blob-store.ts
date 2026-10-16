@@ -1,5 +1,5 @@
 import type { IBlobStore } from "@weaveforge/core";
-import { getSupabase } from "@/lib/supabase";
+import { getDataClient } from "@/lib/data-client";
 import { MAX_SIGNED_URL_PATHS } from "@/storage/signed-url-limits";
 
 /**
@@ -8,7 +8,7 @@ import { MAX_SIGNED_URL_PATHS } from "@/storage/signed-url-limits";
  */
 export class HttpBlobStore implements IBlobStore {
   private async authHeaders(): Promise<HeadersInit> {
-    const { data } = await getSupabase().auth.getSession();
+    const { data } = await getDataClient().auth.getSession();
     const token = data.session?.access_token;
     if (!token) throw new Error("Not authenticated.");
     return { Authorization: `Bearer ${token}` };

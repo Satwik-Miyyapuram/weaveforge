@@ -58,7 +58,7 @@ async function upsertMembership(row) {
     const { joined_via: _drop, ...legacy } = payload;
     ({ error } = await admin.from("org_memberships").upsert(legacy, { onConflict: "org_id,user_id" }));
     if (!error) {
-      console.warn("  (joined_via column missing — run supabase db push through 0063)");
+      console.warn("  (joined_via column missing — apply db/migrations through 0063)");
     }
   }
   if (error) throw error;

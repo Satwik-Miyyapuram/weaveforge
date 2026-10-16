@@ -11,7 +11,7 @@ import type {
  * In-memory {@link IShareRepository}. A fixed `currentId` stands in for the
  * signed-in user (the DB uses auth.uid()). Grant is idempotent on
  * (owner, recipient, type, resource) — re-granting updates access, mirroring the
- * unique index + delete/insert the Supabase adapter uses (LSP).
+ * unique index + delete/insert the PostgREST adapter uses (LSP).
  */
 export class InMemoryShareRepository implements IShareRepository {
   private readonly store = new Map<string, Share>();

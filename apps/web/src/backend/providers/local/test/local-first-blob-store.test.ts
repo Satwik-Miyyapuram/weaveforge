@@ -9,7 +9,7 @@ import type { IBlobStore } from "@weaveforge/core";
 import { LocalFirstBlobStore } from "../local-first-blob-store";
 import type { LocalQuery } from "../pglite-client";
 
-const MIGRATIONS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../../../../supabase/migrations-local");
+const MIGRATIONS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../../../../db/migrations-local");
 
 /** A server that can be switched off, and says what reached it. */
 class FakeServer implements IBlobStore {

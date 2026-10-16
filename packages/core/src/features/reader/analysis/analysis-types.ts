@@ -4,7 +4,7 @@
  * yields lines, columns, sections, the bibliography, every citation mention and
  * every figure mention.
  *
- * Pure and framework-free — no pdf.js, no DOM, no Supabase, no React — so the
+ * Pure and framework-free — no pdf.js, no DOM, no data client, no React — so the
  * same code runs in the web worker, in-thread on a worker-less environment,
  * and in the desktop shell. Everything in a `DocumentAnalysis` is a plain
  * array or scalar, so the result crosses `postMessage` without losing shape.

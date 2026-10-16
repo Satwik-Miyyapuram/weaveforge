@@ -49,13 +49,13 @@ export class SharingFacade {
     resourceId: string;
     expiresAt?: string | null;
   }) {
-    if (!this.deps.createShareLink) throw new Error("Share links require Supabase backend.");
+    if (!this.deps.createShareLink) throw new Error("Share links require the PostgREST backend.");
     const ownerId = await this.deps.session.requireUserId();
     return this.deps.createShareLink.execute({ ownerId, ...input });
   }
 
   async redeemShareLink(urlToken: string) {
-    if (!this.deps.redeemShareLink) throw new Error("Share links require Supabase backend.");
+    if (!this.deps.redeemShareLink) throw new Error("Share links require the PostgREST backend.");
     return this.deps.redeemShareLink.execute(urlToken);
   }
 
@@ -65,7 +65,7 @@ export class SharingFacade {
   }
 
   async revokeShareLink(input: { id: string; rotateDek?: boolean }) {
-    if (!this.deps.revokeShareLink) throw new Error("Share links require Supabase backend.");
+    if (!this.deps.revokeShareLink) throw new Error("Share links require the PostgREST backend.");
     const ownerId = await this.deps.session.requireUserId();
     return this.deps.revokeShareLink.execute({ ownerId, linkId: input.id, rotateDek: input.rotateDek });
   }

@@ -9,7 +9,7 @@ export function annotationPinKey(ann: Pick<ReaderAnnotation, "id" | "zoteroKey">
  * Apply an edit locally exactly as the repository will store it.
  *
  * The trimming and the blank-colour default mirror
- * `SupabaseReaderAnnotationRepository.update`. If they drifted apart the
+ * `PostgrestReaderAnnotationRepository.update`. If they drifted apart the
  * optimistic value would visibly change when the persisted row arrived, which
  * looks like the edit was rejected and silently redone.
  */

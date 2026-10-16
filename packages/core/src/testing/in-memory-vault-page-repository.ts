@@ -36,7 +36,7 @@ export class InMemoryVaultPageRepository implements IVaultPageRepository {
 
   /**
    * The card/tree projection, modelled honestly (review-2 F6): no `body` field
-   * at all, exactly as the Supabase adapter's reduced column list produces.
+   * at all, exactly as the PostgREST adapter's reduced column list produces.
    * Spreading the full page and blanking `body` was the double that made the
    * real projection look like a full entity.
    */

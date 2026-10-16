@@ -1,21 +1,18 @@
 /** Active persistence + auth backend — swap by env without touching features. */
-type BackendProviderId = "supabase" | "postgres";
+type BackendProviderId = "postgrest" | "postgres";
 
 /** Env bag for tests and composition-root overrides (avoids full ProcessEnv in unit tests). */
 export type EnvReader = Record<string, string | undefined>;
 
 export interface BackendConfig {
   readonly provider: BackendProviderId;
-  /** Supabase project URL (required when provider = supabase). */
+  /** Supabase Auth project URL; sign-in only. */
   readonly supabaseUrl?: string;
   /**
-   * Where the data API lives, when it is not Supabase's.
+   * Where the PostgREST data API lives.
    *
-   * Supabase's REST endpoint is PostgREST, so a self-hosted PostgREST speaks
-   * the same protocol and the browser needs no rewriting — only a different
-   * address. Auth stays at `supabaseUrl` regardless: tokens are still issued by
-   * Supabase Auth, and the self-hosted PostgREST validates them with the same
-   * JWT secret.
+   * Auth stays at `supabaseUrl`: tokens are issued by Supabase Auth, and the
+   * self-hosted PostgREST validates them with the same JWT secret.
    *
    * Production sets it to the OCI server (`https://api.weaveforge.org`); the
    * sign-in project holds no WeaveForge data. Unset means "same as
@@ -23,18 +20,17 @@ export interface BackendConfig {
    */
   readonly dataUrl?: string;
   /**
-   * Where the realtime service lives, when it is not Supabase's.
+   * Where the realtime service lives.
    *
    * Broadcast channels are authorized by RLS policies on `realtime.messages`,
    * and those policies read the application tables (`can_view_resource`). They
    * therefore have to run against the database that actually holds the data:
-   * once `dataUrl` moves, a Supabase-hosted realtime authorizes against a
-   * frozen copy and denies every resource created after the cutover.
+   * a realtime elsewhere would authorize against the wrong database.
    *
    * Production sets it beside `dataUrl`. Unset means "same as `supabaseUrl`".
    */
   readonly realtimeUrl?: string;
-  /** Supabase anon/public key (required when provider = supabase). */
+  /** Supabase Auth anon/public key; sign-in only. */
   readonly supabaseAnonKey?: string;
   /** Service role key — server routes only (optional in browser bundle). */
   readonly supabaseServiceRoleKey?: string;
@@ -50,14 +46,14 @@ export interface BackendConfig {
   readonly databaseUrl?: string;
 }
 
-const PROVIDERS = ["supabase", "postgres"] as const;
+const PROVIDERS = ["postgrest", "postgres"] as const;
 
 function pick<T extends string>(value: string | undefined, allowed: readonly T[], fallback: T): T {
   return (allowed as readonly string[]).includes(value ?? "") ? (value as T) : fallback;
 }
 
 function fromEnv(env: EnvReader): BackendConfig {
-  const provider = pick(env.NEXT_PUBLIC_BACKEND_PROVIDER, PROVIDERS, "supabase");
+  const provider = pick(env.NEXT_PUBLIC_BACKEND_PROVIDER, PROVIDERS, "postgrest");
   return {
     provider,
     supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
@@ -117,7 +113,7 @@ export function readBackendConfig(env?: EnvReader): BackendConfig {
   // bundle. Omitting `dataUrl` here made the cutover switch a no-op — setting
   // it in Vercel changed nothing, with no error to explain why.
   return {
-    provider: pick(process.env.NEXT_PUBLIC_BACKEND_PROVIDER, PROVIDERS, "supabase"),
+    provider: pick(process.env.NEXT_PUBLIC_BACKEND_PROVIDER, PROVIDERS, "postgrest"),
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
     dataUrl: process.env.NEXT_PUBLIC_DATA_URL,
     realtimeUrl: process.env.NEXT_PUBLIC_REALTIME_URL,

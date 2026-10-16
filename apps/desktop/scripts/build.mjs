@@ -76,14 +76,14 @@ fs.copyFileSync(iconPng.replace(/\.png$/, "-dark.png"), path.join(root, "dist/ic
  * local database whose schema is a hand-kept second version of the real one is
  * a sync bug waiting for a release to happen in.
  */
-const migrations = path.resolve(root, "../../supabase/migrations");
+const migrations = path.resolve(root, "../../db/migrations");
 fs.mkdirSync(path.join(root, "dist/migrations"), { recursive: true });
 for (const file of fs.readdirSync(migrations).filter((name) => name.endsWith(".sql"))) {
   fs.copyFileSync(path.join(migrations, file), path.join(root, "dist/migrations", file));
 }
 
 /** The tables that exist only on a device: the outbox and the watermark. */
-const localMigrations = path.resolve(root, "../../supabase/migrations-local");
+const localMigrations = path.resolve(root, "../../db/migrations-local");
 fs.mkdirSync(path.join(root, "dist/migrations-local"), { recursive: true });
 for (const file of fs.readdirSync(localMigrations).filter((name) => name.endsWith(".sql"))) {
   fs.copyFileSync(path.join(localMigrations, file), path.join(root, "dist/migrations-local", file));

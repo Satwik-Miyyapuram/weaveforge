@@ -43,11 +43,11 @@ Endpoint (automatic in app): `https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com`
 ## 4. Apply the registry migration
 
 Tiered mode uses the `blob_objects` registry, created by
-`supabase/migrations/0023_blob_registry.sql`. It is part of the full chain applied to the OCI
+`db/migrations/0023_blob_registry.sql`. It is part of the full chain applied to the OCI
 Postgres (see [`../backend.md`](../backend.md)); on its own:
 
 ```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0023_blob_registry.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/0023_blob_registry.sql
 ```
 
 ## 5. Configure app

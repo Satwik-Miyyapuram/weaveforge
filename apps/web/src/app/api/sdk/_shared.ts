@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createRestClient } from "@/backend/providers/supabase/client";
+import { createRestClient } from "@/backend/providers/postgrest/client";
 import { readBackendConfig } from "@/backend/config";
 import { apiTokenService } from "@/features/settings/infrastructure/api-token-service";
 import { hashApiToken, isApiTokenFormat } from "@/features/settings/infrastructure/api-token-crypto";
@@ -101,10 +101,10 @@ async function apiTokenScopes(token: string): Promise<string[]> {
 /**
  * The one authenticated-caller shape every API route in this app uses.
  *
- * `accessToken` is the JWT to hand to Supabase — the caller's own bearer token
+ * `accessToken` is the JWT to hand to PostgREST — the caller's own bearer token
  * when they brought a session, or the short-lived one minted for an API token.
  * It is *not* the value from the header: an `tt_…` API token is not a JWT and
- * passing it on would fail at the first query. Routes that call a Supabase
+ * passing it on would fail at the first query. Routes that call a data
  * helper directly (the storage layer builds its client from a token) need this,
  * which is why it is part of the result rather than reconstructed per route.
  */

@@ -1,6 +1,6 @@
 /**
  * Runs the shared contract suites against the in-memory implementations.
- * The Supabase implementations run the SAME suites — proving substitutability.
+ * The PostgREST implementations run the SAME suites — proving substitutability.
  */
 import {
   runReadingListItemRepositoryContract,

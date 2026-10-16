@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
-  SupabaseSelfProvisioner,
+  PostgrestSelfProvisioner,
   resetSelfProvisioningMemoForTests,
-} from "../infrastructure/supabase-self-provisioner";
+} from "../infrastructure/postgrest-self-provisioner";
 
 function stubClient(opts: { userId?: string | null; error?: unknown } = {}) {
   const calls: string[] = [];
@@ -23,28 +23,28 @@ function stubClient(opts: { userId?: string | null; error?: unknown } = {}) {
   return { db, calls };
 }
 
-describe("SupabaseSelfProvisioner", () => {
+describe("PostgrestSelfProvisioner", () => {
   beforeEach(() => resetSelfProvisioningMemoForTests());
 
   it("provisions the caller with an RPC that takes no arguments", async () => {
     const { db, calls } = stubClient();
-    await new SupabaseSelfProvisioner(db).ensureProvisioned();
+    await new PostgrestSelfProvisioner(db).ensureProvisioned();
     assert.deepEqual(calls, ["ensure_user_provisioned"]);
   });
 
   it("does not repeat the round trip once a user is provisioned", async () => {
     const { db, calls } = stubClient();
-    const provisioner = new SupabaseSelfProvisioner(db);
+    const provisioner = new PostgrestSelfProvisioner(db);
     await provisioner.ensureProvisioned();
     await provisioner.ensureProvisioned();
     // A second instance shares the memo — startup builds one per container.
-    await new SupabaseSelfProvisioner(db).ensureProvisioned();
+    await new PostgrestSelfProvisioner(db).ensureProvisioned();
     assert.equal(calls.length, 1);
   });
 
   it("retries the round trip when force is true even if already provisioned", async () => {
     const { db, calls } = stubClient();
-    const provisioner = new SupabaseSelfProvisioner(db);
+    const provisioner = new PostgrestSelfProvisioner(db);
     await provisioner.ensureProvisioned();
     assert.equal(calls.length, 1);
     await provisioner.ensureProvisioned(true);
@@ -53,21 +53,21 @@ describe("SupabaseSelfProvisioner", () => {
 
   it("does nothing without a session", async () => {
     const { db, calls } = stubClient({ userId: null });
-    await new SupabaseSelfProvisioner(db).ensureProvisioned();
+    await new PostgrestSelfProvisioner(db).ensureProvisioned();
     assert.deepEqual(calls, []);
   });
 
   it("reports the database's own message, never [object Object]", async () => {
     const { db } = stubClient({ error: { message: "permission denied for function" } });
     await assert.rejects(
-      () => new SupabaseSelfProvisioner(db).ensureProvisioned(),
+      () => new PostgrestSelfProvisioner(db).ensureProvisioned(),
       /permission denied for function/,
     );
   });
 
   it("does not remember a failure as success", async () => {
     const { db, calls } = stubClient({ error: { message: "network" } });
-    const provisioner = new SupabaseSelfProvisioner(db);
+    const provisioner = new PostgrestSelfProvisioner(db);
     await provisioner.ensureProvisioned().catch(() => undefined);
     await provisioner.ensureProvisioned().catch(() => undefined);
     assert.equal(calls.length, 2);

@@ -88,13 +88,13 @@ export function featureSlices(dir) {
 
 /** `0001 → 0120`, read off the migration filenames rather than remembered. */
 export function migrations() {
-  const files = filesUnder("supabase/migrations", { ext: ".sql" }).sort();
+  const files = filesUnder("db/migrations", { ext: ".sql" }).sort();
   const numberOf = (rel) => path.basename(rel).split("_")[0];
   return {
     count: files.length,
     first: files.length ? numberOf(files[0]) : "",
     last: files.length ? numberOf(files[files.length - 1]) : "",
-    lines: linesUnder("supabase/migrations", ".sql"),
+    lines: linesUnder("db/migrations", ".sql"),
   };
 }
 

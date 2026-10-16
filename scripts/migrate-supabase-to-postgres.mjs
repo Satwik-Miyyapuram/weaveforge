@@ -144,7 +144,7 @@ async function preflight(source, target) {
   );
   if (authSchema[0].n === 0) {
     problems.push(
-      "The target has no `auth.users`. Apply `0000_self_host_prereqs.sql` — see supabase/migrations-self-hosted-postgres/README.md.",
+      "The target has no `auth.users`. Apply `0000_self_host_prereqs.sql` — see db/migrations-self-hosted-postgres/README.md.",
     );
   }
 

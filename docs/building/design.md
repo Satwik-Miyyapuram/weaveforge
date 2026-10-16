@@ -39,12 +39,12 @@ A layered, feature-modular architecture. Dependencies point **inward and downwar
 └───────────────┬────────────────────────────────────────────────┘
                 │ implemented by ↓
 ┌───────────────▼────────────────────────────────────────────────┐
-│  INFRASTRUCTURE  (adapters: Supabase repos, arXiv/Crossref,    │
+│  INFRASTRUCTURE  (adapters: PostgREST repos, arXiv/Crossref,    │
 │  auth, storage, realtime, offline cache)                       │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-The key inversion: the **domain layer owns the repository interfaces**; the **infrastructure layer implements them**. Nothing in domain/application knows the word "Supabase."
+The key inversion: the **domain layer owns the repository interfaces**; the **infrastructure layer implements them**. Nothing in domain/application knows the word "PostgREST."
 
 ---
 
@@ -57,7 +57,7 @@ Each tracked concern is a vertical slice with the same internal shape, so the co
 features/<feature>/
 ├── domain/          # entities + repository interface (pure, no I/O)
 ├── application/     # use-cases / services (orchestration, no SDK calls)
-├── infrastructure/  # repository implementation (Supabase adapter)
+├── infrastructure/  # repository implementation (PostgREST adapter)
 ├── ui/              # components, routes, view-models (web only)
 └── index.ts         # the module's PUBLIC API — the only thing others import
 ```
@@ -79,7 +79,7 @@ weaveforge/
 ├── python/
 │   └── weaveforge/           # CLI/SDK, same module shape
 │       └── features/<feature>/{domain,application,infrastructure}
-├── supabase/
+├── db/
 │   └── migrations/               # the single source of truth for the schema
 ├── docs/
 │   ├── DESIGN.md                 # this file
@@ -171,7 +171,7 @@ These are not abstract aspirations — each maps to enforceable rules and concre
 
 ### 4.1 Single Responsibility Principle (SRP)
 *A class/module changes for one reason only.*
-- A **repository** only does persistence. A **service/use-case** only does orchestration. A **component** only does presentation. No component issues a Supabase query directly; no repository contains business rules.
+- A **repository** only does persistence. A **service/use-case** only does orchestration. A **component** only does presentation. No component issues a database query directly; no repository contains business rules.
 - Example: importing a paper from arXiv splits into `ArxivMetadataClient` (fetch + parse arXiv), `AddPaperUseCase` (business rule: dedupe by arxiv_id, set defaults), `PaperRepository` (persist). Three reasons to change, three units.
 
 ### 4.2 Open/Closed Principle (OCP)
@@ -182,7 +182,7 @@ These are not abstract aspirations — each maps to enforceable rules and concre
 
 ### 4.3 Liskov Substitution Principle (LSP)
 *Implementations must be substitutable for their interface.*
-- Any `IPaperRepository` implementation (Supabase, in-memory for tests, SQLite for offline) must honor the same contract and invariants. Tests run against the in-memory implementation; production uses the PostgREST adapter against the OCI Postgres; behavior is identical from the caller's view.
+- Any `IPaperRepository` implementation (PostgREST, in-memory for tests, SQLite for offline) must honor the same contract and invariants. Tests run against the in-memory implementation; production uses the PostgREST adapter against the OCI Postgres; behavior is identical from the caller's view.
 
 ### 4.4 Interface Segregation Principle (ISP)
 *Many specific interfaces beat one fat interface.*
@@ -204,10 +204,10 @@ export interface IPaperRepository {
 }
 
 // infrastructure (the ONLY layer that imports supabase-js)
-export class SupabasePaperRepository implements IPaperRepository { /* ... */ }
+export class PostgrestPaperRepository implements IPaperRepository { /* ... */ }
 
 // composition root — the single wiring point
-const paperRepo: IPaperRepository = new SupabasePaperRepository(supabase);
+const paperRepo: IPaperRepository = new PostgrestPaperRepository(getDataClient());
 const addPaper = new AddPaperUseCase(paperRepo, arxivSource);
 ```
 
@@ -247,7 +247,7 @@ Third-party **bibliography, citation, notification, and log-sync** providers fol
 Kept separate (ISP): `IRealtimeChannel` (subscribe to table changes), `IOfflineCache` (read-through cache + write outbox), `IFileStorage` (PDF blobs). A module opts into each independently. The offline strategy (last-write-wins on `updated_at`) lives behind `IOfflineCache` so it can evolve without touching features.
 
 ### 5.4 Keeping the two clients consistent
-The migrations in `supabase/migrations/` (the folder keeps its original name) are the **single source of truth** for the schema. TypeScript types are generated from the live schema; Python models mirror the same tables. Domain *behavior* (validation, dedupe rules) is duplicated intentionally per language but documented in one place (this doc + docstrings) so the contract is shared even though the runtime isn't.
+The migrations in `db/migrations/` (the folder keeps its original name) are the **single source of truth** for the schema. TypeScript types are generated from the live schema; Python models mirror the same tables. Domain *behavior* (validation, dedupe rules) is duplicated intentionally per language but documented in one place (this doc + docstrings) so the contract is shared even though the runtime isn't.
 
 ---
 
@@ -276,7 +276,7 @@ To keep scope honest and the design from over-engineering:
 
 Following the plan's P0/P1 but applying the structure above:
 
-1. **Scaffold** the monorepo skeleton (§3.2): `apps/web`, `packages/core`, `python/`, `supabase/`.
+1. **Scaffold** the monorepo skeleton (§3.2): `apps/web`, `packages/core`, `python/`, `db/`.
 2. **Establish the contracts** in `packages/core`: `IReadableRepository` / `IWritableRepository`, the `Paper` entity, `IPaperRepository`.
 3. **Build the `papers` module end-to-end** as the reference implementation of the module shape (§3.1): domain → in-memory repo → PostgREST repo (passing the same contract tests) → `AddPaperUseCase` → minimal UI list + add form.
 4. **Stand up the composition root** wiring (§4.5) so DIP is real from day one.

@@ -32,7 +32,7 @@ a few days and will coordinate a fix and disclosure timeline with you.
 ## Scope
 
 In scope: authentication/session handling, Row-Level Security policies in the
-`supabase/migrations/`, secret handling in the web app and Python SDK,
+`db/migrations/`, secret handling in the web app and Python SDK,
 share-link redemption, API token hashing (`0061`), signed-URL / storage-bucket
 policies, and share-link rate limits (`0049`, `0056`, `0058`).
 

@@ -134,7 +134,7 @@ npm run typecheck           # all workspaces
 npm run lint                # apps/web (eslint; react-hooks/exhaustive-deps is an error)
 npm run test:core
 npm run test:web            # node --import tsx --test "src/**/*.test.ts(x)"
-npm run test:integration:web   # pglite: applies every supabase/migrations file
+npm run test:integration:web   # pglite: applies every db/migrations file
 npm run check:boundaries    # check:solid, dry, api-route-tests, ui, hygiene, mcp-plugin, docs
 cd python && ruff check weaveforge tests && mypy && pytest -q      # for python items
 ```
@@ -146,7 +146,7 @@ Rules that will bite if forgotten:
 - `check:hygiene` fails a file over 800 lines, a doc naming a path that does not exist, and an API route that walks an unbounded array from the body.
 - `check:api-route-tests` requires every route under `apps/web/src/app` to have a colocated `test/route.test.ts` that imports it. SEC-06 touches a route; the test must exist alongside.
 - `check:docs` regenerates the architecture map and the boundary-checks table. Adding a gate means updating `package.json`, the CI step list **and** `docs/building/dev.md` — the CI file's own comment warns this list is written twice.
-- Migration files are numbered sequentially, need a matching rollback under `supabase/migrations-rollback/`, and carry a `-- Reversal:` header. `0114`'s comment records that an unguarded re-run once silently reverted `0115` and lost data; new migrations must be re-runnable.
+- Migration files are numbered sequentially, need a matching rollback under `db/migrations-rollback/`, and carry a `-- Reversal:` header. `0114`'s comment records that an unguarded re-run once silently reverted `0115` and lost data; new migrations must be re-runnable.
 
 ---
 
@@ -266,7 +266,7 @@ One change to `python/weaveforge/tracking.py`, because all thirteen findings are
 **Goal:** the curves are right, and the pages stop paying O(history).
 
 ### 3.1 Metrics — one migration, then one adapter — `WF-B02`, `WF-B03`, `WF-P01`, `WF-P02`
-- **New migration** `supabase/migrations/0131_metric_read_rpcs.sql` (adds the aggregate RPC and the missing index; with a rollback file and a `-- Reversal:` header). The audit's DDL targets `experiment_metrics`, which is a view — indexes there cannot exist. Aggregate over `experiment_metric_points` unioned with an unnest of `experiment_metric_chunks`, `security invoker` so RLS applies, and add the missing `(experiment_id, wall_time desc) where wall_time is not null` index. There is no `wall_time` index anywhere today.
+- **New migration** `db/migrations/0131_metric_read_rpcs.sql` (adds the aggregate RPC and the missing index; with a rollback file and a `-- Reversal:` header). The audit's DDL targets `experiment_metrics`, which is a view — indexes there cannot exist. Aggregate over `experiment_metric_points` unioned with an unnest of `experiment_metric_chunks`, `security invoker` so RLS applies, and add the missing `(experiment_id, wall_time desc) where wall_time is not null` index. There is no `wall_time` index anywhere today.
 - `latestActivityAt` calls the RPC: one row per experiment, correct regardless of any row cap, and no O(points) transfer. Note in the comment that the RPC still expands chunks server-side — that is Postgres' work, not the browser's.
 - `history` gets a column projection and a `maxPoints` budget on the port. **The audit's pagination loop is unsafe as written**: `if (page.length < PAGE) break` silently stops after page one when the server cap is below the page size. Read `Content-Range`, or size pages below the configured cap, or — better here — downsample in SQL and bound the response by construction.
 - **Set `PGRST_DB_MAX_ROWS` explicitly** in the compose service so the deployment's behaviour is a decision rather than a default. Today the same code is correct on one deployment and silently wrong on the other.
@@ -361,7 +361,7 @@ One change to `python/weaveforge/tracking.py`, because all thirteen findings are
 - **`SEC-06` — per-user rate limit and streaming** for `/api/fetch-url?as=image`. No limiter exists anywhere in TypeScript (the only one is a SQL function for share links). `auth.userId` is server-verified, so a per-user bucket is sound; the bucket is per-process, and the compose file declares no replicas. The streaming variant costs the exact `Content-Length` header and the client still buffers, so it only removes the server-side copy — worth stating in the commit. `apps/web/src/lib/cache/single-flight.ts` already exists and collapses duplicate pastes more cheaply than a bucket. A route test is mandatory (`check:api-route-tests`).
 - **`SEC-02` operator allowlist** — the env-driven escape hatch, at the app boundary rather than in the I/O-free core package.
 - **`BUG-18` / `BUG-02` leftovers** — land as clarity if not already covered; neither changes behaviour.
-- **Docs corrections.** `README.md`'s claim that no migration removes the E2EE tables is false; `supabase/migrations/README.md`'s table stops at `0094` while the chain runs past `0130`; the metric repository's docstring calls a view "the curve table (migration 0016)"; `_shared.ts` cites the wrong migration numbers. Four small corrections that otherwise send the next reader down the same wrong path this audit took.
+- **Docs corrections.** `README.md`'s claim that no migration removes the E2EE tables is false; `db/migrations/README.md`'s table stops at `0094` while the chain runs past `0130`; the metric repository's docstring calls a view "the curve table (migration 0016)"; `_shared.ts` cites the wrong migration numbers. Four small corrections that otherwise send the next reader down the same wrong path this audit took.
 
 ---
 

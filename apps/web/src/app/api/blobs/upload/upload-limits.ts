@@ -5,7 +5,7 @@
  * `route.ts` may only export route handlers and route config, so a constant
  * exported beside the handler fails the production build's route type check;
  * and the rules are then testable without a tiered storage config, a token or a
- * Supabase client — see `sdk/artifacts/artifact-request.ts` for the same split.
+ * data client — see `sdk/artifacts/artifact-request.ts` for the same split.
  */
 
 /**

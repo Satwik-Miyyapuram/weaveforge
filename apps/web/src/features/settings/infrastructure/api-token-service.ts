@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createRestClient } from "@/backend/providers/supabase/client";
+import { createRestClient } from "@/backend/providers/postgrest/client";
 import { missingConfigMessage, readBackendConfig } from "@/backend/config";
 import { encodeBytea } from "@/lib/bytea";
 import {
@@ -8,7 +8,7 @@ import {
   hashApiToken,
   isApiTokenFormat,
 } from "./api-token-crypto";
-import { signSupabaseAccessJwt } from "./sign-supabase-jwt";
+import { signAccessJwt } from "./sign-access-jwt";
 import { formatError } from "@/lib/format-error";
 
 export interface ApiTokenRecord {
@@ -153,14 +153,14 @@ export class ApiTokenService {
     if (error) throw new Error(formatError(error));
     const userId = typeof data === "string" ? data : null;
     if (!userId) return null;
-    return signSupabaseAccessJwt(userId, this.jwtSecret);
+    return signAccessJwt(userId, this.jwtSecret);
   }
 
   async resolveMcpRelayAccessToken(apiToken: string): Promise<string | null> {
     if (!isApiTokenFormat(apiToken) || !this.jwtSecret) return null;
     const { data, error } = await this.admin().rpc("resolve_mcp_relay_token", { p_token_hash: encodeBytea(hashApiToken(apiToken)) });
     if (error) throw new Error(formatError(error));
-    return typeof data === "string" ? signSupabaseAccessJwt(data, this.jwtSecret) : null;
+    return typeof data === "string" ? signAccessJwt(data, this.jwtSecret) : null;
   }
 
   /** Resolve a `plan_feed` token (calendar / widget link) → short-lived JWT. */
@@ -168,7 +168,7 @@ export class ApiTokenService {
     if (!isApiTokenFormat(apiToken) || !this.jwtSecret) return null;
     const { data, error } = await this.admin().rpc("resolve_plan_feed_token", { p_token_hash: encodeBytea(hashApiToken(apiToken)) });
     if (error) throw new Error(formatError(error));
-    return typeof data === "string" ? signSupabaseAccessJwt(data, this.jwtSecret) : null;
+    return typeof data === "string" ? signAccessJwt(data, this.jwtSecret) : null;
   }
 }
 

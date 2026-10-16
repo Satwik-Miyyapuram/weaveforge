@@ -9,7 +9,7 @@ const JWT_SUB_KEY = "request.jwt.claim.sub";
  * Not optional, and not cosmetic. `DATABASE_URL` points at the database owner,
  * and Postgres does not apply row-level security to the owner of a table — so
  * without this switch every policy in the schema is inert and one user's query
- * returns every other user's rows. Supabase never hits this because PostgREST
+ * returns every other user's rows. The PostgREST path never hits this because PostgREST
  * switches role before running a statement; the self-hosted path has to do the
  * same thing itself.
  *

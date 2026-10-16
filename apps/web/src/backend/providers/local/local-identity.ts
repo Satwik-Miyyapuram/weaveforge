@@ -14,7 +14,7 @@
  * on this machine and the identity is the machine's. Everything an account
  * buys — sharing, sync, another device — is refused here in words rather than
  * failing later, and the reader turns it on by signing in, which switches the
- * app back to the Supabase wiring and leaves the local database untouched.
+ * app back to the PostgREST wiring and leaves the local database untouched.
  */
 
 import { LOCAL_USER_ID } from "@weaveforge/core";

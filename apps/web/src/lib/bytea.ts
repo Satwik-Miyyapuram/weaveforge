@@ -1,5 +1,5 @@
 /**
- * bytea ↔ Uint8Array for Supabase PostgREST.
+ * bytea ↔ Uint8Array for PostgREST.
  */
 
 export function decodeBytea(value: string | Uint8Array): Uint8Array {

@@ -5,7 +5,7 @@ import type { RelationType } from "@weaveforge/core";
  *
  * A leaf module on purpose: constants and one pure function, no imports beyond
  * a type. They used to live in `build-graph-data`, which reaches into the
- * reading-lists feature and from there into the app's Supabase wiring — so
+ * reading-lists feature and from there into the app's backend wiring — so
  * anything wanting a single colour pulled the whole application in with it.
  * The statically exported pitch site needs exactly this palette and none of
  * that, and so does the legend.

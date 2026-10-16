@@ -5,7 +5,7 @@
  * reasons: a Next.js App Router `route.ts` may only export route handlers and
  * route config, so rules exported beside the handler fail the production
  * build's route type check; and a rule about a string is testable without a
- * token, a Supabase client or a network.
+ * token, a data client or a network.
  */
 
 /**
