@@ -22,6 +22,18 @@ tracks at once.
 
 ### iOS
 
+## [0.8.14] - 2026-10-16
+
+Desktop (`v0.8.14`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
+
+### Desktop
+- **Changed:** Ink keeps one constant width per tool, with no pressure or speed taper, and no longer restyles when the pen lifts.
+- **Changed:** PDF ink uses the same pen pipeline as notes, so a stroke on a paper looks the same as one on a note.
+- **Fixed:** Finger scroll on a note works again after tapping an image and then the page.
+- **Fixed:** A pen double-click outside an image no longer selects the image.
+- **Added:** V toggles cursor mode on a note, where the pen does not draw.
+- **Fixed:** The Recognise label in the ink bar no longer wraps.
+
 ## [0.8.13] - 2026-10-15
 
 Desktop (`v0.8.13`). Python SDK stays on 0.7.1; Android stays on 0.8.2; iOS stays on 0.8.0.
