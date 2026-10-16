@@ -360,7 +360,6 @@ export function paintStroke(
     y,
     pressure,
     width: stroke.width,
-    variableWidth: stroke.tool === "pen",
   };
   const grow = halo?.grow ?? 0;
   context.fillStyle = cssInkColour(

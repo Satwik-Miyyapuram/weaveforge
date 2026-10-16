@@ -2826,6 +2826,11 @@
   display: inline-flex; align-items: center; gap: 2px;
   width: auto; padding: 0 4px 0 6px;
 }
+/* Recognise carries a label too: a row, as wide as its words, never wrapped. */
+:root:root .ink-tool.ink-action-recognise {
+  display: inline-flex; align-items: center; gap: 6px;
+  width: auto; flex: none; padding: 0 10px; white-space: nowrap;
+}
 .ink-menu-caret { display: inline-flex; opacity: 0.6; }
 /* Zoom: − · 100% ▾ · +, the level a plain ghost button. */
 .ink-zoom { display: inline-flex; align-items: center; gap: 2px; flex: none; }

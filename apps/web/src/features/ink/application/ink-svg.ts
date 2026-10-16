@@ -32,11 +32,7 @@ import {
   type InkPalette,
 } from "../render/ink-palette";
 
-/**
- * No pressure channel, for a caller that only wants the centreline: with
- * `variableWidth: false` {@link strokeCurveAt} never reads this, and the page's
- * samples carry no pressure anyway.
- */
+/** No pressure channel: {@link strokeCurveAt} never reads it. */
 const NO_PRESSURE = new Uint8Array(0);
 
 /** A figure as the SVG export needs it: its placement and its pixels. */
@@ -102,7 +98,7 @@ export function strokePath(stroke: { points: readonly number[] }): string | null
     x[i] = points[i * 2]!;
     y[i] = points[i * 2 + 1]!;
   }
-  const input = { x, y, pressure: NO_PRESSURE, width: 0, variableWidth: false };
+  const input = { x, y, pressure: NO_PRESSURE, width: 0 };
   let out = first;
   for (let i = 0; i + 1 < count; i += 1) {
     for (let k = 1; k <= INK_SEGMENT_SUBDIVISIONS; k += 1) {

@@ -117,7 +117,17 @@ export function InkHost({
    * each tool remembers — a return from the highlighter hands the pen back
    * its own colour, not a fluorescent yellow.
    */
-  const { tool, setTool, colour, onColourChange, onPenApproach, ...widths } = useInkPrefs();
+  const { tool, setTool: pickTool, colour, onColourChange, onPenApproach, ...widths } = useInkPrefs();
+  // Cursor mode: the pen points and picks figures, never inks; any tool ends it.
+  const [cursorMode, setCursorMode] = useState(false);
+  const enterCursor = useCallback(() => setCursorMode(true), []);
+  const setTool = useCallback(
+    (next: Parameters<typeof pickTool>[0]) => {
+      setCursorMode(false);
+      pickTool(next);
+    },
+    [pickTool],
+  );
   const { width, highlighterWidth } = widths;
   const [zoom, setZoom] = useState(1);
   const [pageGap, setPageGap] = usePageGap();
@@ -547,6 +557,7 @@ export function InkHost({
     send,
     scheduleSave,
     setTool,
+    onCursor: enterCursor,
     onColourChange,
     selectionCount: selection.length,
     clearSelection: () => setSelection([]),
@@ -638,6 +649,9 @@ export function InkHost({
         selected={selection.length}
         showTextLayer={showTextLayer}
         onToggleTextLayer={() => setShowTextLayer((prev) => !prev)}
+        selectActive={cursorMode}
+        onSelect={enterCursor}
+        selectLabel="Cursor"
         onTool={(next) => {
           if (next !== "lasso" && selection.length > 0) {
             send({ type: "select-clear" });
@@ -698,6 +712,7 @@ export function InkHost({
           scale={scale}
           paper={page.paper}
           tool={tool}
+          cursorMode={cursorMode}
           ink={{ hex: paletteHex(palette, colour), diameterPx: nib * scale }}
           project={project}
           penHandlers={penHandlers}

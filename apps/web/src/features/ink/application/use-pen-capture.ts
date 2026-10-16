@@ -506,6 +506,20 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
     [],
   );
 
+  /**
+   * Layer three's default: the guard goes up on the first pen, unless this
+   * device has already said otherwise. Stored, so a remounted page or a reopened
+   * note does not hand the finger back to drawing until the pen lands again.
+   */
+  const guardForPen = useCallback(() => {
+    setPenSeen(true);
+    if (gateRef.current.penOnly) return;
+    if (readStoredPenOnly(storageRef.current ?? null) !== null) return;
+    gateRef.current.penOnly = true;
+    setPenOnlyState(true);
+    writeStoredPenOnly(storageRef.current ?? null, true);
+  }, []);
+
   const onPointerDown = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       const session = sessionRef.current!;
@@ -519,22 +533,13 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
       const claim = session.pointerDown(gateEvent);
 
       if (event.pointerType === "pen") {
-        if (!gateRef.current.hasSeenPen) setPenSeen(true);
         // The pen is here, so a pen mode should be in force. Fired on every pen
         // pointer-down rather than once, because the tool can be changed away from a
         // pen mode between strokes — pick the eraser, put the pen down, pick the pen
         // back up — and the restore has to happen again each time. It is idempotent
         // when a pen mode is already selected, which is the common case.
         callbacksRef.current.onPenApproach?.();
-        // Layer three's default: the guard goes up on the first pen, unless this
-        // device has already said otherwise.
-        if (
-          !gateRef.current.penOnly &&
-          readStoredPenOnly(storageRef.current ?? null) === null
-        ) {
-          gateRef.current.penOnly = true;
-          setPenOnlyState(true);
-        }
+        guardForPen();
       }
 
       if (claim.decision === "draw") {
@@ -572,7 +577,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         }
       }, TOUCH_DEFER_MS);
     },
-    [toGateEvent],
+    [toGateEvent, guardForPen],
   );
 
   const onPointerMove = useCallback(
@@ -580,9 +585,14 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
       const session = sessionRef.current!;
       // A deferred touch keeps its default so the browser can still scroll.
       if (session.active) event.preventDefault();
+      // A hovering pen is a pen: the finger scrolls before the nib ever lands.
+      if (event.pointerType === "pen" && !gateRef.current.hasSeenPen) {
+        gateRef.current.notePenSeen(event.timeStamp);
+        guardForPen();
+      }
       session.pointerRawUpdate(toGateEvent(event));
     },
-    [toGateEvent],
+    [toGateEvent, guardForPen],
   );
 
   const onPointerUp = useCallback(

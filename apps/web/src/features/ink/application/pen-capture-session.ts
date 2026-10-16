@@ -10,7 +10,7 @@
  * and the React state around it stay in `use-pen-capture.ts`.
  */
 
-import { nibWidth, type InkColour } from "@weaveforge/core";
+import { type InkColour } from "@weaveforge/core";
 
 import { NibFilter, type FilteredNibSample } from "./one-euro-filter";
 import { type InkSampleWriter, type InkStrokeHeader } from "./capture-protocol";
@@ -307,9 +307,9 @@ export class PenCaptureSession {
       pressure: event.pressure ?? 0,
       t,
     });
-    const width = nibWidth(header.width, sample.pressure, sample.velocity);
+    const width = header.width;
     // The trail is told where to start *before* the sample is posted, and with
-    // the same filtered width the worker will bake into geometry. A predicted
+    // the tool's width, the one the worker will bake into geometry. A predicted
     // sample is not where the pen has been, so the trail is not moved for it.
     if (!predicted)
       this.deps.onLive?.(sample, width, dispatched ? event : undefined);

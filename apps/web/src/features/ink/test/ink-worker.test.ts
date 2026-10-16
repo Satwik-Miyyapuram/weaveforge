@@ -129,6 +129,31 @@ test("a stroke commits, is a draw step, and undo takes it back", () => {
   assert.equal(last("page-state").strokes, 1);
 });
 
+test("the saved stroke keeps every drawn sample: no refit on lift", () => {
+  fresh();
+  // A wavy line: a refit or a coarse simplification would move these points.
+  const count = 40;
+  const samples = new Float32Array(count * INK_SAMPLE_STRIDE);
+  const drawn: number[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const x = 20 + i * 7;
+    const y = 200 + Math.round(12 * Math.sin(i / 2));
+    drawn.push(x, y);
+    samples[i * INK_SAMPLE_STRIDE] = x;
+    samples[i * INK_SAMPLE_STRIDE + 1] = y;
+    samples[i * INK_SAMPLE_STRIDE + 2] = 0.5;
+    samples[i * INK_SAMPLE_STRIDE + 3] = i;
+  }
+  stroke(samples, count);
+  const saved = [...last("stroke-committed").points];
+  // Only exactly collinear samples may go; every saved point is a drawn one.
+  for (let i = 0; i < saved.length; i += 2) {
+    const at = drawn.findIndex((v, k) => k % 2 === 0 && v === saved[i] && drawn[k + 1] === saved[i + 1]);
+    assert.ok(at >= 0, `saved point ${saved[i]},${saved[i + 1]} was drawn`);
+  }
+  assert.ok(saved.length / 2 >= count - 4, `kept ${saved.length / 2} of ${count}`);
+});
+
 test("an erase sweep removes what it crosses and undo restores it", () => {
   fresh();
   draw(10, 50);

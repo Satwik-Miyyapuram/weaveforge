@@ -76,3 +76,35 @@ export function headerForTool(
     colour,
   };
 }
+
+type Box = { x: number; y: number; w: number; h: number };
+type At = { x: number; y: number };
+
+/** The topmost figure whose box holds `at`, edges included; no corner slack. */
+export function figureUnder(
+  figures: readonly (Box | undefined)[],
+  at: At,
+  skip: number | null = null,
+): number | null {
+  for (let index = figures.length - 1; index >= 0; index -= 1) {
+    const one = figures[index];
+    if (!one || index === skip) continue;
+    if (at.x >= one.x && at.x <= one.x + one.w && at.y >= one.y && at.y <= one.y + one.h) return index;
+  }
+  return null;
+}
+
+/**
+ * The figure a double-click opens: both presses and the click itself land
+ * inside one box. A near miss or a press that started elsewhere opens nothing.
+ */
+export function doubleClickFigure(
+  figures: readonly (Box | undefined)[],
+  points: readonly At[],
+  skip: number | null = null,
+): number | null {
+  if (points.length === 0) return null;
+  const first = figureUnder(figures, points[0]!, skip);
+  if (first === null) return null;
+  return points.every((p) => figureUnder(figures, p, skip) === first) ? first : null;
+}

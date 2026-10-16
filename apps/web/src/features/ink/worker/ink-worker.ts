@@ -35,7 +35,6 @@ import {
   packInkStroke,
   type InkChunkCodec,
   type InkShape,
-  smoothInkStroke,
 } from "@weaveforge/core";
 
 import {
@@ -211,6 +210,9 @@ function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
   };
 }
 
+/** RDP tolerance on commit, in 0.1 mm: drops only collinear samples. */
+const INK_COMMIT_TOLERANCE = 0.25;
+
 /** Pack the finished stroke into the page, and tell the main thread what was kept. */
 function commitStroke(stroke: LiveStroke): void {
   const real = stroke.realSamples;
@@ -228,17 +230,9 @@ function commitStroke(stroke: LiveStroke): void {
       shape = snapped.shape;
     }
   }
-  if (shape === "none") {
-    // A stroke is refitted on lift (§6.2.5): resampled evenly and run
-    // through a non-causal kernel, which takes out the digitiser's per-sample
-    // wobble the live filter cannot without lag. A snapped shape is already
-    // clean. The highlighter is refitted too: its width hides the wobble, but
-    // the stencil dedupe turns each wobbling join into a faint seam.
-    const smoothed = smoothInkStroke(raw, rawPressures);
-    raw = smoothed.points;
-    rawPressures = smoothed.pressures;
-  }
-  const packed = packInkStroke(raw, rawPressures);
+  // No refit on lift and a sub-pixel pack tolerance: the saved stroke is the
+  // one the pen drew, not a smoothed redraw of it.
+  const packed = packInkStroke(raw, rawPressures, { tolerance: INK_COMMIT_TOLERANCE });
   if (packed.points.length < 4) return; // a dot or a slip of the pen: nothing to keep
   const index = state.buffer.append({
     points: packed.points,
