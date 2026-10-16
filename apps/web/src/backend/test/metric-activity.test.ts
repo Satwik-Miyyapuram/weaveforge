@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { SupabaseMetricRepository } from "@/features/experiments/infrastructure/supabase-metric-repository";
+import { PostgrestMetricRepository } from "@/features/experiments/infrastructure/postgrest-metric-repository";
 import { createLocalClient, type LocalQuery } from "@/backend/providers/local/pglite-client";
 import { testDb } from "./pg-test-db";
 
@@ -45,7 +45,7 @@ async function fixture() {
   };
 
   const repoFor = (user: string) =>
-    new SupabaseMetricRepository(
+    new PostgrestMetricRepository(
       createLocalClient(db.as(user).sql as LocalQuery) as unknown as SupabaseClient,
     );
 

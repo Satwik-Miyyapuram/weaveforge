@@ -21,7 +21,7 @@ import { formatError, formatErrorForResponse, jsonBodyError } from "@/lib/format
  * `SupabaseAdminUserProvisioner.provisionUser` reduces the provider's error to
  * `new Error(createErr.message)`, discarding the `code` and `status` that would
  * make this exact. The right fix is a typed error thrown from
- * `apps/web/src/backend/providers/supabase/admin-provisioner.ts`, which this
+ * `apps/web/src/backend/providers/supabase-auth/admin-provisioner.ts`, which this
  * change does not own; until then this is the smallest thing that keeps a
  * duplicate email from being reported as a server fault, and the two patterns
  * it accepts are the two shapes GoTrue uses.

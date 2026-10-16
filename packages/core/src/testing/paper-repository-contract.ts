@@ -2,7 +2,7 @@
  * Shared CONTRACT test suite for IPaperRepository.
  *
  * Per the design doc's testing strategy: every implementation of
- * IPaperRepository (in-memory, Supabase, SQLite) must pass this identical suite.
+ * IPaperRepository (in-memory, PostgREST, SQLite) must pass this identical suite.
  * That is what makes implementations Liskov-substitutable in practice.
  *
  * Usage from a test file:

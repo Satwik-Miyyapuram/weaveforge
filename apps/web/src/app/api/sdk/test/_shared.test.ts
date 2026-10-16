@@ -41,7 +41,7 @@ const TT_TOKEN = `tt_${"A".repeat(32)}`;
  */
 let stubSerial = 0;
 
-/** Point both Supabase clients at a stub that answers the scope RPC. */
+/** Point both data clients at a stub that answers the scope RPC. */
 function stubBackend(scopes: string[] | null, opts: { onResolveApiToken?: () => void; onResolvePlanFeed?: () => void } = {}) {
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://stub.supabase.co";
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";

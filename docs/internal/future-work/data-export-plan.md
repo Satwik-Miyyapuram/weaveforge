@@ -54,7 +54,7 @@ Key references:
 | Prefetch (single project) | `apps/web/src/application/prefetch-project.use-case.ts` |
 | Blob fetch | `apps/web/src/storage/fetching-blob-store.ts` |
 | Account deletion (inverse scope) | `apps/web/src/features/settings/ui/delete-account-panel.tsx` |
-| Delete RPC tables | `supabase/migrations/0028_org_invite_codes.sql` (`delete_user_account_data`) |
+| Delete RPC tables | `db/migrations/0028_org_invite_codes.sql` (`delete_user_account_data`) |
 
 ---
 

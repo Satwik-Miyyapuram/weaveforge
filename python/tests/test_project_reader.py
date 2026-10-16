@@ -1,7 +1,7 @@
-"""SupabaseProjectReader.id_by_name against a fake query builder (offline)."""
+"""PostgrestProjectReader.id_by_name against a fake query builder (offline)."""
 
-from weaveforge.features.projects.infrastructure.supabase_project_reader import (
-    SupabaseProjectReader,
+from weaveforge.features.projects.infrastructure.postgrest_project_reader import (
+    PostgrestProjectReader,
 )
 
 
@@ -45,12 +45,12 @@ class _Client:
 
 def test_id_by_name_found():
     client = _Client([{"id": "p-123"}])
-    reader = SupabaseProjectReader(client)
+    reader = PostgrestProjectReader(client)
     assert reader.id_by_name("My Thesis") == "p-123"
     assert ("table", "projects") in client.log
     assert ("eq", "name", "My Thesis") in client.log
 
 
 def test_id_by_name_absent():
-    reader = SupabaseProjectReader(_Client([]))
+    reader = PostgrestProjectReader(_Client([]))
     assert reader.id_by_name("Nope") is None

@@ -38,7 +38,7 @@ from .sync.source import Mirror, MirrorSource
 
 
 def _connect(project: str | None = None):
-    from .container import connect  # lazy: only needs supabase when actually used
+    from .container import connect  # lazy: only needs the HTTP client when actually used
 
     return connect(project=project)
 
@@ -144,7 +144,7 @@ def track(
     everything logged here is logged there too while the run happens, and the
     mirrored run is closed with this one. ``project`` (a name) scopes this run to that
     project so it shows under it in the dashboard. Pass ``container`` to reuse a
-    connection or inject an in-memory one in tests; otherwise a Supabase
+    connection or inject an in-memory one in tests; otherwise an API
     connection is opened.
 
     ``run_id`` is your own key for the run (e.g. ``"hnvae-paper"``). With

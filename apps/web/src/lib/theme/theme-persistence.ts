@@ -173,7 +173,7 @@ export function persistThemeChange(
   scheduleAppearanceSave(next);
 }
 
-/** Load saved appearance from Supabase and apply (server wins on sign-in). */
+/** Load saved appearance from the database and apply (server wins on sign-in). */
 export function hydrateThemeFromServer(): Promise<void> {
   return singleFlight("theme:hydrate", hydrateThemeFromServerUncached);
 }

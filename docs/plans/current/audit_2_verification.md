@@ -29,7 +29,7 @@ the same protocol as Supabase's REST endpoint and validates the same JWT secret.
 
 Two consequences:
 
-* Everything in `supabase/migrations/*.sql` runs against the OCI Postgres. The
+* Everything in `db/migrations/*.sql` runs against the OCI Postgres. The
   `compact_crdt_log`, `metric_history` and `latest_metric_activity` functions the audit
   discusses are all live on the OCI box, not on a Supabase database.
 * The file *names* say `supabase-*`. That is the historical provider id, not the host. The
@@ -42,7 +42,7 @@ audit describes a fix that is already in the tree and reports it as missing.
 
 ### WF-N01 — refuted (was scored 8.6, "Critical")
 
-Migration `supabase/migrations/0132_compact_crdt_log_rpc.sql` already does exactly what the
+Migration `db/migrations/0132_compact_crdt_log_rpc.sql` already does exactly what the
 finding's fix block asks for, in one function body:
 
 ```sql

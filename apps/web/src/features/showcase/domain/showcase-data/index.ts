@@ -11,7 +11,7 @@
  *
  * Nothing here touches a database. `seedShowcase` (infrastructure) writes it
  * through whatever client it is handed, which is how the same workspace lands
- * in a Supabase account and in the no-account copy on a desktop.
+ * in a signed-in account and in the no-account copy on a desktop.
  */
 
 export * from "./papers";

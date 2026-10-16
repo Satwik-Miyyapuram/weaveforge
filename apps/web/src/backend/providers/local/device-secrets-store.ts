@@ -1,5 +1,5 @@
 import { LOCAL_USER_ID } from "@weaveforge/core";
-import type { Secrets, SecretsStore } from "@/features/settings/infrastructure/supabase-settings-repository";
+import type { Secrets, SecretsStore } from "@/features/settings/infrastructure/postgrest-settings-repository";
 import { LocalRunner } from "./local-runner";
 import type { LocalQuery } from "./pglite-client";
 
@@ -23,7 +23,7 @@ import type { LocalQuery } from "./pglite-client";
  * website writes, through the route.
  *
  * This is deliberately not "the local-mode store". The desktop shell applies
- * `supabase/migrations-local` on every launch, signed in or not, so the table
+ * `db/migrations-local` on every launch, signed in or not, so the table
  * exists either way — and the question that picks this store is whether the
  * deployment has routes of its own, never which mode a window is in.
  */

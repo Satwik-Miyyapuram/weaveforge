@@ -17,7 +17,7 @@
  * A failure part-way through any of those leaves the denormalised cache
  * disagreeing with the link table. There is no rollback because
  * {@link IWritableRepository} is a set of independent calls that each commit on
- * their own, and the Supabase adapter issues one PostgREST request per call.
+ * their own, and the PostgREST adapter issues one PostgREST request per call.
  *
  * ## Why this file is an interface and a note rather than a change
  *
@@ -30,7 +30,7 @@
  *      to be *constructed* per transaction. Either way it is a change to
  *      `IReadableRepository`/`IWritableRepository`, and therefore to all ~28
  *      interface implementations.
- *   2. **An adapter that can actually open one.** Supabase's JS client has no
+ *   2. **An adapter that can actually open one.** supabase-js has no
  *      cross-request transaction over PostgREST; the realistic implementations
  *      are a Postgres function (`create function … security definer`) invoked
  *      with the whole operation, or a direct `pg` connection. The web app

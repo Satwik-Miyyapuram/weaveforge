@@ -31,7 +31,7 @@
    ```bash
    DATABASE_URL=postgres://... npm run migrate:schema
    ```
-   Migrations live in [`supabase/migrations/`](../../../supabase/migrations/) (plain PostgreSQL; the folder name is historical). Run the command after pulling.
+   Migrations live in [`db/migrations/`](../../../db/migrations/) (plain PostgreSQL; the folder name is historical). Run the command after pulling.
 4. **Use the product** — papers, experiments, Python SDK, sharing, E2EE, etc.
 
 Nothing breaks if Phase 3 waits months.
@@ -72,7 +72,7 @@ BLOB_COLD_BUCKET=weaveforge-cold
 | Phase | Doc | Work |
 |-------|-----|------|
 | 4 Shadow migrate | [`oracle-shift-guide.md`](../../running/oracle-shift.md) Stage 2 | `npm run migrate` — preflight, schema, copy, verify. Blobs: `npm run migrate:blobs`. Reads from Supabase, never writes. |
-| 5 Cutover | [`oracle-shift-guide.md`](../../running/oracle-shift.md) Stage 3 | Vercel env: `NEXT_PUBLIC_DATA_URL` → your PostgREST. Leave `NEXT_PUBLIC_BACKEND_PROVIDER=supabase`; keep Supabase Auth |
+| 5 Cutover | [`oracle-shift-guide.md`](../../running/oracle-shift.md) Stage 3 | Vercel env: `NEXT_PUBLIC_DATA_URL` → your PostgREST. Leave `NEXT_PUBLIC_BACKEND_PROVIDER=postgrest`; keep Supabase Auth |
 | 6 Tiering | [`storage/tiering.md`](../../running/storage/tiering.md) | Cron when R2 fills |
 
 ---
@@ -86,7 +86,7 @@ BLOB_COLD_BUCKET=weaveforge-cold
 | Phase plan | [`docs/internal/plans/completed/migration-plan.md`](../plans/completed/migration-plan.md) |
 | Postgres provider | [`docs/running/postgres-provider.md`](../../running/postgres-provider.md) |
 | R2 setup | [`docs/running/storage/r2-setup.md`](../../running/storage/r2-setup.md) |
-| Migrations layout | [`supabase/README.md`](../../../supabase/README.md) |
+| Migrations layout | [`db/README.md`](../../../db/README.md) |
 | Backend overview | [`docs/running/backend.md`](../../running/backend.md) |
 
 ---
@@ -114,7 +114,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 
 # Leave as supabase permanently. This is a server-side switch; setting
 # `postgres` breaks the browser bundle. The cutover is NEXT_PUBLIC_DATA_URL.
-NEXT_PUBLIC_BACKEND_PROVIDER=supabase
+NEXT_PUBLIC_BACKEND_PROVIDER=postgrest
 
 # Unset today. At cutover, point this at your own PostgREST and redeploy —
 # that is the whole of Phase 5. Removing it again rolls back.

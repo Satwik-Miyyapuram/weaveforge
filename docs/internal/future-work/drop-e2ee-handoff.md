@@ -31,7 +31,7 @@ Ordered so prod / other users stay safe. Do them in this order:
 4. **Apply the irreversible DROP** — `docs/future-work/phase5-drop-e2ee.sql`
    - Preconditions (all must be true): full DB backup exists; steps 1–3 done and verified.
    - Applying before step 2 is deployed **breaks writes for everyone**. Move it into
-     `supabase/migrations/` as the next `NNNN_*.sql` and apply deliberately. Not a `db push`.
+     `db/migrations/` as the next `NNNN_*.sql` and apply deliberately. Not a `db push`.
 
 5. **Bug 1 — Python SDK "no Supabase config, cannot create tokens"** — needs your diagnosis
    - Error hint in `apps/web/src/lib/format-error.ts:38`: *"Run supabase db push (migration 0061)

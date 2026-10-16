@@ -1,14 +1,14 @@
 import type { BackendConfig } from "./config";
 import { readBackendConfig } from "./config";
 import type { IAdminUserProvisioner } from "@weaveforge/core";
-import { SupabaseAdminUserProvisioner } from "./providers/supabase/admin-provisioner";
-import { wireSupabaseBackend, type WiredSupabaseBackend } from "./providers/supabase/wire-supabase-backend";
+import { SupabaseAdminUserProvisioner } from "./providers/supabase-auth/admin-provisioner";
+import { wirePostgrestBackend, type WiredPostgrestBackend } from "./providers/postgrest/wire-postgrest-backend";
 import { isLocalMode } from "./providers/local/local-identity";
 import { localBackendParts } from "./providers/local/wire-local-backend";
 import { localFirstParts } from "./providers/local/local-first";
 import { localFirstActive } from "./providers/local/local-first-marker";
 
-export type WiredBackend = WiredSupabaseBackend;
+export type WiredBackend = WiredPostgrestBackend;
 
 export function wireBackend(
   config: BackendConfig = readBackendConfig(),
@@ -17,22 +17,22 @@ export function wireBackend(
 ): WiredBackend {
   // Working on this computer is not a different set of repositories, only a
   // different database, identity and blob store handed to the same ones.
-  if (isLocalMode()) return wireSupabaseBackend(config, projectContext, pid, localBackendParts());
+  if (isLocalMode()) return wirePostgrestBackend(config, projectContext, pid, localBackendParts());
   // A signed-in desktop that has its account's data on disk works on that copy.
   const account = localFirstActive();
-  if (account) return wireSupabaseBackend(config, projectContext, pid, localFirstParts(config, account));
+  if (account) return wirePostgrestBackend(config, projectContext, pid, localFirstParts(config, account));
 
   switch (config.provider) {
-    case "supabase":
-      return wireSupabaseBackend(config, projectContext, pid);
+    case "postgrest":
+      return wirePostgrestBackend(config, projectContext, pid);
     // `postgres` selects the server-side blob registry (storage/server/blob-api.ts),
     // never a browser data layer: these repositories reach the database over
     // PostgREST, which a connection string cannot replace. Point them at your own
     // database with NEXT_PUBLIC_DATA_URL instead — see docs/running/backend.md.
     default:
       throw new Error(
-        `Backend provider "${config.provider}" has no browser data layer. Set NEXT_PUBLIC_BACKEND_PROVIDER=supabase, ` +
-          "and NEXT_PUBLIC_DATA_URL to move the data off Supabase.",
+        `Backend provider "${config.provider}" has no browser data layer. Set NEXT_PUBLIC_BACKEND_PROVIDER=postgrest, ` +
+          "and NEXT_PUBLIC_DATA_URL to your PostgREST.",
       );
   }
 }

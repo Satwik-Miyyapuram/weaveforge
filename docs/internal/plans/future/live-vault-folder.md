@@ -81,7 +81,7 @@ gave it a third backing and the two things it was missing.
       and nothing else: every listener re-reads what it needs anyway, and a
       richer event would be a second description of the data to keep true
 - [x] Raised by `watchWrites`, which wraps the Supabase client once at its
-      single creation site in `wire-supabase-backend.ts`. Roughly forty
+      single creation site in `wire-postgrest-backend.ts`. Roughly forty
       repositories reach for `db.from(table)` and none reach past it, so this
       covers all of them and edits none of them. The alternative -- a
       `notifyChanged()` per write -- is forty edits that every future repository

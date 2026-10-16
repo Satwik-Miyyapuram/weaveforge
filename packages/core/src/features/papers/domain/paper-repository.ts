@@ -2,7 +2,7 @@
  * Repository contract for papers.
  *
  * Defined in the domain layer (Dependency Inversion): application code depends
- * on this interface; infrastructure provides Supabase / in-memory / SQLite
+ * on this interface; infrastructure provides PostgREST / in-memory / SQLite
  * implementations. Any implementation must be substitutable (Liskov) and is
  * verified by the shared contract test suite.
  */

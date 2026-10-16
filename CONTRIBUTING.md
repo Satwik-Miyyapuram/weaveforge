@@ -49,21 +49,20 @@ self-hosted prerequisites first; `0132` is the current head. They are ordered
 and cumulative:
 
 ```bash
-for f in supabase/migrations-self-hosted-postgres/*.sql supabase/migrations/*.sql; do
+for f in db/migrations-self-hosted-postgres/*.sql db/migrations/*.sql; do
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
 done
 ```
 
-The folder is called `supabase/` for history: the schema started on a
-Supabase-hosted database and kept its layout (`auth.uid()`, the `anon` and
-`authenticated` roles) when it moved.
+The schema started on a Supabase-hosted database and kept its layout
+(`auth.uid()`, the `anon` and `authenticated` roles) when it moved to OCI.
 
 An earlier revision of this section listed individual files (`0019`–`0035`).
 That list stopped being maintained long before the schema stopped growing, and
 a partial list is worse than none — it reads as "these are the ones that
 matter" when the truth is that they all are.
 
-The prerequisites in [`supabase/migrations-self-hosted-postgres/`](supabase/migrations-self-hosted-postgres/) recreate what a bare Postgres lacks (the `auth` schema helpers and roles) — see [`supabase/README.md`](supabase/README.md).
+The prerequisites in [`db/migrations-self-hosted-postgres/`](db/migrations-self-hosted-postgres/) recreate what a bare Postgres lacks (the `auth` schema helpers and roles) — see [`db/README.md`](db/README.md).
 
 **Smoke acceptance** after migrations:
 
@@ -77,7 +76,7 @@ The prerequisites in [`supabase/migrations-self-hosted-postgres/`](supabase/migr
 1. Create `features/<name>/` with the standard sub-layers.
 2. Define the entity and repository interface in `packages/core`.
 3. Provide an in-memory implementation (for tests) and a PostgREST implementation.
-4. Add a DB migration under `supabase/migrations/`.
+4. Add a DB migration under `db/migrations/`.
 5. Export a `FeatureModule` descriptor and register it in `apps/web/src/registry.ts` (`ALL_MODULES`).
 
 ## Web backend (`apps/web/src/backend/`)
@@ -86,7 +85,7 @@ Persistence and auth are env-selected at the composition root — same pattern a
 
 **Full guide:** [`docs/running/backend.md`](docs/running/backend.md)
 
-Table data goes to the Postgres on the OCI server through PostgREST (`NEXT_PUBLIC_DATA_URL`). The provider id `supabase` names the client library (supabase-js speaks PostgREST), not where the data is stored; leave it at that default (`postgres` only selects the server-side blob registry and breaks the browser bundle). A different store means implementing the repository adapters against the same schema and wiring a new provider in `wire-backend.ts`.
+Table data goes to the Postgres on the OCI server through PostgREST (`NEXT_PUBLIC_DATA_URL`). The provider id is `postgrest`; leave it at that default (`postgres` only selects the server-side blob registry and breaks the browser bundle). A different store means implementing the repository adapters against the same schema and wiring a new provider in `wire-backend.ts`.
 
 ## Web storage (`apps/web/src/storage/`)
 

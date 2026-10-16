@@ -16,7 +16,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { LOCAL_USER_ID } from "@weaveforge/core";
-import { RouteSecretsStore } from "@/features/settings/infrastructure/supabase-settings-repository";
+import { RouteSecretsStore } from "@/features/settings/infrastructure/postgrest-settings-repository";
 import { DeviceSecretsStore } from "../providers/local/device-secrets-store";
 import { secretsStoreFor } from "../providers/secrets-store";
 

@@ -2,12 +2,12 @@
 
 Split into read and write halves so consumers depend only on what they need
 (Interface Segregation Principle). These interfaces live in the domain layer;
-concrete persistence (Supabase, in-memory) implements them in
+concrete persistence (HTTP API, PostgREST, in-memory) implements them in
 ``infrastructure`` — nothing here knows how data is stored (Dependency
 Inversion). Faithful port of ``packages/core/src/shared/repository.ts``.
 
 Repositories are synchronous: the Python SDK is used from training scripts,
-and the ``supabase`` client's default surface is synchronous.
+and the ``httpx`` client used here is synchronous.
 """
 
 from __future__ import annotations

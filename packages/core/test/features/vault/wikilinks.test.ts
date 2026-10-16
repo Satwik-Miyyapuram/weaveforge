@@ -63,3 +63,10 @@ test("bodyLinksTo matches wikilink targets case-insensitively", () => {
   assert.equal(bodyLinksTo("no links", normalizeTitleKey("my note")), false);
   assert.equal(bodyLinksTo(undefined, "x"), false);
 });
+
+test("stripFrontmatter trims quotes and stays linear on long runs", () => {
+  assert.deepEqual(stripFrontmatter(`---\ntags:   "a", 'b'' , #c\n---\nx`).tags, ["a", "b", "c"]);
+  const started = performance.now();
+  stripFrontmatter(`---\ntags:${" ".repeat(50_000)}\n${'"'.repeat(50_000)}x\n---\n`);
+  assert.ok(performance.now() - started < 500);
+});

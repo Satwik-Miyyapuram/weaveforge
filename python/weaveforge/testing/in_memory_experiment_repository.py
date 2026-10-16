@@ -1,6 +1,6 @@
 """In-memory :class:`IExperimentRepository` — port of
 ``in-memory-experiment-repository.ts``. Filtering + newest-first ordering match
-the Supabase adapter so the shared contract suite passes against both."""
+the PostgREST adapter so the shared contract suite passes against both."""
 
 from __future__ import annotations
 

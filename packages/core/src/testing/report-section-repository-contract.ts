@@ -1,7 +1,7 @@
 /**
  * Shared CONTRACT test suite for IReportSectionRepository.
  *
- * Every implementation (in-memory, Supabase, SQLite) must pass this identical
+ * Every implementation (in-memory, PostgREST, SQLite) must pass this identical
  * suite — the basis for Liskov substitutability.
  */
 

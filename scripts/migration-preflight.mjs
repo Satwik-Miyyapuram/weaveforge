@@ -64,8 +64,8 @@ if (SOURCE_URL && TARGET_URL && SOURCE_URL === TARGET_URL) {
 
 console.log("2. Repository\n");
 for (const path of [
-  "supabase/migrations-self-hosted-postgres/0000_self_host_prereqs.sql",
-  "supabase/migrations-self-hosted-postgres/0026_self_host_grants.sql",
+  "db/migrations-self-hosted-postgres/0000_self_host_prereqs.sql",
+  "db/migrations-self-hosted-postgres/0026_self_host_grants.sql",
   "scripts/apply-migrations-oci.sh",
   "scripts/migrate-supabase-to-postgres.mjs",
   "scripts/verify-migration.mjs",

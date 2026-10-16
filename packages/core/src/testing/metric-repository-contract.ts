@@ -1,7 +1,7 @@
 /**
  * Shared CONTRACT test suite for IMetricRepository.
  *
- * Every implementation (in-memory, Supabase) must pass this identical suite —
+ * Every implementation (in-memory, PostgREST) must pass this identical suite —
  * the basis for Liskov substitutability.
  */
 

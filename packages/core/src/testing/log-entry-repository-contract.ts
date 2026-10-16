@@ -2,7 +2,7 @@
  * Shared CONTRACT test suite for ILogEntryRepository.
  *
  * Per the design doc's testing strategy: every implementation of
- * ILogEntryRepository (in-memory, Supabase, SQLite) must pass this identical
+ * ILogEntryRepository (in-memory, PostgREST, SQLite) must pass this identical
  * suite. That is what makes implementations Liskov-substitutable in practice.
  *
  * Usage from a test file:

@@ -1,13 +1,13 @@
 /**
- * Writes the showcase workspace through a Supabase-shaped client.
+ * Writes the showcase workspace through a supabase-js-shaped client.
  *
  * The same code runs in two places: the `seed:showcase` Node script (service
- * role against live Supabase, for the demo accounts) and the desktop app's
+ * role against the live server, for the demo accounts) and the desktop app's
  * "Load demo workspace" button (PGlite, no account). Neither the data nor this
  * module imports anything app-specific, so both callers can share it; the
  * caller supplies the client, the blob store and a way to fetch each chart.
  *
- * Every insert names `user_id` explicitly. Supabase would default it from
+ * Every insert names `user_id` explicitly. The schema would default it from
  * `auth.uid()`, but a service-role session and PGlite both have no auth
  * context, so the default would be null.
  */

@@ -6,7 +6,7 @@ import type {
 
 /**
  * In-memory IMetricRepository. History is returned ordered by metric then step,
- * matching the `experiment_metrics_series_idx` order the Supabase adapter relies
+ * matching the `experiment_metrics_series_idx` order the PostgREST adapter relies
  * on — so the shared contract suite passes against both (Liskov).
  */
 export class InMemoryMetricRepository implements IMetricRepository {

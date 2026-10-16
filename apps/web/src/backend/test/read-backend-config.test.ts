@@ -3,14 +3,14 @@ import assert from "node:assert/strict";
 import { missingConfigMessage, readBackendConfig } from "../config";
 
 describe("readBackendConfig", () => {
-  it("defaults to supabase", () => {
+  it("defaults to postgrest", () => {
     const c = readBackendConfig({});
-    assert.equal(c.provider, "supabase");
+    assert.equal(c.provider, "postgrest");
   });
 
-  it("reads supabase env vars", () => {
+  it("reads auth and data env vars", () => {
     const c = readBackendConfig({
-      NEXT_PUBLIC_BACKEND_PROVIDER: "supabase",
+      NEXT_PUBLIC_BACKEND_PROVIDER: "postgrest",
       NEXT_PUBLIC_SUPABASE_URL: "https://x.supabase.co",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon",
       SUPABASE_SERVICE_ROLE_KEY: "service",
@@ -24,8 +24,12 @@ describe("readBackendConfig", () => {
     assert.equal(c.databaseUrl, "postgres://local");
   });
 
+  it("maps the old supabase id to postgrest", () => {
+    assert.equal(readBackendConfig({ NEXT_PUBLIC_BACKEND_PROVIDER: "supabase" }).provider, "postgrest");
+  });
+
   it("falls back on unknown provider", () => {
-    assert.equal(readBackendConfig({ NEXT_PUBLIC_BACKEND_PROVIDER: "firebase" }).provider, "supabase");
+    assert.equal(readBackendConfig({ NEXT_PUBLIC_BACKEND_PROVIDER: "firebase" }).provider, "postgrest");
   });
 
   // The no-argument branch is a separate literal, because Next.js only inlines

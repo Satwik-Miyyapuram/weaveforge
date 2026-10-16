@@ -4,7 +4,7 @@ import type { RemoteChange, SendOutcome, SyncTransport } from "../domain/sync-po
 /**
  * What the transport needs to reach PostgREST.
  *
- * Plain fetch rather than the Supabase client: the query builder's return type
+ * Plain fetch rather than the data client: the query builder's return type
  * hides the two facts this code turns on — the HTTP status, and how many rows a
  * guarded PATCH actually touched. Both are decisions here, not details.
  */

@@ -1,6 +1,6 @@
 # Extending WeaveForge
 
-WeaveForge is built as a **modular monolith**: domain logic lives in `@weaveforge/core`, infrastructure is swapped at the composition root, and the UI talks to **facades** — not Supabase, not repositories, not third-party SDKs.
+WeaveForge is built as a **modular monolith**: domain logic lives in `@weaveforge/core`, infrastructure is swapped at the composition root, and the UI talks to **facades** — not supabase-js, not repositories, not third-party SDKs.
 
 That layering is the extension model. You extend the app by implementing a **port** (interface) and wiring it in one place — not by patching feature screens.
 
@@ -20,7 +20,7 @@ That layering is the extension model. You extend the app by implementing a **por
 ├─────────────────────────────────────────────────────────────────┤
 │  Domain                entities + repository INTERFACES         │
 ├─────────────────────────────────────────────────────────────────┤
-│  Infrastructure        Supabase/Postgres repos, integrations  │
+│  Infrastructure        PostgREST/Postgres repos, integrations  │
 │                        wired in bootstrap.ts + wire-*.ts        │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -156,8 +156,8 @@ Adding a feature today requires edits in **several** places (by design — expli
 | 1. Domain + ports | `packages/core/src/features/<name>/` |
 | 2. Contract tests | `packages/core/src/testing/*-contract.ts` + `packages/core/test/` |
 | 3. In-memory fake | `packages/core/src/testing/in-memory-*.ts` |
-| 4. Supabase adapter | `apps/web/src/features/<name>/infrastructure/` or `backend/providers/supabase/` |
-| 5. DB migration | `supabase/migrations/00NN_<name>.sql` |
+| 4. PostgREST adapter | `apps/web/src/features/<name>/infrastructure/` or `backend/providers/postgrest/` |
+| 5. DB migration | `db/migrations/00NN_<name>.sql` |
 | 6. Module descriptor | `apps/web/src/features/<name>/module.ts` |
 | 7. Registry | `apps/web/src/registry.ts` — built-ins only; plugin modules come from config |
 | 8. Nav group | `navGroup` on `FeatureModule` (no manual bucket edit) |

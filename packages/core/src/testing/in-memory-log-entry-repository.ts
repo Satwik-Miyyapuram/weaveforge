@@ -2,7 +2,7 @@
  * In-memory implementation of ILogEntryRepository.
  *
  * Used by unit tests for the domain/application layers, and as the reference
- * against which the Supabase implementation is checked for Liskov
+ * against which the PostgREST implementation is checked for Liskov
  * substitutability via the shared contract test suite.
  */
 

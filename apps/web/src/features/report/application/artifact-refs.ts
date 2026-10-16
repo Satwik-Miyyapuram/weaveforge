@@ -6,7 +6,7 @@
  *
  *   ![caption](expartifact:<experimentId>/<artifactName>)
  *
- * Pure parse / format / resolve — no blob fetch, no Supabase.
+ * Pure parse / format / resolve — no blob fetch, no data client.
  */
 
 import {

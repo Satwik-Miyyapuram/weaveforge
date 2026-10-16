@@ -1,7 +1,7 @@
 /**
  * Keeping the folder in step with the database.
  *
- * The mirror is one-way and best-effort by design. Supabase is the source of
+ * The mirror is one-way and best-effort by design. The database is the source of
  * truth; the folder is a projection of it. That means a mirror failure — quota
  * exhausted, permission revoked, disk unplugged — must never fail the save that
  * triggered it. Losing a mirror write costs a stale file until the next sync;

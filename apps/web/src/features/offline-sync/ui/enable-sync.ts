@@ -1,4 +1,4 @@
-import { createSupabaseClient } from "@/backend/providers/supabase/client";
+import { createDataClient } from "@/backend/providers/postgrest/client";
 import { readBackendConfig } from "@/backend/config";
 import { syncEngine } from "./use-sync";
 import type { AdoptionResult } from "../domain/adoption";
@@ -7,7 +7,7 @@ import type { AdoptionResult } from "../domain/adoption";
  * The opt-in, performed.
  *
  * Loaded on demand rather than with the settings screen: this pulls in the
- * engine, the transport and the Supabase client, and a reader who never turns
+ * engine, the transport and the data client, and a reader who never turns
  * sync on should never pay for any of it.
  */
 /**
@@ -34,7 +34,7 @@ export function liveAccessToken(client: {
 
 export async function enableSync(): Promise<AdoptionResult> {
   const config = readBackendConfig();
-  const client = createSupabaseClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "");
+  const client = createDataClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "");
   const { data } = await client.auth.getSession();
   const session = data.session;
   if (!session) throw new Error("Sign in first, then turn sync on.");

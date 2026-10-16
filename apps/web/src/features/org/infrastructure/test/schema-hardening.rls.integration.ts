@@ -22,7 +22,7 @@ const tokenHash = (seed: string) => new Uint8Array(32).fill(seed.charCodeAt(0));
 /**
  * Tables `A5` does not hold to the server's rule.
  *
- * The device-only tables from `supabase/migrations-local/` are applied by
+ * The device-only tables from `db/migrations-local/` are applied by
  * `pg-test-db.ts` so that cross-set features can be exercised, but they belong
  * to the single-user database inside the desktop app: there is no second client
  * for a timestamp to be wrong *for*, and they set `now()` in their own
@@ -561,7 +561,7 @@ test("A4: re-applying 0114 does not revert the chunk-aware view", async () => {
     // Seven levels: test -> infrastructure -> org -> features -> src -> web ->
     // apps -> repo root. (`backend/test/pg-test-db.ts` needs five, because it
     // sits three directories shallower.)
-    "../../../../../../../supabase/migrations",
+    "../../../../../../../db/migrations",
   );
 
   const before = await db.sql<{ d: string }>("select pg_get_viewdef('public.experiment_metrics'::regclass) as d");

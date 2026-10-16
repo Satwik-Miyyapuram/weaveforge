@@ -2,7 +2,7 @@ import type { IBlobRegistry, IBlobStore } from "@weaveforge/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { StorageConfig } from "./config";
 import { coldBlobConfig, missingR2ConfigError, r2BlobConfig, S3BlobStore } from "./providers/s3/s3-blob-store";
-import { SupabaseBlobRegistry } from "./providers/supabase/blob-registry";
+import { PostgrestBlobRegistry } from "./providers/postgrest/blob-registry";
 import { TieredBlobStore } from "./providers/tiered/tiered-blob-store";
 
 function requireHotConfig(config: StorageConfig): void {
@@ -23,7 +23,7 @@ export function buildTieredBlobStoreFromRegistry(
   return new TieredBlobStore({ hot, cold, registry });
 }
 
-/** Hot/cold tiered store via Supabase PostgREST registry. */
+/** Hot/cold tiered store via the PostgREST registry. */
 export function buildTieredBlobStoreFromConfig(db: SupabaseClient, config: StorageConfig): IBlobStore {
-  return buildTieredBlobStoreFromRegistry(config, new SupabaseBlobRegistry(db));
+  return buildTieredBlobStoreFromRegistry(config, new PostgrestBlobRegistry(db));
 }

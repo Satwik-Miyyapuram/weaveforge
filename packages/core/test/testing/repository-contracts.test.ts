@@ -5,10 +5,10 @@
  *
  * Review-2 F4 found the opposite: suites that ran against one in-memory double
  * each, and never touched `listSummaries`. Review-2 F6 found that the shipped
- * Supabase adapters return a *reduced* shape under those methods. These tests
+ * PostgREST adapters return a *reduced* shape under those methods. These tests
  * make both facts checkable in CI rather than in a review.
  *
- * What this file deliberately does NOT do is exercise the Supabase adapters
+ * What this file deliberately does NOT do is exercise the PostgREST adapters
  * themselves: they live in `apps/web/src/**`, outside this package, and wiring
  * them here would mean core importing the web app. That remains a follow-up —
  * see the comment on `REAL_ADAPTERS` at the end.
@@ -88,17 +88,17 @@ test("every runner registers tests rather than returning assertions", () => {
 // ---------------------------------------------------------------------------
 // REAL_ADAPTERS — still not exercised, and why
 //
-// The Supabase adapters (`apps/web/src/features/*/infrastructure/supabase-*-repository.ts`)
+// The PostgREST adapters (`apps/web/src/features/*/infrastructure/postgrest-*-repository.ts`)
 // and the Python API adapters implement these same ports, and none of them is
 // run through a contract suite here. Wiring them is not a core change:
 //
-//   * the TypeScript ones need a live Supabase (or the PGlite harness) and live
+//   * the TypeScript ones need a live PostgREST (or the PGlite harness) and live
 //     under `apps/web`, which `packages/core` must not import;
 //   * the Python one is covered by `python/weaveforge/testing/contracts.py`,
 //     which is run against the in-memory doubles only.
 //
 // So the follow-up is an app-side integration suite that constructs each
-// Supabase adapter over the test database and calls these same runners — the
+// PostgREST adapter over the test database and calls these same runners — the
 // suites are already written to accept a factory, which is the half this
 // package can supply. Reported by the core/Python pass of review-2 as F4(a),
 // unfixed on the app side.

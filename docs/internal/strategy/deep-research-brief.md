@@ -85,7 +85,7 @@ Connectiveness is the product idea: a paper can sit in a list, appear on the gra
 |-------|------------|
 | Web PWA | Next.js 14, React 18, TypeScript, Serwist service worker, CodeMirror 6, KaTeX, Shiki, react-force-graph-2d / d3-force, react-grid-layout, Yjs + y-codemirror (collab), uPlot, fflate, isomorphic-git, libsodium |
 | Domain | `@weaveforge/core` (`packages/core`) — entities, ports, use-cases; **no** React/Supabase |
-| Database | Self-hosted Postgres 16 + PostgREST + Realtime on an OCI VM (`api.weaveforge.org`); migrations in `supabase/migrations/`, applied with `npm run migrate:schema` |
+| Database | Self-hosted Postgres 16 + PostgREST + Realtime on an OCI VM (`api.weaveforge.org`); migrations in `db/migrations/`, applied with `npm run migrate:schema` |
 | Auth | Supabase Auth for sign-in only (email + optional Google); its JWT is verified by the OCI stack and enforced with **Postgres RLS** |
 | Blobs | MinIO on the OCI VM; pluggable `IBlobStore` (R2/tiered optional) |
 | Python SDK | `python/` — PyPI package `weaveforge`; httpx + supabase; Lightning/Keras/TensorBoard/wandb extras |

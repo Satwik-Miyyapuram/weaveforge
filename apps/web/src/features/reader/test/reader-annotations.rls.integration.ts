@@ -33,7 +33,7 @@ test("reader_annotations enforces per-user RLS and accepts the repository's shap
     "insert into papers (project_id, title) values ($1, 'Attention') returning id", [project!.id],
   );
 
-  // Exactly the payload SupabaseReaderAnnotationRepository.create builds.
+  // Exactly the payload PostgrestReaderAnnotationRepository.create builds.
   const [created] = await db.as(owner).sql<Annotation>(
     `insert into reader_annotations
        (project_id, paper_id, origin, type, color, text, comment, tags, anchor, page_index, sort_index, sync_state)

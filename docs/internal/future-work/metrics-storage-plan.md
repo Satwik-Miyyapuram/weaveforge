@@ -80,7 +80,7 @@ nearer 130 B. The index and column costs below are real at any size.)*
 
 ## Where the bytes actually go
 
-Per row, from [`0016_experiment_metrics.sql`](../../../supabase/migrations/0016_experiment_metrics.sql):
+Per row, from [`0016_experiment_metrics.sql`](../../../db/migrations/0016_experiment_metrics.sql):
 
 | Column | Bytes | Verdict |
 |---|---|---|
@@ -195,10 +195,10 @@ change underneath it. A → C → B is the cheap path; A and C together is fine.
 
 | | |
 |---|---|
-| Table definition | [`0016_experiment_metrics.sql`](../../../supabase/migrations/0016_experiment_metrics.sql) (superseded) |
-| Fix A migration | [`0114_experiment_metrics_narrow_rows.sql`](../../../supabase/migrations/0114_experiment_metrics_narrow_rows.sql) |
-| Fix B migration | [`0115_experiment_metric_chunks.sql`](../../../supabase/migrations/0115_experiment_metric_chunks.sql) |
-| Rollbacks | [`migrations-rollback/`](../../../supabase/migrations-rollback/) |
+| Table definition | [`0016_experiment_metrics.sql`](../../../db/migrations/0016_experiment_metrics.sql) (superseded) |
+| Fix A migration | [`0114_experiment_metrics_narrow_rows.sql`](../../../db/migrations/0114_experiment_metrics_narrow_rows.sql) |
+| Fix B migration | [`0115_experiment_metric_chunks.sql`](../../../db/migrations/0115_experiment_metric_chunks.sql) |
+| Rollbacks | [`migrations-rollback/`](../../../db/migrations-rollback/) |
 | Fix C rule | [`downsample-metrics.ts`](../../../packages/core/src/features/experiments/domain/downsample-metrics.ts) |
 | Measurement | [`measure-metrics-storage.mjs`](../../../scripts/measure-metrics-storage.mjs), [`measure-metrics-layouts.mjs`](../../../scripts/measure-metrics-layouts.mjs) |
 | Operations | [`rollup-metric-chunks.mjs`](../../../scripts/rollup-metric-chunks.mjs), [`prune-metric-series.mjs`](../../../scripts/prune-metric-series.mjs) |

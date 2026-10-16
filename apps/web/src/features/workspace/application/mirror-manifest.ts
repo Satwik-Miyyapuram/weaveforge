@@ -281,7 +281,7 @@ export interface CoalescerOptions {
  *
  * Several saves in a burst are one write-out, and a save that lands while a run
  * is in flight is re-run afterwards rather than folded into a snapshot taken
- * before it happened. Failures are reported, never thrown: Supabase is the
+ * before it happened. Failures are reported, never thrown: the database is the
  * source of truth, so a lost mirror write costs a stale file while failing the
  * save that triggered it would cost the user their edit.
  */

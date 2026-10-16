@@ -1,7 +1,7 @@
 /**
  * Shared CONTRACT test suite for IPaperRelationRepository.
  *
- * Every implementation (in-memory, Supabase, SQLite) must pass this — the basis
+ * Every implementation (in-memory, PostgREST, SQLite) must pass this — the basis
  * for Liskov substitutability.
  */
 

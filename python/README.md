@@ -123,7 +123,7 @@ Implement `MetricSource` (`id`, `available()`, `read(ref)`), register on `defaul
 
 ## Architecture
 
-Mirrors the web app: `features/experiments/{domain,application,infrastructure}`, `container.py` composition root, repository interfaces tested with in-memory fakes. **No duplicate schema** — migrations in `../supabase/migrations/` are the contract.
+Mirrors the web app: `features/experiments/{domain,application,infrastructure}`, `container.py` composition root, repository interfaces tested with in-memory fakes. **No duplicate schema** — migrations in `../db/migrations/` are the contract.
 
 ## Test
 

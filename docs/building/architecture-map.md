@@ -22,7 +22,7 @@ One codebase, four surfaces, one schema.
   menu, updates.
 - **`apps/pitch`** — the public site, including this page.
 - **`python/weaveforge`** — the SDK training scripts import.
-- **`supabase/migrations`** — the schema, applied in the same order to a hosted
+- **`db/migrations`** — the schema, applied in the same order to a hosted
   database and to the one in your app's folder. There is no second schema.
 
 ## What runs where
@@ -89,16 +89,16 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 
 | Where | Size | What lives there |
 | --- | --- | --- |
-| `packages/core` | 52,188 lines | Domain and application logic shared by every surface |
+| `packages/core` | 52,304 lines | Domain and application logic shared by every surface |
 | `apps/web` | 187,095 lines | The app itself: screens, features, API routes, backend wiring |
 | `apps/desktop` | 17,139 lines | The Electron shell — what only an installed app can do |
 | `apps/pitch` | 904 lines | The public site and this documentation |
-| `python/weaveforge` | 3,273 lines | The SDK training scripts import |
-| `python/tests` | 1,614 lines | Its tests |
-| `supabase/migrations` | 140 files | The schema, as an ordered sequence |
+| `python/weaveforge` | 3,296 lines | The SDK training scripts import |
+| `python/tests` | 1,648 lines | Its tests |
+| `db/migrations` | 140 files | The schema, as an ordered sequence |
 | `docs` | 77 files | Documentation, this page included |
 
-**262,213 lines of code in all**, across 2,143 source files.
+**262,386 lines of code in all**, across 2,148 source files.
 
 <!-- /generated:code-map -->
 
@@ -187,7 +187,7 @@ that only ever goes up is a figure somebody should be arguing with.
 - A screen, or a rule about how one behaves — **`apps/web/src/features`**.
 - Something only an installed window can do — **`apps/desktop/src`**, exposed
   over a named channel in `channels.ts` and typed once in `desktop-bridge.ts`.
-- A column — a new migration in **`supabase/migrations`**. Never an edit to an
+- A column — a new migration in **`db/migrations`**. Never an edit to an
   old one; they have already run on other people's machines.
 
 ## Related

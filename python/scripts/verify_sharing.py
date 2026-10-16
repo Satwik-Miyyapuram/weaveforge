@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Live end-to-end verification of the 0018 sharing + comments RLS, the org
 hierarchy visibility (migration 0015), vault_page sharing (0035), and org
-switcher RPC (0034), against a real (throwaway) Supabase.
+switcher RPC (0034), with throwaway accounts. Sign-in goes through Supabase Auth;
+every table read and write goes to PostgREST at DATA_URL, where the data lives.
 
 It NEVER prints credentials — only PASS/FAIL lines. Meant to run on a trusted CI
 runner via GitHub Secrets (see .github/workflows/verify.yml), so secrets never
@@ -18,7 +19,8 @@ A/B required for share checks; C is the cross-lab deny account vs Alpha;
 C/D/E unlock hierarchy checks (profiles directory + explicit shares; milestones
 are not auto-visible up the tree after migration 0087).
 
-Env: SUPABASE_URL, SUPABASE_ANON_KEY, and TT_<X>_EMAIL/TT_<X>_PASSWORD for each
+Env: SUPABASE_URL and SUPABASE_ANON_KEY (sign-in), DATA_URL (PostgREST base, for
+example https://api.weaveforge.org), and TT_<X>_EMAIL/TT_<X>_PASSWORD for each
 account X in {A,B,C,D,E,F,G} you want exercised.
 """
 
@@ -29,6 +31,7 @@ import sys
 import uuid
 
 try:
+    from postgrest import SyncPostgrestClient
     from supabase import create_client
 except ImportError:
     print("FAIL: the 'supabase' package is required (pip install supabase).")
@@ -51,7 +54,7 @@ def env(name: str, required: bool = True) -> str | None:
     return v
 
 
-def signin(url: str, key: str, prefix: str, required: bool = True):
+def signin(url: str, key: str, data_url: str, prefix: str, required: bool = True):
     email = env(f"TT_{prefix}_EMAIL", required)
     password = env(f"TT_{prefix}_PASSWORD", required)
     if not (email and password):
@@ -64,7 +67,13 @@ def signin(url: str, key: str, prefix: str, required: bool = True):
         # not a secret; the email/password themselves are never printed.
         print(f"FAIL: sign-in for account {prefix} rejected ({type(exc).__name__}: {exc})")
         return None, None
-    return c, c.auth.get_user().user.id
+    # PostgREST shares Supabase Auth's JWT secret, so the session token works there.
+    rest = SyncPostgrestClient(
+        f"{data_url.rstrip('/')}/rest/v1",
+        headers={"Accept": "application/json", "Content-Type": "application/json", "apikey": key},
+    )
+    rest.auth(c.auth.get_session().access_token)
+    return rest, c.auth.get_user().user.id
 
 
 def sees(client, mid: str) -> bool:
@@ -117,6 +126,50 @@ def switch_org(client, org_id: str) -> bool:
         return True
     except Exception:  # noqa: BLE001
         return False
+
+
+# Owned tables the run writes to, with the column holding the verify- prefix.
+THROWAWAY = (
+    ("milestones", "title"),
+    ("vault_pages", "title"),
+    ("reading_lists", "name"),
+    ("papers", "title"),
+)
+
+
+def drop(client, table: str, col: str, vals: list) -> None:
+    """Delete rows; a failure fails the run so leftovers never go unnoticed."""
+    vals = [v for v in vals if v]
+    if client is None or not vals:
+        return
+    try:
+        client.table(table).delete().in_(col, vals).execute()
+    except Exception as exc:  # noqa: BLE001
+        print(f"FAIL: cleanup of {table} left rows behind ({type(exc).__name__}: {exc})")
+        FAILURES.append(f"cleanup {table}")
+
+
+def sweep_leftovers(accounts: list[tuple]) -> None:
+    """Remove verify- rows an earlier run left (crash, cancel) before writing new ones."""
+    owned: list[tuple] = []
+    for client, uid in accounts:
+        if client is None or not uid:
+            continue
+        for table, col in THROWAWAY:
+            q = client.table(table).select("id").eq("user_id", uid).like(col, "verify-%")
+            rows = q.execute().data
+            ids = [r["id"] for r in rows]
+            if ids:
+                owned.append((client, table, ids))
+    if not owned:
+        return
+    every = [i for _, _, ids in owned for i in ids]
+    print(f"Sweeping {len(every)} leftover verify- row(s) from an earlier run")
+    for client, _uid in accounts:
+        drop(client, "comments", "resource_id", every)
+        drop(client, "shares", "resource_id", every)
+    for client, table, ids in owned:
+        drop(client, table, "id", ids)
 
 
 def verify_org_switcher(
@@ -187,17 +240,18 @@ def verify_org_switcher(
 def main() -> int:
     url = env("SUPABASE_URL")
     key = env("SUPABASE_ANON_KEY")
+    data_url = env("DATA_URL")
 
     # Sign every account in first (none abort on failure) so one run reports the
     # full picture: if ALL fail, SUPABASE_URL/ANON_KEY point at the wrong project;
     # if only some fail, those specific TT_<X>_* secrets are off.
-    a, a_uid = signin(url, key, "A")
-    b, b_uid = signin(url, key, "B")
-    c, c_uid = signin(url, key, "C", required=False)
-    d, d_uid = signin(url, key, "D", required=False)
-    e, e_uid = signin(url, key, "E", required=False)
-    _f, _f_uid = signin(url, key, "F", required=False)
-    g, g_uid = signin(url, key, "G", required=False)
+    a, a_uid = signin(url, key, data_url, "A")
+    b, b_uid = signin(url, key, data_url, "B")
+    c, c_uid = signin(url, key, data_url, "C", required=False)
+    d, d_uid = signin(url, key, data_url, "D", required=False)
+    e, e_uid = signin(url, key, data_url, "E", required=False)
+    _f, _f_uid = signin(url, key, data_url, "F", required=False)
+    g, g_uid = signin(url, key, data_url, "G", required=False)
 
     signed = {n for n, cl in (("A", a), ("B", b), ("C", c), ("D", d), ("E", e), ("F", _f), ("G", g)) if cl}
     attempted = {n for n in ("A", "B", "C", "D", "E", "F", "G") if os.environ.get(f"TT_{n}_EMAIL")}
@@ -208,6 +262,10 @@ def main() -> int:
             print("Every account was rejected — SUPABASE_URL / SUPABASE_ANON_KEY most likely "
                   "point at a different project than the one holding these users.")
         return 2
+
+    sweep_leftovers(
+        [(a, a_uid), (b, b_uid), (c, c_uid), (d, d_uid), (e, e_uid), (_f, _f_uid), (g, g_uid)]
+    )
 
     tag = uuid.uuid4().hex[:8]
     m_a = m_e = cmt = v_a = rl_a = paper_a = None
@@ -251,7 +309,7 @@ def main() -> int:
         check(sees_reading_list(b, rl_a), "B reads reading list A explicitly shared")
         items_ok = list_item_count(b, rl_a) == 1
         if not items_ok and sees_reading_list(b, rl_a):
-            print("SKIP: reading_list_items shared RLS — apply migration 0036 on live Supabase")
+            print("SKIP: reading_list_items shared RLS — apply migration 0036 to the database")
         else:
             check(items_ok, "B reads items on A's shared reading list")
         if c is not None:
@@ -326,24 +384,15 @@ def main() -> int:
             print("SKIP: TT_C/D/E_* not all set — skipping hierarchy checks")
 
     finally:
-        # best-effort cleanup of throwaway data
-        for client, table, col, val in [
-            (b, "comments", "id", cmt),
-            (a, "shares", "resource_id", m_a),
-            (a, "shares", "resource_id", v_a),
-            (a, "shares", "resource_id", rl_a),
-            (e, "shares", "resource_id", m_e),
-            (a, "milestones", "id", m_a),
-            (e, "milestones", "id", m_e),
-            (a, "vault_pages", "id", v_a),
-            (a, "reading_lists", "id", rl_a),
-            (a, "papers", "id", paper_a),
-        ]:
-            try:
-                if client is not None and val:
-                    client.table(table).delete().eq(col, val).execute()
-            except Exception:  # noqa: BLE001
-                pass
+        # Children first: comments and shares point at the resources by id.
+        drop(b, "comments", "id", [cmt])
+        drop(a, "shares", "resource_id", [m_a, v_a, rl_a])
+        drop(e, "shares", "resource_id", [m_e])
+        drop(a, "milestones", "id", [m_a])
+        drop(e, "milestones", "id", [m_e])
+        drop(a, "vault_pages", "id", [v_a])
+        drop(a, "reading_lists", "id", [rl_a])  # items cascade
+        drop(a, "papers", "id", [paper_a])
 
     if FAILURES:
         print(f"\n{len(FAILURES)} check(s) failed.")

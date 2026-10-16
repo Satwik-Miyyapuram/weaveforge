@@ -69,7 +69,7 @@ export function DashboardScreen() {
   const contentReady = !statsLoading && !layoutLoading;
 
 
-  // Load saved layout from Supabase when project changes (after profile is ready).
+  // Load saved layout from the database when project changes (after profile is ready).
   useEffect(() => {
     setCardsEntered(false);
     if (!projectId || profileLoading) return;
@@ -126,7 +126,7 @@ export function DashboardScreen() {
     };
   }, [projectId, profileLoading, profile?.role, supervisees.length]);
 
-  // Debounced save to Supabase (user edits only).
+  // Debounced save to the database (user edits only).
   useEffect(() => {
     if (!projectId || !layoutReady.current || layoutLoading || !layout || !layoutDirty.current) {
       return;

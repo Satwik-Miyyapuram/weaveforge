@@ -7,7 +7,7 @@ import type { ShareableType } from "../features/sharing/domain/share.js";
 
 /**
  * In-memory {@link ILibraryPinRepository}. Scoped to one user + project, mirroring
- * the Supabase adapter's project context.
+ * the PostgREST adapter's project context.
  */
 export class InMemoryLibraryPinRepository implements ILibraryPinRepository {
   private readonly store = new Map<string, LibraryPin>();
