@@ -112,22 +112,8 @@ export function InkHost({
     pageIndexRef.current = pageIndex;
   }, [pageIndex]);
   const [showTextLayer, setShowTextLayer] = useState<boolean>(false);
-  /**
-   * The bar's choices (§use-ink-prefs): the tool in force, and the colour
-   * each tool remembers — a return from the highlighter hands the pen back
-   * its own colour, not a fluorescent yellow.
-   */
-  const { tool, setTool: pickTool, colour, onColourChange, onPenApproach, ...widths } = useInkPrefs();
-  // Cursor mode: the pen points and picks figures, never inks; any tool ends it.
-  const [cursorMode, setCursorMode] = useState(false);
-  const enterCursor = useCallback(() => setCursorMode(true), []);
-  const setTool = useCallback(
-    (next: Parameters<typeof pickTool>[0]) => {
-      setCursorMode(false);
-      pickTool(next);
-    },
-    [pickTool],
-  );
+  const { tool, setTool, cursorMode, enterCursor, colour, onColourChange, onPenApproach, ...widths } =
+    useInkPrefs();
   const { width, highlighterWidth } = widths;
   const [zoom, setZoom] = useState(1);
   const [pageGap, setPageGap] = usePageGap();
