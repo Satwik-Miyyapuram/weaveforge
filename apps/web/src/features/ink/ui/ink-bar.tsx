@@ -167,6 +167,8 @@ export interface InkBarProps {
    */
   selectActive?: boolean;
   onSelect?: () => void;
+  /** The Select button's name; notes call it Cursor. */
+  selectLabel?: string;
   /** Snip a region of the page (the reader's clip). */
   onClip?: () => void;
   /** Put a text box on the page. */
@@ -238,6 +240,7 @@ export function InkBar({
   onGoToPage,
   selectActive = false,
   onSelect,
+  selectLabel = "Select text",
   onClip,
   onTextBox,
   insertTool = null,
@@ -300,8 +303,8 @@ export function InkBar({
             type="button"
             className="ink-tool ink-tool-icon-only"
             aria-pressed={selectActive}
-            aria-label="Select text (V)"
-            title="Select text (V)"
+            aria-label={`${selectLabel} (V)`}
+            title={`${selectLabel} (V)`}
             onClick={onSelect}
           >
             <SelectGlyph />

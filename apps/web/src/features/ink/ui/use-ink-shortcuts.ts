@@ -23,6 +23,8 @@ export interface InkShortcutsDeps {
   scheduleSave: () => void;
   /** Choose the tool. */
   setTool: (tool: InkBarTool | "shape") => void;
+  /** Cursor mode: the pen points instead of inking. */
+  onCursor?: () => void;
   /** Choose a colour, the way the bar's swatch does. */
   onColourChange: (colour: InkColour) => void;
   /** How many strokes the lasso holds. */
@@ -50,6 +52,7 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
     send,
     scheduleSave,
     setTool,
+    onCursor,
     onColourChange,
     selectionCount,
     clearSelection,
@@ -112,6 +115,9 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
         case "s":
           setTool("shape");
           break;
+        case "v":
+          onCursor?.();
+          break;
         case "delete":
         case "backspace":
           if (selectionCount > 0) {
@@ -153,6 +159,7 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
     send,
     scheduleSave,
     setTool,
+    onCursor,
     onColourChange,
     selectionCount,
     clearSelection,

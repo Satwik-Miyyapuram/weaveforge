@@ -69,9 +69,13 @@ export function useInkPrefs() {
    * render per tool change for a value no view shows.
    */
   const lastPenMode = useRef<PenModeTool>("pen");
+  // Cursor mode: the pen points and picks figures, never inks; any tool ends it.
+  const [cursorMode, setCursorMode] = useState(false);
+  const enterCursor = useCallback(() => setCursorMode(true), []);
 
   const setTool = useCallback((next: InkBarTool | "shape") => {
     if (isPenMode(next)) lastPenMode.current = next;
+    setCursorMode(false);
     setToolState(next);
   }, []);
 
@@ -117,6 +121,8 @@ export function useInkPrefs() {
   return {
     tool,
     setTool,
+    cursorMode,
+    enterCursor,
     colour,
     onColourChange,
     onPenApproach,

@@ -29,6 +29,7 @@ import {
   type TouchPoint,
 } from "./ink-page-pointer";
 import type { InkPageProps } from "./ink-page-props";
+import { doubleClickFigure } from "./ink-page-math";
 import { inkSheetRuleStyle } from "./ink-sheet-underlay";
 
 export type { InkPageProps } from "./ink-page-props";
@@ -67,6 +68,7 @@ export function InkPage({
   above,
   ensurePage,
   penActive,
+  cursorMode = false,
 }: InkPageProps) {
   /** The last erase position, so a sweep is one segment per move and not a point. */
   const lastErase = useRef<{ x: number; y: number } | null>(null);
@@ -204,6 +206,8 @@ export function InkPage({
   const inkGesture = useRef(new InkGesture(ERASER_CURSOR));
   /** A finger that landed on a figure and selected it: nothing to draw. */
   const figureTap = useRef(false);
+  /** The last two presses in page units: a double-click opens a figure only if both were on it. */
+  const presses = useRef<{ x: number; y: number }[]>([]);
 
   /**
    * The figure a pointer-down at `at` is over, and which corner — the corner
@@ -261,17 +265,19 @@ export function InkPage({
       // Before anything projects: the page under the pointer becomes the live
       // one, so `project` below measures the sheet that is about to be drawn on.
       ensurePage?.(event.clientX, event.clientY);
+      const pressed = project(event.clientX, event.clientY);
+      presses.current = pressed ? [...presses.current.slice(-1), pressed] : [];
       let figureHit: { index: number; corner: FigureCorner | null; from: { x: number; y: number } } | null = null;
       // The pen's back tip erases whatever the bar says (eraser-tip.ts): the
       // decision is made once, here, and the route keeps it to the end.
       const route = inkGesture.current.down(event, {
-        tool: tool === "eraser" ? "eraser" : tool === "lasso" ? "lasso" : "draw",
-        tipErases: tool !== "lasso",
+        tool: cursorMode ? "draw" : tool === "eraser" ? "eraser" : tool === "lasso" ? "lasso" : "draw",
+        tipErases: !cursorMode && tool !== "lasso",
         // A mouse over a figure reaches the figure, not the ink: with a writing
         // tool the mouse drags the figure, the same division of labour as the
         // pen (notes) and the hand (paper). Alt reaches the ink under it.
         intercept: () => {
-          if (event.pointerType !== "mouse" || event.altKey || !onFigureChange) return false;
+          if ((event.pointerType !== "mouse" && !cursorMode) || event.altKey || !onFigureChange) return false;
           const at = project(event.clientX, event.clientY);
           const hit = at !== null ? figureAt(at) : null;
           if (hit && at && figures[hit.index]) figureHit = { ...hit, from: at };
@@ -320,9 +326,15 @@ export function InkPage({
         publishLasso();
         return;
       }
+      if (cursorMode) {
+        // A pointer, not a nib: a press off every figure starts nothing.
+        inkGesture.current.up(event.pointerId);
+        return;
+      }
       penHandlers.onPointerDown(event);
     },
     [
+      cursorMode,
       ensurePage,
       figureAt,
       figures,
@@ -526,14 +538,15 @@ export function InkPage({
         if (path.length >= 6) onLasso?.(path);
         return;
       }
+      if (cursorMode) return;
       penHandlers.onPointerUp(event);
     },
-    [onFigureDrop, onLasso, onMoveSelection, penHandlers, project, publishLasso, tool, touchUp],
+    [cursorMode, onFigureDrop, onLasso, onMoveSelection, penHandlers, project, publishLasso, tool, touchUp],
   );
 
   // One table for both surfaces that carry ink (`ink-page-pointer.ts`), so the
   // eraser and the ink dot are the same on a sheet and a paper.
-  const cursor = inkToolCursor(tool, ink);
+  const cursor = cursorMode ? "default" : inkToolCursor(tool, ink);
 
   // The overlay is drawn in page units and scaled by the viewBox, so the lasso
   // and the selection box need no projection of their own.
@@ -580,8 +593,9 @@ export function InkPage({
             // The double-click is the figure's controls: a click the figure
             // can receive, because a single one is a drag the page routes.
             const at = project(event.clientX, event.clientY);
-            const hit = at !== null ? figureAt(at) : null;
-            if (hit) onFigureActivate?.(hit.index);
+            if (!at || presses.current.length < 2) return;
+            const hit = doubleClickFigure(figures, [...presses.current, at], editingFigure);
+            if (hit !== null) onFigureActivate?.(hit);
           }}
           onContextMenu={(event) => event.preventDefault()}
           aria-label={`Ink page ${pageIndex + 1}, drawing surface`}

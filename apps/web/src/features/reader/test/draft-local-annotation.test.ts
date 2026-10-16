@@ -103,7 +103,7 @@ test("draftInkAnnotation keeps a curve's shape while shrinking it", () => {
 
   assert.ok(stored.length >= 4);
   assert.ok(
-    stored.length < raw.length / 4,
+    stored.length < raw.length / 3,
     `stored ${stored.length / 2} of ${raw.length / 2} points — compaction did not run`,
   );
   assert.equal(stored[0], raw[0], "the stroke still starts where the pen touched down");

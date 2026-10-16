@@ -345,7 +345,6 @@ export class WebglInkRenderer implements InkRenderer {
         y: stroke.y,
         pressure: stroke.pressure,
         width: stroke.width,
-        variableWidth: !usesHighlighterPass(stroke.tool),
       },
       batch.data.subarray(offset * INK_INSTANCE_FLOATS),
     );
@@ -436,7 +435,6 @@ export class WebglInkRenderer implements InkRenderer {
         y: stroke.y,
         pressure: stroke.pressure,
         width: stroke.header.width,
-        variableWidth: !usesHighlighterPass(stroke.header.tool),
       },
       batch.data.subarray(from * INK_INSTANCE_FLOATS),
       { from: this.livePacked },

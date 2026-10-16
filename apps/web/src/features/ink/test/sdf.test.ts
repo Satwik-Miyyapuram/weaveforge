@@ -1,5 +1,5 @@
 /**
- * The SDF pipeline's CPU half: the instance layout, the taper, and the degenerate
+ * The SDF pipeline's CPU half: the instance layout, the nib radius, and the degenerate
  * case the plan names.
  *
  * §7 step 4 asks for "`sdf.test.ts`: a zero-length segment renders a round dot".
@@ -83,7 +83,6 @@ test("the packer writes the subdivided spline, in the layout the shader reads", 
       y: Float32Array.from([5, 5, 5]),
       pressure: Uint8Array.from([0, 0, 0]),
       width: 6,
-      variableWidth: false,
     },
     out,
   );
@@ -136,7 +135,6 @@ test("the spline follows an arc the polyline would cut", () => {
     y: Float32Array.from(angles.map((a) => radius * Math.sin(a))),
     pressure: Uint8Array.from([0, 0, 0, 0]),
     width: 6,
-    variableWidth: false,
   };
   const mid = strokeCurveAt(stroke, 1, 0.5);
   const chord = radius * Math.cos((10 * Math.PI) / 180);
@@ -155,7 +153,6 @@ test("a stroke with one point has no segments, and packs to nothing", () => {
       y: Float32Array.from([100]),
       pressure: Uint8Array.from([128]),
       width: 6,
-      variableWidth: true,
     },
     out,
   );
@@ -174,7 +171,6 @@ test("packing from a point onward appends only the new segments (D6)", () => {
     y: Float32Array.from(Array.from({ length: points }, () => 0)),
     pressure: Uint8Array.from(Array.from({ length: points }, () => 200)),
     width: 6,
-    variableWidth: true,
   };
   const first = packStrokeInstances(stroke, out, { from: 0 });
   assert.equal(first, INK_INSTANCE_FLOATS * strokeInstanceCount(points));
@@ -191,74 +187,15 @@ test("packing from a point onward appends only the new segments (D6)", () => {
   );
 });
 
-test("a fixed-width tool does not taper, whatever the pressure says", () => {
-  // A highlighter is a marker: a 6 mm nib that narrowed with pressure would not be
-  // one, and a snapped shape has no hand behind it at all.
-  const fixed = { width: 60, variableWidth: false } as const;
-  assert.equal(
-    radiusAt(
-      {
-        ...fixed,
-        x: Float32Array.from([0, 0]),
-        y: Float32Array.from([0, 0]),
-        pressure: Uint8Array.from([10, 255]),
-      },
-      0,
-    ),
-    30,
-  );
-  assert.equal(
-    radiusAt(
-      {
-        ...fixed,
-        x: Float32Array.from([0, 0]),
-        y: Float32Array.from([0, 0]),
-        pressure: Uint8Array.from([10, 255]),
-      },
-      1,
-    ),
-    30,
-  );
-});
-
-test("pressure widens a pen, and a device with none keeps its width", () => {
-  const base = { width: 6, variableWidth: true } as const;
-  const light = radiusAt(
-    {
-      ...base,
-      x: Float32Array.from([0, 1]),
-      y: Float32Array.from([0, 0]),
-      pressure: Uint8Array.from([30, 30]),
-    },
-    0,
-  );
-  const heavy = radiusAt(
-    {
-      ...base,
-      x: Float32Array.from([0, 1]),
-      y: Float32Array.from([0, 0]),
-      pressure: Uint8Array.from([255, 255]),
-    },
-    0,
-  );
-  assert.ok(heavy > light, `a press is wider: ${heavy} against ${light}`);
-  // A device with no pressure channel gets the base radius — but the *velocity*
-  // taper still applies, because that is a property of the movement rather than of
-  // the pressure, and it is a still pen where it goes away. So the point measured
-  // here is one that did not move.
-  const none = radiusAt(
-    {
-      ...base,
-      x: Float32Array.from([0, 0, 0]),
-      y: Float32Array.from([0, 0, 0]),
-      pressure: Uint8Array.from([0, 0, 0]),
-    },
-    1,
-  );
-  assert.ok(
-    Math.abs(none - 3) < 1e-6,
-    "no pressure channel and no movement means the base radius",
-  );
+test("every tool keeps its width: no pressure or speed taper", () => {
+  // The live stroke and the saved one must match, so width is the tool's alone.
+  const stroke = {
+    width: 6,
+    x: Float32Array.from([0, 40, 41, 200]),
+    y: Float32Array.from([0, 0, 0, 0]),
+    pressure: Uint8Array.from([10, 255, 30, 200]),
+  };
+  for (let i = 0; i < 4; i += 1) assert.equal(radiusAt(stroke, i), 3);
 });
 
 test("a simplified box corner is drawn as a corner, with nothing past it", () => {
@@ -270,7 +207,6 @@ test("a simplified box corner is drawn as a corner, with nothing past it", () =>
     y: Float32Array.from([500, 500, 650, 650, 500]),
     pressure: Uint8Array.from([128, 128, 128, 128, 128]),
     width: 6,
-    variableWidth: false,
   };
   for (let i = 0; i < 4; i += 1) {
     for (let k = 0; k <= 10; k += 1) {
@@ -293,7 +229,6 @@ test("a gentle turn keeps its tangent, so a curve is still a curve", () => {
     y: Float32Array.from(angles.map((a) => 100 * Math.sin(a))),
     pressure: Uint8Array.from([0, 0, 0, 0]),
     width: 6,
-    variableWidth: false,
   };
   const chord = Math.hypot(stroke.x[2]! - stroke.x[1]!, stroke.y[2]! - stroke.y[1]!);
   const m = strokeTangentAt(stroke, 1);
@@ -316,7 +251,6 @@ test("a small loop, eight samples round, is still round — not a polyline", () 
     y: Float32Array.from(angles.map((a) => 10 * Math.sin(a))),
     pressure: Uint8Array.from(angles.map(() => 0)),
     width: 6,
-    variableWidth: false,
   };
   for (let i = 1; i < 7; i += 1) {
     const mid = strokeCurveAt(stroke, i, 0.5);
@@ -335,7 +269,6 @@ test("a long straight span next to a short chord stays straight", () => {
     y: Float32Array.from([502, 502, 505, 522, 765]),
     pressure: Uint8Array.from([128, 128, 128, 128, 128]),
     width: 10,
-    variableWidth: false,
   };
   for (let k = 0; k <= 20; k += 1) {
     const p = strokeCurveAt(stroke, 0, k / 20);
@@ -356,7 +289,6 @@ test("a circle drawn by hand and simplified unevenly is drawn round", () => {
     y: Float32Array.from(pts.map((p) => p[1]!)),
     pressure: new Uint8Array(pts.length).fill(128),
     width: 10,
-    variableWidth: false,
   };
   const cx = 1661.5;
   const cy = 1008;

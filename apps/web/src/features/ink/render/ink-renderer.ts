@@ -24,9 +24,6 @@
  */
 
 import {
-  INK_PRESSURE_MAX_FACTOR,
-  INK_PRESSURE_MIN_FACTOR,
-  INK_VELOCITY_TAPER,
   type InkColour,
   type InkTool,
 } from "@weaveforge/core";
@@ -266,7 +263,6 @@ export function strokeCurveAt(
   stroke: StrokeInstanceInput,
   i: number,
   u: number,
-  velocityScale?: number,
 ): { x: number; y: number; r: number } {
   const x1 = stroke.x[i]!;
   const y1 = stroke.y[i]!;
@@ -284,8 +280,7 @@ export function strokeCurveAt(
     x: h00 * x1 + h10 * m1.x + h01 * x2 + h11 * m2.x,
     y: h00 * y1 + h10 * m1.y + h01 * y2 + h11 * m2.y,
     r:
-      radiusAt(stroke, i, velocityScale) * (1 - u) +
-      radiusAt(stroke, i + 1, velocityScale) * u,
+      radiusAt(stroke, i) * (1 - u) + radiusAt(stroke, i + 1) * u,
   };
 }
 
@@ -373,26 +368,15 @@ export interface StrokeInstanceInput {
   x: Float32Array;
   y: Float32Array;
   pressure: Uint8Array;
-  /** Base nib width in 0.1 mm. */
+  /** Nib width in 0.1 mm, constant along the stroke. */
   width: number;
-  /**
-   * Whether the nib narrows and widens with the hand.
-   *
-   * A highlighter and a snapped shape do not: their width is the tool's, and a
-   * 6 mm marker that tapered with pressure would not be a marker.
-   */
-  variableWidth: boolean;
 }
 
 /**
  * Pack a stroke's segments into instance data.
  *
  * `INK_SEGMENT_SUBDIVISIONS` instances per segment, `A.xy, B.xy, rA, rB`, where
- * a radius is the nib width at that point. The taper is `f(width, pressure,
- * velocity)` from §6.2.5, and the velocity half of it is computed here from the
- * positions because that is where the positions are: a fast stroke thins, a
- * slow one keeps its width, and the pressure the device reported scales
- * between them.
+ * a radius is half the tool's width.
  *
  * `out` is written into rather than allocated, because this runs once per stroke
  * at commit time and once per *frame* for the live stroke. It must be at least
@@ -404,14 +388,14 @@ export interface StrokeInstanceInput {
 export function packStrokeInstances(
   stroke: StrokeInstanceInput,
   out: Float32Array,
-  options: { from?: number; velocityScale?: number } = {},
+  options: { from?: number } = {},
 ): number {
   const from = options.from ?? 0;
   const count = Math.min(stroke.x.length, stroke.y.length);
   const segments = Math.max(0, count - 1);
   const last = INK_SEGMENT_SUBDIVISIONS;
   const at = (i: number, k: number) =>
-    strokeCurveAt(stroke, i, k / last, options.velocityScale);
+    strokeCurveAt(stroke, i, k / last);
   let cursor = 0;
   // Every instance carries its neighbours, so the sub-segment before the first
   // packed one is evaluated too even though it is not written: when a live
@@ -445,51 +429,14 @@ export function packStrokeInstances(
   return cursor * INK_INSTANCE_FLOATS;
 }
 
-/** Samples either side of a point that its speed is averaged over. */
-const RADIUS_SPEED_WINDOW = 4;
-
 /**
- * The nib radius at one point, in 0.1 mm.
+ * The nib radius at one point, in 0.1 mm: half the tool's width, everywhere.
  *
- * Pressure and speed together, which is the taper D3 exists for. A device with no
- * pressure channel reports `0` (or `0.5` for a mouse) and gets the base width; a
- * highlighter or a shape gets it too, because {@link StrokeInstanceInput.variableWidth}
- * says so.
+ * No pressure or speed taper, so the stroke under the pen and the stroke saved
+ * on lift are the same shape.
  */
-export function radiusAt(
-  stroke: StrokeInstanceInput,
-  index: number,
-  velocityScale = 4,
-): number {
-  const base = stroke.width / 2;
-  if (!stroke.variableWidth) return base;
-  const raw = stroke.pressure[index] ?? 0;
-  // 0 means "no pressure channel" and 0.5 is a mouse; neither should taper. A
-  // pen scales over core's full range — a light touch is little over half the
-  // nib and a firm press half again as wide — because that swing, not the
-  // spline, is most of what makes a stroke read as written with a pen.
-  const pressure = raw === 0 ? 0.5 : raw / 255;
-  const pressureScale =
-    raw === 0
-      ? 1
-      : INK_PRESSURE_MIN_FACTOR +
-        pressure * (INK_PRESSURE_MAX_FACTOR - INK_PRESSURE_MIN_FACTOR);
-  // Speed in 0.1 mm per sample rather than per millisecond: the sample rate is not
-  // in this data, and the taper only needs "how fast relative to a stroke". It is
-  // read over a window of samples, not the two neighbours: a digitiser's spacing
-  // jitters from sample to sample, and a width that followed it would scallop.
-  const previous = Math.max(0, index - RADIUS_SPEED_WINDOW);
-  const next = Math.min(stroke.x.length - 1, index + RADIUS_SPEED_WINDOW);
-  let span = 0;
-  for (let i = previous; i < next; i += 1)
-    span += Math.hypot(
-      stroke.x[i + 1]! - stroke.x[i]!,
-      stroke.y[i + 1]! - stroke.y[i]!,
-    );
-  const speed = span / Math.max(1, next - previous);
-  const velocityScaleFactor =
-    1 - Math.min(1, speed / velocityScale) * INK_VELOCITY_TAPER;
-  return base * pressureScale * velocityScaleFactor;
+export function radiusAt(stroke: StrokeInstanceInput, _index?: number): number {
+  return stroke.width / 2;
 }
 
 /** Whether a stroke is drawn translucent and deduped through the stencil. */

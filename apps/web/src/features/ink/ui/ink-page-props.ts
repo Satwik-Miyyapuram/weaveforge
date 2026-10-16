@@ -12,6 +12,8 @@ export interface InkPageProps {
   scale: number;
   paper: string;
   tool: InkBarTool | "shape";
+  /** Cursor mode: the pen and the mouse point and pick figures, never ink. */
+  cursorMode?: boolean;
   /** The ink in hand, so the pen and highlighter cursor is a dot of it. */
   ink?: InkCursorInk;
   /** Client coordinates to page units in 0.1 mm, `null` off the page. */

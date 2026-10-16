@@ -112,12 +112,8 @@ export function InkHost({
     pageIndexRef.current = pageIndex;
   }, [pageIndex]);
   const [showTextLayer, setShowTextLayer] = useState<boolean>(false);
-  /**
-   * The bar's choices (§use-ink-prefs): the tool in force, and the colour
-   * each tool remembers — a return from the highlighter hands the pen back
-   * its own colour, not a fluorescent yellow.
-   */
-  const { tool, setTool, colour, onColourChange, onPenApproach, ...widths } = useInkPrefs();
+  const { tool, setTool, cursorMode, enterCursor, colour, onColourChange, onPenApproach, ...widths } =
+    useInkPrefs();
   const { width, highlighterWidth } = widths;
   const [zoom, setZoom] = useState(1);
   const [pageGap, setPageGap] = usePageGap();
@@ -547,6 +543,7 @@ export function InkHost({
     send,
     scheduleSave,
     setTool,
+    onCursor: enterCursor,
     onColourChange,
     selectionCount: selection.length,
     clearSelection: () => setSelection([]),
@@ -638,6 +635,9 @@ export function InkHost({
         selected={selection.length}
         showTextLayer={showTextLayer}
         onToggleTextLayer={() => setShowTextLayer((prev) => !prev)}
+        selectActive={cursorMode}
+        onSelect={enterCursor}
+        selectLabel="Cursor"
         onTool={(next) => {
           if (next !== "lasso" && selection.length > 0) {
             send({ type: "select-clear" });
@@ -698,6 +698,7 @@ export function InkHost({
           scale={scale}
           paper={page.paper}
           tool={tool}
+          cursorMode={cursorMode}
           ink={{ hex: paletteHex(palette, colour), diameterPx: nib * scale }}
           project={project}
           penHandlers={penHandlers}
