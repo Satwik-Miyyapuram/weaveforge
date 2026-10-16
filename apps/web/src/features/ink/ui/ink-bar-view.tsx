@@ -377,6 +377,15 @@ export function SelectGlyph() {
   );
 }
 
+/** The mouse pointer: notes' Cursor, which points and picks figures. */
+export function PointerGlyph() {
+  return (
+    <Svg size={16}>
+      <path d="M5 3l14 8-6 1.5L10 19z" />
+    </Svg>
+  );
+}
+
 export function ClipGlyph() {
   return (
     <Svg>
