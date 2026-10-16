@@ -41,6 +41,8 @@ test("the update settles without animation frames, which the browser pauses insi
   const saved = ["document", "window", "location", "MutationObserver", "requestAnimationFrame"].map((k) => [k, g[k]] as const);
   let settled: Promise<void> | null = null;
   const root = { dataset: {} as Record<string, string> };
+  const page = new Set<string>();
+  let pageTaggedWhileNav = false;
   g.location = { href: "app://weaveforge/papers/" };
   g.window = { matchMedia: () => ({ matches: false }) };
   g.requestAnimationFrame = () => 0;
@@ -48,6 +50,7 @@ test("the update settles without animation frames, which the browser pauses insi
   g.document = {
     documentElement: root,
     body: {},
+    querySelectorAll: () => [{ classList: { add: (c: string) => { page.add(c); pageTaggedWhileNav = "nav" in root.dataset; } } }],
     startViewTransition: (update: () => Promise<void>) => {
       settled = update();
       return { finished: settled };
@@ -59,6 +62,9 @@ test("the update settles without animation frames, which the browser pauses insi
     const won = await Promise.race([settled!.then(() => true), new Promise((r) => setTimeout(() => r(false), 1500))]);
     assert.equal(won, true, "update callback hung waiting for a frame");
     assert.ok(performance.now() - t0 < 1000);
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(root.dataset.nav, undefined);
+    assert.ok(page.has("page-transition--vt") && pageTaggedWhileNav, "page tagged before data-nav clears, so page-in does not replay");
   } finally {
     for (const [k, v] of saved) g[k] = v;
   }

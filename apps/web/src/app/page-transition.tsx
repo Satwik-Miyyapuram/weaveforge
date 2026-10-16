@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { canTransition, isPlainClick, navTransition } from "@/lib/view-transition";
 
 /**
- * Replays a fade + upward-slide animation on every route change by keying on
+ * Replays a fade-in on every route change by keying on
  * the pathname (the element remounts, so the CSS animation runs again). Gives
  * tab/sub-tab navigation a consistent "flowy" entrance.
  *

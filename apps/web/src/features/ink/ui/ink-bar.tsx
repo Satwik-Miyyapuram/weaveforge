@@ -39,6 +39,7 @@ import {
   InsertMenu,
   PageField,
   SelectGlyph,
+  PointerGlyph,
   ViewMenu,
   hasInsertItems,
   type InkInsertTool,
@@ -169,6 +170,8 @@ export interface InkBarProps {
   onSelect?: () => void;
   /** The Select button's name; notes call it Cursor. */
   selectLabel?: string;
+  /** Mouse pointer instead of the text I-beam. */
+  selectPointer?: boolean;
   /** Snip a region of the page (the reader's clip). */
   onClip?: () => void;
   /** Put a text box on the page. */
@@ -241,6 +244,7 @@ export function InkBar({
   selectActive = false,
   onSelect,
   selectLabel = "Select text",
+  selectPointer = false,
   onClip,
   onTextBox,
   insertTool = null,
@@ -307,7 +311,7 @@ export function InkBar({
             title={`${selectLabel} (V)`}
             onClick={onSelect}
           >
-            <SelectGlyph />
+            {selectPointer ? <PointerGlyph /> : <SelectGlyph />}
           </button>
         ) : null}
         {INK_BAR_TOOLS.map((entry) => (
