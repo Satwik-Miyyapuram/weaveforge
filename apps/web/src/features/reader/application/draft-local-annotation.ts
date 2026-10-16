@@ -11,6 +11,7 @@ import {
   type ReaderAnnotationType,
   type TextSelectionRange,
 } from "@weaveforge/core";
+import { PDF_INK_SAVE_TOLERANCE } from "./pdf-ink-sampler";
 
 export function draftFromTextSelection(input: {
   type: Extract<ReaderAnnotationType, "highlight" | "underline" | "note">;
@@ -61,7 +62,7 @@ export function draftInkAnnotation(input: {
 }): NewReaderAnnotation | null {
   // Compact before storing, never after: the raw capture is the thing that is
   // hundreds of times larger than the stroke's shape needs (see ink-stroke.ts).
-  const path = compactInkPath(input.path);
+  const path = compactInkPath(input.path, { tolerance: PDF_INK_SAVE_TOLERANCE });
   if (path.length < 4) return null;
   const ys = path.filter((_, i) => i % 2 === 1);
   const topPdf = Math.max(...ys);
@@ -102,7 +103,7 @@ export function appendInkStroke(
   const position = anchor.zoteroPosition;
   if (!position || !Array.isArray(position.paths)) return null;
   if (position.paths.length >= INK_MAX_PATHS_PER_ANNOTATION) return null;
-  const compact = compactInkPath(path);
+  const compact = compactInkPath(path, { tolerance: PDF_INK_SAVE_TOLERANCE });
   if (compact.length < 4) return null;
   return {
     ...anchor,
