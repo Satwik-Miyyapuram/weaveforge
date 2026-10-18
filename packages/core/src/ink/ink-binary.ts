@@ -630,11 +630,11 @@ export function decodeInkChunkBody(body: Uint8Array): InkChunkView {
   };
 }
 
-/** Decode a whole chunk, inflating first when its flag says so. */
-export async function decodeInkChunk(
+/** Read header and decompress payload, checking body size against header. */
+export async function inflateInkChunk(
   bytes: Uint8Array,
   codec: InkChunkCodec = identityInkChunkCodec,
-): Promise<InkChunkView> {
+): Promise<{ flags: number; body: Uint8Array }> {
   const header = readInkChunkHeader(bytes);
   const payload = bytes.subarray(INK_CHUNK_HEADER_BYTES);
   const body = header.compressed ? await codec.decompress(payload) : payload;
@@ -643,8 +643,17 @@ export async function decodeInkChunk(
       `ink: inflate produced ${body.length} bytes, the header says ${header.bodySize}`,
     );
   }
+  return { flags: header.flags, body };
+}
+
+/** Decode a whole chunk, inflating first when its flag says so. */
+export async function decodeInkChunk(
+  bytes: Uint8Array,
+  codec: InkChunkCodec = identityInkChunkCodec,
+): Promise<InkChunkView> {
+  const { flags, body } = await inflateInkChunk(bytes, codec);
   const view = decodeInkChunkBody(body);
-  return { ...view, flags: header.flags };
+  return { ...view, flags };
 }
 
 /**

@@ -166,7 +166,6 @@ Targets are checked with `baseline.mjs` in Dev.
   - `ink:parse` covers `pageFromChunk`.
 - To get clean numbers, decode one page at a time in a test run (or measure the
   synchronous parts only).
-- Add a `ink:page-paint` measure (from the plan) for the first visible page.
 - Extend `baseline.mjs`:
   - Open the Plan/Report sidebar groups so their routes join the nav phase.
   - Add an Ink-mode phase: click "Ink", then flip pages.
@@ -200,6 +199,7 @@ This is likely the biggest win; the baseline points here first.
     chunks.
   - Consider decoding in the ink worker (`ink-page-logic.ts:103` already
     decodes there).
+- Add ink:page-paint, first visible page decoded to painted, once band-first decode exists.
 - **Targets:**
   - No LoAF over 50 ms when the note opens.
   - First visible page painted in under 100 ms.
@@ -302,4 +302,5 @@ Add one row per step: step, commit, and the key metrics before and after.
 
 | Step | Commit | Change in numbers |
 | --- | --- | --- |
-| 0 | (uncommitted) | Baseline above |
+| 0 | 11e37355 | Baseline above |
+| 1 | (uncommitted) | Decode is cheap. On the 50-page note, `ink:inflate` totals 15.6 ms and `ink:parse` 82.9 ms (p95 2.6 ms per page), but `ink:note-paint` is 2039 ms and the open has a 1827 ms blocking LoAF, so rendering 25k SVG paths is the cost. Ink mode is worst: page-flip INP has p50 1528 ms and max 3128 ms, LoAF p50 2645 ms, and all 50 pages re-inflate on entering it (n=52). Plan and Report nav are 68–88 ms. |

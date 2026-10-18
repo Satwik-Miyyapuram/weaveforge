@@ -142,6 +142,7 @@ export {
   encodeInkChunkBody,
   encodeInkChunk,
   readInkChunkHeader,
+  inflateInkChunk,
   decodeInkChunkBody,
   decodeInkChunk,
   inkChunkBodySize,

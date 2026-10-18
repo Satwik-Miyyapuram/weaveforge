@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { decodeInkChunk, pageFromChunk, type InkStroke } from "@weaveforge/core";
+import {
+  decodeInkChunkBody,
+  inflateInkChunk,
+  pageFromChunk,
+  type InkStroke,
+} from "@weaveforge/core";
 import { perfEnd, perfEndAfterPaint, perfStart } from "@/lib/perf-marks";
 import { availableInkChunkCodec } from "../application/ink-chunk-codec";
 import type { InkStoredPage } from "../application/ink-chunk-store";
@@ -42,24 +47,37 @@ export function useDecodedStrokes({
     const codec = availableInkChunkCodec();
     const noteStart = perfStart();
 
-    void Promise.all(
-      pages.map(async (entry, index) => {
-        if (!entry.chunk) return { index, strokes: [] as readonly InkStroke[] };
-        const cached = cacheRef.current.get(entry.chunk);
-        if (cached) return { index, strokes: cached };
-        try {
-          const start = perfStart();
-          const decoded = await decodeInkChunk(entry.chunk, codec);
-          const page = pageFromChunk(decoded);
-          const strokes = page.strokes ?? [];
-          perfEnd("ink:decode", start, entry.chunk.byteLength);
-          cacheRef.current.set(entry.chunk, strokes);
-          return { index, strokes };
-        } catch {
-          return { index, strokes: [] as readonly InkStroke[] };
+    void (async () => {
+      const results: { index: number; strokes: readonly InkStroke[] }[] = [];
+      for (let index = 0; index < pages.length; index++) {
+        if (cancelled) return;
+        const entry = pages[index]!;
+        if (!entry.chunk) {
+          results.push({ index, strokes: [] as readonly InkStroke[] });
+          continue;
         }
-      }),
-    ).then((results) => {
+        const cached = cacheRef.current.get(entry.chunk);
+        if (cached) {
+          results.push({ index, strokes: cached });
+          continue;
+        }
+        try {
+          const inflateStart = perfStart();
+          const { flags, body } = await inflateInkChunk(entry.chunk, codec);
+          perfEnd("ink:inflate", inflateStart, entry.chunk.byteLength);
+
+          const parseStart = perfStart();
+          const view = decodeInkChunkBody(body);
+          const page = pageFromChunk({ ...view, flags });
+          const strokes = page.strokes ?? [];
+          perfEnd("ink:parse", parseStart, strokes.length);
+
+          cacheRef.current.set(entry.chunk, strokes);
+          results.push({ index, strokes });
+        } catch {
+          results.push({ index, strokes: [] as readonly InkStroke[] });
+        }
+      }
       if (cancelled) return;
       perfEndAfterPaint("ink:note-paint", noteStart, results.length);
       setStrokesMap((prev) => {
@@ -69,7 +87,7 @@ export function useDecodedStrokes({
         }
         return next;
       });
-    });
+    })();
 
     return () => {
       cancelled = true;
