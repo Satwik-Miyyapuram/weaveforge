@@ -119,6 +119,8 @@ export async function walkVault(session: VaultSession, dir: string, out: string[
   if (!listed.ok) return;
   for (const entry of listed.value) {
     if (out.length >= SEARCH_LIMIT) return;
+    // `.git` alone can hold thousands of objects and spend the cap before any project.
+    if (entry.kind === "dir" && entry.path.split("/").pop()?.startsWith(".")) continue;
     if (entry.kind === "dir") await walkVault(session, entry.path, out);
     else out.push(entry.path);
   }

@@ -79,6 +79,14 @@ test("listing skips junk files and read_entry refuses WeaveForge's own files", a
   assert.equal((await call(session, "read_entry", { path: ".weaveforge/relations.json" })).error, true);
 });
 
+test("a big .git folder does not use up the walk before the projects", async () => {
+  const { session, root } = await workspace();
+  const objects = path.join(root, ".git", "objects");
+  await mkdir(objects, { recursive: true });
+  await Promise.all(Array.from({ length: 2_100 }, (_, i) => writeFile(path.join(objects, `obj${i}`), "")));
+  assert.match((await call(session, "list_workspace", { kind: "paper" })).text, /BERT/);
+});
+
 test("get_paper_text pages are 1-based and default to ten", async () => {
   const { session } = await workspace();
   const out = await call(session, "get_paper_text", { paper: "paper-1", fromPage: 3 });
