@@ -1,19 +1,12 @@
 "use client";
 
-/**
- * A static ink page: renders a page's complete visual content — paper,
- * background, text underlay, figures, and vector ink strokes — without
- * mounting a live WebGL canvas or web worker.
- *
- * Used for every page in Read mode, and for every slot of Ink mode's rail —
- * the live page's sheet sits over its slot and draws its ink through the same
- * `InkPageInk` (§ink-page-ink), so each page on screen is drawn one way.
- */
+/** Static ink page: ink is drawn to a canvas, only near the viewport. */
 
+import { memo, useEffect, useRef, useState } from "react";
 import type { FigureGeometry, InkStroke } from "@weaveforge/core";
 import type { InkPalette } from "../render/ink-palette";
 import { InkFigures } from "./ink-figures";
-import { InkPageInk } from "./ink-page-ink";
+import { InkPageCanvas } from "./ink-page-canvas";
 import { InkSheetTextUnderlay, inkSheetRuleStyle } from "./ink-sheet-underlay";
 
 export interface InkPageStaticProps {
@@ -47,7 +40,7 @@ export interface InkPageStaticProps {
   onLoadError?: () => void;
 }
 
-export function InkPageStatic({
+export const InkPageStatic = memo(function InkPageStatic({
   index,
   pageSize,
   scale,
@@ -61,11 +54,34 @@ export function InkPageStatic({
   palette,
   onLoadError,
 }: InkPageStaticProps) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [near, setNear] = useState(false);
+
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setNear(true);
+      return;
+    }
+    const root = el.closest<HTMLElement>(".ink-page-scroll");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          setNear(entry.isIntersecting);
+        }
+      },
+      { root: root ?? null, rootMargin: "150% 0px", threshold: 0 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const width = Math.max(1, Math.round(pageSize.width * scale));
   const height = Math.max(1, Math.round(pageSize.height * scale));
 
   return (
-    <div className="ink-page" data-page={index}>
+    <div ref={rootRef} className="ink-page" data-page={index}>
       <div
         className={`ink-sheet paper-${paper}`}
         style={{ width: `${width}px`, height: `${height}px`, position: "relative", ...inkSheetRuleStyle(scale) }}
@@ -93,9 +109,16 @@ export function InkPageStatic({
             imageUrls={figureUrls ?? new Map()}
           />
         ) : null}
-        <InkPageInk strokes={strokes} pageSize={pageSize} palette={palette} />
+        {near ? (
+          <InkPageCanvas
+            strokes={strokes}
+            pageSize={pageSize}
+            scale={scale}
+            palette={palette}
+          />
+        ) : null}
         <span className="ink-ghost-label">{index + 1}</span>
       </div>
     </div>
   );
-}
+});
