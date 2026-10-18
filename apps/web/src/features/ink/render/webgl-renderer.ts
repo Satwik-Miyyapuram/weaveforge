@@ -178,6 +178,19 @@ export class WebglInkRenderer implements InkRenderer {
   private palette: InkPalette = INK_RENDER_COLOURS;
   private target: CaptureTarget | null = null;
   private lost = false;
+  private disposed = false;
+  private readonly handleContextLost = (event: Event): void => {
+    if (this.disposed) return;
+    event.preventDefault();
+    this.lost = true;
+    this.onLifecycle?.("lost");
+  };
+  private readonly handleContextRestored = (): void => {
+    if (this.disposed) return;
+    this.lost = false;
+    this.uploadAll();
+    this.onLifecycle?.("restored");
+  };
   private stats: InkRenderStats = {
     backend: "webgl2",
     strokes: 0,
@@ -265,16 +278,8 @@ export class WebglInkRenderer implements InkRenderer {
     // integrated graphics (§6.2.9). All state is reconstructible from the sidecar
     // and the page buffer, so recovery is "re-upload", and the host is told so it
     // can fall back to Canvas 2D while the context is gone.
-    options.canvas.addEventListener("webglcontextlost", (event) => {
-      event.preventDefault();
-      this.lost = true;
-      this.onLifecycle?.("lost");
-    });
-    options.canvas.addEventListener("webglcontextrestored", () => {
-      this.lost = false;
-      this.uploadAll();
-      this.onLifecycle?.("restored");
-    });
+    options.canvas.addEventListener("webglcontextlost", this.handleContextLost);
+    options.canvas.addEventListener("webglcontextrestored", this.handleContextRestored);
   }
 
   /** What the renderer is doing, for a status bar or a perf gate. */
@@ -702,6 +707,10 @@ export class WebglInkRenderer implements InkRenderer {
   }
 
   dispose(): void {
+    // Flag disposed and detach listeners so deliberate teardown never reports context loss.
+    this.disposed = true;
+    this.canvas.removeEventListener("webglcontextlost", this.handleContextLost);
+    this.canvas.removeEventListener("webglcontextrestored", this.handleContextRestored);
     const gl = this.gl;
     for (const batch of this.batchPool.all()) {
       if (batch.buffer) gl.deleteBuffer(batch.buffer);
@@ -714,6 +723,8 @@ export class WebglInkRenderer implements InkRenderer {
     gl.deleteBuffer(this.cornerBuffer);
     gl.deleteProgram(this.program);
     gl.deleteProgram(this.backgroundProgram);
+    // Explicitly release the WebGL context so the GPU process drops it immediately.
+    this.gl.getExtension("WEBGL_lose_context")?.loseContext();
   }
 
   /** The page image under the strokes: one quad, page rect, same camera. */

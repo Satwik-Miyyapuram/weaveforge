@@ -32,8 +32,19 @@ const FILL: React.CSSProperties = {
   zIndex: 1,
 };
 
+export type InkCanvasMode = "bitmaprenderer" | "2d";
+
+export function chooseCanvasMode(canvas: HTMLCanvasElement): InkCanvasMode {
+  // Bitmap mode needs OffscreenCanvas and an ImageBitmapRenderingContext.
+  if (typeof OffscreenCanvas !== "undefined") {
+    const ctx = canvas.getContext("bitmaprenderer");
+    if (ctx) return "bitmaprenderer";
+  }
+  return "2d";
+}
+
 export function drawInkStrokes(
-  ctx: CanvasRenderingContext2D,
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   strokes: readonly InkRenderStroke[],
   unitsToPx: number,
 ): void {
@@ -67,6 +78,60 @@ export function drawInkStrokes(
   ctx.globalAlpha = 1;
 }
 
+export function paintInkCanvas(
+  canvas: HTMLCanvasElement,
+  drawn: readonly InkRenderStroke[],
+  width: number,
+  height: number,
+  unitsToPx: number,
+  mode: InkCanvasMode,
+): void {
+  if (width <= 0 || height <= 0 || drawn.length === 0) return;
+
+  if (mode === "bitmaprenderer" && typeof OffscreenCanvas !== "undefined") {
+    const bitmapCtx = canvas.getContext("bitmaprenderer") as ImageBitmapRenderingContext | null;
+    if (!bitmapCtx) return;
+    // Offscreen single-buffer draw avoids Chrome keeping two backing stores for 2D.
+    const off = new OffscreenCanvas(width, height);
+    const offCtx = off.getContext("2d");
+    if (!offCtx) return;
+    const t = perfStart();
+    drawInkStrokes(offCtx, drawn, unitsToPx);
+    perfEnd("ink:page-paint", t, drawn.length);
+    // Size the DOM canvas before transferring the image bitmap.
+    canvas.width = width;
+    canvas.height = height;
+    bitmapCtx.transferFromImageBitmap(off.transferToImageBitmap());
+    // Zero offscreen canvas size to release its backing store immediately.
+    off.width = 0;
+    off.height = 0;
+    return;
+  }
+
+  // 2D fallback path when OffscreenCanvas is unavailable.
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  canvas.width = width;
+  canvas.height = height;
+  const t = perfStart();
+  drawInkStrokes(ctx, drawn, unitsToPx);
+  perfEnd("ink:page-paint", t, drawn.length);
+}
+
+export function releaseInkCanvas(
+  canvas: HTMLCanvasElement,
+  mode: InkCanvasMode,
+): void {
+  if (mode === "bitmaprenderer") {
+    // Detach image bitmap before releasing the canvas backing store.
+    const bitmapCtx = canvas.getContext("bitmaprenderer") as ImageBitmapRenderingContext | null;
+    bitmapCtx?.transferFromImageBitmap(null);
+  }
+  // Zero dimensions to drop the backing store immediately.
+  canvas.width = 0;
+  canvas.height = 0;
+}
+
 export const InkPageCanvas = memo(function InkPageCanvas({
   strokes,
   pageSize,
@@ -75,6 +140,7 @@ export const InkPageCanvas = memo(function InkPageCanvas({
   hidden,
 }: InkPageCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const modeRef = useRef<InkCanvasMode | null>(null);
 
   const drawn = useMemo<InkRenderStroke[]>(() => {
     const out: InkRenderStroke[] = [];
@@ -90,17 +156,33 @@ export const InkPageCanvas = memo(function InkPageCanvas({
     return out;
   }, [strokes, palette, hidden]);
 
+  const hasDrawn = drawn.length > 0;
+
+  // Release backing store on unmount or when strokes clear to empty.
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !hasDrawn) return;
+    if (!modeRef.current) {
+      modeRef.current = chooseCanvasMode(canvas);
+    }
+    const mode = modeRef.current;
+    return () => {
+      releaseInkCanvas(canvas, mode);
+      modeRef.current = null;
+    };
+  }, [hasDrawn]);
+
+  // Redraw when strokes, scale, or page size change.
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || drawn.length === 0) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!modeRef.current) {
+      modeRef.current = chooseCanvasMode(canvas);
+    }
     const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
-    canvas.width = Math.round(pageSize.width * scale * dpr);
-    canvas.height = Math.round(pageSize.height * scale * dpr);
-    const t = perfStart();
-    drawInkStrokes(ctx, drawn, scale * dpr);
-    perfEnd("ink:page-paint", t, drawn.length);
+    const width = Math.round(pageSize.width * scale * dpr);
+    const height = Math.round(pageSize.height * scale * dpr);
+    paintInkCanvas(canvas, drawn, width, height, scale * dpr, modeRef.current);
   }, [drawn, pageSize.width, pageSize.height, scale]);
 
   if (drawn.length === 0) return null;
