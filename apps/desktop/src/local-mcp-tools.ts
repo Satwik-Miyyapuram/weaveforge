@@ -22,36 +22,48 @@ function tool(name: string, description: string, properties: Record<string, unkn
   return { name, description, inputSchema: { type: "object", properties: scoped ? { ...properties, project: PROJECT } : properties, required } };
 }
 
+const REF = (what: string) => ({ ref: str(`The ${what}'s id or title.`) });
+const PAGED = {
+  heading: str("Optional heading: only that section."),
+  offset: { type: "integer", minimum: 0, description: "Start at this character; the answer says where the next part starts." },
+  limit: { type: "integer", minimum: 1, description: "Characters to return, at most 7500." },
+};
+const ROWS = {
+  offset: { type: "integer", minimum: 0, description: "Skip this many rows." },
+  limit: { type: "integer", minimum: 1, description: "Rows to return, default 100, at most 500." },
+};
+
 const DRAFT_NOTE = " Leaves a draft; nothing changes until a person approves it in WeaveForge.";
 
 export const TOOLS = [
   tool("list_projects", "List the projects: name, id, folder and what each holds. Start here, then pass project to the other tools.", {}, [], false),
-  tool("search_workspace", `Search the workspace folder for text. Optionally restrict to one kind: ${KINDS.join(", ")}.`, {
+  tool("search_workspace", `Search the workspace folder for text. Each hit gives project, path, kind, title and id. Optionally restrict to one kind: ${KINDS.join(", ")}.`, {
     query: str("Text to look for, case-insensitive."),
     kind: { type: "string", enum: KINDS, description: "Restrict to one kind of entry." },
+    exclude: { type: "array", items: { type: "string", enum: KINDS }, description: "Kinds to leave out, e.g. [\"log_entry\"]." },
   }, ["query"]),
   tool("list_workspace", "List the entries of one kind: title, id, path and status.", {
-    kind: { type: "string", enum: KINDS },
+    kind: { type: "string", enum: KINDS }, ...ROWS,
   }, ["kind"]),
-  tool("read_entry", "Read one file from the workspace folder, by its path.", { path: str("Path inside the folder.") }, ["path"], false),
-  tool("get_note", "Read one note, by its id or title.", { note: str("The note's id, or its title.") }, ["note"]),
-  tool("get_paper", "Read one paper's entry and say whether its PDF is on disk.", { paper: str("The paper's id, or its title.") }, ["paper"]),
+  tool("read_entry", "Read one file from the workspace folder, by its path.", { path: str("Path inside the folder."), ...PAGED }, ["path"], false),
+  tool("get_note", "Read one note, by its id or title.", { ...REF("note"), ...PAGED }, ["ref"]),
+  tool("get_paper", "Read one paper's entry and say whether its PDF is on disk.", REF("paper"), ["ref"]),
   tool("get_paper_text", `Read a paper's PDF text, by page (1-based, up to ${DEFAULT_PAGE_SPAN} pages at a time). Needs the paper opened once in WeaveForge.`, {
-    paper: str("The paper's id, or its title."),
+    ...REF("paper"),
     fromPage: { type: "integer", minimum: 1 },
     toPage: { type: "integer", minimum: 1 },
-  }, ["paper"]),
-  tool("get_report_section", "Read one report section, by its id or title.", { section: str("The section's id, or its title.") }, ["section"]),
-  tool("get_experiment", "Read one experiment, by its id or title.", { experiment: str("The experiment's id, or its title.") }, ["experiment"]),
-  tool("list_experiments", "List the experiments in the workspace folder.", {}),
-  tool("get_milestone", "Read one plan milestone, by its id or title.", { milestone: str("The milestone's id, or its title.") }, ["milestone"]),
-  tool("get_log", "Read one logbook entry, by its id or its date (YYYY-MM-DD).", { entry: str("The entry's id or date.") }, ["entry"]),
-  tool("get_reading_list", "Read one reading list and the papers and notes in it.", { list: str("The list's id, or its title.") }, ["list"]),
+  }, ["ref"]),
+  tool("get_report_section", "Read one report section, by its id or title.", { ...REF("section"), ...PAGED }, ["ref"]),
+  tool("get_experiment", "Read one experiment, by its id or title.", { ...REF("experiment"), ...PAGED }, ["ref"]),
+  tool("list_experiments", "List the experiments in the workspace folder.", ROWS),
+  tool("get_milestone", "Read one plan milestone, by its id or title.", { ...REF("milestone"), ...PAGED }, ["ref"]),
+  tool("get_log", "Read one logbook entry, by its id or its date (YYYY-MM-DD).", { ref: str("The entry's id or date.") }, ["ref"]),
+  tool("get_reading_list", "Read one reading list and the papers and notes in it.", REF("list"), ["ref"]),
   tool("list_tags", "List the tags in the workspace.", {}),
   tool("get_relations", "List links between papers, optionally only those touching one paper.", { paper: str("Optional paper id or title.") }),
   tool("get_backlinks", "For one note or paper: the [[links]] in it, the notes that link to it, and (papers) its relations.", {
-    entry: str("The note's or paper's id, or its title."),
-  }, ["entry"]),
+    ...REF("note's or paper"),
+  }, ["ref"]),
   tool("suggest_note_create", `Suggest a new note.${DRAFT_NOTE}`, {
     title: str("The note's title."), body: str("Markdown body."), parent: str("Optional parent note id or title."), rationale: RATIONALE,
   }, ["title", "body"]),

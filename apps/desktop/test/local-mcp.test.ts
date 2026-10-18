@@ -249,3 +249,44 @@ test("reads name the project each entry is in", async () => {
   assert.match((await callIn(session, "get_paper", { paper: "Paper A" })).text, /Proj A: /);
   assert.match((await callIn(session, "search_workspace", { query: "beta" })).text, /Proj B: /);
 });
+
+test("search with a kind looks in each project's own folder and names each hit", async () => {
+  const { session } = await twoProjects();
+  const hit = await callIn(session, "search_workspace", { query: "project b's beta", kind: "vault_page" });
+  assert.match(hit.text, /Proj B: proj-b--bbbbbb\/notes\/beta\.md \| vault_page \| Beta \| b-1/);
+  const papersOnly = await callIn(session, "search_workspace", { query: "paper a", exclude: ["vault_page"] });
+  assert.match(papersOnly.text, /paper-a\.md \| paper \| Paper A \| pa-1/);
+  assert.doesNotMatch(papersOnly.text, /alpha\.md/);
+});
+
+test("get_paper_text past the last page says how many there are", async () => {
+  const { session } = await workspace();
+  const out = await call(session, "get_paper_text", { ref: "paper-1", fromPage: 40 });
+  assert.equal(out.error, true);
+  assert.match(out.text, /has 15 pages; fromPage 40 is past the end/);
+});
+
+test("every get takes ref, and the older names still work", async () => {
+  const { session } = await twoProjects();
+  assert.match((await callIn(session, "get_note", { ref: "a-2" })).text, /Back to/);
+  assert.match((await callIn(session, "get_note", { note: "a-2" })).text, /Back to/);
+  assert.match((await callIn(session, "get_paper", { ref: "Paper B" })).text, /pb-1/);
+  assert.match((await callIn(session, "get_backlinks", { ref: "Alpha", project: "Proj A" })).text, /Beta \(note\)/);
+});
+
+test("lists and long reads page instead of cutting off", async () => {
+  const { session, root } = await twoProjects();
+  const first = await callIn(session, "list_workspace", { kind: "paper", limit: 2 });
+  assert.match(first.text, /1-2 of 3; pass offset=2 for more/);
+  const rest = await callIn(session, "list_workspace", { kind: "paper", offset: 2 });
+  assert.match(rest.text, /Paper B/);
+  assert.doesNotMatch(rest.text, /Paper A2/);
+  const long = `# Top\n${"x".repeat(9_000)}\n## Method\nthe method\n## Results\nnumbers\n`;
+  await writeFile(path.join(root, "proj-a--aaaaaa/notes/beta.md"), md({ "weaveforge-id": "a-2", "weaveforge-type": "vault_page", title: "Beta" }, long));
+  const head = await callIn(session, "read_entry", { path: "proj-a--aaaaaa/notes/beta.md" });
+  assert.match(head.text, /pass offset=7500 for more/);
+  assert.match((await callIn(session, "read_entry", { path: "proj-a--aaaaaa/notes/beta.md", offset: 7500 })).text, /the method/);
+  const method = await callIn(session, "get_note", { ref: "a-2", heading: "method" });
+  assert.match(method.text, /the method/);
+  assert.doesNotMatch(method.text, /numbers|xxxx/);
+});

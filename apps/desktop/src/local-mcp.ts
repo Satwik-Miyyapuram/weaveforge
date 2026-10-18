@@ -66,6 +66,9 @@ function reorder<T extends { filename: string }>(hits: readonly T[], order: read
 
 const PDF_TEXT_DIR = `${WORKSPACE_META_DIR}/cache/pdf-text`;
 const MAX_PAPER_TEXT_CHARS = 60_000;
+// Under the per-item cap, so the paging note is never the part cut off.
+const PAGE_CHARS = 7_500;
+const MAX_ROWS = 500;
 const JUNK_FILES = new Set(["desktop.ini", ".ds_store", "thumbs.db"]);
 
 
@@ -186,6 +189,42 @@ function kindOf(params: Record<string, unknown>): WorkspaceEntityType | null {
   return typeof kind === "string" && (KINDS as string[]).includes(kind) ? (kind as WorkspaceEntityType) : null;
 }
 
+/** The target of a get: `ref`, or the tool's older name for it. */
+function ref(params: Record<string, unknown>, older: string): unknown {
+  return text(params, "ref") ?? params[older];
+}
+
+function count(params: Record<string, unknown>, key: string, fallback: number, max: number): number {
+  const value = Math.floor(Number(params[key]));
+  return Number.isFinite(value) && value >= 0 ? Math.min(value, max) : fallback;
+}
+
+/** One markdown heading's section, through the next heading of the same or a higher level. */
+function section(raw: string, heading: string): string {
+  const lines = raw.split(/\r?\n/);
+  const level = (line: string) => /^(#{1,6})\s/.exec(line)?.[1]?.length ?? 0;
+  const start = lines.findIndex((line) => level(line) > 0 && norm(line.replace(/^#+\s*/, "")) === norm(heading));
+  if (start < 0) {
+    const all = lines.filter((line) => level(line) > 0).map((line) => line.replace(/^#+\s*/, ""));
+    throw new Error(`No section '${heading}'. Sections: ${all.join("; ") || "(none)"}.`);
+  }
+  const depth = level(lines[start] as string);
+  const end = lines.findIndex((line, i) => i > start && level(line) > 0 && level(line) <= depth);
+  return lines.slice(start, end < 0 ? undefined : end).join("\n");
+}
+
+/** A window on a long text, saying where the next one starts, so nothing is cut silently. */
+function windowed(raw: string, params: Record<string, unknown>): string {
+  const heading = text(params, "heading");
+  const body = heading ? section(raw, heading) : raw;
+  const offset = count(params, "offset", 0, Number.MAX_SAFE_INTEGER);
+  if (offset && offset >= body.length) throw new Error(`offset ${offset} is past the end (${body.length} characters).`);
+  const end = Math.min(body.length, offset + (count(params, "limit", PAGE_CHARS, PAGE_CHARS) || PAGE_CHARS));
+  if (!offset && end === body.length) return body;
+  const more = end < body.length ? `; pass offset=${end} for more` : "";
+  return `${body.slice(offset, end)}\n[characters ${offset}-${end} of ${body.length}${more}]`;
+}
+
 /** Page text from the reader's cache; one subfolder per project, so every one is looked in. */
 async function cachedPages(session: VaultSession, paperId: string): Promise<{ pageIndex: number; text: string }[] | null> {
   const listed = await listVaultFiles(session, PDF_TEXT_DIR);
@@ -295,8 +334,8 @@ async function callTool(
     pick(await entries(kind, within), needle, what);
   const placed = (entry: { project: ProjectRef; path: string }) => `${entry.project.name}: ${entry.path}`;
   const one = async (kind: WorkspaceEntityType, key: string, what: string) => {
-    const entry = await findOne(kind, params[key], what);
-    return content([{ label: placed(entry), text: entry.raw }]);
+    const entry = await findOne(kind, ref(params, key), what);
+    return content([{ label: placed(entry), text: windowed(entry.raw, params) }]);
   };
   const papers = (within?: ProjectRef) => entries("paper", within);
   const relationLines = async (project: ProjectRef, focus: string | null) => {
@@ -323,28 +362,41 @@ async function callTool(
     case "search_workspace": {
       const query = text(params, "query", true) as string;
       const kind = kindOf(params);
+      const skip = new Set(Array.isArray(params.exclude) ? params.exclude.map(String) : []);
       const hits = [];
       for (const project of await scope()) {
         const found = await searchVault(session, query, kind ? entityDir(kind, project.dir) : project.dir);
-        hits.push(...found.map((hit) => ({ ...hit, project })));
+        const known = new Map<string, Entry>();
+        for (const k of kind ? [kind] : KINDS) for (const entry of await loadEntries(session, k, [project])) known.set(entry.path, entry);
+        hits.push(...found.map((hit) => ({ ...hit, project, entry: known.get(hit.filename) })));
       }
-      const shown = hits.filter((hit) => !hidden(hit.filename) && !hit.filename.includes(`${WORKSPACE_META_DIR}/`));
+      const shown = hits.filter((hit) =>
+        !hidden(hit.filename) && !hit.filename.includes(`${WORKSPACE_META_DIR}/`) && !(hit.entry && skip.has(hit.entry.type)));
       const ordered = rank ? await rank(query, shown.map((hit) => hit.filename)) : null;
       const ranked = ordered ? reorder(shown, ordered) : shown;
-      return content(ranked.map((hit) => ({ label: placed({ project: hit.project, path: hit.filename }), text: hit.matches.map((m) => m.context).join("\n") })));
+      const tag = (entry?: Entry) => (entry ? ` | ${entry.type} | ${entry.title} | ${entry.id ?? "-"}` : "");
+      return content(ranked.map((hit) => ({ label: placed({ project: hit.project, path: hit.filename }) + tag(hit.entry), text: hit.matches.map((m) => m.context).join("\n") })));
     }
     case "list_workspace":
     case "list_experiments": {
       const kind = name === "list_experiments" ? "experiment" : kindOf(params);
       if (!kind) throw new Error("That is not a kind this workspace keeps.");
       const scoped = await scope();
+      const rows = await loadEntries(session, kind, scoped);
+      const offset = count(params, "offset", 0, Number.MAX_SAFE_INTEGER);
+      const end = Math.min(rows.length, offset + (count(params, "limit", 100, MAX_ROWS) || 100));
+      const page = rows.slice(offset, end);
       const items = [];
       for (const project of scoped) {
-        const lines = (await loadEntries(session, kind, [project])).map((entry) =>
+        const lines = page.filter((entry) => entry.project === project).map((entry) =>
           [entry.title, entry.id ?? "-", entry.path, field(entry, "status") ?? ""].filter(Boolean).join(" | "),
         );
+        if (!lines.length && page.length) continue;
         const label = scoped.length > 1 ? `${project.name} / ${ENTITY_DIRS[kind]}` : ENTITY_DIRS[kind];
         items.push({ label, text: lines.join("\n") || "(nothing yet)" });
+      }
+      if (offset || end < rows.length) {
+        items.push({ label: "page", text: `${offset + 1}-${end} of ${rows.length}${end < rows.length ? `; pass offset=${end} for more` : ""}` });
       }
       return content(items);
     }
@@ -355,7 +407,7 @@ async function callTool(
       if (dirs.length && !dirs.some((dir) => at.startsWith(`${dir}/`))) throw new Error("That path is in no project; see list_projects.");
       const read = await readText(session, at);
       if (read === null) throw new Error("No such file.");
-      return content([{ label: at, text: read }]);
+      return content([{ label: at, text: windowed(read, params) }]);
     }
     case "get_note":
       return one("vault_page", "note", "note");
@@ -367,13 +419,14 @@ async function callTool(
       return one("milestone", "milestone", "milestone");
     case "get_log": {
       const all = await entries("log_entry");
-      const wanted = text(params, "entry", true) as string;
+      const wanted = String(ref(params, "entry") ?? "").trim();
+      if (!wanted) throw new Error("ref is required.");
       const byDate = all.filter((entry) => field(entry, "entry-date") === wanted);
       const found = byDate.length ? byDate : [pick(all, wanted, "log entry")];
       return content(found.map((entry) => ({ label: placed(entry), text: entry.raw })));
     }
     case "get_paper": {
-      const paper = pick(await papers(), params.paper, "paper");
+      const paper = pick(await papers(), ref(params, "paper"), "paper");
       const pdf = paper.id ? paperPdfPath(paper.id, paper.project.dir) : null;
       const stat = pdf ? await statVaultFile(session, pdf) : null;
       const hasPdf = !!(stat?.ok && stat.value);
@@ -383,20 +436,26 @@ async function callTool(
       ]);
     }
     case "get_paper_text": {
-      const paper = pick(await papers(), params.paper, "paper");
+      const paper = pick(await papers(), ref(params, "paper"), "paper");
       const pages = await cachedPages(session, idOf(paper));
       if (!pages) throw new Error(`No text for '${paper.title}' yet. Open its PDF once in WeaveForge and try again.`);
       const from = Math.max(1, Math.floor(Number(params.fromPage) || 1));
-      const to = Math.min(pages.length, Math.max(from, Math.floor(Number(params.toPage) || from + DEFAULT_PAGE_SPAN - 1)));
+      if (from > pages.length) throw new Error(`'${paper.title}' has ${pages.length} pages; fromPage ${from} is past the end.`);
+      let to = Math.min(pages.length, Math.max(from, Math.floor(Number(params.toPage) || from + DEFAULT_PAGE_SPAN - 1)));
       let out = "";
-      for (const page of pages.slice(from - 1, to)) {
-        out += `--- page ${page.pageIndex + 1} ---\n${page.text}\n`;
-        if (out.length > MAX_PAPER_TEXT_CHARS) break;
+      for (const [i, page] of pages.slice(from - 1, to).entries()) {
+        const next = `--- page ${page.pageIndex + 1} ---\n${page.text}\n`;
+        if (out && out.length + next.length > MAX_PAPER_TEXT_CHARS) {
+          to = from + i - 1;
+          break;
+        }
+        out += next;
       }
-      return content([{ label: `${paper.project.name}: ${paper.title}, pages ${from}-${to} of ${pages.length}`, text: out.slice(0, MAX_PAPER_TEXT_CHARS) || "(no text on those pages)" }]);
+      const more = to < pages.length ? `; next fromPage ${to + 1}` : "";
+      return content([{ label: `${paper.project.name}: ${paper.title}, pages ${from}-${to} of ${pages.length}${more}`, text: out.slice(0, MAX_PAPER_TEXT_CHARS) || "(no text on those pages)" }]);
     }
     case "get_reading_list": {
-      const list = await findOne("reading_list", params.list, "reading list");
+      const list = await findOne("reading_list", ref(params, "list"), "reading list");
       const listId = idOf(list);
       const [items, paperRows, noteRows] = await Promise.all([
         readJsonArray(session, list.project, "reading-list-items.json"),
@@ -430,7 +489,7 @@ async function callTool(
       return content([{ label: "relations", text: lines.join("\n") || "(none)" }]);
     }
     case "get_backlinks": {
-      const entry = pick([...await entries("vault_page"), ...await papers()], params.entry, "note or paper");
+      const entry = pick([...await entries("vault_page"), ...await papers()], ref(params, "entry"), "note or paper");
       const near = [...await entries("vault_page", entry.project), ...await papers(entry.project)];
       const byTitle = new Map(near.map((e) => [normalizeTitleKey(e.title), e]));
       const out = [...new Set(extractWikilinks(entry.body).map((link) => {
