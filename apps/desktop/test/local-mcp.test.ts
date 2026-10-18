@@ -139,3 +139,113 @@ test("bad values are refused before any draft is written", async () => {
   assert.equal((await call(session, "suggest_paper_update", { paper: "BERT", rating: 9 })).error, true);
   assert.deepEqual(await drafts(root), []);
 });
+
+const PROJECTS = [{ id: "aaaaaa-1", name: "Proj A" }, { id: "bbbbbb-2", name: "Proj B" }, { id: "cccccc-3", name: "Empty" }];
+
+async function twoProjects(): Promise<{ session: VaultSession; root: string }> {
+  const root = await mkdtemp(path.join(tmpdir(), "weaveforge-mcp-projects-"));
+  const put = async (rel: string, text: string) => {
+    await mkdir(path.dirname(path.join(root, rel)), { recursive: true });
+    await writeFile(path.join(root, rel), text);
+  };
+  await put("proj-a--aaaaaa/notes/alpha.md", md({ "weaveforge-id": "a-1", "weaveforge-type": "vault_page", title: "Alpha" }, "See [[Beta]] and [[Paper A]] and [[Nowhere]]."));
+  await put("proj-a--aaaaaa/notes/beta.md", md({ "weaveforge-id": "a-2", "weaveforge-type": "vault_page", title: "Beta" }, "Back to [[alpha]]."));
+  await put("proj-a--aaaaaa/papers/paper-a.md", md({ "weaveforge-id": "pa-1", "weaveforge-type": "paper", title: "Paper A" }));
+  await put("proj-a--aaaaaa/papers/paper-a2.md", md({ "weaveforge-id": "pa-2", "weaveforge-type": "paper", title: "Paper A2" }));
+  await put("proj-a--aaaaaa/.weaveforge/relations.json", JSON.stringify([{ id: "r1", fromPaper: "pa-2", toPaper: "pa-1", relation: "builds_on" }]));
+  await put("proj-a--aaaaaa/.weaveforge/tags.json", JSON.stringify([{ id: "t1", name: "vae" }]));
+  await put("proj-b--bbbbbb/notes/beta.md", md({ "weaveforge-id": "b-1", "weaveforge-type": "vault_page", title: "Beta" }, "Project B's beta"));
+  await put("proj-b--bbbbbb/papers/paper-b.md", md({ "weaveforge-id": "pb-1", "weaveforge-type": "paper", title: "Paper B" }));
+  await put("thesis--e88ade/notes/old.md", md({ "weaveforge-id": "old-1", "weaveforge-type": "vault_page", title: "Stale note" }));
+  await put("assets/notes/x.md", md({ "weaveforge-id": "x-1", "weaveforge-type": "vault_page", title: "Asset note" }));
+  await mkdir(path.join(root, ".weaveforge"), { recursive: true });
+  const session = newVaultSession();
+  await adoptRoot(session, root);
+  return { session, root };
+}
+
+async function callIn(session: VaultSession, name: string, args: Record<string, unknown> = {}) {
+  const request = { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } };
+  const response = await routeMcpRequest(session, request, undefined, true, undefined, async () => PROJECTS);
+  const result = response?.result as { isError?: boolean; content: { text: string }[] };
+  return { error: !!result.isError, text: result.content.map((c) => c.text).join("\n") };
+}
+
+test("list_projects names the app's projects, with folders the app does not know left out", async () => {
+  const { session } = await twoProjects();
+  const out = await callIn(session, "list_projects");
+  assert.match(out.text, /Proj A \| aaaaaa-1 \| proj-a--aaaaaa \| notes 2, papers 2/);
+  assert.match(out.text, /Proj B \| bbbbbb-2/);
+  assert.match(out.text, /Empty \| cccccc-3/);
+  assert.doesNotMatch(out.text, /thesis--e88ade|assets/);
+});
+
+test("listing is grouped per project, scoped by project, and skips unknown folders", async () => {
+  const { session } = await twoProjects();
+  const all = await callIn(session, "list_workspace", { kind: "vault_page" });
+  assert.match(all.text, /Proj A/);
+  assert.match(all.text, /Proj B/);
+  assert.doesNotMatch(all.text, /Stale note|Asset note/);
+  const onlyB = await callIn(session, "list_workspace", { kind: "vault_page", project: "Proj B" });
+  assert.match(onlyB.text, /b-1/);
+  assert.doesNotMatch(onlyB.text, /a-2/);
+  assert.equal((await callIn(session, "read_entry", { path: "thesis--e88ade/notes/old.md" })).error, true);
+  assert.equal((await callIn(session, "search_workspace", { query: "Stale" })).text.includes("old.md"), false);
+});
+
+test("a name used in two projects is settled by naming the project", async () => {
+  const { session } = await twoProjects();
+  assert.equal((await callIn(session, "get_note", { note: "Beta" })).error, true);
+  assert.match((await callIn(session, "get_note", { note: "Beta", project: "proj b" })).text, /Project B's beta/);
+});
+
+test("relations and tags are read from each project's own folder", async () => {
+  const { session } = await twoProjects();
+  assert.match((await callIn(session, "get_relations", { paper: "Paper A2" })).text, /Paper A2 —builds_on→ Paper A/);
+  assert.match((await callIn(session, "list_tags", { project: "Proj A" })).text, /vae/);
+});
+
+test("a new note is drafted for the project named, even one with no notes yet", async () => {
+  const { session, root } = await twoProjects();
+  const unnamed = await callIn(session, "suggest_note_create", { title: "T", body: "B" });
+  assert.equal(unnamed.error, true);
+  assert.match(unnamed.text, /Proj A/);
+  assert.equal((await callIn(session, "suggest_note_create", { title: "T", body: "B", project: "Proj B", parent: "Alpha" })).error, true);
+  assert.equal((await callIn(session, "suggest_note_create", { title: "T", body: "B", project: "Empty" })).error, false);
+  assert.equal((await callIn(session, "suggest_note_edit", { note: "a-2", body: "x" })).error, false);
+  const found = await drafts(root);
+  assert.equal(found.find((d) => d?.kind === "create_vault_note")?.projectId, "cccccc-3");
+  assert.equal(found.find((d) => d?.kind === "edit_vault_note")?.projectId, "aaaaaa-1");
+});
+
+test("get_backlinks lists a note's links out and the notes that link to it", async () => {
+  const { session } = await twoProjects();
+  const alpha = await callIn(session, "get_backlinks", { entry: "Alpha" });
+  assert.match(alpha.text, /Beta \(note\)/);
+  assert.match(alpha.text, /Paper A \(paper\)/);
+  assert.match(alpha.text, /Nowhere \(no such note\)/);
+  assert.match(alpha.text, /Links here[\s\S]*Beta \(note\)/);
+  assert.doesNotMatch(alpha.text, /a-2|pa-1|Project B/);
+  assert.match((await callIn(session, "get_backlinks", { entry: "Paper A" })).text, /Alpha \(note\)[\s\S]*Paper A2 —builds_on→ Paper A/);
+});
+
+test("a draft names its project and shows titles, not ids", async () => {
+  const { session, root } = await twoProjects();
+  const left = await callIn(session, "suggest_relation", { from: "Paper A2", to: "Paper A", relation: "builds_on" });
+  assert.match(left.text, /Left in Proj A at/);
+  await callIn(session, "suggest_note_create", { title: "T", body: "B", project: "Proj A", parent: "Alpha" });
+  const found = await drafts(root);
+  const link = found.find((d) => d?.kind === "relation")?.content ?? "";
+  assert.match(link, /Paper A2 builds on Paper A[\s\S]*Project: Proj A/);
+  assert.doesNotMatch(link, /pa-1|pa-2/);
+  const note = found.find((d) => d?.kind === "create_vault_note")?.content ?? "";
+  assert.match(note, /Project: Proj A[\s\S]*Parent: Alpha/);
+  assert.doesNotMatch(note, /a-1/);
+});
+
+test("reads name the project each entry is in", async () => {
+  const { session } = await twoProjects();
+  assert.match((await callIn(session, "get_note", { note: "Beta", project: "proj b" })).text, /Proj B: /);
+  assert.match((await callIn(session, "get_paper", { paper: "Paper A" })).text, /Proj A: /);
+  assert.match((await callIn(session, "search_workspace", { query: "beta" })).text, /Proj B: /);
+});
