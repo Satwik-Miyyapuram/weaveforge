@@ -28,6 +28,8 @@ export function OverlayScrollbar({
     return el ? el.scrollHeight > el.clientHeight + 1 : false;
   });
   const [isVisible, setIsVisible] = useState(false);
+  const isVisibleRef = useRef(false);
+  isVisibleRef.current = isVisible;
   const [isHovered, setIsHovered] = useState(false);
 
   const trackRef = useRef<HTMLDivElement | null>(null);
@@ -83,20 +85,6 @@ export function OverlayScrollbar({
     const el = scrollRef.current;
     if (!el) return;
 
-    const onScroll = () => {
-      updateThumb();
-      setIsVisible(true);
-      scheduleHide();
-    };
-
-    // Hovering the content does not pin the thumb: it shows on scroll and
-    // fades when idle, and only hovering the track itself keeps it up. Pinning
-    // it for the whole pane meant a pen resting over the page never let it go.
-    // The document's scroll events fire on the window, not on `<html>`.
-    const scrollTarget: EventTarget =
-      typeof document !== "undefined" && el === document.documentElement ? window : el;
-    scrollTarget.addEventListener("scroll", onScroll, { passive: true });
-
     // Reading scrollHeight forces layout, so a page render measures once per frame, not once per commit.
     let frame: number | null = null;
     const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb: () => void) => setTimeout(cb, 16) as unknown as number;
@@ -108,6 +96,23 @@ export function OverlayScrollbar({
         updateThumb();
       });
     };
+
+    const onScroll = () => {
+      scheduleUpdate();
+      if (!isVisibleRef.current) {
+        isVisibleRef.current = true;
+        setIsVisible(true);
+      }
+      scheduleHide();
+    };
+
+    // Hovering the content does not pin the thumb: it shows on scroll and
+    // fades when idle, and only hovering the track itself keeps it up. Pinning
+    // it for the whole pane meant a pen resting over the page never let it go.
+    // The document's scroll events fire on the window, not on `<html>`.
+    const scrollTarget: EventTarget =
+      typeof document !== "undefined" && el === document.documentElement ? window : el;
+    scrollTarget.addEventListener("scroll", onScroll, { passive: true });
 
     const resizeObserver = new ResizeObserver(scheduleUpdate);
     resizeObserver.observe(el);

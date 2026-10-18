@@ -5,6 +5,7 @@ import { outlineFromText, type OutlineTextItem, type PdfLink } from "@weaveforge
 import type { PageTextItem } from "@weaveforge/core";
 import type { TextLayer } from "pdfjs-dist";
 import { createPdfTextLayer, measurePdfLinks } from "./pdf-text-layer";
+import { idle } from "./pdf-page-window";
 
 import type {
   DocumentPageText,
@@ -86,6 +87,7 @@ export interface PdfRendering {
    * fits to is measured by the same render pass it drives. */
   viewport: ReaderViewportApi;
   renderPage: (pageNumber: number) => Promise<void>;
+  evictPage: (pageNumber: number) => void;
   clearHighlights: () => void;
 }
 
@@ -155,9 +157,13 @@ export function usePdfRendering({
   const suppressPageScroll = useRef(false);
   const renderedPages = useRef(new Set<number>());
   const renderingPages = useRef(new Map<number, Promise<void>>());
+  const paintedPages = useRef(new Set<number>());
   const renderTasks = useRef(new Map<number, RenderTask>());
   /** Each page's pdf.js text layer, so a re-render can cancel the last one. */
   const textLayers = useRef(new Map<number, TextLayer>());
+  const evicted = useRef(new Map<number, number>());
+  const scratchCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const scratchQueue = useRef<Promise<void>>(Promise.resolve());
   const renderGeneration = useRef(0);
   /** The document the container was last measured for at once, not settled. */
   const measuredFor = useRef<unknown>(null);
@@ -244,6 +250,8 @@ useEffect(() => {
   renderGeneration.current += 1;
   renderedPages.current.clear();
   renderingPages.current.clear();
+  paintedPages.current.clear();
+  evicted.current.clear();
   // Page geometry is per-document. Keeping the previous document's items
   // would let a selection on a not-yet-rendered page build an anchor from
   // the *old* paper's text. The route remounts on url change, so this is
@@ -323,7 +331,14 @@ useEffect(() => {
           const texts: DocumentPageText[] = [];
           const outlinePages: OutlineTextItem[][] = [];
           const itemsByPage = new Map<number, TextItemGeometry[]>();
-          const links = new Map<number, PdfLink[]>();
+          const unmeasuredLinks = new Map<number, PdfLink[]>();
+          const linksToMeasure: {
+            pageNumber: number;
+            page: Awaited<ReturnType<PdfDocument["getPage"]>>;
+            content: Awaited<ReturnType<Awaited<ReturnType<PdfDocument["getPage"]>>["getTextContent"]>>;
+            items: TextItemGeometry[];
+            found: PdfLink[];
+          }[] = [];
           // Named destinations recur: every `[13]` in a paper points at the
           // same `cite.smith2013`, and each resolution is a round trip to the
           // pdf.js worker. Resolve each name once.
@@ -339,6 +354,7 @@ useEffect(() => {
           };
           const extractPage = async (n: number) => {
             const p = await doc.getPage(n);
+            if (cancelled) return;
             const content = await p.getTextContent();
             if (cancelled) return;
             const items = textItemsFromContent(content);
@@ -366,22 +382,14 @@ useEffect(() => {
                 if (dest || destName) found.push({ rect, ...(dest ? { dest } : {}), ...(destName ? { destName } : {}) });
               }
               if (found.length && !cancelled) {
-                // Which characters each box covers, measured in the rendered
-                // layout. A page that will not lay out keeps its unmeasured
-                // links; the analysis then estimates from the run widths.
-                let measured = found;
-                try {
-                  measured = await measurePdfLinks(
-                    lib,
-                    content,
-                    p.getViewport({ scale: 1, rotation: 0 }),
-                    items,
-                    found,
-                  );
-                } catch {
-                  /* estimate instead */
-                }
-                links.set(n, measured);
+                unmeasuredLinks.set(n, found);
+                linksToMeasure.push({
+                  pageNumber: n,
+                  page: p,
+                  content,
+                  items,
+                  found,
+                });
               }
             } catch {
               /* a page whose annotations will not load simply has none */
@@ -395,20 +403,34 @@ useEffect(() => {
               page: n,
             }));
           };
-          // Pages are independent, and the pdf.js worker serves them
-          // concurrently, so they are extracted together rather than one at
-          // a time; the results are keyed by page so order never matters.
-          await Promise.all(Array.from({ length: doc.numPages }, (_, i) => extractPage(i + 1)));
+
+          let nextPageIndex = 1;
+          const cancelSignal = { get cancelled() { return cancelled; } };
+          const worker = async () => {
+            while (nextPageIndex <= doc.numPages && !cancelled) {
+              const pageNum = nextPageIndex++;
+              await extractPage(pageNum);
+              if (cancelled) return;
+              await idle(cancelSignal);
+            }
+          };
+          await Promise.all([worker(), worker()]);
           for (let n = 1; n <= doc.numPages; n++) {
             texts[n - 1] ??= { pageIndex: n - 1, text: "" };
             outlinePages[n - 1] ??= [];
           }
           if (cancelled) return;
+
+          setPageLinks(new Map(unmeasuredLinks));
+
+          await idle(cancelSignal);
+          if (cancelled) return;
+
           detected = outlineFromText(outlinePages);
           publishOutline();
           setPageTexts(texts);
           setPageItems(itemsByPage);
-          setPageLinks(links);
+
           // Keep the text so this document stays searchable after the reader
           // closes. Piggybacks on the pass above — no extra fetch or parse.
           if (paperId) {
@@ -419,10 +441,34 @@ useEffect(() => {
               extractedAt: new Date().toISOString(),
             };
             void savePdfTextDurably(getContainer().projects.context.projectId, source);
+            await idle(cancelSignal);
+            if (cancelled) return;
             // Findable now rather than after a reload: the text is already in
             // hand, and a reader who searches straight after reading is the
             // common case, not the edge one.
             getContainer().search.indexPdf(source);
+          }
+
+          const measuredLinks = new Map<number, PdfLink[]>(unmeasuredLinks);
+          for (const entry of linksToMeasure) {
+            if (cancelled) return;
+            await idle(cancelSignal);
+            if (cancelled) return;
+            try {
+              const measured = await measurePdfLinks(
+                lib,
+                entry.content,
+                entry.page.getViewport({ scale: 1, rotation: 0 }),
+                entry.items,
+                entry.found,
+              );
+              measuredLinks.set(entry.pageNumber, measured);
+            } catch {
+              /* estimate instead */
+            }
+          }
+          if (!cancelled) {
+            setPageLinks(measuredLinks);
           }
         } catch {
           if (!cancelled) setPageTexts([]);
@@ -476,146 +522,219 @@ useEffect(() => {
   clearHighlights();
 }, [scale, rotation, clearHighlights, cancelRenderTasks]);
 
-const renderPage = useCallback(
-  async (pageNumber: number) => {
-    if (!pdf || renderedPages.current.has(pageNumber)) return;
-    const inflight = renderingPages.current.get(pageNumber);
-    if (inflight) {
-      await inflight;
-      if (renderedPages.current.has(pageNumber) || !pdf) return;
-    }
-    const generation = renderGeneration.current;
-    let work!: Promise<void>;
-    work = (async () => {
+  const evictPage = useCallback((pageNumber: number) => {
+    const task = renderTasks.current.get(pageNumber);
+    if (task) {
       try {
-        const host = containerRef.current?.querySelector<HTMLDivElement>(
-          `[data-page="${pageNumber}"]`,
-        );
-        if (!host) return;
-        const pdfPage = await pdf.getPage(pageNumber);
-        if (generation !== renderGeneration.current) return;
-        const viewport = pdfPage.getViewport({ scale, rotation });
-        const canvas = host.querySelector("canvas");
-        if (!(canvas instanceof HTMLCanvasElement)) return;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        const ratio = window.devicePixelRatio || 1;
-        /*
-         * Paint off screen, then show it.
-         *
-         * A canvas is cleared the moment its width is set, so rendering straight
-         * into the page blanks it for as long as the render takes — one blank
-         * frame per page, all of them at once after a zoom, which is the flash
-         * that was left. Rendering into a scratch canvas and copying it over
-         * keeps the old page on screen until the new one is finished, and the
-         * swap is a single synchronous pair of statements, so no frame is ever
-         * painted in between.
-         */
-        const scratch = document.createElement("canvas");
-        scratch.width = Math.floor(viewport.width * ratio);
-        scratch.height = Math.floor(viewport.height * ratio);
-        const scratchCtx = scratch.getContext("2d");
-        if (!scratchCtx) return;
-        scratchCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
-        const renderStart = perfStart();
-        const renderTask = pdfPage.render({ canvasContext: scratchCtx, viewport });
-        renderTasks.current.set(pageNumber, renderTask);
+        task.cancel();
+      } catch {
+        /* ignore */
+      }
+      renderTasks.current.delete(pageNumber);
+    }
+    const layer = textLayers.current.get(pageNumber);
+    if (layer) {
+      try {
+        layer.cancel();
+      } catch {
+        /* ignore */
+      }
+      textLayers.current.delete(pageNumber);
+    }
+    renderedPages.current.delete(pageNumber);
+    renderingPages.current.delete(pageNumber);
+    paintedPages.current.delete(pageNumber);
+    evicted.current.set(pageNumber, (evicted.current.get(pageNumber) ?? 0) + 1);
+
+    const host = containerRef.current?.querySelector<HTMLElement>(`[data-page="${pageNumber}"]`);
+    if (host) {
+      const canvas = host.querySelector("canvas");
+      if (canvas) {
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+      const textLayer = host.querySelector<HTMLElement>(".pdf-reader-textlayer");
+      textLayer?.replaceChildren();
+    }
+  }, []);
+
+  const renderPage = useCallback(
+    async (pageNumber: number) => {
+      if (!pdf || renderedPages.current.has(pageNumber)) return;
+      const inflight = renderingPages.current.get(pageNumber);
+      if (inflight) {
+        await inflight;
+        if (renderedPages.current.has(pageNumber) || !pdf) return;
+      }
+      const generation = renderGeneration.current;
+      const startEvictedToken = evicted.current.get(pageNumber) ?? 0;
+      const isStale = () =>
+        generation !== renderGeneration.current ||
+        (evicted.current.get(pageNumber) ?? 0) !== startEvictedToken;
+
+      let work!: Promise<void>;
+      work = (async () => {
         try {
-          await renderTask.promise;
+          const host = containerRef.current?.querySelector<HTMLDivElement>(
+            `[data-page="${pageNumber}"]`,
+          );
+          if (!host) return;
+          const pdfPage = await pdf.getPage(pageNumber);
+          if (isStale()) return;
+          const viewport = pdfPage.getViewport({ scale, rotation });
+          const canvas = host.querySelector("canvas");
+          if (!(canvas instanceof HTMLCanvasElement)) return;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return;
+          const ratio = window.devicePixelRatio || 1;
+
+          // Nothing on screen to keep yet, so paint straight in; the page box (not the row host) takes the size.
+          const isFirstRender = canvas.width === 0 || !paintedPages.current.has(pageNumber);
+          if (isFirstRender) {
+            canvas.width = Math.floor(viewport.width * ratio);
+            canvas.height = Math.floor(viewport.height * ratio);
+            canvas.style.width = `${Math.floor(viewport.width)}px`;
+            canvas.style.height = `${Math.floor(viewport.height)}px`;
+            const pageBox = host.querySelector<HTMLElement>(".pdf-reader-page") ?? host;
+            pageBox.style.width = `${Math.floor(viewport.width)}px`;
+            pageBox.style.height = `${Math.floor(viewport.height)}px`;
+            ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+            const renderStart = perfStart();
+            const renderTask = pdfPage.render({ canvasContext: ctx, viewport });
+            renderTasks.current.set(pageNumber, renderTask);
+            try {
+              await renderTask.promise;
+            } finally {
+              if (renderTasks.current.get(pageNumber) === renderTask) {
+                renderTasks.current.delete(pageNumber);
+              }
+            }
+            if (isStale()) return;
+            paintedPages.current.add(pageNumber);
+            perfEnd("pdf:page-render", renderStart, pageNumber);
+          } else {
+            // Paint offscreen and swap synchronously on zoom/rotate to prevent white flashing.
+            const prevScratch = scratchQueue.current;
+            let releaseScratch: () => void = () => {};
+            scratchQueue.current = new Promise<void>((resolve) => {
+              releaseScratch = resolve;
+            });
+            await prevScratch;
+            try {
+              if (isStale()) return;
+              if (!scratchCanvasRef.current) {
+                scratchCanvasRef.current = document.createElement("canvas");
+              }
+              const scratch = scratchCanvasRef.current;
+              scratch.width = Math.floor(viewport.width * ratio);
+              scratch.height = Math.floor(viewport.height * ratio);
+              const scratchCtx = scratch.getContext("2d");
+              if (!scratchCtx) return;
+              scratchCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
+              const renderStart = perfStart();
+              const renderTask = pdfPage.render({ canvasContext: scratchCtx, viewport });
+              renderTasks.current.set(pageNumber, renderTask);
+              try {
+                await renderTask.promise;
+              } finally {
+                if (renderTasks.current.get(pageNumber) === renderTask) {
+                  renderTasks.current.delete(pageNumber);
+                }
+              }
+              if (isStale()) return;
+              canvas.width = scratch.width;
+              canvas.height = scratch.height;
+              canvas.style.width = `${Math.floor(viewport.width)}px`;
+              canvas.style.height = `${Math.floor(viewport.height)}px`;
+              const pageBox = host.querySelector<HTMLElement>(".pdf-reader-page") ?? host;
+              pageBox.style.width = `${Math.floor(viewport.width)}px`;
+              pageBox.style.height = `${Math.floor(viewport.height)}px`;
+              ctx.setTransform(1, 0, 0, 1, 0, 0);
+              ctx.drawImage(scratch, 0, 0);
+              scratch.width = 0;
+              scratch.height = 0;
+              paintedPages.current.add(pageNumber);
+              perfEnd("pdf:page-render", renderStart, pageNumber);
+            } finally {
+              if (scratchCanvasRef.current) {
+                scratchCanvasRef.current.width = 0;
+                scratchCanvasRef.current.height = 0;
+              }
+              releaseScratch();
+            }
+          }
+
+          // Text layout waits for an idle slot so it never lands in the same frame as a paint.
+          await idle();
+          if (isStale()) return;
+
+          const textStart = perfStart();
+          let textLayer = host.querySelector<HTMLDivElement>(".pdf-reader-textlayer");
+          if (!textLayer) {
+            textLayer = document.createElement("div");
+            textLayer.className = "pdf-reader-textlayer";
+            host.appendChild(textLayer);
+          }
+          textLayers.current.get(pageNumber)?.cancel();
+          textLayers.current.delete(pageNumber);
+          textLayer.replaceChildren();
+          const content = await pdfPage.getTextContent();
+          if (isStale()) return;
+          const lib = await loadPdfLib();
+          if (isStale()) return;
+          const geometryItems: PageTextItem[] = [];
+          for (const raw of content.items) {
+            const it = raw as {
+              str?: string;
+              transform?: number[];
+              width?: number;
+              height?: number;
+              hasEOL?: boolean;
+            };
+            if (typeof it.str !== "string" || !Array.isArray(it.transform)) continue;
+            geometryItems.push({
+              str: it.str,
+              transform: it.transform,
+              width: typeof it.width === "number" ? it.width : 0,
+              height: typeof it.height === "number" ? it.height : 0,
+              hasEOL: Boolean(it.hasEOL),
+            });
+          }
+          const layer = createPdfTextLayer(lib, textLayer, content, viewport);
+          textLayers.current.set(pageNumber, layer);
+          await layer.render();
+          if (isStale() || textLayers.current.get(pageNumber) !== layer) return;
+          if (
+            layer.textDivs.length !== geometryItems.length ||
+            layer.textContentItemsStr.some((str, i) => str !== geometryItems[i]?.str)
+          ) {
+            throw new Error("PDF text item mapping changed.");
+          }
+          // Selection and citation decoration key on the item index.
+          layer.textDivs.forEach((div, index) => div.setAttribute("data-item-index", String(index)));
+          perfEnd("pdf:text-layer", textStart, pageNumber);
+          const base = pdfPage.getViewport({ scale: 1, rotation: 0 });
+          pageGeometries.current.set(pageNumber, {
+            pageIndex: pageNumber - 1,
+            pageWidth: base.width,
+            pageHeight: base.height,
+            items: geometryItems,
+            ...(contentHash ? { contentHash } : {}),
+          });
+          renderedPages.current.add(pageNumber);
+        } catch {
+          /* a failed / cancelled page must not break the rest of the document */
         } finally {
-          if (renderTasks.current.get(pageNumber) === renderTask) {
-            renderTasks.current.delete(pageNumber);
+          if (renderingPages.current.get(pageNumber) === work) {
+            renderingPages.current.delete(pageNumber);
           }
         }
-        if (generation !== renderGeneration.current) return;
-        // The page's new size, and the new bitmap, in one go.
-        canvas.width = scratch.width;
-        canvas.height = scratch.height;
-        canvas.style.width = `${Math.floor(viewport.width)}px`;
-        canvas.style.height = `${Math.floor(viewport.height)}px`;
-        // The *page box* takes the rendered size, not the found host: the host
-        // is the page's row (§pdf-reader), which also holds the pen's writing
-        // strip and must be free to be wider than the page it contains.
-        const pageBox = host.querySelector<HTMLElement>(".pdf-reader-page") ?? host;
-        pageBox.style.width = `${Math.floor(viewport.width)}px`;
-        pageBox.style.height = `${Math.floor(viewport.height)}px`;
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.drawImage(scratch, 0, 0);
-        perfEnd("pdf:page-render", renderStart, pageNumber);
-        const textStart = perfStart();
-        // Text layer — selectable / copyable; input device for future annotation (R3).
-        let textLayer = host.querySelector<HTMLDivElement>(".pdf-reader-textlayer");
-        if (!textLayer) {
-          textLayer = document.createElement("div");
-          textLayer.className = "pdf-reader-textlayer";
-          host.appendChild(textLayer);
-        }
-        textLayers.current.get(pageNumber)?.cancel();
-        textLayers.current.delete(pageNumber);
-        textLayer.replaceChildren();
-        const content = await pdfPage.getTextContent();
-        if (generation !== renderGeneration.current) return;
-        const lib = await loadPdfLib();
-        const geometryItems: PageTextItem[] = [];
-        for (const raw of content.items) {
-          const it = raw as {
-            str?: string;
-            transform?: number[];
-            width?: number;
-            height?: number;
-            hasEOL?: boolean;
-          };
-          if (typeof it.str !== "string" || !Array.isArray(it.transform)) continue;
-          geometryItems.push({
-            str: it.str,
-            transform: it.transform,
-            width: typeof it.width === "number" ? it.width : 0,
-            height: typeof it.height === "number" ? it.height : 0,
-            hasEOL: Boolean(it.hasEOL),
-          });
-        }
-        // PDF.js lays the runs out itself — measured against their fonts, so
-        // the invisible text sits over the glyphs and a selection covers the
-        // words it looks like it covers. Hand-placing spans from the transform
-        // was a second layout that never quite agreed with the first.
-        const layer = createPdfTextLayer(lib, textLayer, content, viewport);
-        textLayers.current.set(pageNumber, layer);
-        await layer.render();
-        if (generation !== renderGeneration.current || textLayers.current.get(pageNumber) !== layer) return;
-        if (
-          layer.textDivs.length !== geometryItems.length ||
-          layer.textContentItemsStr.some((str, i) => str !== geometryItems[i]?.str)
-        ) {
-          throw new Error("PDF text item mapping changed.");
-        }
-        // The item index is what selection and citation decoration key on;
-        // `textDivs` is in item order, one per run with text.
-        layer.textDivs.forEach((div, index) => div.setAttribute("data-item-index", String(index)));
-        perfEnd("pdf:text-layer", textStart, pageNumber);
-        const base = pdfPage.getViewport({ scale: 1, rotation: 0 });
-        pageGeometries.current.set(pageNumber, {
-          pageIndex: pageNumber - 1,
-          pageWidth: base.width,
-          pageHeight: base.height,
-          items: geometryItems,
-          // Stamp new anchors with the file they were captured against, so
-          // the overlay's trust check keeps working once hashes are real.
-          ...(contentHash ? { contentHash } : {}),
-        });
-        renderedPages.current.add(pageNumber);
-      } catch {
-        /* a failed / cancelled page must not break the rest of the document */
-      } finally {
-        if (renderingPages.current.get(pageNumber) === work) {
-          renderingPages.current.delete(pageNumber);
-        }
-      }
-    })();
-    renderingPages.current.set(pageNumber, work);
-    await work;
-  },
-  [pdf, scale, rotation, contentHash],
-);
+      })();
+      renderingPages.current.set(pageNumber, work);
+      await work;
+    },
+    [pdf, scale, rotation, contentHash],
+  );
   return {
     viewport,
     containerRef,
@@ -633,6 +752,7 @@ const renderPage = useCallback(
     pageGeometries,
     suppressPageScroll,
     renderPage,
+    evictPage,
     clearHighlights,
   };
 }
