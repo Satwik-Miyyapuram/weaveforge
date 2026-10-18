@@ -69,3 +69,156 @@ test("the update settles without animation frames, which the browser pauses insi
     for (const [k, v] of saved) g[k] = v;
   }
 });
+
+test("routeSettled: URL moves in navigate callback, then mutation fires -> resolves under 50 ms", async () => {
+  const g = globalThis as Record<string, unknown>;
+  const saved = ["document", "window", "location", "MutationObserver", "requestAnimationFrame"].map((k) => [k, g[k]] as const);
+  let settled: Promise<void> | null = null;
+  let observerCallback: () => void = () => {};
+  g.location = { href: "app://weaveforge/papers/" };
+  g.window = { matchMedia: () => ({ matches: false }) };
+  g.requestAnimationFrame = () => 0;
+  g.MutationObserver = class {
+    constructor(cb: () => void) {
+      observerCallback = cb;
+    }
+    observe() {}
+    disconnect() {}
+  };
+  g.document = {
+    documentElement: { dataset: {} as Record<string, string> },
+    body: {},
+    querySelectorAll: () => [],
+    startViewTransition: (update: () => Promise<void>) => {
+      settled = update();
+      return { finished: settled };
+    },
+  };
+  try {
+    const t0 = performance.now();
+    navTransition("tab", () => {
+      (g.location as { href: string }).href = "app://weaveforge/notes/";
+    });
+    observerCallback();
+    await settled;
+    const elapsed = performance.now() - t0;
+    assert.ok(elapsed < 50, `expected < 50 ms, got ${elapsed} ms`);
+  } finally {
+    for (const [k, v] of saved) g[k] = v;
+  }
+});
+
+test("routeSettled: mutation fires while URL unchanged, then URL changes ~5 ms later -> resolves under 100 ms", async () => {
+  const g = globalThis as Record<string, unknown>;
+  const saved = ["document", "window", "location", "MutationObserver", "requestAnimationFrame"].map((k) => [k, g[k]] as const);
+  let settled: Promise<void> | null = null;
+  let observerCallback: () => void = () => {};
+  g.location = { href: "app://weaveforge/papers/" };
+  g.window = { matchMedia: () => ({ matches: false }) };
+  g.requestAnimationFrame = () => 0;
+  g.MutationObserver = class {
+    constructor(cb: () => void) {
+      observerCallback = cb;
+    }
+    observe() {}
+    disconnect() {}
+  };
+  g.document = {
+    documentElement: { dataset: {} as Record<string, string> },
+    body: {},
+    querySelectorAll: () => [],
+    startViewTransition: (update: () => Promise<void>) => {
+      settled = update();
+      return { finished: settled };
+    },
+  };
+  try {
+    const t0 = performance.now();
+    navTransition("tab", () => {
+      // URL not changed yet
+    });
+    observerCallback();
+    setTimeout(() => {
+      (g.location as { href: string }).href = "app://weaveforge/notes/";
+    }, 5);
+    await settled;
+    const elapsed = performance.now() - t0;
+    assert.ok(elapsed < 100, `expected < 100 ms, got ${elapsed} ms`);
+  } finally {
+    for (const [k, v] of saved) g[k] = v;
+  }
+});
+
+test("routeSettled: neither mutation nor URL change -> resolves via timeout between 450 ms and 1000 ms", async () => {
+  const g = globalThis as Record<string, unknown>;
+  const saved = ["document", "window", "location", "MutationObserver", "requestAnimationFrame"].map((k) => [k, g[k]] as const);
+  let settled: Promise<void> | null = null;
+  g.location = { href: "app://weaveforge/papers/" };
+  g.window = { matchMedia: () => ({ matches: false }) };
+  g.requestAnimationFrame = () => 0;
+  g.MutationObserver = class {
+    observe() {}
+    disconnect() {}
+  };
+  g.document = {
+    documentElement: { dataset: {} as Record<string, string> },
+    body: {},
+    querySelectorAll: () => [],
+    startViewTransition: (update: () => Promise<void>) => {
+      settled = update();
+      return { finished: settled };
+    },
+  };
+  try {
+    const t0 = performance.now();
+    navTransition("tab", () => {
+      // URL not changed
+    });
+    await settled;
+    const elapsed = performance.now() - t0;
+    assert.ok(elapsed >= 450 && elapsed < 1000, `expected between 450 ms and 1000 ms, got ${elapsed} ms`);
+  } finally {
+    for (const [k, v] of saved) g[k] = v;
+  }
+});
+
+test("routeSettled: observer is disconnected after resolve", async () => {
+  const g = globalThis as Record<string, unknown>;
+  const saved = ["document", "window", "location", "MutationObserver", "requestAnimationFrame"].map((k) => [k, g[k]] as const);
+  let settled: Promise<void> | null = null;
+  let observerCallback: () => void = () => {};
+  let disconnectCalls = 0;
+  g.location = { href: "app://weaveforge/papers/" };
+  g.window = { matchMedia: () => ({ matches: false }) };
+  g.requestAnimationFrame = () => 0;
+  g.MutationObserver = class {
+    constructor(cb: () => void) {
+      observerCallback = cb;
+    }
+    observe() {}
+    disconnect() {
+      disconnectCalls++;
+    }
+  };
+  g.document = {
+    documentElement: { dataset: {} as Record<string, string> },
+    body: {},
+    querySelectorAll: () => [],
+    startViewTransition: (update: () => Promise<void>) => {
+      settled = update();
+      return { finished: settled };
+    },
+  };
+  try {
+    navTransition("tab", () => {
+      (g.location as { href: string }).href = "app://weaveforge/notes/";
+    });
+    assert.equal(disconnectCalls, 0);
+    observerCallback();
+    await settled;
+    assert.equal(disconnectCalls, 1);
+  } finally {
+    for (const [k, v] of saved) g[k] = v;
+  }
+});
+
