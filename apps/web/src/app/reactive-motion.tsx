@@ -58,6 +58,11 @@ export function shouldTrackPointer(input: {
   return input.motion === "reactive" && !input.reducedMotion;
 }
 
+/** Whether a surface may tilt: one taller than the viewport swings its far edge off-screen. */
+export function canTilt(box: { height: number }, viewportHeight: number): boolean {
+  return box.height <= viewportHeight;
+}
+
 export function ReactiveMotion() {
   useEffect(() => {
     let detach: (() => void) | null = null;
@@ -73,6 +78,7 @@ export function ReactiveMotion() {
         if (!el) return;
         el.style.removeProperty("--rx");
         el.style.removeProperty("--ry");
+        el.style.removeProperty("--rm-tilt");
       };
 
       const flush = () => {
@@ -92,6 +98,8 @@ export function ReactiveMotion() {
         if (!target) return;
         const box = target.getBoundingClientRect();
         if (!box.width || !box.height) return;
+        if (canTilt(box, window.innerHeight)) target.style.removeProperty("--rm-tilt");
+        else target.style.setProperty("--rm-tilt", "0deg");
         target.style.setProperty("--rx", ((event.clientX - box.left) / box.width).toFixed(3));
         target.style.setProperty("--ry", ((event.clientY - box.top) / box.height).toFixed(3));
       };
