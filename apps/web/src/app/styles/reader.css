@@ -321,6 +321,8 @@
 .pdf-reader-outline > ul { padding-left: 0; }
 .pdf-reader-outline-empty { font-size: 0.85rem; padding: 8px; }
 .pdf-reader-textlayer {
+  /* Relayout boundary so inserted page spans do not dirty the rest of the document. */
+  contain: strict;
   position: absolute; inset: 0; overflow: clip; line-height: 1;
   text-align: initial;
   opacity: 0.25; mix-blend-mode: multiply; pointer-events: auto;
@@ -385,6 +387,8 @@ body > canvas.hiddenCanvasElement { display: none; }
    `.pdf-reader-textlayer`, so it needs the same layout rules: without them the
    spans flow like a paragraph and every measured glyph rectangle is wrong. */
 .pdf-measure-shell {
+  /* Isolate offscreen link measurement from laying out the rest of the document. */
+  contain: strict;
   position: fixed; left: -100000px; top: 0;
   visibility: hidden; pointer-events: none;
 }

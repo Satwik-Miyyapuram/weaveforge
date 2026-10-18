@@ -58,12 +58,21 @@ function camelCaseParts(token: string): string[] {
 
 const URL_RE = /https?:\/\/\S+|\S+\.(?:com|org|net|edu|io|ai|dev|gov)\b\S*/gi;
 
-/** `https://arxiv.org/abs/2305.12345` → arxiv, org, abs, 2305, 12345. */
-function urlParts(text: string): string[] {
+/**
+ * `https://arxiv.org/abs/2305.12345` → arxiv, org, abs, 2305, 12345.
+ * @internal for tests
+ */
+export function urlParts(text: string): string[] {
   const out: string[] = [];
-  for (const match of text.match(URL_RE) ?? []) {
-    for (const part of match.split(/[^\p{L}\p{N}]+/u)) {
-      if (part.length > 1) out.push(part.toLowerCase());
+  // Skip scanning prose without URLs: every match contains ":" or "." and no whitespace.
+  const runs = text.match(/\S+/g);
+  if (!runs) return out;
+  for (const run of runs) {
+    if (!run.includes(".") && !run.includes(":")) continue;
+    for (const match of run.match(URL_RE) ?? []) {
+      for (const part of match.split(/[^\p{L}\p{N}]+/u)) {
+        if (part.length > 1) out.push(part.toLowerCase());
+      }
     }
   }
   return out;

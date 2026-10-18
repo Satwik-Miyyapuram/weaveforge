@@ -162,6 +162,7 @@ export function usePdfRendering({
   /** Each page's pdf.js text layer, so a re-render can cancel the last one. */
   const textLayers = useRef(new Map<number, TextLayer>());
   const evicted = useRef(new Map<number, number>());
+  const pageProxies = useRef(new Map<number, Awaited<ReturnType<PdfDocument["getPage"]>>>());
   const scratchCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const scratchQueue = useRef<Promise<void>>(Promise.resolve());
   const renderGeneration = useRef(0);
@@ -252,6 +253,7 @@ useEffect(() => {
   renderingPages.current.clear();
   paintedPages.current.clear();
   evicted.current.clear();
+  pageProxies.current.clear();
   // Page geometry is per-document. Keeping the previous document's items
   // would let a selection on a not-yet-rendered page build an anchor from
   // the *old* paper's text. The route remounts on url change, so this is
@@ -443,32 +445,41 @@ useEffect(() => {
             void savePdfTextDurably(getContainer().projects.context.projectId, source);
             await idle(cancelSignal);
             if (cancelled) return;
-            // Findable now rather than after a reload: the text is already in
-            // hand, and a reader who searches straight after reading is the
-            // common case, not the edge one.
-            getContainer().search.indexPdf(source);
+            // Findable now rather than after a reload: index in slices so
+            // tokenizing whole PDFs yields rather than stalling the UI.
+            const indexStart = perfStart();
+            await getContainer().search.indexPdfInSlices(source, () => idle());
+            perfEnd("pdf:index", indexStart);
+            if (cancelled) return;
           }
 
           const measuredLinks = new Map<number, PdfLink[]>(unmeasuredLinks);
-          for (const entry of linksToMeasure) {
-            if (cancelled) return;
-            await idle(cancelSignal);
-            if (cancelled) return;
-            try {
-              const measured = await measurePdfLinks(
-                lib,
-                entry.content,
-                entry.page.getViewport({ scale: 1, rotation: 0 }),
-                entry.items,
-                entry.found,
-              );
-              measuredLinks.set(entry.pageNumber, measured);
-            } catch {
-              /* estimate instead */
+          try {
+            while (linksToMeasure.length > 0) {
+              if (cancelled) return;
+              await idle(cancelSignal);
+              if (cancelled) return;
+              const entry = linksToMeasure.shift()!;
+              try {
+                const measureStart = perfStart();
+                const measured = await measurePdfLinks(
+                  lib,
+                  entry.content,
+                  entry.page.getViewport({ scale: 1, rotation: 0 }),
+                  entry.items,
+                  entry.found,
+                );
+                perfEnd("pdf:measure-links", measureStart, entry.pageNumber);
+                measuredLinks.set(entry.pageNumber, measured);
+              } catch {
+                /* estimate instead */
+              }
             }
-          }
-          if (!cancelled) {
-            setPageLinks(measuredLinks);
+            if (!cancelled) {
+              setPageLinks(measuredLinks);
+            }
+          } finally {
+            linksToMeasure.length = 0;
           }
         } catch {
           if (!cancelled) setPageTexts([]);
@@ -497,9 +508,18 @@ useEffect(() => {
       setError(err instanceof Error ? err.message : "Could not load this PDF in the app.");
     }
   })();
+  const proxies = pageProxies.current;
   return () => {
     cancelled = true;
     cancelRenderTasks();
+    for (const page of proxies.values()) {
+      try {
+        page.cleanup();
+      } catch {
+        /* ignore */
+      }
+    }
+    proxies.clear();
     try {
       task?.destroy();
     } catch {
@@ -541,6 +561,15 @@ useEffect(() => {
       }
       textLayers.current.delete(pageNumber);
     }
+    const pdfPage = pageProxies.current.get(pageNumber);
+    if (pdfPage) {
+      try {
+        pdfPage.cleanup();
+      } catch {
+        /* ignore */
+      }
+      pageProxies.current.delete(pageNumber);
+    }
     renderedPages.current.delete(pageNumber);
     renderingPages.current.delete(pageNumber);
     paintedPages.current.delete(pageNumber);
@@ -579,7 +608,8 @@ useEffect(() => {
             `[data-page="${pageNumber}"]`,
           );
           if (!host) return;
-          const pdfPage = await pdf.getPage(pageNumber);
+          const pdfPage = pageProxies.current.get(pageNumber) ?? (await pdf.getPage(pageNumber));
+          pageProxies.current.set(pageNumber, pdfPage);
           if (isStale()) return;
           const viewport = pdfPage.getViewport({ scale, rotation });
           const canvas = host.querySelector("canvas");

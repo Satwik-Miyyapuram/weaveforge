@@ -75,6 +75,8 @@ export class WorkspaceSearch {
    * stale and re-embed the whole corpus to catch up with one edited note.
    */
   onSemanticChanged: (() => void) | null = null;
+  /** Serializes slice-based indexing so concurrent calls never interleave. */
+  private indexSliceQueue: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly deps: {
@@ -532,6 +534,48 @@ export class WorkspaceSearch {
     this.state.documentCount = this.state.documentCount - previous + docs.length;
     const prefix = `pdf:${source.paperId}`;
     this.syncSemantic(docs, (id) => id.startsWith(prefix));
+  }
+
+  /**
+   * Fold a freshly extracted PDF into the live index in cooperative slices so
+   * tokenizing many pages yields the main thread instead of stalling the UI.
+   */
+  async indexPdfInSlices(
+    source: PdfIndexSource,
+    yieldToHost: () => Promise<void>,
+    pagesPerSlice = 4,
+  ): Promise<void> {
+    const run = async () => {
+      const initialIndex = this.state.index;
+      if (!initialIndex) return;
+
+      const previous = this.state.pdfPageCounts.get(source.paperId) ?? 0;
+      initialIndex.remove(pdfDocIdsFor(source.paperId, Math.max(previous, source.pages.length)));
+
+      const degrees = this.state.graph ? graphDegrees(this.state.graph) : undefined;
+      const docs = toPdfSearchDocs([source], degrees);
+      const sliceSize = Math.max(1, pagesPerSlice);
+
+      for (let i = 0; i < docs.length; i += sliceSize) {
+        if (i > 0) {
+          await yieldToHost();
+          if (this.state.index !== initialIndex) return;
+        }
+        initialIndex.add(docs.slice(i, i + sliceSize));
+      }
+
+      if (this.state.index !== initialIndex) return;
+
+      this.state.pdfPageCounts.set(source.paperId, source.pages.length);
+      this.state.pdfTexts = [...this.state.pdfTexts.filter((s) => s.paperId !== source.paperId), source];
+      this.state.documentCount = this.state.documentCount - previous + docs.length;
+      const prefix = `pdf:${source.paperId}`;
+      this.syncSemantic(docs, (id) => id.startsWith(prefix));
+    };
+
+    const next = this.indexSliceQueue.then(run, run);
+    this.indexSliceQueue = next.then(() => {}, () => {});
+    return next;
   }
 
   /**
