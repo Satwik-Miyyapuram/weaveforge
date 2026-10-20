@@ -458,7 +458,7 @@ export function InkBar({
             {onCopyAsText ? (
               <button
                 type="button"
-                className="ink-tool"
+                className="ink-tool ink-tool-text"
                 onClick={onCopyAsText}
                 title="Copy the selected strokes' recognised text"
               >
@@ -468,7 +468,7 @@ export function InkBar({
             {onDeleteSelection ? (
               <button
                 type="button"
-                className="ink-tool"
+                className="ink-tool ink-tool-text"
                 onClick={onDeleteSelection}
                 title="Delete the selected strokes (Delete)"
               >
