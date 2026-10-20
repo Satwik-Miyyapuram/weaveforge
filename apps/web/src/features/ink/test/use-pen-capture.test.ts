@@ -719,3 +719,54 @@ test("a coalesced event that carries timeStamp rather than t is not a NaN sample
       );
   }
 });
+
+test("predicted samples do not bend the real stroke through the filter", () => {
+  // A smooth arc at 240 Hz, one dispatch per 16 ms frame with 3 coalesced
+  // samples, each frame carrying a prediction that overshoots off the arc.
+  const at = (i: number) => ({
+    clientX: 100 + 80 * Math.cos(i / 40),
+    clientY: 100 + 80 * Math.sin(i / 40),
+    t: i * 4,
+  });
+  const draw = (withPrediction: boolean) => {
+    const harness = sessionHarness({ delegating: false });
+    harness.session.pointerDown(
+      pointer({ pointerType: "pen", pointerId: 6, ...at(0) }),
+    );
+    for (let frame = 1; frame <= 30; frame += 1) {
+      const last = frame * 4;
+      harness.session.pointerRawUpdate(
+        pointer({
+          pointerType: "pen",
+          pointerId: 6,
+          ...at(last),
+          getCoalescedEvents: () =>
+            [last - 3, last - 2, last - 1].map((i) =>
+              pointer({ pointerType: "pen", pointerId: 6, ...at(i) }),
+            ),
+          getPredictedEvents: withPrediction
+            ? () =>
+                [1, 2].map((k) =>
+                  pointer({
+                    pointerType: "pen",
+                    pointerId: 6,
+                    clientX: at(last + k * 2).clientX + 6 * k,
+                    clientY: at(last + k * 2).clientY - 6 * k,
+                    t: (last + k * 2) * 4,
+                  }),
+                )
+            : undefined,
+        }),
+      );
+      harness.session.flush();
+    }
+    return harness.session.takeStroke().points;
+  };
+  const clean = draw(false);
+  const predicted = draw(true);
+  assert.equal(predicted.length, clean.length);
+  const worst = Math.max(
+    ...clean.map((value, index) => Math.abs(value - predicted[index]!)),
+  );
+  assert.ok(worst < 1e-9, `prediction moved a real point by ${worst}`);
+});

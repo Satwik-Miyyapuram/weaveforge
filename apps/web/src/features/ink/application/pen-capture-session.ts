@@ -186,7 +186,11 @@ export class PenCaptureSession {
         // only whatever the per-frame flush happened to send: a polyline of the
         // few survivors.
         this.deps.writer.flush("samples", this.header!);
+        // Predicted samples must not move the filter: the next real ones are
+        // older than them, so a dt <= 0 would pin the stroke to the guess.
+        const restore = this.deps.filter.save();
         for (const sample of predicted) this.consume(sample, false, true);
+        restore();
         this.deps.writer.flush("samples", this.header!, true);
       }
     }
