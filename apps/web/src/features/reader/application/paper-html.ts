@@ -81,6 +81,16 @@ a { color: LinkText; }
 @media (max-width: 600px) { body { padding: 16px 16px 48px; font-size: 15px; } }
 `;
 
+/** Paper layout for Save as PDF: page margins, no screen padding, ink-coloured links. */
+const PRINT_CSS = `
+@page { margin: 18mm 16mm; }
+body { padding: 0; font-size: 11pt; }
+.wf-paper, .wf-source { max-width: none; }
+a { color: inherit; }
+img, figure, table, pre { break-inside: avoid; }
+h1, h2, h3, h4 { break-after: avoid; }
+`;
+
 const ARTICLE_OPEN = '<article class="wf-paper">';
 const ARTICLE_CLOSE = "</article><!--/wf-paper-->";
 
@@ -92,7 +102,7 @@ const ARTICLE_CLOSE = "</article><!--/wf-paper-->";
 export function buildPaperHtmlDocument(
   page: PaperHtmlPage,
   /** Pin the frame to the app's scheme; the kept file follows the system's. */
-  options: { scheme?: "light" | "dark" } = {},
+  options: { scheme?: "light" | "dark"; print?: boolean } = {},
 ): string {
   const host = (() => {
     try {
@@ -110,7 +120,7 @@ export function buildPaperHtmlDocument(
     `<meta name="weaveforge-source" content="${escapeAttr(page.url)}">`,
     `<meta name="weaveforge-saved" content="${escapeAttr(page.savedAt)}">`,
     `<title>${escapeText(page.title)}</title>`,
-    `<style>${READER_CSS}${options.scheme ? `:root { color-scheme: ${options.scheme}; }` : ""}</style>`,
+    `<style>${READER_CSS}${options.scheme ? `:root { color-scheme: ${options.scheme}; }` : ""}${options.print ? PRINT_CSS : ""}</style>`,
     "</head><body>",
     `<p class="wf-source">Full text from <a href="${escapeAttr(page.url)}" target="_blank" rel="noopener noreferrer">${escapeText(host)}</a></p>`,
     ARTICLE_OPEN,
