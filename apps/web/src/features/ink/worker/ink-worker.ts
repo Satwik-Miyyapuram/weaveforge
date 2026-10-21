@@ -265,7 +265,10 @@ function commitStroke(stroke: LiveStroke): void {
     shape === "none" && raw.length >= 6
       ? smoothPointsInPlace(raw)
       : raw;
-  const packed = packInkStroke(smoothed, rawPressures, { tolerance: INK_COMMIT_TOLERANCE });
+  const packed = packInkStroke(smoothed, rawPressures, {
+    tolerance: INK_COMMIT_TOLERANCE,
+    maxPoints: 5000,
+  });
   if (packed.points.length < 4) return; // a dot or a slip of the pen: nothing to keep
   const index = state.buffer.append({
     points: packed.points,
