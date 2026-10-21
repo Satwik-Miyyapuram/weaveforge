@@ -43,8 +43,9 @@ PostgREST at `api.weaveforge.org`). Supabase is used for **sign-in only**; see
 ## Systematic Commits
 
 Every time you finish a task, systematically commit your verified changes to a
-branch before addressing the next user request. Never accumulate uncommitted task
-changes across turns.
+branch before addressing the next user request. Only commit changes made by you
+for your specific task; never commit unrelated working tree modifications or
+untracked files. Never accumulate uncommitted task changes across turns.
 
 ## Testing
 
