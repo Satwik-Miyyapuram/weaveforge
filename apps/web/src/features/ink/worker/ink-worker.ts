@@ -32,6 +32,7 @@
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
+  INK_PACK_TOLERANCE,
   packInkStroke,
   type InkChunkCodec,
   type InkShape,
@@ -210,9 +211,6 @@ function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
   };
 }
 
-/** RDP tolerance on commit, in 0.1 mm: drops only collinear samples. */
-const INK_COMMIT_TOLERANCE = 0.25;
-
 /** Pack the finished stroke into the page, and tell the main thread what was kept. */
 function commitStroke(stroke: LiveStroke): void {
   const real = stroke.realSamples;
@@ -237,7 +235,7 @@ function commitStroke(stroke: LiveStroke): void {
   }
   // No refit on lift and a sub-pixel pack tolerance: the saved stroke is the
   // one the pen drew, not a smoothed redraw of it.
-  const packed = packInkStroke(raw, rawPressures, { tolerance: INK_COMMIT_TOLERANCE });
+  const packed = packInkStroke(raw, rawPressures, { tolerance: INK_PACK_TOLERANCE });
   if (packed.points.length < 4) return; // a dot or a slip of the pen: nothing to keep
   const index = state.buffer.append({
     points: packed.points,

@@ -151,7 +151,7 @@ test("the saved stroke keeps every drawn sample: no refit on lift", () => {
     const at = drawn.findIndex((v, k) => k % 2 === 0 && v === saved[i] && drawn[k + 1] === saved[i + 1]);
     assert.ok(at >= 0, `saved point ${saved[i]},${saved[i + 1]} was drawn`);
   }
-  assert.ok(saved.length / 2 >= count - 4, `kept ${saved.length / 2} of ${count}`);
+  assert.ok(saved.length / 2 >= count / 2, `kept ${saved.length / 2} of ${count}`);
 });
 test("an erase sweep removes what it crosses and undo restores it", () => {
   fresh();

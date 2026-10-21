@@ -20,7 +20,7 @@ import {
   type InkPage,
 } from "@weaveforge/core";
 
-import { inkPageSvg } from "../application/ink-svg";
+import { inkPageSvg, strokePath } from "../application/ink-svg";
 import { INK_RENDER_COLOURS, type InkPalette } from "../render/ink-palette";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
 import { INK_SEGMENT_SUBDIVISIONS } from "../render/ink-renderer";
@@ -208,3 +208,14 @@ test("figures embed under the strokes, and a crop clips rather than stretches", 
   assert.ok(figure >= 0 && stroke > figure, "the strokes are written over the figures");
 });
 
+
+test("strokePath simplifies dense integer staircase points to prevent spline jitter", () => {
+  const staircasePoints = [];
+  for (let i = 0; i <= 20; i++) {
+    staircasePoints.push(i, Math.round(i * 0.5));
+  }
+  const d = strokePath({ points: staircasePoints });
+  assert.ok(d);
+  const points = pathPoints(d);
+  assert.ok(points.length < staircasePoints.length);
+});
