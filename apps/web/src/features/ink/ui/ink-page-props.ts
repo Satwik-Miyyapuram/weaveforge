@@ -29,9 +29,9 @@ export interface InkPageProps {
     onPointerCancel: (event: React.PointerEvent<HTMLCanvasElement>) => void;
   };
   /** The canvas, for the host to measure and to transfer. */
-  canvasRef: React.RefObject<HTMLCanvasElement>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
   /** The sheet — the page's full box — for the host to project against. */
-  sheetRef: React.RefObject<HTMLDivElement>;
+  sheetRef: React.RefObject<HTMLDivElement | null>;
   /**
    * The canvas's size in CSS pixels: the part of the sheet the scroller can
    * show. The canvas is a window onto the sheet, not the sheet itself, so a

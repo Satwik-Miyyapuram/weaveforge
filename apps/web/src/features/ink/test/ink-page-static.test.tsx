@@ -72,7 +72,7 @@ function renderPage(props: Parameters<typeof InkPageStatic>[0]) {
       createNodeMock: (el) =>
         el.type === "canvas"
           ? { width: 0, height: 0, getContext: () => ctx }
-          : el.props.className === "ink-page"
+          : (el.props as { className?: string })?.className === "ink-page"
             ? { closest: () => null }
             : null,
     });

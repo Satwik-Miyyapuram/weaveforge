@@ -25,6 +25,11 @@ export interface UseDecodedStrokesOptions {
 // Module-level stroke cache shared across Read and Ink modes.
 const decoded = new WeakMap<Uint8Array, readonly InkStroke[]>();
 
+/** How many strokes a chunk decoded to here, 0 if it has not been. */
+export function decodedStrokeCount(chunk: Uint8Array | null): number {
+  return chunk ? (decoded.get(chunk)?.length ?? 0) : 0;
+}
+
 /**
  * Decodes and caches the ink strokes for pages in a note.
  *

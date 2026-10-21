@@ -115,7 +115,7 @@ export async function loadPage(
           strokes: [],
           lines: [],
         };
-    installPage(state, model, post);
+    installPage(state, model, post, message.shown);
   } catch (error) {
     post({
       type: "error",
@@ -131,6 +131,7 @@ export function installPage(
   state: InkPageState,
   model: InkPage,
   post: (event: InkWorkerEvent) => void,
+  shown = 0,
 ): void {
   state.buffer = new InkPageBuffer(model);
   // One rebuild per page load, which is where a packed tree belongs: not during a
@@ -146,8 +147,8 @@ export function installPage(
   );
   state.renderer?.setBackground(state.background);
   state.renderer?.setStrokes(state.buffer.allStrokes());
-  // The canvas draws the page until the sheet's SVG says it has it.
-  state.renderer?.setShown(0);
+  // The canvas draws what the sheet does not yet; drawing both doubles the ink.
+  state.renderer?.setShown(Math.min(shown, model.strokes?.length ?? 0));
   state.renderer?.setSelection([], { x: 0, y: 0 });
   reportState(state, post);
   reportHistory(state, post);
