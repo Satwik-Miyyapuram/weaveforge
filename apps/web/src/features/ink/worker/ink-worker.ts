@@ -190,41 +190,15 @@ function pressureByte(pressure: number): number {
   return Math.max(0, Math.min(255, Math.round(pressure * 255)));
 }
 
-/** 3-tap binomial filter [0.25, 0.5, 0.25]: extinguishes high-frequency digitiser jitter. */
-function smoothPointsInPlace(points: readonly number[]): number[] {
-  const count = points.length / 2;
-  if (count < 3) return [...points];
-  const out = new Array(points.length);
-  out[0] = points[0]!;
-  out[1] = points[1]!;
-  for (let i = 1; i < count - 1; i += 1) {
-    out[i * 2] =
-      0.25 * points[(i - 1) * 2]! +
-      0.5 * points[i * 2]! +
-      0.25 * points[(i + 1) * 2]!;
-    out[i * 2 + 1] =
-      0.25 * points[(i - 1) * 2 + 1]! +
-      0.5 * points[i * 2 + 1]! +
-      0.25 * points[(i + 1) * 2 + 1]!;
-  }
-  out[(count - 1) * 2] = points[(count - 1) * 2]!;
-  out[(count - 1) * 2 + 1] = points[(count - 1) * 2 + 1]!;
-  return out;
-}
-
 /** The live stroke as the renderer takes it: typed arrays, real count included. */
 function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
-  const smoothed =
-    stroke.header.tool === "pen" && stroke.points.length >= 6
-      ? smoothPointsInPlace(stroke.points)
-      : stroke.points;
-  const count = smoothed.length / 2;
+  const count = stroke.points.length / 2;
   const x = new Float32Array(count);
   const y = new Float32Array(count);
   const pressure = new Uint8Array(count);
   for (let i = 0; i < count; i += 1) {
-    x[i] = smoothed[i * 2]!;
-    y[i] = smoothed[i * 2 + 1]!;
+    x[i] = stroke.points[i * 2]!;
+    y[i] = stroke.points[i * 2 + 1]!;
     pressure[i] = stroke.pressures[i]!;
   }
   return {
@@ -236,8 +210,8 @@ function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
   };
 }
 
-/** RDP tolerance on commit, in 0.1 mm: 0 preserves exact points for zero pop/jitter on pen up. */
-const INK_COMMIT_TOLERANCE = 0;
+/** RDP tolerance on commit, in 0.1 mm: drops only collinear samples. */
+const INK_COMMIT_TOLERANCE = 0.25;
 
 /** Pack the finished stroke into the page, and tell the main thread what was kept. */
 function commitStroke(stroke: LiveStroke): void {
@@ -261,14 +235,9 @@ function commitStroke(stroke: LiveStroke): void {
     raw = [raw[0]!, raw[1]!, raw[0]!, raw[1]!];
     rawPressures = [rawPressures[0] ?? 128, rawPressures[0] ?? 128];
   }
-  const smoothed =
-    shape === "none" && raw.length >= 6
-      ? smoothPointsInPlace(raw)
-      : raw;
-  const packed = packInkStroke(smoothed, rawPressures, {
-    tolerance: INK_COMMIT_TOLERANCE,
-    maxPoints: 5000,
-  });
+  // No refit on lift and a sub-pixel pack tolerance: the saved stroke is the
+  // one the pen drew, not a smoothed redraw of it.
+  const packed = packInkStroke(raw, rawPressures, { tolerance: INK_COMMIT_TOLERANCE });
   if (packed.points.length < 4) return; // a dot or a slip of the pen: nothing to keep
   const index = state.buffer.append({
     points: packed.points,

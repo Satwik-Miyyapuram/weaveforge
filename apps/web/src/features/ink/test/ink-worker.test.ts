@@ -129,7 +129,7 @@ test("a stroke commits, is a draw step, and undo takes it back", () => {
   assert.equal(last("page-state").strokes, 1);
 });
 
-test("the saved stroke refits and smooths on lift, pinning ends and preserving shape", () => {
+test("the saved stroke keeps every drawn sample: no refit on lift", () => {
   fresh();
   // A wavy line: a refit or a coarse simplification would move these points.
   const count = 40;
@@ -146,23 +146,13 @@ test("the saved stroke refits and smooths on lift, pinning ends and preserving s
   }
   stroke(samples, count);
   const saved = [...last("stroke-committed").points];
-  // Ends are pinned exactly
-  assert.equal(saved[0], drawn[0]);
-  assert.equal(saved[1], drawn[1]);
-  assert.equal(saved[saved.length - 2], drawn[drawn.length - 2]);
-  assert.equal(saved[saved.length - 1], drawn[drawn.length - 1]);
+  // Only exactly collinear samples may go; every saved point is a drawn one.
   for (let i = 0; i < saved.length; i += 2) {
-    let minDist = Infinity;
-    for (let k = 0; k < drawn.length; k += 2) {
-      const d = Math.hypot(saved[i]! - drawn[k]!, saved[i + 1]! - drawn[k + 1]!);
-      if (d < minDist) minDist = d;
-    }
-    assert.ok(minDist < 10, `saved point ${saved[i]},${saved[i + 1]} stayed close: ${minDist}`);
-
+    const at = drawn.findIndex((v, k) => k % 2 === 0 && v === saved[i] && drawn[k + 1] === saved[i + 1]);
+    assert.ok(at >= 0, `saved point ${saved[i]},${saved[i + 1]} was drawn`);
   }
-
+  assert.ok(saved.length / 2 >= count - 4, `kept ${saved.length / 2} of ${count}`);
 });
-
 test("an erase sweep removes what it crosses and undo restores it", () => {
   fresh();
   draw(10, 50);
