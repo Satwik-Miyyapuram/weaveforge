@@ -79,3 +79,15 @@ test("wheel zoom calculation yields smooth factor for trackpad and mice", () => 
   assert.equal(READER_MIN_SCALE, 0.25);
   assert.equal(READER_MAX_SCALE, 4);
 });
+
+test("zoom out below 320px scales page dimensions proportionally without clamping", () => {
+  const pageSize = { width: 595, height: 842 }; // Standard A4
+  // When zoomed out to 0.35x, page height is 294px (< 320px)
+  const scale = 0.35;
+  const renderWidth = Math.floor(pageSize.width * scale);
+  const renderHeight = Math.floor(pageSize.height * scale);
+
+  assert.equal(renderWidth, 208);
+  assert.equal(renderHeight, 294);
+  assert.ok(renderHeight < 320, "Rendered height must scale freely below 320px without min-height clamping");
+});

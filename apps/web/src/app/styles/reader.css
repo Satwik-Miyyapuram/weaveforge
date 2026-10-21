@@ -209,7 +209,8 @@
   position: relative;
   background: #fff;
   box-shadow: 0 1px 6px rgba(0,0,0,0.18);
-  min-height: 320px; /* keep IntersectionObserver from painting every page at once before layout */  /* The scroller is a column flex container with a bounded height, so pages
+  min-height: 0;
+  /* The scroller is a column flex container with a bounded height, so pages
      inherited flex-shrink: 1. Once zoomed, their combined height exceeded that
      bound and every page box was compressed while its canvas kept the pixel
      height set at render time — so pages overlapped and the foot of each was

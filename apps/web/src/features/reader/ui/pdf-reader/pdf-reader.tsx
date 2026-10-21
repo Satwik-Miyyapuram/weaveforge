@@ -1008,7 +1008,7 @@ export function PdfReader({
 
   const unpaintedPageSize = (size: ReaderPageSize, at: number, turn: number) => {
     const { width, height } = pageRenderSize(size, at, turn);
-    return { minWidth: `${width}px`, minHeight: `${height}px` };
+    return { width: `${width}px`, height: `${height}px`, minWidth: `${width}px`, minHeight: `${height}px` };
   };
 
   const onFigureTarget = useCallback((target: FigureTarget) => {
