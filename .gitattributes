@@ -13,6 +13,10 @@
 /apps/web/twa/gradlew text eol=lf
 /apps/web/twa/gradlew.bat text eol=crlf
 
+# Installed on the OCI server as-is (see the `api-watch.sh` header); a CRLF
+# copy fails there because bash reads each line's trailing carriage return.
+/infra/oci/*.sh text eol=lf
+
 # The wrapper jar is fetched by Bubblewrap and must stay byte-identical to the
 # template's, so git must not touch it in either direction.
 /apps/web/twa/gradle/wrapper/gradle-wrapper.jar binary

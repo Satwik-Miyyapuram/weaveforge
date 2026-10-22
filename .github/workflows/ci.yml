@@ -211,6 +211,14 @@ jobs:
         if: always()
         run: npm run check:android-permissions
 
+      # The API stack on the OCI server: PostgREST pinned, its healthcheck able to
+      # run in a shell-free image, and the host watchdog restarting it when the
+      # connection pool wedges (the 2026-10-22 outage).
+      - name: check:oci-infra
+        id: gate_oci_infra
+        if: always()
+        run: npm run check:oci-infra
+
       - name: check:docs
         id: gate_docs
         if: always()
@@ -249,6 +257,7 @@ jobs:
           check "check:hygiene"         "${{ steps.gate_hygiene.outcome }}"
           check "check:mcp-plugin"      "${{ steps.gate_mcp.outcome }}"
           check "check:android-permissions" "${{ steps.gate_android.outcome }}"
+          check "check:oci-infra"       "${{ steps.gate_oci_infra.outcome }}"
           check "check:docs"            "${{ steps.gate_docs.outcome }}"
           check "check:ci-parity"       "${{ steps.gate_ci_parity.outcome }}"
           if [ -n "$failed" ]; then
