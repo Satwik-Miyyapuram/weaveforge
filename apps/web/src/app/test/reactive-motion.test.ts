@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { shouldTrackPointer } from "../reactive-motion";
+import { canTilt, shouldTrackPointer } from "../reactive-motion";
 
 /**
  * When the cursor glow tracks the pointer.
@@ -27,4 +27,9 @@ test("reduced motion wins over the preference", () => {
 test("the user's own setting is respected", () => {
   assert.equal(shouldTrackPointer({ ...on, motion: "calm" }), false);
   assert.equal(shouldTrackPointer({ ...on, motion: undefined }), false);
+});
+
+test("a card taller than the viewport does not tilt", () => {
+  assert.equal(canTilt({ height: 300 }, 900), true);
+  assert.equal(canTilt({ height: 10_623 }, 900), false);
 });

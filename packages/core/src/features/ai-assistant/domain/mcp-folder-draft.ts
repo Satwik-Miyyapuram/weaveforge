@@ -18,6 +18,8 @@ export interface FolderDraft {
   sourceLinks?: string[];
   expectedRevision?: string;
   createdAt?: string;
+  /** The project it belongs to; absent means whichever project imports it. */
+  projectId?: string;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -48,6 +50,8 @@ export function parseFolderDraft(raw: string): FolderDraft | null {
   if (value.payload !== undefined && !isPlainObject(value.payload)) return null;
   const links = value.sourceLinks;
   if (links !== undefined && !(Array.isArray(links) && links.every((l) => typeof l === "string"))) return null;
+  const projectId = optionalString(value.projectId);
+  if (projectId && projectId.length > MAX_ID_CHARS) return null;
 
   return {
     kind: kind as AiProposalKind,
@@ -59,5 +63,6 @@ export function parseFolderDraft(raw: string): FolderDraft | null {
     sourceLinks: links as string[] | undefined,
     expectedRevision: optionalString(value.expectedRevision),
     createdAt: optionalString(value.createdAt),
+    ...(projectId ? { projectId } : {}),
   };
 }

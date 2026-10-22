@@ -302,8 +302,9 @@
       animation-timeline: view();
       /* `cover 0%`–`cover 22%` rather than the whole `entry` range: a card
          should be settled well before it reaches the middle of the screen,
-         or the list looks like it is still loading while you are reading it. */
-      animation-range: cover 0% cover 22%;
+         or the list looks like it is still loading while you are reading it.
+         Capped in px: 22% of a page-tall card is thousands of px of half-faded card. */
+      animation-range: cover 0% cover min(22%, 240px);
     }
   }
 

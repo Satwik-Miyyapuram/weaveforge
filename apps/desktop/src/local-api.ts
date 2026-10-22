@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
 import { routeMcpRequest, type JsonRpcRequest, type SemanticRanker, type TrackingSetup } from "./local-mcp";
+import type { ProjectSource } from "./local-mcp-projects";
 import type { SaveArtifact } from "./local-artifacts";
 import { routeSdkRequest, SDK_PREFIX, type SdkQuery } from "./local-sdk-api";
 import type { VaultSession } from "./vault-handlers";
@@ -119,6 +120,8 @@ export async function walkVault(session: VaultSession, dir: string, out: string[
   if (!listed.ok) return;
   for (const entry of listed.value) {
     if (out.length >= SEARCH_LIMIT) return;
+    // `.git` alone can hold thousands of objects and spend the cap before any project.
+    if (entry.kind === "dir" && entry.path.split("/").pop()?.startsWith(".")) continue;
     if (entry.kind === "dir") await walkVault(session, entry.path, out);
     else out.push(entry.path);
   }
@@ -186,6 +189,15 @@ function trackingFor(may: ReadonlySet<LocalApiPermission>, query?: SdkQuery, mcp
   };
 }
 
+/** The app's projects, so the MCP answers per project and names each draft's. */
+function projectsFrom(query?: SdkQuery): ProjectSource | undefined {
+  if (!query) return undefined;
+  return async () => {
+    const rows = await query("select id, name from projects order by name", []);
+    return rows.ok ? (rows.value as { id: unknown; name: unknown }[]).map((r) => ({ id: String(r.id), name: String(r.name) })) : [];
+  };
+}
+
 /**
  * Answer one request.
  *
@@ -227,7 +239,7 @@ export async function routeLocalRequest(
     } catch {
       return json(400, { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Not JSON." } });
     }
-    const answer = await routeMcpRequest(session, parsed, rank, may.has("mcp:suggest"), trackingFor(may, query, mcp));
+    const answer = await routeMcpRequest(session, parsed, rank, may.has("mcp:suggest"), trackingFor(may, query, mcp), projectsFrom(query));
     // A notification is answered with no body at all, which is what a client
     // sending `notifications/initialized` waits for.
     return answer === null

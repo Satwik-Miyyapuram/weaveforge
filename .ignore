@@ -1,0 +1,7 @@
+# Hidden from ripgrep (agent Grep/Glob) to keep search output small; still readable by path.
+package-lock.json
+docs/atlas.html
+docs/plans/
+docs/internal/
+docs/demo/
+apps/desktop/installer/

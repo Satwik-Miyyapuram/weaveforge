@@ -12,6 +12,7 @@ import type {
   ReaderPageSize,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { perfEnd, perfStart } from "@/lib/perf-marks";
 import { savePdfTextDurably } from "@/features/search/application/pdf-text-folder";
 import {
   sanitizePdfUrl,
@@ -516,6 +517,7 @@ const renderPage = useCallback(
         const scratchCtx = scratch.getContext("2d");
         if (!scratchCtx) return;
         scratchCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        const renderStart = perfStart();
         const renderTask = pdfPage.render({ canvasContext: scratchCtx, viewport });
         renderTasks.current.set(pageNumber, renderTask);
         try {
@@ -539,6 +541,8 @@ const renderPage = useCallback(
         pageBox.style.height = `${Math.floor(viewport.height)}px`;
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.drawImage(scratch, 0, 0);
+        perfEnd("pdf:page-render", renderStart, pageNumber);
+        const textStart = perfStart();
         // Text layer — selectable / copyable; input device for future annotation (R3).
         let textLayer = host.querySelector<HTMLDivElement>(".pdf-reader-textlayer");
         if (!textLayer) {
@@ -587,6 +591,7 @@ const renderPage = useCallback(
         // The item index is what selection and citation decoration key on;
         // `textDivs` is in item order, one per run with text.
         layer.textDivs.forEach((div, index) => div.setAttribute("data-item-index", String(index)));
+        perfEnd("pdf:text-layer", textStart, pageNumber);
         const base = pdfPage.getViewport({ scale: 1, rotation: 0 });
         pageGeometries.current.set(pageNumber, {
           pageIndex: pageNumber - 1,

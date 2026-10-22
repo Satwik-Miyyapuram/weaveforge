@@ -230,7 +230,7 @@ test("a proposal lands beside the report, never in it", async () => {
   const section = await readVaultFile(session, "report/01-methods.md");
   assert.equal(section.ok && section.value, methods);
 
-  const at = /Left at (\S+)\./.exec(body.result.content[0].text as string)?.[1] ?? "";
+  const at = /Left in workspace at (\S+)\./.exec(body.result.content[0].text as string)?.[1] ?? "";
   assert.match(at, /^\.weaveforge\/proposals\//);
   const proposal = await readVaultFile(session, at);
   assert.match(String(proposal.ok && proposal.value), /A shorter method\./);

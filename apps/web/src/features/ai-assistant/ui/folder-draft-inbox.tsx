@@ -33,6 +33,7 @@ export function FolderDraftInbox() {
           sourceLinks: draft.sourceLinks,
           expectedRevision: draft.expectedRevision,
         }),
+        projectId,
       )
         .then((count) => {
           if (count > 0) window.dispatchEvent(new Event("ai-proposals-changed"));

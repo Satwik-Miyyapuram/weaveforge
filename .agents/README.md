@@ -42,4 +42,15 @@ PostgREST at `api.weaveforge.org`). Supabase is used for **sign-in only**; see
 
 ## Testing
 
-Prove every change before reporting it. See [testing.md](testing.md).
+Prove every change before reporting it. Read [testing.md](testing.md) before
+running tests, a build or the Dev app; it is not loaded up front.
+
+## Spend few tokens
+
+- Find code with the LSP tool (`workspaceSymbol`, `findReferences`,
+  `documentSymbol`) or Grep, then Read only the lines around the hit.
+  Never Read a whole file over ~300 lines.
+- Hand broad "where is X" sweeps to the `scout` agent; it returns `path:line`.
+- `docs/plans/`, `docs/internal/`, `docs/demo/` and `package-lock.json` are
+  hidden from search (`.ignore`); open one by path only when asked.
+- One task per session; the user clears between tasks.

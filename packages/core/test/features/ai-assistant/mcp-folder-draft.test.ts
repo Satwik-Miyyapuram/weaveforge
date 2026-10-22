@@ -47,3 +47,9 @@ test("anything that is not a draft is refused", () => {
   }
   assert.equal(parseFolderDraft(JSON.stringify({ ...valid, content: "x".repeat(300_000) })), null);
 });
+
+test("a draft keeps the project it was written for, and drops a bad one", () => {
+  assert.equal(parseFolderDraft(JSON.stringify({ ...valid, projectId: "proj-1" }))?.projectId, "proj-1");
+  assert.equal(parseFolderDraft(JSON.stringify(valid))?.projectId, undefined);
+  assert.equal(parseFolderDraft(JSON.stringify({ ...valid, projectId: "x".repeat(513) })), null);
+});

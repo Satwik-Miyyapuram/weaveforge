@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { decodeInkChunk, pageFromChunk, type InkStroke } from "@weaveforge/core";
+import { perfEnd, perfEndAfterPaint, perfStart } from "@/lib/perf-marks";
 import { availableInkChunkCodec } from "../application/ink-chunk-codec";
 import type { InkStoredPage } from "../application/ink-chunk-store";
 
@@ -39,6 +40,7 @@ export function useDecodedStrokes({
     if (!pages) return;
     let cancelled = false;
     const codec = availableInkChunkCodec();
+    const noteStart = perfStart();
 
     void Promise.all(
       pages.map(async (entry, index) => {
@@ -46,9 +48,11 @@ export function useDecodedStrokes({
         const cached = cacheRef.current.get(entry.chunk);
         if (cached) return { index, strokes: cached };
         try {
+          const start = perfStart();
           const decoded = await decodeInkChunk(entry.chunk, codec);
           const page = pageFromChunk(decoded);
           const strokes = page.strokes ?? [];
+          perfEnd("ink:decode", start, entry.chunk.byteLength);
           cacheRef.current.set(entry.chunk, strokes);
           return { index, strokes };
         } catch {
@@ -57,6 +61,7 @@ export function useDecodedStrokes({
       }),
     ).then((results) => {
       if (cancelled) return;
+      perfEndAfterPaint("ink:note-paint", noteStart, results.length);
       setStrokesMap((prev) => {
         const next = new Map(prev);
         for (const { index, strokes } of results) {

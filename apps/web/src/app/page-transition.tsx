@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
+import { perfNavEnd, perfNavStart } from "@/lib/perf-marks";
 import { canTransition, isPlainClick, navTransition } from "@/lib/view-transition";
 
 /**
@@ -31,6 +32,7 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
   // which then sees defaultPrevented and leaves the push to the transition.
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
+      if ((e.target as Element | null)?.closest?.("a[href]")) perfNavStart(location.pathname);
       const link = (e.target as Element | null)?.closest?.<HTMLAnchorElement>("a.nav-link, a.sub-tab");
       if (!link || !isPlainClick(e) || !canTransition()) return;
       const url = new URL(link.href, location.href);
@@ -41,6 +43,10 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
   }, [router]);
+
+  useEffect(() => {
+    if (pathname) perfNavEnd(pathname);
+  }, [pathname]);
 
   const isDashboard =
     pathname === "/dashboard" || (pathname?.startsWith("/dashboard/") ?? false);

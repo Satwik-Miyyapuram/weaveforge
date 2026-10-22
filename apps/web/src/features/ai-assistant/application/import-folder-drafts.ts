@@ -5,11 +5,13 @@ import { FOLDER_DRAFTS_DIR, parseFolderDraft, type FolderDraft, type IWorkspaceF
  *
  * Each file becomes one pending proposal and is then deleted, so a draft is
  * queued once. Files that are not drafts are left alone for the user to see.
+ * A draft for another project waits until that project is open.
  * Nothing here applies a draft: approval stays in the review queue.
  */
 export async function importFolderDrafts(
   fs: IWorkspaceFs,
   queue: (draft: FolderDraft) => Promise<unknown>,
+  projectId?: string,
 ): Promise<number> {
   const entries = await fs.list(FOLDER_DRAFTS_DIR).catch(() => []);
   let imported = 0;
@@ -17,7 +19,7 @@ export async function importFolderDrafts(
     if (entry.kind !== "file" || !entry.path.endsWith(".json")) continue;
     const raw = await fs.readText(entry.path).catch(() => null);
     const draft = raw === null ? null : parseFolderDraft(raw);
-    if (!draft) continue;
+    if (!draft || (draft.projectId && projectId && draft.projectId !== projectId)) continue;
     await queue(draft);
     await fs.remove(entry.path).catch(() => undefined);
     imported += 1;
@@ -32,6 +34,7 @@ let again = false;
 export function importFolderDraftsOnce(
   fs: IWorkspaceFs,
   queue: (draft: FolderDraft) => Promise<unknown>,
+  projectId?: string,
 ): Promise<number> {
   if (running) {
     again = true;
@@ -41,7 +44,7 @@ export function importFolderDraftsOnce(
     let total = 0;
     do {
       again = false;
-      total += await importFolderDrafts(fs, queue);
+      total += await importFolderDrafts(fs, queue, projectId);
     } while (again);
     return total;
   })().finally(() => {

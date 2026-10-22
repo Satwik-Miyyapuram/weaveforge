@@ -57,3 +57,12 @@ test("overlapping runs never queue the same draft twice", async () => {
   assert.deepEqual(queued.sort(), ["note-1", "note-2"]);
   assert.deepEqual(await remaining(fs), []);
 });
+
+test("a draft for another project waits in the folder until that project imports it", async () => {
+  const fs = await withFiles({ "a.json": JSON.stringify({ ...draft, projectId: "proj-b" }), "b.json": JSON.stringify(draft) });
+  const queued: string[] = [];
+  assert.equal(await importFolderDrafts(fs, async (d) => queued.push(d.resourceId), "proj-a"), 1);
+  assert.deepEqual(await remaining(fs), [`${FOLDER_DRAFTS_DIR}/a.json`]);
+  assert.equal(await importFolderDrafts(fs, async (d) => queued.push(d.resourceId), "proj-b"), 1);
+  assert.deepEqual(await remaining(fs), []);
+});
