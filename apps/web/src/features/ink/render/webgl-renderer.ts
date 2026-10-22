@@ -54,7 +54,6 @@ import {
   type InkShift,
   type InkBackgroundImage,
 } from "./ink-renderer";
-
 import {
   BACKGROUND_FRAGMENT_SHADER,
   BACKGROUND_VERTEX_SHADER,
@@ -62,18 +61,10 @@ import {
   FRAGMENT_SHADER,
   VERTEX_SHADER,
 } from "./webgl-shaders";
-import {
-  ensureCaptureTarget,
-  releaseCaptureTarget,
-  type CaptureTarget,
-} from "./webgl-offscreen";
+import { ensureCaptureTarget, releaseCaptureTarget, type CaptureTarget } from "./webgl-offscreen";
 import { InkBatches } from "./webgl-batches";
 import { linkProgram, pageScissor } from "./webgl-support";
-
-import {
-  INK_RENDER_COLOURS,
-  type InkPalette,
-} from "./ink-palette";
+import { INK_RENDER_COLOURS, type InkPalette } from "./ink-palette";
 export { INK_RENDER_COLOURS } from "./ink-palette";
 
 /**
