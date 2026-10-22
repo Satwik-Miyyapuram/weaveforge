@@ -106,15 +106,26 @@ services:
     ports:
       - "3000:3000"
     healthcheck:
-      # A TCP connect, because this image ships no HTTP client at all — no
-      # curl, no wget, not even busybox. The previous check shelled out to wget
-      # and so reported the container unhealthy for its whole life while it
-      # served every request correctly. `bash` is present, and its /dev/tcp
-      # redirection is enough to prove the listener is accepting connections.
-      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/3000'"]
+      # A real request through the connection pool, not just a TCP connect.
+      #
+      # On 2026-10-22 the pool wedged: the listener stayed up, so a TCP check
+      # kept reporting "healthy" while every request answered 504 with PGRST003
+      # ("Timed out acquiring connection from connection pool") for two hours.
+      # `GET /` (the OpenAPI root) queries the database, so it fails exactly
+      # when the API does. The image has no curl or wget, hence bash /dev/tcp.
+      #
+      # Docker only *marks* a container unhealthy; it does not restart it.
+      # `api-watch.sh` on the host does the restart.
+      test:
+        - CMD-SHELL
+        - >-
+          bash -c 'exec 3<>/dev/tcp/127.0.0.1/3000
+          && printf "GET / HTTP/1.0\r\nHost: localhost\r\n\r\n" >&3
+          && read -t 8 -r status <&3 && [[ $$status == *" 200 "* ]]'
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 20s
 
   # Broadcast relay for co-editing and cache invalidation.
   #
