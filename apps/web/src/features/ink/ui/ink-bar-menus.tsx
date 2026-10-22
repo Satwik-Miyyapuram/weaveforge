@@ -112,7 +112,7 @@ export function BarMenuList({
 }: {
   label: string;
   className?: string;
-  listRef: RefObject<HTMLDivElement | null>;
+  listRef: RefObject<HTMLDivElement>;
   pos: { top: number; left: number };
   children: ReactNode;
 }) {

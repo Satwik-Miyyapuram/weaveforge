@@ -56,7 +56,18 @@ function camelCaseParts(token: string): string[] {
     .map((part) => part.toLowerCase());
 }
 
-const URL_RE = /https?:\/\/\S+|\S+\.(?:com|org|net|edu|io|ai|dev|gov)\b\S*/gi;
+// Finds what `/https?:\/\/\S+|\S+\.(?:com|org|net|edu|io|ai|dev|gov)\b\S*/gi`
+// finds in one whitespace-free run, without that regex's backtracking: it is
+// quadratic on a long run with no match (CodeQL js/polynomial-redos).
+const DOMAIN_RE = /.\.(?:com|org|net|edu|io|ai|dev|gov)\b/i;
+const SCHEME_RE = /https?:\/\/./i;
+
+/** The URL in a whitespace-free run: the whole run, the run from its scheme on, or none. */
+function urlInRun(run: string): string | null {
+  if (DOMAIN_RE.test(run)) return run;
+  const start = run.search(SCHEME_RE);
+  return start < 0 ? null : run.slice(start);
+}
 
 /**
  * `https://arxiv.org/abs/2305.12345` → arxiv, org, abs, 2305, 12345.
@@ -69,10 +80,10 @@ export function urlParts(text: string): string[] {
   if (!runs) return out;
   for (const run of runs) {
     if (!run.includes(".") && !run.includes(":")) continue;
-    for (const match of run.match(URL_RE) ?? []) {
-      for (const part of match.split(/[^\p{L}\p{N}]+/u)) {
-        if (part.length > 1) out.push(part.toLowerCase());
-      }
+    const match = urlInRun(run);
+    if (match === null) continue;
+    for (const part of match.split(/[^\p{L}\p{N}]+/u)) {
+      if (part.length > 1) out.push(part.toLowerCase());
     }
   }
   return out;

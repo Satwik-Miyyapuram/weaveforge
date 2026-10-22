@@ -92,3 +92,28 @@ test("urlParts matches referenceUrlParts on generated 200 kB text", () => {
   assert.ok(generated.length >= targetLength);
   assert.deepEqual(urlParts(generated), referenceUrlParts(generated));
 });
+
+test("urlParts matches referenceUrlParts on scheme and domain edge cases", () => {
+  for (const text of [
+    "http://",
+    "xhttps://a",
+    "pre.fix-https://a.b",
+    ".com",
+    "a.com",
+    "a.comb",
+    "a.com_x",
+    "!!.io!!",
+    "see:http://a/b.dev",
+    "HTTP://X.Y",
+    "aé.com/ü",
+  ]) {
+    assert.deepEqual(urlParts(text), referenceUrlParts(text), text);
+  }
+});
+
+test("urlParts stays linear on a long run with no URL (ReDoS guard)", () => {
+  const text = `${"!".repeat(200_000)}.`;
+  const started = performance.now();
+  assert.deepEqual(urlParts(text), []);
+  assert.ok(performance.now() - started < 1000, "urlParts took over 1 s");
+});
