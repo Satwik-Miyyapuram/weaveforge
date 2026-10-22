@@ -59,9 +59,8 @@ services:
   postgrest:
     # Pinned: `latest` would jump major versions on any pull. Bump on purpose
     # after reading the changelog's "Migration to vN" section.
-    # Not v16 yet: its arm64 image has no shell, which breaks the healthcheck
-    # below (tried 2026-10-22; the watchdog then restarted it every ~2 min).
-    image: postgrest/postgrest:v14.18
+    # The v16 image has no shell, so the healthcheck below cannot use one.
+    image: postgrest/postgrest:v16.5
     container_name: weaveforge-postgrest
     restart: unless-stopped
     depends_on:
@@ -89,6 +88,11 @@ services:
       PGRST_JWT_SECRET_IS_BASE64: "false"
       PGRST_DB_USE_LEGACY_GUCS: "true"
       PGRST_SERVER_PORT: 3000
+      # Admin server (/live, /ready) for the healthcheck. Loopback only:
+      # `postgrest --ready` refuses a wildcard host, and nothing outside the
+      # container needs it.
+      PGRST_ADMIN_SERVER_HOST: 127.0.0.1
+      PGRST_ADMIN_SERVER_PORT: 3001
       # Browsers send an Origin; without this every request is a CORS failure.
       PGRST_SERVER_CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
       #
@@ -110,22 +114,15 @@ services:
     ports:
       - "3000:3000"
     healthcheck:
-      # A real request through the connection pool, not just a TCP connect.
+      # PostgREST's own probe of the admin /ready endpoint (database reachable,
+      # schema cache loaded). The image has no shell, so it must be CMD form.
       #
-      # On 2026-10-22 the pool wedged: the listener stayed up, so a TCP check
-      # kept reporting "healthy" while every request answered 504 with PGRST003
-      # ("Timed out acquiring connection from connection pool") for two hours.
-      # `GET /` (the OpenAPI root) queries the database, so it fails exactly
-      # when the API does. The image has no curl or wget, hence bash /dev/tcp.
-      #
-      # Docker only *marks* a container unhealthy; it does not restart it.
-      # `api-watch.sh` on the host does the restart.
-      test:
-        - CMD-SHELL
-        - >-
-          bash -c 'exec 3<>/dev/tcp/127.0.0.1/3000
-          && printf "GET / HTTP/1.0\r\nHost: localhost\r\n\r\n" >&3
-          && read -t 8 -r status <&3 && [[ $$status == *" 200 "* ]]'
+      # This alone may miss a wedged pool. On 2026-10-22 the listener stayed up
+      # while every request answered 504 with PGRST003 ("Timed out acquiring
+      # connection from connection pool") for two hours. So `api-watch.sh` on
+      # the host also sends a real `GET /` through the pool and restarts
+      # PostgREST when that fails; Docker itself never restarts on unhealthy.
+      test: ["CMD", "postgrest", "--ready"]
       interval: 30s
       timeout: 10s
       retries: 3
