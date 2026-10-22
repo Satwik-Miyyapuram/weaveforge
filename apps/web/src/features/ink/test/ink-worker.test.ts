@@ -301,3 +301,31 @@ test("pointInPolygon follows the even-odd rule", () => {
   assert.equal(pointInPolygon(15, 5, square), false);
   assert.equal(pointInPolygon(5, -1, square), false);
 });
+test("live stroke simplifies dense staircases so live curves match commit curves", () => {
+  fresh();
+  const count = 30;
+  const samples = new Float32Array(count * INK_SAMPLE_STRIDE);
+  for (let i = 0; i < count; i += 1) {
+    samples[i * INK_SAMPLE_STRIDE] = i * 2;
+    samples[i * INK_SAMPLE_STRIDE + 1] = Math.round(i * 1.5);
+    samples[i * INK_SAMPLE_STRIDE + 2] = 0.5;
+    samples[i * INK_SAMPLE_STRIDE + 3] = i;
+  }
+  send({
+    type: "stroke-begin",
+    header: header(),
+    sample: { buffer: samples.subarray(0, 4), count: 1 },
+  });
+  send({
+    type: "samples",
+    header: header(),
+    sample: { buffer: samples.subarray(4), count: count - 1 },
+  });
+  send({
+    type: "stroke-end",
+    header: header(),
+    sample: { buffer: new Float32Array(0), count: 0 },
+  });
+  const committed = last("stroke-committed");
+  assert.ok(committed.points.length / 2 < count, "committed stroke eliminated staircases");
+});

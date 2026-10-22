@@ -191,23 +191,34 @@ function pressureByte(pressure: number): number {
   return Math.max(0, Math.min(255, Math.round(pressure * 255)));
 }
 
-/** The live stroke as the renderer takes it: typed arrays, real count included. */
+/** The live stroke as the renderer takes it: typed arrays, packed to eliminate staircase noise and match commit curves. */
 function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
-  const count = stroke.points.length / 2;
+  const rawPoints = stroke.points;
+  const rawPressures = stroke.pressures;
+  const packed =
+    rawPoints.length >= 4
+      ? packInkStroke(rawPoints, rawPressures, { tolerance: INK_PACK_TOLERANCE })
+      : null;
+  const points = packed && packed.points.length >= 2 ? packed.points : rawPoints;
+  const pressures =
+    packed && packed.pressures.length >= points.length / 2
+      ? packed.pressures
+      : rawPressures;
+  const count = points.length / 2;
   const x = new Float32Array(count);
   const y = new Float32Array(count);
   const pressure = new Uint8Array(count);
   for (let i = 0; i < count; i += 1) {
-    x[i] = stroke.points[i * 2]!;
-    y[i] = stroke.points[i * 2 + 1]!;
-    pressure[i] = stroke.pressures[i]!;
+    x[i] = points[i * 2]!;
+    y[i] = points[i * 2 + 1]!;
+    pressure[i] = pressures[i] ?? 128;
   }
   return {
     header: stroke.header,
     x,
     y,
     pressure,
-    realCount: stroke.realSamples,
+    realCount: count,
   };
 }
 
