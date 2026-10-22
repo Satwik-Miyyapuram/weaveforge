@@ -7,7 +7,18 @@ const PAPER = process.env.PERF_PAPER ?? "e7b08520-e2e6-4dfc-b903-bc431b14c858";
 const OUT = process.argv[2] ?? ".";
 mkdirSync(OUT, { recursive: true });
 const NOTE_TITLE = process.env.PERF_NOTE ?? "Perf dense ink";
-const NAV = ["/dashboard/", "/workspace/", "/papers/", "/notes/", "/graph/", "/lists/", "/experiments/", "/git/"];
+const NAV = [
+  "/dashboard/",
+  "/workspace/",
+  "/papers/",
+  "/notes/",
+  "/graph/",
+  "/lists/",
+  "/experiments/",
+  "/git/",
+  "/plan/",
+  "/report/",
+];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const out = { at: new Date().toISOString(), phases: {} };
 
@@ -70,6 +81,14 @@ out.idle = await mem("idle dashboard");
 // Tab switches: trusted clicks on the sidebar, two rounds.
 {
   const t0 = await run(OBSERVE);
+  // Open Plan and Report sidebar groups so their links join the nav phase.
+  for (const label of ["Plan", "Report"]) {
+    await run(`(() => {
+      const btn = [...document.querySelectorAll(".nav-group-label")].find((b) => b.textContent.includes("${label}"));
+      if (btn && btn.getAttribute("aria-expanded") !== "true") btn.click();
+    })()`);
+    await sleep(300);
+  }
   for (let round = 0; round < 2; round++)
     for (const href of NAV.slice(1).concat(NAV[0])) {
       await click(`document.querySelector('a[href="${href}"]')`);
@@ -112,6 +131,25 @@ out.idle = await mem("idle dashboard");
   await shot(`${OUT}/baseline-ink.png`);
 }
 
+// Ink mode: click "Ink", then flip pages.
+{
+  const t0 = await run(OBSERVE);
+  await click(`[...document.querySelectorAll("[aria-label='Document mode'] button")].find((b) => b.textContent.trim() === "Ink")`);
+  await sleep(4000);
+  out.inkModeOpen = await mem("ink mode open");
+  for (let i = 0; i < 5; i++) {
+    await click(`document.querySelector("button[aria-label='Next page']")`);
+    await sleep(1000);
+  }
+  for (let i = 0; i < 3; i++) {
+    await click(`document.querySelector("button[aria-label='Previous page']")`);
+    await sleep(1000);
+  }
+  out.phases.inkMode = await collect(t0);
+  out.inkModeEnd = await mem("ink mode after page flips");
+  await shot(`${OUT}/baseline-ink-mode.png`);
+}
+
 const pct = (a, p) => a[Math.min(a.length - 1, Math.floor((p / 100) * a.length))];
 const stats = (xs) => { const a = [...xs].sort((x, y) => x - y); const r = (v) => +v.toFixed(1);
   return { n: a.length, p50: r(pct(a, 50)), p95: r(pct(a, 95)), max: r(a.at(-1)), sum: r(a.reduce((s, x) => s + x, 0)) }; };
@@ -130,5 +168,5 @@ for (const [ph, d] of Object.entries(out.phases)) {
 }
 out.navEach = out.phases.nav.measures.filter((m) => m.name.startsWith("nav:")).map((m) => `${m.name} ${m.dur.toFixed(1)}`);
 writeFileSync(`${OUT}/baseline.json`, JSON.stringify(out, null, 1));
-console.log(JSON.stringify({ summary: out.summary, navEach: out.navEach, mem: [out.idle, out.afterNav, out.pdfOpen, out.pdfEnd, out.inkOpen, out.inkEnd] }, null, 1));
+console.log(JSON.stringify({ summary: out.summary, navEach: out.navEach, mem: [out.idle, out.afterNav, out.pdfOpen, out.pdfEnd, out.inkOpen, out.inkEnd, out.inkModeOpen, out.inkModeEnd] }, null, 1));
 close();

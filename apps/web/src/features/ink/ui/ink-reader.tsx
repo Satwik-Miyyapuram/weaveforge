@@ -110,6 +110,10 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
   });
 
   // Collect and load figures across all pages.
+  const pageFiguresList = useMemo(
+    () => textPages.map((pageText) => inkPageFigures(pageText)),
+    [textPages],
+  );
   const allFigures = useMemo(
     () => textPages.flatMap((pageText) => inkPageFigures(pageText)),
     [textPages],
@@ -256,7 +260,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
           style={{ flex: 1, minHeight: 0 }}
         >
           {Array.from({ length: pageCount }, (_, index) => {
-            const pageFigures = inkPageFigures(textPages[index] ?? "");
+            const pageFigures = pageFiguresList[index];
             return (
               <InkPageStatic
                 key={`read-page-${index}`}

@@ -39,15 +39,20 @@ export function useLiveSheetInk({
     });
     return out;
   }, [liveInk, selection]);
-  // Painted: the canvas can let go of what the sheet now draws.
+  // Two frames on, the sheet has painted; letting go sooner blanks the stroke.
   useEffect(() => {
     if (!liveInk) return;
     const last = liveInk.ids[liveInk.ids.length - 1];
-    sendRef.current?.({
-      type: "ink-shown",
-      pageIndex: liveInk.pageIndex,
-      count: last === undefined ? 0 : last + 1,
+    const send = () =>
+      sendRef.current?.({
+        type: "ink-shown",
+        pageIndex: liveInk.pageIndex,
+        count: last === undefined ? 0 : last + 1,
+      });
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(send);
     });
+    return () => cancelAnimationFrame(frame);
   }, [liveInk, sendRef]);
   return { strokes, hidden };
 }

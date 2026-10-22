@@ -80,6 +80,7 @@ import { useAnnotationContext } from "./use-annotation-context";
 import { useDarkPdf } from "./use-dark-pdf";
 import { useAnnotationActions } from "./use-annotation-actions";
 import { usePdfRendering } from "./use-pdf-rendering";
+import { usePdfPageWindow } from "./use-pdf-page-window";
 import { usePagePointer } from "./use-page-pointer";
 import { usePdfPictures } from "./use-pdf-pictures";
 import { usePenTextSelect } from "./use-pen-text-select";
@@ -319,6 +320,7 @@ export function PdfReader({
     pageGeometries,
     suppressPageScroll,
     renderPage,
+    evictPage,
     clearHighlights,
   } = usePdfRendering({
     url,
@@ -1006,7 +1008,7 @@ export function PdfReader({
 
   const unpaintedPageSize = (size: ReaderPageSize, at: number, turn: number) => {
     const { width, height } = pageRenderSize(size, at, turn);
-    return { minWidth: `${width}px`, minHeight: `${height}px` };
+    return { width: `${width}px`, height: `${height}px`, minWidth: `${width}px`, minHeight: `${height}px` };
   };
 
   const onFigureTarget = useCallback((target: FigureTarget) => {
@@ -1113,39 +1115,32 @@ export function PdfReader({
     [pdf, locus, scale, rotation, containerRef],
   );
 
-  useEffect(() => {
-    if (!pdf || numPages === 0) return;
-    const root = containerRef.current;
-    if (!root) return;
-    const ratios = new Map<number, number>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const n = Number((entry.target as HTMLElement).dataset.page);
-          if (!n) continue;
-          if (entry.isIntersecting) void renderPage(n);
-          ratios.set(n, entry.intersectionRatio);
+  const onVisibleChange = useCallback(
+    (ratios: ReadonlyMap<number, number>) => {
+      let bestPage = 0;
+      let bestRatio = 0;
+      for (const [n, ratio] of ratios) {
+        if (ratio > bestRatio) {
+          bestRatio = ratio;
+          bestPage = n;
         }
-        let bestPage = 0;
-        let bestRatio = 0;
-        for (const [n, ratio] of ratios) {
-          if (ratio > bestRatio) {
-            bestRatio = ratio;
-            bestPage = n;
-          }
-        }
-        if (bestPage > 0 && bestRatio >= 0.35 && bestPage !== viewport.page) {
-          suppressPageScroll.current = true;
-          viewport.setPage(bestPage);
-        }
-      },
-      { root, rootMargin: "600px 0px", threshold: [0, 0.25, 0.35, 0.5, 0.75, 1] },
-    );
-    root.querySelectorAll("[data-page]").forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-    // viewport.page / setPage intentionally used inside; omit viewport object
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pdf, numPages, renderPage, viewport.page, viewport.setPage]);
+      }
+      if (bestPage > 0 && bestRatio >= 0.35 && bestPage !== viewport.page) {
+        suppressPageScroll.current = true;
+        viewport.setPage(bestPage);
+      }
+    },
+    [viewport, suppressPageScroll],
+  );
+
+  usePdfPageWindow({
+    rootRef: containerRef,
+    pdf,
+    numPages,
+    renderPage,
+    evictPage,
+    onVisibleChange,
+  });
 
   // Scroll when the toolbar / keyboard changes the current page.
   useEffect(() => {

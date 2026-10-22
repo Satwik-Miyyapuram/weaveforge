@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { decodeInkChunk, pageFromChunk, type InkStroke } from "@weaveforge/core";
+import {
+  decodeInkChunkBody,
+  inflateInkChunk,
+  pageFromChunk,
+  type InkStroke,
+} from "@weaveforge/core";
 import { perfEnd, perfEndAfterPaint, perfStart } from "@/lib/perf-marks";
 import { availableInkChunkCodec } from "../application/ink-chunk-codec";
 import type { InkStoredPage } from "../application/ink-chunk-store";
@@ -15,6 +20,14 @@ export interface UseDecodedStrokesOptions {
    * its saved chunk: a page just left keeps what was written on it.
    */
   live?: { pageIndex: number; strokes: readonly InkStroke[] } | null;
+}
+
+// Module-level stroke cache shared across Read and Ink modes.
+const decoded = new WeakMap<Uint8Array, readonly InkStroke[]>();
+
+/** How many strokes a chunk decoded to here, 0 if it has not been. */
+export function decodedStrokeCount(chunk: Uint8Array | null): number {
+  return chunk ? (decoded.get(chunk)?.length ?? 0) : 0;
 }
 
 /**
@@ -31,45 +44,88 @@ export function useDecodedStrokes({
   const [strokesMap, setStrokesMap] = useState<ReadonlyMap<number, readonly InkStroke[]>>(
     new Map(),
   );
-  // Keyed by the bytes themselves: a rewritten chunk is a new array, and two
-  // saves of the same length are not the same page.
-  const cacheRef = useRef(new WeakMap<Uint8Array, readonly InkStroke[]>());
+  const liveRef = useRef(live);
+  liveRef.current = live;
 
   // Decode chunks when `pages` changes.
   useEffect(() => {
     if (!pages) return;
+
+    const allCached = pages.every(
+      (entry) => !entry.chunk || decoded.has(entry.chunk),
+    );
+    if (allCached) {
+      // Merge, so the live page's unsaved strokes survive.
+      setStrokesMap((prev) => {
+        const next = new Map(prev);
+        const current = liveRef.current;
+        pages.forEach((entry, index) => {
+          if (current?.pageIndex === index) {
+            next.set(index, current.strokes);
+            return;
+          }
+          next.set(index, entry.chunk ? (decoded.get(entry.chunk) ?? []) : []);
+        });
+        return next;
+      });
+      return;
+    }
+
     let cancelled = false;
     const codec = availableInkChunkCodec();
     const noteStart = perfStart();
 
-    void Promise.all(
-      pages.map(async (entry, index) => {
-        if (!entry.chunk) return { index, strokes: [] as readonly InkStroke[] };
-        const cached = cacheRef.current.get(entry.chunk);
-        if (cached) return { index, strokes: cached };
-        try {
-          const start = perfStart();
-          const decoded = await decodeInkChunk(entry.chunk, codec);
-          const page = pageFromChunk(decoded);
-          const strokes = page.strokes ?? [];
-          perfEnd("ink:decode", start, entry.chunk.byteLength);
-          cacheRef.current.set(entry.chunk, strokes);
-          return { index, strokes };
-        } catch {
-          return { index, strokes: [] as readonly InkStroke[] };
+    void (async () => {
+      const results: { index: number; strokes: readonly InkStroke[] }[] = [];
+      for (let index = 0; index < pages.length; index++) {
+        if (cancelled) return;
+        const entry = pages[index]!;
+        if (!entry.chunk) {
+          results.push({ index, strokes: [] as readonly InkStroke[] });
+        } else {
+          const cached = decoded.get(entry.chunk);
+          if (cached) {
+            results.push({ index, strokes: cached });
+          } else {
+            try {
+              const inflateStart = perfStart();
+              const { flags, body } = await inflateInkChunk(entry.chunk, codec);
+              perfEnd("ink:inflate", inflateStart, entry.chunk.byteLength);
+
+              const parseStart = perfStart();
+              const view = decodeInkChunkBody(body);
+              const page = pageFromChunk({ ...view, flags });
+              const strokes = page.strokes ?? [];
+              perfEnd("ink:parse", parseStart, strokes.length);
+
+              decoded.set(entry.chunk, strokes);
+              results.push({ index, strokes });
+            } catch {
+              results.push({ index, strokes: [] as readonly InkStroke[] });
+            }
+          }
         }
-      }),
-    ).then((results) => {
+        if (cancelled) return;
+        if (index === 2 && pages.length > 3) {
+          setStrokesMap((prev) => {
+            const next = new Map(prev);
+            for (const { index: itemIndex, strokes } of results) {
+              next.set(itemIndex, strokes);
+            }
+            return next;
+          });
+        }
+      }
       if (cancelled) return;
       perfEndAfterPaint("ink:note-paint", noteStart, results.length);
       setStrokesMap((prev) => {
         const next = new Map(prev);
-        for (const { index, strokes } of results) {
-          next.set(index, strokes);
+        for (const { index: itemIndex, strokes } of results) {
+          next.set(itemIndex, strokes);
         }
         return next;
       });
-    });
+    })();
 
     return () => {
       cancelled = true;

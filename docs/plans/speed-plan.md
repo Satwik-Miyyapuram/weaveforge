@@ -166,7 +166,6 @@ Targets are checked with `baseline.mjs` in Dev.
   - `ink:parse` covers `pageFromChunk`.
 - To get clean numbers, decode one page at a time in a test run (or measure the
   synchronous parts only).
-- Add a `ink:page-paint` measure (from the plan) for the first visible page.
 - Extend `baseline.mjs`:
   - Open the Plan/Report sidebar groups so their routes join the nav phase.
   - Add an Ink-mode phase: click "Ink", then flip pages.
@@ -200,6 +199,7 @@ This is likely the biggest win; the baseline points here first.
     chunks.
   - Consider decoding in the ink worker (`ink-page-logic.ts:103` already
     decodes there).
+- Add ink:page-paint, first visible page decoded to painted, once band-first decode exists.
 - **Targets:**
   - No LoAF over 50 ms when the note opens.
   - First visible page painted in under 100 ms.
@@ -302,4 +302,10 @@ Add one row per step: step, commit, and the key metrics before and after.
 
 | Step | Commit | Change in numbers |
 | --- | --- | --- |
-| 0 | (uncommitted) | Baseline above |
+| 0 | 11e37355 | Baseline above |
+| 1 | c7d9d74e | Decode is cheap. On the 50-page note, `ink:inflate` totals 15.6 ms and `ink:parse` 82.9 ms (p95 2.6 ms per page), but `ink:note-paint` is 2039 ms and the open has a 1827 ms blocking LoAF, so rendering 25k SVG paths is the cost. Ink mode is worst: page-flip INP has p50 1528 ms and max 3128 ms, LoAF p50 2645 ms, and all 50 pages re-inflate on entering it (n=52). Plan and Report nav are 68–88 ms. |
+| 2 | 2b05b755 | Ink drawn to one canvas per page, only near the viewport; decode cache shared across modes. Read mode: `ink:note-paint` 2039 → 142 ms, `ink:page-paint` p50 23 ms (max 32), worst LoAF 1927 → 150 ms, DOM 25.7k → 624 nodes, SVG paths 25k → 22, JS heap 88 → 57 MB. Ink mode: flip INP p50 1528 → 72 ms, max 3128 → 128 ms; LoAF p50 2645 → 83 ms; DOM 26.3k → 1.25k; heap 120 → 61 MB; private 1578 → 1102 MB. Screenshots match step 1. Flips still exceed 50 ms LoAF (60 of 60): next steps. |
+| 3 | a08c9e80 | PDF pages render only within one viewport and are freed beyond 3 pages; first paint goes straight to the page canvas; text layer, link measuring, outline and search index wait for idle. 40-page scroll: canvas memory 123.9 → 15.5 MB, DOM 19.7k → 4.0k nodes, `pdf:page-render` p95 580 → 211 ms (max 1919 → 349), `pdf:text-layer` p95 800 → 135 ms, worst LoAF 1809 → 288 ms, working set growth +360 → +229 MB, scroll 10.2 → 7.4 s. Missed: 5 LoAFs over 100 ms (render and layout, no script), page-render p95 over 150 ms, working set over +100 MB. Next suspects: `measureLinkTextRanges` getBoundingClientRect (384 ms), MiniSearch tokenize in `indexPdf` (223 ms). |
+| 3b | f297a7c4 | URL tokenizer splits on whitespace before its regex (same tokens), PDF index added in 4-page slices between idle yields (same index), `contain: strict` on the text layer and link-measure shell, page proxies cleaned up on evict, link queue freed as measured. 40-page scroll vs step 3: worst LoAF 288 → 190 ms, LoAFs over 50 ms 25 → 19 and over 100 ms 5 → 4, `pdf:text-layer` p95 135 → 112 ms, `pdf:index` 111 ms in slices (was one 360 ms task), `pdf:measure-links` 28 pages, max 68 ms. JS heap at end 43.9 → 38.5 MB, working set growth +229 → +212 MB. Quality: 493 links on 40 pages and every text span identical to the rect at 0.01 px with containment off, last-page screenshot identical, search finds PDF text by page. Missed: page-render p95 still 209 ms, 4 LoAFs over 100 ms (scroll: layout and accessibility updates, not script), working set over +100 MB. |
+| 4 | 35210aae | View transition resolves on the first route mutation (no 16 ms polling); 32-entry mermaid render cache; PGlite `shared_buffers` 32 MB (07795f95); static ink canvases single-buffered via `bitmaprenderer` and freed when off screen (8d2880b8). Baseline on Dev: nav p50 75 ms, p95 265 ms (18 of 20 navs under 115 ms; outliers /workspace/→/papers/ 265, /plan/→/report/ 225, /report/→/dashboard/ 212); nav event p95 184 ms; ink-mode flip INP p95 128 ms. Memory: idle private 472 MB, peak private 1042 MB (ink note scrolled). Tried `--disable-gpu-compositing` (GPU process ~550 → ~80 MB, peak private 1042 → 779 MB) but nav p95 265 → 823 ms, `pdf:page-render` p95 267 → 1960 ms, ink note paint 135 → 303 ms: rejected. Missed: nav p95 under 100 ms, nav LoAF max under 100 ms (max 702 ms, no script: layout/paint), interaction p95 under 50 ms. The GPU process (~330 MB ANGLE/D3D11 driver memory) is the floor that keeps peak above 500 MB. |
+| 5.1 | (this commit) | Electron 33.4.11 → 44.9.0 (Chromium 152), no code change. Two Dev baselines vs step 4: nav p50 75 → 65 ms, p95 265 → 221 / 153 ms; nav INP p95 184 → 104 ms; `pdf:text-layer` p95 620 → 73 / 38 ms; PDF worst LoAF 654 → 185 ms (no `Worker.onmessage` block); ink-mode flip INP p95 128 → 88 ms in run 1. Memory: idle private 472 → 507 / 471 MB, peak private 1042 → 1101 / 864 MB (run-to-run noise ±60 MB); per-process idle: GPU 236, browser 298, renderer 154 MB. Run 2 had one ink-mode `ink:note-paint` of 6.1 s with no LoAF over 98 ms (async wait, not main-thread work); run 1 was 175 ms; rechecked in the final baseline. |

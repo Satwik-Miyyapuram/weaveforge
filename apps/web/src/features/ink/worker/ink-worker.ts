@@ -32,6 +32,7 @@
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
+  INK_PACK_TOLERANCE,
   packInkStroke,
   type InkChunkCodec,
   type InkShape,
@@ -190,28 +191,36 @@ function pressureByte(pressure: number): number {
   return Math.max(0, Math.min(255, Math.round(pressure * 255)));
 }
 
-/** The live stroke as the renderer takes it: typed arrays, real count included. */
+/** The live stroke as the renderer takes it: typed arrays, packed to eliminate staircase noise and match commit curves. */
 function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
-  const count = stroke.points.length / 2;
+  const rawPoints = stroke.points;
+  const rawPressures = stroke.pressures;
+  const packed =
+    rawPoints.length >= 4
+      ? packInkStroke(rawPoints, rawPressures, { tolerance: INK_PACK_TOLERANCE })
+      : null;
+  const points = packed && packed.points.length >= 2 ? packed.points : rawPoints;
+  const pressures =
+    packed && packed.pressures.length >= points.length / 2
+      ? packed.pressures
+      : rawPressures;
+  const count = points.length / 2;
   const x = new Float32Array(count);
   const y = new Float32Array(count);
   const pressure = new Uint8Array(count);
   for (let i = 0; i < count; i += 1) {
-    x[i] = stroke.points[i * 2]!;
-    y[i] = stroke.points[i * 2 + 1]!;
-    pressure[i] = stroke.pressures[i]!;
+    x[i] = points[i * 2]!;
+    y[i] = points[i * 2 + 1]!;
+    pressure[i] = pressures[i] ?? 128;
   }
   return {
     header: stroke.header,
     x,
     y,
     pressure,
-    realCount: stroke.realSamples,
+    realCount: count,
   };
 }
-
-/** RDP tolerance on commit, in 0.1 mm: drops only collinear samples. */
-const INK_COMMIT_TOLERANCE = 0.25;
 
 /** Pack the finished stroke into the page, and tell the main thread what was kept. */
 function commitStroke(stroke: LiveStroke): void {
@@ -230,9 +239,14 @@ function commitStroke(stroke: LiveStroke): void {
       shape = snapped.shape;
     }
   }
+  // A single tap: preserve as a 2-point dot segment [x, y, x, y] so dots on 'i' or periods are not discarded
+  if (raw.length === 2) {
+    raw = [raw[0]!, raw[1]!, raw[0]!, raw[1]!];
+    rawPressures = [rawPressures[0] ?? 128, rawPressures[0] ?? 128];
+  }
   // No refit on lift and a sub-pixel pack tolerance: the saved stroke is the
   // one the pen drew, not a smoothed redraw of it.
-  const packed = packInkStroke(raw, rawPressures, { tolerance: INK_COMMIT_TOLERANCE });
+  const packed = packInkStroke(raw, rawPressures, { tolerance: INK_PACK_TOLERANCE });
   if (packed.points.length < 4) return; // a dot or a slip of the pen: nothing to keep
   const index = state.buffer.append({
     points: packed.points,

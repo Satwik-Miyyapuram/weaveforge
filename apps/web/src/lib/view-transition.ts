@@ -52,19 +52,42 @@ export function canTransition(): boolean {
 function routeSettled(before: string): Promise<void> {
   return new Promise((resolve) => {
     let mutated = false;
-    const observer = new MutationObserver(() => { mutated = true; });
-    observer.observe(document.body, { childList: true, subtree: true });
-    const started = performance.now();
-    // Timers, not frames: the browser pauses rendering inside the update, so rAF waited out its 4s timeout.
-    const tick = () => {
-      if ((location.href !== before && mutated) || performance.now() - started > SETTLE_TIMEOUT_MS) {
-        observer.disconnect();
-        resolve();
-        return;
-      }
-      setTimeout(tick, 16);
+    let settled = false;
+    let checkTimer: ReturnType<typeof setTimeout> | null = null;
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      observer.disconnect();
+      if (fallbackTimer !== null) clearTimeout(fallbackTimer);
+      if (checkTimer !== null) clearTimeout(checkTimer);
+      resolve();
     };
-    setTimeout(tick, 0);
+
+    // Timers, not frames: the browser pauses rendering inside the update.
+    fallbackTimer = setTimeout(done, SETTLE_TIMEOUT_MS);
+
+    const check = () => {
+      checkTimer = null;
+      if (settled) return;
+      if (mutated && location.href !== before) {
+        done();
+      } else {
+        checkTimer = setTimeout(check, 0);
+      }
+    };
+
+    const observer = new MutationObserver(() => {
+      mutated = true;
+      if (location.href !== before) {
+        done();
+      } else if (checkTimer === null) {
+        checkTimer = setTimeout(check, 0);
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
   });
 }
 

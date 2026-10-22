@@ -18,6 +18,8 @@
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
+  INK_PACK_TOLERANCE,
+  simplifyInkPath,
   type FigureGeometry,
   type InkColour,
   type InkPage,
@@ -84,8 +86,9 @@ function num(value: number): string {
  * (`ui/ink-strokes.tsx`), which is the point.
  */
 export function strokePath(stroke: { points: readonly number[] }): string | null {
-  const points = stroke.points;
-  if (points.length < 2) return null;
+  const raw = stroke.points;
+  if (raw.length < 2) return null;
+  const points = raw.length > 4 ? simplifyInkPath(raw, INK_PACK_TOLERANCE) : raw;
   const first = `M${num(points[0]!)} ${num(points[1]!)}`;
   // A single point is a dot, and a round cap draws it — hence the zero-length
   // line rather than an empty path.

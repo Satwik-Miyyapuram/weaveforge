@@ -15,6 +15,7 @@ import { CHANNELS } from "./channels";
 import type { IpcSurface } from "./ipc-guard";
 import type { LocalClient } from "./local-db";
 import { LocalDbBackups, readBackup } from "./local-db-backup";
+import { engineStartParams } from "./local-db-engine-params";
 import { LocalDbHost } from "./local-db-host";
 import { databaseDirFor, relocateDatabaseOnce, StrandedDatabaseError } from "./local-db-location";
 import { prepareDataDir } from "./local-db-prepare";
@@ -83,7 +84,10 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
   async function verifyDatabase(dir: string): Promise<boolean> {
     prepareDataDir(dir);
     const { PGlite } = await import("@electric-sql/pglite");
-    const client = (await PGlite.create({ dataDir: dir })) as unknown as LocalClient;
+    const client = (await PGlite.create({
+      dataDir: dir,
+      startParams: engineStartParams(PGlite.defaultStartParams),
+    })) as unknown as LocalClient;
     try {
       await client.query("select 1");
       return true;
@@ -113,7 +117,10 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       dump: async (dir) => {
         prepareDataDir(dir);
         const { PGlite } = await import("@electric-sql/pglite");
-        const client = (await PGlite.create({ dataDir: dir })) as unknown as LocalClient & {
+        const client = (await PGlite.create({
+          dataDir: dir,
+          startParams: engineStartParams(PGlite.defaultStartParams),
+        })) as unknown as LocalClient & {
           dumpDataDir?: (c: "gzip") => Promise<Blob>;
         };
         if (typeof client.dumpDataDir !== "function") {
@@ -128,6 +135,7 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
         const client = (await PGlite.create({
           dataDir: targetDir,
           loadDataDir: bytes as Blob,
+          startParams: engineStartParams(PGlite.defaultStartParams),
         })) as unknown as LocalClient;
         await client.close();
       },
@@ -174,6 +182,7 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
         [types.TIMESTAMPTZ]: (x) => new Date(x).toISOString(),
       },
       ...(loadDataDir ? { loadDataDir } : {}),
+      startParams: engineStartParams(PGlite.defaultStartParams),
     })) as unknown as LocalClient;
   }
   

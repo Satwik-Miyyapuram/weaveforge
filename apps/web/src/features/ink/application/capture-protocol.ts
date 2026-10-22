@@ -100,6 +100,8 @@ export type InkWorkerMessage =
       pageIndex: number;
       /** One compressed chunk, exactly as the sidecar holds it. */
       chunk: Uint8Array | null;
+      /** Strokes the sheet's static ink already draws; the canvas skips them. */
+      shown?: number;
     }
   /** Erase along a swept segment, in page units. */
   | {

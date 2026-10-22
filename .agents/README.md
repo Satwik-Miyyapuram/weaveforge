@@ -40,6 +40,13 @@ PostgREST at `api.weaveforge.org`). Supabase is used for **sign-in only**; see
   followed by `notify pgrst, 'reload schema';`. Pass SQL on stdin; inline quoting
   through ssh and sh breaks.
 
+## Systematic Commits
+
+Every time you finish a task, systematically commit your verified changes to a
+branch before addressing the next user request. Only commit changes made by you
+for your specific task; never commit unrelated working tree modifications or
+untracked files. Never accumulate uncommitted task changes across turns.
+
 ## Testing
 
 Prove every change before reporting it. Read [testing.md](testing.md) before

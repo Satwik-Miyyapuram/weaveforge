@@ -24,11 +24,10 @@
  * scroller's scrollHeight comes from the slots alone.
  */
 
-import { useLayoutEffect, useRef, type CSSProperties } from "react";
+import { useLayoutEffect, useMemo, useRef, type CSSProperties } from "react";
 import type { InkStroke } from "@weaveforge/core";
 import { inkPageFigures } from "@weaveforge/core";
 import type { InkPalette } from "../render/ink-palette";
-import { InkGhostPage } from "./ink-ghost-page";
 import { InkPageStatic } from "./ink-page-static";
 import { pureInkPageText } from "./ink-sheet-underlay";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
@@ -136,6 +135,28 @@ export function InkRail(props: InkRailProps) {
     layer.style.height = `${scrollHeight}px`;
   }, [pageIndex, scrollRef, total, pageSize.width, pageSize.height, scale, pageGap]);
 
+  const pureTextList = useMemo(
+    () =>
+      Array.from({ length: total }, (_, index) => {
+        const pageText = textPages?.[index] ?? "";
+        return flowedText
+          ? (flowedText[index] ?? "")
+          : pageText
+            ? pureInkPageText(pageText)
+            : "";
+      }),
+    [total, textPages, flowedText],
+  );
+
+  const pageFiguresList = useMemo(
+    () =>
+      Array.from({ length: total }, (_, index) => {
+        const pageText = textPages?.[index];
+        return pageText ? inkPageFigures(pageText) : undefined;
+      }),
+    [total, textPages],
+  );
+
   return (
     <div className="ink-rail-container">
       <div
@@ -143,62 +164,23 @@ export function InkRail(props: InkRailProps) {
         ref={scrollRef}
         style={{ ["--ink-page-gap" as string]: `${pageGap}px` } as CSSProperties}
       >
-        {/* The fixed slots: every page in order. The current page's slot renders
-            as static ink beneath the layer, so during a flip's repaint there is
-            never a blank where the page is about to be.
-
-            The window is the reader's own: the pages that are on screen stay
-            exactly as they are — a flip from page 3 to page 4 re-renders slots 3
-            and 4 with the *same* props, so React keeps their DOM — while the slot
-            that fell out of the window (2) drops to a placeholder and the one
-            that entered (5) is loaded. `hasContent` keeps a written page drawn
-            even when it has scrolled out of the ±1 window, so the ink never
-            vanishes under the reader's eye mid-scroll. */}
-        {Array.from({ length: total }, (_, index) => {
-          const distance = Math.abs(index - pageIndex);
-          const pageStrokes = strokesMap?.get(index);
-          const pageText = textPages?.[index] ?? "";
-          const pureText = flowedText
-            ? (flowedText[index] ?? "")
-            : pageText
-              ? pureInkPageText(pageText)
-              : "";
-          const pageFigures = pageText ? inkPageFigures(pageText) : undefined;
-          const hasContent =
-            (pageStrokes !== undefined && pageStrokes.length > 0) ||
-            pureText.length > 0 ||
-            (pageFigures !== undefined && pageFigures.length > 0);
-
-          if (distance <= 1 || hasContent) {
-            return (
-              <InkPageStatic
-                key={`page-${index}`}
-                index={index}
-                pageSize={pageSize}
-                scale={scale}
-                paper={pages?.[index]?.paper ?? paper}
-                backgroundUrl={ghosts.get(index) ?? null}
-                figures={pageFigures}
-                figureUrls={figureUrls}
-                pureText={pureText}
-                resolveImageSrc={resolveImageSrc}
-                strokes={pageStrokes}
-                palette={palette}
-              />
-            );
-          }
-
-          return (
-            <InkGhostPage
-              key={`page-${index}`}
-              index={index}
-              pageSize={pageSize}
-              scale={scale}
-              paper={pages?.[index]?.paper ?? paper}
-              backgroundUrl={ghosts.get(index) ?? null}
-            />
-          );
-        })}
+        {/* Fixed slots for every page: ink is drawn only near the viewport. */}
+        {Array.from({ length: total }, (_, index) => (
+          <InkPageStatic
+            key={`page-${index}`}
+            index={index}
+            pageSize={pageSize}
+            scale={scale}
+            paper={pages?.[index]?.paper ?? paper}
+            backgroundUrl={ghosts.get(index) ?? null}
+            figures={pageFiguresList[index]}
+            figureUrls={figureUrls}
+            pureText={pureTextList[index]}
+            resolveImageSrc={resolveImageSrc}
+            strokes={strokesMap?.get(index)}
+            palette={palette}
+          />
+        ))}
         {/* The live layer: rendered once, moved per flip, never remounted. Its
             child is the host's `InkPage` — the canvas, the underlay, the
             figures, the overlay — exactly as the page component lays it out. */}

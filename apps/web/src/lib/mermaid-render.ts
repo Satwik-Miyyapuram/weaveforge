@@ -6,10 +6,32 @@
  */
 import type { ColorMode } from "@/lib/shiki-render";
 
-type MermaidModule = typeof import("mermaid")["default"];
+export type MermaidModule = typeof import("mermaid")["default"];
 
+const MAX_CACHE_ENTRIES = 32;
+// Bounded LRU cache of rendered diagram markup so route transitions do not re-run layout.
+const renderCache = new Map<string, string>();
+
+let customLoader: (() => Promise<MermaidModule>) | null = null;
 let mermaidPromise: Promise<MermaidModule> | null = null;
 let initialisedMode: ColorMode | null = null;
+
+/** @internal for tests */
+export function setMermaidLoaderForTests(load: (() => Promise<MermaidModule>) | null): void {
+  customLoader = load;
+  mermaidPromise = null;
+  initialisedMode = null;
+}
+
+/** @internal for tests */
+export function mermaidCacheSize(): number {
+  return renderCache.size;
+}
+
+/** @internal for tests */
+export function clearMermaidCache(): void {
+  renderCache.clear();
+}
 
 /**
  * An id for a diagram from its source, so the same fence renders to the same
@@ -40,7 +62,7 @@ export function quoteAwkwardLabels(code: string): string {
 
 function getMermaid(mode: ColorMode): Promise<MermaidModule> {
   if (!mermaidPromise) {
-    mermaidPromise = import("mermaid").then((m) => m.default);
+    mermaidPromise = customLoader ? customLoader() : import("mermaid").then((m) => m.default);
   }
   return mermaidPromise.then((mermaid) => {
     if (initialisedMode !== mode) {
@@ -75,11 +97,26 @@ export async function renderMermaidBlock(code: string, mode: ColorMode): Promise
   if (typeof document === "undefined") {
     return `<pre class="md-code md-mermaid-source" data-lang="mermaid"><code>${escapeHtml(code)}</code></pre>`;
   }
+  const source = quoteAwkwardLabels(code.trim());
+  const cacheKey = `${mode}\n${source}`;
+  const hit = renderCache.get(cacheKey);
+  if (hit !== undefined) {
+    renderCache.delete(cacheKey);
+    renderCache.set(cacheKey, hit);
+    return hit;
+  }
   try {
     const mermaid = await getMermaid(mode);
-    const source = quoteAwkwardLabels(code.trim());
     const { svg } = await mermaid.render(diagramId(source), source);
-    return `<div class="md-mermaid">${svg}</div>`;
+    const html = `<div class="md-mermaid">${svg}</div>`;
+    if (document.fonts?.status === "loaded") {
+      renderCache.set(cacheKey, html);
+      if (renderCache.size > MAX_CACHE_ENTRIES) {
+        const oldest = renderCache.keys().next().value;
+        if (oldest !== undefined) renderCache.delete(oldest);
+      }
+    }
+    return html;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     // The message is shown, not tucked into a tooltip: a diagram that comes

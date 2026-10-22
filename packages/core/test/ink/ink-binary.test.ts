@@ -25,6 +25,7 @@ import {
   encodeInkChunkBody,
   fitsInkNoteBudget,
   identityInkChunkCodec,
+  inflateInkChunk,
   inkChunkBodySize,
   readInkChunkHeader,
   type InkChunkCodec,
@@ -498,4 +499,33 @@ test("a stroke whose points exceed the format's u16 length is refused, not clipp
     lines: [],
   };
   assert.throws(() => encodeInkChunkBody(page), /over the u16 length/);
+});
+
+test("inflateInkChunk yields the body decodeInkChunk parses, compressed or raw", async () => {
+  const compressed = await encodeInkChunk(densePage("smooth"), brotliQ5);
+  assert.equal(readInkChunkHeader(compressed).compressed, true);
+  const raw = await encodeInkChunk(smallPage(), identityInkChunkCodec);
+  assert.equal(readInkChunkHeader(raw).compressed, false);
+
+  for (const [chunk, codec] of [
+    [compressed, brotliQ5],
+    [raw, identityInkChunkCodec],
+  ] as const) {
+    const { flags, body } = await inflateInkChunk(chunk, codec);
+    assert.equal(body.length, readInkChunkHeader(chunk).bodySize);
+    assert.equal(flags, readInkChunkHeader(chunk).flags);
+    const whole = await decodeInkChunk(chunk, codec);
+    const parsed = decodeInkChunkBody(body);
+    assert.equal(parsed.strokeCount, whole.strokeCount);
+    assert.equal(parsed.pointCount, whole.pointCount);
+  }
+});
+
+test("inflateInkChunk rejects a body whose size disagrees with the header", async () => {
+  const compressed = await encodeInkChunk(densePage("smooth"), brotliQ5);
+  const short: InkChunkCodec = {
+    ...brotliQ5,
+    decompress: async (b) => (await brotliQ5.decompress(b)).subarray(1),
+  };
+  await assert.rejects(inflateInkChunk(compressed, short), InkChunkError);
 });

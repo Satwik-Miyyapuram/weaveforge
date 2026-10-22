@@ -21,6 +21,7 @@ import {
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
 import type { InkStoredPage } from "../application/ink-chunk-store";
+import { decodedStrokeCount } from "./use-decoded-strokes";
 import type { FigureGeometry } from "@weaveforge/core";
 import type { InkPage } from "@weaveforge/core";
 
@@ -145,7 +146,12 @@ export function useInkPageLifecycle(deps: InkPageLifecycleDeps) {
   useEffect(() => {
     const current = pagesRef.current?.[pageIndex];
     if (!current) return;
-    send({ type: "load-page", pageIndex, chunk: current.chunk });
+    send({
+      type: "load-page",
+      pageIndex,
+      chunk: current.chunk,
+      shown: decodedStrokeCount(current.chunk),
+    });
     setStrokes(0);
     setSelection([]);
     recognitionReset();
