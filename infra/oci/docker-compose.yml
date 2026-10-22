@@ -59,7 +59,9 @@ services:
   postgrest:
     # Pinned: `latest` would jump major versions on any pull. Bump on purpose
     # after reading the changelog's "Migration to vN" section.
-    image: postgrest/postgrest:v16.5
+    # Not v16 yet: its arm64 image has no shell, which breaks the healthcheck
+    # below (tried 2026-10-22; the watchdog then restarted it every ~2 min).
+    image: postgrest/postgrest:v14.18
     container_name: weaveforge-postgrest
     restart: unless-stopped
     depends_on:
