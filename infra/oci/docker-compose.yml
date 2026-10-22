@@ -57,7 +57,10 @@ services:
   # browser repositories. Auth stays with Supabase; PGRST_JWT_SECRET is the same
   # secret Supabase signs its tokens with, so the tokens it issues validate here.
   postgrest:
-    image: postgrest/postgrest:latest
+    # Pinned: `latest` would jump major versions on any pull. Bump on purpose
+    # after reading the changelog's "Migration to vN" section.
+    # The v16 image has no shell, so the healthcheck below cannot use one.
+    image: postgrest/postgrest:v16.5
     container_name: weaveforge-postgrest
     restart: unless-stopped
     depends_on:
@@ -85,6 +88,11 @@ services:
       PGRST_JWT_SECRET_IS_BASE64: "false"
       PGRST_DB_USE_LEGACY_GUCS: "true"
       PGRST_SERVER_PORT: 3000
+      # Admin server (/live, /ready) for the healthcheck. Loopback only:
+      # `postgrest --ready` refuses a wildcard host, and nothing outside the
+      # container needs it.
+      PGRST_ADMIN_SERVER_HOST: 127.0.0.1
+      PGRST_ADMIN_SERVER_PORT: 3001
       # Browsers send an Origin; without this every request is a CORS failure.
       PGRST_SERVER_CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
       #
@@ -106,15 +114,19 @@ services:
     ports:
       - "3000:3000"
     healthcheck:
-      # A TCP connect, because this image ships no HTTP client at all — no
-      # curl, no wget, not even busybox. The previous check shelled out to wget
-      # and so reported the container unhealthy for its whole life while it
-      # served every request correctly. `bash` is present, and its /dev/tcp
-      # redirection is enough to prove the listener is accepting connections.
-      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/3000'"]
+      # PostgREST's own probe of the admin /ready endpoint (database reachable,
+      # schema cache loaded). The image has no shell, so it must be CMD form.
+      #
+      # This alone may miss a wedged pool. On 2026-10-22 the listener stayed up
+      # while every request answered 504 with PGRST003 ("Timed out acquiring
+      # connection from connection pool") for two hours. So `api-watch.sh` on
+      # the host also sends a real `GET /` through the pool and restarts
+      # PostgREST when that fails; Docker itself never restarts on unhealthy.
+      test: ["CMD", "postgrest", "--ready"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 20s
 
   # Broadcast relay for co-editing and cache invalidation.
   #
