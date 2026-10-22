@@ -1,5 +1,5 @@
-import { type PaperMetadata, type PaperRef, type PaperIdentity } from "@weaveforge/core";
-import type { IPaperIdentityLookup, ParsedReference } from "@weaveforge/core";
+import { titleKey, type PaperMetadata, type PaperRef, type PaperIdentity } from "@weaveforge/core";
+import type { IPaperIdentityLookup, IPaperRepository, ParsedReference } from "@weaveforge/core";
 
 /**
  * What the panel shows when a cited paper is already in the library.
@@ -22,7 +22,8 @@ export interface ReferenceLookupCache {
 }
 
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const CACHE_SCHEMA = 4;
+// 5: misses are no longer stored; the bump drops the ones v4 kept.
+const CACHE_SCHEMA = 5;
 
 function cacheKey(documentKey: string, refIndex: number): string {
   return `v${CACHE_SCHEMA}:${documentKey}:ref:${refIndex}`;
@@ -46,7 +47,7 @@ export class ReferenceLookupService {
   constructor(
     private readonly resolver: { resolveWithSource(ref: PaperRef): Promise<{ metadata: PaperMetadata; sourceId: string }> },
     /** The identity of a paper the library already has; see `IPaperIdentityLookup`. */
-    private readonly papers: IPaperIdentityLookup,
+    private readonly papers: IPaperIdentityLookup & Pick<IPaperRepository, "listSummaries">,
     private readonly cache?: ReferenceLookupCache,
     private readonly now: () => number = () => Date.now(),
   ) {}
@@ -68,7 +69,9 @@ export class ReferenceLookupService {
       }
       const value = await this.lookup(ref);
       this.memory.set(key, { at: this.now(), value });
-      void this.cache?.set(key, value);
+      // Only a hit is kept across sessions: a miss may be a dropped
+      // connection, or an entry a later parser reads better.
+      if (value.status === "resolved") void this.cache?.set(key, value);
       return value;
     })();
   }
@@ -103,10 +106,20 @@ export class ReferenceLookupService {
   }
 
   private async findInLibrary(metadata: PaperMetadata): Promise<PaperIdentity | undefined> {
-    return (metadata.doi
-      ? await this.papers.findIdentityByDoi(metadata.doi)
-      : metadata.arxivId
-        ? await this.papers.findIdentityByArxivId(metadata.arxivId)
-        : null) ?? undefined;
+    if (metadata.doi) return (await this.papers.findIdentityByDoi(metadata.doi)) ?? undefined;
+    if (metadata.arxivId) return (await this.papers.findIdentityByArxivId(metadata.arxivId)) ?? undefined;
+    return this.findByTitle(metadata.title);
+  }
+
+  /**
+   * The add step's rule for a paper with no id: the same long title is the
+   * same paper. Matching it here too is what lets the popover say "In library"
+   * for a paper the add step would answer with "Already in library".
+   */
+  private async findByTitle(title: string): Promise<PaperIdentity | undefined> {
+    const key = titleKey(title);
+    if (!key) return undefined;
+    const match = (await this.papers.listSummaries()).find((p) => titleKey(p.title) === key);
+    return match ? { id: match.id, title: match.title, status: match.status } : undefined;
   }
 }

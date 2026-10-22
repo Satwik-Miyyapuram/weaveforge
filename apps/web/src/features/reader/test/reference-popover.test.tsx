@@ -71,6 +71,9 @@ test("one outside link: the DOI when known, else the Semantic Scholar record, el
   assert.deepEqual(links(withDoi), ["https://doi.org/10.1%2Fx"]);
   const s2 = "https://www.semanticscholar.org/paper/abc";
   assert.deepEqual(links(renderPopover({ resolution: { ...resolved, metadata: { ...resolved.metadata, url: s2 } } })), [s2]);
+  // Only the host counts: a URL that merely mentions the site is not its record.
+  const spoof = "https://evil.example/?semanticscholar.org";
+  assert.match(links(renderPopover({ resolution: { ...resolved, metadata: { ...resolved.metadata, url: spoof } } }))[0]!, /scholar\.google\.com/);
   const fallback = links(renderPopover());
   assert.equal(fallback.length, 1);
   assert.match(fallback[0]!, /scholar\.google\.com\/scholar\?q=/);

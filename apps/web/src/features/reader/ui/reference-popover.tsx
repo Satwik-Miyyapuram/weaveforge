@@ -70,6 +70,15 @@ export function ReferencePopover(props: ReferencePopoverProps) {
  */
 function outsideLink(title: string, doi?: string, url?: string): { label: string; href: string } {
   if (doi) return { label: "Publisher ↗", href: `https://doi.org/${encodeURIComponent(doi)}` };
-  if (url?.includes("semanticscholar.org")) return { label: "Semantic Scholar ↗", href: url };
+  if (url && isSemanticScholar(url)) return { label: "Semantic Scholar ↗", href: url };
   return { label: "Search Scholar ↗", href: `https://scholar.google.com/scholar?q=${encodeURIComponent(title)}` };
+}
+
+function isSemanticScholar(url: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(url);
+    return protocol === "https:" && (hostname === "semanticscholar.org" || hostname.endsWith(".semanticscholar.org"));
+  } catch {
+    return false;
+  }
 }
