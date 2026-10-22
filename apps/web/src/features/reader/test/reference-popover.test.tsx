@@ -36,7 +36,6 @@ function renderPopover(overrides: Partial<ReferencePopoverProps> = {}): string {
         entry,
         resolution: resolved,
         onClose: noop,
-        onReadLater: noop,
         onAddToLibrary: noop,
         onOpenInReader: noop,
         onLinkPapers: noop,
@@ -54,15 +53,27 @@ function renderPopover(overrides: Partial<ReferencePopoverProps> = {}): string {
   return text;
 }
 
-test("State A: resolved but not in library offers Read later, add to library, and cite", () => {
+test("State A: resolved but not in library offers one add action and copying the citation", () => {
   const text = renderPopover();
   assert.match(text, /Attention is all you need/);
-  assert.match(text, /Read later/);
   assert.match(text, /Add to library/);
-  assert.match(text, /Cite/);
+  assert.match(text, /Copy citation/);
+  // "Read later" was the same add with another status; one button is enough.
+  assert.doesNotMatch(text, /Read later/);
   // Library-only affordances must not appear before the paper is in the library.
   assert.doesNotMatch(text, /In library/);
   assert.doesNotMatch(text, /Open in reader/);
+});
+
+test("one outside link: the DOI when known, else the Semantic Scholar record, else a Scholar search", () => {
+  const links = (text: string) => text.match(/https?:\/\/[^"]+/g) ?? [];
+  const withDoi = renderPopover({ resolution: { ...resolved, metadata: { ...resolved.metadata, doi: "10.1/x" } } });
+  assert.deepEqual(links(withDoi), ["https://doi.org/10.1%2Fx"]);
+  const s2 = "https://www.semanticscholar.org/paper/abc";
+  assert.deepEqual(links(renderPopover({ resolution: { ...resolved, metadata: { ...resolved.metadata, url: s2 } } })), [s2]);
+  const fallback = links(renderPopover());
+  assert.equal(fallback.length, 1);
+  assert.match(fallback[0]!, /scholar\.google\.com\/scholar\?q=/);
 });
 
 test("State B: in-library papers expose open and link actions instead of add actions", () => {
@@ -79,7 +90,7 @@ test("State B: an existing cites relation hides Link papers", () => {
   const paper = { id: "p1", status: "reading" } as Paper;
   const text = renderPopover({ resolution: { ...resolved, inLibrary: paper }, alreadyLinked: true });
   assert.doesNotMatch(text, /Link papers/);
-  assert.match(text, /Cite/);
+  assert.match(text, /Copy citation/);
 });
 
 test("State C: unresolved entries offer Scholar and manual add, never an empty popover", () => {
@@ -87,7 +98,7 @@ test("State C: unresolved entries offer Scholar and manual add, never an empty p
   assert.match(text, /No match found/);
   assert.match(text, /scholar\.google\.com\/scholar\?q=/);
   assert.match(text, /Add manually/);
-  assert.match(text, /Jump to entry/);
+  assert.match(text, /Go to reference/);
 });
 
 test("Pending: the document's own entry shows at once while the lookup runs", () => {
@@ -95,5 +106,5 @@ test("Pending: the document's own entry shows at once while the lookup runs", ()
   assert.match(text, /pdf-reader-ref-skeleton/);
   assert.match(text, /Attention is all you need/);
   assert.match(text, /scholar\.google\.com\/scholar\?q=/);
-  assert.match(text, /Jump to entry/);
+  assert.match(text, /Go to reference/);
 });

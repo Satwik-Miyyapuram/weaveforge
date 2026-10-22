@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { PopoverLayer } from "../reference-popover-layer";
 import { ReferencePopover } from "../reference-popover";
+import { noticeFor } from "../../application/reference-notice";
 import type { useReaderReferences } from "./use-reader-references";
 
 interface ReferencePopoverHostProps {
@@ -16,7 +17,7 @@ interface ReferencePopoverHostProps {
  * presentational popover stays free of container access.
  */
 export function ReferencePopoverHost({ refs, onOpenInReader }: ReferencePopoverHostProps) {
-  const { open, close, resolutions, actions, linked, notice, index } = refs;
+  const { open, close, ensureResolved, resolutions, actions, linked, notice, index } = refs;
   // A range like `[2–4]` is one printed mention citing several entries; the
   // popover shows one at a time and lets the reader switch between them.
   const [chosen, setChosen] = useState<number | null>(null);
@@ -27,6 +28,8 @@ export function ReferencePopoverHost({ refs, onOpenInReader }: ReferencePopoverH
   const entry = (chosen != null && cited.find((e) => e.index === chosen)) || open.entry;
   const resolution = resolutions.get(entry.index) ?? { status: "pending" as const };
   const paper = resolution.status === "resolved" ? resolution.inLibrary : undefined;
+  const metadata = resolution.status === "resolved" ? resolution.metadata : undefined;
+  const status = noticeFor(notice, entry.index);
   return (
     <PopoverLayer anchorKey={hit.key} anchor={anchor} onRequestClose={close}>
       {cited.length > 1 && (
@@ -38,7 +41,7 @@ export function ReferencePopoverHost({ refs, onOpenInReader }: ReferencePopoverH
               role="tab"
               aria-selected={e.index === entry.index}
               className={`pdf-reader-ref-action${e.index === entry.index ? " is-active" : ""}`}
-              onClick={() => setChosen(e.index)}
+              onClick={() => { setChosen(e.index); ensureResolved(e); }}
             >
               {e.label ?? `[${e.index}]`}
             </button>
@@ -49,17 +52,16 @@ export function ReferencePopoverHost({ refs, onOpenInReader }: ReferencePopoverH
         entry={entry}
         resolution={resolution}
         onClose={close}
-        onReadLater={() => void actions.readLater(entry)}
-        onAddToLibrary={() => void actions.addToLibrary(entry)}
+        onAddToLibrary={() => void actions.addToLibrary(entry, metadata)}
         onOpenInReader={paper ? () => onOpenInReader(paper.id) : undefined}
-        onLinkPapers={paper ? () => void actions.linkPapers(paper.id) : undefined}
+        onLinkPapers={paper ? () => void actions.linkPapers(entry, paper.id) : undefined}
         onCite={() => void actions.cite(resolution, entry)}
         onAddManually={() => void actions.addManually(entry)}
         onJumpToEntry={() => actions.jumpToEntry(entry)}
         alreadyLinked={paper ? linked.has(paper.id) : false}
         confidence={open.confidence}
       />
-      {notice && <p role="status" className="pdf-reader-ref-skeleton">{notice}</p>}
+      {status && <p role="status" className="pdf-reader-ref-skeleton">{status}</p>}
     </PopoverLayer>
   );
 }
