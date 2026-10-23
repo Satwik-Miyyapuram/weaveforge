@@ -143,3 +143,36 @@ export class SecretStore {
     }
   }
 }
+
+/**
+ * What the page may do with each secret over IPC. The shell itself reads and
+ * writes all of them through `SecretStore`; the page gets only its own.
+ *
+ * - `local-api-token` holds the hashes the local API checks bearer tokens
+ *   against. A page that could read it learns them; one that could write it
+ *   mints its own access. Only `main-local-api.ts` touches it.
+ * - `overleaf-token` is typed into the link form, so the page writes (and may
+ *   forget) it, but only the clone on this side ever reads it back.
+ */
+const PAGE_READABLE: readonly SecretName[] = ["ai-provider"];
+const PAGE_WRITABLE: readonly SecretName[] = ["ai-provider", "overleaf-token"];
+
+function pageMay(list: readonly SecretName[], name: unknown): boolean {
+  return isSecretName(name) && list.includes(name);
+}
+
+/** The keychain as the page sees it: the store, behind the lists above. */
+export function pageSecrets(store: Pick<SecretStore, "read" | "write" | "clear">) {
+  return {
+    read: (name: unknown): Promise<IpcResult<string | null>> =>
+      pageMay(PAGE_READABLE, name) ? store.read(name) : refused(),
+    write: (name: unknown, value: unknown): Promise<IpcResult<null>> =>
+      pageMay(PAGE_WRITABLE, name) ? store.write(name, value) : refused(),
+    clear: (name: unknown): Promise<IpcResult<null>> =>
+      pageMay(PAGE_WRITABLE, name) ? store.clear(name) : refused(),
+  };
+}
+
+async function refused(): Promise<{ ok: false; message: string }> {
+  return { ok: false, message: UNKNOWN_NAME };
+}
