@@ -215,13 +215,16 @@ export function parseBibliographyEntry(
   }
 
   // 2. Early year (APA / Harvard): "Surname, A. (2019). Title."
-  const earlyYearMatch = text.match(/^([^\d]{3,120}?)[\s,]*[\(\[]?((?:19|20)\d\d)([a-z]?)[\)\]]?[.:]\s+(.+)$/);
+  // A bracketed year is APA's own mark, so it is trusted after a long author
+  // list too (ten authors run well past 120 characters); a bare year is not.
+  const earlyYearMatch = text.match(/^([^\d]{3,120}?)[\s,]*[\(\[]?((?:19|20)\d\d)([a-z]?)[\)\]]?[.:]\s+(.+)$/) ??
+    text.match(/^([^\d]{3,600}?)[\s,]*[\(\[]((?:19|20)\d\d)([a-z]?)[\)\]][.:]\s+(.+)$/);
   if (earlyYearMatch) {
     authors = extractAuthors(earlyYearMatch[1]!);
     year = Number(earlyYearMatch[2]);
     yearSuffix = earlyYearMatch[3] || undefined;
     const afterYear = earlyYearMatch[4]!;
-    title = afterYear.split(/\.\s+(?=[A-Z0-9"“]|In\s|in\s)|\.\s*$/)[0];
+    title = afterYear.split(/\.\s+(?=[A-Z0-9"“]|In\s|in\s)|(?<=\?)\s+(?=[A-Z]|In\s|in\s)|\.\s*$/)[0];
     venue = extractVenue(afterYear.slice(title?.length ?? 0));
     return { ...base, authors, year, yearSuffix, title: cleanTitle(title), venue };
   }
@@ -256,7 +259,7 @@ export function parseBibliographyEntry(
     title = preVenue;
   }
 
-  if (title) title = title.split(/\.\s+(?=[A-Z]|In\s|in\s)|\.\s*$/)[0];
+  if (title) title = title.split(/\.\s+(?=[A-Z]|In\s|in\s)|(?<=\?)\s+(?=[A-Z]|In\s|in\s)|\.\s*$/)[0];
   venue = extractVenue(text.slice((title ? text.indexOf(title) + title.length : 0)));
   const last = yearMatches[yearMatches.length - 1];
 

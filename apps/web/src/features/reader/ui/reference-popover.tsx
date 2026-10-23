@@ -7,7 +7,6 @@ export interface ReferencePopoverProps {
   entry: ParsedReference;
   resolution: ResolvedReference;
   onClose: () => void;
-  onReadLater?: () => void;
   onAddToLibrary?: () => void;
   onOpenInReader?: () => void;
   onLinkPapers?: () => void;
@@ -28,11 +27,7 @@ export function ReferencePopover(props: ReferencePopoverProps) {
   const { entry, resolution, onClose } = props;
   const metadata = resolution.status === "resolved" ? resolution.metadata : undefined;
   const paper = resolution.status === "resolved" ? resolution.inLibrary : undefined;
-  const query = encodeURIComponent(metadata?.title ?? entry.title ?? entry.raw);
-  const scholar = `https://scholar.google.com/scholar?q=${query}`;
-  const semanticScholar = `https://www.semanticscholar.org/search?q=${query}`;
-  // A resolved S2 record carries its own paper page; fall back to a search.
-  const s2Link = metadata?.url?.includes("semanticscholar.org") ? metadata.url : semanticScholar;
+  const outside = outsideLink(metadata?.title ?? entry.title ?? entry.raw, metadata?.doi, metadata?.url);
   const title = metadata?.title ?? entry.title;
   const meta = [metadata?.authors ?? entry.authors, metadata?.year ?? entry.year, metadata?.venue ?? entry.venue]
     .map((part) => (Array.isArray(part) ? part.join(", ") : part))
@@ -41,9 +36,6 @@ export function ReferencePopover(props: ReferencePopoverProps) {
   const lowConfidence = props.confidence != null && props.confidence < 0.7;
   const action = (label: string, onClick?: () => void) =>
     onClick ? <button type="button" className="pdf-reader-ref-action" onClick={onClick}>{label}</button> : null;
-  const link = (label: string, href: string) => (
-    <a className="pdf-reader-ref-action" href={href} target="_blank" rel="noopener noreferrer">{label}</a>
-  );
   return (
     <section className="pdf-reader-ref-body" aria-label="Reference details" aria-busy={resolution.status === "pending"}>
       <button type="button" className="pdf-reader-ref-close" aria-label="Close reference details" onClick={onClose}>×</button>
@@ -62,14 +54,31 @@ export function ReferencePopover(props: ReferencePopoverProps) {
       <div className="pdf-reader-ref-actions">
         {resolution.status === "resolved" && (paper
           ? <>{action("Open in reader", props.onOpenInReader)}{!props.alreadyLinked && action("Link papers", props.onLinkPapers)}</>
-          : <>{action("Read later", props.onReadLater)}{action("Add to library", props.onAddToLibrary)}</>)}
-        {resolution.status === "resolved" && action("Cite", props.onCite)}
+          : action("Add to library", props.onAddToLibrary))}
+        {resolution.status === "resolved" && action("Copy citation", props.onCite)}
         {resolution.status === "unresolved" && action("Add manually", props.onAddManually)}
-        {action("Jump to entry", props.onJumpToEntry)}
-        {link("Semantic Scholar ↗", s2Link)}
-        {link("Scholar ↗", scholar)}
-        {metadata?.doi && link("DOI ↗", `https://doi.org/${encodeURIComponent(metadata.doi)}`)}
+        {action("Go to reference", props.onJumpToEntry)}
+        <a className="pdf-reader-ref-action" href={outside.href} target="_blank" rel="noopener noreferrer">{outside.label}</a>
       </div>
     </section>
   );
+}
+
+/**
+ * The one place outside the app worth opening: the paper itself by DOI, else
+ * its Semantic Scholar record, else a Google Scholar search for the title.
+ */
+function outsideLink(title: string, doi?: string, url?: string): { label: string; href: string } {
+  if (doi) return { label: "Publisher ↗", href: `https://doi.org/${encodeURIComponent(doi)}` };
+  if (url && isSemanticScholar(url)) return { label: "Semantic Scholar ↗", href: url };
+  return { label: "Search Scholar ↗", href: `https://scholar.google.com/scholar?q=${encodeURIComponent(title)}` };
+}
+
+function isSemanticScholar(url: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(url);
+    return protocol === "https:" && (hostname === "semanticscholar.org" || hostname.endsWith(".semanticscholar.org"));
+  } catch {
+    return false;
+  }
 }

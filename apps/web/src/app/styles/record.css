@@ -286,6 +286,19 @@ a.record-page-frame:hover { border-color: var(--border-strong); }
   text-align: center;
   color: var(--faint);
 }
+/* A saved web page has no first page to draw: its title and site stand in. */
+.record-page-card {
+  display: grid;
+  align-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+  text-align: left;
+  color: var(--text);
+}
+.record-page-card-title { font-size: 1rem; line-height: 1.35; overflow-wrap: anywhere; }
+.record-page-card .record-mono { color: var(--faint); }
 .record-page figcaption { margin-top: 10px; overflow-wrap: anywhere; }
 
 .record-facts { display: grid; gap: 9px; margin: 0; }

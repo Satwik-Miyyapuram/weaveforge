@@ -86,3 +86,22 @@ test("addManual never title-matches a paper that brings its own id, or a short t
   await uc.addManual({ title: "Notes" });
   assert.equal((await repo.list()).length, 4);
 });
+
+test("add says whether it created the paper or found it already there", async () => {
+  const repo = new InMemoryPaperRepository();
+  const uc = new AddPaperUseCase({ repository: repo, clock, ids: seqIds() });
+  const first = await uc.add({ title: "VAE", arxivId: "1312.6114" });
+  const again = await uc.add({ title: "VAE", arxivId: "1312.6114" });
+  assert.equal(first.created, true);
+  assert.equal(again.created, false);
+  assert.equal(again.paper.id, first.paper.id);
+});
+
+test("importRef reports an import that matched a paper the library already had", async () => {
+  const repo = new InMemoryPaperRepository();
+  const add = new AddPaperUseCase({ repository: repo, clock, ids: seqIds() });
+  const importer = new ImportPaperUseCase(new MetadataResolver([new FakeArxivSource()]), add);
+  const first = await importer.importRef({ kind: "arxiv", value: "1406.2661" });
+  const again = await importer.importRef({ kind: "arxiv", value: "1406.2661" });
+  assert.deepEqual([first.created, again.created], [true, false]);
+});

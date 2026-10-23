@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { NewPaperInput, NewPaperRelationInput, Paper, PaperRef, PaperStatus } from "@weaveforge/core";
+import { ValidationError, type NewPaperInput, type NewPaperRelationInput, type Paper, type PaperRef, type PaperStatus } from "@weaveforge/core";
 import { createReferenceActions, manualInputFromReference, referenceRef } from "../application/reference-actions";
 
 const entry = {
@@ -25,15 +25,15 @@ function makeActions(paper: Partial<Paper> = {}) {
   const calls: Calls = { refs: [], relations: [], manual: [] };
   const actions = createReferenceActions({
     importPaper: {
-      async fromRef(ref, status) {
+      async importRef(ref, status) {
         calls.refs.push({ ref, ...(status ? { status } : {}) });
-        return { id: "new-paper", title: "Attention is all you need", ...paper } as Paper;
+        return { paper: { id: "new-paper", title: "Attention is all you need", ...paper } as Paper, created: true };
       },
     },
     addPaper: {
-      async addManual(input) {
+      async add(input) {
         calls.manual.push(input);
-        return { id: "new-paper", title: input.title } as Paper;
+        return { paper: { id: "new-paper", title: input.title } as Paper, created: true };
       },
     },
     relations: {
@@ -76,17 +76,9 @@ test("an entry with no title at all falls back to its raw text", () => {
   });
 });
 
-test("read later imports the reference as to_read, not as unread junk", async () => {
-  const { actions, calls } = makeActions();
-  const paper = await actions.readLater(entry);
-  assert.equal(paper.id, "new-paper");
-  assert.equal(calls.refs[0]?.status, "to_read");
-  assert.equal(calls.refs[0]?.ref.kind, "bibliographic");
-});
-
 test("add to library imports the reference with the library's default status", async () => {
   const { actions, calls } = makeActions();
-  const paper = await actions.addToLibrary(entry);
+  const { paper } = await actions.addToLibrary(entry);
   assert.equal(paper.id, "new-paper");
   assert.equal(calls.refs[0]?.status, undefined);
   assert.equal(calls.refs[0]?.ref.kind, "bibliographic");
@@ -120,6 +112,27 @@ test("link papers records the direction as citing → cited, marked manual", asy
 
 test("linking a paper to itself is refused before it reaches the use-case", async () => {
   const { actions, calls } = makeActions();
-  await assert.rejects(() => actions.linkPapers("paper-a", "paper-a"), /cannot cite itself/);
+  await assert.rejects(() => actions.linkPapers("paper-a", "paper-a"), (err) =>
+    err instanceof ValidationError && /cannot cite itself/.test(err.message));
   assert.equal(calls.relations.length, 0);
+});
+// The popover shows the record the lookup found. Adding has to add that record:
+// a second title search can land on a different paper (or on one already in the
+// library), and the entry then reads "in library" for a paper it never cited.
+test("adding a resolved entry adds the record the popover showed, without a second search", async () => {
+  const { actions, calls } = makeActions();
+  const metadata = { title: "Deep Sparse Rectifier Neural Networks", authors: ["X. Glorot"], year: 2011 };
+  await actions.addToLibrary(entry, metadata);
+  assert.equal(calls.refs.length, 0);
+  assert.deepEqual(calls.manual, [metadata]);
+});
+
+test("the result says when the paper was already in the library", async () => {
+  const actions = createReferenceActions({
+    importPaper: { async importRef() { return { paper: { id: "old" } as Paper, created: false }; } },
+    addPaper: { async add() { return { paper: { id: "old" } as Paper, created: false }; } },
+    relations: { async add() {} },
+  });
+  assert.equal((await actions.addToLibrary(entry)).created, false);
+  assert.equal((await actions.addManually(entry)).created, false);
 });

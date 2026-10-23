@@ -29,21 +29,35 @@ export interface AddPaperDeps {
   ids: IdGenerator;
 }
 
+/**
+ * A paper add and whether it wrote anything. Dedupe hands back the paper the
+ * library already had, and a caller that says "Added" for that one is wrong.
+ */
+export interface AddPaperResult {
+  paper: Paper;
+  created: boolean;
+}
+
 export class AddPaperUseCase {
   constructor(private readonly deps: AddPaperDeps) {}
 
   /** Add a paper from manually entered fields. */
   async addManual(input: NewPaperInput): Promise<Paper> {
+    return (await this.add(input)).paper;
+  }
+
+  /** {@link addManual}, saying whether the paper is new or a duplicate. */
+  async add(input: NewPaperInput): Promise<AddPaperResult> {
     const existing =
       (await this.findDuplicate(input.arxivId, input.doi)) ?? (await this.findByTitle(input));
-    if (existing) return existing;
+    if (existing) return { paper: existing, created: false };
 
     const paper = createPaper(input, {
       clock: this.deps.clock,
       ids: this.deps.ids,
     });
     await this.deps.repository.save(paper);
-    return paper;
+    return { paper, created: true };
   }
 
   private async findDuplicate(
@@ -89,6 +103,11 @@ export class ImportPaperUseCase {
   ) {}
 
   async fromRef(input: PaperRef, status?: PaperStatus): Promise<Paper> {
+    return (await this.importRef(input, status)).paper;
+  }
+
+  /** {@link fromRef}, saying whether the paper is new or a duplicate. */
+  async importRef(input: PaperRef, status?: PaperStatus): Promise<AddPaperResult> {
     // Whatever the picker said, resolve what was actually pasted: an abs page,
     // a PDF link and a bare id are all the same paper.
     const ref = input.kind === "bibliographic" ? input : parsePaperRef(input.kind, input.value);
@@ -96,6 +115,6 @@ export class ImportPaperUseCase {
     // Ensure the originating id is recorded for future dedupe.
     if (ref.kind === "arxiv" && !metadata.arxivId) metadata.arxivId = ref.value;
     if (ref.kind === "doi" && !metadata.doi) metadata.doi = ref.value;
-    return this.addPaper.addManual(status ? { ...metadata, status } : metadata);
+    return this.addPaper.add(status ? { ...metadata, status } : metadata);
   }
 }
