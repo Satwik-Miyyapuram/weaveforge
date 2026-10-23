@@ -13,6 +13,12 @@ import { readIndex } from "../repo-stats.mjs";
  * disagreed with every local regeneration.
  */
 
+// Git hooks export GIT_DIR (and in a linked worktree more), which would point
+// every git call below at the real repository instead of the temp one.
+for (const key of Object.keys(process.env)) {
+  if (key.startsWith("GIT_")) delete process.env[key];
+}
+
 const repo = mkdtempSync(path.join(tmpdir(), "repo-stats-"));
 const git = (...args) => execFileSync("git", args, { cwd: repo, encoding: "utf8" });
 
