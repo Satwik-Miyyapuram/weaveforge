@@ -165,6 +165,18 @@ test("an erase sweep removes what it crosses and undo restores it", () => {
   assert.equal(last("page-state").strokes, 2);
 });
 
+test("the eraser's reach is the radius the page sends, so it stays fixed on screen", () => {
+  fresh();
+  draw(10, 50);
+  draw(10, 90);
+  // Zoomed in, the reach in page units is small: a sweep between the lines misses both.
+  send({ type: "erase", from: { x: 70, y: 70 }, to: { x: 70, y: 70 }, radius: 5 });
+  assert.equal(last("page-state").strokes, 2);
+  // Zoomed out, the same on-screen reach covers both lines.
+  send({ type: "erase", from: { x: 70, y: 70 }, to: { x: 70, y: 70 }, radius: 25 });
+  assert.equal(last("page-state").strokes, 0);
+});
+
 test("a lasso selects strokes mostly inside its loop, and the selection moves and deletes", () => {
   fresh();
   draw(10, 50);

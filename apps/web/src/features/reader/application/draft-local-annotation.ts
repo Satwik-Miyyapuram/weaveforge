@@ -4,6 +4,7 @@ import {
   compactInkPath,
   INK_DEFAULT_WIDTH,
   INK_MAX_PATHS_PER_ANNOTATION,
+  inkPathsHitTest,
   selectionToAnchor,
   type CombinedPdfAnchor,
   type NewReaderAnnotation,
@@ -109,6 +110,30 @@ export function appendInkStroke(
     ...anchor,
     zoteroPosition: { ...position, paths: [...position.paths, compact] },
   };
+}
+
+/**
+ * Rub out the strokes of an ink annotation that pass within `radius` of a point.
+ *
+ * One annotation holds every stroke drawn in one breath (see `appendInkStroke`),
+ * so deleting the annotation on a touch erased a whole word or sentence. The
+ * eraser takes only the strokes it touches.
+ *
+ * Returns the same anchor when nothing was hit, the trimmed anchor when some
+ * strokes remain, and null when the eraser took them all.
+ */
+export function eraseInkPaths(
+  anchor: CombinedPdfAnchor,
+  x: number,
+  y: number,
+  radius: number,
+): CombinedPdfAnchor | null {
+  const position = anchor.zoteroPosition;
+  if (!position?.paths?.length) return anchor;
+  const kept = position.paths.filter((path) => !inkPathsHitTest([path], x, y, radius));
+  if (kept.length === position.paths.length) return anchor;
+  if (kept.length === 0) return null;
+  return { ...anchor, zoteroPosition: { ...position, paths: kept } };
 }
 
 export function draftImageRegion(input: {
