@@ -68,7 +68,7 @@ export async function highlightCodeBlock(
   info: string,
   mode: ColorMode,
 ): Promise<string> {
-  if (isMermaidFence(info)) return renderMermaidBlock(code, mode);
+  if (isMermaidFence(info)) return renderMermaidBlock(code);
   const highlighter = await getHighlighter();
   const lang = await resolveLang(highlighter, info);
   return highlighter.codeToHtml(code.replace(/\n$/, ""), {

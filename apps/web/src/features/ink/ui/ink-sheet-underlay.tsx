@@ -119,8 +119,7 @@ export function InkSheetTextUnderlay({
   useEffect(() => {
     const root = ref.current;
     if (!root || !root.querySelector('pre[data-lang="mermaid"]')) return;
-    const mode = document.documentElement.dataset.mode === "dark" ? "dark" : "light";
-    void upgradeMermaidFences(root, mode);
+    void upgradeMermaidFences(root);
   }, [html]);
   if (!html) return null;
   return (
