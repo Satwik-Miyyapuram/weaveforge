@@ -326,7 +326,7 @@ button.nav-link {
   /* The account button at the rail's own size, not the phone touch target: a
      44px box under 40px icons read as a different control. The rail only
      exists at desktop widths. */
-  .layout.nav-collapsed .nav-account-row .header-overflow-btn { width: 40px; height: 40px; }
+  .layout.nav-collapsed .nav-account-row .account-btn { width: 40px; height: 40px; }
 }
 
 /* Workspace focus (`⌘⇧F`, editor-workspace.css): the rail goes with the rest

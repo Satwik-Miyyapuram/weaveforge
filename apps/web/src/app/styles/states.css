@@ -315,7 +315,7 @@
 /* Drop-down triggers move like buttons: lift on hover, sink flat on press and while open. */
 :root:root:root :is(.filter-row .filter-select, .status-select) .custom-select-button { transform: none; translate: 0 0; transition: translate var(--wf-t) var(--wf-ease-hover), box-shadow var(--wf-t) var(--wf-ease), background-color var(--wf-t) var(--wf-ease), border-color var(--wf-t) var(--wf-ease); }
 :root:root:root :is(.filter-row .filter-select, .status-select) .custom-select-button:hover:not(:disabled) { translate: 0 var(--wf-lift); box-shadow: var(--wf-sh-up); }
-:root:root:root :is(.filter-row .filter-select, .status-select) .custom-select-button:is(:active, [aria-expanded="true"]):not(:disabled), :root:root:root :is(.btn-primary, .btn-secondary, .btn-ghost, .card-menu-trigger, .header-overflow-btn, .entity-icon-btn).popover-trigger[aria-expanded="true"] { translate: var(--wf-press) var(--wf-press); box-shadow: none; transition-duration: var(--wf-t-press); }
+:root:root:root :is(.filter-row .filter-select, .status-select) .custom-select-button:is(:active, [aria-expanded="true"]):not(:disabled), :root:root:root :is(.btn-primary, .btn-secondary, .btn-ghost, .card-menu-trigger, .header-overflow-btn, .entity-icon-btn, .proj-chip).popover-trigger[aria-expanded="true"] { translate: var(--wf-press) var(--wf-press); box-shadow: none; transition-duration: var(--wf-t-press); }
 :root:root .wf-select::after {
   content: ""; width: 6px; height: 6px; margin-top: -3px; border: solid currentColor; border-width: 0 2px 2px 0;
   rotate: 45deg; transition: rotate var(--wf-t) var(--wf-ease-hover), margin var(--wf-t) var(--wf-ease-hover);

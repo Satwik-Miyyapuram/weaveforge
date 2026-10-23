@@ -35,15 +35,26 @@
   }
   .section-note-layout--editing { grid-template-columns: minmax(0, 1fr); }
 }
+/* The note card and the annotations panel are one row of the same card: same
+   top edge, radius, surface and padding. */
+.section-note-layout > .paper-note-body { margin-top: 0; }
+/* The note card is already the box; the empty prompt inside it is not another. */
+.section-note-layout > .paper-note-body > .record-note-empty {
+  border: 0;
+  padding: 0;
+  min-height: 60px;
+}
 .section-excerpts {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: var(--bg-elevated, var(--bg));
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  background: var(--surface);
   max-height: min(70vh, 640px);
   overflow: auto;
 }
-.section-excerpts-title { margin: 0 0 8px; font-size: 0.95rem; }
+.section-excerpts-title { margin: 0; font-size: 0.95rem; font-weight: 600; cursor: pointer; }
+.section-excerpts[open] > .section-excerpts-title { margin-bottom: 8px; }
+.section-excerpts-empty { margin: 0; font-size: 0.85rem; }
 .section-excerpts-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
 .section-excerpt-row { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
 .section-excerpt-quote { margin: 0; font-size: 0.85rem; line-height: 1.4; overflow-wrap: anywhere; }
