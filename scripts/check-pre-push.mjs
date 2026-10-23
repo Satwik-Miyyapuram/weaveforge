@@ -40,8 +40,7 @@ run("npm run docs:generate", "Regenerating architecture docs");
 const docs = GENERATED_DOCS.join(" ");
 if (execSync(`git status --porcelain -- ${docs}`, { cwd: root, encoding: "utf8" }).trim()) {
   run(`git commit -q -s -m "docs: regenerate generated blocks" -- ${docs}`, "Committing regenerated docs");
-  console.error("
-[pre-push] Docs were out of date and are now committed. Run git push again.");
+  console.error("\n[pre-push] Docs were out of date and are now committed. Run git push again.");
   process.exit(1);
 }
 run("npm run check:docs", "Verifying architecture docs freshness");
