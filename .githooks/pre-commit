@@ -2,6 +2,6 @@
 # Automatically purge rogue desktop.ini files from .git and workspace
 node scripts/clean-desktop-ini.mjs
 
-# Automatically regenerate architecture map and atlas, staging them if modified
-npm run docs:generate
-git add docs/building/architecture-map.md docs/atlas.html
+# Regenerate the generated docs from what is staged, and stage them with the commit
+npm run docs:generate || exit 1
+git add $(node scripts/lib/generated-docs.mjs) || exit 1

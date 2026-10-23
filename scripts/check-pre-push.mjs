@@ -15,6 +15,7 @@ import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { GENERATED_DOCS } from "./lib/generated-docs.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -31,8 +32,17 @@ function run(cmd, desc) {
 // 1. Purge any rogue desktop.ini files
 run("node scripts/clean-desktop-ini.mjs", "Cleaning rogue desktop.ini files");
 
-// 2. Ensure docs are fresh
+// 2. Ensure docs are fresh. The pre-commit hook normally keeps them current;
+// a commit made without it (commit-tree, a merge) is caught here and the
+// regenerated docs are committed. A push cannot pick up a commit made during
+// it, so the push stops and asks to be run again.
 run("npm run docs:generate", "Regenerating architecture docs");
+const docs = GENERATED_DOCS.join(" ");
+if (execSync(`git status --porcelain -- ${docs}`, { cwd: root, encoding: "utf8" }).trim()) {
+  run(`git commit -q -s -m "docs: regenerate generated blocks" -- ${docs}`, "Committing regenerated docs");
+  console.error("\n[pre-push] Docs were out of date and are now committed. Run git push again.");
+  process.exit(1);
+}
 run("npm run check:docs", "Verifying architecture docs freshness");
 
 // 3. DCO check against origin/main (or upstream)
