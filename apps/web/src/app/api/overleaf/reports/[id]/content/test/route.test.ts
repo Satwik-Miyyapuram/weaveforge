@@ -5,7 +5,7 @@ import { GET } from "../route";
 test("GET /api/overleaf/reports/[id]/content: 401 without a token", async () => {
   const res = await GET(
     new Request("http://localhost/api/overleaf/reports/abc/content"),
-    { params: { id: "abc" } },
+    { params: Promise.resolve({ id: "abc" }) },
   );
   assert.equal(res.status, 401);
 });

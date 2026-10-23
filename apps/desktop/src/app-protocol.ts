@@ -61,9 +61,24 @@ export function resolveAppFile(
 
   const candidates = relative.endsWith("/")
     ? [path.join(joined, "index.html")]
-    : [joined, `${joined}.html`, path.join(joined, "index.html")];
+    : [joined, `${joined}.html`, path.join(joined, "index.html"), segmentFile(joined)];
 
-  return candidates.find((file) => isFile(file)) ?? null;
+  return candidates.find((file) => file !== null && isFile(file)) ?? null;
+}
+
+/**
+ * Where the export put a segment prefetch file the client names with dots.
+ *
+ * Next 16 fetches `plan/__next.plan.__PAGE__.txt` but the static export writes
+ * it as `plan/__next.plan/__PAGE__.txt`: every dot after the first segment is a
+ * folder. Without this the fetch 404s and client navigation falls back to a
+ * full page reload.
+ */
+function segmentFile(file: string): string | null {
+  const match = /^__next\.([^.]+)\.(.+)\.txt$/.exec(path.basename(file));
+  const [, first, rest] = match ?? [];
+  if (!first || !rest) return null;
+  return path.join(path.dirname(file), `__next.${first}`, ...rest.split(".")) + ".txt";
 }
 
 /**

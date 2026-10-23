@@ -5,7 +5,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createElement } from "react";
+import { act, createElement } from "react";
 import { create } from "react-test-renderer";
 import type { Paper, ParsedReference } from "@weaveforge/core";
 
@@ -19,9 +19,12 @@ const entry = (index: number): ParsedReference => ({
 });
 
 function pills(resolutions: Map<number, ResolvedReference>): string[] {
-  const tree = create(
-    createElement(ReferencesPanel, { references: [entry(1), entry(2), entry(3)], resolutions, onJumpToMention: () => {} }),
-  );
+  let tree!: ReturnType<typeof create>;
+  act(() => {
+    tree = create(
+      createElement(ReferencesPanel, { references: [entry(1), entry(2), entry(3)], resolutions, onJumpToMention: () => {} }),
+    );
+  });
   return tree.root
     .findAll((node) => node.type === "span" && node.props.className === "pdf-reader-ref-pill")
     .map((node) => String(node.children.join("")));

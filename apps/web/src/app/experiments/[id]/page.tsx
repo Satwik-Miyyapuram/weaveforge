@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { ExperimentDetailScreen } from "@/features/experiments/ui/experiment-detail-screen";
 
-export default function ExperimentDetailPage({ params }: { params: { id: string } }) {
+export default async function ExperimentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   return (
     <Suspense
       fallback={
@@ -11,7 +12,7 @@ export default function ExperimentDetailPage({ params }: { params: { id: string 
         </section>
       }
     >
-      <ExperimentDetailScreen id={params.id} />
+      <ExperimentDetailScreen id={id} />
     </Suspense>
   );
 }

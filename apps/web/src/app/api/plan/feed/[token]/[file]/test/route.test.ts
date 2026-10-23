@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { GET } from "../route";
 
 const call = (token: string, file: string) =>
-  GET(new Request(`http://localhost/api/plan/feed/${token}/${file}`), { params: { token, file } });
+  GET(new Request(`http://localhost/api/plan/feed/${token}/${file}`), { params: Promise.resolve({ token, file }) });
 
 test("a file the feed does not serve is a 404, before the token is looked at", async () => {
   const response = await call("wf_anything", "passwords.txt");

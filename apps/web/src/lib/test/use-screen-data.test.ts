@@ -180,6 +180,7 @@ test("screen data: two overlapping reloads keep the newest answer", async () => 
 
   second.resolve({ label: "newest" });
   await reloaded;
+  await harness.flush();
   assert.equal(harness.current.data?.label, "newest");
 
   // The first request finally answers, after the newer one already landed.

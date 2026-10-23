@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import type { ParsedReference, ReaderAnnotation } from "@weaveforge/core";
 import type { ResolvedReference } from "../application/reference-lookup";
 

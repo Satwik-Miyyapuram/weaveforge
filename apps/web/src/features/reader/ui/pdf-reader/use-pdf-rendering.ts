@@ -58,7 +58,7 @@ export interface PdfRenderingDeps {
 
 export interface PdfRendering {
   /** Scroll host; pages are queried out of it by their `data-page`. */
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
   pdf: PdfDocument | null;
   numPages: number;
   pageSize: ReaderPageSize | null;
