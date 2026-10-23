@@ -36,7 +36,8 @@ import { buildLocusLink, resolvePaperPdfUrl } from "@/features/reader";
 import { reRenderPaperSourceNote } from "../application/paper-source-note-scaffold";
 import { PaperAnnotations } from "./paper-annotations";
 import { PaperFieldsStrip } from "./paper-fields";
-import { PaperFirstPage } from "./paper-first-page";
+import { PaperFirstPage, usePaperPreview } from "./paper-first-page";
+import { previewReaderHref } from "../application/paper-preview";
 import { StatusSelect, statusLabel } from "@/components/status-select";
 import { PaperIdentifiersEditor } from "./paper-identifiers-editor";
 import { RelatedPapersPanel } from "./related-papers-panel";
@@ -124,7 +125,8 @@ export function PaperNote({
   }, [paper.id]);
   const hasSummary = !!paper.summary && paper.summary !== "No summary yet.";
   const canTrackCitations = Boolean(paper.doi || paper.arxivId);
-  const readerHref = useMemo(() => {
+  const preview = usePaperPreview(paper.id);
+  const remoteReaderHref = useMemo(() => {
     const pdfUrl = resolvePaperPdfUrl({
       url: paper.url,
       arxivId: paper.arxivId,
@@ -134,6 +136,8 @@ export function PaperNote({
     });
     return pdfUrl ? buildLocusLink({ paperId: paper.id }) : null;
   }, [paper.id, paper.url, paper.arxivId, paper.pdfPath, paper.metadata]);
+  // A PDF added from disk or a saved web page has no web link, but the reader opens it.
+  const readerHref = previewReaderHref(remoteReaderHref, preview, buildLocusLink({ paperId: paper.id }));
 
   async function changeStatus(status: PaperStatus) {
     setBusy(true);
@@ -335,7 +339,7 @@ export function PaperNote({
           {readerHref && (
             <Link href={readerHref} className="record-action" title="Open in reader">
               <PdfIcon />
-              <span>PDF</span>
+              <span>{!remoteReaderHref && preview.kind === "page" ? "Web page" : "PDF"}</span>
             </Link>
           )}
           {!readOnly && (
@@ -496,7 +500,7 @@ export function PaperNote({
 
         <aside className="record-aside">
           <PaperFirstPage
-            paperId={paper.id}
+            preview={preview}
             readerHref={readerHref}
             caption={`First page${fileName ? ` · ${fileName}` : ""}`}
           />
