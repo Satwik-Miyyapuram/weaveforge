@@ -520,20 +520,18 @@ export function InkHost({
   /** The file the image picker produced: a figure on the page it was picked for. */
   const onImageFile = useCallback((file: File) => void onAddFigure(file), [onAddFigure]);
 
-  const {
-    onLasso,
-    onMoveSelection,
-    onDragSelection,
-    onDeleteSelection,
-    onCopyAsText,
-  } = useInkSelection({
-    send,
-    scheduleSave,
-    selection,
-    setSelection,
-    setSelectionBounds,
-    requestModel,
-  });
+  const { onLasso, onMoveSelection, onDragSelection, onDeleteSelection, onCopyAsText, onCopyStrokes } =
+    useInkSelection({
+      send,
+      scheduleSave,
+      selection,
+      setSelection,
+      setSelectionBounds,
+      requestModel,
+      sheetInk,
+      pageSize,
+      wrapRef,
+    });
 
   /**
    * The keyboard and the wheel (§use-ink-shortcuts): tools, undo, recognise,
@@ -664,6 +662,7 @@ export function InkHost({
         onNextPage={() => goToPage(pageIndex + 1)}
         onDeleteSelection={onDeleteSelection}
         onCopyAsText={() => void onCopyAsText()}
+        onCopyStrokes={() => void onCopyStrokes()}
         zoom={zoom}
         onZoom={setZoom}
         pageGap={pageGap}

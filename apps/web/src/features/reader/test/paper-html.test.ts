@@ -36,6 +36,14 @@ test("the scheme is pinned only when asked", () => {
   assert.ok(!buildPaperHtmlDocument(page).includes("color-scheme: dark"));
 });
 
+test("the print copy is light, has page margins, and keeps the CSP", () => {
+  const doc = buildPaperHtmlDocument(page, { scheme: "light", print: true });
+  assert.ok(doc.includes("color-scheme: light"));
+  assert.ok(doc.includes("@page"));
+  assert.ok(doc.includes(PAPER_HTML_CSP));
+  assert.ok(!buildPaperHtmlDocument(page).includes("@page"));
+});
+
 test("a file this app did not write is not read as a kept page", () => {
   assert.equal(parsePaperHtmlDocument("p1", "<html><body><p>hand made</p></body></html>"), null);
   const noSource = buildPaperHtmlDocument(page).replace(/<meta name="weaveforge-source"[^>]*>/, "");

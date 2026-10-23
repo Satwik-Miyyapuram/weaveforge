@@ -6,7 +6,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import { decodeInkChunk, pageFromChunk } from "@weaveforge/core";
+import { decodeInkChunk, makeInkStroke, pageFromChunk } from "@weaveforge/core";
 
 import type {
   InkStrokeHeader,
@@ -204,6 +204,22 @@ test("a lasso selects strokes mostly inside its loop, and the selection moves an
     [0],
     "undoing the move puts it back",
   );
+});
+
+test("pasted strokes land as one undoable step and come back selected", () => {
+  fresh();
+  draw(10, 50);
+  send({
+    type: "add-strokes",
+    strokes: [0, 1].map((k) => makeInkStroke({ points: [10, 200 + k * 40, 100, 200 + k * 40], pressures: [128, 128] })),
+  });
+  assert.equal(last("page-state").strokes, 3);
+  assert.deepEqual(last("selected").indices, [1, 2]);
+  assert.ok(last("selected").bounds);
+  send({ type: "undo" });
+  assert.equal(last("page-state").strokes, 1, "one undo takes the whole paste");
+  send({ type: "redo" });
+  assert.equal(last("page-state").strokes, 3);
 });
 
 test("save-page packs the page and load-page brings it back", async () => {
