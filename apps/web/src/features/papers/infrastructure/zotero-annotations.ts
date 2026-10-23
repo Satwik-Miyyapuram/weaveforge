@@ -1,3 +1,4 @@
+import { logToApp } from "@/lib/error-report/app-log";
 import type { ZoteroCredentialsProvider } from "./zotero-metadata-source";
 import type {
   ZoteroAnnotation,
@@ -33,8 +34,14 @@ interface ZoteroTag { tag?: string }
 interface ZoteroItem {
   key?: string;
   data?: {
+    /** The local Zotero API can give the key here instead of at the top. */
+    key?: string;
     parentItem?: string;
     contentType?: string;
+    title?: string;
+    filename?: string;
+    /** A linked file's path, which may be the only sign it is a PDF. */
+    path?: string;
     annotationText?: string;
     annotationComment?: string;
     annotationColor?: string;
@@ -46,6 +53,36 @@ interface ZoteroItem {
     note?: string;
     tags?: ZoteroTag[];
   };
+}
+
+function itemKey(it: ZoteroItem): string | undefined {
+  return it.key || it.data?.key || undefined;
+}
+
+function isPdfAttachment(it: ZoteroItem): boolean {
+  const d = it.data;
+  if (d?.contentType?.toLowerCase().includes("pdf")) return true;
+  return /\.pdf$/i.test(d?.filename ?? d?.path ?? "");
+}
+
+/**
+ * How likely an attachment is the paper itself rather than a supplement.
+ * Zotero lists children in no fixed order, so without a ranking the cloud and
+ * local APIs could pick different PDFs for the same paper.
+ */
+function mainPdfScore(it: ZoteroItem): number {
+  const name = `${it.data?.title ?? ""} ${it.data?.filename ?? it.data?.path ?? ""}`;
+  if (/supplement|appendix|supporting|rebuttal|response/i.test(name)) return 0;
+  if (/full\s*text|preprint|accepted|submitted|manuscript/i.test(name)) return 2;
+  return 1;
+}
+
+/** The paper's main PDF: best score first, then key, so every run agrees. */
+function pickMainPdf(pdfs: ZoteroItem[]): string | undefined {
+  const ranked = [...pdfs].sort(
+    (a, b) => mainPdfScore(b) - mainPdfScore(a) || (itemKey(a) ?? "").localeCompare(itemKey(b) ?? ""),
+  );
+  return ranked[0] && itemKey(ranked[0]);
 }
 
 export class ZoteroAnnotations {
@@ -95,17 +132,31 @@ export class ZoteroAnnotations {
     ]);
 
     // Pass 1: attachment → parent paper key (library-wide; children are not in collections).
-    // A paper's first PDF is where a write-back would put a new annotation.
+    // A paper's main PDF is where a write-back would put a new annotation.
     const attachToPaper = new Map<string, string>();
-    const paperPdf = new Map<string, string>();
+    const pdfsByPaper = new Map<string, ZoteroItem[]>();
     for (const it of attachments) {
-      if (!it.key || !it.data?.parentItem) continue;
-      const paperKey = it.data.parentItem;
+      const key = itemKey(it);
+      const paperKey = it.data?.parentItem;
+      if (!key || !paperKey) continue;
       if (allowedPaperKeys && !allowedPaperKeys.has(paperKey)) continue;
-      attachToPaper.set(it.key, paperKey);
-      if (it.data.contentType === "application/pdf" && !paperPdf.has(paperKey)) {
-        paperPdf.set(paperKey, it.key);
-      }
+      attachToPaper.set(key, paperKey);
+      if (isPdfAttachment(it)) pdfsByPaper.set(paperKey, [...(pdfsByPaper.get(paperKey) ?? []), it]);
+    }
+    const paperPdf = new Map<string, string>();
+    const choices: string[] = [];
+    for (const [paperKey, pdfs] of pdfsByPaper) {
+      const main = pickMainPdf(pdfs);
+      if (main) paperPdf.set(paperKey, main);
+      if (pdfs.length > 1) choices.push(`${paperKey}: ${main} of ${pdfs.map(itemKey).join(", ")}`);
+    }
+    if (choices.length) {
+      logToApp({
+        level: "info",
+        source: "zotero.annotations",
+        message: `Picked the main PDF for ${choices.length} paper(s) with several PDFs`,
+        detail: choices.join("\n"),
+      });
     }
     // But the PDF the reader already annotated in Zotero wins: that is the
     // file the existing marks are on, so new ones belong beside them.
@@ -122,7 +173,7 @@ export class ZoteroAnnotations {
       const annotationPosition = parseAnnotationPosition(it.data?.annotationPosition);
       const annotationSortIndex = it.data?.annotationSortIndex || undefined;
       const ann: ZoteroAnnotation = {
-        key: it.key,
+        key: itemKey(it),
         kind: "annotation",
         text: it.data?.annotationText || undefined,
         comment: it.data?.annotationComment || undefined,
@@ -145,7 +196,7 @@ export class ZoteroAnnotations {
       if (!paperKey || (allowedPaperKeys && !allowedPaperKeys.has(paperKey))) continue;
       const text = toPlainText(it.data?.note);
       if (!text) continue;
-      const note: ZoteroAnnotation = { key: it.key, kind: "note", text, tags: [] };
+      const note: ZoteroAnnotation = { key: itemKey(it), kind: "note", text, tags: [] };
       const list = byPaper.get(paperKey);
       if (list) list.push(note);
       else byPaper.set(paperKey, [note]);

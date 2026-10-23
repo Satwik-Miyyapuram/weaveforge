@@ -216,3 +216,55 @@ test("pull reports each paper's PDF attachment, preferring the one already annot
   assert.equal(attachments.get("P1"), "PDF_B");
   assert.equal(attachments.get("P2"), "ONLY_PDF");
 });
+
+test("pull reads item keys given inside data, as the local Zotero API can", async () => {
+  const fetchFn: typeof fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("itemType=attachment")) {
+      return response([{ data: { key: "ATT_LOCAL", parentItem: "PAP1", contentType: "application/pdf" } }]);
+    }
+    if (url.includes("itemType=annotation")) {
+      return response([{ data: { key: "ANN_LOCAL", parentItem: "ATT_LOCAL", annotationText: "local mark" } }]);
+    }
+    return response([]);
+  };
+  const { byPaper, attachments } = await new ZoteroAnnotations(
+    async () => ({ apiKey: "local", library: "users/0" }),
+    fetchFn,
+  ).pull();
+  assert.equal(attachments.get("PAP1"), "ATT_LOCAL");
+  assert.equal(byPaper.get("PAP1")?.[0]?.key, "ANN_LOCAL");
+  assert.equal(byPaper.get("PAP1")?.[0]?.text, "local mark");
+});
+
+test("pull counts a linked PDF with no content type as the paper's PDF", async () => {
+  const fetchFn: typeof fetch = async (input) =>
+    String(input).includes("itemType=attachment")
+      ? response([{ key: "LINKED_ATT", data: { parentItem: "PAP2", path: "/files/my_paper.pdf" } }])
+      : response([]);
+  const { attachments } = await new ZoteroAnnotations(
+    async () => ({ apiKey: "local", library: "users/0" }),
+    fetchFn,
+  ).pull();
+  assert.equal(attachments.get("PAP2"), "LINKED_ATT");
+});
+
+test("pull picks the main PDF over a supplement whatever order Zotero lists them in", async () => {
+  const supplement = { key: "SUPP_1", data: { parentItem: "P3", title: "Supplementary Material.pdf", contentType: "application/pdf" } };
+  const main = { key: "MAIN_1", data: { parentItem: "P3", title: "Full Text PDF", contentType: "application/pdf" } };
+  for (const order of [[supplement, main], [main, supplement]]) {
+    const fetchFn: typeof fetch = async (input) =>
+      String(input).includes("itemType=attachment") ? response(order) : response([]);
+    const { attachments } = await new ZoteroAnnotations(async () => ({ apiKey: "k", library: "users/1" }), fetchFn).pull();
+    assert.equal(attachments.get("P3"), "MAIN_1");
+  }
+});
+
+test("pull keys attachments by paper only", async () => {
+  const fetchFn: typeof fetch = async (input) =>
+    String(input).includes("itemType=attachment")
+      ? response([{ key: "ATT", data: { parentItem: "PAP", contentType: "application/pdf" } }])
+      : response([]);
+  const { attachments } = await new ZoteroAnnotations(async () => ({ apiKey: "k", library: "users/1" }), fetchFn).pull();
+  assert.deepEqual([...attachments.keys()], ["PAP"]);
+});
