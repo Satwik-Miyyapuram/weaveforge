@@ -5,6 +5,14 @@ export interface OutlineTextItem {
   x: number;
   y: number;
   page: number;
+  /** Set on text not laid out left to right, such as arXiv's vertical side stamp. */
+  rotated?: boolean;
+}
+
+/** Whether a pdf.js text matrix `[a, b, c, d, e, f]` sets its run rotated or mirrored. */
+export function isRotatedText(transform: readonly number[]): boolean {
+  const a = transform[0] ?? 0, b = transform[1] ?? 0;
+  return a <= 0 || Math.abs(b) > Math.abs(a) * 0.1;
 }
 
 export interface ReaderOutlineItem {
@@ -105,6 +113,8 @@ const SECTION = /^(Abstract|Introduction|Related Work|Method|Results|Discussion|
 const REFERENCES = /^(?:\d+(?:\.\d+)*\.?\s+)?(References|Bibliography)\b/i;
 /** A table-of-contents entry: title, a run of dots, a page number. */
 const DOTTED_LEADER = /(\.\s*){5,}\d*$/;
+/** A heading has a word in it; a lone large "x" is a maths variable. */
+export const HAS_WORD = /\p{L}{2}/u;
 /** Fraction of each page's text extent, on every side, treated as margin. */
 const MARGIN = 0.06;
 
@@ -202,13 +212,25 @@ function cropMargins(pages: readonly (readonly OutlineTextItem[])[]): OutlineTex
   }
   return pages.map((page) => page.filter((item) => {
     if (!inBand.has(item)) return true;
-    if (/^[\divxlc]+$/i.test(item.str.trim())) return false;
+    if (/^[\divxlc]+$/i.test(item.str.trim())) return startsLine(item, page);
     return (bandPages.get(normalise(item.str))?.size ?? 0) < 2;
   }));
 }
 
+/**
+ * A bare number with text after it on its baseline is a section number ("2"
+ * before "Related work"), not a page number, even at the page's edge.
+ */
+function startsLine(item: OutlineTextItem, page: readonly OutlineTextItem[]): boolean {
+  return page.some((other) =>
+    other !== item && other.str.trim() && other.x > item.x && Math.abs(other.y - item.y) <= item.fontSize * 0.5);
+}
+
 /** Infer an outline only when a document supplies no bookmarks. No pdf.js dependency. */
-export function outlineFromText(pages: readonly (readonly OutlineTextItem[])[]): ReaderOutlineItem[] {
+export function outlineFromText(allPages: readonly (readonly OutlineTextItem[])[]): ReaderOutlineItem[] {
+  // Rotated runs are stamps and side notes, never headings; their matrix also
+  // makes them read as large type.
+  const pages = allPages.map((page) => page.filter((item) => !item.rotated));
   const chars = pages.reduce((n, page) => n + page.reduce((m, item) => m + item.str.length, 0), 0);
   if (chars < MIN_ANALYSABLE_CHARS) return [];
   const body = bodyFontSize(pages);
@@ -220,6 +242,7 @@ export function outlineFromText(pages: readonly (readonly OutlineTextItem[])[]):
     const numbered = NUMBERED.test(line.str);
     if (line.str.length > 120 || (!numbered && line.str.endsWith("."))) return false;
     if (DOTTED_LEADER.test(line.str)) return false;
+    if (!HAS_WORD.test(line.str)) return false;
     return line.fontSize >= 1.12 * body || (isBold(line.fontName) && (numbered || SECTION.test(line.str)));
   });
   const references = headings.findIndex((heading) => REFERENCES.test(heading.str));
