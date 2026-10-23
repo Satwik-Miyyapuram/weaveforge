@@ -10,7 +10,7 @@
  * found is plausible — an empty sidebar beats a misleading one.
  */
 
-import type { ReaderOutlineItem } from "../outline-from-text.js";
+import { HAS_WORD, type ReaderOutlineItem } from "../outline-from-text.js";
 import type { TextLine } from "./line-reconstruction.js";
 
 /**
@@ -92,6 +92,7 @@ export function findHeadingLines(
     const numbered = numberOf(line);
     if (line.text.length > 120 || (!numbered && line.text.endsWith("."))) return false;
     if (DOTTED_LEADER.test(line.text)) return false;
+    if (!HAS_WORD.test(line.text)) return false;
     if (line.fontSize >= 1.12 * body) return true;
     return line.bold && (numbered !== null || SECTION_WORDS.test(line.text));
   });

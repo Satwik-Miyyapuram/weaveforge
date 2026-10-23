@@ -65,65 +65,65 @@ export function SectionRelatedExcerpts({
     };
   }, [reload]);
 
-  if (items.length === 0 && !error) {
-    return (
-      <aside className="section-excerpts muted">
-        <p className="muted">No Zotero annotations pinned to this section.</p>
-      </aside>
-    );
-  }
-
+  // Folded while empty, so a section without pins is one line beside the note,
+  // not a permanent box; open once something is pinned.
   return (
-    <aside className="section-excerpts" aria-label="Related annotations">
-      <h3 className="section-excerpts-title">Pinned annotations</h3>
+    <details className="section-excerpts" aria-label="Related annotations" open={items.length > 0}>
+      <summary className="section-excerpts-title">
+        Zotero annotations <span className="muted">({items.length})</span>
+      </summary>
       {error && <FormError>{error}</FormError>}
-      <ul className="section-excerpts-list">
-        {items.map(({ paper, annotation }, index) => {
-          const quote = (annotation.text ?? annotation.comment ?? "").trim();
-          return (
-            <li key={`${paper.id}:${annotation.key ?? index}`} className="section-excerpt-row">
-              <p className="section-excerpt-quote">
-                {quote.slice(0, 120)}{quote.length > 120 ? "…" : ""}
-              </p>
-              <p className="muted">
-                {paper.title}{annotation.page ? ` · p.${annotation.page}` : ""}
-              </p>
-              <div className="section-excerpt-actions">
-                <button
-                  type="button"
-                  className="link-btn"
-                  onClick={() => onInsert(formatQuoteCiteClipboard(quote, paper.title))}
-                >
-                  Insert
-                </button>
-                <button
-                  type="button"
-                  className="link-btn"
-                  onClick={() => {
-                    void navigator.clipboard
-                      .writeText(formatQuoteCiteClipboard(quote, paper.title))
-                      .catch(() => setError("Clipboard unavailable"));
-                  }}
-                >
-                  Copy
-                </button>
-                {annotation.key && (
+      {items.length === 0 ? (
+        <p className="muted section-excerpts-empty">No Zotero annotations pinned to this section.</p>
+      ) : (
+        <ul className="section-excerpts-list">
+          {items.map(({ paper, annotation }, index) => {
+            const quote = (annotation.text ?? annotation.comment ?? "").trim();
+            return (
+              <li key={`${paper.id}:${annotation.key ?? index}`} className="section-excerpt-row">
+                <p className="section-excerpt-quote">
+                  {quote.slice(0, 120)}{quote.length > 120 ? "…" : ""}
+                </p>
+                <p className="muted">
+                  {paper.title}{annotation.page ? ` · p.${annotation.page}` : ""}
+                </p>
+                <div className="section-excerpt-actions">
+                  <button
+                    type="button"
+                    className="link-btn"
+                    onClick={() => onInsert(formatQuoteCiteClipboard(quote, paper.title))}
+                  >
+                    Insert
+                  </button>
                   <button
                     type="button"
                     className="link-btn"
                     onClick={() => {
-                      void papersFacadeUnpin(paper.id, annotation.key!, reload, setError);
+                      void navigator.clipboard
+                        .writeText(formatQuoteCiteClipboard(quote, paper.title))
+                        .catch(() => setError("Clipboard unavailable"));
                     }}
                   >
-                    Unpin
+                    Copy
                   </button>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </aside>
+                  {annotation.key && (
+                    <button
+                      type="button"
+                      className="link-btn"
+                      onClick={() => {
+                        void papersFacadeUnpin(paper.id, annotation.key!, reload, setError);
+                      }}
+                    >
+                      Unpin
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </details>
   );
 }
 

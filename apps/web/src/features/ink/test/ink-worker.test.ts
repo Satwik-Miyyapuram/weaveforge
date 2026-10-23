@@ -6,7 +6,7 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import { decodeInkChunk, pageFromChunk } from "@weaveforge/core";
+import { decodeInkChunk, makeInkStroke, pageFromChunk } from "@weaveforge/core";
 
 import type {
   InkStrokeHeader,
@@ -165,6 +165,18 @@ test("an erase sweep removes what it crosses and undo restores it", () => {
   assert.equal(last("page-state").strokes, 2);
 });
 
+test("the eraser's reach is the radius the page sends, so it stays fixed on screen", () => {
+  fresh();
+  draw(10, 50);
+  draw(10, 90);
+  // Zoomed in, the reach in page units is small: a sweep between the lines misses both.
+  send({ type: "erase", from: { x: 70, y: 70 }, to: { x: 70, y: 70 }, radius: 5 });
+  assert.equal(last("page-state").strokes, 2);
+  // Zoomed out, the same on-screen reach covers both lines.
+  send({ type: "erase", from: { x: 70, y: 70 }, to: { x: 70, y: 70 }, radius: 25 });
+  assert.equal(last("page-state").strokes, 0);
+});
+
 test("a lasso selects strokes mostly inside its loop, and the selection moves and deletes", () => {
   fresh();
   draw(10, 50);
@@ -192,6 +204,22 @@ test("a lasso selects strokes mostly inside its loop, and the selection moves an
     [0],
     "undoing the move puts it back",
   );
+});
+
+test("pasted strokes land as one undoable step and come back selected", () => {
+  fresh();
+  draw(10, 50);
+  send({
+    type: "add-strokes",
+    strokes: [0, 1].map((k) => makeInkStroke({ points: [10, 200 + k * 40, 100, 200 + k * 40], pressures: [128, 128] })),
+  });
+  assert.equal(last("page-state").strokes, 3);
+  assert.deepEqual(last("selected").indices, [1, 2]);
+  assert.ok(last("selected").bounds);
+  send({ type: "undo" });
+  assert.equal(last("page-state").strokes, 1, "one undo takes the whole paste");
+  send({ type: "redo" });
+  assert.equal(last("page-state").strokes, 3);
 });
 
 test("save-page packs the page and load-page brings it back", async () => {

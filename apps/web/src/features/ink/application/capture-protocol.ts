@@ -108,6 +108,8 @@ export type InkWorkerMessage =
       type: "erase";
       from: { x: number; y: number };
       to: { x: number; y: number };
+      /** The eraser's reach in page units at the current zoom. */
+      radius?: number;
     }
   /** Undo or redo one erase, by the stroke indices it took. */
   | { type: "undo" }
@@ -159,6 +161,8 @@ export type InkWorkerMessage =
   | { type: "select-clear" }
   /** Remove the selected strokes, as one undoable step. */
   | { type: "delete-selection" }
+  /** Add pasted strokes as one undoable step and select them. Reply: `selected`. */
+  | { type: "add-strokes"; strokes: InkStroke[] }
   /**
    * Show the selection shifted by `dx, dy` page units while it is being dragged.
    * Nothing moves in the buffer; `move-selection` lands it.

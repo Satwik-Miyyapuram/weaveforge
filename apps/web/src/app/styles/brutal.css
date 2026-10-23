@@ -635,16 +635,13 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-log-date { font-family: var(--font-mono); font-size: 0.76rem; }
 
 /* ---- Project + account row ------------------------------------------------ */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-account-row :is(.proj-chip, .header-overflow-btn) {
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-account-row :is(.proj-chip, .account-btn) {
   border: var(--bw) solid var(--bw-line);
   border-radius: var(--radius-sm);
   background: var(--surface);
   box-shadow: var(--sh-sm);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-account-row .proj-chip { font-weight: 700; }
-@media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-account-row :is(.proj-chip, .header-overflow-btn):hover {
-  filter: brightness(0.96);
-} }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.card-menu-flyout, .menu-flyout) {
   background: var(--surface);
   border: var(--bw) solid var(--bw-line);

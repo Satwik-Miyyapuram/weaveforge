@@ -6,6 +6,7 @@ import {
   draftImageRegion,
   draftInkAnnotation,
   draftTextBox,
+  eraseInkPaths,
 } from "../application/draft-local-annotation.js";
 import { INK_MAX_PATHS_PER_ANNOTATION, type PageTextGeometry } from "@weaveforge/core";
 
@@ -221,4 +222,15 @@ test("draftTextBox falls back to a default rect when no size is given", () => {
     y: 100,
   });
   assert.deepEqual(draft.anchor.zoteroPosition?.rects, [[40, 100, 160, 124]]);
+});
+
+test("eraseInkPaths takes only the stroke it touches from a grouped ink annotation", () => {
+  const anchor = {
+    zoteroPosition: { pageIndex: 0, width: 2, paths: [[0, 0, 100, 0], [0, 50, 100, 50], [0, 100, 100, 100]] },
+  };
+  const trimmed = eraseInkPaths(anchor, 50, 52, 4);
+  assert.deepEqual(trimmed?.zoteroPosition?.paths, [[0, 0, 100, 0], [0, 100, 100, 100]]);
+  assert.equal(eraseInkPaths(anchor, 50, 25, 4), anchor, "a miss returns the same anchor");
+  const one = { zoteroPosition: { pageIndex: 0, paths: [[0, 0, 100, 0]] } };
+  assert.equal(eraseInkPaths(one, 50, 1, 4), null, "erasing the last stroke removes the annotation");
 });

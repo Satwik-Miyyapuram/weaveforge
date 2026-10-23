@@ -149,6 +149,8 @@ export interface InkBarProps {
   onNextPage?: () => void;
   onDeleteSelection?: () => void;
   onCopyAsText?: () => void;
+  /** Copy the selected strokes, to paste into any note (Ctrl+C). */
+  onCopyStrokes?: () => void;
   /** The room between pages; absent, the ⋯ menu offers no spacing. */
   pageGap?: InkPageGap;
   onPageGap?: (gap: InkPageGap) => void;
@@ -235,6 +237,7 @@ export function InkBar({
   onNextPage,
   onDeleteSelection,
   onCopyAsText,
+  onCopyStrokes,
   pageGap,
   onPageGap,
   zoom,
@@ -451,14 +454,24 @@ export function InkBar({
       {/* Lasso Selection Actions. Each button is drawn only when its surface
           can do that thing: recognising a page's handwriting is the note's
           (`onCopyAsText`), deleting marks is both surfaces'. */}
-      {selected > 0 && (onCopyAsText || onDeleteSelection) ? (
+      {selected > 0 && (onCopyStrokes || onCopyAsText || onDeleteSelection) ? (
         <>
           <span className="ink-sep" aria-hidden="true" />
           <div className="ink-bar-group">
+            {onCopyStrokes ? (
+              <button
+                type="button"
+                className="ink-tool ink-tool-text"
+                onClick={onCopyStrokes}
+                title="Copy the selected strokes to paste into any note (Ctrl+C)"
+              >
+                Copy
+              </button>
+            ) : null}
             {onCopyAsText ? (
               <button
                 type="button"
-                className="ink-tool"
+                className="ink-tool ink-tool-text"
                 onClick={onCopyAsText}
                 title="Copy the selected strokes' recognised text"
               >
@@ -468,11 +481,11 @@ export function InkBar({
             {onDeleteSelection ? (
               <button
                 type="button"
-                className="ink-tool"
+                className="ink-tool ink-tool-text"
                 onClick={onDeleteSelection}
-                title="Delete the selected strokes (Delete)"
+                title={`Delete the ${selected} selected stroke${selected === 1 ? "" : "s"} (Delete)`}
               >
-                Delete ({selected})
+                Delete {selected} stroke{selected === 1 ? "" : "s"}
               </button>
             ) : null}
           </div>

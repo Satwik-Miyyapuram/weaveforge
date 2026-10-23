@@ -78,6 +78,7 @@ import {
   type HistoryStep,
 } from "./ink-page-logic";
 import { exportPage } from "./ink-export";
+import { addStrokes } from "./ink-paste";
 import { setBackground } from "./ink-background";
 
 export { pointInPolygon };
@@ -454,7 +455,7 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         break;
       }
       case "erase":
-        erase(state, message.from, message.to, post);
+        erase(state, message.from, message.to, post, message.radius);
         break;
       case "undo":
         undo(state, post);
@@ -493,6 +494,9 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         break;
       case "delete-selection":
         deleteSelection(state, post);
+        break;
+      case "add-strokes":
+        addStrokes(state, message.strokes, post, ensureLoop);
         break;
       case "drag-selection":
         dragSelection(state, message.dx, message.dy, ensureLoop);

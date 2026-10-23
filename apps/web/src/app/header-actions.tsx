@@ -250,7 +250,7 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
       // like a disclosure that folds, and animated on every open.
       iconOnly
       ariaLabel="Account"
-      triggerClassName="header-overflow-btn"
+      triggerClassName="btn-secondary account-btn"
       label={<UserIcon />}
     >
       {links}

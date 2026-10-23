@@ -8,6 +8,7 @@
 import { useCallback, type Dispatch, type RefObject, type SetStateAction } from "react";
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
+import { ERASER_SCREEN_RADIUS } from "./ink-page-pointer";
 
 type Point = { x: number; y: number };
 
@@ -16,11 +17,14 @@ export function useInkEditActions({
   scheduleSave,
   scrollRef,
   setZoom,
+  project,
 }: {
   send: (message: InkWorkerMessage) => void;
   scheduleSave: () => void;
   scrollRef: RefObject<HTMLDivElement | null>;
   setZoom: Dispatch<SetStateAction<number>>;
+  /** Client px to page units, the host's projection; sizes the eraser at this zoom. */
+  project: (clientX: number, clientY: number) => Point | null;
 }) {
   /** One finger dragged the page: scroll the other way, so the paper follows. */
   const onPan = useCallback((dx: number, dy: number) => {
@@ -34,10 +38,14 @@ export function useInkEditActions({
 
   const onErase = useCallback(
     (from: Point, to: Point) => {
-      send({ type: "erase", from, to });
+      // The reach is fixed on screen: project a screen-sized step into page units.
+      const a = project(0, 0);
+      const b = project(ERASER_SCREEN_RADIUS, 0);
+      const radius = a && b ? b.x - a.x : undefined;
+      send({ type: "erase", from, to, radius });
       scheduleSave();
     },
-    [scheduleSave, send],
+    [project, scheduleSave, send],
   );
 
   const onUndo = useCallback(() => {
