@@ -7,20 +7,22 @@
  * tested against fakes and does not drag the whole container into a test.
  */
 
-import type {
-  NewPaperInput,
-  NewPaperRelationInput,
-  Paper,
-  PaperRef,
-  PaperStatus,
-  ParsedReference,
+import {
+  ValidationError,
+  type AddPaperResult,
+  type NewPaperInput,
+  type NewPaperRelationInput,
+  type PaperMetadata,
+  type PaperRef,
+  type PaperStatus,
+  type ParsedReference,
 } from "@weaveforge/core";
 
 export interface ReferenceActionDeps {
   /** Resolves metadata for a DOI/arXiv/title reference and adds it. */
-  importPaper: { fromRef(ref: PaperRef, status?: PaperStatus): Promise<Paper> };
-  /** Adds a paper from fields the user typed. */
-  addPaper: { addManual(input: NewPaperInput): Promise<Paper> };
+  importPaper: { importRef(ref: PaperRef, status?: PaperStatus): Promise<AddPaperResult> };
+  /** Adds a paper from known fields, deduping against the library. */
+  addPaper: { add(input: NewPaperInput): Promise<AddPaperResult> };
   relations: { add(input: NewPaperRelationInput): Promise<unknown> };
 }
 
@@ -60,22 +62,26 @@ export function manualInputFromReference(entry: ParsedReference): NewPaperInput 
 }
 
 export function createReferenceActions(deps: ReferenceActionDeps) {
-  return {
-    /** State A's primary action: put the cited paper on the shelf as `to_read`. */
-    readLater: (entry: ParsedReference): Promise<Paper> =>
-      deps.importPaper.fromRef(referenceRef(entry), "to_read"),
+  /**
+   * Add the record the popover resolved, when there is one. Searching the
+   * entry's title again could land on another paper than the one shown, and a
+   * neighbouring entry would then read "in library" for a paper it never cited.
+   */
+  const add = (entry: ParsedReference, metadata: PaperMetadata | undefined) =>
+    metadata ? deps.addPaper.add(metadata) : deps.importPaper.importRef(referenceRef(entry));
 
+  return {
     /**
      * Put the cited paper on the shelf with the library's default status. The
      * popover is a footnote, not a triage tool: choosing a reading list from
      * here was a detour, and lists remain a library-side action.
      */
-    addToLibrary: (entry: ParsedReference): Promise<Paper> =>
-      deps.importPaper.fromRef(referenceRef(entry)),
+    addToLibrary: (entry: ParsedReference, metadata?: PaperMetadata): Promise<AddPaperResult> =>
+      add(entry, metadata),
 
     /** Unresolved entry: no metadata anywhere, so add what the text gives us. */
-    addManually: (entry: ParsedReference): Promise<Paper> =>
-      deps.addPaper.addManual(manualInputFromReference(entry)),
+    addManually: (entry: ParsedReference): Promise<AddPaperResult> =>
+      deps.addPaper.add(manualInputFromReference(entry)),
 
     /**
      * State B's link action: `citingPaper` cites `citedPaper`. The use-case is
@@ -83,7 +89,7 @@ export function createReferenceActions(deps: ReferenceActionDeps) {
      */
     linkPapers: (citingPaperId: string, citedPaperId: string): Promise<unknown> => {
       if (citingPaperId === citedPaperId) {
-        return Promise.reject(new Error("A paper cannot cite itself."));
+        return Promise.reject(new ValidationError("A paper cannot cite itself."));
       }
       return deps.relations.add({
         fromPaper: citingPaperId,

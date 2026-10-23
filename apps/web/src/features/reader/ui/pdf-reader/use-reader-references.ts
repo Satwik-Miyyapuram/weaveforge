@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { PageTextItem, ParsedReference, PdfLink, ReaderOutlineItem } from "@weaveforge/core";
+import type { Paper, PageTextItem, PaperMetadata, ParsedReference, PdfLink, ReaderOutlineItem } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection, formatError } from "@/lib/format-error";
 import {
   type MentionHit,
 } from "../../application/reader-references";
 import type { ResolvedReference } from "../../application/reference-lookup";
+import { addedNotice, type ReferenceNotice } from "../../application/reference-notice";
 import type { AnchorBox } from "../reference-popover-layer";
 import { useDocumentAnalyzer } from "./use-document-analyzer";
 
@@ -71,7 +74,7 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
   const [open, setOpen] = useState<OpenMention | null>(null);
   const [resolutions, setResolutions] = useState<Map<number, ResolvedReference>>(() => new Map());
   const [linked, setLinked] = useState<Set<string>>(() => new Set());
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<ReferenceNotice | null>(null);
   const inflight = useRef(new Set<number>());
   const queueRef = useRef<ParsedReference[]>([]);
   const queueActiveRef = useRef(false);
@@ -112,7 +115,10 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
     setResolution(entry.index, { status: "pending" });
     getContainer().readerReferences.resolve(documentKey, entry)
       .then((value) => setResolution(entry.index, value))
-      .catch(() => setResolution(entry.index, { status: "unresolved" }))
+      .catch((err: unknown) => {
+        logReferenceFailure("Lookup", entry, err);
+        setResolution(entry.index, { status: "unresolved" });
+      })
       .finally(() => inflight.current.delete(entry.index));
   }, [documentKey, setResolution]);
 
@@ -217,6 +223,11 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
 
   const close = useCallback(() => { setOpen(null); setNotice(null); }, []);
 
+  /** Look up an entry the popover switched to, unless it already has been. */
+  const ensureResolved = useCallback((entry: ParsedReference) => {
+    if (!resolutions.has(entry.index)) resolve(entry);
+  }, [resolutions, resolve]);
+
   /** Lazy prefetch bibliography entries with rate limiting */
   const resolveAll = useCallback((enable = true) => {
     if (enable) {
@@ -227,9 +238,13 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
   }, [startPrefetch, stopPrefetch]);
 
   const facade = () => getContainer().readerReferences;
-  const fail = (err: unknown) => setNotice(err instanceof Error ? err.message : String(err));
+  const say = useCallback((entry: ParsedReference, text: string) => setNotice({ index: entry.index, text }), []);
+  const fail = useCallback((action: string, entry: ParsedReference) => (err: unknown) => {
+    logReferenceFailure(action, entry, err);
+    say(entry, formatError(err));
+  }, [say]);
 
-  const markInLibrary = useCallback((entry: ParsedReference, paper: Awaited<ReturnType<ReturnType<typeof facade>["actions"]["readLater"]>>) => {
+  const markInLibrary = useCallback((entry: ParsedReference, paper: Paper) => {
     setResolutions((prev) => {
       const next = new Map(prev);
       const current = prev.get(entry.index);
@@ -241,23 +256,27 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
   }, []);
 
   const actions = useMemo(() => ({
-    readLater: (entry: ParsedReference) =>
-      facade().actions.readLater(entry).then((paper) => { markInLibrary(entry, paper); setNotice("Saved to read later"); }).catch(fail),
     addManually: (entry: ParsedReference) =>
-      facade().actions.addManually(entry).then((paper) => { markInLibrary(entry, paper); setNotice("Added to library"); }).catch(fail),
-    addToLibrary: (entry: ParsedReference) =>
-      facade().actions.addToLibrary(entry).then((paper) => { markInLibrary(entry, paper); setNotice("Added to library"); }).catch(fail),
-    linkPapers: (citedId: string) => {
+      facade().actions.addManually(entry)
+        .then(({ paper, created }) => { markInLibrary(entry, paper); say(entry, addedNotice(created)); })
+        .catch(fail("Add manually", entry)),
+    // `metadata` is the record the popover showed; adding it skips a second
+    // search that could find a different paper.
+    addToLibrary: (entry: ParsedReference, metadata?: PaperMetadata) =>
+      facade().actions.addToLibrary(entry, metadata)
+        .then(({ paper, created }) => { markInLibrary(entry, paper); say(entry, addedNotice(created)); })
+        .catch(fail("Add to library", entry)),
+    linkPapers: (entry: ParsedReference, citedId: string) => {
       if (!paperId) return Promise.resolve();
       return facade().actions.linkPapers(paperId, citedId)
-        .then(() => { setLinked((prev) => new Set(prev).add(citedId)); setNotice("Linked"); })
-        .catch(fail);
+        .then(() => { setLinked((prev) => new Set(prev).add(citedId)); say(entry, "Linked"); })
+        .catch(fail("Link papers", entry));
     },
     cite: (resolution: ResolvedReference, entry: ParsedReference) => {
       const text = resolution.status === "resolved"
         ? [resolution.metadata.authors?.join(", "), resolution.metadata.year ? `(${resolution.metadata.year})` : "", resolution.metadata.title, resolution.metadata.venue, resolution.metadata.doi ? `https://doi.org/${resolution.metadata.doi}` : ""].filter(Boolean).join(". ").replace(/\.\./g, ".")
         : entry.raw;
-      return navigator.clipboard?.writeText(text).then(() => setNotice("Citation copied")).catch(fail) ?? Promise.resolve();
+      return navigator.clipboard?.writeText(text).then(() => say(entry, "Citation copied")).catch(fail("Cite", entry)) ?? Promise.resolve();
     },
     jumpToEntry: (entry: ParsedReference) => {
       // The entry carries its first line's position; landing on the page
@@ -269,7 +288,7 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
       if (onFigureTarget) onFigureTarget({ page: entry.page, x: entry.x, y: entry.y });
       else setPage(entry.page);
     },
-  }), [markInLibrary, paperId, setPage, onFigureTarget]);
+  }), [markInLibrary, say, fail, paperId, setPage, onFigureTarget]);
 
   return {
     enabled,
@@ -280,6 +299,7 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
     open,
     openMention,
     close,
+    ensureResolved,
     resolutions,
     resolveAll,
     startPrefetch,
@@ -291,4 +311,14 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
     analysisProgress,
     isAnalyzing,
   };
+}
+
+/** Every popover failure goes to the app log, with the entry it was about. */
+function logReferenceFailure(action: string, entry: ParsedReference, err: unknown): void {
+  logToApp({
+    level: "warn",
+    source: "reader.references",
+    message: `${action} failed for ${entry.label ?? `reference ${entry.index}`}`,
+    detail: [entry.title ?? entry.raw, err instanceof Error ? (err.stack ?? describeRejection(err)) : describeRejection(err)].join("\n"),
+  });
 }

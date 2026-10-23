@@ -108,6 +108,8 @@ export type InkWorkerMessage =
       type: "erase";
       from: { x: number; y: number };
       to: { x: number; y: number };
+      /** The eraser's reach in page units at the current zoom. */
+      radius?: number;
     }
   /** Undo or redo one erase, by the stroke indices it took. */
   | { type: "undo" }

@@ -454,7 +454,7 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         break;
       }
       case "erase":
-        erase(state, message.from, message.to, post);
+        erase(state, message.from, message.to, post, message.radius);
         break;
       case "undo":
         undo(state, post);

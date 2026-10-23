@@ -19,6 +19,15 @@ export const ERASER_CURSOR =
   ) +
   '") 5 19, crosshair';
 
+/**
+ * How far the eraser reaches from its hot spot, in CSS px.
+ *
+ * Fixed on screen, not on the page: a page-unit radius grew with the zoom, so a
+ * zoomed-in eraser rubbed out letters well clear of the cursor. Notes and the
+ * reader each turn this into their own page units at the current zoom.
+ */
+export const ERASER_SCREEN_RADIUS = 8;
+
 /** The dot cursor's size bounds in CSS px: always findable, never past the 128px browsers accept. */
 const DOT_MIN = 4;
 const DOT_MAX = 64;
