@@ -69,6 +69,12 @@ test("the text layer's selection is the reader's tint with no glyphs", () => {
   assert.ok(rule, "a ::selection rule on the text layer");
   assert.match(rule[1]!, /color:\s*transparent/);
   assert.match(rule[1]!, /background:\s*var\(--reader-select-color/);
+  // Theme rules such as brutal.css's `:root:is(...) ::selection` are more
+  // specific; without !important their opaque colour paints the transparent
+  // text layer as ghost glyphs offset from the canvas text.
+  for (const prop of ["color", "-webkit-text-fill-color", "background"]) {
+    assert.match(rule[1]!, new RegExp(`(^|[\\s;])${prop}:[^;]*!important`), `${prop} must be !important`);
+  }
   const reader = readFileSync(path.join(uiDir, "pdf-reader.tsx"), "utf8");
   assert.match(reader, /"--reader-select-color" as string\]:/);
 });

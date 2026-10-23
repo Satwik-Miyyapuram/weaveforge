@@ -363,21 +363,23 @@
    in the colour the highlight will be rather than the browser's default. The
    layer already multiplies over the page, so the swatch colour reads true.
    text-shadow and text-stroke must be none so Chromium does not synthesize
-   white ClearType/subpixel shadows behind transparent glyphs. */
+   white ClearType/subpixel shadows behind transparent glyphs.
+   !important because theme rules (brutal.css `:root:is(...) ::selection`) are
+   more specific, and their opaque text colour drew ghost glyphs over the page. */
 .pdf-reader-textlayer ::selection {
-  color: transparent;
-  -webkit-text-fill-color: transparent;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
   text-shadow: none !important;
   -webkit-text-stroke: 0 transparent !important;
-  background: var(--reader-select-color, Highlight);
+  background: var(--reader-select-color, Highlight) !important;
 }
 .pdf-reader-textlayer ::-moz-selection {
-  color: transparent;
+  color: transparent !important;
   text-shadow: none !important;
-  background: var(--reader-select-color, Highlight);
+  background: var(--reader-select-color, Highlight) !important;
 }
-.pdf-reader-textlayer br::selection { background: transparent; }
-.pdf-reader-textlayer br::-moz-selection { background: transparent; }
+.pdf-reader-textlayer br::selection { background: transparent !important; }
+.pdf-reader-textlayer br::-moz-selection { background: transparent !important; }
 /* pdf.js `TextLayer` measures glyphs on a canvas it appends to <body>. Its
    own stylesheet hides it; ours is scoped, so without this rule the inline
    canvas left a 24px line box under the layout and the whole page gained a
