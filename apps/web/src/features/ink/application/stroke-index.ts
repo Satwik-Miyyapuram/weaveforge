@@ -33,7 +33,8 @@ import {
 } from "./page-buffer";
 
 /**
- * The eraser's radius, in 0.1 mm: 3 mm either side of the nib.
+ * The eraser's fallback radius, in 0.1 mm: 3 mm either side of the nib. The
+ * page sends its own, `ERASER_SCREEN_RADIUS` at the current zoom.
  *
  * The reader's `ERASER_RADIUS` is in PDF units and cannot be reused — the same
  * trap as the widths (§6.3), and the reason this constant is here rather than
