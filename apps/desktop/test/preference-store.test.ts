@@ -3,7 +3,7 @@ import { mkdtemp, readFile, readdir, rename, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { PreferenceStore, type PreferenceFile } from "../src/preference-store";
+import { PreferenceStore, pagePreferences, type PreferenceFile } from "../src/preference-store";
 import { temporaryName } from "../src/write-queue";
 
 /** A file that lives in a variable. */
@@ -195,4 +195,57 @@ test("a write that fails does not stop the ones queued behind it", async () => {
   // And the queue is still usable afterwards rather than left rejected.
   assert.deepEqual(await store.write("sync-target", "https://later.example"), { ok: true, value: null });
   assert.deepEqual(await store.read("sync-target"), { ok: true, value: "https://later.example" });
+});
+
+// The page's view of the preferences (B01: xipc-03). The shell writes every
+// name itself; the page may write only the two it owns.
+
+test("the page writes the preferences it owns", async () => {
+  const store = new PreferenceStore(file());
+  const page = pagePreferences(store);
+  assert.deepEqual(await page.write("sync-offer-shown", true), { ok: true, value: null });
+  assert.deepEqual(await page.write("vault-git", false), { ok: true, value: null });
+  assert.deepEqual(await store.read("sync-offer-shown"), { ok: true, value: true });
+  assert.deepEqual(await store.read("vault-git"), { ok: true, value: false });
+  // Writing null still forgets, as it does through the store.
+  assert.deepEqual(await page.write("vault-git", null), { ok: true, value: null });
+  assert.deepEqual(await store.read("vault-git"), { ok: true, value: null });
+});
+
+test("the page cannot write the shell's own preferences", async () => {
+  const disk = file(JSON.stringify({ "vault-root": "C:/vault", "local-api": false }));
+  const page = pagePreferences(new PreferenceStore(disk));
+  const before = disk.contents;
+  for (const name of [
+    "vault-root",
+    "local-api",
+    "sync-target",
+    "plan-widget",
+    "plan-widget-bounds",
+    "plan-widget-theme",
+  ]) {
+    assert.equal((await page.write(name, "x")).ok, false, name);
+  }
+  assert.equal(disk.contents, before, "nothing on disk changed");
+});
+
+test("the page is refused unknown names and non-strings on write", async () => {
+  const page = pagePreferences(new PreferenceStore(file()));
+  for (const name of ["nope", "", "__proto__", "VAULT-GIT", 1, null, undefined]) {
+    assert.equal((await page.write(name, true)).ok, false, String(name));
+  }
+});
+
+test("the page still reads every known preference, old ones included", async () => {
+  const disk = file(JSON.stringify({ "vault-root": "C:/vault", "sync-target": "https://s", "local-api": true }));
+  const page = pagePreferences(new PreferenceStore(disk));
+  assert.deepEqual(await page.read("vault-root"), { ok: true, value: "C:/vault" });
+  assert.deepEqual(await page.read("sync-target"), { ok: true, value: "https://s" });
+  assert.deepEqual(await page.read("local-api"), { ok: true, value: true });
+  assert.equal((await page.read("nope")).ok, false);
+});
+
+test("the page's write still goes through the store's value checks", async () => {
+  const page = pagePreferences(new PreferenceStore(file()));
+  assert.equal((await page.write("vault-git", { nested: true })).ok, false);
 });

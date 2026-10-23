@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SecretStore, type SecretCrypto, type SecretFile } from "../src/secret-store";
+import { SecretStore, pageSecrets, type SecretCrypto, type SecretFile } from "../src/secret-store";
 
 /**
  * What is worth checking here is the policy, not the cipher.
@@ -175,4 +175,73 @@ test("forgetting one secret does not resurrect or drop another written at the sa
 
   assert.deepEqual(await store.read("ai-provider"), { ok: true, value: null });
   assert.deepEqual(await store.read("overleaf-token"), { ok: true, value: "ol-live" });
+});
+
+// The page's view of the keychain (B01: xipc-01, xipc-02). The shell reads
+// and writes every secret itself; the page may only touch its own.
+
+function seededStore() {
+  const crypto = fakeCrypto();
+  const file = memoryFile();
+  return { store: new SecretStore(crypto, file), file };
+}
+
+test("the page reads its own AI provider key", async () => {
+  const { store } = seededStore();
+  await store.write("ai-provider", "sk-page");
+  assert.deepEqual(await pageSecrets(store).read("ai-provider"), { ok: true, value: "sk-page" });
+});
+
+test("the page cannot read the local API token hashes", async () => {
+  const { store } = seededStore();
+  await store.write("local-api-token", "[\"hash\"]");
+  const result = await pageSecrets(store).read("local-api-token");
+  assert.equal(result.ok, false);
+  // The shell still can: main-local-api.ts reads it through the store itself.
+  assert.deepEqual(await store.read("local-api-token"), { ok: true, value: "[\"hash\"]" });
+});
+
+test("the page cannot read the Overleaf token back", async () => {
+  const { store } = seededStore();
+  await store.write("overleaf-token", "olp_secret");
+  assert.equal((await pageSecrets(store).read("overleaf-token")).ok, false);
+});
+
+test("the page may store and forget the Overleaf token", async () => {
+  const { store } = seededStore();
+  const page = pageSecrets(store);
+  assert.deepEqual(await page.write("overleaf-token", "olp_new"), { ok: true, value: null });
+  assert.deepEqual(await store.read("overleaf-token"), { ok: true, value: "olp_new" });
+  assert.deepEqual(await page.clear("overleaf-token"), { ok: true, value: null });
+  assert.deepEqual(await store.read("overleaf-token"), { ok: true, value: null });
+});
+
+test("the page cannot overwrite or clear the local API token", async () => {
+  const { store, file } = seededStore();
+  await store.write("local-api-token", "[\"real\"]");
+  const before = file.contents;
+  const page = pageSecrets(store);
+
+  assert.equal((await page.write("local-api-token", "[\"forged\"]")).ok, false);
+  assert.equal((await page.clear("local-api-token")).ok, false);
+  assert.equal(file.contents, before, "nothing on disk changed");
+  assert.deepEqual(await store.read("local-api-token"), { ok: true, value: "[\"real\"]" });
+});
+
+test("the page is refused names nobody stores, and non-strings", async () => {
+  const { store } = seededStore();
+  const page = pageSecrets(store);
+  for (const name of ["vault-root", "", "__proto__", "AI-PROVIDER", 42, null, undefined]) {
+    assert.equal((await page.read(name)).ok, false, `read ${String(name)}`);
+    assert.equal((await page.write(name, "x")).ok, false, `write ${String(name)}`);
+    assert.equal((await page.clear(name)).ok, false, `clear ${String(name)}`);
+  }
+});
+
+test("the page's own write still goes through the store's checks", async () => {
+  const { store } = seededStore();
+  // An empty value is refused by the store, not waved through by the wrapper.
+  assert.equal((await pageSecrets(store).write("ai-provider", "")).ok, false);
+  const locked = new SecretStore(fakeCrypto(false), memoryFile());
+  assert.equal((await pageSecrets(locked).write("ai-provider", "sk")).ok, false);
 });

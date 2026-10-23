@@ -98,3 +98,23 @@ function isName(name: unknown): name is PreferenceName {
 function isValue(value: unknown): value is PreferenceValue {
   return value === null || typeof value === "string" || typeof value === "boolean";
 }
+
+/**
+ * The preferences the page may write over IPC. The rest are the shell's own
+ * (`vault-root`, `local-api`, the plan widget's) and written only from this
+ * side; `vault-root` in particular decides which folder the shell serves files
+ * from, so a page that could set it could point the shell anywhere. Reads stay
+ * open for every known name: none of them is a credential.
+ */
+const PAGE_WRITABLE: readonly PreferenceName[] = ["sync-offer-shown", "vault-git"];
+
+/** The preferences as the page sees them: reads as-is, writes behind the list. */
+export function pagePreferences(store: Pick<PreferenceStore, "read" | "write">) {
+  return {
+    read: (name: unknown): Promise<IpcResult<PreferenceValue>> => store.read(name),
+    write: async (name: unknown, value: unknown): Promise<IpcResult<null>> =>
+      isName(name) && PAGE_WRITABLE.includes(name)
+        ? store.write(name, value)
+        : { ok: false, message: UNKNOWN_NAME },
+  };
+}
