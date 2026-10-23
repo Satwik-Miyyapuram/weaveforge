@@ -288,6 +288,19 @@
 
 /* Org setup + invite codes */
 .org-setup-screen { display: grid; place-items: center; min-height: 60vh; padding: 24px; }.markdown .md-mermaid { margin: 12px 0; overflow-x: auto; }
+/* pele draws diagrams with CSS variables, so they follow the theme with no re-render. */
+.md-mermaid {
+  --pele-bg: var(--surface);
+  --pele-fg: var(--ink);
+  --pele-muted: var(--muted);
+  --pele-line: var(--muted);
+  --pele-surface: var(--surface-alt);
+  --pele-surface-alt: var(--surface-alt);
+  --pele-border: var(--line);
+  --pele-accent: var(--accent);
+  --pele-font: var(--font);
+  --pele-font-mono: var(--font-mono);
+}
 .markdown .md-mermaid svg { max-width: 100%; height: auto; }
 .markdown .md-mermaid-error { border-left: 3px solid var(--danger, #c33); padding-left: 10px; }
 .markdown .md-mermaid-message { margin: 4px 0 0; font-size: 12px; color: var(--danger, #c33); white-space: pre-wrap; }

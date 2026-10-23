@@ -8,158 +8,105 @@ import {
   type MermaidModule,
 } from "../mermaid-render";
 
-test("two renders of the same code and mode call render once and return identical strings", async () => {
+/** A fake renderer that counts calls and echoes the id it was given. */
+function fakeRenderer(): { renderer: MermaidModule; calls: () => number } {
+  let calls = 0;
+  const renderer = {
+    renderAsync: async (_source: string, options?: { idPrefix?: string }) => {
+      calls++;
+      return { svg: `<svg>${options?.idPrefix}</svg>` };
+    },
+  } as unknown as MermaidModule;
+  return { renderer, calls: () => calls };
+}
+
+/** Run `body` with a stub document and a renderer, restoring both afterwards. */
+async function withRenderer(renderer: MermaidModule | null, body: () => Promise<void>): Promise<void> {
   const g = globalThis as Record<string, unknown>;
   const savedDoc = g.document;
-  let renderCalls = 0;
-  const fakeMermaid = {
-    render: async (id: string) => {
-      renderCalls++;
-      return { svg: `<svg>${id}</svg>` };
-    },
-    initialize: () => {},
-  } as unknown as MermaidModule;
-
   try {
-    g.document = { fonts: { status: "loaded" } };
-    setMermaidLoaderForTests(() => Promise.resolve(fakeMermaid));
-    const code = "graph TD; A-->B";
-    const first = await renderMermaidBlock(code, "light");
-    const second = await renderMermaidBlock(code, "light");
-    assert.equal(renderCalls, 1);
+    g.document = {};
+    setMermaidLoaderForTests(renderer ? () => Promise.resolve(renderer) : null);
+    await body();
+  } finally {
+    g.document = savedDoc;
+    setMermaidLoaderForTests(null);
+    clearMermaidCache();
+  }
+}
+
+test("two renders of the same code render once and return identical strings", async () => {
+  const fake = fakeRenderer();
+  await withRenderer(fake.renderer, async () => {
+    const first = await renderMermaidBlock("graph TD; A-->B");
+    const second = await renderMermaidBlock("graph TD; A-->B");
+    assert.equal(fake.calls(), 1);
     assert.equal(first, second);
     assert.ok(first.includes("<svg>wf-mermaid-"));
-  } finally {
-    g.document = savedDoc;
-    setMermaidLoaderForTests(null);
-    clearMermaidCache();
-  }
-});
-
-test("different mode renders again", async () => {
-  const g = globalThis as Record<string, unknown>;
-  const savedDoc = g.document;
-  let renderCalls = 0;
-  const fakeMermaid = {
-    render: async (id: string) => {
-      renderCalls++;
-      return { svg: `<svg>${id}</svg>` };
-    },
-    initialize: () => {},
-  } as unknown as MermaidModule;
-
-  try {
-    g.document = { fonts: { status: "loaded" } };
-    setMermaidLoaderForTests(() => Promise.resolve(fakeMermaid));
-    const code = "graph TD; A-->B";
-    await renderMermaidBlock(code, "light");
-    assert.equal(renderCalls, 1);
-    await renderMermaidBlock(code, "dark");
-    assert.equal(renderCalls, 2);
-  } finally {
-    g.document = savedDoc;
-    setMermaidLoaderForTests(null);
-    clearMermaidCache();
-  }
-});
-
-test("fonts status loading is not cached (render called each time)", async () => {
-  const g = globalThis as Record<string, unknown>;
-  const savedDoc = g.document;
-  let renderCalls = 0;
-  const fakeMermaid = {
-    render: async (id: string) => {
-      renderCalls++;
-      return { svg: `<svg>${id}</svg>` };
-    },
-    initialize: () => {},
-  } as unknown as MermaidModule;
-
-  try {
-    g.document = { fonts: { status: "loading" } };
-    setMermaidLoaderForTests(() => Promise.resolve(fakeMermaid));
-    const code = "graph TD; A-->B";
-    await renderMermaidBlock(code, "light");
-    assert.equal(renderCalls, 1);
-    assert.equal(mermaidCacheSize(), 0);
-    await renderMermaidBlock(code, "light");
-    assert.equal(renderCalls, 2);
-    assert.equal(mermaidCacheSize(), 0);
-  } finally {
-    g.document = savedDoc;
-    setMermaidLoaderForTests(null);
-    clearMermaidCache();
-  }
+  });
 });
 
 test("a render that throws returns error html and is not cached", async () => {
-  const g = globalThis as Record<string, unknown>;
-  const savedDoc = g.document;
-  let renderCalls = 0;
-  const fakeMermaid = {
-    render: async () => {
-      renderCalls++;
+  const renderer = {
+    renderAsync: async () => {
       throw new Error("diagram syntax error");
     },
-    initialize: () => {},
   } as unknown as MermaidModule;
-
-  try {
-    g.document = { fonts: { status: "loaded" } };
-    setMermaidLoaderForTests(() => Promise.resolve(fakeMermaid));
-    const code = "bad diagram";
-    const html = await renderMermaidBlock(code, "light");
-    assert.equal(renderCalls, 1);
+  await withRenderer(renderer, async () => {
+    const html = await renderMermaidBlock("bad diagram");
     assert.ok(html.includes("md-mermaid-error"));
     assert.ok(html.includes("diagram syntax error"));
     assert.equal(mermaidCacheSize(), 0);
-  } finally {
-    g.document = savedDoc;
-    setMermaidLoaderForTests(null);
-    clearMermaidCache();
-  }
+  });
 });
 
 test("40 distinct sources: cache size stays 32, oldest is re-rendered, recently hit one is not", async () => {
-  const g = globalThis as Record<string, unknown>;
-  const savedDoc = g.document;
-  let renderCalls = 0;
-  const fakeMermaid = {
-    render: async (id: string) => {
-      renderCalls++;
-      return { svg: `<svg>${id}</svg>` };
-    },
-    initialize: () => {},
-  } as unknown as MermaidModule;
-
-  try {
-    g.document = { fonts: { status: "loaded" } };
-    setMermaidLoaderForTests(() => Promise.resolve(fakeMermaid));
-
-    for (let i = 1; i <= 32; i++) {
-      await renderMermaidBlock(`graph TD; node${i}`, "light");
-    }
-    assert.equal(renderCalls, 32);
+  const fake = fakeRenderer();
+  await withRenderer(fake.renderer, async () => {
+    for (let i = 1; i <= 32; i++) await renderMermaidBlock(`graph TD; node${i}`);
+    assert.equal(fake.calls(), 32);
     assert.equal(mermaidCacheSize(), 32);
 
-    await renderMermaidBlock("graph TD; node1", "light");
-    assert.equal(renderCalls, 32);
+    await renderMermaidBlock("graph TD; node1");
+    assert.equal(fake.calls(), 32);
 
-    for (let i = 33; i <= 40; i++) {
-      await renderMermaidBlock(`graph TD; node${i}`, "light");
-    }
-    assert.equal(renderCalls, 40);
+    for (let i = 33; i <= 40; i++) await renderMermaidBlock(`graph TD; node${i}`);
+    assert.equal(fake.calls(), 40);
     assert.equal(mermaidCacheSize(), 32);
 
-    await renderMermaidBlock("graph TD; node2", "light");
-    assert.equal(renderCalls, 41);
+    await renderMermaidBlock("graph TD; node2");
+    assert.equal(fake.calls(), 41);
 
-    await renderMermaidBlock("graph TD; node1", "light");
-    assert.equal(renderCalls, 41);
+    await renderMermaidBlock("graph TD; node1");
+    assert.equal(fake.calls(), 41);
     assert.equal(mermaidCacheSize(), 32);
-  } finally {
-    g.document = savedDoc;
-    setMermaidLoaderForTests(null);
-    clearMermaidCache();
-  }
+  });
+});
+
+test("the real renderer draws a flowchart whose colours follow the theme's CSS variables", async () => {
+  await withRenderer(null, async () => {
+    const html = await renderMermaidBlock("graph TD\n  A[Start] --> B[End]");
+    assert.ok(!html.includes("md-mermaid-error"), html);
+    assert.ok(html.startsWith('<div class="md-mermaid">'));
+    assert.ok(html.includes("<svg"));
+    assert.ok(html.includes("Start") && html.includes("End"));
+    // Colours are variables, so a light/dark switch needs no re-render.
+    assert.ok(html.includes("var(--pele-bg"));
+  });
+});
+
+test("the real renderer accepts a label with parentheses and a pipe", async () => {
+  await withRenderer(null, async () => {
+    const html = await renderMermaidBlock("graph LR\n  X --> Q[q(z|x)]");
+    assert.ok(!html.includes("md-mermaid-error"), html);
+    assert.ok(html.includes("q(z|x)"));
+  });
+});
+
+test("the real renderer reports a parse error with its line", async () => {
+  await withRenderer(null, async () => {
+    const html = await renderMermaidBlock("graph TD\n  A -->");
+    assert.ok(html.includes("md-mermaid-error"));
+    assert.ok(/line \d/i.test(html), html);
+  });
 });

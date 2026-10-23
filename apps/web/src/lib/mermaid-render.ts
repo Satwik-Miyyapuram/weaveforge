@@ -1,12 +1,13 @@
 /**
- * Mermaid fences (```mermaid) rendered to inline SVG, on demand. The library
- * is large, so it loads on the first diagram and never on notes without one.
- * Rendering needs a DOM (mermaid measures text through the browser), so the
- * server and tests get the escaped source back instead.
+ * Mermaid fences (```mermaid) rendered to inline SVG with pele, on demand. The
+ * renderer loads on the first diagram and never on notes without one. pele
+ * measures text itself rather than through the browser, so the same source
+ * always gives the same markup, and its colours are CSS variables (`--pele-*`,
+ * set from the theme in markdown.css), so a light/dark switch needs no
+ * re-render. The server gets the escaped source back; diagrams draw on the
+ * client.
  */
-import type { ColorMode } from "@/lib/shiki-render";
-
-export type MermaidModule = typeof import("mermaid")["default"];
+export type MermaidModule = Pick<typeof import("pele/lazy"), "renderAsync">;
 
 const MAX_CACHE_ENTRIES = 32;
 // Bounded LRU cache of rendered diagram markup so route transitions do not re-run layout.
@@ -14,13 +15,11 @@ const renderCache = new Map<string, string>();
 
 let customLoader: (() => Promise<MermaidModule>) | null = null;
 let mermaidPromise: Promise<MermaidModule> | null = null;
-let initialisedMode: ColorMode | null = null;
 
 /** @internal for tests */
 export function setMermaidLoaderForTests(load: (() => Promise<MermaidModule>) | null): void {
   customLoader = load;
   mermaidPromise = null;
-  initialisedMode = null;
 }
 
 /** @internal for tests */
@@ -60,23 +59,9 @@ export function quoteAwkwardLabels(code: string): string {
   });
 }
 
-function getMermaid(mode: ColorMode): Promise<MermaidModule> {
-  if (!mermaidPromise) {
-    mermaidPromise = customLoader ? customLoader() : import("mermaid").then((m) => m.default);
-  }
-  return mermaidPromise.then((mermaid) => {
-    if (initialisedMode !== mode) {
-      // `strict` keeps script/click handlers out of the diagram source.
-      mermaid.initialize({
-        startOnLoad: false,
-        securityLevel: "strict",
-        theme: mode === "dark" ? "dark" : "default",
-        fontFamily: "inherit",
-      });
-      initialisedMode = mode;
-    }
-    return mermaid;
-  });
+function getMermaid(): Promise<MermaidModule> {
+  mermaidPromise ??= customLoader ? customLoader() : import("pele/lazy");
+  return mermaidPromise;
 }
 
 function escapeHtml(s: string): string {
@@ -93,28 +78,25 @@ export function isMermaidFence(info: string): boolean {
  * the escaped source with an error class rather than throwing, so one bad
  * fence never blanks the whole note.
  */
-export async function renderMermaidBlock(code: string, mode: ColorMode): Promise<string> {
+export async function renderMermaidBlock(code: string): Promise<string> {
   if (typeof document === "undefined") {
     return `<pre class="md-code md-mermaid-source" data-lang="mermaid"><code>${escapeHtml(code)}</code></pre>`;
   }
   const source = quoteAwkwardLabels(code.trim());
-  const cacheKey = `${mode}\n${source}`;
-  const hit = renderCache.get(cacheKey);
+  const hit = renderCache.get(source);
   if (hit !== undefined) {
-    renderCache.delete(cacheKey);
-    renderCache.set(cacheKey, hit);
+    renderCache.delete(source);
+    renderCache.set(source, hit);
     return hit;
   }
   try {
-    const mermaid = await getMermaid(mode);
-    const { svg } = await mermaid.render(diagramId(source), source);
+    const pele = await getMermaid();
+    const { svg } = await pele.renderAsync(source, { idPrefix: diagramId(source) });
     const html = `<div class="md-mermaid">${svg}</div>`;
-    if (document.fonts?.status === "loaded") {
-      renderCache.set(cacheKey, html);
-      if (renderCache.size > MAX_CACHE_ENTRIES) {
-        const oldest = renderCache.keys().next().value;
-        if (oldest !== undefined) renderCache.delete(oldest);
-      }
+    renderCache.set(source, html);
+    if (renderCache.size > MAX_CACHE_ENTRIES) {
+      const oldest = renderCache.keys().next().value;
+      if (oldest !== undefined) renderCache.delete(oldest);
     }
     return html;
   } catch (error) {
@@ -130,11 +112,11 @@ export async function renderMermaidBlock(code: string, mode: ColorMode): Promise
  * Upgrade every `pre[data-lang="mermaid"]` under `root` (as
  * `renderMarkdownPlain` emits them) into a rendered diagram in place.
  */
-export async function upgradeMermaidFences(root: HTMLElement, mode: ColorMode): Promise<void> {
+export async function upgradeMermaidFences(root: HTMLElement): Promise<void> {
   const fences = Array.from(root.querySelectorAll<HTMLPreElement>('pre[data-lang="mermaid"]:not(.md-mermaid-error > pre)'));
   for (const fence of fences) {
     const code = fence.textContent ?? "";
-    const html = await renderMermaidBlock(code, mode);
+    const html = await renderMermaidBlock(code);
     if (!fence.isConnected) continue;
     const wrapper = document.createElement("div");
     wrapper.innerHTML = html;

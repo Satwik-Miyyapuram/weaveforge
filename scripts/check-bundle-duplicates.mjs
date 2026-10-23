@@ -28,21 +28,10 @@ const listFile = path.join(root, "apps/web/.next/client-packages.json");
  * one cannot stand in for the other. An entry that stops being duplicated fails
  * the check too, so the list only shrinks.
  */
-const ALLOWED = {
-  // Mermaid's layout plugins: cytoscape-cose-bilkent needs cose-base 1 (and its
-  // layout-base 1), cytoscape-fcose needs cose-base 2 (and layout-base 2).
-  "cose-base": "cytoscape-cose-bilkent needs 1.x, cytoscape-fcose needs 2.x",
-  "layout-base": "cose-base 1.x needs 1.x, cose-base 2.x needs 2.x",
-  // d3-sankey (mermaid's sankey diagram) pins the d3 1.x/2.x line; the rest of
-  // the app and mermaid use d3 3.x. About 1 KB between them.
-  "d3-array": "d3-sankey pins 2.x, d3 uses 3.x",
-  "d3-path": "d3-sankey's d3-shape 1.x needs 1.x, d3 uses 3.x",
-  "d3-shape": "d3-sankey pins 1.x, d3 uses 3.x",
-  // Mermaid asks for ^0.16 and we use 0.18. Mermaid only calls
-  // `renderToString`, which 0.18 keeps, so an npm override can merge these; until
-  // then this entry is the reminder.
-  katex: "mermaid asks for ^0.16, the app uses 0.18 — mergeable with an npm override",
-};
+// Empty since diagrams moved from mermaid to pele (no dependencies): every
+// entry here was one of mermaid's — its layout plugins' cose-base and
+// layout-base, d3-sankey's d3 1.x/2.x line, and its own KaTeX 0.16.
+const ALLOWED = {};
 
 let packages;
 try {
