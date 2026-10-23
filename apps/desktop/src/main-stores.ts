@@ -2,8 +2,8 @@ import { app, safeStorage } from "electron";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { PreferenceStore } from "./preference-store";
-import { SecretStore } from "./secret-store";
+import { PreferenceStore, pagePreferences } from "./preference-store";
+import { SecretStore, pageSecrets } from "./secret-store";
 import { temporaryName } from "./write-queue";
 
 /**
@@ -68,3 +68,11 @@ export function secretStore(): SecretStore {
   });
 }
 
+
+/**
+ * What the page may reach of each store, for the IPC handlers. The shell's own
+ * names (the local API token hashes, the vault root, …) stay with the shell;
+ * `pageSecrets` and `pagePreferences` hold the lists.
+ */
+export const pagePreferenceStore = () => pagePreferences(preferenceStore());
+export const pageSecretStore = () => pageSecrets(secretStore());
