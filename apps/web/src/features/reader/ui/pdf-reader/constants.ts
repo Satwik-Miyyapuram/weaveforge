@@ -23,9 +23,6 @@ export const CREATE_TOOL_HINTS: Record<ReaderCreateTool, string> = {
   text: "Drag a box, then type the text to sit there.",
 };
 
-/** How close, in PDF units, the eraser must pass to a stroke to remove it. */
-export const ERASER_RADIUS = 6;
-
 /**
  * How far a drag must travel before it counts as moving an ink mark rather than
  * a click that selects it.

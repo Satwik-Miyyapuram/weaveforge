@@ -29,7 +29,7 @@ import {
   fromGeometry,
   type InkBounds,
 } from "../application/page-buffer";
-import { InkStrokeIndex } from "../application/stroke-index";
+import { ERASER_RADIUS, InkStrokeIndex } from "../application/stroke-index";
 import type { InkRenderer } from "../render/ink-renderer";
 
 /** One undoable step. `indices` are buffer indices; a move also carries its delta. */
@@ -338,18 +338,19 @@ export function erase(
   from: { x: number; y: number },
   to: { x: number; y: number },
   post: (event: InkWorkerEvent) => void,
+  radius = ERASER_RADIUS,
 ): void {
   const index = state.index ?? new InkStrokeIndex(state.buffer);
   state.index = index;
   index.ensure();
-  const candidates = index.nearSegment(from.x, from.y, to.x, to.y);
+  const candidates = index.nearSegment(from.x, from.y, to.x, to.y, radius);
   const removed: number[] = [];
   for (const candidate of candidates) {
     const geometry = state.buffer.stroke(candidate);
     if (!geometry) continue;
     // A bounds hit is a candidate, not a hit: the eraser matches what the user sees,
     // so the path decides. The nib's radius is the eraser's own from §6.3.
-    if (!strokeNearPoint(geometry, from, to)) continue;
+    if (!strokeNearPoint(geometry, from, to, radius)) continue;
     removed.push(candidate);
   }
   eraseIndices(state, removed, post);
@@ -367,7 +368,7 @@ export function strokeNearPoint(
   stroke: { x: Float32Array; y: Float32Array },
   from: { x: number; y: number },
   to: { x: number; y: number },
-  radius = 30,
+  radius = ERASER_RADIUS,
 ): boolean {
   const steps = Math.max(
     1,

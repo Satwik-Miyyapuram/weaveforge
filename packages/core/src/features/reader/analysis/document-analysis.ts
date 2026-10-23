@@ -10,7 +10,7 @@
  * first, patterns after — and map every mention back to PDF rectangles.
  */
 
-import { bodyFontSize, type OutlineTextItem, type ReaderOutlineItem } from "../outline-from-text.js";
+import { bodyFontSize, isRotatedText, type OutlineTextItem, type ReaderOutlineItem } from "../outline-from-text.js";
 import { detectCitationStyle } from "../find-citation-mentions.js";
 import { findFigureMentions } from "../find-figure-mentions.js";
 import { textFingerprint } from "../text-fingerprint.js";
@@ -55,6 +55,7 @@ export function outlineItemOf(item: AnalyzePdfPage["items"][number], page: numbe
     x: item.transform[4] ?? 0,
     y: item.transform[5] ?? 0,
     page,
+    ...(isRotatedText(item.transform) ? { rotated: true } : {}),
   };
 }
 
@@ -87,7 +88,8 @@ export function analyzePdfDocument(
   const tagged: { line: TextLine; column: number }[] = [];
   const columnsByPage = new Map<number, number>();
   for (const page of pages) {
-    const lines = reconstructLines(page.pageNumber, page.items);
+    // Rotated runs (arXiv's side stamp) are never body or headings.
+    const lines = reconstructLines(page.pageNumber, page.items.filter((item) => !isRotatedText(item.transform)));
     const columns = detectColumns(lines);
     columnsByPage.set(page.pageNumber, Math.max(1, ...columns.map((c) => c + 1)));
     lines.forEach((line, j) => tagged.push({ line, column: columns[j] ?? 0 }));
