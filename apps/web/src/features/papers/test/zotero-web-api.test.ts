@@ -2,24 +2,17 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { fetchAllZoteroItems, fetchZoteroItemKeys } from "../infrastructure/zotero-web-api";
 
-interface Call { url: string; at: number }
+interface Call { url: string }
 
 /**
  * A stand-in for the Zotero items endpoint: honours `limit`/`start`, reports
- * `Total-Results`, and records when each request was made so concurrency is
- * observable.
+ * `Total-Results`, and records each request.
  */
-function mockZotero(total: number, opts: { totalHeader?: boolean; latencyMs?: number } = {}) {
+function mockZotero(total: number, opts: { totalHeader?: boolean } = {}) {
   const calls: Call[] = [];
-  let inFlight = 0;
-  let peakInFlight = 0;
   const fetchFn = (async (input: string | URL | Request) => {
     const url = String(input);
-    calls.push({ url, at: Date.now() });
-    inFlight += 1;
-    peakInFlight = Math.max(peakInFlight, inFlight);
-    if (opts.latencyMs) await new Promise((r) => setTimeout(r, opts.latencyMs));
-    inFlight -= 1;
+    calls.push({ url });
 
     const parsed = new URL(url);
     const limit = Number(parsed.searchParams.get("limit") ?? 25);
@@ -31,7 +24,7 @@ function mockZotero(total: number, opts: { totalHeader?: boolean; latencyMs?: nu
     if (opts.totalHeader !== false) headers.set("Total-Results", String(total));
     return new Response(JSON.stringify(page), { status: 200, headers });
   }) as unknown as typeof fetch;
-  return { fetchFn, calls, peak: () => peakInFlight };
+  return { fetchFn, calls };
 }
 
 const req = (fetchFn: typeof fetch) => ({
@@ -54,14 +47,39 @@ test("zotero paginator: returns every item across pages, in order", async () => 
 });
 
 test("zotero paginator: pages after the first overlap in time", async () => {
-  // 500 items = 5 pages. Serially that is 5 x 50ms; concurrently far less.
-  const m = mockZotero(500, { latencyMs: 50 });
-  const started = Date.now();
-  await fetchAllZoteroItems(req(m.fetchFn));
-  const elapsed = Date.now() - started;
+  // 500 items = 5 pages: page 1 alone, then pages 2-5 together. Every later
+  // page is held open on a gate, so concurrency is counted, not timed. The
+  // gate opens after a few event-loop turns, which is long after a concurrent
+  // paginator has dispatched its requests (that happens in microtasks), and
+  // keeps a serial paginator from hanging the test.
+  const base = mockZotero(500);
+  let laterInFlight = 0;
+  let inFlightWhenReleased = -1;
+  let release: (() => void) | null = null;
+  const gate = new Promise<void>((resolve) => {
+    release = () => {
+      inFlightWhenReleased = laterInFlight;
+      resolve();
+    };
+  });
+  const turns = async (n: number) => {
+    for (let i = 0; i < n; i++) await new Promise((r) => setImmediate(r));
+  };
+  const fetchFn = (async (input: string | URL | Request) => {
+    const start = Number(new URL(String(input)).searchParams.get("start") ?? 0);
+    if (start > 0) {
+      laterInFlight += 1;
+      if (laterInFlight === 1) void turns(10).then(() => release?.());
+      await gate;
+    }
+    return base.fetchFn(input);
+  }) as unknown as typeof fetch;
 
-  assert.ok(m.peak() > 1, `expected concurrent requests, peak was ${m.peak()}`);
-  assert.ok(elapsed < 5 * 50, `expected overlap, took ${elapsed}ms`);
+  const items = await fetchAllZoteroItems(req(fetchFn));
+
+  assert.equal(items.length, 500);
+  assert.equal(laterInFlight, 4, "pages 2-5 each requested once");
+  assert.equal(inFlightWhenReleased, 4, "pages 2-5 were all in flight before any finished");
 });
 
 test("zotero paginator: one page needs exactly one request", async () => {
