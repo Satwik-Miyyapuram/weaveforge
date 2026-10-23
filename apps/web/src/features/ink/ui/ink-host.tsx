@@ -558,10 +558,7 @@ export function InkHost({
 
   /** Pan, pinch, erase, undo, redo (§use-ink-edit-actions). */
   const { onPan, onPinch, onErase, onUndo, onRedo } = useInkEditActions({
-    send,
-    scheduleSave,
-    scrollRef,
-    setZoom,
+    send, scheduleSave, scrollRef, setZoom, project,
   });
 
   // The text as shown, flowed across pages (§ink-text-flow).
