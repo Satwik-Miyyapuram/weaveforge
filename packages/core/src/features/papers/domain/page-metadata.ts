@@ -155,6 +155,20 @@ function unique(list: string[]): string[] {
 }
 
 /** Everything a page says about the paper it carries. */
+/**
+ * The arXiv id at the end of an abs / pdf URL, without its version or `.pdf`.
+ * Plain string steps: the single-regex form backtracks quadratically.
+ */
+function arxivIdFromUrl(url: string): string | undefined {
+  const at = /arxiv\.org\/(?:abs|pdf)\//i.exec(url);
+  if (!at) return undefined;
+  let id = url.slice(at.index + at[0].length);
+  if (!/^[\w./-]+$/.test(id)) return undefined;
+  if (id.toLowerCase().endsWith(".pdf")) id = id.slice(0, -4);
+  id = id.replace(/v\d+$/i, "");
+  return id || undefined;
+}
+
 export function extractPageMetadata(html: string, url: string): PageMetadata {
   const m = metaTags(html);
   const first = (...keys: string[]) => {
@@ -201,8 +215,7 @@ export function extractPageMetadata(html: string, url: string): PageMetadata {
 
   let arxivId = first("citation_arxiv_id")?.trim();
   if (!arxivId) {
-    const am = /arxiv\.org\/(?:abs|pdf)\/([\w.\/-]+?)(?:v\d+)?(?:\.pdf)?$/i.exec(url);
-    if (am) arxivId = am[1];
+    arxivId = arxivIdFromUrl(url);
   }
 
   return {

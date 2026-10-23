@@ -117,3 +117,12 @@ test("parsePaperRef does not mistake a bare id for a hostname", () => {
     value: "some paper title",
   });
 });
+
+test("normalizeArxivId and extractDoi stay linear on hostile input", () => {
+  const started = performance.now();
+  assert.equal(normalizeArxivId(`arxiv${"\t".repeat(50_000)}x`), undefined);
+  assert.equal(extractDoi(`10.1234/a${")".repeat(50_000)}x`), "10.1234/a" + ")".repeat(50_000) + "x");
+  assert.equal(normalizeArxivId("arxiv \t: 2305.12345"), "2305.12345");
+  assert.equal(extractDoi("doi:10.1145/3592979)."), "10.1145/3592979");
+  assert.ok(performance.now() - started < 500, "parsing took too long");
+});

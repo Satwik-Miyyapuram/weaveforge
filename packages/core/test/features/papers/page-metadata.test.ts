@@ -88,3 +88,12 @@ test("a bot wall is refused by name, even when it says it is an article", () => 
 test("an arXiv id is read from the page's own address", () => {
   assert.equal(extractPageMetadata("<title>x</title>", "https://arxiv.org/abs/2101.00001v2").arxivId, "2101.00001");
 });
+
+test("extractPageMetadata reads the arXiv id from the URL in linear time", () => {
+  assert.equal(extractPageMetadata("<html></html>", "https://arxiv.org/abs/2305.12345v2").arxivId, "2305.12345");
+  assert.equal(extractPageMetadata("<html></html>", "https://arxiv.org/pdf/2305.12345.pdf").arxivId, "2305.12345");
+  assert.equal(extractPageMetadata("<html></html>", "https://arxiv.org/abs/cs/0501001").arxivId, "cs/0501001");
+  const started = performance.now();
+  extractPageMetadata("<html></html>", `arxiv.org/abs/${"arxiv.org/abs/-".repeat(20_000)}?`);
+  assert.ok(performance.now() - started < 500, "parsing took too long");
+});

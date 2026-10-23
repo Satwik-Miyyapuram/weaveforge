@@ -23,7 +23,7 @@ const DOI_RE = /10\.\d{4,9}\/[^\s"'<>]+/;
 const ARXIV_URL_RE =
   /arxiv\.org\/(?:abs|pdf)\/([a-z-]+(?:\.[A-Z]{2})?\/\d{7}|\d{4}\.\d{4,5})(v\d+)?(?:\.pdf)?/i;
 const ARXIV_PREFIXED_RE =
-  /\barxiv\s*[:\s]\s*([a-z-]+(?:\.[A-Z]{2})?\/\d{7}|\d{4}\.\d{4,5})(v\d+)?/i;
+  /\barxiv(?:\s*:\s*|\s+)([a-z-]+(?:\.[A-Z]{2})?\/\d{7}|\d{4}\.\d{4,5})(v\d+)?/i;
 const ARXIV_BARE_RE = /^([a-z-]+(?:\.[A-Z]{2})?\/\d{7}|\d{4}\.\d{4,5})(v\d+)?$/i;
 
 /**
@@ -60,7 +60,14 @@ export function extractDoi(value?: string): string | undefined {
     /* keep the raw text — a stray '%' is not worth failing the parse over */
   }
   const m = DOI_RE.exec(text)?.[0];
-  return m?.replace(/[).,;]+$/, "").toLowerCase();
+  return m === undefined ? undefined : trimTrailingPunctuation(m).toLowerCase();
+}
+
+/** Drop trailing `).,;` with a loop: a `[).,;]+$` regex is quadratic on long runs. */
+function trimTrailingPunctuation(text: string): string {
+  let end = text.length;
+  while (end > 0 && ").,;".includes(text.charAt(end - 1))) end--;
+  return text.slice(0, end);
 }
 
 /**
