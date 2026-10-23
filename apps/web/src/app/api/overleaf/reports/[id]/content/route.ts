@@ -8,12 +8,13 @@ import { readOverleafProject } from "@/features/overleaf/infrastructure/overleaf
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET(request: Request, context: { params: { id: string } }) {
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
   const auth = await requireSdkUser(request);
   if (!auth.ok) return auth.response;
   const { data: report, error } = await auth.db.from("overleaf_linked_reports")
     .select("id,overleaf_project_id,entry_file,external_url,connection_id")
-    .eq("id", context.params.id).eq("user_id", auth.userId).eq("enabled", true).maybeSingle();
+    .eq("id", id).eq("user_id", auth.userId).eq("enabled", true).maybeSingle();
   if (error) return NextResponse.json({ error: formatErrorForResponse(error, "overleaf-content") }, { status: 500 });
   if (!report) return NextResponse.json({ error: "Linked Overleaf report not found." }, { status: 404 });
   const { data: connection } = await auth.db.from("overleaf_connections")

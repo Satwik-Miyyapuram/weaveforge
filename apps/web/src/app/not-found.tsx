@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { DOCS_URL } from "./account-links";
 import { RouteNotFound } from "./route-not-found";
 
@@ -20,12 +21,12 @@ export default function NotFound() {
     <RouteNotFound
       links={
         <>
-          <a className="btn-primary" href="/">
+          <Link className="btn-primary" href="/">
             Back to the home page
-          </a>
-          <a className="btn-secondary" href="/papers">
+          </Link>
+          <Link className="btn-secondary" href="/papers">
             Browse the papers
-          </a>
+          </Link>
           <a className="btn-secondary" href={DOCS_URL}>
             Read the docs
           </a>

@@ -8,7 +8,7 @@
  * audit could not confirm which import site did it, and neither could a reader:
  * nothing measured the result.
  *
- * This measures it. For each route in `.next/app-build-manifest.json`, the JS
+ * This measures it. For each route the build wrote (see `readRoutes`), the JS
  * chunks that page loads are summed, and the largest is compared against a budget.
  * The numbers are per route rather than one total because the failure mode is a
  * *route* that drags something in — a total hides it behind the fifty routes that
@@ -19,7 +19,8 @@
  *
  *     npm run bundle:budget
  */
-import { readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
@@ -66,7 +67,26 @@ const buildDir = path.join(root, "apps/web/.next");
  * `ENVIRONMENT_ALLOWANCE_KB` for that variance; the numbers below are the CI
  * ones, because CI is where the gate has to hold.
  */
-const ROUTE_BUDGET_KB = 340;
+const ROUTE_BUDGET_KB = 410;
+
+/*
+ * **The rebase for Next 16** (React 19) changed both the measure and the numbers,
+ * so every limit below was set again from one build rather than ratcheted:
+ *
+ * - The measure. `app-build-manifest.json` is gone; the routes are now read from
+ *   each page's client reference manifest, which counts the layout chunks every
+ *   page loads. On the same Next 15 build that adds ~40 KB to each page and makes
+ *   `/layout` disappear as a separate entry — the shell (`/`, `/_not-found`) is
+ *   the floor every route now starts from: 366 KB on Next 15.
+ * - The framework. The root chunks went from 91 KB to 137 KB gzipped (React 19's
+ *   react-dom and the Next 16 router) while the app's shell chunks shrank 16 KB,
+ *   so every route grew by the same ~30 KB and the shell is 396 KB. No app import
+ *   arrived; the per-route differences are unchanged from Next 15.
+ *
+ * The default is the shell plus room for one feature, as before. The allowances
+ * are the routes above it at their measured size plus 2 KB, and the notes on them
+ * still say what makes each heavy.
+ */
 
 /**
  * Headroom for the build environment, on every limit.
@@ -80,31 +100,29 @@ const ENVIRONMENT_ALLOWANCE_KB = 12;
 
 /** Routes already above the default, at their measured size plus a little. */
 const ROUTE_ALLOWANCES_KB = {
-  "/papers": 425,
-  "/report": 415,
-  "/notes": 405,
+  "/papers": 485,
+  "/report": 452,
+  "/notes": 471,
   // the AI review panel and the proposal executors it configures live in the
   // container every route boots, so every route carries their code: +1 KB.
   // Settings houses workspace folder mirror, git 3-way conflict resolution, and sync issues:
   // Plus the local API token panel, Connect panel for local AI clients (0.8.11), and DatePicker.
-  "/settings": 412,
+  "/settings": 484,
   // graph and experiments share the top navigation with live sync status indicators;
   // experiments added the image viewer, result editor and token create form, and
   // graph shares the chunk that carries them: +3 KB each.
   // Graph settings drawer added tabs, relation chips, and reading list integration: +4 KB.
-  "/graph": 393,
+  "/graph": 473,
   // Reader zoom keys in the shell and aborted-transaction recovery in the screen loader: +1 KB.
-  "/experiments": 359,
-  // the shared shell itself: the container gained the MCP draft, proposal and
-  // lab-snapshot code, all of it reached from the layout. The puller's hold
-  // queue and local-twin drop run on every page: +2 KB on the shell.
-  // The account menu's lab switcher submenu: +1 KB.
-  // Page transitions (lib/view-transition) run on every route: +1 KB.
-  // Portalled anchored menus (Select/MultiSelect) and rAF scrollbar in shared layout: +2 KB.
-  "/layout": 350,
-  "/dashboard": 346,
+  "/experiments": 442,
+  // The review panel and the PDF reader shell each sit a little above the default.
+  "/ai-review": 432,
+  "/reader": 428,
+  "/dashboard": 427,
   // Lists screen carries reading lists, membership management, and EntityCardMenu:
-  "/lists": 345,
+  "/lists": 425,
+  "/log": 422,
+  "/plan": 422,
 };
 
 /** The allowance for a route, longest matching prefix first, plus the environment's. */
@@ -122,26 +140,52 @@ function gzippedChunkSize(file) {
   }
 }
 
-let manifest;
+/**
+ * Every route's first-load JS: the chunks its client components need, plus the
+ * framework's root chunks every page boots with.
+ *
+ * Next 16 dropped `app-build-manifest.json`, which this used to read. What every
+ * version still writes is each page's client reference manifest, which lists the
+ * chunks of every client module the page renders — its layouts included — and
+ * `build-manifest.json`'s `rootMainFiles`. That is the whole of what a cold load
+ * of the route fetches, so it is a larger number than the old per-page entry,
+ * which left the layout chunks out and counted them once under `/layout`.
+ */
+function readRoutes() {
+  const rootMainFiles = JSON.parse(readFileSync(path.join(buildDir, "build-manifest.json"), "utf8")).rootMainFiles ?? [];
+  const appDir = path.join(buildDir, "server/app");
+  const routes = new Map();
+  for (const entry of readdirSync(appDir, { recursive: true })) {
+    const file = String(entry);
+    if (path.basename(file) !== "page_client-reference-manifest.js") continue;
+    const sandbox = {};
+    sandbox.globalThis = sandbox;
+    runInNewContext(readFileSync(path.join(appDir, file), "utf8"), sandbox);
+    for (const [page, manifest] of Object.entries(sandbox.__RSC_MANIFEST ?? {})) {
+      const chunks = Object.values(manifest.clientModules ?? {}).flatMap((mod) => mod.chunks ?? []);
+      const route = page.replace(/\/page$/, "") || "/";
+      routes.set(route, new Set([...rootMainFiles, ...chunks].filter((chunk) => String(chunk).endsWith(".js"))));
+    }
+  }
+  return routes;
+}
+
+let routes;
 try {
-  manifest = JSON.parse(readFileSync(path.join(buildDir, "app-build-manifest.json"), "utf8"));
+  routes = readRoutes();
 } catch {
   console.error(
     "FAIL: no build output to measure. Run `npm run build` first — this check reads\n" +
-      "      .next/app-build-manifest.json, which only exists after one.",
+      "      .next/build-manifest.json and .next/server/app, which only exist after one.",
   );
   process.exit(1);
 }
 
-const chunksDir = path.join(buildDir, "static/chunks");
 const measured = [];
-for (const [route, files] of Object.entries(manifest.pages ?? {})) {
+for (const [route, files] of routes) {
   let bytes = 0;
-  for (const file of files) {
-    if (!file.endsWith(".js")) continue;
-    // Manifest paths are relative to the build root (`static/chunks/…`).
-    bytes += gzippedChunkSize(path.join(buildDir, file));
-  }
+  // Manifest paths are relative to the build root (`static/chunks/…`).
+  for (const file of files) bytes += gzippedChunkSize(path.join(buildDir, file));
   measured.push({ route, kb: Math.round(bytes / 1024) });
 }
 

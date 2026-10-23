@@ -30,11 +30,11 @@ function isFeedFile(value: string): value is FeedFile {
   return Object.prototype.hasOwnProperty.call(FILES, value);
 }
 
-export async function GET(request: Request, context: { params: { token: string; file: string } }) {
-  const { file } = context.params;
+export async function GET(request: Request, context: { params: Promise<{ token: string; file: string }> }) {
+  const { token, file } = await context.params;
   if (!isFeedFile(file)) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
-  const auth = await requirePlanFeedUser(context.params.token);
+  const auth = await requirePlanFeedUser(token);
   // A revoked or unknown link is gone, not unauthorised: calendar apps stop
   // polling a 404 and keep retrying a 401.
   if (!auth.ok) return auth.response.status === 401 ? NextResponse.json({ error: "Not found." }, { status: 404 }) : auth.response;

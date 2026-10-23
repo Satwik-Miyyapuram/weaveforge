@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/features/auth";
 import { useProfile } from "@/features/org/ui/profile-provider";
@@ -115,7 +116,7 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
   if (!user) return null;
   const canSupervise = !!profile && profile.role !== "masters";
 
-  const ICONS: Record<AccountLinkId, () => JSX.Element> = {
+  const ICONS: Record<AccountLinkId, () => React.JSX.Element> = {
     projects: GridIcon,
     sharing: ShareIcon,
     "ai-review": () => <></>,

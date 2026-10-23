@@ -19,6 +19,9 @@ const FILES = new Set(
     "settings/index.html",
     "_next/static/chunk.js",
     "icons/icon-512.png",
+    "__next.__PAGE__.txt",
+    "plan/__next._tree.txt",
+    "plan/__next.plan/__PAGE__.txt",
   ].map((file) => path.join(ROOT, ...file.split("/"))),
 );
 
@@ -35,6 +38,20 @@ test("a directory request lands on its index", () => {
 
 test("the same page without the trailing slash still lands", () => {
   assert.equal(resolve("app://weaveforge/settings"), path.join(ROOT, "settings", "index.html"));
+});
+
+test("a segment prefetch lands on the folder the export wrote it to", () => {
+  // Next 16 asks for `__next.plan.__PAGE__.txt`; the export writes
+  // `__next.plan/__PAGE__.txt`. A miss turns client navigation into a reload.
+  assert.equal(
+    resolve("app://weaveforge/plan/__next.plan.__PAGE__.txt?_rsc=abc"),
+    path.join(ROOT, "plan", "__next.plan", "__PAGE__.txt"),
+  );
+});
+
+test("flat segment files are still served as themselves", () => {
+  assert.equal(resolve("app://weaveforge/__next.__PAGE__.txt"), path.join(ROOT, "__next.__PAGE__.txt"));
+  assert.equal(resolve("app://weaveforge/plan/__next._tree.txt"), path.join(ROOT, "plan", "__next._tree.txt"));
 });
 
 test("an asset is served as itself", () => {

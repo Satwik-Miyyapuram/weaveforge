@@ -20,7 +20,18 @@ interface SelectOption {
   group?: string;
 }
 
-function pushOption(out: SelectOption[], child: React.ReactElement, group?: string) {
+interface OptionElementProps {
+  value?: string | number;
+  children?: React.ReactNode;
+  disabled?: boolean;
+}
+
+interface OptGroupElementProps {
+  label?: string;
+  children?: React.ReactNode;
+}
+
+function pushOption(out: SelectOption[], child: React.ReactElement<OptionElementProps>, group?: string) {
   const v = child.props.value !== undefined ? child.props.value : child.props.children;
   out.push({
     value: String(v),
@@ -36,13 +47,16 @@ function collectOptions(children: React.ReactNode): SelectOption[] {
   React.Children.forEach(children, (child) => {
     if (!React.isValidElement(child)) return;
     if (child.type === "option") {
-      pushOption(options, child);
+      pushOption(options, child as React.ReactElement<OptionElementProps>);
       return;
     }
     if (child.type === "optgroup") {
-      const group = String(child.props.label ?? "");
-      React.Children.forEach(child.props.children, (opt) => {
-        if (React.isValidElement(opt) && opt.type === "option") pushOption(options, opt, group);
+      const groupChild = child as React.ReactElement<OptGroupElementProps>;
+      const group = String(groupChild.props.label ?? "");
+      React.Children.forEach(groupChild.props.children, (opt) => {
+        if (React.isValidElement(opt) && opt.type === "option") {
+          pushOption(options, opt as React.ReactElement<OptionElementProps>, group);
+        }
       });
     }
   });
