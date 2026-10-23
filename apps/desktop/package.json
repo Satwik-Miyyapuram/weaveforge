@@ -20,7 +20,7 @@
   "devDependencies": {
     "@types/node": "^20.19.43",
     "@weaveforge/core": "*",
-    "electron": "44.9.0",
+    "electron": "44.9.3",
     "electron-builder": "^25.1.8",
     "esbuild": "^0.28.2",
     "fflate": "^0.8.3",
