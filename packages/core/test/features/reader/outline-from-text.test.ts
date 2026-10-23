@@ -95,3 +95,24 @@ test("uses half-point modal sizes and handles empty documents", () => {
   assert.deepEqual(outlineFromText([]), []);
   assert.deepEqual(outlineFromText([[item("", 12)]]), []);
 });
+
+test("ignores rotated text such as arXiv's side stamp", () => {
+  const stamp = { ...item("arXiv:1406.2661v1 [stat.ML] 10 Jun 2014", 20, 1, 400), x: 10, rotated: true };
+  const pages = [[stamp, item("1 Introduction", 12), ...body(1)], [item("2 Method", 12, 2), ...body(2)], [item("3 Results", 12, 3), ...body(3)]];
+  assert.deepEqual(outlineFromText(pages).map((n) => n.title), ["1 Introduction", "2 Method", "3 Results"]);
+});
+
+test("keeps a section number set as its own run at the page's left edge", () => {
+  // "2" is the leftmost run on the page, so it sits in the margin band where
+  // bare page numbers are dropped; its heading on the same baseline marks it
+  // as a section number.
+  const numbered = (n: string, title: string, page: number) =>
+    [{ ...item(n, 12, page), x: 30 }, { ...item(title, 12, page), x: 48 }];
+  const pages = [1, 2, 3].map((page) => [...numbered(String(page), ["Introduction", "Related work", "Results"][page - 1]!, page), ...body(page)]);
+  assert.deepEqual(outlineFromText(pages).map((n) => n.title), ["1 Introduction", "2 Related work", "3 Results"]);
+});
+
+test("a lone large letter is a maths variable, not a heading", () => {
+  const pages = [[item("1 Introduction", 12), { ...item("z", 14, 1, 500), x: 45 }, ...body(1)], [item("2 Method", 12, 2), ...body(2)], [item("3 Results", 12, 3), ...body(3)]];
+  assert.deepEqual(outlineFromText(pages).map((n) => n.title), ["1 Introduction", "2 Method", "3 Results"]);
+});

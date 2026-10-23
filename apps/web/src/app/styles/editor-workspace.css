@@ -765,6 +765,8 @@
    and a little more air between them. */
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool { width: 36px; height: 36px; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool.ink-menu-trigger { width: auto; }
+/* Labelled buttons keep their text on one line instead of the 36px square. */
+:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool.ink-tool-text { width: auto; white-space: nowrap; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-zoom-pct { height: 36px; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool svg { width: 18px; height: 18px; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-bar-group,

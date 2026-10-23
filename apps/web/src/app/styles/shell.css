@@ -216,18 +216,16 @@
 
 .header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
-/* Compact top-bar overflow (⋯) menu — the design's consolidated account menu. */
+/* The account button: a secondary button, so it rests, lifts and presses like
+   the project chip beside it. Only its size is its own. */
 .header-overflow { position: relative; display: inline-flex; }
-.header-overflow-btn {
-  display: inline-flex; align-items: center; justify-content: center;
+.account-btn {
   /* The shared touch target, not a number: 40px was under `--touch-min` (44px),
      so the one control that opens the whole account menu was the smallest thing
      in the bar on a phone. */
-  width: var(--touch-min); height: var(--touch-min); border-radius: 8px;
-  border: 1px solid var(--border); background: transparent; color: var(--muted);
-  cursor: pointer; font-size: calc(var(--icon-size) + 4px); line-height: 1;
+  width: var(--touch-min); height: var(--touch-min);
+  font-size: calc(var(--icon-size) + 4px); line-height: 1;
 }
-.header-overflow-btn:hover { background: var(--surface2); }
 .header-menu {
   position: absolute; z-index: var(--z-popover); top: calc(100% + 8px); right: 0; min-width: 210px;
   background: var(--elev); border: 1px solid var(--border); border-radius: 12px;

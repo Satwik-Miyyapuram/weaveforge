@@ -37,6 +37,24 @@ test("multi-initial author lists keep the title whole", () => {
   assert.equal(refs[2]?.title, "Stochastic backpropagation");
 });
 
+test("a long author list before a bracketed year still reads as author-year, and a title may end in a question mark", () => {
+  // Reference [14] of the GAN paper: ten authors run past the short-prefix
+  // form, and the tail of the list used to be read as the title.
+  const refs = parseReferenceList([lines([
+    "References",
+    "[14] Hinton, G., Deng, L., Dahl, G. E., Mohamed, A., Jaitly, N., Senior, A., Vanhoucke, V., Nguyen, P., Sainath, T., and Kingsbury, B. (2012a). Deep neural networks for acoustic modeling in speech recognition. IEEE Signal Processing Magazine, 29(6), 82–97.",
+    "[15] Hinton, G. E., Srivastava, N., Krizhevsky, A., Sutskever, I., and Salakhutdinov, R. (2012b). Improving neural networks by preventing co-adaptation of feature detectors. Technical report, arXiv:1207.0580.",
+    "[16] Jarrett, K., Kavukcuoglu, K., Ranzato, M., and LeCun, Y. (2009). What is the best multi-stage architecture for object recognition? In Proc. ICCV, pages 2146–2153. IEEE.",
+  ])]);
+  assert.equal(refs[0]?.title, "Deep neural networks for acoustic modeling in speech recognition");
+  assert.equal(refs[0]?.year, 2012);
+  assert.equal(refs[0]?.yearSuffix, "a");
+  assert.equal(refs[0]?.authors[0], "Hinton");
+  assert.equal(refs[0]?.authors.at(-1), "Kingsbury");
+  assert.equal(refs[1]?.title, "Improving neural networks by preventing co-adaptation of feature detectors");
+  assert.equal(refs[2]?.title, "What is the best multi-stage architecture for object recognition?");
+});
+
 test("uses the last bibliography heading, joins hyphens and stops at Appendix", () => {
   const input = [lines(["References", "Contents", "References", '[1] Smith. 2019. “Hyphen-', 'ated title”.', '[2] Lee. 2020. “Second”.', '[3] Jones. 2021. “Third”.', "Appendix", "[4] Not a reference."])];
   const refs = parseReferenceList(input);

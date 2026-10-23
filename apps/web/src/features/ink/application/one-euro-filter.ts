@@ -142,6 +142,15 @@ export class OneEuroFilter {
     this.previousTime = null;
   }
 
+  /** The state, for {@link restore}. */
+  save(): [number | null, number, number | null, number | null] {
+    return [this.value, this.derivative, this.previousValue, this.previousTime];
+  }
+
+  restore(state: [number | null, number, number | null, number | null]): void {
+    [this.value, this.derivative, this.previousValue, this.previousTime] = state;
+  }
+
   /**
    * Filter one sample taken at `time` milliseconds.
    *
@@ -250,6 +259,20 @@ export class NibFilter {
     this.y.reset();
     this.pressure.reset();
     this.previous = null;
+  }
+
+  /** Snapshot the state so predicted samples can be filtered then forgotten. */
+  save(): () => void {
+    const x = this.x.save();
+    const y = this.y.save();
+    const pressure = this.pressure.save();
+    const previous = this.previous;
+    return () => {
+      this.x.restore(x);
+      this.y.restore(y);
+      this.pressure.restore(pressure);
+      this.previous = previous;
+    };
   }
 
   /**

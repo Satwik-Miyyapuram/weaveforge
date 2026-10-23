@@ -40,6 +40,14 @@ export function PaperHtmlView({ page, toolbarExtra, onRemove }: PaperHtmlViewPro
           {host} ↗
         </a>
         <span className="paper-html-spacer" />
+        <button
+          type="button"
+          className="btn-secondary btn-sm"
+          title="Print this page or save it as a PDF"
+          onClick={() => printPaperHtml(page)}
+        >
+          Save as PDF…
+        </button>
         {onRemove ? (
           <button
             type="button"
@@ -61,4 +69,24 @@ export function PaperHtmlView({ page, toolbarExtra, onRemove }: PaperHtmlViewPro
       />
     </div>
   );
+}
+
+/**
+ * Print the page from a frame of its own, so the dialog's "Save as PDF" keeps
+ * real text. Still no scripts in it; same-origin and modals only so it can print.
+ */
+export function printPaperHtml(page: PaperHtmlPage): void {
+  const frame = document.createElement("iframe");
+  frame.setAttribute("sandbox", "allow-same-origin allow-modals");
+  frame.setAttribute("aria-hidden", "true");
+  frame.style.cssText = "position:fixed;width:0;height:0;border:0;opacity:0;pointer-events:none";
+  frame.srcdoc = buildPaperHtmlDocument(page, { scheme: "light", print: true });
+  frame.addEventListener("load", () => {
+    const win = frame.contentWindow;
+    if (!win) return frame.remove();
+    win.addEventListener("afterprint", () => frame.remove(), { once: true });
+    win.focus();
+    win.print();
+  });
+  document.body.appendChild(frame);
 }

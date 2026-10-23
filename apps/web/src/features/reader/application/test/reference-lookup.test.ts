@@ -71,7 +71,43 @@ test("caches per (documentKey, refIndex) and reports library presence", async ()
   );
   const first = await service.resolve("p1", ref({ index: 7, title: "T", doi: "10.1/fallback" }));
   await service.resolve("p1", ref({ index: 7, title: "T", doi: "10.1/fallback" }));
-  assert.deepEqual(seen, ["v4:p1:ref:7"]);
+  assert.deepEqual(seen, ["v5:p1:ref:7"]);
   assert.equal(first.status, "resolved");
   assert.equal(first.inLibrary?.id, "lib-1");
+});
+
+test("a reference with no DOI or arXiv id is in the library when its title is", async () => {
+  // The add step dedupes id-less papers by title; the popover must agree, or
+  // it offers "Add to library" for a paper the add step says is already there.
+  const papers = new InMemoryPaperRepository();
+  await papers.save(paper({ id: "lib-2", title: "Understanding the difficulty of training deep feedforward neural networks" }));
+  const service = new ReferenceLookupService(
+    { resolveWithSource: async () => ({ metadata: paper({ title: "Understanding the Difficulty of Training Deep Feedforward Neural Networks." }), sourceId: "fake" }) },
+    papers,
+  );
+  const result = await service.resolve("p1", ref({ title: "Understanding the difficulty" }));
+  assert.equal(result.status === "resolved" && result.inLibrary?.id, "lib-2");
+});
+
+test("a reference with a DOI is not matched by title alone", async () => {
+  // Two editions share a title but not a DOI; the add step keeps them apart.
+  const papers = new InMemoryPaperRepository();
+  await papers.save(paper({ id: "lib-3", title: "Understanding the difficulty of training deep feedforward neural networks" }));
+  const service = new ReferenceLookupService(
+    { resolveWithSource: async () => ({ metadata: paper({ title: "Understanding the difficulty of training deep feedforward neural networks", doi: "10.9/other" }), sourceId: "fake" }) },
+    papers,
+  );
+  const result = await service.resolve("p1", ref({ title: "x" }));
+  assert.equal(result.status === "resolved" && result.inLibrary, undefined);
+});
+
+test("a miss is not written to the disk cache, so a later session retries it", async () => {
+  // A miss may be a dropped connection or a title the parser has since learned
+  // to read; caching it for 30 days kept the entry unresolved after both.
+  const store = new Map<string, ResolvedReference>();
+  const cache: ReferenceLookupCache = { get: (key) => store.get(key), set: (key, value) => void store.set(key, value) };
+  const failing = new FakeSource("first", () => { throw new Error("offline"); });
+  const service = new ReferenceLookupService(new MetadataResolver([failing]), new InMemoryPaperRepository(), cache);
+  assert.equal((await service.resolve("p1", ref({ title: "Missing" }))).status, "unresolved");
+  assert.equal(store.size, 0);
 });
