@@ -19,17 +19,17 @@ import {
 // The shared palm rules, through ink's public API: an ink note needs the same
 // three layers this reader already had, so they live in one place rather than in
 // two implementations that would drift.
-import { ERASER_CURSOR, InkGesture, InkPenGate, StrokeEdgeSplit, type InkToolKind } from "@/features/ink";
+import { ERASER_CURSOR, ERASER_SCREEN_RADIUS, InkGesture, InkPenGate, StrokeEdgeSplit, type InkToolKind } from "@/features/ink";
 import {
   appendInkStroke,
   draftImageRegion,
+  eraseInkPaths,
   draftInkAnnotation,
 } from "../../application/draft-local-annotation";
 import { PdfInkSampler, coalescedSamples } from "../../application/pdf-ink-sampler";
 import { isInkTool, type ReaderCreateTool } from "../../application/reader-annotation-helpers";
 import {
   EMPTY_ANNOTATIONS,
-  ERASER_RADIUS,
   INK_MOVE_THRESHOLD,
   MIN_TEXT_BOX_PDF_SIZE,
 } from "./constants";
@@ -167,8 +167,12 @@ export function usePagePointer({
   /** The stroke against the page's edge; shared with Notes. */
   const edge = useRef(new StrokeEdgeSplit());
   const inkMove = useRef<InkMove | null>(null);
-  /** Ink deleted by the current eraser drag, so one pass deletes each mark once. */
-  const erasedIds = useRef<Set<string>>(new Set());
+  /**
+   * What the current eraser drag has left of each mark it touched: the trimmed
+   * anchor, or null once the mark is gone. A save lands after the next pointer
+   * move, so the drag works from this rather than the stale annotation.
+   */
+  const erased = useRef<Map<string, ReaderAnnotation["anchor"] | null>>(new Map());
   /** Each pointer's route from down to up; shared with Notes. */
   const gesture = useRef(new InkGesture(ERASER_CURSOR));
   const dragRect = useRef<{
@@ -267,18 +271,25 @@ export function usePagePointer({
     });
   }
 
-  /** Delete every ink mark the eraser is touching, once per drag. */
+  /** Rub out the strokes the eraser is touching; a mark goes once none are left. */
   function eraseAt(pageNumber: number, x: number, y: number) {
-    for (const ann of inkAnnotationsAt(pageNumber, x, y, ERASER_RADIUS)) {
+    // The reach is fixed on screen; `scale` is CSS px per PDF unit at this zoom.
+    const radius = ERASER_SCREEN_RADIUS / scale;
+    for (const ann of inkAnnotationsAt(pageNumber, x, y, radius)) {
       if (ann.origin !== "local") continue;
-      if (erasedIds.current.has(ann.id)) continue;
-      erasedIds.current.add(ann.id);
-      // A stroke being erased must not also be the group the next stroke joins.
+      const current = erased.current.has(ann.id) ? erased.current.get(ann.id) : ann.anchor;
+      if (!current) continue;
+      const nib = current.zoteroPosition?.width ?? INK_DEFAULT_WIDTH;
+      const next = eraseInkPaths(current, x, y, radius + nib / 2);
+      if (next === current) continue;
+      erased.current.set(ann.id, next);
+      // A mark being erased must not also be the group the next stroke joins.
       if (inkGroup.current?.annotationId === ann.id) inkGroup.current = null;
       // No confirmation, and none offered: rubbing out a word is a dozen marks
       // in one drag, and a dialog per stroke would make the eraser unusable.
       // The gesture is already deliberate, and ink undo puts it back.
-      void removeLocal(ann.id);
+      if (next) void saveAnchor({ ...ann, anchor: current }, next);
+      else void removeLocal(ann.id);
     }
   }
 
@@ -403,7 +414,7 @@ export function usePagePointer({
 
   function startErase(pageNumber: number, event: React.PointerEvent<HTMLDivElement>, pt: { x: number; y: number }) {
     event.preventDefault();
-    erasedIds.current = new Set();
+    erased.current = new Map();
     event.currentTarget.setPointerCapture(event.pointerId);
     eraseAt(pageNumber, pt.x, pt.y);
   }
@@ -429,7 +440,7 @@ export function usePagePointer({
       admit: () => pointerMayDraw(event),
       hitSelection: () => {
         const held = selectionIds();
-        return held.length > 0 && inkAnnotationsAt(pageNumber, pt.x, pt.y, ERASER_RADIUS).some((ann) => held.includes(ann.id));
+        return held.length > 0 && inkAnnotationsAt(pageNumber, pt.x, pt.y, ERASER_SCREEN_RADIUS / scale).some((ann) => held.includes(ann.id));
       },
     });
     // No tool, or a pointer the palm rules refuse: a press is the page's, so a
@@ -646,7 +657,7 @@ export function usePagePointer({
     }
 
     if (route === "erase" || createTool === "erase") {
-      erasedIds.current = new Set();
+      erased.current = new Map();
       return;
     }
 
