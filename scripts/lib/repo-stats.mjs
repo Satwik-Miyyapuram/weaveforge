@@ -8,6 +8,11 @@
  * Only files git is tracking are counted. Walking the working tree counted
  * whatever happened to be lying in it — a stale build directory, a scratch
  * script — so the same commit measured differently here and on CI.
+ *
+ * Content is read from the index too, not the working copy: a tracked file
+ * edited but not staged (Next.js rewrites `apps/web/next-env.d.ts` on every
+ * dev run) skewed the counts the same way. In a pre-commit hook the index is
+ * the commit; on CI it is the checkout.
  */
 
 import { readFileSync } from "node:fs";
@@ -30,8 +35,41 @@ export const TRACKED = execFileSync("git", ["ls-files", "-z"], {
 /** Digits a reader can scan, grouped the way they read them. */
 export const n = (value) => value.toLocaleString("en-US");
 
+/**
+ * The staged content of each path, as the next commit will hold it. Paths that
+ * are not in the index are left out.
+ */
+export function readIndex(root, rels) {
+  const files = new Map();
+  if (!rels.length) return files;
+  const out = execFileSync("git", ["cat-file", "--batch"], {
+    cwd: root,
+    input: rels.map((rel) => `:${rel}
+`).join(""),
+    maxBuffer: 1024 * 1024 * 1024,
+  });
+  let at = 0;
+  for (const rel of rels) {
+    const eol = out.indexOf(10, at);
+    const header = out.toString("utf8", at, eol);
+    at = eol + 1;
+    if (header.endsWith(" missing")) continue;
+    const size = Number(header.split(" ")[2]);
+    files.set(rel, out.toString("utf8", at, at + size));
+    at += size + 1;
+  }
+  return files;
+}
+
+/** Text a generator reads: loaded from the index in one `git cat-file` call. */
+const TEXT = new Set([...CODE, ".md", ".json", ".html"]);
+let staged;
+
 export function read(rel) {
-  return readFileSync(path.join(ROOT, rel), "utf8");
+  staged ??= readIndex(ROOT, TRACKED.filter((f) => TEXT.has(path.extname(f))));
+  const text = staged.get(rel) ?? readIndex(ROOT, [rel]).get(rel);
+  // Not in the index at all: a generated output, read where it was written.
+  return text ?? readFileSync(path.join(ROOT, rel), "utf8");
 }
 
 /** Counted the way `wc -l` counts: a trailing newline does not open a line. */
