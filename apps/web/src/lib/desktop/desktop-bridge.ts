@@ -522,9 +522,12 @@ export interface DesktopVaultEntry {
   modifiedAt: string;
 }
 
-/** What may be kept. Mirrored in `apps/desktop/src/secret-store.ts`. */
-export type DesktopSecretName =
-  "ai-provider" | "local-api-token" | "overleaf-token";
+/**
+ * The secrets the page may name. Mirrored in `apps/desktop/src/secret-store.ts`,
+ * which also keeps `local-api-token` for the shell alone, and lets the page
+ * write but never read back `overleaf-token`.
+ */
+export type DesktopSecretName = "ai-provider" | "overleaf-token";
 
 /** What the shell remembers. Mirrored in `apps/desktop/src/preference-store.ts`. */
 export type DesktopPreferenceName =

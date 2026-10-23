@@ -59,7 +59,7 @@ import { answerRelay } from "./app-relays";
 import { installApiCors } from "./api-cors";
 import { startAuthLoopback } from "./auth-loopback";
 import { CHANNELS, type IpcResult, type MenuGroupPayload } from "./channels";
-import { preferenceStore, secretStore } from "./main-stores";
+import { pagePreferenceStore, pageSecretStore, preferenceStore, secretStore } from "./main-stores";
 import { fetchReleases, findUpdate } from "./update-check";
 import { installMenu, invokeMenuItem, menuModel, pageCommand, routeTo } from "./app-menu";
 import { realUpdater, startAutoUpdate } from "./auto-update";
@@ -378,10 +378,10 @@ ipc.on(CHANNELS.titleBarColors, (_event, colors: unknown) => {
 registerMainAppLog({ ipc, appLog });
 
 ipc.handle(CHANNELS.preferenceRead, (_event, name: unknown) =>
-  preferenceStore().read(name),
+  pagePreferenceStore().read(name),
 );
 ipc.handle(CHANNELS.preferenceWrite, (_event, name: unknown, value: unknown) =>
-  preferenceStore().write(name, value),
+  pagePreferenceStore().write(name, value),
 );
 
 ipc.handle(CHANNELS.fetchTitle, (_event, url: unknown) =>
@@ -462,13 +462,13 @@ function serveBundle(): void {
 }
 
 ipc.handle(CHANNELS.secretRead, (_event, name: unknown) =>
-  secretStore().read(name),
+  pageSecretStore().read(name),
 );
 ipc.handle(CHANNELS.secretWrite, (_event, name: unknown, value: unknown) =>
-  secretStore().write(name, value),
+  pageSecretStore().write(name, value),
 );
 ipc.handle(CHANNELS.secretClear, (_event, name: unknown) =>
-  secretStore().clear(name),
+  pageSecretStore().clear(name),
 );
 
 ipc.handle(
