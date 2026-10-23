@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { outlineFromText, type OutlineTextItem, type PdfLink } from "@weaveforge/core";
+import { isRotatedText, outlineFromText, type OutlineTextItem, type PdfLink } from "@weaveforge/core";
 import type { PageTextItem } from "@weaveforge/core";
 import type { TextLayer } from "pdfjs-dist";
 import { createPdfTextLayer, measurePdfLinks } from "./pdf-text-layer";
@@ -403,6 +403,7 @@ useEffect(() => {
               x: item.transform[4] ?? 0,
               y: item.transform[5] ?? 0,
               page: n,
+              ...(isRotatedText(item.transform) ? { rotated: true } : {}),
             }));
           };
 
