@@ -13,12 +13,6 @@ import { addedNotice, type ReferenceNotice } from "../../application/reference-n
 import type { AnchorBox } from "../reference-popover-layer";
 import { useDocumentAnalyzer } from "./use-document-analyzer";
 
-const LINK_CITATIONS_KEY = "weaveforge.reader.linkCitations";
-
-function readLinkCitations(): boolean {
-  return true;
-}
-
 export interface OpenMention {
   hit: MentionHit;
   entry: ParsedReference;
@@ -37,7 +31,12 @@ export interface UseReaderReferencesInput {
   setPage: (pageNumber: number) => void;
   /** Called with a figure target's page and caption offsets, for the flash. */
   onFigureTarget?: (target: NonNullable<MentionHit["target"]>) => void;
+  /** Looks one reference up; defaults to the container's reference facade. */
+  lookup?: (documentKey: string, entry: ParsedReference) => Promise<ResolvedReference>;
 }
+
+const containerLookup = (documentKey: string, entry: ParsedReference) =>
+  getContainer().readerReferences.resolve(documentKey, entry);
 
 /**
  * Everything the reader needs to link citations: the index built from the
@@ -47,14 +46,8 @@ export interface UseReaderReferencesInput {
  */
 export function useReaderReferences(input: UseReaderReferencesInput) {
   const { pageItems, pageLinks, outline, contentHash, paperId, setPage, onFigureTarget } = input;
-  const [enabled, setEnabled] = useState(true);
-  useEffect(() => { setEnabled(readLinkCitations()); }, []);
-  const toggle = useCallback(() => {
-    setEnabled((on) => {
-      try { window.localStorage.setItem(LINK_CITATIONS_KEY, on ? "off" : "on"); } catch { /* private mode */ }
-      return !on;
-    });
-  }, []);
+  const lookupRef = useRef(input.lookup ?? containerLookup);
+  lookupRef.current = input.lookup ?? containerLookup;
 
   const referencePages = useMemo(
     () =>
@@ -66,13 +59,18 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
   const { index, analysis, progress: analysisProgress, isAnalyzing } = useDocumentAnalyzer({
     pages: referencePages,
     outline,
-    enabled,
   });
 
   const documentKey = index.fingerprint || contentHash;
+  // A lookup that answers after the document changed must not write into the
+  // new document's map; the queue, which runs from timers, reads the current map.
+  const documentKeyRef = useRef(documentKey);
+  documentKeyRef.current = documentKey;
 
   const [open, setOpen] = useState<OpenMention | null>(null);
   const [resolutions, setResolutions] = useState<Map<number, ResolvedReference>>(() => new Map());
+  const resolutionsRef = useRef(resolutions);
+  resolutionsRef.current = resolutions;
   const [linked, setLinked] = useState<Set<string>>(() => new Set());
   const [notice, setNotice] = useState<ReferenceNotice | null>(null);
   const inflight = useRef(new Set<number>());
@@ -109,32 +107,42 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
     });
   }, []);
 
-  const resolve = useCallback((entry: ParsedReference) => {
-    if (inflight.current.has(entry.index)) return;
+  /** Look `entry` up for the current document; drop the answer if the document changed. */
+  const lookUp = useCallback((action: string, entry: ParsedReference) => {
+    const key = documentKeyRef.current;
+    const current = () => documentKeyRef.current === key;
     inflight.current.add(entry.index);
     setResolution(entry.index, { status: "pending" });
-    getContainer().readerReferences.resolve(documentKey, entry)
-      .then((value) => setResolution(entry.index, value))
+    let pending: Promise<ResolvedReference>;
+    try {
+      pending = lookupRef.current(key, entry);
+    } catch (err) {
+      // A lookup that throws before it returns a promise fails like one that rejects.
+      pending = Promise.reject(err);
+    }
+    return pending
+      .then((value) => { if (current()) setResolution(entry.index, value); })
       .catch((err: unknown) => {
-        logReferenceFailure("Lookup", entry, err);
-        setResolution(entry.index, { status: "unresolved" });
+        logReferenceFailure(action, entry, err);
+        if (current()) setResolution(entry.index, { status: "unresolved" });
       })
       .finally(() => inflight.current.delete(entry.index));
-  }, [documentKey, setResolution]);
+  }, [setResolution]);
+
+  const resolve = useCallback((entry: ParsedReference) => {
+    if (inflight.current.has(entry.index)) return;
+    void lookUp("Lookup", entry);
+  }, [lookUp]);
 
   const processQueue = useCallback(() => {
     if (!queueActiveRef.current) return;
     while (queueRef.current.length > 0) {
       const next = queueRef.current.shift()!;
-      if (resolutions.has(next.index) || inflight.current.has(next.index)) {
+      if (resolutionsRef.current.has(next.index) || inflight.current.has(next.index)) {
         continue;
       }
-      inflight.current.add(next.index);
-      setResolution(next.index, { status: "pending" });
       const startedAt = Date.now();
-      getContainer().readerReferences.resolve(documentKey, next)
-        .then((value) => setResolution(next.index, value))
-        .catch(() => setResolution(next.index, { status: "unresolved" }))
+      void lookUp("Prefetch", next)
         .finally(() => {
           inflight.current.delete(next.index);
           if (queueActiveRef.current && queueRef.current.length > 0) {
@@ -148,12 +156,12 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
         });
       return;
     }
-  }, [documentKey, resolutions, setResolution]);
+  }, [lookUp]);
 
   const startPrefetch = useCallback(() => {
     queueActiveRef.current = true;
     const toQueue = index.references.filter(
-      (entry) => !resolutions.has(entry.index) && !inflight.current.has(entry.index) && !queueRef.current.some((q) => q.index === entry.index)
+      (entry) => !resolutionsRef.current.has(entry.index) && !inflight.current.has(entry.index) && !queueRef.current.some((q) => q.index === entry.index)
     );
     if (toQueue.length > 0) {
       queueRef.current.push(...toQueue);
@@ -161,7 +169,7 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
         processQueue();
       }
     }
-  }, [index.references, resolutions, processQueue]);
+  }, [index.references, processQueue]);
 
   const stopPrefetch = useCallback(() => {
     queueActiveRef.current = false;
@@ -291,8 +299,6 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
   }), [markInLibrary, say, fail, paperId, setPage, onFigureTarget]);
 
   return {
-    enabled,
-    toggle,
     index,
     /** The structured document analysis: sections, entries, citations, figures. */
     analysis,
