@@ -86,6 +86,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
 
   const [resultDraft, setResultDraft] = useState<string | null>(null);
   const [resultError, setResultError] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
   async function saveResult() {
     if (!exp || resultDraft === null) return;
     try {
@@ -99,7 +100,12 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
 
   async function setStatus(status: ExperimentStatus) {
     if (!exp) return;
-    setExp(await getContainer().experiments.manageExperiment.setStatus(exp.id, status));
+    try {
+      setExp(await getContainer().experiments.manageExperiment.setStatus(exp.id, status));
+      setStatusError(null);
+    } catch (err) {
+      setStatusError(formatError(err));
+    }
   }
 
   // Back where the reader came from, or to the list when the page was opened
@@ -165,6 +171,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
             </a>
           </div>
         </nav>
+        {statusError && <FormError>{statusError}</FormError>}
 
         <header className="record-head">
           <h1 className="record-title">{exp.name}</h1>
