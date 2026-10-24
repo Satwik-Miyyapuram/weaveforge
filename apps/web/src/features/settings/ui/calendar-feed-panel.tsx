@@ -9,6 +9,7 @@ import { useAuth } from "@/features/auth";
 import { hasServerRoutes } from "@/deployment/capabilities";
 import { formatError } from "@/lib/format-error";
 import { PlanWidgetToggle } from "./plan-widget-toggle";
+import { copyText } from "@/lib/clipboard";
 import {
   planFeedOrigin,
   planFeedUrls,
@@ -99,7 +100,8 @@ export function CalendarFeedPanel() {
     : null;
 
   function copy(key: string, value: string) {
-    void navigator.clipboard.writeText(value).then(() => {
+    void copyText(value).then((ok) => {
+      if (!ok) return;
       setCopied(key);
       window.setTimeout(() => setCopied(null), 1200);
     });

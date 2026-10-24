@@ -42,24 +42,42 @@ const base64ToBytes = (b64: string): Uint8Array => {
   return out;
 };
 
+/**
+ * Clears the stored blob only when it can never be read again: it does not
+ * parse, its key is gone, or the key no longer opens it. A key store that
+ * cannot be reached this time leaves the blob for the next load.
+ */
 export async function loadPersistedMcpSessions(): Promise<PersistedMcpSession[]> {
   if (typeof window === "undefined") return [];
   const raw = readStored(STORAGE_KEY, "session");
   if (!raw) return [];
+  const drop = (): PersistedMcpSession[] => {
+    removeStored(STORAGE_KEY, "session");
+    return [];
+  };
+  let blob: { iv: string; ct: string };
   try {
-    const { iv, ct } = JSON.parse(raw) as { iv: string; ct: string };
-    const key = await getWrapKey();
-    if (!key) throw new Error("missing wrap key");
+    blob = JSON.parse(raw) as { iv: string; ct: string };
+  } catch {
+    return drop();
+  }
+  let key: CryptoKey | null;
+  try {
+    key = await getWrapKey();
+  } catch {
+    return [];
+  }
+  if (!key) return drop();
+  try {
     const plain = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: toBufferSource(base64ToBytes(iv)) },
+      { name: "AES-GCM", iv: toBufferSource(base64ToBytes(blob.iv)) },
       key,
-      toBufferSource(base64ToBytes(ct)),
+      toBufferSource(base64ToBytes(blob.ct)),
     );
     const parsed = JSON.parse(new TextDecoder().decode(plain)) as PersistedMcpSession[];
     return Array.isArray(parsed) ? parsed : [];
   } catch {
-    removeStored(STORAGE_KEY, "session");
-    return [];
+    return drop();
   }
 }
 
@@ -100,22 +118,16 @@ function openWrapDb(): Promise<IDBDatabase> {
   });
 }
 
+/** The stored key, or null when none is stored. Throws when the key store cannot be read. */
 async function getWrapKey(): Promise<CryptoKey | null> {
-  if (typeof indexedDB === "undefined") return null;
-  let db: IDBDatabase;
-  try {
-    db = await openWrapDb();
-  } catch {
-    return null;
-  }
+  if (typeof indexedDB === "undefined") throw new Error("IndexedDB is not available");
+  const db = await openWrapDb();
   try {
     return await new Promise<CryptoKey | null>((resolve, reject) => {
       const req = db.transaction(WRAP_STORE, "readonly").objectStore(WRAP_STORE).get(WRAP_KEY_ID);
       req.onsuccess = () => resolve((req.result as CryptoKey | undefined) ?? null);
       req.onerror = () => reject(req.error);
     });
-  } catch {
-    return null;
   } finally {
     db.close();
   }
