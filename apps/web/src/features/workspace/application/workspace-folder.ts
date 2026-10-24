@@ -162,15 +162,20 @@ export function supportsDirectoryPicker(): boolean {
 export async function chooseFolder(options: { git: boolean }): Promise<boolean> {
   const fs = await BrowserWorkspaceFs.pickDirectory();
   if (!fs) return false;
+  adoptBrowserFolder(fs, options.git);
+  return true;
+}
+
+/** Take up a browser folder: its git, following edits, a first sync, the news. */
+function adoptBrowserFolder(fs: BrowserWorkspaceFs, git: boolean): void {
   activeFs = fs;
-  activeGit = options.git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
+  activeGit = git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
   watchForChanges();
   // Connecting a folder starts the mirror rather than waiting for the next
   // write: the workspace is usually not empty, and an empty folder after
   // connecting reads as a failed connection. See `requestSync`'s own comment.
   requestSync();
   announceConnected();
-  return true;
 }
 
 /**
@@ -215,12 +220,7 @@ export async function chooseDesktopFolder(options: {
 
 /** Fall back to origin-private storage where the picker is unavailable. */
 export async function openBrowserStorageFolder(options: { git: boolean }): Promise<void> {
-  const fs = await BrowserWorkspaceFs.openOpfs();
-  activeFs = fs;
-  activeGit = options.git ? new IsomorphicWorkspaceGit(fs) : new NoOpWorkspaceGit();
-  watchForChanges();
-  requestSync();
-  announceConnected();
+  adoptBrowserFolder(await BrowserWorkspaceFs.openOpfs(), options.git);
 }
 
 export function closeFolder(): void {
