@@ -30,6 +30,8 @@ type StrokeWrites = Pick<AnnotationActions, "persistDraft" | "removeLocal" | "sa
 export interface InkUndo extends StrokeWrites {
   canUndo: boolean;
   canRedo: boolean;
+  /** Delete several marks as one undo step (a lasso delete). */
+  removeMany: (ids: readonly string[]) => Promise<void>;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
   /** Forget everything, e.g. when the paper changes. */
@@ -95,9 +97,25 @@ export function useInkUndo(
   const removeLocal = useCallback(
     async (id: string) => {
       const ann = annotationsRef.current.find((a) => a.id === id);
-      await actionsRef.current.removeLocal(id);
-      if (ann) {
+      const removed = await actionsRef.current.removeLocal(id);
+      // A failed delete was rolled back: there is nothing to undo.
+      if (removed && ann) {
         setState((s) => pushInkUndo(s, { kind: "remove", annotation: ann }));
+      }
+      return removed;
+    },
+    [setState],
+  );
+
+  const removeMany = useCallback(
+    async (ids: readonly string[]) => {
+      const removed: ReaderAnnotation[] = [];
+      for (const id of ids) {
+        const ann = annotationsRef.current.find((a) => a.id === id);
+        if (ann && (await actionsRef.current.removeLocal(id))) removed.push(ann);
+      }
+      if (removed.length > 0) {
+        setState((s) => pushInkUndo(s, { kind: "removeMany", annotations: removed }));
       }
     },
     [setState],
@@ -105,7 +123,9 @@ export function useInkUndo(
 
   const saveAnchor = useCallback(
     async (ann: ReaderAnnotation, anchor: ReaderAnnotation["anchor"], comment?: string) => {
-      await actionsRef.current.saveAnchor(ann, anchor, comment);
+      const saved = await actionsRef.current.saveAnchor(ann, anchor, comment);
+      // A failed move was rolled back: there is nothing to undo.
+      if (!saved) return false;
       const after = { ...ann, anchor };
       setState((s) =>
         refreshInkUndoAnnotation(
@@ -113,6 +133,7 @@ export function useInkUndo(
           after,
         ),
       );
+      return true;
     },
     [setState],
   );
@@ -131,6 +152,12 @@ export function useInkUndo(
         return direction === "undo" ? remove(entry.annotation) : recreate(entry.annotation);
       case "remove":
         return direction === "undo" ? recreate(entry.annotation) : remove(entry.annotation);
+      case "removeMany":
+        for (const ann of entry.annotations) {
+          if (direction === "undo") await recreate(ann);
+          else await remove(ann);
+        }
+        return;
       case "anchor": {
         const target = annotationsRef.current.find((a) => a.id === entry.id);
         if (!target) return;
@@ -164,6 +191,7 @@ export function useInkUndo(
   return {
     persistDraft,
     removeLocal,
+    removeMany,
     saveAnchor,
     canUndo: stack.current.undo.length > 0,
     canRedo: stack.current.redo.length > 0,
