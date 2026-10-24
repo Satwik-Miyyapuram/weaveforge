@@ -135,6 +135,13 @@ android {
         // Comma-separated. The navigation policy reads this; nothing in the page
         // can add to it.
         buildConfigField("String", "ALLOWED_HOSTS", "\"$appAllowedHosts\"")
+        // Google's web OAuth client (public). The account picker asks for an ID
+        // token for this audience, which is the one the auth server accepts.
+        buildConfigField(
+            "String",
+            "GOOGLE_WEB_CLIENT_ID",
+            "\"400432666296-so09t7r3qdoja9d23dk9dcndooe2beq6.apps.googleusercontent.com\"",
+        )
     }
 
     /**
@@ -220,6 +227,9 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.webkit:webkit:1.12.1")
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     // CanvasFrontBufferedRenderer: the wet stroke written straight to the scanout buffer.
     implementation("androidx.graphics:graphics-core:1.0.3")
 
