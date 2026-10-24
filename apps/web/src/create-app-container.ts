@@ -794,12 +794,5 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     integrationConfig: wiredIntegrations.config,
   };
 
-  return {
-    container,
-    projectLww,
-    dispose: () => {
-      lifecycle.dispose();
-      backend.dispose();
-    },
-  };
+  return { container, projectLww, dispose: () => (lifecycle.dispose(), backend.dispose()) };
 }
