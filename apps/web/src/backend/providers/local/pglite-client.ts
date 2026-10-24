@@ -1,4 +1,4 @@
-import { LOCAL_USER_ID } from "@weaveforge/core";
+import { errorMessage, LOCAL_USER_ID } from "@weaveforge/core";
 
 import { decodeBytea } from "@/lib/bytea";
 
@@ -49,7 +49,7 @@ function postgresCode(error: unknown): string | undefined {
  */
 function toPostgrestError(error: unknown): PostgrestError {
   return {
-    message: error instanceof Error ? error.message : String(error),
+    message: errorMessage(error),
     code: postgresCode(error),
   };
 }

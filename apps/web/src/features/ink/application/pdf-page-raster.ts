@@ -13,14 +13,45 @@ export interface RasterisedPdfPage {
   height: number;
 }
 
-/** How many pages the document has, so the prompt can bound the answer. */
-export async function pdfPageCount(bytes: ArrayBuffer): Promise<number> {
+/** A parsed PDF, so several pages render from one parse; `close` frees it. */
+export interface OpenPdf {
+  numPages: number;
+  render(pageNumber: number, widthPx: number): Promise<HTMLCanvasElement | OffscreenCanvas>;
+  close(): Promise<void>;
+}
+
+/** Parse `bytes` once; the caller renders what it needs, then closes. */
+export async function openPdf(bytes: ArrayBuffer): Promise<OpenPdf> {
   const lib = await loadPdfLib();
   const pdf = await lib.getDocument({ data: copyOf(bytes) }).promise;
+  return {
+    numPages: pdf.numPages,
+    render: async (pageNumber, widthPx) => {
+      const page = await pdf.getPage(pageNumber);
+      const base = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale: widthPx / base.width });
+      const width = Math.max(1, Math.round(viewport.width));
+      const height = Math.max(1, Math.round(viewport.height));
+      const canvas = createCanvas(width, height);
+      const context = canvas.getContext("2d") as CanvasRenderingContext2D | null;
+      if (!context)
+        throw new Error("A 2D context could not be created for the PDF page.");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, width, height);
+      await page.render({ canvasContext: context, viewport }).promise;
+      return canvas;
+    },
+    close: () => pdf.destroy(),
+  };
+}
+
+/** How many pages the document has, so the prompt can bound the answer. */
+export async function pdfPageCount(bytes: ArrayBuffer): Promise<number> {
+  const pdf = await openPdf(bytes);
   try {
     return pdf.numPages;
   } finally {
-    await pdf.destroy();
+    await pdf.close();
   }
 }
 
@@ -30,24 +61,11 @@ export async function renderPdfPage(
   pageNumber: number,
   widthPx: number,
 ): Promise<HTMLCanvasElement | OffscreenCanvas> {
-  const lib = await loadPdfLib();
-  const pdf = await lib.getDocument({ data: copyOf(bytes) }).promise;
+  const pdf = await openPdf(bytes);
   try {
-    const page = await pdf.getPage(pageNumber);
-    const base = page.getViewport({ scale: 1 });
-    const viewport = page.getViewport({ scale: widthPx / base.width });
-    const width = Math.max(1, Math.round(viewport.width));
-    const height = Math.max(1, Math.round(viewport.height));
-    const canvas = createCanvas(width, height);
-    const context = canvas.getContext("2d") as CanvasRenderingContext2D | null;
-    if (!context)
-      throw new Error("A 2D context could not be created for the PDF page.");
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, width, height);
-    await page.render({ canvasContext: context, viewport }).promise;
-    return canvas;
+    return await pdf.render(pageNumber, widthPx);
   } finally {
-    await pdf.destroy();
+    await pdf.close();
   }
 }
 

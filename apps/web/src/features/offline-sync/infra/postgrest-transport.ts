@@ -1,3 +1,4 @@
+import { errorMessage } from "@weaveforge/core";
 import { logToApp } from "@/lib/error-report/app-log";
 import type { OutboxEntry } from "../domain/outbox";
 import type { RemoteChange, SendOutcome, SyncTransport } from "../domain/sync-ports";
@@ -23,7 +24,7 @@ export interface PostgrestConfig {
 /** The request never got an answer: no network, a dropped connection, an abort. */
 class NetworkFailure extends Error {
   constructor(cause: unknown) {
-    super(cause instanceof Error ? cause.message : String(cause), { cause });
+    super(errorMessage(cause), { cause });
   }
 }
 

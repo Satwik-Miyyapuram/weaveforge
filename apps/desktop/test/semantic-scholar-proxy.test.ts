@@ -95,3 +95,21 @@ test("an upstream network failure is a 502", async () => {
   const res = await proxySemanticScholar(req, fetchFn, noWait);
   assert.equal(res.status, 502);
 });
+
+test("a path naming another host is refused without a call, as on the web relay", async () => {
+  const { fetchFn, calls } = answering([200]);
+  for (const path of ["/evil.example/x", "https://evil.example/x", "HTTP://evil.example/x"]) {
+    const res = await proxySemanticScholar(new Request(`${APP}/api/semantic-scholar/${path}`), fetchFn, noWait);
+    assert.equal(res.status, 400, path);
+  }
+  assert.equal(calls.length, 0);
+});
+
+test("cookies and authorization never travel upstream", async () => {
+  const { fetchFn, calls } = answering([200]);
+  const req = new Request(`${APP}/api/semantic-scholar/graph/v1/paper/x`, {
+    headers: { "x-api-key": "k", cookie: "s=1", authorization: "Bearer t" },
+  });
+  await proxySemanticScholar(req, fetchFn, noWait);
+  assert.deepEqual(calls[0]?.init?.headers, { accept: "application/json", "x-api-key": "k" });
+});

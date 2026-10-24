@@ -18,10 +18,12 @@ export function trackInkWrite(noteId: string, write: Promise<unknown>): void {
     inFlight.set(noteId, set);
   }
   set.add(write);
-  void write.finally(() => {
+  // Both ways: a rejected write is the caller's to report, not an unhandled one here.
+  const done = () => {
     set.delete(write);
     if (set.size === 0 && inFlight.get(noteId) === set) inFlight.delete(noteId);
-  });
+  };
+  write.then(done, done);
 }
 
 /** Resolves once every write registered for `noteId` so far has settled. */

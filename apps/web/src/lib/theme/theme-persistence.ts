@@ -26,11 +26,13 @@ import {
   sanitizeControlSize,
   sanitizeSurfaceStyle,
   sanitizeThemeId,
+  THEME_KEY,
   type ControlSizeId,
   type ThemeMode,
 } from "@/lib/theme/theme";
-import { THEME_CHANGE_EVENT } from "@/lib/hooks/use-theme";
+import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 import { singleFlight } from "@/lib/cache/single-flight";
+import { removeStored, writeStored } from "@/lib/safe-storage";
 
 let hydrating = false;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -53,52 +55,39 @@ export function readLocalAppearance(): UserAppearance {
 }
 
 function writeLocalAppearance(appearance: UserAppearance): void {
-  try {
-    if (appearance.mode === "light" || appearance.mode === "dark") {
-      localStorage.setItem("thesis.mode", appearance.mode);
-    }
-    if (appearance.lightTheme) {
-      localStorage.setItem(
-        "thesis.theme.light",
-        sanitizeThemeId(appearance.lightTheme, "light"),
-      );
-    }
-    if (appearance.darkTheme) {
-      localStorage.setItem(
-        "thesis.theme.dark",
-        sanitizeThemeId(appearance.darkTheme, "dark"),
-      );
-    }
-    if (appearance.controlSize) {
-      localStorage.setItem(
-        "thesis.controlSize",
-        sanitizeControlSize(appearance.controlSize),
-      );
-    }
-    if (appearance.surfaces) {
-      localStorage.setItem("thesis.surfaces", sanitizeSurfaceStyle(appearance.surfaces));
-    }
-    if (appearance.cardTint) {
-      localStorage.setItem("thesis.cardTint", sanitizeCardTint(appearance.cardTint));
-    }
-    if (typeof appearance.cardTilt === "boolean") {
-      localStorage.setItem("thesis.cardTilt", appearance.cardTilt ? "1" : "0");
-    }
-    if (typeof appearance.scanlines === "boolean") {
-      localStorage.setItem("thesis.scanlines", appearance.scanlines ? "1" : "0");
-    }
-    if (typeof appearance.reactiveMotion === "boolean") {
-      localStorage.setItem("thesis.reactiveMotion", appearance.reactiveMotion ? "1" : "0");
-    }
-    // `customTheme` on the appearance record has already been through
-    // normalizeThemeConfig, so what is stored is the validated shape.
-    if (appearance.customTheme) {
-      localStorage.setItem("thesis.customTheme", JSON.stringify(appearance.customTheme));
-    } else if (appearance.customTheme === null) {
-      localStorage.removeItem("thesis.customTheme");
-    }
-  } catch {
-    /* ignore */
+  if (appearance.mode === "light" || appearance.mode === "dark") {
+    writeStored(THEME_KEY.mode, appearance.mode);
+  }
+  if (appearance.lightTheme) {
+    writeStored(THEME_KEY.light, sanitizeThemeId(appearance.lightTheme, "light"));
+  }
+  if (appearance.darkTheme) {
+    writeStored(THEME_KEY.dark, sanitizeThemeId(appearance.darkTheme, "dark"));
+  }
+  if (appearance.controlSize) {
+    writeStored(THEME_KEY.controlSize, sanitizeControlSize(appearance.controlSize));
+  }
+  if (appearance.surfaces) {
+    writeStored(THEME_KEY.surfaces, sanitizeSurfaceStyle(appearance.surfaces));
+  }
+  if (appearance.cardTint) {
+    writeStored(THEME_KEY.cardTint, sanitizeCardTint(appearance.cardTint));
+  }
+  if (typeof appearance.cardTilt === "boolean") {
+    writeStored(THEME_KEY.cardTilt, appearance.cardTilt ? "1" : "0");
+  }
+  if (typeof appearance.scanlines === "boolean") {
+    writeStored(THEME_KEY.scanlines, appearance.scanlines ? "1" : "0");
+  }
+  if (typeof appearance.reactiveMotion === "boolean") {
+    writeStored(THEME_KEY.reactiveMotion, appearance.reactiveMotion ? "1" : "0");
+  }
+  // `customTheme` on the appearance record has already been through
+  // normalizeThemeConfig, so what is stored is the validated shape.
+  if (appearance.customTheme) {
+    writeStored(THEME_KEY.customTheme, JSON.stringify(appearance.customTheme));
+  } else if (appearance.customTheme === null) {
+    removeStored(THEME_KEY.customTheme);
   }
 }
 

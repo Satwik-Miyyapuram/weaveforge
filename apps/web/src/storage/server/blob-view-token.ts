@@ -9,14 +9,11 @@ export interface BlobViewPayload {
   exp: number;
 }
 
+/** Its own key only: a leaked view token must not say anything about the service-role or R2 secret. */
 function blobViewSecret(): string {
-  const explicit = process.env.BLOB_VIEW_SECRET ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (explicit) return explicit;
-  const r2Secret = process.env.R2_SECRET_ACCESS_KEY;
-  if (r2Secret) return `blob-view:${r2Secret}`;
-  throw new Error(
-    "Set BLOB_VIEW_SECRET, SUPABASE_SERVICE_ROLE_KEY, or R2_SECRET_ACCESS_KEY for tiered blob viewing.",
-  );
+  const secret = process.env.BLOB_VIEW_SECRET;
+  if (secret) return secret;
+  throw new Error("Set BLOB_VIEW_SECRET for tiered blob viewing (`openssl rand -base64 48`).");
 }
 
 export function mintBlobViewToken(payload: BlobViewPayload, secret = blobViewSecret()): string {

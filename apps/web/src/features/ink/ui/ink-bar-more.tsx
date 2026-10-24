@@ -76,12 +76,7 @@ export function MoreMenu({
   hand,
   onHand,
 }: MoreMenuProps) {
-  const { open, setOpen, menuRef, listRef, pos } = useBarMenu();
-  /** Close the menu, then run what was chosen. */
-  const choose = (run: () => void) => () => {
-    setOpen(false);
-    run();
-  };
+  const { open, setOpen, menuRef, listRef, pos, choose } = useBarMenu();
 
   const hasPaper = Boolean(paper && onPaper);
   const hasGap = Boolean(pageGap && onPageGap);

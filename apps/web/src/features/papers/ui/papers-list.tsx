@@ -15,7 +15,8 @@ import { usePinnedOwnerNames } from "@/features/sharing";
 import { AddPaperForm } from "./add-paper-form";
 import { FilterRow } from "@/components/filter-row";
 import { ViewSwitch } from "@/components/view-switch";
-import { usePersistedState } from "@/lib/hooks/use-persisted-state";
+import { useProject } from "@/features/projects";
+import { projectScopedKey, usePersistedState } from "@/lib/hooks/use-persisted-state";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
 import { emptyArray, emptyMap } from "@/lib/empty";
@@ -58,10 +59,12 @@ export function PapersScreen() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [guestPaper, setGuestPaper] = useState<Paper | null>(null);
   const isSharedView = searchParams.get("shared") === "1";
-  const [statusFilter, setStatusFilter] = usePersistedState<string[]>("thesis.papers.status", []);
-  const [listFilter, setListFilter] = usePersistedState<string[]>("thesis.papers.list", []);
-  const [tagFilter, setTagFilter] = usePersistedState<string[]>("thesis.papers.tags", []);
-  const [search, setSearch] = usePersistedState<string>("thesis.papers.search", "");
+  // Filters name lists and tags of one project, so each project keeps its own.
+  const projectId = useProject().current?.id;
+  const [statusFilter, setStatusFilter] = usePersistedState<string[]>(projectScopedKey("thesis.papers.status", projectId), []);
+  const [listFilter, setListFilter] = usePersistedState<string[]>(projectScopedKey("thesis.papers.list", projectId), []);
+  const [tagFilter, setTagFilter] = usePersistedState<string[]>(projectScopedKey("thesis.papers.tags", projectId), []);
+  const [search, setSearch] = usePersistedState<string>(projectScopedKey("thesis.papers.search", projectId), "");
   const [storedLayout, setLayout] = usePersistedState<PapersLayout>("thesis.papers.view", "cards");
   // A status board used to be a third layout; a reader who last left it on
   // gets the cards.

@@ -1,4 +1,5 @@
 import { desktop, type DesktopBridge } from "@/lib/desktop/desktop-bridge";
+import type { LocalQuery } from "./pglite-client";
 
 /**
  * The local database, from the page's side.
@@ -38,4 +39,10 @@ export class LocalRunner {
   async exec(sql: string, params: LocalParam[] = []): Promise<void> {
     await this.query(sql, params);
   }
+}
+
+/** Straight to the shell: the default query every local backend part runs. The identity is applied on the far side. */
+export function localRunnerQuery(bridge: DesktopBridge | null = desktop()): LocalQuery {
+  const runner = new LocalRunner(bridge);
+  return (sql, params) => runner.query(sql, params as LocalParam[]);
 }

@@ -1,5 +1,7 @@
 import { createClient, type SupabaseClient, type SupabaseClientOptions } from "@supabase/supabase-js";
 import { readBackendConfig } from "@/backend/config";
+import { logToApp } from "@/lib/error-report/app-log";
+import { formatError } from "@/lib/format-error";
 
 let client: SupabaseClient | null = null;
 /** What the cached singleton was built from, so a different ask is not silently ignored. */
@@ -116,6 +118,9 @@ export function getRealtimeClient(main: SupabaseClient): SupabaseClient {
 
   const key = `${url}|${anonKey}`;
   if (!realtimeClient || realtimeKey !== key) {
+    // A config change replaces the client: close the old socket first, or it
+    // keeps reconnecting with nothing left to read it.
+    closeRealtimeClient();
     realtimeClient = createClient(url, anonKey, {
       // This client exists for its socket. It must never try to own a session:
       // the tokens come from the client that did the sign-in.
@@ -136,9 +141,19 @@ export function getRealtimeClient(main: SupabaseClient): SupabaseClient {
     // resolves through the `accessToken` callback above; doing it here means
     // the first `subscribe()` — which a screen can fire on its very first
     // render — already has a token to send rather than joining anonymously.
-    void realtimeClient.realtime.setAuth();
+    realtimeClient.realtime
+      .setAuth()
+      .catch((err: unknown) =>
+        logToApp({ level: "warn", source: "realtime", message: "Realtime auth failed", detail: formatError(err) }),
+      );
   }
   return realtimeClient;
+}
+
+function closeRealtimeClient(): void {
+  void realtimeClient?.realtime.disconnect();
+  realtimeClient = null;
+  realtimeKey = null;
 }
 
 /** The `global.fetch` override: the data-API rewrite, and a failure that names its target. */
@@ -332,6 +347,5 @@ export async function namedNetworkFailure(error: unknown, target: string): Promi
 export function resetDataClientForTests(): void {
   client = null;
   clientKey = null;
-  realtimeClient = null;
-  realtimeKey = null;
+  closeRealtimeClient();
 }

@@ -10,6 +10,8 @@
  * keystroke in the editor.
  */
 
+import { headingSlug } from "@/lib/heading-slug";
+
 export interface OutlineHeading {
   level: number;
   text: string;
@@ -18,13 +20,7 @@ export interface OutlineHeading {
 }
 
 /** The heading slug `markdown.tsx` writes as the element id. */
-export function headingSlug(text: string): string {
-  return text
-    .trim()
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "");
-}
+export { headingSlug };
 
 const ATX = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
 
@@ -53,9 +49,4 @@ export function outlineOf(body: string, maxLevel = 3): OutlineHeading[] {
     out.push({ level, text, slug: headingSlug(text) });
   }
   return out;
-}
-
-/** Outline rows as workspace tree nodes, so one renderer paints both sections. */
-export function outlineRows(body: string): OutlineHeading[] {
-  return outlineOf(body);
 }

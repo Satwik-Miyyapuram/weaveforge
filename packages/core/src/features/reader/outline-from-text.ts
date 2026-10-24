@@ -1,3 +1,5 @@
+import { FURNITURE_MARGIN, furnitureKey, isBoldFont } from "./analysis/line-reconstruction.js";
+
 export interface OutlineTextItem {
   str: string;
   fontSize: number;
@@ -24,10 +26,6 @@ export interface ReaderOutlineItem {
 
 /** Fewer characters than this and there is no body to find sections in. */
 export const MIN_ANALYSABLE_CHARS = 300;
-
-function isBold(fontName: string | undefined): boolean {
-  return /bold|black|heavy/i.test(fontName ?? "");
-}
 
 /**
  * Consecutive text runs on a baseline, in the supplied reading order. Two
@@ -66,7 +64,7 @@ function joinLines(
     if (line && line.page === item.page && Math.abs(line.y - item.y) <= band && item.x >= line.x) {
       line.str = `${line.str.trimEnd()} ${item.str.trimStart()}`;
       line.fontSize = Math.max(line.fontSize, item.fontSize);
-      if (isBold(item.fontName)) line.fontName = item.fontName;
+      if (isBoldFont(item.fontName)) line.fontName = item.fontName;
       line.minY = Math.min(line.minY, item.y);
       line.maxY = Math.max(line.maxY, item.y);
       line.spread = line.maxY - line.minY;
@@ -115,13 +113,6 @@ const REFERENCES = /^(?:\d+(?:\.\d+)*\.?\s+)?(References|Bibliography)\b/i;
 const DOTTED_LEADER = /(\.\s*){5,}\d*$/;
 /** A heading has a word in it; a lone large "x" is a maths variable. */
 export const HAS_WORD = /\p{L}{2}/u;
-/** Fraction of each page's text extent, on every side, treated as margin. */
-const MARGIN = 0.06;
-
-function normalise(str: string): string {
-  return str.toLowerCase().replace(/\s+/g, " ").replace(/\d+/g, "#");
-}
-
 /** A set of lines that print the same text, digits masked, within a fifth of their length. */
 export interface RecurringGroup<T> {
   key: string;
@@ -145,7 +136,7 @@ export function groupRecurringLines<T>(
   const exact = new Map<string, RecurringGroup<T>>();
   const buckets = new Map<string, RecurringGroup<T>[]>();
   for (const line of lines) {
-    const key = normalise(textOf(line));
+    const key = furnitureKey(textOf(line));
     if (key.length < 4) continue;
     const limit = Math.floor(Math.min(key.length, 80) * 0.2);
     const bucketKey = key.slice(0, 2);
@@ -198,14 +189,14 @@ function cropMargins(pages: readonly (readonly OutlineTextItem[])[]): OutlineTex
     const ys = page.map((item) => item.y);
     const minX = Math.min(...xs), maxX = Math.max(...xs);
     const minY = Math.min(...ys), maxY = Math.max(...ys);
-    const dx = (maxX - minX) * MARGIN, dy = (maxY - minY) * MARGIN;
+    const dx = (maxX - minX) * FURNITURE_MARGIN, dy = (maxY - minY) * FURNITURE_MARGIN;
     for (const item of page) {
       if (item.x < minX + dx || item.x > maxX - dx || item.y < minY + dy || item.y > maxY - dy) inBand.add(item);
     }
   }
   const bandPages = new Map<string, Set<number>>();
   for (const item of inBand) {
-    const key = normalise(item.str);
+    const key = furnitureKey(item.str);
     const seen = bandPages.get(key) ?? new Set<number>();
     seen.add(item.page);
     bandPages.set(key, seen);
@@ -213,7 +204,7 @@ function cropMargins(pages: readonly (readonly OutlineTextItem[])[]): OutlineTex
   return pages.map((page) => page.filter((item) => {
     if (!inBand.has(item)) return true;
     if (/^[\divxlc]+$/i.test(item.str.trim())) return startsLine(item, page);
-    return (bandPages.get(normalise(item.str))?.size ?? 0) < 2;
+    return (bandPages.get(furnitureKey(item.str))?.size ?? 0) < 2;
   }));
 }
 
@@ -243,7 +234,7 @@ export function outlineFromText(allPages: readonly (readonly OutlineTextItem[])[
     if (line.str.length > 120 || (!numbered && line.str.endsWith("."))) return false;
     if (DOTTED_LEADER.test(line.str)) return false;
     if (!HAS_WORD.test(line.str)) return false;
-    return line.fontSize >= 1.12 * body || (isBold(line.fontName) && (numbered || SECTION.test(line.str)));
+    return line.fontSize >= 1.12 * body || (isBoldFont(line.fontName) && (numbered || SECTION.test(line.str)));
   });
   const references = headings.findIndex((heading) => REFERENCES.test(heading.str));
   if (references >= 0) headings.splice(references + 1);
@@ -270,7 +261,7 @@ export function outlineFromText(allPages: readonly (readonly OutlineTextItem[])[
  * stretch without one longer than half the document — otherwise it is a
  * couple of stray large lines, and an empty sidebar beats a misleading one.
  */
-function outlineIsPlausible(headings: readonly OutlineTextItem[], pageCount: number): boolean {
+export function outlineIsPlausible(headings: readonly { page: number }[], pageCount: number): boolean {
   if (headings.length < 3) return false;
   if (pageCount < 4) return true;
   const allowed = Math.ceil(pageCount * 0.5);

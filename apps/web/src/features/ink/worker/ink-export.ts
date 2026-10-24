@@ -8,6 +8,7 @@
  * worker's message pump.
  */
 
+import { errorMessage } from "@weaveforge/core";
 import type { InkWorkerEvent } from "../application/capture-protocol";
 import type { InkRenderer } from "../render/ink-renderer";
 
@@ -36,7 +37,7 @@ export async function exportPage(
       // Said out loud rather than swallowed: a null PNG with no reason is
       // a button that does nothing.
       console.error(
-        `ink: the export failed — ${error instanceof Error ? error.message : String(error)}`,
+        `ink: the export failed — ${errorMessage(error)}`,
       );
       post({ type: "exported", requestId, png: null });
     });

@@ -33,6 +33,7 @@ import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { StatusSelect, statusLabel } from "@/components/status-select";
 import { navTransition } from "@/lib/view-transition";
+import { runReported } from "@/lib/run-reported";
 
 type ReportViewData = ReportScreenData & {
   ownerNames: Map<string, string>;
@@ -300,6 +301,7 @@ export function ReportScreen() {
               onToggleCollapse={toggleCollapse}
               onOpen={openSectionById}
               onChanged={load}
+              onError={setError}
             />
           ))}
         </ul>
@@ -379,6 +381,7 @@ function SectionRow({
   onToggleCollapse,
   onOpen,
   onChanged,
+  onError,
 }: {
   node: ReportSectionTreeNode;
   depth?: number;
@@ -388,6 +391,7 @@ function SectionRow({
   onToggleCollapse: (sectionId: string) => void;
   onOpen: (id: string) => void;
   onChanged: () => void;
+  onError: (message: string) => void;
 }) {
   const s = node.section;
   const [busy, setBusy] = useState(false);
@@ -396,8 +400,8 @@ function SectionRow({
   const isRoot = depth === 0;
 
   async function changeStatus(status: ReportStatus) {
-    await getContainer().report.manageReportSection.setStatus(s.id, status);
-    onChanged();
+    // Reload either way so the select shows the stored status.
+    await runReported(() => getContainer().report.manageReportSection.setStatus(s.id, status), onError, onChanged);
   }
 
   async function remove() {
@@ -406,18 +410,11 @@ function SectionRow({
       : `Delete "${s.title}"?`;
     if (!confirm(msg)) return;
     setBusy(true);
-    try {
-      async function removeTree(n: ReportSectionTreeNode) {
-        for (const child of n.children) {
-          await removeTree(child);
-        }
-        await getContainer().report.removeSection(n.section);
-      }
-      await removeTree(node);
-      onChanged();
-    } finally {
+    // One delete removes the subtree; reload either way in case part of it went.
+    await runReported(() => getContainer().report.removeSection(s), onError, () => {
       setBusy(false);
-    }
+      onChanged();
+    });
   }
 
   const collapse =
@@ -452,6 +449,7 @@ function SectionRow({
               onToggleCollapse={onToggleCollapse}
               onOpen={onOpen}
               onChanged={onChanged}
+              onError={onError}
             />
           ))}
         </ul>

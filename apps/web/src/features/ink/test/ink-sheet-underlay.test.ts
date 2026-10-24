@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { INK_UNDERLAY, inkSheetRuleStyle } from "../ui/ink-sheet-underlay";
+import { INK_UNDERLAY, inkSheetRuleStyle, loadMathOrLog } from "../ui/ink-sheet-underlay";
 
 describe("INK_UNDERLAY", () => {
   it("is page geometry: every length scales with the page, nothing is clamped", () => {
@@ -28,5 +28,41 @@ describe("INK_UNDERLAY", () => {
     assert.equal(pitch, 72);
     assert.equal(inkSheetRuleStyle(1)["--ink-rule"], `${pitch}px`);
     assert.equal(inkSheetRuleStyle(1)["--ink-rule-offset"], "120px");
+  });
+});
+
+describe("loadMathOrLog (20-02)", () => {
+  type Log = { level: string; source: string; message: string; detail?: string };
+  async function withLog(run: () => Promise<void>): Promise<Log[]> {
+    const logs: Log[] = [];
+    const g = globalThis as { window?: unknown };
+    const original = g.window;
+    g.window = { weaveforge: { fetchTitle: () => Promise.resolve({}), reportAppLog: (e: Log) => void logs.push(e) } };
+    try {
+      await run();
+    } finally {
+      g.window = original;
+    }
+    return logs;
+  }
+
+  it("answers false and logs when the maths renderer will not load", async () => {
+    let ok: boolean | null = null;
+    const logs = await withLog(async () => {
+      ok = await loadMathOrLog(() => Promise.reject(new Error("chunk 404")));
+    });
+    assert.equal(ok, false);
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0]!.source, "ink");
+    assert.match(logs[0]!.detail ?? "", /chunk 404/);
+  });
+
+  it("answers true and logs nothing when it loads", async () => {
+    let ok: boolean | null = null;
+    const logs = await withLog(async () => {
+      ok = await loadMathOrLog(() => Promise.resolve({}));
+    });
+    assert.equal(ok, true);
+    assert.deepEqual(logs, []);
   });
 });

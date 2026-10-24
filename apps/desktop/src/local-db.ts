@@ -66,22 +66,24 @@ export class LocalDatabase {
         "select name from weaveforge_migrations",
       );
       const applied = new Set(rows.map((row) => row.name));
+      // Each migration and its ledger row commit together (37-19): a crash
+      // between the two used to leave a schema change with no record, and the
+      // next boot ran it again over itself. The row goes in first, so a file
+      // that brings its own `begin; ... commit;` (0099) commits it as well.
       return await applyMigrations(
         migrations,
-        async (sql) => {
+        async (sql, name) => {
           try {
+            await this.client.exec("BEGIN");
+            await this.client.query("insert into weaveforge_migrations (name) values ($1)", [name]);
             await this.client.exec(sql);
+            await this.client.exec("COMMIT");
           } catch (error) {
             await this.client.exec("ROLLBACK").catch(() => undefined);
             throw error;
           }
         },
-        {
-          applied,
-          onApplied: async (name) => {
-            await this.client.query("insert into weaveforge_migrations (name) values ($1)", [name]);
-          },
-        },
+        { applied },
       );
     } catch (error) {
       await this.client.exec("ROLLBACK").catch(() => undefined);

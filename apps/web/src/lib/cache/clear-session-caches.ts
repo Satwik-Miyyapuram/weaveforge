@@ -1,6 +1,8 @@
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
 import { clearLocalDeviceData } from "@/lib/desktop/clear-local-device-data";
+import { logToApp } from "@/lib/error-report/app-log";
+import { formatError } from "@/lib/format-error";
 
 let clearDashboardUiCaches: () => void = () => {};
 const sessionResetHooks: Array<() => void> = [];
@@ -35,19 +37,15 @@ export function clearSessionCaches(): void {
   invalidateAllRepoCaches();
   clearAllScreenCaches();
   clearDashboardUiCaches();
-  clearStartupSnapshotCache();
   // A copy, so a hook that disposes itself is not mutating the list being walked.
-  for (const reset of [...sessionResetHooks]) reset();
-  void clearLocalDeviceData();
-}
-
-/** Remove the cached startup snapshots (org/profile/settings) so nothing persists after sign-out. */
-function clearStartupSnapshotCache(): void {
-  try {
-    for (const key of Object.keys(localStorage)) {
-      if (key.startsWith("thesis.startup.")) localStorage.removeItem(key);
+  // One failing hook must not leave the ones after it holding the last user's data.
+  for (const reset of [...sessionResetHooks]) {
+    try {
+      reset();
+    } catch (err) {
+      logToApp({ level: "warn", source: "session", message: "A sign-out reset failed.", detail: formatError(err) });
     }
-  } catch {
-    /* best-effort */
   }
+  // Removes every `thesis.*` key, the startup snapshots among them.
+  void clearLocalDeviceData();
 }

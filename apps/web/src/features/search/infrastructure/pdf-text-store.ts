@@ -12,6 +12,7 @@
 
 import type { PdfIndexSource } from "@weaveforge/core";
 import { PDF_TEXT_STORE, openAppDb } from "@/lib/cache/app-idb";
+import { warnOnce } from "@/lib/error-report/warn-once";
 
 /** Guard against one pathological document filling the user's quota. */
 const MAX_STORED_CHARS = 2_000_000;
@@ -41,7 +42,8 @@ export async function savePdfText(projectId: string | null, source: PdfIndexSour
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-  } catch {
+  } catch (err) {
+    warnOnce("search", "PDF text was not saved for search.", err);
     /* best-effort: losing this costs searchability, never the reader */
   }
 }
@@ -92,7 +94,8 @@ export async function removePdfTexts(
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-  } catch {
+  } catch (err) {
+    warnOnce("search", "Stale PDF text was not removed from search.", err);
     /* best-effort: the index filters these out regardless */
   }
 }
@@ -122,7 +125,8 @@ export async function clearPdfTexts(projectId?: string | null): Promise<void> {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-  } catch {
+  } catch (err) {
+    warnOnce("search", "PDF text was not cleared from search.", err);
     /* ignore */
   }
 }

@@ -228,17 +228,19 @@ def _finalise(
     would misreport the result the dashboard exists to show, and the caller is
     told directly.
     """
-    first_failure: Exception | None = None
+    sources: list[tuple[str, Any]] = []
+    first_failure = best_effort(
+        "read sync", lambda: sources.extend(_sync_items(sync)), stacklevel=USER_FRAME
+    )
 
-    if sync:
-        for source_id, ref in dict(sync).items():
-            failed = best_effort(
-                f"sync '{source_id}'",
-                partial(run.sync, source_id, ref),
-                stacklevel=USER_FRAME,
-            )
-            if first_failure is None:
-                first_failure = failed
+    for source_id, ref in sources:
+        failed = best_effort(
+            f"sync '{source_id}'",
+            partial(run.sync, source_id, ref),
+            stacklevel=USER_FRAME,
+        )
+        if first_failure is None:
+            first_failure = failed
 
     flushed = best_effort("send metrics", run.flush, stacklevel=USER_FRAME)
     if first_failure is None:
@@ -252,6 +254,18 @@ def _finalise(
 
     if strict and first_failure is not None:
         raise first_failure
+
+
+def _sync_items(sync: Mapping[str, Any] | None) -> list[tuple[str, Any]]:
+    """The ``source_id -> ref`` pairs of ``sync``; anything but a mapping is a TypeError."""
+    if not sync:
+        return []
+    if not isinstance(sync, Mapping):
+        raise TypeError(
+            "sync must be a mapping of source id -> ref, e.g. "
+            f'{{"tensorboard": "runs/x"}}, not {type(sync).__name__}'
+        )
+    return list(sync.items())
 
 
 def _close_owned(container: TrackingContainer) -> None:

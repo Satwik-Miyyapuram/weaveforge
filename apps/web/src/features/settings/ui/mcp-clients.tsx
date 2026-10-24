@@ -4,6 +4,7 @@ import { useState, type KeyboardEvent } from "react";
 import { formatError } from "@/lib/format-error";
 import { desktop, type DesktopLocalApi, type DesktopLocalApiPermission } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
+import { copyText } from "@/lib/clipboard";
 import {
   MCP_CLIENT_TABS,
   claudeCodeCommands,
@@ -63,7 +64,8 @@ export function McpClients({
     }
   };
   const copy = (key: string, text: string) =>
-    void navigator.clipboard.writeText(text).then(() => {
+    void copyText(text).then((ok) => {
+      if (!ok) return;
       setCopied(key);
       window.setTimeout(() => setCopied((c) => (c === key ? null : c)), 1200);
     });

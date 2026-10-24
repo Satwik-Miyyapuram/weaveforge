@@ -20,7 +20,7 @@ function fakeAdmin(answers: { owner?: string; revokeError?: unknown; insertError
       select: self,
       eq: self,
       is: self,
-      single: async () => (table === "organizations"
+      maybeSingle: async () => (table === "organizations"
         ? { data: answers.owner ? { owner_id: answers.owner } : null, error: null }
         : result),
       update: () => { writes.push({ table, op: "update" }); result = { error: answers.revokeError ?? null }; return chain; },

@@ -1,7 +1,7 @@
 /**
  * Handing a file to the user: a download, or a data URL to embed.
  *
- * Two small things that several features need and none of them owns.
+ * Small things that several features need and none of them owns.
  */
 
 /** Triggers a browser download of a blob under the given filename. */
@@ -14,6 +14,18 @@ export function downloadBlob(blob: Blob, filename: string): void {
   anchor.click();
   anchor.remove();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Zip bytes (as fflate returns them) as an `application/zip` Blob.
+ *
+ * The bytes are copied into a fresh ArrayBuffer-backed view, so a view onto a
+ * larger or shared buffer still types as a BlobPart and carries only itself.
+ */
+export function zipToBlob(bytes: Uint8Array): Blob {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return new Blob([copy.buffer], { type: "application/zip" });
 }
 
 /**

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { readStored, writeStored } from "@/lib/safe-storage";
+
 /**
  * What happens when a `[[link]]` names a note that does not exist.
  *
@@ -30,20 +32,12 @@ export function parseWikilinkCreateMode(raw: unknown): WikilinkCreateMode {
 }
 
 export function readWikilinkCreateMode(): WikilinkCreateMode {
-  if (typeof localStorage === "undefined") return "create";
-  try {
-    return parseWikilinkCreateMode(localStorage.getItem(STORAGE_KEY));
-  } catch {
-    return "create";
-  }
+  return parseWikilinkCreateMode(readStored(STORAGE_KEY));
 }
 
 export function writeWikilinkCreateMode(mode: WikilinkCreateMode): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, mode);
-  } catch {
-    // Private mode: the change still applies to this session through the event.
-  }
+  // In private mode the change still applies to this session through the event.
+  writeStored(STORAGE_KEY, mode);
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 

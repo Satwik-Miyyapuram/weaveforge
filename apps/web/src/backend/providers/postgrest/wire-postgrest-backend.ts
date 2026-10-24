@@ -129,6 +129,8 @@ export interface WiredPostgrestBackend {
     IReaderAnnotationSyncRecorder &
     IReaderAnnotationProjectSource;
   readonly paperFieldRepository: IPaperFieldRepository;
+  /** Release what this wiring subscribed to (the session's auth listener). */
+  dispose(): void;
 }
 
 /**
@@ -167,7 +169,9 @@ export function wirePostgrestBackend(
   const db =
     parts?.db ??
     watchWrites(createDataClient(url as string, anonKey as string, config.dataUrl), notifyWorkspaceChange);
-  const session = parts?.session ?? new SupabaseSessionProvider(db);
+  // A session built here listens on the client; one passed in is its owner's.
+  const ownSession = parts?.session ? null : new SupabaseSessionProvider(db);
+  const session = parts?.session ?? ownSession!;
   const auth = parts?.auth ?? new SupabaseAuthService(db);
   const adminProvisioner =
     !parts && url && config.supabaseServiceRoleKey
@@ -284,11 +288,14 @@ export function wirePostgrestBackend(
     { resourceType: "share" },
   );
   const commentRepository = new PostgrestCommentRepository(db);
+  // What you can read depends on the grants, so a share change (yours or a
+  // peer's broadcast) clears this memo with the share repository's.
   const sharedReader: ISharedReader = cacheRepo(
     new PostgrestSharedReader(db),
     ["read"],
     [],
     pid,
+    { resourceType: "share" },
   );
   const milestoneRepository = cacheRepo(
     new PostgrestMilestoneRepository(db, projectContext),
@@ -301,7 +308,8 @@ export function wirePostgrestBackend(
   // RLS predicate calls the recursive `lab_root` per row — measured at ~1.8s
   // against a real database, dwarfing every other query on a screen load. Five
   // screens await it before rendering, and it was refetched on each of them.
-  // Membership does not change during a session, so it caches like the rest.
+  // Membership rarely changes during a session, so it caches like the rest; the
+  // org calls that change it (create, join, roles, new accounts) clear every memo.
   const memberRepository = cacheRepo(
     new PostgrestMemberRepository(db, session),
     ["getMine", "listTeam", "listDirectory", "listLab"],
@@ -401,5 +409,6 @@ export function wirePostgrestBackend(
     labSnapshotRepository,
     readerAnnotationRepository,
     paperFieldRepository,
+    dispose: () => ownSession?.dispose(),
   };
 }

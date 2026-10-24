@@ -117,3 +117,23 @@ test("a manual correction survives re-recognition", async () => {
   assert.equal(again.text, "first\nsecond again");
   assert.equal(again.lines[0]!.conf, 1);
 });
+
+test("an engine throw is logged with its engine and error (18-06)", async () => {
+  type Log = { level: string; source: string; message: string; detail?: string };
+  const logs: Log[] = [];
+  const g = globalThis as { window?: unknown };
+  const original = g.window;
+  g.window = { weaveforge: { fetchTitle: () => Promise.resolve({}), reportAppLog: (e: Log) => void logs.push(e) } };
+  try {
+    await recognisePage({
+      page: page(),
+      recogniser: { ...engine([]), recognise: async () => { throw new Error("no helper"); } },
+      hints: { vocabulary: [], lang: "en" },
+    });
+  } finally {
+    g.window = original;
+  }
+  assert.equal(logs.length, 2);
+  assert.equal(logs[0]!.source, "ink");
+  assert.match(logs[0]!.detail ?? "", /no helper/);
+});

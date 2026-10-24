@@ -18,6 +18,14 @@ import { INK_SAMPLE_STRIDE } from "../application/capture-protocol";
 type Listener = (event: { data: InkWorkerMessage }) => void;
 
 const posted: InkWorkerEvent[] = [];
+const frames: (() => void)[] = [];
+
+/** Run queued frames, and the frames they ask for, up to `limit` rounds. */
+function runFrames(limit = 10): void {
+  for (let round = 0; round < limit && frames.length > 0; round += 1) {
+    for (const frame of frames.splice(0, frames.length)) frame();
+  }
+}
 let listener: Listener | null = null;
 let pointInPolygon: (
   px: number,
@@ -31,8 +39,8 @@ before(async () => {
     addEventListener: (_type: string, fn: Listener) => {
       listener = fn;
     },
-    // The loop is a no-op here: nothing draws, and a frame never has to arrive.
-    requestAnimationFrame: () => 0,
+    // Frames are queued, not run: a test runs them with `runFrames`.
+    requestAnimationFrame: (cb: () => void) => frames.push(cb),
   };
   const worker = await import("../worker/ink-worker");
   pointInPolygon = worker.pointInPolygon;
@@ -449,4 +457,72 @@ test("live stroke simplifies dense staircases so live curves match commit curves
   });
   const committed = last("stroke-committed");
   assert.ok(committed.points.length / 2 < count, "committed stroke eliminated staircases");
+});
+
+test("the draw loop stops when idle and any message wakes it (19-05)", async () => {
+  fresh();
+  await settle();
+  runFrames();
+  assert.equal(frames.length, 0, "an idle page asks for no frames");
+  const wakers: InkWorkerMessage[] = [
+    { type: "resize", width: 300, height: 500, dpr: 2 },
+    { type: "undo" },
+    { type: "ink-shown", pageIndex: 0, count: 0 },
+    { type: "select-clear" },
+  ];
+  for (const message of wakers) {
+    posted.length = 0;
+    send(message);
+    assert.equal(frames.length, 1, `${message.type} asks for a frame`);
+    runFrames();
+    assert.ok(events("frame").length > 0, `${message.type} is drawn`);
+    assert.equal(frames.length, 0, `${message.type} lets the loop idle again`);
+  }
+});
+
+test("the loop runs for a whole live stroke and idles after it (19-05)", async () => {
+  fresh();
+  await settle();
+  runFrames();
+  strokeId += 1;
+  const h = header();
+  const one = new Float32Array([10, 10, 0.5, 0]);
+  send({ type: "stroke-begin", header: h, sample: { buffer: one, count: 1 } });
+  runFrames(3);
+  assert.equal(frames.length, 1, "a live stroke keeps asking for frames");
+  send({ type: "stroke-end", header: h, sample: { buffer: new Float32Array(0), count: 0 } });
+  runFrames();
+  assert.equal(frames.length, 0);
+});
+
+test("a page that finishes loading after the loop idled is drawn (19-05)", async () => {
+  fresh();
+  draw(10, 50);
+  send({ type: "save-page", requestId: 9 });
+  await settle();
+  const bytes = last("page-saved").bytes!;
+  runFrames();
+  send({ type: "load-page", pageIndex: 0, chunk: bytes });
+  runFrames();
+  await settle();
+  assert.equal(frames.length, 1, "the loaded page asks for a frame");
+  runFrames();
+});
+
+test("transferred sample buffers still come back once the loop idled (19-05)", async () => {
+  fresh();
+  send({ type: "init", canvas: null, width: 400, height: 600, dpr: 1, mode: "transfer", codec: "identity" });
+  await settle();
+  runFrames();
+  posted.length = 0;
+  strokeId += 1;
+  const h = header();
+  send({ type: "stroke-begin", header: h, sample: { buffer: new Float32Array([10, 10, 0.5, 0]), count: 1 } });
+  send({ type: "stroke-end", header: h, sample: { buffer: new Float32Array([20, 10, 0.5, 1]), count: 1 } });
+  runFrames();
+  const returned = events("samples-returned").flatMap((e) => e.buffers);
+  assert.equal(returned.length, 2);
+  assert.equal(frames.length, 0);
+  send({ type: "init", canvas: null, width: 400, height: 600, dpr: 1, mode: "clone", codec: "identity" });
+  runFrames();
 });
