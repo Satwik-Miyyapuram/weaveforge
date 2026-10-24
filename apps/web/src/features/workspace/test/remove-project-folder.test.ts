@@ -29,3 +29,20 @@ test("leaves everything when no folder matches", async () => {
   assert.equal(await removeProjectFolder(fs, project), null);
   assert.notEqual(await fs.stat("thesis--2a3407/a.md"), null);
 });
+
+test("leaves everything when two folders share the id suffix (29-23)", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.writeFile("one--ac0e9a/a.md", "x");
+  await fs.writeFile("two--ac0e9a/b.md", "y");
+  assert.equal(await removeProjectFolder(fs, project), null);
+  assert.notEqual(await fs.stat("one--ac0e9a/a.md"), null);
+  assert.notEqual(await fs.stat("two--ac0e9a/b.md"), null);
+});
+
+test("the exact name wins over another folder with the same suffix", async () => {
+  const fs = new MemoryWorkspaceFs();
+  await fs.writeFile("zz-verify-082--ac0e9a/a.md", "x");
+  await fs.writeFile("old-name--ac0e9a/b.md", "y");
+  assert.equal(await removeProjectFolder(fs, project), "zz-verify-082--ac0e9a");
+  assert.notEqual(await fs.stat("old-name--ac0e9a/b.md"), null);
+});

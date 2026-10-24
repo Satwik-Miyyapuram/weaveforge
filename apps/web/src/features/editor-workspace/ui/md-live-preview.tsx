@@ -33,6 +33,11 @@ export function readMdPreviewMode(): MdPreviewMode {
   return value === "side" || value === "below" ? value : "off";
 }
 
+/** What the preview renders: the editor's text once it has reported, even emptied; the saved body before. */
+export function previewBody(liveBody: string | null, savedBody: string): string {
+  return liveBody ?? savedBody;
+}
+
 /**
  * The editor and its preview, laid out as the choice says.
  *
@@ -78,7 +83,7 @@ export function LivePreview({
         role="complementary"
         aria-label="Preview, rendered as you type"
       >
-        {preview(liveBody?.trim() ? liveBody : savedBody)}
+        {preview(previewBody(liveBody, savedBody))}
       </div>
     </div>
   );

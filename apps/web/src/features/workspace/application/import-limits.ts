@@ -25,6 +25,60 @@ export class ImportLimitError extends Error {
   }
 }
 
+type ImportLimits = { readonly [K in keyof typeof IMPORT_LIMITS]: number };
+
+/** What the archive's directory says about one entry, before it is inflated. */
+export interface ArchiveEntryInfo {
+  name: string;
+  originalSize: number;
+}
+
+/**
+ * A `filter` for `unzipSync` that checks the archive's own directory first.
+ *
+ * Too many entries, or a declared total past the cap, throws before anything
+ * is inflated. An entry declared over the file cap is skipped and named in
+ * `oversize`. A declared size can lie, so `sanitizeArchiveEntries` still checks
+ * the real bytes afterwards.
+ */
+export function archiveBudget(limits: ImportLimits = IMPORT_LIMITS): {
+  filter: (info: ArchiveEntryInfo) => boolean;
+  oversize: string[];
+} {
+  const oversize: string[] = [];
+  let count = 0;
+  let total = 0;
+  const filter = (info: ArchiveEntryInfo): boolean => {
+    count += 1;
+    if (count > limits.maxEntries) {
+      throw new ImportLimitError(`Archive has more than ${limits.maxEntries} entries.`);
+    }
+    if (info.originalSize > limits.maxFileBytes) {
+      oversize.push(info.name);
+      return false;
+    }
+    total += info.originalSize;
+    if (total > limits.maxTotalBytes) {
+      throw new ImportLimitError(
+        `Archive expands past ${Math.round(limits.maxTotalBytes / 1024 / 1024)} MB; refusing to continue.`,
+      );
+    }
+    return true;
+  };
+  return { filter, oversize };
+}
+
+/** Inflate only the entries `archiveBudget` lets through. */
+export async function unzipWithinLimits(
+  bytes: Uint8Array,
+  limits: ImportLimits = IMPORT_LIMITS,
+): Promise<{ entries: Record<string, Uint8Array>; oversize: string[] }> {
+  const { unzipSync } = await import("fflate");
+  const budget = archiveBudget(limits);
+  const entries = unzipSync(bytes, { filter: budget.filter });
+  return { entries, oversize: budget.oversize };
+}
+
 export interface ArchiveEntry {
   path: string;
   bytes: Uint8Array;

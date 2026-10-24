@@ -50,8 +50,3 @@ export function outlineOf(body: string, maxLevel = 3): OutlineHeading[] {
   }
   return out;
 }
-
-/** Outline rows as workspace tree nodes, so one renderer paints both sections. */
-export function outlineRows(body: string): OutlineHeading[] {
-  return outlineOf(body);
-}

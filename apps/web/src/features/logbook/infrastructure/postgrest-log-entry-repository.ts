@@ -40,9 +40,8 @@ export class PostgrestLogEntryRepository extends ProjectRepository implements IL
     if (filter?.kind) query = query.eq("kind", filter.kind);
     if (filter?.dateFrom) query = query.gte("entry_date", filter.dateFrom);
     if (filter?.dateTo) query = query.lte("entry_date", filter.dateTo);
-    if (filter?.bodyContains) {
-      // Server ilike removed under E2EE — encryptRepo filters client-side post-decrypt.
-    }
+    // No server filter for bodyContains: bodies are end-to-end encrypted, so
+    // the decrypting repository filters them after the read.
     query = query
       .order("entry_date", { ascending: false })
       .order("created_at", { ascending: false });

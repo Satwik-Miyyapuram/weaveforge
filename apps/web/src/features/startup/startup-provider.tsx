@@ -18,6 +18,7 @@ import { logToApp } from "@/lib/error-report/app-log";
 import { singleFlight } from "@/lib/cache/single-flight";
 import { formatError } from "@/lib/format-error";
 import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
+import { loggedFallback } from "./logged-fallback";
 
 export interface StartupSnapshot {
   settings: UserSettings | null;
@@ -78,11 +79,11 @@ const startupWarn = (message: string) => (err: unknown) =>
  */
 export async function loadOrgBatch(c: AppContainer, memberships = fetchMemberships): Promise<OrgBatch> {
   const [mine, members, lab, labs] = await Promise.all([
-    c.org.loadProfile().catch((err: unknown) => (startupWarn("Profile did not load.")(err), null)),
-    c.org.loadTeam().catch((err: unknown) => (startupWarn("Team did not load.")(err), [] as Member[])),
-    c.org.loadLab().catch((err: unknown) => (startupWarn("Lab members did not load.")(err), [] as Member[])),
+    c.org.loadProfile().catch(loggedFallback("Profile", null)),
+    c.org.loadTeam().catch(loggedFallback("Team", [] as Member[])),
+    c.org.loadLab().catch(loggedFallback("Lab members", [] as Member[])),
     // null, not []: a failed read is not "no labs" (see shouldSyncStandalone).
-    memberships().catch((err: unknown) => (startupWarn("Memberships did not load.")(err), null)),
+    memberships().catch(loggedFallback("Memberships", null)),
     // Warm the project list in the same batch. ProjectProvider mounts below
     // every gate in the shell, so its own listProjects() would otherwise be a
     // further serial round trip after all of these — and nothing renders until

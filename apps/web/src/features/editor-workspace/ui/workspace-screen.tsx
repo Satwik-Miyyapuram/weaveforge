@@ -18,7 +18,7 @@ import { readLayout, writeLayout } from "../application/layout-storage";
 import { loadWorkspace, type Document } from "../application/workspace-load";
 import { bodyStats, formatCount, formatCursor } from "../application/document-stats";
 import { breadcrumbs } from "../application/breadcrumbs";
-import { outlineRows } from "../application/outline";
+import { outlineOf } from "../application/outline";
 import {
   activateTab,
   activeTabRef,
@@ -28,7 +28,10 @@ import {
   leaves,
   moveTab,
   hydrateTabModes,
+  keepOpen,
+  layoutForCommand,
   openTab,
+  openTabKeys,
   pruneLayout,
   setRatio,
   setTabMode,
@@ -51,7 +54,7 @@ import { FocusGlyph } from "@/components/focus-glyph";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
-import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, linkGroupOf, openModeFor, segmentsFor } from "./kind";
+import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, linkGroupOf, openingTab, openModeFor, segmentsFor } from "./kind";
 import { FormError } from "@/components/form-error";
 import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
 
@@ -87,6 +90,9 @@ export function WorkspaceScreen() {
   const [listsTree, setListsTree] = useState<WorkspaceTreeNode[]>([]);
   const [membership, setMembership] = useState<ReadonlyMap<string, string[]>>(new Map());
   const [layout, setLayout] = useState<PaneLayout>(() => emptyLayout());
+  // The layout a window keydown acts on, read without re-binding the listener.
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
   const [error, setError] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   // The explorer's draft row: what it will make and where. Owned here so the
@@ -156,6 +162,13 @@ export function WorkspaceScreen() {
     return handle;
   }, []);
   const [metrics, setMetrics] = useState<Record<string, DocumentMetrics>>({});
+  // A closed tab's editor unmounts, so its handle and metrics go with it; a
+  // tab switch hides rather than unmounts, and keeps both.
+  useEffect(() => {
+    const open = openTabKeys(layout);
+    for (const key of handles.current.keys()) if (!open.has(key)) handles.current.delete(key);
+    setMetrics((current) => keepOpen(current, open));
+  }, [layout]);
   // Saves are debounced inside the editor, so a window closed a keystroke after
   // typing can have a write still in flight. Counted rather than a boolean:
   // several panes can be saving at once.
@@ -492,7 +505,7 @@ export function WorkspaceScreen() {
   // scrolls the pane rather than opening anything.
   const outline = useMemo(() => {
     const body = activeKeyOf ? metrics[activeKeyOf]?.text ?? byKey.get(activeKeyOf)?.body ?? "" : "";
-    return outlineRows(body).map<WorkspaceTreeNode>((heading, index) => ({
+    return outlineOf(body).map<WorkspaceTreeNode>((heading, index) => ({
       key: `outline:${index}:${heading.slug}`,
       kind: "folder",
       label: heading.text,
@@ -532,11 +545,11 @@ export function WorkspaceScreen() {
   const openNode = useCallback(
     (node: WorkspaceTreeNode, options: { split: boolean }) => {
       if (!node.id || !isDocumentKind(node.kind)) return;
-      const tab = { kind: node.kind, id: node.id };
+      const tab = openingTab(node.kind, node.id, byKey.get(tabKey({ kind: node.kind, id: node.id }))?.body);
       apply(openTab(options.split ? splitPane(layout, layout.focusedPaneId, "row") : layout, tab));
       setPaletteOpen(false);
     },
-    [apply, layout],
+    [apply, layout, byKey],
   );
 
   // Bound on the window rather than on the shell so a shortcut still works
@@ -562,22 +575,10 @@ export function WorkspaceScreen() {
         return;
       }
 
-      setLayout((current) => {
-        const pane = current.focusedPaneId;
-        if (command === "split-right") return apply(splitPane(current, pane, "row"));
-        const leaf = leaves(current.root).find((candidate) => candidate.id === pane);
-        if (!leaf || leaf.tabs.length === 0) return current;
-        if (command === "close-tab") return apply(closeTab(current, pane, leaf.activeIndex));
-        // `⌘E` flips the document on screen between the source editor and the
-        // rendered read view (§3.9). It is a property of the document, so it
-        // survives a tab switch, a split and a reload of the layout.
-        if (command === "toggle-mode") return apply(toggleTabModeAt(current, pane, leaf.activeIndex));
-        const step = command === "next-tab" ? 1 : -1;
-        // Cycling wraps: Ctrl-Tab on the last tab lands on the first, which is
-        // what makes it a cycle rather than a walk that stops at the end.
-        const next = (leaf.activeIndex + step + leaf.tabs.length) % leaf.tabs.length;
-        return apply(activateTab(current, pane, next));
-      });
+      // Computed outside a state updater, so the storage write in `apply`
+      // runs once per chord (an updater may run twice).
+      const next = layoutForCommand(layoutRef.current, command);
+      if (next !== layoutRef.current) apply(next);
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -594,7 +595,6 @@ export function WorkspaceScreen() {
   const activeMetrics = activeKeyOf ? metrics[activeKeyOf] : undefined;
   const activeBody = activeMetrics?.text ?? activeDoc?.body ?? "";
   const stats = bodyStats(activeBody);
-  const peers = 0;
 
   const values: Partial<Record<SegmentKey, string>> = activeDoc
     ? {
@@ -603,7 +603,6 @@ export function WorkspaceScreen() {
         cursor: activeMetrics?.cursor ? formatCursor(activeMetrics.cursor) : undefined,
         encoding: "UTF-8",
         language: "Markdown",
-        peers: peers > 0 ? `${peers + 1} editing` : undefined,
         branch: undefined,
       }
     : {};
@@ -650,13 +649,7 @@ export function WorkspaceScreen() {
           // mode you leave it in.
           const doc = (documents ?? []).find((d) => d.kind === selection.kind && d.id === selection.id);
           if (phone) setExplorerHidden(true);
-          apply(
-            openTab(layout, {
-              kind: selection.kind,
-              id: selection.id,
-              mode: openModeFor(selection.kind, doc?.body ?? ""),
-            }),
-          );
+          apply(openTab(layout, openingTab(selection.kind, selection.id, doc?.body)));
         }}
         onStartNote={(paperId) => {
           // The paper document exists for every paper (it is the summary), so

@@ -152,14 +152,23 @@ export function ExplorerPanel({
 
   const setOpen = useCallback(
     (key: string) => {
-      setExpanded((current) => {
-        const next = toggleExpanded(current, key);
-        persistExpanded(next);
-        return next;
-      });
+      // Persist outside the updater: React may run an updater twice.
+      const next = toggleExpanded(expanded, key);
+      setExpanded(next);
+      persistExpanded(next);
     },
-    [persistExpanded, setExpanded],
+    [expanded, persistExpanded, setExpanded],
   );
+
+  const nodeByKey = useMemo(() => {
+    const map = new Map<string, WorkspaceTreeNode>();
+    const walk = (node: WorkspaceTreeNode) => {
+      map.set(node.key, node);
+      for (const child of node.children) walk(child);
+    };
+    for (const section of sections) for (const root of section.tree) walk(root);
+    return map;
+  }, [sections]);
 
   /**
    * The key of the row a draft sits under. A note's parent is a note row;
@@ -169,15 +178,11 @@ export function ExplorerPanel({
   const draftParentKey = useMemo(() => {
     if (!draft) return null;
     if (draft.parentId === null) return rootKey(draft.root);
-    let found: string | null = null;
-    const walk = (node: WorkspaceTreeNode) => {
-      if (found) return;
-      if (node.id === draft.parentId && rootOf(node) === draft.root) found = node.key;
-      for (const child of node.children) walk(child);
-    };
-    for (const section of sections) for (const root of section.tree) walk(root);
-    return found ?? rootKey(draft.root);
-  }, [draft, sections]);
+    for (const node of nodeByKey.values()) {
+      if (node.id === draft.parentId && rootOf(node) === draft.root) return node.key;
+    }
+    return rootKey(draft.root);
+  }, [draft, nodeByKey]);
 
   // A draft's folder opens, or the draft would be typed into blind.
   useEffect(() => {
@@ -242,16 +247,6 @@ export function ExplorerPanel({
     [onRename],
   );
 
-  const nodeByKey = useMemo(() => {
-    const map = new Map<string, WorkspaceTreeNode>();
-    const walk = (node: WorkspaceTreeNode) => {
-      map.set(node.key, node);
-      for (const child of node.children) walk(child);
-    };
-    for (const section of sections) for (const root of section.tree) walk(root);
-    return map;
-  }, [sections]);
-
   /** The dragged row, read off the transfer; `null` when it is not ours. */
   const draggedFrom = (event: React.DragEvent): WorkspaceTreeNode | null => {
     const key = event.dataTransfer.getData(EXPLORER_DRAG_TYPE) || dragging.current;
@@ -300,6 +295,7 @@ export function ExplorerPanel({
         .map((row, index) => ({ ...row, index })),
     [sections, openSections, filtered.byId],
   );
+  const flatByKey = useMemo(() => new Map(flat.map((row) => [row.node.key, row])), [flat]);
 
   const onKeyDown = (event: React.KeyboardEvent, row: PaintedRow) => {
     const { node } = row;
@@ -480,7 +476,7 @@ export function ExplorerPanel({
                 >
                   {rows.map((row) => {
                     const { node, depth } = row;
-                    const painted = flat.find((candidate) => candidate.node.key === node.key);
+                    const painted = flatByKey.get(node.key);
                     const branch = node.children.length > 0;
                     const rowOpen = effectiveExpanded.has(node.key);
                     const suffix = isDocumentKind(node.kind) ? documentSuffix(node.kind) : null;
