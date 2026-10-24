@@ -36,10 +36,21 @@ export function extractHeadings(body?: string): string[] {
   return out;
 }
 
-/** Long bodies are truncated, never dropped: the title still has to be findable. */
-function boundedBody(body: string | undefined): string {
+/**
+ * Long bodies are truncated, never dropped: the title still has to be findable.
+ * The cut steps back one unit rather than leave half a surrogate pair.
+ */
+export function boundedBody(body: string | undefined): string {
   if (!body) return "";
-  return body.length > MAX_INDEXED_BODY_CHARS ? body.slice(0, MAX_INDEXED_BODY_CHARS) : body;
+  if (body.length <= MAX_INDEXED_BODY_CHARS) return body;
+  const end = isHighSurrogate(body.charCodeAt(MAX_INDEXED_BODY_CHARS - 1))
+    ? MAX_INDEXED_BODY_CHARS - 1
+    : MAX_INDEXED_BODY_CHARS;
+  return body.slice(0, end);
+}
+
+function isHighSurrogate(code: number): boolean {
+  return code >= 0xd800 && code <= 0xdbff;
 }
 
 interface TreeNode {
@@ -192,7 +203,7 @@ export function toSearchDocs(
         tags: extractHashtags(section.notes),
         path: sectionPaths.get(section.id) ?? "",
         body: section.notes ?? "",
-        updatedAt: section.createdAt,
+        updatedAt: section.updatedAt || section.createdAt,
         href: href("section", section.id),
         degree: degreeOf(`section:${section.id}`),
       }),
@@ -265,7 +276,27 @@ export function toSearchDocs(
  * a cached index from silently serving deleted or pre-edit documents.
  */
 export function searchRevision(docs: readonly SearchDoc[]): string {
-  let latest = "";
-  for (const d of docs) if (d.updatedAt > latest) latest = d.updatedAt;
-  return `${docs.length}:${latest}`;
+  // A hash of what is indexed, not count + newest timestamp: lists, sections,
+  // milestones and log entries carry no edit time, and swapping a doc for an
+  // older one keeps both the count and the newest time.
+  const sorted = [...docs].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  let hash = FNV_OFFSET;
+  for (const d of sorted) {
+    for (const part of [d.id, d.updatedAt, d.title, d.path, d.href, d.body, ...d.aliases, ...d.headings, ...d.tags]) {
+      hash = fnv1a(hash, part);
+      hash = fnv1a(hash, "\u0000");
+    }
+  }
+  return `${docs.length}:${hash.toString(16).padStart(8, "0")}`;
+}
+
+const FNV_OFFSET = 0x811c9dc5;
+
+function fnv1a(hash: number, text: string): number {
+  let h = hash;
+  for (let i = 0; i < text.length; i += 1) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h;
 }

@@ -13,6 +13,8 @@ import { CardColumns } from "@/components/card-columns";
 import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned-owner-names";
 import { AddVaultPageForm } from "../add-vault-page-form";
 import { importNotesFromFiles } from "../../application/import-notes";
+import { loadLinkTargets } from "../../application/load-link-targets";
+import { logToApp } from "@/lib/error-report/app-log";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
 import { emptyArray, emptyMap, emptySet } from "@/lib/empty";
@@ -53,14 +55,23 @@ export function VaultScreen() {
 
   const loadScreen = useCallback(async (): Promise<VaultViewData> => {
     const data = await getContainer().vault.loadScreenData();
-    const [ownerNames, papersData, reportData] = await Promise.all([
+    const [ownerNames, links] = await Promise.all([
       loadPinnedOwnerNames(data.pinnedSharedBy),
-      getContainer().papers.loadScreenData().catch(() => null),
-      getContainer().report.loadScreenData().catch(() => null),
+      loadLinkTargets(
+        {
+          papers: () => getContainer().papers.loadScreenData(),
+          sections: () => getContainer().report.loadScreenData(),
+        },
+        logToApp,
+      ),
     ]);
-    const paperEntries = (papersData?.papers ?? []).map((p) => ({ id: p.id, title: p.title }));
-    const sectionEntries = (reportData?.flat ?? []).map((s) => ({ id: s.id, title: s.title }));
-    return { ...data, ownerNames, paperEntries, sectionEntries };
+    return {
+      ...data,
+      ownerNames,
+      paperEntries: links.paperEntries,
+      sectionEntries: links.sectionEntries,
+      linkTargetsError: links.error,
+    };
   }, []);
 
   const { data, loading, error: loadError, reload: load, setData } = useScreenData("vault", loadScreen);
@@ -412,6 +423,7 @@ export function VaultScreen() {
       )}
 
       {error && <FormError>{error}</FormError>}
+      {data?.linkTargetsError && <FormError>{data.linkTargetsError}</FormError>}
       {importMsg && <p className="muted vault-import-msg">{importMsg}</p>}
 
       {!error && !selected && hasNotes && (
