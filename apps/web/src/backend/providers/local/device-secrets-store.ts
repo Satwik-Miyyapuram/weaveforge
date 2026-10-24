@@ -1,6 +1,6 @@
 import { LOCAL_USER_ID } from "@weaveforge/core";
 import type { Secrets, SecretsStore } from "@/features/settings/infrastructure/postgrest-settings-repository";
-import { LocalRunner } from "./local-runner";
+import { localRunnerQuery } from "./local-runner";
 import type { LocalQuery } from "./pglite-client";
 
 /**
@@ -28,7 +28,7 @@ import type { LocalQuery } from "./pglite-client";
  * deployment has routes of its own, never which mode a window is in.
  */
 export class DeviceSecretsStore implements SecretsStore {
-  constructor(private readonly run: LocalQuery = defaultQuery()) {}
+  constructor(private readonly run: LocalQuery = localRunnerQuery()) {}
 
   async load(): Promise<Secrets> {
     const rows = (await this.run("select secrets from local_secrets where user_id = $1", [
@@ -46,10 +46,4 @@ export class DeviceSecretsStore implements SecretsStore {
       [LOCAL_USER_ID, JSON.stringify(secrets)],
     );
   }
-}
-
-/** Straight to the shell. The identity is applied on the far side, not here. */
-function defaultQuery(): LocalQuery {
-  const runner = new LocalRunner();
-  return (sql, params) => runner.query(sql, params as never[]);
 }
