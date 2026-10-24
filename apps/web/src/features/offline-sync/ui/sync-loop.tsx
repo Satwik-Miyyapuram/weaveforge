@@ -12,6 +12,7 @@ import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { LOCAL_USER_ID } from "@weaveforge/core";
 import { SyncStateStore } from "../domain/sync-state";
+import { quoteIdent } from "../domain/sql-ident";
 import type { CycleResult } from "../domain/sync-engine";
 import { enableSync, liveAccessToken } from "./enable-sync";
 import { syncEngine } from "./use-sync";
@@ -280,7 +281,7 @@ export const OWNED_SYNC_TABLES_SQL = `select s.table_name from sync_tables s
 export function ownedRowCountSql(tables: readonly string[]): string | null {
   if (tables.length === 0) return null;
   const one = (table: string) =>
-    `select count(*)::int as n from "${table.replace(/"/g, '""')}" where user_id = $1`;
+    `select count(*)::int as n from ${quoteIdent(table)} where user_id = $1`;
   return `select coalesce(sum(n), 0)::int as n from (${tables.map(one).join(" union all ")}) owned`;
 }
 

@@ -7,6 +7,8 @@
  * re-render. The server gets the escaped source back; diagrams draw on the
  * client.
  */
+import { escapeHtml } from "./escape-html";
+
 export type MermaidModule = Pick<typeof import("pele/lazy"), "renderAsync">;
 
 const MAX_CACHE_ENTRIES = 32;
@@ -62,10 +64,6 @@ export function quoteAwkwardLabels(code: string): string {
 function getMermaid(): Promise<MermaidModule> {
   mermaidPromise ??= customLoader ? customLoader() : import("pele/lazy");
   return mermaidPromise;
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 /** True when the fence's info string names a mermaid diagram. */

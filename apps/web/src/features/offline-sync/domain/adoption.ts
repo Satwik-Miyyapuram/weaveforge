@@ -1,5 +1,6 @@
 import type { SqlRunner } from "./outbox";
 import { SyncStateStore } from "./sync-state";
+import { quoteIdent } from "./sql-ident";
 
 /**
  * Turning sync on for the first time: this device's work becomes an account's.
@@ -93,7 +94,7 @@ export class Adoption {
 
     for (const { table_name } of tables) {
       const row = await this.sql.queryOne<{ n: number }>(
-        `select count(*)::int as n from "${table_name.replace(/"/g, '""')}" where user_id = $1`,
+        `select count(*)::int as n from ${quoteIdent(table_name)} where user_id = $1`,
         [this.localUserId],
       ).catch(() => null);
       const count = Number(row?.n ?? 0);
