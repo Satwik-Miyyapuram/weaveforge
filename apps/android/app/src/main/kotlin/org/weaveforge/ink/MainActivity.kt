@@ -52,6 +52,8 @@ class MainActivity : AppCompatActivity() {
     /** The hosts the shell may load, from the build that produced it. */
     private val allowedHosts: Set<String> = HostAllowList.parse(BuildConfig.ALLOWED_HOSTS)
 
+    private val accountPicker = GoogleAccountPicker(this)
+
     private fun isAllowed(uri: Uri?): Boolean = HostAllowList.allows(uri?.host, allowedHosts)
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -167,6 +169,7 @@ class MainActivity : AppCompatActivity() {
         // on every navigation, including history moves and redirects, so the
         // interface is present exactly while the loaded origin may use it.
         webView.addJavascriptInterface(NativeBridge(inkOverlay, inkGesture), BRIDGE_NAME)
+        accountPicker.install(webView, BuildConfig.APP_URL)
 
         inkOverlay.onStrokeFinished = { pointsJson ->
             runOnUiThread {
@@ -215,6 +218,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         webView.onResume()
+        accountPicker.onResume()
     }
 
     override fun onPause() {
