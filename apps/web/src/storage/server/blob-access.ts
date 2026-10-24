@@ -73,43 +73,47 @@ export function resourceIdFromBlobPath(path: string): string | null {
   return seg && UUID_RE.test(seg) ? seg : null;
 }
 
+/** Service-role client for the lookups below; a missing setting is a fault, not a "no". */
+function adminClient() {
+  const backend = readBackendConfig();
+  const url = backend.supabaseUrl;
+  const serviceKey = backend.supabaseServiceRoleKey;
+  if (!url || !serviceKey) throw new Error("Blob access lookup is not configured.");
+  return createRestClient(url, serviceKey);
+}
+
 async function sharedResourceToUser(
   resourceType: string,
   resourceId: string,
   viewerUid: string,
 ): Promise<boolean> {
-  const backend = readBackendConfig();
-  const url = backend.supabaseUrl;
-  const serviceKey = backend.supabaseServiceRoleKey;
-  if (!url || !serviceKey) return false;
-  const admin = createRestClient(url, serviceKey);
-  const { data, error } = await admin.rpc("shared_to_user", {
+  const { data, error } = await adminClient().rpc("shared_to_user", {
     rtype: resourceType,
     rid: resourceId,
     uid: viewerUid,
   });
-  return !error && data === true;
+  if (error) throw error;
+  return data === true;
 }
 
-/** The owner, or someone the resource behind the blob is shared with, may view it. */
+/**
+ * The owner, or someone the resource behind the blob is shared with, may view it.
+ * Null means no such blob or no access; a failed lookup throws (10-07), so the
+ * route does not report a database fault as a missing image.
+ */
 export async function resolveBlobTierForViewer(
   bucket: string,
   path: string,
   viewerUid: string,
 ): Promise<BlobTier | null> {
-  const backend = readBackendConfig();
-  const url = backend.supabaseUrl;
-  const serviceKey = backend.supabaseServiceRoleKey;
-  if (!url || !serviceKey) return null;
-
-  const admin = createRestClient(url, serviceKey);
-  const { data, error } = await admin
+  const { data, error } = await adminClient()
     .from("blob_objects")
     .select("user_id, tier")
     .eq("bucket", bucket)
     .eq("path", path)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error) throw error;
+  if (!data) return null;
 
   const tier: BlobTier = data.tier === "cold" ? "cold" : "hot";
   if (data.user_id === viewerUid) return tier;

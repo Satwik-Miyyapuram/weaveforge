@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   try {
     assertAllowedBlobBucket(bucket);
     assertBlobPathOwned(path, gate.userId);
-    const store = await buildTieredBlobStoreForToken(token);
+    const store = await buildTieredBlobStoreForToken(token, gate.userId);
     await store.upload(
       bucket,
       path,

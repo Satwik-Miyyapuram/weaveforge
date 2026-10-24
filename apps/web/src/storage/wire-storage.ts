@@ -1,6 +1,6 @@
 import type { IBlobStore } from "@weaveforge/core";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { readStorageConfig, type StorageConfig } from "./config";
+import { readStorageConfig, type BlobProviderId, type StorageConfig } from "./config";
 import { HttpBlobStore } from "./providers/http/http-blob-store";
 import { SupabaseBlobStore } from "./providers/supabase/blob-store";
 
@@ -8,6 +8,14 @@ export interface WireStorageDeps {
   /** Required when provider = supabase. */
   supabaseDb?: SupabaseClient;
   config?: StorageConfig;
+}
+
+/** The browser follows the inlined public setting; the server follows its config. */
+export function blobProviderForRuntime(
+  configured: BlobProviderId,
+  runtime: { inBrowser: boolean; publicProvider: string | undefined },
+): BlobProviderId {
+  return runtime.inBrowser && runtime.publicProvider === "tiered" ? "tiered" : configured;
 }
 
 /**
@@ -20,10 +28,11 @@ export interface WireStorageDeps {
  */
 export function wireStorage(deps: WireStorageDeps): IBlobStore {
   const config = deps.config ?? readStorageConfig();
-  const provider =
-    typeof window !== "undefined" && process.env.NEXT_PUBLIC_BLOB_PROVIDER === "tiered"
-      ? "tiered"
-      : config.provider;
+  const provider = blobProviderForRuntime(config.provider, {
+    inBrowser: typeof window !== "undefined",
+    // Literal read: Next.js inlines it into the browser bundle.
+    publicProvider: process.env.NEXT_PUBLIC_BLOB_PROVIDER,
+  });
   switch (provider) {
     case "tiered":
       if (typeof window !== "undefined") {

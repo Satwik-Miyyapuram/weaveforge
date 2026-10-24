@@ -9,7 +9,7 @@ import {
   type ExperimentStatus,
   type NewExperimentInput,
 } from "../domain/experiment.js";
-import type { IExperimentRepository } from "../domain/experiment-repository.js";
+import type { ExperimentPatch, IExperimentRepository } from "../domain/experiment-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { NotFoundError } from "../../../shared/errors.js";
 
@@ -36,14 +36,11 @@ export class ManageExperimentUseCase {
    * the run is reopened. Reopening used to leave the old end time in place.
    */
   async setStatus(id: string, status: ExperimentStatus): Promise<Experiment> {
-    return this.mutate(id, (e) => ({
-      ...e,
-      ...statusPatchForExperiment(e, status, this.deps.clock.nowIso()),
-    }));
+    return this.mutate(id, (e) => statusPatchForExperiment(e, status, this.deps.clock.nowIso()));
   }
 
   async recordMetrics(id: string, metrics: Record<string, unknown>): Promise<Experiment> {
-    return this.mutate(id, (e) => ({ ...e, metrics: { ...e.metrics, ...metrics } }));
+    return this.mutate(id, (e) => ({ metrics: { ...e.metrics, ...metrics } }));
   }
 
   /**
@@ -57,26 +54,34 @@ export class ManageExperimentUseCase {
   async addArtifacts(id: string, entries: readonly string[]): Promise<Experiment> {
     return this.mutate(id, (e) => {
       const known = new Set(e.artifacts);
-      return { ...e, artifacts: [...e.artifacts, ...entries.filter((entry) => !known.has(entry))] };
+      return { artifacts: [...e.artifacts, ...entries.filter((entry) => !known.has(entry))] };
     });
   }
 
   /** Blank clears the note, so a run can go back to "no result yet". */
   async setResultNote(id: string, note: string): Promise<Experiment> {
     const trimmed = note.trim();
-    return this.mutate(id, (e) => ({ ...e, resultNote: trimmed || undefined }));
+    return this.mutate(id, () => ({ resultNote: trimmed || undefined }));
   }
 
   async remove(id: string): Promise<void> {
     await this.deps.repository.delete(id);
   }
 
-  private async mutate(id: string, change: (e: Experiment) => Experiment): Promise<Experiment> {
+  /**
+   * Apply one edit as a patch of the fields it changes (02-12).
+   *
+   * This used to write back the whole row it had read, so two edits in flight
+   * together — the stale-run sweep and a note typed in another tab — each
+   * restored the other's field to what it was before. Two edits of the same
+   * field (metrics, artifacts) still read-modify-write that one field.
+   */
+  private async mutate(id: string, change: (e: Experiment) => ExperimentPatch): Promise<Experiment> {
     const existing = await this.deps.repository.getById(id);
     // NotFound, not Validation: see the vault use case for the reasoning.
     if (!existing) throw new NotFoundError(`No experiment with id "${id}".`);
-    const updated = change(existing);
-    await this.deps.repository.save(updated);
-    return updated;
+    const patch = change(existing);
+    await this.deps.repository.patch(id, patch);
+    return { ...existing, ...patch };
   }
 }
