@@ -45,6 +45,10 @@ export interface TestDb {
   createUser: (email?: string) => Promise<string>;
   /** Run SQL as `authenticated` with `auth.uid()` answering this user id. */
   as: (userId: string) => Pick<TestDb, "sql">;
+  /** Run SQL as `anon`, the role PostgREST uses for a request with no session. */
+  anon: Pick<TestDb, "sql">;
+  /** Run a multi-statement script as the owner, the way a migration file runs. */
+  exec: (script: string) => Promise<void>;
   close: () => Promise<void>;
 }
 
@@ -72,6 +76,20 @@ async function build(): Promise<TestDb> {
 
   const sql = async <T = Record<string, unknown>>(query: string, params: unknown[] = []): Promise<T[]> =>
     (await db.query<T>(query, params)).rows;
+  const asRole = (role: string, claims: string): Pick<TestDb, "sql"> => ({
+    async sql<T = Record<string, unknown>>(query: string, params: unknown[] = []): Promise<T[]> {
+      // Both settings are transaction-local, so the claim, the role and the
+      // query have to travel together — outside a transaction auth.uid() is
+      // already null again by the time the query runs.
+      return db.transaction(async (tx) => {
+        await tx.query(
+          "select set_config('request.jwt.claims', $1, true), set_config('role', $2, true)",
+          [claims, role],
+        );
+        return (await tx.query<T>(query, params)).rows;
+      }) as Promise<T[]>;
+    },
+  });
 
   return {
     sql,
@@ -79,23 +97,9 @@ async function build(): Promise<TestDb> {
       const [row] = await sql<{ id: string }>("insert into auth.users (email) values ($1) returning id", [email]);
       return row!.id;
     },
-    as(userId: string) {
-      const claims = sessionClaims(userId);
-      return {
-        async sql<T = Record<string, unknown>>(query: string, params: unknown[] = []): Promise<T[]> {
-          // Both settings are transaction-local, so the claim, the role and the
-          // query have to travel together — outside a transaction auth.uid() is
-          // already null again by the time the query runs.
-          return db.transaction(async (tx) => {
-            await tx.query(
-              "select set_config('request.jwt.claims', $1, true), set_config('role', 'authenticated', true)",
-              [claims],
-            );
-            return (await tx.query<T>(query, params)).rows;
-          }) as Promise<T[]>;
-        },
-      };
-    },
+    as: (userId: string) => asRole("authenticated", sessionClaims(userId)),
+    anon: asRole("anon", "{}"),
+    async exec(script: string) { await db.exec(script); },
     async close() { await db.close(); },
   };
 }
