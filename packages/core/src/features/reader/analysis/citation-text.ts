@@ -7,10 +7,6 @@ import type { PageTextItem } from "../../../reader/selection-to-anchor.js";
 
 export type PdfItem = PageTextItem & { fontAscent?: number; fontDescent?: number };
 
-export function pageTextFromItems(items: readonly PdfItem[]): string {
-  return items.map((item) => item.str + (item.hasEOL ? "\n" : "")).join("");
-}
-
 export function stripInvisible(text: string): string {
   return text.replace(/[​-‍⁠﻿­]/g, "")
     .replace(/[   - ]/g, " ");

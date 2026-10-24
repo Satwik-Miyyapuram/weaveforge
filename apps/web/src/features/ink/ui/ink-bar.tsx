@@ -29,6 +29,10 @@ import {
   INK_PEN_WIDTHS,
   INK_HIGHLIGHTER_WIDTH,
   INK_HIGHLIGHTER_WIDTHS,
+  INK_ZOOM_MAX,
+  INK_ZOOM_MIN,
+  inkZoomIn,
+  inkZoomOut,
   type InkHand,
   type InkPaper,
 } from "@weaveforge/core";
@@ -589,8 +593,8 @@ export function InkBar({
             <button
               type="button"
               className="ink-tool ink-tool-icon-only"
-              onClick={() => onZoom(Math.max(0.5, zoom / 1.2))}
-              disabled={zoom <= 0.5}
+              onClick={() => onZoom(inkZoomOut(zoom))}
+              disabled={zoom <= INK_ZOOM_MIN}
               title="Zoom out"
               aria-label="Zoom out"
             >
@@ -607,8 +611,8 @@ export function InkBar({
             <button
               type="button"
               className="ink-tool ink-tool-icon-only"
-              onClick={() => onZoom(Math.min(4, zoom * 1.2))}
-              disabled={zoom >= 4}
+              onClick={() => onZoom(inkZoomIn(zoom))}
+              disabled={zoom >= INK_ZOOM_MAX}
               title="Zoom in"
               aria-label="Zoom in"
             >

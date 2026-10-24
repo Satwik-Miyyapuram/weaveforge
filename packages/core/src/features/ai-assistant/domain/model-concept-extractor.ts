@@ -177,11 +177,22 @@ export class ModelConceptExtractor implements IConceptExtractor {
 
     const batchSize = this.options.batchSize ?? DEFAULT_BATCH_SIZE;
     const results: ExtractionResult[] = [];
+    let lastError: unknown = null;
 
+    // One batch at a time: a user's own key has a rate limit, and a burst of
+    // parallel calls is how it gets hit.
     for (let i = 0; i < documents.length; i += batchSize) {
       const batch = documents.slice(i, i + batchSize);
-      results.push(await this.extractBatch(batch, request));
+      try {
+        results.push(await this.extractBatch(batch, request));
+      } catch (error) {
+        // One failed batch costs its own documents, not the run. The user sees
+        // fewer concepts, which beats losing the batches that did succeed.
+        lastError = error;
+      }
     }
+    // Every batch failed: that is a broken key or provider, not an empty corpus.
+    if (results.length === 0) throw lastError;
 
     const merged = mergeExtractions(results);
     const filtered = withoutExisting(merged, request.existingConcepts ?? []);
@@ -237,15 +248,7 @@ export class ModelConceptExtractor implements IConceptExtractor {
       temperature: 0,
     };
 
-    let text: string;
-    try {
-      text = (await this.model.complete(modelRequest)).text;
-    } catch {
-      // One failed batch costs its own documents, not the run. The user sees
-      // fewer concepts, which beats losing the batches that did succeed.
-      return EMPTY_EXTRACTION;
-    }
-
+    const { text } = await this.model.complete(modelRequest);
     return toExtractionResult(parseExtractionJson(text), batch);
   }
 }

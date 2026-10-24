@@ -117,3 +117,30 @@ test("presets cover hosted and local providers without ranking them", () => {
   assert.ok(ids.includes("ollama"), "a local option must be present");
   assert.equal(new Set(ids).size, ids.length);
 });
+
+test("a provider that never answers is given up on after the timeout (32-11)", async () => {
+  const fetchFn = ((_url: string, init: RequestInit) => new Promise((_resolve, reject) => {
+    init.signal?.addEventListener("abort", () => reject(init.signal!.reason));
+  })) as unknown as typeof fetch;
+  const client = new ByokModelConversation(descriptor(), "sk-test", fetchFn, 20);
+  await assert.rejects(client.complete({ messages } as never), /OpenAI did not answer within/);
+});
+
+test("other fetch failures keep their own error (32-11)", async () => {
+  const fetchFn = (async () => { throw new TypeError("Failed to fetch"); }) as unknown as typeof fetch;
+  const client = new ByokModelConversation(descriptor(), "sk-test", fetchFn, 1000);
+  await assert.rejects(client.complete({ messages } as never), /Failed to fetch/);
+});
+
+test("an empty answer is an error, not a blank reply (32-12)", async () => {
+  for (const [api, body] of [
+    ["openai-chat", { choices: [{ message: { content: "  " } }] }],
+    ["openai-chat", {}],
+    ["anthropic-messages", { content: [{ type: "tool_use" }] }],
+    ["ollama", { message: { content: "" } }],
+  ] as const) {
+    const { fetchFn } = capture(body);
+    const client = new ByokModelConversation(descriptor({ api }), "sk-test", fetchFn);
+    await assert.rejects(client.complete({ messages } as never), /OpenAI returned an empty response/);
+  }
+});

@@ -40,4 +40,10 @@ export interface IVaultPageRepository
    * site.
    */
   listSummaries(): Promise<VaultPageSummary[]>;
+  /**
+   * True when another page (not `exceptId`) has this title under
+   * `normalizeTitleKey`. A targeted read: the duplicate check used to load
+   * every summary, once per note on an import.
+   */
+  titleTaken(title: string, exceptId?: string): Promise<boolean>;
 }

@@ -2,6 +2,8 @@ import { useCallback, useState } from "react";
 
 import { INK_COLOURS } from "@weaveforge/core";
 
+import { readStored, writeStored } from "@/lib/safe-storage";
+
 type InkColour = (typeof INK_COLOURS)[number];
 
 const QUICK_COLOURS_KEY = "weaveforge.ink.quick-colours";
@@ -29,20 +31,12 @@ export function parseQuickColours(saved: string | null): InkColour[] {
   );
 }
 
-function readQuickColours(): InkColour[] {
-  try {
-    return parseQuickColours(window.localStorage.getItem(QUICK_COLOURS_KEY));
-  } catch {
-    return [...DEFAULT_QUICK_COLOURS];
-  }
+export function readQuickColours(): InkColour[] {
+  return parseQuickColours(readStored(QUICK_COLOURS_KEY));
 }
 
 function writeQuickColours(colours: readonly InkColour[]) {
-  try {
-    window.localStorage.setItem(QUICK_COLOURS_KEY, JSON.stringify(colours));
-  } catch {
-    // Blocked storage: the change lasts for this session only.
-  }
+  writeStored(QUICK_COLOURS_KEY, JSON.stringify(colours));
 }
 
 /** The bar's quick colours, and a setter for one slot that remembers it on this device. */

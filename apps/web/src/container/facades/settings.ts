@@ -5,7 +5,7 @@ import type {
 } from "@weaveforge/core";
 import type { IProjectBibliographyCollectionStore } from "@weaveforge/core";
 import type { IIntegrationsStore } from "@/features/sync/domain/sync-ports";
-import { formatError, GENERIC_ERROR, httpContext, readJsonBody, responseError } from "@/lib/format-error";
+import { formatError, GENERIC_ERROR, httpContext, readJsonBody } from "@/lib/format-error";
 
 /** A personal access token as the settings API reports it — never the secret. */
 export interface ApiTokenRecord {
@@ -107,8 +107,16 @@ export class SettingsFacade {
     init: RequestInit,
     opts: { signIn: string; fallback: string },
   ): Promise<T> {
-    const token = await (this.deps.accessToken ?? defaultAccessToken)();
+    const token = await this.token();
     if (!token) throw new Error(opts.signIn);
+    return this.send<T>(token, path, init, opts.fallback);
+  }
+
+  private token(): Promise<string | null> {
+    return (this.deps.accessToken ?? defaultAccessToken)();
+  }
+
+  private async send<T>(token: string, path: string, init: RequestInit, fallback: string): Promise<T> {
     const response = await fetch(path, {
       ...init,
       headers: {
@@ -117,7 +125,7 @@ export class SettingsFacade {
       },
     });
     const payload = await readJsonBody(response);
-    if (!response.ok) throw new Error(`${errorMessage(payload, opts.fallback)} ${httpContext(response)}`);
+    if (!response.ok) throw new Error(`${errorMessage(payload, fallback)} ${httpContext(response)}`);
     return payload as T;
   }
 
@@ -163,14 +171,14 @@ export class SettingsFacade {
        * blanking the panel over it would say less than leaving it alone.
        */
       list: async (): Promise<McpTokenRecord[]> => {
-        const token = await (this.deps.accessToken ?? defaultAccessToken)();
+        const token = await this.token();
         if (!token) return [];
-        const response = await fetch("/api/settings/mcp-tokens", {
-          method: "GET",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const payload = (await response.json().catch(() => ({}))) as { tokens?: McpTokenRecord[]; error?: string };
-        if (!response.ok) throw responseError(response, payload.error ?? payload, GENERIC_ERROR);
+        const payload = await this.send<{ tokens?: McpTokenRecord[] }>(
+          token,
+          "/api/settings/mcp-tokens",
+          { method: "GET" },
+          GENERIC_ERROR,
+        );
         return payload.tokens ?? [];
       },
       create: async (): Promise<{ record?: McpTokenRecord; plaintext: string }> => {

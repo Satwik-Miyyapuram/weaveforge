@@ -10,11 +10,17 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { isEditableTarget } from "@/lib/editable-target";
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
+  INK_ZOOM_MAX,
+  INK_ZOOM_MIN,
   clampInkPageSize,
+  clampInkZoom,
   inkPageFigures,
+  inkZoomIn,
+  inkZoomOut,
   readInkNoteBody,
   splitInkTextLayer,
 } from "@weaveforge/core";
@@ -169,7 +175,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
         else if (e.deltaMode === 2) dy *= 100;
         dy = Math.max(-200, Math.min(200, dy));
         const factor = Math.exp(-dy * 0.002);
-        setZoom((z) => Math.max(0.5, Math.min(3, z * factor)));
+        setZoom((z) => clampInkZoom(z * factor));
       }
     };
     scroller.addEventListener("wheel", onWheel, { passive: false });
@@ -179,15 +185,15 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
   // Keyboard zoom shortcuts (Ctrl++, Ctrl+-, Ctrl+0).
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement).tagName)) return;
+      if (isEditableTarget(e.target)) return;
       if (e.ctrlKey || e.metaKey) {
         const key = e.key.toLowerCase();
         if (key === "+" || key === "=" || e.code === "Equal" || e.code === "NumpadAdd" || e.key === "Add") {
           e.preventDefault();
-          setZoom((z) => Math.min(3, Math.max(0.5, z * 1.25)));
+          setZoom(inkZoomIn);
         } else if (key === "-" || key === "_" || e.code === "Minus" || e.code === "NumpadSubtract" || e.key === "Subtract") {
           e.preventDefault();
-          setZoom((z) => Math.min(3, Math.max(0.5, z / 1.25)));
+          setZoom(inkZoomOut);
         } else if (key === "0" || e.code === "Digit0" || e.code === "Numpad0") {
           e.preventDefault();
           setZoom(1);
@@ -232,7 +238,8 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
           <button
             type="button"
             className="btn btn-ghost btn-sm"
-            onClick={() => setZoom((z) => Math.max(0.5, z - 0.15))}
+            onClick={() => setZoom(inkZoomOut)}
+            disabled={zoom <= INK_ZOOM_MIN}
             aria-label="Zoom out"
             style={{ padding: "2px 8px", minHeight: 0, height: "24px" }}
           >
@@ -250,7 +257,8 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
           <button
             type="button"
             className="btn btn-ghost btn-sm"
-            onClick={() => setZoom((z) => Math.min(3, z + 0.15))}
+            onClick={() => setZoom(inkZoomIn)}
+            disabled={zoom >= INK_ZOOM_MAX}
             aria-label="Zoom in"
             style={{ padding: "2px 8px", minHeight: 0, height: "24px" }}
           >

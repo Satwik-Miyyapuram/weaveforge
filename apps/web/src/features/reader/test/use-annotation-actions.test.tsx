@@ -30,7 +30,6 @@ test("persistDraft never selects the mark it creates", async () => {
       },
       onActivity: undefined,
       applyPin: () => {},
-      selectedAnnId: null,
       setSelectedAnnId,
       clearPendingCreate: () => {},
     });

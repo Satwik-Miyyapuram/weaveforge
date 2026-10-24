@@ -448,7 +448,10 @@ function SemanticSteps({ status }: { status: SemanticStatus }) {
       : status.phase === "ready"
         ? SEMANTIC_PHASES.length
         : SEMANTIC_PHASES.indexOf(status.phase as (typeof SEMANTIC_PHASES)[number]);
-  if (status.phase !== "error") lastAt.current = at;
+  // Remember the stage after commit, not during render, so an error can name it.
+  useEffect(() => {
+    if (status.phase !== "error") lastAt.current = at;
+  });
   const state = (i: number): Step["state"] =>
     i < at ? "done" : i === at ? (status.phase === "error" ? "error" : "active") : "pending";
 

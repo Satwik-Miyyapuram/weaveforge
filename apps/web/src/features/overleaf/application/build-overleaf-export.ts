@@ -7,6 +7,7 @@ import {
   normalizeTitleKey,
   resolveCiteKey,
   uniqueCiteKey,
+  uniqueFigureName,
 } from "@weaveforge/core";
 import type { CitationFormat } from "@weaveforge/core";
 
@@ -35,7 +36,7 @@ interface OverleafExportFile {
 }
 
 /** Binary figure to fetch from report-images and place under `figures/`. */
-interface OverleafExportImage {
+export interface OverleafExportImage {
   /** Storage path after `reportimg:` (ownerId/sectionId/file). */
   storagePath: string;
   /** Relative ZIP path, e.g. `figures/uuid.webp`. */
@@ -201,17 +202,40 @@ function paperToBibtex(paper: Paper, key: string): string {
   return `@${type}{${key},\n${fields.join(",\n")}\n}`;
 }
 
-function uniqueFigureName(raw: string, used: Set<string>): string {
-  const safe = raw.replace(/[^A-Za-z0-9._-]+/g, "_") || "figure.bin";
-  let name = safe;
-  let n = 2;
-  while (used.has(name)) {
-    const dot = safe.lastIndexOf(".");
-    name = dot > 0 ? `${safe.slice(0, dot)}_${n}${safe.slice(dot)}` : `${safe}_${n}`;
-    n += 1;
+/** Throw unless `path` is a plain relative ZIP entry name: no `..`, no leading `/`, no `\`. */
+export function assertSafeExportPath(path: string): void {
+  if (path.includes("..") || path.startsWith("/") || path.includes("\\")) {
+    throw new Error(`Refusing unsafe export path: ${path}`);
   }
-  used.add(name);
-  return name;
+}
+
+/**
+ * The export's files with `manifest.json` rewritten for figures whose blobs
+ * could not be loaded: they leave `files`, are listed under `missingFigures`
+ * and get a warning each. With none missing, `files` is returned as is.
+ */
+export function withMissingFigures(
+  files: readonly OverleafExportFile[],
+  missing: readonly OverleafExportImage[],
+): readonly OverleafExportFile[] {
+  if (missing.length === 0) return files;
+  const gone = new Set(missing.map((m) => m.zipPath));
+  return files.map((f) => {
+    if (f.path !== "manifest.json") return f;
+    const manifest = JSON.parse(f.contents) as { files: string[]; warnings: string[] };
+    const next = {
+      ...manifest,
+      files: manifest.files.filter((p) => !gone.has(p)),
+      missingFigures: [...gone],
+      warnings: [...manifest.warnings, ...missing.map((m) => missingFigureWarning(m))],
+    };
+    return { ...f, contents: JSON.stringify(next, null, 2) + "\n" };
+  });
+}
+
+/** The warning for a figure whose blob could not be loaded. */
+export function missingFigureWarning(img: OverleafExportImage): string {
+  return `Missing figure: ${img.zipPath} (could not load ${img.storagePath})`;
 }
 
 function walkSections(
@@ -237,15 +261,19 @@ function walkSections(
       const converted = markdownToLatex(s.notes, citeByTitle ? { citeByTitle } : undefined);
       warnings.push(...converted.warnings.map((w) => `Section "${s.title}": ${w}`));
       stats.equationsApprox += (s.notes.match(/\$/g) ?? []).length;
-      let latex = converted.latex;
+      const renamed = new Map<string, string>();
       for (const img of converted.images) {
         const fileName = uniqueFigureName(img.fileName, usedFigureNames);
-        if (fileName !== img.fileName) {
-          latex = latex.replaceAll(`figures/${img.fileName}`, `figures/${fileName}`);
-        }
+        renamed.set(img.fileName, fileName);
         images.push({ storagePath: img.path, zipPath: `figures/${fileName}` });
         stats.figures += 1;
       }
+      // One pass over whole `{figures/NAME}` references, so a rename never
+      // re-renames one made before it or rewrites inside a longer name.
+      const latex = converted.latex.replace(/\{figures\/([^}]+)\}/g, (ref, name: string) => {
+        const next = renamed.get(name);
+        return next === undefined ? ref : `{figures/${next}}`;
+      });
       if (latex) out.push(latex);
     } else if (!s.notes?.trim()) {
       out.push("% (no section notes)");

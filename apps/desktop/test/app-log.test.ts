@@ -96,9 +96,38 @@ test("an unwritable directory costs a log line, not a launch", async () => {
   const log = createAppLog({ dir: path.join(fileAhead, "under-a-file") });
   log.record({ level: "error", source: "test", message: "still recorded" });
   await log.flush();
-  assert.equal(log.entries().length, 1);
   // And the memory answer is intact even though the disk one could not be.
   assert.equal(log.entries()[0]?.message, "still recorded");
+  // The ring also says the file is not being written (xlog-18), once.
+  log.record({ level: "error", source: "test", message: "second" });
+  await log.flush();
+  const degraded = log.entries().filter((e) => e.source === "log");
+  assert.equal(degraded.length, 1);
+  assert.equal(degraded[0]?.level, "warn");
+  assert.match(degraded[0]?.message ?? "", /not being written/);
+  assert.equal(log.entries().length, 3);
+});
+
+test("a log file that recovers can report the next failure again", async () => {
+  const dir = await tempDir();
+  const fileAhead = path.join(dir, "file");
+  await writeFile(fileAhead, "x");
+  let target = path.join(fileAhead, "under-a-file");
+  const log = createAppLog({ dir: () => target });
+  log.record({ level: "info", source: "test", message: "a" });
+  await log.flush();
+  target = path.join(dir, "ok");
+  log.record({ level: "info", source: "test", message: "b" });
+  await log.flush();
+  target = path.join(fileAhead, "under-a-file");
+  log.record({ level: "info", source: "test", message: "c" });
+  await log.flush();
+  assert.equal(log.entries().filter((e) => e.source === "log").length, 2);
+  // A healthy log adds nothing.
+  const healthy = createAppLog({ dir: await tempDir() });
+  healthy.record({ level: "info", source: "test", message: "fine" });
+  await healthy.flush();
+  assert.equal(healthy.entries().length, 1);
 });
 
 /**

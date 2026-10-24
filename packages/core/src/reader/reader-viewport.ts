@@ -84,6 +84,15 @@ export function visualPageSize(
   return { width: page.width, height: page.height };
 }
 
+/**
+ * A live gesture's zoom factor, kept so `baseScale * factor` stays within the
+ * reader's scale limits. A base scale that is not a positive number gives 1.
+ */
+export function clampZoomFactor(factor: number, baseScale: number): number {
+  if (!Number.isFinite(baseScale) || baseScale <= 0) return 1;
+  return Math.min(READER_MAX_SCALE / baseScale, Math.max(READER_MIN_SCALE / baseScale, factor));
+}
+
 export function zoomIn(scale: number, step = READER_ZOOM_STEP): number {
   return clampScale(scale * step);
 }

@@ -66,3 +66,10 @@ test("readerKeyboardCommand yields to editable targets for every shortcut", () =
     );
   }
 });
+
+test("Ctrl/Cmd+R is left to the browser as reload, not rotate (07-01)", () => {
+  assert.equal(readerKeyboardCommand({ key: "r", ctrlKey: true }), null);
+  assert.equal(readerKeyboardCommand({ key: "r", metaKey: true }), null);
+  assert.equal(readerKeyboardCommand({ key: "R", ctrlKey: true }), null);
+  assert.deepEqual(readerKeyboardCommand({ key: "R" }), { type: "rotate" });
+});

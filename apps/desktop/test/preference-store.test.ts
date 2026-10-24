@@ -280,3 +280,50 @@ test("the renderer's preference names are the ones the page may write", () => {
   for (const name of PAGE_WRITABLE) assert.ok(PREFERENCE_NAMES.includes(name), name);
   assert.equal((PREFERENCE_NAMES as readonly string[]).includes("sync-offer-shown"), false);
 });
+
+// ------------------------------------------------------------ read errors (38-01)
+
+/** A file that is there but cannot be read right now: locked, busy, denied. */
+function busyFile(code = "EBUSY") {
+  const state = { writes: 0 };
+  const disk: PreferenceFile = {
+    async read() {
+      throw Object.assign(new Error(`${code}: resource busy or locked`), { code });
+    },
+    async write() {
+      state.writes += 1;
+    },
+  };
+  return { disk, state };
+}
+
+test("a file that cannot be read right now refuses the write instead of wiping it", async () => {
+  const { disk, state } = busyFile();
+  const result = await new PreferenceStore(disk).write("vault-git", true);
+
+  assert.equal(result.ok, false);
+  assert.equal(state.writes, 0);
+});
+
+test("a file that cannot be read right now reads as absent", async () => {
+  const { disk } = busyFile("EPERM");
+  assert.deepEqual(await new PreferenceStore(disk).read("sync-target"), { ok: true, value: null });
+});
+
+test("a refused write does not block the next one", async () => {
+  let fail = true;
+  const disk = file(JSON.stringify({ "vault-git": true }));
+  const read = disk.read.bind(disk);
+  disk.read = async () => {
+    if (fail) {
+      fail = false;
+      throw Object.assign(new Error("EBUSY"), { code: "EBUSY" });
+    }
+    return read();
+  };
+  const store = new PreferenceStore(disk);
+
+  assert.equal((await store.write("vault-git", true)).ok, false);
+  assert.deepEqual(await store.write("vault-git", true), { ok: true, value: null });
+  assert.deepEqual(await store.read("vault-git"), { ok: true, value: true });
+});

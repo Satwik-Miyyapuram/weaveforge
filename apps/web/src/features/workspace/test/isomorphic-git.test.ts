@@ -120,3 +120,12 @@ test("nested directories round-trip through the shim", async () => {
   assert.equal(log.length, 1);
   assert.ok(await git.readAt(log[0]!.oid, "logbook/2026/03/entry.md"));
 });
+
+test("a repo whose HEAD points at a missing commit rejects instead of reading as empty (29-10)", async () => {
+  const { fs, git } = await repo();
+  await fs.writeFile("note.md", "one");
+  await git.commitAll("first", author);
+  await fs.writeFile(".git/HEAD", `${"d".repeat(40)}\n`);
+
+  await assert.rejects(git.log());
+});

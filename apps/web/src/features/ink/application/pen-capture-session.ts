@@ -86,9 +86,8 @@ export class PenCaptureSession {
   private strokeId = 0;
   private header: InkStrokeHeader | null = null;
   private pointerId: number | null = null;
-  /** Real samples only — predicted ones ride the live tail and never commit. */
-  private readonly points: number[] = [];
-  private readonly pressures: number[] = [];
+  /** Real samples posted for this stroke; predicted ones ride the live tail and never commit. */
+  private realSamples = 0;
   private newest: PenPointerEvent | null = null;
   /** The last real sample consumed, so a repeat of it is dropped (see `consume`). */
   private lastRaw: { x: number; y: number; t: number } | null = null;
@@ -114,7 +113,7 @@ export class PenCaptureSession {
 
   /** Real samples captured for the stroke in progress. */
   get sampleCount(): number {
-    return this.pressures.length;
+    return this.realSamples;
   }
 
   /** The newest raw event, which the deferral timer tests for movement. */
@@ -246,8 +245,7 @@ export class PenCaptureSession {
       tool: this.tool.tool,
       colour: this.tool.colour,
     };
-    this.points.length = 0;
-    this.pressures.length = 0;
+    this.realSamples = 0;
     this.newest = event;
     this.deps.filter.reset();
     // A stroke whose first sample does not land on the page is not a stroke: the
@@ -264,8 +262,7 @@ export class PenCaptureSession {
   private clear(): void {
     this.header = null;
     this.pointerId = null;
-    this.points.length = 0;
-    this.pressures.length = 0;
+    this.realSamples = 0;
     this.lastRaw = null;
   }
 
@@ -318,10 +315,7 @@ export class PenCaptureSession {
     if (!predicted)
       this.deps.onLive?.(sample, width, dispatched ? event : undefined);
 
-    if (!predicted) {
-      this.points.push(sample.x, sample.y);
-      this.pressures.push(sample.pressure);
-    }
+    if (!predicted) this.realSamples += 1;
     this.deps.writer.push(
       sample.x,
       sample.y,
@@ -330,11 +324,6 @@ export class PenCaptureSession {
       header,
     );
     return true;
-  }
-
-  /** The stroke's real samples, for a host that packs them itself. */
-  takeStroke(): { points: number[]; pressures: number[] } {
-    return { points: [...this.points], pressures: [...this.pressures] };
   }
 }
 

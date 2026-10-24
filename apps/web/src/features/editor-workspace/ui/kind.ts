@@ -21,7 +21,7 @@
 
 import { isInkNoteBody, KIND_SUFFIX } from "@weaveforge/core";
 
-import type { DocumentMode } from "../application/pane-tree";
+import type { DocumentMode, TabRef } from "../application/pane-tree";
 import type { TreeNodeKind } from "../application/workspace-tree";
 import type { SegmentKey } from "./status-bar";
 
@@ -426,6 +426,11 @@ export function defaultModeFor(kind: string): DocumentMode {
 export function openModeFor(kind: string, body: string): DocumentMode {
   if (!modesFor(kind).includes("read")) return defaultModeFor(kind);
   return isInkNoteBody(body) ? "ink" : "read";
+}
+
+/** The tab that opens a document, in its `openModeFor` mode: the explorer and quick-open both open through this. */
+export function openingTab(kind: string, id: string, body: string | undefined): TabRef {
+  return { kind, id, mode: openModeFor(kind, body ?? "") };
 }
 
 /** Which renderer a kind mounts. */

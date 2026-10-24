@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -127,6 +128,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setExpired(false);
         setUser(u);
       });
+    }).catch((error: unknown) => {
+      // A chunk that fails to load would otherwise leave the app on its
+      // loading screen for good; show the signed-out state instead.
+      console.error("[weaveforge] auth could not start:", error);
+      if (active) setLoading(false);
     });
 
     return () => {
@@ -184,8 +190,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
     }
     clearSessionCaches();
-    const { getLightContainer } = await import("@/light-bootstrap");
-    await getLightContainer().auth.signOut();
+    try {
+      const { getLightContainer } = await import("@/light-bootstrap");
+      await getLightContainer().auth.signOut();
+    } catch (error) {
+      // No sign-out event will come to clear the flag, and a set flag makes
+      // a later lapsed session look like a sign-out.
+      signingOut.current = false;
+      throw error;
+    }
     // The repositories were wired to the local database; rewire them.
     if (wasLocalFirst) window.location.reload();
   }, [expired]);
@@ -195,8 +208,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await getLightContainer().auth.updatePassword(password);
   }, []);
 
+  const value = useMemo(
+    () => ({ user, loading, expired, sessionEpoch, signOut, updatePassword }),
+    [user, loading, expired, sessionEpoch, signOut, updatePassword],
+  );
+
   return (
-    <AuthContext.Provider value={{ user, loading, expired, sessionEpoch, signOut, updatePassword }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

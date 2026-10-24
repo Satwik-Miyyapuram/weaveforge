@@ -6,7 +6,7 @@
  * Other unsupported constructs become warnings, not silent drops.
  */
 
-import { normalizeTitleKey } from "../../vault/domain/vault-page.js";
+import { normalizeTitleKey, parseWikilinkInner } from "../../vault/domain/vault-page.js";
 
 export interface MarkdownToLatexImageRef {
   /** Storage path after `reportimg:`. */
@@ -51,8 +51,12 @@ export function escapeLatexText(s: string): string {
     .join("\\textbackslash{}");
 }
 
-function figureFileName(storagePath: string, used: Set<string>): string {
-  const raw = storagePath.split("/").pop() || "figure.bin";
+/**
+ * A figure file name safe in a LaTeX project and unique within `used`: unsafe
+ * runs become `_`, and a repeat gets `_2`, `_3`, ... before its extension.
+ * The Overleaf export names its zip entries with this too.
+ */
+export function uniqueFigureName(raw: string, used: Set<string>): string {
   const safe = raw.replace(/[^A-Za-z0-9._-]+/g, "_") || "figure.bin";
   let name = safe;
   let n = 2;
@@ -70,7 +74,7 @@ function rewriteReportImages(md: string): { text: string; images: MarkdownToLate
   const images: MarkdownToLatexImageRef[] = [];
   const used = new Set<string>();
   const text = md.replace(/!\[([^\]]*)\]\(reportimg:([^)\s]+)\)/g, (_m, alt: string, path: string) => {
-    const fileName = figureFileName(path, used);
+    const fileName = uniqueFigureName(path.split("/").pop() || "figure.bin", used);
     images.push({ path, fileName });
     const caption = escapeLatexText((alt || "Figure").trim() || "Figure");
     return [
@@ -90,18 +94,26 @@ function applyInlineMarkdown(escaped: string): string {
   return escaped
     .replace(/\*\*([^*]+)\*\*/g, "\\textbf{$1}")
     .replace(/(^|[^*])\*([^*]+)\*/g, "$1\\emph{$2}")
-    .replace(/`([^`]+)`/g, "\\texttt{$1}")
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, "\\href{$2}{$1}");
+    .replace(/`([^`]+)`/g, "\\texttt{$1}");
 }
 
-/** Parse `Target`, `Target|alias`, `Target#Heading` from a wikilink inner. */
-function parseWikilinkTarget(inner: string): { target: string; alias?: string } {
-  const pipe = inner.indexOf("|");
-  const link = (pipe === -1 ? inner : inner.slice(0, pipe)).trim();
-  const alias = pipe === -1 ? undefined : inner.slice(pipe + 1).trim() || undefined;
-  const hash = link.indexOf("#");
-  const target = (hash === -1 ? link : link.slice(0, hash)).trim();
-  return { target, alias };
+/**
+ * Escape raw markdown text, turning `[label](http…)` into `\href`. The URL is
+ * cut out before escaping: hyperref takes `_`, `~` and `&` as they are and
+ * needs only `\`, `{`, `}`, `%` and `#` escaped.
+ */
+function inlineText(raw: string): string {
+  const re = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+  let out = "";
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw)) !== null) {
+    out += applyInlineMarkdown(escapeLatexText(raw.slice(last, m.index)));
+    const url = m[2]!.replace(/[\\{}%#]/g, (c) => `\\${c}`);
+    out += `\\href{${url}}{${applyInlineMarkdown(escapeLatexText(m[1]!))}}`;
+    last = m.index + m[0].length;
+  }
+  return out + applyInlineMarkdown(escapeLatexText(raw.slice(last)));
 }
 
 /**
@@ -120,22 +132,22 @@ function textWithCites(
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(s)) !== null) {
-    out += applyInlineMarkdown(escapeLatexText(s.slice(last, m.index)));
-    const { target, alias } = parseWikilinkTarget(m[1]!);
+    out += inlineText(s.slice(last, m.index));
+    const { target, alias } = parseWikilinkInner(m[1]!, m[0])!;
     const key = target ? citeByTitle?.get(normalizeTitleKey(target)) : undefined;
     if (key) {
       out += `\\cite{${key}}`;
       citedKeys.add(key);
     } else {
       const label = alias || target || m[1]!.trim();
-      out += applyInlineMarkdown(escapeLatexText(label));
+      out += inlineText(label);
       if (target && citeByTitle) {
         warnings.push(`Wikilink [[${target}]] is not a paper in the library — left as text.`);
       }
     }
     last = m.index + m[0].length;
   }
-  out += applyInlineMarkdown(escapeLatexText(s.slice(last)));
+  out += inlineText(s.slice(last));
   return out;
 }
 

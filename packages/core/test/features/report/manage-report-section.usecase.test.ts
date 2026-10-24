@@ -53,3 +53,29 @@ test("setParent nests, clears with null, and refuses a loop", async () => {
   await assert.rejects(() => uc.setParent(chapter.id, section.id), /inside itself/);
   assert.equal((await uc.setParent(section.id, null)).parentId, undefined);
 });
+
+test("setParent keeps its exact refusals: self, descendant, missing parent (xhelp-18)", async () => {
+  const { repo, uc } = makeUseCase();
+  const a = await uc.add({ title: "A" });
+  const b = await uc.add({ title: "B" });
+  const c = await uc.add({ title: "C" });
+  await uc.setParent(b.id, a.id);
+  await uc.setParent(c.id, b.id);
+  const inside = { name: "ReportSectionValidationError", message: "A section cannot be moved inside itself." };
+  await assert.rejects(() => uc.setParent(a.id, a.id), inside);
+  await assert.rejects(() => uc.setParent(a.id, c.id), inside);
+  await assert.rejects(() => uc.setParent(a.id, "nope"), { name: "NotFoundError", message: 'No report section with id "nope".' });
+  // A missing ancestor still names the requested parent.
+  await repo.save({ ...(await repo.getById(b.id))!, parentId: "ghost" });
+  await assert.rejects(() => uc.setParent(a.id, c.id), { name: "NotFoundError", message: `No report section with id "${c.id}".` });
+});
+
+test("setParent under a loop already in the data still moves", async () => {
+  const { repo, uc } = makeUseCase();
+  const x = await uc.add({ title: "X" });
+  const y = await uc.add({ title: "Y" });
+  const m = await uc.add({ title: "M" });
+  await repo.save({ ...(await repo.getById(x.id))!, parentId: y.id });
+  await repo.save({ ...(await repo.getById(y.id))!, parentId: x.id });
+  assert.equal((await uc.setParent(m.id, x.id)).parentId, x.id);
+});

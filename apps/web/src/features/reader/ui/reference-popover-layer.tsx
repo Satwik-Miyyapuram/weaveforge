@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { VIEWPORT_PAD } from "@/components/viewport-pad";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 
-const VIEWPORT_PAD = 12;
 const GAP = 6;
 /** Matches `--z-popover`'s intent in the reader's stacking order. */
 const POPOVER_Z = 60;

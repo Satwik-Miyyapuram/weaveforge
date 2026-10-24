@@ -51,7 +51,7 @@ export class LocalBlobStore implements IBlobFetcher {
 
   async fetchBlob(bucket: string, path: string, fallbackContentType?: string): Promise<Blob> {
     const row = (await this.read(bucket, [path])).get(path);
-    if (!row) throw new Error(`Nothing stored at ${bucket}/${path} on this computer.`);
+    if (!row) throw new BlobNotFoundError(bucket, path);
     return blobOf(row, fallbackContentType);
   }
 

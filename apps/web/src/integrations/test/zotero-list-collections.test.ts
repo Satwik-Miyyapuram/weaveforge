@@ -14,7 +14,6 @@ function integrationWith(stored: UserSettings, fetchFn: typeof fetch) {
     exporter: { save: async () => undefined, remove: async () => {} },
     annotations: {
       pull: async () => ({ byPaper: new Map(), attachments: new Map() }),
-      pullAll: async () => new Map(),
     },
     papers: { list: async () => [], save: async () => {} } as never,
     tags: {} as never,

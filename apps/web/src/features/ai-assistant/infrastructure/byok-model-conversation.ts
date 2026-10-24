@@ -37,6 +37,9 @@ export const PROVIDER_PRESETS: readonly Omit<ProviderDescriptor, "model">[] = [
   { id: "lmstudio", label: "LM Studio (local)", baseUrl: "http://localhost:1234", api: "openai-chat" },
 ];
 
+/** How long one reply may take. Local models on a laptop can be slow, so this is generous. */
+export const BYOK_TIMEOUT_MS = 180_000;
+
 interface ChatMessage {
   role: string;
   content: string;
@@ -60,6 +63,7 @@ export class ByokModelConversation implements AiModelAdapter {
     /** Held in memory only — never persisted, never sent anywhere but the provider. */
     private readonly apiKey: string,
     private readonly fetchFn: typeof fetch = (...args) => fetch(...args),
+    private readonly timeoutMs: number = BYOK_TIMEOUT_MS,
   ) {
     this.provider = descriptor.id;
   }
@@ -70,6 +74,18 @@ export class ByokModelConversation implements AiModelAdapter {
   }
 
   async complete(request: AiModelRequest): Promise<AiModelResponse> {
+    const signal = AbortSignal.timeout(this.timeoutMs);
+    try {
+      return await this.send(request, signal);
+    } catch (err) {
+      if (signal.aborted) {
+        throw new Error(`${this.descriptor.label} did not answer within ${Math.round(this.timeoutMs / 1000)}s.`);
+      }
+      throw err;
+    }
+  }
+
+  private async send(request: AiModelRequest, signal: AbortSignal): Promise<AiModelResponse> {
     const messages = request.messages as readonly ChatMessage[];
     const { url, headers, body } = this.buildRequest(messages);
 
@@ -77,6 +93,7 @@ export class ByokModelConversation implements AiModelAdapter {
       method: "POST",
       headers,
       body: JSON.stringify(body),
+      signal,
     });
 
     if (!response.ok) {
@@ -88,8 +105,10 @@ export class ByokModelConversation implements AiModelAdapter {
       );
     }
 
+    const text = this.extractText(await response.json());
+    if (!text.trim()) throw new Error(`${this.descriptor.label} returned an empty response.`);
     return {
-      text: this.extractText(await response.json()),
+      text,
       model: this.descriptor.model,
       provider: this.provider,
       sourceLinks: [],

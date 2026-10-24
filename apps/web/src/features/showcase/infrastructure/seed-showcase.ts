@@ -89,12 +89,20 @@ function toBlob(png: Uint8Array | Blob): Blob {
   return png instanceof Blob ? png : new Blob([png as BlobPart], { type: "image/png" });
 }
 
-/** Drops any earlier copy of the project. Everything else cascades from projects. */
+/**
+ * Drops any earlier showcase copy of the project. Everything else cascades from
+ * projects. Only rows marked `is_showcase` go (migration 0146), so a user's own
+ * project with the same name is left alone.
+ */
 export async function resetShowcaseProject(db: Db, userId: string, name: string): Promise<string> {
-  const del = await db.from("projects").delete().eq("user_id", userId).eq("name", name);
+  const del = await db.from("projects").delete().eq("user_id", userId).eq("name", name).eq("is_showcase", true);
   if (del.error) throw new Error(`delete project: ${del.error.message}`);
   const row = must(
-    await db.from("projects").insert({ user_id: userId, name, color: SHOWCASE_PROJECT_COLOR }).select("id").single(),
+    await db
+      .from("projects")
+      .insert({ user_id: userId, name, color: SHOWCASE_PROJECT_COLOR, is_showcase: true })
+      .select("id")
+      .single(),
     "insert project",
   ) as { id: string };
   return row.id;

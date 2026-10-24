@@ -14,6 +14,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import {
+  errorMessage,
   inkPageBackground,
   inkPageFigures,
   withInkPageBackground,
@@ -148,7 +149,7 @@ export function useInkRecognition(deps: InkRecognitionDeps) {
       });
       applyRecognised(result, at);
     } catch (error) {
-      setUnavailable(error instanceof Error ? error.message : String(error));
+      setUnavailable(errorMessage(error));
     } finally {
       setRecognising(false);
       setProgress(null);

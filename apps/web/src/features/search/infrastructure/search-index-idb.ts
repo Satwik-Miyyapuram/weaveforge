@@ -10,6 +10,7 @@
  */
 
 import { SEARCH_STORE, openAppDb as openDb } from "@/lib/cache/app-idb";
+import { warnOnce } from "@/lib/error-report/warn-once";
 
 function searchCacheKey(projectId: string | null): string {
   return `${projectId ?? "-"}|index`;
@@ -40,7 +41,8 @@ export async function idbSetSearchIndex(projectId: string | null, serialized: st
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-  } catch {
+  } catch (err) {
+    warnOnce("search", "The search index was not saved.", err);
     /* best-effort persistence */
   }
 }
@@ -65,7 +67,8 @@ export async function idbClearSearchIndexes(projectId?: string | null): Promise<
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-  } catch {
+  } catch (err) {
+    warnOnce("search", "The search index was not cleared.", err);
     /* ignore */
   }
 }

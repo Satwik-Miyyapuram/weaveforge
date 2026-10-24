@@ -8,7 +8,7 @@ import { stripRegionMarkers } from "@/features/vault/application/note-template-e
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { PAPER_IMAGE_PREFIX, paperImagePathsInBody } from "../lib/paper-images-md";
-import { paperImageThumbnailPath } from "../lib/image-variants";
+import { fetchPaperImageBlob, fetchPaperImageBlobs } from "../lib/image-variants";
 import { stripUnresolvedImageRefs } from "@/lib/markdown-image-refs";
 
 const PAPER_IMAGES_BUCKET = "paper-images";
@@ -22,30 +22,9 @@ function stripUnresolved(body: string, paths: readonly string[], urls: Map<strin
 export function PaperMarkdown({ body, className }: { body: string; className?: string }) {
   const { resolveWikilink, onWikilinkClick } = useWikilinkNavigation();
   const paths = useMemo(() => paperImagePathsInBody(body), [body]);
-  const fetchOne = useCallback(
-    async (path: string) => {
-      const papers = getContainer().papers;
-      return (await papers.fetchImageBlob(paperImageThumbnailPath(path)).catch(() => null))
-        ?? papers.fetchImageBlob(path).catch(() => null);
-    },
-    [],
-  );
+  const fetchOne = useCallback((path: string) => fetchPaperImageBlob(getContainer().papers, path), []);
   const fetchMany = useCallback(
-    async (ps: readonly string[]) => {
-      const papers = getContainer().papers;
-      const thumbnails = ps.map(paperImageThumbnailPath);
-      const thumbBlobs = await papers.fetchImageBlobs(thumbnails);
-      const missing = ps.filter((path) => !thumbBlobs.has(paperImageThumbnailPath(path)));
-      const fullBlobs = missing.length ? await papers.fetchImageBlobs(missing) : new Map<string, Blob>();
-      const out = new Map<string, Blob>();
-      for (const path of ps) {
-        const thumb = thumbBlobs.get(paperImageThumbnailPath(path));
-        const full = fullBlobs.get(path);
-        if (thumb) out.set(path, thumb);
-        else if (full) out.set(path, full);
-      }
-      return out;
-    },
+    (ps: readonly string[]) => fetchPaperImageBlobs(getContainer().papers, ps),
     [],
   );
   const urls = useBlobObjectUrls(

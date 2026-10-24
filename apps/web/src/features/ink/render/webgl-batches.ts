@@ -76,9 +76,11 @@ export class InkBatches {
     return this.map.values();
   }
 
-  /** How many batches are resident, for the render stats. */
-  get size(): number {
-    return this.map.size;
+  /** How many strokes are resident: one record each. The live stroke in flight is not one. */
+  get strokes(): number {
+    let count = 0;
+    for (const [key, batch] of this.map) if (!key.startsWith("live:")) count += batch.records.length;
+    return count;
   }
 
   /** Let every buffer go, on the way out of the renderer. */
