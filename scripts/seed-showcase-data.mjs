@@ -20,6 +20,7 @@
  * password is read from local-dev/test-accounts.env (TEST_ACCOUNT_PASSWORD).
  *
  * Re-running replaces the "MSc Thesis (Showcase)" project per user (cascade delete).
+ * Only the project marked `is_showcase` goes, so migration 0146 must be applied first.
  * Charts come from apps/web/public/showcase/; regenerate with
  * `python scripts/generate-showcase-charts.py`.
  */
