@@ -1,5 +1,5 @@
 import type { IBlobStore, IBlobFetcher } from "@weaveforge/core";
-import { guessBlobContentType } from "@weaveforge/core";
+import { BlobNotFoundError, guessBlobContentType } from "@weaveforge/core";
 
 const FETCH_TTL_S = 300;
 
@@ -38,8 +38,9 @@ export class FetchingBlobStore implements IBlobFetcher {
   async fetchBytes(bucket: string, path: string): Promise<Uint8Array> {
     if (this.reader) return this.reader.fetchBytes(bucket, path);
     const [url] = await this.inner.signedUrls(bucket, [path], FETCH_TTL_S);
-    if (!url) throw new Error(`Blob not found: ${bucket}/${path}`);
+    if (!url) throw new BlobNotFoundError(bucket, path);
     const res = await fetch(url);
+    if (res.status === 404) throw new BlobNotFoundError(bucket, path);
     if (!res.ok) throw new Error(`Blob fetch failed: ${res.status}`);
     return new Uint8Array(await res.arrayBuffer());
   }

@@ -285,8 +285,101 @@ test("replace-page swaps the model and page-model answers with the current one",
   send({ type: "page-model", requestId: 3 });
   const model = last("page-model");
   assert.equal(model.page.strokes.length, 1);
-  send({ type: "replace-page", page: { ...model.page, strokes: [] } });
+  send({ type: "replace-page", pageIndex: 0, page: { ...model.page, strokes: [] } });
   assert.equal(last("page-state").strokes, 0);
+});
+
+test("replace-page for another page is ignored (21-01)", () => {
+  fresh();
+  draw(10, 50);
+  send({ type: "page-model", requestId: 4 });
+  const model = last("page-model");
+  send({ type: "replace-page", pageIndex: 1, page: { ...model.page, strokes: [] } });
+  assert.equal(last("page-state").strokes, 1);
+  send({ type: "page-model", requestId: 5 });
+  assert.equal(last("page-model").page.strokes.length, 1);
+});
+
+/** A page of `count` strokes, packed as the sidecar stores it. */
+async function packed(count: number): Promise<Uint8Array> {
+  fresh();
+  for (let i = 0; i < count; i += 1) draw(10, 50 + i * 60);
+  send({ type: "save-page", requestId: 99 });
+  await settle();
+  const bytes = last("page-saved").bytes;
+  assert.ok(bytes);
+  return bytes;
+}
+
+/** Let several decodes run one after another. */
+async function settleAll(): Promise<void> {
+  for (let i = 0; i < 10; i += 1) await settle();
+}
+
+test("a save posts the index of the page it packed, even if the page changes during it (19-02)", async () => {
+  fresh();
+  draw(10, 50);
+  send({ type: "save-page", requestId: 11 });
+  send({ type: "load-page", pageIndex: 1, chunk: null });
+  await settleAll();
+  const saved = events("page-saved").find((event) => event.requestId === 11);
+  assert.ok(saved);
+  assert.equal(saved.pageIndex, 0);
+  assert.equal(saved.strokes, 1);
+});
+
+test("the page index moves only once the new page is in place (19-03)", async () => {
+  const bytes = await packed(2);
+  fresh();
+  draw(10, 50);
+  send({ type: "load-page", pageIndex: 1, chunk: bytes });
+  // Mid-decode the worker still holds page 0, so it names page 0.
+  send({ type: "page-model", requestId: 12 });
+  assert.equal(last("page-model").pageIndex, 0);
+  assert.equal(last("page-model").page.strokes.length, 1);
+  await settleAll();
+  assert.equal(last("page-state").pageIndex, 1);
+  assert.equal(last("page-state").strokes, 2);
+});
+
+test("a page that fails to decode leaves the old page and its index (19-03)", async () => {
+  fresh();
+  draw(10, 50);
+  send({ type: "load-page", pageIndex: 1, chunk: new Uint8Array([1, 2, 3]) });
+  await settleAll();
+  assert.ok(events("error").length > 0);
+  send({ type: "save-page", requestId: 13 });
+  await settleAll();
+  const saved = last("page-saved");
+  assert.equal(saved.requestId, 13);
+  assert.equal(saved.pageIndex, 0);
+  assert.equal(saved.strokes, 1);
+});
+
+test("quick page changes A -> B -> C end on C (19-06)", async () => {
+  const b = await packed(1);
+  const c = await packed(3);
+  fresh();
+  send({ type: "load-page", pageIndex: 1, chunk: b });
+  send({ type: "load-page", pageIndex: 2, chunk: c });
+  await settleAll();
+  assert.equal(last("page-state").pageIndex, 2);
+  assert.equal(last("page-state").strokes, 3);
+});
+
+test("of several loads that wait, only the latest runs (19-06)", async () => {
+  const b = await packed(1);
+  const c = await packed(2);
+  const d = await packed(3);
+  fresh();
+  send({ type: "load-page", pageIndex: 1, chunk: b });
+  send({ type: "load-page", pageIndex: 2, chunk: c });
+  send({ type: "load-page", pageIndex: 3, chunk: d });
+  await settleAll();
+  const shown = events("page-state").map((event) => event.pageIndex);
+  assert.ok(!shown.includes(2), `page 2 was skipped, saw ${shown.join(",")}`);
+  assert.equal(last("page-state").pageIndex, 3);
+  assert.equal(last("page-state").strokes, 3);
 });
 
 test("the shape tool snaps a rectangle-ish scribble to a rectangle", () => {

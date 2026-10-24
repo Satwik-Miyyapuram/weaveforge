@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { EditorState, type Extension } from "@codemirror/state";
 import { markdown } from "@codemirror/lang-markdown";
@@ -12,7 +12,8 @@ import type { CollabSession } from "../application/collab-session.js";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { RealtimeYjsProvider } from "../infrastructure/realtime-yjs-provider.js";
 import { seedIfEmpty } from "../domain/seed-document.js";
-import { shouldPersistBody } from "../domain/save-policy.js";
+import { BodySaver } from "../application/body-saver.js";
+import { logToApp } from "@/lib/error-report/app-log";
 
 const SAVE_MS = 1500;
 
@@ -64,9 +65,6 @@ export function CollaborativeMarkdownEditor({
   onViewCreated?: (view: EditorView) => (() => void) | void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** The body waiting on the debounce, so compaction can flush it rather than lose it. */
-  const pendingBody = useRef<string | null>(null);
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
   const displayNameRef = useRef(displayName);
@@ -74,66 +72,23 @@ export function CollaborativeMarkdownEditor({
   const onViewCreatedRef = useRef(onViewCreated);
   onViewCreatedRef.current = onViewCreated;
   const awarenessRef = useRef<Awareness | null>(null);
-  // The body as the server last saw it. Seeding the Y.Doc with `initialBody`
-  // fires the observer, and every teardown used to flush unconditionally — so
-  // opening the editor wrote the unchanged body straight back, which invalidated
-  // the screen cache and (under StrictMode's mount/unmount/mount) fired several
-  // times before a keystroke ever happened. Saves now have to differ from this.
-  const lastSaved = useRef(initialBody);
-  // The document is empty until the CRDT log has been replayed and the seed has
-  // run. Saving before that point writes the empty document over a non-empty
-  // row — which the logbook rejects outright ("Log entry body is required").
-  const ready = useRef(false);
   const [peers, setPeers] = useState<string[]>([]);
   const [transportError, setTransportError] = useState<string | null>(null);
 
-  /**
-   * Write the pending body now, and resolve only once it is durable.
-   *
-   * Two callers: the debounce, and compaction. Compaction deletes the CRDT rows
-   * that hold the same text on the strength of the body being the durable copy,
-   * so it has to run *after* this write lands — and it has to flush a save that
-   * is still sitting on the timer, which is a body that exists nowhere but in
-   * this tab.
-   *
-   * `false` means the save did not land. The logbook rejects an empty body, and
-   * a network save can fail; in either case compaction is deferred rather than
-   * deleting rows whose content the server never received.
-   *
-   * Declared before `scheduleSave`, which calls it: a `const` arrow function is
-   * in its temporal dead zone until this line runs, so a schedule that fired
-   * before it would have thrown rather than saved.
-   */
-  const flushBody = useCallback(async (): Promise<boolean> => {
-    if (saveTimer.current) {
-      clearTimeout(saveTimer.current);
-      saveTimer.current = null;
-    }
-    const body = pendingBody.current;
-    if (body === null) return true;
-
-    pendingBody.current = null;
-    lastSaved.current = body;
-    try {
-      await onSaveRef.current(body);
-      return true;
-    } catch {
-      // The next edit schedules another save; until one succeeds, compaction
-      // stays deferred.
-      return false;
-    }
-  }, []);
-
-  const scheduleSave = useCallback(
-    (body: string) => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      if (!shouldPersistBody({ ready: ready.current, next: body, lastSaved: lastSaved.current })) return;
-      pendingBody.current = body;
-      saveTimer.current = setTimeout(() => {
-        void flushBody();
-      }, SAVE_MS);
-    },
-    [flushBody],
+  // Saves only real edits once the document is seeded, and tells compaction
+  // (which deletes CRDT rows on the strength of the body) whether the newest
+  // text actually landed. See BodySaver.
+  const [saver] = useState(
+    () =>
+      new BodySaver(
+        {
+          save: (body) => onSaveRef.current(body),
+          onError: (err) =>
+            logToApp({ level: "warn", source: "collab", message: "Body save failed", detail: String(err) }),
+          delayMs: SAVE_MS,
+        },
+        initialBody,
+      ),
   );
 
   // Kept out of the editor effect: the display name arrives after the profile
@@ -151,7 +106,7 @@ export function CollaborativeMarkdownEditor({
 
     // Cleanup of the previous run has already flushed; this run starts unready
     // again until its own bootstrap + seed completes.
-    ready.current = false;
+    saver.begin();
 
     const doc = new Y.Doc();
     const yText = doc.getText("body");
@@ -180,15 +135,14 @@ export function CollaborativeMarkdownEditor({
       // Compaction waits on this. The body is the other durable copy of what it
       // is about to delete log rows for, and the debounce above means the newest
       // text may not have been written at all yet.
-      awaitBodyPersisted: flushBody,
+      awaitBodyPersisted: () => saver.flush(),
       compactCrdtLog: session.compactCrdtLog,
       // Runs once the CRDT log has been replayed. Only a document with no
       // stored history takes the row's body — otherwise the log is the truth
       // and seeding would duplicate it.
       seed: () => {
         seedIfEmpty(doc, initialBody);
-        lastSaved.current = yText.toString();
-        ready.current = true;
+        saver.seeded(yText.toString());
         host.dispatchEvent(new Event("input", { bubbles: true }));
       },
       onError: (stage, detail) => setTransportError(`${stage}: ${detail}`),
@@ -211,7 +165,7 @@ export function CollaborativeMarkdownEditor({
     syncPeers();
 
     const onYText = () => {
-      scheduleSave(yText.toString());
+      saver.schedule(yText.toString());
       host.dispatchEvent(new Event("input", { bubbles: true }));
     };
     yText.observe(onYText);
@@ -235,24 +189,19 @@ export function CollaborativeMarkdownEditor({
 
     return () => {
       if (typeof disposeView === "function") disposeView();
-      if (saveTimer.current) clearTimeout(saveTimer.current);
       yText.unobserve(onYText);
       awareness.off("change", syncPeers);
       if (awarenessRef.current === awareness) awarenessRef.current = null;
       // Flush only real edits. An unconditional flush here wrote the body back
       // on every teardown, and the host closed the form on save — so the editor
       // shut itself the moment it opened.
-      const pending = yText.toString();
-      if (shouldPersistBody({ ready: ready.current, next: pending, lastSaved: lastSaved.current })) {
-        lastSaved.current = pending;
-        void onSaveRef.current(pending);
-      }
+      saver.close(yText.toString());
       void provider.destroy();
       view.destroy();
       doc.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- remount when resource or author changes
-  }, [resourceType, resourceId, authorId, session, extraExtensions, readOnly]);
+  }, [resourceType, resourceId, authorId, session, extraExtensions, readOnly, saver]);
 
   return (
     <div className={className}>
