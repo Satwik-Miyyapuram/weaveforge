@@ -1,4 +1,4 @@
-import type { DocumentPageText, Paper } from "@weaveforge/core";
+import { pageTextFromItems, type DocumentPageText, type Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { resolvePaperPdfUrl } from "@/features/reader/application/sanitize-reader-url";
 import {
@@ -6,7 +6,6 @@ import {
   resolvePaperPdfSourceForReader,
 } from "@/features/reader/application/resolve-paper-pdf-for-reader";
 import type { PaperHtmlPage } from "@/features/reader/application/paper-html";
-import { pageTextFromItems } from "@/features/reader/application/reference-locate";
 import { savePdfTextDurably } from "./pdf-text-folder";
 
 /**
