@@ -129,7 +129,7 @@ android {
         applicationId = "org.weaveforge.ink"
         minSdk = 29
         targetSdk = 35
-        versionCode = 12
+        versionCode = 13
         versionName = "0.8.2"
         buildConfigField("String", "APP_URL", "\"$appUrl\"")
         // Comma-separated. The navigation policy reads this; nothing in the page
