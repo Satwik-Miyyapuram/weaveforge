@@ -25,8 +25,8 @@ import { formatError, formatErrorForResponse } from "@/lib/format-error";
  * client from what it is given. `requireSdkUser` mints the JWT for an API token
  * and hands back the caller's own token otherwise.
  *
- * `userId` comes back with it so the routes do not repeat the `userIdFromToken`
- * round trip the helper has already made.
+ * `userId` comes back with it, and the routes pass it to the storage helpers,
+ * so nothing repeats the auth round trip the helper has already made.
  */
 export async function tieredBlobToken(
   request: Request,
@@ -65,7 +65,7 @@ export function tieredProviderRefusal(): NextResponse | null {
  * carrying its own status, and that is what is branched on first. The message
  * checks below stay as a fallback for the plain `Error`s other layers still
  * throw ("Forbidden" from the content path's own guard, "Not authenticated."
- * from `userIdFromToken`) — they were the only signal available before, and
+ * from the auth layer) — they were the only signal available before, and
  * dropping them would turn a 403 into a 500 for anything outside this module.
  *
  * The status is decided from `formatError`, the display formatter, and the body

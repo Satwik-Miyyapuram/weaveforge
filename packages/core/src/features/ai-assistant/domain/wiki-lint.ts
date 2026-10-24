@@ -66,20 +66,23 @@ function contentLength(body: string): number {
  * vs "Autoencoder, Variational") where edit distance would call them far apart.
  */
 export function titleSimilarity(a: string, b: string): number {
-  const trigrams = (value: string) => {
-    const padded = ` ${conceptKey(value)} `;
-    const set = new Set<string>();
-    for (let i = 0; i < padded.length - 2; i += 1) set.add(padded.slice(i, i + 3));
-    return set;
-  };
+  return trigramOverlap(titleTrigrams(a), titleTrigrams(b));
+}
 
-  const first = trigrams(a);
-  const second = trigrams(b);
+function titleTrigrams(value: string): Set<string> {
+  const padded = ` ${conceptKey(value)} `;
+  const set = new Set<string>();
+  for (let i = 0; i < padded.length - 2; i += 1) set.add(padded.slice(i, i + 3));
+  return set;
+}
+
+function trigramOverlap(first: Set<string>, second: Set<string>): number {
   if (first.size === 0 || second.size === 0) return 0;
 
+  const [small, large] = first.size <= second.size ? [first, second] : [second, first];
   let shared = 0;
-  for (const gram of first) if (second.has(gram)) shared += 1;
-  return shared / Math.max(first.size, second.size);
+  for (const gram of small) if (large.has(gram)) shared += 1;
+  return shared / large.size;
 }
 
 /** Above this, two titles are the same idea spelled differently. */
@@ -119,11 +122,17 @@ export function lintWiki(pages: readonly WikiPageRef[]): LintReport {
   // over pages that are not already exact duplicates.
   const exactDuplicates = new Set(findings.map((finding) => finding.pageId));
   const candidates = pages.filter((page) => !exactDuplicates.has(page.id));
+  // One trigram set per title, not two per pair (02-02).
+  const grams = candidates.map((page) => titleTrigrams(page.title));
   for (let i = 0; i < candidates.length; i += 1) {
     for (let j = i + 1; j < candidates.length; j += 1) {
       const a = candidates[i]!;
       const b = candidates[j]!;
-      const similarity = titleSimilarity(a.title, b.title);
+      // Overlap is at most the smaller set over the larger, so a pair whose
+      // sizes alone rule it out is skipped without comparing.
+      const [x, y] = [grams[i]!.size, grams[j]!.size];
+      if (Math.min(x, y) < NEAR_DUPLICATE_THRESHOLD * Math.max(x, y)) continue;
+      const similarity = trigramOverlap(grams[i]!, grams[j]!);
       if (similarity < NEAR_DUPLICATE_THRESHOLD || similarity === 1) continue;
       findings.push({
         kind: "near-duplicate",
@@ -135,8 +144,12 @@ export function lintWiki(pages: readonly WikiPageRef[]): LintReport {
     }
   }
 
+  // Pages with any link, blank targets included; the orphan pass reuses it (02-16).
+  const linksOut = new Set<string>();
   for (const page of pages) {
-    for (const link of extractWikilinks(page.body)) {
+    const links = extractWikilinks(page.body);
+    if (links.length > 0) linksOut.add(page.id);
+    for (const link of links) {
       const target = link.target.trim();
       if (!target) continue;
       linkTargets.add(normalizeTitleKey(target));
@@ -168,7 +181,7 @@ export function lintWiki(pages: readonly WikiPageRef[]): LintReport {
     if (linkedTo.has(page.id)) continue;
     // A page that links out is participating even if nothing links back; a page
     // with no edges at all is the one that is actually adrift.
-    if (extractWikilinks(page.body).length > 0) continue;
+    if (linksOut.has(page.id)) continue;
     findings.push({
       kind: "orphan",
       severity: "info",

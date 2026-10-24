@@ -9,7 +9,7 @@ import path from "node:path";
 import test from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { wireStorage } from "../wire-storage";
+import { blobProviderForRuntime, wireStorage } from "../wire-storage";
 import { HttpBlobStore } from "../providers/http/http-blob-store";
 import { SupabaseBlobStore } from "../providers/supabase/blob-store";
 import type { StorageConfig } from "../config";
@@ -91,4 +91,14 @@ test("supabase storage is the Supabase store, and needs a client", () => {
 
 test("tiered storage off the browser points at the server builder rather than loading S3 here", () => {
   assert.throws(() => wireStorage({ config: tiered, supabaseDb: db }), /storage\/server\/blob-api/);
+});
+
+test("which blob provider the runtime uses (10-17)", () => {
+  // The browser follows the inlined public setting, whatever config it was handed.
+  assert.equal(blobProviderForRuntime("supabase", { inBrowser: true, publicProvider: "tiered" }), "tiered");
+  assert.equal(blobProviderForRuntime("tiered", { inBrowser: true, publicProvider: undefined }), "tiered");
+  assert.equal(blobProviderForRuntime("supabase", { inBrowser: true, publicProvider: "" }), "supabase");
+  // The server follows its config.
+  assert.equal(blobProviderForRuntime("supabase", { inBrowser: false, publicProvider: "tiered" }), "supabase");
+  assert.equal(blobProviderForRuntime("tiered", { inBrowser: false, publicProvider: undefined }), "tiered");
 });
