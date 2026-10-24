@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { isEditableTarget } from "@/lib/editable-target";
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
@@ -179,7 +180,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
   // Keyboard zoom shortcuts (Ctrl++, Ctrl+-, Ctrl+0).
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement).tagName)) return;
+      if (isEditableTarget(e.target)) return;
       if (e.ctrlKey || e.metaKey) {
         const key = e.key.toLowerCase();
         if (key === "+" || key === "=" || e.code === "Equal" || e.code === "NumpadAdd" || e.key === "Add") {

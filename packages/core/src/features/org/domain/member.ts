@@ -30,6 +30,7 @@
 
 import type { Identifiable } from "../../../shared/repository.js";
 import { PermissionError, ValidationError } from "../../../shared/errors.js";
+import { ORG_INVITE_ROLES } from "./invite-code.js";
 
 
 
@@ -39,7 +40,8 @@ export type Role = "professor" | "phd" | "masters" | "standalone";
 
 
 
-export const ROLES: readonly Role[] = ["professor", "phd", "masters"];
+/** The org roles, without `standalone`: the same list an invite code names. */
+export const ROLES: readonly Role[] = ORG_INVITE_ROLES;
 
 
 
