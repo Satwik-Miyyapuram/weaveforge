@@ -40,6 +40,8 @@ function deps(added: string[], tag: string): InkPageMediaDeps {
     noteId: "n1",
     pageSize: { width: 100, height: 100 },
     figuresRef: { current: [] },
+    pageIndexRef: { current: 0 },
+    textPagesRef: { current: [""] },
     wrapRef: { current: wrap },
     onFiguresChange: (next: readonly { path: string }[]) => void added.push(`${tag}:${next.at(-1)?.path}`),
     setUnavailable() {},
@@ -110,4 +112,70 @@ test("a paste outside the pane is left alone", async () => {
     g.window = oldWin;
     g.document = oldDoc;
   }
+});
+
+// A figure from another note is uploaded first, an await the reader can turn
+// the page during: it lands on the page it was added to, not the one now live
+// (21-23).
+async function crossNotePaste(flipTo: number | null) {
+  const fake = fakeWindow();
+  const g = globalThis as { window?: unknown; document?: unknown };
+  const [oldWin, oldDoc] = [g.window, g.document];
+  g.window = fake.win;
+  g.document = { activeElement: focused };
+  let finishUpload!: (path: string) => void;
+  const live: string[] = [];
+  const selected: number[] = [];
+  let saves = 0;
+  const pageIndexRef = { current: 0 };
+  const textPagesRef = { current: ["", ""] };
+  const d = {
+    ...deps(live, "live"),
+    pageIndexRef,
+    textPagesRef,
+    scheduleSave: () => void saves++,
+    selectFigure: (i: number) => void selected.push(i),
+    assets: {
+      fetchBlob: async () => new Blob(["x"]),
+      upload: () => new Promise<string>((resolve) => (finishUpload = resolve)),
+    },
+  } as unknown as InkPageMediaDeps;
+  const text = figureClipText({ noteId: "other", figure: { path: "a.png", x: 1, y: 1, w: 10, h: 10 } });
+  try {
+    let r!: ReactTestRenderer;
+    act(() => {
+      r = create(createElement(Host, { deps: d }));
+    });
+    await act(async () => {
+      for (const fn of fake.listeners)
+        fn({ target: null, preventDefault() {}, clipboardData: { getData: () => text, items: [] } });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    if (flipTo !== null) pageIndexRef.current = flipTo;
+    await act(async () => {
+      finishUpload("n1/b.png");
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    act(() => r.unmount());
+    return { live, selected, saves, pages: textPagesRef.current };
+  } finally {
+    g.window = oldWin;
+    g.document = oldDoc;
+  }
+}
+
+test("a page turned during the upload keeps the figure on its own page", async () => {
+  const out = await crossNotePaste(1);
+  assert.deepEqual(out.live, [], "the live page is not touched");
+  assert.deepEqual(out.selected, [], "a figure on another page is not selected here");
+  assert.match(out.pages[0]!, /n1\/b\.png/);
+  assert.equal(out.pages[1], "");
+  assert.equal(out.saves, 1);
+});
+
+test("an upload with no page turn adds to the live page as before", async () => {
+  const out = await crossNotePaste(null);
+  assert.deepEqual(out.live, ["live:n1/b.png"]);
+  assert.deepEqual(out.selected, [0]);
+  assert.deepEqual(out.pages, ["", ""]);
 });

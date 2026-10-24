@@ -32,9 +32,11 @@ import {
   encodeInkChunk,
   inkAttachmentIndex,
   inkPageBackground,
+  inkPageFigures,
   joinInkTextLayer,
   newInkChunkId,
   withInkPageBackground,
+  withInkPageFigures,
   writeInkNoteBody,
   type FigureGeometry,
   type InkNoteMeta,
@@ -269,6 +271,31 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
   );
 
   /**
+   * Add a figure to page `target`, placed by `place` against the figures
+   * already there. An upload is an await the reader can turn the page during,
+   * so the live page is not assumed: when `target` is no longer live, the
+   * figure goes straight into that page's block. True when it went live.
+   */
+  const addFigureToPage = useCallback(
+    (
+      target: number,
+      place: (onPage: readonly FigureGeometry[]) => FigureGeometry,
+    ): boolean => {
+      if (target === deps.pageIndexRef.current) {
+        const onPage = deps.figuresRef.current;
+        deps.onFiguresChange([...onPage, place(onPage)]);
+        return true;
+      }
+      const there = deps.textPagesRef.current[target] ?? "";
+      const onPage = inkPageFigures(there);
+      deps.textPagesRef.current[target] = withInkPageFigures(there, [...onPage, place(onPage)]);
+      deps.scheduleSave();
+      return false;
+    },
+    [deps],
+  );
+
+  /**
    * Put an image on the page as a figure: a placed box, not the page's
    * background. Any number may sit on one page — that is the point — and the
    * first box is the image's own aspect at half the page's width, centred:
@@ -286,6 +313,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         deps.setUnavailable(`${file.name} is not a PDF or an image.`);
         return;
       }
+      const target = deps.pageIndexRef.current;
       setInserting(true);
       try {
         const [attachment, size] = await Promise.all([
@@ -304,7 +332,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
           at ?? { x: deps.pageSize.width / 2, y: deps.pageSize.height / 2 },
           deps.pageSize,
         );
-        deps.onFiguresChange([...deps.figuresRef.current, { ...box, path }]);
+        addFigureToPage(target, () => ({ ...box, path }));
       } catch (error) {
         deps.setUnavailable(
           `The image could not be added: ${errorMessage(error)}`,
@@ -313,11 +341,12 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         setInserting(false);
       }
     },
-    [deps, onSetPageBackground],
+    [addFigureToPage, deps, onSetPageBackground],
   );
 
   const pasteFigure = useCallback(
     async (clip: FigureClip) => {
+      const target = deps.pageIndexRef.current;
       let { path } = clip.figure;
       if (clip.noteId !== deps.noteId) {
         setInserting(true);
@@ -334,12 +363,14 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
           setInserting(false);
         }
       }
-      const onPage = deps.figuresRef.current;
-      const placed = pastedFigurePlace({ ...clip.figure, path }, onPage, deps.pageSize);
-      deps.onFiguresChange([...onPage, placed]);
-      deps.selectFigure?.(onPage.length);
+      let index = 0;
+      const live = addFigureToPage(target, (onPage) => {
+        index = onPage.length;
+        return pastedFigurePlace({ ...clip.figure, path }, onPage, deps.pageSize);
+      });
+      if (live) deps.selectFigure?.(index);
     },
-    [deps],
+    [addFigureToPage, deps],
   );
 
   /**

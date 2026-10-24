@@ -632,7 +632,7 @@ export class WebglInkRenderer implements InkRenderer {
 
     this.stats = {
       backend: "webgl2",
-      strokes: this.batchPool.size,
+      strokes: this.batchPool.strokes,
       segments,
       drawn,
       marginPx: INK_AA_MARGIN_PX,

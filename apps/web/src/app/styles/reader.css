@@ -42,7 +42,6 @@
   padding: 4px 8px;
 }
 @media (min-width: 721px) {
-  .pdf-reader-chrome .pdf-reader-phone-toggles { display: none; }
   .pdf-reader-chrome .pdf-reader-more { display: inline-flex; }
 }
 
@@ -103,10 +102,8 @@
      the base rule, which is defined later in this file. */
   .pdf-reader-chrome .pdf-reader-search { flex: 0 0 auto; }
   .pdf-reader-chrome .pdf-reader-search input { min-width: 9rem; }
-  .pdf-reader-phone-toggles { display: inline-flex; }
   .pdf-reader-chrome:not([data-phone-panel="more"]) .pdf-reader-more { display: none; }
   .pdf-reader-tools { flex-wrap: nowrap; overflow-x: auto; }
-  .pdf-reader-phone-toggles { margin-left: auto; }
   /* Page, zoom and the two toggles fit one 360px row: tighter icon tiles, and
      "3 / 14" speaks for itself without the word "Page". */
   .pdf-reader-group .pdf-reader-icon-btn { min-width: 28px; padding: 0 6px; }
