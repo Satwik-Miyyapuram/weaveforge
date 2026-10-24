@@ -12,6 +12,7 @@ import {
   studentDefaultLg,
   studentDefaultSm,
   mergeSupervisorCardsIfMissing,
+  initialDashboardLayout,
   syncDashboardLayouts,
   mergeRglPositions,
   lgLayoutNeedsRepair,
@@ -143,6 +144,37 @@ describe("mergeSupervisorCardsIfMissing", () => {
     for (const type of ["team-roster", "team-attention", "supervisee-snapshot"] as const) {
       assert.equal(twice.lg.filter((c) => c.type === type).length, 1);
     }
+  });
+});
+
+describe("initialDashboardLayout (35-12)", () => {
+  const SUP = ["team-roster", "team-attention", "supervisee-snapshot"] as const;
+
+  it("gives a supervisor with no saved layout every supervisor card", () => {
+    const types = new Set(initialDashboardLayout(null, true).lg.map((c) => c.type));
+    for (const type of SUP) assert.ok(types.has(type), type);
+  });
+
+  it("gives a student with no saved layout no supervisor cards", () => {
+    const types = new Set(initialDashboardLayout(null, false).lg.map((c) => c.type));
+    for (const type of SUP) assert.ok(!types.has(type), type);
+  });
+
+  it("keeps a supervisor card the user removed removed", () => {
+    const full = initialDashboardLayout(null, true);
+    const removed = {
+      lg: full.lg.filter((c) => c.type !== "team-roster"),
+      sm: full.sm.filter((c) => c.type !== "team-roster"),
+    };
+    const reopened = initialDashboardLayout(removed, true);
+    assert.equal(reopened.lg.filter((c) => c.type === "team-roster").length, 0);
+    assert.equal(reopened.sm.filter((c) => c.type === "team-roster").length, 0);
+    assert.equal(reopened.lg.length, removed.lg.length);
+  });
+
+  it("returns a saved layout's cards unchanged in count", () => {
+    const saved = defaultLayout(false);
+    assert.equal(initialDashboardLayout(saved, true).lg.length, saved.lg.length);
   });
 });
 
