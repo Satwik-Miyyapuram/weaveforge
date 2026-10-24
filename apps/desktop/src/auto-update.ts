@@ -1,3 +1,4 @@
+import { errorMessage } from "@weaveforge/core";
 import { app, dialog, type BrowserWindow } from "electron";
 
 /**
@@ -72,9 +73,13 @@ export interface AutoUpdateOptions {
    * database out whole and then closes it. A close cut off by the kill is
    * exactly the corruption `will-quit` was written to avoid, so the same
    * shutdown runs here, to completion, before the installer exists at all.
-   * Errors are swallowed: an update must not be refused over a backup.
+   * Errors are logged and passed over: an update must not be refused over a backup.
    */
   prepare?: () => Promise<unknown>;
+}
+
+function warn(what: string, error: unknown): void {
+  console.warn(`[auto-update] ${what}: ${errorMessage(error).slice(0, 300)}`);
 }
 
 /**
@@ -98,19 +103,22 @@ export function startAutoUpdate(options: AutoUpdateOptions): boolean {
   // an update nobody agreed to run.
   updater.autoInstallOnAppQuit = false;
 
-  // An update that cannot be reached is not an error the reader needs to see.
-  updater.on("error", () => {});
+  // An update that cannot be reached is not an error the reader needs to see,
+  // but it goes in the log.
+  updater.on("error", (error: unknown) => warn("update check failed", error));
 
   updater.on("update-downloaded", (info) => {
     void ask(info)
       .then(async (install) => {
         if (!install) return;
-        await prepare().catch(() => {});
+        await prepare().catch((error: unknown) => warn("shutdown before installing failed", error));
         updater.quitAndInstall();
       })
-      .catch(() => {});
+      .catch((error: unknown) => warn("could not ask to install the update", error));
   });
 
+  // electron-updater emits "error" before it rejects, so the rejection is the
+  // same failure already logged above.
   const look = () => void updater.checkForUpdates().catch(() => {});
   look();
   schedule(look, RECHECK_MS);

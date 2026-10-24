@@ -79,3 +79,27 @@ test("a section not in the tree still has its own images cleaned", async () => {
   await facade.removeSection(sec("solo", "![](reportimg:u/solo/e.png)"));
   assert.deepEqual(calls, ["delete:solo", "blob:u/solo/e.png"]);
 });
+
+// xlog-11: an image left behind in storage is traceable in the desktop log.
+test("each image that cannot be removed is logged, once", async () => {
+  type Log = { level: string; source: string; message: string; detail?: string };
+  const logs: Log[] = [];
+  const g = globalThis as { window?: unknown };
+  const original = g.window;
+  g.window = { weaveforge: { fetchTitle: () => Promise.resolve({}), reportAppLog: (e: Log) => void logs.push(e) } };
+  try {
+    const { facade } = harness({ removeFails: true });
+    await facade.removeSection(tree[0]!.children[0]!.section);
+    const clean = harness();
+    await clean.facade.removeSection(sec("solo", "![](reportimg:u/solo/e.png)"));
+  } finally {
+    g.window = original;
+  }
+  assert.equal(logs.length, 3);
+  for (const log of logs) {
+    assert.equal(log.level, "warn");
+    assert.equal(log.source, "storage");
+    assert.match(log.detail ?? "", /storage down/);
+  }
+  assert.deepEqual(logs.map((l) => (l.detail ?? "").split(":")[0]).sort(), ["u/child/b.png", "u/leaf/c.png", "u/root/a.png"]);
+});

@@ -59,7 +59,7 @@ const bridge: DesktopBridge = {
   platform: process.platform as DesktopBridge["platform"],
   fetchTitle: (url) => call<TitlePayload>(CHANNELS.fetchTitle, url),
   fetchImage: (url) => call<ImagePayload>(CHANNELS.fetchImage, url),
-  checkUpdate: () => ipcRenderer.invoke(CHANNELS.checkUpdate) as Promise<DesktopUpdate | null>,
+  checkUpdate: () => call<DesktopUpdate | null>(CHANNELS.checkUpdate),
   writePreference: async (name, value) => {
     await call<null>(CHANNELS.preferenceWrite, name, value);
   },
@@ -70,9 +70,6 @@ const bridge: DesktopBridge = {
   },
   chooseVaultRoot: () => call<DesktopVaultRoot | null>(CHANNELS.vaultChoose),
   vaultRoot: () => call<DesktopVaultRoot | null>(CHANNELS.vaultRoot),
-  forgetVaultRoot: async () => {
-    await call<null>(CHANNELS.vaultForget);
-  },
   readVaultFile: (path) => call<string | null>(CHANNELS.vaultRead, path),
   writeVaultFile: async (path, contents) => {
     await call<null>(CHANNELS.vaultWrite, path, contents);
@@ -146,9 +143,15 @@ const bridge: DesktopBridge = {
     const listener = (_event: unknown, id: number, query: string, candidates: string[]) => {
       // The answer goes back on its own channel rather than through the event,
       // for the same reason the event object is never handed over.
-      void Promise.resolve(cb(query, candidates))
-        .catch(() => null)
-        .then((order) => ipcRenderer.send(CHANNELS.semanticRanked, id, order));
+      // A failure still answers (null keeps the order), with its reason so
+      // main can log it; a synchronous throw counts as a failure too.
+      void Promise.resolve()
+        .then(() => cb(query, candidates))
+        .then(
+          (order) => ipcRenderer.send(CHANNELS.semanticRanked, id, order),
+          (err: unknown) =>
+            ipcRenderer.send(CHANNELS.semanticRanked, id, null, err instanceof Error ? err.message : String(err)),
+        );
     };
     ipcRenderer.on(CHANNELS.semanticRank, listener);
     return () => ipcRenderer.off(CHANNELS.semanticRank, listener);

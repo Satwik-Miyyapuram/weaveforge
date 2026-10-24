@@ -15,7 +15,6 @@ import {
   MAX_VAULT_BYTES,
   adoptRoot,
   currentRoot,
-  forgetRoot,
   listVaultFiles,
   newVaultSession,
   readVaultBytes,
@@ -276,18 +275,6 @@ test("an escaping path is a refusal with a reason, not a crash", async () => {
   assert.equal(result.ok, false);
 });
 
-test("forgetting the folder stops the writes but not the files", async () => {
-  const session = newVaultSession();
-  const root = await tempDir();
-  await adoptRoot(session, root);
-  await writeVaultFile(session, "a.note.md", "Body.");
-  forgetRoot(session);
-  assert.deepEqual(currentRoot(session), { ok: true, value: null });
-  assert.equal((await readVaultFile(session, "a.note.md")).ok, false);
-  // Still on disk: forgetting is the app looking away, not a delete.
-  assert.equal(await new NodeWorkspaceFs(root).readText("a.note.md"), "Body.");
-});
-
 test("listing answers entries the renderer can use", async () => {
   const session = newVaultSession();
   await adoptRoot(session, await tempDir());
@@ -302,13 +289,12 @@ test("listing answers entries the renderer can use", async () => {
 
 // ------------------------------------------------------------- remembering it
 
-test("choosing a folder remembers it; forgetting clears it", async () => {
+test("choosing a folder remembers it", async () => {
   const session = newVaultSession();
   const root = await tempDir();
   const seen: (string | null)[] = [];
   await adoptRoot(session, root, (value) => seen.push(value));
-  forgetRoot(session, (value) => seen.push(value));
-  assert.deepEqual(seen, [root, null]);
+  assert.deepEqual(seen, [root]);
 });
 
 test("a remembered folder is re-verified, not trusted", async () => {

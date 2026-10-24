@@ -40,6 +40,36 @@ export interface InkRecognitionRequest {
   lang?: string;
 }
 
+/**
+ * The page's request, checked whole before it goes to the helper: lines of
+ * strokes of finite numbers, an optional word list and an optional language.
+ * Anything else is `null`. Only the known fields are kept.
+ */
+export function readInkRequest(request: unknown): InkRecognitionRequest | null {
+  if (!request || typeof request !== "object") return null;
+  const { lines, vocabulary, lang } = request as Record<string, unknown>;
+  if (!Array.isArray(lines)) return null;
+  const read: InkRecognitionLineInput[] = [];
+  for (const line of lines) {
+    const strokes = (line as { strokes?: unknown } | null)?.strokes;
+    if (!Array.isArray(strokes)) return null;
+    for (const stroke of strokes) {
+      if (!Array.isArray(stroke) || !stroke.every((n) => typeof n === "number" && Number.isFinite(n))) return null;
+    }
+    read.push({ strokes: strokes as number[][] });
+  }
+  const out: InkRecognitionRequest = { lines: read };
+  if (vocabulary !== undefined) {
+    if (!Array.isArray(vocabulary) || !vocabulary.every((word) => typeof word === "string")) return null;
+    out.vocabulary = vocabulary as string[];
+  }
+  if (lang !== undefined) {
+    if (typeof lang !== "string") return null;
+    out.lang = lang;
+  }
+  return out;
+}
+
 export interface InkRecognitionLine {
   text: string;
   /**

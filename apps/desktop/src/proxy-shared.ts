@@ -1,4 +1,4 @@
-import { isIpAddress, isPublicAddress } from "@weaveforge/core";
+import { errorMessage, isIpAddress, isPublicAddress } from "@weaveforge/core";
 
 /** What every shell proxy shares: its injectable fetch, its error answer, and its host rule. */
 
@@ -10,6 +10,23 @@ export function refuse(status: number, error: string): Response {
     status,
     headers: { "content-type": "application/json" },
   });
+}
+
+/**
+ * `refuse`, for when upstream could not be reached or broke off: the page gets
+ * the plain refusal, and the log gets why (with the cause, which is where
+ * Node's fetch keeps the useful part: `fetch failed (getaddrinfo ENOTFOUND …)`).
+ */
+export function upstreamFailed(
+  proxy: string,
+  error: unknown,
+  status: number,
+  refusal: string,
+  warn: (line: string) => void = console.warn,
+): Response {
+  const cause = error instanceof Error && error.cause !== undefined ? ` (${errorMessage(error.cause)})` : "";
+  warn(`[proxy:${proxy}] ${refusal}: ${`${errorMessage(error)}${cause}`.slice(0, 300)}`);
+  return refuse(status, refusal);
 }
 
 /**
@@ -54,6 +71,8 @@ export async function fetchCheckedHops(
   fetchFn: ProxyFetch,
   init: { headers: Record<string, string>; signal: AbortSignal },
   followOpaque: boolean,
+  /** Names the proxy in the log when the fetch fails. */
+  proxy: string,
 ): Promise<CheckedFetch> {
   let response: Response;
   let at = target;
@@ -73,8 +92,8 @@ export async function fetchCheckedHops(
       }
       break;
     }
-  } catch {
-    return { ok: false, refusal: refuse(502, "Upstream fetch failed") };
+  } catch (error) {
+    return { ok: false, refusal: upstreamFailed(proxy, error, 502, "Upstream fetch failed") };
   }
   if (response.url && !allowed(response.url)) {
     return { ok: false, refusal: refuse(400, "Redirect target not allowed") };

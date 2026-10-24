@@ -12,7 +12,7 @@
 import {
   createInkRecogniser,
   type InkHapticsMessage,
-  type InkRecognitionRequest,
+  readInkRequest,
 } from "./ink-recogniser";
 import { CHANNELS } from "./channels";
 import type { IpcSurface } from "./ipc-guard";
@@ -69,14 +69,14 @@ export function registerMainInk(deps: MainInkDeps): MainInk {
   });
 
   ipc.handle(CHANNELS.inkRecognise, async (_event, request: unknown) => {
-    const body = request as Partial<InkRecognitionRequest> | null;
-    if (!body || !Array.isArray(body.lines)) {
+    const body = readInkRequest(request);
+    if (!body) {
       return { ok: false, message: "That is not a page to recognise." };
     }
     try {
       return {
         ok: true,
-        value: await inkHelper().recognise(body as InkRecognitionRequest),
+        value: await inkHelper().recognise(body),
       };
     } catch (error) {
       return {

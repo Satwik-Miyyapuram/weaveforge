@@ -288,8 +288,11 @@ export function routeTo(window: BrowserWindow | null, base: string, route: strin
   );
 }
 
-/** Kept in step with `desktop-title-bar.tsx`, which listens for it. */
-const PAGE_COMMAND_EVENT = "weaveforge:menu-command";
+/**
+ * The DOM event the page listens for in `desktop-title-bar.tsx`
+ * (`MENU_COMMAND_EVENT`); test/app-menu.test.ts fails if the two drift.
+ */
+export const PAGE_COMMAND_EVENT = "weaveforge:menu-command";
 
 /** Ask the page to do one of its own things (`search`). */
 export function pageCommand(window: BrowserWindow | null, command: string): void {

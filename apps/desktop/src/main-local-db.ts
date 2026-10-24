@@ -17,6 +17,7 @@ import type { LocalClient } from "./local-db";
 import { LocalDbBackups, readBackup } from "./local-db-backup";
 import { engineStartParams } from "./local-db-engine-params";
 import { LocalDbHost } from "./local-db-host";
+import { openWithRetry } from "./local-db-retry";
 import { databaseDirFor, relocateDatabaseOnce, StrandedDatabaseError } from "./local-db-location";
 import { prepareDataDir } from "./local-db-prepare";
 import { acquireDbLock, DatabaseInUseError, releaseDbLock } from "./local-db-lock";
@@ -214,22 +215,13 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
   const OPEN_BACKOFF_MS = 500;
   const OPEN_BACKOFF_MAX_MS = 5000;
   
-  async function openEngineWithRetry(): Promise<LocalClient> {
-    let last: unknown;
-    for (let attempt = 0; attempt < OPEN_ATTEMPTS; attempt++) {
-      try {
-        return await openEngine();
-      } catch (cause) {
-        if (cause instanceof DatabaseInUseError) throw cause;
-        last = cause;
-        if (attempt < OPEN_ATTEMPTS - 1) {
-          const wait = Math.min(OPEN_BACKOFF_MS * 2 ** attempt, OPEN_BACKOFF_MAX_MS);
-          await new Promise((resolve) => setTimeout(resolve, wait));
-        }
-      }
-    }
-    console.warn(`[local-db] could not open after ${OPEN_ATTEMPTS} attempts: ${String(last)}`);
-    throw last;
+  function openEngineWithRetry(): Promise<LocalClient> {
+    return openWithRetry(() => openEngine(), {
+      attempts: OPEN_ATTEMPTS,
+      backoffMs: OPEN_BACKOFF_MS,
+      maxBackoffMs: OPEN_BACKOFF_MAX_MS,
+      giveUpOn: (cause) => cause instanceof DatabaseInUseError,
+    });
   }
   
   /**
@@ -298,9 +290,10 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       if (cause instanceof StrandedDatabaseError) return null;
       // Another app has it open: nothing is broken, so nothing is moved.
       if (cause instanceof DatabaseInUseError) return null;
+      // The one line that says the open failed: the retry above does not.
       const latest = await localDbBackups.latest();
+      console.warn(`[local-db] open failed (${String(cause)}); ${latest ? "restoring from a backup" : "no backup to restore from"}`);
       if (!latest) return null;
-      console.warn(`[local-db] open failed (${String(cause)}); restoring from a backup`);
       // The engine that failed may still hold the directory. When it does, the
       // move waits for a process that has never opened it -- this one,
       // relaunched -- and that boot finds no directory and restores (above).

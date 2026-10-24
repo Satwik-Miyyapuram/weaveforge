@@ -143,3 +143,24 @@ test("a desktop folder's history is the shell's git log, not an empty one", asyn
   await connected();
   assert.deepEqual((await folderHistory(5)).map((c) => c.message), ["last 5"]);
 });
+
+// xlog-07: one listener failing is logged; the others still hear the paths.
+test("a listener that throws is logged, and the others still hear", async (t) => {
+  t.after(closeFolder);
+  const shell = await connected();
+  const warn = t.mock.method(console, "warn", () => undefined);
+  const boom = new Error("listener exploded");
+  const heard: string[][] = [];
+  const offBad = onExternalChange(() => {
+    throw boom;
+  });
+  const off = onExternalChange((paths) => heard.push(paths));
+  shell.changed(["a.md"]);
+  await settle();
+  offBad();
+  off();
+  assert.deepEqual(heard, [["a.md"]]);
+  const failed = warn.mock.calls.filter((call) => call.arguments[0] === "[external-changes] a listener failed:");
+  assert.equal(failed.length, 1);
+  assert.equal(failed[0]!.arguments[1], boom);
+});

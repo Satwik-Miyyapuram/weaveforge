@@ -12,7 +12,7 @@ import { CHANNELS } from "../src/channels";
 import type { IpcSurface } from "../src/ipc-guard";
 import { hashLocalApiToken } from "../src/local-api-server";
 import type { LocalDbHost } from "../src/local-db-host";
-import { registerMainLocalApi } from "../src/main-local-api";
+import { readRankAnswer, registerMainLocalApi } from "../src/main-local-api";
 import { mcpLaunch, mcpPaths, readMcpConnection, writeMcpConnection } from "../src/mcp-connect";
 import { PreferenceStore } from "../src/preference-store";
 import { SecretStore } from "../src/secret-store";
@@ -126,6 +126,35 @@ test("mcp connect: revoking the AI clients token in Access tokens deletes the fi
   const on = await call(CHANNELS.mcpConnect);
   await call(CHANNELS.localApiTokenRevoke, on.value.mcp.tokenId);
   assert.equal(fs.existsSync(paths.file), false);
+});
+
+test("local api: a revoke with no token id is refused and keeps every token (xipc-21)", async (t) => {
+  const { api, call, paths } = shell(home());
+  t.after(() => api.close());
+  const on = await call(CHANNELS.mcpConnect);
+  for (const bad of [123, null, undefined, "", { id: on.value.mcp.tokenId }]) {
+    const refused = await call(CHANNELS.localApiTokenRevoke, bad);
+    assert.equal(refused.ok, false, `revoke(${JSON.stringify(bad)}) was accepted`);
+    assert.match(refused.message!, /token/);
+  }
+  const state = await call(CHANNELS.localApiState);
+  assert.equal(state.value.tokens.length, 1);
+  assert.equal(fs.existsSync(paths.file), true);
+});
+
+test("semantic rank: the window's failure is logged once and answers null (xipc-16)", () => {
+  const logged: string[] = [];
+  const warn = (line: string) => void logged.push(line);
+  assert.equal(readRankAnswer(null, "encoder crashed", warn), null);
+  assert.equal(logged.length, 1);
+  assert.match(logged[0]!, /semantic.*encoder crashed/);
+
+  assert.deepEqual(readRankAnswer(["b", 7, "a"], undefined, warn), ["b", "a"]);
+  assert.equal(readRankAnswer(null, undefined, warn), null, "silence is an answer, not an error");
+  assert.equal(readRankAnswer("nope", 42, warn), null, "a reason that is not text is not logged");
+  assert.equal(logged.length, 1);
+  readRankAnswer(null, "x".repeat(5000), warn);
+  assert.ok(logged[1]!.length < 400, "a long reason is cut");
 });
 
 test("mcp connect: a file whose token is no longer live is replaced, not trusted", async (t) => {

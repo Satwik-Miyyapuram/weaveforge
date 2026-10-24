@@ -6,7 +6,7 @@ import {
   isHtmlContentType,
 } from "@/features/reader/application/paper-html-rules";
 import { readCapped } from "@/lib/read-capped";
-import { fetchCheckedHops, isPublicHttpsUrl, refuse, type ProxyFetch } from "./proxy-shared";
+import { fetchCheckedHops, isPublicHttpsUrl, refuse, upstreamFailed, type ProxyFetch } from "./proxy-shared";
 
 /**
  * The reader's HTML relay, served from the `app://` origin.
@@ -39,6 +39,7 @@ export async function proxyHtml(requestUrl: string, fetchFn: ProxyFetch = fetch)
     fetchFn,
     { headers: { accept: "text/html,application/xhtml+xml", "user-agent": "WeaveForge desktop" }, signal: AbortSignal.timeout(60_000) },
     false,
+    "html",
   );
   if (!fetched.ok) return fetched.refusal;
   const upstream = fetched.response;
@@ -53,8 +54,8 @@ export async function proxyHtml(requestUrl: string, fetchFn: ProxyFetch = fetch)
   let bytes: Uint8Array | null;
   try {
     bytes = await readCapped(upstream.body, HTML_PROXY_MAX_BYTES);
-  } catch {
-    return refuse(504, "Upstream body did not arrive in time");
+  } catch (error) {
+    return upstreamFailed("html", error, 504, "Upstream body did not arrive in time");
   }
   if (!bytes) return refuse(413, "Page too large");
   return htmlRelayResponse(decodeHtmlBytes(bytes, type), finalUrl);

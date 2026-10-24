@@ -146,7 +146,10 @@ export async function serveModelFile(
   await mkdir(path.dirname(file), { recursive: true });
   const temporary = `${file}.part`;
   await writeFile(temporary, bytes);
-  await rename(temporary, file).catch(() => {});
+  // A failed rename still serves these bytes; the next ask downloads again.
+  await rename(temporary, file).catch((error: unknown) => {
+    console.warn(`[models] could not keep ${file}: ${String(error).slice(0, 300)}`);
+  });
 
   return new Response(bytes, { status: 200, headers: headersFor(file) });
 }

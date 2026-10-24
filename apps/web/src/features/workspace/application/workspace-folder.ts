@@ -28,6 +28,7 @@ import { downloadLibraryPdfsOnce } from "@/features/reader/application/download-
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
+import { notifyEach } from "@/lib/notify-each";
 import { onWorkspaceChange } from "@/lib/workspace-changes";
 import { BrowserWorkspaceFs } from "../infrastructure/browser-workspace-fs";
 import { DesktopWorkspaceFs } from "../infrastructure/desktop-workspace-fs";
@@ -130,13 +131,7 @@ export function onFolderConnected(listener: () => void): () => void {
 
 function announceConnected(): void {
   markFolderRestored();
-  for (const listener of [...connectedListeners]) {
-    try {
-      listener();
-    } catch {
-      /* a listener's problem is its own */
-    }
-  }
+  notifyEach(connectedListeners, "folder-connected");
 }
 
 export function folderSession(): FolderSession | null {
@@ -424,14 +419,8 @@ export function onExternalChange(listener: (paths: string[]) => void): () => voi
 }
 
 function announceExternal(): void {
-  const paths = externalChanges();
-  for (const listener of [...externalListeners]) {
-    try {
-      listener(paths);
-    } catch {
-      // A listener's problem is its own; the folder still changed.
-    }
-  }
+  // A listener's problem is its own; the folder still changed.
+  notifyEach(externalListeners, "external-changes", externalChanges());
 }
 
 /**

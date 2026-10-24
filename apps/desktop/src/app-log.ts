@@ -1,4 +1,5 @@
 import { appendFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 /**
@@ -90,6 +91,21 @@ export interface AppLogOptions {
   target?: Pick<Console, "log" | "warn" | "error">;
   /** Injectable for tests; defaults to the real clock. */
   now?: () => Date;
+  /** Written as `~` in every entry. Injectable for tests; defaults to `os.homedir()`. */
+  home?: string;
+}
+
+/**
+ * Replaces the home folder with `~`. The log is what a reader copies into a bug
+ * report, and their user name is not part of the bug. Either separator, any
+ * case; `C:\Users\Adam` is not mistaken for `C:\Users\Ada`.
+ */
+function homeRedactor(home: string): (text: string) => string {
+  const trimmed = home.replace(/[\\/]+$/, "");
+  if (trimmed.length < 3) return (text) => text;
+  const parts = trimmed.split(/[\\/]/).map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const pattern = new RegExp(`${parts.join("[\\\\/]")}(?![\\w.-])`, "gi");
+  return (text) => text.replace(pattern, "~");
 }
 
 /** The file's name inside the data directory. */
@@ -98,6 +114,7 @@ export const APP_LOG_FILENAME = "weaveforge.log";
 export function createAppLog(options: AppLogOptions): AppLog {
   const dirOf = typeof options.dir === "function" ? options.dir : () => options.dir as string;
   const now = options.now ?? (() => new Date());
+  const redact = homeRedactor(options.home ?? os.homedir());
   const held: AppLogEntry[] = [];
   let bytes = 0;
   let installed = false;
@@ -171,8 +188,8 @@ export function createAppLog(options: AppLogOptions): AppLog {
       at: entry.at ?? now().toISOString(),
       level: entry.level,
       source: entry.source,
-      message: clip(entry.message, 4_000),
-      ...(entry.detail ? { detail: clip(entry.detail) } : {}),
+      message: clip(redact(entry.message), 4_000),
+      ...(entry.detail ? { detail: clip(redact(entry.detail)) } : {}),
     };
     held.push(full);
     if (held.length > MAX_ENTRIES) held.shift();

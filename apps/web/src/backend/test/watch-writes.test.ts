@@ -170,3 +170,32 @@ test("every RPC the app calls is classified as a write or not", async () => {
   const unclassified = [...called].filter((fn) => !Object.hasOwn(RPC_WRITES, fn)).sort();
   assert.deepEqual(unclassified, []);
 });
+
+// xlog-07: the write still succeeds, and the failure goes in the log.
+test("a listener that throws is logged once, and the write still succeeds", async (t) => {
+  const warn = t.mock.method(console, "warn", () => undefined);
+  const boom = new Error("listener exploded");
+  const { db } = fakeClient();
+  const wrapped = watchWrites(db, () => {
+    throw boom;
+  });
+  assert.deepEqual(await wrapped.from("papers").insert({ id: "p1" }), { error: null });
+  assert.equal(warn.mock.callCount(), 1);
+  assert.deepEqual(warn.mock.calls[0]!.arguments, ["[watch-writes] a listener failed:", boom]);
+});
+
+test("a workspace listener that throws is logged, and the others still hear", (t) => {
+  const warn = t.mock.method(console, "warn", () => undefined);
+  resetWorkspaceChangeListeners();
+  t.after(resetWorkspaceChangeListeners);
+  const heard: string[] = [];
+  const boom = new Error("first listener exploded");
+  onWorkspaceChange(() => {
+    throw boom;
+  });
+  onWorkspaceChange((table) => heard.push(table));
+  notifyWorkspaceChange("papers");
+  assert.deepEqual(heard, ["papers"]);
+  assert.equal(warn.mock.callCount(), 1);
+  assert.deepEqual(warn.mock.calls[0]!.arguments, ["[workspace-changes] a listener failed:", boom]);
+});

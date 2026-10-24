@@ -1,10 +1,19 @@
-/** Compiling a LaTeX project the page hands over, in a directory of its own. */
+/** Finding a LaTeX engine, and compiling a project the page hands over in a directory of its own. */
+import { errorMessage } from "@weaveforge/core";
 import { CHANNELS } from "./channels";
 import type { IpcSurface } from "./ipc-guard";
-import { compileTex, type TexSourceFile } from "./tex";
+import { compileTex, probeTex, type TexSourceFile, type TexTool } from "./tex";
 
-export function registerMainTex(deps: { ipc: IpcSurface }): void {
+export function registerMainTex(deps: { ipc: IpcSurface; probe?: () => Promise<TexTool | null> }): void {
   const { ipc } = deps;
+  const probe = deps.probe ?? probeTex;
+  ipc.handle(CHANNELS.texProbe, async () => {
+    try {
+      return { ok: true, value: await probe() };
+    } catch (error) {
+      return { ok: false, message: errorMessage(error, "Could not look for a LaTeX engine on this computer.") };
+    }
+  });
   ipc.handle(
     CHANNELS.texCompile,
     async (_event, files: unknown, entryFile: unknown) => {

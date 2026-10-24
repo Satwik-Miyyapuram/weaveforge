@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { notifyEach } from "@/lib/notify-each";
+
 /**
  * Notice when anything writes, without asking every writer to say so.
  *
@@ -140,12 +142,9 @@ function watchBuilder(builder: unknown, table: string, onWrite: WriteListener, a
  * A listener must never be able to fail a write that already succeeded.
  *
  * The row is in the database either way, and turning a bookkeeping error into
- * a failed save would be the one outcome worth avoiding here.
+ * a failed save would be the one outcome worth avoiding here. The failure is
+ * logged instead.
  */
 function report(table: string, onWrite: WriteListener): void {
-  try {
-    onWrite(table);
-  } catch {
-    // Nothing to do with it, and nowhere useful to put it.
-  }
+  notifyEach([onWrite], "watch-writes", table);
 }

@@ -237,3 +237,34 @@ test("restoring into a ring that already has entries stops at the cap", async ()
   assert.equal(log.entries()[MAX_ENTRIES - 1]?.message, "newest");
   assert.equal(log.entries()[0]?.source, "old");
 });
+
+// xlog-17: the log is the thing a reader copies into a bug report; it names no home folder.
+test("the home folder is written as ~, in messages, details and captured console lines", async () => {
+  const dir = await tempDir();
+  const target = fakeConsole();
+  const home = "C:\\Users\\Ada";
+  const log = createAppLog({ dir, target, home });
+  log.record({ level: "info", source: "main", message: "[local-db] moved: C:\\Users\\Ada\\AppData\\db", detail: "c:/users/ada/notes" });
+  log.installConsoleCapture();
+  target.log("[local-db] backed up to C:\\Users\\Ada\\b1, C:\\Users\\Ada\\b2");
+  log.record({ level: "info", source: "main", message: "C:\\Users\\Adam\\x and C:\\Users\\Ada" });
+  await log.flush();
+
+  const [moved, backedUp, other] = log.entries();
+  assert.equal(moved!.message, "[local-db] moved: ~\\AppData\\db");
+  assert.equal(moved!.detail, "~/notes");
+  assert.equal(backedUp!.message, "[local-db] backed up to ~\\b1, ~\\b2");
+  assert.equal(other!.message, "C:\\Users\\Adam\\x and ~", "another user's folder is not mistaken for this one");
+  const file = await readFile(path.join(dir, APP_LOG_FILENAME), "utf8");
+  assert.ok(!/Users\\\\Ada\b/i.test(file), file);
+  // The terminal still sees the line as it was said.
+  assert.match(target.seen[0]!, /C:\\Users\\Ada\\b1/);
+});
+
+test("a home folder too short to be one is not redacted", async () => {
+  for (const home of ["", "/", "C:"]) {
+    const log = createAppLog({ dir: await tempDir(), target: fakeConsole(), home });
+    log.record({ level: "info", source: "main", message: "/srv/data C:/x" });
+    assert.equal(log.entries()[0]!.message, "/srv/data C:/x", home);
+  }
+});
