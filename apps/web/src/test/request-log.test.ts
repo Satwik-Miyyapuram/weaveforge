@@ -163,7 +163,9 @@ test("installing twice does not report the same failure twice", async () => {
 test("a body past the cap is cut off, and the report still arrives", async () => {
   const reports: Report[] = [];
   const restore = stubWindow(
-    (async () => new Response("x".repeat(9_000), { status: 502, statusText: "Bad Gateway" })) as typeof fetch,
+    // Prose, not one long run: a run of 40+ word characters is redacted as an
+    // opaque blob before the cut.
+    (async () => new Response("bad gateway ".repeat(750), { status: 502, statusText: "Bad Gateway" })) as typeof fetch,
     reports,
   );
   try {

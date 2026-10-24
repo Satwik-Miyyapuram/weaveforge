@@ -82,7 +82,12 @@ export class RouteSecretsStore implements SecretsStore {
 
   async load(): Promise<Secrets> {
     const res = await fetch(CREDENTIALS_ROUTE, { headers: await this.authHeader() });
-    if (!res.ok) return {};
+    // A failed read is not "no keys": shown as none, the next save would seal
+    // that empty set over every stored credential.
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(body.error ?? "Failed to load integration credentials.");
+    }
     return (await res.json()) as Secrets;
   }
 
@@ -160,11 +165,19 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
   }
 
   private async readSettings(): Promise<UserSettings> {
+    const row = await this.readRow();
+    if (!row) return { ...EMPTY_SETTINGS };
+    return this.fromRow(row, await this.secrets.load());
+  }
+
+  /** The `user_settings` row alone, without the credentials round trip. */
+  private async readRow(): Promise<SettingsRow | null> {
     const { data, error } = await this.db.from(TABLE).select(SETTINGS_COLUMNS).maybeSingle();
     if (error) throw error;
-    if (!data) return { ...EMPTY_SETTINGS };
-    const row = data as SettingsRow;
-    const secrets = await this.secrets.load();
+    return (data as SettingsRow | null) ?? null;
+  }
+
+  private fromRow(row: SettingsRow, secrets: Secrets): UserSettings {
     return hydrateUserSettings({
       zoteroApiKey: secrets.zoteroApiKey ?? undefined,
       zoteroLibrary: row.zotero_library ?? undefined,
@@ -208,8 +221,10 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
   async save(settings: UserSettings): Promise<void> {
     const userId = await this.session.requireUserId();
     // Read through, not from the memo: this is a read-modify-write, and merging
-    // onto a minute-old copy could drop a field another tab just wrote.
-    const existing = await this.readSettings();
+    // onto a minute-old copy could drop a field another tab just wrote. Only the
+    // row is merged; the secrets below are replaced, so they are not read.
+    const row = await this.readRow();
+    const existing = row ? this.fromRow(row, {}) : EMPTY_SETTINGS;
     // Seal secrets first (owns credentials_enc + clears plaintext).
     await this.secrets.save({
       zoteroApiKey: settings.zoteroApiKey,

@@ -15,6 +15,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { logToApp } from "@/lib/error-report/app-log";
+
 import { awaitInkWrites, trackInkWrite } from "../application/ink-pending-writes";
 import type { InkSave } from "./use-ink-worker-rpc";
 import {
@@ -58,6 +60,13 @@ export interface InkNoteStoreDeps {
 
 /** How long after the last stroke the page is written. */
 export const INK_SAVE_DELAY_MS = 1200;
+
+/** Shown when the sidecar load failed: no page is known, so nothing is saved. */
+export const INK_LOAD_FAILED =
+  "This note's ink could not be loaded, so nothing drawn here will be saved. Close and reopen the note to try again.";
+/** Shown when some pages failed to read: they show empty and are not saved. */
+export const INK_PAGES_UNREADABLE =
+  "Some pages could not be read. They show empty, and nothing drawn on them will be saved until the note is reopened.";
 
 export function useInkNoteStore(deps: InkNoteStoreDeps) {
   const {
@@ -126,11 +135,14 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     if (!pages || !current) return;
     const write = (async () => {
       const saved = await requestSave();
-      if (saved.bytes) {
+      // A page whose chunk failed to read still has its strokes in the store;
+      // writing or removing it would lose them (18-01). The body is still saved.
+      const writable = !current.unreadable;
+      if (writable && saved.bytes) {
         await chunks.write(noteId, current.chunkId, saved.bytes);
         current.chunk = saved.bytes;
         setChunkVersion((v) => v + 1);
-      } else if (saved.cleared && saved.pageIndex === pageIndex && current.chunk) {
+      } else if (writable && saved.cleared && saved.pageIndex === pageIndex && current.chunk) {
         // The last stroke went: drop the stored page so it does not come back.
         await chunks.remove(noteId, current.chunkId);
         current.chunk = null;
@@ -159,17 +171,29 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
   }, []);
   useEffect(() => () => flushSave(), [flushSave]);
 
-  /** Load the sidecar once; a note with nothing written gets one blank page. */
+  /** Why the note's ink is not all there, when it is not. */
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  /**
+   * Load the sidecar once; a note with nothing written gets one blank page.
+   * A load that fails leaves the pages unknown, so nothing is saved (21-17).
+   */
   useEffect(() => {
     let live = true;
+    setLoadError(null);
     void awaitInkWrites(noteId)
       .then(() => loadInkPages(chunks, noteId, metaRef.current))
       .then((pages) => {
-      if (!live) return;
-      pagesRef.current = pages;
-      setPageCount(pages.length);
-      setPageIndex((index) => Math.min(index, pages.length - 1));
-    });
+        if (!live) return;
+        pagesRef.current = pages;
+        setPageCount(pages.length);
+        setPageIndex((index) => Math.min(index, pages.length - 1));
+        if (pages.some((page) => page.unreadable)) setLoadError(INK_PAGES_UNREADABLE);
+      })
+      .catch((err: unknown) => {
+        logToApp({ level: "error", source: "ink", message: `Could not load the ink of ${noteId}`, detail: String(err) });
+        if (live) setLoadError(INK_LOAD_FAILED);
+      });
     return () => {
       live = false;
     };
@@ -248,5 +272,6 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     ensurePageCount,
     onAddPage,
     goToPage,
+    loadError,
   };
 }
