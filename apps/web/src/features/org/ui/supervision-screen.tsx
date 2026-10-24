@@ -26,7 +26,7 @@ import { statusLabel } from "@/components/status-select";
  * from your own projects.
  */
 export function SupervisionScreen() {
-  const { profile, team, loading } = useProfile();
+  const { profile, team, loading, error } = useProfile();
   const searchParams = useSearchParams();
   const memberFromUrl = searchParams.get("member");
 
@@ -49,6 +49,14 @@ export function SupervisionScreen() {
     return (
       <section className="screen">
         <ScreenLoader status="Loading supervision…" />
+      </section>
+    );
+  }
+
+  if (!profile && error) {
+    return (
+      <section className="screen">
+        <p className="muted">Could not load your profile: {error}</p>
       </section>
     );
   }

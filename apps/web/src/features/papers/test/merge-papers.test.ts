@@ -187,3 +187,75 @@ test("a duplicate an earlier run already removed is skipped, so a retry finishes
   assert.equal(merged.id, "keep");
   assert.equal(await s.papers.getById("dup2"), null);
 });
+
+/** A pin store whose first `save` fails, as a dropped connection mid-merge would. */
+class FlakyPinRepository extends InMemoryAnnotationPinRepository {
+  failNext = true;
+  override async save(...args: Parameters<InMemoryAnnotationPinRepository["save"]>) {
+    if (this.failNext) {
+      this.failNext = false;
+      throw new Error("network down");
+    }
+    return super.save(...args);
+  }
+}
+
+async function setupFlakyPins() {
+  const s = await setup();
+  const pins = new FlakyPinRepository();
+  let n = 0;
+  const merge = new MergePapersUseCase({ ...s, pins, newId: () => `new-${++n}`, now: () => "2026-09-24T00:00:00Z" });
+  return { ...s, pins, merge };
+}
+
+test("a merge retried after a failing step leaves no duplicated annotations (25-01)", async () => {
+  const s = await setupFlakyPins();
+  await s.papers.save(paper("keep"));
+  await s.papers.save(paper("dup"));
+  const ann = await s.annotations.create("dup", { type: "highlight", color: "#ff0", text: "quote", anchor, pageIndex: 2 });
+  await s.annotations.create("dup", { type: "note", color: "#0f0", text: "", comment: "mine", anchor, pageIndex: 2 });
+  s.pins.failNext = false;
+  await s.pins.save({ paperId: "dup", annotationKey: ann.id, reportSectionId: "sec" });
+  s.pins.failNext = true;
+
+  await assert.rejects(s.merge.execute("keep", ["keep", "dup"]), /network down/);
+  assert.ok(await s.papers.getById("dup"), "the duplicate stays until every step went through");
+
+  await s.merge.execute("keep", ["keep", "dup"]);
+
+  const kept = await s.annotations.list("keep");
+  assert.deepEqual(kept.map((a) => a.type).sort(), ["highlight", "note"]);
+  const highlight = kept.find((a) => a.type === "highlight")!;
+  assert.deepEqual((await s.pins.listForPaper("keep")).map((p) => p.annotationKey), [highlight.id]);
+  assert.equal(await s.papers.getById("dup"), null);
+});
+
+test("a retry keeps two identical annotations on the duplicate as two", async () => {
+  const s = await setupFlakyPins();
+  await s.papers.save(paper("keep"));
+  await s.papers.save(paper("dup"));
+  const first = await s.annotations.create("dup", { type: "highlight", color: "#ff0", text: "same", anchor, pageIndex: 2 });
+  await s.annotations.create("dup", { type: "highlight", color: "#ff0", text: "same", anchor, pageIndex: 2 });
+  s.pins.failNext = false;
+  await s.pins.save({ paperId: "dup", annotationKey: first.id, reportSectionId: "sec" });
+  s.pins.failNext = true;
+
+  await assert.rejects(s.merge.execute("keep", ["keep", "dup"]));
+  await s.merge.execute("keep", ["keep", "dup"]);
+
+  assert.equal((await s.annotations.list("keep")).length, 2);
+});
+
+test("an annotation on the kept paper that differs is not taken for the copy", async () => {
+  const s = await setup();
+  await s.papers.save(paper("keep"));
+  await s.papers.save(paper("dup"));
+  await s.annotations.create("keep", { type: "highlight", color: "#ff0", text: "other words", anchor, pageIndex: 2 });
+  await s.annotations.create("keep", { type: "highlight", color: "#f00", text: "quote", anchor, pageIndex: 2 });
+  await s.annotations.create("dup", { type: "highlight", color: "#ff0", text: "quote", anchor, pageIndex: 2 });
+
+  await s.merge.execute("keep", ["keep", "dup"]);
+
+  const texts = (await s.annotations.list("keep")).map((a) => `${a.color} ${a.text}`).sort();
+  assert.deepEqual(texts, ["#f00 quote", "#ff0 other words", "#ff0 quote"]);
+});

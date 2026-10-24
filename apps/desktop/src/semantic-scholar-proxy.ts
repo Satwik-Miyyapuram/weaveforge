@@ -14,6 +14,8 @@
  * `content-type`) travel upstream.
  */
 
+import { refuse, type ProxyFetch } from "./proxy-shared";
+
 export const SEMANTIC_SCHOLAR_PROXY_PREFIX = "/api/semantic-scholar/";
 const UPSTREAM = "https://api.semanticscholar.org";
 const RETRIES = 3;
@@ -22,14 +24,6 @@ export function isSemanticScholarProxyRequest(requestUrl: string): boolean {
   return new URL(requestUrl).pathname.startsWith(SEMANTIC_SCHOLAR_PROXY_PREFIX);
 }
 
-function refuse(status: number, error: string): Response {
-  return new Response(JSON.stringify({ error }), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
-
-export type ProxyFetch = (input: string, init?: RequestInit) => Promise<Response>;
 
 export async function proxySemanticScholar(
   request: Request,
