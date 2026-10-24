@@ -22,7 +22,7 @@ function warnOnce(error: unknown): void {
   console.warn("Browser storage is unavailable; settings last for this session only.", error);
 }
 
-function withStore<T>(area: StorageArea, fallback: T, use: (store: Storage) => T): T {
+function withStore<T>(area: StorageArea, fallback: T, run: (store: Storage) => T): T {
   try {
     // `window` in the browser; the bare global elsewhere (workers, tests).
     const host = (typeof window === "undefined" ? globalThis : window) as {
@@ -31,7 +31,7 @@ function withStore<T>(area: StorageArea, fallback: T, use: (store: Storage) => T
     };
     const store = area === "session" ? host.sessionStorage : host.localStorage;
     if (!store) return fallback;
-    return use(store);
+    return run(store);
   } catch (error) {
     warnOnce(error);
     return fallback;
