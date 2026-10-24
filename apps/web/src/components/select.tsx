@@ -288,7 +288,9 @@ export function Select({
                   setQuery(e.target.value);
                   setActive(nextSelectableInVisible(0, 1));
                 }}
-                onKeyDown={onKeyDown}
+                // No onKeyDown here: the key bubbles to the listbox, whose
+                // handler has a branch for the search box. Handled in both, an
+                // arrow moved two rows and Enter chose twice (13-01).
               />
             </div>
           )}

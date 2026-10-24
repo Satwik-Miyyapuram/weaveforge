@@ -1,5 +1,5 @@
 /** Hot/cold blob provider ids — env-selected at the composition root. */
-type BlobProviderId = "supabase" | "tiered";
+export type BlobProviderId = "supabase" | "tiered";
 
 /** Env bag for tests and composition-root overrides (avoids full ProcessEnv in unit tests). */
 export type EnvReader = Record<string, string | undefined>;
@@ -51,7 +51,7 @@ function parseBoolEnv(value: string | undefined, fallback: boolean): boolean {
 }
 
 function blobProviderFromEnv(env: EnvReader): BlobProviderId {
-  return pick(env.NEXT_PUBLIC_BLOB_PROVIDER ?? env.BLOB_PROVIDER, PROVIDERS, "supabase");
+  return pick(env.NEXT_PUBLIC_BLOB_PROVIDER || env.BLOB_PROVIDER, PROVIDERS, "supabase");
 }
 
 function fromEnv(env: EnvReader): StorageConfig {
@@ -65,42 +65,20 @@ function fromEnv(env: EnvReader): StorageConfig {
     tierBeta: parseFloatEnv(env.BLOB_TIER_BETA, 30),
     tierGamma: parseFloatEnv(env.BLOB_TIER_GAMMA, 0.5),
     promoteOnAccess: parseBoolEnv(env.BLOB_PROMOTE_ON_ACCESS, true),
-    r2AccountId: env.R2_ACCOUNT_ID,
-    r2AccessKeyId: env.R2_ACCESS_KEY_ID,
-    r2SecretAccessKey: env.R2_SECRET_ACCESS_KEY,
-    r2Bucket: env.R2_BUCKET,
-    coldEndpoint: env.BLOB_COLD_ENDPOINT,
-    coldAccessKeyId: env.BLOB_COLD_ACCESS_KEY_ID,
-    coldSecretAccessKey: env.BLOB_COLD_SECRET_ACCESS_KEY,
-    coldBucket: env.BLOB_COLD_BUCKET,
+    r2AccountId: env.R2_ACCOUNT_ID || undefined,
+    r2AccessKeyId: env.R2_ACCESS_KEY_ID || undefined,
+    r2SecretAccessKey: env.R2_SECRET_ACCESS_KEY || undefined,
+    r2Bucket: env.R2_BUCKET || undefined,
+    coldEndpoint: env.BLOB_COLD_ENDPOINT || undefined,
+    coldAccessKeyId: env.BLOB_COLD_ACCESS_KEY_ID || undefined,
+    coldSecretAccessKey: env.BLOB_COLD_SECRET_ACCESS_KEY || undefined,
+    coldBucket: env.BLOB_COLD_BUCKET || undefined,
   };
 }
 
 /** Read blob/tiering config from env (composition root only). */
 export function readStorageConfig(env?: EnvReader): StorageConfig {
-  if (env) return fromEnv(env);
-  // Direct process.env.NEXT_PUBLIC_* access so Next.js inlines provider in the client bundle.
-  return {
-    provider: pick(
-      process.env.NEXT_PUBLIC_BLOB_PROVIDER ?? process.env.BLOB_PROVIDER,
-      PROVIDERS,
-      "supabase",
-    ),
-    hotQuotaGb: parseFloatEnv(process.env.BLOB_HOT_QUOTA_GB, 10),
-    hotHighWatermark: parseFloatEnv(process.env.BLOB_HOT_HIGH_WATERMARK, 0.85),
-    hotLowWatermark: parseFloatEnv(process.env.BLOB_HOT_LOW_WATERMARK, 0.75),
-    tierBatchSize: parseIntEnv(process.env.BLOB_TIER_BATCH_SIZE, 100),
-    tierAlpha: parseFloatEnv(process.env.BLOB_TIER_ALPHA, 1),
-    tierBeta: parseFloatEnv(process.env.BLOB_TIER_BETA, 30),
-    tierGamma: parseFloatEnv(process.env.BLOB_TIER_GAMMA, 0.5),
-    promoteOnAccess: parseBoolEnv(process.env.BLOB_PROMOTE_ON_ACCESS, true),
-    r2AccountId: process.env.R2_ACCOUNT_ID,
-    r2AccessKeyId: process.env.R2_ACCESS_KEY_ID,
-    r2SecretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-    r2Bucket: process.env.R2_BUCKET,
-    coldEndpoint: process.env.BLOB_COLD_ENDPOINT,
-    coldAccessKeyId: process.env.BLOB_COLD_ACCESS_KEY_ID,
-    coldSecretAccessKey: process.env.BLOB_COLD_SECRET_ACCESS_KEY,
-    coldBucket: process.env.BLOB_COLD_BUCKET,
-  };
+  // The literal process.env.NEXT_PUBLIC_BLOB_PROVIDER read is what Next.js
+  // inlines into the client bundle, where process.env is otherwise empty.
+  return fromEnv(env ?? { ...process.env, NEXT_PUBLIC_BLOB_PROVIDER: process.env.NEXT_PUBLIC_BLOB_PROVIDER });
 }

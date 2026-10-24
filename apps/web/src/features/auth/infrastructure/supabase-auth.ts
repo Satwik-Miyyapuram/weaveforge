@@ -5,6 +5,10 @@ import type {
   IAuthService,
 } from "@weaveforge/core";
 import { run } from "@/backend/providers/postgrest/row-access";
+import {
+  requestNativeGoogleIdToken,
+  type RequestNativeGoogleIdToken,
+} from "./native-google-id-token";
 
 /**
  * Supabase implementation of IAuthService.
@@ -15,7 +19,10 @@ import { run } from "@/backend/providers/postgrest/row-access";
 export class SupabaseAuthService implements IAuthService {
   private userRequest: Promise<AuthUser | null> | null = null;
 
-  constructor(private readonly db: SupabaseClient) {}
+  constructor(
+    private readonly db: SupabaseClient,
+    private readonly nativeGoogle: RequestNativeGoogleIdToken = requestNativeGoogleIdToken,
+  ) {}
 
   getUser(): Promise<AuthUser | null> {
     if (this.userRequest) return this.userRequest;
@@ -72,7 +79,18 @@ export class SupabaseAuthService implements IAuthService {
     }));
   }
 
+  /**
+   * On Android the system account picker signs in without a password; a
+   * closed picker does nothing. Elsewhere, or when the picker cannot help
+   * (no account on the device, no Play services), Google's web page does.
+   */
   async signInWithGoogle(redirectTo?: string): Promise<void> {
+    const native = await this.nativeGoogle();
+    if (native.kind === "cancelled") return;
+    if (native.kind === "signed-in") {
+      await run(this.db.auth.signInWithIdToken({ provider: "google", token: native.idToken, nonce: native.nonce }));
+      return;
+    }
     await run(this.db.auth.signInWithOAuth({
       provider: "google",
       options: redirectTo ? { redirectTo } : undefined,
