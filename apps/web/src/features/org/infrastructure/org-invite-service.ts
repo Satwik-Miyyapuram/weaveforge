@@ -335,12 +335,13 @@ export class OrgInviteService {
       throw new OrgPermissionError("Only the lab owner can regenerate codes.");
     }
 
-    await admin
+    // A failed revoke leaves the old code valid, so no new one is made.
+    await run(admin
       .from("org_invite_codes")
       .update({ revoked_at: new Date().toISOString() })
       .eq("org_id", orgId)
       .eq("target_role", targetRole)
-      .is("revoked_at", null);
+      .is("revoked_at", null));
 
     const code = await this.insertUniqueCode(admin, orgId, targetRole);
     return { targetRole, code };
