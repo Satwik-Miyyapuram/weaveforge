@@ -27,7 +27,14 @@ export async function GET(request: Request) {
   }
   if (!payload) return NextResponse.json({ error: "Invalid or expired token." }, { status: 401 });
 
-  const dbTier = await resolveBlobTierForViewer(payload.bucket, payload.path, payload.uid);
+  let dbTier;
+  try {
+    dbTier = await resolveBlobTierForViewer(payload.bucket, payload.path, payload.uid);
+  } catch (err) {
+    // The lookup failed, which is not the same as no such blob (10-07).
+    const message = formatErrorForResponse(err, "blobs-content");
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
   if (!dbTier) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
