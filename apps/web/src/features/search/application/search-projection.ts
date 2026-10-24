@@ -1,4 +1,5 @@
 import {
+  buildWikiGraph,
   graphDegrees,
   toAnnotationSearchDocs,
   toPdfSearchDocs,
@@ -40,4 +41,24 @@ export function projectSearchDocuments(input: {
     ...toPdfSearchDocs(input.pdfTexts, degrees),
     ...toAnnotationSearchDocs(input.snapshot.readerAnnotations, paperTitles, degrees),
   ];
+}
+
+/**
+ * The worker's build: stored PDF text, minus papers the library no longer
+ * holds, projected with a graph built from the snapshot. Shares
+ * `projectSearchDocuments` so the worker's corpus, and so its revision, cannot
+ * drift from the main thread's (27-05).
+ */
+export function projectStoredPdfTexts(
+  snapshot: WorkspaceSnapshot,
+  stored: readonly PdfIndexSource[],
+): { docs: SearchDoc[]; pdfPageCounts: [string, number][] } {
+  // Indexing text of a removed paper would answer searches with hits that open
+  // a missing paper.
+  const paperIds = new Set(snapshot.papers.map((paper) => paper.id));
+  const pdfTexts = stored.filter((source) => paperIds.has(source.paperId));
+  return {
+    docs: projectSearchDocuments({ snapshot, graph: buildWikiGraph(snapshot), pdfTexts }),
+    pdfPageCounts: pdfTexts.map((source) => [source.paperId, source.pages.length]),
+  };
 }
