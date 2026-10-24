@@ -1,6 +1,7 @@
 import {
   errorMessage,
   canonicalAiToolName,
+  parsePaperFieldValue,
   type AiAccessSettings,
   type AiEvidence,
 } from "@weaveforge/core";
@@ -206,7 +207,7 @@ export async function dispatchMcpTool(ai: McpToolHost, sessionId: string, settin
     case "suggest_paper_field_value": {
       const paperId = required(args, "paperId");
       const fieldId = required(args, "fieldId");
-      const value = parseFieldValue(args.value);
+      const value = parsePaperFieldValue(args.value, "value");
       const sourceId = required(args, "sourceId");
       const quoteExact = requiredRaw(args, "quoteExact");
       const evidence = await buildPaperEvidence(ai, sessionId, settings, {
@@ -268,20 +269,6 @@ function optionalPage(value: unknown): number | undefined {
   return undefined;
 }
 function stringList(value: unknown): string[] | undefined { return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : undefined; }
-
-function parseFieldValue(value: unknown): string | number | string[] {
-  if (typeof value === "string") {
-    if (!value.trim()) throw new Error("value must be a non-empty string, number, or string array.");
-    return value;
-  }
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === "string")) {
-    const cleaned = (value as string[]).map((item) => item.trim()).filter(Boolean);
-    if (!cleaned.length) throw new Error("value must be a string, number, or non-empty string array.");
-    return cleaned;
-  }
-  throw new Error("value must be a string, number, or non-empty string array.");
-}
 
 /**
  * Resolve one paper-scoped evidence item, or refuse.

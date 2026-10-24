@@ -66,3 +66,40 @@ test("a draft for another project waits in the folder until that project imports
   assert.equal(await importFolderDrafts(fs, async (d) => queued.push(d.resourceId), "proj-b"), 1);
   assert.deepEqual(await remaining(fs), []);
 });
+
+test("one draft the queue refuses does not hold back the rest (32-04)", async () => {
+  const fs = await withFiles({ "a.json": JSON.stringify(draft), "b.json": JSON.stringify({ ...draft, resourceId: "note-2" }) });
+  const queued: string[] = [];
+  const queue = async (d: FolderDraft) => {
+    if (d.resourceId === "note-1") throw new Error("offline");
+    queued.push(d.resourceId);
+  };
+  await assert.rejects(importFolderDrafts(fs, queue), /offline/);
+  assert.deepEqual(queued, ["note-2"]);
+  assert.deepEqual(await remaining(fs), [`${FOLDER_DRAFTS_DIR}/a.json`]);
+});
+
+test("a file that cannot be removed is not queued, so it is never queued twice (32-10)", async () => {
+  const fs = await withFiles({ "a.json": JSON.stringify(draft) });
+  const realRemove = fs.remove.bind(fs);
+  fs.remove = async () => { throw new Error("locked"); };
+  const queued: string[] = [];
+  assert.equal(await importFolderDrafts(fs, async (d) => queued.push(d.resourceId)), 0);
+  assert.deepEqual(await remaining(fs), [`${FOLDER_DRAFTS_DIR}/a.json`]);
+  fs.remove = realRemove;
+  assert.equal(await importFolderDrafts(fs, async (d) => queued.push(d.resourceId)), 1);
+  assert.deepEqual(queued, ["note-1"]);
+});
+
+test("a call during a run imports its own folder and project on the next pass (32-03)", async () => {
+  const first = await withFiles({ "a.json": JSON.stringify({ ...draft, projectId: "p1" }) });
+  const second = await withFiles({ "b.json": JSON.stringify({ ...draft, resourceId: "note-2", projectId: "p2" }) });
+  const queued: string[] = [];
+  const queue = async (d: FolderDraft) => {
+    await new Promise((r) => setTimeout(r, 5));
+    queued.push(d.resourceId);
+  };
+  await Promise.all([importFolderDraftsOnce(first, queue, "p1"), importFolderDraftsOnce(second, queue, "p2")]);
+  assert.deepEqual(queued.sort(), ["note-1", "note-2"]);
+  assert.deepEqual(await remaining(second), []);
+});

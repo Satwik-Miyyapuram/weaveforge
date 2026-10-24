@@ -302,37 +302,14 @@ export interface TeamVisibilityOptions {
 /** Active-lab pool only — fails closed when inLab but org membership is unknown. */
 
 function scopedLabPool(
-
   viewerId: string,
-
   members: readonly Member[],
-
   options: TeamVisibilityOptions,
-
 ): Member[] {
-
-  if (!options.inLab) {
-
-    const self = members.find((m) => m.id === viewerId);
-
-    return self ? [self] : [];
-
-  }
-
-
-
-  if (!options.orgMemberIds || options.orgMemberIds.size === 0) {
-
-    const self = members.find((m) => m.id === viewerId);
-
-    return self ? [self] : [];
-
-  }
-
-
-
-  return members.filter((m) => options.orgMemberIds!.has(m.id));
-
+  const lab = options.inLab ? options.orgMemberIds : null;
+  if (lab?.size) return members.filter((m) => lab.has(m.id));
+  const self = members.find((m) => m.id === viewerId);
+  return self ? [self] : [];
 }
 
 
