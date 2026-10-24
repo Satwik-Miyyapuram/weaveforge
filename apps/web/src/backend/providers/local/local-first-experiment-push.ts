@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { planSeriesIngest } from "@weaveforge/core";
+import { logToApp } from "@/lib/error-report/app-log";
 import type { LocalFirstBlobStore } from "./local-first-blob-store";
 import type { LocalQuery } from "./pglite-client";
 
@@ -70,6 +71,17 @@ export class ExperimentPush {
         )) as Omit<MetricRow, "experiment_id" | "metric">[];
         if (!rows.length) break;
         const { keep, supersededTipStep } = planSeriesIngest(rows, pushed);
+        // The cursor is written after the server insert. If that write failed,
+        // this batch was sent before, maybe ending on a tip that is no longer
+        // the tip; clear the batch's range so a re-send leaves no stray point.
+        const cleared = await this.server
+          .from("experiment_metrics")
+          .delete()
+          .eq("experiment_id", s.experiment_id)
+          .eq("metric", s.metric)
+          .gt("step", pushed ?? -2147483648)
+          .lte("step", rows[rows.length - 1]!.step);
+        if (cleared.error) throw new Error(cleared.error.message);
         const { error } = await this.server
           .from("experiment_metrics")
           .insert(keep.map((r) => ({ ...r, experiment_id: s.experiment_id, metric: s.metric, user_id: this.accountId })));
@@ -115,13 +127,19 @@ export class ExperimentPush {
           next.push(entry);
           continue;
         }
-        // `{experimentId}/{uuid}/{name}` keeps its uuid, so a re-run is the same path.
-        const raw = await this.fetchLocal(entry as string);
-        const blob = await this.compress(raw);
-        const name = blob === raw ? rest : rest.replace(/\.(png|jpe?g)$/i, ".webp");
-        const path = `${this.accountId}/${name}`;
-        await this.blobs.upload(ARTIFACT_BUCKET, path, blob, blob.type);
-        next.push(path);
+        try {
+          // `{experimentId}/{uuid}/{name}` keeps its uuid, so a re-run is the same path.
+          const raw = await this.fetchLocal(entry as string);
+          const blob = await this.compress(raw);
+          const name = blob === raw ? rest : rest.replace(/\.(png|jpe?g)$/i, ".webp");
+          const path = `${this.accountId}/${name}`;
+          await this.blobs.upload(ARTIFACT_BUCKET, path, blob, blob.type);
+          next.push(path);
+        } catch (err) {
+          // One unreadable file must not hold back the rest; it stays local and is tried next turn.
+          logToApp({ level: "warn", source: "experiment-push", message: "Could not push an artifact", detail: `${entry}: ${String(err)}` });
+          next.push(entry);
+        }
       }
       // Raw local writes skip the outbox, so the server row is set here too.
       const { error } = await this.server.from("experiments").update({ artifacts: next }).eq("id", row.id);
