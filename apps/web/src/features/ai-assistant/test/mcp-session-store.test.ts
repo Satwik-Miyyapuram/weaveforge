@@ -58,12 +58,13 @@ async function load(idb: unknown, stored: string | null = BLOB) {
   const store = new Map<string, string>(stored === null ? [] : [[KEY, stored]]);
   const g = globalThis as Record<string, unknown>;
   const saved = { window: g.window, sessionStorage: g.sessionStorage, indexedDB: g.indexedDB };
-  g.window = {};
-  g.sessionStorage = {
+  const sessionStorage = {
     getItem: (k: string) => store.get(k) ?? null,
     setItem: (k: string, v: string) => void store.set(k, v),
     removeItem: (k: string) => void store.delete(k),
   };
+  g.window = { sessionStorage };
+  g.sessionStorage = sessionStorage;
   g.indexedDB = idb;
   try {
     const list = await loadPersistedMcpSessions();
