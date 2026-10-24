@@ -178,6 +178,67 @@ test("a body larger than the first buffer is read back byte for byte", async () 
   }
 });
 
+test("a connection that drops mid-body is unreachable, not too large (09-04)", async () => {
+  let sent = false;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (sent) {
+        controller.error(new Error("socket hang up"));
+        return;
+      }
+      sent = true;
+      controller.enqueue(new Uint8Array(10));
+    },
+  });
+  const stub = stubFetch(() => new Response(body));
+  try {
+    const result = await safeFetch("https://example.com/page", { resolve: publicResolver, maxBytes: 1024 });
+    assert.equal(result.ok, false);
+    if (result.ok !== false) return;
+    assert.equal(result.kind, "unreachable");
+    assert.equal(result.status, 502);
+    assert.match(result.message, /example\.com/);
+    assert.match(result.message, /socket hang up/);
+  } finally {
+    stub.restore();
+  }
+});
+
+test("a bare host with a port is fetched over https, not refused as a scheme (09-08)", async () => {
+  const stub = stubFetch(() => new Response("ok"));
+  try {
+    const result = await safeFetch("example.com:8443/x", { resolve: publicResolver });
+    assert.equal(result.ok, true);
+    assert.equal(stub.calls.length, 1);
+    assert.equal(result.ok === true && result.url, "https://example.com:8443/x");
+  } finally {
+    stub.restore();
+  }
+});
+
+test("an explicit scheme is kept, in any case (09-08)", async () => {
+  const stub = stubFetch(() => new Response("ok"));
+  try {
+    const result = await safeFetch("HTTP://example.com/x", { resolve: publicResolver });
+    assert.equal(result.ok, true);
+    assert.equal(result.ok === true && result.url, "http://example.com/x");
+  } finally {
+    stub.restore();
+  }
+});
+
+test("a non-web scheme is still refused, not turned into a host (09-08)", async () => {
+  const stub = stubFetch(() => new Response("should not happen"));
+  try {
+    const result = await safeFetch("javascript:alert(1)", { resolve: publicResolver });
+    assert.equal(result.ok, false);
+    assert.equal(result.ok === false && result.status, 400);
+    assert.deepEqual(stub.calls, []);
+  } finally {
+    stub.restore();
+  }
+});
+
 test("a literal private address never reaches DNS at all", async () => {
   let asked = false;
   const result = await safeFetch("http://169.254.169.254/latest/meta-data/", {
