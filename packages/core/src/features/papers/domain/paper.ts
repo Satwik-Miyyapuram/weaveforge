@@ -214,7 +214,5 @@ export function extractHashtagRefs(text?: string): HashtagRef[] {
 
 /** Pull `#hashtags` out of free text, normalized (no '#', lowercase, deduped). */
 export function extractHashtags(text?: string): string[] {
-  if (!text) return [];
-  const matches = text.match(HASHTAG) ?? [];
-  return normalizeTags(matches);
+  return extractHashtagRefs(text).map((ref) => ref.tag);
 }

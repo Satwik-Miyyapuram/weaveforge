@@ -13,6 +13,7 @@ import { AddEdgeForm } from "./add-edge-form";
 import { BraveGraphWarning } from "./brave-graph-warning";
 import { GraphCanvas } from "./graph-canvas";
 import type { GNode } from "../application/build-graph-data";
+import { graphTagNames } from "../application/graph-tags";
 import { SettingsIcon } from "@/components/view-icons";
 import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
@@ -88,20 +89,10 @@ export function GraphScreen() {
     return () => { document.body.style.overflow = prev; };
   }, [focus]);
 
-  const allTags = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of papers) for (const t of p.tags) set.add(t);
-    for (const n of notes) {
-      const body = `${n.title}\n${n.body}`;
-      for (const m of body.match(/#[\p{L}\p{N}_-]+/gu) ?? []) {
-        set.add(m.replace(/^#+/, "").toLowerCase());
-      }
-    }
-    if (settings.includeListsAsConcepts !== false) {
-      for (const l of lists) set.add(l.name.toLowerCase());
-    }
-    return [...set].sort();
-  }, [papers, notes, lists, settings.includeListsAsConcepts]);
+  const allTags = useMemo(
+    () => graphTagNames(papers, notes, lists, settings.includeListsAsConcepts !== false),
+    [papers, notes, lists, settings.includeListsAsConcepts],
+  );
 
   const visiblePapers = useMemo(() => {
     if (selectedLists.length === 0 && selectedTags.length === 0) return papers;
