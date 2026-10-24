@@ -15,6 +15,7 @@ import { hasActiveLab, needsDisclaimerAcceptance, needsStandaloneRoleSync } from
 import { continueStandalone, fetchMemberships } from "@/features/org/infrastructure/org-api";
 import { singleFlight } from "@/lib/cache/single-flight";
 import { formatError } from "@/lib/format-error";
+import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
 
 export interface StartupSnapshot {
   settings: UserSettings | null;
@@ -240,20 +241,11 @@ function cacheProvesAccepted(cached: StartupSnapshot | null): boolean {
 const STARTUP_CACHE_PREFIX = "thesis.startup.";
 
 function readCachedSnapshot(userId: string): StartupSnapshot | null {
-  try {
-    const raw = localStorage.getItem(STARTUP_CACHE_PREFIX + userId);
-    return raw ? (JSON.parse(raw) as StartupSnapshot) : null;
-  } catch {
-    return null;
-  }
+  return readStoredJson<StartupSnapshot | null>(STARTUP_CACHE_PREFIX + userId, null);
 }
 
 function writeCachedSnapshot(userId: string, snapshot: StartupSnapshot): void {
-  try {
-    localStorage.setItem(STARTUP_CACHE_PREFIX + userId, JSON.stringify(snapshot));
-  } catch {
-    /* best-effort */
-  }
+  writeStoredJson(STARTUP_CACHE_PREFIX + userId, snapshot);
 }
 
 /** Parallel startup after auth; profile/org load waits until privacy disclaimer accepted. */

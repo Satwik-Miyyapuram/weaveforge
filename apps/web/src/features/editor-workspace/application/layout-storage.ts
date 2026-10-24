@@ -14,6 +14,33 @@ import { emptyLayout, type PaneLayout, type PaneNode } from "./pane-tree";
 
 export const LAYOUT_STORAGE_KEY = "weaveforge.editor.layout";
 
+/** Storage that can also forget a key; `localStorage` is one. */
+type LayoutStore = KeyValueStore & { removeItem?: (key: string) => void };
+
+/**
+ * Each project keeps its own panes: a tab from project A restored into
+ * project B is a document B cannot open. No project means the plain key.
+ */
+function layoutKey(projectId: string | null | undefined): string {
+  return projectId ? `${LAYOUT_STORAGE_KEY}.${projectId}` : LAYOUT_STORAGE_KEY;
+}
+
+/**
+ * The raw record for a project. Layouts saved before they were per project
+ * sit under the plain key: the first project opened adopts that record and
+ * the plain key is cleared, so no second project inherits the same tabs.
+ */
+function readRaw(store: LayoutStore, projectId: string | null | undefined): string | null {
+  const key = layoutKey(projectId);
+  const own = store.getItem(key);
+  if (own || key === LAYOUT_STORAGE_KEY) return own;
+  const legacy = store.getItem(LAYOUT_STORAGE_KEY);
+  if (!legacy) return null;
+  store.setItem(key, legacy);
+  store.removeItem?.(LAYOUT_STORAGE_KEY);
+  return legacy;
+}
+
 function parseNode(value: unknown): PaneNode | null {
   if (typeof value !== "object" || value === null) return null;
   const node = value as Record<string, unknown>;
@@ -55,10 +82,13 @@ function parseNode(value: unknown): PaneNode | null {
   return null;
 }
 
-export function readLayout(store: KeyValueStore | undefined): PaneLayout {
+export function readLayout(
+  store: LayoutStore | undefined,
+  projectId?: string | null,
+): PaneLayout {
   if (!store) return emptyLayout();
   try {
-    const raw = store.getItem(LAYOUT_STORAGE_KEY);
+    const raw = readRaw(store, projectId);
     if (!raw) return emptyLayout();
     const parsed = JSON.parse(raw) as { root?: unknown; focusedPaneId?: unknown };
     const root = parseNode(parsed.root);
@@ -76,9 +106,13 @@ function firstLeafId(node: PaneNode): string {
   return node.type === "leaf" ? node.id : firstLeafId(node.children[0]);
 }
 
-export function writeLayout(store: KeyValueStore | undefined, layout: PaneLayout): void {
+export function writeLayout(
+  store: KeyValueStore | undefined,
+  layout: PaneLayout,
+  projectId?: string | null,
+): void {
   try {
-    store?.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layout));
+    store?.setItem(layoutKey(projectId), JSON.stringify(layout));
   } catch {
     // Storage disabled. The layout still holds for this session.
   }

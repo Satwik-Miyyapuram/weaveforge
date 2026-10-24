@@ -8,6 +8,7 @@ import { CommentsIcon, DeleteIcon } from "@/components/view-icons";
 import { FormError } from "@/components/form-error";
 import { useProfile } from "@/features/org";
 import { formatError } from "@/lib/format-error";
+import { readStored, writeStored } from "@/lib/safe-storage";
 import { anchorAt, locateAnchor, type TextSpan } from "../domain/text-anchor";
 
 /**
@@ -71,20 +72,14 @@ export function NoteComments({
   const cardRefs = useRef(new Map<string, HTMLLIElement>());
 
   useEffect(() => {
-    try {
-      if (localStorage.getItem(OPEN_KEY) === "0") setOpen(false);
-    } catch {
-      /* a blocked store keeps the default */
-    }
+    // A blocked store keeps the default.
+    if (readStored(OPEN_KEY) === "0") setOpen(false);
   }, []);
 
   function toggleOpen() {
     setOpen((was) => {
-      try {
-        localStorage.setItem(OPEN_KEY, was ? "0" : "1");
-      } catch {
-        /* remembered for this view only */
-      }
+      // Remembered for this view only when storage is blocked.
+      writeStored(OPEN_KEY, was ? "0" : "1");
       return !was;
     });
   }

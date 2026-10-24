@@ -20,6 +20,8 @@ import { useEffect, useState } from "react";
 
 import type { ReactNode } from "react";
 
+import { readStored, writeStored } from "@/lib/safe-storage";
+
 /** The localStorage key, one per app like the pen guard's. */
 export const MD_PREVIEW_KEY = "weaveforge.md.preview";
 
@@ -27,8 +29,7 @@ export type MdPreviewMode = "off" | "side" | "below";
 
 /** The remembered choice, `off` for anything the key does not hold. */
 export function readMdPreviewMode(): MdPreviewMode {
-  if (typeof window === "undefined") return "off";
-  const value = window.localStorage.getItem(MD_PREVIEW_KEY);
+  const value = readStored(MD_PREVIEW_KEY);
   return value === "side" || value === "below" ? value : "off";
 }
 
@@ -127,12 +128,9 @@ export function useMdPreviewMode(): [MdPreviewMode, (mode: MdPreviewMode) => voi
   }, []);
   const choose = (next: MdPreviewMode) => {
     setMode(next);
-    try {
-      window.localStorage.setItem(MD_PREVIEW_KEY, next);
-    } catch {
-      // A private window that refuses: the choice lasts the session, which is
-      // still a choice.
-    }
+    // A private window that refuses: the choice lasts the session, which is
+    // still a choice.
+    writeStored(MD_PREVIEW_KEY, next);
   };
   return [mode, choose];
 }

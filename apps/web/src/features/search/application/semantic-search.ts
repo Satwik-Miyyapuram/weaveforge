@@ -5,6 +5,7 @@ import { WorkerEmbedder, supportsLocalEmbedding } from "../infrastructure/worker
 import { vectorStore } from "../infrastructure/vector-store";
 import { planEmbeddingStart, targetEmbeddingModel } from "../infrastructure/embedding-models";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
 import { onFolderConnected } from "@/features/workspace/application/workspace-folder";
 import { SEMANTIC_CHANGED_EVENT } from "./semantic-events";
 
@@ -81,20 +82,13 @@ export function semanticSupported(): boolean {
 }
 
 export function semanticEnabled(): boolean {
-  try {
-    return localStorage.getItem(ENABLED_KEY) === "1";
-  } catch {
-    return false;
-  }
+  return readStored(ENABLED_KEY) === "1";
 }
 
+/** Storage disabled: the session still works, it just will not persist. */
 function rememberPreference(on: boolean): void {
-  try {
-    if (on) localStorage.setItem(ENABLED_KEY, "1");
-    else localStorage.removeItem(ENABLED_KEY);
-  } catch {
-    /* storage disabled; the session still works, it just will not persist */
-  }
+  if (on) writeStored(ENABLED_KEY, "1");
+  else removeStored(ENABLED_KEY);
 }
 
 export interface EnableOptions {

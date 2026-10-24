@@ -16,7 +16,8 @@ import { importNotesFromFiles } from "../../application/import-notes";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
 import { emptyArray, emptyMap, emptySet } from "@/lib/empty";
-import { usePersistedState } from "@/lib/hooks/use-persisted-state";
+import { useProject } from "@/features/projects";
+import { projectScopedKey, usePersistedState } from "@/lib/hooks/use-persisted-state";
 import { formatError } from "@/lib/format-error";
 import { rememberRecentTarget } from "@/lib/recent-targets";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
@@ -44,9 +45,11 @@ export function VaultScreen() {
   const importZipRef = useRef<HTMLInputElement | null>(null);
   const importFolderRef = useRef<HTMLInputElement | null>(null);
   // File inputs stay mounted outside the modal so pickers survive dialog close.
-  const [listFilter, setListFilter] = usePersistedState<string[]>("thesis.notes.list", []);
-  const [tagFilter, setTagFilter] = usePersistedState<string[]>("thesis.notes.tags", []);
-  const [search, setSearch] = usePersistedState<string>("thesis.notes.search", "");
+  // Filters name lists and tags of one project, so each project keeps its own.
+  const projectId = useProject().current?.id;
+  const [listFilter, setListFilter] = usePersistedState<string[]>(projectScopedKey("thesis.notes.list", projectId), []);
+  const [tagFilter, setTagFilter] = usePersistedState<string[]>(projectScopedKey("thesis.notes.tags", projectId), []);
+  const [search, setSearch] = usePersistedState<string>(projectScopedKey("thesis.notes.search", projectId), "");
   const appliedPageFromUrl = useRef<string | null>(null);
   const { setPushed, consumePushed } = useDetailPushFlag();
   const goBackToList = useDetailBack("/notes", "page", consumePushed);

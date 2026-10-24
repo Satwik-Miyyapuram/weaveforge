@@ -10,6 +10,7 @@ import {
 import type { Project } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
+import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
 
 const STORAGE_KEY = "thesis.projectId";
 
@@ -45,10 +46,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     clearAllScreenCaches();
     getContainer().projects.context.projectId = id;
     getContainer().projects.watchProject(id);
-    if (typeof window !== "undefined") {
-      if (id) window.localStorage.setItem(STORAGE_KEY, id);
-      else window.localStorage.removeItem(STORAGE_KEY);
-    }
+    // Blocked storage must not stop the switch: the choice lasts this session.
+    if (id) writeStored(STORAGE_KEY, id);
+    else removeStored(STORAGE_KEY);
     setCurrentId(id);
   }, []);
 
@@ -62,10 +62,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const list = await refresh();
-        const stored =
-          typeof window !== "undefined"
-            ? window.localStorage.getItem(STORAGE_KEY)
-            : null;
+        const stored = readStored(STORAGE_KEY);
         if (stored && list.some((p) => p.id === stored)) apply(stored);
       } finally {
         setLoading(false);

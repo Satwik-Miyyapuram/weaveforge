@@ -13,6 +13,7 @@ import { gitConnectionReady, mattermostConnectionReady } from "../domain/integra
 import { MATTERMOST_EVENTS, mattermostOptions, type MattermostOptions } from "../domain/mattermost-options";
 import { formatError } from "@/lib/format-error";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { readStored, writeStored } from "@/lib/safe-storage";
 import { FormError } from "@/components/form-error";
 import { MattermostSignInButton } from "./mattermost-sign-in-button";
 
@@ -101,22 +102,14 @@ function IntegrationRow({
   const modeKey = `wf.mm-signin.${projectId}`;
   const [signIn, setSignIn] = useState(false);
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(modeKey);
-      // Sign-in is the default; a saved bot token keeps its own mode.
-      setSignIn(stored === "1" || (stored === null && !value.token));
-    } catch {
-      setSignIn(!value.token);
-    }
+    const stored = readStored(modeKey);
+    // Sign-in is the default; a saved bot token keeps its own mode.
+    setSignIn(stored === "1" || (stored === null && !value.token));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mode is chosen once per project
   }, [modeKey]);
   function chooseSignIn(on: boolean) {
     setSignIn(on);
-    try {
-      localStorage.setItem(modeKey, on ? "1" : "0");
-    } catch {
-      /* best effort */
-    }
+    writeStored(modeKey, on ? "1" : "0");
   }
 
   const connected =

@@ -7,6 +7,7 @@ import {
   parseEditorCitationFormat,
   type EditorCitationFormat,
 } from "@/lib/citation-format-preference";
+import { readStored, writeStored } from "@/lib/safe-storage";
 
 /**
  * Per-project cite-format memory (Phase C2). Follows the active project from
@@ -22,21 +23,13 @@ export function useCitationFormatPreference(): [
   const [format, setFormat] = useState<EditorCitationFormat>("wikilink");
 
   useEffect(() => {
-    try {
-      setFormat(parseEditorCitationFormat(localStorage.getItem(citationFormatStorageKey(projectId))));
-    } catch {
-      setFormat("wikilink");
-    }
+    setFormat(parseEditorCitationFormat(readStored(citationFormatStorageKey(projectId))));
   }, [projectId]);
 
   const update = useCallback(
     (value: EditorCitationFormat) => {
       setFormat(value);
-      try {
-        localStorage.setItem(citationFormatStorageKey(projectId), value);
-      } catch {
-        /* ignore */
-      }
+      writeStored(citationFormatStorageKey(projectId), value);
     },
     [projectId],
   );

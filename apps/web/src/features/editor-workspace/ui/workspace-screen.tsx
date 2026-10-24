@@ -11,6 +11,7 @@ import { formatError } from "@/lib/format-error";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { defaultInkNoteMeta, writeInkNoteBody } from "@weaveforge/core";
 
+import { useProject } from "@/features/projects";
 import { useWikilinkCreateMode } from "@/lib/wikilink-create-preference";
 import { commandForChord, isTypingTarget } from "../application/keybindings";
 import { readLayout, writeLayout } from "../application/layout-storage";
@@ -79,6 +80,7 @@ function requestedTab(): TabRef | null {
  * home.
  */
 export function WorkspaceScreen() {
+  const projectId = useProject().current?.id ?? null;
   const [documents, setDocuments] = useState<Document[] | null>(null);
   const [completions, setCompletions] = useState<CiteCompletion[]>([]);
   const [tree, setTree] = useState<WorkspaceTreeNode[]>([]);
@@ -187,7 +189,7 @@ export function WorkspaceScreen() {
         // same answer a click on it in the explorer gets.
         const open = new Set(loaded.map((doc) => tabKey(doc)));
         const bodyOf = new Map(loaded.map((doc) => [tabKey(doc), doc.body]));
-        let restored = pruneLayout(readLayout(store()), (tab) => open.has(tabKey(tab)));
+        let restored = pruneLayout(readLayout(store(), projectId), (tab) => open.has(tabKey(tab)));
         // `?open=kind:id` is how another screen hands a document over — the
         // note screen's Edit on a handwritten note, which only this screen can
         // write in. It opens on top of the restored panes, then leaves the URL
@@ -195,7 +197,7 @@ export function WorkspaceScreen() {
         const requested = requestedTab();
         if (requested && open.has(tabKey(requested))) {
           restored = openTab(restored, requested);
-          writeLayout(store(), restored);
+          writeLayout(store(), restored, projectId);
         }
         if (requested) window.history.replaceState(null, "", window.location.pathname);
         setLayout(hydrateTabModes(restored, (tab) => openModeFor(tab.kind, bodyOf.get(tabKey(tab)) ?? "")));
@@ -206,13 +208,13 @@ export function WorkspaceScreen() {
     return () => {
       cancelled = true;
     };
-  }, [reload]);
+  }, [reload, projectId]);
 
   const apply = useCallback((next: PaneLayout) => {
-    writeLayout(store(), next);
+    writeLayout(store(), next, projectId);
     setLayout(next);
     return next;
-  }, []);
+  }, [projectId]);
 
   const byKey = useMemo(
     () => new Map((documents ?? []).map((doc) => [tabKey(doc), doc])),

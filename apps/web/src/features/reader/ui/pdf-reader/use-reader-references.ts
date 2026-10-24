@@ -5,6 +5,7 @@ import type { Paper, PageTextItem, PaperMetadata, ParsedReference, PdfLink, Read
 import { getContainer } from "@/bootstrap";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection, formatError } from "@/lib/format-error";
+import { writeStored } from "@/lib/safe-storage";
 import {
   type MentionHit,
 } from "../../application/reader-references";
@@ -51,7 +52,7 @@ export function useReaderReferences(input: UseReaderReferencesInput) {
   useEffect(() => { setEnabled(readLinkCitations()); }, []);
   const toggle = useCallback(() => {
     setEnabled((on) => {
-      try { window.localStorage.setItem(LINK_CITATIONS_KEY, on ? "off" : "on"); } catch { /* private mode */ }
+      writeStored(LINK_CITATIONS_KEY, on ? "off" : "on");
       return !on;
     });
   }, []);
