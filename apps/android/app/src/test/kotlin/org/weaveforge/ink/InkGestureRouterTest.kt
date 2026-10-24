@@ -39,10 +39,8 @@ class InkGestureRouterTest {
     private fun pen(id: Int, tool: Int = TOOL_TYPE_STYLUS) =
         PointerSample(id, tool, 20f, 20f, 0.05f, 10f, 10f)
 
-    private fun down(vararg pointers: PointerSample, major: Float = 0f, size: Float = 0f) =
-        GestureEvent(
-            GesturePhase.DOWN, pointers.toList(), 0, pointers.first().id, major, major, size,
-        )
+    private fun down(vararg pointers: PointerSample) =
+        GestureEvent(GesturePhase.DOWN, pointers.toList(), 0, pointers.first().id)
 
     /**
      * A `POINTER_DOWN` for the pointer at `index`.
@@ -56,39 +54,20 @@ class InkGestureRouterTest {
      */
     private fun pointerDown(index: Int, vararg pointers: PointerSample) =
         GestureEvent(
-            GesturePhase.POINTER_DOWN, pointers.toList(), index, pointers[index].id, 0f, 0f, 0f,
+            GesturePhase.POINTER_DOWN, pointers.toList(), index, pointers[index].id,
         )
 
-    /**
-     * A `MOVE`, with the event-level geometry Android computes.
-     *
-     * A `MOVE` has no meaningful action pointer, so `InkGestureRouter` judges it on the
-     * event-level aggregate. A fixture that left those at zero would pass a palm
-     * straight through, and the test would be asserting against a shape Android never
-     * produces. `palm = true` makes the contact a heel at the event level.
-     */
-    private fun move(
-        vararg pointers: PointerSample,
-        major: Float = 40f,
-        size: Float = 0.1f,
-        palm: Boolean = false,
-    ) = GestureEvent(
-        GesturePhase.MOVE,
-        pointers.toList(),
-        0,
-        pointers.first().id,
-        if (palm) 400f else major,
-        if (palm) 380f else major,
-        if (palm) 0.8f else size,
-    )
+    /** A `MOVE`; a palm in it is judged on its own pointer's geometry. */
+    private fun move(vararg pointers: PointerSample) =
+        GestureEvent(GesturePhase.MOVE, pointers.toList(), 0, pointers.first().id)
 
     private fun pointerUp(index: Int, vararg pointers: PointerSample) =
         GestureEvent(
-            GesturePhase.POINTER_UP, pointers.toList(), index, pointers[index].id, 0f, 0f, 0f,
+            GesturePhase.POINTER_UP, pointers.toList(), index, pointers[index].id,
         )
 
     private fun up(vararg pointers: PointerSample) =
-        GestureEvent(GesturePhase.UP, pointers.toList(), 0, pointers.first().id, 0f, 0f, 0f)
+        GestureEvent(GesturePhase.UP, pointers.toList(), 0, pointers.first().id)
 
     // ------------------------------------------------------------- one finger
 
@@ -170,7 +149,36 @@ class InkGestureRouterTest {
         // And it stays absorbed, so a hand that shifts does not begin moving the paper.
         assertEquals(
             GestureRoute.INTERCEPT,
-            router.route(move(p, palm = true), InkToolMode.INK, GestureRoute.INTERCEPT),
+            router.route(move(p), InkToolMode.INK, GestureRoute.INTERCEPT),
+        )
+    }
+
+    @Test
+    fun `a palm that grows on a move as the second pointer stops the page`() {
+        // 42-01: a contact that lands small and then spreads into a heel. The
+        // event-level size Android reports on a MOVE is pointer 0's, the finger's,
+        // so only reading every pointer sees the palm.
+        val router = InkGestureRouter()
+        val f = finger(0)
+        router.route(down(f), InkToolMode.INK, GestureRoute.PASS_THROUGH)
+        router.route(pointerDown(1, f, finger(1)), InkToolMode.INK, GestureRoute.PASS_THROUGH)
+        assertEquals(
+            GestureRoute.INTERCEPT,
+            router.route(move(f, palm(1)), InkToolMode.INK, GestureRoute.PASS_THROUGH),
+        )
+    }
+
+    @Test
+    fun `a thin long contact does not hide a palm in the same event`() {
+        // 42-01: picking the one largest pointer by max(major, minor) chose the
+        // 300x50 edge contact, whose minor fails the test, and let the palm through.
+        val router = InkGestureRouter()
+        val edge = PointerSample(0, TOOL_TYPE_FINGER, 300f, 50f, 0.1f, 10f, 10f)
+        val heel = PointerSample(1, TOOL_TYPE_FINGER, 200f, 200f, 0.1f, 10f, 10f)
+        router.route(down(edge), InkToolMode.INK, GestureRoute.PASS_THROUGH)
+        assertEquals(
+            GestureRoute.INTERCEPT,
+            router.route(pointerDown(1, edge, heel), InkToolMode.INK, GestureRoute.PASS_THROUGH),
         )
     }
 
@@ -297,7 +305,7 @@ class InkGestureRouterTest {
         val mouse = PointerSample(0, 3, 10f, 10f, 0.05f, 10f, 10f)
         assertEquals(
             GestureRoute.PASS_THROUGH,
-            router.route(down(mouse, major = 10f, size = 0.05f), InkToolMode.NONE, GestureRoute.PASS_THROUGH),
+            router.route(down(mouse), InkToolMode.NONE, GestureRoute.PASS_THROUGH),
         )
         assertEquals(
             GestureRoute.PASS_THROUGH,
@@ -346,7 +354,7 @@ class InkGestureRouterTest {
         val router = InkGestureRouter()
         router.route(down(pen(0)), InkToolMode.INK, GestureRoute.PASS_THROUGH)
         router.route(
-            GestureEvent(GesturePhase.CANCEL, listOf(pen(0)), 0, 0, 0f, 0f, 0f),
+            GestureEvent(GesturePhase.CANCEL, listOf(pen(0)), 0, 0),
             InkToolMode.INK,
             GestureRoute.CAPTURE_PEN,
         )

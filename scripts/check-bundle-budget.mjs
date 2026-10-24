@@ -26,7 +26,8 @@ import path from "node:path";
 import { gzipSync } from "node:zlib";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const buildDir = path.join(root, "apps/web/.next");
+// BUNDLE_BUILD_DIR lets a test point this at a made-up build.
+const buildDir = process.env.BUNDLE_BUILD_DIR ?? path.join(root, "apps/web/.next");
 
 /**
  * What a route may load before it paints, gzipped — a ratchet.
@@ -132,10 +133,15 @@ function allowanceFor(route) {
   return (match ? ROUTE_ALLOWANCES_KB[match] : ROUTE_BUDGET_KB) + ENVIRONMENT_ALLOWANCE_KB;
 }
 
+/** Chunks a manifest names that the build did not write; see the check below. */
+const missingChunks = new Set();
+
 function gzippedChunkSize(file) {
   try {
     return gzipSync(readFileSync(file)).byteLength;
   } catch {
+    // Counting it as zero would pass a route whose bytes were never measured (41-05).
+    missingChunks.add(path.relative(buildDir, file).split(path.sep).join("/"));
     return 0;
   }
 }
@@ -185,8 +191,16 @@ const measured = [];
 for (const [route, files] of routes) {
   let bytes = 0;
   // Manifest paths are relative to the build root (`static/chunks/…`).
-  for (const file of files) bytes += gzippedChunkSize(path.join(buildDir, file));
+  // The manifest names a dynamic segment URL-encoded (`%5Bid%5D`); the file on disk is `[id]`.
+  for (const file of files) bytes += gzippedChunkSize(path.join(buildDir, decodeURIComponent(file)));
   measured.push({ route, kb: Math.round(bytes / 1024) });
+}
+
+if (missingChunks.size) {
+  console.error("FAIL: the build manifest names chunks the build did not write, so their size is unknown:");
+  for (const chunk of missingChunks) console.error(`  ${chunk}`);
+  console.error("\n  Rebuild (`npm run build`) and run this again on the fresh output.");
+  process.exit(1);
 }
 
 if (measured.length === 0) {
