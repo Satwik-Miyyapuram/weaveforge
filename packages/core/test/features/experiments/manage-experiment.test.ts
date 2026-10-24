@@ -4,6 +4,7 @@ import {
   ManageExperimentUseCase,
   ExperimentValidationError,
   type Experiment,
+  type ExperimentPatch,
   type IExperimentRepository,
 } from "../../../src/index.js";
 
@@ -15,8 +16,17 @@ class InMemoryExperimentRepo implements IExperimentRepository {
   async list() {
     return [...this.rows.values()];
   }
+  /** Every write after creation, so a test can see what each one sent. */
+  readonly patches: Record<string, unknown>[] = [];
+  saves = 0;
   async save(e: Experiment) {
+    this.saves += 1;
     this.rows.set(e.id, e);
+  }
+  async patch(id: string, fields: ExperimentPatch) {
+    this.patches.push({ ...fields });
+    const current = this.rows.get(id);
+    if (current) this.rows.set(id, { ...current, ...fields });
   }
   async delete(id: string) {
     this.rows.delete(id);
@@ -112,4 +122,67 @@ test("remove: deletes the experiment", async () => {
   const created = await uc.add({ name: "Temp" });
   await uc.remove(created.id);
   assert.equal(await repo.getById(created.id), null);
+});
+
+test("concurrent edits to different fields both survive (02-12)", async () => {
+  // Each write used to read the row, change one field and upsert the whole row.
+  // Two writes in flight together — the stale-run sweep and a note typed in
+  // another tab — each wrote back the other's field as it was before, so the
+  // later one silently undid the earlier.
+  const { repo, uc } = makeUseCase("2026-07-23T10:00:00.000Z");
+  const created = await uc.add({ name: "Run", metrics: { acc: 0.5 } });
+  await Promise.all([
+    uc.setStatus(created.id, "running"),
+    uc.setResultNote(created.id, "beats baseline"),
+    uc.addArtifacts(created.id, ["plot.png"]),
+  ]);
+  const row = repo.rows.get(created.id)!;
+  assert.equal(row.status, "running");
+  assert.equal(row.startedAt, "2026-07-23T10:00:00.000Z");
+  assert.equal(row.resultNote, "beats baseline");
+  assert.deepEqual(row.artifacts, ["plot.png"]);
+  assert.deepEqual(row.metrics, { acc: 0.5 });
+});
+
+test("each edit writes only the fields it changes", async () => {
+  const { repo, uc } = makeUseCase("2026-07-23T10:00:00.000Z");
+  const created = await uc.add({ name: "Run", metrics: { acc: 0.1 }, artifacts: ["a.png"] });
+  const saves = repo.saves;
+
+  await uc.setStatus(created.id, "done");
+  await uc.recordMetrics(created.id, { loss: 2 });
+  await uc.addArtifacts(created.id, ["a.png", "b.png"]);
+  await uc.setResultNote(created.id, "  ok  ");
+
+  assert.equal(repo.saves, saves, "no edit rewrites the whole row");
+  assert.deepEqual(repo.patches.map((p) => Object.keys(p).sort()), [
+    ["finishedAt", "startedAt", "status"],
+    ["metrics"],
+    ["artifacts"],
+    ["resultNote"],
+  ]);
+  assert.deepEqual(repo.patches[1], { metrics: { acc: 0.1, loss: 2 } });
+  assert.deepEqual(repo.patches[2], { artifacts: ["a.png", "b.png"] });
+  assert.deepEqual(repo.patches[3], { resultNote: "ok" });
+});
+
+test("a blank note is sent as a clear, and the returned run matches the store", async () => {
+  // `resultNote: undefined` has to reach the repository as a key, or a patch
+  // would leave the old note where it was.
+  const { repo, uc } = makeUseCase();
+  const created = await uc.add({ name: "Run" });
+  await uc.setResultNote(created.id, "first");
+  const cleared = await uc.setResultNote(created.id, "   ");
+  const sent = repo.patches.at(-1)!;
+  assert.ok("resultNote" in sent);
+  assert.equal(sent.resultNote, undefined);
+  assert.equal(cleared.resultNote, undefined);
+  assert.deepEqual(cleared, repo.rows.get(created.id));
+});
+
+test("an edit to an unknown id writes nothing", async () => {
+  const { repo, uc } = makeUseCase();
+  await assert.rejects(uc.setResultNote("nope", "x"), /No experiment with id/);
+  await assert.rejects(uc.addArtifacts("nope", ["x"]), /No experiment with id/);
+  assert.equal(repo.patches.length, 0);
 });

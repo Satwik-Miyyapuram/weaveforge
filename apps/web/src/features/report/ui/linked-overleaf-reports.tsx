@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { LatexSectionNode } from "@weaveforge/core";
 import { useProject } from "@/features/projects";
 import { useLayoutBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
@@ -11,6 +11,9 @@ import { LocalOverleafGateway } from "@/features/overleaf/infrastructure/local-o
 import { FormError } from "@/components/form-error";
 import { getContainer } from "@/bootstrap";
 import { ProjectChecks } from "./project-checks";
+import { latestRequest } from "../lib/latest-request";
+import { sectionTargetKeys } from "../lib/section-target-keys";
+import { linkOverleafReport } from "../application/link-overleaf-report";
 
 type LinkedReport = {
   id: string; project_id: string; title: string; connection_id: string; overleaf_project_id: string;
@@ -59,6 +62,8 @@ export function LinkedOverleafReports() {
   // Per-section word targets for the open report; seeded when a report opens so
   // edits show instantly, then persisted to the report row.
   const [targets, setTargets] = useState<Record<string, number>>({});
+  // Opening another report while a clone is in flight must not show the old one's content.
+  const contentRequest = useRef(latestRequest()).current;
 
   /** Set (or clear, when words is null) one section's target and persist the map. */
   async function setSectionTarget(key: string, words: number | null) {
@@ -111,19 +116,22 @@ export function LinkedOverleafReports() {
   useEffect(() => { void reload(); }, [reload]);
 
   async function openReport(report: LinkedReport) {
+    const isCurrent = contentRequest.begin();
     setSelected(report); setTargets(report.section_targets ?? {}); setContent(null); setLoading(true); setError(null);
     try {
       const gateway = local();
+      let next: ReportContent;
       if (gateway) {
-        setContent(await gateway.readContent(report) as ReportContent);
+        next = await gateway.readContent(report) as ReportContent;
       } else {
         const response = await fetch(`/api/overleaf/reports/${encodeURIComponent(report.id)}/content`, { headers: await authHeaders(), cache: "no-store" });
         const payload = await response.json() as ReportContent & { error?: string };
         if (!response.ok) throw new Error(payload.error ?? "Could not fetch the Overleaf report.");
-        setContent(payload);
+        next = payload;
       }
-    } catch (err) { setError(formatError(err)); }
-    finally { setLoading(false); }
+      if (isCurrent()) setContent(next);
+    } catch (err) { if (isCurrent()) setError(formatError(err)); }
+    finally { if (isCurrent()) setLoading(false); }
   }
 
   if (!current?.id) return null;
@@ -238,11 +246,6 @@ function subtreeWords(node: LatexSectionNode, files: readonly SourceFile[]): num
   return proseWords(sectionBody(node, files)) + node.children.reduce((sum, child) => sum + subtreeWords(child, files), 0);
 }
 
-/** Stable-ish target key: lowercased title path, robust to line-number churn. */
-function targetKey(path: readonly string[]): string {
-  return path.join(" > ");
-}
-
 /** Collapsible section hierarchy; each heading opens to its own LaTeX body. */
 function SectionTree({ roots, files, targets, onSetTarget, parentPath = [] }: {
   roots: LatexSectionNode[];
@@ -252,24 +255,23 @@ function SectionTree({ roots, files, targets, onSetTarget, parentPath = [] }: {
   parentPath?: readonly string[];
 }) {
   if (!roots.length) return <p className="muted">No static section commands were found.</p>;
-  return <div className="linked-overleaf-tree">{roots.map((node) => (
-    <SectionNode key={node.id} node={node} files={files} targets={targets} onSetTarget={onSetTarget} parentPath={parentPath} />
+  const keys = sectionTargetKeys(parentPath, roots);
+  return <div className="linked-overleaf-tree">{roots.map((node, index) => (
+    <SectionNode key={node.id} node={node} files={files} targets={targets} onSetTarget={onSetTarget} targetKey={keys[index]!} />
   ))}</div>;
 }
 
-function SectionNode({ node, files, targets, onSetTarget, parentPath }: {
+function SectionNode({ node, files, targets, onSetTarget, targetKey: key }: {
   node: LatexSectionNode;
   files: readonly SourceFile[];
   targets: Record<string, number>;
   onSetTarget: (key: string, words: number | null) => void;
-  parentPath: readonly string[];
+  targetKey: string;
 }) {
   const [editingTarget, setEditingTarget] = useState(false);
   const body = sectionBody(node, files);
   const hasBody = body.length > 0;
   const hasChildren = node.children.length > 0;
-  const path = [...parentPath, (node.title || "(untitled)").toLowerCase()];
-  const key = targetKey(path);
   const words = subtreeWords(node, files);
   const target = targets[key];
   const pct = target ? Math.min(100, Math.round((words / target) * 100)) : 0;
@@ -317,7 +319,7 @@ function SectionNode({ node, files, targets, onSetTarget, parentPath }: {
           )}
         </div>
         {hasBody ? <pre>{body}</pre> : <p className="muted">No text directly under this heading.</p>}
-        {hasChildren && <SectionTree roots={node.children} files={files} targets={targets} onSetTarget={onSetTarget} parentPath={path} />}
+        {hasChildren && <SectionTree roots={node.children} files={files} targets={targets} onSetTarget={onSetTarget} parentPath={[key]} />}
       </div>
     </details>
   );
@@ -381,16 +383,21 @@ function LinkOverleafForm({ projectId, onLinked, onError }: { projectId: string;
         overleafProjectId: String(form.get("overleafProjectId") ?? ""),
         entryFile: String(form.get("entryFile") ?? "main.tex"),
       };
-      if (gateway) {
-        const connectionId = await gateway.saveConnection(
-          String(form.get("connectionName") ?? ""),
-          String(form.get("token") ?? ""),
-        );
-        await gateway.createReport({ ...link, connectionId });
-      } else {
-        const connection = await api("/api/overleaf/connections", { method: "POST", body: JSON.stringify({ name: form.get("connectionName"), token: form.get("token") }) });
-        await api("/api/overleaf/reports", { method: "POST", body: JSON.stringify({ ...link, connectionId: connection.connection?.id }) });
-      }
+      const name = String(form.get("connectionName") ?? "");
+      const token = String(form.get("token") ?? "");
+      await linkOverleafReport(link, gateway
+        ? {
+            saveConnection: () => gateway.saveConnection(name, token),
+            createReport: (input) => gateway.createReport(input),
+          }
+        : {
+            saveConnection: async () => {
+              const id = (await api("/api/overleaf/connections", { method: "POST", body: JSON.stringify({ name, token }) })).connection?.id;
+              if (!id) throw new Error("The Overleaf connection was not saved.");
+              return id;
+            },
+            createReport: (input) => api("/api/overleaf/reports", { method: "POST", body: JSON.stringify(input) }),
+          });
       onLinked();
     } catch (err) { onError(formatError(err)); }
     finally { setBusy(false); }

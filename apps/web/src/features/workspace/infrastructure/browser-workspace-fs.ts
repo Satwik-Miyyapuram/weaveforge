@@ -110,8 +110,9 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
     if (!dir) return;
     try {
       await dir.removeEntry(name, { recursive: options?.recursive ?? false });
-    } catch {
-      /* already gone */
+    } catch (error) {
+      // Only a missing entry is "already gone"; any other refusal is a failed delete.
+      if ((error as { name?: unknown } | null)?.name !== "NotFoundError") throw error;
     }
   }
 

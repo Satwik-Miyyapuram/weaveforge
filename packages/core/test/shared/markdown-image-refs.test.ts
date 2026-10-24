@@ -102,3 +102,22 @@ test("image-ref scanning stays linear on unclosed refs", async () => {
   }
   assert.deepEqual(relativeAssetPaths("![](assets/notes/x![a](../assets/report/r.png)"), [{ scope: "notes", path: "x![a](../assets/report/r.png" }]);
 });
+
+test("replacement patterns in alt text are written literally, not expanded (01-02)", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => ({ ok: true, blob: async () => new Blob(["x"], { type: "image/png" }) })) as never;
+  try {
+    for (const alt of ["cost $& $$", "before $` after $'", "group $1 $<name>"]) {
+      const out = await materializeBlobImages(
+        `intro ![${alt}](blob:http://x/1) outro`,
+        "p1",
+        async () => "user-1/p1/new.png",
+        "paperimg:",
+        normalizeMarkdownImageSyntax,
+      );
+      assert.equal(out, `intro ${markdownImage("paperimg:user-1/p1/new.png", alt)} outro`, alt);
+    }
+  } finally {
+    globalThis.fetch = original;
+  }
+});

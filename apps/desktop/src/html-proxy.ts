@@ -6,6 +6,7 @@ import {
   isHtmlContentType,
   readCapped,
 } from "@/features/reader/application/paper-html-rules";
+import { refuse, type ProxyFetch } from "./proxy-shared";
 
 /**
  * The reader's HTML relay, served from the `app://` origin.
@@ -25,13 +26,6 @@ export function isHtmlProxyRequest(requestUrl: string): boolean {
   return new URL(requestUrl).pathname === HTML_PROXY_PATH;
 }
 
-function refuse(status: number, error: string): Response {
-  return new Response(JSON.stringify({ error }), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
-
 function isHttpsUrl(raw: string): boolean {
   try {
     const url = new URL(raw);
@@ -41,9 +35,7 @@ function isHttpsUrl(raw: string): boolean {
   }
 }
 
-export type HtmlFetch = (input: string, init?: RequestInit) => Promise<Response>;
-
-export async function proxyHtml(requestUrl: string, fetchFn: HtmlFetch = fetch): Promise<Response> {
+export async function proxyHtml(requestUrl: string, fetchFn: ProxyFetch = fetch): Promise<Response> {
   const target = new URL(requestUrl).searchParams.get("url");
   if (!target) return refuse(400, "url is required");
   if (!isHttpsUrl(target)) return refuse(400, "Only https addresses can be fetched");
