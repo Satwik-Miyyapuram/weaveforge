@@ -1,7 +1,7 @@
 "use client";
 
 import { experimentHref } from "../application/experiment-href";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { shortSha, type Experiment, type MetricPoint } from "@weaveforge/core";
 import { figureLabel } from "./figure-label";
@@ -9,10 +9,12 @@ import { getContainer } from "@/bootstrap";
 import { commitUrl } from "@/features/sync";
 import { formatMetricCell, MetricChart } from "./metric-chart";
 import { MetricGrid } from "./metric-grid";
+import { usePolledLoad } from "./use-polled-load";
 import { isAbsoluteUrl } from "../infrastructure/experiment-artifact-store";
 import { FormError } from "@/components/form-error";
 import { ImageViewer } from "@/components/image-viewer";
 import { formatError } from "@/lib/format-error";
+import { warnOnce } from "@/lib/error-report/warn-once";
 
 function isImageUrl(url: string): boolean {
   if (url.startsWith("data:")) return url.startsWith("data:image/");
@@ -62,7 +64,7 @@ export function usePaperTitle(paperId: string | undefined): string | null {
     let alive = true;
     getContainer().experiments.getPaper(paperId)
       .then((p) => alive && setTitle(p?.title ?? null))
-      .catch(() => {});
+      .catch((err: unknown) => warnOnce("experiments", "linked paper title failed to load", err));
     return () => {
       alive = false;
     };
@@ -207,39 +209,19 @@ export function MetricCurves({
   live?: boolean;
   chartHeight?: number;
 }) {
-  const [points, setPoints] = useState<MetricPoint[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data: points, error: loadError } = usePolledLoad(
+    experimentId,
+    () => getContainer().experiments.metricHistory(experimentId),
+    live ? 5000 : null,
+  );
+  // A PostgREST refusal is a plain object; String() of it was "[object Object]".
+  const error = loadError ? formatError(loadError) : null;
   // The server has not been migrated to the function the curves read through.
   // Nothing on this device is wrong and a report would not help, so it is said
   // plainly rather than raised as an error.
-  const [serverBehind, setServerBehind] = useState(false);
+  const serverBehind = (loadError as { code?: unknown } | null)?.code === "PGRST202";
 
-  const fetchHistory = useCallback(() => {
-    return getContainer().experiments.metricHistory(experimentId)
-      .then(setPoints)
-      // A PostgREST refusal is a plain object; String() of it was "[object Object]".
-      .catch((e) => {
-        setError(formatError(e));
-        setServerBehind((e as { code?: unknown } | null)?.code === "PGRST202");
-      });
-  }, [experimentId]);
-
-  useEffect(() => {
-    let alive = true;
-    void fetchHistory().then(() => {
-      if (!alive) return;
-    });
-    return () => {
-      alive = false;
-    };
-  }, [fetchHistory]);
-
-  useEffect(() => {
-    if (!live) return;
-    const t = setInterval(() => { void fetchHistory(); }, 5000);
-    return () => clearInterval(t);
-  }, [live, fetchHistory]);
-
+  /** One stable series list per metric, so a chart only redraws when its data changes. */
   const byMetric = useMemo(() => {
     const groups = new Map<string, MetricPoint[]>();
     for (const p of points ?? []) {
@@ -247,8 +229,8 @@ export function MetricCurves({
       arr.push(p);
       groups.set(p.metric, arr);
     }
-    return [...groups.entries()];
-  }, [points]);
+    return [...groups.entries()].map(([metric, pts]) => ({ metric, series: [{ id: experimentId, points: pts }] }));
+  }, [points, experimentId]);
 
   if (error && serverBehind) return <p className="record-empty">{error}</p>;
   if (error) return <FormError>{error}</FormError>;
@@ -263,13 +245,8 @@ export function MetricCurves({
 
   return (
     <MetricGrid variant="detail">
-      {byMetric.map(([metric, pts]) => (
-        <MetricChart
-          key={metric}
-          metric={metric}
-          height={chartHeight}
-          series={[{ id: experimentId, points: pts }]}
-        />
+      {byMetric.map(({ metric, series }) => (
+        <MetricChart key={metric} metric={metric} height={chartHeight} series={series} />
       ))}
     </MetricGrid>
   );
