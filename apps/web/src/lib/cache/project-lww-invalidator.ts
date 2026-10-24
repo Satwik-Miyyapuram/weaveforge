@@ -81,11 +81,16 @@ export function registerRepoCacheEntry(entry: RepoCacheEntry): RepoCacheDisposer
   return dispose;
 }
 
-export function invalidateAllRepoCaches(): void {
+/** Forget every repository read memo, without touching the screen caches. */
+export function clearRepoCaches(): void {
   for (const { cache, settled } of allRepoCaches) {
     cache.clear();
     settled.clear();
   }
+}
+
+export function invalidateAllRepoCaches(): void {
+  clearRepoCaches();
   clearAllScreenCaches();
   logInvalidation(undefined, ["*"], ["*"]);
 }
