@@ -2,7 +2,7 @@ import type {
   Experiment,
   ExperimentFilter,
 } from "../features/experiments/domain/experiment.js";
-import type { IExperimentRepository } from "../features/experiments/domain/experiment-repository.js";
+import type { ExperimentPatch, IExperimentRepository } from "../features/experiments/domain/experiment-repository.js";
 
 export class InMemoryExperimentRepository implements IExperimentRepository {
   private readonly store = new Map<string, Experiment>();
@@ -21,6 +21,10 @@ export class InMemoryExperimentRepository implements IExperimentRepository {
   }
   async save(entity: Experiment): Promise<void> {
     this.store.set(entity.id, { ...entity });
+  }
+  async patch(id: string, fields: ExperimentPatch): Promise<void> {
+    const current = this.store.get(id);
+    if (current) this.store.set(id, { ...current, ...fields });
   }
   async delete(id: string): Promise<void> {
     this.store.delete(id);
