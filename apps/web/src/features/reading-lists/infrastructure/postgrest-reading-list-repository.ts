@@ -16,7 +16,7 @@ import {
   toItemDomain,
   toItemRow,
 } from "./reading-list-rows";
-import { one, rows, run } from "@/backend/providers/postgrest/row-access";
+import { inChunks, one, rows, run } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 
 /**
@@ -55,6 +55,16 @@ export class PostgrestReadingListRepository extends ProjectRepository implements
       .eq("id", id)
       .maybeSingle());
     return row ? toListDomain(row) : null;
+  }
+
+  /** Lists by id, filtered as `getById` is (not by project), in chunks. */
+  async listByIds(ids: readonly string[]): Promise<ReadingList[]> {
+    const found = await inChunks(ids, (chunk) =>
+      rows<ReadingListRow>(
+        this.db.from(LISTS).select(READING_LIST_COLUMNS).in("id", chunk).order("id", { ascending: true }),
+      ),
+    );
+    return found.map(toListDomain);
   }
 
   async list(filter?: ReadingListFilter): Promise<ReadingList[]> {
