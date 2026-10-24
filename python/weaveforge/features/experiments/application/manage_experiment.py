@@ -54,10 +54,10 @@ class ManageExperimentUseCase:
             fresh.created_at = old.created_at
             fresh.result_note = fresh.result_note or old.result_note
             fresh.related_paper = fresh.related_paper or old.related_paper
-            clear = getattr(self._metrics, "clear", None)
-            if callable(clear):
-                clear(id)
         self._repo.save(fresh)
+        # After the save, so a failed save leaves the old run whole.
+        if old is not None and self._metrics is not None:
+            self._metrics.clear(id)
         return fresh
 
     def set_status(
