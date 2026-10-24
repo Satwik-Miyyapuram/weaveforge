@@ -9,7 +9,6 @@ import {
   isApiTokenFormat,
 } from "./api-token-crypto";
 import { signAccessJwt } from "./sign-access-jwt";
-import { formatError } from "@/lib/format-error";
 
 export interface ApiTokenRecord {
   id: string;
@@ -31,6 +30,8 @@ interface ApiTokenRow {
   scopes: string[] | null;
 }
 
+const TOKEN_COLUMNS = "id, name, token_prefix, expires_at, last_used_at, created_at, scopes";
+
 function mapRow(row: ApiTokenRow): ApiTokenRecord {
   return {
     id: row.id,
@@ -43,7 +44,12 @@ function mapRow(row: ApiTokenRow): ApiTokenRecord {
   };
 }
 
-/** Server-side token management (session + service role). */
+/**
+ * Server-side token management (session + service role).
+ *
+ * Database failures are rethrown as PostgREST returned them, code included, so
+ * a route can answer with `formatErrorForResponse` instead of the raw text.
+ */
 export class ApiTokenService {
   constructor(
     private readonly url: string,
@@ -74,9 +80,9 @@ export class ApiTokenService {
 
     const { data, error } = await this.userClient(accessToken)
       .from("api_tokens")
-      .select("id, name, token_prefix, expires_at, last_used_at, created_at, scopes")
+      .select(TOKEN_COLUMNS)
       .order("created_at", { ascending: false });
-    if (error) throw new Error(formatError(error));
+    if (error) throw error;
     return (data ?? []).map((row) => mapRow(row as ApiTokenRow));
   }
 
@@ -104,9 +110,9 @@ export class ApiTokenService {
         expires_at: expiresAt,
         scopes: ["sdk"],
       })
-      .select("id, name, token_prefix, expires_at, last_used_at, created_at, scopes")
+      .select(TOKEN_COLUMNS)
       .single();
-    if (error) throw new Error(formatError(error));
+    if (error) throw error;
     return { record: mapRow(data as ApiTokenRow), plaintext: generated.plaintext };
   }
 
@@ -117,8 +123,8 @@ export class ApiTokenService {
     const { data, error } = await this.userClient(accessToken).from("api_tokens").insert({
       user_id: userId, name: name.trim() || "Codex MCP connection", token_hash: encodeBytea(generated.hash),
       token_prefix: generated.prefix, scopes: ["mcp_relay"], expires_at: null,
-    }).select("id, name, token_prefix, expires_at, last_used_at, created_at, scopes").single();
-    if (error) throw new Error(formatError(error));
+    }).select(TOKEN_COLUMNS).single();
+    if (error) throw error;
     return { record: mapRow(data as ApiTokenRow), plaintext: generated.plaintext };
   }
 
@@ -135,7 +141,7 @@ export class ApiTokenService {
       .from("api_tokens")
       .delete({ count: "exact" })
       .eq("id", tokenId);
-    if (error) throw new Error(formatError(error));
+    if (error) throw error;
     if (!count) throw new Error("Token not found.");
   }
 
@@ -150,7 +156,7 @@ export class ApiTokenService {
     const { data, error } = await this.admin().rpc("resolve_api_token", {
       p_token_hash: encodeBytea(hash),
     });
-    if (error) throw new Error(formatError(error));
+    if (error) throw error;
     const userId = typeof data === "string" ? data : null;
     if (!userId) return null;
     return signAccessJwt(userId, this.jwtSecret);
@@ -159,7 +165,7 @@ export class ApiTokenService {
   async resolveMcpRelayAccessToken(apiToken: string): Promise<string | null> {
     if (!isApiTokenFormat(apiToken) || !this.jwtSecret) return null;
     const { data, error } = await this.admin().rpc("resolve_mcp_relay_token", { p_token_hash: encodeBytea(hashApiToken(apiToken)) });
-    if (error) throw new Error(formatError(error));
+    if (error) throw error;
     return typeof data === "string" ? signAccessJwt(data, this.jwtSecret) : null;
   }
 
@@ -167,7 +173,7 @@ export class ApiTokenService {
   async resolvePlanFeedAccessToken(apiToken: string): Promise<string | null> {
     if (!isApiTokenFormat(apiToken) || !this.jwtSecret) return null;
     const { data, error } = await this.admin().rpc("resolve_plan_feed_token", { p_token_hash: encodeBytea(hashApiToken(apiToken)) });
-    if (error) throw new Error(formatError(error));
+    if (error) throw error;
     return typeof data === "string" ? signAccessJwt(data, this.jwtSecret) : null;
   }
 }
