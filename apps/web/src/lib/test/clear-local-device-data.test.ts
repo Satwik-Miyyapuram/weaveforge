@@ -10,8 +10,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { clearLocalDeviceData } from "@/lib/desktop/clear-local-device-data";
-import { PDF_CACHE_DB_NAME } from "@/features/reader/infrastructure/indexeddb-pdf-byte-cache";
-import { PAPER_HTML_DB_NAME } from "@/features/reader/infrastructure/paper-html-store";
+import { PAPER_HTML_DB_NAME, PDF_CACHE_DB_NAME } from "@/features/reader/infrastructure/local-cache-names";
 
 /** A Storage whose items are own enumerable properties, as in a browser. */
 class FakeStorage {

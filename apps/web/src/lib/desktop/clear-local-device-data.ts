@@ -5,8 +5,7 @@ import { idbClearScreenCaches } from "@/lib/cache/screen-cache-idb";
 import { idbClearSearchIndexes } from "@/features/search/infrastructure/search-index-idb";
 import { clearPdfTexts } from "@/features/search/infrastructure/pdf-text-store";
 import { idbClearVectors } from "@/features/search/infrastructure/vector-store-idb";
-import { PDF_CACHE_DB_NAME } from "@/features/reader/infrastructure/indexeddb-pdf-byte-cache";
-import { PAPER_HTML_DB_NAME } from "@/features/reader/infrastructure/paper-html-store";
+import { PAPER_HTML_DB_NAME, PDF_CACHE_DB_NAME } from "@/features/reader/infrastructure/local-cache-names";
 
 /**
  * `weaveforge.` and `wf.` keys that describe this device, not the account:
