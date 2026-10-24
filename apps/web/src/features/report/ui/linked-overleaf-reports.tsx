@@ -1,53 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { LatexSectionNode } from "@weaveforge/core";
 import { useProject } from "@/features/projects";
 import { useLayoutBreakpoint } from "@/lib/hooks/use-layout-breakpoint";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { formatError } from "@/lib/format-error";
 import { authHeaders } from "@/lib/auth-headers";
-import { LocalOverleafGateway } from "@/features/overleaf/infrastructure/local-overleaf-gateway";
 import { FormError } from "@/components/form-error";
-import { getContainer } from "@/bootstrap";
 import { ProjectChecks } from "./project-checks";
 import { latestRequest } from "../lib/latest-request";
-import { sectionTargetKeys } from "../lib/section-target-keys";
-import { sectionBody, sectionWordCounts, type SourceFile } from "../lib/section-word-counts";
-import { linkOverleafReport } from "../application/link-overleaf-report";
-
-type LinkedReport = {
-  id: string; project_id: string; title: string; connection_id: string; overleaf_project_id: string;
-  entry_file: string; external_url: string | null; last_fetched_at: string | null;
-  section_targets: Record<string, number>;
-};
-type ReportContent = { files: { path: string; content: string }[]; entryFile: string; sectionTree: { roots: LatexSectionNode[]; files: string[]; warnings: string[] }; overleafUrl: string };
-
-/**
- * The rows, from wherever this copy keeps them.
- *
- * A copy working with no account has no API routes to call -- the desktop
- * build ships no server -- so the same six operations go straight to the local
- * database and the shell. Resolved once and remembered: the answer cannot
- * change without a reload, because the whole backend is wired at startup.
- * Which wiring that is comes from the auth facade; importing the local backend
- * provider here would make this file know which one a window was built with.
- */
-let localGateway: LocalOverleafGateway | null | undefined;
-function local(): LocalOverleafGateway | null {
-  if (localGateway === undefined) localGateway = getContainer().auth.isLocalMode() ? new LocalOverleafGateway() : null;
-  return localGateway;
-}
-
-async function api(path: string, init?: RequestInit) {
-  const response = await fetch(path, {
-    ...init,
-    headers: { ...(await authHeaders({ "Content-Type": "application/json" })), ...(init?.headers ?? {}) },
-  });
-  const payload = await response.json().catch(() => ({})) as { error?: string; reports?: LinkedReport[]; report?: LinkedReport; connection?: { id: string } };
-  if (!response.ok) throw new Error(payload.error ?? "Overleaf request failed.");
-  return payload;
-}
+import { sectionWordCounts } from "../lib/section-word-counts";
+import { type LinkedReport, type ReportContent, local, api } from "./linked-overleaf-api";
+import { SectionTree } from "./overleaf-section-tree";
+import { EditOverleafReportForm, LinkOverleafForm } from "./overleaf-report-forms";
 
 export function LinkedOverleafReports() {
   const { current } = useProject();
@@ -215,163 +180,3 @@ export function LinkedOverleafReports() {
   );
 }
 
-/** Collapsible section hierarchy; each heading opens to its own LaTeX body. */
-function SectionTree({ roots, files, counts, targets, onSetTarget, parentPath = [] }: {
-  roots: LatexSectionNode[];
-  files: readonly SourceFile[];
-  counts: ReadonlyMap<string, number>;
-  targets: Record<string, number>;
-  onSetTarget: (key: string, words: number | null) => void;
-  parentPath?: readonly string[];
-}) {
-  if (!roots.length) return <p className="muted">No static section commands were found.</p>;
-  const keys = sectionTargetKeys(parentPath, roots);
-  return <div className="linked-overleaf-tree">{roots.map((node, index) => (
-    <SectionNode key={node.id} node={node} files={files} counts={counts} targets={targets} onSetTarget={onSetTarget} targetKey={keys[index]!} />
-  ))}</div>;
-}
-
-function SectionNode({ node, files, counts, targets, onSetTarget, targetKey: key }: {
-  node: LatexSectionNode;
-  files: readonly SourceFile[];
-  counts: ReadonlyMap<string, number>;
-  targets: Record<string, number>;
-  onSetTarget: (key: string, words: number | null) => void;
-  targetKey: string;
-}) {
-  const [editingTarget, setEditingTarget] = useState(false);
-  const body = sectionBody(node, files);
-  const hasBody = body.length > 0;
-  const hasChildren = node.children.length > 0;
-  const words = counts.get(node.id) ?? 0;
-  const target = targets[key];
-  const pct = target ? Math.min(100, Math.round((words / target) * 100)) : 0;
-
-  function saveTarget(raw: string) {
-    setEditingTarget(false);
-    const trimmed = raw.trim();
-    if (!trimmed) { if (target) onSetTarget(key, null); return; }
-    const n = Number(trimmed);
-    if (Number.isInteger(n) && n > 0) onSetTarget(key, n);
-  }
-
-  return (
-    <details className="linked-overleaf-section" data-level={node.level}>
-      <summary>
-        <ChevronIcon variant="expand" size={14} />
-        <span className="linked-overleaf-section__title">{node.title || <em>(untitled)</em>}</span>
-        <span className="linked-overleaf-section__count">
-          {target ? `${words.toLocaleString()} / ${target.toLocaleString()} words` : `${words.toLocaleString()} words`}
-        </span>
-        <small>{node.command} · {node.file}:{node.startLine}</small>
-      </summary>
-      <div className="linked-overleaf-section__body">
-        {target && (
-          <div className="linked-overleaf-section__progress" title={`${pct}% of target`}>
-            <span style={{ width: `${pct}%` }} />
-          </div>
-        )}
-        <div className="linked-overleaf-section__target">
-          {editingTarget ? (
-            <input
-              type="number" min={1} autoFocus className="linked-overleaf-target-input"
-              defaultValue={target ?? ""}
-              placeholder="Target words"
-              onBlur={(e) => saveTarget(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") saveTarget((e.target as HTMLInputElement).value); if (e.key === "Escape") setEditingTarget(false); }}
-            />
-          ) : (
-            <button type="button" className="link-btn" onClick={() => setEditingTarget(true)}>
-              {target ? "Edit target" : "Set target"}
-            </button>
-          )}
-          {target && !editingTarget && (
-            <button type="button" className="link-btn" onClick={() => onSetTarget(key, null)}>Clear</button>
-          )}
-        </div>
-        {hasBody ? <pre>{body}</pre> : <p className="muted">No text directly under this heading.</p>}
-        {hasChildren && <SectionTree roots={node.children} files={files} counts={counts} targets={targets} onSetTarget={onSetTarget} parentPath={[key]} />}
-      </div>
-    </details>
-  );
-}
-
-/**
- * Edits this app's link row — title, which Overleaf project it points at, and
- * the entry file. Nothing here writes to Overleaf; changing the project id just
- * re-points the link, and the next fetch clones the new target.
- *
- * The connection (token) is deliberately not editable here: it belongs to the
- * account, not to one report.
- */
-function EditOverleafReportForm({ report, onSaved, onCancel, onError }: {
-  report: LinkedReport;
-  onSaved: () => void;
-  onCancel: () => void;
-  onError: (message: string) => void;
-}) {
-  const [busy, setBusy] = useState(false);
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); onError("");
-    const form = new FormData(event.currentTarget);
-    try {
-      const patch = {
-        id: report.id,
-        title: String(form.get("title") ?? ""),
-        overleafProjectId: String(form.get("overleafProjectId") ?? ""),
-        entryFile: String(form.get("entryFile") ?? ""),
-      };
-      const gateway = local();
-      if (gateway) await gateway.patchReport(patch);
-      else await api("/api/overleaf/reports", { method: "PATCH", body: JSON.stringify(patch) });
-      onSaved();
-    } catch (err) { onError(formatError(err)); }
-    finally { setBusy(false); }
-  }
-  return (
-    <form className="linked-overleaf-form linked-overleaf-form--edit" onSubmit={(event) => void submit(event)}>
-      <label>Report title<input name="title" required defaultValue={report.title} /></label>
-      <label>Overleaf project ID<input name="overleafProjectId" required defaultValue={report.overleaf_project_id} /></label>
-      <label>Entry file<input name="entryFile" required defaultValue={report.entry_file} /></label>
-      <div className="linked-overleaf-form__actions">
-        <button className="btn-primary" disabled={busy} type="submit">{busy ? "Saving…" : "Save changes"}</button>
-        <button className="btn-secondary btn-cancel" disabled={busy} type="button" onClick={onCancel}>Cancel</button>
-      </div>
-    </form>
-  );
-}
-
-function LinkOverleafForm({ projectId, onLinked, onError }: { projectId: string; onLinked: () => void; onError: (message: string) => void }) {
-  const [busy, setBusy] = useState(false);
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); onError("");
-    const form = new FormData(event.currentTarget);
-    try {
-      const gateway = local();
-      const link = {
-        projectId,
-        title: String(form.get("title") ?? ""),
-        overleafProjectId: String(form.get("overleafProjectId") ?? ""),
-        entryFile: String(form.get("entryFile") ?? "main.tex"),
-      };
-      const name = String(form.get("connectionName") ?? "");
-      const token = String(form.get("token") ?? "");
-      await linkOverleafReport(link, gateway
-        ? {
-            saveConnection: () => gateway.saveConnection(name, token),
-            createReport: (input) => gateway.createReport(input),
-          }
-        : {
-            saveConnection: async () => {
-              const id = (await api("/api/overleaf/connections", { method: "POST", body: JSON.stringify({ name, token }) })).connection?.id;
-              if (!id) throw new Error("The Overleaf connection was not saved.");
-              return id;
-            },
-            createReport: (input) => api("/api/overleaf/reports", { method: "POST", body: JSON.stringify(input) }),
-          });
-      onLinked();
-    } catch (err) { onError(formatError(err)); }
-    finally { setBusy(false); }
-  }
-  return <form className="linked-overleaf-form" onSubmit={(event) => void submit(event)}><label>Connection name<input name="connectionName" required placeholder="My Overleaf account" /></label><label>Overleaf Git token<input name="token" type="password" required autoComplete="off" /></label><label>Report title<input name="title" required placeholder="MSc thesis" /></label><label>Overleaf project ID<input name="overleafProjectId" required placeholder="1234567" /></label><label>Entry file<input name="entryFile" defaultValue="main.tex" required /></label><button className="btn-primary" disabled={busy} type="submit">{busy ? "Linking…" : "Save and link report"}</button></form>;
-}
