@@ -10,6 +10,7 @@ import {
   type CSSProperties,
 } from "react";
 import {
+  errorMessage,
   clampScale,
   readerKeyboardCommand,
   resolveTextAnchor,
@@ -1449,7 +1450,7 @@ export function PdfReader({
     try {
       path = await getContainer().papers.uploadImage(paperId, file, ext);
     } catch (err) {
-      setAnnError(`The picture could not be uploaded: ${err instanceof Error ? err.message : String(err)}`);
+      setAnnError(`The picture could not be uploaded: ${errorMessage(err)}`);
       return;
     }
     await persistDraft(draftPicture({ path, pageIndex: pageNumber - 1, pageWidth, pageHeight, aspect }));

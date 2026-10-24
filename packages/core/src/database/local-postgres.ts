@@ -13,6 +13,8 @@
  * from a browser bundle and from an Electron main process alike.
  */
 
+import { errorMessage } from "../shared/errors.js";
+
 /**
  * Who owns rows written before anybody signs in.
  *
@@ -120,7 +122,7 @@ export async function applyMigrations(
     try {
       await exec(migration.sql);
     } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
+      const reason = errorMessage(error);
       throw new Error(`Migration ${migration.name} failed on a clean database: ${reason}`);
     }
     await options.onApplied?.(migration.name);

@@ -4,7 +4,7 @@ import type {
   Paper,
   ReaderAnnotation,
 } from "@weaveforge/core";
-import { zoteroWriteBackAnnotations } from "@weaveforge/core";
+import { errorMessage, zoteroWriteBackAnnotations } from "@weaveforge/core";
 import type { ZoteroAnnotationWriteResult } from "../infrastructure/zotero-annotation-write-back";
 
 /**
@@ -76,7 +76,7 @@ export async function writeBackZoteroAnnotations(deps: {
     try {
       ({ results } = await deps.pusher.push(attachment, owed, { live: true }));
     } catch (err) {
-      fail(err instanceof Error ? err.message : String(err), owed.length);
+      fail(errorMessage(err), owed.length);
       continue;
     }
 

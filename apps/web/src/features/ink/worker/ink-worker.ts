@@ -30,6 +30,7 @@
  */
 
 import {
+  errorMessage,
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
   INK_PACK_TOLERANCE,
@@ -370,7 +371,7 @@ function startRenderer(delegating: boolean): void {
       },
     });
   } catch (error) {
-    reason = error instanceof Error ? error.message : String(error);
+    reason = errorMessage(error);
   }
   if (!renderer) {
     // The Canvas 2D path (§6.2.9): the same contract, drawn with paths. A canvas
@@ -379,7 +380,7 @@ function startRenderer(delegating: boolean): void {
     try {
       renderer = new CanvasInkRenderer({ canvas });
     } catch (error) {
-      reason += `; ${error instanceof Error ? error.message : String(error)}`;
+      reason += `; ${errorMessage(error)}`;
     }
   }
   if (!renderer) {
@@ -469,7 +470,7 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
           .catch((error: unknown) =>
             post({
               type: "error",
-              message: error instanceof Error ? error.message : String(error),
+              message: errorMessage(error),
             }),
           )
           .finally(() => state.saving.delete(saving));
@@ -561,7 +562,7 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
   } catch (error) {
     post({
       type: "error",
-      message: error instanceof Error ? error.message : String(error),
+      message: errorMessage(error),
     });
   } finally {
     // Buffers that were transferred belong to the worker until it hands them back.

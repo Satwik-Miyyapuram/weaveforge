@@ -1,3 +1,4 @@
+import { errorMessage } from "@weaveforge/core";
 import {
   app,
   BrowserWindow,
@@ -171,7 +172,7 @@ void app.whenReady().then(() =>
       level: "warn",
       source: "app-log",
       message: "the previous session's log could not be read back",
-      detail: cause instanceof Error ? cause.message : String(cause),
+      detail: errorMessage(cause),
     });
   }),
 );

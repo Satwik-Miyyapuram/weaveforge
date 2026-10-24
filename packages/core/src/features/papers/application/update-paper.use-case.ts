@@ -155,12 +155,6 @@ export class UpdatePaperUseCase {
   }
 }
 
-/** Word count used for the summary cap (shared with the UI's live counter). */
-export function countWords(text: string): number {
-  const t = text.trim();
-  return t ? t.split(/\s+/).length : 0;
-}
-
 /** Storage paths of a paper's attached images (kept in metadata.images). */
 export function imagesOf(paper: Paper): string[] {
   const raw = paper.metadata?.["images"];

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  errorMessage,
   ENTITY_DIRS,
   EXPERIMENT_STATUSES,
   FOLDER_DRAFTS_DIR,
@@ -728,7 +729,7 @@ export async function routeMcpRequest(
         // A tool error, not a protocol one: the call was well-formed and the answer is "no".
         return ok(id, {
           isError: true,
-          content: [{ type: "text", text: error instanceof Error ? error.message : "That did not work." }],
+          content: [{ type: "text", text: errorMessage(error, "That did not work.") }],
         });
       }
     }

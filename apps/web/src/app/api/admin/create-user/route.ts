@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  errorMessage,
   canCreateRole,
   resolveSupervisorId,
   validateNewMember,
@@ -29,7 +30,7 @@ import { formatError, formatErrorForResponse, jsonBodyError } from "@/lib/format
 const ALREADY_REGISTERED = [/already (been )?registered/i, /already exists/i];
 
 function isAlreadyRegistered(err: unknown): boolean {
-  const message = err instanceof Error ? err.message : "";
+  const message = errorMessage(err, "");
   return ALREADY_REGISTERED.some((pattern) => pattern.test(message));
 }
 

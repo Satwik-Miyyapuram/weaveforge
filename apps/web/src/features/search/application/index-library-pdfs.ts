@@ -1,3 +1,4 @@
+import { errorMessage } from "@weaveforge/core";
 import type { DocumentPageText, Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { resolvePaperPdfUrl } from "@/features/reader/application/sanitize-reader-url";
@@ -169,7 +170,7 @@ export function hostOf(url: string): string {
 
 export function readFailureReason(error: unknown, status?: number): string {
   if (status !== undefined) return `the host answered ${status}`;
-  const message = error instanceof Error ? error.message : String(error);
+  const message = errorMessage(error);
   if (/failed to fetch|networkerror|load failed/i.test(message)) {
     return "the host does not allow this app to read its PDF (cross-origin)";
   }

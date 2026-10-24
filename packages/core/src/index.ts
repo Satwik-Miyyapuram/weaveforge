@@ -15,6 +15,7 @@ export * from "./shared/module.js";
 export * from "./shared/markdown-image.js";
 export * from "./shared/map-limit.js";
 export * from "./shared/tree.js";
+export * from "./shared/text.js";
 export * from "./shared/three-way-merge.js";
 export * from "./config/index.js";
 export * from "./features/papers/index.js";

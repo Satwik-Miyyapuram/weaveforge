@@ -10,6 +10,7 @@
  */
 
 import {
+  errorMessage,
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
   decodeInkChunk,
@@ -132,7 +133,7 @@ export async function loadPage(
   } catch (error) {
     post({
       type: "error",
-      message: error instanceof Error ? error.message : String(error),
+      message: errorMessage(error),
     });
   } finally {
     state.loading = false;
