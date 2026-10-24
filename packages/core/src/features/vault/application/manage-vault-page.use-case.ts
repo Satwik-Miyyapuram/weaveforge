@@ -48,13 +48,7 @@ export class ManageVaultPageUseCase {
    * check exists to surface a clear message instead of a raw constraint error.
    */
   private async assertTitleUnique(title: string, exceptId?: string): Promise<void> {
-    const key = normalizeTitleKey(title);
-    // Only the identity and the title are read here, so the card projection is
-    // the right read — and it is required on the port, so this is one call
-    // rather than a fallback the caller has to remember to write.
-    const existing: readonly { id: string; title: string }[] =
-      await this.deps.repository.listSummaries();
-    if (existing.some((p) => p.id !== exceptId && normalizeTitleKey(p.title) === key)) {
+    if (await this.deps.repository.titleTaken(title, exceptId)) {
       throw new VaultPageValidationError(`A note titled “${title.trim()}” already exists.`);
     }
   }

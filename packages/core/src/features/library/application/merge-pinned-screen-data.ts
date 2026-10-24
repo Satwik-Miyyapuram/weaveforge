@@ -88,8 +88,15 @@ export async function mergePinnedScreenData<
   const typePins = input.pins.filter((p) => p.resourceType === input.resourceType);
   const pinnedSharedBy = new Map(typePins.map((p) => [p.resourceId, p.ownerId]));
   const ownedIds = new Set(input.owned.map((x) => x.id));
-  const extraIds = typePins.map((p) => p.resourceId).filter((id) => !ownedIds.has(id));
-  const loaded = await Promise.all(extraIds.map((id) => input.loadById(id)));
+  // A Set: the same resource pinned twice is one row, not two.
+  const extraIds = [...new Set(typePins.map((p) => p.resourceId))].filter(
+    (id) => !ownedIds.has(id),
+  );
+  // A pin whose resource can no longer be read (unshared, deleted) drops that
+  // pin; it must not take the owner's own list down with it.
+  const loaded = await Promise.all(
+    extraIds.map((id) => input.loadById(id).catch(() => null)),
+  );
   const extras = loaded.filter((item): item is NonNullable<typeof item> => item != null);
 
   // Every share of this type that names a resource, not only the pinned ones:

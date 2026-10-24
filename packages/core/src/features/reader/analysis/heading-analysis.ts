@@ -10,7 +10,7 @@
  * found is plausible — an empty sidebar beats a misleading one.
  */
 
-import { HAS_WORD, type ReaderOutlineItem } from "../outline-from-text.js";
+import { HAS_WORD, REFERENCES_HEADING, type ReaderOutlineItem } from "../outline-from-text.js";
 import type { TextLine } from "./line-reconstruction.js";
 
 /**
@@ -123,7 +123,7 @@ export function headingOutline(headings: readonly TextLine[]): ReaderOutlineItem
     if (parent) (parent.items ??= []).push(node);
     else roots.push(node);
     stack.push({ level, node });
-    if (/^(?:\d+(?:\.\d+)*\.?\s+)?(?:References|Bibliography|Referencias|Références|Bibliographie|Literaturverzeichnis?)\b/iu.test(line.text)) break;
+    if (REFERENCES_HEADING.test(line.text)) break;
   }
   return roots;
 }

@@ -49,3 +49,41 @@ test("an item whose parent is missing becomes a root rather than vanishing", () 
   const roots = tree([{ id: "x", parentId: "gone", order: 0, name: "x" }]);
   assert.deepEqual(names(roots), ["x()"]);
 });
+
+// A parent loop in the data (01-06): no node on it is reachable from a root,
+// so it used to vanish. The loop is cut at one node, which becomes a root.
+test("a two-node parent loop is rooted once, not dropped", () => {
+  const roots = tree([
+    { id: "a", parentId: "b", order: 0, name: "a" },
+    { id: "b", parentId: "a", order: 0, name: "b" },
+    { id: "r", order: 1, name: "r" },
+  ]);
+  assert.deepEqual(names(roots), ["a(b())", "r()"]);
+});
+
+test("a node that is its own parent is a root, and sorting ends", () => {
+  const roots = tree([{ id: "s", parentId: "s", order: 0, name: "s" }]);
+  assert.deepEqual(names(roots), ["s()"]);
+});
+
+test("a node hanging off a loop stays under its parent", () => {
+  const roots = tree([
+    { id: "c", parentId: "a", order: 0, name: "c" },
+    { id: "a", parentId: "b", order: 0, name: "a" },
+    { id: "b", parentId: "a", order: 0, name: "b" },
+  ]);
+  const all = names(roots).join();
+  assert.equal(roots.length, 1, "one loop, one root");
+  assert.match(all, /a\(.*c\(\)/, "c is still a's child");
+  assert.equal(all.split("(").length - 1, 3, "every node appears once");
+});
+
+test("two separate loops each get a root", () => {
+  const roots = tree([
+    { id: "a", parentId: "b", order: 0, name: "a" },
+    { id: "b", parentId: "a", order: 0, name: "b" },
+    { id: "x", parentId: "y", order: 0, name: "x" },
+    { id: "y", parentId: "x", order: 0, name: "y" },
+  ]);
+  assert.equal(roots.length, 2);
+});

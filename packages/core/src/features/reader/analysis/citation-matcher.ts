@@ -9,7 +9,7 @@
  * `(2014)` — one citation rather than two.
  */
 
-import { itemToRect, type PageTextItem } from "../../../reader/selection-to-anchor.js";
+import type { PageTextItem } from "../../../reader/selection-to-anchor.js";
 import type { CitationMention, PageTextRange, ParsedReference, PdfLink } from "./analysis-types.js";
 import type { CitationStyle } from "../find-citation-mentions.js";
 import type { OutlineTextItem } from "../outline-from-text.js";
@@ -25,26 +25,6 @@ export interface PageCitationInput {
   /** The same runs as outline items, for the pattern finder. */
   outlineItems: readonly OutlineTextItem[];
   links?: readonly PdfLink[];
-}
-
-/**
- * PDF user-space rects covering `[start, end)` of the page text, one per
- * text run the span crosses, in reading order. Sub-run ranges interpolate
- * across the run's width, as `itemToRect` does.
- */
-export function mentionRects(items: readonly PageTextItem[], start: number, end: number): number[][] {
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
-  const rects: number[][] = [];
-  let cursor = 0;
-  for (const item of items) {
-    const from = cursor;
-    const to = from + item.str.length;
-    cursor = to + (item.hasEOL ? 1 : 0);
-    if (to <= start || from >= end) continue;
-    const rect = itemToRect(item, Math.max(0, start - from), Math.min(item.str.length, end - from));
-    if (rect && rect[2]! > rect[0]!) rects.push(rect);
-  }
-  return rects;
 }
 
 /**

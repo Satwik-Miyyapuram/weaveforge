@@ -314,3 +314,28 @@ test("the fingerprint is stable and text survives on every page", () => {
   assert.match(a.fingerprint, /^[0-9a-f]{16}$/);
   assert.deepEqual(a.pages.map((p) => p.text.includes("[1]") || p.text.includes("Body prose") || p.text.includes("References")), [true, true, true]);
 });
+
+test("a rotated first item leaves line offsets matching the page text (04-01)", () => {
+  // arXiv's side stamp: a rotated run, first in the content stream.
+  const stamp = {
+    str: "arXiv:2101.00001v1 [cs.LG] 1 Jan 2021",
+    transform: [0, 10, -10, 0, 20, 300],
+    width: 10,
+    height: 10,
+    hasEOL: true,
+  };
+  const refs = textPage(3, numberedReferences(4));
+  const pages: AnalyzePdfPage[] = [
+    textPage(1, ["As shown in [1] the method works."]),
+    body(8, 2),
+    { ...refs, items: [stamp, ...refs.items] },
+  ];
+  const analysis = analyzePdfDocument(pages);
+  assert.equal(analysis.references.length, 4);
+  const text = analysis.pages.find((p) => p.pageNumber === 3)!.text;
+  for (const ref of analysis.references) {
+    assert.ok(ref.start !== undefined && ref.end !== undefined);
+    const slice = text.slice(ref.start, ref.end);
+    assert.ok(ref.raw.startsWith(slice.slice(0, 10)), `offsets point at "${slice}", not "${ref.raw}"`);
+  }
+});
