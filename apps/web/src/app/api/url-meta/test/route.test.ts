@@ -131,6 +131,47 @@ test("url-meta: 404 when Crossref has no record for the DOI", async () => {
   }
 });
 
+test("url-meta: a Crossref answer that is not JSON is a 404, not a crash (14-12)", async () => {
+  const { restore } = stubBoth(() => new Response("<html>maintenance</html>", { status: 200 }));
+  try {
+    const target = "https://dl.acm.org/doi/10.1145/broken";
+    const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`);
+    assert.equal(res.status, 404);
+    assert.match((await res.json()).error, /not found in Crossref/);
+  } finally {
+    restore();
+  }
+});
+
+/** A 200 whose body fails partway, the way a dropped connection does. */
+function brokenBody(): Response {
+  return new Response(
+    new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.error(new Error("socket hang up"));
+      },
+    }),
+  );
+}
+
+test("url-meta: an arXiv answer that fails mid-body falls through to the page (14-12)", async () => {
+  const { restore } = stubBoth((url) =>
+    /export\.arxiv\.org/.test(url)
+      ? brokenBody()
+      : new Response('<html><head><meta name="citation_title" content="From The Page"/></head></html>', {
+          headers: { "content-type": "text/html" },
+        }),
+  );
+  try {
+    const target = "https://arxiv.org/abs/2306.09643";
+    const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent(target)}`);
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).title, "From The Page");
+  } finally {
+    restore();
+  }
+});
+
 test("url-meta: scrapes citation meta tags from an HTML page", async () => {
   const html = `<html><head>
     <meta name="citation_title" content="Attention Is All You Need">
@@ -269,6 +310,24 @@ test("url-meta: a scheme-less host is fetched over https", async () => {
     assert.equal(res.status, 200);
     assert.equal((await res.json()).title, "Scheme Less");
     assert.equal(seen, "https://example.com/paper");
+  } finally {
+    restore();
+  }
+});
+
+test("url-meta: a scheme-less host with a port is fetched over https (09-08)", async () => {
+  let seen = "";
+  const { restore } = stubBoth((url) => {
+    seen = url;
+    return new Response('<html><head><meta name="citation_title" content="With Port"/></head></html>', {
+      headers: { "content-type": "text/html" },
+    });
+  });
+  try {
+    const res = await GET_META(`http://localhost/api/url-meta?url=${encodeURIComponent("example.com:8443/paper")}`);
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).title, "With Port");
+    assert.equal(seen, "https://example.com:8443/paper");
   } finally {
     restore();
   }

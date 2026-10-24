@@ -389,3 +389,74 @@ test("the root README, rewritten by another project's mirror, is not held back",
   // Only the export time differs, so it is not rewritten either.
   assert.ok(!second.written.includes("README.md"));
 });
+
+/** Counts the reads the mirror makes per path. */
+class CountingFs extends MemoryWorkspaceFs {
+  stats = new Map<string, number>();
+  reads = new Map<string, number>();
+  override async stat(path: string) {
+    this.stats.set(path, (this.stats.get(path) ?? 0) + 1);
+    return super.stat(path);
+  }
+  override async readText(path: string) {
+    this.reads.set(path, (this.reads.get(path) ?? 0) + 1);
+    return super.readText(path);
+  }
+  reset() {
+    this.stats.clear();
+    this.reads.clear();
+  }
+}
+
+test("an unchanged file costs one read and no stat (06-03)", async () => {
+  const fs = new CountingFs();
+  const input = snapshot({ vaultPages: [note("n1", "Method", "Body")] });
+  await mirrorWorkspace(input, fs, { project: THESIS });
+  fs.reset();
+
+  const second = await mirrorWorkspace(input, fs, { project: THESIS });
+
+  const path = at("notes/method.note.md");
+  assert.deepEqual(second.written, []);
+  assert.equal(fs.stats.get(path) ?? 0, 0);
+  assert.equal(fs.reads.get(path), 1);
+});
+
+test("a reader's edit is held back on the one read it took to see it (06-03)", async () => {
+  const fs = new CountingFs();
+  const first = await mirrorWorkspace(snapshot({ vaultPages: [note("n1", "Method", "One")] }), fs, {
+    project: THESIS,
+  });
+  const path = at("notes/method.note.md");
+  const edited = `${await fs.readText(path)}\nThe reader's line.\n`;
+  await fs.writeFile(path, edited);
+  fs.reset();
+
+  const second = await mirrorWorkspace(snapshot({ vaultPages: [note("n1", "Method", "Two")] }), fs, {
+    project: THESIS,
+    previousPaths: first.written,
+    base: first.mirrored,
+  });
+
+  assert.deepEqual(second.heldBack, [path]);
+  assert.equal(await fs.readText(path), edited);
+  assert.equal(fs.stats.get(path) ?? 0, 0);
+  assert.equal(fs.reads.get(path), 2, "one by the mirror, one by this assertion");
+});
+
+test("a file that is gone, or cannot be read, is written (06-03)", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const input = snapshot({ vaultPages: [note("n1", "Method", "Body")] });
+  const first = await mirrorWorkspace(input, fs, { project: THESIS });
+  const path = at("notes/method.note.md");
+  await fs.remove(path);
+
+  const second = await mirrorWorkspace(input, fs, {
+    project: THESIS,
+    previousPaths: first.written,
+    base: first.mirrored,
+  });
+
+  assert.ok(second.written.includes(path));
+  assert.ok((await fs.readText(path)).includes("Body"));
+});

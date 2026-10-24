@@ -35,11 +35,15 @@ export interface ChunkOptions {
 
 const DEFAULTS = { maxChars: 1_000, overlapChars: 120, minChars: 80 } as const;
 
-/** Last structural boundary in `text` at or before `limit`, or -1. */
-function boundaryBefore(text: string, from: number, limit: number): number {
+/**
+ * Last structural boundary in `text` after `from` and at or before `limit`,
+ * or -1. The scan starts at `from`, not at the top of the text, so chunking is
+ * linear rather than quadratic in the text's length.
+ */
+function boundaryBefore(text: string, from: number, limit: number, minChars: number): number {
   for (const pattern of [/\n\s*\n/g, /(?<=[.!?])\s/g, /\s/g]) {
     let best = -1;
-    pattern.lastIndex = 0;
+    pattern.lastIndex = from;
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(text)) !== null) {
       const at = match.index + match[0].length;
@@ -48,7 +52,7 @@ function boundaryBefore(text: string, from: number, limit: number): number {
       best = at;
     }
     // A boundary is only useful if it leaves a passage worth embedding.
-    if (best > from + DEFAULTS.minChars) return best;
+    if (best > from + minChars) return best;
   }
   return -1;
 }
@@ -75,7 +79,7 @@ export function chunkForEmbedding(text: string, options: ChunkOptions = {}): Tex
   while (start < trimmed.length) {
     const hardEnd = Math.min(start + maxChars, trimmed.length);
     const end =
-      hardEnd === trimmed.length ? hardEnd : (boundaryBefore(trimmed, start, hardEnd) ?? -1);
+      hardEnd === trimmed.length ? hardEnd : boundaryBefore(trimmed, start, hardEnd, minChars);
     const cut = end > start ? end : hardEnd;
 
     const slice = trimmed.slice(start, cut).trim();
