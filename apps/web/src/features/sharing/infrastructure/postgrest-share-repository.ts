@@ -10,14 +10,17 @@ import {
   type ShareRow,
   toDomain,
 } from "./share-rows";
-import { oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
+import { one, oneRow, rows, run } from "@/backend/providers/postgrest/row-access";
 
 /**
  * PostgREST adapter for shares (migration 0018). `owner_id` defaults to
- * auth.uid() server-side, so it's never sent. Grant is made idempotent by
- * delete-then-insert on (recipient, type, resource) — the delete only ever
- * touches the caller's own rows (RLS `shares_owner_all`), which sidesteps the
- * NULL-resource_id unique-index edge case an upsert would hit.
+ * auth.uid() server-side, so it's never sent.
+ *
+ * Grant changes an existing share in place and inserts only when there is none.
+ * It used to delete and re-insert, which left the recipient with no access when
+ * the insert failed. An upsert is not possible: the unique index is on an
+ * expression (`coalesce(resource_id, ...)`) PostgREST cannot target. The update
+ * only ever touches the caller's own rows (RLS `shares_owner_all`).
  */
 /**
  * The columns a ShareRow is read as, named rather than starred.
@@ -29,6 +32,9 @@ const SHARE_COLUMNS = "id,owner_id,recipient_id,resource_type,resource_id,access
 
 const TABLE = "shares";
 
+/** Postgres: a row with the same unique key already exists. */
+const UNIQUE_VIOLATION = "23505";
+
 export class PostgrestShareRepository implements IShareRepository {
   constructor(
     private readonly db: SupabaseClient,
@@ -36,30 +42,39 @@ export class PostgrestShareRepository implements IShareRepository {
   ) {}
 
   async grant(input: NewShareInput): Promise<Share> {
-    // Clear any existing grant for the same recipient+resource, then insert.
-    let del = this.db
+    const access = input.access ?? "comment";
+    const changed = await this.changeAccess(input, access);
+    if (changed) return toDomain(changed);
+
+    try {
+      return toDomain(await oneRow<ShareRow>(this.db
+        .from(TABLE)
+        .insert({
+          recipient_id: input.recipientId,
+          resource_type: input.resourceType,
+          resource_id: input.resourceId,
+          access,
+        })
+        .select(SHARE_COLUMNS)
+        .single()));
+    } catch (e) {
+      // Another grant for the same recipient inserted first; change that one.
+      if ((e as { code?: unknown } | null)?.code !== UNIQUE_VIOLATION) throw e;
+      const row = await this.changeAccess(input, access);
+      if (!row) throw e;
+      return toDomain(row);
+    }
+  }
+
+  /** Set the access on the caller's existing share, if there is one. */
+  private async changeAccess(input: NewShareInput, access: string): Promise<ShareRow | null> {
+    let q = this.db
       .from(TABLE)
-      .delete()
+      .update({ access })
       .eq("recipient_id", input.recipientId)
       .eq("resource_type", input.resourceType);
-    del =
-      input.resourceId === null
-        ? del.is("resource_id", null)
-        : del.eq("resource_id", input.resourceId);
-    const { error: delErr } = await del;
-    if (delErr) throw delErr;
-
-    const dbRow = await oneRow<ShareRow>(this.db
-      .from(TABLE)
-      .insert({
-        recipient_id: input.recipientId,
-        resource_type: input.resourceType,
-        resource_id: input.resourceId,
-        access: input.access ?? "comment",
-      })
-      .select(SHARE_COLUMNS)
-      .single());
-    return toDomain(dbRow);
+    q = input.resourceId === null ? q.is("resource_id", null) : q.eq("resource_id", input.resourceId);
+    return one<ShareRow>(q.select(SHARE_COLUMNS).maybeSingle());
   }
 
   async revoke(id: string): Promise<void> {

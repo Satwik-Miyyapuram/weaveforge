@@ -110,3 +110,63 @@ test("one listener throwing does not deafen the others", () => {
   assert.deepEqual(heard, ["papers"]);
   resetWorkspaceChangeListeners();
 });
+
+/** A client whose `rpc` answers like PostgREST: a thenable settling with `{ error }`. */
+function rpcClient(result: { error: unknown } = { error: null }) {
+  const called: string[] = [];
+  const db = {
+    rpc(fn: string) {
+      called.push(fn);
+      return { then: (onFulfilled?: (v: unknown) => unknown) => Promise.resolve(result).then(onFulfilled) };
+    },
+  };
+  return { db: db as unknown as SupabaseClient, called };
+}
+
+test("an RPC that writes reports the table it writes", async () => {
+  // A write done by a database function never passes through `from()`, so the
+  // folder mirror and the sync loop did not hear about it.
+  const seen: string[] = [];
+  const { db } = rpcClient();
+  const wrapped = watchWrites(db, (table) => seen.push(table));
+  await wrapped.rpc("set_comment_resolved", { p_id: "c1", p_resolved: true });
+  await wrapped.rpc("redeem_share_link", { p_token_hash: "x" });
+  assert.deepEqual(seen, ["comments", "shares"]);
+});
+
+test("a read-only or bookkeeping RPC reports nothing", async () => {
+  const seen: string[] = [];
+  const { db, called } = rpcClient();
+  const wrapped = watchWrites(db, (table) => seen.push(table));
+  await wrapped.rpc("metric_history", {});
+  await wrapped.rpc("record_blob_access", {});
+  assert.deepEqual(seen, []);
+  assert.deepEqual(called, ["metric_history", "record_blob_access"], "the call still goes through");
+});
+
+test("a failed RPC is not a change", async () => {
+  const seen: string[] = [];
+  const { db } = rpcClient({ error: { message: "permission denied" } });
+  const wrapped = watchWrites(db, (table) => seen.push(table));
+  assert.deepEqual(await wrapped.rpc("set_comment_resolved", {}), { error: { message: "permission denied" } });
+  assert.deepEqual(seen, []);
+});
+
+test("every RPC the app calls is classified as a write or not", async () => {
+  // An RPC missing from the list is silently treated as a read, which is the
+  // stale-mirror bug this list exists to prevent. Naming every one here makes
+  // a new RPC fail this test until someone decides.
+  const { RPC_WRITES } = await import("../providers/postgrest/watch-writes");
+  const { readdirSync, readFileSync } = await import("node:fs");
+  const path = await import("node:path");
+  const src = path.resolve(import.meta.dirname, "../..");
+  const called = new Set<string>();
+  for (const entry of readdirSync(src, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile() || !/\.tsx?$/.test(entry.name) || /[\/]test[\/]?/.test(entry.parentPath + path.sep)) continue;
+    const text = readFileSync(path.join(entry.parentPath, entry.name), "utf8");
+    for (const match of text.matchAll(/\.rpc(?:<[^>]*>)?\(\s*"([a-z_0-9]+)"/g)) called.add(match[1]!);
+  }
+  assert.ok(called.size > 10, "the scan found the app's RPC calls");
+  const unclassified = [...called].filter((fn) => !Object.hasOwn(RPC_WRITES, fn)).sort();
+  assert.deepEqual(unclassified, []);
+});
