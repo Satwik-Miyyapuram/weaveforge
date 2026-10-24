@@ -22,6 +22,7 @@ import {
   type FigureClip,
 } from "../application/figure-clipboard";
 import { useCallback, useEffect, useState } from "react";
+import { isEditableTarget } from "@/lib/editable-target";
 import {
   INK_A4_WIDTH,
   INK_A4_HEIGHT,
@@ -355,12 +356,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
    */
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (
-        target &&
-        (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
-      )
-        return;
+      if (isEditableTarget(event.target)) return;
       const wrap = deps.wrapRef.current;
       if (!wrap || !wrap.contains(document.activeElement)) return;
       // A figure copied from a note (§figure-clipboard) comes back as itself,

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createRestClient } from "@/backend/providers/postgrest/client";
 import {
+  ORG_INVITE_ROLES,
   normalizeOrgInviteCode,
   resolveOrgJoinAssignment,
   validateOrgName,
@@ -60,8 +61,6 @@ interface MembershipRow {
  * path for somebody who has not joined yet.
  */
 const CODE_COLUMNS = "id,org_id,target_role,code_hash,revoked_at";
-
-const ROLES: OrgInviteRole[] = ["professor", "phd", "masters"];
 
 /**
  * How many times a code collision is retried.
@@ -138,7 +137,7 @@ export class OrgInviteService {
     const admin = this.admin();
 
     for (let attempt = 0; attempt < CODE_ATTEMPTS; attempt++) {
-      const codes: OrgInviteCodePlaintext[] = ROLES.map((targetRole) => ({
+      const codes: OrgInviteCodePlaintext[] = ORG_INVITE_ROLES.map((targetRole) => ({
         targetRole,
         code: generateOrgInviteCode(),
       }));
