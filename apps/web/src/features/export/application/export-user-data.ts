@@ -20,6 +20,11 @@ export interface ExportAssetReaders {
   fetchPaperImages(paths: readonly string[]): Promise<Map<string, Blob | null>>;
 }
 
+/** The folder export also writes report figures, which the JSON export does not. */
+export interface FolderAssetReaders extends ExportAssetReaders {
+  fetchReportImages(paths: readonly string[]): Promise<Map<string, Blob | null>>;
+}
+
 /**
  * Build the export's file map from a snapshot. Split out from `exportUserData`
  * so it can be tested without a container, and so a future folder writer can
@@ -126,10 +131,10 @@ export async function buildExportFiles(
  * Opens directly in Obsidian or VS Code — every file carries its `weaveforge-id`
  * in frontmatter, so a re-import matches entities back up regardless of renames.
  */
-async function buildWorkspaceFolderFiles(
+export async function buildWorkspaceFolderFiles(
   snapshot: WorkspaceSnapshot,
   project: WorkspaceProject,
-  assets: ExportAssetReaders,
+  assets: FolderAssetReaders,
 ): Promise<Record<string, Uint8Array>> {
   // Inside the project's folder, exactly as the folder mirror writes it: an
   // export and a mirrored folder have to be the same tree, or re-importing one
@@ -153,6 +158,9 @@ async function buildWorkspaceFolderFiles(
   if (byScope.papers.length) {
     for (const [path, blob] of await assets.fetchPaperImages(byScope.papers)) fetched.set(path, blob);
   }
+  if (byScope.report.length) {
+    for (const [path, blob] of await assets.fetchReportImages(byScope.report)) fetched.set(path, blob);
+  }
 
   for (const ref of refs) {
     const blob = fetched.get(ref.storagePath);
@@ -170,6 +178,7 @@ export async function downloadWorkspaceFolder(): Promise<void> {
   const files = await buildWorkspaceFolderFiles(snapshot, await activeProject(), {
     fetchVaultAssets: (paths) => c.vault.fetchAssetBlobs(paths),
     fetchPaperImages: (paths) => c.papers.fetchImageBlobs(paths),
+    fetchReportImages: (paths) => c.report.fetchImageBlobs(paths),
   });
   const date = new Date().toISOString().slice(0, 10);
   const root = `weaveforge-${date}`;

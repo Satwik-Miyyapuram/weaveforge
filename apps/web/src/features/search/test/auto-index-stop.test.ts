@@ -19,7 +19,7 @@ const store = new Map<string, string>([["thesis.search.pdf-auto", "1"]]);
   removeItem: (k: string) => void store.delete(k),
 };
 
-const EMPTY: LibraryIndexResult = { indexed: 0, skipped: 0, failed: 0, failures: [], reasons: {} };
+const EMPTY: LibraryIndexResult = { indexed: 0, skipped: 0, failed: 0, failures: [], reasons: {}, unreadIds: [] };
 
 /** A run that holds until aborted, or until `finish` is called. */
 function blockingDeps(projectId: string) {

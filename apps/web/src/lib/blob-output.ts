@@ -1,7 +1,7 @@
 /**
  * Handing a file to the user: a download, or a data URL to embed.
  *
- * Two small things that several features need and none of them owns.
+ * Small things that several features need and none of them owns.
  */
 
 /** Triggers a browser download of a blob under the given filename. */

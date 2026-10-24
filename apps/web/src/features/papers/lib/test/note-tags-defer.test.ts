@@ -109,3 +109,39 @@ describe("the online listener (xstate-05)", () => {
     stopDeferredTagReconcile();
   });
 });
+
+describe("retryDeferredTagReconciles (25-12)", () => {
+  beforeEach(() => store.clear());
+
+  const queue = (...ids: string[]) => store.set("wf.tags.deferredReconcile", JSON.stringify(ids));
+  const queued = () => JSON.parse(store.get("wf.tags.deferredReconcile") ?? "[]") as string[];
+
+  it("drops a paper the server refuses and retries the rest", async () => {
+    const f = fakePapers({ offline: false, summaries: { p1: "#a", p2: "#b" } });
+    const reconcile = f.papers.manageTags.reconcileSources.bind(f.papers.manageTags);
+    f.papers.manageTags.reconcileSources = (async (id: string, ...rest: unknown[]) => {
+      if (id === "p1") throw { message: "permission denied for table paper_tags", code: "42501" };
+      return (reconcile as (...a: unknown[]) => Promise<Paper>)(id, ...rest);
+    }) as typeof f.papers.manageTags.reconcileSources;
+    queue("p1", "p2");
+    await retryDeferredTagReconciles(f.papers);
+    assert.deepEqual(f.reconciled, [{ id: "p2", tags: ["b"] }]);
+    assert.deepEqual(queued(), []);
+  });
+
+  it("keeps everything queued while still offline", async () => {
+    const f = fakePapers({ offline: true, summaries: { p1: "#a", p2: "#b" } });
+    queue("p1", "p2");
+    await retryDeferredTagReconciles(f.papers);
+    assert.deepEqual(queued(), ["p1", "p2"]);
+  });
+
+  it("drops a paper that no longer exists", async () => {
+    const f = fakePapers({ offline: false, summaries: { p2: "#b" } });
+    f.papers.getPaper = async (id: string) => (id === "p2" ? paper(id, "#b") : (null as unknown as Paper));
+    queue("gone", "p2");
+    await retryDeferredTagReconciles(f.papers);
+    assert.deepEqual(f.reconciled, [{ id: "p2", tags: ["b"] }]);
+    assert.deepEqual(queued(), []);
+  });
+});

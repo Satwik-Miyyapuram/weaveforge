@@ -52,6 +52,12 @@ const defaultDeps: AutoIndexDeps = {
   papersNeedingIndex,
   indexLibraryPdfs,
 };
+let currentDeps = defaultDeps;
+
+/** Replace what a run reads; tests only. */
+export function setAutoIndexDeps(next: AutoIndexDeps): void {
+  currentDeps = next;
+}
 
 let status: AutoIndexStatus = { running: false, progress: null, last: null };
 const listeners = new Set<() => void>();
@@ -83,8 +89,13 @@ export function autoIndexEnabled(): boolean {
 export function setAutoIndexEnabled(on: boolean): void {
   // Not persisted when storage is blocked; this session still honours it.
   writeStored(AUTO_KEY, on ? "1" : "0");
-  if (on) void startAutoIndex(0);
-  else controller?.abort();
+  if (on) {
+    void startAutoIndex(0);
+    return;
+  }
+  controller?.abort();
+  // Turned off, so the next "on" is a fresh start, not "already done" (27-09).
+  startedFor = undefined;
 }
 
 function recentFailures(): Record<string, number> {
@@ -101,13 +112,28 @@ function rememberFailures(failures: Record<string, number>): void {
   writeStoredJson(FAILED_KEY, failures);
 }
 
+/** Wait `ms`, or less if `signal` aborts first, so turning it off ends the run at once (27-10). */
+function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
 /**
  * Start the background run, once per project per session.
  *
  * Called when the search index first lands; a no-op when turned off, already
  * running, or already done for this project.
  */
-export async function startAutoIndex(delayMs = START_DELAY_MS, deps: AutoIndexDeps = defaultDeps): Promise<void> {
+export async function startAutoIndex(delayMs = START_DELAY_MS, deps: AutoIndexDeps = currentDeps): Promise<void> {
   if (!autoIndexEnabled() || status.running) return;
   const projectId = deps.projectId();
   if (startedFor === projectId) return;
@@ -118,7 +144,7 @@ export async function startAutoIndex(delayMs = START_DELAY_MS, deps: AutoIndexDe
   const signal = own.signal;
   set({ running: true, progress: null });
   try {
-    if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+    if (delayMs > 0) await abortableDelay(delayMs, signal);
     if (signal.aborted) return;
 
     const failures = recentFailures();
@@ -133,11 +159,8 @@ export async function startAutoIndex(delayMs = START_DELAY_MS, deps: AutoIndexDe
     if (signal.aborted) return;
 
     const now = Date.now();
-    const titles = new Map(papers.map((paper) => [paper.title, paper.id]));
-    for (const title of Object.keys(result.reasons)) {
-      const id = titles.get(title);
-      if (id) failures[id] = now;
-    }
+    // By id: two papers can share a title, and each failed on its own (27-11).
+    for (const id of result.unreadIds) failures[id] = now;
     rememberFailures(failures);
     set({ last: result });
   } catch {

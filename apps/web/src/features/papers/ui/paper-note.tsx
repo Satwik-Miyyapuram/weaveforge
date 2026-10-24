@@ -6,7 +6,8 @@ import Link from "next/link";
 import { PAPER_STATUSES, isEmptyPaperSummary, isInkNoteBody, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { confirmRemovePaper } from "./remove-paper";
-import { formatError } from "@/lib/format-error";
+import { describeRejection, formatError } from "@/lib/format-error";
+import { logToApp } from "@/lib/error-report/app-log";
 import { BellIcon, BellOffIcon, CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
 import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
 import {
@@ -192,7 +193,12 @@ export function PaperNote({
       closedRef.current = true;
       const pending = pendingTagsRef.current;
       pendingTagsRef.current = null;
-      if (pending !== null) void reconcileTagsRef.current(pending).catch(() => undefined);
+      if (pending !== null) {
+        // The page is gone, so there is nowhere to show the error: log it.
+        void reconcileTagsRef.current(pending).catch((err) =>
+          logToApp({ level: "warn", source: "tags", message: "Could not update the note's tags on close", detail: describeRejection(err) }),
+        );
+      }
     },
     [],
   );
