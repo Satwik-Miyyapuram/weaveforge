@@ -2,7 +2,9 @@ import type {
   IExperimentRepository,
   IPaperRepository,
   ManageExperimentUseCase,
+  Paper,
 } from "@weaveforge/core";
+import { batchById } from "@/lib/batch-by-id";
 import { isStaleRunningExperiment, mapLimit, STALE_RUNNING_MS } from "@weaveforge/core";
 import type { LoadExperimentsScreenUseCase, ExperimentsScreenData } from "@/features/experiments/application/load-experiments-screen.use-case";
 import type {
@@ -40,7 +42,8 @@ export class ExperimentsFacade {
     private readonly deps: {
       load: LoadExperimentsScreenUseCase;
       experiments: IExperimentRepository;
-      papers: IPaperRepository;
+      // `listByIds` is the PostgREST repository's batch read; not on the port.
+      papers: IPaperRepository & { listByIds?(ids: readonly string[]): Promise<Paper[]> };
       // The two reads this facade makes, as the two ports they are: it draws
       // curves and it asks when a run last logged. It never writes a metric, so
       // it does not depend on the writer — which is what kept the aggregate
@@ -141,9 +144,20 @@ export class ExperimentsFacade {
     return this.deps.experiments.list();
   }
 
-  getPaper(id: string) {
-    return this.deps.papers.getById(id);
+  /**
+   * One run's paper. Cards each ask for theirs; asked in the same tick they
+   * are read in one request (35-15).
+   */
+  getPaper(id: string): Promise<Paper | null> {
+    const papers = this.deps.papers;
+    this.paperById ??= batchById<Paper>(
+      (one) => papers.getById(one),
+      papers.listByIds ? (ids) => papers.listByIds!(ids) : undefined,
+    );
+    return this.paperById(id);
   }
+
+  private paperById: ((id: string) => Promise<Paper | null>) | null = null;
 
   /**
    * The curves for one run's chart.

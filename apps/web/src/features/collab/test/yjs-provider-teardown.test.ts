@@ -1,5 +1,5 @@
 /**
- * `EncryptedYjsProvider.destroy()` must leave the channel in its synchronous
+ * `RealtimeYjsProvider.destroy()` must leave the channel in its synchronous
  * prologue, before it awaits anything.
  *
  * It used to unsubscribe last, after persisting — a network round trip. React
@@ -12,7 +12,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as Y from "yjs";
 
-import { EncryptedYjsProvider } from "../infrastructure/encrypted-yjs-provider";
+import { RealtimeYjsProvider } from "../infrastructure/realtime-yjs-provider";
 
 /** Records the order of the operations we care about. */
 function harness(opts: { persistDelayMs?: number } = {}) {
@@ -66,7 +66,7 @@ function harness(opts: { persistDelayMs?: number } = {}) {
 
 function makeProvider(h: ReturnType<typeof harness>) {
   const doc = new Y.Doc();
-  const provider = new EncryptedYjsProvider({
+  const provider = new RealtimeYjsProvider({
     doc,
     // The provider narrows this internally; the harness stands in for the client.
     db: h.db as never,
@@ -165,7 +165,7 @@ test("provider: solo opens no channel and broadcasts nothing", async () => {
   // log still has to be written: solo means no transport, not no history.
   const h = harness();
   const doc = new Y.Doc();
-  const provider = new EncryptedYjsProvider({
+  const provider = new RealtimeYjsProvider({
     doc,
     db: h.db as never,
     crdtStore: h.crdtStore as never,
@@ -208,7 +208,7 @@ test("provider: a failed final persist and leave never escape destroy", async ()
   try {
     const errors: string[] = [];
     const doc = new Y.Doc();
-    const provider = new EncryptedYjsProvider({
+    const provider = new RealtimeYjsProvider({
       doc,
       db: h.db as never,
       crdtStore: h.crdtStore as never,

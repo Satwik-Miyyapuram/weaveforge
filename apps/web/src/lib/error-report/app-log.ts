@@ -1,6 +1,7 @@
 "use client";
 
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { redact } from "./redact";
 
 /**
  * The one way the page writes to the application log.
@@ -42,6 +43,11 @@ export function logToApp(input: AppLogInput): void {
  * "GET https://api.weaveforge.org/rest/v1/papers returned 403" plus the head of
  * the body is the whole diagnosis for most of what goes wrong in this app, and
  * two sessions were spent reconstructing exactly that by hand.
+ *
+ * The line lands in a file people attach to bug reports, and a URL can carry a
+ * view token or an OAuth code while an error or body can quote a bearer token.
+ * So both are redacted, the body before it is cut: a secret cut in half no
+ * longer looks like one.
  */
 export function reportFailedRequest(input: {
   method: string;
@@ -52,12 +58,12 @@ export function reportFailedRequest(input: {
   error?: unknown;
 }): void {
   const { method, url, status, statusText, body, error } = input;
-  const line = `${method.toUpperCase()} ${url} — ${
+  const line = `${method.toUpperCase()} ${redact(url).text} — ${
     status === undefined ? "no response" : `${status}${statusText ? ` ${statusText}` : ""}`
   }`;
   const detail = [
     error instanceof Error ? (error.stack ?? `${error.name}: ${error.message}`) : error ? String(error) : "",
-    body ? body.slice(0, 2_000) : "",
+    body ? redact(body).text.slice(0, 2_000) : "",
   ]
     .filter(Boolean)
     .join("\n");
@@ -65,6 +71,6 @@ export function reportFailedRequest(input: {
     level: "error",
     source: "request",
     message: line,
-    detail: detail || undefined,
+    detail: detail ? redact(detail).text : undefined,
   });
 }

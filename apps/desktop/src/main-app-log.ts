@@ -61,7 +61,7 @@ export function registerMainAppLog(deps: { ipc: IpcSurface; appLog: AppLog }): v
    * envelope — makes the far side throw `new Error(undefined)`: a rejection with
    * no message, reported to the reader as a bare "Error". That is exactly what
    * this did on its first run. Every `call()`-wrapped channel answers with
-   * `{ ok, value }`; `preferenceRead` and `localApiState` show the shape.
+   * `{ ok, value }`; `preferenceWrite` and `localApiState` show the shape.
    */
   ipc.handle(CHANNELS.appRead, (): IpcResult<AppLogPayload> => {
     try {

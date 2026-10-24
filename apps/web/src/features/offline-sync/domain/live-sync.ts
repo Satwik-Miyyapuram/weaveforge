@@ -1,4 +1,4 @@
-import type { AdoptionResult, OfflineChangeSummary } from "./adoption";
+import type { AdoptionResult } from "./adoption";
 
 export type SyncPhase = "idle" | "syncing" | "offline" | "error" | "needs-adoption";
 
@@ -9,8 +9,6 @@ export interface LiveSyncState {
   accountId: string | null;
   lastSyncAt: number | null;
   conflictsCount: number;
-  offlineWorkCount: number;
-  offlineSummary: OfflineChangeSummary | null;
   /** What signing in merged, shown once rather than asked about. */
   lastAdoption: AdoptionResult | null;
 }
@@ -22,8 +20,6 @@ const defaultState: LiveSyncState = {
   accountId: null,
   lastSyncAt: null,
   conflictsCount: 0,
-  offlineWorkCount: 0,
-  offlineSummary: null,
   lastAdoption: null,
 };
 

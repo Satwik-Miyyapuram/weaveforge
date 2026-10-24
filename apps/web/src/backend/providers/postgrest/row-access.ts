@@ -56,6 +56,28 @@ export async function one<R>(query: PromiseLike<Resolved<unknown>>): Promise<R |
   return (data as R | null) ?? null;
 }
 
+/** How many ids one `in` filter carries; the list travels in the URL. */
+export const ID_CHUNK = 200;
+
+/**
+ * Rows by id, in chunks requested together.
+ *
+ * Chunked because an `in` list travels in the URL and a few thousand ids pass
+ * the server's line-length limit; issued concurrently because sequential round
+ * trips buy nothing. Results are concatenated in chunk order. No ids, no request.
+ */
+export async function inChunks<R>(
+  ids: readonly string[],
+  fetch: (chunk: string[]) => Promise<R[]>,
+  size = ID_CHUNK,
+): Promise<R[]> {
+  const chunks: string[][] = [];
+  for (let start = 0; start < ids.length; start += size) {
+    chunks.push(ids.slice(start, start + size));
+  }
+  return (await Promise.all(chunks.map(fetch))).flat();
+}
+
 /**
  * The row an insert or upsert with `.select().single()` is guaranteed to return.
  *

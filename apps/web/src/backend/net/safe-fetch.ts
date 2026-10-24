@@ -284,7 +284,9 @@ export async function safeFetch(input: string, options: SafeFetchOptions = {}): 
 
   let url: URL;
   try {
-    url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(input.trim()) ? input.trim() : `https://${input.trim()}`);
+    // A scheme is letters then a colon; `example.com:8443/x` is a host and a
+    // port, so a colon followed by a digit does not count.
+    url = new URL(/^[a-z][a-z0-9+.-]*:(?!\d)/i.test(input.trim()) ? input.trim() : `https://${input.trim()}`);
   } catch {
     return { ok: false, kind: "refused", status: 400, message: describeRejection("not-a-url") };
   }
@@ -359,7 +361,18 @@ export async function safeFetch(input: string, options: SafeFetchOptions = {}): 
       return { ok: false, kind: "upstream", status: response.status, message: `Could not read that page: ${hint}.` };
     }
 
-    const body = await readCapped(response, limits.maxBytes).catch(() => null);
+    // A body that fails to arrive is a dropped connection, not a large file.
+    let body: Uint8Array | null;
+    try {
+      body = await readCapped(response, limits.maxBytes);
+    } catch (err) {
+      return {
+        ok: false,
+        kind: "unreachable",
+        status: 502,
+        message: `That site could not be reached: ${url.host} (${formatError(err)}).`,
+      };
+    }
     if (!body) {
       return {
         ok: false,

@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { analyzePdfDocument, type DocumentAnalysis, type ReaderOutlineItem } from "@weaveforge/core";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
 import {
-  buildReferenceIndex,
   indexFromAnalysis,
   type ReaderReferenceIndex,
   type ReferencePage,
@@ -49,7 +50,31 @@ function getWorker(): Worker | null {
 export interface UseDocumentAnalyzerInput {
   pages: readonly ReferencePage[];
   outline: readonly ReaderOutlineItem[];
-  enabled?: boolean;
+}
+
+/**
+ * The analysis and its index, computed here when there is no worker or the
+ * worker failed: one analysis pass yields both. Null (and logged) on failure.
+ */
+export function analyzeInThread(
+  pages: readonly ReferencePage[],
+  outline: readonly ReaderOutlineItem[],
+): { analysis: DocumentAnalysis; index: ReaderReferenceIndex } | null {
+  try {
+    const analysis = analyzePdfDocument(
+      pages.map((page) => ({ pageNumber: page.pageNumber, items: page.items, links: page.links ?? [] })),
+      outline,
+    );
+    return { analysis, index: indexFromAnalysis(analysis, pages) };
+  } catch (err) {
+    logToApp({
+      level: "warn",
+      source: "reader",
+      message: "Document analysis failed; citations are not linked",
+      detail: err instanceof Error ? (err.stack ?? describeRejection(err)) : describeRejection(err),
+    });
+    return null;
+  }
 }
 
 export interface DocumentAnalyzerResult {
@@ -70,7 +95,6 @@ export interface DocumentAnalyzerResult {
 export function useDocumentAnalyzer({
   pages,
   outline,
-  enabled = true,
 }: UseDocumentAnalyzerInput): DocumentAnalyzerResult {
   const [index, setIndex] = useState<ReaderReferenceIndex>(EMPTY_INDEX);
   const [analysis, setAnalysis] = useState<DocumentAnalysis>(EMPTY_ANALYSIS);
@@ -101,19 +125,15 @@ export function useDocumentAnalyzer({
     const worker = getWorker();
 
     if (!worker) {
-      // In-thread fallback if Worker is not available in environment
-      try {
-        const fallback = buildReferenceIndex(pages, outline);
-        if (activeId.current === id) {
-          setIndex(fallback);
-          setAnalysis(buildAnalysisInThread());
+      // No Worker in this environment: analyse here.
+      const result = analyzeInThread(pages, outline);
+      if (activeId.current === id) {
+        if (result) {
+          setIndex(result.index);
+          setAnalysis(result.analysis);
           setProgress(100);
-          setIsAnalyzing(false);
         }
-      } catch {
-        if (activeId.current === id) {
-          setIsAnalyzing(false);
-        }
+        setIsAnalyzing(false);
       }
       return;
     }
@@ -138,12 +158,7 @@ export function useDocumentAnalyzer({
         cleanup();
       } else if (data.type === "error") {
         // Fall back to in-thread calculation on worker error
-        try {
-          setIndex(buildReferenceIndex(pages, outline));
-          setAnalysis(buildAnalysisInThread());
-        } catch {
-          /* ignore */
-        }
+        fallBack();
         setProgress(100);
         setIsAnalyzing(false);
         cleanup();
@@ -152,12 +167,7 @@ export function useDocumentAnalyzer({
 
     const handleError = () => {
       if (activeId.current !== id) return;
-      try {
-        setIndex(buildReferenceIndex(pages, outline));
-        setAnalysis(buildAnalysisInThread());
-      } catch {
-        /* ignore */
-      }
+      fallBack();
       setProgress(100);
       setIsAnalyzing(false);
       cleanup();
@@ -181,13 +191,13 @@ export function useDocumentAnalyzer({
       cleanup();
     };
 
-    function buildAnalysisInThread(): DocumentAnalysis {
-      return analyzePdfDocument(
-        pages.map((page) => ({ pageNumber: page.pageNumber, items: page.items, links: page.links ?? [] })),
-        outline,
-      );
+    function fallBack(): void {
+      const result = analyzeInThread(pages, outline);
+      if (!result) return;
+      setIndex(result.index);
+      setAnalysis(result.analysis);
     }
-  }, [pages, outline, enabled]);
+  }, [pages, outline]);
 
   return { index, analysis, progress, isAnalyzing };
 }
