@@ -322,3 +322,51 @@ test("missingIds asks about tombstones only when something is absent", async () 
   assert.deepEqual(await transport.missingIds("papers", [a]), []);
   assert.equal(calls.length, 1);
 });
+
+/** A transport whose request fails before any status comes back (xlog-03). */
+function throwing(opts: { fetchError?: unknown; tokenError?: unknown; payload?: Record<string, unknown> }) {
+  const logged: unknown[] = [];
+  const transport = new PostgrestTransport({
+    baseUrl: "https://api.test/rest/v1",
+    apiKey: "anon",
+    accessToken: async () => {
+      if (opts.tokenError) throw opts.tokenError;
+      return "jwt";
+    },
+    fetchImpl: (async () => {
+      if (opts.fetchError) throw opts.fetchError;
+      return { status: 200, text: async () => "[]" };
+    }) as unknown as typeof fetch,
+    onSendError: (err) => void logged.push(err),
+  });
+  const send = () => transport.send(entry(opts.payload ? { payload: opts.payload } : {}));
+  return { send, logged };
+}
+
+test("a network failure is offline and not logged: it is expected, not a fault", async () => {
+  const { send, logged } = throwing({ fetchError: new TypeError("Failed to fetch") });
+  assert.deepEqual(await send(), { status: "offline" });
+  assert.deepEqual(logged, []);
+});
+
+test("an aborted or timed-out request is a network failure too", async () => {
+  for (const name of ["AbortError", "TimeoutError"]) {
+    const { send, logged } = throwing({ fetchError: new DOMException("gave up", name) });
+    assert.deepEqual(await send(), { status: "offline" });
+    assert.deepEqual(logged, [], name);
+  }
+});
+
+test("a session that cannot be read is logged, and the op is still kept", async () => {
+  const fault = new Error("refresh token is malformed");
+  const { send, logged } = throwing({ tokenError: fault });
+  assert.deepEqual(await send(), { status: "offline" });
+  assert.deepEqual(logged, [fault]);
+});
+
+test("a payload that cannot be sent is logged rather than read as no network", async () => {
+  const { send, logged } = throwing({ payload: { size: 1n } });
+  assert.deepEqual(await send(), { status: "offline" });
+  assert.equal(logged.length, 1);
+  assert.ok(logged[0] instanceof TypeError, "JSON.stringify refuses a bigint");
+});
