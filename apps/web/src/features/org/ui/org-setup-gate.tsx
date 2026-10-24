@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ROLE_LABELS, type OrgInviteCodePlaintext } from "@weaveforge/core";
 import { useProfile } from "./profile-provider";
+import { needsOrgSetup } from "../application/org-profile-state";
 import { createOrg, joinOrg, previewOrgCode, regenerateOrgCode, continueStandalone } from "../infrastructure/org-api";
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
@@ -15,16 +16,13 @@ import { useCapability } from "@/deployment/capabilities";
  * Helps both multi-user deployments and solo thesis tracking.
  */
 export function OrgSetupGate({ children }: { children: React.ReactNode }) {
-  const { profile, loading, refresh } = useProfile();
+  const { profile, loading, error, refresh } = useProfile();
   // A copy with no account has no lab to create, none to join, and — the part
   // that made this a dead end rather than a pointless screen — no server to
   // answer `continueStandalone`, whose only implementation is an RPC. The
   // gate was unanswerable, so it is not asked.
   const hasOrgs = useCapability("org");
-  const needsSetup =
-    hasOrgs &&
-    !loading &&
-    (!profile || profile.orgSetupComplete === false);
+  const needsSetup = needsOrgSetup({ hasOrgs, loading, profile, error });
 
   if (!needsSetup) return <>{children}</>;
 

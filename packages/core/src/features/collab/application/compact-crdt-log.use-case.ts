@@ -16,7 +16,7 @@
  *     rather than the guard;
  *   * and, in the layer that owns the body, compaction waits until the body it
  *     is about to make the only copy of has actually been written. That is
- *     `EncryptedYjsProvider`'s barrier, not this class's — a use case cannot know
+ *     `RealtimeYjsProvider`'s barrier, not this class's — a use case cannot know
  *     whether a document's text has landed.
  *
  * Two writers co-editing means two clients can compact, so the answer matters:

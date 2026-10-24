@@ -1,5 +1,4 @@
 import {
-  WorkspacePathError,
   safeWorkspacePath,
   type IWorkspaceFs,
   type WorkspaceStat,
@@ -80,12 +79,10 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
   }
 
   async stat(path: string): Promise<WorkspaceStat | null> {
-    try {
-      return await this.bridge.statVaultFile(safeWorkspacePath(path));
-    } catch (error) {
-      if (error instanceof WorkspacePathError) throw error;
-      return null;
-    }
+    // The bridge answers null for a missing file. Anything it throws (no folder
+    // open, permission denied) is a failure, not "absent": callers that read
+    // null as absent go on to write or delete.
+    return this.bridge.statVaultFile(safeWorkspacePath(path));
   }
 
   async rename(from: string, to: string): Promise<void> {

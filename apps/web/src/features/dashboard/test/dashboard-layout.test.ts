@@ -150,7 +150,20 @@ describe("parseDashboardLayout", () => {
   it("returns null for invalid payloads", () => {
     assert.equal(parseDashboardLayout(null), null);
     assert.equal(parseDashboardLayout({ lg: [] }), null);
-    assert.equal(parseDashboardLayout({ lg: [{ id: "x", type: "not-a-type", x: 0, y: 0, w: 1, h: 1 }], sm: [] }), null);
+  });
+
+  it("keeps the user's cards when one stored item is unknown (35-11)", () => {
+    const lg = studentDefaultLg();
+    const sm = studentDefaultSm();
+    const parsed = parseDashboardLayout({
+      lg: [...lg, { id: "x", type: "not-a-type", x: 0, y: 99, w: 1, h: 1 }],
+      sm,
+    });
+    assert.ok(parsed);
+    assert.deepEqual(
+      parsed.lg.map((c) => c.id).sort(),
+      lg.map((c) => c.id).sort(),
+    );
   });
 
   it("parses valid layout", () => {

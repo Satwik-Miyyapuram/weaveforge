@@ -12,7 +12,7 @@ import type { CompactCrdtLogUseCase, ICrdtUpdateStore } from "@weaveforge/core";
  */
 export interface CollabSession {
   crdtStore: ICrdtUpdateStore;
-  /** Realtime client — typed as opaque in UI; EncryptedYjsProvider narrows in infrastructure. */
+  /** Realtime client — typed as opaque in UI; RealtimeYjsProvider narrows in infrastructure. */
   db: unknown;
   projectId: () => string | null;
   compactCrdtLog: CompactCrdtLogUseCase;

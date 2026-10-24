@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { isAccountProxyRequest, proxyAccount } from "../src/account-proxy";
 import { answerRelay } from "../src/app-relays";
 import { BLOB_UPSTREAM } from "../src/blob-proxy";
-import type { ProxyFetch } from "../src/semantic-scholar-proxy";
+import type { ProxyFetch } from "../src/proxy-shared";
 
 /**
  * Settings → Delete account on the desktop: the static bundle has no
