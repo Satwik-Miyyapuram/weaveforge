@@ -1,7 +1,9 @@
+import { zipSync } from "fflate";
+
 /**
  * Handing a file to the user: a download, or a data URL to embed.
  *
- * Two small things that several features need and none of them owns.
+ * Small things that several features need and none of them owns.
  */
 
 /** Triggers a browser download of a blob under the given filename. */
@@ -30,4 +32,13 @@ export function blobToDataUrl(blob: Blob): Promise<string> {
       reject(reader.error ?? new Error("The file could not be read."));
     reader.readAsDataURL(blob);
   });
+}
+
+/** Zip a file map into a downloadable blob; the exports all share this step. */
+export function zipToBlob(files: Record<string, Uint8Array>): Blob {
+  const zipped = zipSync(files, { level: 6 });
+  // Copy into a fresh ArrayBuffer-backed view so BlobPart typing is happy.
+  const copy = new Uint8Array(zipped.byteLength);
+  copy.set(zipped);
+  return new Blob([copy.buffer], { type: "application/zip" });
 }

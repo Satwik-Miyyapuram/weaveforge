@@ -1,8 +1,8 @@
-import { zipSync, strToU8 } from "fflate";
+import { strToU8 } from "fflate";
 import type { Paper, ReportSectionTreeNode } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { buildOverleafExportPackage, type OverleafExportOptions } from "./build-overleaf-export";
-import { downloadBlob } from "@/features/export/application/export-user-data";
+import { downloadBlob, zipToBlob } from "@/lib/blob-output";
 
 async function blobToU8(blob: Blob): Promise<Uint8Array> {
   const buf = await blob.arrayBuffer();
@@ -53,9 +53,6 @@ export async function downloadOverleafExportPackage(
     }
   }
 
-  const zipped = zipSync(files, { level: 6 });
-  const copy = new Uint8Array(zipped.byteLength);
-  copy.set(zipped);
-  downloadBlob(new Blob([copy.buffer], { type: "application/zip" }), `${root}.zip`);
+  downloadBlob(zipToBlob(files), `${root}.zip`);
   return { warnings, stats: result.stats };
 }

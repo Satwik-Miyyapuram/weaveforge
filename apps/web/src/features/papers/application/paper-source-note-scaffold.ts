@@ -4,6 +4,8 @@
  * without destroying researcher edits.
  */
 
+import { resolveCiteKey, type Paper } from "@weaveforge/core";
+import { isEmptyPaperSummary } from "@/lib/paper-summary";
 import { applyTemplate } from "@/features/vault/application/note-template-engine";
 import {
   DEFAULT_SOURCE_NOTE_TEMPLATE,
@@ -34,4 +36,25 @@ export function reRenderPaperSourceNote(
   },
 ): string {
   return applyTemplate(existing, DEFAULT_SOURCE_NOTE_TEMPLATE, sourceNoteTemplateContext(input));
+}
+
+/**
+ * Give a just-added paper its note scaffold, unless it already has a note.
+ * Returns the paper as saved, so whatever runs next (the Zotero push) sees
+ * the scaffolded note rather than the empty one.
+ */
+export async function scaffoldNewPaperNote(
+  paper: Paper,
+  papers: { setSummary(id: string, summary: string): Promise<Paper> },
+): Promise<Paper> {
+  if (!isEmptyPaperSummary(paper.summary)) return paper;
+  const scaffold = paperSourceNoteScaffold({
+    title: paper.title,
+    authors: paper.authors,
+    year: paper.year,
+    venue: paper.venue,
+    doi: paper.doi,
+    citeKey: resolveCiteKey(paper),
+  });
+  return papers.setSummary(paper.id, scaffold);
 }

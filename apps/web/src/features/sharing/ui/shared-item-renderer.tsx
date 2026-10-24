@@ -10,6 +10,7 @@ import { AddToLibraryButton } from "@/features/sharing/ui/add-to-library-button"
 import { DuplicateCopyButton } from "@/features/sharing/ui/duplicate-copy-button";
 import { sharedItemHref, sharedItemTypeLabel } from "@/features/sharing/ui/shared-item-routes";
 import { OpenIcon } from "@/components/view-icons";
+import { isEmptyPaperSummary } from "@/lib/paper-summary";
 import type { SharedItemDetail } from "@/features/sharing/application/load-shared-details";
 
 /** Resource kinds that only live as cards (no dedicated detail page for comments). */
@@ -163,7 +164,7 @@ function SharedPaperCard({
   ownerId: string;
   canComment: boolean;
 }) {
-  const hasSummary = !!paper.summary && paper.summary !== "No summary yet.";
+  const hasSummary = !isEmptyPaperSummary(paper.summary);
   const snippet = hasSummary
     ? paper.summary!.replace(/\s+/g, " ").slice(0, 150) +
       (paper.summary!.length > 150 ? "…" : "")

@@ -64,8 +64,6 @@ export type EmbedWorkerResponse =
   | { id: number; type: "ready"; dimensions: number }
   | { id: number; type: "progress"; loaded: number; total: number }
   | { id: number; type: "vectors"; vectors: Float32Array[] }
-  /** What the encoder factory returned, for the one failure that needs it. */
-  | { id: number; type: "diagnostic"; message: string }
   | { id: number; type: "error"; message: string };
 
 type FeatureExtractor = (

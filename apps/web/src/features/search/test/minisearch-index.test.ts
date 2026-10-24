@@ -355,3 +355,28 @@ test("a PDF page survives the cache round-trip with its page number", () => {
 
   assert.equal(restored!.search("dot product")[0]!.page, 11);
 });
+
+test("a filter-only query returns the best match even past the first limit*4 documents (27-04)", () => {
+  const notes = Array.from({ length: 20 }, (_, i) => note(`m${i}`, `Note ${i}`));
+  const docs = toSearchDocs(snapshot({ vaultPages: notes }));
+  const last = docs.find((d) => d.entityId === "m19")!;
+  (last as { degree?: number }).degree = 50;
+  const hits = buildSearchIndex(docs, "r").search("kind:note", { limit: 1 });
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0]!.id, last.id);
+});
+
+test("the snapshot round trip keeps every stored field in the same shape (27-16)", () => {
+  const docs = corpus().map((d) => ({ ...d, degree: 3, path: "a/b", tags: ["x"], page: 2 }));
+  const first = buildSearchIndex(docs, "rev");
+  const payload = JSON.parse(first.serialize()) as { docs: Record<string, Record<string, unknown>> };
+  const doc = docs[0]!;
+  assert.deepEqual(Object.keys(payload.docs[doc.id]!), [
+    "kind", "entityId", "title", "href", "updatedAt", "degree", "path", "tags", "body", "page",
+  ]);
+  assert.equal(payload.docs[doc.id]!.body, doc.body);
+  const loaded = miniSearchIndexFactory.load(first.serialize(), "rev")!;
+  // MiniSearch reorders its term table on load, so compare the stored docs only.
+  assert.deepEqual(JSON.parse(loaded.serialize()).docs, payload.docs);
+  assert.deepEqual(loaded.hitById(doc.id), first.hitById(doc.id));
+});

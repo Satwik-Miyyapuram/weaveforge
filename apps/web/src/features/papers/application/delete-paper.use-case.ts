@@ -1,5 +1,7 @@
 import { imagesOf, UpdatePaperUseCase, type IPaperRepository, type Paper } from "@weaveforge/core";
 import type { IBibliographyIntegration } from "@weaveforge/core";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
 import type { IPaperImageStore } from "../domain/zotero";
 
 export class DeletePaperUseCase {
@@ -17,8 +19,15 @@ export class DeletePaperUseCase {
     if (zoteroKey) {
       try {
         await this.deps.bibliography.removeRemotePaper(zoteroKey);
-      } catch {
-        /* best-effort */
+      } catch (err) {
+        // Best-effort: the local delete still goes ahead, but a Zotero item
+        // left behind should be traceable.
+        logToApp({
+          level: "warn",
+          source: "zotero",
+          message: "Could not delete the paper from Zotero",
+          detail: `${zoteroKey}: ${describeRejection(err)}`,
+        });
       }
     }
     // A paper's images are independent objects in blob storage, so deleting

@@ -1,4 +1,4 @@
-import { zipSync, strToU8 } from "fflate";
+import { strToU8 } from "fflate";
 import {
   serializeWorkspace,
   vaultAssetPathsInBody,
@@ -8,9 +8,7 @@ import {
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { activeProject } from "@/features/workspace/application/active-project";
-import { downloadBlob } from "@/lib/blob-output";
-
-export { downloadBlob };
+import { downloadBlob, zipToBlob } from "@/lib/blob-output";
 
 function jsonFile(value: unknown): Uint8Array {
   return strToU8(JSON.stringify(value, null, 2));
@@ -20,6 +18,11 @@ function jsonFile(value: unknown): Uint8Array {
 export interface ExportAssetReaders {
   fetchVaultAssets(paths: readonly string[]): Promise<Map<string, Blob | null>>;
   fetchPaperImages(paths: readonly string[]): Promise<Map<string, Blob | null>>;
+}
+
+/** The folder export also writes report figures, which the JSON export does not. */
+export interface FolderAssetReaders extends ExportAssetReaders {
+  fetchReportImages(paths: readonly string[]): Promise<Map<string, Blob | null>>;
 }
 
 /**
@@ -128,10 +131,10 @@ export async function buildExportFiles(
  * Opens directly in Obsidian or VS Code — every file carries its `weaveforge-id`
  * in frontmatter, so a re-import matches entities back up regardless of renames.
  */
-async function buildWorkspaceFolderFiles(
+export async function buildWorkspaceFolderFiles(
   snapshot: WorkspaceSnapshot,
   project: WorkspaceProject,
-  assets: ExportAssetReaders,
+  assets: FolderAssetReaders,
 ): Promise<Record<string, Uint8Array>> {
   // Inside the project's folder, exactly as the folder mirror writes it: an
   // export and a mirrored folder have to be the same tree, or re-importing one
@@ -155,6 +158,9 @@ async function buildWorkspaceFolderFiles(
   if (byScope.papers.length) {
     for (const [path, blob] of await assets.fetchPaperImages(byScope.papers)) fetched.set(path, blob);
   }
+  if (byScope.report.length) {
+    for (const [path, blob] of await assets.fetchReportImages(byScope.report)) fetched.set(path, blob);
+  }
 
   for (const ref of refs) {
     const blob = fetched.get(ref.storagePath);
@@ -172,16 +178,12 @@ export async function downloadWorkspaceFolder(): Promise<void> {
   const files = await buildWorkspaceFolderFiles(snapshot, await activeProject(), {
     fetchVaultAssets: (paths) => c.vault.fetchAssetBlobs(paths),
     fetchPaperImages: (paths) => c.papers.fetchImageBlobs(paths),
+    fetchReportImages: (paths) => c.report.fetchImageBlobs(paths),
   });
   const date = new Date().toISOString().slice(0, 10);
   const root = `weaveforge-${date}`;
-  const zipped = zipSync(
-    Object.fromEntries(Object.entries(files).map(([path, bytes]) => [`${root}/${path}`, bytes])),
-    { level: 6 },
-  );
-  const copy = new Uint8Array(zipped.byteLength);
-  copy.set(zipped);
-  downloadBlob(new Blob([copy.buffer], { type: "application/zip" }), `${root}.zip`);
+  const rooted = Object.fromEntries(Object.entries(files).map(([path, bytes]) => [`${root}/${path}`, bytes]));
+  downloadBlob(zipToBlob(rooted), `${root}.zip`);
 }
 
 /**
@@ -199,11 +201,7 @@ async function exportUserData(): Promise<Blob> {
     fetchPaperImages: (paths) => c.papers.fetchImageBlobs(paths),
   });
 
-  const zipped = zipSync(files, { level: 6 });
-  // Copy into a fresh ArrayBuffer-backed view so BlobPart typing is happy.
-  const copy = new Uint8Array(zipped.byteLength);
-  copy.set(zipped);
-  return new Blob([copy.buffer], { type: "application/zip" });
+  return zipToBlob(files);
 }
 
 /** Convenience: build + download the export as `weaveforge-export-{date}.zip`. */

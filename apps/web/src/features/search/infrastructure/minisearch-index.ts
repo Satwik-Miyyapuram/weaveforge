@@ -45,10 +45,21 @@ interface PersistedIndex {
   docs: Record<string, StoredFields>;
 }
 
-type StoredFields = Pick<
-  SearchDoc,
-  "kind" | "entityId" | "title" | "href" | "updatedAt" | "degree" | "path" | "tags" | "body" | "page"
->;
+/**
+ * The fields kept per document, in the order the persisted snapshot writes
+ * them. One list for the type, the MiniSearch options and `add`.
+ */
+const STORED_FIELDS = [
+  "kind", "entityId", "title", "href", "updatedAt", "degree", "path", "tags", "body", "page",
+] as const satisfies readonly (keyof SearchDoc)[];
+
+type StoredFields = Pick<SearchDoc, (typeof STORED_FIELDS)[number]>;
+
+function storedFieldsOf(doc: SearchDoc): StoredFields {
+  const out: Record<string, unknown> = {};
+  for (const field of STORED_FIELDS) out[field] = doc[field];
+  return out as StoredFields;
+}
 
 function miniSearchOptions(): Options<SearchDoc> {
   return {
@@ -56,7 +67,7 @@ function miniSearchOptions(): Options<SearchDoc> {
     fields: [...SEARCH_FIELDS],
     // `path`, `tags`, and `body` are stored so field filters and excerpting can
     // work against the same text the ranker saw.
-    storeFields: ["kind", "entityId", "title", "href", "updatedAt", "degree", "path", "tags", "body", "page"],
+    storeFields: [...STORED_FIELDS],
     // Arrays would otherwise stringify with commas glued to terms.
     extractField: (doc, field) => {
       const value = (doc as unknown as Record<string, unknown>)[field];
@@ -89,18 +100,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
     for (const doc of docs) {
       // Re-adding an existing id throws in MiniSearch, so replace explicitly.
       if (this.stored.has(doc.id)) this.engine.discard(doc.id);
-      this.stored.set(doc.id, {
-        kind: doc.kind,
-        entityId: doc.entityId,
-        title: doc.title,
-        href: doc.href,
-        updatedAt: doc.updatedAt,
-        degree: doc.degree,
-        path: doc.path,
-        tags: doc.tags,
-        body: doc.body,
-        page: doc.page,
-      });
+      this.stored.set(doc.id, storedFieldsOf(doc));
     }
     this.engine.addAll(docs as SearchDoc[]);
   }
@@ -272,8 +272,9 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         }),
         terms: [],
       });
-      if (hits.length >= limit * 4) break;
     }
+    // Sort the whole match set: stopping early would drop the best document
+    // whenever it sits past the cut in insertion order.
     return hits.sort((a, b) => b.score - a.score).slice(0, limit);
   }
 

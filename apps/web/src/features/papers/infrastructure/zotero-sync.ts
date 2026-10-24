@@ -151,9 +151,13 @@ export class ZoteroSync {
       if (p.metadata?.["zoteroKey"]) return false;
       return keysOfLocal(p).length > 0 && !hasRemoteMatch(p);
     });
+    // Zotero takes at most 50 objects per write, and numbers the results by
+    // position within that write, so each batch maps back by its own offset.
+    // Only the items Zotero accepted count as pushed.
     let pushed = 0;
-    if (toPush.length) {
-      const items = toPush.map((p) => {
+    for (let start = 0; start < toPush.length; start += ZOTERO_WRITE_LIMIT) {
+      const batch = toPush.slice(start, start + ZOTERO_WRITE_LIMIT);
+      const items = batch.map((p) => {
         const it = toZoteroItem(p);
         if (col) it.collections = [col];
         return it;
@@ -171,11 +175,11 @@ export class ZoteroSync {
         successful?: Record<string, { key?: string }>;
       };
       const ok = result.successful ?? {};
-      pushed = Object.keys(ok).length || toPush.length;
+      pushed += Object.keys(ok).length;
       // Write back the new Zotero keys so future deletes propagate.
       if (this.deps.savePaper) {
         for (const [idx, created] of Object.entries(ok)) {
-          const paper = toPush[Number(idx)];
+          const paper = batch[Number(idx)];
           if (paper && created?.key) {
             await this.deps.savePaper({
               ...paper,
@@ -204,6 +208,9 @@ export class ZoteroSync {
     return { pushed, pulled, deletedLocal };
   }
 }
+
+/** Zotero's limit on objects per write request. */
+const ZOTERO_WRITE_LIMIT = 50;
 
 /**
  * Content keys for a paper — match if ANY overlaps. Strong ids (doi, arxiv)

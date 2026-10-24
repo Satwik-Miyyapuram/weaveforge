@@ -1,3 +1,5 @@
+import { isEmptyPaperSummary } from "./paper-summary";
+
 /**
  * Plain-text preview of a markdown body, for entity list cards.
  *
@@ -19,6 +21,6 @@ export function cardSnippet(body: string, max = 180): string {
     .replace(/[#>*_`~]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (!text || text === "No summary yet.") return "";
+  if (isEmptyPaperSummary(text)) return "";
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
