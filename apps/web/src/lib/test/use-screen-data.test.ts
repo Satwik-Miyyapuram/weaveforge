@@ -278,7 +278,7 @@ test("screen data: a payload cleared just before mount is not restored (xapi-13)
     assert.equal(harness.current.data, null, "the cleared payload stays cleared");
     gate.resolve({ label: "fresh" });
     await harness.flush();
-    assert.equal(harness.current.data?.label, "fresh");
+    assert.equal((harness.current.data as Payload | null)?.label, "fresh");
     await harness.unmount();
   } finally {
     idb.uninstall();
