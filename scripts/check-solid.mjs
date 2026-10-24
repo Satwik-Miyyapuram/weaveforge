@@ -185,10 +185,14 @@ if (facadeWiredSnapshot.length) {
  * The limits are per file and may only come down. Two are above the default
  * because they are already there: `ai-assistant.ts` at 39 members is exactly
  * what `PapersFacade` was, and splitting it is the same exercise.
+ *
+ * B59 moved `AiProposalFacade` into `ai-proposals.ts`, leaving 32 members. Its
+ * old `deps: 5` was the proposal facade's constructor, read because it was the
+ * last class in the file; 11 is what `AiAssistantFacade` has always taken.
  */
 const FACADE_DEFAULT_LIMITS = { members: 16, deps: 16 };
 const FACADE_LIMITS = {
-  "ai-assistant.ts": { members: 39, deps: 5 },
+  "ai-assistant.ts": { members: 32, deps: 11 },
   "papers.ts": { members: 25, deps: 13 },
   "sharing.ts": { members: 15, deps: 15 },
 };
