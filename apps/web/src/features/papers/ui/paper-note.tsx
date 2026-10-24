@@ -167,12 +167,14 @@ export function PaperNote({
       setSaveError(null);
       try {
         const papers = getContainer().papers;
-        const body = await materializePaperBlobImages(nextBody, paper.id, (id, blob, ext) =>
+        const { body, uploadError } = await materializePaperBlobImages(nextBody, paper.id, (id, blob, ext) =>
           papers.uploadImage(id, blob, ext),
         );
         const saved = await papers.updatePaper.setSummary(paper.id, body);
         if (modeRef.current === "read" || closedRef.current) await reconcileTags(body, saved);
         else pendingTagsRef.current = body;
+        // The text is saved; a failed upload is still said out loud.
+        if (uploadError) throw uploadError;
       } catch (err) {
         setSaveError(formatError(err));
       }
