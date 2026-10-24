@@ -228,6 +228,7 @@ export function InkHost({
     ensurePageCount,
     onAddPage,
     goToPage,
+    loadError,
   } = useInkNoteStore({
       noteId,
       onSave,
@@ -768,7 +769,7 @@ export function InkHost({
         lines={lines}
         confidence={confidence}
         progress={progress}
-        unavailable={unavailable}
+        unavailable={loadError ?? unavailable}
         onAccept={onAccept}
         rawText={pureText}
       />
