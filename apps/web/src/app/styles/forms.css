@@ -48,7 +48,6 @@ input:focus,
 textarea:focus,
 .custom-select-button[aria-expanded="true"],
 .custom-select-button:focus-visible,
-.summary-input:focus,
 .markdown-code-editor:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
