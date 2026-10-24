@@ -147,14 +147,11 @@ export function SettingsScreen() {
 
   const [settings, setSettings] = useState<UserSettings>({});
   const [loading, setLoading] = useState(true);
-  // Saving replaces every stored credential, so it needs the stored ones first.
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(false); // Saving replaces every stored credential.
   const [, setSaved] = useState(false);
   const [collections, setCollections] = useState<{ key: string; name: string }[]>([]);
   /** State of the live credential probe shown inside the connection dialog. */
-  const [collectionsProbe, setCollectionsProbe] = useState<
-    "idle" | "loading" | "ready" | "empty" | "failed"
-  >("idle");
+  const [collectionsProbe, setCollectionsProbe] = useState<"idle" | "loading" | "ready" | "empty" | "failed">("idle");
   const [projectCollection, setProjectCollection] = useState<string>("");
   const [lightTheme, setLightTheme] = useState<string>(DEFAULT_LIGHT_THEME);
   const [darkTheme, setDarkTheme] = useState<string>(DEFAULT_DARK_THEME);
@@ -200,8 +197,7 @@ export function SettingsScreen() {
     setLoading(true);
     setError(null);
     try {
-      setSettings(await getContainer().settings.manageSettings.get());
-      setLoaded(true);
+      setSettings(await getContainer().settings.manageSettings.get()); setLoaded(true);
     } catch (err) {
       setError(formatError(err));
     } finally {
