@@ -377,9 +377,6 @@ ipc.on(CHANNELS.titleBarColors, (_event, colors: unknown) => {
 /** The application log's channels (§main-app-log). */
 registerMainAppLog({ ipc, appLog });
 
-ipc.handle(CHANNELS.preferenceRead, (_event, name: unknown) =>
-  pagePreferenceStore().read(name),
-);
 ipc.handle(CHANNELS.preferenceWrite, (_event, name: unknown, value: unknown) =>
   pagePreferenceStore().write(name, value),
 );

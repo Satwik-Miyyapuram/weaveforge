@@ -275,7 +275,7 @@ export function wirePostgrestBackend(
   const experimentRepository = cacheRepo(
     new PostgrestExperimentRepository(db, projectContext),
     ["getById", "list"],
-    ["save", "delete"],
+    ["save", "patch", "delete"],
     pid,
     { resourceType: "experiment" },
   );

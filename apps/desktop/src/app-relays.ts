@@ -11,7 +11,8 @@ import { isArxivProxyRequest, proxyArxiv } from "./arxiv-proxy";
 import { isBlobProxyRequest, proxyBlob } from "./blob-proxy";
 import { isHtmlProxyRequest, proxyHtml } from "./html-proxy";
 import { isPdfProxyRequest, proxyPdf } from "./pdf-proxy";
-import { isSemanticScholarProxyRequest, proxySemanticScholar, type ProxyFetch } from "./semantic-scholar-proxy";
+import type { ProxyFetch } from "./proxy-shared";
+import { isSemanticScholarProxyRequest, proxySemanticScholar } from "./semantic-scholar-proxy";
 
 /** The relayed answer, or `null` when the request is for a bundle file. */
 export function answerRelay(request: Request, fetchFn: ProxyFetch): Promise<Response> | null {

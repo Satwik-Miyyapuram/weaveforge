@@ -6,6 +6,7 @@ import {
   resolvePaperPdfSourceForReader,
 } from "@/features/reader/application/resolve-paper-pdf-for-reader";
 import type { PaperHtmlPage } from "@/features/reader/application/paper-html";
+import { pageTextFromItems } from "@/features/reader/application/reference-locate";
 import { savePdfTextDurably } from "./pdf-text-folder";
 
 /**
@@ -104,14 +105,25 @@ async function extractPages(bytes: ArrayBuffer): Promise<DocumentPageText[]> {
   for (let n = 1; n <= doc.numPages; n += 1) {
     const page = await doc.getPage(n);
     const content = await page.getTextContent();
-    const text = content.items
-      .map((item) => (typeof (item as { str?: string }).str === "string" ? (item as { str: string }).str : ""))
-      .join("");
-    pages.push({ pageIndex: n - 1, text });
+    pages.push({ pageIndex: n - 1, text: pdfPageText(content.items) });
   }
   // Release the worker; a few hundred documents otherwise accumulate.
   await doc.destroy();
   return pages;
+}
+
+/**
+ * A page's text the way the reader builds it: a newline after each line-ending
+ * run, so the last word of a line is not glued to the next (27-03). Marked
+ * content items carry no text and are skipped.
+ */
+export function pdfPageText(items: readonly unknown[]): string {
+  return pageTextFromItems(
+    items.filter(
+      (item): item is { str: string; hasEOL?: boolean } =>
+        typeof (item as { str?: unknown }).str === "string",
+    ),
+  );
 }
 
 /**
