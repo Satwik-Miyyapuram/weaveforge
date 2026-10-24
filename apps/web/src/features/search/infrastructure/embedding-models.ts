@@ -10,6 +10,8 @@
  * so the floor lives here, beside the model it was measured on.
  */
 
+import { readStored } from "@/lib/safe-storage";
+
 export interface EmbeddingModelProfile {
   readonly id: string;
   readonly pooling: "mean" | "cls";
@@ -88,12 +90,8 @@ const KNOWN = new Map([ARCTIC_EMBED_M, MINILM_L6].map((profile) => [profile.id, 
  * set to a known id. Anything else is ignored.
  */
 export function targetEmbeddingModel(): EmbeddingModelProfile {
-  try {
-    const override = localStorage.getItem("thesis.search.semanticModel");
-    if (override && KNOWN.has(override)) return KNOWN.get(override)!;
-  } catch {
-    /* no storage: the default */
-  }
+  const override = readStored("thesis.search.semanticModel");
+  if (override && KNOWN.has(override)) return KNOWN.get(override)!;
   return DEFAULT_EMBEDDING_MODEL;
 }
 

@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { InkColour } from "@weaveforge/core";
 
-import type { PenHaptics } from "../application/pen-haptics";
+import type { PenHaptics, PenHapticsTool } from "../application/pen-haptics";
 import { usePenCapture } from "../application/use-pen-capture";
 import { trailStyle } from "../application/ink-trail";
 import type { InkWorkerEvent } from "../application/capture-protocol";
@@ -56,25 +56,34 @@ export function useInkPen(deps: InkPenDeps) {
   const { canvasRef, sheetRef, project, pageIndex, tool, colour, hand, palette } =
     deps;
   const nib = nibForTool(tool, deps.width, deps.highlighterWidth);
+  // The eraser and the lasso do not draw, so the pen's tool is the pen's: a
+  // highlighter is the only other thing that puts ink down.
+  const inkTool = tool === "highlighter" ? "highlighter" : "pen";
+  const hapticsTool: PenHapticsTool = tool === "eraser" ? "eraser" : inkTool;
 
   /*
    * The pen's haptics (ink-native-bridges.md §4), where the platform has them.
-   * Asked for once per mount; until the answer comes, and everywhere it is
-   * `null`, the ref is empty and every call above is skipped.
+   * Asked for once per mount, though the host hands a fresh function each
+   * render; until the answer comes, and everywhere it is `null`, the ref is
+   * empty and every call above is skipped. It starts on the tool in force.
    */
   const hapticsRef = useRef<PenHaptics | null>(null);
-  const haptics = deps.haptics;
+  const askHaptics = useRef(deps.haptics);
+  const hapticsToolRef = useRef(hapticsTool);
+  hapticsToolRef.current = hapticsTool;
   useEffect(() => {
     let cancelled = false;
-    void haptics?.().then((h) => {
-      if (!cancelled) hapticsRef.current = h;
+    void askHaptics.current?.().then((h) => {
+      if (cancelled || !h) return;
+      hapticsRef.current = h;
+      h.setTool(hapticsToolRef.current);
     });
     return () => {
       cancelled = true;
       hapticsRef.current?.stop();
       hapticsRef.current = null;
     };
-  }, [haptics]);
+  }, []);
 
   const pen = usePenCapture({
     element: () => canvasRef.current,
@@ -86,9 +95,7 @@ export function useInkPen(deps: InkPenDeps) {
         : undefined;
     },
     pageIndex,
-    // The eraser and the lasso do not draw, so the pen's tool is the pen's: a
-    // highlighter is the only other thing that puts ink down.
-    tool: tool === "highlighter" ? "highlighter" : "pen",
+    tool: inkTool,
     width: nib,
     colour,
     handedness: hand,
@@ -98,7 +105,7 @@ export function useInkPen(deps: InkPenDeps) {
       style: (liveWidth: number) =>
         trailStyle({
           colour,
-          tool: tool === "highlighter" ? "highlighter" : "pen",
+          tool: inkTool,
           width: liveWidth,
           pageWidthPx: sheetRef.current?.getBoundingClientRect().width ?? 0,
           palette,
@@ -118,14 +125,8 @@ export function useInkPen(deps: InkPenDeps) {
 
   /** The waveform is the tool's: graphite, felt, rubber. */
   useEffect(() => {
-    hapticsRef.current?.setTool(
-      tool === "highlighter"
-        ? "highlighter"
-        : tool === "eraser"
-          ? "eraser"
-          : "pen",
-    );
-  }, [tool]);
+    hapticsRef.current?.setTool(hapticsTool);
+  }, [hapticsTool]);
 
   /** The pen up, and the actuator off in the same handler — nothing waits a frame. */
   const penHandlers = useMemo(

@@ -71,3 +71,38 @@ test("define rejects duplicate names case-insensitively", async () => {
   await uc.define({ name: "Method", kind: "text" });
   await assert.rejects(() => uc.define({ name: "method", kind: "number" }));
 });
+
+test("remove refuses a field a rollup reads, naming the rollup (03-06)", async () => {
+  const { uc } = setup();
+  const rel = await uc.define({ name: "Cites", kind: "relation" });
+  const src = await uc.define({ name: "Year", kind: "number" });
+  await uc.define({
+    name: "Mean year",
+    kind: "rollup",
+    rollup: { relationFieldId: rel.id, agg: "avg", sourceFieldId: src.id },
+  });
+  await assert.rejects(uc.remove(rel.id), /Mean year/);
+  await assert.rejects(uc.remove(src.id), /Mean year/);
+  assert.equal((await uc.listDefs()).length, 3, "nothing was deleted");
+});
+
+test("remove deletes the field's values with it (03-06)", async () => {
+  const { uc } = setup();
+  const def = await uc.define({ name: "Method", kind: "text" });
+  await uc.setValue("p1", def.id, "VAE");
+  await uc.remove(def.id);
+  assert.deepEqual(await uc.listValuesForProject(), []);
+});
+
+test("a rollup itself, and a relation no rollup reads, can be removed (03-06)", async () => {
+  const { uc } = setup();
+  const rel = await uc.define({ name: "Cites", kind: "relation" });
+  const roll = await uc.define({
+    name: "Count",
+    kind: "rollup",
+    rollup: { relationFieldId: rel.id, agg: "count" },
+  });
+  await uc.remove(roll.id);
+  await uc.remove(rel.id);
+  assert.deepEqual(await uc.listDefs(), []);
+});

@@ -42,3 +42,22 @@ test("recent targets keep only the latest fifteen", () => {
     assert.equal(readRecentTargets("project").length, 15);
     assert.equal(readRecentTargets("project")[0]?.id, "19");
 });
+
+test("malformed stored entries are dropped, valid ones kept (11-07)", () => {
+  installStorage();
+  const good = { kind: "paper", id: "p1", title: "Paper", href: "/papers?paper=p1", visitedAt: "2026-01-01T00:00:00.000Z" };
+  localStorage.setItem(
+    "thesis.jump-recents.project-a",
+    JSON.stringify([null, 3, "x", [], { kind: "paper" }, { id: "p2" }, { kind: 1, id: "p3" }, { kind: "paper", id: 4 }, good]),
+  );
+  assert.deepEqual(readRecentTargets("project-a"), [good]);
+  // Remembering over a corrupt list must not throw or carry the junk along.
+  const next = rememberRecentTarget("project-a", { kind: "note", id: "n1", title: "N", href: "/notes?page=n1" });
+  assert.deepEqual(next.map((t) => t.id), ["n1", "p1"]);
+});
+
+test("a stored non-array value reads as empty (11-07)", () => {
+  installStorage();
+  localStorage.setItem("thesis.jump-recents.project-a", JSON.stringify({ kind: "paper", id: "p1" }));
+  assert.deepEqual(readRecentTargets("project-a"), []);
+});

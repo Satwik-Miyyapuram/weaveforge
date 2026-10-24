@@ -164,7 +164,8 @@ function maskCode(body: string): string {
     .replace(/`[^`\n]*`/g, (m) => " ".repeat(m.length));
 }
 
-function parseWikilinkInner(inner: string, raw: string): WikilinkRef | null {
+/** Read `Target`, `Target|alias`, `Target#Heading` or `Target#^block`: the inside of one `[[...]]`. */
+export function parseWikilinkInner(inner: string, raw: string): WikilinkRef | null {
   const pipe = inner.indexOf("|");
   const link = (pipe === -1 ? inner : inner.slice(0, pipe)).trim();
   const alias = pipe === -1 ? undefined : inner.slice(pipe + 1).trim() || undefined;
@@ -212,6 +213,8 @@ export function bodyLinksTo(body: string | undefined, targetKey: string): boolea
 export interface ParsedFrontmatter {
   body: string;
   tags: string[];
+  /** `aliases:` values, whole (multi-word names stay one entry). */
+  aliases: string[];
 }
 
 /**
@@ -221,28 +224,36 @@ export interface ParsedFrontmatter {
  */
 export function stripFrontmatter(md: string): ParsedFrontmatter {
   const match = /^﻿?---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(md);
-  if (!match) return { body: md, tags: [] };
+  if (!match) return { body: md, tags: [], aliases: [] };
   const body = md.slice(match[0].length);
   const lines = match[1]!.split(/\r?\n/);
   const tags = new Set<string>();
-  const collect = (raw: string) =>
+  const aliases = new Set<string>();
+  const clean = (s: string) => trimQuotes(s.trim().replace(/^["'#]+/, "")).trim().replace(/\s+/g, " ");
+  // A tag is one word, so tags split on spaces too; an alias is a name and
+  // splits on commas only. It still becomes a tag, hyphenated to stay one.
+  const collect = (raw: string, isAlias: boolean) =>
     raw
-      .split(/[,\s]+/)
-      .map((s) => trimQuotes(s.replace(/^["'#]+/, "")).trim())
+      .split(isAlias ? /,/ : /[,\s]+/)
+      .map(clean)
       .filter(Boolean)
-      .forEach((t) => tags.add(t));
+      .forEach((t) => {
+        if (isAlias) aliases.add(t);
+        tags.add(t.replace(/ /g, "-"));
+      });
   for (let i = 0; i < lines.length; i += 1) {
     const inline = /^(tags|aliases):(.*)$/i.exec(lines[i]!);
     if (!inline) continue;
+    const isAlias = inline[1]!.toLowerCase() === "aliases";
     let rest = inline[2]!.trim();
     if (rest.startsWith("[")) rest = rest.replace(/^\[|\]$/g, "");
-    if (rest) collect(rest);
+    if (rest) collect(rest, isAlias);
     for (let j = i + 1; j < lines.length && /^\s*-\s+/.test(lines[j]!); j += 1) {
-      collect(lines[j]!.replace(/^\s*-\s+/, ""));
+      collect(lines[j]!.replace(/^\s*-\s+/, ""), isAlias);
       i = j;
     }
   }
-  return { body, tags: [...tags] };
+  return { body, tags: [...tags], aliases: [...aliases] };
 }
 
 /** Drops trailing quotes without a backtracking `["']+$` regex. */

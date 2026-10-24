@@ -55,3 +55,44 @@ test("PDFs and images are page sources; anything else is not", () => {
   assert.ok(isPageSource({ type: "image/png", name: "shot.png" }));
   assert.ok(!isPageSource({ type: "text/plain", name: "notes.txt" }));
 });
+
+test("a multi-page import opens the PDF once and closes it (18-04)", async () => {
+  const { pdfPageBackgrounds } = await import("../application/page-background");
+  const context = { fillStyle: "", fillRect() {}, drawImage() {} };
+  class FakeCanvas {
+    constructor(public width: number, public height: number) {}
+    getContext() { return context; }
+    async convertToBlob() { return new Blob(["png"]); }
+  }
+  const g = globalThis as { OffscreenCanvas?: unknown };
+  const original = g.OffscreenCanvas;
+  g.OffscreenCanvas = FakeCanvas;
+  let opens = 0;
+  let closes = 0;
+  const rendered: number[] = [];
+  const open = async () => {
+    opens += 1;
+    return {
+      numPages: 5,
+      render: async (page: number, width: number) => {
+        rendered.push(page);
+        return new FakeCanvas(width, width) as unknown as OffscreenCanvas;
+      },
+      close: async () => { closes += 1; },
+    };
+  };
+  try {
+    const blobs: Blob[] = [];
+    for await (const blob of pdfPageBackgrounds(new ArrayBuffer(1), [2, 3, 5], open)) blobs.push(blob);
+    assert.equal(blobs.length, 3);
+    assert.deepEqual(rendered, [2, 3, 5]);
+    assert.equal(opens, 1);
+    assert.equal(closes, 1);
+    // A consumer that stops early still closes the document.
+    for await (const _ of pdfPageBackgrounds(new ArrayBuffer(1), [1, 2], open)) break;
+    assert.equal(opens, 2);
+    assert.equal(closes, 2);
+  } finally {
+    g.OffscreenCanvas = original;
+  }
+});

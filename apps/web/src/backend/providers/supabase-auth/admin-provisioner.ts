@@ -24,10 +24,13 @@ export class SupabaseAdminUserProvisioner implements IAdminUserProvisioner {
   constructor(
     private readonly url: string,
     private readonly serviceRoleKey: string,
+    /* Injected by tests; production builds a service-role REST client. */
+    private readonly makeClient: () => ReturnType<typeof createRestClient> = () =>
+      createRestClient(this.url, this.serviceRoleKey, { auth: { persistSession: false } }),
   ) {}
 
   private admin() {
-    return createRestClient(this.url, this.serviceRoleKey, { auth: { persistSession: false } });
+    return this.makeClient();
   }
 
   async resolveCaller(accessToken: string): Promise<Member | null> {
@@ -35,11 +38,13 @@ export class SupabaseAdminUserProvisioner implements IAdminUserProvisioner {
     const { data: caller, error: callerErr } = await admin.auth.getUser(accessToken);
     if (callerErr || !caller.user) return null;
 
-    const { data: callerProfile } = await admin
+    const { data: callerProfile, error: profileErr } = await admin
       .from("profiles")
       .select("user_id, email, full_name, role, supervisor_id")
       .eq("user_id", caller.user.id)
       .maybeSingle();
+    /* A failed read is not "no profile": that would turn an outage into 401/403. */
+    if (profileErr) throw new Error(profileErr.message);
     if (!callerProfile) return null;
     return toMember(callerProfile as ProfileRow);
   }

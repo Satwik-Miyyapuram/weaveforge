@@ -17,7 +17,7 @@
  */
 
 import { useCallback, useRef, useState } from "react";
-import { figureCornerHit } from "@weaveforge/core";
+import { figureCornerHit, resizeFigureBox } from "@weaveforge/core";
 
 import { InkGesture, StrokeEdgeSplit } from "../application/ink-gesture";
 import {
@@ -97,7 +97,6 @@ export function InkPage({
     corner: FigureCorner | null;
     from: { x: number; y: number };
     box: { x: number; y: number; w: number; h: number };
-    aspect: number;
   } | null>(null);
   /**
    * Fingers on the surface. One finger pans when touch is not drawing — a pen
@@ -309,7 +308,6 @@ export function InkPage({
           corner,
           from,
           box: { x: one.x, y: one.y, w: one.w, h: one.h },
-          aspect: one.w / Math.max(1, one.h),
         };
         return;
       }
@@ -393,40 +391,9 @@ export function InkPage({
           });
           return;
         }
-        // A corner resize: the opposite corner holds still and the dragged one
-        // follows the pointer. The aspect the image came with holds too — a
-        // photo does not become a different photo by being resized — unless
-        // Shift is held, which is a deliberate distortion. When the aspect
-        // holds, whichever axis the pointer moved further along wins and the
-        // other follows, so the corner never lags the hand.
-        const signX = held.corner === "ne" || held.corner === "se" ? 1 : -1;
-        const signY = held.corner === "se" || held.corner === "sw" ? 1 : -1;
-        const growW = held.box.w + signX * dx;
-        const growH = held.box.h + signY * dy;
-        let w = Math.max(30, Math.round(growW));
-        let h = Math.max(30, Math.round(growH));
-        if (!event.shiftKey) {
-          const movedW = Math.abs(growW - held.box.w) / Math.max(1, held.box.w);
-          const movedH = Math.abs(growH - held.box.h) / Math.max(1, held.box.h);
-          if (movedW >= movedH) {
-            w = Math.max(30, Math.round(growW));
-            h = Math.max(30, Math.round(w / held.aspect));
-          } else {
-            h = Math.max(30, Math.round(growH));
-            w = Math.max(30, Math.round(h * held.aspect));
-          }
-        }
-        // The opposite corner is the anchor: the dragged side is the one that
-        // moves, the far edge stays where the figure began.
-        const x =
-          held.corner === "nw" || held.corner === "sw"
-            ? held.box.x + held.box.w - w
-            : held.box.x;
-        const y =
-          held.corner === "nw" || held.corner === "ne"
-            ? held.box.y + held.box.h - h
-            : held.box.y;
-        onFigureChange?.(held.index, { x: Math.round(x), y: Math.round(y), w, h });
+        // A corner resize: the opposite corner holds still and the aspect
+        // holds unless Shift is held, which is a deliberate distortion.
+        onFigureChange?.(held.index, resizeFigureBox(held.box, held.corner, dx, dy, { free: event.shiftKey }));
         return;
       }
       if (tool === "lasso") {

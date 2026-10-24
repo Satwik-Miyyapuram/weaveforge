@@ -9,6 +9,8 @@ import type {
 } from "@weaveforge/core";
 import { parseDashboardLayout as parseDashboardLayoutCore } from "@weaveforge/core";
 
+import { removeStored } from "@/lib/safe-storage";
+
 import { getCardDef } from "./card-registry";
 
 export type { DashboardCardType, DashboardLayout, DashboardLayoutItem };
@@ -23,11 +25,7 @@ function layoutStorageKey(projectId: string): string {
 
 /** @deprecated Layout is stored in the database; clear any legacy localStorage entry. */
 export function clearLegacyLayoutStorage(projectId: string): void {
-  try {
-    localStorage.removeItem(layoutStorageKey(projectId));
-  } catch {
-    /* ignore */
-  }
+  removeStored(layoutStorageKey(projectId));
 }
 
 function newCardId(): string {

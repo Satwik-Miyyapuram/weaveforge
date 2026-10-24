@@ -10,13 +10,9 @@ import { bodyFontSize, outlineTextLines, type OutlineTextItem } from "./outline-
 import type { ParsedReference } from "./analysis/analysis-types.js";
 import { parseBibliography } from "./analysis/bibliography-parser.js";
 import { findReferenceSection } from "./analysis/reference-section.js";
-import type { TextLine } from "./analysis/line-reconstruction.js";
+import { isBoldFont, type TextLine } from "./analysis/line-reconstruction.js";
 
 export type { ParsedReference };
-
-function isBoldFont(fontName: string | undefined): boolean {
-  return /bold|black|heavy/i.test(fontName ?? "");
-}
 
 /** Outline lines as the analysis modules see them, with synthetic offsets. */
 function analysisLines(pages: readonly (readonly OutlineTextItem[])[]): {

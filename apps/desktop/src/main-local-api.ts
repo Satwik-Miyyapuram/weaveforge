@@ -7,6 +7,7 @@
  * optional expiry; each is shown once at creation and revocable on its own.
  */
 
+import { errorMessage } from "@weaveforge/core";
 import path from "node:path";
 import type { App, BrowserWindow, Shell } from "electron";
 
@@ -197,7 +198,7 @@ export function registerMainLocalApi(
       // on one port is not something to resolve behind the user's back.
       if ((error as NodeJS.ErrnoException)?.code === "EADDRINUSE")
         return (startError = `Another program is using port ${LOCAL_API_PORT}, so AI clients cannot reach WeaveForge. Close it, then tick Serve MCP again.`);
-      return (startError = error instanceof Error ? error.message : "The port is not available.");
+      return (startError = errorMessage(error, "The port is not available."));
     }
   }
 

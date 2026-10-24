@@ -167,7 +167,6 @@
 .graph-settings-drawer input[type="search"] {
   width: 100%;
 }
-.graph-check-grid { display: grid; grid-template-columns: 1fr; gap: 6px; }
 .graph-slider-row { display: grid; gap: 4px; font-size: 0.78rem; }
 /* Option buttons share the drawer's width; states.css sets .seg to inline-flex. */
 :root:root .graph-settings-drawer .seg { display: flex; width: 100%; }
@@ -226,11 +225,6 @@
 .filters { display: grid; gap: 8px; margin: 14px 0 6px; }
 /* Dropdown-style filters (papers): side-by-side selects that stack on mobile. */
 .search-input { margin: 14px 0 0; }
-/* A search box + a Filters popover on one line. */
-.controls-row { display: flex; align-items: center; gap: 10px; margin: 14px 0 6px; }
-.controls-row .search-input { margin: 0; flex: 1 1 auto; min-width: 0; }
-.controls-row .popover { flex: none; }
-.controls-spacer { flex: 1 1 auto; }
 /* Canvas force-graph (react-force-graph renders a <canvas> inside). */
 .graph-wrap {
   margin: 12px 0; width: 100%; overflow: hidden;
@@ -362,7 +356,6 @@
 .graph-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.78rem; margin-top: 6px; }
 .legend-item { display: inline-flex; align-items: center; gap: 5px; }
 .legend-swatch { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
-.legend-swatch.legend-tag { width: 9px; height: 9px; border-radius: 2px; background: hsl(210, 55%, 62%); }
 /* Node swatches: the same shape per kind as the canvas draws, in every theme. */
 .legend-node {
   width: 10px; height: 10px; display: inline-block; flex: none;

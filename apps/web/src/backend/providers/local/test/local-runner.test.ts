@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
-import { LocalRunner } from "../local-runner";
+import { LocalRunner, localRunnerQuery } from "../local-runner";
 
 function bridgeReturning(rows: unknown[], seen: unknown[][] = []): DesktopBridge {
   return {
@@ -26,5 +26,17 @@ describe("the local database runner", () => {
 
   it("says where it is, when it is asked for outside the desktop app", async () => {
     await assert.rejects(new LocalRunner(null).query("select 1"), /only available in the desktop app/);
+  });
+
+  it("gives the one default query the local backend parts share (09-18)", async () => {
+    const seen: unknown[][] = [];
+    const run = localRunnerQuery(bridgeReturning([{ id: 2 }], seen));
+    assert.deepEqual(await run("select $1", ["x"]), [{ id: 2 }]);
+    assert.deepEqual(seen, [["select $1", ["x"]]]);
+  });
+
+  it("whose query fails outside the desktop app only when it runs", async () => {
+    const run = localRunnerQuery(null);
+    await assert.rejects(run("select 1", []), /only available in the desktop app/);
   });
 });

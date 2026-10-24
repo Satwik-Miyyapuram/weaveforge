@@ -79,3 +79,20 @@ test("a circular value degrades to an em dash rather than throwing", () => {
   cyclic.self = cyclic;
   assert.equal(formatMetricCell("broken", cyclic), "—");
 });
+
+test("edge values read as what they are (02-14)", () => {
+  // Zero used to fall through every band to toExponential: "0.00e+0".
+  assert.equal(formatMetricCell("loss", 0), "0");
+  assert.equal(formatMetricCell("loss", -0), "0");
+  assert.equal(formatMetricCell("loss", "0"), "0");
+  // A non-finite number used to reach JSON.stringify, which spells it "null".
+  assert.equal(formatMetricCell("loss", NaN), "—");
+  assert.equal(formatMetricCell("loss", Infinity), "—");
+  assert.equal(formatMetricCell("loss", -Infinity), "—");
+  // A blank string is no value, not the number zero Number("  ") makes of it.
+  assert.equal(formatMetricCell("loss", "   "), "—");
+  // A bigint cannot go through JSON; it is still a number to show.
+  assert.equal(formatMetricCell("steps", 12n), "12");
+  // Negative numbers keep their sign in every band.
+  assert.equal(formatMetricCell("delta", -0.5), "-0.5000");
+});

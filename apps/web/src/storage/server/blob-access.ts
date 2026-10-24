@@ -5,15 +5,18 @@ import { readBackendConfig } from "@/backend/config";
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const BLOB_STORAGE_BUCKETS = [
+/** Every bucket a user's blobs live in. Uploads, shares and the account purge all read this list. */
+export const BLOB_STORAGE_BUCKETS = [
   "paper-images",
   "experiment-artifacts",
   "vault-assets",
   "report-images",
 ] as const;
 
-/** What a share of the resource in a path grants access to. */
-const SHARED_AS: Record<string, string> = {
+export type BlobStorageBucket = (typeof BLOB_STORAGE_BUCKETS)[number];
+
+/** What a share of the resource in a path grants access to: one entry per bucket. */
+const SHARED_AS: Record<BlobStorageBucket, string> = {
   "paper-images": "paper",
   "experiment-artifacts": "experiment",
   "vault-assets": "vault_page",
@@ -59,6 +62,11 @@ export function assertBlobPathOwned(path: string, userId: string): void {
     // malformed request.
     throw new BlobAccessError("Forbidden blob path.", 403);
   }
+}
+
+/** The shared resource type a bucket's paths name, or null for an unknown bucket. */
+export function sharedResourceFor(bucket: string): string | null {
+  return Object.hasOwn(SHARED_AS, bucket) ? SHARED_AS[bucket as BlobStorageBucket] : null;
 }
 
 export function assertAllowedBlobBucket(bucket: string): void {
@@ -118,7 +126,7 @@ export async function resolveBlobTierForViewer(
   const tier: BlobTier = data.tier === "cold" ? "cold" : "hot";
   if (data.user_id === viewerUid) return tier;
 
-  const shared = SHARED_AS[bucket];
+  const shared = sharedResourceFor(bucket);
   const resourceId = shared ? resourceIdFromBlobPath(path) : null;
   if (shared && resourceId && (await sharedResourceToUser(shared, resourceId, viewerUid))) return tier;
   return null;

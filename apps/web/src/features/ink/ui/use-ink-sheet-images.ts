@@ -24,7 +24,7 @@ import { VAULT_IMAGE_PREFIX } from "@weaveforge/core";
 
 import { getContainer } from "@/bootstrap";
 import { PAPER_IMAGE_PREFIX, paperImagePathsInBody } from "@/features/papers/lib/paper-images-md";
-import { paperImageThumbnailPath } from "@/features/papers/lib/image-variants";
+import { fetchPaperImageBlob, fetchPaperImageBlobs } from "@/features/papers/lib/image-variants";
 import { useInkFigureUrls } from "./use-ink-figure-urls";
 import type { InkHostDeps } from "./ink-host-types";
 
@@ -58,10 +58,7 @@ export async function inkSheetImageFetchBlob(
   const paperPath = paperPathOf(path);
   if (paperPath !== null) {
     if (!paperId) throw new Error("a paper image needs the paper it belongs to");
-    const papers = getContainer().papers;
-    const blob =
-      (await papers.fetchImageBlob(paperImageThumbnailPath(paperPath)).catch(() => null)) ??
-      (await papers.fetchImageBlob(paperPath).catch(() => null));
+    const blob = await fetchPaperImageBlob(getContainer().papers, paperPath);
     if (!blob) throw new Error(`missing paper image: ${paperPath}`);
     return blob;
   }
@@ -137,11 +134,17 @@ export interface InkSheetImageUrls {
  * `paperimg:` path is meaningless without it, and a note that is not a paper's
  * simply never has one.
  */
-/** The object URLs a set of paths resolved to, fetched once each. */
-function useObjectUrls(
+/**
+ * The object URLs a set of paths resolved to, fetched once each.
+ *
+ * A path change fetches only the paths that are new and revokes only the ones
+ * that went away: an image still on the sheet keeps its URL, where revoking
+ * the whole set on every change broke it until the refetch landed.
+ */
+export function useObjectUrls(
   paths: readonly string[],
   fetchOne: (path: string) => Promise<Blob | null>,
-  fetchMany: (paths: readonly string[]) => Promise<Map<string, Blob>> | undefined,
+  fetchMany?: (paths: readonly string[]) => Promise<Map<string, Blob>>,
 ): ReadonlyMap<string, string> {
   const [urls, setUrls] = useState<ReadonlyMap<string, string>>(() => new Map());
   // The paths' own contents are the identity that matters: callers build the
@@ -154,45 +157,60 @@ function useObjectUrls(
   fetchOneRef.current = fetchOne;
   const fetchManyRef = useRef(fetchMany);
   fetchManyRef.current = fetchMany;
+  // Every URL this hook made and has not revoked, by path.
+  const owned = useRef(new Map<string, string>());
+
+  useEffect(
+    () => () => {
+      for (const url of owned.current.values()) URL.revokeObjectURL(url);
+      owned.current = new Map();
+    },
+    [],
+  );
 
   useEffect(() => {
-    if (key === "") {
-      setUrls((prev) => (prev.size === 0 ? prev : new Map()));
-      return;
+    const wanted = pathsRef.current;
+    const keep = new Map<string, string>();
+    for (const path of wanted) {
+      const url = owned.current.get(path);
+      if (url) keep.set(path, url);
     }
+    for (const [path, url] of owned.current) if (!keep.has(path)) URL.revokeObjectURL(url);
+    owned.current = keep;
+    setUrls((prev) =>
+      prev.size === keep.size && [...keep].every(([path, url]) => prev.get(path) === url)
+        ? prev
+        : new Map(keep),
+    );
+
+    const missing = wanted.filter((path) => !keep.has(path));
+    if (missing.length === 0) return;
     let live = true;
-    const made: string[] = [];
     void (async () => {
-      const wanted = pathsRef.current;
       const blobs = new Map<string, Blob>();
       const batch = fetchManyRef.current;
-      if (batch && wanted.length > 1) {
-        const batchBlobs = await batch(wanted);
-        if (batchBlobs) {
-          for (const [path, blob] of batchBlobs) blobs.set(path, blob);
-        }
+      if (batch && missing.length > 1) {
+        const batchBlobs = await batch(missing).catch(() => null);
+        for (const [path, blob] of batchBlobs ?? []) blobs.set(path, blob);
       }
-      for (const path of wanted) {
-        if (blobs.has(path)) continue;
-        try {
-          const blob = await fetchOneRef.current(path);
-          if (blob) blobs.set(path, blob);
-        } catch {
-          // A missing asset is an image that never appears, not a broken page.
-        }
-      }
+      await Promise.all(
+        missing
+          .filter((path) => !blobs.has(path))
+          .map(async (path) => {
+            try {
+              const blob = await fetchOneRef.current(path);
+              if (blob) blobs.set(path, blob);
+            } catch {
+              // A missing asset is an image that never appears, not a broken page.
+            }
+          }),
+      );
       if (!live) return;
-      const next = new Map<string, string>();
-      for (const [path, blob] of blobs) {
-        const url = URL.createObjectURL(blob);
-        made.push(url);
-        next.set(path, url);
-      }
-      setUrls(next);
+      for (const [path, blob] of blobs) owned.current.set(path, URL.createObjectURL(blob));
+      setUrls(new Map(owned.current));
     })();
     return () => {
       live = false;
-      for (const url of made) URL.revokeObjectURL(url);
     };
   }, [key]);
 
@@ -218,27 +236,14 @@ export function useInkSheetImageUrls(text: string, paperId: string | null): InkS
   // A paper's own figure bytes: the thumbnail variant first (the sheet draws it
   // at page size, so the thumbnail is the right bytes), the full image as the
   // fallback for figures that have no variant yet.
-  const fetchPaperBlob = useCallback(async (path: string): Promise<Blob | null> => {
-    const papers = getContainer().papers;
-    const thumbnail = await papers.fetchImageBlob(paperImageThumbnailPath(path)).catch(() => null);
-    if (thumbnail) return thumbnail;
-    return papers.fetchImageBlob(path).catch(() => null);
-  }, []);
-  const fetchPaperBlobs = useCallback(async (paths: readonly string[]) => {
-    const papers = getContainer().papers;
-    const thumbnailPaths = paths.map(paperImageThumbnailPath);
-    const thumbnails = await papers.fetchImageBlobs(thumbnailPaths);
-    const missing = paths.filter((path) => !thumbnails.has(paperImageThumbnailPath(path)));
-    const fulls = missing.length ? await papers.fetchImageBlobs(missing) : new Map<string, Blob>();
-    const out = new Map<string, Blob>();
-    for (const path of paths) {
-      const thumbnail = thumbnails.get(paperImageThumbnailPath(path));
-      const full = fulls.get(path);
-      if (thumbnail) out.set(path, thumbnail);
-      else if (full) out.set(path, full);
-    }
-    return out;
-  }, []);
+  const fetchPaperBlob = useCallback(
+    (path: string) => fetchPaperImageBlob(getContainer().papers, path),
+    [],
+  );
+  const fetchPaperBlobs = useCallback(
+    (paths: readonly string[]) => fetchPaperImageBlobs(getContainer().papers, paths),
+    [],
+  );
 
   // Without a paper there is nothing a `paperimg:` path could name, so the
   // fetch is not even attempted — and the map stays empty, which drops the

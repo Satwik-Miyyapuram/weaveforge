@@ -8,6 +8,7 @@
  * sign-in set. That token is checked against `/api/v4/users/me` and returned.
  */
 
+import { errorMessage } from "@weaveforge/core";
 import { randomUUID } from "node:crypto";
 import { BrowserWindow, session, shell, type Cookie } from "electron";
 import { CHANNELS } from "./channels";
@@ -129,7 +130,7 @@ export function registerMattermostSignIn(deps: { ipc: IpcSurface; mainWindow: ()
     try {
       return { ok: true, value: await postToMattermost(req) };
     } catch (error) {
-      return { ok: false, message: error instanceof Error ? error.message : "Could not reach the Mattermost server." };
+      return { ok: false, message: errorMessage(error, "Could not reach the Mattermost server.") };
     }
   });
 }

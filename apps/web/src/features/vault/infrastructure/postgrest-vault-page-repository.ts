@@ -1,5 +1,6 @@
 import {
   buildPageTree,
+  normalizeTitleKey,
   vaultBodyPreview,
   type IVaultPageRepository,
   type VaultPage,
@@ -130,6 +131,18 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
     return buildPageTree((data as VaultPageRow[]).map(toSummaryDomain));
   }
 
+  async titleTaken(title: string, exceptId?: string): Promise<boolean> {
+    const key = normalizeTitleKey(title);
+    if (!key) return false;
+    // ILIKE narrows to candidates (each whitespace run may differ, hence %);
+    // the exact rule is applied here so both backends agree.
+    const pattern = key.split(" ").map(escapeLike).join("%");
+    const found = await rows<{ id: string; title: string }>(
+      this.scoped(this.db.from(TABLE).select("id,title")).ilike("title", pattern),
+    );
+    return found.some((r) => r.id !== exceptId && normalizeTitleKey(r.title) === key);
+  }
+
   async save(entity: VaultPage): Promise<void> {
     const row = toRow(entity);
     if (this.pid) row.project_id = this.pid;
@@ -139,6 +152,11 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
   async delete(id: string): Promise<void> {
     await run(this.scoped(this.db.from(TABLE).delete()).eq("id", id));
   }
+}
+
+/** Make `%`, `_` and `\` match themselves in a LIKE pattern. */
+function escapeLike(text: string): string {
+  return text.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
 function isMissingBodyPreviewColumn(error: { message?: string; code?: string }): boolean {

@@ -10,6 +10,7 @@
 
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
 
 const KEY = "thesis.reader.pdfDownload";
 
@@ -30,18 +31,11 @@ export function pdfProxyNeedsToken(): boolean {
 }
 
 export function pdfDownloadRemembered(): boolean {
-  try {
-    return localStorage.getItem(KEY) === "always";
-  } catch {
-    return false;
-  }
+  return readStored(KEY) === "always";
 }
 
+/** A private window forgets; the prompt returns next time. */
 export function rememberPdfDownload(always: boolean): void {
-  try {
-    if (always) localStorage.setItem(KEY, "always");
-    else localStorage.removeItem(KEY);
-  } catch {
-    /* a private window forgets; the prompt returns next time */
-  }
+  if (always) writeStored(KEY, "always");
+  else removeStored(KEY);
 }

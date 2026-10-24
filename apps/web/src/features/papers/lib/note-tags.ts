@@ -4,7 +4,10 @@ import {
   type ManageTagsUseCase,
   type Paper,
 } from "@weaveforge/core";
-import { isNetworkFailure } from "@/lib/format-error";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection, isNetworkFailure } from "@/lib/format-error";
+import { readStoredJson, removeStored, writeStoredJson } from "@/lib/safe-storage";
+import { registerSessionReset } from "@/lib/cache/clear-session-caches";
 
 /**
  * Tags live in the note markdown as `#hashtags`. These helpers keep that the
@@ -89,32 +92,39 @@ type TagReconcileDeps = {
 const DEFERRED_KEY = "wf.tags.deferredReconcile";
 
 function readDeferred(): string[] {
-  try {
-    const raw = window.localStorage.getItem(DEFERRED_KEY);
-    const ids = raw ? (JSON.parse(raw) as unknown) : [];
-    return Array.isArray(ids) ? ids.filter((x): x is string => typeof x === "string") : [];
-  } catch {
-    return [];
-  }
+  const ids = readStoredJson<unknown>(DEFERRED_KEY, []);
+  return Array.isArray(ids) ? ids.filter((x): x is string => typeof x === "string") : [];
 }
 
+/** Storage blocked: the links catch up on the next save of that note. */
 function writeDeferred(ids: readonly string[]): void {
-  try {
-    if (ids.length) window.localStorage.setItem(DEFERRED_KEY, JSON.stringify(ids));
-    else window.localStorage.removeItem(DEFERRED_KEY);
-  } catch {
-    // Storage blocked: the links catch up on the next save of that note.
-  }
+  if (ids.length) writeStoredJson(DEFERRED_KEY, ids);
+  else removeStored(DEFERRED_KEY);
 }
 
 let listening = false;
+/** The newest deps: a listener holding the first ones would write through a stale container. */
+let latestDeps: TagReconcileDeps | null = null;
+const onOnline = () => {
+  if (latestDeps) void retryDeferredTagReconciles(latestDeps);
+};
 
 function deferTagReconcile(papers: TagReconcileDeps, paperId: string): void {
   writeDeferred([...new Set([...readDeferred(), paperId])]);
+  latestDeps = papers;
   if (listening || typeof window === "undefined") return;
   listening = true;
-  window.addEventListener("online", () => void retryDeferredTagReconciles(papers));
+  window.addEventListener("online", onOnline);
 }
+
+/** Drop the online listener and the deps it holds (sign-out). The queue stays for the next save. */
+export function stopDeferredTagReconcile(): void {
+  if (listening && typeof window !== "undefined") window.removeEventListener("online", onOnline);
+  listening = false;
+  latestDeps = null;
+}
+
+registerSessionReset(stopDeferredTagReconcile);
 
 let retrying: Promise<void> | null = null;
 
@@ -124,14 +134,23 @@ export function retryDeferredTagReconciles(papers: TagReconcileDeps): Promise<vo
   // Cleared after the assignment, not in the body: with nothing queued the
   // body finishes before `??=` stores it, and would leave it set for good.
   retrying ??= (async () => {
-    try {
-      for (const id of readDeferred()) {
+    for (const id of readDeferred()) {
+      try {
         const paper = await papers.getPaper(id);
         if (paper) await reconcileTagsFromBody(papers.manageTags, id, paper.summary ?? "");
-        writeDeferred(readDeferred().filter((x) => x !== id));
+      } catch (err) {
+        // Still offline: this one and the rest stay queued.
+        if (isNetworkFailure(err)) return;
+        // The server refused this paper. Retrying it would block the queue
+        // for good, so it is dropped and the rest go ahead.
+        logToApp({
+          level: "warn",
+          source: "tags",
+          message: "Dropped a deferred tag update the server refused",
+          detail: `${id}: ${describeRejection(err)}`,
+        });
       }
-    } catch {
-      // Still offline, or the server refused: the rest stay queued.
+      writeDeferred(readDeferred().filter((x) => x !== id));
     }
   })().finally(() => {
     retrying = null;

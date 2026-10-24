@@ -89,7 +89,8 @@ export function analyzePdfDocument(
   const columnsByPage = new Map<number, number>();
   for (const page of pages) {
     // Rotated runs (arXiv's side stamp) are never body or headings.
-    const lines = reconstructLines(page.pageNumber, page.items.filter((item) => !isRotatedText(item.transform)));
+    // Kept out by predicate, not filtered, so line offsets still index `texts`.
+    const lines = reconstructLines(page.pageNumber, page.items, (item) => !isRotatedText(item.transform));
     const columns = detectColumns(lines);
     columnsByPage.set(page.pageNumber, Math.max(1, ...columns.map((c) => c + 1)));
     lines.forEach((line, j) => tagged.push({ line, column: columns[j] ?? 0 }));

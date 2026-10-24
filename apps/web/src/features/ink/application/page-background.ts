@@ -28,6 +28,7 @@ import {
 
 import {
   createCanvas,
+  openPdf,
   renderPdfPage,
   toPngBlob,
   toWebpBlob,
@@ -103,6 +104,26 @@ export async function pageBackgroundFromFile(
     return await composeOnSheet(image, image.width, image.height);
   } finally {
     image.close();
+  }
+}
+
+/**
+ * The A4 PNGs for pages `numbers` of one PDF, in order. The document is parsed
+ * once for all of them and closed when the caller stops, however it stops.
+ */
+export async function* pdfPageBackgrounds(
+  bytes: ArrayBuffer,
+  numbers: readonly number[],
+  open: typeof openPdf = openPdf,
+): AsyncGenerator<Blob> {
+  const pdf = await open(bytes);
+  try {
+    for (const number of numbers) {
+      const page = await pdf.render(number, A4_RASTER_WIDTH);
+      yield await composeOnSheet(page, page.width, page.height);
+    }
+  } finally {
+    await pdf.close();
   }
 }
 

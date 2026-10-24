@@ -56,7 +56,7 @@ export function PageEditor({
   notes?: { id: string; title: string }[];
   papers?: { id: string; title: string }[];
   sections?: { id: string; title: string }[];
-  onCreateNote?: (title: string) => void;
+  onCreateNote?: (title: string, opts?: { open?: boolean }) => void;
   resolveEmbed?: (title: string) => string | null;
   onChanged: () => void;
   onDeleted: () => void;
@@ -274,7 +274,7 @@ export function PageEditor({
                   links={links}
                   completions={completions}
                   onSave={canEditBody ? saveBody : async () => undefined}
-                  onCreateNote={onCreateNote ? (t) => onCreateNote(t) : undefined}
+                  onCreateNote={onCreateNote}
                   resolveEmbed={resolveEmbed}
                   handleRef={editorHandle}
                   onError={setSaveError}

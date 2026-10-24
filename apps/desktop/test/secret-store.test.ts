@@ -245,3 +245,51 @@ test("the page's own write still goes through the store's checks", async () => {
   const locked = new SecretStore(fakeCrypto(false), memoryFile());
   assert.equal((await pageSecrets(locked).write("ai-provider", "sk")).ok, false);
 });
+
+// ------------------------------------------------------------ read errors (38-02)
+
+function failingFile(code: string): SecretFile & { writes: number } {
+  const state = {
+    writes: 0,
+    read: async (): Promise<string | null> => {
+      throw Object.assign(new Error(`${code}: operation not permitted`), { code });
+    },
+    write: async () => {
+      state.writes += 1;
+    },
+  };
+  return state;
+}
+
+test("a file that cannot be read right now refuses the write and keeps the other secrets", async () => {
+  const file = failingFile("EPERM");
+  const result = await new SecretStore(fakeCrypto(), file).write("ai-provider", "sk-live");
+
+  assert.equal(result.ok, false);
+  assert.equal(file.writes, 0);
+});
+
+test("a file that cannot be read right now refuses the clear", async () => {
+  const file = failingFile("EBUSY");
+  const result = await new SecretStore(fakeCrypto(), file).clear("ai-provider");
+
+  assert.equal(result.ok, false);
+  assert.equal(file.writes, 0);
+});
+
+test("a file that cannot be read right now reads as nothing stored", async () => {
+  const file = failingFile("EBUSY");
+  assert.deepEqual(await new SecretStore(fakeCrypto(), file).read("ai-provider"), {
+    ok: true,
+    value: null,
+  });
+});
+
+// ------------------------------------------------------------ messages (xipc-23)
+
+test("an empty value is refused for being empty, not for its name", async () => {
+  const result = await new SecretStore(fakeCrypto(), memoryFile()).write("ai-provider", "");
+
+  assert.equal(result.ok, false);
+  assert.doesNotMatch(result.ok ? "" : result.message, /not something this app stores/);
+});

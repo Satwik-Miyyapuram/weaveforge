@@ -105,9 +105,22 @@ export class IsomorphicWorkspaceGit implements IWorkspaceGit {
         authoredAt: new Date(entry.commit.author.timestamp * 1000).toISOString(),
         author: entry.commit.author.name,
       }));
-    } catch {
-      // No commits yet is the common case, not an error worth surfacing.
-      return [];
+    } catch (err) {
+      // No commits yet is the common case, not an error worth surfacing. Any
+      // other failure is a damaged repo, and an empty history would hide it.
+      if (await this.hasNoCommits()) return [];
+      throw err;
+    }
+  }
+
+  /** True when HEAD resolves to nothing: a repo that was never committed to. */
+  private async hasNoCommits(): Promise<boolean> {
+    try {
+      const git = await this.git();
+      await git.resolveRef({ fs: this.fs, dir: this.dir, ref: "HEAD" });
+      return false;
+    } catch (err) {
+      return (err as { code?: string }).code === "NotFoundError";
     }
   }
 
