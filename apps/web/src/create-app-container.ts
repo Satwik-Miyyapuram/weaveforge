@@ -696,7 +696,6 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     }),
     dashboard: new DashboardFacade({
       layout: backend.dashboardLayoutRepository,
-      prefetch: prefetchProject,
       projectId: pid,
       papers: paperRepository,
       sections: reportSectionRepository,

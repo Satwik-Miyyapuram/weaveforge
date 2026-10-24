@@ -44,6 +44,13 @@ import {
   RefreshGlyph,
 } from "./explorer-glyphs";
 
+/** The "new in here" hover actions on a row, in the order they show. */
+const NEW_HERE: { kind: CreateKind; label: string; icon: React.ReactNode }[] = [
+  { kind: "note", label: "New note here", icon: <NavIcon name="notes" /> },
+  { kind: "section", label: "New section here", icon: <NavIcon name="doc" /> },
+  { kind: "folder", label: "New folder here", icon: <FolderIcon /> },
+];
+
 export interface ExplorerSelection {
   kind: TreeNodeKind;
   id: string;
@@ -612,48 +619,21 @@ export function ExplorerPanel({
                               question about where. */}
                           {offered.length > 0 && renaming !== node.key ? (
                             <span className="explorer-row-actions">
-                              {offered.includes("note") ? (
+                              {NEW_HERE.filter((item) => offered.includes(item.kind)).map((item) => (
                                 <button
+                                  key={item.kind}
                                   type="button"
                                   className="explorer-row-action"
-                                  title="New note here"
-                                  aria-label="New note here"
+                                  title={item.label}
+                                  aria-label={item.label}
                                   onClick={(event) => {
                                     event.stopPropagation();
-                                    startDraft("note", node);
+                                    startDraft(item.kind, node);
                                   }}
                                 >
-                                  <NavIcon name="notes" />
+                                  {item.icon}
                                 </button>
-                              ) : null}
-                              {offered.includes("section") ? (
-                                <button
-                                  type="button"
-                                  className="explorer-row-action"
-                                  title="New section here"
-                                  aria-label="New section here"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    startDraft("section", node);
-                                  }}
-                                >
-                                  <NavIcon name="doc" />
-                                </button>
-                              ) : null}
-                              {offered.includes("folder") ? (
-                                <button
-                                  type="button"
-                                  className="explorer-row-action"
-                                  title="New folder here"
-                                  aria-label="New folder here"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    startDraft("folder", node);
-                                  }}
-                                >
-                                  <FolderIcon />
-                                </button>
-                              ) : null}
+                              ))}
                               {onRename && canRename(node) ? (
                                 <button
                                   type="button"
