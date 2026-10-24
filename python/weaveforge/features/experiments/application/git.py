@@ -6,6 +6,7 @@ raises: outside a repo, or with git absent, every field is just ``None``.
 from __future__ import annotations
 
 import subprocess
+from urllib.parse import urlsplit, urlunsplit
 
 
 def _git(*args: str, cwd: str | None = None) -> str | None:
@@ -34,6 +35,11 @@ def _normalize_remote(url: str | None) -> str | None:
         url = f"https://{host}/{path}"
     if url.endswith(".git"):
         url = url[:-4]
+    parts = urlsplit(url)
+    if parts.scheme in ("http", "https") and "@" in parts.netloc:
+        # `https://user:token@host/...` would send the token to the server,
+        # where it is stored and shown on the dashboard.
+        url = urlunsplit(parts._replace(netloc=parts.netloc.rpartition("@")[2]))
     return url
 
 

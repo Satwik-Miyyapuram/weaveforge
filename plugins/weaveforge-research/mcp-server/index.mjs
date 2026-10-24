@@ -135,6 +135,12 @@ lines.on("line", (line) => {
     write(failure(null, -32700, "Not JSON."));
     return;
   }
+  // `null`, a number or a string parses fine but is no request; reading `.id`
+  // off null would throw and leave the queue rejected for every later line.
+  if (request === null || typeof request !== "object") {
+    write(failure(null, -32600, "Invalid request."));
+    return;
+  }
   // In order, one at a time: clients match answers by id, but logs read better.
   queue = queue.then(() => forward(request).then(write, (error) => {
     log(error?.stack ?? String(error));
