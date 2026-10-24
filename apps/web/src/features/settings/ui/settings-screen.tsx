@@ -147,6 +147,8 @@ export function SettingsScreen() {
 
   const [settings, setSettings] = useState<UserSettings>({});
   const [loading, setLoading] = useState(true);
+  // Saving replaces every stored credential, so it needs the stored ones first.
+  const [loaded, setLoaded] = useState(false);
   const [, setSaved] = useState(false);
   const [collections, setCollections] = useState<{ key: string; name: string }[]>([]);
   /** State of the live credential probe shown inside the connection dialog. */
@@ -183,6 +185,7 @@ export function SettingsScreen() {
   }
 
   const { busy, error, setError, submit } = useSubmit(async () => {
+    if (!loaded) throw new Error("Settings did not load; reload before saving.");
     await getContainer().settings.manageSettings.save(settings);
     // The ink engine is probed once per session and kept. Saving settings can
     // change what the *desktop shell* answers — the local API's switch is the
@@ -198,6 +201,7 @@ export function SettingsScreen() {
     setError(null);
     try {
       setSettings(await getContainer().settings.manageSettings.get());
+      setLoaded(true);
     } catch (err) {
       setError(formatError(err));
     } finally {
