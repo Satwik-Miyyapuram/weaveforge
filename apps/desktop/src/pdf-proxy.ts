@@ -2,6 +2,7 @@ import {
   isAllowedPdfProxyUrl,
   PDF_PROXY_MAX_BYTES,
 } from "@/features/reader/application/sanitize-reader-url";
+import { refuse, type ProxyFetch } from "./proxy-shared";
 
 /**
  * The reader's PDF proxy, served from the `app://` origin.
@@ -37,13 +38,6 @@ const PDF_MAGIC_WINDOW = 1024;
 
 export function isPdfProxyRequest(requestUrl: string): boolean {
   return new URL(requestUrl).pathname === PDF_PROXY_PATH;
-}
-
-function refuse(status: number, error: string): Response {
-  return new Response(JSON.stringify({ error }), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
 }
 
 function isPdfContentType(value: string | null): boolean {
@@ -97,11 +91,9 @@ function isHttpsUrl(raw: string): boolean {
 
 const MAX_REDIRECTS = 5;
 
-export type PdfFetch = (input: string, init?: RequestInit) => Promise<Response>;
-
 export async function proxyPdf(
   requestUrl: string,
-  fetchFn: PdfFetch = fetch,
+  fetchFn: ProxyFetch = fetch,
 ): Promise<Response> {
   const params = new URL(requestUrl).searchParams;
   const target = params.get("url");

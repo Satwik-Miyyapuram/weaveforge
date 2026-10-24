@@ -1,19 +1,4 @@
-import type { DashboardCardType, DashboardLayout, DashboardLayoutItem } from "./dashboard-layout.js";
-
-/** All valid dashboard card type ids (keep in sync with web card registry). */
-export const DASHBOARD_CARD_TYPES: readonly DashboardCardType[] = [
-  "reading-progress",
-  "report-progress",
-  "plan-progress",
-  "experiments-summary",
-  "needs-attention",
-  "recent-log",
-  "library-snapshot",
-  "top-tags",
-  "team-roster",
-  "team-attention",
-  "supervisee-snapshot",
-] as const;
+import { DASHBOARD_CARD_TYPES, type DashboardLayout, type DashboardLayoutItem } from "./dashboard-layout.js";
 
 const CARD_TYPE_SET = new Set<string>(DASHBOARD_CARD_TYPES);
 
@@ -30,11 +15,15 @@ function isLayoutItem(v: unknown): v is DashboardLayoutItem {
   );
 }
 
-/** Parse layout JSON from persistence; returns null if invalid (no compaction). */
+/**
+ * Parse layout JSON from persistence (no compaction). Returns null only when
+ * `lg`/`sm` are not arrays. An invalid item, such as a card type this client
+ * does not know, is dropped on its own so the rest of the layout survives
+ * (35-11).
+ */
 export function parseDashboardLayout(raw: unknown): DashboardLayout | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as { lg?: unknown; sm?: unknown };
   if (!Array.isArray(o.lg) || !Array.isArray(o.sm)) return null;
-  if (!o.lg.every(isLayoutItem) || !o.sm.every(isLayoutItem)) return null;
-  return { lg: o.lg, sm: o.sm };
+  return { lg: o.lg.filter(isLayoutItem), sm: o.sm.filter(isLayoutItem) };
 }

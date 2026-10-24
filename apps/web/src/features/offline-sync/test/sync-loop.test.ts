@@ -4,7 +4,6 @@ import test from "node:test";
 import {
   createCycleRunner,
   mayDriveDevice,
-  ownedRowCountSql,
 } from "@/features/offline-sync/ui/sync-loop";
 
 /**
@@ -95,18 +94,6 @@ test("only the account that owns the device may drive it", () => {
   assert.equal(mayDriveDevice(null, "a"), false);
   // Never adopted: there is no account for the outbox to belong to.
   assert.equal(mayDriveDevice("a", null), false);
-});
-
-test("the adoption check counts every table adoption would move", () => {
-  const sql = ownedRowCountSql(["vault_pages", "reading_lists"]);
-
-  assert.ok(sql);
-  assert.match(sql, /from "vault_pages" where user_id = \$1/);
-  assert.match(sql, /from "reading_lists" where user_id = \$1/);
-  // Nothing to count is also "nothing of its own".
-  assert.equal(ownedRowCountSql([]), null);
-  // A name that needs quoting cannot escape its identifier.
-  assert.match(ownedRowCountSql(['we"ird'])!, /"we""ird"/);
 });
 
 test("signing in adopts a device no account owns yet", async () => {

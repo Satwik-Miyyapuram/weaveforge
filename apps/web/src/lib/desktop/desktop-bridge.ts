@@ -91,16 +91,12 @@ export interface DesktopBridge {
   checkUpdate(): Promise<DesktopUpdate | null>;
 
   /**
-   * Reads one of the shell's own settings, or null if it has never been set.
+   * Keeps one of the shell's own settings. Writing null forgets it.
    *
    * These are the few things the *window* remembers rather than the app: they
-   * have to survive a reinstall, or be answerable before there is a session to
-   * answer them from. A browser has no equivalent and needs none — it is
-   * already online, and its settings live with its account.
+   * have to be answerable before there is a session to answer them from. A
+   * browser has no equivalent and needs none.
    */
-  readPreference(name: DesktopPreferenceName): Promise<DesktopPreferenceValue>;
-
-  /** Keeps one. Writing null forgets it. */
   writePreference(
     name: DesktopPreferenceName,
     value: DesktopPreferenceValue,
@@ -529,9 +525,11 @@ export interface DesktopVaultEntry {
  */
 export type DesktopSecretName = "ai-provider" | "overleaf-token";
 
-/** What the shell remembers. Mirrored in `apps/desktop/src/preference-store.ts`. */
-export type DesktopPreferenceName =
-  "sync-offer-shown" | "sync-target" | "vault-root" | "vault-git" | "local-api";
+/**
+ * The shell preferences the page may write. Equal to `PAGE_WRITABLE` in
+ * `apps/desktop/src/preference-store.ts`; a desktop test holds them equal.
+ */
+export type DesktopPreferenceName = "vault-git";
 export type DesktopPreferenceValue = string | boolean | null;
 
 export interface DesktopUpdate {

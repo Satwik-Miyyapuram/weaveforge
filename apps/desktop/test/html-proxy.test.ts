@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isHtmlProxyRequest, proxyHtml, type HtmlFetch } from "../src/html-proxy";
+import { isHtmlProxyRequest, proxyHtml } from "../src/html-proxy";
+import type { ProxyFetch } from "../src/proxy-shared";
 
 /**
  * The shell's HTML relay: https only, before and after redirects; only a web
@@ -12,7 +13,7 @@ const APP = "app://weaveforge";
 
 function answering(body: BodyInit, init: { status?: number; type?: string; url?: string } = {}) {
   const calls: string[] = [];
-  const fetchFn: HtmlFetch = (input) => {
+  const fetchFn: ProxyFetch = (input) => {
     calls.push(input);
     const res = new Response(body, {
       status: init.status ?? 200,
@@ -59,6 +60,6 @@ test("nothing but https leaves, and a redirect off https is refused", async () =
 test("a PDF, an error or a network failure is not a page", async () => {
   assert.equal((await proxyHtml(relay("https://a.org/p"), answering("%PDF", { type: "application/pdf" }).fetchFn)).status, 415);
   assert.equal((await proxyHtml(relay("https://a.org/p"), answering("no", { status: 404 }).fetchFn)).status, 502);
-  const failing: HtmlFetch = () => Promise.reject(new Error("offline"));
+  const failing: ProxyFetch = () => Promise.reject(new Error("offline"));
   assert.equal((await proxyHtml(relay("https://a.org/p"), failing)).status, 502);
 });

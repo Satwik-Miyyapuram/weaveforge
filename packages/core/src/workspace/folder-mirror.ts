@@ -103,11 +103,14 @@ export async function mirrorWorkspace(
   const bases: Record<string, VaultPageBase> = {};
   let unchanged = 0;
 
-  /** The file on disk, when it is a reader's edit rather than the app's content. */
-  const editedSinceBase = async (path: string, content: string): Promise<boolean> => {
+  /**
+   * The file on disk, when it is a reader's edit rather than the app's content.
+   * `known` is the text already read for this path, so it is not read twice.
+   */
+  const editedSinceBase = async (path: string, content: string, known?: string): Promise<boolean> => {
     const recorded = options.base?.[path];
     if (recorded === undefined) return false;
-    const onDisk = await fs.readText(path).catch(() => null);
+    const onDisk = known ?? (await fs.readText(path).catch(() => null));
     if (onDisk === null || onDisk === content) return false;
     return digestText(onDisk) !== recorded;
   };
@@ -122,10 +125,10 @@ export async function mirrorWorkspace(
     mirrored[path] = digestText(content);
     const noteBase = vaultPageBase(path, content);
     if (noteBase) bases[path] = noteBase;
-    const existing = await fs.stat(path).catch(() => null);
-    if (existing) {
-      const current = await fs.readText(path).catch(() => null);
-      if (current !== null && (current === content || unstamped(path, current) === unstamped(path, content))) {
+    // One read answers "is it there" and "what does it say"; null is missing.
+    const current = await fs.readText(path).catch(() => null);
+    if (current !== null) {
+      if (current === content || unstamped(path, current) === unstamped(path, content)) {
         mirrored[path] = digestText(current);
         unchanged += 1;
         continue;
@@ -134,7 +137,7 @@ export async function mirrorWorkspace(
       // wrote this path before and the file has moved on since, that difference
       // is the reader's edit: leave it, and say so.
       // The root README is shared by every project's mirror, so it never matches one project's base.
-      if (!isAppOwnedPath(path) && (await editedSinceBase(path, content))) {
+      if (!isAppOwnedPath(path) && (await editedSinceBase(path, content, current))) {
         hold(path);
         continue;
       }

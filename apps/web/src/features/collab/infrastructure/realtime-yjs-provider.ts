@@ -18,7 +18,7 @@ const MERGE_MS = 200;
 const PERSIST_IDLE_MS = 5000;
 const COMPACT_THRESHOLD = 200;
 
-export interface EncryptedYjsProviderOptions {
+export interface RealtimeYjsProviderOptions {
   doc: Y.Doc;
   db: unknown;
   crdtStore: ICrdtUpdateStore;
@@ -71,7 +71,7 @@ export interface EncryptedYjsProviderOptions {
   live?: boolean;
 }
 
-export class EncryptedYjsProvider {
+export class RealtimeYjsProvider {
   private readonly channel: RealtimeChannel | null;
   private pending: Uint8Array[] = [];
   private mergeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -81,7 +81,7 @@ export class EncryptedYjsProvider {
   private awarenessHandler: ((payload: { added: number[]; updated: number[]; removed: number[] }) => void) | null =
     null;
 
-  constructor(private readonly opts: EncryptedYjsProviderOptions) {
+  constructor(private readonly opts: RealtimeYjsProviderOptions) {
     this.channel = opts.live === false ? null : this.join();
     opts.doc.on("update", this.onLocalUpdate);
     if (opts.awareness && this.channel) this.bindAwareness(opts.awareness);
@@ -97,15 +97,18 @@ export class EncryptedYjsProvider {
       config: { broadcast: { self: false }, private: true },
     });
     channel.on("broadcast", { event: "yjs" }, ({ payload }) => {
-      void this.onRemote(payload as { data?: string });
+      this.receive(() => this.onRemote(payload as { data?: string }));
     });
     channel.on("broadcast", { event: "awareness" }, ({ payload }) => {
-      void this.onAwarenessRemote(payload as { data?: string });
+      this.receive(() => this.onAwarenessRemote(payload as { data?: string }));
     });
     // Token first, then join — see the note in `project-lww-invalidator`.
     void db.realtime
       .setAuth()
-      .then(() =>
+      .then(() => {
+        // Torn down while the token was on its way: `destroy()` has already
+        // left, and joining now would hold a channel nobody owns.
+        if (this.destroyed) return;
         channel.subscribe((status, err) => {
           if (process.env.NODE_ENV !== "production") {
             console.debug(`[collab] ${channel.topic} → ${status}${err ? `: ${err.message}` : ""}`);
@@ -115,8 +118,8 @@ export class EncryptedYjsProvider {
           else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
             this.opts.onError?.("subscribe", `${status}${err ? `: ${err.message}` : ""}`);
           }
-        }),
-      )
+        });
+      })
       .catch((err) => this.opts.onError?.("setAuth", formatError(err)));
     return channel;
   }
@@ -137,7 +140,11 @@ export class EncryptedYjsProvider {
     if (this.mergeTimer) return;
     this.mergeTimer = setTimeout(() => void this.flushOutbound(), MERGE_MS);
     if (!this.persistTimer) {
-      this.persistTimer = setTimeout(() => void this.persistTail(), PERSIST_IDLE_MS);
+      this.persistTimer = setTimeout(() => {
+        // Nothing awaits a timer: a failed write (offline) is a notice, not an
+        // unhandled rejection. The next persist carries the same state.
+        this.persistTail().catch((err) => this.opts.onError?.("persist", formatError(err)));
+      }, PERSIST_IDLE_MS);
     }
   };
 
@@ -161,13 +168,22 @@ export class EncryptedYjsProvider {
     }
   }
 
-  private async onRemote(payload: { data?: string }) {
+  /** A peer's message is untrusted input: a malformed one is reported, never thrown. */
+  private receive(apply: () => void) {
+    try {
+      apply();
+    } catch (err) {
+      this.opts.onError?.("receive", formatError(err));
+    }
+  }
+
+  private onRemote(payload: { data?: string }) {
     if (!payload.data || this.destroyed) return;
     const bin = decodeBase64(payload.data);
     Y.applyUpdate(this.opts.doc, bin, this);
   }
 
-  private async onAwarenessRemote(payload: { data?: string }) {
+  private onAwarenessRemote(payload: { data?: string }) {
     if (!payload.data || this.destroyed || !this.opts.awareness) return;
     const bin = decodeBase64(payload.data);
     applyAwarenessUpdate(this.opts.awareness, bin, this);

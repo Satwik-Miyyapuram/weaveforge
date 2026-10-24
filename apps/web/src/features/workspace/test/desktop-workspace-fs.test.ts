@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { WorkspacePathError } from "@weaveforge/core";
+import { WorkspacePathError, projectDir } from "@weaveforge/core";
 import { MemoryWorkspaceFs } from "@weaveforge/core/testing";
 
 import {
   DesktopWorkspaceFs,
   type VaultFileBridge,
 } from "../infrastructure/desktop-workspace-fs";
+import { followProjectRename } from "../application/mirror-manifest";
 
 /** A bridge backed by the in-memory fs, standing in for the desktop process. */
 function bridgeOver(fs: MemoryWorkspaceFs): VaultFileBridge {
@@ -75,8 +76,7 @@ test("the adapter refuses a path that leaves the root", async () => {
   await assert.rejects(() => fs.writeFile("../escape.md", "x"), WorkspacePathError);
   await assert.rejects(() => fs.readText("/etc/passwd"), WorkspacePathError);
   await assert.rejects(() => fs.remove("../escape.md"), WorkspacePathError);
-  // The guard runs before the swallow-and-return-null in `stat`, so an unsafe
-  // path is an error rather than a quiet "not there".
+  // An unsafe path is an error rather than a quiet "not there".
   await assert.rejects(() => fs.stat("../escape.md"), WorkspacePathError);
 });
 
@@ -106,4 +106,34 @@ test("mkdirp is a no-op, and a write still creates its parents", async () => {
   assert.equal(await fs.stat("nothing/here"), null);
   await fs.writeFile("nothing/here/file.md", "x");
   assert.equal((await fs.stat("nothing/here"))?.kind, "dir");
+});
+
+test("a stat the desktop cannot answer is an error, not a missing file (29-04)", async () => {
+  const memory = new MemoryWorkspaceFs();
+  const failure = new Error("EACCES: permission denied, stat 'notes'");
+  const fs = new DesktopWorkspaceFs({
+    ...bridgeOver(memory),
+    async statVaultFile() {
+      throw failure;
+    },
+  });
+  await assert.rejects(() => fs.stat("notes"), (error) => error === failure);
+});
+
+test("a failed stat does not let a rename follow-up delete the project's folder (29-04)", async () => {
+  const memory = new MemoryWorkspaceFs();
+  const project = { id: "8d731734-bdcd-4f08-b648-efd15fdf75da", name: "MSc Thesis" };
+  const root = projectDir(project);
+  await memory.writeFile(`${root}/notes/a.md`, "keep me");
+  const fs = new DesktopWorkspaceFs({
+    ...bridgeOver(memory),
+    async statVaultFile() {
+      throw new Error("No workspace folder is open.");
+    },
+  });
+
+  // Read as "absent", the root would match its own id suffix and be moved onto
+  // itself and then removed.
+  await assert.rejects(() => followProjectRename(fs, project));
+  assert.equal(await memory.readText(`${root}/notes/a.md`), "keep me");
 });
