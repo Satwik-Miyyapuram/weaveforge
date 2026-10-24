@@ -34,7 +34,7 @@ export type ZoteroPushOutcome = "pushed" | "already-linked" | "failed";
 export class PushPaperToZoteroUseCase {
   constructor(
     private readonly deps: {
-      papers: Pick<IPaperRepository, "save">;
+      papers: Pick<IPaperRepository, "getById" | "save">;
       bibliography: Pick<IBibliographyIntegration, "pushPaper">;
     },
   ) {}
@@ -54,9 +54,15 @@ export class PushPaperToZoteroUseCase {
     // which is not an error either.
     if (!key) return "failed";
 
+    // The push takes a network round trip, and the caller's object can be
+    // older than the stored row (the form writes the summary, then pushes what
+    // it held before). Store the key on the row as it is now, not on that copy.
+    // A row deleted meanwhile stays deleted; the item in Zotero is still there.
+    const fresh = await this.deps.papers.getById(paper.id);
+    if (!fresh) return "pushed";
     await this.deps.papers.save({
-      ...paper,
-      metadata: { ...paper.metadata, zoteroKey: key },
+      ...fresh,
+      metadata: { ...fresh.metadata, zoteroKey: key },
     });
     return "pushed";
   }
