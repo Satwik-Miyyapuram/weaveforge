@@ -62,7 +62,7 @@ import {
   VERTEX_SHADER,
 } from "./webgl-shaders";
 import { ensureCaptureTarget, releaseCaptureTarget, type CaptureTarget } from "./webgl-offscreen";
-import { InkBatches } from "./webgl-batches";
+import { InkBatches, type Batch } from "./webgl-batches";
 import { linkProgram, pageScissor } from "./webgl-support";
 import { INK_RENDER_COLOURS, type InkPalette } from "./ink-palette";
 export { INK_RENDER_COLOURS } from "./ink-palette";
@@ -79,20 +79,6 @@ export {
   VERTEX_SHADER,
 } from "./webgl-shaders";
 export { supportsWebglInk } from "./webgl-support";
-
-/** One colour's geometry, resident in its own buffers so a draw is one call. */
-interface Batch {
-  colour: InkColour;
-  highlighter: boolean;
-  /** Instance floats: `INK_INSTANCE_FLOATS` per segment. */
-  data: Float32Array;
-  /** Segment records, one per stroke, for erase. */
-  records: { stroke: number; offset: number; count: number }[];
-  /** The GL buffer and how much of it is in use. */
-  buffer: WebGLBuffer | null;
-  capacity: number;
-  used: number;
-}
 
 export interface WebglInkRendererOptions {
   canvas: OffscreenCanvas | HTMLCanvasElement;

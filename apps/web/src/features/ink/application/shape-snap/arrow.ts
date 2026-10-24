@@ -81,7 +81,6 @@ export function fitArrow(
   for (let i = 1; i + 1 < points.length; i += 1) {
     if (reach[i]! > reach[i - 1]! && reach[i]! >= reach[i + 1]!) tipIndex = i;
   }
-  // eslint-disable-next-line no-console
   if (tipIndex < 0) return null;
   const farthest = reach[tipIndex]!;
   // The shaft has to be a shaft and the head has to be a head: at least two

@@ -50,6 +50,7 @@ import {
   isPdf,
   pageBackgroundFromFile,
   pageChunkWithBackground,
+  pdfPageBackgrounds,
 } from "../application/page-background";
 import { messageOf } from "./error-message";
 import { figureBoxForAspect } from "./ink-figures";
@@ -399,8 +400,9 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
       setInserting(true);
       try {
         let numbers = [1];
-        if (isPdf(file)) {
-          const count = await pdfPageCount(await file.arrayBuffer());
+        const bytes = isPdf(file) ? await file.arrayBuffer() : null;
+        if (bytes) {
+          const count = await pdfPageCount(bytes);
           if (count > 1) {
             const answer = await askPdfPages(count);
             if (answer === null || answer.length === 0) return;
@@ -412,8 +414,12 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         // text layer grows before each index is read — which is what makes a
         // later page's index different from an earlier one's.
         const size = clampInkPageSize(INK_A4_WIDTH, INK_A4_HEIGHT);
-        for (const number of numbers) {
-          const png = await pageBackgroundFromFile(file, number);
+        const backgrounds = bytes
+          ? pdfPageBackgrounds(bytes, numbers)
+          : (async function* () {
+              yield await pageBackgroundFromFile(file);
+            })();
+        for await (const png of backgrounds) {
           const path = await deps.assets.upload(deps.noteId, png, "png");
           const text = withInkPageBackground("", path);
           const nextTextPages = [...deps.textPagesRef.current, text];
@@ -433,7 +439,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
           pages.push({ chunkId, chunk, paper: deps.metaRef.current.paper });
           deps.textPagesRef.current = nextTextPages;
           deps.onPageAppended(pages.length);
-          deps.saveBody();
+          void deps.saveBody();
         }
       } catch (error) {
         deps.setUnavailable(

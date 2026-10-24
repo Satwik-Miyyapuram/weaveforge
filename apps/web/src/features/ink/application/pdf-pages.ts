@@ -9,12 +9,15 @@
  * Pure string work, deliberately forgiving in the ways a human is: spaces are
  * free, `1 - 3` is `1-3`, an empty answer is "no pages" rather than an error,
  * and duplicates collapse (they name the same page twice, and the page is
- * imported once). The bounds are the caller's to enforce: this returns the
- * numbers as written, sorted, and the dialog validates against the count.
+ * imported once). A range only walks the pages the document has, so "1-99999999"
+ * costs no more than "all"; the first page past the end is kept so the dialog
+ * can name it.
  */
 export interface PageSelection {
-  /** Every page named, 1-based, sorted, deduplicated. */
+  /** Every page named that the document has, 1-based, sorted, deduplicated. */
   pages: number[];
+  /** The lowest page named past `count`, if any. */
+  outOfRange?: number;
 }
 
 /** Parse `all` (any case, alone) as "every page", needing only the count. */
@@ -24,11 +27,16 @@ export function isAllPages(answer: string): boolean {
 
 /**
  * Parse a page list: `1`, `1,3`, `1,3-5`, `2-`, with spaces anywhere a human
- * puts them. A trailing or leading dash means "to the end" / "from the start"
- * only when the other side is there; a bare dash is nothing.
+ * puts them, against a document of `count` pages. A trailing or leading dash
+ * means "to the end" / "from the start" only when the other side is there; a
+ * bare dash is nothing.
  */
-export function parsePageList(answer: string): PageSelection {
+export function parsePageList(answer: string, count: number): PageSelection {
   const pages = new Set<number>();
+  let outOfRange: number | undefined;
+  const past = (page: number) => {
+    if (outOfRange === undefined || page < outOfRange) outOfRange = page;
+  };
   for (const part of answer.split(",")) {
     const range = part.trim();
     if (range === "") continue;
@@ -38,18 +46,23 @@ export function parsePageList(answer: string): PageSelection {
       // to start from and none to end at. One side alone carries the default.
       if (match[1] === "" && match[2] === "") continue;
       const from = match[1] === "" ? 1 : Number(match[1]);
-      const to = match[2] === "" ? from : Number(match[2]);
+      // An open end runs to the last page; past the end it names only `from`.
+      const to = match[2] === "" ? Math.max(from, count) : Number(match[2]);
       // A reversed range is read the way it was probably meant, not as a
       // surprise empty set: "5-3" names three pages either way round.
       const low = Math.min(from, to);
       const high = Math.max(from, to);
-      for (let page = low; page <= high; page += 1) pages.add(page);
+      for (let page = Math.max(low, 1); page <= Math.min(high, count); page += 1) pages.add(page);
+      if (high > count) past(Math.max(low, count + 1));
       continue;
     }
     const single = Number(range);
-    if (Number.isFinite(single) && single > 0) pages.add(single);
+    if (!Number.isFinite(single) || single <= 0) continue;
+    if (single > count) past(single);
+    else pages.add(single);
   }
-  return { pages: [...pages].sort((a, b) => a - b) };
+  const sorted = [...pages].sort((a, b) => a - b);
+  return outOfRange === undefined ? { pages: sorted } : { pages: sorted, outOfRange };
 }
 
 /**
@@ -60,7 +73,7 @@ export function selectedPdfPages(answer: string, count: number): number[] {
   if (isAllPages(answer)) {
     return Array.from({ length: count }, (_, index) => index + 1);
   }
-  return parsePageList(answer).pages.filter((page) => page >= 1 && page <= count);
+  return parsePageList(answer, count).pages;
 }
 
 /** What the dialog's validation line says about an answer, or `null` if good. */
@@ -69,15 +82,14 @@ export function pageListProblem(
   count: number,
 ): string | null {
   if (isAllPages(answer)) return null;
-  const parsed = parsePageList(answer).pages;
-  if (parsed.length === 0) {
+  const { pages, outOfRange } = parsePageList(answer, count);
+  if (outOfRange !== undefined) {
+    return `Page ${outOfRange} is outside this PDF, which has ${count}.`;
+  }
+  if (pages.length === 0) {
     return count > 1
       ? `Enter a page, a list like 1,3-5, or "all".`
       : "Enter the page to use.";
-  }
-  const outOfRange = parsed.find((page) => page < 1 || page > count);
-  if (outOfRange !== undefined) {
-    return `Page ${outOfRange} is outside this PDF, which has ${count}.`;
   }
   return null;
 }
