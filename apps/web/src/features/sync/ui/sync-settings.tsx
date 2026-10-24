@@ -14,7 +14,7 @@ import { MATTERMOST_EVENTS, mattermostOptions, type MattermostOptions } from "..
 import { formatError } from "@/lib/format-error";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
-import { DEFAULT_MATTERMOST_SERVER, MattermostSignInButton } from "./mattermost-sign-in-button";
+import { MattermostSignInButton } from "./mattermost-sign-in-button";
 
 export function SyncSettings() {
   const { current } = useProject();
@@ -67,6 +67,14 @@ export function SyncSettings() {
       )}
     </div>
   );
+}
+
+/**
+ * The connection fields to ask for. Mattermost sign-in brings its own token,
+ * so in that mode only the server URL and channel are asked for.
+ */
+export function fieldsShown<F extends { key: string }>(fields: readonly F[], mattermostSignIn: boolean): F[] {
+  return fields.filter((field) => !mattermostSignIn || field.key !== "token");
 }
 
 function IntegrationRow({
@@ -193,19 +201,17 @@ function IntegrationRow({
             )}
             {isMattermost && signIn && (
               <>
-                {value.token && <p className="muted">Signed in to {value.repo || DEFAULT_MATTERMOST_SERVER}.</p>}
+                {value.token && <p className="muted">Signed in to {value.repo}.</p>}
                 <MattermostSignInButton
                   serverUrl={value.repo ?? ""}
                   label={value.token ? "Sign in again" : "Sign in with Mattermost"}
                   onToken={(token) =>
-                    save({ ...value, token, repo: value.repo?.trim() || DEFAULT_MATTERMOST_SERVER }, false)
+                    save({ ...value, token, repo: value.repo?.trim() }, false)
                   }
                 />
               </>
             )}
-            {descriptor.fields
-              // Sign-in brings its own token and server; only the channel is asked for.
-              .filter((field) => !(isMattermost && signIn && field.key !== "branch"))
+            {fieldsShown(descriptor.fields, isMattermost && signIn)
               .map((field) => (
                 <div className="field" key={field.key}>
                   <label>{field.label}</label>
