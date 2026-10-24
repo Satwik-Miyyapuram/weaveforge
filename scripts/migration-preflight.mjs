@@ -17,6 +17,7 @@ import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
 
 import { loadMigrationEnv } from "./lib/load-env.mjs";
+import { pgTls } from "./lib/pg-tls.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 loadMigrationEnv(root);
@@ -75,16 +76,10 @@ for (const path of [
 }
 console.log(`  ✓ ${ok.filter((entry) => entry.includes("/")).length} required files present\n`);
 
-function wantsTls(url) {
-  if (/sslmode=disable/.test(url)) return false;
-  if (/[?&]host=%2F|[?&]host=\//.test(url)) return false;
-  return !/@(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(url);
-}
-
 async function probe(label, url) {
   const client = new Client({
     connectionString: url,
-    ...(wantsTls(url) ? { ssl: { rejectUnauthorized: false } } : {}),
+    ...pgTls(url),
     connectionTimeoutMillis: 15_000,
     statement_timeout: 30_000,
   });
