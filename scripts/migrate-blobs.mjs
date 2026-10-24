@@ -23,6 +23,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 import { loadMigrationEnv } from "./lib/load-env.mjs";
+import { pgTls } from "./lib/pg-tls.mjs";
 
 loadMigrationEnv(join(dirname(fileURLToPath(import.meta.url)), ".."));
 const require = createRequire(join(dirname(fileURLToPath(import.meta.url)), "../apps/web/package.json"));
@@ -176,7 +177,7 @@ async function main() {
   const dest = destination();
   const db = new Client({
     connectionString: DATABASE_URL,
-    ssl: /sslmode=require/.test(DATABASE_URL) ? { rejectUnauthorized: false } : undefined,
+    ...pgTls(DATABASE_URL),
     statement_timeout: 0,
   });
   await db.connect();
