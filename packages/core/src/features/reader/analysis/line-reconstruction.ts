@@ -44,8 +44,17 @@ export function pageTextFromItems(items: readonly { str: string; hasEOL?: boolea
   return text;
 }
 
-function isBoldFont(fontName: string | undefined): boolean {
+/** A bold, Black or Heavy face, by font name. */
+export function isBoldFont(fontName: string | undefined): boolean {
   return /bold|black|heavy/i.test(fontName ?? "");
+}
+
+/** Fraction of each page's text extent, on every side, treated as margin. */
+export const FURNITURE_MARGIN = 0.06;
+
+/** What makes two running heads the same line: case, spacing and digits ignored. */
+export function furnitureKey(str: string): string {
+  return str.toLowerCase().replace(/\s+/g, " ").replace(/\d+/g, "#");
 }
 
 interface Run {

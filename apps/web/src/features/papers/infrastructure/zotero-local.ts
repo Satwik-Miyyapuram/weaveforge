@@ -1,3 +1,4 @@
+import { errorMessage } from "@weaveforge/core";
 import type { DesktopBridge } from "@/lib/desktop/desktop-bridge";
 import { ZoteroAnnotations } from "./zotero-annotations";
 import { ZoteroSync, type ZoteroSyncDeps } from "./zotero-sync";
@@ -90,7 +91,7 @@ export function zoteroLocalFetch(bridge: DesktopBridge): typeof fetch {
       // "Zotero is not answering", which sent the reader to check a running
       // Zotero when the real cause was a shell too old to have the channel, a
       // refused origin, or a URL the guard rejected.
-      const why = cause instanceof Error ? cause.message : String(cause);
+      const why = errorMessage(cause);
       throw new Error(`${ZOTERO_NOT_RUNNING} (${why})`);
     });
     const refused = zoteroLocalStatusMessage(reply.status);

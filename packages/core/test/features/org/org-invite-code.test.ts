@@ -71,3 +71,11 @@ test("resolveOrgJoinAssignment professor join has no supervisor", () => {
   assert.equal(r.role, "professor");
   assert.equal(r.supervisorId, undefined);
 });
+
+test("invite roles are the member roles, written once (xhelp-16)", async () => {
+  const { ORG_INVITE_ROLES } = await import("../../../src/features/org/domain/invite-code.js");
+  const { ROLES } = await import("../../../src/features/org/domain/member.js");
+  assert.equal(ORG_INVITE_ROLES, ROLES);
+  assert.deepEqual([...ROLES], ["professor", "phd", "masters"]);
+  assert.ok(!ROLES.includes("standalone"), "standalone is not an invitable role");
+});

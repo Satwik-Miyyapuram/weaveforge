@@ -1,5 +1,6 @@
 import {
   safeWorkspacePath,
+  walkByList,
   type IWorkspaceFs,
   type WorkspaceStat,
 } from "@weaveforge/core";
@@ -71,11 +72,8 @@ export class DesktopWorkspaceFs implements IWorkspaceFs {
     return this.bridge.listVaultFiles(dir === "" || dir === "." ? "" : safeWorkspacePath(dir));
   }
 
-  async *walk(dir: string): AsyncIterable<WorkspaceStat> {
-    for (const entry of await this.list(dir)) {
-      if (entry.kind === "file") yield entry;
-      else yield* this.walk(entry.path);
-    }
+  walk(dir: string): AsyncIterable<WorkspaceStat> {
+    return walkByList(this, dir);
   }
 
   async stat(path: string): Promise<WorkspaceStat | null> {

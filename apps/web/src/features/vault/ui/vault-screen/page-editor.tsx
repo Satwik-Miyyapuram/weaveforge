@@ -113,11 +113,13 @@ export function PageEditor({
       setSaveError(null);
       try {
         const vault = getContainer().vault;
-        const body = await materializeBlobImagesInBody(nextBody, page.id, (id, blob, ext) =>
+        const { body, uploadError } = await materializeBlobImagesInBody(nextBody, page.id, (id, blob, ext) =>
           vault.uploadAsset(id, blob, ext),
         );
         await vault.manageVaultPage.update(page.id, { body });
         if (modeRef.current === "read") await onChanged();
+        // The text is saved; a failed upload is still said out loud.
+        if (uploadError) throw uploadError;
       } catch (err) {
         setSaveError(formatError(err));
       }

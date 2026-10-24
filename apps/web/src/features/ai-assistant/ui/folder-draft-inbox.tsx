@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { getContainer } from "@/bootstrap";
+import { announceAiProposalsChanged } from "@/lib/ai-proposals-changed";
 import { useProject } from "@/features/projects";
 import {
   activeWorkspaceFs,
@@ -36,7 +37,7 @@ export function FolderDraftInbox() {
         projectId,
       )
         .then((count) => {
-          if (count > 0) window.dispatchEvent(new Event("ai-proposals-changed"));
+          if (count > 0) announceAiProposalsChanged(getContainer().aiProposals);
         })
         .catch(() => undefined);
     };

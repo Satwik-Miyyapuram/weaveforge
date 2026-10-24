@@ -1,5 +1,4 @@
 import {
-  extractHashtags,
   extractWikilinks,
   normalizeTitleKey,
   type GraphExperimentEntry,
@@ -25,6 +24,7 @@ import {
   PAPER_COLOR,
 } from "../domain/graph-palette";
 import { recolourNodes } from "./node-colouring";
+import { noteTags } from "./graph-tags";
 import {
   effectiveRelationTypes,
   showConceptEdges,
@@ -82,10 +82,6 @@ export interface GraphBuildResult {
   neighbors: Map<string, Set<string>>;
   tagToPapers: Map<string, string[]>;
   tagToNotes: Map<string, string[]>;
-}
-
-function noteTags(note: Pick<VaultPage, "title" | "body">): string[] {
-  return extractHashtags(`${note.title}\n${note.body}`);
 }
 
 function paperColor(

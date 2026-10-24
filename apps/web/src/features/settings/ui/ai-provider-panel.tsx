@@ -15,6 +15,7 @@ import {
 import { getContainer } from "@/bootstrap";
 import { PROVIDER_PRESETS, type ProviderApi } from "@/container/facades";
 import { FormError } from "@/components/form-error";
+import { logToApp } from "@/lib/error-report/app-log";
 
 /**
  * Settings → AI provider.
@@ -53,11 +54,16 @@ export function AiProviderPanel() {
    */
   useEffect(() => {
     let live = true;
-    void restoreActiveProvider().then((found) => {
-      if (!live || !found) return;
-      setActive(activeProviderLabel());
-      setRemember(true);
-    });
+    void restoreActiveProvider()
+      .then((found) => {
+        if (!live || !found) return;
+        setActive(activeProviderLabel());
+        setRemember(true);
+      })
+      // A keychain that will not answer looks like nothing stored; say why in the log.
+      .catch((err) =>
+        logToApp({ level: "warn", source: "ai-provider", message: "Could not restore the stored AI provider", detail: String(err) }),
+      );
     return () => {
       live = false;
     };
@@ -252,7 +258,9 @@ export function AiProviderPanel() {
               clearActiveProvider();
               // The stored copy goes with it. Leaving it would mean "stop using
               // it" lasting until the next launch, which is not what it says.
-              void forgetStoredProvider();
+              void forgetStoredProvider().catch((err) =>
+                setError(`Could not forget the stored key: ${formatError(err)}`),
+              );
               setActive(null);
               setApiKey("");
               setResult(null);

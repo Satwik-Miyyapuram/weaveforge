@@ -12,6 +12,8 @@
 import { useEffect } from "react";
 import { clampInkZoom, inkZoomIn, inkZoomOut, type InkColour } from "@weaveforge/core";
 
+import { isEditableTarget } from "@/lib/editable-target";
+
 import type { InkWorkerMessage } from "../application/capture-protocol";
 import type { InkBarTool } from "./ink-bar";
 
@@ -67,8 +69,7 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return;
+      if (isEditableTarget(event.target)) return;
       if (event.metaKey || event.ctrlKey) {
         const key = event.key.toLowerCase();
         if (key === "z") {

@@ -164,7 +164,8 @@ function maskCode(body: string): string {
     .replace(/`[^`\n]*`/g, (m) => " ".repeat(m.length));
 }
 
-function parseWikilinkInner(inner: string, raw: string): WikilinkRef | null {
+/** Read `Target`, `Target|alias`, `Target#Heading` or `Target#^block`: the inside of one `[[...]]`. */
+export function parseWikilinkInner(inner: string, raw: string): WikilinkRef | null {
   const pipe = inner.indexOf("|");
   const link = (pipe === -1 ? inner : inner.slice(0, pipe)).trim();
   const alias = pipe === -1 ? undefined : inner.slice(pipe + 1).trim() || undefined;

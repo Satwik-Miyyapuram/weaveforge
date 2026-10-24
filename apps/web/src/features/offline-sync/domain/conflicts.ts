@@ -1,5 +1,6 @@
 import { mergeRows, sameValue, type FieldConflict, type Row } from "./merge";
 import { Outbox, type SqlRunner } from "./outbox";
+import { quoteIdent } from "./sql-ident";
 
 /**
  * The disagreements the device could not settle, and how they get settled.
@@ -334,7 +335,6 @@ function sameRow(a: Row, b: Row): boolean {
   return Object.keys({ ...a, ...b }).every((k) => sameValue(a[k] ?? null, b[k] ?? null));
 }
 
-const quoteIdent = (name: string) => `"${name.replace(/"/g, '""')}"`;
 
 /** A bulk "mine"/"cloud" pick as a delete conflict's choice: mine keeps what this device did. */
 export function deletionFor(kind: Exclude<ConflictKind, "edit">, side: "local" | "remote"): "keep" | "delete" {

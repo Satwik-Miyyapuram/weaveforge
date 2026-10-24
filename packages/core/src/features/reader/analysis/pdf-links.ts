@@ -6,7 +6,8 @@
  * gives two of these, and assembly folds them back into the one printed span.
  */
 import type { AnalyzePdfPage, CitationMention, PageTextRange, ParsedReference, PdfLink } from "./analysis-types.js";
-import { mentionRects, pageTextFromItems } from "./citation-text.js";
+import { mentionRects } from "./citation-text.js";
+import { pageTextFromItems } from "./line-reconstruction.js";
 import { inReferenceList, matchAuthorYearText } from "./citations.js";
 
 export function isCitationDestination(name: string | undefined): boolean {

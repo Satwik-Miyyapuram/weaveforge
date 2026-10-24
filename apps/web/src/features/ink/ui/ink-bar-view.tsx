@@ -52,11 +52,7 @@ export function InsertMenu({
   onClip,
   onTextBox,
 }: InsertMenuProps) {
-  const { open, setOpen, menuRef, listRef, pos } = useBarMenu();
-  const choose = (run: () => void) => () => {
-    setOpen(false);
-    run();
-  };
+  const { open, setOpen, menuRef, listRef, pos, choose } = useBarMenu();
   const picture = onAddPicture ?? onAddImage;
 
   return (
@@ -171,11 +167,7 @@ export function ViewMenu({
   writingPage,
   onWritingPage,
 }: ViewMenuProps) {
-  const { open, setOpen, menuRef, listRef, pos } = useBarMenu();
-  const choose = (run: () => void) => () => {
-    setOpen(false);
-    run();
-  };
+  const { open, setOpen, menuRef, listRef, pos, choose } = useBarMenu();
   const fits = Boolean(onFitPage || onFitWidth);
 
   return (

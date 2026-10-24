@@ -3,6 +3,7 @@ import {
   markdownImage,
   materializeBlobImages,
   normalizeMarkdownImageSyntax,
+  type MaterializedBody,
 } from "@weaveforge/core";
 
 /** Prefix for report section images: `![](reportimg:userId/sectionId/file.webp)`. */
@@ -22,6 +23,6 @@ export function materializeReportBlobImages(
   body: string,
   sectionId: string,
   upload: (sectionId: string, blob: Blob, ext: string) => Promise<string>,
-): Promise<string> {
+): Promise<MaterializedBody> {
   return materializeBlobImages(body, sectionId, upload, REPORT_IMAGE_PREFIX, normalizeMarkdownImageSyntax);
 }

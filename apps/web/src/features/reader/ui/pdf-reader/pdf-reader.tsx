@@ -10,6 +10,7 @@ import {
   type CSSProperties,
 } from "react";
 import {
+  errorMessage,
   clampScale,
   readerKeyboardCommand,
   resolveTextAnchor,
@@ -110,6 +111,7 @@ import {
   pageScopedLocus,
   textItemsFromContent,
 } from "./pdf-document";
+import { readStored, writeStored } from "@/lib/safe-storage";
 
 export function PdfReader({
   url,
@@ -1434,7 +1436,7 @@ export function PdfReader({
     try {
       path = await getContainer().papers.uploadImage(paperId, file, ext);
     } catch (err) {
-      setAnnError(`The picture could not be uploaded: ${err instanceof Error ? err.message : String(err)}`);
+      setAnnError(`The picture could not be uploaded: ${errorMessage(err)}`);
       return;
     }
     await persistDraft(draftPicture({ path, pageIndex: pageNumber - 1, pageWidth, pageHeight, aspect }));
@@ -2137,17 +2139,10 @@ function syncPenParam(on: boolean) {
 const SIDE_COLLAPSED_KEY = "wf.reader.sideCollapsed";
 
 function readSideCollapsed(): boolean {
-  try {
-    return window.localStorage.getItem(SIDE_COLLAPSED_KEY) === "1";
-  } catch {
-    return false;
-  }
+  return readStored(SIDE_COLLAPSED_KEY) === "1";
 }
 
+/** Private mode or blocked storage: the panel simply forgets. */
 function writeSideCollapsed(collapsed: boolean) {
-  try {
-    window.localStorage.setItem(SIDE_COLLAPSED_KEY, collapsed ? "1" : "0");
-  } catch {
-    // Private mode or blocked storage: the panel simply forgets.
-  }
+  writeStored(SIDE_COLLAPSED_KEY, collapsed ? "1" : "0");
 }
