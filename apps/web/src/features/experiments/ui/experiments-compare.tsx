@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   experimentActivityAt,
   type Experiment,
@@ -9,6 +9,7 @@ import {
 import { getContainer } from "@/bootstrap";
 import { formatMetricCell, MetricChart } from "./metric-chart";
 import { MetricGrid } from "./metric-grid";
+import { usePolledLoad } from "./use-polled-load";
 import {
   ExperimentTitleLink,
 } from "./experiment-panels";
@@ -67,7 +68,7 @@ export function CompareView({ experiments }: { experiments: Experiment[] }) {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
-  const chosen = experiments.filter((e) => selected.includes(e.id));
+  const chosen = useMemo(() => experiments.filter((e) => selected.includes(e.id)), [experiments, selected]);
 
   return (
     <div className="compare">
@@ -125,58 +126,46 @@ function OverlayCharts({ experiments }: { experiments: Experiment[] }) {
     [experiments],
   );
   const ids = ordered.map((e) => e.id).join(",");
-  const [hist, setHist] = useState<Record<string, MetricPoint[]>>({});
+  // One run failing to load shows as no curve for that run, not an error.
+  const { data } = usePolledLoad(
+    ids,
+    () =>
+      Promise.all(
+        ordered.map((e) =>
+          getContainer().experiments.metricHistory(e.id)
+            .then((h) => [e.id, h] as const)
+            .catch(() => [e.id, [] as MetricPoint[]] as const),
+        ),
+      ).then((entries) => Object.fromEntries(entries) as Record<string, MetricPoint[]>),
+    5000,
+  );
 
-  const fetchHist = useCallback(() => {
-    return Promise.all(
-      ordered.map((e) =>
-        getContainer().experiments.metricHistory(e.id)
-          .then((h) => [e.id, h] as const)
-          .catch(() => [e.id, [] as MetricPoint[]] as const),
-      ),
-    ).then((entries) => setHist(Object.fromEntries(entries)));
-  }, [ordered]);
+  /** One stable series list per metric, so a chart only redraws when its data changes. */
+  const seriesByMetric = useMemo(() => {
+    const hist = data ?? {};
+    const names = new Set<string>();
+    Object.values(hist).forEach((pts) => pts.forEach((p) => names.add(p.metric)));
+    return [...names].sort().map((m) => [
+      m,
+      ordered
+        .map((e, i) => ({
+          id: e.id,
+          label: e.name,
+          color: PALETTE[i % PALETTE.length] ?? "#3e5a78",
+          zOrder: experimentActivityAt(e),
+          points: (hist[e.id] ?? []).filter((p) => p.metric === m),
+        }))
+        .filter((s) => s.points.length > 0),
+    ] as const);
+  }, [data, ordered]);
 
-  useEffect(() => {
-    let alive = true;
-    void fetchHist().then(() => {
-      if (!alive) return;
-    });
-    const t = setInterval(() => { void fetchHist(); }, 5000);
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
-  }, [fetchHist, ids]);
-
-  const metrics = useMemo(() => {
-    const s = new Set<string>();
-    Object.values(hist).forEach((pts) => pts.forEach((p) => s.add(p.metric)));
-    return [...s].sort();
-  }, [hist]);
-
-  const color = (i: number) => PALETTE[i % PALETTE.length] ?? "#3e5a78";
-
-  if (metrics.length === 0)
+  if (seriesByMetric.length === 0)
     return <p className="muted">Selected runs have no logged curves to overlay yet.</p>;
 
   return (
     <MetricGrid variant="compare" defaultCols={2}>
-      {metrics.map((m) => (
-        <MetricChart
-          key={m}
-          metric={m}
-          height={320}
-          series={ordered
-            .map((e, i) => ({
-              id: e.id,
-              label: e.name,
-              color: color(i),
-              zOrder: experimentActivityAt(e),
-              points: (hist[e.id] ?? []).filter((p) => p.metric === m),
-            }))
-            .filter((s) => s.points.length > 0)}
-        />
+      {seriesByMetric.map(([m, series]) => (
+        <MetricChart key={m} metric={m} height={320} series={series} />
       ))}
     </MetricGrid>
   );

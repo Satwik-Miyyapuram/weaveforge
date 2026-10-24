@@ -24,6 +24,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { LocalApiTokenCreate, useLocalApiState } from "@/components/local-api-tokens";
 import { ScreenHead } from "@/components/screen-head";
 import { FilterRow } from "@/components/filter-row";
+import { warnOnce } from "@/lib/error-report/warn-once";
 import { ViewSwitch } from "@/components/view-switch";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { isOfflineBuild } from "@/deployment/build-target";
@@ -129,7 +130,7 @@ export function ExperimentsScreen() {
       .then(() => {
         if (active) void load();
       })
-      .catch(() => undefined);
+      .catch((err: unknown) => warnOnce("experiments", "reconcile stale runs failed", err));
     return () => {
       active = false;
     };
