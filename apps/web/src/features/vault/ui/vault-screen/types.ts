@@ -8,4 +8,6 @@ export type VaultViewData = VaultScreenData & {
   paperEntries: { id: string; title: string }[];
   /** Title/id pairs for report section wikilinks. */
   sectionEntries: { id: string; title: string }[];
+  /** Why some link targets are missing, shown beside the list; null when all loaded. */
+  linkTargetsError: string | null;
 };

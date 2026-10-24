@@ -49,3 +49,27 @@ test("a thrown non-Error still yields something printable", () => {
   assert.equal(readFailureReason("plain string failure"), "plain string failure");
   assert.equal(readFailureReason(undefined), "undefined");
 });
+
+/**
+ * The background indexer reads page text the way the reader does (27-03): a
+ * newline after each line-ending run, so the last word of a line is not glued
+ * to the first word of the next.
+ */
+test("words at line ends stay separate, as the reader writes them", async () => {
+  const { pdfPageText } = await import("../application/index-library-pdfs");
+  const { pageTextFromItems } = await import("@/features/reader/application/reference-locate");
+  const items = [
+    { str: "the end of", hasEOL: true },
+    { type: "beginMarkedContent" },
+    { str: "line two", hasEOL: false },
+    { type: "endMarkedContent" },
+  ];
+  assert.equal(pdfPageText(items), "the end of\nline two");
+  assert.equal(pdfPageText(items), pageTextFromItems(items.filter((i): i is { str: string; hasEOL: boolean } => "str" in i)));
+});
+
+test("a page with no text runs is empty", async () => {
+  const { pdfPageText } = await import("../application/index-library-pdfs");
+  assert.equal(pdfPageText([]), "");
+  assert.equal(pdfPageText([{ type: "beginMarkedContent" }]), "");
+});

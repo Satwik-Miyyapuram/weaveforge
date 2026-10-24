@@ -5,6 +5,8 @@
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { getRealtimeClient } from "@/backend/providers/postgrest/client";
+import { logToApp } from "@/lib/error-report/app-log";
+import { formatError } from "@/lib/format-error";
 
 import {
   isKnownResourceType,
@@ -178,8 +180,17 @@ export class ProjectLwwInvalidator {
     // Token first, then join. A private channel is authorized against the
     // caller's identity, and a join that goes out before the socket has a token
     // is an anonymous one — refused, then retried on a loop.
+    // Nothing awaits the token, so a refusal is logged here. A channel replaced
+    // or disposed while the token was on its way must not join.
     const channel = this.channel;
-    void realtime.realtime.setAuth().then(() => channel.subscribe());
+    void realtime.realtime
+      .setAuth()
+      .then(() => {
+        if (this.channel === channel) channel.subscribe();
+      })
+      .catch((err: unknown) =>
+        logToApp({ level: "warn", source: "realtime", message: "Realtime auth failed", detail: formatError(err) }),
+      );
   }
 
   /**

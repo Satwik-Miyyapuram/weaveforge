@@ -542,9 +542,9 @@
       into either one.
     </p>
     <div class="facts">
-      <div class="fact"><b>193,362</b><span>web app lines</span></div>
-      <div class="fact"><b>53,258</b><span>core lines</span></div>
-      <div class="fact"><b>17,831</b><span>desktop lines</span></div>
+      <div class="fact"><b>197,564</b><span>web app lines</span></div>
+      <div class="fact"><b>53,729</b><span>core lines</span></div>
+      <div class="fact"><b>17,893</b><span>desktop lines</span></div>
       <div class="fact"><b>3,312</b><span>python sdk</span></div>
       <div class="fact"><b>143</b><span>migrations</span></div>
       <div class="fact"><b>31</b><span>web features</span></div>
@@ -656,7 +656,7 @@ flowchart TB
 
       <div class="tree">
 <pre><b>weaveforge/</b>
-├── <b>packages/core/src/</b>            <i>53,258 lines — the only place rules live</i>
+├── <b>packages/core/src/</b>            <i>53,729 lines — the only place rules live</i>
 │   ├── <u>features/</u>                 <i>19 slices: papers, experiments, plan, report,</i>
 │   │                              <i>logbook, library, vault, wiki, org, sharing,</i>
 │   │                              <i>collab, tags, relations, reading-lists,</i>
@@ -669,7 +669,7 @@ flowchart TB
 │   ├── config/                    <i>defineConfig + plugin contract</i>
 │   └── shared/                    <i>clock, dates, three-way-merge, tree, repository</i>
 │
-├── <b>apps/web/src/</b>                 <i>193,362 lines</i>
+├── <b>apps/web/src/</b>                 <i>197,564 lines</i>
 │   ├── <u>app/</u>                      <i>26 pages + 39 API routes</i>
 │   ├── <u>features/</u>                 <i>31 slices — core's 19 plus the web-only ones:</i>
 │   │                              <i>offline-sync, sync, workspace, editor-workspace,</i>
@@ -678,7 +678,7 @@ flowchart TB
 │   ├── backend/                   <i>provider wiring: postgrest | postgres | local</i>
 │   └── deployment/                <i>generated registry — the one composition root</i>
 │
-├── <b>apps/desktop/src/</b>              <i>17,831 lines, 64 files, main + preload only</i>
+├── <b>apps/desktop/src/</b>              <i>17,893 lines, 65 files, main + preload only</i>
 │   ├── main.ts  preload.ts  channels.ts
 │   ├── local-db.ts  local-db-host.ts     <i>PGlite in the main process</i>
 │   ├── local-api-server.ts  local-api.ts <i>127.0.0.1:27123</i>
@@ -696,9 +696,9 @@ flowchart TB
 │   └── tracking.py  container.py  cli.py
 │
 ├── <b>db/migrations/</b>           <i>0001 → 0144, 8,029 lines</i>
-├── <b>scripts/</b>                       <i>64 files — boundary gates, migration, seeding</i>
+├── <b>scripts/</b>                       <i>66 files — boundary gates, migration, seeding</i>
 ├── <b>plugins/weaveforge-research/</b>    <i>stdio MCP server, outside every workspace</i>
-└── <b>docs/</b>                          <i>78 files, 27,530 lines</i>
+└── <b>docs/</b>                          <i>78 files, 27,529 lines</i>
 </pre>
       </div>
     </section>
@@ -1038,7 +1038,6 @@ flowchart TB
         <span class="chip">secret-read</span>
         <span class="chip">secret-write</span>
         <span class="chip">secret-clear</span>
-        <span class="chip">preference-read</span>
         <span class="chip">preference-write</span>
         <span class="chip warm">local-api-set</span>
         <span class="chip warm">local-api-state</span>
