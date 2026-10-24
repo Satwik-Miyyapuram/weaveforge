@@ -10,7 +10,7 @@ import * as Y from "yjs";
 import { Awareness } from "y-protocols/awareness";
 import type { CollabSession } from "../application/collab-session.js";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
-import { EncryptedYjsProvider } from "../infrastructure/encrypted-yjs-provider.js";
+import { RealtimeYjsProvider } from "../infrastructure/realtime-yjs-provider.js";
 import { seedIfEmpty } from "../domain/seed-document.js";
 import { shouldPersistBody } from "../domain/save-policy.js";
 
@@ -163,7 +163,7 @@ export function CollaborativeMarkdownEditor({
       color: pickColor(authorId),
     });
 
-    const provider = new EncryptedYjsProvider({
+    const provider = new RealtimeYjsProvider({
       doc,
       db: session.db,
       crdtStore: session.crdtStore,
