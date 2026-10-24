@@ -7,8 +7,4 @@ export class ManageShareLinksUseCase {
   listForResource(resourceType: ShareableType, resourceId: string): Promise<ShareLink[]> {
     return this.deps.shareLinks.listForResource(resourceType, resourceId);
   }
-
-  revoke(id: string): Promise<void> {
-    return this.deps.shareLinks.delete(id);
-  }
 }
