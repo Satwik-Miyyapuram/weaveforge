@@ -84,6 +84,13 @@ export function boundsIntersect(
   );
 }
 
+/** The smallest box covering `a` and `b`; `a` null starts from a copy of `b`. */
+export function boundsUnion(a: InkBounds | null, b: InkBounds): InkBounds {
+  return a
+    ? [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])]
+    : [b[0], b[1], b[2], b[3]];
+}
+
 /** Whether `point` is inside a box, `slack` growing the box. */
 export function boundsContain(
   box: InkBounds,
@@ -294,12 +301,13 @@ export class InkPageBuffer {
     return remap;
   }
 
-  /** The whole page's bounds, or an empty box for a blank page. */
+  /** The whole page's bounds, or an empty box for a blank page. A stroke with no points adds nothing. */
   bounds(): InkBounds {
     let box: InkBounds | null = null;
     for (let i = 0; i < this.strokes.length; i += 1) {
       if (!this.alive[i]) continue;
       const stroke = this.strokes[i]!;
+      if (stroke.x.length === 0) continue;
       box = box
         ? [
             Math.min(box[0], stroke.bounds[0]),

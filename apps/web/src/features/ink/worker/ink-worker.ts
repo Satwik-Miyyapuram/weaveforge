@@ -97,6 +97,8 @@ interface LiveStroke {
    * The next real batch truncates back to here.
    */
   realSamples: number;
+  /** Samples arrived since the renderer last got this stroke; a frame without new ones repacks nothing (19-09). */
+  changed: boolean;
 }
 
 /** What the worker holds. Fields rather than a class: it is a process, not an object. */
@@ -173,6 +175,7 @@ function appendSamples(stroke: LiveStroke, payload: InkSamplePayload): void {
     index += 1;
   });
   stroke.realSamples = end;
+  stroke.changed = true;
 }
 
 /** Replace the predicted tail: truncate to the last real sample, then append. */
@@ -186,6 +189,7 @@ function replacePredictedTail(
     stroke.points.push(x, y);
     stroke.pressures.push(pressureByte(pressure));
   });
+  stroke.changed = true;
 }
 
 /** The pen reports 0–1; the page and the renderer hold a byte. */
@@ -308,12 +312,14 @@ function snapShape(
     : null;
 }
 
-/** One frame: draw, count it, hand buffers back, ask for the next. */
+/** One frame: draw, count it, hand buffers back, and ask for the next only mid-stroke (19-05). */
 function tick(): void {
   if (state.disposed) return;
   state.frame += 1;
-  if (state.live) state.renderer?.setLive(liveForRenderer(state.live));
-  else state.renderer?.setLive(null);
+  if (state.live?.changed) {
+    state.live.changed = false;
+    state.renderer?.setLive(liveForRenderer(state.live));
+  }
   state.renderer?.draw();
   post({
     type: "frame",
@@ -324,7 +330,9 @@ function tick(): void {
     const buffers = state.returns.splice(0, state.returns.length);
     post({ type: "samples-returned", buffers }, buffers);
   }
-  scope.requestAnimationFrame(tick);
+  // An idle page draws nothing new; the next message wakes the loop again.
+  if (state.live) scope.requestAnimationFrame(tick);
+  else state.running = false;
 }
 
 /** The loop runs only while there is something to draw. */
@@ -366,6 +374,8 @@ function startRenderer(delegating: boolean): void {
           // Everything is reconstructible from the page buffer, so recovery is
           // "re-upload", never "recover the user's data" (§6.2.9).
           state.renderer?.setStrokes(state.buffer.allStrokes());
+          if (state.live) state.live.changed = true;
+          ensureLoop();
         }
       },
     });
@@ -423,7 +433,7 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         break;
       }
       case "load-page":
-        void loadPage(state, message, post);
+        void loadPage(state, message, post).then(ensureLoop);
         break;
       case "stroke-begin": {
         state.live = {
@@ -431,6 +441,7 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
           points: [],
           pressures: [],
           realSamples: 0,
+          changed: true,
         };
         appendSamples(state.live, message.sample);
         ensureLoop();
@@ -573,5 +584,7 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
       const buffer = message.sample.buffer.buffer as ArrayBuffer;
       if (buffer.byteLength > 0) state.returns.push(buffer);
     }
+    // Every message may change what is on screen, or leave buffers to return.
+    ensureLoop();
   }
 });

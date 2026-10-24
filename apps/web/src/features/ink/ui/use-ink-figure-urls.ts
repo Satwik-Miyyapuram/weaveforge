@@ -31,10 +31,15 @@ export function useInkFigureUrls(deps: InkFigureUrlsDeps) {
   );
   const inFlight = useRef(new Set<string>());
   const mounted = useRef(true);
+  /** Every URL made, so unmounting frees the blobs behind them (21-04). */
+  const made = useRef(new Set<string>());
   useEffect(() => {
     mounted.current = true;
+    const urls = made.current;
     return () => {
       mounted.current = false;
+      for (const url of urls) URL.revokeObjectURL(url);
+      urls.clear();
     };
   }, []);
 
@@ -48,6 +53,7 @@ export function useInkFigureUrls(deps: InkFigureUrlsDeps) {
         .then((blob) => {
           if (!mounted.current) return;
           const url = URL.createObjectURL(blob);
+          made.current.add(url);
           setFigureUrls((current) => new Map(current).set(path, url));
         })
         .catch(() => {
