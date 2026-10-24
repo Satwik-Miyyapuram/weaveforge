@@ -544,8 +544,8 @@
     <div class="facts">
       <div class="fact"><b>194,736</b><span>web app lines</span></div>
       <div class="fact"><b>53,419</b><span>core lines</span></div>
-      <div class="fact"><b>17,831</b><span>desktop lines</span></div>
-      <div class="fact"><b>3,312</b><span>python sdk</span></div>
+      <div class="fact"><b>17,848</b><span>desktop lines</span></div>
+      <div class="fact"><b>3,280</b><span>python sdk</span></div>
       <div class="fact"><b>143</b><span>migrations</span></div>
       <div class="fact"><b>31</b><span>web features</span></div>
     </div>
@@ -678,7 +678,7 @@ flowchart TB
 │   ├── backend/                   <i>provider wiring: postgrest | postgres | local</i>
 │   └── deployment/                <i>generated registry — the one composition root</i>
 │
-├── <b>apps/desktop/src/</b>              <i>17,831 lines, 64 files, main + preload only</i>
+├── <b>apps/desktop/src/</b>              <i>17,848 lines, 64 files, main + preload only</i>
 │   ├── main.ts  preload.ts  channels.ts
 │   ├── local-db.ts  local-db-host.ts     <i>PGlite in the main process</i>
 │   ├── local-api-server.ts  local-api.ts <i>127.0.0.1:27123</i>
@@ -689,14 +689,14 @@ flowchart TB
 │
 ├── <b>apps/pitch/</b>                    <i>904 lines — public site, GitHub Pages</i>
 │
-├── <b>python/weaveforge/</b>             <i>3,312 lines + 1,771 lines of tests</i>
+├── <b>python/weaveforge/</b>             <i>3,280 lines + 1,790 lines of tests</i>
 │   ├── features/{experiments,papers,projects}/{domain,application,infrastructure}
 │   ├── sync/                      <i>tensorboard · wandb · matplotlib · registry</i>
 │   ├── integrations/              <i>lightning · keras callbacks</i>
 │   └── tracking.py  container.py  cli.py
 │
 ├── <b>db/migrations/</b>           <i>0001 → 0144, 8,029 lines</i>
-├── <b>scripts/</b>                       <i>64 files — boundary gates, migration, seeding</i>
+├── <b>scripts/</b>                       <i>66 files — boundary gates, migration, seeding</i>
 ├── <b>plugins/weaveforge-research/</b>    <i>stdio MCP server, outside every workspace</i>
 └── <b>docs/</b>                          <i>78 files, 27,530 lines</i>
 </pre>
