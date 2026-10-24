@@ -209,3 +209,24 @@ test("model cache: a failed download leaves no half file behind", async () => {
   // leaves nothing at all rather than a `.part` a later read would trust.
   assert.deepEqual(await readdir(root), []);
 });
+
+test("model cache: two asks for one file at once download it once and share it (38-03)", async () => {
+  const root = await cacheRoot();
+  const scripted = upstream(() => new Response("weights", { status: 200 }));
+
+  const [a, b] = await Promise.all([
+    serveModelFile(root, URL_UNDER_TEST, scripted.fetchLike),
+    serveModelFile(root, URL_UNDER_TEST, scripted.fetchLike),
+  ]);
+
+  assert.deepEqual([a.status, b.status], [200, 200]);
+  assert.deepEqual([await a.text(), await b.text()], ["weights", "weights"]);
+  assert.equal(scripted.asked.length, 1, "one download, not two writing one .part");
+  const dir = path.dirname(cachePathFor(root, URL_UNDER_TEST)!);
+  assert.deepEqual(await readdir(dir), ["config.json"], "no temporary file left behind");
+
+  // Once done, the next ask is a fresh one (a later failure is not cached).
+  const again = await serveModelFile(path.join(root, "other"), URL_UNDER_TEST, scripted.fetchLike);
+  assert.equal(again.status, 200);
+  assert.equal(scripted.asked.length, 2);
+});

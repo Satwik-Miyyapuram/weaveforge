@@ -25,7 +25,7 @@ import {
   type WorkspaceEntityType,
 } from "@weaveforge/core";
 
-import { searchVault, walkVault } from "./local-api";
+import { searchVault, walkVault } from "./vault-search";
 import { norm, pickProject, resolveProjects, type ProjectRef, type ProjectSource } from "./local-mcp-projects";
 import { DEFAULT_PAGE_SPAN, KINDS, TOOLS, TRACKING_TOOL, trackingSetup, type TrackingSetup } from "./local-mcp-tools";
 export type { TrackingSetup };
@@ -110,22 +110,45 @@ interface Entry extends ParsedEntity {
   project: ProjectRef;
 }
 
-/** Every parsed entry of one kind in each project's own folder; junk and hidden files skipped. */
-async function loadEntries(session: VaultSession, kind: WorkspaceEntityType, projects: readonly ProjectRef[]): Promise<Entry[]> {
+/** Every parsed entry of one kind in one project's own folder; junk and hidden files skipped. */
+async function loadProjectEntries(session: VaultSession, kind: WorkspaceEntityType, project: ProjectRef): Promise<Entry[]> {
   const entries: Entry[] = [];
-  for (const project of projects) {
-    const files: string[] = [];
-    await walkVault(session, entityDir(kind, project.dir), files);
-    for (const file of files) {
-      if (!file.endsWith(".md") || hidden(file)) continue;
-      const raw = await readText(session, file);
-      const parsed = raw === null ? null : parseWorkspaceFile(file, raw);
-      if (parsed && raw !== null && (parsed.type === kind || (kind === "vault_page" && parsed.type === "ink_page"))) {
-        entries.push({ ...parsed, raw, project });
-      }
+  const files: string[] = [];
+  await walkVault(session, entityDir(kind, project.dir), files);
+  for (const file of files) {
+    if (!file.endsWith(".md") || hidden(file)) continue;
+    const raw = await readText(session, file);
+    const parsed = raw === null ? null : parseWorkspaceFile(file, raw);
+    if (parsed && raw !== null && (parsed.type === kind || (kind === "vault_page" && parsed.type === "ink_page"))) {
+      entries.push({ ...parsed, raw, project });
     }
   }
   return entries;
+}
+
+type LoadEntries = (kind: WorkspaceEntityType, projects: readonly ProjectRef[]) => Promise<Entry[]>;
+
+/**
+ * Entry loading for one tool call (37-17). A tool that looks entries up and
+ * then reads their neighbours would otherwise walk and parse the same folder
+ * twice. The cache dies with the call, so the next call sees any edit.
+ */
+function entryLoader(session: VaultSession): LoadEntries {
+  const loaded = new Map<string, Promise<Entry[]>>();
+  return async (kind, projects) => {
+    const lists = await Promise.all(
+      projects.map((project) => {
+        const key = `${kind}|${project.dir}`;
+        let list = loaded.get(key);
+        if (!list) {
+          list = loadProjectEntries(session, kind, project);
+          loaded.set(key, list);
+        }
+        return list;
+      }),
+    );
+    return lists.flat();
+  };
 }
 
 const describe = (entry: Entry) => `${entry.title} (${entry.id ?? entry.path})`;
@@ -317,6 +340,7 @@ async function callTool(
 ): Promise<unknown> {
   const name = canonicalAiToolName(rawName);
   let resolved: Promise<ProjectRef[]> | undefined;
+  const loadEntries = entryLoader(session);
   const allProjects = () => (resolved ??= resolveProjects(session, projects));
   const scope = async () => {
     const all = await allProjects();
@@ -329,7 +353,7 @@ async function callTool(
     if (all.length === 1) return all[0] as ProjectRef;
     throw new Error(`Name the project: ${all.map((p) => p.name).join(", ")}.`);
   };
-  const entries = async (kind: WorkspaceEntityType, within?: ProjectRef) => loadEntries(session, kind, within ? [within] : await scope());
+  const entries = async (kind: WorkspaceEntityType, within?: ProjectRef) => loadEntries(kind, within ? [within] : await scope());
   const findOne = async (kind: WorkspaceEntityType, needle: unknown, what: string, within?: ProjectRef) =>
     pick(await entries(kind, within), needle, what);
   const placed = (entry: { project: ProjectRef; path: string }) => `${entry.project.name}: ${entry.path}`;
@@ -352,7 +376,7 @@ async function callTool(
       for (const project of await allProjects()) {
         const counts = [];
         for (const kind of KINDS) {
-          const n = (await loadEntries(session, kind, [project])).length;
+          const n = (await loadEntries(kind, [project])).length;
           if (n) counts.push(`${ENTITY_DIRS[kind]} ${n}`);
         }
         lines.push([project.name, project.id, project.dir || "(root)", counts.join(", ") || "empty"].filter(Boolean).join(" | "));
@@ -367,7 +391,7 @@ async function callTool(
       for (const project of await scope()) {
         const found = await searchVault(session, query, kind ? entityDir(kind, project.dir) : project.dir);
         const known = new Map<string, Entry>();
-        for (const k of kind ? [kind] : KINDS) for (const entry of await loadEntries(session, k, [project])) known.set(entry.path, entry);
+        for (const k of kind ? [kind] : KINDS) for (const entry of await loadEntries(k, [project])) known.set(entry.path, entry);
         hits.push(...found.map((hit) => ({ ...hit, project, entry: known.get(hit.filename) })));
       }
       const shown = hits.filter((hit) =>
@@ -382,7 +406,7 @@ async function callTool(
       const kind = name === "list_experiments" ? "experiment" : kindOf(params);
       if (!kind) throw new Error("That is not a kind this workspace keeps.");
       const scoped = await scope();
-      const rows = await loadEntries(session, kind, scoped);
+      const rows = await loadEntries(kind, scoped);
       const offset = count(params, "offset", 0, Number.MAX_SAFE_INTEGER);
       const end = Math.min(rows.length, offset + (count(params, "limit", 100, MAX_ROWS) || 100));
       const page = rows.slice(offset, end);
