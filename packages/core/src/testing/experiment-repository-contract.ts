@@ -39,6 +39,31 @@ export function runExperimentRepositoryContract(
     assert.equal(done[0]?.id, "a");
   });
 
+  test(`[${label}] patch changes only the fields it names`, async () => {
+    const repo = makeRepo();
+    await repo.save(
+      sampleExperiment({ hypothesis: "h", metrics: { acc: 1 }, relatedPaper: "p1" }),
+    );
+    await repo.patch("exp-1", { status: "running", startedAt: "2026-06-25T00:00:00.000Z" });
+    const found = await repo.getById("exp-1");
+    assert.ok(found);
+    assert.equal(found.status, "running");
+    assert.equal(found.startedAt, "2026-06-25T00:00:00.000Z");
+    assert.equal(found.hypothesis, "h");
+    assert.deepEqual(found.metrics, { acc: 1 });
+    assert.equal(found.relatedPaper, "p1");
+  });
+
+  test(`[${label}] patch with an undefined field clears it`, async () => {
+    const repo = makeRepo();
+    await repo.save(sampleExperiment({ hypothesis: "h" }));
+    await repo.patch("exp-1", { resultNote: "note" });
+    await repo.patch("exp-1", { resultNote: undefined });
+    const found = await repo.getById("exp-1");
+    assert.equal(found?.resultNote, undefined);
+    assert.equal(found?.hypothesis, "h");
+  });
+
   test(`[${label}] delete removes the experiment`, async () => {
     const repo = makeRepo();
     await repo.save(sampleExperiment());
