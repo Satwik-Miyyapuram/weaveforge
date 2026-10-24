@@ -21,6 +21,8 @@ import {
 } from "./experiment-panels";
 import { experimentHref } from "../application/experiment-href";
 import { StatusSelect } from "@/components/status-select";
+import { FormError } from "@/components/form-error";
+import { formatError } from "@/lib/format-error";
 
 export function ExperimentCard({
   exp,
@@ -43,20 +45,30 @@ export function ExperimentCard({
   /** Whether the delete confirmation is up. */
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmUnpinOpen, setConfirmUnpinOpen] = useState(false);
+  /** The last status change, delete or unpin that failed, shown on the card. */
+  const [actionError, setActionError] = useState<string | null>(null);
   const openDetail = useCallback(() => {
     const dest = experimentHref(exp.id);
     beginNavigation(dest);
     router.push(dest);
   }, [beginNavigation, router, exp.id]);
   async function setStatus(status: ExperimentStatus) {
-    onReplace(await getContainer().experiments.manageExperiment.setStatus(exp.id, status));
+    try {
+      onReplace(await getContainer().experiments.manageExperiment.setStatus(exp.id, status));
+      setActionError(null);
+    } catch (err) {
+      setActionError(formatError(err));
+    }
   }
   async function remove() {
     setConfirmOpen(false);
     setBusy(true);
     try {
       await getContainer().experiments.manageExperiment.remove(exp.id);
+      setActionError(null);
       onChanged();
+    } catch (err) {
+      setActionError(formatError(err));
     } finally {
       setBusy(false);
     }
@@ -66,7 +78,10 @@ export function ExperimentCard({
     setBusy(true);
     try {
       await getContainer().sharing.unpinShared("experiment", exp.id);
+      setActionError(null);
       onChanged();
+    } catch (err) {
+      setActionError(formatError(err));
     } finally {
       setBusy(false);
     }
@@ -111,6 +126,7 @@ export function ExperimentCard({
         {exp.resultNote && <p className="entity-card-snippet">{cardSnippet(exp.resultNote)}</p>}
         <ExperimentCardThumbs artifacts={exp.artifacts} />
       </div>
+      {actionError && <FormError>{actionError}</FormError>}
     </EntityCard>
 
     {confirmOpen && (
