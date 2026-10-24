@@ -40,6 +40,20 @@ async function sharedList(): Promise<{
   return { db, owner, reviewer, itemId: item!.id };
 }
 
+/** A one-item list owned by `who`, shared with nobody. */
+async function listOf(db: Awaited<ReturnType<typeof testDb>>, who: string): Promise<{ itemId: string }> {
+  const [list] = await db.as(who).sql<{ id: string }>(
+    "insert into reading_lists (user_id, name) values ($1, 'private') returning id", [who],
+  );
+  const [paper] = await db.as(who).sql<{ id: string }>(
+    "insert into papers (user_id, title) values ($1, 'Hidden') returning id", [who],
+  );
+  const [item] = await db.as(who).sql<{ id: string }>(
+    "insert into reading_list_items (list_id, paper_id) values ($1, $2) returning id", [list!.id, paper!.id],
+  );
+  return { itemId: item!.id };
+}
+
 const record = (
   db: Awaited<ReturnType<typeof testDb>>,
   who: string,
@@ -105,6 +119,63 @@ describe("screening decisions", () => {
       .as(stranger)
       .sql("select id from screening_decisions where item_id = $1", [itemId]);
     assert.deepEqual(seen, []);
+  });
+
+  // Review row 40-06: update and delete checked only reviewer_id. A filtered
+  // statement (`where id = ...`) is already caught by the select policy, which
+  // Postgres applies whenever the statement reads a column. An unfiltered one,
+  // which PostgREST will send, is not; these cases use that shape.
+  it("refuses moving a decision onto an item the reviewer cannot see", async () => {
+    const { db, reviewer, itemId } = await sharedList();
+    const [mine] = await record(db, reviewer, itemId, "included");
+    const stranger = await db.createUser();
+    const { itemId: hiddenItem } = await listOf(db, stranger);
+    await assert.rejects(
+      db.as(reviewer).sql("update screening_decisions set item_id = $1", [hiddenItem]),
+      /row-level security/i,
+    );
+    const [kept] = await db.sql<{ item_id: string }>("select item_id from screening_decisions where id = $1", [mine!.id]);
+    assert.equal(kept?.item_id, itemId);
+  });
+
+  it("lets a reviewer change their decision and move it to another visible item", async () => {
+    const { db, owner, reviewer, itemId } = await sharedList();
+    const [mine] = await record(db, reviewer, itemId, "included");
+    const [changed] = await db.as(reviewer).sql<{ state: string }>(
+      "update screening_decisions set state = 'unsure' where id = $1 returning state",
+      [mine!.id],
+    );
+    assert.equal(changed?.state, "unsure");
+
+    const [list] = await db.as(owner).sql<{ list_id: string }>(
+      "select list_id from reading_list_items where id = $1", [itemId],
+    );
+    const [paper] = await db.as(owner).sql<{ id: string }>(
+      "insert into papers (user_id, title) values ($1, 'Second') returning id", [owner],
+    );
+    const [second] = await db.as(owner).sql<{ id: string }>(
+      "insert into reading_list_items (list_id, paper_id) values ($1, $2) returning id",
+      [list!.list_id, paper!.id],
+    );
+    const moved = await db.as(reviewer).sql(
+      "update screening_decisions set item_id = $1 where id = $2 returning id", [second!.id, mine!.id],
+    );
+    assert.equal(moved.length, 1);
+  });
+
+  it("stops update and delete once the list is unshared", async () => {
+    const { db, owner, reviewer, itemId } = await sharedList();
+    const [mine] = await record(db, reviewer, itemId, "included");
+    await db.as(owner).sql("delete from shares where recipient_id = $1", [reviewer]);
+
+    const as = db.as(reviewer);
+    assert.deepEqual(
+      await as.sql("update screening_decisions set state = 'excluded'"),
+      [],
+    );
+    assert.deepEqual(await as.sql("delete from screening_decisions"), []);
+    const [kept] = await db.sql<{ state: string }>("select state from screening_decisions where id = $1", [mine!.id]);
+    assert.equal(kept?.state, "included", "the owner's screen keeps the decision");
   });
 
   it("refuses a state that is not one of the three", async () => {

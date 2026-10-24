@@ -9,9 +9,14 @@
  * The cache lives for the lifetime of the page (the container is a singleton),
  * so it survives client-side tab navigation but not a full reload. Reads are
  * keyed by (projectId, method, args); concurrent identical reads share one
- * in-flight promise (deduped). Settled reads are returned without re-fetching.
- * A failed read is not cached.
+ * in-flight promise (deduped). Settled reads are returned without re-fetching
+ * for {@link SCREEN_REVALIDATE_AFTER_MS}, the same window the screen cache
+ * trusts, so a screen's revalidation reaches the store. Past it the read is
+ * refetched; if that fails (offline), the older answer is served instead.
+ * A failed read is not cached, and a read in flight when the cache is cleared
+ * is not cached either: it started before the write that cleared it.
  */
+import { SCREEN_REVALIDATE_AFTER_MS } from "@/lib/cache/cache-policy";
 import type { ResourceType } from "@/lib/cache/cache-invalidation-map";
 import { cacheWriteNotify, registerRepoCacheEntry } from "@/lib/cache/project-lww-invalidator";
 
@@ -31,6 +36,18 @@ function normalizeOpts(
   return opts ?? {};
 }
 
+/** When each settled key was stored, per settled map (shared maps share it). */
+const settledTimes = new WeakMap<Map<string, unknown>, Map<string, number>>();
+
+function timesFor(settled: Map<string, unknown>): Map<string, number> {
+  let times = settledTimes.get(settled);
+  if (!times) {
+    times = new Map();
+    settledTimes.set(settled, times);
+  }
+  return times;
+}
+
 export function cacheRepo<R extends object>(
   inner: R,
   reads: readonly string[],
@@ -42,6 +59,7 @@ export function cacheRepo<R extends object>(
   const { resourceType, sharedCache, sharedSettled } = normalizeOpts(opts, legacySettled);
   const cache = sharedCache ?? new Map<string, Promise<unknown>>();
   const settled = sharedSettled ?? new Map<string, unknown>();
+  const settledAt = timesFor(settled);
   registerRepoCacheEntry({ resourceType, cache, settled });
   let lastPid: string | null | undefined;
   return new Proxy(inner, {
@@ -60,19 +78,29 @@ export function cacheRepo<R extends object>(
             lastPid = cur;
           }
           const key = `${cur ?? "-"}|${name}|${JSON.stringify(args)}`;
-          if (settled.has(key)) return Promise.resolve(settled.get(key));
+          if (settled.has(key) && Date.now() - (settledAt.get(key) ?? 0) < SCREEN_REVALIDATE_AFTER_MS) {
+            return Promise.resolve(settled.get(key));
+          }
+          // `cache` holds reads in flight only. A clear removes `p`, and a read
+          // that finds itself gone was overtaken by a write: answer, don't keep.
           const hit = cache.get(key);
           if (hit) return hit;
-          const p = Promise.resolve(fn.apply(target, args))
-            .then((v) => {
-              settled.set(key, v);
+          const p: Promise<unknown> = Promise.resolve(fn.apply(target, args)).then(
+            (v) => {
+              if (cache.get(key) === p) {
+                cache.delete(key);
+                settled.set(key, v);
+                settledAt.set(key, Date.now());
+              }
               return v;
-            })
-            .catch((err) => {
+            },
+            (err) => {
+              if (cache.get(key) !== p) throw err;
               cache.delete(key);
-              settled.delete(key);
+              if (settled.has(key)) return settled.get(key);
               throw err;
-            });
+            },
+          );
           cache.set(key, p);
           return p;
         };
