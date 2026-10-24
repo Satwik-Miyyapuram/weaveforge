@@ -105,7 +105,9 @@ export function Popover({
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
     };
-  }, [open, align, portal, children]);
+    // `children` is left out on purpose: it is a new value on every parent
+    // render, and the ResizeObserver already re-places when the content resizes.
+  }, [open, align, portal]);
 
   // A portalled panel is outside `ref`, so it has to be named as "inside" too —
   // otherwise the mousedown that lands on an option closes the menu before the

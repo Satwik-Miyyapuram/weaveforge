@@ -59,8 +59,12 @@ export async function purgeUserBlobs(
     );
   }
 
-  await admin.from("blob_objects").delete().eq("user_id", userId);
+  const { error: deleteError } = await admin.from("blob_objects").delete().eq("user_id", userId);
+  if (deleteError) throw deleteError;
 }
+
+/** One listing call returns at most this many entries; longer prefixes are paged. */
+const LIST_PAGE = 200;
 
 async function removeStoragePrefix(
   admin: SupabaseClient,
@@ -72,22 +76,28 @@ async function removeStoragePrefix(
 
   while (queue.length) {
     const current = queue.pop()!;
-    const { data, error } = await admin.storage.from(bucket).list(current, { limit: 200 });
-    /* Returning here skipped the rest of the bucket and reported success, so a
-       listing failure looked exactly like an empty bucket. */
-    if (error) throw error;
+    for (let offset = 0; ; offset += LIST_PAGE) {
+      const { data, error } = await admin.storage
+        .from(bucket)
+        .list(current, { limit: LIST_PAGE, offset });
+      /* Returning here skipped the rest of the bucket and reported success, so a
+         listing failure looked exactly like an empty bucket. */
+      if (error) throw error;
 
-    for (const entry of data ?? []) {
-      const full = current ? `${current}/${entry.name}` : entry.name;
-      if (entry.id) {
-        paths.push(full);
-      } else {
-        queue.push(full);
+      for (const entry of data ?? []) {
+        const full = current ? `${current}/${entry.name}` : entry.name;
+        if (entry.id) {
+          paths.push(full);
+        } else {
+          queue.push(full);
+        }
       }
+      if ((data?.length ?? 0) < LIST_PAGE) break;
     }
   }
 
   if (paths.length) {
-    await admin.storage.from(bucket).remove(paths);
+    const { error } = await admin.storage.from(bucket).remove(paths);
+    if (error) throw error;
   }
 }

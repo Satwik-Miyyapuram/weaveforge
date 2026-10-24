@@ -1,4 +1,4 @@
-import { errorMessage } from "@weaveforge/core";
+import { BlobNotFoundError, errorMessage } from "@weaveforge/core";
 import type { IBlobFetcher, IBlobStore } from "@weaveforge/core";
 import { FetchingBlobStore } from "@/storage/fetching-blob-store";
 import { LocalBlobStore } from "./local-blob-store";
@@ -126,8 +126,14 @@ export class LocalFirstBlobStore implements IBlobFetcher {
     for (const item of queue) {
       try {
         if (item.op === "upload") {
-          const blob = await this.local.fetchBlob(item.bucket, item.path).catch(() => null);
           // Gone from this computer since it was queued: nothing left to send.
+          // Any other read failure keeps the row for the retry.
+          const blob = await this.local
+            .fetchBlob(item.bucket, item.path)
+            .catch((err: unknown) => {
+              if (err instanceof BlobNotFoundError) return null;
+              throw err;
+            });
           if (blob) await this.remote.upload(item.bucket, item.path, blob, blob.type);
         } else {
           await this.remote.remove(item.bucket, item.path);

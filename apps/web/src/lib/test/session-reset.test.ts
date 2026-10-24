@@ -9,7 +9,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { clearSessionCaches, registerSessionReset } from "@/lib/cache/clear-session-caches";
+import { fetchBlobsCached } from "@/lib/cache/blob-fetch-cache";
+import { clearSessionCaches, registerDashboardUiCacheClear, registerSessionReset } from "@/lib/cache/clear-session-caches";
 import { clearMermaidCache, mermaidCacheSize, renderMermaidBlock, setMermaidLoaderForTests, type MermaidModule } from "@/lib/mermaid-render";
 
 type Log = { level: string; source: string; message: string; detail?: string };
@@ -82,5 +83,33 @@ test("sign-out empties the rendered mermaid cache", async () => {
     g.document = savedDoc;
     setMermaidLoaderForTests(null);
     clearMermaidCache();
+  }
+});
+
+test("sign-out drops fetched blobs, so the next user refetches them (11-02)", async () => {
+  let fetches = 0;
+  const fetchOne = async () => {
+    fetches += 1;
+    return new Blob(["x"]);
+  };
+  await fetchBlobsCached("figures", ["u1/a.png"], fetchOne);
+  await fetchBlobsCached("figures", ["u1/a.png"], fetchOne);
+  assert.equal(fetches, 1, "second read is a cache hit");
+  withBrowser(() => clearSessionCaches());
+  await fetchBlobsCached("figures", ["u1/a.png"], fetchOne);
+  assert.equal(fetches, 2, "after sign-out the blob is fetched again");
+});
+
+test("every registered dashboard cache clears on sign-out, not only the last (11-04)", () => {
+  const cleared: string[] = [];
+  const offs = [
+    registerDashboardUiCacheClear(() => void cleared.push("layout")),
+    registerDashboardUiCacheClear(() => void cleared.push("stats")),
+  ];
+  try {
+    withBrowser(() => clearSessionCaches());
+    assert.deepEqual(cleared.sort(), ["layout", "stats"]);
+  } finally {
+    for (const off of offs) off();
   }
 });
