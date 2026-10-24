@@ -365,12 +365,16 @@ export function packStrokeInstances(
   // stroke re-packs its tail the first instance still needs to know what it
   // joins onto.
   let prev = from > 0 ? at(from - 1, last - 1) : null;
+  // Each instance's `next` is the following instance's `b`, so it is carried
+  // over rather than evaluated twice.
+  let carried = from < segments ? at(from, 1) : null;
   for (let i = from; i < segments; i += 1) {
     let a = at(i, 0);
     for (let k = 1; k <= last; k += 1) {
-      const b = at(i, k);
+      const b = carried!;
       const next =
         k < last ? at(i, k + 1) : i + 1 < segments ? at(i + 1, 1) : null;
+      carried = next;
       const base = cursor * INK_INSTANCE_FLOATS;
       out[base] = a.x;
       out[base + 1] = a.y;
