@@ -246,7 +246,7 @@ CI runs these eight as **separate steps** rather than through `check:boundaries`
 | `npm run check:mcp-plugin` | `node --import tsx scripts/check-mcp-plugin.mjs` |
 | `npm run check:android-permissions` | `node scripts/check-android-permissions.mjs` |
 | `npm run check:oci-infra` | `node scripts/check-oci-infra.mjs` |
-| `npm run check:docs` | `node --test scripts/lib/test/repo-stats.test.mjs && node scripts/update-docs.mjs --check && node scripts/build-atlas.mjs --check` |
+| `npm run check:docs` | `node --test "scripts/lib/test/*.test.mjs" && node scripts/update-docs.mjs --check && node scripts/build-atlas.mjs --check` |
 | `npm run check:ci-parity` | `node scripts/check-ci-parity.mjs` |
 
 <!-- /generated:boundary-checks -->

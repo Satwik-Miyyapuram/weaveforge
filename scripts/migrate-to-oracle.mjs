@@ -23,6 +23,7 @@ import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 
 import { loadMigrationEnv } from "./lib/load-env.mjs";
+import { pgTls } from "./lib/pg-tls.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -61,9 +62,7 @@ async function targetSchemaState() {
   const url = process.env.DATABASE_URL;
   const client = new Client({
     connectionString: url,
-    ...(/sslmode=disable/.test(url) || /@(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(url)
-      ? {}
-      : { ssl: { rejectUnauthorized: false } }),
+    ...pgTls(url),
     connectionTimeoutMillis: 15_000,
   });
   try {

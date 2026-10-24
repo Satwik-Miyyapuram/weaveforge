@@ -19,6 +19,7 @@ import { dirname, join } from "node:path";
 import { rowCounts, tableLoadOrder } from "./lib/pg-migrate.mjs";
 
 import { loadMigrationEnv } from "./lib/load-env.mjs";
+import { pgTls } from "./lib/pg-tls.mjs";
 
 loadMigrationEnv(join(dirname(fileURLToPath(import.meta.url)), ".."));
 const require = createRequire(join(dirname(fileURLToPath(import.meta.url)), "../apps/web/package.json"));
@@ -62,16 +63,10 @@ if (!SOURCE_URL || !TARGET_URL) {
   process.exit(1);
 }
 
-function wantsTls(url) {
-  if (/sslmode=disable/.test(url)) return false;
-  if (/[?&]host=%2F|[?&]host=\//.test(url)) return false;
-  return !/@(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(url);
-}
-
 const clientFor = (url) =>
   new Client({
     connectionString: url,
-    ...(wantsTls(url) ? { ssl: { rejectUnauthorized: false } } : {}),
+    ...pgTls(url),
     statement_timeout: 0,
   });
 
