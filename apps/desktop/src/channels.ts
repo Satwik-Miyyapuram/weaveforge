@@ -41,11 +41,10 @@ export const CHANNELS = {
   secretWrite: "weaveforge:secret-write",
   secretClear: "weaveforge:secret-clear",
   /**
-   * The shell's own settings: read one, keep one. What may be named and why
+   * The shell's own settings: keep one. What may be named and why
    * these live outside the renderer is `preference-store.ts`; these are only
    * the strings.
    */
-  preferenceRead: "weaveforge:preference-read",
   preferenceWrite: "weaveforge:preference-write",
   /**
    * One statement against the local database, answered with its rows.

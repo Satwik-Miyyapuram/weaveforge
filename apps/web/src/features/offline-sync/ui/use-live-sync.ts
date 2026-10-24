@@ -19,15 +19,8 @@ export function useLiveSync() {
     requestSync();
   }, []);
 
-  const adoptNow = useCallback(async () => {
-    const { enableSync } = await import("./enable-sync");
-    await enableSync();
-    requestSync();
-  }, []);
-
   return {
     ...state,
     syncNow,
-    adoptNow,
   };
 }
