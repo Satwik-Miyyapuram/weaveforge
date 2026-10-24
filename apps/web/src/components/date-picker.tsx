@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 
@@ -25,6 +25,21 @@ export function monthGrid(year: number, month: number): [number, number, number]
     const d = new Date(year, month, 1 - lead + i);
     return [d.getFullYear(), d.getMonth(), d.getDate()];
   });
+}
+
+/**
+ * The day to focus when the panel opens: the selected day, else today, else
+ * the first day of the month; each only if it is in the shown month and not
+ * before `min`. When those are disabled, the first enabled day; null if none.
+ */
+export function openFocusDay(year: number, month: number, value: string, todayIso: string, min?: string): string | null {
+  const days = monthGrid(year, month)
+    .filter(([, m]) => m === month)
+    .map(([y, m, d]) => iso(y, m, d))
+    .filter((v) => !min || v >= min);
+  if (days.includes(value)) return value;
+  if (days.includes(todayIso)) return todayIso;
+  return days[0] ?? null;
 }
 
 /** Themed stand-in for `<input type="date">`, whose popup the browser draws and CSS can't reach. Value is `YYYY-MM-DD` or "". */
@@ -72,6 +87,22 @@ export function DatePicker({
     };
   }, [open]);
 
+  // The panel is portalled to <body>, so Tab from the trigger would skip it;
+  // move focus to a day the way a native date popup does (12-08).
+  const [vy, vm] = view;
+  const now = today();
+  const todayIso = iso(...now);
+  const focusDay = open ? openFocusDay(vy, vm, value, todayIso, min) : null;
+  // A hidden panel cannot take focus, so wait until it has been placed.
+  const placed = pos.visibility === "visible";
+  useEffect(() => {
+    if (!open || !placed) return;
+    const target = focusDay ? panelRef.current?.querySelector<HTMLElement>(`[data-day="${focusDay}"]`) : null;
+    (target ?? panelRef.current?.querySelector<HTMLElement>("button"))?.focus();
+    // Only on open: paging months must not pull focus off the nav buttons.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, placed]);
+
   const toggle = () => {
     if (!open) setView((sel ?? today()).slice(0, 2) as [number, number]);
     setOpen((o) => !o);
@@ -82,10 +113,6 @@ export function DatePicker({
     btnRef.current?.focus();
   };
   const shift = (n: number) => setView(([y, m]) => [y + Math.floor((m + n) / 12), (((m + n) % 12) + 12) % 12]);
-
-  const [vy, vm] = view;
-  const now = today();
-  const todayIso = iso(...now);
 
   return (
     <div className="custom-select-container date-picker" ref={wrapRef}>
@@ -130,7 +157,7 @@ export function DatePicker({
               <span className="date-picker-title">{MONTHS[vm]} {vy}</span>
               <button type="button" className="date-picker-nav" aria-label="Next month" onClick={() => shift(1)}>›</button>
             </div>
-            <div className="date-picker-grid" role="grid">
+            <div className="date-picker-grid">
               {WEEKDAYS.map((w) => (
                 <span key={w} className="date-picker-dow muted">{w}</span>
               ))}
@@ -141,7 +168,7 @@ export function DatePicker({
                 if (v === value) cls.push("sel", "sel-plain");
                 if (v === todayIso) cls.push("today");
                 return (
-                  <button key={v} type="button" className={cls.join(" ")} aria-pressed={v === value} disabled={!!min && v < min} onClick={() => pick(v)}>
+                  <button key={v} data-day={v} type="button" className={cls.join(" ")} aria-pressed={v === value} disabled={!!min && v < min} onClick={() => pick(v)}>
                     {d}
                   </button>
                 );

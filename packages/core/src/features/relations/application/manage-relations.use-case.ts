@@ -51,6 +51,8 @@ export interface LinkCitationsResult {
   created: PaperRelation[];
   /** References returned by the source that matched no local paper. */
   unmatched: number;
+  /** Papers whose references or edge writes threw; the rest still linked. */
+  failed: number;
 }
 
 export class LinkCitationsUseCase {
@@ -68,10 +70,10 @@ export class LinkCitationsUseCase {
    */
   async forPaper(paper: Paper): Promise<LinkCitationsResult> {
     const ref = paperRef(paper);
-    if (!ref) return { created: [], unmatched: 0 };
+    if (!ref) return { created: [], unmatched: 0, failed: 0 };
 
     const source = this.sources.find((s) => s.supports(ref));
-    if (!source) return { created: [], unmatched: 0 };
+    if (!source) return { created: [], unmatched: 0, failed: 0 };
 
     const references = await source.references(ref);
     const created: PaperRelation[] = [];
@@ -98,7 +100,7 @@ export class LinkCitationsUseCase {
       if (!preexisting) created.push(edge);
     }
 
-    return { created, unmatched };
+    return { created, unmatched, failed: 0 };
   }
 
   /**
@@ -140,16 +142,21 @@ export class LinkCitationsUseCase {
       .map((r, i) => ({ r, i }))
       .filter((x): x is { r: PaperRef; i: number } => !!x.r);
     const source = this.sources.find((s) => resolvable.some((x) => s.supports(x.r)));
-    if (!source) return { created: [], unmatched: 0 };
+    if (!source) return { created: [], unmatched: 0, failed: 0 };
     const supported = resolvable.filter((x) => source.supports(x.r));
 
     const refsByPaper: (PaperRef[] | null)[] = new Array(library.length).fill(null);
+    const failedPapers = new Set<number>();
     if (source.referencesBatch) {
       const lists = await source.referencesBatch(supported.map((x) => x.r));
       supported.forEach((x, k) => (refsByPaper[x.i] = lists[k] ?? null));
     } else {
       for (const x of supported) {
-        refsByPaper[x.i] = await source.references(x.r);
+        try {
+          refsByPaper[x.i] = await source.references(x.r);
+        } catch {
+          failedPapers.add(x.i); // one rate-limited paper must not stop the rest
+        }
       }
     }
 
@@ -178,17 +185,21 @@ export class LinkCitationsUseCase {
         }
         const key = `${paper.id}|${match.id}`;
         if (existing.has(key)) continue; // already linked — skip without a query
-        const edge = await this.addRelation.add({
-          fromPaper: paper.id,
-          toPaper: match.id,
-          relation: "cites",
-          source: "auto",
-        });
-        existing.add(key);
-        created.push(edge);
+        try {
+          const edge = await this.addRelation.add({
+            fromPaper: paper.id,
+            toPaper: match.id,
+            relation: "cites",
+            source: "auto",
+          });
+          existing.add(key);
+          created.push(edge);
+        } catch {
+          failedPapers.add(i);
+        }
       }
     }
-    return { created, unmatched };
+    return { created, unmatched, failed: failedPapers.size };
   }
 }
 

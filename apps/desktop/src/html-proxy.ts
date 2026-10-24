@@ -4,9 +4,9 @@ import {
   HTML_PROXY_PATH,
   htmlRelayResponse,
   isHtmlContentType,
-  readCapped,
 } from "@/features/reader/application/paper-html-rules";
-import { refuse, type ProxyFetch } from "./proxy-shared";
+import { readCapped } from "@/lib/read-capped";
+import { fetchCheckedHops, isPublicHttpsUrl, refuse, type ProxyFetch } from "./proxy-shared";
 
 /**
  * The reader's HTML relay, served from the `app://` origin.
@@ -15,8 +15,10 @@ import { refuse, type ProxyFetch } from "./proxy-shared";
  * journal's article view — for the reader, which cannot fetch it itself
  * because those hosts send no CORS headers. Any https host, as with a typed
  * PDF address (see `pdf-proxy.ts`): the only person it fetches for is the one
- * at the keyboard, the addresses come from the open-access indexes they asked,
- * and https keeps it off `http://localhost`.
+ * at the keyboard, and the addresses come from the open-access indexes they
+ * asked. https keeps it off `http://localhost`, and no loopback, private or
+ * link-local host is fetched, at the start or on any hop of a redirect: each
+ * hop is checked before it is fetched (see `fetchCheckedHops`).
  *
  * The page comes back as text with the address it ended at; the renderer
  * sanitises it before anything is shown. `fetchFn` is injected for tests.
@@ -26,32 +28,21 @@ export function isHtmlProxyRequest(requestUrl: string): boolean {
   return new URL(requestUrl).pathname === HTML_PROXY_PATH;
 }
 
-function isHttpsUrl(raw: string): boolean {
-  try {
-    const url = new URL(raw);
-    return url.protocol === "https:" && !url.username && !url.password;
-  } catch {
-    return false;
-  }
-}
-
 export async function proxyHtml(requestUrl: string, fetchFn: ProxyFetch = fetch): Promise<Response> {
   const target = new URL(requestUrl).searchParams.get("url");
   if (!target) return refuse(400, "url is required");
-  if (!isHttpsUrl(target)) return refuse(400, "Only https addresses can be fetched");
+  if (!isPublicHttpsUrl(target)) return refuse(400, "Only https addresses can be fetched");
 
-  let upstream: Response;
-  try {
-    upstream = await fetchFn(target, {
-      redirect: "follow",
-      headers: { accept: "text/html,application/xhtml+xml", "user-agent": "WeaveForge desktop" },
-      signal: AbortSignal.timeout(60_000),
-    });
-  } catch {
-    return refuse(502, "Upstream fetch failed");
-  }
-  const finalUrl = upstream.url || target;
-  if (!isHttpsUrl(finalUrl)) return refuse(400, "Redirect target not allowed");
+  const fetched = await fetchCheckedHops(
+    target,
+    isPublicHttpsUrl,
+    fetchFn,
+    { headers: { accept: "text/html,application/xhtml+xml", "user-agent": "WeaveForge desktop" }, signal: AbortSignal.timeout(60_000) },
+    false,
+  );
+  if (!fetched.ok) return fetched.refusal;
+  const upstream = fetched.response;
+  const finalUrl = fetched.url;
   if (!upstream.ok) return refuse(502, `Upstream returned ${upstream.status}`);
   const type = upstream.headers.get("content-type");
   if (!isHtmlContentType(type)) return refuse(415, "Upstream did not return a web page");

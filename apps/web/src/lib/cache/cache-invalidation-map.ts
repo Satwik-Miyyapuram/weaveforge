@@ -31,7 +31,7 @@ export const WRITE_INVALIDATION_MAP: Record<
   ResourceType,
   { repos: readonly ResourceType[]; screens: readonly ScreenId[] }
 > = {
-  paper: { repos: ["paper", "paper_relation", "tag", "paper_tag", "reading_list_item"], screens: ["papers", "graph", "lists"] },
+  paper: { repos: ["paper", "paper_relation", "tag", "paper_tag", "reading_list_item", "citation_alert_track"], screens: ["papers", "graph", "lists"] },
   vault_page: { repos: ["vault_page", "paper_relation", "reading_list_item"], screens: ["vault", "graph", "lists"] },
   reading_list: { repos: ["reading_list", "reading_list_item"], screens: ["lists", "papers", "vault"] },
   reading_list_item: { repos: ["reading_list_item", "reading_list"], screens: ["lists", "papers", "vault"] },

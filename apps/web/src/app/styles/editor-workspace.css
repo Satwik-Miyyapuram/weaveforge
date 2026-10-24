@@ -2056,16 +2056,6 @@
 .ink-swatch-orange { --sw: var(--ink-orange); }
 .ink-swatch-grey { --sw: var(--ink-grey); }
 
-.ink-pen-only {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 0.74rem;
-  cursor: pointer;
-  user-select: none;
-}
-
 .ink-bar-spacer { flex: 1 1 auto; }
 
 .ink-rail-container {
@@ -2335,15 +2325,6 @@
 .ink-menu-paper .ink-menu-item { justify-content: flex-start; gap: 8px; }
 .ink-menu-item[aria-checked="true"] { font-weight: 600; }
 
-/*
- * The rail's ghosts: the page above and below the live one, in a continuous
- * scroll. A ghost is the sheet's own paper and image with none of the
- * machinery — inert, dimmed a hair so the eye finds the writing page, and
- * showing its number where a tab would.
- */
-.ink-ghost {
-  display: flex;
-}
 /* Read mode: the page's images are not things to drag off the sheet, and
    only the text underlay is there to select. */
 .ink-reader .ink-sheet img,
@@ -2366,7 +2347,6 @@
   display: block;
   pointer-events: none;
 }
-.ink-ghost .ink-ghost-label,
 .ink-reader .ink-ghost-label {
   position: absolute;
   top: 8px;

@@ -6,6 +6,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
 import { LocalApiTokenCreate, LocalApiTokenTable, useLocalApiState } from "@/components/local-api-tokens";
 import { McpClients } from "./mcp-clients";
+import { copyText } from "@/lib/clipboard";
 
 /**
  * Settings → AI → MCP and the local HTTP surface, desktop only.
@@ -78,7 +79,8 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
                 type="button"
                 className="btn-secondary"
                 onClick={() =>
-                  void navigator.clipboard.writeText(mcpUrl).then(() => {
+                  void copyText(mcpUrl).then((ok) => {
+                    if (!ok) return;
                     setCopied(true);
                     window.setTimeout(() => setCopied(false), 1200);
                   })

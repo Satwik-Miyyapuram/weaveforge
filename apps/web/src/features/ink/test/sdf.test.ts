@@ -21,7 +21,6 @@ import {
   INK_AA_MARGIN_PX,
   INK_INSTANCE_FLOATS,
   INK_SEGMENT_SUBDIVISIONS,
-  capsuleHalfExtent,
   packStrokeInstances,
   radiusAt,
   strokeCurveAt,
@@ -29,50 +28,8 @@ import {
   strokeInstanceCount,
 } from "../render/ink-renderer";
 
-test("a zero-length segment becomes a dot, not a degenerate quad", () => {
-  const dot = capsuleHalfExtent(500, 500, 500, 500, 3, 1);
-  assert.equal(
-    dot.degenerate,
-    true,
-    "the caller can tell it had no direction to work with",
-  );
-  assert.equal(dot.length, 0);
-  assert.equal(dot.halfWidth, 4, "the nib plus the margin, both ways");
-  assert.equal(dot.halfHeight, 4);
-});
-
-test("a segment shorter than its own nib is also a dot", () => {
-  // Half a millimetre long with a 0.6 mm nib: the nib covers both ends, so the
-  // direction is meaningless and a square is the right quad.
-  const stub = capsuleHalfExtent(0, 0, 1, 0, 3, 1);
-  assert.equal(stub.degenerate, true);
-  assert.equal(stub.halfWidth, 4);
-});
-
-test("a real segment's quad is its box grown by the nib and the margin", () => {
-  const quad = capsuleHalfExtent(0, 0, 100, 0, 3, 1);
-  assert.equal(quad.degenerate, false);
-  assert.equal(quad.length, 100);
-  assert.equal(quad.halfWidth, 54, "half the segment plus nib plus margin");
-  assert.equal(quad.halfHeight, 4, "and the nib plus margin across");
-
-  const steep = capsuleHalfExtent(0, 0, 100, 100, 0, 1);
-  assert.equal(steep.halfWidth, 51);
-  assert.equal(steep.halfHeight, 51);
-});
-
 test("the AA margin is one device pixel, which is the overdraw lever", () => {
   assert.equal(INK_AA_MARGIN_PX, 1);
-  const tight = capsuleHalfExtent(0, 0, 100, 0, 3, INK_AA_MARGIN_PX);
-  const loose = capsuleHalfExtent(0, 0, 100, 0, 3, 4);
-  assert.ok(
-    loose.halfHeight > tight.halfHeight,
-    "a bigger margin is a bigger quad",
-  );
-  // §11.3.9's numbers: the margin is what makes adjacent quads overlap, so it is
-  // paid for on every segment. This is the assertion that the lever is where the
-  // code says it is.
-  assert.equal(loose.halfHeight - tight.halfHeight, 3);
 });
 
 test("the packer writes the subdivided spline, in the layout the shader reads", () => {

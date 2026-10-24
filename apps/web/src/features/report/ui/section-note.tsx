@@ -87,10 +87,12 @@ export function SectionNote({
       setSaveError(null);
       try {
         const report = getContainer().report;
-        const body = await materializeReportBlobImages(nextBody, section.id, (id, blob, ext) =>
+        const { body, uploadError } = await materializeReportBlobImages(nextBody, section.id, (id, blob, ext) =>
           report.uploadImage(id, blob, ext),
         );
         onReplace(await report.manageReportSection.setNotes(section.id, body));
+        // The text is saved; a failed upload is still said out loud.
+        if (uploadError) throw uploadError;
       } catch (err) {
         setSaveError(formatError(err));
       }

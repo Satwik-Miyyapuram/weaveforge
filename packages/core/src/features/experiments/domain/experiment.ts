@@ -183,6 +183,8 @@ export function isStaleRunningExperiment(
 /** Format a numeric metric value for tables and chart axes (name-agnostic). */
 export function formatMetricValue(_metric: string, value: number): string {
   if (!Number.isFinite(value)) return "—";
+  // Zero has no magnitude band; without this it fell to "0.00e+0".
+  if (value === 0) return "0";
   const abs = Math.abs(value);
   if (abs >= 1e6 || (abs > 0 && abs < 1e-4)) return value.toExponential(2);
   if (abs >= 100) return value.toFixed(1);
@@ -215,7 +217,13 @@ export function formatMetricValue(_metric: string, value: number): string {
  * degrades to "—" rather than throwing inside a render.
  */
 export function formatMetricCell(_metric: string, value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
+  if (value === null || value === undefined) return "—";
+  // A blank string is no value; Number("  ") would call it zero.
+  if (typeof value === "string" && value.trim() === "") return "—";
+  // A non-finite number is a number, so it takes formatMetricValue's "—"
+  // rather than JSON's "null".
+  if (typeof value === "number") return formatMetricValue(_metric, value);
+  if (typeof value === "bigint") return value.toString();
   const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
   if (Number.isFinite(n)) return formatMetricValue(_metric, n);
   if (typeof value === "string") return value;

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { PAPER_STATUSES, parsePaperRef, type PaperRef, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
-import { paperSourceNoteScaffold } from "../application/paper-source-note-scaffold";
+import { scaffoldNewPaperNote } from "../application/paper-source-note-scaffold";
 import { useSubmit } from "@/lib/hooks/use-submit";
 import { FormError } from "@/components/form-error";
 
@@ -59,24 +59,10 @@ export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
     const paper = refValue.trim()
       ? await papers.importPaper.fromRef({ kind: refKind, value: refValue.trim() }, status)
       : await papers.addPaper.addManual({ title, status });
-    if (!paper.summary || paper.summary === "No summary yet.") {
-      const citeKey =
-        typeof paper.metadata?.["citeKey"] === "string"
-          ? paper.metadata["citeKey"]
-          : undefined;
-      const scaffold = paperSourceNoteScaffold({
-        title: paper.title,
-        authors: paper.authors,
-        year: paper.year,
-        venue: paper.venue,
-        doi: paper.doi,
-        citeKey,
-      });
-      await papers.updatePaper.setSummary(paper.id, scaffold);
-    }
+    const saved = await scaffoldNewPaperNote(paper, papers.updatePaper);
     // Zotero is its own facade now: the push is a bibliography concern, not a
     // property of the shelf.
-    await getContainer().zotero.autoPush(paper);
+    await getContainer().zotero.autoPush(saved);
     setTitle("");
     setRefValue("");
     onAdded?.();

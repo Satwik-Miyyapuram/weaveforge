@@ -61,3 +61,21 @@ test("blob and account proxies refuse a wrong method", async () => {
   await assertRefused(await proxyBlob(new Request(`${APP}/api/blobs/a`, { method: "PUT" }), never), 405, /Method/);
   await assertRefused(await proxyAccount(new Request(`${APP}/api/account/delete-user`), never), 405, /Method/);
 });
+
+test("a private host is any loopback, private, link-local or special address, or localhost", async () => {
+  const { isPrivateHost } = await import("../src/proxy-shared");
+  for (const host of ["localhost", "a.localhost", "LOCALHOST.", "127.0.0.1", "0.0.0.0", "10.1.2.3", "100.64.0.1", "172.31.0.1", "192.168.0.1", "169.254.169.254", "198.18.0.1", "224.0.0.1", "[::1]", "::", "[::ffff:7f00:1]", "fd00::1", "fe80::1"]) {
+    assert.equal(isPrivateHost(host), true, host);
+  }
+  for (const host of ["arxiv.org", "8.8.8.8", "172.32.0.1", "[2606:4700::1111]"]) {
+    assert.equal(isPrivateHost(host), false, host);
+  }
+});
+
+test("a public https address has no credentials and no private host, in any spelling", async () => {
+  const { isPublicHttpsUrl } = await import("../src/proxy-shared");
+  assert.equal(isPublicHttpsUrl("https://arxiv.org/pdf/1"), true);
+  for (const url of ["http://arxiv.org/", "https://u:p@arxiv.org/", "https://127.1/", "https://0x7f.1/", "https://2130706433/", "https://[::ffff:127.0.0.1]/", "not a url", ""]) {
+    assert.equal(isPublicHttpsUrl(url), false, url);
+  }
+});

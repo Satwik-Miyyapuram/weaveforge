@@ -1,5 +1,5 @@
 /** Loading pdf.js, and reading text and outline out of a document. */
-import { isEditableReaderTarget, type PdfLocus } from "@weaveforge/core";
+import type { PdfLocus } from "@weaveforge/core";
 import type { ReaderOutlineItem } from "../reader-outline";
 import type { PdfDocument, PageText, TextItemGeometry } from "./types";
 
@@ -44,10 +44,7 @@ export function textItemsFromContent(content: { items: readonly unknown[] }): Te
   });
 }
 
-export function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return isEditableReaderTarget(target);
-}
+export { isEditableTarget } from "@/lib/editable-target";
 
 export async function mapOutline(
   doc: PdfDocument,

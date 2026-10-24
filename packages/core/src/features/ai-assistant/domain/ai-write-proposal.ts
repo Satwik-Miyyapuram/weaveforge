@@ -7,7 +7,8 @@ export interface AiWriteProposal {
   resourceId: string;
   content: string;
   createdAt: string;
-  status: "pending" | "accepted" | "rejected" | "conflicted";
+  /** `executing` while one approval runs it, so a second approval cannot. */
+  status: "pending" | "executing" | "accepted" | "rejected" | "conflicted";
   sourceLinks: readonly string[];
   /** Revision observed when the proposal was created; writes must compare it. */
   expectedRevision?: string;
@@ -24,6 +25,11 @@ export interface IAiProposalStore {
   save(proposal: AiWriteProposal): Promise<void>;
   getById(id: string): Promise<AiWriteProposal | null>;
   listPending(): Promise<AiWriteProposal[]>;
+  /**
+   * Move a pending proposal to `executing` in one atomic step. True only for
+   * the one caller that made the move; false when it was not pending.
+   */
+  claimPending(id: string): Promise<boolean>;
 }
 
 export interface IAiPaperNoteAppender {

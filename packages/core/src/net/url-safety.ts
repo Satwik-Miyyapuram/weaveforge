@@ -245,7 +245,7 @@ function isPublicIpv6(address: string): boolean {
   if ((g0 & 0xfe00) === 0xfc00) return false; // unique local fc00::/7
   if ((g0 & 0xff00) === 0xff00) return false; // multicast ff00::/8
   if (g0 === 0x2001 && g1 === 0x0db8) return false; // documentation
-  if (g0 === 0x2001 && (g1 & 0xff00) === 0x0000) return false; // 2001::/23 special-purpose
+  if (g0 === 0x2001 && (g1 & 0xfe00) === 0x0000) return false; // 2001::/23 special-purpose
   if (g0 === 0x0064 && g1 === 0xff9b) return false; // NAT64, which translates to v4
   if (g0 === 0x2002) return false; // 6to4, likewise
   return true;

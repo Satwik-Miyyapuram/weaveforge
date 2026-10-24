@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Paper, PaperFieldDef, PaperFieldValueData, ReadingListTreeNode } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { AI_PROPOSALS_CHANGED_EVENT } from "@/lib/ai-proposals-changed";
 import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
 import { MultiSelect } from "@/components/multi-select";
@@ -77,8 +78,8 @@ export function ExtractionTable({
 
   useEffect(() => {
     const onChange = () => { void reload().catch((err) => setError(formatError(err))); };
-    window.addEventListener("ai-proposals-changed", onChange);
-    return () => window.removeEventListener("ai-proposals-changed", onChange);
+    window.addEventListener(AI_PROPOSALS_CHANGED_EVENT, onChange);
+    return () => window.removeEventListener(AI_PROPOSALS_CHANGED_EVENT, onChange);
   }, [reload]);
 
   const availableColumns = useMemo(() => {

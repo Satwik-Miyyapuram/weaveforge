@@ -4,6 +4,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { renderMarkdownPlain } from "@/components/markdown/markdown";
 import { containsMath, loadedMathRenderer, loadMathRenderer } from "@/components/markdown/math-renderer";
 import { upgradeMermaidFences } from "@/lib/mermaid-render";
+import { logToApp } from "@/lib/error-report/app-log";
+
+/** Load the maths renderer; on failure log it and answer false, so the sheet shows raw TeX (20-02). */
+export async function loadMathOrLog(load: () => Promise<unknown> = loadMathRenderer): Promise<boolean> {
+  try {
+    await load();
+    return true;
+  } catch (err) {
+    logToApp({ level: "warn", source: "ink", message: "Could not load the maths renderer", detail: String(err) });
+    return false;
+  }
+}
 
 /**
  * Text underlay for an ink page: renders the note's markdown/text content
@@ -91,11 +103,9 @@ export function InkSheetTextUnderlay({
   useEffect(() => {
     if (mathReady || !containsMath(text)) return;
     let cancelled = false;
-    void loadMathRenderer()
-      .then(() => {
-        if (!cancelled) setMathReady(true);
-      })
-      .catch(() => undefined);
+    void loadMathOrLog().then((ok) => {
+      if (ok && !cancelled) setMathReady(true);
+    });
     return () => {
       cancelled = true;
     };

@@ -84,5 +84,4 @@ export interface ZoteroAnnotationPull {
 
 export interface IZoteroAnnotationPull {
   pull(): Promise<ZoteroAnnotationPull>;
-  pullAll(): Promise<Map<string, ZoteroAnnotation[]>>;
 }

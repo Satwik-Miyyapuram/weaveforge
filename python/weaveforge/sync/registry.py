@@ -2,7 +2,7 @@
 
 Adding a source = construct it and ``register()`` it (sources do this on import).
 Selecting one = ``get(id)``. This is the whole extensibility mechanism: the
-``Run`` asks the registry for ``sync=["tensorboard"]`` and never names a class.
+``Run`` asks the registry for ``sync={"tensorboard": logdir}`` and never names a class.
 """
 
 from __future__ import annotations

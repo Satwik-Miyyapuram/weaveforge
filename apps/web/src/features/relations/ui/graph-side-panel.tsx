@@ -6,6 +6,7 @@ import {
   type Paper, type PaperRelation, type RelationType, type ReportSection, type VaultPage } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { RELATION_COLORS, tagColor } from "../domain/graph-palette";
+import { noteTags, relatedConcepts as relatedConceptCounts } from "../application/graph-tags";
 import { Select } from "@/components/select";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
@@ -232,10 +233,7 @@ function NotePanel({
   note: VaultPage;
   onSelectConcept: (name: string) => void;
 }) {
-  const tags = (note.body.match(/#[\p{L}\p{N}_-]+/gu) ?? []).map((t) =>
-    t.replace(/^#+/, "").toLowerCase(),
-  );
-  const uniqueTags = [...new Set(tags)];
+  const uniqueTags = noteTags(note);
 
   return (
     <div className="graph-side-body">
@@ -305,23 +303,10 @@ function ConceptPanel({
   const linkedNotes = notes.filter((n) => linkedNoteIds.includes(n.id));
   const linkedCount = linkedPapers.length + linkedNotes.length;
 
-  const relatedConcepts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const p of linkedPapers) {
-      for (const t of p.tags) {
-        if (t === name) continue;
-        counts.set(t, (counts.get(t) ?? 0) + 1);
-      }
-    }
-    for (const n of linkedNotes) {
-      const tags = (n.body.match(/#[\p{L}\p{N}_-]+/gu) ?? []).map((t) => t.replace(/^#+/, "").toLowerCase());
-      for (const t of tags) {
-        if (t === name) continue;
-        counts.set(t, (counts.get(t) ?? 0) + 1);
-      }
-    }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
-  }, [linkedPapers, linkedNotes, name]);
+  const relatedConcepts = useMemo(
+    () => relatedConceptCounts(name, linkedPapers, linkedNotes),
+    [linkedPapers, linkedNotes, name],
+  );
 
   const evidence = useMemo(() => {
     const out: { paper: Paper; ann: StoredAnnotation }[] = [];

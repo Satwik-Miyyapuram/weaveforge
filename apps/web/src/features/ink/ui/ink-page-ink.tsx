@@ -14,8 +14,9 @@
 
 import { useMemo } from "react";
 import type { InkStroke } from "@weaveforge/core";
-import { INK_RENDER_COLOURS, paletteCss, type InkPalette } from "../render/ink-palette";
-import { InkStrokes, type InkRenderStroke } from "./ink-strokes";
+import { INK_RENDER_COLOURS, type InkPalette } from "../render/ink-palette";
+import { InkStrokes } from "./ink-strokes";
+import { toRenderStrokes } from "./ink-render-strokes";
 
 export interface InkPageInkProps {
   strokes?: readonly InkStroke[];
@@ -45,24 +46,7 @@ export function InkPageInk({
   palette = INK_RENDER_COLOURS,
   hidden,
 }: InkPageInkProps) {
-  /**
-   * The strokes as the one renderer takes them: the colour *name* resolved
-   * through the live palette, and the tool carried as the flag the renderer
-   * draws with — a highlighter is wide and translucent, a pen is not.
-   */
-  const drawn = useMemo<InkRenderStroke[]>(() => {
-    const out: InkRenderStroke[] = [];
-    (strokes ?? []).forEach((stroke, at) => {
-      if (hidden?.has(at)) return;
-      out.push({
-        points: stroke.points,
-        width: stroke.width,
-        colour: paletteCss(palette, stroke.colour),
-        highlighter: stroke.tool === "highlighter",
-      });
-    });
-    return out;
-  }, [strokes, palette, hidden]);
+  const drawn = useMemo(() => toRenderStrokes(strokes, palette, hidden), [strokes, palette, hidden]);
 
   if (drawn.length === 0) return null;
   return (

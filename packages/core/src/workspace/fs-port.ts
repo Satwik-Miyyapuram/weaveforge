@@ -34,6 +34,20 @@ export interface IWorkspaceFs {
   rename(from: string, to: string): Promise<void>;
 }
 
+/**
+ * Every file under `dir`, depth-first in `list` order: the `walk` an adapter
+ * gets for free from its own one-level `list`.
+ */
+export async function* walkByList(
+  fs: Pick<IWorkspaceFs, "list">,
+  dir: string,
+): AsyncIterable<WorkspaceStat> {
+  for (const entry of await fs.list(dir)) {
+    if (entry.kind === "file") yield entry;
+    else yield* walkByList(fs, entry.path);
+  }
+}
+
 export class WorkspacePathError extends ValidationError {
   constructor(path: string) {
     super(`Unsafe workspace path: ${path}`);

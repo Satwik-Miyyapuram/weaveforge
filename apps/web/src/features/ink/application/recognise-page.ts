@@ -32,6 +32,7 @@ import {
   type RecognisedLine,
 } from "@weaveforge/core";
 
+import { logToApp } from "@/lib/error-report/app-log";
 import { matchVocabulary } from "./vocab-match";
 
 export interface RecognisePageInput {
@@ -145,7 +146,8 @@ async function recogniseLine(
   let raw: RecognisedLine | undefined;
   try {
     [raw] = await recogniser.recognise([line], hints);
-  } catch {
+  } catch (err) {
+    logToApp({ level: "warn", source: "ink", message: `Handwriting engine ${recogniser.id} failed on a line`, detail: String(err) });
     raw = undefined;
   }
   if (!raw) return { text: "", conf: 0 };
