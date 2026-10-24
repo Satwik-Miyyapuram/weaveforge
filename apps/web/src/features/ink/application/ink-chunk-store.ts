@@ -23,8 +23,10 @@ import {
   type InkPaper,
 } from "@weaveforge/core";
 
+import { logToApp } from "@/lib/error-report/app-log";
+
 export interface InkChunkStore {
-  /** The chunk's bytes, or `null` where no such chunk exists. */
+  /** The chunk's bytes, or `null` where no such chunk exists. Throws when the read itself failed. */
   read(noteId: string, chunkId: string): Promise<Uint8Array | null>;
   write(noteId: string, chunkId: string, bytes: Uint8Array): Promise<void>;
   remove(noteId: string, chunkId: string): Promise<void>;
@@ -43,6 +45,11 @@ export interface InkStoredPage {
   chunkId: string;
   chunk: Uint8Array | null;
   paper: InkPaper;
+  /**
+   * The chunk exists but could not be read. The page shows empty and must not
+   * be saved: a save would replace the stored strokes with only the new ones.
+   */
+  unreadable?: boolean;
 }
 
 /**
@@ -68,11 +75,16 @@ export async function loadInkPages(
   }
   if (order.length === 0) order.push(newInkChunkId());
   const pages = await Promise.all(
-    order.map(async (chunkId) => ({
-      chunkId,
-      chunk: await store.read(noteId, chunkId).catch(() => null),
-      paper: meta.paper,
-    })),
+    order.map(async (chunkId): Promise<InkStoredPage> => {
+      try {
+        return { chunkId, chunk: await store.read(noteId, chunkId), paper: meta.paper };
+      } catch (err) {
+        // Not "missing": the chunk may be there. One bad page must not stop
+        // the rest from opening, so it is marked and the host leaves it alone.
+        logToApp({ level: "error", source: "ink", message: `Could not read ink page ${chunkId} of ${noteId}`, detail: String(err) });
+        return { chunkId, chunk: null, paper: meta.paper, unreadable: true };
+      }
+    }),
   );
   return pages;
 }
