@@ -116,10 +116,12 @@ export function normalizeShareInput(input: NewShareInput): Required<NewShareInpu
   if (!SHAREABLE_TYPES.includes(input.resourceType)) {
     throw new ShareValidationError(`Unknown resource type "${input.resourceType}".`);
   }
-  return {
-    recipientId: input.recipientId,
-    resourceType: input.resourceType,
-    resourceId: input.resourceId ?? null,
-    access: input.access ?? "comment",
-  };
+  const resourceId = input.resourceId ?? null;
+  const access = input.access ?? "comment";
+  // Edit only means something where a CRDT edit path exists; elsewhere the
+  // grant would be stored and then silently act as comment.
+  if (access === "edit" && !shareSupportsEditAccess(input.resourceType, resourceId)) {
+    throw new ShareValidationError("Edit access is only available for a single vault page or report section.");
+  }
+  return { recipientId: input.recipientId, resourceType: input.resourceType, resourceId, access };
 }
