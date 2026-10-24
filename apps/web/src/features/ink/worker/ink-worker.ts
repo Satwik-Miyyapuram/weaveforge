@@ -139,6 +139,7 @@ const state = {
   returns: [] as ArrayBuffer[],
   /** Set while a `load-page` is in flight so two loads cannot interleave. */
   loading: false,
+  pendingLoad: null,
   /** The page's background image, kept here so a page install or a new renderer can re-apply it. */
   background: null as ImageBitmap | null,
   /** The theme's ink colours, kept so a renderer that comes up later draws in them. */
@@ -484,6 +485,8 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         });
         break;
       case "replace-page":
+        // A page recognised before a page turn belongs to the old page (21-01).
+        if (message.pageIndex !== state.pageIndex) break;
         installPage(state, message.page, post);
         break;
       case "lasso":

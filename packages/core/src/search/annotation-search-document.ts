@@ -12,16 +12,13 @@
  */
 
 import type { WorkspaceAnnotation } from "../workspace/workspace-snapshot.js";
-import { MAX_INDEXED_BODY_CHARS } from "./search-tuning.js";
+import { pdfPageHref } from "./pdf-search-document.js";
+import { boundedBody } from "./search-document.js";
 import type { SearchDoc } from "./search-port.js";
 
 /** Stable id for a highlight's document. */
 export function annotationDocId(annotationId: string): string {
   return `annotation:${annotationId}`;
-}
-
-export function annotationHref(paperId: string, pageIndex: number): string {
-  return `/reader?paper=${encodeURIComponent(paperId)}&page=${pageIndex}`;
 }
 
 /**
@@ -69,9 +66,9 @@ export function toAnnotationSearchDocs(
       headings: [],
       tags: [...annotation.tags],
       path: `page ${annotation.pageIndex + 1}`,
-      body: body.length > MAX_INDEXED_BODY_CHARS ? body.slice(0, MAX_INDEXED_BODY_CHARS) : body,
+      body: boundedBody(body),
       updatedAt: annotation.updatedAt || annotation.createdAt,
-      href: annotationHref(annotation.paperId, annotation.pageIndex),
+      href: pdfPageHref(annotation.paperId, annotation.pageIndex),
       page: annotation.pageIndex,
       degree: degrees.get(`paper:${annotation.paperId}`) ?? 0,
     });
