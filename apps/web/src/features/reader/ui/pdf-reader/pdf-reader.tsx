@@ -111,6 +111,7 @@ import {
   pageScopedLocus,
   textItemsFromContent,
 } from "./pdf-document";
+import { readStored, writeStored } from "@/lib/safe-storage";
 
 export function PdfReader({
   url,
@@ -2151,17 +2152,10 @@ function syncPenParam(on: boolean) {
 const SIDE_COLLAPSED_KEY = "wf.reader.sideCollapsed";
 
 function readSideCollapsed(): boolean {
-  try {
-    return window.localStorage.getItem(SIDE_COLLAPSED_KEY) === "1";
-  } catch {
-    return false;
-  }
+  return readStored(SIDE_COLLAPSED_KEY) === "1";
 }
 
+/** Private mode or blocked storage: the panel simply forgets. */
 function writeSideCollapsed(collapsed: boolean) {
-  try {
-    window.localStorage.setItem(SIDE_COLLAPSED_KEY, collapsed ? "1" : "0");
-  } catch {
-    // Private mode or blocked storage: the panel simply forgets.
-  }
+  writeStored(SIDE_COLLAPSED_KEY, collapsed ? "1" : "0");
 }

@@ -7,6 +7,8 @@ import {
   type ThemeConfig,
 } from "@weaveforge/core";
 
+import { readStored } from "@/lib/safe-storage";
+
 export type { SurfaceStyle, ThemeConfig };
 
 const LIGHT_THEMES = [
@@ -116,11 +118,7 @@ export function applySurfaceStyle(style: SurfaceStyle): void {
 }
 
 export function readStoredSurfaceStyle(): SurfaceStyle {
-  try {
-    return sanitizeSurfaceStyle(localStorage.getItem("thesis.surfaces"));
-  } catch {
-    return "borderless";
-  }
+  return sanitizeSurfaceStyle(readStored("thesis.surfaces"));
 }
 
 /* ------------------------------------------------------------------ *
@@ -151,11 +149,7 @@ export function applyCardTint(tint: CardTint): void {
 }
 
 export function readStoredCardTint(): CardTint {
-  try {
-    return sanitizeCardTint(localStorage.getItem("thesis.cardTint"));
-  } catch {
-    return "full";
-  }
+  return sanitizeCardTint(readStored("thesis.cardTint"));
 }
 
 /* ------------------------------------------------------------------ *
@@ -174,11 +168,7 @@ export function applyCardTilt(on: boolean): void {
 }
 
 export function readStoredCardTilt(): boolean {
-  try {
-    return localStorage.getItem("thesis.cardTilt") !== "0";
-  } catch {
-    return true;
-  }
+  return readStored("thesis.cardTilt") !== "0";
 }
 
 export function applyScanlines(on: boolean): void {
@@ -188,11 +178,7 @@ export function applyScanlines(on: boolean): void {
 }
 
 export function readStoredScanlines(): boolean {
-  try {
-    return localStorage.getItem("thesis.scanlines") !== "0";
-  } catch {
-    return true;
-  }
+  return readStored("thesis.scanlines") !== "0";
 }
 
 /* ------------------------------------------------------------------ *
@@ -211,11 +197,7 @@ export function applyReactiveMotion(on: boolean): void {
 }
 
 export function readStoredReactiveMotion(): boolean {
-  try {
-    return localStorage.getItem("thesis.reactiveMotion") === "1";
-  } catch {
-    return false;
-  }
+  return readStored("thesis.reactiveMotion") === "1";
 }
 
 /* ------------------------------------------------------------------ *
@@ -260,9 +242,9 @@ export function applyCustomTheme(config: ThemeConfig | null): void {
 }
 
 export function readStoredCustomTheme(): ThemeConfig | null {
+  const raw = readStored("thesis.customTheme");
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem("thesis.customTheme");
-    if (!raw) return null;
     return normalizeThemeConfig(JSON.parse(raw));
   } catch {
     return null;
@@ -280,23 +262,15 @@ export function applyControlSize(size: ControlSizeId): void {
 }
 
 export function readStoredControlSize(): ControlSizeId {
-  try {
-    return sanitizeControlSize(localStorage.getItem("thesis.controlSize"));
-  } catch {
-    return "default";
-  }
+  return sanitizeControlSize(readStored("thesis.controlSize"));
 }
 
 export function readStoredMode(): ThemeMode {
-  try {
-    const m = localStorage.getItem("thesis.mode");
-    if (m === "light" || m === "dark") return m;
-    const old = localStorage.getItem("thesis.theme");
-    if (old === "light") return "light";
-    if (old) return "dark";
-  } catch {
-    /* ignore */
-  }
+  const m = readStored("thesis.mode");
+  if (m === "light" || m === "dark") return m;
+  const old = readStored("thesis.theme");
+  if (old === "light") return "light";
+  if (old) return "dark";
   if (typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: light)").matches) {
     return "light";
   }
@@ -304,14 +278,8 @@ export function readStoredMode(): ThemeMode {
 }
 
 export function readStoredThemeIds(): { light: string; dark: string } {
-  let light: string = DEFAULT_LIGHT_THEME;
-  let dark: string = DEFAULT_DARK_THEME;
-  try {
-    light = localStorage.getItem("thesis.theme.light") || DEFAULT_LIGHT_THEME;
-    dark = localStorage.getItem("thesis.theme.dark") || DEFAULT_DARK_THEME;
-  } catch {
-    /* ignore */
-  }
+  const light = readStored("thesis.theme.light") || DEFAULT_LIGHT_THEME;
+  const dark = readStored("thesis.theme.dark") || DEFAULT_DARK_THEME;
   return {
     light: sanitizeThemeId(light, "light"),
     dark: sanitizeThemeId(dark, "dark"),

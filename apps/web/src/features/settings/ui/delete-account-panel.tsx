@@ -6,6 +6,7 @@ import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
 import { authHeaders } from "@/lib/auth-headers";
+import { removeStored } from "@/lib/safe-storage";
 
 const CONFIRMATION = "DELETE_USER";
 
@@ -61,13 +62,8 @@ export function DeleteAccountPanel() {
       const payload = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(payload.error ?? "Deletion failed.");
 
-      try {
-        localStorage.removeItem("thesis.theme.light");
-        localStorage.removeItem("thesis.theme.dark");
-        localStorage.removeItem("thesis.mode");
-        localStorage.removeItem("thesis.controlSize");
-      } catch {
-        /* ignore */
+      for (const key of ["thesis.theme.light", "thesis.theme.dark", "thesis.mode", "thesis.controlSize"]) {
+        removeStored(key);
       }
 
       await signOut();

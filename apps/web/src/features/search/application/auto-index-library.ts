@@ -1,5 +1,6 @@
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { getContainer } from "@/bootstrap";
+import { readStored, readStoredJson, writeStored, writeStoredJson } from "@/lib/safe-storage";
 import {
   indexLibraryPdfs,
   papersNeedingIndex,
@@ -60,41 +61,30 @@ export function subscribeAutoIndex(listener: () => void): () => void {
 }
 
 export function autoIndexEnabled(): boolean {
-  try {
-    const stored = localStorage.getItem(AUTO_KEY);
-    if (stored !== null) return stored === "1";
-  } catch {
-    /* fall through to the default */
-  }
+  const stored = readStored(AUTO_KEY);
+  if (stored !== null) return stored === "1";
   return desktop() !== null;
 }
 
 export function setAutoIndexEnabled(on: boolean): void {
-  try {
-    localStorage.setItem(AUTO_KEY, on ? "1" : "0");
-  } catch {
-    /* not persisted; this session still honours it */
-  }
+  // Not persisted when storage is blocked; this session still honours it.
+  writeStored(AUTO_KEY, on ? "1" : "0");
   if (on) void startAutoIndex(0);
   else controller?.abort();
 }
 
 function recentFailures(): Record<string, number> {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(FAILED_KEY) ?? "{}") as Record<string, number>;
-    const now = Date.now();
-    return Object.fromEntries(Object.entries(parsed).filter(([, at]) => now - at < RETRY_AFTER_MS));
-  } catch {
-    return {};
-  }
+  const parsed = readStoredJson<unknown>(FAILED_KEY, {});
+  if (!parsed || typeof parsed !== "object") return {};
+  const now = Date.now();
+  return Object.fromEntries(
+    Object.entries(parsed as Record<string, number>).filter(([, at]) => now - at < RETRY_AFTER_MS),
+  );
 }
 
+/** Forgetting means one extra retry, nothing worse. */
 function rememberFailures(failures: Record<string, number>): void {
-  try {
-    localStorage.setItem(FAILED_KEY, JSON.stringify(failures));
-  } catch {
-    /* forgetting means one extra retry, nothing worse */
-  }
+  writeStoredJson(FAILED_KEY, failures);
 }
 
 /**

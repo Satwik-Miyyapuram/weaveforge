@@ -12,6 +12,7 @@
 
 import type { AiAccessSettings, AiActiveSession } from "@weaveforge/core";
 import { singleFlight } from "@/lib/cache/single-flight";
+import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
 
 export interface PersistedMcpSession {
   session: AiActiveSession;
@@ -43,7 +44,7 @@ const base64ToBytes = (b64: string): Uint8Array => {
 
 export async function loadPersistedMcpSessions(): Promise<PersistedMcpSession[]> {
   if (typeof window === "undefined") return [];
-  const raw = sessionStorage.getItem(STORAGE_KEY);
+  const raw = readStored(STORAGE_KEY, "session");
   if (!raw) return [];
   try {
     const { iv, ct } = JSON.parse(raw) as { iv: string; ct: string };
@@ -57,7 +58,7 @@ export async function loadPersistedMcpSessions(): Promise<PersistedMcpSession[]>
     const parsed = JSON.parse(new TextDecoder().decode(plain)) as PersistedMcpSession[];
     return Array.isArray(parsed) ? parsed : [];
   } catch {
-    sessionStorage.removeItem(STORAGE_KEY);
+    removeStored(STORAGE_KEY, "session");
     return [];
   }
 }
@@ -75,15 +76,16 @@ export async function savePersistedMcpSessions(list: readonly PersistedMcpSessio
     key,
     new TextEncoder().encode(JSON.stringify(list)),
   );
-  sessionStorage.setItem(
+  writeStored(
     STORAGE_KEY,
     JSON.stringify({ iv: bytesToBase64(iv), ct: bytesToBase64(new Uint8Array(ct)) }),
+    "session",
   );
 }
 
 export async function clearPersistedMcpSessions(): Promise<void> {
   if (typeof window === "undefined") return;
-  sessionStorage.removeItem(STORAGE_KEY);
+  removeStored(STORAGE_KEY, "session");
   await deleteDatabase(WRAP_IDB_NAME);
 }
 

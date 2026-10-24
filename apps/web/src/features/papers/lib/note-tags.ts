@@ -5,6 +5,7 @@ import {
   type Paper,
 } from "@weaveforge/core";
 import { isNetworkFailure } from "@/lib/format-error";
+import { readStoredJson, removeStored, writeStoredJson } from "@/lib/safe-storage";
 
 /**
  * Tags live in the note markdown as `#hashtags`. These helpers keep that the
@@ -89,22 +90,14 @@ type TagReconcileDeps = {
 const DEFERRED_KEY = "wf.tags.deferredReconcile";
 
 function readDeferred(): string[] {
-  try {
-    const raw = window.localStorage.getItem(DEFERRED_KEY);
-    const ids = raw ? (JSON.parse(raw) as unknown) : [];
-    return Array.isArray(ids) ? ids.filter((x): x is string => typeof x === "string") : [];
-  } catch {
-    return [];
-  }
+  const ids = readStoredJson<unknown>(DEFERRED_KEY, []);
+  return Array.isArray(ids) ? ids.filter((x): x is string => typeof x === "string") : [];
 }
 
+/** Storage blocked: the links catch up on the next save of that note. */
 function writeDeferred(ids: readonly string[]): void {
-  try {
-    if (ids.length) window.localStorage.setItem(DEFERRED_KEY, JSON.stringify(ids));
-    else window.localStorage.removeItem(DEFERRED_KEY);
-  } catch {
-    // Storage blocked: the links catch up on the next save of that note.
-  }
+  if (ids.length) writeStoredJson(DEFERRED_KEY, ids);
+  else removeStored(DEFERRED_KEY);
 }
 
 let listening = false;
