@@ -151,6 +151,9 @@ describe("resolveBlobTierForViewer", () => {
       ),
       /not configured/,
     );
+  });
+});
+
 /** One bucket list (xhelp-27): the share map and the account purge read it too. */
 describe("sharedResourceFor", () => {
   it("names the shared resource for every bucket", () => {
