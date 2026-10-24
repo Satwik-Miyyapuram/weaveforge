@@ -5,14 +5,7 @@ import { useAuth } from "@/features/auth";
 import { formatError } from "@/lib/format-error";
 import { useSyncStatus } from "./use-sync";
 import { FormError } from "@/components/form-error";
-import dynamic from "next/dynamic";
-import { useLiveSync } from "./use-live-sync";
 import { requestSync } from "../domain/live-sync";
-
-const OfflineWorkModal = dynamic(
-  () => import("./offline-work-modal").then((m) => m.OfflineWorkModal),
-  { ssr: false },
-);
 
 /**
  * Settings → Sync.
@@ -25,10 +18,8 @@ const OfflineWorkModal = dynamic(
 export function SyncSettingsPanel() {
   const { status, refresh } = useSyncStatus();
   const { user } = useAuth();
-  const { offlineWorkCount } = useLiveSync();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
 
   if (!status.supported) return null;
 
@@ -85,17 +76,7 @@ export function SyncSettingsPanel() {
         >
           {busy ? "Turning on…" : "Turn on sync"}
         </button>
-        {user && offlineWorkCount > 0 && (
-          <button
-            type="button"
-            className="btn-ghost"
-            onClick={() => setModalOpen(true)}
-          >
-            Review offline changes ({offlineWorkCount})
-          </button>
-        )}
       </div>
-      <OfflineWorkModal isOpen={modalOpen} onClose={() => { setModalOpen(false); refresh(); }} />
     </div>
   );
 }

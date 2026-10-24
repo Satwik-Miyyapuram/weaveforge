@@ -1,16 +1,7 @@
 /// <reference lib="webworker" />
 
-import {
-  buildWikiGraph,
-  graphDegrees,
-  searchRevision,
-  toAnnotationSearchDocs,
-  toPdfSearchDocs,
-  toSearchDocs,
-  type SearchDoc,
-  type SearchSettings,
-  type WorkspaceSnapshot,
-} from "@weaveforge/core";
+import { searchRevision, type SearchDoc, type SearchSettings, type WorkspaceSnapshot } from "@weaveforge/core";
+import { projectStoredPdfTexts } from "../application/search-projection";
 import { buildSearchIndex } from "./minisearch-index";
 import { loadPdfTexts } from "./pdf-text-store";
 import { formatError } from "@/lib/format-error";
@@ -55,24 +46,7 @@ async function project(
   snapshot: WorkspaceSnapshot,
   projectId: string | null,
 ): Promise<{ docs: SearchDoc[]; pdfPageCounts: [string, number][] }> {
-  const stored = await loadPdfTexts(projectId);
-  // Papers the library no longer holds keep their extracted text in storage;
-  // indexing it would answer searches with hits that open a missing paper.
-  const paperIds = new Set(snapshot.papers.map((paper) => paper.id));
-  const pdfTexts = stored.filter((source) => paperIds.has(source.paperId));
-
-  const graph = buildWikiGraph(snapshot);
-  const degrees = graphDegrees(graph);
-  const paperTitles = new Map(snapshot.papers.map((paper) => [paper.id, paper.title]));
-
-  return {
-    docs: [
-      ...toSearchDocs(snapshot, degrees),
-      ...toPdfSearchDocs(pdfTexts, degrees),
-      ...toAnnotationSearchDocs(snapshot.readerAnnotations, paperTitles, degrees),
-    ],
-    pdfPageCounts: pdfTexts.map((source) => [source.paperId, source.pages.length]),
-  };
+  return projectStoredPdfTexts(snapshot, await loadPdfTexts(projectId));
 }
 
 self.addEventListener("message", (event: MessageEvent<BuildIndexRequest>) => {
