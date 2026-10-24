@@ -12,6 +12,7 @@ import { FormError } from "@/components/form-error";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { formatError } from "@/lib/format-error";
 import { ChevronIcon } from "@/components/chevron-icon";
+import { logToApp } from "@/lib/error-report/app-log";
 
 const READ_LABELS: Record<AiReadCategory, string> = {
   paper_metadata: "Paper metadata and links",
@@ -48,11 +49,31 @@ const DEFAULT_AI_ACCESS: AiAccessSettings = {
   proposalKinds: [],
 };
 
+type SessionStore = Pick<
+  ReturnType<typeof getContainer>["aiAssistant"],
+  "listActiveSessions" | "runningRelays" | "savePersistedSessions"
+>;
+
+/**
+ * Snapshot the running sessions (grant + secret + settings) to session-scoped
+ * storage so a reload can resume the relays until they expire. A failed save
+ * only costs that resume, so it is logged rather than shown.
+ */
+export function persistActiveSessions(ai: SessionStore): void {
+  const meta = new Map(ai.runningRelays().map((entry) => [entry.sessionId, entry]));
+  const list = ai.listActiveSessions().flatMap((session) => {
+    const extra = meta.get(session.grant.id);
+    return extra ? [{ session, secret: extra.secret, settings: extra.settings }] : [];
+  });
+  ai.savePersistedSessions(list).catch((err) =>
+    logToApp({ level: "warn", source: "ai-access", message: "Could not save active AI sessions", detail: String(err) }),
+  );
+}
+
 export function AiAccessPanel({ settings, onChange }: {
   settings: UserSettings;
   onChange: (settings: UserSettings) => void;
 }) {
-  const encryptionUnlocked = true;
   const [sources, setSources] = useState<readonly AiSourceOption[]>([]);
   const [selectedSourceIds, setSelectedSourceIds] = useState<readonly string[]>([]);
   const [sourceScope, setSourceScope] = useState<"selected" | "enabled_categories">("selected");
@@ -109,13 +130,13 @@ export function AiAccessPanel({ settings, onChange }: {
   }
 
   /*
-   * Guarded because the gate can close while the read is in flight. Locking
-   * encryption or switching AI access off clears the list synchronously, and
+   * Guarded because the gate can close while the read is in flight. Switching
+   * AI access off clears the list synchronously, and
    * without this the resolving promise puts it straight back — the panel then
    * shows the user's sources behind a gate that is shut.
    */
   useEffect(() => {
-    if (!access.enabled || !encryptionUnlocked) {
+    if (!access.enabled) {
       setSources([]);
       return;
     }
@@ -131,7 +152,7 @@ export function AiAccessPanel({ settings, onChange }: {
     return () => {
       current = false;
     };
-  }, [access.enabled, encryptionUnlocked]);
+  }, [access.enabled]);
 
   /** `isCurrent` lets the caller drop a response that arrived after the gate closed. */
   const loadMcpTokens = useCallback(async (isCurrent: () => boolean = () => true) => {
@@ -145,7 +166,7 @@ export function AiAccessPanel({ settings, onChange }: {
   }, []);
 
   useEffect(() => {
-    if (!access.enabled || !encryptionUnlocked) {
+    if (!access.enabled) {
       setMcpTokens([]);
       return;
     }
@@ -154,25 +175,14 @@ export function AiAccessPanel({ settings, onChange }: {
     return () => {
       current = false;
     };
-  }, [access.enabled, encryptionUnlocked, loadMcpTokens]);
+  }, [access.enabled, loadMcpTokens]);
 
-  // Snapshot the currently running sessions (grant + secret + settings) to
-  // session-scoped storage so a reload can resume the relays until they expire.
-  const persistSessions = useCallback(() => {
-    const ai = getContainer().aiAssistant;
-    const active = ai.listActiveSessions();
-    const meta = new Map(ai.runningRelays().map((entry) => [entry.sessionId, entry]));
-    const list = active.flatMap((session) => {
-      const extra = meta.get(session.grant.id);
-      return extra ? [{ session, secret: extra.secret, settings: extra.settings }] : [];
-    });
-    void ai.savePersistedSessions(list);
-  }, []);
+  const persistSessions = useCallback(() => persistActiveSessions(getContainer().aiAssistant), []);
 
   // Rehydrate persisted sessions after a reload: restore the grants and restart
   // their relays (skipping any already running and any past their TTL).
   useEffect(() => {
-    if (!access.enabled || !encryptionUnlocked) {
+    if (!access.enabled) {
       setSessionsReady(true);
       return;
     }
@@ -195,13 +205,16 @@ export function AiAccessPanel({ settings, onChange }: {
         // Persist is owned by the sessionsReady effect so we never race a later
         // startSession() write with this rehydrate snapshot.
       })
+      .catch((err) =>
+        logToApp({ level: "warn", source: "ai-access", message: "Could not resume AI sessions", detail: String(err) }),
+      )
       .finally(() => {
         if (!cancelled) setSessionsReady(true);
       });
     return () => { cancelled = true; };
     // Rehydrate once per enable/unlock — live policy push is the effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [access.enabled, encryptionUnlocked]);
+  }, [access.enabled]);
 
   // Push tightened AI access into any live relay without restarting the poll loop.
   useEffect(() => {
@@ -366,10 +379,8 @@ export function AiAccessPanel({ settings, onChange }: {
             <div className="ai-permission-list ai-list-2col">{AI_READ_CATEGORIES.map((category) => <label className="ai-permission-row" key={`dynamic-${category}`}><span>{READ_LABELS[category]}</span><input className="themed-check" type="checkbox" disabled={!access.readCategories.includes(category)} checked={(access.autoIncludeNewSourceCategories ?? []).includes(category)} onChange={() => toggleDynamic(category)} /></label>)}</div>
           </details>
           <section className="ai-section ai-session-section">
-            <div className="ai-section-heading"><div><h4>Active access</h4><p>Sessions expire after 30 minutes and end when you revoke them.</p></div></div>
-            {!encryptionUnlocked && <FormError>Unlock encryption to select sources and start a session.</FormError>}
-            {encryptionUnlocked && (
-              <>
+            <div className="ai-section-heading"><div><h4>Active access</h4><p>Sessions end when the access duration below runs out, or when you revoke them.</p></div></div>
+            <>
                 <div className="field">
                   <label htmlFor="ai-workspace-name">Workspace name</label>
                   <input id="ai-workspace-name" value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} />
@@ -426,9 +437,8 @@ export function AiAccessPanel({ settings, onChange }: {
                   {busy ? "Starting…" : `Start access for ${sourceScope === "selected" ? selectedSourceIds.length : eligibleSources.length} source${(sourceScope === "selected" ? selectedSourceIds.length : eligibleSources.length) === 1 ? "" : "s"}`}
                 </button>
                 <FormError>{sessionError}</FormError>
-                {connection && <div className="ai-connection-details"><div className="ai-section-heading"><div><h4>Live Codex connection</h4><p>Copy this session ID and pairing secret into the local plugin. Use the MCP token you created above. Keep this page open and encryption unlocked.</p></div></div><div className="ai-connection-value"><span><small>Session ID</small><code>{connection.sessionId}</code></span><button type="button" className="btn-secondary" onClick={() => copyConnection("session", connection.sessionId)}>{copied === "session" ? "Copied" : "Copy"}</button></div><div className="ai-connection-value"><span><small>Pairing secret</small><code>••••••••••••••••••••••••••••••••</code></span><button type="button" className="btn-secondary" onClick={() => copyConnection("secret", connection.secret)}>{copied === "secret" ? "Copied" : "Copy"}</button></div></div>}
-              </>
-            )}
+                {connection && <div className="ai-connection-details"><div className="ai-section-heading"><div><h4>Live Codex connection</h4><p>Copy this session ID and pairing secret into the local plugin. Use the MCP token you created above. Keep this page open.</p></div></div><div className="ai-connection-value"><span><small>Session ID</small><code>{connection.sessionId}</code></span><button type="button" className="btn-secondary" onClick={() => copyConnection("session", connection.sessionId)}>{copied === "session" ? "Copied" : "Copy"}</button></div><div className="ai-connection-value"><span><small>Pairing secret</small><code>••••••••••••••••••••••••••••••••</code></span><button type="button" className="btn-secondary" onClick={() => copyConnection("secret", connection.secret)}>{copied === "secret" ? "Copied" : "Copy"}</button></div></div>}
+            </>
             {sessions.length > 0 && (
               <div className="ai-active-sessions">
                 {sessions.map((session) => (
