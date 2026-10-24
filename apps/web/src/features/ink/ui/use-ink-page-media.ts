@@ -21,7 +21,7 @@ import {
   pastedFigurePlace,
   type FigureClip,
 } from "../application/figure-clipboard";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { isEditableTarget } from "@/lib/editable-target";
 import {
   errorMessage,
@@ -354,9 +354,15 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
    *
    * An image pastes as a figure: a pasted screenshot is content on the page,
    * not the page, and a page may already have figures worth keeping.
+   *
+   * The host builds `deps` afresh each render, so the listener reads the
+   * latest flows through a ref and is bound once per mount.
    */
+  const pasteRef = useRef({ deps, onAddFigure, pasteFigure });
+  pasteRef.current = { deps, onAddFigure, pasteFigure };
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
+      const { deps, onAddFigure, pasteFigure } = pasteRef.current;
       if (isEditableTarget(event.target)) return;
       const wrap = deps.wrapRef.current;
       if (!wrap || !wrap.contains(document.activeElement)) return;
@@ -376,9 +382,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-    // `deps` is the host's object for this hook; `onAddFigure` is the flow above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deps, onAddFigure, pasteFigure]);
+  }, []);
 
   /**
    * A PDF's pages or an image as new pages (§4.8): each one laid on an A4
