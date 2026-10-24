@@ -112,14 +112,23 @@ export class RouteSecretsStore implements SecretsStore {
  * close together: theme hydration waits for the full container (~17 chunks),
  * which on a cold load lands well after the startup bundle has decided the
  * gate.
+ *
+ * Each memo names the user it was read for and answers only that user: the
+ * settings hold decrypted integration keys, and a sign-in as someone else
+ * inside the minute must not be handed them.
  */
-let metadataMemo: { at: number; value: Promise<SettingsMetadata> } | null = null;
-let settingsMemo: { at: number; value: Promise<UserSettings> } | null = null;
+type Memo<T> = { at: number; userId: string | null; value: Promise<T> };
+let metadataMemo: Memo<SettingsMetadata> | null = null;
+let settingsMemo: Memo<UserSettings> | null = null;
 const METADATA_MEMO_MS = 60_000;
 
 function forgetSettingsMetadata(): void {
   metadataMemo = null;
   settingsMemo = null;
+}
+
+function fresh<T>(memo: Memo<T> | null, userId: string | null, now: number): memo is Memo<T> {
+  return memo !== null && memo.userId === userId && now - memo.at < METADATA_MEMO_MS;
 }
 
 export class PostgrestSettingsRepository implements ISettingsRepository {
@@ -138,11 +147,12 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
    * cost a `user_settings` row plus a `/api/settings/credentials` round trip.
    * Opening Settings made nine of the first and five of the second.
    */
-  get(): Promise<UserSettings> {
+  async get(): Promise<UserSettings> {
+    const userId = await this.session.getCurrentUserId();
     const now = Date.now();
-    if (settingsMemo && now - settingsMemo.at < METADATA_MEMO_MS) return settingsMemo.value;
+    if (fresh(settingsMemo, userId, now)) return settingsMemo.value;
     const value = this.readSettings();
-    settingsMemo = { at: now, value };
+    settingsMemo = { at: now, userId, value };
     void value.catch(() => {
       if (settingsMemo?.value === value) settingsMemo = null;
     });
@@ -167,11 +177,12 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
     });
   }
 
-  getMetadata(): Promise<SettingsMetadata> {
+  async getMetadata(): Promise<SettingsMetadata> {
+    const userId = await this.session.getCurrentUserId();
     const now = Date.now();
-    if (metadataMemo && now - metadataMemo.at < METADATA_MEMO_MS) return metadataMemo.value;
+    if (fresh(metadataMemo, userId, now)) return metadataMemo.value;
     const value = this.readMetadata();
-    metadataMemo = { at: now, value };
+    metadataMemo = { at: now, userId, value };
     // A failed read must not be remembered as an answer.
     void value.catch(() => {
       if (metadataMemo?.value === value) forgetSettingsMetadata();
