@@ -1,3 +1,5 @@
+> **Historical — an audit record, not a guide.** Paths named here are as they were then.
+
 # WeaveForge Code Audit
 
 Repository: [Satwik-Miyyapuram/weaveforge](https://github.com/Satwik-Miyyapuram/weaveforge) · branch `main`

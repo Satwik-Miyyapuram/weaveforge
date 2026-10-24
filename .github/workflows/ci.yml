@@ -352,6 +352,10 @@ jobs:
     # history before this job existed has no sign-offs to find.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    env:
+      # Bot commits skip the sign-off only on a pull request a bot account
+      # opened; a `[bot]@` commit email alone is forgeable (scripts/lib/dco.mjs).
+      DCO_PR_AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7

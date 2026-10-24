@@ -1,3 +1,5 @@
+> **Historical — a remediation record, not a guide.** Paths named here are as they were then.
+
 # WeaveForge — Audit Remediation Plan
 
 **Status:** working · **Branch:** `arena/01a0b6d4-weaveforge` · **Written:** after a line-by-line re-verification of every finding

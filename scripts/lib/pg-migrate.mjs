@@ -128,39 +128,50 @@ export async function copyTable(source, target, table, options = {}) {
   const quoted = shared.map((column) => `"${column}"`).join(", ");
   const rowsPerBatch = Math.max(1, Math.min(BATCH_ROWS, Math.floor(MAX_PARAMS / shared.length)));
 
-  const { rows } = await source.query(`select ${quoted} from "${schema}"."${table}"`);
-  if (rows.length === 0) return { table, copied: 0, dropped };
+  // Mirror the source onto the target. Idempotent either way, but `do update`
+  // is what makes a row a trigger already created carry the real values.
+  const updatable = shared.filter((column) => !pk.includes(column));
+  const conflict = !pk.length
+    ? "on conflict do nothing"
+    : updatable.length === 0
+      ? `on conflict (${pk.map((column) => `"${column}"`).join(", ")}) do nothing`
+      : `on conflict (${pk.map((column) => `"${column}"`).join(", ")}) do update set ` +
+        updatable.map((column) => `"${column}" = excluded."${column}"`).join(", ");
 
+  // Read through a cursor, one batch at a time: a whole-table select holds the
+  // largest table in memory at once (41-08). A cursor needs a transaction.
   let copied = 0;
-  for (let start = 0; start < rows.length; start += rowsPerBatch) {
-    const batch = rows.slice(start, start + rowsPerBatch);
-    const values = [];
-    const tuples = batch.map((row, rowIndex) => {
-      const placeholders = shared.map((column, columnIndex) => {
-        values.push(row[column]);
-        return `$${rowIndex * shared.length + columnIndex + 1}`;
+  let read = 0;
+  await source.query("begin");
+  try {
+    await source.query(`declare wf_copy no scroll cursor for select ${quoted} from "${schema}"."${table}"`);
+    for (;;) {
+      const { rows: batch } = await source.query(`fetch ${rowsPerBatch} from wf_copy`);
+      if (batch.length === 0) break;
+      read += batch.length;
+      const values = [];
+      const tuples = batch.map((row, rowIndex) => {
+        const placeholders = shared.map((column, columnIndex) => {
+          values.push(row[column]);
+          return `$${rowIndex * shared.length + columnIndex + 1}`;
+        });
+        return `(${placeholders.join(", ")})`;
       });
-      return `(${placeholders.join(", ")})`;
-    });
-
-    // Mirror the source onto the target. Idempotent either way, but `do update`
-    // is what makes a row a trigger already created carry the real values.
-    const updatable = shared.filter((column) => !pk.includes(column));
-    const conflict = !pk.length
-      ? "on conflict do nothing"
-      : updatable.length === 0
-        ? `on conflict (${pk.map((column) => `"${column}"`).join(", ")}) do nothing`
-        : `on conflict (${pk.map((column) => `"${column}"`).join(", ")}) do update set ` +
-          updatable.map((column) => `"${column}" = excluded."${column}"`).join(", ");
-
-    const result = await target.query(
-      `insert into "${schema}"."${table}" (${quoted}) values ${tuples.join(", ")} ${conflict}`,
-      values,
-    );
-    copied += result.rowCount ?? 0;
+      const result = await target.query(
+        `insert into "${schema}"."${table}" (${quoted}) values ${tuples.join(", ")} ${conflict}`,
+        values,
+      );
+      copied += result.rowCount ?? 0;
+      if (batch.length < rowsPerBatch) break;
+    }
+    await source.query("close wf_copy");
+    await source.query("commit");
+  } catch (error) {
+    await source.query("rollback").catch(() => {});
+    throw error;
   }
 
-  return { table, copied, read: rows.length, dropped };
+  return { table, copied, read, dropped };
 }
 
 /**

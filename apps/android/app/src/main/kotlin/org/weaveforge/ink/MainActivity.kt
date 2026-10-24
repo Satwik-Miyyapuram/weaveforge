@@ -64,12 +64,9 @@ class MainActivity : AppCompatActivity() {
         webView = findViewById(R.id.webView)
         inkOverlay = findViewById(R.id.inkOverlay)
 
-        // The parent decides which layer a touch stream belongs to. It is wired from
-        // the layout's ids rather than by child index, so the arrangement inside
-        // `InkGestureView` is not load-bearing.
+        // The parent decides which layer a touch stream belongs to; it wires its
+        // overlay itself from the layout's id. The bridge needs it for the pen state.
         inkGesture = findViewById(R.id.inkGesture)
-        inkGesture.webView = webView
-        inkGesture.overlay = inkOverlay
 
         CookieManager.getInstance().apply {
             setAcceptCookie(true)
