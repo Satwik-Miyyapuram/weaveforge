@@ -15,7 +15,7 @@ import {
   toDomain,
   toSummary,
 } from "./paper-rows";
-import { one, rows, run } from "@/backend/providers/postgrest/row-access";
+import { inChunks, one, rows, run } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 
 /**
@@ -40,9 +40,6 @@ import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-
  */
 
 const TABLE = "papers";
-
-/** Ids per `in (...)` request; the list travels in the URL. */
-const ID_CHUNK = 200;
 
 /** Full list projection for sync/search consumers that need abstracts/bibtex. */
 const PAPER_LIST_COLUMNS =
@@ -108,20 +105,14 @@ export class PostgrestPaperRepository extends ProjectRepository implements IPape
    * should build a Map from the result.
    */
   async listByIds(ids: readonly string[]): Promise<Paper[]> {
-    if (ids.length === 0) return [];
-    const chunks: string[][] = [];
-    for (let start = 0; start < ids.length; start += ID_CHUNK) {
-      chunks.push(ids.slice(start, start + ID_CHUNK) as string[]);
-    }
-    const pages = await Promise.all(
-      chunks.map((chunk) => {
-        let query = this.scoped(this.db.from(TABLE).select(PAPER_LIST_COLUMNS));
-        query = query.in("id", chunk);
-        query = query.order("id", { ascending: true });
-        return rows<PaperRow>(query);
-      }),
+    const found = await inChunks(ids, (chunk) =>
+      rows<PaperRow>(
+        this.scoped(this.db.from(TABLE).select(PAPER_LIST_COLUMNS))
+          .in("id", chunk)
+          .order("id", { ascending: true }),
+      ),
     );
-    return pages.flat().map(toDomain);
+    return found.map(toDomain);
   }
 
   async list(filter?: PaperFilter): Promise<Paper[]> {
