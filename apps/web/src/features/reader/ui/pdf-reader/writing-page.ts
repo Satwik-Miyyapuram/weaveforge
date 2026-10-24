@@ -5,20 +5,15 @@
  * turned off: the reader writes beside the paper by default.
  */
 
+import { readStored, writeStored } from "@/lib/safe-storage";
+
 const WRITING_PAGE_KEY = "weaveforge.reader.writingPage";
 
 export function readWritingPage(): boolean {
-  try {
-    return window.localStorage.getItem(WRITING_PAGE_KEY) !== "0";
-  } catch {
-    return true;
-  }
+  return readStored(WRITING_PAGE_KEY) !== "0";
 }
 
+/** Private mode or blocked storage: the setting lasts for this visit. */
 export function writeWritingPage(on: boolean): void {
-  try {
-    window.localStorage.setItem(WRITING_PAGE_KEY, on ? "1" : "0");
-  } catch {
-    // Private mode or blocked storage: the setting lasts for this visit.
-  }
+  writeStored(WRITING_PAGE_KEY, on ? "1" : "0");
 }

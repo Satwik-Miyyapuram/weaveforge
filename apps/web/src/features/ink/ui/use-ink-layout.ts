@@ -17,6 +17,16 @@ import { backingRatio } from "../render/ink-renderer";
 import { readThemePalette, samePalette, type InkPalette } from "../render/ink-palette";
 
 /** What the layout needs from the host. */
+/**
+ * The page index a slot names: `data-page` on a static slot, `data-ghost` on a
+ * placeholder. `null` when it names none.
+ */
+export function slotIndex(el: Pick<Element, "getAttribute">): number | null {
+  const attr = el.getAttribute("data-page") ?? el.getAttribute("data-ghost");
+  const index = attr !== null ? parseInt(attr, 10) : NaN;
+  return Number.isNaN(index) ? null : index;
+}
+
 export interface InkLayoutDeps {
   /** The worker's door. */
   send: (message: InkWorkerMessage, transfer?: Transferable[]) => void;
@@ -180,10 +190,8 @@ export function useInkLayout(deps: InkLayoutDeps) {
         const box = el.getBoundingClientRect();
         const pageCenterY = (box.top + box.bottom) / 2;
         const dist = Math.abs(pageCenterY - scrollerCenterY);
-        const attr =
-          el.getAttribute("data-page") ?? el.getAttribute("data-ghost");
-        const parsedIdx = attr !== null ? parseInt(attr, 10) : NaN;
-        if (!isNaN(parsedIdx) && dist < minDistance) {
+        const parsedIdx = slotIndex(el);
+        if (parsedIdx !== null && dist < minDistance) {
           minDistance = dist;
           bestIndex = parsedIdx;
         }
@@ -250,9 +258,8 @@ export function useInkLayout(deps: InkLayoutDeps) {
       let best: number | null = null;
       let minDistance = Infinity;
       slots.forEach((el) => {
-        const attr = el.getAttribute("data-page") ?? el.getAttribute("data-ghost");
-        const index = attr !== null ? parseInt(attr, 10) : NaN;
-        if (Number.isNaN(index)) return;
+        const index = slotIndex(el);
+        if (index === null) return;
         const box = el.getBoundingClientRect();
         const distance =
           clientY < box.top

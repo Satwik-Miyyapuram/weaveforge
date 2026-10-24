@@ -53,8 +53,6 @@
 .entity-card .summary { margin-top: 2px; font-size: 0.8rem; line-height: 1.4; }
 .section-item .summary-empty,
 .entity-card .summary-empty { margin-top: 0; font-size: 0.78rem; }
-.section-item .summary-editor,
-.entity-card .summary-editor { margin-top: 4px; }
 /* Outline cards: render markdown, clamp to a few lines like paper snippets. */
 .section-note-md-preview {
   margin-top: 4px;

@@ -1,4 +1,4 @@
-import { safeWorkspacePath, type IWorkspaceFs, type WorkspaceStat } from "@weaveforge/core";
+import { safeWorkspacePath, walkByList, type IWorkspaceFs, type WorkspaceStat } from "@weaveforge/core";
 
 /**
  * `IWorkspaceFs` over the File System Access API.
@@ -141,15 +141,8 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
     return out.sort((a, b) => a.path.localeCompare(b.path));
   }
 
-  async *walk(dir: string): AsyncIterable<WorkspaceStat> {
-    const entries = await this.list(dir);
-    for (const entry of entries) {
-      if (entry.kind === "file") {
-        yield entry;
-        continue;
-      }
-      yield* this.walk(entry.path);
-    }
+  walk(dir: string): AsyncIterable<WorkspaceStat> {
+    return walkByList(this, dir);
   }
 
   async stat(path: string): Promise<WorkspaceStat | null> {

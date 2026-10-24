@@ -10,7 +10,7 @@
  * found is plausible — an empty sidebar beats a misleading one.
  */
 
-import { HAS_WORD, type ReaderOutlineItem } from "../outline-from-text.js";
+import { HAS_WORD, REFERENCES_HEADING, type ReaderOutlineItem } from "../outline-from-text.js";
 import type { TextLine } from "./line-reconstruction.js";
 
 /**
@@ -123,24 +123,9 @@ export function headingOutline(headings: readonly TextLine[]): ReaderOutlineItem
     if (parent) (parent.items ??= []).push(node);
     else roots.push(node);
     stack.push({ level, node });
-    if (/^(?:\d+(?:\.\d+)*\.?\s+)?(?:References|Bibliography|Referencias|Références|Bibliographie|Literaturverzeichnis?)\b/iu.test(line.text)) break;
+    if (REFERENCES_HEADING.test(line.text)) break;
   }
   return roots;
 }
 
-/**
- * An outline is worth showing when it has at least three sections and no
- * stretch without one longer than half the document — otherwise it is a
- * couple of stray large lines.
- */
-export function outlineIsPlausible(headings: readonly TextLine[], pageCount: number): boolean {
-  if (headings.length < 3) return false;
-  if (pageCount < 4) return true;
-  const allowed = Math.ceil(pageCount * 0.5);
-  let previous = 1;
-  for (const heading of headings) {
-    if (heading.page - previous > allowed) return false;
-    previous = heading.page;
-  }
-  return pageCount - previous <= allowed;
-}
+export { outlineIsPlausible } from "../outline-from-text.js";

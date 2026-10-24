@@ -1,9 +1,8 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useNavPending } from "@/lib/nav-pending";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
 import { activeNavItem } from "@/registry";
 import { prefetchScreenForPath } from "@/lib/cache/prefetch-screen";
@@ -14,14 +13,9 @@ import { openSearchPalette } from "@/components/jump-to-palette";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { ProjectSwitcher } from "@/features/projects";
 import { HeaderActions } from "./header-actions";
+import { SyncStatusIndicator } from "./lazy-sync-status";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
-
-// Lazy: pulls the local database client, which only the desktop build has.
-const SyncStatusIndicator = dynamic(
-  () => import("@/features/offline-sync/ui/sync-status-indicator").then((m) => m.SyncStatusIndicator),
-  { ssr: false },
-);
 
 /**
  * Primary navigation, rendered from the module registry. One markup, two
@@ -79,10 +73,6 @@ export function TabBar({
    * overflowing and not overflowing are the same layout.
    */
   const navScrollRef = useRef<HTMLDivElement | null>(null);
-
-  const warmPath = useCallback((href: string) => {
-    prefetchScreenForPath(href.split(/[?#]/)[0] ?? href);
-  }, []);
   const navClass = [
     "nav",
     navEnter === "slide" ? "nav--enter-slide" : "",
@@ -125,7 +115,7 @@ export function TabBar({
           // its own. `title` stays for the hover tooltip the rail has always had.
           aria-label={homeNavItem.label}
           title={collapsed ? homeNavItem.label : undefined}
-          onPointerEnter={() => warmPath(homeNavItem.path)}
+          onPointerEnter={() => prefetchScreenForPath(homeNavItem.path)}
         >
           <NavIcon name={homeNavItem.icon} />
           <span className="nav-label">{homeNavItem.label}</span>
@@ -156,7 +146,7 @@ export function TabBar({
                 aria-current={active ? "page" : undefined}
                 aria-label={item.label}
                 title={collapsed ? item.label : undefined}
-                onPointerEnter={() => warmPath(item.path)}
+                onPointerEnter={() => prefetchScreenForPath(item.path)}
               >
                 <NavIcon name={item.icon ?? "box"} />
                 <span className="nav-label">{item.label}</span>
@@ -204,7 +194,7 @@ export function TabBar({
                             aria-current={active ? "page" : undefined}
                             aria-label={item.label}
                             title={collapsed ? item.label : undefined}
-                            onPointerEnter={() => warmPath(item.path)}
+                            onPointerEnter={() => prefetchScreenForPath(item.path)}
                           >
                             <NavIcon name={item.icon ?? group.icon} />
                             <span className="nav-label">{item.label}</span>
@@ -232,7 +222,7 @@ export function TabBar({
                     aria-current={active ? "page" : undefined}
                     aria-label={group.label}
                     title={collapsed ? group.label : undefined}
-                    onPointerEnter={() => warmPath(group.items[0]?.path ?? "/")}
+                    onPointerEnter={() => prefetchScreenForPath(group.items[0]?.path ?? "/")}
                   >
                     <NavIcon name={group.icon} />
                     <span className="nav-label">{group.label}</span>

@@ -84,10 +84,6 @@ export function InlineTitle({
   );
 }
 
-export function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 export function HideGlyph() {
   return (
     <svg

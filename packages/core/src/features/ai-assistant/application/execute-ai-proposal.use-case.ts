@@ -14,7 +14,18 @@ export class ExecuteAiProposalUseCase {
     // has already been decided is a 409 (review-2 F5).
     if (!proposal) throw new NotFoundError("AI proposal not found");
     if (proposal.status !== "pending") throw new ConflictError("AI proposal is no longer pending");
-    const status = await this.deps.executors.execute(proposal);
+    // Claim before running, so two approvals at once run the executor once.
+    if (!(await this.deps.proposals.claimPending(proposalId))) {
+      throw new ConflictError("AI proposal is no longer pending");
+    }
+    let status: AiProposalExecution;
+    try {
+      status = await this.deps.executors.execute(proposal);
+    } catch (error) {
+      // Nothing was decided: put it back in the queue so it can be retried.
+      await this.deps.proposals.save({ ...proposal, status: "pending" });
+      throw error;
+    }
     await this.deps.proposals.save({ ...proposal, status });
     await this.deps.audit.save({ id: this.deps.ids.newId(), proposalId, action: status, createdAt: this.deps.clock.nowIso() });
     return status;

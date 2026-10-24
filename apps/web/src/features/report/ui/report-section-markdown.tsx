@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { normalizeMarkdownImageSyntax, type Experiment } from "@weaveforge/core";
+import { errorMessage, normalizeMarkdownImageSyntax, type Experiment } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
@@ -51,7 +51,7 @@ export function ReportSectionMarkdown({
       })
       .catch((err) => {
         if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : "Could not load experiments.");
+          setLoadError(errorMessage(err, "Could not load experiments."));
           // Empty list so resolve emits missing-artifact warnings instead of raw refs.
           setExperiments([]);
         }

@@ -1,5 +1,7 @@
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { getContainer } from "@/bootstrap";
+import { readStored, readStoredJson, writeStored, writeStoredJson } from "@/lib/safe-storage";
+import { registerSessionReset } from "@/lib/cache/clear-session-caches";
 import {
   indexLibraryPdfs,
   papersNeedingIndex,
@@ -38,6 +40,25 @@ export interface AutoIndexStatus {
   last: LibraryIndexResult | null;
 }
 
+/** What a run reads and calls; tests pass their own. */
+export interface AutoIndexDeps {
+  projectId(): string | null;
+  papersNeedingIndex: typeof papersNeedingIndex;
+  indexLibraryPdfs: typeof indexLibraryPdfs;
+}
+
+const defaultDeps: AutoIndexDeps = {
+  projectId: () => getContainer().projects.context.projectId,
+  papersNeedingIndex,
+  indexLibraryPdfs,
+};
+let currentDeps = defaultDeps;
+
+/** Replace what a run reads; tests only. */
+export function setAutoIndexDeps(next: AutoIndexDeps): void {
+  currentDeps = next;
+}
+
 let status: AutoIndexStatus = { running: false, progress: null, last: null };
 const listeners = new Set<() => void>();
 let startedFor: string | null | undefined;
@@ -60,41 +81,50 @@ export function subscribeAutoIndex(listener: () => void): () => void {
 }
 
 export function autoIndexEnabled(): boolean {
-  try {
-    const stored = localStorage.getItem(AUTO_KEY);
-    if (stored !== null) return stored === "1";
-  } catch {
-    /* fall through to the default */
-  }
+  const stored = readStored(AUTO_KEY);
+  if (stored !== null) return stored === "1";
   return desktop() !== null;
 }
 
 export function setAutoIndexEnabled(on: boolean): void {
-  try {
-    localStorage.setItem(AUTO_KEY, on ? "1" : "0");
-  } catch {
-    /* not persisted; this session still honours it */
+  // Not persisted when storage is blocked; this session still honours it.
+  writeStored(AUTO_KEY, on ? "1" : "0");
+  if (on) {
+    void startAutoIndex(0);
+    return;
   }
-  if (on) void startAutoIndex(0);
-  else controller?.abort();
+  controller?.abort();
+  // Turned off, so the next "on" is a fresh start, not "already done" (27-09).
+  startedFor = undefined;
 }
 
 function recentFailures(): Record<string, number> {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(FAILED_KEY) ?? "{}") as Record<string, number>;
-    const now = Date.now();
-    return Object.fromEntries(Object.entries(parsed).filter(([, at]) => now - at < RETRY_AFTER_MS));
-  } catch {
-    return {};
-  }
+  const parsed = readStoredJson<unknown>(FAILED_KEY, {});
+  if (!parsed || typeof parsed !== "object") return {};
+  const now = Date.now();
+  return Object.fromEntries(
+    Object.entries(parsed as Record<string, number>).filter(([, at]) => now - at < RETRY_AFTER_MS),
+  );
 }
 
+/** Forgetting means one extra retry, nothing worse. */
 function rememberFailures(failures: Record<string, number>): void {
-  try {
-    localStorage.setItem(FAILED_KEY, JSON.stringify(failures));
-  } catch {
-    /* forgetting means one extra retry, nothing worse */
-  }
+  writeStoredJson(FAILED_KEY, failures);
+}
+
+/** Wait `ms`, or less if `signal` aborts first, so turning it off ends the run at once (27-10). */
+function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
 }
 
 /**
@@ -103,40 +133,56 @@ function rememberFailures(failures: Record<string, number>): void {
  * Called when the search index first lands; a no-op when turned off, already
  * running, or already done for this project.
  */
-export async function startAutoIndex(delayMs = START_DELAY_MS): Promise<void> {
+export async function startAutoIndex(delayMs = START_DELAY_MS, deps: AutoIndexDeps = currentDeps): Promise<void> {
   if (!autoIndexEnabled() || status.running) return;
-  const projectId = getContainer().projects.context.projectId;
+  const projectId = deps.projectId();
   if (startedFor === projectId) return;
   startedFor = projectId;
 
-  controller = new AbortController();
-  const signal = controller.signal;
+  const own = new AbortController();
+  controller = own;
+  const signal = own.signal;
   set({ running: true, progress: null });
   try {
-    if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+    if (delayMs > 0) await abortableDelay(delayMs, signal);
     if (signal.aborted) return;
 
     const failures = recentFailures();
-    const papers = (await papersNeedingIndex()).filter((paper) => !(paper.id in failures));
+    const papers = (await deps.papersNeedingIndex()).filter((paper) => !(paper.id in failures));
     if (papers.length === 0) return;
 
-    const result = await indexLibraryPdfs(papers, {
+    const result = await deps.indexLibraryPdfs(papers, {
       signal,
       onProgress: (progress) => set({ progress }),
     });
+    // Stopped mid-run: the next user or project must not see this result.
+    if (signal.aborted) return;
 
     const now = Date.now();
-    const titles = new Map(papers.map((paper) => [paper.title, paper.id]));
-    for (const title of Object.keys(result.reasons)) {
-      const id = titles.get(title);
-      if (id) failures[id] = now;
-    }
+    // By id: two papers can share a title, and each failed on its own (27-11).
+    for (const id of result.unreadIds) failures[id] = now;
     rememberFailures(failures);
     set({ last: result });
   } catch {
     // Background and best-effort: the button is still there, and says why.
   } finally {
-    controller = null;
-    set({ running: false, progress: null });
+    // A stopped run's cleanup must not end the run that replaced it.
+    if (controller === own) {
+      controller = null;
+      set({ running: false, progress: null });
+    }
   }
 }
+
+/**
+ * Abort the run and forget it, on sign-out or a project switch: a run left
+ * going reads the last project's papers into the next one's index.
+ */
+export function stopAutoIndex(): void {
+  controller?.abort();
+  controller = null;
+  startedFor = undefined;
+  set({ running: false, progress: null, last: null });
+}
+
+registerSessionReset(stopAutoIndex);

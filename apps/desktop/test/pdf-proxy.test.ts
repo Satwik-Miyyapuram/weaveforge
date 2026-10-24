@@ -123,3 +123,26 @@ test("a redirect within the allowlist is followed hop by hop", async () => {
   assert.equal(res.status, 200);
   assert.deepEqual(calls, [ARXIV, "https://arxiv.org/pdf/1706.03762v7"]);
 });
+
+test("a PDF past the cap with no content-length is refused while reading, not after", async () => {
+  let pulls = 0;
+  let cancelled = false;
+  const chunk = new Uint8Array(1024 * 1024);
+  chunk.set(new TextEncoder().encode("%PDF-1.4"));
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      pulls++;
+      // Far past the cap: a proxy that buffered all of it would hold 200 MB.
+      if (pulls > 200) controller.close();
+      else controller.enqueue(chunk);
+    },
+    cancel() {
+      cancelled = true;
+    },
+  }, { highWaterMark: 0 });
+  const fetchFn: ProxyFetch = () => Promise.resolve(new Response(body, { headers: { "content-type": "application/pdf" } }));
+  const res = await proxyPdf(`${APP}/api/pdf-proxy?url=${encodeURIComponent(ARXIV)}`, fetchFn);
+  assert.equal(res.status, 413);
+  assert.equal(cancelled, true);
+  assert.ok(pulls <= 82, `read ${pulls} chunks`);
+});

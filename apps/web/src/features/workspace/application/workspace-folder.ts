@@ -2,64 +2,43 @@ import {
   ASSET_DIR,
   FOLDER_DRAFTS_DIR,
   NoOpWorkspaceGit,
-  WORKSPACE_META_DIR,
   changedSide,
   addCounts,
-  countJsonActions,
   describeChanges,
   GIT_OFF,
-  diffJsonData,
   diffWorkspace,
   isAppOwnedPath,
-  jsonDataPath,
-  jsonKindOfPath,
-  parseJsonData,
   projectDir,
   idSuffix,
   fromRelativeBlobLinks,
-  readFrontmatter,
-  mergeVaultPage,
   mirrorWorkspace,
   parseWorkspaceFolder,
   serializeWorkspace,
-  vaultPageSide,
   type ImportDiff,
-  type ImportDiffEntry,
   type IWorkspaceFs,
   type IWorkspaceGit,
   type MirrorResult,
   type VaultPageBase,
   type JsonDiff,
-  type JsonDiffEntry,
-  type JsonRow,
-  type PaperRelation,
-  type ReadingListItem,
-  type Tag,
   type WorkspaceCommit,
-  type WorkspaceJsonKind,
   type WorkspaceProject,
-  type WorkspaceSnapshot,
-  JSON_KINDS,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { downloadLibraryPdfsOnce } from "@/features/reader/application/download-library-pdfs";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { logToApp } from "@/lib/error-report/app-log";
+import { formatError } from "@/lib/format-error";
 import { onWorkspaceChange } from "@/lib/workspace-changes";
 import { BrowserWorkspaceFs } from "../infrastructure/browser-workspace-fs";
 import { DesktopWorkspaceFs } from "../infrastructure/desktop-workspace-fs";
 import { IsomorphicWorkspaceGit } from "../infrastructure/isomorphic-workspace-git";
 import {
-  assetExtension,
-  assetMimeType,
   ownedAssetFolderPaths,
-  planAssetReanchor,
   workspaceBodies,
 } from "./asset-reanchor";
 import {
-  MIRROR_MANIFEST_PATH,
   baseDigest,
   jsonEditSince,
-  claimImportedFile,
   createCoalescer,
   followProjectRename,
   nextManifest,
@@ -69,12 +48,12 @@ import {
   type Coalescer,
 } from "./mirror-manifest";
 import { activeProject, activeProjectOrNull } from "./active-project";
-import { applyJsonEntries, jsonDiff, refreshMirrorBase } from "./folder-json-import";
+import { readPreviewFolder } from "./folder-preview-read";
+import { jsonDiff } from "./folder-json-import";
 import {
-  IMPORT_LIMITS,
-  ImportLimitError,
   sanitizeArchiveEntries,
   stripArchiveRoot,
+  unzipWithinLimits,
 } from "./import-limits";
 
 /**
@@ -358,22 +337,23 @@ export const SYNC_DEBOUNCE_MS = 1_500;
 /**
  * The pacing for `requestSync`, built once and reused for every folder.
  *
- * A mirror failure reaches `syncErrors` rather than the caller: `requestSync`
+ * A mirror failure is logged rather than thrown to the caller: `requestSync`
  * is called from save paths, and a folder that cannot be written must not take
  * the save down with it.
  */
-const syncErrors: unknown[] = [];
-
 const syncs: Coalescer = createCoalescer({
   debounceMs: SYNC_DEBOUNCE_MS,
   run: async () => {
     if (!activeFs) return;
     await syncToFolder();
   },
-  onError: (error) => {
-    syncErrors.push(error);
-  },
+  onError: reportSyncError,
 });
+
+/** Log a folder sync that failed, for the app log. */
+export function reportSyncError(error: unknown): void {
+  logToApp({ level: "warn", source: "workspace-sync", message: "Folder sync failed", detail: formatError(error) });
+}
 
 /**
  * Ask for a sync. Cheap enough to call on every save.
@@ -564,9 +544,6 @@ export async function folderHistory(limit = 20): Promise<readonly WorkspaceCommi
 export async function previewFolderImport(): Promise<ImportDiff & { json: JsonDiff }> {
   if (!activeFs) throw new Error("No folder is connected.");
 
-  const files: Record<string, string> = {};
-  const assets = new Map<string, Uint8Array>();
-  let assetBytes = 0;
   const project = await activeProject();
   await followProjectRename(activeFs, project);
   const projectRoot = projectDir(project);
@@ -574,41 +551,7 @@ export async function previewFolderImport(): Promise<ImportDiff & { json: JsonDi
   const bases = await readMirrorBases(activeFs, projectRoot);
 
   const hasProjectDir = (await activeFs.stat(projectRoot).catch(() => null)) !== null;
-
-  const jsonFiles: Record<string, string> = {};
-  for await (const entry of activeFs.walk("")) {
-    // Only import files for this project (or legacy flat files if no project subfolder exists yet)
-    const isThisProject = entry.path.startsWith(`${projectRoot}/`);
-    const isLegacyFlat =
-      !hasProjectDir &&
-      !/^[^\/]+--[a-zA-Z0-9]{1,8}\//.test(entry.path) &&
-      !entry.path.startsWith(`${WORKSPACE_META_DIR}/`);
-
-    if (entry.path.endsWith(".md")) {
-      if (isThisProject || isLegacyFlat) {
-        files[entry.path] = await activeFs.readText(entry.path);
-      }
-      continue;
-    }
-    // The project's own three data files. Read from the folder rather than
-    // assumed, so a file somebody added by hand is diffed like any other.
-    if (entry.path.endsWith(".json") && jsonKindOfPath(entry.path) !== null) {
-      if (isThisProject || isLegacyFlat) {
-        jsonFiles[entry.path] = await activeFs.readText(entry.path);
-      }
-      continue;
-    }
-    if (!entry.path.startsWith(`${ASSET_DIR}/`)) continue;
-    const bytes = await activeFs.readFile(entry.path);
-    if (bytes.byteLength > IMPORT_LIMITS.maxFileBytes) continue;
-    assetBytes += bytes.byteLength;
-    if (assetBytes > IMPORT_LIMITS.maxTotalBytes) {
-      throw new ImportLimitError(
-        `Folder assets exceed ${Math.round(IMPORT_LIMITS.maxTotalBytes / 1024 / 1024)} MB; refusing to continue.`,
-      );
-    }
-    assets.set(entry.path, bytes);
-  }
+  const { files, assets, jsonFiles } = await readPreviewFolder(activeFs, projectRoot, hasProjectDir);
 
   return diffAgainstWorkspace(files, assets, project, base, bases, jsonFiles);
 }
@@ -617,8 +560,8 @@ export async function previewFolderImport(): Promise<ImportDiff & { json: JsonDi
 export async function previewArchiveImport(
   bytes: Uint8Array,
 ): Promise<ImportDiff & { skipped: string[]; json: JsonDiff }> {
-  const { unzipSync } = await import("fflate");
-  const { safe, skipped } = sanitizeArchiveEntries(unzipSync(bytes));
+  const { entries: inflated, oversize } = await unzipWithinLimits(bytes);
+  const { safe, skipped } = sanitizeArchiveEntries(inflated);
   const entries = stripArchiveRoot(safe);
 
   const decoder = new TextDecoder();
@@ -631,7 +574,7 @@ export async function previewArchiveImport(
 
   return {
     ...(await diffAgainstWorkspace(files, assets, await activeProject())),
-    skipped,
+    skipped: [...oversize, ...skipped],
   };
 }
 
@@ -730,7 +673,6 @@ import {
   keepBothTitle,
   mergeBothChanged,
   settleConflict,
-  writeConflictMarkersTo,
   type ConflictPicks,
   type ConflictResolution,
 } from "./folder-merge";

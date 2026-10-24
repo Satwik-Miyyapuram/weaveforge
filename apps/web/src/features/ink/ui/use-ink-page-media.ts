@@ -21,8 +21,10 @@ import {
   pastedFigurePlace,
   type FigureClip,
 } from "../application/figure-clipboard";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { isEditableTarget } from "@/lib/editable-target";
 import {
+  errorMessage,
   INK_A4_WIDTH,
   INK_A4_HEIGHT,
   blankInkPage,
@@ -30,9 +32,11 @@ import {
   encodeInkChunk,
   inkAttachmentIndex,
   inkPageBackground,
+  inkPageFigures,
   joinInkTextLayer,
   newInkChunkId,
   withInkPageBackground,
+  withInkPageFigures,
   writeInkNoteBody,
   type FigureGeometry,
   type InkNoteMeta,
@@ -49,6 +53,7 @@ import {
   isPdf,
   pageBackgroundFromFile,
   pageChunkWithBackground,
+  pdfPageBackgrounds,
 } from "../application/page-background";
 import { figureBoxForAspect } from "./ink-figures";
 
@@ -231,7 +236,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         deps.scheduleSave();
       } catch (error) {
         deps.setUnavailable(
-          `The image could not be added: ${error instanceof Error ? error.message : String(error)}`,
+          `The image could not be added: ${errorMessage(error)}`,
         );
       } finally {
         setInserting(false);
@@ -266,6 +271,31 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
   );
 
   /**
+   * Add a figure to page `target`, placed by `place` against the figures
+   * already there. An upload is an await the reader can turn the page during,
+   * so the live page is not assumed: when `target` is no longer live, the
+   * figure goes straight into that page's block. True when it went live.
+   */
+  const addFigureToPage = useCallback(
+    (
+      target: number,
+      place: (onPage: readonly FigureGeometry[]) => FigureGeometry,
+    ): boolean => {
+      if (target === deps.pageIndexRef.current) {
+        const onPage = deps.figuresRef.current;
+        deps.onFiguresChange([...onPage, place(onPage)]);
+        return true;
+      }
+      const there = deps.textPagesRef.current[target] ?? "";
+      const onPage = inkPageFigures(there);
+      deps.textPagesRef.current[target] = withInkPageFigures(there, [...onPage, place(onPage)]);
+      deps.scheduleSave();
+      return false;
+    },
+    [deps],
+  );
+
+  /**
    * Put an image on the page as a figure: a placed box, not the page's
    * background. Any number may sit on one page — that is the point — and the
    * first box is the image's own aspect at half the page's width, centred:
@@ -283,6 +313,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         deps.setUnavailable(`${file.name} is not a PDF or an image.`);
         return;
       }
+      const target = deps.pageIndexRef.current;
       setInserting(true);
       try {
         const [attachment, size] = await Promise.all([
@@ -301,20 +332,21 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
           at ?? { x: deps.pageSize.width / 2, y: deps.pageSize.height / 2 },
           deps.pageSize,
         );
-        deps.onFiguresChange([...deps.figuresRef.current, { ...box, path }]);
+        addFigureToPage(target, () => ({ ...box, path }));
       } catch (error) {
         deps.setUnavailable(
-          `The image could not be added: ${error instanceof Error ? error.message : String(error)}`,
+          `The image could not be added: ${errorMessage(error)}`,
         );
       } finally {
         setInserting(false);
       }
     },
-    [deps, onSetPageBackground],
+    [addFigureToPage, deps, onSetPageBackground],
   );
 
   const pasteFigure = useCallback(
     async (clip: FigureClip) => {
+      const target = deps.pageIndexRef.current;
       let { path } = clip.figure;
       if (clip.noteId !== deps.noteId) {
         setInserting(true);
@@ -324,19 +356,21 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
           path = await deps.assets.upload(deps.noteId, blob, ext);
         } catch (error) {
           deps.setUnavailable(
-            `The figure could not be pasted: ${error instanceof Error ? error.message : String(error)}`,
+            `The figure could not be pasted: ${errorMessage(error)}`,
           );
           return;
         } finally {
           setInserting(false);
         }
       }
-      const onPage = deps.figuresRef.current;
-      const placed = pastedFigurePlace({ ...clip.figure, path }, onPage, deps.pageSize);
-      deps.onFiguresChange([...onPage, placed]);
-      deps.selectFigure?.(onPage.length);
+      let index = 0;
+      const live = addFigureToPage(target, (onPage) => {
+        index = onPage.length;
+        return pastedFigurePlace({ ...clip.figure, path }, onPage, deps.pageSize);
+      });
+      if (live) deps.selectFigure?.(index);
     },
-    [deps],
+    [addFigureToPage, deps],
   );
 
   /**
@@ -351,15 +385,16 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
    *
    * An image pastes as a figure: a pasted screenshot is content on the page,
    * not the page, and a page may already have figures worth keeping.
+   *
+   * The host builds `deps` afresh each render, so the listener reads the
+   * latest flows through a ref and is bound once per mount.
    */
+  const pasteRef = useRef({ deps, onAddFigure, pasteFigure });
+  pasteRef.current = { deps, onAddFigure, pasteFigure };
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (
-        target &&
-        (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
-      )
-        return;
+      const { deps, onAddFigure, pasteFigure } = pasteRef.current;
+      if (isEditableTarget(event.target)) return;
       const wrap = deps.wrapRef.current;
       if (!wrap || !wrap.contains(document.activeElement)) return;
       // A figure copied from a note (§figure-clipboard) comes back as itself,
@@ -378,9 +413,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-    // `deps` is the host's object for this hook; `onAddFigure` is the flow above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deps, onAddFigure, pasteFigure]);
+  }, []);
 
   /**
    * A PDF's pages or an image as new pages (§4.8): each one laid on an A4
@@ -402,8 +435,9 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
       setInserting(true);
       try {
         let numbers = [1];
-        if (isPdf(file)) {
-          const count = await pdfPageCount(await file.arrayBuffer());
+        const bytes = isPdf(file) ? await file.arrayBuffer() : null;
+        if (bytes) {
+          const count = await pdfPageCount(bytes);
           if (count > 1) {
             const answer = await askPdfPages(count);
             if (answer === null || answer.length === 0) return;
@@ -415,8 +449,12 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         // text layer grows before each index is read — which is what makes a
         // later page's index different from an earlier one's.
         const size = clampInkPageSize(INK_A4_WIDTH, INK_A4_HEIGHT);
-        for (const number of numbers) {
-          const png = await pageBackgroundFromFile(file, number);
+        const backgrounds = bytes
+          ? pdfPageBackgrounds(bytes, numbers)
+          : (async function* () {
+              yield await pageBackgroundFromFile(file);
+            })();
+        for await (const png of backgrounds) {
           const path = await deps.assets.upload(deps.noteId, png, "png");
           const text = withInkPageBackground("", path);
           const nextTextPages = [...deps.textPagesRef.current, text];
@@ -436,11 +474,11 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
           pages.push({ chunkId, chunk, paper: deps.metaRef.current.paper });
           deps.textPagesRef.current = nextTextPages;
           deps.onPageAppended(pages.length);
-          deps.saveBody();
+          void deps.saveBody();
         }
       } catch (error) {
         deps.setUnavailable(
-          `The page could not be inserted: ${error instanceof Error ? error.message : String(error)}`,
+          `The page could not be inserted: ${errorMessage(error)}`,
         );
       } finally {
         setInserting(false);

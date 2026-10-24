@@ -90,3 +90,68 @@ test("a storage listing failure stops the purge instead of reading as an empty b
 
   assert.equal(state.registryCleared, false);
 });
+
+test("sweeps the storage prefix in every blob bucket", async () => {
+  const { BLOB_STORAGE_BUCKETS } = await import("@/storage/server/blob-access");
+  const { purgeUserBlobs } = await import("../purge-user-blobs");
+  const listed: string[] = [];
+  const admin = fakeAdmin();
+  admin.storage.from = ((bucket: string) => ({
+    list: async () => {
+      listed.push(bucket);
+      return { data: [], error: null };
+    },
+    remove: async () => ({ error: null }),
+  })) as never;
+  await purgeUserBlobs(admin as never, "u1", () => fakeStore as never);
+  assert.deepEqual(listed, [...BLOB_STORAGE_BUCKETS]);
+});
+
+test("a storage remove error stops the purge and keeps the registry (09-01)", async () => {
+  const { purgeUserBlobs } = await import("../purge-user-blobs");
+  const admin = fakeAdmin();
+  admin.storage.from = (() => ({
+    list: async (prefix: string) => ({
+      data: prefix === "u1" ? [{ name: "a.webp", id: "x" }] : [],
+      error: null,
+    }),
+    remove: async () => ({ error: new Error("remove failed") }),
+  })) as never;
+  await assert.rejects(purgeUserBlobs(admin as never, "u1", () => fakeStore as never), /remove failed/);
+  assert.equal(state.registryCleared, false);
+});
+
+test("a registry delete error is reported, not swallowed (09-01)", async () => {
+  const { purgeUserBlobs } = await import("../purge-user-blobs");
+  const admin = fakeAdmin();
+  const base = admin.from;
+  admin.from = ((table: string) => ({
+    ...base(table),
+    delete: () => ({ eq: async () => ({ error: new Error("registry delete failed") }) }),
+  })) as never;
+  await assert.rejects(
+    purgeUserBlobs(admin as never, "u1", () => fakeStore as never),
+    /registry delete failed/,
+  );
+});
+
+test("pages through a prefix longer than one listing and removes every object (09-02)", async () => {
+  const { purgeUserBlobs } = await import("../purge-user-blobs");
+  const all = Array.from({ length: 450 }, (_, i) => ({ name: `f${i}.bin`, id: `id${i}` }));
+  const removedPaths: string[] = [];
+  const admin = fakeAdmin();
+  admin.storage.from = ((bucket: string) => ({
+    list: async (prefix: string, opts: { limit: number; offset?: number }) => {
+      if (bucket !== "paper-images" || prefix !== "u1") return { data: [], error: null };
+      const from = opts.offset ?? 0;
+      return { data: all.slice(from, from + opts.limit), error: null };
+    },
+    remove: async (paths: string[]) => {
+      removedPaths.push(...paths);
+      return { error: null };
+    },
+  })) as never;
+  await purgeUserBlobs(admin as never, "u1", () => fakeStore as never);
+  assert.equal(new Set(removedPaths).size, 450);
+  assert.ok(removedPaths.includes("u1/f449.bin"));
+});

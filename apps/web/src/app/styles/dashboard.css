@@ -406,12 +406,5 @@
   .mobile-only { margin-bottom: 6px; }
   .sub-nav { margin: 6px 0 2px; }
   .app-shell { padding-top: 12px; }
-  .controls-row,
   .filter-row { margin-top: 8px; }
-  .vault-editor {
-    min-height: 240px !important;
-  }
-  .markdown-code-editor--notes .cm-editor {
-    min-height: 200px !important;
-  }
 }

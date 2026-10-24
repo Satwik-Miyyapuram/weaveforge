@@ -62,6 +62,9 @@ export function ImageSizeControl({
 }) {
   const [target, setTarget] = useState<Target | null>(null);
   const [percent, setPercent] = useState(100);
+  // Whether the slider moved since the control opened. Until it does, the
+  // percent is only the rendered width, not a width to store.
+  const [widthMoved, setWidthMoved] = useState(false);
   const [cropEdges, setCropEdges] = useState<string[]>(NO_CROP);
   const hostRef = useRef<HTMLDivElement>(null);
 
@@ -106,6 +109,7 @@ export function ImageSizeControl({
         },
       });
       setPercent(initial);
+      setWidthMoved(false);
       setCropEdges(parsed.crop ? parsed.crop.map(String) : NO_CROP);
     },
     [body, close, onSave],
@@ -128,6 +132,7 @@ export function ImageSizeControl({
 
   const preview = (next: number) => {
     setPercent(next);
+    setWidthMoved(true);
     if (target) target.img.style.width = `${next}%`;
   };
 
@@ -147,20 +152,14 @@ export function ImageSizeControl({
     align?: MdAlign | null;
   }) => {
     if (!target || !onSave) return;
-    // The slider's value is what the user set, whatever the picture started
-    // at; a full-width picture dragged to 40% used to snap back because the
-    // starting width decided whether the drag counted.
-    const chosen = next.width === undefined ? percent : next.width;
-    const width = chosen === null || chosen >= 100 ? null : `${chosen}%`;
-    const crop =
-      next.crop !== undefined
-        ? next.crop
-        : (cropParts(cropEdges) as MdCrop | null);
-    const rewritten = setImagePlacement(body, target.alt, target.ordinal, {
-      crop,
-      align: next.align !== undefined ? next.align : target.placement.align ?? null,
-      width,
+    const { crop, align, width } = resolveCommit(next, {
+      percent,
+      widthMoved,
+      cropEdges,
+      storedCrop: target.placement.crop,
+      storedAlign: target.placement.align,
     });
+    const rewritten = setImagePlacement(body, target.alt, target.ordinal, { crop, align, width });
     if (rewritten !== body) void onSave(rewritten);
     if (!crop) target.img.style.clipPath = "";
     if (!width || width === "100%") target.img.style.width = "";
@@ -234,7 +233,7 @@ export function ImageSizeControl({
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
-                        commit({ crop: cropParts(cropEdges) as MdCrop | null });
+                        commit({});
                       }
                     }}
                   />
@@ -269,13 +268,37 @@ function rawAltFor(body: string, alt: string, ordinal: number): string | null {
 }
 
 /**
- * Four crop insets out of the four fields, or `null` for no crop: every field
- * empty or zero, or one that does not parse. An empty field is a zero, so a
- * crop off one edge is one number, not four.
+ * Four crop insets out of the four fields; `null` for no crop (every field
+ * empty or zero) and `undefined` when a field does not parse or is out of
+ * range. An empty field is a zero, so a crop off one edge is one number.
  */
-function cropParts(edges: string[]): [number, number, number, number] | null {
+export function cropParts(edges: string[]): MdCrop | null | undefined {
   const parts = edges.map((edge) => (edge.trim() === "" ? 0 : Math.round(Number(edge))));
-  if (parts.some((n) => !Number.isFinite(n) || n < 0 || n >= 100)) return null;
+  if (parts.some((n) => !Number.isFinite(n) || n < 0 || n >= 100)) return undefined;
   if (parts.every((n) => n === 0)) return null;
-  return parts as [number, number, number, number];
+  return parts as MdCrop;
+}
+
+/**
+ * The placement a commit writes. `width` is `undefined` (keep the stored one)
+ * unless the slider moved or the caller named one: the slider starts at the
+ * rendered width, which is not a width the source asked for. An invalid crop
+ * field keeps the stored crop instead of reading as "no crop".
+ */
+export function resolveCommit(
+  next: { width?: number | null; crop?: MdCrop | null; align?: MdAlign | null },
+  state: {
+    percent: number;
+    widthMoved: boolean;
+    cropEdges: string[];
+    storedCrop: MdCrop | undefined;
+    storedAlign: MdAlign | undefined;
+  },
+): { crop: MdCrop | null; align: MdAlign | null; width: string | null | undefined } {
+  const chosen = next.width !== undefined ? next.width : state.widthMoved ? state.percent : undefined;
+  const width = chosen === undefined ? undefined : chosen === null || chosen >= 100 ? null : `${chosen}%`;
+  const typed = cropParts(state.cropEdges);
+  const crop = next.crop !== undefined ? next.crop : typed === undefined ? state.storedCrop ?? null : typed;
+  const align = next.align !== undefined ? next.align : state.storedAlign ?? null;
+  return { crop, align, width };
 }

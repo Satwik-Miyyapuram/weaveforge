@@ -140,8 +140,6 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
         await client.close();
       },
     });
-    // Pointed at the workspace first so nothing below can touch the app copy.
-    storageDir = path.join(metaDir, "db");
     storageDir = databaseDirFor(appDbDir, metaDir);
     console.log(`[local-db] ${result.note}: ${storageDir}`);
     return storageDir;
@@ -187,7 +185,7 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
   }
   
   /**
-   * `openEngine`, with three attempts before it admits defeat.
+   * `openEngine`, with `OPEN_ATTEMPTS` attempts before it admits defeat.
    *
    * A local Postgres holds a lock on its data directory, and the two situations
    * that produce a *transient* failure are both ordinary here: reconnecting a
@@ -288,7 +286,7 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       // The database exists, so a failure to open it here is a failure, not a
       // missing file -- and `recover` (below) answers a failure by throwing the
       // directory away and rebuilding from a backup, which is the most expensive
-      // thing this file can do. It is worth three patient attempts first: a lock
+      // thing this file can do. It is worth several patient attempts first: a lock
       // held by a process that is still exiting clears in about a second, and
       // must not cost the reader their afternoon.
       const client = await openEngineWithRetry();

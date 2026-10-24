@@ -6,7 +6,7 @@ import type { AiEvidence } from "../domain/ai-evidence.js";
 /** The only application command allowed to persist an AI-originated draft. */
 export class CreateAiProposalDraftUseCase {
   constructor(private readonly deps: {
-    policy: Pick<AiAccessPolicy, "evaluate">; proposals: IAiProposalStore; clock: { nowIso(): string };
+    policy: Pick<AiAccessPolicy, "evaluate">; proposals: Pick<IAiProposalStore, "save">; clock: { nowIso(): string };
   }) {}
 
   async execute(input: {

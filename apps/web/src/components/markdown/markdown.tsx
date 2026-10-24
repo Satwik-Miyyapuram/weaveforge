@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { escapeHtml as escapeAttr } from "@/lib/escape-html";
+import { headingSlug } from "@/lib/heading-slug";
 import { parseMdImageAlt } from "@/lib/markdown-figure-alt";
 import {
   containsMath,
@@ -14,15 +15,6 @@ import {
  * code blocks are handled separately by Shiki in display mode.
  */
 const escapeHtml = escapeAttr;
-
-/** Slug for heading anchor ids (so `[[Note#Heading]]` can target them). */
-function headingSlug(text: string): string {
-  return text
-    .trim()
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 /** Resolve a `[[wikilink]]` target to a destination; unresolved = offer-to-create. */
 interface WikilinkResolution {

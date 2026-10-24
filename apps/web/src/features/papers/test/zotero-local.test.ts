@@ -127,7 +127,7 @@ test("annotations come back joined to their paper, with no API key involved", as
       seen.push(url);
       return { status: 200, body: JSON.stringify(page(url)), headers: {} };
     }),
-  ).pullAll();
+  ).pull().then((r) => r.byPaper);
 
   assert.equal(byPaper.get("PAP1")?.[0]?.text, "boiling water");
   assert.ok(seen.every((url) => url.startsWith("http://127.0.0.1:23119/api/users/0/")));
@@ -223,7 +223,7 @@ test("annotations are scoped to the same collection as the papers", async () => 
       return { status: 200, body: "[]", headers: {} };
     }),
     async () => "COL9",
-  ).pullAll();
+  ).pull().then((r) => r.byPaper);
 
   // The pull reads the collection's top-level keys to know which parents count,
   // which is the read that makes the scope real rather than cosmetic.
