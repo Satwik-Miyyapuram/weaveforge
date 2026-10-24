@@ -1,4 +1,4 @@
-import { normalizeDoi, type Paper, type PaperStatus } from "@weaveforge/core";
+import { normalizeDoi, type Paper, type PaperStatus, type PaperSummary } from "@weaveforge/core";
 
 /**
  * How paper rows are stored, and how they map to the domain type.
@@ -82,6 +82,32 @@ export function toDomain(row: PaperRow): Paper {
     bibtex: row.bibtex ?? undefined,
     tags: row.tags ?? [],
     metadata: row.metadata ?? {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+/**
+ * A row read with the card projection, as the summary it is.
+ *
+ * Mapping it through `toDomain` filled the columns it never selected with
+ * placeholders (`metadata: {}`), which read as "the user cleared this" to
+ * anything that wrote the object back.
+ */
+export function toSummary(row: PaperRow): PaperSummary {
+  return {
+    id: row.id,
+    title: row.title,
+    authors: row.authors ?? [],
+    status: row.status,
+    year: row.year ?? undefined,
+    readAt: row.read_at ?? undefined,
+    pdfPath: row.pdf_path ?? undefined,
+    doi: row.doi ?? undefined,
+    arxivId: row.arxiv_id ?? undefined,
+    url: row.url ?? undefined,
+    summary: row.summary ?? undefined,
+    tags: row.tags ?? [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
