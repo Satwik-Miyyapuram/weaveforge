@@ -4,7 +4,7 @@ import type {
   IExperimentRepository,
 } from "@weaveforge/core";
 import { experimentToDomain, experimentToRow, type ExperimentRow } from "./experiment-rows";
-import { deleteRowById, rowById, rows, run } from "@/backend/providers/postgrest/row-access";
+import { deleteRowById, inChunks, rowById, rows, run } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 
 /**
@@ -22,6 +22,14 @@ export class PostgrestExperimentRepository extends ProjectRepository implements 
   async getById(id: string): Promise<Experiment | null> {
     const row = await rowById<ExperimentRow>(this.db, TABLE, id);
     return row ? experimentToDomain(row) : null;
+  }
+
+  /** Runs by id, filtered as `getById` is (not by project), in chunks. */
+  async listByIds(ids: readonly string[]): Promise<Experiment[]> {
+    const found = await inChunks(ids, (chunk) =>
+      rows<ExperimentRow>(this.db.from(TABLE).select(EXPERIMENT_COLUMNS).in("id", chunk).order("id", { ascending: true })),
+    );
+    return found.map(experimentToDomain);
   }
   async list(filter?: ExperimentFilter): Promise<Experiment[]> {
     let q = this.db.from(TABLE).select(EXPERIMENT_COLUMNS);
