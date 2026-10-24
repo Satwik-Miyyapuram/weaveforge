@@ -17,6 +17,9 @@
       ],
       "@weaveforge/core": [
         "../../packages/core/src/index.ts"
+      ],
+      "@weaveforge/core/testing": [
+        "../../packages/core/src/testing/index.ts"
       ]
     },
     "resolveJsonModule": true,
