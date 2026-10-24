@@ -105,8 +105,21 @@ export class MergePapersUseCase {
     await this.deps.papers.save(merged);
 
     // Annotations: a new id on the kept paper, so pins keyed by the old id follow.
+    // A copy an earlier, interrupted run already made is reused, each at most
+    // once, so a retry does not copy every annotation again (25-01).
+    const earlier = new Map<string, string[]>();
+    for (const k of await annotations.list(keep.id)) {
+      const ids = earlier.get(sameAnnotation(k)) ?? [];
+      ids.push(k.id);
+      earlier.set(sameAnnotation(k), ids);
+    }
     const keyMap = new Map<string, string>();
     for (const a of anns) {
+      const reused = earlier.get(sameAnnotation(a))?.shift();
+      if (reused) {
+        keyMap.set(a.id, reused);
+        continue;
+      }
       const copy = await annotations.create(keep.id, {
         type: a.type,
         color: a.color,
@@ -181,6 +194,29 @@ export class MergePapersUseCase {
     }
     return merged;
   }
+}
+
+/** What makes two annotations the same mark: everything but id and paper. */
+function sameAnnotation(a: {
+  type: string;
+  color?: string | null;
+  text?: string | null;
+  comment?: string | null;
+  anchor: unknown;
+}): string {
+  return stableJson([a.type, a.color ?? "", a.text ?? "", a.comment ?? "", a.anchor ?? null]);
+}
+
+/** JSON with object keys sorted, so a stored round trip compares equal. */
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableJson(v)}`).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
 }
 
 function zoteroKeyOf(paper: Paper): string | undefined {

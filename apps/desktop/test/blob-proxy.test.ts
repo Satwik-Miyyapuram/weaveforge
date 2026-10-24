@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { BLOB_UPSTREAM, isBlobProxyRequest, proxyBlob } from "../src/blob-proxy";
-import type { ProxyFetch } from "../src/semantic-scholar-proxy";
+import type { ProxyFetch } from "../src/proxy-shared";
 
 /**
  * The shell's blob relay: the static bundle has no `/api/blobs/*` routes, so

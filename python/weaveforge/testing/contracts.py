@@ -76,3 +76,9 @@ def check_metric_repository(
 
     everything = repo.history(experiment_id)
     assert {p.metric for p in everything} == {"loss", "acc"}
+
+    other = experiment_id + "-other"
+    repo.append([MetricPoint(other, "loss", 0, 2.0)])
+    repo.clear(experiment_id)
+    assert repo.history(experiment_id) == []
+    assert [p.value for p in repo.history(other)] == [2.0]

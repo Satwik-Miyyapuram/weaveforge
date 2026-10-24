@@ -8,7 +8,7 @@
 
 import type { DocumentPageText } from "../reader/document-search.js";
 import type { SearchDoc } from "./search-port.js";
-import { MAX_INDEXED_BODY_CHARS } from "./search-tuning.js";
+import { boundedBody } from "./search-document.js";
 
 export interface PdfIndexSource {
   paperId: string;
@@ -61,7 +61,7 @@ export function toPdfSearchDocs(
         headings: [],
         tags: [],
         path: `page ${page.pageIndex + 1}`,
-        body: text.length > MAX_INDEXED_BODY_CHARS ? text.slice(0, MAX_INDEXED_BODY_CHARS) : text,
+        body: boundedBody(text),
         updatedAt: source.extractedAt,
         href: pdfPageHref(source.paperId, page.pageIndex),
         page: page.pageIndex,
