@@ -155,3 +155,30 @@ test("a store without removeItem still adopts the legacy layout", () => {
   assert.equal(readLayout(store, "p1").root.type, "split");
   assert.ok(data.has(`${LAYOUT_STORAGE_KEY}.p1`));
 });
+
+test("a tab's mode survives a restart (28-01)", () => {
+  const store = memoryStore();
+  const layout = openTab(emptyLayout(), { kind: "vault_page", id: "a", mode: "read" });
+  writeLayout(store, layout);
+  const [leaf] = leaves(readLayout(store).root);
+  assert.deepEqual(leaf!.tabs, [{ kind: "vault_page", id: "a", mode: "read" }]);
+});
+
+test("an old record without modes, or with an unknown one, restores tabs with no mode (28-01)", () => {
+  const stored = JSON.stringify({
+    root: {
+      type: "leaf",
+      id: "pane-1",
+      tabs: [
+        { kind: "vault_page", id: "old" },
+        { kind: "vault_page", id: "odd", mode: "telepathy" },
+      ],
+      activeIndex: 0,
+    },
+  });
+  const [leaf] = leaves(readLayout(memoryStore(stored)).root);
+  assert.deepEqual(leaf!.tabs, [
+    { kind: "vault_page", id: "old" },
+    { kind: "vault_page", id: "odd" },
+  ]);
+});
