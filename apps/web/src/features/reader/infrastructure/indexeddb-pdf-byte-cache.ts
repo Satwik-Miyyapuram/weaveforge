@@ -5,8 +5,9 @@
 
 import type { IPdfByteCache } from "@weaveforge/core";
 import { pickKeysToEvict } from "../application/pdf-cache-eviction";
+import { PDF_CACHE_DB_NAME } from "./local-cache-names";
 
-const DB_NAME = "weaveforge-pdf-cache";
+const DB_NAME = PDF_CACHE_DB_NAME;
 const STORE = "pdfs";
 const DB_VERSION = 1;
 
