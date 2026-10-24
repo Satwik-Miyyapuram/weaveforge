@@ -67,7 +67,7 @@ export async function resolveUrlMetadata(target: string | null) {
     // A scheme-less host (`nature.com/articles/…`) is a URL the user meant;
     // assume https rather than rejecting it. The protocol guard below still
     // runs, so this cannot smuggle in a file:/ftp: target.
-    parsed = new URL(/^[a-z][a-z0-9+.-]*:/i.test(target) ? target : `https://${target}`);
+    parsed = new URL(/^[a-z][a-z0-9+.-]*:(?!\d)/i.test(target) ? target : `https://${target}`);
   } catch {
     return NextResponse.json({ error: "invalid url" }, { status: 400 });
   }
@@ -94,8 +94,13 @@ export async function resolveUrlMetadata(target: string | null) {
     const cr = await fetchFixedHost(`https://api.crossref.org/works/${encodeURIComponent(doiInUrl)}`, {
       headers: { "User-Agent": "weaveforge (mailto:noreply@example.com)" },
     });
-    if (cr?.ok) {
-      const m = ((await cr.json()) as { message?: CrossrefWork }).message ?? {};
+    // A body that is not JSON (a maintenance page, a dropped connection) is
+    // treated as a miss, like a non-ok answer.
+    const work = cr?.ok
+      ? await cr.json().then((j: { message?: CrossrefWork }) => j, () => null)
+      : null;
+    if (work) {
+      const m = work.message ?? {};
       const authors = (m.author ?? [])
         .map((a) => a.name ?? [a.given, a.family].filter(Boolean).join(" "))
         .filter((x) => x.length > 0);
@@ -149,7 +154,8 @@ async function fetchArxiv(id: string, url: string): Promise<ExtractedMeta | null
     `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(id)}`,
   );
   if (!res?.ok) return null;
-  const xml = await res.text();
+  const xml = await res.text().catch(() => null);
+  if (xml === null) return null;
   const entry = /<entry>([\s\S]*?)<\/entry>/.exec(xml)?.[1];
   if (!entry) return null;
   const pick = (tag: string) =>

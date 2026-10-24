@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isPdfProxyRequest, proxyPdf, type PdfFetch } from "../src/pdf-proxy";
+import { isPdfProxyRequest, proxyPdf } from "../src/pdf-proxy";
+import type { ProxyFetch } from "../src/proxy-shared";
 
 /**
  * The shell's copy of the reader's PDF proxy.
@@ -23,7 +24,7 @@ function answering(
   init: { status?: number; type?: string; url?: string } = {},
 ) {
   const calls: string[] = [];
-  const fetchFn: PdfFetch = (input) => {
+  const fetchFn: ProxyFetch = (input) => {
     calls.push(input);
     const res = new Response(body as BodyInit, {
       status: init.status ?? 200,
@@ -100,7 +101,7 @@ test("a typed address on a private or loopback host is refused before anything i
 
 test("each redirect hop is checked before it is fetched", async () => {
   const calls: string[] = [];
-  const fetchFn: PdfFetch = (input) => {
+  const fetchFn: ProxyFetch = (input) => {
     calls.push(input);
     return Promise.resolve(new Response(null, { status: 302, headers: { location: "https://127.0.0.1/admin" } }));
   };
@@ -111,7 +112,7 @@ test("each redirect hop is checked before it is fetched", async () => {
 
 test("a redirect within the allowlist is followed hop by hop", async () => {
   const calls: string[] = [];
-  const fetchFn: PdfFetch = (input) => {
+  const fetchFn: ProxyFetch = (input) => {
     calls.push(input);
     if (calls.length === 1) {
       return Promise.resolve(new Response(null, { status: 301, headers: { location: "/pdf/1706.03762v7" } }));

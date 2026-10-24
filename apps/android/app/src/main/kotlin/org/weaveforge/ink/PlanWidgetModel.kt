@@ -46,7 +46,7 @@ object PlanWidgetModel {
         val uri = runCatching { URI(trimmed.replaceFirst(Regex("^webcal://", RegexOption.IGNORE_CASE), "https://")) }
             .getOrNull() ?: return null
         val host = uri.host?.lowercase() ?: return null
-        if (allowedHosts.none { host == it || host.endsWith(".$it") }) return null
+        if (!HostAllowList.allows(host, allowedHosts)) return null
         val scheme = uri.scheme?.lowercase()
         // Plain http only in a build that was itself pointed at an http address.
         if (scheme != "https" && !(scheme == "http" && allowCleartext)) return null

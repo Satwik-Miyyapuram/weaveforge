@@ -73,6 +73,43 @@ test("`or` with `in` filter handles comma-separated values inside parens", async
   assert.deepEqual(seen[0]?.params, ["p1", "p2", "u1", "u2"]);
 });
 
+test("`or` with `is` takes null, true and false, in any case (09-14)", async () => {
+  const { run, seen } = recorder();
+  await createLocalClient(run).from("papers").select("*").or("deleted_at.is.null,starred.is.TRUE,read.is.false");
+  assert.equal(
+    seen[0]?.sql,
+    'select * from "papers" where ("deleted_at" is null or "starred" is true or "read" is false)',
+  );
+});
+
+test("`or` with any other `is` value is refused rather than interpolated (09-14)", () => {
+  const { run, seen } = recorder();
+  for (const bad of ["id.is.null) or (1=1", "id.is.unknown", "id.is.", "id.is.null;drop table papers"]) {
+    assert.throws(
+      () => createLocalClient(run).from("papers").select("*").or(bad),
+      /`is` takes null, true or false/,
+      bad,
+    );
+  }
+  assert.equal(seen.length, 0);
+});
+
+test("`filter(col, is, x)` refuses anything but null or a boolean (09-14)", () => {
+  const { run, seen } = recorder();
+  assert.throws(
+    () => createLocalClient(run).from("papers").select("*").filter("id", "is", "null) or (1=1"),
+    /`is` takes null, true or false/,
+  );
+  assert.equal(seen.length, 0);
+});
+
+test("`or` with `lt` and an `ilike` holding a quote binds both values (09-14)", async () => {
+  const { run, seen } = recorder();
+  await createLocalClient(run).from("papers").select("*").or("year.lt.2020,title.ilike.%o'brien%");
+  assert.equal(seen[0]?.sql, 'select * from "papers" where ("year" < $1 or "title" ilike $2)');
+  assert.deepEqual(seen[0]?.params, ["2020", "%o'brien%"]);
+});
+
 test("`not` with `in` filter generates not in predicate", async () => {
   const { run, seen } = recorder();
   await createLocalClient(run).from("papers").select("*").not("id", "in", ["p1", "p2"]);

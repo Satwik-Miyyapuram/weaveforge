@@ -20,7 +20,7 @@ interface CrdtRow {
   project_id: string | null;
   epoch: number;
   payload: string;
-  author_id: string;
+  author_id: string | null;
   created_at: string;
 }
 

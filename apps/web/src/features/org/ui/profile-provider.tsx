@@ -8,11 +8,13 @@ import {
   useState,
 } from "react";
 import type { Member, OrgMembershipView } from "@weaveforge/core";
-import { hasActiveLab, needsStandaloneRoleSync } from "@weaveforge/core";
 import { useAuth } from "@/features/auth";
 import { useStartupOptional } from "@/features/startup";
 import { continueStandalone, fetchMemberships, switchOrg as switchActiveOrg } from "../infrastructure/org-api";
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
+import { logToApp } from "@/lib/error-report/app-log";
+import { formatError } from "@/lib/format-error";
+import { shouldSyncStandalone } from "../application/org-profile-state";
 
 const EMPTY_PROFILE_STATE = {
   profile: null as Member | null,
@@ -33,6 +35,8 @@ interface ProfileState {
   /** Active lab from profiles.active_org_id. */
   activeOrgId: string | null;
   loading: boolean;
+  /** Set when the last load failed; the state above is then the previous one. */
+  error: string | null;
   refresh: () => Promise<void>;
   switchOrg: (orgId: string) => Promise<void>;
 }
@@ -52,6 +56,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [labMembers, setLabMembers] = useState<Member[]>([]);
   const [memberships, setMemberships] = useState<OrgMembershipView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const userId = user?.id;
@@ -60,6 +65,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       setTeam([]);
       setLabMembers([]);
       setMemberships([]);
+      setError(null);
       return;
     }
     try {
@@ -73,14 +79,17 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         org.loadProfile(),
         org.loadTeam(),
         org.loadLab(),
-        fetchMemberships().catch(() => [] as OrgMembershipView[]),
+        // null, not []: a failed read is not "no labs" (see shouldSyncStandalone).
+        fetchMemberships().catch((err: unknown) => {
+          logToApp({ level: "warn", source: "profile", message: "Memberships did not load.", detail: formatError(err) });
+          return null;
+        }),
       ]);
 
       let profile = mine;
       let team = members;
       let labRoster = lab;
-      const inLab = hasActiveLab(profile?.activeOrgId, labs);
-      if (needsStandaloneRoleSync(profile, labs, inLab)) {
+      if (shouldSyncStandalone(profile, labs)) {
         try {
           await continueStandalone();
           invalidateAllRepoCaches();
@@ -95,12 +104,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       setProfile(profile);
       setTeam(team);
       setLabMembers(labRoster);
-      setMemberships(labs);
-    } catch {
-      setProfile(null);
-      setTeam([]);
-      setLabMembers([]);
-      setMemberships([]);
+      if (labs) setMemberships(labs);
+      setError(null);
+    } catch (err) {
+      // Keep what was shown: a transient failure is not "no profile", which
+      // would put an existing lab member on the setup screen.
+      const message = formatError(err);
+      logToApp({ level: "error", source: "profile", message: "Profile did not load.", detail: message });
+      setError(message);
     }
   }, [user?.id, startup]);
 
@@ -159,6 +170,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         memberships,
         activeOrgId: profile?.activeOrgId ?? null,
         loading,
+        error,
         refresh,
         switchOrg,
       }}

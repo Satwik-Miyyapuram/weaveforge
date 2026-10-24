@@ -10,6 +10,7 @@
  */
 
 import {
+  BlobNotFoundError,
   INK_CHUNK_EXT,
   isInkChunkId,
   isInkNoteId,
@@ -44,11 +45,12 @@ export class BlobInkChunkStore implements InkChunkStore {
         this.bucket,
         await this.path(noteId, chunkId),
       );
-    } catch {
-      // The fetcher throws for "not there" and for "not reachable" alike. Either
-      // way the page opens empty rather than not at all, and the first save
-      // writes what the user draws.
-      return null;
+    } catch (err) {
+      // Only "not there" is an empty page. A read that failed (offline, a
+      // server error, a bad decrypt) is thrown, so the page is not mistaken
+      // for an empty one and saved over.
+      if (err instanceof BlobNotFoundError) return null;
+      throw err;
     }
   }
 
