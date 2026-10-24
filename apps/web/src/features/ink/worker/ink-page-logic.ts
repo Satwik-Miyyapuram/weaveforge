@@ -48,6 +48,8 @@ export interface InkPageState {
   redone: HistoryStep[];
   selection: number[];
   loading: boolean;
+  /** The latest `load-page` that arrived while one was in flight (19-06). */
+  pendingLoad: Extract<InkWorkerMessage, { type: "load-page" }> | null;
   background: ImageBitmap | null;
 }
 
@@ -86,16 +88,26 @@ export function reportHistory(
   });
 }
 
-/** Load a page's bytes into the buffer and the renderer. */
+/**
+ * Load a page's bytes into the buffer and the renderer. A load that arrives
+ * while one is in flight waits; of several that wait, only the latest runs, so
+ * quick page turns end on the last page asked for (19-06).
+ *
+ * The page index moves with the page, only once it is decoded: until then
+ * saves and models still answer for the old page, and a page that fails to
+ * decode leaves the old one as it was (19-03).
+ */
 export async function loadPage(
   state: InkPageState,
   message: Extract<InkWorkerMessage, { type: "load-page" }>,
   post: (event: InkWorkerEvent) => void,
 ): Promise<void> {
-  if (state.loading) return;
+  if (state.loading) {
+    state.pendingLoad = message;
+    return;
+  }
   state.loading = true;
   try {
-    state.pageIndex = message.pageIndex;
     // The whole decode happens here, off the main thread, which is the reason the
     // protocol carries bytes rather than a parsed page.
     const model = message.chunk
@@ -115,6 +127,7 @@ export async function loadPage(
           strokes: [],
           lines: [],
         };
+    state.pageIndex = message.pageIndex;
     installPage(state, model, post, message.shown);
   } catch (error) {
     post({
@@ -123,6 +136,11 @@ export async function loadPage(
     });
   } finally {
     state.loading = false;
+  }
+  const queued = state.pendingLoad;
+  if (queued) {
+    state.pendingLoad = null;
+    await loadPage(state, queued, post);
   }
 }
 
@@ -161,13 +179,16 @@ export async function savePage(
   requestId: number,
   post: (event: InkWorkerEvent, transfer?: Transferable[]) => void,
 ): Promise<void> {
+  // Taken with the page, before the encode yields: a load may move the index
+  // meanwhile, and the bytes belong to the page packed here (19-02).
+  const pageIndex = state.pageIndex;
   const page = state.buffer.toPage();
   const strokes = page.strokes.length;
   if (strokes === 0) {
     post({
       type: "page-saved",
       requestId,
-      pageIndex: state.pageIndex,
+      pageIndex,
       bytes: null,
       strokes,
       cleared: !state.loading,
@@ -179,7 +200,7 @@ export async function savePage(
     {
       type: "page-saved",
       requestId,
-      pageIndex: state.pageIndex,
+      pageIndex,
       bytes,
       strokes,
       cleared: false,

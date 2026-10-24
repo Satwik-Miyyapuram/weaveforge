@@ -228,6 +228,7 @@ export function InkHost({
     ensurePageCount,
     onAddPage,
     goToPage,
+    loadError,
   } = useInkNoteStore({
       noteId,
       onSave,
@@ -338,7 +339,8 @@ export function InkHost({
     recogniser: deps.recogniser.bind(deps),
     hints: deps.hints.bind(deps),
     requestModel,
-    sendReplace: (page) => send({ type: "replace-page", page }),
+    sendReplace: (page, pageIndex) =>
+      send({ type: "replace-page", pageIndex, page }),
     metaRef,
     textPagesRef,
     pageIndex,
@@ -768,7 +770,7 @@ export function InkHost({
         lines={lines}
         confidence={confidence}
         progress={progress}
-        unavailable={unavailable}
+        unavailable={loadError ?? unavailable}
         onAccept={onAccept}
         rawText={pureText}
       />

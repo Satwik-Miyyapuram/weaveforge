@@ -1,4 +1,5 @@
 export type { IBlobStore, IBlobFetcher } from "./blob-ports.js";
+export { BlobNotFoundError } from "./blob-ports.js";
 export { guessBlobContentType } from "./blob-content-type.js";
 export type {
   BlobTier,
