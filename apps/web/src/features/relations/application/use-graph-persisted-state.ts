@@ -9,6 +9,7 @@ import {
 } from "@weaveforge/core";
 import { getContainer, type AppContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
+import { registerSessionReset } from "@/lib/cache/clear-session-caches";
 import {
   clearLegacyGraphStorage,
   readGraphStateCache,
@@ -17,6 +18,7 @@ import {
 } from "./graph-legacy-storage";
 
 const stateCache = new Map<string, GraphPersistedState>();
+registerSessionReset(() => stateCache.clear());
 
 function pinnedFromRecord(record: GraphPersistedState["pinned"]): Map<string, { x: number; y: number }> {
   return new Map(Object.entries(record));

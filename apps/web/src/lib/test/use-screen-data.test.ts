@@ -225,6 +225,41 @@ test("screen data: a failed load is written to the app log, not only to state", 
   }
 });
 
+for (const [label, thrown] of [
+  ["a network failure", new TypeError("Failed to fetch")],
+  ["a PostgREST refusal", { code: "42501", details: null, hint: null, message: "permission denied for table papers" }],
+] as const) {
+  test(`screen data: ${label} is left to the request log, not logged twice`, async () => {
+    // The request log already wrote this one when the request failed (xlog-15).
+    clearAllScreenCaches();
+    const reports: { source: string }[] = [];
+    const originalWindow = (globalThis as { window?: unknown }).window;
+    (globalThis as { window?: unknown }).window = {
+      location: { origin: "http://localhost:3000" },
+      weaveforge: {
+        fetchTitle: () => Promise.resolve({}),
+        reportAppLog: (entry: { source: string }) => void reports.push(entry),
+      },
+    };
+    try {
+      const harness = await renderHook(
+        () =>
+          useScreenData<Payload>(SCREEN, async () => {
+            throw thrown;
+          }),
+        undefined,
+        { wrapper: withProject },
+      );
+      await harness.flush();
+      assert.ok(harness.current.error, "the screen still shows the error");
+      assert.deepEqual(reports.filter((r) => r.source === "screen"), []);
+      await harness.unmount();
+    } finally {
+      (globalThis as { window?: unknown }).window = originalWindow;
+    }
+  });
+}
+
 test("screen data: refresh goes past the repository memo, not only the screen cache", async () => {
   // `refresh` exists for a write the write-watch did not see. That write left
   // the repository memo stale too, so clearing only the screen cache reloaded

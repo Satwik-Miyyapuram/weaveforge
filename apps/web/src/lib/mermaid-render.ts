@@ -7,6 +7,8 @@
  * re-render. The server gets the escaped source back; diagrams draw on the
  * client.
  */
+import { registerSessionReset } from "@/lib/cache/clear-session-caches";
+
 export type MermaidModule = Pick<typeof import("pele/lazy"), "renderAsync">;
 
 const MAX_CACHE_ENTRIES = 32;
@@ -31,6 +33,9 @@ export function mermaidCacheSize(): number {
 export function clearMermaidCache(): void {
   renderCache.clear();
 }
+
+// A diagram can quote a private note; it goes with the account.
+registerSessionReset(clearMermaidCache);
 
 /**
  * An id for a diagram from its source, so the same fence renders to the same

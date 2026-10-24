@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import type { Member, OrgMembershipView } from "@weaveforge/core";
@@ -161,20 +162,23 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     };
   }, [refresh, startupPresent, startupLoading, startup?.snapshot]);
 
+  const value = useMemo(
+    () => ({
+      profile,
+      team,
+      labMembers,
+      memberships,
+      activeOrgId: profile?.activeOrgId ?? null,
+      loading,
+      error,
+      refresh,
+      switchOrg,
+    }),
+    [profile, team, labMembers, memberships, loading, error, refresh, switchOrg],
+  );
+
   return (
-    <Ctx.Provider
-      value={{
-        profile,
-        team,
-        labMembers,
-        memberships,
-        activeOrgId: profile?.activeOrgId ?? null,
-        loading,
-        error,
-        refresh,
-        switchOrg,
-      }}
-    >
+    <Ctx.Provider value={value}>
       {children}
     </Ctx.Provider>
   );

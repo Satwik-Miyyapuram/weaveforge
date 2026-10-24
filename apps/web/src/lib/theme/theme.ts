@@ -9,6 +9,37 @@ import {
 
 export type { SurfaceStyle, ThemeConfig };
 
+/**
+ * Every localStorage key the appearance lives under. The boot script below
+ * spells them out because it runs as a string before any module loads.
+ */
+export const THEME_KEY = {
+  mode: "thesis.mode",
+  legacyTheme: "thesis.theme",
+  light: "thesis.theme.light",
+  dark: "thesis.theme.dark",
+  controlSize: "thesis.controlSize",
+  surfaces: "thesis.surfaces",
+  cardTint: "thesis.cardTint",
+  cardTilt: "thesis.cardTilt",
+  scanlines: "thesis.scanlines",
+  reactiveMotion: "thesis.reactiveMotion",
+  customTheme: "thesis.customTheme",
+} as const;
+
+export const THEME_STORAGE_KEYS: readonly string[] = Object.values(THEME_KEY);
+
+/** Forget this device's stored appearance (account deletion). Best effort. */
+export function clearStoredAppearance(): void {
+  for (const key of THEME_STORAGE_KEYS) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* storage blocked: nothing to clear */
+    }
+  }
+}
+
 const LIGHT_THEMES = [
   "brutal",
   "crt",
@@ -117,7 +148,7 @@ export function applySurfaceStyle(style: SurfaceStyle): void {
 
 export function readStoredSurfaceStyle(): SurfaceStyle {
   try {
-    return sanitizeSurfaceStyle(localStorage.getItem("thesis.surfaces"));
+    return sanitizeSurfaceStyle(localStorage.getItem(THEME_KEY.surfaces));
   } catch {
     return "borderless";
   }
@@ -152,7 +183,7 @@ export function applyCardTint(tint: CardTint): void {
 
 export function readStoredCardTint(): CardTint {
   try {
-    return sanitizeCardTint(localStorage.getItem("thesis.cardTint"));
+    return sanitizeCardTint(localStorage.getItem(THEME_KEY.cardTint));
   } catch {
     return "full";
   }
@@ -175,7 +206,7 @@ export function applyCardTilt(on: boolean): void {
 
 export function readStoredCardTilt(): boolean {
   try {
-    return localStorage.getItem("thesis.cardTilt") !== "0";
+    return localStorage.getItem(THEME_KEY.cardTilt) !== "0";
   } catch {
     return true;
   }
@@ -189,7 +220,7 @@ export function applyScanlines(on: boolean): void {
 
 export function readStoredScanlines(): boolean {
   try {
-    return localStorage.getItem("thesis.scanlines") !== "0";
+    return localStorage.getItem(THEME_KEY.scanlines) !== "0";
   } catch {
     return true;
   }
@@ -212,7 +243,7 @@ export function applyReactiveMotion(on: boolean): void {
 
 export function readStoredReactiveMotion(): boolean {
   try {
-    return localStorage.getItem("thesis.reactiveMotion") === "1";
+    return localStorage.getItem(THEME_KEY.reactiveMotion) === "1";
   } catch {
     return false;
   }
@@ -261,7 +292,7 @@ export function applyCustomTheme(config: ThemeConfig | null): void {
 
 export function readStoredCustomTheme(): ThemeConfig | null {
   try {
-    const raw = localStorage.getItem("thesis.customTheme");
+    const raw = localStorage.getItem(THEME_KEY.customTheme);
     if (!raw) return null;
     return normalizeThemeConfig(JSON.parse(raw));
   } catch {
@@ -281,7 +312,7 @@ export function applyControlSize(size: ControlSizeId): void {
 
 export function readStoredControlSize(): ControlSizeId {
   try {
-    return sanitizeControlSize(localStorage.getItem("thesis.controlSize"));
+    return sanitizeControlSize(localStorage.getItem(THEME_KEY.controlSize));
   } catch {
     return "default";
   }
@@ -289,9 +320,9 @@ export function readStoredControlSize(): ControlSizeId {
 
 export function readStoredMode(): ThemeMode {
   try {
-    const m = localStorage.getItem("thesis.mode");
+    const m = localStorage.getItem(THEME_KEY.mode);
     if (m === "light" || m === "dark") return m;
-    const old = localStorage.getItem("thesis.theme");
+    const old = localStorage.getItem(THEME_KEY.legacyTheme);
     if (old === "light") return "light";
     if (old) return "dark";
   } catch {
@@ -307,8 +338,8 @@ export function readStoredThemeIds(): { light: string; dark: string } {
   let light: string = DEFAULT_LIGHT_THEME;
   let dark: string = DEFAULT_DARK_THEME;
   try {
-    light = localStorage.getItem("thesis.theme.light") || DEFAULT_LIGHT_THEME;
-    dark = localStorage.getItem("thesis.theme.dark") || DEFAULT_DARK_THEME;
+    light = localStorage.getItem(THEME_KEY.light) || DEFAULT_LIGHT_THEME;
+    dark = localStorage.getItem(THEME_KEY.dark) || DEFAULT_DARK_THEME;
   } catch {
     /* ignore */
   }

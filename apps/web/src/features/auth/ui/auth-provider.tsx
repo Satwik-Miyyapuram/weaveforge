@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -195,8 +196,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await getLightContainer().auth.updatePassword(password);
   }, []);
 
+  const value = useMemo(
+    () => ({ user, loading, expired, sessionEpoch, signOut, updatePassword }),
+    [user, loading, expired, sessionEpoch, signOut, updatePassword],
+  );
+
   return (
-    <AuthContext.Provider value={{ user, loading, expired, sessionEpoch, signOut, updatePassword }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

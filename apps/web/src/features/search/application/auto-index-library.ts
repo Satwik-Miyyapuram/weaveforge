@@ -1,5 +1,6 @@
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { getContainer } from "@/bootstrap";
+import { registerSessionReset } from "@/lib/cache/clear-session-caches";
 import {
   indexLibraryPdfs,
   papersNeedingIndex,
@@ -37,6 +38,19 @@ export interface AutoIndexStatus {
   progress: LibraryIndexProgress | null;
   last: LibraryIndexResult | null;
 }
+
+/** What a run reads and calls; tests pass their own. */
+export interface AutoIndexDeps {
+  projectId(): string | null;
+  papersNeedingIndex: typeof papersNeedingIndex;
+  indexLibraryPdfs: typeof indexLibraryPdfs;
+}
+
+const defaultDeps: AutoIndexDeps = {
+  projectId: () => getContainer().projects.context.projectId,
+  papersNeedingIndex,
+  indexLibraryPdfs,
+};
 
 let status: AutoIndexStatus = { running: false, progress: null, last: null };
 const listeners = new Set<() => void>();
@@ -103,27 +117,30 @@ function rememberFailures(failures: Record<string, number>): void {
  * Called when the search index first lands; a no-op when turned off, already
  * running, or already done for this project.
  */
-export async function startAutoIndex(delayMs = START_DELAY_MS): Promise<void> {
+export async function startAutoIndex(delayMs = START_DELAY_MS, deps: AutoIndexDeps = defaultDeps): Promise<void> {
   if (!autoIndexEnabled() || status.running) return;
-  const projectId = getContainer().projects.context.projectId;
+  const projectId = deps.projectId();
   if (startedFor === projectId) return;
   startedFor = projectId;
 
-  controller = new AbortController();
-  const signal = controller.signal;
+  const own = new AbortController();
+  controller = own;
+  const signal = own.signal;
   set({ running: true, progress: null });
   try {
     if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
     if (signal.aborted) return;
 
     const failures = recentFailures();
-    const papers = (await papersNeedingIndex()).filter((paper) => !(paper.id in failures));
+    const papers = (await deps.papersNeedingIndex()).filter((paper) => !(paper.id in failures));
     if (papers.length === 0) return;
 
-    const result = await indexLibraryPdfs(papers, {
+    const result = await deps.indexLibraryPdfs(papers, {
       signal,
       onProgress: (progress) => set({ progress }),
     });
+    // Stopped mid-run: the next user or project must not see this result.
+    if (signal.aborted) return;
 
     const now = Date.now();
     const titles = new Map(papers.map((paper) => [paper.title, paper.id]));
@@ -136,7 +153,23 @@ export async function startAutoIndex(delayMs = START_DELAY_MS): Promise<void> {
   } catch {
     // Background and best-effort: the button is still there, and says why.
   } finally {
-    controller = null;
-    set({ running: false, progress: null });
+    // A stopped run's cleanup must not end the run that replaced it.
+    if (controller === own) {
+      controller = null;
+      set({ running: false, progress: null });
+    }
   }
 }
+
+/**
+ * Abort the run and forget it, on sign-out or a project switch: a run left
+ * going reads the last project's papers into the next one's index.
+ */
+export function stopAutoIndex(): void {
+  controller?.abort();
+  controller = null;
+  startedFor = undefined;
+  set({ running: false, progress: null, last: null });
+}
+
+registerSessionReset(stopAutoIndex);
