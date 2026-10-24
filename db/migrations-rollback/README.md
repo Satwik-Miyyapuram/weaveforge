@@ -22,6 +22,8 @@ node -e "const{Client}=require('pg');const fs=require('fs');(async()=>{const c=n
 | `0116_ai_mcp_relay_retention.sql` | The retention job over `ai_mcp_relay_requests` |
 | `0131_metric_activity_rpc.sql` | `latest_metric_activity`, `metric_history` and the activity index — read-only, so lossless |
 | `0132_compact_crdt_log_rpc.sql` | `compact_crdt_log` — lossless in data, a regression in behaviour: without it compaction is two calls with no rights check |
+| `0141_privileged_rpc_grants.sql` | Server-only RPC revokes, per-caller share-link miss limit, metric name cap — lossless in data, a security regression; also stop applying self-hosted `0030` |
+| `0142_project_ownership_policies.sql` | Project, paper and list ownership checks in row policies (0077, 0102–0104, 0107, 0110, 0120) — lossless in data, a security regression |
 | `0144_metric_chunk_fixes.sql` | The 0144 chunk fixes — restores the 0115 removal and rollup and the 0131 activity read; cleared duplicate chunk copies do not come back |
 
 This table had drifted three migrations behind the folder — `0116`, `0131` and

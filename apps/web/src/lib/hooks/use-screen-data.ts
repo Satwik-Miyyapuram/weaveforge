@@ -5,6 +5,7 @@ import { useProject } from "@/features/projects";
 import {
   clearScreenCachesForScreens, getScreenCache, isScreenCacheFresh, screenCacheKey, setScreenCache, } from "@/lib/cache/screen-cache";
 import { idbGetScreenCache, idbSetScreenCache } from "@/lib/cache/screen-cache-idb";
+import { clearRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { perfNow, recordPerf, recordPerfSince } from "@/lib/perf";
 import { formatError } from "@/lib/format-error";
 import { logToApp } from "@/lib/error-report/app-log";
@@ -143,9 +144,12 @@ export function useScreenData<T>(screen: ScreenId, load: () => Promise<T>) {
    * {@link SCREEN_REVALIDATE_AFTER_MS}, which is right for a tab switch and
    * wrong straight after this screen changed something itself: a write that
    * reaches the store by a path the write-watch does not see left the old
-   * payload "fresh", and the screen showed what had just been undone.
+   * payload "fresh", and the screen showed what had just been undone. The
+   * repository memo behind the loader is cleared too, or the reload would be
+   * answered from it.
    */
   const refresh = useCallback(async () => {
+    clearRepoCaches();
     clearScreenCachesForScreens(projectId, [screen]);
     await reload();
   }, [projectId, screen, reload]);
