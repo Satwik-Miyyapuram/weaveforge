@@ -16,8 +16,7 @@ import {
   inkNoteWidthToPdfPoints,
   screenPointToPdf,
   translateInkPaths,
-  READER_MIN_SCALE,
-  READER_MAX_SCALE,
+  clampZoomFactor,
   type AnchorConfidence,
   type ReaderPageSize,
   type DocumentSearchMatch,
@@ -875,6 +874,15 @@ export function PdfReader({
     let isPinching = false;
     let baseScale = 1;
 
+    /** Draw the live zoom preview at most once a frame. */
+    const showPreview = () => {
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        setZoomPreview({ factor: accumulatedFactor, x: gestureFocus.x, y: gestureFocus.y });
+      });
+    };
+
     const finishPinch = () => {
       if (commitTimer != null) {
         window.clearTimeout(commitTimer);
@@ -914,22 +922,9 @@ export function PdfReader({
 
       // Negative dy zooms in (> 1), positive dy zooms out (< 1)
       const factorDelta = Math.exp(-dy * 0.002);
-      accumulatedFactor *= factorDelta;
+      accumulatedFactor = clampZoomFactor(accumulatedFactor * factorDelta, baseScale);
 
-      const minFactor = READER_MIN_SCALE / baseScale;
-      const maxFactor = READER_MAX_SCALE / baseScale;
-      accumulatedFactor = Math.min(maxFactor, Math.max(minFactor, accumulatedFactor));
-
-      if (rafId == null) {
-        rafId = requestAnimationFrame(() => {
-          rafId = null;
-          setZoomPreview({
-            factor: accumulatedFactor,
-            x: gestureFocus.x,
-            y: gestureFocus.y,
-          });
-        });
-      }
+      showPreview();
 
       if (commitTimer != null) {
         window.clearTimeout(commitTimer);
@@ -956,19 +951,8 @@ export function PdfReader({
       const ge = e as unknown as { scale?: number };
       if (!isPinching) return;
       const scaleVal = typeof ge.scale === "number" ? ge.scale : 1;
-      const minFactor = READER_MIN_SCALE / baseScale;
-      const maxFactor = READER_MAX_SCALE / baseScale;
-      accumulatedFactor = Math.min(maxFactor, Math.max(minFactor, scaleVal));
-      if (rafId == null) {
-        rafId = requestAnimationFrame(() => {
-          rafId = null;
-          setZoomPreview({
-            factor: accumulatedFactor,
-            x: gestureFocus.x,
-            y: gestureFocus.y,
-          });
-        });
-      }
+      accumulatedFactor = clampZoomFactor(scaleVal, baseScale);
+      showPreview();
     };
 
     const onGestureEnd = (e: Event) => {
