@@ -35,6 +35,7 @@ import {
   useStableResolver,
 } from "./use-ink-sheet-images";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
+import { logToApp } from "@/lib/error-report/app-log";
 
 export interface InkReaderProps {
   noteId: string;
@@ -81,6 +82,10 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
       .then((loaded) => {
         if (!live) return;
         setPages(loaded);
+      })
+      // The reader only shows; a failed load leaves the pages it has (21-17).
+      .catch((err: unknown) => {
+        logToApp({ level: "error", source: "ink", message: `Could not load the ink of ${noteId}`, detail: String(err) });
       });
     return () => {
       live = false;

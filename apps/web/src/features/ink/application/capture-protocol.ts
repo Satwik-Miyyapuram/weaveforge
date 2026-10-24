@@ -153,9 +153,10 @@ export type InkWorkerMessage =
   /**
    * Replace the page wholesale, after recognition reordered its strokes into
    * line order and attached the line table (§5.4). Undo history is cleared: the
-   * indices it holds no longer name the same strokes.
+   * indices it holds no longer name the same strokes. Ignored when the worker
+   * is no longer on `pageIndex`.
    */
-  | { type: "replace-page"; page: InkPage }
+  | { type: "replace-page"; pageIndex: number; page: InkPage }
   /** Select the strokes inside a closed polygon, in page units. Reply: `selected`. */
   | { type: "lasso"; polygon: number[] }
   | { type: "select-clear" }
