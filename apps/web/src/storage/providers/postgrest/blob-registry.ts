@@ -54,7 +54,9 @@ export class PostgrestBlobRegistry implements IBlobRegistry {
       tier: input.tier ?? "hot",
       size_bytes: input.sizeBytes,
       priority: input.priority ?? 50,
-    }));
+      // The row's key is a uuid; a path is unique per bucket. Without a target
+      // the upsert resolves on the key and a re-register is a 23505.
+    }, { onConflict: "bucket,path" }));
   }
 
   /**
