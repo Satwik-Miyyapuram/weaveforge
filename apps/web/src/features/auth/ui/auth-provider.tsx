@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import type { AuthUser } from "../domain/auth";
+import { nextAuthStep } from "../domain/auth-transition";
 import { clearSessionCaches } from "@/lib/cache/clear-session-caches";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
@@ -67,66 +68,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       unsubscribe = auth.onChange((u) => {
         if (!active) return;
         setLoading(false);
-        const previous = lastUser.current;
-        if (u === null) {
-          // A desktop working on its own copy of the account opens with that
-          // account even when the session is gone: the work is on this
-          // computer, and only syncing it needs a sign-in.
-          const account = previous || signingOut.current ? null : localFirstActive();
-          if (account) {
-            const offline: AuthUser = { id: account.id, email: account.email ?? undefined, providers: [] };
-            lastUser.current = offline;
+        const step = nextAuthStep({
+          user: u,
+          previous: lastUser.current,
+          signingOut: signingOut.current,
+          wasExpired: wasExpired.current,
+          desktop: Boolean(desktop()),
+          localAccount: localFirstActive,
+        });
+        switch (step.kind) {
+          case "offline":
+            lastUser.current = step.user;
             wasExpired.current = true;
             setSessionLost(true);
             setExpired(true);
-            setUser(offline);
+            setUser(step.user);
             return;
-          }
-          // An expired or revoked session is not a sign-out. On the desktop
-          // the person has a workspace folder open and work in progress;
-          // wiping the session closed the folder and threw them onto the login
-          // screen mid-sentence. Keep everything and ask them to sign back in.
-          // Only a deliberate sign-out (or a browser, which has no folder to
-          // lose) clears the session.
-          if (previous && !signingOut.current && desktop()) {
+          case "expired":
             wasExpired.current = true;
             setSessionLost(true);
             setExpired(true);
             return;
-          }
-          wasExpired.current = false;
-          setSessionLost(false);
-          signingOut.current = false;
-          lastUser.current = null;
-          setExpired(false);
-          clearSessionCaches();
-          setUser(null);
-          return;
+          case "signedOut":
+            wasExpired.current = false;
+            setSessionLost(false);
+            signingOut.current = false;
+            lastUser.current = null;
+            setExpired(false);
+            clearSessionCaches();
+            setUser(null);
+            return;
+          case "otherAccountOnDisk":
+            setLocalFirstAccount(null);
+            clearSessionCaches();
+            window.location.reload();
+            return;
+          case "signedIn":
+            if (step.clearCaches) clearSessionCaches();
+            else if (step.refetch) {
+              invalidateAllRepoCaches();
+              clearAllScreenCaches();
+              setSessionEpoch((n) => n + 1);
+            }
+            wasExpired.current = false;
+            setSessionLost(false);
+            lastUser.current = step.user;
+            setExpired(false);
+            setUser(step.user);
         }
-        // This window reads another account's copy on this computer. Start over
-        // against the server; the new account's copy is set up from there.
-        const onDisk = localFirstActive();
-        if (onDisk && onDisk.id !== u.id) {
-          setLocalFirstAccount(null);
-          clearSessionCaches();
-          window.location.reload();
-          return;
-        }
-        // Signing back in as someone else must not inherit the last user's caches.
-        if (previous && previous.id !== u.id) clearSessionCaches();
-        else if (wasExpired.current) {
-          // Back from a lapsed session as the same person. Nothing on this
-          // device is wrong, only what was fetched while signed out: drop
-          // those answers and let every screen ask again.
-          invalidateAllRepoCaches();
-          clearAllScreenCaches();
-          setSessionEpoch((n) => n + 1);
-        }
-        wasExpired.current = false;
-        setSessionLost(false);
-        lastUser.current = u;
-        setExpired(false);
-        setUser(u);
       });
     }).catch((error: unknown) => {
       // A chunk that fails to load would otherwise leave the app on its
