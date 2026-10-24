@@ -1,8 +1,9 @@
 import { app, safeStorage } from "electron";
-import { readFile, rename, writeFile } from "node:fs/promises";
+import { rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { PreferenceStore, pagePreferences } from "./preference-store";
+import { readIfPresent } from "./read-if-present";
 import { SecretStore, pageSecrets } from "./secret-store";
 import { temporaryName } from "./write-queue";
 
@@ -24,7 +25,7 @@ import { temporaryName } from "./write-queue";
 export function preferenceStore(): PreferenceStore {
   const file = path.join(app.getPath("userData"), "preferences.json");
   return new PreferenceStore({
-    read: () => readFile(file, "utf8").catch(() => null),
+    read: () => readIfPresent(file),
     write: (contents) => writeWhole(file, contents),
   });
 }
@@ -63,7 +64,7 @@ async function writeWhole(
 export function secretStore(): SecretStore {
   const file = path.join(app.getPath("userData"), "secrets.json");
   return new SecretStore(safeStorage, {
-    read: () => readFile(file, "utf8").catch(() => null),
+    read: () => readIfPresent(file),
     write: (contents) => writeWhole(file, contents, 0o600),
   });
 }
