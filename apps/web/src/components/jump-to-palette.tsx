@@ -20,6 +20,8 @@ import {
   type RecentTargetKind,
 } from "@/lib/recent-targets";
 import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
+import { createNoteFromQuery } from "@/lib/create-note-from-query";
+import { FormError } from "@/components/form-error";
 
 /** Kinds recorded as recent targets when opened. */
 const RECENT_KINDS = ["paper", "note", "section"] as const satisfies readonly RecentTargetKind[];
@@ -98,6 +100,7 @@ export function JumpToPalette() {
   // encoder is attached, so nothing changes for anyone who has not opted in.
   const { search: searchIndex, searchHybrid, ready: indexReady } = useHybridSearchIndex(open);
   const [history, setHistory] = useState<string[]>([]);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const catalog = await loadCiteLinkCatalog();
@@ -142,6 +145,7 @@ export function JumpToPalette() {
   const openPalette = useCallback(() => {
     setOpen(true);
     setQuery("");
+    setCreateError(null);
     setActive(0);
     setHistory(readHistory());
     void reload();
@@ -291,10 +295,16 @@ export function JumpToPalette() {
 
   /** Turn a fruitless search into the note it was looking for. */
   const createFromQuery = useCallback(async () => {
-    const title = query.trim();
-    if (!title) return;
-    const page = await getContainer().vault.manageVaultPage.add({ title });
-    const next = rememberSearchQuery(history, title);
+    setCreateError(null);
+    const result = await createNoteFromQuery(query, (input) => getContainer().vault.manageVaultPage.add(input));
+    if (!result) return;
+    if (!result.ok) {
+      // The palette stays open with the query, so the user can retry.
+      setCreateError(result.error);
+      return;
+    }
+    const { page } = result;
+    const next = rememberSearchQuery(history, query.trim());
     setHistory(next);
     writeHistory(next);
     setOpen(false);
@@ -332,6 +342,7 @@ export function JumpToPalette() {
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
+          setCreateError(null);
           setActive(0);
         }}
         aria-label="Search"
@@ -392,6 +403,7 @@ export function JumpToPalette() {
           </li>
         )}
       </ul>
+      {createError ? <FormError reportable={false}>{createError}</FormError> : null}
       <p className="muted jump-to-meta">Ctrl/Cmd+K · Ctrl+J/K to move · Esc to close</p>
     </Modal>
   );

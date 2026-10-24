@@ -108,7 +108,6 @@ export interface SubmenuFlyoutProps {
   style?: CSSProperties;
   gap?: number;
   pad?: number;
-  onClose?: () => void;
 }
 
 /**
@@ -236,16 +235,21 @@ export function Menu({
       );
       const activeIndex = buttons.findIndex((b) => b === document.activeElement);
 
+      // A submenu list sits inside its parent's list. Keys handled here stop
+      // so the parent does not move focus a second time.
       if (e.key === "ArrowDown") {
         e.preventDefault();
+        e.stopPropagation();
         const next = activeIndex < buttons.length - 1 ? activeIndex + 1 : 0;
         buttons[next]?.focus();
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
+        e.stopPropagation();
         const prev = activeIndex > 0 ? activeIndex - 1 : buttons.length - 1;
         buttons[prev]?.focus();
       } else if (e.key === "Escape") {
         e.preventDefault();
+        e.stopPropagation();
         if (openSub) {
           setOpenSub(null);
         } else {
@@ -254,6 +258,7 @@ export function Menu({
       } else if (e.key === "ArrowLeft") {
         if (openSub) {
           e.preventDefault();
+          e.stopPropagation();
           setOpenSub(null);
         }
       }
@@ -347,7 +352,7 @@ function MenuItemRow({
         )}
       </button>
       {hasSubmenu && isOpen && (
-        <SubmenuFlyout anchorRef={rowRef} onClose={() => onToggleSubmenu()}>
+        <SubmenuFlyout anchorRef={rowRef}>
           {renderSubmenuContent()}
         </SubmenuFlyout>
       )}

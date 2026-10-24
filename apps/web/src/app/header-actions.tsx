@@ -287,7 +287,7 @@ function OrgMenuSubmenu({
         </span>
       </button>
       {open && (
-        <SubmenuFlyout anchorRef={rowRef} onClose={() => setOpen(false)}>
+        <SubmenuFlyout anchorRef={rowRef}>
           <div className="org-menu-flyout-list" style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: "200px" }}>
             {labs.map((m) => (
               <button

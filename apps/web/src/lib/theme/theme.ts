@@ -165,7 +165,7 @@ export const CARD_TINT_OPTIONS: ReadonlyArray<{ id: CardTint; label: string; not
 ];
 
 export function sanitizeCardTint(id: string | null | undefined): CardTint {
-  return id === "bar" || id === "border" || id === "none" ? id : "full";
+  return CARD_TINT_OPTIONS.find((option) => option.id === id)?.id ?? "full";
 }
 
 /** styles/card-tint.css reads `data-tint`, in every theme. */
@@ -277,8 +277,7 @@ export function readStoredCustomTheme(): ThemeConfig | null {
 }
 
 export function sanitizeControlSize(id: string | null | undefined): ControlSizeId {
-  if (id === "compact" || id === "default" || id === "comfortable") return id;
-  return "default";
+  return CONTROL_SIZES.find((size) => size === id) ?? "default";
 }
 
 /** Apply icon/toggle scale token to document.documentElement. */

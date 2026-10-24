@@ -256,7 +256,6 @@ function EditLogForm({
   const [kind, setKind] = useState<LogKind>(entry.kind);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const useCollab = getContainer().collab.enabled();
 
   /**
    * Autosave from the collaborative editor. Deliberately does *not* call
@@ -291,23 +290,13 @@ function EditLogForm({
     <form className="add-form" onSubmit={submit}>
       <div className="field">
         <label htmlFor={`body-${entry.id}`}>What did you do?</label>
-        {useCollab ? (
-          <CollabBodyHost
-            resourceType="log_entry"
-            resourceId={entry.id}
-            initialBody={body}
-            onSave={saveBody}
-            className="vault-body-input vault-codemirror"
-          />
-        ) : (
-          <textarea
-            id={`body-${entry.id}`}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={3}
-            required
-          />
-        )}
+        <CollabBodyHost
+          resourceType="log_entry"
+          resourceId={entry.id}
+          initialBody={body}
+          onSave={saveBody}
+          className="vault-body-input vault-codemirror"
+        />
       </div>
       <div className="field">
         <label htmlFor={`kind-${entry.id}`}>Kind</label>
@@ -327,7 +316,7 @@ function EditLogForm({
             submits, because the Kind select is not collaborative and would
             otherwise have no way to be saved at all. */}
         <button className="btn-primary" disabled={busy}>
-          {busy ? "Saving…" : useCollab ? "Done" : "Save"}
+          {busy ? "Saving…" : "Done"}
         </button>
       </div>
     </form>
