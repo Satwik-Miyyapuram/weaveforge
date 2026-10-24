@@ -80,14 +80,24 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
   // A crash skips `shutDownLocalDb`; a dead pid's lock is taken over anyway.
   process.on("exit", releaseLock);
 
-  /** Opens a directory and reads one row; the only honest test of "can it open". */
-  async function verifyDatabase(dir: string): Promise<boolean> {
+  /**
+   * The engine on `dir` with no extensions or row parsers: enough to check,
+   * dump or seed a data directory while moving it. `openEngine` is the one the
+   * app queries through.
+   */
+  async function createPlainEngine(dir: string, loadDataDir?: Blob): Promise<LocalClient> {
     prepareDataDir(dir);
     const { PGlite } = await import("@electric-sql/pglite");
-    const client = (await PGlite.create({
+    return (await PGlite.create({
       dataDir: dir,
+      ...(loadDataDir ? { loadDataDir } : {}),
       startParams: engineStartParams(PGlite.defaultStartParams),
     })) as unknown as LocalClient;
+  }
+
+  /** Opens a directory and reads one row; the only honest test of "can it open". */
+  async function verifyDatabase(dir: string): Promise<boolean> {
+    const client = await createPlainEngine(dir);
     try {
       await client.query("select 1");
       return true;
@@ -115,12 +125,7 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       workspaceMetaDir: metaDir,
       verify: verifyDatabase,
       dump: async (dir) => {
-        prepareDataDir(dir);
-        const { PGlite } = await import("@electric-sql/pglite");
-        const client = (await PGlite.create({
-          dataDir: dir,
-          startParams: engineStartParams(PGlite.defaultStartParams),
-        })) as unknown as LocalClient & {
+        const client = (await createPlainEngine(dir)) as LocalClient & {
           dumpDataDir?: (c: "gzip") => Promise<Blob>;
         };
         if (typeof client.dumpDataDir !== "function") {
@@ -131,12 +136,7 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
         return { bytes, close: () => client.close() };
       },
       load: async (targetDir, bytes) => {
-        const { PGlite } = await import("@electric-sql/pglite");
-        const client = (await PGlite.create({
-          dataDir: targetDir,
-          loadDataDir: bytes as Blob,
-          startParams: engineStartParams(PGlite.defaultStartParams),
-        })) as unknown as LocalClient;
+        const client = await createPlainEngine(targetDir, bytes as Blob);
         await client.close();
       },
     });
@@ -144,9 +144,7 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
     console.log(`[local-db] ${result.note}: ${storageDir}`);
     return storageDir;
   }
-  
-  
-  
+
   /**
    * Copies of the database, under the app's directory and under the workspace
    * folder's `.weaveforge/` when there is one; see `local-db-backup.ts`. Taken

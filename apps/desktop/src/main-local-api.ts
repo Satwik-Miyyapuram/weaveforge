@@ -240,24 +240,45 @@ export function registerMainLocalApi(
     };
   }
 
-  ipc.handle(CHANNELS.localApiState, async () => ({ ok: true, value: await snapshot() }));
+  /**
+   * Every handler answers `{ ok: false }` rather than rejecting (xipc-07): a
+   * rejected invoke reaches the page as a bare error the panels do not show.
+   */
+  const handle = (channel: string, listener: (event: unknown, ...args: unknown[]) => Promise<unknown>) =>
+    ipc.handle(channel, async (event, ...args) => {
+      try {
+        return await listener(event, ...args);
+      } catch (error) {
+        return { ok: false, message: errorMessage(error, "Something went wrong.") };
+      }
+    });
 
-  ipc.handle(CHANNELS.localApiSet, async (_event, enabled: unknown) => {
+  /** Save the switch, or say why it did not stick (xipc-11). */
+  async function saveEnabled(enabled: boolean): Promise<{ ok: true } | { ok: false; message: string }> {
+    const saved = await preferenceStore().write("local-api", enabled);
+    return saved.ok ? { ok: true } : { ok: false, message: `Could not save the setting: ${saved.message}` };
+  }
+
+  handle(CHANNELS.localApiState, async () => ({ ok: true, value: await snapshot() }));
+
+  handle(CHANNELS.localApiSet, async (_event, enabled: unknown) => {
     if (enabled !== true) {
       // Tokens survive switching off, so scripts work again once it is back on.
-      await preferenceStore().write("local-api", false);
+      const saved = await saveEnabled(false);
+      if (!saved.ok) return saved;
       await localApi?.close();
       localApi = null;
       startError = undefined;
       return { ok: true, value: await snapshot() };
     }
     remember(await readTokens());
-    await preferenceStore().write("local-api", true);
+    const saved = await saveEnabled(true);
+    if (!saved.ok) return saved;
     await startIfEnabled();
     return { ok: true, value: await snapshot() };
   });
 
-  ipc.handle(CHANNELS.localApiTokenCreate, async (_event, request: unknown) => {
+  handle(CHANNELS.localApiTokenCreate, async (_event, request: unknown) => {
     const r = (request ?? {}) as { name?: unknown; permissions?: unknown; expiresAt?: unknown };
     const tokens = await readTokens();
     if (tokens.length >= MAX_LOCAL_API_TOKENS)
@@ -281,7 +302,7 @@ export function registerMainLocalApi(
     return { ok: true, value: await snapshot({ issued: { id: record.id, token } }) };
   });
 
-  ipc.handle(CHANNELS.localApiTokenRevoke, async (_event, id: unknown) => {
+  handle(CHANNELS.localApiTokenRevoke, async (_event, id: unknown) => {
     const tokens = await readTokens();
     const saved = await savedMcp(tokens);
     const kept = await writeTokens(tokens.filter((t) => t.id !== id));
@@ -291,9 +312,10 @@ export function registerMainLocalApi(
     return { ok: true, value: await snapshot() };
   });
 
-  ipc.handle(CHANNELS.mcpConnect, async () => {
+  handle(CHANNELS.mcpConnect, async () => {
     const tokens = await readTokens();
     let connection = await savedMcp(tokens);
+    let issued: string | null = null;
     if (!connection) {
       if (tokens.length >= MAX_LOCAL_API_TOKENS)
         return { ok: false, message: `At most ${MAX_LOCAL_API_TOKENS} tokens. Revoke one in Access tokens first.` };
@@ -301,6 +323,7 @@ export function registerMainLocalApi(
       const kept = await writeTokens([...tokens, record]);
       if (!kept.ok) return kept;
       connection = { url: "", apiUrl: "", token, tokenId: record.id };
+      issued = record.id;
     }
     try {
       await writeMcpConnection(
@@ -309,15 +332,18 @@ export function registerMainLocalApi(
         listedTools(true),
       );
     } catch (error) {
+      // A token no client file names is one nobody can use or see to revoke (37-20).
+      if (issued) await writeTokens(tokens.filter((t) => t.id !== issued));
       return { ok: false, message: `Could not write ${deps.mcpPaths.file}: ${error instanceof Error ? error.message : error}` };
     }
     remember(await readTokens());
-    await preferenceStore().write("local-api", true);
+    const saved = await saveEnabled(true);
+    if (!saved.ok) return saved;
     await startIfEnabled();
     return { ok: true, value: await snapshot() };
   });
 
-  ipc.handle(CHANNELS.mcpDisconnect, async () => {
+  handle(CHANNELS.mcpDisconnect, async () => {
     const tokens = await readTokens();
     const saved = await readMcpConnection(deps.mcpPaths.file);
     if (saved) {
@@ -328,7 +354,7 @@ export function registerMainLocalApi(
     return { ok: true, value: await snapshot() };
   });
 
-  ipc.handle(CHANNELS.mcpOpenClient, async (_event, client: unknown) => {
+  handle(CHANNELS.mcpOpenClient, async (_event, client: unknown) => {
     if (!MCP_OPEN_CLIENTS.includes(client as McpOpenClient)) return { ok: false, message: "Unknown client." };
     if (!(await savedMcp(await readTokens()))) return { ok: false, message: "Connect first." };
     const launch = mcpLaunch(deps.mcpPaths, deps.execPath);

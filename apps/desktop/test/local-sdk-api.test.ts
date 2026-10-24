@@ -206,3 +206,25 @@ test("an artifact name that could leave its folder is refused", async () => {
   const answer = await routeSdkRequest(query, request, url, path, async () => "never");
   assert.equal(answer?.status, 400);
 });
+
+test("a flush over the web route's 5000-point cap is refused; 5000 goes in (37-08)", async () => {
+  const point = { experiment_id: "exp-1", metric: "loss", step: 1, value: 0.5 };
+  const big = db();
+  const over = await route(big.query, {
+    method: "POST",
+    url: "/api/sdk/metrics",
+    body: JSON.stringify({ points: Array.from({ length: 5001 }, () => point) }),
+  });
+  assert.equal(over.status, 400);
+  assert.match(over.body.error, /5000/);
+  assert.equal(big.asked.length, 0);
+
+  const ok = db();
+  const at = await route(ok.query, {
+    method: "POST",
+    url: "/api/sdk/metrics",
+    body: JSON.stringify({ points: Array.from({ length: 5000 }, () => point) }),
+  });
+  assert.equal(at.status, 200);
+  assert.ok(ok.asked[0]!.params.length < 65535, "stays under Postgres' bind limit");
+});
