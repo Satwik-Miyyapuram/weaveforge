@@ -202,3 +202,38 @@ test("CardMenu: renders trigger and delegates to Menu", () => {
 
   assert.ok(renderer!.root, "CardMenu mounts successfully with Popover trigger");
 });
+
+test("Menu: a nested list keeps the keys it handles from reaching the parent list (13-02)", () => {
+  const g = globalThis as { document?: unknown };
+  const hadDocument = "document" in g;
+  if (!hadDocument) g.document = { activeElement: null };
+  try {
+    let closed = 0;
+    const items: MenuItem[] = [
+      { id: "smoothing", label: "Smoothing", submenu: [{ id: "ema", label: "ema 0.5" }] },
+    ];
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(createElement(Menu, { items, onClose: () => { closed += 1; } }), {
+        createNodeMock: (el) => (el.type === "ul" ? { querySelectorAll: () => [] } : null),
+      });
+    });
+    act(() => {
+      renderer!.root.findByType("button").props.onClick();
+    });
+    const inner = renderer!.root.findAllByType("ul")[1]!;
+    const press = (key: string) => {
+      const ev = { key, stopped: false, preventDefault() {}, stopPropagation() { ev.stopped = true; } };
+      act(() => inner.props.onKeyDown(ev));
+      return ev.stopped;
+    };
+    assert.equal(press("ArrowDown"), true, "ArrowDown handled by the submenu only");
+    assert.equal(press("ArrowUp"), true, "ArrowUp handled by the submenu only");
+    assert.equal(press("ArrowLeft"), false, "ArrowLeft bubbles so the parent closes the submenu");
+    assert.equal(press("Tab"), false, "unhandled keys bubble");
+    assert.equal(press("Escape"), true, "Escape handled once");
+    assert.equal(closed, 1);
+  } finally {
+    if (!hadDocument) delete g.document;
+  }
+});

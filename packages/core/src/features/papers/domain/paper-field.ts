@@ -52,6 +52,21 @@ export interface NewPaperFieldDefInput {
  */
 export type PaperFieldValueData = string | number | string[];
 
+/**
+ * Read a field value sent from outside (an AI tool or its draft): a non-empty
+ * string, a finite number, or a string list with blanks trimmed away.
+ * `name` starts the error message, e.g. `value` or `Proposal value`.
+ */
+export function parsePaperFieldValue(value: unknown, name: string): PaperFieldValueData {
+  if (typeof value === "string" && value.trim()) return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (Array.isArray(value) && value.every((item) => typeof item === "string")) {
+    const cleaned = (value as string[]).map((item) => item.trim()).filter(Boolean);
+    if (cleaned.length) return cleaned;
+  }
+  throw new Error(`${name} must be a non-empty string, number, or non-empty string list.`);
+}
+
 /** One paper's value for one field definition. */
 export interface PaperFieldValue extends Identifiable {
   id: string;

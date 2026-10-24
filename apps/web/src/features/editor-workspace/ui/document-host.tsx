@@ -51,6 +51,27 @@ export interface DocumentMetrics {
   cursor?: { line: number; col: number };
 }
 
+/**
+ * `sink`, called only when the text or the cursor differs from the last call.
+ * One keystroke reaches the editor's watchers as a doc change, a DOM input and
+ * a keyup; the pane re-renders its outline and status bar once, not three times.
+ */
+export function dedupeMetrics(sink: (metrics: DocumentMetrics) => void): (metrics: DocumentMetrics) => void {
+  let last: DocumentMetrics | undefined;
+  return (metrics) => {
+    if (
+      last &&
+      last.text === metrics.text &&
+      last.cursor?.line === metrics.cursor?.line &&
+      last.cursor?.col === metrics.cursor?.col
+    ) {
+      return;
+    }
+    last = metrics;
+    sink(metrics);
+  };
+}
+
 export interface DocumentLinks {
   notes: WikilinkEntry[];
   papers: WikilinkEntry[];
@@ -179,6 +200,14 @@ const LINK_ROUTES: Record<string, { param: string; kind: string }> = {
   "/report": { param: "section", kind: "report_section" },
 };
 
+/**
+ * A path on this origin. `//host` and `/\host` are protocol-relative: the
+ * browser reads them as another site, so the router must not take them.
+ */
+export function isInAppHref(href: string): boolean {
+  return href.startsWith("/") && href[1] !== "/" && href[1] !== "\\";
+}
+
 export function tabForHref(href: string | null): TabRef | null {
   if (!href) return null;
   const [path, query = ""] = href.split("?");
@@ -210,6 +239,7 @@ export function DocumentHost({
   // away the document and its undo history.
   const metricsRef = useRef(onMetrics);
   metricsRef.current = onMetrics;
+  const reportMetrics = useMemo(() => dedupeMetrics((metrics) => metricsRef.current?.(metrics)), []);
   // The same for the error sink and the create handler: the editing description
   // below is read once, when the stack is built.
   const errorRef = useRef(onError);
@@ -218,8 +248,7 @@ export function DocumentHost({
   createRef.current = onCreateNote;
 
   const watch = useCallback((view: EditorView) => {
-    const report = () =>
-      metricsRef.current?.({ text: view.state.doc.toString(), cursor: cursorAt(view) });
+    const report = () => reportMetrics({ text: view.state.doc.toString(), cursor: cursorAt(view) });
     report();
     // `input` is CodeMirror's own DOM event for "the document changed", and a
     // selection change arrives as a keyup or a mouseup next to it. Listening on
@@ -236,7 +265,7 @@ export function DocumentHost({
       view.dom.removeEventListener("mouseup", onInput);
       view.dom.removeEventListener("focus", onInput);
     };
-  }, []);
+  }, [reportMetrics]);
 
   // The live text, kept here as well as reported, because the preview below
   // reads it: a preview of the last save is a preview of half a minute ago.
@@ -260,8 +289,8 @@ export function DocumentHost({
   const onDocChange = useCallback((view: EditorView) => {
     const text = view.state.doc.toString();
     setLiveBody(text);
-    metricsRef.current?.({ text, cursor: cursorAt(view) });
-  }, []);
+    reportMetrics({ text, cursor: cursorAt(view) });
+  }, [reportMetrics]);
   const [previewMode, choosePreview] = useMdPreviewMode();
 
   const imagePaste = useMemo<ImagePasteConfig | undefined>(() => {
@@ -300,7 +329,7 @@ export function DocumentHost({
       const anchor = (event.target as HTMLElement).closest("a[href]");
       if (!anchor || anchor.hasAttribute("data-create") || anchor.getAttribute("target")) return;
       const href = anchor.getAttribute("href") ?? "";
-      if (!href.startsWith("/")) return;
+      if (!isInAppHref(href)) return;
       const target = tabForHref(href);
       if (target && onOpenLink) {
         event.preventDefault();

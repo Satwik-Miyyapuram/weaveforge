@@ -10,8 +10,11 @@ import {
   emptyLayout,
   focusPane,
   hydrateTabModes,
+  layoutForCommand,
   leaves,
   moveTab,
+  keepOpen,
+  openTabKeys,
   openTab,
   pruneLayout,
   setRatio,
@@ -288,4 +291,34 @@ test("the mode survives closing and reopening the same document", () => {
   const closed = closeTab(opened, "pane-1", 0);
   const reopened = openTab(closed, tabAt(opened, "pane-1", 0)!);
   assert.equal(tabMode(leaves(reopened.root)[0]!.tabs[0]!), "read");
+});
+
+test("a pane chord is one pure step from the layout it acts on (28-13)", () => {
+  const two = openTab(openTab(emptyLayout(), A), B);
+  const pane = two.focusedPaneId;
+  assert.deepEqual(layoutForCommand(two, "next-tab"), activateTab(two, pane, 0));
+  assert.deepEqual(layoutForCommand(activateTab(two, pane, 0), "previous-tab"), activateTab(two, pane, 1));
+  assert.deepEqual(labels(layoutForCommand(two, "close-tab")), ["a"]);
+  assert.equal(tabMode(tabAt(layoutForCommand(two, "toggle-mode"), pane, 1)!), "read");
+  assert.equal(leaves(layoutForCommand(two, "split-right").root).length, 2);
+});
+
+test("a tab chord on an empty pane changes nothing", () => {
+  const empty = emptyLayout();
+  for (const command of ["close-tab", "next-tab", "previous-tab", "toggle-mode"] as const) {
+    assert.equal(layoutForCommand(empty, command), empty);
+  }
+});
+
+test("closing a tab drops what was kept for it; switching keeps it (28-19)", () => {
+  const two = splitPane(openTab(openTab(emptyLayout(), A), B), "pane-1", "row", "pane-2");
+  assert.deepEqual([...openTabKeys(two)].sort(), ["vault_page:a", "vault_page:b"]);
+  const kept = { "vault_page:a": 1, "vault_page:b": 2 };
+  assert.equal(keepOpen(kept, openTabKeys(activateTab(two, "pane-1", 0))), kept);
+  // B shows in both panes: closing one of them keeps it.
+  const oneLeft = closeTab(two, "pane-2", 0);
+  assert.equal(keepOpen(kept, openTabKeys(oneLeft)), kept);
+  const closed = closeTab(oneLeft, "pane-1", 1);
+  assert.deepEqual(keepOpen(kept, openTabKeys(closed)), { "vault_page:a": 1 });
+  assert.deepEqual(keepOpen({}, openTabKeys(emptyLayout())), {});
 });

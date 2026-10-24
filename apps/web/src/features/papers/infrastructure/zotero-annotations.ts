@@ -92,11 +92,6 @@ export class ZoteroAnnotations {
     private readonly apiOrigin = "https://api.zotero.org",
   ) {}
 
-  /** Map of Zotero paper key → its annotations, across the whole library. */
-  async pullAll(): Promise<Map<string, ZoteroAnnotation[]>> {
-    return (await this.pull()).byPaper;
-  }
-
   /** The annotations, plus the PDF attachment each paper's annotations hang off. */
   async pull(): Promise<ZoteroAnnotationPull> {
     const creds = await this.credentials();

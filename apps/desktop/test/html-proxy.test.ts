@@ -63,3 +63,67 @@ test("a PDF, an error or a network failure is not a page", async () => {
   const failing: ProxyFetch = () => Promise.reject(new Error("offline"));
   assert.equal((await proxyHtml(relay("https://a.org/p"), failing)).status, 502);
 });
+
+test("a private or loopback host is refused before anything is fetched", async () => {
+  for (const host of ["localhost", "127.0.0.1", "127.1", "10.0.0.1", "172.20.1.1", "192.168.1.1", "169.254.169.254", "[::1]", "[::ffff:127.0.0.1]", "[fd00::1]", "[fe80::1]"]) {
+    const { fetchFn, calls } = answering("x");
+    assert.equal((await proxyHtml(relay(`https://${host}/p`), fetchFn)).status, 400, host);
+    assert.deepEqual(calls, [], host);
+  }
+});
+
+test("each redirect hop is checked before it is fetched", async () => {
+  const calls: string[] = [];
+  const fetchFn: ProxyFetch = (input) => {
+    calls.push(input);
+    return Promise.resolve(new Response(null, { status: 302, headers: { location: "https://169.254.169.254/latest" } }));
+  };
+  assert.equal((await proxyHtml(relay("https://a.org/p"), fetchFn)).status, 400);
+  assert.deepEqual(calls, ["https://a.org/p"]);
+});
+
+test("a fetch that ended on a private host is refused", async () => {
+  const { fetchFn } = answering("<html></html>", { url: "https://192.168.0.1/admin" });
+  assert.equal((await proxyHtml(relay("https://a.org/p"), fetchFn)).status, 400);
+});
+
+test("a public redirect is followed hop by hop, and the page names where it ended", async () => {
+  const calls: string[] = [];
+  const fetchFn: ProxyFetch = (input) => {
+    calls.push(input);
+    if (calls.length === 1) {
+      return Promise.resolve(new Response(null, { status: 301, headers: { location: "/html/2101.00001v2" } }));
+    }
+    return Promise.resolve(new Response("<p>ok</p>", { headers: { "content-type": "text/html" } }));
+  };
+  const res = await proxyHtml(relay("https://arxiv.org/html/2101.00001"), fetchFn);
+  assert.equal(res.status, 200);
+  assert.deepEqual(calls, ["https://arxiv.org/html/2101.00001", "https://arxiv.org/html/2101.00001v2"]);
+  assert.equal(res.headers.get("x-final-url"), "https://arxiv.org/html/2101.00001v2");
+});
+
+test("an endless redirect chain stops", async () => {
+  let n = 0;
+  const fetchFn: ProxyFetch = () => {
+    n++;
+    return Promise.resolve(new Response(null, { status: 302, headers: { location: `https://a.org/${n}` } }));
+  };
+  assert.equal((await proxyHtml(relay("https://a.org/0"), fetchFn)).status, 502);
+  assert.ok(n <= 6, `fetched ${n} times`);
+});
+
+test("a page past the cap with no content-length is refused while reading", async () => {
+  let cancelled = false;
+  const chunk = new Uint8Array(1024 * 1024);
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      controller.enqueue(chunk);
+    },
+    cancel() {
+      cancelled = true;
+    },
+  });
+  const fetchFn: ProxyFetch = () => Promise.resolve(new Response(body, { headers: { "content-type": "text/html" } }));
+  assert.equal((await proxyHtml(relay("https://a.org/p"), fetchFn)).status, 413);
+  assert.equal(cancelled, true);
+});

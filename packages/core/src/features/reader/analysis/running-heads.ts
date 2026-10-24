@@ -12,14 +12,7 @@
 
 import { groupRecurringLines } from "../outline-from-text.js";
 import { STRUCTURAL_HEADING } from "./reference-section.js";
-import type { TextLine } from "./line-reconstruction.js";
-
-/** Fraction of each page's text extent, on every side, treated as margin. */
-const MARGIN = 0.06;
-
-function normalise(str: string): string {
-  return str.toLowerCase().replace(/\s+/g, " ").replace(/\d+/g, "#");
-}
+import { FURNITURE_MARGIN, furnitureKey, type TextLine } from "./line-reconstruction.js";
 
 /**
  * The lines that are page furniture rather than content. Identity is the
@@ -59,8 +52,8 @@ export function furnitureLines(lines: readonly TextLine[]): Set<TextLine> {
     const maxX = Math.max(...page.map((l) => l.right));
     const minY = Math.min(...page.map((l) => l.y));
     const maxY = Math.max(...page.map((l) => l.y));
-    const dx = (maxX - minX) * MARGIN;
-    const dy = (maxY - minY) * MARGIN;
+    const dx = (maxX - minX) * FURNITURE_MARGIN;
+    const dy = (maxY - minY) * FURNITURE_MARGIN;
     for (const line of page) {
       if (line.x < minX + dx || line.right > maxX - dx || line.y < minY + dy || line.y > maxY - dy) {
         inBand.add(line);
@@ -69,7 +62,7 @@ export function furnitureLines(lines: readonly TextLine[]): Set<TextLine> {
   }
   const bandPages = new Map<string, Set<number>>();
   for (const line of inBand) {
-    const key = normalise(line.text);
+    const key = furnitureKey(line.text);
     const seen = bandPages.get(key) ?? new Set<number>();
     seen.add(line.page);
     bandPages.set(key, seen);
@@ -88,7 +81,7 @@ export function furnitureLines(lines: readonly TextLine[]): Set<TextLine> {
     // that is furniture, so the document looked like it had no bibliography at
     // all. Structural headings are recognised here and never dropped.
     if (STRUCTURAL_HEADING.test(line.text)) continue;
-    if ((bandPages.get(normalise(line.text))?.size ?? 0) >= 2) furniture.add(line);
+    if ((bandPages.get(furnitureKey(line.text))?.size ?? 0) >= 2) furniture.add(line);
   }
   return furniture;
 }

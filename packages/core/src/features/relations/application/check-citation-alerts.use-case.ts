@@ -15,6 +15,8 @@ export interface CitationAlertCheckResult {
   tracked: number;
   checked: number;
   found: number;
+  /** Papers whose check threw (provider/network/log write); retried next run. */
+  failed: number;
 }
 
 function paperRef(paper: Paper): PaperRef | null {
@@ -138,7 +140,7 @@ export class CheckCitationAlertsUseCase {
   private async execute(force: boolean): Promise<CitationAlertCheckResult> {
     this.boundProjectId = this.deps.getProjectId?.() ?? null;
     const tracks = await this.deps.tracks.listForProject();
-    const result: CitationAlertCheckResult = { tracked: tracks.length, checked: 0, found: 0 };
+    const result: CitationAlertCheckResult = { tracked: tracks.length, checked: 0, found: 0, failed: 0 };
 
     for (const track of tracks) {
       if (!this.scoped()) return result;
@@ -192,8 +194,9 @@ export class CheckCitationAlertsUseCase {
         result.checked += 1;
         result.found += fresh.length;
       } catch {
-        // One paper failing (S2/network) must not skip the rest of the project's tracks.
-        continue;
+        // One paper failing (S2/network) must not skip the rest of the project's
+        // tracks, but the caller must see that it failed.
+        result.failed += 1;
       }
     }
     return result;

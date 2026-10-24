@@ -2,6 +2,7 @@ import { Outbox, type OutboxEntry, type SqlRunner } from "./outbox";
 import type { SyncStateStore } from "./sync-state";
 import type { RemoteChange, SyncTransport } from "./sync-ports";
 import type { ConflictStore } from "./conflicts";
+import { quoteIdent } from "./sql-ident";
 
 type Row = Record<string, unknown>;
 
@@ -301,7 +302,7 @@ export class Puller {
   private async payload(table: string, id: string): Promise<Row | null> {
     const row = await this.sql.queryOne<{ row: Row }>(
       `select sync_payload($1, to_jsonb(t)) || jsonb_build_object('row_version', t.row_version) as row
-         from public.${quote(table)} t where id = $2`,
+         from public.${quoteIdent(table)} t where id = $2`,
       [table, id],
     );
     return row?.row ?? null;
@@ -314,4 +315,3 @@ interface FoldedChild {
   local: Row;
 }
 
-const quote = (name: string) => `"${name.replace(/"/g, '""')}"`;

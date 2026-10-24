@@ -8,6 +8,7 @@ import type { IdGenerator } from "../../../shared/clock.js";
 import {
   encodeRollupOptions,
   isPaperFieldKind,
+  parseRollupOptions,
   PaperFieldValidationError,
   type NewPaperFieldDefInput,
   type PaperFieldDef,
@@ -99,6 +100,19 @@ export class ManagePaperFieldsUseCase {
 
   async remove(fieldId: string): Promise<void> {
     await this.requireDef(fieldId);
+    // A rollup that reads this field would be left pointing at nothing, so the
+    // user removes the rollup first. Values go with the def (repository/DB cascade).
+    const readers = (await this.deps.fields.listDefs()).filter((d) => {
+      if (d.kind !== "rollup") return false;
+      const config = parseRollupOptions(d.options);
+      return config?.relationFieldId === fieldId || config?.sourceFieldId === fieldId;
+    });
+    if (readers.length > 0) {
+      const names = readers.map((d) => `"${d.name}"`).join(", ");
+      throw new PaperFieldValidationError(
+        `This field is used by the rollup ${names}. Remove the rollup first.`,
+      );
+    }
     await this.deps.fields.deleteDef(fieldId);
   }
 

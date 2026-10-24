@@ -104,6 +104,18 @@ export function useInkWorkerRpc(deps: InkWorkerRpcDeps) {
         pendingExport.current.get(event.requestId)?.(event.png);
         pendingExport.current.delete(event.requestId);
         break;
+      case "disposed":
+        // The worker is gone and will answer nothing more (21-14). A save
+        // settles as "nothing to write" for no page, so persist neither writes
+        // nor removes a chunk; an export settles as no image. A model ask is
+        // dropped: its callers only act on an answer.
+        for (const resolve of pendingSave.current.values())
+          resolve({ bytes: null, pageIndex: -1, cleared: false });
+        for (const resolve of pendingExport.current.values()) resolve(null);
+        pendingSave.current.clear();
+        pendingExport.current.clear();
+        pendingModel.current.clear();
+        break;
       case "selected":
         setSelection(event.indices);
         setSelectionBounds(event.bounds);

@@ -19,6 +19,8 @@
 /** The id line, spelled as the serializer spells it. */
 const ID_KEY = "weaveforge-id";
 
+const BOM = String.fromCharCode(0xfeff);
+
 /**
  * Add `weaveforge-id` to a file's frontmatter.
  *
@@ -26,6 +28,11 @@ const ID_KEY = "weaveforge-id";
  * so a caller can tell "stamped" from "left alone" without comparing text.
  */
 export function stampWorkspaceId(content: string, id: string): string | null {
+  // A byte-order mark hides the opening fence; set it aside and put it back.
+  if (content.startsWith(BOM)) {
+    const stamped = stampWorkspaceId(content.slice(1), id);
+    return stamped === null ? null : `${BOM}${stamped}`;
+  }
   const newline = content.includes("\r\n") ? "\r\n" : "\n";
   const fence = `---${newline}`;
 

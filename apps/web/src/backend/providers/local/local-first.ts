@@ -15,7 +15,7 @@ import type { LocalFirstAccount } from "./local-first-marker";
 import { keepFlushing, LocalFirstBlobStore } from "./local-first-blob-store";
 import { ExperimentPush, keepPushing } from "./local-first-experiment-push";
 import { LocalSessionProvider } from "./local-identity";
-import { LocalRunner } from "./local-runner";
+import { localRunnerQuery } from "./local-runner";
 
 /**
  * Local-first: a signed-in desktop works on its own database and syncs it.
@@ -109,7 +109,7 @@ export function routedClient(
 export function localFirstParts(
   config: BackendConfig,
   account: LocalFirstAccount,
-  query: LocalQuery = defaultQuery(),
+  query: LocalQuery = localRunnerQuery(),
 ): BackendParts {
   const server = createDataClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "", config.dataUrl);
   const local = createLocalClient(query) as unknown as SupabaseClient;
@@ -127,9 +127,4 @@ export function localFirstParts(
     settingsRepository: new PostgrestSettingsRepository(db, session, secretsStoreFor(server)),
     blobStore,
   };
-}
-
-function defaultQuery(): LocalQuery {
-  const runner = new LocalRunner();
-  return (sql, params) => runner.query(sql, params as never[]);
 }

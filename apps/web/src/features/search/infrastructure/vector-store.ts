@@ -4,6 +4,7 @@ import { decodeBase64, encodeBase64 } from "@/lib/bytea";
 import { WORKSPACE_META_DIR } from "@weaveforge/core";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { idbClearVectors, idbGetVectors, idbSetVectors, type StoredVectors } from "./vector-store-idb";
+import { warnOnce } from "@/lib/error-report/warn-once";
 
 /**
  * Where a corpus's vectors are kept between sessions.
@@ -67,14 +68,16 @@ function localStore(): VectorStore {
              set bytes = excluded.bytes, updated_at = now()`,
           [BUCKET, key(projectId), "application/octet-stream", pack(value)],
         );
-      } catch {
+      } catch (err) {
+        warnOnce("search", "Search vectors were not saved to the local database.", err);
         /* best-effort: losing this costs a re-embed, never a result */
       }
     },
     async clear() {
       try {
         await run("delete from local_blobs where bucket = $1", [BUCKET]);
-      } catch {
+      } catch (err) {
+        warnOnce("search", "Search vectors were not cleared from the local database.", err);
         /* ignore */
       }
     },
@@ -87,8 +90,13 @@ function localStore(): VectorStore {
  * Kept together because they are only ever read together: a set of ids with no
  * vectors, or vectors with no ids, is not half an index but none of one.
  */
+/** The fields both formats store ahead of the vectors, as JSON. */
+function headJson(value: StoredVectors): string {
+  return JSON.stringify({ model: value.model, dimensions: value.dimensions, ids: value.ids, revision: value.revision, hashes: value.hashes });
+}
+
 function pack(value: StoredVectors): string {
-  const head = JSON.stringify({ model: value.model, dimensions: value.dimensions, ids: value.ids, revision: value.revision, hashes: value.hashes });
+  const head = headJson(value);
   return `${encodeBase64(new TextEncoder().encode(head))}.${encodeBase64(new Uint8Array(value.vectors))}`;
 }
 
@@ -149,7 +157,8 @@ const folderStore = {
       // The shell writes beside the file and renames it into place, so a
       // kill mid-write leaves the previous cache whole.
       await fs.writeFile(folderPath(projectId), packBinary(value));
-    } catch {
+    } catch (err) {
+      warnOnce("search", "Search vectors were not saved to the workspace folder.", err);
       /* best-effort, like every other copy */
     }
   },
@@ -167,9 +176,7 @@ const folderStore = {
 };
 
 export function packBinary(value: StoredVectors): Uint8Array {
-  const head = new TextEncoder().encode(
-    JSON.stringify({ model: value.model, dimensions: value.dimensions, ids: value.ids, revision: value.revision, hashes: value.hashes }),
-  );
+  const head = new TextEncoder().encode(headJson(value));
   const out = new Uint8Array(4 + head.byteLength + value.vectors.byteLength);
   new DataView(out.buffer).setUint32(0, head.byteLength, true);
   out.set(head, 4);

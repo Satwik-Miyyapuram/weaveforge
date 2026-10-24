@@ -84,6 +84,17 @@ function isLocal(hit: RelatedPaperHit, keys: ReturnType<typeof localKeys>): bool
   return false;
 }
 
+/**
+ * Note a listed hit, so the same paper from the other source (or twice from
+ * one) is skipped like a library paper. The panel keys rows by these ids.
+ */
+function remember(hit: RelatedPaperHit, keys: ReturnType<typeof localKeys>): void {
+  const doi = normalizeDoi(hit.doi);
+  if (doi) keys.dois.add(doi);
+  if (hit.arxivId) keys.arxivs.add(hit.arxivId.toLowerCase());
+  keys.titles.add(normalizeTitleKey(hit.title));
+}
+
 const S2_FIELDS = "title,authors,year,externalIds,url,abstract,citationCount";
 
 /**
@@ -121,6 +132,7 @@ export async function fetchRelatedPapers(
     for (const p of body.recommendedPapers ?? []) {
       const hit = s2ToHit(p);
       if (!hit || isLocal(hit, keys)) continue;
+      remember(hit, keys);
       out.push(hit);
       if (out.length >= limit) return out;
     }
@@ -141,6 +153,7 @@ export async function fetchRelatedPapers(
     for (const row of body.data ?? []) {
       const hit = s2ToHit(row.citedPaper ?? {});
       if (!hit || isLocal(hit, keys)) continue;
+      remember(hit, keys);
       out.push(hit);
       if (out.length >= limit) break;
     }

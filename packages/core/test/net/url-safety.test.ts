@@ -134,3 +134,10 @@ test("the default limits are bounded", () => {
   assert.ok(DEFAULT_FETCH_LIMITS.maxBytes <= 16 * 1024 * 1024);
   assert.ok(DEFAULT_FETCH_LIMITS.timeoutMs <= 30_000);
 });
+
+test("2001::/23 is special-purpose across all 23 bits (01-07)", () => {
+  assert.equal(isPublicAddress("2001::1"), false);
+  assert.equal(isPublicAddress("2001:100::1"), false, "inside /23, outside /24");
+  assert.equal(isPublicAddress("2001:1ff::1"), false, "last /23 block");
+  assert.equal(isPublicAddress("2001:200::1"), true, "first address past /23");
+});

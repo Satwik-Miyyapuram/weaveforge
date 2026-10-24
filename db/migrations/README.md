@@ -101,3 +101,4 @@ live on the OCI server.
 | `0132` | `compact_crdt_log` — compaction as one statement, owner-or-edit only |
 | `0134` | Sync tombstones in the change feed; pre-feed rows get a `server_seq` |
 | `0145` | AI proposals get an `executing` status, so one approval runs a proposal once |
+| `0146` | Marks the showcase project, so a reset never deletes a user's project with the same name |

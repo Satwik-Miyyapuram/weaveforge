@@ -3,6 +3,11 @@
 const settled = new Map<string, Blob>();
 const inflight = new Map<string, Promise<Blob | null>>();
 
+/** Forget every fetched blob; sign-out calls this so the next user refetches. */
+export function clearBlobFetchCache(): void {
+  settled.clear();
+}
+
 function cacheKey(bucket: string, path: string): string {
   return `${bucket}\0${path}`;
 }

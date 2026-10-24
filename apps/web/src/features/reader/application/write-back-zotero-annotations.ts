@@ -4,7 +4,7 @@ import type {
   Paper,
   ReaderAnnotation,
 } from "@weaveforge/core";
-import { zoteroWriteBackAnnotations } from "@weaveforge/core";
+import { errorMessage, zoteroWriteBackAnnotations } from "@weaveforge/core";
 import type { ZoteroAnnotationWriteResult } from "../infrastructure/zotero-annotation-write-back";
 
 /**
@@ -69,14 +69,22 @@ export async function writeBackZoteroAnnotations(deps: {
   for (const paper of deps.papers) {
     const attachment = deps.attachmentOf(paper);
     if (!attachment) continue;
-    const owed = annotationsOwedToZotero(await deps.annotations.list(paper.id));
+    // One paper's failure is counted and the walk goes on; a throw here used
+    // to drop every later paper and the summary with them.
+    let owed: ReaderAnnotation[];
+    try {
+      owed = annotationsOwedToZotero(await deps.annotations.list(paper.id));
+    } catch (err) {
+      fail(errorMessage(err));
+      continue;
+    }
     if (owed.length === 0) continue;
 
     let results: ZoteroAnnotationWriteResult[];
     try {
       ({ results } = await deps.pusher.push(attachment, owed, { live: true }));
     } catch (err) {
-      fail(err instanceof Error ? err.message : String(err), owed.length);
+      fail(errorMessage(err), owed.length);
       continue;
     }
 
@@ -87,11 +95,16 @@ export async function writeBackZoteroAnnotations(deps: {
       }
       const syncState = r.outcome === "conflict" ? "conflict" : "synced";
       const prior = owed.find((a) => a.id === r.id);
-      await deps.annotations.recordZoteroSync(r.id, {
-        zoteroKey: r.zoteroKey,
-        zoteroVersion: r.zoteroVersion ?? prior?.zoteroVersion ?? null,
-        syncState,
-      });
+      try {
+        await deps.annotations.recordZoteroSync(r.id, {
+          zoteroKey: r.zoteroKey,
+          zoteroVersion: r.zoteroVersion ?? prior?.zoteroVersion ?? null,
+          syncState,
+        });
+      } catch (err) {
+        fail(errorMessage(err));
+        continue;
+      }
       if (r.outcome === "created") summary.created += 1;
       else if (r.outcome === "updated") summary.updated += 1;
       else summary.conflicts += 1;

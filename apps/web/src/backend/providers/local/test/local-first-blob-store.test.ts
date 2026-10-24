@@ -137,4 +137,31 @@ describe("the local-first blob store", () => {
     await assert.rejects(store.fetchBytes("vault-assets", "u/n/ink/none.inkb"), (err: unknown) =>
       err instanceof Error && !(err instanceof BlobNotFoundError) && /offline/.test(err.message));
   });
+  it("keeps a queued upload when this computer's copy cannot be read (09-07)", async () => {
+    online = false;
+    await store.upload("paper-images", "u/p/a.png", png());
+    let readsFail = true;
+    const flaky: LocalQuery = async (sql, params) => {
+      if (readsFail && /from local_blobs/.test(sql)) throw new Error("disk busy");
+      return run(sql, params);
+    };
+    const s2 = new LocalFirstBlobStore(flaky, server, () => true);
+    await s2.flush();
+    assert.equal(await s2.pending(), 1);
+    assert.equal(server.stored.size, 0);
+    readsFail = false;
+    await s2.flush();
+    assert.equal(await s2.pending(), 0);
+    assert.equal(server.stored.size, 1);
+  });
+
+  it("drops a queued upload whose local copy is gone (09-07)", async () => {
+    online = false;
+    await store.upload("paper-images", "u/p/a.png", png());
+    await run("delete from local_blobs", []);
+    online = true;
+    await store.flush();
+    assert.equal(await store.pending(), 0);
+    assert.equal(server.stored.size, 0);
+  });
 });

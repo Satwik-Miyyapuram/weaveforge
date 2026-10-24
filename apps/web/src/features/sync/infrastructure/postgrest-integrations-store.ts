@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  DEFAULT_GIT_BRANCH,
   emptyIntegration,
   type Integration,
   type SyncProvider,
@@ -15,7 +16,7 @@ import { run } from "@/backend/providers/postgrest/row-access";
  * "main", so such a row reads back as unset.
  */
 function readBranch(provider: SyncProvider, branch: string | null): string {
-  if (provider !== "mattermost") return branch ?? "main";
+  if (provider !== "mattermost") return branch ?? DEFAULT_GIT_BRANCH;
   return branch === "main" ? "" : branch ?? "";
 }
 
@@ -52,7 +53,7 @@ export class PostgrestIntegrationsStore {
         token: integration.token ?? null,
         repo: integration.repo ?? null,
         // For Mattermost this is the channel id; a blank one stays blank.
-        branch: integration.provider === "mattermost" ? integration.branch : integration.branch || "main",
+        branch: integration.provider === "mattermost" ? integration.branch : integration.branch || DEFAULT_GIT_BRANCH,
         options: integration.options ?? {},
         updated_at: new Date().toISOString(),
       },
