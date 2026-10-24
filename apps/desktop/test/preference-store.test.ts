@@ -3,7 +3,15 @@ import { mkdtemp, readFile, readdir, rename, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { PreferenceStore, pagePreferences, type PreferenceFile } from "../src/preference-store";
+import type { DesktopPreferenceName } from "@/lib/desktop/desktop-bridge";
+import {
+  PAGE_WRITABLE,
+  PREFERENCE_NAMES,
+  PreferenceStore,
+  pagePreferences,
+  type PageWritablePreference,
+  type PreferenceFile,
+} from "../src/preference-store";
 import { temporaryName } from "../src/write-queue";
 
 /** A file that lives in a variable. */
@@ -21,17 +29,17 @@ function file(initial: string | null = null): PreferenceFile & { contents: strin
 
 test("a preference that was never set reads as nothing", async () => {
   const store = new PreferenceStore(file());
-  assert.deepEqual(await store.read("sync-offer-shown"), { ok: true, value: null });
+  assert.deepEqual(await store.read("local-api"), { ok: true, value: null });
 });
 
 test("what was written is what comes back", async () => {
   const disk = file();
   const store = new PreferenceStore(disk);
 
-  await store.write("sync-offer-shown", true);
+  await store.write("local-api", true);
   await store.write("sync-target", "https://sync.example");
 
-  assert.deepEqual(await store.read("sync-offer-shown"), { ok: true, value: true });
+  assert.deepEqual(await store.read("local-api"), { ok: true, value: true });
   assert.deepEqual(await store.read("sync-target"), { ok: true, value: "https://sync.example" });
 });
 
@@ -65,7 +73,7 @@ test("a value that is not a preference is refused rather than stored", async () 
 
 test("a file edited into nonsense costs the preferences, not the launch", async () => {
   const store = new PreferenceStore(file("{ not json"));
-  assert.deepEqual(await store.read("sync-offer-shown"), { ok: true, value: null });
+  assert.deepEqual(await store.read("local-api"), { ok: true, value: null });
 });
 
 test("a value of an unexpected shape on file reads as absent", async () => {
@@ -74,12 +82,12 @@ test("a value of an unexpected shape on file reads as absent", async () => {
 });
 
 test("writing keeps the preferences that were already there", async () => {
-  const disk = file(JSON.stringify({ "sync-offer-shown": true }));
+  const disk = file(JSON.stringify({ "local-api": true }));
   const store = new PreferenceStore(disk);
 
   await store.write("sync-target", "https://sync.example");
 
-  assert.deepEqual(await store.read("sync-offer-shown"), { ok: true, value: true });
+  assert.deepEqual(await store.read("local-api"), { ok: true, value: true });
 });
 
 // ------------------------------------------------------------ concurrent writes
@@ -117,7 +125,7 @@ test("concurrent writes to different preferences all land", async () => {
   // Three writes in the same tick, which is what two windows or a settings
   // panel saving four fields at once actually does.
   await Promise.all([
-    store.write("sync-offer-shown", true),
+    store.write("local-api", true),
     store.write("sync-target", "https://sync.example"),
     store.write("vault-git", true),
   ]);
@@ -125,12 +133,12 @@ test("concurrent writes to different preferences all land", async () => {
   // The lost update, in one line: an unserialised read-modify-write leaves only
   // the last writer's key on disk, because each of them read the same empty
   // file and wrote back a copy holding only its own change.
-  assert.deepEqual(await store.read("sync-offer-shown"), { ok: true, value: true });
+  assert.deepEqual(await store.read("local-api"), { ok: true, value: true });
   assert.deepEqual(await store.read("sync-target"), { ok: true, value: "https://sync.example" });
   assert.deepEqual(await store.read("vault-git"), { ok: true, value: true });
   assert.equal(state.written.length, 3);
   assert.deepEqual(JSON.parse(state.written[2] ?? "{}"), {
-    "sync-offer-shown": true,
+    "local-api": true,
     "sync-target": "https://sync.example",
     "vault-git": true,
   });
@@ -159,7 +167,7 @@ test("no draft file is left behind, and no two writes share one", async () => {
   await Promise.all([
     store.write("sync-target", "https://sync.example"),
     store.write("vault-git", true),
-    store.write("sync-offer-shown", false),
+    store.write("local-api", false),
   ]);
 
   assert.equal(new Set(drafts).size, drafts.length, "two writes shared a draft file");
@@ -198,14 +206,12 @@ test("a write that fails does not stop the ones queued behind it", async () => {
 });
 
 // The page's view of the preferences (B01: xipc-03). The shell writes every
-// name itself; the page may write only the two it owns.
+// name itself; the page may write only the one it owns.
 
-test("the page writes the preferences it owns", async () => {
+test("the page writes the preference it owns", async () => {
   const store = new PreferenceStore(file());
   const page = pagePreferences(store);
-  assert.deepEqual(await page.write("sync-offer-shown", true), { ok: true, value: null });
   assert.deepEqual(await page.write("vault-git", false), { ok: true, value: null });
-  assert.deepEqual(await store.read("sync-offer-shown"), { ok: true, value: true });
   assert.deepEqual(await store.read("vault-git"), { ok: true, value: false });
   // Writing null still forgets, as it does through the store.
   assert.deepEqual(await page.write("vault-git", null), { ok: true, value: null });
@@ -236,16 +242,41 @@ test("the page is refused unknown names and non-strings on write", async () => {
   }
 });
 
-test("the page still reads every known preference, old ones included", async () => {
-  const disk = file(JSON.stringify({ "vault-root": "C:/vault", "sync-target": "https://s", "local-api": true }));
-  const page = pagePreferences(new PreferenceStore(disk));
-  assert.deepEqual(await page.read("vault-root"), { ok: true, value: "C:/vault" });
-  assert.deepEqual(await page.read("sync-target"), { ok: true, value: "https://s" });
-  assert.deepEqual(await page.read("local-api"), { ok: true, value: true });
-  assert.equal((await page.read("nope")).ok, false);
-});
-
 test("the page's write still goes through the store's value checks", async () => {
   const page = pagePreferences(new PreferenceStore(file()));
   assert.equal((await page.write("vault-git", { nested: true })).ok, false);
+});
+
+// The removed one-time sync offer (B40: 34-02, xipc-04).
+
+test("a file still holding the removed sync-offer-shown key loads and is ignored", async () => {
+  const disk = file(JSON.stringify({ "sync-offer-shown": true, "vault-git": true, "sync-target": "https://s" }));
+  const store = new PreferenceStore(disk);
+  const page = pagePreferences(store);
+  // The other preferences read as before.
+  assert.deepEqual(await store.read("vault-git"), { ok: true, value: true });
+  assert.deepEqual(await store.read("sync-target"), { ok: true, value: "https://s" });
+  // The old name is refused, not a crash, from either side.
+  assert.equal((await store.read("sync-offer-shown")).ok, false);
+  assert.equal((await store.write("sync-offer-shown", false)).ok, false);
+  assert.equal((await page.write("sync-offer-shown", true)).ok, false);
+  // Writes still land, and the stale key does not stop them.
+  assert.deepEqual(await page.write("vault-git", false), { ok: true, value: null });
+  assert.deepEqual(await store.read("vault-git"), { ok: true, value: false });
+});
+
+test("the page offers no preference read", () => {
+  const page = pagePreferences(new PreferenceStore(file()));
+  assert.deepEqual(Object.keys(page), ["write"]);
+});
+
+test("the renderer's preference names are the ones the page may write", () => {
+  // Compile-time: the web bridge type and the shell's list are the same set.
+  type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+  const same: Same<DesktopPreferenceName, PageWritablePreference> = true;
+  assert.equal(same, true);
+  // Run-time: every page-writable name is one the store knows.
+  assert.deepEqual([...PAGE_WRITABLE], ["vault-git"]);
+  for (const name of PAGE_WRITABLE) assert.ok(PREFERENCE_NAMES.includes(name), name);
+  assert.equal((PREFERENCE_NAMES as readonly string[]).includes("sync-offer-shown"), false);
 });

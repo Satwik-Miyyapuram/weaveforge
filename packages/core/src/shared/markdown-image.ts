@@ -156,7 +156,8 @@ export async function materializeBlobImages(
       if (!res.ok) continue;
       const blob = await res.blob();
       const path = await upload(ownerId, blob, imageExtensionForMime(blob.type));
-      result = result.replace(ref.text, markdownImage(`${prefix}${path}`, ref.alt || "image"));
+      // A function, so `$&`, `$$` and the like in the alt text are not expanded.
+      result = result.replace(ref.text, () => markdownImage(`${prefix}${path}`, ref.alt || "image"));
     } catch {
       /* stale blob URL — keep the original ref */
     }

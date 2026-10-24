@@ -60,7 +60,6 @@ const bridge: DesktopBridge = {
   fetchTitle: (url) => call<TitlePayload>(CHANNELS.fetchTitle, url),
   fetchImage: (url) => call<ImagePayload>(CHANNELS.fetchImage, url),
   checkUpdate: () => ipcRenderer.invoke(CHANNELS.checkUpdate) as Promise<DesktopUpdate | null>,
-  readPreference: (name) => call<DesktopPreferenceValue>(CHANNELS.preferenceRead, name),
   writePreference: async (name, value) => {
     await call<null>(CHANNELS.preferenceWrite, name, value);
   },

@@ -97,3 +97,17 @@ test("the paper's link degree carries to its highlights", () => {
   const [doc] = toAnnotationSearchDocs([annotation()], titles, new Map([["paper:p1", 7]]));
   assert.equal(doc!.degree, 7);
 });
+
+test("a paper id with # or ? survives in the reader link (01-11)", () => {
+  const docs = toAnnotationSearchDocs([annotation({ paperId: "a#b?c=d&e" })], new Map());
+  const url = new URL(docs[0]!.href, "https://app.test");
+  assert.equal(url.pathname, "/reader");
+  assert.equal(url.searchParams.get("paper"), "a#b?c=d&e");
+  assert.equal(url.searchParams.get("page"), String(docs[0]!.page));
+});
+
+test("a long annotation body is cut without splitting a surrogate pair (01-12)", () => {
+  const docs = toAnnotationSearchDocs([annotation({ text: `${"a".repeat(255_999)}😀`, comment: "" })], titles);
+  const last = docs[0]!.body.charCodeAt(docs[0]!.body.length - 1);
+  assert.ok(last < 0xd800 || last > 0xdbff);
+});

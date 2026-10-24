@@ -16,6 +16,23 @@ export type SharedItemDetail = SharedItem & {
   canComment: boolean;
 };
 
+/**
+ * Rows by id through the repository's own batch read when it has one, so the
+ * repository's filtering is the same as its single read; otherwise one read
+ * per id. Unknown ids are left out either way. No ids, no request.
+ */
+async function readByIds<T>(
+  repo: {
+    getById(id: string): Promise<T | null>;
+    listByIds?(ids: readonly string[]): Promise<T[]>;
+  },
+  ids: string[],
+): Promise<(T | null)[]> {
+  if (ids.length === 0) return [];
+  if (repo.listByIds) return repo.listByIds(ids);
+  return Promise.all(ids.map((id) => repo.getById(id)));
+}
+
 export async function loadSharedItemDetails(
   items: SharedItem[],
   deps: {
@@ -37,12 +54,10 @@ export async function loadSharedItemDetails(
   ];
 
   const [papers, experiments, vaultPages, readingLists] = await Promise.all([
-    Promise.all(paperIds.map((id) => deps.papers.getById(id))),
-    Promise.all(experimentIds.map((id) => deps.experiments.getById(id))),
-    Promise.all(vaultPageIds.map((id) => deps.vaultPages.getById(id))),
-    deps.readingLists
-      ? Promise.all(readingListIds.map((id) => deps.readingLists!.getById(id)))
-      : Promise.resolve([]),
+    readByIds(deps.papers, paperIds),
+    readByIds(deps.experiments, experimentIds),
+    readByIds(deps.vaultPages, vaultPageIds),
+    deps.readingLists ? readByIds(deps.readingLists, readingListIds) : Promise.resolve([]),
   ]);
 
   const paperById = new Map(

@@ -50,16 +50,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var inkGesture: InkGestureView
 
     /** The hosts the shell may load, from the build that produced it. */
-    private val allowedHosts: Set<String> =
-        BuildConfig.ALLOWED_HOSTS.split(',')
-            .map { it.trim().lowercase() }
-            .filter { it.isNotEmpty() }
-            .toSet()
+    private val allowedHosts: Set<String> = HostAllowList.parse(BuildConfig.ALLOWED_HOSTS)
 
-    private fun isAllowed(uri: Uri?): Boolean {
-        val host = uri?.host?.lowercase() ?: return false
-        return allowedHosts.any { host == it || host.endsWith(".$it") }
-    }
+    private fun isAllowed(uri: Uri?): Boolean = HostAllowList.allows(uri?.host, allowedHosts)
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
