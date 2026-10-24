@@ -81,8 +81,8 @@ export class S3BlobStore implements IBlobStore {
   ): Promise<(string | null)[]> {
     return Promise.all(
       paths.map(async (path) => {
-        const object = await this.readObject(bucket, path);
-        if (!object) return null;
+        // Presigning is local work. Whether the object exists is the
+        // registry's answer (TieredBlobStore), not a GET per path (10-02).
         try {
           return await getSignedUrl(
             this.client,
