@@ -39,3 +39,12 @@ test("a chunk the manifest names but the build lacks fails the gate, not counts 
   assert.equal(out.status, 1);
   assert.match(out.stderr, /static\/chunks\/gone\.js/);
 });
+
+test("a chunk named URL-encoded in the manifest is read from its decoded path on disk", () => {
+  // Next writes `[id]` folders but names them `%5Bid%5D` in the manifest.
+  const dir = fakeBuild(["static/chunks/app/x/%5Bid%5D/page.js"], []);
+  mkdirSync(path.join(dir, "static/chunks/app/x/[id]"), { recursive: true });
+  writeFileSync(path.join(dir, "static/chunks/app/x/[id]/page.js"), "console.log(1);");
+  const out = run(dir);
+  assert.equal(out.status, 0, out.stderr);
+});

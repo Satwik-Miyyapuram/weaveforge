@@ -191,7 +191,8 @@ const measured = [];
 for (const [route, files] of routes) {
   let bytes = 0;
   // Manifest paths are relative to the build root (`static/chunks/…`).
-  for (const file of files) bytes += gzippedChunkSize(path.join(buildDir, file));
+  // The manifest names a dynamic segment URL-encoded (`%5Bid%5D`); the file on disk is `[id]`.
+  for (const file of files) bytes += gzippedChunkSize(path.join(buildDir, decodeURIComponent(file)));
   measured.push({ route, kb: Math.round(bytes / 1024) });
 }
 
