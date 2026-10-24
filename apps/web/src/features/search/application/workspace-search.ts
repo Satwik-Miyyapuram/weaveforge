@@ -12,9 +12,7 @@ import {
   graphDensity,
   pdfDocIdsFor,
   searchRevision,
-  toAnnotationSearchDocs,
   toPdfSearchDocs,
-  toSearchDocs,
   type IWorkspaceSearchIndex,
   type GraphDensity,
   type PdfIndexSource,
@@ -231,17 +229,11 @@ export class WorkspaceSearch {
       this.state.graph = buildWikiGraph(snapshot);
       this.state.density = graphDensity(this.state.graph);
     }
-    const degrees = this.state.graph ? graphDegrees(this.state.graph) : new Map<string, number>();
-
     const wanted = new Set(kinds);
-    const fresh = [
-      ...toSearchDocs(snapshot, degrees),
-      ...toAnnotationSearchDocs(
-        snapshot.readerAnnotations,
-        new Map(snapshot.papers.map((paper) => [paper.id, paper.title])),
-        degrees,
-      ),
-    ].filter((doc) => wanted.has(doc.kind));
+    // No PDF text: `pdf` is never a stale kind (see search-index-state.ts).
+    const fresh = projectSearchDocuments({ snapshot, graph: this.state.graph, pdfTexts: [] }).filter((doc) =>
+      wanted.has(doc.kind),
+    );
 
     // Retract first: a note that was deleted has no fresh document to overwrite
     // it, and would otherwise keep answering queries.
@@ -517,15 +509,30 @@ export class WorkspaceSearch {
    */
   indexPdf(source: PdfIndexSource): void {
     if (!this.state.index) return;
-
-    const previous = this.state.pdfPageCounts.get(source.paperId) ?? 0;
-    // Ids are generated for every page slot: pages too short to index were
-    // never added, and removing an id that is not there is a no-op.
-    this.state.index.remove(pdfDocIdsFor(source.paperId, Math.max(previous, source.pages.length)));
-
-    const degrees = this.state.graph ? graphDegrees(this.state.graph) : undefined;
-    const docs = toPdfSearchDocs([source], degrees);
+    const previous = this.retractPdf(this.state.index, source);
+    const docs = this.pdfDocs(source);
     this.state.index.add(docs);
+    this.commitPdf(source, previous, docs);
+  }
+
+  /**
+   * Remove a paper's PDF pages from `index`; returns how many it had. Ids are
+   * generated for every page slot: pages too short to index were never added,
+   * and removing an id that is not there is a no-op.
+   */
+  private retractPdf(index: IWorkspaceSearchIndex, source: PdfIndexSource): number {
+    const previous = this.state.pdfPageCounts.get(source.paperId) ?? 0;
+    index.remove(pdfDocIdsFor(source.paperId, Math.max(previous, source.pages.length)));
+    return previous;
+  }
+
+  private pdfDocs(source: PdfIndexSource): SearchDoc[] {
+    const degrees = this.state.graph ? graphDegrees(this.state.graph) : undefined;
+    return toPdfSearchDocs([source], degrees);
+  }
+
+  /** Record a PDF just added to the index, and pass it to the semantic arm. */
+  private commitPdf(source: PdfIndexSource, previous: number, docs: SearchDoc[]): void {
     this.state.pdfPageCounts.set(source.paperId, source.pages.length);
     // Recorded as well as indexed, so that a re-projection reproduces what the
     // index holds: without it, text indexed here would be missing from the
@@ -549,11 +556,8 @@ export class WorkspaceSearch {
       const initialIndex = this.state.index;
       if (!initialIndex) return;
 
-      const previous = this.state.pdfPageCounts.get(source.paperId) ?? 0;
-      initialIndex.remove(pdfDocIdsFor(source.paperId, Math.max(previous, source.pages.length)));
-
-      const degrees = this.state.graph ? graphDegrees(this.state.graph) : undefined;
-      const docs = toPdfSearchDocs([source], degrees);
+      const previous = this.retractPdf(initialIndex, source);
+      const docs = this.pdfDocs(source);
       const sliceSize = Math.max(1, pagesPerSlice);
 
       for (let i = 0; i < docs.length; i += sliceSize) {
@@ -565,12 +569,7 @@ export class WorkspaceSearch {
       }
 
       if (this.state.index !== initialIndex) return;
-
-      this.state.pdfPageCounts.set(source.paperId, source.pages.length);
-      this.state.pdfTexts = [...this.state.pdfTexts.filter((s) => s.paperId !== source.paperId), source];
-      this.state.documentCount = this.state.documentCount - previous + docs.length;
-      const prefix = `pdf:${source.paperId}`;
-      this.syncSemantic(docs, (id) => id.startsWith(prefix));
+      this.commitPdf(source, previous, docs);
     };
 
     const next = this.indexSliceQueue.then(run, run);

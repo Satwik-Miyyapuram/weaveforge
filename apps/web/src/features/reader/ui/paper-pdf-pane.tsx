@@ -18,6 +18,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { OpenAccessIds, PdfLocus, QuotationType, ReaderAnnotation } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { PdfReader } from "./pdf-reader";
 import { proxiedPdfUrl } from "../application/sanitize-reader-url";
@@ -188,7 +190,14 @@ export function PaperPdfPane({
         let local: ReaderAnnotation[] = [];
         try {
           local = await getContainer().papers.listReaderAnnotations(paper.id);
-        } catch {
+        } catch (err) {
+          // The reader opens without them; say why they are missing.
+          logToApp({
+            level: "warn",
+            source: "reader",
+            message: "Could not load this paper's annotations",
+            detail: err instanceof Error ? (err.stack ?? err.message) : describeRejection(err),
+          });
           local = [];
         }
         if (!cancelled) setAnnotations(mergeReaderAnnotations(projected, local));
