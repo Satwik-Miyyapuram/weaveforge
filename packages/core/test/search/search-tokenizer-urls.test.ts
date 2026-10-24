@@ -117,3 +117,17 @@ test("urlParts stays linear on a long run with no URL (ReDoS guard)", () => {
   assert.deepEqual(urlParts(text), []);
   assert.ok(performance.now() - started < 1000, "urlParts took over 1 s");
 });
+
+test("tokenize and processTerm normalize a word the same way (01-13)", async () => {
+  const { tokenize, processTerm } = await import("../../src/search/search-tokenizer.js");
+  // Index terms come from tokenize, query terms from processTerm; if the two
+  // fold differently, a word stops finding itself.
+  for (const options of [{}, { foldDiacritics: false }, { foldArabicDiacritics: true }]) {
+    for (const word of ["Café", "NAÏVE", "Ångström", "İstanbul", "straße", "résumé", "Øresund"]) {
+      assert.ok(
+        tokenize(word, { ...options, splitCamelCase: false }).includes(processTerm(word, options)),
+        `${word} with ${JSON.stringify(options)}`,
+      );
+    }
+  }
+});

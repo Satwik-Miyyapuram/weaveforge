@@ -9,7 +9,8 @@ export interface CrdtUpdateRecord {
   projectId: string | null;
   epoch: number;
   payload: Uint8Array;
-  authorId: string;
+  /** Null once the author's account is deleted (migration 0143). */
+  authorId: string | null;
   createdAt: string;
 }
 

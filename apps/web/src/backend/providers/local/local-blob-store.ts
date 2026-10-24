@@ -1,4 +1,4 @@
-import type { IBlobFetcher } from "@weaveforge/core";
+import { BlobNotFoundError, type IBlobFetcher } from "@weaveforge/core";
 import { decodeBase64, encodeBase64 } from "@/lib/bytea";
 import type { LocalQuery } from "./pglite-client";
 
@@ -45,7 +45,7 @@ export class LocalBlobStore implements IBlobFetcher {
 
   async fetchBytes(bucket: string, path: string): Promise<Uint8Array> {
     const row = (await this.read(bucket, [path])).get(path);
-    if (!row) throw new Error(`Nothing stored at ${bucket}/${path} on this computer.`);
+    if (!row) throw new BlobNotFoundError(bucket, path);
     return decodeBase64(row.bytes);
   }
 

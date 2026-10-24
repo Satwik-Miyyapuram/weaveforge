@@ -1,3 +1,4 @@
+import { logToApp } from "@/lib/error-report/app-log";
 import type { OutboxEntry } from "../domain/outbox";
 import type { RemoteChange, SendOutcome, SyncTransport } from "../domain/sync-ports";
 
@@ -15,6 +16,24 @@ export interface PostgrestConfig {
   /** The current session token, read per request because it expires. */
   accessToken: () => Promise<string | null>;
   fetchImpl?: typeof fetch;
+  /** A send failed for a reason other than the network. Defaults to the app log. */
+  onSendError?: (err: unknown) => void;
+}
+
+/** The request never got an answer: no network, a dropped connection, an abort. */
+class NetworkFailure extends Error {
+  constructor(cause: unknown) {
+    super(cause instanceof Error ? cause.message : String(cause), { cause });
+  }
+}
+
+function logSendError(err: unknown): void {
+  logToApp({
+    level: "error",
+    source: "sync",
+    message: "Sync send failed before reaching the server",
+    detail: err instanceof Error ? (err.stack ?? err.message) : String(err),
+  });
 }
 
 /** A row the server rejected outright, versus one it could not reach. */
@@ -43,9 +62,12 @@ export class PostgrestTransport implements SyncTransport {
     let attempt: Attempt;
     try {
       attempt = await this.dispatch(entry);
-    } catch {
-      // A thrown fetch is a network fact, not a verdict on the op: the op is
-      // still owed, so it must not burn an attempt.
+    } catch (err) {
+      // Either way the op is still owed, so it must not burn an attempt. But
+      // only a request that got no answer is the network; anything else (a
+      // session that cannot be read, a payload that cannot be encoded) is a
+      // fault that would otherwise stall the queue without a word (xlog-03).
+      if (!(err instanceof NetworkFailure)) (this.config.onSendError ?? logSendError)(err);
       return { status: "offline" };
     }
     // A missing parent is not a conflict over this row: nothing sits at its id,
@@ -233,7 +255,7 @@ export class PostgrestTransport implements SyncTransport {
   ): Promise<Attempt> {
     const token = await this.config.accessToken();
     const doFetch = this.config.fetchImpl ?? fetch;
-    const response = await doFetch(`${this.config.baseUrl}${path}`, {
+    const init: RequestInit = {
       method,
       headers: {
         "content-type": "application/json",
@@ -242,8 +264,15 @@ export class PostgrestTransport implements SyncTransport {
         ...(prefer ? { prefer } : {}),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
-    const text = await response.text();
+    };
+    let response: Response;
+    let text: string;
+    try {
+      response = await doFetch(`${this.config.baseUrl}${path}`, init);
+      text = await response.text();
+    } catch (err) {
+      throw new NetworkFailure(err);
+    }
     return { status: response.status, body: text, rows: parseRows(text) };
   }
 }

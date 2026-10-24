@@ -33,3 +33,7 @@ class IMetricRepository(Protocol):
     ) -> list[MetricPoint]:
         """All samples for an experiment (optionally one metric), step-ordered."""
         ...
+
+    def clear(self, experiment_id: str) -> None:
+        """Drop every stored sample of one experiment, so a restart starts empty."""
+        ...
