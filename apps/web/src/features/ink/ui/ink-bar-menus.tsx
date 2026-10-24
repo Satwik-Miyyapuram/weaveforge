@@ -96,7 +96,13 @@ export function useBarMenu() {
     };
   }, [open]);
 
-  return { open, setOpen, menuRef, listRef, pos };
+  /** Close the menu, then run what was chosen. */
+  const choose = (run: () => void) => () => {
+    setOpen(false);
+    run();
+  };
+
+  return { open, setOpen, menuRef, listRef, pos, choose };
 }
 
 /**
