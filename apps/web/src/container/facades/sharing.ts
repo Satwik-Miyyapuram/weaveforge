@@ -64,10 +64,10 @@ export class SharingFacade {
     return this.deps.manageShareLinks.listForResource(resourceType, resourceId);
   }
 
-  async revokeShareLink(input: { id: string; rotateDek?: boolean }) {
+  async revokeShareLink(input: { id: string }) {
     if (!this.deps.revokeShareLink) throw new Error("Share links require the PostgREST backend.");
     const ownerId = await this.deps.session.requireUserId();
-    return this.deps.revokeShareLink.execute({ ownerId, linkId: input.id, rotateDek: input.rotateDek });
+    return this.deps.revokeShareLink.execute({ ownerId, linkId: input.id });
   }
 
   get manageSharing() {
