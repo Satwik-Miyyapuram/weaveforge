@@ -19,8 +19,11 @@ import { appendPaperNote, type IAiPaperNoteAppender } from "../domain/ai-write-p
 export class AppendPaperNoteUseCase implements IAiPaperNoteAppender {
   constructor(
     private readonly deps: {
-      /** Only the two methods this needs: one read, one write. */
-      papers: Pick<IPaperRepository, "getById" | "save">;
+      /**
+       * One read and one narrow write. The write names the summary it replaces,
+       * so it cannot erase a note or an edit that landed after the read.
+       */
+      papers: Pick<IPaperRepository, "getById" | "replaceSummary">;
       clock: Clock;
     },
   ) {}
@@ -30,17 +33,26 @@ export class AppendPaperNoteUseCase implements IAiPaperNoteAppender {
     addition: string;
     expectedRevision?: string;
   }): Promise<"appended" | "conflicted"> {
-    const paper = await this.deps.papers.getById(input.paperId);
-    if (!proposalApplies(paper, input.expectedRevision)) return "conflicted";
+    // Another writer can change the summary between the read and the write;
+    // then the write is refused and this reads again. A few rounds settle any
+    // real contention; a summary that never holds still is a conflict.
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+      const paper = await this.deps.papers.getById(input.paperId);
+      if (!proposalApplies(paper, input.expectedRevision)) return "conflicted";
 
-    await this.deps.papers.save({
-      ...paper,
-      summary: appendPaperNote(paper.summary, input.addition),
-      updatedAt: this.deps.clock.nowIso(),
-    });
-    return "appended";
+      const written = await this.deps.papers.replaceSummary(
+        paper.id,
+        paper.summary,
+        appendPaperNote(paper.summary, input.addition),
+        this.deps.clock.nowIso(),
+      );
+      if (written) return "appended";
+    }
+    return "conflicted";
   }
 }
+
+const MAX_ATTEMPTS = 3;
 
 /**
  * Whether a proposal's expectation still holds for the stored row.
