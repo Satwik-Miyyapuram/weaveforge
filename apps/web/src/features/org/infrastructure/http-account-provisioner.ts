@@ -1,5 +1,6 @@
 import type { IAccountProvisioner, Member, NewMemberInput } from "@weaveforge/core";
 import type { IAuthService } from "@/features/auth/domain/auth";
+import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { responseError } from "@/lib/format-error";
 
 /**
@@ -32,6 +33,8 @@ export class HttpAccountProvisioner implements IAccountProvisioner {
     if (!res.ok || !payload.member) {
       throw responseError(res, payload.error, res.ok ? "Account created but no member returned." : "Failed to create account.");
     }
+    // The team and lab lists are memoized; the new member must show at once.
+    invalidateAllRepoCaches();
     return payload.member;
   }
 }
