@@ -127,10 +127,20 @@ async function saveExperiment(query: SdkQuery, row: Record<string, unknown>): Pr
   return json(200, { experiment: saved.value[0] ?? null });
 }
 
+/**
+ * The web route's cap (apps/web api/sdk/metrics/limits.ts), which the Python SDK
+ * chunks its flushes to. Each point binds five parameters, so the cap also keeps
+ * one insert under Postgres' 65535-parameter limit (37-08).
+ */
+const MAX_POINTS_PER_REQUEST = 5000;
+
 async function appendMetrics(query: SdkQuery, body: Record<string, unknown>): Promise<LocalApiResponse> {
   const points = body.points;
   if (!Array.isArray(points)) return bad(400, "Body must be { points: [...] }.");
   if (points.length === 0) return json(200, { ok: true, received: 0, stored: 0 });
+  if (points.length > MAX_POINTS_PER_REQUEST) {
+    return bad(400, `At most ${MAX_POINTS_PER_REQUEST} points per request.`);
+  }
 
   const values: string[] = [];
   const params: SdkParam[] = [];
