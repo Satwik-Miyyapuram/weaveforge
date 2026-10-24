@@ -17,6 +17,18 @@ export function downloadBlob(blob: Blob, filename: string): void {
 }
 
 /**
+ * Zip bytes (as fflate returns them) as an `application/zip` Blob.
+ *
+ * The bytes are copied into a fresh ArrayBuffer-backed view, so a view onto a
+ * larger or shared buffer still types as a BlobPart and carries only itself.
+ */
+export function zipToBlob(bytes: Uint8Array): Blob {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return new Blob([copy.buffer], { type: "application/zip" });
+}
+
+/**
  * A blob as a `data:` URL.
  *
  * What an exported document needs when it embeds a picture: a `blob:` URL dies

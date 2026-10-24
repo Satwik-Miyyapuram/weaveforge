@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { LOCAL_BOOTSTRAP_SQL, type Migration } from "@weaveforge/core";
+import { errorMessage, LOCAL_BOOTSTRAP_SQL, type Migration } from "@weaveforge/core";
 import { LocalDatabase, type LocalClient } from "./local-db";
 import type { IpcResult } from "./channels";
 
@@ -107,7 +107,7 @@ function writes(sql: string): boolean {
 /** An open that failed, told apart from a query that did. */
 class OpenError extends Error {
   constructor(cause: unknown) {
-    super(`${OPEN_FAILED} ${cause instanceof Error ? cause.message : String(cause)}`);
+    super(`${OPEN_FAILED} ${errorMessage(cause)}`);
   }
 }
 
@@ -186,7 +186,7 @@ export class LocalDbHost {
       if (IDENTITY_CHANGES.test(sql)) this.user = undefined;
       return { ok: true, value: rows };
     } catch (error) {
-      const message = error instanceof Error ? error.message : OPEN_FAILED;
+      const message = errorMessage(error, OPEN_FAILED);
       // SQL only, never params: they can hold a person's text.
       const code = (error as { code?: unknown } | null)?.code;
       (this.options.log ?? console.error)(
@@ -234,7 +234,7 @@ export class LocalDbHost {
       this.failure = undefined;
       return { ok: true, value: null };
     } catch (error) {
-      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+      return { ok: false, message: errorMessage(error) };
     }
   }
 

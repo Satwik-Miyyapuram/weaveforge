@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { errorMessage } from "@weaveforge/core";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { FolderIcon } from "@/components/view-icons";
 import { NavIcon } from "@/app/nav-icon";
@@ -41,7 +42,6 @@ import {
   HideGlyph,
   InlineTitle,
   RefreshGlyph,
-  messageOf,
 } from "./explorer-glyphs";
 
 export interface ExplorerSelection {
@@ -219,7 +219,7 @@ export function ExplorerPanel({
         setProblem(null);
         onDraft?.(null);
       } catch (error) {
-        setProblem({ key: "draft", message: messageOf(error) });
+        setProblem({ key: "draft", message: errorMessage(error) });
       }
     },
     [draft, onCreate, onDraft],
@@ -236,7 +236,7 @@ export function ExplorerPanel({
         setProblem(null);
         setRenaming(null);
       } catch (error) {
-        setProblem({ key: node.key, message: messageOf(error) });
+        setProblem({ key: node.key, message: errorMessage(error) });
       }
     },
     [onRename],
@@ -553,7 +553,7 @@ export function ExplorerPanel({
                             if (!source || !canDrop(source, node)) return;
                             event.preventDefault();
                             void onMove?.(source, dropParentId(node)).catch((error) =>
-                              setProblem({ key: node.key, message: messageOf(error) }),
+                              setProblem({ key: node.key, message: errorMessage(error) }),
                             );
                           }}
                         >

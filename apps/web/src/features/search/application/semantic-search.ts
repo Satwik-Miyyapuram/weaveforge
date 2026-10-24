@@ -1,4 +1,4 @@
-import { searchRevision, type SearchDoc } from "@weaveforge/core";
+import { errorMessage, searchRevision, type SearchDoc } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { SemanticIndex, type EmbedProgress } from "./semantic-index";
 import { WorkerEmbedder, supportsLocalEmbedding } from "../infrastructure/worker-embedder";
@@ -108,7 +108,7 @@ export async function enableSemanticSearch(options: EnableOptions = {}): Promise
   if (building) return building;
   building = run(options)
     .catch((error: unknown) => {
-      setStatus({ phase: "error", message: error instanceof Error ? error.message : String(error) });
+      setStatus({ phase: "error", message: errorMessage(error) });
       throw error;
     })
     .finally(() => {

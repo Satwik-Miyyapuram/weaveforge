@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PAPER_STATUSES, parsePaperRef, type PaperRef, type PaperStatus } from "@weaveforge/core";
+import { PAPER_STATUSES, isEmptyPaperSummary, parsePaperRef, type PaperRef, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { paperSourceNoteScaffold } from "../application/paper-source-note-scaffold";
@@ -59,7 +59,7 @@ export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
     const paper = refValue.trim()
       ? await papers.importPaper.fromRef({ kind: refKind, value: refValue.trim() }, status)
       : await papers.addPaper.addManual({ title, status });
-    if (!paper.summary || paper.summary === "No summary yet.") {
+    if (isEmptyPaperSummary(paper.summary)) {
       const citeKey =
         typeof paper.metadata?.["citeKey"] === "string"
           ? paper.metadata["citeKey"]

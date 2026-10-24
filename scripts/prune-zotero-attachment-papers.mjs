@@ -23,23 +23,10 @@
  * alone, whatever its title. See `lib/zotero-attachment-prune.mjs`.
  */
 
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import pg from "pg";
 
+import { loadDatabaseUrl } from "./lib/db-connection.mjs";
 import { findAttachmentPapers } from "./lib/zotero-attachment-prune.mjs";
-
-const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(here, "..");
-
-function loadDatabaseUrl() {
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
-  const text = readFileSync(path.join(repoRoot, "secrets", ".env.migration"), "utf8");
-  const match = /^DATABASE_URL=(.*)$/m.exec(text);
-  if (!match) throw new Error("DATABASE_URL not found in secrets/.env.migration");
-  return match[1].trim().replace(/^["']|["']$/g, "");
-}
 
 const apply = process.argv.includes("--apply");
 

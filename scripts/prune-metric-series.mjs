@@ -15,23 +15,10 @@
  * run it again with --apply.
  */
 
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import pg from "pg";
 
 import { KEEP_ALL_BELOW_STEP, stepsToPrune } from "../packages/core/dist/index.js";
-
-const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(here, "..");
-
-function loadDatabaseUrl() {
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
-  const text = readFileSync(path.join(repoRoot, "secrets", ".env.migration"), "utf8");
-  const match = /^DATABASE_URL=(.*)$/m.exec(text);
-  if (!match) throw new Error("DATABASE_URL not found in secrets/.env.migration");
-  return match[1].trim().replace(/^["']|["']$/g, "");
-}
+import { loadDatabaseUrl } from "./lib/db-connection.mjs";
 
 const apply = process.argv.includes("--apply");
 

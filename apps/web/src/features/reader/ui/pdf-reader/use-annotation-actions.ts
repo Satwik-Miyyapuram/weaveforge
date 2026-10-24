@@ -1,5 +1,6 @@
 "use client";
 
+import { errorMessage } from "@weaveforge/core";
 import { useCallback, useState } from "react";
 import type { NewReaderAnnotation, ReaderAnnotation } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
@@ -96,7 +97,7 @@ export function useAnnotationActions({
         // vanishes on the next reload with no explanation.
         change((prev) => prev.filter((a) => a.id !== tempId));
         setSelectedAnnId((prev) => (prev === tempId ? null : prev));
-        setAnnError(err instanceof Error ? err.message : "Could not save the annotation.");
+        setAnnError(errorMessage(err, "Could not save the annotation."));
         return null;
       } finally {
         setCreateBusy(false);
@@ -129,7 +130,7 @@ export function useAnnotationActions({
           const restore = previous;
           change((prev) => prev.map((a) => (a.id === id ? restore : a)));
         }
-        setAnnError(err instanceof Error ? err.message : "Could not update the annotation.");
+        setAnnError(errorMessage(err, "Could not update the annotation."));
       }
     },
     [onAnnotationsChange, onActivity],
@@ -155,7 +156,7 @@ export function useAnnotationActions({
           const restore = removed;
           change((prev) => (prev.some((a) => a.id === restore.id) ? prev : [...prev, restore]));
         }
-        setAnnError(err instanceof Error ? err.message : "Could not delete the annotation.");
+        setAnnError(errorMessage(err, "Could not delete the annotation."));
       }
     },
     [onAnnotationsChange, onActivity, selectedAnnId, setSelectedAnnId],
@@ -170,7 +171,7 @@ export function useAnnotationActions({
         applyPin(key, sectionId, paperId);
         setAnnError(null);
       } catch (err) {
-        setAnnError(err instanceof Error ? err.message : "Could not pin the annotation.");
+        setAnnError(errorMessage(err, "Could not pin the annotation."));
       }
     },
     [paperId, applyPin],
@@ -193,7 +194,7 @@ export function useAnnotationActions({
       } catch (err) {
         const restore = comment === undefined ? { anchor: before.anchor } : before;
         change((prev) => prev.map((a) => (a.id === ann.id ? { ...a, ...restore } : a)));
-        setAnnError(err instanceof Error ? err.message : "Could not move the annotation.");
+        setAnnError(errorMessage(err, "Could not move the annotation."));
       }
     },
     [onAnnotationsChange],

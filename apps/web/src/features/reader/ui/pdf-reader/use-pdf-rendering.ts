@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isRotatedText, outlineFromText, type OutlineTextItem, type PdfLink } from "@weaveforge/core";
+import { errorMessage, isRotatedText, outlineFromText, type OutlineTextItem, type PdfLink } from "@weaveforge/core";
 import type { PageTextItem } from "@weaveforge/core";
 import type { TextLayer } from "pdfjs-dist";
 import { createPdfTextLayer, measurePdfLinks } from "./pdf-text-layer";
@@ -506,7 +506,7 @@ useEffect(() => {
         onSourceFailure(safeUrl);
         return;
       }
-      setError(err instanceof Error ? err.message : "Could not load this PDF in the app.");
+      setError(errorMessage(err, "Could not load this PDF in the app."));
     }
   })();
   const proxies = pageProxies.current;

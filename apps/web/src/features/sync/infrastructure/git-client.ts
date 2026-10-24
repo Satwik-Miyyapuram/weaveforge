@@ -1,4 +1,4 @@
-import type { Integration } from "../domain/integration";
+import { DEFAULT_GIT_BRANCH, type Integration } from "../domain/integration";
 import { gitConnection } from "../domain/integration-fields";
 
 /** Normalized git types so the UI doesn't care which provider it came from. */
@@ -36,7 +36,7 @@ export class GitClient {
   private async get(i: Integration, kind: string, branch?: string): Promise<unknown> {
     const { token, repo, branch: defaultBranch } = gitConnection(i);
     if (!token || !repo) throw new Error("Connect this provider in Settings first.");
-    const selectedBranch = branch ?? defaultBranch ?? "main";
+    const selectedBranch = branch ?? defaultBranch ?? DEFAULT_GIT_BRANCH;
     const url = i.provider === "github"
       ? kind === "branches"
         ? `https://api.github.com/repos/${repo}/branches?per_page=100`

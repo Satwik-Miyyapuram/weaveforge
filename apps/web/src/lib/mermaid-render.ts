@@ -8,6 +8,7 @@
  * client.
  */
 import { escapeHtml } from "./escape-html";
+import { errorMessage } from "@weaveforge/core";
 
 export type MermaidModule = Pick<typeof import("pele/lazy"), "renderAsync">;
 
@@ -98,7 +99,7 @@ export async function renderMermaidBlock(code: string): Promise<string> {
     }
     return html;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     // The message is shown, not tucked into a tooltip: a diagram that comes
     // back as its own source with nothing said looks like a renderer that
     // did not run, when it is a typo on line 3.

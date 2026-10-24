@@ -73,3 +73,27 @@ export function resetAppData(): void {
     window.location.replace("/");
   })();
 }
+
+/** The warning both error screens show before `resetAppData`. */
+export const RESET_APP_DATA_CONFIRM =
+  "Reset app data? Offline copies of your work on this device will be deleted. This cannot be undone.";
+
+/**
+ * Whether this is the installed Android app.
+ *
+ * Kept here, not reused from `features/search/infrastructure/
+ * index-cache-policy`, because the error boundaries import it: a boundary has
+ * to render when the module that failed to load is exactly the one it would
+ * import, so it depends on nothing but this file. The tell is the same one
+ * that file uses: a trusted web activity is referred by its own
+ * `android-app://` scheme, the only signal that survives before the
+ * display-mode query matches.
+ */
+export function isAndroidApp(): boolean {
+  if (typeof document === "undefined") return false;
+  try {
+    return document.referrer.startsWith("android-app://");
+  } catch {
+    return false;
+  }
+}

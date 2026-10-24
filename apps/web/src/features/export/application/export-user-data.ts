@@ -8,9 +8,7 @@ import {
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { activeProject } from "@/features/workspace/application/active-project";
-import { downloadBlob } from "@/lib/blob-output";
-
-export { downloadBlob };
+import { downloadBlob, zipToBlob } from "@/lib/blob-output";
 
 function jsonFile(value: unknown): Uint8Array {
   return strToU8(JSON.stringify(value, null, 2));
@@ -179,9 +177,7 @@ export async function downloadWorkspaceFolder(): Promise<void> {
     Object.fromEntries(Object.entries(files).map(([path, bytes]) => [`${root}/${path}`, bytes])),
     { level: 6 },
   );
-  const copy = new Uint8Array(zipped.byteLength);
-  copy.set(zipped);
-  downloadBlob(new Blob([copy.buffer], { type: "application/zip" }), `${root}.zip`);
+  downloadBlob(zipToBlob(zipped), `${root}.zip`);
 }
 
 /**
@@ -199,11 +195,7 @@ async function exportUserData(): Promise<Blob> {
     fetchPaperImages: (paths) => c.papers.fetchImageBlobs(paths),
   });
 
-  const zipped = zipSync(files, { level: 6 });
-  // Copy into a fresh ArrayBuffer-backed view so BlobPart typing is happy.
-  const copy = new Uint8Array(zipped.byteLength);
-  copy.set(zipped);
-  return new Blob([copy.buffer], { type: "application/zip" });
+  return zipToBlob(zipSync(files, { level: 6 }));
 }
 
 /** Convenience: build + download the export as `weaveforge-export-{date}.zip`. */

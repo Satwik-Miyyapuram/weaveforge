@@ -14,6 +14,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import {
+  errorMessage,
   inkPageBackground,
   inkPageFigures,
   withInkPageBackground,
@@ -30,7 +31,6 @@ import {
   recognisedPageFromModel,
   type RecognisedPage,
 } from "../application/recognise-page";
-import { messageOf } from "./error-message";
 
 /** What the flow needs from the host; the host owns the worker and the saves. */
 export interface InkRecognitionDeps {
@@ -149,7 +149,7 @@ export function useInkRecognition(deps: InkRecognitionDeps) {
       });
       applyRecognised(result, at);
     } catch (error) {
-      setUnavailable(messageOf(error));
+      setUnavailable(errorMessage(error));
     } finally {
       setRecognising(false);
       setProgress(null);

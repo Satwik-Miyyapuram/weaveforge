@@ -1,4 +1,5 @@
 import {
+  errorMessage,
   canonicalAiToolName,
   type AiAccessSettings,
   type AiEvidence,
@@ -144,7 +145,7 @@ export async function handleRelayBatch(deps: RelayBatchDeps, batch: readonly Rel
     try {
       result = await dispatchMcpTool(deps.host(), deps.sessionId, deps.getSettings(), command);
     } catch (error) {
-      result = { weaveforgeError: error instanceof Error ? error.message : String(error) };
+      result = { weaveforgeError: errorMessage(error) };
     }
     try {
       const envelope = await encrypt(deps.sessionKey, result);
