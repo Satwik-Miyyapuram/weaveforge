@@ -92,3 +92,26 @@ test("update: pins and unpins a note, keeping its body", async () => {
   const unpinned = await uc.update(created.id, { pinned: false });
   assert.equal(unpinned.pinned, false);
 });
+
+test("update: keeps its exact move refusals: self, descendant, missing parent (xhelp-18)", async () => {
+  const { repo, uc } = makeUseCase();
+  const a = await uc.add({ title: "A" });
+  const b = await uc.add({ title: "B", parentId: a.id });
+  const c = await uc.add({ title: "C", parentId: b.id });
+  const inside = { name: "VaultPageValidationError", message: "A note cannot be moved inside itself." };
+  await assert.rejects(uc.update(a.id, { parentId: a.id }), inside);
+  await assert.rejects(uc.update(a.id, { parentId: c.id }), inside);
+  await assert.rejects(uc.update(a.id, { parentId: "nope" }), { name: "NotFoundError", message: 'No vault page with id "nope".' });
+  await repo.save({ ...(await repo.getById(b.id))!, parentId: "ghost" });
+  await assert.rejects(uc.update(a.id, { parentId: c.id }), { name: "NotFoundError", message: `No vault page with id "${c.id}".` });
+});
+
+test("update: a move under a loop already in the data still lands", async () => {
+  const { repo, uc } = makeUseCase();
+  const x = await uc.add({ title: "X" });
+  const y = await uc.add({ title: "Y" });
+  const m = await uc.add({ title: "M" });
+  await repo.save({ ...(await repo.getById(x.id))!, parentId: y.id });
+  await repo.save({ ...(await repo.getById(y.id))!, parentId: x.id });
+  assert.equal((await uc.update(m.id, { parentId: x.id })).parentId, x.id);
+});

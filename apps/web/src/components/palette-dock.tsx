@@ -23,6 +23,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { readStored, writeStored } from "@/lib/safe-storage";
+
 export const PALETTE_DOCKS = [
   "top-left",
   "top",
@@ -57,11 +59,7 @@ export function parsePaletteDock(raw: unknown): PaletteDock {
 }
 
 function readDock(): PaletteDock {
-  try {
-    return parsePaletteDock(window.localStorage.getItem(DOCK_KEY));
-  } catch {
-    return DEFAULT_PALETTE_DOCK;
-  }
+  return parsePaletteDock(readStored(DOCK_KEY));
 }
 
 export function usePaletteDock(): [PaletteDock, (dock: PaletteDock) => void] {
@@ -80,11 +78,8 @@ export function usePaletteDock(): [PaletteDock, (dock: PaletteDock) => void] {
   }, []);
   const setDock = useCallback((next: PaletteDock) => {
     setDockState(next);
-    try {
-      window.localStorage.setItem(DOCK_KEY, next);
-    } catch {
-      /* private mode: the choice lasts the session */
-    }
+    // Private mode: the choice lasts the session.
+    writeStored(DOCK_KEY, next);
     window.dispatchEvent(new Event(DOCK_EVENT));
   }, []);
   return [dock, setDock];

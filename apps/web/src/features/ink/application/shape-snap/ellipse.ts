@@ -33,7 +33,7 @@ import {
  *
  * Two gates, in this order, because they are what keeps a rough square out:
  *
- * 1. **There must be two axes at all** ({@link ELLIPSE_MIN_ECCENTRICITY}).
+ * 1. **There must be two axes at all** ({@link ELLIPSE_MIN_AXIS_RATIO}).
  * 2. **The radial residual must be small** ({@link ELLIPSE_ERROR_LIMIT}). A
  *    square's radial profile runs from its inradius to its circumradius — a
  *    factor of √2 — so its residual is an order of magnitude over the limit,

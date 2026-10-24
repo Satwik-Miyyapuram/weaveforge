@@ -5,7 +5,7 @@ the PWA reads, using the decorator as the one entry point::
 
     from weaveforge import track_experiment
 
-    @track_experiment(name="beta-vae sweep", config={"beta": 4}, sync=["tensorboard"])
+    @track_experiment(name="beta-vae sweep", config={"beta": 4}, sync={"tensorboard": "runs/x"})
     def train(run):
         run.log_metric("val_loss", 0.11, step=100)
         run.log_figure(fig, name="reconstruction")

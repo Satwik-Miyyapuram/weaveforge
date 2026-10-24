@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  errorMessage,
   ENTITY_DIRS,
   EXPERIMENT_STATUSES,
   FOLDER_DRAFTS_DIR,
@@ -25,7 +26,7 @@ import {
 } from "@weaveforge/core";
 
 import { searchVault, walkVault } from "./local-api";
-import { pickProject, resolveProjects, type ProjectRef, type ProjectSource } from "./local-mcp-projects";
+import { norm, pickProject, resolveProjects, type ProjectRef, type ProjectSource } from "./local-mcp-projects";
 import { DEFAULT_PAGE_SPAN, KINDS, TOOLS, TRACKING_TOOL, trackingSetup, type TrackingSetup } from "./local-mcp-tools";
 export type { TrackingSetup };
 import type { VaultSession } from "./vault-handlers";
@@ -127,7 +128,6 @@ async function loadEntries(session: VaultSession, kind: WorkspaceEntityType, pro
   return entries;
 }
 
-const norm = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
 const describe = (entry: Entry) => `${entry.title} (${entry.id ?? entry.path})`;
 const named = (entry: Entry) => `${entry.title} (${entry.type === "paper" ? "paper" : "note"})`;
 
@@ -729,7 +729,7 @@ export async function routeMcpRequest(
         // A tool error, not a protocol one: the call was well-formed and the answer is "no".
         return ok(id, {
           isError: true,
-          content: [{ type: "text", text: error instanceof Error ? error.message : "That did not work." }],
+          content: [{ type: "text", text: errorMessage(error, "That did not work.") }],
         });
       }
     }

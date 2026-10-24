@@ -1,3 +1,4 @@
+import { errorMessage } from "@weaveforge/core";
 import type { IBlobFetcher, IBlobStore } from "@weaveforge/core";
 import { FetchingBlobStore } from "@/storage/fetching-blob-store";
 import { LocalBlobStore } from "./local-blob-store";
@@ -138,7 +139,7 @@ export class LocalFirstBlobStore implements IBlobFetcher {
       } catch (err) {
         await this.run(
           "update local_blob_uploads set attempts = attempts + 1, last_error = $3 where bucket = $1 and path = $2",
-          [item.bucket, item.path, err instanceof Error ? err.message : String(err)],
+          [item.bucket, item.path, errorMessage(err)],
         );
         return;
       }

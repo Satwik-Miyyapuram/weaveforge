@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import { normalizePasteSettings, type PasteSettings } from "@weaveforge/core";
 
+import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
+
 /**
  * Where the paste rules are stored.
  *
@@ -19,22 +21,14 @@ const STORAGE_KEY = "thesis.paste";
 const PASTE_SETTINGS_CHANGE_EVENT = "weaveforge:paste-settings";
 
 export function readPasteSettings(): PasteSettings {
-  if (typeof localStorage === "undefined") return normalizePasteSettings(undefined);
-  try {
-    return normalizePasteSettings(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null"));
-  } catch {
-    // Storage disabled, or a value another version wrote. The defaults are
-    // always a safe answer, so a bad record never blocks pasting.
-    return normalizePasteSettings(undefined);
-  }
+  // Storage disabled, or a value another version wrote: the defaults are
+  // always a safe answer, so a bad record never blocks pasting.
+  return normalizePasteSettings(readStoredJson<unknown>(STORAGE_KEY, undefined));
 }
 
 export function writePasteSettings(settings: PasteSettings): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizePasteSettings(settings)));
-  } catch {
-    // Private mode: the change still applies to this session through the event.
-  }
+  // In private mode the change still applies to this session through the event.
+  writeStoredJson(STORAGE_KEY, normalizePasteSettings(settings));
   window.dispatchEvent(new Event(PASTE_SETTINGS_CHANGE_EVENT));
 }
 

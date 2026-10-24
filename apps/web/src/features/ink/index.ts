@@ -100,7 +100,6 @@ export {
   INK_AA_MARGIN_PX,
   INK_INSTANCE_FLOATS,
   INK_SELECTION_HALO_PX,
-  capsuleHalfExtent,
   packStrokeInstances,
   radiusAt,
   usesHighlighterPass,

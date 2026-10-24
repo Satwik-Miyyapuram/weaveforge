@@ -46,12 +46,9 @@ export interface OrgInviteCodePlaintext {
 /**
  * A lab rule the caller broke: a missing name, a name that is too long.
  *
- * Distinct from the two below on purpose. `OrgInviteService` currently throws
- * this for "Lab not found." and "Only the lab owner can regenerate codes." too,
- * which is why the same exception surfaced as `400` on one org route and `403`
- * on another — the condition and the class disagreed. Those two sites should
- * throw {@link OrgNotFoundError} / {@link OrgPermissionError}; until they do,
- * this class means only what its name says.
+ * Distinct from the two below on purpose: a missing lab is
+ * {@link OrgNotFoundError} (404) and a non-owner is {@link OrgPermissionError}
+ * (403), so each org route answers the same condition with the same status.
  */
 export class OrgValidationError extends ValidationError {
   constructor(message: string) {

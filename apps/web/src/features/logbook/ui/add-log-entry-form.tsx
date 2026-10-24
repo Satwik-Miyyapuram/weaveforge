@@ -6,6 +6,7 @@ import { LOG_KINDS, type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
+import { bestEffort } from "../application/log-side-effects";
 
 /**
  * Add-log-entry form. UI only: it collects input and delegates to the
@@ -19,8 +20,8 @@ export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
   const { busy, error, submit } = useSubmit(async () => {
     const logbook = getContainer().logbook;
     const entry = await logbook.addLogEntry.add({ body, kind });
-    try { await logbook.pushLog(entry); } catch { /* git sync best-effort */ }
-    try { await logbook.notifyNewLog(entry); } catch { /* chat post best-effort */ }
+    await bestEffort("Git push", () => logbook.pushLog(entry));
+    await bestEffort("Chat post", () => logbook.notifyNewLog(entry));
     setBody("");
     onAdded?.();
   });

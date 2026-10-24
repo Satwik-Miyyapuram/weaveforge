@@ -14,10 +14,14 @@
  * `content-type`) travel upstream.
  */
 
+import {
+  forwardedHeaders,
+  SEMANTIC_SCHOLAR_RELAY_PREFIX,
+  semanticScholarTarget,
+} from "@/lib/semantic-scholar-relay";
 import { refuse, type ProxyFetch } from "./proxy-shared";
 
-export const SEMANTIC_SCHOLAR_PROXY_PREFIX = "/api/semantic-scholar/";
-const UPSTREAM = "https://api.semanticscholar.org";
+export const SEMANTIC_SCHOLAR_PROXY_PREFIX = SEMANTIC_SCHOLAR_RELAY_PREFIX;
 const RETRIES = 3;
 
 export function isSemanticScholarProxyRequest(requestUrl: string): boolean {
@@ -33,15 +37,9 @@ export async function proxySemanticScholar(
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
   if (method !== "GET" && method !== "POST") return refuse(405, "Method not allowed");
-  const rest = url.pathname.slice(SEMANTIC_SCHOLAR_PROXY_PREFIX.length);
-  if (!rest || rest.includes("..")) return refuse(400, "Bad Semantic Scholar path");
-  const target = `${UPSTREAM}/${rest}${url.search}`;
-
-  const headers: Record<string, string> = { accept: "application/json" };
-  const key = request.headers.get("x-api-key");
-  if (key) headers["x-api-key"] = key;
-  const type = request.headers.get("content-type");
-  if (type) headers["content-type"] = type;
+  const target = semanticScholarTarget(url.pathname, url.search);
+  if (!target) return refuse(400, "Bad Semantic Scholar path");
+  const headers = forwardedHeaders(request.headers);
   const body = method === "POST" ? await request.text() : undefined;
 
   const send = () =>

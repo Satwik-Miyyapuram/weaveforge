@@ -5,8 +5,8 @@ import { createPortal } from "react-dom";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { ChevronIcon } from "./chevron-icon";
 import { focusFirstControl, focusFirstField } from "./modal";
+import { VIEWPORT_PAD } from "./viewport-pad";
 
-const VIEWPORT_PAD = 12;
 
 /**
  * A button that opens an anchored panel (used for filters that we don't want

@@ -1,3 +1,4 @@
+import { errorMessage } from "@weaveforge/core";
 import { NextResponse } from "next/server";
 import { getAdminProvisioner } from "@/backend/wire-backend";
 
@@ -46,7 +47,7 @@ export async function resolveDeleteAccountCaller(request: Request): Promise<Dele
   try {
     caller = await provisioner.resolveCaller(token);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Invalid session.";
+    const message = errorMessage(err, "Invalid session.");
     const status = message.startsWith("Forbidden") ? 403 : 401;
     return { ok: false, response: NextResponse.json({ error: message }, { status }) };
   }

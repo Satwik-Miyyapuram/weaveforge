@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { readStored, writeStored } from "@/lib/safe-storage";
+
 /**
  * Brave's fingerprint protection ("farbling") adds noise to canvas
  * `getImageData` readback. react-force-graph resolves clicks by reading a pixel
@@ -18,7 +20,7 @@ export function BraveGraphWarning() {
     brave?.isBrave?.().then((b) => {
       if (!alive) return;
       setIsBrave(b);
-      setDismissed(localStorage.getItem("thesis.graph.braveWarnDismissed") === "1");
+      setDismissed(readStored("thesis.graph.braveWarnDismissed") === "1");
     });
     return () => {
       alive = false;
@@ -38,7 +40,7 @@ export function BraveGraphWarning() {
         type="button"
         className="link-btn"
         onClick={() => {
-          localStorage.setItem("thesis.graph.braveWarnDismissed", "1");
+          writeStored("thesis.graph.braveWarnDismissed", "1");
           setDismissed(true);
         }}
       >

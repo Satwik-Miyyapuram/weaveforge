@@ -12,6 +12,7 @@ import {
 import type { IVaultPageRepository } from "../domain/vault-page-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { NotFoundError } from "../../../shared/errors.js";
+import { assertNotUnder } from "../../../shared/tree.js";
 
 export interface EditVaultPageInput {
   title?: string;
@@ -74,7 +75,7 @@ export class ManageVaultPageUseCase {
       await this.assertTitleUnique(title, id);
     }
     if (input.parentId !== undefined && input.parentId !== null) {
-      await this.assertNotUnder(input.parentId, id);
+      await this.assertNotUnderSelf(input.parentId, id);
     }
     const updated: VaultPage = {
       ...existing,
@@ -94,19 +95,17 @@ export class ManageVaultPageUseCase {
    * A page cannot be moved under itself or under one of its descendants — the
    * parent chain would loop and the tree would drop the whole branch.
    */
-  private async assertNotUnder(parentId: string, id: string): Promise<void> {
-    let cursor: string | undefined = parentId;
-    const seen = new Set<string>();
-    while (cursor) {
-      if (cursor === id) {
-        throw new VaultPageValidationError("A note cannot be moved inside itself.");
-      }
-      if (seen.has(cursor)) return; // an existing loop is not this move's doing
-      seen.add(cursor);
-      const parent = await this.deps.repository.getById(cursor);
-      if (!parent) throw new NotFoundError(`No vault page with id "${parentId}".`);
-      cursor = parent.parentId;
-    }
+  private assertNotUnderSelf(parentId: string, id: string): Promise<void> {
+    return assertNotUnder(
+      id,
+      parentId,
+      async (cursor) => {
+        const parent = await this.deps.repository.getById(cursor);
+        if (!parent) throw new NotFoundError(`No vault page with id "${parentId}".`);
+        return parent.parentId;
+      },
+      () => new VaultPageValidationError("A note cannot be moved inside itself."),
+    );
   }
 
   async remove(id: string): Promise<void> {

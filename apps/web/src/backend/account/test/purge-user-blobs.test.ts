@@ -90,3 +90,19 @@ test("a storage listing failure stops the purge instead of reading as an empty b
 
   assert.equal(state.registryCleared, false);
 });
+
+test("sweeps the storage prefix in every blob bucket", async () => {
+  const { BLOB_STORAGE_BUCKETS } = await import("@/storage/server/blob-access");
+  const { purgeUserBlobs } = await import("../purge-user-blobs");
+  const listed: string[] = [];
+  const admin = fakeAdmin();
+  admin.storage.from = ((bucket: string) => ({
+    list: async () => {
+      listed.push(bucket);
+      return { data: [], error: null };
+    },
+    remove: async () => ({ error: null }),
+  })) as never;
+  await purgeUserBlobs(admin as never, "u1", () => fakeStore as never);
+  assert.deepEqual(listed, [...BLOB_STORAGE_BUCKETS]);
+});

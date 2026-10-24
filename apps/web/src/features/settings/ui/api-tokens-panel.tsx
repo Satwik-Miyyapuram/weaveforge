@@ -10,6 +10,7 @@ import { useAuth } from "@/features/auth";
 import { formatError } from "@/lib/format-error";
 import { useSubmit } from "@/lib/hooks/use-submit";
 import type { ApiTokenRecord } from "@/container/facades";
+import { copyText } from "@/lib/clipboard";
 
 const EXPIRY_OPTIONS = [
   { value: "0", label: "Never expires", days: null as number | null },
@@ -101,7 +102,8 @@ export function ApiTokensPanel() {
         export WEAVEFORGE_API_URL=https://your-app.example.com
       </pre>
 
-      <FormError>{error}</FormError>
+      {/* While the create dialog is open its own copy shows the error, in view. */}
+      {createOpen ? null : <FormError>{error}</FormError>}
 
       <div className="api-token-toolbar">
         <button type="button" className="btn-primary" onClick={() => setCreateOpen(true)}>
@@ -173,6 +175,7 @@ export function ApiTokensPanel() {
                 ))}
               </Select>
             </div>
+            <FormError>{error}</FormError>
             <button className="btn-primary" disabled={busy || !name.trim()}>
               {busy ? "Creating…" : "Create token"}
             </button>
@@ -192,7 +195,8 @@ export function ApiTokensPanel() {
             type="button"
             className="btn-primary"
             onClick={() => {
-              void navigator.clipboard.writeText(revealed).then(() => {
+              void copyText(revealed).then((ok) => {
+                if (!ok) return;
                 setCopied(true);
                 window.setTimeout(() => setCopied(false), 1200);
               });
