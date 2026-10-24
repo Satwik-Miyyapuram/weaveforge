@@ -10,6 +10,7 @@ import { Select } from "@/components/select";
 import { MemberPicker } from "./member-picker";
 import { ShareLinkPanel } from "./share-link-panel";
 import { formatError } from "@/lib/format-error";
+import { runShareAction } from "./share-action";
 import { FormError } from "@/components/form-error";
 
 /**
@@ -79,47 +80,41 @@ export function ShareDialog({
 
   const canGrant = toAdd.length > 0 && (!isBlanket || activeProjectId != null);
 
+  const ui = { setBusy, setError };
+
   async function grantSelected() {
     if (isBlanket && !activeProjectId) {
       setError("Select a project before blanket sharing.");
       return;
     }
-    setBusy(true);
-    setError(null);
-    try {
+    await runShareAction(async () => {
       for (const recipientId of toAdd) {
         await getContainer().sharing.manageSharing.grant({ recipientId, resourceType, resourceId, access });
       }
       setToAdd([]);
       await reload();
-    } catch (e) {
-      setError(formatError(e));
-    } finally {
-      setBusy(false);
-    }
+    }, ui);
   }
 
+  // The row's select is controlled by the stored share, so a refused change
+  // leaves it showing the access the recipient still has.
   async function changeAccess(s: Share, next: ShareAccess) {
-    await getContainer().sharing.manageSharing.grant({
-      recipientId: s.recipientId,
-      resourceType,
-      resourceId,
-      access: next,
-    });
-    await reload();
+    await runShareAction(async () => {
+      await getContainer().sharing.manageSharing.grant({
+        recipientId: s.recipientId,
+        resourceType,
+        resourceId,
+        access: next,
+      });
+      await reload();
+    }, ui);
   }
 
   async function revoke(s: Share) {
-    setBusy(true);
-    setError(null);
-    try {
+    await runShareAction(async () => {
       await getContainer().sharing.manageSharing.revoke(s.id);
       await reload();
-    } catch (e) {
-      setError(formatError(e));
-    } finally {
-      setBusy(false);
-    }
+    }, ui);
   }
 
   return (
@@ -140,13 +135,14 @@ export function ShareDialog({
                 <Select
                   className="share-access"
                   value={s.access}
+                  disabled={busy}
                   onChange={(e) => void changeAccess(s, e.target.value as ShareAccess)}
                 >
                   <option value="view">can view</option>
                   <option value="comment">can comment</option>
                   {supportsEdit ? <option value="edit">can edit</option> : null}
                 </Select>
-                <button className="link-btn danger" onClick={() => void revoke(s)}>remove</button>
+                <button className="link-btn danger" disabled={busy} onClick={() => void revoke(s)}>remove</button>
               </li>
             ))}
           </ul>
