@@ -30,6 +30,7 @@ import {
   recognisedPageFromModel,
   type RecognisedPage,
 } from "../application/recognise-page";
+import { messageOf } from "./error-message";
 
 /** What the flow needs from the host; the host owns the worker and the saves. */
 export interface InkRecognitionDeps {
@@ -148,7 +149,7 @@ export function useInkRecognition(deps: InkRecognitionDeps) {
       });
       applyRecognised(result, at);
     } catch (error) {
-      setUnavailable(error instanceof Error ? error.message : String(error));
+      setUnavailable(messageOf(error));
     } finally {
       setRecognising(false);
       setProgress(null);

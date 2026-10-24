@@ -50,6 +50,7 @@ import {
   pageBackgroundFromFile,
   pageChunkWithBackground,
 } from "../application/page-background";
+import { messageOf } from "./error-message";
 import { figureBoxForAspect } from "./ink-figures";
 
 /** How a page's media gets written; the host owns the sidecar and the saves. */
@@ -231,7 +232,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         deps.scheduleSave();
       } catch (error) {
         deps.setUnavailable(
-          `The image could not be added: ${error instanceof Error ? error.message : String(error)}`,
+          `The image could not be added: ${messageOf(error)}`,
         );
       } finally {
         setInserting(false);
@@ -304,7 +305,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         deps.onFiguresChange([...deps.figuresRef.current, { ...box, path }]);
       } catch (error) {
         deps.setUnavailable(
-          `The image could not be added: ${error instanceof Error ? error.message : String(error)}`,
+          `The image could not be added: ${messageOf(error)}`,
         );
       } finally {
         setInserting(false);
@@ -324,7 +325,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
           path = await deps.assets.upload(deps.noteId, blob, ext);
         } catch (error) {
           deps.setUnavailable(
-            `The figure could not be pasted: ${error instanceof Error ? error.message : String(error)}`,
+            `The figure could not be pasted: ${messageOf(error)}`,
           );
           return;
         } finally {
@@ -440,7 +441,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
         }
       } catch (error) {
         deps.setUnavailable(
-          `The page could not be inserted: ${error instanceof Error ? error.message : String(error)}`,
+          `The page could not be inserted: ${messageOf(error)}`,
         );
       } finally {
         setInserting(false);
