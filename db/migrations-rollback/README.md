@@ -27,6 +27,7 @@ node -e "const{Client}=require('pg');const fs=require('fs');(async()=>{const c=n
 | `0143_unlink_not_cascade.sql` | Supervisor and CRDT author foreign keys back to cascade (0122) — lossless in data; deleting an account deletes other users' rows again; `crdt_updates.author_id` stays nullable |
 | `0144_metric_chunk_fixes.sql` | The 0144 chunk fixes — restores the 0115 removal and rollup and the 0131 activity read; cleared duplicate chunk copies do not come back |
 | `local-0020_outbox_row_lookups.sql` | Device database, `db/migrations-local/0020_outbox_row_lookups.sql` — drops the outbox row index, restores the `information_schema` column lookup and the backfill that can queue a row twice |
+| `0145_ai_proposal_executing.sql` | AI proposal status check without `executing` (0070) — `executing` rows go back to `pending`; roll the app back too, or approvals fail the check |
 
 This table had drifted three migrations behind the folder — `0116`, `0131` and
 `0132` were all absent, and a rollback nobody can find is one nobody runs.
