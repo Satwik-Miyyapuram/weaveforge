@@ -41,7 +41,7 @@ test("normalizeTitleKey folds case and collapses whitespace", () => {
 });
 
 test("stripFrontmatter removes YAML and collects tags (inline, csv, block)", () => {
-  assert.deepEqual(stripFrontmatter("no frontmatter"), { body: "no frontmatter", tags: [] });
+  assert.deepEqual(stripFrontmatter("no frontmatter"), { body: "no frontmatter", tags: [], aliases: [] });
   const inline = stripFrontmatter("---\ntags: [ml, nlp]\n---\nbody");
   assert.equal(inline.body, "body");
   assert.deepEqual(inline.tags, ["ml", "nlp"]);
@@ -69,4 +69,14 @@ test("stripFrontmatter trims quotes and stays linear on long runs", () => {
   const started = performance.now();
   stripFrontmatter(`---\ntags:${" ".repeat(50_000)}\n${'"'.repeat(50_000)}x\n---\n`);
   assert.ok(performance.now() - started < 500);
+});
+
+test("stripFrontmatter keeps multi-word aliases whole (05-11)", () => {
+  const inline = stripFrontmatter("---\naliases: [Deep Learning, \"DL\"]\ntags: [ml nlp]\n---\nx");
+  assert.deepEqual(inline.aliases, ["Deep Learning", "DL"]);
+  assert.deepEqual(inline.tags, ["Deep-Learning", "DL", "ml", "nlp"]);
+  const block = stripFrontmatter("---\naliases:\n  - 'Large  Language Model'\n  - LLM\n---\nx");
+  assert.deepEqual(block.aliases, ["Large Language Model", "LLM"]);
+  assert.deepEqual(block.tags, ["Large-Language-Model", "LLM"]);
+  assert.deepEqual(stripFrontmatter("---\naliases:\n---\nx").aliases, []);
 });

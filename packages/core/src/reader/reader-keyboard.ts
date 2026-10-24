@@ -72,7 +72,7 @@ export function readerKeyboardCommand(event: ReaderKeyEvent): ReaderKeyboardComm
   ) {
     return { type: "zoom_out" };
   }
-  if (key === "r" || key === "R") return { type: "rotate" };
+  if ((key === "r" || key === "R") && !mod) return { type: "rotate" };
   if ((key === "0" || code === "Digit0" || code === "Numpad0") && mod) return { type: "fit_width" };
 
   switch (key) {

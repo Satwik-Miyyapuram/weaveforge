@@ -115,3 +115,21 @@ test("update: a move under a loop already in the data still lands", async () => 
   await repo.save({ ...(await repo.getById(y.id))!, parentId: x.id });
   assert.equal((await uc.update(m.id, { parentId: x.id })).parentId, x.id);
 });
+
+test("the duplicate-title check reads no page list (05-02)", async () => {
+  const { repo, uc } = makeUseCase();
+  let listed = 0;
+  repo.listSummaries = async () => {
+    listed += 1;
+    return [];
+  };
+  repo.list = async () => {
+    listed += 1;
+    return [];
+  };
+  const a = await uc.add({ title: "Alpha" });
+  await assert.rejects(() => uc.add({ title: "ALPHA" }), VaultPageValidationError);
+  await uc.update(a.id, { title: "Beta" });
+  await uc.add({ title: "alpha" });
+  assert.equal(listed, 0);
+});

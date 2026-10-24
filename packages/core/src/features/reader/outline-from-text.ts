@@ -108,7 +108,9 @@ export function levenshtein(a: string, b: string, limit = Number.POSITIVE_INFINI
 
 const NUMBERED = /^(\d+(?:\.\d+)*)\.?\s+\S/;
 const SECTION = /^(Abstract|Introduction|Related Work|Method|Results|Discussion|Conclusion|References|Appendix)\b/i;
-const REFERENCES = /^(?:\d+(?:\.\d+)*\.?\s+)?(References|Bibliography)\b/i;
+/** A bibliography heading in the languages the analyser reads; the outline stops there. */
+export const REFERENCES_HEADING =
+  /^(?:\d+(?:\.\d+)*\.?\s+)?(?:References|Bibliography|Referencias|Références|Bibliographie|Literaturverzeichnis|Literatur)\b/iu;
 /** A table-of-contents entry: title, a run of dots, a page number. */
 const DOTTED_LEADER = /(\.\s*){5,}\d*$/;
 /** A heading has a word in it; a lone large "x" is a maths variable. */
@@ -236,7 +238,7 @@ export function outlineFromText(allPages: readonly (readonly OutlineTextItem[])[
     if (!HAS_WORD.test(line.str)) return false;
     return line.fontSize >= 1.12 * body || (isBoldFont(line.fontName) && (numbered || SECTION.test(line.str)));
   });
-  const references = headings.findIndex((heading) => REFERENCES.test(heading.str));
+  const references = headings.findIndex((heading) => REFERENCES_HEADING.test(heading.str));
   if (references >= 0) headings.splice(references + 1);
   if (!outlineIsPlausible(headings, pages.length)) return [];
   const sizes = [...new Set(headings.map((line) => line.fontSize))].sort((a, b) => b - a);
@@ -251,7 +253,7 @@ export function outlineFromText(allPages: readonly (readonly OutlineTextItem[])[
     if (parent) (parent.items ??= []).push(node);
     else roots.push(node);
     stack.push({ level, node });
-    if (REFERENCES.test(heading.str)) break;
+    if (REFERENCES_HEADING.test(heading.str)) break;
   }
   return roots;
 }

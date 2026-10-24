@@ -35,6 +35,30 @@ export function buildTree<T, N extends { children: N[] }>(
     if (parent) parent.children.push(node);
     else roots.push(node);
   }
+  // A parent loop in the data leaves its nodes unreachable from any root. Cut
+  // each loop at one node, which becomes a root, so nothing silently vanishes.
+  const reached = new Set<N>();
+  const reach = (node: N) => {
+    if (reached.has(node)) return;
+    reached.add(node);
+    for (const child of node.children) reach(child);
+  };
+  for (const root of roots) reach(root);
+  const parentOf = (node: N) => nodes.get(parents.get(node) as string)!;
+  for (const start of nodes.values()) {
+    if (reached.has(start)) continue;
+    // Unreached means every ancestor exists, so walking up must repeat.
+    const seen = new Set<N>();
+    let onLoop = start;
+    while (!seen.has(onLoop)) {
+      seen.add(onLoop);
+      onLoop = parentOf(onLoop);
+    }
+    const siblings = parentOf(onLoop).children;
+    siblings.splice(siblings.indexOf(onLoop), 1);
+    roots.push(onLoop);
+    reach(onLoop);
+  }
   const sortLevel = (level: N[]) => {
     level.sort(shape.compare);
     for (const child of level) sortLevel(child.children);

@@ -27,13 +27,6 @@ class InMemoryCommentRepo implements ICommentRepository {
     this.rows.push(comment);
     return comment;
   }
-  async save(comment: Comment) {
-    this.rows.push(comment);
-    return comment;
-  }
-  async listAll() {
-    return [...this.rows];
-  }
   async remove(id: string) {
     const i = this.rows.findIndex((c) => c.id === id);
     if (i >= 0) this.rows.splice(i, 1);

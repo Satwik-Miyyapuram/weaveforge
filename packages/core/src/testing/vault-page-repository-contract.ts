@@ -116,4 +116,24 @@ export function runVaultPageRepositoryContract(
     // And the stored page is untouched either way.
     assert.equal((await repo.getById(page.id))?.body, page.body);
   });
+
+  test(`[${label}] titleTaken matches titles case-insensitively (05-02)`, async () => {
+    const repo = makeRepo();
+    await repo.save(samplePage({ id: "a", title: "Deep  Learning" }));
+    await repo.save(samplePage({ id: "b", title: "100% 'done'_x" }));
+    assert.equal(await repo.titleTaken("deep learning"), true);
+    assert.equal(await repo.titleTaken("  DEEP LEARNING "), true);
+    assert.equal(await repo.titleTaken("Deep"), false);
+    assert.equal(await repo.titleTaken("100% 'DONE'_X"), true);
+    // LIKE wildcards in the title are literal.
+    assert.equal(await repo.titleTaken("100x 'done'ax"), false);
+    assert.equal(await repo.titleTaken(""), false);
+  });
+
+  test(`[${label}] titleTaken ignores the page being renamed (05-02)`, async () => {
+    const repo = makeRepo();
+    await repo.save(samplePage({ id: "a", title: "Notes" }));
+    assert.equal(await repo.titleTaken("notes", "a"), false);
+    assert.equal(await repo.titleTaken("notes", "other"), true);
+  });
 }

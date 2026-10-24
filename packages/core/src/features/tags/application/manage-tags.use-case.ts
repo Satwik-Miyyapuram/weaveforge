@@ -32,11 +32,8 @@ export class ManageTagsUseCase {
 
   async listForPaper(paperId: string): Promise<Tag[]> {
     const links = await this.deps.paperTags.listForPaper(paperId);
-    const out: Tag[] = [];
-    for (const l of links) {
-      const t = await this.deps.tags.getById(l.tagId);
-      if (t) out.push(t);
-    }
+    const byId = await this.tagsById(links);
+    const out = [...byId.values()];
     return out.sort((a, b) => a.name.localeCompare(b.name));
   }
 
@@ -50,9 +47,10 @@ export class ManageTagsUseCase {
     paperId: string,
   ): Promise<readonly { name: string; source: TagSource }[]> {
     const links = await this.deps.paperTags.listForPaper(paperId);
+    const byId = await this.tagsById(links);
     const out: { name: string; source: TagSource }[] = [];
     for (const l of links) {
-      const t = await this.deps.tags.getById(l.tagId);
+      const t = byId.get(l.tagId);
       if (t) out.push({ name: t.name, source: l.source });
     }
     return out.sort((a, b) => a.name.localeCompare(b.name));
@@ -89,9 +87,9 @@ export class ManageTagsUseCase {
     const links = (await this.deps.paperTags.listForPaper(paperId)).filter(
       (l) => l.source === "manual",
     );
+    const byId = await this.tagsById(links);
     for (const l of links) {
-      const t = await this.deps.tags.getById(l.tagId);
-      if (t?.name === name) {
+      if (byId.get(l.tagId)?.name === name) {
         await this.deps.paperTags.unlink(paperId, l.tagId, "manual");
         break;
       }
@@ -143,12 +141,25 @@ export class ManageTagsUseCase {
 
   private async listTagNamesForPaper(paperId: string, source: TagSource): Promise<string[]> {
     const links = (await this.deps.paperTags.listForPaper(paperId)).filter((l) => l.source === source);
+    const byId = await this.tagsById(links);
     const names: string[] = [];
     for (const l of links) {
-      const t = await this.deps.tags.getById(l.tagId);
+      const t = byId.get(l.tagId);
       if (t) names.push(t.name);
     }
     return names;
+  }
+
+  /**
+   * Resolve each distinct tag once, in parallel. getById stays the only read
+   * so the web cache (memoised getById) still serves and invalidates it.
+   */
+  private async tagsById(links: readonly PaperTag[]): Promise<Map<string, Tag>> {
+    const ids = [...new Set(links.map((l) => l.tagId))];
+    const tags = await Promise.all(ids.map((id) => this.deps.tags.getById(id)));
+    const out = new Map<string, Tag>();
+    for (const t of tags) if (t) out.set(t.id, t);
+    return out;
   }
 
   private async getOrCreateTag(name: string): Promise<Tag> {
