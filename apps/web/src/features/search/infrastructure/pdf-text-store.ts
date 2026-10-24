@@ -21,6 +21,12 @@ function key(projectId: string | null, paperId: string): string {
   return `${projectId ?? "-"}|${paperId}`;
 }
 
+/** Every key of one project: `key()` puts the project first, so it is a prefix range. */
+function projectRange(projectId: string | null): IDBKeyRange {
+  const prefix = `${projectId ?? "-"}|`;
+  return IDBKeyRange.bound(prefix, `${prefix}\uffff`);
+}
+
 function withinBudget(source: PdfIndexSource): PdfIndexSource {
   let total = 0;
   const pages = [];
@@ -56,13 +62,12 @@ export async function loadPdfTexts(projectId: string | null): Promise<PdfIndexSo
     return await new Promise<PdfIndexSource[]>((resolve, reject) => {
       const tx = db.transaction(PDF_TEXT_STORE, "readonly");
       const store = tx.objectStore(PDF_TEXT_STORE);
-      const prefix = `${projectId ?? "-"}|`;
       const out: PdfIndexSource[] = [];
-      const req = store.openCursor();
+      const req = store.openCursor(projectRange(projectId));
       req.onsuccess = () => {
         const cursor = req.result;
         if (!cursor) return;
-        if (String(cursor.key).startsWith(prefix)) out.push(cursor.value as PdfIndexSource);
+        out.push(cursor.value as PdfIndexSource);
         cursor.continue();
       };
       tx.oncomplete = () => resolve(out);
@@ -114,12 +119,11 @@ export async function clearPdfTexts(projectId?: string | null): Promise<void> {
         tx.onerror = () => reject(tx.error);
         return;
       }
-      const prefix = `${projectId ?? "-"}|`;
-      const req = store.openCursor();
+      const req = store.openCursor(projectRange(projectId));
       req.onsuccess = () => {
         const cursor = req.result;
         if (!cursor) return;
-        if (String(cursor.key).startsWith(prefix)) cursor.delete();
+        cursor.delete();
         cursor.continue();
       };
       tx.oncomplete = () => resolve();

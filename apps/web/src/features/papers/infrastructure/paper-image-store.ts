@@ -1,5 +1,6 @@
 import type { IBlobFetcher, ICurrentUserProvider } from "@weaveforge/core";
 import { BucketAssetStore } from "@/lib/bucket-asset-store";
+import { logToApp } from "@/lib/error-report/app-log";
 import type { IPaperImageStore } from "../domain/zotero";
 
 const THUMB_MAX_DIM = 640;
@@ -23,7 +24,13 @@ export class PaperImageStore extends BucketAssetStore implements IPaperImageStor
     await this.blobs.upload(this.bucket, fullPath, blob, blob.type);
     const thumbnail = await makeThumbnail(blob);
     if (thumbnail) {
-      await this.blobs.upload(this.bucket, `${base}.thumb.webp`, thumbnail, "image/webp");
+      // Optional: readers fall back to the full image, which is already
+      // stored. Rejecting here would orphan it.
+      try {
+        await this.blobs.upload(this.bucket, `${base}.thumb.webp`, thumbnail, "image/webp");
+      } catch (err) {
+        logToApp({ level: "warn", source: "paper-images", message: `Thumbnail upload failed for ${fullPath}`, detail: String(err) });
+      }
     }
     return fullPath;
   }
