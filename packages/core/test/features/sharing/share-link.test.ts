@@ -96,7 +96,57 @@ test("revoke share link deletes the link", async () => {
   });
 
   const revoke = new RevokeShareLinkUseCase({ shareLinks });
-  await revoke.execute({ ownerId: "owner", linkId, rotateDek: true });
+  await revoke.execute({ ownerId: "owner", linkId });
 
   assert.equal(await shareLinks.getById(linkId), null);
+});
+
+test("redeeming a malformed token fails with the invalid-link error, not a decoding error", async () => {
+  const redeem = new RedeemShareLinkUseCase({ shareLinks, tokenHasher });
+  for (const token of ["%%%", "a", "", "abc$def"]) {
+    await assert.rejects(redeem.execute(token), { message: "Link is invalid or expired." }, token);
+  }
+});
+
+test("redeeming an unknown token fails with the invalid-link error", async () => {
+  const redeem = new RedeemShareLinkUseCase({ shareLinks, tokenHasher });
+  await assert.rejects(redeem.execute(encodeShareLinkToken(new Uint8Array(32))), {
+    message: "Link is invalid or expired.",
+  });
+});
+
+test("an expired link cannot be redeemed", async () => {
+  const links = new InMemoryShareLinkRepository();
+  const create = new CreateShareLinkUseCase({
+    shareLinks: links,
+    tokenHasher,
+    ids: { newId: () => crypto.randomUUID() },
+    clock: { nowIso: () => new Date().toISOString() },
+    randomBytes: randomBytesAsync,
+  });
+  const { urlToken } = await create.execute({
+    ownerId: "owner",
+    resourceType: "paper",
+    resourceId: PAPER_ID,
+    expiresAt: new Date(Date.now() - 1000).toISOString(),
+  });
+
+  const redeem = new RedeemShareLinkUseCase({ shareLinks: links, tokenHasher });
+  await assert.rejects(redeem.execute(urlToken), { message: "Link is invalid or expired." });
+});
+
+test("a link can be redeemed more than once until it expires", async () => {
+  const links = new InMemoryShareLinkRepository();
+  const create = new CreateShareLinkUseCase({
+    shareLinks: links,
+    tokenHasher,
+    ids: { newId: () => crypto.randomUUID() },
+    clock: { nowIso: () => new Date().toISOString() },
+    randomBytes: randomBytesAsync,
+  });
+  const { urlToken } = await create.execute({ ownerId: "owner", resourceType: "paper", resourceId: PAPER_ID });
+
+  const redeem = new RedeemShareLinkUseCase({ shareLinks: links, tokenHasher });
+  assert.equal((await redeem.execute(urlToken)).resourceId, PAPER_ID);
+  assert.equal((await redeem.execute(urlToken)).resourceId, PAPER_ID);
 });
