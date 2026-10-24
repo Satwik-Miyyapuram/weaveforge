@@ -94,8 +94,26 @@ function applyInlineMarkdown(escaped: string): string {
   return escaped
     .replace(/\*\*([^*]+)\*\*/g, "\\textbf{$1}")
     .replace(/(^|[^*])\*([^*]+)\*/g, "$1\\emph{$2}")
-    .replace(/`([^`]+)`/g, "\\texttt{$1}")
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, "\\href{$2}{$1}");
+    .replace(/`([^`]+)`/g, "\\texttt{$1}");
+}
+
+/**
+ * Escape raw markdown text, turning `[label](http…)` into `\href`. The URL is
+ * cut out before escaping: hyperref takes `_`, `~` and `&` as they are and
+ * needs only `\`, `{`, `}`, `%` and `#` escaped.
+ */
+function inlineText(raw: string): string {
+  const re = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+  let out = "";
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw)) !== null) {
+    out += applyInlineMarkdown(escapeLatexText(raw.slice(last, m.index)));
+    const url = m[2]!.replace(/[\\{}%#]/g, (c) => `\\${c}`);
+    out += `\\href{${url}}{${applyInlineMarkdown(escapeLatexText(m[1]!))}}`;
+    last = m.index + m[0].length;
+  }
+  return out + applyInlineMarkdown(escapeLatexText(raw.slice(last)));
 }
 
 /**
@@ -114,7 +132,7 @@ function textWithCites(
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(s)) !== null) {
-    out += applyInlineMarkdown(escapeLatexText(s.slice(last, m.index)));
+    out += inlineText(s.slice(last, m.index));
     const { target, alias } = parseWikilinkInner(m[1]!, m[0])!;
     const key = target ? citeByTitle?.get(normalizeTitleKey(target)) : undefined;
     if (key) {
@@ -122,14 +140,14 @@ function textWithCites(
       citedKeys.add(key);
     } else {
       const label = alias || target || m[1]!.trim();
-      out += applyInlineMarkdown(escapeLatexText(label));
+      out += inlineText(label);
       if (target && citeByTitle) {
         warnings.push(`Wikilink [[${target}]] is not a paper in the library — left as text.`);
       }
     }
     last = m.index + m[0].length;
   }
-  out += applyInlineMarkdown(escapeLatexText(s.slice(last)));
+  out += inlineText(s.slice(last));
   return out;
 }
 

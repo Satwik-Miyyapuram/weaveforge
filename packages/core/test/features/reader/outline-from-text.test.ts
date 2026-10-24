@@ -116,3 +116,19 @@ test("a lone large letter is a maths variable, not a heading", () => {
   const pages = [[item("1 Introduction", 12), { ...item("z", 14, 1, 500), x: 45 }, ...body(1)], [item("2 Method", 12, 2), ...body(2)], [item("3 Results", 12, 3), ...body(3)]];
   assert.deepEqual(outlineFromText(pages).map((n) => n.title), ["1 Introduction", "2 Method", "3 Results"]);
 });
+
+for (const heading of ["Literatur", "Literaturverzeichnis", "Références", "Referencias", "Bibliographie"]) {
+  test(`a "${heading}" heading stops the outline, like References (04-08)`, () => {
+    const pages = [[item("1 Einleitung", 12), ...body(1)], [
+      item("2 Methode", 12, 2, 700),
+      item("3 Ergebnisse", 12, 2, 600),
+      item(heading, 12, 2, 500),
+      item("Anhang", 14, 2, 300),
+      ...body(2),
+    ]];
+    assert.deepEqual(
+      outlineFromText(pages).map((n) => n.title),
+      ["1 Einleitung", "2 Methode", "3 Ergebnisse", heading],
+    );
+  });
+}

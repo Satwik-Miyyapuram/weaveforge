@@ -34,15 +34,6 @@ export class InMemoryCommentRepository implements ICommentRepository {
     return { ...comment };
   }
 
-  async save(comment: Comment): Promise<Comment> {
-    this.store.set(comment.id, { ...comment });
-    return { ...comment };
-  }
-
-  async listAll(): Promise<Comment[]> {
-    return [...this.store.values()].map((c) => ({ ...c }));
-  }
-
   async remove(id: string): Promise<void> {
     this.store.delete(id);
     // Replies go with their root, as `on delete cascade` does.

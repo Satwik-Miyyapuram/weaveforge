@@ -36,3 +36,11 @@ test("the stamped file parses back as that entity", () => {
   assert.equal(parsed.title, "My idea");
   assert.equal(parsed.body.trim(), "the body");
 });
+
+test("a BOM-prefixed file keeps its BOM and gets one frontmatter (06-01)", () => {
+  const bom = String.fromCharCode(0xfeff);
+  const withFm = stampWorkspaceId(`${bom}---\ntitle: Mine\n---\n\nbody\n`, "n1");
+  assert.equal(withFm, `${bom}---\nweaveforge-id: n1\ntitle: Mine\n---\n\nbody\n`);
+  assert.equal(stampWorkspaceId(`${bom}---\r\nweaveforge-id: n9\r\n---\r\n`, "n1"), null);
+  assert.equal(stampWorkspaceId(`${bom}# Idea\n`, "n1"), `${bom}---\nweaveforge-id: n1\n---\n\n# Idea\n`);
+});

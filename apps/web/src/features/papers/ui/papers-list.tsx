@@ -167,7 +167,10 @@ export function PapersScreen() {
           ? // Saying "nothing is tracked" without saying how to track anything
             // leaves the user stuck. Name the control that turns it on.
             "No papers are tracked yet — open a paper and use the bell icon to watch it for new citations."
-          : `Checked ${result.checked} tracked paper${result.checked === 1 ? "" : "s"} — ${result.found} new citation${result.found === 1 ? "" : "s"}.`,
+          : `Checked ${result.checked} tracked paper${result.checked === 1 ? "" : "s"} — ${result.found} new citation${result.found === 1 ? "" : "s"}.` +
+              (result.failed > 0
+                ? ` ${result.failed} could not be checked; try again later.`
+                : ""),
       );
     } catch (err) {
       setError(formatError(err));
