@@ -7,37 +7,15 @@ import {
   countWords,
   imagesOf,
   type Paper,
-  type IPaperRepository,
 } from "../../../src/index.js";
-
-class InMemoryPaperRepo implements IPaperRepository {
-  readonly rows = new Map<string, Paper>();
-  async getById(id: string) {
-    return this.rows.get(id) ?? null;
-  }
-  async list() {
-    return [...this.rows.values()];
-  }
-  async save(p: Paper) {
-    this.rows.set(p.id, p);
-  }
-  async delete(id: string) {
-    this.rows.delete(id);
-  }
-  async findByArxivId() {
-    return null;
-  }
-  async findByDoi() {
-    return null;
-  }
-}
+import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
 
 // The tag methods are exercised in manage-tags; here we only drive the paper
 // mutations, so a throwing stub guards against accidental tag coupling.
 const tagsStub = {} as unknown as ConstructorParameters<typeof UpdatePaperUseCase>[0]["tags"];
 
 function makeSetup() {
-  const repo = new InMemoryPaperRepo();
+  const repo = new InMemoryPaperRepository();
   const clock = { nowIso: () => "2026-07-23T12:00:00.000Z" };
   const add = new AddPaperUseCase({ repository: repo, clock: { nowIso: () => "2026-07-23T09:00:00.000Z" }, ids: { newId: () => "paper-1" } });
   const uc = new UpdatePaperUseCase({ repository: repo, tags: tagsStub, clock });

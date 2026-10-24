@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { PushPaperToZoteroUseCase, type Paper } from "../../../src/index.js";
+import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
 
 /**
  * The one push-to-Zotero rule.
@@ -27,24 +28,30 @@ function paper(over: Partial<Paper> = {}): Paper {
   };
 }
 
-function harness(options: { key?: string; throws?: boolean; linked?: boolean } = {}) {
+function harness(
+  options: { key?: string; throws?: boolean; linked?: boolean; duringPush?: (repo: InMemoryPaperRepository) => Promise<void> } = {},
+) {
+  const repo = new InMemoryPaperRepository();
   const saved: Paper[] = [];
   const pushed: string[] = [];
   const useCase = new PushPaperToZoteroUseCase({
     papers: {
+      getById: (id) => repo.getById(id),
       save: async (value) => {
         saved.push(value);
+        await repo.save(value);
       },
-    } as never,
+    },
     bibliography: {
       pushPaper: async (value) => {
         pushed.push(value.title);
+        await options.duringPush?.(repo);
         if (options.throws) throw new Error("zotero is down");
         return options.key;
       },
     } as never,
   });
-  return { useCase, saved, pushed };
+  return { useCase, saved, pushed, repo };
 }
 
 test("a paper already carrying a key is not pushed again", async () => {
@@ -58,7 +65,8 @@ test("a paper already carrying a key is not pushed again", async () => {
 });
 
 test("a successful push stores the key and keeps the rest of the metadata", async () => {
-  const { useCase, saved } = harness({ key: "NEWKEY" });
+  const { useCase, saved, repo } = harness({ key: "NEWKEY" });
+  await repo.save(paper({ metadata: { images: ["a.png"] } }));
 
   const outcome = await useCase.execute(paper({ metadata: { images: ["a.png"] } }));
 
@@ -90,4 +98,31 @@ test("a push that throws is reported rather than escaping", async () => {
 
   assert.equal(outcome, "failed");
   assert.deepEqual(saved, []);
+});
+
+
+test("an edit made while the push was in flight survives the key being stored", async () => {
+  // The form writes the summary scaffold and then pushes the object it held
+  // before that write; saving that object back reverted the summary.
+  const { useCase, repo } = harness({
+    key: "NEWKEY",
+    duringPush: (store) => store.save(paper({ summary: "Written meanwhile", metadata: { images: ["b.png"] } })),
+  });
+  await repo.save(paper());
+
+  const outcome = await useCase.execute(paper());
+
+  assert.equal(outcome, "pushed");
+  const stored = await repo.getById("p1");
+  assert.equal(stored?.summary, "Written meanwhile");
+  assert.deepEqual(stored?.metadata, { images: ["b.png"], zoteroKey: "NEWKEY" });
+});
+
+test("a paper deleted while the push was in flight is not brought back", async () => {
+  const { useCase, repo, saved } = harness({ key: "NEWKEY", duringPush: (store) => store.delete("p1") });
+  await repo.save(paper());
+
+  assert.equal(await useCase.execute(paper()), "pushed");
+  assert.deepEqual(saved, []);
+  assert.equal(await repo.getById("p1"), null);
 });
