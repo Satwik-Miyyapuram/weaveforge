@@ -42,21 +42,43 @@ function row(overrides: Record<string, unknown> = {}) {
 }
 
 /**
- * Records every `update` payload and replays a stored row back, merging the
- * payload so a follow-up update observes the previous one.
+ * Records every `update` that reached a row and replays a stored row back,
+ * merging the payload so a follow-up update observes the previous one. An
+ * update filtered `.not("zotero_key", "is", null)` reaches no row when the
+ * stored row has no key, as PostgREST's would.
  */
-function fakeDb(stored: Record<string, unknown>, rec: Recorder): SupabaseClient {
+function fakeDb(stored: Record<string, unknown>, rec: Recorder, failUpdates = false): SupabaseClient {
   let current = { ...stored };
   return {
     from() {
+      let pending: Record<string, unknown> | null = null;
+      let needsKey = false;
+      const apply = () => {
+        if (!pending) return { hit: true, error: null };
+        if (failUpdates) return { hit: false, error: { message: "write failed" } };
+        if (needsKey && current.zotero_key == null) return { hit: false, error: null };
+        rec.updates.push({ payload: pending });
+        current = { ...current, ...pending };
+        return { hit: true, error: null };
+      };
       const builder: Record<string, unknown> = {
-        single: async () => ({ data: current, error: null }),
+        single: async () => {
+          const { hit, error } = apply();
+          return hit ? { data: current, error: null } : { data: null, error: error ?? { message: "no row" } };
+        },
+        maybeSingle: async () => {
+          const { hit, error } = apply();
+          return { data: hit ? current : null, error };
+        },
         select: () => builder,
         eq: () => builder,
+        not: (col: string, op: string, value: unknown) => {
+          if (col === "zotero_key" && op === "is" && value === null) needsKey = true;
+          return builder;
+        },
         order: () => builder,
         update(payload: Record<string, unknown>) {
-          rec.updates.push({ payload });
-          current = { ...current, ...payload };
+          pending = payload;
           return builder;
         },
         insert(payload: Record<string, unknown>) {
@@ -65,17 +87,19 @@ function fakeDb(stored: Record<string, unknown>, rec: Recorder): SupabaseClient 
           return builder;
         },
         delete: () => builder,
-        then: (resolve: (value: unknown) => unknown) =>
-          Promise.resolve({ data: [current], error: null }).then(resolve),
+        then: (resolve: (value: unknown) => unknown) => {
+          const { error } = apply();
+          return Promise.resolve({ data: [current], error }).then(resolve);
+        },
       };
       return builder;
     },
   } as unknown as SupabaseClient;
 }
 
-function makeRepo(stored: Record<string, unknown>, rec: Recorder, projectId: string | null = PROJECT) {
+function makeRepo(stored: Record<string, unknown>, rec: Recorder, projectId: string | null = PROJECT, failUpdates = false) {
   return new PostgrestReaderAnnotationRepository(
-    fakeDb(stored, rec),
+    fakeDb(stored, rec, failUpdates),
     { projectId } as never,
     { getCurrentUserId: async () => UID, requireUserId: async () => UID },
   );
@@ -103,8 +127,18 @@ test("update marks a Zotero-backed annotation pending", async () => {
   const updated = await repo.update("ann-1", { comment: "edited" });
 
   assert.equal(updated.syncState, "pending");
-  assert.equal(rec.updates.length, 2);
-  assert.deepEqual(rec.updates[1]!.payload, { sync_state: "pending" });
+  // One write carries the edit and the flag, so the edit can never be stored
+  // with the row still reading `synced` (22-06).
+  assert.equal(rec.updates.length, 1);
+  assert.deepEqual(rec.updates[0]!.payload, { comment: "edited", sync_state: "pending" });
+});
+
+test("a failed edit of a Zotero-backed annotation stores nothing (22-06)", async () => {
+  const rec = recorder();
+  const repo = makeRepo(row({ zotero_key: "ABCD1234", sync_state: "synced" }), rec, PROJECT, true);
+
+  await assert.rejects(repo.update("ann-1", { comment: "edited" }), { message: "write failed" });
+  assert.equal(rec.updates.length, 0);
 });
 
 test("update trims text fields and passes the anchor through untouched", async () => {

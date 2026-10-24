@@ -24,6 +24,8 @@ export interface ReferenceLookupCache {
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 // 5: misses are no longer stored; the bump drops the ones v4 kept.
 const CACHE_SCHEMA = 5;
+/** How long one library listing answers title matches: a bibliography walk, not a session. */
+const LIBRARY_LIST_TTL_MS = 30_000;
 
 function cacheKey(documentKey: string, refIndex: number): string {
   return `v${CACHE_SCHEMA}:${documentKey}:ref:${refIndex}`;
@@ -43,6 +45,7 @@ function cacheKey(documentKey: string, refIndex: number): string {
  */
 export class ReferenceLookupService {
   private readonly memory = new Map<string, { at: number; value: ResolvedReference }>();
+  private library?: { at: number; list: ReturnType<IPaperRepository["listSummaries"]> };
 
   constructor(
     private readonly resolver: { resolveWithSource(ref: PaperRef): Promise<{ metadata: PaperMetadata; sourceId: string }> },
@@ -119,7 +122,19 @@ export class ReferenceLookupService {
   private async findByTitle(title: string): Promise<PaperIdentity | undefined> {
     const key = titleKey(title);
     if (!key) return undefined;
-    const match = (await this.papers.listSummaries()).find((p) => titleKey(p.title) === key);
+    const match = (await this.librarySummaries()).find((p) => titleKey(p.title) === key);
     return match ? { id: match.id, title: match.title, status: match.status } : undefined;
+  }
+
+  /** One listing per short window, so a reference walk is not one fetch per entry. */
+  private librarySummaries(): ReturnType<IPaperRepository["listSummaries"]> {
+    const at = this.now();
+    if (this.library && at - this.library.at < LIBRARY_LIST_TTL_MS) return this.library.list;
+    const list = this.papers.listSummaries();
+    const entry = { at, list };
+    this.library = entry;
+    // A failed listing must not answer the next lookup too.
+    list.catch(() => { if (this.library === entry) this.library = undefined; });
+    return list;
   }
 }

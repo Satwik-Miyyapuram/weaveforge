@@ -27,6 +27,7 @@ import {
   type InkColour,
 } from "@weaveforge/core";
 import { INK_TOOL_CURSORS, inkToolCursor, type InkBarTool, type InkCursorInk } from "@/features/ink";
+import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
 import {
   READER_ANNOTATION_COLORS,
   type ReaderCreateTool,
@@ -179,11 +180,7 @@ export function parsePenPrefs(raw: unknown): PenPrefs {
 }
 
 function readPenPrefs(): PenPrefs {
-  try {
-    return parsePenPrefs(JSON.parse(window.localStorage.getItem(PEN_PREFS_KEY) ?? "null"));
-  } catch {
-    return DEFAULT_PEN_PREFS;
-  }
+  return parsePenPrefs(readStoredJson<unknown>(PEN_PREFS_KEY, null));
 }
 
 export function usePenPrefs() {
@@ -197,11 +194,8 @@ export function usePenPrefs() {
   const update = useCallback((next: PenPrefs | ((prev: PenPrefs) => PenPrefs)) => {
     setPrefs((prev) => {
       const value = typeof next === "function" ? next(prev) : next;
-      try {
-        window.localStorage.setItem(PEN_PREFS_KEY, JSON.stringify(value));
-      } catch {
-        /* private mode: the choice lasts the session */
-      }
+      // Private mode: the choice lasts the session.
+      writeStoredJson(PEN_PREFS_KEY, value);
       return value;
     });
   }, []);

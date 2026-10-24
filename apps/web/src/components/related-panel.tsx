@@ -26,6 +26,11 @@ const ARM_LABEL: Record<RelatedArm, string> = {
   none: "",
 };
 
+/** The labelled methods that found an entry, joined: "linked + shared tags". */
+export function armsText(arms: readonly RelatedArm[]): string {
+  return arms.map((arm) => ARM_LABEL[arm]).filter(Boolean).join(" + ");
+}
+
 /** Which methods ran, for the line under the heading. */
 function methodsLine(items: readonly RelatedItem[]): string {
   const used = new Set(items.flatMap((item) => item.arms));
@@ -127,7 +132,7 @@ export function RelatedPanel({
             <li key={item.id}>
               <Link href={item.href} className="record-related-title">{item.title}</Link>
               {item.similarity !== undefined ? (
-                <span className="record-related-score" title={item.arms.map((arm) => ARM_LABEL[arm]).filter(Boolean).join(" + ")}>
+                <span className="record-related-score" title={armsText(item.arms)}>
                   <span className="record-bar-track" aria-hidden>
                     <span className="record-bar-fill" style={{ width: `${Math.round(Math.max(0, Math.min(1, item.similarity)) * 100)}%` }} />
                   </span>
@@ -135,7 +140,7 @@ export function RelatedPanel({
                 </span>
               ) : (
                 <span className="record-mono record-related-arm">
-                  {item.arms.map((arm) => ARM_LABEL[arm]).filter(Boolean).join(" + ") || item.kind}
+                  {armsText(item.arms) || item.kind}
                 </span>
               )}
             </li>
@@ -165,8 +170,7 @@ export function RelatedPanel({
             <span className="jump-to-meta">
               {" "}
               · {item.kind}
-              {item.arms.some((arm) => ARM_LABEL[arm]) &&
-                ` · ${item.arms.map((arm) => ARM_LABEL[arm]).filter(Boolean).join(" + ")}`}
+              {armsText(item.arms) && ` · ${armsText(item.arms)}`}
             </span>
           </li>
         ))}

@@ -13,6 +13,7 @@ import { getContainer } from "@/bootstrap";
 import { ProjectChecks } from "./project-checks";
 import { latestRequest } from "../lib/latest-request";
 import { sectionTargetKeys } from "../lib/section-target-keys";
+import { sectionBody, sectionWordCounts, type SourceFile } from "../lib/section-word-counts";
 import { linkOverleafReport } from "../application/link-overleaf-report";
 
 type LinkedReport = {
@@ -204,8 +205,9 @@ export function LinkedOverleafReports() {
         {selected && <div className="linked-overleaf-content">
           <div className="linked-overleaf-toolbar"><strong>{selected.title}</strong><span>{content?.files.length ?? 0} source files</span><a className="link-btn" href={content?.overleafUrl ?? selected.external_url ?? `https://www.overleaf.com/project/${selected.overleaf_project_id}`} target="_blank" rel="noreferrer">Open in Overleaf ↗</a><button type="button" className="link-btn" onClick={() => void openReport(selected)}>Refresh</button></div>
           {content && (() => {
-            const total = content.sectionTree.roots.reduce((sum, node) => sum + subtreeWords(node, content.files), 0);
-            return <><div className="linked-overleaf-sections-head"><h3>Sections</h3><span className="linked-overleaf-total">{total.toLocaleString()} words</span></div>{content.sectionTree.warnings.length > 0 && <p className="warning">{content.sectionTree.warnings.join(" ")}</p>}<ProjectChecks files={content.files} entryFile={content.entryFile} /><SectionTree roots={content.sectionTree.roots} files={content.files} targets={targets} onSetTarget={setSectionTarget} /><details className="linked-overleaf-source"><summary>View entry source</summary><pre>{content.files.find((file) => file.path === content.entryFile)?.content ?? "Entry file unavailable."}</pre></details></>;
+            const counts = sectionWordCounts(content.sectionTree.roots, content.files);
+            const total = content.sectionTree.roots.reduce((sum, node) => sum + (counts.get(node.id) ?? 0), 0);
+            return <><div className="linked-overleaf-sections-head"><h3>Sections</h3><span className="linked-overleaf-total">{total.toLocaleString()} words</span></div>{content.sectionTree.warnings.length > 0 && <p className="warning">{content.sectionTree.warnings.join(" ")}</p>}<ProjectChecks files={content.files} entryFile={content.entryFile} /><SectionTree roots={content.sectionTree.roots} files={content.files} counts={counts} targets={targets} onSetTarget={setSectionTarget} /><details className="linked-overleaf-source"><summary>View entry source</summary><pre>{content.files.find((file) => file.path === content.entryFile)?.content ?? "Entry file unavailable."}</pre></details></>;
           })()}
         </div>}
       </div>
@@ -213,43 +215,11 @@ export function LinkedOverleafReports() {
   );
 }
 
-type SourceFile = { path: string; content: string };
-
-/**
- * The LaTeX text that belongs to a section itself — from just after its heading
- * up to its first child (or its end if it has none). Children render their own
- * bodies, so slicing here to the first child keeps each block non-overlapping.
- */
-function sectionBody(node: LatexSectionNode, files: readonly SourceFile[]): string {
-  const file = files.find((f) => f.path === node.file);
-  if (!file) return "";
-  const lines = file.content.replace(/\r\n/g, "\n").split("\n");
-  const firstChild = node.children[0];
-  const end = firstChild ? firstChild.startLine - 1 : node.endLine;
-  // startLine is the heading line (1-based); body starts on the next line.
-  return lines.slice(node.startLine, end).join("\n").trim();
-}
-
-/** Strip comments, commands and math punctuation so a word count reflects prose. */
-function proseWords(latex: string): number {
-  const text = latex
-    .replace(/%.*$/gm, "")
-    .replace(/\\[a-zA-Z]+\*?(\s*\[[^\]]*\])?(\s*\{[^}]*\})?/g, " ")
-    .replace(/[{}$&~^_\\]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return text ? text.split(" ").length : 0;
-}
-
-/** Words in a section including its subsections — the length a writer tracks. */
-function subtreeWords(node: LatexSectionNode, files: readonly SourceFile[]): number {
-  return proseWords(sectionBody(node, files)) + node.children.reduce((sum, child) => sum + subtreeWords(child, files), 0);
-}
-
 /** Collapsible section hierarchy; each heading opens to its own LaTeX body. */
-function SectionTree({ roots, files, targets, onSetTarget, parentPath = [] }: {
+function SectionTree({ roots, files, counts, targets, onSetTarget, parentPath = [] }: {
   roots: LatexSectionNode[];
   files: readonly SourceFile[];
+  counts: ReadonlyMap<string, number>;
   targets: Record<string, number>;
   onSetTarget: (key: string, words: number | null) => void;
   parentPath?: readonly string[];
@@ -257,13 +227,14 @@ function SectionTree({ roots, files, targets, onSetTarget, parentPath = [] }: {
   if (!roots.length) return <p className="muted">No static section commands were found.</p>;
   const keys = sectionTargetKeys(parentPath, roots);
   return <div className="linked-overleaf-tree">{roots.map((node, index) => (
-    <SectionNode key={node.id} node={node} files={files} targets={targets} onSetTarget={onSetTarget} targetKey={keys[index]!} />
+    <SectionNode key={node.id} node={node} files={files} counts={counts} targets={targets} onSetTarget={onSetTarget} targetKey={keys[index]!} />
   ))}</div>;
 }
 
-function SectionNode({ node, files, targets, onSetTarget, targetKey: key }: {
+function SectionNode({ node, files, counts, targets, onSetTarget, targetKey: key }: {
   node: LatexSectionNode;
   files: readonly SourceFile[];
+  counts: ReadonlyMap<string, number>;
   targets: Record<string, number>;
   onSetTarget: (key: string, words: number | null) => void;
   targetKey: string;
@@ -272,7 +243,7 @@ function SectionNode({ node, files, targets, onSetTarget, targetKey: key }: {
   const body = sectionBody(node, files);
   const hasBody = body.length > 0;
   const hasChildren = node.children.length > 0;
-  const words = subtreeWords(node, files);
+  const words = counts.get(node.id) ?? 0;
   const target = targets[key];
   const pct = target ? Math.min(100, Math.round((words / target) * 100)) : 0;
 
@@ -319,7 +290,7 @@ function SectionNode({ node, files, targets, onSetTarget, targetKey: key }: {
           )}
         </div>
         {hasBody ? <pre>{body}</pre> : <p className="muted">No text directly under this heading.</p>}
-        {hasChildren && <SectionTree roots={node.children} files={files} targets={targets} onSetTarget={onSetTarget} parentPath={[key]} />}
+        {hasChildren && <SectionTree roots={node.children} files={files} counts={counts} targets={targets} onSetTarget={onSetTarget} parentPath={[key]} />}
       </div>
     </details>
   );

@@ -97,7 +97,11 @@ export function invalidateAllRepoCaches(): void {
   logInvalidation(undefined, ["*"], ["*"]);
 }
 
-export function invalidateForWrite(resourceType?: string): void {
+/**
+ * Clear what a write of `resourceType` makes stale. Screens are cleared for
+ * `projectId`, the project the write happened in; it defaults to the open one.
+ */
+export function invalidateForWrite(resourceType?: string, projectId: string | null = activeProjectId()): void {
   if (!isScopedCacheInvalidationEnabled() || !resourceType || !isKnownResourceType(resourceType)) {
     invalidateAllRepoCaches();
     return;
@@ -111,7 +115,7 @@ export function invalidateForWrite(resourceType?: string): void {
     entry.settled.clear();
   }
 
-  clearScreenCachesForScreens(activeProjectId(), plan.screens);
+  clearScreenCachesForScreens(projectId, plan.screens);
   logInvalidation(resourceType, [...repoTypes], [...plan.screens]);
 }
 
@@ -144,8 +148,8 @@ export function cacheWriteNotify(resourceType?: ResourceType): void {
 export class ProjectLwwInvalidator {
   private channel: RealtimeChannel | null = null;
 
-  clearLocal(resourceType?: ResourceType) {
-    invalidateForWrite(resourceType);
+  clearLocal(resourceType?: ResourceType, projectId?: string | null) {
+    invalidateForWrite(resourceType, projectId ?? undefined);
   }
 
   watch(db: SupabaseClient, projectId: string | null) {
@@ -172,7 +176,7 @@ export class ProjectLwwInvalidator {
           ? String((payload as { resourceType?: string }).resourceType)
           : undefined;
       if (resourceType && isKnownResourceType(resourceType)) {
-        this.clearLocal(resourceType);
+        this.clearLocal(resourceType, projectId);
       } else {
         invalidateAllRepoCaches();
       }
@@ -208,10 +212,12 @@ export class ProjectLwwInvalidator {
   }
 
   notifyPeers(resourceType?: ResourceType) {
-    void this.channel?.send({
-      type: "broadcast",
-      event: "lww",
-      payload: resourceType ? { resourceType } : {},
-    });
+    if (!this.channel) return;
+    // A broadcast that fails costs peers a fresh read later; log it, don't throw.
+    void this.channel
+      .send({ type: "broadcast", event: "lww", payload: resourceType ? { resourceType } : {} })
+      .catch((err: unknown) =>
+        logToApp({ level: "warn", source: "realtime", message: "Realtime broadcast failed", detail: formatError(err) }),
+      );
   }
 }

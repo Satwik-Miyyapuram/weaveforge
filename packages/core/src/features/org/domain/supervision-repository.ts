@@ -16,13 +16,12 @@ export interface ISupervisionRepository {
   /** All log entries owned by `memberId` (most recent first). */
   listLogs(memberId: string): Promise<LogEntry[]>;
   /**
-   * The same reads for several supervisees at once.
+   * The same reads for several supervisees at once, one entry per id asked
+   * for (empty when they have none).
    *
-   * Optional: a caller falls back to the per-member methods, which is what the
-   * in-memory test doubles rely on. Implemented by the real repositories because
-   * a supervisor's dashboard otherwise made two round trips per supervisee, and
-   * the filter is one `in (…)` either way.
+   * A supervisor's dashboard otherwise made two round trips per supervisee,
+   * and the filter is one `in (…)` either way.
    */
-  listMilestonesFor?(memberIds: readonly string[]): Promise<Map<string, Milestone[]>>;
-  listLogsFor?(memberIds: readonly string[]): Promise<Map<string, LogEntry[]>>;
+  listMilestonesFor(memberIds: readonly string[]): Promise<Map<string, Milestone[]>>;
+  listLogsFor(memberIds: readonly string[]): Promise<Map<string, LogEntry[]>>;
 }

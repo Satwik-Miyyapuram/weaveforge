@@ -31,13 +31,6 @@ export class PostgrestCommentRepository implements ICommentRepository {
       .order("created_at", { ascending: true }))).map(commentToDomain);
   }
 
-  async listAll(): Promise<Comment[]> {
-    return (await rows<CommentRow>(this.db
-      .from(TABLE)
-      .select(COMMENT_COLUMNS)
-      .order("created_at", { ascending: true }))).map(commentToDomain);
-  }
-
   async add(input: NewCommentInput): Promise<Comment> {
     const dbRow = await oneRow<CommentRow>(this.db
       .from(TABLE)
@@ -55,12 +48,6 @@ export class PostgrestCommentRepository implements ICommentRepository {
     return commentToDomain(dbRow);
   }
 
-  async save(comment: Comment): Promise<Comment> {
-    const row = toRow(comment);
-    const dbRow = await oneRow<CommentRow>(this.db.from(TABLE).upsert(row, { onConflict: "id" }).select(COMMENT_COLUMNS).single());
-    return commentToDomain(dbRow);
-  }
-
   async remove(id: string): Promise<void> {
     await run(this.db.from(TABLE).delete().eq("id", id));
   }
@@ -75,20 +62,4 @@ export class PostgrestCommentRepository implements ICommentRepository {
     if (error) throw error;
     return (data as string | null) ?? null;
   }
-}
-
-function toRow(c: Comment): Record<string, unknown> {
-  return {
-    id: c.id,
-    author_id: c.authorId || undefined,
-    resource_type: c.resourceType,
-    resource_id: c.resourceId,
-    body: c.body ?? "",
-    created_at: c.createdAt || undefined,
-    anchor_quote: c.anchor?.quote ?? null,
-    anchor_prefix: c.anchor?.prefix ?? null,
-    anchor_suffix: c.anchor?.suffix ?? null,
-    parent_id: c.parentId ?? null,
-    resolved_at: c.resolvedAt ?? null,
-  };
 }

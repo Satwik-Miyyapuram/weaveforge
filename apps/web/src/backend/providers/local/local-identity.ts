@@ -21,6 +21,8 @@ import { LOCAL_USER_ID } from "@weaveforge/core";
 import type { AuthChangeCallback, AuthUser, IAuthService } from "@weaveforge/core";
 import type { ICurrentUserProvider } from "@weaveforge/core";
 
+import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
+
 /** Where the choice is kept. The shell remembers it too, for the next launch. */
 const CHOICE_KEY = "weaveforge.local-mode";
 
@@ -33,23 +35,15 @@ export const LOCAL_USER: AuthUser = {
 
 /** Whether this window is working on the computer rather than on an account. */
 export function isLocalMode(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem(CHOICE_KEY) === "1";
-  } catch {
-    // A window with storage denied cannot remember a choice, so it has none.
-    return false;
-  }
+  // A window with storage denied cannot remember a choice, so it has none.
+  return readStored(CHOICE_KEY) === "1";
 }
 
 /** Remember the choice. Reloading is the caller's job: the wiring is built once. */
 export function setLocalMode(on: boolean): void {
-  try {
-    if (on) window.localStorage.setItem(CHOICE_KEY, "1");
-    else window.localStorage.removeItem(CHOICE_KEY);
-  } catch {
-    // Nothing to do: the window simply starts on the sign-in screen next time.
-  }
+  // Storage denied: the window simply starts on the sign-in screen next time.
+  if (on) writeStored(CHOICE_KEY, "1");
+  else removeStored(CHOICE_KEY);
 }
 
 const NEEDS_ACCOUNT =

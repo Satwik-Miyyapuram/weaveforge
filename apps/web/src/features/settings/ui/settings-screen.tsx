@@ -148,7 +148,6 @@ export function SettingsScreen() {
   const [settings, setSettings] = useState<UserSettings>({});
   const [loading, setLoading] = useState(true);
   const [loaded, setLoaded] = useState(false); // Saving replaces every stored credential.
-  const [, setSaved] = useState(false);
   const [collections, setCollections] = useState<{ key: string; name: string }[]>([]);
   /** State of the live credential probe shown inside the connection dialog. */
   const [collectionsProbe, setCollectionsProbe] = useState<"idle" | "loading" | "ready" | "empty" | "failed">("idle");
@@ -190,7 +189,6 @@ export function SettingsScreen() {
     getContainer().ink.reset();
     // Ranking is read per query, so this lands without a reindex.
     getContainer().search.setSettings(settings.search);
-    setSaved(true);
   });
 
   const load = useCallback(async () => {
@@ -361,7 +359,6 @@ export function SettingsScreen() {
 
   function patchProviderField(providerId: string, fieldId: string, value: string) {
     setSettings((s) => applyUserIntegrationFields(s, providerId, { [fieldId]: value }));
-    setSaved(false);
   }
 
   const showBibliographyCollection =
@@ -622,7 +619,10 @@ export function SettingsScreen() {
           setting and works with no server; the MCP relay and its tokens are both
           served by routes a static export does not contain. See
           `deployment/capabilities.ts` and `ai-access-panel.tsx`. */}
-      {tab === "ai" && !loading && hasServerRoutes() && (
+      {((tab === "ai" && hasServerRoutes()) || tab === "integrations") && !loading && !loaded && (
+        <div className="card add-form" role="tabpanel"><FormError>{error ?? "Settings did not load."}</FormError><button type="button" className="btn-secondary" onClick={() => void load()}>Retry</button></div>
+      )}
+      {tab === "ai" && !loading && loaded && hasServerRoutes() && (
         <div id="settings-ai" className="card add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-ai">
           <h3 className="settings-group">AI & MCP</h3>
           <p className="muted">Control what an AI client such as Codex may read or propose. Access is off by default.</p>
@@ -643,7 +643,7 @@ export function SettingsScreen() {
       {tab === "tokens" && isDesktop && <LocalApiPanel purpose="sdk" />}
       {tab === "tokens" && !loading && hasApiTokens && <ApiTokensPanel />}
 
-      {tab === "integrations" && !loading && (
+      {tab === "integrations" && !loading && loaded && (
         <>
           {userIntegrations.length > 0 ? (
             <div id="settings-integrations" className="card add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-integrations">
@@ -695,7 +695,7 @@ export function SettingsScreen() {
         <Modal title={activeProvider.title} onClose={() => setActiveProvider(null)}>
           <form
             className="add-form"
-            onSubmit={(e) => { void submit(e).then(() => setActiveProvider(null)); }}
+            onSubmit={(e) => { void submit(e).then((ok) => { if (ok) setActiveProvider(null); }); }}
           >
             <p className="muted" style={{ marginTop: 0 }}>{activeProvider.description}</p>
             {activeProvider.fields.map((field) => (
@@ -756,7 +756,7 @@ export function SettingsScreen() {
 
       {aiAccessOpen && (
         <Modal title="AI & MCP access" onClose={() => !busy && setAiAccessOpen(false)}>
-          <form className="add-form ai-access-modal" onSubmit={(event) => { void submit(event).then(() => setAiAccessOpen(false)); }}>
+          <form className="add-form ai-access-modal" onSubmit={(event) => { void submit(event).then((ok) => { if (ok) setAiAccessOpen(false); }); }}>
             <AiAccessPanel settings={settings} onChange={setSettings} />
             {error && <FormError>{error}</FormError>}
             <ModalActions><button type="button" className="btn-secondary btn-cancel" onClick={() => setAiAccessOpen(false)}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</button></ModalActions>

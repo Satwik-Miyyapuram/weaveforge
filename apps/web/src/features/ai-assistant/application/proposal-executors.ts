@@ -3,9 +3,9 @@ import type {
   AiWriteProposal, IAiPaperNoteAppender, IAiProposalExecutor, IReaderAnnotationSink, ManageExperimentUseCase,
   ManageMilestoneUseCase, ManagePaperFieldsUseCase, ManageReadingListUseCase, ManageReportSectionUseCase,
   ManageVaultPageUseCase, NewExperimentInput, NewLogEntryInput, NewMilestoneInput, NewPaperInput,
-  PaperFieldValueData, PaperStatus, UpdatePaperUseCase,
+  PaperStatus, UpdatePaperUseCase,
 } from "@weaveforge/core";
-import { EXPERIMENT_STATUSES, isInkNoteBody, proposalApplies } from "@weaveforge/core";
+import { EXPERIMENT_STATUSES, MILESTONE_STATUSES, isInkNoteBody, parsePaperFieldValue, proposalApplies } from "@weaveforge/core";
 
 /** Typed browser-only approval executors. Invalid drafts fail closed before a write. */
 export function createAiProposalExecutors(deps: {
@@ -59,7 +59,7 @@ export function createAiProposalExecutors(deps: {
       if (def.kind !== "text" && def.kind !== "number" && def.kind !== "select" && def.kind !== "multi_select") {
         throw new Error("Only text, number, select, and multi_select fields can be filled via AI.");
       }
-      const value = fieldValueData(p, "value");
+      const value = parsePaperFieldValue(p.value, "Proposal value");
       if (def.kind === "select") {
         if (typeof value !== "string" || !def.options.includes(value)) {
           throw new Error(`Value is not one of the allowed options for «${def.name}».`);
@@ -75,9 +75,25 @@ export function createAiProposalExecutors(deps: {
     }),
     executor("reading_list_change", async (proposal) => { const p = object(proposal); const listId = text(p, "listId"); const note = optionalText(p, "note"); const paperId = optionalText(p, "paperId"); const vaultPageId = optionalText(p, "vaultPageId"); if (paperId === vaultPageId) throw new Error("Reading-list proposal must target exactly one paper or vault note."); if (paperId) await deps.lists.addPaperToList(listId, paperId, note); else if (vaultPageId) await deps.lists.addNoteToList(listId, vaultPageId, note); else throw new Error("Reading-list proposal needs a target."); return "accepted"; }),
     executor("relation", async (proposal) => { const p = object(proposal); const relation = enumValue(p, "relation", ["cites", "extends", "contradicts", "similar", "builds_on", "uses_method"] as const); if (!relation) throw new Error("Proposal relation is required."); await deps.relations.add({ fromPaper: text(p, "fromPaper"), toPaper: text(p, "toPaper"), relation, source: "manual" }); return "accepted"; }),
-    executor("zotero_import", async (proposal) => { const p = object(proposal); const paper = await deps.addPaper.addManual(p as unknown as NewPaperInput); await deps.pushZotero(paper); return "accepted"; }),
-    executor("milestone_follow_up", async (proposal) => { await deps.milestones.add(object(proposal) as unknown as NewMilestoneInput); return "accepted"; }),
-    executor("experiment_follow_up", async (proposal) => { await deps.experiments.add(object(proposal) as unknown as NewExperimentInput); return "accepted"; }),
+    executor("zotero_import", async (proposal) => {
+      const p = object(proposal);
+      const input: NewPaperInput = defined({
+        title: text(p, "title"), authors: stringArray(p, "authors")?.map((a) => a.trim()).filter(Boolean), year: optionalYear(p, "year"),
+        doi: optionalText(p, "doi"), url: optionalText(p, "url"), abstract: optionalText(p, "abstract"),
+      });
+      await deps.pushZotero(await deps.addPaper.addManual(input));
+      return "accepted";
+    }),
+    executor("milestone_follow_up", async (proposal) => {
+      const p = object(proposal);
+      await deps.milestones.add(defined<NewMilestoneInput>({ title: text(p, "title"), description: optionalText(p, "description"), status: enumValue(p, "status", MILESTONE_STATUSES), targetDate: optionalText(p, "targetDate") }));
+      return "accepted";
+    }),
+    executor("experiment_follow_up", async (proposal) => {
+      const p = object(proposal);
+      await deps.experiments.add(defined<NewExperimentInput>({ name: text(p, "name"), hypothesis: optionalText(p, "hypothesis"), status: enumValue(p, "status", EXPERIMENT_STATUSES), relatedPaper: optionalText(p, "relatedPaper") }));
+      return "accepted";
+    }),
     executor("edit_vault_note", async (proposal) => {
       const page = await editableNote(proposal);
       if (!page) return "conflicted";
@@ -149,17 +165,13 @@ function optionalNumber(value: Record<string, unknown>, key: string): number | u
 function record(value: Record<string, unknown>, key: string): Record<string, unknown> { const v = value[key]; if (!v || typeof v !== "object" || Array.isArray(v)) throw new Error(`Proposal ${key} must be an object.`); return v as Record<string, unknown>; }
 function stringArray(value: Record<string, unknown>, key: string): string[] | undefined { const v = value[key]; if (v === undefined) return undefined; if (!Array.isArray(v) || v.some((item) => typeof item !== "string")) throw new Error(`Proposal ${key} must be a string list.`); return v; }
 function enumValue<T extends string>(value: Record<string, unknown>, key: string, allowed: readonly T[]): T | undefined { const v = value[key]; if (v === undefined) return undefined; if (typeof v !== "string" || !allowed.includes(v as T)) throw new Error(`Proposal ${key} is invalid.`); return v as T; }
-function fieldValueData(value: Record<string, unknown>, key: string): PaperFieldValueData {
+/** A whole year, given as a number or digits; absent or blank is undefined. */
+function optionalYear(value: Record<string, unknown>, key: string): number | undefined {
   const v = value[key];
-  if (typeof v === "string") {
-    if (!v.trim()) throw new Error(`Proposal ${key} must be a non-empty string, number, or string list.`);
-    return v;
-  }
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (Array.isArray(v) && v.length > 0 && v.every((item) => typeof item === "string")) {
-    const cleaned = (v as string[]).map((item) => item.trim()).filter(Boolean);
-    if (!cleaned.length) throw new Error(`Proposal ${key} must be a string, number, or non-empty string list.`);
-    return cleaned;
-  }
-  throw new Error(`Proposal ${key} must be a string, number, or non-empty string list.`);
+  if (v === undefined || v === null || (typeof v === "string" && !v.trim())) return undefined;
+  const n = typeof v === "string" && /^\s*\d+\s*$/.test(v) ? Number(v) : v;
+  if (typeof n !== "number" || !Number.isInteger(n)) throw new Error(`Proposal ${key} must be a whole year.`);
+  return n;
 }
+/** Drop the keys left undefined, so a create call sees only the fields the draft set. */
+function defined<T extends object>(input: T): T { return Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) as T; }

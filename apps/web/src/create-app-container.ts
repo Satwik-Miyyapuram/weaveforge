@@ -793,6 +793,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     prefetchProject,
     integrationConfig: wiredIntegrations.config,
   };
+  lifecycle.registerReset(() => container.aiProposals.forgetPending()); // the next user's queue, not ours
 
   return { container, projectLww, dispose: () => (lifecycle.dispose(), backend.dispose()) };
 }

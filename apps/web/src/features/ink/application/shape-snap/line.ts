@@ -101,16 +101,3 @@ export function fitLine(
     },
   };
 }
-
-/**
- * Mean distance from a point set to a distance function, in 0.1 mm.
- *
- * The one metric every fit reports, which is what makes the residuals
- * comparable: a rectangle's average distance to its outline can be set against
- * an ellipse's average distance to its curve, and the smaller one is the shape
- * the hand drew. A maximum would be the wrong statistic — one stray sample from
- * a pen slip would disqualify a good fit — and a sum would make the score depend
- * on how fast the user happened to write.
- */
-
-

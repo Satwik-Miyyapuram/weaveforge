@@ -7,6 +7,7 @@ import type { MetricPoint } from "@weaveforge/core";
 import { formatMetricValue } from "@weaveforge/core";
 import { EntityCard } from "@/components/entity-card";
 import { CardMenu } from "@/components/card-menu";
+import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
 import { axisSpec, plotHeight, plotTier } from "./plot-size";
 
 // Lives in core so Node tests can import it without this file's CSS import.
@@ -83,17 +84,12 @@ interface Prefs {
 
 // Session-only view prefs per metric: kept across reloads, not across sessions.
 function readPrefs(metric: string): Prefs {
-  try {
-    const raw = sessionStorage.getItem(`metric-chart:${metric}`);
-    if (raw) return { hidden: [], smooth: 0, ...(JSON.parse(raw) as Partial<Prefs>) };
-  } catch {}
-  return { hidden: [], smooth: 0 };
+  const stored = readStoredJson<Partial<Prefs> | null>(`metric-chart:${metric}`, null, "session");
+  return { hidden: [], smooth: 0, ...stored };
 }
 
 function writePrefs(metric: string, prefs: Prefs) {
-  try {
-    sessionStorage.setItem(`metric-chart:${metric}`, JSON.stringify(prefs));
-  } catch {}
+  writeStoredJson(`metric-chart:${metric}`, prefs, "session");
 }
 
 interface Hover {

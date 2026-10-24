@@ -10,7 +10,7 @@ import {
 
 import { blobToDataUrl, downloadBlob } from "@/lib/blob-output";
 import { renderMarkdownPlain } from "@/components/markdown/markdown";
-import { containsMath, loadMathRenderer } from "@/components/markdown/math-renderer";
+import { containsMath } from "@/components/markdown/math-renderer";
 import {
   documentStyleSheets,
   inkPrintDocument,
@@ -18,7 +18,7 @@ import {
 } from "../application/ink-print";
 import { inkPageSvg, type InkSvgFigure } from "../application/ink-svg";
 import type { InkPalette } from "../render/ink-palette";
-import { INK_UNDERLAY, inkSheetRuleStyle } from "./ink-sheet-underlay";
+import { INK_UNDERLAY, inkSheetRuleStyle, loadMathOrLog } from "./ink-sheet-underlay";
 
 /**
  * Pixels per 0.1 mm unit in an exported or printed page.
@@ -218,7 +218,7 @@ export function usePageExport(deps: PageExportDeps) {
     // memory — so it is fetched first when the text has any. This callback is
     // already async, so waiting costs nothing visible.
     if (!live && text.trim() && containsMath(text)) {
-      await loadMathRenderer().catch(() => undefined);
+      await loadMathOrLog();
     }
     const underlayHtml = live?.innerHTML ?? (text.trim() ? renderMarkdownPlain(text) : "");
     // The figures are in the page's own text layer, not in the flowed prose,

@@ -15,11 +15,18 @@ function key(projectId: string) {
   return `${PREFIX}.${projectId}`;
 }
 
+/** Storage is user-editable: keep only entries the jump list can use. */
+function isRecentTarget(value: unknown): value is RecentTarget {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Partial<Record<keyof RecentTarget, unknown>>;
+  return typeof item.kind === "string" && typeof item.id === "string";
+}
+
 export function readRecentTargets(projectId: string | null): RecentTarget[] {
   if (!projectId || typeof localStorage === "undefined") return [];
   try {
     const value = JSON.parse(localStorage.getItem(key(projectId)) ?? "[]");
-    return Array.isArray(value) ? value.slice(0, LIMIT) : [];
+    return Array.isArray(value) ? value.filter(isRecentTarget).slice(0, LIMIT) : [];
   } catch {
     return [];
   }

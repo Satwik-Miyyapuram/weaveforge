@@ -167,22 +167,6 @@
 .vault-screen .screen-head {
   margin-bottom: 18px;
 }
-.vault-editor {
-  padding: 12px 14px;
-  min-height: 360px;
-  display: grid;
-  gap: 10px;
-  align-content: start;
-}
-.vault-editor-head {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 8px;
-  align-items: center;
-}
-.vault-editor-head.paper-note-head { margin-bottom: 0; }
-.vault-title-readonly { min-width: 0; }
-.vault-title-readonly .paper-article-title { margin: 0 0 4px; font-size: 1.35rem; }
 .vault-title-input {
   width: 100%;
   min-width: 0;
@@ -200,8 +184,6 @@
   width: 100%; min-height: 280px; resize: vertical; font: inherit; line-height: 1.5;
   padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface);
 }
-.vault-screen .summary-editor { gap: 12px; margin-top: 0; }
-.vault-screen .summary-input { min-height: 220px; }
 
 /* CodeMirror 6 markdown editor — Lezer edit + @uiw/codemirror-themes synced to site theme. */
 .markdown-code-editor {
@@ -222,8 +204,6 @@
   line-height: 1.55;
 }
 .markdown-code-editor .cm-editor.cm-focused { outline: none; }
-.markdown-code-editor--notes .cm-editor { min-height: 260px; }
-.markdown-code-editor--notes { min-height: 260px; }
 .markdown-code-editor--loading {
   display: flex;
   align-items: center;
@@ -281,10 +261,6 @@
 .vault-screen .summary-empty { margin: 0; }
 .vault-screen .summary-empty { padding: 8px 0 4px; }
 .vault-screen .empty { padding: 40px 24px; }
-
-@media (max-width: 720px) {
-  .vault-editor { padding: 20px 18px; gap: 16px; }
-}
 
 /* Org setup + invite codes */
 .org-setup-screen { display: grid; place-items: center; min-height: 60vh; padding: 24px; }.markdown .md-mermaid { margin: 12px 0; overflow-x: auto; }

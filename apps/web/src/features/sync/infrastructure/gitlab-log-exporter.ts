@@ -1,5 +1,5 @@
 import type { LogEntry } from "@weaveforge/core";
-import type { Integration } from "../domain/integration";
+import { DEFAULT_GIT_BRANCH, type Integration } from "../domain/integration";
 import { gitConnection, gitConnectionReady } from "../domain/integration-fields";
 
 /**
@@ -15,7 +15,7 @@ export class GitLabLogExporter {
     const url = gitLabFileUrl(repo, logPath(entry));
     const headers = { "Content-Type": "application/json", "PRIVATE-TOKEN": token };
     const body = JSON.stringify({
-      branch: branch || "main",
+      branch: branch || DEFAULT_GIT_BRANCH,
       content: toMarkdown(entry),
       commit_message: `log: ${entry.entryDate}`,
     });
@@ -45,7 +45,7 @@ export class GitLabLogExporter {
       method: "DELETE",
       headers: { "Content-Type": "application/json", "PRIVATE-TOKEN": token },
       body: JSON.stringify({
-        branch: branch || "main",
+        branch: branch || DEFAULT_GIT_BRANCH,
         commit_message: `log: delete ${entry.entryDate}`,
       }),
     });

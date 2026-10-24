@@ -1,3 +1,4 @@
+import { errorMessage } from "@weaveforge/core";
 import { NextResponse } from "next/server";
 import { sendDeleteAccountOtp } from "@/backend/account/delete-account-otp";
 import { resolveDeleteAccountCaller } from "../_shared";
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
     await sendDeleteAccountOtp(caller.email);
     return NextResponse.json({ ok: true, emailHint: maskEmail(caller.email) });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to send confirmation code.";
+    const message = errorMessage(err, "Failed to send confirmation code.");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

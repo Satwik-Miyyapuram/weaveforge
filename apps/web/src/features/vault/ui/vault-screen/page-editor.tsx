@@ -56,7 +56,7 @@ export function PageEditor({
   notes?: { id: string; title: string }[];
   papers?: { id: string; title: string }[];
   sections?: { id: string; title: string }[];
-  onCreateNote?: (title: string) => void;
+  onCreateNote?: (title: string, opts?: { open?: boolean }) => void;
   resolveEmbed?: (title: string) => string | null;
   onChanged: () => void;
   onDeleted: () => void;
@@ -113,11 +113,13 @@ export function PageEditor({
       setSaveError(null);
       try {
         const vault = getContainer().vault;
-        const body = await materializeBlobImagesInBody(nextBody, page.id, (id, blob, ext) =>
+        const { body, uploadError } = await materializeBlobImagesInBody(nextBody, page.id, (id, blob, ext) =>
           vault.uploadAsset(id, blob, ext),
         );
         await vault.manageVaultPage.update(page.id, { body });
         if (modeRef.current === "read") await onChanged();
+        // The text is saved; a failed upload is still said out loud.
+        if (uploadError) throw uploadError;
       } catch (err) {
         setSaveError(formatError(err));
       }
@@ -272,7 +274,7 @@ export function PageEditor({
                   links={links}
                   completions={completions}
                   onSave={canEditBody ? saveBody : async () => undefined}
-                  onCreateNote={onCreateNote ? (t) => onCreateNote(t) : undefined}
+                  onCreateNote={onCreateNote}
                   resolveEmbed={resolveEmbed}
                   handleRef={editorHandle}
                   onError={setSaveError}

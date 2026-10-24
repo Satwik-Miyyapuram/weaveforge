@@ -128,21 +128,9 @@ a.related-paper-url:hover { text-decoration: underline; }
 }
 .summary-empty { margin: 0; font-style: italic; }
 
-/* Expandable summary editor, revealed by "Show more". */
-.summary-editor { display: grid; gap: 6px; margin-top: 8px; min-width: 0; max-width: 100%; }
-.summary-input {
-  width: 100%; max-width: 100%; padding: 10px 12px; font: inherit; color: var(--ink);
-  background: var(--input-bg); border: 1px solid var(--line); border-radius: var(--radius-sm);
-  outline: none; resize: vertical; min-height: 56px;
-  transition: border-color var(--dur-base), box-shadow var(--dur-base);
-}
-.summary-editor-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
-.summary-editor-foot .error { margin-right: auto; }
-
 /* Co-editing chrome: who else is in the document, and whether live sync is up.
    Both sit above the editor and must not push it around, so they are compact
    single lines rather than banners. */
-.summary-input-collab { display: grid; gap: 6px; min-width: 0; max-width: 100%; }
 .collab-presence, .collab-offline {
   margin: 0; font-size: 0.82rem; line-height: 1.4;
 }
@@ -193,9 +181,6 @@ a.related-paper-url:hover { text-decoration: underline; }
   font-size: 1.02rem; letter-spacing: -0.01em;
   overflow-wrap: break-word; word-break: normal;
 }
-/* Pull back the link-btn's left padding so the delete text lines up with the
-   card title/body left edge above it. */
-.card-del { flex: none; margin-left: -4px; }
 .card-foot { display: flex; align-items: center; gap: 10px; }
 
 /* Status pills — shared semantic ramp from themes/common.css (--st-* → --s-*).
@@ -232,9 +217,6 @@ a.related-paper-url:hover { text-decoration: underline; }
 /* Logbook */
 .log-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 12px; }
 .log-item { display: grid; gap: 8px; }
-.log-head { display: flex; align-items: flex-start; gap: 10px; font-size: 0.8rem; }
-.log-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; flex: 1; min-width: 0; }
-.log-edit { flex: none; }
 .edit-actions { justify-content: flex-end; gap: 14px; }
 .log-date { font-weight: 600; }
 /* The logbook as a timeline: a date gutter, a rule with a dot per day, the

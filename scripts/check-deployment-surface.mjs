@@ -5,11 +5,12 @@
  * source/bundle-surface check: the generated registry is the only composition
  * root allowed to import built-in features, integrations, or MCP executors.
  */
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import config from "../weaveforge.config.ts";
 import { readAiToolNames } from "./lib/ai-tool-names.mjs";
+import { walkFiles } from "./lib/db-connection.mjs";
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const generatedPath = join(root, "apps/web/src/deployment/generated-registry.ts");
@@ -28,18 +29,8 @@ if (!expectedMcp && /features\/ai-assistant\/application\/proposal-executors/.te
 const featureIds = generated.match(/GENERATED_BUILTIN_FEATURE_IDS = \[([^\]]*)\]/s)?.[1] ?? "";
 for (const id of config.builtins?.features ?? []) if (!featureIds.includes(JSON.stringify(id))) throw new Error(`No generated feature registry entry found for ${id}.`);
 
-function walk(dir) {
-  const files = [];
-  for (const name of readdirSync(dir)) {
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) files.push(...walk(path));
-    else if (name === "page.tsx") files.push(path);
-  }
-  return files;
-}
-
 const appRoot = join(root, "apps/web/src/app");
-for (const page of walk(appRoot)) {
+for (const page of walkFiles(appRoot, (name) => name === "page.tsx")) {
   const source = readFileSync(page, "utf8");
   const relativePage = page.slice(appRoot.length + 1).replaceAll("\\", "/");
   // Generated route pages import their own screen directly, and that is the
