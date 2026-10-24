@@ -87,8 +87,7 @@ export class AddPaperUseCase {
     if (input.arxivId?.trim() || normalizeDoi(input.doi)) return null;
     const key = titleKey(input.title);
     if (!key) return null;
-    const match = (await this.deps.repository.listSummaries()).find((p) => titleKey(p.title) === key);
-    return match ? await this.deps.repository.getById(match.id) : null;
+    return await this.deps.repository.findByTitleKey(key);
   }
 }
 

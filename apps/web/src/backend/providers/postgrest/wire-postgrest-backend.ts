@@ -50,6 +50,7 @@ import { PostgrestLogEntryRepository } from "@/features/logbook/infrastructure/p
 import { PostgrestMemberRepository } from "@/features/org/infrastructure/postgrest-member-repository";
 import { PostgrestSupervisionRepository } from "@/features/org/infrastructure/postgrest-supervision-repository";
 import { PostgrestPaperRepository } from "@/features/papers/infrastructure/postgrest-paper-repository";
+import { cachePaperRepository } from "@/features/papers/infrastructure/cached-paper-repository";
 import { PostgrestMilestoneRepository } from "@/features/plan/infrastructure/postgrest-milestone-repository";
 import { PostgrestProjectRepository } from "@/features/projects/infrastructure/postgrest-project-repository";
 import { ProjectZoteroStore } from "@/features/projects/infrastructure/project-zotero-store";
@@ -198,13 +199,7 @@ export function wirePostgrestBackend(
     { resourceType: "graph_settings" },
   );
   const integrationsStore: IIntegrationsStore = new PostgrestIntegrationsStore(db);
-  const paperRepository = cacheRepo(
-    new PostgrestPaperRepository(db, projectContext),
-    ["getById", "list"],
-    ["save", "delete"],
-    pid,
-    { resourceType: "paper" },
-  );
+  const paperRepository = cachePaperRepository(new PostgrestPaperRepository(db, projectContext), pid);
 
   const tagPaperCache = new Map<string, Promise<unknown>>();
   const tagPaperSettled = new Map<string, unknown>();

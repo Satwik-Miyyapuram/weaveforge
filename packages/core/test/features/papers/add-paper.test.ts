@@ -3,34 +3,11 @@ import assert from "node:assert/strict";
 import {
   AddPaperUseCase,
   PaperValidationError,
-  type Paper,
-  type IPaperRepository,
 } from "../../../src/index.js";
-
-class InMemoryPaperRepo implements IPaperRepository {
-  readonly rows = new Map<string, Paper>();
-  async getById(id: string) {
-    return this.rows.get(id) ?? null;
-  }
-  async list() {
-    return [...this.rows.values()];
-  }
-  async save(p: Paper) {
-    this.rows.set(p.id, p);
-  }
-  async delete(id: string) {
-    this.rows.delete(id);
-  }
-  async findByArxivId(arxivId: string) {
-    return [...this.rows.values()].find((p) => p.arxivId === arxivId) ?? null;
-  }
-  async findByDoi(doi: string) {
-    return [...this.rows.values()].find((p) => p.doi === doi) ?? null;
-  }
-}
+import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
 
 function makeUseCase() {
-  const repo = new InMemoryPaperRepo();
+  const repo = new InMemoryPaperRepository();
   let n = 0;
   const uc = new AddPaperUseCase({
     repository: repo,
@@ -59,7 +36,7 @@ test("addManual: dedupes by arXiv id, returning the existing paper", async () =>
   const first = await uc.addManual({ title: "First", arxivId: "1706.03762" });
   const again = await uc.addManual({ title: "Different title", arxivId: "1706.03762" });
   assert.equal(again.id, first.id);
-  assert.equal(repo.rows.size, 1);
+  assert.equal((await repo.list()).length, 1);
 });
 
 test("addManual: dedupes by normalized DOI", async () => {
@@ -67,5 +44,18 @@ test("addManual: dedupes by normalized DOI", async () => {
   const first = await uc.addManual({ title: "First", doi: "10.1000/xyz" });
   const again = await uc.addManual({ title: "Second", doi: "https://doi.org/10.1000/xyz" });
   assert.equal(again.id, first.id);
-  assert.equal(repo.rows.size, 1);
+  assert.equal((await repo.list()).length, 1);
+});
+
+test("a paper with no id is matched by title through the narrow lookup, not by loading the library", async () => {
+  const { repo, uc } = makeUseCase();
+  const first = await uc.addManual({ title: "Attention Is All You Need" });
+  repo.listSummaries = async () => {
+    throw new Error("title dedupe must not load every paper");
+  };
+
+  const again = await uc.addManual({ title: "  attention is all you NEED. " });
+
+  assert.equal(again.id, first.id);
+  assert.equal((await repo.list()).length, 1);
 });
