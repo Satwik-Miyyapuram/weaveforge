@@ -2,15 +2,12 @@
 
 import {
   buildWikiGraph,
-  graphDegrees,
   searchRevision,
-  toAnnotationSearchDocs,
-  toPdfSearchDocs,
-  toSearchDocs,
   type SearchDoc,
   type SearchSettings,
   type WorkspaceSnapshot,
 } from "@weaveforge/core";
+import { projectSearchDocuments } from "../application/search-projection";
 import { buildSearchIndex } from "./minisearch-index";
 import { loadPdfTexts } from "./pdf-text-store";
 import { formatError } from "@/lib/format-error";
@@ -61,16 +58,9 @@ async function project(
   const paperIds = new Set(snapshot.papers.map((paper) => paper.id));
   const pdfTexts = stored.filter((source) => paperIds.has(source.paperId));
 
-  const graph = buildWikiGraph(snapshot);
-  const degrees = graphDegrees(graph);
-  const paperTitles = new Map(snapshot.papers.map((paper) => [paper.id, paper.title]));
-
   return {
-    docs: [
-      ...toSearchDocs(snapshot, degrees),
-      ...toPdfSearchDocs(pdfTexts, degrees),
-      ...toAnnotationSearchDocs(snapshot.readerAnnotations, paperTitles, degrees),
-    ],
+    // The same projection the main thread uses, so both builds hold one corpus.
+    docs: projectSearchDocuments({ snapshot, graph: buildWikiGraph(snapshot), pdfTexts }),
     pdfPageCounts: pdfTexts.map((source) => [source.paperId, source.pages.length]),
   };
 }

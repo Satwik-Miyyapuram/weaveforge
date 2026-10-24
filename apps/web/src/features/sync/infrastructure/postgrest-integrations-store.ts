@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  DEFAULT_GIT_BRANCH,
   emptyIntegration,
   type Integration,
   type SyncProvider,
@@ -28,7 +29,7 @@ export class PostgrestIntegrationsStore {
       enabled: r.enabled,
       token: r.token ?? undefined,
       repo: r.repo ?? undefined,
-      branch: r.branch ?? "main",
+      branch: r.branch ?? DEFAULT_GIT_BRANCH,
       options: r.options ?? undefined,
     };
   }
@@ -41,7 +42,7 @@ export class PostgrestIntegrationsStore {
         enabled: integration.enabled,
         token: integration.token ?? null,
         repo: integration.repo ?? null,
-        branch: integration.branch || "main",
+        branch: integration.branch || DEFAULT_GIT_BRANCH,
         options: integration.options ?? {},
         updated_at: new Date().toISOString(),
       },

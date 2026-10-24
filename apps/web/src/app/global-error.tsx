@@ -1,6 +1,6 @@
 "use client";
 
-import { resetAppData } from "@/lib/client-runtime-recovery";
+import { isAndroidApp, RESET_APP_DATA_CONFIRM, resetAppData } from "@/lib/client-runtime-recovery";
 import { errorDetail, useLoggedError, type ErrorBoundaryProps } from "./error-boundary-parts";
 import { ErrorReportPanel } from "./error-report-panel-lazy";
 
@@ -88,7 +88,7 @@ export default function GlobalError({ error, reset }: ErrorBoundaryProps) {
                 // document, so it cannot rely on the component tree that draws
                 // the app's own modal — that tree is what may have failed.
                 // Everywhere else uses `components/confirm-dialog.tsx`.
-                if (!window.confirm("Reset app data? Offline copies of your work on this device will be deleted. This cannot be undone.")) return;
+                if (!window.confirm(RESET_APP_DATA_CONFIRM)) return;
                 resetAppData();
               }}
             >
@@ -99,21 +99,4 @@ export default function GlobalError({ error, reset }: ErrorBoundaryProps) {
       </body>
     </html>
   );
-}
-
-/**
- * Whether this is the installed Android app.
- *
- * Duplicated from `route-error.tsx` because this boundary must not import the
- * app's modules at all: it renders when the layout crashed, which is exactly
- * when reaching further into the bundle is likeliest to fail again. See that
- * file for why the tell is the `android-app://` referrer.
- */
-function isAndroidApp(): boolean {
-  if (typeof document === "undefined") return false;
-  try {
-    return document.referrer.startsWith("android-app://");
-  } catch {
-    return false;
-  }
 }

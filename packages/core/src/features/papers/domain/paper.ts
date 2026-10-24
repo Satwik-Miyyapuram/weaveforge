@@ -218,3 +218,11 @@ export function extractHashtags(text?: string): string[] {
   const matches = text.match(HASHTAG) ?? [];
   return normalizeTags(matches);
 }
+
+/** The placeholder older rows hold in place of a summary. */
+export const NO_SUMMARY = "No summary yet.";
+
+/** Whether a paper's summary is missing, blank or only the old placeholder. */
+export function isEmptyPaperSummary(summary: string | null | undefined): boolean {
+  return !summary || summary === NO_SUMMARY;
+}

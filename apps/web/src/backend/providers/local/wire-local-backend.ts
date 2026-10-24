@@ -6,7 +6,7 @@ import type { BackendParts } from "../postgrest/wire-postgrest-backend";
 import { createLocalClient, type LocalQuery } from "./pglite-client";
 import { LocalAuthService, LocalSessionProvider } from "./local-identity";
 import { LocalBlobStore } from "./local-blob-store";
-import { LocalRunner } from "./local-runner";
+import { localQuery } from "./local-query";
 import { DeviceSecretsStore } from "./device-secrets-store";
 
 /**
@@ -22,7 +22,7 @@ import { DeviceSecretsStore } from "./device-secrets-store";
  * not a subclass: the difference was never the mode, only where secrets can
  * live. See `DeviceSecretsStore`.
  */
-export function localBackendParts(query: LocalQuery = defaultQuery()): BackendParts {
+export function localBackendParts(query: LocalQuery = localQuery()): BackendParts {
   const db = watchWrites(createLocalClient(query) as unknown as SupabaseClient, notifyWorkspaceChange);
   const session = new LocalSessionProvider();
   return {
@@ -32,10 +32,4 @@ export function localBackendParts(query: LocalQuery = defaultQuery()): BackendPa
     auth: new LocalAuthService(),
     blobStore: new LocalBlobStore(query),
   };
-}
-
-/** Straight to the shell. The identity is applied on the far side, not here. */
-function defaultQuery(): LocalQuery {
-  const runner = new LocalRunner();
-  return (sql, params) => runner.query(sql, params as never[]);
 }

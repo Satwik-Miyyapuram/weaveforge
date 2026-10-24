@@ -1,8 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  BLOB_STORAGE_BUCKETS,
   BlobAccessError,
   assertAllowedBlobBucket,
+  sharedResourceFor,
   assertBlobPathOwned,
   resourceIdFromBlobPath,
 } from "../server/blob-access";
@@ -70,5 +72,26 @@ describe("assertAllowedBlobBucket", () => {
 
   it("rejects unknown buckets", () => {
     assert.throws(() => assertAllowedBlobBucket("secrets"), /Unsupported blob bucket/);
+  });
+});
+
+/** One bucket list (xhelp-27): the share map and the account purge read it too. */
+describe("sharedResourceFor", () => {
+  it("names the shared resource for every bucket", () => {
+    assert.deepEqual(
+      BLOB_STORAGE_BUCKETS.map((b) => [b, sharedResourceFor(b)]),
+      [
+        ["paper-images", "paper"],
+        ["experiment-artifacts", "experiment"],
+        ["vault-assets", "vault_page"],
+        ["report-images", "report_section"],
+      ],
+    );
+  });
+
+  it("is null for an unknown bucket, including Object.prototype names", () => {
+    for (const b of ["", "avatars", "constructor", "__proto__", "toString", "hasOwnProperty"]) {
+      assert.equal(sharedResourceFor(b), null, b);
+    }
   });
 });

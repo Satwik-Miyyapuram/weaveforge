@@ -3,7 +3,7 @@
 import { InlineError } from "@/components/form-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { PAPER_STATUSES, isInkNoteBody, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
+import { PAPER_STATUSES, isEmptyPaperSummary, isInkNoteBody, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { confirmRemovePaper } from "./remove-paper";
 import { formatError } from "@/lib/format-error";
@@ -123,7 +123,7 @@ export function PaperNote({
       cancelled = true;
     };
   }, [paper.id]);
-  const hasSummary = !!paper.summary && paper.summary !== "No summary yet.";
+  const hasSummary = !isEmptyPaperSummary(paper.summary);
   const canTrackCitations = Boolean(paper.doi || paper.arxivId);
   const preview = usePaperPreview(paper.id);
   const remoteReaderHref = useMemo(() => {
