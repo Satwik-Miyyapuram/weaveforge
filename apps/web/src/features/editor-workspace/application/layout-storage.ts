@@ -10,7 +10,7 @@
  */
 
 import type { KeyValueStore } from "./explorer-state";
-import { emptyLayout, type PaneLayout, type PaneNode } from "./pane-tree";
+import { emptyLayout, type DocumentMode, type PaneLayout, type PaneNode, type TabRef } from "./pane-tree";
 
 export const LAYOUT_STORAGE_KEY = "weaveforge.editor.layout";
 
@@ -41,6 +41,15 @@ function readRaw(store: LayoutStore, projectId: string | null | undefined): stri
   return legacy;
 }
 
+const MODES: readonly string[] = ["edit", "read", "pdf", "ink"] satisfies readonly DocumentMode[];
+
+/** A tab as stored. A missing or unknown mode reads as none chosen yet. */
+function parseTab(tab: { kind: string; id: string; mode?: unknown }): TabRef {
+  return typeof tab.mode === "string" && MODES.includes(tab.mode)
+    ? { kind: tab.kind, id: tab.id, mode: tab.mode as DocumentMode }
+    : { kind: tab.kind, id: tab.id };
+}
+
 function parseNode(value: unknown): PaneNode | null {
   if (typeof value !== "object" || value === null) return null;
   const node = value as Record<string, unknown>;
@@ -48,7 +57,7 @@ function parseNode(value: unknown): PaneNode | null {
   if (node.type === "leaf") {
     if (typeof node.id !== "string" || !Array.isArray(node.tabs)) return null;
     const tabs = node.tabs.filter(
-      (tab): tab is { kind: string; id: string } =>
+      (tab): tab is { kind: string; id: string; mode?: unknown } =>
         typeof tab === "object" &&
         tab !== null &&
         typeof (tab as { kind?: unknown }).kind === "string" &&
@@ -58,7 +67,7 @@ function parseNode(value: unknown): PaneNode | null {
     return {
       type: "leaf",
       id: node.id,
-      tabs: tabs.map((tab) => ({ kind: tab.kind, id: tab.id })),
+      tabs: tabs.map(parseTab),
       activeIndex: Math.min(Math.max(activeIndex, 0), Math.max(tabs.length - 1, 0)),
     };
   }

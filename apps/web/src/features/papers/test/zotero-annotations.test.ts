@@ -22,11 +22,11 @@ async function pullAnnotation(annotationData: Record<string, unknown>) {
   const result = await new ZoteroAnnotations(
     async () => ({ apiKey: "test", library: "users/1" }),
     mockFetch(annotationData),
-  ).pullAll();
+  ).pull().then((r) => r.byPaper);
   return result.get("PAPER")?.[0];
 }
 
-test("pullAll retains stable annotation keys and normalizes Zotero child notes", async () => {
+test("pull retains stable annotation keys and normalizes Zotero child notes", async () => {
   const urls: string[] = [];
   const fetchFn: typeof fetch = async (input) => {
     const url = String(input);
@@ -36,7 +36,7 @@ test("pullAll retains stable annotation keys and normalizes Zotero child notes",
     if (url.includes("itemType=note")) return response([{ key: "NOTE", data: { parentItem: "PAPER", note: "<p>Research <strong>note</strong></p>" } }]);
     return response([]);
   };
-  const result = await new ZoteroAnnotations(async () => ({ apiKey: "test", library: "users/1" }), fetchFn).pullAll();
+  const result = await new ZoteroAnnotations(async () => ({ apiKey: "test", library: "users/1" }), fetchFn).pull().then((r) => r.byPaper);
   assert.deepEqual(result.get("PAPER"), [
     { key: "ANNOTATION", kind: "annotation", text: "Highlighted", comment: undefined, color: undefined, page: undefined, tags: ["method"] },
     { key: "NOTE", kind: "note", text: "Research note", tags: [] },
@@ -44,7 +44,7 @@ test("pullAll retains stable annotation keys and normalizes Zotero child notes",
   assert.ok(urls.every((url) => url.startsWith("https://api.zotero.org/users/1/items?")));
 });
 
-test("pullAll maps annotationPageLabel onto page", async () => {
+test("pull maps annotationPageLabel onto page", async () => {
   const fetchFn: typeof fetch = async (input) => {
     const url = String(input);
     if (url.includes("itemType=attachment")) return response([{ key: "ATTACHMENT", data: { parentItem: "PAPER" } }]);
@@ -63,11 +63,11 @@ test("pullAll maps annotationPageLabel onto page", async () => {
     if (url.includes("itemType=note")) return response([]);
     return response([]);
   };
-  const result = await new ZoteroAnnotations(async () => ({ apiKey: "test", library: "users/1" }), fetchFn).pullAll();
+  const result = await new ZoteroAnnotations(async () => ({ apiKey: "test", library: "users/1" }), fetchFn).pull().then((r) => r.byPaper);
   assert.equal(result.get("PAPER")?.[0]?.page, "12");
 });
 
-test("pullAll parses well-formed annotationPosition and type/sort fields", async () => {
+test("pull parses well-formed annotationPosition and type/sort fields", async () => {
   const ann = await pullAnnotation({
     annotationText: "Quote",
     annotationType: "highlight",
@@ -83,7 +83,7 @@ test("pullAll parses well-formed annotationPosition and type/sort fields", async
   assert.notEqual(ann?.annotationPosition?.pageIndex, Number(ann?.page));
 });
 
-test("pullAll keeps every Zotero annotation type, including text", async () => {
+test("pull keeps every Zotero annotation type, including text", async () => {
   // Unknown types degrade to undefined, so omitting one from the allow-list
   // silently strips the type off a real annotation. `strikeout` is NOT a
   // Zotero type and must stay rejected — inventing it would create
@@ -96,7 +96,7 @@ test("pullAll keeps every Zotero annotation type, including text", async () => {
   assert.equal(bogus?.annotationType, undefined);
 });
 
-test("pullAll keeps nextPageRects for a highlight crossing a page break", async () => {
+test("pull keeps nextPageRects for a highlight crossing a page break", async () => {
   // pageIndex is the FIRST page; nextPageRects live on pageIndex + 1. Dropping
   // them truncates the highlight at the break.
   const ann = await pullAnnotation({
@@ -115,7 +115,7 @@ test("pullAll keeps nextPageRects for a highlight crossing a page break", async 
   });
 });
 
-test("pullAll keeps ink paths, which are not rects", async () => {
+test("pull keeps ink paths, which are not rects", async () => {
   // Ink geometry is flat [x1,y1,x2,y2,…] runs of arbitrary length, so the
   // 4-number rect rule must not be applied to it.
   const ann = await pullAnnotation({
@@ -135,7 +135,7 @@ test("pullAll keeps ink paths, which are not rects", async () => {
   });
 });
 
-test("pullAll drops malformed coordinate rows but keeps the page index", async () => {
+test("pull drops malformed coordinate rows but keeps the page index", async () => {
   const ann = await pullAnnotation({
     annotationType: "highlight",
     annotationPosition: JSON.stringify({
@@ -147,7 +147,7 @@ test("pullAll drops malformed coordinate rows but keeps the page index", async (
   assert.deepEqual(ann?.annotationPosition, { pageIndex: 3 });
 });
 
-test("pullAll omits annotationPosition when absent", async () => {
+test("pull omits annotationPosition when absent", async () => {
   const ann = await pullAnnotation({
     annotationText: "Quote",
     annotationType: "underline",
@@ -159,7 +159,7 @@ test("pullAll omits annotationPosition when absent", async () => {
   assert.ok(!("annotationPosition" in (ann ?? {})));
 });
 
-test("pullAll degrades malformed annotationPosition JSON to undefined", async () => {
+test("pull degrades malformed annotationPosition JSON to undefined", async () => {
   const ann = await pullAnnotation({
     annotationText: "Quote",
     annotationPosition: "{not-json",
@@ -169,7 +169,7 @@ test("pullAll degrades malformed annotationPosition JSON to undefined", async ()
   assert.equal(ann?.annotationType, "note");
 });
 
-test("pullAll keeps pageIndex when rects are missing", async () => {
+test("pull keeps pageIndex when rects are missing", async () => {
   const ann = await pullAnnotation({
     annotationText: "Quote",
     annotationPosition: JSON.stringify({ pageIndex: 0 }),
