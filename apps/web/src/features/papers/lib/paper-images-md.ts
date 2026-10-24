@@ -3,6 +3,7 @@ import {
   markdownImage,
   materializeBlobImages,
   normalizeMarkdownImageSyntax,
+  type MaterializedBody,
 } from "@weaveforge/core";
 
 /** Prefix embedded paper images use in markdown: `![](paperimg:userId/paperId/file.webp)`. */
@@ -22,6 +23,6 @@ export function materializePaperBlobImages(
   body: string,
   paperId: string,
   upload: (paperId: string, blob: Blob, ext: string) => Promise<string>,
-): Promise<string> {
+): Promise<MaterializedBody> {
   return materializeBlobImages(body, paperId, upload, PAPER_IMAGE_PREFIX, normalizeMarkdownImageSyntax);
 }

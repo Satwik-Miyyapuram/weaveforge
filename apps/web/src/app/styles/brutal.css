@@ -392,8 +392,7 @@
   input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]):focus,
   textarea:focus,
   .custom-select-button[aria-expanded="true"],
-  .custom-select-button:focus-visible,
-  .summary-input:focus
+  .custom-select-button:focus-visible
 ) {
   background: var(--type-bg);
   border-color: var(--type-line);

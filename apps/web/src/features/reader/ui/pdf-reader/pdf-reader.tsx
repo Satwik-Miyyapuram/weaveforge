@@ -10,14 +10,14 @@ import {
   type CSSProperties,
 } from "react";
 import {
+  errorMessage,
   clampScale,
   readerKeyboardCommand,
   resolveTextAnchor,
   inkNoteWidthToPdfPoints,
   screenPointToPdf,
   translateInkPaths,
-  READER_MIN_SCALE,
-  READER_MAX_SCALE,
+  clampZoomFactor,
   type AnchorConfidence,
   type ReaderPageSize,
   type DocumentSearchMatch,
@@ -111,6 +111,7 @@ import {
   pageScopedLocus,
   textItemsFromContent,
 } from "./pdf-document";
+import { readStored, writeStored } from "@/lib/safe-storage";
 
 export function PdfReader({
   url,
@@ -874,6 +875,15 @@ export function PdfReader({
     let isPinching = false;
     let baseScale = 1;
 
+    /** Draw the live zoom preview at most once a frame. */
+    const showPreview = () => {
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        setZoomPreview({ factor: accumulatedFactor, x: gestureFocus.x, y: gestureFocus.y });
+      });
+    };
+
     const finishPinch = () => {
       if (commitTimer != null) {
         window.clearTimeout(commitTimer);
@@ -913,22 +923,9 @@ export function PdfReader({
 
       // Negative dy zooms in (> 1), positive dy zooms out (< 1)
       const factorDelta = Math.exp(-dy * 0.002);
-      accumulatedFactor *= factorDelta;
+      accumulatedFactor = clampZoomFactor(accumulatedFactor * factorDelta, baseScale);
 
-      const minFactor = READER_MIN_SCALE / baseScale;
-      const maxFactor = READER_MAX_SCALE / baseScale;
-      accumulatedFactor = Math.min(maxFactor, Math.max(minFactor, accumulatedFactor));
-
-      if (rafId == null) {
-        rafId = requestAnimationFrame(() => {
-          rafId = null;
-          setZoomPreview({
-            factor: accumulatedFactor,
-            x: gestureFocus.x,
-            y: gestureFocus.y,
-          });
-        });
-      }
+      showPreview();
 
       if (commitTimer != null) {
         window.clearTimeout(commitTimer);
@@ -955,19 +952,8 @@ export function PdfReader({
       const ge = e as unknown as { scale?: number };
       if (!isPinching) return;
       const scaleVal = typeof ge.scale === "number" ? ge.scale : 1;
-      const minFactor = READER_MIN_SCALE / baseScale;
-      const maxFactor = READER_MAX_SCALE / baseScale;
-      accumulatedFactor = Math.min(maxFactor, Math.max(minFactor, scaleVal));
-      if (rafId == null) {
-        rafId = requestAnimationFrame(() => {
-          rafId = null;
-          setZoomPreview({
-            factor: accumulatedFactor,
-            x: gestureFocus.x,
-            y: gestureFocus.y,
-          });
-        });
-      }
+      accumulatedFactor = clampZoomFactor(scaleVal, baseScale);
+      showPreview();
     };
 
     const onGestureEnd = (e: Event) => {
@@ -1450,7 +1436,7 @@ export function PdfReader({
     try {
       path = await getContainer().papers.uploadImage(paperId, file, ext);
     } catch (err) {
-      setAnnError(`The picture could not be uploaded: ${err instanceof Error ? err.message : String(err)}`);
+      setAnnError(`The picture could not be uploaded: ${errorMessage(err)}`);
       return;
     }
     await persistDraft(draftPicture({ path, pageIndex: pageNumber - 1, pageWidth, pageHeight, aspect }));
@@ -2153,17 +2139,10 @@ function syncPenParam(on: boolean) {
 const SIDE_COLLAPSED_KEY = "wf.reader.sideCollapsed";
 
 function readSideCollapsed(): boolean {
-  try {
-    return window.localStorage.getItem(SIDE_COLLAPSED_KEY) === "1";
-  } catch {
-    return false;
-  }
+  return readStored(SIDE_COLLAPSED_KEY) === "1";
 }
 
+/** Private mode or blocked storage: the panel simply forgets. */
 function writeSideCollapsed(collapsed: boolean) {
-  try {
-    window.localStorage.setItem(SIDE_COLLAPSED_KEY, collapsed ? "1" : "0");
-  } catch {
-    // Private mode or blocked storage: the panel simply forgets.
-  }
+  writeStored(SIDE_COLLAPSED_KEY, collapsed ? "1" : "0");
 }

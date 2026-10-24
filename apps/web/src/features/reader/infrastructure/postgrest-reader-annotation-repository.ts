@@ -104,6 +104,22 @@ export class PostgrestReaderAnnotationRepository extends ProjectScopedPostgrestR
     if (patch.sortIndex !== undefined) updates.sort_index = patch.sortIndex;
 
     const projectId = this.projectId;
+    // `pending` means "diverged from Zotero and owing a write-back". A row with
+    // no Zotero counterpart can never owe one, so it stays `local` — marking it
+    // pending would surface a sync state the user can never clear. Each path is
+    // one write: an edit stored with a second, failed flag write would leave the
+    // row `synced`, and write-back would never send the edit.
+    const { data: flagged, error: flagError } = await this.db
+      .from(TABLE)
+      .update({ ...updates, sync_state: "pending" })
+      .eq("id", id)
+      .eq("project_id", projectId)
+      .not("zotero_key", "is", null)
+      .select(READER_ANNOTATION_COLUMNS)
+      .maybeSingle();
+    if (flagError) throw flagError;
+    if (flagged) return toDomain(flagged as ReaderAnnotationRow);
+
     const { data, error } = await this.db
       .from(TABLE)
       .update(updates)
@@ -112,22 +128,7 @@ export class PostgrestReaderAnnotationRepository extends ProjectScopedPostgrestR
       .select(READER_ANNOTATION_COLUMNS)
       .single();
     if (error) throw error;
-
-    // `pending` means "diverged from Zotero and owing a write-back". A row with
-    // no Zotero counterpart can never owe one, so it stays `local` — marking it
-    // pending would surface a sync state the user can never clear.
-    const row = data as ReaderAnnotationRow;
-    if (!row.zotero_key) return toDomain(row);
-
-    const { data: flagged, error: flagError } = await this.db
-      .from(TABLE)
-      .update({ sync_state: "pending" })
-      .eq("id", id)
-      .eq("project_id", projectId)
-      .select(READER_ANNOTATION_COLUMNS)
-      .single();
-    if (flagError) throw flagError;
-    return toDomain(flagged as ReaderAnnotationRow);
+    return toDomain(data as ReaderAnnotationRow);
   }
 
   /** Write-back bookkeeping only; see `IReaderAnnotationSyncRecorder`. */

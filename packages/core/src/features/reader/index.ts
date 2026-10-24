@@ -30,7 +30,6 @@ export {
   extractVenue,
 } from "./analysis/bibliography-parser.js";
 export {
-  mentionRects,
   matchPageCitations,
   looksLikeSuperscriptStyle,
   type PageCitationInput,
@@ -38,6 +37,8 @@ export {
 export { analyzePageLinks, widenToBrackets, type PageLinkAnalysis } from "./analysis/pdf-link-analysis.js";
 export { nativeCitationMentions, isCitationDestination } from "./analysis/pdf-links.js";
 export { assemblePageCitations, coalesceMentions } from "./analysis/citation-assembly.js";
+// One rect maths for every mention: the one analysis itself uses.
+export { mentionRects } from "./analysis/citation-text.js";
 export {
   findCitationCandidates,
   findPatternCitationMentions,

@@ -2,17 +2,16 @@
 
 import { Children, useEffect, useRef, useState, type ReactNode, type WheelEvent } from "react";
 
+import { readStored, writeStored } from "@/lib/safe-storage";
+
 import { fitCols } from "./plot-size";
 
 const KEY = "metric-grid:cols";
 const MAX_COLS = 10;
 
 function readCols(fallback: number): number {
-  try {
-    const n = Number(sessionStorage.getItem(KEY));
-    if (Number.isInteger(n) && n >= 1) return n;
-  } catch {}
-  return fallback;
+  const n = Number(readStored(KEY, "session"));
+  return Number.isInteger(n) && n >= 1 ? n : fallback;
 }
 
 /** Chart grid with a snapping zoom slider: 1 per row is fully zoomed in, out to 10 per row, as many as fit. */
@@ -39,9 +38,7 @@ export function MetricGrid({
   const cols = Math.min(want, max);
 
   useEffect(() => {
-    try {
-      sessionStorage.setItem(KEY, String(want));
-    } catch {}
+    writeStored(KEY, String(want), "session");
   }, [want]);
 
   const set = (n: number) => setWant(Math.min(max, Math.max(1, n)));

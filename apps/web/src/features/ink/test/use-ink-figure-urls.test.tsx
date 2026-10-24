@@ -38,3 +38,37 @@ test("a fetch started before a re-render still lands, and is asked for once", as
   });
   assert.match(seen.get("p/a.png") ?? "", /^blob:/);
 });
+
+test("unmounting revokes every URL it made, and a late fetch makes none (21-04)", async () => {
+  const revoked: string[] = [];
+  const original = URL.revokeObjectURL;
+  URL.revokeObjectURL = (url: string) => void revoked.push(url);
+  try {
+    const pending: ((blob: Blob) => void)[] = [];
+    const fetchBlob = (path: string) =>
+      path === "late.png" ? new Promise<Blob>((r) => pending.push(r)) : Promise.resolve(new Blob([path]));
+    let seen: ReadonlyMap<string, string> = new Map();
+    const figures = [{ path: "a.png" }, { path: "b.png" }, { path: "late.png" }];
+    function Host() {
+      seen = useInkFigureUrls({ fetchBlob, figures });
+      return null;
+    }
+    let renderer!: ReturnType<typeof create>;
+    await act(async () => {
+      renderer = create(createElement(Host));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    const made = [...seen.values()];
+    assert.equal(made.length, 2);
+    assert.deepEqual(revoked, [], "nothing is revoked while shown");
+    act(() => renderer.unmount());
+    assert.deepEqual([...revoked].sort(), [...made].sort());
+    await act(async () => {
+      pending[0]!(new Blob(["late"]));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    assert.equal(revoked.length, 2);
+  } finally {
+    URL.revokeObjectURL = original;
+  }
+});

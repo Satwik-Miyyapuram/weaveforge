@@ -177,3 +177,17 @@ function titleCase(text: string): string {
   const words = text.replace(/[_-]+/g, " ").trim().split(/\s+/);
   return words.map((word) => `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`).join(" ");
 }
+
+/** The results in the order the palette paints them: group by group. Keyboard navigation walks this. */
+export function paintedOrder(results: readonly QuickOpenResult[]): QuickOpenResult[] {
+  return groupResults(results).flatMap((group) => group.results);
+}
+
+/** An Enter that picks a row: not the one that confirms an IME composition (keyCode 229 on older engines). */
+export function isPickEnter(event: {
+  key: string;
+  keyCode?: number;
+  nativeEvent: { isComposing?: boolean };
+}): boolean {
+  return event.key === "Enter" && !event.nativeEvent.isComposing && event.keyCode !== 229;
+}

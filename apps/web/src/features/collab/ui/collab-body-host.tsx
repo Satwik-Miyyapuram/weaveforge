@@ -92,7 +92,6 @@ export function CollabBodyHost({
   const [displayName, setDisplayName] = useState("Editor");
 
   useEffect(() => {
-    if (!getContainer().collab.enabled()) return;
     void getContainer().collab.requireUserId().then(setAuthorId);
     void getContainer()
       .org.loadProfile()
@@ -191,7 +190,6 @@ export function CollabBodyHost({
     [markdownExtensions, onViewCreated],
   );
 
-  if (!getContainer().collab.enabled()) return null;
   if (!authorId) return <p className="muted">Loading editor…</p>;
 
   return (

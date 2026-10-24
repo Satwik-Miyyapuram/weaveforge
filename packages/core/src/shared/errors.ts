@@ -82,3 +82,12 @@ export function httpStatusForError(error: unknown): number {
 export function isWeaveForgeError(error: unknown): error is WeaveForgeError {
   return error instanceof WeaveForgeError;
 }
+
+/**
+ * The text to show for anything thrown: an `Error`'s own message, else
+ * `fallback`, else the value as a string. An `Error` with an empty message
+ * still gives `""`; callers that want a fallback for that check it themselves.
+ */
+export function errorMessage(error: unknown, fallback?: string): string {
+  return error instanceof Error ? error.message : (fallback ?? String(error));
+}

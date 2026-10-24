@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   highlightWithinExcerpt, type AiEvidence, type AiWriteProposal } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { announceAiProposalsChanged } from "@/lib/ai-proposals-changed";
 import { Markdown } from "@/components/markdown/markdown";
 import { EntityCard } from "@/components/entity-card";
 import { ScreenHead } from "@/components/screen-head";
@@ -196,7 +197,7 @@ export function AiProposalReviewScreen() {
   }, []);
   useEffect(() => { void reload(); }, [reload]);
   const appendOnly = useMemo(() => items.filter((item) => item.kind === "append_paper_note"), [items]);
-  const changed = () => window.dispatchEvent(new Event("ai-proposals-changed"));
+  const changed = () => announceAiProposalsChanged(getContainer().aiProposals);
   async function run(id: string, action: "approve" | "reject") {
     setBusy(id); setError(null);
     try {

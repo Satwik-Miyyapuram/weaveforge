@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useNavPending } from "@/lib/nav-pending";
-import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { activeNavItem, groupForPath, phoneItems } from "@/registry";
 import { useNavGroups } from "@/lib/hooks/use-nav-groups";
 import { prefetchScreenForPath } from "@/lib/cache/prefetch-screen";
@@ -27,9 +27,6 @@ export function SubNav() {
   const items = phoneItems(group?.items ?? []);
   const multi = items.length > 1;
   const activeItem = activeNavItem(items, pathname);
-  const warmPath = useCallback((href: string) => {
-    prefetchScreenForPath(href.split(/[?#]/)[0] ?? href);
-  }, []);
 
   // Position the sliding indicator under the active tab (after layout).
   useLayoutEffect(() => {
@@ -76,7 +73,7 @@ export function SubNav() {
             href={it.path}
             className={active ? "sub-tab active" : "sub-tab"}
             aria-current={active ? "page" : undefined}
-            onPointerEnter={() => warmPath(it.path)}
+            onPointerEnter={() => prefetchScreenForPath(it.path)}
           >
             {it.label}
           </Link>

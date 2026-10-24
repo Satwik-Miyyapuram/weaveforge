@@ -21,9 +21,9 @@ import {
   type PdfLink,
   type ReaderOutlineItem,
   coveredTextSpans,
+  pageTextFromItems,
 } from "@weaveforge/core";
 import type { FigureTarget } from "@weaveforge/core";
-import { pageTextFromItems } from "./reference-locate";
 
 /** A clickable thing found in the page text. */
 export interface MentionHit {

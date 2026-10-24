@@ -60,12 +60,14 @@ export class WorkerEmbedder implements IEmbedder {
    *
    * Idempotent and shared: several screens may ask at once, and the model must
    * be fetched once. A failure clears the promise so a retry is possible —
-   * caching a rejection would make a transient network error permanent.
+   * caching a rejection would make a transient network error permanent. The
+   * half-started worker is stopped too, or it would hold its heap until the
+   * tab closed.
    */
   load(): Promise<void> {
     if (this.ready) return this.ready;
     this.ready = this.start().catch((error: unknown) => {
-      this.ready = null;
+      this.dispose();
       throw error;
     });
     return this.ready;

@@ -62,7 +62,7 @@
 @media (hover: hover) {
   .back-btn:hover .back-btn-box { background: var(--accent-soft); }
 }
-:root[data-theme="crt"] .back-btn-box { background: #f29731; color: #2b222b; box-shadow: var(--sh-btn-2); }
+:root[data-theme="crt"] .back-btn-box { background: var(--btn-2); color: var(--text); box-shadow: var(--sh-btn-2); }
 .record-bar-id { white-space: nowrap; }
 
 .record-actions {
@@ -244,7 +244,6 @@
   line-height: 1.7;
 }
 .record-main .tag-editor { margin-top: 14px; }
-.record-main .summary-editor { margin: 0; }
 
 /* Sections nested inside a record section drop their own frames. */
 .record-section .related-panel,

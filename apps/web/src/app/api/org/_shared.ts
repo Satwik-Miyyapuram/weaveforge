@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { readBackendConfig } from "@/backend/config";
 import { OrgInviteService } from "@/features/org/infrastructure/org-invite-service";
 import { httpStatusForError } from "@weaveforge/core";
-import { formatError } from "@/lib/format-error";
+import { formatError, jsonBodyError } from "@/lib/format-error";
 import { bearerToken } from "@/lib/bearer-token";
 
 function orgApiService(): OrgInviteService {
@@ -41,4 +41,21 @@ export async function requireOrgApiUser(request: Request): Promise<
   } catch (err) {
     return { ok: false, response: orgApiErrorResponse(err) };
   }
+}
+
+/** Parse a request body that must be a JSON object; anything else is a 400, not a crash later. */
+export async function readOrgBody(request: Request): Promise<
+  | { ok: true; body: Record<string, unknown> }
+  | { ok: false; response: NextResponse }
+> {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch (err) {
+    return { ok: false, response: NextResponse.json({ error: jsonBodyError(err) }, { status: 400 }) };
+  }
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return { ok: false, response: NextResponse.json({ error: "Body must be a JSON object." }, { status: 400 }) };
+  }
+  return { ok: true, body: body as Record<string, unknown> };
 }

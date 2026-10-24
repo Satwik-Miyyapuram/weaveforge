@@ -3,10 +3,11 @@
 import { InlineError } from "@/components/form-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { PAPER_STATUSES, isInkNoteBody, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
+import { PAPER_STATUSES, isEmptyPaperSummary, isInkNoteBody, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { confirmRemovePaper } from "./remove-paper";
-import { formatError } from "@/lib/format-error";
+import { describeRejection, formatError } from "@/lib/format-error";
+import { logToApp } from "@/lib/error-report/app-log";
 import { BellIcon, BellOffIcon, CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
 import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
 import {
@@ -123,7 +124,7 @@ export function PaperNote({
       cancelled = true;
     };
   }, [paper.id]);
-  const hasSummary = !!paper.summary && paper.summary !== "No summary yet.";
+  const hasSummary = !isEmptyPaperSummary(paper.summary);
   const canTrackCitations = Boolean(paper.doi || paper.arxivId);
   const preview = usePaperPreview(paper.id);
   const remoteReaderHref = useMemo(() => {
@@ -167,12 +168,14 @@ export function PaperNote({
       setSaveError(null);
       try {
         const papers = getContainer().papers;
-        const body = await materializePaperBlobImages(nextBody, paper.id, (id, blob, ext) =>
+        const { body, uploadError } = await materializePaperBlobImages(nextBody, paper.id, (id, blob, ext) =>
           papers.uploadImage(id, blob, ext),
         );
         const saved = await papers.updatePaper.setSummary(paper.id, body);
         if (modeRef.current === "read" || closedRef.current) await reconcileTags(body, saved);
         else pendingTagsRef.current = body;
+        // The text is saved; a failed upload is still said out loud.
+        if (uploadError) throw uploadError;
       } catch (err) {
         setSaveError(formatError(err));
       }
@@ -190,7 +193,12 @@ export function PaperNote({
       closedRef.current = true;
       const pending = pendingTagsRef.current;
       pendingTagsRef.current = null;
-      if (pending !== null) void reconcileTagsRef.current(pending).catch(() => undefined);
+      if (pending !== null) {
+        // The page is gone, so there is nowhere to show the error: log it.
+        void reconcileTagsRef.current(pending).catch((err) =>
+          logToApp({ level: "warn", source: "tags", message: "Could not update the note's tags on close", detail: describeRejection(err) }),
+        );
+      }
     },
     [],
   );

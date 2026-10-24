@@ -15,7 +15,7 @@ import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
 
 /** What the tidy-up would offer for these papers. Pure, so the screen can count it cheaply. */
-export function useLibraryTidy(papers: readonly PaperSummary[]) {
+function useLibraryTidy(papers: readonly PaperSummary[]) {
   return useMemo(
     () => ({ titles: titleFixes(papers), duplicates: findDuplicateGroups([...papers]) }),
     [papers],

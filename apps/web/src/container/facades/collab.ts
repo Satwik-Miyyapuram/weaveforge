@@ -18,10 +18,6 @@ export class CollabFacade {
     },
   ) {}
 
-  enabled() {
-    return true;
-  }
-
   collabDeps() {
     return this.inner;
   }

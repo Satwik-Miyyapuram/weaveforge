@@ -10,6 +10,7 @@
  */
 
 import {
+  errorMessage,
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
   decodeInkChunk,
@@ -26,6 +27,7 @@ import type {
 import {
   InkPageBuffer,
   boundsOf,
+  boundsUnion,
   fromGeometry,
   type InkBounds,
 } from "../application/page-buffer";
@@ -132,7 +134,7 @@ export async function loadPage(
   } catch (error) {
     post({
       type: "error",
-      message: error instanceof Error ? error.message : String(error),
+      message: errorMessage(error),
     });
   } finally {
     state.loading = false;
@@ -337,15 +339,7 @@ export function lasso(
     }
     if (inside * 2 < geometry.x.length) continue;
     chosen.push(candidate);
-    const b = geometry.bounds;
-    bounds = bounds
-      ? [
-          Math.min(bounds[0], b[0]),
-          Math.min(bounds[1], b[1]),
-          Math.max(bounds[2], b[2]),
-          Math.max(bounds[3], b[3]),
-        ]
-      : [b[0], b[1], b[2], b[3]];
+    bounds = boundsUnion(bounds, geometry.bounds);
   }
   state.selection = chosen;
   state.renderer?.setSelection(chosen, { x: 0, y: 0 });

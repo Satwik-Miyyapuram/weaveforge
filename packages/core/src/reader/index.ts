@@ -46,6 +46,7 @@ export {
   computeFitWidthScale,
   computeFitPageScale,
   visualPageSize,
+  clampZoomFactor,
   zoomIn,
   zoomOut,
   nextRotation,

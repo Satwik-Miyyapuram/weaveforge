@@ -1,18 +1,14 @@
 /**
- * The ink host's pure helpers: the fit, the selection's text, a stroke's
- * header. Extracted from `ink-host.tsx` not because they are secret but
+ * The ink host's pure helpers: the fit, the selection's text and the
+ * figure boxes. Extracted from `ink-host.tsx` not because they are secret but
  * because they are the parts a test can call without a DOM — the host's
  * three doors are the canvas, the worker and these.
  */
 
 import {
   INK_A4_WIDTH,
-  type InkColour,
   type InkPage,
 } from "@weaveforge/core";
-
-import type { InkStrokeHeader } from "../application/capture-protocol";
-import { nibForTool, type InkBarTool } from "./ink-bar";
 
 /**
  * The fit: how many CSS pixels one 0.1 mm unit is worth.
@@ -53,28 +49,6 @@ export function selectedText(
     }
   }
   return out.join("\n");
-}
-
-/** The stroke header a tool produces, so the host and the bar agree. */
-export function headerForTool(
-  tool: InkBarTool | "shape",
-  width: number,
-  colour: InkColour,
-  pageIndex: number,
-  strokeId: number,
-): InkStrokeHeader {
-  return {
-    strokeId,
-    pageIndex,
-    width: nibForTool(tool, width),
-    tool:
-      tool === "highlighter"
-        ? "highlighter"
-        : tool === "shape"
-          ? "shape"
-          : "pen",
-    colour,
-  };
 }
 
 type Box = { x: number; y: number; w: number; h: number };

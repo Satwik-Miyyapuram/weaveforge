@@ -192,3 +192,54 @@ test("milestone_status and experiment_update reject empty or unknown values", as
   await assert.rejects(registry.execute(draft("milestone_status", { status: "someday" })));
   await assert.rejects(registry.execute(draft("experiment_update", {})));
 });
+
+/** Executors whose create calls record the input they were given (32-05). */
+function followUpExecutors() {
+  const seen: { paper?: unknown; milestone?: unknown; experiment?: unknown } = {};
+  const registry = new AiProposalExecutorRegistry(createAiProposalExecutors({
+    paperNotes: {} as never, vault: {} as never, logs: {} as never,
+    papers: {} as never, updatePaper: {} as never, paperFields: {} as never,
+    addPaper: { async addManual(input: unknown) { seen.paper = input; return { id: "p" } as never; } } as never,
+    pushZotero: async () => undefined,
+    lists: {} as never, relations: {} as never,
+    milestones: { async add(input: unknown) { seen.milestone = input; return {} as never; } } as never,
+    experiments: { async add(input: unknown) { seen.experiment = input; return {} as never; } } as never,
+    vaultPages: {} as never, reportSections: {} as never, reportSectionById: async () => null, annotations: {} as never,
+  }));
+  return { registry, seen };
+}
+
+test("a zotero import passes only checked paper fields (32-05)", async () => {
+  const { registry, seen } = followUpExecutors();
+  const payload = { title: " A paper ", authors: ["Ada", " "], year: "2021", doi: "10.1/x", url: "https://x.org", abstract: "Abs", item: { itemType: "journalArticle" }, status: "read" };
+  assert.equal(await registry.execute(draft("zotero_import", payload)), "accepted");
+  assert.deepEqual(seen.paper, { title: "A paper", authors: ["Ada"], year: 2021, doi: "10.1/x", url: "https://x.org", abstract: "Abs" });
+});
+
+test("a malformed zotero import is refused before any write (32-05)", async () => {
+  for (const payload of [{}, { title: 7 }, { title: "T", authors: "Ada" }, { title: "T", year: "soon" }, { title: "T", year: 20.5 }]) {
+    const { registry, seen } = followUpExecutors();
+    await assert.rejects(registry.execute(draft("zotero_import", payload)), /Proposal/);
+    assert.equal(seen.paper, undefined);
+  }
+});
+
+test("a follow-up milestone or experiment passes only checked fields (32-05)", async () => {
+  const { registry, seen } = followUpExecutors();
+  await registry.execute(draft("milestone_follow_up", { title: "M", description: "D", status: "planned", targetDate: "2026-11-01", dependencies: "x" }));
+  assert.deepEqual(seen.milestone, { title: "M", description: "D", status: "planned", targetDate: "2026-11-01" });
+  await registry.execute(draft("experiment_follow_up", { name: "E", hypothesis: "H", status: "running", relatedPaper: "p-1", config: "x" }));
+  assert.deepEqual(seen.experiment, { name: "E", hypothesis: "H", status: "running", relatedPaper: "p-1" });
+});
+
+test("a malformed milestone or experiment is refused before any write (32-05)", async () => {
+  const cases: [AiProposalKind, Record<string, unknown>][] = [
+    ["milestone_follow_up", {}], ["milestone_follow_up", { title: "M", status: "someday" }],
+    ["experiment_follow_up", { title: "no name" }], ["experiment_follow_up", { name: "E", status: "maybe" }],
+  ];
+  for (const [kind, payload] of cases) {
+    const { registry, seen } = followUpExecutors();
+    await assert.rejects(registry.execute(draft(kind, payload)), /Proposal/);
+    assert.equal(seen.milestone ?? seen.experiment, undefined);
+  }
+});

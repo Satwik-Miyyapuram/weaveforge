@@ -125,11 +125,11 @@ test("baselines existing citations then logs and notifies only new ones", async 
   ]);
   const result = await useCase.checkAll();
 
-  assert.deepEqual(result, { tracked: 1, checked: 1, found: 1 });
+  assert.deepEqual(result, { tracked: 1, checked: 1, found: 1, failed: 0 });
   assert.match((await logs.list())[0]!.body, /New citation/);
   assert.deepEqual(notifications.alerts.map((items) => items.map((item) => item.id)), [["new"]]);
 
-  assert.deepEqual(await useCase.checkAll(), { tracked: 1, checked: 0, found: 0 });
+  assert.deepEqual(await useCase.checkAll(), { tracked: 1, checked: 0, found: 0, failed: 0 });
   assert.equal((await logs.list()).length, 1);
 });
 
@@ -212,6 +212,7 @@ test("one paper failing citations does not skip the rest", async () => {
 
   assert.equal(result.checked, 1);
   assert.equal(result.found, 1);
+  assert.equal(result.failed, 1, "the failing paper is counted (04-19)");
   assert.match((await logs.list())[0]!.body, /New2/);
   assert.ok(await tracks.getByPaperId(paper.id));
 });
