@@ -4,6 +4,7 @@ import path from "node:path";
 import git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
 import { parseLatexSectionTree, type LatexSourceFile } from "@weaveforge/core";
+import { OVERLEAF_PROJECT_ID } from "../domain/link-rules";
 
 const MAX_FILES = 250;
 const MAX_FILE_BYTES = 2_000_000;
@@ -26,7 +27,8 @@ function safeRelative(root: string, candidate: string): string {
   return relative;
 }
 
-async function collectTextFiles(root: string): Promise<LatexSourceFile[]> {
+/** Exported for tests. */
+export async function collectTextFiles(root: string): Promise<LatexSourceFile[]> {
   const result: LatexSourceFile[] = [];
   let totalBytes = 0;
   const visit = async (directory: string): Promise<void> => {
@@ -34,6 +36,8 @@ async function collectTextFiles(root: string): Promise<LatexSourceFile[]> {
       if (result.length >= MAX_FILES) throw new Error("Overleaf project exceeds the supported file limit.");
       const full = path.join(directory, entry.name);
       if (entry.isDirectory()) { await visit(full); continue; }
+      // A clone can hold symlinks; following one reads a file outside it.
+      if (!entry.isFile()) continue;
       const ext = path.extname(entry.name).toLowerCase();
       if (!TEXT_EXTENSIONS.has(ext)) continue;
       const stat = await fs.stat(full);
@@ -55,7 +59,7 @@ export async function readOverleafProject(
   entryFile: string,
   token: string,
 ): Promise<OverleafReadResult> {
-  if (!/^[A-Za-z0-9_-]+$/.test(projectId)) throw new Error("Overleaf project id is invalid.");
+  if (!OVERLEAF_PROJECT_ID.test(projectId)) throw new Error("Overleaf project id is invalid.");
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "weaveforge-overleaf-"));
   try {
     await git.clone({
