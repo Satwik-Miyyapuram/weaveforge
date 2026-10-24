@@ -57,10 +57,12 @@ export function LoginScreen() {
     setBusy(true);
     setError(null);
     try {
+      // Either the browser leaves for Google, or (Android) the account picker
+      // signs in here or is closed; both of those leave the screen usable.
       await getLightContainer().auth.signInWithGoogle(redirectTo());
-      // Browser redirects to Google; nothing more to do here.
     } catch (err) {
       setError(formatError(err));
+    } finally {
       setBusy(false);
     }
   }
