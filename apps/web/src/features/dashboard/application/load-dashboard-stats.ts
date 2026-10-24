@@ -24,7 +24,6 @@ import {
 
 /** Ports the dashboard stats loader depends on (DIP). */
 export interface DashboardStatsPorts {
-  prefetch(): Promise<void>;
   listPapers(): Promise<Paper[]>;
   listSections(): Promise<ReportSection[]>;
   listMilestones(): Promise<Milestone[]>;
@@ -101,9 +100,18 @@ export async function loadDashboardStats(
   if (need("log")) track(ports.listLogEntries().then((v) => { logEntries = v; }));
   if (need("relations")) track(ports.listRelations().then((v) => { relations = v; }));
   if (need("lists")) track(ports.getReadingListTree().then((v) => { listTree = v; }));
-  if (need("tags")) {
-    fetches.push(ports.listTags().then((v) => { tags = v; }).catch(() => undefined));
-  }
+  if (need("tags")) track(ports.listTags().then((v) => { tags = v; }));
+
+  // Started with the lists above rather than after them. A rejection is folded
+  // into the result here so it is never left unhandled while the lists load.
+  const superviseeFetch =
+    need("supervision") && input.supervisees.length > 0
+      ? ports.fetchSuperviseeData(input.supervisees).catch((error: unknown) => ({
+          milestonesByMember: new Map<string, Milestone[]>(),
+          logsByMember: new Map<string, LogEntry[]>(),
+          error,
+        }))
+      : null;
 
   await Promise.all(fetches);
 
@@ -121,16 +129,14 @@ export async function loadDashboardStats(
   let supervision: SupervisionStats | null = null;
   let supervisionError: unknown | null = null;
 
-  if (need("supervision") && input.supervisees.length > 0) {
-    const { milestonesByMember, logsByMember, error } = await ports.fetchSuperviseeData(
-      input.supervisees,
-    );
+  if (superviseeFetch) {
+    const { milestonesByMember, logsByMember, error } = await superviseeFetch;
     supervisionError = error;
-    supervision = buildSupervisionStats(
-      input.supervisees,
-      milestonesByMember,
-      logsByMember,
-    );
+    // Stats built from the empty maps of a failed fetch would show every
+    // supervisee at zero; the cards already say "unavailable" for null.
+    supervision = error
+      ? null
+      : buildSupervisionStats(input.supervisees, milestonesByMember, logsByMember);
   }
 
   return { stats, supervision, criticalError, supervisionError };

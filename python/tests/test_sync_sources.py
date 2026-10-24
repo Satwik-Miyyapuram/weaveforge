@@ -42,9 +42,9 @@ def test_render_figure_png_fallback():
 
 def test_tensorboard_grouping_and_ordering():
     rows = [
-        ("loss", 1, 0.5, "t1"),
-        ("loss", 0, 1.0, "t0"),
-        ("acc", 0, 0.2, None),
+        ("loss", 1, 0.5, "t1", ""),
+        ("loss", 0, 1.0, "t0", ""),
+        ("acc", 0, 0.2, None, ""),
     ]
     series = {s.metric: s for s in _scalars_to_series(rows)}
     assert set(series) == {"loss", "acc"}
@@ -99,7 +99,7 @@ def test_wandb_points_carry_an_iso_wall_time_through_to_metric_points():
 
 
 def test_tensorboard_wall_time_keeps_the_raw_epoch_seconds():
-    rows = [("loss", 0, 1.0, _EPOCH), ("loss", 1, 0.5, None)]
+    rows = [("loss", 0, 1.0, _EPOCH, ""), ("loss", 1, 0.5, None, "")]
     series = {s.metric: s for s in _scalars_to_series(rows)}
     wall = series["loss"].points[0][2]
     assert wall == _EPOCH
@@ -194,3 +194,57 @@ def test_a_mirrored_run_ends_with_the_exit_code_wandb_expects():
     done.finish("done")
     done.finish("done")  # closed once, whatever else calls it
     assert other.exit_code == 0
+
+
+def test_tensorboard_keeps_runs_apart_in_a_multi_run_logdir():
+    # Keras writes train/ and validation/ under one logdir with the same tags (43-04).
+    rows = [
+        ("loss", 0, 1.0, None, "train"),
+        ("loss", 0, 2.0, None, "validation"),
+        ("loss", 1, 0.5, None, "train"),
+    ]
+    series = {s.metric: s for s in _scalars_to_series(rows)}
+    assert set(series) == {"train/loss", "validation/loss"}
+    assert [p[1] for p in series["train/loss"].points] == [1.0, 0.5]
+    assert [p[1] for p in series["validation/loss"].points] == [2.0]
+
+
+def test_tensorboard_single_run_keeps_bare_tags():
+    # One run dir, root or nested, keeps the names already stored for it (43-04).
+    for run_dir in ("", "exp1"):
+        series = _scalars_to_series([("loss", 0, 1.0, None, run_dir)])
+        assert [s.metric for s in series] == ["loss"]
+
+
+def test_tensorboard_root_files_beside_a_run_dir_stay_bare():
+    rows = [("loss", 0, 1.0, None, ""), ("loss", 0, 2.0, None, "eval")]
+    assert sorted(s.metric for s in _scalars_to_series(rows)) == ["eval/loss", "loss"]
+
+
+def test_tensorboard_read_asks_tbparse_for_the_run_dir(monkeypatch):
+    import sys
+    import types
+    from collections import namedtuple
+
+    Row = namedtuple("Row", "tag step value wall_time dir_name")
+    seen = {}
+
+    class _Frame:
+        columns = list(Row._fields)
+        _rows = [Row("loss", 0, 1.0, 10.0, "train"), Row("loss", 0, 2.0, 10.0, "validation")]
+
+        def __len__(self):
+            return len(self._rows)
+
+        def itertuples(self, index=False):
+            return iter(self._rows)
+
+    class _Reader:
+        def __init__(self, logdir, **kwargs):
+            seen.update(kwargs)
+            self.scalars = _Frame()
+
+    monkeypatch.setitem(sys.modules, "tbparse", types.SimpleNamespace(SummaryReader=_Reader))
+    series = default_registry.get("tensorboard").read("logs")
+    assert seen.get("extra_columns") == {"dir_name"}
+    assert sorted(s.metric for s in series) == ["train/loss", "validation/loss"]
