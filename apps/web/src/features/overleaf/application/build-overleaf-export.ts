@@ -7,6 +7,7 @@ import {
   normalizeTitleKey,
   resolveCiteKey,
   uniqueCiteKey,
+  uniqueFigureName,
 } from "@weaveforge/core";
 import type { CitationFormat } from "@weaveforge/core";
 
@@ -199,19 +200,6 @@ function paperToBibtex(paper: Paper, key: string): string {
     type === "misc" && !venue ? "  howpublished = {Preprint}" : null,
   ].filter(Boolean);
   return `@${type}{${key},\n${fields.join(",\n")}\n}`;
-}
-
-function uniqueFigureName(raw: string, used: Set<string>): string {
-  const safe = raw.replace(/[^A-Za-z0-9._-]+/g, "_") || "figure.bin";
-  let name = safe;
-  let n = 2;
-  while (used.has(name)) {
-    const dot = safe.lastIndexOf(".");
-    name = dot > 0 ? `${safe.slice(0, dot)}_${n}${safe.slice(dot)}` : `${safe}_${n}`;
-    n += 1;
-  }
-  used.add(name);
-  return name;
 }
 
 function walkSections(
