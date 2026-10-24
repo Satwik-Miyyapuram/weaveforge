@@ -16,7 +16,10 @@ import {
   writeGraphStateCache,
 } from "./graph-legacy-storage";
 
-const stateCache = new Map<string, GraphPersistedState>();
+// The graph state lives in the graph settings repository (memoized like every
+// repository) and, for a first paint without a loader, in localStorage. No
+// module copy: localStorage already paints a remount, survives a reload, and is
+// wiped on sign-out, which a module Map never was.
 
 function pinnedFromRecord(record: GraphPersistedState["pinned"]): Map<string, { x: number; y: number }> {
   return new Map(Object.entries(record));
@@ -46,11 +49,9 @@ export function useGraphPersistedState(projectId: string | null | undefined) {
     }
 
     let active = true;
-    const cached = stateCache.get(projectId) ?? readGraphStateCache(projectId);
+    const cached = readGraphStateCache(projectId);
     if (cached) {
-      const next = mergeGraphPersistedState(cached);
-      stateCache.set(projectId, next);
-      setState(next);
+      setState(mergeGraphPersistedState(cached));
       setLoading(false);
     } else {
       setState(DEFAULT_GRAPH_PERSISTED_STATE);
@@ -70,7 +71,6 @@ export function useGraphPersistedState(projectId: string | null | undefined) {
         }
         if (!active) return;
         const next = mergeGraphPersistedState(stored);
-        stateCache.set(projectId, next);
         writeGraphStateCache(projectId, next);
         setState(next);
       } catch (err) {
@@ -98,10 +98,7 @@ export function useGraphPersistedState(projectId: string | null | undefined) {
       markDirty();
       setState((prev) => {
         const next = updater(prev);
-        if (projectId) {
-          stateCache.set(projectId, next);
-          writeGraphStateCache(projectId, next);
-        }
+        if (projectId) writeGraphStateCache(projectId, next);
         return next;
       });
     },
@@ -112,9 +109,8 @@ export function useGraphPersistedState(projectId: string | null | undefined) {
     if (!projectId || !ready.current || loading || !dirty.current) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      const toSave = stateCache.get(projectId) ?? state;
       void getContainer()
-        .graph.saveSettings(projectId, toSave)
+        .graph.saveSettings(projectId, state)
         .then(() => {
           dirty.current = false;
         })
