@@ -25,7 +25,7 @@ test("the generic MCP draft command persists an encrypted-store-ready pending pr
   let stored: AiWriteProposal | undefined;
   const useCase = new CreateAiProposalDraftUseCase({
     policy: new AiAccessPolicy(),
-    proposals: { async save(value) { stored = value; }, async getById() { return stored ?? null; }, async listPending() { return stored ? [stored] : []; } },
+    proposals: { async save(value) { stored = value; } },
     clock: { nowIso: () => "2026-07-14T12:00:00.000Z" },
   });
 
@@ -44,7 +44,7 @@ test("the generic MCP draft command persists an encrypted-store-ready pending pr
 test("the generic MCP draft command refuses a proposal whose capability was not granted", async () => {
   const useCase = new CreateAiProposalDraftUseCase({
     policy: new AiAccessPolicy(),
-    proposals: { async save() { throw new Error("must not persist"); }, async getById() { return null; }, async listPending() { return []; } },
+    proposals: { async save() { throw new Error("must not persist"); } },
     clock: { nowIso: () => "2026-07-14T12:00:00.000Z" },
   });
 
@@ -56,4 +56,41 @@ test("the generic MCP draft command refuses a proposal whose capability was not 
     }),
     /AI proposal denied: tool_not_allowed/,
   );
+});
+
+// Ported from ProposeAppendPaperNoteUseCase (02-04): the MCP relay drafts
+// append proposals through this command, so its checks are pinned here.
+test("an append draft is stored trimmed, and an empty one is refused unsaved", async () => {
+  const saved: AiWriteProposal[] = [];
+  const useCase = new CreateAiProposalDraftUseCase({
+    policy: new AiAccessPolicy(),
+    proposals: { async save(value) { saved.push(value); } },
+    clock: { nowIso: () => "2026-07-14T12:00:00.000Z" },
+  });
+  const draft = (content: string) => useCase.execute({
+    id: "proposal-3", kind: "append_paper_note", tool: "suggest_append_paper_note",
+    resourceId: "paper-1", resourceType: "paper_note", content, payload: { addition: content },
+    settings, grant, encryptionUnlocked: true, now: "2026-07-14T12:00:00.000Z", expectedRevision: "rev-1",
+  });
+
+  const proposal = await draft("  AI suggestion  ");
+  assert.equal(proposal.content, "AI suggestion");
+  assert.equal(proposal.expectedRevision, "rev-1");
+  assert.equal(proposal.createdAt, "2026-07-14T12:00:00.000Z");
+  assert.deepEqual(proposal.sourceLinks, []);
+  await assert.rejects(draft("   "), /preview is required/);
+  assert.equal(saved.length, 1);
+});
+
+test("an append draft is refused while encryption is locked", async () => {
+  const useCase = new CreateAiProposalDraftUseCase({
+    policy: new AiAccessPolicy(),
+    proposals: { async save() { throw new Error("must not persist"); } },
+    clock: { nowIso: () => "2026-07-14T12:00:00.000Z" },
+  });
+  await assert.rejects(useCase.execute({
+    id: "proposal-4", kind: "append_paper_note", tool: "suggest_append_paper_note",
+    resourceId: "paper-1", resourceType: "paper_note", content: "x", payload: {},
+    settings, grant, encryptionUnlocked: false, now: "2026-07-14T12:00:00.000Z",
+  }), /AI proposal denied/);
 });
