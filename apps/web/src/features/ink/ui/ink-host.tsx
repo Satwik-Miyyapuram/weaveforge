@@ -339,7 +339,8 @@ export function InkHost({
     recogniser: deps.recogniser.bind(deps),
     hints: deps.hints.bind(deps),
     requestModel,
-    sendReplace: (page) => send({ type: "replace-page", page }),
+    sendReplace: (page, pageIndex) =>
+      send({ type: "replace-page", pageIndex, page }),
     metaRef,
     textPagesRef,
     pageIndex,
