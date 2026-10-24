@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { apiTokenService } from "@/features/settings/infrastructure/api-token-service";
 import { bearerToken } from "@/lib/bearer-token";
 import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
-import { formatError } from "@/lib/format-error";
+import { formatError, formatErrorForResponse } from "@/lib/format-error";
 
 function disabled() {
   return NextResponse.json({ error: "mcp_disabled" }, { status: 404, headers: { "Cache-Control": "no-store" } });
@@ -15,11 +15,14 @@ function disabled() {
  * deployment is missing SUPABASE_SERVICE_ROLE_KEY or SUPABASE_JWT_SECRET.
  * Returning 401 for that told the reader their session was rejected and sent
  * them to sign in again, on a server that would answer the same way forever.
+ * The same goes for a database failure: that is a 500, in safe wording.
  */
 function failed(error: unknown) {
   const message = formatError(error);
-  const misconfigured = message.startsWith("Missing server config");
-  return NextResponse.json({ error: message }, { status: misconfigured ? 503 : 401 });
+  if (message === "Invalid session.") return NextResponse.json({ error: message }, { status: 401 });
+  if (message === "Token not found.") return NextResponse.json({ error: message }, { status: 404 });
+  const status = message.startsWith("Missing server config") ? 503 : 500;
+  return NextResponse.json({ error: formatErrorForResponse(error, "mcp-tokens") }, { status });
 }
 
 export async function POST(request: Request) {

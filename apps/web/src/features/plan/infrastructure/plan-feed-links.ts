@@ -103,13 +103,15 @@ export class PlanFeedLinks {
   /**
    * A new link, replacing any old one: an old link stops working the moment
    * this returns. The token is returned once and not kept anywhere.
+   *
+   * Insert first, then remove the others: if the insert fails, the old link
+   * still works instead of the account being left with none.
    */
   async create(): Promise<{ link: PlanFeedLink; token: string }> {
     const userId = await this.session.requireUserId();
     const body = encodeBase64(await randomBytes(32)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     const token = `${TOKEN_PREFIX}${body}`;
     const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)));
-    await this.revoke();
     const { data, error } = await this.db
       .from("api_tokens")
       .insert({
@@ -124,6 +126,12 @@ export class PlanFeedLinks {
       .single();
     if (error) throw new Error(formatError(error));
     const row = data as Row;
+    const { error: revokeError } = await this.db
+      .from("api_tokens")
+      .delete()
+      .contains("scopes", [PLAN_FEED_SCOPE])
+      .neq("id", row.id);
+    if (revokeError) throw new Error(formatError(revokeError));
     return {
       token,
       link: { id: row.id, tokenPrefix: row.token_prefix, createdAt: row.created_at, lastUsedAt: row.last_used_at },

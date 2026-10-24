@@ -10,7 +10,9 @@ import {
   type AiAccessSettings,
   type AiSessionGrant,
   type AiWriteProposal,
+  type Paper,
 } from "../../../src/index.js";
+import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
 
 const settings: AiAccessSettings = {
   enabled: true,
@@ -82,51 +84,118 @@ test("a revision conflict preserves the existing paper note", async () => {
 // revision comparison it contained was written out three times, so the copies —
 // not the literal — were the finding.
 
-function paperRepo(paper: { id: string; summary?: string; updatedAt: string } | null) {
-  const writes: { summary: string; updatedAt: string }[] = [];
+function storedPaper(over: Partial<Paper> = {}): Paper {
   return {
-    writes,
-    getById: async () => (paper ? { ...paper, title: "T", authors: [], status: "to_read" as const, tags: [], metadata: {}, createdAt: "2026-01-01T00:00:00.000Z" } : null),
-    save: async (value: { summary?: string; updatedAt: string }) => {
-      writes.push({ summary: value.summary ?? "", updatedAt: value.updatedAt });
-      if (paper) paper.summary = value.summary;
-    },
+    id: "p1", title: "T", authors: [], status: "to_read", tags: [], metadata: {},
+    createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "rev-1", summary: "Existing note",
+    ...over,
   };
 }
 
+async function paperRepo(paper: Paper | null) {
+  const repo = new InMemoryPaperRepository();
+  if (paper) await repo.save(paper);
+  return repo;
+}
+
+function appender(papers: Pick<InMemoryPaperRepository, "getById" | "replaceSummary">) {
+  return new AppendPaperNoteUseCase({ papers, clock: { nowIso: () => "2026-07-14T12:00:00.000Z" } });
+}
+
 test("an approved note appends to the summary and bumps the revision", async () => {
-  const papers = paperRepo({ id: "p1", summary: "Existing note", updatedAt: "rev-1" });
-  const appended = await new AppendPaperNoteUseCase({
-    papers: papers as never,
-    clock: { nowIso: () => "2026-07-14T12:00:00.000Z" },
-  }).appendPaperNote({ paperId: "p1", addition: "AI suggestion", expectedRevision: "rev-1" });
+  const papers = await paperRepo(storedPaper());
+  const appended = await appender(papers).appendPaperNote({
+    paperId: "p1", addition: "AI suggestion", expectedRevision: "rev-1",
+  });
 
   assert.equal(appended, "appended");
-  assert.equal(papers.writes.length, 1);
-  assert.equal(papers.writes[0]!.summary, "Existing note\n\nAI suggestion");
-  assert.equal(papers.writes[0]!.updatedAt, "2026-07-14T12:00:00.000Z");
+  const stored = await papers.getById("p1");
+  assert.equal(stored?.summary, "Existing note\n\nAI suggestion");
+  assert.equal(stored?.updatedAt, "2026-07-14T12:00:00.000Z");
+});
+
+test("two notes appended at once are both kept", async () => {
+  // Each append read the row and wrote all of it back, so the second write
+  // erased the first note. The write now names the summary it replaces.
+  const papers = await paperRepo(storedPaper());
+  const useCase = appender(papers);
+
+  const outcomes = await Promise.all([
+    useCase.appendPaperNote({ paperId: "p1", addition: "first" }),
+    useCase.appendPaperNote({ paperId: "p1", addition: "second" }),
+  ]);
+
+  assert.deepEqual(outcomes, ["appended", "appended"]);
+  assert.equal((await papers.getById("p1"))?.summary, "Existing note\n\nfirst\n\nsecond");
+});
+
+test("an edit landing between the read and the write is kept, and the note still lands", async () => {
+  const papers = await paperRepo(storedPaper());
+  let edited = false;
+  const racing = {
+    getById: (id: string) => papers.getById(id),
+    async replaceSummary(...args: Parameters<InMemoryPaperRepository["replaceSummary"]>) {
+      if (!edited) {
+        edited = true;
+        await papers.save(storedPaper({ summary: "Edited by hand", updatedAt: "rev-1" }));
+      }
+      return papers.replaceSummary(...args);
+    },
+  };
+
+  assert.equal(await appender(racing).appendPaperNote({ paperId: "p1", addition: "AI suggestion" }), "appended");
+  assert.equal((await papers.getById("p1"))?.summary, "Edited by hand\n\nAI suggestion");
+});
+
+test("a proposal that expected a revision is a conflict once the row moved on mid-write", async () => {
+  const papers = await paperRepo(storedPaper());
+  const racing = {
+    getById: (id: string) => papers.getById(id),
+    async replaceSummary(...args: Parameters<InMemoryPaperRepository["replaceSummary"]>) {
+      await papers.save(storedPaper({ summary: "Edited by hand", updatedAt: "rev-2" }));
+      return papers.replaceSummary(...args);
+    },
+  };
+
+  const outcome = await appender(racing).appendPaperNote({
+    paperId: "p1", addition: "AI suggestion", expectedRevision: "rev-1",
+  });
+
+  assert.equal(outcome, "conflicted");
+  assert.equal((await papers.getById("p1"))?.summary, "Edited by hand");
+});
+
+test("a summary that never holds still gives up as a conflict instead of looping", async () => {
+  const papers = await paperRepo(storedPaper());
+  let attempts = 0;
+  const busy = {
+    getById: (id: string) => papers.getById(id),
+    async replaceSummary() {
+      attempts += 1;
+      return false;
+    },
+  };
+
+  assert.equal(await appender(busy).appendPaperNote({ paperId: "p1", addition: "AI suggestion" }), "conflicted");
+  assert.ok(attempts > 1 && attempts < 10, `bounded retries, got ${attempts}`);
 });
 
 test("a paper that moved on is a conflict, and nothing is written", async () => {
-  const papers = paperRepo({ id: "p1", summary: "Existing note", updatedAt: "rev-2" });
-  const appended = await new AppendPaperNoteUseCase({
-    papers: papers as never,
-    clock: { nowIso: () => "2026-07-14T12:00:00.000Z" },
-  }).appendPaperNote({ paperId: "p1", addition: "AI suggestion", expectedRevision: "rev-1" });
+  const papers = await paperRepo(storedPaper({ updatedAt: "rev-2" }));
+  const appended = await appender(papers).appendPaperNote({
+    paperId: "p1", addition: "AI suggestion", expectedRevision: "rev-1",
+  });
 
   assert.equal(appended, "conflicted");
-  assert.deepEqual(papers.writes, [], "a conflict must not touch the paper");
+  assert.deepEqual(await papers.getById("p1"), storedPaper({ updatedAt: "rev-2" }), "a conflict must not touch the paper");
 });
 
 test("a paper that no longer exists is a conflict, not a creation", async () => {
-  const papers = paperRepo(null);
-  const appended = await new AppendPaperNoteUseCase({
-    papers: papers as never,
-    clock: { nowIso: () => "2026-07-14T12:00:00.000Z" },
-  }).appendPaperNote({ paperId: "gone", addition: "AI suggestion" });
+  const papers = await paperRepo(null);
+  const appended = await appender(papers).appendPaperNote({ paperId: "gone", addition: "AI suggestion" });
 
   assert.equal(appended, "conflicted");
-  assert.deepEqual(papers.writes, []);
+  assert.deepEqual(await papers.list(), []);
 });
 
 test("a proposal with no expectation applies to whatever is there", () => {
