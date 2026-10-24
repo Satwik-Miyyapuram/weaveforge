@@ -17,6 +17,8 @@ as these instructions once said, fails on the first file.
 2. Every file in [`../migrations/`](../migrations/), `0001` … latest.
 3. Everything else in this folder, in order — `0025` (auth stub) then
    `0026` (grants, which needs the tables to exist).
+   `0030` re-applies the revokes of base `0141` after `0026` re-grants every
+   function, so it must stay after `0026`.
 
 Use [`scripts/apply-migrations-oci.sh`](../../scripts/apply-migrations-oci.sh),
 which does exactly that and verifies the result. Manually:
