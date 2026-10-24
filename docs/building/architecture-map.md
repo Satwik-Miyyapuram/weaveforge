@@ -89,8 +89,8 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 
 | Where | Size | What lives there |
 | --- | --- | --- |
-| `packages/core` | 53,643 lines | Domain and application logic shared by every surface |
-| `apps/web` | 197,519 lines | The app itself: screens, features, API routes, backend wiring |
+| `packages/core` | 53,620 lines | Domain and application logic shared by every surface |
+| `apps/web` | 197,476 lines | The app itself: screens, features, API routes, backend wiring |
 | `apps/desktop` | 17,893 lines | The Electron shell — what only an installed app can do |
 | `apps/pitch` | 904 lines | The public site and this documentation |
 | `python/weaveforge` | 3,312 lines | The SDK training scripts import |
@@ -98,7 +98,7 @@ Counted from the files git is tracking, not remembered — run `npm run docs:gen
 | `db/migrations` | 144 files | The schema, as an ordered sequence |
 | `docs` | 78 files | Documentation, this page included |
 
-**275,042 lines of code in all**, across 2,241 source files.
+**274,976 lines of code in all**, across 2,241 source files.
 
 <!-- /generated:code-map -->
 

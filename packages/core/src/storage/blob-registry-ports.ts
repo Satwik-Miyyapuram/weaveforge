@@ -27,9 +27,5 @@ export interface IBlobRegistry {
   get(bucket: string, path: string): Promise<BlobObjectRecord | null>;
   register(input: RegisterBlobInput): Promise<void>;
   recordAccess(bucket: string, path: string): Promise<void>;
-  setTier(bucket: string, path: string, tier: BlobTier, sizeBytes?: number): Promise<void>;
   remove(bucket: string, path: string): Promise<void>;
-  /** Hot-tier rows for tier-off job (caller sorts by eviction score). */
-  listHot(): Promise<BlobObjectRecord[]>;
-  hotBytesTotal(): Promise<number>;
 }
