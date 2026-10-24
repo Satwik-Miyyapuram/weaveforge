@@ -50,6 +50,5 @@ export interface IShareLinkRepository {
   listForResource(resourceType: ShareableType, resourceId: string): Promise<ShareLink[]>;
   save(input: ShareLinkSaveInput): Promise<ShareLink>;
   delete(id: string): Promise<void>;
-  resolveByTokenHash(tokenHash: Uint8Array): Promise<ResolvedShareLink | null>;
   redeem(tokenHash: Uint8Array): Promise<ResolvedShareLink | null>;
 }

@@ -42,7 +42,7 @@ test("grant: applies defaults (access=comment, resourceId=null) and delegates", 
 
 test("grant: honours an explicit access level and resource id", async () => {
   const { repo, uc } = makeSetup();
-  await uc.grant({ recipientId: "u2", resourceType: "paper", resourceId: "p1", access: "edit" });
+  await uc.grant({ recipientId: "u2", resourceType: "vault_page", resourceId: "p1", access: "edit" });
   assert.equal(repo.lastGrant?.access, "edit");
   assert.equal(repo.lastGrant?.resourceId, "p1");
 });
@@ -62,4 +62,30 @@ test("revoke / list: delegate to the repository", async () => {
   assert.deepEqual(repo.revoked, ["share-9"]);
   assert.equal((await uc.listForResource("paper", "p1")).length, 1);
   assert.equal((await uc.listSharedWithMe()).length, 1);
+});
+
+test("grant: refuses edit access where collaborative editing does not exist", async () => {
+  // Only vault pages and report sections have a CRDT edit path. An edit grant
+  // anywhere else was stored and then silently acted as comment.
+  const { repo, uc } = makeSetup();
+  await assert.rejects(
+    uc.grant({ recipientId: "u2", resourceType: "paper", resourceId: "p1", access: "edit" }),
+    ShareValidationError,
+  );
+  await assert.rejects(
+    uc.grant({ recipientId: "u2", resourceType: "vault_page", resourceId: null, access: "edit" }),
+    ShareValidationError,
+    "a blanket grant has no single document to edit",
+  );
+  assert.equal(repo.lastGrant, null);
+});
+
+test("grant: view and comment stay allowed on every type", async () => {
+  const { repo, uc } = makeSetup();
+  await uc.grant({ recipientId: "u2", resourceType: "paper", resourceId: "p1", access: "view" });
+  assert.equal(repo.lastGrant?.access, "view");
+  await uc.grant({ recipientId: "u2", resourceType: "paper", resourceId: null, access: "comment" });
+  assert.equal(repo.lastGrant?.access, "comment");
+  await uc.grant({ recipientId: "u2", resourceType: "report_section", resourceId: "r1", access: "edit" });
+  assert.equal(repo.lastGrant?.access, "edit");
 });

@@ -12,12 +12,7 @@ export class RevokeShareLinkUseCase {
     },
   ) {}
 
-  async execute(input: {
-    ownerId: string;
-    linkId: string;
-    /** Ignored — retained for call-site compatibility; DEK rotation was E2EE-only. */
-    rotateDek?: boolean;
-  }): Promise<void> {
+  async execute(input: { ownerId: string; linkId: string }): Promise<void> {
     const link = await this.deps.shareLinks.getById(input.linkId);
     // Both conditions were bare `Error`s, which no route can map — they fell
     // through to 500 for what are a 404 and a 403.
