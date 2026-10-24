@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { VIEWPORT_PAD } from "./viewport-pad";
 
 export interface MenuItem {
   id: string;
@@ -39,7 +40,6 @@ export interface SubmenuPlacement {
   maxWidth: number;
 }
 
-const VIEWPORT_PAD = 12;
 const SUBMENU_GAP = 6;
 
 /**
