@@ -519,7 +519,8 @@ export function onFolderDraftsChanged(listener: () => void): () => void {
 export async function folderHistory(limit = 20): Promise<readonly WorkspaceCommit[]> {
   // Desktop commits in the shell; the renderer's git is a no-op there.
   const shell = folderSession()?.kind === "desktop" ? desktop() : null;
-  if (shell) return shell.vaultLog(limit).catch(() => []);
+  // A log that cannot be read is an error the panel shows, not an empty history.
+  if (shell) return shell.vaultLog(limit);
   return activeGit.log({ limit });
 }
 

@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
+import { createSignInInbox } from "./sign-in-relay";
 import type {
   DesktopBridge,
   DesktopCommit,
@@ -53,6 +54,13 @@ async function call<T>(channel: string, ...args: unknown[]): Promise<T> {
   if (!result.ok) throw new Error(result.message);
   return result.value;
 }
+
+/**
+ * Sign-ins are caught from the moment the page loads, not from when the app
+ * subscribes after React mounts; one that lands in between waits here (38-07).
+ */
+const signInInbox = createSignInInbox();
+ipcRenderer.on(CHANNELS.signIn, (_event: unknown, query: string) => signInInbox.deliver(query));
 
 const bridge: DesktopBridge = {
   version: __APP_VERSION__,
@@ -157,12 +165,10 @@ const bridge: DesktopBridge = {
     return () => ipcRenderer.off(CHANNELS.semanticRank, listener);
   },
   onSignIn: (cb) => {
-    // The listener is wrapped rather than passed through, so the renderer never
+    // The inbox hands on only the query, so the renderer never
     // receives Electron's `IpcRendererEvent` — which carries `sender`, and with
     // it a way back into this process that the contract does not offer.
-    const listener = (_event: unknown, query: string) => cb(query);
-    ipcRenderer.on(CHANNELS.signIn, listener);
-    return () => ipcRenderer.off(CHANNELS.signIn, listener);
+    return signInInbox.subscribe(cb);
   },
 };
 

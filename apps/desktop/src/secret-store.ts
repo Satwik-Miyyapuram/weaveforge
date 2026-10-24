@@ -1,3 +1,5 @@
+import type { DesktopSecretName } from "@/lib/desktop/desktop-bridge";
+
 import type { IpcResult } from "./channels";
 import { WriteQueue } from "./write-queue";
 
@@ -161,7 +163,18 @@ export class SecretStore {
  *   forget) it, but only the clone on this side ever reads it back.
  */
 const PAGE_READABLE: readonly SecretName[] = ["ai-provider"];
-const PAGE_WRITABLE: readonly SecretName[] = ["ai-provider", "overleaf-token"];
+const PAGE_WRITABLE = ["ai-provider", "overleaf-token"] as const satisfies readonly SecretName[];
+
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+/**
+ * The page's `DesktopSecretName` is typed by hand in the web bridge; this fails
+ * the typecheck when it and `PAGE_WRITABLE` stop naming the same secrets (xipc-05).
+ */
+export type PageSecretNamesMatchBridge = Same<(typeof PAGE_WRITABLE)[number], DesktopSecretName> extends true
+  ? true
+  : never;
+const pageSecretNamesMatchBridge: PageSecretNamesMatchBridge = true;
+void pageSecretNamesMatchBridge;
 
 function pageMay(list: readonly SecretName[], name: unknown): boolean {
   return isSecretName(name) && list.includes(name);

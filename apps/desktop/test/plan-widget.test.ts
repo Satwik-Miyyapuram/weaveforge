@@ -11,6 +11,7 @@ import {
   parseTaskbarCreated,
   powershellArgs,
   switchPlanWidget,
+  singleFlight,
   widgetDataFromRows,
   type PlanWidgetRow,
 } from "../src/plan-widget";
@@ -163,4 +164,34 @@ test("plan widget switch: saves, then applies, in that order", async () => {
   });
   assert.deepEqual(result, { ok: true, value: null });
   assert.deepEqual(steps, ["save false", "apply false"]);
+});
+
+test("singleFlight: two opens at once run the work once; later ones run again (38-06)", async () => {
+  let runs = 0;
+  let release!: () => void;
+  const open = singleFlight(async () => {
+    runs += 1;
+    await new Promise<void>((resolve) => (release = resolve));
+  });
+  const a = open();
+  const b = open();
+  release();
+  await Promise.all([a, b]);
+  assert.equal(runs, 1);
+  const c = open();
+  release();
+  await c;
+  assert.equal(runs, 2);
+});
+
+test("singleFlight: a failed run rejects every waiter and does not stick", async () => {
+  let runs = 0;
+  const open = singleFlight(async () => {
+    runs += 1;
+    if (runs === 1) throw new Error("no screen");
+  });
+  const results = await Promise.allSettled([open(), open()]);
+  assert.deepEqual(results.map((r) => r.status), ["rejected", "rejected"]);
+  await open();
+  assert.equal(runs, 2);
 });

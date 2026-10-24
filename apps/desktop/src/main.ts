@@ -56,6 +56,7 @@ import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handler
 import { answerRelay } from "./app-relays";
 import { installApiCors } from "./api-cors";
 import { startAuthLoopback } from "./auth-loopback";
+import { sendWhenLoaded } from "./sign-in-relay";
 import { CHANNELS, type IpcResult, type MenuGroupPayload } from "./channels";
 import { pagePreferenceStore, pageSecretStore, preferenceStore, secretStore } from "./main-stores";
 import { checkUpdateReply, fetchReleases } from "./update-check";
@@ -340,7 +341,8 @@ function deliverSignIn(query: string): void {
   if (!window) return;
   if (window.isMinimized()) window.restore();
   window.focus();
-  window.webContents.send(CHANNELS.signIn, query);
+  // A window made just now is still loading; a send before the load is lost (38-07).
+  sendWhenLoaded(window.webContents, CHANNELS.signIn, query);
   void offerUpdate();
 }
 

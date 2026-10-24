@@ -234,20 +234,18 @@ export interface ImagePayload {
   url: string;
 }
 
-/** The chosen workspace folder, or `null` when none is chosen yet. */
-export interface VaultRootPayload {
-  path: string;
-  /** Whether the folder already held a workspace when it was chosen. */
-  state: "empty" | "existing";
-}
-
-/** One entry of a folder listing, flattened for the wire. */
-export interface VaultEntryPayload {
-  path: string;
-  kind: "file" | "dir";
-  size: number;
-  modifiedAt: string;
-}
+/**
+ * Payloads the page also sees, defined once in the web bridge and named here
+ * as the shell's handlers know them (xipc-06).
+ */
+export type {
+  DesktopAppLog as AppLogPayload,
+  DesktopMenuGroup as MenuGroupPayload,
+  DesktopMenuItem as MenuItemPayload,
+  DesktopPlanWidget as PlanWidgetStatePayload,
+  DesktopVaultEntry as VaultEntryPayload,
+  DesktopVaultRoot as VaultRootPayload,
+} from "@/lib/desktop/desktop-bridge";
 
 /** What the page posts to the application log. The shell stamps the time. */
 export interface AppLogReportPayload {
@@ -255,46 +253,4 @@ export interface AppLogReportPayload {
   source: string;
   message: string;
   detail?: string;
-}
-
-/**
- * The application log as the page receives it.
- *
- * `text` is the entries already formatted — one line each, oldest first — so the
- * page can show them without a second parser and a second answer to "what does
- * a log line look like". `file` is where they are also written, so the reader
- * can open the same record in an editor.
- */
-export interface AppLogPayload {
-  file: string;
-  text: string;
-  /** False when the in-memory ring dropped older entries than `text` holds. */
-  complete: boolean;
-}
-
-/** One entry of the menu, as the page's menu bar draws it. */
-export interface MenuItemPayload {
-  id: string;
-  kind: "item" | "check" | "separator";
-  label: string;
-  /** The shortcut as the platform writes it (`Ctrl+Shift+I`), or null. */
-  accelerator: string | null;
-  enabled: boolean;
-  checked?: boolean;
-  /** Set when the entry only opens a route, so the page can navigate itself. */
-  route?: string;
-  /** A page action (`search`) the page runs itself. */
-  command?: string;
-}
-
-export interface MenuGroupPayload {
-  label: string;
-  items: MenuItemPayload[];
-}
-
-/** The plan widget, as the Settings panel sees it. */
-export interface PlanWidgetStatePayload {
-  /** False off Windows: the desktop placement is a Windows call. */
-  supported: boolean;
-  enabled: boolean;
 }

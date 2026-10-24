@@ -251,3 +251,16 @@ export function parseTaskbarCreated(stdout: string): number | null {
 export function powershellArgs(script: string): string[] {
   return ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")];
 }
+
+/**
+ * Calls made while one is running share it rather than starting another.
+ * Opening the widget awaits a preference read before it makes the window, so
+ * two opens in that gap made two windows (38-06).
+ */
+export function singleFlight(work: () => Promise<void>): () => Promise<void> {
+  let running: Promise<void> | null = null;
+  return () =>
+    (running ??= work().finally(() => {
+      running = null;
+    }));
+}

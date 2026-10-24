@@ -13,7 +13,8 @@
  */
 
 import { net } from "electron";
-import { readFile, mkdir, rename, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { readFile, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 /** The host the weights actually come from, when they are not here yet. */
@@ -102,6 +103,27 @@ export async function serveModelFile(
   const cached = await readFile(file).catch(() => null);
   if (cached) return new Response(new Uint8Array(cached), { status: 200, headers: headersFor(file) });
 
+  // Asks that arrive while the file is downloading share that download (38-03):
+  // two downloads of one file would race to write and rename it.
+  let pending = downloads.get(file);
+  if (!pending) {
+    pending = download(file, url, fetchUpstream).finally(() => downloads.delete(file));
+    downloads.set(file, pending);
+  }
+  const done = await pending;
+  return done.bytes
+    ? new Response(done.bytes, { status: 200, headers: headersFor(file) })
+    : new Response(null, { status: done.status });
+}
+
+/** Downloads in flight, by the file they will land in. */
+const downloads = new Map<string, Promise<{ status: number; bytes?: Uint8Array<ArrayBuffer> }>>();
+
+async function download(
+  file: string,
+  url: string,
+  fetchUpstream: FetchLike,
+): Promise<{ status: number; bytes?: Uint8Array<ArrayBuffer> }> {
   const target = `${UPSTREAM}${new URL(url).pathname}`;
   /*
    * Redirects are followed by `net.fetch`, not walked by hand.
@@ -135,23 +157,25 @@ export async function serveModelFile(
     console.warn(`[models] fetch failed for ${target}: ${String(error)}`);
     return null;
   });
-  if (!upstream) return new Response(null, { status: 502 });
-  if (!upstream.ok) return new Response(null, { status: upstream.status });
+  if (!upstream) return { status: 502 };
+  if (!upstream.ok) return { status: upstream.status };
 
   const bytes = new Uint8Array(await upstream.arrayBuffer());
-  if (bytes.byteLength > MAX_FILE_BYTES) return new Response(null, { status: 502 });
+  if (bytes.byteLength > MAX_FILE_BYTES) return { status: 502 };
 
   // Written under a temporary name and renamed, so an interrupted download
   // never leaves a half file that later reads would trust.
   await mkdir(path.dirname(file), { recursive: true });
-  const temporary = `${file}.part`;
+  // A name only this download uses, in case another process fills the same cache.
+  const temporary = `${file}.${randomUUID()}.part`;
   await writeFile(temporary, bytes);
   // A failed rename still serves these bytes; the next ask downloads again.
-  await rename(temporary, file).catch((error: unknown) => {
+  await rename(temporary, file).catch(async (error: unknown) => {
     console.warn(`[models] could not keep ${file}: ${String(error).slice(0, 300)}`);
+    await rm(temporary, { force: true });
   });
 
-  return new Response(bytes, { status: 200, headers: headersFor(file) });
+  return { status: 200, bytes };
 }
 
 /**

@@ -32,6 +32,7 @@ import {
   PLAN_WIDGET_SQL,
   powershellArgs,
   switchPlanWidget,
+  singleFlight,
   widgetDataFromRows,
   type PlanWidgetRow,
   type WidgetPalette,
@@ -157,7 +158,9 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
     }, 500);
   }
 
-  async function open(): Promise<void> {
+  const open = singleFlight(openWindow);
+
+  async function openWindow(): Promise<void> {
     if (win && !win.isDestroyed()) return;
     const saved = await deps.preferenceStore().read("plan-widget-bounds");
     const at = placeWidget(

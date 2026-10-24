@@ -164,3 +164,11 @@ test("a listener that throws is logged, and the others still hear", async (t) =>
   assert.equal(failed.length, 1);
   assert.equal(failed[0]!.arguments[1], boom);
 });
+
+test("a desktop history that cannot be read is an error, not an empty log (xipc-18)", async (t) => {
+  t.after(closeFolder);
+  await connected();
+  const bridge = (globalThis as unknown as { window?: { weaveforge: Record<string, unknown> } }).window!.weaveforge;
+  bridge.vaultLog = () => Promise.reject(new Error("fatal: bad object HEAD"));
+  await assert.rejects(() => folderHistory(5), /bad object HEAD/);
+});
