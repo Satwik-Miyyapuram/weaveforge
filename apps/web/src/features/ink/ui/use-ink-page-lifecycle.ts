@@ -139,6 +139,8 @@ export function useInkPageLifecycle(deps: InkPageLifecycleDeps) {
     setFigureControls(takePendingControls?.() ?? null);
   }, [pageIndex, setFigureControls, setFigures, takePendingControls, textPagesRef]);
 
+  const loaded = pageCount > 0;
+
   /**
    * Tell the worker which page we are on, hand it the bytes, and read its line
    * table back so the text column shows what an earlier run left.
@@ -162,9 +164,11 @@ export function useInkPageLifecycle(deps: InkPageLifecycleDeps) {
     return () => {
       live = false;
     };
-    // `pageCount` is in the list so the effect runs once the sidecar has answered.
+    // `loaded` is in the list so the effect runs once the sidecar has answered,
+    // but not when the text flow adds pages: that reload would drop unsaved
+    // strokes (21-19).
   }, [
-    pageCount,
+    loaded,
     pageIndex,
     pagesRef,
     metaRef,

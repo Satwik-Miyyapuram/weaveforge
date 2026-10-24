@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { isArxivProxyRequest, proxyArxiv } from "../src/arxiv-proxy";
-import type { ProxyFetch } from "../src/semantic-scholar-proxy";
+import type { ProxyFetch } from "../src/proxy-shared";
 
 /**
  * The shell's arXiv relay: the one path maps onto the Atom API and nowhere

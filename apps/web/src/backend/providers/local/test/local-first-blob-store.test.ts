@@ -4,7 +4,7 @@ import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import type { IBlobStore } from "@weaveforge/core";
+import { BlobNotFoundError, type IBlobStore } from "@weaveforge/core";
 
 import { LocalFirstBlobStore } from "../local-first-blob-store";
 import type { LocalQuery } from "../pglite-client";
@@ -129,5 +129,12 @@ describe("the local-first blob store", () => {
     assert.match(urls[0] ?? "", /^data:/);
     assert.equal(urls[1], null);
     assert.equal((await store.fetchBlobs("paper-images", ["u/p/a.png", "u/p/b.png"])).size, 1);
+  });
+
+  it("says a blob stored nowhere is not found, and an unreachable server is not", async () => {
+    await assert.rejects(store.fetchBytes("vault-assets", "u/n/ink/none.inkb"), BlobNotFoundError);
+    server.up = false;
+    await assert.rejects(store.fetchBytes("vault-assets", "u/n/ink/none.inkb"), (err: unknown) =>
+      err instanceof Error && !(err instanceof BlobNotFoundError) && /offline/.test(err.message));
   });
 });

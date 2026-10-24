@@ -45,7 +45,7 @@ edits merge without a central arbiter, so two people typing in the same
 paragraph both keep their words.
 
 ```
-CodeMirror ── y-codemirror ── Y.Doc ── EncryptedYjsProvider ─┬─ Realtime broadcast   (live)
+CodeMirror ── y-codemirror ── Y.Doc ── RealtimeYjsProvider ──┬─ Realtime broadcast   (live)
                                                              └─ crdt_updates table  (durable)
 ```
 
@@ -92,7 +92,7 @@ remove that override without checking the deployed Realtime version.
 
 ### Teardown order
 
-`EncryptedYjsProvider.destroy()` leaves the channel **before** it awaits
+`RealtimeYjsProvider.destroy()` leaves the channel **before** it awaits
 anything. React mounts the replacement editor as soon as cleanup returns, and
 supabase-js keys channels by topic — so a `phx_leave` sent after an `await`
 closes the *new* editor's channel, and live sync is dead for the rest of the
@@ -142,7 +142,7 @@ signing in later leaves it where it is.
 | | |
 |---|---|
 | Realtime channel authorization | [`0044_realtime_authorization.sql`](../../db/migrations/0044_realtime_authorization.sql) |
-| Provider | [`encrypted-yjs-provider.ts`](../../apps/web/src/features/collab/infrastructure/encrypted-yjs-provider.ts) |
+| Provider | [`realtime-yjs-provider.ts`](../../apps/web/src/features/collab/infrastructure/realtime-yjs-provider.ts) |
 | Editor | [`collaborative-markdown-editor.tsx`](../../apps/web/src/features/collab/ui/collaborative-markdown-editor.tsx) |
 | Regression tests | [`collab-regressions.test.ts`](../../apps/web/src/features/collab/test/collab-regressions.test.ts), [`yjs-provider-teardown.test.ts`](../../apps/web/src/features/collab/test/yjs-provider-teardown.test.ts) |
 | Self-hosted Realtime setup | [`oracle-shift-guide.md`](../running/oracle-shift.md) |

@@ -1,10 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {
-  isSemanticScholarProxyRequest,
-  proxySemanticScholar,
-  type ProxyFetch,
-} from "../src/semantic-scholar-proxy";
+import { isSemanticScholarProxyRequest, proxySemanticScholar } from "../src/semantic-scholar-proxy";
+import type { ProxyFetch } from "../src/proxy-shared";
 
 /**
  * The shell's Semantic Scholar relay: the path maps onto the API host and

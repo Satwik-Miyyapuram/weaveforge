@@ -12,6 +12,9 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         "google-analytics.com", "googletagmanager.com", "cloudflarestorage.com",
     ]
 
+    /// The only non-web schemes a page may hand to another app (42-07).
+    private static let externalSchemes: Set<String> = ["mailto", "tel", "sms"]
+
     private var webView: WKWebView!
 
     private static func isAllowed(_ url: URL?) -> Bool {
@@ -55,7 +58,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         decisionHandler(.cancel)
         if let url, ["http", "https"].contains(url.scheme ?? "") {
             present(SFSafariViewController(url: url), animated: true)
-        } else if let url {
+        } else if let url, Self.externalSchemes.contains(url.scheme?.lowercased() ?? "") {
             UIApplication.shared.open(url)
         }
     }

@@ -12,20 +12,13 @@
  * passed through as bytes so its boundary still matches the header.
  */
 
-import type { ProxyFetch } from "./semantic-scholar-proxy";
+import { refuse, type ProxyFetch } from "./proxy-shared";
 
 export const BLOB_PROXY_PREFIX = "/api/blobs/";
 export const BLOB_UPSTREAM = "https://app.weaveforge.org";
 
 export function isBlobProxyRequest(requestUrl: string): boolean {
   return new URL(requestUrl).pathname.startsWith(BLOB_PROXY_PREFIX);
-}
-
-export function refuse(status: number, error: string): Response {
-  return new Response(JSON.stringify({ error }), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
 }
 
 export async function proxyBlob(request: Request, fetchFn: ProxyFetch = fetch): Promise<Response> {
