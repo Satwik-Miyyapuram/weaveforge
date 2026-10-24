@@ -6,7 +6,9 @@
 import type { IPdfByteCache } from "@weaveforge/core";
 import { pickKeysToEvict } from "../application/pdf-cache-eviction";
 
-const DB_NAME = "weaveforge-pdf-cache";
+/** Exported so a sign-out can delete it (`clearLocalDeviceData`). */
+export const PDF_CACHE_DB_NAME = "weaveforge-pdf-cache";
+const DB_NAME = PDF_CACHE_DB_NAME;
 const STORE = "pdfs";
 const DB_VERSION = 1;
 

@@ -50,7 +50,9 @@ class FolderPaperHtmlStore implements PaperHtmlStore {
   }
 }
 
-const DB_NAME = "weaveforge-paper-html";
+/** Exported so a sign-out can delete it (`clearLocalDeviceData`). */
+export const PAPER_HTML_DB_NAME = "weaveforge-paper-html";
+const DB_NAME = PAPER_HTML_DB_NAME;
 const STORE = "pages";
 
 function openDb(): Promise<IDBDatabase> {
