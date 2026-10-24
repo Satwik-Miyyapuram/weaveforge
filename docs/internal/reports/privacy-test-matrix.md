@@ -38,8 +38,8 @@ less, so the rows went with the tests.
 
 Encryption that *is* live is server-side and credential-scoped: Overleaf tokens,
 API tokens, and integration credentials are encrypted at rest, share-link and
-SDK tokens are hashed, and collaborative documents are encrypted in transit by
-`encrypted-yjs-provider.ts`. Confidentiality of stored user content rests on
+SDK tokens are hashed, and collaborative documents are encrypted in transit (TLS) on their way through
+`realtime-yjs-provider.ts`. Confidentiality of stored user content rests on
 owner-scoped paths, signed expiring view tokens, and Postgres RLS — not on
 client-held keys.
 

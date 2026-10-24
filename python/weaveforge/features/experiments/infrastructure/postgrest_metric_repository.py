@@ -39,6 +39,12 @@ class PostgrestMetricRepository:
         if rows:
             self._db.table(_TABLE).insert(rows).execute()
 
+    def clear(self, experiment_id: str) -> None:
+        # The base tables, not the view: the view's delete trigger runs once
+        # per point. Same two deletes as the SDK metrics route.
+        for table in ("experiment_metric_points", "experiment_metric_chunks"):
+            self._db.table(table).delete().eq("experiment_id", experiment_id).execute()
+
     def history(
         self, experiment_id: str, metric: str | None = None
     ) -> list[MetricPoint]:

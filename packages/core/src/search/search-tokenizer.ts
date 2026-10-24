@@ -118,8 +118,7 @@ export function tokenize(text: string, options: TokenizerOptions = {}): string[]
     if (!raw) continue;
     if (splitCamelCase) for (const part of camelCaseParts(raw)) out.add(part);
 
-    const normalized = fold ? foldDiacritics(raw, foldArabicDiacritics) : raw;
-    const lower = normalized.toLowerCase();
+    const lower = processTerm(raw, { foldDiacritics: fold, foldArabicDiacritics });
 
     // A token may mix scripts ("VAE編碼器"). Accumulate same-script runs and
     // flush on each transition, so a CJK run reaches `cjkTokens` whole and
