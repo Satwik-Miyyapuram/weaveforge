@@ -14,15 +14,18 @@ import { boundsArrayLength } from "./lib/array-bounds.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-/** Tracked files, POSIX-separated, minus build output. */
+/**
+ * Tracked files, POSIX-separated, minus build output. `-z` keeps a name with a
+ * space or non-ASCII letter as written; without it git quotes the name, the
+ * quoted path does not exist on disk, and the file is silently never checked.
+ */
 function tracked(...globs) {
-  return execSync(`git ls-files ${globs.map((g) => `"${g}"`).join(" ")}`, {
+  return execSync(`git ls-files -z ${globs.map((g) => `"${g}"`).join(" ")}`, {
     cwd: root,
     encoding: "utf8",
     maxBuffer: 1e8,
   })
-    .split("\n")
-    .map((f) => f.trim())
+    .split("\0")
     .filter((f) => f && !f.includes("/dist/") && fs.existsSync(path.join(root, f)));
 }
 

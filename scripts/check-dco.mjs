@@ -88,7 +88,7 @@ for (const sha of commits) {
   // A bot has no standing to certify anything, and Dependabot cannot write a
   // trailer at all — see `isBotAuthor` in lib/dco.mjs. Skipped rather than
   // failed, so this required check does not block every dependency PR.
-  if (isBotAuthor(author)) continue;
+  if (isBotAuthor(author, process.env.DCO_PR_AUTHOR_TYPE)) continue;
   if (hasOwnSignOff(body, author)) continue;
 
   console.error(`FAIL ${sha.slice(0, 8)} ${subject}`);
