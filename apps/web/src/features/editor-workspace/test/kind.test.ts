@@ -21,6 +21,7 @@ import {
   defaultModeFor,
   modesFor,
   openModeFor,
+  openingTab,
 } from "../ui/kind";
 import { rendererFor } from "../ui/document-host";
 
@@ -199,4 +200,13 @@ test("each linkable kind resolves against exactly one wikilink table", () => {
   assert.equal(linkGroupOf("reading_list"), null);
   assert.equal(linkGroupOf("folder"), null);
   assert.equal(linkGroupOf("experiment"), null);
+});
+
+test("every way in opens a document in its own mode (28-02)", () => {
+  const ink = "<!-- weaveforge-ink ink-pages=1 ink-paper=blank -->";
+  assert.deepEqual(openingTab("vault_page", "n1", "prose"), { kind: "vault_page", id: "n1", mode: "read" });
+  assert.deepEqual(openingTab("vault_page", "n2", ink), { kind: "vault_page", id: "n2", mode: "ink" });
+  assert.deepEqual(openingTab("paper_pdf", "p1", ""), { kind: "paper_pdf", id: "p1", mode: "pdf" });
+  // A body not loaded yet opens as the plain kind would.
+  assert.deepEqual(openingTab("paper", "p2", undefined), { kind: "paper", id: "p2", mode: "read" });
 });

@@ -32,6 +32,7 @@ import {
 } from "@/lib/theme/theme";
 import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 import { singleFlight } from "@/lib/cache/single-flight";
+import { removeStored, writeStored } from "@/lib/safe-storage";
 
 let hydrating = false;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -53,53 +54,53 @@ export function readLocalAppearance(): UserAppearance {
   };
 }
 
+/**
+ * The server's appearance over this device's. A missing or null server field
+ * keeps the local one, except `customTheme`: null there means "no custom theme".
+ */
+export function mergeServerAppearance(local: UserAppearance, server: UserAppearance): UserAppearance {
+  const merged: UserAppearance = { ...local };
+  for (const [key, value] of Object.entries(server) as [keyof UserAppearance, unknown][]) {
+    if (value === undefined || (value === null && key !== "customTheme")) continue;
+    (merged as Record<string, unknown>)[key] = value;
+  }
+  return merged;
+}
+
 function writeLocalAppearance(appearance: UserAppearance): void {
-  try {
-    if (appearance.mode === "light" || appearance.mode === "dark") {
-      localStorage.setItem(THEME_KEY.mode, appearance.mode);
-    }
-    if (appearance.lightTheme) {
-      localStorage.setItem(
-        THEME_KEY.light,
-        sanitizeThemeId(appearance.lightTheme, "light"),
-      );
-    }
-    if (appearance.darkTheme) {
-      localStorage.setItem(
-        THEME_KEY.dark,
-        sanitizeThemeId(appearance.darkTheme, "dark"),
-      );
-    }
-    if (appearance.controlSize) {
-      localStorage.setItem(
-        THEME_KEY.controlSize,
-        sanitizeControlSize(appearance.controlSize),
-      );
-    }
-    if (appearance.surfaces) {
-      localStorage.setItem(THEME_KEY.surfaces, sanitizeSurfaceStyle(appearance.surfaces));
-    }
-    if (appearance.cardTint) {
-      localStorage.setItem(THEME_KEY.cardTint, sanitizeCardTint(appearance.cardTint));
-    }
-    if (typeof appearance.cardTilt === "boolean") {
-      localStorage.setItem(THEME_KEY.cardTilt, appearance.cardTilt ? "1" : "0");
-    }
-    if (typeof appearance.scanlines === "boolean") {
-      localStorage.setItem(THEME_KEY.scanlines, appearance.scanlines ? "1" : "0");
-    }
-    if (typeof appearance.reactiveMotion === "boolean") {
-      localStorage.setItem(THEME_KEY.reactiveMotion, appearance.reactiveMotion ? "1" : "0");
-    }
-    // `customTheme` on the appearance record has already been through
-    // normalizeThemeConfig, so what is stored is the validated shape.
-    if (appearance.customTheme) {
-      localStorage.setItem(THEME_KEY.customTheme, JSON.stringify(appearance.customTheme));
-    } else if (appearance.customTheme === null) {
-      localStorage.removeItem(THEME_KEY.customTheme);
-    }
-  } catch {
-    /* ignore */
+  if (appearance.mode === "light" || appearance.mode === "dark") {
+    writeStored(THEME_KEY.mode, appearance.mode);
+  }
+  if (appearance.lightTheme) {
+    writeStored(THEME_KEY.light, sanitizeThemeId(appearance.lightTheme, "light"));
+  }
+  if (appearance.darkTheme) {
+    writeStored(THEME_KEY.dark, sanitizeThemeId(appearance.darkTheme, "dark"));
+  }
+  if (appearance.controlSize) {
+    writeStored(THEME_KEY.controlSize, sanitizeControlSize(appearance.controlSize));
+  }
+  if (appearance.surfaces) {
+    writeStored(THEME_KEY.surfaces, sanitizeSurfaceStyle(appearance.surfaces));
+  }
+  if (appearance.cardTint) {
+    writeStored(THEME_KEY.cardTint, sanitizeCardTint(appearance.cardTint));
+  }
+  if (typeof appearance.cardTilt === "boolean") {
+    writeStored(THEME_KEY.cardTilt, appearance.cardTilt ? "1" : "0");
+  }
+  if (typeof appearance.scanlines === "boolean") {
+    writeStored(THEME_KEY.scanlines, appearance.scanlines ? "1" : "0");
+  }
+  if (typeof appearance.reactiveMotion === "boolean") {
+    writeStored(THEME_KEY.reactiveMotion, appearance.reactiveMotion ? "1" : "0");
+  }
+  // `customTheme` on the appearance record has already been through
+  // normalizeThemeConfig, so what is stored is the validated shape.
+  if (appearance.customTheme) {
+    writeStored(THEME_KEY.customTheme, JSON.stringify(appearance.customTheme));
+  } else if (appearance.customTheme === null) {
+    removeStored(THEME_KEY.customTheme);
   }
 }
 
@@ -197,21 +198,7 @@ async function hydrateThemeFromServerUncached(): Promise<void> {
       appearance?.scanlines !== undefined ||
       appearance?.customTheme !== undefined
     ) {
-      writeLocalAppearance({
-        mode: appearance.mode ?? readStoredMode(),
-        lightTheme: appearance.lightTheme ?? readStoredThemeIds().light,
-        darkTheme: appearance.darkTheme ?? readStoredThemeIds().dark,
-        controlSize: appearance.controlSize ?? readStoredControlSize(),
-        surfaces: appearance.surfaces ?? readStoredSurfaceStyle(),
-        reactiveMotion: appearance.reactiveMotion ?? readStoredReactiveMotion(),
-        cardTint: appearance.cardTint ?? readStoredCardTint(),
-        cardTilt: appearance.cardTilt ?? readStoredCardTilt(),
-        scanlines: appearance.scanlines ?? readStoredScanlines(),
-        customTheme:
-          appearance.customTheme === undefined
-            ? readStoredCustomTheme()
-            : appearance.customTheme,
-      });
+      writeLocalAppearance(mergeServerAppearance(readLocalAppearance(), appearance));
       applyThemeFromLocalStorage();
       window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
       return;

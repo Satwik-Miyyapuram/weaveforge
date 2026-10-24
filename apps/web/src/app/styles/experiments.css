@@ -68,33 +68,10 @@
 
 /* Experiment detail page */
 .exp-detail { display: block; }
-.exp-detail-title {
-  margin: 0 0 6px; font-size: 1.35rem; font-weight: 650; letter-spacing: -0.02em;
-}
-.exp-detail-hypothesis { margin: 0; max-width: 72ch; line-height: 1.5; }
-.exp-detail-meta {
-  display: flex; flex-direction: column; gap: 10px; margin-top: 14px;
-}
 .exp-detail .git-chips,
 .exp-detail .metric-chips { gap: 8px 10px; }
 .exp-detail .git-chip,
 .exp-detail .metric-chip { padding: 5px 11px; border-radius: 9px; }
-.exp-detail-section { display: grid; gap: 14px; margin-top: 24px; }
-.exp-detail-heading {
-  margin: 0; font-size: 0.92rem; font-weight: 600; letter-spacing: -0.01em;
-}
-.exp-config-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px 20px; margin: 0;
-}
-.exp-config-row { display: grid; gap: 2px; min-width: 0; }
-.exp-config-row dt {
-  margin: 0; font-size: 0.72rem; letter-spacing: 0.04em;
-  color: var(--muted);
-}
-.exp-config-row dd {
-  margin: 0; font-size: 0.9rem; overflow-wrap: anywhere; word-break: break-word;
-}
 .exp-run-cmd {
   margin: 0; padding: 12px 14px; border-radius: 10px;
   background: var(--chip); border: 1px solid var(--line);

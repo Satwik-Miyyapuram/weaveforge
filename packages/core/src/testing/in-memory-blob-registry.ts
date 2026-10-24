@@ -1,4 +1,4 @@
-import type { BlobObjectRecord, BlobTier, IBlobRegistry, RegisterBlobInput } from "../storage/blob-registry-ports.js";
+import type { BlobObjectRecord, IBlobRegistry, RegisterBlobInput } from "../storage/blob-registry-ports.js";
 
 /** In-memory {@link IBlobRegistry} for unit tests. */
 export class InMemoryBlobRegistry implements IBlobRegistry {
@@ -35,26 +35,7 @@ export class InMemoryBlobRegistry implements IBlobRegistry {
     row.lastAccessedAt = new Date();
   }
 
-  async setTier(bucket: string, path: string, tier: BlobTier, sizeBytes?: number): Promise<void> {
-    const row = this.rows.get(this.key(bucket, path));
-    if (!row) return;
-    row.tier = tier;
-    if (sizeBytes !== undefined) row.sizeBytes = sizeBytes;
-  }
-
   async remove(bucket: string, path: string): Promise<void> {
     this.rows.delete(this.key(bucket, path));
-  }
-
-  async listHot(): Promise<BlobObjectRecord[]> {
-    return [...this.rows.values()].filter((r) => r.tier === "hot").map((r) => ({ ...r }));
-  }
-
-  async hotBytesTotal(): Promise<number> {
-    let n = 0;
-    for (const r of this.rows.values()) {
-      if (r.tier === "hot") n += r.sizeBytes;
-    }
-    return n;
   }
 }

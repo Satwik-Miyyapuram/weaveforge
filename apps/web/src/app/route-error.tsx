@@ -1,6 +1,6 @@
 "use client";
 
-import { resetAppData } from "@/lib/client-runtime-recovery";
+import { isAndroidApp, RESET_APP_DATA_CONFIRM, resetAppData } from "@/lib/client-runtime-recovery";
 import { errorDetail, useLoggedError, type ErrorBoundaryProps } from "./error-boundary-parts";
 import { ErrorReportPanel } from "./error-report-panel-lazy";
 
@@ -123,7 +123,7 @@ export function RouteError({
             // modal is what failed, so the confirmation has to depend on
             // nothing that could be the thing that broke. Everywhere else uses
             // `components/confirm-dialog.tsx`.
-            if (!window.confirm("Reset app data? Offline copies of your work on this device will be deleted. This cannot be undone.")) return;
+            if (!window.confirm(RESET_APP_DATA_CONFIRM)) return;
             resetAppData();
           }}
         >
@@ -132,24 +132,4 @@ export function RouteError({
       </div>
     </section>
   );
-}
-
-/**
- * Whether this is the installed Android app.
- *
- * Written out here rather than reused from `features/search/infrastructure/
- * index-cache-policy` on purpose: an error boundary has to render when the
- * module that failed to load is exactly the one it would import, so it depends
- * on nothing but `lib/client-runtime-recovery` and its siblings. The tell is
- * the same one that file uses — a trusted web activity is referred by its own
- * `android-app://` scheme, which is the only signal that survives before the
- * display-mode query matches.
- */
-function isAndroidApp(): boolean {
-  if (typeof document === "undefined") return false;
-  try {
-    return document.referrer.startsWith("android-app://");
-  } catch {
-    return false;
-  }
 }

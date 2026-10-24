@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type React from "react";
@@ -16,13 +15,7 @@ import { isExplicitLabMembership, ROLE_LABELS, type Role } from "@weaveforge/cor
 import { ThemeToggle } from "./theme-toggle";
 import { accountLinks, type AccountLinkId } from "./account-links";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
-
-// Lazy: pulls the local database client, which only the desktop build has.
-const SyncStatusIndicator = dynamic(
-  () => import("@/features/offline-sync/ui/sync-status-indicator").then((m) => m.SyncStatusIndicator),
-  { ssr: false },
-);
-
+import { SyncStatusIndicator } from "./lazy-sync-status";
 
 /** A person, for the account menu. The ellipsis said "more things"; this says
  *  whose things they are, which is what the menu contains. */
@@ -294,7 +287,7 @@ function OrgMenuSubmenu({
         </span>
       </button>
       {open && (
-        <SubmenuFlyout anchorRef={rowRef} onClose={() => setOpen(false)}>
+        <SubmenuFlyout anchorRef={rowRef}>
           <div className="org-menu-flyout-list" style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: "200px" }}>
             {labs.map((m) => (
               <button

@@ -7,7 +7,8 @@
  */
 import type { AnalyzePdfPage, CitationMention, PageTextRange } from "./analysis-types.js";
 import { findCitationCandidates, inReferenceList } from "./citations.js";
-import { mentionRects, pageTextFromItems, rectanglesOverlap, stripInvisible, type PdfItem } from "./citation-text.js";
+import { mentionRects, rectanglesOverlap, stripInvisible, type PdfItem } from "./citation-text.js";
+import { pageTextFromItems } from "./line-reconstruction.js";
 
 function sameReference(a: CitationMention, b: CitationMention): boolean {
   if (a.page !== b.page) return false;

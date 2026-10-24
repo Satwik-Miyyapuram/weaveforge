@@ -1,6 +1,7 @@
 "use client";
 
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { readStored, removeStored, writeStoredJson } from "@/lib/safe-storage";
 import { isLocalMode } from "./local-identity";
 
 /**
@@ -17,10 +18,9 @@ export interface LocalFirstAccount {
 }
 
 export function localFirstAccount(): LocalFirstAccount | null {
-  if (typeof window === "undefined") return null;
+  const raw = readStored(MARKER_KEY);
+  if (!raw) return null;
   try {
-    const raw = window.localStorage.getItem(MARKER_KEY);
-    if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<LocalFirstAccount>;
     return typeof parsed.id === "string" ? { id: parsed.id, email: parsed.email ?? null } : null;
   } catch {
@@ -29,12 +29,9 @@ export function localFirstAccount(): LocalFirstAccount | null {
 }
 
 export function setLocalFirstAccount(account: LocalFirstAccount | null): void {
-  try {
-    if (account) window.localStorage.setItem(MARKER_KEY, JSON.stringify(account));
-    else window.localStorage.removeItem(MARKER_KEY);
-  } catch {
-    // Storage denied: the window starts in server mode next time, which works.
-  }
+  // Storage denied: the window starts in server mode next time, which works.
+  if (account) writeStoredJson(MARKER_KEY, account);
+  else removeStored(MARKER_KEY);
 }
 
 /** Whether this window should be wired local-first. */

@@ -24,20 +24,42 @@ export function findDocumentMatches(
   if (!needle) return [];
   const matches: DocumentSearchMatch[] = [];
   for (const page of pages) {
-    const hay = page.text.toLowerCase();
+    const { hay, starts, ends } = foldCase(page.text);
     let from = 0;
     while (from <= hay.length) {
       const idx = hay.indexOf(needle, from);
       if (idx < 0) break;
       matches.push({
         pageIndex: page.pageIndex,
-        start: idx,
-        end: idx + needle.length,
+        start: starts[idx]!,
+        end: ends[idx + needle.length - 1]!,
       });
       from = idx + Math.max(1, needle.length);
     }
   }
   return matches;
+}
+
+/**
+ * Lowercase `text`, keeping for each folded code unit the original span of
+ * the letter it came from. Some letters change length ("İ" becomes two
+ * units), so offsets in the folded text are not offsets in the original.
+ */
+function foldCase(text: string): { hay: string; starts: number[]; ends: number[] } {
+  let hay = "";
+  const starts: number[] = [];
+  const ends: number[] = [];
+  let at = 0;
+  for (const ch of text) {
+    const low = ch.toLowerCase();
+    hay += low;
+    for (let k = 0; k < low.length; k += 1) {
+      starts.push(at);
+      ends.push(at + ch.length);
+    }
+    at += ch.length;
+  }
+  return { hay, starts, ends };
 }
 
 /** Wraparound next/prev index into a match list. Returns -1 when empty. */

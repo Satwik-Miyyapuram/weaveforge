@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReaderAnnotation } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
 import {
   findAnnotationBacklinks,
   type AnnotationBacklinkHit,
@@ -46,20 +48,33 @@ export function useAnnotationContext(
   annotations: readonly ReaderAnnotation[],
 ): AnnotationContext {
   const [reportSections, setReportSections] = useState<ReportSectionOption[]>([]);
-  const [pinsByKey, setPinsByKey] = useState<Map<string, string | null>>(new Map());
   const [pinsList, setPinsList] = useState<AnnotationPin[]>([]);
-  const [backlinkHits, setBacklinkHits] = useState<AnnotationBacklinkHit[]>([]);
   const [vaultBacklinkPages, setVaultBacklinkPages] = useState<
     { id: string; title: string; body: string }[]
   >([]);
+  // Derived from the one pin list, so the map and the backlinks cannot disagree.
+  const pinsByKey = useMemo(
+    () => new Map<string, string | null>(pinsList.map((p) => [p.annotationKey, p.reportSectionId])),
+    [pinsList],
+  );
+  const backlinkHits = useMemo(
+    () =>
+      paperId
+        ? findAnnotationBacklinks({
+            annotations,
+            pins: pinsList,
+            sections: reportSections,
+            vaultPages: vaultBacklinkPages,
+          })
+        : [],
+    [paperId, annotations, pinsList, reportSections, vaultBacklinkPages],
+  );
 
   useEffect(() => {
     if (!paperId) {
       setReportSections([]);
-      setPinsByKey(new Map());
       setPinsList([]);
       setVaultBacklinkPages([]);
-      setBacklinkHits([]);
       return;
     }
     let cancelled = false;
@@ -74,7 +89,6 @@ export function useAnnotationContext(
         setReportSections(
           sections.map((s) => ({ id: s.id, title: s.title || "Untitled section" })),
         );
-        setPinsByKey(new Map(pins.map((p) => [p.annotationKey, p.reportSectionId])));
         setPinsList(
           pins.map((p) => ({
             annotationKey: p.annotationKey,
@@ -89,10 +103,15 @@ export function useAnnotationContext(
             body: p.body ?? "",
           })),
         );
-      } catch {
+      } catch (err) {
+        logToApp({
+          level: "warn",
+          source: "reader",
+          message: "Could not load annotation pins and report sections",
+          detail: err instanceof Error ? (err.stack ?? err.message) : describeRejection(err),
+        });
         if (!cancelled) {
           setReportSections([]);
-          setPinsByKey(new Map());
           setPinsList([]);
           setVaultBacklinkPages([]);
         }
@@ -103,29 +122,8 @@ export function useAnnotationContext(
     };
   }, [paperId]);
 
-  useEffect(() => {
-    if (!paperId) {
-      setBacklinkHits([]);
-      return;
-    }
-    setBacklinkHits(
-      findAnnotationBacklinks({
-        annotations,
-        pins: pinsList,
-        sections: reportSections,
-        vaultPages: vaultBacklinkPages,
-      }),
-    );
-  }, [paperId, annotations, pinsList, reportSections, vaultBacklinkPages]);
-
   const applyPin = useCallback(
     (annotationKey: string, sectionId: string | null, forPaper: string) => {
-      setPinsByKey((prev) => {
-        const next = new Map(prev);
-        if (sectionId) next.set(annotationKey, sectionId);
-        else next.delete(annotationKey);
-        return next;
-      });
       setPinsList((prev) => {
         const without = prev.filter((pin) => pin.annotationKey !== annotationKey);
         if (!sectionId) return without;

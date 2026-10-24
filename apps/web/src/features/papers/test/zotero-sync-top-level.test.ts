@@ -173,3 +173,82 @@ test("zotero sync: an attachment reaching the filter anyway is still refused", a
 
   assert.deepEqual(added.map((p) => p.title), ["Attention Is All You Need"]);
 });
+
+/**
+ * A Zotero write takes at most 50 objects (25-03), and only the items Zotero
+ * accepted count as pushed (25-10).
+ */
+function mockPushLibrary(refuse: (index: number) => boolean = () => false) {
+  const posts: unknown[][] = [];
+  const fetchFn = (async (input: string | URL | Request, init?: RequestInit) => {
+    if (init?.method === "POST") {
+      const items = JSON.parse(String(init.body)) as unknown[];
+      posts.push(items);
+      const successful: Record<string, { key: string }> = {};
+      const failed: Record<string, { message: string }> = {};
+      items.forEach((_, i) => {
+        const global = (posts.length - 1) * 50 + i;
+        if (refuse(global)) failed[String(i)] = { message: "bad" };
+        else successful[String(i)] = { key: `K${global}` };
+      });
+      return new Response(JSON.stringify({ successful, failed }), { status: 200 });
+    }
+    void input;
+    return new Response("[]", { status: 200, headers: { "Total-Results": "0" } });
+  }) as unknown as typeof fetch;
+  return { fetchFn, posts };
+}
+
+function pushSync(fetchFn: typeof fetch, local: Paper[]) {
+  const saved = new Map<string, string>();
+  const sync = new ZoteroSync({
+    credentials: async () => ({ apiKey: "k", library: "users/1" }),
+    listPapers: async () => local,
+    addPaper: async () => {},
+    savePaper: async (p) => {
+      saved.set(p.id, String(p.metadata?.["zoteroKey"]));
+    },
+    fetchFn,
+    baseUrl: "https://api.zotero.org",
+  });
+  return { sync, saved };
+}
+
+const many = (n: number) => Array.from({ length: n }, (_, i) => paper({ id: `p${i}`, title: `Paper ${i}` }));
+
+test("zotero sync: 120 new papers go up in three writes of at most 50 (25-03)", async () => {
+  const { fetchFn, posts } = mockPushLibrary();
+  const { sync, saved } = pushSync(fetchFn, many(120));
+  const result = await sync.sync();
+  assert.deepEqual(posts.map((p) => p.length), [50, 50, 20]);
+  assert.equal(result.pushed, 120);
+  assert.equal(saved.size, 120);
+  assert.equal(saved.get("p0"), "K0");
+  assert.equal(saved.get("p75"), "K75");
+  assert.equal(saved.get("p119"), "K119");
+});
+
+test("zotero sync: exactly 50 new papers is one write", async () => {
+  const { fetchFn, posts } = mockPushLibrary();
+  const { sync } = pushSync(fetchFn, many(50));
+  await sync.sync();
+  assert.deepEqual(posts.map((p) => p.length), [50]);
+});
+
+test("zotero sync: items Zotero refused are not counted as pushed (25-10)", async () => {
+  const { fetchFn } = mockPushLibrary((i) => i === 3 || i === 60);
+  const { sync, saved } = pushSync(fetchFn, many(70));
+  const result = await sync.sync();
+  assert.equal(result.pushed, 68);
+  assert.equal(saved.has("p3"), false);
+  assert.equal(saved.has("p60"), false);
+  assert.equal(saved.get("p61"), "K61");
+});
+
+test("zotero sync: a write Zotero refused entirely pushes nothing (25-10)", async () => {
+  const { fetchFn } = mockPushLibrary(() => true);
+  const { sync, saved } = pushSync(fetchFn, many(3));
+  const result = await sync.sync();
+  assert.equal(result.pushed, 0);
+  assert.equal(saved.size, 0);
+});

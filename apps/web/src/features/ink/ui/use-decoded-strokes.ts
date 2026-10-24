@@ -7,6 +7,7 @@ import {
   pageFromChunk,
   type InkStroke,
 } from "@weaveforge/core";
+import { logToApp } from "@/lib/error-report/app-log";
 import { perfEnd, perfEndAfterPaint, perfStart } from "@/lib/perf-marks";
 import { availableInkChunkCodec } from "../application/ink-chunk-codec";
 import type { InkStoredPage } from "../application/ink-chunk-store";
@@ -100,7 +101,10 @@ export function useDecodedStrokes({
 
               decoded.set(entry.chunk, strokes);
               results.push({ index, strokes });
-            } catch {
+            } catch (err) {
+              // Shown empty, as before; cached so it is said once, not per render (21-21).
+              logToApp({ level: "warn", source: "ink", message: `Could not decode ink page ${entry.chunkId}`, detail: String(err) });
+              decoded.set(entry.chunk, []);
               results.push({ index, strokes: [] as readonly InkStroke[] });
             }
           }

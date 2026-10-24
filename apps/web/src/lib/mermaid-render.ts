@@ -7,6 +7,8 @@
  * re-render. The server gets the escaped source back; diagrams draw on the
  * client.
  */
+import { escapeHtml } from "./escape-html";
+import { errorMessage } from "@weaveforge/core";
 import { registerSessionReset } from "@/lib/cache/clear-session-caches";
 
 export type MermaidModule = Pick<typeof import("pele/lazy"), "renderAsync">;
@@ -69,10 +71,6 @@ function getMermaid(): Promise<MermaidModule> {
   return mermaidPromise;
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
 /** True when the fence's info string names a mermaid diagram. */
 export function isMermaidFence(info: string): boolean {
   return (info.trim().split(/\s+/)[0] ?? "").toLowerCase() === "mermaid";
@@ -105,7 +103,7 @@ export async function renderMermaidBlock(code: string): Promise<string> {
     }
     return html;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     // The message is shown, not tucked into a tooltip: a diagram that comes
     // back as its own source with nothing said looks like a renderer that
     // did not run, when it is a typo on line 3.

@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { PageTextItem } from "@weaveforge/core";
-import { locateMention, pageTextFromItems, unionRect } from "../application/reference-locate";
+import { pageTextFromItems, type PageTextItem } from "@weaveforge/core";
+import * as referenceLocate from "../application/reference-locate";
+import { locateMention, unionRect } from "../application/reference-locate";
 import { buildPageText } from "../ui/pdf-reader/pdf-document";
 
 /**
@@ -70,6 +71,10 @@ test("the offset space agrees with the reader's own page text", () => {
   ];
   assert.equal(pageTextFromItems(all), buildPageText(all).text);
   assert.equal(pageTextFromItems(all), "see [12]and\n[13]tail\n");
+});
+
+test("the page text comes from core, with no copy here (xhelp-14)", () => {
+  assert.equal("pageTextFromItems" in referenceLocate, false);
 });
 
 test("unionRect is null with nothing to union, and reaches every corner", () => {

@@ -80,3 +80,18 @@ After.`);
   assert.match(latex, /Before\./);
   assert.match(latex, /After\./);
 });
+
+test("markdownToLatex keeps a link URL raw and escapes only its label (05-03)", () => {
+  const { latex } = markdownToLatex("See [a_b **x**](https://x.org/a_b~c&d%20#f) now_ok");
+  assert.ok(
+    latex.includes(String.raw`\href{https://x.org/a_b~c&d\%20\#f}{a\_b \textbf{x}}`),
+    latex,
+  );
+  assert.ok(latex.includes(String.raw`now\_ok`), latex);
+});
+
+test("markdownToLatex leaves non-http brackets as text (05-03)", () => {
+  const { latex } = markdownToLatex("[a_b](ftp://x_y)");
+  assert.ok(!latex.includes(String.raw`\href`), latex);
+  assert.ok(latex.includes(String.raw`a\_b`), latex);
+});

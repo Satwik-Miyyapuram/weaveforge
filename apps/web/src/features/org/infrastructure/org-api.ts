@@ -2,7 +2,7 @@ import { getDataClient } from "@/lib/data-client";
 import { authHeaders as bearerHeaders } from "@/lib/auth-headers";
 import { singleFlight } from "@/lib/cache/single-flight";
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
-import { responseError } from "@/lib/format-error";
+import { readJsonBody, responseError } from "@/lib/format-error";
 import type { OrgMembershipView } from "@weaveforge/core";
 import { MEMBERSHIP_ROW_COLUMNS, membershipViewFromRow } from "./membership-row";
 
@@ -13,6 +13,17 @@ function orgApiError(res: Response, message: string | undefined, fallback: strin
     return new Error(SERVICE_ROLE_HINT);
   }
   return responseError(res, message, fallback);
+}
+
+/**
+ * Read an org route's answer: throws the mapped error when it failed, else
+ * returns its body. The status is checked before the body is trusted, so a
+ * proxy's HTML error page reads as the failure it is, not as a JSON parse error.
+ */
+export async function orgResponse<T extends { error?: string }>(res: Response, fallback: string): Promise<T> {
+  const body = (await readJsonBody(res)) as T;
+  if (!res.ok) throw orgApiError(res, body.error, fallback);
+  return body;
 }
 
 const authHeaders = () => bearerHeaders({ "Content-Type": "application/json" });
@@ -36,8 +47,7 @@ export async function createOrg(name: string) {
     headers: await authHeaders(),
     body: JSON.stringify({ name }),
   });
-  const body = (await res.json()) as { error?: string };
-  if (!res.ok) throw orgApiError(res, body.error, "Failed to create lab.");
+  const body = await orgResponse<{ error?: string }>(res, "Failed to create lab.");
   invalidateAllRepoCaches();
   return body;
 }
@@ -52,8 +62,7 @@ export async function joinOrg(input: {
     headers: await authHeaders(),
     body: JSON.stringify(input),
   });
-  const body = (await res.json()) as { error?: string };
-  if (!res.ok) throw orgApiError(res, body.error, "Failed to join lab.");
+  const body = await orgResponse<{ error?: string }>(res, "Failed to join lab.");
   invalidateAllRepoCaches();
   return body;
 }
@@ -88,7 +97,7 @@ export async function continueStandalone() {
     method: "POST",
     headers: await authHeaders(),
   });
-  const body = (await res.json()) as { error?: string };
+  const body = (await readJsonBody(res)) as { error?: string };
   if (res.ok) {
     invalidateAllRepoCaches();
     return;
@@ -106,14 +115,13 @@ export async function previewOrgCode(code: string) {
   const res = await fetch(`/api/org/codes?code=${encodeURIComponent(code)}`, {
     headers: await authHeaders(),
   });
-  const body = (await res.json()) as {
+  const body = await orgResponse<{
     error?: string;
     orgName?: string;
     targetRole?: string;
     professors?: { id: string; label: string }[];
     phds?: { id: string; label: string }[];
-  };
-  if (!res.ok) throw responseError(res, body.error, "Invalid code.");
+  }>(res, "Invalid code.");
   return body;
 }
 
@@ -123,18 +131,16 @@ export async function regenerateOrgCode(orgId: string, targetRole: string) {
     headers: await authHeaders(),
     body: JSON.stringify({ orgId, targetRole }),
   });
-  const body = (await res.json()) as { error?: string; code?: string; targetRole?: string };
-  if (!res.ok) throw orgApiError(res, body.error, "Failed to regenerate code.");
+  const body = await orgResponse<{ error?: string; code?: string; targetRole?: string }>(res, "Failed to regenerate code.");
   return body;
 }
 
 export async function fetchOwnedOrgs() {
   const res = await fetch("/api/org/mine", { headers: await authHeaders() });
-  const body = (await res.json()) as {
+  const body = await orgResponse<{
     error?: string;
     organizations?: { id: string; name: string; ownerId: string }[];
-  };
-  if (!res.ok) throw orgApiError(res, body.error, "Failed to load labs.");
+  }>(res, "Failed to load labs.");
   return body.organizations ?? [];
 }
 
@@ -162,11 +168,10 @@ async function fetchMembershipsUncached(): Promise<OrgMembershipView[]> {
   if (!error && data) return data.map(membershipViewFromRow);
 
   const res = await fetch("/api/org/memberships", { headers: await authHeaders() });
-  const body = (await res.json()) as {
+  const body = await orgResponse<{
     error?: string;
     memberships?: OrgMembershipView[];
-  };
-  if (!res.ok) throw orgApiError(res, body.error, "Failed to load labs.");
+  }>(res, "Failed to load labs.");
   return body.memberships ?? [];
 }
 
@@ -183,7 +188,7 @@ export async function switchOrg(orgId: string) {
     headers: await authHeaders(),
     body: JSON.stringify({ orgId }),
   });
-  const body = (await res.json()) as { error?: string };
+  const body = (await readJsonBody(res)) as { error?: string };
   if (res.ok) {
     invalidateAllRepoCaches();
     return;
@@ -207,7 +212,7 @@ export async function leaveOrg(orgId: string) {
     headers: await authHeaders(),
     body: JSON.stringify({ orgId }),
   });
-  const body = (await res.json()) as { error?: string };
+  const body = (await readJsonBody(res)) as { error?: string };
   if (res.ok) {
     invalidateAllRepoCaches();
     return;

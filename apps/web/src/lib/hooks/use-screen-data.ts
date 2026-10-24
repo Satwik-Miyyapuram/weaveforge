@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useProject } from "@/features/projects";
 import {
-  clearScreenCachesForScreens, getScreenCache, isScreenCacheFresh, screenCacheKey, setScreenCache, } from "@/lib/cache/screen-cache";
-import { idbGetScreenCache, idbSetScreenCache } from "@/lib/cache/screen-cache-idb";
+  clearScreenCachesForScreens, getScreenCache, isScreenCacheFresh, readPersistedScreen, screenCacheKey, setScreenCache, } from "@/lib/cache/screen-cache";
+import { idbSetScreenCache } from "@/lib/cache/screen-cache-idb";
 import { clearRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { perfNow, recordPerf, recordPerfSince } from "@/lib/perf";
 import { formatError, isNetworkFailure } from "@/lib/format-error";
@@ -72,7 +72,7 @@ export function useScreenData<T>(screen: ScreenId, load: () => Promise<T>) {
     let active = true;
     const startedAt = perfNow();
     const loadsAtStart = completedLoads.current;
-    void idbGetScreenCache<T>(cacheKey).then((cached) => {
+    void readPersistedScreen<T>(cacheKey).then((cached) => {
       recordPerfSince(`screen.${screen}.idb_ms`, startedAt);
       if (!active || cached == null) return;
       // A payload from a previous session is worth showing only while nothing

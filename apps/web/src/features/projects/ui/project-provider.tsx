@@ -11,6 +11,9 @@ import {
 import type { Project } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
+import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
 
 const STORAGE_KEY = "thesis.projectId";
 
@@ -33,6 +36,33 @@ export interface ProjectState {
 export const ProjectContext = createContext<ProjectState | null>(null);
 
 /**
+ * The first project load: fetch the list, reopen the stored project if it
+ * still exists, and always end the loading state. A failed fetch is logged
+ * instead of being left as an unhandled rejection.
+ */
+export async function loadInitialProject(io: {
+  refresh: () => Promise<Project[]>;
+  storedId: () => string | null;
+  select: (id: string) => void;
+  done: () => void;
+}): Promise<void> {
+  try {
+    const list = await io.refresh();
+    const stored = io.storedId();
+    if (stored && list.some((p) => p.id === stored)) io.select(stored);
+  } catch (err) {
+    logToApp({
+      level: "warn",
+      source: "projects",
+      message: "Could not load projects",
+      detail: describeRejection(err),
+    });
+  } finally {
+    io.done();
+  }
+}
+
+/**
  * Holds the list of projects and the current selection. Selecting a project
  * writes its id into the container's projectContext (re-scoping every repo) and
  * persists it to localStorage.
@@ -50,10 +80,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     clearAllScreenCaches();
     getContainer().projects.context.projectId = id;
     getContainer().projects.watchProject(id);
-    if (typeof window !== "undefined") {
-      if (id) window.localStorage.setItem(STORAGE_KEY, id);
-      else window.localStorage.removeItem(STORAGE_KEY);
-    }
+    // Blocked storage must not stop the switch: the choice lasts this session.
+    if (id) writeStored(STORAGE_KEY, id);
+    else removeStored(STORAGE_KEY);
     setCurrentId(id);
   }, []);
 
@@ -64,18 +93,12 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const list = await refresh();
-        const stored =
-          typeof window !== "undefined"
-            ? window.localStorage.getItem(STORAGE_KEY)
-            : null;
-        if (stored && list.some((p) => p.id === stored)) apply(stored);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    void loadInitialProject({
+      refresh,
+      storedId: () => readStored(STORAGE_KEY),
+      select: apply,
+      done: () => setLoading(false),
+    });
   }, [refresh, apply]);
 
   const value = useMemo(() => {

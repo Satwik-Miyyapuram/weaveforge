@@ -90,3 +90,55 @@ test("LinkCitationsUseCase no-ops for a paper without arxiv/doi", async () => {
   assert.equal(result.created.length, 0);
   assert.equal(result.unmatched, 0);
 });
+
+async function threePapers() {
+  const papers = new InMemoryPaperRepository();
+  const ids = seqIds();
+  const a = createPaper({ title: "A", arxivId: "2301.0001" }, { clock, ids });
+  const b = createPaper({ title: "B", arxivId: "2301.0002" }, { clock, ids });
+  const c = createPaper({ title: "C", arxivId: "2301.0003" }, { clock, ids });
+  for (const p of [a, b, c]) await papers.save(p);
+  const relations = new InMemoryPaperRelationRepository();
+  const add = new AddRelationUseCase({ repository: relations, clock, ids });
+  return { papers, relations, add, a, b, c };
+}
+
+test("forAll: one paper's reference fetch throwing still links the others (04-24)", async () => {
+  const { papers, relations, add, a, b, c } = await threePapers();
+  const source: ICitationSource = {
+    id: "fake",
+    supports: (ref) => ref.kind === "arxiv",
+    async references(ref) {
+      if (ref.value === a.arxivId) throw new Error("S2 429");
+      return [{ kind: "arxiv", value: c.arxivId! }];
+    },
+  };
+  const link = new LinkCitationsUseCase([source], papers, relations, add);
+  const result = await link.forAll([a, b, c]);
+  assert.deepEqual(
+    result.created.map((e) => [e.fromPaper, e.toPaper]),
+    [[b.id, c.id]],
+  );
+  assert.equal(result.failed, 1);
+});
+
+test("forAll: one paper's edge write throwing still links the others (04-24)", async () => {
+  const { papers, relations, add, a, b, c } = await threePapers();
+  const realAdd = add.add.bind(add);
+  add.add = async (input) => {
+    if (input.fromPaper === a.id) throw new Error("write failed");
+    return realAdd(input);
+  };
+  const link = new LinkCitationsUseCase(
+    [new FakeCitationSource([{ kind: "arxiv", value: c.arxivId! }])],
+    papers,
+    relations,
+    add,
+  );
+  const result = await link.forAll([a, b, c]);
+  assert.deepEqual(
+    result.created.map((e) => [e.fromPaper, e.toPaper]),
+    [[b.id, c.id]],
+  );
+  assert.equal(result.failed, 1);
+});

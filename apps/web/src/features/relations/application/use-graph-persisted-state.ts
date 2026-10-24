@@ -9,7 +9,6 @@ import {
 } from "@weaveforge/core";
 import { getContainer, type AppContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
-import { registerSessionReset } from "@/lib/cache/clear-session-caches";
 import {
   clearLegacyGraphStorage,
   readGraphStateCache,
@@ -17,8 +16,10 @@ import {
   writeGraphStateCache,
 } from "./graph-legacy-storage";
 
-const stateCache = new Map<string, GraphPersistedState>();
-registerSessionReset(() => stateCache.clear());
+// The graph state lives in the graph settings repository (memoized like every
+// repository) and, for a first paint without a loader, in localStorage. No
+// module copy: localStorage already paints a remount, survives a reload, and is
+// wiped on sign-out, which a module Map never was.
 
 function pinnedFromRecord(record: GraphPersistedState["pinned"]): Map<string, { x: number; y: number }> {
   return new Map(Object.entries(record));
@@ -46,6 +47,8 @@ export function useGraphPersistedState(
   const ready = useRef(false);
   const dirty = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The latest edit, with the project it was made in, for the save on leave.
+  const lastEdit = useRef<{ projectId: string; state: GraphPersistedState } | null>(null);
 
   useEffect(() => {
     ready.current = false;
@@ -59,11 +62,9 @@ export function useGraphPersistedState(
     }
 
     let active = true;
-    const cached = stateCache.get(projectId) ?? readGraphStateCache(projectId);
+    const cached = readGraphStateCache(projectId);
     if (cached) {
-      const next = mergeGraphPersistedState(cached);
-      stateCache.set(projectId, next);
-      setState(next);
+      setState(mergeGraphPersistedState(cached));
       setLoading(false);
     } else {
       setState(DEFAULT_GRAPH_PERSISTED_STATE);
@@ -83,7 +84,6 @@ export function useGraphPersistedState(
         }
         if (!active) return;
         const next = mergeGraphPersistedState(stored);
-        stateCache.set(projectId, next);
         writeGraphStateCache(projectId, next);
         setState(next);
         // Only a load that went through lets edits save: after a failed one
@@ -113,8 +113,8 @@ export function useGraphPersistedState(
       setState((prev) => {
         const next = updater(prev);
         if (projectId) {
-          stateCache.set(projectId, next);
           writeGraphStateCache(projectId, next);
+          lastEdit.current = { projectId, state: next };
         }
         return next;
       });
@@ -126,9 +126,8 @@ export function useGraphPersistedState(
     if (!projectId || !ready.current || loading || !dirty.current) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      const toSave = stateCache.get(projectId) ?? state;
       void graph
-        .saveSettings(projectId, toSave)
+        .saveSettings(projectId, state)
         .then(() => {
           dirty.current = false;
         })
@@ -147,8 +146,8 @@ export function useGraphPersistedState(
       if (!projectId || !ready.current || !dirty.current) return;
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = null;
-      const toSave = stateCache.get(projectId);
-      if (toSave) void graph.saveSettings(projectId, toSave).catch(() => {});
+      const toSave = lastEdit.current;
+      if (toSave?.projectId === projectId) void graph.saveSettings(projectId, toSave.state).catch(() => {});
     };
   }, [projectId, graph]);
 

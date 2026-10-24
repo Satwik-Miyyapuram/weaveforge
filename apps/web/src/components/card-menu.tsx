@@ -4,7 +4,6 @@ import { Popover } from "./popover";
 import { Menu, type MenuItem } from "./menu";
 
 export type CardMenuItem = MenuItem;
-export { Menu, SubmenuFlyout, computeSubmenuPosition } from "./menu";
 
 /**
  * The card's overflow menu.

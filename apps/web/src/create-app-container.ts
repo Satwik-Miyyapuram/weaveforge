@@ -795,5 +795,5 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   };
   lifecycle.registerReset(() => container.aiProposals.forgetPending()); // the next user's queue, not ours
 
-  return { container, projectLww, dispose: lifecycle.dispose };
+  return { container, projectLww, dispose: () => (lifecycle.dispose(), backend.dispose()) };
 }

@@ -26,6 +26,7 @@ import {
   InkSamplePool,
   InkSampleWriter,
   type InkWorkerMessage,
+  readInkSamples,
 } from "../application/capture-protocol";
 
 /** A pointer event with sane defaults, so each test states only what it means. */
@@ -305,10 +306,26 @@ test("the wrist guard overrides every touch rule", () => {
 interface SessionHarness {
   session: PenCaptureSession;
   messages: InkWorkerMessage[];
+  /** The real samples posted so far. */
+  stroke: { points: number[]; pressures: number[] };
   trail: number;
   committed: InkStrokeHeader[];
   cancelled: number[];
   gate: InkPenGate;
+}
+
+/**
+ * Copy the real samples of a posted message into `into`: what the stroke is
+ * made of. Copied at post time, because a cloning writer refills its buffer.
+ */
+function keepRealSamples(message: InkWorkerMessage, into: { points: number[]; pressures: number[] }): void {
+  if (message.type !== "stroke-begin" && message.type !== "samples" && message.type !== "stroke-end") return;
+  if (message.type === "samples" && message.predicted) return;
+  const read = readInkSamples(message.sample);
+  for (let i = 0; i < read.count; i += 1) {
+    into.points.push(read.x(i), read.y(i));
+    into.pressures.push(read.pressure(i));
+  }
 }
 
 function sessionHarness(
@@ -318,17 +335,22 @@ function sessionHarness(
   } = {},
 ): SessionHarness {
   const messages: InkWorkerMessage[] = [];
+  const stroke = { points: [] as number[], pressures: [] as number[] };
   const committed: InkStrokeHeader[] = [];
   const cancelled: number[] = [];
   const writer = new InkSampleWriter({
     pool: new InkSamplePool({ capacity: 4 }),
     mode: "clone",
-    post: (message) => messages.push(message),
+    post: (message) => {
+      keepRealSamples(message, stroke);
+      messages.push(message);
+    },
   });
   const gate = new InkPenGate();
   const harness: SessionHarness = {
     session: null as unknown as PenCaptureSession,
     messages,
+    stroke,
     trail: 0,
     committed,
     cancelled,
@@ -521,7 +543,7 @@ test("predicted samples ride the live tail and are never part of the stroke", ()
   );
   assert.equal(predicted.length, 1, "the tail was posted as a prediction");
   assert.deepEqual(
-    harness.session.takeStroke().pressures,
+    harness.stroke.pressures,
     [0.5, 0.5],
     "only the two real samples are part of the stroke",
   );
@@ -760,7 +782,7 @@ test("predicted samples do not bend the real stroke through the filter", () => {
       );
       harness.session.flush();
     }
-    return harness.session.takeStroke().points;
+    return harness.stroke.points;
   };
   const clean = draw(false);
   const predicted = draw(true);

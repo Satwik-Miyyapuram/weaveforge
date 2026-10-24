@@ -37,6 +37,15 @@ export {
 } from "./width.js";
 
 export {
+  INK_ZOOM_MIN,
+  INK_ZOOM_MAX,
+  INK_ZOOM_STEP,
+  clampInkZoom,
+  inkZoomIn,
+  inkZoomOut,
+} from "./zoom.js";
+
+export {
   INK_SMOOTH_SPACING,
   INK_SMOOTH_PASSES,
   type SmoothedInkStroke,

@@ -124,7 +124,11 @@ export function WorkspaceFolderPanel() {
   useEffect(() => {
     if (!session) return;
     let live = true;
-    void folderHistory().then((log) => live && setHistory(log), () => {});
+    // A history that cannot be read is a damaged repo; say so rather than show none.
+    void folderHistory().then(
+      (log) => live && setHistory(log),
+      (err) => live && setError(`Folder history could not be read: ${formatError(err)}`),
+    );
     return () => {
       live = false;
     };

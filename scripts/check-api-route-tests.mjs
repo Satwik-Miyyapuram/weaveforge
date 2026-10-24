@@ -21,9 +21,10 @@
  * `_shared` modules the routes delegate their gate to, whose own tests then
  * cover the assertion the route test would otherwise repeat.
  */
-import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { walkFiles } from "./lib/db-connection.mjs";
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const appRoot = join(root, "apps/web/src/app");
@@ -44,19 +45,9 @@ const NO_TEST_REQUIRED = new Map([
   ],
 ]);
 
-function walk(dir) {
-  const out = [];
-  for (const name of readdirSync(dir)) {
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) out.push(...walk(path));
-    else if (name === "route.ts") out.push(path);
-  }
-  return out;
-}
-
 const missing = [];
 const empty = [];
-const routes = walk(appRoot);
+const routes = walkFiles(appRoot, (name) => name === "route.ts");
 
 for (const route of routes) {
   const rel = relative(root, route).replaceAll("\\", "/");

@@ -44,8 +44,17 @@ export function pageTextFromItems(items: readonly { str: string; hasEOL?: boolea
   return text;
 }
 
-function isBoldFont(fontName: string | undefined): boolean {
+/** A bold, Black or Heavy face, by font name. */
+export function isBoldFont(fontName: string | undefined): boolean {
   return /bold|black|heavy/i.test(fontName ?? "");
+}
+
+/** Fraction of each page's text extent, on every side, treated as margin. */
+export const FURNITURE_MARGIN = 0.06;
+
+/** What makes two running heads the same line: case, spacing and digits ignored. */
+export function furnitureKey(str: string): string {
+  return str.toLowerCase().replace(/\s+/g, " ").replace(/\d+/g, "#");
 }
 
 interface Run {
@@ -59,13 +68,17 @@ interface Run {
 }
 
 /** The page's runs with geometry and offsets lifted out of the transform. */
-function runsOf(items: readonly PageTextItem[]): { runs: Run[]; text: string } {
+function runsOf(
+  items: readonly PageTextItem[],
+  keep: (item: PageTextItem) => boolean,
+): { runs: Run[]; text: string } {
   const runs: Run[] = [];
   let text = "";
   for (const item of items) {
     const start = text.length;
+    // Offsets count every item, kept or not, so they index the page text.
     text += item.str + (item.hasEOL ? "\n" : "");
-    if (!item.str.trim()) continue;
+    if (!item.str.trim() || !keep(item)) continue;
     const fontSize = Math.hypot(item.transform[2] ?? 0, item.transform[3] ?? 0);
     runs.push({
       item,
@@ -131,10 +144,14 @@ function joinRuns(runs: readonly Run[], tolerance: number): Joined[] {
  * One page's runs as lines, in the page's own order. Two passes, as in the
  * outline code: a loose band that catches a heading's raised numeral, then a
  * tight pass when the loose one fused lines whose runs span several font
- * heights.
+ * heights. `keep` drops runs from the lines without shifting the offsets.
  */
-export function reconstructLines(page: number, items: readonly PageTextItem[]): TextLine[] {
-  const { runs } = runsOf(items);
+export function reconstructLines(
+  page: number,
+  items: readonly PageTextItem[],
+  keep: (item: PageTextItem) => boolean = () => true,
+): TextLine[] {
+  const { runs } = runsOf(items, keep);
   for (const tolerance of [0.75, 0.5]) {
     const joined = joinRuns(runs, tolerance);
     const fused = joined.some((line) => line.spread > line.fontSize * 0.5);

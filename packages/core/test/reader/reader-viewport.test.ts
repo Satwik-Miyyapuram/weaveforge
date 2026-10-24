@@ -124,3 +124,14 @@ test("initialReaderViewport defaults to fit-width", () => {
   assert.equal(state.page, 3);
   assert.equal(state.scale, 1);
 });
+
+test("clampZoomFactor keeps a gesture's factor within the reader's scale limits", async () => {
+  const { clampZoomFactor, READER_MIN_SCALE, READER_MAX_SCALE } = await import("../../src/reader/reader-viewport.js");
+  assert.equal(clampZoomFactor(1.5, 1), 1.5);
+  assert.equal(clampZoomFactor(10, 2), READER_MAX_SCALE / 2);
+  assert.equal(clampZoomFactor(0.01, 1), READER_MIN_SCALE);
+  assert.equal(clampZoomFactor(1, READER_MAX_SCALE), 1);
+  assert.equal(clampZoomFactor(2, READER_MAX_SCALE), 1);
+  // A base scale that is not a positive number gives no zoom.
+  for (const bad of [0, -1, Number.NaN]) assert.equal(clampZoomFactor(2, bad), 1, String(bad));
+});

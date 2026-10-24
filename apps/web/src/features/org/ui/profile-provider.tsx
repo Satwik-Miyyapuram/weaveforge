@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { Member, OrgMembershipView } from "@weaveforge/core";
@@ -15,7 +16,7 @@ import { continueStandalone, fetchMemberships, switchOrg as switchActiveOrg } fr
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
-import { shouldSyncStandalone } from "../application/org-profile-state";
+import { latestGate, loadProfileBundle } from "../application/profile-refresh";
 
 const EMPTY_PROFILE_STATE = {
   profile: null as Member | null,
@@ -58,8 +59,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [memberships, setMemberships] = useState<OrgMembershipView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Overlapping refreshes (sign-in, switching labs) apply only the latest answer.
+  const gate = useRef(latestGate());
 
   const refresh = useCallback(async () => {
+    const isLatest = gate.current.begin();
     const userId = user?.id;
     if (!userId) {
       setProfile(null);
@@ -76,43 +80,24 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       }
       const { ensureContainer } = await import("@/bootstrap");
       const org = (await ensureContainer()).org;
-      const [mine, members, lab, labs] = await Promise.all([
-        org.loadProfile(),
-        org.loadTeam(),
-        org.loadLab(),
-        // null, not []: a failed read is not "no labs" (see shouldSyncStandalone).
-        fetchMemberships().catch((err: unknown) => {
-          logToApp({ level: "warn", source: "profile", message: "Memberships did not load.", detail: formatError(err) });
-          return null;
-        }),
-      ]);
-
-      let profile = mine;
-      let team = members;
-      let labRoster = lab;
-      if (shouldSyncStandalone(profile, labs)) {
-        try {
-          await continueStandalone();
-          invalidateAllRepoCaches();
-          profile = await org.loadProfile();
-          team = await org.loadTeam();
-          labRoster = await org.loadLab();
-        } catch {
-          /* display layer still resolves standalone role */
-        }
-      }
-
-      setProfile(profile);
-      setTeam(team);
-      setLabMembers(labRoster);
-      if (labs) setMemberships(labs);
+      const next = await loadProfileBundle({
+        org,
+        fetchMemberships,
+        continueStandalone,
+        invalidateCaches: invalidateAllRepoCaches,
+      });
+      if (!isLatest()) return;
+      setProfile(next.profile);
+      setTeam(next.team);
+      setLabMembers(next.labMembers);
+      if (next.memberships) setMemberships(next.memberships);
       setError(null);
     } catch (err) {
       // Keep what was shown: a transient failure is not "no profile", which
       // would put an existing lab member on the setup screen.
       const message = formatError(err);
       logToApp({ level: "error", source: "profile", message: "Profile did not load.", detail: message });
-      setError(message);
+      if (isLatest()) setError(message);
     }
   }, [user?.id, startup]);
 

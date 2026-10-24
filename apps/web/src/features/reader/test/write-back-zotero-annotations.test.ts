@@ -133,3 +133,40 @@ test("a thrown push (no network) fails that paper's marks and carries on", async
   assert.equal(zoteroWriteBackMessage(null), "");
   assert.equal(zoteroWriteBackMessage({ created: 2, updated: 1, conflicts: 0, failed: 0 }), " · sent 3 annotations to Zotero");
 });
+
+test("a recorder or list failure on one paper does not stop the others (22-03)", async () => {
+  const owedBy: Record<string, ReaderAnnotation[]> = {
+    p1: [ann({ id: "a1" })],
+    p2: [ann({ id: "a2" })],
+    p3: [ann({ id: "a3" })],
+  };
+  const recorded: string[] = [];
+  const annotations = {
+    list: async (paperId: string) => {
+      if (paperId === "p3") throw new Error("list down");
+      return owedBy[paperId] ?? [];
+    },
+    recordZoteroSync: async (id: string) => {
+      if (id === "a1") throw new Error("db down");
+      recorded.push(id);
+    },
+  } as unknown as Parameters<typeof writeBackZoteroAnnotations>[0]["annotations"];
+  const pushed: string[] = [];
+  const pusher: ZoteroAnnotationPusher = {
+    push: async (_parent, anns) => {
+      pushed.push(...anns.map((a) => a.id));
+      return { results: anns.map((a) => ({ id: a.id, outcome: "created" as const, zoteroKey: `Z${a.id}`, zoteroVersion: 1 })) };
+    },
+  };
+  const summary = await writeBackZoteroAnnotations({
+    papers: [paper("p1", "ATT1"), paper("p2", "ATT2"), paper("p3", "ATT3")],
+    attachmentOf: (p) => (p.metadata as { zoteroAttachmentKey?: string }).zoteroAttachmentKey,
+    annotations,
+    pusher,
+  });
+  assert.deepEqual(pushed, ["a1", "a2"]);
+  assert.deepEqual(recorded, ["a2"]);
+  assert.equal(summary.created, 1);
+  assert.equal(summary.failed, 2);
+  assert.match(summary.firstError ?? "", /db down/);
+});

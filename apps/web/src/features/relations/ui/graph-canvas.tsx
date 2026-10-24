@@ -17,7 +17,7 @@ import {
   type GLink,
   type GNode,
 } from "../application/build-graph-data";
-import { cloneLinks, filterGraphByNodes, localSubgraph } from "../application/local-graph";
+import { cloneLinks, filterGraphByNodes, linkNodeId, localSubgraph } from "../application/local-graph";
 import { EdgeDetailPopover } from "./graph-side-panel";
 import {
   type FgHandle,
@@ -222,7 +222,7 @@ export function GraphCanvas({
     settings.edgeMode, settings.relationTypes, settings.showConcepts,
     settings.minConceptDegree, settings.showConceptCooccurrence, settings.hideOrphans,
     settings.nodeSize, settings.linkThickness, settings.showAutoStyle,
-    settings.colorBy, settings.groupBy, settings.includeListsAsConcepts,
+    settings.colorBy, settings.colorGroups, settings.groupBy, settings.includeListsAsConcepts,
   ]);
 
   useEffect(() => {
@@ -399,8 +399,8 @@ export function GraphCanvas({
   const linkLit = useCallback((l: GLink): boolean => {
     const hovered = hoverRef.current.nodeId;
     if (!hovered) return true;
-    const src = typeof l.source === "object" ? (l.source as GNode).id : l.source;
-    const tgt = typeof l.target === "object" ? (l.target as GNode).id : l.target;
+    const src = linkNodeId(l.source);
+    const tgt = linkNodeId(l.target);
     return src === hovered || tgt === hovered;
   }, []);
 
@@ -472,12 +472,11 @@ export function GraphCanvas({
 
   const relationById = useMemo(() => new Map(relations.map((e) => [e.id, e])), [relations]);
 
+  // Link hit areas paint every frame; a map keeps each lookup O(1).
+  const nodeById = useMemo(() => new Map(data.nodes.map((n) => [n.id, n])), [data.nodes]);
   const resolveGraphNode = useCallback(
-    (ref: string | GNode): GNode | undefined => {
-      const id = typeof ref === "object" ? ref.id : ref;
-      return data.nodes.find((n) => n.id === id);
-    },
-    [data.nodes],
+    (ref: string | GNode): GNode | undefined => nodeById.get(linkNodeId(ref)),
+    [nodeById],
   );
 
   // The hit target is the node's own shape only. Painting the wide label
@@ -604,8 +603,8 @@ export function GraphCanvas({
         onLinkClick={handleLinkClick}
         linkColor={(l: GLink) => {
           if (searchHits && searchHits.size > 0) {
-            const src = typeof l.source === "object" ? (l.source as GNode).id : l.source;
-            const tgt = typeof l.target === "object" ? (l.target as GNode).id : l.target;
+            const src = linkNodeId(l.source);
+            const tgt = linkNodeId(l.target);
             if (!searchHits.has(src) || !searchHits.has(tgt)) return DIM;
           }
           if (!linkLit(l)) return DIM;

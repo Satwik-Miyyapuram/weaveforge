@@ -183,3 +183,39 @@ test("maxConcepts trims concepts and their mentions together", async () => {
   assert.equal(result.concepts.length, 1);
   assert.ok(result.mentions.every((m) => m.conceptName === result.concepts[0]!.name));
 });
+
+test("when every batch fails the run fails, with the model's error (02-08)", async () => {
+  const model: IModelConversation = {
+    provider: "fake",
+    async complete(): Promise<AiModelResponse> {
+      throw new Error("invalid api key");
+    },
+  };
+  await assert.rejects(
+    new ModelConceptExtractor(model, { batchSize: 1 }).extract({ documents: DOCS }),
+    /invalid api key/,
+  );
+});
+
+test("a reply with no concepts is a success, not a failure", async () => {
+  const result = await new ModelConceptExtractor(fakeModel('{"concepts":[]}')).extract({ documents: DOCS });
+  assert.deepEqual(result.concepts, []);
+});
+
+test("batches go to the model one at a time (02-10)", async () => {
+  let inFlight = 0;
+  let most = 0;
+  const model: IModelConversation = {
+    provider: "fake",
+    async complete(): Promise<AiModelResponse> {
+      inFlight += 1;
+      most = Math.max(most, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      inFlight -= 1;
+      return { text: REPLY, model: "fake", provider: "fake", sourceLinks: [] };
+    },
+  };
+  const docs = Array.from({ length: 6 }, (_u, i) => ({ id: `d${i}`, title: `t${i}`, text: "x" }));
+  await new ModelConceptExtractor(model, { batchSize: 1 }).extract({ documents: docs });
+  assert.equal(most, 1);
+});
