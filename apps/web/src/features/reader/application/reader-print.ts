@@ -8,6 +8,8 @@
  * comments at all prints portrait either way; an empty margin is wasted paper.
  */
 
+import { escapeHtml } from "@/lib/escape-html";
+
 /** One comment card beside a printed page. */
 export interface ReaderPrintNote {
   /** Offset from the top of the page, in the page image's own pixels. */
@@ -35,14 +37,6 @@ export function readerPrintOrientation(
   pages: readonly Pick<ReaderPrintPage, "notes">[],
 ): ReaderPrintOrientation {
   return withComments && pages.some((page) => page.notes.length > 0) ? "landscape" : "portrait";
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 /** A colour safe to put in a style attribute, or the ink colour. */

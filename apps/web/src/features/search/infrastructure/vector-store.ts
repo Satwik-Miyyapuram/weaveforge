@@ -4,6 +4,7 @@ import { decodeBase64, encodeBase64 } from "@/lib/bytea";
 import { WORKSPACE_META_DIR } from "@weaveforge/core";
 import { activeWorkspaceFs } from "@/features/workspace/application/workspace-folder";
 import { idbClearVectors, idbGetVectors, idbSetVectors, type StoredVectors } from "./vector-store-idb";
+import { warnOnce } from "@/lib/error-report/warn-once";
 
 /**
  * Where a corpus's vectors are kept between sessions.
@@ -67,14 +68,16 @@ function localStore(): VectorStore {
              set bytes = excluded.bytes, updated_at = now()`,
           [BUCKET, key(projectId), "application/octet-stream", pack(value)],
         );
-      } catch {
+      } catch (err) {
+        warnOnce("search", "Search vectors were not saved to the local database.", err);
         /* best-effort: losing this costs a re-embed, never a result */
       }
     },
     async clear() {
       try {
         await run("delete from local_blobs where bucket = $1", [BUCKET]);
-      } catch {
+      } catch (err) {
+        warnOnce("search", "Search vectors were not cleared from the local database.", err);
         /* ignore */
       }
     },
@@ -149,7 +152,8 @@ const folderStore = {
       // The shell writes beside the file and renames it into place, so a
       // kill mid-write leaves the previous cache whole.
       await fs.writeFile(folderPath(projectId), packBinary(value));
-    } catch {
+    } catch (err) {
+      warnOnce("search", "Search vectors were not saved to the workspace folder.", err);
       /* best-effort, like every other copy */
     }
   },

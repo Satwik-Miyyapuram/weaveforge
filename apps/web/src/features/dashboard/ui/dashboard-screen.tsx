@@ -27,6 +27,11 @@ import { useDashboardStats } from "./use-dashboard-stats";
 import { FormError } from "@/components/form-error";
 import { ScreenHead } from "@/components/screen-head";
 
+// Kept beside the repository memo on purpose (xapi-11): this holds the
+// *finalized* layout (supervisor defaults applied) and is read synchronously,
+// so a remount paints at once. The repository memo is async and holds the raw
+// layout; without this the loader would flash on every visit. It always
+// revalidates through the repository, and sign-out clears it.
 const layoutCache = new Map<string, DashboardLayout>();
 registerDashboardUiCacheClear(() => layoutCache.clear());
 

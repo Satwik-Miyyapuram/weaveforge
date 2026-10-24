@@ -7,7 +7,34 @@ import {
   type ThemeConfig,
 } from "@weaveforge/core";
 
+import { readStored, removeStored } from "@/lib/safe-storage";
+
 export type { SurfaceStyle, ThemeConfig };
+
+/**
+ * Every localStorage key the appearance lives under. The boot script below
+ * spells them out because it runs as a string before any module loads.
+ */
+export const THEME_KEY = {
+  mode: "thesis.mode",
+  legacyTheme: "thesis.theme",
+  light: "thesis.theme.light",
+  dark: "thesis.theme.dark",
+  controlSize: "thesis.controlSize",
+  surfaces: "thesis.surfaces",
+  cardTint: "thesis.cardTint",
+  cardTilt: "thesis.cardTilt",
+  scanlines: "thesis.scanlines",
+  reactiveMotion: "thesis.reactiveMotion",
+  customTheme: "thesis.customTheme",
+} as const;
+
+export const THEME_STORAGE_KEYS: readonly string[] = Object.values(THEME_KEY);
+
+/** Forget this device's stored appearance (account deletion). Best effort. */
+export function clearStoredAppearance(): void {
+  for (const key of THEME_STORAGE_KEYS) removeStored(key);
+}
 
 const LIGHT_THEMES = [
   "brutal",
@@ -116,11 +143,7 @@ export function applySurfaceStyle(style: SurfaceStyle): void {
 }
 
 export function readStoredSurfaceStyle(): SurfaceStyle {
-  try {
-    return sanitizeSurfaceStyle(localStorage.getItem("thesis.surfaces"));
-  } catch {
-    return "borderless";
-  }
+  return sanitizeSurfaceStyle(readStored(THEME_KEY.surfaces));
 }
 
 /* ------------------------------------------------------------------ *
@@ -151,11 +174,7 @@ export function applyCardTint(tint: CardTint): void {
 }
 
 export function readStoredCardTint(): CardTint {
-  try {
-    return sanitizeCardTint(localStorage.getItem("thesis.cardTint"));
-  } catch {
-    return "full";
-  }
+  return sanitizeCardTint(readStored(THEME_KEY.cardTint));
 }
 
 /* ------------------------------------------------------------------ *
@@ -174,11 +193,7 @@ export function applyCardTilt(on: boolean): void {
 }
 
 export function readStoredCardTilt(): boolean {
-  try {
-    return localStorage.getItem("thesis.cardTilt") !== "0";
-  } catch {
-    return true;
-  }
+  return readStored(THEME_KEY.cardTilt) !== "0";
 }
 
 export function applyScanlines(on: boolean): void {
@@ -188,11 +203,7 @@ export function applyScanlines(on: boolean): void {
 }
 
 export function readStoredScanlines(): boolean {
-  try {
-    return localStorage.getItem("thesis.scanlines") !== "0";
-  } catch {
-    return true;
-  }
+  return readStored(THEME_KEY.scanlines) !== "0";
 }
 
 /* ------------------------------------------------------------------ *
@@ -211,11 +222,7 @@ export function applyReactiveMotion(on: boolean): void {
 }
 
 export function readStoredReactiveMotion(): boolean {
-  try {
-    return localStorage.getItem("thesis.reactiveMotion") === "1";
-  } catch {
-    return false;
-  }
+  return readStored(THEME_KEY.reactiveMotion) === "1";
 }
 
 /* ------------------------------------------------------------------ *
@@ -260,9 +267,9 @@ export function applyCustomTheme(config: ThemeConfig | null): void {
 }
 
 export function readStoredCustomTheme(): ThemeConfig | null {
+  const raw = readStored(THEME_KEY.customTheme);
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem("thesis.customTheme");
-    if (!raw) return null;
     return normalizeThemeConfig(JSON.parse(raw));
   } catch {
     return null;
@@ -280,23 +287,15 @@ export function applyControlSize(size: ControlSizeId): void {
 }
 
 export function readStoredControlSize(): ControlSizeId {
-  try {
-    return sanitizeControlSize(localStorage.getItem("thesis.controlSize"));
-  } catch {
-    return "default";
-  }
+  return sanitizeControlSize(readStored(THEME_KEY.controlSize));
 }
 
 export function readStoredMode(): ThemeMode {
-  try {
-    const m = localStorage.getItem("thesis.mode");
-    if (m === "light" || m === "dark") return m;
-    const old = localStorage.getItem("thesis.theme");
-    if (old === "light") return "light";
-    if (old) return "dark";
-  } catch {
-    /* ignore */
-  }
+  const m = readStored(THEME_KEY.mode);
+  if (m === "light" || m === "dark") return m;
+  const old = readStored(THEME_KEY.legacyTheme);
+  if (old === "light") return "light";
+  if (old) return "dark";
   if (typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: light)").matches) {
     return "light";
   }
@@ -304,14 +303,8 @@ export function readStoredMode(): ThemeMode {
 }
 
 export function readStoredThemeIds(): { light: string; dark: string } {
-  let light: string = DEFAULT_LIGHT_THEME;
-  let dark: string = DEFAULT_DARK_THEME;
-  try {
-    light = localStorage.getItem("thesis.theme.light") || DEFAULT_LIGHT_THEME;
-    dark = localStorage.getItem("thesis.theme.dark") || DEFAULT_DARK_THEME;
-  } catch {
-    /* ignore */
-  }
+  const light = readStored(THEME_KEY.light) || DEFAULT_LIGHT_THEME;
+  const dark = readStored(THEME_KEY.dark) || DEFAULT_DARK_THEME;
   return {
     light: sanitizeThemeId(light, "light"),
     dark: sanitizeThemeId(dark, "dark"),

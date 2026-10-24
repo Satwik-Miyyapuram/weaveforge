@@ -48,7 +48,7 @@ test("materializeBlobImages uploads each blob ref and rewrites it, keeping the a
   const original = globalThis.fetch;
   globalThis.fetch = (async () => ({ ok: true, blob: async () => new Blob(["x"], { type: "image/webp" }) })) as never;
   try {
-    const out = await materializeBlobImages(
+    const { body: out, uploadError } = await materializeBlobImages(
       "![a diagram](blob:http://x/1)",
       "p1",
       async (ownerId, _blob, ext) => `user-1/${ownerId}/new.${ext}`,
@@ -56,6 +56,7 @@ test("materializeBlobImages uploads each blob ref and rewrites it, keeping the a
       normalizeMarkdownImageSyntax,
     );
     assert.equal(out, markdownImage("paperimg:user-1/p1/new.webp", "a diagram"));
+    assert.equal(uploadError, undefined);
   } finally {
     globalThis.fetch = original;
   }
@@ -67,7 +68,7 @@ test("a stale blob URL keeps its original ref rather than vanishing from the bod
     throw new Error("stale");
   }) as never;
   try {
-    const out = await materializeBlobImages(
+    const { body: out, uploadError } = await materializeBlobImages(
       "![](blob:http://x/1)",
       "p1",
       async () => "unused",
@@ -75,6 +76,8 @@ test("a stale blob URL keeps its original ref rather than vanishing from the bod
       normalizeMarkdownImageSyntax,
     );
     assert.equal(out, "![](blob:http://x/1)");
+    // A stale blob is the browser's loss, not a failed save: nothing to report.
+    assert.equal(uploadError, undefined);
   } finally {
     globalThis.fetch = original;
   }
@@ -108,7 +111,7 @@ test("replacement patterns in alt text are written literally, not expanded (01-0
   globalThis.fetch = (async () => ({ ok: true, blob: async () => new Blob(["x"], { type: "image/png" }) })) as never;
   try {
     for (const alt of ["cost $& $$", "before $` after $'", "group $1 $<name>"]) {
-      const out = await materializeBlobImages(
+      const { body: out } = await materializeBlobImages(
         `intro ![${alt}](blob:http://x/1) outro`,
         "p1",
         async () => "user-1/p1/new.png",
@@ -117,6 +120,67 @@ test("replacement patterns in alt text are written literally, not expanded (01-0
       );
       assert.equal(out, `intro ${markdownImage("paperimg:user-1/p1/new.png", alt)} outro`, alt);
     }
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("a failed upload keeps its ref, rewrites the others, and is reported (34-16)", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => ({ ok: true, blob: async () => new Blob(["x"], { type: "image/png" }) })) as never;
+  try {
+    let n = 0;
+    const { body, uploadError } = await materializeBlobImages(
+      "![a](blob:http://x/1) ![b](blob:http://x/2) ![c](blob:http://x/3)",
+      "p1",
+      async () => {
+        n += 1;
+        if (n === 2) throw new Error("quota exceeded");
+        return `user-1/p1/${n}.png`;
+      },
+      "reportimg:",
+      normalizeMarkdownImageSyntax,
+    );
+    assert.equal(
+      body,
+      `${markdownImage("reportimg:user-1/p1/1.png", "a")} ![b](blob:http://x/2) ${markdownImage("reportimg:user-1/p1/3.png", "c")}`,
+    );
+    assert.ok(uploadError instanceof Error);
+    assert.match(uploadError.message, /image could not be uploaded/i);
+    assert.match(uploadError.message, /quota exceeded/);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("several failed uploads are counted in one report", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => ({ ok: true, blob: async () => new Blob(["x"], { type: "image/png" }) })) as never;
+  try {
+    const { uploadError } = await materializeBlobImages(
+      "![](blob:http://x/1) ![](blob:http://x/2)",
+      "p1",
+      async () => {
+        throw "offline";
+      },
+      "vault:",
+      normalizeMarkdownImageSyntax,
+    );
+    assert.match(String(uploadError?.message), /2 images could not be uploaded: offline/);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("a body with no blob refs comes back unchanged and without a fetch", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    throw new Error("fetch should not run");
+  }) as never;
+  try {
+    const text = "$$x$$ ![](vault:a.png) plain";
+    const out = await materializeBlobImages(text, "p1", async () => "unused", "vault:", normalizeMarkdownImageSyntax);
+    assert.deepEqual(out, { body: text, uploadError: undefined });
   } finally {
     globalThis.fetch = original;
   }

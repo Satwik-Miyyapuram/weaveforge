@@ -10,6 +10,7 @@ import {
 } from "@weaveforge/core";
 import { describeRejection } from "./rejection-copy";
 import { formatError } from "@/lib/format-error";
+import { readCapped as readBody } from "@/lib/read-capped";
 
 /**
  * Fetching a URL a visitor chose, from the server, without becoming a way into
@@ -254,10 +255,7 @@ export async function checkUrlReachable(
  * Reads a response body up to `maxBytes`, abandoning it rather than buffering
  * more.
  *
- * One buffer, grown as needed. It used to collect every chunk into an array and
- * then allocate a second buffer of exactly `total` and copy them in, so an image
- * at the 12 MB cap held 24 MB at the moment of the copy — on a route whose whole
- * purpose is bounding what one paste can cost.
+ * The reading itself is `@/lib/read-capped`, shared with the proxies.
  *
  * The declared `content-length` is used only to *refuse* an oversized body
  * early, never to size the buffer: it is the encoded length, and the runtime
@@ -269,32 +267,7 @@ async function readCapped(response: Response, maxBytes: number): Promise<Uint8Ar
   const declared = Number(response.headers.get("content-length") ?? "");
   if (Number.isFinite(declared) && declared > maxBytes) return null;
 
-  const reader = response.body?.getReader();
-  if (!reader) return new Uint8Array();
-
-  let body = new Uint8Array(Math.min(64 * 1024, maxBytes));
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (!value) continue;
-    if (total + value.byteLength > maxBytes) {
-      // Cancelling matters: without it the connection stays open pulling bytes
-      // nobody will read.
-      await reader.cancel().catch(() => {});
-      return null;
-    }
-    if (total + value.byteLength > body.byteLength) {
-      // Double, capped at the limit, so a large body costs O(log n) copies
-      // rather than one copy of everything.
-      const grown = new Uint8Array(Math.min(maxBytes, Math.max(body.byteLength * 2, total + value.byteLength)));
-      grown.set(body.subarray(0, total));
-      body = grown;
-    }
-    body.set(value, total);
-    total += value.byteLength;
-  }
-  return body.subarray(0, total);
+  return readBody(response.body, maxBytes);
 }
 
 /**

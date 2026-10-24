@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect } from "react";
 import type { InkPage as InkPageModel } from "@weaveforge/core";
+import { isEditableTarget } from "@/lib/editable-target";
 import type { InkWorkerMessage } from "../application/capture-protocol";
 import { parseStrokeClip, pastedStrokesPlace, strokeClipText } from "../application/stroke-clipboard";
 import { selectedText } from "./ink-page-math";
@@ -22,8 +23,7 @@ export interface UseInkSelectionOptions {
 
 /** A clipboard event the note should answer: focus is in it, not in a text field. */
 function forInk(event: ClipboardEvent, wrap: HTMLElement | null): boolean {
-  const target = event.target as HTMLElement | null;
-  if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return false;
+  if (isEditableTarget(event.target)) return false;
   return !!wrap && wrap.contains(document.activeElement);
 }
 

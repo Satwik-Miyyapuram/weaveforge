@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { after, describe, it } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
@@ -124,3 +126,81 @@ describe("the local database", () => {
   });
 });
 
+
+describe("migrations and their ledger (37-19)", () => {
+  const opened: PGlite[] = [];
+  after(async () => {
+    for (const client of opened) await client.close();
+  });
+
+  async function fresh() {
+    const client = await PGlite.create({ extensions: { pgcrypto } });
+    opened.push(client);
+    return client;
+  }
+
+  /** The client, with the ledger write for one migration failing once — a crash between the two. */
+  function failingLedgerOnce(client: PGlite): LocalClient {
+    let failed = false;
+    return {
+      exec: (sql: string) => client.exec(sql),
+      query: async (sql: string, params?: unknown[]) => {
+        if (!failed && /insert into weaveforge_migrations/i.test(sql)) {
+          failed = true;
+          throw new Error("killed before the ledger was written");
+        }
+        return client.query(sql, params);
+      },
+      transaction: (fn) => client.transaction(fn as never),
+      close: () => client.close(),
+    } as LocalClient;
+  }
+
+  it("a migration whose ledger write fails is not left applied, and reruns cleanly", async () => {
+    const client = await fresh();
+    await assert.rejects(new LocalDatabase(failingLedgerOnce(client)).migrate(LOCAL_BOOTSTRAP_SQL, MIGRATIONS));
+
+    const tables = await client.query(`select 1 from information_schema.tables where table_name = 'notes'`);
+    assert.equal(tables.rows.length, 0, "the schema change rolled back with its ledger row");
+    assert.deepEqual(await new LocalDatabase(client as unknown as LocalClient).migrate(LOCAL_BOOTSTRAP_SQL, MIGRATIONS), [
+      "0001_notes.sql",
+    ]);
+  });
+
+  it("a migration that fails leaves no ledger row", async () => {
+    const client = await fresh();
+    const db = new LocalDatabase(client as unknown as LocalClient);
+    await assert.rejects(
+      db.migrate(LOCAL_BOOTSTRAP_SQL, [{ name: "0001_half.sql", sql: "create table half (id int); select from nowhere" }]),
+      /0001_half\.sql/,
+    );
+    const ledger = await client.query(`select name from weaveforge_migrations`);
+    assert.equal(ledger.rows.length, 0);
+  });
+
+  it("a migration with its own begin and commit is recorded once", async () => {
+    const client = await fresh();
+    const db = new LocalDatabase(client as unknown as LocalClient);
+    const own = [{ name: "0001_own_tx.sql", sql: "begin;\ncreate table own (id int);\ncommit;\n" }];
+    assert.deepEqual(await db.migrate(LOCAL_BOOTSTRAP_SQL, own), ["0001_own_tx.sql"]);
+    assert.deepEqual(await db.migrate(LOCAL_BOOTSTRAP_SQL, own), []);
+  });
+
+  it("replays every shipped migration, 0099 included, and records each once", async () => {
+    const root = path.resolve(import.meta.dirname, "../../../db");
+    const migrations = ["migrations", "migrations-local"].flatMap((dir) =>
+      readdirSync(path.join(root, dir))
+        .filter((name) => name.endsWith(".sql"))
+        .sort()
+        .map((name) => ({ name: `${dir}/${name}`, sql: readFileSync(path.join(root, dir, name), "utf8") })),
+    );
+    assert.ok(migrations.some((m) => m.name.startsWith("migrations/0099_")));
+
+    const client = await fresh();
+    const db = new LocalDatabase(client as unknown as LocalClient);
+    assert.deepEqual(await db.migrate(LOCAL_BOOTSTRAP_SQL, migrations), migrations.map((m) => m.name));
+    assert.deepEqual(await db.migrate(LOCAL_BOOTSTRAP_SQL, migrations), []);
+    const ledger = await client.query<{ n: number }>(`select count(*)::int as n from weaveforge_migrations`);
+    assert.equal(ledger.rows[0]!.n, migrations.length);
+  });
+});

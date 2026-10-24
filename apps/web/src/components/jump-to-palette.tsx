@@ -19,6 +19,7 @@ import {
   rememberRecentTarget,
   type RecentTargetKind,
 } from "@/lib/recent-targets";
+import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
 
 /** Kinds recorded as recent targets when opened. */
 const RECENT_KINDS = ["paper", "note", "section"] as const satisfies readonly RecentTargetKind[];
@@ -56,19 +57,12 @@ type JumpItem = CiteCompletion & {
 const HISTORY_KEY = "thesis.search.history";
 
 function readHistory(): string[] {
-  try {
-    return normalizeSearchHistory(JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]"));
-  } catch {
-    return [];
-  }
+  return normalizeSearchHistory(readStoredJson<unknown>(HISTORY_KEY, []));
 }
 
+/** Storage disabled or full: history is a convenience, not state. */
 function writeHistory(history: readonly string[]): void {
-  try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-  } catch {
-    /* storage disabled or full; history is a convenience, not state */
-  }
+  writeStoredJson(HISTORY_KEY, history);
 }
 
 /**

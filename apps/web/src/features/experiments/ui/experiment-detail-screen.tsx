@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   EXPERIMENT_STATUSES, isStaleRunningExperiment, shortSha, type Experiment, type ExperimentStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { readStored, writeStored } from "@/lib/safe-storage";
 import { BackButton } from "@/components/back-button";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { NoteComments, ShareButton } from "@/features/sharing";
@@ -38,18 +39,12 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   // and replaces the whole screen. A failed upload must not do that.
   const [attachError, setAttachError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [asideOpen, setAsideOpen] = useState(() => {
-    try {
-      return sessionStorage.getItem("record-aside:shut") !== "1";
-    } catch {
-      return true;
-    }
-  });
+  const [asideOpen, setAsideOpen] = useState(
+    () => readStored("record-aside:shut", "session") !== "1",
+  );
   const toggleAside = () =>
     setAsideOpen((open) => {
-      try {
-        sessionStorage.setItem("record-aside:shut", open ? "1" : "0");
-      } catch {}
+      writeStored("record-aside:shut", open ? "1" : "0", "session");
       return !open;
     });
   const resultRef = useRef<HTMLParagraphElement>(null);

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createRestClient } from "@/backend/providers/postgrest/client";
 import {
+  ORG_INVITE_ROLES,
   normalizeOrgInviteCode,
   resolveOrgJoinAssignment,
   validateOrgName,
@@ -61,8 +62,6 @@ interface MembershipRow {
  */
 const CODE_COLUMNS = "id,org_id,target_role,code_hash,revoked_at";
 
-const ROLES: OrgInviteRole[] = ["professor", "phd", "masters"];
-
 /**
  * How many times a code collision is retried.
  *
@@ -71,6 +70,9 @@ const ROLES: OrgInviteRole[] = ["professor", "phd", "masters"];
  * — which should fail after a few tries rather than loop.
  */
 const CODE_ATTEMPTS = 5;
+
+/** What `join_organization_atomic` (migration 0125) raises for a code revoked mid-join. */
+const CODE_NO_LONGER_VALID = "invite code is no longer valid";
 
 /** PostgreSQL unique_violation. The only error worth retrying a code insert for. */
 const UNIQUE_VIOLATION = "23505";
@@ -138,7 +140,7 @@ export class OrgInviteService {
     const admin = this.admin();
 
     for (let attempt = 0; attempt < CODE_ATTEMPTS; attempt++) {
-      const codes: OrgInviteCodePlaintext[] = ROLES.map((targetRole) => ({
+      const codes: OrgInviteCodePlaintext[] = ORG_INVITE_ROLES.map((targetRole) => ({
         targetRole,
         code: generateOrgInviteCode(),
       }));
@@ -187,12 +189,13 @@ export class OrgInviteService {
     // help. Typed now so the HTTP mapping can tell the two apart (review-2 F5).
     if (orgErr || !org) throw new OrgNotFoundError("Lab not found.");
 
-    const { data: existing } = await admin
+    const { data: existing, error: existingErr } = await admin
       .from("org_memberships")
       .select("id, joined_via")
       .eq("org_id", row.org_id)
       .eq("user_id", userId)
       .maybeSingle();
+    if (existingErr) throw existingErr;
     if (existing && (existing as { joined_via?: string }).joined_via !== "legacy") {
       throw new OrgInviteValidationError("You are already in this lab.");
     }
@@ -229,7 +232,12 @@ export class OrgInviteService {
       p_role: assignment.role,
       p_supervisor_id: assignment.supervisorId ?? null,
     });
-    if (joinErr) throw new OrgInviteValidationError(joinErr.message);
+    if (joinErr) {
+      // Only a code revoked between the read above and the RPC is the caller's
+      // problem (400); anything else the function raised is a server error.
+      if (joinErr.message === CODE_NO_LONGER_VALID) throw new OrgInviteValidationError(joinErr.message);
+      throw joinErr;
+    }
 
     return { orgId: row.org_id };
   }
@@ -237,19 +245,21 @@ export class OrgInviteService {
   async previewCode(codeInput: string) {
     const normalized = normalizeOrgInviteCode(codeInput);
     const admin = this.admin();
-    const { data: codeRow } = await admin
+    const { data: codeRow, error: codeErr } = await admin
       .from("org_invite_codes")
       .select("org_id, target_role")
       .eq("code_hash", hashOrgInviteCodeInput(normalized))
       .is("revoked_at", null)
       .maybeSingle();
+    if (codeErr) throw codeErr;
     if (!codeRow) return null;
 
-    const { data: org } = await admin
+    const { data: org, error: orgErr } = await admin
       .from("organizations")
       .select("name")
       .eq("id", codeRow.org_id)
-      .single();
+      .maybeSingle();
+    if (orgErr) throw orgErr;
     if (!org) return null;
 
     const professors = await this.memberIdsForRole(admin, codeRow.org_id, "professor");
@@ -257,10 +267,11 @@ export class OrgInviteService {
 
     const names = async (ids: string[]) => {
       if (!ids.length) return [];
-      const { data } = await admin
+      const { data, error } = await admin
         .from("profiles")
         .select("user_id, full_name, email")
         .in("user_id", ids);
+      if (error) throw error;
       return (data ?? []).map((p) => ({
         id: p.user_id as string,
         label: (p.full_name as string | null) ?? (p.email as string) ?? "Member",
@@ -326,11 +337,12 @@ export class OrgInviteService {
     targetRole: OrgInviteRole,
   ): Promise<OrgInviteCodePlaintext> {
     const admin = this.admin();
-    const { data: org } = await admin
+    const { data: org, error: orgErr } = await admin
       .from("organizations")
       .select("owner_id")
       .eq("id", orgId)
-      .single();
+      .maybeSingle();
+    if (orgErr) throw orgErr;
     if (!org || org.owner_id !== userId) {
       throw new OrgPermissionError("Only the lab owner can regenerate codes.");
     }
@@ -386,11 +398,12 @@ export class OrgInviteService {
     orgId: string,
     role: OrgInviteRole,
   ): Promise<string[]> {
-    const { data } = await admin
+    const { data, error } = await admin
       .from("org_memberships")
       .select("user_id")
       .eq("org_id", orgId)
       .eq("role", role);
+    if (error) throw error;
     return (data as MembershipRow[] | null)?.map((r) => r.user_id) ?? [];
   }
 
@@ -427,21 +440,23 @@ export class OrgInviteService {
       .eq("user_id", userId);
     if (delErr) throw delErr;
 
-    const { data: profile } = await admin
+    const { data: profile, error: profileErr } = await admin
       .from("profiles")
       .select("active_org_id")
       .eq("user_id", userId)
       .maybeSingle();
+    if (profileErr) throw profileErr;
 
     if (profile?.active_org_id !== orgId) return;
 
-    const { data: nextMembership } = await admin
+    const { data: nextMembership, error: nextErr } = await admin
       .from("org_memberships")
       .select("org_id, role, supervisor_id")
       .eq("user_id", userId)
       .order("joined_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (nextErr) throw nextErr;
 
     if (nextMembership) {
       const { error: updErr } = await admin

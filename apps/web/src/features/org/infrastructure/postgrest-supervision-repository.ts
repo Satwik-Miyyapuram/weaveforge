@@ -5,6 +5,7 @@ import type {
   Milestone,
 } from "@weaveforge/core";
 import {
+  MILESTONE_COLUMNS,
   milestoneToDomain,
   type MilestoneRow,
 } from "@/features/plan/infrastructure/milestone-rows";
@@ -20,7 +21,6 @@ import { rows } from "@/backend/providers/postgrest/row-access";
  * student's project) — row-level security restricts results to members in the
  * caller's subtree, and the explicit `user_id` filter narrows to one person.
  */
-
 export class PostgrestSupervisionRepository implements ISupervisionRepository {
   constructor(private readonly db: SupabaseClient) {}
 
@@ -45,7 +45,7 @@ export class PostgrestSupervisionRepository implements ISupervisionRepository {
     if (memberIds.length === 0) return new Map();
     const { data, error } = await this.db
       .from("milestones")
-      .select("*, user_id")
+      .select(`${MILESTONE_COLUMNS},user_id`)
       .in("user_id", memberIds)
       .order("target_date", { ascending: true, nullsFirst: false });
     if (error) throw error;
@@ -56,7 +56,7 @@ export class PostgrestSupervisionRepository implements ISupervisionRepository {
     if (memberIds.length === 0) return new Map();
     const { data, error } = await this.db
       .from("log_entries")
-      .select("*, user_id")
+      .select(`${LOG_ENTRY_COLUMNS},user_id`)
       .in("user_id", memberIds)
       .order("entry_date", { ascending: false })
       .order("created_at", { ascending: false });
@@ -66,18 +66,6 @@ export class PostgrestSupervisionRepository implements ISupervisionRepository {
 }
 
 /**
- * Split rows back out by owner, preserving the order the database returned.
- *
- * Every requested id gets an entry, empty or not: a supervisee with no logs has
- * to read as "nothing yet", not as "not loaded".
- */
-/**
- * The columns a MilestoneRow is read as, named rather than starred.
- *
- * Derived from the row type: exactly the fields the mapper reads, where a star
- * would mean "whatever the table grows next".
- */
-/**
  * The columns a LogEntryRow is read as, named rather than starred.
  *
  * Derived from the row type: exactly the fields the mapper reads, where a star
@@ -85,8 +73,12 @@ export class PostgrestSupervisionRepository implements ISupervisionRepository {
  */
 const LOG_ENTRY_COLUMNS = "id,entry_date,kind,body,links,created_at";
 
-const MILESTONE_COLUMNS = "id,title,description,status,target_date,dependencies,compute,created_at";
-
+/**
+ * Split rows back out by owner, preserving the order the database returned.
+ *
+ * Every requested id gets an entry, empty or not: a supervisee with no logs has
+ * to read as "nothing yet", not as "not loaded".
+ */
 function groupByOwner<Row extends { user_id: string }, T>(
   rows: readonly Row[],
   memberIds: readonly string[],

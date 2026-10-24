@@ -17,6 +17,7 @@ import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
+import { logToApp } from "@/lib/error-report/app-log";
 import { statusLabel } from "@/components/status-select";
 
 export interface DepDraft {
@@ -133,7 +134,11 @@ export function MilestoneForm({
           dependencies,
           compute: computeNeeds,
         });
-        try { await plan.notifyMilestone("added", added); } catch { /* best-effort */ }
+        try {
+          await plan.notifyMilestone("added", added);
+        } catch (notifyErr) {
+          logToApp({ level: "warn", source: "plan", message: "Milestone notification failed", detail: formatError(notifyErr) });
+        }
         setTitle("");
         setDescription("");
         setTargetDate("");

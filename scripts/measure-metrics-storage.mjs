@@ -11,22 +11,9 @@
  *   node scripts/measure-metrics-storage.mjs --json
  */
 
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import pg from "pg";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(here, "..");
-
-function loadDatabaseUrl() {
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
-  const envPath = path.join(repoRoot, "secrets", ".env.migration");
-  const text = readFileSync(envPath, "utf8");
-  const match = /^DATABASE_URL=(.*)$/m.exec(text);
-  if (!match) throw new Error(`DATABASE_URL not found in ${envPath}`);
-  return match[1].trim().replace(/^["']|["']$/g, "");
-}
+import { loadDatabaseUrl } from "./lib/db-connection.mjs";
 
 /**
  * Every relation the metrics actually live in, across all three layouts.

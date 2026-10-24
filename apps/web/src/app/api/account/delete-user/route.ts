@@ -1,3 +1,4 @@
+import { errorMessage } from "@weaveforge/core";
 import { NextResponse } from "next/server";
 import { verifyDeleteAccountOtp } from "@/backend/account/delete-account-otp";
 import { resolveDeleteAccountCaller } from "./_shared";
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
     await caller.provisioner.deleteOwnAccount(caller.token);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to delete account.";
+    const message = errorMessage(err, "Failed to delete account.");
     const status =
       message === "Invalid session."
         ? 401

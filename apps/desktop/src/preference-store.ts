@@ -33,8 +33,12 @@ export type PreferenceValue = string | boolean | null;
 
 const UNKNOWN_NAME = "That is not something this app remembers.";
 const BAD_VALUE = "A preference is a string, a boolean, or nothing.";
+const UNREADABLE = "The preferences file could not be read just now, so nothing was changed.";
 
-/** The file, injected so the rules can be tested without a disk or an app. */
+/**
+ * The file, injected so the rules can be tested without a disk or an app.
+ * `read` answers `null` for no file and throws when there is one it cannot read.
+ */
 export interface PreferenceFile {
   read(): Promise<string | null>;
   write(contents: string): Promise<void>;
@@ -54,7 +58,7 @@ export class PreferenceStore {
 
   async read(name: unknown): Promise<IpcResult<PreferenceValue>> {
     if (!isName(name)) return { ok: false, message: UNKNOWN_NAME };
-    const all = await this.load();
+    const all = await this.load().catch(() => ({}) as Record<string, unknown>);
     const value = all[name];
     // An unreadable or unexpected value reads as absent rather than as an
     // error: a preference file someone has edited by hand should cost them the
@@ -66,7 +70,14 @@ export class PreferenceStore {
     if (!isName(name)) return { ok: false, message: UNKNOWN_NAME };
     if (!isValue(value)) return { ok: false, message: BAD_VALUE };
     return this.writes.run(async () => {
-      const all = await this.load();
+      // A file that is there but cannot be read right now (locked, busy) is
+      // not an empty one: writing back only this key would wipe the rest (38-01).
+      let all: Record<string, unknown>;
+      try {
+        all = await this.load();
+      } catch {
+        return { ok: false, message: UNREADABLE };
+      }
       if (value === null) delete all[name];
       else all[name] = value;
       await this.file.write(`${JSON.stringify(all, null, 2)}\n`);
@@ -74,7 +85,10 @@ export class PreferenceStore {
     });
   }
 
-  /** Everything on file, or nothing if there is no file or it is not readable. */
+  /**
+   * Everything on file, or nothing if there is no file or its contents are not
+   * preferences. A file that cannot be read at all throws.
+   */
   private async load(): Promise<Record<string, unknown>> {
     const contents = await this.file.read();
     if (!contents) return {};

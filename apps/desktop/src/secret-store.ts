@@ -55,6 +55,8 @@ export const SECRET_NAMES = ["ai-provider", "local-api-token", "overleaf-token"]
 export type SecretName = (typeof SECRET_NAMES)[number];
 
 const UNKNOWN_NAME = "That is not something this app stores.";
+const EMPTY_VALUE = "A secret is a non-empty string.";
+const UNREADABLE = "The keychain file could not be read just now, so nothing was changed.";
 const NO_KEYCHAIN =
   "This machine has no keychain available, so there is nowhere safe to keep it. " +
   "It stays in memory for this session.";
@@ -85,7 +87,7 @@ export class SecretStore {
     // every load and a red banner at launch would be the wrong answer.
     if (!this.crypto.isEncryptionAvailable()) return { ok: true, value: null };
 
-    const stored = await this.load();
+    const stored = await this.load().catch(() => ({}) as Record<string, unknown>);
     const blob = stored[name];
     if (typeof blob !== "string") return { ok: true, value: null };
     try {
@@ -100,11 +102,14 @@ export class SecretStore {
 
   async write(name: unknown, value: unknown): Promise<IpcResult<null>> {
     if (!isSecretName(name)) return { ok: false, message: UNKNOWN_NAME };
-    if (typeof value !== "string" || !value) return { ok: false, message: UNKNOWN_NAME };
+    if (typeof value !== "string" || !value) return { ok: false, message: EMPTY_VALUE };
     if (!this.crypto.isEncryptionAvailable()) return { ok: false, message: NO_KEYCHAIN };
 
     return this.writes.run(async () => {
-      const stored = await this.load();
+      // An I/O failure is not an empty file: writing back only this key would
+      // drop every other secret (38-02). Corrupt contents still start over.
+      const stored = await this.load().catch(() => null);
+      if (!stored) return { ok: false, message: UNREADABLE };
       stored[name] = this.crypto.encryptString(value).toString("base64");
       await this.file.write(JSON.stringify(stored));
       return { ok: true, value: null };
@@ -114,7 +119,8 @@ export class SecretStore {
   async clear(name: unknown): Promise<IpcResult<null>> {
     if (!isSecretName(name)) return { ok: false, message: UNKNOWN_NAME };
     return this.writes.run(async () => {
-      const stored = await this.load();
+      const stored = await this.load().catch(() => null);
+      if (!stored) return { ok: false, message: UNREADABLE };
       // Deleted whether or not encryption is available: forgetting must work on
       // a machine where remembering never did.
       if (!(name in stored)) return { ok: true, value: null };
@@ -127,8 +133,8 @@ export class SecretStore {
   /**
    * What is on disk, as a plain record.
    *
-   * Anything unreadable — missing file, truncated write, someone's editor —
-   * reads as empty. The file holds nothing that cannot be re-entered, so
+   * A missing file or unreadable contents — truncated write, someone's editor —
+   * read as empty. A file that is there but cannot be read right now throws. The file holds nothing that cannot be re-entered, so
    * starting over is always a safe answer and never loses work.
    */
   private async load(): Promise<Record<string, unknown>> {
