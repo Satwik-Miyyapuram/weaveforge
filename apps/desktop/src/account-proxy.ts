@@ -9,8 +9,8 @@
  * hosted app.
  */
 
-import { refuse, relayToHostedApp } from "./blob-proxy";
-import type { ProxyFetch } from "./semantic-scholar-proxy";
+import { relayToHostedApp } from "./blob-proxy";
+import { refuse, type ProxyFetch } from "./proxy-shared";
 
 export const ACCOUNT_PROXY_PATHS: readonly string[] = [
   "/api/account/delete-user",

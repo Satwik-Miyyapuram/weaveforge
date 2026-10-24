@@ -4,13 +4,6 @@ import { syncEngine } from "./use-sync";
 import type { AdoptionResult } from "../domain/adoption";
 
 /**
- * The opt-in, performed.
- *
- * Loaded on demand rather than with the settings screen: this pulls in the
- * engine, the transport and the data client, and a reader who never turns
- * sync on should never pay for any of it.
- */
-/**
  * A **fresh** access token per request.
  *
  * This replaces a closure over `session.access_token`, read once when the reader
@@ -32,6 +25,28 @@ export function liveAccessToken(client: {
   };
 }
 
+/**
+ * The account's project names, so a first adoption that collides is renamed
+ * rather than merged. A failed read rejects: adopting without the names would
+ * merge a colliding project, and the sync loop retries the boot instead.
+ */
+export async function remoteProjectNames(client: {
+  from: (table: string) => {
+    select: (columns: string) => PromiseLike<{ data: { name: string }[] | null; error: { message: string } | null }>;
+  };
+}): Promise<string[]> {
+  const { data, error } = await client.from("projects").select("name");
+  if (error) throw new Error(`Could not read this account's projects: ${error.message}`);
+  return (data ?? []).map((row) => row.name);
+}
+
+/**
+ * Adopt this device's local work into the signed-in account.
+ *
+ * Run by the sync loop when a session first signs in, and by the settings
+ * panel. Loaded on demand: it pulls in the engine, the transport and the data
+ * client, which a window that never signs in should not pay for.
+ */
 export async function enableSync(): Promise<AdoptionResult> {
   const config = readBackendConfig();
   const client = createDataClient(config.supabaseUrl ?? "", config.supabaseAnonKey ?? "");
@@ -39,13 +54,11 @@ export async function enableSync(): Promise<AdoptionResult> {
   const session = data.session;
   if (!session) throw new Error("Sign in first, then turn sync on.");
 
-  // The names the account already holds, so a first adoption that collides is
-  // renamed rather than merged.
-  const { data: remote } = await client.from("projects").select("name");
+  const names = await remoteProjectNames(client);
   const engine = syncEngine(liveAccessToken(client));
   return engine.enable({
     accountId: session.user.id,
-    remoteProjectNames: (remote ?? []).map((row: { name: string }) => row.name),
+    remoteProjectNames: names,
     deviceLabel: deviceLabel(),
   });
 }
