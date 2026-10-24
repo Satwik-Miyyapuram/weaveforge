@@ -31,7 +31,7 @@ class PlanWidgetConfigActivity : Activity() {
         findViewById<Button>(R.id.setup_save).setOnClickListener {
             val url = PlanWidgetModel.widgetUrl(
                 input.text.toString(),
-                BuildConfig.ALLOWED_HOSTS.split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() },
+                HostAllowList.parse(BuildConfig.ALLOWED_HOSTS),
                 allowCleartext = BuildConfig.APP_URL.startsWith("http:"),
             )
             if (url == null) {

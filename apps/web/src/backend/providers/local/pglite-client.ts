@@ -85,6 +85,13 @@ function ident(name: string): string {
   return `"${trimmed}"`;
 }
 
+/** The right side of `is` is spliced into the SQL, so only these three pass. */
+function isLiteral(value: unknown): "null" | "true" | "false" {
+  const text = value === null ? "null" : String(value);
+  if (text === "null" || text === "true" || text === "false") return text;
+  throw new Error(`\`is\` takes null, true or false, not: ${text}`);
+}
+
 /** `"id, title"` and `"*"` both mean a projection; nothing here has joins. */
 function projection(columns: string): string {
   const trimmed = columns.trim();
@@ -258,7 +265,7 @@ class Builder<T> implements PromiseLike<Reply<T>> {
   }
 
   is(column: string, value: null | boolean): this {
-    this.wheres.push(`${ident(column)} is ${value === null ? "null" : String(value)}`);
+    this.wheres.push(`${ident(column)} is ${isLiteral(value)}`);
     return this;
   }
 
@@ -318,7 +325,7 @@ class Builder<T> implements PromiseLike<Reply<T>> {
     const parts = splitTopLevel(expression).map((clause) => {
       const [column = "", operator = "", ...rest] = clause.split(".");
       const raw = rest.join(".");
-      if (operator === "is") return `${ident(column)} is ${raw === "null" ? "null" : raw}`;
+      if (operator === "is") return `${ident(column)} is ${isLiteral(raw.toLowerCase())}`;
       if (operator === "in") {
         const items = raw.replace(/^\(|\)$/g, "").split(",").map((s) => s.trim()).filter(Boolean);
         if (items.length === 0) return "false";

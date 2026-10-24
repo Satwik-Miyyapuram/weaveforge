@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
-import type { IBlobFetcher, IBlobStore } from "@weaveforge/core";
+import { BlobNotFoundError, type IBlobFetcher, type IBlobStore } from "@weaveforge/core";
 
 import { FetchingBlobStore } from "../fetching-blob-store";
 
@@ -48,4 +48,31 @@ test("a write-only store is read through its signed URLs", async () => {
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+/** Reads through a signed URL that answers `status`, or no URL at all. */
+async function readThrough(url: string | null, status: number): Promise<unknown> {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(status === 200 ? new Uint8Array([1]) : null, { status })) as typeof fetch;
+  try {
+    const remote: IBlobStore = { upload: unused, remove: unused, signedUrls: async () => [url] };
+    return await new FetchingBlobStore(remote).fetchBytes("vault-assets", "a.inkb").then(
+      () => null,
+      (err: unknown) => err,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+test("a blob with no signed URL, or a 404, is not found", async () => {
+  assert.ok((await readThrough(null, 200)) instanceof BlobNotFoundError);
+  assert.ok((await readThrough("https://cdn/a.inkb", 404)) instanceof BlobNotFoundError);
+});
+
+test("a server error is a failure, not a missing blob", async () => {
+  const err = await readThrough("https://cdn/a.inkb", 500);
+  assert.ok(err instanceof Error);
+  assert.ok(!(err instanceof BlobNotFoundError));
+  assert.match((err as Error).message, /500/);
 });
