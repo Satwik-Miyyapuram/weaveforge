@@ -78,7 +78,9 @@ export class MemoryWorkspaceFs implements IWorkspaceFs {
 
   async *walk(dir: string): AsyncIterable<WorkspaceStat> {
     const prefix = dir ? `${safeWorkspacePath(dir)}/` : "";
-    for (const [path, bytes] of [...this.files.entries()].sort()) {
+    // On the path alone: a bare `.sort()` compares each pair's string form,
+    // body and all.
+    for (const [path, bytes] of [...this.files.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
       if (!path.startsWith(prefix)) continue;
       yield {
         path,

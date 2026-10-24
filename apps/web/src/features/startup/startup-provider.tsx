@@ -11,8 +11,10 @@ import {
 } from "react";
 import type { Member, OrgMembershipView, UserSettings } from "@weaveforge/core";
 import type { AppContainer } from "@/bootstrap";
-import { hasActiveLab, needsDisclaimerAcceptance, needsStandaloneRoleSync } from "@weaveforge/core";
+import { needsDisclaimerAcceptance } from "@weaveforge/core";
 import { continueStandalone, fetchMemberships } from "@/features/org/infrastructure/org-api";
+import { shouldSyncStandalone } from "@/features/org/application/org-profile-state";
+import { logToApp } from "@/lib/error-report/app-log";
 import { singleFlight } from "@/lib/cache/single-flight";
 import { formatError } from "@/lib/format-error";
 
@@ -71,7 +73,11 @@ async function loadOrgBatch(c: AppContainer): Promise<OrgBatch> {
     c.org.loadProfile().catch(() => null),
     c.org.loadTeam().catch(() => [] as Member[]),
     c.org.loadLab().catch(() => [] as Member[]),
-    fetchMemberships().catch(() => [] as OrgMembershipView[]),
+    // null, not []: a failed read is not "no labs" (see shouldSyncStandalone).
+    fetchMemberships().catch((err: unknown) => {
+      logToApp({ level: "warn", source: "startup", message: "Memberships did not load.", detail: formatError(err) });
+      return null;
+    }),
     // Warm the project list in the same batch. ProjectProvider mounts below
     // every gate in the shell, so its own listProjects() would otherwise be a
     // further serial round trip after all of these — and nothing renders until
@@ -83,8 +89,7 @@ async function loadOrgBatch(c: AppContainer): Promise<OrgBatch> {
   let profile = mine;
   let team = members;
   let labMembers = lab;
-  const inLab = hasActiveLab(profile?.activeOrgId, labs);
-  if (needsStandaloneRoleSync(profile, labs, inLab)) {
+  if (shouldSyncStandalone(profile, labs)) {
     try {
       await continueStandalone();
       profile = await c.org.loadProfile();
@@ -94,7 +99,7 @@ async function loadOrgBatch(c: AppContainer): Promise<OrgBatch> {
       /* display layer still resolves standalone role */
     }
   }
-  return { profile, team, labMembers, memberships: labs };
+  return { profile, team, labMembers, memberships: labs ?? [] };
 }
 
 async function loadStartupBundleUncached(
