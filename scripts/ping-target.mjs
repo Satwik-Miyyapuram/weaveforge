@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 import { loadMigrationEnv } from "./lib/load-env.mjs";
+import { pgTls } from "./lib/pg-tls.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 loadMigrationEnv(root);
@@ -30,11 +31,9 @@ if (!url) {
   process.exit(1);
 }
 
-const wantsTls = !/sslmode=disable/.test(url) && !/@(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(url);
-
 const client = new Client({
   connectionString: url,
-  ...(wantsTls ? { ssl: { rejectUnauthorized: false } } : {}),
+  ...pgTls(url),
   connectionTimeoutMillis: 15_000,
 });
 
@@ -64,6 +63,9 @@ DATABASE_URL at your own machine:
 
   ssh -i ~/.ssh/oci_weaveforge -N -L 15432:localhost:5432 ubuntu@YOUR_PUBLIC_IP
   DATABASE_URL=postgres://weaveforge:PASSWORD@localhost:15432/weaveforge`;
+  }
+  if (/certificate|self[- ]signed/i.test(error.message)) {
+    return "The server's TLS certificate is not trusted. Tunnel over SSH to localhost (no TLS\nneeded), or set PGSSLROOTCERT to the CA that signed it.";
   }
   return "Check the address, port, credentials, and that the container is running.";
 }

@@ -27,6 +27,7 @@ import {
 } from "./lib/pg-migrate.mjs";
 
 import { loadMigrationEnv } from "./lib/load-env.mjs";
+import { pgTls } from "./lib/pg-tls.mjs";
 
 loadMigrationEnv(join(dirname(fileURLToPath(import.meta.url)), ".."));
 const require = createRequire(join(dirname(fileURLToPath(import.meta.url)), "../apps/web/package.json"));
@@ -86,23 +87,13 @@ if (!TARGET_URL) fail("Set DATABASE_URL to the self-hosted Postgres you are migr
 if (SOURCE_URL === TARGET_URL) fail("SOURCE_DATABASE_URL and DATABASE_URL are the same database.");
 
 /**
- * Whether to negotiate TLS.
- *
- * Supabase refuses unencrypted connections, so the default for anything
- * reachable over a network is on. A local socket or an explicit
- * `sslmode=disable` turns it off — without that, testing the migration against
- * a Postgres on your own machine fails before it reads a row.
+ * Supabase signs its database certificate with its own root CA. Download it
+ * from the project's database settings and point PGSSLROOTCERT at it.
  */
-function wantsTls(url) {
-  if (/sslmode=disable/.test(url)) return false;
-  if (/[?&]host=%2F|[?&]host=\//.test(url)) return false; // unix socket
-  return !/@(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(url);
-}
-
 function clientFor(url) {
   return new Client({
     connectionString: url,
-    ...(wantsTls(url) ? { ssl: { rejectUnauthorized: false } } : {}),
+    ...pgTls(url),
     // A migration is a long job; a short statement timeout turns a large table
     // into a failure two thirds of the way through.
     statement_timeout: 0,

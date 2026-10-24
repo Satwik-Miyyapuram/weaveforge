@@ -812,6 +812,10 @@ reach for `?sslmode=disable`, sends your database password across the open
 internet in clear text on a port every scanner knocks at. A tunnel costs one
 command and removes the problem entirely.
 
+The migration scripts check the server's certificate on any host that is not
+`localhost`, and refuse `sslmode=no-verify`. A server with its own CA (Supabase,
+or a self-signed Postgres) needs `PGSSLROOTCERT=/path/to/ca.crt`.
+
 Leave this running in its own terminal:
 
 ```bash
