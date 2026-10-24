@@ -54,12 +54,14 @@ export class LibraryTidyFacade {
     const groups = findDuplicateGroups(summaries);
     // The summary projection has no venue, abstract or rating, and the keeper
     // is picked on them too. Only the grouped papers are read in full, which
-    // in a tidy library is none.
+    // in a tidy library is none. Read in parallel; a failed read only leaves
+    // its group without a recommended keeper.
     const full = new Map<string, Paper>();
-    for (const id of new Set(groups.flatMap((g) => g.ids))) {
-      const paper = await this.deps.papers.getById(id);
-      if (paper) full.set(id, paper);
-    }
+    const ids = [...new Set(groups.flatMap((g) => g.ids))];
+    const reads = await Promise.allSettled(ids.map((id) => this.deps.papers.getById(id)));
+    reads.forEach((r, i) => {
+      if (r.status === "fulfilled" && r.value) full.set(ids[i]!, r.value);
+    });
     const papers = new Map<string, PaperSummary & Partial<Pick<Paper, "venue">>>(summaries.map((p) => [p.id, full.get(p.id) ?? p]));
     const duplicates = groups.map((group): TidyDuplicateGroup => {
       const members = group.ids.map((id) => full.get(id)).filter((p): p is Paper => !!p);

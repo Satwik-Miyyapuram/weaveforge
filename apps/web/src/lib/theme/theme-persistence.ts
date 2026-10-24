@@ -54,6 +54,19 @@ export function readLocalAppearance(): UserAppearance {
   };
 }
 
+/**
+ * The server's appearance over this device's. A missing or null server field
+ * keeps the local one, except `customTheme`: null there means "no custom theme".
+ */
+export function mergeServerAppearance(local: UserAppearance, server: UserAppearance): UserAppearance {
+  const merged: UserAppearance = { ...local };
+  for (const [key, value] of Object.entries(server) as [keyof UserAppearance, unknown][]) {
+    if (value === undefined || (value === null && key !== "customTheme")) continue;
+    (merged as Record<string, unknown>)[key] = value;
+  }
+  return merged;
+}
+
 function writeLocalAppearance(appearance: UserAppearance): void {
   if (appearance.mode === "light" || appearance.mode === "dark") {
     writeStored(THEME_KEY.mode, appearance.mode);
@@ -185,21 +198,7 @@ async function hydrateThemeFromServerUncached(): Promise<void> {
       appearance?.scanlines !== undefined ||
       appearance?.customTheme !== undefined
     ) {
-      writeLocalAppearance({
-        mode: appearance.mode ?? readStoredMode(),
-        lightTheme: appearance.lightTheme ?? readStoredThemeIds().light,
-        darkTheme: appearance.darkTheme ?? readStoredThemeIds().dark,
-        controlSize: appearance.controlSize ?? readStoredControlSize(),
-        surfaces: appearance.surfaces ?? readStoredSurfaceStyle(),
-        reactiveMotion: appearance.reactiveMotion ?? readStoredReactiveMotion(),
-        cardTint: appearance.cardTint ?? readStoredCardTint(),
-        cardTilt: appearance.cardTilt ?? readStoredCardTilt(),
-        scanlines: appearance.scanlines ?? readStoredScanlines(),
-        customTheme:
-          appearance.customTheme === undefined
-            ? readStoredCustomTheme()
-            : appearance.customTheme,
-      });
+      writeLocalAppearance(mergeServerAppearance(readLocalAppearance(), appearance));
       applyThemeFromLocalStorage();
       window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
       return;

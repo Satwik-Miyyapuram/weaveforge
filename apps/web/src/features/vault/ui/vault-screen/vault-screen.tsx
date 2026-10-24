@@ -14,6 +14,7 @@ import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned
 import { AddVaultPageForm } from "../add-vault-page-form";
 import { importNotesFromFiles } from "../../application/import-notes";
 import { loadLinkTargets } from "../../application/load-link-targets";
+import { createNoteFromLink as createOrReuseNote } from "../../application/create-note-from-link";
 import { logToApp } from "@/lib/error-report/app-log";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
@@ -264,21 +265,29 @@ export function VaultScreen() {
     [flat],
   );
 
-  /** Clicking an unresolved `[[wikilink]]` creates that note and opens it. */
+  /**
+   * An unresolved `[[wikilink]]` creates that note, or reuses one with the same
+   * title. A click opens it; a link finished while typing passes `open: false`.
+   */
   const createNoteFromLink = useCallback(
-    async (title: string) => {
+    async (title: string, opts?: { open?: boolean }) => {
       try {
-        const page = await getContainer().vault.manageVaultPage.add({ title });
-        await load();
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("page", page.id);
-        setPushed();
-        router.push(`/notes?${params.toString()}`);
+        await createOrReuseNote(title, opts, {
+          existing: flat,
+          add: (t) => getContainer().vault.manageVaultPage.add({ title: t }),
+          reload: load,
+          open: (id) => {
+            const params = new URLSearchParams(searchParams.toString());
+            params.set("page", id);
+            setPushed();
+            router.push(`/notes?${params.toString()}`);
+          },
+        });
       } catch (err) {
         setError(formatError(err));
       }
     },
-    [load, searchParams, setPushed, router],
+    [flat, load, searchParams, setPushed, router],
   );
 
   const parents = flat.filter((p) => !p.parentId && !pinnedSharedBy.has(p.id));

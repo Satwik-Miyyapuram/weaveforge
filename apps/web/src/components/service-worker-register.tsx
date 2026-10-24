@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { bestEffort } from "@/lib/best-effort";
 
 /**
  * Registers the Serwist worker in production only.
@@ -11,52 +12,39 @@ import { useEffect } from "react";
  */
 export function ServiceWorkerRegister() {
   useEffect(() => {
-    const requestPersistence = async () => {
-      try {
-        if (!navigator.storage?.persist) return;
-        if (await navigator.storage.persisted()) return;
-        await navigator.storage.persist();
-      } catch {
-        // Durability is an optimization; failure must not affect startup.
-      }
-    };
-    void requestPersistence();
+    // Durability is an optimization; failure must not affect startup.
+    void bestEffort("Requesting persistent storage failed.", async () => {
+      if (!navigator.storage?.persist) return;
+      if (await navigator.storage.persisted()) return;
+      await navigator.storage.persist();
+    });
 
     if (!("serviceWorker" in navigator)) return;
 
     if (process.env.NODE_ENV !== "production") {
-      void (async () => {
-        try {
-          const regs = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(regs.map((r) => r.unregister()));
-          if (typeof caches !== "undefined") {
-            const keys = await caches.keys();
-            await Promise.all(
-              keys
-                .filter((k) => k.includes("serwist") || k.includes("thesis-"))
-                .map((k) => caches.delete(k)),
-            );
-          }
-        } catch {
-          // Dev cleanup is best-effort.
+      void bestEffort("Clearing dev service workers failed.", async () => {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+        if (typeof caches !== "undefined") {
+          const keys = await caches.keys();
+          await Promise.all(
+            keys
+              .filter((k) => k.includes("serwist") || k.includes("thesis-"))
+              .map((k) => caches.delete(k)),
+          );
         }
-      })();
+      });
       return;
     }
 
-    const register = async () => {
-      try {
-        if (window.serwist) {
-          await window.serwist.register();
-          return;
-        }
-        await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-      } catch {
-        // Offline enhancement is best-effort and must not affect app startup.
+    // Offline enhancement is best-effort and must not affect app startup.
+    void bestEffort("Service worker registration failed.", async () => {
+      if (window.serwist) {
+        await window.serwist.register();
+        return;
       }
-    };
-
-    void register();
+      await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    });
   }, []);
 
   return null;
