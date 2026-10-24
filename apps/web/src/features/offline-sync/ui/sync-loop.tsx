@@ -10,6 +10,8 @@ import { localFirstAccount, setLocalFirstAccount } from "@/backend/providers/loc
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { logToApp, type AppLogInput } from "@/lib/error-report/app-log";
+import { alreadyRecorded } from "@/lib/error-report/log-buffer";
 import { LOCAL_USER_ID } from "@weaveforge/core";
 import { SyncStateStore } from "../domain/sync-state";
 import type { CycleResult } from "../domain/sync-engine";
@@ -58,7 +60,7 @@ import { syncEngine } from "./use-sync";
  */
 
 import { onWorkspaceChange } from "@/lib/workspace-changes";
-import { setLiveSyncState, registerSyncTrigger } from "../domain/live-sync";
+import { setLiveSyncState, registerSyncTrigger, type LiveSyncState } from "../domain/live-sync";
 import { ConflictStore } from "../domain/conflicts";
 
 const CYCLE_MS = 45 * 1000;
@@ -85,6 +87,103 @@ export function createCycleRunner(run: () => Promise<void>): () => Promise<void>
       // tick is the retry.
       running = false;
     }
+  };
+}
+
+/** Why a failure is worth a line: the message and, for an Error, its stack. */
+function failureDetail(err: unknown): string {
+  return err instanceof Error ? (err.stack ?? `${err.name}: ${err.message}`) : String(err);
+}
+
+/**
+ * The shell's log, once per distinct failure: the loop retries every tick, and
+ * a long offline stretch must not fill the file with the same line.
+ */
+function logSyncFailure(entry: AppLogInput): void {
+  if (alreadyRecorded(`sync:${entry.message}:${entry.detail ?? ""}`)) return;
+  logToApp(entry);
+}
+
+/**
+ * One cycle, and what the status shows for it.
+ *
+ * A push the network refused comes back as a result, not a throw, so it is
+ * checked here: nothing reached the server, which is offline, not idle, and
+ * not a sync to stamp (34-03). A throw is logged (34-04).
+ */
+export async function syncOnce(deps: {
+  cycle: () => Promise<CycleResult>;
+  settle: (result: CycleResult) => void;
+  setState: (patch: Partial<LiveSyncState>) => void;
+  online: () => boolean;
+  log: (entry: AppLogInput) => void;
+}): Promise<void> {
+  try {
+    const result = await deps.cycle();
+    deps.settle(result);
+    if (result.pushed.stoppedBecause === "offline") {
+      deps.setState({ phase: "offline", isOnline: false });
+    } else {
+      deps.setState({ phase: "idle", lastSyncAt: Date.now(), isOnline: true });
+    }
+  } catch (err) {
+    // The puller leaves the watermark alone on failure; the next tick retries.
+    const online = deps.online();
+    deps.log({ level: "warn", source: "sync", message: "Sync cycle failed", detail: failureDetail(err) });
+    deps.setState({ phase: online ? "error" : "offline", isOnline: online });
+  }
+}
+
+/**
+ * How many conflicts need a person, or null when they could not be read: a
+ * failed read is logged and leaves the shown count alone rather than
+ * reporting zero (34-05).
+ */
+export async function countOpenConflicts(
+  store: Pick<ConflictStore, "openConflicts">,
+  log: (entry: AppLogInput) => void,
+): Promise<number | null> {
+  try {
+    const open = await store.openConflicts();
+    // Only rows the puller has compared need a person; the rest settle themselves.
+    return open.filter((c) => c.kind !== "edit" || c.fields.length > 0).length;
+  } catch (err) {
+    log({ level: "warn", source: "sync", message: "Could not read sync conflicts", detail: failureDetail(err) });
+    return null;
+  }
+}
+
+/**
+ * Boots, one after another, with a failed boot for a signed-in session tried
+ * again after `retryMs` (34-06). Auth events arrive in bursts, so each boot
+ * waits for the one before it, and a newer session replaces a pending retry.
+ */
+export function createBootQueue<U>(
+  boot: (user: U | null) => Promise<void>,
+  opts: { retryMs: number; onFailure: (err: unknown) => void },
+): { queue: (user: U | null) => void; cancel: () => void } {
+  let chain: Promise<void> = Promise.resolve();
+  let retry: ReturnType<typeof setTimeout> | null = null;
+  let cancelled = false;
+  const clear = () => {
+    if (retry) clearTimeout(retry);
+    retry = null;
+  };
+  const queue = (user: U | null) => {
+    if (cancelled) return;
+    clear();
+    chain = chain.then(() => boot(user)).catch((err: unknown) => {
+      opts.onFailure(err);
+      // A merge that failed (offline at sign-in) tries again rather than waiting for the next sign-in.
+      if (user !== null && !cancelled) retry = setTimeout(() => queue(user), opts.retryMs);
+    });
+  };
+  return {
+    queue,
+    cancel: () => {
+      cancelled = true;
+      clear();
+    },
   };
 }
 
@@ -116,8 +215,6 @@ export function SyncLoop() {
     let cancelled = false;
     let stop: (() => void) | undefined;
     let drivenBy: string | null = null;
-    // Auth events arrive in bursts; each boot waits for the one before it.
-    let booting: Promise<void> = Promise.resolve();
 
     const halt = () => {
       stop?.();
@@ -159,9 +256,8 @@ export function SyncLoop() {
 
       const conflictStore = new ConflictStore(runner);
       const updateConflicts = async () => {
-        const open = await conflictStore.openConflicts().catch(() => []);
-        // Only rows the puller has compared need a person; the rest settle themselves.
-        setLiveSyncState({ conflictsCount: open.filter((c) => c.kind !== "edit" || c.fields.length > 0).length });
+        const count = await countOpenConflicts(conflictStore, logSyncFailure);
+        if (count !== null) setLiveSyncState({ conflictsCount: count });
       };
 
       const engine = syncEngine(liveAccessToken(client));
@@ -184,16 +280,13 @@ export function SyncLoop() {
       const cycle = createCycleRunner(async () => {
         lastRun = Date.now();
         setLiveSyncState({ phase: "syncing" });
-        try {
-          settle(await engine.cycle());
-          setLiveSyncState({ phase: "idle", lastSyncAt: Date.now(), isOnline: true });
-        } catch {
-          // The puller leaves the watermark alone on failure; the next tick retries.
-          setLiveSyncState({
-            phase: typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "error",
-            isOnline: typeof navigator !== "undefined" ? navigator.onLine : false,
-          });
-        }
+        await syncOnce({
+          cycle: () => engine.cycle(),
+          settle,
+          setState: setLiveSyncState,
+          online: () => typeof navigator === "undefined" || navigator.onLine,
+          log: logSyncFailure,
+        });
         void updateConflicts();
       });
 
@@ -230,16 +323,13 @@ export function SyncLoop() {
       };
     };
 
-    let retry: ReturnType<typeof setTimeout> | null = null;
-    const queue = (user: { id: string; email?: string | null } | null) => {
-      if (retry) clearTimeout(retry);
-      retry = null;
-      booting = booting.then(() => boot(user)).catch(() => {
+    const { queue, cancel } = createBootQueue(boot, {
+      retryMs: BOOT_RETRY_MS,
+      onFailure: (err) => {
         setLiveSyncState({ phase: "error" });
-        // A merge that failed (offline at sign-in) tries again rather than waiting for the next sign-in.
-        if (user && !cancelled) retry = setTimeout(() => queue(user), BOOT_RETRY_MS);
-      });
-    };
+        logSyncFailure({ level: "warn", source: "sync", message: "Sync could not start", detail: failureDetail(err) });
+      },
+    });
 
     // Signing in or out while the window is open starts or stops the loop.
     const { data: sub } = client.auth.onAuthStateChange((event, session) => {
@@ -254,7 +344,7 @@ export function SyncLoop() {
 
     return () => {
       cancelled = true;
-      if (retry) clearTimeout(retry);
+      cancel();
       sub.subscription.unsubscribe();
       halt();
     };
