@@ -5,12 +5,10 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 
-/** The server the sign-in opens when the connection names none. */
-export const DEFAULT_MATTERMOST_SERVER = "https://mattermost.tudelft.nl";
-
 /**
  * Sign in on the Mattermost server's own login page, in a desktop window, so
  * the app never handles a password. Web has no such window: it says so.
+ * There is no default server: until the user names one, the button is off.
  */
 export function MattermostSignInButton({
   serverUrl,
@@ -24,6 +22,7 @@ export function MattermostSignInButton({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const signIn = desktop()?.mattermostSignIn;
+  const server = serverUrl.trim();
 
   if (!signIn) {
     return <p className="muted">Mattermost sign-in works in the desktop app. Here, use a bot token instead.</p>;
@@ -33,7 +32,7 @@ export function MattermostSignInButton({
     setBusy(true);
     setError(null);
     try {
-      const token = await signIn!(serverUrl.trim() || DEFAULT_MATTERMOST_SERVER);
+      const token = await signIn!(server);
       if (token) await onToken(token);
     } catch (err) {
       setError(formatError(err));
@@ -45,7 +44,8 @@ export function MattermostSignInButton({
   return (
     <div className="add-form">
       {error && <FormError>{error}</FormError>}
-      <button type="button" className="btn-primary" onClick={() => void run()} disabled={busy}>
+      {!server && <p className="muted">Enter your Mattermost server URL to sign in.</p>}
+      <button type="button" className="btn-primary" onClick={() => void run()} disabled={busy || !server}>
         {busy ? "Waiting for sign-in…" : label}
       </button>
     </div>
