@@ -125,3 +125,91 @@ test("removeList deletes items and nested sublists", async () => {
   assert.equal((await items.listItems(root.id)).length, 0);
   assert.equal((await items.listItems(child.id)).length, 0);
 });
+
+async function siblings() {
+  const made = makeUseCase();
+  const { uc } = made;
+  const root = await uc.createList({ name: "Root" });
+  const parent = await uc.createList({ name: "Parent", parentId: root.id });
+  const a = await uc.createList({ name: "A", parentId: parent.id });
+  const b = await uc.createList({ name: "B", parentId: parent.id });
+  return { ...made, root, parent, a, b };
+}
+
+test("removing from one child keeps ancestor rows a sibling still holds (04-13)", async () => {
+  const { items, uc, root, parent, a, b } = await siblings();
+  await uc.addPaperToList(a.id, "p1");
+  await uc.addPaperToList(b.id, "p1");
+  await uc.removePaperFromList(a.id, "p1");
+
+  assert.equal((await items.listItems(a.id)).length, 0);
+  for (const ancestor of [parent, root]) {
+    const rows = await items.listItems(ancestor.id);
+    assert.equal(rows.length, 1, ancestor.name);
+    assert.equal(rows[0]!.inheritedFromListId, b.id, ancestor.name);
+  }
+  // Removing the last holder now clears the ancestors.
+  await uc.removePaperFromList(b.id, "p1");
+  assert.equal((await items.listItems(parent.id)).length, 0);
+  assert.equal((await items.listItems(root.id)).length, 0);
+});
+
+test("note removal keeps ancestor rows a sibling still holds (04-13)", async () => {
+  const { items, uc, parent, a, b } = await siblings();
+  await uc.addNoteToList(a.id, "n1");
+  await uc.addNoteToList(b.id, "n1");
+  await uc.removeNoteFromList(a.id, "n1");
+  const rows = await items.listItems(parent.id);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]!.inheritedFromListId, b.id);
+});
+
+test("a holder outside the ancestor's subtree does not keep it (04-13)", async () => {
+  const { items, uc, parent, a } = await siblings();
+  const other = await uc.createList({ name: "Other" });
+  await uc.addPaperToList(a.id, "p1");
+  await uc.addPaperToList(other.id, "p1");
+  await uc.removePaperFromList(a.id, "p1");
+  assert.equal((await items.listItems(parent.id)).length, 0);
+  assert.equal((await items.listItems(other.id)).length, 1);
+});
+
+test("a direct ancestor row survives a child remove", async () => {
+  const { items, uc, parent, a } = await siblings();
+  await uc.addPaperToList(parent.id, "p1");
+  await uc.addPaperToList(a.id, "p1");
+  await uc.removePaperFromList(a.id, "p1");
+  const rows = await items.listItems(parent.id);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]!.inheritedFromListId, undefined);
+});
+
+function failingInheritedAdd(err: unknown) {
+  const made = makeUseCase();
+  const add = made.items.add.bind(made.items);
+  made.items.add = async (item) => {
+    if (item.inheritedFromListId) throw err;
+    return add(item);
+  };
+  return made;
+}
+
+test("a non-schema failure on an inherited add propagates (04-14)", async () => {
+  const { uc } = failingInheritedAdd(new Error("network down"));
+  const parent = await uc.createList({ name: "Parent" });
+  const child = await uc.createList({ name: "Child", parentId: parent.id });
+  await assert.rejects(() => uc.addPaperToList(child.id, "p1"), /network down/);
+  await assert.rejects(() => uc.addNoteToList(child.id, "n1"), /network down/);
+});
+
+test("a stale inherited link falls back to a plain row (04-14)", async () => {
+  for (const code of ["23503", "42703", "PGRST204"]) {
+    const { items, uc } = failingInheritedAdd(Object.assign(new Error("fk"), { code }));
+    const parent = await uc.createList({ name: "Parent" });
+    const child = await uc.createList({ name: "Child", parentId: parent.id });
+    await uc.addPaperToList(child.id, "p1");
+    const rows = await items.listItems(parent.id);
+    assert.equal(rows.length, 1, code);
+    assert.equal(rows[0]!.inheritedFromListId, undefined, code);
+  }
+});

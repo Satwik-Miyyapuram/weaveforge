@@ -289,6 +289,40 @@ export function toggleTabModeAt(layout: PaneLayout, paneId: string, index: numbe
   return setTabMode(layout, tab, tabMode(tab) === "edit" ? "read" : "edit");
 }
 
+/** The key of every tab open in any pane. */
+export function openTabKeys(layout: PaneLayout): Set<string> {
+  return new Set(leaves(layout.root).flatMap((leaf) => leaf.tabs.map(tabKey)));
+}
+
+/** `byKey` without the entries of documents no longer open; `byKey` itself when nothing closed. */
+export function keepOpen<T>(byKey: Record<string, T>, open: ReadonlySet<string>): Record<string, T> {
+  const keys = Object.keys(byKey);
+  if (keys.every((key) => open.has(key))) return byKey;
+  return Object.fromEntries(keys.filter((key) => open.has(key)).map((key) => [key, byKey[key]!]));
+}
+
+/** The pane chords: each acts on the focused pane's active tab. */
+export type PaneCommand = "split-right" | "close-tab" | "next-tab" | "previous-tab" | "toggle-mode";
+
+/**
+ * The layout after one pane chord. Pure, so the screen computes it once and
+ * writes it once; a tab chord on an empty pane returns `layout` unchanged.
+ */
+export function layoutForCommand(layout: PaneLayout, command: PaneCommand): PaneLayout {
+  const pane = layout.focusedPaneId;
+  if (command === "split-right") return splitPane(layout, pane, "row");
+  const leaf = findLeaf(layout.root, pane);
+  if (!leaf || leaf.tabs.length === 0) return layout;
+  if (command === "close-tab") return closeTab(layout, pane, leaf.activeIndex);
+  // `⌘E` flips the document on screen between the source editor and the
+  // rendered read view (§3.9). It is a property of the document, so it
+  // survives a tab switch, a split and a reload of the layout.
+  if (command === "toggle-mode") return toggleTabModeAt(layout, pane, leaf.activeIndex);
+  // Cycling wraps: Ctrl-Tab on the last tab lands on the first.
+  const step = command === "next-tab" ? 1 : -1;
+  return activateTab(layout, pane, (leaf.activeIndex + step + leaf.tabs.length) % leaf.tabs.length);
+}
+
 /**
  * Drop tabs whose entity no longer exists, then collapse whatever that empties.
  *

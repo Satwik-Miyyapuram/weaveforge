@@ -441,17 +441,8 @@
   mix-blend-mode: multiply;
   animation: pdf-reader-target-pulse 2.4s ease-out forwards;
 }
-.pdf-reader-caption-target {
-  position: absolute;
-  pointer-events: none;
-  border-radius: 2px;
-  z-index: 15;
-  mix-blend-mode: multiply;
-  animation: pdf-reader-target-pulse 2.4s ease-out forwards;
-}
 @media (prefers-reduced-motion: reduce) {
-  .pdf-reader-target-hit,
-  .pdf-reader-caption-target { animation: none; outline: 2px solid var(--accent); }
+  .pdf-reader-target-hit { animation: none; outline: 2px solid var(--accent); }
 }
 
 /* ---- Page transitions (lib/view-transition.ts sets data-nav for one navigation) ----

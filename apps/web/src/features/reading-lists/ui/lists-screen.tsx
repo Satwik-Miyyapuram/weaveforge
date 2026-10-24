@@ -25,7 +25,8 @@ import { collectListIds, listDisplayColor } from "./list-ui";
 import { ExtractionTable } from "./extraction-table";
 import { ListsRail, findListNode } from "./lists-rail";
 import { ScreeningPanel } from "./screening-panel";
-import { usePersistedState } from "@/lib/hooks/use-persisted-state";
+import { useProject } from "@/features/projects";
+import { projectScopedKey, usePersistedState } from "@/lib/hooks/use-persisted-state";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { emptyArray, emptyMap } from "@/lib/empty";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
@@ -141,7 +142,9 @@ export function ListsScreen() {
   const { isReadOnly: isReadOnlyList, sharedOwnerName, isPinned: isPinnedList } = usePinnedSharing({ isSharedView, pinnedSharedBy, ownerNames });
 
   // Two panes: the rail picks one list, the right pane shows it and its sublists.
-  const [storedSelected, setSelected] = usePersistedState<string>("thesis.lists.selected", "");
+  // A list id belongs to one project: each project remembers its own pick.
+  const projectId = useProject().current?.id;
+  const [storedSelected, setSelected] = usePersistedState<string>(projectScopedKey("thesis.lists.selected", projectId), "");
   const [search, setSearch] = useState("");
   const match = useScreenSearch(search, "list");
   const railTree = useMemo(() => {

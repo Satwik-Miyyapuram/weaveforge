@@ -36,7 +36,10 @@ export class ArxivMetadataSource implements IMetadataSource {
 
 /** Minimal, dependency-free parse of the first <entry> in an arXiv Atom feed. */
 function parseArxivEntry(xml: string, arxivId: string): PaperMetadata {
-  const entry = /<entry>([\s\S]*?)<\/entry>/.exec(xml)?.[1] ?? "";
+  const entry = /<entry>([\s\S]*?)<\/entry>/.exec(xml)?.[1];
+  // An unknown id answers with no entry, a malformed one with an entry titled
+  // "Error". Either is a miss, as Crossref's 404 is, not a paper to import.
+  if (entry === undefined) throw new Error(`arXiv has no paper ${arxivId}`);
   const pick = (tag: string) =>
     decode(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`).exec(entry)?.[1]?.trim());
   const authors = [...entry.matchAll(/<name>([\s\S]*?)<\/name>/g)]
@@ -46,6 +49,7 @@ function parseArxivEntry(xml: string, arxivId: string): PaperMetadata {
   const year = published ? Number(published.slice(0, 4)) : undefined;
 
   const title = pick("title")?.replace(/\s+/g, " ");
+  if (title === "Error") throw new Error(`arXiv has no paper ${arxivId}`);
   return {
     title: title ?? `arXiv:${arxivId}`,
     authors,

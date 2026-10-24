@@ -326,43 +326,6 @@ export function backingRatio(
   return Math.max(0.1, Math.min(devicePixelRatio, byArea, byEdge));
 }
 
-/**
- * The half-extent of the quad that encloses a segment, per axis.
- *
- * This is the one piece of the SDF pipeline that is CPU arithmetic, and it is
- * where the plan's zero-length case is decided: a segment whose endpoints coincide
- * is a **dot**, and the quad must be a square of `radius + margin` around it or the
- * fragment shader has a degenerate `ba` to divide by. The shader guards that
- * division separately (`max(dot(ba, ba), epsilon)`); this guards the geometry.
- */
-export function capsuleHalfExtent(
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number,
-  radius: number,
-  margin: number,
-): {
-  halfWidth: number;
-  halfHeight: number;
-  length: number;
-  degenerate: boolean;
-} {
-  const dx = bx - ax;
-  const dy = by - ay;
-  const length = Math.hypot(dx, dy);
-  const half = radius + margin;
-  if (length <= half) {
-    // Short enough to be a dot: a square covers it whatever the direction, and a
-    // direction is not defined anyway.
-    return { halfWidth: half, halfHeight: half, length, degenerate: true };
-  }
-  // The quad is the segment's own box grown by the nib and the AA margin.
-  const halfWidth = Math.abs(dx) / 2 + half;
-  const halfHeight = Math.abs(dy) / 2 + half;
-  return { halfWidth, halfHeight, length, degenerate: false };
-}
-
 /** One stroke's rendering inputs, as the packer needs them. */
 export interface StrokeInstanceInput {
   x: Float32Array;
@@ -402,12 +365,16 @@ export function packStrokeInstances(
   // stroke re-packs its tail the first instance still needs to know what it
   // joins onto.
   let prev = from > 0 ? at(from - 1, last - 1) : null;
+  // Each instance's `next` is the following instance's `b`, so it is carried
+  // over rather than evaluated twice.
+  let carried = from < segments ? at(from, 1) : null;
   for (let i = from; i < segments; i += 1) {
     let a = at(i, 0);
     for (let k = 1; k <= last; k += 1) {
-      const b = at(i, k);
+      const b = carried!;
       const next =
         k < last ? at(i, k + 1) : i + 1 < segments ? at(i + 1, 1) : null;
+      carried = next;
       const base = cursor * INK_INSTANCE_FLOATS;
       out[base] = a.x;
       out[base + 1] = a.y;

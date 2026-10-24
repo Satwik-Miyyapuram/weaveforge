@@ -149,3 +149,45 @@ test("refreshing the tag cache of a paper deleted meanwhile does not bring it ba
   await assert.rejects(uc.setManualTags("p1", ["ml"]), /No paper with id "p1"/);
   assert.equal(await papers.getById("p1"), null);
 });
+
+test("tag lookups for a paper run once per tag and in parallel (05-01)", async () => {
+  const { tags, paperTags, uc } = makeSetup();
+  await uc.setManualTags("p1", ["a", "b", "c"]);
+  // The same tag linked from a second source must not be fetched twice.
+  const first = (await paperTags.listForPaper("p1"))[0]!;
+  await paperTags.link({ ...first, source: "summary" });
+
+  const real = tags.getById.bind(tags);
+  let calls = 0;
+  let inFlight = 0;
+  let maxInFlight = 0;
+  tags.getById = async (id: string) => {
+    calls += 1;
+    maxInFlight = Math.max(maxInFlight, ++inFlight);
+    await new Promise((r) => setTimeout(r, 1));
+    inFlight -= 1;
+    return real(id);
+  };
+
+  const listed = await uc.listForPaper("p1");
+  assert.deepEqual(listed.map((t) => t.name), ["a", "b", "c"]);
+  assert.equal(calls, 3);
+  assert.equal(maxInFlight, 3);
+
+  calls = 0;
+  const links = await uc.listPaperTagLinks("p1");
+  assert.equal(links.length, 4);
+  assert.equal(calls, 3);
+
+  await uc.removeManualTag("p1", "c");
+  assert.deepEqual((await uc.listForPaper("p1")).map((t) => t.name), ["a", "b"]);
+});
+
+test("a link to a deleted tag is skipped (05-01)", async () => {
+  const { tags, uc } = makeSetup();
+  await uc.setManualTags("p1", ["a", "b"]);
+  const b = await tags.findByName("b");
+  tags.rows.delete(b!.id);
+  assert.deepEqual((await uc.listForPaper("p1")).map((t) => t.name), ["a"]);
+  assert.deepEqual((await uc.listPaperTagLinks("p1")).map((l) => l.name), ["a"]);
+});

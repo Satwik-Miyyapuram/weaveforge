@@ -1,7 +1,7 @@
 "use client";
 
 import type { Paper } from "@weaveforge/core";
-import { formatMetricCell } from "@weaveforge/core";
+import { formatMetricCell, isEmptyPaperSummary } from "@weaveforge/core";
 import Link from "next/link";
 import { CommentsToggle } from "@/features/sharing/ui/comments-toggle";
 import { SharedPaperImages } from "@/features/sharing/ui/shared-paper-images";
@@ -163,7 +163,7 @@ function SharedPaperCard({
   ownerId: string;
   canComment: boolean;
 }) {
-  const hasSummary = !!paper.summary && paper.summary !== "No summary yet.";
+  const hasSummary = !isEmptyPaperSummary(paper.summary);
   const snippet = hasSummary
     ? paper.summary!.replace(/\s+/g, " ").slice(0, 150) +
       (paper.summary!.length > 150 ? "…" : "")

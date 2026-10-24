@@ -27,6 +27,7 @@ import {
   boundsContain,
   boundsIntersect,
   boundsOf,
+  boundsUnion,
   fromGeometry,
   toGeometry,
   type InkStrokeGeometry,
@@ -247,4 +248,19 @@ test("a chunk written from a buffer is a chunk the container reads back", () => 
     Array.from(buffer.stroke(0)!.x),
   );
   assert.deepEqual(back.stroke(0)!.bounds, buffer.stroke(0)!.bounds);
+});
+
+test("a zero-point stroke does not stretch the page's bounds (18-10)", () => {
+  const buffer = new InkPageBuffer(pageOf(line(100, 300, 4), line(0, 0, 0)));
+  assert.deepEqual(buffer.bounds(), [100, 300, 160, 300]);
+  const onlyEmpty = new InkPageBuffer(pageOf(line(0, 0, 0)));
+  assert.deepEqual(onlyEmpty.bounds(), [0, 0, 0, 0]);
+});
+
+test("boundsUnion grows a box to cover another, and starts from the first (19-17)", () => {
+  assert.deepEqual(boundsUnion(null, [1, 2, 3, 4]), [1, 2, 3, 4]);
+  assert.deepEqual(boundsUnion([0, 5, 2, 6], [1, 2, 3, 4]), [0, 2, 3, 6]);
+  assert.deepEqual(boundsUnion([0, 0, 10, 10], [2, 2, 3, 3]), [0, 0, 10, 10]);
+  const b: [number, number, number, number] = [1, 1, 2, 2];
+  assert.notEqual(boundsUnion(null, b), b, "a copy, so later unions never write into a stroke's bounds");
 });

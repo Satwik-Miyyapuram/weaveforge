@@ -17,21 +17,9 @@
  *   fixB    fixA's key, values packed into `float8[]` chunks
  */
 
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import pg from "pg";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(here, "..");
-
-function loadDatabaseUrl() {
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
-  const text = readFileSync(path.join(repoRoot, "secrets", ".env.migration"), "utf8");
-  const match = /^DATABASE_URL=(.*)$/m.exec(text);
-  if (!match) throw new Error("DATABASE_URL not found in secrets/.env.migration");
-  return match[1].trim().replace(/^["']|["']$/g, "");
-}
+import { loadDatabaseUrl } from "./lib/db-connection.mjs";
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);

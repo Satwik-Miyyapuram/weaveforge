@@ -10,14 +10,14 @@ import {
   type CSSProperties,
 } from "react";
 import {
+  errorMessage,
   clampScale,
   readerKeyboardCommand,
   resolveTextAnchor,
   inkNoteWidthToPdfPoints,
   screenPointToPdf,
   translateInkPaths,
-  READER_MIN_SCALE,
-  READER_MAX_SCALE,
+  clampZoomFactor,
   type AnchorConfidence,
   type ReaderPageSize,
   type DocumentSearchMatch,
@@ -111,6 +111,7 @@ import {
   pageScopedLocus,
   textItemsFromContent,
 } from "./pdf-document";
+import { readStored, writeStored } from "@/lib/safe-storage";
 
 export function PdfReader({
   url,
@@ -242,7 +243,6 @@ export function PdfReader({
     onAnnotationsChange,
     onActivity,
     applyPin,
-    selectedAnnId,
     setSelectedAnnId,
     clearPendingCreate,
   });
@@ -255,7 +255,7 @@ export function PdfReader({
   } = actions;
   // Every local write goes through the undo stack, in read mode and ink mode.
   const inkUndo = useInkUndo(actions, annotations);
-  const { persistDraft, removeLocal, saveAnchor, reset: resetInkUndo } = inkUndo;
+  const { persistDraft, removeLocal, removeMany, saveAnchor, reset: resetInkUndo } = inkUndo;
   useEffect(() => resetInkUndo(), [url, resetInkUndo]);
   // Ctrl+Z/Y, Ctrl+F and Delete on the window, so they answer after a click on
   // the page or a rail button; skipped when focus sits in another pane.
@@ -875,6 +875,15 @@ export function PdfReader({
     let isPinching = false;
     let baseScale = 1;
 
+    /** Draw the live zoom preview at most once a frame. */
+    const showPreview = () => {
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        setZoomPreview({ factor: accumulatedFactor, x: gestureFocus.x, y: gestureFocus.y });
+      });
+    };
+
     const finishPinch = () => {
       if (commitTimer != null) {
         window.clearTimeout(commitTimer);
@@ -914,22 +923,9 @@ export function PdfReader({
 
       // Negative dy zooms in (> 1), positive dy zooms out (< 1)
       const factorDelta = Math.exp(-dy * 0.002);
-      accumulatedFactor *= factorDelta;
+      accumulatedFactor = clampZoomFactor(accumulatedFactor * factorDelta, baseScale);
 
-      const minFactor = READER_MIN_SCALE / baseScale;
-      const maxFactor = READER_MAX_SCALE / baseScale;
-      accumulatedFactor = Math.min(maxFactor, Math.max(minFactor, accumulatedFactor));
-
-      if (rafId == null) {
-        rafId = requestAnimationFrame(() => {
-          rafId = null;
-          setZoomPreview({
-            factor: accumulatedFactor,
-            x: gestureFocus.x,
-            y: gestureFocus.y,
-          });
-        });
-      }
+      showPreview();
 
       if (commitTimer != null) {
         window.clearTimeout(commitTimer);
@@ -956,19 +952,8 @@ export function PdfReader({
       const ge = e as unknown as { scale?: number };
       if (!isPinching) return;
       const scaleVal = typeof ge.scale === "number" ? ge.scale : 1;
-      const minFactor = READER_MIN_SCALE / baseScale;
-      const maxFactor = READER_MAX_SCALE / baseScale;
-      accumulatedFactor = Math.min(maxFactor, Math.max(minFactor, scaleVal));
-      if (rafId == null) {
-        rafId = requestAnimationFrame(() => {
-          rafId = null;
-          setZoomPreview({
-            factor: accumulatedFactor,
-            x: gestureFocus.x,
-            y: gestureFocus.y,
-          });
-        });
-      }
+      accumulatedFactor = clampZoomFactor(scaleVal, baseScale);
+      showPreview();
     };
 
     const onGestureEnd = (e: Event) => {
@@ -1042,13 +1027,15 @@ export function PdfReader({
     setPage: viewport.setPage,
     onFigureTarget,
   });
+  // The two callbacks are stable; `refs` itself is a new object every render.
+  const { startPrefetch, stopPrefetch } = refs;
   useEffect(() => {
     if (!sideCollapsed && activeSideTab === "references") {
-      refs.startPrefetch();
+      startPrefetch();
     } else {
-      refs.stopPrefetch();
+      stopPrefetch();
     }
-  }, [sideCollapsed, activeSideTab, refs]);
+  }, [sideCollapsed, activeSideTab, startPrefetch, stopPrefetch]);
 
 
   const printAnnotationsOn = useCallback(
@@ -1449,7 +1436,7 @@ export function PdfReader({
     try {
       path = await getContainer().papers.uploadImage(paperId, file, ext);
     } catch (err) {
-      setAnnError(`The picture could not be uploaded: ${err instanceof Error ? err.message : String(err)}`);
+      setAnnError(`The picture could not be uploaded: ${errorMessage(err)}`);
       return;
     }
     await persistDraft(draftPicture({ path, pageIndex: pageNumber - 1, pageWidth, pageHeight, aspect }));
@@ -1665,7 +1652,8 @@ export function PdfReader({
           onDeleteSelection={() => {
             const doomed = [...lassoed];
             clearLasso();
-            for (const id of doomed) void removeLocal(id);
+            // One undo step for the whole selection.
+            void removeMany(doomed);
           }}
           onTool={(tool) => {
             // Switching tool ends the mark in progress, so the next stroke
@@ -1943,7 +1931,7 @@ export function PdfReader({
                 )}
                 {/* Inside the page, because it decorates the page's own text
                     layer rather than painting a sibling layer over it. */}
-                {pageSize && refs.enabled && refs.index.mentionsByPage.has(n) && pageItems.has(n) && (
+                {pageSize && refs.index.mentionsByPage.has(n) && pageItems.has(n) && (
                   <CitationTextLayer
                     mentions={refs.index.mentionsByPage.get(n)!}
                     items={pageItems.get(n)!}
@@ -2151,17 +2139,10 @@ function syncPenParam(on: boolean) {
 const SIDE_COLLAPSED_KEY = "wf.reader.sideCollapsed";
 
 function readSideCollapsed(): boolean {
-  try {
-    return window.localStorage.getItem(SIDE_COLLAPSED_KEY) === "1";
-  } catch {
-    return false;
-  }
+  return readStored(SIDE_COLLAPSED_KEY) === "1";
 }
 
+/** Private mode or blocked storage: the panel simply forgets. */
 function writeSideCollapsed(collapsed: boolean) {
-  try {
-    window.localStorage.setItem(SIDE_COLLAPSED_KEY, collapsed ? "1" : "0");
-  } catch {
-    // Private mode or blocked storage: the panel simply forgets.
-  }
+  writeStored(SIDE_COLLAPSED_KEY, collapsed ? "1" : "0");
 }

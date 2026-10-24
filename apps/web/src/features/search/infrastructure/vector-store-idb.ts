@@ -1,4 +1,5 @@
 import { VECTOR_STORE, openAppDb } from "@/lib/cache/app-idb";
+import { warnOnce } from "@/lib/error-report/warn-once";
 
 /**
  * Persisted passage vectors.
@@ -50,7 +51,8 @@ export async function idbSetVectors(
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-  } catch {
+  } catch (err) {
+    warnOnce("search", "Search vectors were not saved to browser storage.", err);
     /* best-effort: losing this costs a re-embed, never a result */
   }
 }
@@ -66,7 +68,8 @@ export async function idbClearVectors(): Promise<void> {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-  } catch {
+  } catch (err) {
+    warnOnce("search", "Search vectors were not cleared from browser storage.", err);
     /* ignore */
   }
 }

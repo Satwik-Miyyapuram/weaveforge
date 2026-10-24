@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 
 import {
+  errorMessage,
   decideVaultCommit,
   describeChanges,
   type GitAuthor,
@@ -211,7 +212,7 @@ export async function commitVault(
 
 /** Git's own error lines, not the command echo and per-file warnings around them. */
 export function gitReason(error: unknown): string {
-  const text = error instanceof Error ? error.message : "";
+  const text = errorMessage(error, "");
   const lines = text.split(/\r?\n/).filter((line) => /^(fatal|error):/.test(line));
   return lines.length > 0 ? lines.join(" ") : text.split(/\r?\n/)[0] || "Could not commit.";
 }

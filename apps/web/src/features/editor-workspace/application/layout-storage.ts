@@ -10,9 +10,45 @@
  */
 
 import type { KeyValueStore } from "./explorer-state";
-import { emptyLayout, type PaneLayout, type PaneNode } from "./pane-tree";
+import { emptyLayout, type DocumentMode, type PaneLayout, type PaneNode, type TabRef } from "./pane-tree";
 
 export const LAYOUT_STORAGE_KEY = "weaveforge.editor.layout";
+
+/** Storage that can also forget a key; `localStorage` is one. */
+type LayoutStore = KeyValueStore & { removeItem?: (key: string) => void };
+
+/**
+ * Each project keeps its own panes: a tab from project A restored into
+ * project B is a document B cannot open. No project means the plain key.
+ */
+function layoutKey(projectId: string | null | undefined): string {
+  return projectId ? `${LAYOUT_STORAGE_KEY}.${projectId}` : LAYOUT_STORAGE_KEY;
+}
+
+/**
+ * The raw record for a project. Layouts saved before they were per project
+ * sit under the plain key: the first project opened adopts that record and
+ * the plain key is cleared, so no second project inherits the same tabs.
+ */
+function readRaw(store: LayoutStore, projectId: string | null | undefined): string | null {
+  const key = layoutKey(projectId);
+  const own = store.getItem(key);
+  if (own || key === LAYOUT_STORAGE_KEY) return own;
+  const legacy = store.getItem(LAYOUT_STORAGE_KEY);
+  if (!legacy) return null;
+  store.setItem(key, legacy);
+  store.removeItem?.(LAYOUT_STORAGE_KEY);
+  return legacy;
+}
+
+const MODES: readonly string[] = ["edit", "read", "pdf", "ink"] satisfies readonly DocumentMode[];
+
+/** A tab as stored. A missing or unknown mode reads as none chosen yet. */
+function parseTab(tab: { kind: string; id: string; mode?: unknown }): TabRef {
+  return typeof tab.mode === "string" && MODES.includes(tab.mode)
+    ? { kind: tab.kind, id: tab.id, mode: tab.mode as DocumentMode }
+    : { kind: tab.kind, id: tab.id };
+}
 
 function parseNode(value: unknown): PaneNode | null {
   if (typeof value !== "object" || value === null) return null;
@@ -21,7 +57,7 @@ function parseNode(value: unknown): PaneNode | null {
   if (node.type === "leaf") {
     if (typeof node.id !== "string" || !Array.isArray(node.tabs)) return null;
     const tabs = node.tabs.filter(
-      (tab): tab is { kind: string; id: string } =>
+      (tab): tab is { kind: string; id: string; mode?: unknown } =>
         typeof tab === "object" &&
         tab !== null &&
         typeof (tab as { kind?: unknown }).kind === "string" &&
@@ -31,7 +67,7 @@ function parseNode(value: unknown): PaneNode | null {
     return {
       type: "leaf",
       id: node.id,
-      tabs: tabs.map((tab) => ({ kind: tab.kind, id: tab.id })),
+      tabs: tabs.map(parseTab),
       activeIndex: Math.min(Math.max(activeIndex, 0), Math.max(tabs.length - 1, 0)),
     };
   }
@@ -55,10 +91,13 @@ function parseNode(value: unknown): PaneNode | null {
   return null;
 }
 
-export function readLayout(store: KeyValueStore | undefined): PaneLayout {
+export function readLayout(
+  store: LayoutStore | undefined,
+  projectId?: string | null,
+): PaneLayout {
   if (!store) return emptyLayout();
   try {
-    const raw = store.getItem(LAYOUT_STORAGE_KEY);
+    const raw = readRaw(store, projectId);
     if (!raw) return emptyLayout();
     const parsed = JSON.parse(raw) as { root?: unknown; focusedPaneId?: unknown };
     const root = parseNode(parsed.root);
@@ -76,9 +115,13 @@ function firstLeafId(node: PaneNode): string {
   return node.type === "leaf" ? node.id : firstLeafId(node.children[0]);
 }
 
-export function writeLayout(store: KeyValueStore | undefined, layout: PaneLayout): void {
+export function writeLayout(
+  store: KeyValueStore | undefined,
+  layout: PaneLayout,
+  projectId?: string | null,
+): void {
   try {
-    store?.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layout));
+    store?.setItem(layoutKey(projectId), JSON.stringify(layout));
   } catch {
     // Storage disabled. The layout still holds for this session.
   }

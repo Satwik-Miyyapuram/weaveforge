@@ -28,13 +28,8 @@ import {
   type AiResourceType,
   type AiWorkspaceSource,
   type AiToolName,
-  ExecuteAiProposalUseCase,
-  AiProposalExecutorRegistry,
-  type AiWriteProposal,
-  type IAiAuditStore,
   type IAiProposalStore,
 } from "@weaveforge/core";
-import { singleFlight } from "@/lib/cache/single-flight";
 import {
   ensureRelay as ensureRelayLoop,
   runningRelays as listRunningRelays,
@@ -53,9 +48,6 @@ import {
   type ProviderApi as ByokProviderApi,
   type ProviderDescriptor as ByokProviderDescriptor,
 } from "@/features/ai-assistant/infrastructure/byok-model-conversation";
-
-/** How long the pending-proposal count is reused across the shell's badges. */
-const PENDING_PROPOSALS_MEMO_MS = 15_000;
 
 /**
  * The bring-your-own-key surface, as the settings panel sees it.
@@ -112,6 +104,11 @@ export class AiAssistantFacade {
   }
 
   async listSourceOptions(): Promise<readonly AiSourceOption[]> {
+    return this.sourceOptionsFrom(await this.loadWorkspace());
+  }
+
+  /** Every repository the assistant can read, loaded once per request. */
+  private async loadWorkspace() {
     const [papers, vaultPages, readingLists, logEntries, experiments, milestones] = await Promise.all([
       this.deps.papers.list(),
       this.deps.vaultPages.list(),
@@ -120,6 +117,12 @@ export class AiAssistantFacade {
       this.deps.experiments.list(),
       this.deps.milestones.list(),
     ]);
+    return { papers, vaultPages, readingLists, logEntries, experiments, milestones };
+  }
+
+  private sourceOptionsFrom(
+    { papers, vaultPages, readingLists, logEntries, experiments, milestones }: Awaited<ReturnType<AiAssistantFacade["loadWorkspace"]>>,
+  ): AiSourceOption[] {
     const source = (resourceType: AiResourceType, resourceId: string, label: string, category: string, href?: string): AiSourceOption => ({
       sourceId: `${resourceType}:${resourceId}`,
       resourceType,
@@ -295,7 +298,7 @@ export class AiAssistantFacade {
 
   async getWorkspaceOutline(input: { sessionId: string; settings: AiAccessSettings }): Promise<readonly AiWorkspaceSource[]> {
     const session = this.requireActiveSession(input.sessionId);
-    const readable = await this.readableSources(session, input.settings);
+    const readable = this.readableSources(session, input.settings, this.sourceOptionsFrom(await this.loadWorkspace()));
     const effectiveSession: AiActiveSession = { ...session, grant: { ...session.grant, readable } };
     for (const source of readable) {
       this.assertReadable(effectiveSession, input.settings, source, "get_workspace_outline");
@@ -359,10 +362,8 @@ export class AiAssistantFacade {
   }
 
   private async readGrantedDocuments(session: AiActiveSession, settings: AiAccessSettings, tool: AiToolName): Promise<readonly AiRetrievalDocument[]> {
-    const [papers, vaultPages, readingLists, logEntries, experiments, milestones] = await Promise.all([
-      this.deps.papers.list(), this.deps.vaultPages.list(), this.deps.readingLists.list(),
-      this.deps.logEntries.list(), this.deps.experiments.list(), this.deps.milestones.list(),
-    ]);
+    const workspace = await this.loadWorkspace();
+    const { papers, vaultPages, readingLists, logEntries, experiments, milestones } = workspace;
     const byId = <T extends { id: string }>(items: readonly T[]) => new Map(items.map((item) => [item.id, item]));
     const indexes = {
       papers: byId(papers), vaultPages: byId(vaultPages), readingLists: byId(readingLists),
@@ -370,7 +371,7 @@ export class AiAssistantFacade {
       zoteroEntries: new Map(papers.flatMap((paper) => this.zoteroEntries(paper).map((entry, index) =>
         [this.zoteroResourceId(paper.id, entry, index), { paper, entry }]))),
     };
-    const readable = await this.readableSources(session, settings);
+    const readable = this.readableSources(session, settings, this.sourceOptionsFrom(workspace));
     const effectiveSession: AiActiveSession = { ...session, grant: { ...session.grant, readable } };
     return readable.flatMap((source) => {
       this.assertReadable(effectiveSession, settings, source, tool);
@@ -381,9 +382,12 @@ export class AiAssistantFacade {
   }
 
   /** Re-evaluate auto-inclusion at request time; never add a disabled category. */
-  private async readableSources(session: AiActiveSession, settings: AiAccessSettings): Promise<readonly AiWorkspaceSource[]> {
+  private readableSources(
+    session: AiActiveSession,
+    settings: AiAccessSettings,
+    sourceOptions: readonly AiSourceOption[],
+  ): readonly AiWorkspaceSource[] {
     const dynamicCategories = new Set(settings.autoIncludeNewSourceCategories ?? []);
-    const sourceOptions = await this.listSourceOptions();
     return [
       ...session.grant.readable,
       ...sourceOptions.filter((source) => dynamicCategories.has(aiReadCategoryForResource(source.resourceType))
@@ -440,110 +444,4 @@ export class AiAssistantFacade {
 function boundedMcpExcerpt(text: string, maxChars = 2_000): string {
   const normalized = text.replace(/\s+/g, " ").trim();
   return normalized.length <= maxChars ? normalized : `${normalized.slice(0, maxChars - 1).trimEnd()}…`;
-}
-
-/** Browser-only review boundary. MCP tools may draft proposals but cannot reach this facade. */
-export class AiProposalFacade {
-  private readonly executeProposal: ExecuteAiProposalUseCase;
-
-  constructor(private readonly deps: {
-    proposals: IAiProposalStore; audit: IAiAuditStore; executors: AiProposalExecutorRegistry;
-    newId: () => string; now: () => string;
-  }) {
-    this.executeProposal = new ExecuteAiProposalUseCase({
-      proposals: deps.proposals, audit: deps.audit, executors: deps.executors,
-      ids: { newId: deps.newId }, clock: { nowIso: deps.now },
-    });
-  }
-
-  /**
-   * Pending proposals, shared across the burst of callers a page load makes.
-   *
-   * The review badge is rendered by every `HeaderActions` the shell mounts —
-   * nav, mobile header, menu — and they mount as the breakpoint resolves rather
-   * than together, so single-flight alone still left several identical queries.
-   * The short window covers the whole boot; anything that changes the queue
-   * dispatches `ai-proposals-changed`, and that path clears it.
-   */
-  listPending(): Promise<AiWriteProposal[]> {
-    const now = Date.now();
-    if (this.pendingMemo && now - this.pendingMemo.at < PENDING_PROPOSALS_MEMO_MS) {
-      return this.pendingMemo.value;
-    }
-    const value = singleFlight("ai-proposals:pending", () => this.deps.proposals.listPending());
-    this.pendingMemo = { at: now, value };
-    void value.catch(() => {
-      if (this.pendingMemo?.value === value) this.pendingMemo = null;
-    });
-    return value;
-  }
-
-  private pendingMemo: { at: number; value: Promise<AiWriteProposal[]> } | null = null;
-
-  /** Drop the memo — call after anything that changes the queue. */
-  forgetPending(): void {
-    this.pendingMemo = null;
-  }
-
-  /**
-   * Queue a draft the user asked for themselves, from inside the app.
-   *
-   * Deliberately not routed through `CreateAiProposalDraftUseCase`: that path
-   * exists to gate an *external* agent acting over MCP, and evaluates a session
-   * grant to decide whether that agent may touch a resource. Here the actor is
-   * the signed-in user clicking a button in their own workspace, so there is no
-   * third party to authorise — applying the grant check would mean refusing to
-   * queue work the user explicitly requested.
-   *
-   * The write gate is unchanged: this only produces a pending row, and nothing
-   * reaches a repository until it is approved in the review queue.
-   */
-  async draftLocal(input: {
-    kind: AiProposalKind;
-    resourceId: string;
-    content: string;
-    payload?: Record<string, unknown>;
-    sourceLinks?: readonly string[];
-    expectedRevision?: string;
-  }): Promise<AiWriteProposal> {
-    const content = input.content.trim();
-    if (!content) throw new Error("A proposal needs a preview describing what it will do.");
-
-    const proposal: AiWriteProposal = {
-      id: this.deps.newId(),
-      kind: input.kind,
-      resourceId: input.resourceId,
-      content,
-      payload: input.payload,
-      createdAt: this.deps.now(),
-      status: "pending",
-      sourceLinks: input.sourceLinks ?? [],
-      expectedRevision: input.expectedRevision,
-    };
-    await this.deps.proposals.save(proposal);
-    this.forgetPending();
-    return proposal;
-  }
-  async pendingCount(): Promise<number> { return (await this.listPending()).length; }
-  async approve(id: string): Promise<"accepted" | "conflicted"> {
-    const result = await this.executeProposal.execute(id);
-    this.forgetPending();
-    return result;
-  }
-
-  async reject(id: string): Promise<void> {
-    const proposal = await this.deps.proposals.getById(id);
-    if (!proposal) throw new Error("AI proposal not found");
-    if (proposal.status !== "pending") throw new Error("AI proposal is no longer pending");
-    await this.deps.proposals.save({ ...proposal, status: "rejected" });
-    this.forgetPending();
-    await this.deps.audit.save({ id: this.deps.newId(), proposalId: id, action: "rejected", createdAt: this.deps.now() });
-  }
-
-  /** Returns how many were not applied because their target changed. */
-  async approveSafeBatch(ids: readonly string[]): Promise<number> {
-    let conflicted = 0;
-    for (const id of ids) if ((await this.approve(id)) === "conflicted") conflicted += 1;
-    return conflicted;
-  }
 }

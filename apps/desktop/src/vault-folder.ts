@@ -5,6 +5,7 @@ import * as path from "node:path";
 import {
   WORKSPACE_META_DIR,
   safeWorkspacePath,
+  walkByList,
   type IWorkspaceFs,
   type WorkspaceStat,
 } from "@weaveforge/core";
@@ -204,11 +205,8 @@ export class NodeWorkspaceFs implements IWorkspaceFs {
     return out;
   }
 
-  async *walk(dir: string): AsyncIterable<WorkspaceStat> {
-    for (const entry of await this.list(dir)) {
-      if (entry.kind === "file") yield entry;
-      else yield* this.walk(entry.path);
-    }
+  walk(dir: string): AsyncIterable<WorkspaceStat> {
+    return walkByList(this, dir);
   }
 
   async stat(relative: string): Promise<WorkspaceStat | null> {

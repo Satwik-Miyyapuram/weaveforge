@@ -7,8 +7,8 @@ import {
   HTML_PROXY_MAX_BYTES,
   htmlRelayResponse,
   isHtmlContentType,
-  readCapped,
 } from "@/features/reader/application/paper-html-rules";
+import { readCapped } from "@/lib/read-capped";
 
 /**
  * The web server's HTML relay for papers published as web pages.

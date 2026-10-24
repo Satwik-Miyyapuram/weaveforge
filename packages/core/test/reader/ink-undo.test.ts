@@ -95,3 +95,18 @@ test("refreshing a snapshot updates the row's create and remove entries only", (
   assert.equal(a.kind === "create" && a.annotation.anchor.zoteroPosition?.paths?.length, 2);
   assert.equal(b.kind === "create" && b.annotation.anchor.zoteroPosition?.paths?.length, 1);
 });
+
+test("a batch removal renames and refreshes every annotation it holds (23-16)", () => {
+  let state: InkUndoState = pushInkUndo(EMPTY_INK_UNDO, {
+    kind: "removeMany",
+    annotations: [ink("a"), ink("b")],
+  });
+  state = renameInkUndoId(state, "b", "b2");
+  const grown = ink("a", [[0, 0, 5, 5]]);
+  state = refreshInkUndoAnnotation(state, grown);
+  const entry = state.undo[0]!;
+  assert.equal(entry.kind, "removeMany");
+  if (entry.kind !== "removeMany") return;
+  assert.deepEqual(entry.annotations.map((a) => a.id), ["a", "b2"]);
+  assert.deepEqual(entry.annotations[0]!.anchor, grown.anchor);
+});

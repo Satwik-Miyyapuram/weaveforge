@@ -8,16 +8,13 @@ import {
 import type { IReportSectionRepository } from "../domain/report-section-repository.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { NotFoundError } from "../../../shared/errors.js";
+import { countWords } from "../../../shared/text.js";
+import { assertNotUnder } from "../../../shared/tree.js";
 
 export interface ManageReportSectionDeps {
   repository: IReportSectionRepository;
   clock: Clock;
   ids: IdGenerator;
-}
-
-function countWords(text: string): number {
-  const t = text.trim();
-  return t ? t.split(/\s+/).length : 0;
 }
 
 export class ManageReportSectionUseCase {
@@ -42,18 +39,16 @@ export class ManageReportSectionUseCase {
   /** Move under another section, or to the top with `null`. */
   async setParent(id: string, parentId: string | null): Promise<ReportSection> {
     if (parentId) {
-      let cursor: string | undefined = parentId;
-      const seen = new Set<string>();
-      while (cursor) {
-        if (cursor === id) {
-          throw new ReportSectionValidationError("A section cannot be moved inside itself.");
-        }
-        if (seen.has(cursor)) break;
-        seen.add(cursor);
-        const parent = await this.deps.repository.getById(cursor);
-        if (!parent) throw new NotFoundError(`No report section with id "${parentId}".`);
-        cursor = parent.parentId;
-      }
+      await assertNotUnder(
+        id,
+        parentId,
+        async (cursor) => {
+          const parent = await this.deps.repository.getById(cursor);
+          if (!parent) throw new NotFoundError(`No report section with id "${parentId}".`);
+          return parent.parentId;
+        },
+        () => new ReportSectionValidationError("A section cannot be moved inside itself."),
+      );
     }
     return this.mutate(id, (s) => ({ ...s, parentId: parentId ?? undefined }));
   }

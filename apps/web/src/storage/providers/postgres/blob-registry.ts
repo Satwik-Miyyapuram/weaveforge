@@ -1,4 +1,4 @@
-import type { BlobObjectRecord, BlobTier, IBlobRegistry, RegisterBlobInput } from "@weaveforge/core";
+import type { BlobObjectRecord, IBlobRegistry, RegisterBlobInput } from "@weaveforge/core";
 import { rowToRecord, type BlobRow } from "@/storage/providers/blob-row";
 import type { PgRunner } from "@/backend/providers/postgres/pg-runner";
 
@@ -68,34 +68,7 @@ export class PostgresBlobRegistry implements IBlobRegistry {
     );
   }
 
-  async setTier(bucket: string, path: string, tier: BlobTier, sizeBytes?: number): Promise<void> {
-    if (sizeBytes !== undefined) {
-      await this.pg.exec(
-        "update blob_objects set tier = $1, size_bytes = $2 where bucket = $3 and path = $4",
-        [tier, sizeBytes, bucket, path],
-      );
-    } else {
-      await this.pg.exec("update blob_objects set tier = $1 where bucket = $2 and path = $3", [
-        tier,
-        bucket,
-        path,
-      ]);
-    }
-  }
-
   async remove(bucket: string, path: string): Promise<void> {
     await this.pg.exec("delete from blob_objects where bucket = $1 and path = $2", [bucket, path]);
-  }
-
-  async listHot(): Promise<BlobObjectRecord[]> {
-    const rows = await this.pg.query<BlobRow>("select * from blob_objects where tier = 'hot'");
-    return rows.map(rowToRecord);
-  }
-
-  async hotBytesTotal(): Promise<number> {
-    const row = await this.pg.queryOne<{ total: string }>(
-      "select coalesce(sum(size_bytes), 0) as total from blob_objects where tier = 'hot'",
-    );
-    return Number(row?.total ?? 0);
   }
 }

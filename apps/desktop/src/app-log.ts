@@ -101,6 +101,8 @@ export function createAppLog(options: AppLogOptions): AppLog {
   const held: AppLogEntry[] = [];
   let bytes = 0;
   let installed = false;
+  /** The file write is failing; said once until it recovers. */
+  let degraded = false;
   /** The tail of the write chain: every append runs after the one before it. */
   let tail: Promise<void> = Promise.resolve();
 
@@ -114,9 +116,20 @@ export function createAppLog(options: AppLogOptions): AppLog {
       await appendFile(path.join(dir, APP_LOG_FILENAME), line, "utf8");
       bytes += Buffer.byteLength(line, "utf8");
       if (bytes > MAX_FILE_BYTES) await trim();
+      degraded = false;
     } catch {
       // See the module comment: an unwritable log is not an outage. The memory
-      // ring is the answer over IPC either way.
+      // ring is the answer over IPC either way, so that is where it is said.
+      if (!degraded) {
+        degraded = true;
+        held.push({
+          at: now().toISOString(),
+          level: "warn",
+          source: "log",
+          message: "The log file is not being written; entries are kept in memory only.",
+        });
+        if (held.length > MAX_ENTRIES) held.shift();
+      }
     }
   }
 

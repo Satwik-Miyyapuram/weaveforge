@@ -28,24 +28,6 @@ export interface MentionGeometry {
 const EMPTY: MentionGeometry = { rects: [], bounds: null };
 
 /**
- * The page's runs as the one string the finders report offsets into: every run
- * concatenated, with a newline after each `hasEOL` run.
- *
- * This is the same convention as `pdf-document.buildPageText` (which the reader
- * uses for search text and anchors) — `reference-locate.test.ts` asserts the two
- * agree, because a divergence here would put every mention after a line break on
- * the wrong run, silently.
- */
-export function pageTextFromItems(items: readonly { str: string; hasEOL?: boolean }[]): string {
-  let text = "";
-  for (const item of items) {
-    text += item.str;
-    if (item.hasEOL) text += "\n";
-  }
-  return text;
-}
-
-/**
  * Rects covering `[start, end)` of the page text. Out-of-range or empty ranges
  * yield no geometry rather than a guess, so a stale offset paints nothing
  * instead of highlighting an unrelated line.
