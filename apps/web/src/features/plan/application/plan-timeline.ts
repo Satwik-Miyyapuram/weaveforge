@@ -84,14 +84,22 @@ export function clusterMarks(marks: readonly PlanTimelineMark[], minGap: number)
   return out;
 }
 
+/**
+ * Calendar days from `now`'s local date to `iso` (`YYYY-MM-DD`): 0 today, 1
+ * tomorrow, negative once past. Rounded, so a 23- or 25-hour day still counts one.
+ */
+export function daysUntilDate(iso: string, now: Date = new Date()): number {
+  const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return Math.round((day(iso) - todayMs) / DAY);
+}
+
 /** "on track", or how many are overdue, then how many fall due within two weeks. */
 export function planPace(milestones: readonly Milestone[], now: Date = new Date()): string {
-  const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   let overdue = 0;
   let soon = 0;
   for (const m of milestones) {
     if (!m.targetDate || m.status === "done") continue;
-    const days = Math.round((day(m.targetDate) - todayMs) / DAY);
+    const days = daysUntilDate(m.targetDate, now);
     if (days < 0) overdue++;
     else if (days <= 14) soon++;
   }

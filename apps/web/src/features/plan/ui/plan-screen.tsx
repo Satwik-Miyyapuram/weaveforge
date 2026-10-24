@@ -1,6 +1,5 @@
 "use client";
 
-import { DatePicker } from "@/components/date-picker";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -27,7 +26,10 @@ import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { PlanScreenData } from "@/features/plan/application/load-plan-screen.use-case";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
-import { planPace, planTimeline } from "@/features/plan/application/plan-timeline";
+import { daysUntilDate, planPace, planTimeline } from "@/features/plan/application/plan-timeline";
+import { logToApp } from "@/lib/error-report/app-log";
+import { formatError } from "@/lib/format-error";
+import { runReported } from "@/lib/run-reported";
 import { PlanTimelineBar } from "@/features/plan/ui/plan-timeline-bar";
 import { StatusSelect } from "@/components/status-select";
 import { MilestoneForm } from "./milestone-form";
@@ -102,6 +104,9 @@ export function PlanScreen() {
           requestAnimationFrame(() => {
             document.getElementById(`milestone-${focusFromUrl}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
           });
+        })
+        .catch((err: unknown) => {
+          logToApp({ level: "warn", source: "plan", message: "Could not load the linked milestone", detail: formatError(err) });
         });
     }
   }, [focusFromUrl, items, isSharedView, pinnedSharedBy, setData]);
@@ -181,6 +186,7 @@ export function PlanScreen() {
         canComment={milestoneCanComment.get(m.id) ?? false}
         onReplace={replace}
         onChanged={load}
+        onError={setError}
         onJump={jumpTo}
       />
     );
@@ -307,11 +313,6 @@ function byDue(a: Milestone, b: Milestone): number {
   return a.targetDate ? -1 : b.targetDate ? 1 : 0;
 }
 
-function daysUntil(date: string): number {
-  const target = new Date(`${date}T00:00:00`);
-  return Math.ceil((target.getTime() - Date.now()) / 86_400_000);
-}
-
 function MilestoneCard({
   milestone: m,
   labels,
@@ -324,6 +325,7 @@ function MilestoneCard({
   canComment = false,
   onReplace,
   onChanged,
+  onError,
   onJump,
 }: {
   milestone: Milestone;
@@ -337,6 +339,7 @@ function MilestoneCard({
   canComment?: boolean;
   onReplace: (m: Milestone) => void;
   onChanged: () => void;
+  onError: (message: string) => void;
   onJump?: (id: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -346,9 +349,15 @@ function MilestoneCard({
   const [confirmUnpinOpen, setConfirmUnpinOpen] = useState(false);
 
   async function setStatus(status: MilestoneStatus) {
-    const updated = await getContainer().plan.manageMilestone.setStatus(m.id, status);
-    onReplace(updated);
-    try { await getContainer().plan.notifyMilestone("status", updated); } catch { /* best-effort */ }
+    await runReported(async () => {
+      const updated = await getContainer().plan.manageMilestone.setStatus(m.id, status);
+      onReplace(updated);
+      try {
+        await getContainer().plan.notifyMilestone("status", updated);
+      } catch (err) {
+        logToApp({ level: "warn", source: "plan", message: "Milestone notification failed", detail: formatError(err) });
+      }
+    }, onError);
   }
 
   async function remove() {
@@ -391,7 +400,7 @@ function MilestoneCard({
     );
   }
 
-  const due = m.targetDate ? daysUntil(m.targetDate) : null;
+  const due = m.targetDate ? daysUntilDate(m.targetDate) : null;
 
   return (
     <>
