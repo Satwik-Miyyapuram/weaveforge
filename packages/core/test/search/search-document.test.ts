@@ -243,3 +243,62 @@ test("revision changes when content is edited or removed", () => {
   assert.notEqual(searchRevision(base), searchRevision(removed), "a deletion must invalidate it");
   assert.equal(searchRevision(base), searchRevision(toSearchDocs(snapshot({ vaultPages: [note()] }))));
 });
+
+const section = (over: Record<string, unknown> = {}) =>
+  ({
+    id: "s1",
+    title: "Method",
+    status: "draft",
+    wordCount: 0,
+    notes: "first draft",
+    sortOrder: 0,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    ...over,
+  }) as never;
+
+test("revision changes when a report section's notes are edited (01-01)", () => {
+  // Sections, lists, milestones and log entries had only createdAt in the
+  // revision, so editing their text left a stale index cached.
+  const base = toSearchDocs(snapshot({ reportSections: [section()] }));
+  const edited = toSearchDocs(snapshot({ reportSections: [section({ notes: "rewritten" })] }));
+  assert.notEqual(searchRevision(base), searchRevision(edited));
+});
+
+test("a section's updatedAt is used when the database has set it (01-01)", () => {
+  const docs = toSearchDocs(
+    snapshot({ reportSections: [section({ updatedAt: "2026-05-01T00:00:00.000Z" })] }),
+  );
+  assert.equal(docs[0]!.updatedAt, "2026-05-01T00:00:00.000Z");
+});
+
+test("revision changes when a doc is swapped for an older one (01-01)", () => {
+  // Same count, same newest timestamp: a doc synced in from another device
+  // replaced a deleted one.
+  const newest = note({ id: "n1", updatedAt: "2026-03-01T00:00:00.000Z" });
+  const base = toSearchDocs(snapshot({ vaultPages: [newest, note({ id: "n2", title: "Old" })] }));
+  const swapped = toSearchDocs(snapshot({ vaultPages: [newest, note({ id: "n3", title: "Synced" })] }));
+  assert.notEqual(searchRevision(base), searchRevision(swapped));
+});
+
+test("revision does not depend on document order", () => {
+  const a = note({ id: "a", title: "A" });
+  const b = note({ id: "b", title: "B" });
+  assert.equal(
+    searchRevision(toSearchDocs(snapshot({ vaultPages: [a, b] }))),
+    searchRevision(toSearchDocs(snapshot({ vaultPages: [b, a] }))),
+  );
+});
+
+test("revision of an empty corpus is stable", () => {
+  assert.equal(searchRevision([]), searchRevision(toSearchDocs(snapshot())));
+});
+
+test("a body cut at the limit does not end in half a surrogate pair (01-12)", () => {
+  // 255 999 ASCII characters then an emoji: the cut at 256 000 falls between
+  // the emoji's two UTF-16 units.
+  const body = `${"a".repeat(255_999)}😀 tail`;
+  const docs = toSearchDocs(snapshot({ vaultPages: [note({ body })] }));
+  const last = docs[0]!.body.charCodeAt(docs[0]!.body.length - 1);
+  assert.ok(last < 0xd800 || last > 0xdbff, "a lone high surrogate is left at the end");
+  assert.ok(docs[0]!.body.length <= 256_000);
+});
