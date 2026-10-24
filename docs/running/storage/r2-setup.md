@@ -99,6 +99,6 @@ Apply migration `0024_blob_objects_sharing.sql` for share-aware blob registry RL
 
 **API routes are not web pages:** `/api/blobs/upload` and `/api/blobs/signed-urls` accept **POST** only. Opening them in the browser (GET) shows nothing or an error — use DevTools → Network while uploading/viewing images.
 
-Token signing uses `BLOB_VIEW_SECRET`, else `SUPABASE_SERVICE_ROLE_KEY`, else `R2_SECRET_ACCESS_KEY` (already required for tiered mode).
+Token signing uses `BLOB_VIEW_SECRET` only, required in tiered mode (`openssl rand -base64 48`). It no longer falls back to the service-role key or the R2 secret, so a leaked view token says nothing about either. Without it, `/api/blobs/content` and `/api/blobs/signed-urls` answer 503.
 
 After enabling R2 in the dashboard, ask the agent to run **`r2_bucket_create`** again via Cloudflare MCP.
