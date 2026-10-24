@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   try {
     assertAllowedBlobBucket(body.bucket);
     assertBlobPathOwned(body.path, gate.userId);
-    const store = await buildTieredBlobStoreForToken(token);
+    const store = await buildTieredBlobStoreForToken(token, gate.userId);
     await store.remove(body.bucket, body.path);
     return NextResponse.json({ ok: true });
   } catch (err) {
