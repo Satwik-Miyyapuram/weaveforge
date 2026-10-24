@@ -14,6 +14,7 @@ import type { Project } from "@weaveforge/core";
 
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { clearAllScreenCaches, screenCacheKey, setScreenCache } from "@/lib/cache/screen-cache";
+import { cacheRepo } from "@/lib/cache/cache-repo";
 import { ProjectContext } from "@/features/projects/ui/project-provider";
 import { createFakeIndexedDb } from "./fake-indexeddb.js";
 import { renderHook } from "./react-harness.js";
@@ -222,4 +223,26 @@ test("screen data: a failed load is written to the app log, not only to state", 
   } finally {
     (globalThis as { window?: unknown }).window = originalWindow;
   }
+});
+
+test("screen data: refresh goes past the repository memo, not only the screen cache", async () => {
+  // `refresh` exists for a write the write-watch did not see. That write left
+  // the repository memo stale too, so clearing only the screen cache reloaded
+  // the same old payload from the memo.
+  clearAllScreenCaches();
+  let stored = "before";
+  const repo = cacheRepo({ list: async () => stored }, ["list"], [], () => PROJECT_ID);
+  const harness = await renderHook(
+    () => useScreenData<Payload>(SCREEN, async () => ({ label: await repo.list() })),
+    undefined,
+    { wrapper: withProject },
+  );
+  await harness.flush();
+  assert.equal(harness.current.data?.label, "before");
+
+  stored = "after";
+  await harness.current.refresh();
+  await harness.flush();
+  assert.equal(harness.current.data?.label, "after");
+  await harness.unmount();
 });
