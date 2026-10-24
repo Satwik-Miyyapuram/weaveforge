@@ -10,6 +10,7 @@ import {
   PLAN_WIDGET_SIZE,
   parseTaskbarCreated,
   powershellArgs,
+  singleFlight,
   widgetDataFromRows,
   type PlanWidgetRow,
 } from "../src/plan-widget";
@@ -126,4 +127,34 @@ test("cleanWidgetPalette keeps a full palette of #rrggbb colours and refuses any
   assert.equal(cleanWidgetPalette(missing), null);
   assert.equal(cleanWidgetPalette(null), null);
   assert.equal(cleanWidgetPalette("#000000"), null);
+});
+
+test("singleFlight: two opens at once run the work once; later ones run again (38-06)", async () => {
+  let runs = 0;
+  let release!: () => void;
+  const open = singleFlight(async () => {
+    runs += 1;
+    await new Promise<void>((resolve) => (release = resolve));
+  });
+  const a = open();
+  const b = open();
+  release();
+  await Promise.all([a, b]);
+  assert.equal(runs, 1);
+  const c = open();
+  release();
+  await c;
+  assert.equal(runs, 2);
+});
+
+test("singleFlight: a failed run rejects every waiter and does not stick", async () => {
+  let runs = 0;
+  const open = singleFlight(async () => {
+    runs += 1;
+    if (runs === 1) throw new Error("no screen");
+  });
+  const results = await Promise.allSettled([open(), open()]);
+  assert.deepEqual(results.map((r) => r.status), ["rejected", "rejected"]);
+  await open();
+  assert.equal(runs, 2);
 });

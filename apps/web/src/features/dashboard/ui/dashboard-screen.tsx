@@ -17,7 +17,7 @@ import {
   defaultLayout,
   finalizeDashboardLayout,
   layoutCacheKey,
-  mergeSupervisorCardsIfMissing,
+  initialDashboardLayout,
   syncDashboardLayouts,
 } from "../application/dashboard-layout";
 import { DashboardGrid } from "./dashboard-grid";
@@ -104,9 +104,7 @@ export function DashboardScreen() {
       try {
         const stored = await getContainer().dashboard.getLayout(projectId);
         if (!active) return;
-        const base = stored ?? defaultLayout(supervisorLayout);
-        const merged = supervisorLayout ? mergeSupervisorCardsIfMissing(base) : base;
-        const finalized = finalizeDashboardLayout(merged);
+        const finalized = initialDashboardLayout(stored, supervisorLayout);
         // A layout saved before the current default can carry holes beside its
         // cards, which packing upward does not close.
         const next = { ...finalized, lg: closeLayoutGaps(finalized.lg) };

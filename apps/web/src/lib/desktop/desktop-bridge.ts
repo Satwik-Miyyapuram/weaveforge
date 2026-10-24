@@ -325,7 +325,7 @@ export interface DesktopBridge {
     message: string;
     detail?: string;
   }): void;
-  readAppLog?(): Promise<{ file: string; text: string; complete: boolean }>;
+  readAppLog?(): Promise<DesktopAppLog>;
   /** Show the log file in the operating system's file browser. */
   revealAppLog?(): Promise<void>;
 
@@ -358,18 +358,34 @@ export interface DesktopBridge {
   setPlanWidgetTheme?(palette: Record<string, string>): void;
 }
 
-/** Mirrored in `apps/desktop/src/channels.ts` (`PlanWidgetStatePayload`). */
+/**
+ * The application log as the page receives it.
+ *
+ * `text` is the entries already formatted, one line each and oldest first, so
+ * the page can show them without a second parser and a second answer to "what
+ * does a log line look like". `file` is where they are also written, so the
+ * reader can open the same record in an editor.
+ */
+export interface DesktopAppLog {
+  file: string;
+  text: string;
+  /** False when the in-memory ring dropped older entries than `text` holds. */
+  complete: boolean;
+}
+
+/** The plan widget, as the Settings panel sees it. The shell's `PlanWidgetStatePayload`. */
 export interface DesktopPlanWidget {
   /** False where the shell cannot put a window on the desktop (not Windows). */
   supported: boolean;
   enabled: boolean;
 }
 
-/** One entry of the window's menu. Mirrored in `apps/desktop/src/channels.ts`. */
+/** One entry of the window's menu, as the page's menu bar draws it. */
 export interface DesktopMenuItem {
   id: string;
   kind: "item" | "check" | "separator";
   label: string;
+  /** The shortcut as the platform writes it (`Ctrl+Shift+I`), or null. */
   accelerator: string | null;
   enabled: boolean;
   checked?: boolean;
@@ -505,12 +521,14 @@ export interface DesktopCommit {
   author: string;
 }
 
+/** The chosen workspace folder. */
 export interface DesktopVaultRoot {
   path: string;
   /** Whether the folder already held a workspace when it was chosen. */
   state: "empty" | "existing";
 }
 
+/** One entry of a folder listing, flattened for the wire. */
 export interface DesktopVaultEntry {
   path: string;
   kind: "file" | "dir";
@@ -519,8 +537,8 @@ export interface DesktopVaultEntry {
 }
 
 /**
- * The secrets the page may name. Mirrored in `apps/desktop/src/secret-store.ts`,
- * which also keeps `local-api-token` for the shell alone, and lets the page
+ * The secrets the page may name. Mirrored in `apps/desktop/src/secret-store.ts`
+ * (`PAGE_WRITABLE`, held equal by its typecheck), which also keeps `local-api-token` for the shell alone, and lets the page
  * write but never read back `overleaf-token`.
  */
 export type DesktopSecretName = "ai-provider" | "overleaf-token";
