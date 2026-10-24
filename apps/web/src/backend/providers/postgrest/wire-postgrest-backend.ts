@@ -129,6 +129,8 @@ export interface WiredPostgrestBackend {
     IReaderAnnotationSyncRecorder &
     IReaderAnnotationProjectSource;
   readonly paperFieldRepository: IPaperFieldRepository;
+  /** Release what this wiring subscribed to (the session's auth listener). */
+  dispose(): void;
 }
 
 /**
@@ -167,7 +169,9 @@ export function wirePostgrestBackend(
   const db =
     parts?.db ??
     watchWrites(createDataClient(url as string, anonKey as string, config.dataUrl), notifyWorkspaceChange);
-  const session = parts?.session ?? new SupabaseSessionProvider(db);
+  // A session built here listens on the client; one passed in is its owner's.
+  const ownSession = parts?.session ? null : new SupabaseSessionProvider(db);
+  const session = parts?.session ?? ownSession!;
   const auth = parts?.auth ?? new SupabaseAuthService(db);
   const adminProvisioner =
     !parts && url && config.supabaseServiceRoleKey
@@ -401,5 +405,6 @@ export function wirePostgrestBackend(
     labSnapshotRepository,
     readerAnnotationRepository,
     paperFieldRepository,
+    dispose: () => ownSession?.dispose(),
   };
 }
