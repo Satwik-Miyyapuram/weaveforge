@@ -9,8 +9,11 @@
  * would have seen in their console anyway.
  *
  * The buffer is fixed-size and in memory: an old warning is dropped rather than
- * kept, and nothing is written to disk.
+ * kept. Errors (not warnings) are also written once each to the desktop shell's
+ * log file, which outlives the window; in a browser that is a no-op.
  */
+
+import { logToApp } from "./app-log";
 
 const MAX_LINES = 40;
 
@@ -42,8 +45,13 @@ export function installConsoleCapture(): void {
   for (const level of ["error", "warn"] as const) {
     const original = console[level];
     console[level] = (...args: unknown[]) => {
-      lines.push(`[${level}] ${args.map(describe).join(" ")}`);
+      const text = args.map(describe).join(" ");
+      lines.push(`[${level}] ${text}`);
       if (lines.length > MAX_LINES) lines.shift();
+      if (level === "error" && !alreadyRecorded(`console:${text}`)) {
+        const message = text.split("\n", 1)[0]!.slice(0, 500);
+        logToApp({ level: "error", source: "console", message, detail: text === message ? undefined : text });
+      }
       original.apply(console, args);
     };
     restores.push(() => {
