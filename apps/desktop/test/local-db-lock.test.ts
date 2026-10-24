@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
+import test, { mock } from "node:test";
 
 import { acquireDbLock, DatabaseInUseError, lockPath, releaseDbLock } from "../src/local-db-lock";
 
@@ -58,8 +58,46 @@ test("local-db-lock: a lock from before this boot is taken over even if its pid 
 test("local-db-lock: an unreadable lock is taken over; someone else's is never released", () => {
   const dir = dataDir();
   fs.writeFileSync(lockPath(dir), "garbage");
+  const old = new Date(Date.now() - 60_000);
+  fs.utimesSync(lockPath(dir), old, old);
   acquireDbLock(dir, "WeaveForge");
   fs.writeFileSync(lockPath(dir), holder(process.ppid));
   releaseDbLock(dir);
   assert.equal(fs.existsSync(lockPath(dir)), true);
+});
+
+test("local-db-lock: a just-created lock not yet written is not taken over (37-02)", () => {
+  const dir = dataDir();
+  fs.writeFileSync(lockPath(dir), "");
+  assert.throws(() => acquireDbLock(dir, "WeaveForge"), DatabaseInUseError);
+  assert.equal(fs.readFileSync(lockPath(dir), "utf8"), "", "left untouched");
+});
+
+test("local-db-lock: a fresh lock that replaced the stale one mid-takeover survives (37-02)", () => {
+  const dir = dataDir();
+  const file = lockPath(dir);
+  fs.writeFileSync(file, holder(deadPid()));
+  // Another process takes the stale lock over right after we read it.
+  const real = fs.readFileSync;
+  let raced = false;
+  const read = mock.method(fs, "readFileSync", ((p: fs.PathOrFileDescriptor, o?: unknown) => {
+    const out = real(p, o as BufferEncoding);
+    if (!raced && p === file) {
+      raced = true;
+      fs.rmSync(file);
+      fs.writeFileSync(file, holder(process.ppid));
+    }
+    return out;
+  }) as typeof fs.readFileSync);
+  try {
+    assert.throws(() => acquireDbLock(dir, "WeaveForge"), DatabaseInUseError);
+  } finally {
+    read.mock.restore();
+  }
+  assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).pid, process.ppid, "the racer keeps its lock");
+  assert.deepEqual(
+    fs.readdirSync(path.dirname(file)).filter((f) => f !== path.basename(file)),
+    [],
+    "no leftover files",
+  );
 });

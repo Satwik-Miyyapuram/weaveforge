@@ -5,7 +5,6 @@ import * as path from "node:path";
 import {
   WORKSPACE_META_DIR,
   safeWorkspacePath,
-  walkByList,
   type IWorkspaceFs,
   type WorkspaceStat,
 } from "@weaveforge/core";
@@ -140,6 +139,29 @@ function statOf(entry: { name: string; isDirectory(): boolean }, at: string): st
 
 /** `IWorkspaceFs` over a directory, with every path checked twice. */
 /** Marks a write in progress; the folder watcher ignores these. */
+/**
+ * Every file under `dir`. A subfolder the OS will not open is skipped so one
+ * locked folder does not hide the rest of the vault; the starting folder still
+ * has to be readable.
+ */
+async function* walkReadable(
+  fs: Pick<IWorkspaceFs, "list">,
+  dir: string,
+  top: boolean,
+): AsyncIterable<WorkspaceStat> {
+  let entries: readonly WorkspaceStat[];
+  try {
+    entries = await fs.list(dir);
+  } catch (error) {
+    if (top) throw error;
+    return;
+  }
+  for (const entry of entries) {
+    if (entry.kind === "file") yield entry;
+    else yield* walkReadable(fs, entry.path, false);
+  }
+}
+
 export const TEMP_SUFFIX = ".wftmp";
 let tempSeq = 0;
 
@@ -193,7 +215,12 @@ export class NodeWorkspaceFs implements IWorkspaceFs {
   async list(dir: string): Promise<readonly WorkspaceStat[]> {
     const at = dir === "" || dir === "." ? "" : safeWorkspacePath(dir);
     const target = at ? await this.resolve(at) : this.root;
-    const entries = await fs.readdir(target, { withFileTypes: true }).catch(() => []);
+    // Only a missing folder is empty. A locked one (EACCES, EBUSY) is an error,
+    // or a caller would take its files for deleted (38-10).
+    const entries = await fs.readdir(target, { withFileTypes: true }).catch((error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw error;
+    });
     const out: WorkspaceStat[] = [];
     for (const entry of entries) {
       // A write the app was killed in the middle of; the real file is intact.
@@ -206,7 +233,7 @@ export class NodeWorkspaceFs implements IWorkspaceFs {
   }
 
   walk(dir: string): AsyncIterable<WorkspaceStat> {
-    return walkByList(this, dir);
+    return walkReadable(this, dir, true);
   }
 
   async stat(relative: string): Promise<WorkspaceStat | null> {

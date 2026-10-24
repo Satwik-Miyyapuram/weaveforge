@@ -31,9 +31,6 @@ class InkGestureView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
 ) : FrameLayout(context, attrs) {
 
-    /** The page. Receives every gesture the router passes through. */
-    var webView: View? = null
-
     /** The ink surface. Receives the pen, and absorbs palms and extra fingers. */
     var overlay: InkingOverlayView? = null
 
@@ -110,14 +107,11 @@ class InkGestureView @JvmOverloads constructor(
 
     override fun onViewAdded(child: View?) {
         super.onViewAdded(child)
-        // Convenience wiring, so the activity's `findViewById` is not load-bearing:
-        // the two ids in the layout are the contract. Child ids are null at XML parse
-        // time and non-null by the time a child is added, so this is the first point
-        // at which they can be read.
-        when (child?.id) {
-            R.id.webView -> webView = child
-            R.id.inkOverlay -> (child as? InkingOverlayView)?.let { overlay = it }
-        }
+        // The overlay is wired here, from the layout's id, and nowhere else (42-10).
+        // Child ids are null at XML parse time and non-null by the time a child is
+        // added, so this is the first point at which they can be read. The page
+        // needs no reference: whatever the router passes through reaches it.
+        if (child?.id == R.id.inkOverlay) (child as? InkingOverlayView)?.let { overlay = it }
     }
 }
 
@@ -157,8 +151,5 @@ internal fun MotionEvent.flatten(): GestureEvent {
         pointers = pointers,
         actionIndex = index,
         actionId = if (index in 0 until pointerCount) getPointerId(index) else -1,
-        touchMajor = touchMajor,
-        touchMinor = touchMinor,
-        size = size,
     )
 }

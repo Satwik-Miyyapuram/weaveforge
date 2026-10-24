@@ -143,3 +143,11 @@ test("a desktop folder's history is the shell's git log, not an empty one", asyn
   await connected();
   assert.deepEqual((await folderHistory(5)).map((c) => c.message), ["last 5"]);
 });
+
+test("a desktop history that cannot be read is an error, not an empty log (xipc-18)", async (t) => {
+  t.after(closeFolder);
+  await connected();
+  const bridge = (globalThis as unknown as { window?: { weaveforge: Record<string, unknown> } }).window!.weaveforge;
+  bridge.vaultLog = () => Promise.reject(new Error("fatal: bad object HEAD"));
+  await assert.rejects(() => folderHistory(5), /bad object HEAD/);
+});

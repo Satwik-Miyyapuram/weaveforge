@@ -30,14 +30,15 @@ export function isMergeCommit(parentLine) {
  * check — without this exemption every dependency PR would be permanently
  * blocked, and the usual way out of that is to stop running the check at all.
  *
- * Matched on GitHub's own convention rather than a hardcoded list of accounts:
- * every bot has an address of the form `<name>[bot]@users.noreply.github.com`,
- * so `dependabot`, `github-actions` and anything added later are covered by one
- * rule. A human cannot register an address containing `[bot]`, which is what
- * keeps this from becoming a way to opt out of signing off.
+ * A commit's author email is whatever the committer typed, so a `[bot]@`
+ * address alone proves nothing: anyone can set one and skip the check (41-07).
+ * The exemption therefore also needs `prAuthorType`, the pull request opener's
+ * account type as GitHub reports it (`github.event.pull_request.user.type`,
+ * passed in as `DCO_PR_AUTHOR_TYPE`), to be `Bot`. A person cannot open a pull
+ * request as a bot account, and run locally there is no exemption at all.
  */
-export function isBotAuthor(author) {
-  return /\[bot\]@/i.test(String(author));
+export function isBotAuthor(author, prAuthorType) {
+  return prAuthorType === "Bot" && /\[bot\]@/i.test(String(author));
 }
 
 /**
