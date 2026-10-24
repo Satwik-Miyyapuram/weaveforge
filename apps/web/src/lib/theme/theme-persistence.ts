@@ -26,10 +26,11 @@ import {
   sanitizeControlSize,
   sanitizeSurfaceStyle,
   sanitizeThemeId,
+  THEME_KEY,
   type ControlSizeId,
   type ThemeMode,
 } from "@/lib/theme/theme";
-import { THEME_CHANGE_EVENT } from "@/lib/hooks/use-theme";
+import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 import { singleFlight } from "@/lib/cache/single-flight";
 import { removeStored, writeStored } from "@/lib/safe-storage";
 
@@ -55,38 +56,38 @@ export function readLocalAppearance(): UserAppearance {
 
 function writeLocalAppearance(appearance: UserAppearance): void {
   if (appearance.mode === "light" || appearance.mode === "dark") {
-    writeStored("thesis.mode", appearance.mode);
+    writeStored(THEME_KEY.mode, appearance.mode);
   }
   if (appearance.lightTheme) {
-    writeStored("thesis.theme.light", sanitizeThemeId(appearance.lightTheme, "light"));
+    writeStored(THEME_KEY.light, sanitizeThemeId(appearance.lightTheme, "light"));
   }
   if (appearance.darkTheme) {
-    writeStored("thesis.theme.dark", sanitizeThemeId(appearance.darkTheme, "dark"));
+    writeStored(THEME_KEY.dark, sanitizeThemeId(appearance.darkTheme, "dark"));
   }
   if (appearance.controlSize) {
-    writeStored("thesis.controlSize", sanitizeControlSize(appearance.controlSize));
+    writeStored(THEME_KEY.controlSize, sanitizeControlSize(appearance.controlSize));
   }
   if (appearance.surfaces) {
-    writeStored("thesis.surfaces", sanitizeSurfaceStyle(appearance.surfaces));
+    writeStored(THEME_KEY.surfaces, sanitizeSurfaceStyle(appearance.surfaces));
   }
   if (appearance.cardTint) {
-    writeStored("thesis.cardTint", sanitizeCardTint(appearance.cardTint));
+    writeStored(THEME_KEY.cardTint, sanitizeCardTint(appearance.cardTint));
   }
   if (typeof appearance.cardTilt === "boolean") {
-    writeStored("thesis.cardTilt", appearance.cardTilt ? "1" : "0");
+    writeStored(THEME_KEY.cardTilt, appearance.cardTilt ? "1" : "0");
   }
   if (typeof appearance.scanlines === "boolean") {
-    writeStored("thesis.scanlines", appearance.scanlines ? "1" : "0");
+    writeStored(THEME_KEY.scanlines, appearance.scanlines ? "1" : "0");
   }
   if (typeof appearance.reactiveMotion === "boolean") {
-    writeStored("thesis.reactiveMotion", appearance.reactiveMotion ? "1" : "0");
+    writeStored(THEME_KEY.reactiveMotion, appearance.reactiveMotion ? "1" : "0");
   }
   // `customTheme` on the appearance record has already been through
   // normalizeThemeConfig, so what is stored is the validated shape.
   if (appearance.customTheme) {
-    writeStored("thesis.customTheme", JSON.stringify(appearance.customTheme));
+    writeStored(THEME_KEY.customTheme, JSON.stringify(appearance.customTheme));
   } else if (appearance.customTheme === null) {
-    removeStored("thesis.customTheme");
+    removeStored(THEME_KEY.customTheme);
   }
 }
 

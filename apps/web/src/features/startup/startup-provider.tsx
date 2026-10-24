@@ -68,23 +68,27 @@ interface OrgBatch {
   memberships: OrgMembershipView[];
 }
 
-/** The four org reads plus the project-list warm — one parallel round trip. */
-async function loadOrgBatch(c: AppContainer): Promise<OrgBatch> {
+const startupWarn = (message: string) => (err: unknown) =>
+  logToApp({ level: "warn", source: "startup", message, detail: formatError(err) });
+
+/**
+ * The four org reads plus the project-list warm — one parallel round trip.
+ * Each read keeps its fallback, and a fallback used is logged.
+ * @internal `memberships` is a parameter for tests.
+ */
+export async function loadOrgBatch(c: AppContainer, memberships = fetchMemberships): Promise<OrgBatch> {
   const [mine, members, lab, labs] = await Promise.all([
-    c.org.loadProfile().catch(() => null),
-    c.org.loadTeam().catch(() => [] as Member[]),
-    c.org.loadLab().catch(() => [] as Member[]),
+    c.org.loadProfile().catch((err: unknown) => (startupWarn("Profile did not load.")(err), null)),
+    c.org.loadTeam().catch((err: unknown) => (startupWarn("Team did not load.")(err), [] as Member[])),
+    c.org.loadLab().catch((err: unknown) => (startupWarn("Lab members did not load.")(err), [] as Member[])),
     // null, not []: a failed read is not "no labs" (see shouldSyncStandalone).
-    fetchMemberships().catch((err: unknown) => {
-      logToApp({ level: "warn", source: "startup", message: "Memberships did not load.", detail: formatError(err) });
-      return null;
-    }),
+    memberships().catch((err: unknown) => (startupWarn("Memberships did not load.")(err), null)),
     // Warm the project list in the same batch. ProjectProvider mounts below
     // every gate in the shell, so its own listProjects() would otherwise be a
     // further serial round trip after all of these — and nothing renders until
     // it resolves. The repository is cache-wrapped, so the provider's own call
     // hits a settled entry.
-    c.projects.listProjects().catch(() => []),
+    c.projects.listProjects().catch((err: unknown) => (startupWarn("Project list did not load.")(err), [])),
   ]);
 
   let profile = mine;
@@ -96,8 +100,9 @@ async function loadOrgBatch(c: AppContainer): Promise<OrgBatch> {
       profile = await c.org.loadProfile();
       team = await c.org.loadTeam();
       labMembers = await c.org.loadLab();
-    } catch {
-      /* display layer still resolves standalone role */
+    } catch (err) {
+      // The display layer still resolves the standalone role.
+      startupWarn("Standalone profile sync failed.")(err);
     }
   }
   return { profile, team, labMembers, memberships: labs ?? [] };
@@ -203,9 +208,10 @@ async function loadStartupBundleUncached(
     team = orgData.team;
     labMembers = orgData.labMembers;
     memberships = orgData.memberships;
-  } catch {
+  } catch (err) {
     /* Org batch failure must not crash startup or keep the user stuck at the privacy gate.
        Downstream ProfileProvider handles retrying and profile loading independently. */
+    startupWarn("Org data did not load.")(err);
   }
 
   return {

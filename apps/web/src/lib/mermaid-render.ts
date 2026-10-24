@@ -9,6 +9,7 @@
  */
 import { escapeHtml } from "./escape-html";
 import { errorMessage } from "@weaveforge/core";
+import { registerSessionReset } from "@/lib/cache/clear-session-caches";
 
 export type MermaidModule = Pick<typeof import("pele/lazy"), "renderAsync">;
 
@@ -34,6 +35,9 @@ export function mermaidCacheSize(): number {
 export function clearMermaidCache(): void {
   renderCache.clear();
 }
+
+// A diagram can quote a private note; it goes with the account.
+registerSessionReset(clearMermaidCache);
 
 /**
  * An id for a diagram from its source, so the same fence renders to the same

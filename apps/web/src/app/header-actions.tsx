@@ -8,6 +8,7 @@ import { useAuth } from "@/features/auth";
 import { useProfile } from "@/features/org/ui/profile-provider";
 import { useProject } from "@/features/projects";
 import { getContainer } from "@/bootstrap";
+import { AI_PROPOSALS_CHANGED_EVENT } from "@/lib/ai-proposals-changed";
 import { Popover } from "@/components/popover";
 import { SubmenuFlyout } from "@/components/menu";
 import { isExplicitLabMembership, ROLE_LABELS, type Role } from "@weaveforge/core";
@@ -102,8 +103,8 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
     // component only needs the answer, and reaching for the provider is how a
     // presentation file ends up knowing which backend a window was built with.
     setLocal(getContainer().auth.isLocalMode());
-    window.addEventListener("ai-proposals-changed", refresh);
-    return () => window.removeEventListener("ai-proposals-changed", refresh);
+    window.addEventListener(AI_PROPOSALS_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(AI_PROPOSALS_CHANGED_EVENT, refresh);
   }, []);
 
   if (!user) return null;

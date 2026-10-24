@@ -6,6 +6,7 @@ import {
 } from "@weaveforge/core";
 import { isNetworkFailure } from "@/lib/format-error";
 import { readStoredJson, removeStored, writeStoredJson } from "@/lib/safe-storage";
+import { registerSessionReset } from "@/lib/cache/clear-session-caches";
 
 /**
  * Tags live in the note markdown as `#hashtags`. These helpers keep that the
@@ -101,13 +102,28 @@ function writeDeferred(ids: readonly string[]): void {
 }
 
 let listening = false;
+/** The newest deps: a listener holding the first ones would write through a stale container. */
+let latestDeps: TagReconcileDeps | null = null;
+const onOnline = () => {
+  if (latestDeps) void retryDeferredTagReconciles(latestDeps);
+};
 
 function deferTagReconcile(papers: TagReconcileDeps, paperId: string): void {
   writeDeferred([...new Set([...readDeferred(), paperId])]);
+  latestDeps = papers;
   if (listening || typeof window === "undefined") return;
   listening = true;
-  window.addEventListener("online", () => void retryDeferredTagReconciles(papers));
+  window.addEventListener("online", onOnline);
 }
+
+/** Drop the online listener and the deps it holds (sign-out). The queue stays for the next save. */
+export function stopDeferredTagReconcile(): void {
+  if (listening && typeof window !== "undefined") window.removeEventListener("online", onOnline);
+  listening = false;
+  latestDeps = null;
+}
+
+registerSessionReset(stopDeferredTagReconcile);
 
 let retrying: Promise<void> | null = null;
 

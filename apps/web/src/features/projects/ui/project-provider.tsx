@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import type { Project } from "@weaveforge/core";
@@ -43,6 +44,10 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const apply = useCallback((id: string | null) => {
+    // The background PDF run belongs to the project it started in (xstate-03).
+    if (getContainer().projects.context.projectId !== id) {
+      void import("@/features/search/application/auto-index-library").then((m) => m.stopAutoIndex());
+    }
     clearAllScreenCaches();
     getContainer().projects.context.projectId = id;
     getContainer().projects.watchProject(id);
@@ -70,10 +75,13 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     })();
   }, [refresh, apply]);
 
-  const current = projects.find((p) => p.id === currentId) ?? null;
+  const value = useMemo(() => {
+    const current = projects.find((p) => p.id === currentId) ?? null;
+    return { projects, current, loading, setProject: apply, refresh };
+  }, [projects, currentId, loading, apply, refresh]);
 
   return (
-    <ProjectContext.Provider value={{ projects, current, loading, setProject: apply, refresh }}>
+    <ProjectContext.Provider value={value}>
       {children}
     </ProjectContext.Provider>
   );

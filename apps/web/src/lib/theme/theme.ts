@@ -7,9 +7,34 @@ import {
   type ThemeConfig,
 } from "@weaveforge/core";
 
-import { readStored } from "@/lib/safe-storage";
+import { readStored, removeStored } from "@/lib/safe-storage";
 
 export type { SurfaceStyle, ThemeConfig };
+
+/**
+ * Every localStorage key the appearance lives under. The boot script below
+ * spells them out because it runs as a string before any module loads.
+ */
+export const THEME_KEY = {
+  mode: "thesis.mode",
+  legacyTheme: "thesis.theme",
+  light: "thesis.theme.light",
+  dark: "thesis.theme.dark",
+  controlSize: "thesis.controlSize",
+  surfaces: "thesis.surfaces",
+  cardTint: "thesis.cardTint",
+  cardTilt: "thesis.cardTilt",
+  scanlines: "thesis.scanlines",
+  reactiveMotion: "thesis.reactiveMotion",
+  customTheme: "thesis.customTheme",
+} as const;
+
+export const THEME_STORAGE_KEYS: readonly string[] = Object.values(THEME_KEY);
+
+/** Forget this device's stored appearance (account deletion). Best effort. */
+export function clearStoredAppearance(): void {
+  for (const key of THEME_STORAGE_KEYS) removeStored(key);
+}
 
 const LIGHT_THEMES = [
   "brutal",
@@ -118,7 +143,7 @@ export function applySurfaceStyle(style: SurfaceStyle): void {
 }
 
 export function readStoredSurfaceStyle(): SurfaceStyle {
-  return sanitizeSurfaceStyle(readStored("thesis.surfaces"));
+  return sanitizeSurfaceStyle(readStored(THEME_KEY.surfaces));
 }
 
 /* ------------------------------------------------------------------ *
@@ -149,7 +174,7 @@ export function applyCardTint(tint: CardTint): void {
 }
 
 export function readStoredCardTint(): CardTint {
-  return sanitizeCardTint(readStored("thesis.cardTint"));
+  return sanitizeCardTint(readStored(THEME_KEY.cardTint));
 }
 
 /* ------------------------------------------------------------------ *
@@ -168,7 +193,7 @@ export function applyCardTilt(on: boolean): void {
 }
 
 export function readStoredCardTilt(): boolean {
-  return readStored("thesis.cardTilt") !== "0";
+  return readStored(THEME_KEY.cardTilt) !== "0";
 }
 
 export function applyScanlines(on: boolean): void {
@@ -178,7 +203,7 @@ export function applyScanlines(on: boolean): void {
 }
 
 export function readStoredScanlines(): boolean {
-  return readStored("thesis.scanlines") !== "0";
+  return readStored(THEME_KEY.scanlines) !== "0";
 }
 
 /* ------------------------------------------------------------------ *
@@ -197,7 +222,7 @@ export function applyReactiveMotion(on: boolean): void {
 }
 
 export function readStoredReactiveMotion(): boolean {
-  return readStored("thesis.reactiveMotion") === "1";
+  return readStored(THEME_KEY.reactiveMotion) === "1";
 }
 
 /* ------------------------------------------------------------------ *
@@ -242,7 +267,7 @@ export function applyCustomTheme(config: ThemeConfig | null): void {
 }
 
 export function readStoredCustomTheme(): ThemeConfig | null {
-  const raw = readStored("thesis.customTheme");
+  const raw = readStored(THEME_KEY.customTheme);
   if (!raw) return null;
   try {
     return normalizeThemeConfig(JSON.parse(raw));
@@ -262,13 +287,13 @@ export function applyControlSize(size: ControlSizeId): void {
 }
 
 export function readStoredControlSize(): ControlSizeId {
-  return sanitizeControlSize(readStored("thesis.controlSize"));
+  return sanitizeControlSize(readStored(THEME_KEY.controlSize));
 }
 
 export function readStoredMode(): ThemeMode {
-  const m = readStored("thesis.mode");
+  const m = readStored(THEME_KEY.mode);
   if (m === "light" || m === "dark") return m;
-  const old = readStored("thesis.theme");
+  const old = readStored(THEME_KEY.legacyTheme);
   if (old === "light") return "light";
   if (old) return "dark";
   if (typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: light)").matches) {
@@ -278,8 +303,8 @@ export function readStoredMode(): ThemeMode {
 }
 
 export function readStoredThemeIds(): { light: string; dark: string } {
-  const light = readStored("thesis.theme.light") || DEFAULT_LIGHT_THEME;
-  const dark = readStored("thesis.theme.dark") || DEFAULT_DARK_THEME;
+  const light = readStored(THEME_KEY.light) || DEFAULT_LIGHT_THEME;
+  const dark = readStored(THEME_KEY.dark) || DEFAULT_DARK_THEME;
   return {
     light: sanitizeThemeId(light, "light"),
     dark: sanitizeThemeId(dark, "dark"),

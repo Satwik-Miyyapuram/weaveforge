@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 import type { ManageTagsUseCase, Paper } from "@weaveforge/core";
 
-import { reconcileTagsFromBodyOrDefer, retryDeferredTagReconciles } from "../note-tags";
+import { reconcileTagsFromBodyOrDefer, retryDeferredTagReconciles, stopDeferredTagReconcile } from "../note-tags";
 
 /** Just enough of `window` for the deferral: storage and the `online` event. */
 const store = new Map<string, string>();
@@ -15,6 +15,10 @@ const listeners: (() => void)[] = [];
   },
   addEventListener: (type: string, fn: () => void) => {
     if (type === "online") listeners.push(fn);
+  },
+  removeEventListener: (type: string, fn: () => void) => {
+    const i = listeners.indexOf(fn);
+    if (type === "online" && i >= 0) listeners.splice(i, 1);
   },
 };
 
@@ -70,5 +74,38 @@ describe("reconcileTagsFromBodyOrDefer", () => {
     };
     await assert.rejects(reconcileTagsFromBodyOrDefer(f.papers, "p1", "#a"));
     assert.equal(store.size, 0);
+  });
+});
+
+describe("the online listener (xstate-05)", () => {
+  beforeEach(() => store.clear());
+
+  it("retries with the latest deps, not the ones it was first added with", async () => {
+    const firstOpts = { offline: true, summaries: { p1: "#a" } as Record<string, string> };
+    const first = fakePapers(firstOpts);
+    await reconcileTagsFromBodyOrDefer(first.papers, "p1", "#a");
+    const secondOpts = { offline: true, summaries: { p1: "#a", p2: "#b" } as Record<string, string> };
+    const second = fakePapers(secondOpts);
+    await reconcileTagsFromBodyOrDefer(second.papers, "p2", "#b");
+    assert.equal(listeners.length, 1, "one listener, however many deferrals");
+
+    // The first deps are stale (still offline); the latest ones are back online.
+    secondOpts.offline = false;
+    listeners[0]!();
+    await retryDeferredTagReconciles(second.papers);
+    assert.equal(first.reconciled.length, 0);
+    assert.deepEqual(second.reconciled.map((r) => r.id).sort(), ["p1", "p2"]);
+    assert.equal(store.size, 0);
+  });
+
+  it("sign-out removes the listener, and a later deferral adds it back", async () => {
+    const f = fakePapers({ offline: true, summaries: { p1: "#a" } });
+    await reconcileTagsFromBodyOrDefer(f.papers, "p1", "#a");
+    assert.equal(listeners.length, 1);
+    stopDeferredTagReconcile();
+    assert.equal(listeners.length, 0);
+    await reconcileTagsFromBodyOrDefer(f.papers, "p1", "#a");
+    assert.equal(listeners.length, 1);
+    stopDeferredTagReconcile();
   });
 });
