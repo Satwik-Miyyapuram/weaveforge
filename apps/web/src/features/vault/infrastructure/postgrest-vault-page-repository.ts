@@ -13,7 +13,7 @@ import {
   toSummaryDomain,
   toRow,
 } from "./vault-page-rows";
-import { one, rows, run } from "@/backend/providers/postgrest/row-access";
+import { inChunks, one, rows, run } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 
 /** Ids per `in (...)` request; the list travels in the URL. */
@@ -24,8 +24,6 @@ import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-
  * star would make them "whatever the table grows next".
  */
 const VAULT_PAGE_COLUMNS = "id,title,body,body_preview,parent_id,pinned,sort_order,created_at,updated_at";
-
-const ID_CHUNK = 200;
 
 const TABLE = "vault_pages";
 
@@ -55,25 +53,15 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
   }
 
   async listByIds(ids: readonly string[]): Promise<VaultPage[]> {
-    if (ids.length === 0) return [];
-    const chunks: string[][] = [];
-    // Chunked: an `in` list travels in the URL, and a large one is rejected.
-    // Requested together rather than one after another, and ordered by `id` so
-    // the result is deterministic — the same two omissions the papers
-    // repository had.
-    for (let start = 0; start < ids.length; start += ID_CHUNK) {
-      chunks.push(ids.slice(start, start + ID_CHUNK) as string[]);
-    }
-    const pages = await Promise.all(
-      chunks.map((chunk) =>
-        rows<VaultPageRow>(
-          this.scoped(this.db.from(TABLE).select(VAULT_PAGE_COLUMNS))
-            .in("id", chunk)
-            .order("id", { ascending: true }),
-        ),
+    // Ordered by `id` so the result is deterministic.
+    const found = await inChunks(ids, (chunk) =>
+      rows<VaultPageRow>(
+        this.scoped(this.db.from(TABLE).select(VAULT_PAGE_COLUMNS))
+          .in("id", chunk)
+          .order("id", { ascending: true }),
       ),
     );
-    return pages.flat().map(toDomain);
+    return found.map(toDomain);
   }
 
   async list(filter?: VaultPageFilter): Promise<VaultPage[]> {

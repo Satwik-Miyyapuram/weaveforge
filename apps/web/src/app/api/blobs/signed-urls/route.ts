@@ -46,7 +46,7 @@ export async function POST(request: Request) {
 
   try {
     const uid = gate.userId;
-    const registry = await blobRegistryForToken(token);
+    const registry = await blobRegistryForToken(token, uid);
     const bucket = body.bucket;
     const records = await registry.getMany(bucket, body.paths);
 
