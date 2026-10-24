@@ -95,6 +95,13 @@ class InkingOverlayView @JvmOverloads constructor(
 
     // The stroke in flight.
     private val strokePoints = ArrayList<Float>(4 * 512)
+
+    /**
+     * Uptime of the stroke's first sample. Times are stored relative to it: a
+     * Float is exact for whole milliseconds only up to 2^24 (about 4.7 hours of
+     * uptime), and past that the steps the web filter reads blur (42-06).
+     */
+    private var strokeOrigin = 0L
     private var lastX = 0f
     private var lastY = 0f
     private var hasLast = false
@@ -311,7 +318,7 @@ class InkingOverlayView @JvmOverloads constructor(
         record(event.getX(index), event.getY(index), event.getPressure(index), event.eventTime)
         isStylusDrawing = false
         penPointerId = -1
-        val json = encodeStroke(strokePoints)
+        val json = encodeStroke(strokePoints, strokeOrigin)
         strokePoints.clear()
         hasLast = false
         strokeTruncated = false
@@ -331,10 +338,11 @@ class InkingOverlayView @JvmOverloads constructor(
             strokeTruncated = true
             return
         }
+        if (strokePoints.isEmpty()) strokeOrigin = t
         strokePoints.add(x)
         strokePoints.add(y)
         strokePoints.add(pressure)
-        strokePoints.add(t.toFloat())
+        strokePoints.add((t - strokeOrigin).toFloat())
         val width = baseWidth * (0.6f + 0.8f * pressure.coerceIn(0f, 1f))
         if (hasLast) {
             renderer.renderFrontBufferedLayer(Segment(lastX, lastY, x, y, width))
@@ -368,10 +376,10 @@ private const val SAMPLES_PER_LINE = 4
  * on the main thread, at the moment the pen lifts. Two decimals is sub-pixel on
  * any panel; three for pressure, which is what the pen actually distinguishes.
  *
- * Timestamps are emitted as whole numbers because they are device uptime
- * milliseconds, and the reader only ever looks at differences.
+ * Timestamps are emitted as whole device-uptime milliseconds: `origin` plus the
+ * stroke-relative time stored in `points`, so they stay exact at any uptime.
  */
-private fun encodeStroke(points: ArrayList<Float>): String {
+internal fun encodeStroke(points: ArrayList<Float>, origin: Long): String {
     val builder = StringBuilder(points.size * 10 + 2)
     builder.append('[')
     var sample = 0
@@ -384,7 +392,7 @@ private fun encodeStroke(points: ArrayList<Float>): String {
         builder.append(',')
         appendFixed(builder, points[at + 2], 3)
         builder.append(',')
-        builder.append(points[at + 3].toLong())
+        builder.append(origin + points[at + 3].toLong())
         sample++
     }
     builder.append(']')
@@ -392,11 +400,13 @@ private fun encodeStroke(points: ArrayList<Float>): String {
 }
 
 /** Append a float with a fixed number of decimal places, without a formatter. */
-private fun appendFixed(builder: StringBuilder, value: Float, decimals: Int) {
+internal fun appendFixed(builder: StringBuilder, value: Float, decimals: Int) {
     val scale = if (decimals == 2) 100 else 1000
     val scaled = Math.round(value * scale)
     val whole = scaled / scale
     val fraction = Math.abs(scaled % scale)
+    // -0.5 has a whole part of 0, which prints no sign of its own (42-03).
+    if (scaled < 0 && whole == 0) builder.append('-')
     builder.append(whole)
     builder.append('.')
     var digits = decimals

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
+import fsp, { mkdtemp, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import test from "node:test";
+import test, { mock } from "node:test";
 
 import {
   NodeWorkspaceFs,
@@ -147,6 +147,43 @@ test("listing gives one level, walking gives every file", async () => {
   const walked: string[] = [];
   for await (const entry of fs.walk("")) walked.push(entry.path);
   assert.deepEqual(walked.sort(), ["notes/a.note.md", "notes/deep/b.note.md"]);
+});
+
+/** Make readdir refuse one folder as the OS would for a locked one. */
+function lockFolder(name: string) {
+  const readdir = fsp.readdir;
+  return mock.method(fsp, "readdir", (dir: string, ...rest: unknown[]) => {
+    if (path.basename(String(dir)) === name) {
+      return Promise.reject(Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" }));
+    }
+    return (readdir as (...a: unknown[]) => unknown)(dir, ...rest);
+  });
+}
+
+test("an unreadable folder is an error, not an empty one (38-10)", async (t) => {
+  const fs = new NodeWorkspaceFs(await tempDir());
+  await fs.writeFile("locked/a.note.md", "a");
+  t.after(() => mock.restoreAll());
+  lockFolder("locked");
+  await assert.rejects(() => fs.list("locked"), /EACCES/);
+  // A folder that is not there is still just empty.
+  assert.deepEqual(await fs.list("missing"), []);
+});
+
+test("an unreadable subfolder does not stop the walk (38-10)", async (t) => {
+  const fs = new NodeWorkspaceFs(await tempDir());
+  await fs.writeFile("notes/a.note.md", "a");
+  await fs.writeFile("notes/locked/b.note.md", "b");
+  await fs.writeFile("notes/open/c.note.md", "c");
+  t.after(() => mock.restoreAll());
+  lockFolder("locked");
+  const walked: string[] = [];
+  for await (const entry of fs.walk("")) walked.push(entry.path);
+  assert.deepEqual(walked.sort(), ["notes/a.note.md", "notes/open/c.note.md"]);
+  // The folder the walk starts from must be readable, though.
+  await assert.rejects(async () => {
+    for await (const _ of fs.walk("notes/locked")) void _;
+  }, /EACCES/);
 });
 
 test("bytes go through the byte channel unchanged", async () => {
