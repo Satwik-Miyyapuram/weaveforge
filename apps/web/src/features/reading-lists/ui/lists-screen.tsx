@@ -34,6 +34,7 @@ import type { ReadingListsScreenData } from "@/features/reading-lists/applicatio
 import { ScreenHead } from "@/components/screen-head";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { FormError } from "@/components/form-error";
+import { loadSubtreeItems } from "@/features/reading-lists/application/subtree-items";
 
 /** A list's three views, as icon buttons named by their tooltip. */
 const LIST_VIEWS = [
@@ -172,6 +173,24 @@ export function ListsScreen() {
   }, [storedSelected, tree, pinnedLists, flat, focusFromUrl]);
 
 
+  // One fetch for the shown subtree's items, not one per list node (36-08).
+  const [itemsByList, setItemsByList] = useState<ReadonlyMap<string, ReadingListItem[]>>(() => new Map());
+  useEffect(() => {
+    if (!selectedNode) return;
+    let active = true;
+    const readingLists = getContainer().readingLists;
+    loadSubtreeItems(selectedNode, (ids) => readingLists.listItemsForLists(ids))
+      .then((byList) => {
+        if (active) setItemsByList(byList);
+      })
+      .catch((err: unknown) => {
+        if (active) setError(formatError(err));
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedNode, refresh]);
+
   const bump = useCallback(() => setRefresh((n) => n + 1), []);
   const paperTitles = useMemo(() => new Map(papers.map((p) => [p.id, p.title])), [papers]);
   const noteTitles = useMemo(() => new Map(notes.map((n) => [n.id, n.title])), [notes]);
@@ -192,7 +211,7 @@ export function ListsScreen() {
     paperTitles,
     noteTitles,
     listNames,
-    refresh,
+    itemsByList,
     collapsedSet: collapsed,
     onToggleCollapse: toggleCollapsed,
     onChanged: bump,
@@ -339,7 +358,8 @@ interface ListTreeContext {
   paperTitles: Map<string, string>;
   noteTitles: Map<string, string>;
   listNames: Map<string, string>;
-  refresh: number;
+  /** Items of every list in the shown subtree, fetched once by the screen. */
+  itemsByList: ReadonlyMap<string, ReadingListItem[]>;
   collapsedSet: Set<string>;
   onToggleCollapse: (listId: string) => void;
   onChanged: () => void;
@@ -365,7 +385,7 @@ function ListNode(props: ListNodeProps) {
     paperTitles,
     noteTitles,
     listNames,
-    refresh,
+    itemsByList,
     collapsedSet,
     isCollapsed,
     onToggleCollapse,
@@ -377,7 +397,12 @@ function ListNode(props: ListNodeProps) {
     canComment = false,
   } = props;
   const list = node.list;
-  const [items, setItems] = useState<ReadingListItem[]>([]);
+  const loaded = itemsByList.get(list.id);
+  // Local copy so a drag reorder can show at once and roll back on failure.
+  const [items, setItems] = useState<ReadingListItem[]>(loaded ?? []);
+  useEffect(() => {
+    setItems(loaded ?? []);
+  }, [loaded]);
   const [picker, setPicker] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -393,14 +418,6 @@ function ListNode(props: ListNodeProps) {
   const hasChildren = node.children.length > 0;
   const dotColor = listDisplayColor(list);
 
-  const loadItems = useCallback(async () => {
-    setItems(await getContainer().readingLists.listItems(list.id));
-  }, [list.id]);
-
-  useEffect(() => {
-    void loadItems();
-  }, [loadItems, refresh]);
-
   async function addItem() {
     const ref = parseListPicker(picker);
     if (!ref || addBusy) return;
@@ -415,12 +432,11 @@ function ListNode(props: ListNodeProps) {
       }
       setPicker("");
       setShowAdd(false);
-      onChanged();
     } catch (err) {
       setAddError(formatError(err));
     } finally {
       setAddBusy(false);
-      await loadItems();
+      onChanged();
     }
   }
 
@@ -431,7 +447,6 @@ function ListNode(props: ListNodeProps) {
     } else if (item.vaultPageId) {
       await manage.removeNoteFromList(list.id, item.vaultPageId);
     }
-    await loadItems();
     onChanged();
   }
 

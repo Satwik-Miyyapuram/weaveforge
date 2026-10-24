@@ -122,6 +122,20 @@ export function mergeSupervisorCardsIfMissing(layout: DashboardLayout): Dashboar
   return next === layout ? layout : finalizeDashboardLayout(next);
 }
 
+/**
+ * The layout a dashboard opens with. A saved layout is the user's: a supervisor
+ * card they removed stays removed (35-12). Only a fresh supervisor layout gets
+ * the supervisor cards merged in.
+ */
+export function initialDashboardLayout(
+  stored: DashboardLayout | null,
+  supervisor: boolean,
+): DashboardLayout {
+  if (stored) return finalizeDashboardLayout(stored);
+  const base = defaultLayout(supervisor);
+  return finalizeDashboardLayout(supervisor ? mergeSupervisorCardsIfMissing(base) : base);
+}
+
 /** Append a new card at the bottom of the grid. */
 function appendCard(
   items: DashboardLayoutItem[],
