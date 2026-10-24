@@ -18,6 +18,7 @@ import {
   type GNode,
 } from "../application/build-graph-data";
 import { cloneLinks, filterGraphByNodes, linkNodeId, localSubgraph } from "../application/local-graph";
+import { graphTopologyKey, timelineLaneX } from "../application/graph-timeline";
 import { EdgeDetailPopover } from "./graph-side-panel";
 import {
   type FgHandle,
@@ -31,6 +32,8 @@ import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { setGravity } from "./graph-gravity";
 import { labelSize, nodeSize } from "./graph-sizing";
 import { paintStamp, paintStampLabel, stampRadius, textWidth } from "./graph-stamp";
+import { useGraphCanvasSize } from "./use-graph-canvas-size";
+import { useGraphHover } from "./use-graph-hover";
 
 // Wrapper forwards the ref through an `innerRef` prop because next/dynamic's
 // LoadableComponent drops a real `ref`, which would null out fgRef and silently
@@ -42,8 +45,6 @@ const FG = ForceGraph2D as unknown as React.ComponentType<
 >;
 
 const DIM = "rgba(140, 133, 124, 0.12)";
-/** Canvas units between one publication year and the next in the timeline layout. */
-const YEAR_SPACING = 90;
 
 export function GraphCanvas({
   papers,
@@ -97,84 +98,22 @@ export function GraphCanvas({
     fgRef.current = inst;
     if (inst && !had) setFgReady((n) => n + 1);
   }, []);
+  const { width, height } = useGraphCanvasSize(wrapRef, fill);
+  const { hoverRef, linkTooltip, setHoverNode, setHoverLink } = useGraphHover(wrapRef, fgRef);
   const simNodesRef = useRef<Map<string, GNode>>(new Map());
   const dataRef = useRef<{ nodes: GNode[]; links: GLink[] }>({ nodes: [], links: [] });
   const topologyRef = useRef("");
   /** Follow the layout with the camera until the user navigates on their own. */
   const autoFitRef = useRef(true);
   const zoomKRef = useRef(1);
-  const hoverRef = useRef<{ nodeId: string | null; link: GLink | null }>({ nodeId: null, link: null });
   // Bounding boxes of labels already drawn this frame (graph space). Used to
   // suppress overlapping labels so dense clusters stay readable. Reset each
   // frame in onRenderFramePre.
   const labelBoxesRef = useRef<{ x1: number; y1: number; x2: number; y2: number }[]>([]);
-  const hoverClearTimer = useRef<number | null>(null);
-  const hoverPaintRaf = useRef<number | null>(null);
-  const [linkTooltip, setLinkTooltip] = useState<GLink | null>(null);
-  const [width, setWidth] = useState(760);
-  const [measuredH, setMeasuredH] = useState(560);
-  /**
-   * The height the *page* has room for, in normal (non-focus) mode.
-   *
-   * The old cap — `min(560px, 62% of the viewport)` — left the bottom of the
-   * window dark on anything taller than a laptop, and shorter on a small one.
-   * Measured instead: from the wrap's own top edge to the bottom of the
-   * viewport, less a slice for the legend that sits under the canvas, so the
-   * graph ends where the screen does whatever the header above it did. First
-   * paint uses the old viewport math until the measurement lands.
-   */
-  const [availableH, setAvailableH] = useState<number | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<{ edge: PaperRelation; x: number; y: number } | null>(null);
 
   const closeEdge = useCallback(() => setSelectedEdge(null), []);
   useEscapeToClear(selectedEdge !== null, closeEdge);
-
-  useEffect(() => {
-    if (fill) return;
-    const el = wrapRef.current;
-    if (!el) return;
-    const measure = () => {
-      const vh = window.innerHeight;
-      // Where the canvas starts — below the header, the warning and any
-      // error line the screen has stacked above it.
-      const top = el.getBoundingClientRect().top;
-      // The legend row under the canvas and the shell's own breathing room.
-      const reserve = 64;
-      setAvailableH(Math.max(320, Math.min(Math.round(vh - reserve), Math.round(vh - top - reserve))));
-    };
-    measure();
-    // A late layout shift (fonts, the warning mounting) moves the top edge.
-    const late = window.setTimeout(measure, 300);
-    window.addEventListener("resize", measure);
-    return () => {
-      window.clearTimeout(late);
-      window.removeEventListener("resize", measure);
-    };
-  }, [fill]);
-
-  const height = fill
-    ? measuredH
-    : availableH ??
-      (() => {
-        const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-        // Mobile: use more of the tall viewport; desktop caps at 560.
-        const isNarrow = typeof window !== "undefined" && window.innerWidth < 900;
-        return isNarrow
-          ? Math.max(320, Math.round(vh * 0.72))
-          : Math.min(560, Math.round(vh * 0.62));
-      })();
-
-  useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([e]) => {
-      if (!e) return;
-      setWidth(Math.max(280, Math.round(e.contentRect.width)));
-      if (fill) setMeasuredH(Math.max(240, Math.round(e.contentRect.height)));
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [fill]);
 
   const autoFit = useCallback((ms = 0) => {
     const fg = fgRef.current;
@@ -188,11 +127,6 @@ export function GraphCanvas({
 
   // Manual pan/zoom/drag hands camera control to the user.
   const stopAutoFit = useCallback(() => { autoFitRef.current = false; }, []);
-
-  useEffect(() => () => {
-    if (hoverClearTimer.current) window.clearTimeout(hoverClearTimer.current);
-    if (hoverPaintRaf.current) window.cancelAnimationFrame(hoverPaintRaf.current);
-  }, []);
 
   useEffect(() => {
     const fg = fgRef.current;
@@ -238,39 +172,12 @@ export function GraphCanvas({
     [localSeed, localDepth, neighbors],
   );
 
-  const topologyKey = useMemo(() => {
-    const filtered = filterGraphByNodes(rawData.nodes, rawData.links, localSet);
-    const nodeIds = filtered.nodes.map((n) => n.id).sort().join(",");
-    const linkIds = filtered.links.map((l) => l.id).sort().join(",");
-    return `${nodeIds}|${linkIds}|${localSeed ?? ""}|${localDepth}`;
-  }, [rawData, localSet, localSeed, localDepth]);
+  const topologyKey = useMemo(
+    () => graphTopologyKey(filterGraphByNodes(rawData.nodes, rawData.links, localSet), localSeed, localDepth),
+    [rawData, localSet, localSeed, localDepth],
+  );
 
-  /**
-   * The timeline layout.
-   *
-   * Each paper's x is fixed to its publication year, so the graph reads left
-   * to right as the field actually developed, while y is left to the forces —
-   * related work still clumps vertically. On a citation graph that is a real
-   * gain over a free layout: an arrow pointing left is influence flowing
-   * backwards through time, and it is visible at a glance.
-   *
-   * Anything without a year — a tag, a note, a paper whose year nobody filled
-   * in — is left alone rather than pinned to a guess. Defaulting the year
-   * would stack every one of them in a single stripe and state a publication
-   * date that does not exist.
-   */
-  const laneX = useMemo(() => {
-    if (settings.layout !== "timeline") return null;
-    const years = rawData.nodes
-      .map((n) => n.year)
-      .filter((y): y is number => typeof y === "number");
-    if (years.length === 0) return null;
-    // Centred on the middle of the collection, so a library of 2020s papers
-    // does not start halfway across the canvas.
-    const mid = Math.round(years.reduce((a, b) => a + b, 0) / years.length);
-    return (node: GNode) =>
-      typeof node.year === "number" ? (node.year - mid) * YEAR_SPACING : null;
-  }, [settings.layout, rawData.nodes]);
+  const laneX = useMemo(() => timelineLaneX(settings.layout, rawData.nodes), [settings.layout, rawData.nodes]);
 
   const data = useMemo(() => {
     const filtered = filterGraphByNodes(rawData.nodes, rawData.links, localSet);
@@ -309,55 +216,6 @@ export function GraphCanvas({
     fg.refresh?.();
   }, [data, topologyKey, autoFit, fgReady, stampOn]);
 
-  const requestHoverPaint = useCallback(() => {
-    const wrap = wrapRef.current;
-    if (wrap) {
-      wrap.style.cursor = hoverRef.current.nodeId || hoverRef.current.link ? "pointer" : "";
-    }
-    if (hoverPaintRaf.current != null) return;
-    hoverPaintRaf.current = window.requestAnimationFrame(() => {
-      hoverPaintRaf.current = null;
-      fgRef.current?.refresh?.();
-    });
-  }, []);
-
-  const setHoverNode = useCallback((id: string | null) => {
-    if (hoverClearTimer.current) {
-      window.clearTimeout(hoverClearTimer.current);
-      hoverClearTimer.current = null;
-    }
-    if (id) {
-      if (hoverRef.current.nodeId === id && !hoverRef.current.link) return;
-      hoverRef.current = { nodeId: id, link: null };
-      setLinkTooltip(null);
-      requestHoverPaint();
-      return;
-    }
-    hoverClearTimer.current = window.setTimeout(() => {
-      hoverRef.current.nodeId = null;
-      requestHoverPaint();
-    }, 100);
-  }, [requestHoverPaint]);
-
-  const setHoverLink = useCallback((link: GLink | null) => {
-    if (hoverClearTimer.current) {
-      window.clearTimeout(hoverClearTimer.current);
-      hoverClearTimer.current = null;
-    }
-    if (link) {
-      if (hoverRef.current.link?.id === link.id) return;
-      hoverRef.current = { nodeId: null, link };
-      setLinkTooltip(link.kind === "rel" ? link : null);
-      requestHoverPaint();
-      return;
-    }
-    hoverClearTimer.current = window.setTimeout(() => {
-      hoverRef.current.link = null;
-      setLinkTooltip(null);
-      requestHoverPaint();
-    }, 100);
-  }, [requestHoverPaint]);
-
   useEffect(() => {
     fgRef.current?.refresh?.();
   }, [settings.searchQuery, settings.textFadeThreshold, pinned]);
@@ -392,7 +250,7 @@ export function GraphCanvas({
       if (id === hovered) return true;
       return neighbors.get(hovered)?.has(id) ?? false;
     },
-    [neighbors],
+    [neighbors, hoverRef],
   );
 
   /** A link survives the hover dim only if it is one of the hovered node's own. */
@@ -402,7 +260,7 @@ export function GraphCanvas({
     const src = linkNodeId(l.source);
     const tgt = linkNodeId(l.target);
     return src === hovered || tgt === hovered;
-  }, []);
+  }, [hoverRef]);
 
   // The stamp's outline eats into a small shape, so the brutal themes draw
   // every node a size up; hit areas and labels follow the drawn size.
@@ -426,7 +284,7 @@ export function GraphCanvas({
       (node.kind === "tag" ||
         node.id === hoverRef.current.nodeId ||
         zoomKRef.current > settings.textFadeThreshold),
-    [settings.textFadeThreshold, searchHits],
+    [settings.textFadeThreshold, searchHits, hoverRef],
   );
 
   /** Outlines a node's shape — the same per kind in every theme. */
