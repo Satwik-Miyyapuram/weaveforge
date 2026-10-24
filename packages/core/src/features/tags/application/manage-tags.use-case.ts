@@ -160,14 +160,15 @@ export class ManageTagsUseCase {
   }
 
   private async refreshPaperCache(paperId: string): Promise<Paper> {
+    const tags = await this.listForPaper(paperId);
+    const names = normalizeTags(tags.map((t) => t.name)).sort();
+    // Only the tag column is written. Saving the whole row read before the
+    // links were listed reverted any edit that landed in between.
+    await this.deps.papers.setTags(paperId, names, this.deps.clock.nowIso());
     const paper = await this.deps.papers.getById(paperId);
     // A bare `Error` used to be thrown here, which no route could map (it fell
     // through to 500). Same condition as the other not-found sites.
     if (!paper) throw new NotFoundError(`No paper with id "${paperId}".`);
-    const tags = await this.listForPaper(paperId);
-    const names = normalizeTags(tags.map((t) => t.name)).sort();
-    const updated: Paper = { ...paper, tags: names, updatedAt: this.deps.clock.nowIso() };
-    await this.deps.papers.save(updated);
-    return updated;
+    return paper;
   }
 }

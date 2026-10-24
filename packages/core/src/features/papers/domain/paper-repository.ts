@@ -50,4 +50,32 @@ export interface IPaperRepository
   findByArxivId(arxivId: string): Promise<Paper | null>;
   /** Look up by (normalized) DOI for dedupe on import. */
   findByDoi(doi: string): Promise<Paper | null>;
+  /**
+   * The paper whose `titleKey(title)` equals `key`, or null.
+   *
+   * Dedupe by title used to load the whole library and compare keys in memory
+   * on every add. An adapter narrows the read; the match itself stays the
+   * domain's `titleKey`, so the answer is the one that scan gave.
+   */
+  findByTitleKey(key: string): Promise<Paper | null>;
+  /**
+   * Writes the tag column and the stamp, and nothing else.
+   *
+   * The tag cache was written back as a whole row read moments earlier, which
+   * overwrote any edit made in between. A missing paper is left missing.
+   */
+  setTags(id: string, tags: string[], updatedAt: string): Promise<void>;
+  /**
+   * Replaces the summary only if it still is `expected` (undefined: no summary).
+   *
+   * Returns whether it did. A caller that gets false re-reads and tries again,
+   * so two appends made at once both land instead of the second erasing the
+   * first. A missing paper is left missing and answers false.
+   */
+  replaceSummary(
+    id: string,
+    expected: string | undefined,
+    next: string,
+    updatedAt: string,
+  ): Promise<boolean>;
 }
