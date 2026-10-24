@@ -243,7 +243,6 @@ export function PdfReader({
     onAnnotationsChange,
     onActivity,
     applyPin,
-    selectedAnnId,
     setSelectedAnnId,
     clearPendingCreate,
   });
@@ -256,7 +255,7 @@ export function PdfReader({
   } = actions;
   // Every local write goes through the undo stack, in read mode and ink mode.
   const inkUndo = useInkUndo(actions, annotations);
-  const { persistDraft, removeLocal, saveAnchor, reset: resetInkUndo } = inkUndo;
+  const { persistDraft, removeLocal, removeMany, saveAnchor, reset: resetInkUndo } = inkUndo;
   useEffect(() => resetInkUndo(), [url, resetInkUndo]);
   // Ctrl+Z/Y, Ctrl+F and Delete on the window, so they answer after a click on
   // the page or a rail button; skipped when focus sits in another pane.
@@ -1028,13 +1027,15 @@ export function PdfReader({
     setPage: viewport.setPage,
     onFigureTarget,
   });
+  // The two callbacks are stable; `refs` itself is a new object every render.
+  const { startPrefetch, stopPrefetch } = refs;
   useEffect(() => {
     if (!sideCollapsed && activeSideTab === "references") {
-      refs.startPrefetch();
+      startPrefetch();
     } else {
-      refs.stopPrefetch();
+      stopPrefetch();
     }
-  }, [sideCollapsed, activeSideTab, refs]);
+  }, [sideCollapsed, activeSideTab, startPrefetch, stopPrefetch]);
 
 
   const printAnnotationsOn = useCallback(
@@ -1651,7 +1652,8 @@ export function PdfReader({
           onDeleteSelection={() => {
             const doomed = [...lassoed];
             clearLasso();
-            for (const id of doomed) void removeLocal(id);
+            // One undo step for the whole selection.
+            void removeMany(doomed);
           }}
           onTool={(tool) => {
             // Switching tool ends the mark in progress, so the next stroke
@@ -1929,7 +1931,7 @@ export function PdfReader({
                 )}
                 {/* Inside the page, because it decorates the page's own text
                     layer rather than painting a sibling layer over it. */}
-                {pageSize && refs.enabled && refs.index.mentionsByPage.has(n) && pageItems.has(n) && (
+                {pageSize && refs.index.mentionsByPage.has(n) && pageItems.has(n) && (
                   <CitationTextLayer
                     mentions={refs.index.mentionsByPage.get(n)!}
                     items={pageItems.get(n)!}
