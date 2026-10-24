@@ -90,8 +90,13 @@ function localStore(): VectorStore {
  * Kept together because they are only ever read together: a set of ids with no
  * vectors, or vectors with no ids, is not half an index but none of one.
  */
+/** The fields both formats store ahead of the vectors, as JSON. */
+function headJson(value: StoredVectors): string {
+  return JSON.stringify({ model: value.model, dimensions: value.dimensions, ids: value.ids, revision: value.revision, hashes: value.hashes });
+}
+
 function pack(value: StoredVectors): string {
-  const head = JSON.stringify({ model: value.model, dimensions: value.dimensions, ids: value.ids, revision: value.revision, hashes: value.hashes });
+  const head = headJson(value);
   return `${encodeBase64(new TextEncoder().encode(head))}.${encodeBase64(new Uint8Array(value.vectors))}`;
 }
 
@@ -171,9 +176,7 @@ const folderStore = {
 };
 
 export function packBinary(value: StoredVectors): Uint8Array {
-  const head = new TextEncoder().encode(
-    JSON.stringify({ model: value.model, dimensions: value.dimensions, ids: value.ids, revision: value.revision, hashes: value.hashes }),
-  );
+  const head = new TextEncoder().encode(headJson(value));
   const out = new Uint8Array(4 + head.byteLength + value.vectors.byteLength);
   new DataView(out.buffer).setUint32(0, head.byteLength, true);
   out.set(head, 4);
