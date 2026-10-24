@@ -37,19 +37,18 @@ export function clearPendingAssets(): void {
  * Apply what the user chose from the preview: create and update notes.
  *
  * Conflicted files have already been resolved (in memory) to one of the two
- * copies, or to a compose made of hunk-level picks.
+ * copies, or to a compose made of hunk-level picks. Throws when no folder is
+ * connected, so the import screen says so rather than reporting nothing done.
  */
 export async function applyFolderImport(
-  diff: ImportDiff,
+  diff: ImportDiff & { json?: JsonDiff },
   resolutions: Readonly<Record<string, ConflictResolution>> = {},
 ): Promise<{ created: number; updated: number }> {
   const fs = activeWorkspaceFs();
-  if (!fs) return { created: 0, updated: 0 };
+  if (!fs) throw new Error("No workspace folder is connected. Connect one in Settings, then import again.");
 
   const result = await applyEntries(fs, diff, resolutions);
-  const appliedJson = (diff as { json?: JsonDiff }).json
-    ? await applyJsonEntries((diff as { json?: JsonDiff }).json!)
-    : [];
+  const appliedJson = await applyJsonEntries(diff.json);
   // What was applied, the two sides now agree on: the folder's text becomes
   // the base, or the mirror would keep holding those files back for an edit
   // that has already landed. Settled conflicts are included here.

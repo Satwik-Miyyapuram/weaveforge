@@ -28,8 +28,18 @@ export type MdPreviewMode = "off" | "side" | "below";
 /** The remembered choice, `off` for anything the key does not hold. */
 export function readMdPreviewMode(): MdPreviewMode {
   if (typeof window === "undefined") return "off";
-  const value = window.localStorage.getItem(MD_PREVIEW_KEY);
-  return value === "side" || value === "below" ? value : "off";
+  try {
+    const value = window.localStorage.getItem(MD_PREVIEW_KEY);
+    return value === "side" || value === "below" ? value : "off";
+  } catch {
+    // Storage a private window refuses reads as no choice made.
+    return "off";
+  }
+}
+
+/** What the preview renders: the editor's text once it has reported, even emptied; the saved body before. */
+export function previewBody(liveBody: string | null, savedBody: string): string {
+  return liveBody ?? savedBody;
 }
 
 /**
@@ -77,7 +87,7 @@ export function LivePreview({
         role="complementary"
         aria-label="Preview, rendered as you type"
       >
-        {preview(liveBody?.trim() ? liveBody : savedBody)}
+        {preview(previewBody(liveBody, savedBody))}
       </div>
     </div>
   );

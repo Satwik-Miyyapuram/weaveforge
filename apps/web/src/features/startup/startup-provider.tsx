@@ -17,6 +17,7 @@ import { shouldSyncStandalone } from "@/features/org/application/org-profile-sta
 import { logToApp } from "@/lib/error-report/app-log";
 import { singleFlight } from "@/lib/cache/single-flight";
 import { formatError } from "@/lib/format-error";
+import { loggedFallback } from "./logged-fallback";
 
 export interface StartupSnapshot {
   settings: UserSettings | null;
@@ -70,14 +71,11 @@ interface OrgBatch {
 /** The four org reads plus the project-list warm — one parallel round trip. */
 async function loadOrgBatch(c: AppContainer): Promise<OrgBatch> {
   const [mine, members, lab, labs] = await Promise.all([
-    c.org.loadProfile().catch(() => null),
-    c.org.loadTeam().catch(() => [] as Member[]),
-    c.org.loadLab().catch(() => [] as Member[]),
+    c.org.loadProfile().catch(loggedFallback("Profile", null)),
+    c.org.loadTeam().catch(loggedFallback("Team", [] as Member[])),
+    c.org.loadLab().catch(loggedFallback("Lab members", [] as Member[])),
     // null, not []: a failed read is not "no labs" (see shouldSyncStandalone).
-    fetchMemberships().catch((err: unknown) => {
-      logToApp({ level: "warn", source: "startup", message: "Memberships did not load.", detail: formatError(err) });
-      return null;
-    }),
+    fetchMemberships().catch(loggedFallback("Memberships", null)),
     // Warm the project list in the same batch. ProjectProvider mounts below
     // every gate in the shell, so its own listProjects() would otherwise be a
     // further serial round trip after all of these — and nothing renders until
@@ -95,8 +93,9 @@ async function loadOrgBatch(c: AppContainer): Promise<OrgBatch> {
       profile = await c.org.loadProfile();
       team = await c.org.loadTeam();
       labMembers = await c.org.loadLab();
-    } catch {
-      /* display layer still resolves standalone role */
+    } catch (err) {
+      // The display layer still resolves the standalone role.
+      logToApp({ level: "warn", source: "startup", message: "Standalone sync failed.", detail: formatError(err) });
     }
   }
   return { profile, team, labMembers, memberships: labs ?? [] };

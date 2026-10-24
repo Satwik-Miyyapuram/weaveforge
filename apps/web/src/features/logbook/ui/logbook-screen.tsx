@@ -21,6 +21,7 @@ import { formatError } from "@/lib/format-error";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { statusLabel } from "@/components/status-select";
+import { bestEffort, removeLogEntry } from "../application/log-side-effects";
 
 /**
  * Logbook screen. Presentation + view-state only; all data access goes through
@@ -172,13 +173,15 @@ function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void 
   const [editing, setEditing] = useState(false);
   /** Whether the delete confirmation is up. */
   const [confirmOpen, setConfirmOpen] = useState(false);
+  /** Why the last delete failed, shown on the card. */
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const { headline, rest } = splitHeadline(entry.body);
 
   async function remove() {
     setConfirmOpen(false);
-    await getContainer().logbook.addLogEntry.remove(entry.id);
-    try { await getContainer().logbook.removeLog(entry); } catch { /* git sync best-effort */ }
-    await onChanged();
+    const problem = await removeLogEntry(getContainer().logbook, entry);
+    setRemoveError(problem);
+    if (!problem) await onChanged();
   }
 
   if (editing) {
@@ -223,6 +226,7 @@ function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void 
         }
       >
         {rest && <Markdown className="log-body">{rest}</Markdown>}
+        {removeError && <FormError>{removeError}</FormError>}
       </EntityCard>
 
       {confirmOpen && (
@@ -264,7 +268,7 @@ function EditLogForm({
     setBody(nextBody);
     const logbook = getContainer().logbook;
     const updated = await logbook.addLogEntry.update(entry.id, { body: nextBody, kind });
-    try { await logbook.pushLog(updated); } catch { /* git sync best-effort */ }
+    await bestEffort("Git push", () => logbook.pushLog(updated));
   }
 
   async function submit(e: React.FormEvent) {
@@ -274,7 +278,7 @@ function EditLogForm({
     try {
       const logbook = getContainer().logbook;
       const updated = await logbook.addLogEntry.update(entry.id, { body, kind });
-      try { await logbook.pushLog(updated); } catch { /* git sync best-effort */ }
+      await bestEffort("Git push", () => logbook.pushLog(updated));
       await onSaved();
     } catch (err) {
       setError(formatError(err));
