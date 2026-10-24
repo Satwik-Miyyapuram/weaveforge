@@ -16,6 +16,9 @@ import {
 import { one, rows, run } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 
+/** Tag ids per paper_tags read; the list travels in the URL. */
+const TAG_ID_CHUNK = 200;
+
 /**
  * The columns a TagRow is read as, named rather than starred.
  *
@@ -58,10 +61,21 @@ export class PostgrestTagRepository extends ProjectRepository implements ITagRep
   async listWithCounts(): Promise<TagWithPaperCount[]> {
     const tags = await this.list();
     if (tags.length === 0) return [];
-    const { data, error } = await this.db.from(PAPER_TAGS).select("tag_id, paper_id");
-    if (error) throw error;
+    // Only this project's links, in chunks that keep the URL short (26-09).
+    const ids = tags.map((t) => t.id);
+    const chunks: string[][] = [];
+    for (let start = 0; start < ids.length; start += TAG_ID_CHUNK) {
+      chunks.push(ids.slice(start, start + TAG_ID_CHUNK));
+    }
+    const pages = await Promise.all(
+      chunks.map((chunk) =>
+        rows<{ tag_id: string; paper_id: string }>(
+          this.db.from(PAPER_TAGS).select("tag_id, paper_id").in("tag_id", chunk),
+        ),
+      ),
+    );
     const counts = new Map<string, Set<string>>();
-    for (const row of data as { tag_id: string; paper_id: string }[]) {
+    for (const row of pages.flat()) {
       (counts.get(row.tag_id) ?? counts.set(row.tag_id, new Set()).get(row.tag_id)!).add(row.paper_id);
     }
     return tags.map((t) => ({ ...t, paperCount: counts.get(t.id)?.size ?? 0 }));
