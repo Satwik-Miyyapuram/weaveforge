@@ -107,10 +107,13 @@ export interface Migration {
  * built fresh per test process. A migration that fails names itself, because
  * the alternative is a stack trace from deep inside Postgres with no hint of
  * which of a hundred files produced it.
+ *
+ * `exec` is told the migration's name too, so a caller that keeps a ledger can
+ * write it in the same transaction as the migration itself.
  */
 export async function applyMigrations(
   migrations: readonly Migration[],
-  exec: (sql: string) => Promise<unknown>,
+  exec: (sql: string, name: string) => Promise<unknown>,
   options: { applied?: ReadonlySet<string>; onApplied?: (name: string) => Promise<void> } = {},
 ): Promise<string[]> {
   const applied = options.applied ?? new Set<string>();
@@ -118,7 +121,7 @@ export async function applyMigrations(
   for (const migration of migrations) {
     if (applied.has(migration.name)) continue;
     try {
-      await exec(migration.sql);
+      await exec(migration.sql, migration.name);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       throw new Error(`Migration ${migration.name} failed on a clean database: ${reason}`);
