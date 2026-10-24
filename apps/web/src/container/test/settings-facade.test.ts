@@ -166,3 +166,35 @@ test("mcpTokens.list is silent on an unusable deployment, noisy on a real refusa
     disabled.restore();
   }
 });
+
+test("mcpTokens.list goes through the shared request path: verb, header, records", async () => {
+  const harness = facadeWith(() => json({ tokens: [{ id: "m1" }] }));
+  try {
+    assert.deepEqual(await harness.facade.mcpTokens.list(), [{ id: "m1" }]);
+    assert.equal(harness.calls.length, 1);
+    assert.equal(harness.calls[0]!.url, "/api/settings/mcp-tokens");
+    assert.equal(harness.calls[0]!.init.method, "GET");
+    const headers = harness.calls[0]!.init.headers as Record<string, string>;
+    assert.equal(headers.Authorization, `Bearer ${TOKEN}`);
+  } finally {
+    harness.restore();
+  }
+});
+
+test("mcpTokens.list reads a body without tokens as an empty list", async () => {
+  const harness = facadeWith(() => json({}));
+  try {
+    assert.deepEqual(await harness.facade.mcpTokens.list(), []);
+  } finally {
+    harness.restore();
+  }
+});
+
+test("mcpTokens.list names the status when the route fails without a message", async () => {
+  const harness = facadeWith(() => new Response("", { status: 500 }));
+  try {
+    await assert.rejects(() => harness.facade.mcpTokens.list(), /Something went wrong\. \(HTTP 500/);
+  } finally {
+    harness.restore();
+  }
+});
