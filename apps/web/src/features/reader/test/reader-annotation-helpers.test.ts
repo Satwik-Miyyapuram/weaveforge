@@ -122,3 +122,9 @@ test("isDismissTap: one short tap off an open bar dismisses it", () => {
   assert.equal(isDismissTap(down, { x: 100, y: 100, time: 900 }, true), false, "a long press selects words");
   assert.equal(isDismissTap(null, { x: 100, y: 100, time: 10 }, true), false);
 });
+
+test("one default colour: the palette's first, used for a blank colour (22-07)", async () => {
+  const helpers = await import("../application/reader-annotation-helpers");
+  assert.equal(helpers.DEFAULT_ANNOTATION_COLOR, "#ffd400");
+  assert.equal(helpers.READER_ANNOTATION_COLORS[0], helpers.DEFAULT_ANNOTATION_COLOR);
+});

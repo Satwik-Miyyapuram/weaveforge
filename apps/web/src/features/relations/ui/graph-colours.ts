@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { NODE_COLOR_KEYS, type GraphViewSettings, type NodeColorKey } from "@weaveforge/core";
-import { EXPERIMENT_COLOR, NOTE_COLOR, PAPER_COLOR, REPORT_COLOR, STATUS_COLORS } from "../domain/graph-palette";
+import { EXPERIMENT_COLOR, NOTE_COLOR, PAPER_COLOR, READING_STATUS_COLORS, REPORT_COLOR } from "../domain/graph-palette";
 import { readStampStyle, type StampStyle } from "./graph-stamp";
 
 /**
@@ -17,10 +17,7 @@ import { readStampStyle, type StampStyle } from "./graph-stamp";
  */
 export const CLASSIC_NODE_COLORS: Record<NodeColorKey, string> = {
   paper: PAPER_COLOR,
-  to_read: STATUS_COLORS.to_read ?? "#b9b2a6",
-  reading: STATUS_COLORS.reading ?? "#7c9885",
-  read: STATUS_COLORS.read ?? "#5a7d8c",
-  skimmed: STATUS_COLORS.skimmed ?? "#c98a6b",
+  ...READING_STATUS_COLORS,
   note: NOTE_COLOR,
   report: REPORT_COLOR,
   experiment: EXPERIMENT_COLOR,

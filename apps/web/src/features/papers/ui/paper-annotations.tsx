@@ -6,16 +6,9 @@ import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
 import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
+import type { StoredZoteroAnnotation } from "../domain/zotero";
 
-interface StoredAnnotation {
-  key?: string;
-  kind?: "annotation" | "note";
-  text?: string;
-  comment?: string;
-  color?: string;
-  page?: string;
-  tags?: string[];
-}
+type StoredAnnotation = StoredZoteroAnnotation;
 
 /** Read-only list of Zotero PDF annotations cached on the paper (metadata.annotations). */
 export function PaperAnnotations({ paper, readOnly }: { paper: Paper; readOnly: boolean }) {

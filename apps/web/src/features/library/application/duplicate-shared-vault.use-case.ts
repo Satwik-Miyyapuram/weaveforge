@@ -6,6 +6,13 @@ import type {
 } from "@weaveforge/core";
 import { LibraryPinError, shareCoversResource, vaultAssetPathsInBody } from "@weaveforge/core";
 import type { IVaultAssetStore } from "@/features/vault/domain/vault-assets";
+import { logToApp } from "@/lib/error-report/app-log";
+
+/** The copy, and the images it still borrows from the owner because they could not be copied. */
+export interface DuplicatedVaultPage {
+  page: VaultPage;
+  failedAssets: string[];
+}
 
 export class DuplicateSharedVaultPageUseCase {
   constructor(
@@ -17,7 +24,7 @@ export class DuplicateSharedVaultPageUseCase {
     },
   ) {}
 
-  async execute(input: { resourceId: string; ownerId: string }): Promise<VaultPage> {
+  async execute(input: { resourceId: string; ownerId: string }): Promise<DuplicatedVaultPage> {
     const shares = await this.deps.shares.listSharedWithMe("vault_page");
     const allowed = shares.some((s) =>
       shareCoversResource(s, "vault_page", input.resourceId, input.ownerId),
@@ -37,7 +44,7 @@ export class DuplicateSharedVaultPageUseCase {
     });
 
     const paths = vaultAssetPathsInBody(source.body);
-    if (paths.length === 0) return page;
+    if (paths.length === 0) return { page, failedAssets: [] };
 
     // Each asset is an independent download-then-upload pair. Copying them one
     // after another made duplicating an image-heavy note take as many serial
@@ -50,21 +57,28 @@ export class DuplicateSharedVaultPageUseCase {
           const blob = await this.deps.assets.fetchBlob(oldPath);
           const ext = oldPath.split(".").pop() ?? "bin";
           return { oldPath, newPath: await this.deps.assets.upload(page.id, blob, ext) };
-        } catch {
-          return null;
+        } catch (err) {
+          logToApp({
+            level: "warn",
+            source: "vault",
+            message: `An image in the shared note could not be copied: ${oldPath}`,
+            detail: String(err),
+          });
+          return { oldPath, newPath: null };
         }
       }),
     );
+    const failedAssets = copied.filter((c) => c.newPath === null).map((c) => c.oldPath);
 
     let body = source.body;
     for (const entry of copied) {
-      if (!entry) continue;
+      if (entry.newPath === null) continue;
       body = body.replaceAll(`vault:${entry.oldPath}`, `vault:${entry.newPath}`);
     }
 
     if (body !== source.body) {
-      return this.deps.manageVaultPage.update(page.id, { body });
+      return { page: await this.deps.manageVaultPage.update(page.id, { body }), failedAssets };
     }
-    return page;
+    return { page, failedAssets };
   }
 }

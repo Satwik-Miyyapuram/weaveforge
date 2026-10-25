@@ -17,11 +17,15 @@ export function BraveGraphWarning() {
   useEffect(() => {
     const brave = (navigator as unknown as { brave?: { isBrave?: () => Promise<boolean> } }).brave;
     let alive = true;
-    brave?.isBrave?.().then((b) => {
-      if (!alive) return;
-      setIsBrave(b);
-      setDismissed(readStored("thesis.graph.braveWarnDismissed") === "1");
-    });
+    brave?.isBrave?.().then(
+      (b) => {
+        if (!alive) return;
+        setIsBrave(b);
+        setDismissed(readStored("thesis.graph.braveWarnDismissed") === "1");
+      },
+      // A probe that fails tells us nothing: no warning.
+      () => {},
+    );
     return () => {
       alive = false;
     };

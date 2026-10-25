@@ -203,15 +203,15 @@ async function run(options: EnableOptions): Promise<void> {
     return;
   } else {
     setStatus({ phase: "embedding", done: 0, total: 0 });
-    const building = semantic;
-    await building.build(docs, {
+    const current = semantic;
+    await current.build(docs, {
       onProgress: (progress) => {
         setStatus({ phase: "embedding", done: progress.done, total: progress.total });
         options.onProgress?.(progress);
       },
       // Saved partway so a restart resumes through `sync` instead of starting over.
       onCheckpoint: (partial) => {
-        if (building !== semantic) return;
+        if (current !== semantic) return;
         void vectorStore().set(projectId, { ...partial, revision });
         rememberPreference(true);
       },
