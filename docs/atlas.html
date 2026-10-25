@@ -546,7 +546,7 @@
       <div class="fact"><b>56,147</b><span>core lines</span></div>
       <div class="fact"><b>20,462</b><span>desktop lines</span></div>
       <div class="fact"><b>3,375</b><span>python sdk</span></div>
-      <div class="fact"><b>148</b><span>migrations</span></div>
+      <div class="fact"><b>149</b><span>migrations</span></div>
       <div class="fact"><b>31</b><span>web features</span></div>
     </div>
   </header>
@@ -695,7 +695,7 @@ flowchart TB
 │   ├── integrations/              <i>lightning · keras callbacks</i>
 │   └── tracking.py  container.py  cli.py
 │
-├── <b>db/migrations/</b>           <i>0001 → 0149, 8,187 lines</i>
+├── <b>db/migrations/</b>           <i>0001 → 0150, 8,201 lines</i>
 ├── <b>scripts/</b>                       <i>74 files — boundary gates, migration, seeding</i>
 ├── <b>plugins/weaveforge-research/</b>    <i>stdio MCP server, outside every workspace</i>
 └── <b>docs/</b>                          <i>78 files, 27,533 lines</i>
@@ -986,7 +986,7 @@ flowchart TB
   BRIDGE["preload.ts<br/>window.weaveforge<br/>one bridge object, 26 members"]
 
   subgraph main["Main process"]
-    DB["local-db.ts<br/>PGlite + the 148 migrations"]
+    DB["local-db.ts<br/>PGlite + the 149 migrations"]
     FOLDER["vault-folder.ts<br/>read / write / list / stat"]
     WATCH["vault-watch.ts<br/>notices outside edits"]
     GIT["vault-git.ts<br/>commit history"]
@@ -1291,7 +1291,7 @@ flowchart TB
     <section id="data">
       <h2>Data layer</h2>
       <p>
-        148 numbered migrations, applied in order, by all three backends. Access control is in
+        149 numbered migrations, applied in order, by all three backends. Access control is in
         the database rather than in the app: a missing check in a React component is a bug, a
         missing RLS policy is a breach, so the policy is the one that decides.
       </p>
