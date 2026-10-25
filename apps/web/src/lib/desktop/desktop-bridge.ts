@@ -165,8 +165,6 @@ export interface DesktopBridge {
   chooseVaultRoot(): Promise<DesktopVaultRoot | null>;
   /** The folder currently in use, or null when none has been chosen. */
   vaultRoot(): Promise<DesktopVaultRoot | null>;
-  /** Stop using the folder. The files stay; the app stops writing to them. */
-  forgetVaultRoot(): Promise<void>;
   /** Read one file, or null when it is not there yet. */
   readVaultFile(path: string): Promise<string | null>;
   writeVaultFile(path: string, contents: string): Promise<void>;

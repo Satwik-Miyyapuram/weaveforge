@@ -33,13 +33,18 @@ export class DeletePaperUseCase {
     // A paper's images are independent objects in blob storage, so deleting
     // them one round trip at a time made the delete take as long as the paper
     // had figures. Best-effort per image, as before — one failure must not
-    // strand the rest or the row itself.
+    // strand the rest or the row itself — but an image left behind is logged.
     await Promise.all(
       imagesOf(paper).map(async (img) => {
         try {
           await this.deps.images.remove(img);
-        } catch {
-          /* best-effort */
+        } catch (err) {
+          logToApp({
+            level: "warn",
+            source: "storage",
+            message: "Could not delete a paper image from storage",
+            detail: `${img}: ${describeRejection(err)}`,
+          });
         }
       }),
     );

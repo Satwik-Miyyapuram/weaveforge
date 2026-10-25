@@ -44,6 +44,7 @@ import type { ZoteroAnnotation } from "@/features/papers/domain/zotero";
 import { formatError } from "@/lib/format-error";
 import type { PaperHtmlPage } from "../application/paper-html";
 import { describeFreeCopyFailure, isWebArticle, openAccessIdsOf } from "../application/find-free-copy";
+import { linkPdfSource } from "../application/link-pdf-source";
 import { PaperHtmlView } from "./paper-html-view";
 
 async function keptHtmlPage(paperId: string): Promise<PaperHtmlPage | null> {
@@ -361,11 +362,7 @@ export function PaperPdfPane({
         );
         return;
       }
-      try {
-        await getContainer().papers.updatePaper.setPdfSource(paperId, url);
-      } catch {
-        // The bytes are kept either way; the link is a convenience for next time.
-      }
+      await linkPdfSource((id, link) => getContainer().papers.updatePaper.setPdfSource(id, link), paperId, url);
       activityRef.current?.("reader", `Fetched the PDF from ${new URL(url).hostname} and linked it to this paper.`);
       setTypedUrl("");
       setError(null);
@@ -396,11 +393,11 @@ export function PaperPdfPane({
       const outcome = await findFreeCopyInBrowser(paperId, openAccessIds.current);
       if (outcome.kind === "pdf") {
         const host = new URL(outcome.candidate.url).hostname;
-        try {
-          await getContainer().papers.updatePaper.setPdfSource(paperId, outcome.candidate.url);
-        } catch {
-          // The bytes are kept either way; the link is for next time.
-        }
+        await linkPdfSource(
+          (id, link) => getContainer().papers.updatePaper.setPdfSource(id, link),
+          paperId,
+          outcome.candidate.url,
+        );
         activityRef.current?.("reader", `Found a free PDF on ${host}; it is kept with this paper.`);
         setFreeStatus(null);
         setError(null);

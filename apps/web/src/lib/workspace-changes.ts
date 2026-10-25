@@ -12,6 +12,8 @@
  * would go quiet exactly when the workspace is busiest.
  */
 
+import { notifyEach } from "./notify-each";
+
 export type WorkspaceChangeListener = (table: string) => void;
 
 const listeners = new Set<WorkspaceChangeListener>();
@@ -26,16 +28,10 @@ export function onWorkspaceChange(listener: WorkspaceChangeListener): () => void
  * Announce a change.
  *
  * One listener throwing must not stop the others hearing about it, and must
- * not reach the write that triggered this.
+ * not reach the write that triggered this; it is logged instead.
  */
 export function notifyWorkspaceChange(table: string): void {
-  for (const listener of [...listeners]) {
-    try {
-      listener(table);
-    } catch {
-      // A listener's problem is its own; the write already succeeded.
-    }
-  }
+  notifyEach(listeners, "workspace-changes", table);
 }
 
 /** Drop every listener. For tests, which should not leak into each other. */

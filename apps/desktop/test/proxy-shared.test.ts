@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { refuse, type ProxyFetch } from "../src/proxy-shared";
+import { refuse, upstreamFailed, type ProxyFetch } from "../src/proxy-shared";
 import { proxyArxiv } from "../src/arxiv-proxy";
 import { proxyHtml } from "../src/html-proxy";
 import { proxyPdf } from "../src/pdf-proxy";
@@ -78,4 +78,47 @@ test("a public https address has no credentials and no private host, in any spel
   for (const url of ["http://arxiv.org/", "https://u:p@arxiv.org/", "https://127.1/", "https://0x7f.1/", "https://2130706433/", "https://[::ffff:127.0.0.1]/", "not a url", ""]) {
     assert.equal(isPublicHttpsUrl(url), false, url);
   }
+});
+
+// xlog-05: a proxy that cannot reach upstream still answers 502, and now says why in the log.
+test("upstreamFailed logs the reason and its cause, and answers the refusal", async () => {
+  const logged: string[] = [];
+  const cause = Object.assign(new Error("getaddrinfo ENOTFOUND export.arxiv.org"), { code: "ENOTFOUND" });
+  const res = upstreamFailed("arxiv", new TypeError("fetch failed", { cause }), 502, "Upstream fetch failed", (line) => void logged.push(line));
+  await assertRefused(res, 502, /^Upstream fetch failed$/);
+  assert.equal(logged.length, 1);
+  assert.match(logged[0]!, /^\[proxy:arxiv\] Upstream fetch failed: fetch failed \(getaddrinfo ENOTFOUND export\.arxiv\.org\)$/);
+
+  upstreamFailed("blob", "plain string", 502, "Upstream fetch failed", (line) => void logged.push(line));
+  assert.match(logged[1]!, /plain string$/);
+  upstreamFailed("blob", new Error("x".repeat(5_000)), 502, "Upstream fetch failed", (line) => void logged.push(line));
+  assert.ok(logged[2]!.length < 400, "a long reason is cut");
+});
+
+test("every proxy logs a network failure once and still answers 502", async (t) => {
+  const warn = t.mock.method(console, "warn", () => undefined);
+  const offline: ProxyFetch = () => Promise.reject(new Error("offline"));
+  const answers = [
+    await proxyArxiv(new Request(`${APP}/api/arxiv?id_list=1`), offline),
+    await proxyBlob(new Request(`${APP}/api/blobs/a`), offline),
+    await proxySemanticScholar(new Request(`${APP}/api/semantic-scholar/graph/v1/paper/x`), offline),
+    await proxyHtml(`${APP}/api/html-proxy?url=${encodeURIComponent("https://a.org/p")}`, offline),
+    await proxyPdf(`${APP}/api/pdf-proxy?typed=1&url=${encodeURIComponent("https://a.org/x.pdf")}`, offline),
+  ];
+  assert.deepEqual(answers.map((r) => r.status), [502, 502, 502, 502, 502]);
+  assert.equal(warn.mock.callCount(), 5);
+  for (const call of warn.mock.calls) assert.match(String(call.arguments[0]), /^\[proxy:[\w.-]+\] .*offline/);
+});
+
+test("a body that breaks off is logged and answers 504", async (t) => {
+  const warn = t.mock.method(console, "warn", () => undefined);
+  const broken = (type: string): ProxyFetch => async () =>
+    new Response(new ReadableStream({ pull(c) { c.error(new Error("socket hang up")); } }), {
+      headers: { "content-type": type },
+    });
+  const html = await proxyHtml(`${APP}/api/html-proxy?url=${encodeURIComponent("https://a.org/p")}`, broken("text/html"));
+  const pdf = await proxyPdf(`${APP}/api/pdf-proxy?typed=1&url=${encodeURIComponent("https://a.org/x.pdf")}`, broken("application/pdf"));
+  assert.deepEqual([html.status, pdf.status], [504, 504]);
+  assert.equal(warn.mock.callCount(), 2);
+  for (const call of warn.mock.calls) assert.match(String(call.arguments[0]), /socket hang up/);
 });

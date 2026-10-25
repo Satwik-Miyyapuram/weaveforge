@@ -149,8 +149,13 @@ export class NativeWorkspaceGit implements IWorkspaceGit {
     if (options.path) args.push("--", options.path);
     try {
       return parseLog(await git(this.root, args));
-    } catch {
+    } catch (error) {
       // A repository with no commits yet has no log, which is not a failure.
+      // Anything else still reads as an empty history, but goes in the log.
+      const reason = gitReason(error);
+      if (!/does not have any commits yet/.test(reason)) {
+        console.warn(`[vault-git] could not read the history: ${reason.slice(0, 300)}`);
+      }
       return [];
     }
   }

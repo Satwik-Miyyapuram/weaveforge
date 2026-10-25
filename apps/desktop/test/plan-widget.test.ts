@@ -10,6 +10,7 @@ import {
   PLAN_WIDGET_SIZE,
   parseTaskbarCreated,
   powershellArgs,
+  switchPlanWidget,
   singleFlight,
   widgetDataFromRows,
   type PlanWidgetRow,
@@ -127,6 +128,42 @@ test("cleanWidgetPalette keeps a full palette of #rrggbb colours and refuses any
   assert.equal(cleanWidgetPalette(missing), null);
   assert.equal(cleanWidgetPalette(null), null);
   assert.equal(cleanWidgetPalette("#000000"), null);
+});
+
+test("plan widget switch: a failed save changes nothing and says so (xipc-12)", async () => {
+  const applied: boolean[] = [];
+  const result = await switchPlanWidget(true, {
+    save: async () => ({ ok: false, message: "disk full" }),
+    apply: async (on) => { applied.push(on); },
+  });
+  assert.deepEqual(result, { ok: false, message: "disk full" });
+  assert.deepEqual(applied, [], "the widget opened although its setting was not saved");
+});
+
+test("plan widget switch: a throw becomes a refusal, not a raw rejection (xipc-08)", async () => {
+  const thrown = await switchPlanWidget(true, {
+    save: async () => { throw new Error("EACCES"); },
+    apply: async () => undefined,
+  });
+  assert.equal(thrown.ok, false);
+  assert.match(thrown.ok ? "" : thrown.message, /turn the desktop widget on.*EACCES/);
+
+  const openFails = await switchPlanWidget(false, {
+    save: async () => ({ ok: true, value: null }),
+    apply: async () => { throw "window gone"; },
+  });
+  assert.equal(openFails.ok, false);
+  assert.match(openFails.ok ? "" : openFails.message, /turn the desktop widget off.*window gone/);
+});
+
+test("plan widget switch: saves, then applies, in that order", async () => {
+  const steps: string[] = [];
+  const result = await switchPlanWidget(false, {
+    save: async (on) => { steps.push(`save ${on}`); return { ok: true, value: null }; },
+    apply: async (on) => { steps.push(`apply ${on}`); },
+  });
+  assert.deepEqual(result, { ok: true, value: null });
+  assert.deepEqual(steps, ["save false", "apply false"]);
 });
 
 test("singleFlight: two opens at once run the work once; later ones run again (38-06)", async () => {

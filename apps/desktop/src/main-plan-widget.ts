@@ -17,7 +17,7 @@
 import { app, BrowserWindow, ipcMain, screen, type IpcMainEvent } from "electron";
 import { spawn, type ChildProcess } from "node:child_process";
 import path from "node:path";
-import { CHANNELS, type PlanWidgetStatePayload } from "./channels";
+import { CHANNELS, type IpcResult, type PlanWidgetStatePayload } from "./channels";
 import type { IpcSurface } from "./ipc-guard";
 import type { LocalDbHost } from "./local-db-host";
 import type { PreferenceStore } from "./preference-store";
@@ -31,6 +31,7 @@ import {
   parseTaskbarCreated,
   PLAN_WIDGET_SQL,
   powershellArgs,
+  switchPlanWidget,
   singleFlight,
   widgetDataFromRows,
   type PlanWidgetRow,
@@ -241,11 +242,15 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
     app.setLoginItemSettings({ openAtLogin: on, args: [WIDGET_ONLY_ARG] });
   }
 
-  async function setEnabled(on: boolean): Promise<void> {
-    await deps.preferenceStore().write("plan-widget", on);
-    startWithWindows(on);
-    if (on) await open();
-    else close();
+  function setEnabled(on: boolean): Promise<IpcResult<null>> {
+    return switchPlanWidget(on, {
+      save: (value) => deps.preferenceStore().write("plan-widget", value),
+      apply: async (value) => {
+        startWithWindows(value);
+        if (value) await open();
+        else close();
+      },
+    });
   }
 
   async function state(): Promise<PlanWidgetStatePayload> {
@@ -256,7 +261,8 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
   deps.ipc.handle(CHANNELS.planWidgetState, async () => ({ ok: true, value: await state() }));
   deps.ipc.handle(CHANNELS.planWidgetSet, async (_event, on: unknown) => {
     if (!SUPPORTED) return { ok: false, message: "The desktop widget is only on Windows for now." };
-    await setEnabled(on === true);
+    const switched = await setEnabled(on === true);
+    if (!switched.ok) return switched;
     return { ok: true, value: await state() };
   });
 
@@ -278,7 +284,10 @@ export function registerMainPlanWidget(deps: MainPlanWidgetDeps): MainPlanWidget
     if (fromWidget(event)) deps.showMainWindow("/plan");
   });
   ipcMain.on(CHANNELS.planWidgetHide, (event) => {
-    if (fromWidget(event)) void setEnabled(false);
+    if (!fromWidget(event)) return;
+    void setEnabled(false).then((r) => {
+      if (!r.ok) console.warn(`[plan-widget] ${r.message}`);
+    });
   });
 
   // A monitor unplugged or a scale changed can leave the widget off-screen;

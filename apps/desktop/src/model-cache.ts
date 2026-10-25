@@ -169,7 +169,11 @@ async function download(
   // A name only this download uses, in case another process fills the same cache.
   const temporary = `${file}.${randomUUID()}.part`;
   await writeFile(temporary, bytes);
-  await rename(temporary, file).catch(() => rm(temporary, { force: true }));
+  // A failed rename still serves these bytes; the next ask downloads again.
+  await rename(temporary, file).catch(async (error: unknown) => {
+    console.warn(`[models] could not keep ${file}: ${String(error).slice(0, 300)}`);
+    await rm(temporary, { force: true });
+  });
 
   return { status: 200, bytes };
 }

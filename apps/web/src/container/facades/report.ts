@@ -6,6 +6,8 @@ import type {
 } from "@weaveforge/core";
 import type { LoadReportScreenUseCase, ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
 import { reportImagePathsInBody } from "@/features/report/lib/report-images-md";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
 
 export class ReportFacade {
   constructor(
@@ -57,8 +59,14 @@ export class ReportFacade {
       paths.map(async (path) => {
         try {
           await this.deps.images.remove(path);
-        } catch {
-          /* best-effort — the rows are already gone */
+        } catch (err) {
+          // Best-effort: the rows are already gone. An image left behind is logged.
+          logToApp({
+            level: "warn",
+            source: "storage",
+            message: "Could not delete a report image from storage",
+            detail: `${path}: ${describeRejection(err)}`,
+          });
         }
       }),
     );

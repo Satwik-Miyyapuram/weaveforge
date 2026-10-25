@@ -14,7 +14,11 @@ import { WeaveForgeLogo } from "./weave-forge-logo";
  */
 export const TITLE_BAR_BOOT_SCRIPT = `try{var w=window.weaveforge;if(w&&w.platform!=="darwin"&&typeof w.menuModel==="function")document.documentElement.setAttribute("data-titlebar","")}catch(e){}`;
 
-/** The shell's menu shortcuts (Ctrl+,) ask the page through this; see `routeTo`. */
+/**
+ * The shell's menu shortcuts (Ctrl+,) ask the page through this; see `routeTo`.
+ * Same string as `PAGE_COMMAND_EVENT` in apps/desktop/src/app-menu.ts, checked
+ * by apps/desktop/test/app-menu.test.ts.
+ */
 const MENU_COMMAND_EVENT = "weaveforge:menu-command";
 
 function runCommand(command: string): void {
@@ -137,7 +141,9 @@ export function DesktopTitleBar() {
         runCommand(item.command);
         return;
       }
-      void desktop()?.invokeMenuItem?.(item.id).catch(() => undefined);
+      void desktop()
+        ?.invokeMenuItem?.(item.id)
+        .catch((error: unknown) => console.warn("[title-bar] menu entry failed:", item.id, error));
     },
     [close, router],
   );
