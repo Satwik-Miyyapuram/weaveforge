@@ -25,10 +25,12 @@ const child = spawn(
     "tsx",
     "--test",
     ...process.argv.slice(2),
-    // Two patterns rather than a brace expansion: node's test-runner glob does
-    // not expand `{ts,tsx}`, and a pattern that matches nothing is ignored.
-    "src/**/*.test.ts",
-    "src/**/*.test.tsx",
+    // Named test files run alone; otherwise the whole suite. Two patterns
+    // rather than a brace expansion: node's test-runner glob does not expand
+    // `{ts,tsx}`, and a pattern that matches nothing is ignored.
+    ...(process.argv.slice(2).some((a) => /\.test\.tsx?$/.test(a))
+      ? []
+      : ["src/**/*.test.ts", "src/**/*.test.tsx"]),
   ],
   {
     cwd: appRoot,

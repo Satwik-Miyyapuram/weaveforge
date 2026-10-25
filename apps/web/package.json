@@ -27,6 +27,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "node ./scripts/run-tests.mjs",
+    "test:memory": "node ./scripts/run-tests.mjs src/features/ink/test/use-pen-capture-leak.test.tsx",
     "test:integration": "node ./scripts/run-integration-tests.mjs",
     "test:e2e": "playwright test",
     "test:e2e:editor": "node ./scripts/run-editor-e2e.mjs",

@@ -10,6 +10,7 @@
  * 5. Typecheck across all workspaces (typecheck)
  * 6. Linter (lint)
  * 7. Bundle budget (bundle:budget, when .next build exists)
+ * 8. Memory budgets (test:memory, ~5 s)
  */
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -67,5 +68,8 @@ run("npm run lint", "Running linter");
 if (existsSync(path.join(root, "apps/web/.next"))) {
   run("npm run bundle:budget", "Checking bundle budget");
 }
+
+// 8. Memory budgets: local database RSS and ink page open/close leaks
+run("npm run test:memory", "Checking memory budgets");
 
 console.log("\n==> [pre-push] All offline pre-push checks PASSED cleanly!\n");
