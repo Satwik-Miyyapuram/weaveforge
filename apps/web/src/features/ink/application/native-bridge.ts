@@ -16,7 +16,7 @@
 import type { InkColour, InkHand } from "@weaveforge/core";
 
 import type { PenPointerEvent } from "./use-pen-capture";
-import { trailColour } from "./ink-trail";
+import { INK_RENDER_COLOURS } from "../render/ink-palette";
 
 /**
  * What the Android shell exposes through `addJavascriptInterface`. Only
@@ -151,11 +151,10 @@ export function nativeStrokeEvents(
 
 /** `#AARRGGBB`, which is what Android's `Color.parseColor` reads. */
 function argbHex(colour: InkColour, alpha: number): string {
-  const match = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(trailColour(colour, 1));
-  const [r, g, b] = match
-    ? [match[1], match[2], match[3]].map(Number)
-    : [0, 0, 0];
-  const hex = (value: number) =>
-    Math.round(value).toString(16).padStart(2, "0");
-  return `#${hex(alpha * 255)}${hex(r!)}${hex(g!)}${hex(b!)}`;
+  const rgb = INK_RENDER_COLOURS[colour] ?? INK_RENDER_COLOURS.text;
+  const hex = (unit: number) =>
+    Math.round(Math.max(0, Math.min(1, unit)) * 255)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${hex(alpha)}${rgb.map(hex).join("")}`;
 }

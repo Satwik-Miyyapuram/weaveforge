@@ -165,7 +165,8 @@
   max-width: none;
 }
 
-.papers-link-short,
+/* The table shows the labelled link; the bare arrow is not used. */
+.papers-link-short { display: none; }
 
 /* Paper / vault / experiment detail chrome — one tight toolbar row, title below. */
 .paper-note {

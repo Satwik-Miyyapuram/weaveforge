@@ -63,7 +63,8 @@ export function inkPrintDocument(doc: InkPrintDocument): string {
       sheet.href
         ? `<link rel="stylesheet" href="${escapeHtml(sheet.href)}">`
         : sheet.text
-          ? `<style>${sheet.text.replace(/<\/style/gi, "<\/style")}</style>`
+          ? // `<\/` is `</` to CSS but does not end the tag in HTML.
+            `<style>${sheet.text.replace(/<\/(style)/gi, "<\\/$1")}</style>`
           : "",
     )
     .join("\n");

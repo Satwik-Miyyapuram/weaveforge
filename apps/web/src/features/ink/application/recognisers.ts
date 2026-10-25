@@ -73,10 +73,11 @@ export function createDesktopInkRecogniser(
       if (!desktop || typeof desktop.inkAvailable !== "function") return false;
       try {
         known = await desktop.inkAvailable();
+        return known;
       } catch {
-        known = false;
+        // Often the bridge is not ready yet: answer no now, ask again later.
+        return false;
       }
-      return known;
     },
     async recognise(lines, hints): Promise<RecognisedLine[]> {
       const desktop = bridge();

@@ -17,6 +17,7 @@ import {
   type InkPrintFigure,
 } from "../application/ink-print";
 import { inkPageSvg, type InkSvgFigure } from "../application/ink-svg";
+import { loadInOrder } from "../application/load-in-order";
 import type { InkPalette } from "../render/ink-palette";
 import { INK_UNDERLAY, inkSheetRuleStyle, loadMathOrLog } from "./ink-sheet-underlay";
 
@@ -98,14 +99,13 @@ async function composeWithFigures(
     // it, and the transparent ink raster brings none of its own.
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, canvas.width, canvas.height);
-    // The figures, then the ink over them: the sheet's own order.
-    for (const figure of figures) {
-      let bitmap: ImageBitmap;
-      try {
-        bitmap = await createImageBitmap(await fetchBlob(figure.path));
-      } catch {
-        continue; // a missing attachment is a figure the page does not draw
-      }
+    // The figures, then the ink over them: the sheet's own order. Fetched
+    // together; a missing attachment is a figure the page does not draw.
+    const loaded = await loadInOrder(figures, async (figure) => ({
+      figure,
+      bitmap: await createImageBitmap(await fetchBlob(figure.path)),
+    }));
+    for (const { figure, bitmap } of loaded) {
       const crop = figure.crop ?? [0, 0, 0, 0];
       const sx = (crop[0] / 100) * bitmap.width;
       const sy = (crop[1] / 100) * bitmap.height;
@@ -223,15 +223,14 @@ export function usePageExport(deps: PageExportDeps) {
     const underlayHtml = live?.innerHTML ?? (text.trim() ? renderMarkdownPlain(text) : "");
     // The figures are in the page's own text layer, not in the flowed prose,
     // which is the text with its figure lines already taken out.
-    const figures: InkPrintFigure[] = [];
-    for (const figure of inkPageFigures(textPages.current[pageIndex] ?? "")) {
-      try {
-        const { path, ...geometry } = figure;
-        figures.push({ ...geometry, url: await blobToDataUrl(await fetchBlob(path)) });
-      } catch {
-        // A missing attachment is a figure the page does not draw.
-      }
-    }
+    // A missing attachment is a figure the page does not draw.
+    const figures: InkPrintFigure[] = await loadInOrder(
+      inkPageFigures(textPages.current[pageIndex] ?? ""),
+      async ({ path, ...geometry }) => ({
+        ...geometry,
+        url: await blobToDataUrl(await fetchBlob(path)),
+      }),
+    );
     const ink = await requestExport(PNG_EXPORT_SCALE, true);
     const title = `${noteId} — page ${pageIndex + 1}`;
     setPrintDoc({
@@ -277,18 +276,15 @@ export function usePageExport(deps: PageExportDeps) {
     }
     // The figures, embedded the same way: the page as it looks, not the page
     // as the worker knows it.
-    const figures: InkSvgFigure[] = [];
-    for (const figure of inkPageFigures(textPages.current[pageIndex] ?? "")) {
-      try {
-        figures.push({
-          ...figure,
-          dataUrl: await blobToDataUrl(await fetchBlob(figure.path)),
-        });
-      } catch {
-        // A missing figure is the same as a missing background: the strokes
-        // are the page's own record.
-      }
-    }
+    // A missing figure is the same as a missing background: the strokes are
+    // the page's own record.
+    const figures: InkSvgFigure[] = await loadInOrder(
+      inkPageFigures(textPages.current[pageIndex] ?? ""),
+      async (figure) => ({
+        ...figure,
+        dataUrl: await blobToDataUrl(await fetchBlob(figure.path)),
+      }),
+    );
     const svg = inkPageSvg(page, {
       palette,
       backgroundDataUrl,
