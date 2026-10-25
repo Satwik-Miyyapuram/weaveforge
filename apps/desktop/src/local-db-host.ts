@@ -3,6 +3,7 @@ import path from "node:path";
 import { errorMessage, LOCAL_BOOTSTRAP_SQL, type Migration } from "@weaveforge/core";
 import { LocalDatabase, type LocalClient } from "./local-db";
 import type { IpcResult } from "./channels";
+import type { Dumpable } from "./local-db-backup";
 
 /**
  * The local database as the rest of this process sees it: one function that
@@ -205,17 +206,27 @@ export class LocalDbHost {
   }
 
   /**
-   * A copy of the database if it is open and has changed since the last one;
-   * `null` otherwise. Never opens: a backup of a database nobody has used is
-   * a backup of nothing. The change flag is cleared once the dump is made,
-   * so a dump that fails leaves the next call to try again.
+   * Something that can dump the database, if it is open and has changed since
+   * the last dump; `null` otherwise. Never opens: a backup of a database
+   * nobody has used is a backup of nothing. The change flag is cleared when a
+   * dump starts, so a write that lands while it runs marks the next one, and
+   * set again if the dump fails, so the next call tries again.
    */
-  async snapshot(): Promise<Blob | null> {
+  async snapshot(): Promise<Dumpable | null> {
     if (!this.opening || !this.dirty) return null;
     const db = await this.opening.catch(() => undefined);
-    const blob = await db?.dump();
-    if (blob) this.dirty = false;
-    return blob ?? null;
+    if (!db?.canDump) return null;
+    return {
+      dumpTo: async (file) => {
+        this.dirty = false;
+        try {
+          await db.dumpTo(file);
+        } catch (error) {
+          this.dirty = true;
+          throw error;
+        }
+      },
+    };
   }
 
   /**

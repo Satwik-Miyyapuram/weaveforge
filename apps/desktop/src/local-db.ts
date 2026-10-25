@@ -21,10 +21,11 @@ export interface LocalClient {
   transaction<T>(fn: (tx: LocalTransaction) => Promise<T>): Promise<T>;
   close(): Promise<void>;
   /**
-   * The whole data directory as a tarball, for a backup (`local-db-backup.ts`).
-   * Optional: a client that cannot is simply never backed up.
+   * Write the whole data directory to `file` as a gzipped tarball, for a
+   * backup (`local-db-backup.ts`, `local-db-tar.ts`). Optional: a client
+   * that cannot is simply never backed up.
    */
-  dumpDataDir?(compression: "gzip"): Promise<Blob>;
+  dumpTo?(file: string): Promise<void>;
 }
 
 export interface LocalTransaction {
@@ -180,9 +181,16 @@ export class LocalDatabase {
     }
   }
 
-  /** A copy of everything, or `null` from a client that cannot make one. */
-  async dump(): Promise<Blob | null> {
-    return this.client.dumpDataDir ? this.client.dumpDataDir("gzip") : null;
+  /** Write a copy of everything to `file`; `false` from a client that cannot. */
+  async dumpTo(file: string): Promise<boolean> {
+    if (!this.client.dumpTo) return false;
+    await this.client.dumpTo(file);
+    return true;
+  }
+
+  /** Whether this client can be backed up at all. */
+  get canDump(): boolean {
+    return typeof this.client.dumpTo === "function";
   }
 
   async close(): Promise<void> {
