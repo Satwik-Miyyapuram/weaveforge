@@ -53,6 +53,18 @@ export interface DesktopBridge {
   fetchImage(url: string): Promise<DesktopImage>;
 
   /**
+   * Listens for somebody else changing the mirrored folder.
+   *
+   * Carries the paths that changed and nothing about what happened to them: a
+   * rename arrives as two paths and a delete as one, and telling those apart
+   * from filesystem events is guesswork the reader does better by looking.
+   *
+   * A browser has no equivalent and needs none: it cannot watch a directory it
+   * was handed, which is why the workspace port does not pretend to.
+   */
+  onVaultChange(cb: (paths: string[]) => void): () => void;
+
+  /**
    * Calls back when a provider sign-in returns, with the callback's query
    * string, and answers with the way to stop listening.
    *
@@ -65,18 +77,6 @@ export interface DesktopBridge {
    * A browser has no equivalent and needs none: there the provider redirects
    * back to the page itself.
    */
-  /**
-   * Listens for somebody else changing the mirrored folder.
-   *
-   * Carries the paths that changed and nothing about what happened to them: a
-   * rename arrives as two paths and a delete as one, and telling those apart
-   * from filesystem events is guesswork the reader does better by looking.
-   *
-   * A browser has no equivalent and needs none: it cannot watch a directory it
-   * was handed, which is why the workspace port does not pretend to.
-   */
-  onVaultChange(cb: (paths: string[]) => void): () => void;
-
   onSignIn(cb: (query: string) => void): () => void;
 
   /**

@@ -1,6 +1,7 @@
 import { clearPersistedMcpSessions } from "@/features/ai-assistant/infrastructure/mcp-session-store";
 import { stopAllRelays } from "@/features/ai-assistant/infrastructure/mcp-relay-manager";
 import { closeAppDb } from "@/lib/cache/app-idb";
+import { clearCacheStorage } from "@/lib/cache-storage";
 import { idbClearScreenCaches } from "@/lib/cache/screen-cache-idb";
 import { idbClearSearchIndexes } from "@/features/search/infrastructure/search-index-idb";
 import { clearPdfTexts } from "@/features/search/infrastructure/pdf-text-store";
@@ -35,17 +36,6 @@ function deleteDatabase(name: string): Promise<void> {
   });
 }
 
-/** Drop Cache Storage entries (Serwist runtime + precache) for this origin. */
-async function clearServiceWorkerCaches(): Promise<void> {
-  if (typeof caches === "undefined") return;
-  try {
-    const keys = await caches.keys();
-    await Promise.all(keys.map((k) => caches.delete(k)));
-  } catch {
-    /* best-effort */
-  }
-}
-
 /** Remove all app-local persistence from this browser (sign-out / account delete). */
 export async function clearLocalDeviceData(): Promise<void> {
   if (typeof window === "undefined") return;
@@ -75,7 +65,7 @@ export async function clearLocalDeviceData(): Promise<void> {
   // Downloaded PDFs and saved paper HTML are the papers themselves.
   await deleteDatabase(PDF_CACHE_DB_NAME);
   await deleteDatabase(PAPER_HTML_DB_NAME);
-  await clearServiceWorkerCaches();
+  await clearCacheStorage();
   // Last, and deliberately: every clear above opens its transaction through this
   // same connection. Closing before them would have the next one reopen it, so
   // the wipe would end holding a live handle on the database it just emptied.

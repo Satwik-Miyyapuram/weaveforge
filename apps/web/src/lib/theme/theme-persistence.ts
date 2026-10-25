@@ -1,7 +1,9 @@
 "use client";
 
 import type { UserAppearance } from "@weaveforge/core";
-import { getContainer } from "@/bootstrap";
+import { ensureContainer, getContainer } from "@/bootstrap";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
 import {
   applyCardTilt,
   applyCardTint,
@@ -124,13 +126,22 @@ function scheduleAppearanceSave(appearance: UserAppearance): void {
   saveTimer = setTimeout(() => {
     const toSave = pendingAppearance;
     pendingAppearance = null;
-    if (!toSave) return;
-    void getContainer()
-      .settings.manageSettings.saveAppearance(toSave)
-      .catch(() => {
-        /* best-effort sync */
-      });
+    if (toSave) void saveAppearance(toSave);
   }, 600);
+}
+
+/** Best-effort server copy: a failure is logged, never thrown into the timer. */
+async function saveAppearance(appearance: UserAppearance): Promise<void> {
+  try {
+    await getContainer().settings.manageSettings.saveAppearance(appearance);
+  } catch (error) {
+    logToApp({
+      level: "warn",
+      source: "appearance",
+      message: "Saving the appearance to the server failed",
+      detail: describeRejection(error),
+    });
+  }
 }
 
 /** Update local theme immediately and debounce-save to the user settings row. */
@@ -183,7 +194,6 @@ export function hydrateThemeFromServer(): Promise<void> {
 async function hydrateThemeFromServerUncached(): Promise<void> {
   hydrating = true;
   try {
-    const { ensureContainer } = await import("@/bootstrap");
     const container = await ensureContainer();
     const { appearance } = await container.settings.manageSettings.getMetadata();
     if (
