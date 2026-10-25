@@ -12,7 +12,7 @@ import { mkdir, mkdtemp, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { cachePathFor, isUpstreamHost, serveModelFile, type FetchLike } from "../src/model-cache";
+import { cachePathFor, isUpstreamHost, modelCacheUrl, serveModelFile, type FetchLike } from "../src/model-cache";
 
 const ROOT = path.join("C:", "cache", "models");
 
@@ -289,4 +289,38 @@ test("model cache: a missing or bad content-length still downloads (38-04)", asy
     const answer = await serveModelFile(root, URL_UNDER_TEST, async () => reply);
     assert.equal(answer.status, 200, `content-length ${String(length)}`);
   }
+});
+
+test("model cache: the same-origin path names the same cached file as the model host", () => {
+  // The renderer at `app://weaveforge` cannot fetch `app://models` at all: a
+  // custom scheme is not CORS-enabled, so Chromium blocks it as cross-origin.
+  // The weights are asked for under the app's own origin instead.
+  const sameOrigin = modelCacheUrl("app://weaveforge/models/Xenova/m/resolve/main/config.json?x=1", "weaveforge");
+  assert.equal(sameOrigin, "app://models/Xenova/m/resolve/main/config.json?x=1");
+  assert.equal(cachePathFor(ROOT, sameOrigin!), path.join(ROOT, "Xenova", "m", "resolve", "main", "config.json"));
+  const direct = "app://models/Xenova/m/resolve/main/config.json";
+  assert.equal(modelCacheUrl(direct, "weaveforge"), direct);
+});
+
+test("model cache: only the models folder of the app's own host is a weights request", () => {
+  assert.equal(modelCacheUrl("app://weaveforge/settings/index.html", "weaveforge"), null);
+  assert.equal(modelCacheUrl("app://weaveforge/modelsx/a/config.json", "weaveforge"), null);
+  assert.equal(modelCacheUrl("app://weaveforge/models", "weaveforge"), null);
+  assert.equal(modelCacheUrl("app://elsewhere/models/a/config.json", "weaveforge"), null);
+});
+
+test("model cache: an encoded traversal under the same-origin path is still refused", () => {
+  const url = modelCacheUrl("app://weaveforge/models/a%2F..%2F..%2Fb", "weaveforge");
+  assert.equal(cachePathFor(ROOT, url!), null);
+});
+
+test("model cache: the same-origin path downloads the repository path, without the folder", async () => {
+  const root = await cacheRoot();
+  const scripted = upstream(() => new Response("{}", { status: 200 }));
+  const url = modelCacheUrl("app://weaveforge/models/Xenova/m/resolve/main/config.json", "weaveforge")!;
+
+  const answer = await serveModelFile(root, url, scripted.fetchLike);
+
+  assert.equal(answer.status, 200);
+  assert.deepEqual(scripted.asked, ["https://huggingface.co/Xenova/m/resolve/main/config.json"]);
 });

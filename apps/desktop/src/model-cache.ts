@@ -52,8 +52,25 @@ export function isUpstreamHost(hostname: string): boolean {
   );
 }
 
-/** The hostname the renderer points `env.remoteHost` at. */
+/** The cache's own hostname; the file a URL names is its path under this host. */
 export const MODEL_HOST = "models";
+
+/** The folder of the app's own origin the renderer asks for weights under. */
+const MODEL_PATH = "/models/";
+
+/**
+ * The cache URL a request names, or null when it is not a weights request.
+ *
+ * The renderer asks under its own origin, `app://<appHost>/models/<repo>/…`:
+ * `app:` is not a CORS-enabled scheme, so Chromium blocks a fetch from
+ * `app://weaveforge` to `app://models` before this shell ever sees it.
+ */
+export function modelCacheUrl(url: string, appHost: string): string | null {
+  const parsed = new URL(url);
+  if (parsed.hostname === MODEL_HOST) return url;
+  if (parsed.hostname !== appHost || !parsed.pathname.startsWith(MODEL_PATH)) return null;
+  return `app://${MODEL_HOST}/${parsed.pathname.slice(MODEL_PATH.length)}${parsed.search}`;
+}
 
 /** A model file is tens of megabytes; anything far past that is not one. */
 const MAX_FILE_BYTES = 512 * 1024 * 1024;
@@ -188,9 +205,9 @@ async function download(
  * No `access-control-allow-origin`. It was `*`, which invites any page in any
  * frame to read the encoder's weights and its config through this app -- a
  * cross-origin read of a resource that is otherwise only reachable from the
- * app's own origin. Nothing asks for it: the renderer fetches `app://models/...`
- * as a same-origin request, where CORS is not consulted at all, and the browser
- * build never touches this host.
+ * app's own origin. Nothing asks for it: the renderer fetches
+ * `app://weaveforge/models/...` as a same-origin request, where CORS is not
+ * consulted at all, and the browser build never touches this host.
  */
 function headersFor(file: string): Record<string, string> {
   const type = file.endsWith(".json")

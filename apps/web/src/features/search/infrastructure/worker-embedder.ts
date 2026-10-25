@@ -195,9 +195,12 @@ export function supportsLocalEmbedding(): boolean {
  * upstream the first time. That is what makes the feature keep working with
  * the network unplugged; a browser copy has no such folder and uses the
  * encoder library's own default host.
+ *
+ * Under the page's own origin: `app:` is not a CORS-enabled scheme, so a fetch
+ * to another `app:` host such as `app://models` is blocked before it is sent.
  */
 function cachedWeightHost(): string | undefined {
   return typeof location !== "undefined" && location.protocol === "app:"
-    ? "app://models"
+    ? `${location.origin}/models`
     : undefined;
 }
