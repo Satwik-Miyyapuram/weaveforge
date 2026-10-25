@@ -1,5 +1,6 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webFrame } from "electron";
 import { createSignInInbox } from "./sign-in-relay";
+import { settleAfterLoad } from "./settle-after-load";
 import type {
   DesktopBridge,
   DesktopCommit,
@@ -173,3 +174,5 @@ const bridge: DesktopBridge = {
 };
 
 contextBridge.exposeInMainWorld("weaveforge", bridge);
+
+settleAfterLoad(window, () => webFrame.clearCache());
