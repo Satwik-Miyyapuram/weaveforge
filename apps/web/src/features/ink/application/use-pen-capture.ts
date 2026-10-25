@@ -493,16 +493,31 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** The frame pump: batches reach the worker once per frame, not per sample. */
-  useEffect(() => {
-    let raf = 0;
+  /**
+   * The frame pump: batches reach the worker once per frame, not per sample.
+   * It runs only while a stroke is in progress, because between strokes there
+   * is nothing to send, and an always-on loop per ink page kept the renderer
+   * busy at 60 fps on an idle workspace (M04).
+   */
+  const pumpFrame = useRef(0);
+  const startPump = useCallback(() => {
+    if (pumpFrame.current || !sessionRef.current?.active) return;
     const tick = () => {
-      sessionRef.current?.flush();
-      raf = window.requestAnimationFrame(tick);
+      const session = sessionRef.current;
+      session?.flush();
+      pumpFrame.current = session?.active
+        ? window.requestAnimationFrame(tick)
+        : 0;
     };
-    raf = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(raf);
+    pumpFrame.current = window.requestAnimationFrame(tick);
   }, []);
+  useEffect(
+    () => () => {
+      window.cancelAnimationFrame(pumpFrame.current);
+      pumpFrame.current = 0;
+    },
+    [],
+  );
 
   useEffect(
     () => () => {
@@ -536,6 +551,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
       });
       const gateEvent = toGateEvent(event);
       const claim = session.pointerDown(gateEvent);
+      startPump();
 
       if (event.pointerType === "pen") {
         // The pen is here, so a pen mode should be in force. Fired on every pen
@@ -573,6 +589,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
           ? { x: newest.clientX ?? 0, y: newest.clientY ?? 0 }
           : null;
         session.confirmTouch(at, newest);
+        startPump();
         if (session.active) {
           try {
             event.currentTarget.setPointerCapture?.(pointerId);
@@ -582,7 +599,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         }
       }, TOUCH_DEFER_MS);
     },
-    [toGateEvent, guardForPen],
+    [toGateEvent, guardForPen, startPump],
   );
 
   const onPointerMove = useCallback(
