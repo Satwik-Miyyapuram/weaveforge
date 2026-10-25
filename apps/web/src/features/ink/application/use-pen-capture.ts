@@ -475,17 +475,41 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
 
     // The presenter is asked for first because its answer picks the canvas's
     // context attributes; without a trail option the worker starts at once.
-    const trail = callbacksRef.current.trail;
-    if (trail) {
-      void (trail.request ?? requestInkPresenter)(canvas).then(start, () =>
-        start(null),
-      );
+    const begin = () => {
+      const trail = callbacksRef.current.trail;
+      if (trail) {
+        void (trail.request ?? requestInkPresenter)(canvas).then(start, () =>
+          start(null),
+        );
+      } else {
+        start(null);
+      }
+    };
+
+    // A page in a hidden tab has no box. The workspace keeps hidden tabs
+    // mounted, so starting there would hold a worker and a WebGL context for
+    // a page nobody sees; it starts when the canvas is first laid out instead.
+    // What the host sends meanwhile waits in `pendingRef`.
+    const hasBox = () => {
+      const box = canvas.getBoundingClientRect();
+      return box.width > 0 && box.height > 0;
+    };
+    let observer: ResizeObserver | null = null;
+    if (hasBox() || typeof ResizeObserver === "undefined") {
+      begin();
     } else {
-      start(null);
+      observer = new ResizeObserver(() => {
+        if (!hasBox()) return;
+        observer?.disconnect();
+        observer = null;
+        begin();
+      });
+      observer.observe(canvas);
     }
 
     return () => {
       disposed = true;
+      observer?.disconnect();
       dispose?.();
     };
     // One worker per canvas, deliberately: re-creating it would throw away the
