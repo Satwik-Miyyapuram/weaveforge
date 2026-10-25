@@ -115,7 +115,9 @@ const ROUTE_ALLOWANCES_KB = {
   // Graph settings drawer added tabs, relation chips, and reading list integration: +4 KB.
   "/graph": 473,
   // Reader zoom keys in the shell and aborted-transaction recovery in the screen loader: +1 KB.
-  "/experiments": 442,
+  // Logged failures and a once-per-mount TeX probe from the S10 sweep (#504): +1 KB.
+  // No dependency arrived; the code is the error paths that used to be empty.
+  "/experiments": 443,
   // The review panel and the PDF reader shell each sit a little above the default.
   "/ai-review": 432,
   "/reader": 428,
