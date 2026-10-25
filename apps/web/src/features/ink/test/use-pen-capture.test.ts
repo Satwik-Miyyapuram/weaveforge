@@ -464,8 +464,8 @@ test("coalesced events are consumed with the dispatched one, not instead of it",
       t: 24,
     }),
   );
-  // Down, two coalesced, the dispatched one, and the up sample: five, with the
-  // newest among them. Consuming only the coalesced list would give four.
+  // Down, two coalesced and the dispatched one: four, with the newest among
+  // them. Consuming only the coalesced list would give three.
   assert.equal(harness.session.sampleCount, 0, "the stroke is over");
   const counts = harness.messages
     .filter(
@@ -478,7 +478,7 @@ test("coalesced events are consumed with the dispatched one, not instead of it",
       (sum, message) => sum + ("sample" in message ? message.sample.count : 0),
       0,
     );
-  assert.equal(counts, 5, "the newest sample is not dropped every frame");
+  assert.equal(counts, 4, "the newest sample is not dropped every frame");
 });
 
 test("the dispatched event is not counted twice when its coalesced list ends with it", () => {
@@ -513,6 +513,27 @@ test("the dispatched event is not counted twice when its coalesced list ends wit
     );
   // Down, the coalesced one, the dispatched one: three, not five.
   assert.equal(counts, 3);
+});
+
+test("lifting the pen adds no sample, so the stroke ends where it was drawn", () => {
+  // A pointerup repeats the last move's position with a later time and, once
+  // the nib is off the glass, zero pressure. Taken as a sample, the filter
+  // would catch up to it and the taper would drop to nothing: the end of the
+  // stroke would move as the pen lifts.
+  const harness = sessionHarness();
+  harness.session.pointerDown(pointer({ pointerType: "pen", pointerId: 5, t: 0 }));
+  for (let i = 1; i <= 10; i += 1) {
+    harness.session.pointerRawUpdate(
+      pointer({ pointerType: "pen", pointerId: 5, clientX: 100 + i * 3, clientY: 100, pressure: 0.6, t: i * 4 }),
+    );
+    harness.session.flush();
+  }
+  const drawn = { points: [...harness.stroke.points], pressures: [...harness.stroke.pressures] };
+  harness.session.pointerUp(
+    pointer({ pointerType: "pen", pointerId: 5, clientX: 130, clientY: 100, pressure: 0, t: 500 }),
+  );
+  assert.equal(harness.messages.at(-1)?.type, "stroke-end");
+  assert.deepEqual(harness.stroke, drawn, "the stroke the worker commits is the one already drawn");
 });
 
 test("predicted samples ride the live tail and are never part of the stroke", () => {

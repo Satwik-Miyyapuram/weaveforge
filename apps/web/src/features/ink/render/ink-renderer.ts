@@ -24,6 +24,8 @@
  */
 
 import {
+  inkCurveAt,
+  inkTangentAt,
   type InkColour,
   type InkTool,
 } from "@weaveforge/core";
@@ -191,95 +193,32 @@ export function strokeInstanceCount(points: number): number {
 }
 
 /**
- * Turn angle at a sample below which the curve keeps its full tangent, and the
- * angle at which the tangent is gone and the sample is a corner.
- */
-/** The turn at which a tangent starts to fade: cos 60°. Zero by 90°. */
-const INK_CORNER_SOFT_COS = Math.cos(Math.PI / 3);
-
-/**
- * The tangent of the stroke at sample `i`, for the Hermite span on `side`.
- *
- * Uniform Catmull-Rom takes `(p[i+1] - p[i-1]) / 2` for both spans. That is
- * right when the samples are evenly spaced, and they are not by the time a
- * stroke is committed: the save-time simplification keeps a point only where
- * the centreline bends, so a straight run becomes one long span next to a
- * short one. The same tangent on both sides is then scaled to the long span
- * and overshoots the short one — a hooked spur at every corner of a box, a
- * loop at the point of a `v`. So:
- *
- * - the **direction** is Catmull-Rom's, the sum of the two chords. Weighted by
- *   length like that, a long edge is not turned by the short chord the
- *   simplifier left at its corner. (On a circle the exact tangent is the
- *   bisector of the chords; with spans two to four times apart the weighted
- *   sum is a few degrees off it, which is under a tenth of a millimetre on
- *   the arc — the bisector's failure at a corner is a full millimetre.)
- * - the **magnitude** is the length of the span the tangent is for, so a span
- *   is bent by its own length and never by its neighbour's. On evenly spaced
- *   samples this *is* Catmull-Rom; on uneven ones the direction is shared and
- *   the curve is G1 rather than C1, which the eye cannot tell.
- * - the magnitude fades with the turn angle, from 60° to nothing at 90°, so a
- *   true corner is drawn as one. Not sooner: handwriting turns 30–45° between
- *   neighbouring simplified samples, and a fade from 30° drew it as a
- *   polyline.
- *
- * At either end of the stroke the tangent is the one chord there, which makes
- * the end span a straight, evenly-parametrised run into the cap.
+ * The tangent of the stroke at sample `i`, for the Hermite span on `side`:
+ * {@link inkTangentAt}, which says how it is chosen. It lives in core because
+ * `packInkStroke` measures samples against the same curve it is drawn as.
  */
 export function strokeTangentAt(
   stroke: StrokeInstanceInput,
   i: number,
   side: "in" | "out" = "out",
 ): { x: number; y: number } {
-  const count = Math.min(stroke.x.length, stroke.y.length);
-  const x = stroke.x[i]!;
-  const y = stroke.y[i]!;
-  const hasPrev = i > 0;
-  const hasNext = i + 1 < count;
-  const px = hasPrev ? x - stroke.x[i - 1]! : 0;
-  const py = hasPrev ? y - stroke.y[i - 1]! : 0;
-  const nx = hasNext ? stroke.x[i + 1]! - x : 0;
-  const ny = hasNext ? stroke.y[i + 1]! - y : 0;
-  const pl = Math.hypot(px, py);
-  const nl = Math.hypot(nx, ny);
-  if (!(pl > 0) && !(nl > 0)) return { x: 0, y: 0 };
-  if (!(pl > 0)) return { x: nx, y: ny };
-  if (!(nl > 0)) return { x: px, y: py };
-  const sx = px + nx;
-  const sy = py + ny;
-  const sl = Math.hypot(sx, sy);
-  if (!(sl > 0)) return { x: 0, y: 0 };
-  const cos = (px * nx + py * ny) / (pl * nl);
-  const corner = Math.max(0, Math.min(1, cos / INK_CORNER_SOFT_COS));
-  const magnitude = (side === "out" ? nl : pl) * corner;
-  return { x: (sx / sl) * magnitude, y: (sy / sl) * magnitude };
+  return inkTangentAt(stroke.x, stroke.y, i, side);
 }
 
 /**
  * A point on the stroke's curve between samples `i` and `i + 1`, and the nib
- * radius there: a cubic Hermite span through the two samples with the tangents
- * {@link strokeTangentAt} gives them.
+ * radius there: the Hermite span {@link inkCurveAt} draws through the two
+ * samples.
  */
 export function strokeCurveAt(
   stroke: StrokeInstanceInput,
   i: number,
   u: number,
 ): { x: number; y: number; r: number } {
-  const x1 = stroke.x[i]!;
-  const y1 = stroke.y[i]!;
-  const x2 = stroke.x[i + 1]!;
-  const y2 = stroke.y[i + 1]!;
-  const m1 = strokeTangentAt(stroke, i, "out");
-  const m2 = strokeTangentAt(stroke, i + 1, "in");
-  const uu = u * u;
-  const uuu = uu * u;
-  const h00 = 2 * uuu - 3 * uu + 1;
-  const h10 = uuu - 2 * uu + u;
-  const h01 = -2 * uuu + 3 * uu;
-  const h11 = uuu - uu;
+  const p = inkCurveAt(stroke.x, stroke.y, i, u);
   return {
-    x: h00 * x1 + h10 * m1.x + h01 * x2 + h11 * m2.x,
-    y: h00 * y1 + h10 * m1.y + h01 * y2 + h11 * m2.y,
+    x: p.x,
+    y: p.y,
     r:
       radiusAt(stroke, i) * (1 - u) + radiusAt(stroke, i + 1) * u,
   };

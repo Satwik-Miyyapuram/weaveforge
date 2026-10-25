@@ -22,13 +22,13 @@
  * actually asking for.
  */
 
-import { simplifyPathIndices, INK_MAX_POINTS } from "../reader/ink-stroke.js";
 import {
   frontmatterList,
   frontmatterString,
   type FrontmatterValue,
 } from "../workspace/frontmatter.js";
 import { clampInkNoteWidth, INK_PEN_WIDTH } from "./width.js";
+import { inkCurveAt } from "./curve.js";
 
 /* -------------------------------------------------------------------------
  * Vocabulary
@@ -104,8 +104,8 @@ export const INK_A4_HEIGHT = 2970;
 /** Coordinates are `Int16` in the container, so no page may exceed this. */
 export const INK_COORD_LIMIT = 32767;
 
-/** Points per stroke, unchanged from the reader's cap (§4.7). */
-export const INK_STROKE_MAX_POINTS = INK_MAX_POINTS;
+/** Points per stroke: the container stores a stroke's length as a `Uint16`. */
+export const INK_STROKE_MAX_POINTS = 65_535;
 
 /** Strokes per page: soft. Past it the ink bar warns and keeps drawing (§4.7). */
 export const INK_PAGE_STROKE_BUDGET = 5_000;
@@ -117,13 +117,11 @@ export const INK_NOTE_MAX_PAGES = 50;
 export const INK_PACK_TOLERANCE = 1.2;
 
 /**
- * Pressure deviation, out of 255, that keeps a point RDP would have dropped.
+ * Pressure deviation, out of 255, that keeps a point the centreline does not need.
  *
- * The first simplification pass is pressure-blind: it keeps a point only when
- * the centreline bends. A point carrying a heavy press or a lift inside a
- * straight run would then vanish and the taper with it — the stroke would still
- * be in the right place and would no longer look written. This is the threshold
- * that second, pressure-aware pass uses (§4.4).
+ * A point carrying a heavy press or a lift inside a straight run would
+ * otherwise vanish and the taper with it — the stroke would still be in the
+ * right place and would no longer look written (§4.4).
  */
 export const INK_PACK_PRESSURE_TOLERANCE = 20;
 
@@ -218,103 +216,206 @@ export interface PackedInkStroke {
 /**
  * Storage-ready form of one captured stroke, pressure included.
  *
- * Three passes, in the order §4.4 gives them: capture filtering has already
- * happened by the time a stroke reaches here, so this is the save budget
- * (Ramer–Douglas–Peucker, then a hard cap of {@link INK_STROKE_MAX_POINTS}), then
- * the pressure-aware pass that puts back a point whose pressure the centreline
- * simplification threw away. Coordinates are rounded to whole 0.1 mm units,
- * which is what the container stores.
+ * The whole stroke pushed through an {@link InkStrokePacker}, so a stroke
+ * packed at once is exactly the one the pen drew live. Fewer than two finite
+ * samples is nothing to draw and packs to nothing; pressure of the wrong length
+ * is ignored rather than misaligned.
  */
 export function packInkStroke(
   points: readonly number[],
   pressures: readonly number[] = [],
-  options: {
-    tolerance?: number;
-    maxPoints?: number;
-    pressureTolerance?: number;
-  } = {},
+  options: InkStrokePackerOptions = {},
 ): PackedInkStroke {
-  const tolerance = options.tolerance ?? INK_PACK_TOLERANCE;
-  const maxPoints = options.maxPoints ?? INK_STROKE_MAX_POINTS;
-  const pressureTolerance = options.pressureTolerance ?? INK_PACK_PRESSURE_TOLERANCE;
-
   const even = points.slice(0, Math.floor(points.length / 2) * 2);
   if (even.length < 4 || even.some((value) => !Number.isFinite(value))) {
     return { points: [], pressures: [] };
   }
-  const rounded = even.map((value) =>
-    Math.max(-INK_COORD_LIMIT, Math.min(INK_COORD_LIMIT, Math.round(value))),
-  );
-  const usablePressures = pressures.length === rounded.length / 2 ? pressures : [];
-
-  let keep = simplifyPathIndices(rounded, tolerance);
-  // Doubling the tolerance roughly halves the survivors, so this ends after a
-  // handful of rounds even for a pathological scribble.
-  let guard = 0;
-  while (keep.length > maxPoints && guard < 12) {
-    keep = simplifyPathIndices(rounded, tolerance * 2 ** (guard + 1));
-    guard += 1;
+  const usablePressures = pressures.length === even.length / 2 ? pressures : [];
+  const packer = new InkStrokePacker(options);
+  for (let i = 0; i < even.length / 2; i += 1) {
+    packer.push(even[i * 2]!, even[i * 2 + 1]!, usablePressures[i]);
   }
-  if (keep.length > maxPoints) {
-    // Still over budget: an evenly spaced subset keeps the stroke's full extent
-    // rather than losing its end, and the true end point is forced back in.
-    const step = keep.length / maxPoints;
-    const sampled: number[] = [];
-    for (let i = 0; i < maxPoints; i += 1) sampled.push(keep[Math.min(keep.length - 1, Math.floor(i * step))]!);
-    sampled[sampled.length - 1] = keep[keep.length - 1]!;
-    keep = [...new Set(sampled)].sort((a, b) => a - b);
-  }
-
-  // Two surviving points are still a segment with an interior, and the interior
-  // is exactly where a straight stroke's taper lives — a hand-drawn line that
-  // presses in the middle keeps that press only if this pass runs.
-  if (usablePressures.length > 0 && keep.length >= 2) {
-    keep = restorePressureSignificant(keep, usablePressures, pressureTolerance);
-  }
-
-  const outPoints: number[] = [];
-  const outPressures: number[] = [];
-  for (const index of keep) {
-    outPoints.push(rounded[index * 2]!, rounded[index * 2 + 1]!);
-    outPressures.push(pressureByte(usablePressures[index]));
-  }
-  return { points: outPoints, pressures: outPressures };
+  return packer.packed();
 }
 
+export interface InkStrokePackerOptions {
+  tolerance?: number;
+  maxPoints?: number;
+  pressureTolerance?: number;
+}
+
+/** Chords a span is cut into when a sample is measured against its curve. */
+const PACK_SPAN_STEPS = 16;
+
 /**
- * Put back the points whose pressure the centreline pass removed.
+ * Packs a stroke while it is written, keeping points only ever appended.
  *
- * A point is restored when its pressure departs from the straight line between
- * its surviving neighbours by more than `tolerance`, in the 0–255 pressure
- * range. Restoring a point splits its segment, so the neighbours of the *next*
- * candidate change; that is why this repeats until nothing more is restored,
- * with a hard round cap so a pathological ramp cannot loop.
+ * Xournal++, tldraw and Excalidraw all add points as the pen moves and never
+ * revisit them, so ink already on the page stays where it was drawn. This
+ * does the same with fewer points: a sleeve in the manner of Lang's
+ * simplification (1969) grows from the last kept sample, and the samples
+ * inside it are measured against the curve that is actually drawn
+ * ({@link inkCurveAt}), the error bound of Schneider's curve fitting
+ * ("An Algorithm for Automatically Fitting Digitized Curves", Graphics Gems,
+ * 1990), with pressure held to a straight ramp within `pressureTolerance`.
+ *
+ * When a new sample no longer fits, one sample of the run is kept: the one
+ * whose two spans fit with the least error. A span's curve reads the point
+ * after its end, so the span behind the pen is checked again too, and no kept
+ * point is ever moved. Only the last two spans can still turn as the pen goes
+ * on; everything before them is final.
+ *
+ * Coordinates are rounded to whole 0.1 mm units and pressures to a byte,
+ * which is what the container stores. At `maxPoints` the packer stops keeping
+ * points and the stroke's end follows the pen.
  */
-function restorePressureSignificant(
-  keep: readonly number[],
-  pressures: readonly number[],
-  tolerance: number,
-): number[] {
-  const kept = [...keep];
-  for (let round = 0; round < 8; round += 1) {
-    const restored: number[] = [];
-    for (let i = 0; i + 1 < kept.length; i += 1) {
-      const from = kept[i]!;
-      const to = kept[i + 1]!;
-      if (to <= from + 1) continue;
-      const fromPressure = pressures[from] ?? 0;
-      const toPressure = pressures[to] ?? 0;
-      for (let index = from + 1; index < to; index += 1) {
-        const t = (index - from) / (to - from);
-        const expected = fromPressure + (toPressure - fromPressure) * t;
-        if (Math.abs((pressures[index] ?? 0) - expected) > tolerance) restored.push(index);
+export class InkStrokePacker {
+  private readonly tolerance: number;
+  private readonly maxPoints: number;
+  private readonly pressureTolerance: number;
+  private readonly xs: number[] = [];
+  private readonly ys: number[] = [];
+  private readonly ps: number[] = [];
+  private readonly kept: number[] = [];
+  private readonly curveX = new Float64Array(PACK_SPAN_STEPS + 1);
+  private readonly curveY = new Float64Array(PACK_SPAN_STEPS + 1);
+
+  constructor(options: InkStrokePackerOptions = {}) {
+    this.tolerance = options.tolerance ?? INK_PACK_TOLERANCE;
+    this.maxPoints = Math.max(2, options.maxPoints ?? INK_STROKE_MAX_POINTS);
+    this.pressureTolerance = options.pressureTolerance ?? INK_PACK_PRESSURE_TOLERANCE;
+  }
+
+  /** Add the pen's next sample, in 0.1 mm, with its 0–255 pressure if it has one. A non-finite one is skipped. */
+  push(x: number, y: number, pressure?: number): void {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    const c = this.xs.length;
+    this.xs.push(Math.max(-INK_COORD_LIMIT, Math.min(INK_COORD_LIMIT, Math.round(x))));
+    this.ys.push(Math.max(-INK_COORD_LIMIT, Math.min(INK_COORD_LIMIT, Math.round(y))));
+    this.ps.push(pressureByte(pressure));
+    if (c === 0) this.kept.push(0);
+    else if (this.kept.length < this.maxPoints - 1) this.advance(c);
+  }
+
+  /** The stroke so far: every kept point, then the pen's latest sample. */
+  packed(): PackedInkStroke {
+    const n = this.xs.length;
+    const indices = n > 1 ? [...this.kept, n - 1] : [...this.kept];
+    return {
+      points: indices.flatMap((i) => [this.xs[i]!, this.ys[i]!]),
+      pressures: indices.map((i) => this.ps[i]!),
+    };
+  }
+
+  private advance(c: number): void {
+    const a = this.kept[this.kept.length - 1]!;
+    // The last three kept points: the span behind the pen and its tangent.
+    const tail = this.kept.slice(-3);
+    const first = Math.max(0, tail.length - 2);
+    if (this.firstMiss([...tail, c], first).span < 0) return;
+
+    // Keep the sample whose spans fit best. Scanning back from the pen, the
+    // span to the pen only grows, so the first one that misses ends the scan.
+    let best = -1;
+    let bestError = Infinity;
+    for (let j = c - 1; j > a; j -= 1) {
+      const ids = [...tail, j, c];
+      if (this.worstIn(ids, ids.length - 2).at >= 0) break;
+      const fit = this.firstMiss(ids, first);
+      if (fit.span < 0 && fit.error < bestError) {
+        best = j;
+        bestError = fit.error;
       }
     }
-    if (restored.length === 0) break;
-    kept.push(...restored);
-    kept.sort((a, b) => a - b);
+    if (best >= 0) {
+      this.kept.push(best);
+      return;
+    }
+
+    // No single sample fits, which happens at a sharp corner. Split at the
+    // worst sample until every span fits. When the span behind the pen is the
+    // one off, the corner point's tangent is to blame: keeping the sample
+    // just past it makes the next chord short, so the tangent follows the
+    // edge it closes and the corner stays sharp.
+    const ids = [...tail, c];
+    for (;;) {
+      const miss = this.firstMiss(ids, first);
+      if (miss.span < 0) break;
+      if (miss.at < a) {
+        const next = a + 1;
+        if (next >= c || ids.includes(next)) break;
+        ids.splice(ids.indexOf(a) + 1, 0, next);
+      } else {
+        ids.splice(miss.span + 1, 0, miss.at);
+      }
+    }
+    const room = this.maxPoints - 1 - this.kept.length;
+    this.kept.push(...ids.slice(tail.length, -1).slice(0, room));
   }
-  return kept;
+
+  /** The first span from `first` on with a sample out of tolerance, and the worst error of those that fit. */
+  private firstMiss(ids: readonly number[], first: number): { span: number; at: number; error: number } {
+    let error = 0;
+    for (let s = first; s + 1 < ids.length; s += 1) {
+      const worst = this.worstIn(ids, s);
+      if (worst.at >= 0) return { span: s, at: worst.at, error };
+      error = Math.max(error, worst.distance);
+    }
+    return { span: -1, at: -1, error };
+  }
+
+  /**
+   * Span `s` of the curve through the samples `ids`: the sample inside it
+   * farthest off the curve when that is past the tolerance (else the one
+   * whose pressure leaves the ramp most), and the farthest squared distance.
+   */
+  private worstIn(ids: readonly number[], s: number): { at: number; distance: number } {
+    const from = ids[s]!;
+    const to = ids[s + 1]!;
+    if (to - from < 2) return { at: -1, distance: 0 };
+    const xs = ids.map((i) => this.xs[i]!);
+    const ys = ids.map((i) => this.ys[i]!);
+    const { curveX, curveY } = this;
+    for (let k = 0; k <= PACK_SPAN_STEPS; k += 1) {
+      const p = inkCurveAt(xs, ys, s, k / PACK_SPAN_STEPS);
+      curveX[k] = p.x;
+      curveY[k] = p.y;
+    }
+    const limit = this.tolerance * this.tolerance;
+    let at = -1;
+    let distance = 0;
+    for (let j = from + 1; j < to; j += 1) {
+      const px = this.xs[j]!;
+      const py = this.ys[j]!;
+      let best = Infinity;
+      for (let k = 0; k < PACK_SPAN_STEPS; k += 1) {
+        const ax = curveX[k]!;
+        const ay = curveY[k]!;
+        const vx = curveX[k + 1]! - ax;
+        const vy = curveY[k + 1]! - ay;
+        const length = vx * vx + vy * vy;
+        const u = length > 0 ? Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / length)) : 0;
+        const dx = ax + u * vx - px;
+        const dy = ay + u * vy - py;
+        best = Math.min(best, dx * dx + dy * dy);
+      }
+      if (best > distance) {
+        if (best > limit) at = j;
+        distance = best;
+      }
+    }
+    if (at >= 0) return { at, distance };
+    let far = this.pressureTolerance;
+    for (let j = from + 1; j < to; j += 1) {
+      const t = (j - from) / (to - from);
+      const off = Math.abs(this.ps[j]! - (this.ps[from]! + (this.ps[to]! - this.ps[from]!) * t));
+      if (off > far) {
+        far = off;
+        at = j;
+      }
+    }
+    return { at, distance };
+  }
 }
 
 /** Pressure clamped and rounded into the container's `Uint8` slot. */
