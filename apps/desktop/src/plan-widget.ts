@@ -1,5 +1,6 @@
-import { planWidgetData, type FeedMilestone, type PlanWidgetData } from "@weaveforge/core";
+import { errorMessage, planWidgetData, type FeedMilestone, type PlanWidgetData } from "@weaveforge/core";
 import { milestoneToDomain, type MilestoneRow } from "@/features/plan/infrastructure/milestone-rows";
+import type { IpcResult } from "./channels";
 
 /**
  * The plan widget's pure half: what it reads, how the rows become the widget's
@@ -28,6 +29,25 @@ where m.deleted_at is null
 `;
 
 export type PlanWidgetRow = MilestoneRow & { project_name: string | null };
+
+/**
+ * Turns the widget on or off. The choice is saved first and nothing changes on
+ * screen if it cannot be, so the app's toggle never shows a state the next
+ * launch would not keep. A throw from either step comes back as a refusal.
+ */
+export async function switchPlanWidget(
+  on: boolean,
+  io: { save(on: boolean): Promise<IpcResult<null>>; apply(on: boolean): Promise<void> },
+): Promise<IpcResult<null>> {
+  try {
+    const saved = await io.save(on);
+    if (!saved.ok) return saved;
+    await io.apply(on);
+    return { ok: true, value: null };
+  } catch (err) {
+    return { ok: false, message: `Could not turn the desktop widget ${on ? "on" : "off"}: ${errorMessage(err)}` };
+  }
+}
 
 /** How many deadlines the widget has room for. */
 export const PLAN_WIDGET_LIMIT = 6;

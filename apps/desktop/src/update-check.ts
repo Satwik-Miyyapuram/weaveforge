@@ -19,6 +19,8 @@
  * Everything except the dialog is a pure function over injected dependencies,
  * because an Electron app cannot be started inside `node --test`.
  */
+import { errorMessage } from "@weaveforge/core";
+import type { IpcResult } from "./channels";
 
 /** A release, as much of one as this needs. */
 export interface Release {
@@ -110,6 +112,24 @@ export async function findUpdate(deps: {
   if (!newest || !isNewer(newest.version, current)) return null;
 
   return { version: newest.version.join("."), url: newest.url };
+}
+
+/**
+ * The answer the checkUpdate channel sends, in the same envelope as every
+ * other channel. A dev build has nothing to update to; a check that breaks is
+ * a refusal with its reason, not a rejection with Electron's prefix on it.
+ */
+export async function checkUpdateReply(deps: {
+  isPackaged: boolean;
+  currentVersion: string;
+  fetchReleases: () => Promise<Release[]>;
+}): Promise<IpcResult<Update | null>> {
+  if (!deps.isPackaged) return { ok: true, value: null };
+  try {
+    return { ok: true, value: await findUpdate(deps) };
+  } catch (error) {
+    return { ok: false, message: errorMessage(error, "Could not check for an update.") };
+  }
 }
 
 const RELEASES_URL = "https://api.github.com/repos/Satwik-Miyyapuram/weaveforge/releases?per_page=30";

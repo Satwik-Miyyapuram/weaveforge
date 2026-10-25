@@ -53,3 +53,26 @@ test("a failed upload is reported, not swallowed (34-16)", async () => {
   assert.equal(body, "![](blob:http://x/1)");
   assert.match(String(uploadError?.message), /quota exceeded/);
 });
+
+// xlog-13: a partial failure saves what uploaded, keeps the rest, and counts them.
+test("some uploads failing: the rest are rewritten and the failures counted", async () => {
+  let n = 0;
+  const { body, uploadError } = await materializeBlobImagesInBody(
+    "![a](blob:http://x/1) ![b](blob:http://x/2) ![c](blob:http://x/3)",
+    "p1",
+    async (pageId, _blob, ext) => {
+      n += 1;
+      if (n !== 2) throw new Error(`quota exceeded ${n}`);
+      return `user-1/${pageId}/new.${ext}`;
+    },
+  );
+  assert.equal(body, `![a](blob:http://x/1) ${markdownImage("vault:user-1/p1/new.png", "b")} ![c](blob:http://x/3)`);
+  assert.equal(uploadError?.message, "2 images could not be uploaded: quota exceeded 1");
+});
+
+test("a stale blob URL is kept quietly, not reported as an upload failure", async () => {
+  globalThis.fetch = (async () => ({ ok: false })) as never;
+  const { body, uploadError } = await materializeBlobImagesInBody("![](blob:http://x/gone)", "p1", upload);
+  assert.equal(body, "![](blob:http://x/gone)");
+  assert.equal(uploadError, undefined);
+});

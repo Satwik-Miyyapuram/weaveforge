@@ -117,14 +117,24 @@ export async function postToMattermost(
   return { status: res.status, body };
 }
 
-export function registerMattermostSignIn(deps: { ipc: IpcSurface; mainWindow: () => BrowserWindow | null }): void {
+export function registerMattermostSignIn(deps: {
+  ipc: IpcSurface;
+  mainWindow: () => BrowserWindow | null;
+  /** The sign-in window; replaced in tests. */
+  signIn?: (origin: string, parent: BrowserWindow | null) => Promise<string | null>;
+}): void {
+  const signIn = deps.signIn ?? signInToMattermost;
   let open: Promise<string | null> | null = null;
   deps.ipc.handle(CHANNELS.mattermostSignIn, async (_event, serverUrl: unknown) => {
     const origin = mattermostOrigin(serverUrl);
     if (!origin) return { ok: false, message: "Mattermost server URL must be a valid http(s) URL." };
-    // One window at a time; a second click joins the open one.
-    open ??= signInToMattermost(origin, deps.mainWindow()).finally(() => { open = null; });
-    return { ok: true, value: await open };
+    try {
+      // One window at a time; a second click joins the open one.
+      open ??= signIn(origin, deps.mainWindow()).finally(() => { open = null; });
+      return { ok: true, value: await open };
+    } catch (error) {
+      return { ok: false, message: errorMessage(error, "Could not open the Mattermost sign-in window.") };
+    }
   });
   deps.ipc.handle(CHANNELS.mattermostPost, async (_event, req: unknown) => {
     try {

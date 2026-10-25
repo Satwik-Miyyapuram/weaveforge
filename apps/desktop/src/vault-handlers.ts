@@ -117,13 +117,6 @@ export async function restoreRoot(
   return null;
 }
 
-export function forgetRoot(session: VaultSession, remember?: RememberRoot): IpcResult<null> {
-  session.root = null;
-  session.fs = null;
-  remember?.(null);
-  return { ok: true, value: null };
-}
-
 export function currentRoot(session: VaultSession): IpcResult<VaultRootPayload | null> {
   return { ok: true, value: session.root };
 }

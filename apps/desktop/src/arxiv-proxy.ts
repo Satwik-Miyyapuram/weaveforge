@@ -11,7 +11,7 @@
  * `id_list` query travels upstream — the same bounds as the web route.
  */
 
-import { refuse, type ProxyFetch } from "./proxy-shared";
+import { refuse, upstreamFailed, type ProxyFetch } from "./proxy-shared";
 
 export const ARXIV_PROXY_PATH = "/api/arxiv";
 const UPSTREAM = "https://export.arxiv.org/api/query";
@@ -38,8 +38,8 @@ export async function proxyArxiv(request: Request, fetchFn: ProxyFetch = fetch):
       redirect: "error",
       signal: AbortSignal.timeout(10_000),
     });
-  } catch {
-    return refuse(502, "Upstream fetch failed");
+  } catch (error) {
+    return upstreamFailed("arxiv", error, 502, "Upstream fetch failed");
   }
   if (!upstream.ok) return refuse(502, `arXiv responded ${upstream.status}`);
 

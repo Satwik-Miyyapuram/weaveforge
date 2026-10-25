@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { describe, it } from "node:test";
-import { findUpdate, isNewer, newestRelease, parseTag, parseVersion, type Release } from "../src/update-check";
+import { checkUpdateReply, findUpdate, isNewer, newestRelease, parseTag, parseVersion, type Release } from "../src/update-check";
 
 const release = (tag: string, extra: Partial<Release> = {}): Release => ({
   tag_name: tag,
@@ -114,5 +114,46 @@ describe("findUpdate", () => {
       fetchReleases: async () => releases,
     });
     assert.equal(update, null);
+  });
+});
+
+describe("checkUpdateReply (xipc-13: the IpcResult envelope)", () => {
+  it("answers ok with the update", async () => {
+    const reply = await checkUpdateReply({
+      isPackaged: true,
+      currentVersion: "1.0.0",
+      fetchReleases: async () => [release("v1.2.0")],
+    });
+    assert.deepEqual(reply, { ok: true, value: { version: "1.2.0", url: "https://example.invalid/v1.2.0" } });
+  });
+
+  it("answers ok with null in a dev build, without asking GitHub", async () => {
+    let asked = false;
+    const reply = await checkUpdateReply({
+      isPackaged: false,
+      currentVersion: "1.0.0",
+      fetchReleases: async () => { asked = true; return []; },
+    });
+    assert.deepEqual(reply, { ok: true, value: null });
+    assert.equal(asked, false);
+  });
+
+  it("answers ok:false, not a raw rejection, when the releases are malformed", async () => {
+    const reply = await checkUpdateReply({
+      isPackaged: true,
+      currentVersion: "1.0.0",
+      fetchReleases: async () => [null as unknown as Release],
+    });
+    assert.equal(reply.ok, false);
+    assert.ok(!reply.ok && reply.message.length > 0);
+  });
+
+  it("an unreachable GitHub is still nothing to report", async () => {
+    const reply = await checkUpdateReply({
+      isPackaged: true,
+      currentVersion: "1.0.0",
+      fetchReleases: async () => { throw new Error("offline"); },
+    });
+    assert.deepEqual(reply, { ok: true, value: null });
   });
 });

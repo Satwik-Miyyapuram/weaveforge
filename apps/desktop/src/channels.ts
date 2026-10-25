@@ -6,10 +6,10 @@
  * that cross, so the main process and the preload script are checked against
  * the same definition rather than against each other's memory.
  *
- * What crosses is deliberately plain: strings, numbers and an `ArrayBuffer`.
- * Electron structured-clones IPC payloads, so a `Uint8Array` view over a larger
- * buffer, a `Blob` or an `Error` would each arrive as something else — or not
- * at all.
+ * What crosses is deliberately plain: strings, numbers and bytes (an
+ * `ArrayBuffer`, or a `Uint8Array` for the vault's file bytes). Electron
+ * structured-clones IPC payloads, so a `Blob` or an `Error` would arrive as
+ * something else — or not at all.
  */
 
 export const CHANNELS = {
@@ -77,7 +77,6 @@ export const CHANNELS = {
    */
   vaultChoose: "weaveforge:vault-choose",
   vaultRoot: "weaveforge:vault-root",
-  vaultForget: "weaveforge:vault-forget",
   vaultRead: "weaveforge:vault-read",
   vaultWrite: "weaveforge:vault-write",
   /**

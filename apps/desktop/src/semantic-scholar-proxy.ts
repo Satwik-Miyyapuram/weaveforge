@@ -19,7 +19,7 @@ import {
   SEMANTIC_SCHOLAR_RELAY_PREFIX,
   semanticScholarTarget,
 } from "@/lib/semantic-scholar-relay";
-import { refuse, type ProxyFetch } from "./proxy-shared";
+import { refuse, upstreamFailed, type ProxyFetch } from "./proxy-shared";
 
 export const SEMANTIC_SCHOLAR_PROXY_PREFIX = SEMANTIC_SCHOLAR_RELAY_PREFIX;
 const RETRIES = 3;
@@ -58,8 +58,8 @@ export async function proxySemanticScholar(
       await wait(1000 * (attempt + 1));
       upstream = await send();
     }
-  } catch {
-    return refuse(502, "Upstream fetch failed");
+  } catch (error) {
+    return upstreamFailed("semantic-scholar", error, 502, "Upstream fetch failed");
   }
 
   return new Response(await upstream.arrayBuffer(), {

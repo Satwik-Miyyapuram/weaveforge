@@ -93,6 +93,22 @@ export interface MainLocalApi {
   close(): Promise<void>;
 }
 
+/**
+ * The window's answer to a semantic rank: the names it sent, or null to keep
+ * the order. A reason means the window's ranking threw; it is logged, cut short,
+ * since the answer is still "keep the order" and nothing else would show it.
+ */
+export function readRankAnswer(
+  order: unknown,
+  error: unknown,
+  warn: (line: string) => void = console.warn,
+): string[] | null {
+  if (typeof error === "string") {
+    warn(`[local-api] semantic ranking failed in the window: ${error.slice(0, 200)}`);
+  }
+  return Array.isArray(order) ? order.filter((name): name is string => typeof name === "string") : null;
+}
+
 export function registerMainLocalApi(
   deps: MainLocalApiDeps,
 ): MainLocalApi {
@@ -145,16 +161,12 @@ export function registerMainLocalApi(
   let nextRankId = 1;
   const pendingRanks = new Map<number, (order: string[] | null) => void>();
 
-  ipc.on(CHANNELS.semanticRanked, (_event, id: unknown, order: unknown) => {
+  ipc.on(CHANNELS.semanticRanked, (_event, id: unknown, order: unknown, error: unknown) => {
     if (typeof id !== "number") return;
     const waiting = pendingRanks.get(id);
     if (!waiting) return;
     pendingRanks.delete(id);
-    waiting(
-      Array.isArray(order)
-        ? (order as string[]).filter((name) => typeof name === "string")
-        : null,
-    );
+    waiting(readRankAnswer(order, error));
   });
 
   function rankSemantically(
@@ -303,6 +315,7 @@ export function registerMainLocalApi(
   });
 
   handle(CHANNELS.localApiTokenRevoke, async (_event, id: unknown) => {
+    if (typeof id !== "string" || !id) return { ok: false, message: "That is not a token to revoke." };
     const tokens = await readTokens();
     const saved = await savedMcp(tokens);
     const kept = await writeTokens(tokens.filter((t) => t.id !== id));

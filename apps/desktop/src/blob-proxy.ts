@@ -12,7 +12,7 @@
  * passed through as bytes so its boundary still matches the header.
  */
 
-import { refuse, type ProxyFetch } from "./proxy-shared";
+import { refuse, upstreamFailed, type ProxyFetch } from "./proxy-shared";
 
 export const BLOB_PROXY_PREFIX = "/api/blobs/";
 export const BLOB_UPSTREAM = "https://app.weaveforge.org";
@@ -56,8 +56,8 @@ export async function relayToHostedApp(request: Request, pathAndQuery: string, f
       redirect: "error",
       signal: AbortSignal.timeout(120_000),
     });
-  } catch {
-    return refuse(502, "Upstream fetch failed");
+  } catch (error) {
+    return upstreamFailed("blob", error, 502, "Upstream fetch failed");
   }
 
   return new Response(await upstream.arrayBuffer(), {
