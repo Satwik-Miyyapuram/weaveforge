@@ -59,7 +59,10 @@ def test_a_network_error_during_connect_closes_the_client(monkeypatch):
 
 
 def test_a_successful_connect_leaves_the_client_open(monkeypatch):
-    _patch(monkeypatch, {"/api/sdk/whoami": {"userId": "u"}, "/api/sdk/projects": {"projectId": "p"}})
+    _patch(
+        monkeypatch,
+        {"/api/sdk/whoami": {"userId": "u"}, "/api/sdk/projects": {"projectId": "p"}},
+    )
     c = container_mod.connect(SETTINGS)
     assert c.project_id == "p"
     assert FakeApi.instances[0].closed is False
