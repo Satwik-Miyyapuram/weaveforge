@@ -102,8 +102,11 @@ for (const [file, marker] of MEMBER_LABEL_ALLOWED) {
   }
 }
 
+// Tests may call it: they check the helper, they do not rebuild the map.
 const pinnedLabelDupes = memberLabelLines.filter(
-  (line) => ![...MEMBER_LABEL_ALLOWED.keys()].some((file) => line.startsWith(`${file}:`)),
+  (line) =>
+    !line.includes("/test/") &&
+    ![...MEMBER_LABEL_ALLOWED.keys()].some((file) => line.startsWith(`${file}:`)),
 );
 if (pinnedLabelDupes.length) {
   console.error(
