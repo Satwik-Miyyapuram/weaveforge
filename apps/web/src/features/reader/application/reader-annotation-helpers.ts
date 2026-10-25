@@ -19,7 +19,7 @@ export function applyAnnotationPatch(
 ): ReaderAnnotation {
   return {
     ...ann,
-    ...(patch.color !== undefined ? { color: patch.color.trim() || "#ffd400" } : {}),
+    ...(patch.color !== undefined ? { color: patch.color.trim() || DEFAULT_ANNOTATION_COLOR } : {}),
     ...(patch.text !== undefined ? { text: patch.text.trim() } : {}),
     ...(patch.comment !== undefined ? { comment: patch.comment.trim() } : {}),
     ...(patch.tags !== undefined ? { tags: [...patch.tags] } : {}),
@@ -47,7 +47,7 @@ export function optimisticAnnotationFromDraft(
     origin: "local",
     zoteroKey: null,
     type: draft.type,
-    color: draft.color.trim() || "#ffd400",
+    color: draft.color.trim() || DEFAULT_ANNOTATION_COLOR,
     text: draft.text?.trim() ?? "",
     comment: draft.comment?.trim() ?? "",
     tags: draft.tags ? [...draft.tags] : [],
@@ -60,8 +60,11 @@ export function optimisticAnnotationFromDraft(
   };
 }
 
+/** Zotero's yellow: the colour a mark gets when none is given. */
+export const DEFAULT_ANNOTATION_COLOR = "#ffd400";
+
 export const READER_ANNOTATION_COLORS = [
-  "#ffd400",
+  DEFAULT_ANNOTATION_COLOR,
   "#ff6666",
   "#5fb236",
   "#2ea8e5",

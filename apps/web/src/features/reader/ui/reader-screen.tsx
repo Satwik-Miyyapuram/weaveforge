@@ -5,6 +5,7 @@ import { BackButton } from "@/components/back-button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { decodeLocus, type PdfLocus, type ReaderAnnotation } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { logToApp } from "@/lib/error-report/app-log";
 import { PaperPdfPane } from "./paper-pdf-pane";
 import { sanitizePdfUrl, looksLikePdfUrl } from "../application/sanitize-reader-url";
 import { parseReaderSplitPane } from "../application/reader-split";
@@ -95,7 +96,8 @@ export function ReaderScreen() {
           setSplitBody(page.body ?? "");
           setSplitHref(`/vault?page=${encodeURIComponent(page.id)}`);
         }
-      } catch {
+      } catch (err) {
+        logToApp({ level: "warn", source: "reader", message: `Split pane ${pane} could not load`, detail: String(err) });
         if (!cancelled) {
           setSplitTitle("Unavailable");
           setSplitBody("");

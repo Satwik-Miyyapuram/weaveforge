@@ -75,14 +75,7 @@ export async function downloadLibraryPdfs(
         continue;
       }
       // The ladder without the cache rung: what is wanted is the network.
-      const resolution = await resolvePaperPdfSource({
-        id: paper.id,
-        url: paper.url,
-        arxivId: paper.arxivId,
-        doi: paper.doi,
-        pdfPath: paper.pdfPath,
-        metadata: paper.metadata,
-      });
+      const resolution = await resolvePaperPdfSource(paper);
       if (!resolution.ok) {
         progress.skipped += 1;
         continue;
@@ -140,14 +133,7 @@ export async function downloadPaperPdf(paperId: string): Promise<boolean> {
     const container = getContainer();
     const paper = await container.papers.getPaper(paperId);
     if (!paper) return false;
-    const resolution = await resolvePaperPdfSource({
-      id: paper.id,
-      url: paper.url,
-      arxivId: paper.arxivId,
-      doi: paper.doi,
-      pdfPath: paper.pdfPath,
-      metadata: paper.metadata,
-    });
+    const resolution = await resolvePaperPdfSource(paper);
     if (!resolution.ok) return false;
     const bytes = await fetchPdfBytesForCache(resolution.hit.url);
     if (!bytes) return false;

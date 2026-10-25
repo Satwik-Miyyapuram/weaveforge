@@ -85,21 +85,20 @@ export function useReaderViewport(options: UseReaderViewportOptions): ReaderView
     setState((prev) => ({ ...prev, fit }));
   }, []);
 
-  const zoomIn = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      fit: "custom",
-      scale: zoomInScale(effectiveBaseScale(prev, pageSize, containerSize)),
-    }));
-  }, [pageSize, containerSize]);
+  /** Zoom from the scale on screen now, whatever the fit mode was. */
+  const zoomFrom = useCallback(
+    (next: (current: number) => number) => {
+      setState((prev) => ({
+        ...prev,
+        fit: "custom",
+        scale: next(effectiveBaseScale(prev, pageSize, containerSize)),
+      }));
+    },
+    [pageSize, containerSize],
+  );
 
-  const zoomOut = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      fit: "custom",
-      scale: zoomOutScale(effectiveBaseScale(prev, pageSize, containerSize)),
-    }));
-  }, [pageSize, containerSize]);
+  const zoomIn = useCallback(() => zoomFrom(zoomInScale), [zoomFrom]);
+  const zoomOut = useCallback(() => zoomFrom(zoomOutScale), [zoomFrom]);
 
   const fitWidth = useCallback(() => setFit("width"), [setFit]);
   const fitPage = useCallback(() => setFit("page"), [setFit]);
@@ -107,13 +106,9 @@ export function useReaderViewport(options: UseReaderViewportOptions): ReaderView
   const zoomBy = useCallback(
     (factor: number) => {
       if (!Number.isFinite(factor) || factor <= 0) return;
-      setState((prev) => ({
-        ...prev,
-        fit: "custom",
-        scale: clampScale(effectiveBaseScale(prev, pageSize, containerSize) * factor),
-      }));
+      zoomFrom((current) => clampScale(current * factor));
     },
-    [pageSize, containerSize],
+    [zoomFrom],
   );
 
   const rotateClockwise = useCallback(() => {

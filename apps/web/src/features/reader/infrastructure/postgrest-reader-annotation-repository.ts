@@ -10,6 +10,7 @@ import type {
 } from "@weaveforge/core";
 import { buildAnnotationSortIndex, isReaderAnnotationType } from "@weaveforge/core";
 import { ProjectScopedPostgrestRepository } from "@/backend/providers/postgrest/project-scoped-repository";
+import { DEFAULT_ANNOTATION_COLOR } from "../application/reader-annotation-helpers";
 import {
   type ReaderAnnotationRow,
   toDomain,
@@ -80,7 +81,7 @@ export class PostgrestReaderAnnotationRepository extends ProjectScopedPostgrestR
         paper_id: paperId,
         origin: "local",
         type: draft.type,
-        color: draft.color.trim() || "#ffd400",
+        color: draft.color.trim() || DEFAULT_ANNOTATION_COLOR,
         text: draft.text?.trim() ?? "",
         comment: draft.comment?.trim() ?? "",
         tags: draft.tags ?? [],
@@ -96,7 +97,7 @@ export class PostgrestReaderAnnotationRepository extends ProjectScopedPostgrestR
 
   async update(id: string, patch: ReaderAnnotationPatch): Promise<ReaderAnnotation> {
     const updates: Record<string, unknown> = {};
-    if (patch.color !== undefined) updates.color = patch.color.trim() || "#ffd400";
+    if (patch.color !== undefined) updates.color = patch.color.trim() || DEFAULT_ANNOTATION_COLOR;
     if (patch.text !== undefined) updates.text = patch.text.trim();
     if (patch.comment !== undefined) updates.comment = patch.comment.trim();
     if (patch.tags !== undefined) updates.tags = patch.tags;

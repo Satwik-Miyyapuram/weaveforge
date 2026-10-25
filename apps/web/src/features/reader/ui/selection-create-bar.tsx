@@ -135,7 +135,10 @@ export function CommentField({
   onCancel: () => void;
 }) {
   const [text, setText] = useState(initial);
-  const save = () => onSave(text.trim());
+  // The button is disabled while busy; Enter has to respect that too.
+  const save = () => {
+    if (!busy) onSave(text.trim());
+  };
   return (
     <>
       <input

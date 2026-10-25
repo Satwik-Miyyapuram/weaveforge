@@ -34,3 +34,13 @@ export function relatedConcepts(
   for (const n of notes) count(noteTags(n));
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit);
 }
+
+/** The notes carrying any of `tags` as a whole hashtag (`#ml` is not `#mlops`); all of them when none is chosen. */
+export function notesTagged<N extends Pick<VaultPage, "title" | "body">>(
+  notes: readonly N[],
+  tags: readonly string[],
+): N[] {
+  if (tags.length === 0) return [...notes];
+  const wanted = new Set(tags);
+  return notes.filter((n) => noteTags(n).some((t) => wanted.has(t)));
+}

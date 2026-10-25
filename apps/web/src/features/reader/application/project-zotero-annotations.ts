@@ -10,6 +10,7 @@ import {
   type ReaderAnnotation,
 } from "@weaveforge/core";
 import type { ZoteroAnnotation } from "@/features/papers/domain/zotero";
+import { DEFAULT_ANNOTATION_COLOR } from "./reader-annotation-helpers";
 
 export function projectZoteroAnnotations(
   annotations: readonly ZoteroAnnotation[],
@@ -63,7 +64,7 @@ export function projectZoteroAnnotations(
       origin: "zotero",
       zoteroKey: ann.key?.trim() || null,
       type,
-      color: ann.color?.trim() || "#ffd400",
+      color: ann.color?.trim() || DEFAULT_ANNOTATION_COLOR,
       text: ann.text?.trim() || "",
       comment: ann.comment?.trim() || "",
       tags: [...(ann.tags ?? [])],

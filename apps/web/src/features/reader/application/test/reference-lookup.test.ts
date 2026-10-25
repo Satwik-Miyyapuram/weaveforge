@@ -147,8 +147,25 @@ test("a failed library listing is not memoised (22-01)", async () => {
     undefined,
     () => 0,
   );
-  assert.equal((await service.resolve("p1", ref({ index: 1, title: "1" }))).status, "unresolved");
+  const first = await service.resolve("p1", ref({ index: 1, title: "1" }));
+  assert.equal(first.status === "resolved" && first.inLibrary, undefined);
   fail = false;
   const ok = await service.resolve("p1", ref({ index: 2, title: "1" }));
   assert.equal(ok.status === "resolved" && ok.inLibrary?.id, "x");
+});
+
+test("a library lookup that throws keeps the resolution and does not re-resolve (22-02)", async () => {
+  const papers = new InMemoryPaperRepository();
+  papers.listSummaries = async () => { throw new Error("offline"); };
+  let resolves = 0;
+  const service = new ReferenceLookupService(
+    { resolveWithSource: async () => { resolves += 1; return { metadata: paper({ title: "A long enough title for matching" }), sourceId: "fake" }; } },
+    papers,
+    undefined,
+    () => 0,
+  );
+  const out = await service.resolve("p1", ref({ arxivId: "2101.00001", title: "A long enough title for matching" }));
+  assert.equal(out.status, "resolved");
+  assert.equal(out.status === "resolved" && out.inLibrary, undefined);
+  assert.equal(resolves, 1, "the second form is not tried for a library failure");
 });

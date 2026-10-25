@@ -13,7 +13,7 @@ import { AddEdgeForm } from "./add-edge-form";
 import { BraveGraphWarning } from "./brave-graph-warning";
 import { GraphCanvas } from "./graph-canvas";
 import type { GNode } from "../application/build-graph-data";
-import { graphTagNames } from "../application/graph-tags";
+import { graphTagNames, notesTagged } from "../application/graph-tags";
 import { SettingsIcon } from "@/components/view-icons";
 import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
@@ -110,13 +110,10 @@ export function GraphScreen() {
     return edges.filter((e) => shown.has(e.fromPaper) && shown.has(e.toPaper));
   }, [edges, visiblePapers]);
 
-  const visibleNotes = useMemo(() => {
-    if (selectedTags.length === 0) return notes;
-    return notes.filter((n) => {
-      const body = `${n.title}\n${n.body}`.toLowerCase();
-      return selectedTags.some((t) => body.includes(`#${t}`));
-    });
-  }, [notes, selectedTags]);
+  const visibleNotes = useMemo(
+    () => (selectedTags.length === 0 ? notes : notesTagged(notes, selectedTags)),
+    [notes, selectedTags],
+  );
 
   const hasGraphItems = papers.length > 0 || notes.length > 0 || sections.length > 0;
   const hasVisibleItems = visiblePapers.length > 0 || visibleNotes.length > 0 || sections.length > 0;

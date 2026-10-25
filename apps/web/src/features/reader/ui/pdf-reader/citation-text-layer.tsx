@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PageTextItem } from "@weaveforge/core";
-import { decorateCitationSpans, setActiveCitation, type CiteSpan } from "../../application/citation-spans";
+import { decorateCitationSpans, setActiveCitation } from "../../application/citation-spans";
 import type { MentionHit } from "../../application/reader-references";
 
 export type { MentionHit };
@@ -106,7 +106,7 @@ export function CitationTextLayer({
       if (ordered.length > runs.length) return;
       decorating = true;
       try {
-        decorateCitationSpans(ordered, runs, hits as unknown as CiteSpan[]);
+        decorateCitationSpans(ordered, runs, hits);
       } catch {
         // The analysis and the text layer disagree about this page. Leaving it
         // undecorated shows the document as printed; guessing would not.

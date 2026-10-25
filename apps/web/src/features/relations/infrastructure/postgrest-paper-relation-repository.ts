@@ -54,10 +54,20 @@ export class PostgrestPaperRelationRepository extends ProjectRepository
     return (await rows<PaperRelationRow>(q)).map(toDomain);
   }
 
+  /**
+   * Both sides as two bound `eq` filters, not one `or=(…)` string: an id
+   * spliced into that grammar could rewrite the filter.
+   */
   async relationsFor(paperId: string): Promise<PaperRelation[]> {
-    let q = this.db.from(TABLE).select(PAPER_RELATION_COLUMNS).or(`from_paper.eq.${paperId},to_paper.eq.${paperId}`);
-    if (this.pid) q = q.eq("project_id", this.pid);
-    return (await rows<PaperRelationRow>(q)).map(toDomain);
+    const side = (column: "from_paper" | "to_paper") => {
+      let q = this.db.from(TABLE).select(PAPER_RELATION_COLUMNS).eq(column, paperId);
+      if (this.pid) q = q.eq("project_id", this.pid);
+      return rows<PaperRelationRow>(q);
+    };
+    const [from, to] = await Promise.all([side("from_paper"), side("to_paper")]);
+    const byId = new Map<string, PaperRelationRow>();
+    for (const row of [...from, ...to]) byId.set(row.id, row);
+    return [...byId.values()].map(toDomain);
   }
 
   async findEdge(
