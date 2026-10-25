@@ -3,11 +3,11 @@
  *
  * - 10-04: the routes already know the caller, so the helpers do not ask again.
  * - 10-05: one pair of S3 clients per config, not one per request.
- * - 10-18: a missing deployment setting is logged, not sent to the caller.
+ * - 10-18 is tested in `app/api/blobs/test/_shared.test.ts`, next to `blobFailure`:
+ *   the desktop build holds `app/api` aside, so nothing outside it may import it.
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { blobFailure } from "@/app/api/blobs/_shared";
 import { readStorageConfig } from "../config";
 import { blobRegistryForToken, buildTieredBlobStoreForToken, hotColdStores } from "../server/blob-api";
 import { BLOB_SERVER_ENV, withEnv } from "./with-env";
@@ -67,21 +67,4 @@ test("a changed config builds new clients", () => {
 
 test("no R2 config is still an error naming what is missing", () => {
   assert.throws(() => hotColdStores(readStorageConfig({})), /missing R2_ACCOUNT_ID/);
-});
-
-test("a missing deployment setting does not reach the response body (10-18)", async () => {
-  const err = await withEnv(
-    { ...BLOB_SERVER_ENV, NEXT_PUBLIC_SUPABASE_URL: undefined, NEXT_PUBLIC_SUPABASE_ANON_KEY: undefined },
-    () =>
-      blobRegistryForToken("tok", "uid-1").then(
-        () => null,
-        (e: unknown) => e,
-      ),
-  );
-  assert.ok(err instanceof Error);
-  const res = blobFailure(err);
-  assert.equal(res.status, 500);
-  const body = (await res.json()) as { error: string };
-  assert.doesNotMatch(body.error, /NEXT_PUBLIC|SUPABASE|postgres|anon/i);
-  assert.match(body.error, /not configured/i);
 });
