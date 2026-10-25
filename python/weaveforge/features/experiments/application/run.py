@@ -95,6 +95,10 @@ class Run:
         self._buffer: list[MetricPoint] = []
         self._last: dict[str, float] = {}
         self._fig_seq = 0
+        # Names already uploaded in this run. Storage upserts by name, so a name
+        # the run picked for the user (an unnamed figure, a synced one) must not
+        # land on one it already used; see :meth:`_unused_name`.
+        self._names: set[str] = set()
         # Retry pacing for automatic flushes: total points logged, failures in
         # a row, and the total at which the next attempt may run.
         self._logged = 0
@@ -151,6 +155,8 @@ class Run:
         fname = name or f"figure-{self._fig_seq}"
         if "." not in fname:
             fname = f"{fname}.{fmt}"
+        if name is None:
+            fname = self._unused_name(fname)
         ctype = _CONTENT_TYPES.get(fmt, "application/octet-stream")
         return self.log_bytes(fname, buf.getvalue(), ctype)
 
@@ -163,6 +169,7 @@ class Run:
                 "Use a run created via track()/track_experiment(), or pass log_artifact(url)."
             )
         url = self._uploader(self.id, name, data, content_type)
+        self._names.add(name)
         self.experiment = self._manage.add_artifacts(self.id, [url], existing=self.experiment)
         return url
 
@@ -215,7 +222,25 @@ class Run:
             if art.url:
                 self.log_artifact(art.url)
             elif art.data is not None:
-                self.log_bytes(art.name, art.data, art.content_type)
+                # A source names its files without knowing what the run already
+                # holds: the matplotlib source starts at figure-0 on every call.
+                self.log_bytes(self._unused_name(art.name), art.data, art.content_type)
+
+    def _unused_name(self, name: str) -> str:
+        """``name``, or ``name`` with ``-2``, ``-3``… before its extension when
+        this run has already uploaded a file under it.
+
+        A name the user passed is left alone: naming a figure is how they say
+        "replace the last one"."""
+        if name not in self._names:
+            return name
+        stem, dot, ext = name.rpartition(".")
+        if not dot:
+            stem, ext = name, ""
+        n = 2
+        while (candidate := f"{stem}-{n}{dot}{ext}") in self._names:
+            n += 1
+        return candidate
 
     def _flush_when_full(self) -> None:
         """Flush once the buffer has reached the threshold and any backoff after

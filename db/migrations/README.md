@@ -102,3 +102,5 @@ live on the OCI server.
 | `0134` | Sync tombstones in the change feed; pre-feed rows get a `server_seq` |
 | `0145` | AI proposals get an `executing` status, so one approval runs a proposal once |
 | `0146` | Marks the showcase project, so a reset never deletes a user's project with the same name |
+| `0148` | Org read policies drop the dead `admin` branch |
+| `0149` | `resolve_api_token` writes `last_used_at` at most hourly, not on every SDK call |

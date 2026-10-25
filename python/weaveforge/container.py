@@ -54,6 +54,16 @@ def connect(settings: Settings | None = None, project: str | None = None) -> Con
     project for this connection."""
     settings = settings or Settings.from_env()
     api = ApiClient(settings.api_url, settings.token)
+    # The container owns the client once it is returned; until then nothing
+    # else holds it, so a failed check must close its connection pool here.
+    try:
+        return _wire(api, settings, project)
+    except BaseException:
+        api.close()
+        raise
+
+
+def _wire(api: ApiClient, settings: Settings, project: str | None) -> Container:
     who = api.get("/api/sdk/whoami")
     user_id = who.get("userId")
     if not user_id:
