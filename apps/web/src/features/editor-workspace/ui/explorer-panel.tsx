@@ -27,6 +27,8 @@ import {
   writeSections,
   type ExplorerSection,
 } from "../application/explorer-state";
+import { EXPLORER_ROW_PX, rowSlots } from "../application/explorer-window";
+import { findRow, useExplorerWindow } from "./use-explorer-window";
 import { useExplorerExpansion } from "./use-explorer-expansion";
 import {
   filterRows,
@@ -130,6 +132,7 @@ export function ExplorerPanel({
   const [query, setQuery] = useState("");
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const { bodyRef, views, focusOncePainted } = useExplorerWindow(listRef);
   /** The row whose label is a text box, and what its last attempt said. */
   const [renaming, setRenaming] = useState<string | null>(null);
   const [problem, setProblem] = useState<{ key: string; message: string } | null>(null);
@@ -286,10 +289,14 @@ export function ExplorerPanel({
 
   // Focus follows the roving tabindex, so the browser scrolls the row into view
   // for us and screen readers announce the move.
+  // Home, End and a climb can land on a row scrolled out of the painted window;
+  // the focused row is always painted, so it is focused once it renders.
   const focusRow = useCallback((key: string) => {
     setFocusKey(key);
-    listRef.current?.querySelector<HTMLElement>(`[data-row-key="${CSS.escape(key)}"]`)?.focus();
-  }, []);
+    const row = findRow(listRef.current, key);
+    if (row) row.focus();
+    else focusOncePainted(key);
+  }, [focusOncePainted]);
 
   // One flat list across every open section is what makes an arrow key mean
   // "the next row" rather than "the next row in this section".
@@ -366,6 +373,14 @@ export function ExplorerPanel({
   const focused = flat.some((row) => row.node.key === focusKey)
     ? focusKey
     : (flat[0]?.node.key ?? null);
+
+  // Rows that stay painted out of view: unmounting them would drop the tree's
+  // focus, or the text of a rename or a draft being typed.
+  const pinnedKeys = new Set(
+    [focused, renaming, draft ? draftParentKey : null, problem?.key].filter(
+      (key): key is string => Boolean(key),
+    ),
+  );
 
   return (
     <nav className="explorer-panel" aria-label="Workspace">
@@ -448,7 +463,7 @@ export function ExplorerPanel({
         ) : null}
       </div>
 
-      <div className="explorer-body">
+      <div className="explorer-body" ref={bodyRef}>
         <ul className="explorer-tree" role="tree" ref={listRef}>
           {sections.map((section) => {
             const open = isSectionOpen(openSections, section.id);
@@ -480,8 +495,23 @@ export function ExplorerPanel({
                   className="explorer-section-rows"
                   role="group"
                   hidden={!open}
+                  data-section-rows={section.id}
                 >
-                  {rows.map((row) => {
+                  {rowSlots(
+                    rows.length,
+                    views?.[section.id] ?? null,
+                    rows.flatMap((row, i) => (pinnedKeys.has(row.node.key) ? [i] : [])),
+                  ).map((slot, s) => {
+                    if (slot.kind === "gap") {
+                      return (
+                        <li
+                          key={`gap-${s}`}
+                          role="none"
+                          style={{ height: `${slot.rows * EXPLORER_ROW_PX}px` }}
+                        />
+                      );
+                    }
+                    const row = rows[slot.index]!;
                     const { node, depth } = row;
                     const painted = flatByKey.get(node.key);
                     const branch = node.children.length > 0;
