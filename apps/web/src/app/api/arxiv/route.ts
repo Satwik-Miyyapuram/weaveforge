@@ -82,7 +82,18 @@ export async function GET(request: Request) {
   if (!res) {
     return NextResponse.json({ error: "arXiv did not answer in time." }, { status: 504 });
   }
-  const body = await res.text();
+  // The timeout covers the body too, so a slow feed can fail here, after the
+  // status line arrived.
+  let body: string;
+  try {
+    body = await res.text();
+  } catch (error) {
+    const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+    return NextResponse.json(
+      { error: timedOut ? "arXiv did not answer in time." : "arXiv's answer could not be read." },
+      { status: timedOut ? 504 : 502, headers: { "cache-control": "no-store" } },
+    );
+  }
   return new NextResponse(body, {
     status: res.status,
     headers: {

@@ -54,3 +54,13 @@ test("sessionIds and ids are checked as UUIDs before they reach a uuid column", 
     assert.equal(isUuid(bad as unknown), false, `${String(bad)} must not pass as a UUID`);
   }
 });
+
+test("a body that parses to null or a non-object is a 400, not a crash (14-06)", async () => {
+  const { isJsonObject } = await import("../relay-request");
+  assert.equal(isJsonObject(null), false);
+  assert.equal(isJsonObject(3), false);
+  assert.equal(isJsonObject("x"), false);
+  assert.equal(isJsonObject([]), false);
+  assert.equal(isJsonObject({}), true);
+  assert.equal(isJsonObject({ sessionId: "a" }), true);
+});

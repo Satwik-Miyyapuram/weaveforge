@@ -1,6 +1,5 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
 import { withAppLogs } from "@/lib/error-report/test/capture-app-logs";
@@ -24,7 +23,7 @@ test("a failed highlight is logged and leaves the readable fallback, not busy (1
     const logs = await withAppLogs(async (logs) => {
       let tree: ReactTestRenderer | undefined;
       await act(async () => {
-        tree = create(createElement(ShikiMarkdown, { children: "See [[A]].", resolveWikilink }));
+        tree = create(<ShikiMarkdown resolveWikilink={resolveWikilink}>{"See [[A]]."}</ShikiMarkdown>);
       });
       await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
       const div = tree!.root.findByType("div");

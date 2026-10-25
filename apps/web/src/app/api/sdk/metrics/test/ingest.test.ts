@@ -80,7 +80,7 @@ test("ingestMetrics: a new series reads no tip and deletes nothing", async () =>
   assert.ok(!calls.some((c) => c.op === "delete"));
 });
 
-for (const body of [null, [], "x", { points: "no" }]) {
+for (const body of [null, [], "x", { points: "no" }, { points: [null] }, { points: [{ metric: "a", step: 1 }, 7] }, { points: [[]] }]) {
   test(`ingestMetrics: 400 for ${JSON.stringify(body)}`, async () => {
     const { db, calls } = fakeDb();
     assert.equal((await ingestMetrics(db, body)).status, 400);
