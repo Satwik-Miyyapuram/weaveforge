@@ -78,8 +78,6 @@ export {
   makeInkStroke,
   blankInkPage,
   clampInkPageSize,
-  packInkStroke,
-  InkStrokePacker,
   pressureByte,
   defaultInkNoteMeta,
   isInkNoteFrontmatter,
@@ -114,9 +112,9 @@ export {
   type InkPage,
   type InkNoteMeta,
   type PackedInkStroke,
-  type InkStrokePackerOptions,
 } from "./ink-note.js";
 export { inkCurveAt, inkTangentAt } from "./curve.js";
+export { packInkStroke, InkStrokePacker, type InkStrokePackerOptions } from "./stroke-packer.js";
 
 export {
   FIGURE_ALT,

@@ -38,7 +38,8 @@ import {
   chunkStrokePoints,
   pageFromChunk,
 } from "../../src/ink/ink-chunk-read.js";
-import { INK_PAPERS, makeInkStroke, packInkStroke, type InkPage } from "../../src/ink/ink-note.js";
+import { INK_PAPERS, makeInkStroke, type InkPage } from "../../src/ink/ink-note.js";
+import { packInkStroke } from "../../src/ink/stroke-packer.js";
 
 /** Brotli at quality 5, the knee §4.3 pins. */
 const brotliQ5: InkChunkCodec = {

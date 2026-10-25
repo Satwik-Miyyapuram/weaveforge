@@ -31,13 +31,13 @@ import {
   joinInkTextLayer,
   makeInkStroke,
   newInkChunkId,
-  packInkStroke,
   parseInkChunkPath,
   readInkNoteMeta,
   resolveInkPageOrder,
   splitInkTextLayer,
   writeInkNoteMeta,
 } from "../../src/ink/ink-note.js";
+import { packInkStroke } from "../../src/ink/stroke-packer.js";
 
 /** Chunk ids that are valid by construction (26 Crockford characters). */
 const CHUNK_A = "01JABC0DEF0GH0JK0MN0PQ0RST";
