@@ -23,13 +23,8 @@ import {
   type ListItemEntry,
   type WorkspaceTreeNode,
 } from "./workspace-tree";
+import { sectionOr } from "./section-fallback";
 
-/**
- * A note is one kind whatever its body holds: a note with ink in its header
- * (§4.1) opens in Ink mode rather than being a second kind with a second
- * suffix. `ink_page` stays in the kind table for tabs saved before this.
- */
-export const noteKind = (_body: string): "vault_page" => "vault_page";
 export interface Document {
   kind: string;
   id: string;
@@ -73,14 +68,14 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
   const container = getContainer();
   const [vault, papers, report, lists, log] = await Promise.all([
     container.vault.loadScreenData(),
-    container.papers.loadScreenData().catch(() => null),
-    container.report.loadScreenData().catch(() => null),
-    container.readingLists.loadScreenData().catch(() => null),
+    sectionOr(container.papers.loadScreenData(), "papers", null),
+    sectionOr(container.report.loadScreenData(), "report", null),
+    sectionOr(container.readingLists.loadScreenData(), "reading lists", null),
     // A log entry is markdown and is edited like one, so it is loaded like the
     // other text kinds. Its own screen's read, reused rather than a second query
     // — and caught, because a logbook that will not load must not take Notes,
     // Papers and the Report down with it.
-    container.logbook.loadEntries().catch(() => null),
+    sectionOr(container.logbook.loadEntries(), "log", null),
   ]);
 
   const paperRows = papers?.papers ?? [];
@@ -102,9 +97,11 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
       const kept = previous.get(page.id);
       const keep = kept !== undefined && !isHydratedPage(page) && kept.startsWith(summary);
       const body = keep ? kept : summary;
-      const kind = noteKind(body);
       return {
-        kind,
+        // A note is one kind whatever its body holds: a note with ink in its
+        // header (§4.1) opens in Ink mode rather than being a second kind with
+        // a second suffix. `ink_page` stays in the kind table for old tabs.
+        kind: "vault_page",
         id: page.id,
         title: page.title,
         body,
@@ -184,7 +181,7 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
         id: page.id,
         title: page.title,
         parentId: page.parentId ?? undefined,
-        kind: noteKind(noteBodyText(page)),
+        kind: "vault_page",
       })),
       papers: paperRows.map((paper) => ({
         id: paper.id,
@@ -212,9 +209,11 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
     const listTitles = new Map(listRows.map((list) => [`reading_list:${list.id}`, list.name]));
     const items: ListItemEntry[] = [];
     if (listRows.length > 0) {
-      const rows = await container.readingLists
-        .listItemsForLists(listRows.map((list) => list.id))
-        .catch(() => []);
+      const rows = await sectionOr(
+        container.readingLists.listItemsForLists(listRows.map((list) => list.id)),
+        "list items",
+        [],
+      );
       for (const row of rows) {
         if (row.paperId) {
           items.push({

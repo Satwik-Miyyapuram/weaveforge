@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useProject } from "@/features/projects";
 import { activeWorkspaceFs, onFolderConnected } from "@/features/workspace/application/workspace-folder";
+import { logToApp } from "@/lib/error-report/app-log";
 
 /**
  * Keep the folder's copy of extracted PDF text level with IndexedDB's.
@@ -25,7 +26,14 @@ export function PdfTextFolderSync() {
     const reconcile = () => {
       void import("@/features/search/application/pdf-text-folder")
         .then(({ reconcilePdfTextFolder }) => reconcilePdfTextFolder(projectId))
-        .catch(() => undefined);
+        .catch((err: unknown) =>
+          logToApp({
+            level: "warn",
+            source: "workspace",
+            message: "The PDF text folder could not be reconciled",
+            detail: err instanceof Error ? err.message : String(err),
+          }),
+        );
     };
     if (activeWorkspaceFs()) reconcile();
     return onFolderConnected(reconcile);

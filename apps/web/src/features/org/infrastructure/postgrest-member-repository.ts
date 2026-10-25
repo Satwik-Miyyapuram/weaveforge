@@ -8,6 +8,7 @@ import {
 } from "@weaveforge/core";
 import { singleFlight } from "@/lib/cache/single-flight";
 import {
+  PROFILE_COLUMNS,
   type ProfileRow,
   byName,
   toDomain,
@@ -36,7 +37,7 @@ export class PostgrestMemberRepository implements IMemberRepository {
     return singleFlight(`members:mine:${uid}`, async () => {
       const row = await one<ProfileRow>(this.db
         .from(TABLE)
-        .select("user_id, email, full_name, role, supervisor_id, org_setup_complete, active_org_id")
+        .select(PROFILE_COLUMNS)
         .eq("user_id", uid)
         .maybeSingle());
       return row ? toDomain(row) : null;
@@ -48,7 +49,7 @@ export class PostgrestMemberRepository implements IMemberRepository {
     return singleFlight("members:directory", async () => {
       const { data, error } = await this.db
         .from(TABLE)
-        .select("user_id, email, full_name, role, supervisor_id, org_setup_complete, active_org_id");
+        .select(PROFILE_COLUMNS);
       if (error) throw error;
       return (data as ProfileRow[]).map(toDomain).sort(byName);
     });

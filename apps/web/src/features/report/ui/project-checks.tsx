@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { checkBibliography, parseBibEntries, type BibFinding } from "@weaveforge/core";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
@@ -62,24 +62,34 @@ function Bibliography({ findings, entryCount }: { findings: readonly BibFinding[
 }
 
 function Compile({ files, entryFile }: { files: readonly SourceFile[]; entryFile: string }) {
-  // Probed once when the panel first renders. A machine that gains a TeX while
-  // the app is open shows the button after the next reload, which is a smaller
-  // surprise than a button appearing under the cursor.
   const [tool, setTool] = useState<string | null | undefined>(undefined);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<DesktopTexCompileResult | null>(null);
   const [error, setError] = useState("");
   const bridge = desktop();
 
-  if (!bridge || typeof bridge.probeTex !== "function") return null;
-  if (tool === undefined) {
-    void bridge
+  // Probed once per mount, not once per render. A machine that gains a TeX
+  // while the app is open shows the button after the next reload, which is a
+  // smaller surprise than a button appearing under the cursor.
+  useEffect(() => {
+    const probe = desktop();
+    if (!probe || typeof probe.probeTex !== "function") return;
+    let cancelled = false;
+    void probe
       .probeTex()
-      .then((found) => setTool(found?.version ?? null))
-      .catch(() => setTool(null));
-    return null;
-  }
-  if (tool === null) return null;
+      .then((found) => {
+        if (!cancelled) setTool(found?.version ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setTool(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!bridge || typeof bridge.probeTex !== "function") return null;
+  if (tool === undefined || tool === null) return null;
 
   const run = async () => {
     setRunning(true);

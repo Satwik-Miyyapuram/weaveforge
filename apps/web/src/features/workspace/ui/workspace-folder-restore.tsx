@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 
 import { chooseDesktopFolder, folderSession, markFolderRestored } from "../application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { logToApp } from "@/lib/error-report/app-log";
 
 /**
  * Take up the remembered workspace folder at startup, once.
@@ -39,9 +40,16 @@ export function WorkspaceFolderRestore() {
     // reconnecting over it would silently swap where the next write lands.
     if (folderSession()) return markFolderRestored();
     void chooseDesktopFolder({ git: false, reuse: true })
-      .catch(() => {
+      .catch((err: unknown) => {
         // A path that has gone — an unplugged drive, a dead network share —
-        // leaves `activeFs` as it was. Nothing to report: the reader never asked.
+        // leaves `activeFs` as it was. Nothing on screen: the reader never
+        // asked. The log keeps it for a report.
+        logToApp({
+          level: "warn",
+          source: "workspace",
+          message: "The remembered folder could not be reconnected",
+          detail: err instanceof Error ? err.message : String(err),
+        });
       })
       // Whatever the answer, the readers held for it can go ahead.
       .finally(markFolderRestored);

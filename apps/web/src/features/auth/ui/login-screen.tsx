@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { getLightContainer } from "@/light-bootstrap";
 import { FormError } from "@/components/form-error";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
-import { formatError } from "@/lib/format-error";
 import { appOrigin, authRedirectTo } from "@/lib/desktop/desktop-auth";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { setLocalMode } from "@/backend/providers/local/local-identity";
+import { runBusy } from "./run-busy";
 
 /**
  * Sign in: password, Google, an emailed code or link, or (desktop only) no
@@ -35,92 +35,55 @@ export function LoginScreen() {
   // `lib/desktop-auth.ts` for why those differ.
   const redirectTo = authRedirectTo;
 
-  async function submit(e: React.FormEvent) {
+  // Every action below: busy while it runs, its failure shown, the button freed.
+  const run = (action: () => Promise<void>) => runBusy(setBusy, setError, action);
+
+  function submit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
+    return run(async () => {
       if (isSignUp) {
         await getLightContainer().auth.signUpWithPassword(email.trim(), password);
         setSent(true);
       } else {
         await getLightContainer().auth.signInWithPassword(email.trim(), password);
       }
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
-  async function google() {
-    setBusy(true);
-    setError(null);
-    try {
-      // Either the browser leaves for Google, or (Android) the account picker
-      // signs in here or is closed; both of those leave the screen usable.
-      await getLightContainer().auth.signInWithGoogle(redirectTo());
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
+  function google() {
+    // Either the browser leaves for Google, or (Android) the account picker
+    // signs in here or is closed; both of those leave the screen usable.
+    return run(() => getLightContainer().auth.signInWithGoogle(redirectTo()));
   }
 
-  async function sendMagicLink() {
-    setBusy(true);
-    setError(null);
-    try {
+  function sendMagicLink() {
+    return run(async () => {
       await getLightContainer().auth.sendMagicLink(email.trim(), redirectTo());
       setMagicLinkSent(true);
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
-  async function sendPasswordReset() {
-    setBusy(true);
-    setError(null);
-    try {
+  function sendPasswordReset() {
+    return run(async () => {
       // A path is appended here, so this one wants the plain origin rather
       // than wherever a provider sign-in is told to come back to.
       const origin = appOrigin();
       if (!origin) throw new Error("Password reset is only available in a browser.");
       await getLightContainer().auth.sendPasswordReset(email.trim(), `${origin}/reset-password`);
       setResetSent(true);
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
-  async function sendOtp() {
-    setBusy(true);
-    setError(null);
-    try {
+  function sendOtp() {
+    return run(async () => {
       await getLightContainer().auth.sendEmailOtp(email.trim());
       setOtpSent(true);
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
-  async function verifyOtp(event: React.FormEvent<HTMLFormElement>) {
+  function verifyOtp(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await getLightContainer().auth.verifyEmailOtp(email.trim(), otp.trim());
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
+    return run(() => getLightContainer().auth.verifyEmailOtp(email.trim(), otp.trim()));
   }
 
   const switchMode = () => {

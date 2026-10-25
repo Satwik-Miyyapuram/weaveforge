@@ -18,6 +18,7 @@ import { OrgSwitcher } from "./org-switcher";
 import { fetchOwnedOrgs, leaveOrg } from "../infrastructure/org-api";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
+import { ownedOrgsOrError, type OwnedOrg } from "./owned-orgs";
 
 /**
  * People / Organization panel. Embedded in Settings (not its own screen). Shows
@@ -27,7 +28,8 @@ import { FormError } from "@/components/form-error";
  */
 export function OrgPanel() {
   const { profile, labMembers, memberships, activeOrgId, loading, refresh } = useProfile();
-  const [ownedOrgs, setOwnedOrgs] = useState<{ id: string; name: string; ownerId: string }[]>([]);
+  const [ownedOrgs, setOwnedOrgs] = useState<OwnedOrg[]>([]);
+  const [ownedError, setOwnedError] = useState<string | null>(null);
   const [labOpen, setLabOpen] = useState(false);
   const [leaveBusy, setLeaveBusy] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
@@ -49,16 +51,15 @@ export function OrgPanel() {
   useEffect(() => {
     if (profile?.role !== "professor") {
       setOwnedOrgs([]);
+      setOwnedError(null);
       return;
     }
     let current = true;
-    void fetchOwnedOrgs()
-      .then((orgs) => {
-        if (current) setOwnedOrgs(orgs);
-      })
-      .catch(() => {
-        if (current) setOwnedOrgs([]);
-      });
+    void ownedOrgsOrError(fetchOwnedOrgs).then(({ orgs, error }) => {
+      if (!current) return;
+      setOwnedOrgs(orgs);
+      setOwnedError(error);
+    });
     // Keyed on the profile, so a response for the previous one must not land.
     return () => {
       current = false;
@@ -139,6 +140,7 @@ export function OrgPanel() {
       )}
 
       {leaveError && <FormError>{leaveError}</FormError>}
+      {ownedError && <FormError>{ownedError}</FormError>}
 
       {isOrgHead && (
         <>
