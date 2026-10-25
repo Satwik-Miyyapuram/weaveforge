@@ -296,7 +296,7 @@ export function AnnotationSidebar({
                   href={
                     b.kind === "report_section"
                       ? `/report?section=${encodeURIComponent(b.id)}`
-                      : `/vault?page=${encodeURIComponent(b.id)}`
+                      : `/notes?page=${encodeURIComponent(b.id)}`
                   }
                 >
                   {b.kind === "report_section" ? "Report" : "Note"} · {b.title}
