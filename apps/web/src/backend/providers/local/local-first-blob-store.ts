@@ -1,5 +1,7 @@
 import { BlobNotFoundError, errorMessage } from "@weaveforge/core";
 import type { IBlobFetcher, IBlobStore } from "@weaveforge/core";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
 import { FetchingBlobStore } from "@/storage/fetching-blob-store";
 import { LocalBlobStore } from "./local-blob-store";
 import type { LocalQuery } from "./pglite-client";
@@ -57,7 +59,10 @@ export class LocalFirstBlobStore implements IBlobFetcher {
     const here = await this.local.signedUrls(bucket, paths, ttlSeconds);
     const missing = paths.filter((_, i) => here[i] === null);
     if (missing.length === 0) return here;
-    const there = await this.remote.signedUrls(bucket, missing, ttlSeconds).catch(() => missing.map(() => null));
+    const there = await this.remote.signedUrls(bucket, missing, ttlSeconds).catch((err: unknown) => {
+      warn("Could not get attachment links from the server", `${bucket}: ${describeRejection(err)}`);
+      return missing.map(() => null);
+    });
     const byPath = new Map(missing.map((path, i) => [path, there[i] ?? null]));
     return paths.map((path, i) => here[i] ?? byPath.get(path) ?? null);
   }
@@ -86,7 +91,10 @@ export class LocalFirstBlobStore implements IBlobFetcher {
     const found = await this.local.fetchBlobs(bucket, paths, fallbackContentType);
     const missing = paths.filter((path) => !found.has(path));
     if (missing.length === 0) return found;
-    const fetched = await this.remote.fetchBlobs(bucket, missing, fallbackContentType).catch(() => new Map());
+    const fetched = await this.remote.fetchBlobs(bucket, missing, fallbackContentType).catch((err: unknown) => {
+      warn("Could not fetch attachments from the server", `${bucket}: ${describeRejection(err)}`);
+      return new Map();
+    });
     for (const [path, blob] of fetched) found.set(path, blob as Blob);
     return found;
   }
@@ -163,7 +171,7 @@ export class LocalFirstBlobStore implements IBlobFetcher {
   }
 
   private kick(): void {
-    void this.flush().catch(() => undefined);
+    void this.flush().catch(warnFlushFailed);
   }
 }
 
@@ -172,6 +180,15 @@ interface QueuedBlob {
   path: string;
   op: "upload" | "remove";
   version: number;
+}
+
+function warn(message: string, detail: string): void {
+  logToApp({ level: "warn", source: "attachments", message, detail });
+}
+
+/** The queue keeps the item for the next turn; the log says why this one failed. */
+function warnFlushFailed(err: unknown): void {
+  warn("Sending attachments to the server failed", describeRejection(err));
 }
 
 function defaultOnline(): boolean {
@@ -187,7 +204,7 @@ export const BLOB_RETRY_MS = 60_000;
  */
 export function keepFlushing(store: LocalFirstBlobStore): () => void {
   if (typeof window === "undefined") return () => undefined;
-  const flush = () => void store.flush().catch(() => undefined);
+  const flush = () => void store.flush().catch(warnFlushFailed);
   window.addEventListener("online", flush);
   const timer = window.setInterval(flush, BLOB_RETRY_MS);
   flush();

@@ -44,6 +44,7 @@ import { ReferenceLookupService } from "@/features/reader/application/reference-
 import { createReferenceActions } from "@/features/reader/application/reference-actions";
 import { IdbReferenceLookupCache } from "@/features/reader/infrastructure/reference-lookup-cache";
 import { ArxivMetadataSource } from "@/features/papers/infrastructure/arxiv-metadata-source";
+import { localZoteroCollection } from "@/features/papers/infrastructure/zotero-collection";
 import { CrossrefMetadataSource } from "@/features/papers/infrastructure/crossref-metadata-source";
 import { UrlMetadataSource } from "@/features/papers/infrastructure/url-metadata-source";
 import { DeletePaperUseCase } from "@/features/papers/application/delete-paper.use-case";
@@ -410,22 +411,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     manageTags,
     // Lazily, because the desktop bridge is only meaningful inside the shell.
     bridge: async () => (await import("@/lib/desktop/desktop-bridge")).desktop(),
-    // The same per-project collection the cloud sync reads, so "read Zotero on
-    // this computer" takes the collection the reader is working on rather than
-    // their whole library. `undefined` — no project, or none chosen — means the
-    // whole library, which is what the cloud path does too.
-    collection: async () => {
-      const projectId = pid();
-      if (!projectId) return undefined;
-      try {
-        return await projectBibliographyCollection.getCollection(projectId);
-      } catch {
-        // A collection setting that cannot be read is not a reason to refuse
-        // the import: the whole library is a superset of it, and a reader gets
-        // their papers rather than an error about a setting.
-        return undefined;
-      }
-    },
+    collection: localZoteroCollection(projectBibliographyCollection, pid),
   });
   const aiProposalExecutors = new AiProposalExecutorRegistry(
     GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY
