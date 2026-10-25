@@ -12,6 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { WORKSPACE_META_DIR } from "@weaveforge/core";
 import { CHANNELS } from "./channels";
+import { collectGarbage } from "./collect-garbage";
 import type { IpcSurface } from "./ipc-guard";
 import type { LocalClient } from "./local-db";
 import { LocalDbBackups, readBackup } from "./local-db-backup";
@@ -254,6 +255,8 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       path.join(__dirname, "migrations-local"),
     ],
     dataDir: localDbDir,
+    // The engine's WASM and data bundle are dead once it is open; free them now.
+    opened: () => void collectGarbage(),
     open: async () => {
       // The folder is taken up in the background at boot and the answer decides
       // where the database is, so this waits for it.
