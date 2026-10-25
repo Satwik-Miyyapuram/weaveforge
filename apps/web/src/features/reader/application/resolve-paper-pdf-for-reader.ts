@@ -258,8 +258,7 @@ async function seedCacheFromUrl(cache: IPdfByteCache, key: string, url: string):
     // Only the first open of a paper pays for a second download; afterwards the
     // ladder resolves `cache://` before it ever reaches a network step. pdf.js
     // keeps its own URL so it can still range-request and paint page one early.
-    const existing = await cache.get(key);
-    if (existing && existing.byteLength > 0) return;
+    if (await cache.has(key)) return;
     const bytes = await fetchPdfBytesForCache(url);
     if (bytes) await cache.set(key, bytes);
   } catch {

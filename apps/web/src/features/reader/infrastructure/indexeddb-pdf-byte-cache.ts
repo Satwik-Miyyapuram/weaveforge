@@ -91,6 +91,19 @@ export class IndexedDbPdfByteCache implements IPdfByteCache {
     }
   }
 
+  /** The key alone, so the row's bytes stay on disk. Callers only store fetched, non-empty bytes. */
+  async has(key: string): Promise<boolean> {
+    const db = await openDb();
+    try {
+      const tx = db.transaction(STORE, "readonly");
+      const found = await idbRequest(tx.objectStore(STORE).getKey(key));
+      await waitForTransaction(tx);
+      return found !== undefined;
+    } finally {
+      db.close();
+    }
+  }
+
   async set(key: string, bytes: ArrayBuffer): Promise<void> {
     const db = await openDb();
     try {

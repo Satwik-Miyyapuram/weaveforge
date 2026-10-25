@@ -69,8 +69,7 @@ export async function downloadLibraryPdfs(
   for (const paper of papers) {
     if (options.signal?.aborted) break;
     try {
-      const held = await cache.get(paper.id);
-      if (held && held.byteLength > 0) {
+      if (await cache.has(paper.id)) {
         progress.skipped += 1;
         continue;
       }
@@ -128,8 +127,7 @@ export async function downloadPaperPdf(paperId: string): Promise<boolean> {
   const cache = getReaderPdfByteCache();
   if (!cache) return false;
   try {
-    const held = await cache.get(paperId);
-    if (held && held.byteLength > 0) return true;
+    if (await cache.has(paperId)) return true;
     const container = getContainer();
     const paper = await container.papers.getPaper(paperId);
     if (!paper) return false;
