@@ -103,6 +103,9 @@ export function InkTextLayer({
                       key={alt}
                       type="button"
                       className="ink-tool"
+                      // Keep focus in the field: its blur would accept the
+                      // draft and unmount this button before the click lands.
+                      onMouseDown={(event) => event.preventDefault()}
                       onClick={() => accept(index, alt)}
                     >
                       {alt}
