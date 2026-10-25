@@ -268,25 +268,27 @@ export async function regenerateWikiIndex(): Promise<{ pages: number }> {
 }
 
 /**
- * Queue the page a dead link points at.
+ * The pages dead links point at, as plans: one per distinct target.
  *
  * The link already says what it wants to exist; the missing half is a page to
- * land on. It goes through review like any other generated page rather than
+ * land on. Each goes through review like any other generated page rather than
  * appearing, because "a link mentioned it" is thin evidence that a page is
- * worth having.
+ * worth having. Blank targets are dropped, and a target named twice is one page.
  */
-export async function proposeMissingPage(target: string): Promise<void> {
-  const title = target.trim();
-  if (!title) return;
+export function missingPagePlans(targets: readonly string[]): WikiPagePlan[] {
+  const titles = new Set(targets.map((target) => target.trim()).filter(Boolean));
+  return [...titles].map((title) => ({
+    title,
+    body: `# ${title}\n\n_Not written yet._\n`,
+    mentions: 1,
+    sourceDocumentIds: [],
+  }));
+}
 
-  await proposeWikiPages([
-    {
-      title,
-      body: `# ${title}\n\n_Not written yet._\n`,
-      mentions: 1,
-      sourceDocumentIds: [],
-    },
-  ]);
+/** Queue every page the dead links point at, in one pass over the wiki. */
+export async function proposeMissingPages(targets: readonly string[]): Promise<number> {
+  const plans = missingPagePlans(targets);
+  return plans.length ? proposeWikiPages(plans) : 0;
 }
 
 /**

@@ -38,7 +38,7 @@ export const KINDS: readonly TreeNodeKind[] = [
   "folder",
 ];
 
-/** `icon` is a `nav-icon.tsx` handle; `fallback` is the same handle. */
+/** The kind whose row any unknown kind falls back to. */
 export const FALLBACK_KIND = "folder";
 
 /** The tints a kind can carry. No colour is written anywhere but here. */

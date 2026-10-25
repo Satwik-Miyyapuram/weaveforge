@@ -17,6 +17,10 @@ export interface ProfileRow {
   active_org_id: string | null;
 }
 
+/** The columns a ProfileRow is read as: exactly its fields, named rather than starred. */
+export const PROFILE_COLUMNS =
+  "user_id, email, full_name, role, supervisor_id, org_setup_complete, active_org_id";
+
 export function byName(a: Member, b: Member): number {
   return (a.fullName ?? a.email ?? "").localeCompare(b.fullName ?? b.email ?? "");
 }

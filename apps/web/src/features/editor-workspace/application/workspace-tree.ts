@@ -120,6 +120,20 @@ export interface WorkspaceTreeInput {
 const byLabel = (a: WorkspaceTreeNode, b: WorkspaceTreeNode) =>
   a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: "base" });
 
+/**
+ * True when following parents up from `id` comes back to `id`: a corrupt loop
+ * (A→B→A, or a node that is its own parent). A node on such a loop has no real
+ * parent, so the caller roots it instead of dropping it with its subtree.
+ */
+function onParentLoop(id: string, parentOf: (id: string) => string | null | undefined): boolean {
+  const seen = new Set<string>();
+  for (let at = parentOf(id); at && !seen.has(at); at = parentOf(at)) {
+    if (at === id) return true;
+    seen.add(at);
+  }
+  return false;
+}
+
 /** Build one root by nesting nodes under their parents, in `treePaths` order. */
 function nestedRoot(
   label: string,
@@ -144,12 +158,14 @@ function nestedRoot(
     });
   }
 
+  const parentOf = new Map(nodes.map((node) => [node.id, node.parentId]));
   const roots: WorkspaceTreeNode[] = [];
   for (const node of nodes) {
     const built_ = built.get(node.id)!;
-    // A parent that is missing — or that points at itself through a corrupted
-    // chain — leaves the node at the root rather than dropping it from the tree.
-    const parent = node.parentId && node.parentId !== node.id ? built.get(node.parentId) : undefined;
+    // A parent that is missing — or a chain that loops back to the node —
+    // leaves the node at the root rather than dropping it from the tree.
+    const looped = onParentLoop(node.id, (id) => parentOf.get(id));
+    const parent = node.parentId && !looped ? built.get(node.parentId) : undefined;
     if (parent) parent.children.push(built_);
     else roots.push(built_);
   }
@@ -386,10 +402,12 @@ export function buildListsTree(input: ListsTreeInput): WorkspaceTreeNode[] {
   }));
   const byId = new Map(input.lists.map((list, index) => [list.id, lists[index]!]));
 
+  const listParent = new Map(input.lists.map((list) => [list.id, list.parentId]));
   const roots: WorkspaceTreeNode[] = [];
   input.lists.forEach((list, index) => {
     const node = lists[index]!;
-    const parent = list.parentId && list.parentId !== list.id ? byId.get(list.parentId) : undefined;
+    const looped = onParentLoop(list.id, (id) => listParent.get(id));
+    const parent = list.parentId && !looped ? byId.get(list.parentId) : undefined;
     if (parent) parent.children.push(node);
     else roots.push(node);
   });

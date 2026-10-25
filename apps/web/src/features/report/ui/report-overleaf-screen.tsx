@@ -11,6 +11,7 @@ import { LinkedOverleafReports } from "./linked-overleaf-reports";
 import { ExportOverleafPackagePanel } from "./export-overleaf-package-panel";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
+import { overleafPapers } from "./overleaf-papers";
 
 /**
  * Overleaf tab — linked Overleaf projects + browser ZIP export.
@@ -28,18 +29,20 @@ export function ReportOverleafScreen() {
    * shape exists to avoid. `listPapers` is the full read this needs; it is
    * already cached by the repository, and this tab exists to export the library.
    */
-  const loadScreen = useCallback(async (): Promise<ReportScreenData & { papers: Paper[] }> => {
-    const [data, papers] = await Promise.all([
+  const loadScreen = useCallback(async (): Promise<
+    ReportScreenData & { papers: Paper[]; papersError: string | null }
+  > => {
+    const [data, library] = await Promise.all([
       getContainer().report.loadScreenData(),
-      getContainer().papers.listPapers().catch(() => [] as Paper[]),
+      overleafPapers(() => getContainer().papers.listPapers()),
     ]);
-    return { ...data, papers };
+    return { ...data, ...library };
   }, []);
 
   const { data, loading, error } = useScreenData("report-overleaf", loadScreen);
   const [exportOpen, setExportOpen] = useState(false);
 
-  const tree = (data?.tree ?? emptyArray()) as readonly ReportSectionTreeNode[];
+  const tree = data?.tree ?? emptyArray<ReportSectionTreeNode>();
   const papers = data?.papers ?? emptyArray<Paper>();
 
   if (loading && !data) {
@@ -59,6 +62,7 @@ export function ReportOverleafScreen() {
       </ScreenHead>
 
       {error && <FormError>{error}</FormError>}
+      {data?.papersError && <FormError>{data.papersError}</FormError>}
 
       <ExportOverleafPackagePanel
         tree={tree}
