@@ -24,7 +24,7 @@ interface Row {
  */
 function fakeIndexedDb() {
   const rows = new Map<string, Row>();
-  const calls = { getAll: 0, cursors: 0, valueReads: 0 };
+  const calls = { getAll: 0, cursors: 0, valueReads: 0, gets: 0 };
   const versions: number[] = [];
   let storeCreated = false;
 
@@ -59,7 +59,11 @@ function fakeIndexedDb() {
       return req;
     };
     const store = {
-      get: (key: string) => request(() => rows.get(key)),
+      get: (key: string) => {
+        calls.gets += 1;
+        return request(() => rows.get(key));
+      },
+      getKey: (key: string) => request(() => (rows.has(key) ? key : undefined)),
       put: (row: Row) => request(() => void rows.set(row.key, row)),
       delete: (key: string) => request(() => void rows.delete(key)),
       clear: () => request(() => rows.clear()),
@@ -198,4 +202,17 @@ test("the database version is unchanged, so earlier entries are kept", async () 
 test("a fresh database still creates its store", async () => {
   await new IndexedDbPdfByteCache(1).set("a", new ArrayBuffer(4));
   assert.deepEqual([...idb.rows.keys()], ["a"]);
+});
+
+test("has finds a cached key without reading its bytes", async () => {
+  idb.seed("a", 1);
+  const cache = new IndexedDbPdfByteCache(4);
+  assert.equal(await cache.has("a"), true);
+  assert.equal(await cache.has("absent"), false);
+  assert.equal(idb.calls.gets, 0);
+  assert.equal(idb.calls.getAll, 0);
+});
+
+test("has on a fresh database is false", async () => {
+  assert.equal(await new IndexedDbPdfByteCache(1).has("a"), false);
 });

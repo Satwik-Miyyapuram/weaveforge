@@ -54,3 +54,37 @@ test("the routed store picks the folder while one is open and the browser cache 
   await routed.set("p2", bytes(2));
   assert.ok(await browser.get("p2"));
 });
+
+test("has is a stat: true for a held PDF, false for a missing or empty one, and nothing is read", async () => {
+  const fs = new MemoryWorkspaceFs();
+  const store = new WorkspacePdfStore(() => fs, root);
+  await store.set("p1", bytes(37, 80, 68, 70));
+  await fs.writeFile(paperPdfPath("empty", ROOT), new Uint8Array(0));
+  let reads = 0;
+  const readFile = fs.readFile.bind(fs);
+  fs.readFile = async (path: string) => {
+    reads += 1;
+    return readFile(path);
+  };
+  assert.equal(await store.has("p1"), true);
+  assert.equal(await store.has("empty"), false);
+  assert.equal(await store.has("absent"), false);
+  assert.equal(reads, 0, "a presence check must not load the PDF into memory");
+});
+
+test("with no folder open has is false", async () => {
+  assert.equal(await new WorkspacePdfStore(() => null, root).has("p1"), false);
+});
+
+test("the routed store's has asks the store it routes to", async () => {
+  let fs: MemoryWorkspaceFs | null = new MemoryWorkspaceFs();
+  const folder = new WorkspacePdfStore(() => fs, root);
+  const browser = new InMemoryPdfByteCache(4);
+  const routed = new RoutedPdfByteCache(() => (fs ? folder : browser));
+  await routed.set("p1", bytes(1));
+  assert.equal(await routed.has("p1"), true);
+  fs = null;
+  assert.equal(await routed.has("p1"), false);
+  await browser.set("p1", bytes(2));
+  assert.equal(await routed.has("p1"), true);
+});
