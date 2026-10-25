@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { errorMessage } from "@weaveforge/core";
 import { ChevronIcon } from "@/components/chevron-icon";
@@ -27,6 +27,11 @@ import {
   writeSections,
   type ExplorerSection,
 } from "../application/explorer-state";
+import {
+  EXPLORER_ROW_PX,
+  rowSlots,
+  type ExplorerViewport,
+} from "../application/explorer-window";
 import { useExplorerExpansion } from "./use-explorer-expansion";
 import {
   filterRows,
@@ -59,6 +64,44 @@ export interface ExplorerSelection {
 /** One row plus the position it sits at in the panel's single flat list. */
 interface PaintedRow extends VisibleRow {
   index: number;
+}
+
+/** Scroll is measured in steps of this many rows, so a scroll re-renders every few rows, not every pixel. */
+const MEASURE_STEP_PX = 4 * EXPLORER_ROW_PX;
+
+/**
+ * The part of each section's rows on screen, keyed by section id.
+ *
+ * A section's rows scroll with `.explorer-body`, or inside their own list when
+ * that list is the one that overflows, so the view is the overlap of the two
+ * boxes measured from the list's first row. A collapsed section has no box and
+ * so an empty view.
+ */
+function measureViews(body: HTMLElement): Record<string, ExplorerViewport> {
+  const outer = body.getBoundingClientRect();
+  const views: Record<string, ExplorerViewport> = {};
+  for (const list of body.querySelectorAll<HTMLElement>("[data-section-rows]")) {
+    const box = list.getBoundingClientRect();
+    const origin = box.top - list.scrollTop;
+    const top = Math.max(outer.top, box.top) - origin;
+    const bottom = Math.min(outer.bottom, box.bottom) - origin;
+    const from = Math.floor(top / MEASURE_STEP_PX) * MEASURE_STEP_PX;
+    views[list.dataset.sectionRows!] = {
+      scrollTop: from,
+      height: Math.max(0, Math.ceil((bottom - from) / MEASURE_STEP_PX) * MEASURE_STEP_PX),
+      rowsTop: 0,
+    };
+  }
+  return views;
+}
+
+function sameViews(a: Record<string, ExplorerViewport> | null, b: Record<string, ExplorerViewport>) {
+  if (!a) return false;
+  const keys = Object.keys(b);
+  return (
+    keys.length === Object.keys(a).length &&
+    keys.every((k) => a[k]?.scrollTop === b[k]!.scrollTop && a[k]?.height === b[k]!.height)
+  );
 }
 
 /**
@@ -130,6 +173,11 @@ export function ExplorerPanel({
   const [query, setQuery] = useState("");
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  // Null until measured: the first paint shows the first rows of each section.
+  const [views, setViews] = useState<Record<string, ExplorerViewport> | null>(null);
+  // A row a key press moved to that was not painted yet: focused after the render that paints it.
+  const pendingFocus = useRef<string | null>(null);
   /** The row whose label is a text box, and what its last attempt said. */
   const [renaming, setRenaming] = useState<string | null>(null);
   const [problem, setProblem] = useState<{ key: string; message: string } | null>(null);
@@ -286,9 +334,13 @@ export function ExplorerPanel({
 
   // Focus follows the roving tabindex, so the browser scrolls the row into view
   // for us and screen readers announce the move.
+  // Home, End and a climb can land on a row scrolled out of the painted window;
+  // the focused row is always painted, so it is focused once it renders.
   const focusRow = useCallback((key: string) => {
     setFocusKey(key);
-    listRef.current?.querySelector<HTMLElement>(`[data-row-key="${CSS.escape(key)}"]`)?.focus();
+    const row = listRef.current?.querySelector<HTMLElement>(`[data-row-key="${CSS.escape(key)}"]`);
+    if (row) row.focus();
+    else pendingFocus.current = key;
   }, []);
 
   // One flat list across every open section is what makes an arrow key mean
@@ -366,6 +418,47 @@ export function ExplorerPanel({
   const focused = flat.some((row) => row.node.key === focusKey)
     ? focusKey
     : (flat[0]?.node.key ?? null);
+
+  // Rows that stay painted out of view: unmounting them would drop the tree's
+  // focus, or the text of a rename or a draft being typed.
+  const pinnedKeys = new Set(
+    [focused, renaming, draft ? draftParentKey : null, problem?.key].filter(
+      (key): key is string => Boolean(key),
+    ),
+  );
+
+  // Re-measured after every render (a filter, a fold or new files move the
+  // rows), and on scroll and resize; it sets state only when the view changed.
+  const measure = useCallback(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+    const next = measureViews(body);
+    setViews((current) => (sameViews(current, next) ? current : next));
+  }, []);
+  useLayoutEffect(() => {
+    measure();
+    const key = pendingFocus.current;
+    if (key) {
+      const row = listRef.current?.querySelector<HTMLElement>(`[data-row-key="${CSS.escape(key)}"]`);
+      if (row) {
+        pendingFocus.current = null;
+        row.focus();
+      }
+    }
+  });
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+    // Scroll does not bubble; a capturing listener also hears a section list
+    // that scrolls on its own.
+    body.addEventListener("scroll", measure, { capture: true, passive: true });
+    const resize = new ResizeObserver(measure);
+    resize.observe(body);
+    return () => {
+      body.removeEventListener("scroll", measure, { capture: true });
+      resize.disconnect();
+    };
+  }, [measure]);
 
   return (
     <nav className="explorer-panel" aria-label="Workspace">
@@ -448,7 +541,7 @@ export function ExplorerPanel({
         ) : null}
       </div>
 
-      <div className="explorer-body">
+      <div className="explorer-body" ref={bodyRef}>
         <ul className="explorer-tree" role="tree" ref={listRef}>
           {sections.map((section) => {
             const open = isSectionOpen(openSections, section.id);
@@ -480,8 +573,23 @@ export function ExplorerPanel({
                   className="explorer-section-rows"
                   role="group"
                   hidden={!open}
+                  data-section-rows={section.id}
                 >
-                  {rows.map((row) => {
+                  {rowSlots(
+                    rows.length,
+                    views?.[section.id] ?? null,
+                    rows.flatMap((row, i) => (pinnedKeys.has(row.node.key) ? [i] : [])),
+                  ).map((slot, s) => {
+                    if (slot.kind === "gap") {
+                      return (
+                        <li
+                          key={`gap-${s}`}
+                          role="none"
+                          style={{ height: `${slot.rows * EXPLORER_ROW_PX}px` }}
+                        />
+                      );
+                    }
+                    const row = rows[slot.index]!;
                     const { node, depth } = row;
                     const painted = flatByKey.get(node.key);
                     const branch = node.children.length > 0;
