@@ -324,7 +324,8 @@ export function renderProseMarkdown(md: string, options?: MarkdownRenderOptions)
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index]!;
     const trimmed = line.trim();
-    const singleLineDisplay = /^\$\$([\s\S]+)\$\$$/.exec(trimmed);
+    // The body may not contain `$$`: `$$a$$ and $$b$$` is two formulas, not one.
+    const singleLineDisplay = /^\$\$((?:(?!\$\$)[\s\S])+)\$\$$/.exec(trimmed);
     if (singleLineDisplay) {
       closeList();
       out.push(`<div class="math-display">${renderMath(singleLineDisplay[1]!, true, options?.mathRenderer)}</div>`);
@@ -456,6 +457,29 @@ export function Markdown({
 
 const FENCE_RE = /```([^\n]*)\n([\s\S]*?)```/g;
 
+/** One run of prose, or one fenced code block with its info string. */
+export type FenceSegment =
+  | { kind: "prose"; text: string }
+  | { kind: "fence"; info: string; code: string };
+
+/**
+ * Splits markdown into prose and fenced-code segments, in document order.
+ * Synchronous, so the async Shiki pass never holds a matcher across an await.
+ */
+export function splitFences(md: string): FenceSegment[] {
+  const segments: FenceSegment[] = [];
+  let lastIndex = 0;
+  const fence = fenceMatcher();
+  let match: RegExpExecArray | null;
+  while ((match = fence.exec(md)) !== null) {
+    if (match.index > lastIndex) segments.push({ kind: "prose", text: md.slice(lastIndex, match.index) });
+    segments.push({ kind: "fence", info: match[1] ?? "", code: match[2] ?? "" });
+    lastIndex = fence.lastIndex;
+  }
+  if (lastIndex < md.length) segments.push({ kind: "prose", text: md.slice(lastIndex) });
+  return segments;
+}
+
 /**
  * A fresh matcher per render. A `g` regex keeps its position on the regex
  * object, and the Shiki pass awaits between matches — so two renders in
@@ -474,24 +498,14 @@ function fenceMatcher(): RegExp {
  * pass with no async highlight round trip, such as the ink sheet's text layer.
  */
 export function renderMarkdownPlain(md: string, options?: MarkdownRenderOptions): string {
-  const parts: string[] = [];
-  let lastIndex = 0;
-  const fence = fenceMatcher();
-  let match: RegExpExecArray | null;
-  while ((match = fence.exec(md)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(renderProseMarkdown(md.slice(lastIndex, match.index), options));
-    }
-    const info = (match[1] ?? "").trim();
-    const lang = info.split(/\s+/)[0] ?? "";
-    const langAttr = lang ? ` data-lang="${escapeAttr(lang)}"` : "";
-    parts.push(`<pre class="md-code"${langAttr}><code>${escapeHtml(match[2] ?? "")}</code></pre>`);
-    lastIndex = fence.lastIndex;
-  }
-  if (lastIndex < md.length) {
-    parts.push(renderProseMarkdown(md.slice(lastIndex), options));
-  }
-  return parts.join("");
+  return splitFences(md)
+    .map((segment) => {
+      if (segment.kind === "prose") return renderProseMarkdown(segment.text, options);
+      const lang = segment.info.trim().split(/\s+/)[0] ?? "";
+      const langAttr = lang ? ` data-lang="${escapeAttr(lang)}"` : "";
+      return `<pre class="md-code"${langAttr}><code>${escapeHtml(segment.code)}</code></pre>`;
+    })
+    .join("");
 }
 
 /** Split markdown into prose and fenced-code segments for Shiki display. */
@@ -510,18 +524,12 @@ export async function renderMarkdownWithShiki(
   }
 
   const parts: string[] = [];
-  let lastIndex = 0;
-  const fence = fenceMatcher();
-  let match: RegExpExecArray | null;
-  while ((match = fence.exec(md)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(renderProseMarkdown(md.slice(lastIndex, match.index), options));
-    }
-    parts.push(await highlight(match[2] ?? "", match[1] ?? "", mode));
-    lastIndex = fence.lastIndex;
-  }
-  if (lastIndex < md.length) {
-    parts.push(renderProseMarkdown(md.slice(lastIndex), options));
+  for (const segment of splitFences(md)) {
+    parts.push(
+      segment.kind === "prose"
+        ? renderProseMarkdown(segment.text, options)
+        : await highlight(segment.code, segment.info, mode),
+    );
   }
   return parts.join("");
 }

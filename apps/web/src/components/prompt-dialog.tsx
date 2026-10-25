@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { FormError } from "./form-error";
 import { Modal, ModalActions } from "./modal";
@@ -42,7 +42,8 @@ export function PromptDialog({
 }) {
   const [value, setValue] = useState(initialValue);
   const [problem, setProblem] = useState<string | null>(null);
-  const id = `${title.replace(/\s+/g, "-").toLowerCase()}-value`;
+  // Unique per dialog: a title-derived id collided when two prompts shared a title.
+  const id = useId();
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();

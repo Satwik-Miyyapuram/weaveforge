@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { renderMarkdownPlain, renderMarkdownWithShiki, renderProseMarkdown } from "@/components/markdown/markdown";
+import { renderMarkdownPlain, renderMarkdownWithShiki, renderProseMarkdown, splitFences } from "@/components/markdown/markdown";
 import { containsMath, loadMathRenderer } from "@/components/markdown/math-renderer";
 
 /**
@@ -167,4 +167,22 @@ test("two Shiki renders in flight do not share a fence cursor", async () => {
   assert.equal((a.match(/tail/g) ?? []).length, 1);
   assert.equal((b.match(/Head/g) ?? []).length, 1);
   assert.equal((b.match(/<pre /g) ?? []).length, 2);
+});
+
+test("two display formulas on one line stay two, not one spanning both (13-08)", () => {
+  const html = renderProseMarkdown("$$a$$ and $$b$$", { mathRenderer: null });
+  assert.doesNotMatch(html, /data-tex="a\$\$ and \$\$b"/);
+  assert.equal(renderProseMarkdown("$$x + y$$", { mathRenderer: null }), '<div class="math-display"><div class="math-pending" data-tex="x + y">x + y</div></div>');
+});
+
+test("splitFences returns prose and fences in order, with info and body (13-07)", () => {
+  assert.deepEqual(splitFences("intro\n```ts x\nconst a = 1;\n```\nmid\n```\nb\n```"), [
+    { kind: "prose", text: "intro\n" },
+    { kind: "fence", info: "ts x", code: "const a = 1;\n" },
+    { kind: "prose", text: "\nmid\n" },
+    { kind: "fence", info: "", code: "b\n" },
+  ]);
+  assert.deepEqual(splitFences(""), []);
+  assert.deepEqual(splitFences("only prose"), [{ kind: "prose", text: "only prose" }]);
+  assert.deepEqual(splitFences("```\nunclosed"), [{ kind: "prose", text: "```\nunclosed" }]);
 });

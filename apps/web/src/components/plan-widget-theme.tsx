@@ -49,11 +49,22 @@ export function PlanWidgetTheme() {
       probe.remove();
       bridge.setPlanWidgetTheme?.(palette);
     };
-    // After the theme's variables have landed on the root.
-    const later = () => requestAnimationFrame(send);
+    // After the theme's variables have landed on the root. One frame at a
+    // time, cancelled on unmount so no probe runs on a page that has left.
+    let frame: number | null = null;
+    const later = () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        send();
+      });
+    };
     later();
     window.addEventListener(THEME_CHANGE_EVENT, later);
-    return () => window.removeEventListener(THEME_CHANGE_EVENT, later);
+    return () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      window.removeEventListener(THEME_CHANGE_EVENT, later);
+    };
   }, []);
   return null;
 }

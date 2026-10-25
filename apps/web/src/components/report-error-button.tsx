@@ -16,6 +16,15 @@ const HEADINGS = "h1, h2, h3, h4, .settings-group";
  * comes before it — the section title it is under. The page's own title is the
  * first `h1`.
  */
+/**
+ * Shortens `text` to `max` code points, ending in an ellipsis. Counted in code
+ * points so an emoji is never cut in half into an unpaired surrogate.
+ */
+export function clipText(text: string, max: number): string {
+  const points = Array.from(text);
+  return points.length > max ? `${points.slice(0, max - 3).join("")}…` : text;
+}
+
 function locate(from: Element): string {
   const trail: string[] = [];
   let node: Element | null = from;
@@ -34,7 +43,7 @@ function locate(from: Element): string {
   }
   const page = document.querySelector("main h1, h1")?.textContent?.trim();
   if (page && !trail.includes(page)) trail.unshift(page);
-  return trail.map((part) => (part.length > 60 ? `${part.slice(0, 57)}…` : part)).join(" › ");
+  return trail.map((part) => clipText(part, 60)).join(" › ");
 }
 
 /**
@@ -66,7 +75,7 @@ export function ReportErrorButton({ readMessage }: { readMessage: () => string }
         <Modal title="Report this problem" onClose={() => setReport(null)}>
           <ErrorReportPanel
             open
-            title={report.message.length > 120 ? `${report.message.slice(0, 117)}…` : report.message}
+            title={clipText(report.message, 120)}
             detail={report.message}
             context={report.context}
           />
