@@ -176,13 +176,14 @@ export const INK_INSTANCE_FLOATS = 12;
 /**
  * Instances per sample-to-sample segment.
  *
- * The samples are joined by a Hermite spline rather than straight lines: a
- * 120 Hz digitiser puts a sample every millimetre or so on a normal stroke, and
- * a polyline at that spacing has visible corners on every curve. Each span of
- * the spline is drawn as this many capsules, so an instance is about a third
- * of a millimetre and the corners are below the anti-aliasing.
+ * The samples are joined by a Hermite spline rather than straight lines, and
+ * each span is drawn as this many capsules. Live and saved strokes are both
+ * simplified at `INK_PACK_TOLERANCE`, which leaves samples 0.5–2 mm apart on
+ * a curve and turns of 50–60° between them in a small letter loop. Three
+ * capsules a span drew that loop with 20–35° facets; eight keep each join
+ * near 15° or less, below what the eye picks out at writing size.
  */
-export const INK_SEGMENT_SUBDIVISIONS = 3;
+export const INK_SEGMENT_SUBDIVISIONS = 8;
 
 /** How many instances a stroke of `points` samples packs to. */
 export function strokeInstanceCount(points: number): number {

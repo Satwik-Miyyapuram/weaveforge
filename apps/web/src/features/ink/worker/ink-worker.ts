@@ -85,7 +85,7 @@ import { setBackground } from "./ink-background";
 export { pointInPolygon };
 
 /** The stroke being drawn: raw samples, with its predicted tail marked off. */
-interface LiveStroke {
+export interface LiveStroke {
   header: InkStrokeHeader;
   points: number[];
   pressures: number[];
@@ -198,34 +198,46 @@ function pressureByte(pressure: number): number {
   return Math.max(0, Math.min(255, Math.round(pressure * 255)));
 }
 
-/** The live stroke as the renderer takes it: typed arrays, packed to eliminate staircase noise and match commit curves. */
-function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
-  const rawPoints = stroke.points;
-  const rawPressures = stroke.pressures;
+/**
+ * The live stroke as the renderer takes it.
+ *
+ * The real samples are packed exactly as `commitStroke` will pack them, so lifting
+ * the pen changes nothing on screen. Simplification looks at the whole run, so the
+ * predicted tail is kept out of it and drawn after, as sampled.
+ */
+export function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
+  const real = stroke.realSamples;
+  const rawPoints = stroke.points.slice(0, real * 2);
+  const rawPressures = stroke.pressures.slice(0, real);
   const packed =
     rawPoints.length >= 4
       ? packInkStroke(rawPoints, rawPressures, { tolerance: INK_PACK_TOLERANCE })
       : null;
-  const points = packed && packed.points.length >= 2 ? packed.points : rawPoints;
-  const pressures =
-    packed && packed.pressures.length >= points.length / 2
-      ? packed.pressures
-      : rawPressures;
-  const count = points.length / 2;
+  const usePacked = packed !== null && packed.points.length >= 2;
+  const points = usePacked ? packed.points : rawPoints;
+  const pressures = usePacked ? packed.pressures : rawPressures;
+  const realCount = points.length / 2;
+  const tail = stroke.points.length / 2 - real;
+  const count = realCount + tail;
   const x = new Float32Array(count);
   const y = new Float32Array(count);
   const pressure = new Uint8Array(count);
-  for (let i = 0; i < count; i += 1) {
+  for (let i = 0; i < realCount; i += 1) {
     x[i] = points[i * 2]!;
     y[i] = points[i * 2 + 1]!;
     pressure[i] = pressures[i] ?? 128;
+  }
+  for (let i = 0; i < tail; i += 1) {
+    x[realCount + i] = stroke.points[(real + i) * 2]!;
+    y[realCount + i] = stroke.points[(real + i) * 2 + 1]!;
+    pressure[realCount + i] = stroke.pressures[real + i] ?? 128;
   }
   return {
     header: stroke.header,
     x,
     y,
     pressure,
-    realCount: count,
+    realCount,
   };
 }
 
