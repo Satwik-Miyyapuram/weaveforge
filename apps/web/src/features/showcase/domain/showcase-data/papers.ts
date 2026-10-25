@@ -82,6 +82,10 @@ const T = {
   eastwood: "A Framework for the Quantitative Evaluation of Disentangled Representations",
   byol: "Bootstrap Your Own Latent: A New Approach to Self-Supervised Learning",
   flows: "Normalizing Flows: An Introduction and Review of Current Methods",
+  foundation: "On the Opportunities and Risks of Foundation Models",
+  weakly: "Weakly-Supervised Disentanglement Without Compromises",
+  burgess: "Understanding disentangling in β-VAE",
+  bengio: "Representation Learning: A Review and New Perspectives",
 } as const;
 
 export const SHOWCASE_TITLES = T;
@@ -494,6 +498,58 @@ export const SHOWCASE_PAPERS: ShowcasePaper[] = [
     tags: ["generative", "survey", "latent-variables"],
     summary: "Survey. A flow posterior is the obvious 'future work' for a tighter bound — one paragraph in Ch. 6.",
   },
+  {
+    title: T.foundation,
+    authors: [
+      "Rishi Bommasani", "Drew A. Hudson", "Ehsan Adeli", "Russ Altman", "Simran Arora", "Sydney von Arx",
+      "Michael S. Bernstein", "Jeannette Bohg", "Antoine Bosselut", "Emma Brunskill", "Erik Brynjolfsson",
+      "Shyamal Buch", "Dallas Card", "Rodrigo Castellon", "Niladri Chatterji", "Annie Chen", "Percy Liang",
+    ],
+    year: 2021,
+    venue: "arXiv",
+    status: "to_read",
+    arxiv_id: "2108.07258",
+    url: "https://arxiv.org/abs/2108.07258",
+    tags: ["survey", "foundations", "representation-learning"],
+    summary: "Long report (100+ authors). Only the representation-learning chapter matters here — skim for the intro framing of Ch. 1.",
+  },
+  {
+    title: T.weakly,
+    authors: ["Francesco Locatello", "Ben Poole", "Gunnar Rätsch", "Bernhard Schölkopf", "Olivier Bachem", "Michael Tschannen"],
+    year: 2020,
+    venue: "ICML",
+    status: "reading",
+    arxiv_id: "2002.02886",
+    url: "https://arxiv.org/abs/2002.02886",
+    tags: ["disentanglement", "vae", "weak-supervision"],
+    summary: "The follow-up to the impossibility result: pairs of observations that share factors are enough. Closest competitor to a graph prior as a source of inductive bias.",
+  },
+  {
+    title: T.burgess,
+    authors: ["Christopher P. Burgess", "Irina Higgins", "Arka Pal", "Loic Matthey", "Nick Watters", "Guillaume Desjardins", "Alexander Lerchner"],
+    year: 2018,
+    venue: "arXiv",
+    status: "read",
+    rating: 4,
+    readDaysAgo: 60,
+    arxiv_id: "1804.03599",
+    url: "https://arxiv.org/abs/1804.03599",
+    tags: ["disentanglement", "vae", "beta-vae"],
+    summary: "Capacity annealing explains *why* β-VAE disentangles. Use the information-bottleneck view in §2.1.2.",
+  },
+  {
+    title: T.bengio,
+    authors: ["Yoshua Bengio", "Aaron Courville", "Pascal Vincent"],
+    year: 2013,
+    venue: "IEEE TPAMI",
+    status: "read",
+    rating: 5,
+    readDaysAgo: 150,
+    arxiv_id: "1206.5538",
+    url: "https://arxiv.org/abs/1206.5538",
+    tags: ["foundations", "representation-learning", "survey"],
+    summary: "The priors list (smoothness, multiple factors, hierarchy…) frames the whole thesis. Cite in the first paragraph.",
+  },
 ];
 
 /** Dense enough that the default cites-only graph view shows structure. */
@@ -578,6 +634,10 @@ export const SHOWCASE_RELATIONS: ShowcaseRelationRow[] = [
   [T.batchnorm, T.dropout, "cites"],
   [T.gcn, T.battaglia, "cites"],
   [T.gcn, T.adam, "uses_method"],
+  [T.burgess, T.betaVae, "builds_on", "Capacity view of the KL term"],
+  [T.weakly, T.locatello, "extends", "Weak supervision escapes the impossibility result"],
+  [T.ours, T.bengio, "cites"],
+  [T.ours, T.weakly, "similar", "Both add inductive bias; ours is a graph"],
 ];
 
 export const SHOWCASE_PAPER_FIGURES: Record<string, ShowcaseFigure[]> = {
