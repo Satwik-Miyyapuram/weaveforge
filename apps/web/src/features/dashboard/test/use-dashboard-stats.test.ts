@@ -11,7 +11,7 @@ import test from "node:test";
 import { createElement, type ReactNode } from "react";
 import type { DashboardCardType, Member, Project } from "@weaveforge/core";
 
-import { ProjectContext } from "@/features/projects/ui/project-provider";
+import { ProjectContext } from "@/features/projects";
 import { renderHook } from "@/lib/test/react-harness";
 import { useDashboardStats } from "../ui/use-dashboard-stats";
 import type { DashboardStatsPorts } from "../application/load-dashboard-stats";
