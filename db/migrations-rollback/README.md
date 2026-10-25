@@ -29,6 +29,8 @@ node -e "const{Client}=require('pg');const fs=require('fs');(async()=>{const c=n
 | `local-0020_outbox_row_lookups.sql` | Device database, `db/migrations-local/0020_outbox_row_lookups.sql` — drops the outbox row index, restores the `information_schema` column lookup and the backfill that can queue a row twice |
 | `0145_ai_proposal_executing.sql` | AI proposal status check without `executing` (0070) — `executing` rows go back to `pending`; roll the app back too, or approvals fail the check |
 | `0146_project_showcase_flag.sql` | The `projects.is_showcase` marker — lossless in data; a showcase reset deletes same-name user projects again |
+| `0148_org_policies_drop_admin.sql` | The dead `admin` branch in the two org read policies (0085) — lossless; no role can be `admin` |
+| `0149_api_token_touch_hourly.sql` | `resolve_api_token` writing `last_used_at` on every call (0129) — lossless in data, one row write per SDK request again |
 
 This table had drifted three migrations behind the folder — `0116`, `0131` and
 `0132` were all absent, and a rollback nobody can find is one nobody runs.

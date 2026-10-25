@@ -38,12 +38,41 @@ except ImportError:
     sys.exit(2)
 
 FAILURES: list[str] = []
+PASSES: list[str] = []
+SKIPS: list[str] = []
 
 
 def check(ok: bool, label: str) -> None:
     print(f"{'PASS' if ok else 'FAIL'}: {label}")
-    if not ok:
-        FAILURES.append(label)
+    (PASSES if ok else FAILURES).append(label)
+
+
+def skip(label: str) -> None:
+    """A check that could not run. Recorded so the summary can say so: a run
+    that skipped the hierarchy checks has not shown that they hold."""
+    print(f"SKIP: {label}")
+    SKIPS.append(label)
+
+
+def summary() -> int:
+    """Print the outcome and return the exit code.
+
+    Skips do not fail the run, since an unset optional account is a choice, but
+    they are named, and the run is not called a full pass. A run that checked
+    nothing at all fails: it proves nothing either way."""
+    if FAILURES:
+        print(f"\n{len(FAILURES)} check(s) failed.")
+        return 1
+    if not PASSES:
+        print("\nNo checks ran.")
+        return 1
+    if SKIPS:
+        print(f"\n{len(PASSES)} passed, {len(SKIPS)} skipped:")
+        for label in SKIPS:
+            print(f"  - {label}")
+        return 0
+    print(f"\nAll {len(PASSES)} checks passed.")
+    return 0
 
 
 def env(name: str, required: bool = True) -> str | None:
@@ -189,7 +218,7 @@ def verify_org_switcher(
             break
 
     if subject is None:
-        print("SKIP: no TT_* account has org_memberships — seed org rows (0028+) to enable switcher checks")
+        skip("no TT_* account has org_memberships — seed org rows (0028+) to enable switcher checks")
         return
 
     prefix, client, uid, memberships = subject
@@ -309,7 +338,7 @@ def main() -> int:
         check(sees_reading_list(b, rl_a), "B reads reading list A explicitly shared")
         items_ok = list_item_count(b, rl_a) == 1
         if not items_ok and sees_reading_list(b, rl_a):
-            print("SKIP: reading_list_items shared RLS — apply migration 0036 to the database")
+            skip("reading_list_items shared RLS — apply migration 0036 to the database")
         else:
             check(items_ok, "B reads items on A's shared reading list")
         if c is not None:
@@ -381,7 +410,7 @@ def main() -> int:
             if g_email:
                 check(g_email not in emails, "B's lab directory excludes standalone G")
         else:
-            print("SKIP: TT_C/D/E_* not all set — skipping hierarchy checks")
+            skip("TT_C/D/E_* not all set — skipping hierarchy checks")
 
     finally:
         # Children first: comments and shares point at the resources by id.
@@ -394,11 +423,7 @@ def main() -> int:
         drop(a, "reading_lists", "id", [rl_a])  # items cascade
         drop(a, "papers", "id", [paper_a])
 
-    if FAILURES:
-        print(f"\n{len(FAILURES)} check(s) failed.")
-        return 1
-    print("\nAll checks passed.")
-    return 0
+    return summary()
 
 
 if __name__ == "__main__":

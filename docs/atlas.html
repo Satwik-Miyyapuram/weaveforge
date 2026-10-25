@@ -542,11 +542,11 @@
       into either one.
     </p>
     <div class="facts">
-      <div class="fact"><b>211,661</b><span>web app lines</span></div>
+      <div class="fact"><b>211,816</b><span>web app lines</span></div>
       <div class="fact"><b>55,660</b><span>core lines</span></div>
       <div class="fact"><b>19,453</b><span>desktop lines</span></div>
-      <div class="fact"><b>3,337</b><span>python sdk</span></div>
-      <div class="fact"><b>146</b><span>migrations</span></div>
+      <div class="fact"><b>3,375</b><span>python sdk</span></div>
+      <div class="fact"><b>148</b><span>migrations</span></div>
       <div class="fact"><b>31</b><span>web features</span></div>
     </div>
   </header>
@@ -669,7 +669,7 @@ flowchart TB
 │   ├── config/                    <i>defineConfig + plugin contract</i>
 │   └── shared/                    <i>clock, dates, three-way-merge, tree, repository</i>
 │
-├── <b>apps/web/src/</b>                 <i>211,661 lines</i>
+├── <b>apps/web/src/</b>                 <i>211,816 lines</i>
 │   ├── <u>app/</u>                      <i>26 pages + 39 API routes</i>
 │   ├── <u>features/</u>                 <i>31 slices — core's 19 plus the web-only ones:</i>
 │   │                              <i>offline-sync, sync, workspace, editor-workspace,</i>
@@ -689,13 +689,13 @@ flowchart TB
 │
 ├── <b>apps/pitch/</b>                    <i>904 lines — public site, GitHub Pages</i>
 │
-├── <b>python/weaveforge/</b>             <i>3,337 lines + 2,040 lines of tests</i>
+├── <b>python/weaveforge/</b>             <i>3,375 lines + 2,274 lines of tests</i>
 │   ├── features/{experiments,papers,projects}/{domain,application,infrastructure}
 │   ├── sync/                      <i>tensorboard · wandb · matplotlib · registry</i>
 │   ├── integrations/              <i>lightning · keras callbacks</i>
 │   └── tracking.py  container.py  cli.py
 │
-├── <b>db/migrations/</b>           <i>0001 → 0147, 8,127 lines</i>
+├── <b>db/migrations/</b>           <i>0001 → 0149, 8,187 lines</i>
 ├── <b>scripts/</b>                       <i>71 files — boundary gates, migration, seeding</i>
 ├── <b>plugins/weaveforge-research/</b>    <i>stdio MCP server, outside every workspace</i>
 └── <b>docs/</b>                          <i>78 files, 27,533 lines</i>
@@ -986,7 +986,7 @@ flowchart TB
   BRIDGE["preload.ts<br/>window.weaveforge<br/>one bridge object, 26 members"]
 
   subgraph main["Main process"]
-    DB["local-db.ts<br/>PGlite + the 146 migrations"]
+    DB["local-db.ts<br/>PGlite + the 148 migrations"]
     FOLDER["vault-folder.ts<br/>read / write / list / stat"]
     WATCH["vault-watch.ts<br/>notices outside edits"]
     GIT["vault-git.ts<br/>commit history"]
@@ -1291,7 +1291,7 @@ flowchart TB
     <section id="data">
       <h2>Data layer</h2>
       <p>
-        146 numbered migrations, applied in order, by all three backends. Access control is in
+        148 numbered migrations, applied in order, by all three backends. Access control is in
         the database rather than in the app: a missing check in a React component is a bug, a
         missing RLS policy is a breach, so the policy is the one that decides.
       </p>
