@@ -6,7 +6,13 @@
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 
-import { decodeInkChunk, makeInkStroke, pageFromChunk } from "@weaveforge/core";
+import {
+  decodeInkChunk,
+  INK_PACK_TOLERANCE,
+  makeInkStroke,
+  packInkStroke,
+  pageFromChunk,
+} from "@weaveforge/core";
 
 import type {
   InkStrokeHeader,
@@ -32,6 +38,7 @@ let pointInPolygon: (
   py: number,
   polygon: readonly number[],
 ) => boolean;
+let liveForRenderer: typeof import("../worker/ink-worker").liveForRenderer;
 
 before(async () => {
   (globalThis as { self?: unknown }).self = {
@@ -44,6 +51,7 @@ before(async () => {
   };
   const worker = await import("../worker/ink-worker");
   pointInPolygon = worker.pointInPolygon;
+  liveForRenderer = worker.liveForRenderer;
 });
 
 function send(message: InkWorkerMessage): void {
@@ -525,4 +533,36 @@ test("transferred sample buffers still come back once the loop idled (19-05)", a
   assert.equal(frames.length, 0);
   send({ type: "init", canvas: null, width: 400, height: 600, dpr: 1, mode: "clone", codec: "identity" });
   runFrames();
+});
+
+test("the live stroke's real part is the stroke that will be saved, whatever the predicted tail", () => {
+  // A small wavy stroke, sampled densely: simplification here keeps few
+  // vertices, so any extra point changes which ones it keeps.
+  const points: number[] = [];
+  const pressures: number[] = [];
+  for (let i = 0; i <= 120; i += 1) {
+    const t = i / 120;
+    points.push(100 + t * 400 + 7 * Math.cos(t * 40), 300 + 9 * Math.sin(t * 40));
+    pressures.push(128);
+  }
+  const saved = packInkStroke(points, pressures, { tolerance: INK_PACK_TOLERANCE });
+  // Two predicted samples that overshoot sideways, as a guess about a hand can.
+  const live = liveForRenderer({
+    header: header(),
+    points: [...points, 520, 340, 540, 360],
+    pressures: [...pressures, 128, 128],
+    realSamples: 121,
+    changed: true,
+  });
+  const real = saved.points.length / 2;
+  assert.equal(live.realCount, real, "the real points are the saved ones, counted");
+  assert.deepEqual(
+    Array.from(live.x.subarray(0, real), (x, i) => [x, live.y[i]]),
+    Array.from({ length: real }, (_, i) => [
+      Math.fround(saved.points[2 * i]!),
+      Math.fround(saved.points[2 * i + 1]!),
+    ]),
+  );
+  assert.deepEqual(Array.from(live.x.subarray(real)), [520, 540], "the tail is drawn after them");
+  assert.deepEqual(Array.from(live.y.subarray(real)), [340, 360]);
 });
