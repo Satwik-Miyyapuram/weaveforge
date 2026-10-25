@@ -206,7 +206,8 @@ export async function commitVault(
   repo: IWorkspaceGit = new NativeWorkspaceGit(root),
   probe: (root: string) => Promise<VaultRepoState> = probeRepo,
 ): Promise<{ committed: WorkspaceCommit | null; reason?: string }> {
-  const verdict = decideVaultCommit(enabled, await probe(root));
+  // Off means no git at all: starting one costs seconds of main-thread time on Windows.
+  const verdict = decideVaultCommit(enabled, enabled ? await probe(root) : { kind: "none" });
   if (!verdict.ok) return { committed: null, reason: verdict.reason };
 
   try {

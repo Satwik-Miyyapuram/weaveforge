@@ -87,6 +87,12 @@ export interface LocalDbHostOptions {
    * failure is shown to anybody.
    */
   recover?: (cause: unknown) => Promise<{ client: LocalClient; from: string } | null>;
+  /**
+   * Called once the engine is open and migrated. Main uses it to collect the
+   * boot's garbage at once instead of holding it until V8's idle GC (M03).
+   * A throw here is ignored: the database is open either way.
+   */
+  opened?: () => void;
   /** Where failed queries are reported; main's console lands in weaveforge.log. */
   log?: (line: string) => void;
 }
@@ -150,6 +156,11 @@ export class LocalDbHost {
         );
         await db.migrate(LOCAL_BOOTSTRAP_SQL, migrations);
         await db.ensureLocalUser();
+        try {
+          this.options.opened?.();
+        } catch {
+          // Best effort; see `opened`.
+        }
         return db;
       } catch (error) {
         // Closed before the field is cleared, and cleared only once the close

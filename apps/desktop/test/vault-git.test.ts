@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { GitAuthor, GitFileStatus, IWorkspaceGit, WorkspaceCommit } from "@weaveforge/core";
+import { GIT_OFF, type GitAuthor, type GitFileStatus, type IWorkspaceGit, type WorkspaceCommit } from "@weaveforge/core";
 
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -52,6 +52,18 @@ test("nothing is committed while the setting is off", async () => {
   const result = await commitVault("/vault", false, repo, async () => ({ kind: "own" }));
   assert.equal(result.committed, null);
   assert.deepEqual(repo.calls, []);
+});
+
+test("with the setting off, git is never started, not even to probe (M03)", async () => {
+  // Starting git costs seconds of main-thread time on Windows; on every
+  // folder sync, for a feature that is off by default, that was boot time.
+  let probed = 0;
+  const result = await commitVault("/vault", false, fakeGit(changed), async () => {
+    probed += 1;
+    return { kind: "own" };
+  });
+  assert.equal(probed, 0);
+  assert.equal(result.reason, GIT_OFF);
 });
 
 test("a folder inside someone else's repository is left alone, with a reason", async () => {
