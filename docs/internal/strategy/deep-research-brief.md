@@ -303,7 +303,7 @@ Table: `report_sections`.
 
 ---
 
-### 6.9 Vault / Notes (`/notes`, alias `/vault`)
+### 6.9 Notes (`/notes`)
 
 Obsidian-like nested markdown pages:
 
@@ -500,7 +500,7 @@ Tables: `ai_proposals`, `ai_audit_records`, `ai_mcp_relay_requests`, MCP token s
 | `/log` | Logbook |
 | `/report` | Report outline |
 | `/report/overleaf` | Overleaf link + ZIP export |
-| `/notes` / `/vault` | Vault |
+| `/notes` | Notes (internal feature name `vault`) |
 | `/experiments`, `/experiments/[id]` | Experiments |
 | `/git` | Git browser (if providers enabled) |
 | `/shared` | Shared-with-me |

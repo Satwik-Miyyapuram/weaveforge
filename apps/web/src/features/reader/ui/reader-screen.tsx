@@ -78,9 +78,9 @@ export function ReaderScreen() {
         if (pane === "vault") {
           if (!noteId) {
             if (!cancelled) {
-              setSplitTitle("Pick a vault note");
-              setSplitBody("Open a note from the vault, or add ?note=<id> to the reader URL.");
-              setSplitHref("/vault");
+              setSplitTitle("Pick a note");
+              setSplitBody("Open a note from Notes, or add ?note=<id> to the reader URL.");
+              setSplitHref("/notes");
             }
             return;
           }
@@ -89,12 +89,12 @@ export function ReaderScreen() {
           if (!page) {
             setSplitTitle("Note not found");
             setSplitBody("");
-            setSplitHref("/vault");
+            setSplitHref("/notes");
             return;
           }
           setSplitTitle(page.title || "Untitled note");
           setSplitBody(page.body ?? "");
-          setSplitHref(`/vault?page=${encodeURIComponent(page.id)}`);
+          setSplitHref(`/notes?page=${encodeURIComponent(page.id)}`);
         }
       } catch (err) {
         logToApp({ level: "warn", source: "reader", message: `Split pane ${pane} could not load`, detail: String(err) });
