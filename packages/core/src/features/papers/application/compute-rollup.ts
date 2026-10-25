@@ -95,12 +95,21 @@ export function computeRollupFromIndex(
     return out;
   }
 
-  const numbers = relatedValues
-    .map((value) => (typeof value === "number" ? value : Number(value)))
-    .filter((n) => Number.isFinite(n));
+  const numbers = relatedValues.map(asNumber).filter((n): n is number => n !== null);
   if (numbers.length === 0) return null;
   if (config.agg === "sum") return numbers.reduce((a, b) => a + b, 0);
   return numbers.reduce((a, b) => a + b, 0) / numbers.length;
+}
+
+/**
+ * A number, or numeric text such as " 3 ". Blank text and lists are not numbers,
+ * though `Number` reads "" and [] as 0 and ["5"] as 5.
+ */
+function asNumber(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 /**

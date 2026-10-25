@@ -124,14 +124,18 @@ export class ManageReadingListUseCase {
     // NotFound, not Validation: see the vault use case for the reasoning.
     if (!list) throw new NotFoundError(`List ${listId} not found.`);
 
+    // One read of the lists; the tree is walked in memory.
     const all = await this.deps.lists.list();
-    for (const child of all.filter((l) => l.parentId === listId)) {
-      await this.removeList(child.id);
+    const deepestFirst = (id: string): string[] => [
+      ...all.filter((l) => l.parentId === id).flatMap((child) => deepestFirst(child.id)),
+      id,
+    ];
+    for (const id of deepestFirst(listId)) {
+      for (const item of await this.deps.items.listItems(id)) {
+        await this.deps.items.remove(item.id);
+      }
+      await this.deps.lists.delete(id);
     }
-    for (const item of await this.deps.items.listItems(listId)) {
-      await this.deps.items.remove(item.id);
-    }
-    await this.deps.lists.delete(listId);
   }
 
   /** Walk parentId links from listId up to the root. */

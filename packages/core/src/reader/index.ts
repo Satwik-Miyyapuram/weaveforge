@@ -29,18 +29,6 @@ export {
 export { OpenAccessPdfResolver, type OpenAccessPdfResolverOptions } from "./open-access-pdf-resolver.js";
 export { WebDavPdfResolver, type WebDavPdfResolverOptions } from "./webdav-pdf-resolver.js";
 export {
-  parseEpubCfi,
-  isEpubCfiLocus,
-  buildHtmlSnapshotLocus,
-  paperPdfBucketAllowsUpload,
-  DEFAULT_PAPER_PDF_BUCKET_POLICY,
-  R6_DEFERRALS,
-  type EpubCfiLocus,
-  type CombinedEpubAnchor,
-  type HtmlSnapshotLocus,
-  type PaperPdfBucketPolicy,
-} from "./format-reach.js";
-export {
   clampScale,
   clampPage,
   computeFitWidthScale,

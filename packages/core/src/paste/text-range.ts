@@ -17,21 +17,6 @@ export interface TextRange {
   end: number;
 }
 
-/**
- * True when `[start, end)` touches any of the ranges.
- *
- * Zero-length probes are supported — a caller testing a single position passes
- * the same offset twice — which is why the comparison is not strict on both
- * sides.
- */
-export function overlapsRange(
-  ranges: readonly TextRange[],
-  start: number,
-  end: number,
-): boolean {
-  return ranges.some((range) => start < range.end && end > range.start);
-}
-
 /** Merges overlapping and touching ranges so callers can scan them in order. */
 export function mergeRanges(ranges: readonly TextRange[]): TextRange[] {
   const sorted = [...ranges].sort((a, b) => a.start - b.start || a.end - b.end);
@@ -50,7 +35,7 @@ export function mergeRanges(ranges: readonly TextRange[]): TextRange[] {
 /**
  * A merged range list you can ask about in logarithmic time.
  *
- * `overlapsRange` walks the whole list, which is right for the handful of
+ * Walking the whole list is right for the handful of
  * ranges most documents produce and quadratic for the ones that do not: half a
  * megabyte of `$x^2$` is thirty thousand ranges, and a rule that consults them
  * once per match then spends seconds on a keystroke. Measured before this

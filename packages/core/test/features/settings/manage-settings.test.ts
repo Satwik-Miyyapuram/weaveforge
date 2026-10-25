@@ -4,6 +4,9 @@ import assert from "node:assert/strict";
 import { ManageSettingsUseCase, normalizeUserSettings } from "../../../src/features/settings/index.js";
 import { CURRENT_DISCLAIMER_VERSION } from "../../../src/features/settings/domain/privacy-disclaimer.js";
 import { InMemorySettingsRepository } from "../../../src/testing/in-memory-settings-repository.js";
+import { fixedClock } from "../../../src/testing/fakes.js";
+
+const clock = fixedClock("2026-06-24T12:00:00.000Z");
 
 describe("normalizeUserSettings", () => {
   it("trims and drops empty strings", () => {
@@ -24,7 +27,7 @@ describe("normalizeUserSettings", () => {
 describe("ManageSettingsUseCase", () => {
   it("normalizes on save", async () => {
     const repo = new InMemorySettingsRepository();
-    const uc = new ManageSettingsUseCase({ repository: repo });
+    const uc = new ManageSettingsUseCase({ repository: repo, clock });
     await uc.save({ zoteroApiKey: "  key  ", zoteroLibrary: "users/1" });
     assert.deepEqual(await uc.get(), {
       zoteroApiKey: "key",
@@ -35,7 +38,7 @@ describe("ManageSettingsUseCase", () => {
 
   it("saveAppearance merges with existing settings", async () => {
     const repo = new InMemorySettingsRepository();
-    const uc = new ManageSettingsUseCase({ repository: repo });
+    const uc = new ManageSettingsUseCase({ repository: repo, clock });
     await uc.save({ zoteroApiKey: "key" });
     await uc.saveAppearance({ mode: "dark", darkTheme: "dracula" });
     assert.deepEqual(await uc.get(), {
@@ -47,16 +50,16 @@ describe("ManageSettingsUseCase", () => {
 
   it("acceptDisclaimer records current version", async () => {
     const repo = new InMemorySettingsRepository();
-    const uc = new ManageSettingsUseCase({ repository: repo });
+    const uc = new ManageSettingsUseCase({ repository: repo, clock });
     await uc.acceptDisclaimer();
     const settings = await uc.get();
-    assert.ok(settings.disclaimerAcceptedAt);
+    assert.equal(settings.disclaimerAcceptedAt, "2026-06-24T12:00:00.000Z", "time from the injected clock");
     assert.equal(settings.disclaimerVersion, CURRENT_DISCLAIMER_VERSION);
   });
 
   it("acceptDisclaimer updates only disclaimer metadata", async () => {
     const repo = new InMemorySettingsRepository();
-    const uc = new ManageSettingsUseCase({ repository: repo });
+    const uc = new ManageSettingsUseCase({ repository: repo, clock });
     await uc.save({ zoteroApiKey: "encrypted-secret-placeholder" });
     await uc.acceptDisclaimer();
     const settings = await uc.get();

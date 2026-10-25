@@ -97,6 +97,15 @@ test("setManualTags: replacing removes dropped manual tags", async () => {
   assert.equal((await paperTags.listForPaper("p1")).length, 2);
 });
 
+// Moved from UpdatePaperUseCase.setTags, a wrapper that was removed (03-10).
+test("setManualTags then mergeTags: hashes, case and repeats fold to one tag", async () => {
+  const { uc } = makeSetup();
+  const a = await uc.setManualTags("p1", ["#Bayes", " vae ", "VAE", "generative"]);
+  assert.deepEqual(a.tags.sort(), ["bayes", "generative", "vae"]);
+  const b = await uc.mergeTags("p1", ["vae", "#latent"]);
+  assert.deepEqual(b.tags.sort(), ["bayes", "generative", "latent", "vae"]);
+});
+
 test("mergeTags: unions with existing tags of that source", async () => {
   const { uc } = makeSetup();
   await uc.setManualTags("p1", ["a"]);

@@ -16,6 +16,7 @@ import {
   exclusionReasons,
   prismaCounts,
   verdictFor,
+  verdictsFor,
   type ScreeningDecision,
   type ScreeningStage,
   type ScreeningState,
@@ -193,4 +194,70 @@ test("exclusion reasons count papers, not reviewers", () => {
     { reason: "No control arm", count: 1 },
     { reason: "Not English", count: 1 },
   ]);
+});
+
+// 04-18: the first reviewer's empty reason used to end the search, so the
+// second reviewer's reason was lost.
+test("an exclusion reason is taken from whichever reviewer gave one", () => {
+  const reasons = exclusionReasons([
+    decide("a", "ana", "full_text", "excluded"),
+    decide("a", "bo", "full_text", "excluded", "Not English"),
+    decide("b", "ana", "full_text", "excluded", "   "),
+    decide("b", "bo", "full_text", "excluded", "No control arm"),
+    decide("c", "ana", "full_text", "excluded"),
+  ]);
+  assert.deepEqual(reasons, [
+    { reason: "No control arm", count: 1 },
+    { reason: "Not English", count: 1 },
+  ]);
+});
+
+test("a paper with two different reasons still counts once", () => {
+  const reasons = exclusionReasons([
+    decide("a", "ana", "full_text", "excluded", "Wrong population"),
+    decide("a", "bo", "full_text", "excluded", "No control arm"),
+  ]);
+  assert.equal(reasons.reduce((n, r) => n + r.count, 0), 1);
+});
+
+// 04-17: each item used to scan every decision, O(items x decisions).
+test("a large screen is counted in one pass over the decisions", () => {
+  const n = 8000;
+  const many = items(...Array.from({ length: n }, (_, i) => `i${i}`));
+  const decisions: ScreeningDecision[] = [];
+  for (const { id } of many) {
+    const i = Number(id.slice(1));
+    decisions.push(decide(id, "ana", "title_abstract", "included"));
+    decisions.push(decide(id, "bo", "title_abstract", i % 4 === 0 ? "excluded" : "included"));
+    decisions.push(decide(id, "ana", "full_text", i % 2 === 0 ? "excluded" : "included", "Off topic"));
+    decisions.push(decide(id, "bo", "full_text", i % 2 === 0 ? "excluded" : "included"));
+  }
+  const started = performance.now();
+  const counts = prismaCounts(many, decisions);
+  const reasons = exclusionReasons(decisions);
+  const agreement = agreementBetween(decisions, ["ana", "bo"], "title_abstract");
+  const elapsed = performance.now() - started;
+  assert.equal(counts.conflicts, n / 4);
+  assert.equal(counts.eligible, n);
+  assert.equal(counts.included, n / 2);
+  assert.equal(counts.excludedAtFullText, n / 2);
+  assert.deepEqual(reasons, [{ reason: "Off topic", count: n / 2 }]);
+  assert.equal(agreement.compared, n);
+  assert.equal(agreement.agreed, (n * 3) / 4);
+  // The old scan took seconds here; one pass takes a few milliseconds.
+  assert.ok(elapsed < 1000, `took ${Math.round(elapsed)} ms`);
+});
+
+test("verdictsFor gives both stages per item, as verdictFor does one at a time", () => {
+  const decisions = [
+    decide("a", "ana", "title_abstract", "included"),
+    decide("a", "bo", "title_abstract", "excluded"),
+    decide("b", "ana", "full_text", "unsure"),
+    decide("b", "ana", "full_text", "included"),
+  ];
+  const expected = ["a", "b", "z"].flatMap((id) => [
+    verdictFor(decisions, id, "title_abstract"),
+    verdictFor(decisions, id, "full_text"),
+  ]);
+  assert.deepEqual(verdictsFor(items("a", "b", "z"), decisions), expected);
 });

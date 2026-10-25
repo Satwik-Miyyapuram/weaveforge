@@ -92,8 +92,20 @@ function fieldValue(
   return row.remote[field];
 }
 
+/** Same value with object keys sorted, so key order alone is no difference. */
+function sortedKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortedKeys);
+  if (value === null || typeof value !== "object") return value;
+  const obj = value as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.keys(obj)
+      .sort()
+      .map((key) => [key, sortedKeys(obj[key])]),
+  );
+}
+
 function valuesEqual(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
+  return JSON.stringify(sortedKeys(a)) === JSON.stringify(sortedKeys(b));
 }
 
 /** Diff local vs remote annotation fields. */
@@ -183,7 +195,7 @@ export type ConflictResolveChoice = "keep_local" | "accept_remote" | "merge";
 
 /**
  * Apply a field-level conflict resolution choice. Merge prefers local comment/tags
- * and remote color/text when both changed; otherwise keeps local for unresolved.
+ * and remote color/text/anchor when both changed; otherwise keeps local for unresolved.
  */
 export function resolveAnnotationConflict(
   row: AnnotationSyncRow,
@@ -213,9 +225,8 @@ export function resolveAnnotationConflict(
   if (changed.has("color")) merged.color = row.remote.color;
   if (changed.has("text")) merged.text = row.remote.text;
   // keep local comment/tags on merge (researcher prose wins)
-  if (changed.has("anchor") && !changed.has("text")) {
-    merged.anchor = structuredClone(row.remote.anchor);
-  }
+  // The anchor always follows Zotero's: with the text it marks one span.
+  if (changed.has("anchor")) merged.anchor = structuredClone(row.remote.anchor);
   return merged;
 }
 

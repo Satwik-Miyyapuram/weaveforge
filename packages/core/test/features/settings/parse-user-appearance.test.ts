@@ -1,10 +1,20 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { normalizeAppearance, parseUserAppearance } from "../../../src/features/settings/domain/user-appearance.js";
+import { CARD_TINTS, CONTROL_SIZES, normalizeAppearance } from "../../../src/features/settings/domain/user-appearance.js";
 
-test("parseUserAppearance returns null for absent payloads", () => {
-  assert.equal(parseUserAppearance(null), null);
-  assert.equal(parseUserAppearance(undefined), null);
+test("normalizeAppearance returns undefined for absent payloads", () => {
+  assert.equal(normalizeAppearance(null), undefined);
+  assert.equal(normalizeAppearance(undefined), undefined);
+});
+
+test("normalizeAppearance accepts every listed control size and card tint, nothing else (05-19)", () => {
+  assert.deepEqual([...CONTROL_SIZES], ["compact", "default", "comfortable"]);
+  assert.deepEqual([...CARD_TINTS], ["full", "bar", "border", "none"]);
+  for (const controlSize of CONTROL_SIZES) assert.deepEqual(normalizeAppearance({ controlSize }), { controlSize });
+  for (const cardTint of CARD_TINTS) assert.deepEqual(normalizeAppearance({ cardTint }), { cardTint });
+  for (const bad of ["Compact", "", "length", 1, null]) {
+    assert.equal(normalizeAppearance({ controlSize: bad, cardTint: bad }), undefined, String(bad));
+  }
 });
 
 test("normalizeAppearance keeps valid fields only", () => {

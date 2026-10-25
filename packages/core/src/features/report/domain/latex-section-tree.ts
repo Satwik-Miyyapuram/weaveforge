@@ -1,3 +1,5 @@
+import { normalizeProjectPath } from "./project-path.js";
+
 export interface LatexSourceFile {
   path: string;
   content: string;
@@ -31,22 +33,12 @@ const LEVELS: Record<string, number> = {
   subparagraph: 6,
 };
 
-const SECTION_RE = /^\s*\\(part|chapter|section|subsection|subsubsection|paragraph|subparagraph)(\*)?\s*\{([^{}]*)\}/;
+// An optional short title (`\section[Short]{Long}`) may sit before the title.
+const SECTION_RE =
+  /^\s*\\(part|chapter|section|subsection|subsubsection|paragraph|subparagraph)(\*)?\s*(?:\[[^\]]*\]\s*)?\{([^{}]*)\}/;
 
 function normalizePath(path: string): string | null {
-  const withExtension = path.endsWith(".tex") ? path : `${path}.tex`;
-  const parts = withExtension.replaceAll("\\", "/").split("/");
-  const normalized: string[] = [];
-  for (const part of parts) {
-    if (!part || part === ".") continue;
-    if (part === "..") {
-      if (!normalized.length) return null;
-      normalized.pop();
-    } else if (part !== "\\") {
-      normalized.push(part);
-    }
-  }
-  return normalized.join("/");
+  return normalizeProjectPath(path.endsWith(".tex") ? path : `${path}.tex`);
 }
 
 function resolveInclude(currentFile: string, includePath: string): string | null {

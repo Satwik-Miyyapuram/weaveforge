@@ -4,10 +4,18 @@ import {
   type ThemeConfig,
 } from "./theme-config.js";
 
+/** Icon / toggle button densities, smallest first. */
+export const CONTROL_SIZES = ["compact", "default", "comfortable"] as const;
 /** Per-user light/dark mode, theme variant, and control density preferences. */
-export type ControlSize = "compact" | "default" | "comfortable";
+export type ControlSize = (typeof CONTROL_SIZES)[number];
+/** How the brutal and CRT themes may colour a paper card by its reading status. */
+export const CARD_TINTS = ["full", "bar", "border", "none"] as const;
 /** How the brutal and CRT themes colour a paper card by its reading status. */
-export type CardTint = "full" | "bar" | "border" | "none";
+export type CardTint = (typeof CARD_TINTS)[number];
+
+function isOneOf<T extends string>(list: readonly T[], value: unknown): value is T {
+  return (list as readonly unknown[]).includes(value);
+}
 
 export interface UserAppearance {
   mode?: "light" | "dark";
@@ -59,12 +67,10 @@ export function normalizeAppearance(raw: unknown): UserAppearance | undefined {
     const darkTheme = o.darkTheme.trim();
     if (darkTheme) out.darkTheme = darkTheme;
   }
-  if (o.controlSize === "compact" || o.controlSize === "default" || o.controlSize === "comfortable") {
-    out.controlSize = o.controlSize;
-  }
+  if (isOneOf(CONTROL_SIZES, o.controlSize)) out.controlSize = o.controlSize;
   if (o.surfaces === "borderless" || o.surfaces === "bordered") out.surfaces = o.surfaces;
   if (typeof o.reactiveMotion === "boolean") out.reactiveMotion = o.reactiveMotion;
-  if (o.cardTint === "full" || o.cardTint === "bar" || o.cardTint === "border" || o.cardTint === "none") out.cardTint = o.cardTint;
+  if (isOneOf(CARD_TINTS, o.cardTint)) out.cardTint = o.cardTint;
   if (typeof o.cardTilt === "boolean") out.cardTilt = o.cardTilt;
   if (typeof o.scanlines === "boolean") out.scanlines = o.scanlines;
   // Re-validated rather than copied: the settings row is user-writable, so a
@@ -75,10 +81,4 @@ export function normalizeAppearance(raw: unknown): UserAppearance | undefined {
     if (customTheme) out.customTheme = customTheme;
   }
   return Object.keys(out).length ? out : undefined;
-}
-
-/** Parse appearance JSON from persistence; returns null when payload is absent. */
-export function parseUserAppearance(raw: unknown): UserAppearance | null {
-  if (raw == null) return null;
-  return normalizeAppearance(raw) ?? null;
 }

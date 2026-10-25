@@ -23,3 +23,15 @@ test("upserts one pin per paper annotation and queries both directions", async (
   await repository.remove("paper-1", "ann-1");
   assert.deepEqual(await repository.listForProject(), []);
 });
+
+test("live pins keep distinct ids after a remove (08-03)", async () => {
+  const repository = new InMemoryAnnotationPinRepository();
+  const pin = (annotationKey: string) =>
+    repository.save({ paperId: "paper-1", annotationKey, reportSectionId: "section-1" });
+  await pin("ann-1");
+  await pin("ann-2");
+  await repository.remove("paper-1", "ann-1");
+  await pin("ann-3");
+  const ids = (await repository.listForProject()).map((row) => row.id);
+  assert.equal(new Set(ids).size, 2);
+});

@@ -51,6 +51,20 @@ export function runMetricRepositoryContract(
     assert.deepEqual(loss.map((p) => p.value), [1.0, 0.9]);
   });
 
+  test(`[${label}] re-appending a step replaces its point (08-04)`, async () => {
+    const repo = makeRepo();
+    await repo.append([pt({ step: 0, value: 1 }), pt({ step: 1, value: 0.9 })]);
+    await repo.append([pt({ step: 1, value: 0.8, wallTime: "2026-07-01T00:00:00.000Z" })]);
+    // Within one batch too: the ingest trigger writes row by row, last one wins.
+    await repo.append([pt({ step: 2, value: 0.7 }), pt({ step: 2, value: 0.6 })]);
+    const loss = await repo.history("e1", "loss", WHOLE);
+    assert.deepEqual(loss.map((p) => [p.step, p.value]), [[0, 1], [1, 0.8], [2, 0.6]]);
+    assert.equal(loss[1]?.wallTime, "2026-07-01T00:00:00.000Z");
+    // Another metric at the same step is its own point.
+    await repo.append([pt({ metric: "acc", step: 1, value: 0.5 })]);
+    assert.equal((await repo.history("e1", undefined, WHOLE)).length, 4);
+  });
+
   test(`[${label}] history filters by metric`, async () => {
     const repo = makeRepo();
     await repo.append([

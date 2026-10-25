@@ -77,3 +77,16 @@ test("update / remove: update throws for unknown id; remove deletes", async () =
   await uc.remove(created.id);
   assert.equal(await repo.getById(created.id), null);
 });
+
+// 03-04: the shape check alone let through days that do not exist.
+test("add and update reject a day that is not on the calendar", async () => {
+  const { uc } = makeUseCase();
+  for (const bad of ["2026-02-31", "2026-13-01", "2026-00-10", "2026-04-31", "2025-02-29"]) {
+    await assert.rejects(uc.add({ title: "x", targetDate: bad }), /yyyy-mm-dd/, bad);
+  }
+  const created = await uc.add({ title: "x", targetDate: "2024-02-29" });
+  assert.equal(created.targetDate, "2024-02-29", "a leap day is a real day");
+  await assert.rejects(uc.update(created.id, { targetDate: "2026-02-31" }), /yyyy-mm-dd/);
+  const moved = await uc.update(created.id, { targetDate: "2026-12-31" });
+  assert.equal(moved.targetDate, "2026-12-31");
+});

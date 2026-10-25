@@ -3,10 +3,10 @@ import type { AddLogEntryUseCase } from "../../logbook/application/add-log-entry
 import type { INotificationIntegration } from "../../integrations/domain/integration-ports.js";
 import type { IPaperRepository } from "../../papers/domain/paper-repository.js";
 import type { Paper } from "../../papers/domain/paper.js";
-import type { PaperRef } from "../../papers/application/metadata-source.js";
 import type { ICitationAlertTrackRepository } from "../domain/citation-alert-track-repository.js";
 import type { CitationCandidate, ICitationSource } from "./citation-source.js";
 import { rankCitationAlerts } from "./rank-citation-alerts.js";
+import { paperRef } from "./paper-ref.js";
 import { NotFoundError } from "../../../shared/errors.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -17,12 +17,6 @@ export interface CitationAlertCheckResult {
   found: number;
   /** Papers whose check threw (provider/network/log write); retried next run. */
   failed: number;
-}
-
-function paperRef(paper: Paper): PaperRef | null {
-  if (paper.arxivId) return { kind: "arxiv", value: paper.arxivId };
-  if (paper.doi) return { kind: "doi", value: paper.doi };
-  return null;
 }
 
 function mergeSeenIds(prior: readonly string[], current: readonly CitationCandidate[]): string[] {
@@ -46,8 +40,8 @@ function intentLabel(item: CitationCandidate): string | null {
   return item.intents[0] ?? null;
 }
 
-function logBody(paper: Paper, citing: CitationCandidate[]): string {
-  const ranked = rankCitationAlerts(citing);
+/** `ranked` is already best first (rankCitationAlerts). */
+function logBody(paper: Paper, ranked: CitationCandidate[]): string {
   const lines = [
     `## Citation alert: ${paper.title}`,
     "",
@@ -88,8 +82,18 @@ export class CheckCitationAlertsUseCase {
       clock: Clock;
       /** Live project scope; when it changes mid-run, stop before further writes. */
       getProjectId?: () => string | null;
+      /** Told of each failure the run survives: a paper's check or its notification. */
+      onError?: (paperId: string, error: unknown) => void;
     },
   ) {}
+
+  private report(paperId: string, error: unknown): void {
+    try {
+      this.deps.onError?.(paperId, error);
+    } catch {
+      // A broken reporter must not stop the remaining tracks.
+    }
+  }
 
   async isTracking(paperId: string): Promise<boolean> {
     return (await this.deps.tracks.getByPaperId(paperId)) != null;
@@ -179,7 +183,9 @@ export class CheckCitationAlertsUseCase {
             links: [{ type: "paper", id: paper.id }],
           });
           // Mattermost is optional and should never prevent in-app alert delivery.
-          await this.deps.notifications.notifyCitationAlert(paper, fresh).catch(() => undefined);
+          await this.deps.notifications
+            .notifyCitationAlert(paper, fresh)
+            .catch((error: unknown) => this.report(paper.id, error));
         }
 
         if (!this.scoped()) return result;
@@ -193,10 +199,11 @@ export class CheckCitationAlertsUseCase {
         });
         result.checked += 1;
         result.found += fresh.length;
-      } catch {
+      } catch (error) {
         // One paper failing (S2/network) must not skip the rest of the project's
         // tracks, but the caller must see that it failed.
         result.failed += 1;
+        this.report(track.paperId, error);
       }
     }
     return result;

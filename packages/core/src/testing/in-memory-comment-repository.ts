@@ -1,5 +1,6 @@
 import type { ICommentRepository } from "../features/sharing/domain/comment-repository.js";
 import type { Comment, NewCommentInput } from "../features/sharing/domain/comment.js";
+import { ValidationError } from "../shared/errors.js";
 
 /** In-memory {@link ICommentRepository}. `currentId` = the comment author. */
 export class InMemoryCommentRepository implements ICommentRepository {
@@ -19,13 +20,26 @@ export class InMemoryCommentRepository implements ICommentRepository {
   }
 
   async add(input: NewCommentInput): Promise<Comment> {
+    // As the `comments_check_new` trigger: a reply answers a root comment on
+    // the same resource, and sits on that root's anchor.
+    if (input.parentId) {
+      const parent = this.store.get(input.parentId);
+      if (
+        !parent ||
+        parent.parentId !== null ||
+        parent.resourceType !== input.resourceType ||
+        parent.resourceId !== input.resourceId
+      ) {
+        throw new ValidationError("a reply answers a comment on the same resource");
+      }
+    }
     const comment: Comment = {
       id: `comment-${++this.seq}`,
       authorId: this.currentId,
       resourceType: input.resourceType,
       resourceId: input.resourceId,
       body: input.body,
-      anchor: input.anchor ?? null,
+      anchor: input.parentId ? null : (input.anchor ?? null),
       parentId: input.parentId ?? null,
       resolvedAt: null,
       createdAt: new Date(this.seq).toISOString(),

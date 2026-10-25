@@ -36,4 +36,17 @@ export function runSettingsRepositoryContract(
     assert.equal(got.zoteroApiKey, "other");
     assert.equal(got.zoteroLibrary, undefined);
   });
+
+  test(`[${label}] nested settings are not shared with the caller (08-14)`, async () => {
+    const repo = makeRepo();
+    const settings: UserSettings = { ...sampleSettings(), appearance: { mode: "dark" } };
+    await repo.save(settings);
+    settings.appearance!.mode = "light";
+    assert.equal((await repo.get()).appearance?.mode, "dark");
+
+    const got = await repo.get();
+    got.appearance!.mode = "light";
+    assert.equal((await repo.get()).appearance?.mode, "dark");
+    assert.equal((await repo.getMetadata()).appearance?.mode, "dark");
+  });
 }

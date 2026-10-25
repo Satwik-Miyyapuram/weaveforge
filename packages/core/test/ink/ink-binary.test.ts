@@ -314,6 +314,20 @@ test("points are stored as deltas and read back as absolute positions", () => {
   assert.deepEqual(Array.from(chunkStrokePoints(view, 2).pressures), [10, 90, 250]);
 });
 
+test("one stroke's points are the same slice of the whole page's walk (06-04)", () => {
+  const view = decodeInkChunkBody(encodeInkChunkBody(smallPage()));
+  const all = Array.from(chunkAbsolutePoints(view));
+  const joined: number[] = [];
+  for (let stroke = 0; stroke < view.strokeCount; stroke += 1) {
+    const { points, pressures } = chunkStrokePoints(view, stroke);
+    assert.equal(points.length, pressures.length * 2);
+    for (let i = 0; i < pressures.length; i += 1) joined.push(points[i * 2]!, points[i * 2 + 1]!, pressures[i]!);
+  }
+  assert.deepEqual(joined, all);
+  const none = chunkStrokePoints(view, view.strokeCount);
+  assert.equal(none.points.length + none.pressures.length, 0);
+});
+
 test("a corrupt or truncated chunk is refused, not read past its end", () => {
   const page = smallPage();
   const chunk = encodeInkChunkBody(page);

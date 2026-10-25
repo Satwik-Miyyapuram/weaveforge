@@ -190,3 +190,20 @@ test("single-character terms are ignored so highlights are not noise", () => {
 
   assert.deepEqual(excerpt.highlights, []);
 });
+
+// 01-10: one pass over the matches, and the same window the full rescan chose.
+test("excerpt picks the densest window when it is not the first match", () => {
+  const body = `alpha ${"filler ".repeat(40)}beta gamma beta gamma beta ${"filler ".repeat(40)}beta`;
+  const excerpt = buildExcerpt(body, ["beta", "gamma"], { maxChars: 60 });
+  const words = excerpt.highlights.map((h) => excerpt.text.slice(h.start, h.end));
+  assert.deepEqual(words, ["beta", "gamma", "beta", "gamma", "beta"]);
+});
+
+test("excerpt over a body with thousands of matches stays quick", () => {
+  const body = "match ".repeat(60_000);
+  const started = performance.now();
+  const excerpt = buildExcerpt(body, ["match"], { maxChars: 120 });
+  assert.ok(excerpt.highlights.length > 0);
+  // The old rescan took about 5 s here; one pass takes about 50 ms.
+  assert.ok(performance.now() - started < 1_000, "excerpt scan is quadratic again");
+});

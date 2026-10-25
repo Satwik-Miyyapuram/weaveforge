@@ -32,21 +32,19 @@ export class InMemoryMemberRepository implements IMemberRepository {
   }
 
   async listTeam(): Promise<Member[]> {
-    if (!this.currentId) return [];
-    const all = [...this.store.values()];
-    const orgMemberIds = new Set(all.map((m) => m.id));
-    return this.byName(
-      filterTeamMembers(this.currentId, all, { inLab: true, orgMemberIds }),
-    );
+    return this.visible(filterTeamMembers);
   }
 
   async listLab(): Promise<Member[]> {
+    return this.visible(filterLabMembers);
+  }
+
+  /** Every seeded member is in the lab, so visibility is the filter alone. */
+  private visible(filter: typeof filterTeamMembers): Member[] {
     if (!this.currentId) return [];
     const all = [...this.store.values()];
     const orgMemberIds = new Set(all.map((m) => m.id));
-    return this.byName(
-      filterLabMembers(this.currentId, all, { inLab: true, orgMemberIds }),
-    );
+    return this.byName(filter(this.currentId, all, { inLab: true, orgMemberIds }));
   }
 
   /** The whole seeded set stands in for "the lab" in tests. */

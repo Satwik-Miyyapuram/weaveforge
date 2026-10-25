@@ -14,6 +14,7 @@
 
 import type { BibEntry, BibParseResult } from "./bib-entries.js";
 import type { LatexSourceFile } from "./latex-section-tree.js";
+import { normalizeProjectPath } from "./project-path.js";
 
 export type BibFindingKind =
   | "cited-not-defined"
@@ -241,13 +242,14 @@ function checkResources(
   sources: readonly LatexSourceFile[],
   findings: BibFinding[],
 ): void {
-  const present = new Set(sources.map((file) => file.path.toLowerCase()));
+  const present = sources.map((file) => normalizeProjectPath(file.path.toLowerCase()) ?? "");
   for (const resource of resources) {
-    const name = resource.name.toLowerCase();
-    const candidates = [name, name.endsWith(".bib") ? name : `${name}.bib`];
+    // `./refs.bib` and `sub/../refs` name `refs.bib`; a path out of the project names nothing.
+    const name = normalizeProjectPath(resource.name.toLowerCase());
+    const candidates = name ? [name, name.endsWith(".bib") ? name : `${name}.bib`] : [];
     // A path may be written relative to the file that names it or to the root.
     const found = candidates.some((candidate) =>
-      [...present].some((path) => path === candidate || path.endsWith(`/${candidate}`)),
+      present.some((path) => path === candidate || path.endsWith(`/${candidate}`)),
     );
     if (found) continue;
     findings.push({

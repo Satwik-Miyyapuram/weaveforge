@@ -28,7 +28,6 @@ export {
   INK_PRESSURE_MIN_FACTOR,
   INK_PRESSURE_MAX_FACTOR,
   clampInkNoteWidth,
-  isHighlighterWidth,
   inkPressureFactor,
   inkVelocityFactor,
   nibWidth,

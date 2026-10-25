@@ -31,6 +31,19 @@ export function applyCommaPlacement(input: string, placement: CommaPlacement): C
   ]);
 
   const pattern = placement === "inside" ? /["”],/g : /,["”]/g;
+  // Straight-quote parity of the current line up to `scanned`. Matches arrive
+  // in order, so the walk only moves forward: rescanning from each line start
+  // went quadratic on one long line with many candidates.
+  let scanned = 0;
+  let open = false;
+  const quoteOpenAt = (offset: number): boolean => {
+    for (; scanned < offset; scanned++) {
+      if (input[scanned] === "\n") open = false;
+      else if (input[scanned] === '"') open = !open;
+    }
+    return open;
+  };
+
   const text = input.replace(pattern, (match, offset: number) => {
     if (ranges.overlaps(offset, offset + match.length)) return match;
 
@@ -53,13 +66,7 @@ export function applyCommaPlacement(input: string, placement: CommaPlacement): C
     // earlier one on the line opened it. Without that the match sits at a field
     // boundary, as in: name," John Smith",age
     const quote = placement === "inside" ? match[0]! : match[1]!;
-    if (quote === '"') {
-      let open = false;
-      for (let index = input.lastIndexOf("\n", offset - 1) + 1; index < offset; index++) {
-        if (input[index] === '"') open = !open;
-      }
-      if (!open) return match;
-    }
+    if (quote === '"' && !quoteOpenAt(offset)) return match;
 
     return placement === "inside" ? `,${match[0]}` : `${match[1]},`;
   });

@@ -4,7 +4,6 @@ export * from "./domain/ai-access-policy.js";
 export * from "./domain/ai-settings.js";
 export * from "./domain/ai-reader.js";
 export * from "./domain/ai-retrieval.js";
-export * from "./application/run-ai-query.use-case.js";
 export * from "./application/create-ai-session-grant.use-case.js";
 export * from "./domain/ai-write-proposal.js";
 export * from "./domain/ai-evidence.js";

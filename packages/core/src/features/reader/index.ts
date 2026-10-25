@@ -31,10 +31,8 @@ export {
 } from "./analysis/bibliography-parser.js";
 export {
   matchPageCitations,
-  looksLikeSuperscriptStyle,
   type PageCitationInput,
 } from "./analysis/citation-matcher.js";
-export { analyzePageLinks, widenToBrackets, type PageLinkAnalysis } from "./analysis/pdf-link-analysis.js";
 export { nativeCitationMentions, isCitationDestination } from "./analysis/pdf-links.js";
 export { assemblePageCitations, coalesceMentions } from "./analysis/citation-assembly.js";
 // One rect maths for every mention: the one analysis itself uses.

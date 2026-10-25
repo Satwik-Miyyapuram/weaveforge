@@ -10,10 +10,14 @@ import type {
  * on — so the shared contract suite passes against both (Liskov).
  */
 export class InMemoryMetricRepository implements IMetricRepository {
-  private points: MetricPoint[] = [];
+  /** Keyed by (experiment, metric, step), the row table's primary key. */
+  private readonly points = new Map<string, MetricPoint>();
 
+  /** Last write wins per step, like the `experiment_metrics_insert` trigger. */
   async append(points: MetricPoint[]): Promise<void> {
-    this.points.push(...points.map((p) => ({ ...p })));
+    for (const p of points) {
+      this.points.set(JSON.stringify([p.experimentId, p.metric, p.step]), { ...p });
+    }
   }
 
   async history(
@@ -21,7 +25,7 @@ export class InMemoryMetricRepository implements IMetricRepository {
     metric: string | undefined,
     budget: MetricBudget,
   ): Promise<MetricPoint[]> {
-    const ordered = this.points
+    const ordered = [...this.points.values()]
       .filter((p) => p.experimentId === experimentId)
       .filter((p) => (metric ? p.metric === metric : true))
       .sort((a, b) => (a.metric === b.metric ? a.step - b.step : a.metric.localeCompare(b.metric)))
@@ -32,7 +36,7 @@ export class InMemoryMetricRepository implements IMetricRepository {
   async latestActivityAt(experimentIds: readonly string[]): Promise<Map<string, number>> {
     const out = new Map<string, number>();
     const ids = new Set(experimentIds);
-    for (const p of this.points) {
+    for (const p of this.points.values()) {
       if (!ids.has(p.experimentId) || !p.wallTime) continue;
       const t = Date.parse(p.wallTime);
       if (!Number.isFinite(t)) continue;
