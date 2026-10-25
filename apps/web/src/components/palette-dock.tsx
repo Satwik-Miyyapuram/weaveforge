@@ -39,6 +39,41 @@ export type PaletteDock = (typeof PALETTE_DOCKS)[number];
 
 export const DEFAULT_PALETTE_DOCK: PaletteDock = "left";
 
+/** Each dock's cell on a 3x3 grid; the centre cell is never a dock. */
+const DOCK_CELL: Record<PaletteDock, readonly [number, number]> = {
+  "top-left": [0, 0],
+  top: [1, 0],
+  "top-right": [2, 0],
+  left: [0, 1],
+  right: [2, 1],
+  "bottom-left": [0, 2],
+  bottom: [1, 2],
+  "bottom-right": [2, 2],
+};
+
+const ARROW_STEP: Record<string, readonly [number, number]> = {
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+  ArrowUp: [0, -1],
+  ArrowDown: [0, 1],
+};
+
+/**
+ * The dock an arrow key moves the palette to: one cell that way, jumping the
+ * empty centre. A step off the grid, or any other key, keeps the dock.
+ */
+export function stepPaletteDock(dock: PaletteDock, key: string): PaletteDock {
+  const step = ARROW_STEP[key];
+  if (!step) return dock;
+  let [x, y] = DOCK_CELL[dock];
+  do {
+    x += step[0];
+    y += step[1];
+  } while (x === 1 && y === 1);
+  if (x < 0 || x > 2 || y < 0 || y > 2) return dock;
+  return PALETTE_DOCKS.find((d) => DOCK_CELL[d][0] === x && DOCK_CELL[d][1] === y) ?? dock;
+}
+
 const DOCK_KEY = "weaveforge.ink.palette-dock";
 /** Fired on the window when a palette moves, so another mounted one follows. */
 const DOCK_EVENT = "weaveforge:palette-dock";
@@ -228,8 +263,15 @@ export function PaletteDockButton({
         onPointerMove={onPointerMove}
         onPointerUp={(event) => endDrag(event, false)}
         onPointerCancel={(event) => endDrag(event, true)}
-        title={`Drag the palette to a corner or an edge (it is at the ${DOCK_LABEL[dock]})`}
-        aria-label="Move the palette: drag it"
+        onKeyDown={(event) => {
+          if (!(event.key in ARROW_STEP)) return;
+          // Swallowed even at the edge, so the arrow never scrolls the page.
+          event.preventDefault();
+          const next = stepPaletteDock(dock, event.key);
+          if (next !== dock) onDock(next);
+        }}
+        title={`Drag the palette, or use the arrow keys, to move it to a corner or an edge (it is at the ${DOCK_LABEL[dock]})`}
+        aria-label="Move the palette: drag it or use the arrow keys"
       >
         <svg
           width="16"

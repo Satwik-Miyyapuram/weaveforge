@@ -18,10 +18,6 @@ export class CollabFacade {
     },
   ) {}
 
-  collabDeps() {
-    return this.inner;
-  }
-
   /**
    * One session object per resource, reused.
    *

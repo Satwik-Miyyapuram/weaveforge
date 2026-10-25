@@ -97,8 +97,9 @@ export function ErrorReportPanel({
     ["Time", at.replace("T", " ").replace(/\.\d+Z$/, " UTC")],
   ];
   const cleanSteps = redactAndCap(steps).text;
-  const markdown = () =>
+  const markdown = (withHeading = true) =>
     reportMarkdown({
+      withHeading,
       detail: shown,
       steps: cleanSteps,
       route: where,
@@ -130,9 +131,10 @@ export function ErrorReportPanel({
         },
         body: JSON.stringify({
           title: summary,
-          // The route files `detail` as "What happened"; the steps and the
-          // context ride in it, so the server's layout needs no new fields.
-          detail: markdown().replace(/^### What happened\n\n/, ""),
+          // The route files `detail` under its own "What happened" heading;
+          // the steps and the context ride in it, so the server's layout
+          // needs no new fields.
+          detail: markdown(false),
           logs,
           route: where,
           appVersion: version,

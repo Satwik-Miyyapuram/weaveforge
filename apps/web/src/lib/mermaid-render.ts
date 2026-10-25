@@ -67,7 +67,13 @@ export function quoteAwkwardLabels(code: string): string {
 }
 
 function getMermaid(): Promise<MermaidModule> {
-  mermaidPromise ??= customLoader ? customLoader() : import("pele/lazy");
+  if (!mermaidPromise) {
+    mermaidPromise = customLoader ? customLoader() : import("pele/lazy");
+    // A failed load is retried on the next diagram, not kept as the answer.
+    mermaidPromise.catch(() => {
+      mermaidPromise = null;
+    });
+  }
   return mermaidPromise;
 }
 

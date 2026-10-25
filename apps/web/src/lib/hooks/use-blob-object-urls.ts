@@ -47,9 +47,9 @@ export function useBlobObjectUrls(
       }
 
       let blobs: Map<string, Blob>;
-      if (fetchMany && paths.length > 1) {
-        blobs = await fetchMany(paths);
-      } else if (cacheBucket) {
+      // The cache first: it batches through fetchMany itself, and checking the
+      // batch fetcher first sent every multi-image note around the cache.
+      if (cacheBucket) {
         const { fetchBlobsCached } = await import("@/lib/cache/blob-fetch-cache");
         blobs = await fetchBlobsCached(
           cacheBucket,
@@ -61,6 +61,8 @@ export function useBlobObjectUrls(
           },
           fetchMany ? (ps) => fetchMany(ps) : undefined,
         );
+      } else if (fetchMany && paths.length > 1) {
+        blobs = await fetchMany(paths);
       } else {
         blobs = new Map<string, Blob>();
         await Promise.all(

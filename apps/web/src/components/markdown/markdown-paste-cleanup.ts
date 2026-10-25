@@ -13,7 +13,12 @@ import {
   type PasteSettings,
   type PdfTextOptions,
 } from "@weaveforge/core";
-import { afterUrlPaste, type RemotePasteOptions } from "@/components/markdown/markdown-remote-paste";
+import {
+  afterUrlPaste,
+  BARE_URL,
+  escapeLinkLabel,
+  type RemotePasteOptions,
+} from "@/components/markdown/markdown-remote-paste";
 
 /**
  * Paste cleanup for the note editor.
@@ -51,16 +56,13 @@ function insertAsOneStep(view: EditorView, text: string): void {
   );
 }
 
-/** One http(s) address and nothing else. */
-const BARE_URL = /^https?:\/\/\S+$/;
-
 /**
  * Makes a string safe to sit inside a link label. Single-line only; a label
  * spanning lines is not a label, and such a selection is pasted over normally.
  */
 function linkLabel(selected: string): string | null {
   if (!selected || /[\r\n]/.test(selected)) return null;
-  return selected.replace(/\\/g, "\\\\").replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+  return escapeLinkLabel(selected);
 }
 
 /**

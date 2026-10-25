@@ -38,14 +38,10 @@ export function screenForPath(pathname: string): ScreenId | null {
   const path = cut < 0 ? pathname : pathname.slice(0, cut);
 
   const exact = EXACT_SCREENS.get(path);
-  if (exact) return exact;
-
-  for (const { prefix } of ROUTE_SCREENS) {
-    // e.g. /experiments/:id — a detail route, not the list cache. Caching one
-    // run's page under the list's key would paint the list instead.
-    if (path.startsWith(`${prefix}/`)) return null;
-  }
-  return null;
+  // Anything else, a detail route like /experiments/:id included, has no
+  // screen cache: caching one run's page under the list's key would paint the
+  // list instead.
+  return exact ?? null;
 }
 
 /** Skip nav overlay when cached data exists (show stale content while revalidating). */

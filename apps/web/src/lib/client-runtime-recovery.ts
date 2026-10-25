@@ -1,5 +1,7 @@
 "use client";
 
+import { clearCacheStorage } from "@/lib/cache-storage";
+
 /**
  * Recovers from Next.js blank “Application error” pages caused by stale
  * service-worker precaches / build-id mismatches (common on Android TWA after
@@ -14,14 +16,7 @@ async function resetClientRuntimeCaches(): Promise<void> {
   } catch {
     /* best-effort */
   }
-  try {
-    if (typeof caches !== "undefined") {
-      const keys = await caches.keys();
-      await Promise.all(keys.map((k) => caches.delete(k)));
-    }
-  } catch {
-    /* best-effort */
-  }
+  await clearCacheStorage();
 }
 
 /** Clear WeaveForge local/session keys that can poison cold start after a crash. */

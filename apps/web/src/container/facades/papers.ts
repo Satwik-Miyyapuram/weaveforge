@@ -160,14 +160,6 @@ export class PapersFacade {
     return this.deps.reportSections.list();
   }
 
-
-
-
-
-
-
-
-
   fetchImageBlob(path: string) {
     return this.deps.images.fetchBlob(path);
   }

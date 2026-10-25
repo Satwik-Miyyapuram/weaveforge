@@ -2,7 +2,8 @@
 
 import { imageAltFromFilename, imageExtensionForMime } from "@weaveforge/core";
 import { compressImage } from "@/lib/image-compress";
-import { formatError } from "@/lib/format-error";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
 import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
 
 /**
@@ -49,7 +50,12 @@ async function prepare(file: File): Promise<{ blob: Blob; ext: string }> {
   } catch (error) {
     // Kept, not thrown: a screenshot that this browser's canvas refuses is
     // still worth storing at full size.
-    void formatError(error);
+    logToApp({
+      level: "warn",
+      source: "image-upload",
+      message: "An image could not be re-encoded and was stored as it came",
+      detail: `${file.name}: ${describeRejection(error)}`,
+    });
     return { blob: file, ext: imageExtensionForMime(file.type) };
   }
 }

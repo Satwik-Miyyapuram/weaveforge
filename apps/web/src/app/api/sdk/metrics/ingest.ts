@@ -41,6 +41,12 @@ export async function ingestMetrics(db: SdkDb, body: unknown): Promise<NextRespo
     );
   }
 
+  // Each entry is read as an object below; `null` or a number would throw
+  // there and answer a client mistake with a 500.
+  if (!points.every((p) => typeof p === "object" && p !== null && !Array.isArray(p))) {
+    return NextResponse.json({ error: "Every point must be an object." }, { status: 400 });
+  }
+
   // Downsample before writing (Fix C of the metrics storage plan).
   //
   // Here rather than in the SDK because the SDK is not the only writer and a

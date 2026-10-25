@@ -62,5 +62,6 @@ export function isScopedCacheInvalidationEnabled(): boolean {
 }
 
 export function isKnownResourceType(value: string): value is ResourceType {
-  return value in WRITE_INVALIDATION_MAP;
+  // Own keys only: `in` also accepts `constructor` or `toString` from a payload.
+  return Object.hasOwn(WRITE_INVALIDATION_MAP, value);
 }

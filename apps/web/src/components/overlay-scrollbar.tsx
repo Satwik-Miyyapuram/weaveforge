@@ -31,6 +31,9 @@ export function OverlayScrollbar({
   const isVisibleRef = useRef(false);
   isVisibleRef.current = isVisible;
   const [isHovered, setIsHovered] = useState(false);
+  // The hide timer reads hover from a ref: a captured value is stale by the
+  // time the pointer leaves, and a dependency would re-run the scroll effect.
+  const isHoveredRef = useRef(false);
 
   const trackRef = useRef<HTMLDivElement | null>(null);
   const thumbRef = useRef<HTMLDivElement | null>(null);
@@ -49,11 +52,11 @@ export function OverlayScrollbar({
   const scheduleHide = useCallback(() => {
     clearHideTimer();
     hideTimerRef.current = setTimeout(() => {
-      if (!isDraggingRef.current && !isHovered) {
+      if (!isDraggingRef.current && !isHoveredRef.current) {
         setIsVisible(false);
       }
     }, autoHideDelay);
-  }, [autoHideDelay, clearHideTimer, isHovered]);
+  }, [autoHideDelay, clearHideTimer]);
 
   const updateThumb = useCallback(() => {
     const el = scrollRef.current;
@@ -218,11 +221,13 @@ export function OverlayScrollbar({
       className={`overlay-scrollbar-track ${visibleClass} ${className}`.trim()}
       onClick={onTrackClick}
       onPointerEnter={() => {
+        isHoveredRef.current = true;
         setIsHovered(true);
         setIsVisible(true);
         clearHideTimer();
       }}
       onPointerLeave={() => {
+        isHoveredRef.current = false;
         setIsHovered(false);
         scheduleHide();
       }}

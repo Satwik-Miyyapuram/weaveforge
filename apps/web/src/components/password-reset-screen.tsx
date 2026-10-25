@@ -6,6 +6,18 @@ import { useAuth } from "@/features/auth/ui/auth-provider";
 import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
 
+/** The card every status branch of the reset screen sits in. */
+export function ResetShell({ title, children }: { title: string; children?: React.ReactNode }) {
+  return (
+    <main className="app-shell">
+      <div className="card crypto-setup-card">
+        <h1 className="screen-title">{title}</h1>
+        {children}
+      </div>
+    </main>
+  );
+}
+
 export function PasswordResetScreen() {
   const { user, loading, updatePassword } = useAuth();
   const router = useRouter();
@@ -34,9 +46,22 @@ export function PasswordResetScreen() {
     }
   }
 
-  if (loading) return <main className="app-shell"><div className="card crypto-setup-card"><h1 className="screen-title">Checking your reset link…</h1></div></main>;
-  if (!user) return <main className="app-shell"><div className="card crypto-setup-card"><h1 className="screen-title">Reset link unavailable</h1><FormError>This link is expired or has already been used. Request a new password reset email.</FormError></div></main>;
-  if (done) return <main className="app-shell"><div className="card crypto-setup-card"><h1 className="screen-title">Password changed</h1><p className="muted">Your login password has been updated. Your encryption recovery credentials are unchanged.</p><button type="button" className="btn-primary" onClick={() => router.replace("/dashboard")}>Continue</button></div></main>;
+  if (loading) return <ResetShell title="Checking your reset link…" />;
+  if (!user) {
+    return (
+      <ResetShell title="Reset link unavailable">
+        <FormError>This link is expired or has already been used. Request a new password reset email.</FormError>
+      </ResetShell>
+    );
+  }
+  if (done) {
+    return (
+      <ResetShell title="Password changed">
+        <p className="muted">Your login password has been updated. Your encryption recovery credentials are unchanged.</p>
+        <button type="button" className="btn-primary" onClick={() => router.replace("/dashboard")}>Continue</button>
+      </ResetShell>
+    );
+  }
   return (
     <main className="app-shell">
       <form className="card crypto-setup-card" onSubmit={(event) => void submit(event)}>
