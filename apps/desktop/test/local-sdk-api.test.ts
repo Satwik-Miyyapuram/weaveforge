@@ -173,6 +173,17 @@ test("an empty flush is not a statement", async () => {
   assert.equal(asked.length, 0);
 });
 
+// 37-07: a point that is not an object is the client's mistake, a 400, not a TypeError.
+test("a point that is not an object is a 400", async () => {
+  for (const point of ["null", "3", '"x"', "[1]"]) {
+    const { query, asked } = db();
+    const body = `{"points":[${point}]}`;
+    const answer = await route(query, { method: "POST", url: "/api/sdk/metrics", body });
+    assert.equal(answer.status, 400, point);
+    assert.equal(asked.length, 0, point);
+  }
+});
+
 test("a route the SDK does not have is a 404, not a fall-through", async () => {
   const { query } = db();
   assert.equal((await route(query, { url: "/api/sdk/artifacts" })).status, 404);

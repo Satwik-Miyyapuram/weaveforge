@@ -35,8 +35,6 @@ data class PointerSample(
     val major: Float,
     val minor: Float,
     val size: Float,
-    val x: Float,
-    val y: Float,
 )
 
 /** What one event means for the pointer stream. */
@@ -66,7 +64,6 @@ data class GestureEvent(
     val pointers: List<PointerSample>,
     /** Which pointer the phase is about, for `POINTER_DOWN` / `POINTER_UP`. */
     val actionIndex: Int,
-    val actionId: Int,
 )
 
 /**

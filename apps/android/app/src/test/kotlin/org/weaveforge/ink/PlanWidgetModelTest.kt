@@ -1,7 +1,9 @@
 package org.weaveforge.ink
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 
@@ -77,5 +79,18 @@ class PlanWidgetModelTest {
         assertEquals(PlanWidgetModel.Tone.LATE, PlanWidgetModel.tone(-1))
         assertEquals(PlanWidgetModel.Tone.SOON, PlanWidgetModel.tone(3))
         assertEquals(PlanWidgetModel.Tone.LATER, PlanWidgetModel.tone(4))
+    }
+
+    @Test
+    fun `a fetch is kept only for the link it was made with`() {
+        // 42-05: the link can change (setup saved again) or be cleared (last
+        // widget removed) while a fetch is in flight. Its result belongs to the
+        // old link and must not land under the new one, or bring a cleared
+        // credential's data back.
+        val link = "https://app.weaveforge.org/api/plan/feed/$token/widget.json"
+        val other = "https://app.weaveforge.org/api/plan/feed/tt_other/widget.json"
+        assertTrue(PlanWidgetModel.isCurrentFetch(link, link))
+        assertFalse(PlanWidgetModel.isCurrentFetch(link, other))
+        assertFalse(PlanWidgetModel.isCurrentFetch(link, null))
     }
 }

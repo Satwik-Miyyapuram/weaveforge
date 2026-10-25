@@ -33,6 +33,7 @@ const child = spawn(process.execPath, [server], {
 });
 
 const pending = new Map();
+const nonJson = [];
 let stdout = "";
 child.stdout.setEncoding("utf8");
 child.stdout.on("data", (chunk) => {
@@ -41,7 +42,16 @@ child.stdout.on("data", (chunk) => {
   while ((end = stdout.indexOf("\n")) >= 0) {
     const line = stdout.slice(0, end);
     stdout = stdout.slice(end + 1);
-    if (line.trim()) pending.get(JSON.parse(line).id)?.(JSON.parse(line));
+    if (!line.trim()) continue;
+    let reply;
+    try {
+      reply = JSON.parse(line);
+    } catch {
+      // Stdout is the protocol channel; anything else on it is a server bug.
+      nonJson.push(line.slice(0, 200));
+      continue;
+    }
+    pending.get(reply.id)?.(reply);
   }
 });
 
@@ -96,6 +106,7 @@ try {
 } finally {
   child.kill();
 }
+for (const line of nonJson) failures.push(`stdout carries only JSON-RPC, but the server wrote: ${line}`);
 
 if (failures.length) {
   console.error("FAIL: MCP plugin server");

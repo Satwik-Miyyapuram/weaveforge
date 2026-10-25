@@ -23,7 +23,8 @@ const MAX_PARAMS = 60_000;
  * Depth is the longest chain of foreign keys from a table with no parents.
  * Self-references are excluded — a tree of notes points at itself and would
  * otherwise never reach a finite depth — and are handled by deferring
- * constraints during the load instead.
+ * constraints during the load instead. Tables in a longer cycle have no
+ * finite depth either; they come last rather than not at all.
  */
 export async function tableLoadOrder(client, schema = "public") {
   const { rows } = await client.query(
@@ -55,12 +56,35 @@ export async function tableLoadOrder(client, schema = "public") {
       join lvl l on l.tbl = e.parent
       where l.depth < 32
     )
-    select name, max(depth) as depth
-    from lvl group by name order by max(depth), name
+    -- Tables in a foreign-key cycle never reach depth 0; they are kept, last.
+    select t.name, coalesce(max(l.depth), 33) as depth
+    from tables t left join lvl l on l.tbl = t.tbl
+    group by t.name order by 2, 1
     `,
     [schema],
   );
   return rows.map((row) => row.name);
+}
+
+/**
+ * Silence user triggers for a load, inside the caller's open transaction.
+ * Returns whether that worked.
+ *
+ * Replica mode needs superuser on some managed servers. A refused SET aborts
+ * the whole transaction, so it runs under a savepoint and the fallback
+ * (deferring constraints) can still run after a refusal.
+ */
+export async function silenceTriggers(client) {
+  await client.query("savepoint silence_triggers");
+  try {
+    await client.query("set local session_replication_role = replica");
+    await client.query("release savepoint silence_triggers");
+    return true;
+  } catch {
+    await client.query("rollback to savepoint silence_triggers");
+    await client.query("set constraints all deferred");
+    return false;
+  }
 }
 
 /**
@@ -213,4 +237,30 @@ export async function rowCounts(client, tables, schema = "public") {
     counts[table] = rows[0].n;
   }
   return counts;
+}
+
+/**
+ * SQL for one md5 over a table's rows, ordered by primary key.
+ *
+ * Each value goes through `quote_nullable`, so NULL is the word NULL and text
+ * is quoted: `(NULL, 'v')` and `('v', NULL)` differ, and a comma inside a
+ * value cannot pass for the separator. `concat_ws` alone skipped NULLs.
+ */
+export function rowFingerprintSql(table, columns, primaryKey) {
+  const list = columns.map((c) => `quote_nullable("${c}"::text)`).join(", ");
+  const order = primaryKey.map((c) => `"${c}"`).join(", ");
+  return `select md5(string_agg(concat_ws(',', ${list}), E'\n' order by ${order})) as h
+     from "public"."${table}"`;
+}
+
+/** The last line of a verify run. Never "safe" when user isolation went untested. */
+export function cutoverVerdict(failureCount, isolationProbed) {
+  if (failureCount > 0) return { ok: false, message: `✖ ${failureCount} check(s) failed. Do not cut over.` };
+  if (!isolationProbed) {
+    return {
+      ok: false,
+      message: "· The target matches the source, but user isolation was not probed. Not proven safe to cut over.",
+    };
+  }
+  return { ok: true, message: "✓ The target matches the source and isolates users. Safe to cut over." };
 }

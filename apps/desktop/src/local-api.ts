@@ -162,7 +162,12 @@ export async function routeLocalRequest(
   if (!may) return fail(401, UNAUTHORIZED);
 
   const url = new URL(request.url, "http://127.0.0.1");
-  const path = decodeURIComponent(url.pathname);
+  let path: string;
+  try {
+    path = decodeURIComponent(url.pathname);
+  } catch {
+    return fail(400, "The path has a malformed percent escape.");
+  }
   const denied = (need: LocalApiPermission) => fail(403, `This token lacks the ${need} permission.`);
   if (path.startsWith(SDK_PREFIX) && !may.has("experiments")) return denied("experiments");
 

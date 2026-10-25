@@ -169,3 +169,26 @@ test("a history git cannot read is still empty, and the log says why", async (t)
   assert.equal(warn.mock.callCount(), 1);
   assert.match(String(warn.mock.calls[0]!.arguments[0]), /^\[vault-git\] could not read the history: \S/);
 });
+
+// 38-05: with -z a rename is two records, the new path then the old one.
+test("a staged rename is one change under its new path, with no bogus entry", async (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), "wf-vault-git-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  execFileSync("git", ["-C", root, "init", "-q"]);
+  writeFileSync(path.join(root, "old-name.note.md"), "# A note long enough to keep its identity");
+  writeFileSync(path.join(root, "kept.note.md"), "# Kept");
+  execFileSync("git", ["-C", root, "add", "."]);
+  execFileSync("git", ["-C", root, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "old"]);
+  execFileSync("git", ["-C", root, "mv", "old-name.note.md", "new-name.note.md"]);
+  writeFileSync(path.join(root, "kept.note.md"), "# Kept, edited");
+
+  const status = await new NativeWorkspaceGit(root).status();
+
+  assert.deepEqual(
+    [...status].sort((a, b) => a.path.localeCompare(b.path)),
+    [
+      { path: "kept.note.md", state: "modified" },
+      { path: "new-name.note.md", state: "modified" },
+    ],
+  );
+});

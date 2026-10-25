@@ -70,10 +70,14 @@ export async function probeRepo(root: string): Promise<VaultRepoState> {
 /** Porcelain v1 status letters, reduced to the three states we report. */
 function parseStatus(stdout: string): GitFileStatus[] {
   const out: GitFileStatus[] = [];
-  for (const line of stdout.split("\0")) {
+  const records = stdout.split("\0");
+  for (let i = 0; i < records.length; i++) {
+    const line = records[i]!;
     if (line.length < 4) continue;
     const code = line.slice(0, 2);
     const file = line.slice(3);
+    // A rename or copy is followed by a second record: the original path.
+    if (code.includes("R") || code.includes("C")) i++;
     const state = code.includes("D") ? "deleted" : code.includes("?") || code.includes("A") ? "added" : "modified";
     out.push({ path: file, state });
   }

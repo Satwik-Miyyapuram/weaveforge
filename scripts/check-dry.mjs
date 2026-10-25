@@ -32,6 +32,15 @@ const search = (pattern, glob) =>
 
 let failed = false;
 
+/** Fail with a heading and the offending lines, if there are any. */
+function report(lines, heading, footer) {
+  if (lines.length === 0) return;
+  console.error(heading);
+  for (const line of lines) console.error(`  ${line}`);
+  if (footer) console.error(footer);
+  failed = true;
+}
+
 /**
  * Pinned owner labels belong in loadPinnedOwnerNames, not per-screen loops.
  *
@@ -99,29 +108,18 @@ for (const [file, marker] of MEMBER_LABEL_ALLOWED) {
 const pinnedLabelDupes = memberLabelLines.filter(
   (line) => ![...MEMBER_LABEL_ALLOWED.keys()].some((file) => line.startsWith(`${file}:`)),
 );
-if (pinnedLabelDupes.length) {
-  console.error(
-    "FAIL: buildMemberNameMap is used outside the module and helper that own it — call loadPinnedOwnerNames():",
-  );
-  for (const line of pinnedLabelDupes) console.error(`  ${line}`);
-  failed = true;
-}
+report(
+  pinnedLabelDupes,
+  "FAIL: buildMemberNameMap is used outside the module and helper that own it — call loadPinnedOwnerNames():",
+);
 
 /** Share-matching rules live in @weaveforge/core — not in UI. */
 const shareMatchInUi = search("shareCoversResource|shareAllowsComment", "**/ui/**");
-if (shareMatchInUi.length) {
-  console.error("FAIL: share matching belongs in use-cases / @weaveforge/core, not UI:");
-  for (const line of shareMatchInUi) console.error(`  ${line}`);
-  failed = true;
-}
+report(shareMatchInUi, "FAIL: share matching belongs in use-cases / @weaveforge/core, not UI:");
 
 /** Pin merge logic belongs in Load*ScreenUseCase + mergePinnedScreenData. */
 const pinMergeInUi = search("mergePinnedScreenData|listForProject\\(\\)", "**/ui/**");
-if (pinMergeInUi.length) {
-  console.error("FAIL: pin merge / library_pins access belongs in screen use-cases, not UI:");
-  for (const line of pinMergeInUi) console.error(`  ${line}`);
-  failed = true;
-}
+report(pinMergeInUi, "FAIL: pin merge / library_pins access belongs in screen use-cases, not UI:");
 
 /**
  * Per-kind decisions live in the editor workspace's kind table.
@@ -150,13 +148,7 @@ const kindBranchOwners = [
 const strayKindBranches = kindBranches.filter(
   (line) => !kindBranchOwners.some((owner) => line.replace(/\\/g, "/").includes(owner)),
 );
-if (strayKindBranches.length) {
-  console.error(
-    "FAIL: per-kind branch outside the kind table — add a column to ui/kind.ts instead:",
-  );
-  for (const line of strayKindBranches) console.error(`  ${line}`);
-  failed = true;
-}
+report(strayKindBranches, "FAIL: per-kind branch outside the kind table — add a column to ui/kind.ts instead:");
 
 /**
  * Types declared inline as `import("@weaveforge/core").X`.
@@ -172,13 +164,10 @@ if (strayKindBranches.length) {
  * mostly lazy-loaded modules, where the inline form is the local convention.
  */
 const inlineCoreTypes = search('import\\("@weaveforge/core"\\)\\.', "**/*.{ts,tsx}");
-if (inlineCoreTypes.length) {
-  console.error(
-    'FAIL: types declared inline as import("@weaveforge/core").X — hoist them into a top-level import type:',
-  );
-  for (const line of inlineCoreTypes) console.error(`  ${line}`);
-  failed = true;
-}
+report(
+  inlineCoreTypes,
+  'FAIL: types declared inline as import("@weaveforge/core").X — hoist them into a top-level import type:',
+);
 
 /**
  * `select("*")` in a repository implementation.
@@ -213,18 +202,13 @@ const selectStar = search('select\\("\\*"\\)', "**/infrastructure/**/*.ts").filt
   (line) => !/:\s*(?:\*|\/\/)/.test(line),
 );
 
-if (selectStar.length) {
-  console.error(
-    'FAIL: select("*") in a repository — name the columns the caller reads (PERF-04):',
-  );
-  for (const line of selectStar) console.error(`  ${line}`);
-  console.error(
-    "\n  A star transfers whatever the table grows next to every caller, and it never\n" +
-      "  breaks: the row type is wide, the mapper ignores extra fields, the tests pass.\n" +
-      "  Name the projection; the row type in that read tells you which columns.",
-  );
-  failed = true;
-}
+report(
+  selectStar,
+  'FAIL: select("*") in a repository — name the columns the caller reads (PERF-04):',
+  "\n  A star transfers whatever the table grows next to every caller, and it never\n" +
+    "  breaks: the row type is wide, the mapper ignores extra fields, the tests pass.\n" +
+    "  Name the projection; the row type in that read tells you which columns.",
+);
 
 if (failed) {
   console.error("\nSee docs/building/dev.md § Post-merge review checklist (SOLID / DRY).");

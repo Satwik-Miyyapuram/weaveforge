@@ -159,7 +159,13 @@ for (const file of providerRosterFiles) {
 
 const facadeWiredSnapshot = (() => {
   const source = readFileSync(path.join(root, "apps/web/src/create-app-container.ts"), "utf8");
-  const wiring = /new WorkspaceFacade\(\{([\s\S]*?)\}\)/.exec(source)?.[1] ?? "";
+  const wiring = /new WorkspaceFacade\(\{([\s\S]*?)\}\)/.exec(source)?.[1];
+  // A missing block would make the rule pass on nothing; say so instead.
+  if (wiring === undefined) {
+    console.error("FAIL: create-app-container.ts has no `new WorkspaceFacade({ ... })` block to check.");
+    failed = true;
+    return [];
+  }
   return [...wiring.matchAll(/^\s*\w+:\s*([\w.]*Facade)\b/gm)].map((m) => m[1]);
 })();
 if (facadeWiredSnapshot.length) {

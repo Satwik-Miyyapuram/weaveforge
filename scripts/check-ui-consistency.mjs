@@ -14,9 +14,10 @@
  * A rule must be clean when it is added. A gate that ships red teaches people
  * to ignore it.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { walkFiles } from "./lib/db-connection.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -96,19 +97,8 @@ const RULES = [
  * into the product *after* the design audit that found the last three had been
  * closed. A gate that cannot see the file the violation is in is not a gate.
  */
-function collect(dir, out = []) {
-  for (const entry of readdirSync(dir)) {
-    const full = path.join(dir, entry);
-    if (statSync(full).isDirectory()) {
-      collect(full, out);
-    } else if (entry.endsWith(".tsx") || entry.endsWith(".ts")) {
-      out.push(full);
-    }
-  }
-  return out;
-}
-
-const files = UI_PATHS.flatMap((p) => collect(path.join(root, p)));
+const isSource = (name) => name.endsWith(".tsx") || name.endsWith(".ts");
+const files = UI_PATHS.flatMap((p) => walkFiles(path.join(root, p), isSource));
 let failed = false;
 
 for (const rule of RULES) {

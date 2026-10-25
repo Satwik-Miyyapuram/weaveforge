@@ -64,3 +64,27 @@ test("a body past the limit is refused, and the next request is still served", a
     await api.close();
   }
 });
+
+// 37-04: a 500 the caller only sees as "Something went wrong" leaves its cause in the log.
+test("a route that throws answers 500 and logs why", async (t) => {
+  let api: LocalApi;
+  try {
+    // A database that rejects, so the route throws rather than answering.
+    api = await startLocalApi(session, () => TOKEN, () => Promise.reject(new Error("db down")));
+  } catch {
+    t.skip(`port ${LOCAL_API_PORT} is busy`);
+    return;
+  }
+  const logged: string[] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => void logged.push(args.map(String).join(" "));
+  try {
+    assert.equal(await send({ path: "/api/sdk/whoami?secret=1" }), 500);
+    assert.equal(logged.length, 1, logged.join("\n"));
+    assert.match(logged[0] ?? "", /\[local-api\] GET \/api\/sdk\/whoami failed: .*db down/);
+    assert.ok(!(logged[0] ?? "").includes("secret"), "the query string is not logged");
+  } finally {
+    console.error = original;
+    await api.close();
+  }
+});

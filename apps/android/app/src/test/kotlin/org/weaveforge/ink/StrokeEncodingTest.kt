@@ -1,6 +1,7 @@
 package org.weaveforge.ink
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** The stroke payload the web side's `nativeStrokeEvents` reads as `[x, y, p, t, …]`. */
@@ -32,10 +33,39 @@ class StrokeEncodingTest {
         // 4.7 hours of uptime. Times are stored relative to the stroke's first
         // sample and the absolute uptime is restored when encoded.
         val origin = (1L shl 24) + 1
-        val points = arrayListOf(1f, 2f, 0.5f, 0f, -0.5f, 2f, 0.5f, 1f)
+        val points = buffer(1f, 2f, 0.5f, 0f, -0.5f, 2f, 0.5f, 1f)
         assertEquals(
             "[1.00,2.00,0.500,16777217,-0.50,2.00,0.500,16777218]",
             encodeStroke(points, origin),
         )
     }
+
+    @Test
+    fun `an empty stroke encodes as an empty array`() {
+        assertEquals("[]", encodeStroke(FloatBuffer(), 0L))
+    }
+
+    @Test
+    fun `the buffer grows past its first capacity and keeps every value`() {
+        // 42-12: the stroke buffer holds primitive floats, not boxed ones.
+        val points = FloatBuffer(initialCapacity = 2)
+        for (i in 0 until 1_000) points.add(i.toFloat())
+        assertEquals(1_000, points.size)
+        assertEquals(0f, points[0], 0f)
+        assertEquals(999f, points[999], 0f)
+        points.clear()
+        assertEquals(0, points.size)
+        assertTrue(points.isEmpty())
+        points.add(7f)
+        assertEquals(7f, points[0], 0f)
+    }
+
+    @Test(expected = IndexOutOfBoundsException::class)
+    fun `reading past the end fails rather than returning a stale value`() {
+        val points = buffer(1f, 2f)
+        points.clear()
+        points[0]
+    }
+
+    private fun buffer(vararg values: Float) = FloatBuffer().also { b -> values.forEach(b::add) }
 }

@@ -27,8 +27,8 @@ import {
   measure,
   migrations,
   n,
+  mcpToolNames,
   read,
-  switchCases,
   webRoutes,
 } from "./lib/repo-stats.mjs";
 
@@ -47,13 +47,8 @@ function values() {
   const migration = migrations();
   const routes = webRoutes();
 
-  const relay = switchCases(
-    "apps/web/src/features/ai-assistant/infrastructure/mcp-browser-relay.ts",
-  );
-  const proposals = relay.filter((tool) => tool.startsWith("suggest_"));
-  const workspaceTools = [
-    ...read("apps/desktop/src/local-mcp.ts").matchAll(/name: "([a-z_]+)"/g),
-  ].filter((match) => match[1] !== "weaveforge-workspace");
+  const { reads, proposals, workspace: workspaceTools } = mcpToolNames();
+  const relay = [...reads, ...proposals];
 
   const docs = measure({ dir: "docs", unit: "files" });
 

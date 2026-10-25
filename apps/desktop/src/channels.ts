@@ -103,12 +103,6 @@ export const CHANNELS = {
    */
   zoteroLocal: "weaveforge:zotero-local",
   /**
-   * Whether this computer has a TeX, and one compile with it.
-   *
-   * The app ships no TeX -- a full TeX Live is several gigabytes -- so the
-   * probe answers null on most machines and the feature stays hidden.
-   */
-  /**
    * Main -> renderer: rank these files against this query.
    *
    * The encoder lives in the window, so the MCP server has to ask for a
@@ -117,6 +111,12 @@ export const CHANNELS = {
    */
   semanticRank: "weaveforge:semantic-rank",
   semanticRanked: "weaveforge:semantic-ranked",
+  /**
+   * Whether this computer has a TeX, and one compile with it.
+   *
+   * The app ships no TeX -- a full TeX Live is several gigabytes -- so the
+   * probe answers null on most machines and the feature stays hidden.
+   */
   texProbe: "weaveforge:tex-probe",
   texCompile: "weaveforge:tex-compile",
   /** Mattermost sign-in in its own window; answers the session token, or null if closed. See `mattermost-signin.ts`. */

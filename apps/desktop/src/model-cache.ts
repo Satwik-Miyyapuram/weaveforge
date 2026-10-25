@@ -159,6 +159,10 @@ async function download(
   });
   if (!upstream) return { status: 502 };
   if (!upstream.ok) return { status: upstream.status };
+  // Refuse a declared oversize file before buffering it; the check after the
+  // read still catches a missing or lying header.
+  const declared = Number(upstream.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > MAX_FILE_BYTES) return { status: 502 };
 
   const bytes = new Uint8Array(await upstream.arrayBuffer());
   if (bytes.byteLength > MAX_FILE_BYTES) return { status: 502 };

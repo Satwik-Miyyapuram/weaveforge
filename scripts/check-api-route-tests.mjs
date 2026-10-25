@@ -71,9 +71,11 @@ for (const route of routes) {
   // And a test that never reaches the handler proves nothing about it. The two
   // `_shared` modules are accepted because the routes under them delegate their
   // whole precondition to that module, which has its own test.
+  // Only the colocated handler counts: `[^"']*route` also matched `./router`
+  // and `@/lib/some-route`, which are not the handler under test.
   const importsRoute =
-    /from\s+["'][^"']*route["']/.test(source) ||
-    /from\s+["'][^"']*_shared["']/.test(source);
+    /(?:from|import\()\s*["']\.\.\/route(?:\.ts)?["']/.test(source) ||
+    /(?:from|import\()\s*["'](?:[^"']*\/)?_shared(?:\/[^"']+)?["']/.test(source);
   if (!importsRoute) {
     empty.push(`${relTest} — does not import the route or its _shared gate`);
   }

@@ -33,7 +33,13 @@ export function localArtifactWriter(root: string): SaveArtifact {
 
 /** Serves one saved artifact; every segment is re-checked so a URL cannot leave `root`. */
 export async function serveLocalArtifact(root: string, url: string): Promise<Response> {
-  const segments = new URL(url).pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  let segments: string[];
+  try {
+    segments = new URL(url).pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  } catch {
+    // A broken percent escape: answered here, not left to reject the protocol handler.
+    return new Response(null, { status: 400 });
+  }
   if (segments.length !== 3 || !segments.every(isSafeSegment)) return new Response(null, { status: 404 });
   const file = path.join(root, ...segments);
   const bytes = await readFile(file).catch(() => null);
