@@ -33,7 +33,7 @@ test("the AA margin is one device pixel, which is the overdraw lever", () => {
 });
 
 test("the packer writes the subdivided spline, in the layout the shader reads", () => {
-  const out = new Float32Array(INK_INSTANCE_FLOATS * 8);
+  const out = new Float32Array(INK_INSTANCE_FLOATS * strokeInstanceCount(3));
   const written = packStrokeInstances(
     {
       x: Float32Array.from([0, 10, 20]),
