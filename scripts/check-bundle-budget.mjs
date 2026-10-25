@@ -117,7 +117,9 @@ const ROUTE_ALLOWANCES_KB = {
   // Reader zoom keys in the shell and aborted-transaction recovery in the screen loader: +1 KB.
   // Logged failures and a once-per-mount TeX probe from the S10 sweep (#504): +1 KB.
   // No dependency arrived; the code is the error paths that used to be empty.
-  "/experiments": 443,
+  // The S13 sweep (#505) logs live-sync probe and listener failures in the shared
+  // top navigation: +1 KB, again error paths and no new dependency.
+  "/experiments": 444,
   // The review panel and the PDF reader shell each sit a little above the default.
   "/ai-review": 432,
   "/reader": 428,

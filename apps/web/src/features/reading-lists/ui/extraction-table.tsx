@@ -16,16 +16,14 @@ import {
   flattenPaperRows,
   pendingFieldFills,
   pendingKey,
+  relationTitles,
   type ExtractionColumnId,
   type ExtractionRow,
   type PendingFieldFill,
 } from "../application/extraction-table";
 import { collectListIds } from "./list-ui";
 import { FormError } from "@/components/form-error";
-
-function collectSubtreeIds(node: ReadingListTreeNode): string[] {
-  return collectListIds([node]);
-}
+import { latestGate } from "@/lib/latest-gate";
 
 function isFillableField(def: PaperFieldDef): boolean {
   return def.kind === "text" || def.kind === "number" || def.kind === "select" || def.kind === "multi_select";
@@ -49,15 +47,20 @@ export function ExtractionTable({
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [promptFieldId, setPromptFieldId] = useState<string | null>(null);
+  // Reloads overlap (mount, each save, each proposals event): keep the newest.
+  const [beginReload] = useState(latestGate);
+  const titleById = useMemo(() => new Map(papers.map((p) => [p.id, p.title])), [papers]);
 
   const reload = useCallback(async () => {
-    const listIds = collectSubtreeIds(node);
+    const isCurrent = beginReload();
+    const listIds = collectListIds([node]);
     const [nextDefs, items, allValues, proposals] = await Promise.all([
       getContainer().paperFields.listPaperFieldDefs(),
       getContainer().readingLists.listItemsForLists(listIds),
       getContainer().paperFields.listPaperFieldValuesForProject(),
       getContainer().aiProposals.listPending(),
     ]);
+    if (!isCurrent()) return;
     const paperIds = items.flatMap((item) => (item.paperId ? [item.paperId] : []));
     setDefs(nextDefs);
     setRows(flattenPaperRows(papers, paperIds, allValues, nextDefs));
@@ -70,7 +73,7 @@ export function ExtractionTable({
       const missing = fieldCols.filter((c) => !kept.includes(c));
       return [...kept, ...missing];
     });
-  }, [node, papers]);
+  }, [node, papers, beginReload]);
 
   useEffect(() => {
     void reload().catch((err) => setError(formatError(err)));
@@ -269,7 +272,7 @@ export function ExtractionTable({
                           row={row}
                           column={column}
                           defs={defs}
-                          papers={papers}
+                          titleById={titleById}
                           disabled={busy || readOnly}
                           onSave={saveCell}
                         />
@@ -290,14 +293,14 @@ function ExtractionCell({
   row,
   column,
   defs,
-  papers,
+  titleById,
   disabled,
   onSave,
 }: {
   row: ExtractionRow;
   column: ExtractionColumnId;
   defs: PaperFieldDef[];
-  papers: Paper[];
+  titleById: ReadonlyMap<string, string>;
   disabled: boolean;
   onSave: (paperId: string, fieldId: string, value: PaperFieldValueData | null) => void;
 }) {
@@ -316,9 +319,7 @@ function ExtractionCell({
         {value == null
           ? "—"
           : Array.isArray(value)
-            ? value
-                .map((id) => papers.find((p) => p.id === id)?.title ?? String(id))
-                .join(", ")
+            ? relationTitles(value, titleById)
             : String(value)}
       </span>
     );

@@ -1,12 +1,14 @@
 /** Milestones with compute and dependencies, and the logbook. */
 
+import type { ComputeNeed, MilestoneDependency } from "@weaveforge/core";
+
 export interface ShowcaseMilestone {
   title: string;
   description?: string;
   status: "planned" | "in_progress" | "done" | "blocked";
   target_date: string;
-  dependencies?: unknown[];
-  compute?: unknown[];
+  dependencies?: MilestoneDependency[];
+  compute?: ComputeNeed[];
 }
 
 export const SHOWCASE_MILESTONES: ShowcaseMilestone[] = [

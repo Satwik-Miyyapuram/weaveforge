@@ -9,7 +9,9 @@ import { FormError } from "@/components/form-error";
 import { useProfile } from "@/features/org";
 import { formatError } from "@/lib/format-error";
 import { readStored, writeStored } from "@/lib/safe-storage";
+import { buildMemberNameMap } from "../application/member-labels";
 import { anchorAt, locateAnchor, type TextSpan } from "../domain/text-anchor";
+import { offsetOf, paintHighlights } from "./note-text-ranges";
 
 /**
  * The one comment system: threads with replies that resolve and fold away. Given
@@ -23,8 +25,6 @@ import { anchorAt, locateAnchor, type TextSpan } from "../domain/text-anchor";
  * work; they just aren't lit in the text.
  */
 const OPEN_KEY = "wf-note-comments-open";
-const HL = "wf-comment";
-const HL_ACTIVE = "wf-comment-active";
 
 interface Thread {
   root: Comment;
@@ -101,7 +101,7 @@ export function NoteComments({
   }, [reload]);
 
   const nameOf = useMemo(() => {
-    const map = new Map(members.map((m) => [m.id, m.fullName ?? m.email ?? "Member"]));
+    const map = buildMemberNameMap(members);
     return (id: string) => (id === profile?.id ? "You" : map.get(id) ?? "Member");
   }, [members, profile?.id]);
 
@@ -126,27 +126,13 @@ export function NoteComments({
 
   // Light the open threads' passages, and the active one more strongly.
   useEffect(() => {
-    const el = contentRef?.current;
-    const reg = typeof CSS !== "undefined" ? (CSS as unknown as { highlights?: Map<string, unknown> }).highlights : undefined;
-    const HighlightCtor = (globalThis as { Highlight?: new (...r: Range[]) => unknown }).Highlight;
     // No text to light; leave the page-wide highlights to the instance that has one.
-    if (!contentRef || !reg || !HighlightCtor) return;
-    const all: Range[] = [];
-    const active: Range[] = [];
-    if (el) {
-      for (const t of openThreads) {
-        if (!t.span) continue;
-        const range = rangeAt(el, t.span);
-        if (!range) continue;
-        (t.root.id === activeId ? active : all).push(range);
-      }
-    }
-    reg.set(HL, new HighlightCtor(...all));
-    reg.set(HL_ACTIVE, new HighlightCtor(...active));
-    return () => {
-      reg.delete(HL);
-      reg.delete(HL_ACTIVE);
-    };
+    if (!contentRef) return;
+    return paintHighlights(
+      contentRef.current,
+      openThreads.map((t) => ({ id: t.root.id, span: t.span })),
+      activeId,
+    );
   }, [contentRef, openThreads, activeId, text]);
 
   // Selecting text in the note offers a comment on it; clicking a lit passage
@@ -383,33 +369,4 @@ function CommentLine({ c, name, canDelete, onDelete }: { c: Comment; name: strin
       <p className="note-comment-body">{c.body}</p>
     </div>
   );
-}
-
-/** Character offset of a DOM point within `root`'s text. */
-function offsetOf(root: Node, node: Node, offset: number): number {
-  const range = document.createRange();
-  range.selectNodeContents(root);
-  range.setEnd(node, offset);
-  return range.toString().length;
-}
-
-/** A DOM range over `span` of `root`'s text, or null when the text has moved on. */
-function rangeAt(root: Node, span: TextSpan): Range | null {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  const range = document.createRange();
-  let seen = 0;
-  let started = false;
-  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-    const len = n.nodeValue?.length ?? 0;
-    if (!started && span.start <= seen + len) {
-      range.setStart(n, span.start - seen);
-      started = true;
-    }
-    if (started && span.end <= seen + len) {
-      range.setEnd(n, span.end - seen);
-      return range;
-    }
-    seen += len;
-  }
-  return null;
 }

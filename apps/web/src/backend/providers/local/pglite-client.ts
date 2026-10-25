@@ -186,13 +186,27 @@ function encode(
   return value as string | number | boolean;
 }
 
-/** Splits top-level comma-separated expressions, ignoring commas inside parentheses like `col.in.(a,b)`. */
+/**
+ * Splits top-level comma-separated expressions, ignoring commas inside
+ * parentheses like `col.in.(a,b)` and inside PostgREST's double-quoted values,
+ * where `\` escapes the next character.
+ */
 function splitTopLevel(expression: string): string[] {
   const parts: string[] = [];
   let current = "";
   let depth = 0;
+  let quoted = false;
+  let escaped = false;
   for (const ch of expression) {
-    if (ch === "(") depth++;
+    if (quoted) {
+      current += ch;
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') quoted = false;
+      continue;
+    }
+    if (ch === '"') quoted = true;
+    else if (ch === "(") depth++;
     else if (ch === ")") depth--;
     if (ch === "," && depth === 0) {
       if (current.trim()) parts.push(current.trim());
@@ -324,7 +338,9 @@ class Builder<T> implements PromiseLike<Reply<T>> {
   or(expression: string): this {
     const parts = splitTopLevel(expression).map((clause) => {
       const [column = "", operator = "", ...rest] = clause.split(".");
-      const raw = rest.join(".");
+      const joined = rest.join(".");
+      // A double-quoted value is PostgREST's way to carry `,` `.` `(` `)` as text.
+      const raw = /^".*"$/s.test(joined) ? joined.slice(1, -1).replace(/\\(.)/gs, "$1") : joined;
       if (operator === "is") return `${ident(column)} is ${isLiteral(raw.toLowerCase())}`;
       if (operator === "in") {
         const items = raw.replace(/^\(|\)$/g, "").split(",").map((s) => s.trim()).filter(Boolean);

@@ -17,7 +17,6 @@ import {
 import { inChunks, one, rows, run } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 
-/** Ids per `in (...)` request; the list travels in the URL. */
 /**
  * The columns a VaultPageRow is read as, named rather than starred.
  *
@@ -74,8 +73,11 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
           : query.eq("parent_id", filter.parentId);
     }
     if (filter?.query) {
-      const pattern = `%${filter.query.replace(/[\\%_]/g, "\\$&")}%`;
-      query = query.or(`title.ilike."${pattern}",body.ilike."${pattern}"`);
+      // Two escapes, in order: LIKE's (`\ % _` are text), then PostgREST's
+      // double-quoted value (`\ "`), which it reads once before LIKE sees it.
+      const like = `%${filter.query.replace(/[\\%_]/g, "\\$&")}%`;
+      const quoted = like.replace(/[\\"]/g, "\\$&");
+      query = query.or(`title.ilike."${quoted}",body.ilike."${quoted}"`);
     }
     query = query.order("sort_order", { ascending: true }).order("title", { ascending: true });
     return (await rows<VaultPageRow>(query)).map(toDomain);
@@ -108,14 +110,8 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
     const { data, error } = await query;
     if (error) throw error;
     return (data as VaultPageRow[]).map((row) => ({
-      id: row.id,
-      title: row.title,
-      body: "",
+      ...toSummaryDomain(row),
       bodyPreview: vaultBodyPreview(row.body ?? ""),
-      parentId: row.parent_id ?? undefined,
-      sortOrder: row.sort_order,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
     }));
   }
 

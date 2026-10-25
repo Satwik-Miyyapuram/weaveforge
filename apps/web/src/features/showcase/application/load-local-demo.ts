@@ -1,5 +1,6 @@
 import { LOCAL_USER_ID } from "@weaveforge/core";
 import { localBackendParts } from "@/backend/providers/local/wire-local-backend";
+import { fetchShowcaseChart } from "./fetch-showcase-chart";
 import { seedShowcase, type SeedShowcaseResult } from "../infrastructure/seed-showcase";
 
 /**
@@ -17,10 +18,6 @@ export async function loadLocalDemoWorkspace(): Promise<SeedShowcaseResult> {
     db,
     userId: LOCAL_USER_ID,
     store: blobStore,
-    chart: async (kind) => {
-      const res = await fetch(`/showcase/${kind}.png`);
-      if (!res.ok) return null;
-      return res.blob();
-    },
+    chart: (kind) => fetchShowcaseChart(kind),
   });
 }

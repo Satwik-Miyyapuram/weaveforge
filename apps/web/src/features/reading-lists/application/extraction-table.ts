@@ -203,3 +203,8 @@ function csvEscape(value: string): string {
   if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
   return value;
 }
+
+/** A relation or rollup cell's papers, by title (the id when the paper is gone). */
+export function relationTitles(ids: readonly unknown[], titleById: ReadonlyMap<string, string>): string {
+  return ids.map((id) => titleById.get(String(id)) ?? String(id)).join(", ");
+}

@@ -120,8 +120,9 @@ export function CollabBodyHost({
     markdownEditing?.citationFormat ?? "wikilink",
   );
   citationFormatRef.current = markdownEditing?.citationFormat ?? "wikilink";
-  const editableCompartment = useRef(new Compartment());
-  const themeCompartment = useRef(new Compartment());
+  // Lazy initialisers: a `useRef(new …)` argument is rebuilt on every render.
+  const [editableCompartment] = useState(() => new Compartment());
+  const [themeCompartment] = useState(() => new Compartment());
   const pasteSettingsRef = usePasteSettingsRef();
   const imagePasteRef = useRef(markdownEditing?.imagePaste);
   imagePasteRef.current = markdownEditing?.imagePaste;
@@ -138,8 +139,8 @@ export function CollabBodyHost({
             placeholder,
             completionsRef,
             citationFormatRef,
-            editableCompartment: editableCompartment.current,
-            themeCompartment: themeCompartment.current,
+            editableCompartment,
+            themeCompartment,
             pasteSettingsRef,
             tagsRef,
             createNoteRef,
@@ -160,7 +161,7 @@ export function CollabBodyHost({
 
   const docChangeRef = useRef(onDocChange);
   docChangeRef.current = onDocChange;
-  const docChange = useRef(docChangeListener(docChangeRef)).current;
+  const [docChange] = useState(() => docChangeListener(docChangeRef));
 
   const extensions = useMemo(() => {
     // Nothing given: the editor falls back to its own plain stack.
@@ -174,7 +175,7 @@ export function CollabBodyHost({
       if (!markdownExtensions) return stopCallerWatch;
       const stopThemeWatch = watchSiteTheme(() => {
         view.dispatch({
-          effects: themeCompartment.current.reconfigure(createCodeMirrorThemeForSite()),
+          effects: themeCompartment.reconfigure(createCodeMirrorThemeForSite()),
         });
       });
       const releaseHandle = bindEditorHandle(handleRef, view, () => imagePasteRef.current);

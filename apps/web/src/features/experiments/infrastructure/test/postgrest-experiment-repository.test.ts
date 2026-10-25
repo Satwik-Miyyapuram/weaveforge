@@ -85,3 +85,32 @@ test("experiments: an empty patch sends nothing", async () => {
   await repo(rec).patch("exp-1", {});
   assert.equal(rec.sql.length, 0);
 });
+
+/** A client whose every select returns these rows. */
+function returning(found: Record<string, unknown>[]) {
+  const run: LocalQuery = async () => found as never;
+  return new PostgrestExperimentRepository(
+    createLocalClient(run) as unknown as SupabaseClient,
+    { projectId: "p1" },
+  );
+}
+
+function expRow(id: string, name: string) {
+  return {
+    id, name, hypothesis: null, status: "planned", repo_url: null, commit_sha: null, branch: null,
+    run_command: null, config: null, metrics: null, artifacts: null, result_note: null,
+    started_at: null, finished_at: null, related_paper: null, created_at: "2026-01-01T00:00:00Z",
+  };
+}
+
+test("experiments: nameContains keeps names containing it, ignoring case (35-19)", async () => {
+  const found = [expRow("a", "VAE baseline"), expRow("b", "GAN sweep"), expRow("c", "beta-vae")];
+  const names = (await returning(found).list({ nameContains: "vae" })).map((e) => e.name);
+  assert.deepEqual(names, ["VAE baseline", "beta-vae"]);
+});
+
+test("experiments: no nameContains, or an empty one, keeps every row", async () => {
+  const found = [expRow("a", "VAE baseline"), expRow("b", "GAN sweep")];
+  assert.equal((await returning(found).list()).length, 2);
+  assert.equal((await returning(found).list({ nameContains: "" })).length, 2);
+});

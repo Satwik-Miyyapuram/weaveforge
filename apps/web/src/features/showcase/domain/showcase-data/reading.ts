@@ -12,6 +12,9 @@ export interface ShowcaseReadingList {
   notes?: Record<string, string>;
 }
 
+/** The systematic-review list; screening decisions name it too. */
+const SR = "Systematic review — disentanglement metrics";
+
 export const SHOWCASE_READING_LISTS: ShowcaseReadingList[] = [
   {
     name: "Thesis foundations",
@@ -71,7 +74,7 @@ export const SHOWCASE_READING_LISTS: ShowcaseReadingList[] = [
     papers: [T.simclr, T.moco, T.byol, T.dgi],
   },
   {
-    name: "Systematic review — disentanglement metrics",
+    name: SR,
     description: "Screening for the survey table in Ch. 2. Inclusion: proposes or evaluates a metric on dSprites.",
     color: "#c75c5c",
     papers: [T.betaVae, T.factorVae, T.tcvae, T.dipVae, T.eastwood, T.locatello, T.infogan, T.vqVae, T.iwae, T.ladder, T.dsprites, T.cvae],
@@ -85,8 +88,6 @@ export interface ShowcaseScreeningDecision {
   state: "included" | "excluded" | "unsure";
   reason?: string;
 }
-
-const SR = "Systematic review — disentanglement metrics";
 
 export const SHOWCASE_SCREENING: ShowcaseScreeningDecision[] = [
   { list: SR, paper: T.betaVae, stage: "title_abstract", state: "included" },

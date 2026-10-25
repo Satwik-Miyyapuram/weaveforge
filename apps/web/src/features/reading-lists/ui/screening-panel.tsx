@@ -19,6 +19,7 @@ import {
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
+import { latestGate } from "@/lib/latest-gate";
 import { collectListIds } from "./list-ui";
 
 const STAGE_LABEL: Record<ScreeningStage, string> = {
@@ -75,22 +76,39 @@ export function ScreeningPanel({
     [papers],
   );
 
+  // A reload runs on mount and after each decision: keep only the newest answer.
+  const [beginReload] = useState(latestGate);
+
   const reload = useCallback(async () => {
+    const isCurrent = beginReload();
     const container = getContainer();
-    const listIds = collectListIds([node]);
-    const [rows, user] = await Promise.all([
-      container.readingLists.listItemsForLists(listIds),
-      container.auth.auth.getUser(),
-    ]);
+    const rows = await container.readingLists.listItemsForLists(collectListIds([node]));
     const screened = rows.filter((row) => !row.inheritedFromListId);
+    const nextSummary = await container.readingLists.screenItems.summarize(screened);
+    if (!isCurrent()) return;
     setItems(screened);
-    setSummary(await container.readingLists.screenItems.summarize(screened));
-    setMe(user?.id ?? null);
-  }, [node]);
+    setSummary(nextSummary);
+  }, [node, beginReload]);
 
   useEffect(() => {
     reload().catch((e) => setError(formatError(e)));
   }, [reload]);
+
+  // Who is screening does not change between decisions: ask once.
+  useEffect(() => {
+    let cancelled = false;
+    getContainer()
+      .auth.auth.getUser()
+      .then((user) => {
+        if (!cancelled) setMe(user?.id ?? null);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(formatError(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const decide = async (itemId: string, state: ScreeningState) => {
     if (!me) {

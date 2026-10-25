@@ -13,6 +13,8 @@ import {
 } from "@weaveforge/core";
 import type { OpenConflict } from "../domain/conflicts";
 import { sameValue } from "../domain/merge";
+import { FormError } from "@/components/form-error";
+import { runSyncAction } from "./run-sync-action";
 import { useSyncIssues } from "./use-sync-issues";
 
 /**
@@ -28,6 +30,8 @@ const DEAD_SHOWN = 5;
 export function SyncIssuesPanel() {
   const { issues, keep, resolveDeletion, keepAllConflicts, retry, discard } = useSyncIssues();
   const [showAll, setShowAll] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = (action: () => Promise<unknown>) => void runSyncAction(action, setError);
   const { dead } = issues;
   // A conflict with no cloud copy yet has nothing to choose between; the next pull settles or fills it.
   const conflicts = issues.conflicts.filter((c) => c.kind === "edit" && c.fields.length > 0);
@@ -55,15 +59,16 @@ export function SyncIssuesPanel() {
         </div>
         {decisions > 1 && (
           <div className="field-inline">
-            <button type="button" className="btn-secondary btn-sm" onClick={() => void keepAllConflicts("local")}>
+            <button type="button" className="btn-secondary btn-sm" onClick={() => run(() => keepAllConflicts("local"))}>
               Keep all mine
             </button>
-            <button type="button" className="btn-secondary btn-sm" onClick={() => void keepAllConflicts("remote")}>
+            <button type="button" className="btn-secondary btn-sm" onClick={() => run(() => keepAllConflicts("remote"))}>
               Take all cloud
             </button>
           </div>
         )}
       </div>
+      <FormError>{error}</FormError>
       {waiting > 0 && (
         <p className="muted">
           {waiting === 1 ? "One edit was" : `${waiting} edits were`} refused as out of date. Waiting for the
@@ -86,10 +91,10 @@ export function SyncIssuesPanel() {
             <h4>Refused writes</h4>
             {dead.length > 1 && (
               <div className="field-inline">
-                <button type="button" className="btn-secondary btn-sm" onClick={() => dead.forEach((e) => void retry(e.opId))}>
+                <button type="button" className="btn-secondary btn-sm" onClick={() => run(() => Promise.all(dead.map((e) => retry(e.opId))))}>
                   Try all again
                 </button>
-                <button type="button" className="btn-ghost btn-sm" onClick={() => dead.forEach((e) => void discard(e.opId))}>
+                <button type="button" className="btn-ghost btn-sm" onClick={() => run(() => Promise.all(dead.map((e) => discard(e.opId))))}>
                   Discard all
                 </button>
               </div>
@@ -105,10 +110,10 @@ export function SyncIssuesPanel() {
                 <p className="muted">{entry.lastError ?? "No reason given."}</p>
               </div>
               <div className="field-inline">
-                <button type="button" className="btn-secondary btn-sm" onClick={() => void retry(entry.opId)}>
+                <button type="button" className="btn-secondary btn-sm" onClick={() => run(() => retry(entry.opId))}>
                   Try again
                 </button>
-                <button type="button" className="btn-ghost btn-sm" onClick={() => void discard(entry.opId)}>
+                <button type="button" className="btn-ghost btn-sm" onClick={() => run(() => discard(entry.opId))}>
                   Discard
                 </button>
               </div>
@@ -138,14 +143,12 @@ function DeletionCard({
   onResolve: (choice: "keep" | "delete") => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const here = conflict.kind === "deleted_local";
   const choose = async (choice: "keep" | "delete") => {
     setBusy(true);
-    try {
-      await onResolve(choice);
-    } finally {
-      setBusy(false);
-    }
+    await runSyncAction(() => onResolve(choice), setError);
+    setBusy(false);
   };
   return (
     <article className="sync-conflict" data-kind={conflict.kind}>
@@ -160,6 +163,7 @@ function DeletionCard({
         <span className="muted">
           {here ? "Restoring brings back the cloud copy." : "Keeping sends your copy back to the cloud."}
         </span>
+        <FormError>{error}</FormError>
         <span className="sync-conflict-actions">
           <button type="button" className="btn-ghost btn-sm" disabled={busy} onClick={() => void choose(here ? "keep" : "delete")}>
             {here ? "Restore cloud copy" : "Delete it"}
@@ -191,6 +195,7 @@ function ConflictCard({
 }) {
   const [choices, setChoices] = useState<Record<string, Choice>>({});
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   // Fields equal on both sides need no choice; showing them hid the real difference.
   const fields = conflict.fields.filter((f) => !sameValue(f.local ?? null, f.remote ?? null));
   const equal = conflict.fields.filter((f) => !fields.includes(f));
@@ -207,11 +212,8 @@ function ConflictCard({
       else overrides[f.field] = mergeHunks(text(f.local), text(f.remote), c.picks);
     }
     setBusy(true);
-    try {
-      await onResolve(picks, overrides);
-    } finally {
-      setBusy(false);
-    }
+    await runSyncAction(() => onResolve(picks, overrides), setError);
+    setBusy(false);
   };
 
   return (
@@ -233,6 +235,7 @@ function ConflictCard({
         <span className="muted">
           {settled} of {fields.length} chosen
         </span>
+        <FormError>{error}</FormError>
         <span className="sync-conflict-actions">
           {fields.length > 1 && (
             <>

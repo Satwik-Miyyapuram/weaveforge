@@ -237,7 +237,7 @@ export function PinnedPaperBadge({ ownerName }: { ownerName?: string }) {
   return <span className="tag-chip shared-by-chip">Shared by {ownerName}</span>;
 }
 
-function SharedPaperAnnotations({ metadata }: { metadata?: Record<string, unknown> }) {
+export function SharedPaperAnnotations({ metadata }: { metadata?: Record<string, unknown> }) {
   const summary = sharedPaperAnnotationSummary(metadata);
   if (summary.count === 0) return null;
   return (
@@ -245,8 +245,9 @@ function SharedPaperAnnotations({ metadata }: { metadata?: Record<string, unknow
       <span className="metric-chip">
         <em>annotations</em> {summary.count}
       </span>
-      {summary.samples.map((s) => (
-        <p key={s.slice(0, 24)} className="muted paper-card-snippet">
+      {/* Samples have no id; two can share an opening, so the index disambiguates. */}
+      {summary.samples.map((s, i) => (
+        <p key={`${i}:${s}`} className="muted paper-card-snippet">
           “{s.slice(0, 120)}
           {s.length > 120 ? "…" : ""}”
         </p>

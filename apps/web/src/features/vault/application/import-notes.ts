@@ -11,7 +11,8 @@ export interface ImportResult {
 
 /** The slice of the vault facade an import uses. */
 export interface ImportVault {
-  loadScreenData(): Promise<{ flat: readonly { title: string }[] }>;
+  /** Titles of the project's notes, for clash checks. */
+  pageTitles(): Promise<readonly string[]>;
   manageVaultPage: {
     add(input: { title: string; body?: string; parentId?: string }): Promise<{ id: string }>;
   };
@@ -93,8 +94,7 @@ export async function importNotesFromFiles(
   const skipped = expanded.length - mdFiles.length;
 
   // Seed the used-title set with existing project notes so imports don't clash.
-  const existing = await vault.loadScreenData();
-  const used = new Set<string>(existing.flat.map((p) => normalizeTitleKey(p.title)));
+  const used = new Set<string>((await vault.pageTitles()).map(normalizeTitleKey));
   const renamed: { from: string; to: string }[] = [];
   /** normalizeTitleKey(old) → new title (for wikilink rewrite). */
   const renameMap = new Map<string, string>();

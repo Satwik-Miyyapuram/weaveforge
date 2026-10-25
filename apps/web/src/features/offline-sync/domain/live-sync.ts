@@ -1,3 +1,5 @@
+import { logToApp } from "@/lib/error-report/app-log";
+import { formatError } from "@/lib/format-error";
 import type { AdoptionResult } from "./adoption";
 
 export type SyncPhase = "idle" | "syncing" | "offline" | "error" | "needs-adoption";
@@ -36,8 +38,14 @@ export function setLiveSyncState(partial: Partial<LiveSyncState>): void {
   for (const listener of [...listeners]) {
     try {
       listener(currentState);
-    } catch {
-      // Listener errors must not interrupt state updates
+    } catch (err) {
+      // One broken listener must not stop the others hearing the change.
+      logToApp({
+        level: "warn",
+        source: "offline-sync",
+        message: "A sync status listener failed",
+        detail: formatError(err),
+      });
     }
   }
 }
