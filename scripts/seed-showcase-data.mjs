@@ -6,7 +6,7 @@
  *   node --import tsx scripts/seed-showcase-data.mjs              # then (npm run seed:showcase)
  *   node --import tsx scripts/seed-showcase-data.mjs --dry-run    # record writes, send nothing
  *
- * Researcher:   c@example.com — full thesis workspace (40 papers, graph,
+ * Researcher:   c@example.com — full thesis workspace (100 papers, graph,
  *               lists, screening, plan, logbook, experiments, report, notes…)
  * Supervisor:   b@example.com — comment threads on c's plan and logbook;
  *               c shares its milestones with b

@@ -13,13 +13,19 @@ import {
 // long lists, long text, and milestones on both sides of that date.
 const AUDIT_DATE = "2026-10-25";
 
-test("papers: at least 40, unique, every status, one with many authors and a long title", () => {
+test("papers: about 100 (a thesis library), unique, every status, one with many authors and a long title", () => {
   const titles = SHOWCASE_PAPERS.map((p) => p.title);
-  assert.ok(titles.length >= 40, `papers ${titles.length}`);
+  assert.ok(titles.length >= 100, `papers ${titles.length}`);
   assert.equal(new Set(titles).size, titles.length);
   for (const s of ["to_read", "reading", "read"]) assert.ok(SHOWCASE_PAPERS.some((p) => p.status === s), s);
   assert.ok(SHOWCASE_PAPERS.some((p) => p.authors.length >= 12), "a paper with 12+ authors");
   assert.ok(titles.some((t) => t.length >= 90), "a title of 90+ characters");
+});
+
+test("papers: arXiv ids are well formed and unique", () => {
+  const ids = SHOWCASE_PAPERS.flatMap((p) => (p.arxiv_id ? [p.arxiv_id] : []));
+  for (const id of ids) assert.match(id, /^\d{4}\.\d{4,5}$/, id);
+  assert.equal(new Set(ids).size, ids.length);
 });
 
 test("relations only name seeded papers", () => {
