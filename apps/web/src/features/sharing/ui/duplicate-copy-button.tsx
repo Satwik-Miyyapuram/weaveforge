@@ -40,7 +40,7 @@ export function DuplicateCopyButton({
         router.push(`/papers?paper=${encodeURIComponent(paper.id)}`);
         return;
       }
-      const page = await getContainer().vault.duplicateSharedPage({
+      const { page } = await getContainer().vault.duplicateSharedPage({
         resourceId,
         ownerId,
       });

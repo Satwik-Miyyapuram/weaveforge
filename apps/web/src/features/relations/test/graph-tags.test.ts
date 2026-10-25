@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { extractHashtags } from "@weaveforge/core";
-import { graphTagNames, noteTags, relatedConcepts } from "../application/graph-tags";
+import { graphTagNames, noteTags, notesTagged, relatedConcepts } from "../application/graph-tags";
 
 const note = (id: string, title: string, body: string) => ({ id, title, body });
 
@@ -42,4 +42,12 @@ test("relatedConcepts adds paper tags, skips the concept itself, keeps the top 1
   const many = [note("n", "", Array.from({ length: 20 }, (_, i) => `#t${i}`).join(" "))];
   assert.equal(relatedConcepts("x", [], many).length, 12);
   assert.deepEqual(relatedConcepts("x", [], []), []);
+});
+
+test("the tag filter matches whole tags, not prefixes (26-08)", () => {
+  const notes = [note("a", "Ops", "about #mlops"), note("b", "ML", "about #ml today"), note("c", "None", "plain")];
+  assert.deepEqual(notesTagged(notes, ["ml"]).map((n) => n.id), ["b"]);
+  assert.deepEqual(notesTagged(notes, ["mlops", "ml"]).map((n) => n.id), ["a", "b"]);
+  assert.deepEqual(notesTagged(notes, []).map((n) => n.id), ["a", "b", "c"]);
+  assert.deepEqual(notesTagged(notes, ["m"]), []);
 });

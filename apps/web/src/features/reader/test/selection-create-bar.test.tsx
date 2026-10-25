@@ -41,3 +41,28 @@ test("Comment opens the input and Save makes a highlight carrying it", () => {
   assert.deepEqual(made, [["highlight", "#ff6666", "a note"]]);
   act(() => tree.unmount());
 });
+
+test("Enter while a save is in flight saves nothing more (24-20)", () => {
+  const made: unknown[] = [];
+  let busy = false;
+  let tree!: ReactTestRenderer;
+  const render = () =>
+    createElement(SelectionCreateBar, {
+      at: { x: 0, top: 0, bottom: 0, below: false },
+      busy,
+      onCreate: (...args: unknown[]) => {
+        made.push(args);
+        busy = true;
+        tree.update(render());
+      },
+      onCancel: () => {},
+    });
+  act(() => {
+    tree = create(render());
+  });
+  act(() => tree.root.find((n) => n.type === "button" && n.props["aria-label"] === "Comment").props.onClick());
+  act(() => tree.root.find((n) => n.type === "input").props.onKeyDown({ key: "Enter", stopPropagation: () => {} }));
+  act(() => tree.root.find((n) => n.type === "input").props.onKeyDown({ key: "Enter", stopPropagation: () => {} }));
+  assert.equal(made.length, 1);
+  act(() => tree.unmount());
+});

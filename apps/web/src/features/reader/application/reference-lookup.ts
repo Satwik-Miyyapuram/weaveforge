@@ -65,7 +65,7 @@ export class ReferenceLookupService {
         // Whether the paper is in the library is a fact about this workspace,
         // not the reference, so it is re-read rather than trusted from disk.
         const value = cached.status === "resolved"
-          ? { ...cached, inLibrary: await this.findInLibrary(cached.metadata) }
+          ? { ...cached, inLibrary: await this.libraryMatch(cached.metadata) }
           : cached;
         this.memory.set(key, { at: this.now(), value });
         return value;
@@ -98,14 +98,27 @@ export class ReferenceLookupService {
       });
     }
     for (const attempt of attempts) {
+      let found: { metadata: PaperMetadata; sourceId: string };
       try {
-        const { metadata, sourceId } = await this.resolver.resolveWithSource(attempt);
-        return { status: "resolved", metadata, inLibrary: await this.findInLibrary(metadata), sourceId };
+        found = await this.resolver.resolveWithSource(attempt);
       } catch {
-        /* try the next form of the same entry */
+        continue; // try the next form of the same entry
       }
+      return { status: "resolved", ...found, inLibrary: await this.libraryMatch(found.metadata) };
     }
     return { status: "unresolved" };
+  }
+
+  /**
+   * The library's copy, or none when the library cannot be read: a failed
+   * listing says nothing about the reference, which is still resolved.
+   */
+  private async libraryMatch(metadata: PaperMetadata): Promise<PaperIdentity | undefined> {
+    try {
+      return await this.findInLibrary(metadata);
+    } catch {
+      return undefined;
+    }
   }
 
   private async findInLibrary(metadata: PaperMetadata): Promise<PaperIdentity | undefined> {
