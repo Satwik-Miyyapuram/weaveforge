@@ -8,7 +8,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readdir } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -208,6 +208,31 @@ test("model cache: a failed download leaves no half file behind", async () => {
   // The directory is created only once there are bytes to write, so a refusal
   // leaves nothing at all rather than a `.part` a later read would trust.
   assert.deepEqual(await readdir(root), []);
+});
+
+// xlog-14: the bytes still reach the page when the rename fails, and the log says why.
+test("model cache: a rename that fails is logged, and the download is still served", async (t) => {
+  const warn = t.mock.method(console, "warn", () => undefined);
+  const root = await cacheRoot();
+  const file = cachePathFor(root, URL_UNDER_TEST)!;
+  // A non-empty folder where the file belongs: the read misses and the rename cannot land.
+  await mkdir(path.join(file, "blocker"), { recursive: true });
+  const scripted = upstream(() => new Response("{}", { status: 200 }));
+
+  const answer = await serveModelFile(root, URL_UNDER_TEST, scripted.fetchLike);
+
+  assert.equal(answer.status, 200);
+  assert.equal(await answer.text(), "{}");
+  assert.equal(warn.mock.callCount(), 1);
+  assert.match(String(warn.mock.calls[0]!.arguments[0]), /^\[models\] could not keep .*config\.json/);
+});
+
+test("model cache: a normal download logs nothing", async (t) => {
+  const warn = t.mock.method(console, "warn", () => undefined);
+  const root = await cacheRoot();
+  const answer = await serveModelFile(root, URL_UNDER_TEST, upstream(() => new Response("{}")).fetchLike);
+  assert.equal(answer.status, 200);
+  assert.equal(warn.mock.callCount(), 0);
 });
 
 test("model cache: two asks for one file at once download it once and share it (38-03)", async () => {

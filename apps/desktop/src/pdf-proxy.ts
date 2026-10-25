@@ -4,7 +4,7 @@ import {
 } from "@/features/reader/application/sanitize-reader-url";
 import { hasPdfMagic, isPdfContentType } from "@/features/reader/application/pdf-response-rules";
 import { readCapped } from "@/lib/read-capped";
-import { fetchCheckedHops, isPublicHttpsUrl, refuse, type ProxyFetch } from "./proxy-shared";
+import { fetchCheckedHops, isPublicHttpsUrl, refuse, upstreamFailed, type ProxyFetch } from "./proxy-shared";
 
 /**
  * The reader's PDF proxy, served from the `app://` origin.
@@ -59,6 +59,7 @@ export async function proxyPdf(
     // The allowlist's hosts are trusted to redirect within reason, so an
     // opaque redirect gets one followed fetch; a typed address does not.
     !typed,
+    "pdf",
   );
   if (!fetched.ok) return fetched.refusal;
   const upstream = fetched.response;
@@ -74,8 +75,8 @@ export async function proxyPdf(
   let bytes: Uint8Array<ArrayBuffer> | null;
   try {
     bytes = await readCapped(upstream.body, PDF_PROXY_MAX_BYTES);
-  } catch {
-    return refuse(504, "Upstream body did not arrive in time");
+  } catch (error) {
+    return upstreamFailed("pdf", error, 504, "Upstream body did not arrive in time");
   }
   if (!bytes) return refuse(413, "PDF too large");
   if (!hasPdfMagic(bytes)) return refuse(415, "Upstream did not return a PDF");

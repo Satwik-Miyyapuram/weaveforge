@@ -150,3 +150,22 @@ test("a git failure reads as git's own error, not the command and per-file warni
   assert.equal(gitReason(error), 'error: open("project/papers/long.paper.md"): Filename too long fatal: adding files failed');
   assert.equal(gitReason(new Error("index.lock exists")), "index.lock exists");
 });
+
+// xlog-14: an empty history is quiet; a git that cannot read the history is logged.
+test("a repository with no commits has an empty history and logs nothing", async (t) => {
+  const warn = t.mock.method(console, "warn", () => undefined);
+  const root = mkdtempSync(path.join(tmpdir(), "wf-vault-git-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  execFileSync("git", ["-C", root, "init", "-q"]);
+  assert.deepEqual(await new NativeWorkspaceGit(root).log({ limit: 5 }), []);
+  assert.equal(warn.mock.callCount(), 0);
+});
+
+test("a history git cannot read is still empty, and the log says why", async (t) => {
+  const warn = t.mock.method(console, "warn", () => undefined);
+  const root = mkdtempSync(path.join(tmpdir(), "wf-vault-git-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  assert.deepEqual(await new NativeWorkspaceGit(path.join(root, "gone")).log({ limit: 5 }), []);
+  assert.equal(warn.mock.callCount(), 1);
+  assert.match(String(warn.mock.calls[0]!.arguments[0]), /^\[vault-git\] could not read the history: \S/);
+});

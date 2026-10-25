@@ -214,3 +214,37 @@ test("auto update: a shutdown that fails does not refuse the update", async () =
   for (let i = 0; i < 5; i++) await new Promise((resolve) => setImmediate(resolve));
   assert.equal(updater.installed, 1);
 });
+
+// xlog-06: quiet to the reader is not quiet to the log.
+test("auto update: a feed error is logged once, not shown and not twice", async (t) => {
+  const warn = t.mock.method(console, "warn", () => undefined);
+  const updater = fakeUpdater();
+  updater.checkForUpdates = async () => {
+    // electron-updater emits "error" and then rejects with the same error.
+    updater.fired("error", new Error("ENOTFOUND"));
+    throw new Error("ENOTFOUND");
+  };
+  startAutoUpdate(options(updater));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(warn.mock.callCount(), 1);
+  assert.match(String(warn.mock.calls[0]!.arguments[0]), /^\[auto-update\] .*ENOTFOUND/);
+});
+
+test("auto update: a failed question and a failed shutdown are logged", async (t) => {
+  const warn = t.mock.method(console, "warn", () => undefined);
+  const asked = fakeUpdater();
+  startAutoUpdate(options(asked, { ask: async () => { throw new Error("no window"); } }));
+  asked.fired("update-downloaded", { version: "9.9.9" });
+  for (let i = 0; i < 5; i++) await new Promise((resolve) => setImmediate(resolve));
+
+  const prepared = fakeUpdater();
+  startAutoUpdate(options(prepared, { ask: async () => true, prepare: async () => { throw new Error("backup disk is gone"); } }));
+  prepared.fired("update-downloaded", { version: "9.9.9" });
+  for (let i = 0; i < 5; i++) await new Promise((resolve) => setImmediate(resolve));
+
+  const lines = warn.mock.calls.map((call) => String(call.arguments[0]));
+  assert.equal(lines.length, 2);
+  assert.match(lines[0]!, /^\[auto-update\] .*no window/);
+  assert.match(lines[1]!, /^\[auto-update\] .*backup disk is gone/);
+  assert.equal(prepared.installed, 1, "the update still installs");
+});
