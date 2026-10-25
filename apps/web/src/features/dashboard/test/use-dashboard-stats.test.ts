@@ -17,7 +17,7 @@ import { useDashboardStats } from "../ui/use-dashboard-stats";
 import type { DashboardStatsPorts } from "../application/load-dashboard-stats";
 
 function withProject(id: string) {
-  return (children: ReactNode) => {
+  return function ProjectWrapper(children: ReactNode) {
     const project = { id, name: "Project" } as unknown as Project;
     return createElement(
       ProjectContext.Provider,
