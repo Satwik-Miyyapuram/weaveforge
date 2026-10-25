@@ -30,8 +30,7 @@ import { pendingInsertSupport } from "@/components/markdown/markdown-pending-ins
 import { readPasteSettings } from "@/lib/paste-cleanup-preference";
 import type { CiteCompletion } from "@/lib/hooks/use-cite-links";
 import type { EditorCitationFormat } from "@/lib/citation-format-preference";
-import { formatPaperCitation } from "@/features/overleaf/application/build-overleaf-export";
-import type { Paper, PasteSettings } from "@weaveforge/core";
+import { formatPaperCitation, type Paper, type PasteSettings } from "@weaveforge/core";
 
 /** Characters that may precede `@` for cite autocomplete (not email local-parts). */
 const AT_BOUNDARY = /[^A-Za-z0-9._%+-]/;

@@ -68,6 +68,17 @@ function expiryFor(id: ExpiryId, custom: string): string | null | "invalid" {
   return new Date(Date.now() + days * 86_400_000).toISOString();
 }
 
+/**
+ * The earliest custom expiry day, tomorrow, as the local `YYYY-MM-DD` the date
+ * picker and `expiryFor` both read. A UTC date would be a day ahead in the
+ * evening west of UTC and disable tomorrow.
+ */
+export function customExpiryMin(now: Date = new Date()): string {
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}`;
+}
+
 export function sdkEnvLines(token: string, url: string): string {
   return `export WEAVEFORGE_TOKEN=${token}
 export WEAVEFORGE_API_URL=${url}
@@ -275,7 +286,7 @@ export function LocalApiTokenCreate({
             <DatePicker
               aria-label="Custom expiry date"
               value={customDate}
-              min={new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)}
+              min={customExpiryMin()}
               onChange={setCustomDate}
             />
           )}

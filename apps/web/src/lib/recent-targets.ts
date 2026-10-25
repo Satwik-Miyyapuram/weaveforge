@@ -54,3 +54,21 @@ export function rememberRecentTarget(
   }
   return next;
 }
+
+/**
+ * `items` with the recently opened ones moved to the front, in visit order and
+ * flagged `recent`. A recent target that no longer matches an item is skipped.
+ */
+export function pinRecentTargets<T extends { kind: string; id: string }>(
+  items: readonly T[],
+  recents: readonly { kind: string; id: string }[],
+): (T & { recent?: true })[] {
+  const keyOf = (item: { kind: string; id: string }) => `${item.kind}:${item.id}`;
+  const byKey = new Map(items.map((item) => [keyOf(item), item]));
+  const pinned = recents.flatMap((target) => {
+    const match = byKey.get(keyOf(target));
+    return match ? [{ ...match, recent: true as const }] : [];
+  });
+  const pinnedKeys = new Set(pinned.map(keyOf));
+  return [...pinned, ...items.filter((item) => !pinnedKeys.has(keyOf(item)))];
+}

@@ -15,6 +15,7 @@ import { loadCiteLinkCatalog, type CiteCompletion } from "@/lib/hooks/use-cite-l
 import { getContainer } from "@/bootstrap";
 import { useHybridSearchIndex } from "@/lib/hooks/use-search-index";
 import {
+  pinRecentTargets,
   readRecentTargets,
   rememberRecentTarget,
   type RecentTargetKind,
@@ -22,14 +23,11 @@ import {
 import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
 import { createNoteFromQuery } from "@/lib/create-note-from-query";
 import { FormError } from "@/components/form-error";
+import { JumpToCreateRow } from "@/components/jump-to-create-row";
 
 /** Kinds recorded as recent targets when opened. */
 const RECENT_KINDS = ["paper", "note", "section"] as const satisfies readonly RecentTargetKind[];
 
-/**
- * Kinds the palette searches. PDF pages are included but are not recent-target
- * kinds — they open the reader at a page rather than an entity screen.
- */
 /**
  * Kinds the palette shows. PDF pages and highlights are locations inside a
  * paper rather than entities of their own, which is why they are listed here
@@ -101,6 +99,10 @@ export function JumpToPalette() {
   const { search: searchIndex, searchHybrid, ready: indexReady } = useHybridSearchIndex(open);
   const [history, setHistory] = useState<string[]>([]);
   const [createError, setCreateError] = useState<string | null>(null);
+  const saveHistory = useCallback((next: string[]) => {
+    setHistory(next);
+    writeHistory(next);
+  }, []);
 
   const reload = useCallback(async () => {
     const catalog = await loadCiteLinkCatalog();
@@ -130,16 +132,7 @@ export function JumpToPalette() {
       })),
     ];
     const projectId = getContainer().projects.context.projectId;
-    const recentKeys = new Set(
-      readRecentTargets(projectId).map((item) => `${item.kind}:${item.id}`),
-    );
-    const recent = readRecentTargets(projectId).flatMap((target) => {
-      const match = all.find(
-        (item) => item.id === target.id && item.kind === target.kind,
-      );
-      return match ? [{ ...match, recent: true }] : [];
-    });
-    setItems([...recent, ...all.filter((item) => !recentKeys.has(`${item.kind}:${item.id}`))]);
+    setItems(pinRecentTargets(all, readRecentTargets(projectId)));
   }, []);
 
   const openPalette = useCallback(() => {
@@ -275,9 +268,7 @@ export function JumpToPalette() {
   }, [items, query, searchIndex, rowsFromHits, semanticRows]);
 
   function go(item: JumpItem) {
-    const next = rememberSearchQuery(history, query);
-    setHistory(next);
-    writeHistory(next);
+    saveHistory(rememberSearchQuery(history, query));
     // Only entity screens are recent targets; a PDF page or a highlight is a
     // location inside one, and recording it would push the paper itself out of
     // the list.
@@ -304,12 +295,10 @@ export function JumpToPalette() {
       return;
     }
     const { page } = result;
-    const next = rememberSearchQuery(history, query.trim());
-    setHistory(next);
-    writeHistory(next);
+    saveHistory(rememberSearchQuery(history, query.trim()));
     setOpen(false);
     router.push(`/notes?page=${encodeURIComponent(page.id)}`);
-  }, [query, history, router]);
+  }, [query, history, router, saveHistory]);
 
   if (!open) return null;
 
@@ -360,11 +349,7 @@ export function JumpToPalette() {
                 type="button"
                 className="jump-to-chip-remove"
                 aria-label={`Remove “${entry}” from recent searches`}
-                onClick={() => {
-                  const next = forgetSearchQuery(history, entry);
-                  setHistory(next);
-                  writeHistory(next);
-                }}
+                onClick={() => saveHistory(forgetSearchQuery(history, entry))}
               >
                 ×
               </button>
@@ -394,14 +379,7 @@ export function JumpToPalette() {
             </button>
           </li>
         ))}
-        {filtered.length === 0 && (
-          <li>
-            {/* A search that finds nothing is often a note that should exist. */}
-            <button type="button" className="jump-to-create" onClick={() => void createFromQuery()}>
-              Create note “{query.trim()}”
-            </button>
-          </li>
-        )}
+        {filtered.length === 0 && <JumpToCreateRow query={query} onCreate={() => void createFromQuery()} />}
       </ul>
       {createError ? <FormError reportable={false}>{createError}</FormError> : null}
       <p className="muted jump-to-meta">Ctrl/Cmd+K · Ctrl+J/K to move · Esc to close</p>
