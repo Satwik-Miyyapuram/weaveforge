@@ -195,10 +195,17 @@ export class PenCaptureSession {
     }
   }
 
-  /** The pointer came up: hand the stroke to the worker. */
+  /**
+   * The pointer came up: hand the stroke to the worker.
+   *
+   * The up event is not a sample. It repeats the last move's position with a
+   * later time and, with the nib off the glass, zero pressure, so taking it
+   * would pull the filtered end onto it and drop the taper to nothing: the end
+   * would move as the pen lifts. tldraw likewise completes the stroke on
+   * pointer-up without adding a point.
+   */
   pointerUp(event: PenPointerEvent): void {
     if (this.active && event.pointerId === this.pointerId) {
-      this.consume(event, false, false, true);
       const header = this.header!;
       this.deps.writer.flush("stroke-end", header);
       this.clear();

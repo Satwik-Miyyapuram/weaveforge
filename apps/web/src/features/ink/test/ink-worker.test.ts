@@ -9,9 +9,11 @@ import assert from "node:assert/strict";
 import {
   decodeInkChunk,
   INK_PACK_TOLERANCE,
+  inkCurveAt,
   makeInkStroke,
   packInkStroke,
   pageFromChunk,
+  simplifyPathIndices,
 } from "@weaveforge/core";
 
 import type {
@@ -39,6 +41,8 @@ let pointInPolygon: (
   polygon: readonly number[],
 ) => boolean;
 let liveForRenderer: typeof import("../worker/ink-worker").liveForRenderer;
+let newLiveStroke: typeof import("../worker/ink-worker").newLiveStroke;
+let appendSamples: typeof import("../worker/ink-worker").appendSamples;
 
 before(async () => {
   (globalThis as { self?: unknown }).self = {
@@ -52,6 +56,8 @@ before(async () => {
   const worker = await import("../worker/ink-worker");
   pointInPolygon = worker.pointInPolygon;
   liveForRenderer = worker.liveForRenderer;
+  newLiveStroke = worker.newLiveStroke;
+  appendSamples = worker.appendSamples;
 });
 
 function send(message: InkWorkerMessage): void {
@@ -167,8 +173,28 @@ test("the saved stroke keeps every drawn sample: no refit on lift", () => {
     const at = drawn.findIndex((v, k) => k % 2 === 0 && v === saved[i] && drawn[k + 1] === saved[i + 1]);
     assert.ok(at >= 0, `saved point ${saved[i]},${saved[i + 1]} was drawn`);
   }
-  assert.ok(saved.length / 2 >= count / 2, `kept ${saved.length / 2} of ${count}`);
+  // Points may go only where the curve through the kept ones still passes
+  // every drawn sample.
+  const off = farthestSampleOffCurve(saved, drawn);
+  assert.ok(off <= INK_PACK_TOLERANCE, `a drawn sample is ${off.toFixed(2)} units off the saved curve`);
 });
+
+/** The farthest any drawn sample lies from the curve drawn through `points`. */
+function farthestSampleOffCurve(points: readonly number[], drawn: readonly number[]): number {
+  const xs = points.filter((_, i) => i % 2 === 0);
+  const ys = points.filter((_, i) => i % 2 === 1);
+  const curve: { x: number; y: number }[] = [];
+  for (let i = 0; i + 1 < xs.length; i += 1) {
+    for (let k = 0; k <= 64; k += 1) curve.push(inkCurveAt(xs, ys, i, k / 64));
+  }
+  let worst = 0;
+  for (let i = 0; i < drawn.length; i += 2) {
+    let best = Infinity;
+    for (const p of curve) best = Math.min(best, Math.hypot(p.x - drawn[i]!, p.y - drawn[i + 1]!));
+    worst = Math.max(worst, best);
+  }
+  return worst;
+}
 test("an erase sweep removes what it crosses and undo restores it", () => {
   fresh();
   draw(10, 50);
@@ -426,11 +452,43 @@ test("the shape tool snaps a rectangle-ish scribble to a rectangle", () => {
   send({ type: "page-model", requestId: 1 });
   const fitted = last("page-model").page.strokes[0]!;
   assert.equal(fitted.shape, "rect");
+  // Its points lie on four straight edges: the shape, not the scribble.
+  const rounded = simplifyPathIndices(fitted.points, 0.75);
+  assert.equal(rounded.length, 5, "four edges and the closing corner");
   assert.ok(
-    fitted.points.length <= 12,
-    "the fitted rectangle is corners, not the scribble",
+    curveStrays(fitted.points) <= 2 * INK_PACK_TOLERANCE,
+    `the drawn rectangle bows ${curveStrays(fitted.points).toFixed(2)} units off its edges`,
   );
 });
+
+/**
+ * How far the curve drawn through a snapped shape's points strays from the
+ * straight lines between them. A snapped rectangle is straight lines, so this
+ * is how much it bows where it should be straight.
+ */
+function curveStrays(points: readonly number[]): number {
+  const n = points.length / 2;
+  const xs = points.filter((_, i) => i % 2 === 0);
+  const ys = points.filter((_, i) => i % 2 === 1);
+  let worst = 0;
+  for (let i = 0; i + 1 < n; i += 1) {
+    for (let k = 0; k <= 32; k += 1) {
+      const p = inkCurveAt(xs, ys, i, k / 32);
+      let best = Infinity;
+      for (let j = 0; j + 1 < n; j += 1) {
+        const ax = xs[j]!;
+        const ay = ys[j]!;
+        const vx = xs[j + 1]! - ax;
+        const vy = ys[j + 1]! - ay;
+        const length = vx * vx + vy * vy;
+        const u = length > 0 ? Math.max(0, Math.min(1, ((p.x - ax) * vx + (p.y - ay) * vy) / length)) : 0;
+        best = Math.min(best, Math.hypot(ax + u * vx - p.x, ay + u * vy - p.y));
+      }
+      worst = Math.max(worst, best);
+    }
+  }
+  return worst;
+}
 
 test("pointInPolygon follows the even-odd rule", () => {
   const square = [0, 0, 10, 0, 10, 10, 0, 10];
@@ -547,13 +605,11 @@ test("the live stroke's real part is the stroke that will be saved, whatever the
   }
   const saved = packInkStroke(points, pressures, { tolerance: INK_PACK_TOLERANCE });
   // Two predicted samples that overshoot sideways, as a guess about a hand can.
-  const live = liveForRenderer({
-    header: header(),
-    points: [...points, 520, 340, 540, 360],
-    pressures: [...pressures, 128, 128],
-    realSamples: 121,
-    changed: true,
-  });
+  const stroke = newLiveStroke(header());
+  appendSamples(stroke, batch(points, pressures.map((p) => p / 255)));
+  stroke.points.push(520, 340, 540, 360);
+  stroke.pressures.push(128, 128);
+  const live = liveForRenderer(stroke);
   const real = saved.points.length / 2;
   assert.equal(live.realCount, real, "the real points are the saved ones, counted");
   assert.deepEqual(
@@ -565,4 +621,54 @@ test("the live stroke's real part is the stroke that will be saved, whatever the
   );
   assert.deepEqual(Array.from(live.x.subarray(real)), [520, 540], "the tail is drawn after them");
   assert.deepEqual(Array.from(live.y.subarray(real)), [340, 360]);
+});
+
+/** Samples as the capture side batches them: x, y, pressure 0–1, time. */
+function batch(points: readonly number[], pressures: readonly number[]) {
+  const count = points.length / 2;
+  const buffer = new Float32Array(count * INK_SAMPLE_STRIDE);
+  for (let i = 0; i < count; i += 1) {
+    buffer[i * INK_SAMPLE_STRIDE] = points[i * 2]!;
+    buffer[i * INK_SAMPLE_STRIDE + 1] = points[i * 2 + 1]!;
+    buffer[i * INK_SAMPLE_STRIDE + 2] = pressures[i]!;
+    buffer[i * INK_SAMPLE_STRIDE + 3] = i;
+  }
+  return { buffer, count };
+}
+
+test("live ink only grows: drawn points never move, and lifting the pen changes nothing", () => {
+  fresh();
+  // Fast small loops: radius 0.6 mm, 14 samples a turn, pressure tapering.
+  const points: number[] = [];
+  const pressures: number[] = [];
+  for (let i = 0; i <= 140; i += 1) {
+    const a = (i / 14) * 2 * Math.PI;
+    points.push(1000 + i * 2.5 + 6 * Math.cos(a), 1000 + 6 * Math.sin(a));
+    pressures.push(0.3 + 0.4 * Math.sin((i / 140) * Math.PI));
+  }
+  strokeId += 1;
+  const h = header();
+  const live = newLiveStroke(h);
+  const frames: number[][] = [];
+  for (let at = 0; at < points.length / 2; at += 3) {
+    const part = batch(points.slice(at * 2, at * 2 + 6), pressures.slice(at, at + 3));
+    appendSamples(live, part);
+    send(at === 0
+      ? { type: "stroke-begin", header: h, sample: part }
+      : { type: "samples", header: h, sample: part, predicted: false });
+    const frame = liveForRenderer(live);
+    frames.push(Array.from({ length: frame.realCount }, (_, i) => [frame.x[i]!, frame.y[i]!, frame.pressure[i]!]).flat());
+  }
+  send({ type: "stroke-end", header: h, sample: { buffer: new Float32Array(0), count: 0 } });
+  for (let k = 1; k < frames.length; k += 1) {
+    const settled = frames[k - 1]!.slice(0, -3);
+    assert.deepEqual(frames[k]!.slice(0, settled.length), settled, `frame ${k} keeps the points already drawn`);
+  }
+  const saved = last("stroke-committed");
+  const committed = Array.from({ length: saved.pressures.length }, (_, i) => [
+    saved.points[i * 2]!,
+    saved.points[i * 2 + 1]!,
+    saved.pressures[i]!,
+  ]).flat();
+  assert.deepEqual(committed, frames[frames.length - 1], "the saved stroke is the last live frame");
 });

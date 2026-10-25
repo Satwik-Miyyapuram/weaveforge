@@ -22,7 +22,6 @@
  * actually asking for.
  */
 
-import { simplifyPathIndices, INK_MAX_POINTS } from "../reader/ink-stroke.js";
 import {
   frontmatterList,
   frontmatterString,
@@ -104,8 +103,8 @@ export const INK_A4_HEIGHT = 2970;
 /** Coordinates are `Int16` in the container, so no page may exceed this. */
 export const INK_COORD_LIMIT = 32767;
 
-/** Points per stroke, unchanged from the reader's cap (§4.7). */
-export const INK_STROKE_MAX_POINTS = INK_MAX_POINTS;
+/** Points per stroke: the container stores a stroke's length as a `Uint16`. */
+export const INK_STROKE_MAX_POINTS = 65_535;
 
 /** Strokes per page: soft. Past it the ink bar warns and keeps drawing (§4.7). */
 export const INK_PAGE_STROKE_BUDGET = 5_000;
@@ -117,13 +116,11 @@ export const INK_NOTE_MAX_PAGES = 50;
 export const INK_PACK_TOLERANCE = 1.2;
 
 /**
- * Pressure deviation, out of 255, that keeps a point RDP would have dropped.
+ * Pressure deviation, out of 255, that keeps a point the centreline does not need.
  *
- * The first simplification pass is pressure-blind: it keeps a point only when
- * the centreline bends. A point carrying a heavy press or a lift inside a
- * straight run would then vanish and the taper with it — the stroke would still
- * be in the right place and would no longer look written. This is the threshold
- * that second, pressure-aware pass uses (§4.4).
+ * A point carrying a heavy press or a lift inside a straight run would
+ * otherwise vanish and the taper with it — the stroke would still be in the
+ * right place and would no longer look written (§4.4).
  */
 export const INK_PACK_PRESSURE_TOLERANCE = 20;
 
@@ -213,108 +210,6 @@ export function clampInkPageSize(width: number, height: number): { width: number
 export interface PackedInkStroke {
   points: number[];
   pressures: number[];
-}
-
-/**
- * Storage-ready form of one captured stroke, pressure included.
- *
- * Three passes, in the order §4.4 gives them: capture filtering has already
- * happened by the time a stroke reaches here, so this is the save budget
- * (Ramer–Douglas–Peucker, then a hard cap of {@link INK_STROKE_MAX_POINTS}), then
- * the pressure-aware pass that puts back a point whose pressure the centreline
- * simplification threw away. Coordinates are rounded to whole 0.1 mm units,
- * which is what the container stores.
- */
-export function packInkStroke(
-  points: readonly number[],
-  pressures: readonly number[] = [],
-  options: {
-    tolerance?: number;
-    maxPoints?: number;
-    pressureTolerance?: number;
-  } = {},
-): PackedInkStroke {
-  const tolerance = options.tolerance ?? INK_PACK_TOLERANCE;
-  const maxPoints = options.maxPoints ?? INK_STROKE_MAX_POINTS;
-  const pressureTolerance = options.pressureTolerance ?? INK_PACK_PRESSURE_TOLERANCE;
-
-  const even = points.slice(0, Math.floor(points.length / 2) * 2);
-  if (even.length < 4 || even.some((value) => !Number.isFinite(value))) {
-    return { points: [], pressures: [] };
-  }
-  const rounded = even.map((value) =>
-    Math.max(-INK_COORD_LIMIT, Math.min(INK_COORD_LIMIT, Math.round(value))),
-  );
-  const usablePressures = pressures.length === rounded.length / 2 ? pressures : [];
-
-  let keep = simplifyPathIndices(rounded, tolerance);
-  // Doubling the tolerance roughly halves the survivors, so this ends after a
-  // handful of rounds even for a pathological scribble.
-  let guard = 0;
-  while (keep.length > maxPoints && guard < 12) {
-    keep = simplifyPathIndices(rounded, tolerance * 2 ** (guard + 1));
-    guard += 1;
-  }
-  if (keep.length > maxPoints) {
-    // Still over budget: an evenly spaced subset keeps the stroke's full extent
-    // rather than losing its end, and the true end point is forced back in.
-    const step = keep.length / maxPoints;
-    const sampled: number[] = [];
-    for (let i = 0; i < maxPoints; i += 1) sampled.push(keep[Math.min(keep.length - 1, Math.floor(i * step))]!);
-    sampled[sampled.length - 1] = keep[keep.length - 1]!;
-    keep = [...new Set(sampled)].sort((a, b) => a - b);
-  }
-
-  // Two surviving points are still a segment with an interior, and the interior
-  // is exactly where a straight stroke's taper lives — a hand-drawn line that
-  // presses in the middle keeps that press only if this pass runs.
-  if (usablePressures.length > 0 && keep.length >= 2) {
-    keep = restorePressureSignificant(keep, usablePressures, pressureTolerance);
-  }
-
-  const outPoints: number[] = [];
-  const outPressures: number[] = [];
-  for (const index of keep) {
-    outPoints.push(rounded[index * 2]!, rounded[index * 2 + 1]!);
-    outPressures.push(pressureByte(usablePressures[index]));
-  }
-  return { points: outPoints, pressures: outPressures };
-}
-
-/**
- * Put back the points whose pressure the centreline pass removed.
- *
- * A point is restored when its pressure departs from the straight line between
- * its surviving neighbours by more than `tolerance`, in the 0–255 pressure
- * range. Restoring a point splits its segment, so the neighbours of the *next*
- * candidate change; that is why this repeats until nothing more is restored,
- * with a hard round cap so a pathological ramp cannot loop.
- */
-function restorePressureSignificant(
-  keep: readonly number[],
-  pressures: readonly number[],
-  tolerance: number,
-): number[] {
-  const kept = [...keep];
-  for (let round = 0; round < 8; round += 1) {
-    const restored: number[] = [];
-    for (let i = 0; i + 1 < kept.length; i += 1) {
-      const from = kept[i]!;
-      const to = kept[i + 1]!;
-      if (to <= from + 1) continue;
-      const fromPressure = pressures[from] ?? 0;
-      const toPressure = pressures[to] ?? 0;
-      for (let index = from + 1; index < to; index += 1) {
-        const t = (index - from) / (to - from);
-        const expected = fromPressure + (toPressure - fromPressure) * t;
-        if (Math.abs((pressures[index] ?? 0) - expected) > tolerance) restored.push(index);
-      }
-    }
-    if (restored.length === 0) break;
-    kept.push(...restored);
-    kept.sort((a, b) => a - b);
-  }
-  return kept;
 }
 
 /** Pressure clamped and rounded into the container's `Uint8` slot. */

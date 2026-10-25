@@ -6,9 +6,8 @@
  * browser, in Inkscape, or in a paper's figure folder without a raster step.
  * The strokes are the *centrelines* the model holds, drawn with a round cap and
  * join at the nib's width: exact for a pen, and for a highlighter at its own
- * width and alpha. The pressure-faded width the renderer animates is not in the
- * model — a chunk stores one width per stroke (§4.3) — so it is not here
- * either, and a page with a heavy taper in it exports at its base width.
+ * width and alpha. A chunk stores one width per stroke (§4.3) and the renderer
+ * draws each stroke at that one width, so the file matches the screen.
  *
  * A page's image background is a raster and stays one: it is embedded as a
  * base64 `<image>` at the sheet's own origin, which is where the host already
@@ -18,8 +17,6 @@
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
-  INK_PACK_TOLERANCE,
-  simplifyInkPath,
   type FigureGeometry,
   type InkColour,
   type InkPage,
@@ -74,8 +71,8 @@ function num(value: number): string {
  * stored path has been simplified on top of that, so consecutive samples can be
  * far apart: a polyline through them shows a corner on every curve, which is
  * exactly what a stroke on a PDF page looked like beside the same stroke on a
- * note. Three sub-segments per span is the count the canvas and the GPU already
- * draw, so this is the geometry, not an approximation of it.
+ * note. {@link INK_SEGMENT_SUBDIVISIONS} sub-segments per span is the count the
+ * canvas and the GPU draw, so this is the geometry, not an approximation of it.
  *
  * The width stays the model's one width per stroke: a reader annotation stores
  * a single `width`, so there is no per-point taper to reproduce here.
@@ -86,9 +83,10 @@ function num(value: number): string {
  * (`ui/ink-strokes.tsx`), which is the point.
  */
 export function strokePath(stroke: { points: readonly number[] }): string | null {
-  const raw = stroke.points;
-  if (raw.length < 2) return null;
-  const points = raw.length > 4 ? simplifyInkPath(raw, INK_PACK_TOLERANCE) : raw;
+  // The stored points as they are: the worker's canvas drew exactly these
+  // while the pen was down, and the sheet swaps to this path after the lift.
+  const points = stroke.points;
+  if (points.length < 2) return null;
   const first = `M${num(points[0]!)} ${num(points[1]!)}`;
   // A single point is a dot, and a round cap draws it — hence the zero-length
   // line rather than an empty path.

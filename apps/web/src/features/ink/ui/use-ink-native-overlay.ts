@@ -132,18 +132,17 @@ export function useInkNativeOverlay(deps: InkNativeOverlayDeps) {
         native.clearOverlay();
         return;
       }
-      const last = events.length > 1 ? events[events.length - 1]! : first;
-      // Down, one raw update carrying the middle as its coalesced events, up.
-      const middle = events.slice(1, -1);
-      const dispatched = middle.pop();
+      // Down, one raw update carrying the rest as its coalesced events, up.
+      // The up event adds no sample, so the last one rides the raw update.
+      const rest = events.slice(1);
+      const dispatched = rest.pop();
       session.pointerDown(first);
       if (dispatched)
         session.pointerRawUpdate({
           ...dispatched,
-          getCoalescedEvents: () => middle,
+          getCoalescedEvents: () => rest,
         });
-      if (last !== first) session.pointerUp(last);
-      else session.pointerUp({ ...first, t: first.t + 1 });
+      session.pointerUp(dispatched ?? first);
       requestAnimationFrame(() =>
         requestAnimationFrame(() => native.clearOverlay()),
       );

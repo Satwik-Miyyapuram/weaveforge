@@ -16,14 +16,16 @@ import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
   blankInkPage,
+  INK_PACK_TOLERANCE,
   makeInkStroke,
+  packInkStroke,
   type InkPage,
 } from "@weaveforge/core";
 
 import { inkPageSvg, strokePath } from "../application/ink-svg";
 import { INK_RENDER_COLOURS, type InkPalette } from "../render/ink-palette";
 import { HIGHLIGHTER_ALPHA } from "../render/canvas-renderer";
-import { INK_SEGMENT_SUBDIVISIONS } from "../render/ink-renderer";
+import { INK_SEGMENT_SUBDIVISIONS, strokeCurveAt } from "../render/ink-renderer";
 
 /** Every `x,y` a path command names, in order. */
 function pathPoints(d: string): [number, number][] {
@@ -209,13 +211,50 @@ test("figures embed under the strokes, and a crop clips rather than stretches", 
 });
 
 
-test("strokePath simplifies dense integer staircase points to prevent spline jitter", () => {
-  const staircasePoints = [];
-  for (let i = 0; i <= 20; i++) {
-    staircasePoints.push(i, Math.round(i * 0.5));
-  }
-  const d = strokePath({ points: staircasePoints });
-  assert.ok(d);
-  const points = pathPoints(d);
-  assert.ok(points.length < staircasePoints.length);
+/** The WebGL renderer's centreline for the same stored points: its own curve, sampled as it draws it. */
+function rendererPoints(points: readonly number[]): [number, number][] {
+  const count = points.length / 2;
+  const x = Float32Array.from({ length: count }, (_, i) => points[i * 2]!);
+  const y = Float32Array.from({ length: count }, (_, i) => points[i * 2 + 1]!);
+  const input = { x, y, pressure: new Uint8Array(count), width: 0 };
+  const out: [number, number][] = [[x[0]!, y[0]!]];
+  for (let i = 0; i + 1 < count; i += 1)
+    for (let k = 1; k <= INK_SEGMENT_SUBDIVISIONS; k += 1) {
+      const p = strokeCurveAt(input, i, k / INK_SEGMENT_SUBDIVISIONS);
+      out.push([p.x, p.y]);
+    }
+  return out;
+}
+
+function assertSameCentreline(points: readonly number[], label: string): void {
+  const svg = pathPoints(strokePath({ points })!);
+  const gl = rendererPoints(points);
+  assert.equal(svg.length, gl.length, `${label}: same number of curve points`);
+  svg.forEach(([x, y], i) => {
+    // `num` rounds to 0.01 units (1 µm); anything more is a different curve.
+    assert.ok(
+      Math.abs(x - gl[i]![0]) <= 0.006 && Math.abs(y - gl[i]![1]) <= 0.006,
+      `${label}: point ${i} is (${x}, ${y}) in SVG, (${gl[i]}) on the canvas`,
+    );
+  });
+}
+
+// The sheet swaps the worker's canvas for this SVG two frames after the pen
+// lifts. Any difference between the two is ink that moves after lifting.
+test("strokePath draws a saved stroke exactly as the canvas drew it", () => {
+  // Small fast cursive loops, packed the way a lift saves them.
+  const raw: number[] = [];
+  for (let t = 0; t <= 8 * Math.PI; t += 0.35)
+    raw.push(Math.round(200 + 4.5 * t - 10 * Math.sin(t)), Math.round(300 + 10 * Math.cos(t)));
+  const packed = packInkStroke(raw, raw.filter((_, i) => i % 2 === 0).map(() => 128), {
+    tolerance: INK_PACK_TOLERANCE,
+  }).points;
+  assertSameCentreline(packed, "packed loops");
+  // Dense integer staircase, as strokes saved before packing hold.
+  const staircase: number[] = [];
+  for (let i = 0; i <= 20; i += 1) staircase.push(i, Math.round(i * 0.5));
+  assertSameCentreline(staircase, "staircase");
+  // Two points, and three (one span each side of a corner).
+  assertSameCentreline([10, 10, 50, 10], "two points");
+  assertSameCentreline([10, 10, 50, 10, 50, 50], "corner");
 });
