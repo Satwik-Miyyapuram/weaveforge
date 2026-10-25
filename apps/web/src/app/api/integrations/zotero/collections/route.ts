@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSdkUser } from "@/app/api/sdk/_shared";
-import { zoteroHeaders, zoteroLibraryUrl } from "@/features/papers/infrastructure/zotero-web-api";
+import { normalizeZoteroLibrary, zoteroHeaders, zoteroLibraryUrl } from "@/features/papers/infrastructure/zotero-web-api";
 import { jsonBodyError } from "@/lib/format-error";
 
 export const dynamic = "force-dynamic";
@@ -35,9 +35,8 @@ export async function POST(request: Request) {
   }
 
   const apiKey = body.apiKey?.trim();
-  const libraryInput = body.library?.trim();
-  const library = libraryInput && /^\d+$/.test(libraryInput) ? `users/${libraryInput}` : libraryInput;
-  if (!apiKey || !library || !/^(users|groups)\/\d+$/.test(library)) {
+  const library = normalizeZoteroLibrary(body.library);
+  if (!apiKey || !library) {
     return NextResponse.json({ error: "A valid Zotero library and API key are required." }, { status: 400 });
   }
 

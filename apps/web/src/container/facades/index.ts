@@ -59,8 +59,6 @@ import type { ReaderReferencesFacade } from "./reader-references";
 import type { WorkspaceFacade } from "./workspace";
 import type { InkFacade } from "./ink";
 
-/** Swappable third-party integrations wired at the composition root. */
-
 export interface AppContainer {
   integrations: IntegrationsRegistry;
   papers: PapersFacade;

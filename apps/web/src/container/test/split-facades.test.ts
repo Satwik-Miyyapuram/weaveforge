@@ -234,3 +234,33 @@ test("custom fields are pass-throughs to the one use case that owns the rules", 
 
   assert.deepEqual(calls, ["listDefs", "listValuesForProject", "remove:f1"]);
 });
+
+test("the live push goes through the one pusher seam, local marks only (10-29)", async () => {
+  const calls: { parent: string; ids: string[]; live: boolean }[] = [];
+  const facade = new ZoteroFacade({
+    bibliography: {} as never,
+    pushToZotero: { execute: async () => "pushed" } as never,
+    importLocalZotero: { execute: async () => ({ papers: 0, annotations: 0, items: 0 }) } as never,
+    readerAnnotations: {
+      list: async () => [annotation(), annotation({ id: "z1", origin: "zotero" as never })],
+    } as never,
+    papers: { list: async () => [], getById: async () => null, save: async () => {} } as never,
+    manageTags: { reconcileSources: async () => {} } as never,
+    zoteroCredentials: async () => ({ apiKey: "k", library: "users/1" }),
+    annotationPusher: async () => ({
+      push: async (parent, list, options) => {
+        calls.push({ parent, ids: list.map((a) => a.id), live: options.live });
+        return { results: [] };
+      },
+    }),
+  });
+  const { restore } = stubFetch(() => {
+    throw new Error("the injected pusher must be used, not the Web API client");
+  });
+  try {
+    await facade.pushAnnotationsToZotero("p1", "ATT1");
+  } finally {
+    restore();
+  }
+  assert.deepEqual(calls, [{ parent: "ATT1", ids: ["a1"], live: true }]);
+});
