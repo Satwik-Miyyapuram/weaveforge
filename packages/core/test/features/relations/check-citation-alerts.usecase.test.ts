@@ -55,7 +55,9 @@ class Notifications implements INotificationIntegration {
   readonly providerId = "test";
   alerts: CitationCandidate[][] = [];
   async notifyMilestone(_event: "added" | "status", _milestone: Milestone) {}
+  fail: Error | null = null;
   async notifyCitationAlert(_tracked: Paper, citing: CitationCandidate[]) {
+    if (this.fail) throw this.fail;
     this.alerts.push(citing);
   }
 }
@@ -66,7 +68,11 @@ class FailingLogs extends AddLogEntryUseCase {
   }
 }
 
-function setup(opts?: { getProjectId?: () => string | null; failingLogs?: boolean }) {
+function setup(opts?: {
+  getProjectId?: () => string | null;
+  failingLogs?: boolean;
+  onError?: (paperId: string, error: unknown) => void;
+}) {
   const papers = new InMemoryPaperRepository();
   const tracks = new InMemoryCitationAlertTrackRepository();
   const logs = new InMemoryLogEntryRepository();
@@ -94,6 +100,7 @@ function setup(opts?: { getProjectId?: () => string | null; failingLogs?: boolea
     notifications,
     clock,
     getProjectId: opts?.getProjectId,
+    onError: opts?.onError,
   });
   return {
     papers,
@@ -215,6 +222,75 @@ test("one paper failing citations does not skip the rest", async () => {
   assert.equal(result.failed, 1, "the failing paper is counted (04-19)");
   assert.match((await logs.list())[0]!.body, /New2/);
   assert.ok(await tracks.getByPaperId(paper.id));
+});
+
+test("a failed notification reaches onError and the alert is still logged and seen (04-20)", async () => {
+  const errors: [string, unknown][] = [];
+  const { papers, tracks, logs, source, notifications, useCase, setNow } = setup({
+    onError: (paperId, error) => errors.push([paperId, error]),
+  });
+  await papers.save(paper);
+  await useCase.setTracking(paper.id, true);
+  setNow("2026-07-02T13:00:00.000Z");
+  source.itemsByDoi.set(paper.doi!, [{ id: "new", title: "New citation", authors: [] }]);
+  const failure = new Error("mattermost down");
+  notifications.fail = failure;
+
+  const result = await useCase.checkAll();
+  assert.deepEqual(result, { tracked: 1, checked: 1, found: 1, failed: 0 });
+  assert.deepEqual(errors, [[paper.id, failure]]);
+  assert.match((await logs.list())[0]!.body, /New citation/);
+  assert.deepEqual((await tracks.getByPaperId(paper.id))?.seenCitingIds, ["new"]);
+});
+
+test("a failed paper check reaches onError with its paper id (04-20)", async () => {
+  const errors: [string, unknown][] = [];
+  const { papers, source, useCase, setNow } = setup({ onError: (paperId, error) => errors.push([paperId, error]) });
+  await papers.save(paper);
+  await papers.save(paper2);
+  await useCase.setTracking(paper.id, true);
+  await useCase.setTracking(paper2.id, true);
+  setNow("2026-07-02T13:00:00.000Z");
+  source.failFor.add(paper2.doi!);
+
+  const result = await useCase.checkAll();
+  assert.equal(result.failed, 1);
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0]![0], paper2.id);
+  assert.match(String(errors[0]![1]), /citations failed for 10.1000\/tracked-2/);
+});
+
+test("a throwing onError does not stop the run (04-20)", async () => {
+  const { papers, source, notifications, useCase, setNow } = setup({
+    onError: () => {
+      throw new Error("hook broke");
+    },
+  });
+  await papers.save(paper);
+  await papers.save(paper2);
+  await useCase.setTracking(paper.id, true);
+  await useCase.setTracking(paper2.id, true);
+  setNow("2026-07-02T13:00:00.000Z");
+  source.failFor.add(paper.doi!);
+  source.itemsByDoi.set(paper2.doi!, [{ id: "n2", title: "New2", authors: [] }]);
+  notifications.fail = new Error("down");
+
+  const result = await useCase.checkAll();
+  assert.deepEqual(result, { tracked: 2, checked: 1, found: 1, failed: 1 });
+});
+
+test("the log lists fresh citations best first (04-21)", async () => {
+  const { papers, logs, source, useCase, setNow } = setup();
+  await papers.save(paper);
+  await useCase.setTracking(paper.id, true);
+  setNow("2026-07-02T13:00:00.000Z");
+  source.itemsByDoi.set(paper.doi!, [
+    { id: "a", title: "Plain", authors: [], citationCount: 1 },
+    { id: "b", title: "Influential", authors: [], isInfluential: true, intents: ["result"], citationCount: 500 },
+  ]);
+  await useCase.checkAll();
+  const body = (await logs.list())[0]!.body;
+  assert.ok(body.indexOf("Influential") < body.indexOf("Plain"), body);
 });
 
 test("forced check waits for in-flight poll then runs with force", async () => {

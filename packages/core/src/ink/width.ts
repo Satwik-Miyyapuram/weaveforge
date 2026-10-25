@@ -81,11 +81,6 @@ export function clampInkNoteWidth(width: number, fallback = INK_PEN_WIDTH): numb
   return Math.min(INK_MAX_WIDTH, Math.max(INK_MIN_WIDTH, Math.round(width)));
 }
 
-/** Whether a width alone marks a stroke as a highlighter. */
-export function isHighlighterWidth(width: number): boolean {
-  return Number.isFinite(width) && width >= INK_HIGHLIGHTER_MIN_WIDTH;
-}
-
 /**
  * How pressure scales the base width, as a multiplier.
  *

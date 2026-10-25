@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   EMPTY_SETTINGS,
   hydrateUserSettings,
-  parseUserAppearance,
+  normalizeAppearance,
   normalizeAiAccessSettings,
   type SettingsMetadata,
   type ISettingsRepository,
@@ -185,7 +185,7 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
       integrations: secrets.integrations ?? undefined,
       disclaimerAcceptedAt: row.disclaimer_accepted_at ?? undefined,
       disclaimerVersion: row.disclaimer_version ?? undefined,
-      appearance: parseUserAppearance(row.appearance) ?? undefined,
+      appearance: normalizeAppearance(row.appearance),
       aiAccess: row.ai_access ? normalizeAiAccessSettings(row.ai_access as never) : undefined,
     });
   }
@@ -214,7 +214,7 @@ export class PostgrestSettingsRepository implements ISettingsRepository {
     return {
       disclaimerAcceptedAt: row.disclaimer_accepted_at ?? undefined,
       disclaimerVersion: row.disclaimer_version ?? undefined,
-      appearance: parseUserAppearance(row.appearance) ?? undefined,
+      appearance: normalizeAppearance(row.appearance),
     };
   }
 

@@ -215,6 +215,9 @@ export function decodeInkWords(
     if (join && next) {
       const doubt = (c: Chosen) => !c.sure || c.doubted === true;
       if (doubt(choice) || doubt(next.choice) || known.has(fold(join))) {
+        // The previous word's offer would swap in its join for this slot, which
+        // now holds two words; it would drop the second.
+        if (joinOffers.at(-1)?.at === chosen.length - 1) joinOffers.pop();
         chosen.push({ text: join, sure: true, others: [`${choice.text} ${next.choice.text}`] });
         index++;
         continue;

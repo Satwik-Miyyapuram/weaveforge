@@ -96,14 +96,18 @@ export function buildWikiIndex(
  */
 export function replaceWikiIndex(body: string, index: string): string {
   const start = body.indexOf(INDEX_MARKER_START);
-  const end = body.indexOf(INDEX_MARKER_END);
-
-  if (start < 0 || end < start) {
+  if (start < 0) {
     const trimmed = body.trimEnd();
     return trimmed ? `${trimmed}\n\n${index}\n` : `${index}\n`;
   }
 
   const before = body.slice(0, start);
+  // Only an end marker after this start closes the block. Without one the block
+  // was cut short, so it runs to the end of the page; appending a second block
+  // instead would make the next run splice away whatever lay between the two.
+  const end = body.indexOf(INDEX_MARKER_END, start + INDEX_MARKER_START.length);
+  if (end < 0) return `${before}${index}\n`;
+
   const after = body.slice(end + INDEX_MARKER_END.length);
   return `${before}${index}${after}`;
 }

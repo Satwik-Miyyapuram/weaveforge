@@ -24,3 +24,15 @@ test("publishes a freeze and lists by owner", async () => {
   await repository.remove(published.id);
   assert.deepEqual(await repository.listMine(), []);
 });
+
+test("a publish after a remove does not overwrite a live snapshot (08-02)", async () => {
+  const repository = new InMemoryLabSnapshotRepository();
+  const content = { milestones: [], logs: [] };
+  const a = await repository.publish({ title: "A", content });
+  const b = await repository.publish({ title: "B", content });
+  await repository.remove(a.id);
+  const c = await repository.publish({ title: "C", content });
+  assert.notEqual(c.id, b.id);
+  assert.equal((await repository.getById(b.id))?.title, "B");
+  assert.equal((await repository.listMine()).length, 2);
+});

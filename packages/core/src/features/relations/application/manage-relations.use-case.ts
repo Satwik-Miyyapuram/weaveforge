@@ -14,6 +14,7 @@ import {
 } from "../domain/paper-relation.js";
 import type { IPaperRelationRepository } from "../domain/paper-relation-repository.js";
 import type { ICitationSource } from "./citation-source.js";
+import { paperRef } from "./paper-ref.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { normalizeDoi, type Paper } from "../../papers/domain/paper.js";
 import type { IPaperIdentityLookup, PaperIdentity } from "../../papers/domain/paper-identity.js";
@@ -76,6 +77,13 @@ export class LinkCitationsUseCase {
     if (!source) return { created: [], unmatched: 0, failed: 0 };
 
     const references = await source.references(ref);
+    // One read of this paper's edges, so a re-run reports nothing new without a
+    // lookup per reference (add() still checks before it writes).
+    const linked = new Set(
+      (await this.relations.relationsFor(paper.id))
+        .filter((e) => e.relation === "cites" && e.fromPaper === paper.id)
+        .map((e) => e.toPaper),
+    );
     const created: PaperRelation[] = [];
     let unmatched = 0;
 
@@ -85,19 +93,15 @@ export class LinkCitationsUseCase {
         unmatched += 1;
         continue;
       }
-      // Was this exact edge already present? (so re-runs don't over-report)
-      const preexisting = await this.relations.findEdge(
-        paper.id,
-        match.id,
-        "cites",
-      );
+      if (linked.has(match.id)) continue; // already linked: not new
       const edge = await this.addRelation.add({
         fromPaper: paper.id,
         toPaper: match.id,
         relation: "cites",
         source: "auto",
       });
-      if (!preexisting) created.push(edge);
+      linked.add(match.id);
+      created.push(edge);
     }
 
     return { created, unmatched, failed: 0 };
@@ -201,11 +205,4 @@ export class LinkCitationsUseCase {
     }
     return { created, unmatched, failed: failedPapers.size };
   }
-}
-
-/** Prefer arXiv id, fall back to DOI, for resolving a paper externally. */
-function paperRef(paper: Paper): PaperRef | null {
-  if (paper.arxivId) return { kind: "arxiv", value: paper.arxivId };
-  if (paper.doi) return { kind: "doi", value: paper.doi };
-  return null;
 }

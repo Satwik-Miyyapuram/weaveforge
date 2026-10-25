@@ -17,14 +17,22 @@ export async function mapLimit<T, R>(
   limit: number,
   work: (input: T, index: number) => Promise<R>,
 ): Promise<R[]> {
-  if (limit < 1) throw new RangeError("mapLimit needs a concurrency limit of at least 1");
+  if (!(limit >= 1)) throw new RangeError("mapLimit needs a concurrency limit of at least 1");
   const results = new Array<R>(inputs.length);
   let next = 0;
+  // After one item fails the call rejects, so starting more would be wasted work.
+  let failed = false;
   const runners = Array.from({ length: Math.min(limit, inputs.length) }, async () => {
     for (;;) {
+      if (failed) return;
       const index = next++;
       if (index >= inputs.length) return;
-      results[index] = await work(inputs[index]!, index);
+      try {
+        results[index] = await work(inputs[index]!, index);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
     }
   });
   await Promise.all(runners);

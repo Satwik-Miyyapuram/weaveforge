@@ -26,3 +26,28 @@ test("fails safely for missing, circular, and traversal includes", () => {
   assert.match(result.warnings.join("\n"), /Circular include/);
   assert.match(result.warnings.join("\n"), /Unsafe include path/);
 });
+
+test("reads a heading with a short title in brackets (05-04)", () => {
+  const result = parseLatexSectionTree([
+    {
+      path: "main.tex",
+      content: [
+        "\\section[Short]{The long title}",
+        "\\subsection{Under the first}",
+        "\\section [Spaced] {Second}",
+        "\\subsection[]{Empty short}",
+        "\\section*{Starred}",
+        "\\section[Unclosed{Not a heading}",
+      ].join("\n"),
+    },
+  ]);
+
+  assert.deepEqual(
+    result.roots.map((node) => [node.title, node.children.map((child) => child.title)]),
+    [
+      ["The long title", ["Under the first"]],
+      ["Second", ["Empty short"]],
+      ["Starred", []],
+    ],
+  );
+});

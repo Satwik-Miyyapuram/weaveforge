@@ -23,7 +23,6 @@ import {
   inkPressureFactor,
   inkVelocityBetween,
   inkVelocityFactor,
-  isHighlighterWidth,
   nibWidth,
   strokeBaseWidth,
 } from "../../src/ink/width.js";
@@ -49,10 +48,9 @@ test("a width outside what a nib can be is clamped, and a missing one falls back
 
 test("the highlighter threshold sits clear of every pen width", () => {
   for (const width of INK_PEN_WIDTHS) {
-    assert.equal(isHighlighterWidth(width), false, `${width} is a pen, not a highlighter`);
+    assert.ok(width < INK_HIGHLIGHTER_MIN_WIDTH, `${width} is a pen, not a highlighter`);
   }
-  assert.equal(isHighlighterWidth(INK_HIGHLIGHTER_MIN_WIDTH - 1), false);
-  assert.equal(isHighlighterWidth(INK_HIGHLIGHTER_WIDTH), true);
+  assert.ok(INK_HIGHLIGHTER_WIDTH >= INK_HIGHLIGHTER_MIN_WIDTH);
 });
 
 test("pressure leaves the width alone when the device reports none", () => {

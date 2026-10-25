@@ -84,3 +84,35 @@ test("the page count reads correctly for one page", () => {
     /2 pages\. Generated 2026-08-05/,
   );
 });
+
+const count = (text: string, marker: string) => text.split(marker).length - 1;
+
+test("a start marker without an end is replaced through the end, not duplicated (02-11)", () => {
+  const damaged = `Notes\n\n${INDEX_MARKER_START}\n- [[Stale]]\n`;
+  const fresh = buildWikiIndex([page("1", "Fresh")], { now });
+  const rebuilt = replaceWikiIndex(damaged, fresh);
+
+  assert.equal(rebuilt, `Notes\n\n${fresh}\n`);
+  assert.equal(count(rebuilt, INDEX_MARKER_START), 1, "exactly one generated block");
+  assert.ok(!rebuilt.includes("Stale"));
+  // The repaired body regenerates in place on the next run.
+  assert.equal(replaceWikiIndex(rebuilt, fresh), rebuilt);
+});
+
+test("a stray end marker before the block does not hide the block (02-11)", () => {
+  const old = buildWikiIndex([page("1", "Stale")], { now });
+  const body = `Quoting ${INDEX_MARKER_END} by hand.\n\n${old}\n\nAfter.\n`;
+  const rebuilt = replaceWikiIndex(body, buildWikiIndex([page("2", "Fresh")], { now }));
+
+  assert.equal(count(rebuilt, INDEX_MARKER_START), 1);
+  assert.ok(rebuilt.startsWith(`Quoting ${INDEX_MARKER_END} by hand.`));
+  assert.ok(rebuilt.endsWith("\n\nAfter.\n"));
+  assert.ok(!rebuilt.includes("Stale"));
+  assert.ok(rebuilt.includes("- [[Fresh]]"));
+});
+
+test("only an end marker: the index is appended and the text kept", () => {
+  const body = `Notes ${INDEX_MARKER_END}\n`;
+  const fresh = buildWikiIndex([page("1", "Fresh")], { now });
+  assert.equal(replaceWikiIndex(body, fresh), `Notes ${INDEX_MARKER_END}\n\n${fresh}\n`);
+});

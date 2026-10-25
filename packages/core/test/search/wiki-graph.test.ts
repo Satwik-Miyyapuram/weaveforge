@@ -241,6 +241,23 @@ test("the PPR threshold is what decides the arm", () => {
   assert.equal(result[0]!.arm, "lexical");
 });
 
+// 01-09: choosing the arm reads the seed's own links, not a degree map of every node.
+test("choosing the arm does not walk the whole graph", () => {
+  class NoWalk<K, V> extends Map<K, V> {
+    override [Symbol.iterator](): MapIterator<[K, V]> {
+      throw new Error("walked every node");
+    }
+    override entries(): MapIterator<[K, V]> {
+      throw new Error("walked every node");
+    }
+  }
+  const edges = new NoWalk<string, string[]>([["note:s", ["note:a"]], ["note:a", ["note:s"]]]);
+  const graph = { nodes: ["note:s", "note:a"], edges };
+  const result = findRelated("note:s", { graph, lexical: () => [{ id: "note:a", score: 1 }] });
+  assert.equal(result[0]!.arm, "lexical");
+  assert.deepEqual(findRelated("note:missing", { graph }), []);
+});
+
 test("every arm has an explanation for the UI", () => {
   for (const arm of ["graph", "lexical", "tags", "none"] as const) {
     assert.ok(explainArm(arm).length > 0);

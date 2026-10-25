@@ -97,6 +97,7 @@ import { FsInkChunkStore } from "@/features/ink/infrastructure/fs-ink-chunk-stor
 import { RoutedInkChunkStore } from "@/features/ink/infrastructure/routed-ink-chunk-store";
 import { activeWorkspaceFs, folderRestored } from "@/features/workspace/application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { reportCitationAlertError } from "@/features/relations/infrastructure/report-citation-alert-error";
 import type { ProjectContext } from "@/lib/project-context";
 import { randomBytes, systemClock, uuidIds } from "@/lib/system";
 import type { ProjectLwwInvalidator } from "@/lib/cache/project-lww-invalidator";
@@ -330,6 +331,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     notifications,
     clock: systemClock,
     getProjectId: pid,
+    onError: reportCitationAlertError,
   });
 
   const managePaperFields = new ManagePaperFieldsUseCase({
@@ -367,9 +369,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     shareLinkRepository && new ManageShareLinksUseCase({ shareLinks: shareLinkRepository });
   const revokeShareLink =
     shareLinkRepository &&
-    new RevokeShareLinkUseCase({
-      shareLinks: shareLinkRepository,
-    });
+    new RevokeShareLinkUseCase({ shareLinks: shareLinkRepository });
   const pinSharedResource = new PinSharedResourceUseCase({
     pins: backend.libraryPinRepository,
     shares: backend.shareRepository,

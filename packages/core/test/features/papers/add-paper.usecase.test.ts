@@ -6,6 +6,7 @@ import {
   ImportPaperUseCase,
 } from "../../../src/features/papers/application/add-paper.use-case.js";
 import {
+  MetadataResolutionError,
   MetadataResolver,
   type IMetadataSource,
   type PaperRef,
@@ -104,4 +105,52 @@ test("importRef reports an import that matched a paper the library already had",
   const first = await importer.importRef({ kind: "arxiv", value: "1406.2661" });
   const again = await importer.importRef({ kind: "arxiv", value: "1406.2661" });
   assert.deepEqual([first.created, again.created], [true, false]);
+});
+
+// 03-07: the cascade used to drop each provider's error, so an outage read as
+// "not found".
+function down(id: string, message: string): IMetadataSource {
+  return { id, supports: () => true, fetch: async () => { throw new Error(message); } };
+}
+
+test("a failed cascade keeps every provider's error", async () => {
+  const resolver = new MetadataResolver([down("s2", "503 Service Unavailable"), down("crossref", "fetch failed")]);
+  const ref: PaperRef = { kind: "bibliographic", value: "Attention is all you need" };
+  await assert.rejects(resolver.resolve(ref), (err: unknown) => {
+    assert.ok(err instanceof MetadataResolutionError);
+    assert.deepEqual(err.failures, [
+      { sourceId: "s2", message: "503 Service Unavailable" },
+      { sourceId: "crossref", message: "fetch failed" },
+    ]);
+    assert.match(err.message, /s2: 503 Service Unavailable/);
+    assert.match(err.message, /crossref: fetch failed/);
+    return true;
+  });
+});
+
+test("a cascaded identifier keeps errors too, and a non-Error throw still reads", async () => {
+  const odd: IMetadataSource = { id: "odd", supports: () => true, fetch: async () => { throw "timeout"; } };
+  const resolver = new MetadataResolver([odd, down("crossref", "404")], true);
+  await assert.rejects(resolver.resolve({ kind: "doi", value: "10.1/x" }), (err: unknown) => {
+    assert.ok(err instanceof MetadataResolutionError);
+    assert.deepEqual(err.failures.map((f) => f.sourceId), ["odd", "crossref"]);
+    assert.equal(err.failures[0]!.message, "timeout");
+    return true;
+  });
+});
+
+test("a later provider that answers hides the earlier errors", async () => {
+  const ok: IMetadataSource = { id: "crossref", supports: () => true, fetch: async () => ({ title: "Found" }) as never };
+  const resolver = new MetadataResolver([down("s2", "503"), ok]);
+  const { sourceId } = await resolver.resolveWithSource({ kind: "bibliographic", value: "x" });
+  assert.equal(sourceId, "crossref");
+});
+
+test("no supporting source is an error with no provider failures", async () => {
+  const resolver = new MetadataResolver([]);
+  await assert.rejects(resolver.resolve({ kind: "doi", value: "10.1/x" }), (err: unknown) => {
+    assert.ok(err instanceof MetadataResolutionError);
+    assert.deepEqual(err.failures, []);
+    return true;
+  });
 });

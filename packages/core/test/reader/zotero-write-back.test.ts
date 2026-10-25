@@ -188,3 +188,60 @@ test("write-back sends the reading marks and never the pen strokes", async () =>
     "note",
   ]);
 });
+
+function remoteOf(local: ReaderAnnotation, over: Partial<NonNullable<AnnotationSyncRow["remote"]>> = {}) {
+  return {
+    key: "K",
+    version: 2,
+    type: local.type,
+    color: local.color,
+    text: local.text,
+    comment: local.comment,
+    tags: [...local.tags],
+    anchor: local.anchor,
+    sortIndex: local.sortIndex,
+    updatedAt: "2026-01-04T00:00:00.000Z",
+    ...over,
+  };
+}
+
+test("merge takes the remote anchor with the remote text (07-03)", () => {
+  const local = baseLocal({ zoteroKey: "K", text: "hello" });
+  const moved = { zoteroPosition: { pageIndex: 1, rects: [[5, 6, 7, 8]] } };
+  // Text and anchor both changed: they describe one span, so both come from Zotero.
+  const both = resolveAnnotationConflict(
+    row({ local, remote: remoteOf(local, { text: "hello world", anchor: moved }) }),
+    "merge",
+  );
+  assert.equal(both!.text, "hello world");
+  assert.deepEqual(both!.anchor, moved);
+  // Anchor alone moved: still remote.
+  const anchorOnly = resolveAnnotationConflict(row({ local, remote: remoteOf(local, { anchor: moved }) }), "merge");
+  assert.equal(anchorOnly!.text, "hello");
+  assert.deepEqual(anchorOnly!.anchor, moved);
+  // Neither changed: local anchor kept.
+  const neither = resolveAnnotationConflict(row({ local, remote: remoteOf(local, { color: "#000000" }) }), "merge");
+  assert.deepEqual(neither!.anchor, local.anchor);
+});
+
+test("key order alone is not a conflict (07-04)", () => {
+  const local = baseLocal({
+    zoteroKey: "K",
+    anchor: { zoteroPosition: { pageIndex: 0, rects: [[1, 2, 3, 4]] } },
+  });
+  const reordered = { zoteroPosition: { rects: [[1, 2, 3, 4]], pageIndex: 0 } };
+  assert.deepEqual(diffAnnotationFields(row({ local, remote: remoteOf(local, { anchor: reordered }) })), []);
+  // Array order still matters, and a changed nested value is still a change.
+  const flipped = { zoteroPosition: { rects: [[4, 3, 2, 1]], pageIndex: 0 } };
+  assert.deepEqual(
+    diffAnnotationFields(row({ local, remote: remoteOf(local, { anchor: flipped }) })).map((f) => f.field),
+    ["anchor"],
+  );
+  const tagsFlipped = baseLocal({ zoteroKey: "K", tags: ["a", "b"] });
+  assert.deepEqual(
+    diffAnnotationFields(row({ local: tagsFlipped, remote: remoteOf(tagsFlipped, { tags: ["b", "a"] }) })).map(
+      (f) => f.field,
+    ),
+    ["tags"],
+  );
+});

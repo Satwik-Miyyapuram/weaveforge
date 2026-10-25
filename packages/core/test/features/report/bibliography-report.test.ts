@@ -134,6 +134,29 @@ test("a bibliography file the document names but does not contain is an error", 
   assert.equal(missing[0]?.line, 2);
 });
 
+test("a bibliography named with ./ or .. still finds its file (05-05)", () => {
+  const result = report([
+    {
+      path: "main.tex",
+      content: [
+        "\\nocite{*}",
+        "\\addbibresource{./refs.bib}",
+        "\\bibliography{./sub/../refs}",
+        "\\addbibresource{./sub/more.bib}",
+        "\\addbibresource{../refs.bib}",
+      ].join("\n"),
+    },
+    { path: "refs.bib", content: COMPLETE },
+    { path: "./sub/more.bib", content: "" },
+  ]);
+
+  // Only the path that climbs out of the project is missing.
+  assert.deepEqual(
+    of(result.findings, "missing-bib-file").map((finding) => finding.line),
+    [5],
+  );
+});
+
 test("a clean project reports nothing at all", () => {
   const result = report([
     { path: "main.tex", content: "\\cite{ok}\n\\bibliography{refs}" },

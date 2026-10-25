@@ -7,9 +7,6 @@
 import type { CitationMention, PageTextRange, ParsedReference } from "./analysis-types.js";
 import { composeSpacingAccents, mentionRects, originalRange, searchTextFromItems, stripInvisible, surnameKey, type PdfItem } from "./citation-text.js";
 
-export type CitationStyle = "numeric" | "author-year" | "both";
-export type EngineMode = "legacy" | "fixed";
-
 export interface CitationCandidate {
   start: number;
   end: number;
@@ -24,17 +21,6 @@ const AUTHORS = String.raw`${NAME}(?:\s+${ET_AL}|(?:,\s*${NAME})*,?\s*(?:and|&)\
 const YEAR = String.raw`(?:19|20)\d{2}[a-z]?(?![\p{L}\d])`;
 const AUTHOR_YEAR = String.raw`(${AUTHORS})\s*(?:,\s*|\(\s*|\s+)(${YEAR})(?:\s*\))?`;
 const NUMBER_LIST = /\[\s*\d{1,3}(?:\s*[-–—]\s*\d{1,3})?(?:\s*[,;]\s*\d{1,3}(?:\s*[-–—]\s*\d{1,3})?)*\s*\]/g;
-
-export function detectCitationStyle(texts: readonly string[]): CitationStyle | null {
-  let numeric = 0;
-  let authorYear = 0;
-  for (const text of texts) {
-    numeric += [...text.matchAll(NUMBER_LIST)].length;
-    authorYear += [...text.matchAll(new RegExp(AUTHOR_YEAR, "gu"))].length;
-  }
-  if (numeric && authorYear) return "both";
-  return authorYear ? "author-year" : numeric ? "numeric" : null;
-}
 
 function referenceIndexes(authors: string, year: string, refs: readonly ParsedReference[]): number[] {
   const etAl = /et\.?\s*al\.?/i.test(authors);
@@ -96,11 +82,9 @@ export function findCitationCandidates(items: readonly PdfItem[]): CitationCandi
 export function findPatternCitationMentions(
   page: { number: number; text: string; items: readonly PdfItem[] },
   refs: readonly ParsedReference[],
-  style: CitationStyle | null,
-  mode: EngineMode,
   excluded: readonly PageTextRange[] = [],
+  candidates: readonly CitationCandidate[] = findCitationCandidates(page.items),
 ): CitationMention[] {
-  if (mode === "legacy" && refs.length > 0 && (!style || page.number >= Math.min(...refs.map((ref) => ref.page)))) return [];
   const out: CitationMention[] = [];
   const add = (start: number, end: number, indexes: number[], source: CitationMention["source"]) => {
     if (!indexes.length && refs.length > 0) return;
@@ -116,7 +100,7 @@ export function findPatternCitationMentions(
       spanSource: "text",
     });
   };
-  for (const candidate of findCitationCandidates(page.items)) {
+  for (const candidate of candidates) {
     const indexes = refs.length === 0
       ? []
       : candidate.source === "numeric"

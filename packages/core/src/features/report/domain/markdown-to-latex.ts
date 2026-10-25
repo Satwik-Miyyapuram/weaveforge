@@ -6,7 +6,7 @@
  * Other unsupported constructs become warnings, not silent drops.
  */
 
-import { normalizeTitleKey, parseWikilinkInner } from "../../vault/domain/vault-page.js";
+import { normalizeTitleKey, parseWikilinkInner, wikilinkPattern } from "../../vault/domain/vault-page.js";
 
 export interface MarkdownToLatexImageRef {
   /** Storage path after `reportimg:`. */
@@ -30,6 +30,8 @@ export interface MarkdownToLatexResult {
   /** Bib keys emitted via `\cite{...}` (unique, insertion order). */
   citedKeys: string[];
 }
+
+const VERBATIM_END = "\\end{verbatim}";
 
 const UNSUPPORTED = [
   { re: /\|.+\|[\r\n]+\|[-:| ]+\|/m, label: "markdown table" },
@@ -127,7 +129,7 @@ function textWithCites(
   citedKeys: Set<string>,
 ): string {
   if (!s) return "";
-  const re = /\[\[([^\[\]\n]+?)\]\]/g;
+  const re = wikilinkPattern();
   let out = "";
   let last = 0;
   let m: RegExpExecArray | null;
@@ -195,8 +197,19 @@ export function markdownToLatex(md: string, opts: MarkdownToLatexOptions = {}): 
         // Pushed line by line, not spread: a fence can hold an entire pasted
         // file, and a spread becomes one call argument per line (V8 gives out
         // around 125 000 of them). Same fix as `stepsToPrune`.
-        for (const codeLine of codeBuf) out.push(codeLine);
-        out.push("\\end{verbatim}");
+        // A literal `\end{verbatim}` would close the block early and compile
+        // the rest as TeX; the space keeps it as text.
+        let brokeCloser = false;
+        for (const codeLine of codeBuf) {
+          if (!codeLine.includes(VERBATIM_END)) {
+            out.push(codeLine);
+            continue;
+          }
+          brokeCloser = true;
+          out.push(codeLine.replaceAll(VERBATIM_END, "\\end {verbatim}"));
+        }
+        if (brokeCloser) warnings.push("A code block held \\end{verbatim}; it is printed as \\end {verbatim}.");
+        out.push(VERBATIM_END);
         if (codeLang) warnings.push(`Code fence language "${codeLang}" ignored in verbatim.`);
         codeBuf = [];
       }

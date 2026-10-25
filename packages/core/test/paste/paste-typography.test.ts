@@ -101,3 +101,22 @@ test("code, maths and frontmatter ranges are found where expected", () => {
   assert.ok(frontmatterRange("---\na: 1\n---\nbody"));
   assert.equal(frontmatterRange("body\n---\na: 1\n---"), null);
 });
+
+test("trimSurroundingWhitespace trims the end in linear time and keeps inner runs (07-06)", () => {
+  const cases: [string, string][] = [
+    ["a  \n \t\n  ", "a"],
+    ["a\r\n\r\n", "a\r\n\r"],
+    ["      ", ""],
+    ["    code  \n\n", "    code"],
+    ["a\n\n\nb \t", "a\n\n\nb"],
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(trimSurroundingWhitespace(input).text, expected, JSON.stringify(input));
+  }
+  for (const run of ["\n".repeat(40_000), " \n".repeat(20_000), " ".repeat(40_000)]) {
+    const text = `a${run}b`;
+    const started = performance.now();
+    assert.equal(trimSurroundingWhitespace(text).text, text);
+    assert.ok(performance.now() - started < 300, JSON.stringify(run.slice(0, 4)));
+  }
+});

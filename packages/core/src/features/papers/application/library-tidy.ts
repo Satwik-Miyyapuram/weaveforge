@@ -116,14 +116,21 @@ export interface DuplicateGroup {
  * version), or, for papers with neither, the same normalised title.
  *
  * Grouped transitively, so a copy matched by DOI to one and by title to another
- * joins one group, not two. A title match between two papers that both carry a
+ * joins one group, not two. A title match between two groups that both carry a
  * DOI, and different ones, is not a match: a paper and its erratum share a
- * title and are different records.
+ * title and are different records. That holds for groups, not just pairs, so a
+ * title-only copy cannot bridge the two.
  */
 export function findDuplicateGroups(papers: readonly PaperSummary[]): DuplicateGroup[] {
   const parent = papers.map((_, i) => i);
   const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i]!)));
   const reasonOf = new Map<number, DuplicateReason>();
+  // Roots of groups holding a DOI. Same-DOI copies are united first, so two
+  // different roots that both hold one hold different DOIs.
+  const hasDoi = new Set<number>();
+  papers.forEach((p, i) => {
+    if (normalizeDoi(p.doi)) hasDoi.add(i);
+  });
   const rank: Record<DuplicateReason, number> = { doi: 0, arxiv: 1, title: 2 };
   const union = (a: number, b: number, reason: DuplicateReason) => {
     const ra = find(a);
@@ -133,6 +140,7 @@ export function findDuplicateGroups(papers: readonly PaperSummary[]): DuplicateG
       .sort((x, y) => rank[x] - rank[y])[0]!;
     if (ra !== rb) parent[rb] = ra;
     reasonOf.set(ra, best);
+    if (hasDoi.has(rb)) hasDoi.add(ra);
   };
 
   const byKey = (key: (p: PaperSummary) => string | undefined | null, reason: DuplicateReason) => {
@@ -157,9 +165,9 @@ export function findDuplicateGroups(papers: readonly PaperSummary[]): DuplicateG
   for (const members of titled.values()) {
     for (let a = 0; a < members.length; a++) {
       for (let b = a + 1; b < members.length; b++) {
-        const da = normalizeDoi(papers[members[a]!]!.doi);
-        const db = normalizeDoi(papers[members[b]!]!.doi);
-        if (da && db && da !== db) continue;
+        const ra = find(members[a]!);
+        const rb = find(members[b]!);
+        if (ra !== rb && hasDoi.has(ra) && hasDoi.has(rb)) continue;
         union(members[a]!, members[b]!, "title");
       }
     }

@@ -7,19 +7,20 @@
  * without a network.
  */
 
-/** The named entities a title actually contains, plus numeric escapes. */
+const NAMED_ENTITIES: Record<string, string> = { nbsp: " ", lt: "<", gt: ">", quot: '"', apos: "'", amp: "&" };
+
+/**
+ * The named entities a title actually contains, plus numeric escapes.
+ *
+ * One pass, so what an entity decodes to is never read again: `&amp;lt;` and
+ * `&#38;lt;` both stay `&lt;`. Unknown names are left as written.
+ */
 export function decodeHtmlEntities(value: string): string {
-  return value
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => safeCodePoint(parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, digits: string) => safeCodePoint(Number(digits)))
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&apos;/gi, "'")
-    .replace(/&#0?39;/g, "'")
-    // Ampersand last, so `&amp;lt;` decodes to `&lt;` and not to `<`.
-    .replace(/&amp;/gi, "&");
+  return value.replace(/&(?:#x([0-9a-f]+)|#(\d+)|([a-z]+));/gi, (whole, hex?: string, digits?: string, name?: string) => {
+    if (hex !== undefined) return safeCodePoint(parseInt(hex, 16));
+    if (digits !== undefined) return safeCodePoint(Number(digits));
+    return NAMED_ENTITIES[name!.toLowerCase()] ?? whole;
+  });
 }
 
 function safeCodePoint(value: number): string {

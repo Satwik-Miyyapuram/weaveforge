@@ -148,5 +148,4 @@ export interface AiModelResponse {
 export interface IModelConversation {
   readonly provider: AiModelProviderId;
   complete(request: AiModelRequest): Promise<AiModelResponse>;
-  stream?(request: AiModelRequest): AsyncIterable<AiModelResponse>;
 }

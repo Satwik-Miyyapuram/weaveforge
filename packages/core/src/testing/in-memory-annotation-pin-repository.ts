@@ -6,12 +6,13 @@ import type {
 
 export class InMemoryAnnotationPinRepository implements IAnnotationPinRepository {
   private readonly items = new Map<string, AnnotationPin>();
+  private seq = 0;
 
   async save(input: SaveAnnotationPinInput): Promise<AnnotationPin> {
     const mapKey = `${input.paperId}:${input.annotationKey}`;
     const previous = this.items.get(mapKey);
     const pin: AnnotationPin = {
-      id: previous?.id ?? `annotation-pin-${this.items.size + 1}`,
+      id: previous?.id ?? `annotation-pin-${++this.seq}`,
       ...input,
       createdAt: previous?.createdAt ?? new Date().toISOString(),
     };

@@ -12,7 +12,7 @@ import {
   checkDecision,
   exclusionReasons,
   prismaCounts,
-  verdictFor,
+  verdictsFor,
   type ItemVerdict,
   type PrismaCounts,
   type ScreeningDecision,
@@ -76,10 +76,7 @@ export class ScreenItemsUseCase {
 
   async summarize(items: readonly ScreeningItem[]): Promise<ScreenSummary> {
     const decisions = await this.deps.screening.listForItems(items.map((item) => item.id));
-    const verdicts = items.flatMap((item) => [
-      verdictFor(decisions, item.id, "title_abstract"),
-      verdictFor(decisions, item.id, "full_text"),
-    ]);
+    const verdicts = verdictsFor(items, decisions);
     return {
       decisions,
       counts: prismaCounts(items, decisions),

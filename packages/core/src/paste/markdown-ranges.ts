@@ -14,28 +14,33 @@ import { indexRanges, mergeRanges, type TextRange } from "./text-range.js";
 /** Markdown treats four or more leading spaces as an indented code block. */
 export const INDENTED_CODE_WIDTH = 4;
 
-interface Fence {
+/** A code fence line: its marker, run length and the info string after it. */
+export interface CodeFence {
   marker: "`" | "~";
   length: number;
+  info: string;
 }
 
 /** The fence a line opens or closes, or null when it is not a fence line. */
-function fenceOf(line: string): Fence | null {
+export function fenceOf(line: string): CodeFence | null {
   const match = /^(?: {0,3}>[ \t]?)* {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
   if (!match) return null;
   const marker: "`" | "~" = match[1]!.startsWith("`") ? "`" : "~";
   // An info string may not contain a backtick on a backtick fence, otherwise
   // `` `a` `` in prose would open one.
   if (marker === "`" && match[2]!.includes("`")) return null;
-  return { marker, length: match[1]!.length };
+  return { marker, length: match[1]!.length, info: match[2]! };
 }
 
-/** A closing fence uses the opening marker and is at least as long. */
-function closes(line: string, opening: Fence): boolean {
+/** A closing fence uses the opening marker, is at least as long and has no info. */
+export function closesFence(line: string, opening: CodeFence): boolean {
   const candidate = fenceOf(line);
-  if (!candidate) return false;
-  const rest = /^(?: {0,3}>[ \t]?)* {0,3}(?:`{3,}|~{3,})(.*)$/.exec(line)?.[1] ?? "";
-  return candidate.marker === opening.marker && candidate.length >= opening.length && rest.trim() === "";
+  return (
+    candidate !== null &&
+    candidate.marker === opening.marker &&
+    candidate.length >= opening.length &&
+    candidate.info.trim() === ""
+  );
 }
 
 /** True when an odd run of backslashes escapes the character at `index`. */
@@ -85,7 +90,7 @@ export function markdownCodeRanges(text: string): TextRange[] {
   const ranges: TextRange[] = [];
   const lines = text.split("\n");
   let offset = 0;
-  let fence: { opening: Fence; start: number } | null = null;
+  let fence: { opening: CodeFence; start: number } | null = null;
   let indented: { start: number; end: number } | null = null;
   let previousBlank = true;
 
@@ -96,7 +101,7 @@ export function markdownCodeRanges(text: string): TextRange[] {
     const blank = line.trim().length === 0;
 
     if (fence) {
-      if (closes(line, fence.opening)) {
+      if (closesFence(line, fence.opening)) {
         ranges.push({ start: fence.start, end });
         fence = null;
       }

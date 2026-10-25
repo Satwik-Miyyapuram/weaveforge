@@ -10,7 +10,7 @@
  */
 
 import { relatedByPpr, type PprOptions } from "./personalized-pagerank.js";
-import { graphDegrees, type WikiGraph } from "./wiki-graph.js";
+import type { WikiGraph } from "./wiki-graph.js";
 
 export type RelatedArm = "graph" | "lexical" | "semantic" | "tags" | "none";
 
@@ -54,7 +54,8 @@ export function findRelated(
   limit = 10,
   options: PprOptions = {},
 ): RelatedResult[] {
-  const degree = graphDegrees(deps.graph).get(seedId) ?? 0;
+  // The seed's own link count; the rest of the graph is not needed to decide.
+  const degree = deps.graph.edges.get(seedId)?.length ?? 0;
 
   if (degree >= MIN_SEED_DEGREE_FOR_PPR) {
     const hits = relatedByPpr(deps.graph, seedId, limit, options);

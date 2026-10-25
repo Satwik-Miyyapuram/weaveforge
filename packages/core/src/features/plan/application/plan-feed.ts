@@ -8,7 +8,7 @@
  * calendar, so the feed leaves it out and the widget summary only counts it.
  */
 
-import type { Milestone, MilestoneStatus } from "../domain/milestone.js";
+import { isIsoDay, type Milestone, type MilestoneStatus } from "../domain/milestone.js";
 
 /** A milestone with the name of the project it belongs to, for display. */
 export interface FeedMilestone {
@@ -25,15 +25,9 @@ export interface PlanFeedOptions {
   now: Date;
 }
 
-const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
-
 /** `yyyy-mm-dd` → a real calendar date, or null for anything else. */
 function parseDate(value: string | undefined): Date | null {
-  const m = value ? DATE_ONLY.exec(value) : null;
-  if (!m) return null;
-  const date = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
-  // Rejects 2026-02-31 and friends, which Date.UTC would roll into March.
-  return date.getUTCMonth() === Number(m[2]) - 1 ? date : null;
+  return value && isIsoDay(value) ? new Date(`${value}T00:00:00Z`) : null;
 }
 
 function isoDay(date: Date): string {

@@ -9,7 +9,7 @@ import {
   type ReaderAnnotationPatch,
   type ReaderAnnotationSyncRecord,
 } from "../reader/index.js";
-import { NotFoundError } from "../shared/errors.js";
+import { ConflictError, NotFoundError } from "../shared/errors.js";
 
 /** Combined source+sink for tests and local-only composition. */
 export class InMemoryReaderAnnotationRepository
@@ -28,6 +28,10 @@ export class InMemoryReaderAnnotationRepository
   async create(paperId: string, draft: NewReaderAnnotation): Promise<ReaderAnnotation> {
     if (!isReaderAnnotationType(draft.type)) {
       throw new Error(`Invalid annotation type: ${draft.type}`);
+    }
+    // The id is the table's primary key, so reusing a live one fails the insert.
+    if (draft.id !== undefined && this.items.has(draft.id)) {
+      throw new ConflictError(`Annotation ${draft.id} already exists`);
     }
     const now = new Date().toISOString();
     this.seq += 1;
@@ -63,7 +67,7 @@ export class InMemoryReaderAnnotationRepository
     const now = new Date().toISOString();
     const next: ReaderAnnotation & { paperId: string } = {
       ...existing,
-      color: patch.color?.trim() ?? existing.color,
+      color: patch.color !== undefined ? patch.color.trim() || "#ffd400" : existing.color,
       text: patch.text !== undefined ? patch.text.trim() : existing.text,
       comment: patch.comment !== undefined ? patch.comment.trim() : existing.comment,
       tags: patch.tags ? [...patch.tags] : existing.tags,

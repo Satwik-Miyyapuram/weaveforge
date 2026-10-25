@@ -91,6 +91,47 @@ test("LinkCitationsUseCase no-ops for a paper without arxiv/doi", async () => {
   assert.equal(result.unmatched, 0);
 });
 
+/** Counts edge lookups so a test can see how many queries a link run makes. */
+class CountingRelations extends InMemoryPaperRelationRepository {
+  findEdgeCalls = 0;
+  override async findEdge(...args: Parameters<InMemoryPaperRelationRepository["findEdge"]>) {
+    this.findEdgeCalls += 1;
+    return super.findEdge(...args);
+  }
+}
+
+test("forPaper: one edge lookup per new edge, none for edges already present (04-23)", async () => {
+  const papers = new InMemoryPaperRepository();
+  const ids = seqIds();
+  const citing = createPaper({ title: "Citing", arxivId: "2300.0001" }, { clock, ids });
+  const x = createPaper({ title: "X", arxivId: "2300.0002" }, { clock, ids });
+  const y = createPaper({ title: "Y", doi: "10.1/Y" }, { clock, ids });
+  for (const p of [citing, x, y]) await papers.save(p);
+  const relations = new CountingRelations();
+  const add = new AddRelationUseCase({ repository: relations, clock, ids });
+  // An edge the other way must not count as already linked.
+  await add.add({ fromPaper: x.id, toPaper: citing.id, relation: "cites", source: "auto" });
+  relations.findEdgeCalls = 0;
+  const source = new FakeCitationSource([
+    { kind: "arxiv", value: "2300.0002" },
+    { kind: "doi", value: "10.1/y" },
+    { kind: "arxiv", value: "2300.0002" }, // listed twice by the source
+    { kind: "arxiv", value: "2300.0001" }, // cites itself
+  ]);
+  const link = new LinkCitationsUseCase([source], papers, relations, add);
+
+  const first = await link.forPaper(citing);
+  assert.deepEqual(first.created.map((e) => e.toPaper), [x.id, y.id]);
+  assert.equal(first.unmatched, 1);
+  assert.equal(relations.findEdgeCalls, 2, "only add()'s own check");
+
+  relations.findEdgeCalls = 0;
+  const again = await link.forPaper(citing);
+  assert.equal(again.created.length, 0);
+  assert.equal(relations.findEdgeCalls, 0);
+  assert.equal((await relations.getGraph()).length, 3);
+});
+
 async function threePapers() {
   const papers = new InMemoryPaperRepository();
   const ids = seqIds();

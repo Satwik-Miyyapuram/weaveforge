@@ -15,6 +15,7 @@ import type {
   IReadingListItemRepository,
   IReadingListRepository,
 } from "../features/reading-lists/domain/reading-list-repository.js";
+import { ConflictError } from "../shared/errors.js";
 
 export class InMemoryReadingListRepository implements IReadingListRepository {
   private readonly store = new Map<string, ReadingList>();
@@ -91,7 +92,19 @@ export class InMemoryReadingListItemRepository
     return null;
   }
 
+  /**
+   * An upsert on the id. A second row for the same (list, paper) or
+   * (list, note) is rejected, as the table's unique constraints do.
+   */
   async add(item: ReadingListItem): Promise<void> {
+    const same = item.paperId
+      ? await this.find(item.listId, item.paperId)
+      : item.vaultPageId
+        ? await this.findNote(item.listId, item.vaultPageId)
+        : null;
+    if (same && same.id !== item.id) {
+      throw new ConflictError("This item is already in the reading list");
+    }
     this.store.set(item.id, { ...item });
   }
 
