@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type {
   Paper,
@@ -13,18 +13,14 @@ import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
-import { CommentsToggle, PinnedPaperBadge, usePinnedOwnerNames } from "@/features/sharing";
+import { usePinnedOwnerNames } from "@/features/sharing";
 import { AddListForm } from "./add-list-form";
-import { Select } from "@/components/select";
-import { ChevronIcon } from "@/components/chevron-icon";
-import { CompareViewIcon, FilterIcon, TreeViewIcon, UnlinkIcon } from "@/components/view-icons";
-import { EntityCardMenu } from "@/components/entity-card-menu";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
-import { collectListIds, listDisplayColor } from "./list-ui";
-import { ExtractionTable } from "./extraction-table";
+import { collectListIds } from "./list-ui";
+import { ListNode, type ListTreeContext } from "./list-node";
+import { runListAction } from "./run-list-action";
 import { ListsRail, findListNode } from "./lists-rail";
-import { ScreeningPanel } from "./screening-panel";
 import { useProject } from "@/features/projects";
 import { projectScopedKey, usePersistedState } from "@/lib/hooks/use-persisted-state";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
@@ -35,13 +31,6 @@ import { ScreenHead } from "@/components/screen-head";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { FormError } from "@/components/form-error";
 import { loadSubtreeItems } from "@/features/reading-lists/application/subtree-items";
-
-/** A list's three views, as icon buttons named by their tooltip. */
-const LIST_VIEWS = [
-  { id: "tree", label: "Tree view", Icon: TreeViewIcon },
-  { id: "table", label: "Table view", Icon: CompareViewIcon },
-  { id: "screen", label: "Screening view", Icon: FilterIcon },
-] as const;
 
 type ListsViewData = ReadingListsScreenData & { ownerNames: Map<string, string> };
 
@@ -85,7 +74,7 @@ export function ListsScreen() {
   const ownerNames = data?.ownerNames ?? emptyMap<string, string>();
 
   const ownedIds = useMemo(
-    () => new Set(tree.flatMap((n) => collectListIdsFromNode(n))),
+    () => new Set(collectListIds(tree)),
     [tree],
   );
 
@@ -118,25 +107,33 @@ export function ListsScreen() {
       return;
     }
     if (isSharedView || pinnedSharedBy.has(focusFromUrl)) {
-      void getContainer()
-        .readingLists.getList(focusFromUrl)
-        .then((l) => {
-          if (!l) return;
-          appliedFocus.current = focusFromUrl;
-          setData((prev) =>
-            prev && !prev.lists.some((x) => x.id === l.id)
-              ? { ...prev, lists: [...prev.lists, l] }
-              : prev,
-          );
-          setCollapsed((prev) => {
-            const next = new Set(prev);
-            next.delete(focusFromUrl);
-            return next;
-          });
-          requestAnimationFrame(() => {
-            document.getElementById(`list-${focusFromUrl}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-          });
+      // A shared list is not in the owned data: fetch it, unless the link
+      // changed meanwhile. A failed fetch is shown, so the link never just
+      // silently fails to focus.
+      let cancelled = false;
+      void runListAction(async () => {
+        const l = await getContainer().readingLists.getList(focusFromUrl);
+        if (cancelled || !l) return;
+        appliedFocus.current = focusFromUrl;
+        setData((prev) =>
+          prev && !prev.lists.some((x) => x.id === l.id)
+            ? { ...prev, lists: [...prev.lists, l] }
+            : prev,
+        );
+        setCollapsed((prev) => {
+          const next = new Set(prev);
+          next.delete(focusFromUrl);
+          return next;
         });
+        requestAnimationFrame(() => {
+          document.getElementById(`list-${focusFromUrl}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+      }, (message) => {
+        if (message && !cancelled) setError(message);
+      });
+      return () => {
+        cancelled = true;
+      };
     }
   }, [focusFromUrl, flat, isSharedView, pinnedSharedBy, setData]);
 
@@ -304,26 +301,6 @@ function matchTree(nodes: readonly ReadingListTreeNode[], hits: ReadonlySet<stri
   });
 }
 
-function collectListIdsFromNode(node: ReadingListTreeNode): string[] {
-  return [node.list.id, ...node.children.flatMap(collectListIdsFromNode)];
-}
-
-function parseListPicker(value: string): { kind: "paper" | "note"; id: string } | null {
-  if (value.startsWith("paper:")) return { kind: "paper", id: value.slice(6) };
-  if (value.startsWith("note:")) return { kind: "note", id: value.slice(5) };
-  return null;
-}
-
-function listItemTitle(
-  item: ReadingListItem,
-  paperTitles: Map<string, string>,
-  noteTitles: Map<string, string>,
-): string {
-  if (item.paperId) return paperTitles.get(item.paperId) ?? item.paperId;
-  if (item.vaultPageId) return noteTitles.get(item.vaultPageId) ?? item.vaultPageId;
-  return "Unknown";
-}
-
 /** "2 lists · 1 sublist": the count the brutal themes set over the title. */
 function listsEyebrow(lists: ReadingList[]): string | undefined {
   if (lists.length === 0) return undefined;
@@ -332,356 +309,4 @@ function listsEyebrow(lists: ReadingList[]): string | undefined {
   const parts = [`${top} ${top === 1 ? "list" : "lists"}`];
   if (sub > 0) parts.push(`${sub} ${sub === 1 ? "sublist" : "sublists"}`);
   return parts.join(" · ");
-}
-
-function listCountLabel(items: ReadingListItem[]): string {
-  const papers = items.filter((i) => i.paperId).length;
-  const notes = items.filter((i) => i.vaultPageId).length;
-  const parts: string[] = [];
-  if (papers > 0) parts.push(`${papers} paper${papers === 1 ? "" : "s"}`);
-  if (notes > 0) parts.push(`${notes} note${notes === 1 ? "" : "s"}`);
-  // "Empty" rather than "0 items": the filled lists beside it count papers and
-  // notes, and a third noun for the same count read as a different measure.
-  return parts.join(", ") || "Empty";
-}
-
-/**
- * Everything a node needs that is the same for every node in one tree.
- *
- * Named and passed as a unit because it was spelled out at three call sites —
- * the root tree, the shared-with-you list and the recursive child — and adding
- * a prop meant remembering all three.
- */
-interface ListTreeContext {
-  papers: Paper[];
-  notes: VaultPage[];
-  paperTitles: Map<string, string>;
-  noteTitles: Map<string, string>;
-  listNames: Map<string, string>;
-  /** Items of every list in the shown subtree, fetched once by the screen. */
-  itemsByList: ReadonlyMap<string, ReadingListItem[]>;
-  collapsedSet: Set<string>;
-  onToggleCollapse: (listId: string) => void;
-  onChanged: () => void;
-  onReload: () => void;
-}
-
-interface ListNodeProps extends ListTreeContext {
-  node: ReadingListTreeNode;
-  depth: number;
-  isCollapsed: boolean;
-  readOnly?: boolean;
-  isPinned?: boolean;
-  sharedByName?: string;
-  canComment?: boolean;
-}
-
-function ListNode(props: ListNodeProps) {
-  const {
-    node,
-    depth,
-    papers,
-    notes,
-    paperTitles,
-    noteTitles,
-    listNames,
-    itemsByList,
-    collapsedSet,
-    isCollapsed,
-    onToggleCollapse,
-    onChanged,
-    onReload,
-    readOnly = false,
-    isPinned = false,
-    sharedByName,
-    canComment = false,
-  } = props;
-  const list = node.list;
-  const loaded = itemsByList.get(list.id);
-  // Local copy so a drag reorder can show at once and roll back on failure.
-  const [items, setItems] = useState<ReadingListItem[]>(loaded ?? []);
-  useEffect(() => {
-    setItems(loaded ?? []);
-  }, [loaded]);
-  const [picker, setPicker] = useState("");
-  const [showAdd, setShowAdd] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
-  const [reorderError, setReorderError] = useState<string | null>(null);
-  const [addBusy, setAddBusy] = useState(false);
-  const [deleteBusy, setDeleteBusy] = useState(false);
-  const [dragItemId, setDragItemId] = useState<string | null>(null);
-  const [dropItemId, setDropItemId] = useState<string | null>(null);
-  const [view, setView] = usePersistedState<"tree" | "table" | "screen">(
-    `thesis.lists.view.${list.id}`,
-    "tree",
-  );
-  const hasChildren = node.children.length > 0;
-  const dotColor = listDisplayColor(list);
-
-  async function addItem() {
-    const ref = parseListPicker(picker);
-    if (!ref || addBusy) return;
-    setAddError(null);
-    setAddBusy(true);
-    try {
-      const manage = getContainer().readingLists.manageReadingList;
-      if (ref.kind === "paper") {
-        await manage.addPaperToList(list.id, ref.id);
-      } else {
-        await manage.addNoteToList(list.id, ref.id);
-      }
-      setPicker("");
-      setShowAdd(false);
-    } catch (err) {
-      setAddError(formatError(err));
-    } finally {
-      setAddBusy(false);
-      onChanged();
-    }
-  }
-
-  async function removeItem(item: ReadingListItem) {
-    const manage = getContainer().readingLists.manageReadingList;
-    if (item.paperId) {
-      await manage.removePaperFromList(list.id, item.paperId);
-    } else if (item.vaultPageId) {
-      await manage.removeNoteFromList(list.id, item.vaultPageId);
-    }
-    onChanged();
-  }
-
-  async function deleteList() {
-    const childCount = node.children.length;
-    const msg =
-      childCount > 0
-        ? `Delete "${list.name}" and its ${childCount} sublist(s)?`
-        : `Delete "${list.name}"?`;
-    if (!confirm(msg)) return;
-    setDeleteBusy(true);
-    try {
-      await getContainer().readingLists.manageReadingList.removeList(list.id);
-      onReload();
-    } finally {
-      setDeleteBusy(false);
-    }
-  }
-
-  async function unpinList() {
-    if (!confirm(`Remove "${list.name}" from your reading lists? The original will stay intact for ${sharedByName ?? "its owner"}.`)) return;
-    setDeleteBusy(true);
-    try {
-      await getContainer().sharing.unpinShared("reading_list", list.id);
-      onReload();
-    } finally {
-      setDeleteBusy(false);
-    }
-  }
-
-  async function reorderItems(dragId: string, targetId: string) {
-    if (dragId === targetId) return;
-    const ids = items.map((i) => i.id);
-    const from = ids.indexOf(dragId);
-    const to = ids.indexOf(targetId);
-    if (from < 0 || to < 0) return;
-    const next = [...ids];
-    next.splice(from, 1);
-    next.splice(to, 0, dragId);
-    const byId = new Map(items.map((i) => [i.id, i]));
-    const prev = items;
-    setReorderError(null);
-    setItems(next.map((id, sortOrder) => ({ ...byId.get(id)!, sortOrder })));
-    try {
-      await getContainer().readingLists.manageReadingList.reorderItems(list.id, next);
-      onChanged();
-    } catch (err) {
-      setItems(prev);
-      setReorderError(formatError(err));
-    }
-  }
-
-  const memberPaperIds = new Set(items.flatMap((i) => (i.paperId ? [i.paperId] : [])));
-  const memberNoteIds = new Set(items.flatMap((i) => (i.vaultPageId ? [i.vaultPageId] : [])));
-  const availablePapers = papers.filter((p) => !memberPaperIds.has(p.id));
-  const availableNotes = notes.filter((n) => !memberNoteIds.has(n.id));
-  const canAdd = availablePapers.length > 0 || availableNotes.length > 0;
-  const countLabel = listCountLabel(items);
-
-  return (
-    <li id={`list-${list.id}`} className="list-node" style={{ "--depth": depth } as CSSProperties}>
-      <div className="list-row">
-        <button
-          type="button"
-          className="list-toggle"
-          aria-expanded={!isCollapsed}
-          aria-label={isCollapsed ? "Expand list" : "Collapse list"}
-          onClick={() => onToggleCollapse(list.id)}
-        >
-          <ChevronIcon open={!isCollapsed} variant="expand" size={14} />
-        </button>
-        <span className="list-color-dot" style={{ background: dotColor }} aria-hidden />
-        <h3 className="list-row-title">{list.name}</h3>
-        <span className="list-count">{countLabel}</span>
-        <div className="list-view-toggle" role="group" aria-label="List view">
-          {LIST_VIEWS.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              type="button"
-              className={`entity-icon-btn${view === id ? " is-active" : ""}`}
-              aria-pressed={view === id}
-              aria-label={label}
-              title={label}
-              onClick={() => setView(id)}
-            >
-              <Icon />
-            </button>
-          ))}
-        </div>
-        {readOnly && <PinnedPaperBadge ownerName={sharedByName} />}
-        {(!readOnly || isPinned) && (
-          // Share and Delete sit behind one ⋯, as on every entity card: deleting
-          // a list is rare, and a red icon on every row was the loudest thing
-          // on the screen. `deleteList` still asks before it removes anything.
-          <EntityCardMenu
-            resourceType="reading_list"
-            resourceId={list.id}
-            title={`Share: ${list.name}`}
-            onDelete={isPinned ? () => void unpinList() : () => void deleteList()}
-            deleteLabel={isPinned ? "Remove from lists" : "Delete list…"}
-            deleteDisabled={deleteBusy}
-          />
-        )}
-        <CommentsToggle
-          resourceType="reading_list"
-          resourceId={list.id}
-          canComment={readOnly ? canComment : true}
-          isOwner={!readOnly}
-        />
-      </div>
-
-      {!isCollapsed && (
-        <div className="list-body">
-          {view === "table" ? (
-            <ExtractionTable node={node} papers={papers} readOnly={readOnly} />
-          ) : view === "screen" ? (
-            <ScreeningPanel node={node} papers={papers} readOnly={readOnly} />
-          ) : (
-            <>
-          {items.length > 0 && (
-            <ul className="list-papers">
-              {items.map((i) => (
-                <li
-                  key={i.id}
-                  className={`list-paper-row${dropItemId === i.id ? " drag-over" : ""}`}
-                  draggable={!readOnly}
-                  onDragStart={() => setDragItemId(i.id)}
-                  onDragEnd={() => { setDragItemId(null); setDropItemId(null); }}
-                  onDragOver={(e) => { e.preventDefault(); setDropItemId(i.id); }}
-                  onDragLeave={() => setDropItemId((id) => (id === i.id ? null : id))}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (dragItemId) void reorderItems(dragItemId, i.id);
-                    setDragItemId(null);
-                    setDropItemId(null);
-                  }}
-                >
-                  <span className="list-drag-handle" aria-hidden title="Drag to reorder">⋮⋮</span>
-                  <span className={`list-item-kind${i.vaultPageId ? " list-item-kind--note" : ""}`}>
-                    {i.vaultPageId ? "note" : "paper"}
-                  </span>
-                  <span className="list-paper-title">{listItemTitle(i, paperTitles, noteTitles)}</span>
-                  {i.inheritedFromListId && (
-                    <span className="list-via-badge">
-                      via {listNames.get(i.inheritedFromListId) ?? "sublist"}
-                    </span>
-                  )}
-                  {!readOnly && (
-                  <button
-                    className="list-item-remove entity-icon-btn"
-                    onClick={() => void removeItem(i)}
-                    aria-label="Remove from list"
-                    title="Remove from list"
-                  >
-                    <UnlinkIcon />
-                  </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {items.length === 0 && !showAdd && (
-            <p className="muted list-empty">No papers or notes in this list yet.</p>
-          )}
-
-          {showAdd && canAdd && !readOnly ? (
-            <div className="list-add">
-              <Select
-                searchable
-                searchPlaceholder="Search papers and notes…"
-                value={picker}
-                onChange={(e) => { setPicker(e.target.value); setAddError(null); }}
-              >
-                <option value="">Choose a paper or note…</option>
-                {availablePapers.length > 0 && (
-                  <optgroup label="Papers">
-                    {availablePapers.map((p) => (
-                      <option key={p.id} value={`paper:${p.id}`}>
-                        {p.title}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                {availableNotes.length > 0 && (
-                  <optgroup label="Notes">
-                    {availableNotes.map((n) => (
-                      <option key={n.id} value={`note:${n.id}`}>
-                        {n.title}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </Select>
-              <button
-                type="button"
-                className="btn-primary"
-                disabled={!picker || addBusy}
-                onClick={() => void addItem()}
-              >
-                {addBusy ? "Adding…" : "Add"}
-              </button>
-              <button
-                type="button"
-                className="btn-ghost btn-cancel"
-                onClick={() => { setShowAdd(false); setPicker(""); setAddError(null); }}
-              >
-                Cancel
-              </button>
-              {addError && <p className="error list-add-error">{addError}</p>}
-              {reorderError && <p className="error list-add-error">{reorderError}</p>}
-            </div>
-          ) : canAdd && !readOnly ? (
-            <button type="button" className="link-btn list-add-trigger" onClick={() => setShowAdd(true)}>
-              + Add a paper or note
-            </button>
-          ) : null}
-            </>
-          )}
-
-          {hasChildren && (
-            <ul className="list-children">
-              {node.children.map((child) => (
-                <ListNode
-                  {...props}
-                  key={child.list.id}
-                  node={child}
-                  depth={depth + 1}
-                  isCollapsed={collapsedSet.has(child.list.id)}
-                />
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-    </li>
-  );
 }

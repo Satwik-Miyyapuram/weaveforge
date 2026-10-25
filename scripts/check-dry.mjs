@@ -53,7 +53,7 @@ function report(lines, heading, footer) {
  * What replaces it is an allowlist over the whole of `features/`, not a filter
  * over ui directories, because the question worth asking is where the map gets
  * rebuilt, not what kind of file rebuilds it — the old ui-only filter could not
- * even see `application/`, which is where the real callers live. Three files may
+ * even see `application/`, which is where the real callers live. Four files may
  * name it:
  *
  *   - `member-labels.ts` defines it;
@@ -62,6 +62,8 @@ function report(lines, heading, footer) {
  *     use-case has already loaded. It costs no extra directory read, so it is not
  *     the duplication the wrapper exists to prevent — which is why the previous
  *     rule exempted it as well.
+ *   - `note-comments.tsx` builds it from the `members` prop its parent already
+ *     loaded, for the same reason: no extra directory read.
  *
  * Anywhere else is a screen or a component re-deriving a map that already
  * exists, whichever way it is spelled.
@@ -91,6 +93,10 @@ const MEMBER_LABEL_ALLOWED = new Map([
     "apps/web/src/features/sharing/ui/shared-with-me-screen.tsx",
     "buildMemberNameMap(data.members)",
   ],
+  [
+    "apps/web/src/features/sharing/ui/note-comments.tsx",
+    "buildMemberNameMap(members)",
+  ],
 ]);
 
 const memberLabelLines = search("buildMemberNameMap");
@@ -105,8 +111,11 @@ for (const [file, marker] of MEMBER_LABEL_ALLOWED) {
   }
 }
 
+// Tests may call it: they check the helper, they do not rebuild the map.
 const pinnedLabelDupes = memberLabelLines.filter(
-  (line) => ![...MEMBER_LABEL_ALLOWED.keys()].some((file) => line.startsWith(`${file}:`)),
+  (line) =>
+    !line.includes("/test/") &&
+    ![...MEMBER_LABEL_ALLOWED.keys()].some((file) => line.startsWith(`${file}:`)),
 );
 report(
   pinnedLabelDupes,

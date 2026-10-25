@@ -22,6 +22,20 @@ interface ShareDialogApi {
 
 const Ctx = createContext<ShareDialogApi | null>(null);
 
+interface OpenRequest {
+  token: number;
+  value: ShareDialogRequest;
+}
+
+/**
+ * The request that takes the dialog over. The one it replaces is told it
+ * closed, so the button that asked for it stops thinking it is still open.
+ */
+export function replaceRequest(prev: OpenRequest | null, next: OpenRequest): OpenRequest {
+  prev?.value.onClose?.();
+  return next;
+}
+
 /**
  * One share dialog for the whole shell, above the screens.
  *
@@ -33,16 +47,19 @@ const Ctx = createContext<ShareDialogApi | null>(null);
  * with it. Hoisting the dialog out of the list makes it immune to that.
  */
 export function ShareDialogHost({ children }: { children: ReactNode }) {
-  const [req, setReq] = useState<{ token: number; value: ShareDialogRequest } | null>(null);
+  const [req, setReq] = useState<OpenRequest | null>(null);
   const nextToken = useRef(1);
+  const current = useRef<OpenRequest | null>(null);
 
   const open = useCallback((value: ShareDialogRequest) => {
     const token = nextToken.current++;
-    setReq({ token, value });
+    current.current = replaceRequest(current.current, { token, value });
+    setReq(current.current);
     return token;
   }, []);
 
   const close = useCallback((token: number) => {
+    if (current.current?.token === token) current.current = null;
     setReq((prev) => (prev && prev.token !== token ? prev : null));
   }, []);
 

@@ -37,11 +37,11 @@ export class PostgrestExperimentRepository extends ProjectRepository implements 
     if (this.pid) q = q.or(`project_id.eq.${this.pid},project_id.is.null`);
     if (filter?.status) q = q.eq("status", filter.status);
     if (filter?.relatedPaper) q = q.eq("related_paper", filter.relatedPaper);
-    if (filter?.nameContains) {
-      // Server ilike removed under E2EE — encryptRepo filters client-side post-decrypt.
-    }
     q = q.order("created_at", { ascending: false });
-    return (await rows<ExperimentRow>(q)).map(experimentToDomain);
+    const all = (await rows<ExperimentRow>(q)).map(experimentToDomain);
+    // Names are encrypted at rest, so the server cannot match them: filter here.
+    const needle = filter?.nameContains?.toLowerCase();
+    return needle ? all.filter((e) => e.name.toLowerCase().includes(needle)) : all;
   }
   async save(entity: Experiment): Promise<void> {
     const row = experimentToRow(entity);

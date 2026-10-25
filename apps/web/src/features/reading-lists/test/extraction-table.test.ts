@@ -10,6 +10,7 @@ import {
   flattenPaperRows,
   pendingFieldFills,
   pendingKey,
+  relationTitles,
 } from "../application/extraction-table";
 
 function paper(id: string, title: string): Paper {
@@ -166,4 +167,10 @@ test("a large extraction table is built in time proportional to its size", () =>
     elapsed < TABLE_BUDGET_MS,
     `building ${papers} rows took ${elapsed}ms, over the ${TABLE_BUDGET_MS}ms budget — suspect a complexity change`,
   );
+});
+
+test("relationTitles names each related paper by title, falling back to its id (36-11)", () => {
+  const titleById = new Map([["p1", "Alpha"], ["p2", "Beta"]]);
+  assert.equal(relationTitles(["p2", "gone", "p1"], titleById), "Beta, gone, Alpha");
+  assert.equal(relationTitles([], new Map()), "");
 });

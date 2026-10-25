@@ -32,11 +32,8 @@ interface ShareLinkRow {
   resource_type: ShareableType;
   resource_id: string;
   access: "view";
-  token_hash: string;
   expires_at: string | null;
   created_at: string;
-  dek_wrap: string | null;
-  dek_epoch: number | null;
 }
 
 function mapRow(row: ShareLinkRow): ShareLink {
@@ -77,7 +74,7 @@ export class PostgrestShareLinkRepository implements IShareLinkRepository {
   async getById(id: string): Promise<ShareLink | null> {
     const { data, error } = await this.db
       .from(TABLE)
-      .select("id, owner_id, resource_type, resource_id, access, token_hash, expires_at, created_at, dek_wrap, dek_epoch")
+      .select(SHARE_LINK_COLUMNS)
       .eq("id", id)
       .maybeSingle();
     if (error) throwDataError(error, "Failed to load share link.");
@@ -87,7 +84,7 @@ export class PostgrestShareLinkRepository implements IShareLinkRepository {
   async listForResource(resourceType: ShareableType, resourceId: string): Promise<ShareLink[]> {
     const { data, error } = await this.db
       .from(TABLE)
-      .select("id, owner_id, resource_type, resource_id, access, token_hash, expires_at, created_at, dek_wrap, dek_epoch")
+      .select(SHARE_LINK_COLUMNS)
       .eq("resource_type", resourceType)
       .eq("resource_id", resourceId)
       .order("created_at", { ascending: false });

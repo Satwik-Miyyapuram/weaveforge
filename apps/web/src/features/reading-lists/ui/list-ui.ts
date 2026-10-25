@@ -28,3 +28,21 @@ export function collectListIds(tree: readonly { list: ReadingList; children: unk
   walk(tree);
   return ids;
 }
+
+/** `ids` with `dragId` moved into `targetId`'s place, or null when nothing moves. */
+export function reorderedIds(ids: readonly string[], dragId: string, targetId: string): string[] | null {
+  if (dragId === targetId) return null;
+  const from = ids.indexOf(dragId);
+  const to = ids.indexOf(targetId);
+  if (from < 0 || to < 0) return null;
+  const next = [...ids];
+  next.splice(from, 1);
+  next.splice(to, 0, dragId);
+  return next;
+}
+
+/** `ids` with `id` moved one step up (-1) or down (1), or null at either end. */
+export function movedIds(ids: readonly string[], id: string, step: -1 | 1): string[] | null {
+  const target = ids[ids.indexOf(id) + step];
+  return ids.includes(id) && target !== undefined ? reorderedIds(ids, id, target) : null;
+}

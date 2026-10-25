@@ -2,14 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  bodyLinksTo, extractHashtags, normalizeTitleKey,
-  type VaultPage, type VaultPageSummary } from "@weaveforge/core";
+import { normalizeTitleKey, type VaultPage, type VaultPageSummary } from "@weaveforge/core";
 import type { ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
-import { CardColumns } from "@/components/card-columns";
 import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned-owner-names";
 import { AddVaultPageForm } from "../add-vault-page-form";
 import { importNotesFromFiles } from "../../application/import-notes";
@@ -24,7 +21,10 @@ import { projectScopedKey, usePersistedState } from "@/lib/hooks/use-persisted-s
 import { formatError } from "@/lib/format-error";
 import { rememberRecentTarget } from "@/lib/recent-targets";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
-import { NoteCard, noteBodyText, isHydratedPage } from "./note-card";
+import { noteBodyText, isHydratedPage } from "./note-card";
+import { NoteCardGrid } from "./note-card-grid";
+import { noteBacklinks, noteTags, scopeNotes } from "../../application/note-derivations";
+import { openNoteBody } from "./open-note-body";
 import { PageEditor } from "./page-editor";
 import type { VaultViewData } from "./types";
 import { FilterRow } from "@/components/filter-row";
@@ -106,15 +106,7 @@ export function VaultScreen() {
     () => flat.map((p) => ({ id: p.id, title: p.title })),
     [flat],
   );
-  const backlinks = useMemo(() => {
-    if (!selectedId) return [] as { id: string; title: string }[];
-    const target = flat.find((p) => p.id === selectedId);
-    if (!target) return [];
-    const key = normalizeTitleKey(target.title);
-    return flat
-      .filter((p) => p.id !== target.id && bodyLinksTo(noteBodyText(p), key))
-      .map((p) => ({ id: p.id, title: p.title }));
-  }, [selectedId, flat]);
+  const backlinks = useMemo(() => noteBacklinks(flat, selectedId), [selectedId, flat]);
 
   const selected = useMemo(
     () => flat.find((p) => p.id === selectedId) ?? null,
@@ -126,6 +118,8 @@ export function VaultScreen() {
   // stays mounted — and its Edit / Read / Ink mode with it — instead of
   // dropping to "Opening note…" and coming back in Read.
   const [heldPage, setHeldPage] = useState<VaultPage | null>(null);
+  // Why the selected note could not be opened, shown instead of "Opening note…".
+  const [openError, setOpenError] = useState<string | null>(null);
   if (selected && isHydratedPage(selected) && selected !== heldPage) setHeldPage(selected);
   const shownPage: VaultPage | VaultPageSummary | null =
     selected && !isHydratedPage(selected) && heldPage?.id === selected.id ? heldPage : selected;
@@ -180,13 +174,13 @@ export function VaultScreen() {
     // screen hit every time. The repository caches the row, so asking again is
     // a lookup, not a round trip.
     let cancelled = false;
-    void getContainer()
-      .vault.getPage(selectedId)
-      .then((p) => {
-        if (cancelled || !p) return;
-        appliedPageFromUrl.current = selectedId;
-        upsertFlatPage(p);
-      });
+    setOpenError(null);
+    void openNoteBody((id) => getContainer().vault.getPage(id), selectedId).then(({ page, error: failed }) => {
+      if (cancelled) return;
+      if (!page) return setOpenError(failed);
+      appliedPageFromUrl.current = selectedId;
+      upsertFlatPage(page);
+    });
     return () => {
       cancelled = true;
     };
@@ -296,28 +290,15 @@ export function VaultScreen() {
     [flat, ownedIds, pinnedSharedBy],
   );
 
-  const allTags = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of flat) for (const t of extractHashtags(noteBodyText(p))) set.add(t);
-    return [...set].sort();
-  }, [flat]);
+  const allTags = useMemo(() => noteTags(flat), [flat]);
 
   const hasNotes = ownedNotes.length > 0 || pinnedPages.length > 0;
 
   const match = useScreenSearch(search, "note");
   const filterNotes = useCallback(
     (notes: (VaultPageSummary | VaultPage)[]) => {
-      const inAnyList = (id: string) =>
-        listFilter.some((lid) => membership.get(lid)?.has(id) ?? false);
-      const hasAnyTag = (p: VaultPageSummary | VaultPage) =>
-        tagFilter.some((t) => extractHashtags(noteBodyText(p)).includes(t));
-      // List and tag filters first: they are cheap set membership, and the
-      // ranked pass should only order what survives them.
-      const scoped = notes.filter(
-        (p) =>
-          (listFilter.length === 0 || inAnyList(p.id)) &&
-          (tagFilter.length === 0 || hasAnyTag(p)),
-      );
+      // List and tag filters first, so the ranked pass orders only what survives.
+      const scoped = scopeNotes(notes, { listFilter, tagFilter, membership });
       return match(scoped, (p) => p.id, (p) => `${p.title}\n${noteBodyText(p)}`);
     },
     [listFilter, tagFilter, membership, match],
@@ -472,7 +453,9 @@ export function VaultScreen() {
                 page, show the loading row instead. `isHydratedPage` tests for
                 the property, not its value, so an intentionally empty note
                 still reaches the editor. */}
-            {!shownPage || !isHydratedPage(shownPage) ? (
+            {openError && (!shownPage || !isHydratedPage(shownPage)) ? (
+              <FormError>{openError}</FormError>
+            ) : !shownPage || !isHydratedPage(shownPage) ? (
               <ScreenLoading status="Opening note…" />
             ) : (
               <PageEditor
@@ -528,53 +511,15 @@ export function VaultScreen() {
             }
           />
         ) : (
-          <>
-            {visibleMine.length > 0 && (
-              <>
-                <h4 className="settings-group vault-pinned-label">Pinned</h4>
-                <CardColumns
-                  items={visibleMine}
-                  getKey={(p) => p.id}
-                  renderItem={(p) => (
-                    <NoteCard page={p} onOpen={() => openPage(p.id)} onChanged={load} />
-                  )}
-                />
-                {visibleUnpinned.length > 0 && (
-                  <h4 className="settings-group vault-pinned-label">All notes</h4>
-                )}
-              </>
-            )}
-            {visibleUnpinned.length > 0 && (
-              <CardColumns
-                items={visibleUnpinned}
-                getKey={(p) => p.id}
-                deferOffscreen={visibleUnpinned.length > 20}
-                renderItem={(p) => (
-                  <NoteCard page={p} onOpen={() => openPage(p.id)} onChanged={load} />
-                )}
-              />
-            )}
-            {visiblePinned.length > 0 && (
-              <>
-                <h4 className="settings-group vault-pinned-label">Shared with you</h4>
-                <CardColumns
-                  items={visiblePinned}
-                  getKey={(p) => p.id}
-                  deferOffscreen={visiblePinned.length > 20}
-                  renderItem={(p) => (
-                    <NoteCard
-                      page={p}
-                      readOnly
-                      isPinned={pinnedSharedBy.has(p.id)}
-                      sharedByName={sharedOwnerName(p.id)}
-                      onOpen={() => openPage(p.id)}
-                      onChanged={load}
-                    />
-                  )}
-                />
-              </>
-            )}
-          </>
+          <NoteCardGrid
+            mine={visibleMine}
+            unpinned={visibleUnpinned}
+            shared={visiblePinned}
+            isPinned={(id) => pinnedSharedBy.has(id)}
+            sharedOwnerName={sharedOwnerName}
+            onOpen={openPage}
+            onChanged={load}
+          />
         )
       )}
     </section>

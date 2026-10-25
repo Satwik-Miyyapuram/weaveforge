@@ -35,9 +35,6 @@ class RecordingStore implements ICrdtUpdateStore {
   async deleteUpTo(): Promise<void> {
     throw new Error("compaction must not sweep outside `compact`");
   }
-  async deleteAll(): Promise<void> {
-    throw new Error("compaction must not sweep outside `compact`");
-  }
   async countAfter(): Promise<number> {
     return 0;
   }
