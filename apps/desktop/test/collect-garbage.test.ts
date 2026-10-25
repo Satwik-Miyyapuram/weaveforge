@@ -11,18 +11,18 @@ import { collectGarbage } from "../src/collect-garbage";
 
 const MB = 1024 * 1024;
 
-test("collectGarbage frees dead buffers now, without --expose-gc", () => {
+test("collectGarbage frees dead buffers now, without --expose-gc", async () => {
   assert.equal(typeof (globalThis as { gc?: unknown }).gc, "undefined", "run without --expose-gc");
   let junk: ArrayBuffer[] | null = Array.from({ length: 8 }, () => new ArrayBuffer(8 * MB));
   const held = process.memoryUsage().arrayBuffers;
   junk = null;
-  assert.equal(collectGarbage(), true);
+  assert.equal(await collectGarbage(), true);
   const after = process.memoryUsage().arrayBuffers;
   assert.ok(held - after >= 50 * MB, `freed ${Math.round((held - after) / MB)} MB of 64`);
 });
 
-test("collectGarbage leaves no gc global behind and can run twice", () => {
-  assert.equal(collectGarbage(), true);
-  assert.equal(collectGarbage(), true);
+test("collectGarbage leaves no gc global behind and can run twice", async () => {
+  assert.equal(await collectGarbage(), true);
+  assert.equal(await collectGarbage(), true);
   assert.equal(typeof (globalThis as { gc?: unknown }).gc, "undefined");
 });
