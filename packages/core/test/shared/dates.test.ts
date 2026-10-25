@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { addDays } from "../../src/shared/dates.js";
+import { addDays, localIsoDate } from "../../src/shared/dates.js";
 
 /** Run `body` with the process in another time zone, then put it back. */
 function inZone(zone: string, body: () => void): void {
@@ -38,3 +38,11 @@ for (const zone of ZONES) {
     });
   });
 }
+
+test("localIsoDate: the local calendar date, even near midnight (35-20)", () => {
+  // Built from local fields, so the answer holds in every time zone.
+  assert.equal(localIsoDate(new Date(2026, 0, 1, 23, 59)), "2026-01-01");
+  assert.equal(localIsoDate(new Date(2026, 0, 2, 0, 1)), "2026-01-02");
+  assert.equal(localIsoDate(new Date(2026, 11, 31, 23, 30)), "2026-12-31");
+  assert.equal(localIsoDate(new Date(2026, 8, 5, 12)), "2026-09-05");
+});

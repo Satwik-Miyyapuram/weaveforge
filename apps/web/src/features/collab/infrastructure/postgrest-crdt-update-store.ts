@@ -88,14 +88,6 @@ export class PostgrestCrdtUpdateStore implements ICrdtUpdateStore {
       .lte("id", uptoId));
   }
 
-  async deleteAll(resourceType: string, resourceId: string): Promise<void> {
-    await run(this.db
-      .from(TABLE)
-      .delete()
-      .eq("resource_type", resourceType)
-      .eq("resource_id", resourceId));
-  }
-
   async countAfter(
     resourceType: string,
     resourceId: string,

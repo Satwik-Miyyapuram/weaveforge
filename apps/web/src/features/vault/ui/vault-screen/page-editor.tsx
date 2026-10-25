@@ -26,6 +26,7 @@ import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
 import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
 import { NoteTagEditor } from "./note-tag-editor";
+import { runNoteAction } from "./run-note-action";
 
 /** A note's three views, in the order the Editor's pane header lists them. */
 const NOTE_MODES = ["edit", "read", "ink"] as const;
@@ -149,8 +150,12 @@ export function PageEditor({
   /** Deleting is asked in the app's own dialog; the button only opens it. */
   async function remove() {
     setDeleteOpen(false);
-    await getContainer().vault.manageVaultPage.remove(page.id);
-    onDeleted();
+    // A failed delete keeps the note open with the reason, rather than an
+    // unhandled rejection and a note that looks deleted but is not.
+    const removed = await runNoteAction(setBusy, setSaveError, () =>
+      getContainer().vault.manageVaultPage.remove(page.id),
+    );
+    if (removed) onDeleted();
   }
 
   /** The switch in the section head. Leaving Edit or Ink refreshes the list. */

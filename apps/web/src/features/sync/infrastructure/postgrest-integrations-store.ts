@@ -17,7 +17,7 @@ import { run } from "@/backend/providers/postgrest/row-access";
  */
 function readBranch(provider: SyncProvider, branch: string | null): string {
   if (provider !== "mattermost") return branch ?? DEFAULT_GIT_BRANCH;
-  return branch === "main" ? "" : branch ?? "";
+  return branch === DEFAULT_GIT_BRANCH ? "" : branch ?? "";
 }
 
 /** Reads/writes `project_integrations` per (project, provider). */

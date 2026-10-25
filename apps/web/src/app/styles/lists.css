@@ -146,17 +146,22 @@
   padding: 1px 5px; border-radius: 999px; background: var(--chip); color: var(--muted);
 }
 .list-item-kind--note { color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 12%, var(--chip)); }
-.list-item-remove {
-  margin-left: auto;
+/* Move up, move down, remove: hidden until the row is hovered or focused. */
+.list-item-actions { margin-left: auto; display: flex; gap: 2px; flex: none; }
+.list-item-remove,
+.list-item-move {
   color: var(--muted);
   opacity: 0;
   transition: opacity var(--dur-base), color var(--dur-base), background var(--dur-base), border-color var(--dur-base);
 }
 .list-item-remove:hover { color: var(--danger); }
-.list-paper-row:hover .list-item-remove,
-.list-paper-row:focus-within .list-item-remove { opacity: 1; }
+.list-item-move:hover:not(:disabled) { color: var(--text); }
+.list-item-move:disabled { visibility: hidden; }
+.list-paper-row:hover :is(.list-item-remove, .list-item-move),
+.list-paper-row:focus-within :is(.list-item-remove, .list-item-move) { opacity: 1; }
 @media (hover: none) {
-  .list-item-remove { opacity: 1; }
+  .list-item-remove,
+  .list-item-move { opacity: 1; }
 }
 .list-via-badge {
   flex: none; font-size: 0.7rem; color: var(--muted);

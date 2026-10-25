@@ -16,9 +16,9 @@ function fakeVault(opts: { failTitle?: string } = {}) {
   let loads = 0;
   const added: { title: string; parentId?: string; id: string }[] = [];
   const vault: ImportVault = {
-    async loadScreenData() {
+    async pageTitles() {
       loads += 1;
-      return { flat: [{ title: "Taken" }] };
+      return ["Taken"];
     },
     manageVaultPage: {
       async add(input) {

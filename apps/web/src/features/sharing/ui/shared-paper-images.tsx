@@ -16,7 +16,6 @@ export function SharedPaperImages({ metadata }: { metadata?: Record<string, unkn
     (path: string) =>
       getContainer()
         .papers.fetchImageBlob(path)
-        .then((b) => b)
         .catch(() => null),
     [],
   );

@@ -12,10 +12,9 @@ import type { ProjectSyncDescriptor } from "@/integrations/descriptors-types";
 import { gitConnectionReady, mattermostConnectionReady } from "../domain/integration-fields";
 import { MATTERMOST_EVENTS, mattermostOptions, type MattermostOptions } from "../domain/mattermost-options";
 import { formatError } from "@/lib/format-error";
-import { desktop } from "@/lib/desktop/desktop-bridge";
-import { readStored, writeStored } from "@/lib/safe-storage";
 import { FormError } from "@/components/form-error";
-import { MattermostSignInButton } from "./mattermost-sign-in-button";
+import { MattermostSignInControls, useMattermostSignIn } from "./mattermost-sign-in-controls";
+import { loadIntegrations } from "./load-integrations";
 
 export function SyncSettings() {
   const { current } = useProject();
@@ -25,21 +24,17 @@ export function SyncSettings() {
   );
   const [items, setItems] = useState<Record<string, Integration>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!current || descriptors.length === 0) return;
     setLoading(true);
-    try {
-      const store = getContainer().sync.integrations;
-      const providers = [...new Set(descriptors.map((d) => d.provider))];
-      const loaded = await Promise.all(providers.map((p) => store.get(current.id, p)));
-      const byProvider = Object.fromEntries(
-        providers.map((p, i) => [p, loaded[i] ?? emptyIntegration(p)]),
-      ) as Record<string, Integration>;
-      setItems(byProvider);
-    } finally {
-      setLoading(false);
-    }
+    const store = getContainer().sync.integrations;
+    const providers = [...new Set(descriptors.map((d) => d.provider))];
+    const { items: loaded, error } = await loadIntegrations((p) => store.get(current.id, p), providers);
+    setItems(loaded);
+    setLoadError(error);
+    setLoading(false);
   }, [current, descriptors]);
 
   useEffect(() => { void load(); }, [load]);
@@ -52,6 +47,8 @@ export function SyncSettings() {
       <p className="muted">Version this project&rsquo;s work to git and post plan updates. Choose a service to set it up; its token is kept with this project only.</p>
       {loading ? (
         <ScreenLoader status="Loading connections…" compact showTips={false} />
+      ) : loadError ? (
+        <FormError>{loadError}</FormError>
       ) : (
         <div className="integration-list">
           {descriptors.map((d) => (
@@ -97,20 +94,7 @@ function IntegrationRow({
   const [error, setError] = useState<string | null>(null);
 
   const isMattermost = descriptor.provider === "mattermost";
-  // Sign-in vs bot token is a per-reader choice about how the token in the
-  // `token` slot was obtained, not a stored field — both end up as one token.
-  const modeKey = `wf.mm-signin.${projectId}`;
-  const [signIn, setSignIn] = useState(false);
-  useEffect(() => {
-    const stored = readStored(modeKey);
-    // Sign-in is the default; a saved bot token keeps its own mode.
-    setSignIn(stored === "1" || (stored === null && !value.token));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mode is chosen once per project
-  }, [modeKey]);
-  function chooseSignIn(on: boolean) {
-    setSignIn(on);
-    writeStored(modeKey, on ? "1" : "0");
-  }
+  const [signIn, chooseSignIn] = useMattermostSignIn(projectId, Boolean(value.token));
 
   const connected =
     descriptor.provider === "mattermost"
@@ -171,38 +155,13 @@ function IntegrationRow({
                 <span className="knob" />
               </button>
             </div>
-            {isMattermost && !desktop()?.mattermostPost && (
-              <p className="muted">
-                Posting from the website only works if your Mattermost server allows it. Servers run by
-                universities and other institutions usually block it, so if test messages fail here, connect
-                Mattermost from the desktop app instead.
-              </p>
-            )}
             {isMattermost && (
-              <div className="integration-enable">
-                <span>Sign in with Mattermost instead of a bot token</span>
-                <button
-                  type="button"
-                  className={`toggle${signIn ? " on" : ""}`}
-                  role="switch"
-                  aria-checked={signIn}
-                  onClick={() => chooseSignIn(!signIn)}
-                >
-                  <span className="knob" />
-                </button>
-              </div>
-            )}
-            {isMattermost && signIn && (
-              <>
-                {value.token && <p className="muted">Signed in to {value.repo}.</p>}
-                <MattermostSignInButton
-                  serverUrl={value.repo ?? ""}
-                  label={value.token ? "Sign in again" : "Sign in with Mattermost"}
-                  onToken={(token) =>
-                    save({ ...value, token, repo: value.repo?.trim() }, false)
-                  }
-                />
-              </>
+              <MattermostSignInControls
+                value={value}
+                signIn={signIn}
+                onChooseSignIn={chooseSignIn}
+                onToken={(token) => save({ ...value, token, repo: value.repo?.trim() }, false)}
+              />
             )}
             {fieldsShown(descriptor.fields, isMattermost && signIn)
               .map((field) => (

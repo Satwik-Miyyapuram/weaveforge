@@ -99,38 +99,28 @@ function AttentionList({
 
 type CardRenderer = (props: CardRenderProps) => ReactNode;
 
+/** A progress tile for one of the stats' progress figures, linking to its page. */
+function progressRenderer(key: "reading" | "report" | "plan", href: string): CardRenderer {
+  return function ProgressCard({ stats, item, contentReady }) {
+    const { done, total, pct } = stats[key];
+    return (
+      <ProgressTile
+        done={done}
+        total={total}
+        pct={pct}
+        href={href}
+        short={item.h < 2}
+        animateProgress={contentReady}
+      />
+    );
+  };
+}
+
 /** OCP: new cards register one renderer entry + one CardDef. */
 const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
-  "reading-progress": ({ stats, item, contentReady }) => (
-    <ProgressTile
-      done={stats.reading.done}
-      total={stats.reading.total}
-      pct={stats.reading.pct}
-      href="/papers"
-      short={item.h < 2}
-      animateProgress={contentReady}
-    />
-  ),
-  "report-progress": ({ stats, item, contentReady }) => (
-    <ProgressTile
-      done={stats.report.done}
-      total={stats.report.total}
-      pct={stats.report.pct}
-      href="/report"
-      short={item.h < 2}
-      animateProgress={contentReady}
-    />
-  ),
-  "plan-progress": ({ stats, item, contentReady }) => (
-    <ProgressTile
-      done={stats.plan.done}
-      total={stats.plan.total}
-      pct={stats.plan.pct}
-      href="/plan"
-      short={item.h < 2}
-      animateProgress={contentReady}
-    />
-  ),
+  "reading-progress": progressRenderer("reading", "/papers"),
+  "report-progress": progressRenderer("report", "/report"),
+  "plan-progress": progressRenderer("plan", "/plan"),
   // The big number is the finished count, so it is named wherever it shows:
   // on a one-row tile the caption is hidden, and "0 running … 3" read as
   // three of something unsaid.

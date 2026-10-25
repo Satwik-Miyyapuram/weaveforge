@@ -7,7 +7,7 @@ import type {
   ReportSection,
   TagWithPaperCount,
 } from "@weaveforge/core";
-import { addDays } from "@weaveforge/core";
+import { addDays, localIsoDate } from "@weaveforge/core";
 import { cardSnippet } from "@/lib/card-snippet";
 
 export interface ProgressStat {
@@ -52,22 +52,23 @@ export interface DashboardStats {
   topTags: { name: string; count: number }[];
 }
 
-export function readingProgress(papers: readonly Paper[]): ProgressStat {
-  const total = papers.length;
-  const done = papers.filter((p) => p.status === "read").length;
+/** How many of the items are done, and that as a whole percentage. */
+function progressOf<T>(items: readonly T[], isDone: (item: T) => boolean): ProgressStat {
+  const total = items.length;
+  const done = items.filter(isDone).length;
   return { done, total, pct: total ? Math.round((done / total) * 100) : 0 };
+}
+
+export function readingProgress(papers: readonly Paper[]): ProgressStat {
+  return progressOf(papers, (p) => p.status === "read");
 }
 
 function reportProgress(sections: readonly ReportSection[]): ProgressStat {
-  const total = sections.length;
-  const done = sections.filter((s) => s.status === "done").length;
-  return { done, total, pct: total ? Math.round((done / total) * 100) : 0 };
+  return progressOf(sections, (s) => s.status === "done");
 }
 
 function planProgress(milestones: readonly Milestone[]): ProgressStat {
-  const total = milestones.length;
-  const done = milestones.filter((m) => m.status === "done").length;
-  return { done, total, pct: total ? Math.round((done / total) * 100) : 0 };
+  return progressOf(milestones, (m) => m.status === "done");
 }
 
 function experimentsSummary(experiments: readonly Experiment[]): ExperimentsStat {
@@ -80,7 +81,7 @@ export function needsAttention(
   papers: readonly Paper[],
   milestones: readonly Milestone[],
   experiments: readonly Experiment[],
-  today = new Date().toISOString().slice(0, 10),
+  today = localIsoDate(),
 ): AttentionItem[] {
   const items: AttentionItem[] = [];
   const unread = papers.filter((p) => p.status !== "read").length;

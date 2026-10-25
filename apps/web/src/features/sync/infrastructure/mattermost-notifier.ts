@@ -15,8 +15,8 @@ export class MattermostNotifier {
   /** `channel` overrides the connection's main channel (per-event routing). */
   async post(integration: Integration, message: string, channel?: string): Promise<void> {
     if (!mattermostConnectionReady(integration)) return;
-    const { botToken, serverUrl } = mattermostConnection(integration);
-    const channelId = channel?.trim() || mattermostConnection(integration).channelId;
+    const { botToken, serverUrl, channelId: mainChannel } = mattermostConnection(integration);
+    const channelId = channel?.trim() || mainChannel;
     let origin: string;
     try {
       const url = new URL(serverUrl);

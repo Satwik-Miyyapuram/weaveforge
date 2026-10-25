@@ -76,19 +76,15 @@ export class PostgrestReadingListRepository extends ProjectRepository implements
           ? query.is("parent_id", null)
           : query.eq("parent_id", filter.parentId);
     }
-    if (filter?.nameContains) {
-      // Server ilike removed under E2EE — encryptRepo filters client-side post-decrypt.
-    }
     query = query.order("sort_order", { ascending: true }).order("name");
-    return (await rows<ReadingListRow>(query)).map(toListDomain);
+    const all = (await rows<ReadingListRow>(query)).map(toListDomain);
+    // Names are encrypted at rest, so the server cannot match them: filter here.
+    const needle = filter?.nameContains?.toLowerCase();
+    return needle ? all.filter((l) => l.name.toLowerCase().includes(needle)) : all;
   }
 
   async getTree(): Promise<ReadingListTreeNode[]> {
-    let q = this.db.from(LISTS).select(READING_LIST_COLUMNS);
-    if (this.pid) q = q.eq("project_id", this.pid);
-    const { data, error } = await q;
-    if (error) throw error;
-    return buildListTree((data as ReadingListRow[]).map(toListDomain));
+    return buildListTree(await this.list());
   }
 
   async save(entity: ReadingList): Promise<void> {

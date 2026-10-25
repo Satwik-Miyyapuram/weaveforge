@@ -4,12 +4,14 @@ import { useMemo, useState } from "react";
 import { extractHashtags, type VaultPage, type VaultPageSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { InlineError } from "@/components/form-error";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { PinnedPaperBadge } from "@/features/sharing";
 import { ListPicker } from "@/features/reading-lists";
 import { cardSnippet } from "@/lib/card-snippet";
 import { isHydratedPage, noteBodyText, readableText } from "@/lib/page-text";
+import { runNoteAction } from "./run-note-action";
 
 /**
  * Re-exported so the screens and panels that already imported them from here do
@@ -37,6 +39,8 @@ export function NoteCard({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  /** Why the last pin, delete or unpin failed, shown on the card. */
+  const [error, setError] = useState<string | null>(null);
   /** Whether the delete confirmation is up. */
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmUnpinOpen, setConfirmUnpinOpen] = useState(false);
@@ -45,36 +49,27 @@ export function NoteCard({
   const tags = useMemo(() => extractHashtags(preview), [preview]);
 
   async function togglePin() {
-    setBusy(true);
-    try {
+    await runNoteAction(setBusy, setError, async () => {
       await getContainer().vault.manageVaultPage.update(page.id, { pinned: !page.pinned });
       onChanged();
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   /** The menu item only asks; the app's own dialog is what deletes. */
   async function remove() {
     setConfirmOpen(false);
-    setBusy(true);
-    try {
+    await runNoteAction(setBusy, setError, async () => {
       await getContainer().vault.manageVaultPage.remove(page.id);
       onChanged();
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   async function unpin() {
     setConfirmUnpinOpen(false);
-    setBusy(true);
-    try {
+    await runNoteAction(setBusy, setError, async () => {
       await getContainer().sharing.unpinShared("vault_page", page.id);
       onChanged();
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   return (
@@ -106,6 +101,7 @@ export function NoteCard({
         }
       >
         {excerpt ? <p className="entity-card-snippet">{excerpt}</p> : null}
+        {error && <InlineError>{error}</InlineError>}
       </EntityCard>
 
       {confirmOpen && (
