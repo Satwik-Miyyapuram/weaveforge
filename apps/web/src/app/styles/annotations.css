@@ -127,8 +127,8 @@
 .jump-to-chip:hover, .jump-to-chip-remove:hover { color: var(--ink); border-color: var(--border-strong); }
 .jump-to-chip-remove:hover { background: var(--surface3, var(--surface2)); }
 
-.jump-to-create {
-  color: var(--accent-ink) !important;
+.jump-to-list .jump-to-create {
+  color: var(--accent-ink);
   font-size: 0.85rem;
 }
 

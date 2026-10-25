@@ -63,3 +63,14 @@ test("the title and the paper cannot break out of the markup", () => {
   assert.ok(html.includes("<title>notes &lt;&quot;quoted&quot;&gt;</title>"));
   assert.ok(!html.includes('onload="y'));
 });
+
+test("sheet text holding </style stays inside its tag (18-08)", () => {
+  const text = '.a::after{content:"</style><script>x()</script>"} .b{} .c::before{content:"</STYLE"}';
+  const html = inkPrintDocument({ ...base, styleSheets: [{ text }] });
+  const open = html.indexOf("<style>");
+  const close = html.indexOf("</style>", open);
+  assert.ok(open >= 0 && close > open);
+  // The whole sheet sits between the one opening tag and its own closing tag.
+  assert.ok(html.slice(open, close).includes(".c::before"), "the sheet was cut short");
+  assert.ok(!/<\/style/i.test(html.slice(open + 7, close)));
+});

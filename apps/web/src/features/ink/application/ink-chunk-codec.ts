@@ -54,8 +54,10 @@ export async function pipeThrough(
   bytes: Uint8Array,
 ): Promise<Uint8Array> {
   const writer = stream.writable.getWriter();
-  void writer.write(bytes);
-  void writer.close();
+  // A corrupt input errors the stream: the reader below rejects with it, and
+  // these two promises reject with the same error, which nobody else awaits.
+  writer.write(bytes).catch(() => {});
+  writer.close().catch(() => {});
   const chunks: Uint8Array[] = [];
   const reader = stream.readable.getReader();
   for (;;) {
