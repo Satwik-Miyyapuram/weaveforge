@@ -15,6 +15,7 @@ import { CHANNELS } from "./channels";
 import type { IpcSurface } from "./ipc-guard";
 import type { LocalClient } from "./local-db";
 import { LocalDbBackups, readBackup } from "./local-db-backup";
+import { dumpOnDisk } from "./local-db-tar";
 import { engineStartParams } from "./local-db-engine-params";
 import { LocalDbHost } from "./local-db-host";
 import { openWithRetry } from "./local-db-retry";
@@ -166,7 +167,7 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
     prepareDataDir(dir);
     const { PGlite, types } = await import("@electric-sql/pglite");
     const { pgcrypto } = await import("@electric-sql/pglite/contrib/pgcrypto");
-    return (await PGlite.create({
+    const engine = await PGlite.create({
       dataDir: dir,
       extensions: { pgcrypto },
       // Rows cross to the renderer shaped as PostgREST would send them, and the
@@ -180,7 +181,12 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       },
       ...(loadDataDir ? { loadDataDir } : {}),
       startParams: engineStartParams(PGlite.defaultStartParams),
-    })) as unknown as LocalClient;
+    });
+    // Backups are written from the files on disk, not from PGlite's in-memory
+    // dump, which cost main several times the database's size (M02).
+    return Object.assign(engine, {
+      dumpTo: (file: string) => dumpOnDisk(engine, dir, file),
+    }) as unknown as LocalClient;
   }
   
   /**
@@ -316,9 +322,9 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
   /** Write a backup if anything changed; never throws, never opens the database. */
   async function backUpLocalDb(): Promise<void> {
     try {
-      const blob = await localDb.snapshot();
-      if (!blob) return;
-      const written = await localDbBackups.take({ dumpDataDir: async () => blob });
+      const snapshot = await localDb.snapshot();
+      if (!snapshot) return;
+      const written = await localDbBackups.take(snapshot);
       if (written.length > 0) console.log(`[local-db] backed up to ${written.join(", ")}`);
     } catch (error) {
       console.warn(`[local-db] backup failed: ${String(error)}`);

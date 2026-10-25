@@ -265,9 +265,8 @@ test("local-db-host: a snapshot is taken only after a write, and only once per c
   const dumps: string[] = [];
   const client: LocalClient = {
     ...stub().client,
-    async dumpDataDir() {
-      dumps.push("dump");
-      return new Blob(["bytes"]);
+    async dumpTo(file) {
+      dumps.push(file);
     },
   };
   const host = new LocalDbHost({ open: async () => client, migrations: NO_MIGRATIONS, ...ELSEWHERE });
@@ -276,11 +275,30 @@ test("local-db-host: a snapshot is taken only after a write, and only once per c
   await host.query("select 1", []);
   assert.equal(await host.snapshot(), null, "a read changes nothing worth copying");
   await host.query("insert into t values (1)", []);
-  assert.ok(await host.snapshot());
+  await (await host.snapshot())!.dumpTo("one");
   assert.equal(await host.snapshot(), null, "nothing changed since");
   await host.query("  UPDATE t set x = 2", []);
-  assert.ok(await host.snapshot());
-  assert.equal(dumps.length, 2);
+  await (await host.snapshot())!.dumpTo("two");
+  assert.deepEqual(dumps, ["one", "two"]);
+});
+
+test("local-db-host: a dump that fails, or is never made, leaves the change to back up next time", async () => {
+  let fail = true;
+  const client: LocalClient = {
+    ...stub().client,
+    async dumpTo() {
+      if (fail) throw new Error("disk full");
+    },
+  };
+  const host = new LocalDbHost({ open: async () => client, migrations: NO_MIGRATIONS, ...ELSEWHERE });
+  await host.query("insert into t values (1)", []);
+
+  assert.ok(await host.snapshot(), "asked, but not dumped: no place to write");
+  const snap = await host.snapshot();
+  await assert.rejects(snap!.dumpTo("x"), /disk full/);
+  fail = false;
+  await (await host.snapshot())!.dumpTo("x");
+  assert.equal(await host.snapshot(), null);
 });
 
 test("local-db-host: a client that cannot dump is simply never backed up", async () => {
