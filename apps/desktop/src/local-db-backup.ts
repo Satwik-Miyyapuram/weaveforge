@@ -24,9 +24,13 @@ import path from "node:path";
  * that is where the engine is opened.
  */
 
-/** The slice of the engine a backup needs: PGlite's `dumpDataDir`. */
+/**
+ * The slice of the engine a backup needs: write the whole database, as the
+ * gzipped tarball PGlite loads, to a file (`local-db-tar.ts`). A file and not
+ * a Blob, so the dump never has to fit in memory.
+ */
 export interface Dumpable {
-  dumpDataDir(compression: "gzip"): Promise<Blob>;
+  dumpTo(file: string): Promise<void>;
 }
 
 export interface LocalDbBackupsOptions {
@@ -80,7 +84,8 @@ export class LocalDbBackups {
   /**
    * Dump `source` into every place, and prune each to `keep`.
    *
-   * One dump, written to each place: the dump is the slow part. Written beside
+   * One dump, made in the first place that can be written and copied file to
+   * file to the rest: the dump is the slow part. Written beside
    * and renamed over, so a backup that was interrupted is a `.part` file the
    * listing ignores rather than a truncated tarball a restore would trust.
    * A place that cannot be written (a network folder that has gone away) is
@@ -90,14 +95,15 @@ export class LocalDbBackups {
   async take(source: Dumpable): Promise<string[]> {
     const dirs = this.options.dirs();
     if (dirs.length === 0) return [];
-    const bytes = new Uint8Array(await (await source.dumpDataDir("gzip")).arrayBuffer());
     const name = backupFileName(this.now());
     const written: string[] = [];
     for (const dir of dirs) {
       const file = path.join(dir, name);
       try {
         await fs.promises.mkdir(dir, { recursive: true });
-        await fs.promises.writeFile(`${file}.part`, bytes);
+        const first = written[0];
+        if (first) await fs.promises.copyFile(first, `${file}.part`);
+        else await source.dumpTo(`${file}.part`);
         await fs.promises.rename(`${file}.part`, file);
         written.push(file);
         await this.prune(dir);
@@ -138,8 +144,11 @@ export class LocalDbBackups {
   }
 }
 
-/** A backup's bytes, in the shape `PGlite.create({ loadDataDir })` takes. */
+/**
+ * A backup's bytes, in the shape `PGlite.create({ loadDataDir })` takes.
+ * Backed by the file and read when the engine asks, not copied into memory
+ * first: a restore happens at boot, when memory is at its peak.
+ */
 export async function readBackup(file: string): Promise<Blob> {
-  const bytes = await fs.promises.readFile(file);
-  return new Blob([bytes], { type: "application/gzip" });
+  return fs.openAsBlob(file, { type: "application/gzip" });
 }
