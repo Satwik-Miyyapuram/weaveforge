@@ -162,9 +162,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Installed only for an allowed document. `doUpdateVisitedHistory` fires
-        // on every navigation, including history moves and redirects, so the
-        // interface is present exactly while the loaded origin may use it.
+        // Installed for the life of the WebView, not per document. What keeps
+        // other origins away from it is the navigation policy above: only an
+        // allowed host loads here, anything else goes to the system browser.
+        // It is removed in `onDestroy`.
         webView.addJavascriptInterface(NativeBridge(inkOverlay, inkGesture), BRIDGE_NAME)
         accountPicker.install(webView, BuildConfig.APP_URL)
 
@@ -183,8 +184,11 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        if (savedInstanceState == null) webView.loadUrl(routeUrl(intent) ?: BuildConfig.APP_URL)
-        else webView.restoreState(savedInstanceState)
+        // `restoreState` returns null when it could not restore anything; a blank
+        // shell is worse than starting at the app's address again. Rotation is
+        // handled by `configChanges`, so this path is a restore after process death.
+        val restored = savedInstanceState?.let { webView.restoreState(it) }
+        if (restored == null) webView.loadUrl(routeUrl(intent) ?: BuildConfig.APP_URL)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -278,7 +282,11 @@ class MainActivity : AppCompatActivity() {
          * bar calls `setTool` for a width change too — so the mode is its own call.
          * That also keeps the ink bar's own separation ("no tool selected" is a state,
          * not a colour) visible on this side.
+         *
+         * `penOnly` stays in the signature because the web side passes it; that
+         * side's own gate is what enforces it, so nothing here reads it.
          */
+        @Suppress("UNUSED_PARAMETER")
         @JavascriptInterface
         fun setToolMode(tool: String, penOnly: Boolean) {
             val mode = if (tool == "pen" || tool == "highlighter") {
@@ -289,7 +297,6 @@ class MainActivity : AppCompatActivity() {
             gesture.post {
                 gesture.toolMode = mode
                 overlay.visibility = if (mode == InkToolMode.INK) View.VISIBLE else View.GONE
-                overlay.penOnly = penOnly
             }
         }
 
@@ -314,19 +321,18 @@ class MainActivity : AppCompatActivity() {
         }
 
         /**
-         * Retained because the web side still calls it, and because pen-only is a
-         * real preference. It no longer decides gesture ownership: that is the tool
-         * mode's job, so a finger still moves the paper in pen-only mode.
+         * A no-op kept because the web side still calls it. Pen-only is enforced by
+         * the web side's own gate, and gesture ownership is the tool mode's job, so
+         * nothing on this side reads it.
          */
+        @Suppress("UNUSED_PARAMETER")
         @JavascriptInterface
-        fun setPenOnly(enabled: Boolean) {
-            overlay.post { overlay.penOnly = enabled }
-        }
+        fun setPenOnly(enabled: Boolean) = Unit
 
+        /** A no-op for the same reason: no rest-zone heuristic reads it yet. */
+        @Suppress("UNUSED_PARAMETER")
         @JavascriptInterface
-        fun setHandedness(hand: String) {
-            overlay.post { overlay.leftHanded = hand == "left" }
-        }
+        fun setHandedness(hand: String) = Unit
 
         @JavascriptInterface
         fun clearOverlay() {

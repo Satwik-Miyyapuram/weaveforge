@@ -36,7 +36,9 @@ async function mem(label) {
   return { label, jsHeapUsedMB: +(g("JSHeapUsedSize") / 2 ** 20).toFixed(1), domNodes: g("Nodes"), ...rss() };
 }
 async function goto(path) {
-  await run(`location.href = "app://weaveforge${path}"; 1`).catch(() => {});
+  // Page.navigate reports a failed load; setting location.href from an eval did not.
+  const { result, error } = await send("Page.navigate", { url: `app://weaveforge${path}` });
+  if (error || result?.errorText) throw new Error(`could not open ${path}: ${error?.message ?? result.errorText}`);
   await sleep(5000);
 }
 // Observers live in the page; a full reload drops them, so each phase reinstalls.
@@ -119,7 +121,7 @@ out.idle = await mem("idle dashboard");
 {
   await goto("/notes/");
   const t0 = await run(OBSERVE);
-  await click(`[...document.querySelectorAll("*")].filter((e) => e.children.length === 0 && e.textContent.trim() === "${NOTE_TITLE}").at(-1)`);
+  await click(`[...document.querySelectorAll("*")].filter((e) => e.children.length === 0 && e.textContent.trim() === ${JSON.stringify(NOTE_TITLE)}).at(-1)`);
   await sleep(10000);
   out.inkOpen = await mem("ink note open");
   const ms = await scrollToEnd(SCROLLER, 800);

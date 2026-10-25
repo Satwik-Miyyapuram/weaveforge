@@ -23,6 +23,7 @@ import {
   copyTable,
   resyncSequences,
   rowCounts,
+  silenceTriggers,
   tableLoadOrder,
 } from "./lib/pg-migrate.mjs";
 
@@ -235,14 +236,9 @@ async function main() {
   //
   // `replica` also defers foreign keys, which is what lets a self-referencing
   // table — the note tree points at itself — load in any row order.
-  let triggersSilenced = false;
-  try {
-    await target.query("set local session_replication_role = replica");
-    triggersSilenced = true;
-  } catch {
-    // Needs superuser on some managed servers. Deferring constraints still
-    // gets the load through; the timestamps are what suffer.
-    await target.query("set constraints all deferred");
+  const triggersSilenced = await silenceTriggers(target);
+  if (!triggersSilenced) {
+    // Deferring constraints still gets the load through; the timestamps are what suffer.
     console.log("  note: could not disable triggers (needs superuser) — re-running may restamp updated_at");
   }
 

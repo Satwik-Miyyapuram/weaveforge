@@ -83,7 +83,6 @@ if (leftHeld.length > 0) {
 }
 
 const held = heldRoutes.flatMap(filesUnder);
-for (const file of held) fs.renameSync(file, file + HELD);
 
 /** Put the routes back. Safe to call twice; the second call finds nothing. */
 function restore() {
@@ -102,6 +101,10 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
     process.exit(1);
   });
 }
+
+// Held only once the handlers are in place: a rename that throws halfway (a
+// locked file on Windows) still puts back the ones already moved.
+for (const file of held) fs.renameSync(file, file + HELD);
 
 try {
   execFileSync("npm", ["run", "build"], {
@@ -122,13 +125,5 @@ fs.rmSync(destination, { recursive: true, force: true });
 fs.mkdirSync(path.dirname(destination), { recursive: true });
 fs.cpSync(exported, destination, { recursive: true });
 
-const files = countFiles(destination);
+const files = filesUnder(destination).length;
 console.log(`Bundled the app: ${files} files into ${path.relative(root, destination)}`);
-
-function countFiles(dir) {
-  let total = 0;
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    total += entry.isDirectory() ? countFiles(path.join(dir, entry.name)) : 1;
-  }
-  return total;
-}

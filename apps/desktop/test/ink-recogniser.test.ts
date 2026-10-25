@@ -145,6 +145,22 @@ test("a request is correlated by id and answered with its lines", async () => {
   recogniser.dispose();
 });
 
+// 37-09: dispose is for quitting; the doc used to promise a restart that never came.
+test("a disposed recogniser stays stopped and spawns nothing more", async () => {
+  let spawned = 0;
+  const recogniser = createInkRecogniser({
+    executable: "fake.exe",
+    spawnHelper: () => {
+      spawned++;
+      return fakeHelper();
+    },
+  });
+  assert.equal(await recogniser.available(), true);
+  recogniser.dispose();
+  assert.equal(await recogniser.available(), false);
+  assert.equal(spawned, 1);
+});
+
 test("two pages in flight are both answered, not serialised", async () => {
   const helper = fakeHelper();
   const recogniser = createInkRecogniser({ executable: "fake.exe", spawnHelper: () => helper });

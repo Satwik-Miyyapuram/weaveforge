@@ -475,8 +475,10 @@ async function callTool(
         }
         out += next;
       }
+      // Only the first page can overflow alone: later ones stop the loop instead.
+      const cut = out.length > MAX_PAPER_TEXT_CHARS ? `; page ${from} cut at ${MAX_PAPER_TEXT_CHARS} characters` : "";
       const more = to < pages.length ? `; next fromPage ${to + 1}` : "";
-      return content([{ label: `${paper.project.name}: ${paper.title}, pages ${from}-${to} of ${pages.length}${more}`, text: out.slice(0, MAX_PAPER_TEXT_CHARS) || "(no text on those pages)" }]);
+      return content([{ label: `${paper.project.name}: ${paper.title}, pages ${from}-${to} of ${pages.length}${cut}${more}`, text: out.slice(0, MAX_PAPER_TEXT_CHARS) || "(no text on those pages)" }]);
     }
     case "get_reading_list": {
       const list = await findOne("reading_list", ref(params, "list"), "reading list");

@@ -255,3 +255,38 @@ test("model cache: two asks for one file at once download it once and share it (
   assert.equal(again.status, 200);
   assert.equal(scripted.asked.length, 2);
 });
+
+test("model cache: a file declared too large is refused before its body is read (38-04)", async () => {
+  const root = await cacheRoot();
+  let bodyRead = false;
+  const huge = {
+    ok: true,
+    status: 200,
+    headers: new Headers({ "content-length": String(600 * 1024 * 1024) }),
+    arrayBuffer: async () => {
+      bodyRead = true;
+      return new ArrayBuffer(0);
+    },
+  } as unknown as Response;
+
+  const answer = await serveModelFile(root, URL_UNDER_TEST, async () => huge);
+
+  assert.equal(answer.status, 502);
+  assert.equal(bodyRead, false, "the body is never buffered");
+  assert.deepEqual(await readdir(root), []);
+});
+
+test("model cache: a missing or bad content-length still downloads (38-04)", async () => {
+  for (const length of [null, "abc"]) {
+    const root = await cacheRoot();
+    const headers = new Headers(length === null ? {} : { "content-length": length });
+    const reply = {
+      ok: true,
+      status: 200,
+      headers,
+      arrayBuffer: async () => new TextEncoder().encode("{}").buffer,
+    } as unknown as Response;
+    const answer = await serveModelFile(root, URL_UNDER_TEST, async () => reply);
+    assert.equal(answer.status, 200, `content-length ${String(length)}`);
+  }
+});

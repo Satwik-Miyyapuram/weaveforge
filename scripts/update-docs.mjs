@@ -22,7 +22,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { AREAS } from "./lib/areas.mjs";
-import { ROOT, measure, n, read, switchCases } from "./lib/repo-stats.mjs";
+import { ROOT, mcpToolNames, measure, n, read } from "./lib/repo-stats.mjs";
 
 function codeMap() {
   const rows = AREAS.map((area) => ({ ...area, ...measure(area) }));
@@ -66,12 +66,7 @@ function desktopIpc() {
 
 /** The tools an assistant may call, taken from the dispatch it is checked against. */
 function mcpTools() {
-  const relay = switchCases("apps/web/src/features/ai-assistant/infrastructure/mcp-browser-relay.ts");
-  const reads = relay.filter((tool) => !tool.startsWith("suggest_"));
-  const proposals = relay.filter((tool) => tool.startsWith("suggest_"));
-  const workspace = [...read("apps/desktop/src/local-mcp.ts").matchAll(/name: "([a-z_]+)"/g)]
-    .map((match) => match[1])
-    .filter((name) => name !== "weaveforge-workspace");
+  const { reads, proposals, workspace } = mcpToolNames();
 
   const list = (tools) => tools.map((tool) => `\`${tool}\``).join(", ");
   return [
@@ -118,9 +113,14 @@ function fill(text, block, newline) {
   const start = `<!-- generated:${block.id} -->`;
   const end = `<!-- /generated:${block.id} -->`;
   const from = text.indexOf(start);
-  const to = text.indexOf(end);
+  // The end marker is looked for after the start: one before it would splice
+  // the page into itself.
+  const to = from === -1 ? -1 : text.indexOf(end, from);
   if (from === -1 || to === -1) {
     throw new Error(`${block.doc} has no ${start} … ${end} block to fill.`);
+  }
+  if (text.indexOf(start, from + start.length) !== -1) {
+    throw new Error(`${block.doc} has ${start} more than once.`);
   }
   const body = [start, "", NOTE, "", ...block.build(), "", end].join(newline);
   return text.slice(0, from) + body + text.slice(to + end.length);

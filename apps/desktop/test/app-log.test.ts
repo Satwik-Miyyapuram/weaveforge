@@ -238,6 +238,22 @@ test("restoring into a ring that already has entries stops at the cap", async ()
   assert.equal(log.entries()[0]?.source, "old");
 });
 
+// 37-01: slice(-0) is the whole array, so a full ring must take nothing back.
+test("restoring into a ring that is already full adds nothing", async () => {
+  const dir = await tempDir();
+  const writer = createAppLog({ dir });
+  writer.record({ level: "info", source: "old", message: "old line" });
+  await writer.flush();
+
+  const log = createAppLog({ dir });
+  for (let index = 0; index < MAX_ENTRIES; index++) {
+    log.record({ level: "info", source: "new", message: `new ${index}` });
+  }
+  await log.restoreFromDisk();
+  assert.equal(log.entries().length, MAX_ENTRIES);
+  assert.ok(log.entries().every((entry) => entry.source === "new"));
+});
+
 // xlog-17: the log is the thing a reader copies into a bug report; it names no home folder.
 test("the home folder is written as ~, in messages, details and captured console lines", async () => {
   const dir = await tempDir();

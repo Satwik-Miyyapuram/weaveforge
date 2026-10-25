@@ -140,7 +140,15 @@ function allowanceFor(route) {
 /** Chunks a manifest names that the build did not write; see the check below. */
 const missingChunks = new Set();
 
+/** Gzipped size by chunk path: most chunks are shared, so each is compressed once (41-06). */
+const gzippedSizes = new Map();
+
 function gzippedChunkSize(file) {
+  if (!gzippedSizes.has(file)) gzippedSizes.set(file, measureChunk(file));
+  return gzippedSizes.get(file);
+}
+
+function measureChunk(file) {
   try {
     return gzipSync(readFileSync(file)).byteLength;
   } catch {

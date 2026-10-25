@@ -144,13 +144,17 @@ async function appendMetrics(query: SdkQuery, body: Record<string, unknown>): Pr
 
   const values: string[] = [];
   const params: SdkParam[] = [];
-  for (const raw of points as Record<string, unknown>[]) {
-    const step = Number(raw.step ?? 0);
-    const value = Number(raw.value);
-    if (!Number.isFinite(step) || !Number.isFinite(value)) {
-      return bad(400, `A point needs a finite step and value, got ${JSON.stringify(raw)}.`);
+  for (const raw of points as unknown[]) {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+      return bad(400, `A point must be an object, got ${JSON.stringify(raw)}.`);
     }
-    params.push(bind(raw.experiment_id), bind(raw.metric), step, value, bind(raw.wall_time));
+    const point = raw as Record<string, unknown>;
+    const step = Number(point.step ?? 0);
+    const value = Number(point.value);
+    if (!Number.isFinite(step) || !Number.isFinite(value)) {
+      return bad(400, `A point needs a finite step and value, got ${JSON.stringify(point)}.`);
+    }
+    params.push(bind(point.experiment_id), bind(point.metric), step, value, bind(point.wall_time));
     const first = params.length - 4;
     values.push(`(auth.uid(), $${first}, $${first + 1}, $${first + 2}, $${first + 3}, $${first + 4})`);
   }

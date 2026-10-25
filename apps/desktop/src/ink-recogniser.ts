@@ -124,7 +124,7 @@ export interface InkRecogniserHelper {
    * not started for it — a stroke should never wait on a CLR cold start.
    */
   haptics(message: InkHapticsMessage): void;
-  /** Release the process. The next call starts a new one. */
+  /** Release the process for good, on quit: later calls start nothing. */
   dispose(): void;
   /** What the helper said about the machine, or `null` before it has spoken. */
   readonly version: string | null;
