@@ -14,7 +14,7 @@ import {
   previewMerge,
   previewWikiBuild,
   wikiSourceDocuments,
-  proposeMissingPage,
+  proposeMissingPages,
   proposeWikiPages,
   regenerateWikiIndex,
   runWikiLint,
@@ -131,10 +131,8 @@ export function WikiScreen() {
     setBusy("fix");
     setError(null);
     try {
-      for (const target of targets) await proposeMissingPage(target);
-      setIndexed(
-        `Queued ${targets.length} missing page${targets.length === 1 ? "" : "s"} for review.`,
-      );
+      const queued = await proposeMissingPages(targets);
+      setIndexed(`Queued ${queued} missing page${queued === 1 ? "" : "s"} for review.`);
     } catch (err) {
       setError(formatError(err));
     } finally {

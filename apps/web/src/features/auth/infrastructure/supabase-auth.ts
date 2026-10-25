@@ -158,5 +158,3 @@ function legacyUnlockSecretFromIdentities(user: User): string | null {
   const sub = (google?.identity_data as { sub?: string } | undefined)?.sub;
   return sub ? `google:${sub}` : null;
 }
-
-/** Portable KEK input — signing in again with the same provider reproduces this value. */

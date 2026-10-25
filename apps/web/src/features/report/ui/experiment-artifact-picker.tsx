@@ -99,9 +99,8 @@ export function ExperimentArtifactPicker({
 
   function insert() {
     if (!experimentId || !artifactName.trim()) return;
-    const selectedArtifacts = experiments.find((e) => e.id === experimentId)?.artifacts ?? [];
     const base = artifactCollisionKey(artifactName);
-    const collisions = selectedArtifacts.filter((a) => artifactCollisionKey(a) === base);
+    const collisions = artifacts.filter((a) => artifactCollisionKey(a) === base);
     // On basename collision keep the full URL so resolve can exact-match.
     const name =
       collisions.length > 1 ? artifactName.trim() : base || artifactName.trim();

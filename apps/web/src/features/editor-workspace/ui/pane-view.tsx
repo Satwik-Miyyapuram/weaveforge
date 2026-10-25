@@ -22,6 +22,8 @@ import {
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { Breadcrumbs } from "./breadcrumbs";
 import { kindIcon, kindSuffix, kindTintClass, modesFor } from "./kind";
+import { CloseGlyph } from "./explorer-glyphs";
+import { followPointer } from "./follow-pointer";
 
 export interface PaneActions {
   onActivate: (paneId: string, index: number) => void;
@@ -108,12 +110,7 @@ function PaneNodeView({ node, ...props }: PaneViewProps & { node: PaneNode }) {
               : (moveEvent.clientX - box.left) / box.width;
             props.onRatio(split, fraction);
           };
-          const up = () => {
-            window.removeEventListener("pointermove", move);
-            window.removeEventListener("pointerup", up);
-          };
-          window.addEventListener("pointermove", move);
-          window.addEventListener("pointerup", up);
+          followPointer(window, move);
         }}
       />
       <div className="pane-half" style={{ flex: `${1 - split.ratio} 1 0` }}>
@@ -203,7 +200,7 @@ function PaneLeafView({
                   onClose(leaf.id, index);
                 }}
               >
-                <CloseGlyph />
+                <CloseGlyph size={12} stroke={2.2} />
               </button>
             </div>
           );
@@ -239,7 +236,7 @@ function PaneLeafView({
               title={`Close ${labelFor(showing)}`}
               onClick={() => onClose(leaf.id, leaf.activeIndex)}
             >
-              <CloseGlyph />
+              <CloseGlyph size={12} stroke={2.2} />
             </button>
           </div>
         ) : null}
@@ -412,14 +409,6 @@ function tintClass(kind: string): string {
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).slice(0, 2);
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("") || "?";
-}
-
-function CloseGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-      <path d="M6 6l12 12M18 6 6 18" />
-    </svg>
-  );
 }
 
 function SplitGlyph({ direction }: { direction: "row" | "column" }) {

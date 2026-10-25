@@ -225,8 +225,8 @@ export function PasteSettingsPanel() {
           aria-label="Sample links to test the rules against"
         />
       </div>
-      {preview.map((row) => (
-        <div className="field" key={row.before}>
+      {preview.map((row, i) => (
+        <div className="field" key={`${i}:${row.before}`}>
           <p className="muted field-hint">{row.before}</p>
           <p className="field-hint">
             {row.after === row.before ? <span className="muted">unchanged</span> : row.after}

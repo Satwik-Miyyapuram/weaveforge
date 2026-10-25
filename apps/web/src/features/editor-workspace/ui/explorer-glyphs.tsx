@@ -103,15 +103,16 @@ export function HideGlyph() {
   );
 }
 
-export function CloseGlyph() {
+/** The close cross; the explorer's 11px by default, the pane tabs pass 12 / 2.2. */
+export function CloseGlyph({ size = 11, stroke = 2 }: { size?: number; stroke?: number }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      width="11"
-      height="11"
+      width={size}
+      height={size}
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth={stroke}
       strokeLinecap="round"
       aria-hidden="true"
     >

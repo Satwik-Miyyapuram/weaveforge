@@ -11,7 +11,6 @@
 
 import {
   JSON_KINDS,
-  addCounts,
   changedSide,
   countJsonActions,
   diffJsonData,
@@ -81,14 +80,6 @@ export async function jsonDiff(
     );
   }
   return { entries, counts: countJsonActions(entries) };
-}
-
-/** One preview, both halves: the JSON counts added to the markdown's. */
-export function mergeImportCounts(
-  markdown: Record<string, number>,
-  json: JsonDiff,
-): JsonDiff["counts"] {
-  return addCounts(markdown as JsonDiff["counts"], json.counts);
 }
 
 /**
