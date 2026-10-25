@@ -89,36 +89,36 @@ export async function loadCiteLinkCatalog(): Promise<CiteLinkCatalog> {
     c.vault.loadScreenData().catch(() => null),
     c.report.loadScreenData().catch(() => null),
   ]);
-  const paperRows = papersData?.papers ?? [];
+  return citeCatalogFrom(papersData?.papers ?? [], vaultData?.flat ?? [], reportData?.flat ?? []);
+}
+
+/**
+ * The catalog for these rows: papers, then notes, then sections. A title is
+ * offered once, by the first row that has it, case and spacing ignored.
+ */
+export function citeCatalogFrom(
+  paperRows: readonly Parameters<typeof paperCiteLabel>[0][],
+  noteRows: readonly CiteLinkEntry[],
+  sectionRows: readonly CiteLinkEntry[],
+): CiteLinkCatalog {
   const papers = paperRows.map((p) => ({ id: p.id, title: p.title }));
-  const notes = (vaultData?.flat ?? []).map((n) => ({ id: n.id, title: n.title }));
-  const sections = (reportData?.flat ?? []).map((s) => ({ id: s.id, title: s.title }));
+  const notes = noteRows.map((n) => ({ id: n.id, title: n.title }));
+  const sections = sectionRows.map((s) => ({ id: s.id, title: s.title }));
 
   const completions: CiteCompletion[] = [];
   const seen = new Set<string>();
   const titles: string[] = [];
+  const add = (title: string, completion: () => CiteCompletion) => {
+    const key = normalizeTitleKey(title);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    titles.push(title);
+    completions.push(completion());
+  };
 
-  for (const p of paperRows) {
-    const key = normalizeTitleKey(p.title);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    titles.push(p.title);
-    completions.push(paperCiteLabel(p));
-  }
-  for (const n of notes) {
-    const key = normalizeTitleKey(n.title);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    titles.push(n.title);
-    completions.push({ title: n.title, label: n.title, detail: "note" });
-  }
-  for (const s of sections) {
-    const key = normalizeTitleKey(s.title);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    titles.push(s.title);
-    completions.push({ title: s.title, label: s.title, detail: "section" });
-  }
+  for (const p of paperRows) add(p.title, () => paperCiteLabel(p));
+  for (const n of notes) add(n.title, () => ({ title: n.title, label: n.title, detail: "note" }));
+  for (const s of sections) add(s.title, () => ({ title: s.title, label: s.title, detail: "section" }));
 
   return { titles, completions, notes, papers, sections };
 }

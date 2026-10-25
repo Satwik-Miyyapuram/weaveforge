@@ -126,9 +126,9 @@ export function CardColumns<T>({
       {columns.map((column, index) => (
         <div
           className="card-columns-col"
-          // Column index is the identity here: cards inside carry their own
-          // keys, so React reconciles them per column rather than re-creating
-          // the whole subtree when the count changes.
+          // Column index is the identity here. Card keys are scoped to their
+          // column, so a card that stays in its column keeps its state, but one
+          // dealt to another column when the count changes is remounted.
           key={index}
           style={{ gap }}
         >

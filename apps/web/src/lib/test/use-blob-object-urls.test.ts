@@ -145,3 +145,30 @@ test("a path change mid-flight revokes the URLs the abandoned run created", asyn
     assert.equal(revoked.length, created.length);
   });
 });
+
+test("a multi-image note with a cache bucket is served from the cache next time (11-01)", async () => {
+  const { clearBlobFetchCache } = await import("@/lib/cache/blob-fetch-cache");
+  clearBlobFetchCache();
+  const batches: string[][] = [];
+  const fetchers = {
+    fetchOne: async (path: string) => new Blob([path]),
+    fetchMany: async (paths: readonly string[]) => {
+      batches.push([...paths]);
+      return new Map(paths.map((path) => [path, new Blob([path])] as const));
+    },
+    cacheBucket: "test-bucket-11-01",
+  };
+  const paths = ["img:a", "img:b"];
+
+  const first = await renderHook((p: string[]) => useBlobObjectUrls(p, fetchers), paths);
+  assert.equal(first.current.size, 2);
+  await first.unmount();
+
+  // A second note opening the same images must not fetch them again.
+  const second = await renderHook((p: string[]) => useBlobObjectUrls(p, fetchers), paths);
+  assert.equal(second.current.size, 2);
+  await second.unmount();
+
+  assert.deepEqual(batches, [["img:a", "img:b"]], "one batch, then the cache");
+  clearBlobFetchCache();
+});

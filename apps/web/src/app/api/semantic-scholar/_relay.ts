@@ -56,12 +56,16 @@ export async function relaySemanticScholar(
     });
 
   let upstream: Response;
+  let payload: ArrayBuffer;
   try {
     upstream = await send();
     for (let attempt = 0; upstream.status === 429 && attempt < RETRIES; attempt++) {
       await wait(1000 * (attempt + 1));
       upstream = await send();
     }
+    // Buffered inside the try: the timeout also covers the body, and a read
+    // cut off there is the upstream failing, not this route.
+    payload = await upstream.arrayBuffer();
   } catch (err) {
     return refuse(502, `Semantic Scholar fetch failed: ${formatError(err)}`);
   }
@@ -69,7 +73,7 @@ export async function relaySemanticScholar(
   // The status and the body are the upstream's; the headers are not. The API's
   // own `access-control-allow-origin` is meaningless same-origin, and copying
   // a redirect's `location` through would let the browser follow it off-origin.
-  return new NextResponse(await upstream.arrayBuffer(), {
+  return new NextResponse(payload, {
     status: upstream.status,
     statusText: upstream.statusText,
     headers: {

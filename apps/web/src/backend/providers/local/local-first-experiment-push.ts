@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { planSeriesIngest } from "@weaveforge/core";
 import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
 import type { LocalFirstBlobStore } from "./local-first-blob-store";
 import type { LocalQuery } from "./pglite-client";
 
@@ -206,7 +207,15 @@ export async function toWebp(blob: Blob): Promise<Blob> {
 /** Push on a timer and when the network comes back; failures wait for the next turn. */
 export function keepPushing(push: ExperimentPush): () => void {
   if (typeof window === "undefined") return () => undefined;
-  const go = () => void push.push().catch(() => undefined);
+  const go = () =>
+    void push.push().catch((err: unknown) =>
+      logToApp({
+        level: "warn",
+        source: "experiment-push",
+        message: "Pushing experiments to the server failed",
+        detail: describeRejection(err),
+      }),
+    );
   window.addEventListener("online", go);
   const timer = window.setInterval(go, EXPERIMENT_PUSH_MS);
   go();

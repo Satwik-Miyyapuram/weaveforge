@@ -8,20 +8,8 @@ import type {
 import type { IZoteroLibrarySync, IZoteroExporter, IZoteroAnnotationPull } from "@/features/papers/domain/zotero";
 import type { ISettingsRepository } from "@weaveforge/core";
 import { getUserIntegrationField } from "@weaveforge/core";
-import { zoteroHeaders, zoteroLibraryUrl } from "@/features/papers/infrastructure/zotero-web-api";
+import { normalizeZoteroLibrary, zoteroHeaders, zoteroLibraryUrl } from "@/features/papers/infrastructure/zotero-web-api";
 import { getDataClient } from "@/lib/data-client";
-
-/**
- * Zotero's own settings page shows a bare user id ("123456"), so that is what
- * people paste. The API needs a library *path*. The collections route already
- * accepts either; do the same here so a direct-fetch build behaves identically.
- */
-function normalizeZoteroLibrary(library: string | undefined): string | undefined {
-  const value = library?.trim();
-  if (!value) return undefined;
-  if (/^\d+$/.test(value)) return `users/${value}`;
-  return /^(users|groups)\/\d+$/.test(value) ? value : undefined;
-}
 
 export class ZoteroBibliographyIntegration implements IBibliographyIntegration {
   readonly providerId = "zotero";

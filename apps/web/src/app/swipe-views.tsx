@@ -16,6 +16,16 @@ const EDGE = 24;
 const IGNORE =
   ".graph-wrap, .graph-canvas, .dashboard-grid-wrap, .table-scroll, .papers-table-scroll, .filter-row, input, textarea, select, .custom-select-menu, .sub-nav, .ink-wrap, .ink-page, .ink-canvas, .ink-host, .ink-page-scroll, [data-ink], .workspace-screen, .editor-workspace, .document-host, .editor-pane, canvas, [style*='touch-action: none']";
 
+/**
+ * The tab a horizontal swipe lands on: left is the next tab, right the previous.
+ * A view that is not one of the tabs (`idx` -1) has no neighbours, so it goes
+ * nowhere rather than jumping to the first tab.
+ */
+export function swipeTarget<T>(items: readonly T[], idx: number, dx: number): T | undefined {
+  if (idx < 0) return undefined;
+  return items[idx + (dx < 0 ? 1 : -1)];
+}
+
 export function SwipeViews({
   children,
   disabled = false,
@@ -64,7 +74,7 @@ export function SwipeViews({
     const dy = t.clientY - s.y;
     if (Date.now() - s.t > 600) return; // too slow
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return; // not a clear horizontal swipe
-    const next = items[idx + (dx < 0 ? 1 : -1)]; // swipe left → next tab
+    const next = swipeTarget(items, idx, dx);
     if (next) {
       beginNavigation(next.path);
       router.push(next.path);

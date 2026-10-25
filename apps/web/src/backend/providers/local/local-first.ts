@@ -5,6 +5,8 @@ import type { BackendConfig } from "@/backend/config";
 import { secretsStoreFor } from "@/backend/providers/secrets-store";
 import { SupabaseAuthService } from "@/features/auth/infrastructure/supabase-auth";
 import { PostgrestSettingsRepository } from "@/features/settings/infrastructure/postgrest-settings-repository";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
 import { notifyWorkspaceChange } from "@/lib/workspace-changes";
 import { wireStorage } from "@/storage/wire-storage";
 import { createDataClient } from "../postgrest/client";
@@ -62,6 +64,15 @@ const BOTH_END_RPCS: ReadonlySet<string> = new Set(["metric_history", "latest_me
 
 type RpcReply = { data: unknown; error: unknown };
 
+function logDroppedEnd(end: string, fn: string, error: unknown): void {
+  logToApp({
+    level: "warn",
+    source: "local-first",
+    message: `A metric read on ${end} failed`,
+    detail: `${fn}: ${describeRejection(error)}`,
+  });
+}
+
 /** Rows from both ends; one end failing leaves the other's answer standing. */
 async function bothEnds(
   local: SupabaseClient,
@@ -70,6 +81,10 @@ async function bothEnds(
   args?: Record<string, unknown>,
 ): Promise<RpcReply> {
   const [here, there] = (await Promise.all([local.rpc(fn, args), server.rpc(fn, args)])) as RpcReply[];
+  // The server's error is the one a caller sees when both fail; any other
+  // failure is dropped from the answer, so it is logged here instead.
+  if (here!.error) logDroppedEnd("this computer", fn, here!.error);
+  if (there!.error && !here!.error) logDroppedEnd("the server", fn, there!.error);
   if (here!.error && there!.error) return there!;
   const rows = (r: RpcReply) => (!r.error && Array.isArray(r.data) ? r.data : []);
   // A run's history lives on one end; preferring local keeps the budget-reduced

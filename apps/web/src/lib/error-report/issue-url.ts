@@ -56,11 +56,16 @@ export function reportMarkdown(input: {
   steps?: string;
   /** The rest of where it happened: screen and section, platform, time. */
   context?: readonly (readonly [string, string])[];
+  /**
+   * False leaves off the "What happened" heading, for the report route, which
+   * files the body under a heading of its own. Default true.
+   */
+  withHeading?: boolean;
 }): string {
   const where = [input.route && `Route: \`${input.route}\``, input.version && `Version: \`${input.version}\``]
     .filter(Boolean)
     .join(" · ");
-  const sections = [`### What happened\n\n${input.detail}`];
+  const sections = [input.withHeading === false ? input.detail : `### What happened\n\n${input.detail}`];
   if (input.steps?.trim()) sections.push(`### Steps to reproduce\n\n${input.steps.trim()}`);
   const context = (input.context ?? []).filter(([, value]) => value).map(([label, value]) => `- ${label}: ${value}`);
   if (where || context.length > 0) sections.push(`### Where\n\n${[where, ...context].filter(Boolean).join("\n")}`);

@@ -8,7 +8,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IBlobStore } from "@weaveforge/core";
 
 import { LocalFirstBlobStore } from "../local-first-blob-store";
-import { ExperimentPush } from "../local-first-experiment-push";
+import { withAppLogs } from "@/lib/error-report/test/capture-app-logs";
+import { ExperimentPush, keepPushing } from "../local-first-experiment-push";
 import type { LocalQuery } from "../pglite-client";
 
 const MIGRATIONS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../../../../db/migrations-local");
@@ -263,5 +264,24 @@ describe("pushing desktop runs to the server", () => {
     assert.ok(blobs.stored.has(`experiment-artifacts/acct/${EXP2}/u2/b.png`));
     const local = (await run("select id, artifacts from experiments order by id", [])) as { artifacts: string[] }[];
     assert.deepEqual(local[0]!.artifacts, [bad, `acct/${EXP}/u1/a.png`]);
+  });
+});
+
+describe("keepPushing", () => {
+  it("logs a push that fails instead of dropping it (09-19)", async () => {
+    const g = globalThis as { window?: unknown };
+    g.window = { addEventListener() {}, removeEventListener() {}, setInterval: () => 0, clearInterval() {} };
+    try {
+      const failing = { push: () => Promise.reject(new Error("server down")) } as unknown as ExperimentPush;
+      await withAppLogs(async (logs) => {
+        keepPushing(failing)();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(logs.length, 1);
+        assert.equal(logs[0]!.level, "warn");
+        assert.match(logs[0]!.detail ?? "", /server down/);
+      });
+    } finally {
+      delete g.window;
+    }
   });
 });

@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireSdkUser } from "@/app/api/sdk/_shared";
-import { zoteroHeaders, zoteroLibraryUrl } from "@/features/papers/infrastructure/zotero-web-api";
+import { normalizeZoteroLibrary, zoteroHeaders, zoteroLibraryUrl } from "@/features/papers/infrastructure/zotero-web-api";
 import { jsonBodyError } from "@/lib/format-error";
+import { collectionsResponse } from "./collections-response";
 
 export const dynamic = "force-dynamic";
-
-interface CollectionRow {
-  data?: { key?: string; name?: string };
-}
 
 /**
  * Zotero does not allow browser CORS requests. The key is accepted only for
@@ -35,9 +32,8 @@ export async function POST(request: Request) {
   }
 
   const apiKey = body.apiKey?.trim();
-  const libraryInput = body.library?.trim();
-  const library = libraryInput && /^\d+$/.test(libraryInput) ? `users/${libraryInput}` : libraryInput;
-  if (!apiKey || !library || !/^(users|groups)\/\d+$/.test(library)) {
+  const library = normalizeZoteroLibrary(body.library);
+  if (!apiKey || !library) {
     return NextResponse.json({ error: "A valid Zotero library and API key are required." }, { status: 400 });
   }
 
@@ -47,15 +43,9 @@ export async function POST(request: Request) {
       cache: "no-store",
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    if (!response.ok) {
-      return NextResponse.json({ error: "Zotero rejected the collection request." }, { status: response.status === 401 ? 401 : 502 });
-    }
-    const rows = await response.json() as CollectionRow[];
-    const collections = rows
-      .map((row) => ({ key: row.data?.key ?? "", name: row.data?.name ?? "" }))
-      .filter((collection) => collection.key);
-    return NextResponse.json({ collections }, { headers: { "Cache-Control": "no-store" } });
-  } catch {
+    return await collectionsResponse(response);
+  } catch (error) {
+    console.warn("[zotero-collections] request failed:", error instanceof Error ? error.name : "unknown");
     return NextResponse.json({ error: "Unable to reach Zotero." }, { status: 502 });
   }
 }

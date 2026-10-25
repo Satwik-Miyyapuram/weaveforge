@@ -4,6 +4,7 @@ import { GitLabLogExporter } from "@/features/sync/infrastructure/gitlab-log-exp
 
 export class GitLabLogSyncIntegration implements ILogSyncIntegration {
   readonly providerId = "gitlab";
+  private readonly exporter: GitLabLogExporter;
 
   constructor(
     private readonly deps: {
@@ -11,19 +12,19 @@ export class GitLabLogSyncIntegration implements ILogSyncIntegration {
       integrations: IIntegrationsStore;
       exporter?: GitLabLogExporter;
     },
-  ) {}
+  ) {
+    this.exporter = deps.exporter ?? new GitLabLogExporter();
+  }
 
   async pushLog(entry: LogEntry): Promise<void> {
     const pid = this.deps.projectId();
     if (!pid) return;
-    const exporter = this.deps.exporter ?? new GitLabLogExporter();
-    await exporter.push(await this.deps.integrations.get(pid, "gitlab"), entry);
+    await this.exporter.push(await this.deps.integrations.get(pid, "gitlab"), entry);
   }
 
   async removeLog(entry: LogEntry): Promise<void> {
     const pid = this.deps.projectId();
     if (!pid) return;
-    const exporter = this.deps.exporter ?? new GitLabLogExporter();
-    await exporter.remove(await this.deps.integrations.get(pid, "gitlab"), entry);
+    await this.exporter.remove(await this.deps.integrations.get(pid, "gitlab"), entry);
   }
 }

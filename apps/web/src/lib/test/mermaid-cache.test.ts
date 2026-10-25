@@ -110,3 +110,26 @@ test("the real renderer reports a parse error with its line", async () => {
     assert.ok(/line \d/i.test(html), html);
   });
 });
+
+test("a failed load is retried on the next diagram, not kept (11-05)", async () => {
+  const fake = fakeRenderer();
+  let loads = 0;
+  const g = globalThis as Record<string, unknown>;
+  const savedDoc = g.document;
+  try {
+    g.document = {};
+    setMermaidLoaderForTests(() => {
+      loads++;
+      return loads === 1 ? Promise.reject(new Error("chunk load failed")) : Promise.resolve(fake.renderer);
+    });
+    const failed = await renderMermaidBlock("graph TD; A-->B");
+    assert.ok(failed.includes("md-mermaid-error"));
+    const drawn = await renderMermaidBlock("graph TD; A-->B");
+    assert.ok(drawn.includes("<svg>wf-mermaid-"), "the second diagram loads again");
+    assert.equal(loads, 2);
+  } finally {
+    g.document = savedDoc;
+    setMermaidLoaderForTests(null);
+    clearMermaidCache();
+  }
+});

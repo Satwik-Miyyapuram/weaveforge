@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readRecentTargets, rememberRecentTarget } from "@/lib/recent-targets";
+import { pinRecentTargets, readRecentTargets, rememberRecentTarget } from "@/lib/recent-targets";
 
 function installStorage() {
   const values = new Map<string, string>();
@@ -60,4 +60,24 @@ test("a stored non-array value reads as empty (11-07)", () => {
   installStorage();
   localStorage.setItem("thesis.jump-recents.project-a", JSON.stringify({ kind: "paper", id: "p1" }));
   assert.deepEqual(readRecentTargets("project-a"), []);
+});
+
+test("pinRecentTargets lists recents first, once, in visit order (12-05)", () => {
+  const items = [
+    { kind: "paper" as const, id: "1", title: "P1" },
+    { kind: "note" as const, id: "1", title: "N1" },
+    { kind: "section" as const, id: "s", title: "S" },
+  ];
+  const recents = [
+    { kind: "note" as const, id: "1" },
+    { kind: "paper" as const, id: "gone" },
+    { kind: "section" as const, id: "s" },
+  ];
+  assert.deepEqual(pinRecentTargets(items, recents), [
+    { kind: "note", id: "1", title: "N1", recent: true },
+    { kind: "section", id: "s", title: "S", recent: true },
+    { kind: "paper", id: "1", title: "P1" },
+  ]);
+  assert.deepEqual(pinRecentTargets(items, []), items);
+  assert.deepEqual(pinRecentTargets([], recents), []);
 });

@@ -6,6 +6,8 @@ import { desktop, type DesktopMenuGroup, type DesktopMenuItem } from "@/lib/desk
 import { openSearchPalette } from "./jump-to-palette";
 import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 import { WeaveForgeLogo } from "./weave-forge-logo";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
 
 /**
  * Set on `<html>` before the first paint by the layout's boot script, so the
@@ -82,7 +84,14 @@ export function DesktopTitleBar() {
           if (model) document.documentElement.setAttribute("data-titlebar", "");
           else document.documentElement.removeAttribute("data-titlebar");
         })
-        .catch(() => undefined);
+        .catch((error: unknown) =>
+          logToApp({
+            level: "warn",
+            source: "title-bar",
+            message: "The window menu could not be loaded",
+            detail: describeRejection(error),
+          }),
+        );
     load();
     const stop = bridge.onMenuChange?.(load);
     return () => {
@@ -143,7 +152,14 @@ export function DesktopTitleBar() {
       }
       void desktop()
         ?.invokeMenuItem?.(item.id)
-        .catch((error: unknown) => console.warn("[title-bar] menu entry failed:", item.id, error));
+        .catch((error: unknown) =>
+          logToApp({
+            level: "warn",
+            source: "title-bar",
+            message: "A window menu entry failed",
+            detail: `${item.id}: ${describeRejection(error)}`,
+          }),
+        );
     },
     [close, router],
   );

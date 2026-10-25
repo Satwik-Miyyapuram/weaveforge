@@ -144,3 +144,39 @@ test("OverlayScrollbar measures once per frame however many mutations land", () 
     g.cancelAnimationFrame = saved.caf;
   }
 });
+
+test("leaving the track hides the thumb after the delay without re-subscribing (13-03)", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const mockEl = createMockScrollElement({ clientHeight: 400, scrollHeight: 1200 });
+  let subscriptions = 0;
+  const add = mockEl.addEventListener.bind(mockEl);
+  mockEl.addEventListener = ((event: string, handler: () => void) => {
+    if (event === "scroll") subscriptions++;
+    add(event, handler);
+  }) as typeof mockEl.addEventListener;
+
+  let renderer: ReturnType<typeof create> | undefined;
+  act(() => {
+    renderer = create(createElement(OverlayScrollbar, { scrollRef: { current: mockEl }, autoHideDelay: 100 }));
+  });
+  const track = () => renderer!.root.findByProps({ "aria-hidden": "true" });
+  act(() => track().props.onPointerEnter());
+  act(() => track().props.onPointerLeave());
+  assert.match(JSON.stringify(renderer!.toJSON()), /is-visible/, "still up right after leaving");
+  act(() => t.mock.timers.tick(150));
+  assert.doesNotMatch(JSON.stringify(renderer!.toJSON()), /is-visible/);
+  assert.equal(subscriptions, 1, "hover does not re-run the scroll subscription");
+});
+
+test("hovering the track keeps the thumb up past the delay (13-03)", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const mockEl = createMockScrollElement({ clientHeight: 400, scrollHeight: 1200 });
+  let renderer: ReturnType<typeof create> | undefined;
+  act(() => {
+    renderer = create(createElement(OverlayScrollbar, { scrollRef: { current: mockEl }, autoHideDelay: 100 }));
+  });
+  act(() => mockEl.dispatch("scroll"));
+  act(() => renderer!.root.findByProps({ "aria-hidden": "true" }).props.onPointerEnter());
+  act(() => t.mock.timers.tick(500));
+  assert.match(JSON.stringify(renderer!.toJSON()), /is-visible/);
+});

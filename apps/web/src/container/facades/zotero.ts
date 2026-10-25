@@ -85,7 +85,7 @@ export class ZoteroFacade {
       import("@/features/reader/application/write-back-zotero-annotations"),
       import("@/integrations/providers/zotero/apply-bibliography-annotations"),
     ]);
-    const pusher = await (this.deps.annotationPusher ?? (() => this.defaultPusher()))();
+    const pusher = await this.pusher();
     return writeBackZoteroAnnotations({
       papers: await this.deps.papers.list(),
       attachmentOf: (paper) => {
@@ -97,7 +97,9 @@ export class ZoteroFacade {
     });
   }
 
-  private async defaultPusher(): Promise<ZoteroAnnotationPusher> {
+  /** The live Zotero writer: the injected seam, else the Web API client. */
+  private async pusher(): Promise<ZoteroAnnotationPusher> {
+    if (this.deps.annotationPusher) return this.deps.annotationPusher();
     const { ZoteroApiAnnotationWriteBack } = await import(
       "@/features/reader/infrastructure/zotero-annotation-write-back"
     );
@@ -144,12 +146,9 @@ export class ZoteroFacade {
    * round trip turns into a duplicate.
    */
   async pushAnnotationsToZotero(paperId: string, parentItemKey: string) {
-    const { ZoteroApiAnnotationWriteBack } = await import(
-      "@/features/reader/infrastructure/zotero-annotation-write-back"
-    );
     const annotations = await this.deps.readerAnnotations.list(paperId);
     const local = annotations.filter((annotation) => annotation.origin === "local");
-    const client = new ZoteroApiAnnotationWriteBack(this.deps.zoteroCredentials);
+    const client = await this.pusher();
     // `live: true` is the whole difference between this and the dry run, and it
     // is a literal here rather than a parameter: a caller cannot opt into
     // writing by passing an argument, only by calling the method named for it.

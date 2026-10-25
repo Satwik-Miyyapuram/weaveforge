@@ -167,3 +167,19 @@ test("semantic-scholar: the upstream's own CORS header is not copied through", a
     restore();
   }
 });
+
+test("semantic-scholar: a body cut off mid-read is a 502, not a 500 (14-11)", async () => {
+  const { restore } = stubFetch(
+    () =>
+      new Response(new ReadableStream({ start: (controller) => controller.error(new Error("timed out mid-body")) }), {
+        status: 200,
+      }),
+  );
+  try {
+    const res = await relaySemanticScholar(relayRequest("graph/v1/paper/x"), undefined, noWait);
+    assert.equal(res.status, 502);
+    assert.match(JSON.stringify(await res.json()), /timed out mid-body/);
+  } finally {
+    restore();
+  }
+});

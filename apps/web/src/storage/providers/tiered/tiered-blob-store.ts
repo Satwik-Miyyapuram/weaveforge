@@ -1,4 +1,4 @@
-import type { IBlobRegistry, IBlobStore } from "@weaveforge/core";
+import { errorMessage, type IBlobRegistry, type IBlobStore } from "@weaveforge/core";
 
 export interface TieredBlobStoreOptions {
   hot: IBlobStore;
@@ -61,7 +61,13 @@ export class TieredBlobStore implements IBlobStore {
         if (!rec) return null;
         const store = rec.tier === "cold" ? this.opts.cold : this.opts.hot;
         const [url] = await store.signedUrls(bucket, [path], ttlSeconds);
-        if (url) await this.opts.registry.recordAccess(bucket, path);
+        // Access counts only steer eviction, so a failed write must not cost
+        // the reader a link the store already granted.
+        if (url) {
+          await this.opts.registry.recordAccess(bucket, path).catch((err: unknown) => {
+            console.warn(`[blobs] could not record access to ${bucket}/${path}:`, errorMessage(err));
+          });
+        }
         return url ?? null;
       }),
     );

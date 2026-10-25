@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { highlightCodeBlock, type ColorMode } from "@/lib/shiki-render";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
 import { renderMarkdownWithShiki, renderProseMarkdown, type MarkdownRenderOptions, type WikilinkResolver } from "@/components/markdown/markdown";
 
 function readColorMode(): ColorMode {
@@ -60,15 +62,30 @@ export function ShikiMarkdown({
     let cancelled = false;
     const current = rendered.current;
     if (!current || current.children !== children || current.mode !== mode) setHtml(null);
-    void renderMarkdownWithShiki(children, mode, highlightCodeBlock, options).then((next) => {
-      if (cancelled) return;
-      rendered.current = { children, mode };
-      setHtml(next);
-    });
+    void renderMarkdownWithShiki(children, mode, highlightCodeBlock, options).then(
+      (next) => {
+        if (cancelled) return;
+        rendered.current = { children, mode };
+        setHtml(next);
+      },
+      (error: unknown) => {
+        // The unhighlighted body is already readable; settle on it rather than
+        // staying busy forever.
+        logToApp({
+          level: "warn",
+          source: "markdown",
+          message: "Code highlighting failed",
+          detail: describeRejection(error),
+        });
+        if (cancelled) return;
+        rendered.current = { children, mode };
+        setHtml(fallbackHtml);
+      },
+    );
     return () => {
       cancelled = true;
     };
-  }, [children, mode, options]);
+  }, [children, mode, options, fallbackHtml]);
 
   const cls = className ? `markdown shiki-markdown ${className}` : "markdown shiki-markdown";
   // One object per html string. React resets innerHTML whenever it is handed
