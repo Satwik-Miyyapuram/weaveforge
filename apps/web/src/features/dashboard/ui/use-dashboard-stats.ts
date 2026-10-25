@@ -66,6 +66,11 @@ export function useDashboardStats(
   // The key of the newest load. An older one that answers late — a project
   // switched away from mid-load — must not paint over the newer one.
   const latestKey = useRef(cacheKey);
+  // Read through a ref, not a dependency: a minified build inlines the default
+  // into the parameter list, so each render passes a new function, and as a
+  // dependency it reloaded the stats on every render, forever.
+  const getPortsRef = useRef(getPorts);
+  getPortsRef.current = getPorts;
 
   const loadStats = useCallback(async () => {
     latestKey.current = cacheKey;
@@ -86,7 +91,7 @@ export function useDashboardStats(
     }
     setStatsError(null);
     try {
-      const result = await loadDashboardStats(getPorts(), {
+      const result = await loadDashboardStats(getPortsRef.current(), {
         cardTypes,
         supervisees,
       });
@@ -110,7 +115,7 @@ export function useDashboardStats(
     } finally {
       if (latestKey.current === cacheKey) setStatsLoading(false);
     }
-  }, [cacheKey, cardTypes, supervisees, projectId, getPorts]);
+  }, [cacheKey, cardTypes, supervisees, projectId]);
 
   useEffect(() => {
     void loadStats();
