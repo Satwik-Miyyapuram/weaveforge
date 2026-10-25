@@ -47,19 +47,6 @@ class InkingOverlayView @JvmOverloads constructor(
     /** Called with the stroke as a JSON array `[x, y, p, t, ...]` in view pixels. */
     var onStrokeFinished: ((String) -> Unit)? = null
 
-    /**
-     * Whether the user asked for pen-only behaviour.
-     *
-     * Read by the web side's own gate, not by anything here. Routing is
-     * [InkGestureView]'s job now, and in pen-only mode a finger still moves the
-     * paper and two fingers still move and zoom it — so this flag no longer decides
-     * what this view receives.
-     */
-    var penOnly: Boolean = false
-
-    /** Which side the palm rests on; reserved for a rest-zone heuristic. */
-    var leftHanded: Boolean = false
-
     private companion object {
         /**
          * The most samples one stroke may hold.
@@ -67,8 +54,8 @@ class InkingOverlayView @JvmOverloads constructor(
          * A continuous highlighter pass is minutes of samples at the digitiser
          * rate, and the buffer is cleared per stroke — but "per stroke" is not a
          * bound. 32 000 samples is several minutes of 90 Hz pen input, well past
-         * any real stroke, and a stroke that reaches it is finished early with
-         * the samples it has rather than allocating until the pen lifts.
+         * any real stroke. Samples past it are dropped and the stroke commits
+         * when the pen lifts, rather than allocating until then.
          */
         const val MAX_STROKE_SAMPLES = 32_000
     }
@@ -94,7 +81,7 @@ class InkingOverlayView @JvmOverloads constructor(
     private var penPointerId = -1
 
     // The stroke in flight.
-    private val strokePoints = ArrayList<Float>(4 * 512)
+    private val strokePoints = FloatBuffer(SAMPLES_PER_LINE * 512)
 
     /**
      * Uptime of the stroke's first sample. Times are stored relative to it: a
@@ -105,7 +92,6 @@ class InkingOverlayView @JvmOverloads constructor(
     private var lastX = 0f
     private var lastY = 0f
     private var hasLast = false
-    private var strokeTruncated = false
     private var baseWidth = 4f
 
     private val penPaint = Paint().apply {
@@ -179,7 +165,6 @@ class InkingOverlayView @JvmOverloads constructor(
         strokePoints.clear()
         isStylusDrawing = false
         hasLast = false
-        strokeTruncated = false
         penPointerId = -1
         renderer.clear()
     }
@@ -207,17 +192,13 @@ class InkingOverlayView @JvmOverloads constructor(
         // correction the old version needed: the action's own index decides the tool,
         // never index 0, because a palm that landed first is pointer 0.
         val index = event.actionIndex.coerceIn(0, (event.pointerCount - 1).coerceAtLeast(0))
-        val toolType = event.getToolType(index)
-        val isStylus = toolType == MotionEvent.TOOL_TYPE_STYLUS ||
-            toolType == MotionEvent.TOOL_TYPE_ERASER
+        val isStylus = InkGestureRouter.isPenTool(event.getToolType(index))
 
         // A stream the overlay already owns stays with the pen even when this
         // particular action's index belongs to another pointer: the palm arriving or
         // lifting mid-stroke must not be read as a stylus action, and must not end the
         // stroke either.
-        if (!isStylus && penPointerId != -1 && isPenDown(event)) return onStylus(event)
-
-        return if (isStylus) onStylus(event) else false
+        return if (isStylus || (penPointerId != -1 && isPenDown(event))) onStylus(event) else false
     }
 
     /** Whether the latched pen pointer is still part of this event. */
@@ -237,9 +218,7 @@ class InkingOverlayView @JvmOverloads constructor(
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
                 val index = event.actionIndex
-                if (event.getToolType(index) != MotionEvent.TOOL_TYPE_STYLUS &&
-                    event.getToolType(index) != MotionEvent.TOOL_TYPE_ERASER
-                ) {
+                if (!InkGestureRouter.isPenTool(event.getToolType(index))) {
                     // A finger joined a stream the pen is not in yet; the palm
                     // arriving first is this case, and it changes nothing.
                     return isStylusDrawing
@@ -321,7 +300,6 @@ class InkingOverlayView @JvmOverloads constructor(
         val json = encodeStroke(strokePoints, strokeOrigin)
         strokePoints.clear()
         hasLast = false
-        strokeTruncated = false
         // The wet stroke stays on the front buffer until the web app has drawn
         // its own and calls clearOverlay(), so there is no frame with the stroke
         // missing in between.
@@ -331,11 +309,10 @@ class InkingOverlayView @JvmOverloads constructor(
 
     private fun record(x: Float, y: Float, pressure: Float, t: Long) {
         if (strokePoints.size >= MAX_STROKE_SAMPLES * SAMPLES_PER_LINE) {
-            // Bounded rather than unbounded: a stroke that reaches the ceiling
-            // commits the samples it has instead of allocating until the pen
-            // lifts. It ends a little short of the nib's last movement, which is
-            // visible; an unbounded buffer is not.
-            strokeTruncated = true
+            // Bounded rather than unbounded: past the ceiling samples are dropped,
+            // and the stroke commits what it has when the pen lifts. It ends a
+            // little short of the nib's last movement, which is visible; an
+            // unbounded buffer is not.
             return
         }
         if (strokePoints.isEmpty()) strokeOrigin = t
@@ -344,12 +321,10 @@ class InkingOverlayView @JvmOverloads constructor(
         strokePoints.add(pressure)
         strokePoints.add((t - strokeOrigin).toFloat())
         val width = baseWidth * (0.6f + 0.8f * pressure.coerceIn(0f, 1f))
-        if (hasLast) {
-            renderer.renderFrontBufferedLayer(Segment(lastX, lastY, x, y, width))
-        } else {
-            // The first sample: a dot, as a zero-length round-capped line.
-            renderer.renderFrontBufferedLayer(Segment(x, y, x, y, width))
-        }
+        // The first sample is a dot: a zero-length round-capped line.
+        val fromX = if (hasLast) lastX else x
+        val fromY = if (hasLast) lastY else y
+        renderer.renderFrontBufferedLayer(Segment(fromX, fromY, x, y, width))
         lastX = x
         lastY = y
         hasLast = true
@@ -379,7 +354,7 @@ private const val SAMPLES_PER_LINE = 4
  * Timestamps are emitted as whole device-uptime milliseconds: `origin` plus the
  * stroke-relative time stored in `points`, so they stay exact at any uptime.
  */
-internal fun encodeStroke(points: ArrayList<Float>, origin: Long): String {
+internal fun encodeStroke(points: FloatBuffer, origin: Long): String {
     val builder = StringBuilder(points.size * 10 + 2)
     builder.append('[')
     var sample = 0
@@ -397,6 +372,36 @@ internal fun encodeStroke(points: ArrayList<Float>, origin: Long): String {
     }
     builder.append(']')
     return builder.toString()
+}
+
+/**
+ * A growable list of primitive floats.
+ *
+ * `ArrayList<Float>` boxes every sample into a `java.lang.Float`, four per pen
+ * report at the digitiser rate. This keeps them in one `FloatArray` that doubles
+ * when full, and is cleared per stroke without giving the array back.
+ */
+internal class FloatBuffer(initialCapacity: Int = 16) {
+    private var values = FloatArray(initialCapacity.coerceAtLeast(1))
+
+    var size = 0
+        private set
+
+    fun isEmpty(): Boolean = size == 0
+
+    fun add(value: Float) {
+        if (size == values.size) values = values.copyOf(values.size * 2)
+        values[size++] = value
+    }
+
+    operator fun get(index: Int): Float {
+        if (index < 0 || index >= size) throw IndexOutOfBoundsException("index $index, size $size")
+        return values[index]
+    }
+
+    fun clear() {
+        size = 0
+    }
 }
 
 /** Append a float with a fixed number of decimal places, without a formatter. */

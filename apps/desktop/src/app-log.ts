@@ -259,8 +259,8 @@ export function createAppLog(options: AppLogOptions): AppLog {
         }
       })
       // Prepended: the restored lines are older than anything this process has
-      // said, and `record` only ever appends.
-      .slice(-room);
+      // said, and `record` only ever appends. `slice(-0)` would keep them all.
+      .slice(room === 0 ? Infinity : -room);
     held.unshift(...older);
     bytes = Buffer.byteLength(text, "utf8");
   }

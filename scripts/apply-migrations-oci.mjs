@@ -27,6 +27,7 @@ import { readFileSync, readdirSync } from "node:fs";
 
 import { loadMigrationEnv } from "./lib/load-env.mjs";
 import { pgTls } from "./lib/pg-tls.mjs";
+import { matchesOnly } from "./lib/migration-select.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 loadMigrationEnv(root);
@@ -116,7 +117,7 @@ async function main() {
 
     if (only) {
       const matches = [...sqlFilesIn(MIGRATIONS), ...sqlFilesIn(SELF_HOSTED)].filter((f) =>
-        basename(f).includes(only),
+        matchesOnly(basename(f), only),
       );
       if (matches.length === 0) {
         console.error(`\n✖ No migration matches "${only}".\n`);

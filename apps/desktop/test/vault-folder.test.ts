@@ -12,6 +12,7 @@ import {
   WORKSPACE_SUBDIR,
 } from "../src/vault-folder";
 import {
+  MAX_VAULT_BLOB_BYTES,
   MAX_VAULT_BYTES,
   adoptRoot,
   currentRoot,
@@ -380,4 +381,32 @@ test("remove takes one file and is never recursive", async () => {
   // A directory with something in it cannot be taken out from here.
   await writeVaultFile(session, "notes/b.note.md", "Body.");
   assert.equal((await removeVaultFile(session, "notes")).ok, false);
+});
+
+// 38-12: the text and byte channels share one sized read and one sized write,
+// each with its own cap, and the refusal names the cap that applied.
+test("each channel keeps its own cap, and the refusal names it", async () => {
+  const session = newVaultSession();
+  const written: string[] = [];
+  let size = 0;
+  session.fs = {
+    stat: async () => ({ size }),
+    readText: async () => "text",
+    readFile: async () => new Uint8Array([1]),
+    writeFile: async (at: string) => {
+      written.push(at);
+    },
+  } as unknown as NodeWorkspaceFs;
+
+  size = MAX_VAULT_BYTES + 1;
+  assert.match((await readVaultFile(session, "a.md") as { message: string }).message, /over 8 MB/);
+  assert.deepEqual(await readVaultBytes(session, "a.pdf"), { ok: true, value: new Uint8Array([1]) });
+
+  size = MAX_VAULT_BLOB_BYTES + 1;
+  assert.match((await readVaultBytes(session, "a.pdf") as { message: string }).message, /over 80 MB/);
+
+  const blob = new Uint8Array(MAX_VAULT_BLOB_BYTES + 1);
+  assert.match((await writeVaultBytes(session, "b.pdf", blob) as { message: string }).message, /over 80 MB/);
+  assert.deepEqual(await writeVaultBytes(session, "c.pdf", blob.subarray(1)), { ok: true, value: null });
+  assert.deepEqual(written, ["c.pdf"]);
 });

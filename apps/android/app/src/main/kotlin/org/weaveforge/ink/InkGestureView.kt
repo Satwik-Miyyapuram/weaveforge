@@ -130,8 +130,6 @@ internal fun MotionEvent.flatten(): GestureEvent {
             major = getTouchMajor(i),
             minor = getTouchMinor(i),
             size = getSize(i),
-            x = getX(i),
-            y = getY(i),
         )
     }
     val phase = when (actionMasked) {
@@ -150,6 +148,5 @@ internal fun MotionEvent.flatten(): GestureEvent {
         phase = phase,
         pointers = pointers,
         actionIndex = index,
-        actionId = if (index in 0 until pointerCount) getPointerId(index) else -1,
     )
 }

@@ -44,7 +44,7 @@ class PlanWidgetProvider : AppWidgetProvider() {
     override fun onDisabled(context: Context) {
         // The last widget is gone: forget the link rather than keep a credential
         // nothing uses.
-        prefs(context).edit().clear().apply()
+        synchronized(prefsLock) { prefs(context).edit().clear().apply() }
     }
 
     companion object {
@@ -68,11 +68,21 @@ class PlanWidgetProvider : AppWidgetProvider() {
 
         private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
+        /**
+         * Held while the link is changed and while a fetch stores its result, so a
+         * fetch cannot land after the link it was made with was replaced or cleared.
+         * `apply()` updates the in-memory copy before returning, so reads under the
+         * lock see the latest link.
+         */
+        private val prefsLock = Any()
+
         fun feedUrl(context: Context): String? = prefs(context).getString(KEY_URL, null)
 
         /** Keep a new link and drop what the old one fetched. */
         fun saveFeedUrl(context: Context, url: String) {
-            prefs(context).edit().putString(KEY_URL, url).remove(KEY_JSON).remove(KEY_STATE).apply()
+            synchronized(prefsLock) {
+                prefs(context).edit().putString(KEY_URL, url).remove(KEY_JSON).remove(KEY_STATE).apply()
+            }
         }
 
         /** Redraw every instance, refreshing first. */
@@ -93,7 +103,8 @@ class PlanWidgetProvider : AppWidgetProvider() {
          */
         private fun refresh(context: Context) {
             val url = feedUrl(context) ?: return
-            val state = try {
+            // The state to record, and the body to keep when it parsed.
+            val (state, body) = try {
                 val connection = URL(url).openConnection() as HttpURLConnection
                 connection.connectTimeout = 10_000
                 connection.readTimeout = 10_000
@@ -102,25 +113,26 @@ class PlanWidgetProvider : AppWidgetProvider() {
                 try {
                     when (connection.responseCode) {
                         200 -> {
-                            val body = connection.inputStream.bufferedReader().use { it.readText() }
-                            if (PlanWidgetModel.parse(body) != null) {
-                                prefs(context).edit().putString(KEY_JSON, body).apply()
-                                STATE_OK
-                            } else {
-                                STATE_OFFLINE
-                            }
+                            val text = connection.inputStream.bufferedReader().use { it.readText() }
+                            if (PlanWidgetModel.parse(text) != null) STATE_OK to text else STATE_OFFLINE to null
                         }
-                        404 -> STATE_GONE
-                        else -> STATE_OFFLINE
+                        404 -> STATE_GONE to null
+                        else -> STATE_OFFLINE to null
                     }
                 } finally {
                     connection.disconnect()
                 }
             } catch (error: Exception) {
                 Log.w(TAG, "refresh failed: ${error.javaClass.simpleName}")
-                STATE_OFFLINE
+                STATE_OFFLINE to null
             }
-            prefs(context).edit().putString(KEY_STATE, state).apply()
+            // The link may have been saved again or cleared during the fetch (42-05).
+            synchronized(prefsLock) {
+                if (!PlanWidgetModel.isCurrentFetch(url, feedUrl(context))) return
+                val edit = prefs(context).edit().putString(KEY_STATE, state)
+                body?.let { edit.putString(KEY_JSON, it) }
+                edit.apply()
+            }
         }
 
         private fun openIntent(context: Context, configured: Boolean): PendingIntent {

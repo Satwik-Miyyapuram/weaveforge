@@ -149,7 +149,7 @@ export function registerGuardedIpc(allowedOrigin: string, ipc: IpcSurface) {
    * through — and `sameOrigin` refuses a URL it cannot parse for the same
    * reason.
    */
-  function permitted(channel: string, event: GuardedEvent): string | null {
+  function permitted(event: GuardedEvent): string | null {
     const url = event.senderFrame?.url;
     if (!url) return "it did not come from a frame";
     if (sameOrigin(url, allowedOrigin)) return null;
@@ -163,7 +163,7 @@ export function registerGuardedIpc(allowedOrigin: string, ipc: IpcSurface) {
       listener: (event: GuardedEvent, ...args: unknown[]) => unknown,
     ): void {
       ipc.handle(channel, (event: GuardedEvent, ...args: unknown[]) => {
-        const reason = permitted(channel, event);
+        const reason = permitted(event);
         if (reason) return refuse(channel, reason);
         return listener(event, ...args);
       });
@@ -171,7 +171,7 @@ export function registerGuardedIpc(allowedOrigin: string, ipc: IpcSurface) {
 
     on(channel: string, listener: (event: GuardedEvent, ...args: unknown[]) => void): void {
       ipc.on(channel, (event: GuardedEvent, ...args: unknown[]) => {
-        const reason = permitted(channel, event);
+        const reason = permitted(event);
         if (reason) {
           // Logged, not raised. `handle` has a caller waiting for an answer
           // and the throw becomes its rejection; `on` is fire-and-forget, and

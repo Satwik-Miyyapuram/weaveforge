@@ -41,8 +41,10 @@ export const MAX_VAULT_BYTES = 8 * 1024 * 1024;
  */
 export const MAX_VAULT_BLOB_BYTES = 80 * 1024 * 1024;
 
-/** Said when a file is too big to cross, on both sides of the bridge. */
-const TOO_LARGE = `That file is too large to open here (over ${MAX_VAULT_BYTES / (1024 * 1024)} MB).`;
+/** Said when a file is too big to cross, on both sides of the bridge; names the cap that applied. */
+function tooLarge(cap: number): string {
+  return `That file is too large to open here (over ${cap / (1024 * 1024)} MB).`;
+}
 
 export interface VaultSession {
   root: VaultRootPayload | null;
@@ -125,35 +127,37 @@ export async function readVaultFile(
   session: VaultSession,
   relative: unknown,
 ): Promise<IpcResult<string | null>> {
-  if (!session.fs) return { ok: false, message: NO_ROOT };
-  if (typeof relative !== "string") return { ok: false, message: BAD_ARGUMENT };
-  try {
-    // Sized before it is read rather than after. A read that lands first would
-    // already have put the whole file on this side's heap to find out, which is
-    // the cost the cap exists to avoid -- and a folder can be watched by
-    // something that writes a database file into it.
-    const stat = await session.fs.stat(relative);
-    if (stat && stat.size > MAX_VAULT_BYTES) return { ok: false, message: TOO_LARGE };
-    return { ok: true, value: await session.fs.readText(relative) };
-  } catch (error) {
-    // A missing file is a `null`, not a failure — callers ask about files that
-    // may not exist yet. Anything else is a refusal with its reason.
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { ok: true, value: null };
-    return { ok: false, message: messageOf(error) };
-  }
+  return readCapped(session, relative, MAX_VAULT_BYTES, (fs, at) => fs.readText(at));
 }
 
 export async function readVaultBytes(
   session: VaultSession,
   relative: unknown,
 ): Promise<IpcResult<Uint8Array | null>> {
+  return readCapped(session, relative, MAX_VAULT_BLOB_BYTES, (fs, at) => fs.readFile(at));
+}
+
+/**
+ * One read for both channels, sized before it is read rather than after. A
+ * read that lands first would already have put the whole file on this side's
+ * heap to find out, which is the cost the cap exists to avoid -- and a folder
+ * can be watched by something that writes a database file into it.
+ */
+async function readCapped<T>(
+  session: VaultSession,
+  relative: unknown,
+  cap: number,
+  read: (fs: NodeWorkspaceFs, at: string) => Promise<T>,
+): Promise<IpcResult<T | null>> {
   if (!session.fs) return { ok: false, message: NO_ROOT };
   if (typeof relative !== "string") return { ok: false, message: BAD_ARGUMENT };
   try {
     const stat = await session.fs.stat(relative);
-    if (stat && stat.size > MAX_VAULT_BLOB_BYTES) return { ok: false, message: TOO_LARGE };
-    return { ok: true, value: await session.fs.readFile(relative) };
+    if (stat && stat.size > cap) return { ok: false, message: tooLarge(cap) };
+    return { ok: true, value: await read(session.fs, relative) };
   } catch (error) {
+    // A missing file is a `null`, not a failure — callers ask about files that
+    // may not exist yet. Anything else is a refusal with its reason.
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return { ok: true, value: null };
     return { ok: false, message: messageOf(error) };
   }
@@ -164,17 +168,8 @@ export async function writeVaultBytes(
   relative: unknown,
   bytes: unknown,
 ): Promise<IpcResult<null>> {
-  if (!session.fs) return { ok: false, message: NO_ROOT };
-  if (typeof relative !== "string" || !(bytes instanceof Uint8Array)) {
-    return { ok: false, message: BAD_ARGUMENT };
-  }
-  if (bytes.byteLength > MAX_VAULT_BLOB_BYTES) return { ok: false, message: TOO_LARGE };
-  try {
-    await session.fs.writeFile(relative, bytes);
-    return { ok: true, value: null };
-  } catch (error) {
-    return { ok: false, message: messageOf(error) };
-  }
+  if (!(bytes instanceof Uint8Array)) return refuseWrite(session);
+  return writeCapped(session, relative, bytes, bytes.byteLength, MAX_VAULT_BLOB_BYTES);
 }
 
 export async function writeVaultFile(
@@ -182,17 +177,29 @@ export async function writeVaultFile(
   relative: unknown,
   contents: unknown,
 ): Promise<IpcResult<null>> {
-  if (!session.fs) return { ok: false, message: NO_ROOT };
-  if (typeof relative !== "string" || typeof contents !== "string") {
-    return { ok: false, message: BAD_ARGUMENT };
-  }
+  if (typeof contents !== "string") return refuseWrite(session);
   // Measured in bytes rather than characters, because bytes are what the disk
   // is asked for and what a cap is about: a page of prose can be a megabyte of
-  // UTF-8. The write would otherwise land first and the refusal would be about
-  // what is already on disk.
-  if (Buffer.byteLength(contents, "utf8") > MAX_VAULT_BYTES) {
-    return { ok: false, message: TOO_LARGE };
-  }
+  // UTF-8.
+  return writeCapped(session, relative, contents, Buffer.byteLength(contents, "utf8"), MAX_VAULT_BYTES);
+}
+
+/** A write whose contents are the wrong type: no root still reads as no root. */
+function refuseWrite(session: VaultSession): IpcResult<null> {
+  return { ok: false, message: session.fs ? BAD_ARGUMENT : NO_ROOT };
+}
+
+/** One write for both channels, refused before it lands when over its cap. */
+async function writeCapped(
+  session: VaultSession,
+  relative: unknown,
+  contents: string | Uint8Array,
+  size: number,
+  cap: number,
+): Promise<IpcResult<null>> {
+  if (!session.fs) return { ok: false, message: NO_ROOT };
+  if (typeof relative !== "string") return { ok: false, message: BAD_ARGUMENT };
+  if (size > cap) return { ok: false, message: tooLarge(cap) };
   try {
     await session.fs.writeFile(relative, contents);
     return { ok: true, value: null };

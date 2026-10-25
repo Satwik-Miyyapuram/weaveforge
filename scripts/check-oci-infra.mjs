@@ -17,7 +17,7 @@
  *    healthy, starting or stopped one alone.
  */
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -130,29 +130,33 @@ function expect(label, env, want) {
 
 const healthy = { HEALTH_weaveforge_postgrest: "healthy", HEALTH_weaveforge_realtime: "healthy" };
 
-expect("all healthy, API answers", healthy, { restarts: [], curls: 1, sleeps: 0 });
-expect("API answers on the third try", { ...healthy, CURL_FAILS: "2" }, { restarts: [], curls: 3, sleeps: 2 });
-// The 2026-10-22 outage: healthy by Docker's account, every request failing.
-expect("API fails three times (wedged pool)", { ...healthy, CURL_FAILS: "3" }, {
-  restarts: ["weaveforge-postgrest"],
-  curls: 3,
-  sleeps: 2,
-});
-expect("realtime unhealthy", { ...healthy, HEALTH_weaveforge_realtime: "unhealthy" }, {
-  restarts: ["weaveforge-realtime"],
-  curls: 1,
-});
-expect("PostgREST unhealthy", { ...healthy, HEALTH_weaveforge_postgrest: "unhealthy" }, {
-  restarts: ["weaveforge-postgrest"],
-});
-expect("PostgREST still starting", { ...healthy, HEALTH_weaveforge_postgrest: "starting", CURL_FAILS: "9" }, {
-  restarts: [],
-  curls: 0,
-});
-expect("PostgREST stopped on purpose", { ...healthy, RUNNING: "false", CURL_FAILS: "9" }, {
-  restarts: [],
-  curls: 0,
-});
+try {
+  expect("all healthy, API answers", healthy, { restarts: [], curls: 1, sleeps: 0 });
+  expect("API answers on the third try", { ...healthy, CURL_FAILS: "2" }, { restarts: [], curls: 3, sleeps: 2 });
+  // The 2026-10-22 outage: healthy by Docker's account, every request failing.
+  expect("API fails three times (wedged pool)", { ...healthy, CURL_FAILS: "3" }, {
+    restarts: ["weaveforge-postgrest"],
+    curls: 3,
+    sleeps: 2,
+  });
+  expect("realtime unhealthy", { ...healthy, HEALTH_weaveforge_realtime: "unhealthy" }, {
+    restarts: ["weaveforge-realtime"],
+    curls: 1,
+  });
+  expect("PostgREST unhealthy", { ...healthy, HEALTH_weaveforge_postgrest: "unhealthy" }, {
+    restarts: ["weaveforge-postgrest"],
+  });
+  expect("PostgREST still starting", { ...healthy, HEALTH_weaveforge_postgrest: "starting", CURL_FAILS: "9" }, {
+    restarts: [],
+    curls: 0,
+  });
+  expect("PostgREST stopped on purpose", { ...healthy, RUNNING: "false", CURL_FAILS: "9" }, {
+    restarts: [],
+    curls: 0,
+  });
+} finally {
+  rmSync(dir, { recursive: true, force: true });
+}
 
 if (failures.length) {
   console.error("FAIL: the OCI API stack would not survive a wedged PostgREST pool.");

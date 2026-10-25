@@ -1,5 +1,6 @@
 package org.weaveforge.ink
 
+import android.view.MotionEvent
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -32,15 +33,15 @@ import org.weaveforge.ink.InkGestureRouter.Companion.TOOL_TYPE_STYLUS
 class InkGestureRouterTest {
 
     private fun finger(id: Int, major: Float = 40f, size: Float = 0.1f) =
-        PointerSample(id, TOOL_TYPE_FINGER, major, major, size, 10f, 10f)
+        PointerSample(id, TOOL_TYPE_FINGER, major, major, size)
 
-    private fun palm(id: Int) = PointerSample(id, TOOL_TYPE_FINGER, 400f, 380f, 0.8f, 10f, 10f)
+    private fun palm(id: Int) = PointerSample(id, TOOL_TYPE_FINGER, 400f, 380f, 0.8f)
 
     private fun pen(id: Int, tool: Int = TOOL_TYPE_STYLUS) =
-        PointerSample(id, tool, 20f, 20f, 0.05f, 10f, 10f)
+        PointerSample(id, tool, 20f, 20f, 0.05f)
 
     private fun down(vararg pointers: PointerSample) =
-        GestureEvent(GesturePhase.DOWN, pointers.toList(), 0, pointers.first().id)
+        GestureEvent(GesturePhase.DOWN, pointers.toList(), 0)
 
     /**
      * A `POINTER_DOWN` for the pointer at `index`.
@@ -54,20 +55,20 @@ class InkGestureRouterTest {
      */
     private fun pointerDown(index: Int, vararg pointers: PointerSample) =
         GestureEvent(
-            GesturePhase.POINTER_DOWN, pointers.toList(), index, pointers[index].id,
+            GesturePhase.POINTER_DOWN, pointers.toList(), index,
         )
 
     /** A `MOVE`; a palm in it is judged on its own pointer's geometry. */
     private fun move(vararg pointers: PointerSample) =
-        GestureEvent(GesturePhase.MOVE, pointers.toList(), 0, pointers.first().id)
+        GestureEvent(GesturePhase.MOVE, pointers.toList(), 0)
 
     private fun pointerUp(index: Int, vararg pointers: PointerSample) =
         GestureEvent(
-            GesturePhase.POINTER_UP, pointers.toList(), index, pointers[index].id,
+            GesturePhase.POINTER_UP, pointers.toList(), index,
         )
 
     private fun up(vararg pointers: PointerSample) =
-        GestureEvent(GesturePhase.UP, pointers.toList(), 0, pointers.first().id)
+        GestureEvent(GesturePhase.UP, pointers.toList(), 0)
 
     // ------------------------------------------------------------- one finger
 
@@ -173,8 +174,8 @@ class InkGestureRouterTest {
         // 42-01: picking the one largest pointer by max(major, minor) chose the
         // 300x50 edge contact, whose minor fails the test, and let the palm through.
         val router = InkGestureRouter()
-        val edge = PointerSample(0, TOOL_TYPE_FINGER, 300f, 50f, 0.1f, 10f, 10f)
-        val heel = PointerSample(1, TOOL_TYPE_FINGER, 200f, 200f, 0.1f, 10f, 10f)
+        val edge = PointerSample(0, TOOL_TYPE_FINGER, 300f, 50f, 0.1f)
+        val heel = PointerSample(1, TOOL_TYPE_FINGER, 200f, 200f, 0.1f)
         router.route(down(edge), InkToolMode.INK, GestureRoute.PASS_THROUGH)
         assertEquals(
             GestureRoute.INTERCEPT,
@@ -243,6 +244,20 @@ class InkGestureRouterTest {
     }
 
     @Test
+    fun `only the stylus and eraser tool types are the pen`() {
+        // 42-13: the overlay asks the same question, so both read this one answer.
+        assertEquals(true, InkGestureRouter.isPenTool(MotionEvent.TOOL_TYPE_STYLUS))
+        assertEquals(true, InkGestureRouter.isPenTool(MotionEvent.TOOL_TYPE_ERASER))
+        assertEquals(false, InkGestureRouter.isPenTool(MotionEvent.TOOL_TYPE_FINGER))
+        assertEquals(false, InkGestureRouter.isPenTool(MotionEvent.TOOL_TYPE_MOUSE))
+        assertEquals(false, InkGestureRouter.isPenTool(MotionEvent.TOOL_TYPE_UNKNOWN))
+        // The router's own constants are Android's values, not a second numbering.
+        assertEquals(MotionEvent.TOOL_TYPE_STYLUS, TOOL_TYPE_STYLUS)
+        assertEquals(MotionEvent.TOOL_TYPE_ERASER, InkGestureRouter.TOOL_TYPE_ERASER)
+        assertEquals(MotionEvent.TOOL_TYPE_FINGER, TOOL_TYPE_FINGER)
+    }
+
+    @Test
     fun `a pen arriving as the second pointer still writes`() {
         // The palm-first case, and the bug this replaced: reading `getToolType(0)`
         // meant the pen's `ACTION_POINTER_DOWN` was never recognised and the stroke
@@ -302,7 +317,7 @@ class InkGestureRouterTest {
         // Mouse and trackpad: the overlay must be invisible to them. A mouse
         // reports `TOOL_TYPE_MOUSE` and one pointer, and it drags text.
         val router = InkGestureRouter()
-        val mouse = PointerSample(0, 3, 10f, 10f, 0.05f, 10f, 10f)
+        val mouse = PointerSample(0, 3, 10f, 10f, 0.05f)
         assertEquals(
             GestureRoute.PASS_THROUGH,
             router.route(down(mouse), InkToolMode.NONE, GestureRoute.PASS_THROUGH),
@@ -354,7 +369,7 @@ class InkGestureRouterTest {
         val router = InkGestureRouter()
         router.route(down(pen(0)), InkToolMode.INK, GestureRoute.PASS_THROUGH)
         router.route(
-            GestureEvent(GesturePhase.CANCEL, listOf(pen(0)), 0, 0),
+            GestureEvent(GesturePhase.CANCEL, listOf(pen(0)), 0),
             InkToolMode.INK,
             GestureRoute.CAPTURE_PEN,
         )
