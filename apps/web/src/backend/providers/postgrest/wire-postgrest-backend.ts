@@ -80,6 +80,7 @@ import { PostgrestTagRepository, PostgrestPaperTagRepository } from "@/features/
 import { PostgrestLibraryPinRepository } from "@/features/library";
 import type { ProjectContext } from "@/lib/project-context";
 import { cacheRepo } from "@/lib/cache/cache-repo";
+import { systemClock } from "@/lib/system";
 import type { BackendConfig } from "@/backend/config";
 import { createDataClient } from "./client";
 import { SupabaseSessionProvider } from "../supabase-auth/session";
@@ -180,7 +181,7 @@ export function wirePostgrestBackend(
 
   const settingsRepository =
     parts?.settingsRepository ?? new PostgrestSettingsRepository(db, session, secretsStoreFor(db));
-  const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository });
+  const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock });
   const projectRepository = cacheRepo(
     new PostgrestProjectRepository(db, session),
     ["getById", "list"],

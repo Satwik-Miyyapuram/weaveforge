@@ -67,14 +67,29 @@ interface RawConcept {
  * Pull a JSON object out of a model reply.
  *
  * Models wrap JSON in fences and preambles no matter how firmly the prompt says
- * not to, so the first balanced object is taken rather than trusting the whole
- * reply to parse. A reply with nothing parseable yields no concepts instead of
- * throwing: one bad batch should cost its own results, not the whole run.
+ * not to, so the reply is scanned for balanced objects and the first one with a
+ * `concepts` list is taken. A brace in the preamble or an unrelated object
+ * before the answer is passed over rather than ending the search. A reply with
+ * nothing parseable yields no concepts instead of throwing: one bad batch
+ * should cost its own results, not the whole run.
  */
 export function parseExtractionJson(text: string): RawConcept[] {
-  const start = text.indexOf("{");
-  if (start < 0) return [];
+  for (let start = text.indexOf("{"); start >= 0; start = text.indexOf("{", start + 1)) {
+    const end = balancedObjectEnd(text, start);
+    if (end < 0) return [];
+    try {
+      const parsed: unknown = JSON.parse(text.slice(start, end + 1));
+      const concepts = (parsed as { concepts?: unknown } | null)?.concepts;
+      if (Array.isArray(concepts)) return concepts as RawConcept[];
+    } catch {
+      // Not JSON (a template brace, prose); try the next opening brace.
+    }
+  }
+  return [];
+}
 
+/** Index of the brace that closes the object opened at `start`, or -1. */
+function balancedObjectEnd(text: string, start: number): number {
   let depth = 0;
   let inString = false;
   let escaped = false;
@@ -97,18 +112,10 @@ export function parseExtractionJson(text: string): RawConcept[] {
     if (char === "{") depth += 1;
     else if (char === "}") {
       depth -= 1;
-      if (depth !== 0) continue;
-      try {
-        const parsed: unknown = JSON.parse(text.slice(start, i + 1));
-        const concepts = (parsed as { concepts?: unknown }).concepts;
-        return Array.isArray(concepts) ? (concepts as RawConcept[]) : [];
-      } catch {
-        return [];
-      }
+      if (depth === 0) return i;
     }
   }
-
-  return [];
+  return -1;
 }
 
 function asStringArray(value: unknown): string[] {
@@ -137,6 +144,8 @@ export function toExtractionResult(
   const seen = new Set<string>();
 
   for (const entry of raw) {
+    // A model may put null or a bare string in the list; skip it, keep the rest.
+    if (typeof entry !== "object" || entry === null) continue;
     const name = typeof entry.name === "string" ? entry.name.trim() : "";
     if (!name) continue;
     const key = conceptKey(name);

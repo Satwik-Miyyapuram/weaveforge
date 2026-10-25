@@ -13,7 +13,7 @@
 import type { ChangeSide } from "./change-origin.js";
 import { readFrontmatter, frontmatterString } from "./frontmatter.js";
 import type { WorkspaceEntityType } from "./folder-layout.js";
-import { WORKSPACE_META_DIR, parseKindSuffix, stripKindSuffix } from "./folder-layout.js";
+import { ENTITY_DIRS, WORKSPACE_META_DIR, parseKindSuffix, stripKindSuffix } from "./folder-layout.js";
 import { INK_NOTE_TYPE, readInkNoteMeta, writeInkNoteBody } from "../ink/ink-note.js";
 import { hasConflictMarkers } from "./text-diff.js";
 
@@ -27,19 +27,11 @@ export interface ParsedEntity {
   fields: Record<string, string | number | boolean | string[]>;
 }
 
-const KNOWN_TYPES = new Set<string>([
-  "vault_page",
-  // An ink note declares its type in frontmatter as well as in its `.ink.md`
-  // suffix. Without the declaration the directory would win and a note with
-  // strokes would import as a plain note — see the precedence note below.
-  "ink_page",
-  "paper",
-  "reading_list",
-  "report_section",
-  "experiment",
-  "milestone",
-  "log_entry",
-]);
+// Every type has a directory, so the directory table lists them all. An ink
+// note declares its type in frontmatter as well as in its `.ink.md` suffix;
+// without the declaration the directory would win and a note with strokes would
+// import as a plain note — see the precedence note below.
+const KNOWN_TYPES = new Set<string>(Object.keys(ENTITY_DIRS));
 
 /**
  * Infer the type from the directory when frontmatter omits it.
@@ -50,15 +42,12 @@ const KNOWN_TYPES = new Set<string>([
  * the case this is for: it carries no `weaveforge-type` and no kind suffix, so
  * the directory is the only thing that can say what it is.
  */
-const DIR_TYPES: Record<string, WorkspaceEntityType> = {
-  notes: "vault_page",
-  papers: "paper",
-  "reading-lists": "reading_list",
-  report: "report_section",
-  experiments: "experiment",
-  plan: "milestone",
-  logbook: "log_entry",
-};
+const DIR_TYPES: Record<string, WorkspaceEntityType> = Object.fromEntries(
+  (Object.entries(ENTITY_DIRS) as [WorkspaceEntityType, string][])
+    // `notes/` holds ink notes too, but a file there without a declaration is a note.
+    .filter(([type]) => type !== INK_NOTE_TYPE)
+    .map(([type, dir]) => [dir, type]),
+);
 
 export function parseWorkspaceFile(path: string, content: string): ParsedEntity | null {
   const segments = path.split("/");

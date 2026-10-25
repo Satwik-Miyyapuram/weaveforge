@@ -45,9 +45,10 @@ export class InMemoryCitationAlertTrackRepository implements ICitationAlertTrack
   }
 
   async listForProject(): Promise<CitationAlertTrack[]> {
-    return [...this.store.values()]
-      .filter((t) => this.key(t.paperId) === `${this.userId}|${this.projectId}|${t.paperId}`)
-      .map((t) => ({ ...t, seenCitingIds: [...t.seenCitingIds] }));
+    const prefix = `${this.userId}|${this.projectId}|`;
+    return [...this.store]
+      .filter(([key]) => key.startsWith(prefix))
+      .map(([, t]) => ({ ...t, seenCitingIds: [...t.seenCitingIds] }));
   }
 
   async getByPaperId(paperId: string): Promise<CitationAlertTrack | null> {

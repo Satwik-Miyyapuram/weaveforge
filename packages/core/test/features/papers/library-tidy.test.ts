@@ -75,6 +75,39 @@ test("a shared title with two different DOIs is not a duplicate", () => {
   assert.deepEqual(groups, []);
 });
 
+test("a title-only copy does not bridge two different DOIs into one group (03-02)", () => {
+  const title = "On the Measure of Intelligence in Machines";
+  const groups = findDuplicateGroups([
+    paper({ id: "a", title, doi: "10.1/one" }),
+    paper({ id: "b", title }),
+    paper({ id: "c", title, doi: "10.1/erratum" }),
+  ]);
+  // b joins the first DOI it meets; the erratum stays its own record.
+  assert.deepEqual(groups.map((g) => g.ids), [["a", "b"]]);
+});
+
+test("the bridge is refused whichever order the copies come in (03-02)", () => {
+  const title = "On the Measure of Intelligence in Machines";
+  const groups = findDuplicateGroups([
+    paper({ id: "b", title }),
+    paper({ id: "a", title, doi: "10.1/one" }),
+    paper({ id: "c", title, doi: "10.1/erratum" }),
+  ]);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0]!.ids.includes("a") && groups[0]!.ids.includes("c"), false);
+});
+
+test("a DOI copy and its title-only twins still group together", () => {
+  const title = "On the Measure of Intelligence in Machines";
+  const groups = findDuplicateGroups([
+    paper({ id: "a", title, doi: "10.1/one" }),
+    paper({ id: "b", title }),
+    paper({ id: "c", title }),
+    paper({ id: "d", title: "Unrelated", doi: "10.1/one" }),
+  ]);
+  assert.deepEqual(groups.map((g) => [g.ids, g.reason]), [[["a", "b", "c", "d"], "doi"]]);
+});
+
 test("placeholder titles never group papers by title", () => {
   assert.deepEqual(findDuplicateGroups([paper({ title: "Catalog Page" }), paper({ title: "Catalog Page" })]), []);
 });

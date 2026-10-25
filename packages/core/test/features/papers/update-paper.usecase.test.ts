@@ -88,13 +88,12 @@ test("setSummary clears with empty string and keeps markdown verbatim", async ()
   assert.equal(cleared.summary, undefined);
 });
 
-test("setTags / mergeTags normalize and union", async () => {
+test("mergeTags normalizes and unions through the tags use case", async () => {
   const { add, update } = setup();
   const p = await add.addManual({ title: "VAE" });
-  const a = await update.setTags(p.id, ["#Bayes", " vae ", "VAE", "generative"]);
-  assert.deepEqual(a.tags.sort(), ["bayes", "generative", "vae"]);
-  const b = await update.mergeTags(p.id, ["vae", "#latent"]);
-  assert.deepEqual(b.tags.sort(), ["bayes", "generative", "latent", "vae"]);
+  await update.mergeTags(p.id, ["#Bayes"]);
+  const b = await update.mergeTags(p.id, ["VAE", "#latent", "vae"]);
+  assert.deepEqual(b.tags.sort(), ["bayes", "latent", "vae"]);
 });
 
 test("extractHashtags pulls normalized tags from text", async () => {

@@ -53,8 +53,8 @@ export class ManageExperimentUseCase {
    */
   async addArtifacts(id: string, entries: readonly string[]): Promise<Experiment> {
     return this.mutate(id, (e) => {
-      const known = new Set(e.artifacts);
-      return { artifacts: [...e.artifacts, ...entries.filter((entry) => !known.has(entry))] };
+      // A Set keeps first-seen order, so repeats in this call collapse too.
+      return { artifacts: [...new Set([...e.artifacts, ...entries])] };
     });
   }
 

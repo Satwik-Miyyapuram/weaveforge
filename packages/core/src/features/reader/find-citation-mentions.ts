@@ -4,7 +4,7 @@ import type { OutlineTextItem } from "./outline-from-text.js";
 /**
  * Pattern citation finding — the fallback for documents without their own
  * links. A PDF whose citations are `/Link` annotations is handled first by
- * the link analysis (`analyzePageLinks`), and what it produces is merged
+ * the link analysis (`nativeCitationMentions`), and what it produces is merged
  * ahead of this by the caller. Offsets refer to the supplied page text, not
  * a reconstructed or normalized copy.
  */

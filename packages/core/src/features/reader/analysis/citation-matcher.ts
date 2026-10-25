@@ -11,10 +11,9 @@
 
 import type { PageTextItem } from "../../../reader/selection-to-anchor.js";
 import type { CitationMention, PageTextRange, ParsedReference, PdfLink } from "./analysis-types.js";
-import type { CitationStyle } from "../find-citation-mentions.js";
 import type { OutlineTextItem } from "../outline-from-text.js";
 import { nativeCitationMentions } from "./pdf-links.js";
-import { findPatternCitationMentions } from "./citations.js";
+import { findCitationCandidates, findPatternCitationMentions } from "./citations.js";
 import { assemblePageCitations } from "./citation-assembly.js";
 
 export interface PageCitationInput {
@@ -28,39 +27,6 @@ export interface PageCitationInput {
 }
 
 /**
- * Whether the document cites by superscripts, which `detectCitationStyle`
- * cannot see from text alone — a Vancouver paper has no brackets and no
- * "(Author year)" anywhere, so its style reads as none. Two or more small
- * digit runs tucked after a word on pages before the bibliography is the
- * signature; table exponents rarely trail prose punctuation this way.
- */
-export function looksLikeSuperscriptStyle(
-  pages: readonly { number: number; outlineItems: readonly OutlineTextItem[] }[],
-  bodyFontSize: number,
-  firstReferencePage: number,
-): boolean {
-  if (!bodyFontSize) return false;
-  let hits = 0;
-  for (const page of pages) {
-    if (page.number >= firstReferencePage) continue;
-    let previous = "";
-    for (const item of page.outlineItems) {
-      if (!item.str) continue;
-      if (
-        item.fontSize > 0 &&
-        item.fontSize <= 0.75 * bodyFontSize &&
-        /^\d{1,3}(?:\s*[,–\-]\s*\d{1,3})*$/.test(item.str) &&
-        /\p{L}[.,;:)?\]"”]?$/u.test(previous)
-      ) {
-        hits += 1;
-      }
-      if (item.str.trim()) previous = item.str;
-    }
-  }
-  return hits >= 2;
-}
-
-/**
  * One page's citations, as the reference reader assembles them: the native
  * links read as support, the pattern finder's mentions, and the two combined
  * over the text candidates. `referenceRanges` are the bibliography's own
@@ -69,18 +35,17 @@ export function looksLikeSuperscriptStyle(
 export function matchPageCitations(
   page: PageCitationInput,
   references: readonly ParsedReference[],
-  _bodyFontSize: number,
-  style: CitationStyle | null,
   referenceRanges: readonly PageTextRange[] = [],
 ): CitationMention[] {
   const analyzePage = { pageNumber: page.number, items: page.items, links: page.links ?? [] };
   const native = nativeCitationMentions(analyzePage, references, referenceRanges);
+  // Both steps walk the same text candidates; find them once per page.
+  const candidates = findCitationCandidates(page.items);
   const patterns = findPatternCitationMentions(
     { number: page.number, items: page.items, text: page.text },
     references,
-    style,
-    "fixed",
     referenceRanges,
+    candidates,
   );
-  return assemblePageCitations(analyzePage, native, patterns, referenceRanges);
+  return assemblePageCitations(analyzePage, native, patterns, referenceRanges, candidates);
 }

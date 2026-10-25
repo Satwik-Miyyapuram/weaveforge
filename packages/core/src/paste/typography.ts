@@ -18,6 +18,14 @@ import { indexRanges, type RangeIndex, type TextRange } from "./text-range.js";
 const DASHES = new RegExp("[\\u2013\\u2014]", "g");
 
 /**
+ * A long dash opening a line, after any blockquote and list markers. Not
+ * global, so it holds no lastIndex and one instance serves every line.
+ */
+const LINE_OPENING_DASH = new RegExp(
+  "^((?: {0,3}>[ \\t]?)* {0,3}(?:[-*+][ \\t]+|\\d{1,9}[.)][ \\t]+)?)[\\u2013\\u2014]",
+);
+
+/**
  * Curly double quotes, including the low-9 form German opens with.
  *
  * Guillemets are deliberately absent: they are the ordinary quotation marks of
@@ -136,9 +144,7 @@ export function straightenDashes(
     .map((line, index) => {
       // The prefix covers blockquote and list markers, matched against the
       // source line where a long dash cannot yet be mistaken for one.
-      const opening = new RegExp(
-        "^((?: {0,3}>[ \\t]?)* {0,3}(?:[-*+][ \\t]+|\\d{1,9}[.)][ \\t]+)?)[\\u2013\\u2014]",
-      ).exec(sourceLines[index] ?? "");
+      const opening = LINE_OPENING_DASH.exec(sourceLines[index] ?? "");
       if (!opening) return line;
       const tail = line.replace(/\r$/, "").slice(opening[1]!.length);
       // One hyphen and a space is a bullet; two or more alone underline the
@@ -166,13 +172,23 @@ export function trimSurroundingWhitespace(text: string): TypographyResult {
   // are blank" rather than as "newlines, then spaces". Written the other way it
   // took two passes to settle on "a\n\n   \n\n", which means the rule
   // disagreed with itself about what it had already done.
-  let out = text.replace(/^(?:[ \t]*\n)+/, "").replace(/(?:[ \t]*\n)+[ \t]*$/, "");
+  let out = trimEndBlank(text.replace(/^(?:[ \t]*\n)+/, ""));
 
   const indent = /^[ \t]*/.exec(out)?.[0] ?? "";
   if (indent && indentColumns(indent) < INDENTED_CODE_COLUMNS) out = out.slice(indent.length);
 
-  out = out.replace(/[ \t]+$/, "");
   return { text: out, changed: out !== text };
+}
+
+/**
+ * Drops trailing spaces, tabs and newlines: the blank lines after a paste and
+ * the spaces ending its last line. A backwards scan, because an end-anchored
+ * regex retries from every start in a long inner run and goes quadratic.
+ */
+function trimEndBlank(text: string): string {
+  let end = text.length;
+  while (end > 0 && (text[end - 1] === " " || text[end - 1] === "\t" || text[end - 1] === "\n")) end -= 1;
+  return text.slice(0, end);
 }
 
 /** Markdown reads four or more leading columns as a code block. */

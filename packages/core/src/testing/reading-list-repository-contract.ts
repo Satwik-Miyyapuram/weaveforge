@@ -124,4 +124,36 @@ export function runReadingListItemRepositoryContract(
     assert.equal(found?.id, "n1");
     assert.equal(await repo.findNote("l1", "absent"), null);
   });
+
+  test(`[${label} items] a second membership of the same paper or note is rejected (08-09)`, async () => {
+    const repo = makeRepo();
+    await repo.add(sampleItem({ id: "a", paperId: "p1" }));
+    await repo.add(sampleItem({ id: "n", paperId: undefined, vaultPageId: "v1" }));
+    await assert.rejects(repo.add(sampleItem({ id: "b", paperId: "p1" })));
+    await assert.rejects(repo.add(sampleItem({ id: "m", paperId: undefined, vaultPageId: "v1" })));
+    // Re-adding the same row is an upsert, and another list is a new membership.
+    await repo.add(sampleItem({ id: "a", paperId: "p1", sortOrder: 9 }));
+    await repo.add(sampleItem({ id: "c", listId: "l2", paperId: "p1" }));
+    assert.equal((await repo.find("l1", "p1"))?.sortOrder, 9);
+    assert.deepEqual((await repo.listItems("l1")).map((i) => i.id).sort(), ["a", "n"]);
+  });
+
+  test(`[${label} items] listItemsForLists returns members of every given list, ordered (08-13)`, async () => {
+    const repo = makeRepo();
+    await repo.add(sampleItem({ id: "a", listId: "l1", paperId: "pa", sortOrder: 3 }));
+    await repo.add(sampleItem({ id: "b", listId: "l2", paperId: "pb", sortOrder: 1 }));
+    await repo.add(sampleItem({ id: "c", listId: "l3", paperId: "pc", sortOrder: 2 }));
+    const members = await repo.listItemsForLists(["l1", "l2"]);
+    assert.deepEqual(members.map((m) => m.id), ["b", "a"]);
+    assert.deepEqual(await repo.listItemsForLists([]), []);
+  });
+
+  test(`[${label} items] listsForNote returns every membership of a note (08-13)`, async () => {
+    const repo = makeRepo();
+    await repo.add(sampleItem({ id: "a", listId: "l1", paperId: undefined, vaultPageId: "v1" }));
+    await repo.add(sampleItem({ id: "b", listId: "l2", paperId: undefined, vaultPageId: "v1" }));
+    await repo.add(sampleItem({ id: "c", listId: "l1", paperId: undefined, vaultPageId: "v2" }));
+    assert.deepEqual((await repo.listsForNote("v1")).map((m) => m.id).sort(), ["a", "b"]);
+    assert.deepEqual(await repo.listsForNote("absent"), []);
+  });
 }

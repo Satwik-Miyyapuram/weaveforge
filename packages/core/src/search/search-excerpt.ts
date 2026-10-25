@@ -48,10 +48,18 @@ function bestWindowStart(ranges: ExcerptRange[], span: number, textLength: numbe
   if (ranges.length === 0) return 0;
   let bestStart = Math.max(0, ranges[0]!.start - Math.floor(span * 0.3));
   let bestCount = 0;
+  // `ranges` is merged: sorted and non-overlapping, so starts and ends both
+  // rise. The windows rise too, so the ranges inside one are a run [lo, hi)
+  // that two pointers track in one pass instead of rescanning per window.
+  let lo = 0;
+  let hi = 0;
   for (const range of ranges) {
     const start = Math.max(0, range.start - Math.floor(span * 0.3));
     const end = start + span;
-    const count = ranges.filter((r) => r.start >= start && r.end <= end).length;
+    while (lo < ranges.length && ranges[lo]!.start < start) lo += 1;
+    if (hi < lo) hi = lo;
+    while (hi < ranges.length && ranges[hi]!.end <= end) hi += 1;
+    const count = hi - lo;
     if (count > bestCount) {
       bestCount = count;
       bestStart = start;

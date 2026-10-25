@@ -126,6 +126,43 @@ test("removeList deletes items and nested sublists", async () => {
   assert.equal((await items.listItems(child.id)).length, 0);
 });
 
+test("removeList reads the lists once and deletes deepest first (04-15)", async () => {
+  const { lists, items, uc } = makeUseCase();
+  const root = await uc.createList({ name: "Root" });
+  const a = await uc.createList({ name: "A", parentId: root.id });
+  const a1 = await uc.createList({ name: "A1", parentId: a.id });
+  const a2 = await uc.createList({ name: "A2", parentId: a.id });
+  const b = await uc.createList({ name: "B", parentId: root.id });
+  const other = await uc.createList({ name: "Other" });
+  await uc.addPaperToList(a1.id, "p1");
+  await uc.addPaperToList(other.id, "p2");
+
+  let reads = 0;
+  const list = lists.list.bind(lists);
+  lists.list = () => { reads += 1; return list(); };
+  const deleted: string[] = [];
+  const del = lists.delete.bind(lists);
+  lists.delete = (id: string) => { deleted.push(id); return del(id); };
+
+  await uc.removeList(root.id);
+  assert.equal(reads, 1);
+  assert.deepEqual(deleted, [a1.id, a2.id, a.id, b.id, root.id]);
+  for (const gone of [root, a, a1, a2, b]) assert.equal(await lists.getById(gone.id), null, gone.name);
+  assert.equal((await items.listItems(a1.id)).length, 0);
+  assert.equal((await items.listItems(a.id)).length, 0);
+  assert.equal((await lists.getById(other.id))?.name, "Other");
+  assert.equal((await items.listItems(other.id)).length, 1);
+});
+
+test("removeList on a leaf deletes only that list", async () => {
+  const { lists, uc } = makeUseCase();
+  const root = await uc.createList({ name: "Root" });
+  const leaf = await uc.createList({ name: "Leaf", parentId: root.id });
+  await uc.removeList(leaf.id);
+  assert.equal(await lists.getById(leaf.id), null);
+  assert.equal((await lists.getById(root.id))?.name, "Root");
+});
+
 async function siblings() {
   const made = makeUseCase();
   const { uc } = made;

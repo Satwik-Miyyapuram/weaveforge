@@ -1,6 +1,23 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { bodyLinksTo, extractWikilinks, normalizeTitleKey, stripFrontmatter, uniqueTitle } from "../../../src/features/vault/domain/vault-page.js";
+import { bodyLinksTo, extractWikilinks, normalizeTitleKey, stripFrontmatter, uniqueTitle, wikilinkPattern } from "../../../src/features/vault/domain/vault-page.js";
+import { markdownToLatex } from "../../../src/features/report/domain/markdown-to-latex.js";
+
+test("one wikilink pattern serves notes and the LaTeX export (05-18)", () => {
+  const text = "[[A|b]] [[x\ny]] [[[N]]] [[]] [[C#h]]";
+  const raws = (s: string) => [...s.matchAll(wikilinkPattern())].map((m) => m[0]);
+  assert.deepEqual(raws(text), ["[[A|b]]", "[[N]]", "[[C#h]]"]);
+  assert.deepEqual(extractWikilinks(text).map((r) => r.raw), raws(text));
+
+  // Each call is a fresh /g regex, so one caller's lastIndex cannot skip another's match.
+  const first = wikilinkPattern();
+  first.exec(text);
+  assert.equal(wikilinkPattern().exec(text)?.[0], "[[A|b]]");
+
+  const cites = new Map([["a", "ka"], ["n", "kn"], ["c", "kc"]]);
+  const { citedKeys } = markdownToLatex(text.replace("\n", " "), { citeByTitle: cites });
+  assert.deepEqual(citedKeys, ["ka", "kn", "kc"]);
+});
 
 test("parses a plain wikilink", () => {
   const [ref] = extractWikilinks("see [[Methods]] here");

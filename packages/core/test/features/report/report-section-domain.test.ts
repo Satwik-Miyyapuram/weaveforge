@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   buildSectionTree,
+  REPORT_STATUSES,
+  type ReportStatus,
   createReportSection,
   ReportSectionValidationError,
   type ReportSection,
@@ -57,4 +59,9 @@ test("buildSectionTree nests and orders siblings", () => {
     tree[0]?.children.map((n) => n.section.id),
     ["c1", "c2"],
   );
+});
+
+test("REPORT_STATUSES lists every status once, in workflow order (05-21)", () => {
+  const all: readonly ReportStatus[] = REPORT_STATUSES;
+  assert.deepEqual([...all], ["not_started", "drafting", "review", "done"]);
 });

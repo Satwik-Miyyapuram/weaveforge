@@ -12,7 +12,7 @@ import { normalizeAiAccessSettings, type AiAccessSettings } from "../../ai-assis
 import { normalizeSearchSettings, type SearchSettings } from "../../../search/search-settings.js";
 
 export type { UserAppearance, ControlSize } from "./user-appearance.js";
-export { normalizeAppearance, parseUserAppearance } from "./user-appearance.js";
+export { normalizeAppearance } from "./user-appearance.js";
 
 export interface UserSettings {
   /**

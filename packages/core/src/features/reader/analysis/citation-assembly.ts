@@ -6,7 +6,7 @@
  * claims are kept and coalesced with their neighbours.
  */
 import type { AnalyzePdfPage, CitationMention, PageTextRange } from "./analysis-types.js";
-import { findCitationCandidates, inReferenceList } from "./citations.js";
+import { findCitationCandidates, inReferenceList, type CitationCandidate } from "./citations.js";
 import { mentionRects, rectanglesOverlap, stripInvisible, type PdfItem } from "./citation-text.js";
 import { pageTextFromItems } from "./line-reconstruction.js";
 
@@ -61,12 +61,13 @@ export function assemblePageCitations(
   native: readonly CitationMention[],
   patterns: readonly CitationMention[],
   excluded: readonly PageTextRange[],
+  candidates: readonly CitationCandidate[] = findCitationCandidates(page.items),
 ): CitationMention[] {
   const text = pageTextFromItems(page.items);
   const used = new Set<string>();
   const result: CitationMention[] = [];
   const urls = (page.links ?? []).filter((link) => link.url).map((link) => link.rect);
-  for (const candidate of findCitationCandidates(page.items)) {
+  for (const candidate of candidates) {
     if (inReferenceList(page.pageNumber, candidate.start, candidate.end, excluded)) continue;
     const rects = mentionRects(page.items, candidate.start, candidate.end);
     if (rects.some((rect) => urls.some((url) => rectanglesOverlap(rect, url)))) continue;

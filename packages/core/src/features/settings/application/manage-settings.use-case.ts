@@ -8,9 +8,11 @@ import {
 import type { SettingsMetadata } from "../domain/settings-repository.js";
 import { CURRENT_DISCLAIMER_VERSION } from "../domain/privacy-disclaimer.js";
 import type { ISettingsRepository } from "../domain/settings-repository.js";
+import type { Clock } from "../../../shared/clock.js";
 
 export interface ManageSettingsDeps {
   repository: ISettingsRepository;
+  clock: Clock;
 }
 
 /** Load and persist per-user integration settings (normalized on save). */
@@ -38,6 +40,6 @@ export class ManageSettingsUseCase {
   }
 
   async acceptDisclaimer(): Promise<void> {
-    await this.deps.repository.saveDisclaimer(new Date().toISOString(), CURRENT_DISCLAIMER_VERSION);
+    await this.deps.repository.saveDisclaimer(this.deps.clock.nowIso(), CURRENT_DISCLAIMER_VERSION);
   }
 }

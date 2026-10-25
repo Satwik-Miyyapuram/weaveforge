@@ -9,23 +9,13 @@ import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { buildTree } from "../../../shared/tree.js";
 import { ValidationError } from "../../../shared/errors.js";
 
-export interface VaultPage extends Identifiable {
-  id: string;
-  title: string;
+/**
+ * A full page: the summary fields plus the body. Keep `bodyPreview`
+ * empty/`undefined` on full pages so hydrate-on-open still fetches.
+ */
+export interface VaultPage extends VaultPageSummary {
   /** Markdown body; may reference vault assets via `vault:{path}` image URLs. */
   body: string;
-  /**
-   * Short body prefix for note cards when `listSummaries` omits full `body`.
-   * Keep empty/`undefined` on full pages so hydrate-on-open still fetches.
-   */
-  bodyPreview?: string;
-  /** Parent page for nesting; undefined = top level. */
-  parentId?: string;
-  /** The owner pinned it; the Notes screen lists pinned notes first. */
-  pinned?: boolean;
-  sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface NewVaultPageInput {
@@ -49,7 +39,7 @@ export interface NewVaultPageInput {
  * Everything the card/tree actually paints is here; the full text arrives via
  * {@link VaultPage} from `getById` when a page is opened.
  */
-export interface VaultPageSummary {
+export interface VaultPageSummary extends Identifiable {
   id: string;
   title: string;
   /**
@@ -164,6 +154,14 @@ function maskCode(body: string): string {
     .replace(/`[^`\n]*`/g, (m) => " ".repeat(m.length));
 }
 
+/**
+ * One `[[...]]` on one line; group 1 is the inside. A new regex per call: a
+ * shared `/g` regex carries `lastIndex` from one caller into the next.
+ */
+export function wikilinkPattern(): RegExp {
+  return /\[\[([^\[\]\n]+?)\]\]/g;
+}
+
 /** Read `Target`, `Target|alias`, `Target#Heading` or `Target#^block`: the inside of one `[[...]]`. */
 export function parseWikilinkInner(inner: string, raw: string): WikilinkRef | null {
   const pipe = inner.indexOf("|");
@@ -189,7 +187,7 @@ export function parseWikilinkInner(inner: string, raw: string): WikilinkRef | nu
 export function extractWikilinks(body?: string): WikilinkRef[] {
   if (!body) return [];
   const masked = maskCode(body);
-  const re = /\[\[([^\[\]\n]+?)\]\]/g;
+  const re = wikilinkPattern();
   const out: WikilinkRef[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(masked)) !== null) {

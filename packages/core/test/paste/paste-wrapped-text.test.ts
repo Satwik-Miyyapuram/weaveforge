@@ -8,6 +8,7 @@ import {
   MIN_WRAP_WIDTH,
 } from "../../src/paste/wrapped-text.js";
 import { cleanPdfText } from "../../src/paste/pdf-text.js";
+import { closesFence, fenceOf, markdownCodeRanges } from "../../src/paste/markdown-ranges.js";
 
 const TERMINAL_OPTIONS = { rejoin: "any", bullets: "markdown" } as const;
 
@@ -110,4 +111,24 @@ test("a paste that needed nothing is reported unchanged", () => {
   const result = cleanWrappedText(text, TERMINAL_OPTIONS);
   assert.equal(result.changed, false);
   assert.equal(result.text, text);
+});
+
+test("one fence reader serves code ranges and unwrapping (07-08)", () => {
+  assert.deepEqual(fenceOf("```ts"), { marker: "`", length: 3, info: "ts" });
+  assert.deepEqual(fenceOf("> > ~~~~"), { marker: "~", length: 4, info: "" });
+  assert.equal(fenceOf("```a`b"), null, "a backtick fence's info has no backtick");
+  assert.notEqual(fenceOf("~~~a`b"), null, "a tilde fence's info may");
+  assert.equal(fenceOf("    ```"), null, "four columns is indented code");
+  assert.equal(fenceOf("``"), null);
+
+  const opening = fenceOf("````")!;
+  assert.equal(closesFence("`````  ", opening), true, "longer closes");
+  assert.equal(closesFence("```", opening), false, "shorter does not");
+  assert.equal(closesFence("~~~~", opening), false, "other marker does not");
+  assert.equal(closesFence("```` x", opening), false, "info does not close");
+  assert.equal(closesFence("text", opening), false);
+
+  // Both readers agree: the second fence line closes the block in each.
+  const text = "```js\nx  y\n````\nafter";
+  assert.deepEqual(markdownCodeRanges(text), [{ start: 0, end: text.indexOf("\nafter") }]);
 });

@@ -189,3 +189,31 @@ test("the indexed lookup matches a naive scan over many rows and fields", () => 
     assert.equal(computeRollup(id, count, defsBig, valuesBig), 3);
   }
 });
+
+// 03-05: Number("") and Number([]) are 0 and Number(["5"]) is 5, so blanks and
+// lists were averaged in as numbers.
+test("sum and avg count only numbers and numeric text, not blanks or lists", () => {
+  const related = ["p1", "p2", "p3", "p4", "p5", "p6", "p7"];
+  const rows: PaperFieldValue[] = [
+    { id: "r", paperId: "a", fieldId: "rel", value: related },
+    { id: "1", paperId: "p1", fieldId: "score", value: "" },
+    { id: "2", paperId: "p2", fieldId: "score", value: [] },
+    { id: "3", paperId: "p3", fieldId: "score", value: ["5"] },
+    { id: "4", paperId: "p4", fieldId: "score", value: " 3 " },
+    { id: "5", paperId: "p5", fieldId: "score", value: "   " },
+    { id: "6", paperId: "p6", fieldId: "score", value: 2 },
+    { id: "7", paperId: "p7", fieldId: "score", value: "n/a" },
+  ];
+  assert.equal(computeRollup("a", rollup, [relation, score, rollup, avg], rows), 5);
+  assert.equal(computeRollup("a", avg, [relation, score, rollup, avg], rows), 2.5);
+});
+
+test("sum and avg are empty when every related value is blank", () => {
+  const rows: PaperFieldValue[] = [
+    { id: "r", paperId: "a", fieldId: "rel", value: ["p1", "p2"] },
+    { id: "1", paperId: "p1", fieldId: "score", value: "" },
+    { id: "2", paperId: "p2", fieldId: "score", value: [] },
+  ];
+  assert.equal(computeRollup("a", rollup, [relation, score, rollup, avg], rows), null);
+  assert.equal(computeRollup("a", avg, [relation, score, rollup, avg], rows), null);
+});

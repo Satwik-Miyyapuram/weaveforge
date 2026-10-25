@@ -29,35 +29,44 @@ import { decodeInkChunkBody, type InkChunkView } from "./ink-binary.js";
 const decoder = new TextDecoder();
 
 /**
- * One stroke's points as absolute coordinates, in 0.1 mm.
+ * Walk one stroke's points as absolute coordinates, in 0.1 mm.
  *
- * The deltas are cumulative within a stroke and the chain restarts at each stroke,
- * so this is a single sequential pass over that stroke's own slice — which is also
- * the shape the page buffer wants before it uploads.
+ * The deltas are cumulative within a stroke and the chain restarts at each
+ * stroke, so this is a single sequential pass over that stroke's own slice.
+ */
+function walkStroke(
+  view: InkChunkView,
+  strokeIndex: number,
+  visit: (i: number, x: number, y: number, pressure: number) => void,
+): void {
+  const start = view.strokePointOffset[strokeIndex] ?? 0;
+  const count = view.strokePointCount[strokeIndex] ?? 0;
+  let x = 0;
+  let y = 0;
+  for (let i = 0; i < count; i += 1) {
+    const at = (start + i) * 3;
+    x = i === 0 ? view.points[at]! : x + view.points[at]!;
+    y = i === 0 ? view.points[at + 1]! : y + view.points[at + 1]!;
+    visit(i, x, y, view.points[at + 2]!);
+  }
+}
+
+/**
+ * One stroke's points as absolute coordinates, in 0.1 mm — the shape the page
+ * buffer wants before it uploads.
  */
 export function chunkStrokePoints(
   view: InkChunkView,
   strokeIndex: number,
 ): { points: Float64Array; pressures: Uint8Array } {
-  const start = view.strokePointOffset[strokeIndex] ?? 0;
   const count = view.strokePointCount[strokeIndex] ?? 0;
   const points = new Float64Array(count * 2);
   const pressures = new Uint8Array(count);
-  let x = 0;
-  let y = 0;
-  for (let i = 0; i < count; i += 1) {
-    const at = (start + i) * 3;
-    if (i === 0) {
-      x = view.points[at]!;
-      y = view.points[at + 1]!;
-    } else {
-      x += view.points[at]!;
-      y += view.points[at + 1]!;
-    }
+  walkStroke(view, strokeIndex, (i, x, y, pressure) => {
     points[i * 2] = x;
     points[i * 2 + 1] = y;
-    pressures[i] = view.points[at + 2]!;
-  }
+    pressures[i] = pressure;
+  });
   return { points, pressures };
 }
 
@@ -65,26 +74,13 @@ export function chunkStrokePoints(
 export function chunkAbsolutePoints(view: InkChunkView): Int16Array {
   const out = new Int16Array(view.pointCount * 3);
   let cursor = 0;
-  for (let stroke = 0; stroke < view.strokeCount; stroke += 1) {
-    const start = view.strokePointOffset[stroke] ?? 0;
-    const count = view.strokePointCount[stroke] ?? 0;
-    let x = 0;
-    let y = 0;
-    for (let i = 0; i < count; i += 1) {
-      const at = (start + i) * 3;
-      if (i === 0) {
-        x = view.points[at]!;
-        y = view.points[at + 1]!;
-      } else {
-        x += view.points[at]!;
-        y += view.points[at + 1]!;
-      }
-      out[cursor] = x;
-      out[cursor + 1] = y;
-      out[cursor + 2] = view.points[at + 2]!;
-      cursor += 3;
-    }
-  }
+  const write = (_i: number, x: number, y: number, pressure: number) => {
+    out[cursor] = x;
+    out[cursor + 1] = y;
+    out[cursor + 2] = pressure;
+    cursor += 3;
+  };
+  for (let stroke = 0; stroke < view.strokeCount; stroke += 1) walkStroke(view, stroke, write);
   return out;
 }
 

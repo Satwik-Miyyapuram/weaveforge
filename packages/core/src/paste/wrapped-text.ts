@@ -14,7 +14,15 @@
  * two-space hard break.
  */
 
-import { markdownCodeRanges, leadingWidth, frontmatterRange, INDENTED_CODE_WIDTH } from "./markdown-ranges.js";
+import {
+  closesFence,
+  fenceOf,
+  frontmatterRange,
+  INDENTED_CODE_WIDTH,
+  leadingWidth,
+  markdownCodeRanges,
+  type CodeFence,
+} from "./markdown-ranges.js";
 import { indexRanges, type TextRange } from "./text-range.js";
 import { markdownSyntaxRanges } from "./markdown-ranges.js";
 import { stripControlSequences } from "./control-characters.js";
@@ -95,30 +103,6 @@ const THEMATIC_BREAK = /^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/;
 const FRONTMATTER_FENCE = /^ {0,3}(?:---|\.\.\.)\s*$/;
 /** A run of `=` or `-` that turns the line above it into a heading. */
 const SETEXT_UNDERLINE = /^ {0,3}(?:=+|-+)[ \t]*$/;
-
-interface Fence {
-  marker: "`" | "~";
-  length: number;
-  info: string;
-}
-
-function fenceOf(line: string): Fence | null {
-  const match = /^(?: {0,3}>[ \t]?)* {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
-  if (!match) return null;
-  const marker: "`" | "~" = match[1]!.startsWith("`") ? "`" : "~";
-  if (marker === "`" && match[2]!.includes("`")) return null;
-  return { marker, length: match[1]!.length, info: match[2]! };
-}
-
-function closesFence(line: string, opening: Fence): boolean {
-  const candidate = fenceOf(line);
-  return (
-    candidate !== null &&
-    candidate.marker === opening.marker &&
-    candidate.length >= opening.length &&
-    candidate.info.trim() === ""
-  );
-}
 
 function isBlank(line: string): boolean {
   return line.trim().length === 0;
@@ -264,7 +248,7 @@ export function inferWrapWidth(lines: readonly string[], floor: number = MIN_WRA
   // Fenced content is copied verbatim, so one long JSON line inside a log dump
   // must not drag the threshold above the prose the reader wants rejoined.
   const prose: string[] = [];
-  let fence: Fence | null = null;
+  let fence: CodeFence | null = null;
   for (const line of lines) {
     if (fence === null) {
       const opening = fenceOf(line);
@@ -402,7 +386,7 @@ function groupParagraphs(
   const requireIndent = options.rejoin === "indented";
   const paragraphs: Paragraph[] = [];
   let current: Paragraph | null = null;
-  let fence: Fence | null = null;
+  let fence: CodeFence | null = null;
   let math = false;
 
   // Leading frontmatter is data: rejoining a long value with the key below it

@@ -26,7 +26,7 @@
 import type { CompactOutcome, ICrdtUpdateStore } from "../domain/crdt-update-store.js";
 
 export class CompactCrdtLogUseCase {
-  constructor(private readonly deps: { crdtStore: ICrdtUpdateStore }) {}
+  constructor(private readonly deps: { crdtStore: Pick<ICrdtUpdateStore, "compact"> }) {}
 
   async execute(input: {
     resourceType: string;

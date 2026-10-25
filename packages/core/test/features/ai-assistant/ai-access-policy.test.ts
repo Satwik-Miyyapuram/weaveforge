@@ -66,6 +66,11 @@ for (const [name, change, reason] of [
   ["missing disclosure", { settings: { ...settings, disclosureAcceptedAt: undefined } }, "disclosure_missing"],
   ["locked encryption", { encryptionUnlocked: false }, "encryption_locked"],
   ["expired grant", { now: "2026-07-16T00:00:00.000Z" }, "grant_expired"],
+  // A date that does not parse must not read as "never expires".
+  ["unreadable grant expiry", { grant: { ...grant, expiresAt: "not a date" } }, "grant_expired"],
+  ["empty grant expiry", { grant: { ...grant, expiresAt: "" } }, "grant_expired"],
+  ["unreadable clock", { now: "not a date" }, "grant_expired"],
+  ["grant expiring this instant", { now: "2026-07-15T00:00:00.000Z" }, "grant_expired"],
   ["unselected source", { resourceId: "paper-2" }, "source_not_granted"],
   ["disabled category", { settings: { ...settings, readCategories: [] } }, "category_disabled"],
   ["unlisted tool", { tool: "search_workspace" as const }, "tool_not_allowed"],
