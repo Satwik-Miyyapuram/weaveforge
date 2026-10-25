@@ -131,7 +131,8 @@ test("connect-src allows cache:, which the model cache needs", () => {
  * file: "app://models/…/config.json"` — which names this app's own proxy, so it
  * sends you to the handler rather than to the policy. This is the second time
  * this exact scheme was forgotten: `apps/web/next.config.mjs` already carries it
- * with a comment saying so.
+ * with a comment saying so. (The weights are now asked for same-origin, because
+ * `app:` is not CORS-enabled; see `modelCacheUrl`.)
  */
 test("connect-src allows app:, because the weights live on their own host", () => {
   const policy = appHeaders("text/html; charset=utf-8")["content-security-policy"] ?? "";

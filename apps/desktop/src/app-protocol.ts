@@ -136,6 +136,11 @@ export function appHeaders(contentType: string): Record<string, string> {
  * web half words it; the browser build never reaches this host, which is why the
  * scheme only appears in this file.
  *
+ * The policy was not the only gate: `app:` is not a CORS-enabled scheme, so
+ * Chromium blocked the cross-origin fetch anyway. The renderer now asks for
+ * `app://weaveforge/models/…`, same-origin, which the shell maps onto the same
+ * cache (`modelCacheUrl`); `app:` stays for the other `app:` hosts.
+ *
  * **`cache:`** — Electron's Cache API, which Transformers.js uses to store model
  * files. A Cache API lookup is subject to `connect-src`, and a refused one
  * *rejects* rather than returning a miss, so the library received a rejection

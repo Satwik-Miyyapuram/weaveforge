@@ -50,7 +50,7 @@ import { fetchZoteroLocal } from "./zotero-local";
 import { registerMainTex } from "./main-tex";
 import { registerMattermostSignIn } from "./mattermost-signin";
 import { ARTIFACT_HOST, serveLocalArtifact } from "./local-artifacts";
-import { MODEL_HOST, serveModelFile } from "./model-cache";
+import { modelCacheUrl, serveModelFile } from "./model-cache";
 import { handleOverleafRead } from "./overleaf-source";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
 import { answerRelay } from "./app-relays";
@@ -427,9 +427,10 @@ if (bundled) {
 function serveBundle(): void {
   protocol.handle(APP_SCHEME, async (request) => {
     const host = new URL(request.url).hostname;
-    // `app://models/...` is the encoder's weights, cached on the disk so the
-    // feature keeps working with the network unplugged.
-    if (host === MODEL_HOST) return serveModelFile(path.join(app.getPath("userData"), "models"), request.url);
+    // `app://weaveforge/models/...` is the encoder's weights, cached on the disk
+    // so the feature keeps working with the network unplugged.
+    const modelUrl = modelCacheUrl(request.url, APP_HOST);
+    if (modelUrl) return serveModelFile(path.join(app.getPath("userData"), "models"), modelUrl);
     if (host === ARTIFACT_HOST) {
       return serveLocalArtifact(path.join(app.getPath("userData"), "artifacts"), request.url);
     }
