@@ -15,7 +15,7 @@ test("one wikilink pattern serves notes and the LaTeX export (05-18)", () => {
   assert.equal(wikilinkPattern().exec(text)?.[0], "[[A|b]]");
 
   const cites = new Map([["a", "ka"], ["n", "kn"], ["c", "kc"]]);
-  const { citedKeys } = markdownToLatex(text.replace("\n", " "), { citeByTitle: cites });
+  const { citedKeys } = markdownToLatex(text.replaceAll("\n", " "), { citeByTitle: cites });
   assert.deepEqual(citedKeys, ["ka", "kn", "kc"]);
 });
 
