@@ -78,6 +78,7 @@ import { useInkPageLifecycle } from "./use-ink-page-lifecycle";
 import { useInkPageMedia } from "./use-ink-page-media";
 import { useInkPen } from "./use-ink-pen";
 import { useInkPrefs } from "./use-ink-prefs";
+import { useInkPageHistory } from "./use-ink-page-history";
 import { useInkShortcuts } from "./use-ink-shortcuts";
 import { useInkWorkerRpc } from "./use-ink-worker-rpc";
 import { useInkRecognition } from "./use-ink-recognition";
@@ -350,7 +351,14 @@ export function InkHost({
     recognition;
 
   /** The page's figures (§use-ink-figures): the text layer's block, mirrored. */
-  const figureState = useInkFigures({ textPagesRef, pageIndexRef, scheduleSave });
+  /** One undo order for strokes and figure edits (§use-ink-page-history). */
+  const pageHistory = useInkPageHistory({ depth: history.undo, pageIndex });
+  const figureState = useInkFigures({
+    textPagesRef,
+    pageIndexRef,
+    scheduleSave,
+    onStep: pageHistory.record,
+  });
   const { figures, figuresRef, setFigures, figureControls, setFigureControls } = figureState;
   const { onFiguresChange, onFigureChange } = figureState;
 
@@ -535,13 +543,25 @@ export function InkHost({
       wrapRef,
     });
 
+  /** Pan, pinch, erase, undo, redo (§use-ink-edit-actions). */
+  const { onPan, onPinch, onErase, onUndo, onRedo } = useInkEditActions({
+    send,
+    scheduleSave,
+    scrollRef,
+    setZoom,
+    project,
+    takeStep: pageHistory.take,
+    restoreFigures: figureState.restoreFigures,
+  });
+
   /**
    * The keyboard and the wheel (§use-ink-shortcuts): tools, undo, recognise,
    * print and export, the selection, and the zoom a ⌘/Ctrl wheel asks for.
    */
   useInkShortcuts({
     send,
-    scheduleSave,
+    onUndo,
+    onRedo,
     setTool,
     onCursor: enterCursor,
     onColourChange,
@@ -554,11 +574,6 @@ export function InkHost({
     onExportSvg: () => void onExportSvg(),
     scrollRef,
     setZoom,
-  });
-
-  /** Pan, pinch, erase, undo, redo (§use-ink-edit-actions). */
-  const { onPan, onPinch, onErase, onUndo, onRedo } = useInkEditActions({
-    send, scheduleSave, scrollRef, setZoom, project,
   });
 
   // The text as shown, flowed across pages (§ink-text-flow).
@@ -627,8 +642,8 @@ export function InkHost({
         backend={pen.backend}
         busy={recognising}
         progress={progress}
-        canUndo={history.undo > 0}
-        canRedo={history.redo > 0}
+        canUndo={pageHistory.canUndo}
+        canRedo={pageHistory.canRedo}
         selected={selection.length}
         showTextLayer={showTextLayer}
         onToggleTextLayer={() => setShowTextLayer((prev) => !prev)}

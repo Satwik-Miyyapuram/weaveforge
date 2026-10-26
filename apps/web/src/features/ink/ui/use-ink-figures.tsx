@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   inkPageFigures,
   keepFigureOnPage,
@@ -27,8 +27,13 @@ export function useInkFigures(deps: {
   textPagesRef: { current: string[] };
   pageIndexRef: { readonly current: number };
   scheduleSave: () => void;
+  /**
+   * Each edit, for the page's undo log (§use-ink-page-history). `key` is the
+   * pointer press it came in, so one drag is one step; `null` off a press.
+   */
+  onStep?: (before: readonly FigureGeometry[], after: readonly FigureGeometry[], key: number | null) => void;
 }) {
-  const { textPagesRef, pageIndexRef, scheduleSave } = deps;
+  const { textPagesRef, pageIndexRef, scheduleSave, onStep } = deps;
   const [figures, setFigures] = useState<readonly FigureGeometry[]>([]);
   const figuresRef = useRef<readonly FigureGeometry[]>([]);
   figuresRef.current = figures;
@@ -50,15 +55,53 @@ export function useInkFigures(deps: {
     return index;
   }, []);
 
-  /** A figure's placement changed: write the block back and save. */
-  const onFiguresChange = useCallback(
+  /** The press under way, if any: every change it makes is one undo step. */
+  const pressRef = useRef({ id: 0, held: false });
+  useEffect(() => {
+    const down = () => {
+      pressRef.current = { id: pressRef.current.id + 1, held: true };
+    };
+    const up = () => {
+      pressRef.current = { ...pressRef.current, held: false };
+    };
+    window.addEventListener("pointerdown", down, true);
+    window.addEventListener("pointerup", up, true);
+    window.addEventListener("pointercancel", up, true);
+    return () => {
+      window.removeEventListener("pointerdown", down, true);
+      window.removeEventListener("pointerup", up, true);
+      window.removeEventListener("pointercancel", up, true);
+    };
+  }, []);
+
+  /** Put the page's figures to `next`: the block, the mirror and a save. */
+  const restoreFigures = useCallback(
     (next: readonly FigureGeometry[]) => {
+      // Ahead of the render, so a second change before it starts from here.
+      figuresRef.current = next;
       setFigures(next);
+      // An undo can take away the figure whose controls are open.
+      setFigureControls(null);
       const text = textPagesRef.current[pageIndexRef.current] ?? "";
       textPagesRef.current[pageIndexRef.current] = withInkPageFigures(text, next);
       scheduleSave();
     },
     [pageIndexRef, scheduleSave, textPagesRef],
+  );
+
+  /** A figure's placement changed: write the block back, save, and log it. */
+  const onFiguresChange = useCallback(
+    (next: readonly FigureGeometry[]) => {
+      const before = figuresRef.current;
+      const press = pressRef.current;
+      setFigures(next);
+      figuresRef.current = next;
+      const text = textPagesRef.current[pageIndexRef.current] ?? "";
+      textPagesRef.current[pageIndexRef.current] = withInkPageFigures(text, next);
+      scheduleSave();
+      onStep?.(before, next, press.held ? press.id : null);
+    },
+    [onStep, pageIndexRef, scheduleSave, textPagesRef],
   );
 
   /** The surface reports a placement; the text layer is the model. */
@@ -81,6 +124,7 @@ export function useInkFigures(deps: {
     takePendingControls,
     onFiguresChange,
     onFigureChange,
+    restoreFigures,
   };
 }
 
