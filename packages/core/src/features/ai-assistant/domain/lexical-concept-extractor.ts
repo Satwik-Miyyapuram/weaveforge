@@ -112,6 +112,24 @@ function stripMarkdown(text: string): string {
     .replace(/^#{1,6}\s+/gm, "");
 }
 
+/** One plain capitalised word: "Used", "Graph". Not GAN, ImageNet or F1. */
+const PLAIN_WORD = /^[A-Z][a-z]*(?:-[a-z]+)*$/;
+
+/**
+ * Whether `index` opens a line or a sentence, past any list marker, quote or
+ * bracket. A plain word there is capitalised by position, not because it names
+ * something (E25: "Used", "Not", "Background").
+ */
+function opensSentence(text: string, index: number): boolean {
+  let i = index - 1;
+  while (i >= 0 && /[ \t"'(“[]/.test(text[i]!)) i--;
+  if (i < 0 || /[\n.!?:;]/.test(text[i]!)) return true;
+  if (!/[-*+>]/.test(text[i]!)) return false;
+  i--;
+  while (i >= 0 && /[ \t]/.test(text[i]!)) i--;
+  return i < 0 || text[i] === "\n";
+}
+
 function isPlausibleName(phrase: string): boolean {
   const trimmed = phrase.trim();
   if (trimmed.length < 3) return false;
@@ -180,6 +198,8 @@ interface HarvestedMention {
   strength: SignalStrength;
   documentId: string;
   evidence: string;
+  /** A plain word seen here only where a sentence opens; see `opensSentence`. */
+  opening?: boolean;
 }
 
 /**
@@ -323,16 +343,21 @@ function harvestStated(doc: PreparedDocument): HarvestedMention[] {
  */
 function harvestGuessed(doc: PreparedDocument): HarvestedMention[] {
   const out: HarvestedMention[] = [];
-  const seenInDoc = new Set<string>();
+  const seenInDoc = new Map<string, HarvestedMention>();
 
   const record = (name: string, index: number, length: number) => {
     const trimmed = name.trim();
     if (!isPlausibleName(trimmed)) return;
     const key = conceptKey(trimmed);
-    if (seenInDoc.has(key)) return;
-    seenInDoc.add(key);
+    const opening = PLAIN_WORD.test(trimmed) && opensSentence(doc.plain, index);
+    const seen = seenInDoc.get(key);
+    if (seen) {
+      // One mid-sentence use is enough to make the word a name.
+      if (seen.opening && !opening) seen.opening = false;
+      return;
+    }
     const classified = classify(trimmed, "guessed");
-    out.push({
+    const mention: HarvestedMention = {
       key,
       name: trimmed,
       kind: classified.kind,
@@ -340,7 +365,10 @@ function harvestGuessed(doc: PreparedDocument): HarvestedMention[] {
       strength: "guessed",
       documentId: doc.id,
       evidence: snippetAt(doc.plain, index, length),
-    });
+      ...(opening ? { opening } : {}),
+    };
+    seenInDoc.set(key, mention);
+    out.push(mention);
   };
 
   // Compiled per scan rather than shared. The module-level pattern carries the
@@ -371,6 +399,8 @@ interface ConceptEntry {
   kindRecognised: boolean;
   strength: SignalStrength;
   documents: Set<string>;
+  /** False until some mention is more than a sentence opening. */
+  named: boolean;
 }
 
 /**
@@ -436,10 +466,12 @@ function mergeMentions(mentions: readonly HarvestedMention[]): {
         kindRecognised: mention.kindRecognised,
         strength: mention.strength,
         documents: new Set([mention.documentId]),
+        named: !mention.opening,
       });
       continue;
     }
     existing.documents.add(mention.documentId);
+    if (!mention.opening) existing.named = true;
     if (mention.strength === "stated" && existing.strength === "guessed") {
       existing.name = mention.name;
       existing.strength = "stated";
@@ -473,6 +505,7 @@ function rankAndLimit(
   maxConcepts: number | undefined,
 ): ConceptEntry[] {
   const ranked = entries
+    .filter((entry) => entry.named)
     .filter((entry) => entry.documents.size >= MIN_MENTIONS || entry.strength === "stated")
     .sort(
       (a, b) =>

@@ -6,6 +6,7 @@ import {
   planFixOrder,
   planWikiPages,
   replaceWikiIndex,
+  wikiProposalContent,
   type ExtractionDocument,
   type IConceptExtractor,
   type LintReport,
@@ -173,7 +174,7 @@ export async function proposeWikiPages(plans: readonly WikiPagePlan[]): Promise<
     await container.aiProposals.draftLocal({
       kind: "create_vault_note",
       resourceId: root.id,
-      content: `Create wiki page "${plan.title}" (${plan.mentions} mentions)`,
+      content: wikiProposalContent(plan),
       payload: { title: plan.title, body: plan.body, parentId: root.id },
       sourceLinks: plan.sourceDocumentIds,
     });

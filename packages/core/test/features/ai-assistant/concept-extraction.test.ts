@@ -6,6 +6,7 @@ import {
   conceptKey,
   mergeExtractions,
   planWikiPages,
+  wikiProposalContent,
   withoutExisting,
   type ExtractionResult,
 } from "../../../src/index.js";
@@ -48,6 +49,31 @@ test("sentence openings are not mistaken for names", async () => {
   for (const stop of ["the", "however", "therefore"]) {
     assert.ok(!names.includes(stop), `"${stop}" should not be a concept`);
   }
+});
+
+test("a lone word seen only at line or sentence starts is not a concept (E25)", async () => {
+  const text = [
+    "## Background",
+    "Used the encoder twice. Not stable yet.",
+    "- Only the first run.",
+    "Cite: (Graph) papers. Related work below.",
+  ].join("\n");
+  const result = await extractor.extract({ documents: [doc("n1", "N", text), doc("n2", "M", text)] });
+  const names = result.concepts.map((c) => c.name.toLowerCase());
+  for (const stop of ["background", "used", "not", "only", "cite", "graph", "related"]) {
+    assert.ok(!names.includes(stop), `"${stop}" should not be a concept`);
+  }
+});
+
+test("a lone word also used mid-sentence is still a name, and acronyms and CamelCase stay", async () => {
+  const result = await extractor.extract({
+    documents: [
+      doc("n1", "N", "Adam converged. We compare GAN to ImageNet."),
+      doc("n2", "M", "We tried Adam again.\nGAN works. ImageNet helps."),
+    ],
+  });
+  const names = result.concepts.map((c) => c.name);
+  for (const name of ["Adam", "GAN", "ImageNet"]) assert.ok(names.includes(name), `${name} kept`);
 });
 
 test("code blocks and image markup are not mined for concepts", async () => {
@@ -338,6 +364,33 @@ test("a page links its sources and does not invent a definition", () => {
   assert.match(body, /\[\[Results\]\]/);
   assert.match(body, /_Not written yet\._/, "a confident invented summary is the failure mode");
   assert.match(body, /#method/, "the kind is recorded as a tag");
+});
+
+test("a multi-line evidence snippet stays inside its list item (E28)", () => {
+  const plans = planWikiPages({
+    extraction: {
+      concepts: [{ name: "VAE", aliases: [], kind: "method", mentions: 2 }],
+      mentions: [
+        { documentId: "n1", conceptName: "VAE", evidence: "we train a VAE.\n## Results\n- loss fell\n\nend" },
+        { documentId: "n2", conceptName: "VAE", evidence: "VAE again" },
+      ],
+    },
+    existingTitles: [],
+    titleOf: (id) => ({ n1: "Method", n2: "Results" })[id],
+  });
+
+  const body = plans[0]!.body;
+  assert.match(body, /^ {2}- we train a VAE\. ## Results - loss fell end$/m);
+  assert.doesNotMatch(body, /^## Results$/m, "a snippet must not open a heading in the page");
+});
+
+test("a wiki proposal's review card names the page and previews it (E26)", () => {
+  const content = wikiProposalContent({ title: "VAE", body: "## Summary", sourceDocumentIds: ["n1", "n2"], mentions: 3 });
+  const preview = content.split("\n");
+  assert.equal(preview[0], '**New wiki page "VAE"**');
+  assert.equal(preview[1], "Why: mentioned 3 times in 2 notes or papers.");
+  assert.ok(content.endsWith("\n\n## Summary"), "the drafted page is what the card shows");
+  assert.match(wikiProposalContent({ title: "X", body: "b", sourceDocumentIds: ["n1"], mentions: 1 }), /mentioned once in 1 note or paper\./);
 });
 
 test("source documents are deduplicated and reported", () => {

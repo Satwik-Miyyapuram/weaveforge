@@ -13,7 +13,7 @@ import { ScreenLoader } from "@/components/weaveforge-loader";
 import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/reader";
 import { loadCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { formatError } from "@/lib/format-error";
-import { splitProposalContent } from "../application/proposal-preview";
+import { createdPageOf, splitProposalContent } from "../application/proposal-preview";
 
 /** What a source id points at, once resolved to something a person can read. */
 interface SourceTarget {
@@ -188,6 +188,7 @@ export function AiProposalReviewScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState<{ id: string; title: string } | null>(null);
   const sourceTargets = useSourceTargets();
   const reload = useCallback(async () => {
     setLoading(true);
@@ -199,11 +200,17 @@ export function AiProposalReviewScreen() {
   const appendOnly = useMemo(() => items.filter((item) => item.kind === "append_paper_note"), [items]);
   const changed = () => announceAiProposalsChanged(getContainer().aiProposals);
   async function run(id: string, action: "approve" | "reject") {
-    setBusy(id); setError(null);
+    setBusy(id); setError(null); setCreated(null);
+    const item = items.find((entry) => entry.id === id);
     try {
       let conflicted = false;
-      if (action === "approve") conflicted = (await getContainer().aiProposals.approve(id)) === "conflicted";
-      else await getContainer().aiProposals.reject(id);
+      if (action === "reject") await getContainer().aiProposals.reject(id);
+      else {
+        conflicted = (await getContainer().aiProposals.approve(id)) === "conflicted";
+        // E27: a new note gets a link, not just a vanished card.
+        const page = !conflicted && item ? createdPageOf(item, await getContainer().vault.listPages()) : null;
+        if (page) setCreated({ id: page.id, title: page.title });
+      }
       changed(); await reload();
       if (conflicted) setError("Not applied: the target changed since this was suggested.");
     } catch (err) { setError(formatError(err)); }
@@ -225,6 +232,7 @@ export function AiProposalReviewScreen() {
     <ScreenHead title="Review suggestions" eyebrow="AI safety"><Link className="btn-secondary" href="/settings">AI settings</Link></ScreenHead>
     <p className="muted ai-review-lede">Nothing changes until you approve it. Suggestions are encrypted until this unlocked browser reviews them.</p>
     {error && <p className="form-error" role="alert">{error}</p>}
+    {created && <p className="muted" role="status">Created &ldquo;{created.title}&rdquo;. <Link href={`/notes?page=${encodeURIComponent(created.id)}`}>Open page &rarr;</Link></p>}
     {!items.length ? <div className="card empty-state"><h2>Nothing to review</h2><p>New AI suggestions will appear here before they can change your research workspace.</p></div> : <>
       <div className="card ai-review-toolbar"><div><strong>{items.length} pending suggestion{items.length === 1 ? "" : "s"}</strong><span className="muted"> · Each one waits for you. Additions only add text; nothing is overwritten.</span></div>{appendOnly.length > 1 && <button className="btn-primary" disabled={busy !== null} onClick={() => void approveAll()}>Approve the {appendOnly.length} that only add</button>}</div>
       <div className="ai-review-list">{items.map((item) => {
