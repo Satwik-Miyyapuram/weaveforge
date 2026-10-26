@@ -59,21 +59,21 @@ test("a failed download puts the URL back and reports why (12-13)", async () => 
   assert.deepEqual(errors, ["blocked"]);
 });
 
-test("a dropped image URL is inserted at the caret the same way (12-13)", async () => {
+test("a dropped image URL is inserted at the caret, on its own line (12-13, DA-104)", async () => {
   const ok = fakeView("ab", 1);
   const bad = fakeView("ab", 1);
   const errors: string[] = [];
   await withBridge({ fetchTitle: noTitle, fetchImage: okImage }, async () => {
     insertRemoteImage(ok.view, "https://ex.com/", { upload: async (file) => `![](${file.name})` });
-    assert.match(ok.doc(), /^a!\[Downloading .*image.*…\]\(\)b$/);
+    assert.match(ok.doc(), /^a\n\n!\[Downloading .*image.*…\]\(\)\n\nb$/);
     await settle();
   });
-  assert.equal(ok.doc(), "a![](image)b");
+  assert.equal(ok.doc(), "a\n\n![](image)\n\nb");
   await withBridge({ fetchTitle: noTitle, fetchImage: async () => { throw new Error(""); } }, async () => {
     insertRemoteImage(bad.view, IMG, { upload: async () => "never", onError: (m) => errors.push(m) });
     await settle();
   });
-  assert.equal(bad.doc(), `a${IMG}b`);
+  assert.equal(bad.doc(), `a\n\n${IMG}\n\nb`);
   assert.deepEqual(errors, ["That address could not be fetched."]);
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { StateEffect, StateField, EditorSelection } from "@codemirror/state";
+import { StateEffect, StateField, EditorSelection, type Text } from "@codemirror/state";
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 
 /**
@@ -76,19 +76,39 @@ const pendingTheme = EditorView.baseTheme({
  * that is already usable while its title is fetched should not — the whole
  * point of pasting it immediately is that it works straight away.
  */
-export function insertPending(view: EditorView, text: string, { dim = true } = {}): number {
+export function insertPending(view: EditorView, text: string, { dim = true, ownLine = false } = {}): number {
   const id = ++nextId;
   const range = view.state.selection.main;
-  const from = range.from;
+  const { before, after } = ownLine ? ownLinePadding(view.state.doc, range.from, range.to) : { before: "", after: "" };
+  const from = range.from + before.length;
   if (dim) decorated.add(id);
 
   view.dispatch({
-    changes: { from, to: range.to, insert: text },
-    selection: EditorSelection.cursor(from + text.length),
+    changes: { from: range.from, to: range.to, insert: before + text + after },
+    selection: EditorSelection.cursor(from + text.length + after.length),
     effects: addPending.of({ id, from, to: from + text.length }),
     userEvent: "input.paste",
   });
   return id;
+}
+
+/**
+ * The line breaks that put whatever replaces `from`–`to` in a paragraph of
+ * its own (DA-104): a picture pasted mid-sentence used to glue itself to the
+ * words either side. Each side gets a blank line from the text next to it,
+ * counting a blank line that is already there and adding none at either end
+ * of the note.
+ */
+export function ownLinePadding(doc: Text, from: number, to: number): { before: string; after: string } {
+  const start = doc.lineAt(from);
+  const end = doc.lineAt(to);
+  const blank = (n: number) => doc.line(n).text.trim() === "";
+  const pad = (text: string, edge: boolean, next: number) =>
+    text.trim() !== "" ? "\n\n" : edge || blank(next) ? "" : "\n";
+  return {
+    before: pad(doc.sliceString(start.from, from), start.number === 1, start.number - 1),
+    after: pad(doc.sliceString(to, end.to), end.number === doc.lines, end.number + 1),
+  };
 }
 
 /** Starts tracking a region that is already in the document. */

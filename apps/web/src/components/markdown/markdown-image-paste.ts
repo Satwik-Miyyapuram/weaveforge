@@ -179,7 +179,7 @@ export function acceptImageFiles(
     // Inserted at the caret, which is the whole point: an image belongs where
     // the writer was, not at the end of the note the way the attach button used
     // to put it.
-    const id = insertPending(view, placeholderText(imageAltFromFilename(file.name)));
+    const id = insertPending(view, placeholderText(imageAltFromFilename(file.name)), { ownLine: true });
 
     void config
       .upload(file)
