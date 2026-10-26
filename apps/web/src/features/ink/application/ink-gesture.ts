@@ -7,7 +7,7 @@
  */
 
 import { clipSegmentToArea, pointInArea, type DrawArea, type Point } from "./clip-to-area";
-import { EraserSweep, type EraserHoverEvent, type EraserSweepEvent } from "./eraser-tip";
+import { EraserSweep, isPenBarrelPointer, type EraserHoverEvent, type EraserSweepEvent } from "./eraser-tip";
 
 /** The armed tool, as the gesture sees it. */
 export type InkToolKind = "draw" | "eraser" | "lasso" | "region" | "none";
@@ -49,6 +49,7 @@ export class InkGesture {
     if (ctx.tool === "lasso") return ctx.hitSelection?.() ? "drag" : "lasso";
     if (ctx.tool === "none") return null;
     if (ctx.admit && !ctx.admit()) return null;
+    if (ctx.tool !== "region" && isPenBarrelPointer(event)) return ctx.hitSelection?.() ? "drag" : "lasso";
     if (this.sweep.begin(event, ctx.tool === "eraser", false)) return "erase";
     if (ctx.intercept?.()) return "intercept";
     return ctx.tool === "region" ? "region" : "draw";

@@ -147,3 +147,27 @@ test("a null area is all paper", () => {
   edge.begin({ x: 0, y: 0 });
   assert.deepEqual(edge.move({ x: -999, y: 999 }, null), { kind: "inside" });
 });
+
+const barrel = (pointerId = 1, button = 2, buttons = 3) => ({ pointerId, pointerType: "pen", button, buttons, currentTarget: target() });
+
+test("the barrel button held with a writing tool lassos instead of drawing (E33)", () => {
+  const gesture = new InkGesture("cell");
+  assert.equal(gesture.down(barrel(1), ctx()), "lasso");
+  assert.equal(gesture.down(barrel(2, 0, 2), ctx({ tool: "eraser" })), "lasso");
+  assert.equal(gesture.down(barrel(3), ctx({ hitSelection: () => true })), "drag");
+});
+
+test("the barrel button leaves no-tool, region, refused pointers and the mouse alone", () => {
+  const gesture = new InkGesture("cell");
+  assert.equal(gesture.down(barrel(1), ctx({ tool: "none" })), null);
+  assert.equal(gesture.down(barrel(2), ctx({ tool: "region" })), "region");
+  assert.equal(gesture.down(barrel(3), ctx({ admit: () => false })), null);
+  const mouse = { pointerId: 4, pointerType: "mouse", button: 2, buttons: 2, currentTarget: target() };
+  assert.equal(gesture.down(mouse, ctx()), "draw");
+});
+
+test("a plain pen and the back tip are unchanged by barrel support", () => {
+  const gesture = new InkGesture("cell");
+  assert.equal(gesture.down(pen(1), ctx()), "draw");
+  assert.equal(gesture.down(backTip(2), ctx()), "erase");
+});

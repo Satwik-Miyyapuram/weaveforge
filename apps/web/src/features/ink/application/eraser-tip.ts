@@ -39,6 +39,18 @@ export function isPenEraserPointer(event: PenEraserEvent): boolean {
   return ((event.buttons ?? 0) & PEN_ERASER_BIT) !== 0;
 }
 
+/** The `buttons` bit a pen's barrel button sets while it is held. */
+export const PEN_BARREL_BIT = 2;
+
+/**
+ * Whether a pen touched down with its barrel button held. The barrel selects
+ * (a lasso), as in OneNote, rather than drawing a stray stroke (E33).
+ */
+export function isPenBarrelPointer(event: PenEraserEvent): boolean {
+  if (event.pointerType !== "pen") return false;
+  return event.button === 2 || ((event.buttons ?? 0) & PEN_BARREL_BIT) !== 0;
+}
+
 /** What a sweep needs from a pointer event; a React or DOM `PointerEvent` fits. */
 export interface EraserSweepEvent extends PenEraserEvent {
   pointerId: number;

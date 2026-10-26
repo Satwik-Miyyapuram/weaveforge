@@ -396,7 +396,7 @@ export function InkPage({
         onFigureChange?.(held.index, resizeFigureBox(held.box, held.corner, dx, dy, { free: event.shiftKey }));
         return;
       }
-      if (tool === "lasso") {
+      if (tool === "lasso" || route === "lasso" || route === "drag") {
         event.preventDefault();
         const at = project(event.clientX, event.clientY);
         if (!at) return;
@@ -482,7 +482,7 @@ export function InkPage({
         releasePointer(event);
         return;
       }
-      if (tool === "lasso") {
+      if (tool === "lasso" || route === "lasso" || route === "drag") {
         releasePointer(event);
         const from = drag.current;
         if (from) {
