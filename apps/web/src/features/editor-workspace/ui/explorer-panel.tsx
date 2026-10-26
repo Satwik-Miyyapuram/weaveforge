@@ -37,7 +37,7 @@ import {
   type VisibleRow,
   type WorkspaceTreeNode,
 } from "../application/workspace-tree";
-import { documentSuffix, isDocumentKind, kindIcon, kindIconClass } from "./kind";
+import { isDocumentKind, kindIcon, kindIconClass } from "./kind";
 import {
   CloseGlyph,
   DraftIcon,
@@ -517,7 +517,6 @@ export function ExplorerPanel({
                     const painted = flatByKey.get(node.key);
                     const branch = node.children.length > 0;
                     const rowOpen = effectiveExpanded.has(node.key);
-                    const suffix = isDocumentKind(node.kind) ? documentSuffix(node.kind) : null;
                     const lists = node.id ? listNames?.get(`${node.kind}:${node.id}`) : undefined;
                     const git = gitStatus?.get(node.key);
                     const tint = kindIconClass(node.kind, rowOpen);
@@ -622,10 +621,11 @@ export function ExplorerPanel({
                               }}
                             />
                           ) : (
-                            <span className="explorer-label">{node.label}</span>
+                            <span className="explorer-label" title={node.label}>{node.label}</span>
                           )}
-                          {/* An Outline row says its heading level in mono,
-                              where a file row would carry its kind suffix. */}
+                          {/* An Outline row says its heading level in mono. A
+                              file row shows no suffix: its icon says the kind,
+                              and the tab and breadcrumbs show the filename (DA-32). */}
                           {node.headingLevel !== undefined ? (
                             <span className="explorer-heading-level">H{node.headingLevel}</span>
                           ) : null}
@@ -644,7 +644,6 @@ export function ExplorerPanel({
                               {git}
                             </span>
                           ) : null}
-                          {suffix ? <span className="explorer-ext">{suffix}</span> : null}
                           {/* Hover actions, VS Code's way: they sit on the
                               row they act on, so "new in here" needs no
                               question about where. */}

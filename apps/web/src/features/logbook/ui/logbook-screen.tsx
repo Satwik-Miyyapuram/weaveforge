@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { LOG_KINDS, type LogEntry, type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { ConfirmDialog } from "@/components/confirm-dialog";
+import { removeLater, useHiddenKeys } from "@/lib/toast";
 import { Modal } from "@/components/modal";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/view-icons";
 import { ScreenLoading } from "@/components/screen-loading";
@@ -54,19 +54,19 @@ export function LogbookScreen() {
         search={entries.length > 0 ? { value: search, onChange: setSearch, label: "Search the log" } : undefined}
       >
         <button type="button" className="btn-secondary log-publish" onClick={() => setPublishOpen(true)}>
-          Publish snapshot
+          Send check-in
         </button>
         <Button variant="primary" onClick={() => setAddOpen(true)}>New entry</Button>
       </ScreenHead>
 
       {addOpen && (
-        <Modal title="Add a log entry" onClose={() => setAddOpen(false)}>
+        <Modal title="New entry" onClose={() => setAddOpen(false)}>
           <AddLogEntryForm onAdded={() => { setAddOpen(false); void load(); }} />
         </Modal>
       )}
 
       {publishOpen && (
-        <Modal title="Publish lab snapshot" onClose={() => setPublishOpen(false)}>
+        <Modal title="Send check-in" onClose={() => setPublishOpen(false)}>
           <PublishLabSnapshotForm onPublished={() => setPublishOpen(false)} />
         </Modal>
       )}
@@ -173,18 +173,23 @@ function PublishLabSnapshotForm({ onPublished }: { onPublished: () => void }) {
 
 function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void }) {
   const [editing, setEditing] = useState(false);
-  /** Whether the delete confirmation is up. */
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  /** Why the last delete failed, shown on the card. */
-  const [removeError, setRemoveError] = useState<string | null>(null);
+  const hidden = useHiddenKeys().has(logKey(entry.id));
   const { headline, rest } = splitHeadline(entry.body);
 
-  async function remove() {
-    setConfirmOpen(false);
-    const problem = await removeLogEntry(getContainer().logbook, entry);
-    setRemoveError(problem);
-    if (!problem) await onChanged();
+  // Rule D-07: the entry goes at once; the delete runs when the Undo toast closes.
+  function remove() {
+    removeLater({
+      key: logKey(entry.id),
+      message: "Log entry deleted",
+      remove: async () => {
+        const problem = await removeLogEntry(getContainer().logbook, entry);
+        if (problem) throw new Error(problem);
+      },
+      onDeleted: onChanged,
+    });
   }
+
+  if (hidden) return null;
 
   if (editing) {
     return (
@@ -223,28 +228,19 @@ function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void 
             shareable={false}
             name={headline}
             deleteLabel="Delete log entry"
-            onDelete={() => setConfirmOpen(true)}
+            onDelete={remove}
             extraItems={[{ id: "edit", label: "Edit", onSelect: () => setEditing(true) }]}
           />
         }
       >
         {rest && <Markdown className="log-body">{rest}</Markdown>}
-        {removeError && <FormError>{removeError}</FormError>}
       </EntityCard>
-
-      {confirmOpen && (
-        <ConfirmDialog
-          title="Delete this log entry?"
-          body={`The entry from ${entry.entryDate} goes away. Its text is not kept.`}
-          confirmLabel="Delete entry"
-          danger
-          onConfirm={() => void remove()}
-          onClose={() => setConfirmOpen(false)}
-        />
-      )}
     </>
   );
 }
+
+/** The key a log entry hides under while its Undo toast shows. */
+const logKey = (id: string) => `log:${id}`;
 
 function EditLogForm({
   entry,
@@ -318,7 +314,7 @@ function EditLogForm({
             autosave, so this button is about leaving the form — but it still
             submits, because the Kind select is not collaborative and would
             otherwise have no way to be saved at all. */}
-        <Button variant="primary" disabled={busy}>
+        <Button type="submit" variant="primary" disabled={busy}>
           {busy ? "Saving…" : "Done"}
         </Button>
       </div>

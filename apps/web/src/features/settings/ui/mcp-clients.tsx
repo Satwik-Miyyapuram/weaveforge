@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate } from "@/lib/format-date";
 import { useState, type KeyboardEvent } from "react";
 import { formatError } from "@/lib/format-error";
 import { desktop, type DesktopLocalApi, type DesktopLocalApiPermission } from "@/lib/desktop/desktop-bridge";
@@ -23,7 +24,7 @@ const CHIP: Partial<Record<DesktopLocalApiPermission, string>> = {
 };
 
 function day(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  return formatDate(iso);
 }
 
 function ago(iso: string, now: number): string {

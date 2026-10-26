@@ -167,7 +167,7 @@ export function PasteSettingsPanel() {
     >
       <h3 className="settings-group">Paste</h3>
       <p className="muted jump-to-meta">
-        What happens to text on its way into a note. Stored in this browser alongside your
+        What happens to text on its way into a note. Stored on this device alongside your
         theme, so a shared machine and your own can answer differently.
       </p>
 

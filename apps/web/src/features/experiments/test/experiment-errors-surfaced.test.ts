@@ -25,12 +25,15 @@ test("a status change on the detail screen that fails is shown (35-01)", () => {
   assert.match(source("experiment-detail-screen.tsx"), /<FormError>\{statusError\}<\/FormError>/);
 });
 
-test("the card's status, delete and unpin failures are shown on the card (35-02)", () => {
+test("the card's status failure is shown on the card (35-02)", () => {
   const src = source("experiment-card.tsx");
-  for (const name of ["setStatus", "remove", "unpin"]) {
-    assert.match(fnBody(src, name), /catch \(err\)[\s\S]*setActionError\(formatError\(err\)\)/, name);
-  }
+  assert.match(fnBody(src, "setStatus"), /catch \(err\)[\s\S]*setActionError\(formatError\(err\)\)/);
   assert.match(src, /<FormError>\{actionError\}<\/FormError>/);
+});
+
+test("the card's delete and unpin go through removeLater, whose toast says what failed (D-07)", () => {
+  const src = source("experiment-card.tsx");
+  assert.equal(src.match(/removeLater\(\{/g)?.length, 2);
 });
 
 test("no experiments screen swallows a failure without a log (35-03, 35-07)", () => {

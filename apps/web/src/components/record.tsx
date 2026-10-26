@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate } from "@/lib/format-date";
 import type { ReactNode } from "react";
 
 /*
@@ -19,7 +20,7 @@ export function recordDate(iso: string | null | undefined): string {
   if (Number.isNaN(date.getTime())) return "";
   const today = new Date();
   if (date.toDateString() === today.toDateString()) return "Today";
-  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return formatDate(date);
 }
 
 /** Words in a markdown body, ignoring markup, links' targets and code fences. */

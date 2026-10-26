@@ -12,7 +12,7 @@ import { statusLabel } from "@/components/status-select";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
 
-export function AddExperimentForm({ onAdded }: { onAdded: () => void }) {
+export function AddExperimentForm({ onAdded }: { onAdded: (id: string) => void }) {
   const [name, setName] = useState("");
   const [branch, setBranch] = useState("");
   const [commit, setCommit] = useState("");
@@ -32,12 +32,12 @@ export function AddExperimentForm({ onAdded }: { onAdded: () => void }) {
         try { parsed = JSON.parse(config); }
         catch (err) { throw new Error(`Config must be valid JSON: ${formatError(err)}`); }
       }
-      await getContainer().experiments.manageExperiment.add({
+      const exp = await getContainer().experiments.manageExperiment.add({
         name, branch: branch || undefined, commitSha: commit || undefined,
         repoUrl: repoUrl || undefined, status, config: parsed,
       });
       setName(""); setBranch(""); setCommit(""); setRepoUrl(""); setConfig("");
-      onAdded();
+      onAdded(exp.id);
     } catch (err) {
       setError(formatError(err));
     } finally {
@@ -64,7 +64,7 @@ export function AddExperimentForm({ onAdded }: { onAdded: () => void }) {
       <div className="field"><label htmlFor="erepo">Repo URL</label><input id="erepo" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} placeholder="https://github.com/you/thesis-experiments" /></div>
       <div className="field"><label htmlFor="econfig">Config (JSON)</label><textarea id="econfig" rows={2} value={config} onChange={(e) => setConfig(e.target.value)} placeholder='{"beta":4,"latent_dim":32,"seed":0}' /></div>
       {error && <FormError>{error}</FormError>}
-      <Button variant="primary" disabled={busy}>{busy ? "Adding…" : "Add experiment"}</Button>
+      <Button type="submit" variant="primary" disabled={busy}>{busy ? "Creating…" : "Create"}</Button>
     </form>
   );
 }

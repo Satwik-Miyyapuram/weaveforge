@@ -69,7 +69,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 
   phd: "PhD supervisor",
 
-  masters: "Masters student",
+  masters: "Master's student",
 
   standalone: "Standalone",
 

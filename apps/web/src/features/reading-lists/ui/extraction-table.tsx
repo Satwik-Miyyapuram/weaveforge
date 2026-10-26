@@ -1,5 +1,6 @@
 "use client";
 
+import { enumLabel } from "@/lib/enum-label";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Paper, PaperFieldDef, PaperFieldValueData, ReadingListTreeNode } from "@weaveforge/core";
@@ -306,7 +307,7 @@ function ExtractionCell({
 }) {
   if (column === "title") return <span>{row.paper.title}</span>;
   if (column === "year") return <span>{row.paper.year ?? "—"}</span>;
-  if (column === "status") return <span>{row.paper.status.replace("_", " ")}</span>;
+  if (column === "status") return <span>{enumLabel("paperStatus", row.paper.status)}</span>;
 
   const fieldId = column.slice("field:".length);
   const def = defs.find((d) => d.id === fieldId);

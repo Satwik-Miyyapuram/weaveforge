@@ -9,7 +9,7 @@
 .ai-review-toolbar { margin: 12px 0; }
 .ai-review-list { display: grid; gap: 12px; }
 /* Controls stay a row, so the kind chip never stacks onto the title. */
-.ai-review-card .entity-card-actions { flex-wrap: nowrap; }
+.ai-review-card .entity-card-controls { flex-wrap: nowrap; }
 .ai-kind { color: var(--accent-ink); font-size: var(--fs-sm); font-weight: 700; white-space: nowrap; }
 /* The well is the card's body, so it spans the card, not the prose measure. */
 .ai-proposal-content.markdown { max-width: none; }

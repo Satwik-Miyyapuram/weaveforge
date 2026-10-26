@@ -58,7 +58,7 @@ export function ReportOverleafScreen() {
          
           onClick={() => setExportOpen(true)}
         >
-          Export LaTeX
+          Export for Overleaf
         </Button>
       </ScreenHead>
 

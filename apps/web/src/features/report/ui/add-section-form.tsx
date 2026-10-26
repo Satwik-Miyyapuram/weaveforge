@@ -80,7 +80,7 @@ export function AddSectionForm({
           value={parentId}
           onChange={(e) => setParentId(e.target.value)}
         >
-          <option value="">— top level —</option>
+          <option value="">None (top level)</option>
           {parentOptions.map((opt) => (
             <option key={opt.section.id} value={opt.section.id}>
               {parentOptionLabel(opt)}
@@ -110,8 +110,8 @@ export function AddSectionForm({
         </div>
       </div>
       {error && <FormError>{error}</FormError>}
-      <Button variant="primary" disabled={busy}>
-        {busy ? "Adding…" : "Add section"}
+      <Button type="submit" variant="primary" disabled={busy}>
+        {busy ? "Creating…" : "Create"}
       </Button>
     </form>
   );

@@ -10,6 +10,9 @@ export const LIST_COLOR_PRESETS = [
   "#8a857c",
 ] as const;
 
+/** What a swatch is called to a screen reader, in preset order (DA-78). */
+export const LIST_COLOR_NAMES = ["Sage", "Slate blue", "Terracotta", "Lavender", "Brick red", "Stone"] as const;
+
 export function listDisplayColor(list: ReadingList): string {
   if (list.color) return list.color;
   let h = 0;

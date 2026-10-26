@@ -137,33 +137,6 @@
   color: inherit;
 }
 
-/*
- * The kind suffix. Shown on hover, focus and selection only: the icon and its
- * tint already say the kind, and 260px is too narrow to spend eight repeated
- * characters per row. It never truncates — the title does, which is why this
- * is `flex: none`.
- */
-.explorer-ext {
-  flex: none;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.68em;
-  letter-spacing: -0.01em;
-  opacity: 0;
-  transition: opacity 0.12s;
-}
-
-.explorer-row:hover .explorer-ext,
-.explorer-row:focus-visible .explorer-ext,
-.explorer-row.is-active .explorer-ext {
-  opacity: 1;
-}
-
-/* On a pointer that cannot hover the suffix would never appear at all. */
-@media (hover: none) {
-  .explorer-ext { opacity: 1; }
-}
-
 /* Git status ticks — the one place a user notices a note changed elsewhere. */
 .explorer-git {
   flex: none;

@@ -62,9 +62,9 @@ test("the share expiry hint reads as a hint, not a warning (DA-36)", () => {
   assert.match(rule(read("../styles/settings.css"), ".share-link-expiry-hint"), /color:\s*var\(--muted\);/);
 });
 
-test("explorer suffix and section count use muted (DA-35)", () => {
+test("explorer section count uses muted (DA-35)", () => {
   const css = read("../styles/editor-workspace.css");
-  for (const sel of [".explorer-ext", ".explorer-section-count"]) assert.match(rule(css, sel), /color:\s*var\(--muted\);/);
+  for (const sel of [".explorer-section-count"]) assert.match(rule(css, sel), /color:\s*var\(--muted\);/);
 });
 
 test("the graph settings badge uses the text-on-accent token (DA-35)", () => {

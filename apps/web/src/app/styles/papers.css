@@ -376,7 +376,6 @@
 .tidy-choice-title { overflow-wrap: anywhere; }
 .tidy-choice-meta { font-size: var(--fs-sm); }
 .tidy-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; flex-wrap: wrap; }
-.tidy-confirm { font-size: var(--fs-sm); margin-right: auto; }
 @media (max-width: 479px) {
   .tidy-fix { flex-direction: column; }
 }

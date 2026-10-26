@@ -80,8 +80,8 @@ export function DesktopUpdatePanel() {
   if (!bridge) return null;
 
   return (
-    <div className="card settings-card">
-      <h2>Updates</h2>
+    <div className="card add-form settings-card">
+      <h3 className="settings-group">Updates</h3>
       <p className="muted">
         The app itself updates from the web — whatever this window loads is the current
         version, the same as a browser tab. Only the desktop window is installed on this

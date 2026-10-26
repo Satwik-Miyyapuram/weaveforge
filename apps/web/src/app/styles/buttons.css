@@ -10,10 +10,9 @@ code, pre, .commit-sha { font-family: var(--font-mono); }
    dashboard, 14 on Experiments, 18 on Papers. */
 .screen > .screen-head:not(:empty) { margin-bottom: 22px; }
 .screen > .screen-head:not(:empty) + * { margin-top: 0; }
-/* The route-named <h1> a screen gets when it names no title: read by assistive
-   technology, drawn only by themes that open pages on a title (brutal.css). */
+/* The route-named <h1> a screen gets when it names no title is drawn like any
+   other title: one visible page title per route (D11, DA-50). */
 .screen-title-block { margin-right: auto; min-width: 0; }
-.screen-title--auto { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 .screen-eyebrow { display: none; }
 /* Destructive primary. Same shape as `.btn-primary` — a decision reads as one
    control group — but the side that discards something is coloured for it.

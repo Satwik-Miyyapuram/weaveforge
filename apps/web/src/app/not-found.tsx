@@ -24,10 +24,10 @@ export default function NotFound() {
           <Link className="btn-primary" href="/">
             Back to the home page
           </Link>
-          <Link className="btn-secondary" href="/papers">
+          <Link className="not-found-link" href="/papers">
             Browse the papers
           </Link>
-          <a className="btn-secondary" href={DOCS_URL}>
+          <a className="not-found-link" href={DOCS_URL}>
             Read the docs
           </a>
         </>

@@ -16,6 +16,10 @@ import { ExtractionTable } from "./extraction-table";
 import { ScreeningPanel } from "./screening-panel";
 import { runListAction } from "./run-list-action";
 import { Button } from "@/components/button";
+import { deferDelete, deletedMessage, useHiddenKeys } from "@/lib/toast";
+
+/** The key a list hides under while its Undo toast shows (D-07). */
+export const listKey = (id: string) => `list:${id}`;
 
 /** A list's three views, as icon buttons named by their tooltip. */
 const LIST_VIEWS = [
@@ -119,7 +123,7 @@ export function ListNode(props: ListNodeProps) {
   // Remove, reorder, delete and unpin failures, shown under the items.
   const [actionError, setActionError] = useState<string | null>(null);
   const [addBusy, setAddBusy] = useState(false);
-  const [deleteBusy, setDeleteBusy] = useState(false);
+  const hiddenKeys = useHiddenKeys();
   const [dragItemId, setDragItemId] = useState<string | null>(null);
   const [dropItemId, setDropItemId] = useState<string | null>(null);
   const [view, setView] = usePersistedState<"tree" | "table" | "screen">(
@@ -163,29 +167,30 @@ export function ListNode(props: ListNodeProps) {
     }, setActionError);
   }
 
-  async function deleteList() {
+  // Delete hides the list (and its sublists) at once; the delete runs when
+  // the Undo toast closes (D-07). A failure shows on the toast.
+  function deleteList() {
     const childCount = node.children.length;
-    const msg =
-      childCount > 0
-        ? `Delete "${list.name}" and its ${childCount} sublist(s)?`
-        : `Delete "${list.name}"?`;
-    if (!confirm(msg)) return;
-    setDeleteBusy(true);
-    await runListAction(async () => {
-      await getContainer().readingLists.manageReadingList.removeList(list.id);
-      onReload();
-    }, setActionError);
-    setDeleteBusy(false);
+    deferDelete({
+      keys: [listKey(list.id)],
+      message: childCount > 0 ? `${deletedMessage(list.name)} with ${childCount} sublist(s)` : deletedMessage(list.name),
+      commit: async () => {
+        await getContainer().readingLists.manageReadingList.removeList(list.id);
+        onReload();
+      },
+    });
   }
 
-  async function unpinList() {
-    if (!confirm(`Remove "${list.name}" from your reading lists? The original will stay intact for ${sharedByName ?? "its owner"}.`)) return;
-    setDeleteBusy(true);
-    await runListAction(async () => {
-      await getContainer().sharing.unpinShared("reading_list", list.id);
-      onReload();
-    }, setActionError);
-    setDeleteBusy(false);
+  // Unpinning a shared list removes only your copy; the owner keeps theirs.
+  function unpinList() {
+    deferDelete({
+      keys: [listKey(list.id)],
+      message: `"${list.name}" removed from your lists`,
+      commit: async () => {
+        await getContainer().sharing.unpinShared("reading_list", list.id);
+        onReload();
+      },
+    });
   }
 
   /** Show the new order at once; roll it back if saving it fails. */
@@ -211,6 +216,8 @@ export function ListNode(props: ListNodeProps) {
   const availableNotes = notes.filter((n) => !memberNoteIds.has(n.id));
   const canAdd = availablePapers.length > 0 || availableNotes.length > 0;
   const countLabel = listCountLabel(items);
+
+  if (hiddenKeys.has(listKey(list.id))) return null;
 
   return (
     <li id={`list-${list.id}`} className="list-node" style={{ "--depth": depth } as CSSProperties}>
@@ -238,15 +245,14 @@ export function ListNode(props: ListNodeProps) {
         {(!readOnly || isPinned) && (
           // Share and Delete sit behind one ⋯, as on every entity card: deleting
           // a list is rare, and a red icon on every row was the loudest thing
-          // on the screen. `deleteList` still asks before it removes anything.
+          // on the screen. Delete can be undone from its toast.
           <EntityCardMenu
             resourceType="reading_list"
             resourceId={list.id}
             title={`Share: ${list.name}`}
             name={list.name}
-            onDelete={isPinned ? () => void unpinList() : () => void deleteList()}
-            deleteLabel={isPinned ? "Remove from lists" : "Delete list…"}
-            deleteDisabled={deleteBusy}
+            onDelete={isPinned ? unpinList : deleteList}
+            deleteLabel={isPinned ? "Remove from lists" : "Delete list"}
           />
         )}
         <CommentsToggle

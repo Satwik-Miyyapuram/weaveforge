@@ -219,7 +219,7 @@ export function PlanScreen() {
       </ScreenHead>
 
       {composeOpen && (
-        <Modal title="Add a milestone" onClose={() => setComposeOpen(false)}>
+        <Modal title="New milestone" onClose={() => setComposeOpen(false)}>
           <MilestoneForm
             papers={papers}
             experiments={experiments}

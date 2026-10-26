@@ -12,16 +12,7 @@
   color: var(--text);
 }
 
-.appearance-head { margin: 8px 0 32px; }
-.appearance-title {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: var(--fs-h1);
-  font-weight: 500;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-}
-.appearance-lede { margin: 6px 0 0; color: var(--muted); font-size: var(--fs); }
+.appearance-lede { margin: 6px 0 32px; }
 
 .appearance-section { margin: 0 0 36px; }
 .appearance-section > .record-section-head { margin-bottom: 0; }

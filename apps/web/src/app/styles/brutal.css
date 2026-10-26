@@ -66,7 +66,6 @@
   .screen-head h1,
   .screen-title,
   .record-title,
-  .appearance-title,
   .modal-head h3,
   .dashboard-card-title,
   .app-brand
@@ -76,12 +75,12 @@
   letter-spacing: -0.02em;
   text-transform: none;
 }
-:root[data-theme="crt"] :is(.screen-head h1, .screen-title, .record-title, .appearance-title, .modal-head h3, .dashboard-card-title, .app-brand) {
+:root[data-theme="crt"] :is(.screen-head h1, .screen-title, .record-title, .modal-head h3, .dashboard-card-title, .app-brand) {
   letter-spacing: 0;
   line-height: 1;
   text-shadow: 1px 0 rgba(199, 55, 41, 0.45), -1px 0 rgba(31, 109, 171, 0.45), 0 3px 0 rgba(43, 34, 43, 0.18);
 }
-:root[data-theme="crt"] :is(.screen-head h1, .screen-title, .record-title, .appearance-title) { font-size: 2.75rem; }
+:root[data-theme="crt"] :is(.screen-head h1, .screen-title, .record-title) { font-size: 2.75rem; }
 :root[data-theme="crt"] :is(.modal-head h3, .dashboard-card-title) { font-size: 1.6rem; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
   .record-section-head,
