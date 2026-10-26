@@ -41,6 +41,8 @@
   --active-bg: var(--accent-soft);
   --active-fg: var(--accent);
   --accent-ink: var(--accent);
+  /* Every link reads this; themes tune --accent-ink, not links one by one. */
+  --link: var(--accent-ink);
   --clay: var(--s-warn);
   --danger: var(--s-danger);
   --nav-bg: var(--surface);

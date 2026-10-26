@@ -126,6 +126,8 @@ html, body { margin: 0; padding: 0; }
 /* Native controls take the app font. Left to the UA they render in Arial at
    13.33px (the palette rows, the supervision picker). */
 button, input, select, textarea { font: inherit; }
+/* Element weight only, so any class rule for a link still wins. */
+a { color: var(--link); }
 
 /* Source text shows what was typed: `<!--` and `->` stay characters, not
    arrows. `:root` lifts it above rules that reset `font` by shorthand. */

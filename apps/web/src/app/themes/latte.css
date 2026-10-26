@@ -14,6 +14,8 @@
   --accent-soft: #dce4fb;
   /* Darker than --accent so the active nav item reads at 4.5:1. */
   --active-fg: #1a56d0;
+  /* Same darker accent for link text, AA on every surface. */
+  --accent-ink: #1a56d0;
   --s-neutral: #65687d;  --s-neutral-bg: #e6e9ef;
   --s-info: #19738d;     --s-info-bg: #d9eef2;
   --s-good: #317921;     --s-good-bg: #e0f0dc;

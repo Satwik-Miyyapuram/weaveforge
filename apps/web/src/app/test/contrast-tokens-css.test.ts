@@ -69,3 +69,24 @@ test("explorer suffix and section count use muted (DA-35)", () => {
 test("the graph settings badge uses the text-on-accent token (DA-35)", () => {
   assert.match(rule(read("../styles/graph.css"), ".graph-stage-settings .graph-settings-count,\n.graph-settings-count"), /color:\s*var\(--accent-fg\);/);
 });
+
+// Brutal and CRT set their own ink: plain text colour, underlined.
+const ownInk = new Set(["brutal.css", "brutal-dark.css", "crt.css"]);
+
+test("link ink is AA on bg, surface and surface2 in every theme (DA-31, D05)", () => {
+  for (const file of themeFiles) {
+    if (ownInk.has(file)) continue;
+    const t = tokens(read(`../themes/${file}`));
+    const ink = t["accent-ink"] ?? t.accent;
+    for (const ground of ["bg", "surface", "surface2"]) {
+      const ratio = contrast(ink, t[ground]);
+      assert.ok(ratio >= 4.5, `${file} link on ${ground} is ${ratio.toFixed(2)}`);
+    }
+  }
+});
+
+test("every link reads one token, set once (D05)", () => {
+  assert.match(read("../themes/common.css"), /--link:\s*var\(--accent-ink\);/);
+  assert.match(rule(read("../styles/base.css"), "a"), /color:\s*var\(--link\);/);
+  assert.match(rule(read("../styles/markdown.css"), ".markdown a"), /color:\s*var\(--link\);/);
+});
