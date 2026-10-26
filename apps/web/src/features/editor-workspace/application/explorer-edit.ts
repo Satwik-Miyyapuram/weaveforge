@@ -59,14 +59,25 @@ export function rootOf(node: Pick<WorkspaceTreeNode, "key" | "kind" | "isMember"
   return ROOT_OF_KIND[node.kind] ?? null;
 }
 
-/** The kinds a draft under `node` may take; empty for Papers, lists and headings. A folder only goes under a folder. */
-export function creatableUnder(
-  node: Pick<WorkspaceTreeNode, "key" | "kind" | "isMember" | "headingLevel"> & { children?: readonly unknown[] },
-): readonly CreateKind[] {
+type HolderNode = Pick<WorkspaceTreeNode, "key" | "kind" | "isMember" | "headingLevel" | "isFolder"> & {
+  children?: readonly unknown[];
+};
+
+/**
+ * Whether `node` may hold rows of its root. Notes nest only in folders, never
+ * under a note (E45); a page that already holds pages counts as a folder. A
+ * report section takes subsections.
+ */
+function holdsChildren(node: HolderNode, root: EditableRoot): boolean {
+  if (!isDocumentNode(node) || root !== "notes") return true;
+  return node.isFolder === true || Boolean(node.children?.length);
+}
+
+/** The kinds a draft under `node` may take; empty for Papers, lists, headings and a note. */
+export function creatableUnder(node: HolderNode): readonly CreateKind[] {
   const root = rootOf(node);
-  if (!root) return [];
-  const leafNote = isDocumentNode(node) && !node.children?.length;
-  return leafNote ? CREATABLE[root].filter((k) => k !== "folder") : CREATABLE[root];
+  if (!root || !holdsChildren(node, root)) return [];
+  return CREATABLE[root];
 }
 
 /** The root a *kind* belongs to — the kind-only half of `rootOf`. */
@@ -115,7 +126,7 @@ export function creationTarget(
 
 /**
  * Whether `source` may be dropped on `target`: same root, a real target (a
- * root row or a row of that root), and not the source itself or anything
+ * root row, a note folder, or a section), and not the source itself or anything
  * beneath it — a drop there would loop the parent chain.
  */
 export function canDrop(
@@ -126,6 +137,7 @@ export function canDrop(
   if (!root || !source.id || rootOf(target) !== root) return false;
   if (target.key === source.key) return false;
   if (isDocumentNode(target) && !target.id) return false;
+  if (!holdsChildren(target, root)) return false;
   return !isDescendant(source, target);
 }
 

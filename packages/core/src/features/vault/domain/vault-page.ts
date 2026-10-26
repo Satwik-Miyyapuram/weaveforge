@@ -23,6 +23,7 @@ export interface NewVaultPageInput {
   body?: string;
   parentId?: string;
   sortOrder?: number;
+  isFolder?: boolean;
 }
 
 /**
@@ -51,6 +52,11 @@ export interface VaultPageSummary extends Identifiable {
   parentId?: string;
   /** The owner pinned it; the Notes screen lists pinned notes first. */
   pinned?: boolean;
+  /**
+   * A folder holds pages; a note never does. A page that already holds pages
+   * (made before this flag existed) is treated as a folder too.
+   */
+  isFolder?: boolean;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -100,6 +106,7 @@ export function createVaultPage(
     title,
     body: input.body ?? "",
     parentId: input.parentId,
+    ...(input.isFolder ? { isFolder: true } : {}),
     sortOrder: input.sortOrder ?? 0,
     createdAt: now,
     updatedAt: now,

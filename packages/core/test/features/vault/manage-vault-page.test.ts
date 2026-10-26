@@ -70,8 +70,8 @@ test("update: throws for unknown id and blank title; remove deletes", async () =
 
 test("update: moves a page under another, to the top with null, and never into itself", async () => {
   const { uc } = makeUseCase();
-  const folder = await uc.add({ title: "Folder" });
-  const page = await uc.add({ title: "Page" });
+  const folder = await uc.add({ title: "Folder", isFolder: true });
+  const page = await uc.add({ title: "Page", isFolder: true });
   const moved = await uc.update(page.id, { parentId: folder.id });
   assert.equal(moved.parentId, folder.id);
   // Absent leaves the parent alone; null clears it.
@@ -95,8 +95,8 @@ test("update: pins and unpins a note, keeping its body", async () => {
 
 test("update: keeps its exact move refusals: self, descendant, missing parent (xhelp-18)", async () => {
   const { repo, uc } = makeUseCase();
-  const a = await uc.add({ title: "A" });
-  const b = await uc.add({ title: "B", parentId: a.id });
+  const a = await uc.add({ title: "A", isFolder: true });
+  const b = await uc.add({ title: "B", parentId: a.id, isFolder: true });
   const c = await uc.add({ title: "C", parentId: b.id });
   const inside = { name: "VaultPageValidationError", message: "A note cannot be moved inside itself." };
   await assert.rejects(uc.update(a.id, { parentId: a.id }), inside);
@@ -132,4 +132,57 @@ test("the duplicate-title check reads no page list (05-02)", async () => {
   await uc.update(a.id, { title: "Beta" });
   await uc.add({ title: "alpha" });
   assert.equal(listed, 0);
+});
+
+// Notes are not nested in notes: only a folder holds pages. A page that
+// already holds pages (made before folders had a flag) counts as a folder.
+const NOT_A_FOLDER = { name: "VaultPageValidationError", message: "A note can only go in a folder." };
+
+test("add: a folder is marked; a note is not", async () => {
+  const { repo, uc } = makeUseCase();
+  const folder = await uc.add({ title: "Folder", isFolder: true });
+  const note = await uc.add({ title: "Note" });
+  assert.equal(folder.isFolder, true);
+  assert.equal(note.isFolder, undefined);
+  const summaries = await repo.listSummaries();
+  assert.equal(summaries.find((p) => p.id === folder.id)?.isFolder, true);
+});
+
+test("add: a page goes in a folder, never under a note", async () => {
+  const { uc } = makeUseCase();
+  const folder = await uc.add({ title: "Folder", isFolder: true });
+  const note = await uc.add({ title: "Note" });
+  assert.equal((await uc.add({ title: "In folder", parentId: folder.id })).parentId, folder.id);
+  assert.equal((await uc.add({ title: "Sub", parentId: folder.id, isFolder: true })).isFolder, true);
+  await assert.rejects(uc.add({ title: "Under note", parentId: note.id }), NOT_A_FOLDER);
+  await assert.rejects(uc.add({ title: "Folder under note", parentId: note.id, isFolder: true }), NOT_A_FOLDER);
+  await assert.rejects(uc.add({ title: "Ghost", parentId: "nope" }), { name: "NotFoundError" });
+});
+
+test("a page that already holds pages counts as a folder (legacy data)", async () => {
+  const { repo, uc } = makeUseCase();
+  const old = await uc.add({ title: "Old parent" });
+  const child = await uc.add({ title: "Child" });
+  await repo.save({ ...(await repo.getById(child.id))!, parentId: old.id });
+  assert.equal((await uc.add({ title: "Another", parentId: old.id })).parentId, old.id);
+});
+
+test("update: a move lands in a folder or the top, never under a note", async () => {
+  const { uc } = makeUseCase();
+  const folder = await uc.add({ title: "Folder", isFolder: true });
+  const note = await uc.add({ title: "Note" });
+  const page = await uc.add({ title: "Page" });
+  await assert.rejects(uc.update(page.id, { parentId: note.id }), NOT_A_FOLDER);
+  assert.equal((await uc.update(page.id, { parentId: folder.id })).parentId, folder.id);
+  assert.equal((await uc.update(page.id, { parentId: null })).parentId, undefined);
+  // A rename never re-checks the parent it already has.
+  assert.equal((await uc.update(note.id, { title: "Renamed" })).title, "Renamed");
+});
+
+test("update: a page can be made a folder, which then takes pages", async () => {
+  const { uc } = makeUseCase();
+  const root = await uc.add({ title: "Wiki" });
+  const page = await uc.add({ title: "Page" });
+  assert.equal((await uc.update(root.id, { isFolder: true })).isFolder, true);
+  assert.equal((await uc.update(page.id, { parentId: root.id })).parentId, root.id);
 });

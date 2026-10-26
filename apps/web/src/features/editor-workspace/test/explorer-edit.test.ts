@@ -22,6 +22,8 @@ function tree() {
       { id: "n1", title: "Methods", parentId: undefined },
       { id: "n2", title: "Sampling", parentId: "n1" },
       { id: "n3", title: "Sketch", parentId: "n2", kind: "ink_page" },
+      { id: "n4", title: "Drafts", parentId: undefined, isFolder: true },
+      { id: "n5", title: "Ideas", parentId: undefined },
     ],
     papers: [{ id: "p1", title: "A paper", hasNote: false }],
     reportSections: [
@@ -47,11 +49,13 @@ function findOr(nodes: readonly WorkspaceTreeNode[], key: string): WorkspaceTree
   }
 }
 
-test("rules: Notes takes notes, and folders under a folder; Report takes sections; Papers takes nothing", () => {
+test("rules: a Notes folder takes notes and folders, a note takes nothing (E45); Report takes sections; Papers takes nothing", () => {
   const roots = tree();
   assert.deepEqual(creatableUnder(find(roots, rootKey("notes"))), ["note", "folder"]);
   assert.deepEqual(creatableUnder(find(roots, "vault_page:n2")), ["note", "folder"]);
-  assert.deepEqual(creatableUnder(find(roots, "ink_page:n3")), ["note"]);
+  assert.deepEqual(creatableUnder(find(roots, "ink_page:n3")), [], "a note is not a folder");
+  assert.deepEqual(creatableUnder(find(roots, "vault_page:n5")), [], "a note is not a folder");
+  assert.deepEqual(creatableUnder(find(roots, "vault_page:n4")), ["note", "folder"], "an empty folder");
   assert.deepEqual(creatableUnder(find(roots, rootKey("report"))), ["section"]);
   assert.deepEqual(creatableUnder(find(roots, "report_section:s2")), ["section"]);
   assert.deepEqual(creatableUnder(find(roots, "papers")), []);
@@ -99,6 +103,12 @@ test("drop: same root only, never onto itself or its own descendant", () => {
   assert.equal(canDrop(n2, s2), false, "another root");
   assert.equal(canDrop(n2, find(roots, "paper:p1")), false);
   assert.equal(canDrop(s2, find(roots, "report")), true);
+  const n4 = find(roots, "vault_page:n4");
+  const n5 = find(roots, "vault_page:n5");
+  assert.equal(canDrop(n5, n4), true, "into an empty folder");
+  assert.equal(canDrop(n4, n5), false, "never under a note (E45)");
+  assert.equal(canDrop(n2, n3), false, "never under a note");
+  assert.equal(canDrop(n3, n5), false, "never under a note");
   assert.equal(dropParentId(find(roots, "notes")), null);
   assert.equal(dropParentId(n1), "n1");
 });

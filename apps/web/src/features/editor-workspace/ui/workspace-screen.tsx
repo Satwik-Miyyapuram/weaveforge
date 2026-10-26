@@ -352,7 +352,7 @@ export function WorkspaceScreen() {
   // it, then opened as a tab. Titles are unique, so a title that exists
   // already opens rather than fails.
   const createNote = useCallback(
-    async (input: { title: string; parentId?: string; ink?: boolean }, opts: { open?: boolean } = {}) => {
+    async (input: { title: string; parentId?: string; ink?: boolean; isFolder?: boolean }, opts: { open?: boolean } = {}) => {
       const wanted = normalizeTitleKey(input.title);
       const existing = (documents ?? []).find(
         (doc) => isCreatableKind(doc.kind) && normalizeTitleKey(doc.title) === wanted,
@@ -366,6 +366,7 @@ export function WorkspaceScreen() {
             await getContainer().vault.manageVaultPage.add({
               title: input.title,
               parentId: input.parentId,
+              ...(input.isFolder ? { isFolder: true } : {}),
               ...(body !== undefined ? { body } : {}),
             })
           ).id;
@@ -378,7 +379,7 @@ export function WorkspaceScreen() {
 
   /**
    * The explorer's draft row, submitted. A note or folder goes through
-   * `createNote` — a folder *is* a note, one that will hold children — and a
+   * `createNote` — a folder is a page marked to hold notes (E45) — and a
    * section through the report's use case. A failure (a duplicate title, an
    * empty one) rejects, and the panel prints it under the row.
    */
@@ -395,7 +396,7 @@ export function WorkspaceScreen() {
       }
       const makes = draftMakes(target.kind);
       await createNote(
-        { title, parentId: target.parentId ?? undefined, ink: makes.ink },
+        { title, parentId: target.parentId ?? undefined, ink: makes.ink, isFolder: target.kind === "folder" },
         { open: makes.opens },
       );
     },
