@@ -76,7 +76,7 @@ function sourceFiles(dir = fileURLToPath(new URL("../../", import.meta.url))): {
 }
 
 test("no button is labelled with a bare text glyph; icons are SVG (DA-82)", () => {
-  const glyphOnly = /<button\b(?:=>|>=|<=|[^>])*>\s*[-−+‹›✕×⋯⇅☰]\s*<\/button>/g;
+  const glyphOnly = /<button\b(?:[^<>=]|=(?:>|(?!>))|<(?:=|(?!=))|>=)*>\s*[-−+‹›✕×⋯⇅☰]\s*<\/button>/g;
   const hits = sourceFiles().flatMap(({ rel, text }) => [...text.matchAll(glyphOnly)].map(() => rel));
   assert.deepEqual(hits, []);
 });

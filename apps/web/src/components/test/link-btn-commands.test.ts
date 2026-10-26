@@ -34,7 +34,7 @@ function firstWords(body: string): string {
 
 export function linkStyledCommands(text: string): string[] {
   const hits: string[] = [];
-  const re = /<button\b((?:=>|>=|<=|[^>])*)>([\s\S]*?)<\/button>/g;
+  const re = /<button\b((?:[^<>=]|=(?:>|(?!>))|<(?:=|(?!=))|>=)*)>([\s\S]*?)<\/button>/g;
   for (const m of text.matchAll(re)) {
     if (!/className=[{"`][^>]*\blink-btn\b/.test(m[1] ?? "")) continue;
     const words = firstWords(m[2] ?? "");
