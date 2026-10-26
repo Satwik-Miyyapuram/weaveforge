@@ -7,11 +7,11 @@ import { tagTone } from "@/lib/tag-tone";
  * Shared entity list card chrome — papers, report sections, notes, experiments,
  * milestones. Fill slots; don't fork the layout per screen.
  *
- * Layout: [leading?] title ……… menu
- *         badge · status · actions
+ * Layout: [leading?] title ……… badge · status · actions · menu
  *         meta
  *         tags / body
- * The head holds only the title and ⋯, so the title gets the width (D09).
+ * The title keeps a floor width; when the card is too narrow for both, the
+ * controls wrap under it as one unit instead of squeezing it (D09, E42).
  */
 const MAX_CARD_TAGS = 3;
 
@@ -65,7 +65,7 @@ export function EntityCard({
     .filter(Boolean)
     .join(" ");
 
-  const hasControls = Boolean(badge != null || status != null || actions);
+  const hasControls = Boolean(badge != null || status != null || actions || menu);
   const hasMeta = meta != null && meta !== "";
 
   function stop(e: MouseEvent | KeyboardEvent) {
@@ -95,20 +95,15 @@ export function EntityCard({
       <div className="entity-card-head">
         {leading}
         <h3 className="entity-card-title">{title}</h3>
-        {menu && (
-          <div className="entity-card-menu-slot" onClick={stop} onKeyDown={stop}>
+        {hasControls && (
+          <div className="entity-card-controls" onClick={stop} onKeyDown={stop}>
+            {badge}
+            {status != null && <div className="entity-card-status">{status}</div>}
+            {actions}
             {menu}
           </div>
         )}
       </div>
-
-      {hasControls && (
-        <div className="entity-card-controls" onClick={stop} onKeyDown={stop}>
-          {badge}
-          {status != null && <div className="entity-card-status">{status}</div>}
-          {actions}
-        </div>
-      )}
 
       {hasMeta && <p className="entity-card-meta">{meta}</p>}
 

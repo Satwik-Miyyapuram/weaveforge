@@ -15,6 +15,7 @@ import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
 import { daysUntilDate } from "@/features/plan/application/plan-timeline";
+import { formatDate } from "@/lib/format-date";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
 import { runReported } from "@/lib/run-reported";
@@ -138,7 +139,7 @@ export function MilestoneCard({
       meta={
         m.targetDate
             ? [
-              `Due ${m.targetDate}`,
+              `Due ${formatDate(m.targetDate)}`,
               due != null && m.status !== "done"
                 ? due < 0
                   ? `${-due}d overdue`

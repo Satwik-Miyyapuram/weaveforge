@@ -7,7 +7,10 @@ type DateInput = string | number | Date | null | undefined;
 
 function parse(input: DateInput): Date | null {
   if (input === null || input === undefined || input === "") return null;
-  const d = input instanceof Date ? input : new Date(input);
+  // A bare "YYYY-MM-DD" is a calendar day, not UTC midnight (which is the day
+  // before west of Greenwich).
+  const day = typeof input === "string" ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(input) as [string, string, string, string] | null : null;
+  const d = day ? new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])) : input instanceof Date ? input : new Date(input);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 

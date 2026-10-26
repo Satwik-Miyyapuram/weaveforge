@@ -15,6 +15,10 @@
   cursor: pointer;
   transition: background var(--dur-base), color var(--dur-base), border-color var(--dur-base);
 }
+/* The shared button rule pads every button 7px 13px at :root:root weight;
+   on this 36px square that left the icon 9px wide. An icon button has no padding. */
+:root:root .dashboard-customize-btn { padding: 0; }
+.dashboard-customize-btn svg { flex: none; }
 .dashboard-customize-btn:hover {
   background: var(--pill);
   color: var(--ink);

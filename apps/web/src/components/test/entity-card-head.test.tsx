@@ -1,4 +1,4 @@
-/** The card head holds only the title and ⋯, so the title gets the width (D09, DA-24, DA-26). */
+/** Status sits in line with the title; the title keeps a floor width and the controls wrap under as one unit (D09, E42). */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -7,30 +7,48 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { EntityCard } from "../entity-card";
 
-const head = (html: string) => html.match(/<div class="entity-card-head">([\s\S]*?)<\/div><div class="entity-card-controls"|<div class="entity-card-head">([\s\S]*)$/);
+const css = () => readFileSync(fileURLToPath(new URL("../../app/styles/entity-cards.css", import.meta.url)), "utf8");
+const rule = (sel: string) => {
+  const s = css();
+  const i = s.indexOf(`${sel} {`);
+  assert.ok(i >= 0, `missing rule ${sel}`);
+  return s.slice(i, s.indexOf("}", i));
+};
 
-test("status, badge and actions sit under the title, not beside it", () => {
+test("badge, status, actions and ⋯ sit in the head, after the title (E42)", () => {
   const html = renderToStaticMarkup(
     <EntityCard
       title="A very long paper title"
+      leading={<span className="lead-x" />}
       badge={<span className="badge-x">Shared</span>}
       status={<span className="status-x">Reading</span>}
       actions={<span className="actions-x">2</span>}
       menu={<button type="button" className="menu-x">⋯</button>}
     />,
   );
-  const m = head(html);
-  assert.ok(m, html);
-  const inHead = m[1] ?? "";
-  assert.match(inHead, /entity-card-title/);
-  assert.match(inHead, /menu-x/);
-  for (const cls of ["badge-x", "status-x", "actions-x"]) assert.doesNotMatch(inHead, new RegExp(cls));
-  const controls = html.slice(html.indexOf('class="entity-card-controls"'));
-  for (const cls of ["badge-x", "status-x", "actions-x"]) assert.match(controls, new RegExp(cls));
+  const headStart = html.indexOf('class="entity-card-head"');
+  const metaOrEnd = html.indexOf("</article>") > 0 ? html.indexOf("</article>") : html.length;
+  const head = html.slice(headStart, metaOrEnd);
+  const order = ["lead-x", "entity-card-title", "badge-x", "status-x", "actions-x", "menu-x"].map((c) => head.indexOf(c));
+  for (const i of order) assert.ok(i > 0, html);
+  assert.deepEqual([...order].sort((a, b) => a - b), order, "order lead, title, badge, status, actions, ⋯");
+  // One cluster inside the head, no separate row below it.
+  assert.equal(html.match(/class="entity-card-controls"/g)?.length, 1);
+  assert.ok(html.indexOf('class="entity-card-controls"') > headStart);
 });
 
-test("a card with no status or badge draws no controls row", () => {
-  const html = renderToStaticMarkup(<EntityCard title="Note" menu={<button type="button">⋯</button>} />);
+test("the title keeps a floor width; the controls wrap under it as one unit", () => {
+  assert.match(rule(".entity-card-head"), /flex-wrap: wrap/);
+  assert.match(rule(".entity-card-head > .entity-card-title"), /flex: 1 1 \d+ch/);
+  const c = rule(".entity-card-controls");
+  assert.match(c, /flex: none/);
+  assert.match(c, /margin-left: auto/);
+  assert.doesNotMatch(c, /margin-top/);
+  assert.doesNotMatch(css(), /\.entity-card-controls > \.entity-card-status \{ margin-right: auto/);
+});
+
+test("a card with nothing but a title draws no controls", () => {
+  const html = renderToStaticMarkup(<EntityCard title="Note" />);
   assert.doesNotMatch(html, /entity-card-controls/);
 });
 

@@ -1,6 +1,8 @@
 /** One date format in the UI: "1 Jul 2026", relative under a week (D12, D-01). */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { formatDate, formatDateTime, formatRelative } from "../format-date";
 
@@ -31,4 +33,15 @@ test("recent activity reads relative, older falls back to the date", () => {
   assert.equal(formatRelative("2026-07-01T12:00:00", now), "1 Jul 2026");
   // A clock a little ahead never says "in 2m".
   assert.equal(formatRelative("2026-07-10T12:02:00", now), "Just now");
+});
+
+test("a date-only value is that calendar day in any timezone", () => {
+  // new Date("2026-07-01") is UTC midnight, which is 30 Jun west of Greenwich.
+  assert.equal(formatDate("2026-07-01"), "1 Jul 2026");
+  assert.equal(formatDate("2026-12-31"), "31 Dec 2026");
+});
+
+test("a milestone card shows its due date formatted, not ISO (D12)", () => {
+  const src = readFileSync(fileURLToPath(new URL("../../features/plan/ui/milestone-card.tsx", import.meta.url)), "utf8");
+  assert.match(src, /`Due \$\{formatDate\(m\.targetDate\)\}`/);
 });

@@ -192,19 +192,19 @@
      the same title wrapped raggedly on /papers and evenly on the pitch. */
   text-wrap: balance;
 }
-/* The head is [lead] title ⋯ and nothing else, so a pill never squeezes the
-   title into a mid-word break (D09). Status, badge and counts take the row under it. */
-.entity-card-head > .entity-card-title { text-wrap: pretty; }
-.entity-card-menu-slot { flex: none; margin: -4px -6px 0 0; }
+/* The head is [lead] title … badge · status · ⋯ on one line. The title keeps
+   a 14ch floor; below that the controls wrap under it as one unit, so a pill
+   never squeezes the title into a mid-word break (D09, E42). */
+.entity-card-head { flex-wrap: wrap; row-gap: 6px; }
+.entity-card-head > .entity-card-title { flex: 1 1 14ch; text-wrap: pretty; }
 .entity-card-controls {
+  flex: none;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  min-width: 0;
-  margin-top: 6px;
+  margin-left: auto;
+  margin-right: -6px;
 }
-.entity-card-controls > .entity-card-status { margin-right: auto; }
 .entity-card-status {
   flex: none;
   display: flex;
