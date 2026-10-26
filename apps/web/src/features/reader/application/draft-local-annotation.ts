@@ -166,6 +166,23 @@ export function draftImageRegion(input: {
   };
 }
 
+type PdfRect = [number, number, number, number];
+
+/**
+ * A text box's rect once its words need `height` PDF points: it grows down,
+ * its top edge kept where it was drawn, and never shrinks below that.
+ */
+export function grownTextRect(rect: PdfRect, height: number): PdfRect {
+  const [x0, y0, x1, y1] = rect;
+  return height > y1 - y0 ? [x0, y1 - height, x1, y1] : rect;
+}
+
+/** A PDF rect as the bottom-left corner and size a draft takes. */
+export function textBoxFromRect(rect: PdfRect): { x: number; y: number; width: number; height: number } {
+  const [x0, y0, x1, y1] = rect;
+  return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
+}
+
 export function draftTextBox(input: {
   color: string;
   pageIndex: number;

@@ -51,6 +51,7 @@ import {
 import {
   draftFromTextSelection,
   draftTextBox,
+  textBoxFromRect,
 } from "../../application/draft-local-annotation";
 import {
   isDismissTap,
@@ -549,7 +550,7 @@ export function PdfReader({
     };
   }, [pendingTextBox, editingTextId, annotations]);
   const commitText = useCallback(
-    (text: string) => {
+    (text: string, rect?: [number, number, number, number]) => {
       if (pendingTextBox) {
         const { pageIndex, pageHeight, x, y, width, height } = pendingTextBox;
         setPendingTextBox(null);
@@ -559,9 +560,8 @@ export function PdfReader({
             pageIndex,
             pageHeight,
             text,
-            x,
-            y,
-            ...(width != null && height != null ? { width, height } : {}),
+            // The rect the box grew to while typing, else as it was drawn.
+            ...(rect ? textBoxFromRect(rect) : { x, y, ...(width != null && height != null ? { width, height } : {}) }),
           }),
         );
         return;

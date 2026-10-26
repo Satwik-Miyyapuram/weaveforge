@@ -1,5 +1,5 @@
 .pdf-reader {
-  --pdf-paper: var(--white); --pdf-ink: #111; --pdf-find: #f5c400;
+  --pdf-paper: var(--white); --pdf-ink: var(--page-ink); --pdf-find: var(--page-find);
   container-type: inline-size;
   display: flex;
   flex-direction: column;
@@ -480,7 +480,7 @@ body > canvas.hiddenCanvasElement { display: none; }
 .pdf-reader-text-edit {
   opacity: 1; color: var(--pdf-ink); text-align: left; line-height: 1.25;
   padding: 0.2em 0.35em; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font);
 }
 .pdf-reader-text-edit {
   position: absolute; z-index: 4; box-sizing: border-box; resize: none;
@@ -598,7 +598,7 @@ body > canvas.hiddenCanvasElement { display: none; }
    canvas is cleared, and a white box behind it flashed the page white for a
    frame. Painting the box the *filtered* colour is what stops the flash; the
    app's own dark surface would be just as wrong here as the white one. */
-.pdf-reader--dark { --pdf-paper: var(--black); --pdf-ink: #eee; --pdf-margin: #1f1f1f; }
+.pdf-reader--dark { --pdf-paper: var(--black); --pdf-ink: var(--page-ink-dark); --pdf-margin: var(--page-margin-dark); }
 .pdf-reader--dark .pdf-reader-ann { mix-blend-mode: screen; }
 .pdf-reader--dark .pdf-reader-ann.is-text { color: var(--pdf-ink); mix-blend-mode: normal; }
 .pdf-reader--dark .pdf-reader-text-edit { color: var(--pdf-ink); }

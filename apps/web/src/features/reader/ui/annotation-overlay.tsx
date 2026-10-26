@@ -14,6 +14,7 @@ import {
   InkStrokes,
 } from "@/features/ink";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
+import { grownTextRect } from "../application/draft-local-annotation";
 import { projectPageAnnotationGeometry } from "../application/project-annotation-geometry";
 import { pagePictures } from "../application/reader-picture";
 import type { PictureEdit } from "./pdf-reader/use-pdf-pictures";
@@ -52,7 +53,8 @@ interface AnnotationOverlayProps {
   onPictureClose?: () => void;
   /** The text box being typed into on this page; given to that one page only. */
   textEdit?: TextEdit | null;
-  onTextCommit?: (text: string) => void;
+  /** The words, and the box's rect grown to fit them. */
+  onTextCommit?: (text: string, rect: [number, number, number, number]) => void;
   onTextCancel?: () => void;
   /** Double-click on a text box: edit it. */
   onEditText?: (id: string) => void;
@@ -280,8 +282,12 @@ function AnnotationOverlayInner({
   );
 }
 
-/** Typing straight into the box on the page: Enter or leaving saves, Escape drops. */
-function TextBoxEditor({
+/**
+ * Typing straight into the box on the page. It grows down as the words need
+ * room; Enter, Escape or leaving saves, with the grown rect. An empty box is
+ * dropped.
+ */
+export function TextBoxEditor({
   edit,
   projection,
   onCommit,
@@ -289,17 +295,19 @@ function TextBoxEditor({
 }: {
   edit: TextEdit;
   projection: { pageWidth: number; pageHeight: number; scale: number; rotation: number };
-  onCommit: (text: string) => void;
+  onCommit: (text: string, rect: [number, number, number, number]) => void;
   onCancel: () => void;
 }) {
   // Enter saves and unmounts, which blurs: without this the box saves twice.
   const done = useRef(false);
   const box = pdfRectToScreenBox(edit.rect, projection);
-  const finish = (text: string | null) => {
+  // Only an upright (or upside-down) page grows the box along its PDF height.
+  const upright = projection.rotation % 180 === 0;
+  const finish = (el: { value: string; scrollHeight: number }) => {
     if (done.current) return;
     done.current = true;
-    if (text == null || text.trim() === "") onCancel();
-    else onCommit(text);
+    if (el.value.trim() === "") return onCancel();
+    onCommit(el.value, upright ? grownTextRect(edit.rect, el.scrollHeight / projection.scale) : edit.rect);
   };
   return (
     <textarea
@@ -312,12 +320,15 @@ function TextBoxEditor({
       // The page row under it would start a new box with the same press.
       onPointerDown={(event) => event.stopPropagation()}
       onPointerUp={(event) => event.stopPropagation()}
-      onBlur={(event) => finish(event.currentTarget.value)}
+      onInput={(event) => {
+        const el = event.currentTarget;
+        if (upright) el.style.height = `${Math.max(box.height, el.scrollHeight)}px`;
+      }}
+      onBlur={(event) => finish(event.currentTarget)}
       onKeyDown={(event) => {
-        if (event.key === "Escape") finish(null);
-        else if (event.key === "Enter" && !event.shiftKey) {
+        if (event.key === "Escape" || (event.key === "Enter" && !event.shiftKey)) {
           event.preventDefault();
-          finish(event.currentTarget.value);
+          finish(event.currentTarget);
         }
       }}
     />
