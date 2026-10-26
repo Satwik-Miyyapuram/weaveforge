@@ -27,7 +27,7 @@ export function ThemeCardPicker({
   const radio = (id: string) => (
     <input
       type="radio"
-      className="themed-check"
+      className="wf-radio"
       name={name}
       value={id}
       checked={value === id}
