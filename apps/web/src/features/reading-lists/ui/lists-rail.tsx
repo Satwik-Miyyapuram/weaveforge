@@ -57,7 +57,7 @@ export function ListsRail({
       onClick={() => onSelect(r.list.id)}
     >
       <span className="list-color-dot" style={{ background: listDisplayColor(r.list) }} aria-hidden />
-      <span className="lists-rail-name">{r.list.name}</span>
+      <span className="lists-rail-name" title={r.list.name}>{r.list.name}</span>
       {r.sublists > 0 && (
         <span className="lists-rail-count" title={`${r.sublists} sublist${r.sublists === 1 ? "" : "s"}`}>
           {r.sublists}

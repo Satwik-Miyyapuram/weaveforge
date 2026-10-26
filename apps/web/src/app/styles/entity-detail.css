@@ -99,7 +99,12 @@ a.related-paper-url:hover { text-decoration: underline; }
   border: 1px solid var(--line); background: var(--neutral);
 }
 .card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.card-thumb-loading { position: absolute; inset: 0; background: var(--neutral); }
+.card-thumb-loading { position: absolute; inset: 0; background: var(--neutral); animation: card-thumb-pulse 1.2s ease-in-out infinite alternate; }
+.card-thumb-missing { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+@keyframes card-thumb-pulse { to { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) {
+  .card-thumb-loading { animation: none; }
+}
 .card-thumb-more {
   display: flex; align-items: center; justify-content: center;
   font-size: var(--fs-xs); color: var(--muted); background: var(--chip);

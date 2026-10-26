@@ -192,28 +192,19 @@
      the same title wrapped raggedly on /papers and evenly on the pitch. */
   text-wrap: balance;
 }
-/* Every card: status and controls float top-right; the title wraps around them. */
-.entity-card-heading { flex: 1; min-width: 0; display: flow-root; }
-.entity-card-actions {
-  float: right;
+/* The head is [lead] title ⋯ and nothing else, so a pill never squeezes the
+   title into a mid-word break (D09). Status, badge and counts take the row under it. */
+.entity-card-head > .entity-card-title { text-wrap: pretty; }
+.entity-card-menu-slot { flex: none; margin: -4px -6px 0 0; }
+.entity-card-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  margin: -4px -6px 2px 10px;
+  min-width: 0;
+  margin-top: 6px;
 }
-.entity-card-heading > .entity-card-title { text-wrap: pretty; }
-/* Phone: floated controls left ~85px for the title and split words mid-way. */
-/* Title first, beside its tick box; ⋯ alone sits beside it, status and ⋯ take the row under it. */
-@media (max-width: 479px) {
-  .entity-card .entity-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "lead title actions"; gap: 8px; }
-  .entity-card .entity-card-head:has(.entity-card-status) { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "lead title" "actions actions"; }
-  .entity-card-head:has(> :not(.entity-card-heading)) { column-gap: 12px; }
-  .entity-card-head > :not(.entity-card-heading) { grid-area: lead; }
-  .entity-card-heading { display: contents; }
-  .entity-card-heading > .entity-card-title { grid-area: title; align-self: center; }
-  .entity-card-actions { grid-area: actions; float: none; flex-wrap: wrap; justify-content: flex-start; margin: 0 -6px 0 0; }
-  .entity-card-actions > .entity-card-status { margin-right: auto; }
-}
+.entity-card-controls > .entity-card-status { margin-right: auto; }
 .entity-card-status {
   flex: none;
   display: flex;

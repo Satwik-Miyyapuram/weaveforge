@@ -7,9 +7,11 @@ import { tagTone } from "@/lib/tag-tone";
  * Shared entity list card chrome — papers, report sections, notes, experiments,
  * milestones. Fill slots; don't fork the layout per screen.
  *
- * Layout: [leading?] title ……… badge · status · actions · menu
+ * Layout: [leading?] title ……… menu
+ *         badge · status · actions
  *         meta
  *         tags / body
+ * The head holds only the title and ⋯, so the title gets the width (D09).
  */
 const MAX_CARD_TAGS = 3;
 
@@ -63,7 +65,7 @@ export function EntityCard({
     .filter(Boolean)
     .join(" ");
 
-  const hasControls = Boolean(badge != null || status != null || actions || menu);
+  const hasControls = Boolean(badge != null || status != null || actions);
   const hasMeta = meta != null && meta !== "";
 
   function stop(e: MouseEvent | KeyboardEvent) {
@@ -92,19 +94,21 @@ export function EntityCard({
     >
       <div className="entity-card-head">
         {leading}
-        {/* Controls float right so a long title wraps beside them, then runs full width. */}
-        <div className="entity-card-heading">
-          {hasControls && (
-            <div className="entity-card-actions" onClick={stop} onKeyDown={stop}>
-              {badge}
-              {status != null && <div className="entity-card-status">{status}</div>}
-              {actions}
-              {menu}
-            </div>
-          )}
-          <h3 className="entity-card-title">{title}</h3>
-        </div>
+        <h3 className="entity-card-title">{title}</h3>
+        {menu && (
+          <div className="entity-card-menu-slot" onClick={stop} onKeyDown={stop}>
+            {menu}
+          </div>
+        )}
       </div>
+
+      {hasControls && (
+        <div className="entity-card-controls" onClick={stop} onKeyDown={stop}>
+          {badge}
+          {status != null && <div className="entity-card-status">{status}</div>}
+          {actions}
+        </div>
+      )}
 
       {hasMeta && <p className="entity-card-meta">{meta}</p>}
 
@@ -113,7 +117,7 @@ export function EntityCard({
         // the body off-screen on a phone. One line, then a count.
         <div className="tag-chips chip-row--capped">
           {tags.slice(0, MAX_CARD_TAGS).map((t) => (
-            <span key={t} className="tag-chip">
+            <span key={t} className="tag-chip" title={`#${t}`}>
               #{t}
             </span>
           ))}

@@ -4,15 +4,25 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Paper, PaperSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
+import { ImageIcon } from "@/components/view-icons";
 
 const MAX_THUMBS = 3;
 
 /**
  * A row of up to three small image thumbnails for an entity card. Presentational
- * — the caller resolves the URLs. A null entry renders a placeholder tile so the
- * row does not reflow as images decrypt in.
+ * — the caller resolves the URLs. A null entry keeps its tile so the row does
+ * not reflow: a pulsing skeleton while `loading`, an image glyph once it is
+ * known there is nothing to draw (DA-33: a blank box read as broken).
  */
-function CardThumbs({ urls, total }: { urls: (string | null)[]; total?: number }) {
+export function CardThumbs({
+  urls,
+  total,
+  loading = false,
+}: {
+  urls: (string | null)[];
+  total?: number;
+  loading?: boolean;
+}) {
   if (urls.length === 0) return null;
   const extra = (total ?? urls.length) - urls.length;
   return (
@@ -22,8 +32,12 @@ function CardThumbs({ urls, total }: { urls: (string | null)[]; total?: number }
           {url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={url} alt="" loading="lazy" />
-          ) : (
+          ) : loading ? (
             <span className="card-thumb-loading" />
+          ) : (
+            <span className="card-thumb-missing">
+              <ImageIcon />
+            </span>
           )}
         </span>
       ))}
@@ -62,7 +76,7 @@ export function PaperCardThumbs({ paper }: { paper: PaperSummary | Paper }) {
   );
   const urls = useBlobObjectUrls(paths, fetchBlob);
   if (paths.length === 0) return null;
-  return <CardThumbs urls={paths.map((p) => urls.get(p) ?? null)} total={all.length} />;
+  return <CardThumbs urls={paths.map((p) => urls.get(p) ?? null)} total={all.length} loading />;
 }
 
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|avif)(\?|#|$)/i;
@@ -80,6 +94,7 @@ export function ExperimentCardThumbs({ artifacts }: { artifacts: readonly string
   const images = useMemo(() => artifacts.filter((u) => IMAGE_EXT.test(u)), [artifacts]);
   const shown = useMemo(() => images.slice(0, MAX_THUMBS), [images]);
   const [urls, setUrls] = useState<(string | null)[]>([]);
+  const [loading, setLoading] = useState(true);
   const key = shown.join("\u0000");
   useEffect(() => {
     let cancelled = false;
@@ -88,13 +103,17 @@ export function ExperimentCardThumbs({ artifacts }: { artifacts: readonly string
       return;
     }
     setUrls(shown.map(() => null));
+    setLoading(true);
     void getContainer()
       .experiments.artifactViewUrls(shown)
       .then((resolved) => {
         if (!cancelled) setUrls(resolved);
       })
       .catch(() => {
-        // Leave the placeholders rather than draw a broken image.
+        // Leave image glyphs rather than draw a broken image.
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -103,5 +122,5 @@ export function ExperimentCardThumbs({ artifacts }: { artifacts: readonly string
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   if (shown.length === 0) return null;
-  return <CardThumbs urls={urls.length ? urls : shown.map(() => null)} total={images.length} />;
+  return <CardThumbs urls={urls.length ? urls : shown.map(() => null)} total={images.length} loading={loading} />;
 }
