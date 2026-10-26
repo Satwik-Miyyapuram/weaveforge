@@ -252,3 +252,17 @@ test("a page whose only link has a blank target links out, and is neither orphan
     assert.equal(report.counts["dead-link"], 0, link);
   }
 });
+
+test("frontmatter is not content, and the prose after it is", () => {
+  const fm = "---\ntags: [x]\nsummary: a long line of metadata that is not prose at all\n---\n";
+  assert.equal(lintWiki([page("a", "A", `${fm}# A\n`)]).counts.empty, 1);
+  assert.equal(lintWiki([page("a", "A", `${fm}Real prose about this page, long enough to count.`)]).counts.empty, 0);
+  // An unclosed fence is not frontmatter: the text stays content.
+  assert.equal(lintWiki([page("a", "A", "---\nReal prose about this page, long enough to count.")]).counts.empty, 0);
+});
+
+test("a body of dashes with no closing fence lints in linear time", () => {
+  const started = performance.now();
+  lintWiki([page("a", "A", "---" + "-".repeat(200_000))]);
+  assert.ok(performance.now() - started < 1000, `took ${Math.round(performance.now() - started)} ms`);
+});

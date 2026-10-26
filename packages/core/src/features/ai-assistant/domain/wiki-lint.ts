@@ -46,9 +46,15 @@ export interface LintReport {
 /** A page with nothing but frontmatter and headings has no content of its own. */
 const MIN_CONTENT_CHARS = 40;
 
+/** The body without a leading `---` … `---` block; indexOf, not a regex, so it stays linear. */
+function withoutFrontmatter(body: string): string {
+  if (!body.startsWith("---")) return body;
+  const end = body.indexOf("---", 3);
+  return end < 0 ? body : body.slice(end + 3);
+}
+
 function contentLength(body: string): number {
-  return body
-    .replace(/^---[\s\S]*?---/, "")
+  return withoutFrontmatter(body)
     .replace(/^#{1,6}\s+.*$/gm, "")
     .replace(/^\s*[-*]\s+/gm, "")
     .replace(/\[\[[^\]]*\]\]/g, "")
