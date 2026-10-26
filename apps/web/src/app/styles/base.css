@@ -123,6 +123,14 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 
+/* Native controls take the app font. Left to the UA they render in Arial at
+   13.33px (the palette rows, the supervision picker). */
+button, input, select, textarea { font: inherit; }
+
+/* Source text shows what was typed: `<!--` and `->` stay characters, not
+   arrows. `:root` lifts it above rules that reset `font` by shorthand. */
+:root :is(code, pre, kbd, samp, .cm-content) { font-variant-ligatures: none; }
+
 /* Chrome on Android draws the tap highlight from an element's border-box rects,
    before the border-radius clip applies — so every rounded card, chip and icon
    button flashed a hard grey rectangle. Drop the UA overlay and supply our own
@@ -156,6 +164,9 @@ html {
      indistinguishable from a hung app. With the colour on the root as well, a
      missed paint shows the theme instead of a blackout. */
   background: var(--bg);
+  /* The page scrolls under the fixed title bar; keep a focused control clear
+     of it. */
+  scroll-padding-top: calc(var(--titlebar-h) + 8px);
 }
 html::-webkit-scrollbar { display: none; }
 body {
@@ -237,8 +248,10 @@ body {
   *::-webkit-scrollbar-thumb { transition: background-color 0.18s ease; }
 }
 
-/* Visible keyboard focus for all interactive controls (mouse clicks unaffected). */
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+/* Visible keyboard focus for all interactive controls (mouse clicks unaffected).
+   The one ring: the same token, width and offset as the states catalogue, and
+   no transition, so it is there the moment focus lands. */
+:focus-visible { outline: 3px solid var(--wf-focus, var(--accent)); outline-offset: 2px; border-radius: 4px; }
 
 /* Page fade-in, replayed on every route change (keyed by pathname). */
 @keyframes page-in { from { opacity: 0; } }

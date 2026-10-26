@@ -1614,6 +1614,12 @@
   flex: 1;
   min-height: 0;
 }
+/* The editor is a text field: it rings while it has focus, inset so the pane
+   edge does not clip it. */
+.md-live-host > .workspace-editor:focus-within {
+  outline: 3px solid var(--wf-focus, var(--accent));
+  outline-offset: -3px;
+}
 .md-live-pane {
   min-height: 0;
   min-width: 0;

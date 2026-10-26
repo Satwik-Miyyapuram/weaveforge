@@ -45,7 +45,7 @@ html:is([data-workspace-focus], [data-reader-focus], [data-ink-focus]) .title-ba
 }
 .title-bar-button:hover,
 .title-bar-button.open { background: var(--surface2); }
-.title-bar-button:focus-visible { outline: none; background: var(--surface2); }
+.title-bar-button:focus-visible { outline: 3px solid var(--wf-focus, var(--accent)); outline-offset: -3px; background: var(--surface2); }
 
 .popover-panel.title-bar-menu {
   -webkit-app-region: no-drag;
