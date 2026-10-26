@@ -17,6 +17,7 @@ import {
   APP_SCHEME,
   appHeaders,
   contentTypeFor,
+  canonicalAppUrl,
   isPageRequest,
   resolveAppFile,
 } from "./app-protocol";
@@ -438,6 +439,8 @@ function serveBundle(): void {
     // The `/api/*` routes the web app has on a server, relayed by the shell.
     const relayed = answerRelay(request, net.fetch);
     if (relayed) return relayed;
+    const canonical = canonicalAppUrl(request.url);
+    if (canonical) return new Response(null, { status: 308, headers: { location: canonical } });
 
     // A file, not merely a path: `/reader` names the `reader/` folder before
     // it names `reader/index.html`, and a folder handed to net.fetch throws.
