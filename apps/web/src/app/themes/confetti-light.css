@@ -15,6 +15,8 @@
   --accent: #7c5cd6;
   --accent-fg: #ffffff;
   --accent-soft: #ece4fd;
+  /* Darker than --accent so the active nav item reads at 4.5:1. */
+  --active-fg: #6a48c4;
   --s-neutral: #6b5bc8;  --s-neutral-bg: #eeebfd;
   --s-info: #1d73a7;     --s-info-bg: #e2f2fc;
   --s-good: #2d7b5c;     --s-good-bg: #ddf6ec;

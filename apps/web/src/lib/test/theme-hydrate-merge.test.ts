@@ -7,7 +7,7 @@ import test from "node:test";
 
 import type { UserAppearance } from "@weaveforge/core";
 import { mergeServerAppearance } from "@/lib/theme/theme-persistence";
-import { CARD_TINT_OPTIONS, sanitizeCardTint, sanitizeControlSize } from "@/lib/theme/theme";
+import { CARD_TINT_OPTIONS, THEME_BOOT_SCRIPT, sanitizeCardTint, sanitizeControlSize } from "@/lib/theme/theme";
 
 const LOCAL: UserAppearance = {
   mode: "light",
@@ -43,7 +43,12 @@ test("an absent customTheme keeps this device's", () => {
 
 test("sanitizeCardTint keeps every listed tint and defaults the rest", () => {
   for (const { id } of CARD_TINT_OPTIONS) assert.equal(sanitizeCardTint(id), id);
-  for (const bad of [null, undefined, "", "FULL", "toString"]) assert.equal(sanitizeCardTint(bad), "full");
+  for (const bad of [null, undefined, "", "FULL", "toString"]) assert.equal(sanitizeCardTint(bad), "bar");
+});
+
+test("the boot script defaults the card tint to bar (D-26)", () => {
+  assert.match(THEME_BOOT_SCRIPT, /\?ct:"bar"/);
+  assert.doesNotMatch(THEME_BOOT_SCRIPT, /\?ct:"full"/);
 });
 
 test("sanitizeControlSize keeps every size and defaults the rest", () => {

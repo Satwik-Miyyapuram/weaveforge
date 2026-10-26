@@ -165,7 +165,7 @@ export const CARD_TINT_OPTIONS: ReadonlyArray<{ id: CardTint; label: string; not
 ];
 
 export function sanitizeCardTint(id: string | null | undefined): CardTint {
-  return CARD_TINT_OPTIONS.find((option) => option.id === id)?.id ?? "full";
+  return CARD_TINT_OPTIONS.find((option) => option.id === id)?.id ?? "bar";
 }
 
 /** styles/card-tint.css reads `data-tint`, in every theme. */
@@ -325,7 +325,7 @@ function buildThemeBootScript(): string {
   const extras =
     `var sf=localStorage.getItem("thesis.surfaces")==="bordered"?"bordered":"borderless";` +
     `document.documentElement.dataset.surfaces=sf;` +
-    `var ct=localStorage.getItem("thesis.cardTint");document.documentElement.dataset.tint=ct==="bar"||ct==="border"||ct==="none"?ct:"full";` +
+    `var ct=localStorage.getItem("thesis.cardTint");document.documentElement.dataset.tint=ct==="full"||ct==="border"||ct==="none"?ct:"bar";` +
     `if(localStorage.getItem("thesis.cardTilt")==="0")document.documentElement.dataset.tilt="off";` +
     `if(localStorage.getItem("thesis.scanlines")==="0")document.documentElement.dataset.scanlines="off";` +
     `if(localStorage.getItem("thesis.reactiveMotion")==="1")document.documentElement.dataset.motion="reactive";` +

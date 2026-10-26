@@ -438,7 +438,7 @@
 }
 }
 :is(.papers-screen, .vault-screen) .paper-card .entity-card-title { font-size: 1.04rem; line-height: 1.32; }
-:is(.papers-screen, .vault-screen) .paper-card .entity-card-snippet { -webkit-line-clamp: 2; line-clamp: 2; color: var(--faint); }
+:is(.papers-screen, .vault-screen) .paper-card .entity-card-snippet { -webkit-line-clamp: 2; line-clamp: 2; color: var(--muted); }
 
 /* Faint rather than hidden: on a touch-only screen there is no hover to
    reveal it with. */
