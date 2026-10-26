@@ -246,7 +246,7 @@
   --btn-pop-line: var(--bw-line);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-primary, .btn-secondary) {
-  min-height: 40px;
+  min-height: var(--control-lg);
   padding: 0 16px;
   font-family: var(--btn-font);
   font-weight: var(--btn-weight);
@@ -255,6 +255,7 @@
   text-transform: none;
 }
 :root[data-theme="crt"] :is(.btn-primary, .btn-secondary) { font-size: 1.25rem; line-height: 1; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-primary, .btn-secondary).btn-sm { min-height: var(--control-sm); padding: 0 12px; }
 /* The pixel face is unreadable at the base 0.82rem, so the boxless buttons
    take a size near the boxed ones; a small one still reads as small. */
 :root[data-theme="crt"] :is(.btn-ghost, .btn-cancel) { font-size: 1.15rem; line-height: 1; }

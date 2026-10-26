@@ -48,7 +48,6 @@ code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono);
   display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
 }
 .btn-secondary:hover { background: var(--surface2); }
-.btn-secondary:disabled { opacity: 0.6; cursor: default; }
 /* Destructive secondary — pairs with .btn-primary so a decision reads as one
    control group, while still colouring the side that discards something. */
 .btn-secondary.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border-strong)); }
@@ -60,9 +59,36 @@ code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono);
   border-radius: 9px;
 }
 .btn-ghost:hover { color: var(--ink); }
-.btn-ghost:disabled { opacity: 0.6; cursor: default; }
 /* Size modifier — compose with .btn-secondary (or .btn-primary) for denser actions. */
 .btn-sm { padding: 6px 12px; font-size: 0.78rem; border-radius: 8px; }
+
+/* Icon-only button (<IconButton>): a ghost square, one control tall. */
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: var(--control-lg); height: var(--control-lg); padding: 0;
+  cursor: pointer; color: var(--muted); background: transparent;
+  border: 1px solid transparent; border-radius: var(--control-radius);
+}
+.icon-btn:hover { color: var(--ink); background: var(--hover); }
+.icon-btn svg { width: var(--icon-size); height: var(--icon-size); }
+
+/* One height for every button, from the control tokens (D-03: 36 desktop,
+   40 phone, sm 28). Padding only sets the width; the label centres itself.
+   The density setting moves the tokens, so it moves every button. */
+:is(.btn-primary, .btn-secondary, .btn-ghost) {
+  min-height: var(--control-lg); padding-block: 0;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  box-sizing: border-box; line-height: 1.2;
+}
+:is(.btn-primary, .btn-secondary, .btn-ghost).btn-sm { min-height: var(--control-sm); }
+/* A finger needs 44px whatever the density. */
+@media (pointer: coarse) {
+  :is(.btn-primary, .btn-secondary, .btn-ghost, .icon-btn) { min-height: var(--touch-min); }
+  :root:root :is(.btn-primary, .btn-secondary, .btn-ghost).btn-sm { min-height: var(--touch-min); }
+  .icon-btn { min-width: var(--touch-min); }
+}
+/* Disabled reads the same on every variant. */
+:is(.btn-primary, .btn-secondary, .btn-ghost, .icon-btn):disabled { opacity: 0.5; cursor: default; }
 
 /* One button motion. Raised buttons (primary, secondary, link chips, back) lift
    and their shadow grows on hover, then sink on press; ghost and icon buttons
