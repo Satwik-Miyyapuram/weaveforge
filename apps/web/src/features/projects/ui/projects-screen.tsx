@@ -98,7 +98,7 @@ export function ProjectsScreen() {
               />
             </div>
             {error && <FormError>{error}</FormError>}
-            <Button variant="primary" disabled={busy}>
+            <Button type="submit" variant="primary" disabled={busy}>
               {busy ? "Creating…" : "Create project"}
             </Button>
           </form>

@@ -175,7 +175,7 @@ export function ApiTokensPanel() {
               </Select>
             </div>
             <FormError>{error}</FormError>
-            <Button variant="primary" disabled={busy || !name.trim()}>
+            <Button type="submit" variant="primary" disabled={busy || !name.trim()}>
               {busy ? "Creating…" : "Create token"}
             </Button>
           </form>

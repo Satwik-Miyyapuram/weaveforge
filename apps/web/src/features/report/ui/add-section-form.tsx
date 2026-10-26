@@ -110,7 +110,7 @@ export function AddSectionForm({
         </div>
       </div>
       {error && <FormError>{error}</FormError>}
-      <Button variant="primary" disabled={busy}>
+      <Button type="submit" variant="primary" disabled={busy}>
         {busy ? "Creating…" : "Create"}
       </Button>
     </form>

@@ -135,7 +135,7 @@ export function AddPaperForm({ onAdded }: { onAdded?: (paper: Paper, created: bo
         </div>
       </div>
       {error && <FormError>{error}</FormError>}
-      <Button variant="primary" disabled={busy}>
+      <Button type="submit" variant="primary" disabled={busy}>
         {busy ? "Adding…" : "Add paper"}
       </Button>
     </form>

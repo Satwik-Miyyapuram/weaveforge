@@ -303,7 +303,7 @@ function CreateAccountForm({
 
       {error && <FormError>{error}</FormError>}
       {done && <p className="muted">{done}</p>}
-      <Button variant="primary" disabled={busy}>
+      <Button type="submit" variant="primary" disabled={busy}>
         {busy ? "Creating…" : "Create account"}
       </Button>
     </form>

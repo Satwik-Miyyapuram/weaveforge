@@ -70,7 +70,7 @@ export function AddEdgeForm({
       {error && <FormError>{error}</FormError>}
       <div className="form-foot">
         <button type="button" className="btn-secondary btn-cancel" onClick={onClose}>Cancel</button>
-        <Button variant="primary" disabled={busy}>{busy ? "Linking…" : "Add edge"}</Button>
+        <Button type="submit" variant="primary" disabled={busy}>{busy ? "Linking…" : "Add edge"}</Button>
       </div>
     </form>
   );

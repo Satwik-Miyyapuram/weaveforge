@@ -314,7 +314,7 @@ function EditLogForm({
             autosave, so this button is about leaving the form — but it still
             submits, because the Kind select is not collaborative and would
             otherwise have no way to be saved at all. */}
-        <Button variant="primary" disabled={busy}>
+        <Button type="submit" variant="primary" disabled={busy}>
           {busy ? "Saving…" : "Done"}
         </Button>
       </div>
