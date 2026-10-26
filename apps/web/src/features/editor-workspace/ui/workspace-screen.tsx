@@ -396,7 +396,7 @@ export function WorkspaceScreen() {
       }
       const makes = draftMakes(target.kind);
       await createNote(
-        { title, parentId: target.parentId ?? undefined, ink: makes.ink, isFolder: target.kind === "folder" },
+        { title, parentId: target.parentId ?? undefined, ink: makes.ink, isFolder: makes.isFolder },
         { open: makes.opens },
       );
     },

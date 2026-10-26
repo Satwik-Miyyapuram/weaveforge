@@ -603,7 +603,7 @@ export function ExplorerPanel({
                             {branch ? <ChevronIcon open={rowOpen} variant="expand" /> : null}
                           </span>
                           <span className={`explorer-icon${tint ? ` ${tint}` : ""}`} aria-hidden="true">
-                            {!isDocumentKind(node.kind) || node.isFolder ? (
+                            {!isDocumentKind(node.kind) || node.isFolder || (branch && rootOf(node) === "notes") ? (
                               <FolderIcon />
                             ) : (
                               <NavIcon name={kindIcon(node.kind)} />

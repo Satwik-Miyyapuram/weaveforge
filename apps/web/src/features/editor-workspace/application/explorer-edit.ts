@@ -188,13 +188,16 @@ export function draftIcon(kind: CreateKind): string {
  * once it exists. A folder is neither — it is made and left closed, because
  * nobody writes into a folder.
  */
-const DRAFT_MAKES: Record<CreateKind, { ink: boolean; opens: boolean }> = {
-  note: { ink: false, opens: true },
-  folder: { ink: false, opens: false },
-  section: { ink: false, opens: true },
+/** `isFolder` marks the page as a folder, the only kind notes nest in (E45). */
+type DraftMakes = { ink: boolean; opens: boolean; isFolder: boolean };
+
+const DRAFT_MAKES: Record<CreateKind, DraftMakes> = {
+  note: { ink: false, opens: true, isFolder: false },
+  folder: { ink: false, opens: false, isFolder: true },
+  section: { ink: false, opens: true, isFolder: false },
 };
 
-export function draftMakes(kind: CreateKind): { ink: boolean; opens: boolean } {
+export function draftMakes(kind: CreateKind): DraftMakes {
   return DRAFT_MAKES[kind];
 }
 

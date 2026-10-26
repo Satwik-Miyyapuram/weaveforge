@@ -125,11 +125,11 @@ test("new file: the kind is the table's answer for the document on screen", () =
 });
 
 test("a draft of each kind: what it writes into, and whether it opens", () => {
-  assert.deepEqual(draftMakes("note"), { ink: false, opens: true });
-  assert.deepEqual(draftMakes("section"), { ink: false, opens: true });
+  assert.deepEqual(draftMakes("note"), { ink: false, opens: true, isFolder: false });
+  assert.deepEqual(draftMakes("section"), { ink: false, opens: true, isFolder: false });
   // A folder is made and left closed: there is nothing to write into a folder,
   // and opening one would open a grouping row rather than a document.
-  assert.deepEqual(draftMakes("folder"), { ink: false, opens: false });
+  assert.deepEqual(draftMakes("folder"), { ink: false, opens: false, isFolder: true });
 });
 
 test("a draft row wears the icon of the kind it will become", () => {

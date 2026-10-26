@@ -48,10 +48,11 @@ test("the wiki root is a folder, and an old root is marked before pages go in it
 
 test("the explorer's folder draft makes a folder", () => {
   const src = readFileSync(join(repo, "apps/web/src/features/editor-workspace/ui/workspace-screen.tsx"), "utf8");
-  assert.match(src, /isFolder: target\.kind === "folder"/);
+  assert.match(src, /isFolder: makes\.isFolder/);
   assert.match(src, /input\.isFolder \? \{ isFolder: true \}/);
   const panel = readFileSync(join(repo, "apps/web/src/features/editor-workspace/ui/explorer-panel.tsx"), "utf8");
-  assert.match(panel, /!isDocumentKind\(node\.kind\) \|\| node\.isFolder \? \(\s*<FolderIcon \/>/);
+  // A note that holds notes is a folder too (legacy data), so it wears the icon.
+  assert.match(panel, /!isDocumentKind\(node\.kind\) \|\| node\.isFolder \|\| \(branch && rootOf\(node\) === "notes"\) \? \(\s*<FolderIcon \/>/);
 });
 
 test("0152 on the migrated chain: nullable, default false; rollback and rerun are safe", async () => {
