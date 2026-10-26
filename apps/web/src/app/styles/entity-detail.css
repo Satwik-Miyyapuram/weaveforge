@@ -13,16 +13,16 @@
 .wiki-step-title { flex: 1; min-width: 0; }
 .wiki-step-no {
   display: inline-grid; place-items: center; width: 22px; height: 22px; flex: none;
-  border-radius: 50%; background: var(--text); color: var(--bg); font-size: 0.74rem; font-weight: 700;
+  border-radius: 50%; background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: 700;
 }
-.wiki-step-count { font-size: 0.76rem; padding: 1px 9px; border-radius: 999px; background: var(--surface2); }
+.wiki-step-count { font-size: var(--fs-xs); padding: 1px 9px; border-radius: var(--r-pill); background: var(--surface2); }
 .wiki-plan-list { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
 /* A workspace can hold hundreds of sources; the list scrolls rather than
    pushing the button that acts on it off the screen. */
 .wiki-source-list { max-height: 260px; overflow-y: auto; padding-right: 4px; }
 .wiki-lint-list { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 6px; }
 .wiki-lint-list li {
-  font-size: 0.85rem;
+  font-size: var(--fs);
   padding-left: 10px;
   /* Severity is carried by a left rule rather than by text colour alone, so it
      survives the themes that flatten colour contrast. */
@@ -30,7 +30,7 @@
 }
 .wiki-lint-list li[data-severity="error"] { border-left-color: var(--danger); }
 .wiki-lint-list li[data-severity="warning"] { border-left-color: var(--s-warn, var(--accent)); }
-.wiki-lint-list .link-btn { margin-left: 8px; font-size: 0.78rem; }
+.wiki-lint-list .link-btn { margin-left: 8px; font-size: var(--fs-xs); }
 
 /* Merge preview: monospace so the merged markdown reads as the file it becomes. */
 .wiki-merge-preview {
@@ -39,7 +39,7 @@
   white-space: pre-wrap;
   word-break: break-word;
   font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   background: var(--surface2);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -59,7 +59,7 @@
 }
 .related-paper-meta { margin: 0; overflow-wrap: anywhere; }
 .related-paper-url {
-  display: block; margin: 0; font-size: 0.78rem; color: var(--accent-ink);
+  display: block; margin: 0; font-size: var(--fs-xs); color: var(--accent-ink);
   overflow-wrap: anywhere; word-break: break-all;
 }
 a.related-paper-url:hover { text-decoration: underline; }
@@ -95,14 +95,14 @@ a.related-paper-url:hover { text-decoration: underline; }
 .card-thumbs { display: flex; gap: 6px; margin-top: 8px; }
 .card-thumb {
   position: relative; flex: 0 0 auto;
-  width: 52px; height: 40px; border-radius: 6px; overflow: hidden;
+  width: 52px; height: 40px; border-radius: var(--r-sm); overflow: hidden;
   border: 1px solid var(--line); background: var(--neutral);
 }
 .card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .card-thumb-loading { position: absolute; inset: 0; background: var(--neutral); }
 .card-thumb-more {
   display: flex; align-items: center; justify-content: center;
-  font-size: 0.78rem; color: var(--muted); background: var(--chip);
+  font-size: var(--fs-xs); color: var(--muted); background: var(--chip);
 }
 /* Capped chip rows (tags, metrics, git) stay on a single line on a card; the
    overflow is reported as a "+N" chip rather than wrapping. */
@@ -132,7 +132,7 @@ a.related-paper-url:hover { text-decoration: underline; }
    Both sit above the editor and must not push it around, so they are compact
    single lines rather than banners. */
 .collab-presence, .collab-offline {
-  margin: 0; font-size: 0.82rem; line-height: 1.4;
+  margin: 0; font-size: var(--fs-sm); line-height: 1.4;
 }
 .collab-presence::before {
   content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px;
@@ -142,8 +142,8 @@ a.related-paper-url:hover { text-decoration: underline; }
 /* Remote carets and name tags drawn by y-codemirror. */
 .cm-ySelectionCaret { position: relative; border-left: 1px solid; border-right: 1px solid; margin: 0 -1px; box-sizing: border-box; }
 .cm-ySelectionInfo {
-  position: absolute; top: -1.05em; left: -1px; font-size: 0.68rem; line-height: 1.1;
-  padding: 1px 4px; border-radius: 3px 3px 3px 0; white-space: nowrap;
+  position: absolute; top: -1.05em; left: -1px; font-size: var(--fs-micro); line-height: 1.1;
+  padding: 1px 4px; border-radius: var(--r-sm) var(--r-sm) var(--r-sm) 0; white-space: nowrap;
   color: #fff; opacity: 0.9; user-select: none; pointer-events: none;
 }
 
@@ -152,15 +152,15 @@ a.related-paper-url:hover { text-decoration: underline; }
   display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
   padding-bottom: 2px;
 }
-.citation-format-select { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; white-space: nowrap; }
+.citation-format-select { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); white-space: nowrap; }
 .citation-format-select .select { min-width: 0; }
 
 .brave-graph-warning {
   display: flex; align-items: flex-start; gap: 12px;
-  padding: 8px 12px; margin: 0 0 8px; border-radius: 10px;
+  padding: 8px 12px; margin: 0 0 8px; border-radius: var(--r-control);
   background: color-mix(in srgb, var(--danger) 12%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border));
-  font-size: 0.82rem; line-height: 1.4;
+  font-size: var(--fs-sm); line-height: 1.4;
 }
 .brave-graph-warning .link-btn { flex: none; white-space: nowrap; }
 .graph-focus-bar .brave-graph-warning { pointer-events: auto; }
@@ -178,7 +178,7 @@ a.related-paper-url:hover { text-decoration: underline; }
 .card-title {
   flex: 1 1 auto; min-width: 0; margin: 0;
   font-family: var(--font-serif); font-weight: 500;
-  font-size: 1.02rem; letter-spacing: -0.01em;
+  font-size: var(--fs-lg); letter-spacing: -0.01em;
   overflow-wrap: break-word; word-break: normal;
 }
 .card-foot { display: flex; align-items: center; gap: 10px; }
@@ -189,8 +189,8 @@ a.related-paper-url:hover { text-decoration: underline; }
    done/blocked), report (not_started/drafting/review/done), log (daily/weekly).
    Do not invent one-off status hex; map new statuses onto --st-*. */
 .status {
-  flex: none; font-size: 0.72rem; text-transform: capitalize;
-  padding: 4px 10px; border-radius: 999px;
+  flex: none; font-size: var(--fs-xs); text-transform: capitalize;
+  padding: 4px 10px; border-radius: var(--r-pill);
   background: var(--st-neutral-bg); color: var(--st-neutral-fg);
   white-space: nowrap;
 }
@@ -234,30 +234,30 @@ a.related-paper-url:hover { text-decoration: underline; }
 }
 .log-day-mark { display: flex; flex-direction: column; align-items: flex-end; text-align: right; padding-top: 4px; }
 .log-day-mark strong { font-size: 1.8rem; line-height: 1; }
-.log-day-mark span { color: var(--muted); font-size: 0.78rem; }
+.log-day-mark span { color: var(--muted); font-size: var(--fs-xs); }
 .log-side { display: grid; gap: 16px; position: sticky; top: 16px; }
-.log-calendar h2, .log-kinds h2 { margin: 0 0 12px; font-size: 1.15rem; }
+.log-calendar h2, .log-kinds h2 { margin: 0 0 12px; font-size: var(--fs-h2); }
 .log-calendar-top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .log-calendar-top h2 { flex: 1; margin: 0; text-align: center; }
 .log-calendar-top button:disabled { opacity: 0.35; cursor: default; }
 .log-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
-.log-calendar-head { color: var(--muted); font-size: 0.72rem; }
+.log-calendar-head { color: var(--muted); font-size: var(--fs-xs); }
 .log-calendar-day {
-  display: grid; place-items: center; aspect-ratio: 1; font-size: 0.82rem; border-radius: 6px;
+  display: grid; place-items: center; aspect-ratio: 1; font-size: var(--fs-sm); border-radius: var(--r-sm);
   border: 1px solid transparent;
 }
-button.log-calendar-day { position: relative; padding: 0; font: inherit; font-size: 0.82rem; color: inherit; cursor: pointer; }
+button.log-calendar-day { position: relative; padding: 0; font: inherit; font-size: var(--fs-sm); color: inherit; cursor: pointer; }
 .log-calendar-day.is-logged { background: color-mix(in srgb, var(--accent) 22%, transparent); font-weight: 600; }
 .log-calendar-day.is-logged:hover { border-color: var(--text); }
 /* More than one entry that day: a count in the corner, headlines in the tooltip. */
 .log-calendar-count {
-  position: absolute; top: -6px; right: -6px; min-width: 15px; padding: 0 3px; border-radius: 8px;
-  background: var(--text); color: var(--bg); font-size: 0.6rem; line-height: 15px;
+  position: absolute; top: -6px; right: -6px; min-width: 15px; padding: 0 3px; border-radius: var(--r-control);
+  background: var(--text); color: var(--bg); font-size: var(--fs-micro); line-height: 15px;
 }
 .log-calendar-day.is-today { border-color: var(--accent); font-weight: 700; }
 .log-kinds ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .log-kinds li { display: flex; align-items: center; justify-content: space-between; }
-.log-kinds-count { color: var(--muted); font-size: 0.82rem; }
+.log-kinds-count { color: var(--muted); font-size: var(--fs-sm); }
 @media (max-width: 1100px) {
   .log-layout { grid-template-columns: minmax(0, 1fr); }
   .log-side { display: none; }
@@ -266,20 +266,20 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
   .log-day { grid-template-columns: minmax(0, 1fr); gap: 6px; }
   .log-day::before, .log-day::after { display: none; }
   .log-day-mark { flex-direction: row; align-items: baseline; gap: 8px; }
-  .log-day-mark strong { font-size: 1.3rem; }
+  .log-day-mark strong { font-size: var(--fs-h2); }
 }
-.log-body { margin: 0; white-space: pre-wrap; font-size: 0.95rem; }
+.log-body { margin: 0; white-space: pre-wrap; font-size: var(--fs-lg); }
 
 /* Report outline */
 .progress-card { margin: 16px 0; display: grid; gap: 10px; }
-.progress-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.88rem; }
-.progress-bar { height: 8px; background: var(--neutral); border-radius: 999px; overflow: hidden; }
+.progress-top { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs); }
+.progress-bar { height: 8px; background: var(--neutral); border-radius: var(--r-pill); overflow: hidden; }
 .progress-bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.3s ease; }
 /* Plan timeline: the track fills up to today, a mark per dated milestone sits
    on it, and month ticks run underneath. Positions come in as inline `left`. */
-.plan-pace { color: var(--muted); font-family: var(--font-mono); font-size: 0.78rem; }
+.plan-pace { color: var(--muted); font-family: var(--font); font-size: var(--fs-xs); }
 .plan-timeline { position: relative; height: 58px; margin: 22px 11px 0; }
-.plan-track { position: absolute; left: -11px; right: -11px; top: 7px; height: 10px; background: var(--surface2); border-radius: 999px; overflow: hidden; }
+.plan-track { position: absolute; left: -11px; right: -11px; top: 7px; height: 10px; background: var(--surface2); border-radius: var(--r-pill); overflow: hidden; }
 .plan-track > span { display: block; height: 100%; background: var(--accent); }
 .plan-mark {
   position: absolute; top: 1px; width: 22px; height: 22px; min-height: 0; margin-left: -11px; padding: 0;
@@ -288,13 +288,13 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 }
 /* One stripe per milestone in the mark: a cluster shows every status it holds. */
 .plan-mark > span { flex: 1; min-width: 0; }
-.plan-mark > span:first-child { border-radius: 999px 0 0 999px; }
-.plan-mark > span:last-of-type { border-radius: 0 999px 999px 0; }
+.plan-mark > span:first-child { border-radius: var(--r-pill) 0 0 var(--r-pill); }
+.plan-mark > span:last-of-type { border-radius: 0 var(--r-pill) var(--r-pill) 0; }
 .plan-mark > span:only-of-type { border-radius: inherit; }
 .plan-mark-count {
   position: absolute; top: -9px; right: -10px; min-width: 16px; padding: 0 3px;
-  border-radius: 999px; background: var(--text); color: var(--surface);
-  font: 600 0.62rem/16px var(--font-mono); text-align: center;
+  border-radius: var(--r-pill); background: var(--text); color: var(--surface);
+  font: 600 var(--fs-micro)/16px var(--font); text-align: center;
 }
 .plan-done-toggle { display: block; margin: 12px auto; }
 .card.is-jumped, .log-day.is-jumped .card { outline: 3px solid var(--accent); outline-offset: 3px; }
@@ -304,11 +304,11 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 .plan-today { position: absolute; top: -8px; height: 40px; border-left: 2px dashed var(--text); }
 .plan-today > em {
   position: absolute; bottom: 100%; left: 0; transform: translateX(-50%);
-  font-style: normal; font-size: 0.72rem; font-weight: 600; white-space: nowrap;
-  padding: 1px 6px; border-radius: 4px; background: var(--text); color: var(--surface);
+  font-style: normal; font-size: var(--fs-xs); font-weight: 600; white-space: nowrap;
+  padding: 1px 6px; border-radius: var(--r-sm); background: var(--text); color: var(--surface);
 }
 .plan-months { position: absolute; left: 0; right: 0; top: 38px; height: 1em; }
-.plan-months > span { position: absolute; transform: translateX(-50%); font-family: var(--font-mono); font-size: 0.74rem; color: var(--muted); }
+.plan-months > span { position: absolute; transform: translateX(-50%); font-family: var(--font); font-size: var(--fs-xs); color: var(--muted); }
 .wiki-recent-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .wiki-recent-list li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .wiki-recent-list li:last-child { border-bottom: 0; }

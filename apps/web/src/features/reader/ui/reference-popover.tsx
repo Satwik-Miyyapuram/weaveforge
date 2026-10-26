@@ -1,6 +1,8 @@
 "use client";
 
 import type { ParsedReference } from "@weaveforge/core";
+import { IconButton } from "@/components/button";
+import { CloseIcon } from "@/components/view-icons";
 import type { ResolvedReference } from "../application/reference-lookup";
 
 export interface ReferencePopoverProps {
@@ -38,7 +40,7 @@ export function ReferencePopover(props: ReferencePopoverProps) {
     onClick ? <button type="button" className="pdf-reader-ref-action" onClick={onClick}>{label}</button> : null;
   return (
     <section className="pdf-reader-ref-body" aria-label="Reference details" aria-busy={resolution.status === "pending"}>
-      <button type="button" className="pdf-reader-ref-close" aria-label="Close reference details" onClick={onClose}>×</button>
+      <IconButton label="Close reference details" className="pdf-reader-ref-close" onClick={onClose}><CloseIcon /></IconButton>
       {title ? (
         <>
           <h3>{title}</h3>

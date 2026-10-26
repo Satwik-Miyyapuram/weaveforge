@@ -24,6 +24,7 @@ import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
 import { createNoteFromQuery } from "@/lib/create-note-from-query";
 import { FormError } from "@/components/form-error";
 import { JumpToCreateRow } from "@/components/jump-to-create-row";
+import { CloseIcon } from "@/components/view-icons";
 
 /** Kinds recorded as recent targets when opened. */
 const RECENT_KINDS = ["paper", "note", "section"] as const satisfies readonly RecentTargetKind[];
@@ -351,7 +352,7 @@ export function JumpToPalette() {
                 aria-label={`Remove “${entry}” from recent searches`}
                 onClick={() => saveHistory(forgetSearchQuery(history, entry))}
               >
-                ×
+                <CloseIcon />
               </button>
             </li>
           ))}

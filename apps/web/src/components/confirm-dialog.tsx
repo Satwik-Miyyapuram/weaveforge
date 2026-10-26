@@ -2,6 +2,7 @@
 
 
 import { Modal, ModalActions } from "./modal";
+import { Button } from "@/components/button";
 
 /**
  * A confirmation the app draws, not the OS.
@@ -44,9 +45,9 @@ export function ConfirmDialog({
     <Modal title={title} onClose={busy ? undefined : onClose} dismissible={!busy}>
       <p className="muted confirm-dialog-body">{body}</p>
       <ModalActions>
-        <button type="button" className="btn-secondary" onClick={onClose} disabled={busy} autoFocus>
+        <Button onClick={onClose} disabled={busy} autoFocus>
           {cancelLabel}
-        </button>
+        </Button>
         <button
           type="button"
           className={danger ? "btn-primary btn-danger" : "btn-primary"}

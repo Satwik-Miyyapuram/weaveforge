@@ -42,6 +42,7 @@ import {
 } from "./use-ink-sheet-images";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
 import { logToApp } from "@/lib/error-report/app-log";
+import { MinusIcon, PlusIcon } from "@/components/view-icons";
 
 export interface InkReaderProps {
   noteId: string;
@@ -243,7 +244,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
             aria-label="Zoom out"
             style={{ padding: "2px 8px", minHeight: 0, height: "24px" }}
           >
-            -
+            <MinusIcon />
           </button>
           <button
             type="button"
@@ -262,7 +263,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
             aria-label="Zoom in"
             style={{ padding: "2px 8px", minHeight: 0, height: "24px" }}
           >
-            +
+            <PlusIcon />
           </button>
         </div>
       </div>

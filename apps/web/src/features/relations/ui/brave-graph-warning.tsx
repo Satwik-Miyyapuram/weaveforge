@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { readStored, writeStored } from "@/lib/safe-storage";
+import { Button } from "@/components/button";
 
 /**
  * Brave's fingerprint protection ("farbling") adds noise to canvas
@@ -40,16 +41,16 @@ export function BraveGraphWarning() {
         clicks — nodes won&apos;t be selectable. Click the Brave <em>Shields</em> icon and set
         <em> Fingerprinting → Allow</em> (or lower Shields) for this site.
       </span>
-      <button
-        type="button"
-        className="link-btn"
+      <Button
+       
+        variant="ghost" size="sm"
         onClick={() => {
           writeStored("thesis.graph.braveWarnDismissed", "1");
           setDismissed(true);
         }}
       >
         Dismiss
-      </button>
+      </Button>
     </div>
   );
 }

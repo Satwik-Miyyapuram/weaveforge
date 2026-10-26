@@ -5,6 +5,7 @@ import { LOG_KINDS, type LogEntry, type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Modal } from "@/components/modal";
+import { ChevronLeftIcon, ChevronRightIcon } from "@/components/view-icons";
 import { ScreenLoading } from "@/components/screen-loading";
 import { AddLogEntryForm } from "./add-log-entry-form";
 import { Select } from "@/components/select";
@@ -22,6 +23,7 @@ import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { statusLabel } from "@/components/status-select";
 import { bestEffort, removeLogEntry } from "../application/log-side-effects";
+import { Button } from "@/components/button";
 
 /**
  * Logbook screen. Presentation + view-state only; all data access goes through
@@ -54,7 +56,7 @@ export function LogbookScreen() {
         <button type="button" className="btn-secondary log-publish" onClick={() => setPublishOpen(true)}>
           Publish snapshot
         </button>
-        <button className="btn-primary" onClick={() => setAddOpen(true)}>New entry</button>
+        <Button variant="primary" onClick={() => setAddOpen(true)}>New entry</Button>
       </ScreenHead>
 
       {addOpen && (
@@ -77,9 +79,9 @@ export function LogbookScreen() {
           title="No log entries yet"
           body="The logbook is the part you will be glad of in month seven: what you tried today, and what it told you. One line is enough to start."
           action={
-            <button type="button" className="btn-primary" onClick={() => setAddOpen(true)}>
+            <Button variant="primary" onClick={() => setAddOpen(true)}>
               New entry
-            </button>
+            </Button>
           }
         />
       )}
@@ -162,9 +164,9 @@ function PublishLabSnapshotForm({ onPublished }: { onPublished: () => void }) {
         />
       </label>
       {error && <FormError>{error}</FormError>}
-      <button type="submit" className="btn-primary" disabled={busy || !title.trim()}>
+      <Button type="submit" variant="primary" disabled={busy || !title.trim()}>
         {busy ? "Publishing…" : "Publish"}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -219,6 +221,7 @@ function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void 
         menu={
           <EntityCardMenu
             shareable={false}
+            name={headline}
             deleteLabel="Delete log entry"
             onDelete={() => setConfirmOpen(true)}
             extraItems={[{ id: "edit", label: "Edit", onSelect: () => setEditing(true) }]}
@@ -315,9 +318,9 @@ function EditLogForm({
             autosave, so this button is about leaving the form — but it still
             submits, because the Kind select is not collaborative and would
             otherwise have no way to be saved at all. */}
-        <button className="btn-primary" disabled={busy}>
+        <Button variant="primary" disabled={busy}>
           {busy ? "Saving…" : "Done"}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -434,9 +437,9 @@ function LogCalendar({ entries }: { entries: readonly LogEntry[] }) {
   return (
     <div className="card log-calendar">
       <div className="log-calendar-top">
-        <button type="button" className="entity-icon-btn" aria-label="Previous month" onClick={() => step(-1)}>‹</button>
+        <button type="button" className="entity-icon-btn" aria-label="Previous month" onClick={() => step(-1)}><ChevronLeftIcon /></button>
         <h2>{month.toLocaleDateString(undefined, isCurrent ? { month: "long" } : { month: "long", year: "numeric" })}</h2>
-        <button type="button" className="entity-icon-btn" aria-label="Next month" disabled={isCurrent} onClick={() => step(1)}>›</button>
+        <button type="button" className="entity-icon-btn" aria-label="Next month" disabled={isCurrent} onClick={() => step(1)}><ChevronRightIcon /></button>
       </div>
       <div className="log-calendar-grid" role="group" aria-label={`Days logged this month: ${loggedThisMonth}`}>
         {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (

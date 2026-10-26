@@ -6,6 +6,7 @@ import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 /** Form for manually linking two papers; used inside the Add edge modal. */
 export function AddEdgeForm({
@@ -68,7 +69,7 @@ export function AddEdgeForm({
       {error && <FormError>{error}</FormError>}
       <div className="form-foot">
         <button type="button" className="btn-secondary btn-cancel" onClick={onClose}>Cancel</button>
-        <button className="btn-primary" disabled={busy}>{busy ? "Linking…" : "Add edge"}</button>
+        <Button variant="primary" disabled={busy}>{busy ? "Linking…" : "Add edge"}</Button>
       </div>
     </form>
   );

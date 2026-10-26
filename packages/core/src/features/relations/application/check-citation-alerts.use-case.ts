@@ -52,7 +52,8 @@ function logBody(paper: Paper, ranked: CitationCandidate[]): string {
     const author = item.authors[0];
     const intent = intentLabel(item);
     const meta = [
-      intent ? `\`${intent}\`` : null,
+      // Emphasis, not a code span: the intent is a word, not an identifier (DA-40).
+      intent ? `*${intent}*` : null,
       author ? `${author}${item.authors.length > 1 ? " et al." : ""}` : null,
       item.year,
       typeof item.citationCount === "number"

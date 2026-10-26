@@ -26,6 +26,7 @@ import { formatError } from "@/lib/format-error";
 import { PlanTimelineBar } from "@/features/plan/ui/plan-timeline-bar";
 import { MilestoneForm } from "./milestone-form";
 import { MilestoneCard } from "./milestone-card";
+import { Button } from "@/components/button";
 
 type PlanViewData = PlanScreenData & { ownerNames: Map<string, string> };
 
@@ -208,13 +209,13 @@ export function PlanScreen() {
             showLabel
           />
         )}
-        <button
-          className="btn-primary"
-          type="button"
+        <Button
+          variant="primary"
+         
           onClick={() => setComposeOpen(true)}
         >
           New milestone
-        </button>
+        </Button>
       </ScreenHead>
 
       {composeOpen && (
@@ -262,13 +263,12 @@ export function PlanScreen() {
           title="No milestones yet"
           body="A milestone is a date you are steering by — a submission, a review, a chapter handed over. Sketch the road ahead and the plan screen starts counting towards it."
           action={
-            <button
-              type="button"
-              className="btn-primary"
+            <Button
+              variant="primary"
               onClick={() => setComposeOpen(true)}
             >
               New milestone
-            </button>
+            </Button>
           }
         />
       )}

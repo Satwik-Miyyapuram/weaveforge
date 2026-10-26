@@ -10,7 +10,7 @@
    layout (tools top, ink bar bottom) when narrow, separated by a hairline. */
 .pdf-reader-chrome {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-control);
   background: var(--surface);
   overflow: hidden;
   /* The bar stays in reach while the screen scrolls: before, the page count
@@ -75,7 +75,7 @@
 /* Related controls sit in a bordered cluster so grouping is visible, not implied. */
 .pdf-reader-group {
   display: inline-flex; align-items: center; gap: 4px; flex: none;
-  padding: 2px; border: 1px solid var(--line); border-radius: 8px;
+  padding: 2px; border: 1px solid var(--line); border-radius: var(--r-control);
   background: var(--surface-alt);
 }
 /* Segmented: the group carries the one border, so the buttons inside are
@@ -84,7 +84,7 @@
 .pdf-reader-group .btn-secondary {
   white-space: nowrap; height: 32px; padding: 0 10px; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
-  border-color: transparent; border-radius: 6px; background: transparent;
+  border-color: transparent; border-radius: var(--r-sm); background: transparent;
 }
 .pdf-reader-group .btn-secondary:hover { background: var(--surface2); }
 .pdf-reader-group .btn-secondary.is-active {
@@ -110,7 +110,7 @@
   .pdf-reader-more.pdf-reader-group, .pdf-reader-annotate { flex-wrap: nowrap; flex: 0 1 auto; }
 }
 .pdf-reader-banner {
-  padding: 8px 12px; border-radius: 8px; font-size: 0.86rem;
+  padding: 8px 12px; border-radius: var(--r-control); font-size: var(--fs);
   border: 1px solid var(--line); background: var(--surface-alt);
 }
 .pdf-reader-banner--low { border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
@@ -125,7 +125,7 @@
      than the viewport overflows equally on both sides and the left edge cannot
      be scrolled to. Declared after the plain value as a progressive upgrade. */
   align-items: safe center;
-  gap: 16px; padding: 12px; background: var(--surface-alt); border-radius: 10px;
+  gap: 16px; padding: 12px; background: var(--surface-alt); border-radius: var(--r-control);
   /* Every touch gesture is the page's, not the browser's: panning and pinching
      are `use-reader-gestures`, which is what lets a pinch scale the paper
      instead of the shell's whole UI. `pan-x pan-y` was the tempting middle
@@ -221,7 +221,7 @@
 .pdf-reader-search {
   display: inline-flex; gap: 2px; align-items: center; flex: 1 1 12rem; min-width: min-content;
   max-width: 22rem;
-  padding: 2px; border: 1px solid var(--line); border-radius: 8px;
+  padding: 2px; border: 1px solid var(--line); border-radius: var(--r-control);
   background: var(--surface-alt);
 }
 .pdf-reader-search input {
@@ -229,25 +229,25 @@
 }
 .pdf-reader-search input[type="search"] { border: none; background: transparent; box-shadow: none; }
 .pdf-reader-search-count {
-  font-family: var(--font-mono); font-size: 0.72rem; padding: 0 4px;
+  font-family: var(--font-mono); font-size: var(--fs-xs); padding: 0 4px;
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .pdf-reader-search-step {
   display: inline-grid; place-items: center; flex: none;
   width: 26px; height: 26px; padding: 0;
-  color: var(--muted); background: none; border: none; border-radius: 6px; cursor: pointer;
+  color: var(--muted); background: none; border: none; border-radius: var(--r-sm); cursor: pointer;
 }
 .pdf-reader-search-step:hover:not(:disabled) { color: var(--text); background: var(--surface2); }
 .pdf-reader-search-step:disabled { opacity: 0.4; cursor: default; }
 .pdf-reader-search-trigger {
   display: inline-flex; align-items: center; gap: 6px; height: 32px;
-  padding: 0 10px; border-radius: 6px; white-space: nowrap;
+  padding: 0 10px; border-radius: var(--r-sm); white-space: nowrap;
 }
 .pdf-reader-search-close {
   display: inline-grid; place-items: center; flex: none;
   width: 24px; height: 24px; padding: 0;
-  color: var(--muted); background: none; border: none; border-radius: 6px; cursor: pointer;
-  font-size: 0.85rem; line-height: 1;
+  color: var(--muted); background: none; border: none; border-radius: var(--r-sm); cursor: pointer;
+  font-size: var(--fs); line-height: 1;
 }
 .pdf-reader-search-close:hover { color: var(--text); background: var(--surface2); }
 .pdf-reader-side-header {
@@ -264,7 +264,7 @@
   display: inline-flex; flex: 1 1 auto;
 }
 .pdf-reader-side-seg button {
-  flex: 1 1 auto; text-align: center; padding: 0 8px; min-height: 28px; font-size: 0.8rem;
+  flex: 1 1 auto; text-align: center; padding: 0 8px; min-height: 28px; font-size: var(--fs-sm);
   white-space: nowrap;
 }
 /* One column that never grows with its content. A grid's auto track has a
@@ -286,7 +286,7 @@
   padding: 12px 0; min-height: 0;
   border: 1px solid var(--border); border-radius: var(--radius-sm, 6px);
   background: var(--surface); color: var(--text); cursor: pointer;
-  font: inherit; font-size: 0.85rem; font-weight: 600;
+  font: inherit; font-size: var(--fs); font-weight: 600;
 }
 .pdf-reader-side-rail span { writing-mode: vertical-rl; white-space: nowrap; }
 .pdf-reader-side-rail:hover { filter: brightness(1.05); }
@@ -312,12 +312,12 @@
      scroll container rather than a fixed panel, but the collapsing address bar
      made it taller than the visible viewport just the same. */
   overflow: auto; max-height: calc(100vh - 300px); max-height: calc(100dvh - 300px);
-  padding: 8px; border: 1px solid var(--line); border-radius: 8px;
-  background: var(--surface); font-size: 0.85rem;
+  padding: 8px; border: 1px solid var(--line); border-radius: var(--r-control);
+  background: var(--surface); font-size: var(--fs);
 }
 .pdf-reader-outline ul { list-style: none; margin: 0; padding-left: 0.75rem; }
 .pdf-reader-outline > ul { padding-left: 0; }
-.pdf-reader-outline-empty { font-size: 0.85rem; padding: 8px; }
+.pdf-reader-outline-empty { font-size: var(--fs); padding: 8px; }
 .pdf-reader-textlayer {
   /* Relayout boundary so inserted page spans do not dirty the rest of the document. */
   contain: strict;
@@ -515,9 +515,9 @@ body > canvas.hiddenCanvasElement { display: none; }
   position: absolute; z-index: 6; transform: translateY(-100%);
   display: flex; flex-wrap: nowrap; gap: 4px; align-items: center; white-space: nowrap;
   max-width: calc(100% - 20px); padding: 5px;
-  border: var(--bw, 1px) solid var(--bw-line, var(--border)); border-radius: 10px;
+  border: var(--bw, 1px) solid var(--bw-line, var(--border)); border-radius: var(--r-control);
   background: var(--surface); color: var(--text); box-shadow: var(--sh-btn, var(--e2));
-  font-size: 14px; touch-action: manipulation;
+  font-size: var(--fs); touch-action: manipulation;
   transition: opacity 0.16s ease, translate 0.16s ease;
   @starting-style { opacity: 0; translate: 0 6px; }
 }
@@ -535,7 +535,7 @@ body > canvas.hiddenCanvasElement { display: none; }
 .pdf-reader-pop-row { display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; }
 .pdf-reader-pop-col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .pdf-reader-pop-kind {
-  font: 600 11px var(--font-mono, monospace); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+  font: 600 var(--fs-micro) var(--font); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
 }
 .pdf-reader-pop-swatches { display: flex; gap: 6px; flex-wrap: wrap; }
 .pdf-reader-pop-swatch {
@@ -548,17 +548,17 @@ body > canvas.hiddenCanvasElement { display: none; }
 .pdf-reader-pop-delete { margin-left: auto; }
 .pdf-reader-pop-quote {
   flex: 1; min-width: 0; padding-left: 8px; border-left: 3px solid var(--bw-line, var(--border));
-  font-size: 13px; color: var(--muted); overflow-wrap: anywhere;
+  font-size: var(--fs-sm); color: var(--muted); overflow-wrap: anywhere;
 }
 .pdf-reader-pop-input {
-  flex: 1; min-width: 0; padding: 6px 8px; font: inherit; font-size: 14px; color: inherit;
+  flex: 1; min-width: 0; padding: 6px 8px; font: inherit; font-size: var(--fs); color: inherit;
   border: var(--bw, 1px) solid var(--bw-line, var(--border)); border-radius: var(--radius); background: var(--bg);
 }
 .pdf-reader-pop-btn { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 /* The sidebar's colour row. */
 .pdf-reader-create-colors { display: flex; gap: 4px; }
 .pdf-reader-create-swatch {
-  width: 18px; height: 18px; border-radius: 3px; border: 1px solid var(--border); padding: 0; cursor: pointer;
+  width: 18px; height: 18px; border-radius: var(--r-sm); border: 1px solid var(--border); padding: 0; cursor: pointer;
 }
 .pdf-reader-create-swatch.is-active { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pdf-reader-sidebar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -566,10 +566,10 @@ body > canvas.hiddenCanvasElement { display: none; }
 .pdf-reader-sidebar-edit textarea,
 .pdf-reader-sidebar-edit input,
 .pdf-reader-sidebar-pin select {
-  width: 100%; font: inherit; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px;
+  width: 100%; font: inherit; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--r-sm);
   background: var(--surface); color: inherit;
 }
-.pdf-reader-sidebar-pin { display: grid; gap: 2px; font-size: 0.85rem; }
+.pdf-reader-sidebar-pin { display: grid; gap: 2px; font-size: var(--fs); }
 /* The tool's own pointer is set inline on the row from the one table both
    surfaces read (`INK_TOOL_CURSORS`, features/ink): a data-URL cursor cannot
    live in a class list. What belongs here is the touch behaviour, and the rule
@@ -609,25 +609,25 @@ body > canvas.hiddenCanvasElement { display: none; }
   width: 320px; max-width: calc(100vw - 24px);
   display: grid; gap: 6px; padding: 12px 14px;
   background: var(--elev); color: var(--text);
-  border: 1px solid var(--border); border-radius: 10px;
+  border: 1px solid var(--border); border-radius: var(--r-control);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
-  font-size: 0.875rem; line-height: 1.4;
+  font-size: var(--fs); line-height: 1.4;
   margin: 0;
 }
 .pdf-reader-ref-body { position: relative; display: grid; gap: 4px; padding-right: 20px; }
 .pdf-reader-ref-close {
   position: absolute; top: -4px; right: -8px;
-  width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px;
-  background: transparent; color: var(--muted); font-size: 1.1rem; line-height: 1; cursor: pointer;
+  width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--r-sm);
+  background: transparent; color: var(--muted); font-size: var(--fs-lg); line-height: 1; cursor: pointer;
 }
 .pdf-reader-ref-close:hover { background: var(--surface); color: var(--text); }
-.pdf-reader-ref-popover h3 { margin: 0; font-size: 0.925rem; font-weight: 600; line-height: 1.3; color: var(--text); }
+.pdf-reader-ref-popover h3 { margin: 0; font-size: var(--fs); font-weight: 600; line-height: 1.3; color: var(--text); }
 .pdf-reader-ref-popover p { margin: 0; color: var(--text); opacity: 0.85; }
 .pdf-reader-ref-raw { max-height: 4.5rem; overflow: auto; }
-.pdf-reader-ref-skeleton { color: var(--muted); font-size: 0.8rem; }
+.pdf-reader-ref-skeleton { color: var(--muted); font-size: var(--fs-sm); }
 .pdf-reader-ref-actions { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; margin-top: 4px; }
 .pdf-reader-ref-action {
-  padding: 0; border: 0; background: none; font: inherit; font-size: 0.825rem; font-weight: 500;
+  padding: 0; border: 0; background: none; font: inherit; font-size: var(--fs-sm); font-weight: 500;
   color: var(--accent-ink); cursor: pointer; text-decoration: none;
 }
 .pdf-reader-ref-action:hover { text-decoration: underline; }
@@ -635,24 +635,24 @@ body > canvas.hiddenCanvasElement { display: none; }
 .pdf-reader-ref-cluster { padding: 6px 10px 0; }
 .pdf-reader-ref-cluster .is-active { font-weight: 600; text-decoration: underline; }
 .pdf-reader-ref-picker { gap: 6px; }
-.pdf-reader-ref-picker select { font-size: 0.8rem; }
+.pdf-reader-ref-picker select { font-size: var(--fs-sm); }
 .pdf-reader-ref-pill {
   display: inline-block; padding: 1px 8px; border-radius: var(--radius-pill);
   background: var(--st-positive-bg); color: var(--st-positive-fg);
-  font-size: 0.75rem; text-transform: capitalize;
+  font-size: var(--fs-xs); text-transform: capitalize;
 }
 /* The sidebar bibliography. Mirrors `.pdf-reader-outline`: both are panels in
    the reader's side column, so they take the same surface and cap together. */
 .pdf-reader-refs {
   overflow: auto; max-height: calc(100vh - 300px);
-  padding: 8px; border: 1px solid var(--line); border-radius: 8px;
-  background: var(--surface); font-size: 0.85rem;
+  padding: 8px; border: 1px solid var(--line); border-radius: var(--r-control);
+  background: var(--surface); font-size: var(--fs);
 }
 @media (max-width: 860px) {
   .pdf-reader-refs { max-height: 40dvh; }
 }
-.pdf-reader-refs-empty { font-size: 0.85rem; padding: 8px; }
-.pdf-reader-refs-summary { margin: 0 0 6px; font-size: 0.8rem; }
+.pdf-reader-refs-empty { font-size: var(--fs); padding: 8px; }
+.pdf-reader-refs-summary { margin: 0 0 6px; font-size: var(--fs-sm); }
 .pdf-reader-refs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .pdf-reader-refs-item {
   display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px;
@@ -664,10 +664,10 @@ body > canvas.hiddenCanvasElement { display: none; }
 .pdf-reader-refs-title {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.pdf-reader-refs-meta { font-size: 0.75rem; }
+.pdf-reader-refs-meta { font-size: var(--fs-xs); }
 .reader-screen-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; min-width: 0; }
 .reader-screen-title {
-  margin: 0; flex: 1 1 auto; min-width: 0; font-size: 1.1rem;
+  margin: 0; flex: 1 1 auto; min-width: 0; font-size: var(--fs-lg);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .reader-screen-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: none; }
@@ -675,7 +675,7 @@ body > canvas.hiddenCanvasElement { display: none; }
   display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.8fr); gap: 12px; min-height: 0;
 }
 .reader-split-panel, .reader-activity {
-  border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--r-control); padding: 12px; background: var(--surface);
   display: grid; gap: 8px; align-content: start;
 }
 .reader-split-head, .reader-activity-head {
@@ -683,11 +683,11 @@ body > canvas.hiddenCanvasElement { display: none; }
 }
 .reader-split-body {
   margin: 0; max-height: 50vh; overflow: auto; white-space: pre-wrap; font: inherit;
-  font-size: 0.9rem; background: var(--surface-alt, transparent); padding: 8px; border-radius: 6px;
+  font-size: var(--fs); background: var(--surface-alt, transparent); padding: 8px; border-radius: var(--r-sm);
 }
-.reader-activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 0.85rem; }
+.reader-activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: var(--fs); }
 .reader-activity-kind { font-weight: 600; margin: 0 6px; }
-.pdf-reader-backlinks { margin-top: 12px; font-size: 0.85rem; display: grid; gap: 4px; }
+.pdf-reader-backlinks { margin-top: 12px; font-size: var(--fs); display: grid; gap: 4px; }
 .pdf-reader-backlinks ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .shared-paper-annotations { display: grid; gap: 4px; margin-top: 6px; }
 @media (max-width: 900px) {
@@ -695,11 +695,11 @@ body > canvas.hiddenCanvasElement { display: none; }
 }
 .pdf-reader-sidebar {
   overflow: auto; max-height: calc(100vh - 300px); max-height: calc(100dvh - 300px);
-  padding: 8px; border: 1px solid var(--line); border-radius: 8px;
-  background: var(--surface); font-size: 0.85rem;
+  padding: 8px; border: 1px solid var(--line); border-radius: var(--r-control);
+  background: var(--surface); font-size: var(--fs);
 }
 .pdf-reader-sidebar-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
-.pdf-reader-sidebar-head h2 { margin: 0; font-size: 1rem; }
+.pdf-reader-sidebar-head h2 { margin: 0; font-size: var(--fs-lg); }
 .pdf-reader-sidebar-kinds { display: flex; margin-bottom: 8px; }
 .pdf-reader-sidebar-kinds button { flex: 1; min-height: 32px; }
 .pdf-reader-sidebar-filters {
@@ -712,7 +712,7 @@ body > canvas.hiddenCanvasElement { display: none; }
    every highlight vanished into the light card. */
 .pdf-reader-sidebar-item {
   display: flex; gap: 8px; width: 100%; text-align: left;
-  background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 8px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 8px;
   cursor: pointer; color: var(--text); font: inherit;
 }
 .pdf-reader-sidebar-item.is-selected { border-color: var(--accent); background: var(--surface-alt); }
@@ -726,11 +726,11 @@ body > canvas.hiddenCanvasElement { display: none; }
 }
 .pdf-reader-loading, .pdf-reader-error { padding: 24px; color: var(--muted); }
 .pdf-reader-error { display: grid; gap: 12px; justify-items: start; }
-.ai-review-nav-link b { min-width: 1.25rem; text-align: center; border-radius: 999px; padding: 1px 5px; background: var(--accent); color: var(--on-accent); font-size: 0.72rem; }
+.ai-review-nav-link b { min-width: 1.25rem; text-align: center; border-radius: var(--r-pill); padding: 1px 5px; background: var(--accent); color: var(--on-accent); font-size: var(--fs-xs); }
 @media (max-width: 640px) { .ai-review-screen .screen-header, .ai-review-actions { align-items: flex-start; flex-direction: column; } .ai-review-toolbar { align-items: stretch; flex-direction: column; } }
 
 /* One-line statement of what the armed annotation tool will do. */
-.pdf-reader-tool-hint { margin: 6px 0 0; font-size: 0.8rem; }
+.pdf-reader-tool-hint { margin: 6px 0 0; font-size: var(--fs-sm); }
 
 /* =====================================================================
  * DEPTH — borderless elevation
@@ -805,8 +805,8 @@ body > canvas.hiddenCanvasElement { display: none; }
 .pdf-reader-margin-note {
   position: absolute; left: 10px; right: 10px;
   pointer-events: auto; text-align: left; cursor: pointer;
-  padding: 6px 8px; border: 1px solid var(--line); border-left-width: 3px; border-radius: 6px;
-  background: var(--surface, #fff); color: var(--text); font: inherit; font-size: 0.8rem; line-height: 1.35;
+  padding: 6px 8px; border: 1px solid var(--line); border-left-width: 3px; border-radius: var(--r-sm);
+  background: var(--surface, #fff); color: var(--text); font: inherit; font-size: var(--fs-sm); line-height: 1.35;
   display: grid; gap: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 .pdf-reader-margin-note.is-selected { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -851,7 +851,7 @@ body > canvas.hiddenCanvasElement { display: none; }
     bottom: calc(84px + env(safe-area-inset-bottom));
     z-index: var(--z-nav);
     display: flex; align-items: center; justify-content: space-between; gap: 6px;
-    padding: 6px 10px; border-radius: 999px;
+    padding: 6px 10px; border-radius: var(--r-pill);
     background: var(--surface); border: 1px solid var(--line);
     box-shadow: 0 6px 20px rgb(0 0 0 / 0.16);
   }

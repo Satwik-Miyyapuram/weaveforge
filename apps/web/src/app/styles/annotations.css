@@ -1,10 +1,10 @@
-.annotations-head { font-size: 0.78rem; font-weight: 600; overflow-wrap: anywhere; }
+.annotations-head { font-size: var(--fs-xs); font-weight: 600; overflow-wrap: anywhere; }
 .annotation-list { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 8px; min-width: 0; }
 .annotation { display: flex; gap: 8px; min-width: 0; max-width: 100%; }
 .annotation-swatch { flex: none; width: 4px; border-radius: 2px; align-self: stretch; }
 .annotation-body { min-width: 0; flex: 1; overflow-wrap: anywhere; }
-.annotation-text { margin: 0; font-size: 0.9rem; overflow-wrap: anywhere; }
-.annotation-comment { margin: 2px 0 0; font-size: 0.85rem; color: var(--muted); overflow-wrap: anywhere; }
+.annotation-text { margin: 0; font-size: var(--fs); overflow-wrap: anywhere; }
+.annotation-comment { margin: 2px 0 0; font-size: var(--fs); color: var(--muted); overflow-wrap: anywhere; }
 .annotation-actions {
   margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap;
   align-items: center; min-width: 0; max-width: 100%;
@@ -16,7 +16,7 @@
 }
 .annotation-quote-type {
   display: inline-block;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   letter-spacing: 0.02em;
   margin-bottom: 2px;
@@ -52,12 +52,12 @@
   max-height: min(70vh, 640px);
   overflow: auto;
 }
-.section-excerpts-title { margin: 0; font-size: 0.95rem; font-weight: 600; cursor: pointer; }
+.section-excerpts-title { margin: 0; font-size: var(--fs-lg); font-weight: 600; cursor: pointer; }
 .section-excerpts[open] > .section-excerpts-title { margin-bottom: 8px; }
-.section-excerpts-empty { margin: 0; font-size: 0.85rem; }
+.section-excerpts-empty { margin: 0; font-size: var(--fs); }
 .section-excerpts-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
 .section-excerpt-row { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
-.section-excerpt-quote { margin: 0; font-size: 0.85rem; line-height: 1.4; overflow-wrap: anywhere; }
+.section-excerpt-quote { margin: 0; font-size: var(--fs); line-height: 1.4; overflow-wrap: anywhere; }
 .section-excerpt-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; min-width: 0; }
 .section-excerpt-actions select,
 .section-excerpt-actions .custom-select-container { max-width: 100%; min-width: 0; flex: 1 1 140px; }
@@ -66,17 +66,17 @@
 .jump-to-list { list-style: none; padding: 0; margin: 0; max-height: 50vh; overflow: auto; }
 .jump-to-list button {
   width: 100%; text-align: left; border: none; background: none;
-  padding: 8px 6px; cursor: pointer; color: var(--ink); border-radius: 6px;
+  padding: 8px 6px; cursor: pointer; color: var(--ink); border-radius: var(--r-sm);
 }
 .jump-to-list button:hover, .jump-to-list [aria-selected="true"] button {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
-.jump-to-meta { font-size: 0.75rem; color: var(--muted); }
+.jump-to-meta { font-size: var(--fs-xs); color: var(--muted); }
 
 /* Result snippet. Clamped to two lines so a long note cannot push the rest of
    the results below the fold. */
 .jump-to-excerpt {
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   color: var(--muted);
   margin-top: 2px;
   display: -webkit-box;
@@ -88,7 +88,7 @@
 .jump-to-excerpt mark {
   background: color-mix(in srgb, var(--accent) 26%, transparent);
   color: var(--ink);
-  border-radius: 3px;
+  border-radius: var(--r-sm);
   padding: 0 1px;
 }
 
@@ -111,7 +111,7 @@
   border-radius: var(--radius-pill) 0 0 var(--radius-pill);
   border-right: 0;
   padding: 3px 4px 3px 10px;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   cursor: pointer;
 }
 .jump-to-chip-remove {
@@ -120,7 +120,7 @@
   color: var(--muted);
   border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
   padding: 3px 8px 3px 4px;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   line-height: 1;
   cursor: pointer;
 }
@@ -129,7 +129,7 @@
 
 .jump-to-list .jump-to-create {
   color: var(--accent-ink);
-  font-size: 0.85rem;
+  font-size: var(--fs);
 }
 
 /* ---- Related panel (graph / lexical suggestions) ---- */

@@ -16,6 +16,7 @@ import { getContainer } from "@/bootstrap";
 import { PROVIDER_PRESETS, type ProviderApi } from "@/container/facades";
 import { FormError } from "@/components/form-error";
 import { logToApp } from "@/lib/error-report/app-log";
+import { Button } from "@/components/button";
 
 /**
  * Settings → AI provider.
@@ -241,18 +242,16 @@ export function AiProviderPanel() {
       )}
 
       <div className="screen-actions">
-        <button
-          className="btn-secondary"
-          type="button"
+        <Button
           disabled={testing || !ready}
           onClick={() => void test()}
         >
           {testing ? "Testing…" : active ? "Test and update" : "Test and use"}
-        </button>
+        </Button>
         {active && (
-          <button
-            className="btn-ghost"
-            type="button"
+          <Button
+            variant="ghost"
+           
             disabled={testing}
             onClick={() => {
               clearActiveProvider();
@@ -269,7 +268,7 @@ export function AiProviderPanel() {
             }}
           >
             Stop using it
-          </button>
+          </Button>
         )}
       </div>
 

@@ -23,6 +23,7 @@ import {
 import { FormError } from "@/components/form-error";
 import { ScreenHead } from "@/components/screen-head";
 import { WikiRecentlyApproved } from "./wiki-recent";
+import { Button } from "@/components/button";
 
 /**
  * Wiki: draft concept pages from what you have written, and keep them healthy.
@@ -182,9 +183,9 @@ export function WikiScreen() {
           )}
         </p>
         <div className="screen-actions">
-          <button className="btn-primary" type="button" disabled={busy !== null} onClick={() => void scan()}>
+          <Button variant="primary" disabled={busy !== null} onClick={() => void scan()}>
             {busy === "scan" && !sources ? "Scanning…" : "Scan everything"}
-          </button>
+          </Button>
           {/* With a model configured a scan costs the user money per document,
               so narrowing it has to be reachable before running, not after. */}
           <button
@@ -201,16 +202,16 @@ export function WikiScreen() {
           <>
             <p className="muted">
               {scope.size} of {sources.length} selected.{" "}
-              <button className="link-btn" type="button" onClick={() => setScope(new Set())}>
+              <Button variant="ghost" size="sm" onClick={() => setScope(new Set())}>
                 Select none
-              </button>{" "}
-              <button
-                className="link-btn"
-                type="button"
+              </Button>{" "}
+              <Button
+                variant="ghost" size="sm"
+               
                 onClick={() => setScope(new Set(sources.map((source) => source.id)))}
               >
                 Select all
-              </button>
+              </Button>
             </p>
             <ul className="wiki-plan-list wiki-source-list">
               {sources.map((source) => (
@@ -235,14 +236,14 @@ export function WikiScreen() {
               ))}
             </ul>
             <div className="screen-actions">
-              <button
-                className="btn-primary"
-                type="button"
+              <Button
+                variant="primary"
+               
                 disabled={busy !== null || scope.size === 0}
                 onClick={() => void scan([...scope])}
               >
                 {busy === "scan" ? "Scanning…" : `Scan ${scope.size} document${scope.size === 1 ? "" : "s"}`}
-              </button>
+              </Button>
             </div>
           </>
         )}
@@ -291,14 +292,14 @@ export function WikiScreen() {
                   ))}
                 </ul>
                 <div className="screen-actions">
-                  <button
-                    className="btn-primary"
-                    type="button"
+                  <Button
+                    variant="primary"
+                   
                     disabled={busy !== null || selected.size === 0}
                     onClick={() => void queue()}
                   >
                     {busy === "queue" ? "Queueing…" : `Send ${selected.size} for review`}
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
@@ -312,12 +313,12 @@ export function WikiScreen() {
           Duplicates, links to pages that do not exist, and pages nothing connects to.
         </p>
         <div className="screen-actions">
-          <button className="btn-secondary" type="button" disabled={busy !== null} onClick={() => void refreshLint()}>
+          <Button disabled={busy !== null} onClick={() => void refreshLint()}>
             {busy === "lint" ? "Checking…" : "Re-check"}
-          </button>
-          <button className="btn-secondary" type="button" disabled={busy !== null} onClick={() => void rebuildIndex()}>
+          </Button>
+          <Button disabled={busy !== null} onClick={() => void rebuildIndex()}>
             {busy === "index" ? "Rebuilding…" : "Rebuild index page"}
-          </button>
+          </Button>
         </div>
         {indexed && <p className="muted">{indexed}</p>}
 
@@ -471,9 +472,9 @@ function MergeDialog({
             <button className="btn-ghost btn-cancel" type="button" onClick={onClose}>
               Cancel
             </button>
-            <button
-              className="btn-primary"
-              type="button"
+            <Button
+              variant="primary"
+             
               disabled={busy}
               onClick={() => {
                 setBusy(true);
@@ -487,7 +488,7 @@ function MergeDialog({
               }}
             >
               {busy ? "Merging…" : "Merge"}
-            </button>
+            </Button>
           </ModalActions>
         </>
       )}

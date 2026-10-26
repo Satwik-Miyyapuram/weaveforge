@@ -381,12 +381,12 @@
 .theme-config-actions input[type="file"] {
   flex: 1 1 14rem; min-width: 0; padding: 8px 10px;
   border: 1px solid var(--line); border-radius: var(--radius-sm);
-  background: var(--input-bg); color: var(--ink); font: inherit; font-size: 0.85rem;
+  background: var(--input-bg); color: var(--ink); font: inherit; font-size: var(--fs);
 }
 .theme-config-actions input[type="file"]::file-selector-button {
   margin-right: 10px; padding: 5px 10px;
   border: 1px solid var(--line); border-radius: var(--control-radius-sm);
-  background: var(--surface2); color: var(--ink); font: inherit; font-size: 0.8rem; cursor: pointer;
+  background: var(--surface2); color: var(--ink); font: inherit; font-size: var(--fs-sm); cursor: pointer;
 }
 
 /* Errors are a list because the parser reports every bad key at once — one
@@ -394,7 +394,7 @@
 .theme-config-errors ul {
   margin: 0; padding: 8px 10px 8px 26px;
   border-radius: var(--radius-sm); background: var(--s-danger-bg);
-  color: var(--ink); font-size: 0.8rem; max-height: 12rem; overflow-y: auto;
+  color: var(--ink); font-size: var(--fs-sm); max-height: 12rem; overflow-y: auto;
 }
 .theme-config-errors li { margin: 2px 0; font-family: var(--font-mono); word-break: break-word; }
 

@@ -11,6 +11,7 @@ import { formatError } from "@/lib/format-error";
 import { useSubmit } from "@/lib/hooks/use-submit";
 import type { ApiTokenRecord } from "@/container/facades";
 import { copyText } from "@/lib/clipboard";
+import { Button } from "@/components/button";
 
 const EXPIRY_OPTIONS = [
   { value: "0", label: "Never expires", days: null as number | null },
@@ -106,9 +107,9 @@ export function ApiTokensPanel() {
       {createOpen ? null : <FormError>{error}</FormError>}
 
       <div className="api-token-toolbar">
-        <button type="button" className="btn-primary" onClick={() => setCreateOpen(true)}>
+        <Button variant="primary" onClick={() => setCreateOpen(true)}>
           Generate token
-        </button>
+        </Button>
       </div>
 
       {loading ? (
@@ -128,9 +129,9 @@ export function ApiTokensPanel() {
                 <span>Expires {formatWhen(t.expiresAt)}</span>
                 <span>Last used {formatWhen(t.lastUsedAt)}</span>
               </div>
-              <button type="button" className="link-btn danger" onClick={() => setRevoking(t.id)}>
+              <Button size="sm" className="danger" onClick={() => setRevoking(t.id)}>
                 Revoke
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
@@ -176,9 +177,9 @@ export function ApiTokensPanel() {
               </Select>
             </div>
             <FormError>{error}</FormError>
-            <button className="btn-primary" disabled={busy || !name.trim()}>
+            <Button variant="primary" disabled={busy || !name.trim()}>
               {busy ? "Creating…" : "Create token"}
-            </button>
+            </Button>
           </form>
         </Modal>
       ) : null}
@@ -191,9 +192,8 @@ export function ApiTokensPanel() {
           <div className="field">
             <input className="mono" value={revealed} readOnly aria-label="New API token" />
           </div>
-          <button
-            type="button"
-            className="btn-primary"
+          <Button
+            variant="primary"
             onClick={() => {
               void copyText(revealed).then((ok) => {
                 if (!ok) return;
@@ -203,7 +203,7 @@ export function ApiTokensPanel() {
             }}
           >
             {copied ? "Copied" : "Copy token"}
-          </button>
+          </Button>
         </Modal>
       ) : null}
     </div>

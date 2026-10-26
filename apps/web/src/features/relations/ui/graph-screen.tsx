@@ -28,6 +28,7 @@ import { emptyArray, emptyMap } from "@/lib/empty";
 import type { GraphScreenData } from "@/container/facades";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 /** Graph screen — data loading, view-state, and child presentation components. */
 export function GraphScreen() {
@@ -227,14 +228,14 @@ export function GraphScreen() {
           : undefined
       }
     >
-      <button
-        className="btn-primary"
-        type="button"
+      <Button
+        variant="primary"
+       
         disabled={linking}
         onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
       >
         {linking ? "Linking…" : "+ Graph"}
-      </button>
+      </Button>
     </ScreenHead>
   );
 
@@ -446,7 +447,7 @@ export function GraphScreen() {
           <div className="graph-focus-bar__row">
             {header}
             {settingsButton}
-            <button type="button" className="btn-secondary" onClick={() => setFocus(false)}>Exit focus</button>
+            <Button onClick={() => setFocus(false)}>Exit focus</Button>
           </div>
           <BraveGraphWarning />
         </div>

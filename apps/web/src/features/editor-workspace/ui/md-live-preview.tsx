@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 
 import type { ReactNode } from "react";
 
+import { SegmentedControl } from "@/components/segmented-control";
 import { readStored, writeStored } from "@/lib/safe-storage";
 
 /** The localStorage key, one per app like the pen guard's. */
@@ -89,6 +90,13 @@ export function LivePreview({
   );
 }
 
+/** The three layouts, labelled in the sentence case the editor's other modes use (E30). */
+export const PREVIEW_CHOICES: readonly { value: MdPreviewMode; label: string; title: string }[] = [
+  { value: "off", label: "Source", title: "The editor alone" },
+  { value: "side", label: "Side", title: "The preview in a column beside the editor" },
+  { value: "below", label: "Below", title: "The preview under the editor, one column" },
+];
+
 /**
  * The choice itself: three states, told apart by icon-free words, because a
  * glyph for "below" versus "side" is a riddle and a word is not.
@@ -100,27 +108,9 @@ function PreviewToggle({
   mode: MdPreviewMode;
   onModeChange: (mode: MdPreviewMode) => void;
 }) {
-  const choices: { value: MdPreviewMode; label: string; hint: string }[] = [
-    { value: "off", label: "source", hint: "The editor alone" },
-    { value: "side", label: "side", hint: "The preview in a column beside the editor" },
-    { value: "below", label: "below", hint: "The preview under the editor, one column" },
-  ];
   return (
     <div className="md-live-choice">
-      <div className="seg seg--sm" role="group" aria-label="Live preview">
-        {choices.map((choice) => (
-          <button
-            key={choice.value}
-            type="button"
-            className={mode === choice.value ? "seg-on" : ""}
-            aria-pressed={mode === choice.value}
-            title={choice.hint}
-            onClick={() => onModeChange(choice.value)}
-          >
-            {choice.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl label="Live preview" size="sm" value={mode} onChange={onModeChange} options={PREVIEW_CHOICES} />
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
+import { Button } from "@/components/button";
 
 /**
  * Project-scoped custom fields: inline values on the paper + a small manager
@@ -319,9 +320,9 @@ function PaperFieldsManager({
                   onChange={(e) => setRenameName(e.target.value)}
                   aria-label={`Rename ${def.name}`}
                 />
-                <button
-                  type="button"
-                  className="link-btn"
+                <Button
+                 
+                  variant="ghost" size="sm"
                   disabled={busy}
                   onClick={() =>
                     void run(async () => {
@@ -331,15 +332,15 @@ function PaperFieldsManager({
                   }
                 >
                   Save
-                </button>
-                <button
-                  type="button"
-                  className="link-btn btn-cancel"
+                </Button>
+                <Button
+                 
+                  variant="ghost" size="sm" className="btn-cancel"
                   disabled={busy}
                   onClick={() => setRenameId(null)}
                 >
                   Cancel
-                </button>
+                </Button>
               </>
             ) : (
               <>
@@ -358,9 +359,9 @@ function PaperFieldsManager({
                 >
                   Rename
                 </button>
-                <button
-                  type="button"
-                  className="link-btn"
+                <Button
+                 
+                  variant="ghost" size="sm"
                   disabled={busy}
                   onClick={() => {
                     if (!confirm(`Remove field "${def.name}"? Values on papers will be deleted.`)) {
@@ -370,7 +371,7 @@ function PaperFieldsManager({
                   }}
                 >
                   Remove
-                </button>
+                </Button>
               </>
             )}
           </li>
@@ -445,9 +446,7 @@ function PaperFieldsManager({
             )}
           </>
         )}
-        <button
-          type="button"
-          className="btn-secondary"
+        <Button
           disabled={
             busy ||
             !name.trim() ||
@@ -481,7 +480,7 @@ function PaperFieldsManager({
           }
         >
           Add field
-        </button>
+        </Button>
       </div>
     </div>
   );

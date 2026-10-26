@@ -56,7 +56,7 @@ export function AttachImageButton({
         onClick={() => fileRef.current?.click()}
         disabled={disabled}
         aria-label="Add image"
-        title="Image"
+        title="Add image"
       >
         <ImageIcon />
       </button>

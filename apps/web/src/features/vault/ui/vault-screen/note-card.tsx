@@ -89,6 +89,7 @@ export function NoteCard({
               resourceType="vault_page"
               resourceId={page.id}
               title={`Share: ${page.title}`}
+              name={page.title}
               deleteDisabled={busy}
               deleteLabel={isPinned ? "Remove from library" : "Delete note"}
               onDelete={isPinned ? () => setConfirmUnpinOpen(true) : () => setConfirmOpen(true)}

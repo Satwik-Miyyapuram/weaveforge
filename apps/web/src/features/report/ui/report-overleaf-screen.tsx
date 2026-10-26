@@ -12,6 +12,7 @@ import { ExportOverleafPackagePanel } from "./export-overleaf-package-panel";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { overleafPapers } from "./overleaf-papers";
+import { Button } from "@/components/button";
 
 /**
  * Overleaf tab — linked Overleaf projects + browser ZIP export.
@@ -52,13 +53,13 @@ export function ReportOverleafScreen() {
   return (
     <section className="screen report-overleaf-screen">
       <ScreenHead title="Overleaf">
-        <button
-          className="btn-primary"
-          type="button"
+        <Button
+          variant="primary"
+         
           onClick={() => setExportOpen(true)}
         >
           Export LaTeX
-        </button>
+        </Button>
       </ScreenHead>
 
       {error && <FormError>{error}</FormError>}

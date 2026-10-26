@@ -72,10 +72,10 @@
   z-index: var(--z-toast);
   padding: 8px 14px;
   border: 1px solid var(--border-strong);
-  border-radius: 0 0 10px 0;
+  border-radius: 0 0 var(--r-control) 0;
   background: var(--elev);
   color: var(--text);
-  font-size: 0.85rem;
+  font-size: var(--fs);
   font-weight: 500;
   text-decoration: none;
   box-shadow: var(--shadow);
@@ -147,11 +147,11 @@
 }
 
 .app-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.app-logo { width: 24px; height: 24px; border-radius: 8px; flex: none; }
+.app-logo { width: 24px; height: 24px; border-radius: var(--r-control); flex: none; }
 .menu-toggle {
   display: none;
   background: none; border: none; cursor: pointer; color: var(--ink);
-  padding: 8px; border-radius: 999px;
+  padding: 8px; border-radius: var(--r-pill);
   align-items: center; justify-content: center;
   transition: background var(--dur-base);
   align-self: flex-start;
@@ -159,29 +159,29 @@
 }
 .menu-toggle:hover { background: var(--hover); }
 .app-brand .dot, .dot {
-  width: 22px; height: 22px; border-radius: 8px;
+  width: 22px; height: 22px; border-radius: var(--r-control);
   background: linear-gradient(135deg, var(--accent), var(--clay));
 }
-.app-brand .app-name { font-size: 1.05rem; margin: 0; letter-spacing: -0.01em; font-weight: 600; }
+.app-brand .app-name { font-size: var(--fs-lg); margin: 0; letter-spacing: -0.01em; font-weight: 600; }
 /* Project switcher + projects screen */
 .proj-switcher { position: relative; margin-left: 12px; }
 .proj-chip {
   display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font: inherit;
-  font-size: 0.8rem; font-weight: 500; color: var(--ink);
-  background: var(--pill); border: 1px solid var(--line); padding: 5px 10px; border-radius: 999px;
+  font-size: var(--fs-sm); font-weight: 500; color: var(--ink);
+  background: var(--pill); border: 1px solid var(--line); padding: 5px 10px; border-radius: var(--r-pill);
 }
 .proj-chip .chev { opacity: 0.5; display: flex; align-items: center; }
 .proj-menu {
   /* Matches .header-menu, its sibling in the same row. At 20 it tied with the
      sticky .sub-nav and lost on DOM order, so the tabs painted through it. */
   position: absolute; top: 110%; left: 0; z-index: var(--z-popover); min-width: 220px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
   box-shadow: var(--shadow); padding: 6px; display: grid; gap: 2px;
 }
 .proj-menu-item {
   display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
-  cursor: pointer; font: inherit; font-size: 0.88rem; color: var(--ink);
-  background: none; border: none; padding: 8px 10px; border-radius: 8px;
+  cursor: pointer; font: inherit; font-size: var(--fs); color: var(--ink);
+  background: none; border: none; padding: 8px 10px; border-radius: var(--r-control);
 }
 .proj-menu-item:hover { background: var(--status-neutral); }
 .proj-menu-item.sel { color: var(--accent-ink); }
@@ -194,10 +194,10 @@
   background: linear-gradient(135deg, var(--clay), var(--accent));
 }
 .org-menu-label { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
-.org-menu-role { font-size: 0.72rem; }
+.org-menu-role { font-size: var(--fs-xs); }
 .desktop-only .org-switcher { margin-left: 0; margin-bottom: 10px; width: 100%; }
-.vault-pinned-label { margin: 18px 0 10px; font-size: 0.75rem; }
-.project-dot { width: 11px; height: 11px; border-radius: 999px; flex: none; display: inline-block; }
+.vault-pinned-label { margin: 18px 0 10px; font-size: var(--fs-xs); }
+.project-dot { width: 11px; height: 11px; border-radius: var(--r-pill); flex: none; display: inline-block; }
 .project-list { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 10px; }
 /* A project row is a `<button>` inside its `<li>`. Reset the UA button chrome
    so it sits exactly as the old clickable list item did, and keep the card
@@ -210,7 +210,7 @@
 .project-row { display: flex; align-items: center; gap: 6px; }
 .project-row > .project-card { flex: 1; min-width: 0; }
 .project-card:hover { border-color: var(--accent); }
-.project-name { font-size: 1.02rem; font-weight: 600; letter-spacing: -0.01em; }
+.project-name { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em; }
 
 .header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
@@ -226,13 +226,13 @@
 }
 .header-menu {
   position: absolute; z-index: var(--z-popover); top: calc(100% + 8px); right: 0; min-width: 210px;
-  background: var(--elev); border: 1px solid var(--border); border-radius: 12px;
+  background: var(--elev); border: 1px solid var(--border); border-radius: var(--r-card);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22); padding: 6px; display: grid; gap: 2px;
 }
 .header-menu .header-link,
 .header-menu .signout {
   width: 100%; justify-content: flex-start; gap: 11px;
-  padding: 9px 10px; border-radius: 8px; font-size: 0.86rem; color: var(--text);
+  padding: 9px 10px; border-radius: var(--r-control); font-size: var(--fs); color: var(--text);
 }
 .header-menu .header-link svg,
 .header-menu .signout svg { color: var(--muted); }
@@ -245,8 +245,8 @@
 .header-menu .signout { min-width: 0; min-height: 0; }
 .header-link {
   display: inline-flex; align-items: center; gap: 6px;
-  text-decoration: none; color: var(--muted); font-size: 0.78rem; font-weight: 500;
-  padding: 5px 10px; border-radius: 999px; transition: color var(--dur-base), background var(--dur-base);
+  text-decoration: none; color: var(--muted); font-size: var(--fs-xs); font-weight: 500;
+  padding: 5px 10px; border-radius: var(--r-pill); transition: color var(--dur-base), background var(--dur-base);
   /* Reset UA button chrome (theme-toggle uses this class on a <button>). */
   background: none; border: none; cursor: pointer; font-family: inherit;
 }

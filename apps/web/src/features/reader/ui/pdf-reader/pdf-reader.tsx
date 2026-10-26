@@ -113,6 +113,7 @@ import {
 } from "./pdf-document";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import { shortcutLabel } from "@/lib/shortcut-label";
+import { Button } from "@/components/button";
 
 export function PdfReader({
   url,
@@ -1770,9 +1771,9 @@ export function PdfReader({
       {annError && (
         <div className="pdf-reader-banner pdf-reader-banner--low" role="alert">
           {annError}{" "}
-          <button type="button" className="link-btn" onClick={() => setAnnError(null)}>
+          <Button variant="ghost" size="sm" onClick={() => setAnnError(null)}>
             Dismiss
-          </button>
+          </Button>
         </div>
       )}
       <div

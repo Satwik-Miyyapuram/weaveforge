@@ -7,6 +7,7 @@ import {
   setImagePlacement,
 } from "@/lib/markdown-image-width";
 import type { MdAlign, MdCrop } from "@/lib/markdown-figure-alt";
+import { Button } from "@/components/button";
 
 /**
  * Placing a picture from the read view.
@@ -242,13 +243,12 @@ export function ImageSizeControl({
             </div>
           </div>
           <div className="image-size-actions">
-            <button
-              type="button"
-              className="btn-secondary btn-sm"
+            <Button
+              size="sm"
               onClick={() => commit({ width: null, crop: null, align: null })}
             >
               Reset
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}

@@ -37,6 +37,7 @@ import { formatError } from "@/lib/format-error";
 import { useSubmit } from "@/lib/hooks/use-submit";
 import { useCapability, hasServerRoutes } from "@/deployment/capabilities";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 // Only the Tokens tab paints it, so it stays out of the route's first load.
 const ApiTokensPanel = dynamic(() => import("./api-tokens-panel").then((m) => m.ApiTokensPanel), { ssr: false });
@@ -410,7 +411,7 @@ export function SettingsScreen() {
           served by routes a static export does not contain. See
           `deployment/capabilities.ts` and `ai-access-panel.tsx`. */}
       {((tab === "ai" && hasServerRoutes()) || tab === "integrations") && !loading && !loaded && (
-        <div className="card add-form" role="tabpanel"><FormError>{error ?? "Settings did not load."}</FormError><button type="button" className="btn-secondary" onClick={() => void load()}>Retry</button></div>
+        <div className="card add-form" role="tabpanel"><FormError>{error ?? "Settings did not load."}</FormError><Button onClick={() => void load()}>Retry</Button></div>
       )}
       {tab === "ai" && !loading && loaded && hasServerRoutes() && (
         <div id="settings-ai" className="card add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-ai">
@@ -537,9 +538,9 @@ export function SettingsScreen() {
               </div>
             )}
             {error && <FormError>{error}</FormError>}
-            <button className="btn-primary" disabled={busy}>
+            <Button variant="primary" disabled={busy}>
               {busy ? "Saving…" : "Save connection"}
-            </button>
+            </Button>
           </form>
         </Modal>
       )}
@@ -549,7 +550,7 @@ export function SettingsScreen() {
           <form className="add-form ai-access-modal" onSubmit={(event) => { void submit(event).then((ok) => { if (ok) setAiAccessOpen(false); }); }}>
             <AiAccessPanel settings={settings} onChange={setSettings} />
             {error && <FormError>{error}</FormError>}
-            <ModalActions><button type="button" className="btn-secondary btn-cancel" onClick={() => setAiAccessOpen(false)}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</button></ModalActions>
+            <ModalActions><button type="button" className="btn-secondary btn-cancel" onClick={() => setAiAccessOpen(false)}>Cancel</button><Button variant="primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</Button></ModalActions>
           </form>
         </Modal>
       )}

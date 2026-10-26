@@ -7,6 +7,7 @@ import { Select } from "@/components/select";
 import { scaffoldNewPaperNote } from "../application/paper-source-note-scaffold";
 import { useSubmit } from "@/lib/hooks/use-submit";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 
 type RefKind = Exclude<PaperRef["kind"], "bibliographic">;
@@ -125,9 +126,9 @@ export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
         </div>
       </div>
       {error && <FormError>{error}</FormError>}
-      <button className="btn-primary" disabled={busy}>
+      <Button variant="primary" disabled={busy}>
         {busy ? "Adding…" : "Add paper"}
-      </button>
+      </Button>
     </form>
   );
 }

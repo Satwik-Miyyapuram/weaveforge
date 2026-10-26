@@ -16,7 +16,7 @@
 
 .record-mono {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: var(--fs-micro);
   letter-spacing: 0.1em;
   color: var(--faint);
 }
@@ -37,7 +37,7 @@
   align-items: center;
   gap: 10px;
   font: inherit;
-  font-size: 14px;
+  font-size: var(--fs);
   font-weight: 600;
   color: var(--text);
   background: none;
@@ -55,9 +55,9 @@
   color: var(--text);
   background: var(--surface);
   border: var(--bw, 1px) solid var(--bw-line, var(--border-strong));
-  border-radius: 8px;
+  border-radius: var(--r-control);
 }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .back-btn-box { border-radius: 6px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .back-btn-box { border-radius: var(--r-sm); }
 .back-btn-box svg { width: 18px; height: 18px; }
 @media (hover: hover) {
   .back-btn:hover .back-btn-box { background: var(--accent-soft); }
@@ -80,7 +80,7 @@
   padding: 4px 0;
   min-height: 0;
   font: inherit;
-  font-size: 0.86rem;
+  font-size: var(--fs);
   color: var(--muted);
   background: none;
   border: none;
@@ -115,12 +115,12 @@
 }
 .record-by {
   margin: 16px 0 0;
-  font-size: 1rem;
+  font-size: var(--fs-lg);
   color: var(--muted);
   overflow-wrap: anywhere;
 }
 .record-meta { margin: 10px 0 0; line-height: 1.7; overflow-wrap: anywhere; }
-.record-hint { margin: 12px 0 0; font-size: 0.82rem; color: var(--faint); }
+.record-hint { margin: 12px 0 0; font-size: var(--fs-sm); color: var(--faint); }
 .record-head .paper-ids-editor { margin-top: 14px; }
 
 /* ── Two columns ─────────────────────────────────────────────────────────── */
@@ -158,8 +158,8 @@
   margin: 0 0 16px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-family: var(--font);
+  font-size: var(--fs-micro);
   font-weight: 500;
   letter-spacing: 0.12em;
   color: var(--muted);
@@ -172,7 +172,7 @@
 .record-empty {
   margin: 0;
   max-width: 56ch;
-  font-size: 0.92rem;
+  font-size: var(--fs);
   line-height: 1.6;
   color: var(--muted);
 }
@@ -183,7 +183,7 @@
   min-height: 92px;
   padding: 14px 16px;
   font: inherit;
-  font-size: 0.92rem;
+  font-size: var(--fs);
   text-align: left;
   color: var(--faint);
   background: transparent;
@@ -224,7 +224,7 @@
   color: var(--muted);
   background: none;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   cursor: pointer;
 }
 @media (hover: hover) { .record-focus-btn:hover { color: var(--text); } }
@@ -235,12 +235,12 @@
   border: 1px solid var(--border);
 }
 .record-main .summary,
-.record-note { font-size: 0.98rem; line-height: 1.75; margin: 0; }
+.record-note { font-size: var(--fs-lg); line-height: 1.75; margin: 0; }
 .record-abstract {
   margin: 0;
   max-width: var(--content-measure);
   font-family: var(--font-serif);
-  font-size: 1.02rem;
+  font-size: var(--fs-lg);
   line-height: 1.7;
 }
 .record-main .tag-editor { margin-top: 14px; }
@@ -280,7 +280,7 @@ a.record-page-frame:hover { border-color: var(--border-strong); }
 }
 .record-page-empty {
   padding: 24px;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   line-height: 1.5;
   text-align: center;
   color: var(--faint);
@@ -296,7 +296,7 @@ a.record-page-frame:hover { border-color: var(--border-strong); }
   text-align: left;
   color: var(--text);
 }
-.record-page-card-title { font-size: 1rem; line-height: 1.35; overflow-wrap: anywhere; }
+.record-page-card-title { font-size: var(--fs-lg); line-height: 1.35; overflow-wrap: anywhere; }
 .record-page-card .record-mono { color: var(--faint); }
 .record-page figcaption { margin-top: 10px; overflow-wrap: anywhere; }
 
@@ -304,8 +304,8 @@ a.record-page-frame:hover { border-color: var(--border-strong); }
 .record-fact { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .record-fact dt {
   flex: none;
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-family: var(--font);
+  font-size: var(--fs-micro);
   letter-spacing: 0.1em;
   color: var(--muted);
 }
@@ -318,17 +318,17 @@ a.record-page-frame:hover { border-color: var(--border-strong); }
 .record-fact dd {
   margin: 0;
   max-width: 65%;
-  font-size: 0.86rem;
+  font-size: var(--fs);
   text-align: right;
   overflow-wrap: anywhere;
 }
-.record-aside .paper-external-link { margin: 14px 0 0; font-size: 0.84rem; }
+.record-aside .paper-external-link { margin: 14px 0 0; font-size: var(--fs-sm); }
 
 .record-related { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
 .record-related li { display: grid; gap: 6px; min-width: 0; }
 .record-related-title {
   font-family: var(--font-serif);
-  font-size: 0.98rem;
+  font-size: var(--fs-lg);
   line-height: 1.35;
   color: var(--text);
   text-decoration: none;
@@ -339,19 +339,19 @@ a.record-page-frame:hover { border-color: var(--border-strong); }
 .record-bar-track { flex: 1; height: 2px; background: var(--border); overflow: hidden; }
 .record-bar-fill { display: block; height: 100%; background: var(--accent); }
 .record-related-arm { letter-spacing: 0.06em; }
-.record-footnote { margin: 16px 0 0; font-size: 0.76rem; line-height: 1.5; color: var(--faint); }
+.record-footnote { margin: 16px 0 0; font-size: var(--fs-xs); line-height: 1.5; color: var(--faint); }
 
 .record-activity { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .record-activity li {
   display: grid;
   grid-template-columns: 92px minmax(0, 1fr);
   gap: 10px;
-  font-size: 0.86rem;
+  font-size: var(--fs);
   line-height: 1.4;
 }
 .record-activity-at {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-family: var(--font);
+  font-size: var(--fs-micro);
   letter-spacing: 0.08em;
   color: var(--faint);
   padding-top: 2px;
@@ -395,7 +395,7 @@ a.record-page-frame:hover { border-color: var(--border-strong); }
   box-shadow: none;
 }
 .record-section-tag .btn-secondary:hover { color: var(--text); }
-.record .live-dot { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em; }
+.record .live-dot { font-family: var(--font); font-size: var(--fs-micro); letter-spacing: 0.08em; }
 .record .metric-curves--detail { margin: 0; }
 .record-section-tag .entity-icon-btn { width: 24px; height: 24px; min-height: 0; border: none; background: none; color: var(--faint); }
 .record-section-tag .entity-icon-btn:hover { color: var(--text); }

@@ -7,6 +7,7 @@ import type { ReportSection } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 export type ReportParentOption = { section: ReportSection; depth: number };
 
@@ -109,9 +110,9 @@ export function AddSectionForm({
         </div>
       </div>
       {error && <FormError>{error}</FormError>}
-      <button className="btn-primary" disabled={busy}>
+      <Button variant="primary" disabled={busy}>
         {busy ? "Adding…" : "Add section"}
-      </button>
+      </Button>
     </form>
   );
 }

@@ -37,7 +37,7 @@
   height: 25px;
   padding-inline-end: 8px;
   color: var(--text);
-  font-size: 0.845rem;
+  font-size: var(--fs);
   /* The row has an `onClick`. It is a control, and it has to look like one.
      It carried the UA's arrow cursor, which made the most-clicked thing in the
      screen — the tree — read as static text. */
@@ -168,7 +168,7 @@
 .explorer-git {
   flex: none;
   font-family: var(--font-mono);
-  font-size: 0.66rem;
+  font-size: var(--fs-micro);
   font-weight: 600;
   line-height: 1;
 }
@@ -181,8 +181,8 @@
   flex: none;
   margin-inline-start: 2px;
   color: var(--faint);
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-family: var(--font);
+  font-size: var(--fs-micro);
 }
 
 /* "In 2 lists" on a Files row: membership is discoverable without opening the
@@ -192,8 +192,8 @@
   flex: none;
   margin-inline-start: auto;
   color: var(--faint);
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-family: var(--font);
+  font-size: var(--fs-micro);
 }
 
 .explorer-row:hover .explorer-in-lists,
@@ -217,7 +217,7 @@
 .explorer-title {
   margin-inline-end: auto;
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: var(--fs-micro);
   font-weight: 600;
   letter-spacing: 0.11em;
 }
@@ -234,11 +234,11 @@
   width: 100%;
   padding: 6px 24px 6px 8px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--r-control);
   background: var(--bg);
   color: var(--text);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
 }
 
 .explorer-filter::placeholder { color: var(--faint); }
@@ -258,7 +258,7 @@
   height: 17px;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--faint);
   cursor: pointer;
@@ -281,7 +281,7 @@
   height: 24px;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--faint);
   cursor: pointer;
@@ -340,7 +340,7 @@
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 0.66rem;
+  font-size: var(--fs-micro);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-align: start;
@@ -361,8 +361,8 @@
 .explorer-section-count {
   margin-inline-start: auto;
   color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-family: var(--font);
+  font-size: var(--fs-micro);
   font-weight: 500;
   letter-spacing: 0;
 }
@@ -382,7 +382,7 @@
 
 .explorer-section-empty {
   padding: 4px 10px 6px;
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
 }
 
 .explorer-label {
@@ -397,10 +397,10 @@
   margin-inline-start: auto;
   padding: 0 0.35rem;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   opacity: 0;
   cursor: pointer;
 }
@@ -586,7 +586,7 @@
   width: 28px;
   height: 28px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: var(--surface);
   color: var(--muted);
   opacity: 0.55;
@@ -631,7 +631,7 @@
   margin: 0;
   padding: 6px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--r-card);
   /* No backdrop-filter and no transform here: either would make the palette
      the containing block of the colour menu's `position: fixed` panel. */
   background: color-mix(in srgb, var(--surface) 94%, transparent);
@@ -748,7 +748,7 @@
   flex-direction: row;
   gap: 3px;
   padding: 0 4px;
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   line-height: inherit;
 }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette:is([data-dock="top"], [data-dock="bottom"]) .ink-page-count .ink-page-sep {
@@ -770,7 +770,7 @@
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-zoom-pct { height: 36px; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool svg { width: 18px; height: 18px; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-bar-group,
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill { gap: 4px; padding: 3px; border-radius: 10px; }
+:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill { gap: 4px; padding: 3px; border-radius: var(--r-control); }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill {
   width: 100%;
   max-width: 36px;
@@ -786,7 +786,7 @@
   flex-direction: column;
   gap: 0;
   padding: 4px 0;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   line-height: 1.1;
 }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-bar .ink-page-count .ink-page-sep { display: none; }
@@ -795,7 +795,7 @@
   margin-top: 3px;
   padding-top: 3px;
   border-top: 1px solid var(--border-strong);
-  font-size: 0.7rem;
+  font-size: var(--fs-micro);
 }
 :is(.workspace-shell, .record-ink-focus).is-focus .ink-bar .ink-menu { justify-content: center; }
 
@@ -842,7 +842,7 @@
   height: 20px;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -861,7 +861,7 @@
   height: 21px;
   padding: 0 4px;
   border: 1px solid var(--accent);
-  border-radius: 3px;
+  border-radius: var(--r-sm);
   background: var(--bg);
   color: var(--text);
   font: inherit;
@@ -872,7 +872,7 @@
   padding-block: 2px 4px;
   padding-inline-end: 8px;
   color: var(--danger, #c0392b);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   line-height: 1.3;
 }
 
@@ -977,7 +977,7 @@
   padding: 0 11px;
   background: var(--surface);
   color: var(--muted);
-  font-size: 0.815rem;
+  font-size: var(--fs-sm);
   white-space: nowrap;
   border-inline-end: 1px solid var(--border);
   /* A tab is clicked to switch documents: it has to answer the pointer. */
@@ -1060,7 +1060,7 @@
   border-radius: 50%;
   background: var(--accent);
   color: var(--accent-fg);
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -1084,7 +1084,7 @@
   height: 16px;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: inherit;
   line-height: 1;
@@ -1112,7 +1112,7 @@
   height: 24px;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--faint);
   line-height: 1;
@@ -1175,14 +1175,14 @@
   padding: 12px 14px;
   background: var(--elev);
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--r-control);
   box-shadow: var(--shadow);
-  font-size: 0.85rem;
+  font-size: var(--fs);
 }
 
 /* Named as the other menus name a section: small and quiet. */
 .image-size-heading {
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   color: var(--muted);
 }
 
@@ -1196,7 +1196,7 @@
 
 .image-size-key {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
 }
 
 .image-size-row input[type="range"] {
@@ -1235,18 +1235,18 @@
 .image-size-edge > span {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: var(--fs-micro);
 }
 .image-size-edge > input {
   width: 100%;
   min-width: 0;
   padding: 4px 5px;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   background: var(--surface);
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   -moz-appearance: textfield;
 }
@@ -1295,7 +1295,7 @@
   width: 100%;
   padding: 0.35rem 0.5rem;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text);
   text-align: start;
@@ -1334,7 +1334,7 @@
   margin: 0;
   padding: 0.35rem 0.5rem 0.15rem;
   color: var(--faint);
-  font-size: 0.66rem;
+  font-size: var(--fs-micro);
   font-weight: 600;
   letter-spacing: 0.1em;
 }
@@ -1357,7 +1357,7 @@
 .quick-open-path {
   overflow: hidden;
   color: var(--faint);
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -1381,7 +1381,7 @@
   background: var(--bg);
   border-block-end: 1px solid var(--border);
   color: var(--faint);
-  font-size: 0.73rem;
+  font-size: var(--fs-xs);
   white-space: nowrap;
 }
 
@@ -1416,7 +1416,7 @@
 .breadcrumb-current {
   padding: 2px 6px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -1440,7 +1440,7 @@
   margin-inline-start: 1px;
   color: var(--faint);
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: var(--fs-micro);
 }
 
 /* The chevron points down by default; a crumb separator points right. */
@@ -1505,7 +1505,7 @@
   height: 52px;
   margin-block-end: 8px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--r-card);
   background: var(--surface);
   color: var(--faint);
 }
@@ -1516,7 +1516,7 @@
   margin: 0;
   color: var(--text);
   font-family: var(--font-serif);
-  font-size: 1.08rem;
+  font-size: var(--fs-lg);
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -1524,7 +1524,7 @@
 .pane-empty-line {
   max-width: 44ch;
   margin: 0;
-  font-size: 0.845rem;
+  font-size: var(--fs);
   line-height: 1.62;
 }
 
@@ -1534,7 +1534,7 @@
   gap: 8px 20px;
   margin: 22px 0 0;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   text-align: start;
 }
 
@@ -1557,11 +1557,11 @@
   height: 17px;
   padding: 0 4px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: var(--surface);
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: var(--fs-micro);
   line-height: 1;
 }
 
@@ -1685,23 +1685,23 @@
   margin: 12px auto;
   text-align: start;
 }
-.paper-pdf-fetch-label { font-size: 0.82rem; color: var(--muted); }
+.paper-pdf-fetch-label { font-size: var(--fs-sm); color: var(--muted); }
 .paper-pdf-fetch-row { display: flex; gap: 8px; }
 .paper-pdf-fetch-row input {
   flex: 1;
   min-width: 0;
   padding: 6px 10px;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--r-control);
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: var(--fs);
 }
-.paper-pdf-fetch-error { margin: 0; font-size: 0.8rem; color: var(--s-danger); }
+.paper-pdf-fetch-error { margin: 0; font-size: var(--fs-sm); color: var(--s-danger); }
 /* "Find a free copy": the button, and the line saying what it found. */
 .paper-free-copy { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 8px auto 4px; }
-.paper-free-copy-status { margin: 0; max-width: 34rem; font-size: 0.8rem; color: var(--muted); }
+.paper-free-copy-status { margin: 0; max-width: 34rem; font-size: var(--fs-sm); color: var(--muted); }
 .paper-free-copy-status[role="alert"] { color: var(--s-danger); }
 
 /* A paper kept as a web page: a thin bar, then the sandboxed frame. */
@@ -1711,7 +1711,7 @@
   flex: 1;
   min-height: 0;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-control);
   overflow: hidden;
   background: var(--surface);
 }
@@ -1721,7 +1721,7 @@
   gap: 8px;
   padding: 6px 10px;
   border-bottom: 1px solid var(--border);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
 }
 .paper-html-kind { font-weight: 600; }
 .paper-html-source {
@@ -1750,7 +1750,7 @@
   background: var(--surface2);
   border-block-start: 1px solid var(--border);
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
 }
 
 .status-bar > * {
@@ -1758,7 +1758,7 @@
   align-items: center;
   gap: 5px;
   padding: 3px 8px;
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   white-space: nowrap;
 }
 
@@ -1854,7 +1854,7 @@
   gap: 2px;
   background: var(--chip);
   padding: 2px;
-  border-radius: 8px;
+  border-radius: var(--r-control);
   border: 1px solid var(--border);
 }
 
@@ -1866,11 +1866,11 @@
   height: 28px;
   padding: 0 8px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: none;
   color: var(--muted);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   cursor: pointer;
   user-select: none;
   transition: all var(--dur-base) ease;
@@ -1899,7 +1899,7 @@
 }
 
 .ink-tool-hand {
-  font-size: 0.74rem;
+  font-size: var(--fs-xs);
   padding: 0 8px;
 }
 
@@ -1929,11 +1929,11 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-family: var(--font);
+  font-size: var(--fs-xs);
   color: var(--muted);
   background: var(--chip);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   border: 1px solid var(--border);
   padding: 0 4px;
 }
@@ -1980,7 +1980,7 @@
   gap: 1px;
   background: var(--panel, var(--surface));
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-control);
   box-shadow: 0 12px 28px rgb(0 0 0 / 22%);
   /* The bar wraps, so the button can be at either end of a row; the shift is
      measured on open and keeps the list inside the bar's own box, which is the
@@ -1996,11 +1996,11 @@
   width: 100%;
   padding: 6px 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: none;
   color: var(--text);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
@@ -2013,7 +2013,7 @@
 
 .ink-menu-item kbd {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: var(--fs-micro);
   color: var(--muted);
 }
 
@@ -2127,7 +2127,7 @@
   top: 0;
   right: 3px;
   width: 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--scrollbar-thumb);
   opacity: 0;
   pointer-events: auto;
@@ -2306,7 +2306,7 @@
   width: 16px;
   height: 16px;
   border: 1px solid var(--border-strong);
-  border-radius: 3px;
+  border-radius: var(--r-sm);
   background-color: var(--surface);
   flex-shrink: 0;
 }
@@ -2358,10 +2358,10 @@
   top: 8px;
   inset-inline-end: 10px;
   color: var(--faint);
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-family: var(--font);
+  font-size: var(--fs-micro);
   background: color-mix(in srgb, var(--bg) 65%, transparent);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 1px 8px;
 }
 
@@ -2559,17 +2559,17 @@
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: var(--surface);
   box-shadow: 0 3px 12px rgb(0 0 0 / 22%);
 }
 .ink-figure-button {
-  font-size: 0.68rem;
-  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-family: var(--font);
   color: var(--faint);
   padding: 1px 8px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: transparent;
   cursor: pointer;
 }
@@ -2606,7 +2606,7 @@
   padding: 12px 14px;
   border-left: 1px solid var(--border);
   background: var(--surface);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   line-height: 1.5;
 }
 
@@ -2615,8 +2615,8 @@
   align-items: center;
   margin: 0 0 10px;
   color: var(--faint);
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-family: var(--font);
+  font-size: var(--fs-micro);
   font-weight: 500;
   letter-spacing: 0.06em;
 }
@@ -2625,7 +2625,7 @@
 .ink-text p { margin: 0 0 10px; }
 .ink-text .ink-empty { color: var(--faint); }
 /* A line is a paragraph; unsure ones are dotted (§5.4), accepted ones plain. */
-.ink-text .ink-line { cursor: text; border-radius: 4px; padding: 2px 4px; margin: 0 -4px 8px; }
+.ink-text .ink-line { cursor: text; border-radius: var(--r-sm); padding: 2px 4px; margin: 0 -4px 8px; }
 .ink-text .ink-line:hover { background: var(--chip); }
 .ink-text .ink-line-unsure { border-bottom: 1px dotted var(--s-warn); }
 .ink-text .ink-line-sure { color: var(--text); }
@@ -2662,7 +2662,7 @@
   padding: 0 0.6em;
   font-size: 0.9em;
   line-height: 1.6;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--text) 6%, transparent);
   white-space: pre-wrap;
   word-break: break-word;
@@ -2674,7 +2674,7 @@
    diagram keeps the size it was measured at and is zoomed as a whole to the
    sheet's text, so geometry and letters scale together. */
 .ink-sheet-text-underlay .md-mermaid {
-  font-size: 16px;
+  font-size: var(--fs-lg);
   line-height: normal;
   zoom: var(--ink-diagram-zoom, 1);
 }
@@ -2702,7 +2702,7 @@
   width: 100%;
   height: min(72vh, 1000px);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-control);
   background: #e9e9e9;
 }
 
@@ -2723,7 +2723,7 @@
     min-width: 0;
     padding: 0 6px 0 10px;
     color: var(--text);
-    font-size: 0.815rem;
+    font-size: var(--fs-sm);
   }
   .workspace-shell.is-explorer-hidden .pane-tab-switcher { padding-inline-start: 40px; }
   /* The shared Select, flattened into the tab bar. Scoped to the container
@@ -2744,10 +2744,10 @@
     flex: none;
     min-width: 18px;
     padding: 0 5px;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     background: var(--surface2);
     color: var(--muted);
-    font-size: 0.7rem;
+    font-size: var(--fs-micro);
     line-height: 18px;
     text-align: center;
   }
@@ -2790,22 +2790,22 @@
 .ink-menu-section + .ink-menu-section { border-top: 1px solid var(--border); }
 .ink-menu-heading {
   padding: 2px 8px 4px;
-  font-size: 0.72rem; color: var(--muted);
+  font-size: var(--fs-xs); color: var(--muted);
 }
 .ink-menu-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 8px 2px; }
 .ink-menu-chip {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 4px 8px;
-  border: 1px solid var(--border); border-radius: 6px;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
   background: none; color: var(--text);
-  font: inherit; font-size: 0.76rem; cursor: pointer;
+  font: inherit; font-size: var(--fs-xs); cursor: pointer;
 }
 .ink-menu-chip:hover { filter: brightness(1.05); background: var(--chip); }
 .ink-menu-chip[aria-checked="true"] {
   background: var(--active-bg, var(--chip)); color: var(--active-fg, var(--text));
   border-color: var(--text);
 }
-.ink-menu-check, .ink-menu-value { color: var(--muted); font-size: 0.76rem; }
+.ink-menu-check, .ink-menu-value { color: var(--muted); font-size: var(--fs-xs); }
 
 /* Insert and View: a bar button with a caret that opens a short list. */
 /* The shared tool rule makes .ink-tool a 32px square grid; a trigger carries
@@ -2825,9 +2825,9 @@
 .ink-zoom-pct {
   display: inline-flex; align-items: center; justify-content: center; gap: 3px;
   min-width: 3.7rem; height: 32px; padding: 0 4px 0 8px;
-  border: 1px solid transparent; border-radius: 6px;
+  border: 1px solid transparent; border-radius: var(--r-sm);
   background: transparent; color: var(--text);
-  font: inherit; font-size: 0.85rem; font-variant-numeric: tabular-nums;
+  font: inherit; font-size: var(--fs); font-variant-numeric: tabular-nums;
   white-space: nowrap; cursor: pointer;
 }
 .ink-zoom-pct:hover, .ink-zoom-pct[aria-expanded="true"] { background: var(--wf-hover, var(--chip)); }
@@ -2838,11 +2838,11 @@
 .ink-menu-view-list .ink-menu-item { justify-content: flex-start; gap: 8px; }
 .ink-menu-insert-list .ink-menu-item kbd,
 .ink-menu-view-list .ink-menu-item kbd { margin-left: auto; }
-.ink-menu-hint { margin: 4px 8px 2px; font-size: 0.72rem; color: var(--muted); white-space: normal; }
+.ink-menu-hint { margin: 4px 8px 2px; font-size: var(--fs-xs); color: var(--muted); white-space: normal; }
 /* The typed page number: as wide as three digits, no spinner. */
 .ink-page-input {
   width: 3ch; min-width: 2.4rem; padding: 0 2px;
-  border: 0; border-radius: 4px; background: color-mix(in srgb, var(--text) 8%, transparent);
+  border: 0; border-radius: var(--r-sm); background: color-mix(in srgb, var(--text) 8%, transparent);
   color: var(--text); font: inherit; text-align: center; font-variant-numeric: tabular-nums;
   appearance: textfield; -moz-appearance: textfield;
 }

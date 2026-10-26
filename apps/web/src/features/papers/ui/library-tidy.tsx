@@ -13,6 +13,7 @@ import type { LibraryTidyScan, TidyDuplicateGroup } from "@/container/facades/li
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 /** What the tidy-up would offer for these papers. Pure, so the screen can count it cheaply. */
 function useLibraryTidy(papers: readonly PaperSummary[]) {
@@ -60,9 +61,9 @@ export function LibraryTidyNotice({
               : "Some imports kept a file name or page label as the title."}
           </span>
         </div>
-        <button type="button" className="btn-secondary" onClick={() => setOpen(true)}>
+        <Button onClick={() => setOpen(true)}>
           Review
-        </button>
+        </Button>
       </div>
       {open && (
         <Modal title="Tidy the library" onClose={() => setOpen(false)}>
@@ -208,9 +209,9 @@ function TitleFixRow({
           aria-label={`New title for ${fix.current || "untitled paper"}`}
           disabled={done}
         />
-        <button type="button" className="btn-secondary" disabled={busy || done || !value.trim()} onClick={() => void apply()}>
+        <Button disabled={busy || done || !value.trim()} onClick={() => void apply()}>
           {done ? "Applied" : busy ? "Saving…" : "Apply"}
-        </button>
+        </Button>
       </div>
       {error && <FormError>{error}</FormError>}
     </li>
@@ -308,14 +309,12 @@ function DuplicateRow({
             </button>
           </>
         ) : (
-          <button
-            type="button"
-            className="btn-secondary"
+          <Button
             disabled={busy || done}
             onClick={() => setConfirming(true)}
           >
             {done ? "Merged" : busy ? "Merging…" : "Merge…"}
-          </button>
+          </Button>
         )}
       </div>
     </li>

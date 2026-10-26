@@ -14,6 +14,7 @@ import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/
 import { loadCiteLinkCatalog, useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { formatError } from "@/lib/format-error";
 import { createdPageOf, splitProposalContent } from "../application/proposal-preview";
+import { Button } from "@/components/button";
 
 /** A proposal's text, rendered so its `[[links]]` are links, not brackets (E36). */
 function ProposalMarkdown({ text }: { text: string }) {
@@ -245,7 +246,7 @@ export function AiProposalReviewScreen() {
     {error && <p className="form-error" role="alert">{error}</p>}
     {created && <p className="muted" role="status">Created &ldquo;{created.title}&rdquo;. <Link href={`/notes?page=${encodeURIComponent(created.id)}`}>Open page &rarr;</Link></p>}
     {!items.length ? <div className="card empty-state"><h2>Nothing to review</h2><p>New AI suggestions will appear here before they can change your research workspace.</p></div> : <>
-      <div className="card ai-review-toolbar"><div><strong>{items.length} pending suggestion{items.length === 1 ? "" : "s"}</strong><span className="muted"> · Each one waits for you. Additions only add text; nothing is overwritten.</span></div>{appendOnly.length > 1 && <button className="btn-primary" disabled={busy !== null} onClick={() => void approveAll()}>Approve the {appendOnly.length} that only add</button>}</div>
+      <div className="card ai-review-toolbar"><div><strong>{items.length} pending suggestion{items.length === 1 ? "" : "s"}</strong><span className="muted"> · Each one waits for you. Additions only add text; nothing is overwritten.</span></div>{appendOnly.length > 1 && <Button variant="primary" disabled={busy !== null} onClick={() => void approveAll()}>Approve the {appendOnly.length} that only add</Button>}</div>
       <div className="ai-review-list">{items.map((item) => {
         const evidence = item.evidence ?? [];
         const preview = splitProposalContent(item.content);
@@ -287,7 +288,7 @@ export function AiProposalReviewScreen() {
               })}
             </p>
           )}
-          <div className="ai-review-actions"><button className="btn-ghost btn-cancel" disabled={busy !== null} onClick={() => void run(item.id, "reject")}>Reject</button><button className="btn-primary" disabled={busy !== null} onClick={() => void run(item.id, "approve")}>{busy === item.id ? "Applying…" : approveLabel(item)}</button></div>
+          <div className="ai-review-actions"><button className="btn-ghost btn-cancel" disabled={busy !== null} onClick={() => void run(item.id, "reject")}>Reject</button><Button variant="primary" disabled={busy !== null} onClick={() => void run(item.id, "approve")}>{busy === item.id ? "Applying…" : approveLabel(item)}</Button></div>
         </EntityCard>;
       })}</div>
     </>}

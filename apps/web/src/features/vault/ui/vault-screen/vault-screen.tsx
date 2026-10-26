@@ -33,6 +33,7 @@ import { NavIcon } from "@/app/nav-icon";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { navTransition } from "@/lib/view-transition";
+import { Button } from "@/components/button";
 
 export function VaultScreen() {
   const router = useRouter();
@@ -324,19 +325,19 @@ export function VaultScreen() {
         eyebrow={hasNotes ? `${ownedNotes.length} ${ownedNotes.length === 1 ? "note" : "notes"}` : undefined}
         search={hasNotes ? { value: search, onChange: setSearch, label: "Search notes" } : undefined}
       >
-        <button
-          className="btn-primary"
-          type="button"
+        <Button
+          variant="primary"
+         
           disabled={importing}
           onClick={openCompose}
         >
           {importing ? "Importing…" : "New note"}
-        </button>
+        </Button>
         {/* Same button, same screen as on Papers — the wiki reads notes *and*
             papers, so neither screen owns it. See `papers-list.tsx`. */}
-        <button className="btn-secondary" type="button" onClick={() => router.push("/wiki")}>
+        <Button onClick={() => router.push("/wiki")}>
           Wiki
-        </button>
+        </Button>
         <input
           ref={importZipRef}
           type="file"
@@ -487,13 +488,12 @@ export function VaultScreen() {
             title="No notes yet"
             body="Notes are where the reading becomes yours: the derivation you worked through, the paragraph you will still want to quote in eight months. Link them with [[ ]] and they join the graph."
             action={
-              <button
-                type="button"
-                className="btn-primary"
+              <Button
+                variant="primary"
                 onClick={() => { setComposeMode("new"); setComposeOpen(true); }}
               >
                 New note
-              </button>
+              </Button>
             }
           />
         ) : visibleCount === 0 ? (

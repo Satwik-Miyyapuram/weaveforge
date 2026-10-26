@@ -13,6 +13,7 @@ import { sectionWordCounts } from "../lib/section-word-counts";
 import { type LinkedReport, type ReportContent, local, api } from "./linked-overleaf-api";
 import { SectionTree } from "./overleaf-section-tree";
 import { EditOverleafReportForm, LinkOverleafForm } from "./overleaf-report-forms";
+import { Button } from "@/components/button";
 
 export function LinkedOverleafReports() {
   const { current } = useProject();
@@ -121,9 +122,9 @@ export function LinkedOverleafReports() {
           <span className="muted" style={{ fontSize: "0.82rem" }}>
             {reports.length} linked
           </span>
-          <button className="btn-secondary" type="button" onClick={() => setFormOpen((open) => !open)}>
+          <Button onClick={() => setFormOpen((open) => !open)}>
             {formOpen ? "Cancel" : "Link report"}
-          </button>
+          </Button>
         </div>
         <p className="linked-overleaf-disclosure">
           {local()
@@ -152,23 +153,23 @@ export function LinkedOverleafReports() {
               {confirmId === report.id ? (
                 <>
                   <span className="muted">Remove from this project? Overleaf keeps the document.</span>
-                  <button type="button" className="link-btn" onClick={() => void unlink(report)}>Confirm</button>
-                  <button type="button" className="link-btn btn-cancel" onClick={() => setConfirmId(null)}>Cancel</button>
+                  <Button variant="ghost" size="sm" onClick={() => void unlink(report)}>Confirm</Button>
+                  <Button variant="ghost" size="sm" className="btn-cancel" onClick={() => setConfirmId(null)}>Cancel</Button>
                 </>
               ) : (
                 <>
                   <button type="button" className="link-btn" onClick={() => void openReport(report)}>
                     {loading && selected?.id === report.id ? "Loading…" : "View"}
                   </button>
-                  <button type="button" className="link-btn" onClick={() => { setEditingId(report.id); setConfirmId(null); }}>Edit</button>
-                  <button type="button" className="link-btn" onClick={() => setConfirmId(report.id)}>Unlink</button>
+                  <Button variant="ghost" size="sm" onClick={() => { setEditingId(report.id); setConfirmId(null); }}>Edit</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmId(report.id)}>Unlink</Button>
                 </>
               )}
             </div>
           </div>
         ))}</div>}
         {selected && <div className="linked-overleaf-content">
-          <div className="linked-overleaf-toolbar"><strong>{selected.title}</strong><span>{content?.files.length ?? 0} source files</span><a className="link-btn" href={content?.overleafUrl ?? selected.external_url ?? `https://www.overleaf.com/project/${selected.overleaf_project_id}`} target="_blank" rel="noreferrer">Open in Overleaf ↗</a><button type="button" className="link-btn" onClick={() => void openReport(selected)}>Refresh</button></div>
+          <div className="linked-overleaf-toolbar"><strong>{selected.title}</strong><span>{content?.files.length ?? 0} source files</span><a className="link-btn" href={content?.overleafUrl ?? selected.external_url ?? `https://www.overleaf.com/project/${selected.overleaf_project_id}`} target="_blank" rel="noreferrer">Open in Overleaf ↗</a><Button variant="ghost" size="sm" onClick={() => void openReport(selected)}>Refresh</Button></div>
           {content && (() => {
             const counts = sectionWordCounts(content.sectionTree.roots, content.files);
             const total = content.sectionTree.roots.reduce((sum, node) => sum + (counts.get(node.id) ?? 0), 0);

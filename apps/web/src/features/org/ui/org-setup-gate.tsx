@@ -10,6 +10,7 @@ import { FormError } from "@/components/form-error";
 import { Select } from "@/components/select";
 import { formatError } from "@/lib/format-error";
 import { useCapability } from "@/deployment/capabilities";
+import { Button } from "@/components/button";
 
 /**
  * First-run gate: create a lab, join with a code, or continue standalone.
@@ -63,7 +64,7 @@ function OrgSetupForm({ onDone }: { onDone: () => void | Promise<void> }) {
       <div className="org-setup-done">
         <p><strong>Lab created.</strong> Share these codes (shown once):</p>
         <CodeList codes={createdCodes} />
-        <button type="button" className="btn-primary" onClick={() => void onDone()}>Continue</button>
+        <Button variant="primary" onClick={() => void onDone()}>Continue</Button>
       </div>
     );
   }
@@ -167,10 +168,10 @@ function CreateLabForm({
       </label>
       {error && <FormError>{error}</FormError>}
       <div className="head-row">
-        <button type="button" className="btn-ghost" onClick={onBack}>Back</button>
-        <button type="submit" className="btn-primary" disabled={busy || !name.trim()}>
+        <Button variant="ghost" onClick={onBack}>Back</Button>
+        <Button type="submit" variant="primary" disabled={busy || !name.trim()}>
           {busy ? "Creating…" : "Create"}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -278,17 +279,17 @@ function JoinLabForm({
       {lookupError && <FormError>{lookupError}</FormError>}
       {error && <FormError>{error}</FormError>}
       <div className="head-row">
-        <button type="button" className="btn-ghost" onClick={onBack}>Back</button>
+        <Button variant="ghost" onClick={onBack}>Back</Button>
         {/* The supervisor pickers used to carry `required`, which the themed
             Select cannot express — it renders a button, not a form control — so
             the same rule is enforced here instead. */}
-        <button
+        <Button
           type="submit"
-          className="btn-primary"
+          variant="primary"
           disabled={busy || !code.trim() || missingSupervisor}
         >
           {busy ? "Joining…" : "Join lab"}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -328,22 +329,20 @@ export function OrgCodesPanel({ orgId, orgName }: { orgId: string; orgName: stri
             <span className="org-code-role">{r.label}</span>
             <code className="org-code-value">{revealed[r.id] ?? "•••-•••-•••"}</code>
             <div className="org-code-actions">
-              <button
-                type="button"
-                className="btn-secondary btn-sm"
+              <Button
+                size="sm"
                 disabled={busy === r.id}
                 onClick={() => void regen(r.id)}
               >
                 {busy === r.id ? "…" : revealed[r.id] ? "Regenerate" : "Reveal"}
-              </button>
+              </Button>
               {revealed[r.id] && (
-                <button
-                  type="button"
-                  className="btn-secondary btn-sm"
+                <Button
+                  size="sm"
                   onClick={() => void navigator.clipboard.writeText(revealed[r.id]!)}
                 >
                   Copy
-                </button>
+                </Button>
               )}
             </div>
           </li>

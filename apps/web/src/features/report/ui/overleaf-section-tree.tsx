@@ -5,6 +5,7 @@ import type { LatexSectionNode } from "@weaveforge/core";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { sectionTargetKeys } from "../lib/section-target-keys";
 import { sectionBody, type SourceFile } from "../lib/section-word-counts";
+import { Button } from "@/components/button";
 
 /** Collapsible section hierarchy; each heading opens to its own LaTeX body. */
 export function SectionTree({ roots, files, counts, targets, onSetTarget, parentPath = [] }: {
@@ -72,12 +73,12 @@ function SectionNode({ node, files, counts, targets, onSetTarget, targetKey: key
               onKeyDown={(e) => { if (e.key === "Enter") saveTarget((e.target as HTMLInputElement).value); if (e.key === "Escape") setEditingTarget(false); }}
             />
           ) : (
-            <button type="button" className="link-btn" onClick={() => setEditingTarget(true)}>
+            <Button variant="ghost" size="sm" onClick={() => setEditingTarget(true)}>
               {target ? "Edit target" : "Set target"}
-            </button>
+            </Button>
           )}
           {target && !editingTarget && (
-            <button type="button" className="link-btn" onClick={() => onSetTarget(key, null)}>Clear</button>
+            <Button variant="ghost" size="sm" onClick={() => onSetTarget(key, null)}>Clear</Button>
           )}
         </div>
         {hasBody ? <pre>{body}</pre> : <p className="muted">No text directly under this heading.</p>}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 /**
  * Sign in on the Mattermost server's own login page, in a desktop window, so
@@ -45,9 +46,9 @@ export function MattermostSignInButton({
     <div className="add-form">
       {error && <FormError>{error}</FormError>}
       {!server && <p className="muted">Enter your Mattermost server URL to sign in.</p>}
-      <button type="button" className="btn-primary" onClick={() => void run()} disabled={busy || !server}>
+      <Button variant="primary" onClick={() => void run()} disabled={busy || !server}>
         {busy ? "Waiting for sign-in…" : label}
-      </button>
+      </Button>
     </div>
   );
 }

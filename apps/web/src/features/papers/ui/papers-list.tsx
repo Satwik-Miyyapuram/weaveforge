@@ -35,6 +35,7 @@ import { NavIcon } from "@/app/nav-icon";
 import { FormError } from "@/components/form-error";
 import { statusLabel } from "@/components/status-select";
 import { navTransition } from "@/lib/view-transition";
+import { Button } from "@/components/button";
 
 type PapersViewData = PapersScreenData & { ownerNames: Map<string, string> };
 
@@ -376,14 +377,14 @@ export function PapersScreen() {
         search={papers.length > 0 ? { value: search, onChange: setSearch, label: "Search papers" } : undefined}
         note={syncMsg && <p className="muted">{syncMsg}</p>}
       >
-        <button
-          className="btn-primary"
-          type="button"
+        <Button
+          variant="primary"
+         
           disabled={syncing}
           onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
         >
           {syncing ? "Syncing…" : "Add paper"}
-        </button>
+        </Button>
         {/* The wiki reads the papers and notes together and proposes pages;
             the citation check looks for new work citing the library. Both
             are occasional, so they sit one click away rather than beside
@@ -520,13 +521,12 @@ export function PapersScreen() {
           title="No papers yet"
           body="Everything in WeaveForge hangs off a paper: the notes you take on it, the runs it inspired, the section it ends up in. Add your first one and the rest has somewhere to attach."
           action={
-            <button
-              type="button"
-              className="btn-primary"
+            <Button
+              variant="primary"
               onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
             >
               Add paper
-            </button>
+            </Button>
           }
         />
       )}

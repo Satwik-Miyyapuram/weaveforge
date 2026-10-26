@@ -8,8 +8,11 @@ import { getContainer } from "@/bootstrap";
 import { RELATION_COLORS, tagColor } from "../domain/graph-palette";
 import { noteTags, relatedConcepts as relatedConceptCounts } from "../application/graph-tags";
 import { Select } from "@/components/select";
+import { IconButton } from "@/components/button";
+import { CloseIcon } from "@/components/view-icons";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 interface StoredAnnotation {
   text?: string;
@@ -188,9 +191,9 @@ function PaperPanel({
         <Link href={`/papers?paper=${encodeURIComponent(paper.id)}`} className="btn-primary">
           Open in Papers
         </Link>
-        <button type="button" className="btn-secondary" onClick={() => void autoLinkPaper()} disabled={linking}>
+        <Button onClick={() => void autoLinkPaper()} disabled={linking}>
           {linking ? "Linking…" : "Auto-link citations"}
-        </button>
+        </Button>
       </div>
       {touching.length > 0 && (
         <div className="graph-side-section">
@@ -214,7 +217,7 @@ function PaperPanel({
                     title="Delete relation"
                     onClick={() => void removeRelation(e.id)}
                   >
-                    ✕
+                    <CloseIcon />
                   </button>
                 </li>
               );
@@ -355,9 +358,9 @@ function ConceptPanel({
       <h3 className="graph-side-title" style={{ color: tagColor(name) }}>#{name}</h3>
       <p className="muted">{linkedCount} item{linkedCount === 1 ? "" : "s"}</p>
       <div className="graph-side-actions">
-        <button type="button" className="btn-secondary" onClick={() => setMergeOpen((v) => !v)}>
+        <Button onClick={() => setMergeOpen((v) => !v)}>
           Merge alias…
-        </button>
+        </Button>
       </div>
       {mergeOpen && (
         <div className="graph-merge-box">
@@ -375,9 +378,9 @@ function ConceptPanel({
             ))}
           </Select>
           {error && <FormError>{error}</FormError>}
-          <button type="button" className="btn-primary" disabled={!mergeInto || busy} onClick={() => void merge()}>
+          <Button variant="primary" disabled={!mergeInto || busy} onClick={() => void merge()}>
             {busy ? "Merging…" : "Merge"}
-          </button>
+          </Button>
         </div>
       )}
       {linkedPapers.length > 0 && (
@@ -481,16 +484,16 @@ export function EdgeDetailPopover({
       <div className="graph-edge-popover-head">
         <span className="legend-swatch" style={{ background: RELATION_COLORS[edge.relation as RelationType] }} />
         <strong>{edge.relation.replace("_", " ")}</strong>
-        <button type="button" className="link-btn" onClick={onClose}>✕</button>
+        <IconButton label="Close panel" onClick={onClose}><CloseIcon /></IconButton>
       </div>
       <p className="muted graph-edge-popover-path">
         {paperLabel(papers, edge.fromPaper, 36)} → {paperLabel(papers, edge.toPaper, 36)}
       </p>
       {edge.note && <p>{edge.note}</p>}
       <p className="muted">Source: {edge.source}</p>
-      <button type="button" className="btn-secondary" disabled={busy} onClick={() => void remove()}>
+      <Button disabled={busy} onClick={() => void remove()}>
         {busy ? "Deleting…" : "Delete edge"}
-      </button>
+      </Button>
     </div>
   );
 }

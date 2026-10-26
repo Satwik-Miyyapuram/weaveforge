@@ -7,6 +7,7 @@ import { newIssueUrl, reportMarkdown } from "@/lib/error-report/issue-url";
 import { recentLogs } from "@/lib/error-report/log-buffer";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { redactAndCap } from "@/lib/error-report/redact";
+import { Button } from "@/components/button";
 
 /** Where the error was shown, read off the page when "Report" was pressed. */
 export interface ReportContext {
@@ -234,13 +235,13 @@ export function ErrorReportPanel({
             Open on GitHub to send
           </a>
         ) : (
-          <button type="button" className="btn-primary" onClick={() => void send()} disabled={state.status === "sending"}>
+          <Button variant="primary" onClick={() => void send()} disabled={state.status === "sending"}>
             {state.status === "sending" ? "Sending…" : "Send report"}
-          </button>
+          </Button>
         )}
-        <button type="button" className="btn-secondary" onClick={() => void copy()}>
+        <Button onClick={() => void copy()}>
           {copied ? "Copied" : "Copy report"}
-        </button>
+        </Button>
         {noEndpoint ? <span className="report-hint">Opens GitHub with this filled in; you submit it there.</span> : null}
       </div>
       {state.status === "failed" ? (

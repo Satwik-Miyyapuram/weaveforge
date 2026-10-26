@@ -16,6 +16,7 @@ import { sameValue } from "../domain/merge";
 import { FormError } from "@/components/form-error";
 import { runSyncAction } from "./run-sync-action";
 import { useSyncIssues } from "./use-sync-issues";
+import { Button } from "@/components/button";
 
 /**
  * What sync could not decide on its own.
@@ -59,12 +60,12 @@ export function SyncIssuesPanel() {
         </div>
         {decisions > 1 && (
           <div className="field-inline">
-            <button type="button" className="btn-secondary btn-sm" onClick={() => run(() => keepAllConflicts("local"))}>
+            <Button size="sm" onClick={() => run(() => keepAllConflicts("local"))}>
               Keep all mine
-            </button>
-            <button type="button" className="btn-secondary btn-sm" onClick={() => run(() => keepAllConflicts("remote"))}>
+            </Button>
+            <Button size="sm" onClick={() => run(() => keepAllConflicts("remote"))}>
               Take all cloud
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -91,12 +92,12 @@ export function SyncIssuesPanel() {
             <h4>Refused writes</h4>
             {dead.length > 1 && (
               <div className="field-inline">
-                <button type="button" className="btn-secondary btn-sm" onClick={() => run(() => Promise.all(dead.map((e) => retry(e.opId))))}>
+                <Button size="sm" onClick={() => run(() => Promise.all(dead.map((e) => retry(e.opId))))}>
                   Try all again
-                </button>
-                <button type="button" className="btn-ghost btn-sm" onClick={() => run(() => Promise.all(dead.map((e) => discard(e.opId))))}>
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => run(() => Promise.all(dead.map((e) => discard(e.opId))))}>
                   Discard all
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -110,19 +111,19 @@ export function SyncIssuesPanel() {
                 <p className="muted">{entry.lastError ?? "No reason given."}</p>
               </div>
               <div className="field-inline">
-                <button type="button" className="btn-secondary btn-sm" onClick={() => run(() => retry(entry.opId))}>
+                <Button size="sm" onClick={() => run(() => retry(entry.opId))}>
                   Try again
-                </button>
-                <button type="button" className="btn-ghost btn-sm" onClick={() => run(() => discard(entry.opId))}>
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => run(() => discard(entry.opId))}>
                   Discard
-                </button>
+                </Button>
               </div>
             </div>
           ))}
           {dead.length > shown.length && (
-            <button type="button" className="btn-ghost btn-sm" onClick={() => setShowAll(true)}>
+            <Button variant="ghost" size="sm" onClick={() => setShowAll(true)}>
               Show the other {dead.length - shown.length}
-            </button>
+            </Button>
           )}
         </section>
       )}
@@ -165,12 +166,12 @@ function DeletionCard({
         </span>
         <FormError>{error}</FormError>
         <span className="sync-conflict-actions">
-          <button type="button" className="btn-ghost btn-sm" disabled={busy} onClick={() => void choose(here ? "keep" : "delete")}>
+          <Button variant="ghost" size="sm" disabled={busy} onClick={() => void choose(here ? "keep" : "delete")}>
             {here ? "Restore cloud copy" : "Delete it"}
-          </button>
-          <button type="button" className="btn-primary btn-sm" disabled={busy} onClick={() => void choose(here ? "delete" : "keep")}>
+          </Button>
+          <Button variant="primary" size="sm" disabled={busy} onClick={() => void choose(here ? "delete" : "keep")}>
             {here ? "Keep deleted" : "Keep mine"}
-          </button>
+          </Button>
         </span>
       </footer>
     </article>
@@ -239,22 +240,21 @@ function ConflictCard({
         <span className="sync-conflict-actions">
           {fields.length > 1 && (
             <>
-              <button type="button" className="btn-ghost btn-sm" onClick={() => all("local")}>
+              <Button variant="ghost" size="sm" onClick={() => all("local")}>
                 All mine
-              </button>
-              <button type="button" className="btn-ghost btn-sm" onClick={() => all("remote")}>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => all("remote")}>
                 All cloud
-              </button>
+              </Button>
             </>
           )}
-          <button
-            type="button"
-            className="btn-primary btn-sm"
+          <Button
+            variant="primary" size="sm"
             disabled={busy || settled < fields.length}
             onClick={() => void resolve()}
           >
             Resolve
-          </button>
+          </Button>
         </span>
       </footer>
     </article>

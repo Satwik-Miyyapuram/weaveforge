@@ -19,6 +19,7 @@ import { fetchOwnedOrgs, leaveOrg } from "../infrastructure/org-api";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { ownedOrgsOrError, type OwnedOrg } from "./owned-orgs";
+import { Button } from "@/components/button";
 
 /**
  * People / Organization panel. Embedded in Settings (not its own screen). Shows
@@ -122,9 +123,9 @@ export function OrgPanel() {
                 : `You're in ${activeMembership?.orgName ?? "a lab"}. Your supervisor and teammates are listed below.`}
           </p>
           <div className="head-row org-panel-actions">
-            <button type="button" className="btn-secondary" onClick={() => setLabOpen(true)}>
+            <Button onClick={() => setLabOpen(true)}>
               Create / join another lab
-            </button>
+            </Button>
             {canLeaveActiveOrg && (
               <button
                 type="button"
@@ -157,7 +158,7 @@ export function OrgPanel() {
       {allowedRoles.length > 0 && (
         <div className="head-row">
           <div className="screen-actions">
-            <button className="btn-secondary" onClick={() => setAddOpen(true)}>New account</button>
+            <Button onClick={() => setAddOpen(true)}>New account</Button>
           </div>
         </div>
       )}
@@ -186,9 +187,9 @@ function OrgEmptyRow({ onAction }: { onAction: () => void }) {
   return (
     <div className="org-empty-row">
       <p className="muted org-empty-text">You are not part of any org yet.</p>
-      <button type="button" className="btn-secondary" onClick={onAction}>
+      <Button onClick={onAction}>
         Create or join
-      </button>
+      </Button>
     </div>
   );
 }
@@ -288,9 +289,9 @@ function CreateAccountForm({
 
       {error && <FormError>{error}</FormError>}
       {done && <p className="muted">{done}</p>}
-      <button className="btn-primary" disabled={busy}>
+      <Button variant="primary" disabled={busy}>
         {busy ? "Creating…" : "Create account"}
-      </button>
+      </Button>
     </form>
   );
 }

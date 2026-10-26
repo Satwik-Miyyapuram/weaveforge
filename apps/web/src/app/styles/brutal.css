@@ -246,7 +246,7 @@
   --btn-pop-line: var(--bw-line);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-primary, .btn-secondary) {
-  min-height: 40px;
+  min-height: var(--control-lg);
   padding: 0 16px;
   font-family: var(--btn-font);
   font-weight: var(--btn-weight);
@@ -255,6 +255,7 @@
   text-transform: none;
 }
 :root[data-theme="crt"] :is(.btn-primary, .btn-secondary) { font-size: 1.25rem; line-height: 1; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.btn-primary, .btn-secondary).btn-sm { min-height: var(--control-sm); padding: 0 12px; }
 /* The pixel face is unreadable at the base 0.82rem, so the boxless buttons
    take a size near the boxed ones; a small one still reads as small. */
 :root[data-theme="crt"] :is(.btn-ghost, .btn-cancel) { font-size: 1.15rem; line-height: 1; }
@@ -408,7 +409,7 @@
 
 /* Status chips: mono, ink-bordered, the fill carries the state. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.status, .status-select .custom-select-button) {
-  font-family: var(--font-mono);
+  font-family: var(--font);
   border: var(--bw) solid var(--bw-line);
   text-transform: none;
 }
@@ -420,7 +421,7 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .custom-select-button[class*="status-"]:is([aria-expanded="true"], :focus-visible) { background: var(--status-chip); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.tag-chip, .chip) {
   border: var(--bw) solid var(--bw-line);
-  font-family: var(--font-mono);
+  font-family: var(--font);
 }
 
 /* Segmented controls are drawn by states.css: separate chips, no frame. */
@@ -594,7 +595,7 @@
   :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .screen-eyebrow { margin-top: 10px; font-size: 0.7rem; }
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-card-heading {
-  font-family: var(--font-mono);
+  font-family: var(--font);
   font-weight: 400;
   font-size: 0.76rem;
   letter-spacing: 0;
@@ -631,7 +632,7 @@
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-stat-link[href^="/papers"] .progress-bar > span { background: var(--chip-reading); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-stat-link[href^="/plan"] .progress-bar > span { background: var(--chip-read); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-log-date { font-family: var(--font-mono); font-size: 0.76rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-log-date { font-family: var(--font); font-size: 0.76rem; }
 
 /* ---- Project + account row ------------------------------------------------ */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .nav-account-row :is(.proj-chip, .account-btn) {
@@ -667,7 +668,7 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .screen-eyebrow {
   display: block;
   margin: 18px 0 -12px;
-  font-family: var(--font-mono);
+  font-family: var(--font);
   font-size: 0.78rem;
   color: var(--muted);
 }
@@ -685,7 +686,7 @@
   background: var(--accent); color: var(--accent-fg);
   box-shadow: inset 0 0 0 var(--bw) var(--bw-line), var(--sh-sm);
 }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail-count { font-family: var(--font-mono); font-weight: 400; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail-count { font-family: var(--font); font-weight: 400; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-panel { padding: 22px 24px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row {
   background: transparent; border: 0; padding: 0 0 12px; gap: 10px;
@@ -758,7 +759,7 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-row-title { font-size: 1rem; font-weight: 700; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-count {
   background: transparent;
-  font-family: var(--font-mono);
+  font-family: var(--font);
   font-size: 0.76rem;
   padding: 0;
 }
@@ -785,7 +786,7 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-item-kind {
   min-width: 84px;
   text-align: center;
-  font-family: var(--font-mono);
+  font-family: var(--font);
   font-size: 0.74rem;
   padding: 3px 10px;
   border: var(--bw) solid var(--bw-line);
@@ -882,7 +883,7 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .plan-list { grid-template-columns: 1fr; gap: 12px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.milestone-item { min-height: 0; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.milestone-item[data-status="done"] .entity-card-title { text-decoration: line-through; text-decoration-thickness: 2px; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .milestone-item .entity-card-meta { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .milestone-item .entity-card-meta { font-family: var(--font); font-size: 0.78rem; font-weight: 600; }
 /* The mock's timeline: an inked track filled to today in the done green,
    square-ish stamped marks, and a checkbox that is a stamped box. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .plan-track {
@@ -898,7 +899,7 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .plan-mark > span:last-of-type { border-radius: 0 5px 5px 0; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .plan-mark > span:only-of-type { border-radius: 5px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .plan-mark-count { border-radius: var(--radius-sm); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .plan-today > em { font-family: var(--font-mono); font-weight: 500; border-radius: var(--radius-sm); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .plan-today > em { font-family: var(--font); font-weight: 500; border-radius: var(--radius-sm); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .milestone-check {
   appearance: none; -webkit-appearance: none; display: grid; place-content: center;
   width: 30px; height: 30px; margin-right: 8px;
@@ -965,14 +966,14 @@
 /* ---- Log -------------------------------------------------------------------
    A timeline: the day stamped big in a gutter, an ink rule with a dot per day,
    the day's cards to its right, and the month and kinds in a side column. */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-day-month { font-family: var(--font-mono); font-size: 0.7rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-day-month { font-family: var(--font); font-size: 0.7rem; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-list { margin: 0; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.log-item { box-shadow: var(--sh-card); padding: 16px 18px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-item .entity-card-title { font-size: 1.05rem; font-weight: 700; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-item .log-body { font-size: 0.95rem; line-height: 1.55; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-time { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-calendar-head { font-family: var(--font-mono); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-kinds-count { font-family: var(--font-mono); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-time { font-family: var(--font); font-size: 0.78rem; color: var(--muted); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-calendar-head { font-family: var(--font); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-kinds-count { font-family: var(--font); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.log-calendar, .log-kinds) { box-shadow: var(--sh-card); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.log-calendar, .log-kinds) h2 { font-family: var(--display); font-weight: var(--display-weight); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-calendar-day.is-logged {
@@ -1032,7 +1033,7 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-tree.nested > .section-node { border-top: 1.5px dashed color-mix(in srgb, var(--bw-line) 55%, transparent); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-item .entity-card-title { font-weight: 700; font-size: 1.02rem; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-item--nested .entity-card-title { font-weight: 600; font-size: 0.96rem; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-item .entity-card-meta { font-family: var(--font-mono); font-size: 0.76rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-item .entity-card-meta { font-family: var(--font); font-size: 0.76rem; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-head-toggle.list-toggle { border: var(--bw) solid var(--bw-line); border-radius: var(--radius-sm); background: var(--surface); }
 /* ---- Graph -----------------------------------------------------------------
    Chrome only; the drawing is the renderer's. A dotted desk under the nodes,
@@ -1047,10 +1048,10 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .legend-node--diamond { width: 10px; height: 10px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .legend-node--ring { outline: 1.5px solid var(--bw-line); outline-offset: 1.5px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .legend-swatch.legend-dot, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .legend-ramp { border: 1.5px solid var(--bw-line); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-legend-heading { font-family: var(--font-mono); letter-spacing: 0; text-transform: none; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-legend-heading { font-family: var(--font); letter-spacing: 0; text-transform: none; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-side-panel { border-left: var(--bw) solid var(--bw-line); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-side-title { font-family: var(--display); font-weight: var(--display-weight); font-size: 1.3rem; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-side-meta { font-family: var(--font-mono); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-side-meta { font-family: var(--font); }
 /* ---- Wiki ------------------------------------------------------------------
    Each health step is its own inset box with a numbered stamp and a count
    pill; the source and concept lists are one ruled sheet. */
@@ -1069,7 +1070,7 @@
   border-radius: var(--radius-sm);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-step-head { font-size: 0.95rem; font-weight: 700; color: var(--text); text-transform: none; letter-spacing: 0; margin: 0 0 6px; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-step-count { font-family: var(--font-mono); border: var(--bw) solid var(--bw-line); background: var(--chip-to-read); color: #12110f; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-step-count { font-family: var(--font); border: var(--bw) solid var(--bw-line); background: var(--chip-to-read); color: #12110f; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-step--duplicate .wiki-step-count { background: var(--chip-skimmed); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-step--orphan .wiki-step-count { background: var(--chip-reading); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-lint-list li { border-left: 0; padding: 6px 0; border-bottom: 1.5px dashed color-mix(in srgb, var(--bw-line) 45%, transparent); }
@@ -1084,11 +1085,11 @@
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-plan-list > li { padding: 8px 0; border-bottom: 1.5px dashed color-mix(in srgb, var(--bw-line) 45%, transparent); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-plan-list > li:last-child { border-bottom: 0; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-plan-list .jump-to-meta { font-family: var(--font-mono); font-size: 0.74rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-plan-list .jump-to-meta { font-family: var(--font); font-size: 0.74rem; }
 
 /* ── AI review ─────────────────────────────────────────────────────────── */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-toolbar { box-shadow: var(--sh-card); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-card .entity-card-meta { font-family: var(--font-mono); font-size: 0.76rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-card .entity-card-meta { font-family: var(--font); font-size: 0.76rem; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind {
   display: inline-block; padding: 2px 10px;
   border: var(--bw) solid var(--bw-line); border-radius: 999px;
@@ -1098,7 +1099,7 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind--append_paper_note, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind--create_vault_note, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind--create_log_entry { background: var(--chip-read); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind--relation, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind--milestone_follow_up, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind--experiment_follow_up { background: var(--chip-skimmed); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind--paper_update, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind--paper_field_value { background: var(--chip-to-read); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-colhead { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-colhead { font-family: var(--font); font-size: 0.72rem; letter-spacing: 0; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-proposal-content {
   background: var(--surface2); border: var(--bw) solid var(--bw-line);
   border-radius: var(--radius-sm);
@@ -1112,10 +1113,10 @@
   background: var(--chip-to-read); color: var(--text);
   border: var(--bw) solid var(--bw-line); font-weight: 700;
 }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-evidence-open { font-family: var(--font-mono); font-size: 0.76rem; text-decoration: underline; color: var(--text); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-sources-label { font-family: var(--font-mono); letter-spacing: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-evidence-open { font-family: var(--font); font-size: 0.76rem; text-decoration: underline; color: var(--text); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-sources-label { font-family: var(--font); letter-spacing: 0; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-source {
-  font-family: var(--font-mono); font-size: 0.72rem;
+  font-family: var(--font); font-size: 0.72rem;
   border: var(--bw) solid var(--bw-line); background: var(--surface2);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-actions { border-top: var(--bw) solid var(--bw-line); }
@@ -1123,7 +1124,7 @@
 /* ── Supervision ───────────────────────────────────────────────────────── */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-panels > .card { box-shadow: var(--sh-card); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-head, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-role, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-reviewing, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-note-label,
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-meta, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-log-date, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-screen .superv-picker label { font-family: var(--font-mono); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-meta, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-log-date, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-screen .superv-picker label { font-family: var(--font); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-item { border-radius: var(--radius-sm); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-item.is-active { background: var(--text); color: var(--surface); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-avatar { border: var(--bw) solid var(--bw-line); background: var(--chip-reading); color: var(--text); }
@@ -1132,7 +1133,7 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-item.is-active .superv-avatar { background: var(--chip-to-read); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-panel-head { font-family: var(--display); font-weight: var(--display-weight); font-size: 1.15rem; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-source {
-  font-family: var(--font-mono); font-size: 0.7rem; font-weight: 500;
+  font-family: var(--font); font-size: 0.7rem; font-weight: 500;
   border: var(--bw) solid var(--bw-line); background: var(--surface2); color: var(--text);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-source--live { background: var(--chip-read); }
@@ -1144,7 +1145,7 @@
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-item-title { font-weight: 700; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-status {
-  font-family: var(--font-mono); font-size: 0.7rem; text-transform: none;
+  font-family: var(--font); font-size: 0.7rem; text-transform: none;
   border: var(--bw) solid var(--bw-line); background: var(--surface2); color: var(--text);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-status.s-done, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-status.s-daily { background: var(--chip-read); color: var(--text); }
@@ -1157,10 +1158,10 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-filter button:last-child { border-right: 0; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-filter button.active { background: var(--text); color: var(--surface); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-group-head { font-family: var(--display); font-weight: var(--display-weight); font-size: 1.2rem; color: var(--text); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-group-count { font-family: var(--font-mono); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-group-count { font-family: var(--font); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-screen .shared-by-chip { display: none; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-grid > .shared-item { box-shadow: var(--sh-card); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-kind, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-access { font-family: var(--font-mono); border: var(--bw) solid var(--bw-line); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-kind, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-access { font-family: var(--font); border: var(--bw) solid var(--bw-line); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-access { background: var(--surface2); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-kind--paper { background: var(--chip-to-read); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-kind--vault_page { background: var(--chip-reading); }
@@ -1185,7 +1186,7 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-option--border .tint-sample-card { border: 3px solid var(--chip-reading); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-sample-band { border-right: var(--bw) solid var(--bw-line); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .appearance-tag { border: var(--bw) solid var(--bw-line); color: var(--text); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-sample-chip { border: var(--bw) solid var(--bw-line); font-family: var(--font-mono); color: #12110f; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tint-sample-chip { border: var(--bw) solid var(--bw-line); font-family: var(--font); color: #12110f; }
 
 /* Prose links: the accent is a fill colour here (yellow), too pale for text on
    a cream card. Ink text, accent underline. */
@@ -1215,7 +1216,7 @@
 }
 /* Its labels read as labels: the mono of the other menus' headings. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.image-size-heading, .image-size-key) {
-  font-family: var(--font-mono);
+  font-family: var(--font);
 }
 /* The sync attention badge: a hard-edged sticker, not a soft pill. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-badge {

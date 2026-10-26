@@ -4,6 +4,7 @@ import { useState } from "react";
 import { formatError } from "@/lib/format-error";
 import { linkOverleafReport } from "../application/link-overleaf-report";
 import { type LinkedReport, local, api } from "./linked-overleaf-api";
+import { Button } from "@/components/button";
 
 /**
  * Edits this app's link row — title, which Overleaf project it points at, and
@@ -43,7 +44,7 @@ export function EditOverleafReportForm({ report, onSaved, onCancel, onError }: {
       <label>Overleaf project ID<input name="overleafProjectId" required defaultValue={report.overleaf_project_id} /></label>
       <label>Entry file<input name="entryFile" required defaultValue={report.entry_file} /></label>
       <div className="linked-overleaf-form__actions">
-        <button className="btn-primary" disabled={busy} type="submit">{busy ? "Saving…" : "Save changes"}</button>
+        <Button variant="primary" disabled={busy} type="submit">{busy ? "Saving…" : "Save changes"}</Button>
         <button className="btn-secondary btn-cancel" disabled={busy} type="button" onClick={onCancel}>Cancel</button>
       </div>
     </form>
@@ -82,5 +83,5 @@ export function LinkOverleafForm({ projectId, onLinked, onError }: { projectId: 
     } catch (err) { onError(formatError(err)); }
     finally { setBusy(false); }
   }
-  return <form className="linked-overleaf-form" onSubmit={(event) => void submit(event)}><label>Connection name<input name="connectionName" required placeholder="My Overleaf account" /></label><label>Overleaf Git token<input name="token" type="password" required autoComplete="off" /></label><label>Report title<input name="title" required placeholder="MSc thesis" /></label><label>Overleaf project ID<input name="overleafProjectId" required placeholder="1234567" /></label><label>Entry file<input name="entryFile" defaultValue="main.tex" required /></label><button className="btn-primary" disabled={busy} type="submit">{busy ? "Linking…" : "Save and link report"}</button></form>;
+  return <form className="linked-overleaf-form" onSubmit={(event) => void submit(event)}><label>Connection name<input name="connectionName" required placeholder="My Overleaf account" /></label><label>Overleaf Git token<input name="token" type="password" required autoComplete="off" /></label><label>Report title<input name="title" required placeholder="MSc thesis" /></label><label>Overleaf project ID<input name="overleafProjectId" required placeholder="1234567" /></label><label>Entry file<input name="entryFile" defaultValue="main.tex" required /></label><Button variant="primary" disabled={busy} type="submit">{busy ? "Linking…" : "Save and link report"}</Button></form>;
 }

@@ -15,6 +15,7 @@ import {
   planFeedUrls,
   type PlanFeedLink,
 } from "@/features/plan/infrastructure/plan-feed-links";
+import { Button } from "@/components/button";
 
 const REMINDER_OPTIONS = [
   { value: "0", label: "No reminder" },
@@ -149,9 +150,9 @@ export function CalendarFeedPanel() {
               <label htmlFor={`calendar-${key}`}>{label}</label>
               <div className="calendar-feed-row">
                 <input id={`calendar-${key}`} className="mono" value={value} readOnly onFocus={(e) => e.target.select()} />
-                <button type="button" className="btn-secondary" onClick={() => copy(key, value)}>
+                <Button onClick={() => copy(key, value)}>
                   {copied === key ? "Copied" : "Copy"}
-                </button>
+                </Button>
               </div>
             </div>
           ))}
@@ -175,14 +176,13 @@ export function CalendarFeedPanel() {
 
       {!loading && (
         <div className="api-token-toolbar calendar-feed-actions">
-          <button
-            type="button"
-            className="btn-primary"
+          <Button
+            variant="primary"
             disabled={busy}
             onClick={() => (link ? setConfirming("replace") : void make())}
           >
             {busy ? "Working…" : link ? "Make a new link" : "Make a link"}
-          </button>
+          </Button>
           {link ? (
             <button type="button" className="link-btn danger" disabled={busy} onClick={() => setConfirming("off")}>
               Turn off

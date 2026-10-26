@@ -207,7 +207,7 @@
 /* ---------- Nav item ---------- */
 :root:root :is(.wf-nav, .nav-link, .header-link) {
   display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--wf-rc);
-  color: var(--text); text-decoration: none; font-size: 14px; font-weight: 500; cursor: pointer;
+  color: var(--text); text-decoration: none; font-size: var(--fs); font-weight: 500; cursor: pointer;
   transition: background-color var(--wf-t) var(--wf-ease), color var(--wf-t) var(--wf-ease);
 }
 :root:root :is(.wf-nav, .nav-link, .header-link):is(:hover, [data-force~="hover"]) { background-color: var(--wf-hover); }
@@ -217,15 +217,15 @@
 /* ---------- Chip ---------- */
 :root:root :is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip) {
   display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border: var(--wf-bw) solid var(--wf-line);
-  border-radius: 999px; background: var(--surface); color: var(--text); text-decoration: none;
-  font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; font-weight: 600; line-height: 1.3;
+  border-radius: var(--r-pill); background: var(--surface); color: var(--text); text-decoration: none;
+  font-family: var(--font); font-size: var(--fs-sm); font-weight: 600; line-height: 1.3;
 }
 :root:root :is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip).wf-ext { border-style: dashed; }
 :root:root :is(a, button):is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip) {
   cursor: pointer; box-shadow: var(--wf-sh-rest); translate: 0 0;
   transition: translate var(--wf-t) var(--wf-ease-hover), box-shadow var(--wf-t) var(--wf-ease), background-color var(--wf-t) var(--wf-ease), color var(--wf-t) var(--wf-ease);
 }
-:root:root a:is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip)[href]::after { content: "\2197"; }
+:root:root a:is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip, .plan-chip)[href]::after { content: "\2197"; }
 :root:root :is(a, button):is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip):is(:hover, [data-force~="hover"]):not(:disabled) { translate: 0 var(--wf-lift); box-shadow: var(--wf-sh-up); }
 :root:root :is(a, button):is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip):is(:active, [data-force~="press"]):not(:disabled) { translate: calc(var(--wf-press) * .67) calc(var(--wf-press) * .67); box-shadow: none; transition-duration: var(--wf-t-press); }
 :root:root button:is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip)[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
@@ -253,12 +253,12 @@
 /* ---------- Toggle (input type=checkbox role=switch) ---------- */
 :root:root :is(.wf-toggle, .appearance-switch) {
   appearance: none; position: relative; flex: none; width: 36px; height: 20px; margin: 0; box-sizing: border-box;
-  border: var(--wf-bw) solid var(--wf-line); border-radius: 999px; background: var(--wf-surface2); cursor: pointer;
+  border: var(--wf-bw) solid var(--wf-line); border-radius: var(--r-pill); background: var(--wf-surface2); cursor: pointer;
   transition: background-color var(--wf-t) var(--wf-ease);
 }
 :root:root :is(.wf-toggle, .appearance-switch)::before {
   content: ""; position: absolute; top: 2px; left: 2px; width: calc(20px - 2 * var(--wf-bw) - 4px); height: calc(20px - 2 * var(--wf-bw) - 4px);
-  border-radius: 999px; background: var(--muted); translate: 0 0;
+  border-radius: var(--r-pill); background: var(--muted); translate: 0 0;
   transition: translate var(--wf-t) var(--wf-ease-hover), width var(--wf-t-press) linear, background-color var(--wf-t) var(--wf-ease);
 }
 :root:root :is(.wf-toggle, .appearance-switch):is(:hover, [data-force~="hover"]):not(:disabled) { background-color: color-mix(in srgb, var(--text) var(--wf-hover-pct), var(--wf-surface2)); }
@@ -293,7 +293,7 @@
 
 /* ---------- Input and select ---------- */
 :root:root :is(.wf-input, .themed-input, .paper-field-input, .search-input, .input, .explorer-filter, .graph-search-input, .settings-find, .quick-open-input, .pdf-reader-pop-input), :root:root :is(.wf-select, .custom-select-button) {
-  font: inherit; font-size: 14px; line-height: 1.3; padding: 7px 10px; box-sizing: border-box;
+  font: inherit; font-size: var(--fs); line-height: 1.3; padding: 7px 10px; box-sizing: border-box;
   border: var(--wf-bw) solid var(--wf-line); border-radius: var(--wf-rc); background: var(--bg); color: var(--text);
   transition: background-color var(--wf-t) var(--wf-ease), border-color var(--wf-t) var(--wf-ease),
     box-shadow var(--wf-t) var(--wf-ease), transform var(--wf-t) var(--wf-ease-hover);
@@ -347,7 +347,7 @@
 :root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item) {
   display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px; box-sizing: border-box;
   border: 0; border-radius: max(2px, calc(var(--wf-rc) - 2px)); background: transparent; color: var(--text);
-  font: inherit; font-size: 14px; font-weight: 500; text-align: left; text-decoration: none; cursor: pointer;
+  font: inherit; font-size: var(--fs); font-weight: 500; text-align: left; text-decoration: none; cursor: pointer;
   transition: background-color var(--wf-t) var(--wf-ease), color var(--wf-t) var(--wf-ease);
   animation: var(--wf-item-anim) var(--wf-t-pop) var(--wf-ease) backwards; animation-delay: calc(var(--wf-i, 0) * var(--wf-stagger));
 }
@@ -360,9 +360,9 @@
 :root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is(.wf-danger, .btn-danger, .danger) { color: var(--wf-danger); }
 :root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item):is(.wf-danger, .btn-danger, .danger):is(:hover, [data-highlighted], [data-force~="hover"]):not(:disabled, [aria-disabled="true"]) { background-color: var(--wf-danger-soft); }
 :root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item) svg { width: 16px; height: 16px; flex: none; }
-:root:root .wf-kbd { margin-left: auto; padding-left: 12px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: var(--muted); }
+:root:root .wf-kbd { margin-left: auto; padding-left: 12px; font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--fs-xs); color: var(--muted); }
 :root:root .wf-sep { height: 0; margin: 4px 2px; border: 0; border-top: var(--wf-bw) solid var(--wf-line); opacity: .35; }
-:root:root .wf-menu-label { padding: 6px 10px 2px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+:root:root .wf-menu-label { padding: 6px 10px 2px; color: var(--muted); font-size: var(--fs-micro); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 :root:root :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(2) { --wf-i: 1; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(3) { --wf-i: 2; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(4) { --wf-i: 3; }
 :root:root :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(5) { --wf-i: 4; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(6) { --wf-i: 5; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(7) { --wf-i: 6; }
 :root:root :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(8) { --wf-i: 7; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(n+9) { --wf-i: 8; }
@@ -372,7 +372,7 @@
 :root:root .wf-tip {
   position: absolute; left: 50%; bottom: calc(100% + 8px); z-index: 20; white-space: nowrap; pointer-events: none;
   padding: 4px 8px; border-radius: var(--wf-rm); background: var(--wf-toast-bg); color: var(--wf-toast-fg);
-  font-size: 12px; font-weight: 600; line-height: 1.3; box-shadow: var(--wf-tip-sh);
+  font-size: var(--fs-xs); font-weight: 600; line-height: 1.3; box-shadow: var(--wf-tip-sh);
   opacity: 0; translate: -50% var(--wf-tip-y); transition: opacity var(--wf-t-exit) ease, translate var(--wf-t-exit) ease;
 }
 :root:root .wf-has-tip:hover > .wf-tip, :root:root .wf-tip:is([data-open], [data-force~="open"]) {
@@ -384,7 +384,7 @@
 /* ---------- Toast ---------- */
 :root:root :is(.wf-toast, [data-sonner-toast]) {
   display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--wf-rp);
-  background: var(--wf-toast-bg); color: var(--wf-toast-fg); box-shadow: var(--wf-sh-up); font-size: 14px; font-weight: 500;
+  background: var(--wf-toast-bg); color: var(--wf-toast-fg); box-shadow: var(--wf-sh-up); font-size: var(--fs); font-weight: 500;
   opacity: 1; translate: 0 0;
   transition: opacity calc(var(--wf-t-pop) * 1.5) var(--wf-ease), translate calc(var(--wf-t-pop) * 1.5) var(--wf-ease-pop), display 120ms allow-discrete;
 }

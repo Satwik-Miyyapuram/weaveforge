@@ -1,5 +1,7 @@
 "use client";
 
+import { CloseIcon } from "@/components/view-icons";
+
 /**
  * The chips a note's #hashtags render as, with a delete on each.
  *
@@ -30,7 +32,7 @@ export function TagChips({
               disabled={busy}
               onClick={() => onRemove(t)}
             >
-              ×
+              <CloseIcon />
             </button>
           </span>
         ))}

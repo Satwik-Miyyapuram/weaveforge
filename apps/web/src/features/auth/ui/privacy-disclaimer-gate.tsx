@@ -25,6 +25,7 @@ import {
   isLocalMode,
   setLocalMode,
 } from "@/backend/providers/local/local-identity";
+import { Button } from "@/components/button";
 
 /**
  * Blocks the app until the user accepts the org/privacy disclaimer once.
@@ -157,14 +158,13 @@ export function PrivacyDisclaimerGate({
               ))}
             </details>
             {error && <FormError>{error}</FormError>}
-            <button
-              type="button"
-              className="btn-primary"
+            <Button
+              variant="primary"
               disabled={busy}
               onClick={() => void accept()}
             >
               {busy ? "Saving…" : "I understand — continue"}
-            </button>
+            </Button>
           </div>
         </Modal>
       ) : null}
@@ -196,24 +196,18 @@ function StartupFailure({ message }: { message: string }) {
         <FormError>{message}</FormError>
       )}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
-        <button
-          type="button"
-          className={broken ? "btn-secondary" : "btn-primary"}
-          onClick={() => window.location.reload()}
-        >
+        <Button variant={broken ? "secondary" : "primary"} onClick={() => window.location.reload()}>
           Reload
-        </button>
+        </Button>
         {desktop() && !isLocalMode() ? (
-          <button
-            type="button"
-            className="btn-secondary"
+          <Button
             onClick={() => {
               setLocalMode(true);
               window.location.reload();
             }}
           >
             Work on this computer (offline)
-          </button>
+          </Button>
         ) : null}
       </div>
     </main>
@@ -300,14 +294,13 @@ function LocalDbRecovery({ state }: { state: DesktopLocalDbState }) {
         and opens a new, empty one.
       </p>
       {error && <FormError>{error}</FormError>}
-      <button
-        type="button"
-        className="btn-primary"
+      <Button
+        variant="primary"
         disabled={busy}
         onClick={() => void reset()}
       >
         {busy ? "Moving aside…" : "Start with a fresh database"}
-      </button>
+      </Button>
     </div>
   );
 }

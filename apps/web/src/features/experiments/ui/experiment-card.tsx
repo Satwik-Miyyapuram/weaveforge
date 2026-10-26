@@ -113,6 +113,7 @@ export function ExperimentCard({
             resourceType="experiment"
             resourceId={exp.id}
             title={`Share: ${exp.name}`}
+            name={exp.name}
             deleteDisabled={busy}
             deleteLabel={isPinned ? "Remove from experiments" : "Delete experiment"}
             onDelete={isPinned ? () => setConfirmUnpinOpen(true) : readOnly ? undefined : () => setConfirmOpen(true)}

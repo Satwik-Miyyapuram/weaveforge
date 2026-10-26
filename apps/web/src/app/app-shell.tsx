@@ -29,6 +29,7 @@ import { SwipeViews } from "./swipe-views";
 import { StartupProvider } from "@/features/startup";
 import { EmailRecoveryScreen } from "@/components/email-recovery-screen";
 import { PasswordResetScreen } from "@/components/password-reset-screen";
+import { CloseIcon } from "@/components/view-icons";
 
 /* Both paint nothing and only matter once a folder is connected; the folder
    code they carry is loaded after the page rather than with every one. */
@@ -284,7 +285,7 @@ function SessionExpiredPrompt() {
   if (open) {
     return (
       <div className="session-expired-overlay" role="dialog" aria-modal="true" aria-label="Sign in again">
-        <button type="button" className="session-expired-close" onClick={() => setOpen(false)} aria-label="Not now">×</button>
+        <button type="button" className="session-expired-close" onClick={() => setOpen(false)} aria-label="Not now"><CloseIcon /></button>
         <LoginScreen />
       </div>
     );
@@ -303,7 +304,7 @@ function SessionExpiredPrompt() {
         aria-label="Close"
         title="Close"
       >
-        ×
+        <CloseIcon />
       </button>
     </div>
   );

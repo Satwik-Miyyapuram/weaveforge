@@ -5,6 +5,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { recentLogs } from "@/lib/error-report/log-buffer";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 /**
  * Settings → Data → the application log.
@@ -108,18 +109,16 @@ export function AppLogPanel() {
             </p>
           )}
           <div className="app-log-actions">
-            <button type="button" className="btn-secondary" onClick={() => void load()}>
+            <Button onClick={() => void load()}>
               Refresh
-            </button>
+            </Button>
             {log.file && (
-              <button
-                type="button"
-                className="btn-secondary"
+              <Button
                 disabled={busy}
                 onClick={() => void reveal()}
               >
                 {busy ? "Opening…" : "Show in folder"}
-              </button>
+              </Button>
             )}
           </div>
           {log.text ? (

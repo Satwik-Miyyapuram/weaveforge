@@ -2,7 +2,9 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { ChevronLeftIcon, ChevronRightIcon } from "@/components/view-icons";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
+import { Button } from "@/components/button";
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -153,9 +155,9 @@ export function DatePicker({
             }}
           >
             <div className="date-picker-head">
-              <button type="button" className="date-picker-nav" aria-label="Previous month" onClick={() => shift(-1)}>‹</button>
+              <button type="button" className="date-picker-nav" aria-label="Previous month" onClick={() => shift(-1)}><ChevronLeftIcon /></button>
               <span className="date-picker-title">{MONTHS[vm]} {vy}</span>
-              <button type="button" className="date-picker-nav" aria-label="Next month" onClick={() => shift(1)}>›</button>
+              <button type="button" className="date-picker-nav" aria-label="Next month" onClick={() => shift(1)}><ChevronRightIcon /></button>
             </div>
             <div className="date-picker-grid">
               {WEEKDAYS.map((w) => (
@@ -175,8 +177,8 @@ export function DatePicker({
               })}
             </div>
             <div className="date-picker-foot">
-              <button type="button" className="btn-ghost" onClick={() => pick("")}>Clear</button>
-              <button type="button" className="btn-ghost" disabled={!!min && todayIso < min} onClick={() => pick(todayIso)}>Today</button>
+              <Button variant="ghost" onClick={() => pick("")}>Clear</Button>
+              <Button variant="ghost" disabled={!!min && todayIso < min} onClick={() => pick(todayIso)}>Today</Button>
             </div>
           </div>,
           document.body,

@@ -193,6 +193,7 @@ export function SectionCard({
           resourceType="report_section"
           resourceId={s.id}
           title={`Share: ${s.title}`}
+          name={s.title}
           onDelete={isPinned ? onUnpin : (readOnly || !onRemove ? undefined : onRemove)}
           deleteLabel={isPinned ? "Remove from report" : "Delete section"}
           deleteDisabled={busy}

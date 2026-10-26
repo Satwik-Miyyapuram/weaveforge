@@ -54,6 +54,7 @@ import { useQuickColours } from "./use-quick-colours";
 import { PaletteDockButton, PaletteFoldButton, usePaletteDock } from "@/components/palette-dock";
 import { Popover } from "@/components/popover";
 import { shortcutLabel } from "@/lib/shortcut-label";
+import { MinusIcon, PlusIcon } from "@/components/view-icons";
 
 export { toolLabel } from "./ink-bar-glyphs";
 
@@ -599,7 +600,7 @@ export function InkBar({
               title="Zoom out"
               aria-label="Zoom out"
             >
-              −
+              <MinusIcon />
             </button>
             <button
               type="button"
@@ -617,7 +618,7 @@ export function InkBar({
               title="Zoom in"
               aria-label="Zoom in"
             >
-              +
+              <PlusIcon />
             </button>
           </div>
         </>

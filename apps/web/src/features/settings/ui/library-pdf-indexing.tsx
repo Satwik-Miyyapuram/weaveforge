@@ -21,6 +21,7 @@ import {
 } from "@/features/search/infrastructure/index-cache-policy";
 import { FormError } from "@/components/form-error";
 import { StepProgress, type Step } from "@/components/step-progress";
+import { Button } from "@/components/button";
 
 /**
  * Index every PDF, not just the ones already opened.
@@ -162,19 +163,19 @@ export function LibraryPdfIndexing() {
           </p>
         )}
         <div className="screen-actions">
-          <button
+          <Button
             id="index-library"
-            className="btn-secondary"
-            type="button"
+           
+           
             disabled={busy}
             onClick={() => void check()}
           >
             Check what is missing
-          </button>
+          </Button>
           {pending !== null && pending > 0 && (
-            <button className="btn-secondary" type="button" disabled={busy || background.running} onClick={() => void run()}>
+            <Button disabled={busy || background.running} onClick={() => void run()}>
               {busy ? "Indexing…" : `Index ${pending} PDF${pending === 1 ? "" : "s"}`}
-            </button>
+            </Button>
           )}
         </div>
       </div>

@@ -9,6 +9,7 @@ import {
 } from "@weaveforge/core";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { shortcutLabel } from "@/lib/shortcut-label";
+import { CloseIcon } from "@/components/view-icons";
 
 interface ReaderSearchBarProps {
   pages: DocumentPageText[];
@@ -127,7 +128,7 @@ export function ReaderSearchBar({
         aria-label="Close search"
         title="Close (Escape)"
       >
-        ✕
+        <CloseIcon />
       </button>
     </div>
   );

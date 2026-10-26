@@ -24,7 +24,7 @@ html:is([data-workspace-focus], [data-reader-focus], [data-ink-focus]) .title-ba
   color: var(--text);
   border-bottom: 1px solid var(--line);
   font-family: var(--font);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   user-select: none;
   /* The empty part of the bar moves the window, like a system title bar. */
   -webkit-app-region: drag;
@@ -58,12 +58,12 @@ html:is([data-workspace-focus], [data-reader-focus], [data-ink-focus]) .title-ba
   padding: 4px; gap: 0; display: block;
 }
 .title-bar-menu .card-menu-list { min-width: 0; }
-.title-bar-menu .title-bar-item { display: flex; align-items: center; justify-content: space-between; gap: 28px; cursor: default; min-height: 34px; padding-block: 6px; font-size: 0.875rem; }
+.title-bar-menu .title-bar-item { display: flex; align-items: center; justify-content: space-between; gap: 28px; cursor: default; min-height: 34px; padding-block: 6px; font-size: var(--fs); }
 .title-bar-item.active:not(:disabled) { background: var(--surface2); }
 .title-bar-item:focus-visible { outline: none; }
 .title-bar-item-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .title-bar-kbd {
-  font: inherit; font-size: 0.75rem; color: var(--muted);
+  font: inherit; font-size: var(--fs-xs); color: var(--muted);
   background: none; border: 0; padding: 0; white-space: nowrap;
 }
 .title-bar-sep { height: 1px; margin: 4px 8px; background: var(--line); }

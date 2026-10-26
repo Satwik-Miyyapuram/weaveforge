@@ -7,6 +7,7 @@ import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
 import { bestEffort } from "../application/log-side-effects";
+import { Button } from "@/components/button";
 
 /**
  * Add-log-entry form. UI only: it collects input and delegates to the
@@ -54,9 +55,9 @@ export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
         </Select>
       </div>
       {error && <FormError>{error}</FormError>}
-      <button className="btn-primary" disabled={busy}>
+      <Button variant="primary" disabled={busy}>
         {busy ? "Saving…" : "Add log entry"}
-      </button>
+      </Button>
     </form>
   );
 }

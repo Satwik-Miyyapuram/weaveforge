@@ -24,6 +24,7 @@ import { DashboardCardBody } from "./cards/dashboard-card-body";
 import type { DashboardStats } from "../application/build-dashboard-stats";
 import type { SupervisionStats } from "../application/build-supervision-stats";
 import type { Member } from "@weaveforge/core";
+import { CloseIcon } from "@/components/view-icons";
 
 const BREAKPOINTS = { lg: DESKTOP_BREAKPOINT_PX, sm: 0 };
 const COLS = { lg: 12, sm: 4 };
@@ -303,7 +304,7 @@ export function DashboardGrid({
                     onClick={() => onRemove(item.id)}
                     aria-label={`Remove ${def.label}`}
                   >
-                    ✕
+                    <CloseIcon />
                   </button>
                 </div>
               )}
