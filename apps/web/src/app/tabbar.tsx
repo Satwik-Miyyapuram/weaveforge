@@ -14,6 +14,8 @@ import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { ProjectSwitcher } from "@/features/projects";
 import { HeaderActions } from "./header-actions";
 import type { InboxLink } from "./inbox-links";
+import { useRailTip } from "./rail-tip";
+import { loadOpenGroups, saveOpenGroups, toggleGroup, withActive } from "./nav-open-groups";
 import { useInbox } from "./use-inbox";
 import { SyncStatusIndicator } from "./lazy-sync-status";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
@@ -63,7 +65,9 @@ export function TabBar({
    *
    * The current group is forced open rather than merely defaulted, so navigating
    * can never hide the view you are looking at behind a fold. The others are only
-   * ever closed by the reader, so several can stay open where there is height.
+   * ever closed by the reader, so several can stay open where there is height,
+   * and that choice is kept across restarts (DA-88). Storage is read after mount
+   * so the first render matches the prerendered page.
    */
   const activeGroupKey =
     sideGroups.find((group) => activeNavItem(group.items, pathname))?.key ?? null;
@@ -71,8 +75,10 @@ export function TabBar({
     activeGroupKey ? [activeGroupKey] : [],
   );
   useEffect(() => {
-    if (!activeGroupKey) return;
-    setOpenGroups((prev) => (prev.includes(activeGroupKey) ? prev : [...prev, activeGroupKey]));
+    setOpenGroups((prev) => loadOpenGroups(navStore(), null).reduce((acc, k) => withActive(acc, k), [...prev]));
+  }, []);
+  useEffect(() => {
+    setOpenGroups((prev) => withActive(prev, activeGroupKey));
   }, [activeGroupKey]);
 
   /*
@@ -82,6 +88,7 @@ export function TabBar({
    * overflowing and not overflowing are the same layout.
    */
   const navScrollRef = useRef<HTMLDivElement | null>(null);
+  const railTip = useRailTip(collapsed);
   const navClass = [
     "nav",
     navEnter === "slide" ? "nav--enter-slide" : "",
@@ -90,27 +97,30 @@ export function TabBar({
     .filter(Boolean)
     .join(" ");
   return (
-    <nav className={navClass} aria-label="Primary">
+    <nav className={navClass} aria-label="Primary" {...railTip.handlers}>
+      {railTip.element}
       {onToggle && (
-        // The brand is the collapse control, and it replaced the hamburger. The
-        // sidebar already names itself at the top; a second icon doing the same
-        // job two rows below was one control too many, and the brand is the
-        // thing a reader reaches for to change the nav's size. `aria-expanded`
-        // reports the state, and the chevron points the way the toggle goes:
-        // right to open the rail, left to fold it back.
-        <button
-          type="button"
-          className="nav-brand-toggle"
-          onClick={onToggle}
-          aria-label={collapsed ? "Expand menu" : "Collapse menu"}
-          aria-expanded={!collapsed}
-          aria-controls="nav-links"
-          title={collapsed ? "Expand menu" : "Collapse menu"}
-        >
-          <WeaveForgeLogo className="app-logo" />
-          <span className="app-name">WeaveForge</span>
-          <span className="chev"><ChevronIcon open={false} /></span>
-        </button>
+        // The brand goes Home and the chevron beside it folds the sidebar
+        // (DA-89). One button doing both read as a surprise: clicking the app's
+        // name collapsed the menu. The chevron points the way it goes: left to
+        // fold into the rail, right to open it again.
+        <div className="nav-head">
+          <Link href={homeNavItem.path} className="nav-brand" aria-label="WeaveForge, Home">
+            <WeaveForgeLogo className="app-logo" />
+            <span className="app-name">WeaveForge</span>
+          </Link>
+          <button
+            type="button"
+            className="nav-collapse"
+            onClick={onToggle}
+            aria-label={collapsed ? "Expand menu" : "Collapse menu"}
+            aria-expanded={!collapsed}
+            aria-controls="nav-links"
+            title={collapsed ? undefined : "Collapse menu"}
+          >
+            <ChevronIcon open={false} />
+          </button>
+        </div>
       )}
       <div className="nav-links-wrap">
         <div className="nav-links" id="nav-links" ref={navScrollRef}>
@@ -121,9 +131,8 @@ export function TabBar({
           // The visible label is a `<span>` this file can hide — the icon rail in
           // CSS and, below 461px, the whole bottom bar (see `nav.css`). A name
           // that lives only in that span disappears with it, so each item states
-          // its own. `title` stays for the hover tooltip the rail has always had.
+          // its own, and the rail's tip reads it (`rail-tip.tsx`).
           aria-label={homeNavItem.label}
-          title={collapsed ? homeNavItem.label : undefined}
           onPointerEnter={() => prefetchScreenForPath(homeNavItem.path)}
         >
           <NavIcon name={homeNavItem.icon} />
@@ -137,7 +146,6 @@ export function TabBar({
           type="button"
           className="nav-link nav-search"
           aria-label="Search"
-          title={collapsed ? "Search" : undefined}
           onClick={openSearchPalette}
         >
           <NavIcon name="search" />
@@ -154,7 +162,6 @@ export function TabBar({
                 className={active ? "nav-link active" : "nav-link"}
                 aria-current={active ? "page" : undefined}
                 aria-label={item.label}
-                title={collapsed ? item.label : undefined}
                 onPointerEnter={() => prefetchScreenForPath(item.path)}
               >
                 <NavIcon name={item.icon ?? "box"} />
@@ -180,13 +187,11 @@ export function TabBar({
                     aria-expanded={open}
                     aria-controls={`nav-group-${group.key}`}
                     title={collapsed ? group.label : undefined}
-                    onClick={() =>
-                      setOpenGroups((prev) =>
-                        prev.includes(group.key)
-                          ? prev.filter((k) => k !== group.key)
-                          : [...prev, group.key],
-                      )
-                    }
+                    onClick={() => {
+                      const next = toggleGroup(openGroups, group.key);
+                      setOpenGroups(next);
+                      saveOpenGroups(navStore(), next);
+                    }}
                   >
                     <span>{group.label}</span>
                     <ChevronIcon open={open} />
@@ -202,7 +207,6 @@ export function TabBar({
                             className={active ? "nav-link active" : "nav-link"}
                             aria-current={active ? "page" : undefined}
                             aria-label={item.label}
-                            title={collapsed ? item.label : undefined}
                             onPointerEnter={() => prefetchScreenForPath(item.path)}
                           >
                             <NavIcon name={item.icon ?? group.icon} />
@@ -265,4 +269,13 @@ export function TabBar({
       )}
     </nav>
   );
+}
+
+/** localStorage, or nothing where the browser blocks it. */
+function navStore(): Storage | undefined {
+  try {
+    return window.localStorage;
+  } catch {
+    return undefined;
+  }
 }

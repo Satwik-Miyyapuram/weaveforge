@@ -300,7 +300,7 @@
 /* ---- Mobile layout (≤899px — matches nav + dashboard breakpoint) ---- */
 @media (max-width: 899px) {
   .app-shell {
-    padding: 16px max(14px, env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom))
+    padding: 16px max(14px, env(safe-area-inset-right)) var(--nav-clear)
       max(14px, env(safe-area-inset-left));
   }
 

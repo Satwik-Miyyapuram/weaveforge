@@ -580,7 +580,7 @@
 :root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .pdf-reader-sidebar-item:nth-child(3n+1) { rotate: -0.9deg; }
 :root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .pdf-reader-sidebar-item:nth-child(3n+2) { rotate: 0.6deg; }
 :root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .pdf-reader-sidebar-item:nth-child(3n+3) { rotate: -0.4deg; }
-:root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .nav-brand-toggle .app-logo { rotate: -5deg; }
+:root:not([data-tilt="off"]):is([data-theme="crt"]:not([data-theme-tilt="off"]), [data-theme-tilt="on"]) .nav-brand .app-logo { rotate: -5deg; }
 
 /* ---- Dashboard ------------------------------------------------------------
    The mock's stat cards: a mono label, the number big in the display face with

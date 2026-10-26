@@ -847,7 +847,7 @@ body > canvas.hiddenCanvasElement { display: none; }
   .pdf-reader-wide-only { display: none !important; }
   .pdf-reader-pill {
     position: fixed; left: 14px; right: 14px;
-    bottom: calc(84px + env(safe-area-inset-bottom));
+    bottom: var(--nav-clear);
     z-index: var(--z-nav);
     display: flex; align-items: center; justify-content: space-between; gap: 6px;
     padding: 6px 10px; border-radius: var(--r-pill);

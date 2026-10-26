@@ -492,9 +492,9 @@
    rest stays visible so it is clear what is underneath. */
 .workspace-shell.is-phone {
   grid-template-columns: 0 minmax(0, 1fr);
-  /* The bottom nav floats over the last ~70px; without this it sat on the
-     status bar, so "Saved" was never visible on a phone. */
-  padding-block-end: calc(72px + env(safe-area-inset-bottom));
+  /* The bottom nav floats over the end of the screen; without this it sat on
+     the status bar, so "Saved" was never visible on a phone. */
+  padding-block-end: var(--nav-clear);
 }
 
 /* A 375px screen has no room for a second pane, and the two split buttons

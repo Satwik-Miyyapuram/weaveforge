@@ -43,11 +43,11 @@ test("source text shows `<!--` as typed, not as a ligature (DA-05)", () => {
   assert.match(rule(base, ":root :is(code, pre, kbd, samp, .cm-content)"), /font-variant-ligatures:\s*none;/);
 });
 
-test("the nav brand toggle shows a ring for keyboard focus (DA-04, E18)", () => {
+test("the nav collapse button shows a ring for keyboard focus (DA-04, E18)", () => {
   // Mouse focus stays quiet; keyboard focus must ring.
-  assert.doesNotMatch(nav, /button\.nav-brand-toggle:focus-visible\s*\{[^}]*outline:\s*none/);
-  assert.doesNotMatch(nav, /button\.nav-brand-toggle:focus-visible,/);
-  assert.match(nav, /button\.nav-brand-toggle:focus:not\(:focus-visible\)/);
+  assert.doesNotMatch(nav, /button\.nav-collapse:focus-visible\s*\{[^}]*outline:\s*none/);
+  assert.doesNotMatch(nav, /button\.nav-collapse:focus-visible,/);
+  assert.match(nav, /button\.nav-collapse:focus:not\(:focus-visible\)/);
 });
 
 test("title-bar menus show a ring for keyboard focus (DA-04)", () => {

@@ -18,6 +18,13 @@
  * icon+label bar pinned to the bottom (thumb-reachable). On desktop it becomes
  * a fixed left sidebar (see the ≥900px block). One markup, two layouts.
  */
+:root {
+  /* What the floating phone bar takes from the bottom of a screen: its 10px
+     lift, the bar (icon, label, padding: about 74px) and 16px of air, plus
+     the safe area. Screens pad by this so their last card scrolls clear of
+     the bar (DA-95). The desktop sidebar does not float, so it is unused there. */
+  --nav-clear: calc(100px + env(safe-area-inset-bottom));
+}
 .nav {
   position: fixed;
   left: 50%;
@@ -310,13 +317,6 @@ button.nav-link {
 }
 
 @media (min-width: 900px) {
-  /* The mark, centred on the icons under it. The chevron sat beside it inside
-     one centred box, which put the logo 5px left of the column's axis; it now
-     hangs off the logo's right edge and takes no width. */
-  .layout.nav-collapsed .nav-brand-toggle { position: relative; width: 100%; }
-  .layout.nav-collapsed .nav-brand-toggle > .chev {
-    position: absolute; left: calc(50% + 14px); top: 50%; translate: 0 -50%;
-  }
   /* The active pill's hard shadow falls below the row; the scroller clipped
      it. Room for it, inside the scroller. */
   .layout.nav-collapsed .nav-links { padding: 0 var(--rail-pad) 10px; }
@@ -427,21 +427,30 @@ button.nav-group-label:focus-visible {
 }
 .nav-group-items { display: flex; flex-direction: column; gap: 4px; }
 
-/* The brand is the collapse control, and it replaced the hamburger. It is built
-   on the metrics of the links under it — same min height, padding, radius and
-   type size — because it sits in that column and anything else reads as a
-   control bolted on. Hidden below 900px: the phone bar has its own six slots
-   and no rail to toggle. */
-.nav-brand-toggle { display: none; }
+/* The sidebar head: the brand, a link Home, and beside it the chevron that
+   folds the sidebar (DA-89). The brand is built on the metrics of the links
+   under it — same min height, padding, radius and type size — and the head
+   holds the list's 14px inset, so the mark lines up with the icons. Hidden
+   below 900px: the phone bar has its own slots and no rail to toggle. */
+.nav-head { display: none; }
 @media (min-width: 900px) {
-  .nav-brand-toggle {
-    display: flex; align-items: center; gap: 12px; width: 100%;
-    min-height: var(--touch-min); margin: 0 0 8px; padding: 10px 14px;
-    border: 0; border-radius: var(--r-pill); background: none;
-    color: var(--ink); cursor: pointer; font: inherit; text-align: left;
+  .nav-head { display: flex; align-items: center; gap: 4px; margin: 0 0 8px; padding: 0 14px; }
+  .nav-brand {
+    display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;
+    min-height: var(--touch-min); padding: 10px 14px;
+    border-radius: var(--r-pill); color: var(--ink); text-decoration: none;
     font-size: var(--fs); font-weight: 600;
     transition: background var(--dur-base), color var(--dur-base);
   }
+  .nav-brand:hover { background: var(--pill); }
+  .nav-collapse {
+    display: grid; place-items: center; flex: none;
+    width: 32px; height: 32px; padding: 0;
+    border: 0; border-radius: var(--r-pill); background: none;
+    color: var(--muted); cursor: pointer;
+    transition: background var(--dur-base), color var(--dur-base);
+  }
+  .nav-collapse:hover { background: var(--pill); color: var(--ink); }
   /* Sized against the icons optically, not literally. The mark is a full-bleed
      filled tile — its artwork fills the whole viewBox — while the nav icons are
      stroke glyphs inside a 24×24 box with margins. Equal boxes therefore read
@@ -450,27 +459,37 @@ button.nav-group-label:focus-visible {
   /* No tile. The mark draws its own rounded square (`<rect fill="var(--surface2)">`),
      which in a column of line icons reads as a highlighted, selected chip rather
      than as the app. The strokes are the mark; the tile was a background. */
-  .nav-brand-toggle .app-logo rect { display: none; }
+  .nav-brand .app-logo rect { display: none; }
   /* Sized so the *ink* matches the icons, not the box. Once the tile is gone the
      strokes occupy only about 55% of the 512 viewBox (x 129–394, y 103–431), so a
      16px box would render roughly 9px of drawing — much smaller than the 19px
      glyphs beside it. ~1.8× puts the drawing at their size. */
-  .nav-brand-toggle .app-logo { width: calc(var(--icon-size) * 1.8); height: calc(var(--icon-size) * 1.8); flex: none; }
-  .nav-brand-toggle .app-name {
+  .nav-brand .app-logo { width: calc(var(--icon-size) * 1.8); height: calc(var(--icon-size) * 1.8); flex: none; }
+  .nav-brand .app-name {
     flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .nav-brand-toggle .chev { opacity: 0.5; flex: none; }
   /* One glyph, two states: left means "fold me back", right means "open me".
      The app already draws a chevron at this weight; rotating it keeps the
      cap and the stroke identical to the tree rows above. */
-  .nav-brand-toggle .chev svg { transform: rotate(90deg); }
-  .nav-brand-toggle[aria-expanded="false"] .chev svg { transform: rotate(-90deg); }
-  /* In the rail it is only the mark and the way out of the rail. No highlight:
-     it is the app, not a row in the list, and lighting it up on hover made the
-     whole head read as pressed. */
-  .layout.nav-collapsed .nav-brand-toggle { justify-content: center; padding: 10px 0; gap: 0; }
-  .layout.nav-collapsed .nav-brand-toggle .app-name { display: none; }
-  .layout.nav-collapsed .nav-brand-toggle .chev svg { transform: rotate(-90deg); }
+  .nav-collapse svg { transform: rotate(90deg); }
+  .nav-collapse[aria-expanded="false"] svg { transform: rotate(-90deg); }
+  /* In the rail: the mark, and under it the way out of the rail. */
+  .layout.nav-collapsed .nav-head { flex-direction: column; gap: 2px; padding: 0; }
+  .layout.nav-collapsed .nav-brand { flex: none; width: 40px; justify-content: center; padding: 10px 0; gap: 0; }
+  .layout.nav-collapsed .nav-brand .app-name { display: none; }
+
+  /* Rail groups have no headings, so a short rule marks where one ends (DA-87). */
+  .layout.nav-collapsed .nav-group::before {
+    content: ""; align-self: center; width: 24px; height: 1px; margin: 4px 0; background: var(--line);
+  }
+  /* The rail's tip (`rail-tip.tsx`): shown at once, in the app's own type. */
+  .rail-tip {
+    position: absolute; z-index: var(--z-nav); translate: 0 -50%;
+    padding: 4px 10px; border-radius: var(--r-pill);
+    background: var(--ink); color: var(--surface);
+    font-size: var(--fs-xs); font-weight: 500; white-space: nowrap;
+    pointer-events: none;
+  }
   /* One control wide: the theme is a row of the account menu. */
   /* Account, project and the account menu on one line, sharing one height.
      
@@ -623,21 +642,21 @@ button.nav-group-label:focus-visible {
    sidebar; a bar here would move every row above it. */
 .nav-bottom::-webkit-scrollbar { width: 0; height: 0; display: none; }
 /*
- * The mark never lights up.
+ * The collapse chevron never lights up.
  *
  * `base.css` tints every button on press — `button:not(:disabled):active {
  * background-color: var(--press) }` — and folding the column is a click, so the
- * brand flashed every time it was used. It is a state change, not a selection:
+ * chevron flashed every time it was used. It is a state change, not a selection:
  * nothing about it should look pressed, focused or chosen. `:not(:disabled)`
  * keeps the specificity above that global rule rather than relying on order.
  */
 /* `:root` in front: CRT's dashed focus ring is `:root[data-theme="crt"]
    :focus-visible` and outranked the bare selector, drawing a dashed box round
-   the logo whenever focus came back to it. */
-:root button.nav-brand-toggle:not(:disabled):active,
-:root button.nav-brand-toggle:focus:not(:focus-visible) {
+   the chevron whenever focus came back to it. */
+:root button.nav-collapse:not(:disabled):active,
+:root button.nav-collapse:focus:not(:focus-visible) {
   background-color: transparent;
   outline: none;
 }
-/* Keyboard focus still rings (E18): the bar is the only way to fold the rail. */
-:root button.nav-brand-toggle:focus-visible { background-color: transparent; outline-offset: -3px; }
+/* Keyboard focus still rings (E18): the chevron is the only way to fold the rail. */
+:root button.nav-collapse:focus-visible { background-color: transparent; outline-offset: -3px; }
