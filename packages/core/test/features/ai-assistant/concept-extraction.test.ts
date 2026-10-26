@@ -65,6 +65,30 @@ test("a lone word seen only at line or sentence starts is not a concept (E25)", 
   }
 });
 
+test("a word opening bold text or a table cell is not a concept (E38)", async () => {
+  const text = [
+    "**Why:** the prior helps.",
+    "| Symbol | Meaning |",
+    "|---|---|",
+    "| x | Input |",
+  ].join("\n");
+  const result = await extractor.extract({ documents: [doc("n1", "N", text), doc("n2", "M", text)] });
+  const names = result.concepts.map((c) => c.name.toLowerCase());
+  for (const stop of ["why", "symbol", "meaning", "input"]) {
+    assert.ok(!names.includes(stop), `"${stop}" should not be a concept`);
+  }
+});
+
+test("an acronym's plural is the same concept (E38)", async () => {
+  const result = await extractor.extract({
+    documents: [doc("n1", "N", "We train a VAE here."), doc("n2", "M", "Two VAEs compared.")],
+  });
+  const names = result.concepts.map((c) => c.name);
+  assert.ok(names.includes("VAE"), JSON.stringify(names));
+  assert.ok(!names.includes("VAEs"), JSON.stringify(names));
+  assert.equal(result.concepts.find((c) => c.name === "VAE")!.mentions, 2);
+});
+
 test("a lone word also used mid-sentence is still a name, and acronyms and CamelCase stay", async () => {
   const result = await extractor.extract({
     documents: [

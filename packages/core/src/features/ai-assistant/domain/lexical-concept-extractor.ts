@@ -118,12 +118,13 @@ const PLAIN_WORD = /^[A-Z][a-z]*(?:-[a-z]+)*$/;
 /**
  * Whether `index` opens a line or a sentence, past any list marker, quote or
  * bracket. A plain word there is capitalised by position, not because it names
- * something (E25: "Used", "Not", "Background").
+ * something (E25: "Used", "Not", "Background"). Bold or italic markers and a
+ * table cell's pipe open one too (E38: "**Why:**", "| Symbol |").
  */
 function opensSentence(text: string, index: number): boolean {
   let i = index - 1;
-  while (i >= 0 && /[ \t"'(“[]/.test(text[i]!)) i--;
-  if (i < 0 || /[\n.!?:;]/.test(text[i]!)) return true;
+  while (i >= 0 && /[ \t"'(“[*_]/.test(text[i]!)) i--;
+  if (i < 0 || /[\n.!?:;|]/.test(text[i]!)) return true;
   if (!/[-*+>]/.test(text[i]!)) return false;
   i--;
   while (i >= 0 && /[ \t]/.test(text[i]!)) i--;
@@ -346,7 +347,8 @@ function harvestGuessed(doc: PreparedDocument): HarvestedMention[] {
   const seenInDoc = new Map<string, HarvestedMention>();
 
   const record = (name: string, index: number, length: number) => {
-    const trimmed = name.trim();
+    // An acronym's plural is the acronym: "VAEs" is "VAE" (E38).
+    const trimmed = name.trim().replace(/^([A-Z]{2,6})s$/, "$1");
     if (!isPlausibleName(trimmed)) return;
     const key = conceptKey(trimmed);
     const opening = PLAIN_WORD.test(trimmed) && opensSentence(doc.plain, index);
@@ -385,7 +387,7 @@ function harvestGuessed(doc: PreparedDocument): HarvestedMention[] {
     const phrase = match[1]!;
     record(phrase, match.index, phrase.length);
     for (const { token, at } of tokenOffsets(phrase)) {
-      if (!ACRONYM_ONLY.test(token)) continue;
+      if (!ACRONYM_ONLY.test(token.replace(/s$/, ""))) continue;
       record(token, match.index + at, token.length);
     }
   }
