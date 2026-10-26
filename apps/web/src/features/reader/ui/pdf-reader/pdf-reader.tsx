@@ -117,6 +117,7 @@ import { shortcutLabel } from "@/lib/shortcut-label";
 import { Button } from "@/components/button";
 import { RadioButton, RowButton } from "@/components/controls";
 import { ViewSwitch } from "@/components/view-switch";
+import { useRovingToolbar } from "@/lib/hooks/use-roving-toolbar";
 
 export function PdfReader({
   url,
@@ -159,6 +160,8 @@ export function PdfReader({
   // choices persist per user (`usePenPrefs`), the PDF toolbar's do not.
   const [penOpen, setPenOpen] = useState(inkRail);
   const [sideCollapsed, setSideCollapsed] = useState(readSideCollapsed);
+  // The annotate pill is one tab stop; arrows walk its tools (DA-120).
+  const roving = useRovingToolbar();
   // The writing page beside each PDF page is a setting, not the pen's: when it
   // followed the pen, every time the pen came out the pages halved and the
   // layout jumped from one page to two and back.
@@ -1692,7 +1695,7 @@ export function PdfReader({
           in one pill above the tab bar, in thumb reach. The wide toolbar's own
           copies of these hide at the same width. */}
       {canCreate && (
-        <div className="pdf-reader-pill" role="toolbar" aria-label="Annotate">
+        <div className="pdf-reader-pill" role="toolbar" aria-label="Annotate" {...roving}>
           {!penOpen && (
             <div className="pdf-reader-pill-colours" role="radiogroup" aria-label="Annotation colour">
               {quickColours.slice(0, 4).map((colour, i) => (

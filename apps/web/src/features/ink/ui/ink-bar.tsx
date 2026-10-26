@@ -56,6 +56,7 @@ import { Popover } from "@/components/popover";
 import { shortcutLabel } from "@/lib/shortcut-label";
 import { MinusIcon, PlusIcon } from "@/components/view-icons";
 import { RowButton, ToggleButton } from "@/components/controls";
+import { useRovingToolbar } from "@/lib/hooks/use-roving-toolbar";
 
 export { toolLabel } from "./ink-bar-glyphs";
 
@@ -289,11 +290,14 @@ export function InkBar({
    */
   const [collapsed, setCollapsed] = useState(false);
   const [dock, setDock] = usePaletteDock();
+  // One tab stop for the whole bar; arrows walk the tools and swatches (DA-120).
+  const roving = useRovingToolbar();
 
   return (
     <div
       className="ink-bar ink-palette"
       role="toolbar"
+      {...roving}
       aria-label={readOnly ? "Page controls" : "Ink tools"}
       data-collapsed={collapsed || undefined}
       data-dock={dock}

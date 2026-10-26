@@ -63,6 +63,12 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: TITLE_BAR_BOOT_SCRIPT }} />
       </head>
       <body>
+        {/* First focusable thing on the page, ahead of the desktop title bar
+            and the nine-item nav, so a keyboard user reaches content in one
+            Tab. Hidden until focused; `base.css` already draws the ring. */}
+        <a className="skip-link" href="#main">
+          Skip to content
+        </a>
         <ThemeColorMeta />
         <ReactiveMotion />
         <ServiceWorkerRegister />
