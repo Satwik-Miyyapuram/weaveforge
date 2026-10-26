@@ -62,6 +62,23 @@ test("a link resolving through an alias is not dead", () => {
   assert.equal(report.counts["dead-link"], 0);
 });
 
+test("a link to a note or paper outside the wiki is not dead (E39)", () => {
+  // A drafted page lists the notes and papers it came from. They exist, just
+  // not as wiki pages; calling them dead offered to create notes named after papers.
+  const report = lintWiki(
+    [page("a", "ResNet", "From [[Deep Residual Learning]] and [[Method]], at some length.")],
+    ["deep residual learning", "Method"],
+  );
+
+  assert.equal(report.counts["dead-link"], 0);
+});
+
+test("a link to nothing at all is still dead with other titles given", () => {
+  const report = lintWiki([page("a", "ResNet", "See [[Nowhere]] for details, at some length.")], ["Method"]);
+
+  assert.equal(report.counts["dead-link"], 1);
+});
+
 test("a page with only structure is reported as empty", () => {
   const generated = ["## Summary", "", "_Not written yet._", "", "## Mentioned in", "", "- [[Method]]", "", "#concept"].join("\n");
 

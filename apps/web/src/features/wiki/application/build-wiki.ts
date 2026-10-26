@@ -192,7 +192,10 @@ export async function proposeWikiPages(plans: readonly WikiPagePlan[]): Promise<
 }
 
 export async function runWikiLint(): Promise<{ report: LintReport; steps: ReturnType<typeof planFixOrder> }> {
-  const report = lintWiki(await existingWikiPages());
+  const [pages, papers] = await Promise.all([notes(), getContainer().papers.listPapers()]);
+  // Links to ordinary notes and papers resolve; only wiki pages are linted (E39).
+  const outside = [...takenTitles(pages), ...papers.map((paper) => paper.title)];
+  const report = lintWiki(wikiPageRefs(pages), outside);
   return { report, steps: planFixOrder(report) };
 }
 

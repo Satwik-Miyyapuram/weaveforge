@@ -88,8 +88,13 @@ function trigramOverlap(first: Set<string>, second: Set<string>): number {
 /** Above this, two titles are the same idea spelled differently. */
 export const NEAR_DUPLICATE_THRESHOLD = 0.75;
 
-export function lintWiki(pages: readonly WikiPageRef[]): LintReport {
+/**
+ * `otherTitles` are notes and papers that exist outside the wiki. A link to
+ * one is not dead; it is just not a wiki page (E39).
+ */
+export function lintWiki(pages: readonly WikiPageRef[], otherTitles: readonly string[] = []): LintReport {
   const findings: LintFinding[] = [];
+  const outside = new Set(otherTitles.map(normalizeTitleKey));
 
   const byTitle = new Map<string, WikiPageRef>();
   const linkTargets = new Set<string>();
@@ -158,6 +163,7 @@ export function lintWiki(pages: readonly WikiPageRef[]): LintReport {
         linkedTo.add(resolved.id);
         continue;
       }
+      if (outside.has(normalizeTitleKey(target))) continue;
       findings.push({
         kind: "dead-link",
         severity: "warning",
