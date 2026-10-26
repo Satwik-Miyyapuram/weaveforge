@@ -14,8 +14,10 @@
  * host's business.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { isUnsureLine, type RecognisedLine } from "@weaveforge/core";
+import { Markdown } from "@/components/markdown/markdown";
+import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 
 export interface InkTextLayerProps {
   /** The page's lines, in reading order; empty when nothing has been recognised. */
@@ -29,6 +31,17 @@ export interface InkTextLayerProps {
   onAccept: (index: number, text: string) => void;
   /** The raw markdown/note text on this page, when available. */
   rawText?: string;
+}
+
+/** A typed page's text, rendered rather than printed, so `[[links]]` are links (E32). */
+function InkRawText({ text }: { text: string }) {
+  const { resolveWikilink, onWikilinkClick } = useWikilinkNavigation();
+  const options = useMemo(() => ({ resolveWikilink }), [resolveWikilink]);
+  return (
+    <div className="ink-text-raw wikilink-markdown-scope" onClick={onWikilinkClick}>
+      <Markdown options={options}>{text}</Markdown>
+    </div>
+  );
 }
 
 /** The class a line renders with: unsure lines are dotted, accepted ones plain. */
@@ -79,13 +92,7 @@ export function InkTextLayer({
       {unavailable ? <p className="ink-empty">{unavailable}</p> : null}
       {lines.length === 0 ? (
         rawText?.trim() ? (
-          <div className="ink-text-raw" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {rawText.trim().split(/\r?\n\r?\n+/).map((para, index) => (
-              <p key={index} className="ink-line ink-line-sure" style={{ margin: 0, whiteSpace: "pre-wrap" }}>
-                {para}
-              </p>
-            ))}
-          </div>
+          <InkRawText text={rawText.trim()} />
         ) : (
           <p className="ink-empty">
             Nothing recognised on this page yet. Recognise it to make the note
