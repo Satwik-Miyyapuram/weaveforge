@@ -92,7 +92,7 @@ const RULES = [
     use: "<Button> or <IconButton> from @/components/button",
     why: "a hand-rolled button picks its own height, padding and disabled look",
     allow: ["components/button.tsx", "/test/"],
-    ceiling: 343,
+    ceiling: 342,
   },
 ];
 
