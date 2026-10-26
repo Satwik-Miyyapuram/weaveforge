@@ -63,9 +63,9 @@ test("the roles are defined once, in rem, on :root", () => {
   }
 });
 
-/** Tags, chips and labels are words, not code: they use the sans face (D-02). */
+/** Tags, chips, labels and card meta are words, not code: they use the sans face (D-02). */
 export function monoChips(css: string): string[] {
-  const chip = /\.(tag-chip|chip|plan-chip|wf-chip|git-chip|metric-chip|jump-to-chip|graph-chip|tint-sample-chip|auth-art-chip)\b/;
+  const chip = /\.(tag-chip|chip|plan-chip|wf-chip|git-chip|metric-chip|jump-to-chip|graph-chip|tint-sample-chip|auth-art-chip|entity-card-meta)\b/;
   const hits: string[] = [];
   for (const m of css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
     if (chip.test(m[1] ?? "") && /font(-family)?:[^;]*--font-mono/.test(m[2] ?? "")) hits.push((m[1] ?? "").trim());
@@ -75,6 +75,7 @@ export function monoChips(css: string): string[] {
 
 test("the chip scanner flags a mono chip and passes a sans one", () => {
   assert.deepEqual(monoChips(".tag-chip { font-family: var(--font-mono); }"), [".tag-chip"]);
+  assert.deepEqual(monoChips(".log-item .entity-card-meta { font: 600 var(--fs-xs) var(--font-mono); }"), [".log-item .entity-card-meta"]);
   assert.deepEqual(monoChips(".tag-chip { font-family: var(--font); } .commit-sha { font-family: var(--font-mono); }"), []);
 });
 
