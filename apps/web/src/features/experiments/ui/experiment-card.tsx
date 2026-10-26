@@ -8,7 +8,7 @@ import {
   type ExperimentStatus,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { ConfirmDialog } from "@/components/confirm-dialog";
+import { deletedMessage, removeLater, useHiddenKeys } from "@/lib/toast";
 import { useNavPending } from "@/lib/nav-pending";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
@@ -41,11 +41,8 @@ export function ExperimentCard({
 }) {
   const router = useRouter();
   const { beginNavigation } = useNavPending();
-  const [busy, setBusy] = useState(false);
-  /** Whether the delete confirmation is up. */
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmUnpinOpen, setConfirmUnpinOpen] = useState(false);
-  /** The last status change, delete or unpin that failed, shown on the card. */
+  const hidden = useHiddenKeys().has(experimentKey(exp.id));
+  /** The last status change that failed, shown on the card. */
   const [actionError, setActionError] = useState<string | null>(null);
   const openDetail = useCallback(() => {
     const dest = experimentHref(exp.id);
@@ -60,32 +57,24 @@ export function ExperimentCard({
       setActionError(formatError(err));
     }
   }
-  async function remove() {
-    setConfirmOpen(false);
-    setBusy(true);
-    try {
-      await getContainer().experiments.manageExperiment.remove(exp.id);
-      setActionError(null);
-      onChanged();
-    } catch (err) {
-      setActionError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
+  // Rule D-07: the card goes at once; the delete runs when the Undo toast closes.
+  function remove() {
+    removeLater({
+      key: experimentKey(exp.id),
+      message: deletedMessage(exp.name),
+      remove: () => getContainer().experiments.manageExperiment.remove(exp.id),
+      onDeleted: onChanged,
+    });
   }
-  async function unpin() {
-    setConfirmUnpinOpen(false);
-    setBusy(true);
-    try {
-      await getContainer().sharing.unpinShared("experiment", exp.id);
-      setActionError(null);
-      onChanged();
-    } catch (err) {
-      setActionError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
+  function unpin() {
+    removeLater({
+      key: experimentKey(exp.id),
+      message: `"${exp.name}" removed from experiments`,
+      remove: () => getContainer().sharing.unpinShared("experiment", exp.id),
+      onDeleted: onChanged,
+    });
   }
+  if (hidden) return null;
   return (
     <>
     <EntityCard
@@ -114,9 +103,8 @@ export function ExperimentCard({
             resourceId={exp.id}
             title={`Share: ${exp.name}`}
             name={exp.name}
-            deleteDisabled={busy}
             deleteLabel={isPinned ? "Remove from experiments" : "Delete experiment"}
-            onDelete={isPinned ? () => setConfirmUnpinOpen(true) : readOnly ? undefined : () => setConfirmOpen(true)}
+            onDelete={isPinned ? unpin : readOnly ? undefined : remove}
           />
         )
       }
@@ -129,30 +117,9 @@ export function ExperimentCard({
       </div>
       {actionError && <FormError>{actionError}</FormError>}
     </EntityCard>
-
-    {confirmOpen && (
-      <ConfirmDialog
-        title="Delete this experiment?"
-        body={`“${exp.name}” and its runs and metrics go away. Nothing here is kept.`}
-        confirmLabel="Delete experiment"
-        danger
-        busy={busy}
-        onConfirm={() => void remove()}
-        onClose={() => setConfirmOpen(false)}
-      />
-    )}
-
-    {confirmUnpinOpen && (
-      <ConfirmDialog
-        title="Remove shared experiment?"
-        body={`“${exp.name}” will be removed from your workspace. The original will stay intact for ${sharedByName ?? "its owner"}.`}
-        confirmLabel="Remove from experiments"
-        danger
-        busy={busy}
-        onConfirm={() => void unpin()}
-        onClose={() => setConfirmUnpinOpen(false)}
-      />
-    )}
     </>
   );
 }
+
+/** The key an experiment card hides under while its Undo toast shows. */
+export const experimentKey = (id: string) => `experiment:${id}`;

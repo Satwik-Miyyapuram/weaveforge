@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   REPORT_STATUSES,
   type ReportSection,
@@ -18,6 +17,8 @@ import { sectionProgress, type SectionProgress } from "../lib/section-progress";
 import { Markdown } from "@/components/markdown/markdown";
 import { StatusSelect } from "@/components/status-select";
 import { runReported } from "@/lib/run-reported";
+import { useHiddenKeys } from "@/lib/toast";
+import { removeSectionLater, sectionKey } from "./remove-section";
 
 export function SectionRow({
   node,
@@ -41,7 +42,7 @@ export function SectionRow({
   onError: (message: string) => void;
 }) {
   const s = node.section;
-  const [busy, setBusy] = useState(false);
+  const hiddenKeys = useHiddenKeys();
   const hasChildren = node.children.length > 0;
   const isCollapsed = collapsed.has(s.id);
   const isRoot = depth === 0;
@@ -51,23 +52,16 @@ export function SectionRow({
     await runReported(() => getContainer().report.manageReportSection.setStatus(s.id, status), onError, onChanged);
   }
 
-  async function remove() {
-    const msg = node.children.length > 0
-      ? `Delete "${s.title}" and its ${node.children.length} subsection(s)?`
-      : `Delete "${s.title}"?`;
-    if (!confirm(msg)) return;
-    setBusy(true);
-    // One delete removes the subtree; reload either way in case part of it went.
-    await runReported(() => getContainer().report.removeSection(s), onError, () => {
-      setBusy(false);
-      onChanged();
-    });
+  function remove() {
+    removeSectionLater(s, node.children.length, { onDeleted: onChanged });
   }
 
   const collapse =
     hasChildren
       ? { open: !isCollapsed, onToggle: () => onToggleCollapse(s.id) }
       : undefined;
+
+  if (hiddenKeys.has(sectionKey(s.id))) return null;
 
   return (
     <li id={`section-${s.id}`} className="section-node">
@@ -76,7 +70,6 @@ export function SectionRow({
         progress={sectionProgress(node)}
         readOnly={readOnly}
         sharedByName={sharedByName}
-        busy={busy}
         collapse={collapse}
         nested={!isRoot}
         onStatusChange={readOnly ? undefined : changeStatus}

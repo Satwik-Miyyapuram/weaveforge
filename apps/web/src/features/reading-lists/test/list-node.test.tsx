@@ -3,7 +3,8 @@ import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReadingList, ReadingListItem } from "@weaveforge/core";
 
-import { ListItemActions, ListNode } from "../ui/list-node";
+import { toasts } from "@/lib/toast/toast-store";
+import { ListItemActions, ListNode, listKey } from "../ui/list-node";
 
 /** A list's items in the tree view: each row can be moved by button (36-06). */
 function item(id: string, paperId: string, sortOrder: number): ReadingListItem {
@@ -57,4 +58,12 @@ test("a read-only list shows no item buttons", () => {
   assert.equal(buttons(html, "Move up").length, 0);
   assert.equal(buttons(html, "Remove from list").length, 0);
   assert.match(html, /First/);
+});
+
+test("a deleted list disappears at once and comes back on Undo (D-07)", () => {
+  assert.match(render([item("i1", "p1", 0)], true), /Core/);
+  toasts.deferDelete({ keys: [listKey("l1")], message: "x", commit: () => {} });
+  assert.equal(render([item("i1", "p1", 0)], true), "");
+  toasts.undoLatest();
+  assert.match(render([item("i1", "p1", 0)], true), /Core/);
 });

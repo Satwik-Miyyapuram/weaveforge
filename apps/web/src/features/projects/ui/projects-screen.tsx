@@ -77,6 +77,7 @@ export function ProjectsScreen() {
           confirmLabel="Delete project"
           danger
           busy={removeBusy}
+          requireText={removing.name}
           onConfirm={() => void remove()}
           onClose={() => setRemoving(null)}
         />

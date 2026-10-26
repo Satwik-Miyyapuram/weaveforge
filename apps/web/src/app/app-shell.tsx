@@ -30,6 +30,7 @@ import { StartupProvider } from "@/features/startup";
 import { EmailRecoveryScreen } from "@/components/email-recovery-screen";
 import { PasswordResetScreen } from "@/components/password-reset-screen";
 import { CloseIcon } from "@/components/view-icons";
+import { ToastHost } from "@/components/toast-host";
 
 /* Both paint nothing and only matter once a folder is connected; the folder
    code they carry is loaded after the page rather than with every one. */
@@ -79,6 +80,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     re-ask on every switch. See the component for why this is
                     not in the Settings panel. */}
                 <WorkspaceFolderRestore />
+                <ToastHost />
                 {expired && <SessionExpiredPrompt />}
                 {/* Keyed on the session epoch: after signing back in, every
                     screen that loaded while signed out loads again. */}

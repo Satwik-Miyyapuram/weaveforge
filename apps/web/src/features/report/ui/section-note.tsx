@@ -20,6 +20,7 @@ import { sectionProgress, type SectionProgress } from "../lib/section-progress";
 import { SectionRelatedExcerpts } from "./section-related-excerpts";
 import { ExperimentArtifactPicker } from "./experiment-artifact-picker";
 import { StatusSelect } from "@/components/status-select";
+import { removeSectionLater } from "./remove-section";
 
 /** A section's two views, in the order the Editor's pane header lists them. */
 const SECTION_MODES = ["edit", "read"] as const;
@@ -51,6 +52,7 @@ export function SectionNote({
   canComment?: boolean;
   onBack: () => void;
   onReplace: (s: ReportSection) => void;
+  /** After a delete commits, up to 8 s later: reload, never close what is open. */
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -113,15 +115,9 @@ export function SectionNote({
     void saveNotes(`${(section.notes ?? "").trimEnd()}\n\n${snippet}\n`);
   }
 
-  async function remove() {
-    if (!confirm(`Delete "${section.title}"?`)) return;
-    setBusy(true);
-    try {
-      await getContainer().report.removeSection(section);
-      onChanged();
-    } finally {
-      setBusy(false);
-    }
+  // Back to the report at once; the delete runs when the Undo toast closes.
+  function remove() {
+    removeSectionLater(section, 0, { onHidden: onBack, onDeleted: onChanged });
   }
 
   return (

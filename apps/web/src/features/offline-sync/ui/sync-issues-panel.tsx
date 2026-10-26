@@ -17,6 +17,10 @@ import { FormError } from "@/components/form-error";
 import { runSyncAction } from "./run-sync-action";
 import { useSyncIssues } from "./use-sync-issues";
 import { Button } from "@/components/button";
+import { deferDelete, useHiddenKeys } from "@/lib/toast";
+
+/** The key a refused write hides under while its Undo toast shows. */
+export const syncOpKey = (opId: string) => `syncop:${opId}`;
 
 /**
  * What sync could not decide on its own.
@@ -33,7 +37,15 @@ export function SyncIssuesPanel() {
   const [showAll, setShowAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const run = (action: () => Promise<unknown>) => void runSyncAction(action, setError);
-  const { dead } = issues;
+  // A discarded write leaves the list at once; it is dropped when the Undo toast closes (D-07).
+  const hiddenKeys = useHiddenKeys();
+  const dead = issues.dead.filter((e) => !hiddenKeys.has(syncOpKey(e.opId)));
+  const discardLater = (opIds: string[]) =>
+    deferDelete({
+      keys: opIds.map(syncOpKey),
+      message: opIds.length === 1 ? "Refused write discarded" : `${opIds.length} refused writes discarded`,
+      commit: () => runSyncAction(() => Promise.all(opIds.map((id) => discard(id))), setError),
+    });
   // A conflict with no cloud copy yet has nothing to choose between; the next pull settles or fills it.
   const conflicts = issues.conflicts.filter((c) => c.kind === "edit" && c.fields.length > 0);
   const deletions = issues.conflicts.filter((c) => c.kind !== "edit");
@@ -95,7 +107,7 @@ export function SyncIssuesPanel() {
                 <Button size="sm" onClick={() => run(() => Promise.all(dead.map((e) => retry(e.opId))))}>
                   Try all again
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => run(() => Promise.all(dead.map((e) => discard(e.opId))))}>
+                <Button variant="ghost" size="sm" onClick={() => discardLater(dead.map((e) => e.opId))}>
                   Discard all
                 </Button>
               </div>
@@ -114,7 +126,7 @@ export function SyncIssuesPanel() {
                 <Button size="sm" onClick={() => run(() => retry(entry.opId))}>
                   Try again
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => run(() => discard(entry.opId))}>
+                <Button variant="ghost" size="sm" onClick={() => discardLater([entry.opId])}>
                   Discard
                 </Button>
               </div>

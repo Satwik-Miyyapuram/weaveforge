@@ -36,6 +36,8 @@ import { FormError } from "@/components/form-error";
 import { statusLabel } from "@/components/status-select";
 import { navTransition } from "@/lib/view-transition";
 import { Button } from "@/components/button";
+import { useHiddenKeys } from "@/lib/toast";
+import { paperKey } from "./remove-paper";
 
 type PapersViewData = PapersScreenData & { ownerNames: Map<string, string> };
 
@@ -300,6 +302,8 @@ export function PapersScreen() {
     return [...set].sort();
   }, [papers]);
 
+  // Papers deleted but still undoable leave the grid at once (D-07).
+  const hiddenKeys = useHiddenKeys();
   const visible = useMemo(() => {
     const statuses = new Set(statusFilter);
     const inAnyList = (id: string) =>
@@ -308,6 +312,7 @@ export function PapersScreen() {
     // Facet filters first; the ranked pass then orders what survives them.
     const scoped = papers.filter(
       (p) =>
+        !hiddenKeys.has(paperKey(p.id)) &&
         (statuses.size === 0 || statuses.has(p.status)) &&
         (listFilter.length === 0 || inAnyList(p.id)) &&
         (tagFilter.length === 0 || hasAnyTag(p)),
@@ -315,7 +320,7 @@ export function PapersScreen() {
     // Now also matches on abstract, summary, venue, and identifiers — not just
     // title and author.
     return match(scoped, (p) => p.id, (p) => `${p.title}\n${p.authors.join(" ")}`);
-  }, [papers, statusFilter, listFilter, tagFilter, membership, match]);
+  }, [papers, statusFilter, listFilter, tagFilter, membership, match, hiddenKeys]);
 
   /*
    * The open paper must be the hydrated row, never the list's summary.
@@ -354,6 +359,7 @@ export function PapersScreen() {
           onBack={closePaper}
           onReplace={replace}
           onChanged={() => { closePaper(); void load(); }}
+          onDeleted={() => void load()}
         />
       </section>
     );

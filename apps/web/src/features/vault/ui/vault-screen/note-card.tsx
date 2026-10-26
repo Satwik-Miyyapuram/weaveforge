@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { extractHashtags, type VaultPage, type VaultPageSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { ConfirmDialog } from "@/components/confirm-dialog";
+import { deletedMessage, removeLater, useHiddenKeys } from "@/lib/toast";
+import { noteKey } from "./note-key";
 import { InlineError } from "@/components/form-error";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
@@ -39,11 +40,9 @@ export function NoteCard({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  /** Why the last pin, delete or unpin failed, shown on the card. */
+  /** Why the last pin failed, shown on the card. */
   const [error, setError] = useState<string | null>(null);
-  /** Whether the delete confirmation is up. */
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmUnpinOpen, setConfirmUnpinOpen] = useState(false);
+  const hidden = useHiddenKeys().has(noteKey(page.id));
   const preview = noteBodyText(page);
   const excerpt = cardSnippet(readableText(preview));
   const tags = useMemo(() => extractHashtags(preview), [preview]);
@@ -55,22 +54,26 @@ export function NoteCard({
     });
   }
 
-  /** The menu item only asks; the app's own dialog is what deletes. */
-  async function remove() {
-    setConfirmOpen(false);
-    await runNoteAction(setBusy, setError, async () => {
-      await getContainer().vault.manageVaultPage.remove(page.id);
-      onChanged();
+  // Rule D-07: the card goes at once; the delete runs when the Undo toast closes.
+  function remove() {
+    removeLater({
+      key: noteKey(page.id),
+      message: deletedMessage(page.title, "Note"),
+      remove: () => getContainer().vault.manageVaultPage.remove(page.id),
+      onDeleted: onChanged,
     });
   }
 
-  async function unpin() {
-    setConfirmUnpinOpen(false);
-    await runNoteAction(setBusy, setError, async () => {
-      await getContainer().sharing.unpinShared("vault_page", page.id);
-      onChanged();
+  function unpin() {
+    removeLater({
+      key: noteKey(page.id),
+      message: `"${page.title}" removed from your library`,
+      remove: () => getContainer().sharing.unpinShared("vault_page", page.id),
+      onDeleted: onChanged,
     });
   }
+
+  if (hidden) return null;
 
   return (
     <>
@@ -92,7 +95,7 @@ export function NoteCard({
               name={page.title}
               deleteDisabled={busy}
               deleteLabel={isPinned ? "Remove from library" : "Delete note"}
-              onDelete={isPinned ? () => setConfirmUnpinOpen(true) : () => setConfirmOpen(true)}
+              onDelete={isPinned ? unpin : remove}
               extraItems={[
                 ...(readOnly ? [] : [{ id: "pin", label: page.pinned ? "Unpin" : "Pin", disabled: busy, onSelect: () => void togglePin() }]),
                 { id: "list", label: "Add to list", onSelect: () => {}, submenu: () => <ListPicker target={{ kind: "note", id: page.id }} /> },
@@ -104,30 +107,6 @@ export function NoteCard({
         {excerpt ? <p className="entity-card-snippet">{excerpt}</p> : null}
         {error && <InlineError>{error}</InlineError>}
       </EntityCard>
-
-      {confirmOpen && (
-        <ConfirmDialog
-          title="Delete this note?"
-          body={`“${page.title}” goes away, and so do the links that point at it. Its text is not kept.`}
-          confirmLabel="Delete note"
-          danger
-          busy={busy}
-          onConfirm={() => void remove()}
-          onClose={() => setConfirmOpen(false)}
-        />
-      )}
-
-      {confirmUnpinOpen && (
-        <ConfirmDialog
-          title="Remove shared note?"
-          body={`“${page.title}” will be removed from your workspace. The original will stay intact for ${sharedByName ?? "its owner"}.`}
-          confirmLabel="Remove from library"
-          danger
-          busy={busy}
-          onConfirm={() => void unpin()}
-          onClose={() => setConfirmUnpinOpen(false)}
-        />
-      )}
     </>
   );
 }

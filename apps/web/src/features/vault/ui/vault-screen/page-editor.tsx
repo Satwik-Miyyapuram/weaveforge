@@ -9,7 +9,8 @@ import {
   type VaultPage,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { ConfirmDialog } from "@/components/confirm-dialog";
+import { deletedMessage, removeLater } from "@/lib/toast";
+import { noteKey } from "./note-key";
 import { readableText } from "@/lib/page-text";
 import { AttachImageButton } from "@/components/attach-image-button";
 import type { EditorHandle } from "@/components/editor-handle";
@@ -60,6 +61,7 @@ export function PageEditor({
   onCreateNote?: (title: string, opts?: { open?: boolean }) => void;
   resolveEmbed?: (title: string) => string | null;
   onChanged: () => void;
+  /** The note was deleted: leave it at once (the delete itself follows the Undo toast). */
   onDeleted: () => void;
   /** Back to the list; absent where the page is embedded rather than opened. */
   onBack?: () => void;
@@ -77,7 +79,6 @@ export function PageEditor({
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   /** Whether the delete confirmation is up. */
-  const [deleteOpen, setDeleteOpen] = useState(false);
   // Filled in while the editor is on screen, for the image button.
   const editorHandle = useRef<EditorHandle | null>(null);
   const { completions } = useCiteLinkCatalog();
@@ -147,15 +148,16 @@ export function PageEditor({
     }
   }
 
-  /** Deleting is asked in the app's own dialog; the button only opens it. */
-  async function remove() {
-    setDeleteOpen(false);
-    // A failed delete keeps the note open with the reason, rather than an
-    // unhandled rejection and a note that looks deleted but is not.
-    const removed = await runNoteAction(setBusy, setSaveError, () =>
-      getContainer().vault.manageVaultPage.remove(page.id),
-    );
-    if (removed) onDeleted();
+  // Rule D-07: back to the list at once; the delete runs when the Undo toast
+  // closes, then the list reloads. A failed delete brings the note back with a toast.
+  function remove() {
+    removeLater({
+      key: noteKey(page.id),
+      message: deletedMessage(page.title, "Note"),
+      remove: () => getContainer().vault.manageVaultPage.remove(page.id),
+      onHidden: onDeleted,
+      onDeleted: onChanged,
+    });
   }
 
   /** The switch in the section head. Leaving Edit or Ink refreshes the list. */
@@ -206,7 +208,7 @@ export function PageEditor({
             <button
               type="button"
               className="record-action danger"
-              onClick={() => setDeleteOpen(true)}
+              onClick={remove}
               disabled={busy}
               aria-label="Delete note"
               title="Delete"
@@ -336,16 +338,6 @@ export function PageEditor({
         </aside>
       </div>
 
-      {deleteOpen && (
-        <ConfirmDialog
-          title="Delete this note?"
-          body={`“${page.title}” goes away, and so do the links that point at it. Its text is not kept.`}
-          confirmLabel="Delete note"
-          danger
-          onConfirm={() => void remove()}
-          onClose={() => setDeleteOpen(false)}
-        />
-      )}
     </article>
   );
 }

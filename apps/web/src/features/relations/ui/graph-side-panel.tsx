@@ -13,6 +13,7 @@ import { CloseIcon } from "@/components/view-icons";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
+import { removeRelationLater } from "./remove-relation";
 
 interface StoredAnnotation {
   text?: string;
@@ -167,9 +168,8 @@ function PaperPanel({
    * pixels wide, and one that sits off-screen whenever either end is out of
    * view. The panel already lists the relations, so the row carries the action.
    */
-  async function removeRelation(id: string) {
-    await getContainer().graph.removeRelation(id);
-    onRefresh();
+  function removeRelation(id: string) {
+    removeRelationLater(id, onRefresh);
   }
 
   return (
@@ -215,7 +215,7 @@ function PaperPanel({
                     className="link-btn graph-side-rel-remove"
                     aria-label={`Delete relation with ${paperLabel(papers, otherId)}`}
                     title="Delete relation"
-                    onClick={() => void removeRelation(e.id)}
+                    onClick={() => removeRelation(e.id)}
                   >
                     <CloseIcon />
                   </button>
@@ -461,17 +461,9 @@ export function EdgeDetailPopover({
   onClose: () => void;
   onDeleted: () => void;
 }) {
-  const [busy, setBusy] = useState(false);
-
-  async function remove() {
-    setBusy(true);
-    try {
-      await getContainer().graph.removeRelation(edge.id);
-      onDeleted();
-      onClose();
-    } finally {
-      setBusy(false);
-    }
+  function remove() {
+    removeRelationLater(edge.id, onDeleted);
+    onClose();
   }
 
   return (
@@ -491,9 +483,7 @@ export function EdgeDetailPopover({
       </p>
       {edge.note && <p>{edge.note}</p>}
       <p className="muted">Source: {edge.source}</p>
-      <Button disabled={busy} onClick={() => void remove()}>
-        {busy ? "Deleting…" : "Delete edge"}
-      </Button>
+      <Button onClick={remove}>Delete relation</Button>
     </div>
   );
 }

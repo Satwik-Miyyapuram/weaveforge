@@ -9,6 +9,7 @@ import {
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { Select } from "@/components/select";
 import { useProfile } from "./profile-provider";
@@ -33,6 +34,7 @@ export function OrgPanel() {
   const [ownedError, setOwnedError] = useState<string | null>(null);
   const [labOpen, setLabOpen] = useState(false);
   const [leaveBusy, setLeaveBusy] = useState(false);
+  const [leaveAsk, setLeaveAsk] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
 
   const activeMembership =
@@ -72,8 +74,6 @@ export function OrgPanel() {
 
   async function handleLeaveOrg() {
     if (!activeMembership) return;
-    const name = activeMembership.orgName;
-    if (!confirm(`Leave ${name}? You can rejoin later with an invite code.`)) return;
     setLeaveBusy(true);
     setLeaveError(null);
     try {
@@ -83,6 +83,7 @@ export function OrgPanel() {
       setLeaveError(formatError(err));
     } finally {
       setLeaveBusy(false);
+      setLeaveAsk(false);
     }
   }
 
@@ -131,7 +132,7 @@ export function OrgPanel() {
                 type="button"
                 className="link-btn danger"
                 disabled={leaveBusy}
-                onClick={() => void handleLeaveOrg()}
+                onClick={() => setLeaveAsk(true)}
               >
                 {leaveBusy ? "Leaving…" : `Leave ${activeMembership?.orgName ?? "lab"}`}
               </button>
@@ -170,6 +171,19 @@ export function OrgPanel() {
             onCreated={async () => { setAddOpen(false); await refresh(); }}
           />
         </Modal>
+      )}
+
+      {/* Leaving a lab cannot be undone from here: it needs a new invite (D-07). */}
+      {leaveAsk && activeMembership && (
+        <ConfirmDialog
+          title="Leave lab?"
+          body={`You leave ${activeMembership.orgName}. You can rejoin later with an invite code.`}
+          confirmLabel="Leave lab"
+          danger
+          busy={leaveBusy}
+          onConfirm={() => void handleLeaveOrg()}
+          onClose={() => setLeaveAsk(false)}
+        />
       )}
 
       {labMembers.length === 0 || (!isInOrg && labMembers.every((m) => m.id === profile.id)) ? (

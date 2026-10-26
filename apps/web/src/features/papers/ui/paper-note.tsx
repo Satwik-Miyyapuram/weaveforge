@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { PAPER_STATUSES, isEmptyPaperSummary, isInkNoteBody, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { confirmRemovePaper } from "./remove-paper";
+import { removePaper } from "./remove-paper";
 import { describeRejection, formatError } from "@/lib/format-error";
 import { logToApp } from "@/lib/error-report/app-log";
 import { BellIcon, BellOffIcon, CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
@@ -82,6 +82,7 @@ export function PaperNote({
   onBack,
   onReplace,
   onChanged,
+  onDeleted = onChanged,
 }: {
   paper: Paper;
   readOnly?: boolean;
@@ -90,6 +91,8 @@ export function PaperNote({
   onBack: () => void;
   onReplace: (p: Paper) => void;
   onChanged: () => void;
+  /** After the delete commits, when the Undo toast closes. Defaults to `onChanged`. */
+  onDeleted?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   // Read, Edit or Ink, as in the Editor's pane header. A paper's note opens read.
@@ -245,7 +248,7 @@ export function PaperNote({
     setTemplateChoiceOpen(false);
   }
 
-  const remove = () => confirmRemovePaper(paper, setBusy, onChanged);
+  const remove = () => removePaper(paper, { onHidden: onBack, onDeleted });
 
   async function toggleCitationTracking() {
     if (!canTrackCitations || trackingCitations == null) return;

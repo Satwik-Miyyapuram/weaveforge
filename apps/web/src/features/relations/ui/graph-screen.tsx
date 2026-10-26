@@ -20,6 +20,8 @@ import { NavIcon } from "@/app/nav-icon";
 import { GraphLegend } from "./graph-legend";
 import { GraphSettingsDrawer } from "./graph-settings-drawer";
 import { GraphSidePanel } from "./graph-side-panel";
+import { useHiddenKeys } from "@/lib/toast";
+import { relationKey } from "./remove-relation";
 import { graphFilterCount } from "@weaveforge/core";
 import { experimentHref } from "@/features/experiments";
 import { useGraphPersistedState } from "../application/use-graph-persisted-state";
@@ -66,7 +68,10 @@ export function GraphScreen() {
   const papers = data?.papers ?? emptyArray<Paper>();
   const notes = data?.notes ?? emptyArray<VaultPage>();
   const sections = data?.sections ?? emptyArray<ReportSection>();
-  const edges = data?.relations ?? emptyArray<PaperRelation>();
+  const allEdges = data?.relations ?? emptyArray<PaperRelation>();
+  // A deleted relation leaves the graph while its Undo toast shows (D-07).
+  const hiddenKeys = useHiddenKeys();
+  const edges = useMemo(() => allEdges.filter((e) => !hiddenKeys.has(relationKey(e.id))), [allEdges, hiddenKeys]);
   const lists = data?.lists ?? emptyArray<ReadingList>();
   const membership = data?.membership ?? emptyMap<string, Set<string>>();
   const experiments = data?.experiments ?? emptyArray<GraphExperimentEntry>();
