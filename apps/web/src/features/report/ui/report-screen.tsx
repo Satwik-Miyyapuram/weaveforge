@@ -223,7 +223,7 @@ export function ReportScreen() {
 
   return (
     <section className="screen report-screen">
-      <ScreenHead title="Sections" eyebrow={sectionsEyebrow(ownedFlat.length, tree.filter((n) => ownedIds.has(n.section.id)))}>
+      <ScreenHead title="Report" eyebrow={sectionsEyebrow(ownedFlat.length, tree.filter((n) => ownedIds.has(n.section.id)))}>
         <Button
           variant="primary"
          

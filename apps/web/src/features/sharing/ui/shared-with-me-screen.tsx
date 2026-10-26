@@ -77,7 +77,7 @@ export function SharedWithMeScreen() {
   return (
     <section className="screen shared-screen">
       <ScreenHead
-        title="Shared with me"
+        title="Shared with you"
         eyebrow={items.length > 0 ? `${items.length} ${items.length === 1 ? "item" : "items"} from ${ownerCount} ${ownerCount === 1 ? "person" : "people"}` : undefined}
       >
         {kinds.length > 1 && (

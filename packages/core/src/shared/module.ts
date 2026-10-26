@@ -43,7 +43,7 @@ export interface FeatureModule {
   readonly id: string;
   /** Display title, e.g. "Papers". */
   readonly title: string;
-  /** Sub-nav bucket key (library, plan, report, experiments, …). Omit for top-level (e.g. dashboard). */
+  /** Sub-nav bucket key (library, work, write, …). Omit for top-level (e.g. dashboard). */
   readonly navGroup?: string;
   /** Settings / org / shared inbox — not in primary tab groups. */
   readonly shell?: boolean;

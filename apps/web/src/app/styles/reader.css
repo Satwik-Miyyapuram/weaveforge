@@ -726,7 +726,6 @@ body > canvas.hiddenCanvasElement { display: none; }
 }
 .pdf-reader-loading, .pdf-reader-error { padding: 24px; color: var(--muted); }
 .pdf-reader-error { display: grid; gap: 12px; justify-items: start; }
-.ai-review-nav-link b { min-width: 1.25rem; text-align: center; border-radius: var(--r-pill); padding: 1px 5px; background: var(--accent); color: var(--on-accent); font-size: var(--fs-xs); }
 @media (max-width: 640px) { .ai-review-screen .screen-header, .ai-review-actions { align-items: flex-start; flex-direction: column; } .ai-review-toolbar { align-items: stretch; flex-direction: column; } }
 
 /* One-line statement of what the armed annotation tool will do. */

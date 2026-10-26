@@ -243,7 +243,7 @@ export function AiProposalReviewScreen() {
   }
   if (loading) return <ScreenLoader />;
   return <section className="screen ai-review-screen">
-    <ScreenHead title="Review suggestions" eyebrow="AI safety"><Link className="btn-secondary" href="/settings">AI settings</Link></ScreenHead>
+    <ScreenHead title="AI suggestions" eyebrow="AI safety"><Link className="btn-secondary" href="/settings">AI settings</Link></ScreenHead>
     <p className="muted ai-review-lede">Nothing changes until you approve it. Suggestions are encrypted until this unlocked browser reviews them.</p>
     {error && <p className="form-error" role="alert">{error}</p>}
     {created && <p className="muted" role="status">Created &ldquo;{created.title}&rdquo;. <Link href={`/notes?page=${encodeURIComponent(created.id)}`}>Open page &rarr;</Link></p>}

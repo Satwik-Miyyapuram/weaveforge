@@ -14,12 +14,12 @@ const BUILTIN_SHELL_MODULES = GENERATED_BUILTIN_SHELL_MODULES as readonly Featur
 /** Nav group display metadata — extend when plugins add new groups. */
 const NAV_GROUP_META: Record<string, { label: string; icon: string }> = {
   library: { label: "Library", icon: "book" },
-  experiments: { label: "Experiments", icon: "flask" },
-  plan: { label: "Plan", icon: "flag" },
-  report: { label: "Report", icon: "doc" },
+  work: { label: "Work", icon: "flask" },
+  write: { label: "Write", icon: "doc" },
 };
 
-const NAV_GROUP_ORDER = ["library", "experiments", "plan", "report"] as const;
+/** Library is what you have, Work is what you do, Write is what you hand in (DA-92). */
+const NAV_GROUP_ORDER = ["library", "work", "write"] as const;
 
 function moduleEnabled(mod: FeatureModule, config: IntegrationConfig): boolean {
   const featureAllowlist = getAppConfig().enabledBuiltinFeatureIds;
@@ -95,13 +95,8 @@ function buildNavGroupsFromModules(modules: readonly FeatureModule[]): NavGroup[
       const items = modules.filter((m) => m.navGroup === key).flatMap((m) => m.navItems);
       return { key, label: meta.label, icon: meta.icon, items };
     })
-    // A group with no nav items is not a section, it is a heading over nothing.
-    // The `experiments` group is the live example: both of its members moved out
-    // of it (Experiments to Library, Git with the rest of the shell's tools), so
-    // the key survived in `NAV_GROUP_ORDER` while the group itself had nothing
-    // left in it, and the sidebar rendered an "Experiments" fold that opened onto
-    // an empty box. Filtering here rather than deleting the key keeps the order
-    // declaration honest for a plugin that adds a member back.
+    // A group with no nav items is not a section, it is a heading over nothing:
+    // a build that disables every member of a group must not draw an empty fold.
     .filter((g) => g.items.length > 0);
 }
 

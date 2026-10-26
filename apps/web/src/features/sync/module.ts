@@ -7,7 +7,7 @@ export const gitModule: FeatureModule = {
   // Library, for the same reason Experiments moved there: the `experiments`
   // group had exactly these two members and both belong with the reader's
   // other work. It is the last thing that kept a group alive on one item.
-  navGroup: "library",
+  navGroup: "work",
   navItems: [{ key: "git", label: "Git", path: "/git", icon: "git" }],
   routes: [{ path: "/git", component: "sync/GitPage" }],
 };

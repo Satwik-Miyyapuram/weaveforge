@@ -10,8 +10,6 @@ export const DOCS_URL = "https://www.weaveforge.org/docs/";
 
 export type AccountLinkId =
   | "projects"
-  | "sharing"
-  | "ai-review"
   | "settings"
   | "docs"
   | "signout"
@@ -24,18 +22,14 @@ export interface AccountLink {
   href?: string;
   /** External links open in a new tab. */
   external?: boolean;
-  badge?: number;
 }
 
 export interface AccountLinksInput {
-  /** Professors and PhDs get the supervisor view; Master's students do not. */
-  canSupervise: boolean;
   /**
    * Whether a project is currently selected — i.e. whether `ProjectSwitcher` is
    * on screen. It hides itself when nothing is selected.
    */
   hasProject: boolean;
-  pendingProposals: number;
   /**
    * Whether this copy is working on this computer with no account. There is no
    * session to end, so "Sign out" would be a lie: the offer is the opposite one.
@@ -52,6 +46,9 @@ export interface AccountLinksInput {
  * Documentation *is* here, and not tucked inside Settings: someone looking for
  * the docs is usually already stuck, and asking them to go hunting is asking
  * them to hunt while stuck.
+ *
+ * Sharing and AI suggestions are not here either: they are the sidebar's Inbox
+ * group (`inbox-links.ts`), so their routes have an active nav item (DA-85).
  */
 export function accountLinks(input: AccountLinksInput): AccountLink[] {
   const links: AccountLink[] = [];
@@ -63,25 +60,6 @@ export function accountLinks(input: AccountLinksInput): AccountLink[] {
   // with no project selected, where it is the only way back to the picker.
   if (!input.hasProject) {
     links.push({ id: "projects", label: "Projects" });
-  }
-
-  // One entry for everything about other people: what they shared, sharing
-  // your own work, and (for supervisors) the students. Needs an account.
-  if (!input.local) {
-    links.push({
-      id: "sharing",
-      label: input.canSupervise ? "Supervision & sharing" : "Sharing",
-      href: "/shared",
-    });
-  }
-
-  if (input.pendingProposals > 0) {
-    links.push({
-      id: "ai-review",
-      label: "Review AI",
-      href: "/ai-review",
-      badge: input.pendingProposals,
-    });
   }
 
   links.push({ id: "settings", label: "Settings", href: "/settings" });

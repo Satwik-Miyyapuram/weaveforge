@@ -387,19 +387,27 @@ html[data-workspace-focus] .layout.editor-route .nav { display: none; }
 .sync-spin-icon { animation: sync-spin 1s linear infinite; }
 @keyframes sync-spin { to { transform: rotate(360deg); } }
 
-/* Below 461px the bottom bar cannot hold six words, so it holds six icons.
-   Measured: each slot is `(width - 40) / 6`, and "Experiments" needs 64px of
-   content — so it fits from a slot of about 68px, which is a 448px window, and
-   is ellipsised ("Experi…") below that. Rather than sit the query exactly on the
-   boundary, where a classic scrollbar puts the media-query width a few pixels
-   under `innerWidth`, it hides with margin to spare.
+/* The phone bar keeps every name (DA-84). It used to drop them below 461px,
+   when "Experiments" was a slot of its own; the slots are now groups with
+   short names (Library, Work, Write), which fit at 320px. */
 
-   Icons are what a bottom bar is for, and each item keeps its name: every link
-   carries an explicit `aria-label` in `tabbar.tsx`, so hiding the span costs a
-   screen reader nothing. The threshold is a *width*, not the 900px layout
-   breakpoint, because 461–899 is where the labels fit — a tablet keeps them. */
-@media (max-width: 460px) {
-  .nav-link .nav-label { display: none; }
+/* A waiting count beside an Inbox entry, and over its icon in the rail. */
+.nav-badge {
+  margin-left: auto;
+  min-width: 1.25rem;
+  padding: 1px 5px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--fs-xs);
+  text-align: center;
+}
+.layout.nav-collapsed .nav-link .nav-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 0;
+  padding: 0 4px;
 }
 
 /* The foldable heading and the group body it hides, desktop sidebar only: the mobile bar

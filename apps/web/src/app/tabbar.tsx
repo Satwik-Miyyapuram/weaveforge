@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useNavPending } from "@/lib/nav-pending";
 import { useEffect, useRef, useState } from "react";
 import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
-import { activeNavItem } from "@/registry";
+import { activeNavItem, type NavGroup } from "@/registry";
 import { prefetchScreenForPath } from "@/lib/cache/prefetch-screen";
 import type { LayoutBreakpoint, NavEnterAnim } from "@/lib/hooks/use-layout-breakpoint";
 import { NavIcon } from "./nav-icon";
@@ -13,6 +13,8 @@ import { openSearchPalette } from "@/components/jump-to-palette";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { ProjectSwitcher } from "@/features/projects";
 import { HeaderActions } from "./header-actions";
+import type { InboxLink } from "./inbox-links";
+import { useInbox } from "./use-inbox";
 import { SyncStatusIndicator } from "./lazy-sync-status";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
@@ -42,6 +44,13 @@ export function TabBar({
   const { effectivePath: pathname } = useNavPending();
   const { homeNavItem, topNavItems, navGroups } = useModuleRegistry();
   const homeActive = pathname === "/dashboard" || pathname?.startsWith("/dashboard/");
+  // What the AI and other people sent you, last in the sidebar (D-04). Built
+  // here rather than in the registry because it depends on who is signed in.
+  const inbox = useInbox().links;
+  const sideGroups: (Omit<NavGroup, "items"> & { items: InboxLink[] | NavGroup["items"] })[] =
+    breakpoint === "desktop" && inbox.length
+      ? [...navGroups, { key: "inbox", label: "Inbox", icon: "sparkle", items: inbox }]
+      : navGroups;
 
   /**
    * Group headings fold, and the group you are in is always open.
@@ -57,7 +66,7 @@ export function TabBar({
    * ever closed by the reader, so several can stay open where there is height.
    */
   const activeGroupKey =
-    navGroups.find((group) => group.items.some((it) => pathname?.startsWith(it.path)))?.key ?? null;
+    sideGroups.find((group) => activeNavItem(group.items, pathname))?.key ?? null;
   const [openGroups, setOpenGroups] = useState<readonly string[]>(() =>
     activeGroupKey ? [activeGroupKey] : [],
   );
@@ -159,7 +168,7 @@ export function TabBar({
             // desktop: one entry per group would have hidden Papers behind a
             // click on Library, and the strip that made that acceptable is gone
             // at this width.
-            navGroups.map((group) => {
+            sideGroups.map((group) => {
               // In the rail every item shows: the headings are hidden there, so a
               // folded group would be a section with no way to see or open it.
               const open = collapsed === true || openGroups.includes(group.key);
@@ -198,6 +207,9 @@ export function TabBar({
                           >
                             <NavIcon name={item.icon ?? group.icon} />
                             <span className="nav-label">{item.label}</span>
+                            {"badge" in item && item.badge !== undefined && (
+                              <b className="nav-badge" aria-label={`${item.badge} waiting`}>{item.badge}</b>
+                            )}
                           </Link>
                         );
                       })}
@@ -245,7 +257,7 @@ export function TabBar({
               ⋯ keeps its place, which is where it already was. */}
           <div className="nav-account-row">
             <ProjectSwitcher />
-            <HeaderActions variant="menu" />
+            <HeaderActions variant="menu" inbox={false} />
           </div>
           <LocalModeBadge />
           <SyncStatusIndicator attentionOnly />

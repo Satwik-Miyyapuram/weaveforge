@@ -3,17 +3,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth } from "@/features/auth";
 import { useProfile } from "@/features/org/ui/profile-provider";
 import { useProject } from "@/features/projects";
 import { getContainer } from "@/bootstrap";
-import { AI_PROPOSALS_CHANGED_EVENT } from "@/lib/ai-proposals-changed";
 import { Popover } from "@/components/popover";
 import { SubmenuFlyout } from "@/components/menu";
 import { isExplicitLabMembership, ROLE_LABELS, type Role } from "@weaveforge/core";
 import { ThemeToggle } from "./theme-toggle";
 import { accountLinks, type AccountLinkId } from "./account-links";
+import { NavIcon } from "./nav-icon";
+import { useInbox } from "./use-inbox";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
 import { SyncStatusIndicator } from "./lazy-sync-status";
 
@@ -41,12 +42,6 @@ const GridIcon = () => (
   </svg>
 );
 
-const ShareIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="action-icon">
-    <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
-    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-  </svg>
-);
 const GearIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="action-icon">
     <circle cx="12" cy="12" r="3" />
@@ -79,41 +74,25 @@ const LogoutIcon = () => (
  * flips it above the trigger when there is no room below, which is the drop-up
  * the sidebar needs and the drop-down the mobile top bar gets, from one rule.
  */
-export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" }) {
+export function HeaderActions({
+  variant = "list",
+  inbox = true,
+}: {
+  variant?: "list" | "menu";
+  /** The Inbox rows, where no sidebar shows them: the phone and the project picker. */
+  inbox?: boolean;
+}) {
   const { user, signOut } = useAuth();
-  const { profile, memberships, activeOrgId, switchOrg } = useProfile();
+  const { memberships, activeOrgId, switchOrg } = useProfile();
   const { current, setProject } = useProject();
   const router = useRouter();
-  const [pendingProposals, setPendingProposals] = useState(0);
-  const [local, setLocal] = useState(false);
+  const { links: inboxRows, local } = useInbox();
   const labs = memberships ? memberships.filter(isExplicitLabMembership) : [];
 
-  useEffect(() => {
-    const read = () =>
-      void getContainer().aiProposals.pendingCount().then(setPendingProposals).catch(() => setPendingProposals(0));
-    // On mount the memoized count is what we want — three copies of this
-    // component mount as the breakpoint settles. On an explicit change event it
-    // is exactly what we do not want, so drop it first.
-    const refresh = () => {
-      getContainer().aiProposals.forgetPending();
-      read();
-    };
-    read();
-    // Read through the auth facade rather than the local backend provider: this
-    // component only needs the answer, and reaching for the provider is how a
-    // presentation file ends up knowing which backend a window was built with.
-    setLocal(getContainer().auth.isLocalMode());
-    window.addEventListener(AI_PROPOSALS_CHANGED_EVENT, refresh);
-    return () => window.removeEventListener(AI_PROPOSALS_CHANGED_EVENT, refresh);
-  }, []);
-
   if (!user) return null;
-  const canSupervise = !!profile && profile.role !== "masters";
 
   const ICONS: Record<AccountLinkId, () => React.JSX.Element> = {
     projects: GridIcon,
-    sharing: ShareIcon,
-    "ai-review": () => <></>,
     settings: GearIcon,
     docs: HelpIcon,
     signout: LogoutIcon,
@@ -121,8 +100,6 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
   };
   const TITLES: Partial<Record<AccountLinkId, string>> = {
     projects: "Projects",
-    sharing: canSupervise ? "Supervision & sharing" : "Shared with me and by me",
-    "ai-review": "Review AI suggestions",
     settings: "Settings",
     docs: "Documentation",
   };
@@ -149,12 +126,15 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
           closeMenu={close}
         />
       )}
-      {accountLinks({
-        canSupervise,
-        hasProject: !!current,
-        pendingProposals,
-        local,
-      }).map((link) => {
+      {inbox &&
+        inboxRows.map((row) => (
+          <Link key={row.key} href={row.path} className="header-link" onClick={close}>
+            <NavIcon name={row.icon} />
+            <span>{row.label}</span>
+            {row.badge !== undefined && <b className="nav-badge">{row.badge}</b>}
+          </Link>
+        ))}
+      {accountLinks({ hasProject: !!current, local }).map((link) => {
         const Icon = ICONS[link.id];
 
         // Leaving offline mode is not signing out — there is no session to end.
@@ -199,13 +179,6 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
             >
               <Icon /><span>{link.label}</span>
             </button>
-          );
-        }
-        if (link.id === "ai-review") {
-          return (
-            <Link key={link.id} href={link.href!} className="header-link ai-review-nav-link" title={TITLES[link.id]} onClick={close}>
-              <span>{link.label}</span><b>{link.badge}</b>
-            </Link>
           );
         }
         // External links open in a new tab — losing unsaved work to a
