@@ -80,7 +80,7 @@
   text-align: left;
   opacity: 0;
   transform: translateY(6px);
-  transition: opacity 0.22s ease, transform 0.22s ease;
+  transition: opacity var(--dur-slow) ease, transform var(--dur-slow) ease;
 }
 .weaveforge-loader-tip--in {
   opacity: 1;

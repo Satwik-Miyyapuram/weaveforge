@@ -43,7 +43,7 @@
      screen — the tree — read as static text. */
   cursor: pointer;
   user-select: none;
-  transition: background 0.1s;
+  transition: background var(--dur-fast);
 }
 
 .explorer-row:hover {
@@ -258,7 +258,7 @@
   background: transparent;
   color: var(--faint);
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--dur-base), color var(--dur-base);
 }
 
 .explorer-action:hover { background: var(--surface2); color: var(--text); }
@@ -564,7 +564,7 @@
   color: var(--muted);
   opacity: 0.55;
   cursor: pointer;
-  transition: opacity 120ms ease;
+  transition: opacity var(--dur-base) ease;
 }
 
 .focus-exit:hover,
@@ -955,7 +955,7 @@
   border-inline-end: 1px solid var(--border);
   /* A tab is clicked to switch documents: it has to answer the pointer. */
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--dur-base), color var(--dur-base);
 }
 
 .pane-tab:hover {
@@ -1063,7 +1063,7 @@
   line-height: 1;
   opacity: 0;
   cursor: pointer;
-  transition: opacity 0.12s, background 0.12s;
+  transition: opacity var(--dur-base), background var(--dur-base);
 }
 
 .pane-tab:hover .pane-tab-close,
@@ -1090,7 +1090,7 @@
   color: var(--faint);
   line-height: 1;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--dur-base), color var(--dur-base);
 }
 
 .pane-action:hover {
@@ -1394,7 +1394,7 @@
   color: inherit;
   font: inherit;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--dur-base), color var(--dur-base);
 }
 
 .breadcrumb-btn:hover { background: var(--surface2); color: var(--text); }
@@ -2105,7 +2105,7 @@
   opacity: 0;
   pointer-events: auto;
   cursor: default;
-  transition: opacity 0.25s ease, width var(--dur-base) ease, background var(--dur-base) ease;
+  transition: opacity var(--dur-slow) ease, width var(--dur-base) ease, background var(--dur-base) ease;
 }
 
 .overlay-scrollbar-track.is-visible .overlay-scrollbar-thumb,

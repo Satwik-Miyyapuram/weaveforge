@@ -62,26 +62,17 @@
   --fs-h2: 1.25rem;      /* 20px: section title */
   --fs-h1: 1.6rem;       /* screen title */
 
-  /* Transition durations, so a press reads as a press everywhere. The audit
-     asked for `--dur-fast: 60ms`; 60ms was below the threshold at which a
-     press is legible at all — it is a snap — and it was half the value of the
-     control sitting beside it in the same form, so the pair is one value.
-
-     These govern *press and selection feedback*: the duration of a control
-     answering a person. Fifty `0.15s` literals across thirteen stylesheets
-     agreed with `--dur-base` by coincidence, which meant retuning the token
-     would have moved the buttons and left everything else behind. They now
-     read it, and the reactive layer in `motion.css` derives its ramp from
-     `--dur-fast` so `--motion-scale` still reaches all three of its values at
-     once.
-
-     Other durations stay literal on purpose, because they are different kinds
-     of motion with their own tuned values: hover fades at `0.12s`, the
-     breakpoint-crossing layout ease at `--layout-duration`, and the
-     multi-second skeleton and loading animations. Folding those into one
-     feedback token would be a design change, not a consistency fix. */
-  --dur-fast: 150ms;
-  --dur-base: 150ms;
+  /* The motion scale (R3, G3): three durations, and every transition or
+     one-shot animation in the app reads one of them. A control answers a
+     press in `fast`; hovers, fades and colour changes take `base`; anything
+     that travels or changes size, like a panel opening or the layout crossing
+     its breakpoint, takes `slow`. Loops and attention pulses of half a second
+     or more are a different kind of motion and keep their own lengths. The
+     reactive layer in `motion.css` derives its ramp from `base`, so
+     `--motion-scale` still reaches all three of its values at once. */
+  --dur-fast: 80ms;
+  --dur-base: 160ms;
+  --dur-slow: 280ms;
 
   /*
    * The stacking ladder.
@@ -222,7 +213,7 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   /* Smooth cross-fade when switching themes. */
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: background-color var(--dur-slow) ease, color var(--dur-slow) ease;
 }
 
 /* Scrollbars are an overlay that reveals itself, everywhere.
@@ -276,7 +267,7 @@ body {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  *::-webkit-scrollbar-thumb { transition: background-color 0.18s ease; }
+  *::-webkit-scrollbar-thumb { transition: background-color var(--dur-base) ease; }
 }
 
 /* Visible keyboard focus for all interactive controls (mouse clicks unaffected).
@@ -286,7 +277,7 @@ body {
 
 /* Page fade-in, replayed on every route change (keyed by pathname). */
 @keyframes page-in { from { opacity: 0; } }
-.page-transition { animation: page-in 0.2s ease-out; }
+.page-transition { animation: page-in var(--dur-base) ease-out; }
 .page-transition--dashboard { animation: none; }
 /* Set by navTransition once its crossfade showed the page: no second fade. */
 .page-transition--vt { animation: none; }
@@ -297,7 +288,7 @@ body {
    row animates just that row. A small per-row delay gives a gentle stagger. */
 .log-item, .exp-item, .section-node, .list-item,
 .commit-item, .graph-wrap, .progress-card, .empty {
-  animation: content-in 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: content-in var(--dur-slow) var(--ease-out) both;
 }
 .log-item:nth-child(n+2),
 .exp-item:nth-child(n+2),
@@ -335,7 +326,9 @@ body {
 /* Shared easing when crossing the mobile ↔ desktop breakpoint (900px). */
 :root {
   --layout-ease: cubic-bezier(0.4, 0, 0.2, 1);
-  --layout-duration: 0.32s;
+  /* Decelerating entrance: content arriving on screen. */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --layout-duration: var(--dur-slow);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -396,13 +389,13 @@ body {
   backdrop-filter: blur(10px) saturate(1.1);
   -webkit-backdrop-filter: blur(10px) saturate(1.1);
   box-shadow: var(--e1);
-  transition: transform 0.32s cubic-bezier(0.22, 0.61, 0.36, 1), width 0.32s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: transform var(--dur-slow) var(--ease-out), width var(--dur-slow) var(--ease-out);
 }
 .sub-tab {
   position: relative; z-index: 1; flex: 1; text-align: center;
   text-decoration: none; color: var(--muted);
   font-size: var(--fs-sm); font-weight: 500; white-space: nowrap;
-  padding: 8px 16px; border-radius: var(--r-control); transition: color 0.2s ease;
+  padding: 8px 16px; border-radius: var(--r-control); transition: color var(--dur-base) ease;
   display: inline-flex; align-items: center; justify-content: center;
 }
 .sub-tab.active { color: var(--ink); }

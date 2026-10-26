@@ -427,7 +427,7 @@ body > canvas.hiddenCanvasElement { display: none; }
   cursor: pointer;
   user-select: text;
   -webkit-user-select: text;
-  transition: background 120ms ease;
+  transition: background var(--dur-base) ease;
 }
 .pdf-reader-textlayer span > a.pdf-reader-cite:is(.is-open, .is-hovered) {
   background: color-mix(in srgb, var(--reader-cite-color, var(--accent)) 12%, transparent);
@@ -542,7 +542,7 @@ body > canvas.hiddenCanvasElement { display: none; }
 .pdf-reader-pop-swatch {
   width: 22px; height: 22px; padding: 0; border-radius: 50%; cursor: pointer;
   border: var(--bw, 1px) solid var(--bw-line, var(--border));
-  transition: scale 0.12s ease;
+  transition: scale var(--dur-base) ease;
 }
 .pdf-reader-pop-swatch:hover { scale: 1.08; }
 .pdf-reader-pop-swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }

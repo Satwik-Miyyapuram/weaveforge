@@ -74,7 +74,7 @@
   transition: none !important;
 }
 .dashboard-grid--enter .dashboard-card {
-  animation: dashboard-card-fade-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: dashboard-card-fade-in var(--dur-base) var(--ease-out) both;
   animation-delay: calc(var(--card-i, 0) * 12ms);
 }
 .dashboard-card-content--shell {
@@ -82,7 +82,7 @@
   min-height: 1.5rem;
 }
 .dashboard-card-content--ready {
-  animation: dashboard-content-in 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: dashboard-content-in var(--dur-slow) var(--ease-out) both;
 }
 .dashboard-card-skeleton {
   display: flex;
@@ -92,7 +92,7 @@
   min-height: 0;
 }
 .dashboard-stat-bar.progress-bar > span {
-  transition: width 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: width var(--dur-slow) var(--ease-out);
 }
 .dashboard-grid-wrap--editing .react-grid-layout {
   background-image:

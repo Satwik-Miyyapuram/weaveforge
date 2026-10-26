@@ -33,8 +33,8 @@ const ROW_HEIGHT = { lg: 48, sm: 48 };
 const GRID_MARGIN = { lg: 8, sm: 8 };
 
 /** Match --layout-duration in styles/base.css */
-const LAYOUT_TRANSITION_MS = 320;
-const CARD_ENTER_MS = 200;
+const LAYOUT_TRANSITION_MS = 280;
+const CARD_ENTER_MS = 160;
 
 function estimateGridHeight(
   items: readonly DashboardLayoutItem[],

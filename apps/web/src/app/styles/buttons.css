@@ -94,7 +94,7 @@ code, pre, .commit-sha { font-family: var(--font-mono); }
    pop out into the same thing. Themes change the distances and shadows through
    these tokens (brutal.css), never the motion. */
 :root {
-  --btn-dur: 120ms;
+  --btn-dur: var(--dur-base);
   --btn-lift: 0 -1px;
   --btn-sink: 1px 1px;
   --btn-sink-flat: 0.67px 0.67px;
@@ -134,12 +134,12 @@ code, pre, .commit-sha { font-family: var(--font-mono); }
 .back-btn:active .back-btn-box {
   translate: var(--btn-sink);
   box-shadow: var(--btn-sh-press);
-  transition-duration: 60ms;
+  transition-duration: var(--dur-fast);
 }
 :is(.btn-ghost, .entity-icon-btn, .entity-open-icon, .paper-open-icon):active:not(:disabled) {
   translate: var(--btn-sink-flat);
   box-shadow: var(--btn-sh-press);
-  transition-duration: 60ms;
+  transition-duration: var(--dur-fast);
 }
 /* The back chevron leans the way it goes. */
 .back-btn-box svg { transition: translate var(--btn-dur) var(--layout-ease); }

@@ -59,12 +59,11 @@
   /* Derived from the app's own duration token rather than written out, which
      is what `--motion-scale` needs: it multiplies once, here, and reaches all
      three values. The reactive layer is a flourish rather than feedback, so it
-     stays deliberately slower than a press — base and slow are multiples of
-     fast instead of equal to it, and the ramp keeps its shape. The numbers
-     this produces are 150 / 262 / 525 ms against the 140 / 260 / 520 it
-     replaces: two of the three are unchanged to within a percent, and the one
-     that moved, moved by ten milliseconds. */
-  --rm-fast: calc(var(--dur-fast) * var(--motion-scale));
+     stays deliberately slower than a press: it starts from the hover step,
+     and its base and slow are multiples of that step rather than the app's
+     own base and slow, so the ramp keeps its shape. At scale 1 it runs
+     160 / 280 / 560 ms. */
+  --rm-fast: calc(var(--dur-base) * var(--motion-scale));
   --rm-base: calc(var(--rm-fast) * 1.75);
   --rm-slow: calc(var(--rm-fast) * 3.5);
   /* Tilt is deliberately small. Past ~4deg a card stops reading as a surface
@@ -468,10 +467,10 @@
   animation: none;
 }
 ::view-transition-group(vt-page) { animation: none; }
-::view-transition-old(vt-page) { animation: vt-fade-out 180ms ease-out both; }
-::view-transition-new(vt-page) { animation: vt-fade-in 180ms ease-out both; }
+::view-transition-old(vt-page) { animation: vt-fade-out var(--dur-base) ease-out both; }
+::view-transition-new(vt-page) { animation: vt-fade-in var(--dur-base) ease-out both; }
 :root[data-nav="tab"]::view-transition-old(vt-page),
-:root[data-nav="tab"]::view-transition-new(vt-page) { animation-duration: 140ms; }
+:root[data-nav="tab"]::view-transition-new(vt-page) { animation-duration: var(--dur-base); }
 
 /* The shell stays put; only the page fades. */
 ::view-transition-old(root),
