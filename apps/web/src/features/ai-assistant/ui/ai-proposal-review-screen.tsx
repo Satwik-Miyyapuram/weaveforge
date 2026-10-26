@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/format-date";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -257,7 +258,7 @@ export function AiProposalReviewScreen() {
           tone={toneFor(item.kind)}
           title={preview.title ?? reviewHeading(item)}
           badge={<span className={`ai-kind ai-kind--${item.kind}`}>{label[item.kind]}</span>}
-          meta={<><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>{preview.why && <> · {preview.why}</>}</>}
+          meta={<><time dateTime={item.createdAt}>{formatDateTime(item.createdAt)}</time>{preview.why && <> · {preview.why}</>}</>}
         >
           <div className="ai-review-body">
             {preview.body && <div className="ai-review-proposed">

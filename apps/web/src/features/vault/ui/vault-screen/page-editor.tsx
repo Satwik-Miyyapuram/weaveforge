@@ -309,14 +309,14 @@ export function PageEditor({
                 ["Created", created || "—"],
                 edited && edited !== created ? ["Edited", edited] : null,
                 ["Words", String(words)],
-                ["Links out", String(linksOut)],
-                ["Linked from", String(backlinks.length)],
+                ["Links from here", String(linksOut)],
+                ["Links here", String(backlinks.length)],
                 tags.length > 0 ? ["Tags", tags.map((t) => `#${t}`).join(" ")] : null,
               ]}
             />
           </RecordSection>
 
-          <RecordSection label="Linked mentions" tag={backlinks.length > 0 ? String(backlinks.length) : "None"}>
+          <RecordSection label="Links here" tag={backlinks.length > 0 ? String(backlinks.length) : undefined}>
             {backlinks.length > 0 ? (
               <ul className="record-related">
                 {backlinks.map((it) => (

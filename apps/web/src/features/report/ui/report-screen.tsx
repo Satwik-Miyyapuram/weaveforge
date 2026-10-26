@@ -235,7 +235,7 @@ export function ReportScreen() {
 
       {composeOpen && (
         <Modal
-          title="Add a section"
+          title="New section"
           onClose={() => setComposeOpen(false)}
         >
           <AddSectionForm

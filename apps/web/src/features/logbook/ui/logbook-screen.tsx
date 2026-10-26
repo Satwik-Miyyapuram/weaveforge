@@ -54,19 +54,19 @@ export function LogbookScreen() {
         search={entries.length > 0 ? { value: search, onChange: setSearch, label: "Search the log" } : undefined}
       >
         <button type="button" className="btn-secondary log-publish" onClick={() => setPublishOpen(true)}>
-          Publish snapshot
+          Send check-in
         </button>
         <Button variant="primary" onClick={() => setAddOpen(true)}>New entry</Button>
       </ScreenHead>
 
       {addOpen && (
-        <Modal title="Add a log entry" onClose={() => setAddOpen(false)}>
+        <Modal title="New entry" onClose={() => setAddOpen(false)}>
           <AddLogEntryForm onAdded={() => { setAddOpen(false); void load(); }} />
         </Modal>
       )}
 
       {publishOpen && (
-        <Modal title="Publish lab snapshot" onClose={() => setPublishOpen(false)}>
+        <Modal title="Send check-in" onClose={() => setPublishOpen(false)}>
           <PublishLabSnapshotForm onPublished={() => setPublishOpen(false)} />
         </Modal>
       )}

@@ -78,11 +78,11 @@ export function ExportOverleafPackagePanel({
             setOpen(true);
           }}
         >
-          Export LaTeX…
+          Export for Overleaf…
         </Button>
       )}
       {open && (
-        <Modal title="Export to Overleaf" onClose={close}>
+        <Modal title="Export for Overleaf" onClose={close}>
           <p className="muted" style={{ marginTop: 0 }}>
             Builds a plaintext LaTeX ZIP (main.tex + bibliography + figures) in this browser only.
             WeaveForge does not push to Overleaf.

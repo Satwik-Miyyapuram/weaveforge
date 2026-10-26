@@ -56,7 +56,7 @@ export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
       </div>
       {error && <FormError>{error}</FormError>}
       <Button variant="primary" disabled={busy}>
-        {busy ? "Saving…" : "Add log entry"}
+        {busy ? "Creating…" : "Create"}
       </Button>
     </form>
   );

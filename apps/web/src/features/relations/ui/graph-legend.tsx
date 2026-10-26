@@ -1,5 +1,6 @@
 "use client";
 
+import { enumLabel } from "@/lib/enum-label";
 import { useState } from "react";
 import { RELATION_TYPES, type GraphViewSettings, type RelationType } from "@weaveforge/core";
 import { ChevronIcon } from "@/components/chevron-icon";
@@ -90,7 +91,7 @@ export function GraphLegend({
             {RELATION_TYPES.map((t) => (
               <span key={t} className="legend-item">
                 <span className="legend-swatch" style={{ background: RELATION_COLORS[t as RelationType] }} />
-                {t.replace("_", " ")}
+                {enumLabel("relation", t)}
               </span>
             ))}
           </div>

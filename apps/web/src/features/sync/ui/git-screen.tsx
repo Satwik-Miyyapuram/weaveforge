@@ -1,5 +1,6 @@
 "use client";
 
+import { formatRelative } from "@/lib/format-date";
 import { useCallback, useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { useProject } from "@/features/projects";
@@ -218,8 +219,7 @@ export function GitScreen() {
   );
 }
 
-/** A commit's day as the list shows it, e.g. "20 Sep". */
+/** A commit's time as the list shows it: "2h ago", or "20 Sep 2026" past a week. */
 function shortDate(iso: string): string {
-  const at = new Date(iso);
-  return Number.isNaN(at.getTime()) ? iso.slice(0, 10) : at.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  return formatRelative(iso) || iso.slice(0, 10);
 }

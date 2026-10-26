@@ -438,14 +438,14 @@ export function PaperNote({
                 {mode === "edit" && (
                   <div className="summary-editor-bar">
                     <CitationFormatSelect value={citationFormat} onChange={setCitationFormat} />
-                    <button
-                      type="button"
-                      className="link-btn"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={reRenderTemplate}
                       title="Refresh generated metadata; your edits are preserved"
                     >
-                      Re-render template
-                    </button>
+                      Refresh paper details
+                    </Button>
                     <AttachImageButton editor={editorHandle} onError={setSaveError} />
                   </div>
                 )}

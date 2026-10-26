@@ -1,5 +1,6 @@
 "use client";
 
+import { enumLabel } from "@/lib/enum-label";
 import { useMemo, useState } from "react";
 import { PAPER_STATUSES, parsePaperRef, type PaperRef, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
@@ -119,7 +120,7 @@ export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
           >
             {PAPER_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {s.replace("_", " ")}
+                {enumLabel("paperStatus", s)}
               </option>
             ))}
           </Select>

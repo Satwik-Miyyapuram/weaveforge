@@ -1,5 +1,6 @@
 "use client";
 
+import { enumOptions } from "@/lib/enum-label";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Member, Share, ShareableType, ShareAccess } from "@weaveforge/core";
 import { isBlanketShare, shareSupportsEditAccess } from "@weaveforge/core";
@@ -118,6 +119,8 @@ export function ShareDialog({
     }, ui);
   }
 
+  // One order everywhere: view, comment, edit (D-16); edit only where it applies.
+  const accessOptions = enumOptions("shareAccess").filter((o) => supportsEdit || o.value !== "edit");
   return (
     <Modal title={title} onClose={onClose}>
       {error && <FormError>{error}</FormError>}
@@ -139,9 +142,7 @@ export function ShareDialog({
                   disabled={busy}
                   onChange={(e) => void changeAccess(s, e.target.value as ShareAccess)}
                 >
-                  <option value="view">can view</option>
-                  <option value="comment">can comment</option>
-                  {supportsEdit ? <option value="edit">can edit</option> : null}
+                  {accessOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </Select>
                 <Button size="sm" className="danger" disabled={busy} onClick={() => void revoke(s)}>Remove</Button>
               </li>
@@ -166,9 +167,7 @@ export function ShareDialog({
             onChange={(e) => setAccess(e.target.value as ShareAccess)}
             aria-label="Access level"
           >
-            <option value="comment">can comment</option>
-            <option value="view">can view</option>
-            {supportsEdit ? <option value="edit">can edit</option> : null}
+            {accessOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
           <button
             type="button"

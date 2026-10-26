@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/format-date";
 import { useState } from "react";
 import { useAuth } from "@/features/auth";
 import { formatError } from "@/lib/format-error";
@@ -34,7 +35,7 @@ export function SyncSettingsPanel() {
         </p>
         <p className="muted">
           {status.lastPullAt
-            ? `Last checked ${new Date(status.lastPullAt).toLocaleString()}.`
+            ? `Last checked ${formatDateTime(status.lastPullAt)}.`
             : "Not checked yet."}
         </p>
         <Button

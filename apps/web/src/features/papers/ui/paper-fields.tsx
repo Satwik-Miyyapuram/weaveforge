@@ -1,5 +1,6 @@
 "use client";
 
+import { humanise } from "@/lib/enum-label";
 import { useCallback, useEffect, useState } from "react";
 import { deferDelete, deletedMessage, useHiddenKeys } from "@/lib/toast";
 import {
@@ -352,7 +353,7 @@ function PaperFieldsManager({
               <>
                 <span>
                   {def.name}{" "}
-                  <span className="muted">({def.kind.replace("_", " ")})</span>
+                  <span className="muted">({humanise(def.kind).toLowerCase()})</span>
                 </span>
                 <button
                   type="button"
@@ -404,7 +405,7 @@ function PaperFieldsManager({
           aria-label="Field kind"
         >
           {PAPER_FIELD_KINDS.map((k) => (
-            <option key={k} value={k}>{k.replace("_", " ")}</option>
+            <option key={k} value={k}>{humanise(k)}</option>
           ))}
         </Select>
         {needsOptions && (

@@ -76,9 +76,9 @@ test.describe("core domain CRUD (PostgREST + RLS)", () => {
     const body = `E2E log ${Date.now()} — wrote tests for CRUD.`;
 
     await page.goto("/log");
-    await page.getByRole("button", { name: "+ Entry" }).click();
+    await page.getByRole("button", { name: "New entry" }).click();
     await page.locator("#body").fill(body);
-    await page.getByRole("button", { name: "Add log entry", exact: true }).click();
+    await page.getByRole("button", { name: "Create", exact: true }).click();
 
     await expect(page.getByText(body, { exact: false }).first()).toBeVisible({ timeout: 30_000 });
     expect(writes.some((w) => /POST|PUT|PATCH/.test(w))).toBeTruthy();

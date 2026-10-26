@@ -317,7 +317,7 @@ export function MilestoneForm({
           </button>
         )}
         <Button variant="primary" disabled={busy}>
-          {busy ? "Saving…" : initial ? "Save" : "Add milestone"}
+          {busy ? "Saving…" : initial ? "Save" : "Create"}
         </Button>
       </div>
     </form>

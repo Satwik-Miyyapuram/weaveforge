@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate } from "@/lib/format-date";
 import { useCallback, useEffect, useState } from "react";
 import {
   AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS, AI_PROPOSAL_KINDS, AI_READ_CATEGORIES, aiReadCategoryForResource, applyUserIntegrationFields, getUserIntegrationField, type AiAccessSettings, type AiProposalKind, type AiReadCategory, type UserSettings } from "@weaveforge/core";
@@ -403,7 +404,7 @@ export function AiAccessPanel({ settings, onChange }: {
                   <Button onClick={() => void createMcpToken()} disabled={busy}>{mcpTokens.length ? "Create replacement" : "Create MCP token"}</Button>
                 </div>
                 {newMcpToken && <div className="ai-connection-value"><span><small>New MCP token — copy it now</small><code>••••••••••••••••••••••••</code></span><Button onClick={() => copyConnection("token", newMcpToken)}>{copied === "token" ? "Copied" : "Copy"}</Button></div>}
-                {mcpTokens.length > 0 && <div className="ai-token-list"><small>{mcpTokens.length} active MCP token{mcpTokens.length === 1 ? "" : "s"}</small>{mcpTokens.map((token) => <div className="ai-active-session" key={token.id}><span><strong>{token.name}</strong><small>{token.tokenPrefix} · {token.lastUsedAt ? `last used ${new Date(token.lastUsedAt).toLocaleDateString()}` : "not used yet"}</small></span><Button size="sm" className="danger" onClick={() => setRevokingMcp(token.id)} disabled={busy}>Revoke</Button></div>)}</div>}
+                {mcpTokens.length > 0 && <div className="ai-token-list"><small>{mcpTokens.length} active MCP token{mcpTokens.length === 1 ? "" : "s"}</small>{mcpTokens.map((token) => <div className="ai-active-session" key={token.id}><span><strong>{token.name}</strong><small>{token.tokenPrefix} · {token.lastUsedAt ? `last used ${formatDate(token.lastUsedAt)}` : "not used yet"}</small></span><Button size="sm" className="danger" onClick={() => setRevokingMcp(token.id)} disabled={busy}>Revoke</Button></div>)}</div>}
                 <div className="ai-source-scope">
                   <div>
                     <strong>Source access</strong>

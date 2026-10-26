@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate } from "@/lib/format-date";
 import { useCallback, useEffect, useState } from "react";
 import {
   SHARE_LINK_DEFAULT_TTL_DAYS, type ShareLink, type ShareableType } from "@weaveforge/core";
@@ -10,11 +11,7 @@ import { Button } from "@/components/button";
 import { copyText } from "@/lib/toast/copy-text";
 
 function formatExpiry(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatDate(iso);
 }
 
 export function ShareLinkPanel({
@@ -95,7 +92,7 @@ export function ShareLinkPanel({
           {links.map((link) => (
             <li key={link.id} className="share-link-row">
               <span className="muted">view-only link</span>
-              <span className="muted">{new Date(link.createdAt).toLocaleDateString()}</span>
+              <span className="muted">{formatDate(link.createdAt)}</span>
               {link.expiresAt ? (
                 <span className="share-link-expiry-hint">expires {formatExpiry(link.expiresAt)}</span>
               ) : null}

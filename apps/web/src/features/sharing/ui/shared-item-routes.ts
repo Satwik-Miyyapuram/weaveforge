@@ -1,3 +1,4 @@
+import { humanise } from "@/lib/enum-label";
 import type { SharedItem } from "@/features/sharing/domain/shared-reader";
 
 import type { ShareableType } from "@weaveforge/core";
@@ -34,5 +35,5 @@ export function sharedItemHref(item: SharedItem): string {
 
 export function sharedItemTypeLabel(kind: SharedItem["kind"]): string {
   if (kind === "vault_page") return "note";
-  return kind.replace(/_/g, " ");
+  return humanise(kind).toLowerCase();
 }

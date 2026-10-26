@@ -1,5 +1,6 @@
 "use client";
 
+import { enumLabel } from "@/lib/enum-label";
 import { useState } from "react";
 import {
   DEFAULT_GRAPH_SETTINGS,
@@ -217,7 +218,7 @@ export function GraphSettingsDrawer({
                           onChange({ relationTypes: next.length ? next : ["cites"] });
                         }}
                       >
-                        {t.replace("_", " ")}
+                        {enumLabel("relation", t)}
                       </button>
                     );
                   })}

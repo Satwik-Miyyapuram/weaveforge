@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate, formatDateTime } from "@/lib/format-date";
 import { Fragment, useState } from "react";
 import {
   diffBody,
@@ -464,7 +465,7 @@ function format(value: unknown): string {
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "string" && ISO.test(value)) {
     const d = new Date(value);
-    if (!Number.isNaN(d.getTime())) return value.length > 10 ? d.toLocaleString() : d.toLocaleDateString();
+    if (!Number.isNaN(d.getTime())) return value.length > 10 ? formatDateTime(d) : formatDate(d);
   }
   const out = typeof value === "string" ? value : JSON.stringify(value);
   return out.length > 80 ? `${out.slice(0, 80)}…` : out;

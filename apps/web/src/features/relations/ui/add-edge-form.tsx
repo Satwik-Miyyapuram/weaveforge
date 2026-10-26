@@ -1,5 +1,6 @@
 "use client";
 
+import { enumLabel } from "@/lib/enum-label";
 import { useState } from "react";
 import { RELATION_TYPES, type Paper, type RelationType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
@@ -57,7 +58,7 @@ export function AddEdgeForm({
       </div>
       <div className="field">
         <Select id="relation" value={relation} onChange={(e) => setRelation(e.target.value as RelationType)} aria-label="Relation type">
-          {RELATION_TYPES.map((t) => (<option key={t} value={t}>{t.replace("_", " ")}</option>))}
+          {RELATION_TYPES.map((t) => (<option key={t} value={t}>{enumLabel("relation", t)}</option>))}
         </Select>
       </div>
       <div className="field">

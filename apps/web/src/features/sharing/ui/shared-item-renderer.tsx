@@ -1,5 +1,6 @@
 "use client";
 
+import { enumLabel } from "@/lib/enum-label";
 import type { Paper } from "@weaveforge/core";
 import { formatMetricCell, isEmptyPaperSummary } from "@weaveforge/core";
 import Link from "next/link";
@@ -201,7 +202,7 @@ function SharedPaperCard({
         )}
         <div className="metric-chips">
           <span className="metric-chip">
-            <em>status</em> {paper.status.replace("_", " ")}
+            <em>status</em> {enumLabel("paperStatus", paper.status)}
           </span>
         </div>
         <SharedPaperImages metadata={paper.metadata} />

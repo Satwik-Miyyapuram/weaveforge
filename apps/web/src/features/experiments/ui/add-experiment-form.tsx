@@ -64,7 +64,7 @@ export function AddExperimentForm({ onAdded }: { onAdded: () => void }) {
       <div className="field"><label htmlFor="erepo">Repo URL</label><input id="erepo" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} placeholder="https://github.com/you/thesis-experiments" /></div>
       <div className="field"><label htmlFor="econfig">Config (JSON)</label><textarea id="econfig" rows={2} value={config} onChange={(e) => setConfig(e.target.value)} placeholder='{"beta":4,"latent_dim":32,"seed":0}' /></div>
       {error && <FormError>{error}</FormError>}
-      <Button variant="primary" disabled={busy}>{busy ? "Adding…" : "Add experiment"}</Button>
+      <Button variant="primary" disabled={busy}>{busy ? "Creating…" : "Create"}</Button>
     </form>
   );
 }

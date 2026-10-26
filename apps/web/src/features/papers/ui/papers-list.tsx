@@ -419,7 +419,7 @@ export function PapersScreen() {
 
       {composeOpen && (
         <Modal
-          title={composeMode === "new" ? "Add a paper" : "Add papers"}
+          title={composeMode === "new" ? "Add paper" : "Import papers"}
           onClose={() => { setComposeOpen(false); setComposeMode("menu"); }}
         >
           {composeMode === "menu" ? (

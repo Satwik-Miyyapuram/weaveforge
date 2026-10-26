@@ -1,5 +1,6 @@
 "use client";
 
+import { enumLabel } from "@/lib/enum-label";
 import { useEffect, useMemo, useState } from "react";
 import {
   findDuplicateGroups,
@@ -225,7 +226,7 @@ function TitleFixRow({
 
 function describe(p: (PaperSummary & { venue?: string }) | undefined): string {
   if (!p) return "";
-  return [p.year, p.venue, p.pdfPath ? "PDF" : null, p.status.replace("_", " "), p.doi ? `doi:${p.doi}` : null]
+  return [p.year, p.venue, p.pdfPath ? "PDF" : null, enumLabel("paperStatus", p.status), p.doi ? `doi:${p.doi}` : null]
     .filter(Boolean)
     .join(" · ");
 }

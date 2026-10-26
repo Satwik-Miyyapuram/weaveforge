@@ -179,7 +179,7 @@ export function ExperimentsScreen() {
 
       {composeOpen && (
         <Modal
-          title={composeMode === "new" ? "Log an experiment" : composeMode === "sdk" ? "Python SDK token" : "Experiment actions"}
+          title={composeMode === "new" ? "New experiment" : composeMode === "sdk" ? "Python SDK token" : "Experiment actions"}
           onClose={() => { setComposeOpen(false); setComposeMode("menu"); }}
         >
           {composeMode === "menu" ? (
@@ -189,7 +189,7 @@ export function ExperimentsScreen() {
                 className="org-choice-card"
                 onClick={() => setComposeMode("new")}
               >
-                <span className="org-choice-title">Log run</span>
+                <span className="org-choice-title">New experiment</span>
                 <p className="org-choice-desc">Record a new experiment run.</p>
               </button>
               {desktop() && (
