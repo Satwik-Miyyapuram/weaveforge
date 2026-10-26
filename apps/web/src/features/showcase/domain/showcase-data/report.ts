@@ -80,6 +80,70 @@ export const SHOWCASE_VAULT: ShowcaseVaultPage[] = [
     title: "Ideas parking lot",
     body: "- Flow posterior for a tighter bound (Kobyzev survey) — future work paragraph\n- Hierarchical prior (Ladder VAE) — only if graph-prior v1 plateaus\n- Use DGI to pre-train the graph encoder #gnn #self-supervised\n- Diffusion decoder? No. Out of scope. #diffusion",
   },
+  {
+    title: "GIN proof notes",
+    body: "# Why sum aggregation #gnn #theory\n\nGIN is as powerful as the 1-WL test because sum over a multiset is injective; mean and max are not.\n\n- Mean loses degree → bad for citation graphs\n- Max loses multiplicity\n\nUsed in [[Thesis argument (one page)]] point 5. Terms in [[Glossary]].",
+  },
+  {
+    title: "Reading notes — β-VAE",
+    body: "# β-VAE #vae #disentanglement\n\n- β > 1 pushes q(z|x) towards the isotropic prior\n- Its disentanglement score is the first one; superseded, see [[Metrics cheat-sheet]]\n- Capacity view in Burgess 2018\n\nBaseline settings live in [[Experiment conventions]].",
+  },
+  {
+    title: "Reading notes — TC-VAE",
+    body: "# TC-VAE #vae #disentanglement\n\nKL = index-code MI + total correlation + dimension-wise KL. Only the TC term needs a penalty.\n\nMIG comes from this paper. Sample count matters: [[Metrics cheat-sheet]].",
+  },
+  {
+    title: "Reading notes — Locatello 2019",
+    body: "# The impossibility result #disentanglement #theory\n\nWithout inductive bias, unsupervised disentanglement is not identifiable. 12k models trained; seeds matter more than methods.\n\nThis is step 1 of [[Thesis argument (one page)]].",
+  },
+  {
+    title: "dSprites pipeline",
+    body: "# dSprites #data\n\n- 737,280 images, 64×64, 6 factors\n- Loaded as uint8 into RAM\n- Splits: fixed seed 0, 90/10\n\nConventions in [[Experiment conventions]]; runs on [[Cluster cheat-sheet]].",
+  },
+  {
+    title: "Cluster cheat-sheet",
+    body: "# Cluster #admin #compute\n\n```\nsbatch -p gpu-a100 --gres=gpu:4 run.sh\nsqueue -u $USER\n```\n\n- Scratch is wiped after 30 days\n- Allocation renewal due before the ablation study",
+  },
+  {
+    title: "Lab meeting notes",
+    body: "## 2026-10-01\n- Showed exp-03 curves; questions about seed variance\n\n## 2026-09-17\n- Talk on DGI; idea for pre-training, see [[Ideas parking lot]]",
+  },
+  {
+    title: "Weekly review template",
+    body: "# Week NN\n\n- **Done:**\n- **Blocked:**\n- **Reading:**\n- **Next:**\n\nCopy into the logbook every Friday.",
+  },
+  {
+    title: "Chapter 3 outline",
+    body: "# Ch. 3 Method #thesis\n\n1. Problem statement\n2. Graph prior p(z|G)\n3. Training objective\n4. Complexity\n\nNotation from [[Notation]]; argument from [[Thesis argument (one page)]].",
+  },
+  {
+    title: "Ablation plan",
+    body: "# Ablations #experiments\n\n| Axis | Values |\n|---|---|\n| Depth | 1, 2, 3, 4 |\n| Aggregation | sum, mean, max |\n| Edges | cites, all |\n\n3 seeds each. Compute on [[Cluster cheat-sheet]].",
+  },
+  {
+    title: "Related work map",
+    body: "# Related work #thesis\n\n- VAE family → [[Reading notes — β-VAE]], [[Reading notes — TC-VAE]]\n- Identifiability → [[Reading notes — Locatello 2019]]\n- Graphs → [[GIN proof notes]]",
+  },
+  {
+    title: "Questions for supervisor",
+    body: "- Is √degree normalisation an ablation row or a footnote?\n- Workshop or main track?\n- Second reader for the defence?\n\nAnswers go into [[Meeting notes — supervisor]].",
+  },
+  {
+    title: "Workshop paper — draft plan",
+    body: "# Workshop paper #writing\n\n4 pages: intro (½), method (1), results (1½), related (½), conclusion (½).\n\nFigures from exp-03 and the [[Ablation plan]].",
+  },
+  {
+    title: "Notation",
+    body: "# Notation #thesis\n\n| Symbol | Meaning |\n|---|---|\n| x | image |\n| z | latent, d = 10 |\n| G = (V, E) | concept graph |\n| q(z \\| x) | encoder |\n| p(z \\| G) | graph prior |",
+  },
+  {
+    title: "Failed ideas",
+    body: "- Attention in the prior: unstable, dropped (week 19)\n- Mean aggregation: collapses to baseline\n- Contrastive pre-training: no gain, see [[Contrastive encoder baselines]]",
+  },
+  {
+    title: "Glossary",
+    body: "- **ELBO** evidence lower bound\n- **MIG** mutual information gap\n- **DCI** disentanglement, completeness, informativeness\n- **WL test** Weisfeiler–Lehman graph isomorphism test",
+  },
 ];
 
 export interface ShowcaseFieldDef {

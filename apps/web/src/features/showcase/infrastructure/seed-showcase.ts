@@ -31,6 +31,7 @@ import {
   SHOWCASE_RELATIONS,
   SHOWCASE_REPORT,
   SHOWCASE_SCREENING,
+  SHOWCASE_SUPERVISOR_COMMENTS,
   SHOWCASE_VAULT,
   superviseeShowcase,
   type ShowcaseLogEntry,
@@ -62,6 +63,12 @@ export interface SeedShowcaseResult {
   projectId: string;
   paperIds: Record<string, string>;
   counts: Record<string, number>;
+  /** Milestone title → id. */
+  milestoneIds: Record<string, string>;
+  /** Log entry `daysAgo` → id. */
+  logIds: Record<number, string>;
+  /** Reading list name → id. */
+  listIds: Record<string, string>;
 }
 
 type Db = SeedShowcaseOptions["db"];
@@ -135,10 +142,12 @@ async function seedMilestonesAndLog(db: Db, userId: string, projectId: string, n
     }),
     "id, title",
   );
+  const logIds: Record<number, string> = Object.fromEntries(log.map((e) => [e.daysAgo, crypto.randomUUID()]));
   await insertRows(
     db,
     "log_entries",
     log.map((e) => ({
+      id: logIds[e.daysAgo],
       user_id: userId,
       project_id: projectId,
       entry_date: dateDaysAgo(now, e.daysAgo),
@@ -147,7 +156,7 @@ async function seedMilestonesAndLog(db: Db, userId: string, projectId: string, n
       links: [],
     })),
   );
-  return ms;
+  return { milestones: ms, logIds };
 }
 
 /** What every section of the seed writes with, and the counts it reports. */
@@ -202,7 +211,8 @@ export async function seedShowcase(opts: SeedShowcaseOptions): Promise<SeedShowc
   const lists = await seedReadingLists(ctx, pid);
   await seedScreening(ctx, lists.itemIds);
 
-  const milestones = await seedMilestonesAndLog(db, userId, projectId, now, SHOWCASE_MILESTONES, SHOWCASE_LOG);
+  const { milestones, logIds } = await seedMilestonesAndLog(db, userId, projectId, now, SHOWCASE_MILESTONES, SHOWCASE_LOG);
+  const milestoneIds = Object.fromEntries(milestones.map((m) => [m.title, m.id]));
   ctx.counts.milestones = milestones.length;
   ctx.counts.logEntries = SHOWCASE_LOG.length;
 
@@ -213,7 +223,7 @@ export async function seedShowcase(opts: SeedShowcaseOptions): Promise<SeedShowc
   await seedFields(ctx, pid);
   await seedCitationTracks(ctx, pid);
   await seedPins(ctx, {
-    milestone: Object.fromEntries(milestones.map((m) => [m.title, m.id])),
+    milestone: milestoneIds,
     experiment: experimentIds,
     report_section: sectionIds,
     reading_list: lists.listIds,
@@ -222,7 +232,7 @@ export async function seedShowcase(opts: SeedShowcaseOptions): Promise<SeedShowc
 
   const { counts } = ctx;
   log(`seeded ${Object.entries(counts).map(([k, v]) => `${k}=${v}`).join(" ")}`);
-  return { projectId, paperIds, counts };
+  return { projectId, paperIds, counts, milestoneIds, logIds, listIds: lists.listIds };
 }
 
 async function seedPapers(ctx: SeedContext): Promise<Record<string, string>> {
@@ -560,4 +570,92 @@ export async function seedSuperviseeShowcase(opts: Omit<SeedShowcaseOptions, "st
   await seedMilestonesAndLog(opts.db, opts.userId, projectId, now, data.milestones, data.log);
   opts.log?.(`supervisee ${opts.label}: project ${projectId}`);
   return projectId;
+}
+
+export interface SeedCollabOptions {
+  db: Db;
+  now?: Date;
+  researcherId: string;
+  supervisorId: string;
+  /** A fellow student who shares their plan with the researcher and gets a reading list back. */
+  peerId: string;
+  /** The researcher's ids, from `seedShowcase`. */
+  seeded: Pick<SeedShowcaseResult, "milestoneIds" | "logIds" | "listIds">;
+  log?: (line: string) => void;
+}
+
+const HOUR = 3_600_000;
+
+/**
+ * Supervision and sharing on top of the researcher's workspace: the
+ * supervisor's comment threads with the student's replies, and the shares
+ * between researcher, supervisor and peer.
+ *
+ * Comments have no foreign key to their resource, so threads from an earlier
+ * run stay on the old (deleted) rows and never show. Shares are unique per
+ * owner, recipient, type and resource, so each one is deleted before it is
+ * inserted again.
+ */
+export async function seedCollabShowcase(opts: SeedCollabOptions): Promise<void> {
+  const { db, researcherId, supervisorId, peerId, seeded } = opts;
+  const now = opts.now ?? new Date();
+  const threads = SHOWCASE_SUPERVISOR_COMMENTS;
+
+  const resourceId = (t: (typeof threads)[number]): string => {
+    const id = t.resource === "milestone" ? seeded.milestoneIds[String(t.target)] : seeded.logIds[Number(t.target)];
+    if (!id) throw new Error(`showcase: comment target ${t.resource} "${t.target}" was not seeded`);
+    return id;
+  };
+  // Oldest thread first, six hours apart; replies two hours after the comment before them.
+  const at = (i: number, step: number) => new Date(now.getTime() - (threads.length - i) * 6 * HOUR + step * 2 * HOUR).toISOString();
+
+  const roots = threads.map((t, i) => ({
+    id: crypto.randomUUID(),
+    author_id: supervisorId,
+    resource_type: t.resource,
+    resource_id: resourceId(t),
+    body: t.body,
+    created_at: at(i, 0),
+  }));
+  // Roots first: the insert trigger (0133) checks a reply's parent exists.
+  await insertRows(db, "comments", roots);
+  await insertRows(
+    db,
+    "comments",
+    threads.flatMap((t, i) =>
+      t.replies.map((body, j) => ({
+        author_id: researcherId,
+        resource_type: t.resource,
+        resource_id: roots[i]!.resource_id,
+        parent_id: roots[i]!.id,
+        body,
+        created_at: at(i, j + 1),
+      })),
+    ),
+  );
+  // The trigger clears resolved_at on insert, so closing is a separate update.
+  for (const [i, t] of threads.entries()) {
+    if (!t.resolved) continue;
+    const res = await db.from("comments").update({ resolved_at: at(i, t.replies.length + 1) }).eq("id", roots[i]!.id);
+    if (res.error) throw new Error(`resolve comment: ${res.error.message}`);
+  }
+
+  const firstList = Object.values(seeded.listIds)[0];
+  if (!firstList) throw new Error("showcase: no reading list to share");
+  const shares = [
+    { owner_id: researcherId, recipient_id: supervisorId, resource_type: "milestone", resource_id: null, access: "comment" },
+    { owner_id: peerId, recipient_id: researcherId, resource_type: "milestone", resource_id: null, access: "comment" },
+    { owner_id: researcherId, recipient_id: peerId, resource_type: "reading_list", resource_id: firstList, access: "view" },
+  ];
+  for (const s of shares) {
+    const del = await db
+      .from("shares")
+      .delete()
+      .eq("owner_id", s.owner_id)
+      .eq("recipient_id", s.recipient_id)
+      .eq("resource_type", s.resource_type);
+    if (del.error) throw new Error(`delete share: ${del.error.message}`);
+    await insertRows(db, "shares", [s]);
+  }
+  opts.log?.(`collab: ${roots.length} comment threads, ${shares.length} shares`);
 }
