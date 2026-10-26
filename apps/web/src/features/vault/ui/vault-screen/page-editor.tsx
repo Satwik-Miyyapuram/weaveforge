@@ -93,7 +93,9 @@ export function PageEditor({
   }, [page.id, page.title]);
 
   useEffect(() => {
-    if (page.id) setMode("read");
+    // A note New note just made opens in Edit, where its title can be typed over.
+    if (page.id) setMode(focusTitle ? "edit" : "read");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a page change picks the mode
   }, [page.id]);
 
   // A handwritten note keeps its ink header and page markers in the body. Its
