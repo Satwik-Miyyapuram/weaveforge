@@ -26,6 +26,7 @@ export function ProjectSwitcher() {
         portal
         align="left"
         ariaLabel={`Project: ${current.name}`}
+        look="custom"
         triggerClassName="proj-chip"
         label={
           <>

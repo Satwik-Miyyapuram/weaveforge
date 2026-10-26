@@ -33,6 +33,7 @@ export function CardMenu({
       // card rather than under the kebab that was pressed. See `Popover.portal`.
       portal
       ariaLabel={label}
+      look="custom"
       triggerClassName="entity-icon-btn card-menu-trigger"
       label={<KebabIcon />}
     >

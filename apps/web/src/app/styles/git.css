@@ -51,7 +51,7 @@
 }
 .metric-chip { background: var(--chip); border: 1px solid var(--line); }
 .git-chip em, .metric-chip em { font-style: normal; color: var(--muted); font-size: var(--fs-xs); }
-.git-chip.link { color: var(--s-info); }
+.git-chip.is-link { color: var(--s-info); }
 button.git-chip { border: 0; cursor: pointer; font-family: inherit; }
 
 /* Experiments: live indicator + view switch + compare table */
@@ -164,6 +164,6 @@ button.git-chip { border: 0; cursor: pointer; font-family: inherit; }
 }
 .plan-chip em { font-style: normal; font-weight: 400; color: var(--muted); }
 .plan-chip.is-ext { border-style: dashed; }
-.plan-chip.link { cursor: pointer; }
+.plan-chip.is-link { cursor: pointer; }
 /* The arrow comes from the shared chip rule in states.css, on links only. */
 .plan-chip.is-missing { opacity: 0.5; text-decoration: line-through; }

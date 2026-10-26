@@ -6,6 +6,7 @@ import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { ChevronIcon } from "./chevron-icon";
 import { focusFirstControl, focusFirstField } from "./modal";
 import { VIEWPORT_PAD } from "./viewport-pad";
+import { Button } from "./button";
 import { RowButton } from "./controls";
 
 
@@ -20,7 +21,8 @@ export function Popover({
   align = "left",
   ariaLabel,
   iconOnly = false,
-  triggerClassName = "btn-secondary",
+  look = "button",
+  triggerClassName,
   portal = false,
   children,
 }: {
@@ -31,7 +33,9 @@ export function Popover({
   ariaLabel?: string;
   /** Compact icon trigger — hides the caret. */
   iconOnly?: boolean;
-  /** Extra class on the trigger, for a trigger that is a swatch rather than a button. */
+  /** `button` is a secondary Button; `custom` is a swatch, chip or icon styled by `triggerClassName`. */
+  look?: "button" | "custom";
+  /** Extra class on the trigger. */
   triggerClassName?: string;
   /**
    * Render the panel into `<body>` instead of under the trigger.
@@ -128,11 +132,12 @@ export function Popover({
     return () => trigger?.focus();
   }, [shown]);
 
+  const Trigger = look === "button" ? Button : RowButton;
   return (
     <div className="popover" ref={ref}>
-      <RowButton
+      <Trigger
         ref={triggerRef}
-        className={`${triggerClassName} popover-trigger${open ? " on" : ""}${iconOnly ? " popover-trigger--icon" : ""}`}
+        className={`${triggerClassName ? `${triggerClassName} ` : ""}popover-trigger${open ? " on" : ""}${iconOnly ? " popover-trigger--icon" : ""}`}
         aria-label={ariaLabel}
         // An icon has no words of its own; the tooltip gives the pointer the name a screen reader gets.
         title={iconOnly ? ariaLabel : undefined}
@@ -147,7 +152,7 @@ export function Popover({
         {label}
         {count ? <span className="popover-badge">{count}</span> : null}
         {!iconOnly && <ChevronIcon open={open} className="popover-caret" />}
-      </RowButton>
+      </Trigger>
       {open &&
         (() => {
           const panel = (

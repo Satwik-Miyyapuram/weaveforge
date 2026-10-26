@@ -19,7 +19,8 @@ import { ShareButton } from "@/features/sharing/ui/share-button";
 import { useProfile } from "@/features/org";
 import type { ShareableType } from "@weaveforge/core";
 import { Button } from "@/components/button";
-import { RowButton, ToggleButton } from "@/components/controls";
+import { RowButton } from "@/components/controls";
+import { SegmentedControl } from "@/components/segmented-control";
 
 /** Blanket shares: every item of a type you own, including later ones. */
 const SHARE_ALL: { type: ShareableType; title: string; desc: string }[] = [
@@ -81,17 +82,12 @@ export function SharedWithMeScreen() {
         eyebrow={items.length > 0 ? `${items.length} ${items.length === 1 ? "item" : "items"} from ${ownerCount} ${ownerCount === 1 ? "person" : "people"}` : undefined}
       >
         {kinds.length > 1 && (
-          <div className="shared-filter" role="group" aria-label="Filter by type">
-            {(["all", ...kinds] as const).map((k) => (
-              <ToggleButton pressed={kindFilter === k}
-                key={k}
-                className={kindFilter === k ? "active" : undefined}
-                onClick={() => setKindFilter(k)}
-              >
-                {k === "all" ? "All" : pluralLabel(k)}
-              </ToggleButton>
-            ))}
-          </div>
+          <SegmentedControl
+            label="Filter by type"
+            value={kindFilter}
+            onChange={setKindFilter}
+            options={(["all", ...kinds] as const).map((k) => ({ value: k, label: k === "all" ? "All" : pluralLabel(k) }))}
+          />
         )}
         {canSupervise && (
           <Button href="/supervision">

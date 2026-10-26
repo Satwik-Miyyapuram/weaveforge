@@ -459,12 +459,6 @@
 .report-sent { margin-top: 16px; }
 
 /* Shared with me: a type filter in the head, each sender a titled grid. */
-.shared-filter { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--r-control); background: var(--surface-alt); }
-.shared-filter button {
-  padding: 6px 12px; border: 0; border-radius: var(--r-control); background: none;
-  color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
-}
-.shared-filter button.active { background: var(--active-bg); color: var(--active-fg); }
 .shared-group { margin-bottom: 22px; }
 .shared-group-head { display: flex; align-items: center; gap: 10px; }
 .shared-group-count { font-size: var(--fs-xs); font-weight: 500; color: var(--muted); }

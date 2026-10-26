@@ -93,10 +93,10 @@ export function EntityCard({
       onKeyDown={interactive ? onKeyDown : undefined}
     >
       <div className="entity-card-head">
-        {leading}
+        {leading != null && <div className="entity-card-lead">{leading}</div>}
         {/* Before the title: a float only wraps text that comes after it. */}
         {hasControls && (
-          <div className="entity-card-controls" onClick={stop} onKeyDown={stop}>
+          <div className={menu ? "entity-card-controls entity-card-controls--menu" : "entity-card-controls"} onClick={stop} onKeyDown={stop}>
             {badge}
             {status != null && <div className="entity-card-status">{status}</div>}
             {actions}

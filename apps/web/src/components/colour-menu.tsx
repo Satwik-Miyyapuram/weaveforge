@@ -29,6 +29,7 @@ export function ColourMenu({
     <Popover
       iconOnly
       ariaLabel={ariaLabel}
+      look="custom"
       triggerClassName="colour-menu-trigger"
       label={<span className="ink-swatch colour-menu-current" style={{ background: value }} aria-hidden />}
     >

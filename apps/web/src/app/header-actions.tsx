@@ -217,7 +217,7 @@ export function HeaderActions({
       // like a disclosure that folds, and animated on every open.
       iconOnly
       ariaLabel="Account"
-      triggerClassName="btn-secondary account-btn"
+      triggerClassName="account-btn"
       label={<UserIcon />}
     >
       {(close) => (

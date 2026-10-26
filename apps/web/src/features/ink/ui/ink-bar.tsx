@@ -349,6 +349,7 @@ export function InkBar({
           iconOnly
           portal
           ariaLabel="Pen colour and nib"
+          look="custom"
           triggerClassName="colour-menu-trigger ink-pen-trigger"
           label={
             <span className={`ink-swatch colour-menu-current ink-swatch-${colour}`} aria-hidden>

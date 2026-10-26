@@ -183,7 +183,7 @@ export function MilestoneCard({
               return (
                 <RowButton
                   key={i}
-                  className={`${cls} link`}
+                  className={`${cls} is-link`}
                   onClick={(e) => {
                     e.stopPropagation();
                     onJump(target.milestoneId);
@@ -197,11 +197,11 @@ export function MilestoneCard({
             if (target.kind === "link") {
               const stop = (e: MouseEvent) => e.stopPropagation();
               return target.external ? (
-                <a key={i} className={`${cls} link`} href={target.href} target="_blank" rel="noreferrer" onClick={stop} title={target.href}>
+                <a key={i} className={`${cls} is-link`} href={target.href} target="_blank" rel="noreferrer" onClick={stop} title={target.href}>
                   {body}
                 </a>
               ) : (
-                <Link key={i} className={`${cls} link`} href={target.href} onClick={stop} title={`Open ${labelText}`}>
+                <Link key={i} className={`${cls} is-link`} href={target.href} onClick={stop} title={`Open ${labelText}`}>
                   {body}
                 </Link>
               );

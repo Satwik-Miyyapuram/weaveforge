@@ -901,7 +901,7 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .plan-today > em { font-family: var(--font); font-weight: 500; border-radius: var(--radius-sm); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .milestone-check {
   appearance: none; -webkit-appearance: none; display: grid; place-content: center;
-  width: 30px; height: 30px; margin-right: 8px;
+  width: 30px; height: 30px;
   background: var(--surface); border: var(--bw) solid var(--bw-line); border-radius: var(--radius-sm);
   box-shadow: var(--sh-sm);
 }
@@ -1152,10 +1152,6 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-status:is(.s-blocked, .s-failed) { background: var(--danger-soft); color: var(--text); }
 
 /* ── Shared with me ────────────────────────────────────────────────────── */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-filter { padding: 0; gap: 0; border: var(--bw) solid var(--bw-line); border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--sh-sm); overflow: hidden; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-filter button { border-radius: 0; border-right: var(--bw) solid var(--bw-line); padding: 7px 14px; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-filter button:last-child { border-right: 0; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-filter button.active { background: var(--text); color: var(--surface); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-group-head { font-family: var(--display); font-weight: var(--display-weight); font-size: 1.2rem; color: var(--text); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-group-count { font-family: var(--font); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .shared-screen .shared-by-chip { display: none; }
@@ -1201,7 +1197,7 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-conflict {
   border: var(--bw) solid var(--bw-line); border-radius: var(--radius); box-shadow: var(--sh-sm);
 }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.sync-side, .sync-seg, .sync-diff, .sync-edit) {
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.sync-side, .sync-diff, .sync-edit) {
   border-color: var(--bw-line); border-width: var(--bw);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-side { border-left-width: 4px; border-left-color: var(--side); }

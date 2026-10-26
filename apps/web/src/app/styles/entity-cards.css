@@ -197,8 +197,9 @@
    a row of their own (D09, E42). */
 .entity-card-head { display: flow-root; }
 .entity-card-head > .entity-card-title { display: block; text-wrap: pretty; }
-.entity-card-head > :first-child:not(.entity-card-controls):not(.entity-card-title) {
+.entity-card-lead {
   float: left;
+  display: flex;
   margin-right: 8px;
 }
 .entity-card-controls {
@@ -207,8 +208,9 @@
   align-items: center;
   gap: 6px;
   margin-left: 8px;
-  margin-right: -6px;
 }
+/* A trailing ⋯ has its own padding, so the cluster sits into it; a text badge would touch the edge. */
+.entity-card-controls--menu { margin-right: -6px; }
 .entity-card-status {
   flex: none;
   display: flex;

@@ -116,9 +116,9 @@ code, pre, .commit-sha { font-family: var(--font-mono); }
     border-color var(--btn-dur) var(--layout-ease),
     color var(--btn-dur) var(--layout-ease);
 }
-:is(.btn-primary, .btn-secondary, .back-btn-box, .plan-chip.link) { box-shadow: var(--btn-sh-rest); }
+:is(.btn-primary, .btn-secondary, .back-btn-box, .plan-chip.is-link) { box-shadow: var(--btn-sh-rest); }
 @media (hover: hover) {
-  :is(.btn-primary, .btn-secondary, .plan-chip.link):hover:not(:disabled),
+  :is(.btn-primary, .btn-secondary, .plan-chip.is-link):hover:not(:disabled),
   .back-btn:hover .back-btn-box {
     translate: var(--btn-lift);
     box-shadow: var(--btn-sh-hover);
@@ -130,7 +130,7 @@ code, pre, .commit-sha { font-family: var(--font-mono); }
     box-shadow: var(--btn-sh-rest);
   }
 }
-:is(.btn-primary, .btn-secondary, .plan-chip.link):active:not(:disabled),
+:is(.btn-primary, .btn-secondary, .plan-chip.is-link):active:not(:disabled),
 .back-btn:active .back-btn-box {
   translate: var(--btn-sink);
   box-shadow: var(--btn-sh-press);

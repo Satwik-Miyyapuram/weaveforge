@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode, Ref } from "react";
 
 /** The button roles. Danger is the destructive primary; link reads as inline text; see buttons.css. */
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "link";
@@ -15,7 +15,7 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
 };
 
 type Common = { variant?: ButtonVariant; size?: ButtonSize; className?: string; children?: ReactNode };
-type AsButton = Common & ButtonHTMLAttributes<HTMLButtonElement> & { href?: undefined };
+type AsButton = Common & ButtonHTMLAttributes<HTMLButtonElement> & { href?: undefined; ref?: Ref<HTMLButtonElement> };
 type AsLink = Common & AnchorHTMLAttributes<HTMLAnchorElement> & { href: string };
 
 function classes({ variant = "secondary", size = "default", className }: Common): string {
