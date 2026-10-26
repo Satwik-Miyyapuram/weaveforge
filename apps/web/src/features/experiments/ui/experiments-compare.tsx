@@ -7,6 +7,8 @@ import {
   type MetricPoint,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { SortHeader } from "@/components/sort-header";
+import { statusLabel } from "@/components/status-select";
 import { formatMetricCell, MetricChart } from "./metric-chart";
 import { MetricGrid } from "./metric-grid";
 import { usePolledLoad } from "./use-polled-load";
@@ -76,16 +78,19 @@ export function CompareView({ experiments }: { experiments: Experiment[] }) {
         <table className="cmp-table">
           <thead>
             <tr>
-              <th aria-label="select" />
+              <th>
+                <span className="sr-only">Compare</span>
+              </th>
               <th>Run</th>
               <th>Status</th>
               {metricKeys.map((k) => (
-                <th key={k}>
-                  <button className="link-btn" onClick={() => toggleSort(k)}>
-                    {k}
-                    {sortKey === k ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
-                  </button>
-                </th>
+                <SortHeader
+                  key={k}
+                  label={k}
+                  active={sortKey === k}
+                  dir={sortDir}
+                  onSort={() => toggleSort(k)}
+                />
               ))}
             </tr>
           </thead>
@@ -102,7 +107,7 @@ export function CompareView({ experiments }: { experiments: Experiment[] }) {
                   />
                 </td>
                 <td><ExperimentTitleLink exp={e} /></td>
-                <td>{e.status}</td>
+                <td>{statusLabel(e.status)}</td>
                 {metricKeys.map((k) => (
                   <td key={k}>
                     {e.metrics?.[k] !== undefined ? formatMetricCell(k, e.metrics[k]) : "—"}

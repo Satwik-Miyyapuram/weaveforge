@@ -6,6 +6,7 @@ import { getContainer } from "@/bootstrap";
 import { OpenIcon } from "@/components/view-icons";
 import { paperExternalLink } from "./paper-external-link";
 import { StatusSelect } from "@/components/status-select";
+import { SortHeader } from "@/components/sort-header";
 
 /**
  * Tabular list — same chrome as experiments Compare (`cmp-table`).
@@ -64,32 +65,15 @@ export function PapersTable({
     return list;
   }, [papers, sortKey, sortDir]);
 
-  /**
-   * A sortable column header.
-   *
-   * `aria-sort` belongs on the header cell, not on the button inside it — a
-   * button has no sort state, a columnheader does.
-   */
-  function sortHeader(key: SortKey, label: string, className: string) {
-    const active = sortKey === key;
-    return (
-      <th
-        className={className}
-        aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
-      >
-        <button
-          type="button"
-          className={`link-btn papers-sort-btn${active ? " papers-sort-btn--on" : ""}`}
-          onClick={() => toggleSort(key)}
-        >
-          {label}
-          <span className="papers-sort-arrow" aria-hidden>
-            {active ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
-          </span>
-        </button>
-      </th>
-    );
-  }
+  const sortHeader = (key: SortKey, label: string, className: string) => (
+    <SortHeader
+      label={label}
+      className={className}
+      active={sortKey === key}
+      dir={sortDir}
+      onSort={() => toggleSort(key)}
+    />
+  );
 
   return (
     <div className="table-scroll papers-table-scroll">
@@ -101,7 +85,9 @@ export function PapersTable({
             {sortHeader("year", "Year", "papers-col-year")}
             {sortHeader("status", "Status", "papers-col-status")}
             <th className="papers-col-link">Link</th>
-            <th className="papers-col-open" aria-label="Open" />
+            <th className="papers-col-open">
+              <span className="sr-only">Open</span>
+            </th>
           </tr>
         </thead>
         <tbody>

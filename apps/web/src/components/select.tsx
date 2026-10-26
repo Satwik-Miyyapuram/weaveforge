@@ -76,6 +76,8 @@ export function Select({
   disabled,
   children,
   "aria-label": ariaLabel,
+  "aria-describedby": ariaDescribedBy,
+  "aria-invalid": ariaInvalid,
   searchable = false,
   searchPlaceholder = "Search…",
 }: SelectProps) {
@@ -251,6 +253,8 @@ export function Select({
         role="combobox"
         aria-expanded={open}
         aria-label={ariaLabel}
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid}
         aria-controls={open && menuRect ? listboxId : undefined}
         aria-autocomplete={searchable ? "list" : undefined}
         aria-activedescendant={

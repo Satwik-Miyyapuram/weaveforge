@@ -124,23 +124,6 @@
   width: 1%;
 }
 
-.papers-sort-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font: inherit;
-  font-weight: 600;
-  color: var(--ink);
-  white-space: nowrap;
-}
-.papers-sort-btn--on { color: var(--accent-ink); }
-.papers-sort-arrow {
-  font-size: var(--fs-micro);
-  opacity: 0.45;
-  line-height: 1;
-  flex: none;
-}
-.papers-sort-btn--on .papers-sort-arrow { opacity: 0.9; }
 
 .papers-table-title-btn {
   display: -webkit-box;

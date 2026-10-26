@@ -24,7 +24,7 @@ export function ProjectSwitcher() {
       <Popover
         portal
         align="left"
-        ariaLabel="Project"
+        ariaLabel={`Project: ${current.name}`}
         triggerClassName="proj-chip"
         label={
           <>

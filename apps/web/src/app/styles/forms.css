@@ -21,6 +21,16 @@ textarea {
   outline: none; transition: border-color var(--dur-base);
 }
 textarea { resize: vertical; }
+/* Text fields and selects match the button height (D15, DA-73): 36 desktop,
+   moved by density, 44 under a finger. Padding only sets the width. */
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]),
+.custom-select-button {
+  min-height: var(--control-lg); padding-block: 0; box-sizing: border-box;
+}
+@media (pointer: coarse) {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]),
+  .custom-select-button { min-height: var(--touch-min); }
+}
 
 /* Number fields drop the native spinner. It is a UA widget: it ignores the
    theme completely, so a themed field ends up with two grey OS arrows welded
@@ -357,3 +367,7 @@ label.graph-check input[type="checkbox"] { margin: 2px 0 0; }
 .date-picker-day.today:not(.sel) { color: var(--accent); font-weight: 600; }
 .date-picker-foot { display: flex; justify-content: space-between; }
 :root:root .custom-select-item.date-picker-day:disabled, .custom-select-item.date-picker-day:disabled { opacity: 0.3; cursor: default; }
+
+/* Access token form (D15): fields, then the permission groups, then Create. */
+.token-permissions { display: grid; gap: var(--s2); }
+.token-permissions-label { font-size: var(--fs-sm); color: var(--muted); }

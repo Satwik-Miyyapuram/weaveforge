@@ -36,3 +36,8 @@ test("New project and All projects are two rows", () => {
   assert.match(screen, /export function showNewProject/);
   assert.match(screen, /useState\(\(\) => openCreateOnMount\)/);
 });
+
+test("the chip's accessible name says which project is open", () => {
+  // `ariaLabel` replaces the chip's text, so a bare "Project" hid the name.
+  assert.match(switcher, /ariaLabel=\{`Project: \$\{current\.name\}`\}/);
+});

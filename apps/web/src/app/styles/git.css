@@ -110,6 +110,24 @@ button.git-chip { border: 0; cursor: pointer; font-family: inherit; }
   text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap;
 }
 .cmp-table th .link-btn { font: inherit; }
+/* The head stays in view while a long table scrolls (D15). */
+.cmp-table thead th {
+  position: sticky; top: 0; z-index: 1; background: var(--surface);
+}
+/* A row reached by keyboard shows where focus is. */
+.cmp-table tbody tr:focus-within td { background: var(--hover); }
+/* Sortable heads: the icon is faint until its column sorts. */
+.sort-btn {
+  display: inline-flex; align-items: center; gap: var(--s1);
+  font-weight: 600; color: var(--ink); white-space: nowrap;
+}
+.sort-btn--on { color: var(--accent-ink); }
+.sort-icon { flex: none; opacity: 0.45; }
+.sort-btn--on .sort-icon { opacity: 0.9; }
+/* On a desktop a tall table scrolls inside itself, so its sticky head works. */
+@media (min-width: 900px) {
+  .table-scroll { max-height: 75vh; overflow-y: auto; }
+}
 .cmp-table tr.leader td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 
 /* Sharing + comments — viewport overlay (Modal portals to document.body). */

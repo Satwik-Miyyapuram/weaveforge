@@ -1,7 +1,7 @@
 "use client";
 
 import { formatDate } from "@/lib/format-date";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { formatError } from "@/lib/format-error";
 import {
   desktop,
@@ -13,6 +13,7 @@ import { Select } from "@/components/select";
 import { DatePicker } from "@/components/date-picker";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/button";
+import { Field } from "@/components/field";
 
 const MAX_TOKENS = 5;
 const EXPIRY_CHOICES = [
@@ -133,6 +134,7 @@ export function LocalApiTokenCreate({
 }) {
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState("");
+  const permsId = useId();
   const [picked, setPicked] = useState<DesktopLocalApiPermission[]>(
     fixed ?? ["experiments"],
   );
@@ -220,75 +222,75 @@ export function LocalApiTokenCreate({
           </div>
         </div>
       )}
-      {!fixed && count < MAX_TOKENS && (
-        <fieldset className="token-permissions">
-          <legend>Permissions</legend>
-          {PERMISSION_GROUPS.map((g) => (
-            <div key={g.title}>
-              <small className="muted">{g.title}</small>
-              {g.items.map((item) => (
-                <label key={item.id} className="field-inline">
-                  <input
-                    type="checkbox"
-                    className="themed-check"
-                    checked={picked.includes(item.id)}
-                    onChange={(e) =>
-                      setPicked((prev) =>
-                        e.target.checked
-                          ? [...prev, item.id]
-                          : prev.filter((p) => p !== item.id),
-                      )
-                    }
-                  />
-                  {item.label}
-                </label>
-              ))}
-            </div>
-          ))}
-        </fieldset>
-      )}
       {count >= MAX_TOKENS ? (
         <small className="muted">
           Five tokens is the limit. Revoke one in Settings → Access tokens.
         </small>
       ) : (
         <form
-          className="field-inline"
+          className="add-form token-form"
           onSubmit={(e) => {
             e.preventDefault();
             void create();
           }}
         >
-          <input
-            type="text"
-            aria-label="New token name"
-            placeholder="Name, e.g. lab GPU box"
-            maxLength={60}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <Select
-            aria-label="Expires"
-            value={expiry}
-            onChange={(e) => setExpiry(e.target.value as ExpiryId)}
-          >
-            {EXPIRY_CHOICES.map((c) => (
-              <option key={c.id} value={c.id}>
-                Expires: {c.label}
-              </option>
-            ))}
-          </Select>
-          {expiry === "custom" && (
-            <DatePicker
-              aria-label="Custom expiry date"
-              value={customDate}
-              min={customExpiryMin()}
-              onChange={setCustomDate}
+          <Field label="Name">
+            <input
+              type="text"
+              placeholder="e.g. lab GPU box"
+              maxLength={60}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
             />
+          </Field>
+          <Field label="Expires">
+            <Select value={expiry} onChange={(e) => setExpiry(e.target.value as ExpiryId)}>
+              {EXPIRY_CHOICES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {expiry === "custom" && (
+            <Field label="Expiry date">
+              <DatePicker value={customDate} min={customExpiryMin()} onChange={setCustomDate} />
+            </Field>
           )}
-          <Button type="submit" variant="primary" disabled={busy}>
-            Create token
-          </Button>
+          {!fixed && (
+            <div className="token-permissions" role="group" aria-labelledby={permsId}>
+              <span id={permsId} className="token-permissions-label">
+                Permissions
+              </span>
+              {PERMISSION_GROUPS.map((g) => (
+                <div key={g.title}>
+                  <small className="muted">{g.title}</small>
+                  {g.items.map((item) => (
+                    <label key={item.id} className="field-inline">
+                      <input
+                        type="checkbox"
+                        className="themed-check"
+                        checked={picked.includes(item.id)}
+                        onChange={(e) =>
+                          setPicked((prev) =>
+                            e.target.checked
+                              ? [...prev, item.id]
+                              : prev.filter((p) => p !== item.id),
+                          )
+                        }
+                      />
+                      {item.label}
+                    </label>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+          <div>
+            <Button type="submit" variant="primary" disabled={busy}>
+              Create token
+            </Button>
+          </div>
         </form>
       )}
       <small className="muted">
@@ -334,15 +336,17 @@ export function LocalApiTokenTable({
   return (
     <>
       {error && <FormError>{error}</FormError>}
-      <div style={{ overflowX: "auto", maxWidth: "100%" }}>
-        <table className="data-table">
+      <div className="table-scroll">
+        <table className="cmp-table">
           <thead>
             <tr>
               <th>Name</th>
               <th>Permissions</th>
               <th>Created</th>
               <th>Expires</th>
-              <th />
+              <th>
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
