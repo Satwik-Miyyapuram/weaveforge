@@ -1,8 +1,10 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { getContainer } from "@/bootstrap";
 import { CommentsIcon } from "@/components/view-icons";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
+import { CommentsBadge } from "./comments-badge";
 import { NoteComments } from "./note-comments";
 
 /**
@@ -31,6 +33,20 @@ export function CommentsToggle({
 
   useDismissOnOutside(open, () => setOpen(false), wrapRef);
 
+  // The open-thread count, on the detail toggle only: a list of cards would
+  // ask the server once per card. Read again each time the sheet closes.
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!detail || open) return;
+    let alive = true;
+    getContainer().sharing.manageComments.list(resourceType, resourceId)
+      .then((all) => alive && setCount(all.filter((c) => !c.parentId && !c.resolvedAt).length))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [detail, open, resourceType, resourceId]);
+
   return (
     <div className={`comments-toggle${detail ? " comments-toggle--detail" : ""}`} ref={wrapRef}>
       <button
@@ -48,6 +64,7 @@ export function CommentsToggle({
       >
         <CommentsIcon size={detail ? 18 : 16} />
         {detail ? <span>{open ? "Hide comments" : "Comments"}</span> : null}
+        <CommentsBadge count={count} />
       </button>
       {open && (
         <div id={panelId} className="comments-sheet" role="region" aria-label="Comments">

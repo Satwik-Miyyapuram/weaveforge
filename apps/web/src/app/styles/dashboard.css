@@ -20,12 +20,7 @@
   color: var(--ink);
   border-color: var(--border);
 }
-.dashboard-screen .screen-title { font-size: var(--fs-lg); margin: 0; }
 .report-screen .screen-title {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: var(--fs-h2);
-  font-weight: 600;
   flex: 1 1 auto;
   min-width: 0;
 }

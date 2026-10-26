@@ -163,6 +163,22 @@
   border-radius: var(--r-control);
 }
 .comments-trigger-detail > svg { flex: none; }
+/* Open-thread count, the same pill on every comments entry (D-25). */
+.comments-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-family: var(--font);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  line-height: 1;
+}
+.entity-icon-btn > .comments-badge { margin-left: 2px; }
 .comments-toggle--detail .comments-sheet {
   width: min(calc(100vw - 28px), 420px);
   max-height: min(55vh, 420px);
@@ -449,8 +465,8 @@
 .note-comments-toggle {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 8px;
   width: 100%;
   padding: 0;
   font: inherit;

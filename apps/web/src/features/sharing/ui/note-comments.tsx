@@ -12,6 +12,7 @@ import { readStored, writeStored } from "@/lib/safe-storage";
 import { buildMemberNameMap } from "../application/member-labels";
 import { anchorAt, locateAnchor, type TextSpan } from "../domain/text-anchor";
 import { offsetOf, paintHighlights } from "./note-text-ranges";
+import { CommentsBadge } from "./comments-badge";
 import { Button } from "@/components/button";
 import { deferDelete, useHiddenKeys } from "@/lib/toast";
 
@@ -301,8 +302,9 @@ export function NoteComments({
       {!embedded && (
         <h2 className="record-section-head">
           <button type="button" className="note-comments-toggle" aria-expanded={open} onClick={toggleOpen}>
+            <CommentsIcon size={14} />
             <span>Comments</span>
-            <span className="record-section-tag">{openThreads.length > 0 ? String(openThreads.length) : "None"}</span>
+            <CommentsBadge count={openThreads.length} />
             <ChevronIcon open={shown} size={14} />
           </button>
         </h2>

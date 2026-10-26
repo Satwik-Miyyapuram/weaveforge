@@ -11,6 +11,8 @@ import {
   ROLE_LABELS,
 } from "@weaveforge/core";
 import { ScreenHead } from "@/components/screen-head";
+import { EmptyState } from "@/components/empty-state";
+import { NavIcon } from "@/app/nav-icon";
 import { getContainer } from "@/bootstrap";
 import { useProfile } from "./profile-provider";
 import { ScreenLoader } from "@/components/weaveforge-loader";
@@ -89,12 +91,24 @@ export function SupervisionScreen() {
             />
           </div>
         )}
-        <Link className="btn-secondary" href="/shared">
-          Sharing
-        </Link>
+        {supervisees.length > 0 && (
+          <Link className="btn-secondary" href="/shared">
+            Sharing
+          </Link>
+        )}
       </ScreenHead>
       {supervisees.length === 0 ? (
-        <p className="muted">Nobody is assigned under you yet.</p>
+        <EmptyState
+          variant="first-run"
+          icon={<NavIcon name="flag" />}
+          title="No students yet"
+          body="Ask your org admin to assign students to you."
+          action={
+            <Link className="btn-primary" href="/shared">
+              Open sharing
+            </Link>
+          }
+        />
       ) : (
         <div className="superv-layout">
           <nav className="card superv-team" aria-label="Your team">

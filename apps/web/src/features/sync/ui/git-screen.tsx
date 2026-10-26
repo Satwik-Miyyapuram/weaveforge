@@ -108,9 +108,11 @@ export function GitScreen() {
         eyebrow="Code for the experiments"
         search={integration ? { value: search, onChange: setSearch, label: "Search commits" } : undefined}
       >
-        <Link className="btn-secondary" href="/settings">
-          Settings
-        </Link>
+        {integration && (
+          <Link className="btn-secondary" href="/settings">
+            Settings
+          </Link>
+        )}
         {integration && (
           <Button variant="primary" onClick={() => void load(branch)} disabled={loading}>
             {loading ? "Syncing…" : "Sync now"}

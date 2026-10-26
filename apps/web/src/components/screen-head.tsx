@@ -13,11 +13,10 @@ import { labelForPath } from "@/lib/route-title";
  * (some kept the title inside the row, some outside) even though the CSS
  * expects one shape.
  *
- * Most screens leave the title out, since the tab bar already says where you
- * are. The page still gets its one `<h1>`, named after the route, so a screen
- * reader's heading list and "jump to main heading" land somewhere. The classic
- * themes keep it hidden; the brutal themes draw it big, with the optional
- * `eyebrow` count above it, because their pages open on a title.
+ * It is the one page header (D11): every list screen opens on one visible
+ * `<h1>`. A screen that names no title gets the route's name, so Library reads
+ * the same as Wiki or Settings. The brutal themes draw it bigger, with the
+ * optional `eyebrow` count above it.
  */
 export function ScreenHead({
   title,
@@ -44,7 +43,7 @@ export function ScreenHead({
     ? null
     : labelForPath(pathname, [registry.homeNavItem, ...registry.allModules.flatMap((m) => m.navItems)]);
   return (
-    <header className={className ? `screen-head ${className}` : "screen-head"}>
+    <header className={className ? `screen-head page-header ${className}` : "screen-head page-header"}>
       <div className="head-row">
         {title || hidden ? (
           <div className="screen-title-block">
