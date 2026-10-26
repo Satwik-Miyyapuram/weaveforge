@@ -83,9 +83,9 @@ test("Select is pressed and no ink tool is while the reader selects text", () =>
   withWindow(new Map(), () => {
     let picked = "";
     const tree = render(readerBar({ onSelect: () => (picked = "select") }));
-    assert.equal(byLabel(tree, "Select text (V)")[0]!.props["aria-pressed"], true);
+    assert.equal(byLabel(tree, "Select (V)")[0]!.props["aria-pressed"], true);
     assert.equal(byLabel(tree, "Pen (P)")[0]!.props["aria-pressed"], false);
-    act(() => byLabel(tree, "Select text (V)")[0]!.props.onClick());
+    act(() => byLabel(tree, "Select (V)")[0]!.props.onClick());
     assert.equal(picked, "select");
     act(() => tree.unmount());
   });
@@ -221,7 +221,7 @@ test("a paper the reader cannot mark keeps pages and view, drops tools and Inser
   withWindow(new Map(), () => {
     const tree = render(readerBar({ readOnly: true }));
     assert.equal(byLabel(tree, "Pen (P)").length, 0);
-    assert.equal(byLabel(tree, "Select text (V)").length, 0);
+    assert.equal(byLabel(tree, "Select (V)").length, 0);
     assert.equal(tree.root.findAllByType(InsertMenu).length, 0);
     assert.equal(tree.root.findAllByType(PageField).length, 1);
     assert.equal(tree.root.findAllByType(ViewMenu).length, 1);

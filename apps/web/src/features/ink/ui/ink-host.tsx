@@ -649,7 +649,7 @@ export function InkHost({
         onToggleTextLayer={() => setShowTextLayer((prev) => !prev)}
         selectActive={cursorMode}
         onSelect={enterCursor}
-        selectLabel="Cursor" selectPointer
+        selectPointer
         onTool={(next) => {
           if (next !== "lasso" && selection.length > 0) {
             send({ type: "select-clear" });

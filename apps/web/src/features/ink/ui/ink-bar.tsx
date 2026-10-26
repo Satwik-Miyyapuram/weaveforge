@@ -179,8 +179,6 @@ export interface InkBarProps {
    */
   selectActive?: boolean;
   onSelect?: () => void;
-  /** The Select button's name; notes call it Cursor. */
-  selectLabel?: string;
   /** Mouse pointer instead of the text I-beam. */
   selectPointer?: boolean;
   /** Snip a region of the page (the reader's clip). */
@@ -256,7 +254,6 @@ export function InkBar({
   onGoToPage,
   selectActive = false,
   onSelect,
-  selectLabel = "Select text",
   selectPointer = false,
   onClip,
   onTextBox,
@@ -319,8 +316,8 @@ export function InkBar({
         {onSelect ? (
           <ToggleButton pressed={selectActive}
             className="ink-tool ink-tool-icon-only"
-            aria-label={`${selectLabel} (V)`}
-            title={`${selectLabel} (V)`}
+            aria-label="Select (V)"
+            title="Select (V)"
             onClick={onSelect}
           >
             {selectPointer ? <PointerGlyph /> : <SelectGlyph />}
@@ -357,12 +354,11 @@ export function InkBar({
           triggerClassName="colour-menu-trigger ink-pen-trigger"
           label={
             <span className={`ink-swatch colour-menu-current ink-swatch-${colour}`} aria-hidden>
-              {inking && tool === "pen" ? (
-                <span
-                  className="ink-pen-trigger-nib"
-                  style={{ width: `${3 + width}px`, height: `${3 + width}px` }}
-                />
-              ) : null}
+              {/* The nib shows whatever the tool, so the swatch reads as the pen's colour and size. */}
+              <span
+                className="ink-pen-trigger-nib"
+                style={{ width: `${3 + width}px`, height: `${3 + width}px` }}
+              />
             </span>
           }
         >
@@ -596,7 +592,8 @@ export function InkBar({
             <RowButton
               className="ink-page-count ink-zoom-level"
               onClick={() => onZoom(1)}
-              title="Fit the page width"
+              title={`${Math.round(zoom * 100)}%: fit the page width`}
+              aria-label={`${Math.round(zoom * 100)}%: fit the page width`}
             >
               {Math.round(zoom * 100)}%
             </RowButton>

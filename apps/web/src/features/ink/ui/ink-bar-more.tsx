@@ -185,7 +185,6 @@ export function MoreMenu({
                   onClick={onToggleTextLayer}
                 >
                   Show the text layer
-                  <span className="ink-menu-check" aria-hidden="true">{showTextLayer ? "✓" : ""}</span>
                 </MenuItemButton>
               ) : null}
               {onPenOnly ? (
@@ -195,7 +194,6 @@ export function MoreMenu({
                   onClick={() => onPenOnly(!penOnly)}
                 >
                   Pen only
-                  <span className="ink-menu-check" aria-hidden="true">{penOnly ? "✓" : ""}</span>
                 </MenuItemButton>
               ) : null}
               {onHand && hand ? (

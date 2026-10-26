@@ -2003,7 +2003,6 @@
 
 .ink-swatch[aria-pressed="true"] {
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
-  transform: scale(1.1);
 }
 
 .ink-swatch-text { --sw: var(--text); }
@@ -2775,7 +2774,7 @@
   background: var(--active-bg, var(--chip)); color: var(--active-fg, var(--text));
   border-color: var(--text);
 }
-.ink-menu-check, .ink-menu-value { color: var(--muted); font-size: var(--fs-xs); }
+.ink-menu-value { color: var(--muted); font-size: var(--fs-xs); }
 
 /* Insert and View: a bar button with a caret that opens a short list. */
 /* The shared tool rule makes .ink-tool a 32px square grid; a trigger carries

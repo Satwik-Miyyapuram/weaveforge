@@ -1588,21 +1588,17 @@ export function PdfReader({
             onMatches={(matches, active) => setFind({ matches, active })}
           />
           <MoreMenu onPrintPaper={(withComments) => void readerPrint.print(withComments)} />
-          {/* Wide screens switch tabs in the expanded sidebar; an empty group drew a stray box. */}
-          {(!penOpen || toolbarExtra) && (
-            <div className={`pdf-reader-group pdf-reader-more${toolbarExtra ? "" : " pdf-reader-narrow-only"}`}>
-              {!penOpen && (
-                <ViewSwitch
-                  label="Sidebar view"
-                  className="pdf-reader-side-seg pdf-reader-narrow-only"
-                  value={sideCollapsed ? null : activeSideTab}
-                  onChange={selectSideTab}
-                  options={sideTabs}
-                />
-              )}
-              {toolbarExtra}
-            </div>
-          )}
+          {/* Wide screens switch tabs in the expanded sidebar. */}
+          <div className={`pdf-reader-group pdf-reader-more${toolbarExtra ? "" : " pdf-reader-narrow-only"}`}>
+            <ViewSwitch
+              label="Sidebar view"
+              className="pdf-reader-side-seg pdf-reader-narrow-only"
+              value={sideCollapsed ? null : activeSideTab}
+              onChange={selectSideTab}
+              options={sideTabs}
+            />
+            {toolbarExtra}
+          </div>
           <Button size="sm" className="pdf-reader-focus-btn"
             title={`Focus (${shortcutLabel("⌘⇧F")})`}
             aria-label="Focus"
@@ -1755,7 +1751,7 @@ export function PdfReader({
       )}
       <div
         className={`pdf-reader-body${
-          !penOpen && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate)
+          outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate
             ? sideCollapsed
               ? " pdf-reader-body--rail"
               : " pdf-reader-body--outline"
@@ -1964,14 +1960,11 @@ export function PdfReader({
           ))}
         </div>
         </div>
-        {/* Writing is a full-width activity: with the pen bar up — whatever tool
-            it holds, the lasso included — the outline, the references and the
-            annotation list all stand down and the paper gets the room. Nothing
-            on a paper is picked up *from* the list; it is picked up on the page,
-            by drawing a loop round it. */}
+        {/* The side panel stays as the reader left it when the pen comes out:
+            hiding it moved the page under the pen. Focus gives the full width. */}
         {/* Collapsed, the whole column folds to one vertical tab that still
             says how many annotations wait behind it. */}
-        {!penOpen && sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
+        {sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
           <RowButton
             className="pdf-reader-side-rail"
             aria-expanded={false}
@@ -1992,7 +1985,7 @@ export function PdfReader({
             </span>
           </RowButton>
         )}
-        {!penOpen && !sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
+        {!sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
           <div className="pdf-reader-side is-list-open">
             <div className="pdf-reader-side-header">
               <ViewSwitch
