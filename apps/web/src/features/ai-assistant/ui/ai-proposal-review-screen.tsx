@@ -11,9 +11,20 @@ import { EntityCard } from "@/components/entity-card";
 import { ScreenHead } from "@/components/screen-head";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/reader";
-import { loadCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
+import { loadCiteLinkCatalog, useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { formatError } from "@/lib/format-error";
 import { createdPageOf, splitProposalContent } from "../application/proposal-preview";
+
+/** A proposal's text, rendered so its `[[links]]` are links, not brackets (E36). */
+function ProposalMarkdown({ text }: { text: string }) {
+  const { resolveWikilink, onWikilinkClick } = useWikilinkNavigation();
+  const options = useMemo(() => ({ resolveWikilink }), [resolveWikilink]);
+  return (
+    <div className="wikilink-markdown-scope" onClick={onWikilinkClick}>
+      <Markdown className="ai-proposal-content" options={options}>{text}</Markdown>
+    </div>
+  );
+}
 
 /** What a source id points at, once resolved to something a person can read. */
 interface SourceTarget {
@@ -249,7 +260,7 @@ export function AiProposalReviewScreen() {
           <div className="ai-review-body">
             {preview.body && <div className="ai-review-proposed">
               {evidence.length > 0 && <h4 className="ai-review-colhead">Proposed write</h4>}
-              <Markdown className="ai-proposal-content">{preview.body}</Markdown>
+              <ProposalMarkdown text={preview.body} />
             </div>}
             {evidence.length > 0 && <div className="ai-review-evidence">
               <h4 className="ai-review-colhead">Evidence</h4>
