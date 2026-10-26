@@ -202,6 +202,20 @@
   opacity: 1;
 }
 
+/* An open menu on the card is where the eye is; the glow behind it reads as a
+   smear (DA-21). */
+:root[data-motion="reactive"] :is(
+  .entity-card,
+  .paper-card,
+  .dashboard-card,
+  .artifact-card,
+  .org-choice-card,
+  .integration-item,
+  [data-reactive]
+):has([aria-expanded="true"])::after {
+  opacity: 0;
+}
+
 /* The settings integration rows are in ReactiveMotion's pointer selector, so
    they were being given --rx/--ry with nothing here reading them — the exact
    half-wired case the header comment warns about. They take the sheen and the
@@ -288,8 +302,10 @@
    main thread, and needs no per-item index to stagger. */
 @media (prefers-reduced-motion: no-preference) {
   @supports (animation-timeline: view()) and (animation-range: entry) {
+    /* Translate only. A view timeline holds its progress while the card sits
+       still, so a fade left the bottom card half transparent at rest (DA-20). */
     @keyframes reactive-rise {
-      from { opacity: 0; translate: 0 10px; }
+      from { translate: 0 10px; }
     }
 
     :root[data-motion="reactive"] :is(
