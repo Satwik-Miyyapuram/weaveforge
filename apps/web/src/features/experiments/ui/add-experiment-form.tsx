@@ -12,7 +12,7 @@ import { statusLabel } from "@/components/status-select";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
 
-export function AddExperimentForm({ onAdded }: { onAdded: () => void }) {
+export function AddExperimentForm({ onAdded }: { onAdded: (id: string) => void }) {
   const [name, setName] = useState("");
   const [branch, setBranch] = useState("");
   const [commit, setCommit] = useState("");
@@ -32,12 +32,12 @@ export function AddExperimentForm({ onAdded }: { onAdded: () => void }) {
         try { parsed = JSON.parse(config); }
         catch (err) { throw new Error(`Config must be valid JSON: ${formatError(err)}`); }
       }
-      await getContainer().experiments.manageExperiment.add({
+      const exp = await getContainer().experiments.manageExperiment.add({
         name, branch: branch || undefined, commitSha: commit || undefined,
         repoUrl: repoUrl || undefined, status, config: parsed,
       });
       setName(""); setBranch(""); setCommit(""); setRepoUrl(""); setConfig("");
-      onAdded();
+      onAdded(exp.id);
     } catch (err) {
       setError(formatError(err));
     } finally {

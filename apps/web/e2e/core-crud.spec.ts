@@ -1,7 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { bootstrapSession } from "./helpers/auth.js";
 import { e2eEnabled, e2eUserA } from "./helpers/env.js";
-import { appeared } from "./helpers/visible.js";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -44,12 +43,10 @@ test.describe("core domain CRUD (PostgREST + RLS)", () => {
     const title = `E2E Paper ${Date.now()}`;
 
     await page.goto("/papers");
-    // "+ Paper" opens a chooser (add manually / import / sync) before the form.
-    await page.getByRole("button", { name: "+ Paper" }).click();
-    const chooser = page.getByRole("button", { name: "Add paper" }).first();
-    if (await appeared(chooser, 5000)) await chooser.click();
+    // "Add paper" opens the form directly (D13); the dialog has its own submit.
+    await page.getByRole("button", { name: "Add paper", exact: true }).first().click();
     await page.locator("#title").fill(title);
-    await page.getByRole("button", { name: "Add paper", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Add paper", exact: true }).click();
 
     await expect(page.getByText(title, { exact: false }).first()).toBeVisible({ timeout: 30_000 });
     expect(writes.some((w) => /POST|PUT|PATCH/.test(w))).toBeTruthy();
@@ -60,12 +57,12 @@ test.describe("core domain CRUD (PostgREST + RLS)", () => {
     const title = `E2E Note ${Date.now()}`;
 
     await page.goto("/notes");
-    // "+ Note" opens a chooser (new / import zip / import folder), same shape
-    // as the papers one, before the form appears.
-    await page.getByRole("button", { name: "+ Note" }).click();
-    await page.getByRole("button", { name: /New note/ }).first().click();
-    await page.locator("#note-title").fill(title);
-    await page.getByRole("button", { name: "Create note", exact: true }).click();
+    // "New note" creates an Untitled note and focuses its title (D13).
+    await page.getByRole("button", { name: "New note", exact: true }).first().click();
+    const titleInput = page.getByLabel("Note title");
+    await expect(titleInput).toBeFocused({ timeout: 30_000 });
+    await titleInput.fill(title);
+    await titleInput.press("Enter");
 
     await expect(page.getByText(title, { exact: false }).first()).toBeVisible({ timeout: 30_000 });
     expect(writes.some((w) => /POST|PUT|PATCH/.test(w))).toBeTruthy();

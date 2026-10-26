@@ -49,6 +49,7 @@ export function PageEditor({
   onBack,
   backlinks = [],
   onOpenPage,
+  focusTitle = false,
 }: {
   page: VaultPage;
   readOnly?: boolean;
@@ -68,6 +69,8 @@ export function PageEditor({
   /** Notes that [[wikilink]] here. */
   backlinks?: { id: string; title: string }[];
   onOpenPage?: (id: string) => void;
+  /** A note New note just made: focus and select the title to type over. */
+  focusTitle?: boolean;
 }) {
   const [title, setTitle] = useState(page.title);
   // Read, Edit or Ink, as in the Editor's pane header. A note opens read.
@@ -232,6 +235,8 @@ export function PageEditor({
               if (e.key === "Escape") setTitle(page.title);
             }}
             aria-label="Note title"
+            autoFocus={focusTitle}
+            onFocus={(e) => { if (focusTitle) e.currentTarget.select(); }}
           />
         ) : (
           <h1 className="record-title">{page.title}</h1>

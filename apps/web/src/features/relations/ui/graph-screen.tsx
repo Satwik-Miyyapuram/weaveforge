@@ -31,6 +31,8 @@ import type { GraphScreenData } from "@/container/facades";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
+import { Popover } from "@/components/popover";
+import { Menu } from "@/components/menu";
 
 /** Graph screen — data loading, view-state, and child presentation components. */
 export function GraphScreen() {
@@ -79,7 +81,6 @@ export function GraphScreen() {
   const [linkMsg, setLinkMsg] = useState<string | null>(null);
   const [focus, setFocus] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
-  const [composeMode, setComposeMode] = useState<"menu" | "edge">("menu");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
@@ -235,12 +236,30 @@ export function GraphScreen() {
     >
       <Button
         variant="primary"
-       
-        disabled={linking}
-        onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+        disabled={linking || papers.length < 2}
+        title={papers.length < 2 ? "Add at least two papers to link them" : undefined}
+        onClick={() => setComposeOpen(true)}
       >
-        {linking ? "Linking…" : "+ Graph"}
+        {linking ? "Linking…" : "Link papers"}
       </Button>
+      {/* Auto-link is occasional: one click away rather than a chooser in
+          front of Link papers (DA-71). */}
+      <Popover label="More" ariaLabel="More actions" align="right">
+        {(close) => (
+          <Menu
+            onClose={close}
+            items={[
+              {
+                id: "auto-link",
+                label: "Auto-link citations",
+                disabled: linking || papers.length === 0,
+                title: "Create citation links from paper bibliographies",
+                onSelect: () => void autoLink(),
+              },
+            ]}
+          />
+        )}
+      </Popover>
     </ScreenHead>
   );
 
@@ -402,42 +421,8 @@ export function GraphScreen() {
   ) : null;
 
   const addEdgeModal = composeOpen && (
-    <Modal
-      title={composeMode === "edge" ? "Add edge" : "Graph actions"}
-      onClose={() => { setComposeOpen(false); setComposeMode("menu"); }}
-    >
-      {composeMode === "menu" ? (
-        <div className="org-modal-choices">
-          <button
-            type="button"
-            className="org-choice-card"
-            disabled={papers.length < 2}
-            onClick={() => setComposeMode("edge")}
-          >
-            <span className="org-choice-title">Add edge</span>
-            <p className="org-choice-desc">Manually link two papers with a relation.</p>
-          </button>
-          <button
-            type="button"
-            className="org-choice-card"
-            disabled={linking || papers.length === 0}
-            onClick={() => {
-              setComposeOpen(false);
-              setComposeMode("menu");
-              void autoLink();
-            }}
-          >
-            <span className="org-choice-title">Auto-link</span>
-            <p className="org-choice-desc">Create citation edges from paper bibliographies.</p>
-          </button>
-        </div>
-      ) : (
-        <AddEdgeForm
-          papers={papers}
-          onAdded={load}
-          onClose={() => { setComposeOpen(false); setComposeMode("menu"); }}
-        />
-      )}
+    <Modal title="Link papers" onClose={() => setComposeOpen(false)}>
+      <AddEdgeForm papers={papers} onAdded={load} onClose={() => setComposeOpen(false)} />
     </Modal>
   );
 

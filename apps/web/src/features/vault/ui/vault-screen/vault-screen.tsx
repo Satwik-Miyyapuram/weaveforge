@@ -5,10 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { normalizeTitleKey, type VaultPage, type VaultPageSummary } from "@weaveforge/core";
 import type { ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
 import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned-owner-names";
-import { AddVaultPageForm } from "../add-vault-page-form";
+import { untitledTitle } from "../../application/untitled-title";
 import { importNotesFromFiles } from "../../application/import-notes";
 import { loadLinkTargets } from "../../application/load-link-targets";
 import { createNoteFromLink as createOrReuseNote } from "../../application/create-note-from-link";
@@ -34,6 +33,8 @@ import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { navTransition } from "@/lib/view-transition";
 import { Button } from "@/components/button";
+import { Popover } from "@/components/popover";
+import { Menu } from "@/components/menu";
 
 export function VaultScreen() {
   const router = useRouter();
@@ -41,8 +42,8 @@ export function VaultScreen() {
   const selectedId = searchParams.get("page");
   const isSharedView = searchParams.get("shared") === "1";
 
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [composeMode, setComposeMode] = useState<"menu" | "new">("menu");
+  // The note New note just made: it opens with its title focused.
+  const [newPageId, setNewPageId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
@@ -212,19 +213,23 @@ export function VaultScreen() {
     navTransition("forward", () => router.push(`/notes?${params.toString()}`));
   }
 
-  function closeCompose() {
-    setComposeOpen(false);
-    setComposeMode("menu");
-  }
-
-  function openCompose() {
-    setComposeMode("menu");
-    setComposeOpen(true);
+  /** New note: an Untitled note, opened, title focused to type over (DA-71). */
+  async function createUntitled() {
+    setError(null);
+    try {
+      const page = await getContainer().vault.manageVaultPage.add({
+        title: untitledTitle(flat.map((p) => p.title)),
+      });
+      setNewPageId(page.id);
+      await load();
+      openPage(page.id);
+    } catch (err) {
+      setError(formatError(err));
+    }
   }
 
   async function onImportFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
-    closeCompose();
     setImporting(true);
     setImportMsg(null);
     setError(null);
@@ -285,7 +290,6 @@ export function VaultScreen() {
     [flat, load, searchParams, setPushed, router],
   );
 
-  const parents = flat.filter((p) => !p.parentId && !pinnedSharedBy.has(p.id));
   const ownedNotes = useMemo(
     () => flat.filter((p) => ownedIds.has(p.id) && !pinnedSharedBy.has(p.id)),
     [flat, ownedIds, pinnedSharedBy],
@@ -329,15 +333,37 @@ export function VaultScreen() {
           variant="primary"
          
           disabled={importing}
-          onClick={openCompose}
+          onClick={() => void createUntitled()}
         >
           {importing ? "Importing…" : "New note"}
         </Button>
-        {/* Same button, same screen as on Papers — the wiki reads notes *and*
-            papers, so neither screen owns it. See `papers-list.tsx`. */}
-        <Button onClick={() => router.push("/wiki")}>
-          Wiki
-        </Button>
+        {/* Imports and the wiki sit one click away, as on Papers: the wiki
+            reads notes *and* papers, so neither screen owns it. */}
+        <Popover label="More" ariaLabel="More actions" align="right">
+          {(close) => (
+            <Menu
+              onClose={close}
+              items={[
+                {
+                  id: "import-zip",
+                  label: "Import zip…",
+                  disabled: importing,
+                  title: "A .zip of markdown notes (Obsidian vault, Notion export, …)",
+                  onSelect: () => importZipRef.current?.click(),
+                },
+                {
+                  id: "import-folder",
+                  label: "Import folder…",
+                  disabled: importing,
+                  title: "A local folder of markdown notes",
+                  onSelect: () => importFolderRef.current?.click(),
+                },
+                { id: "sep", label: "", kind: "separator" as const },
+                { id: "wiki", label: "Wiki", onSelect: () => router.push("/wiki") },
+              ]}
+            />
+          )}
+        </Popover>
         <input
           ref={importZipRef}
           type="file"
@@ -365,55 +391,6 @@ export function VaultScreen() {
           }}
         />
       </ScreenHead>
-      )}
-
-      {composeOpen && (
-        <Modal
-          title={composeMode === "new" ? "New note" : "Add notes"}
-          onClose={closeCompose}
-        >
-          {composeMode === "menu" ? (
-            <div className="org-modal-choices">
-              <button
-                type="button"
-                className="org-choice-card"
-                onClick={() => setComposeMode("new")}
-              >
-                <span className="org-choice-title">New note</span>
-                <p className="org-choice-desc">Create a blank markdown note.</p>
-              </button>
-              <button
-                type="button"
-                className="org-choice-card"
-                disabled={importing}
-                onClick={() => importZipRef.current?.click()}
-              >
-                <span className="org-choice-title">Import zip</span>
-                <p className="org-choice-desc">
-                  Upload a .zip of markdown notes (Obsidian vault, Notion export, …).
-                </p>
-              </button>
-              <button
-                type="button"
-                className="org-choice-card"
-                disabled={importing}
-                onClick={() => importFolderRef.current?.click()}
-              >
-                <span className="org-choice-title">Import folder</span>
-                <p className="org-choice-desc">Pick a local folder of markdown notes.</p>
-              </button>
-            </div>
-          ) : (
-            <AddVaultPageForm
-              parents={parents.map((p) => ({ id: p.id, title: p.title }))}
-              onClose={closeCompose}
-              onAdded={(id) => {
-                closeCompose();
-                void load().then(() => openPage(id));
-              }}
-            />
-          )}
-        </Modal>
       )}
 
       {error && <FormError>{error}</FormError>}
@@ -478,6 +455,7 @@ export function VaultScreen() {
                 onBack={goBackToList}
                 backlinks={backlinks}
                 onOpenPage={openPage}
+                focusTitle={newPageId === shownPage.id}
               />
             )}
           </div>
@@ -490,7 +468,7 @@ export function VaultScreen() {
             action={
               <Button
                 variant="primary"
-                onClick={() => { setComposeMode("new"); setComposeOpen(true); }}
+                onClick={() => void createUntitled()}
               >
                 New note
               </Button>

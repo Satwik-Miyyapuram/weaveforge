@@ -2,7 +2,7 @@
 
 import { enumLabel } from "@/lib/enum-label";
 import { useMemo, useState } from "react";
-import { PAPER_STATUSES, parsePaperRef, type PaperRef, type PaperStatus } from "@weaveforge/core";
+import { PAPER_STATUSES, parsePaperRef, type Paper, type PaperRef, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { scaffoldNewPaperNote } from "../application/paper-source-note-scaffold";
@@ -37,12 +37,17 @@ const DETECTED_LABELS: Record<RefKind, string> = {
 
 const REF_ORDER: RefKind[] = ["url", "arxiv", "doi", "zotero"];
 
+/** The toast after Add paper: a duplicate is found, not added (E10). */
+export function addedPaperMessage(created: boolean): string {
+  return created ? "Paper added" : "Already in library";
+}
+
 /**
  * Add-paper form. UI only: it collects input and delegates to the AddPaper /
  * ImportPaper use-cases via the container. The import source (arXiv, DOI,
  * Zotero) is chosen here; the resolver picks the matching IMetadataSource.
  */
-export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
+export function AddPaperForm({ onAdded }: { onAdded?: (paper: Paper, created: boolean) => void }) {
   const [title, setTitle] = useState("");
   const [refKind, setRefKind] = useState<RefKind>("url");
   const [refValue, setRefValue] = useState("");
@@ -58,16 +63,19 @@ export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
 
   const { busy, error, submit } = useSubmit(async () => {
     const papers = getContainer().papers;
-    const paper = refValue.trim()
-      ? await papers.importPaper.fromRef({ kind: refKind, value: refValue.trim() }, status)
-      : await papers.addPaper.addManual({ title, status });
-    const saved = await scaffoldNewPaperNote(paper, papers.updatePaper);
-    // Zotero is its own facade now: the push is a bibliography concern, not a
-    // property of the shelf.
-    await getContainer().zotero.autoPush(saved);
+    const { paper, created } = refValue.trim()
+      ? await papers.importPaper.importRef({ kind: refKind, value: refValue.trim() }, status)
+      : await papers.addPaper.add({ title, status });
+    // A duplicate is the library's own paper: its note and Zotero item exist.
+    if (created) {
+      const saved = await scaffoldNewPaperNote(paper, papers.updatePaper);
+      // Zotero is its own facade now: the push is a bibliography concern, not a
+      // property of the shelf.
+      await getContainer().zotero.autoPush(saved);
+    }
     setTitle("");
     setRefValue("");
-    onAdded?.();
+    onAdded?.(paper, created);
   });
 
   return (
