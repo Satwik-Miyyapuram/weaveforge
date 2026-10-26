@@ -11,7 +11,6 @@ import { FormError } from "@/components/form-error";
 import { EmptyState } from "@/components/empty-state";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
-import { loadLocalDemoWorkspace } from "@/features/showcase/application/load-local-demo";
 import dynamic from "next/dynamic";
 
 // Lazy: this screen sits in the root layout, which has a tight JS budget.
@@ -49,6 +48,8 @@ export function ProjectsScreen() {
   // The no-account copy starts empty. A filled workspace shows what every
   // screen looks like without the visitor first entering thirty papers.
   const { busy: demoBusy, error: demoError, submit: loadDemo } = useSubmit(async () => {
+    // Lazy: the seeder carries the whole showcase data set.
+    const { loadLocalDemoWorkspace } = await import("@/features/showcase/application/load-local-demo");
     const { projectId } = await loadLocalDemoWorkspace();
     await refresh();
     setProject(projectId);
