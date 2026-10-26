@@ -75,7 +75,7 @@
   border-radius: 0 0 10px 0;
   background: var(--elev);
   color: var(--text);
-  font-size: 0.85rem;
+  font-size: var(--fs);
   font-weight: 500;
   text-decoration: none;
   box-shadow: var(--shadow);
@@ -162,12 +162,12 @@
   width: 22px; height: 22px; border-radius: 8px;
   background: linear-gradient(135deg, var(--accent), var(--clay));
 }
-.app-brand .app-name { font-size: 1.05rem; margin: 0; letter-spacing: -0.01em; font-weight: 600; }
+.app-brand .app-name { font-size: var(--fs-lg); margin: 0; letter-spacing: -0.01em; font-weight: 600; }
 /* Project switcher + projects screen */
 .proj-switcher { position: relative; margin-left: 12px; }
 .proj-chip {
   display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font: inherit;
-  font-size: 0.8rem; font-weight: 500; color: var(--ink);
+  font-size: var(--fs-sm); font-weight: 500; color: var(--ink);
   background: var(--pill); border: 1px solid var(--line); padding: 5px 10px; border-radius: 999px;
 }
 .proj-chip .chev { opacity: 0.5; display: flex; align-items: center; }
@@ -180,7 +180,7 @@
 }
 .proj-menu-item {
   display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
-  cursor: pointer; font: inherit; font-size: 0.88rem; color: var(--ink);
+  cursor: pointer; font: inherit; font-size: var(--fs); color: var(--ink);
   background: none; border: none; padding: 8px 10px; border-radius: 8px;
 }
 .proj-menu-item:hover { background: var(--status-neutral); }
@@ -194,9 +194,9 @@
   background: linear-gradient(135deg, var(--clay), var(--accent));
 }
 .org-menu-label { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
-.org-menu-role { font-size: 0.72rem; }
+.org-menu-role { font-size: var(--fs-xs); }
 .desktop-only .org-switcher { margin-left: 0; margin-bottom: 10px; width: 100%; }
-.vault-pinned-label { margin: 18px 0 10px; font-size: 0.75rem; }
+.vault-pinned-label { margin: 18px 0 10px; font-size: var(--fs-xs); }
 .project-dot { width: 11px; height: 11px; border-radius: 999px; flex: none; display: inline-block; }
 .project-list { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 10px; }
 /* A project row is a `<button>` inside its `<li>`. Reset the UA button chrome
@@ -210,7 +210,7 @@
 .project-row { display: flex; align-items: center; gap: 6px; }
 .project-row > .project-card { flex: 1; min-width: 0; }
 .project-card:hover { border-color: var(--accent); }
-.project-name { font-size: 1.02rem; font-weight: 600; letter-spacing: -0.01em; }
+.project-name { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em; }
 
 .header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
@@ -232,7 +232,7 @@
 .header-menu .header-link,
 .header-menu .signout {
   width: 100%; justify-content: flex-start; gap: 11px;
-  padding: 9px 10px; border-radius: 8px; font-size: 0.86rem; color: var(--text);
+  padding: 9px 10px; border-radius: 8px; font-size: var(--fs); color: var(--text);
 }
 .header-menu .header-link svg,
 .header-menu .signout svg { color: var(--muted); }
@@ -245,7 +245,7 @@
 .header-menu .signout { min-width: 0; min-height: 0; }
 .header-link {
   display: inline-flex; align-items: center; gap: 6px;
-  text-decoration: none; color: var(--muted); font-size: 0.78rem; font-weight: 500;
+  text-decoration: none; color: var(--muted); font-size: var(--fs-xs); font-weight: 500;
   padding: 5px 10px; border-radius: 999px; transition: color var(--dur-base), background var(--dur-base);
   /* Reset UA button chrome (theme-toggle uses this class on a <button>). */
   background: none; border: none; cursor: pointer; font-family: inherit;

@@ -1,8 +1,8 @@
 /* `text-wrap: balance` so a two-line screen title breaks evenly rather than
    leaving one word on the second line. It was pitch-only before this. */
-.screen-head h1 { font-family: var(--font-serif); font-weight: 600; font-size: 1.6rem; margin: 18px 0 2px; letter-spacing: -0.01em; text-wrap: balance; }
+.screen-head h1 { font-family: var(--font-serif); font-weight: 600; font-size: var(--fs-h1); margin: 18px 0 2px; letter-spacing: -0.01em; text-wrap: balance; }
 /* Code/monospace surfaces adopt the mono face (JetBrains Mono). */
-code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono); }
+code, pre, .commit-sha { font-family: var(--font-mono); }
 .head-row { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .screen-head:empty { display: none; }
 /* One gap between a screen's head and its first card, on every screen. It was
@@ -22,17 +22,17 @@ code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono);
 .btn-primary.btn-danger:hover { background: color-mix(in srgb, var(--danger) 88%, var(--ink)); }
 
 /* Confirmation dialogs: one sentence, then the two choices. */
-.confirm-dialog-body { margin: 0; font-size: 0.9rem; line-height: 1.6; }
+.confirm-dialog-body { margin: 0; font-size: var(--fs); line-height: 1.6; }
 
 /* A dialog that asks for a value rather than a yes: one labelled field between
    the sentence and the choices. */
 .prompt-dialog-field { display: block; margin: 14px 0 0; }
 .prompt-dialog-field > span {
   display: block; margin-bottom: 6px;
-  font-size: 0.78rem; font-weight: 600; color: var(--muted);
+  font-size: var(--fs-xs); font-weight: 600; color: var(--muted);
 }
 .prompt-dialog-field input {
-  width: 100%; font: inherit; font-size: 0.9rem;
+  width: 100%; font: inherit; font-size: var(--fs);
   color: var(--text); background: var(--surface2);
   border: 1px solid var(--border-strong); border-radius: 9px;
   padding: 9px 11px;
@@ -40,7 +40,7 @@ code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono);
 .prompt-dialog-field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .btn-secondary {
-  cursor: pointer; font: inherit; font-size: 0.82rem; font-weight: 500;
+  cursor: pointer; font: inherit; font-size: var(--fs-sm); font-weight: 500;
   color: var(--text); background: transparent; border: 1px solid var(--border-strong);
   padding: 8px 14px; border-radius: 9px;
   /* Links wear this class too (reader, AI review) — a button that underlines
@@ -54,13 +54,13 @@ code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono);
 .btn-secondary.danger:hover { background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
 /* Ghost: borderless secondary for low-emphasis chrome (e.g. org setup Back). */
 .btn-ghost {
-  cursor: pointer; font: inherit; font-size: 0.82rem; font-weight: 500;
+  cursor: pointer; font: inherit; font-size: var(--fs-sm); font-weight: 500;
   color: var(--muted); background: transparent; border: 1px solid transparent; padding: 7px 9px;
   border-radius: 9px;
 }
 .btn-ghost:hover { color: var(--ink); }
 /* Size modifier — compose with .btn-secondary (or .btn-primary) for denser actions. */
-.btn-sm { padding: 6px 12px; font-size: 0.78rem; border-radius: 8px; }
+.btn-sm { padding: 6px 12px; font-size: var(--fs-xs); border-radius: 8px; }
 
 /* Icon-only button (<IconButton>): a ghost square, one control tall. */
 .icon-btn {

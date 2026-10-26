@@ -10,7 +10,7 @@
 .ai-review-list { display: grid; gap: 12px; }
 /* Controls stay a row, so the kind chip never stacks onto the title. */
 .ai-review-card .entity-card-actions { flex-wrap: nowrap; }
-.ai-kind { color: var(--accent-ink); font-size: 0.82rem; font-weight: 700; white-space: nowrap; }
+.ai-kind { color: var(--accent-ink); font-size: var(--fs-sm); font-weight: 700; white-space: nowrap; }
 /* The well is the card's body, so it spans the card, not the prose measure. */
 .ai-proposal-content.markdown { max-width: none; }
 .ai-proposal-content { overflow-wrap: anywhere; margin: 0; padding: 12px; border-radius: 8px; background: var(--surface-alt); font: inherit; line-height: 1.55; }
@@ -28,12 +28,12 @@
 /* Sources read as named chips, not a comma-run of ids. */
 .ai-review-sources { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0 0; }
 .ai-review-sources-label {
-  font-size: 0.72rem; letter-spacing: 0.06em;
+  font-size: var(--fs-xs); letter-spacing: 0.06em;
   color: var(--muted); margin-right: 2px;
 }
 .ai-review-source {
   max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  padding: 3px 9px; border-radius: 999px; font-size: 0.78rem;
+  padding: 3px 9px; border-radius: 999px; font-size: var(--fs-xs);
   color: var(--text); background: var(--surface-alt); border: 1px solid var(--line);
   text-decoration: none;
 }
@@ -43,26 +43,26 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
 .ai-review-body { display: grid; gap: 16px; margin: 12px 0 14px; }
 .ai-review-card--split .ai-review-body { grid-template-columns: 1fr 1fr; align-items: start; }
 .ai-review-colhead {
-  margin: 0 0 6px; font-size: 0.72rem; letter-spacing: 0.06em;
+  margin: 0 0 6px; font-size: var(--fs-xs); letter-spacing: 0.06em;
   color: var(--muted);
 }
 .ai-evidence { display: grid; gap: 8px; padding: 12px; border-radius: 8px; background: var(--surface-alt); }
 .ai-evidence + .ai-evidence { margin-top: 10px; }
 .ai-evidence-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.ai-evidence-source { font-weight: 600; font-size: 0.82rem; }
+.ai-evidence-source { font-weight: 600; font-size: var(--fs-sm); }
 .ai-evidence-warn {
-  font-size: 0.72rem; padding: 1px 8px; border-radius: 999px;
+  font-size: var(--fs-xs); padding: 1px 8px; border-radius: 999px;
   background: color-mix(in srgb, var(--danger) 16%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border));
   color: var(--danger);
 }
 .ai-evidence-excerpt {
   margin: 0; padding: 8px 10px; border-left: 3px solid var(--line);
-  font-size: 0.9rem; line-height: 1.6; overflow-wrap: anywhere;
+  font-size: var(--fs); line-height: 1.6; overflow-wrap: anywhere;
 }
 .ai-evidence-dim { color: var(--muted); }
 .ai-evidence-mark { background: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--ink); padding: 0 2px; border-radius: 3px; }
-.ai-evidence-open { align-self: start; font-size: 0.85rem; font-weight: 600; }
+.ai-evidence-open { align-self: start; font-size: var(--fs); font-weight: 600; }
 @media (max-width: 900px) { .ai-review-card--split .ai-review-body { grid-template-columns: 1fr; } }
 
 /* PDF reader (R0+). */

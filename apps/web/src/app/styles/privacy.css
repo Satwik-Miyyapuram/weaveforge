@@ -52,8 +52,8 @@
 }
 .privacy-disclaimer-summary li { color: var(--ink); }
 .privacy-disclaimer-full { margin-top: 4px; }
-.privacy-disclaimer-full summary { color: var(--muted); cursor: pointer; font-size: 0.9rem; }
-.privacy-disclaimer-full p { margin: 0.6rem 0; line-height: 1.5; font-size: 0.88rem; }
+.privacy-disclaimer-full summary { color: var(--muted); cursor: pointer; font-size: var(--fs); }
+.privacy-disclaimer-full p { margin: 0.6rem 0; line-height: 1.5; font-size: var(--fs); }
 
 /* Settings rail: six groups down the left, the open group's tabs under it,
    the chosen section on the right. Under 900px the rail becomes a scrolling
@@ -76,11 +76,11 @@
 }
 .settings-rail-text { display: grid; min-width: 0; }
 .settings-rail-label { font-weight: 700; }
-.settings-rail-hint { font-size: 0.78rem; opacity: 0.75; }
+.settings-rail-hint { font-size: var(--fs-xs); opacity: 0.75; }
 .settings-rail-tabs { display: grid; gap: 2px; margin: 6px 0 8px 32px; padding-left: 12px; border-left: 2px solid var(--line); }
 .settings-rail-tabs button {
   padding: 5px 4px; border: 0; background: none; color: var(--muted);
-  font: inherit; font-size: 0.9rem; text-align: left; cursor: pointer;
+  font: inherit; font-size: var(--fs); text-align: left; cursor: pointer;
 }
 .settings-rail-tabs button.is-active { color: var(--text); font-weight: 700; }
 .settings-body { min-width: 0; display: grid; gap: 16px; align-content: start; }
@@ -102,7 +102,7 @@
   background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
 }
 .settings-find-hit:hover { filter: brightness(0.96); background: var(--surface-alt); }
-.settings-find-hit .muted { font-size: 0.78rem; }
+.settings-find-hit .muted { font-size: var(--fs-xs); }
 .settings-find-empty { padding: 8px 12px; margin: 0; }
 @media (max-width: 900px) {
   /* Groups sit in an even two-column grid under the field, and the open
@@ -111,7 +111,7 @@
   .settings-rail { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: visible; gap: 6px; }
   .settings-find, .settings-find-hits { grid-column: 1 / -1; }
   .settings-rail-head { width: 100%; justify-content: center; text-align: center; padding: 8px 10px; }
-  .settings-rail-label { font-size: 0.9rem; }
+  .settings-rail-label { font-size: var(--fs); }
   .settings-rail-group.is-open .settings-rail-tabs {
     display: flex; flex-wrap: wrap; gap: 4px 14px; order: 99; grid-column: 1 / -1;
     margin: 2px 0 0; padding: 6px 0 0; border-left: 0; border-top: 2px solid var(--line);

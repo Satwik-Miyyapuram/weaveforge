@@ -17,11 +17,11 @@
 }
 .list-row-title {
   flex: 1 1 140px; min-width: 0; margin: 0;
-  font-size: 0.95rem; font-weight: 600; letter-spacing: -0.01em;
+  font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em;
   overflow-wrap: anywhere; word-break: break-word;
 }
 .list-count {
-  flex: none; font-size: 0.74rem; color: var(--muted);
+  flex: none; font-size: var(--fs-xs); color: var(--muted);
   padding: 2px 8px; border-radius: 999px; background: var(--surface2);
 }
 .list-view-toggle { align-items: center; flex: none; }
@@ -36,7 +36,7 @@
   overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%;
 }
 .extraction-table table {
-  width: 100%; border-collapse: collapse; font-size: 0.88rem;
+  width: 100%; border-collapse: collapse; font-size: var(--fs);
   min-width: 280px;
 }
 .extraction-table th,
@@ -53,7 +53,7 @@
 }
 .extraction-table .paper-field-multi { max-width: 280px; }
 .extraction-th { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
-.extraction-propose-btn { font-size: 0.78rem; }
+.extraction-propose-btn { font-size: var(--fs-xs); }
 .extraction-propose-panel {
   margin-top: 6px;
   padding: 8px 10px;
@@ -70,7 +70,7 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   background: color-mix(in srgb, var(--accent) 10%, transparent);
-  font-size: 0.9rem;
+  font-size: var(--fs);
 }
 .extraction-cell-pending {
   background:
@@ -84,7 +84,7 @@
 }
 .extraction-pending-cell { display: grid; gap: 2px; min-width: 0; }
 .extraction-pending-label {
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   letter-spacing: 0.04em;
   color: var(--muted);
 }
@@ -122,23 +122,23 @@
 }
 /* Weight fades one step per level so deep trees read as subordinate, not louder. */
 .lists-screen .list-children .list-children { border-left-color: color-mix(in srgb, var(--line) 65%, transparent); }
-.list-empty { margin: 4px 0 2px; font-size: 0.82rem; }
+.list-empty { margin: 4px 0 2px; font-size: var(--fs-sm); }
 .list-papers { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; min-width: 0; }
 .list-paper-row {
   display: flex; align-items: center; gap: 8px;
-  font-size: 0.88rem; padding: 6px 10px; border-radius: 8px;
+  font-size: var(--fs); padding: 6px 10px; border-radius: 8px;
   min-width: 0; cursor: grab;
 }
 .list-paper-row:active { cursor: grabbing; }
 .list-paper-row:hover { background: var(--chip); }
 .list-paper-row.drag-over { background: color-mix(in srgb, var(--accent) 14%, var(--chip)); }
 .list-drag-handle {
-  flex: none; font-size: 0.72rem; color: var(--muted); letter-spacing: -2px;
+  flex: none; font-size: var(--fs-xs); color: var(--muted); letter-spacing: -2px;
   user-select: none; line-height: 1;
 }
 .list-paper-title { flex: 1; min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
 .list-item-kind {
-  flex: none; font-size: 0.68rem; letter-spacing: 0.02em;
+  flex: none; font-size: var(--fs-micro); letter-spacing: 0.02em;
   padding: 1px 5px; border-radius: 999px; background: var(--chip); color: var(--muted);
 }
 .list-item-kind--note { color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 12%, var(--chip)); }
@@ -160,17 +160,17 @@
   .list-item-move { opacity: 1; }
 }
 .list-via-badge {
-  flex: none; font-size: 0.7rem; color: var(--muted);
+  flex: none; font-size: var(--fs-micro); color: var(--muted);
   padding: 2px 7px; border-radius: 999px; background: var(--surface2);
   white-space: nowrap;
 }
 .list-papers li > .link-btn { flex: none; }
-.list-add-trigger { margin: 2px 0 4px; font-size: 0.78rem; }
+.list-add-trigger { margin: 2px 0 4px; font-size: var(--fs-xs); }
 .list-add { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; margin: 4px 0; }
 .list-add .custom-select-container { flex: 1 1 180px; min-width: 0; width: auto; }
 .list-add .btn-primary { flex: none; padding: 8px 14px; }
-.list-add-error { flex: 1 1 100%; margin: 0; font-size: 0.82rem; }
-.list-color-label { font-size: 0.8rem; color: var(--muted); }
+.list-add-error { flex: 1 1 100%; margin: 0; font-size: var(--fs-sm); }
+.list-color-label { font-size: var(--fs-sm); color: var(--muted); }
 .list-color-picks { display: flex; flex-wrap: wrap; gap: 8px; }
 .list-color-pick {
   width: 26px; height: 26px; border-radius: 999px; border: 2px solid transparent;
@@ -191,7 +191,7 @@
 .list-toggle:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
 .link-btn {
   border: none; background: none; cursor: pointer; font: inherit;
-  font-size: 0.78rem; color: var(--muted); padding: 2px 4px;
+  font-size: var(--fs-xs); color: var(--muted); padding: 2px 4px;
 }
 .link-btn:hover { color: var(--ink); text-decoration: underline; }
 
@@ -204,13 +204,13 @@
 .screening-row {
   display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center;
   padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
-  font-size: 0.88rem; min-width: 0;
+  font-size: var(--fs); min-width: 0;
 }
 .screening-title { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
 .screening-verdict { color: var(--muted); white-space: nowrap; }
 .screening-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .screening-reason { width: 140px; min-width: 0; }
-.screening-counts table { border-collapse: collapse; font-size: 0.88rem; }
+.screening-counts table { border-collapse: collapse; font-size: var(--fs); }
 .screening-counts th,
 .screening-counts td {
   border: 1px solid var(--border); padding: 4px 8px; text-align: left;
@@ -235,9 +235,9 @@
 .lists-rail-item:hover { filter: brightness(0.96); background: var(--chip); }
 .lists-rail-item[aria-current="true"] { background: var(--active-bg); color: var(--active-fg); font-weight: 700; }
 .lists-rail-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lists-rail-count { flex: none; font-size: 0.74rem; opacity: 0.75; }
+.lists-rail-count { flex: none; font-size: var(--fs-xs); opacity: 0.75; }
 .lists-rail-label {
-  margin: 10px 10px 4px; font-size: 0.72rem; font-weight: 700;
+  margin: 10px 10px 4px; font-size: var(--fs-xs); font-weight: 700;
   color: var(--muted);
 }
 /* The picked list is always open, so its own collapse chevron has nothing to do. */

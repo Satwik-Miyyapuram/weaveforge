@@ -25,7 +25,7 @@
   border-radius: 999px;
   background: var(--accent);
   color: var(--accent-fg);
-  font-size: 0.65rem;
+  font-size: var(--fs-micro);
   font-weight: 700;
   line-height: 16px;
   text-align: center;
@@ -40,7 +40,7 @@
 .graph-local-banner {
   flex: 0 1 auto; min-width: 0;
   display: flex; align-items: center; gap: 10px;
-  padding: 6px 12px; font-size: 0.78rem;
+  padding: 6px 12px; font-size: var(--fs-xs);
   background: var(--elev); border: 1px solid var(--border); border-radius: 9px;
 }
 /* Anchored bottom-right of the canvas (both normal and focus modes). */
@@ -72,7 +72,7 @@
 .graph-drawer-section { border-top: 1px solid var(--border); padding-top: 12px; }
 .graph-drawer-section-head {
   width: 100%; display: flex; align-items: center; justify-content: space-between;
-  border: none; background: none; cursor: pointer; font: inherit; font-size: 0.78rem;
+  border: none; background: none; cursor: pointer; font: inherit; font-size: var(--fs-xs);
   padding: 6px 0; color: var(--ink);
 }
 .graph-drawer-tabs {
@@ -93,7 +93,7 @@
   background: none;
   cursor: pointer;
   font: inherit;
-  font-size: 0.74rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--muted);
   padding: 6px 2px;
@@ -130,7 +130,7 @@
   background: var(--surface);
   color: var(--muted);
   font: inherit;
-  font-size: 0.73rem;
+  font-size: var(--fs-xs);
   padding: 3px 9px;
   border-radius: 999px;
   cursor: pointer;
@@ -157,22 +157,22 @@
   gap: 8px;
 }
 .graph-drawer-section-body { display: grid; gap: 8px; padding-bottom: 8px; }
-.graph-drawer-label { font-size: 0.78rem; }
-.graph-drawer-note { font-size: 0.75rem; margin: 0; }
+.graph-drawer-label { font-size: var(--fs-xs); }
+.graph-drawer-note { font-size: var(--fs-xs); margin: 0; }
 .graph-settings-drawer label.graph-check {
   display: flex; align-items: center; gap: 8px;
-  font-size: 0.78rem; color: var(--ink); cursor: pointer;
+  font-size: var(--fs-xs); color: var(--ink); cursor: pointer;
   line-height: 1.35;
 }
 .graph-settings-drawer input[type="search"] {
   width: 100%;
 }
-.graph-slider-row { display: grid; gap: 4px; font-size: 0.78rem; }
+.graph-slider-row { display: grid; gap: 4px; font-size: var(--fs-xs); }
 /* Option buttons share the drawer's width; states.css sets .seg to inline-flex. */
 :root:root .graph-settings-drawer .seg { display: flex; width: 100%; }
 :root:root .graph-settings-drawer .seg > button { flex: 1; }
 .graph-search-input {
-  width: 100%; font: inherit; font-size: 0.85rem; padding: 7px 10px;
+  width: 100%; font: inherit; font-size: var(--fs); padding: 7px 10px;
   border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
 }
 .graph-side-panel {
@@ -180,11 +180,11 @@
   z-index: 9; overflow: auto; padding: 10px 12px;
 }
 .graph-side-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.graph-side-title { font-size: 0.95rem; margin: 0 0 6px; line-height: 1.35; }
-.graph-side-meta { font-size: 0.78rem; margin: 0 0 6px; }
+.graph-side-title { font-size: var(--fs-lg); margin: 0 0 6px; line-height: 1.35; }
+.graph-side-meta { font-size: var(--fs-xs); margin: 0 0 6px; }
 .graph-side-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 .graph-side-section { margin-top: 12px; }
-.graph-side-list { list-style: none; padding: 0; margin: 6px 0 0; font-size: 0.8rem; }
+.graph-side-list { list-style: none; padding: 0; margin: 6px 0 0; font-size: var(--fs-sm); }
 /* A `<button>` centres its own label, so every list in the panel read as centred
    prose — the relations list had been fixed one rule at a time and the papers,
    notes and co-occurring lists had not. They are rows of text: they start left. */
@@ -198,16 +198,16 @@
   transform: translate(-50%, -100%); margin-top: -8px;
 }
 .graph-edge-popover-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.graph-edge-popover-path { font-size: 0.78rem; margin: 0 0 8px; }
+.graph-edge-popover-path { font-size: var(--fs-xs); margin: 0 0 8px; }
 .graph-link-tooltip {
   position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
-  z-index: 7; font-size: 0.76rem; padding: 4px 10px; border-radius: 6px;
+  z-index: 7; font-size: var(--fs-xs); padding: 4px 10px; border-radius: 6px;
   background: var(--elev); border: 1px solid var(--border); pointer-events: none;
 }
 .graph-legend-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.graph-legend-heading { width: 100%; font-size: 0.72rem; letter-spacing: 0.04em; }
+.graph-legend-heading { width: 100%; font-size: var(--fs-xs); letter-spacing: 0.04em; }
 .legend-concept { background: rgba(140, 133, 124, 0.35); }
-.annotation-paper { font-size: 0.76rem; margin-bottom: 4px; }
+.annotation-paper { font-size: var(--fs-xs); margin-bottom: 4px; }
 .graph-focus .graph-side-panel { position: fixed; top: 56px; left: 10px; bottom: 14px; }
 .graph-focus .graph-stage { position: absolute; inset: 0; margin: 0; }
 .graph-focus-bar {
@@ -340,13 +340,13 @@
 }
 
 .graph-legend-wrap { margin: 8px 0; display: inline-flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-.graph-legend-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 0.82rem; }
+.graph-legend-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: var(--fs-sm); }
 .graph-legend-toggle.on { border-color: var(--accent); }
 .graph-legend.card {
-  display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.78rem;
+  display: flex; flex-wrap: wrap; gap: 12px; font-size: var(--fs-xs);
   margin: 0; padding: 10px 12px;
 }
-.graph-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.78rem; margin-top: 6px; }
+.graph-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: var(--fs-xs); margin-top: 6px; }
 .legend-item { display: inline-flex; align-items: center; gap: 5px; }
 .legend-swatch { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
 /* Node swatches: the same shape per kind as the canvas draws, in every theme. */
@@ -365,11 +365,11 @@
 /* Side panel per the Graph mock: kind + status chips, labelled relations. */
 .graph-side-chips { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .graph-side-kind {
-  font-size: 0.78rem; font-weight: 700; padding: 3px 10px; border-radius: 999px;
+  font-size: var(--fs-xs); font-weight: 700; padding: 3px 10px; border-radius: 999px;
   background: var(--active-bg); color: var(--active-fg);
 }
 .graph-side-close { min-height: 34px; padding: 0 6px; }
-.graph-side-label { font-size: 0.78rem; font-weight: 700; color: var(--muted); }
+.graph-side-label { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); }
 .graph-side-list li.graph-side-rel {
   padding: 6px 8px; border-radius: 8px; background: var(--surface2); flex-wrap: nowrap;
 }
@@ -380,7 +380,7 @@
 }
 .graph-side-rel .graph-side-rel-remove:hover { color: var(--danger); text-decoration: none; }
 .graph-side-rel-kind {
-  flex: none; font-size: 0.72rem; font-weight: 700; padding: 1px 8px;
+  flex: none; font-size: var(--fs-xs); font-weight: 700; padding: 1px 8px;
   border: 2px solid; border-radius: 999px;
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-side-kind {
@@ -390,7 +390,7 @@
 @media (min-width: 900px) {
   .graph-below .graph-side-panel,
   .graph-focus .graph-side-panel { left: auto; right: 10px; width: min(340px, 40vw); padding: 14px 16px; }
-  .graph-side-panel .graph-side-title { font-size: 1.3rem; line-height: 1.2; }
+  .graph-side-panel .graph-side-title { font-size: var(--fs-h2); line-height: 1.2; }
 }
 
 /*
@@ -413,4 +413,4 @@
 .graph-group-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
 .graph-group-row { display: flex; align-items: center; gap: 6px; }
 .graph-group-row .input { flex: 1; min-width: 0; }
-.graph-colour-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.85rem; }
+.graph-colour-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: var(--fs); }

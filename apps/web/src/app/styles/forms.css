@@ -4,11 +4,11 @@
    add forms). Pairs with min-width:0 on .custom-select-container below. */
 .field { display: grid; gap: 6px; min-width: 0; }
 /* Sub-label under an input (e.g. what a pasted reference was recognized as). */
-.field-hint { margin: 0; font-size: 0.76rem; overflow-wrap: anywhere; }
+.field-hint { margin: 0; font-size: var(--fs-xs); overflow-wrap: anywhere; }
 .auth-secondary-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 20px; margin-top: 14px; }
 .field-row { display: grid; grid-template-columns: minmax(0, 1fr) 160px; gap: 12px; }
 .field-row-equal { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
-label { font-size: 0.8rem; color: var(--muted); }
+label { font-size: var(--fs-sm); color: var(--muted); }
 /* `input` was styled here but `textarea` was not, so a textarea only looked
    right where some ancestor happened to style it (.add-form, the reader
    sidebar). Everywhere else — the comments box among them — fell back to the
@@ -146,7 +146,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; b
    match — removed rather than left as dead weight that reads like it matters. */
 .custom-select-item {
   display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; text-align: left;
-  cursor: pointer; font: inherit; font-size: 0.88rem; color: var(--ink);
+  cursor: pointer; font: inherit; font-size: var(--fs); color: var(--ink);
   background: none; border: none; padding: 8px 10px; border-radius: 4px;
   white-space: normal; overflow-wrap: anywhere;
 }
@@ -158,7 +158,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; b
 .custom-select-item.sel { font-weight: 600; box-shadow: inset 0 0 0 1.5px var(--sel-ring); }
 .custom-select-item.sel-plain { background: var(--status-neutral); }
 .custom-select-group {
-  padding: 6px 12px 4px; font-size: 0.68rem; font-weight: 600;
+  padding: 6px 12px 4px; font-size: var(--fs-micro); font-weight: 600;
  letter-spacing: 0.04em; color: var(--muted);
 }
 .custom-select-item.disabled { opacity: 0.55; cursor: default; }
@@ -169,11 +169,11 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; b
   background: var(--elev);
 }
 .custom-select-search input {
-  width: 100%; font: inherit; font-size: 0.85rem;
+  width: 100%; font: inherit; font-size: var(--fs);
   padding: 6px 10px; border: 1px solid var(--border);
   border-radius: 8px; background: var(--surface);
 }
-.custom-select-empty { padding: 10px 12px; font-size: 0.82rem; }
+.custom-select-empty { padding: 10px 12px; font-size: var(--fs-sm); }
 /* Multi-select checkbox items. */
 .ms-item.sel { box-shadow: none; }
 .ms-check {
@@ -183,7 +183,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; b
 .ms-check.on { background: var(--accent); border-color: var(--accent); }
 .ms-check.on::after {
   content: "✓"; position: absolute; inset: 0;
-  color: var(--accent-fg); font-size: 11px; line-height: 15px; text-align: center;
+  color: var(--accent-fg); font-size: var(--fs-micro); line-height: 15px; text-align: center;
 }
 
 /* A checkbox and its label on one line. Alignment is flex-start rather than
@@ -194,7 +194,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; b
   align-items: flex-start;
   gap: 8px;
   margin: 6px 0;
-  font-size: 0.85rem;
+  font-size: var(--fs);
   color: var(--ink);
   cursor: pointer;
   line-height: 1.4;
@@ -344,15 +344,15 @@ label.graph-check input[type="checkbox"] { margin: 2px 0 0; }
 /* Date picker: themed via the select classes; only the calendar layout lives here. */
 :root:root .date-picker-panel, .date-picker-panel { width: 264px; min-width: 0; max-height: none; overflow: visible; padding: 8px; gap: 6px; }
 .date-picker-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.date-picker-title { font-weight: 600; font-size: 0.9rem; color: var(--ink); }
+.date-picker-title { font-weight: 600; font-size: var(--fs); color: var(--ink); }
 .date-picker-nav {
-  width: 28px; height: 28px; font: inherit; font-size: 1.1rem; line-height: 1; color: var(--ink);
+  width: 28px; height: 28px; font: inherit; font-size: var(--fs-lg); line-height: 1; color: var(--ink);
   background: none; border: none; border-radius: 4px; cursor: pointer;
 }
 .date-picker-nav:hover { background: var(--status-neutral); }
 .date-picker-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-.date-picker-dow { text-align: center; font-size: 0.72rem; padding: 2px 0; white-space: nowrap; }
-:root:root .custom-select-item.date-picker-day, .custom-select-item.date-picker-day { justify-content: center; padding: 6px 0; gap: 0; width: 100%; min-width: 0; white-space: nowrap; overflow-wrap: normal; word-break: normal; font-size: 0.84rem; font-variant-numeric: tabular-nums; animation: none; }
+.date-picker-dow { text-align: center; font-size: var(--fs-xs); padding: 2px 0; white-space: nowrap; }
+:root:root .custom-select-item.date-picker-day, .custom-select-item.date-picker-day { justify-content: center; padding: 6px 0; gap: 0; width: 100%; min-width: 0; white-space: nowrap; overflow-wrap: normal; word-break: normal; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; animation: none; }
 .date-picker-day.out { opacity: 0.4; }
 .date-picker-day.today:not(.sel) { color: var(--accent); font-weight: 600; }
 .date-picker-foot { display: flex; justify-content: space-between; }

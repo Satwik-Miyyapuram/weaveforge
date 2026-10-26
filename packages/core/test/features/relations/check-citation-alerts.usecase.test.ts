@@ -293,6 +293,20 @@ test("the log lists fresh citations best first (04-21)", async () => {
   assert.ok(body.indexOf("Influential") < body.indexOf("Plain"), body);
 });
 
+test("a citation's intent reads as a label, not as code (design DA-40)", async () => {
+  const { papers, logs, source, useCase, setNow } = setup();
+  await papers.save(paper);
+  await useCase.setTracking(paper.id, true);
+  setNow("2026-07-02T13:00:00.000Z");
+  source.itemsByDoi.set(paper.doi!, [
+    { id: "b", title: "Influential", authors: ["Ada"], isInfluential: true, intents: ["result"], citationCount: 5 },
+  ]);
+  await useCase.checkAll();
+  const body = (await logs.list())[0]!.body;
+  assert.doesNotMatch(body, /`/, body);
+  assert.ok(body.includes("— *influential · result*, Ada"), body);
+});
+
 test("forced check waits for in-flight poll then runs with force", async () => {
   const { papers, source, useCase, setNow } = setup();
   await papers.save(paper);

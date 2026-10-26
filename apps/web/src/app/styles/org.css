@@ -1,7 +1,7 @@
 .org-setup-card { max-width: 480px; width: 100%; padding: 20px; display: grid; gap: 12px; }
 .org-setup-choose { display: grid; gap: 12px; }
 .org-modal-body { display: grid; gap: 4px; }
-.org-modal-intro { margin: 0 0 8px; font-size: 0.9rem; }
+.org-modal-intro { margin: 0 0 8px; font-size: var(--fs); }
 .org-modal-choices { display: grid; gap: 10px; }
 .org-choice-card {
   display: grid;
@@ -18,9 +18,9 @@
   border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
   background: var(--surface, var(--neutral));
 }
-.org-choice-title { font-weight: 600; font-size: 0.95rem; color: var(--ink); }
-.org-choice-desc { font-size: 0.85rem; color: var(--muted); margin: 0; line-height: 1.4; }
-.org-modal-skip { justify-self: center; margin-top: 4px; font-size: 0.85rem; }
+.org-choice-title { font-weight: 600; font-size: var(--fs-lg); color: var(--ink); }
+.org-choice-desc { font-size: var(--fs); color: var(--muted); margin: 0; line-height: 1.4; }
+.org-modal-skip { justify-self: center; margin-top: 4px; font-size: var(--fs); }
 .org-empty-row {
   display: flex;
   align-items: center;
@@ -41,10 +41,10 @@
   gap: 10px 12px;
   padding: 10px 12px; border-radius: 8px; background: var(--neutral);
 }
-.org-code-role { font-size: 0.82rem; font-weight: 500; color: var(--ink); }
+.org-code-role { font-size: var(--fs-sm); font-weight: 500; color: var(--ink); }
 .org-code-value {
   font-family: var(--font-mono, monospace); letter-spacing: 0.04em;
-  font-size: 0.82rem; color: var(--muted);
+  font-size: var(--fs-sm); color: var(--muted);
 }
 .org-code-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
 .org-codes-panel { margin: 12px 0; padding-top: 8px; border-top: 1px solid var(--line); }
