@@ -30,6 +30,8 @@ export interface InsertMenuProps {
   onInsertPage?: () => void;
   onClip?: () => void;
   onTextBox?: () => void;
+  /** The page takes a pasted or dropped picture, so the menu says so. */
+  takesPictureDrops?: boolean;
 }
 
 export function hasInsertItems(props: InsertMenuProps): boolean {
@@ -52,6 +54,7 @@ export function InsertMenu({
   onInsertPage,
   onClip,
   onTextBox,
+  takesPictureDrops = false,
 }: InsertMenuProps) {
   const { open, setOpen, menuRef, listRef, pos, choose } = useBarMenu();
   const picture = onAddPicture ?? onAddImage;
@@ -109,7 +112,7 @@ export function InsertMenu({
               <span>Text box</span>
             </MenuItemButton>
           ) : null}
-          {onAddPicture ? (
+          {takesPictureDrops ? (
             <p className="ink-menu-hint">Or paste an image, or drop one on the page.</p>
           ) : null}
         </BarMenuList>

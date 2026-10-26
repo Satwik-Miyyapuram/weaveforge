@@ -152,6 +152,8 @@ export interface InkBarProps {
   onInsertPage?: () => void;
   /** Lay a picture on the current page, over it rather than under it (the PDF reader). */
   onAddPicture?: () => void;
+  /** The page takes a pasted or dropped picture; Insert says so. */
+  takesPictureDrops?: boolean;
   onPrevPage?: () => void;
   onNextPage?: () => void;
   onDeleteSelection?: () => void;
@@ -240,6 +242,7 @@ export function InkBar({
   onRemovePageBackground,
   onInsertPage,
   onAddPicture,
+  takesPictureDrops,
   onPrevPage,
   onNextPage,
   onDeleteSelection,
@@ -277,6 +280,7 @@ export function InkBar({
     onInsertPage,
     onClip,
     onTextBox,
+    takesPictureDrops,
   };
   /**
    * Folded, in focus mode: the palette shrinks to the tools and its own

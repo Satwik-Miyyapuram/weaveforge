@@ -672,6 +672,7 @@ export function InkHost({
         onRedo={onRedo}
         onAddPage={onAddPage}
         onAddImage={onAddImageToCurrentPage}
+        takesPictureDrops
         hasPageBackground={Boolean(backgroundPath)}
         onRemovePageBackground={() => void onRemovePageBackground()}
         onInsertPage={() => pdfInputRef.current?.click()}

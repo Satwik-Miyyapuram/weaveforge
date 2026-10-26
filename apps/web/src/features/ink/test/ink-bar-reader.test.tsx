@@ -4,6 +4,8 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer, type ReactTestInstance } from "react-test-renderer";
 
@@ -256,4 +258,26 @@ test("paletteName reverses paletteHex, and knows no stranger", () => {
   }
   assert.equal(paletteName(palette, paletteHex(palette, "red").toUpperCase()), paletteName(palette, paletteHex(palette, "red")));
   assert.equal(paletteName(palette, "#010203"), null);
+});
+
+const src = (p: string) => readFileSync(fileURLToPath(new URL(p, import.meta.url)), "utf8");
+
+test("the Insert menu offers paste and drop only where the page takes them (DA-115)", () => {
+  withWindow(new Map(), () => {
+    const reader = render(readerBar());
+    assert.equal(reader.root.findByType(InsertMenu).props.takesPictureDrops, undefined);
+    act(() => reader.unmount());
+    const notes = render(readerBar({ onAddPicture: undefined, takesPictureDrops: true }));
+    assert.equal(notes.root.findByType(InsertMenu).props.takesPictureDrops, true);
+    act(() => notes.unmount());
+  });
+  // The menu list is portalled, which this renderer cannot open; pin the gate.
+  const view = src("../ui/ink-bar-view.tsx");
+  assert.match(view, /\{takesPictureDrops \? \(\s*<p className="ink-menu-hint">Or paste an image, or drop one on the page\.<\/p>/);
+  assert.equal(view.match(/ink-menu-hint/g)?.length, 1);
+});
+
+test("the notes page says it takes pasted and dropped pictures; the reader does not (DA-115)", () => {
+  assert.match(src("../ui/ink-host.tsx"), /takesPictureDrops\b/);
+  assert.doesNotMatch(src("../../reader/ui/pdf-reader/pdf-reader.tsx"), /takesPictureDrops/);
 });
