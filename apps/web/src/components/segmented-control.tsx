@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 
+import { ToggleButton } from "./controls";
+
 /**
  * Pick one of a few options in place: Cites / Tags / Both. The chosen one is
  * pressed, not primary-coloured, so a toggle never reads as the screen's main
@@ -16,7 +18,8 @@ export function SegmentedControl<V extends string>({
   className,
 }: {
   label: string;
-  value: V;
+  /** null presses no option. */
+  value: V | null;
   onChange: (next: V) => void;
   /** `ariaLabel` names an option whose label is only an icon. */
   options: readonly { value: V; label: ReactNode; title?: string; ariaLabel?: string }[];
@@ -27,17 +30,16 @@ export function SegmentedControl<V extends string>({
   return (
     <div className={cls} role="group" aria-label={label}>
       {options.map((o) => (
-        <button
+        <ToggleButton
           key={o.value}
-          type="button"
-          aria-pressed={value === o.value}
+          pressed={value === o.value}
           aria-label={o.ariaLabel}
           className={value === o.value ? "seg-on" : undefined}
           title={o.title}
           onClick={() => onChange(o.value)}
         >
           {o.label}
-        </button>
+        </ToggleButton>
       ))}
     </div>
   );

@@ -31,6 +31,8 @@ import { EmailRecoveryScreen } from "@/components/email-recovery-screen";
 import { PasswordResetScreen } from "@/components/password-reset-screen";
 import { CloseIcon } from "@/components/view-icons";
 import { ToastHost } from "@/components/toast-host";
+import { RowButton } from "@/components/controls";
+import { Button } from "@/components/button";
 
 /* Both paint nothing and only matter once a folder is connected; the folder
    code they carry is loaded after the page rather than with every one. */
@@ -287,7 +289,7 @@ function SessionExpiredPrompt() {
   if (open) {
     return (
       <div className="session-expired-overlay" role="dialog" aria-modal="true" aria-label="Sign in again">
-        <button type="button" className="session-expired-close" onClick={() => setOpen(false)} aria-label="Not now"><CloseIcon /></button>
+        <RowButton className="session-expired-close" onClick={() => setOpen(false)} aria-label="Not now"><CloseIcon /></RowButton>
         <LoginScreen />
       </div>
     );
@@ -298,16 +300,14 @@ function SessionExpiredPrompt() {
       <span className="session-expired-text">
         <strong>You&apos;re signed out.</strong> Sign in to sync. Your workspace folder stays connected.
       </span>
-      <button type="button" className="btn btn-primary btn-sm" onClick={() => setOpen(true)}>Sign in to sync</button>
-      <button
-        type="button"
-        className="btn-ghost btn-icon session-expired-dismiss"
+      <Button variant="primary" size="sm" className="btn" onClick={() => setOpen(true)}>Sign in to sync</Button>
+      <Button variant="ghost" className="btn-icon session-expired-dismiss"
         onClick={() => setDismissed(true)}
         aria-label="Close"
         title="Close"
       >
         <CloseIcon />
-      </button>
+      </Button>
     </div>
   );
 }

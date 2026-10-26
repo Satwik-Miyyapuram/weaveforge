@@ -17,6 +17,7 @@ import { NavIcon } from "./nav-icon";
 import { useInbox } from "./use-inbox";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
 import { SyncStatusIndicator } from "./lazy-sync-status";
+import { RowButton } from "@/components/controls";
 
 /** A person, for the account menu. The ellipsis said "more things"; this says
  *  whose things they are, which is what the menu contains. */
@@ -141,7 +142,7 @@ export function HeaderActions({
         // It puts the sign-in screen back, and the local data stays where it is.
         if (link.id === "signin") {
           return (
-            <button
+            <RowButton
               key={link.id}
               className="signout"
               onClick={() => {
@@ -151,14 +152,14 @@ export function HeaderActions({
               title="Sign in to sync this work with an account. What is on this computer stays here."
             >
               <Icon /><span>{link.label}</span>
-            </button>
+            </RowButton>
           );
         }
         if (link.id === "signout") {
           return (
-            <button key={link.id} className="signout" onClick={() => void signOut()} title={user.email}>
+            <RowButton key={link.id} className="signout" onClick={() => void signOut()} title={user.email}>
               <Icon /><span>{link.label}</span>
-            </button>
+            </RowButton>
           );
         }
         if (link.id === "projects") {
@@ -166,9 +167,8 @@ export function HeaderActions({
           // is selected, so without this there is no way back from account routes
           // (/settings, /shared, /supervision) once a project is deselected.
           return (
-            <button
+            <RowButton
               key={link.id}
-              type="button"
               className="header-link"
               title={TITLES[link.id]}
               onClick={() => {
@@ -178,7 +178,7 @@ export function HeaderActions({
               }}
             >
               <Icon /><span>{link.label}</span>
-            </button>
+            </RowButton>
           );
         }
         // External links open in a new tab — losing unsaved work to a
@@ -254,8 +254,7 @@ function OrgMenuSubmenu({
 
   return (
     <div className="menu-row card-menu-row" ref={rowRef}>
-      <button
-        type="button"
+      <RowButton
         className="header-link menu-item card-menu-item"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
@@ -269,14 +268,13 @@ function OrgMenuSubmenu({
         <span className="card-menu-more menu-more" aria-hidden="true" style={{ marginLeft: "auto", opacity: 0.65 }}>
           ›
         </span>
-      </button>
+      </RowButton>
       {open && (
         <SubmenuFlyout anchorRef={rowRef}>
           <div className="org-menu-flyout-list" style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: "200px" }}>
             {labs.map((m) => (
-              <button
+              <RowButton
                 key={m.orgId}
-                type="button"
                 className={`proj-menu-item${m.orgId === activeOrgId ? " sel" : ""}`}
                 disabled={busy}
                 onClick={async () => {
@@ -297,7 +295,7 @@ function OrgMenuSubmenu({
                   <span className="muted org-menu-role">{ROLE_LABELS[m.role]}</span>
                 </span>
                 {m.orgId === activeOrgId && <span className="check">✓</span>}
-              </button>
+              </RowButton>
             ))}
           </div>
         </SubmenuFlyout>

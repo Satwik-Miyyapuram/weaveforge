@@ -24,6 +24,7 @@ import { FormError } from "@/components/form-error";
 import { statusLabel } from "@/components/status-select";
 import { bestEffort, removeLogEntry } from "../application/log-side-effects";
 import { Button } from "@/components/button";
+import { RowButton } from "@/components/controls";
 
 /**
  * Logbook screen. Presentation + view-state only; all data access goes through
@@ -53,9 +54,9 @@ export function LogbookScreen() {
         eyebrow={logEyebrow(entries)}
         search={entries.length > 0 ? { value: search, onChange: setSearch, label: "Search the log" } : undefined}
       >
-        <button type="button" className="btn-secondary log-publish" onClick={() => setPublishOpen(true)}>
+        <Button className="log-publish" onClick={() => setPublishOpen(true)}>
           Send check-in
-        </button>
+        </Button>
         <Button variant="primary" onClick={() => setAddOpen(true)}>New entry</Button>
       </ScreenHead>
 
@@ -307,9 +308,9 @@ function EditLogForm({
       </div>
       {error && <FormError>{error}</FormError>}
       <div className="card-foot edit-actions">
-        <button type="button" className="btn-ghost btn-cancel" onClick={onCancel} disabled={busy}>
+        <Button variant="ghost" className="btn-cancel" onClick={onCancel} disabled={busy}>
           Cancel
-        </button>
+        </Button>
         {/* In collab mode the body is already persisted by the editor's
             autosave, so this button is about leaving the form — but it still
             submits, because the Kind select is not collaborative and would
@@ -433,9 +434,9 @@ function LogCalendar({ entries }: { entries: readonly LogEntry[] }) {
   return (
     <div className="card log-calendar">
       <div className="log-calendar-top">
-        <button type="button" className="entity-icon-btn" aria-label="Previous month" onClick={() => step(-1)}><ChevronLeftIcon /></button>
+        <RowButton className="entity-icon-btn" aria-label="Previous month" onClick={() => step(-1)}><ChevronLeftIcon /></RowButton>
         <h2>{month.toLocaleDateString(undefined, isCurrent ? { month: "long" } : { month: "long", year: "numeric" })}</h2>
-        <button type="button" className="entity-icon-btn" aria-label="Next month" disabled={isCurrent} onClick={() => step(1)}><ChevronRightIcon /></button>
+        <RowButton className="entity-icon-btn" aria-label="Next month" disabled={isCurrent} onClick={() => step(1)}><ChevronRightIcon /></RowButton>
       </div>
       <div className="log-calendar-grid" role="group" aria-label={`Days logged this month: ${loggedThisMonth}`}>
         {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
@@ -452,9 +453,8 @@ function LogCalendar({ entries }: { entries: readonly LogEntry[] }) {
           const kinds = new Set(dayEntries.map((e) => e.kind));
           const names = dayEntries.map((e) => `${statusLabel(e.kind)}: ${splitHeadline(e.body).headline}`);
           return (
-            <button
+            <RowButton
               key={ymd}
-              type="button"
               className={["log-calendar-day", "is-logged", kinds.size > 1 ? "is-mixed" : "", today ? "is-today" : ""].filter(Boolean).join(" ")}
               data-status={kinds.has("weekly") && kinds.size === 1 ? "weekly" : "daily"}
               title={names.join("\n")}
@@ -463,7 +463,7 @@ function LogCalendar({ entries }: { entries: readonly LogEntry[] }) {
             >
               {d}
               {dayEntries.length > 1 && <b className="log-calendar-count">{dayEntries.length}</b>}
-            </button>
+            </RowButton>
           );
         })}
       </div>

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import {
   type LabSnapshot,
   type LogEntry,
@@ -21,6 +20,8 @@ import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
 import { statusLabel } from "@/components/status-select";
+import { RowButton } from "@/components/controls";
+import { Button } from "@/components/button";
 
 /**
  * Supervisor view: browse the people beneath you and follow their published
@@ -92,9 +93,9 @@ export function SupervisionScreen() {
           </div>
         )}
         {supervisees.length > 0 && (
-          <Link className="btn-secondary" href="/shared">
+          <Button href="/shared">
             Sharing
-          </Link>
+          </Button>
         )}
       </ScreenHead>
       {supervisees.length === 0 ? (
@@ -104,9 +105,9 @@ export function SupervisionScreen() {
           title="No students yet"
           body="Ask your org admin to assign students to you."
           action={
-            <Link className="btn-primary" href="/shared">
+            <Button variant="primary" href="/shared">
               Open sharing
-            </Link>
+            </Button>
           }
         />
       ) : (
@@ -116,8 +117,7 @@ export function SupervisionScreen() {
             <ul>
               {supervisees.map((m) => (
                 <li key={m.id} style={{ paddingLeft: depthOf(m, supervisees) * 18 }}>
-                  <button
-                    type="button"
+                  <RowButton
                     className={`superv-team-item${m.id === selectedId ? " is-active" : ""}`}
                     aria-current={m.id === selectedId ? "true" : undefined}
                     onClick={() => setSelectedId(m.id)}
@@ -127,7 +127,7 @@ export function SupervisionScreen() {
                       <span className="superv-team-name">{m.fullName || m.email || "Unnamed"}</span>
                       <span className="superv-team-role">{ROLE_LABELS[m.role]}</span>
                     </span>
-                  </button>
+                  </RowButton>
                 </li>
               ))}
             </ul>

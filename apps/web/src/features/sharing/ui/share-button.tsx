@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ShareableType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { Button } from "@/components/button";
+import { RowButton } from "@/components/controls";
 import { ShareIcon } from "@/components/view-icons";
 import { ShareDialog } from "./share-dialog-lazy";
 import { useShareDialogHost } from "./share-dialog-host";
@@ -85,22 +87,27 @@ export function ShareButton({
   // After the hooks, not before them: the early return is a render decision.
   if (!canShare) return null;
 
+  const trigger = {
+    onClick: (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setOpen(true);
+    },
+    "aria-label": label,
+    title: label,
+  };
   return (
     <>
       {!hideTrigger && (
-        <button
-          className={showLabel ? "btn-secondary entity-icon-text-btn" : "entity-icon-btn"}
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setOpen(true);
-          }}
-          aria-label={label}
-          title={label}
-        >
-          <ShareIcon />
-          {showLabel ? <span>{label}</span> : null}
-        </button>
+        showLabel ? (
+          <Button className="entity-icon-text-btn" {...trigger}>
+            <ShareIcon />
+            <span>{label}</span>
+          </Button>
+        ) : (
+          <RowButton className="entity-icon-btn" {...trigger}>
+            <ShareIcon />
+          </RowButton>
+        )
       )}
       {!host &&
         mounted &&

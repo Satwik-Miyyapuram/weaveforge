@@ -1,6 +1,7 @@
 "use client";
 
 import { useTheme } from "@/lib/hooks/use-theme";
+import { RowButton } from "@/components/controls";
 
 /**
  * Light/dark theme toggle. Persists the choice in localStorage and flips
@@ -11,8 +12,7 @@ export function ThemeToggle() {
   const { dark, toggle } = useTheme();
 
   return (
-    <button
-      type="button"
+    <RowButton
       className="header-link theme-toggle"
       onClick={toggle}
       title={dark ? "Switch to light" : "Switch to dark"}
@@ -32,6 +32,6 @@ export function ThemeToggle() {
           read as either the state or what a click would do. */}
       <span>Theme</span>
       <span className="menu-row-value">{dark ? "Dark" : "Light"}</span>
-    </button>
+    </RowButton>
   );
 }

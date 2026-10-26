@@ -30,6 +30,7 @@ import { useTheme } from "@/lib/hooks/use-theme";
 import { isMacPlatform } from "@/lib/shortcut-label";
 import { groupPaletteRows, matchingPages, paletteKeys, type PaletteGroup } from "@/lib/palette-groups";
 import { showNewProject, useProject } from "@/features/projects";
+import { RowButton } from "./controls";
 
 /** Kinds recorded as recent targets when opened. */
 const RECENT_KINDS = ["paper", "note", "section"] as const satisfies readonly RecentTargetKind[];
@@ -412,19 +413,18 @@ export function JumpToPalette() {
         <ul className="jump-to-history" aria-label="Recent searches">
           {history.slice(0, 6).map((entry) => (
             <li key={entry}>
-              <button type="button" className="jump-to-chip" onClick={() => setQuery(entry)}>
+              <RowButton className="jump-to-chip" onClick={() => setQuery(entry)}>
                 {entry}
-              </button>
+              </RowButton>
               {/* A search you regret is a search you should be able to drop,
                   without clearing the five useful ones next to it. */}
-              <button
-                type="button"
+              <RowButton
                 className="jump-to-chip-remove"
                 aria-label={`Remove “${entry}” from recent searches`}
                 onClick={() => saveHistory(forgetSearchQuery(history, entry))}
               >
                 <CloseIcon />
-              </button>
+              </RowButton>
             </li>
           ))}
         </ul>
@@ -440,7 +440,7 @@ export function JumpToPalette() {
                 const i = flat.indexOf(c);
                 return (
                 <li key={c.key} role="option" aria-selected={i === active}>
-                  <button type="button" onClick={c.run}>
+                  <RowButton onClick={c.run}>
                     <div>{c.label}</div>
                     {c.excerpt && c.excerpt.text && (
                       <div className="jump-to-excerpt">
@@ -454,7 +454,7 @@ export function JumpToPalette() {
                       </div>
                     )}
                     {c.meta && <div className="jump-to-meta">{c.meta}</div>}
-                  </button>
+                  </RowButton>
                 </li>
                 );
               })}

@@ -8,6 +8,7 @@ import {
 } from "@/lib/markdown-image-width";
 import type { MdAlign, MdCrop } from "@/lib/markdown-figure-alt";
 import { Button } from "@/components/button";
+import { SegmentedControl } from "./segmented-control";
 
 /**
  * Placing a picture from the read view.
@@ -200,19 +201,13 @@ export function ImageSizeControl({
           </label>
           <div className="image-size-row">
             <span className="image-size-key">Side</span>
-            <div className="seg image-size-sides" role="group" aria-label="Image side">
-              {(["left", "center", "right"] as const).map((side) => (
-                <button
-                  key={side}
-                  type="button"
-                  className={target.placement.align === side ? "seg-on" : undefined}
-                  aria-pressed={target.placement.align === side}
-                  onClick={() => commit({ align: side })}
-                >
-                  {SIDE_LABELS[side]}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              label="Image side"
+              className="image-size-sides"
+              value={target.placement.align ?? null}
+              onChange={(side) => commit({ align: side })}
+              options={(["left", "center", "right"] as const).map((side) => ({ value: side, label: SIDE_LABELS[side] }))}
+            />
           </div>
           <div className="image-size-row">
             <span className="image-size-key">Crop %</span>

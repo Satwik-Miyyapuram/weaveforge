@@ -12,7 +12,6 @@ import type { LoadSharedWithMeScreenData } from "@/features/sharing/application/
 import { FormError } from "@/components/form-error";
 import { EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
-import Link from "next/link";
 import { ScreenHead } from "@/components/screen-head";
 import { sharedItemTypeLabel } from "@/features/sharing/ui/shared-item-routes";
 import { Modal } from "@/components/modal";
@@ -20,6 +19,7 @@ import { ShareButton } from "@/features/sharing/ui/share-button";
 import { useProfile } from "@/features/org";
 import type { ShareableType } from "@weaveforge/core";
 import { Button } from "@/components/button";
+import { RowButton, ToggleButton } from "@/components/controls";
 
 /** Blanket shares: every item of a type you own, including later ones. */
 const SHARE_ALL: { type: ShareableType; title: string; desc: string }[] = [
@@ -83,22 +83,20 @@ export function SharedWithMeScreen() {
         {kinds.length > 1 && (
           <div className="shared-filter" role="group" aria-label="Filter by type">
             {(["all", ...kinds] as const).map((k) => (
-              <button
+              <ToggleButton pressed={kindFilter === k}
                 key={k}
-                type="button"
                 className={kindFilter === k ? "active" : undefined}
-                aria-pressed={kindFilter === k}
                 onClick={() => setKindFilter(k)}
               >
                 {k === "all" ? "All" : pluralLabel(k)}
-              </button>
+              </ToggleButton>
             ))}
           </div>
         )}
         {canSupervise && (
-          <Link className="btn-secondary" href="/supervision">
+          <Button href="/supervision">
             Supervision
-          </Link>
+          </Button>
         )}
         <Button variant="primary" onClick={() => setHubOpen(true)}>
           Share my work
@@ -109,9 +107,8 @@ export function SharedWithMeScreen() {
         <Modal title="Share my work" onClose={() => setHubOpen(false)}>
           <div className="org-modal-choices">
             {SHARE_ALL.map((c) => (
-              <button
+              <RowButton
                 key={c.type}
-                type="button"
                 className="org-choice-card"
                 onClick={() => {
                   setHubOpen(false);
@@ -120,7 +117,7 @@ export function SharedWithMeScreen() {
               >
                 <span className="org-choice-title">{c.title}</span>
                 <p className="org-choice-desc">{c.desc}</p>
-              </button>
+              </RowButton>
             ))}
           </div>
         </Modal>
@@ -146,9 +143,9 @@ export function SharedWithMeScreen() {
           title="Nothing shared with you yet"
           body="When someone shares a paper, a note or a reading list with you, it lands here grouped by who sent it. You can comment on what they share; the edits stay theirs."
           action={
-            <Link className="btn-secondary" href="/papers">
+            <Button href="/papers">
               Go to your papers
-            </Link>
+            </Button>
           }
         />
       )}

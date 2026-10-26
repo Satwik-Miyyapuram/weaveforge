@@ -1,3 +1,4 @@
+import { Button } from "./button";
 /**
  * A sortable table header (design D15). `aria-sort` sits on the header cell,
  * since a columnheader has a sort state and a button does not. The direction is
@@ -18,7 +19,7 @@ export function SortHeader({
 }) {
   return (
     <th className={className} aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}>
-      <button type="button" className={`link-btn sort-btn${active ? " sort-btn--on" : ""}`} onClick={onSort}>
+      <Button variant="link" className={`sort-btn${active ? " sort-btn--on" : ""}`} onClick={onSort}>
         {label}
         <svg
           className="sort-icon"
@@ -31,7 +32,7 @@ export function SortHeader({
           {(!active || dir === "asc") && <path d="M6 2 9.5 5.5h-7z" />}
           {(!active || dir === "desc") && <path d="M6 10 2.5 6.5h7z" />}
         </svg>
-      </button>
+      </Button>
     </th>
   );
 }

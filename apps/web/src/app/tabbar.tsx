@@ -20,6 +20,7 @@ import { useInbox } from "./use-inbox";
 import { SyncStatusIndicator } from "./lazy-sync-status";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
+import { RowButton } from "@/components/controls";
 
 /**
  * Primary navigation, rendered from the module registry. One markup, two
@@ -109,8 +110,7 @@ export function TabBar({
             <WeaveForgeLogo className="app-logo" />
             <span className="app-name">WeaveForge</span>
           </Link>
-          <button
-            type="button"
+          <RowButton
             className="nav-collapse"
             onClick={onToggle}
             aria-label={collapsed ? "Expand menu" : "Collapse menu"}
@@ -119,7 +119,7 @@ export function TabBar({
             title={collapsed ? undefined : "Collapse menu"}
           >
             <ChevronIcon open={false} />
-          </button>
+          </RowButton>
         </div>
       )}
       <div className="nav-links-wrap">
@@ -142,15 +142,14 @@ export function TabBar({
             undiscoverable and unreachable on a phone. It sits in the nav rather
             than in a header because the nav is the one surface present on every
             screen and at every breakpoint. */}
-        <button
-          type="button"
+        <RowButton
           className="nav-link nav-search"
           aria-label="Search"
           onClick={openSearchPalette}
         >
           <NavIcon name="search" />
           <span className="nav-label">Search</span>
-        </button>
+        </RowButton>
         {topNavItems
           .filter((item) => breakpoint === "desktop" || item.mobile !== false)
           .map((item) => {
@@ -181,8 +180,7 @@ export function TabBar({
               const open = collapsed === true || openGroups.includes(group.key);
               return (
                 <div className="nav-group" key={group.key}>
-                  <button
-                    type="button"
+                  <RowButton
                     className="nav-group-label"
                     aria-expanded={open}
                     aria-controls={`nav-group-${group.key}`}
@@ -195,7 +193,7 @@ export function TabBar({
                   >
                     <span>{group.label}</span>
                     <ChevronIcon open={open} />
-                  </button>
+                  </RowButton>
                   {open && (
                     <div className="nav-group-items" id={`nav-group-${group.key}`}>
                       {group.items.map((item) => {

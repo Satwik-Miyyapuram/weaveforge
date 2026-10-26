@@ -22,6 +22,7 @@ import { runReported } from "@/lib/run-reported";
 import { StatusSelect } from "@/components/status-select";
 import { MilestoneForm } from "./milestone-form";
 import { planChipTarget } from "./plan-chip";
+import { RowButton } from "@/components/controls";
 
 export function MilestoneCard({
   milestone: m,
@@ -180,9 +181,8 @@ export function MilestoneCard({
             const cls = `plan-chip${d.kind === "external" ? " is-ext" : ""}`;
             if (target.kind === "jump" && onJump) {
               return (
-                <button
+                <RowButton
                   key={i}
-                  type="button"
                   className={`${cls} link`}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -191,7 +191,7 @@ export function MilestoneCard({
                   title={`Jump to ${labelText}`}
                 >
                   {body}
-                </button>
+                </RowButton>
               );
             }
             if (target.kind === "link") {

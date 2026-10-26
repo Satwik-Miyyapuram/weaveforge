@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, MinusIcon, PlusIcon } from "@/components/view-icons";
+import { RowButton } from "./controls";
 
 const MIN_SCALE = 0.1;
 const MAX_SCALE = 20;
@@ -125,11 +126,11 @@ export function ImageViewer({
           {many && <span className="image-viewer-count"> {index + 1} / {images.length}</span>}
         </span>
         <span className="image-viewer-zoom">{Math.round(view.scale * 100)}%</span>
-        <button type="button" onClick={() => zoomAt(1 / STEP)} aria-label="Zoom out"><MinusIcon /></button>
-        <button type="button" onClick={() => zoomAt(STEP)} aria-label="Zoom in"><PlusIcon /></button>
-        <button type="button" onClick={() => setView(FIT)}>Fit</button>
+        <RowButton onClick={() => zoomAt(1 / STEP)} aria-label="Zoom out"><MinusIcon /></RowButton>
+        <RowButton onClick={() => zoomAt(STEP)} aria-label="Zoom in"><PlusIcon /></RowButton>
+        <RowButton onClick={() => setView(FIT)}>Fit</RowButton>
         <a href={image.src} download target="_blank" rel="noreferrer">Open</a>
-        <button type="button" onClick={onClose} aria-label="Close"><CloseIcon /></button>
+        <RowButton onClick={onClose} aria-label="Close"><CloseIcon /></RowButton>
       </div>
       <div
         ref={stageRef}
@@ -150,8 +151,8 @@ export function ImageViewer({
       </div>
       {many && (
         <>
-          <button type="button" className="image-viewer-nav prev" onClick={() => step(-1)} aria-label="Previous image"><ChevronLeftIcon /></button>
-          <button type="button" className="image-viewer-nav next" onClick={() => step(1)} aria-label="Next image"><ChevronRightIcon /></button>
+          <RowButton className="image-viewer-nav prev" onClick={() => step(-1)} aria-label="Previous image"><ChevronLeftIcon /></RowButton>
+          <RowButton className="image-viewer-nav next" onClick={() => step(1)} aria-label="Next image"><ChevronRightIcon /></RowButton>
         </>
       )}
     </div>,

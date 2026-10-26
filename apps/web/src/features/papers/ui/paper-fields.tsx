@@ -85,13 +85,11 @@ export function PaperFieldsStrip({ paperId, readOnly }: { paperId: string; readO
         Custom fields
         {msg ? ` · ${msg}` : ""}
         {!readOnly && (
-          <button
-            type="button"
-            className="link-btn"
+          <Button variant="link"
             onClick={() => setManaging((open) => !open)}
           >
             {managing ? "Done" : "Manage"}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -355,9 +353,7 @@ function PaperFieldsManager({
                   {def.name}{" "}
                   <span className="muted">({humanise(def.kind).toLowerCase()})</span>
                 </span>
-                <button
-                  type="button"
-                  className="link-btn"
+                <Button variant="link"
                   disabled={busy}
                   onClick={() => {
                     setRenameId(def.id);
@@ -365,7 +361,7 @@ function PaperFieldsManager({
                   }}
                 >
                   Rename
-                </button>
+                </Button>
                 <Button
                  
                   variant="ghost" size="sm"

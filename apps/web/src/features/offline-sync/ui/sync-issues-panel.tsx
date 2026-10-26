@@ -19,6 +19,7 @@ import { runSyncAction } from "./run-sync-action";
 import { useSyncIssues } from "./use-sync-issues";
 import { Button } from "@/components/button";
 import { deferDelete, useHiddenKeys } from "@/lib/toast";
+import { RadioButton, ToggleButton } from "@/components/controls";
 
 /** The key a refused write hides under while its Undo toast shows. */
 export const syncOpKey = (opId: string) => `syncop:${opId}`;
@@ -290,18 +291,15 @@ function FieldMerge({ field, choice, onChoose }: { field: Field; choice?: Choice
       ) : (
         <div className="sync-sides" role="radiogroup" aria-label={humanize(field.field)}>
           {(["local", "remote"] as const).map((side) => (
-            <button
+            <RadioButton checked={choice?.kind === side}
               key={side}
-              type="button"
-              role="radio"
-              aria-checked={choice?.kind === side}
               className="sync-side"
               data-side={side}
               onClick={() => onChoose({ kind: side })}
             >
               <span className="sync-side-tag">{side === "local" ? "This device" : "Cloud"}</span>
               <span className="sync-side-value">{show(field[side])}</span>
-            </button>
+            </RadioButton>
           ))}
         </div>
       )}
@@ -336,9 +334,9 @@ function TextMerge({ field, choice, onChoose }: { field: Field; choice?: Choice;
     <div className="sync-text">
       <div className="sync-seg" role="radiogroup" aria-label={humanize(field.field)}>
         {modes.map((m) => (
-          <button key={m.label} type="button" role="radio" aria-checked={m.checked} onClick={m.choose}>
+          <RadioButton checked={m.checked} key={m.label} onClick={m.choose}>
             {m.label}
-          </button>
+          </RadioButton>
         ))}
       </div>
       {choice?.kind === "edit" ? (
@@ -367,14 +365,12 @@ function TextMerge({ field, choice, onChoose }: { field: Field; choice?: Choice;
               <div key={i} className="sync-hunk">
                 <div className="sync-hunk-pick" role="group" aria-label={`Change ${group.hunk + 1}`}>
                   {(["ours", "theirs", "both"] as const).map((p) => (
-                    <button
+                    <ToggleButton pressed={hunkPicks[group.hunk!] === p}
                       key={p}
-                      type="button"
-                      aria-pressed={hunkPicks[group.hunk!] === p}
                       onClick={() => pickHunk(group.hunk!, p)}
                     >
                       {p === "ours" ? "Mine" : p === "theirs" ? "Cloud" : "Both"}
-                    </button>
+                    </ToggleButton>
                   ))}
                 </div>
                 {group.lines.map((l, j) => (

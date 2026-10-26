@@ -7,6 +7,8 @@ import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { LIST_COLOR_NAMES, LIST_COLOR_PRESETS } from "./list-ui";
 import { FormError } from "@/components/form-error";
+import { ToggleButton } from "@/components/controls";
+import { Button } from "@/components/button";
 
 /**
  * Add-list form. UI only: collects input and delegates to the manage use-case.
@@ -66,22 +68,20 @@ export function AddListForm({
         <span className="list-color-label">Color</span>
         <div className="list-color-picks" role="group" aria-label="List color">
           {LIST_COLOR_PRESETS.map((c, i) => (
-            <button
+            <ToggleButton pressed={color === c}
               key={c}
-              type="button"
               className={`list-color-pick${color === c ? " on" : ""}`}
               style={{ background: c }}
               aria-label={LIST_COLOR_NAMES[i]}
-              aria-pressed={color === c}
               onClick={() => setColor(c)}
             />
           ))}
         </div>
       </div>
       {error && <FormError>{error}</FormError>}
-      <button className="btn-primary" disabled={busy}>
+      <Button type="submit" variant="primary" disabled={busy}>
         {busy ? "Creating…" : "Create"}
-      </button>
+      </Button>
     </form>
   );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { RowButton } from "@/components/controls";
+
 /**
  * What each tab holds, in the words someone would search for. "Find a setting"
  * matches these, so a search for "dark" lands on Appearance without knowing
@@ -67,19 +69,17 @@ export function SettingsFind<T extends string>({
         onChange={(e) => onQuery(e.target.value)}
       />
       {hits && (
-        <div className="settings-find-hits" role="list">
+        <div className="settings-find-hits">
           {hits.length === 0 && <p className="muted settings-find-empty">No setting matches.</p>}
           {hits.map((hit) => (
-            <button
+            <RowButton
               key={`${hit.tab}-${hit.word}`}
-              type="button"
-              role="listitem"
               className="settings-find-hit"
               onClick={() => onPick(hit.tab)}
             >
               <span>{hit.word}</span>
               <span className="muted">{labelOf.get(hit.tab)}</span>
-            </button>
+            </RowButton>
           ))}
         </div>
       )}

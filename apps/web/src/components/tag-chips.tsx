@@ -1,6 +1,7 @@
 "use client";
 
 import { CloseIcon } from "@/components/view-icons";
+import { RowButton } from "./controls";
 
 /**
  * The chips a note's #hashtags render as, with a delete on each.
@@ -25,15 +26,14 @@ export function TagChips({
         {tags.map((t) => (
           <span key={t} className="tag-chip editable">
             #{t}
-            <button
-              type="button"
+            <RowButton
               className="tag-del"
               aria-label={`Remove #${t}`}
               disabled={busy}
               onClick={() => onRemove(t)}
             >
               <CloseIcon />
-            </button>
+            </RowButton>
           </span>
         ))}
       </div>

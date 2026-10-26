@@ -7,6 +7,8 @@ import { OpenIcon } from "@/components/view-icons";
 import { paperExternalLink } from "./paper-external-link";
 import { StatusSelect } from "@/components/status-select";
 import { SortHeader } from "@/components/sort-header";
+import { Button } from "@/components/button";
+import { RowButton } from "@/components/controls";
 
 /**
  * Tabular list — same chrome as experiments Compare (`cmp-table`).
@@ -141,14 +143,12 @@ function PaperTableRow({
   return (
     <tr>
       <td className="papers-col-title">
-        <button
-          type="button"
-          className="link-btn papers-table-title-btn"
+        <Button variant="link" className="papers-table-title-btn"
           onClick={onOpen}
           title={paper.title}
         >
           {paper.title}
-        </button>
+        </Button>
         {readOnly && sharedByName && (
           <span className="muted papers-table-shared">Shared by {sharedByName}</span>
         )}
@@ -168,24 +168,22 @@ function PaperTableRow({
       </td>
       <td className="papers-col-link">
         {link ? (
-          <a href={link.href} target="_blank" rel="noreferrer" className="link-btn" title={link.label}>
+          <Button variant="link" href={link.href} target="_blank" rel="noreferrer" title={link.label}>
             <span className="papers-link-full">{link.label} ↗</span>
             <span className="papers-link-short" aria-hidden>↗</span>
-          </a>
+          </Button>
         ) : (
           "—"
         )}
       </td>
       <td className="papers-col-open">
-        <button
-          type="button"
-          className="entity-icon-btn paper-open-icon"
+        <RowButton className="entity-icon-btn paper-open-icon"
           onClick={onOpen}
           aria-label={`Open note for ${paper.title}`}
           title="Open note"
         >
           <OpenIcon />
-        </button>
+        </RowButton>
       </td>
     </tr>
   );

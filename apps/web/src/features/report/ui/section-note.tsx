@@ -21,6 +21,7 @@ import { SectionRelatedExcerpts } from "./section-related-excerpts";
 import { ExperimentArtifactPicker } from "./experiment-artifact-picker";
 import { StatusSelect } from "@/components/status-select";
 import { removeSectionLater } from "./remove-section";
+import { RowButton } from "@/components/controls";
 
 /** A section's two views, in the order the Editor's pane header lists them. */
 const SECTION_MODES = ["edit", "read"] as const;
@@ -191,9 +192,9 @@ export function SectionNote({
           readOnly ? (
             <p className="muted summary-empty">No note yet.</p>
           ) : (
-            <button type="button" className="record-note-empty" onClick={() => setMode("edit")}>
+            <RowButton className="record-note-empty" onClick={() => setMode("edit")}>
               No note yet. Start writing — cite with [[ or @, math with $E = mc^2$.
-            </button>
+            </RowButton>
           )
         ) : (
           <div className={editing ? "record-doc record-doc--edit" : "summary"}>

@@ -116,15 +116,13 @@ export function ExperimentArtifactPicker({
   }
 
   const trigger = (
-    <button
-      type="button"
-      className="link-btn"
+    <Button variant="link"
       disabled={disabled}
       onClick={() => setOpen(true)}
       title="Insert experiment artifact"
     >
       /experiment
-    </button>
+    </Button>
   );
   if (!open) return trigger;
 
@@ -172,9 +170,9 @@ export function ExperimentArtifactPicker({
           </Select>
           {error && <InlineError>{error}</InlineError>}
           <ModalActions>
-            <button type="button" className="btn-ghost btn-cancel" onClick={() => setOpen(false)} disabled={busy}>
+            <Button variant="ghost" className="btn-cancel" onClick={() => setOpen(false)} disabled={busy}>
               Cancel
-            </button>
+            </Button>
             <Button
               variant="primary"
               onClick={insert}

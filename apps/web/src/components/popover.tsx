@@ -6,6 +6,7 @@ import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { ChevronIcon } from "./chevron-icon";
 import { focusFirstControl, focusFirstField } from "./modal";
 import { VIEWPORT_PAD } from "./viewport-pad";
+import { RowButton } from "./controls";
 
 
 /**
@@ -129,9 +130,8 @@ export function Popover({
 
   return (
     <div className="popover" ref={ref}>
-      <button
+      <RowButton
         ref={triggerRef}
-        type="button"
         className={`${triggerClassName} popover-trigger${open ? " on" : ""}${iconOnly ? " popover-trigger--icon" : ""}`}
         aria-label={ariaLabel}
         // An icon has no words of its own; the tooltip gives the pointer the name a screen reader gets.
@@ -147,7 +147,7 @@ export function Popover({
         {label}
         {count ? <span className="popover-badge">{count}</span> : null}
         {!iconOnly && <ChevronIcon open={open} className="popover-caret" />}
-      </button>
+      </RowButton>
       {open &&
         (() => {
           const panel = (

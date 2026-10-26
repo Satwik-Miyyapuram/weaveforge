@@ -25,6 +25,7 @@ import { kindIcon, kindSuffix, kindTintClass, modesFor } from "./kind";
 import { CloseGlyph } from "./explorer-glyphs";
 import { followPointer } from "./follow-pointer";
 import { keyLabel, shortcutLabel } from "@/lib/shortcut-label";
+import { RowButton } from "@/components/controls";
 
 export interface PaneActions {
   onActivate: (paneId: string, index: number) => void;
@@ -191,8 +192,7 @@ function PaneLeafView({
               </span>
               <span className="pane-tab-label">{labelFor(tab)}</span>
               {suffix ? <span className="pane-tab-ext">{suffix}</span> : null}
-              <button
-                type="button"
+              <RowButton
                 className="pane-tab-close"
                 aria-label={`Close ${labelFor(tab)}`}
                 title={`Close ${labelFor(tab)}`}
@@ -202,7 +202,7 @@ function PaneLeafView({
                 }}
               >
                 <CloseGlyph size={12} stroke={2.2} />
-              </button>
+              </RowButton>
             </div>
           );
         })}
@@ -230,15 +230,14 @@ function PaneLeafView({
             {leaf.tabs.length > 1 ? (
               <span className="pane-tab-count" aria-hidden="true">{leaf.tabs.length}</span>
             ) : null}
-            <button
-              type="button"
+            <RowButton
               className="pane-tab-close"
               aria-label={`Close ${labelFor(showing)}`}
               title={`Close ${labelFor(showing)}`}
               onClick={() => onClose(leaf.id, leaf.activeIndex)}
             >
               <CloseGlyph size={12} stroke={2.2} />
-            </button>
+            </RowButton>
           </div>
         ) : null}
         <div className="pane-tab-actions">
@@ -264,35 +263,32 @@ function PaneLeafView({
               ))}
             </span>
           ) : null}
-          <button
-            type="button"
+          <RowButton
             className="pane-action"
             aria-label="Split right"
             title="Split right"
             onClick={() => onSplit(leaf.id, "row")}
           >
             <SplitGlyph direction="row" />
-          </button>
+          </RowButton>
           {onToggleFocus ? (
-            <button
-              type="button"
+            <RowButton
               className="pane-action"
               aria-label="Focus"
               title={`Focus: only the document (${shortcutLabel("⌘⇧F")})`}
               onClick={onToggleFocus}
             >
               <FocusGlyph on={false} />
-            </button>
+            </RowButton>
           ) : null}
-          <button
-            type="button"
+          <RowButton
             className="pane-action"
             aria-label="Split down"
             title="Split down"
             onClick={() => onSplit(leaf.id, "column")}
           >
             <SplitGlyph direction="column" />
-          </button>
+          </RowButton>
         </div>
       </div>
 

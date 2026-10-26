@@ -168,15 +168,13 @@ export function ScreeningPanel({
     <div className="screening-panel">
       <div className="screening-toolbar">
         {SCREENING_STAGES.map((s) => (
-          <button
+          <Button variant="link" className={stage === s ? "is-active" : undefined}
             key={s}
-            type="button"
-            className={`link-btn${stage === s ? " is-active" : ""}`}
             aria-pressed={stage === s}
             onClick={() => setStage(s)}
           >
             {STAGE_LABEL[s]}
-          </button>
+          </Button>
         ))}
         <Button variant="ghost" size="sm" onClick={copyFigure} disabled={!summary}>
           Copy PRISMA figure
@@ -219,16 +217,14 @@ export function ScreeningPanel({
                       }
                     />
                     {(Object.keys(STATE_LABEL) as ScreeningState[]).map((state) => (
-                      <button
+                      <Button variant="link" className={mine?.state === state ? "is-active" : undefined}
                         key={state}
-                        type="button"
-                        className={`link-btn${mine?.state === state ? " is-active" : ""}`}
                         aria-pressed={mine?.state === state}
                         disabled={busy}
                         onClick={() => decide(item.id, state)}
                       >
                         {STATE_LABEL[state]}
-                      </button>
+                      </Button>
                     ))}
                   </span>
                 )}

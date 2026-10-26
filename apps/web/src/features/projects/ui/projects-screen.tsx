@@ -13,6 +13,7 @@ import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/button";
+import { RowButton } from "@/components/controls";
 
 // Lazy: this screen sits in the root layout, which has a tight JS budget.
 const ConfirmDialog = dynamic(() => import("@/components/confirm-dialog").then((m) => m.ConfirmDialog), { ssr: false });
@@ -142,21 +143,20 @@ export function ProjectsScreen() {
           {projects.map((p) => (
             <li key={p.id} className="project-row">
               {/*
-               * A real `<button>`, not a `<li>` with an `onClick`. This is the
+               * A real button element, not a `<li>` with an `onClick`. This is the
                * first screen a signed-in user with no project sees, and the
                * clickable list item could not be reached by keyboard or
                * activated with Enter or Space — no `role`, no `tabIndex`, no
                * key handler. A button gets the role, the focus ring and both
                * activation keys for free.
                */}
-              <button
-                type="button"
+              <RowButton
                 className="card project-card"
                 onClick={() => setProject(p.id)}
               >
                 <span className="project-dot" style={{ background: p.color ?? "#7c9885" }} />
                 <span className="project-name">{p.name}</span>
-              </button>
+              </RowButton>
               <EntityCardMenu
                 shareable={false}
                 title={p.name}

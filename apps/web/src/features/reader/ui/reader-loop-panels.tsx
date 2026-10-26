@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import type { ActivityLogEntry } from "../application/batch-annotation-ops";
 import { Button } from "@/components/button";
 
@@ -54,14 +53,14 @@ export function ReaderSplitPanel({ kind, title, bodyPreview, href, onClose }: Re
           <p className="eyebrow">{kind === "report" ? "Report" : "Vault"}</p>
           <h2>{title}</h2>
         </div>
-        <button type="button" className="link-btn" onClick={onClose}>
+        <Button variant="link" onClick={onClose}>
           Close
-        </button>
+        </Button>
       </div>
       <pre className="reader-split-body">{bodyPreview || "Nothing to preview yet."}</pre>
-      <Link className="btn-secondary" href={href}>
+      <Button href={href}>
         Open full {kind === "report" ? "section" : "note"}
-      </Link>
+      </Button>
     </aside>
   );
 }

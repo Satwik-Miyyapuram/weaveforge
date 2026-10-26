@@ -15,6 +15,7 @@ import { offsetOf, paintHighlights } from "./note-text-ranges";
 import { CommentsBadge } from "./comments-badge";
 import { Button } from "@/components/button";
 import { deferDelete, useHiddenKeys } from "@/lib/toast";
+import { RowButton } from "@/components/controls";
 
 const commentKey = (id: string) => `comment:${id}`;
 
@@ -283,7 +284,7 @@ export function NoteComments({
           <div className="comment-add">
             <textarea rows={2} value={reply} autoFocus placeholder="Reply…" onChange={(e) => setReply(e.target.value)} />
             <div className="note-thread-actions">
-              <button type="button" className="btn-ghost btn-cancel" onClick={() => setReplyTo(null)}>Cancel</button>
+              <Button variant="ghost" className="btn-cancel" onClick={() => setReplyTo(null)}>Cancel</Button>
               <Button variant="primary" disabled={busy || !reply.trim()} onClick={() => void answer(root.id)}>
                 Reply
               </Button>
@@ -301,18 +302,17 @@ export function NoteComments({
     >
       {!embedded && (
         <h2 className="record-section-head">
-          <button type="button" className="note-comments-toggle" aria-expanded={open} onClick={toggleOpen}>
+          <RowButton className="note-comments-toggle" aria-expanded={open} onClick={toggleOpen}>
             <CommentsIcon size={14} />
             <span>Comments</span>
             <CommentsBadge count={openThreads.length} />
             <ChevronIcon open={shown} size={14} />
-          </button>
+          </RowButton>
         </h2>
       )}
 
       {selection && (
-        <button
-          type="button"
+        <RowButton
           className="note-comment-pop"
           style={{ left: selection.x, top: selection.y }}
           // Keep the selection alive through the press.
@@ -320,7 +320,7 @@ export function NoteComments({
           onClick={startFromSelection}
         >
           <CommentsIcon size={14} /> Comment
-        </button>
+        </RowButton>
       )}
 
       {shown && (
@@ -341,7 +341,7 @@ export function NoteComments({
               />
               <div className="note-thread-actions">
                 {pending && (
-                  <button type="button" className="btn-ghost btn-cancel" onClick={() => setPending(null)}>Cancel</button>
+                  <Button variant="ghost" className="btn-cancel" onClick={() => setPending(null)}>Cancel</Button>
                 )}
                 <Button variant="primary" disabled={busy || !draft.trim()} onClick={() => void add()}>
                   {busy ? "Posting…" : "Comment"}
@@ -354,9 +354,9 @@ export function NoteComments({
           <ul className="note-threads">{openThreads.map(renderThread)}</ul>
           {resolved.length > 0 && (
             <>
-              <button type="button" className="note-comments-resolved" aria-expanded={showResolved} onClick={() => setShowResolved((v) => !v)}>
+              <RowButton className="note-comments-resolved" aria-expanded={showResolved} onClick={() => setShowResolved((v) => !v)}>
                 Resolved ({resolved.length})
-              </button>
+              </RowButton>
               {showResolved && <ul className="note-threads">{resolved.map(renderThread)}</ul>}
             </>
           )}
@@ -373,15 +373,13 @@ function CommentLine({ c, name, canDelete, onDelete }: { c: Comment; name: strin
         <span className="comment-author">{name}</span>
         <span className="muted comment-time">{c.createdAt.slice(0, 10)}</span>
         {canDelete && (
-          <button
-            type="button"
-            className="entity-icon-btn danger comment-del"
+          <RowButton className="entity-icon-btn danger comment-del"
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
             aria-label="Delete comment"
             title="Delete"
           >
             <DeleteIcon size={14} />
-          </button>
+          </RowButton>
         )}
       </div>
       <p className="note-comment-body">{c.body}</p>

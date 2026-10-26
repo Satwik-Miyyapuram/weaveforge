@@ -5,6 +5,7 @@ import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { createPortal } from "react-dom";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { anchoredMenuStyle, useAnchoredMenu } from "@/lib/hooks/use-anchored-menu";
+import { ComboboxButton } from "./controls";
 
 interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "onChange"> {
   onChange?: (e: { target: { value: string } }) => void;
@@ -244,14 +245,11 @@ export function Select({
         listbox is the documented select-only pattern; `aria-haspopup="listbox"`
         is dropped because it is the implicit value for combobox.
       */}
-      <button
+      <ComboboxButton expanded={open}
         ref={buttonRef}
-        type="button"
         id={id}
         className={buttonClass}
         disabled={disabled}
-        role="combobox"
-        aria-expanded={open}
         aria-label={ariaLabel}
         aria-describedby={ariaDescribedBy}
         aria-invalid={ariaInvalid}
@@ -267,7 +265,7 @@ export function Select({
       >
         <span className="custom-select-value">{selectedOption ? selectedOption.label : ""}</span>
         <ChevronIcon />
-      </button>
+      </ComboboxButton>
       {open && menuRect && createPortal(
         <div
           ref={listRef}

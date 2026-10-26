@@ -17,6 +17,7 @@ import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import { projectPageAnnotationGeometry } from "../application/project-annotation-geometry";
 import { pagePictures } from "../application/reader-picture";
 import type { PictureEdit } from "./pdf-reader/use-pdf-pictures";
+import { RowButton } from "@/components/controls";
 
 interface AnnotationOverlayProps {
   annotations: ReaderAnnotation[];
@@ -194,20 +195,18 @@ function AnnotationOverlayInner({
       />
       {boxes.map((box, i) =>
         (box.picture && upright) || (textEdit && box.id === textEdit.id) ? null : box.picture ? (
-          <button
+          <RowButton
             key={`${box.id}-${i}`}
-            type="button"
             className={`pdf-reader-picture${selectedId === box.id ? " is-selected" : ""}`}
             data-ann-id={box.id}
             style={{ left: box.left, top: box.top, width: box.width, height: box.height }}
             onClick={onSelect ? () => onSelect(box.id) : undefined}
           >
             {pictureUrls.get(box.picture) ? <img src={pictureUrls.get(box.picture)} alt="" /> : null}
-          </button>
+          </RowButton>
         ) : (
-          <button
+          <RowButton
             key={`${box.id}-${i}`}
-            type="button"
             className={`pdf-reader-ann${selectedId === box.id ? " is-selected" : ""}${
               box.underline ? " is-underline" : ""
             }${box.text != null ? " is-text" : ""}`}
@@ -239,7 +238,7 @@ function AnnotationOverlayInner({
             }}
           >
             {box.text}
-          </button>
+          </RowButton>
         ),
       )}
     </div>

@@ -38,9 +38,9 @@ export function buttonTags(text: string): string[] {
   return tags;
 }
 
-/** True when a Button tag can never act: no click handler, no type, no spread. */
+/** True when a Button tag can never act: no click handler, no type, no link, no spread. */
 export function isInert(attrs: string): boolean {
-  return !/\bonClick=|\btype=|\{\s*\.\.\./.test(attrs);
+  return !/\bonClick=|\btype=|\bhref=|\{\s*\.\.\./.test(attrs);
 }
 
 test("buttonTags reads multi-line tags with arrows inside braces", () => {
@@ -55,6 +55,7 @@ test("isInert flags a Button with no onClick and no type", () => {
   assert.equal(isInert(' type="submit" disabled={busy}'), false);
   assert.equal(isInert(" onClick={save}"), false);
   assert.equal(isInert(" {...props}"), false);
+  assert.equal(isInert(' href="/settings"'), false);
 });
 
 test("every Button in the app either submits or handles a click", () => {

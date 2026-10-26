@@ -90,10 +90,9 @@ const RULES = [
   {
     name: "raw <button> (G1)",
     pattern: /<button\b/g,
-    use: "<Button> or <IconButton> from @/components/button",
+    use: "<Button> or <IconButton> from @/components/button, or a control from @/components/controls",
     why: "a hand-rolled button picks its own height, padding and disabled look",
-    allow: ["components/button.tsx", "/test/"],
-    ceiling: 325,
+    allow: ["components/button.tsx", "components/controls.tsx", "/test/"],
   },
 ];
 

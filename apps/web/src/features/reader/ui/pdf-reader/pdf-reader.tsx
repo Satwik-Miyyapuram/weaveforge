@@ -114,6 +114,8 @@ import {
 import { readStored, writeStored } from "@/lib/safe-storage";
 import { shortcutLabel } from "@/lib/shortcut-label";
 import { Button } from "@/components/button";
+import { RadioButton, RowButton } from "@/components/controls";
+import { ViewSwitch } from "@/components/view-switch";
 
 export function PdfReader({
   url,
@@ -1453,6 +1455,23 @@ export function PdfReader({
     );
   }
 
+  // The sidebar's tabs; both tab strips (narrow toolbar, wide sidebar) show these.
+  const sideTabs = [
+    { value: "outline" as const, label: "Outline", title: "Table of contents / outline" },
+    {
+      value: "references" as const,
+      label: refs.index.references.length
+        ? `References (${refs.index.references.length})`
+        : textAnnotationsCount > 0
+        ? `References (${textAnnotationsCount})`
+        : "References",
+      title: "Document references & citations",
+    },
+    ...(listed.length > 0 || canCreate
+      ? [{ value: "annotations" as const, label: listed.length ? `Annotations (${listed.length})` : "Annotations", title: "Annotations & highlights" }]
+      : []),
+  ];
+
   return (
     <div
       className={`pdf-reader${darkPdf ? " pdf-reader--dark" : ""}${focus ? " is-focus" : ""}`}
@@ -1471,15 +1490,14 @@ export function PdfReader({
       }
     >
       {focus && (
-        <button
-          type="button"
+        <RowButton
           className="focus-exit"
           title={`Exit focus (${shortcutLabel("⌘⇧F")})`}
           aria-label="Exit focus"
           onClick={toggleFocus}
         >
           <FocusGlyph on />
-        </button>
+        </RowButton>
       )}
       {locus && jump.status !== "idle" && (
         <div className={`pdf-reader-banner pdf-reader-banner--${jump.status}`} role="status">
@@ -1501,8 +1519,7 @@ export function PdfReader({
       <div className="pdf-reader-chrome" data-phone-panel={phonePanel}>
         <div className="pdf-reader-tools">
           <div className="ink-page-pill">
-            <button
-              type="button"
+            <RowButton
               className="ink-tool ink-tool-icon-only"
               onClick={() => viewport.setPage(viewport.page - 1)}
               disabled={viewport.page <= 1}
@@ -1522,14 +1539,13 @@ export function PdfReader({
               >
                 <path d="m15 18-6-6 6-6" />
               </svg>
-            </button>
+            </RowButton>
             <span className="ink-page-count" aria-label={`Page ${viewport.page} of ${Math.max(1, numPages)}`}>
               <PageField page={viewport.page} pages={Math.max(1, numPages)} onGoToPage={viewport.setPage} />
               <span className="ink-page-sep" aria-hidden="true">/</span>
               <span className="ink-page-total">{Math.max(1, numPages)}</span>
             </span>
-            <button
-              type="button"
+            <RowButton
               className="ink-tool ink-tool-icon-only"
               onClick={() => viewport.setPage(viewport.page + 1)}
               disabled={viewport.page >= Math.max(1, numPages)}
@@ -1549,7 +1565,7 @@ export function PdfReader({
               >
                 <path d="m9 18 6-6-6-6" />
               </svg>
-            </button>
+            </RowButton>
           </div>
           <ViewMenu
             zoomPercent={Math.round(viewport.renderScale * 100)}
@@ -1577,57 +1593,24 @@ export function PdfReader({
           {(!penOpen || toolbarExtra) && (
             <div className={`pdf-reader-group pdf-reader-more${toolbarExtra ? "" : " pdf-reader-narrow-only"}`}>
               {!penOpen && (
-                <div className="seg pdf-reader-side-seg pdf-reader-narrow-only" role="tablist" aria-label="Sidebar view">
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={!sideCollapsed && activeSideTab === "outline"}
-                    className={!sideCollapsed && activeSideTab === "outline" ? "seg-on" : undefined}
-                    title="Table of contents / outline"
-                    onClick={() => selectSideTab("outline")}
-                  >
-                    Outline
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={!sideCollapsed && activeSideTab === "references"}
-                    className={!sideCollapsed && activeSideTab === "references" ? "seg-on" : undefined}
-                    title="Document references & citations"
-                    onClick={() => selectSideTab("references")}
-                  >
-                    {refs.index.references.length
-                      ? `References (${refs.index.references.length})`
-                      : textAnnotationsCount > 0
-                      ? `References (${textAnnotationsCount})`
-                      : "References"}
-                  </button>
-                  {(listed.length > 0 || canCreate) && (
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={!sideCollapsed && activeSideTab === "annotations"}
-                      className={!sideCollapsed && activeSideTab === "annotations" ? "seg-on" : undefined}
-                      title="Annotations & highlights"
-                      onClick={() => selectSideTab("annotations")}
-                    >
-                      {listed.length ? `Annotations (${listed.length})` : "Annotations"}
-                    </button>
-                  )}
-                </div>
+                <ViewSwitch
+                  label="Sidebar view"
+                  className="pdf-reader-side-seg pdf-reader-narrow-only"
+                  value={sideCollapsed ? null : activeSideTab}
+                  onChange={selectSideTab}
+                  options={sideTabs}
+                />
               )}
               {toolbarExtra}
             </div>
           )}
-          <button
-            type="button"
-            className="btn-secondary btn-sm pdf-reader-focus-btn"
+          <Button size="sm" className="pdf-reader-focus-btn"
             title={`Focus (${shortcutLabel("⌘⇧F")})`}
             aria-label="Focus"
             onClick={toggleFocus}
           >
             <FocusGlyph on={false} />
-          </button>
+          </Button>
         </div>
         {/* The ink note's own bar, not a copy of it: same tools, same swatches,
             same nibs, same fold and move handles. Select and the Insert tools
@@ -1718,11 +1701,8 @@ export function PdfReader({
           {!penOpen && (
             <div className="pdf-reader-pill-colours" role="radiogroup" aria-label="Annotation colour">
               {quickColours.slice(0, 4).map((colour, i) => (
-                <button
+                <RadioButton checked={pickedColor === colour}
                   key={colour}
-                  type="button"
-                  role="radio"
-                  aria-checked={pickedColor === colour}
                   aria-label={`Colour ${colour}`}
                   className="pdf-reader-pill-swatch"
                   style={{ background: quickHexes[i] }}
@@ -1735,9 +1715,8 @@ export function PdfReader({
             </div>
           )}
           {!penOpen && <span className="pdf-reader-pill-sep" aria-hidden="true" />}
-          <button
-            type="button"
-            className={`btn-secondary btn-sm pdf-reader-icon-btn${penOpen ? " is-active" : ""}`}
+          <Button size="sm"
+            className={`pdf-reader-icon-btn${penOpen ? " is-active" : ""}`}
             aria-pressed={penOpen}
             aria-label="Ink mode"
             title="Ink mode"
@@ -1751,11 +1730,10 @@ export function PdfReader({
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
               <path d="M4 20h4L19 9l-4-4L4 16z" />
             </svg>
-          </button>
+          </Button>
           {!penOpen && (
-            <button
-              type="button"
-              className={`btn-secondary btn-sm pdf-reader-icon-btn${!sideCollapsed && activeSideTab === "annotations" ? " is-active" : ""}`}
+            <Button size="sm"
+              className={`pdf-reader-icon-btn${!sideCollapsed && activeSideTab === "annotations" ? " is-active" : ""}`}
               aria-pressed={!sideCollapsed && activeSideTab === "annotations"}
               aria-label={`Annotations${listed.length ? ` (${listed.length})` : ""}`}
               title="Annotations"
@@ -1764,7 +1742,7 @@ export function PdfReader({
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                 <path d="M5 6h14M5 12h14M5 18h9" />
               </svg>
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -1995,8 +1973,7 @@ export function PdfReader({
         {/* Collapsed, the whole column folds to one vertical tab that still
             says how many annotations wait behind it. */}
         {!penOpen && sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
-          <button
-            type="button"
+          <RowButton
             className="pdf-reader-side-rail"
             aria-expanded={false}
             aria-label="Show the side panel"
@@ -2014,49 +1991,19 @@ export function PdfReader({
                   : "References"
                 : `Annotations ${listed.length ? `(${listed.length})` : ""}`}
             </span>
-          </button>
+          </RowButton>
         )}
         {!penOpen && !sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
           <div className="pdf-reader-side is-list-open">
             <div className="pdf-reader-side-header">
-              <div className="seg pdf-reader-side-seg" role="tablist" aria-label="Sidebar view">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeSideTab === "outline"}
-                  className={activeSideTab === "outline" ? "seg-on" : undefined}
-                  onClick={() => setActiveSideTab("outline")}
-                >
-                  Outline
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeSideTab === "references"}
-                  className={activeSideTab === "references" ? "seg-on" : undefined}
-                  onClick={() => setActiveSideTab("references")}
-                >
-                  {refs.index.references.length
-                    ? `References (${refs.index.references.length})`
-                    : textAnnotationsCount > 0
-                    ? `References (${textAnnotationsCount})`
-                    : "References"}
-                </button>
-                {(listed.length > 0 || canCreate) && (
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={activeSideTab === "annotations"}
-                    className={activeSideTab === "annotations" ? "seg-on" : undefined}
-                    onClick={() => setActiveSideTab("annotations")}
-                  >
-                    {listed.length ? `Annotations (${listed.length})` : "Annotations"}
-                  </button>
-                )}
-              </div>
-              <button
-                type="button"
-                className="btn-secondary btn-sm pdf-reader-icon-btn pdf-reader-side-collapse"
+              <ViewSwitch
+                label="Sidebar view"
+                className="pdf-reader-side-seg"
+                value={activeSideTab}
+                onChange={setActiveSideTab}
+                options={sideTabs}
+              />
+              <Button size="sm" className="pdf-reader-icon-btn pdf-reader-side-collapse"
                 aria-expanded
                 aria-label="Hide the side panel"
                 title="Hide the side panel"
@@ -2065,7 +2012,7 @@ export function PdfReader({
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M9 6l6 6-6 6" />
                 </svg>
-              </button>
+              </Button>
             </div>
             {activeSideTab === "outline" ? (
               <ReaderOutline items={outline} onNavigate={(n) => viewport.setPage(n)} />

@@ -11,10 +11,10 @@ import { ScreenHead } from "@/components/screen-head";
 import { EmptyState } from "@/components/empty-state";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { NavIcon } from "@/app/nav-icon";
-import Link from "next/link";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { formatError } from "@/lib/format-error";
 import { Button } from "@/components/button";
+import { ToggleButton } from "@/components/controls";
 
 function repoWebUrl(i: Integration): string {
   const { repo } = gitConnection(i);
@@ -110,9 +110,9 @@ export function GitScreen() {
         search={integration ? { value: search, onChange: setSearch, label: "Search commits" } : undefined}
       >
         {integration && (
-          <Link className="btn-secondary" href="/settings">
+          <Button href="/settings">
             Settings
-          </Link>
+          </Button>
         )}
         {integration && (
           <Button variant="primary" onClick={() => void load(branch)} disabled={loading}>
@@ -128,9 +128,9 @@ export function GitScreen() {
           title="No repository connected"
           body="Connect the repository your project lives in and this screen lists its branches and commits — so the code behind a result stays a click away from the result."
           action={
-            <Link className="btn-primary" href="/settings">
+            <Button variant="primary" href="/settings">
               Open settings
-            </Link>
+            </Button>
           }
         />
       )}
@@ -188,28 +188,24 @@ export function GitScreen() {
               <ul className="git-branch-list">
                 {branches.map((b) => (
                   <li key={b.name}>
-                    <button
-                      type="button"
+                    <ToggleButton pressed={b.name === branch}
                       className={b.name === branch ? "git-branch is-active" : "git-branch"}
-                      aria-pressed={b.name === branch}
                       onClick={() => void load(b.name)}
                       disabled={loading}
                     >
                       <span className="git-branch-swatch" aria-hidden="true" />
                       <span className="git-branch-name">{b.name}</span>
                       {b.name === integration.branch && <span className="git-branch-note">default</span>}
-                    </button>
+                    </ToggleButton>
                   </li>
                 ))}
               </ul>
-              <button
-                type="button"
-                className="btn-primary track-branch-btn"
+              <Button variant="primary" className="track-branch-btn"
                 onClick={() => void trackBranch()}
                 disabled={loading || tracking || !branch}
               >
                 {tracking ? "Tracking…" : `Track ${branch} as experiment`}
-              </button>
+              </Button>
               <p className="muted git-branches-note">A tracked branch shows up as an experiment, with its runs.</p>
             </aside>
           </div>

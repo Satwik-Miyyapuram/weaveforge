@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DOCS_URL } from "./account-links";
 import { RouteNotFound } from "./route-not-found";
+import { Button } from "@/components/button";
 
 /**
  * The app's 404.
@@ -21,9 +22,9 @@ export default function NotFound() {
     <RouteNotFound
       links={
         <>
-          <Link className="btn-primary" href="/">
+          <Button variant="primary" href="/">
             Back to the home page
-          </Link>
+          </Button>
           <Link className="not-found-link" href="/papers">
             Browse the papers
           </Link>

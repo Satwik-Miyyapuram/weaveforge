@@ -43,7 +43,7 @@ test("a commented mark: kind, round swatches, Delete, then its comment and Edit 
   assert.equal(text(tree.root.find((n) => n.props.className === "pdf-reader-pop-kind")), "Highlight");
   assert.deepEqual(labels(tree), ["Colour #ffd400", "Colour #ff6666", "Delete", "Edit comment"]);
   assert.equal(text(tree.root.find((n) => n.props.className === "pdf-reader-pop-quote")), "“key claim”");
-  assert.equal(tree.root.find((n) => n.props["aria-label"] === "Colour #ffd400").props["aria-pressed"], true);
+  assert.equal(tree.root.find((n) => n.type === "button" && n.props["aria-label"] === "Colour #ffd400").props["aria-pressed"], true);
   act(() => tree.unmount());
 });
 

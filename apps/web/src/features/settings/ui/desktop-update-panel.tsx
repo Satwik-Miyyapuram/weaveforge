@@ -105,9 +105,9 @@ export function DesktopUpdatePanel() {
             <b>Version {update.version} is available.</b> Downloading opens the release page
             in your browser; nothing is installed without you.
           </p>
-          <a className="btn-primary" href={update.url} target="_blank" rel="noreferrer">
+          <Button variant="primary" href={update.url} target="_blank" rel="noreferrer">
             Get {update.version}
-          </a>
+          </Button>
         </div>
       ) : (
         <p className="muted">

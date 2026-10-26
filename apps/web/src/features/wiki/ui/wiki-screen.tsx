@@ -153,9 +153,9 @@ export function WikiScreen() {
   return (
     <section className="screen wiki-screen">
       <ScreenHead title="Wiki">
-        <Link className="btn-secondary" href="/ai-review">
+        <Button href="/ai-review">
           Open review queue
-        </Link>
+        </Button>
       </ScreenHead>
       <p className="muted wiki-lede">
         Concept pages drafted from your notes and papers. Nothing is written until you approve
@@ -188,14 +188,12 @@ export function WikiScreen() {
           </Button>
           {/* With a model configured a scan costs the user money per document,
               so narrowing it has to be reachable before running, not after. */}
-          <button
-            className={sources ? "btn-ghost btn-cancel" : "btn-secondary"}
-            type="button"
+          <Button variant={sources ? "ghost" : "secondary"} className={sources ? "btn-cancel" : undefined}
             disabled={busy !== null}
             onClick={() => (sources ? setSources(null) : void chooseSources())}
           >
             {sources ? "Cancel" : "Choose what to scan…"}
-          </button>
+          </Button>
         </div>
 
         {sources && (
@@ -341,9 +339,7 @@ export function WikiScreen() {
                 </h4>
                 {step.kind === "dead-link" && (
                   <div className="screen-actions">
-                    <button
-                      className="link-btn"
-                      type="button"
+                    <Button variant="link"
                       disabled={busy !== null}
                       onClick={() =>
                         void fixDeadLinks([
@@ -356,7 +352,7 @@ export function WikiScreen() {
                       }
                     >
                       {busy === "fix" ? "Queueing…" : "Queue a page for each missing link"}
-                    </button>
+                    </Button>
                   </div>
                 )}
                 <ul className="wiki-lint-list">
@@ -364,15 +360,13 @@ export function WikiScreen() {
                     <li key={`${finding.pageId}-${index}`} data-severity={finding.severity}>
                       {finding.message}
                       {finding.relatedPageId && (
-                        <button
-                          type="button"
-                          className="link-btn"
+                        <Button variant="link"
                           onClick={() =>
                             setMerge({ primaryId: finding.relatedPageId!, secondaryId: finding.pageId })
                           }
                         >
                           Merge…
-                        </button>
+                        </Button>
                       )}
                     </li>
                   ))}
@@ -469,9 +463,9 @@ function MergeDialog({
           <pre className="wiki-merge-preview">{preview.result.body}</pre>
 
           <ModalActions>
-            <button className="btn-ghost btn-cancel" type="button" onClick={onClose}>
+            <Button variant="ghost" className="btn-cancel" onClick={onClose}>
               Cancel
-            </button>
+            </Button>
             <Button
               variant="primary"
              

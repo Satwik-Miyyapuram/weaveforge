@@ -10,6 +10,7 @@
  */
 
 import { shortcutLabel } from "@/lib/shortcut-label";
+import { SegmentedControl } from "./segmented-control";
 
 export type DocumentModeName = "edit" | "read" | "ink" | "pdf";
 
@@ -32,19 +33,13 @@ export function DocumentModeSwitch<M extends DocumentModeName>({
 }) {
   if (modes.length <= 1) return null;
   return (
-    <div className="seg seg--sm pane-mode" role="group" aria-label="Document mode">
-      {modes.map((each) => (
-        <button
-          key={each}
-          type="button"
-          className={mode === each ? "seg-on" : ""}
-          aria-pressed={mode === each}
-          title={MODE_TITLES[each]}
-          onClick={() => onMode(each)}
-        >
-          {MODE_LABELS[each]}
-        </button>
-      ))}
-    </div>
+    <SegmentedControl
+      label="Document mode"
+      size="sm"
+      className="pane-mode"
+      value={mode}
+      onChange={onMode}
+      options={modes.map((each) => ({ value: each, label: MODE_LABELS[each], title: MODE_TITLES[each] }))}
+    />
   );
 }

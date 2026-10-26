@@ -261,16 +261,14 @@ export function ListsScreen() {
           <div className="card list-tree-panel">
             {selectedNode.children.length > 0 && (
               <div className="list-tree-toolbar">
-                <button
-                  type="button"
-                  className="link-btn"
+                <Button variant="link"
                   onClick={() => setCollapsed(new Set(collectListIds(selectedNode.children)))}
                 >
                   Collapse all
-                </button>
-                <button type="button" className="link-btn" onClick={() => setCollapsed(new Set())}>
+                </Button>
+                <Button variant="link" onClick={() => setCollapsed(new Set())}>
                   Expand all
-                </button>
+                </Button>
               </div>
             )}
             <ul className="list-tree-root">

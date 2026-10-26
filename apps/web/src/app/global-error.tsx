@@ -3,6 +3,7 @@
 import { isAndroidApp, RESET_APP_DATA_CONFIRM, resetAppData } from "@/lib/client-runtime-recovery";
 import { errorDetail, useLoggedError, type ErrorBoundaryProps } from "./error-boundary-parts";
 import { ErrorReportPanel } from "./error-report-panel-lazy";
+import { RowButton } from "@/components/controls";
 
 /**
  * Strictly last-resort boundary — shown when the root layout itself crashes, so
@@ -45,12 +46,12 @@ export default function GlobalError({ error, reset }: ErrorBoundaryProps) {
             </details>
           ) : null}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
-            <button type="button" onClick={() => reset()}>
+            <RowButton onClick={() => reset()}>
               Try again
-            </button>
-            <button type="button" onClick={() => window.location.reload()}>
+            </RowButton>
+            <RowButton onClick={() => window.location.reload()}>
               Reload this page
-            </button>
+            </RowButton>
           </div>
 
           {isAndroidApp() ? (
@@ -79,8 +80,7 @@ export default function GlobalError({ error, reset }: ErrorBoundaryProps) {
               offline copies of your work — and returns to the start. Work already saved to
               your account is not affected. This cannot be undone.
             </p>
-            <button
-              type="button"
+            <RowButton
               style={{ color: "#ffb4a8" }}
               onClick={() => {
                 // `window.confirm` is deliberate here, and this is the other
@@ -93,7 +93,7 @@ export default function GlobalError({ error, reset }: ErrorBoundaryProps) {
               }}
             >
               Reset app data
-            </button>
+            </RowButton>
           </section>
         </main>
       </body>

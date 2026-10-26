@@ -33,6 +33,7 @@ import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
 import { Popover } from "@/components/popover";
 import { Menu } from "@/components/menu";
+import { RowButton } from "@/components/controls";
 
 /** Graph screen — data loading, view-state, and child presentation components. */
 export function GraphScreen() {
@@ -313,15 +314,14 @@ export function GraphScreen() {
   const localBanner = localSeed ? (
     <div className="graph-local-banner">
       <span>Local graph · depth {localDepth}</span>
-      <button type="button" className="link-btn" onClick={resetLocalGraph}>
+      <Button variant="link" onClick={resetLocalGraph}>
         Show all
-      </button>
+      </Button>
     </div>
   ) : null;
 
   const settingsButton = (
-    <button
-      type="button"
+    <RowButton
       className={`entity-icon-btn graph-stage-settings${drawerOpen ? " is-active" : ""}`}
       aria-label="Graph settings"
       aria-expanded={drawerOpen}
@@ -334,7 +334,7 @@ export function GraphScreen() {
           {activeFilters}
         </span>
       )}
-    </button>
+    </RowButton>
   );
 
   const graphView = hasGraphItems ? (
@@ -343,9 +343,9 @@ export function GraphScreen() {
         <div className="graph-stage-bar">
           {settingsButton}
           {canvas && (
-            <button type="button" className="graph-focus-btn btn-secondary" onClick={() => setFocus(true)}>
+            <Button className="graph-focus-btn" onClick={() => setFocus(true)}>
               Focus
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -475,9 +475,9 @@ export function GraphScreen() {
           title="Nothing to link yet"
           body="The graph draws what is already connected: a note that cites a paper, a paper a run came from, a section a note ends up in. Add papers or notes first, and the links appear here as you make them."
           action={
-            <Link className="btn-secondary" href="/papers">
+            <Button href="/papers">
               Go to papers
-            </Link>
+            </Button>
           }
         />
       )}

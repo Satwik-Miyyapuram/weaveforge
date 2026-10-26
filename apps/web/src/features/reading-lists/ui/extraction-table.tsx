@@ -224,13 +224,11 @@ export function ExtractionTable({
                     <div className="extraction-th">
                       <span>{availableColumns.find((o) => o.value === c)?.label ?? c}</span>
                       {!readOnly && fillable && fieldId && (
-                        <button
-                          type="button"
-                          className="link-btn extraction-propose-btn"
+                        <Button variant="link" className="extraction-propose-btn"
                           onClick={() => setPromptFieldId((cur) => (cur === fieldId ? null : fieldId))}
                         >
                           Propose fill
-                        </button>
+                        </Button>
                       )}
                     </div>
                     {promptFieldId === fieldId && fieldId && (

@@ -35,6 +35,7 @@ import {
   type FigureOrderStep,
 } from "@weaveforge/core";
 import { DeleteIcon } from "@/components/view-icons";
+import { RowButton } from "@/components/controls";
 
 export interface InkFiguresProps {
   /** The figures the page's text layer places. */
@@ -542,63 +543,57 @@ export function InkFigureEditor({
         style={popoverStyle(px, visible, popoverWidth)}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <button
-          type="button"
+        <RowButton
           className="ink-figure-button ink-figure-button-icon"
           aria-label="Crop"
           title="Crop (double-click)"
           onClick={() => setCropping(true)}
         >
           <CropIcon />
-        </button>
+        </RowButton>
         <span className="ink-figure-sep" />
-        <button
-          type="button"
+        <RowButton
           className="ink-figure-button"
           title="Bring forward (Ctrl+])"
           disabled={atTop}
           onClick={() => onReorder("forward")}
         >
           Forward
-        </button>
-        <button
-          type="button"
+        </RowButton>
+        <RowButton
           className="ink-figure-button"
           title="Send backward (Ctrl+[)"
           disabled={atBottom}
           onClick={() => onReorder("backward")}
         >
           Backward
-        </button>
-        <button
-          type="button"
+        </RowButton>
+        <RowButton
           className="ink-figure-button"
           title="Bring to front (Ctrl+Shift+])"
           disabled={atTop}
           onClick={() => onReorder("front")}
         >
           Front
-        </button>
-        <button
-          type="button"
+        </RowButton>
+        <RowButton
           className="ink-figure-button"
           title="Send to back (Ctrl+Shift+[)"
           disabled={atBottom}
           onClick={() => onReorder("back")}
         >
           Back
-        </button>
+        </RowButton>
         <span className="ink-figure-sep" />
         {/* No Done: a press off the picture, or Esc, lets it go. */}
-        <button
-          type="button"
+        <RowButton
           className="ink-figure-button ink-figure-button-icon ink-figure-button-remove"
           aria-label="Remove"
           title="Remove (Delete)"
           onClick={onRemove}
         >
           <DeleteIcon size={18} />
-        </button>
+        </RowButton>
       </div>
     </div>
   );

@@ -43,6 +43,7 @@ import {
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
 import { logToApp } from "@/lib/error-report/app-log";
 import { MinusIcon, PlusIcon } from "@/components/view-icons";
+import { Button } from "@/components/button";
 
 export interface InkReaderProps {
   noteId: string;
@@ -236,35 +237,29 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
           {pageCount} {pageCount === 1 ? "page" : "pages"}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
+          <Button variant="ghost" size="sm" className="btn"
             onClick={() => setZoom(inkZoomOut)}
             disabled={zoom <= INK_ZOOM_MIN}
             aria-label="Zoom out"
             style={{ padding: "2px 8px", minHeight: 0, height: "24px" }}
           >
             <MinusIcon />
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
+          </Button>
+          <Button variant="ghost" size="sm" className="btn"
             onClick={() => setZoom(1)}
             aria-label="Reset zoom"
             style={{ padding: "2px 8px", minHeight: 0, height: "24px" }}
           >
             {Math.round(zoom * 100)}%
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
+          </Button>
+          <Button variant="ghost" size="sm" className="btn"
             onClick={() => setZoom(inkZoomIn)}
             disabled={zoom >= INK_ZOOM_MAX}
             aria-label="Zoom in"
             style={{ padding: "2px 8px", minHeight: 0, height: "24px" }}
           >
             <PlusIcon />
-          </button>
+          </Button>
         </div>
       </div>
       <div style={{ position: "relative", flex: 1, minHeight: 0, width: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>

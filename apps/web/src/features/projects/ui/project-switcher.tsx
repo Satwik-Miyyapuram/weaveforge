@@ -3,6 +3,7 @@
 import { useProject } from "./project-provider";
 import { showNewProject } from "./projects-screen";
 import { Popover } from "@/components/popover";
+import { RowButton } from "@/components/controls";
 
 const DOT_TITLE = "Project colour";
 
@@ -36,7 +37,7 @@ export function ProjectSwitcher() {
         {(close) => (
           <>
             {projects.map((p) => (
-              <button
+              <RowButton
                 key={p.id}
                 className={`proj-menu-item${p.id === current.id ? " sel" : ""}`}
                 aria-current={p.id === current.id || undefined}
@@ -49,14 +50,14 @@ export function ProjectSwitcher() {
                 <span className="project-dot" aria-hidden title={DOT_TITLE} style={{ background: p.color ?? "#7c9885" }} />
                 {p.name}
                 {p.id === current.id && <span className="check">✓</span>}
-              </button>
+              </RowButton>
             ))}
             <div className="proj-menu-sep" />
             {[
               { label: "＋ New project", run: () => showNewProject(setProject) },
               { label: "All projects", run: () => setProject(null) },
             ].map((row) => (
-              <button
+              <RowButton
                 key={row.label}
                 className="proj-menu-item"
                 onClick={() => {
@@ -65,7 +66,7 @@ export function ProjectSwitcher() {
                 }}
               >
                 {row.label}
-              </button>
+              </RowButton>
             ))}
           </>
         )}

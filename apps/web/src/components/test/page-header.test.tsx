@@ -60,18 +60,18 @@ test("AI review and Supervision use the shared empty state (DA-51)", () => {
   const superv = src("features/org/ui/supervision-screen.tsx");
   assert.match(superv, /<EmptyState[\s\S]{0,120}?title="No students yet"/);
   // The empty state's one action is the only way to Sharing then.
-  assert.match(superv, /supervisees\.length > 0 && \(\s*<Link className="btn-secondary" href="\/shared">/);
+  assert.match(superv, /supervisees\.length > 0 && \(\s*<Button href="\/shared">/);
 });
 
 test("the 404 has one primary and the rest as text links (DA-55)", () => {
   const page = src("app/not-found.tsx");
-  assert.equal(page.match(/btn-primary/g)?.length, 1);
-  assert.doesNotMatch(page, /btn-secondary/);
+  assert.equal(page.match(/<Button\s/g)?.length, 1);
+  assert.match(page, /<Button variant="primary" href="\/">/);
 });
 
 test("Git with no repository offers one way to settings (DA-56)", () => {
   const git = src("features/sync/ui/git-screen.tsx");
-  assert.match(git, /\{integration && \(\s*<Link className="btn-secondary" href="\/settings">/);
+  assert.match(git, /\{integration && \(\s*<Button href="\/settings">/);
 });
 
 test("every settings panel opens on the same card header (DA-53)", () => {
