@@ -2525,22 +2525,31 @@
   box-shadow: var(--e2);
 }
 .ink-figure-button {
-  font-size: var(--fs-micro);
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-sm);
+  font-size: var(--fs-xs);
   font-family: var(--font);
-  color: var(--faint);
-  padding: 1px 8px;
+  color: var(--muted);
+  padding: 0 8px;
   border: none;
   border-radius: var(--r-sm);
   background: transparent;
   cursor: pointer;
 }
 .ink-figure-button:hover {
-  background: color-mix(in srgb, var(--faint) 10%, transparent);
+  color: var(--text);
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
 }
 .ink-figure-button:disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: default;
   background: none;
+}
+.ink-figure-hint {
+  padding: 0 8px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
 }
 .ink-figure-sep {
   width: 1px;

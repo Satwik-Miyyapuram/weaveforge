@@ -326,23 +326,25 @@ function useVisibleWindow(ref: React.RefObject<HTMLElement | null>): VisibleWind
 const BAR_H = 40;
 
 /**
- * The toolbar's place: above the box, under it when the box is at the top of
- * the sheet, and — when neither is on screen — inside the box, at the top
- * of what can be seen, so a tall figure's bar is never scrolled away.
+ * The toolbar's place: under the box, so it never covers the top handles;
+ * above it when under would leave the sheet or the screen; and — when neither
+ * is on screen — inside the box, at the top of what can be seen, so a tall
+ * figure's bar is never scrolled away.
  */
 function popoverStyle(
   px: { left: number; top: number; height: number },
+  sheetHeight: number,
   visible: VisibleWindow | null,
   width: number,
 ): React.CSSProperties {
-  let top = px.top >= BAR_H + 4 ? px.top - BAR_H : px.top + px.height + 8;
+  const below = px.top + px.height + 8;
+  const above = px.top - BAR_H - 8;
+  const fits = (y: number) =>
+    y >= 0 && y + BAR_H <= sheetHeight && (!visible || (y >= visible.top && y + BAR_H <= visible.bottom));
+  let top = fits(below) ? below : fits(above) ? above : px.top + 8;
   let left = Math.max(8, px.left);
   if (visible) {
-    const seen = (y: number) => y >= visible.top && y + BAR_H <= visible.bottom;
-    if (!seen(top)) {
-      const below = px.top + px.height + 8;
-      top = seen(below) ? below : Math.max(visible.top + 8, px.top + 8);
-    }
+    if (!fits(top)) top = Math.max(visible.top + 8, px.top + 8);
     // Sideways the bar is pulled back in whole: a figure at the right edge
     // of the pane must not have its buttons cut off by it.
     left = Math.max(visible.left + 8, Math.min(left, visible.right - width - 8));
@@ -501,10 +503,13 @@ export function InkFigureEditor({
         figure={figure}
         scale={scale}
         imageUrl={imageUrl}
+        barStyle={(box) => popoverStyle(box, pageSize.height * scale, visible, popoverWidth)}
+        barRef={popoverRef}
         onApply={(next) => {
           onChange(next);
           setCropping(false);
         }}
+        onCancel={() => setCropping(false)}
       />
     );
   }
@@ -540,7 +545,7 @@ export function InkFigureEditor({
         className="ink-figure-popover"
         role="toolbar"
         aria-label="This image"
-        style={popoverStyle(px, visible, popoverWidth)}
+        style={popoverStyle(px, pageSize.height * scale, visible, popoverWidth)}
         onPointerDown={(event) => event.stopPropagation()}
       >
         <RowButton
@@ -602,9 +607,9 @@ export function InkFigureEditor({
 /**
  * The crop tool, in place: the whole picture is shown where it would sit
  * with the crop lifted, dimmed, and the kept rectangle is drawn over it with
- * its own crop marks. There is no Apply: a press anywhere outside the kept
- * rectangle (or Enter, or Esc) commits it, as a crop does in Google Docs. The
- * kept rectangle becomes the figure's box — what was visible stays where it
+ * its own crop marks. Done (or Enter, or a press anywhere outside the kept
+ * rectangle, as a crop does in Google Docs) commits it; Cancel (or Esc)
+ * leaves the figure as it was. The kept rectangle becomes the figure's box — what was visible stays where it
  * was — and the rest is written as insets. Dragging the marks back out to the
  * picture's edges is how a crop is lifted. The file is never touched.
  */
@@ -612,12 +617,19 @@ function InkFigureCropTool({
   figure,
   scale,
   imageUrl,
+  barStyle,
+  barRef,
   onApply,
+  onCancel,
 }: {
   figure: FigureGeometry;
   scale: number;
   imageUrl: string | undefined;
+  /** Where the crop's bar goes, for the kept rectangle in sheet pixels. */
+  barStyle: (box: { left: number; top: number; height: number }) => React.CSSProperties;
+  barRef: React.RefCallback<HTMLDivElement>;
   onApply: (next: Pick<FigureGeometry, "x" | "y" | "w" | "h" | "crop">) => void;
+  onCancel: () => void;
 }) {
   const full = useMemo(() => uncroppedFigureBox(figure), [figure]);
   const [kept, setKept] = useState({ x: figure.x, y: figure.y, w: figure.w, h: figure.h });
@@ -679,9 +691,12 @@ function InkFigureCropTool({
     <div
       className="ink-figure-editor is-cropping"
       onKeyDown={(event) => {
-        if (event.key === "Escape" || event.key === "Enter") {
+        if (event.key === "Enter") {
           event.preventDefault();
           apply();
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          onCancel();
         }
       }}
     >
@@ -728,6 +743,24 @@ function InkFigureCropTool({
         </div>
         <FrameHandles begin={begin} move={move} end={end} />
       </div>
+      <div
+        ref={barRef}
+        className="ink-figure-popover"
+        role="toolbar"
+        aria-label="Crop"
+        style={barStyle(keptPx)}
+        // A press on the bar is not a press outside the crop.
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <span className="ink-figure-hint">Drag the marks to choose what to keep</span>
+        <span className="ink-figure-sep" />
+        <RowButton className="ink-figure-button" title="Keep the original (Esc)" onClick={onCancel}>
+          Cancel
+        </RowButton>
+        <RowButton className="ink-figure-button" title="Apply the crop (Enter)" onClick={apply}>
+          Done
+        </RowButton>
+      </div>
     </div>
   );
 }
@@ -742,19 +775,25 @@ function CropIcon() {
   );
 }
 
+/** Page units (0.1 mm) per CSS pixel: a pixel is 1/96 inch, 25.4 mm. */
+const UNITS_PER_PX = 254 / 96;
+
 /**
- * A default box for a figure whose first placement is a drop: the image's own
- * aspect on a half-width of the page, centred where the drop landed and then
- * clamped onto the paper — a drop at an edge lands the figure against that
- * edge rather than half off the page.
+ * A default box for a figure whose first placement is a drop or a paste: the
+ * image at its own size (one CSS pixel per pixel), shrunk to half the page
+ * when it is bigger, centred where it landed and then clamped onto the paper
+ * — a drop at an edge lands the figure against that edge rather than half off
+ * the page.
  */
-export function figureBoxForAspect(
-  aspect: number,
+export function figureBoxForImage(
+  size: { width: number; height: number },
   at: { x: number; y: number },
   pageSize: { width: number; height: number },
 ): { x: number; y: number; w: number; h: number } {
-  const w = Math.round(Math.min(pageSize.width * 0.5, pageSize.width));
-  const h = Math.round(w / Math.max(aspect, 0.01));
+  const natural = { w: Math.max(1, size.width) * UNITS_PER_PX, h: Math.max(1, size.height) * UNITS_PER_PX };
+  const k = Math.min(1, (pageSize.width * 0.5) / natural.w, (pageSize.height * 0.5) / natural.h);
+  const w = Math.max(1, Math.round(natural.w * k));
+  const h = Math.max(1, Math.round(natural.h * k));
   const clamp = (value: number, low: number, high: number) =>
     Math.min(high, Math.max(low, value));
   return {

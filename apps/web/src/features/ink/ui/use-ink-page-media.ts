@@ -55,7 +55,7 @@ import {
   pageChunkWithBackground,
   pdfPageBackgrounds,
 } from "../application/page-background";
-import { figureBoxForAspect } from "./ink-figures";
+import { figureBoxForImage } from "./ink-figures";
 
 /** How a page's media gets written; the host owns the sidecar and the saves. */
 export interface InkPageMediaDeps {
@@ -298,7 +298,7 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
   /**
    * Put an image on the page as a figure: a placed box, not the page's
    * background. Any number may sit on one page — that is the point — and the
-   * first box is the image's own aspect at half the page's width, centred:
+   * first box is the image at its own size, at most half the page, centred:
    * the drop or the paste lands wherever the pointer was, and the bar's
    * button lands in the middle. A PDF still goes to the background, because a
    * PDF's raster *is* a page; an image is content on one.
@@ -327,12 +327,18 @@ export function useInkPageMedia(deps: InkPageMediaDeps): InkPageMedia {
           attachment.blob,
           attachment.ext,
         );
-        const box = figureBoxForAspect(
-          size.width / Math.max(1, size.height),
+        const box = figureBoxForImage(
+          size,
           at ?? { x: deps.pageSize.width / 2, y: deps.pageSize.height / 2 },
           deps.pageSize,
         );
-        addFigureToPage(target, () => ({ ...box, path }));
+        let index = 0;
+        const live = addFigureToPage(target, (onPage) => {
+          index = onPage.length;
+          return { ...box, path };
+        });
+        // Selected, so the new picture can be moved or sized at once.
+        if (live) deps.selectFigure?.(index);
       } catch (error) {
         deps.setUnavailable(
           `The image could not be added: ${errorMessage(error)}`,
