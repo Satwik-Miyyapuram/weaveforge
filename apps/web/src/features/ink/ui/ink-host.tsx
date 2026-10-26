@@ -751,16 +751,17 @@ export function InkHost({
                   draggable={false}
                 />
               ) : null}
-              <InkSheetTextUnderlay
-                text={pureText}
-                scale={scale}
-                resolveImageSrc={resolveImageSrc}
-              />
               <InkFigures
                 figures={figures}
                 scale={scale}
                 imageUrls={figureUrls}
                 activeIndex={figureControls}
+              />
+              {/* After the figures, so typed text is not hidden under one (DA-101). */}
+              <InkSheetTextUnderlay
+                text={pureText}
+                scale={scale}
+                resolveImageSrc={resolveImageSrc}
               />
               <InkPageInk
                 strokes={sheetStrokes}

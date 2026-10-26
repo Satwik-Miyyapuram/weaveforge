@@ -44,6 +44,7 @@ import { OverlayScrollbar } from "@/components/overlay-scrollbar";
 import { logToApp } from "@/lib/error-report/app-log";
 import { MinusIcon, PlusIcon } from "@/components/view-icons";
 import { Button } from "@/components/button";
+import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 
 export interface InkReaderProps {
   noteId: string;
@@ -142,6 +143,8 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
   // underlay's markdown pass and throw its mermaid diagrams away.
   const sheetImages = useInkSheetImageUrls(parsed.text, paperId);
   const resolveImageSrc = useStableResolver(sheetImages.resolveImageSrc);
+  // `[[links]]` read as links, as in a typed note's Read view (DA-101).
+  const { resolveWikilink } = useWikilinkNavigation();
 
   // Measure container width for responsive scaling.
   useEffect(() => {
@@ -282,6 +285,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
                 figureUrls={figureUrls}
                 pureText={flowedText[index] ?? ""}
                 resolveImageSrc={resolveImageSrc}
+                resolveWikilink={resolveWikilink}
                 strokes={strokesMap.get(index)}
                 palette={palette}
               />
