@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoader } from "@/components/weaveforge-loader";
@@ -18,6 +18,15 @@ import { Button } from "@/components/button";
 const ConfirmDialog = dynamic(() => import("@/components/confirm-dialog").then((m) => m.ConfirmDialog), { ssr: false });
 const EntityCardMenu = dynamic(() => import("@/components/entity-card-menu").then((m) => m.EntityCardMenu), { ssr: false });
 
+/** Set by `showNewProject`, so the screen mounts with its New project dialog open. */
+let openCreateOnMount = false;
+
+/** Leave the current project and open the New project dialog (DA-98). */
+export function showNewProject(setProject: (id: string | null) => void) {
+  openCreateOnMount = true;
+  setProject(null);
+}
+
 /**
  * Project picker / creator. Shown when no project is selected. Choosing a
  * project scopes the whole app to it.
@@ -25,7 +34,11 @@ const EntityCardMenu = dynamic(() => import("@/components/entity-card-menu").the
 export function ProjectsScreen() {
   const { projects, loading, current, setProject, refresh } = useProject();
   const [name, setName] = useState("");
-  const [addOpen, setAddOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(() => openCreateOnMount);
+  // Reset after mount, not in the initializer: Strict Mode runs that twice.
+  useEffect(() => {
+    openCreateOnMount = false;
+  }, []);
   const local = isLocalMode();
 
   const { busy, error, submit: create } = useSubmit(async () => {

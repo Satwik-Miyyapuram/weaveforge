@@ -366,6 +366,27 @@ body {
   width: 100%; overflow-x: auto; scrollbar-width: none;
 }
 .sub-nav::-webkit-scrollbar { display: none; }
+/* Sideways strips show there is more past an edge (DA-93): the edge that
+   hides tabs fades, and a swipe stops on a tab rather than mid-word. The fade
+   is driven by the strip's own scroll, so a strip that fits never fades, and
+   the far edge clears once you reach it. Browsers without scroll timelines
+   keep the plain strip. */
+@property --fade-start { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --fade-end { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@keyframes edge-fade {
+  from { --fade-start: 0px; --fade-end: 24px; }
+  8% { --fade-start: 24px; }
+  92% { --fade-end: 24px; }
+  to { --fade-start: 24px; --fade-end: 0px; }
+}
+.sub-nav {
+  mask-image: linear-gradient(to right, transparent, black var(--fade-start), black calc(100% - var(--fade-end)), transparent);
+  animation: edge-fade linear both;
+  animation-timeline: scroll(self inline);
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 24px;
+}
+.sub-tab { scroll-snap-align: start; }
 /* Sliding tile behind the active tab. Local ordering — the tile sits behind
    its own label, and the 0/1 pair is scoped to `.sub-nav`. */
 .sub-tab-indicator {

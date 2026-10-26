@@ -393,10 +393,13 @@
 
 }
 
-/* Phone head: search owns a row, the head's buttons share the next evenly. */
+/* Phone head, the same on every screen (DA-94): search owns the first row,
+   the primary action the second at full width, and the other buttons share
+   the row after evenly. */
 @media (max-width: 479px) {
-  .screen-actions > .search-input { flex: 1 1 100%; }
+  .screen-actions > .search-input { flex: 1 1 100%; order: -2; }
   .screen-actions > :is(.btn-primary, .btn-secondary, .popover, a):not(.dashboard-customize-btn) { flex: 1 1 0; justify-content: center; }
+  .screen-actions > .btn-primary { flex: 1 1 100%; order: -1; }
   .screen-actions > .popover > button { width: 100%; }
 }
 

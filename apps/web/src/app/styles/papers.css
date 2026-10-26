@@ -67,7 +67,15 @@
   /* One scrolling row; select menus portal out so the scroll can't clip them. */
   /* Padding keeps the buttons' offset shadow and hover lift inside the scroll clip. */
   .filter-row { overflow-x: auto; scrollbar-width: none; padding: 4px 4px 4px 0; margin: 14px 0 4px; }
-  .filter-row > * { flex: none; }
+  .filter-row > * { flex: none; scroll-snap-align: start; }
+  /* Same edge fade and snap as the section strips (DA-93, base.css). */
+  .filter-row {
+    mask-image: linear-gradient(to right, transparent, black var(--fade-start), black calc(100% - var(--fade-end)), transparent);
+    animation: edge-fade linear both;
+    animation-timeline: scroll(self inline);
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 24px;
+  }
   .screen-actions .search-input { flex: 1 1 auto; width: auto; }
 }
 

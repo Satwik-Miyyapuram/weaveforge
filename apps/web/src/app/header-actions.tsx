@@ -83,7 +83,7 @@ export function HeaderActions({
   inbox?: boolean;
 }) {
   const { user, signOut } = useAuth();
-  const { memberships, activeOrgId, switchOrg } = useProfile();
+  const { profile, memberships, activeOrgId, switchOrg } = useProfile();
   const { current, setProject } = useProject();
   const router = useRouter();
   const { links: inboxRows, local } = useInbox();
@@ -220,7 +220,18 @@ export function HeaderActions({
       triggerClassName="btn-secondary account-btn"
       label={<UserIcon />}
     >
-      {links}
+      {(close) => (
+        <>
+          {/* Whose menu this is (DA-97); the trigger is only a person icon. */}
+          {(profile?.fullName || user.email) && (
+            <div className="account-menu-head">
+              {profile?.fullName && <b>{profile.fullName}</b>}
+              {user.email && <span>{user.email}</span>}
+            </div>
+          )}
+          {links(close)}
+        </>
+      )}
     </Popover>
   );
 }

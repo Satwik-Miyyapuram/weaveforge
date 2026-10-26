@@ -25,6 +25,11 @@ import { createNoteFromQuery } from "@/lib/create-note-from-query";
 import { FormError } from "@/components/form-error";
 import { JumpToCreateRow } from "@/components/jump-to-create-row";
 import { CloseIcon } from "@/components/view-icons";
+import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
+import { useTheme } from "@/lib/hooks/use-theme";
+import { isMacPlatform } from "@/lib/shortcut-label";
+import { groupPaletteRows, matchingPages, paletteKeys, type PaletteGroup } from "@/lib/palette-groups";
+import { showNewProject, useProject } from "@/features/projects";
 
 /** Kinds recorded as recent targets when opened. */
 const RECENT_KINDS = ["paper", "note", "section"] as const satisfies readonly RecentTargetKind[];
@@ -55,6 +60,24 @@ type JumpItem = CiteCompletion & {
   excerpt?: SearchExcerpt;
 };
 
+/** One palette row: a search hit, a page or an action, under its heading. */
+interface Entry {
+  group: PaletteGroup;
+  key: string;
+  label: string;
+  meta?: string;
+  excerpt?: SearchExcerpt;
+  run: () => void;
+}
+
+const HIT_GROUP: Record<JumpItem["kind"], PaletteGroup> = {
+  paper: "Papers",
+  note: "Notes",
+  section: "Report sections",
+  pdf: "In papers",
+  annotation: "In papers",
+};
+
 const HISTORY_KEY = "thesis.search.history";
 
 function readHistory(): string[] {
@@ -82,7 +105,8 @@ export function openSearchPalette(): void {
 }
 
 /**
- * Ctrl/Cmd+K jump palette across papers, notes, and report sections.
+ * Ctrl/Cmd+K jump palette across papers, notes, report sections, pages and a
+ * few actions, under group headings (DA-99).
  */
 export function JumpToPalette() {
   const router = useRouter();
@@ -100,6 +124,11 @@ export function JumpToPalette() {
   const { search: searchIndex, searchHybrid, ready: indexReady } = useHybridSearchIndex(open);
   const [history, setHistory] = useState<string[]>([]);
   const [createError, setCreateError] = useState<string | null>(null);
+  const registry = useModuleRegistry();
+  const { setProject } = useProject();
+  const theme = useTheme();
+  const [mac, setMac] = useState(false);
+  useEffect(() => setMac(isMacPlatform()), []);
   const saveHistory = useCallback((next: string[]) => {
     setHistory(next);
     writeHistory(next);
@@ -268,6 +297,48 @@ export function JumpToPalette() {
     return bySubstring();
   }, [items, query, searchIndex, rowsFromHits, semanticRows]);
 
+  /** Pages the nav reaches, plus Settings, which lives in the account menu. */
+  const pages = useMemo(() => {
+    const all = [registry.homeNavItem, ...registry.navItems, { key: "settings", label: "Settings", path: "/settings" }];
+    return all.filter((page, index) => all.findIndex((other) => other.path === page.path) === index);
+  }, [registry]);
+
+  const entries = useMemo(() => {
+    const leave = (then: () => void) => () => {
+      setOpen(false);
+      then();
+    };
+    const actions = [
+      { key: "new-project", label: "New project", run: leave(() => showNewProject(setProject)) },
+      {
+        key: "theme",
+        label: theme.dark ? "Switch to light theme" : "Switch to dark theme",
+        run: leave(theme.toggle),
+      },
+    ];
+    const rows: Entry[] = [
+      ...matchingPages(pages, query).map((page) => ({
+        group: "Pages" as const,
+        key: `page:${page.path}`,
+        label: page.label,
+        run: leave(() => router.push(page.path)),
+      })),
+      ...filtered.map((c) => ({
+        group: c.recent ? ("Recent" as const) : HIT_GROUP[c.kind],
+        key: `${c.kind}-${c.id}`,
+        label: c.label,
+        meta: c.detail,
+        excerpt: c.excerpt,
+        run: () => go(c),
+      })),
+      ...matchingPages(actions, query).map((action) => ({ ...action, group: "Actions" as const })),
+    ];
+    return groupPaletteRows(rows);
+    // `go` reads the same state as these dependencies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pages, query, filtered, theme.dark, theme.toggle, setProject, router]);
+  const flat = useMemo(() => entries.flatMap((group) => group.rows), [entries]);
+
   function go(item: JumpItem) {
     saveHistory(rememberSearchQuery(history, query));
     // Only entity screens are recent targets; a PDF page or a highlight is a
@@ -316,13 +387,13 @@ export function JumpToPalette() {
         const vimUp = e.ctrlKey && (e.key === "k" || e.key === "p");
         if (e.key === "ArrowDown" || vimDown) {
           e.preventDefault();
-          setActive((i) => Math.min(i + 1, filtered.length - 1));
+          setActive((i) => Math.min(i + 1, flat.length - 1));
         } else if (e.key === "ArrowUp" || vimUp) {
           e.preventDefault();
           setActive((i) => Math.max(i - 1, 0));
-        } else if (e.key === "Enter" && filtered[active]) {
+        } else if (e.key === "Enter" && flat[active]) {
           e.preventDefault();
-          go(filtered[active]!);
+          flat[active]!.run();
         }
       }}
     >
@@ -359,31 +430,50 @@ export function JumpToPalette() {
         </ul>
       )}
       <ul className="jump-to-list" role="listbox">
-        {filtered.map((c, i) => (
-          <li key={`${c.kind}-${c.id}`} role="option" aria-selected={i === active}>
-            <button type="button" onClick={() => go(c)}>
-              <div>{c.label}</div>
-              {c.excerpt && c.excerpt.text && (
-                <div className="jump-to-excerpt">
-                  {excerptSegments(c.excerpt).map((segment, index) =>
-                    segment.highlighted ? (
-                      <mark key={index}>{segment.text}</mark>
-                    ) : (
-                      <span key={index}>{segment.text}</span>
-                    ),
-                  )}
-                </div>
-              )}
-              {c.detail && (
-                <div className="jump-to-meta">{c.recent ? `recent · ${c.detail}` : c.detail}</div>
-              )}
-            </button>
+        {entries.map((group) => (
+          <li key={group.label} role="presentation">
+            <div className="jump-to-group" role="presentation">
+              {group.label}
+            </div>
+            <ul role="group" aria-label={group.label}>
+              {group.rows.map((c) => {
+                const i = flat.indexOf(c);
+                return (
+                <li key={c.key} role="option" aria-selected={i === active}>
+                  <button type="button" onClick={c.run}>
+                    <div>{c.label}</div>
+                    {c.excerpt && c.excerpt.text && (
+                      <div className="jump-to-excerpt">
+                        {excerptSegments(c.excerpt).map((segment, index) =>
+                          segment.highlighted ? (
+                            <mark key={index}>{segment.text}</mark>
+                          ) : (
+                            <span key={index}>{segment.text}</span>
+                          ),
+                        )}
+                      </div>
+                    )}
+                    {c.meta && <div className="jump-to-meta">{c.meta}</div>}
+                  </button>
+                </li>
+                );
+              })}
+            </ul>
           </li>
         ))}
         {filtered.length === 0 && <JumpToCreateRow query={query} onCreate={() => void createFromQuery()} />}
       </ul>
       {createError ? <FormError reportable={false}>{createError}</FormError> : null}
-      <p className="muted jump-to-meta">Ctrl/Cmd+K · Ctrl+J/K to move · Esc to close</p>
+      <p className="muted jump-to-meta jump-to-keys">
+        {paletteKeys(mac).map((hint) => (
+          <span key={hint.label}>
+            {hint.keys.map((key) => (
+              <kbd key={key}>{key}</kbd>
+            ))}{" "}
+            {hint.label}
+          </span>
+        ))}
+      </p>
     </Modal>
   );
 }

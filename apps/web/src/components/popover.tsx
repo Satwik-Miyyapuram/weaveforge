@@ -119,8 +119,11 @@ export function Popover({
   useEffect(() => {
     if (!shown) return;
     const trigger = triggerRef.current;
-    // A click leaves focus on the panel so no row wears the keyboard ring; a key press enters the first row.
-    focusFirstField(panelRef.current, { buttons: !openedByPointer.current });
+    // A click leaves focus on the panel so no row wears the keyboard ring; a key
+    // press enters the row marked `data-autofocus` (the current choice), else the first.
+    const marked = openedByPointer.current ? null : panelRef.current?.querySelector<HTMLElement>("[data-autofocus]");
+    if (marked) marked.focus();
+    else focusFirstField(panelRef.current, { buttons: !openedByPointer.current });
     return () => trigger?.focus();
   }, [shown]);
 

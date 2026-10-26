@@ -70,7 +70,7 @@ export function TabBar({
    * so the first render matches the prerendered page.
    */
   const activeGroupKey =
-    sideGroups.find((group) => activeNavItem(group.items, pathname))?.key ?? null;
+    sideGroups.find((group) => activeNavItem<{ key: string; path: string }>(group.items, pathname))?.key ?? null;
   const [openGroups, setOpenGroups] = useState<readonly string[]>(() =>
     activeGroupKey ? [activeGroupKey] : [],
   );
@@ -199,7 +199,7 @@ export function TabBar({
                   {open && (
                     <div className="nav-group-items" id={`nav-group-${group.key}`}>
                       {group.items.map((item) => {
-                        const active = activeNavItem(group.items, pathname)?.key === item.key;
+                        const active = activeNavItem<{ key: string; path: string }>(group.items, pathname)?.key === item.key;
                         return (
                           <Link
                             key={item.key}

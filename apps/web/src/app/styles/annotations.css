@@ -72,6 +72,21 @@
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 .jump-to-meta { font-size: var(--fs-xs); color: var(--muted); }
+/* Group headings and the rows under them (DA-99). */
+.jump-to-list ul { list-style: none; padding: 0; margin: 0; }
+.jump-to-group {
+  padding: var(--s3) var(--s2) var(--s1); font-size: var(--fs-xs); font-weight: 600;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em;
+}
+.jump-to-list > li:first-child .jump-to-group { padding-top: 4px; }
+/* The footer's key chips, one hint per group of keys. */
+.jump-to-keys { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); }
+.jump-to-keys kbd {
+  display: inline-block; min-width: 1.5em; margin-right: 2px; padding: 0 4px;
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  background: var(--surface2, var(--pill)); color: var(--ink);
+  font: inherit; text-align: center;
+}
 
 /* Result snippet. Clamped to two lines so a long note cannot push the rest of
    the results below the fold. */

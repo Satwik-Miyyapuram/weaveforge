@@ -277,11 +277,22 @@
    rules matched nothing and the rows rendered as bare links — which is what
    made the menu look broken beside the rest of the app. */
 .popover-panel:has(.header-link, .signout) { padding: 6px; gap: 2px; display: grid; min-width: 210px; }
+/* One row height for links and buttons alike (DA-97): Sign out kept its pill
+   border and small type, and the theme button its UA font, so the menu had
+   three heights. */
 .popover-panel .header-link,
 .popover-panel .signout {
-  width: 100%; justify-content: flex-start; gap: 11px; min-height: 0;
-  padding: 9px 10px; border-radius: var(--r-control); font-size: var(--fs); color: var(--text);
+  width: 100%; justify-content: flex-start; gap: 11px; min-height: 36px;
+  padding: 0 10px; border: 0; border-radius: var(--r-control);
+  font: inherit; font-size: var(--fs); line-height: 1.25; color: var(--text);
 }
+.popover-panel .menu-row-value { margin-left: auto; color: var(--muted); }
+.account-menu-head {
+  display: grid; gap: 2px; padding: 8px 10px 10px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--line); min-width: 0;
+}
+.account-menu-head b { font-weight: 600; }
+.account-menu-head span { color: var(--muted); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .popover-panel .header-link svg,
 .popover-panel .signout svg { color: var(--muted); flex: none; }
 .popover-panel .header-link:hover,
