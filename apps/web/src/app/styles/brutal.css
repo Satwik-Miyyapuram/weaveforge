@@ -440,7 +440,7 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .pdf-reader-group :is(.btn-secondary, .seg button) {
   min-height: 0;
   height: 32px;
-  padding: 0 10px;
+  padding: 0 12px;
   font-size: 0.85rem;
   border: 0;
   border-radius: max(0px, calc(var(--radius-sm) - 3px));
@@ -591,7 +591,7 @@
 }
 @media (max-width: 479px) {
   :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .screen-head .screen-title { font-size: 1.75rem; }
-  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .screen-eyebrow { margin-top: 10px; font-size: 0.7rem; }
+  :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .screen-eyebrow { margin-top: 12px; font-size: 0.7rem; }
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-card-heading {
   font-family: var(--font);
@@ -607,7 +607,7 @@
   flex-direction: row-reverse;
   align-items: baseline;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 12px;
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-stat-pct {
   font-family: var(--display);
@@ -659,23 +659,23 @@
   position: static;
   width: auto;
   height: auto;
-  margin: 18px 0 2px;
+  margin: 16px 0 2px;
   overflow: visible;
   clip: auto;
   white-space: normal;
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .screen-eyebrow {
   display: block;
-  margin: 18px 0 -12px;
+  margin: 16px 0 -12px;
   font-family: var(--font);
   font-size: 0.78rem;
   color: var(--muted);
 }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-empty { padding: 8px 10px; margin: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-empty { padding: 8px 12px; margin: 0; }
 /* Two panes, as on the mock: the rail's swatches are stamped squares and the
    picked list is pressed in the accent; the picked list's own row is the
    pane's heading, set big in the display face, its controls stamped squares. */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail { padding: 10px; gap: 6px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail { padding: 12px; gap: 8px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail-item { min-height: 46px; font-weight: 700; border-radius: var(--radius-sm); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail .list-color-dot {
   width: 16px; height: 16px; border-radius: 3px; box-shadow: none;
@@ -686,9 +686,9 @@
   box-shadow: inset 0 0 0 var(--bw) var(--bw-line), var(--sh-sm);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail-count { font-family: var(--font); font-weight: 400; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-panel { padding: 22px 24px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-panel { padding: 24px 24px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row {
-  background: transparent; border: 0; padding: 0 0 12px; gap: 10px;
+  background: transparent; border: 0; padding: 0 0 12px; gap: 12px;
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row > .list-color-dot { display: none; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row > .list-row-title {
@@ -696,7 +696,7 @@
   font-size: 1.9rem; line-height: 1.05;
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-body > .list-add-trigger { font-size: 0.95rem; padding: 12px 16px; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .screen-eyebrow + .screen-title { margin-top: 14px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .screen-eyebrow + .screen-title { margin-top: 16px; }
 
 /* ---- Papers ----------------------------------------------------------------
    The mock's paper card opens on its status chip, the menu at the other end,
@@ -707,7 +707,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 14px 16px;
+  padding: 16px 16px;
 }
 /* The tidy notice is a stamped callout in the to-read colour. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tidy-notice {
@@ -715,7 +715,7 @@
   border: var(--bw) solid var(--bw-line);
   border-radius: var(--radius-sm);
   box-shadow: var(--sh-card);
-  padding: 14px 18px;
+  padding: 16px 16px;
 }
 :root[data-theme="brutal-dark"] .tidy-notice { background: color-mix(in srgb, var(--chip-to-read) 16%, var(--surface)); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .tidy-notice-text strong { font-weight: 700; }
@@ -740,13 +740,13 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-tree-toolbar {
   border-bottom: 0;
 }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-tree-root { gap: 14px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-tree-root { gap: 16px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-row,
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-children .list-row {
   border: var(--bw) solid var(--bw-line);
   border-radius: var(--radius-sm);
   background: var(--surface2);
-  padding: 6px 10px;
+  padding: 8px 12px;
 }
 @media (hover: hover) { :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-row:hover { background: var(--surface2); filter: brightness(0.97); } }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-color-dot {
@@ -768,7 +768,7 @@
   border-left: 0;
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-children {
-  margin-left: 18px;
+  margin-left: 16px;
   border-left-width: var(--bw);
   border-left-color: var(--bw-line);
 }
@@ -776,7 +776,7 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-paper-row {
   border-radius: 0;
   border-bottom: 2px dashed color-mix(in srgb, var(--line) 30%, transparent);
-  padding: 12px 10px;
+  padding: 12px 12px;
   font-size: 0.95rem;
   font-weight: 600;
 }
@@ -787,7 +787,7 @@
   text-align: center;
   font-family: var(--font);
   font-size: 0.74rem;
-  padding: 3px 10px;
+  padding: 4px 12px;
   border: var(--bw) solid var(--bw-line);
   background: var(--surface);
   color: var(--text);
@@ -797,18 +797,18 @@
   justify-self: stretch;
   text-align: left;
   margin-top: 8px;
-  padding: 10px 14px;
+  padding: 12px 16px;
   border: var(--bw) dashed var(--bw-line);
   border-radius: var(--radius-sm);
   color: var(--muted);
 }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-empty { padding: 8px 10px; margin: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-empty { padding: 8px 12px; margin: 0; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-screen .list-body > .list-add-trigger { font-size: 0.95rem; padding: 12px 16px; }
 
 /* ---- Notes ----------------------------------------------------------------
    The mock's note cards: a bold title, then tags and the excerpt. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .vault-screen .paper-card {
-  padding: 16px 18px;
+  padding: 16px 16px;
   gap: 8px;
   display: flex;
   flex-direction: column;
@@ -836,8 +836,8 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.exp-item {
   --card-tint: var(--surface);
   background: var(--card-tint);
-  padding: 16px 18px;
-  gap: 10px;
+  padding: 16px 16px;
+  gap: 12px;
   box-shadow: var(--sh-card);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .exp-item .entity-card-title {
@@ -856,7 +856,7 @@
    One summary card with a thick bar, then milestones as full-width rows,
    washed by their status like every other card. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .progress-card {
-  padding: 18px 20px;
+  padding: 16px 24px;
   box-shadow: var(--sh-card);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .progress-top { align-items: baseline; margin-bottom: 12px; }
@@ -907,7 +907,7 @@
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .milestone-check:checked { background: var(--accent); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .milestone-check:checked::after {
-  content: ""; position: static; inset: auto; width: 12px; height: 7px; margin-top: -3px;
+  content: ""; position: static; inset: auto; width: 12px; height: 7px; translate: 0 -3px;
   border: solid var(--surface); border-width: 0 0 3px 3px; transform: rotate(-45deg);
 }
 /* ---- Empty states ----------------------------------------------------------
@@ -916,8 +916,8 @@
    A state already inside a card keeps its frame off so it is not boxed twice. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .empty--first-run:not(.card .empty--first-run) {
   width: min(100%, 520px);
-  margin: 22px auto 24px;
-  padding: 36px 32px 32px;
+  margin: 24px auto 24px;
+  padding: 32px 32px 32px;
   background: var(--surface);
   border: var(--bw) solid var(--bw-line);
   border-radius: var(--radius);
@@ -925,7 +925,7 @@
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .empty-mark {
   width: 70px; height: 70px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   background: var(--chip-to-read);
   border: var(--bw) solid var(--bw-line);
   border-radius: var(--radius-sm);
@@ -942,20 +942,20 @@
   letter-spacing: 0;
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .empty--first-run .empty-body { color: var(--text); opacity: 0.8; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .empty-actions { margin-top: 10px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .empty-actions { margin-top: 12px; }
 /* ---- Git -------------------------------------------------------------------
    As on the mock: the repository on a washed hero card with its numbers ruled
    off on the right, commits on an ink timeline, branches stamped beside them. */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.git-hero { background: color-mix(in srgb, var(--chip-read) 32%, var(--surface)); box-shadow: var(--sh-card); padding: 18px 22px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.git-hero { background: color-mix(in srgb, var(--chip-read) 32%, var(--surface)); box-shadow: var(--sh-card); padding: 16px 24px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .git-hero-mark { width: 56px; height: 56px; background: var(--surface); border: var(--bw) solid var(--bw-line); border-radius: var(--radius-sm); box-shadow: var(--sh-sm); color: var(--text); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .git-hero-repo { font-size: 1.3rem; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .git-hero-stats > div { border-left: var(--bw) solid var(--bw-line); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .git-hero-stats dd { font-family: var(--font-mono); font-size: 1.15rem; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.git-commits, .git-branches) { box-shadow: var(--sh-card); padding: 18px 20px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.git-commits, .git-branches) { box-shadow: var(--sh-card); padding: 16px 24px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.git-commits, .git-branches) h2 { font-family: var(--display); font-weight: var(--display-weight); font-size: 1.3rem; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .commit-item { border-top: var(--bw) dashed color-mix(in srgb, var(--bw-line) 35%, transparent); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .commit-item::before { width: var(--bw); background: var(--bw-line); left: 5px; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .commit-item::after { width: 13px; height: 13px; margin-top: -6.5px; left: 0; border-radius: 3px; border: var(--bw) solid var(--bw-line); background: var(--chip-reading); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .commit-item::after { width: 13px; height: 13px; left: 0; border-radius: 3px; border: var(--bw) solid var(--bw-line); background: var(--chip-reading); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .commit-item:first-child::after { background: var(--chip-to-read); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .commit-msg { font-weight: 700; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .git-branch { font-weight: 600; }
@@ -967,7 +967,7 @@
    the day's cards to its right, and the month and kinds in a side column. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-day-month { font-family: var(--font); font-size: 0.7rem; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-list { margin: 0; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.log-item { box-shadow: var(--sh-card); padding: 16px 18px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.log-item { box-shadow: var(--sh-card); padding: 16px 16px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-item .entity-card-title { font-size: 1.05rem; font-weight: 700; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-item .log-body { font-size: 0.95rem; line-height: 1.55; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .log-time { font-family: var(--font); font-size: 0.78rem; color: var(--muted); }
@@ -1002,7 +1002,7 @@
    parts by a dashed one, nested a step in with no card chrome of their own. */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen > .section-tree:not(.nested) {
   gap: 0;
-  padding: 6px 20px;
+  padding: 8px 24px;
   background: var(--surface);
   border: var(--bw) solid var(--bw-line);
   border-radius: var(--radius-sm);
@@ -1015,7 +1015,7 @@
   border: 0;
   box-shadow: none;
   border-radius: var(--radius-sm);
-  padding: 14px 12px;
+  padding: 16px 12px;
   margin: 0 -12px;
 }
 /* Rows of one sheet: a flat band on hover, not a card's tilt, lift and glow. */
@@ -1026,7 +1026,7 @@
   translate: 0;
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-item:is(*, :hover)::after { display: none; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-tree.nested { padding-left: 26px; gap: 0; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-tree.nested { padding-left: 24px; gap: 0; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-tree.nested::before,
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-tree.nested > .section-node::before { display: none; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .report-screen .section-tree.nested > .section-node { border-top: 1.5px dashed color-mix(in srgb, var(--bw-line) 55%, transparent); }
@@ -1054,7 +1054,7 @@
 /* ---- Wiki ------------------------------------------------------------------
    Each health step is its own inset box with a numbered stamp and a count
    pill; the source and concept lists are one ruled sheet. */
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-screen .card.add-form { padding: 20px 22px; box-shadow: var(--sh-card); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-screen .card.add-form { padding: 24px 24px; box-shadow: var(--sh-card); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-screen .card.add-form > h3.settings-group {
   font-family: var(--display);
   font-weight: var(--display-weight);
@@ -1063,16 +1063,16 @@
   margin: 0 0 4px;
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-step {
-  padding: 12px 14px;
+  padding: 12px 16px;
   background: var(--surface2);
   border: var(--bw) solid var(--bw-line);
   border-radius: var(--radius-sm);
 }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-step-head { font-size: 0.95rem; font-weight: 700; color: var(--text); text-transform: none; letter-spacing: 0; margin: 0 0 6px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-step-head { font-size: 0.95rem; font-weight: 700; color: var(--text); text-transform: none; letter-spacing: 0; margin: 0 0 8px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-step-count { font-family: var(--font); border: var(--bw) solid var(--bw-line); background: var(--chip-to-read); color: #12110f; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-step--duplicate .wiki-step-count { background: var(--chip-skimmed); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-step--orphan .wiki-step-count { background: var(--chip-reading); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-lint-list li { border-left: 0; padding: 6px 0; border-bottom: 1.5px dashed color-mix(in srgb, var(--bw-line) 45%, transparent); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-lint-list li { border-left: 0; padding: 8px 0; border-bottom: 1.5px dashed color-mix(in srgb, var(--bw-line) 45%, transparent); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-lint-list li:last-child { border-bottom: 0; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-source-list,
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wiki-plan-list:not(.wiki-source-list) { gap: 0; }
@@ -1090,7 +1090,7 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-toolbar { box-shadow: var(--sh-card); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-review-card .entity-card-meta { font-family: var(--font); font-size: 0.76rem; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .ai-kind {
-  display: inline-block; padding: 2px 10px;
+  display: inline-block; padding: 2px 12px;
   border: var(--bw) solid var(--bw-line); border-radius: 999px;
   background: var(--chip-reading); color: var(--text);
   font-size: 0.74rem; font-weight: 700; letter-spacing: 0;

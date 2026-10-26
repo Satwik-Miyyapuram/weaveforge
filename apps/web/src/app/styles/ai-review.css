@@ -3,7 +3,7 @@
    notes beside it. A screen is the same width as its siblings; only *prose*
    narrows, and it narrows to the reading measure (`.markdown`). */
 .ai-review-screen { max-width: min(var(--app-max), 100%); }
-.ai-review-screen .screen-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.ai-review-screen .screen-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .ai-review-screen h1 { margin: 4px 0 8px; font-family: var(--font-serif); }
 .ai-review-toolbar, .ai-review-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .ai-review-toolbar { margin: 12px 0; }
@@ -14,7 +14,7 @@
 /* The well is the card's body, so it spans the card, not the prose measure. */
 .ai-proposal-content.markdown { max-width: none; }
 .ai-proposal-content { overflow-wrap: anywhere; margin: 0; padding: 12px; border-radius: var(--r-control); background: var(--surface-alt); font: inherit; line-height: 1.55; }
-.ai-review-actions { padding-top: 14px; border-top: 1px solid var(--line); justify-content: flex-end; }
+.ai-review-actions { padding-top: 16px; border-top: 1px solid var(--line); justify-content: flex-end; }
 /* Reject sits left of Approve but both belong to one decision, so they share a
    row end rather than being pushed to opposite edges of the card. */
 .ai-review-actions > * { flex: none; }
@@ -26,28 +26,28 @@
 }
 
 /* Sources read as named chips, not a comma-run of ids. */
-.ai-review-sources { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0 0; }
+.ai-review-sources { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 0; }
 .ai-review-sources-label {
   font-size: var(--fs-xs); letter-spacing: 0.06em;
   color: var(--muted); margin-right: 2px;
 }
 .ai-review-source {
   max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  padding: 3px 9px; border-radius: var(--r-pill); font-size: var(--fs-xs);
+  padding: 4px 8px; border-radius: var(--r-pill); font-size: var(--fs-xs);
   color: var(--text); background: var(--surface-alt); border: 1px solid var(--line);
   text-decoration: none;
 }
 a.ai-review-source:hover { border-color: var(--border-strong); background: var(--surface2); }
 
 /* Provenance split pane (Phase D): proposed write | source evidence. */
-.ai-review-body { display: grid; gap: 16px; margin: 12px 0 14px; }
+.ai-review-body { display: grid; gap: 16px; margin: 12px 0 16px; }
 .ai-review-card--split .ai-review-body { grid-template-columns: 1fr 1fr; align-items: start; }
 .ai-review-colhead {
-  margin: 0 0 6px; font-size: var(--fs-xs); letter-spacing: 0.06em;
+  margin: 0 0 8px; font-size: var(--fs-xs); letter-spacing: 0.06em;
   color: var(--muted);
 }
 .ai-evidence { display: grid; gap: 8px; padding: 12px; border-radius: var(--r-control); background: var(--surface-alt); }
-.ai-evidence + .ai-evidence { margin-top: 10px; }
+.ai-evidence + .ai-evidence { margin-top: 12px; }
 .ai-evidence-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .ai-evidence-source { font-weight: 600; font-size: var(--fs-sm); }
 .ai-evidence-warn {
@@ -57,7 +57,7 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
   color: var(--danger);
 }
 .ai-evidence-excerpt {
-  margin: 0; padding: 8px 10px; border-left: 3px solid var(--line);
+  margin: 0; padding: 8px 12px; border-left: 3px solid var(--line);
   font-size: var(--fs); line-height: 1.6; overflow-wrap: anywhere;
 }
 .ai-evidence-dim { color: var(--muted); }
@@ -70,4 +70,4 @@ a.ai-review-source:hover { border-color: var(--border-strong); background: var(-
 /* A PDF page wants the whole window, not the 1200px reading column. */
 .screen.reader-screen { max-width: none; }
 .ai-review-lede { margin: -8px 0 16px; max-width: 72ch; }
-.ai-review-toolbar { padding: 14px 18px; flex-wrap: wrap; }
+.ai-review-toolbar { padding: 16px 16px; flex-wrap: wrap; }

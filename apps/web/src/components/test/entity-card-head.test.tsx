@@ -93,5 +93,5 @@ test("only a trailing ⋯ pulls the controls into the card's edge; a text badge 
   const badgeOnly = renderToStaticMarkup(<EntityCard title="x" badge={<span>Create note</span>} />);
   assert.match(badgeOnly, /class="entity-card-controls"/);
   assert.doesNotMatch(rule(".entity-card-controls"), /margin-right: -/);
-  assert.match(rule(".entity-card-controls--menu"), /margin-right: -6px/);
+  assert.match(rule(".entity-card-controls--menu"), /margin-right: -8px/);
 });

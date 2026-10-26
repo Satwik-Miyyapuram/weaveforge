@@ -374,17 +374,17 @@
 }
 
 /* ---- Appearance settings: motion toggle + theme file controls ---- */
-.toggle-row { display: flex; align-items: center; gap: 9px; cursor: pointer; }
+.toggle-row { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .toggle-row span { font-weight: 500; }
 
-.theme-config-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.theme-config-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .theme-config-actions input[type="file"] {
-  flex: 1 1 14rem; min-width: 0; padding: 8px 10px;
+  flex: 1 1 14rem; min-width: 0; padding: 8px 12px;
   border: 1px solid var(--line); border-radius: var(--radius-sm);
   background: var(--input-bg); color: var(--ink); font: inherit; font-size: var(--fs);
 }
 .theme-config-actions input[type="file"]::file-selector-button {
-  margin-right: 10px; padding: 5px 10px;
+  margin-right: 12px; padding: 4px 12px;
   border: 1px solid var(--line); border-radius: var(--control-radius-sm);
   background: var(--surface2); color: var(--ink); font: inherit; font-size: var(--fs-sm); cursor: pointer;
 }
@@ -392,7 +392,7 @@
 /* Errors are a list because the parser reports every bad key at once — one
    round trip per typo is a miserable way to author a theme. */
 .theme-config-errors ul {
-  margin: 0; padding: 8px 10px 8px 26px;
+  margin: 0; padding: 8px 12px 8px 24px;
   border-radius: var(--radius-sm); background: var(--s-danger-bg);
   color: var(--ink); font-size: var(--fs-sm); max-height: 12rem; overflow-y: auto;
 }
@@ -407,7 +407,7 @@
   display: inline-block;
   width: 6px;
   height: 6px;
-  margin-left: 6px;
+  margin-left: 8px;
   border-radius: 50%;
   background: var(--accent);
   vertical-align: 3px;

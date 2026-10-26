@@ -45,6 +45,13 @@
   --link: var(--accent-ink);
   --clay: var(--s-warn);
   --danger: var(--s-danger);
+  --info: var(--s-info);
+  --success: var(--s-good);
+  /* Plain white and black, for marks drawn over images and fixed-paper surfaces. */
+  --white: #fff;
+  --black: #000;
+  /* Ink on the bright step-progress marks, dark in every theme. */
+  --poster-ink: #12110f;
   --nav-bg: var(--surface);
   /* Touch press tint. Replaces the UA tap highlight, which ignores
    * border-radius; as a background on the element it follows the radius. */

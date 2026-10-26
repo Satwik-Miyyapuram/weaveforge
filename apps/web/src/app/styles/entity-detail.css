@@ -1,29 +1,29 @@
-.related-panel-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
+.related-panel-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 8px; }
 .related-panel-list a { color: var(--ink); text-decoration: none; }
 .related-panel-list a:hover { color: var(--accent-ink); text-decoration: underline; }
 
 /* ---- Wiki screen ---- */
 /* Wiki: drafting on the left, health on the right once there is room. */
 .wiki-lede { margin: -4px 0 16px; max-width: 70ch; }
-.wiki-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.wiki-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 24px; align-items: start; }
 .wiki-layout > .card { margin: 0; }
 @media (max-width: 1000px) { .wiki-layout { grid-template-columns: minmax(0, 1fr); } }
 .wiki-step { margin-top: 12px; }
-.wiki-step-head { display: flex; align-items: center; gap: 10px; }
+.wiki-step-head { display: flex; align-items: center; gap: 12px; }
 .wiki-step-title { flex: 1; min-width: 0; }
 .wiki-step-no {
   display: inline-grid; place-items: center; width: 22px; height: 22px; flex: none;
   border-radius: 50%; background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: 700;
 }
-.wiki-step-count { font-size: var(--fs-xs); padding: 1px 9px; border-radius: var(--r-pill); background: var(--surface2); }
+.wiki-step-count { font-size: var(--fs-xs); padding: 1px 8px; border-radius: var(--r-pill); background: var(--surface2); }
 .wiki-plan-list { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
 /* A workspace can hold hundreds of sources; the list scrolls rather than
    pushing the button that acts on it off the screen. */
 .wiki-source-list { max-height: 260px; overflow-y: auto; padding-right: 4px; }
-.wiki-lint-list { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 6px; }
+.wiki-lint-list { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 8px; }
 .wiki-lint-list li {
   font-size: var(--fs);
-  padding-left: 10px;
+  padding-left: 12px;
   /* Severity is carried by a left rule rather than by text colour alone, so it
      survives the themes that flatten colour contrast. */
   border-left: 3px solid var(--line);
@@ -43,13 +43,13 @@
   background: var(--surface2);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 10px;
+  padding: 12px;
   margin: 8px 0;
 }
 
 .related-papers { min-width: 0; }
 .related-papers-panel { margin-top: 8px; min-width: 0; }
-.related-papers-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 10px; }
+.related-papers-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 12px; }
 .related-papers-list li {
   border-bottom: 1px solid var(--line); padding-bottom: 8px;
   display: grid; gap: 4px; min-width: 0;
@@ -68,7 +68,7 @@ a.related-paper-url:hover { text-decoration: underline; }
 }
 
 /* Paper image attachments (expanded card view). */
-.paper-images { display: grid; gap: 8px; margin-top: 10px; justify-items: start; }
+.paper-images { display: grid; gap: 8px; margin-top: 12px; justify-items: start; }
 .image-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   gap: 8px; width: 100%;
@@ -84,7 +84,7 @@ a.related-paper-url:hover { text-decoration: underline; }
    extra vertical band. Below ~360px of card interior the thumbs wrap under. */
 .card-body-row {
   display: flex; align-items: flex-start; gap: 8px;
-  flex-wrap: wrap; margin-top: 6px;
+  flex-wrap: wrap; margin-top: 8px;
 }
 .card-body-row:empty { display: none; }
 .card-body-row > .entity-card-snippet,
@@ -92,7 +92,7 @@ a.related-paper-url:hover { text-decoration: underline; }
 .card-body-row > .card-thumbs { flex: 0 0 auto; margin-top: 0; }
 
 /* First-few image thumbnails on an entity card (papers, experiments). */
-.card-thumbs { display: flex; gap: 6px; margin-top: 8px; }
+.card-thumbs { display: flex; gap: 8px; margin-top: 8px; }
 .card-thumb {
   position: relative; flex: 0 0 auto;
   width: 52px; height: 40px; border-radius: var(--r-sm); overflow: hidden;
@@ -140,7 +140,7 @@ a.related-paper-url:hover { text-decoration: underline; }
   margin: 0; font-size: var(--fs-sm); line-height: 1.4;
 }
 .collab-presence::before {
-  content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px;
+  content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 8px;
   border-radius: 50%; background: var(--accent); vertical-align: middle;
 }
 .collab-offline { color: var(--warn, var(--ink)); }
@@ -149,15 +149,15 @@ a.related-paper-url:hover { text-decoration: underline; }
 .cm-ySelectionInfo {
   position: absolute; top: -1.05em; left: -1px; font-size: var(--fs-micro); line-height: 1.1;
   padding: 1px 4px; border-radius: var(--r-sm) var(--r-sm) var(--r-sm) 0; white-space: nowrap;
-  color: #fff; opacity: 0.9; user-select: none; pointer-events: none;
+  color: var(--white); opacity: 0.9; user-select: none; pointer-events: none;
 }
 
 /* Editor toolbar row: cite-format picker, template re-render, artifact picker (Phase C). */
 .summary-editor-bar {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
   padding-bottom: 2px;
 }
-.citation-format-select { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); white-space: nowrap; }
+.citation-format-select { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-sm); white-space: nowrap; }
 .citation-format-select .select { min-width: 0; }
 
 .brave-graph-warning {
@@ -178,7 +178,7 @@ a.related-paper-url:hover { text-decoration: underline; }
  * papers, report sections, and experiments so delete sits in the same place on
  * every card.
  */
-.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; min-width: 0; }
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
 /* Prefer word wraps; avoid letter-ladder when status sits beside the title. */
 .card-title {
   flex: 1 1 auto; min-width: 0; margin: 0;
@@ -186,7 +186,7 @@ a.related-paper-url:hover { text-decoration: underline; }
   font-size: var(--fs-lg); letter-spacing: -0.01em;
   overflow-wrap: break-word; word-break: normal;
 }
-.card-foot { display: flex; align-items: center; gap: 10px; }
+.card-foot { display: flex; align-items: center; gap: 12px; }
 
 /* Status pills — shared semantic ramp from themes/common.css (--st-* → --s-*).
    Domains: papers (to_read/reading/read/skimmed), experiments
@@ -195,7 +195,7 @@ a.related-paper-url:hover { text-decoration: underline; }
    Do not invent one-off status hex; map new statuses onto --st-*. */
 .status {
   flex: none; font-size: var(--fs-xs); text-transform: capitalize;
-  padding: 4px 10px; border-radius: var(--r-pill);
+  padding: 4px 12px; border-radius: var(--r-pill);
   background: var(--st-neutral-bg); color: var(--st-neutral-fg);
   white-space: nowrap;
 }
@@ -222,13 +222,13 @@ a.related-paper-url:hover { text-decoration: underline; }
 /* Logbook */
 .log-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 12px; }
 .log-item { display: grid; gap: 8px; }
-.edit-actions { justify-content: flex-end; gap: 14px; }
+.edit-actions { justify-content: flex-end; gap: 16px; }
 .log-date { font-weight: 600; }
 /* The logbook as a timeline: a date gutter, a rule with a dot per day, the
    day's entries, and the month and kinds beside it on a wide screen. */
 .log-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
-.log-timeline { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 18px; }
-.log-day { position: relative; scroll-margin-top: calc(var(--titlebar-h, 0px) + 16px); display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 0 34px; }
+.log-timeline { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 16px; }
+.log-day { position: relative; scroll-margin-top: calc(var(--titlebar-h, 0px) + 16px); display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 0 32px; }
 .log-day::before {
   content: ""; position: absolute; left: 92px; top: 0; bottom: -18px; width: 1px; background: var(--line);
 }
@@ -245,7 +245,7 @@ a.related-paper-url:hover { text-decoration: underline; }
 .log-calendar-top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .log-calendar-top h2 { flex: 1; margin: 0; text-align: center; }
 .log-calendar-top button:disabled { opacity: 0.35; cursor: default; }
-.log-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
+.log-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
 .log-calendar-head { color: var(--muted); font-size: var(--fs-xs); }
 .log-calendar-day {
   display: grid; place-items: center; aspect-ratio: 1; font-size: var(--fs-sm); border-radius: var(--r-sm);
@@ -256,11 +256,11 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 .log-calendar-day.is-logged:hover { border-color: var(--text); }
 /* More than one entry that day: a count in the corner, headlines in the tooltip. */
 .log-calendar-count {
-  position: absolute; top: -6px; right: -6px; min-width: 15px; padding: 0 3px; border-radius: var(--r-control);
+  position: absolute; top: -6px; right: -6px; min-width: 15px; padding: 0 4px; border-radius: var(--r-control);
   background: var(--text); color: var(--bg); font-size: var(--fs-micro); line-height: 15px;
 }
 .log-calendar-day.is-today { border-color: var(--accent); font-weight: 700; }
-.log-kinds ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.log-kinds ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .log-kinds li { display: flex; align-items: center; justify-content: space-between; }
 .log-kinds-count { color: var(--muted); font-size: var(--fs-sm); }
 @media (max-width: 1100px) {
@@ -268,7 +268,7 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
   .log-side { display: none; }
 }
 @media (max-width: 640px) {
-  .log-day { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .log-day { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .log-day::before, .log-day::after { display: none; }
   .log-day-mark { flex-direction: row; align-items: baseline; gap: 8px; }
   .log-day-mark strong { font-size: var(--fs-h2); }
@@ -276,18 +276,18 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 .log-body { margin: 0; white-space: pre-wrap; font-size: var(--fs-lg); }
 
 /* Report outline */
-.progress-card { margin: 16px 0; display: grid; gap: 10px; }
+.progress-card { margin: 16px 0; display: grid; gap: 12px; }
 .progress-top { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs); }
 .progress-bar { height: 8px; background: var(--neutral); border-radius: var(--r-pill); overflow: hidden; }
 .progress-bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.3s ease; }
 /* Plan timeline: the track fills up to today, a mark per dated milestone sits
    on it, and month ticks run underneath. Positions come in as inline `left`. */
 .plan-pace { color: var(--muted); font-family: var(--font); font-size: var(--fs-xs); }
-.plan-timeline { position: relative; height: 58px; margin: 22px 11px 0; }
+.plan-timeline { position: relative; height: 58px; margin: 24px 12px 0; }
 .plan-track { position: absolute; left: -11px; right: -11px; top: 7px; height: 10px; background: var(--surface2); border-radius: var(--r-pill); overflow: hidden; }
 .plan-track > span { display: block; height: 100%; background: var(--accent); }
 .plan-mark {
-  position: absolute; top: 1px; width: 22px; height: 22px; min-height: 0; margin-left: -11px; padding: 0;
+  position: absolute; top: 1px; width: 22px; height: 22px; min-height: 0; translate: -50% 0; padding: 0;
   display: flex; align-items: stretch; overflow: visible; cursor: pointer;
   border-radius: 50%; background: var(--surface); border: 2px solid var(--border-strong);
 }
@@ -297,7 +297,7 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 .plan-mark > span:last-of-type { border-radius: 0 var(--r-pill) var(--r-pill) 0; }
 .plan-mark > span:only-of-type { border-radius: inherit; }
 .plan-mark-count {
-  position: absolute; top: -9px; right: -10px; min-width: 16px; padding: 0 3px;
+  position: absolute; top: -9px; right: -10px; min-width: 16px; padding: 0 4px;
   border-radius: var(--r-pill); background: var(--text); color: var(--surface);
   font: 600 var(--fs-micro)/16px var(--font); text-align: center;
 }
@@ -310,12 +310,12 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 .plan-today > em {
   position: absolute; bottom: 100%; left: 0; transform: translateX(-50%);
   font-style: normal; font-size: var(--fs-xs); font-weight: 600; white-space: nowrap;
-  padding: 1px 6px; border-radius: var(--r-sm); background: var(--text); color: var(--surface);
+  padding: 1px 8px; border-radius: var(--r-sm); background: var(--text); color: var(--surface);
 }
 .plan-months { position: absolute; left: 0; right: 0; top: 38px; height: 1em; }
 .plan-months > span { position: absolute; transform: translateX(-50%); font-family: var(--font); font-size: var(--fs-xs); color: var(--muted); }
 .wiki-recent-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.wiki-recent-list li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.wiki-recent-list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .wiki-recent-list li:last-child { border-bottom: 0; }
 .wiki-recent-list a { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Tablet Plan/Log: search and add share one row under the title. On a phone

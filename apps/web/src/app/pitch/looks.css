@@ -5,6 +5,11 @@
 /* Looks. With no choice made the page follows the system: Poster, or Poster
    dark. `data-look` pins one of the page's own looks; `data-theme` borrows any
    of the app's themes instead, mapped onto these tokens further down. */
+/* Fixed marks every look shares: the Auto swatch halves and the terminal dots. */
+.wf-looks {
+  --poster-bg: #F2E1C4; --poster-dark-bg: #131210; --term-dot: #4A4640;
+  --code-kw: #B0306A; --code-st: #2F7A45; --scanline: transparent;
+}
 .wf-looks:not([data-theme]) {
   --bg: #F2E1C4; --surface: #FFF0D9; --surface2: #E8D5B5; --well: #E3D1B1;
   --ink: #12110F; --muted: #574E3F; --line: #12110F; --hair: rgba(18,17,15,0.18);
@@ -33,6 +38,7 @@
   --sh-card: 5px 5px 0 #4D4639; --sh-sm: 3px 3px 0 #F2E1C4; --sh-lift: 8px 8px 0 #F2E1C4;
   --danger-text: #FF826A; --nav-on: #FFC536; --nav-on-ink: #12110F;
   --term: #0C0B0A; --term-bar: #1D1B18;
+  --code-kw: #FF95A9; --code-st: #86D08F;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -44,6 +50,7 @@
     --sh-card: 5px 5px 0 #4D4639; --sh-sm: 3px 3px 0 #F2E1C4; --sh-lift: 8px 8px 0 #F2E1C4;
     --danger-text: #FF826A; --nav-on: #FFC536; --nav-on-ink: #12110F;
     --term: #0C0B0A; --term-bar: #1D1B18;
+    --code-kw: #FF95A9; --code-st: #86D08F;
     color-scheme: dark;
   }
 }
@@ -64,6 +71,7 @@
   --title-shadow: 1px 0 rgba(199,55,41,0.45), -1px 0 rgba(31,109,171,0.45), 0 3px 0 rgba(43,34,43,0.18);
   --btn-font: var(--font-face-pixel), 'Jersey 10', var(--font-face-sans), 'Rubik', system-ui, sans-serif; --btn-w: 400; --btn-fs: 24px;
   --tilt: -1.2deg; --press: translateY(5px);
+  --code-kw: #1F6DAB; --scanline: rgba(43,34,43,0.06);
   color-scheme: light;
 }
 

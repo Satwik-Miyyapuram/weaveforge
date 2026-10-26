@@ -39,8 +39,8 @@
 }
 .graph-local-banner {
   flex: 0 1 auto; min-width: 0;
-  display: flex; align-items: center; gap: 10px;
-  padding: 6px 12px; font-size: var(--fs-xs);
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 12px; font-size: var(--fs-xs);
   background: var(--elev); border: 1px solid var(--border); border-radius: var(--r-control);
 }
 /* Anchored bottom-right of the canvas (both normal and focus modes). */
@@ -56,13 +56,13 @@
 .graph-settings-drawer {
   position: fixed; top: var(--titlebar-h); right: 0; bottom: 0; width: min(360px, 92vw);
   z-index: 90; overflow-x: hidden; overflow-y: auto; border-radius: 0;
-  padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+  padding: 12px 16px; display: flex; flex-direction: column; gap: 8px;
   border-left: 1px solid var(--border);
 }
 .graph-drawer-backdrop {
   /* Below the title bar, which stays usable while the drawer is open. */
   position: fixed; inset: 0; top: var(--titlebar-h); z-index: 89; border: none;
-  background: rgba(0, 0, 0, 0.25); cursor: pointer;
+  background: color-mix(in srgb, var(--black) 25%, transparent); cursor: pointer;
 }
 .graph-drawer-head {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -73,18 +73,18 @@
 .graph-drawer-section-head {
   width: 100%; display: flex; align-items: center; justify-content: space-between;
   border: none; background: none; cursor: pointer; font: inherit; font-size: var(--fs-xs);
-  padding: 6px 0; color: var(--ink);
+  padding: 8px 0; color: var(--ink);
 }
 .graph-drawer-tabs {
   display: flex;
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: thin;
-  gap: 3px;
-  padding: 3px;
+  gap: 4px;
+  padding: 4px;
   background: var(--surface2);
   border-radius: var(--r-control);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 .graph-drawer-tab {
   flex: 1 0 auto;
@@ -96,7 +96,7 @@
   font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--muted);
-  padding: 6px 2px;
+  padding: 8px 2px;
   border-radius: var(--r-sm);
   text-align: center;
   transition: background var(--dur-base), color var(--dur-base);
@@ -107,12 +107,12 @@
 .graph-drawer-tab.active {
   background: var(--surface);
   color: var(--ink);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--e1);
 }
 .graph-tab-panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 .graph-chip-actions {
   display: flex;
@@ -123,7 +123,7 @@
 .graph-chip-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 .graph-chip {
   border: 1px solid var(--border);
@@ -131,7 +131,7 @@
   color: var(--muted);
   font: inherit;
   font-size: var(--fs-xs);
-  padding: 3px 9px;
+  padding: 4px 8px;
   border-radius: var(--r-pill);
   cursor: pointer;
   transition: all var(--dur-base);
@@ -147,10 +147,10 @@
   font-weight: 700;
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-chip.active {
-  box-shadow: 1px 1px 0 var(--bw-line, #12110f);
+  box-shadow: 1px 1px 0 var(--bw-line, var(--ink));
 }
 .graph-card-sub {
-  padding: 10px;
+  padding: 12px;
   border-radius: var(--r-control);
   background: var(--surface2);
   display: grid;
@@ -172,41 +172,41 @@
 :root:root .graph-settings-drawer .seg { display: flex; width: 100%; }
 :root:root .graph-settings-drawer .seg > button { flex: 1; }
 .graph-search-input {
-  width: 100%; font: inherit; font-size: var(--fs); padding: 7px 10px;
+  width: 100%; font: inherit; font-size: var(--fs); padding: 8px 12px;
   border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface);
 }
 .graph-side-panel {
   position: absolute; top: 48px; left: 10px; bottom: 10px; width: min(300px, 88vw);
-  z-index: 9; overflow: auto; padding: 10px 12px;
+  z-index: 9; overflow: auto; padding: 12px 12px;
 }
 .graph-side-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.graph-side-title { font-size: var(--fs-lg); margin: 0 0 6px; line-height: 1.35; }
-.graph-side-meta { font-size: var(--fs-xs); margin: 0 0 6px; }
-.graph-side-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.graph-side-title { font-size: var(--fs-lg); margin: 0 0 8px; line-height: 1.35; }
+.graph-side-meta { font-size: var(--fs-xs); margin: 0 0 8px; }
+.graph-side-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .graph-side-section { margin-top: 12px; }
-.graph-side-list { list-style: none; padding: 0; margin: 6px 0 0; font-size: var(--fs-sm); }
+.graph-side-list { list-style: none; padding: 0; margin: 8px 0 0; font-size: var(--fs-sm); }
 /* A `<button>` centres its own label, so every list in the panel read as centred
    prose — the relations list had been fixed one rule at a time and the papers,
    notes and co-occurring lists had not. They are rows of text: they start left. */
 .graph-side-list .link-btn,
 .graph-side-section .link-btn { text-align: left; }
-.graph-side-list li { margin: 4px 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.graph-side-list li { margin: 4px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .tag-chip-btn { cursor: pointer; border: none; font: inherit; }
-.graph-merge-box { display: grid; gap: 6px; margin: 8px 0; padding: 8px; background: var(--surface2); border-radius: var(--r-control); }
+.graph-merge-box { display: grid; gap: 8px; margin: 8px 0; padding: 8px; background: var(--surface2); border-radius: var(--r-control); }
 .graph-edge-popover {
-  position: fixed; z-index: var(--z-overlay); width: min(280px, 90vw); padding: 10px 12px;
+  position: fixed; z-index: var(--z-overlay); width: min(280px, 90vw); padding: 12px 12px;
   transform: translate(-50%, -100%); margin-top: -8px;
 }
-.graph-edge-popover-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.graph-edge-popover-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .graph-edge-popover-path { font-size: var(--fs-xs); margin: 0 0 8px; }
 .graph-link-tooltip {
   position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
-  z-index: 7; font-size: var(--fs-xs); padding: 4px 10px; border-radius: var(--r-sm);
+  z-index: 7; font-size: var(--fs-xs); padding: 4px 12px; border-radius: var(--r-sm);
   background: var(--elev); border: 1px solid var(--border); pointer-events: none;
 }
-.graph-legend-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.graph-legend-group { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .graph-legend-heading { width: 100%; font-size: var(--fs-xs); letter-spacing: 0.04em; }
-.legend-concept { background: rgba(140, 133, 124, 0.35); }
+.legend-concept { background: color-mix(in srgb, var(--muted) 35%, transparent); }
 .annotation-paper { font-size: var(--fs-xs); margin-bottom: 4px; }
 .graph-focus .graph-side-panel { position: fixed; top: 56px; left: 10px; bottom: 14px; }
 .graph-focus .graph-stage { position: absolute; inset: 0; margin: 0; }
@@ -219,12 +219,12 @@
   display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
 }
 .graph-focus-bar__row {
-  display: flex; align-items: flex-start; gap: 10px; width: 100%;
+  display: flex; align-items: flex-start; gap: 12px; width: 100%;
 }
 .graph-focus-head { flex: 1; min-width: 0; margin: 0; }
-.filters { display: grid; gap: 8px; margin: 14px 0 6px; }
+.filters { display: grid; gap: 8px; margin: 16px 0 8px; }
 /* Dropdown-style filters (papers): side-by-side selects that stack on mobile. */
-.search-input { margin: 14px 0 0; }
+.search-input { margin: 16px 0 0; }
 /* Canvas force-graph (react-force-graph renders a <canvas> inside). */
 .graph-wrap {
   margin: 12px 0; width: 100%; overflow: hidden;
@@ -248,7 +248,7 @@
 .graph-focus-legend .graph-legend-wrap { margin: 0; }
 .graph-focus-legend .graph-legend.card {
   background: var(--elev); border: 1px solid var(--border);
-  border-radius: var(--r-control); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  border-radius: var(--r-control); box-shadow: var(--e2);
 }
 .graph-focus .gf-empty { position: absolute; inset: 0; display: grid; place-items: center; }
 
@@ -271,7 +271,7 @@
    the wrapper because the children position against `.graph-stage`, and a
    positioned wrapper would become their containing block instead.
    --------------------------------------------------------------------------- */
-.graph-below { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 0; }
+.graph-below { display: flex; flex-direction: column; gap: 12px; margin: 12px 0 0; }
 .graph-below .graph-legend-wrap { margin: 0; }
 /* The panel is a card in the flow here, not a floating overlay. */
 .graph-below .graph-side-panel {
@@ -340,23 +340,24 @@
 }
 
 .graph-legend-wrap { margin: 8px 0; display: inline-flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-.graph-legend-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: var(--fs-sm); }
+.graph-legend-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: var(--fs-sm); }
 .graph-legend-toggle.on { border-color: var(--accent); }
 .graph-legend.card {
   display: flex; flex-wrap: wrap; gap: 12px; font-size: var(--fs-xs);
-  margin: 0; padding: 10px 12px;
+  margin: 0; padding: 12px 12px;
 }
-.graph-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: var(--fs-xs); margin-top: 6px; }
-.legend-item { display: inline-flex; align-items: center; gap: 5px; }
+.graph-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: var(--fs-xs); margin-top: 8px; }
+.legend-item { display: inline-flex; align-items: center; gap: 4px; }
 .legend-swatch { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
 /* Node swatches: the same shape per kind as the canvas draws, in every theme. */
 .legend-node {
   width: 10px; height: 10px; display: inline-block; flex: none;
-  background: linear-gradient(135deg, hsl(20, 55%, 62%), hsl(200, 55%, 62%)); color: var(--muted);
+  --node-warm: hsl(20, 55%, 62%); --node-cool: hsl(200, 55%, 62%); --node-square: hsl(210, 55%, 62%);
+  background: linear-gradient(135deg, var(--node-warm), var(--node-cool)); color: var(--muted);
 }
 .legend-node--circle, .legend-node--ring { border-radius: 50%; }
 .legend-node--ring { outline: 1px solid currentColor; outline-offset: 1.5px; }
-.legend-node--square { border-radius: 1px; background: hsl(210, 55%, 62%); }
+.legend-node--square { border-radius: 1px; background: var(--node-square); }
 .legend-node--round { border-radius: var(--r-sm); }
 .legend-node--diamond { width: 8px; height: 8px; margin: 1px; transform: rotate(45deg); }
 .legend-swatch.legend-dot { width: 9px; height: 9px; border-radius: 50%; }
@@ -365,18 +366,18 @@
 /* Side panel per the Graph mock: kind + status chips, labelled relations. */
 .graph-side-chips { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .graph-side-kind {
-  font-size: var(--fs-xs); font-weight: 700; padding: 3px 10px; border-radius: var(--r-pill);
+  font-size: var(--fs-xs); font-weight: 700; padding: 4px 12px; border-radius: var(--r-pill);
   background: var(--active-bg); color: var(--active-fg);
 }
-.graph-side-close { min-height: 34px; padding: 0 6px; }
+.graph-side-close { min-height: 34px; padding: 0 8px; }
 .graph-side-label { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); }
 .graph-side-list li.graph-side-rel {
-  padding: 6px 8px; border-radius: var(--r-control); background: var(--surface2); flex-wrap: nowrap;
+  padding: 8px 8px; border-radius: var(--r-control); background: var(--surface2); flex-wrap: nowrap;
 }
 .graph-side-rel .link-btn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 /* The row's own delete: pushed to the end, quiet until it is wanted. */
 .graph-side-rel .graph-side-rel-remove {
-  margin-left: auto; flex: none; padding: 2px 6px; color: var(--muted);
+  margin-left: auto; flex: none; padding: 2px 8px; color: var(--muted);
 }
 .graph-side-rel .graph-side-rel-remove:hover { color: var(--danger); text-decoration: none; }
 .graph-side-rel-kind {
@@ -389,7 +390,7 @@
 /* The mock docks the panel on the right edge of the canvas, a little wider. */
 @media (min-width: 900px) {
   .graph-below .graph-side-panel,
-  .graph-focus .graph-side-panel { left: auto; right: 10px; width: min(340px, 40vw); padding: 14px 16px; }
+  .graph-focus .graph-side-panel { left: auto; right: 10px; width: min(340px, 40vw); padding: 16px 16px; }
   .graph-side-panel .graph-side-title { font-size: var(--fs-h2); line-height: 1.2; }
 }
 
@@ -410,7 +411,7 @@
 
 /* Graph settings: node colours, one row per kind. */
 .graph-colour-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 4px; }
-.graph-group-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
-.graph-group-row { display: flex; align-items: center; gap: 6px; }
+.graph-group-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 8px; }
+.graph-group-row { display: flex; align-items: center; gap: 8px; }
 .graph-group-row .input { flex: 1; min-width: 0; }
 .graph-colour-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: var(--fs); }

@@ -1,6 +1,6 @@
 /* `text-wrap: balance` so a two-line screen title breaks evenly rather than
    leaving one word on the second line. It was pitch-only before this. */
-.screen-head h1 { font-family: var(--font-serif); font-weight: 600; font-size: var(--fs-h1); margin: 18px 0 2px; letter-spacing: -0.01em; text-wrap: balance; }
+.screen-head h1 { font-family: var(--font-serif); font-weight: 600; font-size: var(--fs-h1); margin: 16px 0 2px; letter-spacing: -0.01em; text-wrap: balance; }
 /* Code/monospace surfaces adopt the mono face (JetBrains Mono). */
 code, pre, .commit-sha { font-family: var(--font-mono); }
 .head-row { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
@@ -8,7 +8,7 @@ code, pre, .commit-sha { font-family: var(--font-mono); }
 /* One gap between a screen's head and its first card, on every screen. It was
    whatever the first card's own top margin happened to be: 0 on Lists, 4 on the
    dashboard, 14 on Experiments, 18 on Papers. */
-.screen > .screen-head:not(:empty) { margin-bottom: 22px; }
+.screen > .screen-head:not(:empty) { margin-bottom: 24px; }
 .screen > .screen-head:not(:empty) + * { margin-top: 0; }
 /* The route-named <h1> a screen gets when it names no title is drawn like any
    other title: one visible page title per route (D11, DA-50). */
@@ -25,26 +25,26 @@ code, pre, .commit-sha { font-family: var(--font-mono); }
 
 /* A dialog that asks for a value rather than a yes: one labelled field between
    the sentence and the choices. */
-.prompt-dialog-field { display: block; margin: 14px 0 0; }
+.prompt-dialog-field { display: block; margin: 16px 0 0; }
 .prompt-dialog-field > span {
-  display: block; margin-bottom: 6px;
+  display: block; margin-bottom: 8px;
   font-size: var(--fs-xs); font-weight: 600; color: var(--muted);
 }
 .prompt-dialog-field input {
   width: 100%; font: inherit; font-size: var(--fs);
   color: var(--text); background: var(--surface2);
   border: 1px solid var(--border-strong); border-radius: var(--r-control);
-  padding: 9px 11px;
+  padding: 8px 12px;
 }
 .prompt-dialog-field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .btn-secondary {
   cursor: pointer; font: inherit; font-size: var(--fs-sm); font-weight: 500;
   color: var(--text); background: transparent; border: 1px solid var(--border-strong);
-  padding: 8px 14px; border-radius: var(--r-control);
+  padding: 8px 16px; border-radius: var(--r-control);
   /* Links wear this class too (reader, AI review) — a button that underlines
      itself does not read as a button. */
-  display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
 }
 .btn-secondary:hover { background: var(--surface2); }
 /* Destructive secondary — pairs with .btn-primary so a decision reads as one
@@ -54,12 +54,12 @@ code, pre, .commit-sha { font-family: var(--font-mono); }
 /* Ghost: borderless secondary for low-emphasis chrome (e.g. org setup Back). */
 .btn-ghost {
   cursor: pointer; font: inherit; font-size: var(--fs-sm); font-weight: 500;
-  color: var(--muted); background: transparent; border: 1px solid transparent; padding: 7px 9px;
+  color: var(--muted); background: transparent; border: 1px solid transparent; padding: 8px 8px;
   border-radius: var(--r-control);
 }
 .btn-ghost:hover { color: var(--ink); }
 /* Size modifier — compose with .btn-secondary (or .btn-primary) for denser actions. */
-.btn-sm { padding: 6px 12px; font-size: var(--fs-xs); border-radius: var(--r-control); }
+.btn-sm { padding: 8px 12px; font-size: var(--fs-xs); border-radius: var(--r-control); }
 
 /* Icon-only button (<IconButton>): a ghost square, one control tall. */
 .icon-btn {
@@ -76,7 +76,7 @@ code, pre, .commit-sha { font-family: var(--font-mono); }
    The density setting moves the tokens, so it moves every button. */
 :is(.btn-primary, .btn-secondary, .btn-ghost) {
   min-height: var(--control-lg); padding-block: 0;
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   box-sizing: border-box; line-height: 1.2;
 }
 :is(.btn-primary, .btn-secondary, .btn-ghost).btn-sm { min-height: var(--control-sm); }

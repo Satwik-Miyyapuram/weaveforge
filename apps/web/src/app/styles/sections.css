@@ -2,8 +2,8 @@
 .section-tree.nested {
   position: relative;
   margin: 4px 0 0;
-  padding: 0 0 0 9px;
-  gap: 5px;
+  padding: 0 0 0 8px;
+  gap: 4px;
 }
 .section-tree.nested::before {
   content: "";
@@ -30,14 +30,14 @@
   background: var(--line);
   pointer-events: none;
 }
-.section-item { display: grid; gap: 4px; min-width: 0; padding: 10px 12px; }
+.section-item { display: grid; gap: 4px; min-width: 0; padding: 12px 12px; }
 .section-tree:not(.nested) > .section-node > .section-item,
 .section-tree:not(.nested) > .section-node > .entity-card { width: 100%; }
 /* Nested sections shed chrome with depth so the outline stays legible even a
    few levels in: lighter fill, tighter padding, no heavy card shadow. */
 .section-item--nested,
 .entity-card.entity-card--nested.section-item {
-  padding: 8px 10px;
+  padding: 8px 12px;
   background: color-mix(in srgb, var(--surface2) 40%, transparent);
   box-shadow: none;
 }
@@ -58,7 +58,7 @@
   margin-top: 4px;
   max-height: 4.6em;
   overflow: hidden;
-  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+  mask-image: linear-gradient(to bottom, var(--black) 70%, transparent);
 }
 .section-note-md-preview .markdown {
   max-width: none;
@@ -92,10 +92,10 @@
 }
 .status-select.custom-select-container { width: auto; }
 .status-select .custom-select-button {
-  padding: 6px 12px;
+  padding: 8px 12px;
   min-height: var(--control-md);
   border-radius: var(--r-sm);
-  gap: 6px;
+  gap: 8px;
   font-size: var(--fs-xs);
   line-height: 1.2;
 }
@@ -120,19 +120,19 @@
 }
 
 /* Markdown body */
-.markdown p { margin: 6px 0; }
+.markdown p { margin: 8px 0; }
 /* Section page head (PhoneSectionDetail mock): status and word progress, then
    one toolbar row with the primary action first and Share + ⋯ at the end. */
-.section-note-status { display: flex; flex-direction: column; gap: 8px; margin: 0 0 10px; min-width: 0; }
-.section-note-status-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.section-note-status { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; min-width: 0; }
+.section-note-status-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; min-width: 0; }
 .section-note-meta { flex: 1; font-size: var(--fs); overflow-wrap: anywhere; }
 .section-note-progress { height: 8px; }
 .section-note-toolbar { flex-wrap: nowrap; }
 .section-note-toolbar .card-foot-right { flex: 0 0 auto; margin-left: auto; flex-wrap: nowrap; }
 @media (max-width: 480px) {
   /* One row at 375px: Edit and Comments keep their words, Share and ⋯ are icons. */
-  .section-note-toolbar { gap: 6px; }
-  .section-note-toolbar .comments-trigger-detail { padding-inline: 10px; }
+  .section-note-toolbar { gap: 8px; }
+  .section-note-toolbar .comments-trigger-detail { padding-inline: 12px; }
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.section-note-progress, .section-item-progress) {
   background: var(--surface2);
@@ -141,4 +141,4 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.section-note-progress, .section-item-progress) > span { background: var(--chip-read); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .section-note-meta { font-family: var(--font); font-size: var(--fs-xs); }
 /* Words written against the target, per section (PhoneSections mock). */
-.section-item-progress { height: 6px; margin: 2px 0 6px; }
+.section-item-progress { height: 6px; margin: 2px 0 8px; }
