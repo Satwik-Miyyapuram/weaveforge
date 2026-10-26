@@ -114,6 +114,10 @@ button.git-chip { border: 0; cursor: pointer; font-family: inherit; }
 .cmp-table thead th {
   position: sticky; top: 0; z-index: 1; background: var(--surface);
 }
+/* A table with no rows says so in one row across every column. */
+.cmp-table .table-empty td {
+  padding: 16px 12px; color: var(--muted); text-align: center; white-space: normal;
+}
 /* A row reached by keyboard shows where focus is. */
 .cmp-table tbody tr:focus-within td { background: var(--hover); }
 /* Sortable heads: the icon is faint until its column sorts. */

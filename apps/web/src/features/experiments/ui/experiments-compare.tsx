@@ -8,6 +8,7 @@ import {
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { SortHeader } from "@/components/sort-header";
+import { Table } from "@/components/table";
 import { statusLabel } from "@/components/status-select";
 import { formatMetricCell, MetricChart } from "./metric-chart";
 import { MetricGrid } from "./metric-grid";
@@ -74,27 +75,27 @@ export function CompareView({ experiments }: { experiments: Experiment[] }) {
 
   return (
     <div className="compare">
-      <div className="table-scroll">
-        <table className="cmp-table">
-          <thead>
-            <tr>
-              <th>
-                <span className="sr-only">Compare</span>
-              </th>
-              <th>Run</th>
-              <th>Status</th>
-              {metricKeys.map((k) => (
-                <SortHeader
-                  key={k}
-                  label={k}
-                  active={sortKey === k}
-                  dir={sortDir}
-                  onSort={() => toggleSort(k)}
-                />
-              ))}
-            </tr>
-          </thead>
-          <tbody>
+      <Table
+        empty="No runs to compare yet."
+        head={
+          <>
+            <th>
+              <span className="sr-only">Compare</span>
+            </th>
+            <th>Run</th>
+            <th>Status</th>
+            {metricKeys.map((k) => (
+              <SortHeader
+                key={k}
+                label={k}
+                active={sortKey === k}
+                dir={sortDir}
+                onSort={() => toggleSort(k)}
+              />
+            ))}
+          </>
+        }
+      >
             {rows.map((e, i) => (
               <tr key={e.id} className={sortKey && i === 0 ? "leader" : ""}>
                 <td>
@@ -115,9 +116,7 @@ export function CompareView({ experiments }: { experiments: Experiment[] }) {
                 ))}
               </tr>
             ))}
-          </tbody>
-        </table>
-      </div>
+      </Table>
       {chosen.length > 0 && <OverlayCharts experiments={chosen} />}
     </div>
   );

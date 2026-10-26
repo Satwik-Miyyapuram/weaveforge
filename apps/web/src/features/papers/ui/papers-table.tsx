@@ -7,6 +7,7 @@ import { OpenIcon } from "@/components/view-icons";
 import { paperExternalLink } from "./paper-external-link";
 import { StatusSelect } from "@/components/status-select";
 import { SortHeader } from "@/components/sort-header";
+import { Table } from "@/components/table";
 import { Button } from "@/components/button";
 import { RowButton } from "@/components/controls";
 
@@ -78,21 +79,23 @@ export function PapersTable({
   );
 
   return (
-    <div className="table-scroll papers-table-scroll">
-      <table className="cmp-table papers-table">
-        <thead>
-          <tr>
-            {sortHeader("title", "Title", "papers-col-title")}
-            {sortHeader("authors", "Authors", "papers-col-authors")}
-            {sortHeader("year", "Year", "papers-col-year")}
-            {sortHeader("status", "Status", "papers-col-status")}
-            <th className="papers-col-link">Link</th>
-            <th className="papers-col-open">
-              <span className="sr-only">Open</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
+    <Table
+      className="papers-table"
+      scrollClassName="papers-table-scroll"
+      empty="No papers to show."
+      head={
+        <>
+          {sortHeader("title", "Title", "papers-col-title")}
+          {sortHeader("authors", "Authors", "papers-col-authors")}
+          {sortHeader("year", "Year", "papers-col-year")}
+          {sortHeader("status", "Status", "papers-col-status")}
+          <th className="papers-col-link">Link</th>
+          <th className="papers-col-open">
+            <span className="sr-only">Open</span>
+          </th>
+        </>
+      }
+    >
           {rows.map((paper) => (
             <PaperTableRow
               key={paper.id}
@@ -103,9 +106,7 @@ export function PapersTable({
               onReplace={onReplace}
             />
           ))}
-        </tbody>
-      </table>
-    </div>
+    </Table>
   );
 }
 

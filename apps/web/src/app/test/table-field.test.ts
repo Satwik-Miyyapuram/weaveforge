@@ -13,6 +13,15 @@ const forms = read("../styles/forms.css");
 const tokens = read("../../components/local-api-tokens.tsx");
 const compare = read("../../features/experiments/ui/experiments-compare.tsx");
 const papers = read("../../features/papers/ui/papers-table.tsx");
+const lists = read("../../features/reading-lists/ui/extraction-table.tsx");
+
+test("every data table is the shared Table, with an empty row", () => {
+  for (const [name, src] of [["compare", compare], ["papers", papers], ["tokens", tokens], ["lists", lists]] as const) {
+    assert.match(src, /<Table\b[\s\S]*?\sempty="/, `${name} uses <Table empty=…>`);
+    assert.doesNotMatch(src, /<table\b/, `${name} writes its own <table>`);
+  }
+  assert.match(git, /\.cmp-table \.table-empty td\s*\{/);
+});
 
 test("table heads stay in view and a keyboard-focused row shows", () => {
   assert.match(git, /\.cmp-table thead th\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0/);
@@ -39,7 +48,7 @@ test("the compare table shows status words, not raw keys", () => {
 
 test("the tokens page uses the styled table and no UA fieldset (E19, E20)", () => {
   assert.doesNotMatch(tokens, /data-table/);
-  assert.match(tokens, /className="cmp-table"/);
+  assert.match(tokens, /<Table\b/);
   assert.doesNotMatch(tokens, /<fieldset/);
   assert.match(tokens, /role="group"/);
 });

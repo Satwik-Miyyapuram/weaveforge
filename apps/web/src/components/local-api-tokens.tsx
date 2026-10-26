@@ -14,6 +14,7 @@ import { DatePicker } from "@/components/date-picker";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/button";
 import { Field } from "@/components/field";
+import { Table } from "@/components/table";
 
 const MAX_TOKENS = 5;
 const EXPIRY_CHOICES = [
@@ -332,24 +333,23 @@ export function LocalApiTokenTable({
     }
   };
 
-  if (!tokens.length) return <p className="muted">No tokens yet.</p>;
   return (
     <>
       {error && <FormError>{error}</FormError>}
-      <div className="table-scroll">
-        <table className="cmp-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Permissions</th>
-              <th>Created</th>
-              <th>Expires</th>
-              <th>
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
+      <Table
+        empty="No tokens yet."
+        head={
+          <>
+            <th>Name</th>
+            <th>Permissions</th>
+            <th>Created</th>
+            <th>Expires</th>
+            <th>
+              <span className="sr-only">Actions</span>
+            </th>
+          </>
+        }
+      >
             {tokens.map((t) => {
               const expired = !!t.expiresAt && Date.parse(t.expiresAt) <= now;
               return (
@@ -377,9 +377,7 @@ export function LocalApiTokenTable({
                 </tr>
               );
             })}
-          </tbody>
-        </table>
-      </div>
+      </Table>
       {pending && (
         <ConfirmDialog
           title={`Revoke "${pending.name}"?`}

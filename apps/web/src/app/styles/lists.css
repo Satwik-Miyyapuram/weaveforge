@@ -42,10 +42,10 @@
 .extraction-table th,
 .extraction-table td {
   border: 1px solid var(--border); padding: 8px 8px; vertical-align: top;
-  text-align: left; min-width: 0; overflow-wrap: anywhere;
+  text-align: left; min-width: 0; overflow-wrap: anywhere; white-space: normal;
 }
 .extraction-table th {
-  background: var(--surface2); font-weight: 600; white-space: nowrap;
+  font-weight: 600; white-space: nowrap;
 }
 .extraction-table .paper-field-input,
 .extraction-table .custom-select-container {
