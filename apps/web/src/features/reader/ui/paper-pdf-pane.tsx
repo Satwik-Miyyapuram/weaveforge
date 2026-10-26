@@ -46,6 +46,7 @@ import type { PaperHtmlPage } from "../application/paper-html";
 import { describeFreeCopyFailure, isWebArticle, openAccessIdsOf } from "../application/find-free-copy";
 import { linkPdfSource } from "../application/link-pdf-source";
 import { PaperHtmlView } from "./paper-html-view";
+import { Button } from "@/components/button";
 
 async function keptHtmlPage(paperId: string): Promise<PaperHtmlPage | null> {
   const { paperHtmlStore } = await import("../infrastructure/paper-html-store");
@@ -453,9 +454,9 @@ export function PaperPdfPane({
   const canLoad = allowLoad && Boolean(paperId);
   const freeCopy = canLoad ? (
     <div className="paper-free-copy">
-      <button type="button" className="btn-primary btn-sm" disabled={freeBusy} onClick={() => void findFree()}>
+      <Button variant="primary" size="sm" disabled={freeBusy} onClick={() => void findFree()}>
         {freeBusy ? "Searching…" : openAccessIds.current && isWebArticle(openAccessIds.current) ? "Open the page" : "Find a free copy"}
-      </button>
+      </Button>
       {freeStatus && (
         <p className="paper-free-copy-status" role={freeStatus.error ? "alert" : "status"}>
           {freeStatus.text}
@@ -487,22 +488,21 @@ export function PaperPdfPane({
             if (typedError) setTypedError(null);
           }}
         />
-        <button type="submit" className="btn-primary btn-sm" disabled={typedBusy || !typedUrl.trim()}>
+        <Button type="submit" variant="primary" size="sm" disabled={typedBusy || !typedUrl.trim()}>
           {typedBusy ? "Fetching…" : "Fetch & link"}
-        </button>
+        </Button>
       </div>
       {typedError && <p className="paper-pdf-fetch-error" role="alert">{typedError}</p>}
     </form>
   ) : null;
   const loadButton = canLoad ? (
-    <button
-      type="button"
-      className="btn-secondary btn-sm"
+    <Button
+      size="sm"
       title="Use a PDF from this device for this paper"
       onClick={() => fileInputRef.current?.click()}
     >
       Load PDF…
-    </button>
+    </Button>
   ) : null;
 
   return (
@@ -533,9 +533,9 @@ export function PaperPdfPane({
             the paper opens offline from then on.
           </p>
           <div className="empty-actions">
-            <button type="button" className="btn-primary" onClick={acceptDownload}>
+            <Button variant="primary" onClick={acceptDownload}>
               Fetch PDF
-            </button>
+            </Button>
             {loadButton}
           </div>
           {pdfDownloadNeedsConsent() && (

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ActivityLogEntry } from "../application/batch-annotation-ops";
+import { Button } from "@/components/button";
 
 interface ActivityCenterProps {
   entries: ActivityLogEntry[];
@@ -15,9 +16,9 @@ export function ActivityCenter({ entries, onClear }: ActivityCenterProps) {
       <div className="reader-activity-head">
         <strong>Activity</strong>
         {onClear && entries.length > 0 && (
-          <button type="button" className="link-btn" onClick={onClear}>
+          <Button variant="ghost" size="sm" onClick={onClear}>
             Clear
-          </button>
+          </Button>
         )}
       </div>
       {entries.length === 0 ? (

@@ -5,6 +5,7 @@ import { type Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { useSubmit } from "@/lib/hooks/use-submit";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 /**
  * Inline editor for a paper's DOI / arXiv ID.
@@ -53,9 +54,9 @@ export function PaperIdentifiersEditor({
       </label>
       {error && <FormError>{error}</FormError>}
       <div className="screen-actions">
-        <button type="button" className="btn-primary btn-sm" disabled={busy} onClick={() => void save()}>
+        <Button variant="primary" size="sm" disabled={busy} onClick={() => void save()}>
           {busy ? "Saving…" : "Save"}
-        </button>
+        </Button>
         <button type="button" className="btn-secondary btn-sm btn-cancel" disabled={busy} onClick={onClose}>
           Cancel
         </button>

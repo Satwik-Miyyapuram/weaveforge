@@ -21,6 +21,7 @@ export function EntityCardMenu({
   resourceType,
   resourceId,
   title,
+  name,
   onDelete,
   deleteLabel = "Delete",
   deleteDisabled = false,
@@ -31,6 +32,8 @@ export function EntityCardMenu({
   resourceType?: ShareableType;
   resourceId?: string;
   title?: string;
+  /** The card's own name, so each trigger is told apart: "More actions for ResNet". */
+  name?: string;
   /** Absent for a read-only card, or one the reader may not delete. */
   onDelete?: () => void;
   deleteLabel?: string;
@@ -60,7 +63,7 @@ export function EntityCardMenu({
   }
   return (
     <>
-      <CardMenu items={items} />
+      <CardMenu items={items} label={name ? `More actions for ${name}` : undefined} />
       {canShare && (
         <ShareButton
           hideTrigger

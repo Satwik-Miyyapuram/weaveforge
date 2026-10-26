@@ -6,6 +6,7 @@ import { formatError } from "@/lib/format-error";
 import { useSyncStatus } from "./use-sync";
 import { FormError } from "@/components/form-error";
 import { requestSync } from "../domain/live-sync";
+import { Button } from "@/components/button";
 
 /**
  * Settings → Sync.
@@ -36,16 +37,14 @@ export function SyncSettingsPanel() {
             ? `Last checked ${new Date(status.lastPullAt).toLocaleString()}.`
             : "Not checked yet."}
         </p>
-        <button
-          type="button"
-          className="btn-secondary"
+        <Button
           onClick={() => {
             requestSync();
             refresh();
           }}
         >
           Sync now
-        </button>
+        </Button>
       </div>
     );
   }
@@ -60,9 +59,7 @@ export function SyncSettingsPanel() {
       {!user && <p className="muted">Sign in first, and this becomes one button.</p>}
       {error && <FormError>{error}</FormError>}
       <div className="field-inline">
-        <button
-          type="button"
-          className="btn-secondary"
+        <Button
           disabled={!user || busy}
           onClick={() => {
             setBusy(true);
@@ -75,7 +72,7 @@ export function SyncSettingsPanel() {
           }}
         >
           {busy ? "Turning on…" : "Turn on sync"}
-        </button>
+        </Button>
       </div>
     </div>
   );

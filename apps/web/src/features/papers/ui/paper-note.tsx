@@ -44,6 +44,7 @@ import { PaperIdentifiersEditor } from "./paper-identifiers-editor";
 import { RelatedPapersPanel } from "./related-papers-panel";
 import { TagEditor } from "./tag-editor";
 import { Modal, ModalActions } from "@/components/modal";
+import { Button } from "@/components/button";
 
 /** A paper note's three views, in the order the Editor's pane header lists them. */
 const NOTE_MODES = ["edit", "read", "ink"] as const;
@@ -388,9 +389,9 @@ export function PaperNote({
             // and a paper with a wrong one needs it corrected.
             <p className="record-hint">
               {canTrackCitations ? null : "No DOI or arXiv ID yet, so citation alerts can’t watch this paper. "}
-              <button type="button" className="link-btn" onClick={() => setEditingIds(true)}>
+              <Button variant="ghost" size="sm" onClick={() => setEditingIds(true)}>
                 {canTrackCitations ? "Edit DOI / arXiv ID" : "Add one"}
-              </button>
+              </Button>
             </p>
           ))}
       </header>
@@ -565,9 +566,9 @@ export function PaperNote({
             <button type="button" className="btn-secondary danger" onClick={() => applyTemplate("")}>
               Replace
             </button>
-            <button type="button" className="btn-primary" onClick={() => applyTemplate(editorHandle.current?.text() ?? paper.summary ?? "")}>
+            <Button variant="primary" onClick={() => applyTemplate(editorHandle.current?.text() ?? paper.summary ?? "")}>
               Append
-            </button>
+            </Button>
           </ModalActions>
         </Modal>
       ) : null}

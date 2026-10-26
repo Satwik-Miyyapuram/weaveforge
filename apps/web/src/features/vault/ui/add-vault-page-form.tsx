@@ -5,6 +5,7 @@ import { useSubmit } from "@/lib/hooks/use-submit";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 export function AddVaultPageForm({
   parents,
@@ -52,9 +53,9 @@ export function AddVaultPageForm({
             Cancel
           </button>
         )}
-        <button className="btn-primary" type="submit" disabled={busy || !title.trim()}>
+        <Button variant="primary" type="submit" disabled={busy || !title.trim()}>
           {busy ? "Creating…" : "Create note"}
-        </button>
+        </Button>
       </div>
     </form>
   );

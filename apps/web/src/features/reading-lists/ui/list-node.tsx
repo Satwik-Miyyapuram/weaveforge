@@ -9,11 +9,13 @@ import { Select } from "@/components/select";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { CompareViewIcon, FilterIcon, TreeViewIcon, UnlinkIcon } from "@/components/view-icons";
 import { EntityCardMenu } from "@/components/entity-card-menu";
+import { SegmentedControl } from "@/components/segmented-control";
 import { usePersistedState } from "@/lib/hooks/use-persisted-state";
 import { listDisplayColor, movedIds, reorderedIds } from "./list-ui";
 import { ExtractionTable } from "./extraction-table";
 import { ScreeningPanel } from "./screening-panel";
 import { runListAction } from "./run-list-action";
+import { Button } from "@/components/button";
 
 /** A list's three views, as icon buttons named by their tooltip. */
 const LIST_VIEWS = [
@@ -225,21 +227,13 @@ export function ListNode(props: ListNodeProps) {
         <span className="list-color-dot" style={{ background: dotColor }} aria-hidden />
         <h3 className="list-row-title">{list.name}</h3>
         <span className="list-count">{countLabel}</span>
-        <div className="list-view-toggle" role="group" aria-label="List view">
-          {LIST_VIEWS.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              type="button"
-              className={`entity-icon-btn${view === id ? " is-active" : ""}`}
-              aria-pressed={view === id}
-              aria-label={label}
-              title={label}
-              onClick={() => setView(id)}
-            >
-              <Icon />
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          label="List view"
+          className="list-view-toggle"
+          value={view}
+          onChange={setView}
+          options={LIST_VIEWS.map(({ id, label, Icon }) => ({ value: id, label: <Icon />, ariaLabel: label, title: label }))}
+        />
         {readOnly && <PinnedPaperBadge ownerName={sharedByName} />}
         {(!readOnly || isPinned) && (
           // Share and Delete sit behind one ⋯, as on every entity card: deleting
@@ -249,6 +243,7 @@ export function ListNode(props: ListNodeProps) {
             resourceType="reading_list"
             resourceId={list.id}
             title={`Share: ${list.name}`}
+            name={list.name}
             onDelete={isPinned ? () => void unpinList() : () => void deleteList()}
             deleteLabel={isPinned ? "Remove from lists" : "Delete list…"}
             deleteDisabled={deleteBusy}
@@ -345,14 +340,13 @@ export function ListNode(props: ListNodeProps) {
                   </optgroup>
                 )}
               </Select>
-              <button
-                type="button"
-                className="btn-primary"
+              <Button
+                variant="primary"
                 disabled={!picker || addBusy}
                 onClick={() => void addItem()}
               >
                 {addBusy ? "Adding…" : "Add"}
-              </button>
+              </Button>
               <button
                 type="button"
                 className="btn-ghost btn-cancel"

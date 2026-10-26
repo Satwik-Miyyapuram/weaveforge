@@ -8,6 +8,7 @@ import { Modal, ModalActions } from "@/components/modal";
 import { Select } from "@/components/select";
 import { artifactBasename, serialiseArtifactRef } from "../application/artifact-refs";
 import { formatError } from "@/lib/format-error";
+import { Button } from "@/components/button";
 
 /** Collision key matching {@link artifactLabel} / insert serialization. */
 function artifactCollisionKey(name: string): string {
@@ -174,14 +175,13 @@ export function ExperimentArtifactPicker({
             <button type="button" className="btn-ghost btn-cancel" onClick={() => setOpen(false)} disabled={busy}>
               Cancel
             </button>
-            <button
-              type="button"
-              className="btn-primary"
+            <Button
+              variant="primary"
               onClick={insert}
               disabled={busy || !experimentId || !artifactName.trim()}
             >
               Insert
-            </button>
+            </Button>
           </ModalActions>
         </div>
       </Modal>

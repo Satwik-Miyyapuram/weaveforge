@@ -25,6 +25,7 @@ import { FormError } from "@/components/form-error";
 import { navTransition } from "@/lib/view-transition";
 import { SectionRow, SectionCard } from "./section-card";
 import { progressOf, collectSectionIds, patchSectionInTree, flattenParentOptions, sectionsEyebrow } from "./report-section-tree";
+import { Button } from "@/components/button";
 
 type ReportViewData = ReportScreenData & {
   ownerNames: Map<string, string>;
@@ -223,13 +224,13 @@ export function ReportScreen() {
   return (
     <section className="screen report-screen">
       <ScreenHead title="Sections" eyebrow={sectionsEyebrow(ownedFlat.length, tree.filter((n) => ownedIds.has(n.section.id)))}>
-        <button
-          className="btn-primary"
-          type="button"
+        <Button
+          variant="primary"
+         
           onClick={() => setComposeOpen(true)}
         >
           New section
-        </button>
+        </Button>
       </ScreenHead>
 
       {composeOpen && (
@@ -267,13 +268,12 @@ export function ReportScreen() {
           title="No sections yet"
           body="The report is the outline your thesis gets written into. Add the sections you already know — introduction, method, results — and the notes and runs you have made start having somewhere to go."
           action={
-            <button
-              type="button"
-              className="btn-primary"
+            <Button
+              variant="primary"
               onClick={() => setComposeOpen(true)}
             >
               New section
-            </button>
+            </Button>
           }
         />
       )}

@@ -15,6 +15,7 @@ import {
   type ActivityLogEntry,
 } from "../application/batch-annotation-ops";
 import { ActivityCenter, ReaderSplitPanel } from "./reader-loop-panels";
+import { Button } from "@/components/button";
 
 /** Reader route: renders a PDF via the source ladder and jumps to an optional locus. */
 export function ReaderScreen() {
@@ -137,17 +138,16 @@ export function ReaderScreen() {
         )}
         <h1 className="reader-screen-title">{title ?? "Reader"}</h1>
         <div className="reader-screen-actions">
-          <button
-            type="button"
-            className="btn-ghost btn-sm"
+          <Button
+            variant="ghost" size="sm"
             aria-pressed={showActivity}
             onClick={() => setShowActivity((v) => !v)}
           >
             Activity
-          </button>
-          <button type="button" className="btn-ghost btn-sm" onClick={runBatchExtractImages}>
+          </Button>
+          <Button variant="ghost" size="sm" onClick={runBatchExtractImages}>
             List images
-          </button>
+          </Button>
         </div>
       </div>
       {showActivity && (

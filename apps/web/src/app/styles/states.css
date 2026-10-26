@@ -225,7 +225,7 @@
   cursor: pointer; box-shadow: var(--wf-sh-rest); translate: 0 0;
   transition: translate var(--wf-t) var(--wf-ease-hover), box-shadow var(--wf-t) var(--wf-ease), background-color var(--wf-t) var(--wf-ease), color var(--wf-t) var(--wf-ease);
 }
-:root:root a:is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip)[href]::after { content: "\2197"; }
+:root:root a:is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip, .plan-chip)[href]::after { content: "\2197"; }
 :root:root :is(a, button):is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip):is(:hover, [data-force~="hover"]):not(:disabled) { translate: 0 var(--wf-lift); box-shadow: var(--wf-sh-up); }
 :root:root :is(a, button):is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip):is(:active, [data-force~="press"]):not(:disabled) { translate: calc(var(--wf-press) * .67) calc(var(--wf-press) * .67); box-shadow: none; transition-duration: var(--wf-t-press); }
 :root:root button:is(.wf-chip, .tag-chip, .git-chip, .jump-to-chip, .graph-chip)[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }

@@ -106,6 +106,7 @@ export function PaperCard({
             resourceType="paper"
             resourceId={paper.id}
             title={`Share: ${paper.title}`}
+            name={paper.title}
             deleteDisabled={busy}
             deleteLabel={isPinned ? "Remove from library" : "Delete paper"}
             onDelete={isPinned ? () => setUnpinOpen(true) : readOnly ? undefined : () => void remove()}

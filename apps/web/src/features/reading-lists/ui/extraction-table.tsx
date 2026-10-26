@@ -24,6 +24,7 @@ import {
 import { collectListIds } from "./list-ui";
 import { FormError } from "@/components/form-error";
 import { latestGate } from "@/lib/latest-gate";
+import { Button } from "@/components/button";
 
 function isFillableField(def: PaperFieldDef): boolean {
   return def.kind === "text" || def.kind === "number" || def.kind === "select" || def.kind === "multi_select";
@@ -194,12 +195,12 @@ export function ExtractionTable({
           ariaLabel="Table columns"
           options={availableColumns}
         />
-        <button type="button" className="link-btn" onClick={() => void copy("md")}>
+        <Button variant="ghost" size="sm" onClick={() => void copy("md")}>
           Copy markdown
-        </button>
-        <button type="button" className="link-btn" onClick={() => void copy("csv")}>
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => void copy("csv")}>
           Copy CSV
-        </button>
+        </Button>
         {msg && <span className="muted">{msg}</span>}
       </div>
       {listPendingCount > 0 && (
@@ -236,13 +237,12 @@ export function ExtractionTable({
                         <p className="muted">
                           Copies an agent prompt for your paired MCP session. Nothing is written until you approve each cell on AI review.
                         </p>
-                        <button
-                          type="button"
-                          className="btn-secondary btn-sm"
+                        <Button
+                          size="sm"
                           onClick={() => void copyProposePrompt(fieldId)}
                         >
                           Copy agent prompt
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </th>

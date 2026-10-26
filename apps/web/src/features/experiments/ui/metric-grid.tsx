@@ -5,6 +5,7 @@ import { Children, useEffect, useRef, useState, type ReactNode, type WheelEvent 
 import { readStored, writeStored } from "@/lib/safe-storage";
 
 import { fitCols } from "./plot-size";
+import { MinusIcon, PlusIcon } from "@/components/view-icons";
 
 const KEY = "metric-grid:cols";
 const MAX_COLS = 10;
@@ -53,7 +54,7 @@ export function MetricGrid({
       {max > 1 && (
         <label className="seg metric-grid-zoom" onWheel={onWheel} title="Scroll to zoom">
           <button type="button" aria-label="Zoom out" disabled={cols >= max} onClick={() => set(cols + 1)}>
-            −
+            <MinusIcon />
           </button>
           <input
             type="range"
@@ -72,7 +73,7 @@ export function MetricGrid({
             ))}
           </datalist>
           <button type="button" aria-label="Zoom in" disabled={cols <= 1} onClick={() => set(cols - 1)}>
-            +
+            <PlusIcon />
           </button>
           <span className="seg-on metric-grid-count">{cols} / row</span>
         </label>

@@ -158,6 +158,7 @@ export function MilestoneCard({
           resourceType="milestone"
           resourceId={m.id}
           title={`Share: ${m.title}`}
+          name={m.title}
           onDelete={isPinned ? () => setConfirmUnpinOpen(true) : readOnly ? undefined : () => setConfirmOpen(true)}
           deleteLabel={isPinned ? "Remove from plan" : "Delete milestone"}
           deleteDisabled={busy}

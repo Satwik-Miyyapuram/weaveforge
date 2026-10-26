@@ -32,7 +32,7 @@ test("the backdrop leaves the title bar undimmed", () => {
 
 test("option buttons in the drawer fill its width", () => {
   assert.match(rule(":root:root .graph-settings-drawer .seg"), /display:\s*flex/);
-  assert.match(rule(":root:root .graph-settings-drawer .seg > .seg-btn"), /flex:\s*1/);
+  assert.match(rule(":root:root .graph-settings-drawer .seg > button"), /flex:\s*1/);
 });
 
 test("every label in the drawer uses one size", () => {

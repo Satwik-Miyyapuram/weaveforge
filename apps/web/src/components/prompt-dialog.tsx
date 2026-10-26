@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 
 import { FormError } from "./form-error";
 import { Modal, ModalActions } from "./modal";
+import { Button } from "@/components/button";
 
 /**
  * A question the app draws, not the OS.
@@ -77,9 +78,9 @@ export function PromptDialog({
           <button type="button" className="btn-secondary btn-cancel" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="btn-primary">
+          <Button type="submit" variant="primary">
             {confirmLabel}
-          </button>
+          </Button>
         </ModalActions>
       </form>
     </Modal>

@@ -19,6 +19,7 @@ import { Modal } from "@/components/modal";
 import { ShareButton } from "@/features/sharing/ui/share-button";
 import { useProfile } from "@/features/org";
 import type { ShareableType } from "@weaveforge/core";
+import { Button } from "@/components/button";
 
 /** Blanket shares: every item of a type you own, including later ones. */
 const SHARE_ALL: { type: ShareableType; title: string; desc: string }[] = [
@@ -99,9 +100,9 @@ export function SharedWithMeScreen() {
             Supervision
           </Link>
         )}
-        <button className="btn-primary" type="button" onClick={() => setHubOpen(true)}>
+        <Button variant="primary" onClick={() => setHubOpen(true)}>
           Share my work
-        </button>
+        </Button>
       </ScreenHead>
 
       {hubOpen && (

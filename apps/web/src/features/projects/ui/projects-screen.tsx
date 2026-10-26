@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/empty-state";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import dynamic from "next/dynamic";
+import { Button } from "@/components/button";
 
 // Lazy: this screen sits in the root layout, which has a tight JS budget.
 const ConfirmDialog = dynamic(() => import("@/components/confirm-dialog").then((m) => m.ConfirmDialog), { ssr: false });
@@ -55,16 +56,16 @@ export function ProjectsScreen() {
     setProject(projectId);
   });
   const demoButton = local ? (
-    <button type="button" className="btn-secondary" disabled={demoBusy} onClick={() => void loadDemo()}>
+    <Button disabled={demoBusy} onClick={() => void loadDemo()}>
       {demoBusy ? "Loading demo…" : "Load demo workspace"}
-    </button>
+    </Button>
   ) : null;
 
   return (
     <section className="screen">
       <ScreenHead>
         {demoButton}
-        <button className="btn-primary" onClick={() => setAddOpen(true)}>New project</button>
+        <Button variant="primary" onClick={() => setAddOpen(true)}>New project</Button>
       </ScreenHead>
 
       {demoError && <FormError>{demoError}</FormError>}
@@ -96,9 +97,9 @@ export function ProjectsScreen() {
               />
             </div>
             {error && <FormError>{error}</FormError>}
-            <button className="btn-primary" disabled={busy}>
+            <Button variant="primary" disabled={busy}>
               {busy ? "Creating…" : "Create project"}
-            </button>
+            </Button>
           </form>
         </Modal>
       )}
@@ -113,9 +114,9 @@ export function ProjectsScreen() {
           body="A project is one piece of research: a thesis, a paper, a lab rotation. Everything you add — papers, notes, runs, the report — belongs to one, and switching projects switches the whole workspace."
           action={
             <>
-              <button type="button" className="btn-primary" onClick={() => setAddOpen(true)}>
+              <Button variant="primary" onClick={() => setAddOpen(true)}>
                 + New project
-              </button>
+              </Button>
               {demoButton}
             </>
           }
@@ -145,6 +146,7 @@ export function ProjectsScreen() {
               <EntityCardMenu
                 shareable={false}
                 title={p.name}
+                name={p.name}
                 onDelete={() => setRemoving(p)}
                 deleteLabel="Delete project"
               />

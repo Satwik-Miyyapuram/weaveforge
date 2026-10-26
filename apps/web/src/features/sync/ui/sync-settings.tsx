@@ -15,6 +15,7 @@ import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { MattermostSignInControls, useMattermostSignIn } from "./mattermost-sign-in-controls";
 import { loadIntegrations } from "./load-integrations";
+import { Button } from "@/components/button";
 
 export function SyncSettings() {
   const { current } = useProject();
@@ -181,9 +182,9 @@ function IntegrationRow({
             )}
             {error && <FormError>{error}</FormError>}
             {saved && <p className="muted">Saved.</p>}
-            <button type="button" className="btn-primary" onClick={() => void save()} disabled={saving}>
+            <Button variant="primary" onClick={() => void save()} disabled={saving}>
               {saving ? "Saving…" : "Save connection"}
-            </button>
+            </Button>
           </div>
         </Modal>
       )}
@@ -285,9 +286,9 @@ function MattermostEventControls({
             />
           </div>
         ))}
-      <button type="button" className="btn-ghost" onClick={() => void test()} disabled={testing}>
+      <Button variant="ghost" onClick={() => void test()} disabled={testing}>
         {testing ? "Sending…" : "Send test message"}
-      </button>
+      </Button>
       {tested && <p className="muted" style={{ margin: 0 }}>{tested}</p>}
     </div>
   );

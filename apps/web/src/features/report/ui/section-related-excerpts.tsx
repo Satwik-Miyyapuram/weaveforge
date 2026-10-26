@@ -6,6 +6,7 @@ import { getContainer } from "@/bootstrap";
 import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 interface StoredAnnotation {
   key?: string;
@@ -95,9 +96,9 @@ export function SectionRelatedExcerpts({
                   >
                     Insert
                   </button>
-                  <button
-                    type="button"
-                    className="link-btn"
+                  <Button
+                   
+                    variant="ghost" size="sm"
                     onClick={() => {
                       void navigator.clipboard
                         .writeText(formatQuoteCiteClipboard(quote, paper.title))
@@ -105,7 +106,7 @@ export function SectionRelatedExcerpts({
                     }}
                   >
                     Copy
-                  </button>
+                  </Button>
                   {annotation.key && (
                     <button
                       type="button"

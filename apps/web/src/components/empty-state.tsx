@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Button } from "@/components/button";
 
 /**
  * The two empty states, composed rather than one grey sentence.
@@ -58,8 +59,8 @@ export function EmptyState({
  */
 export function ClearFiltersButton({ onClear }: { onClear: () => void }) {
   return (
-    <button type="button" className="btn-secondary btn-sm" onClick={onClear}>
+    <Button size="sm" onClick={onClear}>
       Clear filters
-    </button>
+    </Button>
   );
 }

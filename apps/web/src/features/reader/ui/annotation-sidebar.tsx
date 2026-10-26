@@ -14,6 +14,7 @@ import {
 } from "../application/reader-annotation-helpers";
 import type { AnnotationBacklinkTarget } from "../application/annotation-backlinks";
 import { Select } from "@/components/select";
+import { Button } from "@/components/button";
 
 export interface ReportSectionOption {
   id: string;
@@ -192,23 +193,23 @@ export function AnnotationSidebar({
               </button>
               <div className="pdf-reader-sidebar-actions">
                 {(a.text || a.comment) && (
-                  <button type="button" className="link-btn" onClick={() => void copyCite(a)}>
+                  <Button variant="ghost" size="sm" onClick={() => void copyCite(a)}>
                     Copy quote + cite
-                  </button>
+                  </Button>
                 )}
                 {localEditable && editingId !== a.id && (
                   <>
-                    <button type="button" className="link-btn" onClick={() => beginEdit(a)}>
+                    <Button variant="ghost" size="sm" onClick={() => beginEdit(a)}>
                       Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="link-btn"
+                    </Button>
+                    <Button
+                     
+                      variant="ghost" size="sm"
                       disabled={busyId === a.id}
                       onClick={() => onRemoveLocal?.(a.id)}
                     >
                       Delete
-                    </button>
+                    </Button>
                   </>
                 )}
               </div>
@@ -248,9 +249,9 @@ export function AnnotationSidebar({
                     >
                       Save
                     </button>
-                    <button type="button" className="link-btn btn-cancel" onClick={() => setEditingId(null)}>
+                    <Button variant="ghost" size="sm" className="btn-cancel" onClick={() => setEditingId(null)}>
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}

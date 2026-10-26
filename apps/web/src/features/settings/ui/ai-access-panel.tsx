@@ -13,6 +13,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { formatError } from "@/lib/format-error";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { logToApp } from "@/lib/error-report/app-log";
+import { Button } from "@/components/button";
 
 const READ_LABELS: Record<AiReadCategory, string> = {
   paper_metadata: "Paper metadata and links",
@@ -344,7 +345,7 @@ export function AiAccessPanel({ settings, onChange }: {
           <section className="ai-section">
             <div className="ai-section-heading">
               <div><h4>Allow reading</h4><p>Only selected sources become available.</p></div>
-              <button type="button" className="link-btn" onClick={() => setAllRead(access.readCategories.length !== AI_READ_CATEGORIES.length)}>{access.readCategories.length === AI_READ_CATEGORIES.length ? "Clear all" : "Select all"}</button>
+              <Button variant="ghost" size="sm" onClick={() => setAllRead(access.readCategories.length !== AI_READ_CATEGORIES.length)}>{access.readCategories.length === AI_READ_CATEGORIES.length ? "Clear all" : "Select all"}</Button>
             </div>
             <div className="ai-permission-list ai-list-2col">
               {AI_READ_CATEGORIES.map((category) => (
@@ -358,7 +359,7 @@ export function AiAccessPanel({ settings, onChange }: {
           <section className="ai-section">
             <div className="ai-section-heading">
               <div><h4>Allow proposals</h4><p>{access.proposalKinds.length ? `${access.proposalKinds.length} proposal types enabled — every change still needs your review` : "Every change needs your review first."}</p></div>
-              <button type="button" className="link-btn" onClick={() => setAllProposals(access.proposalKinds.length === 0)}>{access.proposalKinds.length ? "Clear all" : "Select all"}</button>
+              <Button variant="ghost" size="sm" onClick={() => setAllProposals(access.proposalKinds.length === 0)}>{access.proposalKinds.length ? "Clear all" : "Select all"}</Button>
             </div>
             <div className="ai-permission-list ai-list-2col">
               {AI_PROPOSAL_KINDS.map((kind) => (
@@ -399,10 +400,10 @@ export function AiAccessPanel({ settings, onChange }: {
                 <label className="ai-master-toggle"><span><strong>Remember this Codex connection on this device</strong><small>Stores only the pairing secret in your encrypted settings. Sessions still expire and require an unlocked browser.</small></span><input className="themed-check" type="checkbox" checked={rememberConnection} onChange={(event) => { setRememberConnection(event.target.checked); if (!event.target.checked) onChange(applyUserIntegrationFields(settings, "mcp", { pairingSecret: "" })); }} /></label>
                 <div className="ai-mcp-token-control">
                   <div><strong>MCP token</strong><small>Create one token for this Codex plugin connection. It does not expire, is shown only once, and can be revoked here at any time.</small></div>
-                  <button type="button" className="btn-secondary" onClick={() => void createMcpToken()} disabled={busy}>{mcpTokens.length ? "Create replacement" : "Create MCP token"}</button>
+                  <Button onClick={() => void createMcpToken()} disabled={busy}>{mcpTokens.length ? "Create replacement" : "Create MCP token"}</Button>
                 </div>
-                {newMcpToken && <div className="ai-connection-value"><span><small>New MCP token — copy it now</small><code>••••••••••••••••••••••••</code></span><button type="button" className="btn-secondary" onClick={() => copyConnection("token", newMcpToken)}>{copied === "token" ? "Copied" : "Copy"}</button></div>}
-                {mcpTokens.length > 0 && <div className="ai-token-list"><small>{mcpTokens.length} active MCP token{mcpTokens.length === 1 ? "" : "s"}</small>{mcpTokens.map((token) => <div className="ai-active-session" key={token.id}><span><strong>{token.name}</strong><small>{token.tokenPrefix} · {token.lastUsedAt ? `last used ${new Date(token.lastUsedAt).toLocaleDateString()}` : "not used yet"}</small></span><button type="button" className="link-btn danger" onClick={() => setRevokingMcp(token.id)} disabled={busy}>Revoke</button></div>)}</div>}
+                {newMcpToken && <div className="ai-connection-value"><span><small>New MCP token — copy it now</small><code>••••••••••••••••••••••••</code></span><Button onClick={() => copyConnection("token", newMcpToken)}>{copied === "token" ? "Copied" : "Copy"}</Button></div>}
+                {mcpTokens.length > 0 && <div className="ai-token-list"><small>{mcpTokens.length} active MCP token{mcpTokens.length === 1 ? "" : "s"}</small>{mcpTokens.map((token) => <div className="ai-active-session" key={token.id}><span><strong>{token.name}</strong><small>{token.tokenPrefix} · {token.lastUsedAt ? `last used ${new Date(token.lastUsedAt).toLocaleDateString()}` : "not used yet"}</small></span><Button size="sm" className="danger" onClick={() => setRevokingMcp(token.id)} disabled={busy}>Revoke</Button></div>)}</div>}
                 <div className="ai-source-scope">
                   <div>
                     <strong>Source access</strong>
@@ -417,14 +418,14 @@ export function AiAccessPanel({ settings, onChange }: {
                   sourceScope === "selected" && <>
                     <div className="ai-source-picker-toolbar">
                       <span>{selectedSourceIds.length} of {eligibleSources.length} selected</span>
-                      <span><button type="button" className="link-btn" onClick={() => setSelectedSourceIds(eligibleSources.map((source) => source.sourceId))}>Select all</button><button type="button" className="link-btn" onClick={() => setSelectedSourceIds([])}>Clear</button></span>
+                      <span><Button variant="ghost" size="sm" onClick={() => setSelectedSourceIds(eligibleSources.map((source) => source.sourceId))}>Select all</Button><Button variant="ghost" size="sm" onClick={() => setSelectedSourceIds([])}>Clear</Button></span>
                     </div>
                     <div className="ai-source-groups">
                       {Object.entries(sourcesByCategory).map(([category, categorySources]) => {
                         const allSelected = categorySources.every((source) => selectedSourceIds.includes(source.sourceId));
                         return <details className="ai-source-group" key={category}>
                           <summary><span><strong>{category}</strong><small>{categorySources.filter((source) => selectedSourceIds.includes(source.sourceId)).length} of {categorySources.length} selected</small></span><ChevronIcon /></summary>
-                          <div className="ai-source-group-actions"><button type="button" className="link-btn" onClick={() => setSelectedSourceIds((current) => allSelected ? current.filter((id) => !categorySources.some((source) => source.sourceId === id)) : [...new Set([...current, ...categorySources.map((source) => source.sourceId)])])}>{allSelected ? "Clear category" : "Select category"}</button></div>
+                          <div className="ai-source-group-actions"><Button variant="ghost" size="sm" onClick={() => setSelectedSourceIds((current) => allSelected ? current.filter((id) => !categorySources.some((source) => source.sourceId === id)) : [...new Set([...current, ...categorySources.map((source) => source.sourceId)])])}>{allSelected ? "Clear category" : "Select category"}</Button></div>
                           {categorySources.map((source) => <label className="ai-permission-row" key={source.sourceId}>
                             <span>{source.label}</span><input className="themed-check" type="checkbox" checked={selectedSourceIds.includes(source.sourceId)} onChange={() => toggleSource(source.sourceId)} />
                           </label>)}
@@ -437,23 +438,23 @@ export function AiAccessPanel({ settings, onChange }: {
                   {busy ? "Starting…" : `Start access for ${sourceScope === "selected" ? selectedSourceIds.length : eligibleSources.length} source${(sourceScope === "selected" ? selectedSourceIds.length : eligibleSources.length) === 1 ? "" : "s"}`}
                 </button>
                 <FormError>{sessionError}</FormError>
-                {connection && <div className="ai-connection-details"><div className="ai-section-heading"><div><h4>Live Codex connection</h4><p>Copy this session ID and pairing secret into the local plugin. Use the MCP token you created above. Keep this page open.</p></div></div><div className="ai-connection-value"><span><small>Session ID</small><code>{connection.sessionId}</code></span><button type="button" className="btn-secondary" onClick={() => copyConnection("session", connection.sessionId)}>{copied === "session" ? "Copied" : "Copy"}</button></div><div className="ai-connection-value"><span><small>Pairing secret</small><code>••••••••••••••••••••••••••••••••</code></span><button type="button" className="btn-secondary" onClick={() => copyConnection("secret", connection.secret)}>{copied === "secret" ? "Copied" : "Copy"}</button></div></div>}
+                {connection && <div className="ai-connection-details"><div className="ai-section-heading"><div><h4>Live Codex connection</h4><p>Copy this session ID and pairing secret into the local plugin. Use the MCP token you created above. Keep this page open.</p></div></div><div className="ai-connection-value"><span><small>Session ID</small><code>{connection.sessionId}</code></span><Button onClick={() => copyConnection("session", connection.sessionId)}>{copied === "session" ? "Copied" : "Copy"}</Button></div><div className="ai-connection-value"><span><small>Pairing secret</small><code>••••••••••••••••••••••••••••••••</code></span><Button onClick={() => copyConnection("secret", connection.secret)}>{copied === "secret" ? "Copied" : "Copy"}</Button></div></div>}
             </>
             {sessions.length > 0 && (
               <div className="ai-active-sessions">
                 {sessions.map((session) => (
                   <div className="ai-active-session" key={session.grant.id}>
                     <span><strong>{session.workspace.name}</strong><small>{session.grant.readable.length} source{session.grant.readable.length === 1 ? "" : "s"} · expires {new Date(session.grant.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></span>
-                    <button type="button" className="link-btn danger" onClick={() => {
+                    <Button size="sm" className="danger" onClick={() => {
                       getContainer().aiAssistant.stopRelay(session.grant.id);
                       if (connection?.sessionId === session.grant.id) setConnection(null);
                       getContainer().aiAssistant.revokeSession(session.grant.id);
                       setSessions(getContainer().aiAssistant.listActiveSessions());
                       persistSessions();
-                    }}>Revoke now</button>
+                    }}>Revoke now</Button>
                   </div>
                 ))}
-                <button type="button" className="link-btn danger" onClick={revokeAll}>Disable all active AI access</button>
+                <Button size="sm" className="danger" onClick={revokeAll}>Disable all active AI access</Button>
               </div>
             )}
           </section>

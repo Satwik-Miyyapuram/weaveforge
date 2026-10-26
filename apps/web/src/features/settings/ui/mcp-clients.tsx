@@ -14,6 +14,7 @@ import {
   vscodeJson,
   type McpClientId,
 } from "./mcp-client-config";
+import { Button } from "@/components/button";
 
 const CHIP: Partial<Record<DesktopLocalApiPermission, string>> = {
   "mcp:read": "read & search",
@@ -70,14 +71,14 @@ export function McpClients({
       window.setTimeout(() => setCopied((c) => (c === key ? null : c)), 1200);
     });
   const copyBtn = (key: string, label: string, text: string) => (
-    <button type="button" className="btn-secondary" onClick={() => copy(key, text)}>
+    <Button onClick={() => copy(key, text)}>
       {copied === key ? "Copied" : label}
-    </button>
+    </Button>
   );
   const openBtn = (client: "cursor" | "vscode" | "claude-desktop", label: string) => (
-    <button type="button" className="btn-primary" disabled={busy} onClick={() => void act(() => desktop()?.openMcpClient?.(client))}>
+    <Button variant="primary" disabled={busy} onClick={() => void act(() => desktop()?.openMcpClient?.(client))}>
       {label}
-    </button>
+    </Button>
   );
   const onTabKey = (e: KeyboardEvent) => {
     const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
@@ -191,9 +192,9 @@ export function McpClients({
           </>
         ) : (
           <div className="mcp-row">
-            <button type="button" className="btn-primary" disabled={busy} onClick={() => void act(() => desktop()?.connectMcp?.())}>
+            <Button variant="primary" disabled={busy} onClick={() => void act(() => desktop()?.connectMcp?.())}>
               Connect
-            </button>
+            </Button>
           </div>
         )}
       </div>

@@ -7,6 +7,7 @@ import {
   downloadWorkspaceFolder,
 } from "@/features/export/application/export-user-data";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 /** Settings → "Your data": ZIP export of the account, as JSON or as markdown. */
 export function ExportDataPanel() {
@@ -41,22 +42,18 @@ export function ExportDataPanel() {
       </p>
       {error && <FormError>{error}</FormError>}
       <div className="field-row-equal">
-        <button
-          className="btn-secondary"
-          type="button"
+        <Button
           disabled={busy !== null}
           onClick={() => void run("folder")}
         >
           {busy === "folder" ? "Preparing…" : "Download markdown folder (ZIP)"}
-        </button>
-        <button
-          className="btn-secondary"
-          type="button"
+        </Button>
+        <Button
           disabled={busy !== null}
           onClick={() => void run("json")}
         >
           {busy === "json" ? "Preparing…" : "Download JSON archive (ZIP)"}
-        </button>
+        </Button>
       </div>
     </section>
   );

@@ -130,7 +130,7 @@ button.git-chip { border: 0; cursor: pointer; font-family: inherit; }
   isolation: isolate;
 }
 
-/* Plan dependency chips: pills; links lift and carry ↗, external is dashed. */
+/* Plan dependency chips: pills; links lift, external is dashed. */
 .plan-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .plan-chip {
   display: inline-flex;
@@ -147,5 +147,5 @@ button.git-chip { border: 0; cursor: pointer; font-family: inherit; }
 .plan-chip em { font-style: normal; font-weight: 400; color: var(--muted); }
 .plan-chip.is-ext { border-style: dashed; }
 .plan-chip.link { cursor: pointer; }
-.plan-chip.link::after { content: "↗"; font-weight: 400; }
+/* The arrow comes from the shared chip rule in states.css, on links only. */
 .plan-chip.is-missing { opacity: 0.5; text-decoration: line-through; }

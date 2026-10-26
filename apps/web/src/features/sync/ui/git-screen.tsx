@@ -13,6 +13,7 @@ import { NavIcon } from "@/app/nav-icon";
 import Link from "next/link";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { formatError } from "@/lib/format-error";
+import { Button } from "@/components/button";
 
 function repoWebUrl(i: Integration): string {
   const { repo } = gitConnection(i);
@@ -111,9 +112,9 @@ export function GitScreen() {
           Settings
         </Link>
         {integration && (
-          <button type="button" className="btn-primary" onClick={() => void load(branch)} disabled={loading}>
+          <Button variant="primary" onClick={() => void load(branch)} disabled={loading}>
             {loading ? "Syncing…" : "Sync now"}
-          </button>
+          </Button>
         )}
       </ScreenHead>
       {loading && !integration && <ScreenLoader status="Loading git history…" />}
@@ -171,9 +172,9 @@ export function GitScreen() {
                         {c.date ? ` · ${shortDate(c.date)}` : ""}
                       </span>
                     </div>
-                    <button type="button" className="btn-secondary btn-sm" onClick={() => void track(c)}>
+                    <Button size="sm" onClick={() => void track(c)}>
                       Track
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>

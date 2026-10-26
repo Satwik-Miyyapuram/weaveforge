@@ -10,6 +10,7 @@ import { Select } from "@/components/select";
 import { formatError } from "@/lib/format-error";
 import { statusLabel } from "@/components/status-select";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 export function AddExperimentForm({ onAdded }: { onAdded: () => void }) {
   const [name, setName] = useState("");
@@ -63,7 +64,7 @@ export function AddExperimentForm({ onAdded }: { onAdded: () => void }) {
       <div className="field"><label htmlFor="erepo">Repo URL</label><input id="erepo" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} placeholder="https://github.com/you/thesis-experiments" /></div>
       <div className="field"><label htmlFor="econfig">Config (JSON)</label><textarea id="econfig" rows={2} value={config} onChange={(e) => setConfig(e.target.value)} placeholder='{"beta":4,"latent_dim":32,"seed":0}' /></div>
       {error && <FormError>{error}</FormError>}
-      <button className="btn-primary" disabled={busy}>{busy ? "Adding…" : "Add experiment"}</button>
+      <Button variant="primary" disabled={busy}>{busy ? "Adding…" : "Add experiment"}</Button>
     </form>
   );
 }

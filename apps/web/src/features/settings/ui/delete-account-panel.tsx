@@ -7,6 +7,7 @@ import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
 import { authHeaders } from "@/lib/auth-headers";
 import { clearStoredAppearance } from "@/lib/theme/theme";
+import { Button } from "@/components/button";
 
 const CONFIRMATION = "DELETE_USER";
 
@@ -80,16 +81,16 @@ export function DeleteAccountPanel() {
         Permanently delete your account and all associated data (papers, experiments, images,
         settings). We email a one-time code to confirm it is you. This cannot be undone.
       </p>
-      <button
-        type="button"
-        className="link-btn danger"
+      <Button
+       
+        size="sm" className="danger"
         onClick={() => {
           resetModal();
           setOpen(true);
         }}
       >
         Delete my account…
-      </button>
+      </Button>
 
       {open && (
         <Modal
@@ -106,14 +107,12 @@ export function DeleteAccountPanel() {
           </p>
 
           <div className="field">
-            <button
-              type="button"
-              className="btn-secondary"
+            <Button
               disabled={busy || sendingOtp}
               onClick={() => void sendOtp()}
             >
               {sendingOtp ? "Sending…" : otpSent ? "Resend code" : "Email me a confirmation code"}
-            </button>
+            </Button>
             {otpSent && emailHint && (
               <p className="muted" style={{ marginBottom: 0 }}>
                 Code sent to {emailHint}. Enter the 6-digit code (or paste the confirmation link).
@@ -150,15 +149,14 @@ export function DeleteAccountPanel() {
           </div>
 
           {error && <FormError>{error}</FormError>}
-          <button
-            type="button"
-            className="btn-primary"
+          <Button
+            variant="primary"
             style={{ background: "var(--danger)", borderColor: "var(--danger)" }}
             disabled={busy || sendingOtp || confirmation !== CONFIRMATION || !otp.trim()}
             onClick={() => void handleDelete()}
           >
             {busy ? "Deleting…" : "Delete my account permanently"}
-          </button>
+          </Button>
         </Modal>
       )}
     </div>

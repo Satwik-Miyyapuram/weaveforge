@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/ui/auth-provider";
 import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
+import { Button } from "@/components/button";
 
 /** The card every status branch of the reset screen sits in. */
 export function ResetShell({ title, children }: { title: string; children?: React.ReactNode }) {
@@ -58,7 +59,7 @@ export function PasswordResetScreen() {
     return (
       <ResetShell title="Password changed">
         <p className="muted">Your login password has been updated. Your encryption recovery credentials are unchanged.</p>
-        <button type="button" className="btn-primary" onClick={() => router.replace("/dashboard")}>Continue</button>
+        <Button variant="primary" onClick={() => router.replace("/dashboard")}>Continue</Button>
       </ResetShell>
     );
   }
@@ -70,7 +71,7 @@ export function PasswordResetScreen() {
         <label className="field"><span>New password</span><input name="password" type="password" autoComplete="new-password" minLength={8} required /></label>
         <label className="field"><span>Retype new password</span><input name="confirmation" type="password" autoComplete="new-password" minLength={8} required /></label>
         {error && <FormError>{error}</FormError>}
-        <button type="submit" className="btn-primary" disabled={busy}>{busy ? "Saving…" : "Set new password"}</button>
+        <Button type="submit" variant="primary" disabled={busy}>{busy ? "Saving…" : "Set new password"}</Button>
       </form>
     </main>
   );

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { desktop, type DesktopUpdate } from "@/lib/desktop/desktop-bridge";
+import { Button } from "@/components/button";
 
 /**
  * Updates, for the desktop window only.
@@ -118,9 +119,9 @@ export function DesktopUpdatePanel() {
         </p>
       )}
 
-      <button type="button" className="btn-secondary" onClick={check} disabled={!checked}>
+      <Button onClick={check} disabled={!checked}>
         {checked ? "Check now" : "Checking…"}
-      </button>
+      </Button>
     </div>
   );
 }

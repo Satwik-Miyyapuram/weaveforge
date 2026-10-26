@@ -21,6 +21,7 @@ import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { latestGate } from "@/lib/latest-gate";
 import { collectListIds } from "./list-ui";
+import { Button } from "@/components/button";
 
 const STAGE_LABEL: Record<ScreeningStage, string> = {
   title_abstract: "Title & abstract",
@@ -177,9 +178,9 @@ export function ScreeningPanel({
             {STAGE_LABEL[s]}
           </button>
         ))}
-        <button type="button" className="link-btn" onClick={copyFigure} disabled={!summary}>
+        <Button variant="ghost" size="sm" onClick={copyFigure} disabled={!summary}>
           Copy PRISMA figure
-        </button>
+        </Button>
       </div>
 
       {error && <p className="error-text">{error}</p>}

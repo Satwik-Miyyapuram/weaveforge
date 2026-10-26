@@ -12,6 +12,7 @@ import { ShareLinkPanel } from "./share-link-panel";
 import { formatError } from "@/lib/format-error";
 import { runShareAction } from "./share-action";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 /**
  * Manage who an item (or all of a type, when `resourceId` is null) is shared
@@ -142,7 +143,7 @@ export function ShareDialog({
                   <option value="comment">can comment</option>
                   {supportsEdit ? <option value="edit">can edit</option> : null}
                 </Select>
-                <button className="link-btn danger" disabled={busy} onClick={() => void revoke(s)}>remove</button>
+                <Button size="sm" className="danger" disabled={busy} onClick={() => void revoke(s)}>Remove</Button>
               </li>
             ))}
           </ul>

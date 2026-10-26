@@ -166,3 +166,6 @@ code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono);
   cursor: pointer;
 }
 .error-report-link:hover { color: var(--text); }
+
+/* Remove marks inside chips follow the chip's text size, not the toolbar icon size. */
+:is(.tag-del, .jump-to-chip-remove, .graph-side-rel-remove, .dashboard-card-remove) .vicon { width: 1em; height: 1em; }

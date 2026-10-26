@@ -1,7 +1,8 @@
 /** One Button and IconButton; height from the control tokens (design D02, D-03). */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -58,4 +59,42 @@ test("coarse pointers get a 44px target (DA-11, G5)", () => {
 test("disabled reads the same on every variant: opacity 0.5 (DA-13)", () => {
   assert.match(buttons, /:is\(\.btn-primary, \.btn-secondary, \.btn-ghost, \.icon-btn\):disabled \{ opacity: 0\.5; cursor: default; \}/);
   for (const sheet of [forms, buttons]) assert.doesNotMatch(sheet, /\.btn-(primary|secondary|ghost):disabled \{ opacity: 0\.6/);
+});
+
+/** Every .tsx under src, minus tests: the source that renders buttons. */
+function sourceFiles(dir = fileURLToPath(new URL("../../", import.meta.url))): { rel: string; text: string }[] {
+  const out: { rel: string; text: string }[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name !== "test" && entry.name !== "node_modules") out.push(...sourceFiles(full));
+    } else if (entry.name.endsWith(".tsx")) {
+      out.push({ rel: full.replace(/\\/g, "/").split("/src/").pop()!, text: readFileSync(full, "utf8") });
+    }
+  }
+  return out;
+}
+
+test("no button is labelled with a bare text glyph; icons are SVG (DA-82)", () => {
+  const glyphOnly = /<button\b(?:=>|>=|<=|[^>])*>\s*[-−+‹›✕×⋯⇅☰]\s*<\/button>/g;
+  const hits = sourceFiles().flatMap(({ rel, text }) => [...text.matchAll(glyphOnly)].map(() => rel));
+  assert.deepEqual(hits, []);
+});
+
+test("no label carries the ⇅ glyph (DA-80)", () => {
+  const hits = sourceFiles().filter(({ text }) => text.includes("⇅")).map(({ rel }) => rel);
+  assert.deepEqual(hits, []);
+});
+
+test("one rule draws the link arrow, so a chip never shows two (DA-81)", () => {
+  const styles = fileURLToPath(new URL("../../app/styles/", import.meta.url));
+  const arrowRules = readdirSync(styles)
+    .filter((name) => name.endsWith(".css"))
+    .flatMap((name) => (readFileSync(join(styles, name), "utf8").match(/content: "(↗|\\2197)"/g) ?? []).map(() => name));
+  assert.deepEqual(arrowRules, ["states.css"]);
+});
+
+test("an in-page jump chip is a button, which the arrow rule does not reach (DA-83)", () => {
+  const states = css("../../app/styles/states.css");
+  assert.match(states, /a:is\([^)]*\.plan-chip[^)]*\)\[href\]::after \{ content: "\\2197"; \}/);
 });

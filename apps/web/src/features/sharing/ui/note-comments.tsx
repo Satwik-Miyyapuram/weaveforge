@@ -12,6 +12,7 @@ import { readStored, writeStored } from "@/lib/safe-storage";
 import { buildMemberNameMap } from "../application/member-labels";
 import { anchorAt, locateAnchor, type TextSpan } from "../domain/text-anchor";
 import { offsetOf, paintHighlights } from "./note-text-ranges";
+import { Button } from "@/components/button";
 
 /**
  * The one comment system: threads with replies that resolve and fold away. Given
@@ -252,14 +253,14 @@ export function NoteComments({
         ))}
         <div className="note-thread-actions">
           {canComment && !root.resolvedAt && replyTo !== root.id && (
-            <button type="button" className="link-btn" onClick={() => { setReplyTo(root.id); setReply(""); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setReplyTo(root.id); setReply(""); }}>
               Reply
-            </button>
+            </Button>
           )}
           {(mine || isOwner) && (
-            <button type="button" className="link-btn" disabled={busy} onClick={() => void resolve(root, !root.resolvedAt)}>
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => void resolve(root, !root.resolvedAt)}>
               {root.resolvedAt ? "Reopen" : "Resolve"}
-            </button>
+            </Button>
           )}
         </div>
         {replyTo === root.id && (
@@ -267,9 +268,9 @@ export function NoteComments({
             <textarea rows={2} value={reply} autoFocus placeholder="Reply…" onChange={(e) => setReply(e.target.value)} />
             <div className="note-thread-actions">
               <button type="button" className="btn-ghost btn-cancel" onClick={() => setReplyTo(null)}>Cancel</button>
-              <button type="button" className="btn-primary" disabled={busy || !reply.trim()} onClick={() => void answer(root.id)}>
+              <Button variant="primary" disabled={busy || !reply.trim()} onClick={() => void answer(root.id)}>
                 Reply
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -325,9 +326,9 @@ export function NoteComments({
                 {pending && (
                   <button type="button" className="btn-ghost btn-cancel" onClick={() => setPending(null)}>Cancel</button>
                 )}
-                <button type="button" className="btn-primary" disabled={busy || !draft.trim()} onClick={() => void add()}>
+                <Button variant="primary" disabled={busy || !draft.trim()} onClick={() => void add()}>
                   {busy ? "Posting…" : "Comment"}
-                </button>
+                </Button>
               </div>
             </div>
           )}

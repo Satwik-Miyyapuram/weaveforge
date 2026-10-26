@@ -31,6 +31,7 @@ import { ScreenHead } from "@/components/screen-head";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { FormError } from "@/components/form-error";
 import { loadSubtreeItems } from "@/features/reading-lists/application/subtree-items";
+import { Button } from "@/components/button";
 
 type ListsViewData = ReadingListsScreenData & { ownerNames: Map<string, string> };
 
@@ -225,7 +226,7 @@ export function ListsScreen() {
         eyebrow={listsEyebrow(flat)}
         search={flat.length > 0 ? { value: search, onChange: setSearch, label: "Search lists" } : undefined}
       >
-        <button className="btn-primary" onClick={() => setAddOpen(true)}>New list</button>
+        <Button variant="primary" onClick={() => setAddOpen(true)}>New list</Button>
       </ScreenHead>
 
       {addOpen && (
@@ -242,9 +243,9 @@ export function ListsScreen() {
           title="No reading lists yet"
           body="A reading list is how a pile of papers becomes an argument: group them by theme, nest the groups, and keep the reason each one is there. It is a view over your papers, not a second copy of them."
           action={
-            <button type="button" className="btn-primary" onClick={() => setAddOpen(true)}>
+            <Button variant="primary" onClick={() => setAddOpen(true)}>
               New list
-            </button>
+            </Button>
           }
         />
       )}

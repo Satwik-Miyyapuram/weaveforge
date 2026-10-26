@@ -8,6 +8,7 @@ import { useState } from "react";
 import { formatError } from "@/lib/format-error";
 import { useCapability } from "@/deployment/capabilities";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 function shortId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}…` : id;
@@ -116,9 +117,9 @@ export function AccountInfoPanel() {
           <div className="account-info-row">
             <dt>Password</dt>
             <dd>
-              <button type="button" className="btn-secondary btn-sm" onClick={() => { setPasswordError(null); setPasswordSuccess(false); setPasswordOpen(true); }}>
+              <Button size="sm" onClick={() => { setPasswordError(null); setPasswordSuccess(false); setPasswordOpen(true); }}>
                 Change password
-              </button>
+              </Button>
             </dd>
           </div>
         )}
@@ -132,7 +133,7 @@ export function AccountInfoPanel() {
             {passwordError && <FormError>{passwordError}</FormError>}
             {passwordSuccess && <p className="success">Your login password was changed.</p>}
             <div className="button-row">
-              <button type="submit" className="btn-primary" disabled={passwordBusy}>{passwordBusy ? "Saving…" : "Change password"}</button>
+              <Button type="submit" variant="primary" disabled={passwordBusy}>{passwordBusy ? "Saving…" : "Change password"}</Button>
               <button type="button" className="btn-secondary btn-cancel" onClick={() => setPasswordOpen(false)} disabled={passwordBusy}>Cancel</button>
             </div>
           </form>

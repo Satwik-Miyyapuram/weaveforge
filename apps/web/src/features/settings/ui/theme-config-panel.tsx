@@ -8,6 +8,7 @@ import {
   type ThemeConfig,
 } from "@weaveforge/core";
 import { persistThemeChange } from "@/lib/theme/theme-persistence";
+import { Button } from "@/components/button";
 
 /**
  * Upload / remove a `config.json` theme file.
@@ -99,16 +100,16 @@ export function ThemeConfigPanel({
           accept="application/json,.json"
           onChange={(e) => void handleFile(e.target.files?.[0] ?? null)}
         />
-        <button type="button" className="btn-secondary btn-sm" onClick={() => inputRef.current?.click()}>
+        <Button size="sm" onClick={() => inputRef.current?.click()}>
           Load file…
-        </button>
-        <button type="button" className="btn-secondary btn-sm" onClick={downloadTemplate}>
+        </Button>
+        <Button size="sm" onClick={downloadTemplate}>
           Template
-        </button>
+        </Button>
         {current && (
-          <button type="button" className="btn-secondary btn-sm" onClick={remove}>
+          <Button size="sm" onClick={remove}>
             Remove
-          </button>
+          </Button>
         )}
       </div>
 

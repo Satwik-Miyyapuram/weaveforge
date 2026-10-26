@@ -1,3 +1,4 @@
+import { CloseIcon } from "@/components/view-icons";
 "use client";
 
 /**
@@ -30,7 +31,7 @@ export function TagChips({
               disabled={busy}
               onClick={() => onRemove(t)}
             >
-              ×
+              <CloseIcon />
             </button>
           </span>
         ))}

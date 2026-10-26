@@ -27,6 +27,7 @@ import { Artifacts, MetricCurves, usePaperTitle } from "./experiment-panels";
 import { StatusSelect } from "@/components/status-select";
 import { FormError } from "@/components/form-error";
 import { ChevronIcon } from "@/components/chevron-icon";
+import { Button } from "@/components/button";
 
 
 export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
@@ -228,8 +229,8 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
                     }}
                   />
                   <div className="exp-result-actions">
-                    <button type="button" className="btn-secondary" onClick={() => setResultDraft(null)}>Cancel</button>
-                    <button type="button" className="btn-primary" onClick={() => void saveResult()}>Save result</button>
+                    <Button onClick={() => setResultDraft(null)}>Cancel</Button>
+                    <Button variant="primary" onClick={() => void saveResult()}>Save result</Button>
                   </div>
                 </div>
               ) : exp.resultNote ? (

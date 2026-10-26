@@ -1,3 +1,4 @@
+import { Button } from "@/components/button";
 "use client";
 
 function CustomizeIcon() {
@@ -50,15 +51,15 @@ export function DashboardEditBar({
 
   return (
     <div className="dashboard-edit-bar dashboard-edit-bar--editing">
-      <button type="button" className="btn-secondary" onClick={onAdd}>
+      <Button onClick={onAdd}>
         + Add card
-      </button>
-      <button type="button" className="btn-secondary" onClick={onReset}>
+      </Button>
+      <Button onClick={onReset}>
         Reset default
-      </button>
-      <button type="button" className="btn-primary" onClick={onDone}>
+      </Button>
+      <Button variant="primary" onClick={onDone}>
         Done
-      </button>
+      </Button>
     </div>
   );
 }

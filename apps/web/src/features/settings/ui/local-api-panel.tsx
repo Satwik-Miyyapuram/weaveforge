@@ -7,6 +7,7 @@ import { FormError } from "@/components/form-error";
 import { LocalApiTokenCreate, LocalApiTokenTable, useLocalApiState } from "@/components/local-api-tokens";
 import { McpClients } from "./mcp-clients";
 import { copyText } from "@/lib/clipboard";
+import { Button } from "@/components/button";
 
 /**
  * Settings → AI → MCP and the local HTTP surface, desktop only.
@@ -75,9 +76,7 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
           {!sdk && (
             <div className="ai-connection-value">
               <span><small>MCP endpoint</small><code>{mcpUrl}</code></span>
-              <button
-                type="button"
-                className="btn-secondary"
+              <Button
                 onClick={() =>
                   void copyText(mcpUrl).then((ok) => {
                     if (!ok) return;
@@ -87,7 +86,7 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
                 }
               >
                 {copied ? "Copied" : "Copy"}
-              </button>
+              </Button>
             </div>
           )}
           {sdk ? (

@@ -7,6 +7,7 @@ import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
 import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
 import type { StoredZoteroAnnotation } from "../domain/zotero";
+import { Button } from "@/components/button";
 
 type StoredAnnotation = StoredZoteroAnnotation;
 
@@ -121,9 +122,9 @@ export function PaperAnnotations({ paper, readOnly }: { paper: Paper; readOnly: 
                   )}
                   {(a.text || a.comment) && (
                     <div className="annotation-actions">
-                      <button type="button" className="link-btn" onClick={() => void copyCite(a)}>
+                      <Button variant="ghost" size="sm" onClick={() => void copyCite(a)}>
                         Copy quote + cite
-                      </button>
+                      </Button>
                       {a.key && !readOnly && (
                         <>
                           <Select
@@ -186,9 +187,9 @@ export function PaperAnnotations({ paper, readOnly }: { paper: Paper; readOnly: 
                   )}
                   {(a.text || a.comment) && (
                     <div className="annotation-actions">
-                      <button type="button" className="link-btn" onClick={() => void copyCite(a)}>
+                      <Button variant="ghost" size="sm" onClick={() => void copyCite(a)}>
                         Copy quote + cite
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>

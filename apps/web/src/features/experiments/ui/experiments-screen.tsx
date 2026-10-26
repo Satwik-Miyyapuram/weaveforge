@@ -34,6 +34,7 @@ import { FormError } from "@/components/form-error";
 import { AddExperimentForm } from "./add-experiment-form";
 import { ExperimentCard } from "./experiment-card";
 import { CompareView } from "./experiments-compare";
+import { Button } from "@/components/button";
 
 type ExperimentsViewData = ExperimentsScreenData & { ownerNames: Map<string, string> };
 
@@ -167,13 +168,13 @@ export function ExperimentsScreen() {
           // claimed a freshness this screen never had.
           <span className="live-dot" title="A run is in progress — this screen re-checks for updates in the background, at most once every 2 minutes">● live</span>
         )}
-        <button
-          className="btn-primary"
-          type="button"
+        <Button
+          variant="primary"
+         
           onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
         >
           New experiment
-        </button>
+        </Button>
       </ScreenHead>
 
       {composeOpen && (
@@ -276,13 +277,12 @@ export function ExperimentsScreen() {
           title="No experiments yet"
           body="An experiment is one run you can point at: what you changed, what came out, and which paper it came from. Record the first one and the chain starts here."
           action={
-            <button
-              type="button"
-              className="btn-primary"
+            <Button
+              variant="primary"
               onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
             >
               New experiment
-            </button>
+            </Button>
           }
         />
       )}

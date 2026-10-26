@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { MultiSelect } from "@/components/multi-select";
+import { Button } from "@/components/button";
 
 /** Chips drawn before the rest fold into "+N others", keeping the row short. */
 const SHOWN_CHIPS = 2;
@@ -56,9 +57,9 @@ export function FilterRow({ label, facets, children }: { label: string; facets: 
         </span>
       )}
       {chips.length > 0 && (
-        <button type="button" className="link-btn" onClick={() => shown.forEach((f) => f.onChange([]))}>
+        <Button variant="ghost" size="sm" onClick={() => shown.forEach((f) => f.onChange([]))}>
           Clear
-        </button>
+        </Button>
       )}
       {children}
     </div>

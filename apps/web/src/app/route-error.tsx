@@ -3,6 +3,7 @@
 import { isAndroidApp, RESET_APP_DATA_CONFIRM, resetAppData } from "@/lib/client-runtime-recovery";
 import { errorDetail, useLoggedError, type ErrorBoundaryProps } from "./error-boundary-parts";
 import { ErrorReportPanel } from "./error-report-panel-lazy";
+import { Button } from "@/components/button";
 
 /**
  * The body of every route error boundary.
@@ -63,16 +64,14 @@ export function RouteError({
         unlike reset(), it rebuilds the module registry and the screen cache.
       */}
       <div className="screen-actions" style={{ justifyContent: "flex-start" }}>
-        <button type="button" className="btn-primary" onClick={() => reset()}>
+        <Button variant="primary" onClick={() => reset()}>
           Try again
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
+        </Button>
+        <Button
           onClick={() => window.location.reload()}
         >
           Reload this page
-        </button>
+        </Button>
       </div>
 
       {isAndroidApp() ? (

@@ -11,6 +11,7 @@ import { FormError } from "@/components/form-error";
 import { Select } from "@/components/select";
 import { DatePicker } from "@/components/date-picker";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Button } from "@/components/button";
 
 const MAX_TOKENS = 5;
 const EXPIRY_CHOICES = [
@@ -198,29 +199,23 @@ export function LocalApiTokenCreate({
             >
               {issued.token}
             </code>
-            <button
-              type="button"
-              className="btn-secondary"
+            <Button
               onClick={() => void copy("t", issued.token)}
             >
               {copied === "t" ? "Copied" : "Copy"}
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
+            </Button>
+            <Button
               onClick={() =>
                 void copy("e", sdkEnvLines(issued.token, state.url))
               }
             >
               {copied === "e" ? "Copied" : "Copy env lines"}
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
+            </Button>
+            <Button
               onClick={() => setIssued(null)}
             >
               Done
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -290,9 +285,9 @@ export function LocalApiTokenCreate({
               onChange={setCustomDate}
             />
           )}
-          <button type="submit" className="btn-primary" disabled={busy}>
+          <Button type="submit" variant="primary" disabled={busy}>
             Create token
-          </button>
+          </Button>
         </form>
       )}
       <small className="muted">
@@ -367,14 +362,12 @@ export function LocalApiTokenTable({
                       : when(t.expiresAt)}
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      className="btn-secondary"
+                    <Button
                       disabled={busy}
                       onClick={() => setPending({ id: t.id, name: t.name })}
                     >
                       Revoke
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               );

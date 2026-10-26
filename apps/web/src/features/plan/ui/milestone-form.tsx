@@ -19,6 +19,7 @@ import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
 import { logToApp } from "@/lib/error-report/app-log";
 import { statusLabel } from "@/components/status-select";
+import { Button } from "@/components/button";
 
 export interface DepDraft {
   kind: DependencyKind;
@@ -236,14 +237,14 @@ export function MilestoneForm({
                 ))}
               </Select>
             )}
-            <button
-              type="button"
-              className="link-btn danger"
+            <Button
+             
+              size="sm" className="danger"
               onClick={() => setDeps((prev) => prev.filter((_, k) => k !== i))}
               aria-label="Remove dependency"
             >
               Remove
-            </button>
+            </Button>
           </div>
         ))}
         <button
@@ -287,14 +288,14 @@ export function MilestoneForm({
               placeholder="notes"
               aria-label="Notes"
             />
-            <button
-              type="button"
-              className="link-btn danger"
+            <Button
+             
+              size="sm" className="danger"
               onClick={() => setCompute((prev) => prev.filter((_, k) => k !== i))}
               aria-label="Remove compute need"
             >
               Remove
-            </button>
+            </Button>
           </div>
         ))}
         <button
@@ -315,9 +316,9 @@ export function MilestoneForm({
             Cancel
           </button>
         )}
-        <button className="btn-primary" disabled={busy}>
+        <Button variant="primary" disabled={busy}>
           {busy ? "Saving…" : initial ? "Save" : "Add milestone"}
-        </button>
+        </Button>
       </div>
     </form>
   );

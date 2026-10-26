@@ -7,6 +7,7 @@ import { Modal, ModalActions } from "@/components/modal";
 import { FormError } from "@/components/form-error";
 import { Select } from "@/components/select";
 import { formatError } from "@/lib/format-error";
+import { Button } from "@/components/button";
 
 /**
  * Compact trigger + modal for a plaintext Overleaf ZIP (browser-only; nothing
@@ -70,9 +71,7 @@ export function ExportOverleafPackagePanel({
   return (
     <>
       {!hideTrigger && (
-        <button
-          type="button"
-          className="btn-secondary"
+        <Button
           onClick={() => {
             setError(null);
             setWarnings([]);
@@ -80,7 +79,7 @@ export function ExportOverleafPackagePanel({
           }}
         >
           Export LaTeX…
-        </button>
+        </Button>
       )}
       {open && (
         <Modal title="Export to Overleaf" onClose={close}>
@@ -153,9 +152,9 @@ export function ExportOverleafPackagePanel({
               <button className="btn-secondary btn-cancel" type="button" disabled={busy} onClick={close}>
                 Cancel
               </button>
-              <button className="btn-primary" type="button" disabled={busy} onClick={() => void run()}>
+              <Button variant="primary" disabled={busy} onClick={() => void run()}>
                 {busy ? "Building…" : "Download ZIP"}
-              </button>
+              </Button>
             </ModalActions>
           </div>
         </Modal>

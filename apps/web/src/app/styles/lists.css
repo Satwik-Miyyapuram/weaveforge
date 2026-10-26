@@ -24,11 +24,7 @@
   flex: none; font-size: 0.74rem; color: var(--muted);
   padding: 2px 8px; border-radius: 999px; background: var(--surface2);
 }
-.list-view-toggle {
-  display: inline-flex; gap: 6px; align-items: center; flex: none;
-}
-.list-view-toggle { gap: 2px; }
-.list-view-toggle .entity-icon-btn.is-active { color: var(--active-fg); background: var(--active-bg); }
+.list-view-toggle { align-items: center; flex: none; }
 .extraction-table { margin: 6px 0 10px; display: grid; gap: 8px; min-width: 0; }
 .extraction-table-toolbar {
   display: flex; flex-wrap: wrap; gap: 10px; align-items: center; min-width: 0;

@@ -6,6 +6,7 @@ import {
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 function formatExpiry(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -87,9 +88,9 @@ export function ShareLinkPanel({
         <div className="share-link-created">
           <p className="muted">Copy this link now — the token is not shown again.</p>
           <code className="share-link-url" data-testid="share-link-url">{createdUrl}</code>
-          <button type="button" className="link-btn" onClick={() => void copyUrl(createdUrl)}>
+          <Button variant="ghost" size="sm" onClick={() => void copyUrl(createdUrl)}>
             Copy link
-          </button>
+          </Button>
         </div>
       )}
       {links.length > 0 && (
@@ -101,21 +102,21 @@ export function ShareLinkPanel({
               {link.expiresAt ? (
                 <span className="share-link-expiry-hint">expires {formatExpiry(link.expiresAt)}</span>
               ) : null}
-              <button
-                type="button"
-                className="link-btn danger"
+              <Button
+               
+                size="sm" className="danger"
                 disabled={busy}
                 onClick={() => void revoke(link.id)}
               >
-                revoke
-              </button>
+                Revoke
+              </Button>
             </li>
           ))}
         </ul>
       )}
-      <button type="button" className="btn-secondary" disabled={busy} onClick={() => void createLink()}>
+      <Button disabled={busy} onClick={() => void createLink()}>
         {busy ? "Creating…" : "Create view link"}
-      </button>
+      </Button>
     </div>
   );
 }
