@@ -254,12 +254,11 @@ export function PdfReader({
     annError,
     setAnnError,
     createBusy,
-    updateLocal,
     pinLocal,
   } = actions;
   // Every local write goes through the undo stack, in read mode and ink mode.
   const inkUndo = useInkUndo(actions, annotations);
-  const { persistDraft, removeLocal, removeMany, saveAnchor, reset: resetInkUndo } = inkUndo;
+  const { persistDraft, removeLocal, removeMany, saveAnchor, updateLocal, reset: resetInkUndo } = inkUndo;
   useEffect(() => resetInkUndo(), [url, resetInkUndo]);
   // Ctrl+Z/Y, Ctrl+F and Delete on the window, so they answer after a click on
   // the page or a rail button; skipped when focus sits in another pane.

@@ -32,7 +32,12 @@ export type InkUndoEntry =
       id: string;
       before: ReaderAnnotation["anchor"];
       after: ReaderAnnotation["anchor"];
-    };
+    }
+  /** A mark's colour, comment, tags or text changed; each side holds the fields it set. */
+  | { kind: "update"; id: string; before: InkUndoPatch; after: InkUndoPatch };
+
+/** The fields an edit can change, as `updateLocal` takes them. */
+export type InkUndoPatch = Partial<Pick<ReaderAnnotation, "color" | "comment" | "tags" | "text">>;
 
 export interface InkUndoState {
   undo: readonly InkUndoEntry[];
@@ -78,7 +83,7 @@ export function takeInkRedo(
 export function renameInkUndoId(state: InkUndoState, from: string, to: string): InkUndoState {
   if (from === to) return state;
   const rename = (entry: InkUndoEntry): InkUndoEntry => {
-    if (entry.kind === "anchor") return entry.id === from ? { ...entry, id: to } : entry;
+    if (entry.kind === "anchor" || entry.kind === "update") return entry.id === from ? { ...entry, id: to } : entry;
     if (entry.kind === "removeMany") {
       if (!entry.annotations.some((a) => a.id === from)) return entry;
       return { ...entry, annotations: entry.annotations.map((a) => (a.id === from ? { ...a, id: to } : a)) };
@@ -99,7 +104,7 @@ export function refreshInkUndoAnnotation(
   annotation: ReaderAnnotation,
 ): InkUndoState {
   const refresh = (entry: InkUndoEntry): InkUndoEntry => {
-    if (entry.kind === "anchor") return entry;
+    if (entry.kind === "anchor" || entry.kind === "update") return entry;
     if (entry.kind === "removeMany") {
       if (!entry.annotations.some((a) => a.id === annotation.id)) return entry;
       return { ...entry, annotations: entry.annotations.map((a) => (a.id === annotation.id ? annotation : a)) };
