@@ -13,10 +13,10 @@
 .markdown code { background: var(--neutral); padding: 1px 4px; border-radius: var(--r-sm); font-size: 0.9em; }
 .markdown a { color: var(--link); }
 /* Obsidian-style wikilinks: resolved = accent, unresolved = muted/dashed (offer to create). */
-.wikilink { color: var(--accent-ink); text-decoration: none; cursor: pointer; border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+.wikilink { color: var(--link); text-decoration: none; cursor: pointer; border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
 .wikilink:hover { border-bottom-color: var(--accent); }
 .wikilink--unresolved { color: var(--muted); border-bottom: 1px dashed color-mix(in srgb, var(--muted) 60%, transparent); }
-.wikilink--unresolved:hover { color: var(--accent-ink); border-bottom-style: solid; }
+.wikilink--unresolved:hover { color: var(--link); border-bottom-style: solid; }
 .vault-markdown-scope { display: contents; }
 .vault-backlinks { margin-top: 16px; padding: 16px 16px; }
 .vault-backlinks__head { margin: 0 0 8px; font-size: var(--fs); }

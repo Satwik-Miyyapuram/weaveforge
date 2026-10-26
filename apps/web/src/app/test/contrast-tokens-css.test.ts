@@ -91,3 +91,10 @@ test("every link reads one token, set once (D05)", () => {
   assert.match(rule(read("../styles/base.css"), "a"), /color:\s*var\(--link\);/);
   assert.match(rule(read("../styles/markdown.css"), ".markdown a"), /color:\s*var\(--link\);/);
 });
+
+test("a link is one colour in the source editor and in preview (D05)", () => {
+  const markdown = read("../styles/markdown.css");
+  assert.match(rule(markdown, ".wikilink"), /color:\s*var\(--link\);/);
+  assert.match(rule(markdown, ".wikilink--unresolved:hover"), /color:\s*var\(--link\);/);
+  assert.match(read("../../lib/markdown-cm-syntax.ts"), /tag: t\.link, color: "var\(--link\)"/);
+});
