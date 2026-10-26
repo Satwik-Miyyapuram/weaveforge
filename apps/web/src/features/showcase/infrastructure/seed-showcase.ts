@@ -33,6 +33,8 @@ import {
   SHOWCASE_SCREENING,
   SHOWCASE_SUPERVISOR_COMMENTS,
   SHOWCASE_VAULT,
+  SHOWCASE_WIKI,
+  SHOWCASE_WIKI_ROOT,
   superviseeShowcase,
   type ShowcaseLogEntry,
   type ShowcaseMilestone,
@@ -41,6 +43,7 @@ import {
 /** Bucket paths match what the app writes, so the readers need no special case. */
 export const PAPER_IMAGE_BUCKET = "paper-images";
 export const EXPERIMENT_ARTIFACT_BUCKET = "experiment-artifacts";
+export const VAULT_ASSET_BUCKET = "vault-assets";
 const PAPER_IMAGE_PREFIX = "paperimg:";
 
 export interface ShowcaseBlobStore {
@@ -506,6 +509,39 @@ async function seedVault(ctx: SeedContext): Promise<void> {
     SHOWCASE_VAULT.map((v, i) => ({ ...owned(ctx), title: v.title, body: v.body, sort_order: i })),
   );
   ctx.counts.vaultPages = SHOWCASE_VAULT.length;
+  await seedWiki(ctx);
+}
+
+/** A "Wiki" root with concept pages under it; one embeds a figure, uploaded where the editor puts pasted images. */
+async function seedWiki(ctx: SeedContext): Promise<void> {
+  const order = SHOWCASE_VAULT.length;
+  const [root] = await insertRows(ctx.db, "vault_pages", [
+    { ...owned(ctx), title: SHOWCASE_WIKI_ROOT.title, body: SHOWCASE_WIKI_ROOT.body, sort_order: order },
+  ]);
+  const rows = await insertRows(
+    ctx.db,
+    "vault_pages",
+    SHOWCASE_WIKI.map((w, i) => ({
+      ...owned(ctx),
+      title: w.title,
+      // Without the figure until it is uploaded, so a skipped chart leaves no broken embed.
+      body: w.body.replace("\n\n{{figure}}", ""),
+      parent_id: root!.id,
+      sort_order: i,
+    })),
+  );
+  for (const [i, w] of SHOWCASE_WIKI.entries()) {
+    if (!w.figure) continue;
+    const png = await ctx.chart(w.figure.kind);
+    if (!png) continue;
+    const pageId = rows[i]!.id;
+    const path = `${ctx.userId}/${pageId}/${w.figure.file}`;
+    await ctx.store.upload(VAULT_ASSET_BUCKET, path, toBlob(png), "image/png");
+    const body = w.body.replace("{{figure}}", `![${w.figure.alt}](vault:${path})`);
+    const upd = await ctx.db.from("vault_pages").update({ body }).eq("id", pageId);
+    if (upd.error) throw new Error(`update wiki figure: ${upd.error.message}`);
+  }
+  ctx.counts.wikiPages = SHOWCASE_WIKI.length;
 }
 
 /** Custom paper fields and their values. */

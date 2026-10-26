@@ -146,6 +146,32 @@ export const SHOWCASE_VAULT: ShowcaseVaultPage[] = [
   },
 ];
 
+/** A wiki page: a vault page under the "Wiki" root. `figure` names a chart kind embedded at `{{figure}}`. */
+export interface ShowcaseWikiPage extends ShowcaseVaultPage {
+  figure?: { kind: string; file: string; alt: string };
+}
+
+export const SHOWCASE_WIKI_ROOT: ShowcaseVaultPage = {
+  title: "Wiki",
+  body: "# Wiki\n\nOne page per concept.\n\n- [[β-VAE objective]]\n- [[Graph prior]]\n- [[Mutual information gap]]",
+};
+
+export const SHOWCASE_WIKI: ShowcaseWikiPage[] = [
+  {
+    title: "β-VAE objective",
+    body: "# β-VAE objective #vae #elbo\n\nELBO with the KL term scaled by β. β > 1 trades reconstruction for a more factorised posterior.\n\n{{figure}}\n\nSee [[Reading notes — β-VAE]] and the alternative in [[Graph prior]].",
+    figure: { kind: "beta-loss-curve", file: "beta-loss.png", alt: "Training loss for β = 1, 4, 10" },
+  },
+  {
+    title: "Graph prior",
+    body: "# Graph prior #graph-prior #gnn\n\nA GIN encodes the concept graph into the prior p(z|G), so structure, not β, carries the inductive bias.\n\nWhy sum aggregation: [[GIN proof notes]].",
+  },
+  {
+    title: "Mutual information gap",
+    body: "# MIG #evaluation\n\nGap between the two latents with the highest mutual information for each factor, normalised by the factor entropy. Range 0–1.\n\nSample counts in [[Metrics cheat-sheet]].",
+  },
+];
+
 export interface ShowcaseFieldDef {
   name: string;
   kind: "text" | "number" | "select" | "multi_select";
