@@ -1,6 +1,6 @@
 .artifact-thumbs { display: flex; flex-wrap: wrap; gap: 10px; }
 .artifact-thumbs a {
-  display: block; border: 1px solid var(--line); border-radius: 10px;
+  display: block; border: 1px solid var(--line); border-radius: var(--r-control);
   overflow: hidden; background: var(--chip);
 }
 .artifact-thumbs img {
@@ -24,7 +24,7 @@
   text-decoration: none;
   color: inherit;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-control);
   overflow: hidden;
   background: var(--chip);
   transition: border-color 0.12s, background 0.12s;
@@ -71,9 +71,9 @@
 .exp-detail .git-chips,
 .exp-detail .metric-chips { gap: 8px 10px; }
 .exp-detail .git-chip,
-.exp-detail .metric-chip { padding: 5px 11px; border-radius: 9px; }
+.exp-detail .metric-chip { padding: 5px 11px; border-radius: var(--r-control); }
 .exp-run-cmd {
-  margin: 0; padding: 12px 14px; border-radius: 10px;
+  margin: 0; padding: 12px 14px; border-radius: var(--r-control);
   background: var(--chip); border: 1px solid var(--line);
   font-size: var(--fs-sm); overflow-x: auto; white-space: pre-wrap;
 }
@@ -90,7 +90,7 @@
 .metric-chart-run {
   display: inline-flex; flex: none; align-items: center; gap: 6px;
   font: inherit; font-size: var(--fs-xs); color: var(--ink);
-  padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px;
+  padding: 3px 9px; border: 1px solid var(--line); border-radius: var(--r-pill);
   background: transparent; cursor: pointer;
 }
 .metric-chart-run[aria-pressed="false"] { opacity: 0.4; text-decoration: line-through; }
@@ -109,7 +109,7 @@
   transform: translate(12px, -50%); min-width: 120px;
   padding: 6px 8px; font-size: var(--fs-xs);
   background: var(--surface); color: var(--ink);
-  border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
+  border: 1px solid var(--line); border-radius: var(--r-sm); box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
 }
 .metric-chart-tip[data-flip] { transform: translate(calc(-100% - 12px), -50%); }
 .metric-chart-tip-step { font-weight: 700; margin-bottom: 4px; }
@@ -133,7 +133,7 @@
 .image-viewer-count, .image-viewer-zoom { opacity: 0.7; font-variant-numeric: tabular-nums; }
 .image-viewer-bar button, .image-viewer-bar a {
   min-width: 34px; height: 30px; padding: 0 10px;
-  border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3); border-radius: var(--r-sm);
   background: transparent; color: inherit; font: inherit;
   display: inline-flex; align-items: center; justify-content: center;
   text-decoration: none; cursor: pointer;
@@ -151,7 +151,7 @@
 }
 .image-viewer-nav {
   position: absolute; top: 50%; transform: translateY(-50%);
-  width: 44px; height: 64px; border: 0; border-radius: 8px;
+  width: 44px; height: 64px; border: 0; border-radius: var(--r-control);
   background: rgba(255, 255, 255, 0.1); color: #fff; font-size: 2rem; cursor: pointer;
 }
 .image-viewer-nav:hover { background: rgba(255, 255, 255, 0.22); }

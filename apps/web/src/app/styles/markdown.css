@@ -10,7 +10,7 @@
 .markdown .md-table th { background: var(--neutral); font-weight: 600; }
 .markdown .md-table .md-center { text-align: center; }
 .markdown .md-table .md-right { text-align: right; }
-.markdown code { background: var(--neutral); padding: 1px 5px; border-radius: 5px; font-size: 0.9em; }
+.markdown code { background: var(--neutral); padding: 1px 5px; border-radius: var(--r-sm); font-size: 0.9em; }
 .markdown a { color: var(--link); }
 /* Obsidian-style wikilinks: resolved = accent, unresolved = muted/dashed (offer to create). */
 .wikilink { color: var(--accent-ink); text-decoration: none; cursor: pointer; border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
@@ -22,7 +22,7 @@
 .vault-backlinks__head { margin: 0 0 8px; font-size: var(--fs); }
 .vault-backlinks__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .vault-backlinks__list .link-btn { padding: 4px 0; text-align: left; color: var(--accent-ink); }
-.markdown .md-image { max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; }
+.markdown .md-image { max-width: 100%; height: auto; border-radius: var(--r-control); margin: 8px 0; }
 /* A figure's column placement (§markdown-figure-alt): the image is content
    the text wraps around, which float is, and a centered one stands alone
    between its margins the way a figure in a book does. A crop is clip-path,
@@ -33,7 +33,7 @@
 .markdown .math-display { overflow-x: auto; margin: 12px 0; padding: 4px 0; }
 .markdown blockquote { margin: 10px 0; padding: 4px 12px; border-left: 3px solid var(--line); color: var(--muted); }
 /* Obsidian-style callouts: [!note] / [!warning] / [!tip] etc. */
-.callout { margin: 12px 0; border-radius: 10px; border: 1px solid var(--line); border-left-width: 3px; background: color-mix(in srgb, var(--accent) 7%, var(--surface)); overflow: hidden; }
+.callout { margin: 12px 0; border-radius: var(--r-control); border: 1px solid var(--line); border-left-width: 3px; background: color-mix(in srgb, var(--accent) 7%, var(--surface)); overflow: hidden; }
 .callout-title { padding: 8px 12px; font-weight: 600; font-size: var(--fs); }
 .callout-body { padding: 0 12px 8px; }
 .callout-body > :first-child { margin-top: 0; }
@@ -67,9 +67,9 @@
 }
 .linked-overleaf-head, .linked-overleaf-toolbar { display: flex; align-items: center; gap: 12px; justify-content: space-between; flex-wrap: wrap; }
 .linked-overleaf-head h2 { margin: 0; }
-.linked-overleaf-disclosure { padding: 10px 12px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); font-size: var(--fs); }
+.linked-overleaf-disclosure { padding: 10px 12px; border-radius: var(--r-control); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); font-size: var(--fs); }
 .linked-overleaf-list { display: grid; gap: 8px; margin-top: 12px; }
-.linked-overleaf-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; padding: 12px; text-align: left; color: var(--ink); background: var(--surface-alt); border: 1px solid var(--line); border-radius: 10px; flex-wrap: wrap; }
+.linked-overleaf-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; padding: 12px; text-align: left; color: var(--ink); background: var(--surface-alt); border: 1px solid var(--line); border-radius: var(--r-control); flex-wrap: wrap; }
 .linked-overleaf-row.selected { border-color: var(--accent); }
 /* Title block on the left; View / Edit / Unlink stay a tight group on the right. */
 .linked-overleaf-row__open {
@@ -78,16 +78,16 @@
 }
 .linked-overleaf-row__actions { display: flex; align-items: center; gap: 10px 12px; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; }
 .linked-overleaf-row__actions .muted { font-size: var(--fs-sm); flex: 1 1 100%; overflow-wrap: anywhere; }
-.linked-overleaf-form--edit { padding: 14px; border: 1px solid var(--accent); border-radius: 10px; background: var(--surface-alt); }
+.linked-overleaf-form--edit { padding: 14px; border: 1px solid var(--accent); border-radius: var(--r-control); background: var(--surface-alt); }
 .linked-overleaf-form__actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .linked-overleaf-row small, .linked-overleaf-tree small { display: block; color: var(--muted); font-size: var(--fs-sm); overflow-wrap: anywhere; }
 .linked-overleaf-form { display: grid; gap: 10px; padding: 14px 0; }
 .linked-overleaf-form label { display: grid; gap: 4px; font-weight: 600; }
-.linked-overleaf-form input { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; }
+.linked-overleaf-form input { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: var(--r-control); background: var(--surface); color: var(--ink); font: inherit; }
 .linked-overleaf-content { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
 .linked-overleaf-content h3 { margin: 16px 0 8px; }
 .linked-overleaf-tree { display: grid; gap: 8px; margin: 0; }
-.linked-overleaf-section { border: 1px solid var(--line); border-radius: 8px; background: var(--surface-alt); overflow: hidden; }
+.linked-overleaf-section { border: 1px solid var(--line); border-radius: var(--r-control); background: var(--surface-alt); overflow: hidden; }
 .linked-overleaf-section > summary {
   display: flex;
   flex-wrap: wrap;
@@ -107,20 +107,20 @@
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .linked-overleaf-section__progress {
-  height: 5px; border-radius: 999px; overflow: hidden; background: var(--surface2);
+  height: 5px; border-radius: var(--r-pill); overflow: hidden; background: var(--surface2);
 }
 .linked-overleaf-section__progress > span { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
 .linked-overleaf-section__target { display: flex; gap: 10px; align-items: center; }
 .linked-overleaf-target-input {
-  width: 8rem; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px;
+  width: 8rem; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--r-control);
   background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-sm);
 }
 .linked-overleaf-section__body { padding: 0 12px 12px; display: grid; gap: 8px; }
-.linked-overleaf-section__body > pre { margin: 0; max-height: 320px; overflow: auto; padding: 10px; border-radius: 6px; background: var(--surface); white-space: pre-wrap; overflow-wrap: anywhere; font: var(--fs-sm)/1.5 var(--font-mono); }
+.linked-overleaf-section__body > pre { margin: 0; max-height: 320px; overflow: auto; padding: 10px; border-radius: var(--r-sm); background: var(--surface); white-space: pre-wrap; overflow-wrap: anywhere; font: var(--fs-sm)/1.5 var(--font-mono); }
 /* Nested sections indent a touch so the hierarchy reads at a glance. */
 .linked-overleaf-section__body .linked-overleaf-tree { margin-left: 10px; }
 .linked-overleaf-source { margin-top: 16px; }
-.linked-overleaf-source pre { max-height: 360px; overflow: auto; padding: 12px; border-radius: 8px; background: var(--surface-alt); white-space: pre-wrap; overflow-wrap: anywhere; font: var(--fs-sm)/1.5 var(--font-mono); }
+.linked-overleaf-source pre { max-height: 360px; overflow: auto; padding: 12px; border-radius: var(--r-control); background: var(--surface-alt); white-space: pre-wrap; overflow-wrap: anywhere; font: var(--fs-sm)/1.5 var(--font-mono); }
 
 .project-checks { display: grid; gap: 10px; margin: 12px 0 4px; }
 .project-checks-bib summary { cursor: pointer; font-size: var(--fs-sm); color: var(--muted); }
@@ -130,12 +130,12 @@
 .project-checks-where { color: var(--muted); font: var(--fs-xs)/1.5 var(--font-mono); }
 .project-checks-compile { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .project-checks-engine { font-size: var(--fs-xs); color: var(--muted); }
-.project-checks-log pre { max-height: 300px; overflow: auto; padding: 12px; border-radius: 8px; background: var(--surface-alt); white-space: pre-wrap; overflow-wrap: anywhere; font: var(--fs-sm)/1.5 var(--font-mono); }
+.project-checks-log pre { max-height: 300px; overflow: auto; padding: 12px; border-radius: var(--r-control); background: var(--surface-alt); white-space: pre-wrap; overflow-wrap: anywhere; font: var(--fs-sm)/1.5 var(--font-mono); }
 
 .export-overleaf-form { display: grid; gap: 12px; margin-top: 4px; }
 .export-overleaf-field { display: grid; gap: 4px; font-weight: 600; color: var(--ink); }
 .export-overleaf-field input[type="text"] {
-  width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px;
+  width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: var(--r-control);
   background: var(--surface); color: var(--ink); font: inherit; font-weight: 400;
 }
 .export-overleaf-check {
@@ -182,7 +182,7 @@
 }
 .vault-body-input {
   width: 100%; min-height: 280px; resize: vertical; font: inherit; line-height: 1.5;
-  padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface);
+  padding: 10px; border-radius: var(--r-control); border: 1px solid var(--line); background: var(--surface);
 }
 
 /* CodeMirror 6 markdown editor — Lezer edit + @uiw/codemirror-themes synced to site theme. */
@@ -218,11 +218,11 @@
   background: var(--surface);
   color: var(--ink);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   box-shadow: var(--shadow);
 }
 .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul { font-family: var(--font-mono); font-size: var(--fs-sm); }
-.cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li { padding: 5px 8px; border-radius: 4px; }
+.cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li { padding: 5px 8px; border-radius: var(--r-sm); }
 .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--status-neutral); color: var(--ink); }
 .cm-editor .cm-tooltip.cm-tooltip-autocomplete .cm-completionDetail { color: var(--muted); }
 

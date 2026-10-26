@@ -15,7 +15,7 @@
   display: inline-grid; place-items: center; width: 22px; height: 22px; flex: none;
   border-radius: 50%; background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: 700;
 }
-.wiki-step-count { font-size: var(--fs-xs); padding: 1px 9px; border-radius: 999px; background: var(--surface2); }
+.wiki-step-count { font-size: var(--fs-xs); padding: 1px 9px; border-radius: var(--r-pill); background: var(--surface2); }
 .wiki-plan-list { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
 /* A workspace can hold hundreds of sources; the list scrolls rather than
    pushing the button that acts on it off the screen. */
@@ -95,7 +95,7 @@ a.related-paper-url:hover { text-decoration: underline; }
 .card-thumbs { display: flex; gap: 6px; margin-top: 8px; }
 .card-thumb {
   position: relative; flex: 0 0 auto;
-  width: 52px; height: 40px; border-radius: 6px; overflow: hidden;
+  width: 52px; height: 40px; border-radius: var(--r-sm); overflow: hidden;
   border: 1px solid var(--line); background: var(--neutral);
 }
 .card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -143,7 +143,7 @@ a.related-paper-url:hover { text-decoration: underline; }
 .cm-ySelectionCaret { position: relative; border-left: 1px solid; border-right: 1px solid; margin: 0 -1px; box-sizing: border-box; }
 .cm-ySelectionInfo {
   position: absolute; top: -1.05em; left: -1px; font-size: var(--fs-micro); line-height: 1.1;
-  padding: 1px 4px; border-radius: 3px 3px 3px 0; white-space: nowrap;
+  padding: 1px 4px; border-radius: var(--r-sm) var(--r-sm) var(--r-sm) 0; white-space: nowrap;
   color: #fff; opacity: 0.9; user-select: none; pointer-events: none;
 }
 
@@ -157,7 +157,7 @@ a.related-paper-url:hover { text-decoration: underline; }
 
 .brave-graph-warning {
   display: flex; align-items: flex-start; gap: 12px;
-  padding: 8px 12px; margin: 0 0 8px; border-radius: 10px;
+  padding: 8px 12px; margin: 0 0 8px; border-radius: var(--r-control);
   background: color-mix(in srgb, var(--danger) 12%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border));
   font-size: var(--fs-sm); line-height: 1.4;
@@ -190,7 +190,7 @@ a.related-paper-url:hover { text-decoration: underline; }
    Do not invent one-off status hex; map new statuses onto --st-*. */
 .status {
   flex: none; font-size: var(--fs-xs); text-transform: capitalize;
-  padding: 4px 10px; border-radius: 999px;
+  padding: 4px 10px; border-radius: var(--r-pill);
   background: var(--st-neutral-bg); color: var(--st-neutral-fg);
   white-space: nowrap;
 }
@@ -243,7 +243,7 @@ a.related-paper-url:hover { text-decoration: underline; }
 .log-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
 .log-calendar-head { color: var(--muted); font-size: var(--fs-xs); }
 .log-calendar-day {
-  display: grid; place-items: center; aspect-ratio: 1; font-size: var(--fs-sm); border-radius: 6px;
+  display: grid; place-items: center; aspect-ratio: 1; font-size: var(--fs-sm); border-radius: var(--r-sm);
   border: 1px solid transparent;
 }
 button.log-calendar-day { position: relative; padding: 0; font: inherit; font-size: var(--fs-sm); color: inherit; cursor: pointer; }
@@ -251,7 +251,7 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 .log-calendar-day.is-logged:hover { border-color: var(--text); }
 /* More than one entry that day: a count in the corner, headlines in the tooltip. */
 .log-calendar-count {
-  position: absolute; top: -6px; right: -6px; min-width: 15px; padding: 0 3px; border-radius: 8px;
+  position: absolute; top: -6px; right: -6px; min-width: 15px; padding: 0 3px; border-radius: var(--r-control);
   background: var(--text); color: var(--bg); font-size: var(--fs-micro); line-height: 15px;
 }
 .log-calendar-day.is-today { border-color: var(--accent); font-weight: 700; }
@@ -273,13 +273,13 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 /* Report outline */
 .progress-card { margin: 16px 0; display: grid; gap: 10px; }
 .progress-top { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs); }
-.progress-bar { height: 8px; background: var(--neutral); border-radius: 999px; overflow: hidden; }
+.progress-bar { height: 8px; background: var(--neutral); border-radius: var(--r-pill); overflow: hidden; }
 .progress-bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.3s ease; }
 /* Plan timeline: the track fills up to today, a mark per dated milestone sits
    on it, and month ticks run underneath. Positions come in as inline `left`. */
 .plan-pace { color: var(--muted); font-family: var(--font); font-size: var(--fs-xs); }
 .plan-timeline { position: relative; height: 58px; margin: 22px 11px 0; }
-.plan-track { position: absolute; left: -11px; right: -11px; top: 7px; height: 10px; background: var(--surface2); border-radius: 999px; overflow: hidden; }
+.plan-track { position: absolute; left: -11px; right: -11px; top: 7px; height: 10px; background: var(--surface2); border-radius: var(--r-pill); overflow: hidden; }
 .plan-track > span { display: block; height: 100%; background: var(--accent); }
 .plan-mark {
   position: absolute; top: 1px; width: 22px; height: 22px; min-height: 0; margin-left: -11px; padding: 0;
@@ -288,12 +288,12 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 }
 /* One stripe per milestone in the mark: a cluster shows every status it holds. */
 .plan-mark > span { flex: 1; min-width: 0; }
-.plan-mark > span:first-child { border-radius: 999px 0 0 999px; }
-.plan-mark > span:last-of-type { border-radius: 0 999px 999px 0; }
+.plan-mark > span:first-child { border-radius: var(--r-pill) 0 0 var(--r-pill); }
+.plan-mark > span:last-of-type { border-radius: 0 var(--r-pill) var(--r-pill) 0; }
 .plan-mark > span:only-of-type { border-radius: inherit; }
 .plan-mark-count {
   position: absolute; top: -9px; right: -10px; min-width: 16px; padding: 0 3px;
-  border-radius: 999px; background: var(--text); color: var(--surface);
+  border-radius: var(--r-pill); background: var(--text); color: var(--surface);
   font: 600 var(--fs-micro)/16px var(--font); text-align: center;
 }
 .plan-done-toggle { display: block; margin: 12px auto; }
@@ -305,7 +305,7 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 .plan-today > em {
   position: absolute; bottom: 100%; left: 0; transform: translateX(-50%);
   font-style: normal; font-size: var(--fs-xs); font-weight: 600; white-space: nowrap;
-  padding: 1px 6px; border-radius: 4px; background: var(--text); color: var(--surface);
+  padding: 1px 6px; border-radius: var(--r-sm); background: var(--text); color: var(--surface);
 }
 .plan-months { position: absolute; left: 0; right: 0; top: 38px; height: 1em; }
 .plan-months > span { position: absolute; transform: translateX(-50%); font-family: var(--font); font-size: var(--fs-xs); color: var(--muted); }

@@ -104,7 +104,7 @@ summary:not(:has(.chev, .list-toggle))::before {
   transition: transform var(--dur-base) ease;
 }
 details[open] > summary:not(:has(.chev, .list-toggle))::before { transform: rotate(0deg); }
-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-sm); }
 
 .custom-select-menu {
   position: absolute; top: calc(100% + 4px); left: 0; z-index: var(--z-popover);
@@ -113,7 +113,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; b
   /* 6px, not the 12px it was: a menu is a list of rows, and a radius near half
      the row height rounds the rows themselves into lozenges. The panel and its
      options now share one corner, so the list reads as a list. */
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   box-shadow: var(--shadow); padding: 4px; display: grid; gap: 2px;
   max-height: 250px; overflow-y: auto;
   transform-origin: top center;
@@ -147,7 +147,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; b
 .custom-select-item {
   display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; text-align: left;
   cursor: pointer; font: inherit; font-size: var(--fs); color: var(--ink);
-  background: none; border: none; padding: 8px 10px; border-radius: 4px;
+  background: none; border: none; padding: 8px 10px; border-radius: var(--r-sm);
   white-space: normal; overflow-wrap: anywhere;
 }
 .custom-select-item:hover,
@@ -171,13 +171,13 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; b
 .custom-select-search input {
   width: 100%; font: inherit; font-size: var(--fs);
   padding: 6px 10px; border: 1px solid var(--border);
-  border-radius: 8px; background: var(--surface);
+  border-radius: var(--r-control); background: var(--surface);
 }
 .custom-select-empty { padding: 10px 12px; font-size: var(--fs-sm); }
 /* Multi-select checkbox items. */
 .ms-item.sel { box-shadow: none; }
 .ms-check {
-  flex: none; width: 16px; height: 16px; border-radius: 5px;
+  flex: none; width: 16px; height: 16px; border-radius: var(--r-sm);
   border: 1.5px solid var(--line); position: relative; display: inline-block;
 }
 .ms-check.on { background: var(--accent); border-color: var(--accent); }
@@ -259,7 +259,7 @@ input[type="range"] {
 }
 input[type="range"]::-webkit-slider-runnable-track {
   height: 4px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: color-mix(in srgb, var(--line) 55%, transparent);
 }
 input[type="range"]::-webkit-slider-thumb {
@@ -274,7 +274,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 input[type="range"]::-moz-range-track {
   height: 4px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: color-mix(in srgb, var(--line) 55%, transparent);
 }
 input[type="range"]::-moz-range-thumb {
@@ -307,7 +307,7 @@ label.graph-check input[type="checkbox"] { margin: 2px 0 0; }
 .btn-primary {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   border: none; cursor: pointer;
-  padding: 9px 16px; border-radius: 9px; font: inherit; font-weight: 600;
+  padding: 9px 16px; border-radius: var(--r-control); font: inherit; font-weight: 600;
   text-decoration: none;
   color: var(--accent-fg); background: var(--accent);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2);
@@ -347,7 +347,7 @@ label.graph-check input[type="checkbox"] { margin: 2px 0 0; }
 .date-picker-title { font-weight: 600; font-size: var(--fs); color: var(--ink); }
 .date-picker-nav {
   width: 28px; height: 28px; font: inherit; font-size: var(--fs-lg); line-height: 1; color: var(--ink);
-  background: none; border: none; border-radius: 4px; cursor: pointer;
+  background: none; border: none; border-radius: var(--r-sm); cursor: pointer;
 }
 .date-picker-nav:hover { background: var(--status-neutral); }
 .date-picker-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }

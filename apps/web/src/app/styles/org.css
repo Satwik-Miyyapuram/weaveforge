@@ -9,7 +9,7 @@
   text-align: left;
   padding: 14px 16px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-control);
   background: var(--neutral);
   cursor: pointer;
   transition: border-color var(--dur-base), background var(--dur-base);
@@ -39,7 +39,7 @@
   grid-template-columns: 5.75rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px 12px;
-  padding: 10px 12px; border-radius: 8px; background: var(--neutral);
+  padding: 10px 12px; border-radius: var(--r-control); background: var(--neutral);
 }
 .org-code-role { font-size: var(--fs-sm); font-weight: 500; color: var(--ink); }
 .org-code-value {

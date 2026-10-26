@@ -234,7 +234,7 @@
   width: 100%;
   padding: 6px 24px 6px 8px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--r-control);
   background: var(--bg);
   color: var(--text);
   font: inherit;
@@ -258,7 +258,7 @@
   height: 17px;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--faint);
   cursor: pointer;
@@ -281,7 +281,7 @@
   height: 24px;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--faint);
   cursor: pointer;
@@ -397,7 +397,7 @@
   margin-inline-start: auto;
   padding: 0 0.35rem;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--muted);
   font-size: var(--fs-xs);
@@ -586,7 +586,7 @@
   width: 28px;
   height: 28px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: var(--surface);
   color: var(--muted);
   opacity: 0.55;
@@ -631,7 +631,7 @@
   margin: 0;
   padding: 6px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--r-card);
   /* No backdrop-filter and no transform here: either would make the palette
      the containing block of the colour menu's `position: fixed` panel. */
   background: color-mix(in srgb, var(--surface) 94%, transparent);
@@ -770,7 +770,7 @@
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-zoom-pct { height: 36px; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool svg { width: 18px; height: 18px; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-bar-group,
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill { gap: 4px; padding: 3px; border-radius: 10px; }
+:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill { gap: 4px; padding: 3px; border-radius: var(--r-control); }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill {
   width: 100%;
   max-width: 36px;
@@ -842,7 +842,7 @@
   height: 20px;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -861,7 +861,7 @@
   height: 21px;
   padding: 0 4px;
   border: 1px solid var(--accent);
-  border-radius: 3px;
+  border-radius: var(--r-sm);
   background: var(--bg);
   color: var(--text);
   font: inherit;
@@ -1084,7 +1084,7 @@
   height: 16px;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: inherit;
   line-height: 1;
@@ -1112,7 +1112,7 @@
   height: 24px;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--faint);
   line-height: 1;
@@ -1175,7 +1175,7 @@
   padding: 12px 14px;
   background: var(--elev);
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--r-control);
   box-shadow: var(--shadow);
   font-size: var(--fs);
 }
@@ -1242,7 +1242,7 @@
   min-width: 0;
   padding: 4px 5px;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   background: var(--surface);
   color: var(--text);
   font-family: var(--font-mono);
@@ -1295,7 +1295,7 @@
   width: 100%;
   padding: 0.35rem 0.5rem;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text);
   text-align: start;
@@ -1416,7 +1416,7 @@
 .breadcrumb-current {
   padding: 2px 6px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -1505,7 +1505,7 @@
   height: 52px;
   margin-block-end: 8px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--r-card);
   background: var(--surface);
   color: var(--faint);
 }
@@ -1557,7 +1557,7 @@
   height: 17px;
   padding: 0 4px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: var(--surface);
   color: var(--muted);
   font-family: var(--font-mono);
@@ -1692,7 +1692,7 @@
   min-width: 0;
   padding: 6px 10px;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--r-control);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -1711,7 +1711,7 @@
   flex: 1;
   min-height: 0;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-control);
   overflow: hidden;
   background: var(--surface);
 }
@@ -1758,7 +1758,7 @@
   align-items: center;
   gap: 5px;
   padding: 3px 8px;
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   white-space: nowrap;
 }
 
@@ -1854,7 +1854,7 @@
   gap: 2px;
   background: var(--chip);
   padding: 2px;
-  border-radius: 8px;
+  border-radius: var(--r-control);
   border: 1px solid var(--border);
 }
 
@@ -1866,7 +1866,7 @@
   height: 28px;
   padding: 0 8px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: none;
   color: var(--muted);
   font: inherit;
@@ -1933,7 +1933,7 @@
   font-size: var(--fs-xs);
   color: var(--muted);
   background: var(--chip);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   border: 1px solid var(--border);
   padding: 0 4px;
 }
@@ -1980,7 +1980,7 @@
   gap: 1px;
   background: var(--panel, var(--surface));
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-control);
   box-shadow: 0 12px 28px rgb(0 0 0 / 22%);
   /* The bar wraps, so the button can be at either end of a row; the shift is
      measured on open and keeps the list inside the bar's own box, which is the
@@ -1996,7 +1996,7 @@
   width: 100%;
   padding: 6px 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: none;
   color: var(--text);
   font: inherit;
@@ -2127,7 +2127,7 @@
   top: 0;
   right: 3px;
   width: 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--scrollbar-thumb);
   opacity: 0;
   pointer-events: auto;
@@ -2306,7 +2306,7 @@
   width: 16px;
   height: 16px;
   border: 1px solid var(--border-strong);
-  border-radius: 3px;
+  border-radius: var(--r-sm);
   background-color: var(--surface);
   flex-shrink: 0;
 }
@@ -2361,7 +2361,7 @@
   font-family: var(--font);
   font-size: var(--fs-micro);
   background: color-mix(in srgb, var(--bg) 65%, transparent);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 1px 8px;
 }
 
@@ -2559,7 +2559,7 @@
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: var(--surface);
   box-shadow: 0 3px 12px rgb(0 0 0 / 22%);
 }
@@ -2569,7 +2569,7 @@
   color: var(--faint);
   padding: 1px 8px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: transparent;
   cursor: pointer;
 }
@@ -2625,7 +2625,7 @@
 .ink-text p { margin: 0 0 10px; }
 .ink-text .ink-empty { color: var(--faint); }
 /* A line is a paragraph; unsure ones are dotted (§5.4), accepted ones plain. */
-.ink-text .ink-line { cursor: text; border-radius: 4px; padding: 2px 4px; margin: 0 -4px 8px; }
+.ink-text .ink-line { cursor: text; border-radius: var(--r-sm); padding: 2px 4px; margin: 0 -4px 8px; }
 .ink-text .ink-line:hover { background: var(--chip); }
 .ink-text .ink-line-unsure { border-bottom: 1px dotted var(--s-warn); }
 .ink-text .ink-line-sure { color: var(--text); }
@@ -2662,7 +2662,7 @@
   padding: 0 0.6em;
   font-size: 0.9em;
   line-height: 1.6;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--text) 6%, transparent);
   white-space: pre-wrap;
   word-break: break-word;
@@ -2702,7 +2702,7 @@
   width: 100%;
   height: min(72vh, 1000px);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-control);
   background: #e9e9e9;
 }
 
@@ -2744,7 +2744,7 @@
     flex: none;
     min-width: 18px;
     padding: 0 5px;
-    border-radius: 999px;
+    border-radius: var(--r-pill);
     background: var(--surface2);
     color: var(--muted);
     font-size: var(--fs-micro);
@@ -2796,7 +2796,7 @@
 .ink-menu-chip {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 4px 8px;
-  border: 1px solid var(--border); border-radius: 6px;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
   background: none; color: var(--text);
   font: inherit; font-size: var(--fs-xs); cursor: pointer;
 }
@@ -2825,7 +2825,7 @@
 .ink-zoom-pct {
   display: inline-flex; align-items: center; justify-content: center; gap: 3px;
   min-width: 3.7rem; height: 32px; padding: 0 4px 0 8px;
-  border: 1px solid transparent; border-radius: 6px;
+  border: 1px solid transparent; border-radius: var(--r-sm);
   background: transparent; color: var(--text);
   font: inherit; font-size: var(--fs); font-variant-numeric: tabular-nums;
   white-space: nowrap; cursor: pointer;
@@ -2842,7 +2842,7 @@
 /* The typed page number: as wide as three digits, no spinner. */
 .ink-page-input {
   width: 3ch; min-width: 2.4rem; padding: 0 2px;
-  border: 0; border-radius: 4px; background: color-mix(in srgb, var(--text) 8%, transparent);
+  border: 0; border-radius: var(--r-sm); background: color-mix(in srgb, var(--text) 8%, transparent);
   color: var(--text); font: inherit; text-align: center; font-variant-numeric: tabular-nums;
   appearance: textfield; -moz-appearance: textfield;
 }

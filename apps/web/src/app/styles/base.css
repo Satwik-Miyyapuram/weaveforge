@@ -7,6 +7,24 @@
   --radius: var(--radius-card, 14px);
   --radius-sm: var(--radius-control, 10px);
   --radius-pill: var(--radius-chip, 999px);
+  /* Geometry roles (design R1.1). Feature CSS reads only these; the old names
+     above stay as the theme-facing slots until every call site has moved. A
+     theme has four corners: a tag, a control, a card and a pill. */
+  --r-sm: calc(var(--radius-sm) / 2);
+  --r-control: var(--radius-sm);
+  --r-card: var(--radius);
+  --r-pill: var(--radius-pill);
+  --sh-rest: var(--wf-sh-rest);
+  --sh-raised: var(--wf-sh-up);
+  --sh-overlay: var(--shadow);
+  /* Spacing scale (R4.1): padding, margin and gap use these steps only. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
   /* Duration multiplier for the reactive layer; config.json may scale it. */
   --motion-scale: 1;
   /* Icon / toggle control scale — overridden by data-control-size + viewport. */
@@ -253,7 +271,7 @@ body {
 *::-webkit-scrollbar-thumb {
   background: transparent;
   border: 3px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background-clip: padding-box;
 }
 
@@ -264,7 +282,7 @@ body {
 /* Visible keyboard focus for all interactive controls (mouse clicks unaffected).
    The one ring: the same token, width and offset as the states catalogue, and
    no transition, so it is there the moment focus lands. */
-:focus-visible { outline: 3px solid var(--wf-focus, var(--accent)); outline-offset: 2px; border-radius: 4px; }
+:focus-visible { outline: 3px solid var(--wf-focus, var(--accent)); outline-offset: 2px; border-radius: var(--r-sm); }
 
 /* Page fade-in, replayed on every route change (keyed by pathname). */
 @keyframes page-in { from { opacity: 0; } }
@@ -343,7 +361,7 @@ body {
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   border: 1px solid var(--glass-border);
-  border-radius: 10px;
+  border-radius: var(--r-control);
   box-shadow: var(--glass-shadow);
   width: 100%; overflow-x: auto; scrollbar-width: none;
 }
@@ -352,7 +370,7 @@ body {
    its own label, and the 0/1 pair is scoped to `.sub-nav`. */
 .sub-tab-indicator {
   position: absolute; top: 3px; bottom: 3px; left: 0; z-index: 0;
-  border-radius: 7px;
+  border-radius: var(--r-control);
   background: color-mix(in srgb, var(--surface) 82%, transparent);
   backdrop-filter: blur(10px) saturate(1.1);
   -webkit-backdrop-filter: blur(10px) saturate(1.1);
@@ -363,7 +381,7 @@ body {
   position: relative; z-index: 1; flex: 1; text-align: center;
   text-decoration: none; color: var(--muted);
   font-size: var(--fs-sm); font-weight: 500; white-space: nowrap;
-  padding: 6px 15px; border-radius: 7px; transition: color 0.2s ease;
+  padding: 6px 15px; border-radius: var(--r-control); transition: color 0.2s ease;
   display: inline-flex; align-items: center; justify-content: center;
 }
 .sub-tab.active { color: var(--ink); }

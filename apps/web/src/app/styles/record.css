@@ -55,9 +55,9 @@
   color: var(--text);
   background: var(--surface);
   border: var(--bw, 1px) solid var(--bw-line, var(--border-strong));
-  border-radius: 8px;
+  border-radius: var(--r-control);
 }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .back-btn-box { border-radius: 6px; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .back-btn-box { border-radius: var(--r-sm); }
 .back-btn-box svg { width: 18px; height: 18px; }
 @media (hover: hover) {
   .back-btn:hover .back-btn-box { background: var(--accent-soft); }
@@ -224,7 +224,7 @@
   color: var(--muted);
   background: none;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   cursor: pointer;
 }
 @media (hover: hover) { .record-focus-btn:hover { color: var(--text); } }

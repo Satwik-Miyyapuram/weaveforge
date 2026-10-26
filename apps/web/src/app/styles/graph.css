@@ -22,7 +22,7 @@
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--accent);
   color: var(--accent-fg);
   font-size: var(--fs-micro);
@@ -41,7 +41,7 @@
   flex: 0 1 auto; min-width: 0;
   display: flex; align-items: center; gap: 10px;
   padding: 6px 12px; font-size: var(--fs-xs);
-  background: var(--elev); border: 1px solid var(--border); border-radius: 9px;
+  background: var(--elev); border: 1px solid var(--border); border-radius: var(--r-control);
 }
 /* Anchored bottom-right of the canvas (both normal and focus modes). */
 .graph-stage > .graph-local-banner {
@@ -83,7 +83,7 @@
   gap: 3px;
   padding: 3px;
   background: var(--surface2);
-  border-radius: 8px;
+  border-radius: var(--r-control);
   margin-bottom: 6px;
 }
 .graph-drawer-tab {
@@ -97,7 +97,7 @@
   font-weight: 600;
   color: var(--muted);
   padding: 6px 2px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   text-align: center;
   transition: background var(--dur-base), color var(--dur-base);
 }
@@ -132,7 +132,7 @@
   font: inherit;
   font-size: var(--fs-xs);
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   cursor: pointer;
   transition: all var(--dur-base);
 }
@@ -151,7 +151,7 @@
 }
 .graph-card-sub {
   padding: 10px;
-  border-radius: 8px;
+  border-radius: var(--r-control);
   background: var(--surface2);
   display: grid;
   gap: 8px;
@@ -173,7 +173,7 @@
 :root:root .graph-settings-drawer .seg > button { flex: 1; }
 .graph-search-input {
   width: 100%; font: inherit; font-size: var(--fs); padding: 7px 10px;
-  border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface);
 }
 .graph-side-panel {
   position: absolute; top: 48px; left: 10px; bottom: 10px; width: min(300px, 88vw);
@@ -192,7 +192,7 @@
 .graph-side-section .link-btn { text-align: left; }
 .graph-side-list li { margin: 4px 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .tag-chip-btn { cursor: pointer; border: none; font: inherit; }
-.graph-merge-box { display: grid; gap: 6px; margin: 8px 0; padding: 8px; background: var(--surface2); border-radius: 8px; }
+.graph-merge-box { display: grid; gap: 6px; margin: 8px 0; padding: 8px; background: var(--surface2); border-radius: var(--r-control); }
 .graph-edge-popover {
   position: fixed; z-index: var(--z-overlay); width: min(280px, 90vw); padding: 10px 12px;
   transform: translate(-50%, -100%); margin-top: -8px;
@@ -201,7 +201,7 @@
 .graph-edge-popover-path { font-size: var(--fs-xs); margin: 0 0 8px; }
 .graph-link-tooltip {
   position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
-  z-index: 7; font-size: var(--fs-xs); padding: 4px 10px; border-radius: 6px;
+  z-index: 7; font-size: var(--fs-xs); padding: 4px 10px; border-radius: var(--r-sm);
   background: var(--elev); border: 1px solid var(--border); pointer-events: none;
 }
 .graph-legend-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
@@ -229,7 +229,7 @@
 .graph-wrap {
   margin: 12px 0; width: 100%; overflow: hidden;
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; box-shadow: none;
+  border-radius: var(--r-card); box-shadow: none;
   touch-action: none;
 }
 .graph-wrap canvas { display: block; }
@@ -248,7 +248,7 @@
 .graph-focus-legend .graph-legend-wrap { margin: 0; }
 .graph-focus-legend .graph-legend.card {
   background: var(--elev); border: 1px solid var(--border);
-  border-radius: 11px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  border-radius: var(--r-control); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
 }
 .graph-focus .gf-empty { position: absolute; inset: 0; display: grid; place-items: center; }
 
@@ -310,7 +310,7 @@
     max-height: none;
     overflow: visible;
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: var(--r-card);
   }
   /* The backdrop is a sibling of the shell, so it needs its own rule: there is
      nothing to dismiss when the panel is part of the page. */
@@ -357,7 +357,7 @@
 .legend-node--circle, .legend-node--ring { border-radius: 50%; }
 .legend-node--ring { outline: 1px solid currentColor; outline-offset: 1.5px; }
 .legend-node--square { border-radius: 1px; background: hsl(210, 55%, 62%); }
-.legend-node--round { border-radius: 3px; }
+.legend-node--round { border-radius: var(--r-sm); }
 .legend-node--diamond { width: 8px; height: 8px; margin: 1px; transform: rotate(45deg); }
 .legend-swatch.legend-dot { width: 9px; height: 9px; border-radius: 50%; }
 .legend-ramp { width: 64px; height: 8px; border-radius: 2px; display: inline-block; }
@@ -365,13 +365,13 @@
 /* Side panel per the Graph mock: kind + status chips, labelled relations. */
 .graph-side-chips { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .graph-side-kind {
-  font-size: var(--fs-xs); font-weight: 700; padding: 3px 10px; border-radius: 999px;
+  font-size: var(--fs-xs); font-weight: 700; padding: 3px 10px; border-radius: var(--r-pill);
   background: var(--active-bg); color: var(--active-fg);
 }
 .graph-side-close { min-height: 34px; padding: 0 6px; }
 .graph-side-label { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); }
 .graph-side-list li.graph-side-rel {
-  padding: 6px 8px; border-radius: 8px; background: var(--surface2); flex-wrap: nowrap;
+  padding: 6px 8px; border-radius: var(--r-control); background: var(--surface2); flex-wrap: nowrap;
 }
 .graph-side-rel .link-btn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 /* The row's own delete: pushed to the end, quiet until it is wanted. */
@@ -381,7 +381,7 @@
 .graph-side-rel .graph-side-rel-remove:hover { color: var(--danger); text-decoration: none; }
 .graph-side-rel-kind {
   flex: none; font-size: var(--fs-xs); font-weight: 700; padding: 1px 8px;
-  border: 2px solid; border-radius: 999px;
+  border: 2px solid; border-radius: var(--r-pill);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .graph-side-kind {
   box-shadow: inset 0 0 0 var(--bw, 2px) var(--bw-line, currentColor);

@@ -19,7 +19,7 @@
   width: 56px;
   height: 56px;
   border: var(--bw, 0) solid var(--bw-line, transparent);
-  border-radius: 22%;
+  border-radius: var(--r-card);
   box-shadow: var(--sh-btn, none);
 }
 .weaveforge-loader-brand strong {

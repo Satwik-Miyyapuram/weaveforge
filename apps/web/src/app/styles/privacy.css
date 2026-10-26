@@ -65,14 +65,14 @@
 }
 .settings-rail-head {
   display: flex; align-items: center; gap: 12px; width: 100%;
-  padding: 10px 12px; border: 0; border-radius: 10px; background: none;
+  padding: 10px 12px; border: 0; border-radius: var(--r-control); background: none;
   color: var(--text); font: inherit; text-align: left; cursor: pointer;
 }
 .settings-rail-head:hover { filter: brightness(0.96); }
 .settings-rail-group.is-open .settings-rail-head { background: var(--active-bg); color: var(--active-fg); }
 .settings-rail-icon {
   display: grid; place-items: center; flex: none; width: 34px; height: 34px;
-  border-radius: 8px; border: 1px solid var(--line);
+  border-radius: var(--r-control); border: 1px solid var(--line);
 }
 .settings-rail-text { display: grid; min-width: 0; }
 .settings-rail-label { font-weight: 700; }
@@ -84,6 +84,8 @@
 }
 .settings-rail-tabs button.is-active { color: var(--text); font-weight: 700; }
 .settings-body { min-width: 0; display: grid; gap: 16px; align-content: start; }
+/* The gap spaces the cards; a card's own margin would drop the first one below the rail. */
+.settings-body > * { margin: 0; }
 @media (max-width: 900px) {
   .settings-layout { grid-template-columns: minmax(0, 1fr); }
   .settings-rail { position: static; display: flex; overflow-x: auto; scrollbar-width: none; }
@@ -98,7 +100,7 @@
 .settings-find-hits { display: grid; gap: 2px; }
 .settings-find-hit {
   display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
-  width: 100%; padding: 8px 12px; border: 0; border-radius: 10px;
+  width: 100%; padding: 8px 12px; border: 0; border-radius: var(--r-control);
   background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
 }
 .settings-find-hit:hover { filter: brightness(0.96); background: var(--surface-alt); }
