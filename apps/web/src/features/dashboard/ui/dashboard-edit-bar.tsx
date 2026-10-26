@@ -1,5 +1,6 @@
-import { Button } from "@/components/button";
 "use client";
+
+import { Button } from "@/components/button";
 
 function CustomizeIcon() {
   return (

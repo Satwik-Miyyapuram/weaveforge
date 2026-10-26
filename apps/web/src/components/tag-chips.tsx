@@ -1,5 +1,6 @@
-import { CloseIcon } from "@/components/view-icons";
 "use client";
+
+import { CloseIcon } from "@/components/view-icons";
 
 /**
  * The chips a note's #hashtags render as, with a delete on each.
