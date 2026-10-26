@@ -169,8 +169,8 @@
   transition: background-color var(--wf-t) var(--wf-ease), border-color var(--wf-t) var(--wf-ease), color var(--wf-t) var(--wf-ease), filter var(--wf-t-press) linear;
 }
 :root:root :is(.wf-tool, .ink-tool, .pdf-reader-create-icon, .pdf-reader-pop-btn) svg { width: 18px; height: 18px; }
-:root:root :is(.wf-tool, .ink-tool, .pdf-reader-create-icon, .pdf-reader-pop-btn):is(:hover, [data-force~="hover"]):not(:disabled, [aria-disabled="true"]) { border-color: var(--wf-line); background-color: var(--wf-hover); }
-:root:root :is(.wf-tool, .ink-tool, .pdf-reader-create-icon, .pdf-reader-pop-btn):is(:active, [data-force~="press"]):not(:disabled, [aria-disabled="true"]) { background-color: var(--wf-press-bg); transition-duration: var(--wf-t-press); }
+:root:root :is(.wf-tool, .ink-tool, .pdf-reader-create-icon, .pdf-reader-pop-btn):is(:hover, [data-force~="hover"]):not(:disabled, [aria-disabled="true"], [aria-pressed="true"], .seg-on, .is-active, .is-selected, .sel, .on, .active, [aria-checked="true"], [aria-selected="true"]) { border-color: var(--wf-line); background-color: var(--wf-hover); }
+:root:root :is(.wf-tool, .ink-tool, .pdf-reader-create-icon, .pdf-reader-pop-btn):is(:active, [data-force~="press"]):not(:disabled, [aria-disabled="true"], [aria-pressed="true"], .seg-on, .is-active, .is-selected, .sel, .on, .active, [aria-checked="true"], [aria-selected="true"]) { background-color: var(--wf-press-bg); transition-duration: var(--wf-t-press); }
 :root:root :is(.wf-tool, .ink-tool, .pdf-reader-create-icon, .pdf-reader-pop-btn):is([aria-pressed="true"], .seg-on, .is-active, .is-selected, .sel, .on, .active, [aria-checked="true"]) { background-color: var(--accent); color: var(--accent-fg); border-color: var(--wf-line); }
 :root:root :is(.wf-tool, .ink-tool, .pdf-reader-create-icon, .pdf-reader-pop-btn):is([aria-pressed="true"], .seg-on, .is-active, .is-selected, .sel, .on, .active, [aria-checked="true"]):is(:active, [data-force~="press"]) { filter: brightness(.94); }
 
@@ -182,8 +182,8 @@
   background: var(--surface); color: var(--text); cursor: pointer;
   transition: background-color var(--wf-t) var(--wf-ease), color var(--wf-t) var(--wf-ease), filter var(--wf-t-press) linear;
 }
-:root:root :is(.wf-seg, .seg) > button:is(:hover, [data-force~="hover"]):not(:disabled) { background-color: color-mix(in srgb, var(--text) var(--wf-hover-pct), var(--surface)); }
-:root:root :is(.wf-seg, .seg) > button:is(:active, [data-force~="press"]):not(:disabled) { background-color: color-mix(in srgb, var(--text) calc(var(--wf-hover-pct) + 8%), var(--surface)); transition-duration: var(--wf-t-press); }
+:root:root :is(.wf-seg, .seg) > button:is(:hover, [data-force~="hover"]):not(:disabled, [aria-pressed="true"], .seg-on, .is-active, .is-selected, .sel, .on, .active, [aria-checked="true"], [aria-selected="true"]) { background-color: color-mix(in srgb, var(--text) var(--wf-hover-pct), var(--surface)); }
+:root:root :is(.wf-seg, .seg) > button:is(:active, [data-force~="press"]):not(:disabled, [aria-pressed="true"], .seg-on, .is-active, .is-selected, .sel, .on, .active, [aria-checked="true"], [aria-selected="true"]) { background-color: color-mix(in srgb, var(--text) calc(var(--wf-hover-pct) + 8%), var(--surface)); transition-duration: var(--wf-t-press); }
 :root:root :is(.wf-seg, .seg) > button:is([aria-pressed="true"], .seg-on, .is-active, .is-selected, .sel, .on, .active, [aria-checked="true"], [aria-selected="true"]) { background-color: var(--accent); color: var(--accent-fg); }
 :root:root :is(.wf-seg, .seg) > button:is([aria-pressed="true"], .seg-on, .is-active, .is-selected, .sel, .on, .active, [aria-checked="true"], [aria-selected="true"]):is(:active, [data-force~="press"]) { filter: brightness(.94); }
 

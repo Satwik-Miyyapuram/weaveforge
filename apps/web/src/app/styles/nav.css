@@ -627,8 +627,9 @@ button.nav-group-label:focus-visible {
    :focus-visible` and outranked the bare selector, drawing a dashed box round
    the logo whenever focus came back to it. */
 :root button.nav-brand-toggle:not(:disabled):active,
-:root button.nav-brand-toggle:focus,
-:root button.nav-brand-toggle:focus-visible {
+:root button.nav-brand-toggle:focus:not(:focus-visible) {
   background-color: transparent;
   outline: none;
 }
+/* Keyboard focus still rings (E18): the bar is the only way to fold the rail. */
+:root button.nav-brand-toggle:focus-visible { background-color: transparent; outline-offset: -3px; }

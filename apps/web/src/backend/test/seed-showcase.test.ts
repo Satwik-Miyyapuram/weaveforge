@@ -86,11 +86,35 @@ test("the seed reports what it wrote, and every list item and screening answer i
   assert.equal(pins[0]!.n, result.counts.libraryPins);
 });
 
+test("the seed builds a wiki: a Wiki root with pages, one with a figure and a link (D00)", async () => {
+  const { db, result, uploads } = await seeded(async () => PNG);
+  const pages = await db.sql<{ title: string; body: string; root: string | null }>(
+    `select c.title, c.body, r.title as root
+       from vault_pages c left join vault_pages r on r.id = c.parent_id
+      where c.project_id = $1`,
+    [result.projectId],
+  );
+  const wiki = pages.filter((p) => p.root === "Wiki");
+  assert.ok(wiki.length >= 3, `wiki pages: ${wiki.length}`);
+  assert.equal(result.counts.wikiPages, wiki.length);
+  const withFigure = wiki.find((p) => /!\[[^\]]*\]\(vault:[^)]+\.png\)/.test(p.body));
+  assert.ok(withFigure, "a wiki page embeds an uploaded figure");
+  assert.match(withFigure.body, /\[\[[^\]]+\]\]/, "and links another page");
+  const path = /\(vault:([^)]+)\)/.exec(withFigure.body)![1];
+  assert.ok(uploads.includes(`vault-assets/${path}`), "the embedded figure was uploaded");
+  assert.ok(uploads.some((u) => u.startsWith("experiment-artifacts/")), "an experiment has a figure");
+});
+
 test("with no charts the seed still completes, without figures or uploads", async () => {
-  const { result, uploads } = await seeded(async () => null);
+  const { db, result, uploads } = await seeded(async () => null);
   assert.equal(result.counts.figures, 0);
   assert.equal(result.counts.artifacts, 0);
   assert.deepEqual(uploads, []);
+  const embeds = await db.sql<{ n: number }>(
+    "select count(*)::int as n from vault_pages where project_id = $1 and body like '%](vault:%'",
+    [result.projectId],
+  );
+  assert.equal(embeds[0]!.n, 0, "no wiki page points at a figure that was never uploaded");
   assert.ok((result.counts.papers ?? 0) > 0);
 });
 

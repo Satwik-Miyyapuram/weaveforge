@@ -32,14 +32,14 @@ export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number })
     exp.commitSha ? (
       commitUrl(exp.repoUrl, exp.commitSha) ? (
         <a key="commit" className="git-chip link" href={commitUrl(exp.repoUrl, exp.commitSha)} target="_blank" rel="noreferrer">
-          <em>commit</em> {shortSha(exp.commitSha)} ↗
+          <em>commit</em> {shortSha(exp.commitSha)}
         </a>
       ) : (
         <span key="commit" className="git-chip"><em>commit</em> {shortSha(exp.commitSha)}</span>
       )
     ) : null,
     exp.repoUrl ? (
-      <a key="repo" className="git-chip link" href={exp.repoUrl} target="_blank" rel="noreferrer">repo ↗</a>
+      <a key="repo" className="git-chip link" href={exp.repoUrl} target="_blank" rel="noreferrer">repo</a>
     ) : null,
     exp.relatedPaper ? <RelatedPaper key="paper" paperId={exp.relatedPaper} /> : null,
   ].filter(Boolean);
@@ -191,7 +191,7 @@ export function Artifacts({ urls: entries, detail = false }: { urls: string[]; d
         <div className="git-chips">
           {links.map((url) => (
             <a key={url} className="git-chip link" href={url} target="_blank" rel="noreferrer">
-              artifact ↗
+              artifact
             </a>
           ))}
         </div>

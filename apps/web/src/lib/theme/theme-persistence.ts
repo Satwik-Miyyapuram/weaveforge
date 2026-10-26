@@ -175,7 +175,7 @@ export function persistThemeChange(
     applyControlSize(next.controlSize ?? "default");
     applySurfaceStyle(next.surfaces ?? "borderless");
     applyReactiveMotion(next.reactiveMotion ?? false);
-    applyCardTint(next.cardTint ?? "full");
+    applyCardTint(next.cardTint ?? "bar");
     applyCardTilt(next.cardTilt ?? true);
     applyScanlines(next.scanlines ?? true);
     if (patch.customTheme !== undefined) applyCustomTheme(next.customTheme ?? null);

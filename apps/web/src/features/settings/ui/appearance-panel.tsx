@@ -19,7 +19,7 @@ export function AppearancePanel() {
   const [controlSize, setControlSize] = useState<ControlSizeId>("default");
   const [surfaces, setSurfaces] = useState<SurfaceStyle>("borderless");
   const [reactiveMotion, setReactiveMotion] = useState(false);
-  const [cardTint, setCardTint] = useState<CardTint>("full");
+  const [cardTint, setCardTint] = useState<CardTint>("bar");
   const [cardTilt, setCardTilt] = useState(true);
   const [scanlines, setScanlines] = useState(true);
   const [customTheme, setCustomTheme] = useState<ThemeConfig | null>(null);
