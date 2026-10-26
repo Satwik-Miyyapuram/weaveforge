@@ -192,17 +192,21 @@
      the same title wrapped raggedly on /papers and evenly on the pitch. */
   text-wrap: balance;
 }
-/* The head is [lead] title … badge · status · ⋯ on one line. The title keeps
-   a 14ch floor; below that the controls wrap under it as one unit, so a pill
-   never squeezes the title into a mid-word break (D09, E42). */
-.entity-card-head { flex-wrap: wrap; row-gap: 6px; }
-.entity-card-head > .entity-card-title { flex: 1 1 14ch; text-wrap: pretty; }
+/* The head is [lead] title with badge · status · ⋯ floated top-right: the
+   title's text wraps around the controls instead of giving them a column or
+   a row of their own (D09, E42). */
+.entity-card-head { display: flow-root; }
+.entity-card-head > .entity-card-title { display: block; text-wrap: pretty; }
+.entity-card-head > :first-child:not(.entity-card-controls):not(.entity-card-title) {
+  float: left;
+  margin-right: 8px;
+}
 .entity-card-controls {
-  flex: none;
+  float: right;
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
+  margin-left: 8px;
   margin-right: -6px;
 }
 .entity-card-status {

@@ -10,8 +10,8 @@ import { tagTone } from "@/lib/tag-tone";
  * Layout: [leading?] title ……… badge · status · actions · menu
  *         meta
  *         tags / body
- * The title keeps a floor width; when the card is too narrow for both, the
- * controls wrap under it as one unit instead of squeezing it (D09, E42).
+ * The controls float top-right and the title's text wraps around them, so a
+ * long title uses the full width below the controls (D09, E42).
  */
 const MAX_CARD_TAGS = 3;
 
@@ -94,7 +94,7 @@ export function EntityCard({
     >
       <div className="entity-card-head">
         {leading}
-        <h3 className="entity-card-title">{title}</h3>
+        {/* Before the title: a float only wraps text that comes after it. */}
         {hasControls && (
           <div className="entity-card-controls" onClick={stop} onKeyDown={stop}>
             {badge}
@@ -103,6 +103,7 @@ export function EntityCard({
             {menu}
           </div>
         )}
+        <h3 className="entity-card-title">{title}</h3>
       </div>
 
       {hasMeta && <p className="entity-card-meta">{meta}</p>}

@@ -1,4 +1,4 @@
-/** Status sits in line with the title; the title keeps a floor width and the controls wrap under as one unit (D09, E42). */
+/** Status and ⋯ float top-right in the head; the title text wraps around them (D09, E42). */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -15,7 +15,7 @@ const rule = (sel: string) => {
   return s.slice(i, s.indexOf("}", i));
 };
 
-test("badge, status, actions and ⋯ sit in the head, after the title (E42)", () => {
+test("badge, status, actions and ⋯ sit in the head, before the title so it flows around them (E42)", () => {
   const html = renderToStaticMarkup(
     <EntityCard
       title="A very long paper title"
@@ -29,21 +29,24 @@ test("badge, status, actions and ⋯ sit in the head, after the title (E42)", ()
   const headStart = html.indexOf('class="entity-card-head"');
   const metaOrEnd = html.indexOf("</article>") > 0 ? html.indexOf("</article>") : html.length;
   const head = html.slice(headStart, metaOrEnd);
-  const order = ["lead-x", "entity-card-title", "badge-x", "status-x", "actions-x", "menu-x"].map((c) => head.indexOf(c));
+  const order = ["lead-x", "badge-x", "status-x", "actions-x", "menu-x", "entity-card-title"].map((c) => head.indexOf(c));
   for (const i of order) assert.ok(i > 0, html);
-  assert.deepEqual([...order].sort((a, b) => a - b), order, "order lead, title, badge, status, actions, ⋯");
+  assert.deepEqual([...order].sort((a, b) => a - b), order, "order lead, badge, status, actions, ⋯, title");
   // One cluster inside the head, no separate row below it.
   assert.equal(html.match(/class="entity-card-controls"/g)?.length, 1);
   assert.ok(html.indexOf('class="entity-card-controls"') > headStart);
 });
 
-test("the title keeps a floor width; the controls wrap under it as one unit", () => {
-  assert.match(rule(".entity-card-head"), /flex-wrap: wrap/);
-  assert.match(rule(".entity-card-head > .entity-card-title"), /flex: 1 1 \d+ch/);
+test("the controls float right and the title wraps around them", () => {
+  const head = rule(".entity-card-head");
+  assert.match(head, /display: flow-root/);
+  assert.doesNotMatch(head, /flex-wrap/);
+  assert.match(rule(".entity-card-head > .entity-card-title"), /display: block/);
+  assert.doesNotMatch(css(), /\.entity-card-head > \.entity-card-title \{[^}]*flex: 1 1 \d+ch/);
   const c = rule(".entity-card-controls");
-  assert.match(c, /flex: none/);
-  assert.match(c, /margin-left: auto/);
-  assert.doesNotMatch(c, /margin-top/);
+  assert.match(c, /float: right/);
+  assert.match(c, /display: flex/);
+  assert.match(rule(".entity-card-head > :first-child:not(.entity-card-controls):not(.entity-card-title)"), /float: left/);
   assert.doesNotMatch(css(), /\.entity-card-controls > \.entity-card-status \{ margin-right: auto/);
 });
 
