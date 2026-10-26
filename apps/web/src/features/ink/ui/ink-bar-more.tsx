@@ -14,6 +14,7 @@ import { INK_PAPERS, type InkHand, type InkPaper } from "@weaveforge/core";
 
 import { paperLabel } from "./ink-bar-glyphs";
 import { BarMenuList, useBarMenu } from "./ink-bar-menus";
+import { shortcutLabel } from "@/lib/shortcut-label";
 
 /** How much desk shows between two pages of a note. */
 export const INK_PAGE_GAPS = ["none", "small", "large"] as const;
@@ -172,11 +173,11 @@ export function MoreMenu({
             <div className="ink-menu-section" role="group" aria-label="Export">
               <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onPrint)}>
                 Print or save as PDF
-                <kbd>⌘⇧P</kbd>
+                <kbd>{shortcutLabel("⌘⇧P")}</kbd>
               </button>
               <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onExportPng)}>
                 Full-page PNG
-                <kbd>⌘⇧E</kbd>
+                <kbd>{shortcutLabel("⌘⇧E")}</kbd>
               </button>
               {onExportSvg ? (
                 <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onExportSvg)}>

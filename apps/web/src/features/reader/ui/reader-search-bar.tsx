@@ -8,6 +8,7 @@ import {
   type DocumentSearchMatch,
 } from "@weaveforge/core";
 import { ChevronIcon } from "@/components/chevron-icon";
+import { shortcutLabel } from "@/lib/shortcut-label";
 
 interface ReaderSearchBarProps {
   pages: DocumentPageText[];
@@ -54,7 +55,7 @@ export function ReaderSearchBar({
         className="btn-secondary btn-sm pdf-reader-search-trigger"
         onClick={() => setOpen(true)}
         aria-label="Find in document"
-        title="Find in document (⌘F / Ctrl+F)"
+        title={`Find in document (${shortcutLabel("⌘F")})`}
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
           <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.2-4.2" />

@@ -45,6 +45,7 @@ import {
   InlineTitle,
   RefreshGlyph,
 } from "./explorer-glyphs";
+import { shortcutLabel } from "@/lib/shortcut-label";
 
 /** The "new in here" hover actions on a row, in the order they show. */
 const NEW_HERE: { kind: CreateKind; label: string; icon: React.ReactNode }[] = [
@@ -416,7 +417,7 @@ export function ExplorerPanel({
             <button
               type="button"
               className="explorer-action"
-              title="Hide explorer (⌘B)"
+              title={`Hide explorer (${shortcutLabel("⌘B")})`}
               aria-label="Hide explorer"
               onClick={onHide}
             >
