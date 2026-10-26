@@ -204,7 +204,7 @@ export function PlanScreen() {
             resourceType="milestone"
             resourceId={null}
             title="Share your whole plan"
-            label="⇅ Share plan"
+            label="Share plan"
             showLabel
           />
         )}

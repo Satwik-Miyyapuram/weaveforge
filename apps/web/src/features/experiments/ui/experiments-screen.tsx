@@ -235,7 +235,7 @@ export function ExperimentsScreen() {
           resourceType="experiment"
           resourceId={null}
           title="Share all your experiments"
-          label="⇅ Share all"
+          label="Share all"
           hideTrigger
           open={shareAllOpen}
           onOpenChange={setShareAllOpen}
