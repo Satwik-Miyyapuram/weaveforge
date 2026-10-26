@@ -240,6 +240,14 @@ function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void 
   );
 }
 
+/** The note editor's stack for a log entry, as data (DA-102). */
+const LOG_EDITING = { placeholder: "Today I… (markdown supported)" };
+
+/** Names the editor by its label: a `<label for>` cannot point at CodeMirror's content. */
+const labelEditor = (labelId: string) => (view: { contentDOM: HTMLElement }) => {
+  view.contentDOM.setAttribute("aria-labelledby", labelId);
+};
+
 /** The key a log entry hides under while its Undo toast shows. */
 const logKey = (id: string) => `log:${id}`;
 
@@ -289,13 +297,15 @@ function EditLogForm({
   return (
     <form className="add-form" onSubmit={submit}>
       <div className="field">
-        <label htmlFor={`body-${entry.id}`}>What did you do?</label>
+        <label id={`body-${entry.id}`}>What did you do?</label>
         <CollabBodyHost
           resourceType="log_entry"
           resourceId={entry.id}
           initialBody={body}
           onSave={saveBody}
-          className="vault-body-input vault-codemirror"
+          markdownEditing={LOG_EDITING}
+          editorClassName="log-body-editor"
+          onViewCreated={labelEditor(`body-${entry.id}`)}
         />
       </div>
       <div className="field">
