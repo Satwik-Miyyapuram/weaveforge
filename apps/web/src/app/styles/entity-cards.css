@@ -200,7 +200,7 @@
 .entity-card-lead {
   float: left;
   display: flex;
-  margin-right: 8px;
+  margin-right: 12px;
 }
 .entity-card-controls {
   float: right;

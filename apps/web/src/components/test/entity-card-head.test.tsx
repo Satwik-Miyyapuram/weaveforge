@@ -83,7 +83,8 @@ test("the leading control sits in its own box, so a control reset cannot eat the
   // erased the 8px between a milestone's check and its title.
   const html = renderToStaticMarkup(<EntityCard title="Thesis" leading={<input type="checkbox" className="themed-check" />} />);
   assert.match(html, /<div class="entity-card-lead"><input type="checkbox" class="themed-check"\/><\/div>/);
-  assert.match(rule(".entity-card-lead"), /margin-right: 8px/);
+  // 12px, not 8: the brutal check casts a 3px hard shadow into the gap, so 8px read as touching.
+  assert.match(rule(".entity-card-lead"), /margin-right: 12px/);
   assert.doesNotMatch(css(), /:first-child:not\(\.entity-card-controls\)/);
 });
 
