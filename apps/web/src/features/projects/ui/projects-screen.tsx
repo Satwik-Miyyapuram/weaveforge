@@ -77,6 +77,7 @@ export function ProjectsScreen() {
           confirmLabel="Delete project"
           danger
           busy={removeBusy}
+          requireText={removing.name}
           onConfirm={() => void remove()}
           onClose={() => setRemoving(null)}
         />
@@ -97,7 +98,7 @@ export function ProjectsScreen() {
               />
             </div>
             {error && <FormError>{error}</FormError>}
-            <Button variant="primary" disabled={busy}>
+            <Button type="submit" variant="primary" disabled={busy}>
               {busy ? "Creating…" : "Create project"}
             </Button>
           </form>

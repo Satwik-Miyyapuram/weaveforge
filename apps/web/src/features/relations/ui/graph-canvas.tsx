@@ -1,5 +1,6 @@
 "use client";
 
+import { enumLabel } from "@/lib/enum-label";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { forceCollide } from "d3-force";
@@ -546,7 +547,7 @@ export function GraphCanvas({
       />
       {linkTooltip?.relation && (
         <div className="graph-link-tooltip" role="tooltip">
-          {linkTooltip.relation.replace("_", " ")}
+          {enumLabel("relation", linkTooltip.relation)}
           {linkTooltip.sourceKind === "auto" && " (auto)"}
         </div>
       )}

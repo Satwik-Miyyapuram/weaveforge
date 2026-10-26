@@ -14,7 +14,7 @@ export interface ImportVault {
   /** Titles of the project's notes, for clash checks. */
   pageTitles(): Promise<readonly string[]>;
   manageVaultPage: {
-    add(input: { title: string; body?: string; parentId?: string }): Promise<{ id: string }>;
+    add(input: { title: string; body?: string; parentId?: string; isFolder?: boolean }): Promise<{ id: string }>;
   };
 }
 
@@ -120,6 +120,7 @@ export async function importNotesFromFiles(
     const page = await vault.manageVaultPage.add({
       title,
       parentId: parentKey ? folderIds.get(parentKey) : undefined,
+      isFolder: true,
     });
     folderIds.set(key, page.id);
   }

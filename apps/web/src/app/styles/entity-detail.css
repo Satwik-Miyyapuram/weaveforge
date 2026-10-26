@@ -99,7 +99,12 @@ a.related-paper-url:hover { text-decoration: underline; }
   border: 1px solid var(--line); background: var(--neutral);
 }
 .card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.card-thumb-loading { position: absolute; inset: 0; background: var(--neutral); }
+.card-thumb-loading { position: absolute; inset: 0; background: var(--neutral); animation: card-thumb-pulse 1.2s ease-in-out infinite alternate; }
+.card-thumb-missing { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+@keyframes card-thumb-pulse { to { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) {
+  .card-thumb-loading { animation: none; }
+}
 .card-thumb-more {
   display: flex; align-items: center; justify-content: center;
   font-size: var(--fs-xs); color: var(--muted); background: var(--chip);
@@ -313,9 +318,8 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 .wiki-recent-list li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .wiki-recent-list li:last-child { border-bottom: 0; }
 .wiki-recent-list a { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Phone Plan/Log: the tab names the page, search and add share one row, the calendar leads. */
+/* Phone Plan/Log: search and add share one row under the title, the calendar leads. */
 @media (max-width: 900px) {
-  :is(.plan-screen, .log-screen) .screen-title-block { display: none; }
   :is(.plan-screen, .log-screen) .screen-actions { flex-wrap: nowrap; }
   :is(.plan-screen, .log-screen) .screen-actions > .search-input { flex: 1 1 auto; width: auto; min-width: 0; }
   :is(.plan-screen, .log-screen) .screen-actions > .btn-primary { flex: 0 0 auto; }

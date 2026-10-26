@@ -72,7 +72,8 @@ const RULES = [
     // rendering because the component tree that draws the app's own modal is
     // what failed, so their confirmation must depend on nothing that could be
     // the thing that broke. Both carry a comment saying so.
-    allow: ["app/route-error.tsx", "app/global-error.tsx"],
+    // The guard test names the calls it scans for.
+    allow: ["app/route-error.tsx", "app/global-error.tsx", "components/test/no-window-confirm.test.ts"],
   },
   {
     name: "onClick on a list item",
@@ -92,7 +93,7 @@ const RULES = [
     use: "<Button> or <IconButton> from @/components/button",
     why: "a hand-rolled button picks its own height, padding and disabled look",
     allow: ["components/button.tsx", "/test/"],
-    ceiling: 342,
+    ceiling: 327,
   },
 ];
 

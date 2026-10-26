@@ -59,6 +59,8 @@ export interface WorkspaceTreeNode {
   isMember?: boolean;
   /** Inherited from a parent list. Dimmer still, and not editable there. */
   inherited?: boolean;
+  /** A note page marked as a folder: notes go in it, never under a note (E45). */
+  isFolder?: boolean;
   /** Where an inherited row came from, for the tooltip. */
   inheritedFrom?: string;
   /**
@@ -81,6 +83,8 @@ export interface PaperEntry {
  */
 export interface NoteNode extends FolderNode {
   kind?: "vault_page" | "ink_page";
+  /** A note folder: it holds notes and has no body of its own to speak of. */
+  isFolder?: boolean;
 }
 
 /**
@@ -155,6 +159,7 @@ function nestedRoot(
       label: node.title.trim() || "Untitled",
       path,
       children: [],
+      ...(node.isFolder ? { isFolder: true } : {}),
     });
   }
 

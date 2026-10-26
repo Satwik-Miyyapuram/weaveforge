@@ -12,7 +12,11 @@ import { readStored, writeStored } from "@/lib/safe-storage";
 import { buildMemberNameMap } from "../application/member-labels";
 import { anchorAt, locateAnchor, type TextSpan } from "../domain/text-anchor";
 import { offsetOf, paintHighlights } from "./note-text-ranges";
+import { CommentsBadge } from "./comments-badge";
 import { Button } from "@/components/button";
+import { deferDelete, useHiddenKeys } from "@/lib/toast";
+
+const commentKey = (id: string) => `comment:${id}`;
 
 /**
  * The one comment system: threads with replies that resolve and fold away. Given
@@ -111,16 +115,20 @@ export function NoteComments({
     setText(contentRef?.current?.textContent ?? "");
   }, [contentRef, contentKey]);
 
+  // A deleted comment hides while its Undo toast shows (D-07); a hidden root
+  // takes its replies with it, as the delete will.
+  const hiddenKeys = useHiddenKeys();
   const threads = useMemo(() => {
     const byRoot = new Map<string, Thread>();
-    for (const c of comments) {
+    const shown = comments.filter((c) => !hiddenKeys.has(commentKey(c.id)));
+    for (const c of shown) {
       if (!c.parentId) byRoot.set(c.id, { root: c, replies: [], span: c.anchor ? locateAnchor(text, c.anchor) : null });
     }
-    for (const c of comments) if (c.parentId) byRoot.get(c.parentId)?.replies.push(c);
+    for (const c of shown) if (c.parentId) byRoot.get(c.parentId)?.replies.push(c);
     // Pinned threads in reading order, then page-level ones, then detached ones.
     const rank = (t: Thread) => (t.span ? t.span.start : t.root.anchor ? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER - 1);
     return [...byRoot.values()].sort((a, b) => rank(a) - rank(b) || a.root.createdAt.localeCompare(b.root.createdAt));
-  }, [comments, text]);
+  }, [comments, text, hiddenKeys]);
 
   const openThreads = useMemo(() => threads.filter((t) => !t.root.resolvedAt), [threads]);
   const resolved = useMemo(() => threads.filter((t) => t.root.resolvedAt), [threads]);
@@ -221,7 +229,15 @@ export function NoteComments({
   const resolve = (c: Comment, done: boolean) =>
     run(() => getContainer().sharing.manageComments.setResolved(c.id, done));
 
-  const remove = (c: Comment) => run(() => getContainer().sharing.manageComments.remove(c.id));
+  const remove = (c: Comment) =>
+    deferDelete({
+      keys: [commentKey(c.id)],
+      message: c.parentId ? "Reply deleted" : "Comment deleted",
+      commit: async () => {
+        await getContainer().sharing.manageComments.remove(c.id);
+        await reload();
+      },
+    });
 
   function renderThread(t: Thread) {
     const { root } = t;
@@ -241,14 +257,14 @@ export function NoteComments({
             {root.anchor.quote}
           </p>
         )}
-        <CommentLine c={root} name={nameOf(root.authorId)} canDelete={mine} onDelete={() => void remove(root)} />
+        <CommentLine c={root} name={nameOf(root.authorId)} canDelete={mine} onDelete={() => remove(root)} />
         {t.replies.map((r) => (
           <CommentLine
             key={r.id}
             c={r}
             name={nameOf(r.authorId)}
             canDelete={r.authorId === profile?.id}
-            onDelete={() => void remove(r)}
+            onDelete={() => remove(r)}
           />
         ))}
         <div className="note-thread-actions">
@@ -286,8 +302,9 @@ export function NoteComments({
       {!embedded && (
         <h2 className="record-section-head">
           <button type="button" className="note-comments-toggle" aria-expanded={open} onClick={toggleOpen}>
+            <CommentsIcon size={14} />
             <span>Comments</span>
-            <span className="record-section-tag">{openThreads.length > 0 ? String(openThreads.length) : "None"}</span>
+            <CommentsBadge count={openThreads.length} />
             <ChevronIcon open={shown} size={14} />
           </button>
         </h2>

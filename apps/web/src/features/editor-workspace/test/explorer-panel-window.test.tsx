@@ -49,3 +49,9 @@ test("a small vault paints every row and no gap", () => {
   assert.equal(treeitems(html), 5);
   assert.ok(!/style="height:\d+px"/.test(html));
 });
+
+test("a row shows its title, not its .note.md suffix, and names itself when cut (DA-32)", () => {
+  const html = render(1);
+  assert.doesNotMatch(html, /\.note\.md|explorer-ext/);
+  assert.match(html, /<span class="explorer-label" title="Note 0">Note 0<\/span>/);
+});

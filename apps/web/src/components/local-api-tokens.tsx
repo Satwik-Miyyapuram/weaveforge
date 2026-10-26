@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate } from "@/lib/format-date";
 import { useEffect, useState } from "react";
 import { formatError } from "@/lib/format-error";
 import {
@@ -113,7 +114,7 @@ function when(iso: string | null): string {
   const at = Date.parse(iso);
   return at <= 0
     ? "—"
-    : new Date(at).toLocaleDateString(undefined, { dateStyle: "medium" });
+    : formatDate(at);
 }
 
 /**

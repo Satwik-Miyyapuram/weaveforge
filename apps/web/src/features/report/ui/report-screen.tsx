@@ -26,6 +26,8 @@ import { navTransition } from "@/lib/view-transition";
 import { SectionRow, SectionCard } from "./section-card";
 import { progressOf, collectSectionIds, patchSectionInTree, flattenParentOptions, sectionsEyebrow } from "./report-section-tree";
 import { Button } from "@/components/button";
+import { deferDelete, useHiddenKeys } from "@/lib/toast";
+import { sectionKey } from "./remove-section";
 
 type ReportViewData = ReportScreenData & {
   ownerNames: Map<string, string>;
@@ -70,6 +72,7 @@ export function ReportScreen() {
   const { data, loading, error: loadError, reload: load, setData } = useScreenData("report", loadScreen);
 
   usePinnedOwnerNames(data, setData);
+  const hiddenKeys = useHiddenKeys();
 
   useEffect(() => {
     setError(loadError);
@@ -208,10 +211,7 @@ export function ReportScreen() {
           canComment={reportCanComment.get(openSection.id) ?? false}
           onBack={closeSection}
           onReplace={replaceSection}
-          onChanged={() => {
-            closeSection();
-            void load();
-          }}
+          onChanged={() => void load()}
         />
       </section>
     );
@@ -235,7 +235,7 @@ export function ReportScreen() {
 
       {composeOpen && (
         <Modal
-          title="Add a section"
+          title="New section"
           onClose={() => setComposeOpen(false)}
         >
           <AddSectionForm
@@ -301,7 +301,7 @@ export function ReportScreen() {
         <>
           <h4 className="settings-group vault-pinned-label">Shared with you</h4>
           <ul className="section-tree">
-            {pinnedSections.map((s) => (
+            {pinnedSections.filter((s) => !hiddenKeys.has(sectionKey(s.id))).map((s) => (
               <li key={s.id} id={`section-${s.id}`} className="section-node">
                 <SectionCard
                   section={s}
@@ -309,11 +309,16 @@ export function ReportScreen() {
                   isPinned
                   sharedByName={sharedOwnerName(s.id)}
                   onOpen={openSectionById}
-                  onUnpin={async () => {
-                    if (!confirm(`Remove "${s.title}" from your report? The original will stay intact for ${sharedOwnerName(s.id) ?? "its owner"}.`)) return;
-                    await getContainer().sharing.unpinShared("report_section", s.id);
-                    await load();
-                  }}
+                  onUnpin={() =>
+                    deferDelete({
+                      keys: [sectionKey(s.id)],
+                      message: `"${s.title}" removed from your report`,
+                      commit: async () => {
+                        await getContainer().sharing.unpinShared("report_section", s.id);
+                        await load();
+                      },
+                    })
+                  }
                 />
               </li>
             ))}

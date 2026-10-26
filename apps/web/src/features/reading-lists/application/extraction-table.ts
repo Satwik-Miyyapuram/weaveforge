@@ -1,3 +1,4 @@
+import { enumLabel } from "@/lib/enum-label";
 import type { AiWriteProposal, Paper, PaperFieldDef, PaperFieldValue, PaperFieldValueData } from "@weaveforge/core";
 import { computeRollupFromIndex, createValueIndex } from "@weaveforge/core";
 
@@ -191,7 +192,7 @@ function columnLabel(column: ExtractionColumnId, defs: readonly PaperFieldDef[])
 function cellText(row: ExtractionRow, column: ExtractionColumnId): string {
   if (column === "title") return row.paper.title;
   if (column === "year") return row.paper.year != null ? String(row.paper.year) : "";
-  if (column === "status") return row.paper.status.replace("_", " ");
+  if (column === "status") return enumLabel("paperStatus", row.paper.status);
   return formatCell(row.values.get(column.slice("field:".length)));
 }
 

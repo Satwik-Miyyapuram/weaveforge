@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/format-date";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -9,6 +10,7 @@ import { announceAiProposalsChanged } from "@/lib/ai-proposals-changed";
 import { Markdown } from "@/components/markdown/markdown";
 import { EntityCard } from "@/components/entity-card";
 import { ScreenHead } from "@/components/screen-head";
+import { EmptyState } from "@/components/empty-state";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/reader";
 import { loadCiteLinkCatalog, useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
@@ -245,7 +247,7 @@ export function AiProposalReviewScreen() {
     <p className="muted ai-review-lede">Nothing changes until you approve it. Suggestions are encrypted until this unlocked browser reviews them.</p>
     {error && <p className="form-error" role="alert">{error}</p>}
     {created && <p className="muted" role="status">Created &ldquo;{created.title}&rdquo;. <Link href={`/notes?page=${encodeURIComponent(created.id)}`}>Open page &rarr;</Link></p>}
-    {!items.length ? <div className="card empty-state"><h2>Nothing to review</h2><p>New AI suggestions will appear here before they can change your research workspace.</p></div> : <>
+    {!items.length ? <EmptyState variant="first-run" title="Nothing to review" body="New AI suggestions will appear here before they can change your research workspace." /> : <>
       <div className="card ai-review-toolbar"><div><strong>{items.length} pending suggestion{items.length === 1 ? "" : "s"}</strong><span className="muted"> · Each one waits for you. Additions only add text; nothing is overwritten.</span></div>{appendOnly.length > 1 && <Button variant="primary" disabled={busy !== null} onClick={() => void approveAll()}>Approve the {appendOnly.length} that only add</Button>}</div>
       <div className="ai-review-list">{items.map((item) => {
         const evidence = item.evidence ?? [];
@@ -256,7 +258,7 @@ export function AiProposalReviewScreen() {
           tone={toneFor(item.kind)}
           title={preview.title ?? reviewHeading(item)}
           badge={<span className={`ai-kind ai-kind--${item.kind}`}>{label[item.kind]}</span>}
-          meta={<><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>{preview.why && <> · {preview.why}</>}</>}
+          meta={<><time dateTime={item.createdAt}>{formatDateTime(item.createdAt)}</time>{preview.why && <> · {preview.why}</>}</>}
         >
           <div className="ai-review-body">
             {preview.body && <div className="ai-review-proposed">

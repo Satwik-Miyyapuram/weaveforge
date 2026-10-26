@@ -1,5 +1,6 @@
 "use client";
 
+import { enumLabel } from "@/lib/enum-label";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { clusterMarks, type PlanTimeline } from "@/features/plan/application/plan-timeline";
 
@@ -52,7 +53,7 @@ export function PlanTimelineBar({
         <em>Today</em>
       </span>
       {clusters.map((c) => {
-        const names = c.marks.map((m) => `${m.title} (${m.status.replace("_", " ")})`);
+        const names = c.marks.map((m) => `${m.title} (${enumLabel("milestoneStatus", m.status)})`);
         return (
           <button
             key={c.marks[0]!.id}

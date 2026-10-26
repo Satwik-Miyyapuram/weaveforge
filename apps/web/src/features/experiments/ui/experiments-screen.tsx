@@ -35,6 +35,10 @@ import { AddExperimentForm } from "./add-experiment-form";
 import { ExperimentCard } from "./experiment-card";
 import { CompareView } from "./experiments-compare";
 import { Button } from "@/components/button";
+import { Popover } from "@/components/popover";
+import { Menu } from "@/components/menu";
+import { showToast } from "@/lib/toast";
+import { experimentHref } from "../application/experiment-href";
 
 type ExperimentsViewData = ExperimentsScreenData & { ownerNames: Map<string, string> };
 
@@ -73,7 +77,7 @@ export function ExperimentsScreen() {
   const [view, setView] = usePersistedState<string>("thesis.experiments.view", "list");
   const [search, setSearch] = useState("");
   const [composeOpen, setComposeOpen] = useState(false);
-  const [composeMode, setComposeMode] = useState<"menu" | "new" | "sdk">("menu");
+  const [sdkOpen, setSdkOpen] = useState(false);
   const [shareAllOpen, setShareAllOpen] = useState(false);
 
   const replace = useCallback(
@@ -168,66 +172,55 @@ export function ExperimentsScreen() {
           // claimed a freshness this screen never had.
           <span className="live-dot" title="A run is in progress — this screen re-checks for updates in the background, at most once every 2 minutes">● live</span>
         )}
-        <Button
-          variant="primary"
-         
-          onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
-        >
+        <Button variant="primary" onClick={() => setComposeOpen(true)}>
           New experiment
         </Button>
+        {/* The SDK token and Share all are occasional: one click away rather
+            than a chooser in front of New experiment (DA-71). */}
+        {(desktop() || items.length > 0) && (
+          <Popover label="More" ariaLabel="More actions" align="right">
+            {(close) => (
+              <Menu
+                onClose={close}
+                items={[
+                  ...(desktop()
+                    ? [{
+                        id: "sdk",
+                        label: "Python SDK token",
+                        title: "Copy or create a token so training scripts log runs here",
+                        onSelect: () => setSdkOpen(true),
+                      }]
+                    : []),
+                  ...(items.length > 0
+                    ? [{
+                        id: "share-all",
+                        label: "Share all",
+                        title: "Share every experiment in this project",
+                        onSelect: () => setShareAllOpen(true),
+                      }]
+                    : []),
+                ]}
+              />
+            )}
+          </Popover>
+        )}
       </ScreenHead>
 
       {composeOpen && (
-        <Modal
-          title={composeMode === "new" ? "Log an experiment" : composeMode === "sdk" ? "Python SDK token" : "Experiment actions"}
-          onClose={() => { setComposeOpen(false); setComposeMode("menu"); }}
-        >
-          {composeMode === "menu" ? (
-            <div className="org-modal-choices">
-              <button
-                type="button"
-                className="org-choice-card"
-                onClick={() => setComposeMode("new")}
-              >
-                <span className="org-choice-title">Log run</span>
-                <p className="org-choice-desc">Record a new experiment run.</p>
-              </button>
-              {desktop() && (
-                <button
-                  type="button"
-                  className="org-choice-card"
-                  onClick={() => setComposeMode("sdk")}
-                >
-                  <span className="org-choice-title">Python SDK token</span>
-                  <p className="org-choice-desc">Copy or create a token so training scripts log runs here.</p>
-                </button>
-              )}
-              {items.length > 0 && (
-                <button
-                  type="button"
-                  className="org-choice-card"
-                  onClick={() => {
-                    setComposeOpen(false);
-                    setComposeMode("menu");
-                    setShareAllOpen(true);
-                  }}
-                >
-                  <span className="org-choice-title">Share all</span>
-                  <p className="org-choice-desc">Share every experiment in this project.</p>
-                </button>
-              )}
-            </div>
-          ) : composeMode === "sdk" ? (
-            <SdkTokenView />
-          ) : (
-            <AddExperimentForm
-              onAdded={() => {
-                setComposeOpen(false);
-                setComposeMode("menu");
-                void load();
-              }}
-            />
-          )}
+        <Modal title="New experiment" onClose={() => setComposeOpen(false)}>
+          <AddExperimentForm
+            onAdded={(id) => {
+              setComposeOpen(false);
+              void load();
+              showToast("Experiment created", { label: "Open", run: () => router.push(experimentHref(id)) });
+            }}
+          />
+        </Modal>
+      )}
+
+      {sdkOpen && (
+        <Modal title="Python SDK token" onClose={() => setSdkOpen(false)}>
+          <SdkTokenView />
         </Modal>
       )}
 
@@ -279,7 +272,7 @@ export function ExperimentsScreen() {
           action={
             <Button
               variant="primary"
-              onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+              onClick={() => setComposeOpen(true)}
             >
               New experiment
             </Button>

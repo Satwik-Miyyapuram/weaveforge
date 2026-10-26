@@ -1,3 +1,4 @@
+import { enumLabel } from "@/lib/enum-label";
 import type { ColorGroup, Paper, ReadingList } from "@weaveforge/core";
 
 /**
@@ -126,7 +127,11 @@ function matches(query: string, s: GroupSubject): boolean {
   const value = colon > 0 ? q.slice(colon + 1).trim().replace(/^#/, "") : q;
   if (field === "tag") return s.tags.some((t) => t.toLowerCase() === value);
   if (field === "list") return s.lists.some((l) => l.toLowerCase() === value);
-  if (field === "status") return (s.status ?? "").replace("_", " ") === value.replace("_", " ");
+  // "status:to read", "status:to_read" and the label "status:done" all match.
+  if (field === "status") {
+    const status = s.status ?? "";
+    return status === value.split(" ").join("_") || enumLabel("paperStatus", status).toLowerCase() === value;
+  }
   if (field === "title") return s.title.toLowerCase().includes(value);
   return s.title.toLowerCase().includes(q);
 }

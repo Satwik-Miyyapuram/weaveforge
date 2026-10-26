@@ -230,7 +230,7 @@ export function ListsScreen() {
       </ScreenHead>
 
       {addOpen && (
-        <Modal title="New reading list" onClose={() => setAddOpen(false)}>
+        <Modal title="New list" onClose={() => setAddOpen(false)}>
           <AddListForm parents={flat} onAdded={() => { setAddOpen(false); void load(); }} />
         </Modal>
       )}

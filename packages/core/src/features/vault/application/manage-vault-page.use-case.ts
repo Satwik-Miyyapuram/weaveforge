@@ -21,6 +21,8 @@ export interface EditVaultPageInput {
   parentId?: string | null;
   /** Pin or unpin the note. Absent leaves it. */
   pinned?: boolean;
+  /** Make the page a folder or a note. Absent leaves it. */
+  isFolder?: boolean;
 }
 
 export interface ManageVaultPageDeps {
@@ -38,6 +40,7 @@ export class ManageVaultPageUseCase {
       ids: this.deps.ids,
     });
     await this.assertTitleUnique(page.title);
+    if (page.parentId) await this.assertFolder(page.parentId);
     await this.deps.repository.save(page);
     return page;
   }
@@ -70,6 +73,7 @@ export class ManageVaultPageUseCase {
     }
     if (input.parentId !== undefined && input.parentId !== null) {
       await this.assertNotUnderSelf(input.parentId, id);
+      await this.assertFolder(input.parentId);
     }
     const updated: VaultPage = {
       ...existing,
@@ -79,10 +83,25 @@ export class ManageVaultPageUseCase {
         ? {}
         : { parentId: input.parentId === null ? undefined : input.parentId }),
       ...(input.pinned === undefined ? {} : { pinned: input.pinned }),
+      ...(input.isFolder === undefined ? {} : { isFolder: input.isFolder }),
       updatedAt: this.deps.clock.nowIso(),
     };
     await this.deps.repository.save(updated);
     return updated;
+  }
+
+  /**
+   * Pages go in folders, never under a note. A page that already holds pages
+   * counts as a folder: notes nested before the flag existed keep working.
+   */
+  private async assertFolder(parentId: string): Promise<void> {
+    const parent = await this.deps.repository.getById(parentId);
+    if (!parent) throw new NotFoundError(`No vault page with id "${parentId}".`);
+    if (parent.isFolder) return;
+    const children = await this.deps.repository.list({ parentId });
+    if (children.length === 0) {
+      throw new VaultPageValidationError("A note can only go in a folder.");
+    }
   }
 
   /**

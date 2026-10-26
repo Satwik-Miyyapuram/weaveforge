@@ -10,6 +10,8 @@ import { tagTone } from "@/lib/tag-tone";
  * Layout: [leading?] title ……… badge · status · actions · menu
  *         meta
  *         tags / body
+ * The title keeps a floor width; when the card is too narrow for both, the
+ * controls wrap under it as one unit instead of squeezing it (D09, E42).
  */
 const MAX_CARD_TAGS = 3;
 
@@ -92,18 +94,15 @@ export function EntityCard({
     >
       <div className="entity-card-head">
         {leading}
-        {/* Controls float right so a long title wraps beside them, then runs full width. */}
-        <div className="entity-card-heading">
-          {hasControls && (
-            <div className="entity-card-actions" onClick={stop} onKeyDown={stop}>
-              {badge}
-              {status != null && <div className="entity-card-status">{status}</div>}
-              {actions}
-              {menu}
-            </div>
-          )}
-          <h3 className="entity-card-title">{title}</h3>
-        </div>
+        <h3 className="entity-card-title">{title}</h3>
+        {hasControls && (
+          <div className="entity-card-controls" onClick={stop} onKeyDown={stop}>
+            {badge}
+            {status != null && <div className="entity-card-status">{status}</div>}
+            {actions}
+            {menu}
+          </div>
+        )}
       </div>
 
       {hasMeta && <p className="entity-card-meta">{meta}</p>}
@@ -113,7 +112,7 @@ export function EntityCard({
         // the body off-screen on a phone. One line, then a count.
         <div className="tag-chips chip-row--capped">
           {tags.slice(0, MAX_CARD_TAGS).map((t) => (
-            <span key={t} className="tag-chip">
+            <span key={t} className="tag-chip" title={`#${t}`}>
               #{t}
             </span>
           ))}

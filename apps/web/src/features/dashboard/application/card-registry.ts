@@ -162,7 +162,7 @@ export const CARD_REGISTRY: readonly CardDef[] = [
   },
   {
     type: "supervisee-snapshot",
-    label: "Supervisee snapshot",
+    label: "Student snapshot",
     group: "Team",
     deps: ["supervision"],
     minRole: "phd",

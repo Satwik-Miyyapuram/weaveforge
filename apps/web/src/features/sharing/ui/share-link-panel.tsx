@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate } from "@/lib/format-date";
 import { useCallback, useEffect, useState } from "react";
 import {
   SHARE_LINK_DEFAULT_TTL_DAYS, type ShareLink, type ShareableType } from "@weaveforge/core";
@@ -7,13 +8,10 @@ import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
+import { copyText } from "@/lib/toast/copy-text";
 
 function formatExpiry(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatDate(iso);
 }
 
 export function ShareLinkPanel({
@@ -73,10 +71,6 @@ export function ShareLinkPanel({
     }
   }
 
-  async function copyUrl(url: string) {
-    await navigator.clipboard.writeText(url);
-  }
-
   return (
     <div className="share-links">
       <h4 className="settings-group">Public link</h4>
@@ -88,7 +82,7 @@ export function ShareLinkPanel({
         <div className="share-link-created">
           <p className="muted">Copy this link now — the token is not shown again.</p>
           <code className="share-link-url" data-testid="share-link-url">{createdUrl}</code>
-          <Button variant="ghost" size="sm" onClick={() => void copyUrl(createdUrl)}>
+          <Button variant="ghost" size="sm" onClick={() => void copyText(createdUrl, "Link copied")}>
             Copy link
           </Button>
         </div>
@@ -98,7 +92,7 @@ export function ShareLinkPanel({
           {links.map((link) => (
             <li key={link.id} className="share-link-row">
               <span className="muted">view-only link</span>
-              <span className="muted">{new Date(link.createdAt).toLocaleDateString()}</span>
+              <span className="muted">{formatDate(link.createdAt)}</span>
               {link.expiresAt ? (
                 <span className="share-link-expiry-hint">expires {formatExpiry(link.expiresAt)}</span>
               ) : null}

@@ -12,7 +12,7 @@ import { CardsViewIcon, ListViewIcon } from "@/components/view-icons";
 import { CardColumns } from "@/components/card-columns";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { usePinnedOwnerNames } from "@/features/sharing";
-import { AddPaperForm } from "./add-paper-form";
+import { AddPaperForm, addedPaperMessage } from "./add-paper-form";
 import { FilterRow } from "@/components/filter-row";
 import { ViewSwitch } from "@/components/view-switch";
 import { useProject } from "@/features/projects";
@@ -36,6 +36,8 @@ import { FormError } from "@/components/form-error";
 import { statusLabel } from "@/components/status-select";
 import { navTransition } from "@/lib/view-transition";
 import { Button } from "@/components/button";
+import { showToast, useHiddenKeys } from "@/lib/toast";
+import { paperKey } from "./remove-paper";
 
 type PapersViewData = PapersScreenData & { ownerNames: Map<string, string> };
 
@@ -56,7 +58,6 @@ export function PapersScreen() {
   const [checkingAlerts, setCheckingAlerts] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
-  const [composeMode, setComposeMode] = useState<"menu" | "new">("menu");
   const [openId, setOpenId] = useState<string | null>(null);
   const [guestPaper, setGuestPaper] = useState<Paper | null>(null);
   const isSharedView = searchParams.get("shared") === "1";
@@ -300,6 +301,8 @@ export function PapersScreen() {
     return [...set].sort();
   }, [papers]);
 
+  // Papers deleted but still undoable leave the grid at once (D-07).
+  const hiddenKeys = useHiddenKeys();
   const visible = useMemo(() => {
     const statuses = new Set(statusFilter);
     const inAnyList = (id: string) =>
@@ -308,6 +311,7 @@ export function PapersScreen() {
     // Facet filters first; the ranked pass then orders what survives them.
     const scoped = papers.filter(
       (p) =>
+        !hiddenKeys.has(paperKey(p.id)) &&
         (statuses.size === 0 || statuses.has(p.status)) &&
         (listFilter.length === 0 || inAnyList(p.id)) &&
         (tagFilter.length === 0 || hasAnyTag(p)),
@@ -315,7 +319,7 @@ export function PapersScreen() {
     // Now also matches on abstract, summary, venue, and identifiers — not just
     // title and author.
     return match(scoped, (p) => p.id, (p) => `${p.title}\n${p.authors.join(" ")}`);
-  }, [papers, statusFilter, listFilter, tagFilter, membership, match]);
+  }, [papers, statusFilter, listFilter, tagFilter, membership, match, hiddenKeys]);
 
   /*
    * The open paper must be the hydrated row, never the list's summary.
@@ -354,6 +358,7 @@ export function PapersScreen() {
           onBack={closePaper}
           onReplace={replace}
           onChanged={() => { closePaper(); void load(); }}
+          onDeleted={() => void load()}
         />
       </section>
     );
@@ -381,19 +386,35 @@ export function PapersScreen() {
           variant="primary"
          
           disabled={syncing}
-          onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+          onClick={() => setComposeOpen(true)}
         >
           {syncing ? "Syncing…" : "Add paper"}
         </Button>
-        {/* The wiki reads the papers and notes together and proposes pages;
-            the citation check looks for new work citing the library. Both
-            are occasional, so they sit one click away rather than beside
-            Add paper. */}
+        {/* Zotero imports, the wiki (which reads papers and notes together)
+            and the citation check are occasional, so they sit one click away
+            rather than in a chooser in front of Add paper (DA-71). */}
         <Popover label="More" ariaLabel="More actions" align="right">
           {(close) => (
             <Menu
               onClose={close}
               items={[
+                {
+                  id: "zotero-sync",
+                  label: syncing ? "Syncing…" : "Sync Zotero",
+                  disabled: syncing,
+                  title: "Pull papers from your linked Zotero library",
+                  onSelect: () => void syncZotero(),
+                },
+                ...(hasShell
+                  ? [{
+                      id: "zotero-local",
+                      label: "Read Zotero on this computer",
+                      disabled: syncing,
+                      title: "Import annotations from the running Zotero. No API key, and nothing is written back.",
+                      onSelect: () => void importLocalZotero(),
+                    }]
+                  : []),
+                { id: "sep", label: "", kind: "separator" as const },
                 {
                   id: "wiki",
                   label: "Wiki",
@@ -412,61 +433,14 @@ export function PapersScreen() {
       </ScreenHead>
 
       {composeOpen && (
-        <Modal
-          title={composeMode === "new" ? "Add a paper" : "Add papers"}
-          onClose={() => { setComposeOpen(false); setComposeMode("menu"); }}
-        >
-          {composeMode === "menu" ? (
-            <div className="org-modal-choices">
-              <button
-                type="button"
-                className="org-choice-card"
-                onClick={() => setComposeMode("new")}
-              >
-                <span className="org-choice-title">Add paper</span>
-                <p className="org-choice-desc">Create a paper entry manually or from a URL.</p>
-              </button>
-              <button
-                type="button"
-                className="org-choice-card"
-                disabled={syncing}
-                onClick={() => {
-                  setComposeOpen(false);
-                  setComposeMode("menu");
-                  void syncZotero();
-                }}
-              >
-                <span className="org-choice-title">Sync Zotero</span>
-                <p className="org-choice-desc">Pull papers from your linked Zotero library.</p>
-              </button>
-              {hasShell && (
-                <button
-                  type="button"
-                  className="org-choice-card"
-                  disabled={syncing}
-                  onClick={() => {
-                    setComposeOpen(false);
-                    setComposeMode("menu");
-                    void importLocalZotero();
-                  }}
-                >
-                  <span className="org-choice-title">Read Zotero on this computer</span>
-                  <p className="org-choice-desc">
-                    Import annotations from the running Zotero. No API key, and nothing is written
-                    back.
-                  </p>
-                </button>
-              )}
-            </div>
-          ) : (
-            <AddPaperForm
-              onAdded={() => {
-                setComposeOpen(false);
-                setComposeMode("menu");
-                void load();
-              }}
-            />
-          )}
+        <Modal title="Add paper" onClose={() => setComposeOpen(false)}>
+          <AddPaperForm
+            onAdded={(paper, created) => {
+              setComposeOpen(false);
+              void load();
+              showToast(addedPaperMessage(created), { label: "Open", run: () => openPaperById(paper.id) });
+            }}
+          />
         </Modal>
       )}
 
@@ -523,7 +497,7 @@ export function PapersScreen() {
           action={
             <Button
               variant="primary"
-              onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+              onClick={() => setComposeOpen(true)}
             >
               Add paper
             </Button>

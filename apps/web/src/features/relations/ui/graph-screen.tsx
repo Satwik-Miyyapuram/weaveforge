@@ -20,6 +20,8 @@ import { NavIcon } from "@/app/nav-icon";
 import { GraphLegend } from "./graph-legend";
 import { GraphSettingsDrawer } from "./graph-settings-drawer";
 import { GraphSidePanel } from "./graph-side-panel";
+import { useHiddenKeys } from "@/lib/toast";
+import { relationKey } from "./remove-relation";
 import { graphFilterCount } from "@weaveforge/core";
 import { experimentHref } from "@/features/experiments";
 import { useGraphPersistedState } from "../application/use-graph-persisted-state";
@@ -29,6 +31,8 @@ import type { GraphScreenData } from "@/container/facades";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
+import { Popover } from "@/components/popover";
+import { Menu } from "@/components/menu";
 
 /** Graph screen — data loading, view-state, and child presentation components. */
 export function GraphScreen() {
@@ -66,7 +70,10 @@ export function GraphScreen() {
   const papers = data?.papers ?? emptyArray<Paper>();
   const notes = data?.notes ?? emptyArray<VaultPage>();
   const sections = data?.sections ?? emptyArray<ReportSection>();
-  const edges = data?.relations ?? emptyArray<PaperRelation>();
+  const allEdges = data?.relations ?? emptyArray<PaperRelation>();
+  // A deleted relation leaves the graph while its Undo toast shows (D-07).
+  const hiddenKeys = useHiddenKeys();
+  const edges = useMemo(() => allEdges.filter((e) => !hiddenKeys.has(relationKey(e.id))), [allEdges, hiddenKeys]);
   const lists = data?.lists ?? emptyArray<ReadingList>();
   const membership = data?.membership ?? emptyMap<string, Set<string>>();
   const experiments = data?.experiments ?? emptyArray<GraphExperimentEntry>();
@@ -74,7 +81,6 @@ export function GraphScreen() {
   const [linkMsg, setLinkMsg] = useState<string | null>(null);
   const [focus, setFocus] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
-  const [composeMode, setComposeMode] = useState<"menu" | "edge">("menu");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
@@ -230,12 +236,30 @@ export function GraphScreen() {
     >
       <Button
         variant="primary"
-       
-        disabled={linking}
-        onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+        disabled={linking || papers.length < 2}
+        title={papers.length < 2 ? "Add at least two papers to link them" : undefined}
+        onClick={() => setComposeOpen(true)}
       >
-        {linking ? "Linking…" : "+ Graph"}
+        {linking ? "Linking…" : "Link papers"}
       </Button>
+      {/* Auto-link is occasional: one click away rather than a chooser in
+          front of Link papers (DA-71). */}
+      <Popover label="More" ariaLabel="More actions" align="right">
+        {(close) => (
+          <Menu
+            onClose={close}
+            items={[
+              {
+                id: "auto-link",
+                label: "Auto-link citations",
+                disabled: linking || papers.length === 0,
+                title: "Create citation links from paper bibliographies",
+                onSelect: () => void autoLink(),
+              },
+            ]}
+          />
+        )}
+      </Popover>
     </ScreenHead>
   );
 
@@ -397,42 +421,8 @@ export function GraphScreen() {
   ) : null;
 
   const addEdgeModal = composeOpen && (
-    <Modal
-      title={composeMode === "edge" ? "Add edge" : "Graph actions"}
-      onClose={() => { setComposeOpen(false); setComposeMode("menu"); }}
-    >
-      {composeMode === "menu" ? (
-        <div className="org-modal-choices">
-          <button
-            type="button"
-            className="org-choice-card"
-            disabled={papers.length < 2}
-            onClick={() => setComposeMode("edge")}
-          >
-            <span className="org-choice-title">Add edge</span>
-            <p className="org-choice-desc">Manually link two papers with a relation.</p>
-          </button>
-          <button
-            type="button"
-            className="org-choice-card"
-            disabled={linking || papers.length === 0}
-            onClick={() => {
-              setComposeOpen(false);
-              setComposeMode("menu");
-              void autoLink();
-            }}
-          >
-            <span className="org-choice-title">Auto-link</span>
-            <p className="org-choice-desc">Create citation edges from paper bibliographies.</p>
-          </button>
-        </div>
-      ) : (
-        <AddEdgeForm
-          papers={papers}
-          onAdded={load}
-          onClose={() => { setComposeOpen(false); setComposeMode("menu"); }}
-        />
-      )}
+    <Modal title="Link papers" onClose={() => setComposeOpen(false)}>
+      <AddEdgeForm papers={papers} onAdded={load} onClose={() => setComposeOpen(false)} />
     </Modal>
   );
 

@@ -10,11 +10,12 @@ import {
   type Paper,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { ConfirmDialog } from "@/components/confirm-dialog";
+import { deletedMessage, removeLater, useHiddenKeys } from "@/lib/toast";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
 import { daysUntilDate } from "@/features/plan/application/plan-timeline";
+import { formatDate } from "@/lib/format-date";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
 import { runReported } from "@/lib/run-reported";
@@ -51,11 +52,8 @@ export function MilestoneCard({
   onError: (message: string) => void;
   onJump?: (id: string) => void;
 }) {
-  const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
-  /** Whether the delete confirmation is up. */
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmUnpinOpen, setConfirmUnpinOpen] = useState(false);
+  const hidden = useHiddenKeys().has(milestoneKey(m.id));
 
   async function setStatus(status: MilestoneStatus) {
     await runReported(async () => {
@@ -69,27 +67,26 @@ export function MilestoneCard({
     }, onError);
   }
 
-  async function remove() {
-    setConfirmOpen(false);
-    setBusy(true);
-    try {
-      await getContainer().plan.manageMilestone.remove(m.id);
-      onChanged();
-    } finally {
-      setBusy(false);
-    }
+  // Rule D-07: the card goes at once; the delete runs when the Undo toast closes.
+  function remove() {
+    removeLater({
+      key: milestoneKey(m.id),
+      message: deletedMessage(m.title),
+      remove: () => getContainer().plan.manageMilestone.remove(m.id),
+      onDeleted: () => void onChanged(),
+    });
   }
 
-  async function unpin() {
-    setConfirmUnpinOpen(false);
-    setBusy(true);
-    try {
-      await getContainer().sharing.unpinShared("milestone", m.id);
-      onChanged();
-    } finally {
-      setBusy(false);
-    }
+  function unpin() {
+    removeLater({
+      key: milestoneKey(m.id),
+      message: `"${m.title}" removed from your plan`,
+      remove: () => getContainer().sharing.unpinShared("milestone", m.id),
+      onDeleted: () => void onChanged(),
+    });
   }
+
+  if (hidden) return null;
 
   if (editing && !readOnly) {
     return (
@@ -142,7 +139,7 @@ export function MilestoneCard({
       meta={
         m.targetDate
             ? [
-              `Due ${m.targetDate}`,
+              `Due ${formatDate(m.targetDate)}`,
               due != null && m.status !== "done"
                 ? due < 0
                   ? `${-due}d overdue`
@@ -159,9 +156,8 @@ export function MilestoneCard({
           resourceId={m.id}
           title={`Share: ${m.title}`}
           name={m.title}
-          onDelete={isPinned ? () => setConfirmUnpinOpen(true) : readOnly ? undefined : () => setConfirmOpen(true)}
+          onDelete={isPinned ? unpin : readOnly ? undefined : remove}
           deleteLabel={isPinned ? "Remove from plan" : "Delete milestone"}
-          deleteDisabled={busy}
           extraItems={readOnly ? [] : [{ id: "edit", label: "Edit", onSelect: () => setEditing(true) }]}
         />
       }
@@ -236,30 +232,9 @@ export function MilestoneCard({
         </div>
       )}
     </EntityCard>
-
-    {confirmOpen && (
-      <ConfirmDialog
-        title="Delete this milestone?"
-        body={`“${m.title}” comes off the plan, and anything that points at it loses its target.`}
-        confirmLabel="Delete milestone"
-        danger
-        busy={busy}
-        onConfirm={() => void remove()}
-        onClose={() => setConfirmOpen(false)}
-      />
-    )}
-
-    {confirmUnpinOpen && (
-      <ConfirmDialog
-        title="Remove shared milestone?"
-        body={`“${m.title}” will be removed from your plan. The original will stay intact for ${sharedByName ?? "its owner"}.`}
-        confirmLabel="Remove from plan"
-        danger
-        busy={busy}
-        onConfirm={() => void unpin()}
-        onClose={() => setConfirmUnpinOpen(false)}
-      />
-    )}
     </>
   );
 }
+
+/** The key a milestone card hides under while its Undo toast shows. */
+export const milestoneKey = (id: string) => `milestone:${id}`;

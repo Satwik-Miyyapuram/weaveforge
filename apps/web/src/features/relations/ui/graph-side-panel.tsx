@@ -1,5 +1,6 @@
 "use client";
 
+import { enumLabel, humanise } from "@/lib/enum-label";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -13,6 +14,7 @@ import { CloseIcon } from "@/components/view-icons";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
+import { removeRelationLater } from "./remove-relation";
 
 interface StoredAnnotation {
   text?: string;
@@ -92,8 +94,8 @@ export function GraphSidePanel({
       <div className="graph-side-head">
         <span className="graph-side-chips">
           <span className="graph-side-kind">{kindLabel}</span>
-          {paper && <span className="status-pill">{paper.status.replace("_", " ")}</span>}
-          {section && <span className="status-pill">{section.status.replace("_", " ")}</span>}
+          {paper && <span className="status-pill">{enumLabel("paperStatus", paper.status)}</span>}
+          {section && <span className="status-pill">{humanise(section.status)}</span>}
         </span>
         <button type="button" className="btn-ghost graph-side-close" onClick={onClose} aria-label="Close panel">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
@@ -167,9 +169,8 @@ function PaperPanel({
    * pixels wide, and one that sits off-screen whenever either end is out of
    * view. The panel already lists the relations, so the row carries the action.
    */
-  async function removeRelation(id: string) {
-    await getContainer().graph.removeRelation(id);
-    onRefresh();
+  function removeRelation(id: string) {
+    removeRelationLater(id, onRefresh);
   }
 
   return (
@@ -204,7 +205,7 @@ function PaperPanel({
               return (
                 <li key={e.id} className="graph-side-rel">
                   <span className="graph-side-rel-kind" style={{ borderColor: RELATION_COLORS[e.relation] }}>
-                    {e.relation.replace("_", " ")}
+                    {enumLabel("relation", e.relation)}
                   </span>
                   <button type="button" className="link-btn" onClick={() => onSelectPaper(otherId)}>
                     {paperLabel(papers, otherId)}
@@ -215,7 +216,7 @@ function PaperPanel({
                     className="link-btn graph-side-rel-remove"
                     aria-label={`Delete relation with ${paperLabel(papers, otherId)}`}
                     title="Delete relation"
-                    onClick={() => void removeRelation(e.id)}
+                    onClick={() => removeRelation(e.id)}
                   >
                     <CloseIcon />
                   </button>
@@ -392,7 +393,7 @@ function ConceptPanel({
                 <button type="button" className="link-btn" onClick={() => onSelectPaper(p.id)}>
                   {p.title}
                 </button>
-                <span className="muted"> · {p.status.replace("_", " ")}</span>
+                <span className="muted"> · {enumLabel("paperStatus", p.status)}</span>
               </li>
             ))}
           </ul>
@@ -461,17 +462,9 @@ export function EdgeDetailPopover({
   onClose: () => void;
   onDeleted: () => void;
 }) {
-  const [busy, setBusy] = useState(false);
-
-  async function remove() {
-    setBusy(true);
-    try {
-      await getContainer().graph.removeRelation(edge.id);
-      onDeleted();
-      onClose();
-    } finally {
-      setBusy(false);
-    }
+  function remove() {
+    removeRelationLater(edge.id, onDeleted);
+    onClose();
   }
 
   return (
@@ -483,7 +476,7 @@ export function EdgeDetailPopover({
     >
       <div className="graph-edge-popover-head">
         <span className="legend-swatch" style={{ background: RELATION_COLORS[edge.relation as RelationType] }} />
-        <strong>{edge.relation.replace("_", " ")}</strong>
+        <strong>{enumLabel("relation", edge.relation)}</strong>
         <IconButton label="Close panel" onClick={onClose}><CloseIcon /></IconButton>
       </div>
       <p className="muted graph-edge-popover-path">
@@ -491,9 +484,7 @@ export function EdgeDetailPopover({
       </p>
       {edge.note && <p>{edge.note}</p>}
       <p className="muted">Source: {edge.source}</p>
-      <Button disabled={busy} onClick={() => void remove()}>
-        {busy ? "Deleting…" : "Delete edge"}
-      </Button>
+      <Button onClick={remove}>Delete relation</Button>
     </div>
   );
 }

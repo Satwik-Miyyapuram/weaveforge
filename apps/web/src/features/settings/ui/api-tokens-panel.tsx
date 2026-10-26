@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/format-date";
 import { useCallback, useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
@@ -23,10 +24,7 @@ const EXPIRY_OPTIONS = [
 
 function formatWhen(iso: string | null): string {
   if (!iso) return "Never";
-  return new Date(iso).toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  return formatDateTime(iso);
 }
 
 /** Personal access tokens for the Python SDK. */
@@ -177,7 +175,7 @@ export function ApiTokensPanel() {
               </Select>
             </div>
             <FormError>{error}</FormError>
-            <Button variant="primary" disabled={busy || !name.trim()}>
+            <Button type="submit" variant="primary" disabled={busy || !name.trim()}>
               {busy ? "Creating…" : "Create token"}
             </Button>
           </form>

@@ -5,7 +5,7 @@ import { useSubmit } from "@/lib/hooks/use-submit";
 import type { ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
-import { LIST_COLOR_PRESETS } from "./list-ui";
+import { LIST_COLOR_NAMES, LIST_COLOR_PRESETS } from "./list-ui";
 import { FormError } from "@/components/form-error";
 
 /**
@@ -53,7 +53,7 @@ export function AddListForm({
             value={parentId}
             onChange={(e) => setParentId(e.target.value)}
           >
-            <option value="">— top level —</option>
+            <option value="">None (top level)</option>
             {parents.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -65,13 +65,13 @@ export function AddListForm({
       <div className="field">
         <span className="list-color-label">Color</span>
         <div className="list-color-picks" role="group" aria-label="List color">
-          {LIST_COLOR_PRESETS.map((c) => (
+          {LIST_COLOR_PRESETS.map((c, i) => (
             <button
               key={c}
               type="button"
               className={`list-color-pick${color === c ? " on" : ""}`}
               style={{ background: c }}
-              aria-label={`Color ${c}`}
+              aria-label={LIST_COLOR_NAMES[i]}
               aria-pressed={color === c}
               onClick={() => setColor(c)}
             />
@@ -80,7 +80,7 @@ export function AddListForm({
       </div>
       {error && <FormError>{error}</FormError>}
       <button className="btn-primary" disabled={busy}>
-        {busy ? "Adding…" : "Add list"}
+        {busy ? "Creating…" : "Create"}
       </button>
     </form>
   );

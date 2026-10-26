@@ -174,7 +174,10 @@ export async function proposeWikiPages(plans: readonly WikiPagePlan[]): Promise<
   const container = getContainer();
   let root = wikiPagesFrom(await notes()).root;
   if (!root) {
-    root = await container.vault.manageVaultPage.add({ title: WIKI_ROOT_TITLE });
+    root = await container.vault.manageVaultPage.add({ title: WIKI_ROOT_TITLE, isFolder: true });
+  } else if (!root.isFolder) {
+    // Notes go only in folders (E45); a root made before the flag is marked now.
+    await container.vault.manageVaultPage.update(root.id, { isFolder: true });
   }
 
   let queued = 0;

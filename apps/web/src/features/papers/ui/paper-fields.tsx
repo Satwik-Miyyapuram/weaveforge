@@ -1,6 +1,8 @@
 "use client";
 
+import { humanise } from "@/lib/enum-label";
 import { useCallback, useEffect, useState } from "react";
+import { deferDelete, deletedMessage, useHiddenKeys } from "@/lib/toast";
 import {
   PAPER_FIELD_KINDS,
   computeRollup,
@@ -20,8 +22,13 @@ import { Button } from "@/components/button";
  * Project-scoped custom fields: inline values on the paper + a small manager
  * for define / rename / remove.
  */
+const paperFieldKey = (id: string) => `paperField:${id}`;
+
 export function PaperFieldsStrip({ paperId, readOnly }: { paperId: string; readOnly: boolean }) {
-  const [defs, setDefs] = useState<PaperFieldDef[]>([]);
+  const [allDefs, setDefs] = useState<PaperFieldDef[]>([]);
+  // A removed field leaves at once and is deleted when its Undo toast closes.
+  const hiddenKeys = useHiddenKeys();
+  const defs = allDefs.filter((d) => !hiddenKeys.has(paperFieldKey(d.id)));
   const [values, setValues] = useState<Map<string, PaperFieldValueData>>(new Map());
   const [projectValues, setProjectValues] = useState<PaperFieldValue[]>([]);
   // The relation picker only needs an id and a title per candidate paper, both
@@ -346,7 +353,7 @@ function PaperFieldsManager({
               <>
                 <span>
                   {def.name}{" "}
-                  <span className="muted">({def.kind.replace("_", " ")})</span>
+                  <span className="muted">({humanise(def.kind).toLowerCase()})</span>
                 </span>
                 <button
                   type="button"
@@ -363,12 +370,16 @@ function PaperFieldsManager({
                  
                   variant="ghost" size="sm"
                   disabled={busy}
-                  onClick={() => {
-                    if (!confirm(`Remove field "${def.name}"? Values on papers will be deleted.`)) {
-                      return;
-                    }
-                    void run(() => getContainer().paperFields.removePaperField(def.id));
-                  }}
+                  onClick={() =>
+                    deferDelete({
+                      keys: [paperFieldKey(def.id)],
+                      message: deletedMessage(def.name, "Field"),
+                      commit: async () => {
+                        await getContainer().paperFields.removePaperField(def.id);
+                        await onChanged();
+                      },
+                    })
+                  }
                 >
                   Remove
                 </Button>
@@ -394,7 +405,7 @@ function PaperFieldsManager({
           aria-label="Field kind"
         >
           {PAPER_FIELD_KINDS.map((k) => (
-            <option key={k} value={k}>{k.replace("_", " ")}</option>
+            <option key={k} value={k}>{humanise(k)}</option>
           ))}
         </Select>
         {needsOptions && (
