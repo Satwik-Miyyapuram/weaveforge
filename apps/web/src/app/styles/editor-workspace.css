@@ -570,13 +570,8 @@
 .focus-exit:hover,
 .focus-exit:focus-visible { color: var(--text); opacity: 1; }
 
-/* The exit sits over the top-right corner; a bar that reaches it (the
-   editor's mode strip) leaves it room. */
-.workspace-shell.is-focus .md-live-choice { padding-inline-end: 48px; }
-
 @media (pointer: coarse) {
   .focus-exit { width: 36px; height: 36px; opacity: 0.8; }
-  .workspace-shell.is-focus .md-live-choice { padding-inline-end: 48px; }
 }
 
 /* Ink in focus, OneNote's way: the toolbar row goes, and what a hand needs
@@ -1045,6 +1040,8 @@
    ---------------------------------------------------------------------- */
 
 .pane-mode { margin-inline-end: 4px; }
+/* The View control and, in Split, its ⋯ for the side. */
+.view-control { display: inline-flex; align-items: center; gap: 2px; }
 
 /* The close control lives in a 16px slot that is the dirty dot until the tab
    is hovered — the standard gesture, and it takes the permanent `×` off every
@@ -1609,17 +1606,6 @@
    already the writing measure. */
 .md-live-pane .document-read-body {
   padding: 24px 32px 96px;
-}
-
-/* The choice: three small states, told apart by words. It sits at the top
-   of the editor's own half, out of the text's way, and it is the same in
-   both layouts. */
-.md-live-choice {
-  display: flex;
-  align-items: center;
-  padding: 8px 8px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
 }
 
 /* The rendered view is prose, so it gets the reading measure rather than the

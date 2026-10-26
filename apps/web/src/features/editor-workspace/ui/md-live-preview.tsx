@@ -12,27 +12,13 @@
  * typed half a minute ago — and both are the read view's own renderer,
  * reused, so a preview and a read never disagree about what a document means.
  *
- * The choice is remembered the way the pen guard is (`weaveforge.ink.penOnly`),
- * because it is a preference about the person, not about a document.
+ * Which one, if any, is the document's View control (Edit · Split · Read,
+ * `DocumentModeSwitch`); the choice is shared app-wide (`useMdPreviewMode`).
  */
-
-import { useEffect, useState } from "react";
 
 import type { ReactNode } from "react";
 
-import { SegmentedControl } from "@/components/segmented-control";
-import { readStored, writeStored } from "@/lib/safe-storage";
-
-/** The localStorage key, one per app like the pen guard's. */
-export const MD_PREVIEW_KEY = "weaveforge.md.preview";
-
-export type MdPreviewMode = "off" | "side" | "below";
-
-/** The remembered choice, `off` for anything the key does not hold. */
-export function readMdPreviewMode(): MdPreviewMode {
-  const value = readStored(MD_PREVIEW_KEY);
-  return value === "side" || value === "below" ? value : "off";
-}
+import type { MdPreviewMode } from "@/lib/hooks/use-md-preview-mode";
 
 /** What the preview renders: the editor's text once it has reported, even emptied; the saved body before. */
 export function previewBody(liveBody: string | null, savedBody: string): string {
@@ -48,14 +34,12 @@ export function previewBody(liveBody: string | null, savedBody: string): string 
  */
 export function LivePreview({
   mode,
-  onModeChange,
   liveBody,
   savedBody,
   preview,
   children,
 }: {
   mode: MdPreviewMode;
-  onModeChange: (mode: MdPreviewMode) => void;
   /** The editor's text as it stands, `null` before the editor has reported. */
   liveBody: string | null;
   /** The document's last saved body, the preview's opening text. */
@@ -66,19 +50,11 @@ export function LivePreview({
   children: ReactNode;
 }) {
   if (mode === "off") {
-    return (
-      <div className="md-live">
-        <PreviewToggle mode={mode} onModeChange={onModeChange} />
-        {children}
-      </div>
-    );
+    return <div className="md-live">{children}</div>;
   }
   return (
     <div className={`md-live md-live--${mode}`}>
-      <div className="md-live-editor">
-        <PreviewToggle mode={mode} onModeChange={onModeChange} />
-        {children}
-      </div>
+      <div className="md-live-editor">{children}</div>
       <div
         className="md-live-pane"
         role="complementary"
@@ -88,44 +64,4 @@ export function LivePreview({
       </div>
     </div>
   );
-}
-
-/** The three layouts, labelled in the sentence case the editor's other modes use (E30). */
-export const PREVIEW_CHOICES: readonly { value: MdPreviewMode; label: string; title: string }[] = [
-  { value: "off", label: "Source", title: "The editor alone" },
-  { value: "side", label: "Side", title: "The preview in a column beside the editor" },
-  { value: "below", label: "Below", title: "The preview under the editor, one column" },
-];
-
-/**
- * The choice itself: three states, told apart by icon-free words, because a
- * glyph for "below" versus "side" is a riddle and a word is not.
- */
-function PreviewToggle({
-  mode,
-  onModeChange,
-}: {
-  mode: MdPreviewMode;
-  onModeChange: (mode: MdPreviewMode) => void;
-}) {
-  return (
-    <div className="md-live-choice">
-      <SegmentedControl label="Live preview" size="sm" value={mode} onChange={onModeChange} options={PREVIEW_CHOICES} />
-    </div>
-  );
-}
-
-/** The toggle's own state, remembered across sessions (the pen guard's trick). */
-export function useMdPreviewMode(): [MdPreviewMode, (mode: MdPreviewMode) => void] {
-  const [mode, setMode] = useState<MdPreviewMode>("off");
-  useEffect(() => {
-    setMode(readMdPreviewMode());
-  }, []);
-  const choose = (next: MdPreviewMode) => {
-    setMode(next);
-    // A private window that refuses: the choice lasts the session, which is
-    // still a choice.
-    writeStored(MD_PREVIEW_KEY, next);
-  };
-  return [mode, choose];
 }

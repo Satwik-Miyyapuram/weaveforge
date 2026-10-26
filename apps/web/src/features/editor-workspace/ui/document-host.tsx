@@ -43,7 +43,8 @@ import type { EditorCitationFormat } from "@/lib/citation-format-preference";
 import type { DocumentMode, TabRef } from "../application/pane-tree";
 import { ImageSizeControl } from "@/components/image-size-control";
 import { documentKind, hasInkView, hasPdfView } from "./kind";
-import { LivePreview, useMdPreviewMode } from "./md-live-preview";
+import { useMdPreviewMode } from "@/lib/hooks/use-md-preview-mode";
+import { LivePreview } from "./md-live-preview";
 
 /** What the active renderer tells the pane about itself. */
 export interface DocumentMetrics {
@@ -300,7 +301,7 @@ export function DocumentHost({
     setLiveBody(text);
     reportMetrics({ text, cursor: cursorAt(view) });
   }, [reportMetrics]);
-  const [previewMode, choosePreview] = useMdPreviewMode();
+  const [previewMode] = useMdPreviewMode();
 
   const imagePaste = useMemo<ImagePasteConfig | undefined>(() => {
     const store = imageStore(tab.kind, tab.id);
@@ -449,7 +450,6 @@ export function DocumentHost({
   return (
     <LivePreview
       mode={previewMode}
-      onModeChange={choosePreview}
       liveBody={liveBody}
       savedBody={body}
       // The live preview is a read view too: a wikilink clicked there opens
