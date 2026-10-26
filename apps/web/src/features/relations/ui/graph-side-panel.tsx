@@ -15,6 +15,7 @@ import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
 import { removeRelationLater } from "./remove-relation";
+import { relationPhrase } from "./relation-phrase";
 
 interface StoredAnnotation {
   text?: string;
@@ -32,6 +33,9 @@ interface StoredAnnotation {
  * are cut with an ellipsis, so a cut title cannot be mistaken for the whole
  * one.
  */
+/** Relations listed before "Show all n". */
+const RELATIONS_SHOWN = 8;
+
 function paperLabel(papers: Paper[], id: string, max = 40): string {
   const title = papers.find((p) => p.id === id)?.title;
   if (!title) return "a paper not in this view";
@@ -150,6 +154,7 @@ function PaperPanel({
   onSelectConcept: (name: string) => void;
 }) {
   const [linking, setLinking] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const touching = relations.filter((e) => e.fromPaper === paper.id || e.toPaper === paper.id);
 
   async function autoLinkPaper() {
@@ -200,12 +205,13 @@ function PaperPanel({
         <div className="graph-side-section">
           <div className="graph-side-label">Relations · {touching.length}</div>
           <ul className="graph-side-list">
-            {touching.slice(0, 8).map((e) => {
-              const otherId = e.fromPaper === paper.id ? e.toPaper : e.fromPaper;
+            {(showAll ? touching : touching.slice(0, RELATIONS_SHOWN)).map((e) => {
+              const outgoing = e.fromPaper === paper.id;
+              const otherId = outgoing ? e.toPaper : e.fromPaper;
               return (
                 <li key={e.id} className="graph-side-rel">
                   <span className="graph-side-rel-kind" style={{ borderColor: RELATION_COLORS[e.relation] }}>
-                    {enumLabel("relation", e.relation)}
+                    {relationPhrase(e.relation, outgoing)}
                   </span>
                   <button type="button" className="link-btn" onClick={() => onSelectPaper(otherId)}>
                     {paperLabel(papers, otherId)}
@@ -224,6 +230,11 @@ function PaperPanel({
               );
             })}
           </ul>
+          {touching.length > RELATIONS_SHOWN && (
+            <Button size="sm" variant="ghost" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll}>
+              {showAll ? "Show fewer" : `Show all ${touching.length}`}
+            </Button>
+          )}
         </div>
       )}
     </div>

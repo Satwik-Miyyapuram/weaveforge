@@ -196,13 +196,16 @@ export function GraphScreen() {
       return;
     }
     if (node.kind === "paper" || node.paperId || !node.id.startsWith("tag:")) {
-      const paperId = node.paperId ?? node.id;
-      setSelectedPaperId(paperId);
-      setSelectedNoteId(null);
-      setSelectedSectionId(null);
-      setSelectedConcept(null);
-      setLocalSeed(paperId);
+      selectPaper(node.paperId ?? node.id);
     }
+  }
+
+  function selectPaper(paperId: string) {
+    setSelectedPaperId(paperId);
+    setSelectedNoteId(null);
+    setSelectedSectionId(null);
+    setSelectedConcept(null);
+    setLocalSeed(paperId);
   }
 
   function resetLocalGraph() {
@@ -394,13 +397,7 @@ export function GraphScreen() {
             setSelectedConcept(null);
           }}
           onRefresh={load}
-          onSelectPaper={(id) => {
-            setSelectedPaperId(id);
-            setSelectedNoteId(null);
-            setSelectedSectionId(null);
-            setSelectedConcept(null);
-            setLocalSeed(id);
-          }}
+          onSelectPaper={selectPaper}
           onSelectNote={(id) => {
             setSelectedNoteId(id);
             setSelectedPaperId(null);
@@ -422,7 +419,13 @@ export function GraphScreen() {
 
   const addEdgeModal = composeOpen && (
     <Modal title="Link papers" onClose={() => setComposeOpen(false)}>
-      <AddEdgeForm papers={papers} onAdded={load} onClose={() => setComposeOpen(false)} />
+      <AddEdgeForm
+        papers={papers}
+        onAdded={(paperId) => {
+          void load();
+          selectPaper(paperId);
+        }}
+        onClose={() => setComposeOpen(false)} />
     </Modal>
   );
 
