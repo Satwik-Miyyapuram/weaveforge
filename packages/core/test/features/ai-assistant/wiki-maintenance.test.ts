@@ -266,3 +266,11 @@ test("a body of dashes with no closing fence lints in linear time", () => {
   lintWiki([page("a", "A", "---" + "-".repeat(200_000))]);
   assert.ok(performance.now() - started < 1000, `took ${Math.round(performance.now() - started)} ms`);
 });
+
+test("headings and bullet markers are not content, and long runs of spaces lint fast", () => {
+  assert.equal(lintWiki([page("a", "A", "# A heading that is long enough to count as text\n-   \n")]).counts.empty, 1);
+  assert.equal(lintWiki([page("a", "A", "## Part\n- Real prose in a bullet, long enough to count.")]).counts.empty, 0);
+  const started = performance.now();
+  lintWiki([page("a", "A", "#" + " ".repeat(100_000) + "x\n" + " ".repeat(100_000) + "-")]);
+  assert.ok(performance.now() - started < 1000, `took ${Math.round(performance.now() - started)} ms`);
+});

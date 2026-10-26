@@ -55,8 +55,9 @@ function withoutFrontmatter(body: string): string {
 
 function contentLength(body: string): number {
   return withoutFrontmatter(body)
-    .replace(/^#{1,6}\s+.*$/gm, "")
-    .replace(/^\s*[-*]\s+/gm, "")
+    // Line-local classes, not \s, so a run of spaces cannot backtrack polynomially.
+    .replace(/^#{1,6}[ \t].*$/gm, "")
+    .replace(/^[ \t]*[-*][ \t]/gm, "")
     .replace(/\[\[[^\]]*\]\]/g, "")
     .replace(/_Not written yet\._/g, "")
     .replace(/^>.*$/gm, "")
