@@ -62,6 +62,23 @@ test("a link resolving through an alias is not dead", () => {
   assert.equal(report.counts["dead-link"], 0);
 });
 
+test("a link to a note or paper outside the wiki is not dead (E39)", () => {
+  // A drafted page lists the notes and papers it came from. They exist, just
+  // not as wiki pages; calling them dead offered to create notes named after papers.
+  const report = lintWiki(
+    [page("a", "ResNet", "From [[Deep Residual Learning]] and [[Method]], at some length.")],
+    ["deep residual learning", "Method"],
+  );
+
+  assert.equal(report.counts["dead-link"], 0);
+});
+
+test("a link to nothing at all is still dead with other titles given", () => {
+  const report = lintWiki([page("a", "ResNet", "See [[Nowhere]] for details, at some length.")], ["Method"]);
+
+  assert.equal(report.counts["dead-link"], 1);
+});
+
 test("a page with only structure is reported as empty", () => {
   const generated = ["## Summary", "", "_Not written yet._", "", "## Mentioned in", "", "- [[Method]]", "", "#concept"].join("\n");
 
@@ -234,4 +251,26 @@ test("a page whose only link has a blank target links out, and is neither orphan
     assert.equal(report.counts.orphan, 0, link);
     assert.equal(report.counts["dead-link"], 0, link);
   }
+});
+
+test("frontmatter is not content, and the prose after it is", () => {
+  const fm = "---\ntags: [x]\nsummary: a long line of metadata that is not prose at all\n---\n";
+  assert.equal(lintWiki([page("a", "A", `${fm}# A\n`)]).counts.empty, 1);
+  assert.equal(lintWiki([page("a", "A", `${fm}Real prose about this page, long enough to count.`)]).counts.empty, 0);
+  // An unclosed fence is not frontmatter: the text stays content.
+  assert.equal(lintWiki([page("a", "A", "---\nReal prose about this page, long enough to count.")]).counts.empty, 0);
+});
+
+test("a body of dashes with no closing fence lints in linear time", () => {
+  const started = performance.now();
+  lintWiki([page("a", "A", "---" + "-".repeat(200_000))]);
+  assert.ok(performance.now() - started < 1000, `took ${Math.round(performance.now() - started)} ms`);
+});
+
+test("headings and bullet markers are not content, and long runs of spaces lint fast", () => {
+  assert.equal(lintWiki([page("a", "A", "# A heading that is long enough to count as text\n-   \n")]).counts.empty, 1);
+  assert.equal(lintWiki([page("a", "A", "## Part\n- Real prose in a bullet, long enough to count.")]).counts.empty, 0);
+  const started = performance.now();
+  lintWiki([page("a", "A", "#" + " ".repeat(100_000) + "x\n" + " ".repeat(100_000) + "-")]);
+  assert.ok(performance.now() - started < 1000, `took ${Math.round(performance.now() - started)} ms`);
 });

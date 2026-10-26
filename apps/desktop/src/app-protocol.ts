@@ -67,6 +67,28 @@ export function resolveAppFile(
 }
 
 /**
+ * The same URL with repeated slashes in its path collapsed, or `null` when the
+ * path is already clean (E01).
+ *
+ * `app://weaveforge//` resolves to the root index, but the client router reads
+ * a `//` path as a protocol-relative URL and throws, leaving a blank error
+ * screen. Redirecting to the collapsed path keeps a malformed deep link
+ * working. The query and fragment are left alone: a `//` there is data.
+ */
+export function canonicalAppUrl(requestUrl: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(requestUrl);
+  } catch {
+    return null;
+  }
+  const collapsed = url.pathname.replace(/\/{2,}/g, "/");
+  if (collapsed === url.pathname) return null;
+  url.pathname = collapsed;
+  return url.toString();
+}
+
+/**
  * Where the export put a segment prefetch file the client names with dots.
  *
  * Next 16 fetches `plan/__next.plan.__PAGE__.txt` but the static export writes

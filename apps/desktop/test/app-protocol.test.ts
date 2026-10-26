@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
-import { appHeaders, contentTypeFor, isPageRequest, resolveAppFile } from "../src/app-protocol";
+import {
+  appHeaders,
+  canonicalAppUrl,
+  contentTypeFor,
+  isPageRequest,
+  resolveAppFile,
+} from "../src/app-protocol";
 
 /**
  * The rules for turning an `app://` request into a file in the bundle.
@@ -147,4 +153,17 @@ test("a missed page is told apart from a missed asset", () => {
   assert.equal(isPageRequest("app://weaveforge/_next/static/gone.js"), false);
   assert.equal(isPageRequest("app://weaveforge/icons/missing.png"), false);
   assert.equal(isPageRequest("not a url"), false);
+});
+
+test("a path with doubled slashes is sent to its collapsed form (E01)", () => {
+  // `//` reads as a protocol-relative URL to the client router, which threw.
+  assert.equal(canonicalAppUrl("app://weaveforge//"), "app://weaveforge/");
+  assert.equal(canonicalAppUrl("app://weaveforge///notes//x/"), "app://weaveforge/notes/x/");
+  assert.equal(canonicalAppUrl("app://weaveforge//notes/?page=a//b#c//d"), "app://weaveforge/notes/?page=a//b#c//d");
+});
+
+test("a clean path, or no URL at all, needs no redirect", () => {
+  assert.equal(canonicalAppUrl("app://weaveforge/"), null);
+  assert.equal(canonicalAppUrl("app://weaveforge/notes/?page=a//b"), null);
+  assert.equal(canonicalAppUrl("not a url"), null);
 });

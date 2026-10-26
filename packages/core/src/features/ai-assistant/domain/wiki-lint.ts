@@ -46,11 +46,18 @@ export interface LintReport {
 /** A page with nothing but frontmatter and headings has no content of its own. */
 const MIN_CONTENT_CHARS = 40;
 
+/** The body without a leading `---` … `---` block; indexOf, not a regex, so it stays linear. */
+function withoutFrontmatter(body: string): string {
+  if (!body.startsWith("---")) return body;
+  const end = body.indexOf("---", 3);
+  return end < 0 ? body : body.slice(end + 3);
+}
+
 function contentLength(body: string): number {
-  return body
-    .replace(/^---[\s\S]*?---/, "")
-    .replace(/^#{1,6}\s+.*$/gm, "")
-    .replace(/^\s*[-*]\s+/gm, "")
+  return withoutFrontmatter(body)
+    // Line-local classes, not \s, so a run of spaces cannot backtrack polynomially.
+    .replace(/^#{1,6}[ \t].*$/gm, "")
+    .replace(/^[ \t]*[-*][ \t]/gm, "")
     .replace(/\[\[[^\]]*\]\]/g, "")
     .replace(/_Not written yet\._/g, "")
     .replace(/^>.*$/gm, "")
@@ -88,8 +95,13 @@ function trigramOverlap(first: Set<string>, second: Set<string>): number {
 /** Above this, two titles are the same idea spelled differently. */
 export const NEAR_DUPLICATE_THRESHOLD = 0.75;
 
-export function lintWiki(pages: readonly WikiPageRef[]): LintReport {
+/**
+ * `otherTitles` are notes and papers that exist outside the wiki. A link to
+ * one is not dead; it is just not a wiki page (E39).
+ */
+export function lintWiki(pages: readonly WikiPageRef[], otherTitles: readonly string[] = []): LintReport {
   const findings: LintFinding[] = [];
+  const outside = new Set(otherTitles.map(normalizeTitleKey));
 
   const byTitle = new Map<string, WikiPageRef>();
   const linkTargets = new Set<string>();
@@ -158,6 +170,7 @@ export function lintWiki(pages: readonly WikiPageRef[]): LintReport {
         linkedTo.add(resolved.id);
         continue;
       }
+      if (outside.has(normalizeTitleKey(target))) continue;
       findings.push({
         kind: "dead-link",
         severity: "warning",

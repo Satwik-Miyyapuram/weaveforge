@@ -6,6 +6,7 @@ import {
   planFixOrder,
   planWikiPages,
   replaceWikiIndex,
+  wikiProposalContent,
   type ExtractionDocument,
   type IConceptExtractor,
   type LintReport,
@@ -94,6 +95,14 @@ function wikiPageRefs(pages: Awaited<ReturnType<typeof notes>>): WikiPageRef[] {
   }));
 }
 
+/**
+ * Every note title, wiki or not. A proposed page must not share a title with
+ * any note, or its `[[links]]` would point at two notes (E37).
+ */
+export function takenTitles(pages: readonly { title: string }[]): string[] {
+  return pages.map((page) => page.title);
+}
+
 export interface WikiBuildPreview {
   plans: WikiPagePlan[];
   /** Concepts found but already covered, so "nothing to do" is explicable. */
@@ -142,7 +151,7 @@ export async function previewWikiBuild(
   const titleById = new Map(documents.map((doc) => [doc.id, doc.title]));
   const plans = planWikiPages({
     extraction,
-    existingTitles: titles,
+    existingTitles: takenTitles(pages),
     titleOf: (id) => titleById.get(id),
   });
 
@@ -173,7 +182,7 @@ export async function proposeWikiPages(plans: readonly WikiPagePlan[]): Promise<
     await container.aiProposals.draftLocal({
       kind: "create_vault_note",
       resourceId: root.id,
-      content: `Create wiki page "${plan.title}" (${plan.mentions} mentions)`,
+      content: wikiProposalContent(plan),
       payload: { title: plan.title, body: plan.body, parentId: root.id },
       sourceLinks: plan.sourceDocumentIds,
     });
@@ -183,7 +192,10 @@ export async function proposeWikiPages(plans: readonly WikiPagePlan[]): Promise<
 }
 
 export async function runWikiLint(): Promise<{ report: LintReport; steps: ReturnType<typeof planFixOrder> }> {
-  const report = lintWiki(await existingWikiPages());
+  const [pages, papers] = await Promise.all([notes(), getContainer().papers.listPapers()]);
+  // Links to ordinary notes and papers resolve; only wiki pages are linted (E39).
+  const outside = [...takenTitles(pages), ...papers.map((paper) => paper.title)];
+  const report = lintWiki(wikiPageRefs(pages), outside);
   return { report, steps: planFixOrder(report) };
 }
 

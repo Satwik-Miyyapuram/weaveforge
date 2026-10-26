@@ -24,6 +24,7 @@ import { Breadcrumbs } from "./breadcrumbs";
 import { kindIcon, kindSuffix, kindTintClass, modesFor } from "./kind";
 import { CloseGlyph } from "./explorer-glyphs";
 import { followPointer } from "./follow-pointer";
+import { keyLabel, shortcutLabel } from "@/lib/shortcut-label";
 
 export interface PaneActions {
   onActivate: (paneId: string, index: number) => void;
@@ -277,7 +278,7 @@ function PaneLeafView({
               type="button"
               className="pane-action"
               aria-label="Focus"
-              title="Focus: only the document (⌘⇧F)"
+              title={`Focus: only the document (${shortcutLabel("⌘⇧F")})`}
               onClick={onToggleFocus}
             >
               <FocusGlyph on={false} />
@@ -358,7 +359,7 @@ function EmptyState() {
           <div className="pane-shortcut" key={command}>
             <dt>
               {chordKeys(table[command]).map((key, index) => (
-                <kbd key={`${command}-${index}`}>{key}</kbd>
+                <kbd key={`${command}-${index}`}>{keyLabel(key)}</kbd>
               ))}
             </dt>
             <dd>{SHORTCUT_LABEL[command]}</dd>

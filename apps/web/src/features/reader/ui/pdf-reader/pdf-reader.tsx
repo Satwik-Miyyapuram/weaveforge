@@ -112,6 +112,7 @@ import {
   textItemsFromContent,
 } from "./pdf-document";
 import { readStored, writeStored } from "@/lib/safe-storage";
+import { shortcutLabel } from "@/lib/shortcut-label";
 
 export function PdfReader({
   url,
@@ -1472,7 +1473,7 @@ export function PdfReader({
         <button
           type="button"
           className="focus-exit"
-          title="Exit focus (⌘⇧F)"
+          title={`Exit focus (${shortcutLabel("⌘⇧F")})`}
           aria-label="Exit focus"
           onClick={toggleFocus}
         >
@@ -1620,7 +1621,7 @@ export function PdfReader({
           <button
             type="button"
             className="btn-secondary btn-sm pdf-reader-focus-btn"
-            title="Focus (⌘⇧F)"
+            title={`Focus (${shortcutLabel("⌘⇧F")})`}
             aria-label="Focus"
             onClick={toggleFocus}
           >

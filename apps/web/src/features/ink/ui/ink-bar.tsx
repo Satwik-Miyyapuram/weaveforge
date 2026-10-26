@@ -53,6 +53,7 @@ import { InkQuickColours } from "./ink-quick-colours";
 import { useQuickColours } from "./use-quick-colours";
 import { PaletteDockButton, PaletteFoldButton, usePaletteDock } from "@/components/palette-dock";
 import { Popover } from "@/components/popover";
+import { shortcutLabel } from "@/lib/shortcut-label";
 
 export { toolLabel } from "./ink-bar-glyphs";
 
@@ -412,7 +413,7 @@ export function InkBar({
           className="ink-tool ink-tool-icon-only"
           onClick={onUndo}
           disabled={!canUndo}
-          title="Undo (⌘Z)"
+          title={`Undo (${shortcutLabel("⌘Z")})`}
           aria-label="Undo"
         >
           <svg
@@ -435,7 +436,7 @@ export function InkBar({
           className="ink-tool ink-tool-icon-only"
           onClick={onRedo}
           disabled={!canRedo}
-          title="Redo (⌘⇧Z)"
+          title={`Redo (${shortcutLabel("⌘⇧Z")})`}
           aria-label="Redo"
         >
           <svg
@@ -635,7 +636,7 @@ export function InkBar({
             className="ink-tool ink-action-recognise"
             onClick={onRecognise}
             disabled={busy}
-            title="Recognise this page (⌘⇧R)"
+            title={`Recognise this page (${shortcutLabel("⌘⇧R")})`}
           >
             <svg
               width="15"

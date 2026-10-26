@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FocusGlyph } from "./focus-glyph";
+import { shortcutLabel } from "@/lib/shortcut-label";
 
 /**
  * Focus for ink on a record page, the Editor's way (`⌘⇧F`): the sheet
@@ -51,7 +52,7 @@ export function InkFocusButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       className="record-focus-btn"
-      title="Focus (⌘⇧F)"
+      title={`Focus (${shortcutLabel("⌘⇧F")})`}
       aria-label="Focus"
       onClick={onClick}
     >
@@ -66,7 +67,7 @@ export function InkFocusExit({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       className="focus-exit"
-      title="Exit focus (⌘⇧F)"
+      title={`Exit focus (${shortcutLabel("⌘⇧F")})`}
       aria-label="Exit focus"
       onClick={onClick}
     >

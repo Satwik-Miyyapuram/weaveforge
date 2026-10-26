@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { dedupeMetrics, isInAppHref, rendererFor, tabForHref, type DocumentMetrics } from "../ui/document-host";
+import { dedupeMetrics, isInAppHref, rendererFor, surfaceBody, tabForHref, type DocumentMetrics } from "../ui/document-host";
 
 const INK_HEADER = "<!-- weaveforge-ink ink-pages=1 ink-paper=blank -->";
 const PLAIN_NOTE = "## A note\n\nJust prose.";
@@ -67,4 +67,14 @@ test("one edit is one metrics report, however many events carry it (28-06)", () 
   // And so does an edit that leaves the cursor where it was.
   report({ text: "xb", cursor: { line: 1, col: 1 } });
   assert.deepEqual(seen.map((m) => [m.text, m.cursor?.col]), [["a", 2], ["ab", 3], ["ab", 1], ["xb", 1]]);
+});
+
+test("Ink opens on the text just typed, not the last saved body (E35)", () => {
+  // Switching from Edit to Ink mounts the sheet before the editor's save has
+  // landed, so the saved body is a step behind what is on screen.
+  assert.equal(surfaceBody("old", "old and new"), "old and new");
+  // Text deleted down to nothing is still the latest text.
+  assert.equal(surfaceBody("old", ""), "");
+  // Nothing typed yet: the saved body.
+  assert.equal(surfaceBody("saved", null), "saved");
 });

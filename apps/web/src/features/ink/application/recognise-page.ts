@@ -19,6 +19,8 @@
 import {
   applyInkSegmentation,
   INK_ENGINE_MAX_CONFIDENCE,
+  inkPageBackground,
+  inkPageFigures,
   inkPageConfidence,
   inkLineStrokes,
   inkStrokeBand,
@@ -30,6 +32,8 @@ import {
   type InkRecogniser,
   type InkRecognitionHints,
   type RecognisedLine,
+  withInkPageBackground,
+  withInkPageFigures,
 } from "@weaveforge/core";
 
 import { logToApp } from "@/lib/error-report/app-log";
@@ -210,4 +214,20 @@ export function recognisedPageFromModel(
     unsure: lines.filter((line) => line.text && isUnsureLine(line)).length,
     engine: engine ?? "",
   };
+}
+
+/**
+ * A page's text layer after a run: the typed text stays, the earlier run's
+ * text (`prior`) gives way to `recognised`, and the background line and the
+ * figures are re-applied. A typed note opened in Ink keeps its body (E34);
+ * text that no longer ends with `prior` was edited by hand and is kept whole.
+ */
+export function pageTextAfterRecognition(was: string, prior: string, recognised: string): string {
+  const body = withInkPageFigures(withInkPageBackground(was, null), []).trim();
+  const old = prior.trim();
+  let typed = body;
+  if (old && body === old) typed = "";
+  else if (old && body.endsWith(`\n${old}`)) typed = body.slice(0, -old.length).trim();
+  const text = [typed, recognised.trim()].filter(Boolean).join("\n\n");
+  return withInkPageFigures(withInkPageBackground(text, inkPageBackground(was)), inkPageFigures(was));
 }

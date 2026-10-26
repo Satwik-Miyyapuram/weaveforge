@@ -9,12 +9,14 @@
  * and a feature reaching into another's `ui/` fails `check:solid`.
  */
 
+import { shortcutLabel } from "@/lib/shortcut-label";
+
 export type DocumentModeName = "edit" | "read" | "ink" | "pdf";
 
 const MODE_LABELS: Record<DocumentModeName, string> = { edit: "Edit", read: "Read", ink: "Ink", pdf: "PDF" };
 const MODE_TITLES: Record<DocumentModeName, string> = {
-  edit: "Edit source (⌘E)",
-  read: "Read view (⌘E)",
+  edit: `Edit source (${shortcutLabel("⌘E")})`,
+  read: `Read view (${shortcutLabel("⌘E")})`,
   ink: "Ink — write by hand",
   pdf: "The paper's PDF",
 };

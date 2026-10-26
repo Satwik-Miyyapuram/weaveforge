@@ -217,6 +217,15 @@ export function tabForHref(href: string | null): TabRef | null {
   return id ? { kind: route.kind, id } : null;
 }
 
+/**
+ * The body a surface opens on: the editor's live text when there is one, else
+ * the saved body. Switching from Edit to Ink mounts the sheet before the
+ * editor's save has landed, so the saved body is a step behind (E35).
+ */
+export function surfaceBody(saved: string, live: string | null): string {
+  return live ?? saved;
+}
+
 export function DocumentHost({
   tab,
   mode,
@@ -388,7 +397,7 @@ export function DocumentHost({
     return (
       <InkHost
         noteId={tab.id}
-        body={body}
+        body={surfaceBody(body, liveBody)}
         deps={getContainer().ink}
         onSave={onSave}
         paperId={sheetPaperId}
@@ -400,7 +409,7 @@ export function DocumentHost({
     // Read mode of an ink note: the same sheet as Ink with the pen down, so
     // everything drawn on it — strokes, figures, diagrams, images — is there
     // to read. It takes no `onSave`: there is nothing to edit.
-    return <NoteReadView ink noteId={tab.id} body={body} paperId={sheetPaperId} />;
+    return <NoteReadView ink noteId={tab.id} body={surfaceBody(body, liveBody)} paperId={sheetPaperId} />;
   }
 
   if (renderer === "pdf" || renderer === "pdf_ink") {

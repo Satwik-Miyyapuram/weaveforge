@@ -34,6 +34,18 @@ export interface PlanWikiPagesInput {
   titleOf?(documentId: string): string | undefined;
 }
 
+/**
+ * The review card's text for a planned page: a bold title the card shows as
+ * its heading, a `Why:` line, then the drafted page itself (E26). Generic
+ * "Create note" said nothing about which page or why.
+ */
+export function wikiProposalContent(plan: WikiPagePlan): string {
+  const times = plan.mentions === 1 ? "once" : `${plan.mentions} times`;
+  const sources = plan.sourceDocumentIds.length;
+  const where = `${sources} note${sources === 1 ? "" : "s"} or paper${sources === 1 ? "" : "s"}`;
+  return [`**New wiki page "${plan.title}"**`, `Why: mentioned ${times} in ${where}.`, "", plan.body].join("\n");
+}
+
 const DEFAULT_MIN_MENTIONS = 2;
 const DEFAULT_MAX_PAGES = 25;
 
@@ -63,7 +75,9 @@ function renderPage(
   lines.push("");
   for (const source of sources) {
     lines.push(`- [[${source.title}]]`);
-    if (source.evidence) lines.push(`  - ${source.evidence}`);
+    // One line, so a snippet's own headings and lists cannot leak into the page (E28).
+    const evidence = source.evidence.replace(/\s+/g, " ").trim();
+    if (evidence) lines.push(`  - ${evidence}`);
   }
   lines.push("");
 

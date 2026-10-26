@@ -15,10 +15,6 @@
 import { useCallback, useRef, useState } from "react";
 import {
   errorMessage,
-  inkPageBackground,
-  inkPageFigures,
-  withInkPageBackground,
-  withInkPageFigures,
   type InkNoteMeta,
   type InkPage as InkPageModel,
   type InkRecogniser,
@@ -27,6 +23,7 @@ import {
 
 import {
   acceptLine,
+  pageTextAfterRecognition,
   recognisePage,
   recognisedPageFromModel,
   type RecognisedPage,
@@ -98,22 +95,19 @@ export function useInkRecognition(deps: InkRecognitionDeps) {
 
   /**
    * A recognised page becomes the worker's page, the column's lines and the
-   * body's text. Recognition replaces the page's text; the background line
-   * and the figures are the host's, so both are re-applied over the new text.
+   * body's text. `prior` is the earlier run's text: only that gives way, so
+   * typed text on the page stays (E34).
    * A result for a page the reader has left only writes that page's text: the
    * worker and the column now hold another page (21-01).
    */
   const applyRecognised = useCallback(
-    (result: RecognisedPage, at: number) => {
+    (result: RecognisedPage, at: number, prior: string) => {
       if (at === pageIndexRef.current) {
         sendReplace(result.page, at);
         setRecognised(result);
       }
       const was = textPagesRef.current[at] ?? "";
-      textPagesRef.current[at] = withInkPageFigures(
-        withInkPageBackground(result.text, inkPageBackground(was)),
-        inkPageFigures(was),
-      );
+      textPagesRef.current[at] = pageTextAfterRecognition(was, prior, result.text);
       metaRef.current = {
         ...metaRef.current,
         recognised: result.confidence,
@@ -147,7 +141,8 @@ export function useInkRecognition(deps: InkRecognitionDeps) {
         hints: workspaceHints,
         onProgress: (done, total) => setProgress(`line ${done} of ${total}`),
       });
-      applyRecognised(result, at);
+      const prior = model.lines.length > 0 ? recognisedPageFromModel(model, null).text : "";
+      applyRecognised(result, at, prior);
     } catch (error) {
       setUnavailable(errorMessage(error));
     } finally {
@@ -161,7 +156,7 @@ export function useInkRecognition(deps: InkRecognitionDeps) {
     (index: number, text: string) => {
       const current = recognisedRef.current;
       if (!current) return;
-      applyRecognised(acceptLine(current, index, text), pageIndexRef.current);
+      applyRecognised(acceptLine(current, index, text), pageIndexRef.current, current.text);
     },
     [applyRecognised],
   );

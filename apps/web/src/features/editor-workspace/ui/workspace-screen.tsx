@@ -57,6 +57,7 @@ import { StatusBar, saveState, type SegmentKey } from "./status-bar";
 import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, linkGroupOf, openingTab, openModeFor, segmentsFor } from "./kind";
 import { FormError } from "@/components/form-error";
 import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
+import { shortcutLabel } from "@/lib/shortcut-label";
 
 function store(): Storage | undefined {
   return typeof localStorage === "undefined" ? undefined : localStorage;
@@ -615,7 +616,7 @@ export function WorkspaceScreen() {
         <button
           type="button"
           className="focus-exit"
-          title="Exit focus (⌘⇧F)"
+          title={`Exit focus (${shortcutLabel("⌘⇧F")})`}
           aria-label="Exit focus"
           onClick={toggleFocus}
         >
@@ -626,7 +627,7 @@ export function WorkspaceScreen() {
         <button
           type="button"
           className="explorer-show"
-          title="Show explorer (⌘B)"
+          title={`Show explorer (${shortcutLabel("⌘B")})`}
           aria-label="Show explorer"
           onClick={toggleExplorer}
         >
