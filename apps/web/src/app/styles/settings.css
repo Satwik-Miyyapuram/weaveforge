@@ -65,8 +65,7 @@
 .ai-session-section > .field, .ai-session-section > .btn-secondary { margin-top: 16px; }
 .ai-session-section > .ai-start-access { display: block; margin-left: auto; }
 .ai-mcp-token-control { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 16px; padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.ai-mcp-token-control > div { display: grid; gap: 4px; }.ai-mcp-token-control small, .ai-token-list > small { color: var(--muted); font-size: var(--fs-xs); line-height: 1.4; }
-.ai-token-list { display: grid; gap: 8px; margin-top: 12px; }
+.ai-mcp-token-control > div { display: grid; gap: 4px; }.ai-mcp-token-control small { color: var(--muted); font-size: var(--fs-xs); line-height: 1.4; }
 .ai-source-scope { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 16px 0; padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .ai-session-duration { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 16px 0 0; padding: 0 0 12px; border-bottom: 1px solid var(--line); }.ai-session-duration > div { display: grid; gap: 2px; }.ai-session-duration small { color: var(--muted); font-size: var(--fs-xs); }.ai-session-duration .custom-select-container { width: 9rem; flex: none; }
 .ai-source-scope > div { display: grid; gap: 2px; }.ai-source-scope small { color: var(--muted); font-size: var(--fs-xs); }.ai-source-scope .custom-select-container { max-width: 12rem; flex: none; }

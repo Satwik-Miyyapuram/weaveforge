@@ -95,7 +95,7 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
               <LocalApiTokenCreate state={state} onChange={setState} />
             </>
           ) : (
-            <small className="muted">Create and revoke tokens in Settings → Access tokens.</small>
+            <small className="muted">Create and revoke tokens on <a href="#settings-tokens">Access tokens</a>.</small>
           )}
         </>
       )}

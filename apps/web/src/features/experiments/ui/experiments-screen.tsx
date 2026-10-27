@@ -21,7 +21,6 @@ import { emptyArray, emptyMap } from "@/lib/empty";
 import { usePinnedSharing } from "@/lib/hooks/use-pinned-sharing";
 import type { ExperimentsScreenData } from "@/features/experiments/application/load-experiments-screen.use-case";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { LocalApiTokenCreate, useLocalApiState } from "@/components/local-api-tokens";
 import { ScreenHead } from "@/components/screen-head";
 import { FilterRow } from "@/components/filter-row";
 import { warnOnce } from "@/lib/error-report/warn-once";
@@ -77,7 +76,6 @@ export function ExperimentsScreen() {
   const [view, setView] = usePersistedState<string>("thesis.experiments.view", "list");
   const [search, setSearch] = useState("");
   const [composeOpen, setComposeOpen] = useState(false);
-  const [sdkOpen, setSdkOpen] = useState(false);
   const [shareAllOpen, setShareAllOpen] = useState(false);
 
   const replace = useCallback(
@@ -187,8 +185,9 @@ export function ExperimentsScreen() {
                     ? [{
                         id: "sdk",
                         label: "Python SDK token",
-                        title: "Copy or create a token so training scripts log runs here",
-                        onSelect: () => setSdkOpen(true),
+                        title: "Make a token so training scripts log runs here",
+                        // One page holds every token (DA-132); its form starts on Experiments.
+                        onSelect: () => router.push("/settings#settings-tokens"),
                       }]
                     : []),
                   ...(items.length > 0
@@ -215,12 +214,6 @@ export function ExperimentsScreen() {
               showToast("Experiment created", { label: "Open", run: () => router.push(experimentHref(id)) });
             }}
           />
-        </Modal>
-      )}
-
-      {sdkOpen && (
-        <Modal title="Python SDK token" onClose={() => setSdkOpen(false)}>
-          <SdkTokenView />
         </Modal>
       )}
 
@@ -324,17 +317,3 @@ function experimentsEyebrow(experiments: Experiment[]): string | undefined {
   return running > 0 ? `${total} · ${running} running` : total;
 }
 
-/** Token picker for `pip install weaveforge` scripts talking to this desktop app. */
-function SdkTokenView() {
-  const [state, setState] = useLocalApiState();
-  if (!state) return <p className="muted">Loading…</p>;
-  return (
-    <div className="add-form">
-      <p className="muted">
-        Scripts on this computer log runs with <code>pip install weaveforge</code>. Set{" "}
-        <code>WEAVEFORGE_PROJECT</code> to this project&rsquo;s name.
-      </p>
-      <LocalApiTokenCreate state={state} onChange={setState} permissions={["experiments"]} />
-    </div>
-  );
-}
