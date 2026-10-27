@@ -6,44 +6,37 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
 <title>WeaveForge deadlines</title>
 <style>
+  /* Until the app sends its theme: the system's own colours and a plain flat
+     shape. The app sends every value below (design D-27), so the widget wears
+     the theme's colours, corners, border, shadows, font and sizes. */
   :root {
-    --bg: #fff0d9;
-    --well: #e8d5b5;
-    --line: #12110f;
-    --text: #12110f;
-    --muted: #574e3f;
-    --accent: #ffc536;
-    --accent-ink: #12110f;
-    --late: #ff654d;
-    --late-ink: #12110f;
-    --soon: #ffe5a9;
-    --soon-ink: #12110f;
-    --sh: 5px 5px 0 #12110f;
-    --sh-sm: 2px 2px 0 #12110f;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #1c1b19;
-      --well: #2a2825;
-      --line: #f2e1c4;
-      --text: #f2e1c4;
-      --muted: #b8a98f;
-      --accent: #ffc536;
-      --accent-ink: #12110f;
-      --late: #ff654d;
-      --late-ink: #12110f;
-      --soon: #5a4a1e;
-      --soon-ink: #f2e1c4;
-      --sh: 5px 5px 0 #000;
-      --sh-sm: 2px 2px 0 #000;
-    }
+    color-scheme: light dark;
+    --bg: Canvas;
+    --well: color-mix(in srgb, CanvasText 8%, Canvas);
+    --line: color-mix(in srgb, CanvasText 30%, Canvas);
+    --text: CanvasText;
+    --muted: GrayText;
+    --accent: Highlight;
+    --accent-ink: HighlightText;
+    --late: Mark;
+    --late-ink: MarkText;
+    --soon: color-mix(in srgb, Mark 40%, Canvas);
+    --soon-ink: CanvasText;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --bw: 1px;
+    --sh: none;
+    --sh-sm: none;
+    --font: "Segoe UI Variable Text", "Segoe UI";
+    --fs: 14px;
+    --fs-sm: 12px;
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
     height: 100%;
     background: transparent;
-    font-family: "Rubik", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    font-family: var(--font), system-ui, sans-serif;
     color: var(--text);
     -webkit-user-select: none;
     user-select: none;
@@ -55,8 +48,8 @@
     display: flex;
     flex-direction: column;
     background: var(--bg);
-    border: 2px solid var(--line);
-    border-radius: 6px;
+    border: var(--bw) solid var(--line);
+    border-radius: var(--radius);
     box-shadow: var(--sh);
     overflow: hidden;
   }
@@ -65,22 +58,22 @@
     align-items: baseline;
     gap: 8px;
     padding: 12px 14px 10px;
-    border-bottom: 2px solid var(--line);
+    border-bottom: var(--bw) solid var(--line);
     background: var(--accent);
     color: var(--accent-ink);
     /* The header is the handle: drag it to move the widget. */
     -webkit-app-region: drag;
     cursor: grab;
   }
-  h1 { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: -0.02em; }
-  .today { font-size: 12px; font-weight: 600; opacity: 0.75; }
+  h1 { margin: 0; font-size: calc(var(--fs) + 3px); font-weight: 800; letter-spacing: -0.02em; }
+  .today { font-size: var(--fs-sm); font-weight: 600; opacity: 0.75; }
   .late-count {
     margin-left: auto;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     font-weight: 700;
     padding: 1px 7px;
-    border: 2px solid var(--accent-ink);
-    border-radius: 4px;
+    border: var(--bw) solid var(--accent-ink);
+    border-radius: var(--radius-sm);
     background: var(--late);
     color: var(--late-ink);
   }
@@ -94,7 +87,7 @@
   li + li { border-top: 1px solid color-mix(in srgb, var(--line) 18%, transparent); }
   .what { min-width: 0; flex: 1; }
   .title {
-    font-size: 14px;
+    font-size: var(--fs);
     font-weight: 600;
     line-height: 1.25;
     white-space: nowrap;
@@ -102,7 +95,7 @@
     text-overflow: ellipsis;
   }
   .meta {
-    font-size: 12px;
+    font-size: var(--fs-sm);
     color: var(--muted);
     white-space: nowrap;
     overflow: hidden;
@@ -112,36 +105,36 @@
     flex: none;
     min-width: 58px;
     text-align: center;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     font-weight: 700;
     padding: 3px 6px;
-    border: 2px solid var(--line);
-    border-radius: 4px;
+    border: var(--bw) solid var(--line);
+    border-radius: var(--radius-sm);
     background: var(--well);
     box-shadow: var(--sh-sm);
   }
   .when.soon { background: var(--soon); color: var(--soon-ink); }
   .when.late { background: var(--late); color: var(--late-ink); }
   .blocked { color: var(--late-ink); font-weight: 700; }
-  .empty { padding: 22px 14px; color: var(--muted); font-size: 14px; }
+  .empty { padding: 22px 14px; color: var(--muted); font-size: var(--fs); }
   footer {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 8px 10px 10px 14px;
-    border-top: 2px solid var(--line);
-    font-size: 12px;
+    border-top: var(--bw) solid var(--line);
+    font-size: var(--fs-sm);
     color: var(--muted);
   }
   footer .undated { flex: 1; }
   button {
     font: inherit;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     font-weight: 700;
     color: var(--text);
     background: var(--well);
-    border: 2px solid var(--line);
-    border-radius: 4px;
+    border: var(--bw) solid var(--line);
+    border-radius: var(--radius-sm);
     padding: 3px 10px;
     box-shadow: var(--sh-sm);
     cursor: pointer;
@@ -235,12 +228,11 @@
   document.getElementById("open").addEventListener("click", () => window.planWidget.open());
   document.getElementById("hide").addEventListener("click", () => window.planWidget.hide());
   window.planWidget.onData(render);
-  // The app's own colours, so the widget matches its theme rather than the system's.
+  // The app's own colours and shape, so the widget matches its theme rather
+  // than the system's. Sent again on every theme change while it is open.
   window.planWidget.onTheme((palette) => {
     const root = document.documentElement.style;
     for (const [key, value] of Object.entries(palette)) root.setProperty(`--${key}`, value);
-    root.setProperty("--sh", `5px 5px 0 ${palette.line}`);
-    root.setProperty("--sh-sm", `2px 2px 0 ${palette.line}`);
   });
 </script>
 </body>
