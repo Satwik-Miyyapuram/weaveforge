@@ -1,11 +1,14 @@
 /**
  * A paper from a PDF file (design D-21).
  *
- * The DOI printed on the first page is the surest key; without one, the first
- * line that reads like a title is looked up; with neither, the paper is named
- * after the file and the toast says so. The file itself is kept as the paper's
- * PDF. Everything that touches pdf.js, the container or the byte cache is
- * injected, so the rules here run in a plain test.
+ * The DOI printed on the first page is the surest key; without one, the PDF's
+ * own title is looked up. Without a match, or offline, the paper still takes
+ * the PDF's title (its metadata title, else the first line that reads like a
+ * title) and the DOI it prints; only a PDF with neither, a scan, is named after
+ * the file, and the toast says so. The file itself is kept as the paper's PDF,
+ * and on a duplicate too when that paper has none yet. Everything that touches
+ * pdf.js, the container or the byte cache is injected, so the rules here run in
+ * a plain test.
  */
 
 import { MetadataResolutionError, extractDoi, type AddPaperResult, type Paper, type PaperRef } from "@weaveforge/core";
@@ -21,19 +24,37 @@ export interface PdfFileLike {
   arrayBuffer(): Promise<ArrayBuffer>;
 }
 
+/** What pdf.js reads off a PDF: the first page's text (empty for a scan) and the metadata title. */
+export interface PdfText {
+  readonly text: string;
+  readonly title?: string;
+}
+
 export interface PdfDropDeps {
   online(): boolean;
-  /** The first page's text; empty for a scan with no text layer. */
-  readFirstPage(bytes: ArrayBuffer): Promise<string>;
+  readPdf(bytes: ArrayBuffer): Promise<PdfText>;
   importRef(ref: PaperRef): Promise<AddPaperResult>;
-  addByTitle(title: string): Promise<AddPaperResult>;
+  addByTitle(title: string, doi?: string): Promise<AddPaperResult>;
+  hasPdf(paperId: string): Promise<boolean>;
   keepPdf(paperId: string, bytes: ArrayBuffer): Promise<void>;
   /** Note scaffold and Zotero push, as the add form does for a new paper. */
   afterCreate(paper: Paper): Promise<void>;
 }
 
+/** Where the title came from: a lookup's record, the PDF itself, or the file name. */
+export type TitledBy = "lookup" | "pdf" | "file";
+
 export type PdfDropOutcome =
-  | { kind: "added"; file: string; paper: Paper; created: boolean; matched: boolean; offline: boolean }
+  | {
+      kind: "added";
+      file: string;
+      paper: Paper;
+      created: boolean;
+      matched: boolean;
+      titledBy: TitledBy;
+      keptPdf: boolean;
+      offline: boolean;
+    }
   | { kind: "skipped"; file: string; reason: "not a PDF" | "too large" };
 
 export function isPdfFile(file: Pick<PdfFileLike, "name" | "type">): boolean {
@@ -51,6 +72,16 @@ export function guessTitle(text: string): string | undefined {
     .find((line) => line.length >= 12 && line.length <= 250 && line.split(" ").length >= 3 && /[a-z]/i.test(line) && !HEADER_NOISE.test(line));
 }
 
+// What writing tools leave in the Title field when the author set none.
+const PLACEHOLDER_TITLE = /^(microsoft (word|powerpoint)\b|untitled\b)|\.(pdf|docx?|tex|dvi|ps|rtf|odt)$/i;
+
+/** The metadata title, unless it is a tool's placeholder or a file name. */
+export function metadataTitle(raw: string | undefined): string | undefined {
+  const title = raw?.replace(/\s+/g, " ").trim();
+  if (!title || title.length < 6 || title.split(" ").length < 2 || PLACEHOLDER_TITLE.test(title)) return undefined;
+  return title;
+}
+
 /** Try one lookup; "no source knows it" is a miss, anything else is a fault. */
 async function tryRef(ref: PaperRef, deps: PdfDropDeps): Promise<AddPaperResult | null> {
   try {
@@ -61,12 +92,12 @@ async function tryRef(ref: PaperRef, deps: PdfDropDeps): Promise<AddPaperResult 
   }
 }
 
-async function firstPageText(bytes: ArrayBuffer, deps: PdfDropDeps): Promise<string> {
+async function readPdf(bytes: ArrayBuffer, deps: PdfDropDeps): Promise<PdfText> {
   try {
-    return await deps.readFirstPage(bytes);
+    return await deps.readPdf(bytes);
   } catch {
     // A PDF pdf.js cannot parse is still the user's file: keep it by its name.
-    return "";
+    return { text: "" };
   }
 }
 
@@ -76,21 +107,30 @@ export async function addPaperFromPdf(file: PdfFileLike, deps: PdfDropDeps): Pro
 
   const bytes = await file.arrayBuffer();
   const offline = !deps.online();
+  // pdf.js runs here, so the PDF is read offline too; only the lookups need the network.
+  const pdf = await readPdf(bytes, deps);
+  const doi = extractDoi(pdf.text) ?? undefined;
+  const title = metadataTitle(pdf.title) ?? guessTitle(pdf.text);
   let found: AddPaperResult | null = null;
   if (!offline) {
-    const text = await firstPageText(bytes, deps);
-    const doi = extractDoi(text);
     if (doi) found = await tryRef({ kind: "doi", value: doi }, deps);
-    const title = found ? undefined : guessTitle(text);
-    if (title) found = await tryRef({ kind: "bibliographic", value: title, hints: { title } }, deps);
+    if (!found && title) found = await tryRef({ kind: "bibliographic", value: title, hints: { title } }, deps);
   }
-  const result = found ?? (await deps.addByTitle(file.name.replace(/\.pdf$/i, "")));
-  // A duplicate is the library's own paper, with its own PDF and note.
-  if (result.created) {
-    await deps.keepPdf(result.paper.id, bytes);
-    await deps.afterCreate(result.paper);
-  }
-  return { kind: "added", file: file.name, paper: result.paper, created: result.created, matched: found !== null, offline };
+  const result = found ?? (await deps.addByTitle(title ?? file.name.replace(/\.pdf$/i, ""), doi));
+  // A duplicate keeps its own PDF and note; it takes the dropped file only when it has none.
+  const keptPdf = result.created || !(await deps.hasPdf(result.paper.id));
+  if (keptPdf) await deps.keepPdf(result.paper.id, bytes);
+  if (result.created) await deps.afterCreate(result.paper);
+  return {
+    kind: "added",
+    file: file.name,
+    paper: result.paper,
+    created: result.created,
+    matched: found !== null,
+    titledBy: found ? "lookup" : title ? "pdf" : "file",
+    keptPdf,
+    offline,
+  };
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -100,25 +140,30 @@ export function summarizePdfDrop(outcomes: readonly PdfDropOutcome[]): { message
   const added = outcomes.filter((o) => o.kind === "added");
   const created = added.filter((o) => o.created);
   const dupes = added.length - created.length;
-  const byName = created.filter((o) => !o.matched);
-  const offline = byName.some((o) => o.offline);
+  const byPdf = created.filter((o) => o.titledBy === "pdf");
+  const byName = created.filter((o) => o.titledBy === "file");
+  const offline = byPdf.some((o) => o.offline);
   const skipped = outcomes.length - added.length;
 
   const only = added[0];
   if (outcomes.length === 1 && only) {
-    if (!only.created) return { message: "Already in library", open: only.paper };
-    if (only.matched) return { message: "Paper added", open: only.paper };
-    return {
-      message: only.offline
-        ? "Paper added, titled from the file name — you are offline; look it up later"
-        : "Paper added, titled from the file name — no match found",
-      open: only.paper,
-    };
+    if (!only.created) return { message: only.keptPdf ? "Already in library — PDF attached" : "Already in library", open: only.paper };
+    if (only.titledBy === "lookup") return { message: "Paper added", open: only.paper };
+    if (only.titledBy === "pdf") {
+      return {
+        message: only.offline
+          ? "Paper added with the PDF's own title — offline, so details were not looked up"
+          : "Paper added with the PDF's own title — no match found online",
+        open: only.paper,
+      };
+    }
+    return { message: "Paper added, titled from the file name — the PDF has no readable title", open: only.paper };
   }
   const parts = [
     created.length > 0 && plural(created.length, "paper added", "papers added"),
     dupes > 0 && `${dupes} already in library`,
-    byName.length > 0 && `${byName.length} titled from the file name${offline ? " (offline)" : ""}`,
+    byPdf.length > 0 && (offline ? `${byPdf.length} not looked up (offline)` : `${byPdf.length} not found online`),
+    byName.length > 0 && `${byName.length} titled from the file name`,
     skipped > 0 && `${skipped} skipped`,
   ].filter(Boolean);
   return { message: parts.length > 0 ? parts.join(" · ") : "No PDFs to add" };

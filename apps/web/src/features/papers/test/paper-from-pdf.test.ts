@@ -2,8 +2,10 @@
  * A PDF on disk could not become a paper: the add form took a title or a
  * reference, never a file (design D-21, D23). Dropping a PDF on Papers, or
  * picking one in Add paper, reads the DOI off the first page, falls back to a
- * title lookup, and as a last resort names the paper after the file and says
- * so. The file is kept as the paper's PDF.
+ * title lookup, and without a match (or offline) titles the paper from the PDF
+ * itself: its metadata title, else its first title-like line. Only a PDF with
+ * neither (a scan) is named after the file, and the toast says so. The file is
+ * kept as the paper's PDF, on a duplicate too when that paper has none.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -24,18 +26,20 @@ const paper = (id: string, title = id) => ({ id, title }) as Paper;
 const bytes = new ArrayBuffer(8);
 
 function deps(over: Partial<PdfDropDeps> = {}) {
-  const calls = { refs: [] as PaperRef[], titles: [] as string[], kept: [] as string[], created: [] as string[] };
+  const calls = { refs: [] as PaperRef[], titles: [] as string[], dois: [] as (string | undefined)[], kept: [] as string[], created: [] as string[] };
   const d: PdfDropDeps = {
     online: () => true,
-    readFirstPage: async () => "",
+    readPdf: async () => ({ text: "" }),
     importRef: async (ref) => {
       calls.refs.push(ref);
       throw new MetadataResolutionError("no match");
     },
-    addByTitle: async (title) => {
+    addByTitle: async (title, doi) => {
       calls.titles.push(title);
+      calls.dois.push(doi);
       return { paper: paper("p-file", title), created: true };
     },
+    hasPdf: async () => false,
     keepPdf: async (id) => {
       calls.kept.push(id);
     },
@@ -56,7 +60,7 @@ const file = (name: string, size = 8, type = "application/pdf") => ({
 
 test("the DOI on the first page finds the paper", async () => {
   const { d, calls } = deps({
-    readFirstPage: async () => "Attention Is All You Need\nhttps://doi.org/10.48550/arXiv.1706.03762.\nAbstract",
+    readPdf: async () => ({ text: "Attention Is All You Need\nhttps://doi.org/10.48550/arXiv.1706.03762.\nAbstract" }),
     importRef: async (ref) => {
       calls.refs.push(ref);
       return { paper: paper("p-doi"), created: true };
@@ -72,7 +76,7 @@ test("the DOI on the first page finds the paper", async () => {
 
 test("no DOI falls back to a title lookup", async () => {
   const { d, calls } = deps({
-    readFirstPage: async () => "arXiv:1706.03762v5 [cs.CL]\nAttention Is All You Need\nAshish Vaswani",
+    readPdf: async () => ({ text: "arXiv:1706.03762v5 [cs.CL]\nAttention Is All You Need\nAshish Vaswani" }),
     importRef: async (ref) => {
       calls.refs.push(ref);
       return { paper: paper("p-title"), created: true };
@@ -86,25 +90,50 @@ test("no DOI falls back to a title lookup", async () => {
 });
 
 test("a DOI that resolves nowhere still tries the title", async () => {
-  const { d, calls } = deps({ readFirstPage: async () => "A Long Enough Paper Title Here\ndoi:10.1234/abcd" });
+  const { d, calls } = deps({ readPdf: async () => ({ text: "A Long Enough Paper Title Here\ndoi:10.1234/abcd" }) });
   await addPaperFromPdf(file("x.pdf"), d);
   assert.deepEqual(calls.refs.map((r) => r.kind), ["doi", "bibliographic"]);
 });
 
-test("no DOI and no match names the paper after the file, and says so", async () => {
-  // A scanned PDF has no text layer at all.
-  const { d, calls } = deps({ readFirstPage: async () => "" });
+test("no match online takes the title from the PDF itself, not the file name", async () => {
+  const { d, calls } = deps({ readPdf: async () => ({ text: "Preprint\nA Survey of Graph Neural Networks\nJ. Smith" }) });
+  const out = await addPaperFromPdf(file("smith2021.pdf"), d);
+  assert.deepEqual(calls.titles, ["A Survey of Graph Neural Networks"]);
+  assert.ok(out.kind === "added" && !out.matched && out.titledBy === "pdf");
+  assert.deepEqual(calls.kept, ["p-file"]);
+  assert.equal(summarizePdfDrop([out]).message, "Paper added with the PDF's own title — no match found online");
+});
+
+test("the PDF's metadata title wins over a guess from the first page", async () => {
+  const { d, calls } = deps({
+    readPdf: async () => ({ text: "Some Running Header Of The Page\nBody", title: "  Deep Residual Learning for Image Recognition " }),
+  });
+  await addPaperFromPdf(file("x.pdf"), d);
+  assert.equal(calls.refs[0]?.value, "Deep Residual Learning for Image Recognition", "the metadata title is looked up");
+  assert.deepEqual(calls.titles, ["Deep Residual Learning for Image Recognition"]);
+});
+
+test("a metadata title that is a tool's placeholder is ignored", async () => {
+  for (const junk of ["Microsoft Word - draft3.docx", "untitled", "paper.pdf", "main.tex", "x", "Untitled document"]) {
+    const { d, calls } = deps({ readPdf: async () => ({ text: "A Study of Things That Matter Here", title: junk }) });
+    await addPaperFromPdf(file("f.pdf"), d);
+    assert.deepEqual(calls.titles, ["A Study of Things That Matter Here"], junk);
+  }
+});
+
+test("a PDF with no readable title (a scan) is named after the file, and says so", async () => {
+  const { d, calls } = deps({ readPdf: async () => ({ text: "" }) });
   const out = await addPaperFromPdf(file("Smith 2021 - survey.PDF"), d);
   assert.deepEqual(calls.refs, [], "nothing to look up");
   assert.deepEqual(calls.titles, ["Smith 2021 - survey"]);
-  assert.ok(out.kind === "added" && !out.matched);
+  assert.ok(out.kind === "added" && !out.matched && out.titledBy === "file");
   assert.deepEqual(calls.kept, ["p-file"]);
-  assert.match(summarizePdfDrop([out]).message, /titled from the file name/);
+  assert.equal(summarizePdfDrop([out]).message, "Paper added, titled from the file name — the PDF has no readable title");
 });
 
 test("a PDF pdf.js cannot read is still kept under its file name", async () => {
   const { d, calls } = deps({
-    readFirstPage: async () => {
+    readPdf: async () => {
       throw new Error("Invalid PDF structure");
     },
   });
@@ -113,20 +142,31 @@ test("a PDF pdf.js cannot read is still kept under its file name", async () => {
   assert.ok(out.kind === "added" && !out.matched);
 });
 
-test("offline keeps the file under its name, to look up later", async () => {
-  const { d, calls } = deps({ online: () => false, readFirstPage: async () => "doi:10.1234/abcd" });
+test("offline still reads the PDF: its own title, and the DOI it prints", async () => {
+  const { d, calls } = deps({
+    online: () => false,
+    readPdf: async () => ({ text: "Attention Is All You Need\ndoi:10.1234/abcd" }),
+  });
   const out = await addPaperFromPdf(file("later.pdf"), d);
   assert.deepEqual(calls.refs, [], "no lookup while offline");
-  assert.deepEqual(calls.titles, ["later"]);
+  assert.deepEqual(calls.titles, ["Attention Is All You Need"]);
+  assert.deepEqual(calls.dois, ["10.1234/abcd"], "the DOI is kept on the paper");
   assert.deepEqual(calls.kept, ["p-file"]);
-  assert.ok(out.kind === "added" && out.offline);
-  assert.match(summarizePdfDrop([out]).message, /offline/i);
+  assert.ok(out.kind === "added" && out.offline && out.titledBy === "pdf");
+  assert.equal(summarizePdfDrop([out]).message, "Paper added with the PDF's own title — offline, so details were not looked up");
 });
 
-test("a duplicate DOI opens the existing paper and leaves its PDF alone", async () => {
+test("a printed DOI that resolves nowhere is still kept on the paper", async () => {
+  const { d, calls } = deps({ readPdf: async () => ({ text: "A Long Enough Paper Title Here\ndoi:10.1234/abcd" }) });
+  await addPaperFromPdf(file("x.pdf"), d);
+  assert.deepEqual(calls.dois, ["10.1234/abcd"]);
+});
+
+test("a duplicate that has its own PDF opens the existing paper and leaves the PDF alone", async () => {
   const { d, calls } = deps({
-    readFirstPage: async () => "doi:10.1234/abcd",
+    readPdf: async () => ({ text: "doi:10.1234/abcd" }),
     importRef: async () => ({ paper: paper("p-old"), created: false }),
+    hasPdf: async () => true,
   });
   const out = await addPaperFromPdf(file("dup.pdf"), d);
   assert.ok(out.kind === "added" && !out.created);
@@ -137,9 +177,22 @@ test("a duplicate DOI opens the existing paper and leaves its PDF alone", async 
   assert.equal(s.open?.id, "p-old");
 });
 
+test("a duplicate with no PDF yet keeps the dropped file", async () => {
+  const { d, calls } = deps({
+    readPdf: async () => ({ text: "doi:10.1234/abcd" }),
+    importRef: async () => ({ paper: paper("p-old"), created: false }),
+  });
+  const out = await addPaperFromPdf(file("dup.pdf"), d);
+  assert.ok(out.kind === "added" && !out.created && out.keptPdf);
+  assert.deepEqual(calls.kept, ["p-old"]);
+  assert.deepEqual(calls.created, [], "no second note or Zotero push");
+  assert.equal(summarizePdfDrop([out]).message, "Already in library — PDF attached");
+});
+
+
 test("a lookup error that is not 'no match' is reported, not hidden", async () => {
   const { d } = deps({
-    readFirstPage: async () => "doi:10.1234/abcd",
+    readPdf: async () => ({ text: "doi:10.1234/abcd" }),
     importRef: async () => {
       throw new Error("library is read-only");
     },
@@ -161,22 +214,25 @@ test("non-PDFs and huge files are skipped before any work", async () => {
 });
 
 test("several PDFs give one toast with the count", () => {
-  const added = (id: string, created = true, matched = true): PdfDropOutcome => ({
+  const added = (id: string, created = true, matched = true, titledBy: "lookup" | "pdf" | "file" = "lookup"): PdfDropOutcome => ({
     kind: "added",
     file: `${id}.pdf`,
     paper: paper(id),
     created,
     matched,
+    titledBy,
+    keptPdf: created,
     offline: false,
   });
   const s = summarizePdfDrop([
     added("a"),
     added("b"),
-    added("c", true, false),
+    added("c", true, false, "file"),
+    added("e", true, false, "pdf"),
     added("d", false),
     { kind: "skipped", file: "x.txt", reason: "not a PDF" },
   ]);
-  assert.equal(s.message, "3 papers added · 1 already in library · 1 titled from the file name · 1 skipped");
+  assert.equal(s.message, "4 papers added · 1 already in library · 1 not found online · 1 titled from the file name · 1 skipped");
   assert.equal(s.open, undefined, "no single paper to open");
   assert.equal(summarizePdfDrop([added("a")]).message, "Paper added");
   assert.equal(summarizePdfDrop([added("a")]).open?.id, "a");

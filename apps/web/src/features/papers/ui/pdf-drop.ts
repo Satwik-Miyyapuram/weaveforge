@@ -7,16 +7,18 @@ import { getContainer } from "@/bootstrap";
 import { getReaderPdfByteCache } from "@/features/reader/application/resolve-paper-pdf-for-reader";
 import { pdfPageText } from "@/features/search/application/index-library-pdfs";
 import { scaffoldNewPaperNote } from "../application/paper-source-note-scaffold";
-import { addPaperFromPdf, type PdfDropDeps, type PdfDropOutcome, type PdfFileLike } from "../application/paper-from-pdf";
+import { addPaperFromPdf, type PdfDropDeps, type PdfDropOutcome, type PdfFileLike, type PdfText } from "../application/paper-from-pdf";
 
-async function readFirstPage(bytes: ArrayBuffer): Promise<string> {
+async function readPdf(bytes: ArrayBuffer): Promise<PdfText> {
   const lib = await import("pdfjs-dist");
   lib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
   // pdf.js takes ownership of the buffer it is handed; the copy keeps ours for the cache.
   const doc = await lib.getDocument({ data: bytes.slice(0) }).promise;
   try {
     const page = await doc.getPage(1);
-    return pdfPageText((await page.getTextContent()).items);
+    const text = pdfPageText((await page.getTextContent()).items);
+    const info = (await doc.getMetadata().catch(() => null))?.info as { Title?: unknown } | undefined;
+    return { text, title: typeof info?.Title === "string" ? info.Title : undefined };
   } finally {
     await doc.destroy();
   }
@@ -28,9 +30,10 @@ function deps(): PdfDropDeps {
   const papers = getContainer().papers;
   return {
     online: () => typeof navigator === "undefined" || navigator.onLine,
-    readFirstPage,
+    readPdf,
     importRef: (ref) => papers.importPaper.importRef(ref),
-    addByTitle: (title) => papers.addPaper.add({ title }),
+    addByTitle: (title, doi) => papers.addPaper.add(doi ? { title, doi } : { title }),
+    hasPdf: async (paperId) => (await getReaderPdfByteCache()?.has(paperId)) ?? false,
     keepPdf: async (paperId, bytes) => {
       const cache = getReaderPdfByteCache();
       if (!cache) throw new Error(NO_CACHE);
