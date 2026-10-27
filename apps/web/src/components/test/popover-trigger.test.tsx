@@ -1,28 +1,43 @@
-/** A popover's trigger is the shared Button unless it is a swatch, chip or icon (D02). */
+/** A popover's trigger is one catalogue look, chosen by name; its open state is aria-expanded (D02). */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { Popover } from "../popover";
 
-const src = (rel: string) => readFileSync(fileURLToPath(new URL(`../../${rel}`, import.meta.url)), "utf8");
+const html = (node: React.ReactElement) => renderToStaticMarkup(node);
+/** The trigger's opening tag, so attribute order does not matter. */
+const tag = (out: string) => out.match(/<button[^>]*>/)?.[0] ?? "";
 
-test("the default trigger is a secondary Button, with any extra class", () => {
-  const html = renderToStaticMarkup(<Popover label="Filter" triggerClassName="account-btn">x</Popover>);
-  assert.match(html, /<button type="button" [^>]*class="btn-secondary account-btn popover-trigger"/);
+test("the default trigger is a secondary button with a caret", () => {
+  const out = html(<Popover label="Filter">x</Popover>);
+  assert.match(tag(out), /class="wf-btn"/);
+  assert.match(tag(out), /aria-expanded="false"/);
+  assert.match(tag(out), /aria-haspopup="dialog"/);
+  assert.match(out, /popover-caret/);
 });
 
-test("a custom trigger carries only its own class", () => {
-  const html = renderToStaticMarkup(<Popover label="Pen" look="custom" triggerClassName="colour-menu-trigger">x</Popover>);
-  assert.match(html, /class="colour-menu-trigger popover-trigger"/);
-  assert.doesNotMatch(html, /btn-secondary/);
+test("an icon trigger is a square icon button named by ariaLabel, with no caret", () => {
+  const out = html(<Popover label={<svg />} trigger="icon" ariaLabel="Account">x</Popover>);
+  for (const attr of ['class="wf-btn wf-icon"', 'aria-label="Account"', 'title="Account"']) assert.ok(tag(out).includes(attr), attr);
+  assert.doesNotMatch(out, /popover-caret/);
 });
 
-test("no caller writes a button class on a popover trigger by hand", () => {
-  for (const rel of ["app/header-actions.tsx", "components/card-menu.tsx", "components/colour-menu.tsx", "features/ink/ui/ink-bar.tsx", "features/projects/ui/project-switcher.tsx"]) {
-    assert.doesNotMatch(src(rel), /triggerClassName="[^"]*\bbtn-/, rel);
-  }
-  assert.match(src("components/popover.tsx"), /const Trigger = look === "button" \? Button : RowButton;/);
+test("a swatch trigger is painted with its colour", () => {
+  const out = html(<Popover label={null} trigger="swatch" colour="#ff0000" ariaLabel="Pen colour">x</Popover>);
+  for (const attr of ['class="wf-swatch"', 'style="background:#ff0000"', 'aria-label="Pen colour"']) assert.ok(tag(out).includes(attr), attr);
+  // It opens a menu; it is not an on/off toggle.
+  assert.doesNotMatch(tag(out), /aria-pressed/);
+});
+
+test("a select trigger is a select field, which draws its own arrow", () => {
+  const out = html(<Popover label="Project" trigger="select">x</Popover>);
+  assert.match(tag(out), /class="wf-select"/);
+  assert.match(tag(out), /aria-haspopup="dialog"/);
+  assert.doesNotMatch(out, /popover-caret/);
+});
+
+test("a caller cannot class the trigger", () => {
+  // @ts-expect-error the trigger's look is chosen by `trigger`, not a class
+  void (<Popover label="x" triggerClassName="account-btn">x</Popover>);
 });

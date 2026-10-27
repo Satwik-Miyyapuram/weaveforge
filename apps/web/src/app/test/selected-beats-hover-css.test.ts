@@ -14,8 +14,8 @@ function interactionRules(prefix: string): string[] {
 }
 
 for (const [name, prefix] of [
-  ["segmented pill", ':root:root :is(.wf-seg, .seg) > button:is(:'],
-  ["tool", ":root:root :is(.wf-tool, .ink-tool, .pdf-reader-create-icon, .pdf-reader-pop-btn):is(:"],
+  ["segmented pill", ':root:root .wf-seg > button:is(:'],
+  ["tool", ":root:root .wf-tool:is(:"],
 ] as const) {
   test(`${name} hover and press skip the selected state`, () => {
     const rules = interactionRules(prefix);

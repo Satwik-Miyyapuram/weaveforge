@@ -16,11 +16,11 @@ test("the brand is a link Home, not the collapse control", () => {
 });
 
 test("collapsing is its own labelled button", () => {
-  const button = tabbar.match(/<RowButton[^>]*className="nav-collapse"[^>]*>/s)?.[0];
+  const button = tabbar.match(/<IconButton[^>]*onClick=\{onToggle\}[^>]*>/s)?.[0];
   assert.ok(button, "no nav-collapse button");
   assert.match(button, /onClick=\{onToggle\}/);
   assert.match(button, /aria-expanded=\{!collapsed\}/);
-  assert.match(button, /aria-label=/);
+  assert.match(button, /label=/);
   assert.doesNotMatch(tabbar, /nav-brand-toggle/);
   assert.doesNotMatch(nav, /nav-brand-toggle/);
 });

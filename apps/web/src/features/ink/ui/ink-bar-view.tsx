@@ -14,7 +14,8 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { ChevronIcon } from "@/components/chevron-icon";
 import { BarMenuList, useBarMenu } from "./ink-bar-menus";
-import { MenuItemButton, RowButton, ToggleButton } from "@/components/controls";
+import { Button } from "@/components/button";
+import { MenuItemButton, ToolButton } from "@/components/controls";
 import { MinusIcon, PlusIcon } from "@/components/view-icons";
 
 /** An Insert item that stays armed after it is picked: a tool, not an action. */
@@ -62,21 +63,18 @@ export function InsertMenu({
 
   return (
     <div className="ink-menu ink-menu-insert" ref={open ? menuRef : undefined}>
-      <ToggleButton pressed={active !== null}
-        className="ink-tool ink-menu-trigger"
+      <ToolButton label="Insert" tip="Insert a picture, a snip or a text box" pressed={active !== null}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label="Insert"
-        title="Insert a picture, a snip or a text box"
         onClick={() => setOpen((was) => !was)}
       >
         {active === "clip" ? <ClipGlyph /> : active === "text" ? <TextGlyph /> : <ImageGlyph />}
         <Caret open={open} />
-      </ToggleButton>
+      </ToolButton>
       {open ? (
         <BarMenuList label="Insert" className="ink-menu-insert-list" listRef={listRef} pos={pos}>
           {picture ? (
-            <MenuItemButton className="ink-menu-item" onClick={choose(picture)}>
+            <MenuItemButton onClick={choose(picture)}>
               <ImageGlyph />
               <span>
                 {onAddPicture ? "Image from file…" : hasPageBackground ? "Change the page image…" : "Page image from file…"}
@@ -84,20 +82,19 @@ export function InsertMenu({
             </MenuItemButton>
           ) : null}
           {hasPageBackground && onRemovePageBackground ? (
-            <MenuItemButton className="ink-menu-item" onClick={choose(onRemovePageBackground)}>
+            <MenuItemButton onClick={choose(onRemovePageBackground)}>
               <ImageOffGlyph />
               <span>Remove the page image</span>
             </MenuItemButton>
           ) : null}
           {onInsertPage ? (
-            <MenuItemButton className="ink-menu-item" onClick={choose(onInsertPage)}>
+            <MenuItemButton onClick={choose(onInsertPage)}>
               <PdfGlyph />
               <span>Pages from a PDF or image…</span>
             </MenuItemButton>
           ) : null}
           {onClip ? (
             <MenuItemButton kind="radio" checked={active === "clip"}
-              className="ink-menu-item"
               onClick={choose(onClip)}
             >
               <ClipGlyph />
@@ -106,7 +103,6 @@ export function InsertMenu({
           ) : null}
           {onTextBox ? (
             <MenuItemButton kind="radio" checked={active === "text"}
-              className="ink-menu-item"
               onClick={choose(onTextBox)}
             >
               <TextGlyph />
@@ -170,8 +166,7 @@ export function ViewMenu({
   return (
     <ZoomPill onZoomOut={onZoomOut} onZoomIn={onZoomIn}>
       <div className="ink-menu ink-menu-view" ref={open ? menuRef : undefined}>
-        <RowButton
-          className="ink-page-count ink-zoom-level"
+        <Button variant="ghost" size="sm"
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label={`Zoom ${zoomPercent}%, fit and rotate`}
@@ -180,14 +175,13 @@ export function ViewMenu({
         >
           {zoomPercent}%
           <Caret open={open} />
-        </RowButton>
+        </Button>
         {open ? (
           <BarMenuList label="View" className="ink-menu-view-list" listRef={listRef} pos={pos}>
             {onZoomTo ? <ZoomPresets zoomPercent={zoomPercent} onZoomTo={onZoomTo} onChosen={() => setOpen(false)} /> : null}
             {onZoomTo && (fits || onRotate) ? <hr className="ink-menu-rule" /> : null}
             {onFitWidth ? (
               <MenuItemButton kind="radio" checked={fit === "width"}
-                className="ink-menu-item"
                 onClick={choose(onFitWidth)}
               >
                 <FitGlyph />
@@ -196,7 +190,6 @@ export function ViewMenu({
             ) : null}
             {onFitPage ? (
               <MenuItemButton kind="radio" checked={fit === "page"}
-                className="ink-menu-item"
                 onClick={choose(onFitPage)}
               >
                 <FitGlyph page />
@@ -205,7 +198,7 @@ export function ViewMenu({
             ) : null}
             {fits && onRotate ? <hr className="ink-menu-rule" /> : null}
             {onRotate ? (
-              <MenuItemButton className="ink-menu-item" onClick={choose(onRotate)}>
+              <MenuItemButton onClick={choose(onRotate)}>
                 <RotateGlyph />
                 <span>Rotate</span>
                 <kbd>R</kbd>
@@ -243,13 +236,13 @@ export function ZoomPill({
 }) {
   return (
     <div className="ink-page-pill ink-zoom-pill">
-      <RowButton className="ink-tool ink-tool-icon-only" onClick={onZoomOut} disabled={outDisabled} title="Zoom out" aria-label="Zoom out">
+      <ToolButton label="Zoom out" onClick={onZoomOut} disabled={outDisabled}>
         <MinusIcon />
-      </RowButton>
+      </ToolButton>
       {children}
-      <RowButton className="ink-tool ink-tool-icon-only" onClick={onZoomIn} disabled={inDisabled} title="Zoom in" aria-label="Zoom in">
+      <ToolButton label="Zoom in" onClick={onZoomIn} disabled={inDisabled}>
         <PlusIcon />
-      </RowButton>
+      </ToolButton>
     </div>
   );
 }
@@ -275,11 +268,11 @@ export function PagePill({
 }) {
   return (
     <div className="ink-page-pill">
-      <RowButton className="ink-tool ink-tool-icon-only" onClick={onPrevPage} disabled={page <= 1} title="Previous page" aria-label="Previous page">
+      <ToolButton label="Previous page" onClick={onPrevPage} disabled={page <= 1}>
         <Svg size={14} width={2.2}>
           <path d="m15 18-6-6 6-6" />
         </Svg>
-      </RowButton>
+      </ToolButton>
       <span className="ink-page-count" aria-label={`Page ${page} of ${pages}`}>
         {onGoToPage ? (
           <PageField page={page} pages={pages} onGoToPage={onGoToPage} />
@@ -289,17 +282,17 @@ export function PagePill({
         <span className="ink-page-sep" aria-hidden="true">/</span>
         <span className="ink-page-total">{pages}</span>
       </span>
-      <RowButton className="ink-tool ink-tool-icon-only" onClick={onNextPage} disabled={page >= pages} title="Next page" aria-label="Next page">
+      <ToolButton label="Next page" onClick={onNextPage} disabled={page >= pages}>
         <Svg size={14} width={2.2}>
           <path d="m9 18 6-6-6-6" />
         </Svg>
-      </RowButton>
+      </ToolButton>
       {onAddPage ? (
-        <RowButton className="ink-tool ink-tool-icon-only ink-page-add" onClick={onAddPage} title="Add a blank page" aria-label="Add a blank page">
+        <ToolButton label="Add a blank page" onClick={onAddPage}>
           <Svg size={14} width={2.2}>
             <path d="M12 5v14M5 12h14" />
           </Svg>
-        </RowButton>
+        </ToolButton>
       ) : null}
     </div>
   );
@@ -308,7 +301,7 @@ export function PagePill({
 /** The writing-page switch, as a checked menu item. */
 export function WritingPageItem({ on, onChange }: { on: boolean; onChange: () => void }) {
   return (
-    <MenuItemButton kind="checkbox" checked={on} className="ink-menu-item" onClick={onChange}>
+    <MenuItemButton kind="checkbox" checked={on} onClick={onChange}>
       <WritingPageGlyph />
       <span>Writing page beside each page</span>
     </MenuItemButton>
@@ -330,7 +323,6 @@ export function ZoomPresets({
       {ZOOM_PRESETS.map((level) => (
         <MenuItemButton kind="radio" checked={zoomPercent === level}
           key={level}
-          className="ink-menu-item"
           onClick={() => {
             onChosen?.();
             onZoomTo(level);

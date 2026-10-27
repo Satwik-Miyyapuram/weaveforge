@@ -51,11 +51,13 @@ import {
   type ViewMenuProps,
 } from "./ink-bar-view";
 import { InkQuickColours } from "./ink-quick-colours";
+import { INK_COLOUR_TOKENS } from "../render/ink-palette";
 import { useQuickColours } from "./use-quick-colours";
 import { PaletteDockButton, PaletteFoldButton, usePaletteDock } from "@/components/palette-dock";
 import { Popover } from "@/components/popover";
 import { shortcutLabel } from "@/lib/shortcut-label";
-import { RowButton, ToggleButton } from "@/components/controls";
+import { Button } from "@/components/button";
+import { Swatch, ToolButton } from "@/components/controls";
 import { useRovingToolbar } from "@/lib/hooks/use-roving-toolbar";
 
 export { toolLabel } from "./ink-bar-glyphs";
@@ -318,25 +320,19 @@ export function InkBar({
         aria-label="Drawing tools"
       >
         {onSelect ? (
-          <ToggleButton pressed={selectActive}
-            className="ink-tool ink-tool-icon-only"
-            aria-label="Select (V)"
-            title="Select (V)"
+          <ToolButton label="Select (V)" pressed={selectActive}
             onClick={onSelect}
           >
             {selectPointer ? <PointerGlyph /> : <SelectGlyph />}
-          </ToggleButton>
+          </ToolButton>
         ) : null}
         {INK_BAR_TOOLS.map((entry) => (
-          <ToggleButton pressed={inking && tool === entry}
+          <ToolButton label={`${toolLabel(entry)} (${entry[0]!.toUpperCase()})`} pressed={inking && tool === entry}
             key={entry}
-            className="ink-tool ink-tool-icon-only"
-            aria-label={`${toolLabel(entry)} (${entry[0]!.toUpperCase()})`}
-            title={`${toolLabel(entry)} (${entry[0]!.toUpperCase()})`}
             onClick={() => onTool(entry)}
           >
             {toolIcon(entry)}
-          </ToggleButton>
+          </ToolButton>
         ))}
       </div>
 
@@ -351,13 +347,12 @@ export function InkBar({
           stays `ink-swatches` so the docked focus palette keeps it. */}
       <div className="ink-swatches ink-pen-pick">
         <Popover
-          iconOnly
+          trigger="swatch"
+          colour={`var(${INK_COLOUR_TOKENS[colour]})`}
           portal
           ariaLabel="Pen colour and nib"
-          look="custom"
-          triggerClassName="colour-menu-trigger ink-pen-trigger"
           label={
-            <span className={`ink-swatch colour-menu-current ink-swatch-${colour}`} aria-hidden>
+            <span aria-hidden>
               {/* The nib shows whatever the tool, so the swatch reads as the pen's colour and size. */}
               <span
                 className="ink-pen-trigger-nib"
@@ -376,11 +371,11 @@ export function InkBar({
                   aria-label={i === 0 ? "Theme colours" : "Marker colours"}
                 >
                   {row.map((entry) => (
-                    <ToggleButton pressed={colour === entry}
+                    <Swatch
                       key={entry}
-                      className={`ink-swatch ink-swatch-${entry}`}
-                      aria-label={`Ink colour: ${entry}`}
-                      title={`Ink colour: ${entry}`}
+                      label={`Ink colour: ${entry}`}
+                      selected={colour === entry}
+                      colour={`var(${INK_COLOUR_TOKENS[entry]})`}
                       onClick={() => {
                         // The quick colour in use takes the new colour, so the
                         // five are changed here rather than in a second palette.
@@ -409,12 +404,9 @@ export function InkBar({
 
       {/* 4. Undo / Redo */}
       <div className="ink-bar-group">
-        <RowButton
-          className="ink-tool ink-tool-icon-only"
+        <ToolButton label="Undo" tip={`Undo (${shortcutLabel("⌘Z")})`}
           onClick={onUndo}
           disabled={!canUndo}
-          title={`Undo (${shortcutLabel("⌘Z")})`}
-          aria-label="Undo"
         >
           <svg
             width="16"
@@ -430,13 +422,10 @@ export function InkBar({
             <path d="M3 7v6h6" />
             <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
           </svg>
-        </RowButton>
-        <RowButton
-          className="ink-tool ink-tool-icon-only"
+        </ToolButton>
+        <ToolButton label="Redo" tip={`Redo (${shortcutLabel("⌘⇧Z")})`}
           onClick={onRedo}
           disabled={!canRedo}
-          title={`Redo (${shortcutLabel("⌘⇧Z")})`}
-          aria-label="Redo"
         >
           <svg
             width="16"
@@ -452,7 +441,7 @@ export function InkBar({
             <path d="M21 7v6h-6" />
             <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
           </svg>
-        </RowButton>
+        </ToolButton>
       </div>
 
       {/* Lasso Selection Actions. Each button is drawn only when its surface
@@ -463,31 +452,28 @@ export function InkBar({
           <span className="ink-sep" aria-hidden="true" />
           <div className="ink-bar-group">
             {onCopyStrokes ? (
-              <RowButton
-                className="ink-tool ink-tool-text"
+              <Button variant="ghost" size="sm"
                 onClick={onCopyStrokes}
                 title="Copy the selected strokes to paste into any note (Ctrl+C)"
               >
                 Copy
-              </RowButton>
+              </Button>
             ) : null}
             {onCopyAsText ? (
-              <RowButton
-                className="ink-tool ink-tool-text"
+              <Button variant="ghost" size="sm"
                 onClick={onCopyAsText}
                 title="Copy the selected strokes' recognised text"
               >
                 Copy as text
-              </RowButton>
+              </Button>
             ) : null}
             {onDeleteSelection ? (
-              <RowButton
-                className="ink-tool ink-tool-text"
+              <Button variant="ghost" size="sm"
                 onClick={onDeleteSelection}
                 title={`Delete the ${selected} selected stroke${selected === 1 ? "" : "s"} (Delete)`}
               >
                 Delete {selected} stroke{selected === 1 ? "" : "s"}
-              </RowButton>
+              </Button>
             ) : null}
           </div>
         </>
@@ -523,14 +509,13 @@ export function InkBar({
             outDisabled={zoom <= INK_ZOOM_MIN}
             inDisabled={zoom >= INK_ZOOM_MAX}
           >
-            <RowButton
-              className="ink-page-count ink-zoom-level"
+            <Button variant="ghost" size="sm"
               onClick={() => onZoom(1)}
               title={`${Math.round(zoom * 100)}%: fit the page width`}
               aria-label={`${Math.round(zoom * 100)}%: fit the page width`}
             >
               {Math.round(zoom * 100)}%
-            </RowButton>
+            </Button>
           </ZoomPill>
         </>
       ) : null}
@@ -543,8 +528,7 @@ export function InkBar({
           <span className="ink-sep" aria-hidden="true" />
 
           {/* 6. OCR Recognise */}
-          <RowButton
-            className="ink-tool ink-action-recognise"
+          <Button variant="ghost" size="sm"
             onClick={onRecognise}
             disabled={busy}
             title={`Recognise this page (${shortcutLabel("⌘⇧R")})`}
@@ -563,7 +547,7 @@ export function InkBar({
               <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z" />
             </svg>
             <span>{busy ? (progress ?? "Recognising…") : "Recognise"}</span>
-          </RowButton>
+          </Button>
         </>
       ) : null}
 
@@ -612,15 +596,12 @@ export function NibRow({
     return (
       <div className="colour-menu-row ink-bar-widths" role="group" aria-label="Highlighter width">
         {INK_HIGHLIGHTER_WIDTHS.map((entry) => (
-          <ToggleButton pressed={highlighterWidth === entry}
+          <ToolButton label={`Highlighter ${entry / 10} mm`} pressed={highlighterWidth === entry}
             key={entry}
-            className="ink-tool ink-tool-icon-only ink-tool-nib"
-            aria-label={`Highlighter ${entry / 10} mm`}
-            title={`Highlighter ${entry / 10} mm`}
             onClick={() => onHighlighterWidth(entry)}
           >
             <span className="ink-nib-dot ink-nib-bar" style={{ width: "6px", height: `${3 + entry / 10}px` }} />
-          </ToggleButton>
+          </ToolButton>
         ))}
       </div>
     );
@@ -630,15 +611,12 @@ export function NibRow({
       {INK_PEN_WIDTHS.map((entry) => {
         const dotSize = 3 + entry;
         return (
-          <ToggleButton pressed={width === entry && tool === "pen"}
+          <ToolButton label={`Nib ${(entry / 10).toFixed(1)} mm`} pressed={width === entry && tool === "pen"}
             key={entry}
-            className="ink-tool ink-tool-icon-only ink-tool-nib"
-            aria-label={`Nib ${(entry / 10).toFixed(1)} mm`}
-            title={`Nib ${(entry / 10).toFixed(1)} mm`}
             onClick={() => onWidth(entry)}
           >
             <span className="ink-nib-dot" style={{ width: `${dotSize}px`, height: `${dotSize}px` }} />
-          </ToggleButton>
+          </ToolButton>
         );
       })}
     </div>

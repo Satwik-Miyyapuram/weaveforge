@@ -26,9 +26,8 @@ test("Reset layout can be undone instead of asked about", () => {
   assert.match(screen, /showToast\("Layout reset", \{ label: "Undo", run: \(\) => setLayout\(before\) \}\)/);
 });
 
-test("a card's ✕ is an IconButton and its handle a full-size grip", () => {
-  assert.match(grid, /<IconButton\s+className="dashboard-card-remove"[^>]*label=\{`Remove \$\{def\.label\}`\}/);
-  assert.doesNotMatch(grid, /<RowButton\s+className="dashboard-card-remove"/);
+test("a card's ✕ is a CloseButton and its handle a full-size grip", () => {
+  assert.match(grid, /<CloseButton\s+size="sm"\s+label=\{`Remove \$\{def\.label\}`\}/);
   assert.match(grid, /<span className="dashboard-drag-handle" title="Drag to move" aria-hidden>\s*<GripIcon \/>/);
   assert.match(css, /\.dashboard-drag-handle \{[^}]*width: var\(--control-lg\);[^}]*height: var\(--control-lg\);/);
   assert.doesNotMatch(css, /\.dashboard-card-remove \{[^}]*padding: 0 2px/, "the IconButton keeps its own size");

@@ -28,40 +28,13 @@
   margin: 16px 0 8px;
 }
 .filter-row > * { flex: none; }
-.filter-row > .filter-chip:not(.filter-chip--more) { flex: 0 1 auto; min-width: 6em; max-width: 16em; }
+.filter-row > .wf-chip { flex: 0 1 auto; min-width: 6em; max-width: 16em; }
 /* Too narrow for chips: the select labels already name the picks. */
-@container (max-width: 900px) { .filter-row .filter-chip { display: none; } }
-.filter-chip--more { padding-right: 12px; cursor: default; }
+@container (max-width: 900px) { .filter-row > .wf-chip { display: none; } }
 .filter-row .custom-select-container.filter-select { width: auto; flex: none; }
-.filter-row .filter-select .custom-select-button { padding: 8px 12px; min-width: 116px; }
+.filter-row .filter-select .wf-select { padding: 8px 12px; min-width: 116px; }
 .view-switch { margin-left: auto; flex: none; }
 .view-switch button { display: inline-flex; align-items: center; gap: 8px; }
-.filter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 8px 4px 12px;
-  font-size: var(--fs-sm);
-  color: var(--ink);
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-pill);
-  white-space: nowrap;
-}
-.filter-chip-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.filter-chip-x {
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  color: var(--muted);
-  background: none;
-  border: 0;
-  border-radius: var(--r-pill);
-  cursor: pointer;
-}
-.filter-chip-x:hover { filter: brightness(0.8); color: var(--ink); }
 
 @media (max-width: 899px) {
   /* The row wraps rather than scrolls: a scrolling row cut its last filter
@@ -71,7 +44,7 @@
      shorter one has room to spare. */
   .filter-row { flex-wrap: wrap; margin: 16px 0 4px; }
   .filter-row .custom-select-container.filter-select { flex: 1 1 auto; min-width: 0; max-width: 240px; }
-  .filter-row .filter-select .custom-select-button { min-width: 0; width: 100%; }
+  .filter-row .filter-select .wf-select { min-width: 0; width: 100%; }
   .screen-actions .search-input { flex: 1 1 auto; width: auto; }
 }
 
@@ -120,23 +93,18 @@
   width: 1%;
 }
 
-
-.papers-table-title-btn {
+.papers-table-title {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   max-width: 100%;
-  font: inherit;
-  font-weight: 500;
-  text-align: left;
-  color: var(--ink);
+  text-align: start;
   white-space: normal;
   overflow: hidden;
   overflow-wrap: anywhere;
   line-height: 1.35;
 }
-.papers-table-title-btn:hover { color: var(--accent-ink); }
 .papers-table-shared {
   display: block;
   margin-top: 2px;
@@ -223,11 +191,7 @@
 @media (max-width: 899px) {
   .paper-article { padding: 24px 16px; }
   .paper-note-body { padding: 12px; }
-  .paper-note-head .entity-icon-btn,
-  .paper-note-head .entity-open-icon {
-    width: 34px;
-    height: 34px;
-  }
+
 }
 
 /* Footer: delete pinned left; Edit + Show more/less grouped at the right, and
@@ -245,16 +209,7 @@
 
 /* Keyword tags. */
 .tag-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; }
-.tag-chip {
-  display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs);
-  padding: 4px 8px; border-radius: var(--r-pill); background: var(--chip); color: var(--accent-ink);
-}
-.tag-chip.editable { padding-right: 4px; }
-.tag-del {
-  border: none; background: none; cursor: pointer; color: var(--muted);
-  font-size: var(--fs); line-height: 1; padding: 0 2px;
-}
-.tag-del:hover { color: var(--danger); }
+
 .tag-editor { margin-top: 12px; }
 
 .paper-source-meta { margin: 4px 0 12px; display: grid; gap: 4px; }
@@ -372,7 +327,6 @@
  * boxes, status as dots and a word, occasional actions out of sight until the
  * pointer is on the card. The grid carries titles, not controls. */
 
-
 /* Library upkeep, as a band across the screen rather than a line of small
    print: what needs doing, why it matters, and the one button that does it. */
 .tidy-notice {
@@ -387,7 +341,7 @@
 }
 .tidy-notice-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .tidy-notice-text .muted { font-size: var(--fs); }
-.tidy-notice .btn-secondary { flex: none; }
+.tidy-notice .wf-btn { flex: none; }
 
 /* The catalogue is a quiet list, not a wall of floating cards, but it still
    answers to Settings → Appearance: Bordered draws each entry's hairline,
@@ -408,18 +362,18 @@
 /* Not in Poster/CRT: at (0,6,0) this beat their card hover and dropped the
    status tint and the stamped shadow. Pointer only, as a tap left it stuck. */
 @media (hover: hover) {
-:root:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card[role="button"]:hover {
+:root:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card[role="presentation"]:hover {
   box-shadow: none;
   background-color: color-mix(in srgb, var(--surface2) 55%, transparent);
   border-color: var(--border-strong);
 }
-:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card[role="button"]:hover {
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card[role="presentation"]:hover {
   border-color: transparent;
   background-color: var(--surface2);
 }
 /* No hover lift unless reactive motion is on — then its tilt is the feedback,
    and cancelling `transform` here would silently switch that setting off. */
-:root:not([data-motion="reactive"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card[role="button"]:hover {
+:root:not([data-motion="reactive"]) :is(.papers-screen, .vault-screen) .card.entity-card.paper-card[role="presentation"]:hover {
   transform: none;
 }
 }
@@ -428,15 +382,10 @@
 
 /* Faint rather than hidden: on a touch-only screen there is no hover to
    reveal it with. */
-:is(.papers-screen, .vault-screen) .paper-card .card-menu-trigger {
-  opacity: 0.35;
-  border-color: transparent;
-  background: none;
-  transition: opacity var(--dur-base);
-}
-:is(.papers-screen, .vault-screen) .paper-card:hover .card-menu-trigger,
-:is(.papers-screen, .vault-screen) .paper-card:focus-within .card-menu-trigger,
-:is(.papers-screen, .vault-screen) .paper-card .card-menu-trigger[aria-expanded="true"] { opacity: 1; }
+:is(.papers-screen, .vault-screen) .paper-card .popover > .wf-icon { opacity: 0.35; }
+:is(.papers-screen, .vault-screen) .paper-card:hover .popover > .wf-icon,
+:is(.papers-screen, .vault-screen) .paper-card:focus-within .popover > .wf-icon,
+:is(.papers-screen, .vault-screen) .paper-card .popover > .wf-icon[aria-expanded="true"] { opacity: 1; }
 
 .tidy-option { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; font-size: var(--fs); }
 .tidy-option input[type="checkbox"] { flex: none; margin: 4px 0 0; }

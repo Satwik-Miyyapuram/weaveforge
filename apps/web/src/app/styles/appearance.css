@@ -59,7 +59,7 @@
 /* A switch, not a checkbox: the row already names the setting, so the control
    only has to say on or off. Sits at the right edge like the selects above. */
 /* Switches align to the right edge of their appearance row; toggle styling handled by states.css */
-.appearance-switch {
+.appearance-row > .wf-toggle {
   justify-self: end;
 }
 

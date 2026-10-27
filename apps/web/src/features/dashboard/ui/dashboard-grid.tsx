@@ -25,8 +25,8 @@ import { DashboardCardBody } from "./cards/dashboard-card-body";
 import type { DashboardStats } from "../application/build-dashboard-stats";
 import type { SupervisionStats } from "../application/build-supervision-stats";
 import type { Member } from "@weaveforge/core";
-import { CloseIcon, GripIcon } from "@/components/view-icons";
-import { IconButton } from "@/components/button";
+import { GripIcon } from "@/components/view-icons";
+import { CloseButton } from "@/components/button";
 
 const BREAKPOINTS = { lg: DESKTOP_BREAKPOINT_PX, sm: 0 };
 const COLS = { lg: 12, sm: 4 };
@@ -339,15 +339,13 @@ export function DashboardGrid({
                     <GripIcon />
                   </span>
                   <span className="dashboard-card-label">{def.label}</span>
-                  <IconButton
-                    className="dashboard-card-remove"
+                  <CloseButton
+                    size="sm"
                     label={`Remove ${def.label}`}
                     onMouseDown={(e) => e.stopPropagation()}
                     onTouchStart={(e) => e.stopPropagation()}
                     onClick={() => onRemove(item.id)}
-                  >
-                    <CloseIcon />
-                  </IconButton>
+                  />
                 </div>
               )}
               {!editing && <h3 className="dashboard-card-heading">{def.label}</h3>}

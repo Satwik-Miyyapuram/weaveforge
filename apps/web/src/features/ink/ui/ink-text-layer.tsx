@@ -18,7 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 import { isUnsureLine, type RecognisedLine } from "@weaveforge/core";
 import { Markdown } from "@/components/markdown/markdown";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
-import { RowButton } from "@/components/controls";
+import { Button } from "@/components/button";
 
 export interface InkTextLayerProps {
   /** The page's lines, in reading order; empty when nothing has been recognised. */
@@ -107,16 +107,15 @@ export function InkTextLayer({
               {line.alternatives?.length ? (
                 <div className="ink-alternatives">
                   {line.alternatives.map((alt) => (
-                    <RowButton
+                    <Button variant="ghost" size="sm"
                       key={alt}
-                      className="ink-tool"
                       // Keep focus in the field: its blur would accept the
                       // draft and unmount this button before the click lands.
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => accept(index, alt)}
                     >
                       {alt}
-                    </RowButton>
+                    </Button>
                   ))}
                 </div>
               ) : null}

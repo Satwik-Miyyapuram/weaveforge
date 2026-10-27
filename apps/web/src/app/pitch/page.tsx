@@ -53,11 +53,11 @@ export default function PitchPage() {
           </nav>
           <div className={s["top-end"]}>
             <a className={s["top-link"]} href={DOCS_URL}>Docs</a>
-            <a className={s["icon-btn"]} href={REPO_URL} aria-label="WeaveForge on GitHub" title="GitHub">
+            <a className={s["repo-link"]} href={REPO_URL} aria-label="WeaveForge on GitHub" title="GitHub">
               <GitHubMark />
             </a>
             <ThemePicker theme={theme} onPick={pickTheme} />
-            <a className={k("btn btn-primary top-cta")} href={APP_URL}>Open the app</a>
+            <a className={k("btn cta-main top-cta")} href={APP_URL}>Open the app</a>
           </div>
         </div>
         <div className={s.progress} data-progress />
@@ -74,8 +74,8 @@ export default function PitchPage() {
           <h2 className={s.h2}>Start with one paper.</h2>
           <p className={s.lede}>Paste a DOI. By the time it reaches section 3.2 it will still remember where it came from.</p>
           <div className={s.row} style={{ justifyContent: "center" }}>
-            <a className={k("btn btn-primary btn-lg")} href={APP_URL}>Open the app</a>
-            <a className={k("btn btn-secondary btn-lg")} href={REPO_URL}>Read the source</a>
+            <a className={k("btn cta-main btn-lg")} href={APP_URL}>Open the app</a>
+            <a className={k("btn cta-alt btn-lg")} href={REPO_URL}>Read the source</a>
           </div>
         </section>
       </main>
@@ -226,8 +226,8 @@ function Hero() {
           the other five. WeaveForge keeps the thread.
         </p>
         <div className={s.row}>
-          <a className={k("btn btn-primary btn-lg")} href={APP_URL}>Open the app</a>
-          <a className={k("btn btn-secondary btn-lg")} href="#chain">Follow one paper</a>
+          <a className={k("btn cta-main btn-lg")} href={APP_URL}>Open the app</a>
+          <a className={k("btn cta-alt btn-lg")} href="#chain">Follow one paper</a>
         </div>
         <div className={s.aud}>
           <a href="#chain"><b>Researchers</b><span>the workspace</span></a>
@@ -466,7 +466,7 @@ function LabsAct() {
                 <span className={s.ava} style={{ background: "var(--hl2)", marginLeft: -8 }}>PB</span>
               </span>
               <span
-                className={k("btn btn-secondary collab")}
+                className={k("btn cta-alt collab")}
                 style={{ minHeight: 34, padding: "0 12px", fontSize: "calc(var(--btn-fs) - 2px)" }}
               >
                 Share

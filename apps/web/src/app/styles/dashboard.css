@@ -1,30 +1,10 @@
 .dashboard-screen .screen-title-block { flex: 1 1 auto; min-width: 0; }
 /* The project's name heads the page; a long one wraps rather than losing its end. */
 .dashboard-screen .screen-title { overflow-wrap: anywhere; }
-.dashboard-customize-btn {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-lg);
-  height: var(--control-lg);
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--control-radius);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition: background var(--dur-base), color var(--dur-base), border-color var(--dur-base);
-}
+
 /* The shared button rule pads every button 7px 13px at :root:root weight;
    on this 36px square that left the icon 9px wide. An icon button has no padding. */
-:root:root .dashboard-customize-btn { padding: 0; }
-.dashboard-customize-btn svg { flex: none; }
-.dashboard-customize-btn:hover {
-  background: var(--pill);
-  color: var(--ink);
-  border-color: var(--border);
-}
+
 .report-screen .screen-title {
   flex: 1 1 auto;
   min-width: 0;
@@ -210,7 +190,7 @@
 .dashboard-card-label {
   flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.dashboard-card-remove { flex: none; }
+
 .dashboard-card-heading {
   font-size: var(--fs-micro); font-weight: 600; margin: 0 0 8px; color: var(--muted);
  letter-spacing: 0.06em;
@@ -274,10 +254,7 @@
 .dashboard-list-row:hover { color: var(--accent-ink, var(--accent)); }
 .dashboard-list-arrow { color: var(--muted); flex: none; }
 .dashboard-list-more { font-size: var(--fs-sm); padding: 2px 0; }
-.dashboard-list-more-btn {
-  background: none; border: 0; padding: 0; font: inherit; color: var(--accent-ink); cursor: pointer;
-}
-.dashboard-list-more-btn:hover { text-decoration: underline; }
+
 /* Every item shown: the list scrolls inside the card, which keeps its size. */
 .dashboard-list--all { max-height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .dashboard-log-row { flex-direction: column; align-items: flex-start; gap: 2px; }
@@ -293,20 +270,14 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .dashboard-supervisee-select { width: 100%; }
-.dashboard-supervisee-select .custom-select-button {
+.dashboard-supervisee-select .wf-select {
   padding: 8px 12px; font-size: var(--fs); background: var(--pill); border-color: var(--border);
 }
 .dashboard-supervisee-meta { margin: 0; font-size: var(--fs-sm); }
-.dashboard-view-full {
-  justify-self: start; margin-top: 2px; font-size: var(--fs);
-}
+
 .dashboard-picker { display: grid; gap: 16px; }
 .dashboard-picker-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.dashboard-picker-btn {
-  width: 100%; text-align: left; padding: 12px 12px; border: 1px solid var(--line);
-  border-radius: var(--r-control); background: var(--card); cursor: pointer; color: var(--ink);
-}
-.dashboard-picker-btn:hover { background: var(--pill); }
+
 .react-grid-placeholder { background: var(--active-bg) !important; opacity: 0.35 !important; border-radius: var(--r-control); }
 
 /* ---- Mobile layout (≤899px — matches nav + dashboard breakpoint) ---- */
@@ -324,7 +295,7 @@
 
   .mobile-only { margin-bottom: 8px; }
   .sub-nav { margin: 12px 0 4px; }
-  .sub-tab { min-height: 44px; }
+  .sub-nav > .wf-nav { min-height: 44px; }
 
   /* Header: title on its own row when present; actions may wrap on narrow phones. */
   .head-row { flex-wrap: wrap; row-gap: 12px; }
@@ -335,8 +306,6 @@
     flex-wrap: wrap;
     gap: 8px;
   }
-  .screen-actions .btn-primary,
-  .screen-actions .btn-secondary { padding: 8px 16px; }
 
   /* Progress lives on Home; Plan keeps its timeline. */
   .screen:not(.plan-screen) .progress-card { display: none; }
@@ -345,7 +314,7 @@
   .sub-nav { top: env(safe-area-inset-top, 0px); }
 
   /* Thumb-friendly text actions (edit / delete / share links). */
-  .link-btn {
+  .wf-link {
     min-height: var(--touch-min);
     min-width: var(--touch-min);
     padding: 12px 8px;
@@ -404,8 +373,8 @@
    the row after evenly. */
 @media (max-width: 479px) {
   .screen-actions > .search-input { flex: 1 1 100%; order: -2; }
-  .screen-actions > :is(.btn-primary, .btn-secondary, .popover, a):not(.dashboard-customize-btn) { flex: 1 1 0; justify-content: center; }
-  .screen-actions > .btn-primary { flex: 1 1 100%; order: -1; }
+  .screen-actions > :is(.wf-btn, .popover, a):not(.wf-icon) { flex: 1 1 0; justify-content: center; }
+  .screen-actions > .wf-primary { flex: 1 1 100%; order: -1; }
   .screen-actions > .popover > button { width: 100%; }
 }
 

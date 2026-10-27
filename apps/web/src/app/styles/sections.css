@@ -41,14 +41,8 @@
   background: color-mix(in srgb, var(--surface2) 40%, transparent);
   box-shadow: none;
 }
-.section-head-toggle { flex: none; margin-top: 0; align-self: flex-start; }
-/* Tree chevrons share --control-sm with .list-toggle (no 44px override). */
-.section-head-toggle.list-toggle {
-  width: var(--control-sm);
-  height: var(--control-sm);
-  border-radius: var(--control-radius-sm);
-  box-shadow: none;
-}
+/* The chevron's slot: a small icon button, top-aligned with the title. */
+.section-head-toggle { display: inline-flex; flex: none; margin-top: 0; align-self: flex-start; }
 /* A leaf in the tree keeps the chevron's width, so every title starts at one x. */
 .section-head-toggle-spacer { flex: none; width: var(--control-sm); height: var(--control-sm); }
 /* One width for every value, so the select never moves the title. */
@@ -100,17 +94,13 @@
   cursor: pointer;
 }
 .status-select.custom-select-container { width: auto; }
-.status-select .custom-select-button {
+.status-select .wf-select {
   padding: 8px 12px;
   min-height: var(--control-md);
   border-radius: var(--r-sm);
   gap: 8px;
   font-size: var(--fs-xs);
   line-height: 1.2;
-}
-.status-select .custom-select-button .chev svg {
-  width: 14px;
-  height: 14px;
 }
 /* Menu must outgrow a narrow trigger — otherwise "Skimmed" letter-ladders. */
 /* The menu carries its instance class (see Select), so these target it
@@ -121,11 +111,6 @@
   max-width: none;
   min-width: max(100%, 8.5rem);
   width: max-content;
-}
-.custom-select-menu.status-select .custom-select-item,
-.status-select .custom-select-item {
-  white-space: nowrap;
-  overflow-wrap: normal;
 }
 
 /* Markdown body */
@@ -141,7 +126,7 @@
 @media (max-width: 480px) {
   /* One row at 375px: Edit and Comments keep their words, Share and ⋯ are icons. */
   .section-note-toolbar { gap: 8px; }
-  .section-note-toolbar .comments-trigger-detail { padding-inline: 12px; }
+
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.section-note-progress, .section-item-progress) {
   background: var(--surface2);

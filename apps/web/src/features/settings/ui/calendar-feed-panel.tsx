@@ -131,7 +131,7 @@ export function CalendarFeedPanel() {
           </Select>
         </div>
         <label className="calendar-feed-check">
-          <input type="checkbox" className="themed-check" checked={includeDone} onChange={(e) => setIncludeDone(e.target.checked)} />
+          <input className="wf-check" type="checkbox" checked={includeDone} onChange={(e) => setIncludeDone(e.target.checked)} />
           Include finished milestones
         </label>
       </div>
@@ -185,7 +185,7 @@ export function CalendarFeedPanel() {
             {busy ? "Working…" : link ? "Make a new link" : "Make a link"}
           </Button>
           {link ? (
-            <Button variant="link" className="danger" disabled={busy} onClick={() => setConfirming("off")}>
+            <Button variant="cancel" disabled={busy} onClick={() => setConfirming("off")}>
               Turn off
             </Button>
           ) : null}

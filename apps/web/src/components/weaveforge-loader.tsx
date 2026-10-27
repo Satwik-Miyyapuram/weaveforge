@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
-import { RowButton } from "./controls";
+import { Button } from "./button";
 
 const FEATURE_TIPS = [
   {
@@ -136,9 +136,9 @@ function ThesisLoader({
       {slow ? (
         <p className="weaveforge-loader-slow">
           Still on “{status.replace(/…$/, "")}” after {SLOW_AFTER_MS / 1000}s. Taking longer than usual.{" "}
-          <RowButton className="auth-link" onClick={() => window.location.reload()}>
+          <Button variant="link" onClick={() => window.location.reload()}>
             Reload
-          </RowButton>
+          </Button>
         </p>
       ) : null}
       {showTips ? (

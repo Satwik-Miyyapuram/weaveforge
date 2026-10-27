@@ -68,7 +68,7 @@ test("Select has one name on every surface", () => {
 test("the zoom level says what pressing it does", () => {
   withWindow(() => {
     const tree = render({ zoom: 1, onZoom: noop });
-    const level = tree.root.find((n) => typeof n.type === "string" && n.props.className?.includes?.("ink-zoom-level"));
+    const level = tree.root.find((n) => n.type === "button" && String(n.props["aria-label"]).endsWith("fit the page width"));
     assert.equal(level.props["aria-label"], "100%: fit the page width");
     assert.equal(level.props.title, level.props["aria-label"]);
     act(() => tree.unmount());

@@ -17,7 +17,7 @@ const rule = (selector: string) => {
 };
 
 test("a tab fits a typical name beside its extension", () => {
-  const max = Number(/max-width:\s*(\d+)px/.exec(rule(".pane-tab"))?.[1]);
+  const max = Number(/max-width:\s*(\d+)px/.exec(rule(".pane-tab-slot"))?.[1]);
   // icon 14 + name 114 + extension 56 + close 16 + gaps 24 - 4 + padding 24
   assert.ok(max >= 248, `max-width ${max}`);
   assert.match(rule(".pane-tab-ext"), /flex:\s*none/);

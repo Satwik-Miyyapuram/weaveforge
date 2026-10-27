@@ -78,7 +78,7 @@ test("the widget gets the theme's corners, border, shadows, font and text sizes"
 test("the shape is probed off a card and a control, and sent with the colours", () => {
   const src = readFileSync(fileURLToPath(new URL("../plan-widget-theme.tsx", import.meta.url)), "utf8");
   assert.match(src, /className = "card"/);
-  assert.match(src, /className = "btn-secondary btn-sm"/);
+  assert.match(src, /className = "wf-btn wf-sm"/);
   assert.match(src, /bridge\.setPlanWidgetTheme\?\.\(\{ \.\.\.palette, \.\.\.widgetShape\(/);
 });
 

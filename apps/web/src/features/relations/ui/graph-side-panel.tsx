@@ -8,13 +8,13 @@ import { getContainer } from "@/bootstrap";
 import { RELATION_COLORS, tagColor } from "../domain/graph-palette";
 import { noteTags, relatedConcepts as relatedConceptCounts } from "../application/graph-tags";
 import { Select } from "@/components/select";
-import { Button, IconButton } from "@/components/button";
+import { Button, CloseButton, IconButton } from "@/components/button";
 import { CloseIcon } from "@/components/view-icons";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { removeRelationLater } from "./remove-relation";
 import { relationPhrase } from "./relation-phrase";
-import { RowButton } from "@/components/controls";
+import { Chip } from "@/components/controls";
 
 interface StoredAnnotation {
   text?: string;
@@ -100,11 +100,7 @@ export function GraphSidePanel({
           {paper && <span className="status-pill">{enumLabel("paperStatus", paper.status)}</span>}
           {section && <span className="status-pill">{humanise(section.status)}</span>}
         </span>
-        <Button variant="ghost" className="graph-side-close" onClick={onClose} aria-label="Close panel">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </Button>
+        <CloseButton label="Close panel" onClick={onClose} />
       </div>
       {paper && (
         <PaperPanel
@@ -186,9 +182,9 @@ function PaperPanel({
       {paper.tags.length > 0 && (
         <div className="tag-chips">
           {paper.tags.map((t) => (
-            <RowButton key={t} className="tag-chip tag-chip-btn" onClick={() => onSelectConcept(t)}>
+            <Chip key={t} onClick={() => onSelectConcept(t)}>
               #{t}
-            </RowButton>
+            </Chip>
           ))}
         </div>
       )}
@@ -216,13 +212,14 @@ function PaperPanel({
                     {paperLabel(papers, otherId)}
                   </Button>
                   {e.source === "auto" && <span className="muted"> (auto)</span>}
-                  <Button variant="link" className="graph-side-rel-remove"
-                    aria-label={`Delete relation with ${paperLabel(papers, otherId)}`}
-                    title="Delete relation"
-                    onClick={() => removeRelation(e.id)}
-                  >
-                    <CloseIcon />
-                  </Button>
+                  <span className="graph-side-rel-remove">
+                    <CloseButton
+                      size="sm"
+                      label={`Delete relation with ${paperLabel(papers, otherId)}`}
+                      tip="Delete relation"
+                      onClick={() => removeRelation(e.id)}
+                    />
+                  </span>
                 </li>
               );
             })}
@@ -253,9 +250,9 @@ function NotePanel({
       {uniqueTags.length > 0 && (
         <div className="tag-chips">
           {uniqueTags.map((t) => (
-            <RowButton key={t} className="tag-chip tag-chip-btn" onClick={() => onSelectConcept(t)}>
+            <Chip key={t} onClick={() => onSelectConcept(t)}>
               #{t}
-            </RowButton>
+            </Chip>
           ))}
         </div>
       )}
@@ -426,9 +423,9 @@ function ConceptPanel({
           <div className="muted">Co-occurring</div>
           <div className="tag-chips">
             {relatedConcepts.map(([t, n]) => (
-              <RowButton key={t} className="tag-chip tag-chip-btn" onClick={() => onSelectConcept(t)}>
+              <Chip key={t} onClick={() => onSelectConcept(t)}>
                 #{t} <span className="muted">({n})</span>
-              </RowButton>
+              </Chip>
             ))}
           </div>
         </div>
@@ -441,7 +438,7 @@ function ConceptPanel({
               <li key={i} className="annotation">
                 {ann.color && <span className="annotation-swatch" style={{ background: ann.color }} aria-hidden />}
                 <div className="annotation-body">
-                  <Button variant="link" className="annotation-paper" onClick={() => onSelectPaper(p.id)}>
+                  <Button variant="link" size="sm" onClick={() => onSelectPaper(p.id)}>
                     {paperLabel(papers, p.id, 48)}
                   </Button>
                   {ann.text && <p className="annotation-text">{ann.text}</p>}

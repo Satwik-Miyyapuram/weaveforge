@@ -16,7 +16,7 @@ import {
   type McpClientId,
 } from "./mcp-client-config";
 import { Button } from "@/components/button";
-import { RowButton, TabButton } from "@/components/controls";
+import { TabButton } from "@/components/controls";
 
 const CHIP: Partial<Record<DesktopLocalApiPermission, string>> = {
   "mcp:read": "read & search",
@@ -187,9 +187,9 @@ export function McpClients({
               </>
             )}
             <div className="mcp-row">
-              <RowButton className="mcp-danger" disabled={busy} onClick={() => void act(() => desktop()?.disconnectMcp?.())}>
+              <Button variant="cancel" disabled={busy} onClick={() => void act(() => desktop()?.disconnectMcp?.())}>
                 Disconnect
-              </RowButton>
+              </Button>
             </div>
           </>
         ) : (
@@ -211,7 +211,6 @@ export function McpClients({
               <TabButton selected={t.id === tab}
                 key={t.id}
                 id={`mcp-tab-${t.id}`}
-                className="mcp-tab"
                 aria-controls="mcp-client-pane"
                 tabIndex={t.id === tab ? 0 : -1}
                 onClick={() => setTab(t.id)}

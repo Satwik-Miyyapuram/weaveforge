@@ -16,7 +16,7 @@ const css = readFileSync(fileURLToPath(new URL("../../../../app/styles/git.css",
 
 test("the checkbox is the one control on the card face for done", () => {
   assert.doesNotMatch(card, /<StatusSelect/);
-  assert.match(card, /className="themed-check milestone-check"/);
+  assert.match(card, /className="wf-check"/);
   // The face shows the shared status pill, tinted per status like every other card.
   assert.match(card, /status=\{<span className=\{`status status-\$\{m\.status\}`\}>\{statusLabel\(m\.status\)\}<\/span>\}/);
 });

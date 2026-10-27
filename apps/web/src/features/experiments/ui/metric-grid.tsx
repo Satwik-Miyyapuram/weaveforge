@@ -6,7 +6,7 @@ import { readStored, writeStored } from "@/lib/safe-storage";
 
 import { fitCols } from "./plot-size";
 import { MinusIcon, PlusIcon } from "@/components/view-icons";
-import { RowButton } from "@/components/controls";
+import { IconButton } from "@/components/button";
 
 const KEY = "metric-grid:cols";
 const MAX_COLS = 10;
@@ -53,10 +53,10 @@ export function MetricGrid({
   return (
     <div className={`metric-grid metric-grid--${variant}`}>
       {max > 1 && (
-        <label className="seg metric-grid-zoom" onWheel={onWheel} title="Scroll to zoom">
-          <RowButton aria-label="Zoom out" disabled={cols >= max} onClick={() => set(cols + 1)}>
+        <label className="metric-grid-zoom" onWheel={onWheel} title="Scroll to zoom">
+          <IconButton size="sm" label="Zoom out" disabled={cols >= max} onClick={() => set(cols + 1)}>
             <MinusIcon />
-          </RowButton>
+          </IconButton>
           <input
             type="range"
             min={1}
@@ -73,10 +73,10 @@ export function MetricGrid({
               <option key={i} value={i + 1} />
             ))}
           </datalist>
-          <RowButton aria-label="Zoom in" disabled={cols <= 1} onClick={() => set(cols - 1)}>
+          <IconButton size="sm" label="Zoom in" disabled={cols <= 1} onClick={() => set(cols - 1)}>
             <PlusIcon />
-          </RowButton>
-          <span className="seg-on metric-grid-count">{cols} per row</span>
+          </IconButton>
+          <span className="metric-grid-count">{cols} per row</span>
         </label>
       )}
       <div ref={gridRef} className={`metric-curves metric-curves--${variant}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>

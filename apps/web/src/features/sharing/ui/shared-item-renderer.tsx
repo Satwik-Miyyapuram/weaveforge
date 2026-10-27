@@ -12,6 +12,8 @@ import { AddToLibraryButton } from "@/features/sharing/ui/add-to-library-button"
 import { DuplicateCopyButton } from "@/features/sharing/ui/duplicate-copy-button";
 import { sharedItemHref, sharedItemTypeLabel } from "@/features/sharing/ui/shared-item-routes";
 import { OpenIcon } from "@/components/view-icons";
+import { IconLink } from "@/components/button";
+import { Chip } from "@/components/controls";
 import type { SharedItemDetail } from "@/features/sharing/application/load-shared-details";
 
 /** Resource kinds that only live as cards (no dedicated detail page for comments). */
@@ -140,7 +142,7 @@ function SharedCard({
         <ShareTags kind={item.kind} canComment={canComment} />
         <div className="card-head">
           <h3 className="card-title">{title}</h3>
-          <span className="tag-chip shared-by-chip">Shared by {ownerName}</span>
+          <SharedBy ownerName={ownerName} />
         </div>
         {children}
       </Link>
@@ -148,9 +150,9 @@ function SharedCard({
         {footStart}
         <AddToLibraryButton resourceType={item.kind} resourceId={item.id} ownerId={item.ownerId} />
         {footEnd}
-        <Link href={href} className="entity-icon-btn" aria-label="Open" title="Open">
+        <IconLink href={href} label="Open">
           <OpenIcon />
-        </Link>
+        </IconLink>
       </div>
     </li>
   );
@@ -181,7 +183,7 @@ function SharedPaperCard({
         <ShareTags kind="paper" canComment={canComment} />
         <div className="paper-card-head">
           <h3 className="paper-card-title">{paper.title}</h3>
-          <span className="tag-chip shared-by-chip">Shared by {ownerName}</span>
+          <SharedBy ownerName={ownerName} />
         </div>
         {paper.authors.length > 0 && (
           <p className="muted paper-card-authors">
@@ -194,9 +196,9 @@ function SharedPaperCard({
         {paper.tags.length > 0 && (
           <div className="tag-chips">
             {paper.tags.map((t) => (
-              <span key={t} className="tag-chip">
+              <Chip key={t}>
                 #{t}
-              </span>
+              </Chip>
             ))}
           </div>
         )}
@@ -211,9 +213,9 @@ function SharedPaperCard({
       <div className="card-foot paper-card-foot shared-item-foot">
         <AddToLibraryButton resourceType="paper" resourceId={paper.id} ownerId={ownerId} />
         <DuplicateCopyButton resourceType="paper" resourceId={paper.id} ownerId={ownerId} />
-        <Link href={href} className="entity-icon-btn" aria-label="Open note" title="Open note">
+        <IconLink href={href} label="Open note">
           <OpenIcon />
-        </Link>
+        </IconLink>
       </div>
     </li>
   );
@@ -235,7 +237,16 @@ function ShareTags({ kind, canComment }: { kind: SharedItemDetail["kind"]; canCo
 /** Read-only paper card for the native Papers list when item is pinned from a share. */
 export function PinnedPaperBadge({ ownerName }: { ownerName?: string }) {
   if (!ownerName) return null;
-  return <span className="tag-chip shared-by-chip">Shared by {ownerName}</span>;
+  return <SharedBy ownerName={ownerName} />;
+}
+
+/** Who shared an item: a plain chip in a slot the shared screen can hide. */
+function SharedBy({ ownerName }: { ownerName: string }) {
+  return (
+    <span className="shared-by-chip">
+      <Chip>Shared by {ownerName}</Chip>
+    </span>
+  );
 }
 
 export function SharedPaperAnnotations({ metadata }: { metadata?: Record<string, unknown> }) {

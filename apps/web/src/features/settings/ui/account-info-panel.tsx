@@ -127,9 +127,11 @@ export function AccountInfoPanel() {
             <dd>
               {value}
               {copy && (
-                <Button size="sm" className="account-id-copy" aria-label="Copy Account ID" onClick={copy}>
-                  {idCopied ? "Copied" : "Copy"}
-                </Button>
+                <span className="account-id-copy">
+                  <Button size="sm" aria-label="Copy Account ID" onClick={copy}>
+                    {idCopied ? "Copied" : "Copy"}
+                  </Button>
+                </span>
               )}
             </dd>
           </div>
@@ -158,7 +160,7 @@ export function AccountInfoPanel() {
             {passwordSuccess && <p className="success">Your login password was changed.</p>}
             <div className="button-row">
               <Button type="submit" variant="primary" disabled={passwordBusy}>{passwordBusy ? "Saving…" : "Change password"}</Button>
-              <Button className="btn-cancel" onClick={() => setPasswordOpen(false)} disabled={passwordBusy}>Cancel</Button>
+              <Button variant="cancel" onClick={() => setPasswordOpen(false)} disabled={passwordBusy}>Cancel</Button>
             </div>
           </form>
         </Modal>

@@ -12,7 +12,7 @@ import { useState, type SyntheticEvent } from "react";
  * the containing block, and it sits outside the scrolling list, which would
  * clip it.
  */
-const NAMED = ".nav-link, .nav-brand, .nav-collapse";
+const NAMED = ".wf-nav, .nav-brand, .nav-head > .wf-btn";
 
 export function useRailTip(collapsed: boolean | undefined) {
   const [tip, setTip] = useState<{ text: string; top: number; left: number } | null>(null);

@@ -57,7 +57,7 @@ function openMenu(r: ReactTestRenderer) {
 }
 
 function itemFor(r: ReactTestRenderer, name: string) {
-  return r.root.findAll((n) => n.type === "button" && String(n.props.className).includes("proj-menu-item"))
+  return r.root.findAll((n) => n.type === "button" && n.props.className === "wf-item")
     .find((n) => n.findAll((c) => c.children.includes(name)).length > 0)!;
 }
 

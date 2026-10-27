@@ -99,9 +99,9 @@ export function ShareLinkPanel({
                 {link.expiresAt ? (
                   <span className="share-link-expiry-hint">expires {formatExpiry(link.expiresAt)}</span>
                 ) : null}
-                <Button
+                <Button variant="danger"
                
-                  size="sm" className="danger"
+                  size="sm"
                   disabled={busy}
                   onClick={() => void revoke(link.id)}
                 >

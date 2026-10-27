@@ -45,7 +45,7 @@
 .settings-anchor {
   scroll-margin-top: calc(64px + env(safe-area-inset-top, 0px));
 }
-.privacy-disclaimer-modal .btn-primary { margin-top: 12px; }
+.privacy-disclaimer-modal .wf-primary { margin-top: 12px; }
 .privacy-disclaimer-summary {
   display: grid; gap: 12px; margin: 0 0 4px; padding-left: 1.1rem;
   line-height: 1.5;
@@ -63,13 +63,8 @@
   display: grid; gap: 4px; position: sticky;
   top: calc(8px + env(safe-area-inset-top, 0px));
 }
-.settings-rail-head {
-  display: flex; align-items: center; gap: 12px; width: 100%;
-  padding: 12px 12px; border: 0; border-radius: var(--r-control); background: none;
-  color: var(--text); font: inherit; text-align: left; cursor: pointer;
-}
-.settings-rail-head:hover { filter: brightness(0.96); }
-.settings-rail-group.is-open .settings-rail-head { background: var(--active-bg); color: var(--active-fg); }
+/* A group head is a wf-row; the rail only lays it out. */
+.settings-rail-group > .wf-row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: start; }
 .settings-rail-icon {
   display: grid; place-items: center; flex: none; width: 34px; height: 34px;
   border-radius: var(--r-control); border: 1px solid var(--line);
@@ -78,11 +73,7 @@
 .settings-rail-label { font-weight: 700; }
 .settings-rail-hint { font-size: var(--fs-xs); opacity: 0.75; }
 .settings-rail-tabs { display: grid; gap: 2px; margin: 8px 0 8px 32px; padding-left: 12px; border-left: 2px solid var(--line); }
-.settings-rail-tabs button {
-  padding: 4px 4px; border: 0; background: none; color: var(--muted);
-  font: inherit; font-size: var(--fs); text-align: left; cursor: pointer;
-}
-.settings-rail-tabs button.is-active { color: var(--text); font-weight: 700; }
+.settings-rail-tabs > .wf-tab { justify-content: flex-start; }
 .settings-body { min-width: 0; display: grid; gap: 16px; align-content: start; }
 /* The gap spaces the cards; a card's own margin would drop the first one below the rail. */
 .settings-body > * { margin: 0; }
@@ -90,7 +81,7 @@
   .settings-layout { grid-template-columns: minmax(0, 1fr); }
   .settings-rail { position: static; display: flex; overflow-x: auto; scrollbar-width: none; }
   .settings-rail-group { display: contents; }
-  .settings-rail-head { width: auto; flex: none; }
+  .settings-rail-group > .wf-row { width: auto; flex: none; }
   .settings-rail-hint, .settings-rail-icon { display: none; }
   .settings-rail-tabs { display: none; }
 }
@@ -98,13 +89,8 @@
    matches replace the groups. */
 .settings-find { width: 100%; margin-bottom: 8px; }
 .settings-find-hits { display: grid; gap: 2px; }
-.settings-find-hit {
-  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
-  width: 100%; padding: 8px 12px; border: 0; border-radius: var(--r-control);
-  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
-}
-.settings-find-hit:hover { filter: brightness(0.96); background: var(--surface-alt); }
-.settings-find-hit .muted { font-size: var(--fs-xs); }
+.settings-find-hits > .wf-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; width: 100%; text-align: start; }
+.settings-find-hits > .wf-row .muted { font-size: var(--fs-xs); }
 .settings-find-empty { padding: 8px 12px; margin: 0; }
 @media (max-width: 900px) {
   /* Groups sit in an even two-column grid under the field, and the open
@@ -112,7 +98,7 @@
      reach Paste, Workspace, Org or Updates. */
   .settings-rail { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: visible; gap: 8px; }
   .settings-find, .settings-find-hits { grid-column: 1 / -1; }
-  .settings-rail-head { width: 100%; justify-content: center; text-align: center; padding: 8px 12px; }
+  .settings-rail-group > .wf-row { width: 100%; justify-content: center; text-align: center; }
   .settings-rail-label { font-size: var(--fs); }
   .settings-rail-group.is-open .settings-rail-tabs {
     display: flex; flex-wrap: wrap; gap: 4px 16px; order: 99; grid-column: 1 / -1;

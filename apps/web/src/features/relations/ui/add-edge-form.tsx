@@ -80,7 +80,7 @@ export function AddEdgeForm({
       {sentence && <p className="muted link-preview" aria-live="polite">{sentence}</p>}
       {error && <FormError>{error}</FormError>}
       <div className="form-foot">
-        <Button className="btn-cancel" onClick={onClose}>Cancel</Button>
+        <Button variant="cancel" onClick={onClose}>Cancel</Button>
         <Button type="submit" variant="primary" disabled={busy}>{busy ? "Linking…" : "Link"}</Button>
       </div>
     </form>

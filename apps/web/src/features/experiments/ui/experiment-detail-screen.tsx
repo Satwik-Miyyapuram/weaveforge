@@ -27,8 +27,7 @@ import { Artifacts, MetricCurves, usePaperTitle } from "./experiment-panels";
 import { StatusSelect } from "@/components/status-select";
 import { FormError } from "@/components/form-error";
 import { ChevronIcon } from "@/components/chevron-icon";
-import { Button } from "@/components/button";
-import { RowButton } from "@/components/controls";
+import { Button, IconButton, IconLink } from "@/components/button";
 
 
 export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
@@ -175,9 +174,9 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
           )}
           <div className="record-actions">
             <ShareButton resourceType="experiment" resourceId={exp.id} title={`Share: ${exp.name}`} showLabel />
-            <Button variant="ghost" className="wf-tool" href="#record-comments" aria-label="Comment" title="Comment">
+            <IconLink label="Comment" href="#record-comments">
               <CommentsIcon />
-            </Button>
+            </IconLink>
           </div>
         </nav>
         {statusError && <FormError>{statusError}</FormError>}
@@ -216,9 +215,9 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
               label="Result"
               tag={
                 resultDraft === null ? (
-                  <RowButton className="record-action" onClick={() => setResultDraft(exp.resultNote ?? "")}>
+                  <Button variant="ghost" size="sm" onClick={() => setResultDraft(exp.resultNote ?? "")}>
                     {exp.resultNote ? "Edit" : "Write result"}
-                  </RowButton>
+                  </Button>
                 ) : undefined
               }
             >
@@ -272,14 +271,12 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
           </div>
 
           <aside className="record-aside">
-            <RowButton className="entity-icon-btn record-aside-toggle"
+            <IconButton label={asideOpen ? "Hide side panel" : "Show side panel"}
               onClick={toggleAside}
               aria-expanded={asideOpen}
-              aria-label={asideOpen ? "Hide side panel" : "Show side panel"}
-              title={asideOpen ? "Hide side panel" : "Show side panel"}
             >
               <ChevronIcon />
-            </RowButton>
+            </IconButton>
             {asideOpen && (
             <>
             <RecordSection label="Record">

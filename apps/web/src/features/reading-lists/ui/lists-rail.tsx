@@ -51,8 +51,7 @@ export function ListsRail({
   const row = (r: RailRow) => (
     <RowButton
       key={r.list.id}
-      className="lists-rail-item"
-      aria-current={r.list.id === selectedId ? "true" : undefined}
+      current={r.list.id === selectedId}
       style={{ "--depth": r.depth } as CSSProperties}
       onClick={() => onSelect(r.list.id)}
     >

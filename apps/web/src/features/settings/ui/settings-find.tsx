@@ -74,7 +74,6 @@ export function SettingsFind<T extends string>({
           {hits.map((hit) => (
             <RowButton
               key={`${hit.tab}-${hit.word}`}
-              className="settings-find-hit"
               onClick={() => onPick(hit.tab)}
             >
               <span>{hit.word}</span>

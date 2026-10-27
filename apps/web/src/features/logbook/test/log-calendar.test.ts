@@ -40,7 +40,7 @@ test("the calendar has a legend for its marks", () => {
 
 test("Kinds are filter chips that narrow the timeline", () => {
   assert.match(screen, /<LogKinds entries=\{entries\} active=\{kind\} onPick=\{setKind\} \/>/);
-  assert.match(screen, /aria-pressed=\{active === k\}/);
+  assert.match(screen, /<Chip pressed=\{active === k\}/);
   assert.match(screen, /kind \? entries\.filter\(\(e\) => e\.kind === kind\) : entries/);
   assert.match(screen, /setKind\(null\)/, "Clear filters clears the kind too");
 });

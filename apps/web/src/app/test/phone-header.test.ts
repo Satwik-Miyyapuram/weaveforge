@@ -29,13 +29,13 @@ test("the account menu still switches labs", () => {
 test("a long project name shrinks to an ellipsis before it reaches the account button", () => {
   const css = shellCss();
   assert.match(css, /\.brand\.mobile-only \.proj-switcher \{[^}]*flex:\s*1 1 auto;[^}]*min-width:\s*0/);
-  assert.match(css, /\.brand\.mobile-only \.proj-chip > span:nth-child\(2\) \{[^}]*text-overflow:\s*ellipsis[^}]*white-space:\s*nowrap/);
+  assert.match(css, /\.brand\.mobile-only \.proj-switcher \.wf-btn > span:nth-child\(2\) \{[^}]*text-overflow:\s*ellipsis[^}]*white-space:\s*nowrap/);
   assert.match(css, /\.brand-right \{[^}]*flex:\s*none/);
   // The chip sits in an inline-flex popover, which takes its content's width
   // unless capped; each flex level then needs min-width: 0 to shrink.
   assert.match(css, /\.brand\.mobile-only \.proj-switcher \.popover \{[^}]*max-width:\s*100%/);
-  assert.match(css, /\.brand\.mobile-only \.proj-chip \{[^}]*min-width:\s*0/);
-  assert.match(css, /\.brand\.mobile-only \.proj-chip > span:nth-child\(2\) \{[^}]*min-width:\s*0/);
+  assert.match(css, /\.brand\.mobile-only \.proj-switcher \.wf-btn \{[^}]*min-width:\s*0/);
+  assert.match(css, /\.brand\.mobile-only \.proj-switcher \.wf-btn > span:nth-child\(2\) \{[^}]*min-width:\s*0/);
 });
 
 test("on the workspace the phone header keeps a side gutter", () => {

@@ -21,7 +21,7 @@
 .vault-backlinks { margin-top: 16px; padding: 16px 16px; }
 .vault-backlinks__head { margin: 0 0 8px; font-size: var(--fs); }
 .vault-backlinks__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.vault-backlinks__list .link-btn { padding: 4px 0; text-align: left; color: var(--accent-ink); }
+
 .markdown .md-image { max-width: 100%; height: auto; border-radius: var(--r-control); margin: 8px 0; }
 /* A figure's column placement (§markdown-figure-alt): the image is content
    the text wraps around, which float is, and a centered one stands alone
@@ -53,11 +53,15 @@
   list-style: none;
 }
 .linked-overleaf-summary::-webkit-details-marker { display: none; }
-.linked-overleaf-toggle.list-toggle {
+.linked-overleaf-toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
   width: var(--control-md);
   height: var(--control-md);
   margin-top: 2px;
-  box-shadow: none;
+  color: var(--muted);
 }
 .linked-overleaf-summary-main { flex: 1; min-width: 0; }
 .linked-overleaf-body { margin-top: 12px; }
@@ -72,10 +76,7 @@
 .linked-overleaf-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; padding: 12px; text-align: left; color: var(--ink); background: var(--surface-alt); border: 1px solid var(--line); border-radius: var(--r-control); flex-wrap: wrap; }
 .linked-overleaf-row.selected { border-color: var(--accent); }
 /* Title block on the left; View / Edit / Unlink stay a tight group on the right. */
-.linked-overleaf-row__open {
-  flex: 1 1 200px; min-width: 0; display: grid; gap: 2px;
-  padding: 0; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer;
-}
+.linked-overleaf-row > .wf-row { flex: 1 1 200px; min-width: 0; display: grid; gap: 2px; text-align: start; }
 .linked-overleaf-row__actions { display: flex; align-items: center; gap: 12px 12px; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; }
 .linked-overleaf-row__actions .muted { font-size: var(--fs-sm); flex: 1 1 100%; overflow-wrap: anywhere; }
 .linked-overleaf-form--edit { padding: 16px; border: 1px solid var(--accent); border-radius: var(--r-control); background: var(--surface-alt); }

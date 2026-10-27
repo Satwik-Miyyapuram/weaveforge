@@ -44,7 +44,7 @@ test("the chart size control is named", () => {
 test("link artifacts show their file name", () => {
   const panels = read("experiment-panels.tsx");
   assert.doesNotMatch(panels, />\s*artifact\s*</);
-  assert.match(panels, /\{figureLabel\(url, i\)\}\s*<\/a>/);
+  assert.match(panels, /\{figureLabel\(url, i\)\}\s*<\/Chip>/);
 });
 
 test("the run command can be copied", () => {

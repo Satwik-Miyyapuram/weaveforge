@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FocusGlyph } from "./focus-glyph";
 import { shortcutLabel } from "@/lib/shortcut-label";
-import { RowButton } from "./controls";
+import { IconButton } from "./button";
 
 /**
  * Focus for ink on a record page, the Editor's way (`⌘⇧F`): the sheet
@@ -50,27 +50,19 @@ export function useInkFocus(inkOn: boolean) {
 /** The way into focus, beside the Edit / Read / Ink switch. */
 export function InkFocusButton({ onClick }: { onClick: () => void }) {
   return (
-    <RowButton
-      className="record-focus-btn"
-      title={`Focus (${shortcutLabel("⌘⇧F")})`}
-      aria-label="Focus"
-      onClick={onClick}
-    >
+    <IconButton label="Focus" tip={`Focus (${shortcutLabel("⌘⇧F")})`} size="sm" onClick={onClick}>
       <FocusGlyph on={false} />
-    </RowButton>
+    </IconButton>
   );
 }
 
 /** The one control focus keeps: the corner way back. */
 export function InkFocusExit({ onClick }: { onClick: () => void }) {
   return (
-    <RowButton
-      className="focus-exit"
-      title={`Exit focus (${shortcutLabel("⌘⇧F")})`}
-      aria-label="Exit focus"
-      onClick={onClick}
-    >
-      <FocusGlyph on />
-    </RowButton>
+    <span className="focus-exit">
+      <IconButton label="Exit focus" tip={`Exit focus (${shortcutLabel("⌘⇧F")})`} size="sm" onClick={onClick}>
+        <FocusGlyph on />
+      </IconButton>
+    </span>
   );
 }

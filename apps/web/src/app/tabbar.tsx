@@ -19,7 +19,8 @@ import { loadOpenGroups, saveOpenGroups, toggleGroup, withActive } from "./nav-o
 import { useInbox } from "./use-inbox";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
-import { RowButton } from "@/components/controls";
+import { FoldButton, NavButton, NavLink } from "@/components/controls";
+import { IconButton } from "@/components/button";
 import { revealActiveNav } from "./reveal-active-nav";
 
 /**
@@ -114,24 +115,23 @@ export function TabBar({
             <WeaveForgeLogo className="app-logo" />
             <span className="app-name">WeaveForge</span>
           </Link>
-          <RowButton
-            className="nav-collapse"
+          <IconButton
             onClick={onToggle}
-            aria-label={collapsed ? "Expand menu" : "Collapse menu"}
+            label={collapsed ? "Expand menu" : "Collapse menu"}
+            // The rail's own tip names it when folded; no second native tip.
+            tip={collapsed ? "" : undefined}
             aria-expanded={!collapsed}
             aria-controls="nav-links"
-            title={collapsed ? undefined : "Collapse menu"}
           >
             <ChevronIcon open={false} />
-          </RowButton>
+          </IconButton>
         </div>
       )}
       <div className="nav-links-wrap">
         <div className="nav-links" id="nav-links" ref={navScrollRef}>
-        <Link
+        <NavLink
           href={homeNavItem.path}
-          className={`nav-link nav-home${homeActive ? " active" : ""}`}
-          aria-current={homeActive ? "page" : undefined}
+          current={homeActive}
           // The visible label is a `<span>` this file can hide — the icon rail in
           // CSS and, below 461px, the whole bottom bar (see `nav.css`). A name
           // that lives only in that span disappears with it, so each item states
@@ -141,35 +141,30 @@ export function TabBar({
         >
           <NavIcon name={homeNavItem.icon} />
           <span className="nav-label">{homeNavItem.label}</span>
-        </Link>
+        </NavLink>
         {/* Search had no visible entry point at all — Ctrl/Cmd+K only, which is
             undiscoverable and unreachable on a phone. It sits in the nav rather
             than in a header because the nav is the one surface present on every
             screen and at every breakpoint. */}
-        <RowButton
-          className="nav-link nav-search"
-          aria-label="Search"
-          onClick={openSearchPalette}
-        >
+        <NavButton aria-label="Search" onClick={openSearchPalette}>
           <NavIcon name="search" />
           <span className="nav-label">Search</span>
-        </RowButton>
+        </NavButton>
         {topNavItems
           .filter((item) => breakpoint === "desktop" || item.mobile !== false)
           .map((item) => {
             const active = activeNavItem([item], pathname) !== undefined;
             return (
-              <Link
+              <NavLink
                 key={item.key}
                 href={item.path}
-                className={active ? "nav-link active" : "nav-link"}
-                aria-current={active ? "page" : undefined}
+                current={active}
                 aria-label={item.label}
                 onPointerEnter={() => prefetchScreenForPath(item.path)}
               >
                 <NavIcon name={item.icon ?? "box"} />
                 <span className="nav-label">{item.label}</span>
-              </Link>
+              </NavLink>
             );
           })}
         {breakpoint === "desktop"
@@ -184,9 +179,8 @@ export function TabBar({
               const open = collapsed === true || openGroups.includes(group.key);
               return (
                 <div className="nav-group" key={group.key}>
-                  <RowButton
-                    className="nav-group-label"
-                    aria-expanded={open}
+                  <FoldButton
+                    expanded={open}
                     aria-controls={`nav-group-${group.key}`}
                     title={collapsed ? group.label : undefined}
                     onClick={() => {
@@ -196,18 +190,16 @@ export function TabBar({
                     }}
                   >
                     <span>{group.label}</span>
-                    <ChevronIcon open={open} />
-                  </RowButton>
+                  </FoldButton>
                   {open && (
                     <div className="nav-group-items" id={`nav-group-${group.key}`}>
                       {group.items.map((item) => {
                         const active = activeNavItem<{ key: string; path: string }>(group.items, pathname)?.key === item.key;
                         return (
-                          <Link
+                          <NavLink
                             key={item.key}
                             href={item.path}
-                            className={active ? "nav-link active" : "nav-link"}
-                            aria-current={active ? "page" : undefined}
+                            current={active}
                             aria-label={item.label}
                             onPointerEnter={() => prefetchScreenForPath(item.path)}
                           >
@@ -216,7 +208,7 @@ export function TabBar({
                             {"badge" in item && item.badge !== undefined && (
                               <b className="nav-badge" aria-label={`${item.badge} waiting`}>{item.badge}</b>
                             )}
-                          </Link>
+                          </NavLink>
                         );
                       })}
                     </div>
@@ -233,18 +225,17 @@ export function TabBar({
               .map((group) => {
                 const active = group.items.some((it) => pathname?.startsWith(it.path));
                 return (
-                  <Link
+                  <NavLink
                     key={group.key}
                     href={group.items[0]?.path ?? "/"}
-                    className={active ? "nav-link active" : "nav-link"}
-                    aria-current={active ? "page" : undefined}
+                    current={active}
                     aria-label={group.label}
                     title={collapsed ? group.label : undefined}
                     onPointerEnter={() => prefetchScreenForPath(group.items[0]?.path ?? "/")}
                   >
                     <NavIcon name={group.icon} />
                     <span className="nav-label">{group.label}</span>
-                  </Link>
+                  </NavLink>
                 );
               })}
         </div>
@@ -263,7 +254,7 @@ export function TabBar({
               ⋯ keeps its place, which is where it already was. */}
           <div className="nav-account-row">
             <ProjectSwitcher />
-            <HeaderActions variant="menu" inbox={false} />
+            <HeaderActions inbox={false} />
           </div>
           <LocalModeBadge />
         </div>

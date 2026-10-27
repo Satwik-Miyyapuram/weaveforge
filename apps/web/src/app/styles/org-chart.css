@@ -78,14 +78,7 @@
 .superv-team-head { margin: 0 0 8px; font-size: var(--fs-xs); font-weight: 500; color: var(--muted); }
 .superv-team ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; min-width: 0; }
 .superv-team li { min-width: 0; box-sizing: border-box; }
-.superv-team-item {
-  display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; max-width: 100%;
-  box-sizing: border-box; overflow: hidden;
-  padding: 8px 8px; border: 0; border-radius: var(--r-control); background: none;
-  color: var(--text); text-align: left; cursor: pointer; font: inherit;
-}
-.superv-team-item:hover { filter: brightness(0.96); }
-.superv-team-item.is-active { background: var(--active-bg); color: var(--active-fg); }
+.superv-team li > .wf-row { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; overflow: hidden; }
 .superv-avatar {
   display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%;
   background: var(--surface2); font-size: var(--fs-micro); font-weight: 700;
@@ -93,7 +86,7 @@
 .superv-team-info { display: flex; flex-direction: column; min-width: 0; flex: 1; gap: 1px; }
 .superv-team-name { font-weight: 600; font-size: var(--fs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .superv-team-role { font-size: var(--fs-micro); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.superv-team-item.is-active .superv-team-role { color: inherit; opacity: 0.85; }
+.superv-team .wf-row[aria-current="true"] .superv-team-role { color: inherit; opacity: 0.85; }
 .superv-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .superv-source { font-size: var(--fs-micro); font-weight: 500; padding: 2px 8px; border-radius: var(--r-pill); background: var(--pill); }
 .superv-note { margin-top: 12px; padding: 12px 16px; border-radius: var(--r-control); background: var(--surface-alt); }

@@ -128,7 +128,7 @@ export function OrgPanel() {
               Create / join another lab
             </Button>
             {canLeaveActiveOrg && (
-              <Button variant="link" className="danger"
+              <Button variant="cancel"
                 disabled={leaveBusy}
                 onClick={() => setLeaveAsk(true)}
               >

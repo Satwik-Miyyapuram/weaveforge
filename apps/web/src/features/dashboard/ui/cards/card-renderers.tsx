@@ -7,7 +7,6 @@ import { Select } from "@/components/select";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import type { DashboardStats } from "../../application/build-dashboard-stats";
 import type { SupervisionStats } from "../../application/build-supervision-stats";
-import { RowButton } from "@/components/controls";
 import { Button } from "@/components/button";
 
 export interface CardRenderProps {
@@ -91,9 +90,9 @@ function AttentionList({
       ))}
       {hidden > 0 && (
         <li className="dashboard-list-more">
-          <RowButton className="dashboard-list-more-btn" onClick={() => setAll(true)}>
+          <Button variant="link" onClick={() => setAll(true)}>
             Show all ({items.length})
-          </RowButton>
+          </Button>
         </li>
       )}
     </ul>
@@ -263,7 +262,7 @@ const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
         {summary.lastLogDate && (
           <p className="muted dashboard-supervisee-meta">Last log: {summary.lastLogDate}</p>
         )}
-        <Button variant="link" className="dashboard-view-full"
+        <Button variant="link"
           href={`/supervision?member=${member.id}`}
          
           onClick={(e) => e.stopPropagation()}

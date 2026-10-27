@@ -19,7 +19,7 @@ export function SortHeader({
 }) {
   return (
     <th className={className} aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}>
-      <Button variant="link" className={`sort-btn${active ? " sort-btn--on" : ""}`} onClick={onSort}>
+      <Button variant="link" onClick={onSort}>
         {label}
         <svg
           className="sort-icon"

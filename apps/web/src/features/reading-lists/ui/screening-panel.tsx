@@ -22,6 +22,7 @@ import { formatError } from "@/lib/format-error";
 import { latestGate } from "@/lib/latest-gate";
 import { collectListIds } from "./list-ui";
 import { Button } from "@/components/button";
+import { ToggleButton } from "@/components/controls";
 
 const STAGE_LABEL: Record<ScreeningStage, string> = {
   title_abstract: "Title & abstract",
@@ -167,15 +168,13 @@ export function ScreeningPanel({
   return (
     <div className="screening-panel">
       <div className="screening-toolbar">
-        {SCREENING_STAGES.map((s) => (
-          <Button variant="link" className={stage === s ? "is-active" : undefined}
-            key={s}
-            aria-pressed={stage === s}
-            onClick={() => setStage(s)}
-          >
-            {STAGE_LABEL[s]}
-          </Button>
-        ))}
+        <span className="wf-seg" role="group" aria-label="Screening stage">
+          {SCREENING_STAGES.map((s) => (
+            <ToggleButton key={s} pressed={stage === s} onClick={() => setStage(s)}>
+              {STAGE_LABEL[s]}
+            </ToggleButton>
+          ))}
+        </span>
         <Button variant="ghost" size="sm" onClick={copyFigure} disabled={!summary}>
           Copy PRISMA figure
         </Button>
@@ -216,16 +215,13 @@ export function ScreeningPanel({
                         setReason((prev) => ({ ...prev, [item.id]: e.target.value }))
                       }
                     />
-                    {(Object.keys(STATE_LABEL) as ScreeningState[]).map((state) => (
-                      <Button variant="link" className={mine?.state === state ? "is-active" : undefined}
-                        key={state}
-                        aria-pressed={mine?.state === state}
-                        disabled={busy}
-                        onClick={() => decide(item.id, state)}
-                      >
-                        {STATE_LABEL[state]}
-                      </Button>
-                    ))}
+                    <span className="wf-seg" role="group" aria-label="Decision">
+                      {(Object.keys(STATE_LABEL) as ScreeningState[]).map((state) => (
+                        <ToggleButton key={state} pressed={mine?.state === state} disabled={busy} onClick={() => decide(item.id, state)}>
+                          {STATE_LABEL[state]}
+                        </ToggleButton>
+                      ))}
+                    </span>
                   </span>
                 )}
               </li>

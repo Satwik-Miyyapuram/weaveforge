@@ -81,9 +81,9 @@ export function DeleteAccountPanel() {
         Permanently delete your account and all associated data (papers, experiments, images,
         settings). We email a one-time code to confirm it is you. This cannot be undone.
       </p>
-      <Button
+      <Button variant="danger"
        
-        size="sm" className="danger"
+        size="sm"
         onClick={() => {
           resetModal();
           setOpen(true);

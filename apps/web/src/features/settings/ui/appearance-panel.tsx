@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Switch } from "@/components/controls";
 import { Select } from "@/components/select";
 import { sanitizeCardTint, type CardTint, DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_STYLE_OPTIONS, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, sanitizeThemeId, sanitizeControlSize, sanitizeSurfaceStyle, type ControlSizeId, type SurfaceStyle, type ThemeConfig } from "@/lib/theme/theme";
 import { persistThemeChange, readLocalAppearance } from "@/lib/theme/theme-persistence";
@@ -175,13 +176,11 @@ export function AppearancePanel() {
               system &ldquo;reduce motion&rdquo; setting overrides this.
             </p>
           </div>
-          <input
+          <Switch
             id="reactiveMotion"
-            type="checkbox"
-            role="switch"
-            className="themed-check appearance-switch"
+            label="Reactive animations"
             checked={reactiveMotion}
-            onChange={(e) => handleReactiveMotionChange(e.target.checked)}
+            onChange={handleReactiveMotionChange}
           />
         </div>
         {(lightTheme === "crt" || customTheme?.cardTilt === true) && (
@@ -194,13 +193,11 @@ export function AppearancePanel() {
                 <code>&quot;tilt&quot;: true</code>.
               </p>
             </div>
-            <input
+            <Switch
               id="cardTilt"
-              type="checkbox"
-              role="switch"
-              className="themed-check appearance-switch"
+              label="Tilted cards"
               checked={cardTilt}
-              onChange={(e) => handleCardTiltChange(e.target.checked)}
+              onChange={handleCardTiltChange}
             />
           </div>
         )}
@@ -210,13 +207,11 @@ export function AppearancePanel() {
               <label htmlFor="scanlines">Scanlines</label>
               <p>Only for the CRT theme.</p>
             </div>
-            <input
+            <Switch
               id="scanlines"
-              type="checkbox"
-              role="switch"
-              className="themed-check appearance-switch"
+              label="Scanlines"
               checked={scanlines}
-              onChange={(e) => handleScanlinesChange(e.target.checked)}
+              onChange={handleScanlinesChange}
             />
           </div>
         )}

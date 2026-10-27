@@ -105,7 +105,6 @@ export function SharedWithMeScreen() {
             {SHARE_ALL.map((c) => (
               <RowButton
                 key={c.type}
-                className="org-choice-card"
                 onClick={() => {
                   setHubOpen(false);
                   setShareType(c.type);

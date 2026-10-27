@@ -80,7 +80,6 @@ export function QuickOpenDialog({
                   return (
                     <li key={result.node.key} role="presentation">
                       <OptionButton selected={index === active}
-                        className={`quick-open-result${index === active ? " is-active" : ""}`}
                         onMouseEnter={() => setCursor(index)}
                         onClick={(event) =>
                           onPick(result.node, { split: event.ctrlKey || event.metaKey })

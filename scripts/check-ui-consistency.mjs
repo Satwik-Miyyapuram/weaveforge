@@ -56,9 +56,10 @@ const RULES = [
   },
   {
     name: "unthemed checkbox",
-    pattern: /<input\b[^>]*?type="checkbox"[^>]*?>/gs,
-    unless: "themed-check",
-    use: 'className="themed-check" on the input',
+    // A switch is themed by Switch (wf-toggle), not wf-check.
+    pattern: /<input\b(?![^>]*role="switch")[^>]*?type="checkbox"[^>]*?>/gs,
+    unless: "wf-check",
+    use: 'className="wf-check" on the input',
     why: "the bare browser checkbox does not follow the active theme",
   },
   {

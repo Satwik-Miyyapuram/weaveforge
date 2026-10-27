@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
+import { CloseButton } from "@/components/button";
 import { SelectionCreateBar } from "../ui/selection-create-bar";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -14,7 +15,7 @@ test("the bar offers icons in the mock's order, with a rule before Close", () =>
     tree = create(createElement(SelectionCreateBar, { at: { x: 0, top: 0, bottom: 0, below: false }, onCreate: () => {}, onCancel: () => {} }));
   });
   const kids = tree.root.find((n) => n.props.role === "toolbar").children.map((c) =>
-    typeof c === "string" ? c : ((c.props.label as string | undefined) ?? c.props.className),
+    typeof c === "string" ? c : c.type === CloseButton ? "Close" : ((c.props.label as string | undefined) ?? c.props.className),
   );
   assert.deepEqual(kids, ["Highlight", "Underline", "Comment", "pdf-reader-create-vr", "Close"]);
   act(() => tree.unmount());

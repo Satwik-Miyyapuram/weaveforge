@@ -36,16 +36,11 @@ html:is([data-workspace-focus], [data-reader-focus], [data-ink-focus]) .title-ba
 .title-bar-mark svg rect { display: none; }
 .title-bar-menus { display: flex; align-items: center; gap: 2px; height: 100%; }
 .title-bar-group { position: relative; display: flex; align-items: center; height: 100%; }
-.title-bar-button {
+:root:root .title-bar-group > .wf-item {
   -webkit-app-region: no-drag;
   app-region: no-drag;
-  height: 26px; padding: 0 12px;
-  background: none; border: 0; border-radius: var(--radius-sm, 6px);
-  color: inherit; font: inherit; cursor: default;
+  width: auto; height: 26px; min-height: 0; padding: 0 12px;
 }
-.title-bar-button:hover,
-.title-bar-button.open { background: var(--surface2); }
-.title-bar-button:focus-visible { outline: 3px solid var(--wf-focus, var(--accent)); outline-offset: -3px; background: var(--surface2); }
 
 .popover-panel.title-bar-menu {
   -webkit-app-region: no-drag;
@@ -58,9 +53,7 @@ html:is([data-workspace-focus], [data-reader-focus], [data-ink-focus]) .title-ba
   padding: 4px; gap: 0; display: block;
 }
 .title-bar-menu .card-menu-list { min-width: 0; }
-.title-bar-menu .title-bar-item { display: flex; align-items: center; justify-content: space-between; gap: 32px; cursor: default; min-height: 34px; padding-block: 8px; font-size: var(--fs); }
-.title-bar-item.active:not(:disabled) { background: var(--surface2); }
-.title-bar-item:focus-visible { outline: none; }
+:root:root .title-bar-menu .wf-item { display: flex; align-items: center; justify-content: space-between; gap: 32px; cursor: default; min-height: 34px; padding-block: 8px; font-size: var(--fs); }
 .title-bar-item-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .title-bar-kbd {
   font: inherit; font-size: var(--fs-xs); color: var(--muted);
@@ -74,4 +67,4 @@ html:is([data-workspace-focus], [data-reader-focus], [data-ink-focus]) .title-ba
   border-bottom: var(--bw) solid var(--bw-line);
 }
 /* The page open now, in the Go menu: a bar at the leading edge, as the sidebar marks it. */
-.title-bar-item[aria-current="page"] { box-shadow: inset 3px 0 0 var(--active-bg); font-weight: 600; }
+.title-bar-menu .wf-item[aria-current="page"] { box-shadow: inset 3px 0 0 var(--active-bg); font-weight: 600; }

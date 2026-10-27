@@ -4,8 +4,8 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties
 import { createPortal } from "react-dom";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/view-icons";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
-import { Button } from "@/components/button";
-import { RowButton, ToggleButton } from "./controls";
+import { Button, IconButton } from "./button";
+import { ComboboxButton, ToggleButton } from "./controls";
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -119,13 +119,11 @@ export function DatePicker({
 
   return (
     <div className="custom-select-container date-picker" ref={wrapRef}>
-      <RowButton
+      <ComboboxButton expanded={open}
         ref={btnRef}
         id={id}
-        className="custom-select-button"
         aria-label={ariaLabel}
         aria-haspopup="dialog"
-        aria-expanded={open}
         aria-controls={panelId}
         onClick={toggle}
         onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
@@ -133,11 +131,7 @@ export function DatePicker({
         <span className={`custom-select-value${sel ? "" : " muted"}`}>
           {sel ? `${pad(sel[2])}-${pad(sel[1] + 1)}-${sel[0]}` : "dd-mm-yyyy"}
         </span>
-        <svg className="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-          <rect x="3" y="5" width="18" height="16" rx="2" />
-          <path d="M3 10h18M8 3v4M16 3v4" />
-        </svg>
-      </RowButton>
+      </ComboboxButton>
       {open &&
         createPortal(
           <div
@@ -155,22 +149,18 @@ export function DatePicker({
             }}
           >
             <div className="date-picker-head">
-              <RowButton className="date-picker-nav" aria-label="Previous month" onClick={() => shift(-1)}><ChevronLeftIcon /></RowButton>
+              <IconButton label="Previous month" size="sm" onClick={() => shift(-1)}><ChevronLeftIcon /></IconButton>
               <span className="date-picker-title">{MONTHS[vm]} {vy}</span>
-              <RowButton className="date-picker-nav" aria-label="Next month" onClick={() => shift(1)}><ChevronRightIcon /></RowButton>
+              <IconButton label="Next month" size="sm" onClick={() => shift(1)}><ChevronRightIcon /></IconButton>
             </div>
-            <div className="date-picker-grid">
+            <div className="date-picker-grid wf-seg">
               {WEEKDAYS.map((w) => (
                 <span key={w} className="date-picker-dow muted">{w}</span>
               ))}
               {monthGrid(vy, vm).map(([y, m, d]) => {
                 const v = iso(y, m, d);
-                const cls = ["custom-select-item", "date-picker-day"];
-                if (m !== vm) cls.push("out");
-                if (v === value) cls.push("sel", "sel-plain");
-                if (v === todayIso) cls.push("today");
                 return (
-                  <ToggleButton pressed={v === value} key={v} data-day={v} className={cls.join(" ")} disabled={!!min && v < min} onClick={() => pick(v)}>
+                  <ToggleButton pressed={v === value} key={v} data-day={v} data-out={m !== vm || undefined} data-today={v === todayIso || undefined} disabled={!!min && v < min} onClick={() => pick(v)}>
                     {d}
                   </ToggleButton>
                 );

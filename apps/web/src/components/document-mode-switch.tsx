@@ -81,7 +81,6 @@ export function DocumentModeSwitch<M extends DocumentModeName>({
     <span className="view-control">
       <SegmentedControl
         label="View"
-        size="sm"
         className="pane-mode"
         value={value}
         onChange={choose}

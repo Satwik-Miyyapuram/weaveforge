@@ -56,19 +56,16 @@ export function PlanTimelineBar({
       {clusters.map((c) => {
         const names = c.marks.map((m) => `${m.title} (${enumLabel("milestoneStatus", m.status)})`);
         return (
-          <RowButton
-            key={c.marks[0]!.id}
-            className="plan-mark"
-            style={{ left: `${c.at}%` }}
-            title={names.join("\n")}
-            aria-label={`Go to ${names.join(", ")}`}
-            onClick={() => onJump(c.marks[0]!.id)}
-          >
-            {c.marks.map((m) => (
-              <span key={m.id} className={`plan-mark--${m.status}`} data-status={m.status} />
-            ))}
-            {c.marks.length > 1 && <b className="plan-mark-count">{c.marks.length}</b>}
-          </RowButton>
+          <span key={c.marks[0]!.id} className="plan-mark-slot" style={{ left: `${c.at}%` }}>
+            <RowButton title={names.join("\n")} aria-label={`Go to ${names.join(", ")}`} onClick={() => onJump(c.marks[0]!.id)}>
+              <span className="plan-mark">
+                {c.marks.map((m) => (
+                  <span key={m.id} className={`plan-mark--${m.status}`} data-status={m.status} />
+                ))}
+                {c.marks.length > 1 && <b className="plan-mark-count">{c.marks.length}</b>}
+              </span>
+            </RowButton>
+          </span>
         );
       })}
       <div className="plan-months" aria-hidden>

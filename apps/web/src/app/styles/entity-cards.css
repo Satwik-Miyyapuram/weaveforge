@@ -151,11 +151,11 @@
   padding: 12px 12px;
   transition: border-color var(--dur-base), background var(--dur-base);
 }
-.entity-card[role="button"],
-.paper-card[role="button"] { cursor: pointer; }
+.entity-card[role="presentation"],
+.paper-card[role="presentation"] { cursor: pointer; }
 @media (hover: hover) {
-.entity-card[role="button"]:hover,
-.paper-card[role="button"]:hover {
+.entity-card[role="presentation"]:hover,
+.paper-card[role="presentation"]:hover {
   border-color: var(--border-strong);
   background: var(--surface2);
 }
@@ -222,7 +222,7 @@
   min-width: 6.5rem;
   max-width: none;
 }
-.entity-card-status .status-select .custom-select-button {
+.entity-card-status .status-select .wf-select {
   padding: 4px 12px;
   min-height: var(--control-sm);
 }
@@ -257,89 +257,18 @@
   gap: 8px;
   min-height: 0;
 }
-.entity-card .entity-icon-btn,
-.entity-card .entity-open-icon,
-.paper-card .entity-icon-btn,
-.paper-card .entity-open-icon,
-.section-item .entity-icon-btn {
-  width: var(--control-md);
-  height: var(--control-md);
-  border-radius: var(--control-radius-sm);
-}
+
 .entity-card .tag-chips,
 .paper-card .tag-chips {
   margin: 2px 0 0;
   gap: 4px;
 }
 /* One quiet tag chip on every card, in every theme. */
-.card.entity-card .tag-chips > .tag-chip {
-  padding: 2px 8px;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--text) 7%, transparent);
-  color: var(--muted);
-  font-family: var(--font);
-  font-size: var(--fs-micro);
-  letter-spacing: 0;
-  line-height: 1.4;
-}
+
 /* Icon-only card/list actions (open, share, comments, edit, delete, …). */
-.entity-icon-btn,
-.entity-open-icon,
-.paper-open-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-lg);
-  height: var(--control-lg);
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--control-radius);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  flex: none;
-}
-.entity-icon-btn:hover,
-.entity-open-icon:hover,
-.paper-open-icon:hover {
-  color: var(--text);
-  background: var(--surface);
-}
-.entity-icon-btn:disabled,
-.entity-open-icon:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-a.entity-icon-btn {
-  text-decoration: none;
-  color: var(--muted);
-}
-a.entity-icon-btn:hover {
-  text-decoration: none;
-}
-.entity-icon-btn.danger,
-.entity-icon-btn.danger:hover {
-  color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 40%, var(--line));
-}
-.entity-icon-btn.danger:hover {
-  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
-}
+
 /* The accented pill an icon button wears while its panel is open or its mode
    is on. Three files carried a copy, keyed off three different attributes. */
-.entity-icon-btn[aria-expanded="true"],
-.entity-icon-btn.is-active,
-.comments-trigger-detail[aria-expanded="true"] {
-  color: var(--accent-ink);
-  border-color: var(--accent);
-  background: var(--pill);
-}
+
 /* Icon + label (Make a copy, Image, library). */
-.entity-icon-text-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-.entity-icon-text-btn > svg { flex: none; }
+

@@ -145,9 +145,8 @@ export function PasteSettingsPanel() {
   const renderRule = (rule: Rule) => (
     <div className="field" key={rule.key}>
       <label className="field-inline">
-        <input
+        <input className="wf-check"
           type="checkbox"
-          className="themed-check"
           disabled={!settings.cleanOnPaste}
           checked={settings[rule.key]}
           onChange={(e) => update({ ...settings, [rule.key]: e.target.checked })}
@@ -172,9 +171,8 @@ export function PasteSettingsPanel() {
       </p>
 
       <label className="field-inline">
-        <input
+        <input className="wf-check"
           type="checkbox"
-          className="themed-check"
           checked={settings.cleanOnPaste}
           onChange={(e) => update({ ...settings, cleanOnPaste: e.target.checked })}
         />

@@ -3,7 +3,6 @@
 import React, { useId, useState, useRef, useEffect } from "react";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { createPortal } from "react-dom";
-import { ChevronIcon } from "@/components/chevron-icon";
 import { anchoredMenuStyle, useAnchoredMenu } from "@/lib/hooks/use-anchored-menu";
 import { ComboboxButton } from "./controls";
 
@@ -115,7 +114,6 @@ export function Select({
 
   const selectedIndex = options.findIndex((o) => o.value === val);
   const selectedOption = options[selectedIndex];
-  const buttonClass = `custom-select-button${isStatus ? ` status-${val}` : ""}`;
 
   // Portalled and fixed so a scrolling or clipping ancestor (the PDF toolbar) can't trap the menu.
   const { rect: menuRect, up: openUp, place: placeMenu } = useAnchoredMenu(
@@ -248,7 +246,7 @@ export function Select({
       <ComboboxButton expanded={open}
         ref={buttonRef}
         id={id}
-        className={buttonClass}
+        data-status={isStatus ? val : undefined}
         disabled={disabled}
         aria-label={ariaLabel}
         aria-describedby={ariaDescribedBy}
@@ -264,7 +262,6 @@ export function Select({
         onKeyDown={onKeyDown}
       >
         <span className="custom-select-value">{selectedOption ? selectedOption.label : ""}</span>
-        <ChevronIcon />
       </ComboboxButton>
       {open && menuRect && createPortal(
         <div

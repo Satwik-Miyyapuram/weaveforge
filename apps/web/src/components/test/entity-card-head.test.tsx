@@ -64,13 +64,13 @@ test("a long single-word title breaks instead of overflowing", () => {
 
 test("more than three tags fold into +n", () => {
   const html = renderToStaticMarkup(<EntityCard title="x" tags={["a", "b", "c", "d", "e"]} />);
-  assert.equal(html.match(/class="tag-chip"/g)?.length, 3);
+  assert.equal(html.match(/class="wf-chip"/g)?.length, 3);
   assert.match(html, /chip-more">\+2</);
 });
 
 test("a card tag chip cut by its ellipsis names itself on hover (DA-27)", () => {
   const html = renderToStaticMarkup(<EntityCard title="x" tags={["a-very-long-tag-name"]} />);
-  assert.match(html, /<span class="tag-chip" title="#a-very-long-tag-name">/);
+  assert.match(html, /<span title="#a-very-long-tag-name" class="wf-chip">/);
 });
 
 test("a lists rail name cut by its ellipsis names itself on hover (DA-31)", () => {
@@ -81,8 +81,8 @@ test("a lists rail name cut by its ellipsis names itself on hover (DA-31)", () =
 test("the leading control sits in its own box, so a control reset cannot eat the gap to the title", () => {
   // states.css resets every checkbox to margin 0 at a higher specificity, which
   // erased the 8px between a milestone's check and its title.
-  const html = renderToStaticMarkup(<EntityCard title="Thesis" leading={<input type="checkbox" className="themed-check" />} />);
-  assert.match(html, /<div class="entity-card-lead"><input type="checkbox" class="themed-check"\/><\/div>/);
+  const html = renderToStaticMarkup(<EntityCard title="Thesis" leading={<input type="checkbox" className="wf-check" />} />);
+  assert.match(html, /<div class="entity-card-lead"><input type="checkbox" class="wf-check"\/><\/div>/);
   // 12px, not 8: the brutal check casts a 3px hard shadow into the gap, so 8px read as touching.
   assert.match(rule(".entity-card-lead"), /margin-right: 12px/);
   assert.doesNotMatch(css(), /:first-child:not\(\.entity-card-controls\)/);
@@ -95,4 +95,15 @@ test("only a trailing ⋯ pulls the controls into the card's edge; a text badge 
   assert.match(badgeOnly, /class="entity-card-controls"/);
   assert.doesNotMatch(rule(".entity-card-controls"), /margin-right: -/);
   assert.match(rule(".entity-card-controls--menu"), /margin-right: -8px/);
+});
+
+test("an openable card is not a fake button: its title is the catalogue link button", () => {
+  const open = renderToStaticMarkup(<EntityCard title="Thesis" onActivate={() => {}} />);
+  assert.doesNotMatch(open, /role="button"|tabindex/);
+  assert.match(open, /^<div class="card entity-card" role="presentation">/);
+  assert.match(open, /<h3 class="entity-card-title"><button type="button" class="wf-link">Thesis<\/button><\/h3>/);
+  // A card nobody opens keeps a plain title.
+  const still = renderToStaticMarkup(<EntityCard title="Thesis" />);
+  assert.match(still, /<h3 class="entity-card-title">Thesis<\/h3>/);
+  assert.doesNotMatch(still, /role=/);
 });

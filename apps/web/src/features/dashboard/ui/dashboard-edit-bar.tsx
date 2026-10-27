@@ -1,7 +1,6 @@
 "use client";
 
-import { Button } from "@/components/button";
-import { RowButton } from "@/components/controls";
+import { Button, IconButton } from "@/components/button";
 
 function CustomizeIcon() {
   return (
@@ -39,14 +38,9 @@ export function DashboardEditBar({
 }) {
   if (!editing) {
     return (
-      <RowButton
-        className="dashboard-customize-btn"
-        onClick={onCustomize}
-        aria-label="Customize dashboard"
-        title="Customize"
-      >
+      <IconButton label="Customize dashboard" tip="Customize" onClick={onCustomize}>
         <CustomizeIcon />
-      </RowButton>
+      </IconButton>
     );
   }
 

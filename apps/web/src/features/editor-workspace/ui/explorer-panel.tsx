@@ -39,14 +39,14 @@ import {
 } from "../application/workspace-tree";
 import { isDocumentKind, kindIcon, kindIconClass } from "./kind";
 import {
-  CloseGlyph,
   DraftIcon,
   HideGlyph,
   InlineTitle,
   RefreshGlyph,
 } from "./explorer-glyphs";
 import { shortcutLabel } from "@/lib/shortcut-label";
-import { RowButton } from "@/components/controls";
+import { FoldButton } from "@/components/controls";
+import { Button, CloseButton, IconButton } from "@/components/button";
 
 /** The "new in here" hover actions on a row, in the order they show. */
 const NEW_HERE: { kind: CreateKind; label: string; icon: React.ReactNode }[] = [
@@ -394,43 +394,23 @@ export function ExplorerPanel({
         <div className="explorer-head-actions">
           {onDraft ? (
             <>
-              <RowButton
-                className="explorer-action"
-                title="New note"
-                aria-label="New note"
-                onClick={() => startDraft("note")}
-              >
+              <IconButton size="sm" label="New note" onClick={() => startDraft("note")}>
                 <NavIcon name="notes" />
-              </RowButton>
-              <RowButton
-                className="explorer-action"
-                title="New folder"
-                aria-label="New folder"
-                onClick={() => startDraft("folder")}
-              >
+              </IconButton>
+              <IconButton size="sm" label="New folder" onClick={() => startDraft("folder")}>
                 <FolderIcon />
-              </RowButton>
+              </IconButton>
             </>
           ) : null}
           {onHide ? (
-            <RowButton
-              className="explorer-action"
-              title={`Hide explorer (${shortcutLabel("⌘B")})`}
-              aria-label="Hide explorer"
-              onClick={onHide}
-            >
+            <IconButton size="sm" label="Hide explorer" tip={`Hide explorer (${shortcutLabel("⌘B")})`} onClick={onHide}>
               <HideGlyph />
-            </RowButton>
+            </IconButton>
           ) : null}
           {onRefresh ? (
-            <RowButton
-              className="explorer-action"
-              title="Refresh"
-              aria-label="Refresh"
-              onClick={onRefresh}
-            >
+            <IconButton size="sm" label="Refresh" onClick={onRefresh}>
               <RefreshGlyph />
-            </RowButton>
+            </IconButton>
           ) : null}
         </div>
       </div>
@@ -449,14 +429,9 @@ export function ExplorerPanel({
           onKeyDown={(event) => event.stopPropagation()}
         />
         {query ? (
-          <RowButton
-            className="explorer-filter-clear"
-            aria-label="Clear filter"
-            title="Clear filter"
-            onClick={() => setQuery("")}
-          >
-            <CloseGlyph />
-          </RowButton>
+          <span className="explorer-filter-clear">
+            <CloseButton size="sm" label="Clear filter" onClick={() => setQuery("")} />
+          </span>
         ) : null}
       </div>
 
@@ -473,18 +448,14 @@ export function ExplorerPanel({
               >
                 <div className="explorer-section-head">
                   {/* The header *is* the collapse control. */}
-                  <RowButton
-                    className="explorer-section-toggle"
-                    aria-expanded={open}
+                  <FoldButton
+                    expanded={open}
                     aria-controls={`explorer-section-${section.id}`}
                     onClick={() => onToggleSection(section.id)}
+                    count={rows.length > 0 ? rows.length : undefined}
                   >
-                    <ChevronIcon open={open} variant="expand" />
                     <span className="explorer-section-title">{section.title}</span>
-                    {rows.length > 0 ? (
-                      <span className="explorer-section-count">{rows.length}</span>
-                    ) : null}
-                  </RowButton>
+                  </FoldButton>
                 </div>
                 <ul
                   id={`explorer-section-${section.id}`}
@@ -645,24 +616,23 @@ export function ExplorerPanel({
                           {offered.length > 0 && renaming !== node.key ? (
                             <span className="explorer-row-actions">
                               {NEW_HERE.filter((item) => offered.includes(item.kind)).map((item) => (
-                                <RowButton
+                                <IconButton
                                   key={item.kind}
-                                  className="explorer-row-action"
-                                  title={item.label}
-                                  aria-label={item.label}
+                                  size="sm"
+                                  label={item.label}
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     startDraft(item.kind, node);
                                   }}
                                 >
                                   {item.icon}
-                                </RowButton>
+                                </IconButton>
                               ))}
                               {onRename && canRename(node) ? (
-                                <RowButton
-                                  className="explorer-row-action"
-                                  title="Rename (F2)"
-                                  aria-label="Rename"
+                                <IconButton
+                                  size="sm"
+                                  label="Rename"
+                                  tip="Rename (F2)"
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     setProblem(null);
@@ -670,20 +640,23 @@ export function ExplorerPanel({
                                   }}
                                 >
                                   <NavIcon name="pencil" />
-                                </RowButton>
+                                </IconButton>
                               ) : null}
                             </span>
                           ) : null}
                           {node.missingNote && onStartNote && node.id ? (
-                            <RowButton
-                              className="explorer-start-note"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                onStartNote(node.id!);
-                              }}
-                            >
-                              Start note
-                            </RowButton>
+                            <span className="explorer-start-note">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  onStartNote(node.id!);
+                                }}
+                              >
+                                Start note
+                              </Button>
+                            </span>
                           ) : null}
                         </div>
                         {rowProblem ? (

@@ -3,7 +3,8 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { ReaderAnnotationType } from "@weaveforge/core";
 import { READER_ANNOTATION_COLORS } from "../application/reader-annotation-helpers";
-import { Button } from "@/components/button";
+import { Button, CloseButton } from "@/components/button";
+import { ToolButton } from "@/components/controls";
 
 /**
  * Where a selection sits in the scroller's content, in CSS pixels: the middle
@@ -97,25 +98,20 @@ export function SelectionCreateBar({
   return (
     <AnchoredBar at={at} label="Create annotation">
       {CREATE_ACTIONS.map(({ type, label, path }) => (
-        <IconButton key={type} label={label} path={path} disabled={busy} onClick={() => onCreate(type, color)} />
+        <CreateTool key={type} label={label} path={path} disabled={busy} onClick={() => onCreate(type, color)} />
       ))}
-      <IconButton label="Comment" path={COMMENT_PATH} disabled={busy} onClick={() => setCommenting(true)} />
+      <CreateTool label="Comment" path={COMMENT_PATH} disabled={busy} onClick={() => setCommenting(true)} />
       <span className="pdf-reader-create-vr" aria-hidden="true" />
-      <IconButton label="Close" path="M6 6l12 12M18 6L6 18" disabled={busy} onClick={onCancel} />
+      <CloseButton disabled={busy} onClick={onCancel} />
     </AnchoredBar>
   );
 }
 
-function IconButton({ label, path, disabled, onClick }: { label: string; path: string; disabled?: boolean; onClick: () => void }) {
+function CreateTool({ label, path, disabled, onClick }: { label: string; path: string; disabled?: boolean; onClick: () => void }) {
   return (
-    <Button variant="ghost" className="pdf-reader-create-icon"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={onClick}
-    >
+    <ToolButton label={label} disabled={disabled} onClick={onClick}>
       <Glyph d={path} />
-    </Button>
+    </ToolButton>
   );
 }
 
@@ -154,7 +150,7 @@ export function CommentField({
           if (e.key === "Escape") onCancel();
         }}
       />
-      <Button variant="primary" size="sm" className="pdf-reader-pop-btn" disabled={busy} onClick={save}>
+      <Button variant="primary" size="sm" disabled={busy} onClick={save}>
         Save
       </Button>
     </>

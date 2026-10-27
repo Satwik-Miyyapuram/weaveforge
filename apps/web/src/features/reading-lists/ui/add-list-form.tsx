@@ -7,7 +7,7 @@ import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { LIST_COLOR_NAMES, LIST_COLOR_PRESETS } from "./list-ui";
 import { FormError } from "@/components/form-error";
-import { ToggleButton } from "@/components/controls";
+import { Swatch } from "@/components/controls";
 import { Button } from "@/components/button";
 
 /**
@@ -68,13 +68,7 @@ export function AddListForm({
         <span className="list-color-label">Color</span>
         <div className="list-color-picks" role="group" aria-label="List color">
           {LIST_COLOR_PRESETS.map((c, i) => (
-            <ToggleButton pressed={color === c}
-              key={c}
-              className={`list-color-pick${color === c ? " on" : ""}`}
-              style={{ background: c }}
-              aria-label={LIST_COLOR_NAMES[i]}
-              onClick={() => setColor(c)}
-            />
+            <Swatch key={c} label={LIST_COLOR_NAMES[i] ?? c} selected={color === c} colour={c} onClick={() => setColor(c)} />
           ))}
         </div>
       </div>

@@ -10,23 +10,21 @@ const options = [
   { value: "tags", label: "Tags" },
 ] as const;
 
-test("the chosen option is pressed and marked seg-on; the others are not", () => {
+test("the chosen option is pressed; the others are not", () => {
   const out = renderToStaticMarkup(<SegmentedControl label="Edges" value="tags" onChange={() => {}} options={options} />);
-  assert.match(out, /^<div class="seg" role="group" aria-label="Edges">/);
+  assert.match(out, /^<div class="wf-seg" role="group" aria-label="Edges">/);
   assert.match(out, /<button type="button" aria-pressed="false">Cites<\/button>/);
-  assert.match(out, /<button type="button" aria-pressed="true" class="seg-on">Tags<\/button>/);
+  assert.match(out, /<button type="button" aria-pressed="true">Tags<\/button>/);
 });
 
 test("no option is styled as a primary button", () => {
   const out = renderToStaticMarkup(<SegmentedControl label="Edges" value="cites" onChange={() => {}} options={options} />);
-  assert.doesNotMatch(out, /btn-primary/);
+  assert.doesNotMatch(out, /wf-primary/);
 });
 
-test("sm and extra classes join the group class", () => {
-  const out = renderToStaticMarkup(
-    <SegmentedControl label="Edges" value="cites" onChange={() => {}} options={options} size="sm" className="x" />,
-  );
-  assert.match(out, /class="seg seg--sm x"/);
+test("an extra layout class joins the group class", () => {
+  const out = renderToStaticMarkup(<SegmentedControl label="Edges" value="cites" onChange={() => {}} options={options} className="x" />);
+  assert.match(out, /class="wf-seg x"/);
 });
 
 test("an icon-only option is named by its ariaLabel", () => {
@@ -38,10 +36,10 @@ test("an icon-only option is named by its ariaLabel", () => {
       options={[{ value: "tree", label: <svg />, ariaLabel: "Tree view", title: "Tree view" }]}
     />,
   );
-  assert.match(out, /<button type="button" aria-pressed="true" aria-label="Tree view" class="seg-on" title="Tree view"><svg><\/svg><\/button>/);
+  assert.match(out, /<button type="button" aria-pressed="true" aria-label="Tree view" title="Tree view"><svg><\/svg><\/button>/);
 });
 
 test("no value presses no option, for an image with no side set yet", () => {
   const out = renderToStaticMarkup(<SegmentedControl label="Edges" value={null} onChange={() => {}} options={options} />);
-  assert.doesNotMatch(out, /aria-pressed="true"|seg-on/);
+  assert.doesNotMatch(out, /aria-pressed="true"/);
 });

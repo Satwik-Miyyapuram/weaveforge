@@ -102,7 +102,7 @@ export function McpTokensPanel() {
               <div className="api-token-meta muted">
                 <span>{token.lastUsedAt ? `Last used ${formatDate(token.lastUsedAt)}` : "Not used yet"}</span>
               </div>
-              <Button size="sm" className="danger" onClick={() => setRevoking(token.id)} disabled={busy}>
+              <Button variant="danger" size="sm" onClick={() => setRevoking(token.id)} disabled={busy}>
                 Revoke
               </Button>
             </li>

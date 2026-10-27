@@ -4,8 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { anchoredMenuStyle, useAnchoredMenu } from "@/lib/hooks/use-anchored-menu";
-import { ChevronIcon } from "@/components/chevron-icon";
-import { OptionButton, RowButton } from "./controls";
+import { ComboboxButton, OptionButton } from "./controls";
 
 interface Option {
   value: string;
@@ -175,12 +174,10 @@ export function MultiSelect({
 
   return (
     <div className={`custom-select-container ${className}`} ref={ref}>
-      <RowButton
+      <ComboboxButton expanded={open}
         ref={triggerRef}
         id={id}
-        className="custom-select-button"
         aria-haspopup="listbox"
-        aria-expanded={open}
         aria-controls={open && menuRect ? listboxId : undefined}
         aria-label={ariaLabel}
         // `detail === 0` is a click the browser synthesised from a key press.
@@ -194,8 +191,7 @@ export function MultiSelect({
         onKeyDown={onKeyDown}
       >
         <span className="custom-select-value">{summary}</span>
-        <ChevronIcon />
-      </RowButton>
+      </ComboboxButton>
       {open && menuRect && createPortal(
         <div
           ref={listRef}
@@ -215,7 +211,7 @@ export function MultiSelect({
           <OptionButton selected={values.length === 0}
             data-row={0}
             tabIndex={-1}
-            className={`custom-select-item ms-item${values.length === 0 ? " sel" : ""}${active === 0 ? " active" : ""}`}
+            data-highlighted={active === 0 || undefined}
             onMouseEnter={() => setActive(0)}
             onClick={() => onChange([])}
           >
@@ -230,7 +226,7 @@ export function MultiSelect({
                 key={o.value}
                 data-row={row}
                 tabIndex={-1}
-                className={`custom-select-item ms-item${on ? " sel" : ""}${active === row ? " active" : ""}`}
+                data-highlighted={active === row || undefined}
                 onMouseEnter={() => setActive(row)}
                 onClick={() => toggle(o.value)}
               >

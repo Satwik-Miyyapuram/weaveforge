@@ -2,8 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { getContainer } from "@/bootstrap";
-import { Button } from "@/components/button";
-import { RowButton } from "@/components/controls";
+import { Button, IconButton } from "@/components/button";
 import { CommentsIcon } from "@/components/view-icons";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { CommentsBadge } from "./comments-badge";
@@ -53,22 +52,20 @@ export function CommentsToggle({
     onClick: () => setOpen((v) => !v),
     "aria-expanded": open,
     "aria-controls": open ? panelId : undefined,
-    "aria-label": label,
-    title: label,
   };
   return (
     <div className={`comments-toggle${detail ? " comments-toggle--detail" : ""}`} ref={wrapRef}>
       {detail ? (
-        <Button className="entity-icon-text-btn comments-trigger-detail" {...trigger}>
+        <Button size="sm" variant="ghost" aria-label={label} title={label} {...trigger}>
           <CommentsIcon size={18} />
           <span>{open ? "Hide comments" : "Comments"}</span>
           <CommentsBadge count={count} />
         </Button>
       ) : (
-        <RowButton className="entity-icon-btn" {...trigger}>
+        <IconButton label={label} {...trigger}>
           <CommentsIcon size={16} />
           <CommentsBadge count={count} />
-        </RowButton>
+        </IconButton>
       )}
       {open && (
         <div id={panelId} className="comments-sheet" role="region" aria-label="Comments">

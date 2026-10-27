@@ -65,9 +65,8 @@ export function MemberPicker({
         {filtered.map((m) => (
           <li key={m.id}>
             <label className="mp-row">
-              <input
+              <input className="wf-check"
                 type="checkbox"
-                className="themed-check"
                 checked={selected.includes(m.id)}
                 onChange={() => onToggle(m.id)}
               />

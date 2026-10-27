@@ -222,16 +222,10 @@ test("editor: a picture at the foot of the page has its bar above it (DA-117)", 
 });
 
 test("editor: the order buttons are full-size and readable (DA-117)", async () => {
+  // They are catalogue ghost buttons at the small size, with no sheet of their own.
   const { readFileSync } = await import("node:fs");
   const css = readFileSync(new URL("../../../app/styles/editor-workspace.css", import.meta.url), "utf8");
-  const rule = (sel: string) => {
-    const i = css.indexOf(`
-${sel} {`);
-    assert.ok(i >= 0, sel);
-    return css.slice(i, css.indexOf("}", i));
-  };
-  const btn = rule(".ink-figure-button");
-  assert.match(btn, /min-height:\s*var\(--control-sm\);/);
-  assert.match(btn, /color:\s*var\(--muted\);/);
-  assert.match(btn, /font-size:\s*var\(--fs-xs\);/);
+  const src = readFileSync(new URL("../ui/ink-figures.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(css, /\.ink-figure-button/);
+  assert.match(src, /<Button\s+variant="ghost"\s+size="sm"\s+title="Bring forward \(Ctrl\+\]\)"/);
 });

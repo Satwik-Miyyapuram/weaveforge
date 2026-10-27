@@ -57,7 +57,7 @@ export function PaperIdentifiersEditor({
         <Button variant="primary" size="sm" disabled={busy} onClick={() => void save()}>
           {busy ? "Saving…" : "Save"}
         </Button>
-        <Button size="sm" className="btn-cancel" disabled={busy} onClick={onClose}>
+        <Button variant="cancel" size="sm" disabled={busy} onClick={onClose}>
           Cancel
         </Button>
       </div>

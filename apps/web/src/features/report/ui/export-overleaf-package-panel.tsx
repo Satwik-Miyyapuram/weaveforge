@@ -101,9 +101,8 @@ export function ExportOverleafPackagePanel({
               />
             </label>
             <label className="export-overleaf-check">
-              <input
+              <input className="wf-check"
                 type="checkbox"
-                className="themed-check"
                 checked={includeNotes}
                 onChange={(e) => setIncludeNotes(e.target.checked)}
                 disabled={busy}
@@ -111,9 +110,8 @@ export function ExportOverleafPackagePanel({
               <span>Include section notes (Markdown → LaTeX)</span>
             </label>
             <label className="export-overleaf-check">
-              <input
+              <input className="wf-check"
                 type="checkbox"
-                className="themed-check"
                 checked={includeBib}
                 onChange={(e) => setIncludeBib(e.target.checked)}
                 disabled={busy}
@@ -149,7 +147,7 @@ export function ExportOverleafPackagePanel({
               </ul>
             )}
             <ModalActions>
-              <Button className="btn-cancel" disabled={busy} onClick={close}>
+              <Button variant="cancel" disabled={busy} onClick={close}>
                 Cancel
               </Button>
               <Button variant="primary" disabled={busy} onClick={() => void run()}>

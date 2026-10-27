@@ -92,9 +92,8 @@ export function ListPicker({ target }: { target: PickerTarget }) {
         {lists.map((list) => (
           <li key={list.id}>
             <label className="add-to-list-choice">
-              <input
+              <input className="wf-check"
                 type="checkbox"
-                className="themed-check"
                 checked={member.has(list.id)}
                 disabled={busy === list.id}
                 onChange={() => void toggle(list)}

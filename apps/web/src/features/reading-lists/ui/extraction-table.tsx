@@ -220,7 +220,7 @@ export function ExtractionTable({
                     <div className="extraction-th">
                       <span>{availableColumns.find((o) => o.value === c)?.label ?? c}</span>
                       {!readOnly && fillable && fieldId && (
-                        <Button variant="link" className="extraction-propose-btn"
+                        <Button variant="link" size="sm"
                           onClick={() => setPromptFieldId((cur) => (cur === fieldId ? null : fieldId))}
                         >
                           Propose fill
@@ -340,9 +340,8 @@ function ExtractionCell({
           const checked = current.includes(opt);
           return (
             <label key={opt} className="paper-field-check">
-              <input
+              <input className="wf-check"
                 type="checkbox"
-                className="themed-check"
                 checked={checked}
                 disabled={disabled}
                 onChange={() => {

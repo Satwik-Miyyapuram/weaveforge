@@ -127,7 +127,7 @@ export function ApiTokensPanel() {
                 <span>Expires {formatWhen(t.expiresAt)}</span>
                 <span>Last used {formatWhen(t.lastUsedAt)}</span>
               </div>
-              <Button size="sm" className="danger" onClick={() => setRevoking(t.id)}>
+              <Button variant="danger" size="sm" onClick={() => setRevoking(t.id)}>
                 Revoke
               </Button>
             </li>

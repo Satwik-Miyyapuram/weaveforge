@@ -8,7 +8,7 @@ export function JumpToCreateRow({ query, onCreate }: { query: string; onCreate: 
   if (!title) return null;
   return (
     <li>
-      <RowButton className="jump-to-create" onClick={onCreate}>
+      <RowButton onClick={onCreate}>
         Create note “{title}”
       </RowButton>
     </li>

@@ -75,7 +75,7 @@ export function PromptDialog({
         </label>
         <FormError>{problem}</FormError>
         <ModalActions>
-          <Button className="btn-cancel" onClick={onClose}>
+          <Button variant="cancel" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" variant="primary">

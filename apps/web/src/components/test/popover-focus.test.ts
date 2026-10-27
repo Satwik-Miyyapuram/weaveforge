@@ -39,24 +39,22 @@ test("an arrow from the panel enters the first row", () => {
 
 test("a menu row marked danger is painted in the danger colour", () => {
   const css = readFileSync(fileURLToPath(new URL("../../app/styles/states.css", import.meta.url)), "utf8");
-  const rule = css.split("\n").find((l) => l.includes(".card-menu-item") && l.includes("{ color: var(--wf-danger); }"));
-  assert.ok(rule, "danger row rule exists");
-  assert.match(rule, /:is\([^)]*\.danger\)/);
+  assert.match(css, /^:root:root \.wf-item\.wf-danger \{ color: var\(--wf-danger\); \}$/m);
 });
 
 test("drop-down triggers share the button motion, and the select menu has no second open animation", () => {
   const styles = (f: string) => readFileSync(fileURLToPath(new URL(`../../app/styles/${f}`, import.meta.url)), "utf8");
   const states = styles("states.css");
-  assert.match(states, /\.custom-select-button:hover:not\(:disabled\) \{ translate: 0 var\(--wf-lift\)/);
-  assert.match(states, /\.custom-select-button:is\(:active, \[aria-expanded="true"\]\):not\(:disabled\), [^{]*\.popover-trigger\[aria-expanded="true"\] \{ translate: var\(--wf-press\) var\(--wf-press\); box-shadow: none;/);
+  assert.match(states, /\.wf-select:hover:not\(:disabled\) \{ translate: var\(--wf-lift-x\) var\(--wf-lift\)/);
+  assert.match(states, /\.wf-select:is\(:active, \[aria-expanded="true"\]\):not\(:disabled\), [^{]*\.wf-btn\[aria-expanded="true"\] \{ translate: var\(--wf-press\) var\(--wf-press\); box-shadow: none;/);
   assert.doesNotMatch(styles("forms.css"), /animation: menu-in/);
-  assert.doesNotMatch(styles("brutal.css"), /\.filter-select \.custom-select-button\[aria-expanded="true"\] \{\s*transform: var\(--press-t\)/);
+  assert.doesNotMatch(styles("brutal.css"), /\.custom-select-button/);
 });
 
 test("a segmented control is separate chips, with no second frame drawn around them", () => {
   const styles = (f: string) => readFileSync(fileURLToPath(new URL(`../../app/styles/${f}`, import.meta.url)), "utf8");
-  assert.doesNotMatch(styles("brutal.css"), /\]\) \.seg \{/);
-  assert.match(styles("git.css"), /^\.seg \{ display: inline-flex; gap: 2px; \}$/m);
+  assert.doesNotMatch(styles("brutal.css"), /\.(wf-)?seg \{/);
+  assert.match(styles("states.css"), /^:root:root \.wf-seg \{ display: inline-flex; gap: 4px; \}$/m);
 });
 
 test("the title-bar menu drops from its button at every width and is fitted to the window", () => {
@@ -78,6 +76,6 @@ test("checkbox checkmarks are centered and forms.css has no legacy tick collisio
   assert.doesNotMatch(forms, /\.themed-check:checked::after/);
 
   // states.css centers the checkmark using translate and position
-  assert.match(states, /:is\(\.wf-check, \.themed-check, \.milestone-check\)[^{]*::after\s*\{[^}]*left:\s*50%;\s*top:\s*45%;[^}]*translate:\s*-50%\s*-50%;/);
-  assert.match(states, /:is\(\.wf-check, \.themed-check, \.milestone-check\)[^{]*:is\(:checked, :indeterminate\)\s*\{[^}]*border-color:\s*var\(--accent\);/);
+  assert.match(states, /\.wf-check:not\(\[role="switch"\], \.wf-toggle\)::after\s*\{[^}]*left:\s*50%;\s*top:\s*45%;[^}]*translate:\s*-50%\s*-50%;/);
+  assert.match(states, /\.wf-check:not\(\[role="switch"\], \.wf-toggle\):is\(:checked, :indeterminate\)\s*\{[^}]*border-color:\s*var\(--accent\);/);
 });

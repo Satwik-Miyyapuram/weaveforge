@@ -54,6 +54,6 @@ test("the tokens page uses the styled table and no UA fieldset (E19, E20)", () =
 });
 
 test("inputs and selects share the button height (DA-73)", () => {
-  assert.match(forms, /input:not\(\[type="checkbox"\][^{]*\),\s*\.custom-select-button\s*\{[^}]*min-height:\s*var\(--control-lg\)/);
-  assert.match(forms, /@media \(pointer: coarse\)\s*\{[^@]*\.custom-select-button\s*\{[^}]*min-height:\s*var\(--touch-min\)/);
+  assert.match(forms, /input:not\(\[type="checkbox"\][^{]*\),\s*\.wf-select\s*\{[^}]*min-height:\s*var\(--control-lg\)/);
+  assert.match(forms, /@media \(pointer: coarse\)\s*\{[^@]*\.wf-select\s*\{[^}]*min-height:\s*var\(--touch-min\)/);
 });

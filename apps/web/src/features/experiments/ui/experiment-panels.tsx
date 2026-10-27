@@ -12,6 +12,7 @@ import { MetricGrid } from "./metric-grid";
 import { usePolledLoad } from "./use-polled-load";
 import { isAbsoluteUrl } from "../infrastructure/experiment-artifact-store";
 import { FormError } from "@/components/form-error";
+import { Chip } from "@/components/controls";
 import { ImageViewer } from "@/components/image-viewer";
 import { formatError } from "@/lib/format-error";
 import { warnOnce } from "@/lib/error-report/warn-once";
@@ -28,18 +29,18 @@ function isImageUrl(url: string): boolean {
 
 export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number }) {
   const chips = [
-    exp.branch ? <span key="branch" className="git-chip"><em>branch</em> {exp.branch}</span> : null,
+    exp.branch ? <Chip key="branch"><em>branch</em> {exp.branch}</Chip> : null,
     exp.commitSha ? (
       commitUrl(exp.repoUrl, exp.commitSha) ? (
-        <a key="commit" className="git-chip is-link" href={commitUrl(exp.repoUrl, exp.commitSha)} target="_blank" rel="noreferrer">
+        <Chip key="commit" href={commitUrl(exp.repoUrl, exp.commitSha) ?? ""} target="_blank" rel="noreferrer">
           <em>commit</em> {shortSha(exp.commitSha)}
-        </a>
+        </Chip>
       ) : (
-        <span key="commit" className="git-chip"><em>commit</em> {shortSha(exp.commitSha)}</span>
+        <Chip key="commit"><em>commit</em> {shortSha(exp.commitSha)}</Chip>
       )
     ) : null,
     exp.repoUrl ? (
-      <a key="repo" className="git-chip is-link" href={exp.repoUrl} target="_blank" rel="noreferrer">repo</a>
+      <Chip key="repo" href={exp.repoUrl} target="_blank" rel="noreferrer">repo</Chip>
     ) : null,
     exp.relatedPaper ? <RelatedPaper key="paper" paperId={exp.relatedPaper} /> : null,
   ].filter(Boolean);
@@ -50,7 +51,7 @@ export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number })
   return (
     <div className={limit != null ? "git-chips chip-row--capped" : "git-chips"}>
       {shown}
-      {hidden > 0 ? <span className="git-chip chip-more">+{hidden}</span> : null}
+      {hidden > 0 ? <span className="chip-more">+{hidden}</span> : null}
     </div>
   );
 }
@@ -76,9 +77,9 @@ function RelatedPaper({ paperId }: { paperId: string }) {
   const title = usePaperTitle(paperId);
   if (!title) return null;
   return (
-    <span className="git-chip git-chip--paper" title="Paper this run tests/implements">
+    <Chip title={`Paper this run tests/implements: ${title}`}>
       <em>paper</em> {title}
-    </span>
+    </Chip>
   );
 }
 
@@ -190,9 +191,9 @@ export function Artifacts({ urls: entries, detail = false }: { urls: string[]; d
       {links.length > 0 && (
         <div className="git-chips">
           {links.map((url, i) => (
-            <a key={url} className="git-chip is-link" href={url} target="_blank" rel="noreferrer">
+            <Chip key={url} href={url} target="_blank" rel="noreferrer">
               {figureLabel(url, i)}
-            </a>
+            </Chip>
           ))}
         </div>
       )}
