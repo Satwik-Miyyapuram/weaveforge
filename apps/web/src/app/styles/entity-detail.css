@@ -208,12 +208,12 @@ a.related-paper-url:hover { text-decoration: underline; }
  * neutral rules are not redundant with `.status` — `custom-select-button`
  * takes a `status-*` class without it.
  */
-.status-reading, .status-daily, .status-drafting, .status-running, .status-in_progress {
+.status-reading, .status-weekly, .status-drafting, .status-running, .status-in_progress {
   background: var(--st-info-bg); color: var(--st-info-fg);
 }
-.status-read, .status-done { background: var(--st-positive-bg); color: var(--st-positive-fg); }
+.status-read, .status-done, .status-daily { background: var(--st-positive-bg); color: var(--st-positive-fg); }
 .status-skimmed, .status-review { background: var(--st-warn-bg); color: var(--st-warn-fg); }
-.status-weekly, .status-not_started, .status-planned {
+.status-not_started, .status-planned {
   background: var(--st-neutral-bg); color: var(--st-neutral-fg);
 }
 .status-failed, .status-blocked { background: var(--st-danger-bg); color: var(--st-danger-fg); }
@@ -254,16 +254,34 @@ a.related-paper-url:hover { text-decoration: underline; }
   border: 1px solid transparent;
 }
 button.log-calendar-day { position: relative; padding: 0; font: inherit; font-size: var(--fs-sm); color: inherit; cursor: pointer; }
-.log-calendar-day.is-logged { background: color-mix(in srgb, var(--accent) 22%, transparent); font-weight: 600; }
+/* A logged day wears its kind's colour, the same map as the entry cards (DA-111). */
+.log-calendar-day.is-logged { background: color-mix(in srgb, var(--status-chip) 45%, transparent); font-weight: 600; }
+.log-calendar-day.is-logged.is-mixed {
+  background: linear-gradient(135deg, var(--chip-read, var(--s-good)) 50%, var(--chip-reading, var(--s-info)) 50%);
+}
 .log-calendar-day.is-logged:hover { border-color: var(--text); }
-/* More than one entry that day: a count in the corner, headlines in the tooltip. */
+/* More than one entry that day: a count tucked in the corner, inside the
+   cell, and the headlines in the tooltip. */
 .log-calendar-count {
-  position: absolute; top: -6px; right: -6px; min-width: 15px; padding: 0 4px; border-radius: var(--r-control);
-  background: var(--text); color: var(--bg); font-size: var(--fs-micro); line-height: 15px;
+  position: absolute; top: 2px; right: 3px; font-size: var(--fs-micro); font-weight: 700; line-height: 1;
 }
 .log-calendar-day.is-today { border-color: var(--accent); font-weight: 700; }
-.log-kinds ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
-.log-kinds li { display: flex; align-items: center; justify-content: space-between; }
+.log-calendar-legend {
+  display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 12px 0 0; padding: 0; list-style: none;
+  color: var(--muted); font-size: var(--fs-xs);
+}
+.log-calendar-legend li { display: inline-flex; align-items: center; gap: 4px; }
+.log-calendar-swatch { width: 12px; height: 12px; border-radius: var(--r-sm); border: 1px solid transparent; }
+.log-calendar-swatch[data-status] { background: color-mix(in srgb, var(--status-chip) 45%, transparent); }
+.log-calendar-swatch.is-today { border-color: var(--accent); }
+.log-kinds ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+/* Each kind is a filter: the whole row toggles, pressed shows the filter is on. */
+.log-kind-chip {
+  display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: var(--control-sm);
+  padding: 0 8px; border: 1px solid transparent; border-radius: var(--r-sm); background: none; font: inherit; color: inherit; cursor: pointer;
+}
+.log-kind-chip:hover { border-color: var(--line); }
+.log-kind-chip[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .log-kinds-count { color: var(--muted); font-size: var(--fs-sm); }
 @media (max-width: 1100px) {
   .log-layout { grid-template-columns: minmax(0, 1fr); }

@@ -35,14 +35,18 @@ export function LogbookScreen() {
   const [addOpen, setAddOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [kind, setKind] = useState<LogKind | null>(null);
 
   const loadEntries = useCallback(() => getContainer().logbook.loadEntries(), []);
   const { data, loading, error, reload: load } = useScreenData("logbook", loadEntries);
   const entries = data ?? emptyArray<LogEntry>();
   const match = useScreenSearch(search, "log");
   const days = useMemo(
-    () => groupByDay(match(entries, (e) => e.id, (e) => `${e.kind} ${e.body}`)),
-    [entries, match],
+    () =>
+      groupByDay(
+        match(kind ? entries.filter((e) => e.kind === kind) : entries, (e) => e.id, (e) => `${e.kind} ${e.body}`),
+      ),
+    [entries, kind, match],
   );
 
   if (loading) {
@@ -92,7 +96,7 @@ export function LogbookScreen() {
         <EmptyState
           variant="no-results"
           body="No entries match."
-          action={<ClearFiltersButton onClear={() => setSearch("")} />}
+          action={<ClearFiltersButton onClear={() => { setSearch(""); setKind(null); }} />}
         />
       )}
       {entries.length > 0 && (
@@ -114,7 +118,7 @@ export function LogbookScreen() {
           </ol>
           <aside className="log-side" aria-label="Logbook overview">
             <LogCalendar entries={entries} />
-            <LogKinds entries={entries} />
+            <LogKinds entries={entries} active={kind} onPick={setKind} />
           </aside>
         </div>
       )}
@@ -489,20 +493,35 @@ function LogCalendar({ entries }: { entries: readonly LogEntry[] }) {
           );
         })}
       </div>
+      <ul className="log-calendar-legend">
+        <li><span className="log-calendar-swatch" data-status="daily" aria-hidden="true" />Daily</li>
+        <li><span className="log-calendar-swatch" data-status="weekly" aria-hidden="true" />Weekly</li>
+        <li><span className="log-calendar-swatch is-today" aria-hidden="true" />Today</li>
+      </ul>
     </div>
   );
 }
 
-/** How many entries of each kind. */
-function LogKinds({ entries }: { entries: readonly LogEntry[] }) {
+/** How many entries of each kind; picking one shows only that kind (DA-111). */
+function LogKinds({
+  entries,
+  active,
+  onPick,
+}: {
+  entries: readonly LogEntry[];
+  active: LogKind | null;
+  onPick: (kind: LogKind | null) => void;
+}) {
   return (
     <div className="card log-kinds">
       <h2>Kinds</h2>
       <ul>
-        {LOG_KINDS.map((kind) => (
-          <li key={kind}>
-            <span className={`status status-${kind}`}>{statusLabel(kind)}</span>
-            <span className="log-kinds-count">{entries.filter((e) => e.kind === kind).length}</span>
+        {LOG_KINDS.map((k) => (
+          <li key={k}>
+            <RowButton className="log-kind-chip" aria-pressed={active === k} onClick={() => onPick(active === k ? null : k)}>
+              <span className={`status status-${k}`}>{statusLabel(k)}</span>
+              <span className="log-kinds-count">{entries.filter((e) => e.kind === k).length}</span>
+            </RowButton>
           </li>
         ))}
       </ul>
