@@ -25,8 +25,10 @@ test("no UI file humanises an enum by hand (D-16)", () => {
     .concat(uiFiles(join(root, "components")))
     .filter((f) => /\.replace\(\s*("_"|\/_\/g)/.test(readFileSync(f, "utf8")))
     .map((f) => relative(root, f).replace(/\\/g, "/"));
-  // Sync issues name raw table and column ids, which are not enums.
-  assert.deepEqual(offenders.filter((f) => !f.endsWith("sync-issues-panel.tsx")), []);
+  // Sync issues name raw table and column ids, and the plan widget theme
+  // decodes next/font family names ("__JetBrains_Mono_9c1a"): not enums.
+  const notEnums = ["sync-issues-panel.tsx", "plan-widget-theme.tsx"];
+  assert.deepEqual(offenders.filter((f) => !notEnums.some((name) => f.endsWith(name))), []);
 });
 
 /** [file, button-or-header text, dialog title, submit text] per create flow. */
