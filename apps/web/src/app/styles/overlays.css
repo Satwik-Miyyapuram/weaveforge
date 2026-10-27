@@ -293,6 +293,7 @@
 }
 .account-menu-head b { font-weight: 600; }
 .account-menu-head span { color: var(--muted); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-menu-head .account-menu-sync { font-size: var(--fs-xs); }
 .popover-panel .header-link svg,
 .popover-panel .signout svg { color: var(--muted); flex: none; }
 .popover-panel .header-link:hover,

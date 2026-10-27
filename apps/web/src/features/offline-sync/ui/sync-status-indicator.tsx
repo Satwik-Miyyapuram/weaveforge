@@ -9,12 +9,8 @@ import { syncStatus } from "../domain/sync-status";
 
 const DOT = { synced: "green", offline: "muted", conflict: "amber", syncing: "" } as const;
 
-/**
- * `attentionOnly`: render only conflicts. `quiet`: every state as a dot, its
- * words on hover (D-13); a conflict keeps its labelled badge, since it needs
- * the person.
- */
-export function SyncStatusIndicator({ attentionOnly = false, quiet = false }: { attentionOnly?: boolean; quiet?: boolean } = {}) {
+/** `attentionOnly`: render only conflicts, the one state that needs the person. */
+export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?: boolean } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const live = useLiveSync();
@@ -84,8 +80,8 @@ export function SyncStatusIndicator({ attentionOnly = false, quiet = false }: { 
     ) : (
       <span className={`sync-dot ${DOT[status.state]}`} />
     );
-  const className = `sync-badge ${status.state}${quiet ? " quiet" : ""}`;
-  const label = quiet ? null : <span>{status.label}</span>;
+  const className = `sync-badge ${status.state}`;
+  const label = <span>{status.label}</span>;
 
   if (status.state === "synced") {
     return (

@@ -1,7 +1,7 @@
 /**
  * Sync status was shown only on conflict, so a person could not tell synced
- * from offline from still syncing (design D21, DA-133, D-13). The sidebar now
- * keeps a quiet dot for every state, with the state in words on hover.
+ * from offline from still syncing (design D21, DA-133, D-13). The account
+ * menu now says the state in words; the sidebar keeps no dot of its own.
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -33,11 +33,11 @@ test("an account without sync shows nothing", () => {
   assert.equal(syncStatus({ ...base, enabled: false, isOnline: false }, now)?.state, "offline", "offline still matters");
 });
 
-test("the sidebar shows the quiet dot, not conflicts only", () => {
+test("the account menu says the sync state in words", () => {
   const read = (rel: string) => readFileSync(fileURLToPath(new URL(`../../../${rel}`, import.meta.url)), "utf8");
-  const tabbar = read("app/tabbar.tsx");
-  assert.match(tabbar, /<SyncStatusIndicator quiet \/>/);
+  const menu = read("app/header-actions.tsx");
+  assert.match(menu, /syncStatus\(/, "the menu reads its words from syncStatus");
+  assert.match(menu, /className="account-menu-sync"/);
   const ui = read("features/offline-sync/ui/sync-status-indicator.tsx");
-  assert.match(ui, /syncStatus\(/, "the indicator reads its words from syncStatus");
-  assert.match(ui, /aria-label=\{status\.tip\}/, "the dot names its state for screen readers");
+  assert.doesNotMatch(ui, /quiet/, "no quiet dot mode is left");
 });

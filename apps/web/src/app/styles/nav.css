@@ -283,7 +283,6 @@ button.nav-link {
   .layout.nav-collapsed .proj-switcher,
   .layout.nav-collapsed .org-switcher,
   .layout.nav-collapsed .local-mode-badge,
-  .layout.nav-collapsed .sync-badge > span:not(.sync-dot),
   .layout.nav-collapsed .nav-bottom .header-link span,
   .layout.nav-collapsed .nav-bottom .signout span,
   .layout.nav-collapsed .theme-toggle span { display: none; }
@@ -296,17 +295,6 @@ button.nav-link {
     overflow: visible;
   }
   .layout.nav-collapsed .nav-bottom .header-actions { align-items: center; }
-  .layout.nav-collapsed .sync-badge {
-    width: 40px; height: 40px; min-height: 0;
-    padding: 0; gap: 0; margin: 0;
-    align-self: center;
-    justify-content: center;
-    align-items: center;
-    border-radius: var(--control-radius-sm, 8px);
-  }
-  .layout.nav-collapsed .sync-badge .sync-dot {
-    width: 10px; height: 10px; margin: 0;
-  }
   .layout.nav-collapsed .app-brand { margin-bottom: 8px; padding: 0; justify-content: center; }
 
   /* shell.css zeroes the route's left padding so the panes reach the window
@@ -384,9 +372,6 @@ html[data-workspace-focus] .layout.editor-route .nav { display: none; }
 .sync-dot.amber { background: var(--s-warn-bg); }
 .sync-dot.muted { background: var(--muted); }
 .sync-dot.green { background: var(--success); }
-/* The always-on dot (D-13): no pill, just the state; its words are the tooltip. */
-.sync-badge.quiet { padding: 4px; border-color: transparent; background: transparent; color: var(--muted); }
-.sync-badge.quiet:hover { background: var(--pill); }
 .sync-spin-icon { animation: sync-spin 1s linear infinite; }
 @keyframes sync-spin { to { transform: rotate(360deg); } }
 

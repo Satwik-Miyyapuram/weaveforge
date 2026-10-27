@@ -17,7 +17,6 @@ import type { InboxLink } from "./inbox-links";
 import { useRailTip } from "./rail-tip";
 import { loadOpenGroups, saveOpenGroups, toggleGroup, withActive } from "./nav-open-groups";
 import { useInbox } from "./use-inbox";
-import { SyncStatusIndicator } from "./lazy-sync-status";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
 import { RowButton } from "@/components/controls";
@@ -267,7 +266,6 @@ export function TabBar({
             <HeaderActions variant="menu" inbox={false} />
           </div>
           <LocalModeBadge />
-          <SyncStatusIndicator quiet />
         </div>
       )}
     </nav>
