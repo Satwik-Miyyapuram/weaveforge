@@ -451,3 +451,22 @@
   max-width: min(var(--app-max), 100%);
   width: 100%;
 }
+
+/* Shown only while files are dragged over the window (D-21). */
+.pdf-drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  outline: 3px dashed var(--accent);
+  outline-offset: -12px;
+}
+
+.pdf-drop-label {
+  font-size: var(--fs-h2);
+  font-weight: 600;
+  color: var(--ink);
+}
