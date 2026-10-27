@@ -245,7 +245,7 @@ a.related-paper-url:hover { text-decoration: underline; }
 .log-day-mark strong { font-size: 1.8rem; line-height: 1; }
 .log-day-mark span { color: var(--muted); font-size: var(--fs-xs); }
 .log-side { display: grid; gap: 16px; position: sticky; top: 16px; }
-.log-calendar h2, .log-kinds h2 { margin: 0 0 12px; font-size: var(--fs-h2); }
+.log-calendar h2, .log-kinds h2, .log-check-ins h2 { margin: 0 0 12px; font-size: var(--fs-h2); }
 .log-calendar-top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .log-calendar-top h2 { flex: 1; margin: 0; text-align: center; }
 .log-calendar-top button:disabled { opacity: 0.35; cursor: default; }
@@ -285,6 +285,10 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 .log-kind-chip:hover { border-color: var(--line); }
 .log-kind-chip[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .log-kinds-count { color: var(--muted); font-size: var(--fs-sm); }
+.log-check-ins ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.log-check-in { display: flex; align-items: center; gap: 8px; min-height: var(--control-sm); }
+.log-check-in-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-check-in time { font-size: var(--fs-sm); }
 @media (max-width: 1100px) {
   .log-layout { grid-template-columns: minmax(0, 1fr); }
   .log-side { display: none; }
@@ -366,5 +370,5 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 @media (max-width: 900px) {
   .log-publish { display: none; }
   .log-side { display: block; position: static; order: -1; }
-  .log-kinds { display: none; }
+  :is(.log-kinds, .log-check-ins) { display: none; }
 }

@@ -21,6 +21,7 @@ import { FormError } from "@/components/form-error";
 import { statusLabel } from "@/components/status-select";
 import { RowButton } from "@/components/controls";
 import { Button } from "@/components/button";
+import { CommentsToggle } from "@/features/sharing";
 import { studentsOf } from "../application/students-of";
 
 /**
@@ -186,10 +187,10 @@ function SuperviseePanel({ member }: { member: Member }) {
   return (
     <div className="superv-panels">
       <div className="card add-form superv-snapshots">
-        <h3 className="settings-group">Published snapshots ({snapshots.length})</h3>
+        <h3 className="settings-group">Check-ins ({snapshots.length})</h3>
         {snapshots.length === 0 ? (
           <p className="muted">
-            No published snapshots yet. Live plan and logbook are shown below until they publish one.
+            No check-ins yet. Live plan and logbook are shown below until they send one.
           </p>
         ) : (
           <>
@@ -219,6 +220,14 @@ function SuperviseePanel({ member }: { member: Member }) {
                 <span className="superv-note-label">Note from {member.fullName?.split(" ")[0] || "them"}</span>
                 <p className="superv-body">{selectedSnapshot.note}</p>
               </div>
+            )}
+            {selectedSnapshot && (
+              <CommentsToggle
+                variant="detail"
+                resourceType="lab_snapshot"
+                resourceId={selectedSnapshot.id}
+                canComment
+              />
             )}
           </>
         )}

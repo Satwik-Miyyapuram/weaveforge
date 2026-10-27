@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { LOG_KINDS, type LogEntry, type LogKind } from "@weaveforge/core";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { LOG_KINDS, type LabSnapshot, type LogEntry, type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { removeLater, useHiddenKeys } from "@/lib/toast";
 import { Modal } from "@/components/modal";
@@ -27,6 +27,7 @@ import { statusLabel } from "@/components/status-select";
 import { bestEffort, removeLogEntry } from "../application/log-side-effects";
 import { Button } from "@/components/button";
 import { RowButton } from "@/components/controls";
+import { PastCheckIns } from "./past-check-ins";
 
 /**
  * Logbook screen. Presentation + view-state only; all data access goes through
@@ -41,6 +42,20 @@ export function LogbookScreen() {
   const loadEntries = useCallback(() => getContainer().logbook.loadEntries(), []);
   const { data, loading, error, reload: load } = useScreenData("logbook", loadEntries);
   const entries = data ?? emptyArray<LogEntry>();
+  const [checkIns, setCheckIns] = useState<LabSnapshot[]>([]);
+  const [checkInsError, setCheckInsError] = useState<string | null>(null);
+  const loadCheckIns = useCallback(async () => {
+    try {
+      setCheckIns(await getContainer().org.listMyLabSnapshots());
+      setCheckInsError(null);
+    } catch (err) {
+      // Offline or signed out: keep what was shown, and say why it is empty.
+      setCheckInsError(formatError(err));
+    }
+  }, []);
+  useEffect(() => {
+    void loadCheckIns();
+  }, [loadCheckIns]);
   const match = useScreenSearch(search, "log");
   const days = useMemo(
     () =>
@@ -74,7 +89,7 @@ export function LogbookScreen() {
 
       {publishOpen && (
         <Modal title="Send check-in" onClose={() => setPublishOpen(false)}>
-          <PublishLabSnapshotForm onPublished={() => setPublishOpen(false)} />
+          <PublishLabSnapshotForm onPublished={() => { setPublishOpen(false); void loadCheckIns(); }} />
         </Modal>
       )}
 
@@ -120,6 +135,7 @@ export function LogbookScreen() {
           <aside className="log-side" aria-label="Logbook overview">
             <LogCalendar entries={entries} />
             <LogKinds entries={entries} active={kind} onPick={setKind} />
+            <PastCheckIns snapshots={checkIns} error={checkInsError} />
           </aside>
         </div>
       )}
@@ -172,7 +188,7 @@ function PublishLabSnapshotForm({ onPublished }: { onPublished: () => void }) {
       </label>
       {error && <FormError>{error}</FormError>}
       <Button type="submit" variant="primary" disabled={busy || !title.trim()}>
-        {busy ? "Publishing…" : "Publish"}
+        {busy ? "Sending…" : "Send check-in"}
       </Button>
     </form>
   );
