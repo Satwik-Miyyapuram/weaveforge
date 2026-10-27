@@ -19,7 +19,8 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { walkFiles } from "./lib/db-connection.mjs";
 
-const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+// UI_GATE_ROOT points the gate at a planted tree in its own self-test.
+const root = process.env.UI_GATE_ROOT ?? path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /** Where app UI lives. Shared components themselves are exempt per-rule. */
 const UI_PATHS = [
@@ -36,9 +37,6 @@ const UI_PATHS = [
  * @property {string} [why]    Why it matters, when not obvious.
  * @property {string} [unless] A match containing this substring is fine.
  * @property {string[]} [allow] Path fragments exempt from the rule.
- * @property {number} [ceiling] A ratchet, for patterns too common to ban at
- *   once: the gate fails only when the count rises above this. Lower it as
- *   call sites move over; never raise it.
  */
 
 /** @type {Rule[]} */
@@ -124,16 +122,6 @@ for (const rule of RULES) {
       const line = text.slice(0, match.index).split("\n").length;
       hits.push(`${rel}:${line}`);
     }
-  }
-
-  if (rule.ceiling !== undefined) {
-    if (hits.length > rule.ceiling) {
-      failed = true;
-      console.error(`FAIL: ${rule.name} — ${hits.length} found, ceiling is ${rule.ceiling}; use ${rule.use} (${rule.why}).`);
-    } else if (hits.length < rule.ceiling) {
-      console.log(`${rule.name}: ${hits.length} left, below the ceiling of ${rule.ceiling}; lower it.`);
-    }
-    continue;
   }
 
   if (hits.length > 0) {
