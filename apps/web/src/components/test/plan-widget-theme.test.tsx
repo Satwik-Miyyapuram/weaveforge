@@ -5,7 +5,7 @@ import { act, create } from "react-test-renderer";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { PlanWidgetTheme, widgetShape } from "../plan-widget-theme";
+import { PlanWidgetTheme, widgetFont, widgetShape } from "../plan-widget-theme";
 import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -59,7 +59,7 @@ test("the widget gets the theme's corners, border, shadows, font and text sizes"
     bw: "2px",
     sh: "rgb(18, 17, 15) 5px 5px 0px 0px",
     "sh-sm": "rgb(18, 17, 15) 4px 4px 0px 0px",
-    font: "__Rubik_a1, ui-sans-serif",
+    font: "Rubik, ui-sans-serif",
     fs: "14px",
     "fs-sm": "12px",
   });
@@ -80,4 +80,15 @@ test("the shape is probed off a card and a control, and sent with the colours", 
   assert.match(src, /className = "card"/);
   assert.match(src, /className = "btn-secondary btn-sm"/);
   assert.match(src, /bridge\.setPlanWidgetTheme\?\.\(\{ \.\.\.palette, \.\.\.widgetShape\(/);
+});
+
+// next/font hashes the family name ("__Rubik_d5b2e6", or "Rubik" plus a
+// "Rubik Fallback" under Turbopack). The widget is a local page with only its
+// own bundled Rubik, so it gets the plain family name (design D16).
+test("the widget gets the font's real family name, not next/font's hashed one", () => {
+  assert.equal(widgetFont("__Rubik_d5b2e6, __Rubik_Fallback_d5b2e6, ui-sans-serif, system-ui"), "Rubik, ui-sans-serif, system-ui");
+  assert.equal(widgetFont("'__Rubik_d5b2e6', '__Rubik_Fallback_d5b2e6', sans-serif"), "Rubik, sans-serif");
+  assert.equal(widgetFont('Rubik, "Rubik Fallback", system-ui'), "Rubik, system-ui");
+  assert.equal(widgetFont("__JetBrains_Mono_9c1a, monospace"), "JetBrains Mono, monospace");
+  assert.equal(widgetFont('"Segoe UI", system-ui'), '"Segoe UI", system-ui', "a plain stack is sent as it is");
 });

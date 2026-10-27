@@ -32,6 +32,24 @@ function toHex(ctx: CanvasRenderingContext2D, background: string, colour: string
 type Computed = Pick<CSSStyleDeclaration, "borderTopWidth" | "borderTopLeftRadius" | "boxShadow" | "fontFamily" | "fontSize">;
 
 /**
+ * A computed font stack with next/font's names made plain: "__Rubik_d5b2e6"
+ * becomes "Rubik" and its metric fallback face is dropped. The widget is a
+ * local page that has only its own bundled Rubik, so a hashed name would miss
+ * it and fall through to the system font (design D16).
+ */
+export function widgetFont(stack: string): string {
+  return stack
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => !/Fallback/.test(part))
+    .map((part) => {
+      const hashed = /^['"]?__(\w+?)_[0-9a-f]+['"]?$/.exec(part);
+      return hashed ? hashed[1]!.replace(/_/g, " ") : part;
+    })
+    .join(", ");
+}
+
+/**
  * The theme's shape, by the widget variable each one sets (design D-27): what a
  * card and a small control actually draw, the page font, and the body and
  * small text sizes. Read off real elements, so a Flat theme sends no shadow and
@@ -44,7 +62,7 @@ export function widgetShape(probe: { card: Computed; control: Computed; page: Co
     bw: probe.card.borderTopWidth,
     sh: probe.card.boxShadow,
     "sh-sm": probe.control.boxShadow,
-    font: probe.page.fontFamily,
+    font: widgetFont(probe.page.fontFamily),
     fs: probe.text.fontSize,
     "fs-sm": probe.small.fontSize,
   };

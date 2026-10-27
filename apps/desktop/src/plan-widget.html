@@ -2,12 +2,30 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- Local file, no network: nothing to load but this page's own style and script. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<!-- Local file, no network: nothing to load but this page's own style, script
+     and the Rubik it ships with (fonts/, OFL). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src file:">
 <title>WeaveForge deadlines</title>
 <style>
-  /* Until the app sends its theme: the system's own colours and a plain flat
-     shape. The app sends every value below (design D-27), so the widget wears
+  /* The app's face, bundled: the app's own Rubik is self-hosted on its origin,
+     which this local page cannot reach (design D16). */
+  @font-face {
+    font-family: "Rubik";
+    font-style: normal;
+    font-weight: 300 900;
+    src: url("fonts/rubik-latin.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: "Rubik";
+    font-style: normal;
+    font-weight: 300 900;
+    src: url("fonts/rubik-latin-ext.woff2") format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  /* Until the app sends its theme: the system's own colours, the app's face
+     and a soft lifted card, so a palette saved with colours only still looks
+     like the app rather than a flat box. The app sends every value below (design D-27), so the widget wears
      the theme's colours, corners, border, shadows, font and sizes. */
   :root {
     color-scheme: light dark;
@@ -25,9 +43,9 @@
     --radius: 10px;
     --radius-sm: 6px;
     --bw: 1px;
-    --sh: none;
-    --sh-sm: none;
-    --font: "Segoe UI Variable Text", "Segoe UI";
+    --sh: 0 1px 2px color-mix(in srgb, CanvasText 14%, transparent), 0 6px 18px color-mix(in srgb, CanvasText 12%, transparent);
+    --sh-sm: 0 1px 2px color-mix(in srgb, CanvasText 14%, transparent);
+    --font: Rubik, "Segoe UI Variable Text", "Segoe UI";
     --fs: 14px;
     --fs-sm: 12px;
   }

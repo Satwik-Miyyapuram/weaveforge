@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 /**
@@ -33,4 +33,29 @@ test("the palette is applied as sent, so a theme change repaints an open widget"
 
 test("the CRT tilt stays off in the widget", () => {
   assert.doesNotMatch(style, /rotate|perspective|skew/);
+});
+
+// The widget is a local file with no network, so the app's Rubik never
+// reached it and it drew in the system font (design D16). It carries its own.
+test("the widget is set in Rubik, bundled with it and allowed by its CSP", () => {
+  const csp = /Content-Security-Policy" content="([^"]+)"/.exec(html)?.[1] ?? "";
+  assert.match(csp, /font-src [^;]*file:/, "the bundled font may load");
+  assert.doesNotMatch(csp, /font-src [^;]*https?:/, "and nothing off the network");
+  for (const file of ["rubik-latin.woff2", "rubik-latin-ext.woff2"]) {
+    assert.match(style, new RegExp(`@font-face \\{[^}]*font-family: "Rubik";[^}]*url\\("fonts/${file.replace(".", "\\.")}"\\)`), file);
+    assert.ok(existsSync(new URL(`../src/fonts/${file}`, import.meta.url)), `${file} ships with the source`);
+  }
+  assert.ok(existsSync(new URL("../src/fonts/OFL.txt", import.meta.url)), "with its licence");
+  assert.match(style, /--font: Rubik,/, "Rubik before the app sends its font");
+  const build = readFileSync(new URL("../scripts/build.mjs", import.meta.url), "utf8");
+  assert.match(build, /cpSync\(path\.join\(root, "src\/fonts"\), path\.join\(root, "dist\/fonts"\)/, "the build copies the fonts");
+});
+
+// A palette saved before the shape crossed over has colours only. Until the
+// app resends it, the widget drew a flat, shadowless card (design D16).
+test("before the app sends its shape, the card is lifted, not flat", () => {
+  const root = style.slice(style.indexOf(":root {"), style.indexOf("}", style.indexOf(":root {")));
+  assert.doesNotMatch(root, /--sh: none;/);
+  assert.doesNotMatch(root, /--sh-sm: none;/);
+  assert.match(root, /--sh: [^;]*color-mix\(in srgb, CanvasText/);
 });
