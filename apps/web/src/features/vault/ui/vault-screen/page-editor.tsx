@@ -247,7 +247,7 @@ export function PageEditor({
         <p className="record-mono record-meta">{meta}</p>
       </header>
 
-      <div className={view === "edit" ? "record-grid record-grid--editing" : "record-grid"}>
+      <div className="record-grid">
         <div className="record-main">
           <RecordSection
             label={ink ? "Pages" : "Text"}

@@ -133,9 +133,6 @@
 }
 .record-main,
 .record-aside { min-width: 0; }
-/* Writing takes the page: the side column steps aside while Edit is on. */
-.record-grid--editing { grid-template-columns: minmax(0, 1fr); }
-.record-grid--editing > .record-aside { display: none; }
 /* Shut side column folds to a rail holding only its toggle. */
 .record-aside { position: relative; }
 .record-aside-toggle { position: absolute; top: 0; right: 0; z-index: 1; }
@@ -228,10 +225,11 @@
   cursor: pointer;
 }
 @media (hover: hover) { .record-focus-btn:hover { color: var(--text); } }
-/* Edit on a record page: the Editor's writing surface at the same height, not
-   the height of its first few lines. */
+/* Edit on a record page: the Editor's writing surface, about eight lines to
+   start and growing with the text up to the reading height (DA-105). */
 .record-doc--edit .md-live {
-  height: min(78vh, 1100px);
+  min-height: calc(8 * 1.75em);
+  max-height: min(78vh, 1100px);
   border: 1px solid var(--border);
 }
 .record-main .summary,

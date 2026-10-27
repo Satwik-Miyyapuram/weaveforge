@@ -397,7 +397,7 @@ export function PaperNote({
           ))}
       </header>
 
-      <div className={mode === "edit" ? "record-grid record-grid--editing" : "record-grid"}>
+      <div className="record-grid">
         <div className="record-main">
           <RecordSection
             label="Note"
