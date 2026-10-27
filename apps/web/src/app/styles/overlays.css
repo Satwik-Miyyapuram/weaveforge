@@ -141,9 +141,11 @@
 .share-add-foot {
   display: flex;
   gap: 12px;
-  align-items: center;
+  align-items: flex-end;
   flex-wrap: wrap;
 }
+.share-permission { margin: 0; }
+.share-permission-help { margin: 8px 0 0; font-size: var(--fs-xs); }
 .share-add-submit {
   flex: none;
   align-self: center;

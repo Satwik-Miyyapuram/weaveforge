@@ -69,6 +69,7 @@ test.describe("sharing", () => {
     await bootstrapSession(owner, userA.email, userA.password);
     await ensurePaperExists(owner);
     await owner.getByRole("button", { name: "Share", exact: true }).first().click();
+    await owner.getByText("Public link", { exact: false }).click();
     await owner.getByRole("button", { name: "Create view link" }).click();
     const linkUrlEl = owner.getByTestId("share-link-url");
     await expect(linkUrlEl).toBeVisible({ timeout: 20_000 });
