@@ -25,8 +25,8 @@ import { DashboardCardBody } from "./cards/dashboard-card-body";
 import type { DashboardStats } from "../application/build-dashboard-stats";
 import type { SupervisionStats } from "../application/build-supervision-stats";
 import type { Member } from "@weaveforge/core";
-import { CloseIcon } from "@/components/view-icons";
-import { RowButton } from "@/components/controls";
+import { CloseIcon, GripIcon } from "@/components/view-icons";
+import { IconButton } from "@/components/button";
 
 const BREAKPOINTS = { lg: DESKTOP_BREAKPOINT_PX, sm: 0 };
 const COLS = { lg: 12, sm: 4 };
@@ -335,19 +335,19 @@ export function DashboardGrid({
             >
               {editing && (
                 <div className="dashboard-card-chrome">
-                  <span className="dashboard-drag-handle" title="Drag" aria-hidden>
-                    ≡
+                  <span className="dashboard-drag-handle" title="Drag to move" aria-hidden>
+                    <GripIcon />
                   </span>
                   <span className="dashboard-card-label">{def.label}</span>
-                  <RowButton
+                  <IconButton
                     className="dashboard-card-remove"
+                    label={`Remove ${def.label}`}
                     onMouseDown={(e) => e.stopPropagation()}
                     onTouchStart={(e) => e.stopPropagation()}
                     onClick={() => onRemove(item.id)}
-                    aria-label={`Remove ${def.label}`}
                   >
                     <CloseIcon />
-                  </RowButton>
+                  </IconButton>
                 </div>
               )}
               {!editing && <h3 className="dashboard-card-heading">{def.label}</h3>}

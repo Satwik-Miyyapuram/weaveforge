@@ -200,15 +200,16 @@
   letter-spacing: 0.06em;
   min-height: 1em;
 }
-.dashboard-drag-handle { cursor: grab; user-select: none; padding: 0 2px; line-height: 1; }
+.dashboard-drag-handle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--control-lg); height: var(--control-lg); flex: none;
+  cursor: grab; user-select: none; color: var(--muted);
+}
+.dashboard-edit-hint { margin: 0 0 8px; }
 .dashboard-card-label {
   flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.dashboard-card-remove {
-  border: none; background: none; color: var(--muted); cursor: pointer; padding: 0 2px;
-  line-height: 1; flex: none;
-}
-.dashboard-card-remove:hover { color: var(--ink); }
+.dashboard-card-remove { flex: none; }
 .dashboard-card-heading {
   font-size: var(--fs-micro); font-weight: 600; margin: 0 0 8px; color: var(--muted);
  letter-spacing: 0.06em;

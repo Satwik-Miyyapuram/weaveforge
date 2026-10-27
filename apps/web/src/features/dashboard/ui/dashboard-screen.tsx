@@ -26,6 +26,7 @@ import { CardPickerSheet } from "./card-picker-sheet";
 import { useDashboardStats } from "./use-dashboard-stats";
 import { FormError } from "@/components/form-error";
 import { ScreenHead } from "@/components/screen-head";
+import { showToast } from "@/lib/toast";
 import { studentsOf } from "@/features/org/application/students-of";
 
 // Kept beside the repository memo on purpose (xapi-11): this holds the
@@ -187,9 +188,11 @@ export function DashboardScreen() {
   );
 
   const handleReset = useCallback(() => {
+    const before = layout;
     markDirty();
     setLayout(finalizeDashboardLayout(defaultLayout(isSupervisor)));
-  }, [isSupervisor, markDirty]);
+    if (before) showToast("Layout reset", { label: "Undo", run: () => setLayout(before) });
+  }, [isSupervisor, layout, markDirty]);
 
   const handleDone = useCallback(() => {
     setEditing(false);
@@ -232,6 +235,9 @@ export function DashboardScreen() {
           onAdd={() => setPickerOpen(true)}
         />
       </ScreenHead>
+      {editing && (
+        <p className="muted dashboard-edit-hint">Drag a card to move it, drag its corner to resize, or remove it with ✕. Done saves.</p>
+      )}
 
       {layoutLoading && <ScreenLoader status="Loading dashboard…" compact />}
       {layoutError && <FormError>{layoutError}</FormError>}
