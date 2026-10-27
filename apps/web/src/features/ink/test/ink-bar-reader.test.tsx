@@ -281,3 +281,25 @@ test("the notes page says it takes pasted and dropped pictures; the reader does 
   assert.match(src("../ui/ink-host.tsx"), /takesPictureDrops\b/);
   assert.doesNotMatch(src("../../reader/ui/pdf-reader/pdf-reader.tsx"), /takesPictureDrops/);
 });
+
+test("the reader's zoom is the note's zoom pill, steps and all", () => {
+  withWindow(new Map(), () => {
+    const shape = (tree: ReactTestRenderer) => {
+      const out = byLabel(tree, "Zoom out")[0]!;
+      let pill = out.parent!;
+      while (pill.type !== "div") pill = pill.parent!;
+      return {
+        pill: pill.props.className,
+        out: out.props.className,
+        into: byLabel(tree, "Zoom in")[0]!.props.className,
+        steps: pill.children.length,
+      };
+    };
+    const reader = render(readerBar({ view: { zoomPercent: 100, onZoomIn: noop, onZoomOut: noop, onZoomTo: noop } }));
+    const note = render(readerBar({ view: undefined, zoom: 1, onZoom: noop }));
+    assert.deepEqual(shape(reader), shape(note));
+    assert.equal(shape(note).pill, "ink-page-pill ink-zoom-pill");
+    act(() => reader.unmount());
+    act(() => note.unmount());
+  });
+});

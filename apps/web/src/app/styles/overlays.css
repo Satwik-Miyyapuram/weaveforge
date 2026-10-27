@@ -302,7 +302,9 @@
 .popover-panel .signout span { display: inline; }
 /* The project panel is a `Popover` now, so it needs the same treatment as the
    other menus: the rows own their padding rather than the panel's card gap. */
-.popover-panel:has(.proj-menu-item) { padding: 4px; gap: 0; display: block; min-width: 220px; }/* The submenu that opens beside a menu row. It is absolutely positioned inside
+/* The account panel holds lab rows too once its flyout opens; it keeps its own look. */
+.popover-panel:has(.proj-menu-item):not(:has(.header-link, .signout)) { padding: 4px; gap: 0; display: block; min-width: 220px; }
+/* The submenu that opens beside a menu row. It is absolutely positioned inside
    the row, which is itself inside the `Popover` panel -- that panel is `fixed`,
    so it is the containing block, and the flyout lands beside the menu rather
    than under it. */

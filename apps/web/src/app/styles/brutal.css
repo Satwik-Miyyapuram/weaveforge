@@ -687,6 +687,8 @@
   box-shadow: inset 0 0 0 var(--bw) var(--bw-line), var(--sh-sm);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail-count { font-family: var(--font); font-weight: 400; }
+/* Count badges: the reading face has a true 600; the pixel face only a faux bold. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.nav-badge, .popover-badge) { font-family: var(--font); font-weight: 600; letter-spacing: 0; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-panel { padding: 24px 24px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row {
   background: transparent; border: 0; padding: 0 0 12px; gap: 12px;

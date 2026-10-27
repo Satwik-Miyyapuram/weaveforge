@@ -7,7 +7,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { RowButton } from "@/components/controls";
 import { syncStatus } from "../domain/sync-status";
 
-const DOT = { synced: "green", offline: "muted", conflict: "amber", syncing: "" } as const;
+const DOT = { synced: "green", offline: "muted", conflict: "amber", syncing: "", error: "amber" } as const;
 
 /** `attentionOnly`: render only conflicts, the one state that needs the person. */
 export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?: boolean } = {}) {
@@ -83,7 +83,7 @@ export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?:
   const className = `sync-badge ${status.state}`;
   const label = <span>{status.label}</span>;
 
-  if (status.state === "synced") {
+  if (status.state === "synced" || status.state === "error") {
     return (
       <RowButton className={className} onClick={syncNow} title={status.tip} aria-label={status.tip}>
         {mark}

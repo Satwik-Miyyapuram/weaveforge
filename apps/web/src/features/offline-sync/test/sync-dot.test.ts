@@ -41,3 +41,14 @@ test("the account menu says the sync state in words", () => {
   const ui = read("features/offline-sync/ui/sync-status-indicator.tsx");
   assert.doesNotMatch(ui, /quiet/, "no quiet dot mode is left");
 });
+
+test("a failed sync says so rather than Synced", () => {
+  // The loop sets phase "error" when a cycle throws while online; the menu fell
+  // through to "Synced" and hid the failure.
+  const s = syncStatus({ ...base, phase: "error", lastSyncAt: new Date("2026-10-27T11:58:00").getTime() }, now);
+  assert.equal(s?.state, "error");
+  assert.equal(s?.label, "Sync failed");
+  assert.match(s?.tip ?? "", /try again/i);
+  const ui = readFileSync(fileURLToPath(new URL("../ui/sync-status-indicator.tsx", import.meta.url)), "utf8");
+  assert.match(ui, /error: "amber"/, "the indicator gives the failure its own dot");
+});

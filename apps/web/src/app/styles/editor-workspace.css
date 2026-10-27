@@ -735,7 +735,6 @@
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool.ink-menu-trigger { width: auto; }
 /* Labelled buttons keep their text on one line instead of the 36px square. */
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool.ink-tool-text { width: auto; white-space: nowrap; }
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-zoom-pct { height: 36px; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool svg { width: 18px; height: 18px; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-bar-group,
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill { gap: 4px; padding: 4px; border-radius: var(--r-control); }
@@ -1845,7 +1844,6 @@
   background: var(--surface);
   color: var(--accent-ink);
   border-color: var(--border);
-  box-shadow: var(--e1);
 }
 
 .ink-tool:disabled {
@@ -2780,18 +2778,6 @@
   width: auto; flex: none; padding: 0 12px; white-space: nowrap;
 }
 .ink-menu-caret { display: inline-flex; opacity: 0.6; }
-/* Zoom: − · 100% ▾ · +, the level a plain ghost button. */
-.ink-zoom { display: inline-flex; align-items: center; gap: 2px; flex: none; }
-.ink-zoom-pct {
-  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
-  min-width: 3.7rem; height: 32px; padding: 0 4px 0 8px;
-  border: 1px solid transparent; border-radius: var(--r-sm);
-  background: transparent; color: var(--text);
-  font: inherit; font-size: var(--fs); font-variant-numeric: tabular-nums;
-  white-space: nowrap; cursor: pointer;
-}
-.ink-zoom-pct:hover, .ink-zoom-pct[aria-expanded="true"] { background: var(--wf-hover, var(--chip)); }
-.ink-zoom-pct:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--wf-focus, var(--accent)); }
 .ink-menu-rule { margin: 4px 0; border: 0; border-top: 1px solid var(--border); }
 .ink-menu-insert-list, .ink-menu-view-list { min-width: 200px; }
 .ink-menu-insert-list .ink-menu-item,

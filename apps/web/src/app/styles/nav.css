@@ -395,8 +395,9 @@ html[data-workspace-focus] .layout.editor-route .nav { display: none; }
   padding: 1px 4px;
   border-radius: var(--r-pill);
   background: var(--accent);
-  color: var(--on-accent);
+  color: var(--accent-fg);
   font-size: var(--fs-xs);
+  font-weight: 600;
   text-align: center;
 }
 .layout.nav-collapsed .nav-link .nav-badge {

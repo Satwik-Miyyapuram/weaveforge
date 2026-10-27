@@ -153,7 +153,7 @@ export function HeaderActions({
           return (
             <RowButton
               key={link.id}
-              className="signout"
+              className="header-link signout"
               onClick={() => {
                 getContainer().auth.setLocalMode(false);
                 window.location.reload();
@@ -166,7 +166,7 @@ export function HeaderActions({
         }
         if (link.id === "signout") {
           return (
-            <RowButton key={link.id} className="signout" onClick={() => void signOut()} title={user.email}>
+            <RowButton key={link.id} className="header-link signout" onClick={() => void signOut()} title={user.email}>
               <Icon /><span>{link.label}</span>
             </RowButton>
           );

@@ -335,11 +335,16 @@
   opacity: 0; translate: 0 calc(var(--wf-pop-y) / 2); scale: var(--wf-pop-s); pointer-events: none;
   transition-duration: calc(var(--wf-t-pop) * .67); transition-timing-function: ease;
 }
+/* The wipe runs once and leaves no clip behind: a clip on the open panel cut
+   off flyouts drawn beside it, such as the account menu's lab switcher. */
 :root:root:root[data-theme="crt"] :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) {
-  clip-path: inset(0 -12px -12px -12px);
-  transition: clip-path var(--wf-t-pop) var(--wf-ease-pop), display var(--wf-t-pop) allow-discrete, overlay var(--wf-t-pop) allow-discrete;
+  clip-path: none; animation: wf-crt-wipe var(--wf-t-pop) var(--wf-ease-pop);
+  transition: display var(--wf-t-pop) allow-discrete, overlay var(--wf-t-pop) allow-discrete;
 }
-@starting-style { :root:root:root[data-theme="crt"] :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) { clip-path: inset(0 -12px 100% -12px); } }
+@keyframes wf-crt-wipe {
+  from { clip-path: inset(0 -12px 100% -12px); }
+  to { clip-path: inset(0 -12px -12px -12px); }
+}
 :root:root:root[data-theme="crt"] :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop):is(.wf-closing, [data-state="closed"]) { opacity: 1; clip-path: inset(0 -12px 100% -12px); transition-timing-function: steps(2, end); }
 
 /* ---------- Menu (inside :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop)) ---------- */
@@ -432,4 +437,5 @@
   :root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item) { animation: none; }
   :root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle)[aria-busy="true"]::after { animation-duration: 1.6s; }
   :root:root:root[data-theme="crt"] :is(:is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop), :is(.wf-toast, [data-sonner-toast]), :is(.wf-modal, .modal)) { transition-duration: 0ms; }
+  :root:root:root[data-theme="crt"] :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) { animation: none; }
 }

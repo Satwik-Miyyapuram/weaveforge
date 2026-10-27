@@ -30,7 +30,7 @@ import type { InkColour, TextSelectionRange } from "@weaveforge/core";
 import {
   InkBar,
   INK_RENDER_COLOURS,
-  PageField,
+  PagePill,
   ViewMenu,
   MoreMenu,
   paletteHex,
@@ -1520,55 +1520,13 @@ export function PdfReader({
           Two free-floating wrapping bars read as scattered chrome. */}
       <div className="pdf-reader-chrome" data-phone-panel={phonePanel}>
         <div className="pdf-reader-tools">
-          <div className="ink-page-pill">
-            <RowButton
-              className="ink-tool ink-tool-icon-only"
-              onClick={() => viewport.setPage(viewport.page - 1)}
-              disabled={viewport.page <= 1}
-              title="Previous page"
-              aria-label="Previous page"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="m15 18-6-6 6-6" />
-              </svg>
-            </RowButton>
-            <span className="ink-page-count" aria-label={`Page ${viewport.page} of ${Math.max(1, numPages)}`}>
-              <PageField page={viewport.page} pages={Math.max(1, numPages)} onGoToPage={viewport.setPage} />
-              <span className="ink-page-sep" aria-hidden="true">/</span>
-              <span className="ink-page-total">{Math.max(1, numPages)}</span>
-            </span>
-            <RowButton
-              className="ink-tool ink-tool-icon-only"
-              onClick={() => viewport.setPage(viewport.page + 1)}
-              disabled={viewport.page >= Math.max(1, numPages)}
-              title="Next page"
-              aria-label="Next page"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="m9 18 6-6-6-6" />
-              </svg>
-            </RowButton>
-          </div>
+          <PagePill
+            page={viewport.page}
+            pages={Math.max(1, numPages)}
+            onPrevPage={() => viewport.setPage(viewport.page - 1)}
+            onNextPage={() => viewport.setPage(viewport.page + 1)}
+            onGoToPage={viewport.setPage}
+          />
           <ViewMenu
             zoomPercent={Math.round(viewport.renderScale * 100)}
             onZoomIn={viewport.zoomIn}

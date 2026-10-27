@@ -35,3 +35,25 @@ test("every row in an account panel is the same height", () => {
   assert.match(rows, /min-height: 36px/);
   assert.match(css, /\.account-menu-head \{/);
 });
+
+test("Sign out and Sign in line up with the rows above them", () => {
+  // They carried only `signout`, so the shared nav item rule (states.css)
+  // skipped them and they kept 12px padding and a 12px gap: the icon sat 2px
+  // and the label 6px right of every other row.
+  const src = read("../header-actions.tsx");
+  const rows = [...src.matchAll(/<RowButton[^>]*?className="([^"]*\bsignout\b[^"]*)"/g)].map((m) => m[1]);
+  assert.equal(rows.length, 2);
+  for (const cls of rows) assert.match(cls!, /\bheader-link\b/);
+});
+
+test("opening the lab flyout does not restyle the account panel", () => {
+  // The flyout's lab rows are `.proj-menu-item`s inside the account panel, so a
+  // bare `:has(.proj-menu-item)` matched it the moment the flyout opened: the
+  // panel's floor went 210px -> 220px, its gap and display changed, and it
+  // jumped 12px up. The project panel's rule must skip the account panel.
+  const css = read("../styles/overlays.css").replace(/\/\*[\s\S]*?\*\//g, "");
+  const selectors = [...css.matchAll(/([^{}]+)\{[^{}]*\}/g)].map((m) => m[1]!.trim());
+  const proj = selectors.filter((s) => /\.popover-panel:has\(\.proj-menu-item\)/.test(s));
+  assert.ok(proj.length > 0, "a project panel rule");
+  for (const s of proj) assert.match(s, /:not\(:has\(\.header-link, \.signout\)\)/, s);
+});

@@ -218,7 +218,9 @@ export {
 } from "./ui/ink-bar";
 export {
   PageField,
+  PagePill,
   ViewMenu,
+  ZoomPill,
   type ViewMenuProps,
 } from "./ui/ink-bar-view";
 export {
