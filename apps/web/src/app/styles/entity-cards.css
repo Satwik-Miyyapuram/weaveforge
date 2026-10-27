@@ -196,6 +196,15 @@
    a row of their own (D09, E42). */
 .entity-card-head { display: flow-root; }
 .entity-card-head > .entity-card-title { display: block; text-wrap: pretty; }
+/* A card opens on a click anywhere. Its open button is for the keyboard only:
+   no text, no pointer hits, and on focus it rings the whole card. */
+.entity-card:has(> .wf-link) { position: relative; }
+.entity-card > .wf-link {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+}
 .entity-card-lead {
   float: left;
   display: flex;

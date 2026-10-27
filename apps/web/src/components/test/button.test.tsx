@@ -169,3 +169,18 @@ test("a select trigger draws one arrow: the catalogue's, never a second icon ins
     }
   }
 });
+
+test("a link button is plain text at rest; the underline shows only on hover or focus", () => {
+  const states = css("../../app/styles/states.css");
+  const i = states.indexOf(":root:root .wf-link {");
+  assert.match(states.slice(i, states.indexOf("}", i)), /text-decoration: none;/);
+  assert.match(states, /:root:root \.wf-link:is\(:hover, :focus-visible, \[data-force~="hover"\]\) \{[^}]*text-decoration: underline;/);
+});
+
+test("a select trigger sizes to its content, so a card's status pill stays small", () => {
+  assert.doesNotMatch(css("../../app/styles/states.css"), /\.wf-select \{ min-width: 160px; \}/);
+});
+
+test("the chosen row of a status menu is painted in its status colour", () => {
+  assert.match(css("../../app/styles/states.css"), /:root:root \.wf-item\[aria-selected="true"\]\[data-status\] \{ background: var\(--status-chip\); color: var\(--status-ink\); \}/);
+});

@@ -97,13 +97,23 @@ test("only a trailing ⋯ pulls the controls into the card's edge; a text badge 
   assert.match(rule(".entity-card-controls--menu"), /margin-right: -8px/);
 });
 
-test("an openable card is not a fake button: its title is the catalogue link button", () => {
+test("an openable card is not a fake button: its title stays plain text so it wraps round the controls", () => {
   const open = renderToStaticMarkup(<EntityCard title="Thesis" onActivate={() => {}} />);
   assert.doesNotMatch(open, /role="button"|tabindex/);
   assert.match(open, /^<div class="card entity-card" role="presentation">/);
-  assert.match(open, /<h3 class="entity-card-title"><button type="button" class="wf-link">Thesis<\/button><\/h3>/);
+  // A <button> is one box and drops below the float, so the title is text and
+  // the keyboard opens the card through an empty link button named by it.
+  const id = /<h3 class="entity-card-title" id="([^"]+)">Thesis<\/h3>/.exec(open)?.[1];
+  assert.ok(id, open);
+  assert.match(open, new RegExp(`<button type="button" aria-labelledby="${id}" class="wf-link"></button>`));
   // A card nobody opens keeps a plain title.
   const still = renderToStaticMarkup(<EntityCard title="Thesis" />);
   assert.match(still, /<h3 class="entity-card-title">Thesis<\/h3>/);
   assert.doesNotMatch(still, /role=/);
+});
+
+test("a card's open button is invisible to the mouse and rings the whole card on keyboard focus", () => {
+  const r = rule(".entity-card > .wf-link");
+  for (const p of [/position: absolute;/, /inset: 0;/, /pointer-events: none;/]) assert.match(r, p);
+  assert.match(css(), /\.entity-card:has\(> \.wf-link\) \{ position: relative; \}/);
 });

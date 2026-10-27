@@ -143,11 +143,11 @@
 /* ---------- Link ---------- */
 :root:root .wf-link {
   background: none; border: 0; padding: 0; font: inherit; text-align: inherit;
-  color: var(--wf-accent-ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px;
-  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); cursor: pointer; border-radius: 2px;
-  transition: text-decoration-color var(--wf-t) var(--wf-ease), text-decoration-thickness var(--wf-t) var(--wf-ease), opacity var(--wf-t-press) linear;
+  color: var(--wf-accent-ink); text-decoration: none; text-underline-offset: 3px; text-decoration-thickness: 1px;
+  cursor: pointer; border-radius: 2px; transition: opacity var(--wf-t-press) linear;
 }
-:root:root .wf-link:is(:hover, [data-force~="hover"]) { text-decoration-color: currentColor; text-decoration-thickness: 2px; }
+/* Plain text at rest; the underline says "clickable" only once pointed at. */
+:root:root .wf-link:is(:hover, :focus-visible, [data-force~="hover"]) { text-decoration: underline; }
 :root:root .wf-link:is(:active, [data-force~="press"]) { opacity: .7; }
 
 /* ---------- Tool toggle ---------- */
@@ -316,8 +316,7 @@
 :root:root :is(:is(.wf-input, .themed-input, .paper-field-input, .search-input, .input, .explorer-filter, .graph-search-input, .settings-find, .quick-open-input, .pdf-reader-pop-input), .wf-select)[aria-invalid="true"] { border-color: var(--wf-danger); }
 :root:root :is(.wf-input, .themed-input, .paper-field-input, .search-input, .input, .explorer-filter, .graph-search-input, .settings-find, .quick-open-input, .pdf-reader-pop-input):read-only:not(:disabled) { background-color: var(--wf-surface2); }
 :root:root .wf-select { display: inline-flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; cursor: pointer; }
-/* The select trigger sizes to its slot and draws its own .chev. */
-:root:root .wf-select { min-width: 160px; }
+/* The select trigger sizes to its content; its ::after below is the one arrow. */
 :root:root .status-select .wf-select { padding: 4px 10px; }
 /* Drop-down triggers move like buttons: lift on hover, sink flat on press and while open. */
 :root:root:root :is(.filter-row .filter-select, .status-select) .wf-select { transform: none; translate: 0 0; transition: translate var(--wf-t) var(--wf-ease-hover), box-shadow var(--wf-t) var(--wf-ease), background-color var(--wf-t) var(--wf-ease), border-color var(--wf-t) var(--wf-ease); }
@@ -369,6 +368,8 @@
 :root:root .wf-item:is([aria-checked="true"], [aria-selected="true"]) { font-weight: 600; color: var(--wf-accent-ink); }
 /* A multi-select row draws its own checkbox, so it skips the tick. */
 :root:root .wf-item:is([aria-checked="true"], [aria-selected="true"]):not(:has(> .ms-check))::after { content: "\2713"; margin-left: auto; }
+/* The chosen row of a status menu wears that status, like the trigger. */
+:root:root .wf-item[aria-selected="true"][data-status] { background: var(--status-chip); color: var(--status-ink); }
 :root:root .wf-item.wf-danger { color: var(--wf-danger); }
 :root:root .wf-item.wf-danger:is(:hover, [data-highlighted], [data-force~="hover"]):not(:disabled, [aria-disabled="true"]) { background-color: var(--wf-danger-soft); }
 :root:root .wf-item svg { width: 16px; height: 16px; flex: none; }

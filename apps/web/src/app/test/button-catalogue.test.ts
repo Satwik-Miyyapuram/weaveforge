@@ -208,6 +208,12 @@ test("the retired button names are gone from every className", () => {
       if (ts.isJsxAttribute(n) && n.name.getText() === "className") {
         for (const w of classWords(n.initializer).words) if (retired.has(w)) errors.push(`retired name '${w}' at ${file}:${lineOf(sf, n)}`);
       }
+      // A class list built in a variable ("item" + (sel ? " sel" : "")) never
+      // reaches a className attribute as text, so check every string too. Only
+      // hyphenated names: a bare retired word like "link" is also a variant name.
+      if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) || ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n)) {
+        for (const w of n.text.split(/\s+/)) if (w.includes("-") && retired.has(w)) errors.push(`retired name '${w}' at ${file}:${lineOf(sf, n)}`);
+      }
       n.forEachChild(visit);
     };
     visit(sf);

@@ -1,6 +1,6 @@
 "use client";
 
-import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
+import { useId, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { tagTone } from "@/lib/tag-tone";
 import { Button } from "./button";
 import { Chip } from "./controls";
@@ -58,6 +58,7 @@ export function EntityCard({
   menu?: ReactNode;
 }) {
   const interactive = Boolean(onActivate);
+  const titleId = useId();
   const shell = [
     "card",
     "entity-card",
@@ -74,8 +75,9 @@ export function EntityCard({
     e.stopPropagation();
   }
 
-  // The card is a click surface, not a button: keyboard and screen readers reach
-  // the title button, which opens it the same way.
+  // The card is a click surface, not a button. The title stays plain text, so it
+  // wraps round the floated controls; keyboard and screen readers open the card
+  // through an empty link button named by the title (invisible to the mouse).
   return (
     <Tag
       id={id}
@@ -96,10 +98,9 @@ export function EntityCard({
             {menu}
           </div>
         )}
-        <h3 className="entity-card-title">
-          {onActivate ? <Button variant="link" onClick={(e) => { stop(e); onActivate(); }}>{title}</Button> : title}
-        </h3>
+        <h3 className="entity-card-title" id={onActivate ? titleId : undefined}>{title}</h3>
       </div>
+      {onActivate && <Button variant="link" aria-labelledby={titleId} onClick={(e) => { stop(e); onActivate(); }} />}
 
       {hasMeta && <p className="entity-card-meta">{meta}</p>}
 
