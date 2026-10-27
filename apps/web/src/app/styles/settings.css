@@ -4,6 +4,7 @@
 .account-info-row { display: contents; }
 .account-info-grid dt { margin: 0; color: var(--muted); font-size: var(--fs); }
 .account-info-grid dd { margin: 0; font-size: var(--fs-lg); word-break: break-word; }
+.account-id-copy { margin-left: 8px; }
 .share-link-expiry-hint { font-size: var(--fs-xs); color: var(--muted); margin: 0; }
 .share-links { display: grid; gap: 8px; margin-top: 12px; }
 .share-link-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }

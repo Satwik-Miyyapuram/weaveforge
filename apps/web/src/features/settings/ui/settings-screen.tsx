@@ -27,6 +27,7 @@ import { ExportDataPanel } from "./export-data-panel";
 import { GitHubLinkCard } from "./github-link-card";
 import { Select } from "@/components/select";
 import { userIntegrationsForConfig } from "@/integrations/descriptors-resolve";
+import { railGroupText, type RailGroupWords } from "./rail-group-text";
 import { isOfflineBuild } from "@/deployment/build-target";
 import { AiAccessPanel } from "./ai-access-panel";
 import { AppearancePanel } from "./appearance-panel";
@@ -82,19 +83,26 @@ type SettingsTabId = (typeof SETTINGS_TABS)[number]["id"];
  * The tabs, gathered into the six groups the side rail lists. Choosing a group
  * opens its first tab; the group's other tabs sit under it while it is open.
  */
-const SETTINGS_GROUPS: readonly {
+const SETTINGS_GROUPS: readonly (RailGroupWords & {
   id: string;
-  label: string;
-  hint: string;
   icon: keyof typeof GROUP_ICONS;
   tabs: readonly SettingsTabId[];
-}[] = [
-  { id: "account", label: "Account and lab", hint: "Profile, password, lab", icon: "person", tabs: ["account", "org", "tokens"] },
-  { id: "appearance", label: "Appearance", hint: "Theme, tint, text", icon: "palette", tabs: ["appearance"] },
-  { id: "editor", label: "Editor and writing", hint: "Editor, paste, workspace", icon: "pen", tabs: ["editor", "paste", "workspace"] },
-  { id: "ai", label: "Search and AI", hint: "Search, models, API keys", icon: "search", tabs: ["search", "ai"] },
-  { id: "sync", label: "Sync and integrations", hint: "Cloud, Zotero, calendar", icon: "sync", tabs: ["sync", "integrations", "calendar"] },
-  { id: "data", label: "Data and updates", hint: "Backups, export, version", icon: "data", tabs: ["data", "updates"] },
+})[] = [
+  {
+    id: "account", label: "Account and lab", labelWithout: { tab: "org", label: "Account" }, icon: "person",
+    tabs: ["account", "org", "tokens"], hints: [["account", "profile, password"], ["org", "lab"], ["tokens", "tokens"]],
+  },
+  { id: "appearance", label: "Appearance", icon: "palette", tabs: ["appearance"], hints: [["appearance", "theme, tint, text"]] },
+  {
+    id: "editor", label: "Editor and writing", icon: "pen",
+    tabs: ["editor", "paste", "workspace"], hints: [["editor", "editor"], ["paste", "paste"], ["workspace", "workspace"]],
+  },
+  { id: "ai", label: "Search and AI", icon: "search", tabs: ["search", "ai"], hints: [["search", "search"], ["ai", "models, API keys"]] },
+  {
+    id: "sync", label: "Sync and integrations", icon: "sync",
+    tabs: ["sync", "integrations", "calendar"], hints: [["sync", "cloud"], ["integrations", ""], ["calendar", "calendar"]],
+  },
+  { id: "data", label: "Data and updates", icon: "data", tabs: ["data", "updates"], hints: [["data", "backups, export"], ["updates", "version"]] },
 ];
 
 const GROUP_ICONS = {
@@ -314,7 +322,11 @@ export function SettingsScreen() {
   const labelOf = new Map<SettingsTabId, string>(tabs.map((t) => [t.id, t.label]));
   const findHits = findSettings(findQuery, tabs);
   const groups = SETTINGS_GROUPS
-    .map((g) => ({ ...g, tabs: g.tabs.filter((id) => visible.has(id)) }))
+    .map((g) => ({
+      ...g,
+      ...railGroupText(g, visible, userIntegrations.map((d) => d.title)),
+      tabs: g.tabs.filter((id) => visible.has(id)),
+    }))
     .filter((g) => g.tabs.length > 0);
 
   return (
