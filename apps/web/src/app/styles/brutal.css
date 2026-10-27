@@ -1246,6 +1246,11 @@
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-badge.conflict .sync-dot {
   background: var(--s-warn, var(--bw-line));
 }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .sync-badge.quiet {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
 :root[data-theme="crt"] .sync-badge {
   font-family: var(--btn-font);
   font-size: 1.05rem;

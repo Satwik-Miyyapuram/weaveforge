@@ -262,7 +262,7 @@ export function TabBar({
             <HeaderActions variant="menu" inbox={false} />
           </div>
           <LocalModeBadge />
-          <SyncStatusIndicator attentionOnly />
+          <SyncStatusIndicator quiet />
         </div>
       )}
     </nav>
