@@ -174,6 +174,17 @@ export function resolvePending(view: EditorView, id: number, replacement: string
     return;
   }
 
+  // Nothing arrived (a failed upload): the blank lines that set the picture on
+  // its own line go too, unless the writer has typed into them since.
+  if (!replacement && fresh) {
+    const from = region.from - fresh.before.length;
+    const to = region.to + fresh.after.length;
+    if (view.state.sliceDoc(from, region.from) === fresh.before && view.state.sliceDoc(region.to, to) === fresh.after) {
+      view.dispatch({ changes: { from, to }, effects: dropPending.of(id), userEvent: "input.paste" });
+      return;
+    }
+  }
+
   view.dispatch({ changes: swap, effects: dropPending.of(id), selection, userEvent: "input.paste" });
 }
 
