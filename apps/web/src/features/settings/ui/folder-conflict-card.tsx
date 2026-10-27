@@ -116,7 +116,7 @@ export function FolderConflictCard({
                         pick({ hunks: next });
                       }}
                     >
-                      {side === "ours" ? "Ours" : side === "theirs" ? "Theirs" : "Both"}
+                      {side === "ours" ? "This app's" : side === "theirs" ? "The folder's" : "Both"}
                     </Button>
                   ))}
                 </div>
@@ -132,7 +132,7 @@ export function FolderConflictCard({
           aria-pressed={chosen === "keep"}
           onClick={() => onChoose("keep")}
         >
-          Keep this app&apos;s copy
+          Keep this app&apos;s
         </Button>
         {/* Not offered for a type mismatch: the id in the file names a paper or an
             experiment, so there is no note to write over. */}
@@ -142,7 +142,7 @@ export function FolderConflictCard({
             aria-pressed={chosen === "folder"}
             onClick={() => onChoose("folder")}
           >
-            Take the folder&apos;s copy
+            Keep the folder&apos;s
           </Button>
         )}
         <Button
@@ -171,7 +171,7 @@ export function FolderConflictCard({
               ? "Writing…"
               : markers === "written"
                 ? "Markers written"
-                : "Write conflict markers"}
+                : "Mark both in the file"}
           </Button>
         )}
       </div>

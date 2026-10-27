@@ -22,7 +22,7 @@ import { deferDelete, useHiddenKeys } from "@/lib/toast";
 import { RadioButton } from "@/components/controls";
 import { SegmentedControl } from "@/components/segmented-control";
 
-/** The key a refused write hides under while its Undo toast shows. */
+/** The key an unsaved change hides under while its Undo toast shows. */
 export const syncOpKey = (opId: string) => `syncop:${opId}`;
 
 /**
@@ -32,7 +32,7 @@ export const syncOpKey = (opId: string) => `syncop:${opId}`;
  * absent when there are none: a permanent "no conflicts" section trains the
  * reader to stop looking at the one place that will eventually matter.
  */
-/** Refused writes listed before the rest fold behind "Show all". */
+/** Unsaved changes listed before the rest fold behind "Show all". */
 const DEAD_SHOWN = 5;
 
 export function SyncIssuesPanel() {
@@ -46,7 +46,7 @@ export function SyncIssuesPanel() {
   const discardLater = (opIds: string[]) =>
     deferDelete({
       keys: opIds.map(syncOpKey),
-      message: opIds.length === 1 ? "Refused write discarded" : `${opIds.length} refused writes discarded`,
+      message: opIds.length === 1 ? "Unsaved change discarded" : `${opIds.length} unsaved changes discarded`,
       commit: () => runSyncAction(() => Promise.all(opIds.map((id) => discard(id))), setError),
     });
   // A conflict with no cloud copy yet has nothing to choose between; the next pull settles or fills it.
@@ -60,7 +60,7 @@ export function SyncIssuesPanel() {
   const summary = [
     conflicts.length > 0 && plural(conflicts.length, "conflict"),
     deletions.length > 0 && plural(deletions.length, "delete to confirm", "deletes to confirm"),
-    dead.length > 0 && plural(dead.length, "refused write"),
+    dead.length > 0 && plural(dead.length, "unsaved change"),
     waiting > 0 && `${waiting} waiting`,
   ]
     .filter(Boolean)
@@ -76,10 +76,10 @@ export function SyncIssuesPanel() {
         {decisions > 1 && (
           <div className="field-inline">
             <Button size="sm" onClick={() => run(() => keepAllConflicts("local"))}>
-              Keep all mine
+              Keep this device&apos;s for all
             </Button>
             <Button size="sm" onClick={() => run(() => keepAllConflicts("remote"))}>
-              Take all cloud
+              Keep the cloud&apos;s for all
             </Button>
           </div>
         )}
@@ -87,8 +87,8 @@ export function SyncIssuesPanel() {
       <FormError>{error}</FormError>
       {waiting > 0 && (
         <p className="muted">
-          {waiting === 1 ? "One edit was" : `${waiting} edits were`} refused as out of date. Waiting for the
-          cloud copy to compare against.
+          {waiting === 1 ? "One edit was" : `${waiting} edits were`} made to an older copy than the cloud&apos;s.
+          Waiting for the cloud copy to compare against.
         </p>
       )}
       {conflicts.map((conflict) => (
@@ -104,7 +104,7 @@ export function SyncIssuesPanel() {
       {dead.length > 0 && (
         <section className="sync-dead">
           <div className="sync-issues-head">
-            <h4>Refused writes</h4>
+            <h4>Changes that could not be saved</h4>
             {dead.length > 1 && (
               <div className="field-inline">
                 <Button size="sm" onClick={() => run(() => Promise.all(dead.map((e) => retry(e.opId))))}>
@@ -120,7 +120,7 @@ export function SyncIssuesPanel() {
             <div key={entry.opId} className="sync-issue">
               <div>
                 <p>
-                  <span className="sync-chip">{kindOf(entry.table)}</span> {entry.op} refused after{" "}
+                  <span className="sync-chip">{kindOf(entry.table)}</span> {entry.op} not saved after{" "}
                   {plural(entry.attempts, "try", "tries")}
                 </p>
                 <p className="muted">{entry.lastError ?? "No reason given."}</p>
@@ -182,10 +182,10 @@ function DeletionCard({
         <FormError>{error}</FormError>
         <span className="sync-conflict-actions">
           <Button variant="ghost" size="sm" disabled={busy} onClick={() => void choose(here ? "keep" : "delete")}>
-            {here ? "Restore cloud copy" : "Delete it"}
+            Keep the cloud&apos;s
           </Button>
           <Button variant="primary" size="sm" disabled={busy} onClick={() => void choose(here ? "delete" : "keep")}>
-            {here ? "Keep deleted" : "Keep mine"}
+            Keep this device&apos;s
           </Button>
         </span>
       </footer>
@@ -256,10 +256,10 @@ function ConflictCard({
           {fields.length > 1 && (
             <>
               <Button variant="ghost" size="sm" onClick={() => all("local")}>
-                All mine
+                Keep this device&apos;s
               </Button>
               <Button variant="ghost" size="sm" onClick={() => all("remote")}>
-                All cloud
+                Keep the cloud&apos;s
               </Button>
             </>
           )}
