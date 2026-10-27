@@ -85,7 +85,11 @@ export async function mergePinnedScreenData<
   shares: Share[];
   loadById: (id: string) => Promise<TFull | null>;
 }): Promise<PinnedScreenMerge<TSummary>> {
-  const typePins = input.pins.filter((p) => p.resourceType === input.resourceType);
+  // A pin of the reader's own row is not shared with them: counting it put
+  // "Shared by <your own name>" on the row and made it read-only (E13).
+  const typePins = input.pins.filter(
+    (p) => p.resourceType === input.resourceType && p.ownerId !== p.userId,
+  );
   const pinnedSharedBy = new Map(typePins.map((p) => [p.resourceId, p.ownerId]));
   const ownedIds = new Set(input.owned.map((x) => x.id));
   // A Set: the same resource pinned twice is one row, not two.
