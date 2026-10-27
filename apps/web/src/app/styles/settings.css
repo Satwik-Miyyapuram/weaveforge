@@ -107,6 +107,10 @@
 .settings-block { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
 .settings-block > .settings-group { margin: 0; }
 .settings-block > p { margin: 0; font-size: var(--fs); }
+.settings-block > .btn-secondary, .settings-block > .btn-primary { align-self: flex-start; }
+/* Six weights in two columns rather than a stack of full-width sliders (DA-138). */
+.search-weights { display: grid; gap: 12px 24px; }
+@media (min-width: 640px) { .search-weights { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* Needs you: one card per conflicting row, git-style. Mine reads red (−),
    cloud green (+), as a diff does; the chosen side carries the accent. */
 .sync-issues-head { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; }
