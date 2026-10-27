@@ -223,7 +223,7 @@ const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
     const member = supervisees.find((m) => m.id === memberId);
     const summary = supervision?.roster.find((r) => r.member.id === memberId);
     if (!member || !summary) {
-      return <p className="muted dashboard-card-empty">Select a supervisee.</p>;
+      return <p className="muted dashboard-card-empty">Select a student.</p>;
     }
     return (
       <div className="dashboard-supervisee">
@@ -238,7 +238,7 @@ const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
               className="dashboard-supervisee-select"
               value={memberId}
               onChange={(e) => onSuperviseeConfig(e.target.value)}
-              aria-label="Select supervisee"
+              aria-label="Select student"
             >
               {supervisees.map((m) => (
                 <option key={m.id} value={m.id}>

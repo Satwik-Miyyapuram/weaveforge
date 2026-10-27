@@ -22,6 +22,7 @@ import { FormError } from "@/components/form-error";
 import { statusLabel } from "@/components/status-select";
 import { RowButton } from "@/components/controls";
 import { Button } from "@/components/button";
+import { studentsOf } from "../application/students-of";
 
 /**
  * Supervisor view: browse the people beneath you and follow their published
@@ -33,11 +34,8 @@ export function SupervisionScreen() {
   const searchParams = useSearchParams();
   const memberFromUrl = searchParams.get("member");
 
-  // Everyone in my subtree except me = the people I supervise (transitively).
-  const supervisees = useMemo(
-    () => team.filter((m) => m.id !== profile?.id),
-    [team, profile],
-  );
+  // The people I supervise, at any depth; not my own supervisor.
+  const supervisees = useMemo(() => studentsOf(profile?.id, team), [team, profile]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   useEffect(() => {

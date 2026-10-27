@@ -26,6 +26,7 @@ import { CardPickerSheet } from "./card-picker-sheet";
 import { useDashboardStats } from "./use-dashboard-stats";
 import { FormError } from "@/components/form-error";
 import { ScreenHead } from "@/components/screen-head";
+import { studentsOf } from "@/features/org/application/students-of";
 
 // Kept beside the repository memo on purpose (xapi-11): this holds the
 // *finalized* layout (supervisor defaults applied) and is read synchronously,
@@ -39,10 +40,7 @@ export function DashboardScreen() {
   const { current: project } = useProject();
   const projectId = project?.id;
   const { profile, team, loading: profileLoading } = useProfile();
-  const supervisees = useMemo(
-    () => team.filter((m) => m.id !== profile?.id),
-    [team, profile],
-  );
+  const supervisees = useMemo(() => studentsOf(profile?.id, team), [team, profile]);
   const isSupervisor = isSupervisorRole(profile?.role) && supervisees.length > 0;
 
   const [layout, setLayout] = useState<DashboardLayout | null>(null);
