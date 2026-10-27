@@ -15,7 +15,6 @@ import { NavIcon } from "@/app/nav-icon";
 import { getContainer } from "@/bootstrap";
 import { useProfile } from "./profile-provider";
 import { ScreenLoader } from "@/components/weaveforge-loader";
-import { MemberTreeSelect } from "./member-tree";
 import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
@@ -79,18 +78,6 @@ export function SupervisionScreen() {
         eyebrow={`You supervise ${supervisees.length} ${supervisees.length === 1 ? "person" : "people"}`}
       >
         {supervisees.length > 0 && (
-          <div className="superv-picker">
-            <label className="muted" htmlFor="superv-select">Viewing</label>
-            <MemberTreeSelect
-              members={supervisees}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              meId={profile.id}
-              placeholder="Select someone you supervise"
-            />
-          </div>
-        )}
-        {supervisees.length > 0 && (
           <Button href="/shared">
             Sharing
           </Button>
@@ -135,6 +122,11 @@ export function SupervisionScreen() {
       )}
     </section>
   );
+}
+
+/** What a Live or Snapshot badge means, for its tooltip. */
+function sourceTitle(frozen: boolean): string {
+  return frozen ? "Snapshot: as the student published it" : "Live: current data, not a published snapshot";
 }
 
 /** How far below the nearest supervisee without a supervisor in this list. */
@@ -235,7 +227,10 @@ function SuperviseePanel({ member }: { member: Member }) {
       <div className="card add-form">
         <h3 className="settings-group superv-panel-head">
           <span>Milestones ({displayMilestones.length})</span>
-          <span className={`superv-source superv-source--${showFrozen ? "snapshot" : "live"}`}>
+          <span
+            className={`superv-source superv-source--${showFrozen ? "snapshot" : "live"}`}
+            title={sourceTitle(showFrozen)}
+          >
             {showFrozen ? "Snapshot" : "Live"}
           </span>
         </h3>
@@ -264,7 +259,10 @@ function SuperviseePanel({ member }: { member: Member }) {
       <div className="card add-form">
         <h3 className="settings-group superv-panel-head">
           <span>Logbook ({displayLogs.length})</span>
-          <span className={`superv-source superv-source--${showFrozen ? "snapshot" : "live"}`}>
+          <span
+            className={`superv-source superv-source--${showFrozen ? "snapshot" : "live"}`}
+            title={sourceTitle(showFrozen)}
+          >
             {showFrozen ? "Snapshot" : "Live"}
           </span>
         </h3>

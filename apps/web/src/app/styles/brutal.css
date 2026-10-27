@@ -1123,7 +1123,7 @@
 /* ── Supervision ───────────────────────────────────────────────────────── */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-panels > .card { box-shadow: var(--sh-card); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-head, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-role, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-reviewing, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-note-label,
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-meta, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-log-date, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-screen .superv-picker label { font-family: var(--font); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-meta, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-log-date { font-family: var(--font); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-item { border-radius: var(--radius-sm); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-item.is-active { background: var(--text); color: var(--surface); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-avatar { border: var(--bw) solid var(--bw-line); background: var(--chip-reading); color: var(--text); }

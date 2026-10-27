@@ -247,7 +247,7 @@
 :root:root :is(.wf-swatch, .ink-swatch, .pdf-reader-pop-swatch, .pdf-reader-create-swatch, .pdf-reader-pill-swatch, .list-color-pick):is(:active, [data-force~="press"]) { scale: .94; transition-duration: var(--wf-t-press); }
 :root:root :is(.wf-swatch, .ink-swatch, .pdf-reader-pop-swatch, .pdf-reader-create-swatch, .pdf-reader-pill-swatch, .list-color-pick):is([aria-pressed="true"], .seg-on, .is-active, .is-selected, .sel, .on, .active, [aria-checked="true"]) { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
 :root:root :is(.wf-swatch, .ink-swatch, .pdf-reader-pop-swatch, .pdf-reader-create-swatch, .pdf-reader-pill-swatch, .list-color-pick):is(:focus-visible, [data-force~="focus"]) { outline-offset: 5px; }
-:root:root :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) :is(.wf-swatch, .ink-swatch, .pdf-reader-pop-swatch, .pdf-reader-create-swatch, .pdf-reader-pill-swatch, .list-color-pick) { width: 22px; height: 22px; }
+:root:root :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) :is(.wf-swatch, .ink-swatch, .pdf-reader-pop-swatch, .pdf-reader-create-swatch, .pdf-reader-pill-swatch, .list-color-pick) { width: 22px; height: 22px; }
 :root:root :is(.wf-swatch, .ink-swatch, .pdf-reader-pop-swatch, .pdf-reader-create-swatch, .pdf-reader-pill-swatch, .list-color-pick).wf-current { width: 30px; height: 30px; }
 
 /* ---------- Toggle (input type=checkbox role=switch) ---------- */
@@ -323,27 +323,27 @@
 :root:root .wf-select[aria-expanded="true"]::after { rotate: 225deg; margin-top: 3px; }
 
 /* ---------- Popover (dropdowns, pickers, menus) ---------- */
-:root:root :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) {
+:root:root :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) {
   box-sizing: border-box; padding: 8px; border: var(--wf-bw) solid var(--wf-line); border-radius: var(--wf-rp);
   background: var(--elev, var(--surface)); color: var(--text); box-shadow: var(--wf-sh-up);
   opacity: 1; translate: 0 0; scale: 1; transform-origin: top center;
   transition: opacity var(--wf-t-pop) var(--wf-ease), translate var(--wf-t-pop) var(--wf-ease-pop), scale var(--wf-t-pop) var(--wf-ease-pop),
     display var(--wf-t-pop) allow-discrete, overlay var(--wf-t-pop) allow-discrete;
 }
-@starting-style { :root:root :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) { opacity: 0; translate: 0 var(--wf-pop-y); scale: var(--wf-pop-s); } }
-:root:root :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop):is(.wf-closing, [data-state="closed"]) {
+@starting-style { :root:root :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) { opacity: 0; translate: 0 var(--wf-pop-y); scale: var(--wf-pop-s); } }
+:root:root :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop):is(.wf-closing, [data-state="closed"]) {
   opacity: 0; translate: 0 calc(var(--wf-pop-y) / 2); scale: var(--wf-pop-s); pointer-events: none;
   transition-duration: calc(var(--wf-t-pop) * .67); transition-timing-function: ease;
 }
-:root:root:root[data-theme="crt"] :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) {
+:root:root:root[data-theme="crt"] :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) {
   clip-path: inset(0 -12px -12px -12px);
   transition: clip-path var(--wf-t-pop) var(--wf-ease-pop), display var(--wf-t-pop) allow-discrete, overlay var(--wf-t-pop) allow-discrete;
 }
-@starting-style { :root:root:root[data-theme="crt"] :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) { clip-path: inset(0 -12px 100% -12px); } }
-:root:root:root[data-theme="crt"] :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop):is(.wf-closing, [data-state="closed"]) { opacity: 1; clip-path: inset(0 -12px 100% -12px); transition-timing-function: steps(2, end); }
+@starting-style { :root:root:root[data-theme="crt"] :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop) { clip-path: inset(0 -12px 100% -12px); } }
+:root:root:root[data-theme="crt"] :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop):is(.wf-closing, [data-state="closed"]) { opacity: 1; clip-path: inset(0 -12px 100% -12px); transition-timing-function: steps(2, end); }
 
-/* ---------- Menu (inside :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop)) ---------- */
-:root:root :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) { display: flex; flex-direction: column; gap: 2px; min-width: 180px; padding: 6px; }
+/* ---------- Menu (inside :is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop)) ---------- */
+:root:root :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu) { display: flex; flex-direction: column; gap: 2px; min-width: 180px; padding: 6px; }
 :root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item) {
   display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px; box-sizing: border-box;
   border: 0; border-radius: max(2px, calc(var(--wf-rc) - 2px)); background: transparent; color: var(--text);
@@ -363,9 +363,9 @@
 :root:root .wf-kbd { margin-left: auto; padding-left: 12px; font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--fs-xs); color: var(--muted); }
 :root:root .wf-sep { height: 0; margin: 4px 2px; border: 0; border-top: var(--wf-bw) solid var(--wf-line); opacity: .35; }
 :root:root .wf-menu-label { padding: 6px 10px 2px; color: var(--muted); font-size: var(--fs-micro); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
-:root:root :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(2) { --wf-i: 1; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(3) { --wf-i: 2; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(4) { --wf-i: 3; }
-:root:root :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(5) { --wf-i: 4; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(6) { --wf-i: 5; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(7) { --wf-i: 6; }
-:root:root :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(8) { --wf-i: 7; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu) > :nth-child(n+9) { --wf-i: 8; }
+:root:root :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu) > :nth-child(2) { --wf-i: 1; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu) > :nth-child(3) { --wf-i: 2; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu) > :nth-child(4) { --wf-i: 3; }
+:root:root :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu) > :nth-child(5) { --wf-i: 4; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu) > :nth-child(6) { --wf-i: 5; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu) > :nth-child(7) { --wf-i: 6; }
+:root:root :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu) > :nth-child(8) { --wf-i: 7; } :is(.wf-menu, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu) > :nth-child(n+9) { --wf-i: 8; }
 
 /* ---------- Tooltip ---------- */
 :root:root .wf-has-tip { position: relative; display: inline-flex; }
@@ -431,5 +431,5 @@
 @media (prefers-reduced-motion: reduce) {
   :root:root :is(.wf-item, .custom-select-item, .card-menu-item, .menu-item, .proj-menu-item, .ink-menu-item, .ms-item, .title-bar-item) { animation: none; }
   :root:root :is(.wf-btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-cancel, .btn-danger, .auth-wide, .btn-google, .dashboard-customize-btn, .proj-chip, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .pdf-reader-icon-btn, .card-menu-trigger, .header-overflow-btn, .list-toggle)[aria-busy="true"]::after { animation-duration: 1.6s; }
-  :root:root:root[data-theme="crt"] :is(:is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .member-tree-menu, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop), :is(.wf-toast, [data-sonner-toast]), :is(.wf-modal, .modal)) { transition-duration: 0ms; }
+  :root:root:root[data-theme="crt"] :is(:is(.wf-pop, .popover-panel, .custom-select-menu, .card-menu-flyout, .menu-flyout, .header-menu, .proj-menu, .ink-menu-list, .title-bar-menu, .graph-edge-popover, .pdf-reader-ref-popover, .ink-figure-popover, .note-comment-pop), :is(.wf-toast, [data-sonner-toast]), :is(.wf-modal, .modal)) { transition-duration: 0ms; }
 }
