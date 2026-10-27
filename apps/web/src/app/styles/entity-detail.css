@@ -289,9 +289,11 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 .log-check-in { display: flex; align-items: center; gap: 8px; min-height: var(--control-sm); }
 .log-check-in-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .log-check-in time { font-size: var(--fs-sm); }
+/* Narrower, the overview leads the timeline: its cards side by side while
+   they fit, stacked on a phone. Past check-ins stay reachable (D24). */
 @media (max-width: 1100px) {
   .log-layout { grid-template-columns: minmax(0, 1fr); }
-  .log-side { display: none; }
+  .log-side { position: static; order: -1; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); align-items: start; }
 }
 @media (max-width: 640px) {
   .log-day { grid-template-columns: minmax(0, 1fr); gap: 8px; }
@@ -366,9 +368,8 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
   :is(.plan-screen, .log-screen) .screen-actions > .search-input { flex: 1 1 auto; width: auto; min-width: 0; }
   :is(.plan-screen, .log-screen) .screen-actions > .btn-primary { flex: 0 0 auto; }
 }
-/* Phone Plan/Log: the calendar leads. */
+/* Phone Plan/Log: the calendar leads, past check-ins under it. */
 @media (max-width: 900px) {
   .log-publish { display: none; }
-  .log-side { display: block; position: static; order: -1; }
-  :is(.log-kinds, .log-check-ins) { display: none; }
+  .log-kinds { display: none; }
 }

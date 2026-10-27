@@ -64,3 +64,20 @@ test("one name: check-in, everywhere", () => {
   assert.match(superv, /Check-ins \(\{snapshots\.length\}\)/);
   assert.doesNotMatch(superv, /[Pp]ublished snapshots/);
 });
+
+test("past check-ins stay on screen at every width", () => {
+  const css = readFileSync(fileURLToPath(new URL("../../../app/styles/entity-detail.css", import.meta.url)), "utf8");
+  // Every narrow-screen block: none may hide the overview panel or the check-ins in it.
+  const narrow = [...css.matchAll(/@media \(max-width: (\d+)px\)[^{]*\{([\s\S]*?)\n\}/g)];
+  assert.ok(narrow.length > 0);
+  for (const [, width, body] of narrow) {
+    for (const rule of body!.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+      const [, sel, decl] = rule;
+      if (/display:\s*none/.test(decl!)) {
+        assert.doesNotMatch(sel!, /\.log-side\b|\.log-check-ins\b/, `hidden under ${width}px: ${sel!.trim()}`);
+      }
+    }
+  }
+  // Below 1100px the overview leads the timeline instead of sitting beside it.
+  assert.match(css, /@media \(max-width: 1100px\) \{[^}]*\}\s*\.log-side \{[^}]*position: static;[^}]*order: -1;/);
+});
