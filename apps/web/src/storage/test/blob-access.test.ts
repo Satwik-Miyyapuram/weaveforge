@@ -164,6 +164,7 @@ describe("sharedResourceFor", () => {
         ["experiment-artifacts", "experiment"],
         ["vault-assets", "vault_page"],
         ["report-images", "report_section"],
+        ["log-images", "log_entry"],
       ],
     );
   });

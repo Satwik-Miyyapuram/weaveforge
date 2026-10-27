@@ -10,7 +10,8 @@ import { ScreenLoading } from "@/components/screen-loading";
 import { AddLogEntryForm } from "./add-log-entry-form";
 import { collapseAlert } from "./collapse-alert";
 import { Select } from "@/components/select";
-import { Markdown } from "@/components/markdown/markdown";
+import { LogMarkdown } from "./log-markdown";
+import { logImageUpload } from "./log-image-upload";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
@@ -243,21 +244,21 @@ function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void 
       >
         {collapsed && !expanded ? (
           <>
-            <Markdown className="log-body">{collapsed.shown}</Markdown>
+            <LogMarkdown className="log-body">{collapsed.shown}</LogMarkdown>
             <Button variant="ghost" size="sm" aria-expanded={false} onClick={() => setExpanded(true)}>
               Show {collapsed.hidden} more
             </Button>
           </>
         ) : (
-          rest && <Markdown className="log-body">{rest}</Markdown>
+          rest && <LogMarkdown className="log-body">{rest}</LogMarkdown>
         )}
       </EntityCard>
     </>
   );
 }
 
-/** The note editor's stack for a log entry, as data (DA-102). */
-const LOG_EDITING = { placeholder: "Today I… (markdown supported)" };
+/** The note editor's placeholder for a log entry (DA-102). */
+const LOG_PLACEHOLDER = "Today I… (markdown supported)";
 
 /** Names the editor by its label: a `<label for>` cannot point at CodeMirror's content. */
 const labelEditor = (labelId: string) => (view: { contentDOM: HTMLElement }) => {
@@ -280,6 +281,11 @@ function EditLogForm({
   const [kind, setKind] = useState<LogKind>(entry.kind);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The note editor's stack for this entry, with its images under its own id (S-16).
+  const markdownEditing = useMemo(
+    () => ({ placeholder: LOG_PLACEHOLDER, imagePaste: logImageUpload(entry.id, setError) }),
+    [entry.id],
+  );
 
   /**
    * Autosave from the collaborative editor. Deliberately does *not* call
@@ -319,7 +325,7 @@ function EditLogForm({
           resourceId={entry.id}
           initialBody={body}
           onSave={saveBody}
-          markdownEditing={LOG_EDITING}
+          markdownEditing={markdownEditing}
           editorClassName="log-body-editor"
           onViewCreated={labelEditor(`body-${entry.id}`)}
         />

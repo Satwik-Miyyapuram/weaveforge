@@ -5,6 +5,7 @@ import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { markdownEditorExtensions } from "@/components/markdown/markdown-editor-extensions";
 import { createCodeMirrorThemeForSite, watchSiteTheme } from "@/lib/theme/codemirror-theme";
+import type { ImagePasteConfig } from "@/components/markdown/markdown-image-paste";
 
 export interface MarkdownFieldProps {
   value: string;
@@ -13,6 +14,8 @@ export interface MarkdownFieldProps {
   /** The id of the `<label>` that names the field. */
   labelledBy?: string;
   className?: string;
+  /** How a dropped or pasted image is stored; read once, when the editor is built. */
+  imagePaste?: ImagePasteConfig;
 }
 
 /**
@@ -21,7 +24,7 @@ export interface MarkdownFieldProps {
  * co-edit (a new log entry). Controlled: `value` set from outside, an emptied
  * form after Create, replaces the document.
  */
-export function MarkdownFieldEditor({ value, onChange, placeholder, labelledBy, className }: MarkdownFieldProps) {
+export function MarkdownFieldEditor({ value, onChange, placeholder, labelledBy, className, imagePaste }: MarkdownFieldProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -37,6 +40,7 @@ export function MarkdownFieldEditor({ value, onChange, placeholder, labelledBy, 
         extensions: [
           ...markdownEditorExtensions({
             placeholder,
+            imagePaste,
             completionsRef: { current: [] },
             citationFormatRef: { current: "wikilink" },
             editableCompartment,
