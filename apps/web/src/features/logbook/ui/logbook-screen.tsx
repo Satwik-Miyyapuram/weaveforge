@@ -297,7 +297,7 @@ function EditLogForm({
   return (
     <form className="add-form" onSubmit={submit}>
       <div className="field">
-        <label id={`body-${entry.id}`}>What did you do?</label>
+        <label id={`body-${entry.id}`}>Edit entry</label>
         <CollabBodyHost
           resourceType="log_entry"
           resourceId={entry.id}
@@ -317,7 +317,7 @@ function EditLogForm({
         </Select>
       </div>
       {error && <FormError>{error}</FormError>}
-      <div className="card-foot edit-actions">
+      <div className="card-foot edit-actions log-edit-bar">
         <Button variant="ghost" className="btn-cancel" onClick={onCancel} disabled={busy}>
           Cancel
         </Button>

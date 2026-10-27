@@ -223,6 +223,8 @@ a.related-paper-url:hover { text-decoration: underline; }
 .log-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 12px; }
 .log-item { display: grid; gap: 8px; }
 .edit-actions { justify-content: flex-end; gap: 16px; }
+/* Editing a long log entry keeps Cancel and Done in view (DA-109). */
+.log-edit-bar { position: sticky; bottom: 0; z-index: var(--z-sticky); background: var(--card-tint, var(--surface)); }
 .log-date { font-weight: 600; }
 /* The logbook as a timeline: a date gutter, a rule with a dot per day, the
    day's entries, and the month and kinds beside it on a wide screen. */

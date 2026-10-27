@@ -68,7 +68,7 @@ textarea:focus,
 .custom-select-container { position: relative; width: 100%; min-width: 0; }
 .custom-select-button {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  width: 100%; padding: 12px 12px; font: inherit; color: var(--ink);
+  width: 100%; padding: 0 12px; font: inherit; color: var(--ink);
   background: var(--input-bg); border: 1px solid var(--line); border-radius: var(--radius-sm);
   outline: none; transition: border-color var(--dur-base);
   cursor: pointer; text-align: left;
