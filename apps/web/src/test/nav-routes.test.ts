@@ -14,7 +14,7 @@ test("the sidebar groups are Library, Work and Write (DA-92)", async () => {
   const enabled = new Set(buildModuleRegistry().modules.map((m) => m.id));
   const work = ["Experiments", ...(enabled.has("git") ? ["Git"] : []), "Plan", "Log"];
   assert.deepEqual(groups, [
-    ["Library", ["Papers", "Notes", "Wiki", "Graph", "Lists"]],
+    ["Library", ["Papers", "Notes", "Graph", "Lists"]],
     ["Work", work],
     ["Write", ["Report", "Overleaf"]],
   ]);
