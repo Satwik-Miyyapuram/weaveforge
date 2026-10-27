@@ -19,7 +19,7 @@ import { formatDate } from "@/lib/format-date";
 import { logToApp } from "@/lib/error-report/app-log";
 import { formatError } from "@/lib/format-error";
 import { runReported } from "@/lib/run-reported";
-import { StatusSelect } from "@/components/status-select";
+import { statusLabel } from "@/components/status-select";
 import { MilestoneForm } from "./milestone-form";
 import { planChipTarget } from "./plan-chip";
 import { RowButton } from "@/components/controls";
@@ -128,28 +128,19 @@ export function MilestoneCard({
         />
       }
       badge={readOnly ? <PinnedPaperBadge ownerName={sharedByName} /> : undefined}
-      status={
-        <StatusSelect
-          value={m.status}
-          statuses={MILESTONE_STATUSES}
-          disabled={readOnly}
-          onChange={(st) => void setStatus(st)}
-          label="Milestone status"
-        />
-      }
+      status={<span className="status-pill">{statusLabel(m.status)}</span>}
       meta={
-        m.targetDate
-            ? [
-              `Due ${formatDate(m.targetDate)}`,
-              due != null && m.status !== "done"
-                ? due < 0
-                  ? `${-due}d overdue`
-                  : `in ${due}d`
-                : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")
-          : undefined
+        m.targetDate ? (
+          <>
+            Due {formatDate(m.targetDate)}
+            {due != null && m.status !== "done" && (
+              <>
+                {" · "}
+                {due < 0 ? <strong className="milestone-overdue">{-due}d overdue</strong> : `in ${due}d`}
+              </>
+            )}
+          </>
+        ) : undefined
       }
       menu={
         <EntityCardMenu
@@ -159,7 +150,24 @@ export function MilestoneCard({
           name={m.title}
           onDelete={isPinned ? unpin : readOnly ? undefined : remove}
           deleteLabel={isPinned ? "Remove from plan" : "Delete milestone"}
-          extraItems={readOnly ? [] : [{ id: "edit", label: "Edit", onSelect: () => setEditing(true) }]}
+          extraItems={
+            readOnly
+              ? []
+              : [
+                  { id: "edit", label: "Edit", onSelect: () => setEditing(true) },
+                  {
+                    id: "status",
+                    label: "Status",
+                    submenu: MILESTONE_STATUSES.map((st) => ({
+                      id: `status-${st}`,
+                      label: statusLabel(st),
+                      kind: "check",
+                      checked: st === m.status,
+                      onSelect: () => void setStatus(st),
+                    })),
+                  },
+                ]
+          }
         />
       }
       actions={
@@ -174,6 +182,7 @@ export function MilestoneCard({
       {m.description && <p className="summary">{m.description}</p>}
       {m.dependencies.length > 0 && (
         <div className="plan-chips">
+          <span className="plan-chips-label">Waits for:</span>
           {m.dependencies.map((d, i) => {
             const labelText = d.kind === "external" ? d.label : labels.get(d.refId ?? "") ?? d.label ?? d.refId;
             const target = planChipTarget(d, labels, milestones);
@@ -220,6 +229,7 @@ export function MilestoneCard({
       )}
       {m.compute.length > 0 && (
         <div className="metric-chips">
+          <span className="plan-chips-label">Compute:</span>
           {m.compute.map((c, i) => (
             <span key={i} className="metric-chip">
               <em>{c.resource}</em>

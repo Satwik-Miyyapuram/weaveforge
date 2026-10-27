@@ -154,6 +154,8 @@ button.git-chip { border: 0; cursor: pointer; font-family: inherit; }
 
 /* Plan dependency chips: pills; links lift, external is dashed. */
 .plan-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.plan-chips-label { align-self: center; font-size: var(--fs-xs); color: var(--muted); }
+.milestone-overdue { color: var(--danger); font-weight: 700; }
 .plan-chip {
   display: inline-flex;
   align-items: center;
