@@ -222,6 +222,8 @@ a.related-paper-url:hover { text-decoration: underline; }
 /* Logbook */
 .log-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 12px; }
 .log-item { display: grid; gap: 8px; }
+/* The card's padding frames an entry being edited; the form adds none. */
+.log-item > .add-form { margin: 0; }
 .edit-actions { justify-content: flex-end; gap: 16px; }
 /* Editing a long log entry keeps Cancel and Done in view (DA-109). */
 .log-edit-bar { position: sticky; bottom: 0; z-index: var(--z-sticky); background: var(--card-tint, var(--surface)); }
