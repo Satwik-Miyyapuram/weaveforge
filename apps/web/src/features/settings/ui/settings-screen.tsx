@@ -12,6 +12,7 @@ import {
 import { getContainer } from "@/bootstrap";
 import { Modal, ModalActions } from "@/components/modal";
 import { ScreenHead } from "@/components/screen-head";
+import { ConnectionState } from "@/components/connection-state";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
 import { SyncSettings } from "@/features/sync";
@@ -491,9 +492,7 @@ export function SettingsScreen() {
                         <strong>{d.title}</strong>
                         <span className="muted">{d.description}</span>
                       </div>
-                      <span className={`status ${connected ? "status-done" : "status-not_started"}`}>
-                        {connected ? "Connected" : "Not set"}
-                      </span>
+                      <ConnectionState connected={connected} />
                     </RowButton>
                   );
                 })}

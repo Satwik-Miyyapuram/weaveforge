@@ -99,6 +99,7 @@
 }
 .integration-item:first-child { border-top: none; }
 .integration-item:hover { filter: brightness(1.08); }
+.integration-item .connection-setup { flex: none; color: var(--accent); font-size: var(--fs-sm); font-weight: 600; }
 .integration-item .integration-main strong { font-size: var(--fs-lg); font-weight: 700; }
 .integration-item .integration-main span { font-size: var(--fs); }
 
