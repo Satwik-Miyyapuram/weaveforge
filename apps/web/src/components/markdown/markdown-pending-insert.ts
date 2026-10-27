@@ -2,6 +2,7 @@
 
 import { StateEffect, StateField, EditorSelection, type Text } from "@codemirror/state";
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
+import { undo } from "@codemirror/commands";
 
 /**
  * Text that is standing in for something still being fetched.
@@ -89,8 +90,17 @@ export function insertPending(view: EditorView, text: string, { dim = true, ownL
     effects: addPending.of({ id, from, to: from + text.length }),
     userEvent: "input.paste",
   });
+  untouched.set(id, { doc: view.state.doc, before, after });
   return id;
 }
+
+/**
+ * Inserts nobody has edited around yet, keyed by id, with the document right
+ * after the insert. While the document is still that exact object, the
+ * insert is the newest undo step, so `resolvePending` can fold the
+ * replacement into it (DA-108).
+ */
+const untouched = new Map<number, { doc: Text; before: string; after: string }>();
 
 /**
  * The line breaks that put whatever replaces `from`–`to` in a paragraph of
@@ -131,6 +141,8 @@ export function trackPending(view: EditorView, from: number, to: number, { dim =
  */
 export function resolvePending(view: EditorView, id: number, replacement: string): void {
   decorated.delete(id);
+  const fresh = untouched.get(id);
+  untouched.delete(id);
   const region = view.state.field(pendingInserts, false)?.find((entry) => entry.id === id);
   if (!region) return;
   if (region.to <= region.from) {
@@ -138,17 +150,31 @@ export function resolvePending(view: EditorView, id: number, replacement: string
     return;
   }
 
-  view.dispatch({
-    changes: { from: region.from, to: region.to, insert: replacement },
-    effects: dropPending.of(id),
-    // Moved only when the caret is still where the region ended; a writer who
-    // has moved on keeps their place.
-    selection:
-      view.state.selection.main.head === region.to
-        ? EditorSelection.cursor(region.from + replacement.length)
-        : undefined,
-    userEvent: "input.paste",
-  });
+  const swap = view.state.changes({ from: region.from, to: region.to, insert: replacement });
+  // Moved only when the caret is still where the region ended; a writer who
+  // has moved on keeps their place.
+  const selection =
+    view.state.selection.main.head === region.to
+      ? EditorSelection.cursor(region.from + replacement.length)
+      : view.state.selection.map(swap);
+
+  // Nothing edited since the insert: take the placeholder back out of history
+  // and put the finished text in as that same step, so one undo removes the
+  // upload. Otherwise the writer's own edits sit between, and the swap is a
+  // step of its own. Both routes end on the same document, so `selection`
+  // holds for either.
+  if (fresh && replacement && view.state.doc === fresh.doc && undo(view)) {
+    const at = view.state.selection.main;
+    view.dispatch({
+      changes: { from: at.from, to: at.to, insert: fresh.before + replacement + fresh.after },
+      effects: dropPending.of(id),
+      selection,
+      userEvent: "input.paste",
+    });
+    return;
+  }
+
+  view.dispatch({ changes: swap, effects: dropPending.of(id), selection, userEvent: "input.paste" });
 }
 
 /** The extensions the machinery needs. */
