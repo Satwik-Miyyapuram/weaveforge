@@ -8,6 +8,7 @@ import { Modal } from "@/components/modal";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/view-icons";
 import { ScreenLoading } from "@/components/screen-loading";
 import { AddLogEntryForm } from "./add-log-entry-form";
+import { collapseAlert } from "./collapse-alert";
 import { Select } from "@/components/select";
 import { Markdown } from "@/components/markdown/markdown";
 import { EntityCard } from "@/components/entity-card";
@@ -176,6 +177,8 @@ function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void 
   const [editing, setEditing] = useState(false);
   const hidden = useHiddenKeys().has(logKey(entry.id));
   const { headline, rest } = splitHeadline(entry.body);
+  const collapsed = collapseAlert(headline, rest);
+  const [expanded, setExpanded] = useState(false);
 
   // Rule D-07: the entry goes at once; the delete runs when the Undo toast closes.
   function remove() {
@@ -234,7 +237,16 @@ function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void 
           />
         }
       >
-        {rest && <Markdown className="log-body">{rest}</Markdown>}
+        {collapsed && !expanded ? (
+          <>
+            <Markdown className="log-body">{collapsed.shown}</Markdown>
+            <Button variant="ghost" size="sm" aria-expanded={false} onClick={() => setExpanded(true)}>
+              Show {collapsed.hidden} more
+            </Button>
+          </>
+        ) : (
+          rest && <Markdown className="log-body">{rest}</Markdown>
+        )}
       </EntityCard>
     </>
   );
