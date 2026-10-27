@@ -222,7 +222,7 @@ export function SectionNote({
         )}
         {saveError && <InlineError>{saveError}</InlineError>}
       </div>
-      {!readOnly && !editing && <SectionRelatedExcerpts section={section} onInsert={insertSnippet} />}
+      {!readOnly && <SectionRelatedExcerpts section={section} onInsert={insertSnippet} />}
       </div>
     </div>
   );
