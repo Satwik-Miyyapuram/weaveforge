@@ -49,6 +49,14 @@
   border-radius: var(--control-radius-sm);
   box-shadow: none;
 }
+/* A leaf in the tree keeps the chevron's width, so every title starts at one x. */
+.section-head-toggle-spacer { flex: none; width: var(--control-sm); height: var(--control-sm); }
+/* One width for every value, so the select never moves the title. */
+.section-item .entity-card-status :is(.status-select, .custom-select-container) { width: 8.25rem; min-width: 0; }
+/* Done reads as done: a check and a quieter title, the card kept at full strength. */
+.section-item--done .entity-card-title { color: var(--muted); }
+.section-done-check { color: var(--s-good); }
+.section-rename-input { width: 100%; min-width: 0; font: inherit; }
 .section-item .summary,
 .entity-card .summary { margin-top: 2px; font-size: var(--fs-sm); line-height: 1.4; }
 .section-item .summary-empty,

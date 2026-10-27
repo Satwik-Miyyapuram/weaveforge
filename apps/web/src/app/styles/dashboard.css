@@ -376,9 +376,9 @@
 
   .report-screen .section-item .status-select,
   .report-screen .section-item .custom-select-container {
-    min-width: 7.5rem;
+    min-width: 0;
     max-width: none;
-    width: auto;
+    width: 7.5rem;
   }
   .paper-card-head,
   .entity-card-head { flex-direction: row; align-items: flex-start; gap: 8px; }
