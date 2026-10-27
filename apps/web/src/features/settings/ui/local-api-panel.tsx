@@ -8,6 +8,7 @@ import { LocalApiTokenCreate, LocalApiTokenTable, useLocalApiState } from "@/com
 import { McpClients } from "./mcp-clients";
 import { copyText } from "@/lib/clipboard";
 import { Button } from "@/components/button";
+import { Switch } from "@/components/controls";
 
 /**
  * Settings → AI → MCP and the local HTTP surface, desktop only.
@@ -49,9 +50,11 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
       <h3 className="settings-group">{sdk ? "Access tokens on this computer" : "AI & MCP"}</h3>
       {sdk ? (
         <p className="muted">
-          Tokens for the Python SDK (Experiments), Obsidian-style Notes REST routes and MCP clients.
-          Each gets only the permissions you tick. They reach this app over HTTP on this computer
-          only, so it has to be running. A token is shown once; only its hash is kept.
+          A token lets a program on this computer use this app: a training script logging runs to
+          Experiments (<code>pip install weaveforge</code>, then set <code>WEAVEFORGE_PROJECT</code> to
+          the project&rsquo;s name), another notes app reading your Notes, or an AI client. Each token can
+          do only what you tick, and works only while WeaveForge is open. It is shown once, when you
+          make it, so copy it then.
         </p>
       ) : (
         <p className="muted">
@@ -60,16 +63,18 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
         </p>
       )}
       {error && <FormError>{error}</FormError>}
-      <label className="field-inline">
-        <input
-          type="checkbox"
-          className="themed-check"
+      <div className="integration-enable">
+        <span>
+          {sdk ? "Let programs on this computer connect" : "Serve MCP"}
+          <small className="muted mono"> {state.url}</small>
+        </span>
+        <Switch
           checked={state.enabled}
+          label={sdk ? "Let programs on this computer connect" : "Serve MCP"}
           disabled={busy}
-          onChange={(e) => void setEnabled(e.target.checked)}
+          onClick={() => void setEnabled(!state.enabled)}
         />
-        {sdk ? "Serve the local API" : "Serve MCP"} at {state.url}
-      </label>
+      </div>
       {!sdk && state.mcp && <McpClients state={state} onChange={setState} />}
       {state.enabled && !(!sdk && state.mcp) && (
         <>

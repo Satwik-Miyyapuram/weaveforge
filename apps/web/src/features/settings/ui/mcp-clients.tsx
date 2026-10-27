@@ -166,7 +166,7 @@ export function McpClients({
     <>
       {error && <FormError>{error}</FormError>}
       {mcp.connected && !state.enabled && (
-        <FormError>{state.reason ?? "MCP is not being served, so AI clients cannot reach WeaveForge. Tick Serve MCP above."}</FormError>
+        <FormError>{state.reason ?? "MCP is not being served, so AI clients cannot reach WeaveForge. Turn on Serve MCP above."}</FormError>
       )}
       <div className="mcp-client">
         <header>
