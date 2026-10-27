@@ -2,38 +2,87 @@
 /**
  * WCAG 2.1 contrast audit for every theme in src/app/themes/.
  *
- * Parses each theme selector block, resolves the raw color tokens it defines
- * (hex only — color-mix()/var() aliases are skipped), and checks the key
- * text/surface pairs the UI actually renders — body, muted and faint copy, the
- * accent button, and the semantic status ramp both on its own tint (the pills)
- * and straight on the page (chips, icon tints, the status bar). Themes that
- * omit a raw token inherit it from the default light `:root` (Paper) base,
- * matching how the cascade behaves at runtime.
+ * Parses each theme selector block, resolves the colour tokens it defines
+ * (hex, rgb(), oklch() and var() aliases), and checks the key text/surface
+ * pairs the UI actually renders — body, muted and faint copy, the accent
+ * button, the semantic status ramp both on its own tint (the pills) and
+ * straight on the page (chips, icon tints, the status bar), and the confetti
+ * card tints. Themes that omit a token inherit it from `:root` (Paper and the
+ * alias layer), matching how the cascade behaves at runtime.
  *
- * Usage:  node scripts/contrast-audit.mjs
- * Exit code 1 if any normal-text pair falls below AA (4.5:1).
+ * A pair the script cannot read (a color-mix(), a see-through colour, a token
+ * nobody defines) fails: a skipped pair is an unmeasured one (design D20, G7).
+ *
+ * Usage:  node scripts/contrast-audit.mjs [themes-dir]
+ * Exit code 1 if any pair falls below its bar or cannot be read.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const dir = join(here, "../src/app/themes");
+const dir = process.argv[2] ?? join(here, "../src/app/themes");
 // Every palette file at once: the audit compares tokens within one theme, and
-// a theme is one file, so concatenating them keeps each block intact while
-// letting the parser below stay exactly as it was when this was one file.
+// a theme is one file, so concatenating them keeps each block intact.
 const css = readdirSync(dir)
   .filter((f) => f.endsWith(".css") && f !== "index.css")
   .map((f) => readFileSync(join(dir, f), "utf8"))
   .join("\n");
 
 // --- color math ---------------------------------------------------------
+/** sRGB 0–255 from a hex colour; null when it is see-through or malformed. */
 function hexToRgb(hex) {
   let h = hex.replace("#", "").trim();
-  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
-  if (h.length !== 6) return null;
+  if (h.length === 3 || h.length === 4) h = h.split("").map((c) => c + c).join("");
+  if (h.length === 8) {
+    if (h.slice(6).toLowerCase() !== "ff") return null;
+    h = h.slice(0, 6);
+  }
+  if (!/^[0-9a-f]{6}$/i.test(h)) return null;
   const n = parseInt(h, 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+/** A number, or a percentage of `full`. */
+function num(s, full) {
+  const v = parseFloat(s);
+  if (Number.isNaN(v)) return NaN;
+  return s.trim().endsWith("%") ? (v / 100) * full : v;
+}
+/** The three channels inside `fn(...)`; null when see-through or not that function. */
+function channels(value, fn) {
+  const m = value.match(new RegExp(`^${fn}\\((.*)\\)$`, "i"));
+  if (!m) return null;
+  const [main, alpha] = m[1].split("/");
+  const parts = main.split(/[\s,]+/).filter(Boolean);
+  const a = alpha ?? (parts.length === 4 ? parts.pop() : undefined);
+  if (a !== undefined && num(a, 1) !== 1) return null;
+  return parts.length === 3 ? parts : null;
+}
+function rgbFn(value) {
+  const p = channels(value, "rgba?");
+  if (!p) return null;
+  const c = p.map((x) => num(x, 255));
+  return c.some(Number.isNaN) ? null : c;
+}
+/** oklch → sRGB 0–255, through OKLab and linear sRGB, clipped to the gamut. */
+function oklchFn(value) {
+  const p = channels(value, "oklch");
+  if (!p) return null;
+  const [L, C, H] = [num(p[0], 1), num(p[1], 0.4), parseFloat(p[2])];
+  if ([L, C, H].some(Number.isNaN)) return null;
+  const a = C * Math.cos((H * Math.PI) / 180), b = C * Math.sin((H * Math.PI) / 180);
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  const lin = [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
+  ];
+  return lin.map((v) => {
+    const c = Math.min(1, Math.max(0, v));
+    return 255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055);
+  });
 }
 function relLum([r, g, b]) {
   const f = (v) => {
@@ -48,35 +97,38 @@ function ratio(fg, bg) {
 }
 
 // --- parse theme blocks -------------------------------------------------
-/** Extract hex-valued custom props from a `{ ... }` body. */
+/** Every custom property in a `{ ... }` body, value as written. */
 function parseTokens(body) {
   const out = {};
-  const re = /(--[\w-]+)\s*:\s*(#[0-9a-fA-F]{3,6})\s*;/g;
+  const re = /(--[\w-]+)\s*:\s*([^;]+);/g;
   let m;
-  while ((m = re.exec(body))) out[m[1]] = m[2];
+  while ((m = re.exec(body))) out[m[1]] = m[2].trim();
   return out;
 }
 
-/** Split the file into { name, tokens } blocks in source order. */
+/**
+ * Tokens per selector, merged in source order. A block written for several
+ * selectors (`:root, [data-theme="light"]`) gives its tokens to each.
+ */
 function parseThemes(src) {
-  const blocks = [];
-  const re = /(:root(?:\[data-theme="[^"]+"\])?|\[data-theme="[^"]+"\])\s*\{/g;
+  const bySelector = new Map();
+  const re = /([^{}]+)\{([^{}]*)\}/g;
+  const text = src.replace(/\/\*[\s\S]*?\*\//g, "");
   let m;
-  while ((m = re.exec(src))) {
-    const start = re.lastIndex;
-    // find matching close brace (bodies here have no nested braces)
-    const end = src.indexOf("}", start);
-    const body = src.slice(start, end);
-    const attr = m[1].match(/data-theme="([^"]+)"/);
-    blocks.push({ name: attr ? attr[1] : "paper (:root)", tokens: parseTokens(body) });
+  while ((m = re.exec(text))) {
+    const tokens = parseTokens(m[2]);
+    for (const sel of m[1].split(",").map((x) => x.trim())) {
+      const attr = sel.match(/^(?::root)?\[data-theme="([^"]+)"\]$/);
+      const name = sel === ":root" ? ":root" : attr?.[1];
+      if (!name) continue;
+      bySelector.set(name, { ...bySelector.get(name), ...tokens });
+    }
   }
-  return blocks;
+  return bySelector;
 }
 
-const blocks = parseThemes(css);
-// The very first :root is the alias layer (no raw hex); Paper base is the
-// first block that actually defines --bg.
-const base = blocks.find((b) => b.tokens["--bg"])?.tokens ?? {};
+const themes = parseThemes(css);
+const root = themes.get(":root") ?? {};
 
 /**
  * The semantic status ramp, which `themes/common.css` aliases onto the pill
@@ -111,7 +163,7 @@ const PAIRS = [
   ["--accent-fg", "--accent", "button label on accent"],
   // Text that wants the accent reads `--accent-ink`, which common.css points
   // at `--accent` and a theme with a fill-only accent (brutal's yellow) sets
-  // to something legible; the audit follows the same fallback.
+  // to something legible; the var() alias resolves inside each theme.
   ["--accent-ink", "--bg", "accent-as-text on bg"],
   // Status pills: the ramp on its own tint.
   ...RAMP.map((k) => [`--s-${k}`, `--s-${k}-bg`, `status ${k} on tint`]),
@@ -119,28 +171,48 @@ const PAIRS = [
   ...RAMP.map((k) => [`--s-${k}`, "--bg", `status ${k} on bg`]),
 ];
 
-let failures = 0;
-const themeBlocks = blocks.filter((b) => b.tokens["--bg"]); // skip alias-only :root
+/** Card tints a theme paints (styles/cards.css), and the copy that sits on them. */
+const tintPairs = (lookup) =>
+  [1, 2, 3, 4, 5, 6]
+    .filter((k) => lookup(`--confetti-${k}-bg`) !== undefined)
+    .flatMap((k) => [
+      ["--text", `--confetti-${k}-bg`, `text on card tint ${k}`],
+      ["--muted", `--confetti-${k}-bg`, `muted on card tint ${k}`],
+    ]);
 
-for (const t of themeBlocks) {
-  const raw = (name) => t.tokens[name] ?? base[name];
-  const tok = (name) => (name === "--accent-ink" && !hexToRgb(raw(name) ?? "") ? raw("--accent") : raw(name));
+let failures = 0;
+
+for (const [name, own] of themes) {
+  if (name === ":root" || own["--bg"] === undefined) continue; // alias-only blocks
+  const lookup = (token) => own[token] ?? root[token];
+  /** A token's colour, following var() inside this theme; a reason when it cannot. */
+  const colour = (token, depth = 0) => {
+    const value = lookup(token);
+    if (value === undefined) return `${token} is not defined`;
+    const alias = value.match(/^var\((--[\w-]+)\)$/);
+    if (alias && depth < 8) return colour(alias[1], depth + 1);
+    const rgb = value.startsWith("#") ? hexToRgb(value) : (rgbFn(value) ?? oklchFn(value));
+    return rgb ?? `cannot read ${token}: ${value}`;
+  };
   const rows = [];
-  for (const [fgN, bgN, label, large] of PAIRS) {
-    const fg = hexToRgb(tok(fgN) ?? ""), bg = hexToRgb(tok(bgN) ?? "");
-    if (!fg || !bg) { rows.push([label, "n/a", "skip (non-hex)"]); continue; }
-    const r = ratio(fg, bg);
+  for (const [fgN, bgN, label, large] of [...PAIRS, ...tintPairs(lookup)]) {
+    const fg = colour(fgN), bg = colour(bgN);
     const bar = large ? 3 : 4.5;
+    if (typeof fg === "string" || typeof bg === "string") {
+      failures++;
+      rows.push([label, "n/a", `FAIL (${typeof fg === "string" ? fg : bg})`]);
+      continue;
+    }
+    const r = ratio(fg, bg);
     const pass = r >= bar;
-    if (!pass && !large) failures++;
+    if (!pass) failures++;
     rows.push([label, r.toFixed(2), pass ? "ok" : `FAIL (< ${bar})`]);
   }
-  console.log(`\n${t.name}`);
+  console.log(`\n${name}`);
   for (const [label, r, verdict] of rows) {
-    const mark = verdict === "ok" ? " " : verdict.startsWith("FAIL") ? "✗" : "·";
-    console.log(`  ${mark} ${label.padEnd(24)} ${String(r).padStart(6)}  ${verdict}`);
+    console.log(`  ${verdict === "ok" ? " " : "✗"} ${label.padEnd(24)} ${String(r).padStart(6)}  ${verdict}`);
   }
 }
 
-console.log(`\n${failures} normal-text pair(s) below AA (4.5:1).`);
+console.log(`\n${failures} pair(s) below their bar or unreadable.`);
 process.exit(failures > 0 ? 1 : 0);
