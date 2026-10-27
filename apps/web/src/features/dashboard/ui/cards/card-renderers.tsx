@@ -24,6 +24,7 @@ function ProgressTile({
   total,
   pct,
   href,
+  label,
   short,
   animateProgress,
 }: {
@@ -31,6 +32,8 @@ function ProgressTile({
   total: number;
   pct: number;
   href: string;
+  /** Says what is counted, when "done / total" alone would not. */
+  label?: string;
   short?: boolean;
   animateProgress?: boolean;
 }) {
@@ -48,9 +51,7 @@ function ProgressTile({
   return (
     <Link href={href} className="dashboard-stat-link">
       <div className="dashboard-stat-row">
-        <span className="dashboard-stat-count">
-          {done} / {total}
-        </span>
+        <span className="dashboard-stat-count">{label ?? `${done} / ${total}`}</span>
         <strong className="dashboard-stat-pct">{pct}%</strong>
       </div>
       {!short && (
@@ -123,31 +124,21 @@ const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
   "reading-progress": progressRenderer("reading", "/papers"),
   "report-progress": progressRenderer("report", "/report"),
   "plan-progress": progressRenderer("plan", "/plan"),
-  // The big number is the finished count, so it is named wherever it shows:
-  // on a one-row tile the caption is hidden, and "0 running … 3" read as
-  // three of something unsaid.
-  "experiments-summary": ({ stats, item }) => (
-    <Link
-      href="/experiments"
-      className="dashboard-stat-link"
-      aria-label={`${stats.experiments.done} of ${stats.experiments.total} experiments done, ${stats.experiments.running} running`}
-    >
-      <div className="dashboard-stat-row">
-        <span className="dashboard-stat-count">
-          {stats.experiments.running} running · {stats.experiments.total} total
-        </span>
-        <strong className="dashboard-stat-pct">
-          {stats.experiments.done}
-          {item.h < 2 ? " done" : ""}
-        </strong>
-      </div>
-      {item.h >= 2 && (
-        <span className="dashboard-stat-caption dashboard-stat-footer">
-          {stats.experiments.done === 1 ? "experiment done" : "experiments done"}
-        </span>
-      )}
-    </Link>
-  ),
+  // Reads like the other progress cards, and names what it counts (DA-127).
+  "experiments-summary": ({ stats, item, contentReady }) => {
+    const { done, total, pct, running } = stats.experiments;
+    return (
+      <ProgressTile
+        done={done}
+        total={total}
+        pct={pct}
+        href="/experiments"
+        label={`${done} of ${total} done · ${running} running`}
+        short={item.h < 2}
+        animateProgress={contentReady}
+      />
+    );
+  },
   "needs-attention": ({ stats, item }) =>
     stats.attention.length === 0 ? (
       <p className="muted dashboard-card-empty">Nothing needs attention.</p>

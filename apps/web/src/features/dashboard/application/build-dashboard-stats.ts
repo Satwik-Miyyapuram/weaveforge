@@ -16,10 +16,8 @@ export interface ProgressStat {
   pct: number;
 }
 
-interface ExperimentsStat {
-  total: number;
+interface ExperimentsStat extends ProgressStat {
   running: number;
-  done: number;
 }
 
 export interface AttentionItem {
@@ -73,8 +71,7 @@ function planProgress(milestones: readonly Milestone[]): ProgressStat {
 
 function experimentsSummary(experiments: readonly Experiment[]): ExperimentsStat {
   const running = experiments.filter((e) => e.status === "running").length;
-  const done = experiments.filter((e) => e.status === "done").length;
-  return { total: experiments.length, running, done };
+  return { ...progressOf(experiments, (e) => e.status === "done"), running };
 }
 
 export function needsAttention(
