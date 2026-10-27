@@ -97,6 +97,12 @@
   --z-modal: 10000;  /* .modal-backdrop, portalled to <body> */
   --z-menu: 10050;   /* a select portalled to <body>, above the modal it opened from */
   --z-toast: 10100;  /* toasts, above everything */
+
+  /* The editor's two tints (DA-107). Both used to be accent washes, so a
+     selection on the caret's line read as the line highlight. The line is a
+     neutral wash now; only the selection carries the accent. */
+  --editor-selection: color-mix(in srgb, var(--accent) 30%, transparent);
+  --editor-active-line: color-mix(in srgb, var(--ink) 5%, transparent);
 }
 
 /* Each density also moves --icon-size. Without that only the button *box*
