@@ -77,6 +77,7 @@ import { useInkNoteStore } from "./use-ink-note-store";
 import { useInkPageLifecycle } from "./use-ink-page-lifecycle";
 import { useInkPageMedia } from "./use-ink-page-media";
 import { useInkPen } from "./use-ink-pen";
+import { useInkMetaSetters } from "./use-ink-meta-setters";
 import { useInkPrefs } from "./use-ink-prefs";
 import { useInkPageHistory } from "./use-ink-page-history";
 import { useInkShortcuts } from "./use-ink-shortcuts";
@@ -306,29 +307,8 @@ export function InkHost({
     [],
   );
 
-  /**
-   * The paper is the note's too (§6.2.12): every stored page carries a copy,
-   * so the pages already loaded take the new one before the sheet re-renders.
-   */
-  const setPaper = useCallback(
-    (next: InkPaper) => {
-      metaRef.current = { ...metaRef.current, paper: next };
-      for (const stored of pagesRef.current ?? []) stored.paper = next;
-      setPaperState(next);
-      scheduleSave();
-    },
-    [scheduleSave],
-  );
-
-  /** The hand is the note's (§4.1), so changing it is a save. */
-  const setHand = useCallback(
-    (next: InkHand) => {
-      metaRef.current = { ...metaRef.current, hand: next };
-      setHandState(next);
-      scheduleSave();
-    },
-    [scheduleSave],
-  );
+  /** The paper and the hand are the note's: each change is a save (§use-ink-meta-setters). */
+  const { setPaper, setHand } = useInkMetaSetters({ metaRef, pagesRef, setHandState, setPaperState, scheduleSave });
 
   /**
    * The current page's recognition, for the column and for corrections
