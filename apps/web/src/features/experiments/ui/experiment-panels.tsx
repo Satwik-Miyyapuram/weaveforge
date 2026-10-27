@@ -189,9 +189,9 @@ export function Artifacts({ urls: entries, detail = false }: { urls: string[]; d
       )}
       {links.length > 0 && (
         <div className="git-chips">
-          {links.map((url) => (
+          {links.map((url, i) => (
             <a key={url} className="git-chip is-link" href={url} target="_blank" rel="noreferrer">
-              artifact
+              {figureLabel(url, i)}
             </a>
           ))}
         </div>
