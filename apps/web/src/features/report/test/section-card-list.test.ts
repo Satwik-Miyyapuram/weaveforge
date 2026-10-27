@@ -21,7 +21,7 @@ test("titles in the tree line up: leaves keep a chevron-wide spacer", () => {
 });
 
 test("the status select keeps one width whatever it says", () => {
-  assert.match(css, /\.section-item \.entity-card-status :is\(\.status-select, \.custom-select-container\) \{[^}]*width: 8\.25rem;/);
+  assert.match(css, /\.section-item \.entity-card-status :is\(\.status-select, \.custom-select-container\) \{[^}]*width: 9rem;/);
   assert.doesNotMatch(phone, /\.report-screen \.section-item \.custom-select-container \{[^}]*width: auto;/);
 });
 

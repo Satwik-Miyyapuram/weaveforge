@@ -127,6 +127,8 @@ export const CARD_REGISTRY: readonly CardDef[] = [
     defaultSizeSm: { w: 4, h: 4 },
     minSize: { w: 4, h: 3 },
     maxSize: { w: 12, h: 6 },
+    // A log row (date over preview) is taller than a grid row.
+    fitContent: true,
   },
   {
     type: "library-snapshot",

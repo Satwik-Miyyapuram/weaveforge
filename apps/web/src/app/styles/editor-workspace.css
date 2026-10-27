@@ -940,7 +940,8 @@
   flex: none;
   align-items: center;
   gap: 8px;
-  max-width: 200px;
+  /* Room for a typical name beside its always-shown extension. */
+  max-width: 256px;
   min-width: 0;
   padding: 0 12px;
   background: var(--surface);
@@ -2707,6 +2708,10 @@
     text-align: center;
   }
   .pane-tab-switcher .pane-tab-close { opacity: 1; width: 24px; height: 24px; }
+  /* Save state, words and the kind fit a phone; the rest ran off its edge. */
+  .status-bar-segment:is([data-segment="chars"], [data-segment="cursor"], [data-segment="encoding"], [data-segment="strokes"], [data-segment="pen"]) {
+    display: none;
+  }
 }
 
 /* The pen: one swatch carries the colour, the dot on it the nib. */

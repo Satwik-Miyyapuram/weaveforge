@@ -603,9 +603,10 @@
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-stat-row {
   /* Beside the number, not under it: the grid's stat rows are too short
-     for three lines and a bar. */
+     for three lines and a bar. On the last baseline, a count that wraps on
+     a phone rises beside the number instead of pushing the bar out. */
   flex-direction: row-reverse;
-  align-items: baseline;
+  align-items: last baseline;
   justify-content: flex-end;
   gap: 12px;
 }

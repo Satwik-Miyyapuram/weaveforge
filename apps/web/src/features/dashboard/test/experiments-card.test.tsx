@@ -13,10 +13,12 @@ import { buildDashboardStats } from "../application/build-dashboard-stats";
 import type { DashboardStats } from "../application/build-dashboard-stats";
 
 const stats = { experiments: { done: 3, total: 8, pct: 38, running: 1 } } as DashboardStats;
-const html = (h: number) =>
+const markup = (h: number) =>
   renderToStaticMarkup(
     <>{renderDashboardCard("experiments-summary", { stats, supervision: null, item: { h } as CardRenderProps["item"], supervisees: [] })}</>,
   );
+// Markup with the running count's span removed, so the words read as one line.
+const html = (h: number) => markup(h).replace(/<span class="dashboard-stat-extra">([^<]*)<\/span>/, "$1");
 
 test("the card names what its number counts and shows a bar like the other progress cards", () => {
   const tall = html(2);

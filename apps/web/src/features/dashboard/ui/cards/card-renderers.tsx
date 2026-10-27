@@ -33,7 +33,7 @@ function ProgressTile({
   pct: number;
   href: string;
   /** Says what is counted, when "done / total" alone would not. */
-  label?: string;
+  label?: ReactNode;
   short?: boolean;
   animateProgress?: boolean;
 }) {
@@ -133,7 +133,12 @@ const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
         total={total}
         pct={pct}
         href="/experiments"
-        label={`${done} of ${total} done · ${running} running`}
+        label={
+          <>
+            {`${done} of ${total} done`}
+            <span className="dashboard-stat-extra">{` · ${running} running`}</span>
+          </>
+        }
         short={item.h < 2}
         animateProgress={contentReady}
       />

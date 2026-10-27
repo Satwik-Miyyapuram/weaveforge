@@ -76,7 +76,7 @@ function RelatedPaper({ paperId }: { paperId: string }) {
   const title = usePaperTitle(paperId);
   if (!title) return null;
   return (
-    <span className="git-chip" title="Paper this run tests/implements">
+    <span className="git-chip git-chip--paper" title="Paper this run tests/implements">
       <em>paper</em> {title}
     </span>
   );

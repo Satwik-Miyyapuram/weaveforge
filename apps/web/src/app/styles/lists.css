@@ -250,6 +250,8 @@
   .lists-rail {
     position: static; max-height: none; display: flex; flex-wrap: wrap; gap: 8px;
   }
-  .lists-rail-item { width: auto; min-height: 36px; padding: 8px 12px; border-radius: var(--r-pill); background: var(--surface2); }
+  .lists-rail-item { width: auto; max-width: 100%; min-height: 36px; padding: 8px 12px; border-radius: var(--r-pill); background: var(--surface2); }
+  /* A long name wraps inside its pill rather than running off the rail. */
+  .lists-rail-name { white-space: normal; overflow-wrap: anywhere; }
   .lists-rail-label { flex: 1 1 100%; margin: 8px 4px 0; }
 }

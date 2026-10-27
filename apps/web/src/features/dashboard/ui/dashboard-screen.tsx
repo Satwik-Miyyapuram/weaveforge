@@ -9,6 +9,9 @@ import { isSupervisorRole } from "@weaveforge/core";
 import type { DashboardLayout, DashboardCardType } from "@weaveforge/core";
 import { registerDashboardUiCacheClear } from "@/lib/cache/clear-session-caches";
 import { ScreenLoader } from "@/components/weaveforge-loader";
+import { EmptyState } from "@/components/empty-state";
+import { NavIcon } from "@/app/nav-icon";
+import { Button } from "@/components/button";
 
 import {
   appendCardPair,
@@ -248,7 +251,17 @@ export function DashboardScreen() {
       )}
 
       {!layoutLoading && syncLayouts && syncLayouts.lg.length === 0 && !editing && (
-        <p className="muted dashboard-empty">No cards yet. Tap customize to add widgets.</p>
+        <EmptyState
+          variant="first-run"
+          icon={<NavIcon name="home" />}
+          title="No cards yet"
+          body="Pick what this dashboard shows: papers to read, recent log entries, milestones and more."
+          action={
+            <Button variant="primary" onClick={() => setEditing(true)}>
+              Customize
+            </Button>
+          }
+        />
       )}
 
       {showGrid && syncLayouts && project && (

@@ -1,5 +1,6 @@
 .dashboard-screen .screen-title-block { flex: 1 1 auto; min-width: 0; }
-.dashboard-screen .screen-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The project's name heads the page; a long one wraps rather than losing its end. */
+.dashboard-screen .screen-title { overflow-wrap: anywhere; }
 .dashboard-customize-btn {
   flex: none;
   display: inline-flex;
@@ -226,15 +227,23 @@
 .dashboard-stat-link {
   display: flex; flex-direction: column; flex: 1; min-height: 0;
   justify-content: flex-start; text-decoration: none; color: inherit;
+  container-type: inline-size;
 }
 .dashboard-card--editing .dashboard-stat-link,
 .dashboard-card--editing .dashboard-list-row {
   pointer-events: none;
 }
 .dashboard-stat-link:hover .dashboard-stat-pct { color: var(--accent-ink, var(--accent)); }
+/* Bottom-aligned, not on the first baseline: a count that wraps on a phone
+   tile then stays within the percentage's height instead of pushing the bar
+   out of the card. */
 .dashboard-stat-row {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 8px;
   flex-shrink: 0;
+}
+/* The narrowest tiles (a 320px phone) have room for "3 of 9 done" only. */
+@container (max-width: 124px) {
+  .dashboard-stat-extra { display: none; }
 }
 .dashboard-stat-count { font-size: var(--fs-sm); color: var(--muted); }
 .dashboard-stat-pct {
@@ -374,12 +383,6 @@
 
   .superv-panels { grid-template-columns: minmax(0, 1fr); }
 
-  .report-screen .section-item .status-select,
-  .report-screen .section-item .custom-select-container {
-    min-width: 0;
-    max-width: none;
-    width: 7.5rem;
-  }
   .paper-card-head,
   .entity-card-head { flex-direction: row; align-items: flex-start; gap: 8px; }
 

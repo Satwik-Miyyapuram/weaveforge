@@ -176,7 +176,7 @@ function SuperviseePanel({ member }: { member: Member }) {
     void load();
   }, [load]);
 
-  if (loading) return <p className="muted">Loading {member.fullName || member.email}…</p>;
+  if (loading) return <ScreenLoader status={`Loading ${member.fullName || member.email}…`} compact />;
   if (error) return <FormError>{error}</FormError>;
 
   const selectedSnapshot = snapshots.find((s) => s.id === selectedSnapshotId) ?? null;

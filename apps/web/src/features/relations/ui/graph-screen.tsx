@@ -451,7 +451,20 @@ export function GraphScreen() {
         {graphView}
         {graphBelow}
         {!hasVisibleItems && (
-          <div className="empty gf-empty"><p>No items match the filter.</p></div>
+          <div className="gf-empty">
+            <EmptyState
+              variant="no-results"
+              body="No items match the filter."
+              action={
+                <ClearFiltersButton
+                  onClear={() => {
+                    setSelectedLists([]);
+                    setSelectedTags([]);
+                  }}
+                />
+              }
+            />
+          </div>
         )}
         {/* Focus mode has no room for the panel, so it keeps the floating
             legend it has always had; only the plain view gets `graphBelow`. */}
