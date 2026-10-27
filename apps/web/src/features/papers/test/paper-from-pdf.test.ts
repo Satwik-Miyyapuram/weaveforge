@@ -251,7 +251,9 @@ test("Papers shows a drop zone only while a file is dragged over it", () => {
   const zone = read("pdf-drop-zone.tsx");
   assert.match(zone, /\{over && \(\s*<div className="pdf-drop-overlay"/);
   assert.match(zone, /dataTransfer\?\.types\.includes\("Files"\)/);
-  // The add form offers the same thing as a file picker.
+  // The add form offers the same thing as a file picker: the app's own
+  // button, with the native input kept only for the label and screen readers.
   const form = read("add-paper-form.tsx");
-  assert.match(form, /<input\s+id="pdfFile"\s+type="file"\s+accept="application\/pdf,\.pdf"/);
+  assert.match(form, /<input\s+ref=\{pdfRef\}\s+id="pdfFile"\s+className="sr-only"\s+type="file"\s+accept="application\/pdf,\.pdf"/);
+  assert.match(form, /<Button[^>]*onClick=\{\(\) => pdfRef\.current\?\.click\(\)\}[^>]*>\s*\{pdfBusy \? "Reading PDF…" : "Choose PDFs…"\}/);
 });

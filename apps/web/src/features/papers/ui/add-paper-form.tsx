@@ -1,7 +1,7 @@
 "use client";
 
 import { enumLabel } from "@/lib/enum-label";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { PAPER_STATUSES, parsePaperRef, type Paper, type PaperRef, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
@@ -58,6 +58,7 @@ export function AddPaperForm({
   /** Offers a PDF picker; the outcomes are the caller's to announce. */
   onPdfs?: (outcomes: PdfDropOutcome[]) => void;
 }) {
+  const pdfRef = useRef<HTMLInputElement>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -163,9 +164,14 @@ export function AddPaperForm({
       </div>
       {onPdfs && (
         <div className="field">
-          <label htmlFor="pdfFile">{pdfBusy ? "Reading PDF…" : "…or add from a PDF"}</label>
+          <label htmlFor="pdfFile">…or add from a PDF</label>
+          {/* The native input stays for the label and screen readers; the
+              app's own button opens it, since no theme can restyle the
+              browser's "Choose files / No file chosen". */}
           <input
+            ref={pdfRef}
             id="pdfFile"
+            className="sr-only"
             type="file"
             accept="application/pdf,.pdf"
             multiple
@@ -173,6 +179,11 @@ export function AddPaperForm({
             aria-describedby="pdfFileHint"
             onChange={(e) => void pickPdfs(e.currentTarget)}
           />
+          <div>
+            <Button size="sm" disabled={pdfBusy} onClick={() => pdfRef.current?.click()}>
+              {pdfBusy ? "Reading PDF…" : "Choose PDFs…"}
+            </Button>
+          </div>
           <p id="pdfFileHint" className="muted field-hint">The DOI or title on its first page finds the paper. You can also drop PDFs on Papers.</p>
         </div>
       )}
