@@ -31,3 +31,10 @@ test("an open popover's button stays sunk at the press depth", () => {
   const css = read("../styles/states.css");
   assert.match(css, /\.wf-btn\[aria-expanded="true"\] \{ translate: var\(--wf-press\) var\(--wf-press\); box-shadow: none;/);
 });
+
+test("the account button sits on the project chip's centre line, not at the row's top", () => {
+  // The row stretches its children to the chip's height; the account popover
+  // must centre its shorter icon button rather than pin it to the top.
+  const css = read("../styles/nav.css");
+  assert.match(css, /\.nav-account-row > \.popover \{ align-self: center; \}/);
+});

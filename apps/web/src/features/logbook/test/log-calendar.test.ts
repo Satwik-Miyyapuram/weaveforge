@@ -40,7 +40,17 @@ test("the calendar has a legend for its marks", () => {
 
 test("Kinds are filter chips that narrow the timeline", () => {
   assert.match(screen, /<LogKinds entries=\{entries\} active=\{kind\} onPick=\{setKind\} \/>/);
-  assert.match(screen, /<Chip pressed=\{active === k\}/);
+  // A plain row per kind: one pill (the kind) and its count, not a pill around a pill.
+  assert.match(screen, /<RowButton current=\{active === k\} aria-pressed=\{active === k\}/);
+  assert.doesNotMatch(screen, /<Chip pressed=\{active === k\}/);
+  assert.match(css, /\.log-kinds li > \.wf-row \{ justify-content: space-between; \}/);
   assert.match(screen, /kind \? entries\.filter\(\(e\) => e\.kind === kind\) : entries/);
   assert.match(screen, /setKind\(null\)/, "Clear filters clears the kind too");
+});
+
+test("the calendar fits its 300px rail and a logged day fills its whole cell", () => {
+  // 1fr is minmax(auto, 1fr): a wide cell pushed the rail past the window.
+  assert.match(css, /\.log-calendar-grid \{[^}]*grid-template-columns: repeat\(7, minmax\(0, 1fr\)\)/);
+  // The catalogue's :root:root .wf-row padding shrank the coloured box round the digits.
+  assert.match(css, /:root:root \.log-calendar-grid > \.wf-row \{ display: grid; padding: 0; \}/);
 });

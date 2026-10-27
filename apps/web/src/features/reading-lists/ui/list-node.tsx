@@ -7,7 +7,7 @@ import { formatError } from "@/lib/format-error";
 import { CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
 import { Select } from "@/components/select";
 import { ChevronIcon } from "@/components/chevron-icon";
-import { CompareViewIcon, FilterIcon, TreeViewIcon, UnlinkIcon } from "@/components/view-icons";
+import { ArrowDownIcon, ArrowUpIcon, CompareViewIcon, FilterIcon, TreeViewIcon, UnlinkIcon } from "@/components/view-icons";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { SegmentedControl } from "@/components/segmented-control";
 import { usePersistedState } from "@/lib/hooks/use-persisted-state";
@@ -409,13 +409,13 @@ export function ListItemActions({
         onClick={() => onMove(-1)}
         disabled={isFirst}
       >
-        <span aria-hidden>↑</span>
+        <ArrowUpIcon />
       </IconButton>
       <IconButton label="Move down"
         onClick={() => onMove(1)}
         disabled={isLast}
       >
-        <span aria-hidden>↓</span>
+        <ArrowDownIcon />
       </IconButton>
       <IconButton label="Remove from list" tone="danger"
         onClick={onRemove}

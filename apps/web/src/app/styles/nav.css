@@ -516,6 +516,8 @@ html[data-workspace-focus] .layout.editor-route .nav { display: none; }
     flex: 0 1 auto; height: 100%; max-width: 100%;
   }
   .nav-account-row .header-overflow { flex: none; display: flex; align-items: center; }
+  /* The account button is shorter than the chip: centre it on the chip's line. */
+  .nav-account-row > .popover { align-self: center; }
   /* One line, then an ellipsis; the full name is the label's tooltip. */
   .nav-account-row .proj-switcher .wf-btn > span:not(.project-dot) {
     min-width: 0; overflow: hidden; text-align: left;

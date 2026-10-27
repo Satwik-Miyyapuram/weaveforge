@@ -307,6 +307,26 @@ export function ChevronLeftIcon(props: IconProps) {
   );
 }
 
+/** Move up (a list item). */
+export function ArrowUpIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 19V5" />
+      <path d="m6 11 6-6 6 6" />
+    </Svg>
+  );
+}
+
+/** Move down (a list item). */
+export function ArrowDownIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 5v14" />
+      <path d="m6 13 6 6 6-6" />
+    </Svg>
+  );
+}
+
 /** Next (month, image). */
 export function ChevronRightIcon(props: IconProps) {
   return (

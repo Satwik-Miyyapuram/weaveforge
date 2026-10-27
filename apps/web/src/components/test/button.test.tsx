@@ -184,3 +184,10 @@ test("a select trigger sizes to its content, so a card's status pill stays small
 test("the chosen row of a status menu is painted in its status colour", () => {
   assert.match(css("../../app/styles/states.css"), /:root:root \.wf-item\[aria-selected="true"\]\[data-status\] \{ background: var\(--status-chip\); color: var\(--status-ink\); \}/);
 });
+
+test("no catalogue control is underlined at rest, even when it renders as an <a>", () => {
+  // The browser underlines every <a>. A ghost button with an href ("Open in
+  // editor", the Back button) must look exactly like the same button without one.
+  const states = css("../../app/styles/states.css");
+  assert.match(states, /:root:root a:is\(\.wf-btn, \.wf-tool, \.wf-tab, \.wf-nav, \.wf-chip, \.wf-item\) \{ text-decoration: none; \}/);
+});

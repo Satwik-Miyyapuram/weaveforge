@@ -2394,6 +2394,8 @@
   color: var(--text); font: inherit; text-align: center; font-variant-numeric: tabular-nums;
   appearance: textfield; -moz-appearance: textfield;
 }
+/* Beats the bold themes' input border: the number reads like the zoom value. */
+:root:root:root .ink-page-input { border: 0; }
 .ink-page-input::-webkit-inner-spin-button,
 .ink-page-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 

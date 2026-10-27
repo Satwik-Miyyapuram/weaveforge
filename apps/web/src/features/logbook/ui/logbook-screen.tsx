@@ -26,7 +26,7 @@ import { FormError } from "@/components/form-error";
 import { statusLabel } from "@/components/status-select";
 import { bestEffort, removeLogEntry } from "../application/log-side-effects";
 import { Button, IconButton } from "@/components/button";
-import { Chip, RowButton } from "@/components/controls";
+import { RowButton } from "@/components/controls";
 import { PastCheckIns } from "./past-check-ins";
 
 /**
@@ -538,10 +538,10 @@ function LogKinds({
       <ul>
         {LOG_KINDS.map((k) => (
           <li key={k}>
-            <Chip pressed={active === k} onClick={() => onPick(active === k ? null : k)}>
+            <RowButton current={active === k} aria-pressed={active === k} onClick={() => onPick(active === k ? null : k)}>
               <span className={`status status-${k}`}>{statusLabel(k)}</span>
               <span className="log-kinds-count">{entries.filter((e) => e.kind === k).length}</span>
-            </Chip>
+            </RowButton>
           </li>
         ))}
       </ul>

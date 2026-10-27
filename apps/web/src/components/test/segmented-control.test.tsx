@@ -1,6 +1,8 @@
 /** One SegmentedControl: pressed state, not primary colour (design D02, DA-15). */
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { SegmentedControl } from "../segmented-control";
@@ -42,4 +44,10 @@ test("an icon-only option is named by its ariaLabel", () => {
 test("no value presses no option, for an image with no side set yet", () => {
   const out = renderToStaticMarkup(<SegmentedControl label="Edges" value={null} onChange={() => {}} options={options} />);
   assert.doesNotMatch(out, /aria-pressed="true"/);
+});
+
+test("an icon option sits on the button's centre line, not the text baseline", () => {
+  // Icon-only views (the list's tree, table and screening) rode 3px high.
+  const css = readFileSync(fileURLToPath(new URL("../../app/styles/states.css", import.meta.url)), "utf8");
+  assert.match(css, /:root:root \.wf-seg > button > svg \{ vertical-align: middle; \}/);
 });

@@ -67,3 +67,13 @@ test("a deleted list disappears at once and comes back on Undo (D-07)", () => {
   toasts.undoLatest();
   assert.match(render([item("i1", "p1", 0)], true), /Core/);
 });
+
+test("the move buttons draw arrow icons like the remove button, not text glyphs", () => {
+  // A text arrow sits on the font's baseline, off the icon line the unlink
+  // icon beside it uses.
+  const html = renderToStaticMarkup(
+    <ListItemActions isFirst={false} isLast={false} onMove={() => {}} onRemove={() => {}} />,
+  );
+  assert.doesNotMatch(html, /[↑↓]/);
+  assert.equal(html.match(/<svg/g)?.length, 3);
+});

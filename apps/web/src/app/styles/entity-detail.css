@@ -276,14 +276,14 @@ a.related-paper-url:hover { text-decoration: underline; }
 .log-calendar-top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .log-calendar-top h2 { flex: 1; margin: 0; text-align: center; }
 .log-calendar-top button:disabled { opacity: 0.35; cursor: default; }
-.log-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.log-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; text-align: center; }
 .log-calendar-head { color: var(--muted); font-size: var(--fs-xs); }
 .log-calendar-day {
   position: relative; display: grid; place-items: center; aspect-ratio: 1; font-size: var(--fs-sm); border-radius: var(--r-sm);
   border: 1px solid transparent;
 }
 /* A logged day is a row button around its cell: the cell is the picture. */
-.log-calendar-grid > .wf-row { display: grid; padding: 0; }
+:root:root .log-calendar-grid > .wf-row { display: grid; padding: 0; }
 /* A logged day wears its kind's colour, the same map as the entry cards (DA-111). */
 .log-calendar-day.is-logged { background: color-mix(in srgb, var(--status-chip) 45%, transparent); font-weight: 600; }
 .log-calendar-day.is-logged.is-mixed {
@@ -305,7 +305,7 @@ a.related-paper-url:hover { text-decoration: underline; }
 .log-calendar-swatch.is-today { border-color: var(--accent); }
 .log-kinds ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 /* Each kind is a filter: the whole row toggles, pressed shows the filter is on. */
-.log-kinds li > .wf-chip { width: 100%; justify-content: space-between; }
+.log-kinds li > .wf-row { justify-content: space-between; }
 .log-kinds-count { color: var(--muted); font-size: var(--fs-sm); }
 .log-check-ins ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .log-check-in { display: flex; align-items: center; gap: 8px; min-height: var(--control-sm); }

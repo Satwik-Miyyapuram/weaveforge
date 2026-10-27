@@ -86,6 +86,8 @@
 :root:root :is(.wf-btn, .wf-tool, .wf-seg > button, .wf-tab, .wf-nav, .wf-chip, .wf-swatch, .wf-toggle, .wf-check, .wf-radio, .wf-item, .wf-select) {
   -webkit-tap-highlight-color: transparent;
 }
+/* The browser underlines every <a>; a control that navigates looks the same as one that acts. */
+:root:root a:is(.wf-btn, .wf-tool, .wf-tab, .wf-nav, .wf-chip, .wf-item) { text-decoration: none; }
 :root:root :is(.wf-btn, .wf-link, .wf-tool, .wf-seg > button, .wf-nav, a.wf-chip, button.wf-chip, .wf-chip-x, .wf-swatch, .wf-toggle, .wf-check, .wf-radio):is(:focus-visible, [data-force~="focus"]) {
   outline: 3px solid var(--wf-focus); outline-offset: 2px;
 }
@@ -170,6 +172,8 @@
   background: var(--surface); color: var(--text); cursor: pointer;
   transition: background-color var(--wf-t) var(--wf-ease), color var(--wf-t) var(--wf-ease), filter var(--wf-t-press) linear;
 }
+/* An icon option: centred like a text label, not riding the baseline. */
+:root:root .wf-seg > button > svg { vertical-align: middle; }
 :root:root .wf-seg > button:is(:hover, [data-force~="hover"]):not(:disabled, [aria-pressed="true"], [aria-checked="true"], [aria-selected="true"]) { background-color: color-mix(in srgb, var(--text) var(--wf-hover-pct), var(--surface)); }
 :root:root .wf-seg > button:is(:active, [data-force~="press"]):not(:disabled, [aria-pressed="true"], [aria-checked="true"], [aria-selected="true"]) { background-color: color-mix(in srgb, var(--text) calc(var(--wf-hover-pct) + 8%), var(--surface)); transition-duration: var(--wf-t-press); }
 :root:root .wf-seg > button:is([aria-pressed="true"], [aria-checked="true"], [aria-selected="true"]) { background-color: var(--accent); color: var(--accent-fg); }
