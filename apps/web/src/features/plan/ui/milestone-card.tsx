@@ -128,7 +128,7 @@ export function MilestoneCard({
         />
       }
       badge={readOnly ? <PinnedPaperBadge ownerName={sharedByName} /> : undefined}
-      status={<span className="status-pill">{statusLabel(m.status)}</span>}
+      status={<span className={`status status-${m.status}`}>{statusLabel(m.status)}</span>}
       meta={
         m.targetDate ? (
           <>
