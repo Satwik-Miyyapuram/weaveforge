@@ -229,9 +229,10 @@ const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
     if (!member || !summary) {
       return <p className="muted dashboard-card-empty">Select a student.</p>;
     }
+    const picker = supervisees.length > 1 && onSuperviseeConfig;
     return (
       <div className="dashboard-supervisee">
-        {supervisees.length > 1 && onSuperviseeConfig ? (
+        {picker ? (
           <div
             className="dashboard-supervisee-select-wrap"
             onMouseDown={(e) => e.stopPropagation()}
@@ -251,24 +252,19 @@ const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
               ))}
             </Select>
           </div>
-        ) : (
-          <p className="dashboard-supervisee-name">
-            {member.fullName || member.email}
+        ) : null}
+        {/* The whole card opens the student (the link's ::after covers it). */}
+        <Link href={`/supervision?member=${member.id}`} className="dashboard-stat-link dashboard-supervisee-link">
+          {picker ? null : (
+            <p className="dashboard-supervisee-name">{member.fullName || member.email}</p>
+          )}
+          <p className="dashboard-card-meta">
+            Milestones: {summary.milestonesDone}/{summary.milestonesTotal}
           </p>
-        )}
-        <p className="dashboard-card-meta">
-          Milestones: {summary.milestonesDone}/{summary.milestonesTotal}
-        </p>
-        {summary.lastLogDate && (
-          <p className="muted dashboard-supervisee-meta">Last log: {summary.lastLogDate}</p>
-        )}
-        <Button variant="link"
-          href={`/supervision?member=${member.id}`}
-         
-          onClick={(e) => e.stopPropagation()}
-        >
-          View full →
-        </Button>
+          {summary.lastLogDate && (
+            <p className="muted dashboard-supervisee-meta">Last log: {summary.lastLogDate}</p>
+          )}
+        </Link>
       </div>
     );
   },

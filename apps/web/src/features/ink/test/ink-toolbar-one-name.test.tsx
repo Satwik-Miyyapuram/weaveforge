@@ -65,12 +65,11 @@ test("Select has one name on every surface", () => {
   assert.doesNotMatch(src("../ui/ink-bar.tsx"), /Select text/);
 });
 
-test("the zoom level says what pressing it does", () => {
+test("the note's zoom level opens the same view menu as the reader's", () => {
   withWindow(() => {
     const tree = render({ zoom: 1, onZoom: noop });
-    const level = tree.root.find((n) => n.type === "button" && String(n.props["aria-label"]).endsWith("fit the page width"));
-    assert.equal(level.props["aria-label"], "100%: fit the page width");
-    assert.equal(level.props.title, level.props["aria-label"]);
+    const level = tree.root.find((n) => n.type === "button" && n.props["aria-haspopup"] === "menu" && String(n.props["aria-label"]).startsWith("Zoom "));
+    assert.equal(level.props["aria-label"], "Zoom 100%, fit and rotate");
     act(() => tree.unmount());
   });
 });

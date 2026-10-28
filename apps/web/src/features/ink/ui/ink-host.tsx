@@ -658,6 +658,7 @@ export function InkHost({
         onInsertPage={() => pdfInputRef.current?.click()}
         onPrevPage={() => goToPage(pageIndex - 1)}
         onNextPage={() => goToPage(pageIndex + 1)}
+        onGoToPage={(n) => goToPage(n - 1)}
         onDeleteSelection={onDeleteSelection}
         onCopyAsText={() => void onCopyAsText()}
         onCopyStrokes={() => void onCopyStrokes()}

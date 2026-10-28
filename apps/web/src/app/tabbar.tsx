@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useNavPending } from "@/lib/nav-pending";
 import { useEffect, useRef, useState } from "react";
 import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
@@ -20,7 +19,6 @@ import { useInbox } from "./use-inbox";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
 import { FoldButton, NavButton, NavLink } from "@/components/controls";
-import { IconButton } from "@/components/button";
 import { revealActiveNav } from "./reveal-active-nav";
 
 /**
@@ -106,25 +104,20 @@ export function TabBar({
     <nav className={navClass} aria-label="Primary" {...railTip.handlers}>
       {railTip.element}
       {onToggle && (
-        // The brand goes Home and the chevron beside it folds the sidebar
-        // (DA-89). One button doing both read as a surprise: clicking the app's
-        // name collapsed the menu. The chevron points the way it goes: left to
-        // fold into the rail, right to open it again.
+        // One button: the mark, the name and the chevron fold the sidebar
+        // together. Home is the first link below. The chevron points the way it
+        // goes: left to fold into the rail, right to open it again.
         <div className="nav-head">
-          <Link href={homeNavItem.path} className="nav-brand" aria-label="WeaveForge, Home">
-            <WeaveForgeLogo className="app-logo" />
-            <span className="app-name">WeaveForge</span>
-          </Link>
-          <IconButton
+          <NavButton
             onClick={onToggle}
-            label={collapsed ? "Expand menu" : "Collapse menu"}
-            // The rail's own tip names it when folded; no second native tip.
-            tip={collapsed ? "" : undefined}
+            aria-label={collapsed ? "Expand menu" : "Collapse menu"}
             aria-expanded={!collapsed}
             aria-controls="nav-links"
           >
+            <WeaveForgeLogo className="app-logo" />
+            <span className="app-name">WeaveForge</span>
             <ChevronIcon open={false} />
-          </IconButton>
+          </NavButton>
         </div>
       )}
       <div className="nav-links-wrap">

@@ -265,6 +265,10 @@
 }
 .dashboard-roster-name { font-weight: 500; }
 .dashboard-supervisee { display: grid; gap: 12px; align-content: start; }
+.dashboard-supervisee-link { gap: 12px; }
+/* The card (a positioned grid item) is the link's hit area. */
+.dashboard-supervisee-link::after { content: ""; position: absolute; inset: 0; }
+.dashboard-supervisee-select-wrap { position: relative; z-index: 1; }
 .dashboard-supervisee-name {
   margin: 0; font-weight: 600; font-size: var(--fs-lg); color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

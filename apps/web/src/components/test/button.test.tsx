@@ -191,3 +191,17 @@ test("no catalogue control is underlined at rest, even when it renders as an <a>
   const states = css("../../app/styles/states.css");
   assert.match(states, /:root:root a:is\(\.wf-btn, \.wf-tool, \.wf-tab, \.wf-nav, \.wf-chip, \.wf-item\) \{ text-decoration: none; \}/);
 });
+
+test("a nav item rendered as a <button> (Search) looks like one rendered as an <a> (Home)", () => {
+  // Without a reset the browser paints a <button> grey with an outset border,
+  // so the sidebar's Search showed light text on a light box.
+  const block = /:root:root \.wf-nav \{[^}]*\}/.exec(css("../../app/styles/states.css"))?.[0] ?? "";
+  assert.match(block, /background-color: transparent;/);
+  assert.match(block, /border: 0;/);
+  assert.match(block, /font-family: inherit;/);
+});
+
+test("Home in the sidebar has no divider line under it", () => {
+  const nav = css("../../app/styles/nav.css");
+  assert.doesNotMatch(nav, /\.nav-links > \.wf-nav:first-child \{[^}]*border-bottom: 1px/);
+});

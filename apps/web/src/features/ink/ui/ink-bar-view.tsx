@@ -248,8 +248,8 @@ export function ZoomPill({
 }
 
 /**
- * Previous, the page (typed when it can be), next and, on a note, add a page:
- * one switcher for the note and the reader.
+ * Previous, the page (typed when it can be) and next: one switcher for the
+ * note and the reader. A note's add page sits beside it, so both pills match.
  */
 export function PagePill({
   page,
@@ -267,26 +267,28 @@ export function PagePill({
   onAddPage?: () => void;
 }) {
   return (
-    <div className="ink-page-pill">
-      <ToolButton label="Previous page" onClick={onPrevPage} disabled={page <= 1}>
-        <Svg size={14} width={2.2}>
-          <path d="m15 18-6-6 6-6" />
-        </Svg>
-      </ToolButton>
-      <span className="ink-page-count" aria-label={`Page ${page} of ${pages}`}>
-        {onGoToPage ? (
-          <PageField page={page} pages={pages} onGoToPage={onGoToPage} />
-        ) : (
-          <span className="ink-page-now">{page}</span>
-        )}
-        <span className="ink-page-sep" aria-hidden="true">/</span>
-        <span className="ink-page-total">{pages}</span>
-      </span>
-      <ToolButton label="Next page" onClick={onNextPage} disabled={page >= pages}>
-        <Svg size={14} width={2.2}>
-          <path d="m9 18 6-6-6-6" />
-        </Svg>
-      </ToolButton>
+    <>
+      <div className="ink-page-pill">
+        <ToolButton label="Previous page" onClick={onPrevPage} disabled={page <= 1}>
+          <Svg size={14} width={2.2}>
+            <path d="m15 18-6-6 6-6" />
+          </Svg>
+        </ToolButton>
+        <span className="ink-page-count" aria-label={`Page ${page} of ${pages}`}>
+          {onGoToPage ? (
+            <PageField page={page} pages={pages} onGoToPage={onGoToPage} />
+          ) : (
+            <span className="ink-page-now">{page}</span>
+          )}
+          <span className="ink-page-sep" aria-hidden="true">/</span>
+          <span className="ink-page-total">{pages}</span>
+        </span>
+        <ToolButton label="Next page" onClick={onNextPage} disabled={page >= pages}>
+          <Svg size={14} width={2.2}>
+            <path d="m9 18 6-6-6-6" />
+          </Svg>
+        </ToolButton>
+      </div>
       {onAddPage ? (
         <ToolButton label="Add a blank page" onClick={onAddPage}>
           <Svg size={14} width={2.2}>
@@ -294,7 +296,7 @@ export function PagePill({
           </Svg>
         </ToolButton>
       ) : null}
-    </div>
+    </>
   );
 }
 

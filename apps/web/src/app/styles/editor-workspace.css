@@ -1613,11 +1613,13 @@
   gap: 2px;
   font-family: var(--font);
   font-size: var(--fs-xs);
+  font-weight: 500;
   color: var(--muted);
   background: var(--chip);
   border-radius: var(--r-sm);
   border: 1px solid var(--border);
-  padding: 0 4px;
+  /* Room all round, so the page field and the zoom value never touch the edge. */
+  padding: var(--s1);
 }
 
 :root:root .ink-page-pill .wf-tool {
@@ -1631,7 +1633,6 @@
   align-items: center;
   gap: 4px;
   padding: 0 4px;
-  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -2396,6 +2397,10 @@
 }
 /* Beats the bold themes' input border: the number reads like the zoom value. */
 :root:root:root .ink-page-input { border: 0; }
+/* The pill's controls stand 24px tall, as the arrows do, so the page field and
+   the zoom value have room round them and read at the pill's own text size. */
+:root:root:root .ink-page-input { height: 24px; min-height: 0; box-sizing: border-box; }
+:root:root:root .ink-zoom-pill .wf-btn { height: 24px; min-height: 0; padding: 0 var(--s1); font-family: inherit; font-size: inherit; font-weight: inherit; }
 .ink-page-input::-webkit-inner-spin-button,
 .ink-page-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 

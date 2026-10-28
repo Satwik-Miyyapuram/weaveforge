@@ -188,7 +188,7 @@
   .nav-group { display: flex; flex-direction: column; gap: 4px; }
   :root:root .nav-group > .wf-fold { margin: 12px 0 0; padding: 4px 16px; font-size: var(--fs-micro); letter-spacing: 0.06em; }
   /* Home stands apart from the groups under it. */
-  :root:root .nav-links > .wf-nav:first-child { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  :root:root .nav-links > .wf-nav:first-child { margin-bottom: 8px; }
   .nav-bottom.desktop-only {
     display: flex; flex-direction: column; gap: 8px;
     margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line);
@@ -248,7 +248,6 @@
     width: 40px; height: 40px; min-height: 0;
     padding: 0; gap: 0;
     justify-content: center;
-    border-radius: var(--r-pill);
   }
   .layout.nav-collapsed .nav-label,
 .layout.nav-collapsed .nav-group > .wf-fold,
@@ -257,10 +256,6 @@
 .layout.nav-collapsed .org-switcher,
 .layout.nav-collapsed .local-mode-badge,
 .layout.nav-collapsed .theme-toggle span { display: none; }
-  /* The wide sidebar rules a line under Home; in the rail the line hugged
-     the 40px circle and read as a broken border, and the padding that made
-     room for it pushed the icon 3px above centre. */
-  :root:root .layout.nav-collapsed .nav-links > .wf-nav:first-child { margin-bottom: 8px; padding-bottom: 0; border-bottom: none; }
   .layout.nav-collapsed .nav-bottom.desktop-only {
     align-items: center; gap: 8px; padding-top: 12px; padding-bottom: 16px;
     overflow: visible;
@@ -359,23 +354,15 @@ html[data-workspace-focus] .layout.editor-route .nav { display: none; }
    renders group links rather than these, so neither exists below 900px. */
 .nav-group-items { display: flex; flex-direction: column; gap: 4px; }
 
-/* The sidebar head: the brand, a link Home, and beside it the chevron that
-   folds the sidebar (DA-89). The brand is built on the metrics of the links
-   under it — same min height, padding, radius and type size — and the head
-   holds the list's 14px inset, so the mark lines up with the icons. Hidden
-   below 900px: the phone bar has its own slots and no rail to toggle. */
+/* The sidebar head: one nav button, the mark, the name and the chevron, that
+   folds the sidebar. It is the links' own wf-nav, so it has their height,
+   padding, radius and hover; the head holds the list's inset, so the mark
+   lines up with the icons. Hidden below 900px: the phone bar has its own
+   slots and no rail to toggle. */
 .nav-head { display: none; }
 @media (min-width: 900px) {
-  .nav-head { display: flex; align-items: center; gap: 4px; margin: 0 0 8px; padding: 0 16px; }
-  .nav-brand {
-    display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
-    min-height: var(--touch-min); padding: 12px 16px;
-    border-radius: var(--r-pill); color: var(--ink); text-decoration: none;
-    font-size: var(--fs); font-weight: 600;
-    transition: background var(--dur-base), color var(--dur-base);
-  }
-  .nav-brand:hover { background: var(--pill); }
-  .nav-head > .wf-btn { flex: none; }
+  .nav-head { display: flex; align-items: center; margin: 0 0 8px; padding: 0 16px; }
+  :root:root .nav-head > .wf-nav { flex: 1; min-width: 0; font-weight: 600; }
   /* Sized against the icons optically, not literally. The mark is a full-bleed
      filled tile — its artwork fills the whole viewBox — while the nav icons are
      stroke glyphs inside a 24×24 box with margins. Equal boxes therefore read
@@ -384,26 +371,27 @@ html[data-workspace-focus] .layout.editor-route .nav { display: none; }
   /* No tile. The mark draws its own rounded square (`<rect fill="var(--surface2)">`),
      which in a column of line icons reads as a highlighted, selected chip rather
      than as the app. The strokes are the mark; the tile was a background. */
-  .nav-brand .app-logo rect { display: none; }
+  .nav-head .app-logo rect { display: none; }
   /* Sized so the *ink* matches the icons, not the box. Once the tile is gone the
      strokes occupy only about 55% of the 512 viewBox (x 129–394, y 103–431), so a
      16px box would render roughly 9px of drawing — much smaller than the 19px
      glyphs beside it. ~1.8× puts the drawing at their size. That leaves ~7px of
      blank box on each side of the drawing, so the brand's gap is the links' 8px,
      not more: at 12px "WeaveForge" ran out of room in the CRT theme. */
-  .nav-brand .app-logo { width: calc(var(--icon-size) * 1.8); height: calc(var(--icon-size) * 1.8); flex: none; }
-  .nav-brand .app-name {
+  .nav-head .app-logo { width: calc(var(--icon-size) * 1.8); height: calc(var(--icon-size) * 1.8); flex: none; }
+  .nav-head .app-name {
     flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   /* One glyph, two states: left means "fold me back", right means "open me".
      The app already draws a chevron at this weight; rotating it keeps the
      cap and the stroke identical to the tree rows above. */
-  .nav-head > .wf-btn svg { transform: rotate(90deg); }
-  .nav-head > .wf-btn[aria-expanded="false"] svg { transform: rotate(-90deg); }
-  /* In the rail: the mark, and under it the way out of the rail. */
-  .layout.nav-collapsed .nav-head { flex-direction: column; gap: 2px; padding: 0; }
-  .layout.nav-collapsed .nav-brand { flex: none; width: 40px; justify-content: center; padding: 12px 0; gap: 0; }
-  .layout.nav-collapsed .nav-brand .app-name { display: none; }
+  .nav-head > .wf-nav > .chev { flex: none; opacity: 0.7; transform: rotate(90deg); }
+  .nav-head > .wf-nav[aria-expanded="false"] > .chev { transform: rotate(-90deg); }
+  /* In the rail: the mark and the chevron side by side, in the one button.
+     The mark's box has blank margins, so it gives some back. */
+  .layout.nav-collapsed .nav-head { padding: 0; }
+  :root:root .layout.nav-collapsed .nav-head > .wf-nav { flex: none; width: 44px; }
+  .layout.nav-collapsed .nav-head .app-logo { margin-inline: calc(var(--s1) * -1); }
 
   /* Rail groups have no headings, so a short rule marks where one ends (DA-87). */
   .layout.nav-collapsed .nav-group::before {
@@ -518,6 +506,9 @@ html[data-workspace-focus] .layout.editor-route .nav { display: none; }
   .nav-account-row .header-overflow { flex: none; display: flex; align-items: center; }
   /* The account button is shorter than the chip: centre it on the chip's line. */
   .nav-account-row > .popover { align-self: center; }
+  /* Beside the chip it stands the chip's height, square, so the two read as a pair. */
+  .layout:not(.nav-collapsed) .nav-account-row > .popover { align-self: stretch; display: flex; }
+  :root:root .layout:not(.nav-collapsed) .nav-account-row > .popover > .wf-btn { height: 100%; width: auto; aspect-ratio: 1; justify-content: center; }
   /* One line, then an ellipsis; the full name is the label's tooltip. */
   .nav-account-row .proj-switcher .wf-btn > span:not(.project-dot) {
     min-width: 0; overflow: hidden; text-align: left;

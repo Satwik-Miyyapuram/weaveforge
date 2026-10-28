@@ -29,8 +29,7 @@ import {
   INK_PEN_WIDTHS,
   INK_HIGHLIGHTER_WIDTH,
   INK_HIGHLIGHTER_WIDTHS,
-  INK_ZOOM_MAX,
-  INK_ZOOM_MIN,
+  clampInkZoom,
   inkZoomIn,
   inkZoomOut,
   type InkHand,
@@ -45,7 +44,6 @@ import {
   SelectGlyph,
   PointerGlyph,
   ViewMenu,
-  ZoomPill,
   hasInsertItems,
   type InkInsertTool,
   type ViewMenuProps,
@@ -501,23 +499,16 @@ export function InkBar({
       {view ? (
         <ViewMenu {...view} />
       ) : zoom !== undefined && onZoom ? (
-        <>
-          {/* 5b. Zoom: out, the level (click to fit), in */}
-          <ZoomPill
-            onZoomOut={() => onZoom(inkZoomOut(zoom))}
-            onZoomIn={() => onZoom(inkZoomIn(zoom))}
-            outDisabled={zoom <= INK_ZOOM_MIN}
-            inDisabled={zoom >= INK_ZOOM_MAX}
-          >
-            <Button variant="ghost" size="sm"
-              onClick={() => onZoom(1)}
-              title={`${Math.round(zoom * 100)}%: fit the page width`}
-              aria-label={`${Math.round(zoom * 100)}%: fit the page width`}
-            >
-              {Math.round(zoom * 100)}%
-            </Button>
-          </ZoomPill>
-        </>
+        // 5b. The note's zoom: the reader's own view menu, so both bars match.
+        // 1 is the note's fit to the page width.
+        <ViewMenu
+          zoomPercent={Math.round(zoom * 100)}
+          onZoomOut={() => onZoom(inkZoomOut(zoom))}
+          onZoomIn={() => onZoom(inkZoomIn(zoom))}
+          onZoomTo={(percent) => onZoom(clampInkZoom(percent / 100))}
+          fit={zoom === 1 ? "width" : "custom"}
+          onFitWidth={() => onZoom(1)}
+        />
       ) : null}
 
       {/* 5c. Insert: a picture, PDF pages, a snip, a text box (`ink-bar-view.tsx`) */}

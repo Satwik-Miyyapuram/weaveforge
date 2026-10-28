@@ -199,6 +199,8 @@
 /* ---------- Nav item ---------- */
 :root:root .wf-nav {
   display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--wf-rc);
+  /* A <button> nav item (Search) drops the browser's grey box, like an <a>. */
+  background-color: transparent; border: 0; font-family: inherit; text-align: start;
   color: var(--text); text-decoration: none; font-size: var(--fs); font-weight: 500; cursor: pointer;
   transition: background-color var(--wf-t) var(--wf-ease), color var(--wf-t) var(--wf-ease);
 }
