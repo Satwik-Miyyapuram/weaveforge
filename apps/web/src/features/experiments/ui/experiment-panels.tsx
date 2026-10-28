@@ -4,7 +4,7 @@ import { experimentHref } from "../application/experiment-href";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { shortSha, type Experiment, type MetricPoint } from "@weaveforge/core";
-import { figureLabel } from "./figure-label";
+import { artifactItems } from "./artifact-items";
 import { getContainer } from "@/bootstrap";
 import { commitUrl } from "@/features/sync";
 import { formatMetricCell, MetricChart } from "./metric-chart";
@@ -16,16 +16,6 @@ import { Chip } from "@/components/controls";
 import { ImageViewer } from "@/components/image-viewer";
 import { formatError } from "@/lib/format-error";
 import { warnOnce } from "@/lib/error-report/warn-once";
-
-function isImageUrl(url: string): boolean {
-  if (url.startsWith("data:")) return url.startsWith("data:image/");
-  try {
-    const path = new URL(url).pathname.toLowerCase();
-    return /\.(png|jpe?g|webp|gif|svg|avif)$/.test(path);
-  } catch {
-    return /\.(png|jpe?g|webp|gif|svg|avif)$/i.test(url.split("?")[0] ?? "");
-  }
-}
 
 export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number }) {
   const chips = [
@@ -112,8 +102,11 @@ export function ExpMetricChips({ exp, limit }: { exp: Experiment; limit?: number
  * seven days regardless of what is asked for, so every figure broke a week
  * after upload.
  */
-function useArtifactUrls(entries: string[]): string[] {
-  const [resolved, setResolved] = useState<string[]>(() => entries.filter(isAbsoluteUrl));
+function useArtifactUrls(entries: string[]): (string | null)[] {
+  // One slot per entry, in order: absolute links are ready now, paths once signed.
+  const [resolved, setResolved] = useState<(string | null)[]>(() =>
+    entries.map((entry) => (isAbsoluteUrl(entry) ? entry : null)),
+  );
 
   // NUL separator, written as an escape: a literal NUL byte in the source makes
   // git treat this whole file as binary and hides it from grep.
@@ -127,7 +120,7 @@ function useArtifactUrls(entries: string[]): string[] {
     void getContainer()
       .experiments.artifactViewUrls(entries)
       .then((urls) => {
-        if (!cancelled) setResolved(urls.filter((u): u is string => Boolean(u)));
+        if (!cancelled) setResolved(urls);
       })
       .catch(() => {
         // Leave whatever resolved already rather than blanking the panel.
@@ -144,9 +137,7 @@ function useArtifactUrls(entries: string[]): string[] {
 }
 
 export function Artifacts({ urls: entries, detail = false }: { urls: string[]; detail?: boolean }) {
-  const urls = useArtifactUrls(entries);
-  const images = urls.filter(isImageUrl);
-  const links = urls.filter((u) => !isImageUrl(u));
+  const { images, links } = artifactItems(entries, useArtifactUrls(entries));
   // Detail: a uniform responsive grid of fixed-ratio tiles. The old
   // column-masonry gave every figure a different height (contain-fit) and
   // flowed column-major, which read as "images spilling onto the next line"
@@ -157,13 +148,13 @@ export function Artifacts({ urls: entries, detail = false }: { urls: string[]; d
     <div className="artifacts">
       {images.length > 0 && (
         <div className={thumbClass}>
-          {images.map((url, i) => (
+          {images.map(({ url, label }, i) => (
             <a
               key={url}
               href={url}
               target="_blank"
               rel="noreferrer"
-              title={figureLabel(url, i)}
+              title={label}
               className={detail ? "card artifact-card" : undefined}
               onClick={(e) => {
                 // Modified clicks keep the browser's own open-in-tab behaviour.
@@ -174,15 +165,15 @@ export function Artifacts({ urls: entries, detail = false }: { urls: string[]; d
               }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt={figureLabel(url, i)} loading="lazy" />
-              {detail && <span className="artifact-caption">{figureLabel(url, i)}</span>}
+              <img src={url} alt={label} loading="lazy" />
+              {detail && <span className="artifact-caption">{label}</span>}
             </a>
           ))}
         </div>
       )}
       {open !== null && (
         <ImageViewer
-          images={images.map((src, i) => ({ src, label: figureLabel(src, i) }))}
+          images={images.map(({ url, label }) => ({ src: url, label }))}
           index={open}
           onIndex={setOpen}
           onClose={() => setOpen(null)}
@@ -190,9 +181,9 @@ export function Artifacts({ urls: entries, detail = false }: { urls: string[]; d
       )}
       {links.length > 0 && (
         <div className="git-chips">
-          {links.map((url, i) => (
+          {links.map(({ url, label }) => (
             <Chip key={url} href={url} target="_blank" rel="noreferrer">
-              {figureLabel(url, i)}
+              {label}
             </Chip>
           ))}
         </div>
