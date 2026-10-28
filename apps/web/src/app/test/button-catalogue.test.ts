@@ -222,7 +222,7 @@ test("the retired button names are gone from every className", () => {
 });
 
 test("the retired button names are gone from every stylesheet", () => {
-  const pattern = new RegExp(`\\.(${RETIRED.map((n) => n.replace(/-/g, "\\-")).join("|")})(?![\\w-])`, "g");
+  const pattern = new RegExp(`\\.(${RETIRED.map((n) => n.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&")).join("|")})(?![\\w-])`, "g");
   const errors = sources(src, /\.css$/).flatMap((path) => {
     const css = readFileSync(path, "utf8").replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, " "));
     return [...css.matchAll(pattern)].map((m) => `retired name '${m[1]}' at ${rel(path)}:${css.slice(0, m.index).split("\n").length}`);
