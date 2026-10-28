@@ -6,6 +6,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 import type { DesktopTexCompileResult, DesktopTexError } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 type SourceFile = { path: string; content: string };
 
@@ -113,9 +114,9 @@ function Compile({ files, entryFile }: { files: readonly SourceFile[]; entryFile
 
   return (
     <div className="project-checks-compile">
-      <button type="button" className="link-btn" disabled={running} onClick={() => void run()}>
+      <Button variant="link" disabled={running} onClick={() => void run()}>
         {running ? "Compiling…" : "Compile here"}
-      </button>
+      </Button>
       <span className="project-checks-engine">{tool}</span>
       {error && <FormError>{error}</FormError>}
       {result && !result.ok && (

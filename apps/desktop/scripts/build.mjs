@@ -133,3 +133,4 @@ await Promise.all(
   ),
 );
 fs.copyFileSync(path.join(root, "src/plan-widget.html"), path.join(root, "dist/plan-widget.html"));
+fs.cpSync(path.join(root, "src/fonts"), path.join(root, "dist/fonts"), { recursive: true });

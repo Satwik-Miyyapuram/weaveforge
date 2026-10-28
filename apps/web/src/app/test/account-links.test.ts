@@ -6,19 +6,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { accountLinks, type AccountLinksInput } from "../account-links";
 
-const base: AccountLinksInput = { canSupervise: false, hasProject: true, pendingProposals: 0 };
+const base: AccountLinksInput = { hasProject: true };
 const ids = (input: Partial<AccountLinksInput> = {}) =>
   accountLinks({ ...base, ...input }).map((l) => l.id);
 
 test("sidebar: there is no GitHub link", () => {
   // A link to the source repository is not something anyone needs from inside
   // the app, and it cost a permanent row in the most visible chrome there is.
-  for (const input of [
-    {},
-    { canSupervise: true },
-    { hasProject: false },
-    { pendingProposals: 3 },
-  ]) {
+  for (const input of [{}, { hasProject: false }, { local: true }]) {
     const links = accountLinks({ ...base, ...input });
     assert.ok(
       !links.some((l) => /github/i.test(l.label) || /github\.com/i.test(l.href ?? "")),
@@ -49,13 +44,7 @@ test("sidebar: Projects is the escape hatch when the switcher hides", () => {
 });
 
 test("sidebar: Sign out is always present, and always last", () => {
-  for (const input of [
-    {},
-    { canSupervise: true },
-    { hasProject: false },
-    { pendingProposals: 9 },
-    { canSupervise: true, hasProject: false, pendingProposals: 2 },
-  ]) {
+  for (const input of [{}, { hasProject: false }]) {
     const list = ids(input);
     assert.equal(
       list.at(-1),
@@ -69,29 +58,23 @@ test("sidebar: the block stays short", () => {
   // It went off the bottom of the viewport once. The layout now scrolls the
   // nav links rather than the account block, but the block earning its place
   // is the other half of that fix — so this is a budget, not a coincidence.
-  const busiest = accountLinks({ canSupervise: true, hasProject: false, pendingProposals: 4 });
-  assert.ok(busiest.length <= 7, `account block grew to ${busiest.length} entries`);
-  assert.equal(accountLinks(base).length, 4, "the ordinary case is four entries");
+  const busiest = accountLinks({ hasProject: false });
+  assert.ok(busiest.length <= 4, `account block grew to ${busiest.length} entries`);
+  assert.equal(accountLinks(base).length, 3, "the ordinary case is three entries");
 });
 
-test("sidebar: one sharing entry, named for supervisors when they supervise", () => {
-  const student = accountLinks(base).find((l) => l.id === "sharing");
-  assert.equal(student?.label, "Sharing");
-  assert.equal(student?.href, "/shared");
-  const prof = accountLinks({ ...base, canSupervise: true }).find((l) => l.id === "sharing");
-  assert.equal(prof?.label, "Supervision & sharing");
-});
-
-test("sidebar: Review AI appears only when something is pending, with its count", () => {
-  assert.ok(!ids({ pendingProposals: 0 }).includes("ai-review"));
-  const link = accountLinks({ ...base, pendingProposals: 5 }).find((l) => l.id === "ai-review");
-  assert.equal(link?.badge, 5);
+test("sidebar: sharing and AI suggestions live in the Inbox group, not here (DA-85)", () => {
+  // On their own routes no nav item was active while they were account rows.
+  const all = accountLinks({ hasProject: false }).map((l) => l.href ?? "");
+  for (const path of ["/shared", "/ai-review", "/supervision"]) {
+    assert.ok(!all.includes(path), `${path} is back in the account menu`);
+  }
 });
 
 test("sidebar: every navigating entry has a destination", () => {
   // `projects` and `signout` run actions; everything else must go somewhere,
   // or it renders as a dead link.
-  for (const link of accountLinks({ canSupervise: true, hasProject: false, pendingProposals: 1 })) {
+  for (const link of accountLinks({ hasProject: false })) {
     if (link.id === "projects" || link.id === "signout" || link.id === "signin") {
       assert.equal(link.href, undefined, `${link.id} should act, not navigate`);
     } else {
@@ -108,12 +91,4 @@ test("sidebar: a copy with no account is offered the way in, not a way out", () 
   assert.ok(offline.includes("signin"), "offline mode offers Sign in");
   assert.ok(!offline.includes("signout"), "offline mode does not offer Sign out");
   assert.ok(ids({ local: false }).includes("signout"));
-});
-
-
-test("sidebar: sharing needs an account, on web and desktop alike", () => {
-  // Signed-in desktop ships `/shared` and `/supervision` and reads them from
-  // the server, so only the missing account hides the entry.
-  assert.ok(!ids({ local: true, canSupervise: true }).includes("sharing"));
-  assert.ok(ids({ local: false, canSupervise: true }).includes("sharing"));
 });

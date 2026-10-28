@@ -2,32 +2,39 @@
 
 import type { ReactNode } from "react";
 
-/** The view choice at the end of a screen's filter row, e.g. Cards / List. */
+import { TabButton } from "./controls";
+
+/**
+ * The view choice at the end of a screen's filter row, e.g. Cards / List, and
+ * any other pick-a-view tab strip. `value` null selects no tab (a collapsed
+ * sidebar).
+ */
 export function ViewSwitch<V extends string>({
   label,
   value,
   onChange,
   options,
+  className,
 }: {
   label: string;
-  value: V;
+  value: V | null;
   onChange: (next: V) => void;
-  options: readonly { value: V; label: string; icon: ReactNode }[];
+  options: readonly { value: V; label: ReactNode; icon?: ReactNode; title?: string }[];
+  className?: string;
 }) {
   return (
-    <div className="seg view-switch" role="tablist" aria-label={label}>
+    <div className={className ? `seg view-switch ${className}` : "seg view-switch"} role="tablist" aria-label={label}>
       {options.map((o) => (
-        <button
+        <TabButton
           key={o.value}
-          type="button"
-          role="tab"
-          aria-selected={value === o.value}
-          className={value === o.value ? "seg-on" : ""}
+          selected={value === o.value}
+          title={o.title}
+          className={value === o.value ? "seg-on" : undefined}
           onClick={() => onChange(o.value)}
         >
           {o.icon}
           {o.label}
-        </button>
+        </TabButton>
       ))}
     </div>
   );

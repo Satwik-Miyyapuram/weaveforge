@@ -17,6 +17,7 @@ import { IconButton } from "@/components/button";
 import { CloseIcon } from "@/components/view-icons";
 import { ColourSection } from "./graph-colour-section";
 import { Button } from "@/components/button";
+import { RowButton, TabButton, ToggleButton } from "@/components/controls";
 
 type SettingsTab = "filters" | "appearance" | "physics" | "actions";
 
@@ -64,7 +65,7 @@ export function GraphSettingsDrawer({
 
   return (
     <>
-      <button type="button" className="graph-drawer-backdrop" aria-label="Close settings" onClick={onClose} />
+      <RowButton className="graph-drawer-backdrop" aria-label="Close settings" onClick={onClose} />
       <div className="graph-settings-shell">
         <aside className="graph-settings-drawer card" aria-label="Graph settings">
           <div className="graph-drawer-head">
@@ -73,42 +74,30 @@ export function GraphSettingsDrawer({
           </div>
 
           <div className="graph-drawer-tabs" role="tablist" aria-label="Settings categories">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "filters"}
+            <TabButton selected={tab === "filters"}
               className={`graph-drawer-tab${tab === "filters" ? " active" : ""}`}
               onClick={() => setTab("filters")}
             >
               Filters
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "appearance"}
+            </TabButton>
+            <TabButton selected={tab === "appearance"}
               className={`graph-drawer-tab${tab === "appearance" ? " active" : ""}`}
               onClick={() => setTab("appearance")}
             >
               Appearance
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "physics"}
+            </TabButton>
+            <TabButton selected={tab === "physics"}
               className={`graph-drawer-tab${tab === "physics" ? " active" : ""}`}
               onClick={() => setTab("physics")}
             >
               Physics
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "actions"}
+            </TabButton>
+            <TabButton selected={tab === "actions"}
               className={`graph-drawer-tab${tab === "actions" ? " active" : ""}`}
               onClick={() => setTab("actions")}
             >
               Actions
-            </button>
+            </TabButton>
           </div>
 
           {tab === "filters" && (
@@ -184,33 +173,27 @@ export function GraphSettingsDrawer({
                 <div className="graph-chip-actions">
                   <span className="muted graph-drawer-label">Relation types</span>
                   <div style={{ display: "flex", gap: "8px" }}>
-                    <button
-                      type="button"
-                      className="link-btn"
+                    <Button variant="link"
                       style={{ fontSize: "0.72rem" }}
                       onClick={() => onChange({ relationTypes: [...RELATION_TYPES] })}
                     >
                       All
-                    </button>
-                    <button
-                      type="button"
-                      className="link-btn"
+                    </Button>
+                    <Button variant="link"
                       style={{ fontSize: "0.72rem" }}
                       onClick={() => onChange({ relationTypes: ["cites"] })}
                     >
                       Cites only
-                    </button>
+                    </Button>
                   </div>
                 </div>
                 <div className="graph-chip-grid" role="group" aria-label="Relation types">
                   {RELATION_TYPES.map((t) => {
                     const active = settings.relationTypes.includes(t);
                     return (
-                      <button
+                      <ToggleButton pressed={active}
                         key={t}
-                        type="button"
                         className={`graph-chip${active ? " active" : ""}`}
-                        aria-pressed={active}
                         onClick={() => {
                           const next = active
                             ? settings.relationTypes.filter((x) => x !== t)
@@ -219,7 +202,7 @@ export function GraphSettingsDrawer({
                         }}
                       >
                         {enumLabel("relation", t)}
-                      </button>
+                      </ToggleButton>
                     );
                   })}
                 </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { ROLE_RANK, memberRoleLabel, type Member } from "@weaveforge/core";
 
 /** A member plus the people who report (transitively) to them. */
@@ -43,92 +42,6 @@ function buildMemberForest(members: Member[]): MemberNode[] {
   };
   sort(roots);
   return roots;
-}
-
-interface TreeProps {
-  forest: MemberNode[];
-  /** When set, rows are buttons and the chosen id is highlighted. */
-  selectedId?: string | null;
-  onSelect?: (id: string) => void;
-  /** Marks the current user with a "(you)" tag. */
-  meId?: string;
-  /** When false, non-lab members show as Standalone. */
-  inLab?: boolean;
-}
-
-/**
- * A file-tree-style rendering of a member forest: indented, with collapsible
- * parents. Used both as a static org chart and inside the supervisor picker.
- */
-function MemberTree({ forest, selectedId, onSelect, meId, inLab = true }: TreeProps) {
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-
-  const toggle = (id: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-
-  const renderNodes = (nodes: MemberNode[]) => (
-    <ul className="member-tree-list">
-      {nodes.map((n) => {
-        const hasKids = n.children.length > 0;
-        const isCollapsed = collapsed.has(n.member.id);
-        const isSel = selectedId === n.member.id;
-        return (
-          <li key={n.member.id}>
-            <div className={`member-tree-row${isSel ? " sel" : ""}`}>
-              {hasKids ? (
-                <button
-                  type="button"
-                  className="member-tree-toggle"
-                  aria-expanded={!isCollapsed}
-                  aria-label={isCollapsed ? "Expand" : "Collapse"}
-                  onClick={() => toggle(n.member.id)}
-                >
-                  {isCollapsed ? "▸" : "▾"}
-                </button>
-              ) : (
-                <span className="member-tree-toggle-spacer" aria-hidden />
-              )}
-
-              {onSelect ? (
-                <button
-                  type="button"
-                  className="member-tree-name as-button"
-                  onClick={() => onSelect(n.member.id)}
-                >
-                  <span className="member-tree-title">
-                    {memberLabel(n.member)}
-                    {n.member.id === meId && " (you)"}
-                  </span>
-                  <span className="muted member-tree-role">
-                    {memberRoleLabel(n.member, { inLab })}
-                  </span>
-                </button>
-              ) : (
-                <span className="member-tree-name">
-                  <span className="member-tree-title">
-                    {memberLabel(n.member)}
-                    {n.member.id === meId && " (you)"}
-                  </span>
-                  <span className="muted member-tree-role">
-                    {memberRoleLabel(n.member, { inLab })}
-                  </span>
-                </span>
-              )}
-            </div>
-            {hasKids && !isCollapsed && renderNodes(n.children)}
-          </li>
-        );
-      })}
-    </ul>
-  );
-
-  if (forest.length === 0) return null;
-  return <div className="member-tree">{renderNodes(forest)}</div>;
 }
 
 /**
@@ -188,57 +101,6 @@ export function OrgChart({
   return (
     <div className={`org-chart${scrollable ? " org-chart--scroll" : ""}`} ref={chartRef}>
       <div className="org-tree" ref={treeRef}>{renderNodes(forest)}</div>
-    </div>
-  );
-}
-
-interface SelectProps {
-  members: Member[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  meId?: string;
-  placeholder?: string;
-}
-
-/**
- * A dropdown whose menu is a {@link MemberTree} — pick a person to view by
- * navigating the hierarchy, like choosing a file in a file tree.
- */
-export function MemberTreeSelect({ members, selectedId, onSelect, meId, placeholder }: SelectProps) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const forest = useMemo(() => buildMemberForest(members), [members]);
-  const selected = members.find((m) => m.id === selectedId) ?? null;
-
-  useDismissOnOutside(open, () => setOpen(false), ref);
-
-  return (
-    <div className="member-tree-select" ref={ref}>
-      <button
-        type="button"
-        className="member-tree-trigger"
-        aria-haspopup="tree"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <span className="member-tree-trigger-label">
-          {selected ? memberLabel(selected) : placeholder || "Select a person"}
-        </span>
-        <span className="member-tree-caret" aria-hidden>▾</span>
-      </button>
-      {open && (
-        <div className="member-tree-menu card">
-          <MemberTree
-            forest={forest}
-            selectedId={selectedId}
-            meId={meId}
-            onSelect={(id) => {
-              onSelect(id);
-              setOpen(false);
-            }}
-          />
-        </div>
-      )}
     </div>
   );
 }

@@ -3,12 +3,11 @@ import type { NavItem } from "@weaveforge/core";
 /** Routes with no nav item of their own, named for the window title. */
 const EXTRA_TITLES: readonly { path: string; title: string }[] = [
   { path: "/settings", title: "Settings" },
-  { path: "/ai-review", title: "Review AI" },
-  { path: "/wiki", title: "Wiki" },
+  { path: "/ai-review", title: "AI suggestions" },
   { path: "/reader", title: "Reader" },
   { path: "/report/overleaf", title: "Overleaf" },
-  { path: "/shared", title: "Shared" },
-  { path: "/supervision", title: "Supervise" },
+  { path: "/shared", title: "Shared with you" },
+  { path: "/supervision", title: "Supervision" },
 ];
 
 const APP_NAME = "WeaveForge";

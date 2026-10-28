@@ -31,7 +31,7 @@ export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number })
     exp.branch ? <span key="branch" className="git-chip"><em>branch</em> {exp.branch}</span> : null,
     exp.commitSha ? (
       commitUrl(exp.repoUrl, exp.commitSha) ? (
-        <a key="commit" className="git-chip link" href={commitUrl(exp.repoUrl, exp.commitSha)} target="_blank" rel="noreferrer">
+        <a key="commit" className="git-chip is-link" href={commitUrl(exp.repoUrl, exp.commitSha)} target="_blank" rel="noreferrer">
           <em>commit</em> {shortSha(exp.commitSha)}
         </a>
       ) : (
@@ -39,7 +39,7 @@ export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number })
       )
     ) : null,
     exp.repoUrl ? (
-      <a key="repo" className="git-chip link" href={exp.repoUrl} target="_blank" rel="noreferrer">repo</a>
+      <a key="repo" className="git-chip is-link" href={exp.repoUrl} target="_blank" rel="noreferrer">repo</a>
     ) : null,
     exp.relatedPaper ? <RelatedPaper key="paper" paperId={exp.relatedPaper} /> : null,
   ].filter(Boolean);
@@ -76,7 +76,7 @@ function RelatedPaper({ paperId }: { paperId: string }) {
   const title = usePaperTitle(paperId);
   if (!title) return null;
   return (
-    <span className="git-chip" title="Paper this run tests/implements">
+    <span className="git-chip git-chip--paper" title="Paper this run tests/implements">
       <em>paper</em> {title}
     </span>
   );
@@ -189,9 +189,9 @@ export function Artifacts({ urls: entries, detail = false }: { urls: string[]; d
       )}
       {links.length > 0 && (
         <div className="git-chips">
-          {links.map((url) => (
-            <a key={url} className="git-chip link" href={url} target="_blank" rel="noreferrer">
-              artifact
+          {links.map((url, i) => (
+            <a key={url} className="git-chip is-link" href={url} target="_blank" rel="noreferrer">
+              {figureLabel(url, i)}
             </a>
           ))}
         </div>

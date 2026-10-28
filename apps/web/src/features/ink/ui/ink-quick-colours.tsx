@@ -12,6 +12,7 @@
  */
 
 import { INK_COLOURS } from "@weaveforge/core";
+import { ToggleButton } from "@/components/controls";
 
 type InkColour = (typeof INK_COLOURS)[number];
 
@@ -25,11 +26,9 @@ export function InkQuickColours({ colours, colour, onColour }: InkQuickColoursPr
   return (
     <div className="ink-swatches ink-quick-colours" role="group" aria-label="Quick colours">
       {colours.map((entry, slot) => (
-        <button
+        <ToggleButton pressed={colour === entry}
           key={slot}
-          type="button"
           className={`ink-swatch ink-swatch-${entry}`}
-          aria-pressed={colour === entry}
           aria-label={`Ink colour: ${entry}`}
           title={entry}
           onClick={() => onColour(entry)}

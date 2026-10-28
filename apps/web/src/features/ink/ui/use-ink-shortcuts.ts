@@ -21,8 +21,9 @@ import type { InkBarTool } from "./ink-bar";
 export interface InkShortcutsDeps {
   /** Tell the worker something (undo, clear the selection). */
   send: (message: InkWorkerMessage) => void;
-  /** The late, coalesced save. */
-  scheduleSave: () => void;
+  /** Undo and redo, the same as the bar's (§use-ink-page-history). */
+  onUndo: () => void;
+  onRedo: () => void;
   /** Choose the tool. */
   setTool: (tool: InkBarTool | "shape") => void;
   /** Cursor mode: the pen points instead of inking. */
@@ -52,7 +53,8 @@ export interface InkShortcutsDeps {
 export function useInkShortcuts(deps: InkShortcutsDeps) {
   const {
     send,
-    scheduleSave,
+    onUndo,
+    onRedo,
     setTool,
     onCursor,
     onColourChange,
@@ -74,8 +76,7 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
         const key = event.key.toLowerCase();
         if (key === "z") {
           event.preventDefault();
-          send({ type: event.shiftKey ? "redo" : "undo" });
-          scheduleSave();
+          (event.shiftKey ? onRedo : onUndo)();
         } else if (event.shiftKey && key === "r") {
           event.preventDefault();
           recognise();
@@ -158,7 +159,8 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     send,
-    scheduleSave,
+    onUndo,
+    onRedo,
     setTool,
     onCursor,
     onColourChange,

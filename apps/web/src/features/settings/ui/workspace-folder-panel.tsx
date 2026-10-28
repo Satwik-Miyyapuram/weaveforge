@@ -336,9 +336,7 @@ export function WorkspaceFolderPanel() {
       />
       <div className="screen-actions screen-actions--start">
         {session && (
-          <button
-            className={outside.length > 0 ? "btn-primary" : "btn-secondary"}
-            type="button"
+          <Button variant={outside.length > 0 ? "primary" : "secondary"}
             disabled={busy !== null}
             onClick={() =>
               void run("preview", async () => {
@@ -353,7 +351,7 @@ export function WorkspaceFolderPanel() {
               : outside.length > 0
                 ? `Review ${outside.length} outside edit${outside.length === 1 ? "" : "s"}`
                 : "Check for changes"}
-          </button>
+          </Button>
         )}
         <Button
           disabled={busy !== null}

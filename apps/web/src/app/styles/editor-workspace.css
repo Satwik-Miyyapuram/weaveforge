@@ -33,7 +33,7 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   height: 25px;
   padding-inline-end: 8px;
   color: var(--text);
@@ -43,7 +43,7 @@
      screen — the tree — read as static text. */
   cursor: pointer;
   user-select: none;
-  transition: background 0.1s;
+  transition: background var(--dur-fast);
 }
 
 .explorer-row:hover {
@@ -184,7 +184,7 @@
   align-items: center;
   gap: 1px;
   height: 36px;
-  padding: 0 6px 0 12px;
+  padding: 0 8px 0 12px;
 }
 
 .explorer-title {
@@ -205,7 +205,7 @@
 
 .explorer-filter {
   width: 100%;
-  padding: 6px 24px 6px 8px;
+  padding: 8px 24px 8px 8px;
   border: 1px solid var(--border);
   border-radius: var(--r-control);
   background: var(--bg);
@@ -258,7 +258,7 @@
   background: transparent;
   color: var(--faint);
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--dur-base), color var(--dur-base);
 }
 
 .explorer-action:hover { background: var(--surface2); color: var(--text); }
@@ -273,7 +273,7 @@
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  padding-block-end: 14px;
+  padding-block-end: 16px;
   overflow: auto;
   scrollbar-gutter: stable;
 }
@@ -294,7 +294,7 @@
   display: flex;
   align-items: center;
   height: 26px;
-  padding: 0 8px 0 6px;
+  padding: 0 8px 0 8px;
   position: sticky;
   inset-block-start: 0;
   z-index: var(--z-sticky);
@@ -354,7 +354,7 @@
 }
 
 .explorer-section-empty {
-  padding: 4px 10px 6px;
+  padding: 4px 12px 8px;
   font-size: var(--fs-xs);
 }
 
@@ -492,9 +492,9 @@
    rest stays visible so it is clear what is underneath. */
 .workspace-shell.is-phone {
   grid-template-columns: 0 minmax(0, 1fr);
-  /* The bottom nav floats over the last ~70px; without this it sat on the
-     status bar, so "Saved" was never visible on a phone. */
-  padding-block-end: calc(72px + env(safe-area-inset-bottom));
+  /* The bottom nav floats over the end of the screen; without this it sat on
+     the status bar, so "Saved" was never visible on a phone. */
+  padding-block-end: var(--nav-clear);
 }
 
 /* A 375px screen has no room for a second pane, and the two split buttons
@@ -509,7 +509,7 @@
   inset-inline-start: 0;
   z-index: 6;
   width: min(86vw, 340px);
-  box-shadow: 0 12px 32px color-mix(in srgb, #000 28%, transparent);
+  box-shadow: var(--e3);
 }
 
 .workspace-shell.is-phone .explorer-show {
@@ -519,7 +519,7 @@
 
 .workspace-shell.is-phone.is-explorer-hidden .pane-root > .pane > .pane-tabs .pane-tab-scroll,
 .workspace-shell.is-phone.is-explorer-hidden .pane-root > .pane-split > .pane-half:first-child > .pane > .pane-tabs .pane-tab-scroll {
-  padding-inline-start: 36px;
+  padding-inline-start: 32px;
 }
 
 /* The strip's first tab starts past the handle, or the two overlap. */
@@ -564,19 +564,14 @@
   color: var(--muted);
   opacity: 0.55;
   cursor: pointer;
-  transition: opacity 120ms ease;
+  transition: opacity var(--dur-base) ease;
 }
 
 .focus-exit:hover,
 .focus-exit:focus-visible { color: var(--text); opacity: 1; }
 
-/* The exit sits over the top-right corner; a bar that reaches it (the
-   editor's mode strip) leaves it room. */
-.workspace-shell.is-focus .md-live-choice { padding-inline-end: 44px; }
-
 @media (pointer: coarse) {
   .focus-exit { width: 36px; height: 36px; opacity: 0.8; }
-  .workspace-shell.is-focus .md-live-choice { padding-inline-end: 52px; }
 }
 
 /* Ink in focus, OneNote's way: the toolbar row goes, and what a hand needs
@@ -598,17 +593,17 @@
   flex-direction: column;
   flex-wrap: nowrap;
   align-items: stretch;
-  gap: 6px;
+  gap: 8px;
   width: max-content;
   height: auto;
   margin: 0;
-  padding: 6px;
+  padding: 8px;
   border: 1px solid var(--border);
   border-radius: var(--r-card);
   /* No backdrop-filter and no transform here: either would make the palette
      the containing block of the colour menu's `position: fixed` panel. */
   background: color-mix(in srgb, var(--surface) 94%, transparent);
-  box-shadow: 0 10px 30px rgb(0 0 0 / 22%);
+  box-shadow: var(--e3);
 }
 
 /* The eight docks. Edges centre along their axis (by auto margins, see
@@ -719,7 +714,7 @@
 }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette:is([data-dock="top"], [data-dock="bottom"]) .ink-page-count {
   flex-direction: row;
-  gap: 3px;
+  gap: 4px;
   padding: 0 4px;
   font-size: var(--fs-xs);
   line-height: inherit;
@@ -740,10 +735,9 @@
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool.ink-menu-trigger { width: auto; }
 /* Labelled buttons keep their text on one line instead of the 36px square. */
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool.ink-tool-text { width: auto; white-space: nowrap; }
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-zoom-pct { height: 36px; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool svg { width: 18px; height: 18px; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-bar-group,
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill { gap: 4px; padding: 3px; border-radius: var(--r-control); }
+:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill { gap: 4px; padding: 4px; border-radius: var(--r-control); }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill {
   width: 100%;
   max-width: 36px;
@@ -753,7 +747,7 @@
   width: 28px;
   height: 28px;
 }
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-swatches { gap: 9px; padding: 8px 5px; }
+:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-swatches { gap: 8px; padding: 8px 4px; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-swatch { width: 26px; height: 26px; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-bar .ink-page-count {
   flex-direction: column;
@@ -765,8 +759,8 @@
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-bar .ink-page-count .ink-page-sep { display: none; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-bar .ink-page-count .ink-page-now { font-weight: 700; color: var(--text); }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-bar .ink-page-count .ink-page-total {
-  margin-top: 3px;
-  padding-top: 3px;
+  margin-top: 4px;
+  padding-top: 4px;
   border-top: 1px solid var(--border-strong);
   font-size: var(--fs-micro);
 }
@@ -844,7 +838,7 @@
 .explorer-problem {
   padding-block: 2px 4px;
   padding-inline-end: 8px;
-  color: var(--danger, #c0392b);
+  color: var(--danger);
   font-size: var(--fs-xs);
   line-height: 1.3;
 }
@@ -944,10 +938,11 @@
   display: flex;
   flex: none;
   align-items: center;
-  gap: 7px;
-  max-width: 200px;
+  gap: 8px;
+  /* Room for a typical name beside its always-shown extension. */
+  max-width: 256px;
   min-width: 0;
-  padding: 0 11px;
+  padding: 0 12px;
   background: var(--surface);
   color: var(--muted);
   font-size: var(--fs-sm);
@@ -955,7 +950,7 @@
   border-inline-end: 1px solid var(--border);
   /* A tab is clicked to switch documents: it has to answer the pointer. */
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--dur-base), color var(--dur-base);
 }
 
 .pane-tab:hover {
@@ -999,7 +994,7 @@
    one place the path is gone entirely (§3.2). */
 .pane-tab-ext {
   flex: none;
-  margin-inline-start: -3px;
+  margin-inline-start: -4px;
   color: var(--faint);
   font-family: var(--font-mono);
   font-size: 0.68em;
@@ -1020,7 +1015,7 @@
 .pane-peers {
   display: flex;
   align-items: center;
-  margin-inline-end: 6px;
+  margin-inline-end: 8px;
 }
 
 .pane-peer {
@@ -1028,7 +1023,7 @@
   place-items: center;
   width: 20px;
   height: 20px;
-  margin-inline-start: -6px;
+  margin-inline-start: -8px;
   border: 1.5px solid var(--surface);
   border-radius: 50%;
   background: var(--accent);
@@ -1045,6 +1040,8 @@
    ---------------------------------------------------------------------- */
 
 .pane-mode { margin-inline-end: 4px; }
+/* The View control and, in Split, its ⋯ for the side. */
+.view-control { display: inline-flex; align-items: center; gap: 2px; }
 
 /* The close control lives in a 16px slot that is the dirty dot until the tab
    is hovered — the standard gesture, and it takes the permanent `×` off every
@@ -1063,7 +1060,7 @@
   line-height: 1;
   opacity: 0;
   cursor: pointer;
-  transition: opacity 0.12s, background 0.12s;
+  transition: opacity var(--dur-base), background var(--dur-base);
 }
 
 .pane-tab:hover .pane-tab-close,
@@ -1090,7 +1087,7 @@
   color: var(--faint);
   line-height: 1;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--dur-base), color var(--dur-base);
 }
 
 .pane-action:hover {
@@ -1108,7 +1105,7 @@
   flex: none;
   align-items: center;
   gap: 1px;
-  padding-inline: 7px;
+  padding-inline: 8px;
   border-inline-start: 1px solid var(--border);
 }
 
@@ -1119,7 +1116,7 @@
   align-items: center;
   gap: 1px;
   margin-inline-end: 4px;
-  padding-inline-end: 5px;
+  padding-inline-end: 4px;
   border-inline-end: 1px solid var(--border);
 }
 
@@ -1142,10 +1139,10 @@
   position: absolute;
   z-index: 5;
   display: grid;
-  gap: 10px;
+  gap: 12px;
   width: 300px;
   max-width: calc(100% - 8px);
-  padding: 12px 14px;
+  padding: 12px 16px;
   background: var(--elev);
   border: 1px solid var(--border-strong);
   border-radius: var(--r-control);
@@ -1164,7 +1161,7 @@
   display: grid;
   grid-template-columns: 3.4rem minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .image-size-key {
@@ -1196,7 +1193,7 @@
   grid-column: 2 / -1;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 /* One edge: its letter, then its field. */
 .image-size-edge {
@@ -1213,7 +1210,7 @@
 .image-size-edge > input {
   width: 100%;
   min-width: 0;
-  padding: 4px 5px;
+  padding: 4px 4px;
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   background: var(--surface);
@@ -1383,18 +1380,18 @@
 /* A folder crumb that cannot be opened is plain text, but it keeps the same
    padding as its neighbours: without it the separator touched the label
    ("Papers›Title"). */
-.breadcrumb-plain { padding: 2px 6px; }
+.breadcrumb-plain { padding: 2px 8px; }
 
 .breadcrumb-btn,
 .breadcrumb-current {
-  padding: 2px 6px;
+  padding: 2px 8px;
   border: none;
   border-radius: var(--r-sm);
   background: transparent;
   color: inherit;
   font: inherit;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--dur-base), color var(--dur-base);
 }
 
 .breadcrumb-btn:hover { background: var(--surface2); color: var(--text); }
@@ -1466,7 +1463,7 @@
   justify-content: center;
   height: 100%;
   gap: 8px;
-  padding: 34px;
+  padding: 32px;
   color: var(--muted);
   text-align: center;
 }
@@ -1504,8 +1501,8 @@
 .pane-shortcuts {
   display: grid;
   grid-template-columns: auto auto;
-  gap: 8px 20px;
-  margin: 22px 0 0;
+  gap: 8px 24px;
+  margin: 24px 0 0;
   color: var(--muted);
   font-size: var(--fs-xs);
   text-align: start;
@@ -1518,7 +1515,7 @@
 .pane-shortcut dt {
   display: flex;
   justify-self: end;
-  gap: 3px;
+  gap: 4px;
 }
 
 .pane-shortcut dd { margin: 0; }
@@ -1608,18 +1605,7 @@
 /* The pane's rendered body keeps the reading measure; the editor's half is
    already the writing measure. */
 .md-live-pane .document-read-body {
-  padding: 24px 30px 100px;
-}
-
-/* The choice: three small states, told apart by words. It sits at the top
-   of the editor's own half, out of the text's way, and it is the same in
-   both layouts. */
-.md-live-choice {
-  display: flex;
-  align-items: center;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  padding: 24px 32px 96px;
 }
 
 /* The rendered view is prose, so it gets the reading measure rather than the
@@ -1627,7 +1613,7 @@
 .document-read-body {
   max-width: var(--content-measure);
   margin-inline: auto;
-  padding: 40px 44px 150px;
+  padding: 48px 48px 144px;
 }
 
 /* A paper's PDF mode: the reader's paper half filling the pane, with its
@@ -1663,7 +1649,7 @@
 .paper-pdf-fetch-row input {
   flex: 1;
   min-width: 0;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border: 1px solid var(--border-strong);
   border-radius: var(--r-control);
   background: var(--surface);
@@ -1673,7 +1659,7 @@
 }
 .paper-pdf-fetch-error { margin: 0; font-size: var(--fs-sm); color: var(--s-danger); }
 /* "Find a free copy": the button, and the line saying what it found. */
-.paper-free-copy { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 8px auto 4px; }
+.paper-free-copy { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 8px auto 4px; }
 .paper-free-copy-status { margin: 0; max-width: 34rem; font-size: var(--fs-sm); color: var(--muted); }
 .paper-free-copy-status[role="alert"] { color: var(--s-danger); }
 
@@ -1692,7 +1678,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border);
   font-size: var(--fs-sm);
 }
@@ -1718,7 +1704,7 @@
   align-items: center;
   gap: 1px;
   height: 26px;
-  padding: 0 5px;
+  padding: 0 4px;
   overflow: hidden;
   background: var(--surface2);
   border-block-start: 1px solid var(--border);
@@ -1729,8 +1715,8 @@
 .status-bar > * {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 8px;
+  gap: 4px;
+  padding: 4px 8px;
   border-radius: var(--r-sm);
   white-space: nowrap;
 }
@@ -1809,11 +1795,11 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 8px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  box-shadow: var(--e1);
   scrollbar-width: none;
 }
 
@@ -1835,7 +1821,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   height: 28px;
   padding: 0 8px;
   border: 1px solid transparent;
@@ -1858,7 +1844,6 @@
   background: var(--surface);
   color: var(--accent-ink);
   border-color: var(--border);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
 }
 
 .ink-tool:disabled {
@@ -1877,7 +1862,7 @@
 }
 
 .ink-action-recognise {
-  padding: 0 10px;
+  padding: 0 12px;
 }
 
 .ink-nib-dot {
@@ -1894,7 +1879,7 @@
 .ink-swatches {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   padding: 2px 4px;
 }
 
@@ -1920,7 +1905,7 @@
 .ink-page-count {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   padding: 0 4px;
   font-weight: 500;
   white-space: nowrap;
@@ -1954,7 +1939,7 @@
   background: var(--panel, var(--surface));
   border: 1px solid var(--border);
   border-radius: var(--r-control);
-  box-shadow: 0 12px 28px rgb(0 0 0 / 22%);
+  box-shadow: var(--e3);
   /* The bar wraps, so the button can be at either end of a row; the shift is
      measured on open and keeps the list inside the bar's own box, which is the
      box `overflow: hidden` clips to. */
@@ -1967,7 +1952,7 @@
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  padding: 6px 8px;
+  padding: 8px 8px;
   border: 0;
   border-radius: var(--r-sm);
   background: none;
@@ -2003,7 +1988,6 @@
 
 .ink-swatch[aria-pressed="true"] {
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
-  transform: scale(1.1);
 }
 
 .ink-swatch-text { --sw: var(--text); }
@@ -2105,7 +2089,7 @@
   opacity: 0;
   pointer-events: auto;
   cursor: default;
-  transition: opacity 0.25s ease, width var(--dur-base) ease, background var(--dur-base) ease;
+  transition: opacity var(--dur-slow) ease, width var(--dur-base) ease, background var(--dur-base) ease;
 }
 
 .overlay-scrollbar-track.is-visible .overlay-scrollbar-thumb,
@@ -2200,7 +2184,7 @@
   position: relative;
   flex: none;
   border-radius: 2px;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+  box-shadow: var(--e1);
   background: var(--surface);
   transition: outline var(--dur-base) ease;
 }
@@ -2362,7 +2346,7 @@
 .ink-figure {
   pointer-events: none;
   background: color-mix(in srgb, var(--surface) 85%, transparent);
-  box-shadow: 0 1px 4px rgb(0 0 0 / 18%);
+  box-shadow: var(--e1);
   border-radius: 2px;
 }
 .ink-figure.is-active {
@@ -2407,44 +2391,32 @@
   position: absolute;
   width: 12px;
   height: 12px;
-  margin: -6px 0 0 -6px;
+  /* Centred on its anchor; right and bottom handles are anchored by their far edge. */
+  --hx: -50%;
+  --hy: -50%;
+  translate: var(--hx) var(--hy);
   border-radius: 50%;
   border: 1.5px solid var(--accent);
   background: var(--surface);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
+  box-shadow: var(--e1);
   pointer-events: auto;
   touch-action: none;
 }
-/* Handles at right/bottom are placed by their far edge; undo the margin. */
+/* Handles at right/bottom are placed by their far edge, so they shift outwards. */
 .ink-figure-handle[data-handle="ne"],
 .ink-figure-handle[data-handle="e"],
 .ink-figure-handle[data-handle="se"] {
-  margin-left: 0;
-  margin-right: -6px;
+  --hx: 50%;
 }
 .ink-figure-handle[data-handle="sw"],
 .ink-figure-handle[data-handle="s"],
 .ink-figure-handle[data-handle="se"] {
-  margin-top: 0;
-  margin-bottom: -6px;
+  --hy: 50%;
 }
 @media (pointer: coarse) {
   .ink-figure-handle {
     width: 18px;
     height: 18px;
-    margin: -9px 0 0 -9px;
-  }
-  .ink-figure-handle[data-handle="ne"],
-  .ink-figure-handle[data-handle="e"],
-  .ink-figure-handle[data-handle="se"] {
-    margin-left: 0;
-    margin-right: -9px;
-  }
-  .ink-figure-handle[data-handle="sw"],
-  .ink-figure-handle[data-handle="s"],
-  .ink-figure-handle[data-handle="se"] {
-    margin-top: 0;
-    margin-bottom: -9px;
   }
 }
 /* The crop tool: the whole picture dimmed under a bright kept rectangle. */
@@ -2530,40 +2502,49 @@
   align-items: center;
   display: flex;
   gap: 2px;
-  padding: 3px;
+  padding: 4px;
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   background: var(--surface);
-  box-shadow: 0 3px 12px rgb(0 0 0 / 22%);
+  box-shadow: var(--e2);
 }
 .ink-figure-button {
-  font-size: var(--fs-micro);
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-sm);
+  font-size: var(--fs-xs);
   font-family: var(--font);
-  color: var(--faint);
-  padding: 1px 8px;
+  color: var(--muted);
+  padding: 0 8px;
   border: none;
   border-radius: var(--r-sm);
   background: transparent;
   cursor: pointer;
 }
 .ink-figure-button:hover {
-  background: color-mix(in srgb, var(--faint) 10%, transparent);
+  color: var(--text);
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
 }
 .ink-figure-button:disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: default;
   background: none;
+}
+.ink-figure-hint {
+  padding: 0 8px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
 }
 .ink-figure-sep {
   width: 1px;
   height: 14px;
-  margin: 0 3px;
+  margin: 0 4px;
   background: var(--border);
 }
 .ink-figure-button-icon {
   display: inline-flex;
   align-items: center;
-  padding: 2px 5px;
+  padding: 2px 4px;
 }
 .ink-figure-button-remove {
   color: var(--danger);
@@ -2576,7 +2557,7 @@
   min-height: 0;
   overflow-y: auto;
   scrollbar-gutter: stable;
-  padding: 12px 14px;
+  padding: 12px 16px;
   border-left: 1px solid var(--border);
   background: var(--surface);
   font-size: var(--fs-sm);
@@ -2586,7 +2567,7 @@
 .ink-text h4 {
   display: flex;
   align-items: center;
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   color: var(--faint);
   font-family: var(--font);
   font-size: var(--fs-micro);
@@ -2595,14 +2576,14 @@
 }
 
 .ink-text h4 .ink-conf { margin-left: auto; letter-spacing: 0; text-transform: none; }
-.ink-text p { margin: 0 0 10px; }
+.ink-text p { margin: 0 0 12px; }
 .ink-text .ink-empty { color: var(--faint); }
 /* A line is a paragraph; unsure ones are dotted (§5.4), accepted ones plain. */
 .ink-text .ink-line { cursor: text; border-radius: var(--r-sm); padding: 2px 4px; margin: 0 -4px 8px; }
 .ink-text .ink-line:hover { background: var(--chip); }
 .ink-text .ink-line-unsure { border-bottom: 1px dotted var(--s-warn); }
 .ink-text .ink-line-sure { color: var(--text); }
-.ink-line-edit { margin: 0 0 10px; display: grid; gap: 6px; }
+.ink-line-edit { margin: 0 0 12px; display: grid; gap: 8px; }
 .ink-line-edit .themed-input { width: 100%; }
 .ink-alternatives { display: flex; flex-wrap: wrap; gap: 4px; }
 
@@ -2676,7 +2657,7 @@
   height: min(72vh, 1000px);
   border: 1px solid var(--border);
   border-radius: var(--r-control);
-  background: #e9e9e9;
+  background: color-mix(in srgb, var(--black) 9%, var(--white));
 }
 
 /* -------------------------------------------------------------------------
@@ -2692,13 +2673,13 @@
     position: relative;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     min-width: 0;
-    padding: 0 6px 0 10px;
+    padding: 0 8px 0 12px;
     color: var(--text);
     font-size: var(--fs-sm);
   }
-  .workspace-shell.is-explorer-hidden .pane-tab-switcher { padding-inline-start: 40px; }
+  .workspace-shell.is-explorer-hidden .pane-tab-switcher { padding-inline-start: 48px; }
   /* The shared Select, flattened into the tab bar. Scoped to the container
      and its trigger: the menu carries the same class and keeps its own look. */
   .custom-select-container.pane-tab-select { flex: 1; min-width: 0; width: auto; height: 100%; }
@@ -2716,7 +2697,7 @@
   .pane-tab-count {
     flex: none;
     min-width: 18px;
-    padding: 0 5px;
+    padding: 0 4px;
     border-radius: var(--r-pill);
     background: var(--surface2);
     color: var(--muted);
@@ -2725,6 +2706,10 @@
     text-align: center;
   }
   .pane-tab-switcher .pane-tab-close { opacity: 1; width: 24px; height: 24px; }
+  /* Save state, words and the kind fit a phone; the rest ran off its edge. */
+  .status-bar-segment:is([data-segment="chars"], [data-segment="cursor"], [data-segment="encoding"], [data-segment="strokes"], [data-segment="pen"]) {
+    display: none;
+  }
 }
 
 /* The pen: one swatch carries the colour, the dot on it the nib. */
@@ -2735,16 +2720,16 @@
 .ink-pen-trigger-nib {
   display: block; border-radius: 50%;
   background: var(--surface);
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 25%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--black) 25%, transparent);
 }
 .ink-pen-menu .ink-bar-widths {
-  margin-top: 4px; padding-top: 6px;
+  margin-top: 4px; padding-top: 8px;
   border-top: 1px solid var(--border);
 }
 
 /* Quick colours: five swatches in the bar's own row, with room for the
    selected one's ring between them. */
-.ink-quick-colours { gap: 10px; padding: 2px 6px; }
+.ink-quick-colours { gap: 12px; padding: 2px 8px; }
 
 /* Insert: a labelled drop-down, apart from ⋯. */
 /* Portalled to <body> and fixed under its button: the reader's bar scrolls
@@ -2767,7 +2752,7 @@
 }
 .ink-menu-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 8px 2px; }
 .ink-menu-chip {
-  display: inline-flex; align-items: center; gap: 6px;
+  display: inline-flex; align-items: center; gap: 8px;
   padding: 4px 8px;
   border: 1px solid var(--border); border-radius: var(--r-sm);
   background: none; color: var(--text);
@@ -2778,33 +2763,21 @@
   background: var(--active-bg, var(--chip)); color: var(--active-fg, var(--text));
   border-color: var(--text);
 }
-.ink-menu-check, .ink-menu-value { color: var(--muted); font-size: var(--fs-xs); }
+.ink-menu-value { color: var(--muted); font-size: var(--fs-xs); }
 
 /* Insert and View: a bar button with a caret that opens a short list. */
 /* The shared tool rule makes .ink-tool a 32px square grid; a trigger carries
    a caret beside its icon, so it widens and lays out in a row. */
 :root:root .ink-tool.ink-menu-trigger {
   display: inline-flex; align-items: center; gap: 2px;
-  width: auto; padding: 0 4px 0 6px;
+  width: auto; padding: 0 4px 0 8px;
 }
 /* Recognise carries a label too: a row, as wide as its words, never wrapped. */
 :root:root .ink-tool.ink-action-recognise {
-  display: inline-flex; align-items: center; gap: 6px;
-  width: auto; flex: none; padding: 0 10px; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 8px;
+  width: auto; flex: none; padding: 0 12px; white-space: nowrap;
 }
 .ink-menu-caret { display: inline-flex; opacity: 0.6; }
-/* Zoom: − · 100% ▾ · +, the level a plain ghost button. */
-.ink-zoom { display: inline-flex; align-items: center; gap: 2px; flex: none; }
-.ink-zoom-pct {
-  display: inline-flex; align-items: center; justify-content: center; gap: 3px;
-  min-width: 3.7rem; height: 32px; padding: 0 4px 0 8px;
-  border: 1px solid transparent; border-radius: var(--r-sm);
-  background: transparent; color: var(--text);
-  font: inherit; font-size: var(--fs); font-variant-numeric: tabular-nums;
-  white-space: nowrap; cursor: pointer;
-}
-.ink-zoom-pct:hover, .ink-zoom-pct[aria-expanded="true"] { background: var(--wf-hover, var(--chip)); }
-.ink-zoom-pct:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--wf-focus, var(--accent)); }
 .ink-menu-rule { margin: 4px 0; border: 0; border-top: 1px solid var(--border); }
 .ink-menu-insert-list, .ink-menu-view-list { min-width: 200px; }
 .ink-menu-insert-list .ink-menu-item,

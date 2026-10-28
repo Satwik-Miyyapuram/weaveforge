@@ -7,6 +7,7 @@ import {
   type ConflictPicks,
   type ConflictResolution,
 } from "@/features/workspace/application/workspace-folder";
+import { Button } from "@/components/button";
 
 /**
  * One conflicted file, settled the way git settles one.
@@ -68,10 +69,9 @@ export function FolderConflictCard({
                 </p>
                 <div className="screen-actions">
                   {(["ours", "theirs"] as const).map((side) => (
-                    <button
+                    <Button
                       key={side}
-                      className={(fields[dispute.field] ?? "ours") === side ? "btn-secondary" : "btn-ghost"}
-                      type="button"
+                      variant={(fields[dispute.field] ?? "ours") === side ? "secondary" : "ghost"}
                       aria-pressed={(fields[dispute.field] ?? "ours") === side}
                       onClick={() => {
                         const next = { ...fields, [dispute.field]: side };
@@ -80,7 +80,7 @@ export function FolderConflictCard({
                       }}
                     >
                       {side === "ours" ? "This app's" : "The folder's"}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </li>
@@ -106,10 +106,9 @@ export function FolderConflictCard({
                 </pre>
                 <div className="screen-actions">
                   {(["ours", "theirs", "both"] as const).map((side) => (
-                    <button
+                    <Button
                       key={side}
-                      className={(hunks[hunk.index] ?? "ours") === side ? "btn-secondary" : "btn-ghost"}
-                      type="button"
+                      variant={(hunks[hunk.index] ?? "ours") === side ? "secondary" : "ghost"}
                       aria-pressed={(hunks[hunk.index] ?? "ours") === side}
                       onClick={() => {
                         const next = { ...hunks, [hunk.index]: side };
@@ -117,8 +116,8 @@ export function FolderConflictCard({
                         pick({ hunks: next });
                       }}
                     >
-                      {side === "ours" ? "Ours" : side === "theirs" ? "Theirs" : "Both"}
-                    </button>
+                      {side === "ours" ? "This app's" : side === "theirs" ? "The folder's" : "Both"}
+                    </Button>
                   ))}
                 </div>
               </li>
@@ -128,38 +127,34 @@ export function FolderConflictCard({
       )}
 
       <div className="screen-actions">
-        <button
-          className={chosen === "keep" ? "btn-secondary" : "btn-ghost"}
-          type="button"
+        <Button
+          variant={chosen === "keep" ? "secondary" : "ghost"}
           aria-pressed={chosen === "keep"}
           onClick={() => onChoose("keep")}
         >
-          Keep this app&apos;s copy
-        </button>
+          Keep this app&apos;s
+        </Button>
         {/* Not offered for a type mismatch: the id in the file names a paper or an
             experiment, so there is no note to write over. */}
         {entry.kind !== "type-mismatch" && (
-          <button
-            className={chosen === "folder" ? "btn-secondary" : "btn-ghost"}
-            type="button"
+          <Button
+            variant={chosen === "folder" ? "secondary" : "ghost"}
             aria-pressed={chosen === "folder"}
             onClick={() => onChoose("folder")}
           >
-            Take the folder&apos;s copy
-          </button>
+            Keep the folder&apos;s
+          </Button>
         )}
-        <button
-          className={chosen === "both" ? "btn-secondary" : "btn-ghost"}
-          type="button"
+        <Button
+          variant={chosen === "both" ? "secondary" : "ghost"}
           aria-pressed={chosen === "both"}
           onClick={() => onChoose("both")}
         >
           Keep both
-        </button>
+        </Button>
         {!unresolved && body && onWriteMarkers && (
-          <button
-            className={chosen === "markers" ? "btn-secondary" : "btn-ghost"}
-            type="button"
+          <Button
+            variant={chosen === "markers" ? "secondary" : "ghost"}
             aria-pressed={chosen === "markers"}
             disabled={markers === "writing"}
             onClick={() => {
@@ -176,8 +171,8 @@ export function FolderConflictCard({
               ? "Writing…"
               : markers === "written"
                 ? "Markers written"
-                : "Write conflict markers"}
-          </button>
+                : "Mark both in the file"}
+          </Button>
         )}
       </div>
 

@@ -1,18 +1,13 @@
 import type { FeatureModule } from "@weaveforge/core";
 
 /**
- * The wiki is an action, not a place.
- *
- * It reads the papers and the notes together and proposes pages from them (see
- * `wikiSourceDocuments`), which made it the odd one out in a Library strip whose
- * other entries were things you *have*. It is now a button beside "+ Paper" and
- * "New note" — the same row as the other ways of adding something — and the two
- * buttons lead to this one screen.
+ * The wiki has no sidebar item until it is good enough to be a destination;
+ * it opens from the ⋯ menus on Notes and Papers, and Notes lights on /wiki
+ * so the reader still has an active item there (DA-85).
  */
 export const wikiModule: FeatureModule = {
   id: "wiki",
   title: "Wiki",
-  navGroup: "library",
   navItems: [],
   routes: [{ path: "/wiki", component: "wiki/WikiScreen" }],
 };

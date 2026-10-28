@@ -74,22 +74,24 @@ export function SearchSettingsPanel({
         How results are ranked. Higher weight means a match in that field counts for more.
       </p>
 
-      {(Object.keys(FIELD_LABELS) as SearchField[]).map((field) => (
-        <div className="field" key={field}>
-          <label htmlFor={`search-weight-${field}`}>
-            {FIELD_LABELS[field]} — {boosts[field]}
-          </label>
-          <input
-            id={`search-weight-${field}`}
-            type="range"
-            min={MIN_FIELD_WEIGHT}
-            max={MAX_FIELD_WEIGHT}
-            step={1}
-            value={boosts[field]}
-            onChange={(e) => setWeight(field, Number(e.target.value))}
-          />
-        </div>
-      ))}
+      <div className="search-weights">
+        {(Object.keys(FIELD_LABELS) as SearchField[]).map((field) => (
+          <div className="field" key={field}>
+            <label htmlFor={`search-weight-${field}`}>
+              {FIELD_LABELS[field]} — {boosts[field]}
+            </label>
+            <input
+              id={`search-weight-${field}`}
+              type="range"
+              min={MIN_FIELD_WEIGHT}
+              max={MAX_FIELD_WEIGHT}
+              step={1}
+              value={boosts[field]}
+              onChange={(e) => setWeight(field, Number(e.target.value))}
+            />
+          </div>
+        ))}
+      </div>
 
       <div className="field">
         <label htmlFor="search-downranked">Push these down the results</label>

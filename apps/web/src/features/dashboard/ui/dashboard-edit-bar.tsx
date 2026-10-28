@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/button";
+import { RowButton } from "@/components/controls";
 
 function CustomizeIcon() {
   return (
@@ -38,15 +39,14 @@ export function DashboardEditBar({
 }) {
   if (!editing) {
     return (
-      <button
-        type="button"
+      <RowButton
         className="dashboard-customize-btn"
         onClick={onCustomize}
         aria-label="Customize dashboard"
         title="Customize"
       >
         <CustomizeIcon />
-      </button>
+      </RowButton>
     );
   }
 
@@ -56,7 +56,7 @@ export function DashboardEditBar({
         + Add card
       </Button>
       <Button onClick={onReset}>
-        Reset default
+        Reset layout
       </Button>
       <Button variant="primary" onClick={onDone}>
         Done

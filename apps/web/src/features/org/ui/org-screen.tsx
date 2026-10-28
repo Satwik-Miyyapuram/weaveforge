@@ -128,14 +128,12 @@ export function OrgPanel() {
               Create / join another lab
             </Button>
             {canLeaveActiveOrg && (
-              <button
-                type="button"
-                className="link-btn danger"
+              <Button variant="link" className="danger"
                 disabled={leaveBusy}
                 onClick={() => setLeaveAsk(true)}
               >
                 {leaveBusy ? "Leaving…" : `Leave ${activeMembership?.orgName ?? "lab"}`}
-              </button>
+              </Button>
             )}
           </div>
         </>

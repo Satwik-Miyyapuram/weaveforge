@@ -7,6 +7,8 @@ import { Select } from "@/components/select";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import type { DashboardStats } from "../../application/build-dashboard-stats";
 import type { SupervisionStats } from "../../application/build-supervision-stats";
+import { RowButton } from "@/components/controls";
+import { Button } from "@/components/button";
 
 export interface CardRenderProps {
   stats: DashboardStats;
@@ -22,6 +24,7 @@ function ProgressTile({
   total,
   pct,
   href,
+  label,
   short,
   animateProgress,
 }: {
@@ -29,6 +32,8 @@ function ProgressTile({
   total: number;
   pct: number;
   href: string;
+  /** Says what is counted, when "done / total" alone would not. */
+  label?: ReactNode;
   short?: boolean;
   animateProgress?: boolean;
 }) {
@@ -46,9 +51,7 @@ function ProgressTile({
   return (
     <Link href={href} className="dashboard-stat-link">
       <div className="dashboard-stat-row">
-        <span className="dashboard-stat-count">
-          {done} / {total}
-        </span>
+        <span className="dashboard-stat-count">{label ?? `${done} / ${total}`}</span>
         <strong className="dashboard-stat-pct">{pct}%</strong>
       </div>
       {!short && (
@@ -88,9 +91,9 @@ function AttentionList({
       ))}
       {hidden > 0 && (
         <li className="dashboard-list-more">
-          <button type="button" className="dashboard-list-more-btn" onClick={() => setAll(true)}>
+          <RowButton className="dashboard-list-more-btn" onClick={() => setAll(true)}>
             Show all ({items.length})
-          </button>
+          </RowButton>
         </li>
       )}
     </ul>
@@ -121,31 +124,26 @@ const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
   "reading-progress": progressRenderer("reading", "/papers"),
   "report-progress": progressRenderer("report", "/report"),
   "plan-progress": progressRenderer("plan", "/plan"),
-  // The big number is the finished count, so it is named wherever it shows:
-  // on a one-row tile the caption is hidden, and "0 running … 3" read as
-  // three of something unsaid.
-  "experiments-summary": ({ stats, item }) => (
-    <Link
-      href="/experiments"
-      className="dashboard-stat-link"
-      aria-label={`${stats.experiments.done} of ${stats.experiments.total} experiments done, ${stats.experiments.running} running`}
-    >
-      <div className="dashboard-stat-row">
-        <span className="dashboard-stat-count">
-          {stats.experiments.running} running · {stats.experiments.total} total
-        </span>
-        <strong className="dashboard-stat-pct">
-          {stats.experiments.done}
-          {item.h < 2 ? " done" : ""}
-        </strong>
-      </div>
-      {item.h >= 2 && (
-        <span className="dashboard-stat-caption dashboard-stat-footer">
-          {stats.experiments.done === 1 ? "experiment done" : "experiments done"}
-        </span>
-      )}
-    </Link>
-  ),
+  // Reads like the other progress cards, and names what it counts (DA-127).
+  "experiments-summary": ({ stats, item, contentReady }) => {
+    const { done, total, pct, running } = stats.experiments;
+    return (
+      <ProgressTile
+        done={done}
+        total={total}
+        pct={pct}
+        href="/experiments"
+        label={
+          <>
+            {`${done} of ${total} done`}
+            <span className="dashboard-stat-extra">{` · ${running} running`}</span>
+          </>
+        }
+        short={item.h < 2}
+        animateProgress={contentReady}
+      />
+    );
+  },
   "needs-attention": ({ stats, item }) =>
     stats.attention.length === 0 ? (
       <p className="muted dashboard-card-empty">Nothing needs attention.</p>
@@ -230,7 +228,7 @@ const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
     const member = supervisees.find((m) => m.id === memberId);
     const summary = supervision?.roster.find((r) => r.member.id === memberId);
     if (!member || !summary) {
-      return <p className="muted dashboard-card-empty">Select a supervisee.</p>;
+      return <p className="muted dashboard-card-empty">Select a student.</p>;
     }
     return (
       <div className="dashboard-supervisee">
@@ -245,7 +243,7 @@ const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
               className="dashboard-supervisee-select"
               value={memberId}
               onChange={(e) => onSuperviseeConfig(e.target.value)}
-              aria-label="Select supervisee"
+              aria-label="Select student"
             >
               {supervisees.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -265,13 +263,13 @@ const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
         {summary.lastLogDate && (
           <p className="muted dashboard-supervisee-meta">Last log: {summary.lastLogDate}</p>
         )}
-        <Link
+        <Button variant="link" className="dashboard-view-full"
           href={`/supervision?member=${member.id}`}
-          className="link-btn dashboard-view-full"
+         
           onClick={(e) => e.stopPropagation()}
         >
           View full →
-        </Link>
+        </Button>
       </div>
     );
   },

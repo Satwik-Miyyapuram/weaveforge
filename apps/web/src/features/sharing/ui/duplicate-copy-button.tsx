@@ -6,6 +6,7 @@ import type { ShareableType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { DuplicateIcon } from "@/components/view-icons";
 import { formatError } from "@/lib/format-error";
+import { Button } from "@/components/button";
 
 const COPYABLE: ReadonlySet<ShareableType> = new Set(["paper", "vault_page"]);
 
@@ -56,16 +57,14 @@ export function DuplicateCopyButton({
 
   return (
     <div className="shared-library-actions" onClick={(e) => e.stopPropagation()}>
-      <button
-        type="button"
-        className="btn-secondary entity-icon-text-btn"
+      <Button className="entity-icon-text-btn"
         disabled={busy}
         onClick={() => void copy()}
         aria-label="Make a copy"
       >
         <DuplicateIcon />
         <span>{busy ? "Copying…" : "Make a copy"}</span>
-      </button>
+      </Button>
       {msg && <span className="muted shared-library-msg">{msg}</span>}
     </div>
   );

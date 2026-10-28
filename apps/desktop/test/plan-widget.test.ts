@@ -130,6 +130,42 @@ test("cleanWidgetPalette keeps a full palette of #rrggbb colours and refuses any
   assert.equal(cleanWidgetPalette("#000000"), null);
 });
 
+// The widget wears the theme's shape too, not only its colours (D-27, DA-145).
+const colours = Object.fromEntries(WIDGET_PALETTE_KEYS.map((key) => [key, "#a0b1c2"]));
+const poster = {
+  radius: "6px",
+  "radius-sm": "4px",
+  bw: "2px",
+  sh: "rgb(18, 17, 15) 5px 5px 0px 0px",
+  "sh-sm": "rgba(0, 0, 0, 0.5) 0px 1px 3px 0px, rgb(1, 2, 3) 2px 2px 0px 0px",
+  font: '__Rubik_a1b2c3, "__Rubik_Fallback_a1b2c3", ui-sans-serif, system-ui',
+  fs: "14px",
+  "fs-sm": "12.5px",
+};
+
+test("cleanWidgetPalette keeps the theme's corners, border, shadows, font and sizes", () => {
+  assert.deepEqual(cleanWidgetPalette({ ...colours, ...poster }), { ...colours, ...poster });
+  assert.deepEqual(cleanWidgetPalette({ ...colours, ...poster, sh: "none", "sh-sm": "none" })?.sh, "none");
+  // A palette saved before the shape crossed over still paints the colours.
+  assert.deepEqual(cleanWidgetPalette(colours), colours);
+});
+
+test("cleanWidgetPalette refuses a shape value that is not plain CSS of its kind", () => {
+  for (const bad of [
+    { radius: "6px; background: url(x)" },
+    { radius: "calc(1px)" },
+    { bw: "99px" },
+    { fs: "2px" },
+    { sh: "url(https://x) 1px" },
+    { sh: "1px 1px red; color: x" },
+    { font: "Rubik; background: red" },
+    { font: "x".repeat(400) },
+    { radius: 6 },
+  ]) {
+    assert.equal(cleanWidgetPalette({ ...colours, ...poster, ...bad }), null, JSON.stringify(bad));
+  }
+});
+
 test("plan widget switch: a failed save changes nothing and says so (xipc-12)", async () => {
   const applied: boolean[] = [];
   const result = await switchPlanWidget(true, {

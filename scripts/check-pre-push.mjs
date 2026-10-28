@@ -11,6 +11,7 @@
  * 6. Linter (lint)
  * 7. Bundle budget (bundle:budget, when .next build exists)
  * 8. Memory budgets (test:memory, ~5 s)
+ * 9. Design page guards (test:e2e:design: targets and overflow, D20 G5/G6)
  */
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -71,5 +72,10 @@ if (existsSync(path.join(root, "apps/web/.next"))) {
 
 // 8. Memory budgets: local database RSS and ink page open/close leaks
 run("npm run test:memory", "Checking memory budgets");
+
+// 9. Design page guards: targets and clipped text on planted pages, then on the
+// real screens when the e2e account is configured (the screen spec skips itself
+// otherwise).
+run("npm run test:e2e:design --workspace @weaveforge/web", "Checking design page guards (D20 G5/G6)");
 
 console.log("\n==> [pre-push] All offline pre-push checks PASSED cleanly!\n");

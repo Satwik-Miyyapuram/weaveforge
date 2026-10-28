@@ -30,6 +30,11 @@ export interface NavItem {
    * filtered by id somewhere in the shell.
    */
   readonly mobile?: boolean;
+  /**
+   * Routes with no item of their own that light this one, so the reader is
+   * never on a screen with nothing highlighted (the wiki lights Notes).
+   */
+  readonly alsoActiveOn?: readonly string[];
 }
 
 export interface RouteDef {
@@ -43,7 +48,7 @@ export interface FeatureModule {
   readonly id: string;
   /** Display title, e.g. "Papers". */
   readonly title: string;
-  /** Sub-nav bucket key (library, plan, report, experiments, …). Omit for top-level (e.g. dashboard). */
+  /** Sub-nav bucket key (library, work, write, …). Omit for top-level (e.g. dashboard). */
   readonly navGroup?: string;
   /** Settings / org / shared inbox — not in primary tab groups. */
   readonly shell?: boolean;

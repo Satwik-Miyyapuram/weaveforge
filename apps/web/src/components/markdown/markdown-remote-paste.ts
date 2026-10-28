@@ -159,6 +159,6 @@ function fetchTitle(view: EditorView, url: string, from: number, to: number): vo
  */
 export function insertRemoteImage(view: EditorView, url: string, images: ImagePasteConfig): void {
   const name = nameFromUrl(url);
-  const id = insertPending(view, downloadingPlaceholder(name));
+  const id = insertPending(view, downloadingPlaceholder(name), { ownLine: true });
   fetchIntoPending(view, id, url, name, images);
 }

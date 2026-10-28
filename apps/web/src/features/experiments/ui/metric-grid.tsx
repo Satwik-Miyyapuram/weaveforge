@@ -6,6 +6,7 @@ import { readStored, writeStored } from "@/lib/safe-storage";
 
 import { fitCols } from "./plot-size";
 import { MinusIcon, PlusIcon } from "@/components/view-icons";
+import { RowButton } from "@/components/controls";
 
 const KEY = "metric-grid:cols";
 const MAX_COLS = 10;
@@ -53,9 +54,9 @@ export function MetricGrid({
     <div className={`metric-grid metric-grid--${variant}`}>
       {max > 1 && (
         <label className="seg metric-grid-zoom" onWheel={onWheel} title="Scroll to zoom">
-          <button type="button" aria-label="Zoom out" disabled={cols >= max} onClick={() => set(cols + 1)}>
+          <RowButton aria-label="Zoom out" disabled={cols >= max} onClick={() => set(cols + 1)}>
             <MinusIcon />
-          </button>
+          </RowButton>
           <input
             type="range"
             min={1}
@@ -64,7 +65,7 @@ export function MetricGrid({
             list={`metric-grid-ticks-${variant}`}
             // Right is zoom in (fewer, bigger charts), same as the + beside it.
             value={max + 1 - cols}
-            aria-label="Chart size"
+            aria-label="Charts per row"
             onChange={(e) => set(max + 1 - Number(e.target.value))}
           />
           <datalist id={`metric-grid-ticks-${variant}`}>
@@ -72,10 +73,10 @@ export function MetricGrid({
               <option key={i} value={i + 1} />
             ))}
           </datalist>
-          <button type="button" aria-label="Zoom in" disabled={cols <= 1} onClick={() => set(cols - 1)}>
+          <RowButton aria-label="Zoom in" disabled={cols <= 1} onClick={() => set(cols - 1)}>
             <PlusIcon />
-          </button>
-          <span className="seg-on metric-grid-count">{cols} / row</span>
+          </RowButton>
+          <span className="seg-on metric-grid-count">{cols} per row</span>
         </label>
       )}
       <div ref={gridRef} className={`metric-curves metric-curves--${variant}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>

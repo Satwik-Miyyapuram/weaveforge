@@ -17,6 +17,7 @@ import { NODE_COLOR_LABELS, useGraphColours } from "./graph-colours";
 import { CloseIcon } from "@/components/view-icons";
 import { SegmentedControl } from "@/components/segmented-control";
 import { Button } from "@/components/button";
+import { RowButton } from "@/components/controls";
 
 /** Swatches offered for a node colour; any other comes through the native picker. */
 const NODE_SWATCHES = [
@@ -53,15 +54,14 @@ export function Section({
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="graph-drawer-section">
-      <button
-        type="button"
+      <RowButton
         className="graph-drawer-section-head"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
         {title}
         <ChevronIcon open={open} />
-      </button>
+      </RowButton>
       {open && <div className="graph-drawer-section-body">{children}</div>}
     </div>
   );

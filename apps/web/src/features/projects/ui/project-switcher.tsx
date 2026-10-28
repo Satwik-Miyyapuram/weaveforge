@@ -1,7 +1,11 @@
 "use client";
 
 import { useProject } from "./project-provider";
+import { showNewProject } from "./projects-screen";
 import { Popover } from "@/components/popover";
+import { RowButton } from "@/components/controls";
+
+const DOT_TITLE = "Project colour";
 
 /**
  * Header chip showing the current project; the panel switches or opens the picker.
@@ -21,11 +25,12 @@ export function ProjectSwitcher() {
       <Popover
         portal
         align="left"
-        ariaLabel="Project"
+        ariaLabel={`Project: ${current.name}`}
+        look="custom"
         triggerClassName="proj-chip"
         label={
           <>
-            <span className="project-dot" style={{ background: current.color ?? "#7c9885" }} />
+            <span className="project-dot" aria-hidden title={DOT_TITLE} style={{ background: current.color ?? "#7c9885" }} />
             <span title={current.name}>{current.name}</span>
           </>
         }
@@ -33,29 +38,37 @@ export function ProjectSwitcher() {
         {(close) => (
           <>
             {projects.map((p) => (
-              <button
+              <RowButton
                 key={p.id}
                 className={`proj-menu-item${p.id === current.id ? " sel" : ""}`}
+                aria-current={p.id === current.id || undefined}
+                data-autofocus={p.id === current.id || undefined}
                 onClick={() => {
                   setProject(p.id);
                   close();
                 }}
               >
-                <span className="project-dot" style={{ background: p.color ?? "#7c9885" }} />
+                <span className="project-dot" aria-hidden title={DOT_TITLE} style={{ background: p.color ?? "#7c9885" }} />
                 {p.name}
                 {p.id === current.id && <span className="check">✓</span>}
-              </button>
+              </RowButton>
             ))}
             <div className="proj-menu-sep" />
-            <button
-              className="proj-menu-item"
-              onClick={() => {
-                setProject(null);
-                close();
-              }}
-            >
-              ＋  New / all projects
-            </button>
+            {[
+              { label: "＋ New project", run: () => showNewProject(setProject) },
+              { label: "All projects", run: () => setProject(null) },
+            ].map((row) => (
+              <RowButton
+                key={row.label}
+                className="proj-menu-item"
+                onClick={() => {
+                  row.run();
+                  close();
+                }}
+              >
+                {row.label}
+              </RowButton>
+            ))}
           </>
         )}
       </Popover>

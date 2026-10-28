@@ -110,3 +110,16 @@ test("a batch removal renames and refreshes every annotation it holds (23-16)", 
   assert.deepEqual(entry.annotations.map((a) => a.id), ["a", "b2"]);
   assert.deepEqual(entry.annotations[0]!.anchor, grown.anchor);
 });
+test("a colour, comment or text edit is a step that follows its row's id (D18, DA-112)", () => {
+  let state: InkUndoState = pushInkUndo(EMPTY_INK_UNDO, {
+    kind: "update",
+    id: "old",
+    before: { color: "#ff6666", comment: "" },
+    after: { color: "#66ff66", comment: "why" },
+  });
+  state = renameInkUndoId(state, "old", "new");
+  const entry = state.undo[0]!;
+  assert.equal(entry.kind === "update" && entry.id, "new");
+  // An edit holds no snapshot, so refreshing the row leaves it as it was.
+  assert.equal(refreshInkUndoAnnotation(state, ink("new")).undo[0], entry);
+});

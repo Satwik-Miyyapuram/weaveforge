@@ -11,6 +11,7 @@ import { Select } from "@/components/select";
 import { formatError } from "@/lib/format-error";
 import { useCapability } from "@/deployment/capabilities";
 import { Button } from "@/components/button";
+import { RowButton } from "@/components/controls";
 
 /**
  * First-run gate: create a lab, join with a code, or continue standalone.
@@ -117,23 +118,21 @@ function OrgSetupForm({ onDone }: { onDone: () => void | Promise<void> }) {
   return (
     <div className="org-setup-choose">
       <div className="org-modal-choices">
-        <button type="button" className="org-choice-card" onClick={() => setMode("create")}>
+        <RowButton className="org-choice-card" onClick={() => setMode("create")}>
           <span className="org-choice-title">Create a lab</span>
           <p className="org-choice-desc">Start a new research group and invite teammates with codes.</p>
-        </button>
-        <button type="button" className="org-choice-card" onClick={() => setMode("join")}>
+        </RowButton>
+        <RowButton className="org-choice-card" onClick={() => setMode("join")}>
           <span className="org-choice-title">Join with code</span>
           <p className="org-choice-desc">Enter an invite code from your supervisor or lab admin.</p>
-        </button>
+        </RowButton>
       </div>
-      <button
-        type="button"
-        className="link-btn org-modal-skip"
+      <Button variant="link" className="org-modal-skip"
         disabled={busy}
         onClick={() => void finishStandalone()}
       >
         {busy ? "Saving…" : "Continue without an org"}
-      </button>
+      </Button>
       <p className="muted org-setup-hint">
         You can create or join a lab later from <strong>Settings → Organization</strong>.
       </p>

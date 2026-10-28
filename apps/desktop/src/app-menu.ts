@@ -112,7 +112,9 @@ function buildMenu(actions: MenuActions): MenuItemConstructorOptions[] {
   });
 
   template.push({
-    // The sidebar's pages, in its order and with its names.
+    // The sidebar's pages, in its order and with its names. The main process
+    // cannot import the web registry, so `nav-routes.test.ts` holds the two to
+    // one list (DA-86).
     label: "Go",
     submenu: [
       go("Home", "/dashboard", actions),
@@ -124,18 +126,25 @@ function buildMenu(actions: MenuActions): MenuItemConstructorOptions[] {
         registerAccelerator: false,
         click: () => actions.search(),
       },
+      go("Workspace", "/workspace", actions),
       { type: "separator" },
       go("Papers", "/papers", actions),
       go("Notes", "/notes", actions),
-      go("Editor", "/workspace", actions),
       go("Graph", "/graph", actions),
       go("Lists", "/lists", actions),
-      go("Experiments", "/experiments", actions),
       { type: "separator" },
-      go("Plan", "/plan", actions),
-      go("Report", "/report", actions),
-      go("Log", "/log", actions),
+      go("Experiments", "/experiments", actions),
       go("Git", "/git", actions),
+      go("Plan", "/plan", actions),
+      go("Log", "/log", actions),
+      { type: "separator" },
+      go("Report", "/report", actions),
+      go("Overleaf", "/report/overleaf", actions),
+      { type: "separator" },
+      go("AI suggestions", "/ai-review", actions),
+      go("Shared with you", "/shared", actions),
+      go("Supervision", "/supervision", actions),
+      go("Settings", "/settings", actions),
     ],
   });
 

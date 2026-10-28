@@ -45,6 +45,7 @@ import { RelatedPapersPanel } from "./related-papers-panel";
 import { TagEditor } from "./tag-editor";
 import { Modal, ModalActions } from "@/components/modal";
 import { Button } from "@/components/button";
+import { RowButton } from "@/components/controls";
 
 /** A paper note's three views, in the order the Editor's pane header lists them. */
 const NOTE_MODES = ["edit", "read", "ink"] as const;
@@ -315,12 +316,11 @@ export function PaperNote({
           {!readOnly && (
             // Without an identifier this opens the editor that adds one, rather
             // than sitting disabled with nowhere to go.
-            <button
-              type="button"
+            <RowButton
+              aria-pressed={canTrackCitations ? trackingCitations ?? false : undefined}
               className={`record-action${trackingCitations ? " is-on" : ""}`}
               onClick={() => (canTrackCitations ? void toggleCitationTracking() : setEditingIds(true))}
               disabled={trackingCitations == null || trackingBusy}
-              aria-pressed={canTrackCitations ? trackingCitations ?? false : undefined}
               title={
                 !canTrackCitations
                   ? "Add a DOI or arXiv ID to track citations"
@@ -331,7 +331,7 @@ export function PaperNote({
             >
               {canTrackCitations ? <BellIcon /> : <BellOffIcon />}
               <span>{trackingCitations ? "Watching" : "Watch"}</span>
-            </button>
+            </RowButton>
           )}
           {!readOnly && (
             <Link className="record-action" href={`${WORKSPACE_PATH}?open=${encodeURIComponent(`paper:${paper.id}`)}`}>
@@ -339,15 +339,14 @@ export function PaperNote({
               <span>Open in editor</span>
             </Link>
           )}
-          <button
-            type="button"
+          <RowButton
             className="record-action"
             onClick={() => void copyCitation()}
             title={`Copy the citation (${citationFormat})`}
           >
             <QuoteIcon />
             <span>{copied ? "Copied" : "Cite"}</span>
-          </button>
+          </RowButton>
           {readerHref && (
             <Link href={readerHref} className="record-action" title="Open in reader">
               <PdfIcon />
@@ -357,12 +356,11 @@ export function PaperNote({
           {!readOnly && (
             <ShareButton resourceType="paper" resourceId={paper.id} title={`Share: ${paper.title}`} showLabel />
           )}
-          <a href="#record-comments" className="btn-ghost wf-tool" aria-label="Comment" title="Comment">
+          <Button variant="ghost" className="wf-tool" href="#record-comments" aria-label="Comment" title="Comment">
             <CommentsIcon />
-          </a>
+          </Button>
           {!readOnly && (
-            <button
-              type="button"
+            <RowButton
               className="record-action danger"
               onClick={() => void remove()}
               disabled={busy}
@@ -370,7 +368,7 @@ export function PaperNote({
               title="Delete"
             >
               <DeleteIcon />
-            </button>
+            </RowButton>
           )}
         </div>
       </nav>
@@ -399,7 +397,7 @@ export function PaperNote({
           ))}
       </header>
 
-      <div className={mode === "edit" ? "record-grid record-grid--editing" : "record-grid"}>
+      <div className="record-grid">
         <div className="record-main">
           <RecordSection
             label="Note"
@@ -419,9 +417,9 @@ export function PaperNote({
               readOnly ? (
                 <RecordEmpty>No note on this paper.</RecordEmpty>
               ) : (
-                <button type="button" className="record-note-empty" onClick={() => chooseMode("edit")}>
+                <RowButton className="record-note-empty" onClick={() => chooseMode("edit")}>
                   Write what this paper is for, in your own words. #hashtags place it in the graph.
-                </button>
+                </RowButton>
               )
             ) : (
               <div
@@ -558,17 +556,15 @@ export function PaperNote({
             from a clean template — the latter discards the draft you have now.
           </p>
           <ModalActions>
-            <button
-              type="button"
-              className="btn-secondary btn-cancel"
+            <Button className="btn-cancel"
               onClick={() => setTemplateChoiceOpen(false)}
               autoFocus
             >
               Cancel
-            </button>
-            <button type="button" className="btn-secondary danger" onClick={() => applyTemplate("")}>
+            </Button>
+            <Button className="danger" onClick={() => applyTemplate("")}>
               Replace
-            </button>
+            </Button>
             <Button variant="primary" onClick={() => applyTemplate(editorHandle.current?.text() ?? paper.summary ?? "")}>
               Append
             </Button>

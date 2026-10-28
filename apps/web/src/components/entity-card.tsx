@@ -93,10 +93,10 @@ export function EntityCard({
       onKeyDown={interactive ? onKeyDown : undefined}
     >
       <div className="entity-card-head">
-        {leading}
+        {leading != null && <div className="entity-card-lead">{leading}</div>}
         {/* Before the title: a float only wraps text that comes after it. */}
         {hasControls && (
-          <div className="entity-card-controls" onClick={stop} onKeyDown={stop}>
+          <div className={menu ? "entity-card-controls entity-card-controls--menu" : "entity-card-controls"} onClick={stop} onKeyDown={stop}>
             {badge}
             {status != null && <div className="entity-card-status">{status}</div>}
             {actions}
@@ -110,7 +110,7 @@ export function EntityCard({
 
       {tags && tags.length > 0 && (
         // A heavily tagged entity would otherwise wrap to three rows and push
-        // the body off-screen on a phone. One line, then a count.
+        // the body off-screen on a phone. A few tags, then a count.
         <div className="tag-chips chip-row--capped">
           {tags.slice(0, MAX_CARD_TAGS).map((t) => (
             <span key={t} className="tag-chip" title={`#${t}`}>

@@ -19,6 +19,8 @@ import { StatusSelect } from "@/components/status-select";
 import { runReported } from "@/lib/run-reported";
 import { useHiddenKeys } from "@/lib/toast";
 import { removeSectionLater, sectionKey } from "./remove-section";
+import { RowButton } from "@/components/controls";
+import { useRef, useState } from "react";
 
 export function SectionRow({
   node,
@@ -52,6 +54,10 @@ export function SectionRow({
     await runReported(() => getContainer().report.manageReportSection.setStatus(s.id, status), onError, onChanged);
   }
 
+  async function rename(title: string) {
+    await runReported(() => getContainer().report.manageReportSection.setTitle(s.id, title), onError, onChanged);
+  }
+
   function remove() {
     removeSectionLater(s, node.children.length, { onDeleted: onChanged });
   }
@@ -71,8 +77,10 @@ export function SectionRow({
         readOnly={readOnly}
         sharedByName={sharedByName}
         collapse={collapse}
+        inTree
         nested={!isRoot}
         onStatusChange={readOnly ? undefined : changeStatus}
+        onRename={readOnly ? undefined : rename}
         onRemove={readOnly ? undefined : () => void remove()}
         onOpen={onOpen}
       />
@@ -111,8 +119,10 @@ export function SectionCard({
   sharedByName,
   busy = false,
   collapse,
+  inTree = false,
   nested = false,
   onStatusChange,
+  onRename,
   onRemove,
   onUnpin,
   onOpen,
@@ -125,8 +135,11 @@ export function SectionCard({
   sharedByName?: string;
   busy?: boolean;
   collapse?: { open: boolean; onToggle: () => void };
+  /** In the outline tree: a leaf keeps a chevron-wide gap so every title starts at one x. */
+  inTree?: boolean;
   nested?: boolean;
   onStatusChange?: (status: ReportStatus) => void;
+  onRename?: (title: string) => void | Promise<void>;
   onRemove?: () => void;
   onUnpin?: () => void | Promise<void>;
   onOpen?: (id: string) => void;
@@ -142,6 +155,20 @@ export function SectionCard({
   ]
     .filter(Boolean)
     .join(" · ");
+  const [renaming, setRenaming] = useState(false);
+  const cancelled = useRef(false);
+
+  function finishRename(value: string) {
+    setRenaming(false);
+    const title = value.trim();
+    if (cancelled.current || !title || title === s.title) return;
+    void onRename?.(title);
+  }
+
+  const extraItems = [
+    ...(onOpen ? [{ id: "open", label: "Open", onSelect: () => onOpen(s.id) }] : []),
+    ...(onRename ? [{ id: "rename", label: "Rename", onSelect: () => setRenaming(true) }] : []),
+  ];
 
   return (
     <EntityCard
@@ -150,8 +177,7 @@ export function SectionCard({
       onActivate={onOpen ? () => onOpen(s.id) : undefined}
       leading={
         collapse ? (
-          <button
-            type="button"
+          <RowButton
             className="list-toggle section-head-toggle"
             aria-expanded={collapse.open}
             aria-label={collapse.open ? "Collapse section" : "Expand section"}
@@ -161,13 +187,34 @@ export function SectionCard({
             }}
           >
             <ChevronIcon open={collapse.open} variant="expand" size={16} />
-          </button>
-        ) : undefined
+          </RowButton>
+        ) : inTree ? <span className="section-head-toggle-spacer" aria-hidden /> : undefined
       }
       title={
         <>
+          {s.status === "done" && <span className="section-done-check" aria-hidden>✓ </span>}
           {s.sectionNo && <span className="muted">{s.sectionNo} </span>}
-          {s.title}
+          {renaming ? (
+            <input
+              className="section-rename-input"
+              aria-label={`Rename ${s.title}`}
+              defaultValue={s.title}
+              autoFocus
+              onFocus={() => {
+                cancelled.current = false;
+              }}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === "Enter") e.currentTarget.blur();
+                if (e.key === "Escape") setRenaming(false);
+              }}
+              onKeyUp={(e) => e.stopPropagation()}
+              onBlur={(e) => finishRename(e.currentTarget.value)}
+            />
+          ) : (
+            s.title
+          )}
         </>
       }
       badge={readOnly ? <PinnedPaperBadge ownerName={sharedByName} /> : undefined}
@@ -190,6 +237,7 @@ export function SectionCard({
           onDelete={isPinned ? onUnpin : (readOnly || !onRemove ? undefined : onRemove)}
           deleteLabel={isPinned ? "Remove from report" : "Delete section"}
           deleteDisabled={busy}
+          extraItems={extraItems}
         />
       }
     >

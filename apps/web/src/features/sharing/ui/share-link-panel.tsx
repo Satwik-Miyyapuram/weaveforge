@@ -72,45 +72,49 @@ export function ShareLinkPanel({
   }
 
   return (
-    <div className="share-links">
-      <h4 className="settings-group">Public link</h4>
-      <p className="share-link-expiry-hint">
-        New links expire after {SHARE_LINK_DEFAULT_TTL_DAYS} days by default.
-      </p>
-      {error && <FormError>{error}</FormError>}
-      {createdUrl && (
-        <div className="share-link-created">
-          <p className="muted">Copy this link now — the token is not shown again.</p>
-          <code className="share-link-url" data-testid="share-link-url">{createdUrl}</code>
-          <Button variant="ghost" size="sm" onClick={() => void copyText(createdUrl, "Link copied")}>
-            Copy link
-          </Button>
-        </div>
-      )}
-      {links.length > 0 && (
-        <ul className="share-link-list">
-          {links.map((link) => (
-            <li key={link.id} className="share-link-row">
-              <span className="muted">view-only link</span>
-              <span className="muted">{formatDate(link.createdAt)}</span>
-              {link.expiresAt ? (
-                <span className="share-link-expiry-hint">expires {formatExpiry(link.expiresAt)}</span>
-              ) : null}
-              <Button
+    <details className="share-links-fold">
+      <summary className="settings-group">
+        Public link{links.length > 0 ? ` (${links.length} active)` : ""}
+      </summary>
+      <div className="share-links">
+        <p className="share-link-expiry-hint">
+          New links expire after {SHARE_LINK_DEFAULT_TTL_DAYS} days by default.
+        </p>
+        {error && <FormError>{error}</FormError>}
+        {createdUrl && (
+          <div className="share-link-created">
+            <p className="muted">Copy this link now — the token is not shown again.</p>
+            <code className="share-link-url" data-testid="share-link-url">{createdUrl}</code>
+            <Button variant="ghost" size="sm" onClick={() => void copyText(createdUrl, "Link copied")}>
+              Copy link
+            </Button>
+          </div>
+        )}
+        {links.length > 0 && (
+          <ul className="share-link-list">
+            {links.map((link) => (
+              <li key={link.id} className="share-link-row">
+                <span className="muted">view-only link</span>
+                <span className="muted">{formatDate(link.createdAt)}</span>
+                {link.expiresAt ? (
+                  <span className="share-link-expiry-hint">expires {formatExpiry(link.expiresAt)}</span>
+                ) : null}
+                <Button
                
-                size="sm" className="danger"
-                disabled={busy}
-                onClick={() => void revoke(link.id)}
-              >
-                Revoke
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <Button disabled={busy} onClick={() => void createLink()}>
-        {busy ? "Creating…" : "Create view link"}
-      </Button>
-    </div>
+                  size="sm" className="danger"
+                  disabled={busy}
+                  onClick={() => void revoke(link.id)}
+                >
+                  Revoke
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <Button disabled={busy} onClick={() => void createLink()}>
+          {busy ? "Creating…" : "Create view link"}
+        </Button>
+      </div>
+    </details>
   );
 }

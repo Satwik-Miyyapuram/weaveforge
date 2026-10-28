@@ -1,5 +1,5 @@
 .annotations-head { font-size: var(--fs-xs); font-weight: 600; overflow-wrap: anywhere; }
-.annotation-list { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 8px; min-width: 0; }
+.annotation-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 8px; min-width: 0; }
 .annotation { display: flex; gap: 8px; min-width: 0; max-width: 100%; }
 .annotation-swatch { flex: none; width: 4px; border-radius: 2px; align-self: stretch; }
 .annotation-body { min-width: 0; flex: 1; overflow-wrap: anywhere; }
@@ -47,7 +47,7 @@
 .section-excerpts {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: 16px 16px;
   background: var(--surface);
   max-height: min(70vh, 640px);
   overflow: auto;
@@ -55,10 +55,10 @@
 .section-excerpts-title { margin: 0; font-size: var(--fs-lg); font-weight: 600; cursor: pointer; }
 .section-excerpts[open] > .section-excerpts-title { margin-bottom: 8px; }
 .section-excerpts-empty { margin: 0; font-size: var(--fs); }
-.section-excerpts-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.section-excerpts-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
 .section-excerpt-row { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
 .section-excerpt-quote { margin: 0; font-size: var(--fs); line-height: 1.4; overflow-wrap: anywhere; }
-.section-excerpt-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; min-width: 0; }
+.section-excerpt-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; min-width: 0; }
 .section-excerpt-actions select,
 .section-excerpt-actions .custom-select-container { max-width: 100%; min-width: 0; flex: 1 1 140px; }
 
@@ -66,12 +66,27 @@
 .jump-to-list { list-style: none; padding: 0; margin: 0; max-height: 50vh; overflow: auto; }
 .jump-to-list button {
   width: 100%; text-align: left; border: none; background: none;
-  padding: 8px 6px; cursor: pointer; color: var(--ink); border-radius: var(--r-sm);
+  padding: 8px 8px; cursor: pointer; color: var(--ink); border-radius: var(--r-sm);
 }
 .jump-to-list button:hover, .jump-to-list [aria-selected="true"] button {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 .jump-to-meta { font-size: var(--fs-xs); color: var(--muted); }
+/* Group headings and the rows under them (DA-99). */
+.jump-to-list ul { list-style: none; padding: 0; margin: 0; }
+.jump-to-group {
+  padding: var(--s3) var(--s2) var(--s1); font-size: var(--fs-xs); font-weight: 600;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em;
+}
+.jump-to-list > li:first-child .jump-to-group { padding-top: 4px; }
+/* The footer's key chips, one hint per group of keys. */
+.jump-to-keys { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); }
+.jump-to-keys kbd {
+  display: inline-block; min-width: 1.5em; margin-right: 2px; padding: 0 4px;
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  background: var(--surface2, var(--pill)); color: var(--ink);
+  font: inherit; text-align: center;
+}
 
 /* Result snippet. Clamped to two lines so a long note cannot push the rest of
    the results below the fold. */
@@ -96,7 +111,7 @@
   list-style: none;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   padding: 0;
   margin: 0 0 8px;
 }
@@ -110,7 +125,7 @@
   color: var(--muted);
   border-radius: var(--radius-pill) 0 0 var(--radius-pill);
   border-right: 0;
-  padding: 3px 4px 3px 10px;
+  padding: 4px 4px 4px 12px;
   font-size: var(--fs-xs);
   cursor: pointer;
 }
@@ -119,7 +134,7 @@
   background: var(--surface2);
   color: var(--muted);
   border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
-  padding: 3px 8px 3px 4px;
+  padding: 4px 8px 4px 4px;
   font-size: var(--fs-xs);
   line-height: 1;
   cursor: pointer;

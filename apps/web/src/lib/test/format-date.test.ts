@@ -43,5 +43,6 @@ test("a date-only value is that calendar day in any timezone", () => {
 
 test("a milestone card shows its due date formatted, not ISO (D12)", () => {
   const src = readFileSync(fileURLToPath(new URL("../../features/plan/ui/milestone-card.tsx", import.meta.url)), "utf8");
-  assert.match(src, /`Due \$\{formatDate\(m\.targetDate\)\}`/);
+  assert.match(src, /Due \{formatDate\(m\.targetDate\)\}/);
+  assert.doesNotMatch(src, /Due \{m\.targetDate\}/);
 });

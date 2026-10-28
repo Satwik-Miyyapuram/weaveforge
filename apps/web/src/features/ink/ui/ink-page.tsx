@@ -527,6 +527,26 @@ export function InkPage({
       onTouchStart={(e) => e.stopPropagation()}
       onTouchMove={(e) => e.stopPropagation()}
       onTouchEnd={(e) => e.stopPropagation()}
+      // Here, not on the sheet: the live canvas covers the sheet, so a file
+      // dropped on the page lands on the canvas and bubbles up to this.
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes("Files")) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+          if (!isDragOver) setIsDragOver(true);
+        }
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+        setIsDragOver(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDragOver(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file && onDropFile)
+          onDropFile(file, project(e.clientX, e.clientY));
+      }}
     >
       {/*
         The canvas's dock: sticky at the top of the rail's full-height live
@@ -575,24 +595,6 @@ export function InkPage({
         ref={sheetRef}
         className={`ink-sheet paper-${paper}${isDragOver ? " is-drag-over" : ""}`}
         style={{ width: `${width}px`, height: `${height}px`, ...inkSheetRuleStyle(scale) }}
-        onDragOver={(e) => {
-          if (e.dataTransfer.types.includes("Files")) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "copy";
-            if (!isDragOver) setIsDragOver(true);
-          }
-        }}
-        onDragLeave={(e) => {
-          if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-          setIsDragOver(false);
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          setIsDragOver(false);
-          const file = e.dataTransfer.files?.[0];
-          if (file && onDropFile)
-            onDropFile(file, project(e.clientX, e.clientY));
-        }}
       >
       {below}
       {above}

@@ -5,6 +5,7 @@ import s from "./scrolly.module.css";
 import { DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS } from "@/lib/theme/theme";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
+import { MenuItemButton, RowButton } from "@/components/controls";
 
 /**
  * The pieces the pitch and the docs share: the brand mark, the theme and its
@@ -66,17 +67,16 @@ export function ThemePicker({ theme, onPick }: { theme: string; onPick: (theme: 
     setOpen(false);
   };
   const item = (id: string, label: string) => (
-    <button key={id} type="button" role="menuitemradio" aria-checked={theme === id} onClick={() => pick(id)}>
+    <MenuItemButton kind="radio" checked={theme === id} key={id} onClick={() => pick(id)}>
       {/* The swatch carries the theme's own attribute, so it is painted from
           that theme's tokens: its ground and its accent. */}
       <span className={s.swatch} data-theme={id === AUTO ? undefined : id} aria-hidden />
       {label}
-    </button>
+    </MenuItemButton>
   );
   return (
     <div className={s.picker} ref={boxRef}>
-      <button
-        type="button"
+      <RowButton
         className={s["picker-btn"]}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -85,7 +85,7 @@ export function ThemePicker({ theme, onPick }: { theme: string; onPick: (theme: 
       >
         <span className={s.swatch} data-theme={theme === AUTO ? undefined : theme} aria-hidden />
         <span className={s["picker-label"]}>{themeLabel(theme)}</span>
-      </button>
+      </RowButton>
       {open && (
         <div className={s["picker-menu"]} role="menu" aria-label="Theme">
           {item(AUTO, "Auto")}

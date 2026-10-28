@@ -76,14 +76,13 @@ export function ConfirmDialog({
         <Button onClick={onClose} disabled={busy} autoFocus>
           {cancelLabel}
         </Button>
-        <button
-          type="button"
-          className={danger ? "btn-primary btn-danger" : "btn-primary"}
+        <Button
+          variant={danger ? "danger" : "primary"}
           onClick={onConfirm}
           disabled={busy || !ready}
         >
           {busy ? "Working…" : confirmLabel}
-        </button>
+        </Button>
       </ModalActions>
     </Modal>
   );

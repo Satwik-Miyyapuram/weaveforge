@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { RowButton } from "./controls";
 
 /**
  * The one way back from a detail page to where it came from: a square chevron
@@ -33,8 +34,8 @@ export function BackButton({
       {inner}
     </Link>
   ) : (
-    <button type="button" className="back-btn" onClick={onClick} title={title}>
+    <RowButton className="back-btn" onClick={onClick} title={title}>
       {inner}
-    </button>
+    </RowButton>
   );
 }

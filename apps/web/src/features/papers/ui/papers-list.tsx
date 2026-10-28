@@ -38,6 +38,8 @@ import { navTransition } from "@/lib/view-transition";
 import { Button } from "@/components/button";
 import { showToast, useHiddenKeys } from "@/lib/toast";
 import { paperKey } from "./remove-paper";
+import { PdfDropZone } from "./pdf-drop-zone";
+import { summarizePdfDrop, type PdfDropOutcome } from "../application/paper-from-pdf";
 
 type PapersViewData = PapersScreenData & { ownerNames: Map<string, string> };
 
@@ -180,6 +182,19 @@ export function PapersScreen() {
       setCheckingAlerts(false);
     }
   }, []);
+
+  const onPdfsAdded = useCallback(
+    (outcomes: PdfDropOutcome[]) => {
+      setComposeOpen(false);
+      void load();
+      const { message, open } = summarizePdfDrop(outcomes);
+      const only = outcomes.length === 1 ? outcomes[0] : undefined;
+      // A paper already in the library is opened, not added twice (E10).
+      if (open && only?.kind === "added" && !only.created) openPaperById(open.id);
+      showToast(message, open ? { label: "Open", run: () => openPaperById(open.id) } : undefined);
+    },
+    [load, openPaperById],
+  );
 
   const replace = useCallback(
     (p: Paper) => {
@@ -377,6 +392,7 @@ export function PapersScreen() {
 
   return (
     <section className="screen papers-screen">
+      {!isSharedView && <PdfDropZone onDropped={onPdfsAdded} />}
       <ScreenHead
         eyebrow={papers.length > 0 ? `${papers.length} ${papers.length === 1 ? "paper" : "papers"} · ${readCount} read` : undefined}
         search={papers.length > 0 ? { value: search, onChange: setSearch, label: "Search papers" } : undefined}
@@ -435,6 +451,7 @@ export function PapersScreen() {
       {composeOpen && (
         <Modal title="Add paper" onClose={() => setComposeOpen(false)}>
           <AddPaperForm
+            onPdfs={onPdfsAdded}
             onAdded={(paper, created) => {
               setComposeOpen(false);
               void load();

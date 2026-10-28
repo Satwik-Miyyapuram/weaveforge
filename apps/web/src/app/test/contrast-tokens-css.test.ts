@@ -91,3 +91,54 @@ test("every link reads one token, set once (D05)", () => {
   assert.match(rule(read("../styles/base.css"), "a"), /color:\s*var\(--link\);/);
   assert.match(rule(read("../styles/markdown.css"), ".markdown a"), /color:\s*var\(--link\);/);
 });
+
+test("a link is one colour in the source editor and in preview (D05)", () => {
+  const markdown = read("../styles/markdown.css");
+  assert.match(rule(markdown, ".wikilink"), /color:\s*var\(--link\);/);
+  assert.match(rule(markdown, ".wikilink--unresolved:hover"), /color:\s*var\(--link\);/);
+  assert.match(read("../../lib/markdown-cm-syntax.ts"), /tag: t\.link, color: "var\(--link\)"/);
+});
+
+/** Relative luminance of `oklch(L C h)`, through OKLab to linear sRGB. */
+export function oklchLuminance(value: string): number {
+  const m = /oklch\(\s*([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)\s*\)/.exec(value);
+  assert.ok(m, `not an oklch colour: ${value}`);
+  const L = Number(m[1]) / (m[2] ? 100 : 1);
+  const h = (Number(m[4]) * Math.PI) / 180;
+  const [a, b] = [Number(m[3]) * Math.cos(h), Number(m[3]) * Math.sin(h)];
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const mm = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  const clamp = (v: number) => Math.min(1, Math.max(0, v));
+  const r = clamp(4.0767416621 * l - 3.3077115913 * mm + 0.2309699292 * s);
+  const g = clamp(-1.2684380046 * l + 2.6097574011 * mm - 0.3413193965 * s);
+  const bl = clamp(-0.0041960863 * l - 0.7034186147 * mm + 1.707614701 * s);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+}
+
+test("the oklch reader turns known colours into their sRGB luminance (D00)", () => {
+  assert.ok(Math.abs(oklchLuminance("oklch(1 0 0)") - 1) < 1e-3, "white");
+  assert.ok(Math.abs(oklchLuminance("oklch(0 0 0)")) < 1e-6, "black");
+  // #ff0000 is oklch(62.8% 0.2577 29.23); its luminance is 0.2126.
+  assert.ok(Math.abs(oklchLuminance("oklch(62.8% 0.2577 29.23)") - luminance("#ff0000")) < 2e-3, "red");
+  assert.ok(Math.abs(oklchLuminance("oklch(0.5 0 0)") - luminance("#636363")) < 2e-3, "mid grey");
+});
+
+test("card text is AA on every Confetti card tint (D00, T6)", () => {
+  for (const file of ["confetti-light.css", "confetti-dark.css"]) {
+    const css = read(`../themes/${file}`);
+    const t = tokens(css);
+    const tints = [...css.matchAll(/--(confetti-\d-bg):\s*(oklch\([^)]*\))/g)];
+    assert.equal(tints.length, 6, `${file} tints`);
+    for (const [, name, value = ""] of tints) {
+      const ground = oklchLuminance(value);
+      // --ink is --text (common.css); a link without its own ink uses the accent.
+      for (const [ink, hex] of [["text", t.text], ["muted", t.muted], ["link", t["accent-ink"] ?? t.accent]] as const) {
+        assert.ok(hex, `${file} has no hex for ${ink}`);
+        const fg = luminance(hex);
+        const ratio = (Math.max(fg, ground) + 0.05) / (Math.min(fg, ground) + 0.05);
+        assert.ok(ratio >= 4.5, `${file} ${ink} on ${name} is ${ratio.toFixed(2)}`);
+      }
+    }
+  }
+});

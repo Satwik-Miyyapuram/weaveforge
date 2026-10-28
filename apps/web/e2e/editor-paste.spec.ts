@@ -233,26 +233,27 @@ test.describe("image paste", () => {
     const h = await open(page, "instant");
     await act(page, `h.setDoc("before after"); h.setCursor("before ".length); h.pasteImages(["loss-curve.png"])`);
     await settle(page, 120);
-    expect(await h.doc()).toBe("before ![loss-curve](vault:u/p/loss-curve.png)after");
+    // A picture is a paragraph of its own (DA-104), so blank lines part it from the words.
+    expect(await h.doc()).toBe("before \n\n![loss-curve](vault:u/p/loss-curve.png)\n\nafter");
   });
 
   test("leaves the caret after the inserted link", async ({ page }) => {
     const h = await open(page, "instant");
     await act(page, `h.setDoc("x"); h.setCursor(1); h.pasteImages(["a.png"])`);
     await settle(page, 120);
-    expect(await h.cursor()).toBe("x![a](vault:u/p/a.png)".length);
+    expect(await h.cursor()).toBe("x\n\n![a](vault:u/p/a.png)".length);
   });
 
   test("shows a pending placeholder and swaps it when the upload lands", async ({ page }) => {
     const h = await open(page);
     await act(page, `h.setDoc("start "); h.setCursor(6); h.pasteImages(["diagram.png"])`);
     await settle(page);
-    expect(await h.doc()).toBe("start ![Uploading diagram…]()");
+    expect(await h.doc()).toBe("start \n\n![Uploading diagram…]()");
     expect(await h.pending()).toBe(1);
 
     await act(page, `h.finish(0, "![diagram](vault:u/p/diagram.png)")`);
     await settle(page, 100);
-    expect(await h.doc()).toBe("start ![diagram](vault:u/p/diagram.png)");
+    expect(await h.doc()).toBe("start \n\n![diagram](vault:u/p/diagram.png)");
     expect(await h.pending()).toBe(0);
   });
 
@@ -267,7 +268,7 @@ test.describe("image paste", () => {
     await settle(page, 30);
     await act(page, `h.finish(0, "![diagram](vault:u/p/diagram.png)")`);
     await settle(page, 100);
-    expect(await h.doc()).toBe("PRE start ![diagram](vault:u/p/diagram.png) POST");
+    expect(await h.doc()).toBe("PRE start \n\n![diagram](vault:u/p/diagram.png) POST");
   });
 
   test("several images keep their own slots however their uploads finish", async ({ page }) => {
@@ -282,7 +283,7 @@ test.describe("image paste", () => {
     await settle(page, 40);
     await act(page, `h.finish(0, "<ONE>")`);
     await settle(page, 100);
-    expect(await h.doc()).toBe("<ONE><TWO><THREE>");
+    expect(await h.doc()).toBe("<ONE>\n\n<TWO>\n\n<THREE>");
   });
 
   test("a failed upload removes its placeholder and says why", async ({ page }) => {
@@ -547,19 +548,19 @@ test.describe("attach image", () => {
     const h = await open(page, "instant");
     await act(page, `h.setDoc("before after"); h.setCursor(7); h.attach("figure.png")`);
     await settle(page, 120);
-    expect(await h.doc()).toBe("before ![figure](vault:u/p/figure.png)after");
+    expect(await h.doc()).toBe("before \n\n![figure](vault:u/p/figure.png)\n\nafter");
   });
 
   test("an attached file shows the same placeholder a pasted one does", async ({ page }) => {
     const h = await open(page);
     await act(page, `h.setDoc("note "); h.setCursor(5); h.attach("chart.png")`);
     await settle(page);
-    expect(await h.doc()).toBe("note ![Uploading chart…]()");
+    expect(await h.doc()).toBe("note \n\n![Uploading chart…]()");
     expect(await h.pending()).toBe(1);
 
     await act(page, `h.finish(0, "![chart](vault:u/p/chart.png)")`);
     await settle(page, 100);
-    expect(await h.doc()).toBe("note ![chart](vault:u/p/chart.png)");
+    expect(await h.doc()).toBe("note \n\n![chart](vault:u/p/chart.png)");
   });
 
   test("an attached file that is too large is refused the same way", async ({ page }) => {

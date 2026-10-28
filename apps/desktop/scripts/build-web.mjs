@@ -27,9 +27,12 @@ import { fileURLToPath } from "node:url";
  *     into the local database over the loopback API now, so a copy with no
  *     account has experiments to show. Opening one is `?experiment=<id>` on the
  *     list rather than a page of its own — see `experiment-href.ts`.
- *   - **`app/org`.** It talks to `/api/org/*`, which the export has no server
- *     for. `/shared` and `/supervision` do ship: they read through the
- *     container, which a signed-in window routes to the server.
+ *   - **`app/pitch`.** The public pitch page is for the website. Inside the
+ *     app it was a marketing page with an "Open the app" button (design
+ *     decision D-28); it stays on weaveforge.org.
+ *
+ * `app/org` is not held: it only redirects to Settings now, and holding it
+ * aside left the old path a 404 in the app.
  *
  * The routes are held aside by renaming their files, not their directories:
  * Windows refuses to rename a directory an editor or language server watches,
@@ -48,7 +51,7 @@ const exported = path.join(web, ".next-desktop");
 const destination = path.join(root, "dist/web");
 
 /** Route directories whose files are held aside for the build. */
-const heldRoutes = ["api", "org", "experiments/[id]"].map((route) => path.join(web, "src/app", route));
+const heldRoutes = ["api", "experiments/[id]", "pitch"].map((route) => path.join(web, "src/app", route));
 const HELD = ".held-for-desktop-build";
 
 function filesUnder(dir) {

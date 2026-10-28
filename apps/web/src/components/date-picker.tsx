@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/view-icons";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { Button } from "@/components/button";
+import { RowButton, ToggleButton } from "./controls";
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -118,10 +119,9 @@ export function DatePicker({
 
   return (
     <div className="custom-select-container date-picker" ref={wrapRef}>
-      <button
+      <RowButton
         ref={btnRef}
         id={id}
-        type="button"
         className="custom-select-button"
         aria-label={ariaLabel}
         aria-haspopup="dialog"
@@ -137,7 +137,7 @@ export function DatePicker({
           <rect x="3" y="5" width="18" height="16" rx="2" />
           <path d="M3 10h18M8 3v4M16 3v4" />
         </svg>
-      </button>
+      </RowButton>
       {open &&
         createPortal(
           <div
@@ -155,9 +155,9 @@ export function DatePicker({
             }}
           >
             <div className="date-picker-head">
-              <button type="button" className="date-picker-nav" aria-label="Previous month" onClick={() => shift(-1)}><ChevronLeftIcon /></button>
+              <RowButton className="date-picker-nav" aria-label="Previous month" onClick={() => shift(-1)}><ChevronLeftIcon /></RowButton>
               <span className="date-picker-title">{MONTHS[vm]} {vy}</span>
-              <button type="button" className="date-picker-nav" aria-label="Next month" onClick={() => shift(1)}><ChevronRightIcon /></button>
+              <RowButton className="date-picker-nav" aria-label="Next month" onClick={() => shift(1)}><ChevronRightIcon /></RowButton>
             </div>
             <div className="date-picker-grid">
               {WEEKDAYS.map((w) => (
@@ -170,9 +170,9 @@ export function DatePicker({
                 if (v === value) cls.push("sel", "sel-plain");
                 if (v === todayIso) cls.push("today");
                 return (
-                  <button key={v} data-day={v} type="button" className={cls.join(" ")} aria-pressed={v === value} disabled={!!min && v < min} onClick={() => pick(v)}>
+                  <ToggleButton pressed={v === value} key={v} data-day={v} className={cls.join(" ")} disabled={!!min && v < min} onClick={() => pick(v)}>
                     {d}
-                  </button>
+                  </ToggleButton>
                 );
               })}
             </div>

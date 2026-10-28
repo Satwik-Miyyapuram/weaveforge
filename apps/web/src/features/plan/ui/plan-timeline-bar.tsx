@@ -3,6 +3,7 @@
 import { enumLabel } from "@/lib/enum-label";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { clusterMarks, type PlanTimeline } from "@/features/plan/application/plan-timeline";
+import { RowButton } from "@/components/controls";
 
 /** A mark's width plus a little air, in px: nearer marks fold into one. */
 const MARK_SPAN = 26;
@@ -55,9 +56,8 @@ export function PlanTimelineBar({
       {clusters.map((c) => {
         const names = c.marks.map((m) => `${m.title} (${enumLabel("milestoneStatus", m.status)})`);
         return (
-          <button
+          <RowButton
             key={c.marks[0]!.id}
-            type="button"
             className="plan-mark"
             style={{ left: `${c.at}%` }}
             title={names.join("\n")}
@@ -68,7 +68,7 @@ export function PlanTimelineBar({
               <span key={m.id} className={`plan-mark--${m.status}`} data-status={m.status} />
             ))}
             {c.marks.length > 1 && <b className="plan-mark-count">{c.marks.length}</b>}
-          </button>
+          </RowButton>
         );
       })}
       <div className="plan-months" aria-hidden>

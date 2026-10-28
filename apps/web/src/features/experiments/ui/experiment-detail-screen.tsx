@@ -28,6 +28,7 @@ import { StatusSelect } from "@/components/status-select";
 import { FormError } from "@/components/form-error";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { Button } from "@/components/button";
+import { RowButton } from "@/components/controls";
 
 
 export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
@@ -88,6 +89,13 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   const [resultDraft, setResultDraft] = useState<string | null>(null);
   const [resultError, setResultError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [cmdCopied, setCmdCopied] = useState(false);
+  async function copyRunCommand() {
+    if (!exp?.runCommand) return;
+    await navigator.clipboard.writeText(exp.runCommand);
+    setCmdCopied(true);
+    setTimeout(() => setCmdCopied(false), 2000);
+  }
   async function saveResult() {
     if (!exp || resultDraft === null) return;
     try {
@@ -147,7 +155,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   const activity = [
     exp.finishedAt ? { at: recordDate(exp.finishedAt), what: `Marked ${exp.status}` } : null,
     exp.startedAt ? { at: recordDate(exp.startedAt), what: "Run started" } : null,
-    { at: recordDate(exp.createdAt), what: "Logged" },
+    { at: recordDate(exp.createdAt), what: "Created" },
   ].filter((e): e is { at: string; what: string } => e !== null && e.at !== "");
 
   return (
@@ -167,9 +175,9 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
           )}
           <div className="record-actions">
             <ShareButton resourceType="experiment" resourceId={exp.id} title={`Share: ${exp.name}`} showLabel />
-            <a href="#record-comments" className="btn-ghost wf-tool" aria-label="Comment" title="Comment">
+            <Button variant="ghost" className="wf-tool" href="#record-comments" aria-label="Comment" title="Comment">
               <CommentsIcon />
-            </a>
+            </Button>
           </div>
         </nav>
         {statusError && <FormError>{statusError}</FormError>}
@@ -177,7 +185,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
         <header className="record-head">
           <h1 className="record-title">{exp.name}</h1>
           {exp.hypothesis && <p className="record-by record-hypothesis">{exp.hypothesis}</p>}
-          {meta && <p className="record-mono record-meta">{meta}</p>}
+          {meta && !asideOpen && <p className="record-mono record-meta">{meta}</p>}
         </header>
 
         <div className={`record-grid${asideOpen ? "" : " record-grid--aside-shut"}`}>
@@ -208,9 +216,9 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
               label="Result"
               tag={
                 resultDraft === null ? (
-                  <button type="button" className="record-action" onClick={() => setResultDraft(exp.resultNote ?? "")}>
+                  <RowButton className="record-action" onClick={() => setResultDraft(exp.resultNote ?? "")}>
                     {exp.resultNote ? "Edit" : "Write result"}
-                  </button>
+                  </RowButton>
                 ) : undefined
               }
             >
@@ -241,7 +249,14 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
             </RecordSection>
 
             {exp.runCommand && (
-              <RecordSection label="Run command">
+              <RecordSection
+                label="Run command"
+                tag={
+                  <Button size="sm" onClick={() => void copyRunCommand()}>
+                    {cmdCopied ? "Copied" : "Copy"}
+                  </Button>
+                }
+              >
                 <pre className="exp-run-cmd">{exp.runCommand}</pre>
               </RecordSection>
             )}
@@ -257,22 +272,19 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
           </div>
 
           <aside className="record-aside">
-            <button
-              type="button"
-              className="entity-icon-btn record-aside-toggle"
+            <RowButton className="entity-icon-btn record-aside-toggle"
               onClick={toggleAside}
               aria-expanded={asideOpen}
               aria-label={asideOpen ? "Hide side panel" : "Show side panel"}
               title={asideOpen ? "Hide side panel" : "Show side panel"}
             >
               <ChevronIcon />
-            </button>
+            </RowButton>
             {asideOpen && (
             <>
             <RecordSection label="Record">
               <RecordFacts
                 rows={[
-                  ["Status", exp.status],
                   started ? ["Started", started] : null,
                   finished ? ["Finished", finished] : null,
                   exp.branch ? ["Branch", exp.branch] : null,

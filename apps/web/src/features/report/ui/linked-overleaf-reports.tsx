@@ -14,6 +14,7 @@ import { type LinkedReport, type ReportContent, local, api } from "./linked-over
 import { SectionTree } from "./overleaf-section-tree";
 import { EditOverleafReportForm, LinkOverleafForm } from "./overleaf-report-forms";
 import { Button } from "@/components/button";
+import { RowButton } from "@/components/controls";
 
 export function LinkedOverleafReports() {
   const { current } = useProject();
@@ -145,10 +146,10 @@ export function LinkedOverleafReports() {
           />
         ) : (
           <div className={`linked-overleaf-row${selected?.id === report.id ? " selected" : ""}`} key={report.id}>
-            <button type="button" className="linked-overleaf-row__open" onClick={() => void openReport(report)}>
+            <RowButton className="linked-overleaf-row__open" onClick={() => void openReport(report)}>
               <strong>{report.title}</strong>
               <small>{report.entry_file} · Overleaf project {report.overleaf_project_id}</small>
-            </button>
+            </RowButton>
             <div className="linked-overleaf-row__actions">
               {confirmId === report.id ? (
                 <>
@@ -158,9 +159,9 @@ export function LinkedOverleafReports() {
                 </>
               ) : (
                 <>
-                  <button type="button" className="link-btn" onClick={() => void openReport(report)}>
+                  <Button variant="link" onClick={() => void openReport(report)}>
                     {loading && selected?.id === report.id ? "Loading…" : "View"}
-                  </button>
+                  </Button>
                   <Button variant="ghost" size="sm" onClick={() => { setEditingId(report.id); setConfirmId(null); }}>Edit</Button>
                   <Button variant="ghost" size="sm" onClick={() => setConfirmId(report.id)}>Unlink</Button>
                 </>
@@ -169,7 +170,7 @@ export function LinkedOverleafReports() {
           </div>
         ))}</div>}
         {selected && <div className="linked-overleaf-content">
-          <div className="linked-overleaf-toolbar"><strong>{selected.title}</strong><span>{content?.files.length ?? 0} source files</span><a className="link-btn" href={content?.overleafUrl ?? selected.external_url ?? `https://www.overleaf.com/project/${selected.overleaf_project_id}`} target="_blank" rel="noreferrer">Open in Overleaf ↗</a><Button variant="ghost" size="sm" onClick={() => void openReport(selected)}>Refresh</Button></div>
+          <div className="linked-overleaf-toolbar"><strong>{selected.title}</strong><span>{content?.files.length ?? 0} source files</span><Button variant="link" href={content?.overleafUrl ?? selected.external_url ?? `https://www.overleaf.com/project/${selected.overleaf_project_id}`} target="_blank" rel="noreferrer">Open in Overleaf ↗</Button><Button variant="ghost" size="sm" onClick={() => void openReport(selected)}>Refresh</Button></div>
           {content && (() => {
             const counts = sectionWordCounts(content.sectionTree.roots, content.files);
             const total = content.sectionTree.roots.reduce((sum, node) => sum + (counts.get(node.id) ?? 0), 0);

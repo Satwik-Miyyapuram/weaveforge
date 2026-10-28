@@ -16,6 +16,7 @@ import {
   type McpClientId,
 } from "./mcp-client-config";
 import { Button } from "@/components/button";
+import { RowButton, TabButton } from "@/components/controls";
 
 const CHIP: Partial<Record<DesktopLocalApiPermission, string>> = {
   "mcp:read": "read & search",
@@ -165,7 +166,7 @@ export function McpClients({
     <>
       {error && <FormError>{error}</FormError>}
       {mcp.connected && !state.enabled && (
-        <FormError>{state.reason ?? "MCP is not being served, so AI clients cannot reach WeaveForge. Tick Serve MCP above."}</FormError>
+        <FormError>{state.reason ?? "MCP is not being served, so AI clients cannot reach WeaveForge. Turn on Serve MCP above."}</FormError>
       )}
       <div className="mcp-client">
         <header>
@@ -186,9 +187,9 @@ export function McpClients({
               </>
             )}
             <div className="mcp-row">
-              <button type="button" className="mcp-danger" disabled={busy} onClick={() => void act(() => desktop()?.disconnectMcp?.())}>
+              <RowButton className="mcp-danger" disabled={busy} onClick={() => void act(() => desktop()?.disconnectMcp?.())}>
                 Disconnect
-              </button>
+              </RowButton>
             </div>
           </>
         ) : (
@@ -207,19 +208,16 @@ export function McpClients({
           </header>
           <div className="mcp-tabs" role="tablist" aria-label="Client" onKeyDown={onTabKey}>
             {MCP_CLIENT_TABS.map((t) => (
-              <button
+              <TabButton selected={t.id === tab}
                 key={t.id}
                 id={`mcp-tab-${t.id}`}
-                type="button"
-                role="tab"
                 className="mcp-tab"
-                aria-selected={t.id === tab}
                 aria-controls="mcp-client-pane"
                 tabIndex={t.id === tab ? 0 : -1}
                 onClick={() => setTab(t.id)}
               >
                 {t.label}
-              </button>
+              </TabButton>
             ))}
           </div>
           <div id="mcp-client-pane" className="mcp-pane" role="tabpanel" aria-labelledby={`mcp-tab-${tab}`}>

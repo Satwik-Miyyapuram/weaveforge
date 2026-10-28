@@ -282,14 +282,12 @@ export function PlanScreen() {
       )}
       <ul className="exp-list plan-list">{openItems.map(renderCard)}</ul>
       {doneItems.length > 0 && openItems.length > 0 && (
-        <button
-          type="button"
-          className="btn-ghost plan-done-toggle"
+        <Button variant="ghost" className="plan-done-toggle"
           aria-expanded={doneVisible}
           onClick={() => setShowDone((v) => !v)}
         >
           {doneVisible ? "Hide" : "Show"} {doneItems.length} done
-        </button>
+        </Button>
       )}
       {doneVisible && doneItems.length > 0 && (
         <ul className="exp-list plan-list">{doneItems.map(renderCard)}</ul>

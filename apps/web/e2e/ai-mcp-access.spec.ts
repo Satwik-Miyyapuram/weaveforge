@@ -26,7 +26,7 @@ test.describe("AI & MCP access", () => {
 
     await expect(page.getByRole("heading", { name: "Allow reading" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Allow proposals" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Create MCP token" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Manage MCP tokens" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Start access for 0 sources" })).toBeDisabled();
 
     await page.getByRole("button", { name: "Save AI access" }).click();

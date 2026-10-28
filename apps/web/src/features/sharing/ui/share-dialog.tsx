@@ -151,8 +151,6 @@ export function ShareDialog({
         )}
       </div>
 
-      {resourceId && <ShareLinkPanel resourceType={resourceType} resourceId={resourceId} />}
-
       <div className="share-add">
         <h4 className="settings-group">Add people</h4>
         <MemberPicker
@@ -161,24 +159,31 @@ export function ShareDialog({
           onToggle={(id) => setToAdd((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))}
         />
         <div className="share-add-foot">
-          <Select
-            className="share-access"
-            value={access}
-            onChange={(e) => setAccess(e.target.value as ShareAccess)}
-            aria-label="Access level"
-          >
-            {accessOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </Select>
-          <button
-            type="button"
-            className="btn-primary share-add-submit"
+          <div className="field share-permission">
+            <label htmlFor="share-permission">Permission</label>
+            <Select
+              id="share-permission"
+              className="share-access"
+              value={access}
+              onChange={(e) => setAccess(e.target.value as ShareAccess)}
+              aria-describedby="share-permission-help"
+            >
+              {accessOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </Select>
+          </div>
+          <Button variant="primary" className="share-add-submit"
             disabled={busy || !canGrant}
             onClick={() => void grantSelected()}
           >
             {busy ? "Sharing…" : toAdd.length > 0 ? `Share (${toAdd.length})` : "Share"}
-          </button>
+          </Button>
         </div>
+        <p id="share-permission-help" className="muted share-permission-help">
+          View can read. Comment can read and comment.{supportsEdit ? " Edit can change it too." : ""}
+        </p>
       </div>
+
+      {resourceId && <ShareLinkPanel resourceType={resourceType} resourceId={resourceId} />}
     </Modal>
   );
 }

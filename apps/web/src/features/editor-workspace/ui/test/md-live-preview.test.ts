@@ -1,13 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  MD_PREVIEW_KEY,
-  PREVIEW_CHOICES,
-  previewBody,
-  readMdPreviewMode,
-  type MdPreviewMode,
-} from "../md-live-preview";
+import { MD_PREVIEW_KEY, readMdPreviewMode, type MdPreviewMode } from "@/lib/hooks/use-md-preview-mode";
+import { previewBody } from "../md-live-preview";
 
 test("a remembered choice is read back, junk is off", () => {
   // localStorage is a browser thing; the module guards for it, so the test
@@ -54,12 +49,4 @@ test("the preview shows the editor's text, even when emptied (28-10)", () => {
   assert.equal(previewBody("", "saved"), "");
   assert.equal(previewBody("  \n", "saved"), "  \n");
   assert.equal(previewBody("live", "saved"), "live");
-});
-
-test("the layout choices read in sentence case, like the editor's other modes (E30)", () => {
-  assert.deepEqual(
-    PREVIEW_CHOICES.map((c) => [c.value, c.label]),
-    [["off", "Source"], ["side", "Side"], ["below", "Below"]],
-  );
-  for (const c of PREVIEW_CHOICES) assert.ok(c.title.length > 0, `${c.value} has a hint`);
 });

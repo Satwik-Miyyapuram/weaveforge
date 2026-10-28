@@ -12,6 +12,7 @@ import {
 import { getContainer } from "@/bootstrap";
 import { Modal, ModalActions } from "@/components/modal";
 import { ScreenHead } from "@/components/screen-head";
+import { ConnectionState } from "@/components/connection-state";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
 import { SyncSettings } from "@/features/sync";
@@ -27,6 +28,7 @@ import { ExportDataPanel } from "./export-data-panel";
 import { GitHubLinkCard } from "./github-link-card";
 import { Select } from "@/components/select";
 import { userIntegrationsForConfig } from "@/integrations/descriptors-resolve";
+import { railGroupText, type RailGroupWords } from "./rail-group-text";
 import { isOfflineBuild } from "@/deployment/build-target";
 import { AiAccessPanel } from "./ai-access-panel";
 import { AppearancePanel } from "./appearance-panel";
@@ -36,11 +38,17 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 import { useSubmit } from "@/lib/hooks/use-submit";
 import { useCapability, hasServerRoutes } from "@/deployment/capabilities";
+import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
+import { RowButton, TabButton } from "@/components/controls";
 
 // Only the Tokens tab paints it, so it stays out of the route's first load.
 const ApiTokensPanel = dynamic(() => import("./api-tokens-panel").then((m) => m.ApiTokensPanel), { ssr: false });
+const McpTokensPanel = dynamic(() => import("./mcp-tokens-panel").then((m) => m.McpTokensPanel), { ssr: false });
+// The MCP relay and its tokens are server routes; a static export has neither.
+// Both are fixed at build time, so this is worked out once.
+const mcpTokensServed = GENERATED_MCP_ENABLED && hasServerRoutes();
 // The same for the panels only one tab each paints: the organisation panel is
 // the largest single import this route had, and the log and account-deletion
 // panels sit at the bottom of theirs.
@@ -76,19 +84,26 @@ type SettingsTabId = (typeof SETTINGS_TABS)[number]["id"];
  * The tabs, gathered into the six groups the side rail lists. Choosing a group
  * opens its first tab; the group's other tabs sit under it while it is open.
  */
-const SETTINGS_GROUPS: readonly {
+const SETTINGS_GROUPS: readonly (RailGroupWords & {
   id: string;
-  label: string;
-  hint: string;
   icon: keyof typeof GROUP_ICONS;
   tabs: readonly SettingsTabId[];
-}[] = [
-  { id: "account", label: "Account and lab", hint: "Profile, password, lab", icon: "person", tabs: ["account", "org", "tokens"] },
-  { id: "appearance", label: "Appearance", hint: "Theme, tint, text", icon: "palette", tabs: ["appearance"] },
-  { id: "editor", label: "Editor and writing", hint: "Editor, paste, workspace", icon: "pen", tabs: ["editor", "paste", "workspace"] },
-  { id: "ai", label: "Search and AI", hint: "Search, models, API keys", icon: "search", tabs: ["search", "ai"] },
-  { id: "sync", label: "Sync and integrations", hint: "Cloud, Zotero, calendar", icon: "sync", tabs: ["sync", "integrations", "calendar"] },
-  { id: "data", label: "Data and updates", hint: "Backups, export, version", icon: "data", tabs: ["data", "updates"] },
+})[] = [
+  {
+    id: "account", label: "Account and lab", labelWithout: { tab: "org", label: "Account" }, icon: "person",
+    tabs: ["account", "org", "tokens"], hints: [["account", "profile, password"], ["org", "lab"], ["tokens", "tokens"]],
+  },
+  { id: "appearance", label: "Appearance", icon: "palette", tabs: ["appearance"], hints: [["appearance", "theme, tint, text"]] },
+  {
+    id: "editor", label: "Editor and writing", icon: "pen",
+    tabs: ["editor", "paste", "workspace"], hints: [["editor", "editor"], ["paste", "paste"], ["workspace", "workspace"]],
+  },
+  { id: "ai", label: "Search and AI", icon: "search", tabs: ["search", "ai"], hints: [["search", "search"], ["ai", "models, API keys"]] },
+  {
+    id: "sync", label: "Sync and integrations", icon: "sync",
+    tabs: ["sync", "integrations", "calendar"], hints: [["sync", "cloud"], ["integrations", ""], ["calendar", "calendar"]],
+  },
+  { id: "data", label: "Data and updates", icon: "data", tabs: ["data", "updates"], hints: [["data", "backups, export"], ["updates", "version"]] },
 ];
 
 const GROUP_ICONS = {
@@ -166,6 +181,13 @@ export function SettingsScreen() {
   function selectTab(next: SettingsTabId) {
     setTab(next);
     history.replaceState(null, "", `#settings-${next}`);
+  }
+
+  /** Saved first, so leaving the dialog keeps what the reader set in it (DA-132). */
+  async function openTokensFromAiAccess() {
+    if (!(await submit())) return;
+    setAiAccessOpen(false);
+    selectTab("tokens");
   }
 
   const { busy, error, setError, submit } = useSubmit(async () => {
@@ -292,7 +314,7 @@ export function SettingsScreen() {
     // to issue a token, no second device to reconcile with.
     if (t.id === "org") return hasOrgs;
     // Desktop issues its token from the shell, account or not.
-    if (t.id === "tokens") return hasApiTokens || isDesktop;
+    if (t.id === "tokens") return hasApiTokens || isDesktop || mcpTokensServed;
     if (t.id === "sync") return hasSync;
     return true;
   });
@@ -301,7 +323,11 @@ export function SettingsScreen() {
   const labelOf = new Map<SettingsTabId, string>(tabs.map((t) => [t.id, t.label]));
   const findHits = findSettings(findQuery, tabs);
   const groups = SETTINGS_GROUPS
-    .map((g) => ({ ...g, tabs: g.tabs.filter((id) => visible.has(id)) }))
+    .map((g) => ({
+      ...g,
+      ...railGroupText(g, visible, userIntegrations.map((d) => d.title)),
+      tabs: g.tabs.filter((id) => visible.has(id)),
+    }))
     .filter((g) => g.tabs.length > 0);
 
   return (
@@ -326,8 +352,7 @@ export function SettingsScreen() {
           const open = g.tabs.includes(tab);
           return (
             <div key={g.id} className={`settings-rail-group${open ? " is-open" : ""}`}>
-              <button
-                type="button"
+              <RowButton
                 className="settings-rail-head"
                 aria-current={open ? "true" : undefined}
                 onClick={() => { if (!open) selectTab(g.tabs[0]!); }}
@@ -346,23 +371,20 @@ export function SettingsScreen() {
                   </span>
                   <span className="settings-rail-hint">{g.hint}</span>
                 </span>
-              </button>
+              </RowButton>
               {open && g.tabs.length > 1 && (
                 <div className="settings-rail-tabs" role="tablist" aria-label={g.label}>
                   {g.tabs.map((id) => (
-                    <button
+                    <TabButton selected={tab === id}
                       key={id}
-                      type="button"
-                      role="tab"
                       id={`settings-tab-${id}`}
-                      aria-selected={tab === id}
                       aria-controls={`settings-${id}`}
                       className={tab === id ? "is-active" : ""}
                       onClick={() => selectTab(id)}
                     >
                       {labelOf.get(id)}
                       {id === "updates" && update && <span className="tab-dot" aria-label="update available" />}
-                    </button>
+                    </TabButton>
                   ))}
                 </div>
               )}
@@ -417,11 +439,11 @@ export function SettingsScreen() {
         <div id="settings-ai" className="card add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-ai">
           <h3 className="settings-group">AI & MCP</h3>
           <p className="muted">Control what an AI client such as Codex may read or propose. Access is off by default.</p>
-          <button type="button" className="integration-item ai-access-launcher" onClick={() => setAiAccessOpen(true)}>
+          <RowButton className="integration-item ai-access-launcher" onClick={() => setAiAccessOpen(true)}>
             <span className="integration-logo ai-access-launcher-icon">✦</span>
             <div className="integration-main"><strong>AI assistant access</strong><span className="muted">Sources, proposals, active sessions, and revocation.</span></div>
             <span className={`status ${settings.aiAccess?.enabled ? "status-done" : "status-not_started"}`}>{settings.aiAccess?.enabled ? "Enabled" : "Disabled"}</span>
-          </button>
+          </RowButton>
         </div>
       )}
       {/* Desktop: MCP is served by the shell on loopback instead. */}
@@ -433,6 +455,7 @@ export function SettingsScreen() {
 
       {tab === "tokens" && isDesktop && <LocalApiPanel purpose="sdk" />}
       {tab === "tokens" && !loading && hasApiTokens && <ApiTokensPanel />}
+      {tab === "tokens" && !loading && mcpTokensServed && <McpTokensPanel />}
 
       {tab === "integrations" && !loading && loaded && (
         <>
@@ -459,9 +482,8 @@ export function SettingsScreen() {
                     d.fields.map((f) => f.id),
                   );
                   return (
-                    <button
+                    <RowButton
                       key={d.providerId}
-                      type="button"
                       className="integration-item"
                       onClick={() => setActiveProvider(d)}
                     >
@@ -470,10 +492,8 @@ export function SettingsScreen() {
                         <strong>{d.title}</strong>
                         <span className="muted">{d.description}</span>
                       </div>
-                      <span className={`status ${connected ? "status-done" : "status-not_started"}`}>
-                        {connected ? "Connected" : "Not set"}
-                      </span>
-                    </button>
+                      <ConnectionState connected={connected} />
+                    </RowButton>
                   );
                 })}
               </div>
@@ -548,9 +568,9 @@ export function SettingsScreen() {
       {aiAccessOpen && (
         <Modal title="AI & MCP access" onClose={() => !busy && setAiAccessOpen(false)}>
           <form className="add-form ai-access-modal" onSubmit={(event) => { void submit(event).then((ok) => { if (ok) setAiAccessOpen(false); }); }}>
-            <AiAccessPanel settings={settings} onChange={setSettings} />
+            <AiAccessPanel settings={settings} onChange={setSettings} onManageTokens={() => void openTokensFromAiAccess()} />
             {error && <FormError>{error}</FormError>}
-            <ModalActions><button type="button" className="btn-secondary btn-cancel" onClick={() => setAiAccessOpen(false)}>Cancel</button><Button type="submit" variant="primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</Button></ModalActions>
+            <ModalActions><Button className="btn-cancel" onClick={() => setAiAccessOpen(false)}>Cancel</Button><Button type="submit" variant="primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</Button></ModalActions>
           </form>
         </Modal>
       )}

@@ -12,9 +12,9 @@ import type { FeatureModule } from "@weaveforge/core";
  */
 export const editorWorkspaceModule: FeatureModule = {
   id: "editor-workspace",
-  title: "Editor",
+  title: "Workspace",
   navItems: [
-    { key: "editor-workspace", label: "Editor", path: "/workspace", icon: "pencil", mobile: false },
+    { key: "editor-workspace", label: "Workspace", path: "/workspace", icon: "pencil", mobile: false },
   ],
   routes: [{ path: "/workspace", component: "editor-workspace/WorkspaceScreen" }],
 };

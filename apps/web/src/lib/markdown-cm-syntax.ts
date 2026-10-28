@@ -18,7 +18,7 @@ export const markdownSyntaxOverlay: TagStyle[] = [
   { tag: t.strong, fontWeight: "700", color: "var(--ink)" },
   { tag: t.emphasis, fontStyle: "italic", color: "var(--ink)" },
   { tag: t.strikethrough, textDecoration: "line-through", color: "var(--muted)" },
-  { tag: t.link, color: "var(--st-positive-fg)", textDecoration: "underline" },
+  { tag: t.link, color: "var(--link)", textDecoration: "underline" },
   { tag: t.url, color: "var(--muted)" },
   { tag: [t.string, t.special(t.string), t.inserted], color: "var(--st-warn-fg)" },
   { tag: [t.meta, t.comment], color: "var(--faint)" },

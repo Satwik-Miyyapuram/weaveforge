@@ -1,4 +1,5 @@
 .pdf-reader {
+  --pdf-paper: var(--white); --pdf-ink: var(--page-ink); --pdf-find: var(--page-find);
   container-type: inline-size;
   display: flex;
   flex-direction: column;
@@ -6,8 +7,9 @@
   gap: 8px;
   outline: none;
 }
-/* One control surface. Either one unified bar when wide, or a clean 2-line
-   layout (tools top, ink bar bottom) when narrow, separated by a hairline. */
+/* One control surface: the ink bar, then the page, zoom, find and view tools,
+   with Focus at the right end. One lane when they fit; what does not fit
+   wraps into the next lane. Nothing scrolls sideways, which hid Focus. */
 .pdf-reader-chrome {
   border: 1px solid var(--line);
   border-radius: var(--r-control);
@@ -19,59 +21,26 @@
   top: var(--titlebar-h);
   z-index: 5;
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
 }
 .pdf-reader-tools {
-  order: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-top: 0;
-  border-bottom: 1px solid var(--line);
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.pdf-reader-tools::-webkit-scrollbar {
-  display: none;
-}
-.pdf-reader-chrome .ink-bar {
   order: 2;
-  border: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   padding: 4px 8px;
+}
+.pdf-reader-chrome .ink-bar .ink-bar-spacer {
+  display: none;
 }
 @media (min-width: 721px) {
   .pdf-reader-chrome .pdf-reader-more { display: inline-flex; }
 }
 
-/* Wide screen: single-line toolbar with ink tools on the left and search/focus on the right. */
-@container (min-width: 900px) {
-  .pdf-reader-chrome {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: nowrap;
-  }
-  .pdf-reader-chrome .ink-bar {
-    order: 1;
-    flex: 0 0 auto;
-    border-bottom: 0;
-    border-right: 1px solid var(--line);
-    padding: 4px 8px;
-  }
-  .pdf-reader-chrome .ink-bar .ink-bar-spacer {
-    display: none;
-  }
-  .pdf-reader-chrome > .pdf-reader-tools {
-    order: 2;
-    flex: 1 1 auto;
-    min-width: 0;
-    border-bottom: 0;
-    border-left: 0;
-    padding: 4px 8px;
-  }
-}
 /* Related controls sit in a bordered cluster so grouping is visible, not implied. */
 .pdf-reader-group {
   display: inline-flex; align-items: center; gap: 4px; flex: none;
@@ -82,7 +51,7 @@
    flat tiles of one height — a bordered button inside a bordered group read
    as two frames and left the zoom label pinched between them. */
 .pdf-reader-group .btn-secondary {
-  white-space: nowrap; height: 32px; padding: 0 10px; line-height: 1;
+  white-space: nowrap; height: 32px; padding: 0 12px; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
   border-color: transparent; border-radius: var(--r-sm); background: transparent;
 }
@@ -96,18 +65,17 @@
   /* "Page 3 / 15" is orientation, not a command. Pushing it to the end of a
      scrolling strip hides it; lead with it instead. (Pinning it with sticky
      just parks it on top of whatever scrolls underneath.) */
-  .pdf-reader-tools { gap: 6px; padding: 5px 6px; }
-  /* Keep a usable field and let the strip scroll rather than crushing the
-     input to a few characters. Scoped through .pdf-reader-chrome so it beats
+  .pdf-reader-tools { gap: 8px; padding: 4px 8px; }
+  /* Keep a usable field and let it wrap to the next lane rather than crushing
+     the input to a few characters. Scoped through .pdf-reader-chrome so it beats
      the base rule, which is defined later in this file. */
   .pdf-reader-chrome .pdf-reader-search { flex: 0 0 auto; }
   .pdf-reader-chrome .pdf-reader-search input { min-width: 9rem; }
   .pdf-reader-chrome:not([data-phone-panel="more"]) .pdf-reader-more { display: none; }
-  .pdf-reader-tools { flex-wrap: nowrap; overflow-x: auto; }
   /* Page, zoom and the two toggles fit one 360px row: tighter icon tiles, and
      "3 / 14" speaks for itself without the word "Page". */
-  .pdf-reader-group .pdf-reader-icon-btn { min-width: 28px; padding: 0 6px; }
-  .pdf-reader-more.pdf-reader-group, .pdf-reader-annotate { flex-wrap: nowrap; flex: 0 1 auto; }
+  .pdf-reader-group .pdf-reader-icon-btn { min-width: 28px; padding: 0 8px; }
+  .pdf-reader-more.pdf-reader-group, .pdf-reader-annotate { flex: 0 1 auto; }
 }
 .pdf-reader-banner {
   padding: 8px 12px; border-radius: var(--r-control); font-size: var(--fs);
@@ -135,7 +103,7 @@
 }
 @media (max-width: 720px) {
   /* Less page chrome above the document, and room for the bottom tab bar. */
-  .pdf-reader-scroll { max-height: calc(100dvh - 210px); padding: 8px; gap: 10px; }
+  .pdf-reader-scroll { max-height: calc(100dvh - 210px); padding: 8px; gap: 12px; }
 }
 /* `⌘⇧F`, focus: the paper and nothing else, the workspace's way. The reader
    lifts out of whatever hosts it — the reader screen, a workspace tab — and
@@ -204,8 +172,7 @@
 }
 .pdf-reader-page {
   position: relative;
-  background: #fff;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.18);
+  background: var(--pdf-paper);
   min-height: 0;
   /* The scroller is a column flex container with a bounded height, so pages
      inherited flex-shrink: 1. Once zoomed, their combined height exceeded that
@@ -240,8 +207,8 @@
 .pdf-reader-search-step:hover:not(:disabled) { color: var(--text); background: var(--surface2); }
 .pdf-reader-search-step:disabled { opacity: 0.4; cursor: default; }
 .pdf-reader-search-trigger {
-  display: inline-flex; align-items: center; gap: 6px; height: 32px;
-  padding: 0 10px; border-radius: var(--r-sm); white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 8px; height: 32px;
+  padding: 0 12px; border-radius: var(--r-sm); white-space: nowrap;
 }
 .pdf-reader-search-close {
   display: inline-grid; place-items: center; flex: none;
@@ -293,7 +260,7 @@
 /* Rides the top corner of the first panel, as the mock's › does, instead of
    taking a row of its own above it. */
 .pdf-reader-side-collapse { position: absolute; top: 6px; right: 6px; z-index: 1; height: 32px; }
-.pdf-reader-side-collapse + * > :first-child { padding-right: 40px; }
+.pdf-reader-side-collapse + * > :first-child { padding-right: 48px; }
 @media (max-width: 860px) {
   /* A 180px side column beside a PDF leaves neither usable; stack instead. */
   .pdf-reader-body--outline, .pdf-reader-body--rail { grid-template-columns: minmax(0, 1fr); }
@@ -317,6 +284,12 @@
 }
 .pdf-reader-outline ul { list-style: none; margin: 0; padding-left: 0.75rem; }
 .pdf-reader-outline > ul { padding-left: 0; }
+/* A long title wraps under itself, read from the left, rather than running
+   past the panel's edge. */
+.pdf-reader-outline .link-btn {
+  display: block; width: 100%; min-width: 0;
+  text-align: left; white-space: normal; overflow-wrap: anywhere;
+}
 .pdf-reader-outline-empty { font-size: var(--fs); padding: 8px; }
 .pdf-reader-textlayer {
   /* Relayout boundary so inserted page spans do not dirty the rest of the document. */
@@ -426,7 +399,7 @@ body > canvas.hiddenCanvasElement { display: none; }
   cursor: pointer;
   user-select: text;
   -webkit-user-select: text;
-  transition: background 120ms ease;
+  transition: background var(--dur-base) ease;
 }
 .pdf-reader-textlayer span > a.pdf-reader-cite:is(.is-open, .is-hovered) {
   background: color-mix(in srgb, var(--reader-cite-color, var(--accent)) 12%, transparent);
@@ -436,10 +409,10 @@ body > canvas.hiddenCanvasElement { display: none; }
   outline-offset: 2px;
 }
 .pdf-reader-textlayer span > a.pdf-reader-cite.pdf-reader-external-link {
-  text-decoration-color: var(--info, #3b82f6);
+  text-decoration-color: var(--info);
 }
 .pdf-reader-textlayer span > a.pdf-reader-cite.pdf-reader-external-link:hover {
-  background: color-mix(in srgb, var(--info, #3b82f6) 14%, transparent);
+  background: color-mix(in srgb, var(--info) 14%, transparent);
 }
 .pdf-reader-textlayer span > a.pdf-reader-cite.is-figure-jump {
   text-decoration-style: dashed;
@@ -477,13 +450,13 @@ body > canvas.hiddenCanvasElement { display: none; }
 /* A text box shows its words on the page; the same box is its editor. */
 .pdf-reader-ann.is-text,
 .pdf-reader-text-edit {
-  opacity: 1; color: #111; text-align: left; line-height: 1.25;
+  opacity: 1; color: var(--pdf-ink); text-align: left; line-height: 1.25;
   padding: 0.2em 0.35em; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font);
 }
 .pdf-reader-text-edit {
   position: absolute; z-index: 4; box-sizing: border-box; resize: none;
-  background: rgba(255, 255, 255, 0.85); border: none; outline: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--pdf-paper) 85%, transparent); border: none; outline: 2px solid var(--accent);
 }
 .pdf-reader--dark .pdf-reader-textlayer {
   opacity: 0.45; mix-blend-mode: difference;
@@ -514,7 +487,7 @@ body > canvas.hiddenCanvasElement { display: none; }
 .pdf-reader-create-bar {
   position: absolute; z-index: 6; transform: translateY(-100%);
   display: flex; flex-wrap: nowrap; gap: 4px; align-items: center; white-space: nowrap;
-  max-width: calc(100% - 20px); padding: 5px;
+  max-width: calc(100% - 20px); padding: 4px;
   border: var(--bw, 1px) solid var(--bw-line, var(--border)); border-radius: var(--r-control);
   background: var(--surface); color: var(--text); box-shadow: var(--sh-btn, var(--e2));
   font-size: var(--fs); touch-action: manipulation;
@@ -524,7 +497,7 @@ body > canvas.hiddenCanvasElement { display: none; }
 .pdf-reader-create-bar.is-below { transform: none; }
 .pdf-reader-create-vr { width: var(--bw, 1px); align-self: stretch; margin: 2px; background: var(--bw-line, var(--border)); opacity: 0.5; }
 :root .pdf-reader-create-icon {
-  width: 34px; height: 34px; min-width: 34px; padding: 5px;
+  width: 34px; height: 34px; min-width: 34px; padding: 4px;
   display: inline-flex; align-items: center; justify-content: center;
 }
 .pdf-reader-create-icon svg, .pdf-reader-pop-btn svg { width: 18px; height: 18px; }
@@ -532,16 +505,16 @@ body > canvas.hiddenCanvasElement { display: none; }
   flex-direction: column; align-items: stretch; gap: 8px; padding: 8px;
   width: min(300px, calc(100% - 20px)); white-space: normal;
 }
-.pdf-reader-pop-row { display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; }
-.pdf-reader-pop-col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pdf-reader-pop-row { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; }
+.pdf-reader-pop-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .pdf-reader-pop-kind {
   font: 600 var(--fs-micro) var(--font); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
 }
-.pdf-reader-pop-swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+.pdf-reader-pop-swatches { display: flex; gap: 8px; flex-wrap: wrap; }
 .pdf-reader-pop-swatch {
   width: 22px; height: 22px; padding: 0; border-radius: 50%; cursor: pointer;
   border: var(--bw, 1px) solid var(--bw-line, var(--border));
-  transition: scale 0.12s ease;
+  transition: scale var(--dur-base) ease;
 }
 .pdf-reader-pop-swatch:hover { scale: 1.08; }
 .pdf-reader-pop-swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
@@ -551,10 +524,10 @@ body > canvas.hiddenCanvasElement { display: none; }
   font-size: var(--fs-sm); color: var(--muted); overflow-wrap: anywhere;
 }
 .pdf-reader-pop-input {
-  flex: 1; min-width: 0; padding: 6px 8px; font: inherit; font-size: var(--fs); color: inherit;
+  flex: 1; min-width: 0; padding: 8px 8px; font: inherit; font-size: var(--fs); color: inherit;
   border: var(--bw, 1px) solid var(--bw-line, var(--border)); border-radius: var(--radius); background: var(--bg);
 }
-.pdf-reader-pop-btn { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.pdf-reader-pop-btn { display: inline-flex; align-items: center; gap: 8px; flex: none; }
 /* The sidebar's colour row. */
 .pdf-reader-create-colors { display: flex; gap: 4px; }
 .pdf-reader-create-swatch {
@@ -562,11 +535,11 @@ body > canvas.hiddenCanvasElement { display: none; }
 }
 .pdf-reader-create-swatch.is-active { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pdf-reader-sidebar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.pdf-reader-sidebar-edit { display: grid; gap: 6px; margin-top: 4px; }
+.pdf-reader-sidebar-edit { display: grid; gap: 8px; margin-top: 4px; }
 .pdf-reader-sidebar-edit textarea,
 .pdf-reader-sidebar-edit input,
 .pdf-reader-sidebar-pin select {
-  width: 100%; font: inherit; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  width: 100%; font: inherit; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--r-sm);
   background: var(--surface); color: inherit;
 }
 .pdf-reader-sidebar-pin { display: grid; gap: 2px; font-size: var(--fs); }
@@ -597,24 +570,24 @@ body > canvas.hiddenCanvasElement { display: none; }
    canvas is cleared, and a white box behind it flashed the page white for a
    frame. Painting the box the *filtered* colour is what stops the flash; the
    app's own dark surface would be just as wrong here as the white one. */
-.pdf-reader--dark .pdf-reader-page { background: #000; }
+.pdf-reader--dark { --pdf-paper: var(--black); --pdf-ink: var(--page-ink-dark); --pdf-margin: var(--page-margin-dark); }
 .pdf-reader--dark .pdf-reader-ann { mix-blend-mode: screen; }
-.pdf-reader--dark .pdf-reader-ann.is-text { color: #eee; mix-blend-mode: normal; }
-.pdf-reader--dark .pdf-reader-text-edit { color: #eee; background: rgba(0, 0, 0, 0.85); }
+.pdf-reader--dark .pdf-reader-ann.is-text { color: var(--pdf-ink); mix-blend-mode: normal; }
+.pdf-reader--dark .pdf-reader-text-edit { color: var(--pdf-ink); }
 /* Minimal: a footnote-sized card — title, one metadata line, one row of quiet
    text actions. Same surface as `.popover-panel`; every colour is a theme
    token so it reads the same on the light, dark and high-contrast themes. */
 .pdf-reader-ref-popover {
   position: fixed; z-index: 60;
   width: 320px; max-width: calc(100vw - 24px);
-  display: grid; gap: 6px; padding: 12px 14px;
+  display: grid; gap: 8px; padding: 12px 16px;
   background: var(--elev); color: var(--text);
   border: 1px solid var(--border); border-radius: var(--r-control);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--e3);
   font-size: var(--fs); line-height: 1.4;
   margin: 0;
 }
-.pdf-reader-ref-body { position: relative; display: grid; gap: 4px; padding-right: 20px; }
+.pdf-reader-ref-body { position: relative; display: grid; gap: 4px; padding-right: 24px; }
 .pdf-reader-ref-close {
   position: absolute; top: -4px; right: -8px;
   width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--r-sm);
@@ -632,9 +605,9 @@ body > canvas.hiddenCanvasElement { display: none; }
 }
 .pdf-reader-ref-action:hover { text-decoration: underline; }
 /* The entry switcher a range citation shows above its details. */
-.pdf-reader-ref-cluster { padding: 6px 10px 0; }
+.pdf-reader-ref-cluster { padding: 8px 12px 0; }
 .pdf-reader-ref-cluster .is-active { font-weight: 600; text-decoration: underline; }
-.pdf-reader-ref-picker { gap: 6px; }
+.pdf-reader-ref-picker { gap: 8px; }
 .pdf-reader-ref-picker select { font-size: var(--fs-sm); }
 .pdf-reader-ref-pill {
   display: inline-block; padding: 1px 8px; border-radius: var(--radius-pill);
@@ -652,8 +625,8 @@ body > canvas.hiddenCanvasElement { display: none; }
   .pdf-reader-refs { max-height: 40dvh; }
 }
 .pdf-reader-refs-empty { font-size: var(--fs); padding: 8px; }
-.pdf-reader-refs-summary { margin: 0 0 6px; font-size: var(--fs-sm); }
-.pdf-reader-refs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pdf-reader-refs-summary { margin: 0 0 8px; font-size: var(--fs-sm); }
+.pdf-reader-refs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .pdf-reader-refs-item {
   display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px;
   align-items: start;
@@ -665,7 +638,7 @@ body > canvas.hiddenCanvasElement { display: none; }
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .pdf-reader-refs-meta { font-size: var(--fs-xs); }
-.reader-screen-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; min-width: 0; }
+.reader-screen-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; min-width: 0; }
 .reader-screen-title {
   margin: 0; flex: 1 1 auto; min-width: 0; font-size: var(--fs-lg);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -685,11 +658,11 @@ body > canvas.hiddenCanvasElement { display: none; }
   margin: 0; max-height: 50vh; overflow: auto; white-space: pre-wrap; font: inherit;
   font-size: var(--fs); background: var(--surface-alt, transparent); padding: 8px; border-radius: var(--r-sm);
 }
-.reader-activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: var(--fs); }
-.reader-activity-kind { font-weight: 600; margin: 0 6px; }
+.reader-activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: var(--fs); }
+.reader-activity-kind { font-weight: 600; margin: 0 8px; }
 .pdf-reader-backlinks { margin-top: 12px; font-size: var(--fs); display: grid; gap: 4px; }
 .pdf-reader-backlinks ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.shared-paper-annotations { display: grid; gap: 4px; margin-top: 6px; }
+.shared-paper-annotations { display: grid; gap: 4px; margin-top: 8px; }
 @media (max-width: 900px) {
   .reader-main--split { grid-template-columns: 1fr; }
 }
@@ -726,11 +699,10 @@ body > canvas.hiddenCanvasElement { display: none; }
 }
 .pdf-reader-loading, .pdf-reader-error { padding: 24px; color: var(--muted); }
 .pdf-reader-error { display: grid; gap: 12px; justify-items: start; }
-.ai-review-nav-link b { min-width: 1.25rem; text-align: center; border-radius: var(--r-pill); padding: 1px 5px; background: var(--accent); color: var(--on-accent); font-size: var(--fs-xs); }
 @media (max-width: 640px) { .ai-review-screen .screen-header, .ai-review-actions { align-items: flex-start; flex-direction: column; } .ai-review-toolbar { align-items: stretch; flex-direction: column; } }
 
 /* One-line statement of what the armed annotation tool will do. */
-.pdf-reader-tool-hint { margin: 6px 0 0; font-size: var(--fs-sm); }
+.pdf-reader-tool-hint { margin: 8px 0 0; font-size: var(--fs-sm); }
 
 /* =====================================================================
  * DEPTH — borderless elevation
@@ -768,18 +740,19 @@ body > canvas.hiddenCanvasElement { display: none; }
    `.ink-bar` element, only here it is a row inside the reader's panel rather
    than the panel's first line — one control surface, one hairline. */
 .pdf-reader-chrome .ink-bar {
-  order: 2;
-  border-bottom: 0;
-  border-top: 0;
+  order: 1;
+  flex: 0 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+  border: 0;
   background: transparent;
   box-shadow: none;
   padding: 4px 8px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
-.pdf-reader-chrome .ink-bar::-webkit-scrollbar {
-  display: none;
+/* Flat controls: a selected tool shows by its fill, not a lifted shadow, and
+   the themes' offset shadows on buttons and fields stay off this bar. */
+:root:root:root .pdf-reader-chrome :is(.btn, .btn-secondary, .ink-tool, .ink-page-input, .ink-page-pill, .pdf-reader-group, .pdf-reader-search, .pdf-reader-search input, .ink-menu-trigger):not(:focus-visible) {
+  box-shadow: none;
 }
 /* In focus it floats (editor-workspace.css): restore complete border on all sides. */
 :is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .ink-bar.ink-palette {
@@ -795,19 +768,18 @@ body > canvas.hiddenCanvasElement { display: none; }
    `pointer-events: none` still lets a stroke through to the row's handlers. */
 .pdf-reader-page-margin {
   position: relative; align-self: stretch; height: auto;
-  background: var(--surface-alt, #f6f6f4);
-  background-image: repeating-linear-gradient(to bottom, transparent 0 27px, var(--line, #e3e3e0) 27px 28px);
-  border-left: 1px dashed var(--line, #d8d8d4);
+  background: var(--surface-alt);
+  background-image: repeating-linear-gradient(to bottom, transparent 0 27px, var(--line) 27px 28px);
+  border-left: 1px dashed var(--line);
   pointer-events: none;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.12);
 }
-.pdf-reader--dark .pdf-reader-page-margin { background: #1f1f1f; }
+.pdf-reader--dark .pdf-reader-page-margin { background: var(--pdf-margin); }
 .pdf-reader-margin-note {
   position: absolute; left: 10px; right: 10px;
   pointer-events: auto; text-align: left; cursor: pointer;
-  padding: 6px 8px; border: 1px solid var(--line); border-left-width: 3px; border-radius: var(--r-sm);
-  background: var(--surface, #fff); color: var(--text); font: inherit; font-size: var(--fs-sm); line-height: 1.35;
-  display: grid; gap: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  padding: 8px 8px; border: 1px solid var(--line); border-left-width: 3px; border-radius: var(--r-sm);
+  background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-sm); line-height: 1.35;
+  display: grid; gap: 2px; box-shadow: var(--e1);
 }
 .pdf-reader-margin-note.is-selected { outline: 2px solid var(--accent); outline-offset: 1px; }
 .pdf-reader-margin-note-quote {
@@ -822,7 +794,7 @@ body > canvas.hiddenCanvasElement { display: none; }
 .pdf-reader-find-layer { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
 .pdf-reader-find-hit {
   position: absolute; display: block; border-radius: 2px;
-  background: color-mix(in srgb, #f5c400 45%, transparent);
+  background: color-mix(in srgb, var(--pdf-find) 45%, transparent);
   mix-blend-mode: multiply;
 }
 .pdf-reader-find-hit.is-current {
@@ -837,7 +809,7 @@ body > canvas.hiddenCanvasElement { display: none; }
 }
 .pdf-reader-find-mark {
   position: absolute; left: 0; right: 0; height: 3px; margin-top: -1px;
-  border-radius: 2px; background: color-mix(in srgb, #f5c400 85%, var(--ink));
+  border-radius: 2px; background: color-mix(in srgb, var(--pdf-find) 85%, var(--ink));
 }
 .pdf-reader-find-mark.is-current { background: var(--accent); height: 5px; margin-top: -2px; }
 /* Phone annotate pill (PhoneReader mock): colours, ink, annotation list,
@@ -848,15 +820,15 @@ body > canvas.hiddenCanvasElement { display: none; }
   .pdf-reader-wide-only { display: none !important; }
   .pdf-reader-pill {
     position: fixed; left: 14px; right: 14px;
-    bottom: calc(84px + env(safe-area-inset-bottom));
+    bottom: var(--nav-clear);
     z-index: var(--z-nav);
-    display: flex; align-items: center; justify-content: space-between; gap: 6px;
-    padding: 6px 10px; border-radius: var(--r-pill);
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 8px 12px; border-radius: var(--r-pill);
     background: var(--surface); border: 1px solid var(--line);
-    box-shadow: 0 6px 20px rgb(0 0 0 / 0.16);
+    box-shadow: var(--e2);
   }
   /* Inset so the checked ring clears the pill's rounded end. */
-  .pdf-reader-pill-colours { display: flex; gap: 10px; padding-inline: 5px; }
+  .pdf-reader-pill-colours { display: flex; gap: 12px; padding-inline: 4px; }
   .pdf-reader-pill-swatch {
     width: 30px; height: 30px; min-width: 0; padding: 0; border-radius: 50%;
     border: 1px solid var(--line); cursor: pointer;
@@ -865,7 +837,7 @@ body > canvas.hiddenCanvasElement { display: none; }
   .pdf-reader-pill-sep { align-self: stretch; border-left: 1px solid var(--line); opacity: 0.4; }
   .pdf-reader-pill .pdf-reader-icon-btn { border-radius: 50%; width: 36px; height: 36px; padding: 0; display: inline-grid; place-items: center; }
   /* The last page scrolls clear of the pill. */
-  .pdf-reader-scroll { padding-bottom: 72px; }
+  .pdf-reader-scroll { padding-bottom: 80px; }
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"]) .pdf-reader-pill,
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"]) .pdf-reader-pill-swatch { border: var(--bw) solid var(--bw-line); }

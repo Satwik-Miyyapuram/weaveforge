@@ -11,12 +11,14 @@ import {
   alignSeries,
   DEFAULT_COLORS,
   emaSmooth,
+  formatTicks,
   readPrefs,
   SMOOTHING,
   writePrefs,
   type MetricSeries,
   type Prefs,
 } from "./metric-chart-data";
+import { ToggleButton } from "@/components/controls";
 
 export type { MetricSeries };
 
@@ -149,7 +151,7 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
             size: spec.ySize,
             space: spec.ySpace,
             ...(spec.titles ? { label: metric, labelSize: 20 } : {}),
-            values: (_u, splits) => splits.map((v) => formatMetricValue(metric, v)),
+            values: (_u, splits) => formatTicks(splits),
           }),
         ],
         series: seriesOpts,
@@ -283,18 +285,16 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
       {wantLegend && (
         <div className="metric-chart-legend" role="group" aria-label="Runs" ref={legendRef} data-names={fit.names}>
           {prepared.runs.map((r) => (
-            <button
+            <ToggleButton pressed={!hidden.has(r.id)}
               key={r.id}
-              type="button"
               className="metric-chart-run"
-              aria-pressed={!hidden.has(r.id)}
               onClick={() => toggle(r.id)}
               title={`${r.label}: ${hidden.has(r.id) ? "show" : "hide"}`}
               aria-label={r.label}
             >
               <span className="metric-chart-swatch" style={{ background: r.color }} />
               {fit.names && <span className="metric-chart-run-label">{r.label}</span>}
-            </button>
+            </ToggleButton>
           ))}
         </div>
       )}

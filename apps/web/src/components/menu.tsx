@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { VIEWPORT_PAD } from "./viewport-pad";
+import { MenuItemButton } from "./controls";
 
 export interface MenuItem {
   id: string;
@@ -323,10 +324,7 @@ function MenuItemRow({
       className={`menu-row${hasSubmenu ? " card-menu-row" : ""}`}
       role="none"
     >
-      <button
-        type="button"
-        role={item.kind === "check" ? "menuitemcheckbox" : "menuitem"}
-        aria-checked={item.kind === "check" ? item.checked === true : undefined}
+      <MenuItemButton kind={item.kind === "check" ? "checkbox" : "item"} checked={item.checked === true}
         className={`card-menu-item menu-item${item.danger ? " danger" : ""}`}
         disabled={item.disabled}
         title={item.title}
@@ -350,7 +348,7 @@ function MenuItemRow({
             ›
           </span>
         )}
-      </button>
+      </MenuItemButton>
       {hasSubmenu && isOpen && (
         <SubmenuFlyout anchorRef={rowRef}>
           {renderSubmenuContent()}

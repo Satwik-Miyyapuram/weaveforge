@@ -15,8 +15,11 @@ const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.met
 
 test("the account trigger is a secondary button, not the ghost icon class", () => {
   const src = read("../header-actions.tsx");
-  const trigger = /ariaLabel="Account"[\s\S]*?triggerClassName="([^"]+)"/.exec(src)?.[1] ?? "";
-  assert.ok(trigger.split(" ").includes("btn-secondary"), `trigger class: ${trigger}`);
+  // The Popover's default look is the secondary Button; `look="custom"` would drop it.
+  const block = /<Popover\s[\s\S]*?ariaLabel=[^\n]*"Account"[\s\S]*?label=/.exec(src)?.[0] ?? "";
+  assert.ok(block, "account popover found");
+  assert.doesNotMatch(block, /look="custom"/);
+  const trigger = /triggerClassName="([^"]+)"/.exec(block)?.[1] ?? "";
   assert.ok(!trigger.split(" ").includes("header-overflow-btn"), `trigger class: ${trigger}`);
 });
 

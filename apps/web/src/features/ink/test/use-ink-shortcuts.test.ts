@@ -33,7 +33,8 @@ afterEach(() => {
 function deps(tools: string[]): InkShortcutsDeps {
   return {
     send: () => {},
-    scheduleSave: () => {},
+    onUndo: () => {},
+    onRedo: () => {},
     setTool: (tool) => void tools.push(tool),
     onColourChange: () => {},
     selectionCount: 0,

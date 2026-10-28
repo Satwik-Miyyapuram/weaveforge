@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import {
   type LabSnapshot,
   type LogEntry,
@@ -16,11 +15,14 @@ import { NavIcon } from "@/app/nav-icon";
 import { getContainer } from "@/bootstrap";
 import { useProfile } from "./profile-provider";
 import { ScreenLoader } from "@/components/weaveforge-loader";
-import { MemberTreeSelect } from "./member-tree";
 import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
 import { statusLabel } from "@/components/status-select";
+import { RowButton } from "@/components/controls";
+import { Button } from "@/components/button";
+import { CommentsToggle } from "@/features/sharing";
+import { studentsOf } from "../application/students-of";
 
 /**
  * Supervisor view: browse the people beneath you and follow their published
@@ -32,11 +34,8 @@ export function SupervisionScreen() {
   const searchParams = useSearchParams();
   const memberFromUrl = searchParams.get("member");
 
-  // Everyone in my subtree except me = the people I supervise (transitively).
-  const supervisees = useMemo(
-    () => team.filter((m) => m.id !== profile?.id),
-    [team, profile],
-  );
+  // The people I supervise, at any depth; not my own supervisor.
+  const supervisees = useMemo(() => studentsOf(profile?.id, team), [team, profile]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   useEffect(() => {
@@ -80,21 +79,9 @@ export function SupervisionScreen() {
         eyebrow={`You supervise ${supervisees.length} ${supervisees.length === 1 ? "person" : "people"}`}
       >
         {supervisees.length > 0 && (
-          <div className="superv-picker">
-            <label className="muted" htmlFor="superv-select">Viewing</label>
-            <MemberTreeSelect
-              members={supervisees}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              meId={profile.id}
-              placeholder="Select someone you supervise"
-            />
-          </div>
-        )}
-        {supervisees.length > 0 && (
-          <Link className="btn-secondary" href="/shared">
+          <Button href="/shared">
             Sharing
-          </Link>
+          </Button>
         )}
       </ScreenHead>
       {supervisees.length === 0 ? (
@@ -104,9 +91,9 @@ export function SupervisionScreen() {
           title="No students yet"
           body="Ask your org admin to assign students to you."
           action={
-            <Link className="btn-primary" href="/shared">
+            <Button variant="primary" href="/shared">
               Open sharing
-            </Link>
+            </Button>
           }
         />
       ) : (
@@ -116,8 +103,7 @@ export function SupervisionScreen() {
             <ul>
               {supervisees.map((m) => (
                 <li key={m.id} style={{ paddingLeft: depthOf(m, supervisees) * 18 }}>
-                  <button
-                    type="button"
+                  <RowButton
                     className={`superv-team-item${m.id === selectedId ? " is-active" : ""}`}
                     aria-current={m.id === selectedId ? "true" : undefined}
                     onClick={() => setSelectedId(m.id)}
@@ -127,7 +113,7 @@ export function SupervisionScreen() {
                       <span className="superv-team-name">{m.fullName || m.email || "Unnamed"}</span>
                       <span className="superv-team-role">{ROLE_LABELS[m.role]}</span>
                     </span>
-                  </button>
+                  </RowButton>
                 </li>
               ))}
             </ul>
@@ -137,6 +123,11 @@ export function SupervisionScreen() {
       )}
     </section>
   );
+}
+
+/** What a Live or Snapshot badge means, for its tooltip. */
+function sourceTitle(frozen: boolean): string {
+  return frozen ? "Snapshot: as the student published it" : "Live: current data, not a published snapshot";
 }
 
 /** How far below the nearest supervisee without a supervisor in this list. */
@@ -185,7 +176,7 @@ function SuperviseePanel({ member }: { member: Member }) {
     void load();
   }, [load]);
 
-  if (loading) return <p className="muted">Loading {member.fullName || member.email}…</p>;
+  if (loading) return <ScreenLoader status={`Loading ${member.fullName || member.email}…`} compact />;
   if (error) return <FormError>{error}</FormError>;
 
   const selectedSnapshot = snapshots.find((s) => s.id === selectedSnapshotId) ?? null;
@@ -196,10 +187,10 @@ function SuperviseePanel({ member }: { member: Member }) {
   return (
     <div className="superv-panels">
       <div className="card add-form superv-snapshots">
-        <h3 className="settings-group">Published snapshots ({snapshots.length})</h3>
+        <h3 className="settings-group">Check-ins ({snapshots.length})</h3>
         {snapshots.length === 0 ? (
           <p className="muted">
-            No published snapshots yet. Live plan and logbook are shown below until they publish one.
+            No check-ins yet. Live plan and logbook are shown below until they send one.
           </p>
         ) : (
           <>
@@ -230,6 +221,14 @@ function SuperviseePanel({ member }: { member: Member }) {
                 <p className="superv-body">{selectedSnapshot.note}</p>
               </div>
             )}
+            {selectedSnapshot && (
+              <CommentsToggle
+                variant="detail"
+                resourceType="lab_snapshot"
+                resourceId={selectedSnapshot.id}
+                canComment
+              />
+            )}
           </>
         )}
       </div>
@@ -237,7 +236,10 @@ function SuperviseePanel({ member }: { member: Member }) {
       <div className="card add-form">
         <h3 className="settings-group superv-panel-head">
           <span>Milestones ({displayMilestones.length})</span>
-          <span className={`superv-source superv-source--${showFrozen ? "snapshot" : "live"}`}>
+          <span
+            className={`superv-source superv-source--${showFrozen ? "snapshot" : "live"}`}
+            title={sourceTitle(showFrozen)}
+          >
             {showFrozen ? "Snapshot" : "Live"}
           </span>
         </h3>
@@ -266,7 +268,10 @@ function SuperviseePanel({ member }: { member: Member }) {
       <div className="card add-form">
         <h3 className="settings-group superv-panel-head">
           <span>Logbook ({displayLogs.length})</span>
-          <span className={`superv-source superv-source--${showFrozen ? "snapshot" : "live"}`}>
+          <span
+            className={`superv-source superv-source--${showFrozen ? "snapshot" : "live"}`}
+            title={sourceTitle(showFrozen)}
+          >
             {showFrozen ? "Snapshot" : "Live"}
           </span>
         </h3>

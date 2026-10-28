@@ -7,6 +7,7 @@ import { ChevronIcon } from "@/components/chevron-icon";
 import { RELATION_COLORS, WIKILINK_COLOR, EXPERIMENT_LINK_COLOR } from "../domain/graph-palette";
 import { CLUSTER_PALETTE, RAMP_GRADIENT, UNCOLOURED } from "../application/node-colouring";
 import { NODE_COLOR_LABELS, useGraphColours } from "./graph-colours";
+import { Button } from "@/components/button";
 
 /** Modes that colour every node from the whole graph; kinds then show by shape alone. */
 const GRAPH_WIDE = new Set(["year", "degree", "cluster", "groups"]);
@@ -35,15 +36,13 @@ export function GraphLegend({
   const wide = GRAPH_WIDE.has(settings.colorBy);
   return (
     <div className="graph-legend-wrap">
-      <button
-        type="button"
-        className={`graph-legend-toggle btn-secondary${open ? " on" : ""}`}
+      <Button className={`graph-legend-toggle${open ? " on" : ""}`}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
         Legend
         <ChevronIcon open={open} />
-      </button>
+      </Button>
       {open && (
         <div className="graph-legend card">
           <div className="graph-legend-group">

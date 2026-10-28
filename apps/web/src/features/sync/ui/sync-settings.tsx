@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
+import { ConnectionState } from "@/components/connection-state";
 import { Popover } from "@/components/popover";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
@@ -16,6 +17,7 @@ import { FormError } from "@/components/form-error";
 import { MattermostSignInControls, useMattermostSignIn } from "./mattermost-sign-in-controls";
 import { loadIntegrations } from "./load-integrations";
 import { Button } from "@/components/button";
+import { RowButton, Switch, ToggleButton } from "@/components/controls";
 
 export function SyncSettings() {
   const { current } = useProject();
@@ -128,16 +130,14 @@ function IntegrationRow({
 
   return (
     <>
-      <button type="button" className="integration-item" onClick={() => setOpen(true)}>
+      <RowButton className="integration-item" onClick={() => setOpen(true)}>
         <span className="integration-logo" style={{ background: descriptor.color }} />
         <div className="integration-main">
           <strong>{name}</strong>
           <span className="muted">{tagline || descriptor.description}</span>
         </div>
-        <span className={`status ${connected ? "status-done" : "status-not_started"}`}>
-          {connected ? "Connected" : "Not set"}
-        </span>
-      </button>
+        <ConnectionState connected={connected} />
+      </RowButton>
 
       {open && (
         <Modal title={name} onClose={() => setOpen(false)}>
@@ -146,15 +146,8 @@ function IntegrationRow({
             {sharedHint && <p className="muted">{sharedHint}</p>}
             <div className="integration-enable">
               <span>Enabled</span>
-              <button
-                type="button"
-                className={`toggle${value.enabled ? " on" : ""}`}
-                role="switch"
-                aria-checked={value.enabled}
-                onClick={() => patch({ enabled: !value.enabled })}
-              >
-                <span className="knob" />
-              </button>
+              <Switch checked={value.enabled} label="Enabled"
+                onClick={() => patch({ enabled: !value.enabled })} />
             </div>
             {isMattermost && (
               <MattermostSignInControls
@@ -236,16 +229,8 @@ function MattermostEventControls({
       <p className="muted" style={{ margin: 0 }}>Nothing is posted until you switch an event on.</p>
       <div className="integration-enable">
         <span>Use the same channel for everything</span>
-        <button
-          type="button"
-          className={`toggle${opts.sameChannel ? " on" : ""}`}
-          role="switch"
-          aria-checked={opts.sameChannel}
-          aria-label="Use the same channel for everything"
-          onClick={() => set({ sameChannel: !opts.sameChannel })}
-        >
-          <span className="knob" />
-        </button>
+        <Switch checked={opts.sameChannel} label="Use the same channel for everything"
+          onClick={() => set({ sameChannel: !opts.sameChannel })} />
       </div>
       <div className="integration-enable">
         <span>Events</span>
@@ -254,10 +239,8 @@ function MattermostEventControls({
             {MATTERMOST_EVENTS.map((e) => {
               const on = opts.events[e.id] === true;
               return (
-                <button
-                  type="button"
+                <ToggleButton pressed={on}
                   key={e.id}
-                  aria-pressed={on}
                   className={`custom-select-item ms-item${on ? " sel" : ""}`}
                   onClick={() => set({ events: { ...opts.events, [e.id]: !on } })}
                 >
@@ -266,7 +249,7 @@ function MattermostEventControls({
                     {e.label}
                     <span className="muted mm-event-hint">{e.hint}</span>
                   </span>
-                </button>
+                </ToggleButton>
               );
             })}
           </div>

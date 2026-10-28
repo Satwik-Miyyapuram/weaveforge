@@ -8,6 +8,7 @@ import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 import { WeaveForgeLogo } from "./weave-forge-logo";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
+import { MenuItemButton } from "./controls";
 
 /**
  * Set on `<html>` before the first paint by the layout's boot script, so the
@@ -264,9 +265,7 @@ export function DesktopTitleBar() {
       <nav className="title-bar-menus" aria-label="Application menu" role="menubar">
         {groups.map((group, index) => (
           <div key={group.label} className="title-bar-group">
-            <button
-              type="button"
-              role="menuitem"
+            <MenuItemButton
               aria-haspopup="menu"
               aria-expanded={open === index}
               className={`title-bar-button${open === index ? " open" : ""}`}
@@ -282,7 +281,7 @@ export function DesktopTitleBar() {
               }}
             >
               {group.label}
-            </button>
+            </MenuItemButton>
             {open === index ? (
               <div ref={panelRef} className="popover-panel title-bar-menu" role="menu" aria-label={group.label}>
                 <ul className="card-menu-list">
@@ -291,10 +290,7 @@ export function DesktopTitleBar() {
                       <li key={item.id} role="separator" className="title-bar-sep" />
                     ) : (
                       <li key={item.id}>
-                        <button
-                          type="button"
-                          role={item.kind === "check" ? "menuitemcheckbox" : "menuitem"}
-                          aria-checked={item.kind === "check" ? item.checked === true : undefined}
+                        <MenuItemButton kind={item.kind === "check" ? "checkbox" : "item"} checked={item.checked === true}
                           disabled={!item.enabled}
                           aria-current={item.route && isHere(pathname, item.route) ? "page" : undefined}
                           className={`card-menu-item title-bar-item${at === active ? " active" : ""}`}
@@ -303,7 +299,7 @@ export function DesktopTitleBar() {
                         >
                           <span className="title-bar-item-label">{item.label}</span>
                           {item.accelerator ? <kbd className="title-bar-kbd">{item.accelerator}</kbd> : null}
-                        </button>
+                        </MenuItemButton>
                       </li>
                     ),
                   )}

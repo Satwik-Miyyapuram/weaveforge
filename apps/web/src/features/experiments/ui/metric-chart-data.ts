@@ -70,3 +70,26 @@ export function readPrefs(metric: string): Prefs {
 export function writePrefs(metric: string, prefs: Prefs) {
   writeStoredJson(`metric-chart:${metric}`, prefs, "session");
 }
+
+/**
+ * Y-axis tick labels in one precision: the fewest decimals that show every
+ * tick exactly, or one exponent style when the values are too large or small.
+ */
+export function formatTicks(values: readonly number[]): string[] {
+  const finite = values.filter(Number.isFinite);
+  if (finite.length === 0) return values.map(String);
+  const abs = finite.map(Math.abs);
+  const nonzero = abs.filter((v) => v > 0);
+  if (abs.some((v) => v >= 1e6) || (nonzero.length > 0 && nonzero.every((v) => v < 1e-4))) {
+    return values.map((v) => (Number.isFinite(v) ? v.toExponential(1) : String(v)));
+  }
+  let digits = 6;
+  for (let d = 0; d <= 6; d++) {
+    const exact = finite.every((v) => Math.abs(Number(v.toFixed(d)) - v) <= 1e-9 * Math.max(1, Math.abs(v)));
+    if (exact) {
+      digits = d;
+      break;
+    }
+  }
+  return values.map((v) => (Number.isFinite(v) ? v.toFixed(digits) : String(v)));
+}

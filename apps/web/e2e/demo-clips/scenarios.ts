@@ -220,7 +220,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
   },
   {
     id: "shared",
-    title: "Shared with me",
+    title: "Shared with you",
     holdSec: 2,
     async run(page) {
       await page.goto("/shared");
