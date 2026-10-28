@@ -201,8 +201,14 @@ export function DashboardGrid({
 
   const rglLayouts = useMemo<ResponsiveLayouts>(() => {
     const view = (items: DashboardLayoutItem[], cols: number) => {
-      const rgl = toRgl(fitLayoutToContent(items, measuredRows, editing), cols);
-      return editing ? rgl : rgl.map((r) => ({ ...r, minH: Math.min(r.minH ?? r.h, r.h) }));
+      const fitted = fitLayoutToContent(items, measuredRows);
+      if (!editing) return toRgl(fitted, cols).map((r) => ({ ...r, minH: Math.min(r.minH ?? r.h, r.h) }));
+      // Edit mode shows the dashboard as viewed: rows close up, and a list card's
+      // height follows its content, so only its width can be dragged.
+      const locked = new Set(fitted.filter((it, i) => it !== items[i]).map((it) => it.id));
+      return toRgl(compactLayoutVertical(fitted, cols), cols).map((r) =>
+        locked.has(r.i) ? { ...r, minH: r.h, maxH: r.h } : r,
+      );
     };
     return { lg: view(layout.lg, COLS.lg), sm: view(layout.sm, COLS.sm) };
   }, [layout, measuredRows, editing]);
@@ -338,7 +344,6 @@ export function DashboardGrid({
                   <span className="dashboard-drag-handle" title="Drag to move" aria-hidden>
                     <GripIcon />
                   </span>
-                  <span className="dashboard-card-label">{def.label}</span>
                   <CloseButton
                     size="sm"
                     label={`Remove ${def.label}`}
@@ -348,7 +353,7 @@ export function DashboardGrid({
                   />
                 </div>
               )}
-              {!editing && <h3 className="dashboard-card-heading">{def.label}</h3>}
+              <h3 className="dashboard-card-heading">{def.label}</h3>
               <div
                 className={`dashboard-card-content${
                   contentReady ? " dashboard-card-content--ready" : ""

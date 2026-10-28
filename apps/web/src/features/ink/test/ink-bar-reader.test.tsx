@@ -349,3 +349,10 @@ test("both pills leave room round their controls, and the zoom value reads in th
   assert.doesNotMatch(css, /\n\.ink-page-count \{[^}]*font-weight/);
   assert.match(css, /:root:root:root \.ink-zoom-pill \.wf-btn \{[^}]*font-family: inherit;/);
 });
+
+test("the zoom level holds room for three digits, so zoom in never moves as the number grows", () => {
+  const css = src("../../../app/styles/editor-workspace.css");
+  // Same-width digits, and a floor that fits "999%" and the caret: 25% and 149% are one width.
+  assert.match(css, /:root:root \.ink-zoom-pill \.wf-btn \{[^}]*font-variant-numeric: tabular-nums;/);
+  assert.match(css, /:root:root \.ink-zoom-pill \.wf-btn \{[^}]*min-width: calc\(4\.5ch \+ 12px \+ var\(--s5\)\);/);
+});

@@ -342,12 +342,17 @@ html[data-workspace-focus] .layout.editor-route .nav { display: none; }
   font-weight: 600;
   text-align: center;
 }
+/* The item anchors its count, or the count floats off to the list's corner. */
+.layout.nav-collapsed .wf-nav:has(> .nav-badge) { position: relative; }
 .layout.nav-collapsed .wf-nav .nav-badge {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: 0;
+  right: 0;
   min-width: 0;
-  padding: 0 4px;
+  padding: 0 var(--s1);
+  /* A corner sticker, small enough to leave the icon readable. */
+  font-size: var(--fs-micro);
+  line-height: 14px;
 }
 
 /* The foldable heading and the group body it hides, desktop sidebar only: the mobile bar

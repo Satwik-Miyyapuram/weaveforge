@@ -50,3 +50,7 @@ test("the account button stands as tall as the project chip beside it, and squar
   assert.match(nav, /\.layout:not\(\.nav-collapsed\) \.nav-account-row > \.popover \{[^}]*align-self: stretch;/);
   assert.match(nav, /\.layout:not\(\.nav-collapsed\) \.nav-account-row > \.popover > \.wf-btn \{[^}]*height: 100%;[^}]*aspect-ratio: 1;/);
 });
+
+test("a rail count sits on its own item's corner: the item anchors the absolute badge", () => {
+  assert.match(nav, /\.layout\.nav-collapsed \.wf-nav:has\(> \.nav-badge\) \{[^}]*position: relative;/);
+});

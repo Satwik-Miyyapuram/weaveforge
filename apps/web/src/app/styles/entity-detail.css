@@ -129,12 +129,11 @@ a.related-paper-url:hover { text-decoration: underline; }
 /* Capped chip rows (tags, metrics, git) show a few chips on a card and the rest
    as a "+N" chip. The few wrap as whole chips: held to one line, every chip
    shrank by a few pixels and each tag lost its last letters. */
-.chip-row--capped { flex-wrap: wrap; }
-/* A chip longer than the whole line ends in an ellipsis instead of spilling. */
-.chip-row--capped > * { min-width: 0; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip-row--capped { flex-wrap: wrap; min-width: 0; }
+/* A chip longer than the whole line ends in an ellipsis instead of spilling.
+   It outranks `:root:root .wf-chip`, whose inline-flex ignores text-overflow. */
+:root:root .chip-row--capped > :is(*, .wf-chip) { min-width: 0; max-width: 100%; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip-row--capped > .chip-more { flex: none; }
-/* A linked paper's title is the point of the chip: it takes the row's spare
-   width and wraps to two lines rather than being cut mid-letter. */
 
 .chip-more { color: var(--muted); font-style: italic; flex: 0 0 auto; }
 .image-thumb .image-loading { position: absolute; inset: 0; }
@@ -353,7 +352,8 @@ a.related-paper-url:hover { text-decoration: underline; }
 .plan-track > span { display: block; height: 100%; background: var(--accent); }
 /* A mark is a row button around its stripes; the slot places it on the track. */
 .plan-mark-slot { position: absolute; top: 1px; translate: -50% 0; display: inline-flex; }
-.plan-mark-slot > .wf-row { display: flex; padding: 0; min-height: 0; }
+/* Outranks the catalogue's row padding, which pushed each dot below the track. */
+:root:root .plan-mark-slot > .wf-row { display: flex; padding: 0; min-height: 0; }
 .plan-mark {
   position: relative; box-sizing: border-box; width: 22px; height: 22px;
   display: flex; align-items: stretch; overflow: visible;

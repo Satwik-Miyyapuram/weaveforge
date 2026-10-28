@@ -2061,7 +2061,8 @@
   border-radius: 50%;
   border: 1.5px solid var(--accent);
   background: var(--surface);
-  box-shadow: var(--e1);
+  /* Flat: a theme's hard drop shadow reads as a second dot. */
+  box-shadow: none;
   pointer-events: auto;
   touch-action: none;
 }
@@ -2360,7 +2361,8 @@
    sideways and its chrome clips, so a list hung inside either was cut off. */
 
 /* The zoom pill reads like the page pill; its level resets to fit. */
-:root:root .ink-zoom-pill .wf-btn { min-width: 3.4em; justify-content: center; }
+/* Room for "999%" and the caret, in same-width digits: zoom in stays put as the level changes. */
+:root:root .ink-zoom-pill .wf-btn { font-variant-numeric: tabular-nums; min-width: calc(4.5ch + 12px + var(--s5)); justify-content: center; }
 
 /* The ⋯ menu: sections split by a rule, chips for the one-of-n choices. */
 .ink-menu-more-list { min-width: 240px; gap: 0; }

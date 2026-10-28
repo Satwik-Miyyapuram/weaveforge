@@ -229,3 +229,11 @@ test("editor: the order buttons are full-size and readable (DA-117)", async () =
   assert.doesNotMatch(css, /\.ink-figure-button/);
   assert.match(src, /<Button\s+variant="ghost"\s+size="sm"\s+title="Bring forward \(Ctrl\+\]\)"/);
 });
+
+test("editor: the selection's handles are flat, no shadow under the dots", async () => {
+  const { readFileSync } = await import("node:fs");
+  const css = readFileSync(new URL("../../../app/styles/editor-workspace.css", import.meta.url), "utf8");
+  const rule = css.match(/\n\.ink-figure-handle \{([^}]*)\}/)?.[1] ?? "";
+  assert.match(rule, /border-radius: 50%/);
+  assert.match(rule, /box-shadow: none/);
+});

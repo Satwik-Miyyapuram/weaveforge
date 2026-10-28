@@ -32,3 +32,17 @@ test("a card's ✕ is a CloseButton and its handle a full-size grip", () => {
   assert.match(css, /\.dashboard-drag-handle \{[^}]*width: var\(--control-lg\);[^}]*height: var\(--control-lg\);/);
   assert.doesNotMatch(css, /\.dashboard-card-remove \{[^}]*padding: 0 2px/, "the IconButton keeps its own size");
 });
+
+test("a card looks the same in edit mode: one heading, controls laid over it", () => {
+  // The heading was swapped for a bold label row in edit mode, which moved
+  // every card's content down and clipped it (round 3, home edit vs normal).
+  assert.match(grid, /<h3 className="dashboard-card-heading">\{def\.label\}<\/h3>/);
+  assert.doesNotMatch(grid, /!editing && <h3/);
+  assert.doesNotMatch(grid, /dashboard-card-label/);
+  assert.match(css, /\.dashboard-card-chrome \{[^}]*position: absolute;/);
+});
+
+test("the edit bar takes the Customize button's place in the title row", () => {
+  assert.doesNotMatch(css, /\.head-row:has\(\.dashboard-edit-bar--editing\)/);
+  assert.doesNotMatch(css, /\.dashboard-edit-bar--editing \{/);
+});

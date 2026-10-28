@@ -12,15 +12,13 @@ export function rowsForHeight(px: number, rowHeight: number, margin: number): nu
 
 /**
  * The layout as viewed: list cards (fitContent) take the rows they measured,
- * kept between FIT_MIN_ROWS and the card's largest size. Editing, or a card
- * not measured yet, keeps the saved height.
+ * kept between FIT_MIN_ROWS and the card's largest size. A card not measured
+ * yet keeps the saved height.
  */
 export function fitLayoutToContent(
   items: readonly DashboardLayoutItem[],
   measuredRows: ReadonlyMap<string, number>,
-  editing: boolean,
 ): DashboardLayoutItem[] {
-  if (editing) return [...items];
   return items.map((it) => {
     const def = getCardDef(it.type);
     const rows = measuredRows.get(it.id);
