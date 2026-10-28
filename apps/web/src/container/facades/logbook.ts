@@ -1,3 +1,4 @@
+import type { LogImageStore } from "@/features/logbook/infrastructure/log-image-store";
 import type { AddLogEntryUseCase, ILogSyncIntegration, ILogEntryRepository, INotificationIntegration, LogEntry } from "@weaveforge/core";
 
 export class LogbookFacade {
@@ -7,6 +8,7 @@ export class LogbookFacade {
       addLogEntry: AddLogEntryUseCase;
       logSync: ILogSyncIntegration;
       notifications: INotificationIntegration;
+      images: Pick<LogImageStore, "upload" | "fetchBlobs">;
     },
   ) {}
 
@@ -50,5 +52,14 @@ export class LogbookFacade {
 
   removeLog(entry: LogEntry) {
     return this.deps.logSync.removeLog(entry);
+  }
+
+  /** Store a pasted or dropped image under the entry it belongs to (S-16). */
+  uploadImage(entryId: string, blob: Blob, ext: string) {
+    return this.deps.images.upload(entryId, blob, ext);
+  }
+
+  fetchImageBlobs(paths: readonly string[]) {
+    return this.deps.images.fetchBlobs(paths);
   }
 }

@@ -173,3 +173,74 @@ test("removeLocal reports failure and keeps its identity across selection change
   // The deleted mark was selected: the selection clears.
   assert.equal(selection, null);
 });
+test("Delete then undo brings the mark back under its own id (D18, DA-112)", async () => {
+  const log: string[] = [];
+  const get = mount(fakeWrites(true, log), [ann("a")]);
+  await act(async () => {
+    await get().removeLocal("a");
+  });
+  await act(async () => {
+    await get().undo();
+  });
+  assert.deepEqual(log, ["remove:a", "create:a"]);
+});
+
+test("a colour or comment edit is undone and redone (D18, DA-112)", async () => {
+  const patches: [string, object][] = [];
+  const writes = {
+    ...fakeWrites(true),
+    updateLocal: async (id: string, patch: object) => {
+      patches.push([id, patch]);
+    },
+  };
+  const a = ann("a");
+  let undo: InkUndo | null = null;
+  function Probe() {
+    undo = useInkUndo(writes, [a]);
+    return null;
+  }
+  act(() => {
+    create(createElement(Probe));
+  });
+  await act(async () => {
+    await undo!.updateLocal("a", { color: "#66ff66", comment: "why" });
+  });
+  assert.equal(undo!.canUndo, true);
+  await act(async () => {
+    await undo!.undo();
+  });
+  await act(async () => {
+    await undo!.redo();
+  });
+  assert.deepEqual(patches, [
+    ["a", { color: "#66ff66", comment: "why" }],
+    ["a", { color: "#ff6666", comment: "" }],
+    ["a", { color: "#66ff66", comment: "why" }],
+  ]);
+});
+
+test("an edit of an unknown mark records nothing", async () => {
+  const writes = { ...fakeWrites(true), updateLocal: async () => {} };
+  let undo: InkUndo | null = null;
+  function Probe() {
+    undo = useInkUndo(writes, []);
+    return null;
+  }
+  act(() => {
+    create(createElement(Probe));
+  });
+  await act(async () => {
+    await undo!.updateLocal("ghost", { color: "#000000" });
+  });
+  assert.equal(undo!.canUndo, false);
+});
+
+test("the reader edits marks through the undo stack, never the raw writes (DA-112)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../ui/pdf-reader/pdf-reader.tsx", import.meta.url), "utf8");
+  const raw = /const \{([^}]*)\} = actions;/.exec(src)?.[1] ?? "";
+  for (const write of ["updateLocal", "removeLocal", "persistDraft", "saveAnchor"]) {
+    assert.doesNotMatch(raw, new RegExp(`\b${write}\b`), `${write} taken from the raw actions`);
+  }
+  assert.match(src, /\{[^}]*updateLocal[^}]*\} = inkUndo;/);
+});

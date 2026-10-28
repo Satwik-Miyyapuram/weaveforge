@@ -15,6 +15,7 @@ import { formatError } from "@/lib/format-error";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { logToApp } from "@/lib/error-report/app-log";
 import { Button } from "@/components/button";
+import { Switch } from "@/components/controls";
 
 const READ_LABELS: Record<AiReadCategory, string> = {
   paper_metadata: "Paper metadata and links",
@@ -339,7 +340,7 @@ export function AiAccessPanel({ settings, onChange }: {
           <h3 id="ai-access-title">AI assistant access</h3>
           <p>Connect a client such as Codex to only the research sources you choose. PDFs, keys, and account settings are never shared.</p>
         </div>
-        <button type="button" className={`toggle${access.enabled ? " on" : ""}`} role="switch" aria-checked={access.enabled} aria-label="Enable AI assistant access" onClick={() => setEnabled(!access.enabled)}><span className="knob" /></button>
+        <Switch checked={access.enabled} label="Enable AI assistant access" onClick={() => setEnabled(!access.enabled)} />
       </header>
       {access.enabled && (
         <>
@@ -435,9 +436,9 @@ export function AiAccessPanel({ settings, onChange }: {
                     </div>
                   </>
                 )}
-                <button type="button" className="btn-secondary ai-start-access" onClick={() => void startSession()} disabled={busy || (sourceScope === "selected" ? selectedSourceIds.length === 0 : eligibleSources.length === 0)}>
+                <Button className="ai-start-access" onClick={() => void startSession()} disabled={busy || (sourceScope === "selected" ? selectedSourceIds.length === 0 : eligibleSources.length === 0)}>
                   {busy ? "Starting…" : `Start access for ${sourceScope === "selected" ? selectedSourceIds.length : eligibleSources.length} source${(sourceScope === "selected" ? selectedSourceIds.length : eligibleSources.length) === 1 ? "" : "s"}`}
-                </button>
+                </Button>
                 <FormError>{sessionError}</FormError>
                 {connection && <div className="ai-connection-details"><div className="ai-section-heading"><div><h4>Live Codex connection</h4><p>Copy this session ID and pairing secret into the local plugin. Use the MCP token you created above. Keep this page open.</p></div></div><div className="ai-connection-value"><span><small>Session ID</small><code>{connection.sessionId}</code></span><Button onClick={() => copyConnection("session", connection.sessionId)}>{copied === "session" ? "Copied" : "Copy"}</Button></div><div className="ai-connection-value"><span><small>Pairing secret</small><code>••••••••••••••••••••••••••••••••</code></span><Button onClick={() => copyConnection("secret", connection.secret)}>{copied === "secret" ? "Copied" : "Copy"}</Button></div></div>}
             </>

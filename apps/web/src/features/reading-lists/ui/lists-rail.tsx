@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import type { ReadingList, ReadingListTreeNode } from "@weaveforge/core";
 import { listDisplayColor } from "./list-ui";
+import { RowButton } from "@/components/controls";
 
 /** One rail row: a list at its depth in the tree. */
 interface RailRow {
@@ -48,9 +49,8 @@ export function ListsRail({
 }) {
   const rows = flattenTree(tree);
   const row = (r: RailRow) => (
-    <button
+    <RowButton
       key={r.list.id}
-      type="button"
       className="lists-rail-item"
       aria-current={r.list.id === selectedId ? "true" : undefined}
       style={{ "--depth": r.depth } as CSSProperties}
@@ -63,7 +63,7 @@ export function ListsRail({
           {r.sublists}
         </span>
       )}
-    </button>
+    </RowButton>
   );
   return (
     <nav className="card lists-rail" aria-label="Lists">

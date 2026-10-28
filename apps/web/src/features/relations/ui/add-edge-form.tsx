@@ -8,15 +8,19 @@ import { Select } from "@/components/select";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
+import { Field } from "@/components/field";
+import { showToast } from "@/lib/toast";
+import { linkSentence, sortPapersByTitle } from "./relation-phrase";
 
-/** Form for manually linking two papers; used inside the Add edge modal. */
+/** Form for linking two papers by hand; used inside the Link papers modal. */
 export function AddEdgeForm({
   papers,
   onAdded,
   onClose,
 }: {
   papers: Paper[];
-  onAdded?: () => void;
+  /** Called with the paper the new relation starts from. */
+  onAdded?: (fromPaper: string) => void;
   onClose?: () => void;
 }) {
   const [from, setFrom] = useState("");
@@ -33,9 +37,10 @@ export function AddEdgeForm({
     setBusy(true);
     try {
       await getContainer().graph.addRelation.add({ fromPaper: from, toPaper: to, relation, source: "manual" });
+      showToast("Linked");
       setFrom("");
       setTo("");
-      onAdded?.();
+      onAdded?.(from);
       onClose?.();
     } catch (err) {
       setError(formatError(err));
@@ -48,29 +53,35 @@ export function AddEdgeForm({
     return <p className="muted">Add at least two papers before linking them.</p>;
   }
 
+  const sorted = sortPapersByTitle(papers);
+  const title = (id: string) => papers.find((p) => p.id === id)?.title;
+  const sentence = linkSentence(title(from), relation, title(to));
+  const paperOptions = sorted.map((p) => (<option key={p.id} value={p.id}>{p.title}</option>));
+
   return (
     <form className="add-form" onSubmit={submit}>
-      <div className="field">
-        <Select id="from" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From paper">
-          <option value="">From paper…</option>
-          {papers.map((p) => (<option key={p.id} value={p.id}>{p.title}</option>))}
+      <Field label="From">
+        <Select value={from} onChange={(e) => setFrom(e.target.value)} searchable={papers.length > 10}>
+          <option value="">Pick a paper…</option>
+          {paperOptions}
         </Select>
-      </div>
-      <div className="field">
-        <Select id="relation" value={relation} onChange={(e) => setRelation(e.target.value as RelationType)} aria-label="Relation type">
+      </Field>
+      <Field label="Relation">
+        <Select value={relation} onChange={(e) => setRelation(e.target.value as RelationType)}>
           {RELATION_TYPES.map((t) => (<option key={t} value={t}>{enumLabel("relation", t)}</option>))}
         </Select>
-      </div>
-      <div className="field">
-        <Select id="to" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To paper">
-          <option value="">To paper…</option>
-          {papers.map((p) => (<option key={p.id} value={p.id}>{p.title}</option>))}
+      </Field>
+      <Field label="To">
+        <Select value={to} onChange={(e) => setTo(e.target.value)} searchable={papers.length > 10}>
+          <option value="">Pick a paper…</option>
+          {paperOptions}
         </Select>
-      </div>
+      </Field>
+      {sentence && <p className="muted link-preview" aria-live="polite">{sentence}</p>}
       {error && <FormError>{error}</FormError>}
       <div className="form-foot">
-        <button type="button" className="btn-secondary btn-cancel" onClick={onClose}>Cancel</button>
-        <Button type="submit" variant="primary" disabled={busy}>{busy ? "Linking…" : "Add edge"}</Button>
+        <Button className="btn-cancel" onClick={onClose}>Cancel</Button>
+        <Button type="submit" variant="primary" disabled={busy}>{busy ? "Linking…" : "Link"}</Button>
       </div>
     </form>
   );

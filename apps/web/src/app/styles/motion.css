@@ -59,12 +59,11 @@
   /* Derived from the app's own duration token rather than written out, which
      is what `--motion-scale` needs: it multiplies once, here, and reaches all
      three values. The reactive layer is a flourish rather than feedback, so it
-     stays deliberately slower than a press — base and slow are multiples of
-     fast instead of equal to it, and the ramp keeps its shape. The numbers
-     this produces are 150 / 262 / 525 ms against the 140 / 260 / 520 it
-     replaces: two of the three are unchanged to within a percent, and the one
-     that moved, moved by ten milliseconds. */
-  --rm-fast: calc(var(--dur-fast) * var(--motion-scale));
+     stays deliberately slower than a press: it starts from the hover step,
+     and its base and slow are multiples of that step rather than the app's
+     own base and slow, so the ramp keeps its shape. At scale 1 it runs
+     160 / 280 / 560 ms. */
+  --rm-fast: calc(var(--dur-base) * var(--motion-scale));
   --rm-base: calc(var(--rm-fast) * 1.75);
   --rm-slow: calc(var(--rm-fast) * 3.5);
   /* Tilt is deliberately small. Past ~4deg a card stops reading as a surface
@@ -374,17 +373,17 @@
 }
 
 /* ---- Appearance settings: motion toggle + theme file controls ---- */
-.toggle-row { display: flex; align-items: center; gap: 9px; cursor: pointer; }
+.toggle-row { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .toggle-row span { font-weight: 500; }
 
-.theme-config-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.theme-config-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .theme-config-actions input[type="file"] {
-  flex: 1 1 14rem; min-width: 0; padding: 8px 10px;
+  flex: 1 1 14rem; min-width: 0; padding: 8px 12px;
   border: 1px solid var(--line); border-radius: var(--radius-sm);
   background: var(--input-bg); color: var(--ink); font: inherit; font-size: var(--fs);
 }
 .theme-config-actions input[type="file"]::file-selector-button {
-  margin-right: 10px; padding: 5px 10px;
+  margin-right: 12px; padding: 4px 12px;
   border: 1px solid var(--line); border-radius: var(--control-radius-sm);
   background: var(--surface2); color: var(--ink); font: inherit; font-size: var(--fs-sm); cursor: pointer;
 }
@@ -392,7 +391,7 @@
 /* Errors are a list because the parser reports every bad key at once — one
    round trip per typo is a miserable way to author a theme. */
 .theme-config-errors ul {
-  margin: 0; padding: 8px 10px 8px 26px;
+  margin: 0; padding: 8px 12px 8px 24px;
   border-radius: var(--radius-sm); background: var(--s-danger-bg);
   color: var(--ink); font-size: var(--fs-sm); max-height: 12rem; overflow-y: auto;
 }
@@ -407,7 +406,7 @@
   display: inline-block;
   width: 6px;
   height: 6px;
-  margin-left: 6px;
+  margin-left: 8px;
   border-radius: 50%;
   background: var(--accent);
   vertical-align: 3px;
@@ -468,10 +467,10 @@
   animation: none;
 }
 ::view-transition-group(vt-page) { animation: none; }
-::view-transition-old(vt-page) { animation: vt-fade-out 180ms ease-out both; }
-::view-transition-new(vt-page) { animation: vt-fade-in 180ms ease-out both; }
+::view-transition-old(vt-page) { animation: vt-fade-out var(--dur-base) ease-out both; }
+::view-transition-new(vt-page) { animation: vt-fade-in var(--dur-base) ease-out both; }
 :root[data-nav="tab"]::view-transition-old(vt-page),
-:root[data-nav="tab"]::view-transition-new(vt-page) { animation-duration: 140ms; }
+:root[data-nav="tab"]::view-transition-new(vt-page) { animation-duration: var(--dur-base); }
 
 /* The shell stays put; only the page fades. */
 ::view-transition-old(root),

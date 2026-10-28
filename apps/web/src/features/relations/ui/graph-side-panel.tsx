@@ -1,7 +1,6 @@
 "use client";
 
 import { enumLabel, humanise } from "@/lib/enum-label";
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   type Paper, type PaperRelation, type RelationType, type ReportSection, type VaultPage } from "@weaveforge/core";
@@ -9,12 +8,13 @@ import { getContainer } from "@/bootstrap";
 import { RELATION_COLORS, tagColor } from "../domain/graph-palette";
 import { noteTags, relatedConcepts as relatedConceptCounts } from "../application/graph-tags";
 import { Select } from "@/components/select";
-import { IconButton } from "@/components/button";
+import { Button, IconButton } from "@/components/button";
 import { CloseIcon } from "@/components/view-icons";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
-import { Button } from "@/components/button";
 import { removeRelationLater } from "./remove-relation";
+import { relationPhrase } from "./relation-phrase";
+import { RowButton } from "@/components/controls";
 
 interface StoredAnnotation {
   text?: string;
@@ -32,6 +32,9 @@ interface StoredAnnotation {
  * are cut with an ellipsis, so a cut title cannot be mistaken for the whole
  * one.
  */
+/** Relations listed before "Show all n". */
+const RELATIONS_SHOWN = 8;
+
 function paperLabel(papers: Paper[], id: string, max = 40): string {
   const title = papers.find((p) => p.id === id)?.title;
   if (!title) return "a paper not in this view";
@@ -97,11 +100,11 @@ export function GraphSidePanel({
           {paper && <span className="status-pill">{enumLabel("paperStatus", paper.status)}</span>}
           {section && <span className="status-pill">{humanise(section.status)}</span>}
         </span>
-        <button type="button" className="btn-ghost graph-side-close" onClick={onClose} aria-label="Close panel">
+        <Button variant="ghost" className="graph-side-close" onClick={onClose} aria-label="Close panel">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" />
           </svg>
-        </button>
+        </Button>
       </div>
       {paper && (
         <PaperPanel
@@ -150,6 +153,7 @@ function PaperPanel({
   onSelectConcept: (name: string) => void;
 }) {
   const [linking, setLinking] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const touching = relations.filter((e) => e.fromPaper === paper.id || e.toPaper === paper.id);
 
   async function autoLinkPaper() {
@@ -182,16 +186,16 @@ function PaperPanel({
       {paper.tags.length > 0 && (
         <div className="tag-chips">
           {paper.tags.map((t) => (
-            <button key={t} type="button" className="tag-chip tag-chip-btn" onClick={() => onSelectConcept(t)}>
+            <RowButton key={t} className="tag-chip tag-chip-btn" onClick={() => onSelectConcept(t)}>
               #{t}
-            </button>
+            </RowButton>
           ))}
         </div>
       )}
       <div className="graph-side-actions">
-        <Link href={`/papers?paper=${encodeURIComponent(paper.id)}`} className="btn-primary">
+        <Button variant="primary" href={`/papers?paper=${encodeURIComponent(paper.id)}`}>
           Open in Papers
-        </Link>
+        </Button>
         <Button onClick={() => void autoLinkPaper()} disabled={linking}>
           {linking ? "Linking…" : "Auto-link citations"}
         </Button>
@@ -200,30 +204,34 @@ function PaperPanel({
         <div className="graph-side-section">
           <div className="graph-side-label">Relations · {touching.length}</div>
           <ul className="graph-side-list">
-            {touching.slice(0, 8).map((e) => {
-              const otherId = e.fromPaper === paper.id ? e.toPaper : e.fromPaper;
+            {(showAll ? touching : touching.slice(0, RELATIONS_SHOWN)).map((e) => {
+              const outgoing = e.fromPaper === paper.id;
+              const otherId = outgoing ? e.toPaper : e.fromPaper;
               return (
                 <li key={e.id} className="graph-side-rel">
                   <span className="graph-side-rel-kind" style={{ borderColor: RELATION_COLORS[e.relation] }}>
-                    {enumLabel("relation", e.relation)}
+                    {relationPhrase(e.relation, outgoing)}
                   </span>
-                  <button type="button" className="link-btn" onClick={() => onSelectPaper(otherId)}>
+                  <Button variant="link" onClick={() => onSelectPaper(otherId)}>
                     {paperLabel(papers, otherId)}
-                  </button>
+                  </Button>
                   {e.source === "auto" && <span className="muted"> (auto)</span>}
-                  <button
-                    type="button"
-                    className="link-btn graph-side-rel-remove"
+                  <Button variant="link" className="graph-side-rel-remove"
                     aria-label={`Delete relation with ${paperLabel(papers, otherId)}`}
                     title="Delete relation"
                     onClick={() => removeRelation(e.id)}
                   >
                     <CloseIcon />
-                  </button>
+                  </Button>
                 </li>
               );
             })}
           </ul>
+          {touching.length > RELATIONS_SHOWN && (
+            <Button size="sm" variant="ghost" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll}>
+              {showAll ? "Show fewer" : `Show all ${touching.length}`}
+            </Button>
+          )}
         </div>
       )}
     </div>
@@ -245,16 +253,16 @@ function NotePanel({
       {uniqueTags.length > 0 && (
         <div className="tag-chips">
           {uniqueTags.map((t) => (
-            <button key={t} type="button" className="tag-chip tag-chip-btn" onClick={() => onSelectConcept(t)}>
+            <RowButton key={t} className="tag-chip tag-chip-btn" onClick={() => onSelectConcept(t)}>
               #{t}
-            </button>
+            </RowButton>
           ))}
         </div>
       )}
       <div className="graph-side-actions">
-        <Link href={`/notes?page=${encodeURIComponent(note.id)}`} className="btn-primary">
+        <Button variant="primary" href={`/notes?page=${encodeURIComponent(note.id)}`}>
           Open in Notes
-        </Link>
+        </Button>
       </div>
     </div>
   );
@@ -267,9 +275,9 @@ function SectionPanel({ section }: { section: ReportSection }) {
       {section.sectionNo && <p className="muted">§ {section.sectionNo}</p>}
       <p className="muted">{section.wordCount} words</p>
       <div className="graph-side-actions">
-        <Link href={`/report?section=${encodeURIComponent(section.id)}`} className="btn-primary">
+        <Button variant="primary" href={`/report?section=${encodeURIComponent(section.id)}`}>
           Open in Report
-        </Link>
+        </Button>
       </div>
     </div>
   );
@@ -390,9 +398,9 @@ function ConceptPanel({
           <ul className="graph-side-list">
             {linkedPapers.map((p) => (
               <li key={p.id}>
-                <button type="button" className="link-btn" onClick={() => onSelectPaper(p.id)}>
+                <Button variant="link" onClick={() => onSelectPaper(p.id)}>
                   {p.title}
-                </button>
+                </Button>
                 <span className="muted"> · {enumLabel("paperStatus", p.status)}</span>
               </li>
             ))}
@@ -405,9 +413,9 @@ function ConceptPanel({
           <ul className="graph-side-list">
             {linkedNotes.map((n) => (
               <li key={n.id}>
-                <button type="button" className="link-btn" onClick={() => onSelectNote(n.id)}>
+                <Button variant="link" onClick={() => onSelectNote(n.id)}>
                   {n.title}
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
@@ -418,9 +426,9 @@ function ConceptPanel({
           <div className="muted">Co-occurring</div>
           <div className="tag-chips">
             {relatedConcepts.map(([t, n]) => (
-              <button key={t} type="button" className="tag-chip tag-chip-btn" onClick={() => onSelectConcept(t)}>
+              <RowButton key={t} className="tag-chip tag-chip-btn" onClick={() => onSelectConcept(t)}>
                 #{t} <span className="muted">({n})</span>
-              </button>
+              </RowButton>
             ))}
           </div>
         </div>
@@ -433,9 +441,9 @@ function ConceptPanel({
               <li key={i} className="annotation">
                 {ann.color && <span className="annotation-swatch" style={{ background: ann.color }} aria-hidden />}
                 <div className="annotation-body">
-                  <button type="button" className="link-btn annotation-paper" onClick={() => onSelectPaper(p.id)}>
+                  <Button variant="link" className="annotation-paper" onClick={() => onSelectPaper(p.id)}>
                     {paperLabel(papers, p.id, 48)}
-                  </button>
+                  </Button>
                   {ann.text && <p className="annotation-text">{ann.text}</p>}
                   {ann.comment && <p className="annotation-comment">{ann.comment}</p>}
                 </div>

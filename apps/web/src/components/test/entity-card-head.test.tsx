@@ -33,8 +33,8 @@ test("badge, status, actions and ⋯ sit in the head, before the title so it flo
   for (const i of order) assert.ok(i > 0, html);
   assert.deepEqual([...order].sort((a, b) => a - b), order, "order lead, badge, status, actions, ⋯, title");
   // One cluster inside the head, no separate row below it.
-  assert.equal(html.match(/class="entity-card-controls"/g)?.length, 1);
-  assert.ok(html.indexOf('class="entity-card-controls"') > headStart);
+  assert.equal(html.match(/class="entity-card-controls[ "]/g)?.length, 1);
+  assert.ok(html.indexOf('class="entity-card-controls') > headStart);
 });
 
 test("the controls float right and the title wraps around them", () => {
@@ -46,7 +46,7 @@ test("the controls float right and the title wraps around them", () => {
   const c = rule(".entity-card-controls");
   assert.match(c, /float: right/);
   assert.match(c, /display: flex/);
-  assert.match(rule(".entity-card-head > :first-child:not(.entity-card-controls):not(.entity-card-title)"), /float: left/);
+  assert.match(rule(".entity-card-lead"), /float: left/);
   assert.doesNotMatch(css(), /\.entity-card-controls > \.entity-card-status \{ margin-right: auto/);
 });
 
@@ -76,4 +76,23 @@ test("a card tag chip cut by its ellipsis names itself on hover (DA-27)", () => 
 test("a lists rail name cut by its ellipsis names itself on hover (DA-31)", () => {
   const src = readFileSync(fileURLToPath(new URL("../../features/reading-lists/ui/lists-rail.tsx", import.meta.url)), "utf8");
   assert.match(src, /<span className="lists-rail-name" title=\{r\.list\.name\}>/);
+});
+
+test("the leading control sits in its own box, so a control reset cannot eat the gap to the title", () => {
+  // states.css resets every checkbox to margin 0 at a higher specificity, which
+  // erased the 8px between a milestone's check and its title.
+  const html = renderToStaticMarkup(<EntityCard title="Thesis" leading={<input type="checkbox" className="themed-check" />} />);
+  assert.match(html, /<div class="entity-card-lead"><input type="checkbox" class="themed-check"\/><\/div>/);
+  // 12px, not 8: the brutal check casts a 3px hard shadow into the gap, so 8px read as touching.
+  assert.match(rule(".entity-card-lead"), /margin-right: 12px/);
+  assert.doesNotMatch(css(), /:first-child:not\(\.entity-card-controls\)/);
+});
+
+test("only a trailing ⋯ pulls the controls into the card's edge; a text badge keeps its inset", () => {
+  const withMenu = renderToStaticMarkup(<EntityCard title="x" menu={<button type="button">⋯</button>} />);
+  assert.match(withMenu, /class="entity-card-controls entity-card-controls--menu"/);
+  const badgeOnly = renderToStaticMarkup(<EntityCard title="x" badge={<span>Create note</span>} />);
+  assert.match(badgeOnly, /class="entity-card-controls"/);
+  assert.doesNotMatch(rule(".entity-card-controls"), /margin-right: -/);
+  assert.match(rule(".entity-card-controls--menu"), /margin-right: -8px/);
 });

@@ -16,7 +16,7 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 40px 32px;
+  padding: 48px 32px;
 }
 
 /* The mark: the screen's own icon in a tile — the same treatment the editor
@@ -26,7 +26,7 @@
   place-items: center;
   width: 52px;
   height: 52px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
@@ -58,8 +58,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 28px 32px;
+  gap: 12px;
+  padding: 32px 32px;
 }
 
 .empty--no-results .empty-body { font-size: var(--fs); }
@@ -70,7 +70,7 @@
   gap: 8px;
   align-items: center;
   justify-content: center;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .summary { margin: 8px 0 0; font-size: var(--fs); overflow-wrap: anywhere; }
@@ -116,8 +116,8 @@
 .card-columns-item.is-deferred {
   content-visibility: auto;
   contain-intrinsic-size: auto 170px;
-  padding: 6px 14px 18px;
-  margin: -6px -14px -18px;
+  padding: 8px 16px 16px;
+  margin: -8px -16px -16px;
   /* Those padded halos overlap the neighbouring column, so the wrapper must not
      swallow clicks meant for the card underneath it. */
   pointer-events: none;
@@ -149,7 +149,7 @@
   display: grid;
   gap: 4px;
   min-width: 0;
-  padding: 10px 12px;
+  padding: 12px 12px;
   transition: border-color var(--dur-base), background var(--dur-base);
 }
 .entity-card[role="button"],
@@ -162,7 +162,7 @@
 }
 }
 .entity-card--nested {
-  padding: 8px 10px;
+  padding: 8px 12px;
   background: color-mix(in srgb, var(--surface2) 40%, transparent);
   box-shadow: none;
 }
@@ -197,18 +197,20 @@
    a row of their own (D09, E42). */
 .entity-card-head { display: flow-root; }
 .entity-card-head > .entity-card-title { display: block; text-wrap: pretty; }
-.entity-card-head > :first-child:not(.entity-card-controls):not(.entity-card-title) {
+.entity-card-lead {
   float: left;
-  margin-right: 8px;
+  display: flex;
+  margin-right: 12px;
 }
 .entity-card-controls {
   float: right;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-left: 8px;
-  margin-right: -6px;
 }
+/* A trailing ⋯ has its own padding, so the cluster sits into it; a text badge would touch the edge. */
+.entity-card-controls--menu { margin-right: -8px; }
 .entity-card-status {
   flex: none;
   display: flex;
@@ -222,7 +224,7 @@
   max-width: none;
 }
 .entity-card-status .status-select .custom-select-button {
-  padding: 4px 10px;
+  padding: 4px 12px;
   min-height: var(--control-sm);
 }
 .entity-card-meta,
@@ -251,9 +253,9 @@
 }
 .paper-card-foot {
   margin-top: 2px;
-  padding-top: 6px;
+  padding-top: 8px;
   border-top: 1px solid var(--border);
-  gap: 6px;
+  gap: 8px;
   min-height: 0;
 }
 .entity-card .entity-icon-btn,
@@ -272,7 +274,7 @@
 }
 /* One quiet tag chip on every card, in every theme. */
 .card.entity-card .tag-chips > .tag-chip {
-  padding: 2px 7px;
+  padding: 2px 8px;
   border: 0;
   border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--text) 7%, transparent);
@@ -339,6 +341,6 @@ a.entity-icon-btn:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 8px;
 }
 .entity-icon-text-btn > svg { flex: none; }

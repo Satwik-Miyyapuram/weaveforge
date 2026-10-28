@@ -46,6 +46,7 @@ import {
   RefreshGlyph,
 } from "./explorer-glyphs";
 import { shortcutLabel } from "@/lib/shortcut-label";
+import { RowButton } from "@/components/controls";
 
 /** The "new in here" hover actions on a row, in the order they show. */
 const NEW_HERE: { kind: CreateKind; label: string; icon: React.ReactNode }[] = [
@@ -393,47 +394,43 @@ export function ExplorerPanel({
         <div className="explorer-head-actions">
           {onDraft ? (
             <>
-              <button
-                type="button"
+              <RowButton
                 className="explorer-action"
                 title="New note"
                 aria-label="New note"
                 onClick={() => startDraft("note")}
               >
                 <NavIcon name="notes" />
-              </button>
-              <button
-                type="button"
+              </RowButton>
+              <RowButton
                 className="explorer-action"
                 title="New folder"
                 aria-label="New folder"
                 onClick={() => startDraft("folder")}
               >
                 <FolderIcon />
-              </button>
+              </RowButton>
             </>
           ) : null}
           {onHide ? (
-            <button
-              type="button"
+            <RowButton
               className="explorer-action"
               title={`Hide explorer (${shortcutLabel("⌘B")})`}
               aria-label="Hide explorer"
               onClick={onHide}
             >
               <HideGlyph />
-            </button>
+            </RowButton>
           ) : null}
           {onRefresh ? (
-            <button
-              type="button"
+            <RowButton
               className="explorer-action"
               title="Refresh"
               aria-label="Refresh"
               onClick={onRefresh}
             >
               <RefreshGlyph />
-            </button>
+            </RowButton>
           ) : null}
         </div>
       </div>
@@ -452,15 +449,14 @@ export function ExplorerPanel({
           onKeyDown={(event) => event.stopPropagation()}
         />
         {query ? (
-          <button
-            type="button"
+          <RowButton
             className="explorer-filter-clear"
             aria-label="Clear filter"
             title="Clear filter"
             onClick={() => setQuery("")}
           >
             <CloseGlyph />
-          </button>
+          </RowButton>
         ) : null}
       </div>
 
@@ -477,8 +473,7 @@ export function ExplorerPanel({
               >
                 <div className="explorer-section-head">
                   {/* The header *is* the collapse control. */}
-                  <button
-                    type="button"
+                  <RowButton
                     className="explorer-section-toggle"
                     aria-expanded={open}
                     aria-controls={`explorer-section-${section.id}`}
@@ -489,7 +484,7 @@ export function ExplorerPanel({
                     {rows.length > 0 ? (
                       <span className="explorer-section-count">{rows.length}</span>
                     ) : null}
-                  </button>
+                  </RowButton>
                 </div>
                 <ul
                   id={`explorer-section-${section.id}`}
@@ -650,9 +645,8 @@ export function ExplorerPanel({
                           {offered.length > 0 && renaming !== node.key ? (
                             <span className="explorer-row-actions">
                               {NEW_HERE.filter((item) => offered.includes(item.kind)).map((item) => (
-                                <button
+                                <RowButton
                                   key={item.kind}
-                                  type="button"
                                   className="explorer-row-action"
                                   title={item.label}
                                   aria-label={item.label}
@@ -662,11 +656,10 @@ export function ExplorerPanel({
                                   }}
                                 >
                                   {item.icon}
-                                </button>
+                                </RowButton>
                               ))}
                               {onRename && canRename(node) ? (
-                                <button
-                                  type="button"
+                                <RowButton
                                   className="explorer-row-action"
                                   title="Rename (F2)"
                                   aria-label="Rename"
@@ -677,13 +670,12 @@ export function ExplorerPanel({
                                   }}
                                 >
                                   <NavIcon name="pencil" />
-                                </button>
+                                </RowButton>
                               ) : null}
                             </span>
                           ) : null}
                           {node.missingNote && onStartNote && node.id ? (
-                            <button
-                              type="button"
+                            <RowButton
                               className="explorer-start-note"
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -691,7 +683,7 @@ export function ExplorerPanel({
                               }}
                             >
                               Start note
-                            </button>
+                            </RowButton>
                           ) : null}
                         </div>
                         {rowProblem ? (

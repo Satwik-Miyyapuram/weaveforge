@@ -18,6 +18,13 @@
  * icon+label bar pinned to the bottom (thumb-reachable). On desktop it becomes
  * a fixed left sidebar (see the ≥900px block). One markup, two layouts.
  */
+:root {
+  /* What the floating phone bar takes from the bottom of a screen: its 10px
+     lift, the bar (icon, label, padding: about 74px) and 16px of air, plus
+     the safe area. Screens pad by this so their last card scrolls clear of
+     the bar (DA-95). The desktop sidebar does not float, so it is unused there. */
+  --nav-clear: calc(100px + env(safe-area-inset-bottom));
+}
 .nav {
   position: fixed;
   left: 50%;
@@ -31,7 +38,7 @@
   display: flex;
   flex-direction: row;
   gap: 2px;
-  padding: 6px 8px;
+  padding: 8px 8px;
   border-radius: var(--r-pill);
   background: var(--glass-fill);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
@@ -43,7 +50,7 @@
   transition: background var(--dur-base), border-color var(--dur-base), box-shadow var(--dur-base);
 }
 .nav--enter-rise {
-  animation: nav-rise-in var(--layout-duration) cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: nav-rise-in var(--layout-duration) var(--ease-out) both;
 }
 .nav-links {
   display: flex;
@@ -54,10 +61,10 @@
 }
 .nav-link {
   flex: 1; min-width: 0;
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
   text-decoration: none; color: var(--muted);
   font-size: var(--fs-micro); font-weight: 500; letter-spacing: -0.01em;
-  padding: 10px 2px; border-radius: var(--r-card);
+  padding: 12px 2px; border-radius: var(--r-card);
   min-height: var(--touch-min);
   justify-content: center;
   transition: background var(--dur-base), color var(--dur-base);
@@ -85,7 +92,7 @@ button.nav-link {
   .desktop-only {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
   }
   .project-picker-bar {
     display: flex;
@@ -97,29 +104,29 @@ button.nav-link {
   .app-shell {
     max-width: none;
     margin: 0;
-    padding: 24px clamp(24px, 4vw, 56px) 40px;
+    padding: 24px clamp(24px, 4vw, 64px) 48px;
   }
-  .desktop-only .app-brand { padding: 0 14px; margin-bottom: 8px; }
+  .desktop-only .app-brand { padding: 0 16px; margin-bottom: 8px; }
   .desktop-only .header-actions { width: 100%; flex-direction: column; align-items: flex-start; gap: 2px; }
   /* The projects-screen top bar carries `desktop-only` too, but it is a
      right-aligned horizontal row, not the sidebar. Undo the sidebar's
      full-width column stacking so its controls don't stretch full-width and
      left-align (which pushed the theme toggle to the far left / overflow). */
   .project-picker-bar .header-actions {
-    width: auto; flex-direction: row; align-items: center; gap: 10px;
+    width: auto; flex-direction: row; align-items: center; gap: 12px;
   }
   .desktop-only .proj-switcher { margin-left: 0; width: 100%; }
 
   /* Style sidebar bottom items like nav-links */
   .desktop-only .header-link, .desktop-only .signout, .desktop-only .proj-chip {
     width: 100%; justify-content: flex-start; gap: 12px;
-    padding: 10px 14px; border-radius: var(--r-pill);
+    padding: 12px 16px; border-radius: var(--r-pill);
     font-size: var(--fs); font-weight: 500;
     border: none; background: transparent; color: var(--muted);
   }
   /* Project pill: full width like the other sidebar rows, with a pill fill. */
   .desktop-only .proj-chip {
-    width: 100%; gap: 8px; padding: 10px 14px;
+    width: 100%; gap: 8px; padding: 12px 16px;
     background: var(--pill); border: 1px solid var(--line); color: var(--ink);
   }
   .desktop-only .proj-chip .chev { margin-left: auto; }
@@ -151,7 +158,7 @@ button.nav-link {
        column. The text keeps its inset through the row's own `padding: 10px
        14px`, so nothing moves — measured, the icon and label stay at x=28 and
        a full-width fill lands flush at 216 instead of stopping at 201.2. */
-    padding: 20px 0;
+    padding: 24px 0;
     border-radius: 0;
     border: none;
     border-right: 1px solid var(--line);
@@ -159,7 +166,7 @@ button.nav-link {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     box-shadow: none;
-    transition: width 0.2s var(--layout-ease), background var(--dur-base);
+    transition: width var(--dur-base) var(--layout-ease), background var(--dur-base);
   }
   .nav--enter-slide {
     animation: nav-slide-in var(--layout-duration) var(--layout-ease) both;
@@ -181,13 +188,13 @@ button.nav-link {
   .nav-links {
     display: flex; flex-direction: column; justify-content: flex-start; gap: 4px;
     flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; overflow-x: hidden; overscroll-behavior: contain;
-    padding: 0 14px;
+    padding: 0 16px;
   }
   .nav-link {
     flex: none; flex-direction: row; justify-content: flex-start; gap: 12px;
     font-size: var(--fs); font-weight: 500;
-    padding: 10px 14px; border-radius: var(--r-pill);
-    transition: background var(--dur-base), color var(--dur-base), padding 0.2s var(--layout-ease);
+    padding: 12px 16px; border-radius: var(--r-pill);
+    transition: background var(--dur-base), color var(--dur-base), padding var(--dur-base) var(--layout-ease);
     overflow: hidden;
   }
 .nav-link .nav-icon { width: calc(var(--icon-size) + 3px); height: calc(var(--icon-size) + 3px); flex: none; }
@@ -197,13 +204,13 @@ button.nav-link {
      rather than one "Library" entry that hid four of them behind a click. */
   .nav-group { display: flex; flex-direction: column; gap: 4px; }
   .nav-group-label {
-    display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin: 10px 0 0; padding: 4px 14px; background: none; border: 0; cursor: pointer; font-family: inherit; text-align: left;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin: 12px 0 0; padding: 4px 16px; background: none; border: 0; cursor: pointer; font-family: inherit; text-align: left;
     font-size: var(--fs-micro); font-weight: 600; letter-spacing: 0.06em;
  color: var(--muted);
   }
   .nav-home { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
   .nav-bottom.desktop-only {
-    display: flex; flex-direction: column; gap: 6px;
+    display: flex; flex-direction: column; gap: 8px;
     margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line);
     /* Takes its full height while the column has room -- the links above give
        way first -- and scrolls only once it alone is taller than the window,
@@ -213,7 +220,7 @@ button.nav-link {
     /* The scroll box clips at its padding edge, and the account row and sync
        badge are its last children: provide ample room below so brutalist
        drop shadows (3px–5px) and press nudges are never cut off. */
-    padding-bottom: 14px;
+    padding-bottom: 16px;
   }
   /* Account links stack in the sidebar instead of wrapping. `.header-actions`
      is a wrapping pill row, which is right for the mobile top bar and wrong in
@@ -227,11 +234,11 @@ button.nav-link {
      which is what the account row's own inset exposed. */
   .nav-bottom .header-actions {
     flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 2px;
-    padding: 0 14px;
+    padding: 0 16px;
   }
   .nav-bottom .header-actions .header-link,
   .nav-bottom .header-actions .signout {
-    justify-content: flex-start; gap: 12px; padding: 8px 14px; border-radius: var(--r-pill);
+    justify-content: flex-start; gap: 12px; padding: 8px 16px; border-radius: var(--r-pill);
     font-size: var(--fs);
   }
   .nav-link.active { color: var(--active-fg); background: var(--active-bg); }
@@ -255,12 +262,12 @@ button.nav-link {
        measured, logo centre y=44.4 expanded and y=38.4 collapsed. The horizontal
        8px is what holds a 40px row centred in a 56px rail. */
     --rail-pad: 8px;
-    padding: 20px var(--rail-pad) 16px;
+    padding: 24px var(--rail-pad) 16px;
     align-items: center;
   }
   .layout.nav-collapsed .menu-toggle { align-self: center; margin-bottom: 8px; }
   /* The scroller clips x too (overflow-y forces it), so it spans the full rail and holds the pad itself: room for the 3px hard shadow. */
-  .layout.nav-collapsed .nav-links { width: calc(100% + 2 * var(--rail-pad)); margin: 0 calc(-1 * var(--rail-pad)) 6px; align-items: center; padding: 0 var(--rail-pad) 12px; }
+  .layout.nav-collapsed .nav-links { width: calc(100% + 2 * var(--rail-pad)); margin: 0 calc(-1 * var(--rail-pad)) 8px; align-items: center; padding: 0 var(--rail-pad) 12px; }
   .layout.nav-collapsed .nav-link,
   .layout.nav-collapsed .nav-bottom .header-link,
   .layout.nav-collapsed .nav-bottom .signout,
@@ -283,9 +290,9 @@ button.nav-link {
   /* The wide sidebar rules a line under Home; in the rail the line hugged
      the 40px circle and read as a broken border, and the padding that made
      room for it pushed the icon 3px above centre. */
-  .layout.nav-collapsed .nav-home { margin-bottom: 6px; padding-bottom: 0; border-bottom: none; }
+  .layout.nav-collapsed .nav-home { margin-bottom: 8px; padding-bottom: 0; border-bottom: none; }
   .layout.nav-collapsed .nav-bottom.desktop-only {
-    align-items: center; gap: 8px; padding-top: 10px; padding-bottom: 14px;
+    align-items: center; gap: 8px; padding-top: 12px; padding-bottom: 16px;
     overflow: visible;
   }
   .layout.nav-collapsed .nav-bottom .header-actions { align-items: center; }
@@ -300,7 +307,7 @@ button.nav-link {
   .layout.nav-collapsed .sync-badge .sync-dot {
     width: 10px; height: 10px; margin: 0;
   }
-  .layout.nav-collapsed .app-brand { margin-bottom: 6px; padding: 0; justify-content: center; }
+  .layout.nav-collapsed .app-brand { margin-bottom: 8px; padding: 0; justify-content: center; }
 
   /* shell.css zeroes the route's left padding so the panes reach the window
      edge; the rail's own width is restored here, and nothing else. */
@@ -310,16 +317,9 @@ button.nav-link {
 }
 
 @media (min-width: 900px) {
-  /* The mark, centred on the icons under it. The chevron sat beside it inside
-     one centred box, which put the logo 5px left of the column's axis; it now
-     hangs off the logo's right edge and takes no width. */
-  .layout.nav-collapsed .nav-brand-toggle { position: relative; width: 100%; }
-  .layout.nav-collapsed .nav-brand-toggle > .chev {
-    position: absolute; left: calc(50% + 14px); top: 50%; translate: 0 -50%;
-  }
   /* The active pill's hard shadow falls below the row; the scroller clipped
      it. Room for it, inside the scroller. */
-  .layout.nav-collapsed .nav-links { padding: 0 var(--rail-pad) 10px; }
+  .layout.nav-collapsed .nav-links { padding: 0 var(--rail-pad) 12px; }
   /* No thumb in the rail: it sat over the pills' right edge and the list is
      short enough to scroll with the wheel. */
   .layout.nav-collapsed .overlay-scrollbar-nav { display: none; }
@@ -357,49 +357,57 @@ html[data-workspace-focus] .layout.editor-route .nav { display: none; }
 /* The offline badge. Quiet, but present wherever the account links are, so a
    copy working without an account says so without being asked. */
 .local-mode-badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 10px; border-radius: var(--r-pill);
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 12px; border-radius: var(--r-pill);
   font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.02em;
   color: var(--muted); border: 1px solid var(--border); background: transparent;
 }
-.nav-bottom .local-mode-badge, .desktop-only .local-mode-badge { align-self: flex-start; margin-bottom: 6px; }
+.nav-bottom .local-mode-badge, .desktop-only .local-mode-badge { align-self: flex-start; margin-bottom: 8px; }
 /* Sync needs a decision: louder than the storage badge, since it is the one way to find conflicts. */
 .sync-badge {
-  display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
-  padding: 4px 10px; margin-bottom: 6px; border-radius: var(--r-pill);
+  display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
+  padding: 4px 12px; margin-bottom: 8px; border-radius: var(--r-pill);
   font: inherit; font-size: var(--fs-xs); font-weight: 600; cursor: pointer;
   color: var(--text); background: color-mix(in srgb, var(--accent) 14%, transparent);
   border: 1px solid var(--accent);
 }
 .sync-badge:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
 .sync-badge.conflict {
-  color: var(--s-warn, #b85900);
-  background: color-mix(in srgb, var(--s-warn-bg, #f29731) 18%, transparent);
-  border-color: var(--s-warn-bg, #f29731);
+  color: var(--s-warn);
+  background: color-mix(in srgb, var(--s-warn-bg) 18%, transparent);
+  border-color: var(--s-warn-bg);
 }
 .sync-badge.conflict:hover {
-  background: color-mix(in srgb, var(--s-warn-bg, #f29731) 28%, transparent);
+  background: color-mix(in srgb, var(--s-warn-bg) 28%, transparent);
 }
 .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
-.sync-dot.amber { background: var(--s-warn-bg, #f29731); }
+.sync-dot.amber { background: var(--s-warn-bg); }
 .sync-dot.muted { background: var(--muted); }
-.sync-dot.green { background: var(--success, #2e9d5b); }
+.sync-dot.green { background: var(--success); }
 .sync-spin-icon { animation: sync-spin 1s linear infinite; }
 @keyframes sync-spin { to { transform: rotate(360deg); } }
 
-/* Below 461px the bottom bar cannot hold six words, so it holds six icons.
-   Measured: each slot is `(width - 40) / 6`, and "Experiments" needs 64px of
-   content — so it fits from a slot of about 68px, which is a 448px window, and
-   is ellipsised ("Experi…") below that. Rather than sit the query exactly on the
-   boundary, where a classic scrollbar puts the media-query width a few pixels
-   under `innerWidth`, it hides with margin to spare.
+/* The phone bar keeps every name (DA-84). It used to drop them below 461px,
+   when "Experiments" was a slot of its own; the slots are now groups with
+   short names (Library, Work, Write), which fit at 320px. */
 
-   Icons are what a bottom bar is for, and each item keeps its name: every link
-   carries an explicit `aria-label` in `tabbar.tsx`, so hiding the span costs a
-   screen reader nothing. The threshold is a *width*, not the 900px layout
-   breakpoint, because 461–899 is where the labels fit — a tablet keeps them. */
-@media (max-width: 460px) {
-  .nav-link .nav-label { display: none; }
+/* A waiting count beside an Inbox entry, and over its icon in the rail. */
+.nav-badge {
+  margin-left: auto;
+  min-width: 1.25rem;
+  padding: 1px 4px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--fs-xs);
+  text-align: center;
+}
+.layout.nav-collapsed .nav-link .nav-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 0;
+  padding: 0 4px;
 }
 
 /* The foldable heading and the group body it hides, desktop sidebar only: the mobile bar
@@ -419,21 +427,30 @@ button.nav-group-label:focus-visible {
 }
 .nav-group-items { display: flex; flex-direction: column; gap: 4px; }
 
-/* The brand is the collapse control, and it replaced the hamburger. It is built
-   on the metrics of the links under it — same min height, padding, radius and
-   type size — because it sits in that column and anything else reads as a
-   control bolted on. Hidden below 900px: the phone bar has its own six slots
-   and no rail to toggle. */
-.nav-brand-toggle { display: none; }
+/* The sidebar head: the brand, a link Home, and beside it the chevron that
+   folds the sidebar (DA-89). The brand is built on the metrics of the links
+   under it — same min height, padding, radius and type size — and the head
+   holds the list's 14px inset, so the mark lines up with the icons. Hidden
+   below 900px: the phone bar has its own slots and no rail to toggle. */
+.nav-head { display: none; }
 @media (min-width: 900px) {
-  .nav-brand-toggle {
-    display: flex; align-items: center; gap: 12px; width: 100%;
-    min-height: var(--touch-min); margin: 0 0 8px; padding: 10px 14px;
-    border: 0; border-radius: var(--r-pill); background: none;
-    color: var(--ink); cursor: pointer; font: inherit; text-align: left;
+  .nav-head { display: flex; align-items: center; gap: 4px; margin: 0 0 8px; padding: 0 16px; }
+  .nav-brand {
+    display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;
+    min-height: var(--touch-min); padding: 12px 16px;
+    border-radius: var(--r-pill); color: var(--ink); text-decoration: none;
     font-size: var(--fs); font-weight: 600;
     transition: background var(--dur-base), color var(--dur-base);
   }
+  .nav-brand:hover { background: var(--pill); }
+  .nav-collapse {
+    display: grid; place-items: center; flex: none;
+    width: 32px; height: 32px; padding: 0;
+    border: 0; border-radius: var(--r-pill); background: none;
+    color: var(--muted); cursor: pointer;
+    transition: background var(--dur-base), color var(--dur-base);
+  }
+  .nav-collapse:hover { background: var(--pill); color: var(--ink); }
   /* Sized against the icons optically, not literally. The mark is a full-bleed
      filled tile — its artwork fills the whole viewBox — while the nav icons are
      stroke glyphs inside a 24×24 box with margins. Equal boxes therefore read
@@ -442,27 +459,37 @@ button.nav-group-label:focus-visible {
   /* No tile. The mark draws its own rounded square (`<rect fill="var(--surface2)">`),
      which in a column of line icons reads as a highlighted, selected chip rather
      than as the app. The strokes are the mark; the tile was a background. */
-  .nav-brand-toggle .app-logo rect { display: none; }
+  .nav-brand .app-logo rect { display: none; }
   /* Sized so the *ink* matches the icons, not the box. Once the tile is gone the
      strokes occupy only about 55% of the 512 viewBox (x 129–394, y 103–431), so a
      16px box would render roughly 9px of drawing — much smaller than the 19px
      glyphs beside it. ~1.8× puts the drawing at their size. */
-  .nav-brand-toggle .app-logo { width: calc(var(--icon-size) * 1.8); height: calc(var(--icon-size) * 1.8); flex: none; }
-  .nav-brand-toggle .app-name {
+  .nav-brand .app-logo { width: calc(var(--icon-size) * 1.8); height: calc(var(--icon-size) * 1.8); flex: none; }
+  .nav-brand .app-name {
     flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .nav-brand-toggle .chev { opacity: 0.5; flex: none; }
   /* One glyph, two states: left means "fold me back", right means "open me".
      The app already draws a chevron at this weight; rotating it keeps the
      cap and the stroke identical to the tree rows above. */
-  .nav-brand-toggle .chev svg { transform: rotate(90deg); }
-  .nav-brand-toggle[aria-expanded="false"] .chev svg { transform: rotate(-90deg); }
-  /* In the rail it is only the mark and the way out of the rail. No highlight:
-     it is the app, not a row in the list, and lighting it up on hover made the
-     whole head read as pressed. */
-  .layout.nav-collapsed .nav-brand-toggle { justify-content: center; padding: 10px 0; gap: 0; }
-  .layout.nav-collapsed .nav-brand-toggle .app-name { display: none; }
-  .layout.nav-collapsed .nav-brand-toggle .chev svg { transform: rotate(-90deg); }
+  .nav-collapse svg { transform: rotate(90deg); }
+  .nav-collapse[aria-expanded="false"] svg { transform: rotate(-90deg); }
+  /* In the rail: the mark, and under it the way out of the rail. */
+  .layout.nav-collapsed .nav-head { flex-direction: column; gap: 2px; padding: 0; }
+  .layout.nav-collapsed .nav-brand { flex: none; width: 40px; justify-content: center; padding: 12px 0; gap: 0; }
+  .layout.nav-collapsed .nav-brand .app-name { display: none; }
+
+  /* Rail groups have no headings, so a short rule marks where one ends (DA-87). */
+  .layout.nav-collapsed .nav-group::before {
+    content: ""; align-self: center; width: 24px; height: 1px; margin: 4px 0; background: var(--line);
+  }
+  /* The rail's tip (`rail-tip.tsx`): shown at once, in the app's own type. */
+  .rail-tip {
+    position: absolute; z-index: var(--z-nav); translate: 0 -50%;
+    padding: 4px 12px; border-radius: var(--r-pill);
+    background: var(--ink); color: var(--surface);
+    font-size: var(--fs-xs); font-weight: 500; white-space: nowrap;
+    pointer-events: none;
+  }
   /* One control wide: the theme is a row of the account menu. */
   /* Account, project and the account menu on one line, sharing one height.
      
@@ -520,13 +547,13 @@ button.nav-group-label:focus-visible {
    * there.
    */
   .layout:not(.nav-collapsed) .nav-account-row {
-    padding-left: 14px;
+    padding-left: 16px;
     /* 14 on both sides, to match the nav list's inset above it. It was 14/6 —
        6 on the right because the ⋯ was thought to be the outermost thing and
        only needed to be kept off the edge, which left it with visibly more room
        to its right than the pills above it had. Same inset everywhere is the
        answer; the row is not a special case. */
-    padding-right: 14px;
+    padding-right: 16px;
   }
   .nav-account-row .org-switcher,
   .nav-account-row .proj-switcher {
@@ -577,7 +604,7 @@ button.nav-group-label:focus-visible {
      line of muted text under the chip, its dot on the chip's dot, rather than a
      second bordered pill competing with the switcher above it. */
   .layout:not(.nav-collapsed) .nav-bottom .local-mode-badge {
-    margin: 8px 14px 2px; padding: 0 0 0 16px;
+    margin: 8px 16px 2px; padding: 0 0 0 16px;
     border: none; border-radius: 0; font-weight: 500; letter-spacing: 0;
   }
   .layout:not(.nav-collapsed) .nav-bottom .local-mode-badge::before {
@@ -586,10 +613,10 @@ button.nav-group-label:focus-visible {
   }
   /* In expanded mode, the sync badge spans cleanly with the account row's 14px insets. */
   .layout:not(.nav-collapsed) .nav-bottom .sync-badge {
-    margin: 6px 14px 2px;
+    margin: 8px 16px 2px;
     width: calc(100% - 28px);
     justify-content: center;
-    padding: 6px 12px;
+    padding: 8px 12px;
     font-size: var(--fs-xs);
     font-weight: 700;
     letter-spacing: 0.02em;
@@ -615,21 +642,21 @@ button.nav-group-label:focus-visible {
    sidebar; a bar here would move every row above it. */
 .nav-bottom::-webkit-scrollbar { width: 0; height: 0; display: none; }
 /*
- * The mark never lights up.
+ * The collapse chevron never lights up.
  *
  * `base.css` tints every button on press — `button:not(:disabled):active {
  * background-color: var(--press) }` — and folding the column is a click, so the
- * brand flashed every time it was used. It is a state change, not a selection:
+ * chevron flashed every time it was used. It is a state change, not a selection:
  * nothing about it should look pressed, focused or chosen. `:not(:disabled)`
  * keeps the specificity above that global rule rather than relying on order.
  */
 /* `:root` in front: CRT's dashed focus ring is `:root[data-theme="crt"]
    :focus-visible` and outranked the bare selector, drawing a dashed box round
-   the logo whenever focus came back to it. */
-:root button.nav-brand-toggle:not(:disabled):active,
-:root button.nav-brand-toggle:focus:not(:focus-visible) {
+   the chevron whenever focus came back to it. */
+:root button.nav-collapse:not(:disabled):active,
+:root button.nav-collapse:focus:not(:focus-visible) {
   background-color: transparent;
   outline: none;
 }
-/* Keyboard focus still rings (E18): the bar is the only way to fold the rail. */
-:root button.nav-brand-toggle:focus-visible { background-color: transparent; outline-offset: -3px; }
+/* Keyboard focus still rings (E18): the chevron is the only way to fold the rail. */
+:root button.nav-collapse:focus-visible { background-color: transparent; outline-offset: -3px; }

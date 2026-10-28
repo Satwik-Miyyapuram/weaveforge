@@ -12,9 +12,9 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 14px;
+  gap: 16px;
 }
-.weaveforge-loader-brand { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 6px; }
+.weaveforge-loader-brand { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 8px; }
 .weaveforge-loader-brand svg {
   width: 56px;
   height: 56px;
@@ -43,7 +43,7 @@
   inset: 0 auto 0 0;
   width: 40%;
   border-right: var(--bw, 0) solid var(--bw-line, transparent);
-  background: repeating-linear-gradient(-45deg, var(--accent) 0 8px, color-mix(in srgb, var(--accent) 70%, var(--surface, #fff)) 8px 16px);
+  background: repeating-linear-gradient(-45deg, var(--accent) 0 8px, color-mix(in srgb, var(--accent) 70%, var(--surface)) 8px 16px);
   animation: weaveforge-loader-slide 1.3s ease-in-out infinite;
 }
 @keyframes weaveforge-loader-slide {
@@ -70,9 +70,9 @@
 }
 .weaveforge-loader-tip {
   display: grid;
-  gap: 6px;
-  margin-top: 6px;
-  padding: 14px 16px;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 16px 16px;
   border-radius: var(--radius, var(--radius-sm));
   border: var(--bw, 1px) solid var(--bw-line, var(--line));
   box-shadow: var(--sh-card, none);
@@ -80,7 +80,7 @@
   text-align: left;
   opacity: 0;
   transform: translateY(6px);
-  transition: opacity 0.22s ease, transform 0.22s ease;
+  transition: opacity var(--dur-slow) ease, transform var(--dur-slow) ease;
 }
 .weaveforge-loader-tip--in {
   opacity: 1;
@@ -116,7 +116,7 @@
   align-items: center;
   justify-content: center;
   min-height: min(52vh, 420px);
-  padding: 28px 16px 40px;
+  padding: 32px 16px 48px;
 }
 .weaveforge-loader--inline {
   width: min(400px, 100%);
@@ -128,7 +128,7 @@
 }
 .weaveforge-loader-wrap--compact {
   min-height: 200px;
-  padding: 12px 0 20px;
+  padding: 12px 0 24px;
 }
 .weaveforge-loader-wrap--compact .weaveforge-loader--inline .weaveforge-loader-tip {
   font-size: 0.9em;
@@ -194,16 +194,16 @@
 .auth-art {
   display: flex;
   flex-direction: column;
-  gap: 40px;
-  padding: 44px 48px 36px;
+  gap: 48px;
+  padding: 48px 48px 32px;
   background: var(--surface2, var(--panel));
   border-right: var(--bw, 1px) solid var(--bw-line, var(--line));
   min-width: 0;
 }
-.auth-art-brand { display: flex; align-items: center; gap: 14px; }
+.auth-art-brand { display: flex; align-items: center; gap: 16px; }
 .auth-art-brand svg, .auth-art-brand img { width: 56px; height: 56px; border-radius: var(--radius-sm, 12px); }
 .auth-art-brand strong { font-family: var(--display, inherit); font-weight: 800; font-size: 1.75rem; letter-spacing: -0.01em; }
-.auth-art-copy { display: grid; gap: 18px; max-width: 30rem; }
+.auth-art-copy { display: grid; gap: 16px; max-width: 30rem; }
 .auth-art-title {
   margin: 0;
   font-family: var(--display, inherit);
@@ -217,14 +217,14 @@
   position: relative;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 15rem));
-  gap: 18px 14px;
+  gap: 16px 16px;
   padding: 8px 12px 0 0;
 }
 .auth-art-card {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   align-content: start;
-  padding: 14px 16px;
+  padding: 16px 16px;
   border: var(--bw, 1px) solid var(--bw-line, var(--line));
   border-radius: var(--radius, 12px);
   box-shadow: var(--sh-card, var(--shadow));
@@ -236,7 +236,7 @@
 .auth-art-card--draft { --card-tint: color-mix(in srgb, var(--chip-to-read, var(--s-warn-bg)) 35%, var(--surface)); --chip-fill: var(--chip-to-read, var(--s-warn-bg)); transform: rotate(-1deg) translateX(40%); }
 .auth-art-chip {
   justify-self: start;
-  padding: 2px 10px;
+  padding: 2px 12px;
   font-family: var(--font);
   font-size: var(--fs-xs);
   border: var(--bw, 1px) solid var(--bw-line, var(--line));
@@ -267,7 +267,7 @@
 }
 .auth-sub { margin: -8px 0 4px; color: var(--muted); line-height: 1.5; }
 .auth-sub strong { color: var(--text); }
-.auth-email { display: grid; gap: 14px; }
+.auth-email { display: grid; gap: 16px; }
 .auth-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .auth-link {
   padding: 0;
@@ -287,8 +287,8 @@
 .auth-wide { width: 100%; justify-content: center; }
 .auth-alt { display: grid; gap: 12px; justify-items: center; }
 .btn-google {
-  display: flex; align-items: center; justify-content: center; gap: 10px;
-  width: 100%; padding: 11px 16px; cursor: pointer; font: inherit; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  width: 100%; padding: 12px 16px; cursor: pointer; font: inherit; font-weight: 700;
   color: var(--text); background: var(--elev, var(--input-bg));
   border: var(--bw, 1px) solid var(--bw-line, var(--line));
   border-radius: var(--radius-sm, 999px);
@@ -317,8 +317,8 @@
 @media (max-width: 767px) {
   .auth-split { grid-template-columns: minmax(0, 1fr); }
   .auth-art {
-    gap: 18px;
-    padding: calc(24px + env(safe-area-inset-top, 0px)) 20px 24px;
+    gap: 16px;
+    padding: calc(24px + env(safe-area-inset-top, 0px)) 24px 24px;
     border-right: 0;
     border-bottom: var(--bw, 1px) solid var(--bw-line, var(--line));
   }
@@ -328,5 +328,5 @@
   .auth-art-lede { font-size: var(--fs-lg); }
   .auth-art-cards, .auth-art-foot { display: none; }
   .auth-panel { place-items: start center; padding: 24px 16px calc(32px + env(safe-area-inset-bottom, 0px)); }
-  .auth-card { padding: 24px 20px; }
+  .auth-card { padding: 24px 24px; }
 }

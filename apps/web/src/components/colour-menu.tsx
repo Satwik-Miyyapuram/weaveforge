@@ -1,6 +1,7 @@
 "use client";
 
 import { Popover } from "./popover";
+import { ToggleButton } from "./controls";
 
 /**
  * One colour picker for every place a mark gets a colour: the reader's
@@ -28,17 +29,16 @@ export function ColourMenu({
     <Popover
       iconOnly
       ariaLabel={ariaLabel}
+      look="custom"
       triggerClassName="colour-menu-trigger"
       label={<span className="ink-swatch colour-menu-current" style={{ background: value }} aria-hidden />}
     >
       {(close) => {
         const swatch = (entry: string) => (
-          <button
+          <ToggleButton pressed={same(entry, value)}
             key={entry}
-            type="button"
             className="ink-swatch"
             style={{ background: entry }}
-            aria-pressed={same(entry, value)}
             aria-label={`Colour ${entry}`}
             title={entry}
             onClick={() => { onChange(entry); close(); }}

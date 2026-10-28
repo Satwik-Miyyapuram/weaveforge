@@ -1,11 +1,11 @@
 .superv-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 /* The gap spaces the cards; a card's own margin would drop the first one below the team rail. */
 .superv-panels > * { margin: 0; }
-.superv-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.superv-item { padding: 10px 12px; border-radius: var(--r-control); background: var(--pill); }
+.superv-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.superv-item { padding: 12px 12px; border-radius: var(--r-control); background: var(--pill); }
 .superv-item-head { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
 .superv-item-title { font-weight: 600; }
-.superv-body { margin: 6px 0 0; white-space: pre-wrap; font-size: var(--fs); color: var(--muted); }
+.superv-body { margin: 8px 0 0; white-space: pre-wrap; font-size: var(--fs); color: var(--muted); }
 .superv-status {
   font-size: var(--fs-xs); text-transform: capitalize;
   padding: 2px 8px; border-radius: var(--r-pill); background: var(--active-bg); color: var(--active-fg);
@@ -21,12 +21,12 @@
 .member-tree-list { list-style: none; margin: 0; padding: 0; }
 /* Nested levels indent and grow a guide line, like a file tree. */
 .member-tree-list .member-tree-list {
-  margin-left: 10px; padding-left: 10px; border-left: 1px solid var(--border);
+  margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--border);
 }
 .member-tree-row {
   display: flex; align-items: center; gap: 4px;
   border-radius: var(--r-control); padding: 1px 4px;
-  transition: background 0.12s;
+  transition: background var(--dur-base);
 }
 .member-tree-row:hover,
 .member-tree-row.sel {
@@ -48,7 +48,7 @@
 .member-tree-toggle:hover { color: var(--ink); background: var(--pill); }
 .member-tree-name {
   display: flex; align-items: baseline; gap: 8px; min-width: 0;
-  padding: 4px 6px; border-radius: var(--r-control); text-align: left;
+  padding: 4px 8px; border-radius: var(--r-control); text-align: left;
 }
 .member-tree-name.as-button {
   border: none; background: none; cursor: pointer; color: inherit;
@@ -58,10 +58,10 @@
 .member-tree-title { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
 .member-tree-role { font-size: var(--fs-xs); }
 
-.superv-picker { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.superv-picker { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .member-tree-select { position: relative; }
 .member-tree-trigger {
-  display: inline-flex; align-items: center; gap: 10px; justify-content: space-between;
+  display: inline-flex; align-items: center; gap: 12px; justify-content: space-between;
   min-width: 240px; padding: 8px 12px; border-radius: var(--r-control);
   background: var(--pill); color: var(--ink); border: 1px solid var(--border);
   cursor: pointer; font-size: var(--fs);
@@ -80,18 +80,18 @@
   justify-content: center;
   overflow-x: hidden;
   overflow-y: visible;
-  padding: 14px 0 4px;
+  padding: 16px 0 4px;
 }
 .org-chart--scroll {
   overflow-x: auto;
 }
 .org-tree { display: block; width: max-content; flex: none; text-align: center; }
 .org-tree ul {
-  display: flex; justify-content: center; padding-top: 20px;
+  display: flex; justify-content: center; padding-top: 24px;
   position: relative; margin: 0; list-style: none;
 }
 .org-tree li {
-  list-style: none; position: relative; padding: 20px 6px 0;
+  list-style: none; position: relative; padding: 24px 8px 0;
   display: flex; flex-direction: column; align-items: center;
 }
 /* connector: each node draws two half-bars up to a shared horizontal line */
@@ -115,7 +115,7 @@
 .org-tree > ul > li::before, .org-tree > ul > li::after { display: none; }
 .org-node {
   display: inline-flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 8px 14px; border-radius: var(--r-control); white-space: nowrap;
+  padding: 8px 16px; border-radius: var(--r-control); white-space: nowrap;
   background: var(--pill); border: 1px solid var(--border); color: var(--ink);
 }
 .org-node.me { border-color: var(--accent); }
@@ -133,14 +133,14 @@
 .superv-screen .superv-picker { margin-bottom: 0; }
 .superv-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; align-items: start; }
 .superv-snapshots { grid-column: 1 / -1; }
-.superv-team { padding: 14px; min-width: 0; box-sizing: border-box; overflow: hidden; }
+.superv-team { padding: 16px; min-width: 0; box-sizing: border-box; overflow: hidden; }
 .superv-team-head { margin: 0 0 8px; font-size: var(--fs-xs); font-weight: 500; color: var(--muted); }
 .superv-team ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; min-width: 0; }
 .superv-team li { min-width: 0; box-sizing: border-box; }
 .superv-team-item {
-  display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; max-width: 100%;
+  display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; max-width: 100%;
   box-sizing: border-box; overflow: hidden;
-  padding: 7px 8px; border: 0; border-radius: var(--r-control); background: none;
+  padding: 8px 8px; border: 0; border-radius: var(--r-control); background: none;
   color: var(--text); text-align: left; cursor: pointer; font: inherit;
 }
 .superv-team-item:hover { filter: brightness(0.96); }
@@ -154,12 +154,12 @@
 .superv-team-role { font-size: var(--fs-micro); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .superv-team-item.is-active .superv-team-role { color: inherit; opacity: 0.85; }
 .superv-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.superv-source { font-size: var(--fs-micro); font-weight: 500; padding: 2px 9px; border-radius: var(--r-pill); background: var(--pill); }
-.superv-note { margin-top: 12px; padding: 10px 14px; border-radius: var(--r-control); background: var(--surface-alt); }
+.superv-source { font-size: var(--fs-micro); font-weight: 500; padding: 2px 8px; border-radius: var(--r-pill); background: var(--pill); }
+.superv-note { margin-top: 12px; padding: 12px 16px; border-radius: var(--r-control); background: var(--surface-alt); }
 .superv-note-label { font-size: var(--fs-xs); color: var(--muted); }
 .superv-note .superv-body { margin-top: 2px; color: var(--text); }
 .superv-meta { font-size: var(--fs-xs); }
-.superv-log-item { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 10px; }
+.superv-log-item { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 12px; }
 .superv-log-date { font-size: var(--fs-xs); color: var(--muted); padding-top: 2px; }
 @media (max-width: 900px) {
   .superv-layout { grid-template-columns: minmax(0, 1fr); }

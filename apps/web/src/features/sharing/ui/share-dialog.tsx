@@ -169,14 +169,12 @@ export function ShareDialog({
           >
             {accessOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
-          <button
-            type="button"
-            className="btn-primary share-add-submit"
+          <Button variant="primary" className="share-add-submit"
             disabled={busy || !canGrant}
             onClick={() => void grantSelected()}
           >
             {busy ? "Sharing…" : toAdd.length > 0 ? `Share (${toAdd.length})` : "Share"}
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

@@ -6,6 +6,7 @@ import { useProfile } from "./profile-provider";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { formatError } from "@/lib/format-error";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
+import { RowButton } from "@/components/controls";
 
 /** Header chip for switching between labs when the user has multiple memberships. */
 export function OrgSwitcher() {
@@ -50,8 +51,7 @@ export function OrgSwitcherView({ profile, memberships, activeOrgId, switchOrg }
 
   return (
     <div className="proj-switcher org-switcher" ref={ref}>
-      <button
-        type="button"
+      <RowButton
         className="proj-chip"
         disabled={busy}
         onClick={() => setOpen((o) => !o)}
@@ -62,13 +62,12 @@ export function OrgSwitcherView({ profile, memberships, activeOrgId, switchOrg }
         <span className="org-dot" aria-hidden />
         <span>{active.orgName}</span>
         <ChevronIcon />
-      </button>
+      </RowButton>
       {open && (
         <div className="proj-menu" onMouseLeave={() => setOpen(false)}>
           {labs.map((m) => (
-            <button
+            <RowButton
               key={m.orgId}
-              type="button"
               className={`proj-menu-item${m.orgId === activeOrgId ? " sel" : ""}`}
               disabled={busy}
               onClick={() => void pick(m.orgId)}
@@ -79,7 +78,7 @@ export function OrgSwitcherView({ profile, memberships, activeOrgId, switchOrg }
                 <span className="muted org-menu-role">{ROLE_LABELS[m.role]}</span>
               </span>
               {m.orgId === activeOrgId && <span className="check">✓</span>}
-            </button>
+            </RowButton>
           ))}
           {error && <p className="error" role="alert">{error}</p>}
         </div>

@@ -31,7 +31,7 @@
 .dashboard-edit-bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .dashboard-screen .head-row:has(.dashboard-edit-bar--editing) {
   flex-wrap: wrap;
-  row-gap: 10px;
+  row-gap: 12px;
 }
 .dashboard-screen .head-row:has(.dashboard-edit-bar--editing) > * {
   flex: 1 1 100%;
@@ -42,7 +42,7 @@
 /* `--danger` (the alias onto `--s-danger`), not `--error`: the latter is defined
    by no theme, so the literal fallback was the only value this ever painted. */
 .dashboard-inline-error {
-  font-size: var(--fs-sm); margin: 0 0 10px; padding: 8px 12px;
+  font-size: var(--fs-sm); margin: 0 0 12px; padding: 8px 12px;
   border-radius: var(--r-control); background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
 /* No sideways clip here: .app-shell already clips, with its gutter as room.
@@ -74,7 +74,7 @@
   transition: none !important;
 }
 .dashboard-grid--enter .dashboard-card {
-  animation: dashboard-card-fade-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: dashboard-card-fade-in var(--dur-base) var(--ease-out) both;
   animation-delay: calc(var(--card-i, 0) * 12ms);
 }
 .dashboard-card-content--shell {
@@ -82,7 +82,7 @@
   min-height: 1.5rem;
 }
 .dashboard-card-content--ready {
-  animation: dashboard-content-in 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: dashboard-content-in var(--dur-slow) var(--ease-out) both;
 }
 .dashboard-card-skeleton {
   display: flex;
@@ -92,7 +92,7 @@
   min-height: 0;
 }
 .dashboard-stat-bar.progress-bar > span {
-  transition: width 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: width var(--dur-slow) var(--ease-out);
 }
 .dashboard-grid-wrap--editing .react-grid-layout {
   background-image:
@@ -172,13 +172,13 @@
   flex-direction: column;
   height: 100%;
   margin: 0 !important;
-  padding: 12px 14px;
+  padding: 12px 16px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--r-card);
   box-shadow: none;
 }
-.dashboard-card--stat { padding: 10px 12px 12px; }
+.dashboard-card--stat { padding: 12px 12px 12px; }
 .dashboard-card--editing {
   border-style: dashed;
   cursor: grab;
@@ -190,7 +190,7 @@
 .dashboard-card-chrome {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin: 0 0 4px;
   padding: 0;
   flex-shrink: 0;
@@ -210,7 +210,7 @@
 }
 .dashboard-card-remove:hover { color: var(--ink); }
 .dashboard-card-heading {
-  font-size: var(--fs-micro); font-weight: 600; margin: 0 0 6px; color: var(--muted);
+  font-size: var(--fs-micro); font-weight: 600; margin: 0 0 8px; color: var(--muted);
  letter-spacing: 0.06em;
   flex-shrink: 0;
 }
@@ -247,7 +247,7 @@
 .dashboard-stat-bar { width: 100%; }
 .dashboard-card-meta { font-size: var(--fs); color: var(--muted); }
 .dashboard-card-empty { margin: 0; font-size: var(--fs); }
-.dashboard-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; min-width: 0; }
+.dashboard-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
 /* A bare grid track is minmax(auto, 1fr): a long log preview set the row to its
    full nowrap width and ran it out of the card on a phone instead of ellipsing. */
 .dashboard-list { grid-template-columns: minmax(0, 1fr); }
@@ -275,23 +275,23 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
 }
 .dashboard-roster-name { font-weight: 500; }
-.dashboard-supervisee { display: grid; gap: 10px; align-content: start; }
+.dashboard-supervisee { display: grid; gap: 12px; align-content: start; }
 .dashboard-supervisee-name {
   margin: 0; font-weight: 600; font-size: var(--fs-lg); color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .dashboard-supervisee-select { width: 100%; }
 .dashboard-supervisee-select .custom-select-button {
-  padding: 8px 10px; font-size: var(--fs); background: var(--pill); border-color: var(--border);
+  padding: 8px 12px; font-size: var(--fs); background: var(--pill); border-color: var(--border);
 }
 .dashboard-supervisee-meta { margin: 0; font-size: var(--fs-sm); }
 .dashboard-view-full {
   justify-self: start; margin-top: 2px; font-size: var(--fs);
 }
 .dashboard-picker { display: grid; gap: 16px; }
-.dashboard-picker-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.dashboard-picker-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .dashboard-picker-btn {
-  width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--line);
+  width: 100%; text-align: left; padding: 12px 12px; border: 1px solid var(--line);
   border-radius: var(--r-control); background: var(--card); cursor: pointer; color: var(--ink);
 }
 .dashboard-picker-btn:hover { background: var(--pill); }
@@ -300,8 +300,8 @@
 /* ---- Mobile layout (≤899px — matches nav + dashboard breakpoint) ---- */
 @media (max-width: 899px) {
   .app-shell {
-    padding: 16px max(14px, env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom))
-      max(14px, env(safe-area-inset-left));
+    padding: 16px max(16px, env(safe-area-inset-right)) var(--nav-clear)
+      max(16px, env(safe-area-inset-left));
   }
 
   /* Let the swipe surface fill the viewport so horizontal swipes register on
@@ -311,11 +311,11 @@
   .view-scope > .swipe-views { flex: 1 1 auto; min-width: 0; width: 100%; }
 
   .mobile-only { margin-bottom: 8px; }
-  .sub-nav { margin: 10px 0 4px; }
+  .sub-nav { margin: 12px 0 4px; }
   .sub-tab { min-height: 44px; }
 
   /* Header: title on its own row when present; actions may wrap on narrow phones. */
-  .head-row { flex-wrap: wrap; row-gap: 10px; }
+  .head-row { flex-wrap: wrap; row-gap: 12px; }
   .head-row > h1 { flex: 1 1 100%; }
   .screen-actions {
     width: 100%;
@@ -324,7 +324,7 @@
     gap: 8px;
   }
   .screen-actions .btn-primary,
-  .screen-actions .btn-secondary { padding: 9px 14px; }
+  .screen-actions .btn-secondary { padding: 8px 16px; }
 
   /* Progress lives on Home; Plan keeps its timeline. */
   .screen:not(.plan-screen) .progress-card { display: none; }
@@ -336,7 +336,7 @@
   .link-btn {
     min-height: var(--touch-min);
     min-width: var(--touch-min);
-    padding: 10px 8px;
+    padding: 12px 8px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -356,8 +356,8 @@
 
   .dashboard-screen .screen-title-block { flex: 1 1 auto; }
   .dashboard-screen .screen-actions { flex-wrap: wrap; row-gap: 8px; }
-  .dashboard-card { padding: 8px 10px; border-radius: var(--r-card); }
-  .dashboard-card--stat { padding: 8px 10px 10px; }
+  .dashboard-card { padding: 8px 12px; border-radius: var(--r-card); }
+  .dashboard-card--stat { padding: 8px 12px 12px; }
   .dashboard-card-heading { margin-bottom: 2px; font-size: var(--fs-micro); }
   .dashboard-stat-pct { font-size: var(--fs-h2); }
   .dashboard-stat-pct--solo { font-size: var(--fs-h2); }
@@ -381,29 +381,32 @@
   .entity-card-head { flex-direction: row; align-items: flex-start; gap: 8px; }
 
   /* Tighter indent on phones so deep nesting keeps a usable content width. */
-  .section-tree.nested { padding-left: 7px; }
-  .section-item--nested { padding: 9px 10px; }
-  .lists-screen .list-children { margin-left: 8px; padding-left: 6px; }
+  .section-tree.nested { padding-left: 8px; }
+  .section-item--nested { padding: 8px 12px; }
+  .lists-screen .list-children { margin-left: 8px; padding-left: 8px; }
   .lists-screen .list-body > .list-papers,
   .lists-screen .list-body > .list-empty,
   .lists-screen .list-body > .list-add,
   .lists-screen .list-body > .list-add-trigger {
-    margin-left: 8px; padding-left: 9px;
+    margin-left: 8px; padding-left: 8px;
   }
 
 }
 
-/* Phone head: search owns a row, the head's buttons share the next evenly. */
+/* Phone head, the same on every screen (DA-94): search owns the first row,
+   the primary action the second at full width, and the other buttons share
+   the row after evenly. */
 @media (max-width: 479px) {
-  .screen-actions > .search-input { flex: 1 1 100%; }
+  .screen-actions > .search-input { flex: 1 1 100%; order: -2; }
   .screen-actions > :is(.btn-primary, .btn-secondary, .popover, a):not(.dashboard-customize-btn) { flex: 1 1 0; justify-content: center; }
+  .screen-actions > .btn-primary { flex: 1 1 100%; order: -1; }
   .screen-actions > .popover > button { width: 100%; }
 }
 
 /* Tall-phone / short-height density (21:9 and similar). */
 @media (max-width: 899px) and (max-height: 740px) {
-  .mobile-only { margin-bottom: 6px; }
-  .sub-nav { margin: 6px 0 2px; }
+  .mobile-only { margin-bottom: 8px; }
+  .sub-nav { margin: 8px 0 2px; }
   .app-shell { padding-top: 12px; }
   .filter-row { margin-top: 8px; }
 }

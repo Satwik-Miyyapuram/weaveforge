@@ -149,9 +149,9 @@ export function ExportOverleafPackagePanel({
               </ul>
             )}
             <ModalActions>
-              <button className="btn-secondary btn-cancel" type="button" disabled={busy} onClick={close}>
+              <Button className="btn-cancel" disabled={busy} onClick={close}>
                 Cancel
-              </button>
+              </Button>
               <Button variant="primary" disabled={busy} onClick={() => void run()}>
                 {busy ? "Building…" : "Download ZIP"}
               </Button>

@@ -112,9 +112,7 @@ export function RouteError({
           copies of your work — and returns to the start. Work already saved to your account
           is not affected. This cannot be undone.
         </p>
-        <button
-          type="button"
-          className="btn-secondary danger"
+        <Button className="danger"
           onClick={() => {
             // `window.confirm` is deliberate here, and this is one of the two
             // places in the product that keeps it. An error boundary may be
@@ -127,7 +125,7 @@ export function RouteError({
           }}
         >
           Reset app data
-        </button>
+        </Button>
       </div>
     </section>
   );

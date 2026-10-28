@@ -185,9 +185,9 @@ export function CalendarFeedPanel() {
             {busy ? "Working…" : link ? "Make a new link" : "Make a link"}
           </Button>
           {link ? (
-            <button type="button" className="link-btn danger" disabled={busy} onClick={() => setConfirming("off")}>
+            <Button variant="link" className="danger" disabled={busy} onClick={() => setConfirming("off")}>
               Turn off
-            </button>
+            </Button>
           ) : null}
         </div>
       )}

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReaderOutlineItem } from "@weaveforge/core";
+import { Button } from "@/components/button";
 export type { ReaderOutlineItem } from "@weaveforge/core";
 
 interface ReaderOutlineProps {
@@ -31,13 +32,11 @@ function OutlineList({
       {items.map((item, index) => (
         <li key={`${item.title}-${index}`}>
           {item.pageNumber != null ? (
-            <button
-              type="button"
-              className="link-btn"
+            <Button variant="link"
               onClick={() => onNavigate(item.pageNumber!)}
             >
               {item.title}
-            </button>
+            </Button>
           ) : (
             <span>{item.title}</span>
           )}

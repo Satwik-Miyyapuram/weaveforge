@@ -31,6 +31,8 @@ import { EmailRecoveryScreen } from "@/components/email-recovery-screen";
 import { PasswordResetScreen } from "@/components/password-reset-screen";
 import { CloseIcon } from "@/components/view-icons";
 import { ToastHost } from "@/components/toast-host";
+import { RowButton } from "@/components/controls";
+import { Button } from "@/components/button";
 
 /* Both paint nothing and only matter once a folder is connected; the folder
    code they carry is loaded after the page rather than with every one. */
@@ -192,13 +194,6 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
         collapsed ? "nav-collapsed" : ""
       } ${editorRoute ? "editor-route" : ""}`.replace(/\s+/g, " ").trim()}
     >
-      {/* First focusable thing in the shell. The primary nav renders above
-          `<main>` and is a nine-item sidebar on desktop, so without this a
-          keyboard user tabs the whole navigation on every route before reaching
-          content. Hidden until focused; `base.css` already draws the ring. */}
-      <a className="skip-link" href="#main">
-        Skip to content
-      </a>
       {current && (
         <TabBar
           collapsed={collapsed}
@@ -287,7 +282,7 @@ function SessionExpiredPrompt() {
   if (open) {
     return (
       <div className="session-expired-overlay" role="dialog" aria-modal="true" aria-label="Sign in again">
-        <button type="button" className="session-expired-close" onClick={() => setOpen(false)} aria-label="Not now"><CloseIcon /></button>
+        <RowButton className="session-expired-close" onClick={() => setOpen(false)} aria-label="Not now"><CloseIcon /></RowButton>
         <LoginScreen />
       </div>
     );
@@ -298,16 +293,14 @@ function SessionExpiredPrompt() {
       <span className="session-expired-text">
         <strong>You&apos;re signed out.</strong> Sign in to sync. Your workspace folder stays connected.
       </span>
-      <button type="button" className="btn btn-primary btn-sm" onClick={() => setOpen(true)}>Sign in to sync</button>
-      <button
-        type="button"
-        className="btn-ghost btn-icon session-expired-dismiss"
+      <Button variant="primary" size="sm" className="btn" onClick={() => setOpen(true)}>Sign in to sync</Button>
+      <Button variant="ghost" className="btn-icon session-expired-dismiss"
         onClick={() => setDismissed(true)}
         aria-label="Close"
         title="Close"
       >
         <CloseIcon />
-      </button>
+      </Button>
     </div>
   );
 }

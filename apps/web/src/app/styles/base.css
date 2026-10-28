@@ -62,26 +62,17 @@
   --fs-h2: 1.25rem;      /* 20px: section title */
   --fs-h1: 1.6rem;       /* screen title */
 
-  /* Transition durations, so a press reads as a press everywhere. The audit
-     asked for `--dur-fast: 60ms`; 60ms was below the threshold at which a
-     press is legible at all — it is a snap — and it was half the value of the
-     control sitting beside it in the same form, so the pair is one value.
-
-     These govern *press and selection feedback*: the duration of a control
-     answering a person. Fifty `0.15s` literals across thirteen stylesheets
-     agreed with `--dur-base` by coincidence, which meant retuning the token
-     would have moved the buttons and left everything else behind. They now
-     read it, and the reactive layer in `motion.css` derives its ramp from
-     `--dur-fast` so `--motion-scale` still reaches all three of its values at
-     once.
-
-     Other durations stay literal on purpose, because they are different kinds
-     of motion with their own tuned values: hover fades at `0.12s`, the
-     breakpoint-crossing layout ease at `--layout-duration`, and the
-     multi-second skeleton and loading animations. Folding those into one
-     feedback token would be a design change, not a consistency fix. */
-  --dur-fast: 150ms;
-  --dur-base: 150ms;
+  /* The motion scale (R3, G3): three durations, and every transition or
+     one-shot animation in the app reads one of them. A control answers a
+     press in `fast`; hovers, fades and colour changes take `base`; anything
+     that travels or changes size, like a panel opening or the layout crossing
+     its breakpoint, takes `slow`. Loops and attention pulses of half a second
+     or more are a different kind of motion and keep their own lengths. The
+     reactive layer in `motion.css` derives its ramp from `base`, so
+     `--motion-scale` still reaches all three of its values at once. */
+  --dur-fast: 80ms;
+  --dur-base: 160ms;
+  --dur-slow: 280ms;
 
   /*
    * The stacking ladder.
@@ -106,6 +97,12 @@
   --z-modal: 10000;  /* .modal-backdrop, portalled to <body> */
   --z-menu: 10050;   /* a select portalled to <body>, above the modal it opened from */
   --z-toast: 10100;  /* toasts, above everything */
+
+  /* The editor's two tints (DA-107). Both used to be accent washes, so a
+     selection on the caret's line read as the line highlight. The line is a
+     neutral wash now; only the selection carries the accent. */
+  --editor-selection: color-mix(in srgb, var(--accent) 30%, transparent);
+  --editor-active-line: color-mix(in srgb, var(--ink) 5%, transparent);
 }
 
 /* Each density also moves --icon-size. Without that only the button *box*
@@ -176,8 +173,8 @@ a { color: var(--link); }
   .nav-link:active,
   .sub-nav a:active,
   .entity-icon-btn:active,
-  .git-chip.link:active,
-  .plan-chip.link:active,
+  .git-chip.is-link:active,
+  .plan-chip.is-link:active,
   button:not(:disabled):active {
     background-color: var(--press);
   }
@@ -222,7 +219,7 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   /* Smooth cross-fade when switching themes. */
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: background-color var(--dur-slow) ease, color var(--dur-slow) ease;
 }
 
 /* Scrollbars are an overlay that reveals itself, everywhere.
@@ -276,7 +273,7 @@ body {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  *::-webkit-scrollbar-thumb { transition: background-color 0.18s ease; }
+  *::-webkit-scrollbar-thumb { transition: background-color var(--dur-base) ease; }
 }
 
 /* Visible keyboard focus for all interactive controls (mouse clicks unaffected).
@@ -286,7 +283,7 @@ body {
 
 /* Page fade-in, replayed on every route change (keyed by pathname). */
 @keyframes page-in { from { opacity: 0; } }
-.page-transition { animation: page-in 0.2s ease-out; }
+.page-transition { animation: page-in var(--dur-base) ease-out; }
 .page-transition--dashboard { animation: none; }
 /* Set by navTransition once its crossfade showed the page: no second fade. */
 .page-transition--vt { animation: none; }
@@ -297,7 +294,7 @@ body {
    row animates just that row. A small per-row delay gives a gentle stagger. */
 .log-item, .exp-item, .section-node, .list-item,
 .commit-item, .graph-wrap, .progress-card, .empty {
-  animation: content-in 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: content-in var(--dur-slow) var(--ease-out) both;
 }
 .log-item:nth-child(n+2),
 .exp-item:nth-child(n+2),
@@ -335,7 +332,9 @@ body {
 /* Shared easing when crossing the mobile ↔ desktop breakpoint (900px). */
 :root {
   --layout-ease: cubic-bezier(0.4, 0, 0.2, 1);
-  --layout-duration: 0.32s;
+  /* Decelerating entrance: content arriving on screen. */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --layout-duration: var(--dur-slow);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -356,7 +355,7 @@ body {
   position: sticky;
   top: var(--titlebar-h);
   z-index: var(--z-sticky);
-  display: flex; gap: 2px; margin: 18px 0 4px; padding: 3px;
+  display: flex; gap: 2px; margin: 16px 0 4px; padding: 4px;
   background: color-mix(in srgb, var(--surface2) 72%, transparent);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
@@ -366,6 +365,27 @@ body {
   width: 100%; overflow-x: auto; scrollbar-width: none;
 }
 .sub-nav::-webkit-scrollbar { display: none; }
+/* Sideways strips show there is more past an edge (DA-93): the edge that
+   hides tabs fades, and a swipe stops on a tab rather than mid-word. The fade
+   is driven by the strip's own scroll, so a strip that fits never fades, and
+   the far edge clears once you reach it. Browsers without scroll timelines
+   keep the plain strip. */
+@property --fade-start { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --fade-end { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@keyframes edge-fade {
+  from { --fade-start: 0px; --fade-end: 24px; }
+  8% { --fade-start: 24px; }
+  92% { --fade-end: 24px; }
+  to { --fade-start: 24px; --fade-end: 0px; }
+}
+.sub-nav {
+  mask-image: linear-gradient(to right, transparent, black var(--fade-start), black calc(100% - var(--fade-end)), transparent);
+  animation: edge-fade linear both;
+  animation-timeline: scroll(self inline);
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 24px;
+}
+.sub-tab { scroll-snap-align: start; }
 /* Sliding tile behind the active tab. Local ordering — the tile sits behind
    its own label, and the 0/1 pair is scoped to `.sub-nav`. */
 .sub-tab-indicator {
@@ -374,14 +394,14 @@ body {
   background: color-mix(in srgb, var(--surface) 82%, transparent);
   backdrop-filter: blur(10px) saturate(1.1);
   -webkit-backdrop-filter: blur(10px) saturate(1.1);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  transition: transform 0.32s cubic-bezier(0.22, 0.61, 0.36, 1), width 0.32s cubic-bezier(0.22, 0.61, 0.36, 1);
+  box-shadow: var(--e1);
+  transition: transform var(--dur-slow) var(--ease-out), width var(--dur-slow) var(--ease-out);
 }
 .sub-tab {
   position: relative; z-index: 1; flex: 1; text-align: center;
   text-decoration: none; color: var(--muted);
   font-size: var(--fs-sm); font-weight: 500; white-space: nowrap;
-  padding: 6px 15px; border-radius: var(--r-control); transition: color 0.2s ease;
+  padding: 8px 16px; border-radius: var(--r-control); transition: color var(--dur-base) ease;
   display: inline-flex; align-items: center; justify-content: center;
 }
 .sub-tab.active { color: var(--ink); }
@@ -405,7 +425,7 @@ body {
 }
 /* Library's six tabs must fit 360px, bold themes included. */
 @media (max-width: 480px) {
-  .sub-tab { padding: 6px 4px; font-size: var(--fs-xs); }
+  .sub-tab { padding: 8px 4px; font-size: var(--fs-xs); }
 }
 
 /* Respect users who prefer reduced motion. */

@@ -14,6 +14,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { ChevronIcon } from "@/components/chevron-icon";
 import { BarMenuList, useBarMenu } from "./ink-bar-menus";
+import { MenuItemButton, RowButton, ToggleButton } from "@/components/controls";
 
 /** An Insert item that stays armed after it is picked: a tool, not an action. */
 export type InkInsertTool = "clip" | "text";
@@ -29,6 +30,8 @@ export interface InsertMenuProps {
   onInsertPage?: () => void;
   onClip?: () => void;
   onTextBox?: () => void;
+  /** The page takes a pasted or dropped picture, so the menu says so. */
+  takesPictureDrops?: boolean;
 }
 
 export function hasInsertItems(props: InsertMenuProps): boolean {
@@ -51,72 +54,65 @@ export function InsertMenu({
   onInsertPage,
   onClip,
   onTextBox,
+  takesPictureDrops = false,
 }: InsertMenuProps) {
   const { open, setOpen, menuRef, listRef, pos, choose } = useBarMenu();
   const picture = onAddPicture ?? onAddImage;
 
   return (
     <div className="ink-menu ink-menu-insert" ref={open ? menuRef : undefined}>
-      <button
-        type="button"
+      <ToggleButton pressed={active !== null}
         className="ink-tool ink-menu-trigger"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-pressed={active !== null}
         aria-label="Insert"
         title="Insert a picture, a snip or a text box"
         onClick={() => setOpen((was) => !was)}
       >
         {active === "clip" ? <ClipGlyph /> : active === "text" ? <TextGlyph /> : <ImageGlyph />}
         <Caret open={open} />
-      </button>
+      </ToggleButton>
       {open ? (
         <BarMenuList label="Insert" className="ink-menu-insert-list" listRef={listRef} pos={pos}>
           {picture ? (
-            <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(picture)}>
+            <MenuItemButton className="ink-menu-item" onClick={choose(picture)}>
               <ImageGlyph />
               <span>
                 {onAddPicture ? "Image from file…" : hasPageBackground ? "Change the page image…" : "Page image from file…"}
               </span>
-            </button>
+            </MenuItemButton>
           ) : null}
           {hasPageBackground && onRemovePageBackground ? (
-            <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onRemovePageBackground)}>
+            <MenuItemButton className="ink-menu-item" onClick={choose(onRemovePageBackground)}>
               <ImageOffGlyph />
               <span>Remove the page image</span>
-            </button>
+            </MenuItemButton>
           ) : null}
           {onInsertPage ? (
-            <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onInsertPage)}>
+            <MenuItemButton className="ink-menu-item" onClick={choose(onInsertPage)}>
               <PdfGlyph />
               <span>Pages from a PDF or image…</span>
-            </button>
+            </MenuItemButton>
           ) : null}
           {onClip ? (
-            <button
-              type="button"
-              role="menuitemradio"
-              aria-checked={active === "clip"}
+            <MenuItemButton kind="radio" checked={active === "clip"}
               className="ink-menu-item"
               onClick={choose(onClip)}
             >
               <ClipGlyph />
               <span>Snip a region</span>
-            </button>
+            </MenuItemButton>
           ) : null}
           {onTextBox ? (
-            <button
-              type="button"
-              role="menuitemradio"
-              aria-checked={active === "text"}
+            <MenuItemButton kind="radio" checked={active === "text"}
               className="ink-menu-item"
               onClick={choose(onTextBox)}
             >
               <TextGlyph />
               <span>Text box</span>
-            </button>
+            </MenuItemButton>
           ) : null}
-          {onAddPicture ? (
+          {takesPictureDrops ? (
             <p className="ink-menu-hint">Or paste an image, or drop one on the page.</p>
           ) : null}
         </BarMenuList>
@@ -172,12 +168,11 @@ export function ViewMenu({
 
   return (
     <div className="ink-zoom">
-      <button type="button" className="ink-tool ink-zoom-step" aria-label="Zoom out" title="Zoom out" onClick={onZoomOut}>
+      <RowButton className="ink-tool ink-zoom-step" aria-label="Zoom out" title="Zoom out" onClick={onZoomOut}>
         <ZoomGlyph />
-      </button>
+      </RowButton>
       <div className="ink-menu ink-menu-view" ref={open ? menuRef : undefined}>
-        <button
-          type="button"
+        <RowButton
           className="ink-zoom-pct"
           aria-haspopup="menu"
           aria-expanded={open}
@@ -187,42 +182,36 @@ export function ViewMenu({
         >
           {zoomPercent}%
           <Caret open={open} />
-        </button>
+        </RowButton>
         {open ? (
           <BarMenuList label="View" className="ink-menu-view-list" listRef={listRef} pos={pos}>
             {onZoomTo ? <ZoomPresets zoomPercent={zoomPercent} onZoomTo={onZoomTo} onChosen={() => setOpen(false)} /> : null}
             {onZoomTo && (fits || onRotate) ? <hr className="ink-menu-rule" /> : null}
             {onFitWidth ? (
-              <button
-                type="button"
-                role="menuitemradio"
-                aria-checked={fit === "width"}
+              <MenuItemButton kind="radio" checked={fit === "width"}
                 className="ink-menu-item"
                 onClick={choose(onFitWidth)}
               >
                 <FitGlyph />
                 <span>Fit width</span>
-              </button>
+              </MenuItemButton>
             ) : null}
             {onFitPage ? (
-              <button
-                type="button"
-                role="menuitemradio"
-                aria-checked={fit === "page"}
+              <MenuItemButton kind="radio" checked={fit === "page"}
                 className="ink-menu-item"
                 onClick={choose(onFitPage)}
               >
                 <FitGlyph page />
                 <span>Fit page</span>
-              </button>
+              </MenuItemButton>
             ) : null}
             {fits && onRotate ? <hr className="ink-menu-rule" /> : null}
             {onRotate ? (
-              <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onRotate)}>
+              <MenuItemButton className="ink-menu-item" onClick={choose(onRotate)}>
                 <RotateGlyph />
                 <span>Rotate</span>
                 <kbd>R</kbd>
-              </button>
+              </MenuItemButton>
             ) : null}
             {onWritingPage ? (
               <>
@@ -233,9 +222,9 @@ export function ViewMenu({
           </BarMenuList>
         ) : null}
       </div>
-      <button type="button" className="ink-tool ink-zoom-step" aria-label="Zoom in" title="Zoom in" onClick={onZoomIn}>
+      <RowButton className="ink-tool ink-zoom-step" aria-label="Zoom in" title="Zoom in" onClick={onZoomIn}>
         <ZoomGlyph plus />
-      </button>
+      </RowButton>
     </div>
   );
 }
@@ -243,10 +232,10 @@ export function ViewMenu({
 /** The writing-page switch, as a checked menu item. */
 export function WritingPageItem({ on, onChange }: { on: boolean; onChange: () => void }) {
   return (
-    <button type="button" role="menuitemcheckbox" aria-checked={on} className="ink-menu-item" onClick={onChange}>
+    <MenuItemButton kind="checkbox" checked={on} className="ink-menu-item" onClick={onChange}>
       <WritingPageGlyph />
       <span>Writing page beside each page</span>
-    </button>
+    </MenuItemButton>
   );
 }
 
@@ -263,11 +252,8 @@ export function ZoomPresets({
   return (
     <>
       {ZOOM_PRESETS.map((level) => (
-        <button
+        <MenuItemButton kind="radio" checked={zoomPercent === level}
           key={level}
-          type="button"
-          role="menuitemradio"
-          aria-checked={zoomPercent === level}
           className="ink-menu-item"
           onClick={() => {
             onChosen?.();
@@ -275,7 +261,7 @@ export function ZoomPresets({
           }}
         >
           <span>{`${level}%`}</span>
-        </button>
+        </MenuItemButton>
       ))}
     </>
   );

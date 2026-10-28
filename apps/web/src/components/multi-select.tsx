@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { anchoredMenuStyle, useAnchoredMenu } from "@/lib/hooks/use-anchored-menu";
 import { ChevronIcon } from "@/components/chevron-icon";
+import { OptionButton, RowButton } from "./controls";
 
 interface Option {
   value: string;
@@ -174,9 +175,8 @@ export function MultiSelect({
 
   return (
     <div className={`custom-select-container ${className}`} ref={ref}>
-      <button
+      <RowButton
         ref={triggerRef}
-        type="button"
         id={id}
         className="custom-select-button"
         aria-haspopup="listbox"
@@ -195,7 +195,7 @@ export function MultiSelect({
       >
         <span className="custom-select-value">{summary}</span>
         <ChevronIcon />
-      </button>
+      </RowButton>
       {open && menuRect && createPortal(
         <div
           ref={listRef}
@@ -212,37 +212,31 @@ export function MultiSelect({
             button: it is selectable, it is reachable by the arrow keys, and a
             screen reader has to be able to say which row the active one is.
           */}
-          <button
-            type="button"
-            role="option"
+          <OptionButton selected={values.length === 0}
             data-row={0}
             tabIndex={-1}
-            aria-selected={values.length === 0}
             className={`custom-select-item ms-item${values.length === 0 ? " sel" : ""}${active === 0 ? " active" : ""}`}
             onMouseEnter={() => setActive(0)}
             onClick={() => onChange([])}
           >
             <span className={`ms-check${values.length === 0 ? " on" : ""}`} aria-hidden />
             {allLabel}
-          </button>
+          </OptionButton>
           {options.map((o, index) => {
             const on = set.has(o.value);
             const row = index + 1;
             return (
-              <button
-                type="button"
+              <OptionButton selected={on}
                 key={o.value}
-                role="option"
                 data-row={row}
                 tabIndex={-1}
-                aria-selected={on}
                 className={`custom-select-item ms-item${on ? " sel" : ""}${active === row ? " active" : ""}`}
                 onMouseEnter={() => setActive(row)}
                 onClick={() => toggle(o.value)}
               >
                 <span className={`ms-check${on ? " on" : ""}`} aria-hidden />
                 {o.label}
-              </button>
+              </OptionButton>
             );
           })}
         </div>,

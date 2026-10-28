@@ -1,19 +1,19 @@
 .list-tree-toolbar {
   display: flex; gap: 12px; justify-content: flex-end;
-  padding: 0 4px 8px; border-bottom: 1px solid var(--line); margin-bottom: 6px;
+  padding: 0 4px 8px; border-bottom: 1px solid var(--line); margin-bottom: 8px;
 }
 .list-tree-root,
 .list-children { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; min-width: 0; }
 .list-node { min-width: 0; }
 .list-row {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  padding: 8px 10px; border-radius: var(--r-control);
+  padding: 8px 12px; border-radius: var(--r-control);
   min-width: 0;
 }
 .list-row:hover { background: var(--chip); }
 .list-color-dot {
   flex: none; width: 10px; height: 10px; border-radius: var(--r-pill);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--black) 12%, transparent);
 }
 .list-row-title {
   flex: 1 1 140px; min-width: 0; margin: 0;
@@ -25,9 +25,9 @@
   padding: 2px 8px; border-radius: var(--r-pill); background: var(--surface2);
 }
 .list-view-toggle { align-items: center; flex: none; }
-.extraction-table { margin: 6px 0 10px; display: grid; gap: 8px; min-width: 0; }
+.extraction-table { margin: 8px 0 12px; display: grid; gap: 8px; min-width: 0; }
 .extraction-table-toolbar {
-  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; min-width: 0;
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: center; min-width: 0;
 }
 .extraction-table-toolbar .custom-select-container {
   flex: 1 1 160px; min-width: 0; max-width: 100%;
@@ -41,22 +41,22 @@
 }
 .extraction-table th,
 .extraction-table td {
-  border: 1px solid var(--border); padding: 6px 8px; vertical-align: top;
-  text-align: left; min-width: 0; overflow-wrap: anywhere;
+  border: 1px solid var(--border); padding: 8px 8px; vertical-align: top;
+  text-align: left; min-width: 0; overflow-wrap: anywhere; white-space: normal;
 }
 .extraction-table th {
-  background: var(--surface2); font-weight: 600; white-space: nowrap;
+  font-weight: 600; white-space: nowrap;
 }
 .extraction-table .paper-field-input,
 .extraction-table .custom-select-container {
   width: 100%; min-width: 0; max-width: 220px;
 }
 .extraction-table .paper-field-multi { max-width: 280px; }
-.extraction-th { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.extraction-th { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; }
 .extraction-propose-btn { font-size: var(--fs-xs); }
 .extraction-propose-panel {
-  margin-top: 6px;
-  padding: 8px 10px;
+  margin-top: 8px;
+  padding: 8px 12px;
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
   background: var(--surface-2, var(--bg));
@@ -66,7 +66,7 @@
 }
 .extraction-pending-banner {
   margin: 0;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
@@ -95,7 +95,7 @@
   max-width: 220px;
 }
 .list-body {
-  padding: 2px 0 6px;
+  padding: 2px 0 8px;
   display: grid; gap: 4px; min-width: 0;
 }
 /* A list's own items sit indented under its title, behind a light rail. */
@@ -104,14 +104,14 @@
 .lists-screen .list-body > .list-add,
 .lists-screen .list-body > .list-add-trigger,
 .lists-screen .list-body > .extraction-table {
-  margin-left: 14px;
+  margin-left: 16px;
   padding-left: 12px;
   border-left: 2px solid color-mix(in srgb, var(--line) 55%, transparent);
 }
 /* Each nested level carries its own rail + fixed indent, so the hierarchy
    stays readable at any depth instead of drifting off the right edge. */
 .lists-screen .list-children {
-  margin: 6px 0 0 14px;
+  margin: 8px 0 0 16px;
   padding-left: 8px;
   border-left: 2px solid var(--line);
   display: grid; gap: 2px;
@@ -126,7 +126,7 @@
 .list-papers { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; min-width: 0; }
 .list-paper-row {
   display: flex; align-items: center; gap: 8px;
-  font-size: var(--fs); padding: 6px 10px; border-radius: var(--r-control);
+  font-size: var(--fs); padding: 8px 12px; border-radius: var(--r-control);
   min-width: 0; cursor: grab;
 }
 .list-paper-row:active { cursor: grabbing; }
@@ -139,7 +139,7 @@
 .list-paper-title { flex: 1; min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
 .list-item-kind {
   flex: none; font-size: var(--fs-micro); letter-spacing: 0.02em;
-  padding: 1px 5px; border-radius: var(--r-pill); background: var(--chip); color: var(--muted);
+  padding: 1px 4px; border-radius: var(--r-pill); background: var(--chip); color: var(--muted);
 }
 .list-item-kind--note { color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 12%, var(--chip)); }
 /* Move up, move down, remove: hidden until the row is hovered or focused. */
@@ -161,14 +161,14 @@
 }
 .list-via-badge {
   flex: none; font-size: var(--fs-micro); color: var(--muted);
-  padding: 2px 7px; border-radius: var(--r-pill); background: var(--surface2);
+  padding: 2px 8px; border-radius: var(--r-pill); background: var(--surface2);
   white-space: nowrap;
 }
 .list-papers li > .link-btn { flex: none; }
 .list-add-trigger { margin: 2px 0 4px; font-size: var(--fs-xs); }
 .list-add { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; margin: 4px 0; }
 .list-add .custom-select-container { flex: 1 1 180px; min-width: 0; width: auto; }
-.list-add .btn-primary { flex: none; padding: 8px 14px; }
+.list-add .btn-primary { flex: none; padding: 8px 16px; }
 .list-add-error { flex: 1 1 100%; margin: 0; font-size: var(--fs-sm); }
 .list-color-label { font-size: var(--fs-sm); color: var(--muted); }
 .list-color-picks { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -198,17 +198,17 @@
 /* Graph */
 .graph-stage { position: relative; margin: 8px 0 12px; }
 /* Screening: one row per record, the reviewers' answers, then the PRISMA counts. */
-.screening-panel { margin: 6px 0 10px; display: grid; gap: 10px; min-width: 0; }
-.screening-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.screening-panel { margin: 8px 0 12px; display: grid; gap: 12px; min-width: 0; }
+.screening-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .screening-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .screening-row {
   display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center;
-  padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  padding: 8px 8px; border: 1px solid var(--border); border-radius: var(--r-sm);
   font-size: var(--fs); min-width: 0;
 }
 .screening-title { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
 .screening-verdict { color: var(--muted); white-space: nowrap; }
-.screening-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.screening-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .screening-reason { width: 140px; min-width: 0; }
 .screening-counts table { border-collapse: collapse; font-size: var(--fs); }
 .screening-counts th,
@@ -219,7 +219,7 @@
 
 /* Two panes (Lists mock): a rail of every list, the picked list on the right. */
 .lists-two-pane {
-  display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 20px; align-items: start;
+  display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; align-items: start;
 }
 .lists-two-pane .list-tree-panel { margin: 0; }
 .lists-rail {
@@ -228,7 +228,7 @@
 }
 .lists-rail-item {
   display: flex; align-items: center; gap: 8px; width: 100%; min-height: 38px;
-  padding: 6px 10px 6px calc(10px + var(--depth, 0) * 16px);
+  padding: 8px 12px 8px calc(12px + var(--depth, 0) * 16px);
   border: 0; border-radius: var(--r-control); background: none; color: var(--text);
   font: inherit; text-align: left; cursor: pointer;
 }
@@ -237,7 +237,7 @@
 .lists-rail-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lists-rail-count { flex: none; font-size: var(--fs-xs); opacity: 0.75; }
 .lists-rail-label {
-  margin: 10px 10px 4px; font-size: var(--fs-xs); font-weight: 700;
+  margin: 12px 12px 4px; font-size: var(--fs-xs); font-weight: 700;
   color: var(--muted);
 }
 /* The picked list is always open, so its own collapse chevron has nothing to do. */
@@ -248,8 +248,8 @@
 @media (max-width: 900px) {
   .lists-two-pane { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .lists-rail {
-    position: static; max-height: none; display: flex; flex-wrap: wrap; gap: 6px;
+    position: static; max-height: none; display: flex; flex-wrap: wrap; gap: 8px;
   }
-  .lists-rail-item { width: auto; min-height: 36px; padding: 6px 12px; border-radius: var(--r-pill); background: var(--surface2); }
-  .lists-rail-label { flex: 1 1 100%; margin: 6px 4px 0; }
+  .lists-rail-item { width: auto; min-height: 36px; padding: 8px 12px; border-radius: var(--r-pill); background: var(--surface2); }
+  .lists-rail-label { flex: 1 1 100%; margin: 8px 4px 0; }
 }

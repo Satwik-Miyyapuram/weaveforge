@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { getContainer } from "@/bootstrap";
+import { Button } from "@/components/button";
+import { RowButton } from "@/components/controls";
 import { CommentsIcon } from "@/components/view-icons";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { CommentsBadge } from "./comments-badge";
@@ -47,25 +49,27 @@ export function CommentsToggle({
     };
   }, [detail, open, resourceType, resourceId]);
 
+  const trigger = {
+    onClick: () => setOpen((v) => !v),
+    "aria-expanded": open,
+    "aria-controls": open ? panelId : undefined,
+    "aria-label": label,
+    title: label,
+  };
   return (
     <div className={`comments-toggle${detail ? " comments-toggle--detail" : ""}`} ref={wrapRef}>
-      <button
-        type="button"
-        className={
-          detail
-            ? "btn-secondary entity-icon-text-btn comments-trigger-detail"
-            : "entity-icon-btn"
-        }
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-controls={open ? panelId : undefined}
-        aria-label={label}
-        title={label}
-      >
-        <CommentsIcon size={detail ? 18 : 16} />
-        {detail ? <span>{open ? "Hide comments" : "Comments"}</span> : null}
-        <CommentsBadge count={count} />
-      </button>
+      {detail ? (
+        <Button className="entity-icon-text-btn comments-trigger-detail" {...trigger}>
+          <CommentsIcon size={18} />
+          <span>{open ? "Hide comments" : "Comments"}</span>
+          <CommentsBadge count={count} />
+        </Button>
+      ) : (
+        <RowButton className="entity-icon-btn" {...trigger}>
+          <CommentsIcon size={16} />
+          <CommentsBadge count={count} />
+        </RowButton>
+      )}
       {open && (
         <div id={panelId} className="comments-sheet" role="region" aria-label="Comments">
           <NoteComments embedded resourceType={resourceType} resourceId={resourceId} canComment={canComment} isOwner={isOwner} />

@@ -26,6 +26,7 @@ import { collectListIds } from "./list-ui";
 import { FormError } from "@/components/form-error";
 import { latestGate } from "@/lib/latest-gate";
 import { Button } from "@/components/button";
+import { Table } from "@/components/table";
 
 function isFillableField(def: PaperFieldDef): boolean {
   return def.kind === "text" || def.kind === "number" || def.kind === "select" || def.kind === "multi_select";
@@ -179,10 +180,6 @@ export function ExtractionTable({
     }
   }
 
-  if (rows.length === 0) {
-    return <p className="muted">No papers in this list yet.</p>;
-  }
-
   return (
     <div className="extraction-table">
       <div className="extraction-table-toolbar">
@@ -211,11 +208,10 @@ export function ExtractionTable({
         </p>
       )}
       {error && <FormError>{error}</FormError>}
-      <div className="extraction-table-scroll">
-        <table>
-          <thead>
-            <tr>
-              {columns.map((c) => {
+      <Table
+        scrollClassName="extraction-table-scroll"
+        empty="No papers in this list yet."
+        head={columns.map((c) => {
                 const fieldId = c.startsWith("field:") ? c.slice("field:".length) : null;
                 const def = fieldId ? defs.find((d) => d.id === fieldId) : null;
                 const fillable = def ? isFillableField(def) : false;
@@ -224,13 +220,11 @@ export function ExtractionTable({
                     <div className="extraction-th">
                       <span>{availableColumns.find((o) => o.value === c)?.label ?? c}</span>
                       {!readOnly && fillable && fieldId && (
-                        <button
-                          type="button"
-                          className="link-btn extraction-propose-btn"
+                        <Button variant="link" className="extraction-propose-btn"
                           onClick={() => setPromptFieldId((cur) => (cur === fieldId ? null : fieldId))}
                         >
                           Propose fill
-                        </button>
+                        </Button>
                       )}
                     </div>
                     {promptFieldId === fieldId && fieldId && (
@@ -249,9 +243,7 @@ export function ExtractionTable({
                   </th>
                 );
               })}
-            </tr>
-          </thead>
-          <tbody>
+      >
             {rows.map((row) => (
               <tr key={row.paper.id}>
                 {columns.map((column) => {
@@ -283,9 +275,7 @@ export function ExtractionTable({
                 })}
               </tr>
             ))}
-          </tbody>
-        </table>
-      </div>
+      </Table>
     </div>
   );
 }

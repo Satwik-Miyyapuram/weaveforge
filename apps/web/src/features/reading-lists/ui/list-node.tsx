@@ -17,6 +17,7 @@ import { ScreeningPanel } from "./screening-panel";
 import { runListAction } from "./run-list-action";
 import { Button } from "@/components/button";
 import { deferDelete, deletedMessage, useHiddenKeys } from "@/lib/toast";
+import { RowButton } from "@/components/controls";
 
 /** The key a list hides under while its Undo toast shows (D-07). */
 export const listKey = (id: string) => `list:${id}`;
@@ -222,15 +223,14 @@ export function ListNode(props: ListNodeProps) {
   return (
     <li id={`list-${list.id}`} className="list-node" style={{ "--depth": depth } as CSSProperties}>
       <div className="list-row">
-        <button
-          type="button"
+        <RowButton
           className="list-toggle"
           aria-expanded={!isCollapsed}
           aria-label={isCollapsed ? "Expand list" : "Collapse list"}
           onClick={() => onToggleCollapse(list.id)}
         >
           <ChevronIcon open={!isCollapsed} variant="expand" size={14} />
-        </button>
+        </RowButton>
         <span className="list-color-dot" style={{ background: dotColor }} aria-hidden />
         <h3 className="list-row-title">{list.name}</h3>
         <span className="list-count">{countLabel}</span>
@@ -353,19 +353,17 @@ export function ListNode(props: ListNodeProps) {
               >
                 {addBusy ? "Adding…" : "Add"}
               </Button>
-              <button
-                type="button"
-                className="btn-ghost btn-cancel"
+              <Button variant="ghost" className="btn-cancel"
                 onClick={() => { setShowAdd(false); setPicker(""); setAddError(null); }}
               >
                 Cancel
-              </button>
+              </Button>
               {addError && <p className="error list-add-error">{addError}</p>}
             </div>
           ) : canAdd && !readOnly ? (
-            <button type="button" className="link-btn list-add-trigger" onClick={() => setShowAdd(true)}>
+            <Button variant="link" className="list-add-trigger" onClick={() => setShowAdd(true)}>
               + Add a paper or note
-            </button>
+            </Button>
           ) : null}
             </>
           )}
@@ -406,35 +404,29 @@ export function ListItemActions({
 }) {
   return (
     <span className="list-item-actions">
-      <button
-        type="button"
-        className="list-item-move entity-icon-btn"
+      <RowButton className="list-item-move entity-icon-btn"
         onClick={() => onMove(-1)}
         disabled={isFirst}
         aria-label="Move up"
         title="Move up"
       >
         <span aria-hidden>↑</span>
-      </button>
-      <button
-        type="button"
-        className="list-item-move entity-icon-btn"
+      </RowButton>
+      <RowButton className="list-item-move entity-icon-btn"
         onClick={() => onMove(1)}
         disabled={isLast}
         aria-label="Move down"
         title="Move down"
       >
         <span aria-hidden>↓</span>
-      </button>
-      <button
-        type="button"
-        className="list-item-remove entity-icon-btn"
+      </RowButton>
+      <RowButton className="list-item-remove entity-icon-btn"
         onClick={onRemove}
         aria-label="Remove from list"
         title="Remove from list"
       >
         <UnlinkIcon />
-      </button>
+      </RowButton>
     </span>
   );
 }

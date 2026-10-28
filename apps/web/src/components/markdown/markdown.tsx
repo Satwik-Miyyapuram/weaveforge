@@ -303,6 +303,15 @@ function renderTable(rows: readonly string[], options?: MarkdownRenderOptions): 
 }
 
 /** Render markdown prose (no fenced code blocks) to HTML. */
+/** Where the comment opened at `lines[from]`, column `column`, closes: just past its `-->`. */
+function commentEnd(lines: readonly string[], from: number, column: number): { line: number; column: number } | null {
+  for (let at = from; at < lines.length; at += 1) {
+    const close = lines[at]!.indexOf("-->", at === from ? column : 0);
+    if (close !== -1) return { line: at, column: close + 3 };
+  }
+  return null;
+}
+
 export function renderProseMarkdown(md: string, options?: MarkdownRenderOptions): string {
   const lines = md.replace(/\r\n/g, "\n").split("\n");
   const out: string[] = [];
@@ -324,6 +333,22 @@ export function renderProseMarkdown(md: string, options?: MarkdownRenderOptions)
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index]!;
     const trimmed = line.trim();
+    // A comment opening a line is the file's bookkeeping (the ink header, page
+    // markers, template regions), not prose: it renders as nothing. One that
+    // never closes is left as text, so it cannot swallow the rest of the note.
+    if (trimmed.startsWith("<!--")) {
+      const end = commentEnd(lines, index, line.indexOf("<!--") + 4);
+      if (end) {
+        const rest = lines[end.line]!.slice(end.column);
+        if (rest.trim() === "") {
+          index = end.line;
+        } else {
+          lines[end.line] = rest;
+          index = end.line - 1;
+        }
+        continue;
+      }
+    }
     // The body may not contain `$$`: `$$a$$ and $$b$$` is two formulas, not one.
     const singleLineDisplay = /^\$\$((?:(?!\$\$)[\s\S])+)\$\$$/.exec(trimmed);
     if (singleLineDisplay) {

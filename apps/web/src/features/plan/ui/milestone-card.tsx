@@ -22,6 +22,7 @@ import { runReported } from "@/lib/run-reported";
 import { StatusSelect } from "@/components/status-select";
 import { MilestoneForm } from "./milestone-form";
 import { planChipTarget } from "./plan-chip";
+import { RowButton } from "@/components/controls";
 
 export function MilestoneCard({
   milestone: m,
@@ -180,10 +181,9 @@ export function MilestoneCard({
             const cls = `plan-chip${d.kind === "external" ? " is-ext" : ""}`;
             if (target.kind === "jump" && onJump) {
               return (
-                <button
+                <RowButton
                   key={i}
-                  type="button"
-                  className={`${cls} link`}
+                  className={`${cls} is-link`}
                   onClick={(e) => {
                     e.stopPropagation();
                     onJump(target.milestoneId);
@@ -191,17 +191,17 @@ export function MilestoneCard({
                   title={`Jump to ${labelText}`}
                 >
                   {body}
-                </button>
+                </RowButton>
               );
             }
             if (target.kind === "link") {
               const stop = (e: MouseEvent) => e.stopPropagation();
               return target.external ? (
-                <a key={i} className={`${cls} link`} href={target.href} target="_blank" rel="noreferrer" onClick={stop} title={target.href}>
+                <a key={i} className={`${cls} is-link`} href={target.href} target="_blank" rel="noreferrer" onClick={stop} title={target.href}>
                   {body}
                 </a>
               ) : (
-                <Link key={i} className={`${cls} link`} href={target.href} onClick={stop} title={`Open ${labelText}`}>
+                <Link key={i} className={`${cls} is-link`} href={target.href} onClick={stop} title={`Open ${labelText}`}>
                   {body}
                 </Link>
               );

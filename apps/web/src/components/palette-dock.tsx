@@ -24,6 +24,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { readStored, writeStored } from "@/lib/safe-storage";
+import { RowButton } from "./controls";
 
 export const PALETTE_DOCKS = [
   "top-left",
@@ -256,8 +257,7 @@ export function PaletteDockButton({
 
   return (
     <div className="ink-dock">
-      <button
-        type="button"
+      <RowButton
         className="ink-tool ink-tool-icon-only ink-bar-dock"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -288,7 +288,7 @@ export function PaletteDockButton({
           <path d="M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3" />
           <path d="M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" />
         </svg>
-      </button>
+      </RowButton>
     </div>
   );
 }
@@ -302,8 +302,7 @@ export function PaletteFoldButton({
   onToggle: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <RowButton
       className="ink-tool ink-tool-icon-only ink-bar-collapse"
       onClick={onToggle}
       aria-expanded={!collapsed}
@@ -323,6 +322,6 @@ export function PaletteFoldButton({
       >
         {collapsed ? <path d="M9 6l6 6-6 6" /> : <path d="M15 6l-6 6 6 6" />}
       </svg>
-    </button>
+    </RowButton>
   );
 }

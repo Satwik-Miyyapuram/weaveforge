@@ -123,6 +123,7 @@ export {
   renameInkUndoId,
   refreshInkUndoAnnotation,
   type InkUndoEntry,
+  type InkUndoPatch,
   type InkUndoState,
 } from "./ink-undo.js";
 export {

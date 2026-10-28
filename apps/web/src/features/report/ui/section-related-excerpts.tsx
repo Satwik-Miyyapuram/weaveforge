@@ -89,13 +89,11 @@ export function SectionRelatedExcerpts({
                   {paper.title}{annotation.page ? ` · p.${annotation.page}` : ""}
                 </p>
                 <div className="section-excerpt-actions">
-                  <button
-                    type="button"
-                    className="link-btn"
+                  <Button variant="link"
                     onClick={() => onInsert(formatQuoteCiteClipboard(quote, paper.title))}
                   >
                     Insert
-                  </button>
+                  </Button>
                   <Button
                    
                     variant="ghost" size="sm"
@@ -108,15 +106,13 @@ export function SectionRelatedExcerpts({
                     Copy
                   </Button>
                   {annotation.key && (
-                    <button
-                      type="button"
-                      className="link-btn"
+                    <Button variant="link"
                       onClick={() => {
                         void papersFacadeUnpin(paper.id, annotation.key!, reload, setError);
                       }}
                     >
                       Unpin
-                    </button>
+                    </Button>
                   )}
                 </div>
               </li>

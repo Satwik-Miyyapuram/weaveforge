@@ -12,7 +12,7 @@ import test from "node:test";
 
 const web = path.resolve(import.meta.dirname, "../../web");
 const app = path.join(web, "src/app");
-const HELD = ["api", "org", "experiments/[id]"];
+const HELD = ["api", "org", "experiments/[id]", "pitch"];
 const heldDirs = HELD.map((route) => path.join(app, route));
 
 function sourceFiles(dir: string): string[] {

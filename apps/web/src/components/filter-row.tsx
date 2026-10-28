@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { MultiSelect } from "@/components/multi-select";
 import { Button } from "@/components/button";
+import { RowButton } from "./controls";
 
 /** Chips drawn before the rest fold into "+N others", keeping the row short. */
 const SHOWN_CHIPS = 2;
@@ -70,11 +71,11 @@ function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }
   return (
     <span className="filter-chip">
       <span className="filter-chip-label">{label}</span>
-      <button type="button" className="filter-chip-x" aria-label={`Remove filter ${label}`} onClick={onRemove}>
+      <RowButton className="filter-chip-x" aria-label={`Remove filter ${label}`} onClick={onRemove}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
           <path d="M6 6l12 12M18 6L6 18" />
         </svg>
-      </button>
+      </RowButton>
     </span>
   );
 }

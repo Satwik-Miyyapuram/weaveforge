@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useLiveSync } from "./use-live-sync";
 import { setLiveSyncState } from "../domain/live-sync";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { RowButton } from "@/components/controls";
 
 /** `attentionOnly`: render only states the person must act on (offline work, conflicts). */
 export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?: boolean } = {}) {
@@ -24,8 +25,7 @@ export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?:
 
   if (conflictsCount > 0) {
     return (
-      <button
-        type="button"
+      <RowButton
         className="sync-badge conflict"
         onClick={() => {
           // Same-page push does not fire hashchange; setting the hash does, and Settings listens.
@@ -36,7 +36,7 @@ export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?:
       >
         <span className="sync-dot amber" />
         <span>Conflicts ({conflictsCount})</span>
-      </button>
+      </RowButton>
     );
   }
 
@@ -46,8 +46,7 @@ export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?:
   if (lastAdoption && lastAdoption.claimed + lastAdoption.queued + lastAdoption.renamed.length > 0) {
     const renamed = lastAdoption.renamed;
     return (
-      <button
-        type="button"
+      <RowButton
         className="sync-badge merged"
         onClick={() => setLiveSyncState({ lastAdoption: null })}
         title={
@@ -61,7 +60,7 @@ export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?:
           Merged with your account{renamed.length > 0 ? ` · ${renamed.length} renamed` : ""}
         </span>
         <span aria-hidden="true">×</span>
-      </button>
+      </RowButton>
     );
   }
 
@@ -100,15 +99,14 @@ export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?:
   if (enabled) {
     const timeStr = lastSyncAt ? new Date(lastSyncAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
     return (
-      <button
-        type="button"
+      <RowButton
         className="sync-badge synced"
         onClick={syncNow}
         title={timeStr ? `All changes synced (last at ${timeStr}). Click to sync now.` : "All changes synced. Click to sync now."}
       >
         <span className="sync-dot green" />
         <span>Synced</span>
-      </button>
+      </RowButton>
     );
   }
 

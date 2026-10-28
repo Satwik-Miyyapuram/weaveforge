@@ -8,6 +8,8 @@ import { appOrigin, authRedirectTo } from "@/lib/desktop/desktop-auth";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { setLocalMode } from "@/backend/providers/local/local-identity";
 import { runBusy } from "./run-busy";
+import { RowButton } from "@/components/controls";
+import { Button } from "@/components/button";
 
 /**
  * Sign in: password, Google, an emailed code or link, or (desktop only) no
@@ -102,9 +104,7 @@ export function LoginScreen() {
               <p className="auth-sub">
                 We sent a confirmation link to <strong>{email}</strong>. Open it to activate your account.
               </p>
-              <button
-                type="button"
-                className="btn-primary auth-wide"
+              <Button variant="primary" className="auth-wide"
                 onClick={() => {
                   setSent(false);
                   setIsSignUp(false);
@@ -113,19 +113,19 @@ export function LoginScreen() {
                 }}
               >
                 Back to sign in
-              </button>
+              </Button>
             </>
           ) : magicLinkSent ? (
             <>
               <h2 className="auth-title">Check your email</h2>
               <p className="auth-sub">We sent a sign-in link to <strong>{email}</strong>. Open it to sign in.</p>
-              <button type="button" className="btn-ghost auth-wide" onClick={() => setMagicLinkSent(false)}>Back</button>
+              <Button variant="ghost" className="auth-wide" onClick={() => setMagicLinkSent(false)}>Back</Button>
             </>
           ) : resetSent ? (
             <>
               <h2 className="auth-title">Password reset sent</h2>
               <p className="auth-sub">If an account exists for <strong>{email}</strong>, you&rsquo;ll get a link to choose a new password.</p>
-              <button type="button" className="btn-ghost auth-wide" onClick={() => setResetSent(false)}>Back</button>
+              <Button variant="ghost" className="auth-wide" onClick={() => setResetSent(false)}>Back</Button>
             </>
           ) : otpSent ? (
             <>
@@ -137,18 +137,18 @@ export function LoginScreen() {
                   <input id="email-otp" value={otp} onChange={(event) => setOtp(event.target.value)} inputMode="numeric" autoComplete="one-time-code" required />
                 </div>
                 {error && <FormError>{error}</FormError>}
-                <button className="btn-primary auth-wide" disabled={busy}>{busy ? "Verifying…" : "Verify code"}</button>
+                <Button type="submit" variant="primary" className="auth-wide" disabled={busy}>{busy ? "Verifying…" : "Verify code"}</Button>
               </form>
-              <button type="button" className="btn-ghost auth-wide" onClick={() => { setOtpSent(false); setOtp(""); }} disabled={busy}>Back</button>
+              <Button variant="ghost" className="auth-wide" onClick={() => { setOtpSent(false); setOtp(""); }} disabled={busy}>Back</Button>
             </>
           ) : (
             <>
               <h2 className="auth-title">{isSignUp ? "Create an account" : "Sign in"}</h2>
               <p className="auth-sub">
                 {isSignUp ? "Already have an account? " : "Use your lab email. New here? "}
-                <button type="button" className="auth-link" onClick={switchMode} disabled={busy}>
+                <RowButton className="auth-link" onClick={switchMode} disabled={busy}>
                   {isSignUp ? "Sign in" : "Create an account"}
-                </button>
+                </RowButton>
               </p>
 
               <form className="auth-email" onSubmit={submit}>
@@ -168,9 +168,9 @@ export function LoginScreen() {
                   <div className="auth-label-row">
                     <label htmlFor="password">Password</label>
                     {!isSignUp && (
-                      <button type="button" className="auth-link auth-link-sm" onClick={() => void sendPasswordReset()} disabled={busy || !email.trim()}>
+                      <RowButton className="auth-link auth-link-sm" onClick={() => void sendPasswordReset()} disabled={busy || !email.trim()}>
                         Forgot password?
-                      </button>
+                      </RowButton>
                     )}
                   </div>
                   <input
@@ -183,33 +183,32 @@ export function LoginScreen() {
                     required
                   />
                 </div>
-                <button className="btn-primary auth-wide" disabled={busy}>
+                <Button type="submit" variant="primary" className="auth-wide" disabled={busy}>
                   {busy ? (isSignUp ? "Creating account…" : "Signing in…") : (isSignUp ? "Create account" : "Sign in")}
-                </button>
+                </Button>
               </form>
 
               <div className="auth-divider"><span>or</span></div>
 
               <div className="auth-alt">
-                <button type="button" className="btn-google auth-wide" onClick={google} disabled={busy}>
+                <RowButton className="btn-google auth-wide" onClick={google} disabled={busy}>
                   <GoogleMark />
                   Continue with Google
-                </button>
+                </RowButton>
                 {!isSignUp && (
                   <>
-                    <button type="button" className="btn-google auth-wide" onClick={() => void sendOtp()} disabled={busy || !email.trim()}>
+                    <RowButton className="btn-google auth-wide" onClick={() => void sendOtp()} disabled={busy || !email.trim()}>
                       Email me a sign-in code
-                    </button>
-                    <button type="button" className="auth-link auth-link-sm" onClick={() => void sendMagicLink()} disabled={busy || !email.trim()}>
+                    </RowButton>
+                    <RowButton className="auth-link auth-link-sm" onClick={() => void sendMagicLink()} disabled={busy || !email.trim()}>
                       Email me a sign-in link instead
-                    </button>
+                    </RowButton>
                   </>
                 )}
               </div>
 
               {onThisComputer && (
-                <button
-                  type="button"
+                <RowButton
                   className="auth-local"
                   onClick={() => {
                     // The wiring is built once, at startup, from this choice —
@@ -219,7 +218,7 @@ export function LoginScreen() {
                   }}
                 >
                   Use without an account, local only
-                </button>
+                </RowButton>
               )}
 
               {error && <FormError>{error}</FormError>}

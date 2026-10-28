@@ -15,6 +15,7 @@ import { INK_PAPERS, type InkHand, type InkPaper } from "@weaveforge/core";
 import { paperLabel } from "./ink-bar-glyphs";
 import { BarMenuList, useBarMenu } from "./ink-bar-menus";
 import { shortcutLabel } from "@/lib/shortcut-label";
+import { MenuItemButton, RowButton } from "@/components/controls";
 
 /** How much desk shows between two pages of a note. */
 export const INK_PAGE_GAPS = ["none", "small", "large"] as const;
@@ -87,8 +88,7 @@ export function MoreMenu({
 
   return (
     <div className="ink-menu ink-menu-more" ref={open ? menuRef : undefined}>
-      <button
-        type="button"
+      <RowButton
         className="ink-tool ink-tool-icon-only"
         onClick={() => setOpen((was) => !was)}
         aria-haspopup="menu"
@@ -101,7 +101,7 @@ export function MoreMenu({
           <circle cx="12" cy="12" r="1.8" />
           <circle cx="19" cy="12" r="1.8" />
         </svg>
-      </button>
+      </RowButton>
       {open ? (
         <BarMenuList label="More ink options" className="ink-menu-more-list" listRef={listRef} pos={pos}>
           {paper && onPaper ? (
@@ -109,17 +109,14 @@ export function MoreMenu({
               <span className="ink-menu-heading">Paper</span>
               <div className="ink-menu-chips">
                 {INK_PAPERS.map((entry) => (
-                  <button
+                  <MenuItemButton kind="radio" checked={paper === entry}
                     key={entry}
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={paper === entry}
                     className="ink-menu-chip"
                     onClick={() => onPaper(entry)}
                   >
                     <span className={`ink-paper-preview paper-${entry}`} aria-hidden="true" />
                     {paperLabel(entry)}
-                  </button>
+                  </MenuItemButton>
                 ))}
               </div>
             </div>
@@ -130,16 +127,13 @@ export function MoreMenu({
               <span className="ink-menu-heading">Page spacing</span>
               <div className="ink-menu-chips">
                 {INK_PAGE_GAPS.map((entry) => (
-                  <button
+                  <MenuItemButton kind="radio" checked={pageGap === entry}
                     key={entry}
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={pageGap === entry}
                     className="ink-menu-chip"
                     onClick={() => onPageGap(entry)}
                   >
                     {pageGapLabel(entry)}
-                  </button>
+                  </MenuItemButton>
                 ))}
               </div>
             </div>
@@ -148,41 +142,37 @@ export function MoreMenu({
           {onPrintPaper ? (
             <div className="ink-menu-section" role="group" aria-label="Print">
               <span className="ink-menu-heading">Print</span>
-              <button
-                type="button"
-                role="menuitem"
+              <MenuItemButton
                 className="ink-menu-item"
                 title="A4 portrait, each page fitted to the sheet"
                 onClick={choose(() => onPrintPaper(false))}
               >
                 Without comments
-              </button>
-              <button
-                type="button"
-                role="menuitem"
+              </MenuItemButton>
+              <MenuItemButton
                 className="ink-menu-item"
                 title="A4 landscape, the comments beside each page"
                 onClick={choose(() => onPrintPaper(true))}
               >
                 With comments
-              </button>
+              </MenuItemButton>
             </div>
           ) : null}
 
           {onPrint && onExportPng ? (
             <div className="ink-menu-section" role="group" aria-label="Export">
-              <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onPrint)}>
+              <MenuItemButton className="ink-menu-item" onClick={choose(onPrint)}>
                 Print or save as PDF
                 <kbd>{shortcutLabel("⌘⇧P")}</kbd>
-              </button>
-              <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onExportPng)}>
+              </MenuItemButton>
+              <MenuItemButton className="ink-menu-item" onClick={choose(onExportPng)}>
                 Full-page PNG
                 <kbd>{shortcutLabel("⌘⇧E")}</kbd>
-              </button>
+              </MenuItemButton>
               {onExportSvg ? (
-                <button type="button" role="menuitem" className="ink-menu-item" onClick={choose(onExportSvg)}>
+                <MenuItemButton className="ink-menu-item" onClick={choose(onExportSvg)}>
                   Vector SVG
-                </button>
+                </MenuItemButton>
               ) : null}
             </div>
           ) : null}
@@ -190,41 +180,31 @@ export function MoreMenu({
           {hasInput ? (
             <div className="ink-menu-section" role="group" aria-label="Input">
               {onToggleTextLayer ? (
-                <button
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={showTextLayer}
+                <MenuItemButton kind="checkbox" checked={showTextLayer}
                   className="ink-menu-item"
                   onClick={onToggleTextLayer}
                 >
                   Show the text layer
-                  <span className="ink-menu-check" aria-hidden="true">{showTextLayer ? "✓" : ""}</span>
-                </button>
+                </MenuItemButton>
               ) : null}
               {onPenOnly ? (
-                <button
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={penOnly}
+                <MenuItemButton kind="checkbox" checked={penOnly}
                   className="ink-menu-item"
                   title="Ignore touch entirely; the wrist guard"
                   onClick={() => onPenOnly(!penOnly)}
                 >
                   Pen only
-                  <span className="ink-menu-check" aria-hidden="true">{penOnly ? "✓" : ""}</span>
-                </button>
+                </MenuItemButton>
               ) : null}
               {onHand && hand ? (
-                <button
-                  type="button"
-                  role="menuitem"
+                <MenuItemButton
                   className="ink-menu-item"
                   title="Which hand writes: the resting palm is expected on that side"
                   onClick={() => onHand(hand === "right" ? "left" : "right")}
                 >
                   Writing hand
                   <span className="ink-menu-value">{hand === "right" ? "Right" : "Left"}</span>
-                </button>
+                </MenuItemButton>
               ) : null}
             </div>
           ) : null}

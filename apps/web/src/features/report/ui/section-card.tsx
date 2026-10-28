@@ -19,6 +19,7 @@ import { StatusSelect } from "@/components/status-select";
 import { runReported } from "@/lib/run-reported";
 import { useHiddenKeys } from "@/lib/toast";
 import { removeSectionLater, sectionKey } from "./remove-section";
+import { RowButton } from "@/components/controls";
 
 export function SectionRow({
   node,
@@ -150,8 +151,7 @@ export function SectionCard({
       onActivate={onOpen ? () => onOpen(s.id) : undefined}
       leading={
         collapse ? (
-          <button
-            type="button"
+          <RowButton
             className="list-toggle section-head-toggle"
             aria-expanded={collapse.open}
             aria-label={collapse.open ? "Collapse section" : "Expand section"}
@@ -161,7 +161,7 @@ export function SectionCard({
             }}
           >
             <ChevronIcon open={collapse.open} variant="expand" size={16} />
-          </button>
+          </RowButton>
         ) : undefined
       }
       title={

@@ -38,6 +38,7 @@ import { useSubmit } from "@/lib/hooks/use-submit";
 import { useCapability, hasServerRoutes } from "@/deployment/capabilities";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
+import { RowButton, TabButton } from "@/components/controls";
 
 // Only the Tokens tab paints it, so it stays out of the route's first load.
 const ApiTokensPanel = dynamic(() => import("./api-tokens-panel").then((m) => m.ApiTokensPanel), { ssr: false });
@@ -326,8 +327,7 @@ export function SettingsScreen() {
           const open = g.tabs.includes(tab);
           return (
             <div key={g.id} className={`settings-rail-group${open ? " is-open" : ""}`}>
-              <button
-                type="button"
+              <RowButton
                 className="settings-rail-head"
                 aria-current={open ? "true" : undefined}
                 onClick={() => { if (!open) selectTab(g.tabs[0]!); }}
@@ -346,23 +346,20 @@ export function SettingsScreen() {
                   </span>
                   <span className="settings-rail-hint">{g.hint}</span>
                 </span>
-              </button>
+              </RowButton>
               {open && g.tabs.length > 1 && (
                 <div className="settings-rail-tabs" role="tablist" aria-label={g.label}>
                   {g.tabs.map((id) => (
-                    <button
+                    <TabButton selected={tab === id}
                       key={id}
-                      type="button"
-                      role="tab"
                       id={`settings-tab-${id}`}
-                      aria-selected={tab === id}
                       aria-controls={`settings-${id}`}
                       className={tab === id ? "is-active" : ""}
                       onClick={() => selectTab(id)}
                     >
                       {labelOf.get(id)}
                       {id === "updates" && update && <span className="tab-dot" aria-label="update available" />}
-                    </button>
+                    </TabButton>
                   ))}
                 </div>
               )}
@@ -417,11 +414,11 @@ export function SettingsScreen() {
         <div id="settings-ai" className="card add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-ai">
           <h3 className="settings-group">AI & MCP</h3>
           <p className="muted">Control what an AI client such as Codex may read or propose. Access is off by default.</p>
-          <button type="button" className="integration-item ai-access-launcher" onClick={() => setAiAccessOpen(true)}>
+          <RowButton className="integration-item ai-access-launcher" onClick={() => setAiAccessOpen(true)}>
             <span className="integration-logo ai-access-launcher-icon">✦</span>
             <div className="integration-main"><strong>AI assistant access</strong><span className="muted">Sources, proposals, active sessions, and revocation.</span></div>
             <span className={`status ${settings.aiAccess?.enabled ? "status-done" : "status-not_started"}`}>{settings.aiAccess?.enabled ? "Enabled" : "Disabled"}</span>
-          </button>
+          </RowButton>
         </div>
       )}
       {/* Desktop: MCP is served by the shell on loopback instead. */}
@@ -459,9 +456,8 @@ export function SettingsScreen() {
                     d.fields.map((f) => f.id),
                   );
                   return (
-                    <button
+                    <RowButton
                       key={d.providerId}
-                      type="button"
                       className="integration-item"
                       onClick={() => setActiveProvider(d)}
                     >
@@ -473,7 +469,7 @@ export function SettingsScreen() {
                       <span className={`status ${connected ? "status-done" : "status-not_started"}`}>
                         {connected ? "Connected" : "Not set"}
                       </span>
-                    </button>
+                    </RowButton>
                   );
                 })}
               </div>
@@ -550,7 +546,7 @@ export function SettingsScreen() {
           <form className="add-form ai-access-modal" onSubmit={(event) => { void submit(event).then((ok) => { if (ok) setAiAccessOpen(false); }); }}>
             <AiAccessPanel settings={settings} onChange={setSettings} />
             {error && <FormError>{error}</FormError>}
-            <ModalActions><button type="button" className="btn-secondary btn-cancel" onClick={() => setAiAccessOpen(false)}>Cancel</button><Button type="submit" variant="primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</Button></ModalActions>
+            <ModalActions><Button className="btn-cancel" onClick={() => setAiAccessOpen(false)}>Cancel</Button><Button type="submit" variant="primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</Button></ModalActions>
           </form>
         </Modal>
       )}

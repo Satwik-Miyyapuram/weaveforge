@@ -25,6 +25,7 @@ import type { DashboardStats } from "../application/build-dashboard-stats";
 import type { SupervisionStats } from "../application/build-supervision-stats";
 import type { Member } from "@weaveforge/core";
 import { CloseIcon } from "@/components/view-icons";
+import { RowButton } from "@/components/controls";
 
 const BREAKPOINTS = { lg: DESKTOP_BREAKPOINT_PX, sm: 0 };
 const COLS = { lg: 12, sm: 4 };
@@ -32,8 +33,8 @@ const ROW_HEIGHT = { lg: 48, sm: 48 };
 const GRID_MARGIN = { lg: 8, sm: 8 };
 
 /** Match --layout-duration in styles/base.css */
-const LAYOUT_TRANSITION_MS = 320;
-const CARD_ENTER_MS = 200;
+const LAYOUT_TRANSITION_MS = 280;
+const CARD_ENTER_MS = 160;
 
 function estimateGridHeight(
   items: readonly DashboardLayoutItem[],
@@ -296,8 +297,7 @@ export function DashboardGrid({
                     ≡
                   </span>
                   <span className="dashboard-card-label">{def.label}</span>
-                  <button
-                    type="button"
+                  <RowButton
                     className="dashboard-card-remove"
                     onMouseDown={(e) => e.stopPropagation()}
                     onTouchStart={(e) => e.stopPropagation()}
@@ -305,7 +305,7 @@ export function DashboardGrid({
                     aria-label={`Remove ${def.label}`}
                   >
                     <CloseIcon />
-                  </button>
+                  </RowButton>
                 </div>
               )}
               {!editing && <h3 className="dashboard-card-heading">{def.label}</h3>}

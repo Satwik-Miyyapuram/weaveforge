@@ -11,6 +11,7 @@ export const BLOB_STORAGE_BUCKETS = [
   "experiment-artifacts",
   "vault-assets",
   "report-images",
+  "log-images",
 ] as const;
 
 export type BlobStorageBucket = (typeof BLOB_STORAGE_BUCKETS)[number];
@@ -21,6 +22,7 @@ const SHARED_AS: Record<BlobStorageBucket, string> = {
   "experiment-artifacts": "experiment",
   "vault-assets": "vault_page",
   "report-images": "report_section",
+  "log-images": "log_entry",
 };
 
 /**

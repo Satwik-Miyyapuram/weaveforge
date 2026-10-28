@@ -247,13 +247,11 @@ export function MilestoneForm({
             </Button>
           </div>
         ))}
-        <button
-          type="button"
-          className="link-btn builder-add"
+        <Button variant="link" className="builder-add"
           onClick={() => setDeps((prev) => [...prev, { kind: "external", refId: "", label: "" }])}
         >
           + Add dependency
-        </button>
+        </Button>
       </div>
 
       <div className="field">
@@ -298,23 +296,21 @@ export function MilestoneForm({
             </Button>
           </div>
         ))}
-        <button
-          type="button"
-          className="link-btn builder-add"
+        <Button variant="link" className="builder-add"
           onClick={() =>
             setCompute((prev) => [...prev, { resource: "", count: "", hours: "", notes: "" }])
           }
         >
           + Add compute
-        </button>
+        </Button>
       </div>
 
       {error && <FormError>{error}</FormError>}
       <div className={onCancel ? "card-foot edit-actions" : "card-foot form-foot"}>
         {onCancel && (
-          <button type="button" className="btn-ghost btn-cancel" onClick={onCancel} disabled={busy}>
+          <Button variant="ghost" className="btn-cancel" onClick={onCancel} disabled={busy}>
             Cancel
-          </button>
+          </Button>
         )}
         <Button type="submit" variant="primary" disabled={busy}>
           {busy ? "Saving…" : initial ? "Save" : "Create"}

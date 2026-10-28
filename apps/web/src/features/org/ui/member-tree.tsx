@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { ROLE_RANK, memberRoleLabel, type Member } from "@weaveforge/core";
+import { RowButton } from "@/components/controls";
 
 /** A member plus the people who report (transitively) to them. */
 export interface MemberNode {
@@ -81,22 +82,20 @@ function MemberTree({ forest, selectedId, onSelect, meId, inLab = true }: TreePr
           <li key={n.member.id}>
             <div className={`member-tree-row${isSel ? " sel" : ""}`}>
               {hasKids ? (
-                <button
-                  type="button"
+                <RowButton
                   className="member-tree-toggle"
                   aria-expanded={!isCollapsed}
                   aria-label={isCollapsed ? "Expand" : "Collapse"}
                   onClick={() => toggle(n.member.id)}
                 >
                   {isCollapsed ? "▸" : "▾"}
-                </button>
+                </RowButton>
               ) : (
                 <span className="member-tree-toggle-spacer" aria-hidden />
               )}
 
               {onSelect ? (
-                <button
-                  type="button"
+                <RowButton
                   className="member-tree-name as-button"
                   onClick={() => onSelect(n.member.id)}
                 >
@@ -107,7 +106,7 @@ function MemberTree({ forest, selectedId, onSelect, meId, inLab = true }: TreePr
                   <span className="muted member-tree-role">
                     {memberRoleLabel(n.member, { inLab })}
                   </span>
-                </button>
+                </RowButton>
               ) : (
                 <span className="member-tree-name">
                   <span className="member-tree-title">
@@ -214,8 +213,7 @@ export function MemberTreeSelect({ members, selectedId, onSelect, meId, placehol
 
   return (
     <div className="member-tree-select" ref={ref}>
-      <button
-        type="button"
+      <RowButton
         className="member-tree-trigger"
         aria-haspopup="tree"
         aria-expanded={open}
@@ -225,7 +223,7 @@ export function MemberTreeSelect({ members, selectedId, onSelect, meId, placehol
           {selected ? memberLabel(selected) : placeholder || "Select a person"}
         </span>
         <span className="member-tree-caret" aria-hidden>▾</span>
-      </button>
+      </RowButton>
       {open && (
         <div className="member-tree-menu card">
           <MemberTree

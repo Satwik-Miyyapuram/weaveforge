@@ -3,12 +3,12 @@
   z-index: 1;
   width: min(560px, 100%);
   display: grid;
-  gap: 18px;
+  gap: 16px;
   padding: 16px;
   background: var(--elev);
   border: 1px solid var(--border);
   border-radius: var(--r-card);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--e4);
   /* Do not use .card here — card stacking/overflow rules must not apply. */
 }
 /* Palette: no head, sits high so a growing result list extends downward. */
@@ -23,12 +23,12 @@
 .modal .list-add {
   border: none; background: none; box-shadow: none; padding: 0; margin: 0; gap: 16px;
 }
-.modal .form-foot { margin-top: 6px; padding-top: 2px; }
+.modal .form-foot { margin-top: 8px; padding-top: 2px; }
 .modal .add-form > .settings-group:first-child { display: none; }
 /* The one dialog footer (`ModalActions`). */
 .modal-actions {
-  display: flex; align-items: center; justify-content: flex-end; gap: 9px;
-  padding-top: 14px; border-top: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  padding-top: 16px; border-top: 1px solid var(--line);
 }
 
 /* ---- Header action cluster (Sync / Add / Filters live here) ---- */
@@ -38,10 +38,10 @@
 
 /* ---- Popover (per-page filters) ---- */
 .popover { position: relative; display: inline-flex; }
-.popover-trigger { display: inline-flex; align-items: center; gap: 6px; }
+.popover-trigger { display: inline-flex; align-items: center; gap: 8px; }
 .popover-trigger.on { border-color: var(--accent); }
 .popover-trigger--icon {
-  padding: 10px;
+  padding: 12px;
   min-width: var(--control-lg);
   min-height: var(--control-lg);
   justify-content: center;
@@ -50,7 +50,7 @@
 }
 .popover-trigger--icon svg { display: block; }
 .popover-badge {
-  min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--r-pill);
+  min-width: 18px; height: 18px; padding: 0 4px; border-radius: var(--r-pill);
   background: var(--accent); color: var(--accent-fg); font-size: var(--fs-xs); line-height: 18px;
   text-align: center; font-weight: 600;
 }
@@ -64,11 +64,11 @@
   padding: 12px;
   display: grid; gap: 12px; overflow: visible;
   background: var(--elev); border: 1px solid var(--border); border-radius: var(--r-card);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--e3);
   /* Inline style sets position:fixed — never participate in flex layout while opening. */
   margin: 0;
 }
-.popover-panel .filters { margin: 0; gap: 10px; }
+.popover-panel .filters { margin: 0; gap: 12px; }
 
 /* Phone: dialogs and anchored panels become bottom sheets, palettes drop from the top. */
 @media (max-width: 900px) {
@@ -110,21 +110,21 @@
    panel's width. A portalled menu is no longer inside the panel, and its width
    comes from the measured trigger instead. */
 
-.member-picker { display: grid; gap: 10px; }
-.mp-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.member-picker { display: grid; gap: 12px; }
+.mp-filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
 .mp-filters .search-input { margin: 0; flex: 1 1 160px; }
 .mp-list { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto;
   border: 1px solid var(--line); border-radius: var(--r-control); }
 .mp-list li { border-bottom: 1px solid var(--line); }
 .mp-list li:last-child { border-bottom: none; }
-.mp-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; }
+.mp-row { display: flex; align-items: center; gap: 12px; padding: 8px 12px; cursor: pointer; }
 .mp-name { flex: 1; }
 .mp-role { font-size: var(--fs-xs); color: var(--muted); }
-.mp-empty { padding: 10px 12px; }
+.mp-empty { padding: 12px 12px; }
 
 .share-current, .share-add { display: grid; gap: 8px; }
-.share-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.share-row { display: flex; align-items: center; gap: 10px; }
+.share-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.share-row { display: flex; align-items: center; gap: 12px; }
 .share-name { flex: 1; }
 .share-access {
   flex: none;
@@ -140,7 +140,7 @@
 }
 .share-add-foot {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
   flex-wrap: wrap;
 }
@@ -156,7 +156,7 @@
 .comments-toggle--detail { align-self: center; }
 .comments-trigger-detail {
   min-height: 36px;
-  padding: 8px 14px;
+  padding: 8px 16px;
   gap: 8px;
   font-size: var(--fs);
   font-weight: 500;
@@ -169,7 +169,7 @@
   place-items: center;
   min-width: 18px;
   height: 18px;
-  padding: 0 5px;
+  padding: 0 4px;
   border-radius: var(--r-pill);
   background: var(--accent);
   color: var(--accent-fg);
@@ -182,7 +182,7 @@
 .comments-toggle--detail .comments-sheet {
   width: min(calc(100vw - 28px), 420px);
   max-height: min(55vh, 420px);
-  padding: 14px;
+  padding: 16px;
 }
 .comments-sheet {
   position: absolute;
@@ -207,7 +207,7 @@
 }
 .comment-author { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .comment-time { font-size: var(--fs-xs); margin-left: auto; flex: none; }
-.comment-add { display: grid; gap: 6px; justify-items: end; }
+.comment-add { display: grid; gap: 8px; justify-items: end; }
 .comment-add textarea { min-height: 64px; }
 .comment-add .btn-primary { width: auto; }
 .shared-group { display: grid; gap: 8px; margin-bottom: 16px; }
@@ -231,8 +231,6 @@
   background: none; cursor: pointer;
 }
 .colour-menu-trigger .colour-menu-current { width: 20px; height: 20px; }
-.colour-menu-trigger.on .colour-menu-current,
-.colour-menu-trigger:hover .colour-menu-current { transform: scale(1.1); }
 .popover-panel .colour-menu { display: grid; gap: 8px; padding: 2px; min-width: 0; }
 .colour-menu-row { display: grid; grid-template-columns: repeat(6, 24px); gap: 8px; }
 .colour-menu-row .ink-swatch { width: 24px; height: 24px; }
@@ -257,17 +255,17 @@
 .card-menu-item, .menu-item {
   display: block; width: 100%; text-align: left;
   background: none; border: 0; font: inherit; font-size: var(--fs); color: var(--ink);
-  padding: 8px 10px; border-radius: var(--r-sm); cursor: pointer;
+  padding: 8px 12px; border-radius: var(--r-sm); cursor: pointer;
 }
 .card-menu-item:hover:not(:disabled), .menu-item:hover:not(:disabled) { background: var(--surface2); }
 .card-menu-item:disabled, .menu-item:disabled { opacity: 0.5; cursor: default; }
-.card-menu-item.danger, .menu-item.danger { color: var(--danger, #b3261e); }
+.card-menu-item.danger, .menu-item.danger { color: var(--danger); }
 
 /* Filing a paper or a note into a list, from the card's menu. */
 .add-to-list-choices { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 2px; }
 .add-to-list-choice {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px; border-radius: var(--r-sm); cursor: pointer; min-height: var(--touch-min);
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 12px; border-radius: var(--r-sm); cursor: pointer; min-height: var(--touch-min);
 }
 .add-to-list-choice:hover { background: var(--surface2); }
 
@@ -276,12 +274,23 @@
    its own absolutely-positioned panel; the panel is `Popover`'s now, so those
    rules matched nothing and the rows rendered as bare links — which is what
    made the menu look broken beside the rest of the app. */
-.popover-panel:has(.header-link, .signout) { padding: 6px; gap: 2px; display: grid; min-width: 210px; }
+.popover-panel:has(.header-link, .signout) { padding: 8px; gap: 2px; display: grid; min-width: 210px; }
+/* One row height for links and buttons alike (DA-97): Sign out kept its pill
+   border and small type, and the theme button its UA font, so the menu had
+   three heights. */
 .popover-panel .header-link,
 .popover-panel .signout {
-  width: 100%; justify-content: flex-start; gap: 11px; min-height: 0;
-  padding: 9px 10px; border-radius: var(--r-control); font-size: var(--fs); color: var(--text);
+  width: 100%; justify-content: flex-start; gap: 12px; min-height: 36px;
+  padding: 0 12px; border: 0; border-radius: var(--r-control);
+  font: inherit; font-size: var(--fs); line-height: 1.25; color: var(--text);
 }
+.popover-panel .menu-row-value { margin-left: auto; color: var(--muted); }
+.account-menu-head {
+  display: grid; gap: 2px; padding: 8px 12px 12px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--line); min-width: 0;
+}
+.account-menu-head b { font-weight: 600; }
+.account-menu-head span { color: var(--muted); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .popover-panel .header-link svg,
 .popover-panel .signout svg { color: var(--muted); flex: none; }
 .popover-panel .header-link:hover,
@@ -299,9 +308,9 @@
 .card-menu-more, .menu-more { margin-left: auto; opacity: 0.55; }
 .card-menu-flyout, .menu-flyout {
   position: absolute; left: calc(100% + 6px); top: -4px; z-index: 20;
-  min-width: 208px; max-height: 320px; overflow-y: auto; padding: 6px;
+  min-width: 208px; max-height: 320px; overflow-y: auto; padding: 8px;
   background: var(--elev); border: 1px solid var(--border); border-radius: var(--r-card);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--e3);
 }
 /* Flip horizontally to the left when right screen edge is bounded */
 .card-menu-flyout[data-placement-x="left"],
@@ -319,7 +328,7 @@
   top: auto;
   bottom: -4px;
 }
-.card-menu-note { margin: 0 0 6px; font-size: var(--fs-sm); color: var(--muted); }
+.card-menu-note { margin: 0 0 8px; font-size: var(--fs-sm); color: var(--muted); }
 .card-menu-note.error { color: var(--danger, var(--accent)); }
 .card-menu-flyout .add-to-list-choices,
 .menu-flyout .add-to-list-choices { margin: 0; }
@@ -335,12 +344,12 @@
   gap: 12px;
   width: max-content;
   max-width: calc(100vw - 32px);
-  padding: 10px 10px 10px 16px;
+  padding: 12px 12px 12px 16px;
   border: var(--bw, 1px) solid var(--bw-line, var(--border));
   border-radius: var(--radius, 10px);
   background: var(--surface);
   color: var(--text);
-  box-shadow: var(--sh-card, 0 6px 24px rgb(0 0 0 / 0.18));
+  box-shadow: var(--sh-card, var(--e3));
   font-size: var(--fs);
 }
 .session-expired-text { line-height: 1.4; }
@@ -381,12 +390,12 @@
 
 /* ------------------------------------------------ report this problem */
 
-.report-panel { display: grid; gap: 14px; max-width: 560px; }
+.report-panel { display: grid; gap: 16px; max-width: 560px; }
 .report-disclosure { margin-top: 16px; }
 .report-disclosure > summary { color: var(--muted); }
 .report-disclosure > .report-panel { margin-top: 12px; }
 
-.report-shown { margin: 0; display: grid; gap: 6px; }
+.report-shown { margin: 0; display: grid; gap: 8px; }
 .report-shown figcaption,
 .report-field > span,
 .report-attached-head > span {
@@ -397,7 +406,7 @@
 }
 .report-shown blockquote {
   margin: 0;
-  padding: 10px 12px;
+  padding: 12px 12px;
   border-inline-start: 3px solid var(--danger);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--danger) 7%, var(--surface));
@@ -408,7 +417,7 @@
   overflow: auto;
 }
 
-.report-field { display: grid; gap: 6px; }
+.report-field { display: grid; gap: 8px; }
 .report-field em { font-style: normal; font-weight: 400; }
 .report-field input,
 .report-field textarea { width: 100%; box-sizing: border-box; font: inherit; }
@@ -417,7 +426,7 @@
 .report-attached {
   display: grid;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 12px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface2);
@@ -448,18 +457,12 @@
 .report-sent { margin-top: 16px; }
 
 /* Shared with me: a type filter in the head, each sender a titled grid. */
-.shared-filter { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--r-control); background: var(--surface-alt); }
-.shared-filter button {
-  padding: 6px 12px; border: 0; border-radius: var(--r-control); background: none;
-  color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
-}
-.shared-filter button.active { background: var(--active-bg); color: var(--active-fg); }
-.shared-group { margin-bottom: 22px; }
-.shared-group-head { display: flex; align-items: center; gap: 10px; }
+.shared-group { margin-bottom: 24px; }
+.shared-group-head { display: flex; align-items: center; gap: 12px; }
 .shared-group-count { font-size: var(--fs-xs); font-weight: 500; color: var(--muted); }
-.shared-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.shared-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
 .shared-tags { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-.shared-kind, .shared-access { font-size: var(--fs-micro); padding: 1px 9px; border-radius: var(--r-pill); background: var(--pill); color: var(--text); }
+.shared-kind, .shared-access { font-size: var(--fs-micro); padding: 1px 8px; border-radius: var(--r-pill); background: var(--pill); color: var(--text); }
 
 /* Margin comments on a note (note-comments.tsx). */
 .note-comments-toggle {
@@ -479,11 +482,11 @@
 .note-comments-toggle:hover { filter: brightness(1.15); }
 .note-comments-toggle .chev { margin-left: auto; }
 .note-comments-body { display: grid; gap: 12px; }
-.note-threads { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.note-threads { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .note-thread {
   display: grid;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 12px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -504,10 +507,10 @@
 }
 .note-thread-quote.is-detached { border-left-color: var(--faint); text-decoration: line-through; }
 .note-comment { display: grid; gap: 2px; }
-.note-comment + .note-comment { padding-top: 6px; border-top: 1px dashed var(--border); }
+.note-comment + .note-comment { padding-top: 8px; border-top: 1px dashed var(--border); }
 .note-comment .comment-del { margin-left: 0; }
 .note-comment-body { margin: 0; white-space: pre-wrap; font-size: var(--fs); overflow-wrap: anywhere; }
-.note-thread-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
+.note-thread-actions { display: flex; justify-content: flex-end; align-items: center; gap: 12px; }
 .note-thread-actions .btn-primary { width: auto; }
 .note-comments-resolved {
   justify-self: start;
@@ -526,8 +529,8 @@
   transform: translate(-50%, calc(-100% - 6px));
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: 8px;
+  padding: 4px 12px;
   font: inherit;
   font-size: var(--fs-sm);
   color: var(--text);

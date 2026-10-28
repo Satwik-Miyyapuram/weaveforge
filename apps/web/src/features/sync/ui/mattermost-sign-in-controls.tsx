@@ -5,6 +5,7 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import type { Integration } from "../domain/integration";
 import { MattermostSignInButton } from "./mattermost-sign-in-button";
+import { Switch } from "@/components/controls";
 
 /**
  * Whether this project's Mattermost token comes from sign-in or is a bot token.
@@ -51,15 +52,8 @@ export function MattermostSignInControls({
       )}
       <div className="integration-enable">
         <span>Sign in with Mattermost instead of a bot token</span>
-        <button
-          type="button"
-          className={`toggle${signIn ? " on" : ""}`}
-          role="switch"
-          aria-checked={signIn}
-          onClick={() => onChooseSignIn(!signIn)}
-        >
-          <span className="knob" />
-        </button>
+        <Switch checked={signIn} label="Sign in with Mattermost instead of a bot token"
+          onClick={() => onChooseSignIn(!signIn)} />
       </div>
       {signIn && (
         <>

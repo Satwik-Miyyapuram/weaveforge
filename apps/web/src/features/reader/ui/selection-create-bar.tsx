@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { ReaderAnnotationType } from "@weaveforge/core";
 import { READER_ANNOTATION_COLORS } from "../application/reader-annotation-helpers";
+import { Button } from "@/components/button";
 
 /**
  * Where a selection sits in the scroller's content, in CSS pixels: the middle
@@ -107,16 +108,14 @@ export function SelectionCreateBar({
 
 function IconButton({ label, path, disabled, onClick }: { label: string; path: string; disabled?: boolean; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      className="btn-ghost pdf-reader-create-icon"
+    <Button variant="ghost" className="pdf-reader-create-icon"
       aria-label={label}
       title={label}
       disabled={disabled}
       onClick={onClick}
     >
       <Glyph d={path} />
-    </button>
+    </Button>
   );
 }
 
@@ -155,9 +154,9 @@ export function CommentField({
           if (e.key === "Escape") onCancel();
         }}
       />
-      <button type="button" className="btn-primary btn-sm pdf-reader-pop-btn" disabled={busy} onClick={save}>
+      <Button variant="primary" size="sm" className="pdf-reader-pop-btn" disabled={busy} onClick={save}>
         Save
-      </button>
+      </Button>
     </>
   );
 }

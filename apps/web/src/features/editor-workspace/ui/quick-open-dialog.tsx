@@ -7,6 +7,7 @@ import { NavIcon } from "@/app/nav-icon";
 import { groupResults, isPickEnter, paintedOrder, quickOpenResults, titleOf } from "../application/quick-open";
 import type { WorkspaceTreeNode } from "../application/workspace-tree";
 import { kindIcon } from "./kind";
+import { OptionButton } from "@/components/controls";
 
 /**
  * The Ctrl/Cmd-P palette.
@@ -78,10 +79,7 @@ export function QuickOpenDialog({
                   const index = painted.indexOf(result);
                   return (
                     <li key={result.node.key} role="presentation">
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={index === active}
+                      <OptionButton selected={index === active}
                         className={`quick-open-result${index === active ? " is-active" : ""}`}
                         onMouseEnter={() => setCursor(index)}
                         onClick={(event) =>
@@ -99,7 +97,7 @@ export function QuickOpenDialog({
                         <span className="quick-open-path">
                           {highlight(result.node.path, result.matched)}
                         </span>
-                      </button>
+                      </OptionButton>
                     </li>
                   );
                 })}

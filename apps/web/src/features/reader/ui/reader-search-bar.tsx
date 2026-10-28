@@ -10,6 +10,8 @@ import {
 import { ChevronIcon } from "@/components/chevron-icon";
 import { shortcutLabel } from "@/lib/shortcut-label";
 import { CloseIcon } from "@/components/view-icons";
+import { RowButton } from "@/components/controls";
+import { Button } from "@/components/button";
 
 interface ReaderSearchBarProps {
   pages: DocumentPageText[];
@@ -51,9 +53,7 @@ export function ReaderSearchBar({
 
   if (!open && !query.trim()) {
     return (
-      <button
-        type="button"
-        className="btn-secondary btn-sm pdf-reader-search-trigger"
+      <Button size="sm" className="pdf-reader-search-trigger"
         onClick={() => setOpen(true)}
         aria-label="Find in document"
         title={`Find in document (${shortcutLabel("⌘F")})`}
@@ -62,7 +62,7 @@ export function ReaderSearchBar({
           <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.2-4.2" />
         </svg>
         <span>Find</span>
-      </button>
+      </Button>
     );
   }
 
@@ -96,8 +96,7 @@ export function ReaderSearchBar({
           <span className="muted pdf-reader-search-count">
             {matches.length ? `${active < 0 ? 0 : active + 1}/${matches.length}` : "0/0"}
           </span>
-          <button
-            type="button"
+          <RowButton
             className="pdf-reader-search-step"
             disabled={!matches.length}
             onClick={() => jump(-1)}
@@ -105,9 +104,8 @@ export function ReaderSearchBar({
             title="Previous match (Shift+Enter)"
           >
             <ChevronIcon open size={14} />
-          </button>
-          <button
-            type="button"
+          </RowButton>
+          <RowButton
             className="pdf-reader-search-step"
             disabled={!matches.length}
             onClick={() => jump(1)}
@@ -115,11 +113,10 @@ export function ReaderSearchBar({
             title="Next match (Enter)"
           >
             <ChevronIcon size={14} />
-          </button>
+          </RowButton>
         </>
       )}
-      <button
-        type="button"
+      <RowButton
         className="pdf-reader-search-close"
         onClick={() => {
           setQuery("");
@@ -129,7 +126,7 @@ export function ReaderSearchBar({
         title="Close (Escape)"
       >
         <CloseIcon />
-      </button>
+      </RowButton>
     </div>
   );
 }

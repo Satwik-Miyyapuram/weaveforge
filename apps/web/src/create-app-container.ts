@@ -108,6 +108,7 @@ import { FetchingBlobStore } from "@/storage/fetching-blob-store";
 import { PaperImageStore } from "@/features/papers/infrastructure/paper-image-store";
 import { VaultAssetStore } from "@/features/vault/infrastructure/vault-asset-store";
 import { ReportImageStore } from "@/features/report/infrastructure/report-image-store";
+import { LogImageStore } from "@/features/logbook/infrastructure/log-image-store";
 import { ExperimentArtifactStore } from "@/features/experiments/infrastructure/experiment-artifact-store";
 import { createCredentialReader } from "@/integrations/credentials";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
@@ -186,6 +187,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const paperImageStore = new PaperImageStore(encryptedBlobStore, backend.session);
   const vaultAssetStore = new VaultAssetStore(encryptedBlobStore, backend.session);
   const reportImageStore = new ReportImageStore(encryptedBlobStore, backend.session);
+  const logImageStore = new LogImageStore(encryptedBlobStore, backend.session);
   // Signs artifact paths on read. Nothing stores a signed URL: SigV4 caps one
   // at seven days, so a stored link is a link with a deadline.
   const experimentArtifactStore = new ExperimentArtifactStore(encryptedBlobStore, backend.session);
@@ -636,6 +638,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       addLogEntry,
       logSync,
       notifications,
+      images: logImageStore,
     }),
     report: new ReportFacade({
       load: loadReportScreen,

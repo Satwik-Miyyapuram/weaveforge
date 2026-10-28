@@ -243,7 +243,7 @@ export function AiProposalReviewScreen() {
   }
   if (loading) return <ScreenLoader />;
   return <section className="screen ai-review-screen">
-    <ScreenHead title="Review suggestions" eyebrow="AI safety"><Link className="btn-secondary" href="/settings">AI settings</Link></ScreenHead>
+    <ScreenHead title="AI suggestions" eyebrow="AI safety"><Button href="/settings">AI settings</Button></ScreenHead>
     <p className="muted ai-review-lede">Nothing changes until you approve it. Suggestions are encrypted until this unlocked browser reviews them.</p>
     {error && <p className="form-error" role="alert">{error}</p>}
     {created && <p className="muted" role="status">Created &ldquo;{created.title}&rdquo;. <Link href={`/notes?page=${encodeURIComponent(created.id)}`}>Open page &rarr;</Link></p>}
@@ -290,7 +290,7 @@ export function AiProposalReviewScreen() {
               })}
             </p>
           )}
-          <div className="ai-review-actions"><button className="btn-ghost btn-cancel" disabled={busy !== null} onClick={() => void run(item.id, "reject")}>Reject</button><Button variant="primary" disabled={busy !== null} onClick={() => void run(item.id, "approve")}>{busy === item.id ? "Applying…" : approveLabel(item)}</Button></div>
+          <div className="ai-review-actions"><Button variant="ghost" className="btn-cancel" disabled={busy !== null} onClick={() => void run(item.id, "reject")}>Reject</Button><Button variant="primary" disabled={busy !== null} onClick={() => void run(item.id, "approve")}>{busy === item.id ? "Applying…" : approveLabel(item)}</Button></div>
         </EntityCard>;
       })}</div>
     </>}

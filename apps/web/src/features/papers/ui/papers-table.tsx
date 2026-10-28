@@ -6,6 +6,10 @@ import { getContainer } from "@/bootstrap";
 import { OpenIcon } from "@/components/view-icons";
 import { paperExternalLink } from "./paper-external-link";
 import { StatusSelect } from "@/components/status-select";
+import { SortHeader } from "@/components/sort-header";
+import { Table } from "@/components/table";
+import { Button } from "@/components/button";
+import { RowButton } from "@/components/controls";
 
 /**
  * Tabular list — same chrome as experiments Compare (`cmp-table`).
@@ -64,47 +68,34 @@ export function PapersTable({
     return list;
   }, [papers, sortKey, sortDir]);
 
-  /**
-   * A sortable column header.
-   *
-   * `aria-sort` belongs on the header cell, not on the button inside it — a
-   * button has no sort state, a columnheader does.
-   */
-  function sortHeader(key: SortKey, label: string, className: string) {
-    const active = sortKey === key;
-    return (
-      <th
-        className={className}
-        aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
-      >
-        <button
-          type="button"
-          className={`link-btn papers-sort-btn${active ? " papers-sort-btn--on" : ""}`}
-          onClick={() => toggleSort(key)}
-        >
-          {label}
-          <span className="papers-sort-arrow" aria-hidden>
-            {active ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
-          </span>
-        </button>
-      </th>
-    );
-  }
+  const sortHeader = (key: SortKey, label: string, className: string) => (
+    <SortHeader
+      label={label}
+      className={className}
+      active={sortKey === key}
+      dir={sortDir}
+      onSort={() => toggleSort(key)}
+    />
+  );
 
   return (
-    <div className="table-scroll papers-table-scroll">
-      <table className="cmp-table papers-table">
-        <thead>
-          <tr>
-            {sortHeader("title", "Title", "papers-col-title")}
-            {sortHeader("authors", "Authors", "papers-col-authors")}
-            {sortHeader("year", "Year", "papers-col-year")}
-            {sortHeader("status", "Status", "papers-col-status")}
-            <th className="papers-col-link">Link</th>
-            <th className="papers-col-open" aria-label="Open" />
-          </tr>
-        </thead>
-        <tbody>
+    <Table
+      className="papers-table"
+      scrollClassName="papers-table-scroll"
+      empty="No papers to show."
+      head={
+        <>
+          {sortHeader("title", "Title", "papers-col-title")}
+          {sortHeader("authors", "Authors", "papers-col-authors")}
+          {sortHeader("year", "Year", "papers-col-year")}
+          {sortHeader("status", "Status", "papers-col-status")}
+          <th className="papers-col-link">Link</th>
+          <th className="papers-col-open">
+            <span className="sr-only">Open</span>
+          </th>
+        </>
+      }
+    >
           {rows.map((paper) => (
             <PaperTableRow
               key={paper.id}
@@ -115,9 +106,7 @@ export function PapersTable({
               onReplace={onReplace}
             />
           ))}
-        </tbody>
-      </table>
-    </div>
+    </Table>
   );
 }
 
@@ -155,14 +144,12 @@ function PaperTableRow({
   return (
     <tr>
       <td className="papers-col-title">
-        <button
-          type="button"
-          className="link-btn papers-table-title-btn"
+        <Button variant="link" className="papers-table-title-btn"
           onClick={onOpen}
           title={paper.title}
         >
           {paper.title}
-        </button>
+        </Button>
         {readOnly && sharedByName && (
           <span className="muted papers-table-shared">Shared by {sharedByName}</span>
         )}
@@ -182,24 +169,22 @@ function PaperTableRow({
       </td>
       <td className="papers-col-link">
         {link ? (
-          <a href={link.href} target="_blank" rel="noreferrer" className="link-btn" title={link.label}>
+          <Button variant="link" href={link.href} target="_blank" rel="noreferrer" title={link.label}>
             <span className="papers-link-full">{link.label} ↗</span>
             <span className="papers-link-short" aria-hidden>↗</span>
-          </a>
+          </Button>
         ) : (
           "—"
         )}
       </td>
       <td className="papers-col-open">
-        <button
-          type="button"
-          className="entity-icon-btn paper-open-icon"
+        <RowButton className="entity-icon-btn paper-open-icon"
           onClick={onOpen}
           aria-label={`Open note for ${paper.title}`}
           title="Open note"
         >
           <OpenIcon />
-        </button>
+        </RowButton>
       </td>
     </tr>
   );

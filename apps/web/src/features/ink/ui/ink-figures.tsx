@@ -25,7 +25,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  FIGURE_HANDLES,
   cropFigureTo,
   figureImageFrame,
   resizeFigureBox,
@@ -35,6 +34,8 @@ import {
   type FigureOrderStep,
 } from "@weaveforge/core";
 import { DeleteIcon } from "@/components/view-icons";
+import { RowButton } from "@/components/controls";
+import { FrameHandles, useFrameDrag } from "./ink-figure-frame";
 
 export interface InkFiguresProps {
   /** The figures the page's text layer places. */
@@ -147,115 +148,6 @@ export interface InkFigureEditorProps {
   onCut?: () => void;
 }
 
-/** A pointer drag in progress on the selected figure. */
-interface EditorDrag {
-  pointerId: number;
-  handle: FigureHandle | "move";
-  from: { x: number; y: number };
-  box: { x: number; y: number; w: number; h: number };
-}
-
-const CURSORS: Record<FigureHandle, string> = {
-  nw: "nwse-resize",
-  se: "nwse-resize",
-  ne: "nesw-resize",
-  sw: "nesw-resize",
-  n: "ns-resize",
-  s: "ns-resize",
-  e: "ew-resize",
-  w: "ew-resize",
-};
-
-/** Where a handle sits on its box, as CSS. */
-function handleStyle(handle: FigureHandle): React.CSSProperties {
-  const style: React.CSSProperties = { cursor: CURSORS[handle] };
-  if (handle.includes("n")) style.top = 0;
-  if (handle.includes("s")) style.bottom = 0;
-  if (handle.includes("w")) style.left = 0;
-  if (handle.includes("e")) style.right = 0;
-  if (handle === "n" || handle === "s") style.left = "50%";
-  if (handle === "e" || handle === "w") style.top = "50%";
-  return style;
-}
-
-/** The eight resize handles on a frame, wired to one drag lifecycle. */
-function FrameHandles({
-  begin,
-  move,
-  end,
-}: {
-  begin: (event: React.PointerEvent, handle: FigureHandle) => void;
-  move: (event: React.PointerEvent) => void;
-  end: (event: React.PointerEvent) => void;
-}) {
-  return FIGURE_HANDLES.map((handle) => (
-    <span
-      key={handle}
-      className="ink-figure-handle"
-      data-handle={handle}
-      style={handleStyle(handle)}
-      onPointerDown={(event) => begin(event, handle)}
-      onPointerMove={move}
-      onPointerUp={end}
-      onPointerCancel={end}
-    />
-  ));
-}
-
-/** A pointer drag's lifecycle on a frame or a handle, shared by both tools. */
-function useFrameDrag(
-  scale: number,
-  onDrag: (held: EditorDrag, dx: number, dy: number, event: React.PointerEvent) => void,
-  box: () => { x: number; y: number; w: number; h: number },
-  onEnd?: (handle: FigureHandle | "move") => void,
-) {
-  const drag = useRef<EditorDrag | null>(null);
-  const begin = useCallback(
-    (event: React.PointerEvent, handle: FigureHandle | "move") => {
-      if (event.button !== 0 && event.pointerType === "mouse") return;
-      event.preventDefault();
-      event.stopPropagation();
-      // A pointer that is already gone (a pen lifted between the down and
-      // this handler, a synthetic event) has no capture to take; the drag
-      // still starts, it just ends at the first up that reaches the frame.
-      try {
-        event.currentTarget.setPointerCapture(event.pointerId);
-      } catch {
-        // see above
-      }
-      drag.current = {
-        pointerId: event.pointerId,
-        handle,
-        from: { x: event.clientX, y: event.clientY },
-        box: box(),
-      };
-    },
-    [box],
-  );
-  const move = useCallback(
-    (event: React.PointerEvent) => {
-      const held = drag.current;
-      if (!held || held.pointerId !== event.pointerId) return;
-      event.preventDefault();
-      onDrag(held, (event.clientX - held.from.x) / scale, (event.clientY - held.from.y) / scale, event);
-    },
-    [onDrag, scale],
-  );
-  const end = useCallback(
-    (event: React.PointerEvent) => {
-      const held = drag.current;
-      if (held?.pointerId !== event.pointerId) return;
-      drag.current = null;
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
-      onEnd?.(held.handle);
-    },
-    [onEnd],
-  );
-  return { begin, move, end };
-}
-
 /** The slice of an element that is on screen, in its own pixels. */
 interface VisibleWindow {
   top: number;
@@ -325,23 +217,25 @@ function useVisibleWindow(ref: React.RefObject<HTMLElement | null>): VisibleWind
 const BAR_H = 40;
 
 /**
- * The toolbar's place: above the box, under it when the box is at the top of
- * the sheet, and — when neither is on screen — inside the box, at the top
- * of what can be seen, so a tall figure's bar is never scrolled away.
+ * The toolbar's place: under the box, so it never covers the top handles;
+ * above it when under would leave the sheet or the screen; and — when neither
+ * is on screen — inside the box, at the top of what can be seen, so a tall
+ * figure's bar is never scrolled away.
  */
 function popoverStyle(
   px: { left: number; top: number; height: number },
+  sheetHeight: number,
   visible: VisibleWindow | null,
   width: number,
 ): React.CSSProperties {
-  let top = px.top >= BAR_H + 4 ? px.top - BAR_H : px.top + px.height + 8;
+  const below = px.top + px.height + 8;
+  const above = px.top - BAR_H - 8;
+  const fits = (y: number) =>
+    y >= 0 && y + BAR_H <= sheetHeight && (!visible || (y >= visible.top && y + BAR_H <= visible.bottom));
+  let top = fits(below) ? below : fits(above) ? above : px.top + 8;
   let left = Math.max(8, px.left);
   if (visible) {
-    const seen = (y: number) => y >= visible.top && y + BAR_H <= visible.bottom;
-    if (!seen(top)) {
-      const below = px.top + px.height + 8;
-      top = seen(below) ? below : Math.max(visible.top + 8, px.top + 8);
-    }
+    if (!fits(top)) top = Math.max(visible.top + 8, px.top + 8);
     // Sideways the bar is pulled back in whole: a figure at the right edge
     // of the pane must not have its buttons cut off by it.
     left = Math.max(visible.left + 8, Math.min(left, visible.right - width - 8));
@@ -500,10 +394,13 @@ export function InkFigureEditor({
         figure={figure}
         scale={scale}
         imageUrl={imageUrl}
+        barStyle={(box) => popoverStyle(box, pageSize.height * scale, visible, popoverWidth)}
+        barRef={popoverRef}
         onApply={(next) => {
           onChange(next);
           setCropping(false);
         }}
+        onCancel={() => setCropping(false)}
       />
     );
   }
@@ -539,66 +436,60 @@ export function InkFigureEditor({
         className="ink-figure-popover"
         role="toolbar"
         aria-label="This image"
-        style={popoverStyle(px, visible, popoverWidth)}
+        style={popoverStyle(px, pageSize.height * scale, visible, popoverWidth)}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <button
-          type="button"
+        <RowButton
           className="ink-figure-button ink-figure-button-icon"
           aria-label="Crop"
           title="Crop (double-click)"
           onClick={() => setCropping(true)}
         >
           <CropIcon />
-        </button>
+        </RowButton>
         <span className="ink-figure-sep" />
-        <button
-          type="button"
+        <RowButton
           className="ink-figure-button"
           title="Bring forward (Ctrl+])"
           disabled={atTop}
           onClick={() => onReorder("forward")}
         >
           Forward
-        </button>
-        <button
-          type="button"
+        </RowButton>
+        <RowButton
           className="ink-figure-button"
           title="Send backward (Ctrl+[)"
           disabled={atBottom}
           onClick={() => onReorder("backward")}
         >
           Backward
-        </button>
-        <button
-          type="button"
+        </RowButton>
+        <RowButton
           className="ink-figure-button"
           title="Bring to front (Ctrl+Shift+])"
           disabled={atTop}
           onClick={() => onReorder("front")}
         >
           Front
-        </button>
-        <button
-          type="button"
+        </RowButton>
+        <RowButton
           className="ink-figure-button"
           title="Send to back (Ctrl+Shift+[)"
           disabled={atBottom}
           onClick={() => onReorder("back")}
         >
           Back
-        </button>
+        </RowButton>
         <span className="ink-figure-sep" />
         {/* No Done: a press off the picture, or Esc, lets it go. */}
-        <button
-          type="button"
+        <RowButton
           className="ink-figure-button ink-figure-button-icon ink-figure-button-remove"
           aria-label="Remove"
           title="Remove (Delete)"
           onClick={onRemove}
         >
           <DeleteIcon size={18} />
-        </button>
+        </RowButton>
       </div>
     </div>
   );
@@ -607,9 +498,9 @@ export function InkFigureEditor({
 /**
  * The crop tool, in place: the whole picture is shown where it would sit
  * with the crop lifted, dimmed, and the kept rectangle is drawn over it with
- * its own crop marks. There is no Apply: a press anywhere outside the kept
- * rectangle (or Enter, or Esc) commits it, as a crop does in Google Docs. The
- * kept rectangle becomes the figure's box — what was visible stays where it
+ * its own crop marks. Done (or Enter, or a press anywhere outside the kept
+ * rectangle, as a crop does in Google Docs) commits it; Cancel (or Esc)
+ * leaves the figure as it was. The kept rectangle becomes the figure's box — what was visible stays where it
  * was — and the rest is written as insets. Dragging the marks back out to the
  * picture's edges is how a crop is lifted. The file is never touched.
  */
@@ -617,12 +508,19 @@ function InkFigureCropTool({
   figure,
   scale,
   imageUrl,
+  barStyle,
+  barRef,
   onApply,
+  onCancel,
 }: {
   figure: FigureGeometry;
   scale: number;
   imageUrl: string | undefined;
+  /** Where the crop's bar goes, for the kept rectangle in sheet pixels. */
+  barStyle: (box: { left: number; top: number; height: number }) => React.CSSProperties;
+  barRef: React.RefCallback<HTMLDivElement>;
   onApply: (next: Pick<FigureGeometry, "x" | "y" | "w" | "h" | "crop">) => void;
+  onCancel: () => void;
 }) {
   const full = useMemo(() => uncroppedFigureBox(figure), [figure]);
   const [kept, setKept] = useState({ x: figure.x, y: figure.y, w: figure.w, h: figure.h });
@@ -684,9 +582,12 @@ function InkFigureCropTool({
     <div
       className="ink-figure-editor is-cropping"
       onKeyDown={(event) => {
-        if (event.key === "Escape" || event.key === "Enter") {
+        if (event.key === "Enter") {
           event.preventDefault();
           apply();
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          onCancel();
         }
       }}
     >
@@ -733,6 +634,24 @@ function InkFigureCropTool({
         </div>
         <FrameHandles begin={begin} move={move} end={end} />
       </div>
+      <div
+        ref={barRef}
+        className="ink-figure-popover"
+        role="toolbar"
+        aria-label="Crop"
+        style={barStyle(keptPx)}
+        // A press on the bar is not a press outside the crop.
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <span className="ink-figure-hint">Drag the marks to choose what to keep</span>
+        <span className="ink-figure-sep" />
+        <RowButton className="ink-figure-button" title="Keep the original (Esc)" onClick={onCancel}>
+          Cancel
+        </RowButton>
+        <RowButton className="ink-figure-button" title="Apply the crop (Enter)" onClick={apply}>
+          Done
+        </RowButton>
+      </div>
     </div>
   );
 }
@@ -747,19 +666,25 @@ function CropIcon() {
   );
 }
 
+/** Page units (0.1 mm) per CSS pixel: a pixel is 1/96 inch, 25.4 mm. */
+const UNITS_PER_PX = 254 / 96;
+
 /**
- * A default box for a figure whose first placement is a drop: the image's own
- * aspect on a half-width of the page, centred where the drop landed and then
- * clamped onto the paper — a drop at an edge lands the figure against that
- * edge rather than half off the page.
+ * A default box for a figure whose first placement is a drop or a paste: the
+ * image at its own size (one CSS pixel per pixel), shrunk to half the page
+ * when it is bigger, centred where it landed and then clamped onto the paper
+ * — a drop at an edge lands the figure against that edge rather than half off
+ * the page.
  */
-export function figureBoxForAspect(
-  aspect: number,
+export function figureBoxForImage(
+  size: { width: number; height: number },
   at: { x: number; y: number },
   pageSize: { width: number; height: number },
 ): { x: number; y: number; w: number; h: number } {
-  const w = Math.round(Math.min(pageSize.width * 0.5, pageSize.width));
-  const h = Math.round(w / Math.max(aspect, 0.01));
+  const natural = { w: Math.max(1, size.width) * UNITS_PER_PX, h: Math.max(1, size.height) * UNITS_PER_PX };
+  const k = Math.min(1, (pageSize.width * 0.5) / natural.w, (pageSize.height * 0.5) / natural.h);
+  const w = Math.max(1, Math.round(natural.w * k));
+  const h = Math.max(1, Math.round(natural.h * k));
   const clamp = (value: number, low: number, high: number) =>
     Math.min(high, Math.max(low, value));
   return {

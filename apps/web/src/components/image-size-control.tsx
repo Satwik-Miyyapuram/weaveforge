@@ -8,13 +8,16 @@ import {
 } from "@/lib/markdown-image-width";
 import type { MdAlign, MdCrop } from "@/lib/markdown-figure-alt";
 import { Button } from "@/components/button";
+import { ImageViewer } from "./image-viewer";
+import { SegmentedControl } from "./segmented-control";
 
 /**
  * Placing a picture from the read view.
  *
  * A click on a rendered image opens a small control under it: a slider for
  * the width as a share of the column, buttons for its side, and a crop as
- * four typed insets, one field per edge. The slider previews on the image itself as it moves; a
+ * four typed insets, one field per edge, with S / M / L / Full presets for the
+ * width and a way to open it full size (DA-104). The slider previews on the image itself as it moves; a
  * side moves it at once; a crop previews when its four numbers parse. Every
  * change writes `![alt left c=0,0,10,10|NN%]` into the source in one write —
  * the same tokens the renderer reads, so the picture keeps its placement in
@@ -23,6 +26,9 @@ import { Button } from "@/components/button";
  * Which reference to rewrite is found by alt text and position, because by
  * the time a picture is on screen its target is a blob URL that says nothing
  * about the markdown behind it (`markdown-image-width.ts`).
+ *
+ * On a document that cannot be edited, a click opens the picture full size
+ * in the shared ImageViewer instead.
  */
 
 interface Target {
@@ -43,6 +49,25 @@ const EDGES = [
   { key: "B", label: "Bottom" },
 ] as const;
 const NO_CROP = ["", "", "", ""];
+
+/** The width presets, as a percent of the column. */
+export const IMAGE_SIZES = [
+  { label: "S", value: 25 },
+  { label: "M", value: 50 },
+  { label: "L", value: 75 },
+  { label: "Full", value: 100 },
+] as const;
+
+/** The preset a width matches, or null for one the slider set. */
+export function sizeFor(percent: number): number | null {
+  return IMAGE_SIZES.find((size) => size.value === percent)?.value ?? null;
+}
+
+/** Every picture in the document, for the viewer to step through. */
+function documentImages(host: HTMLElement | null) {
+  const imgs = Array.from(host?.querySelectorAll<HTMLImageElement>("img.md-image") ?? []);
+  return { imgs, images: imgs.map((img) => ({ src: img.currentSrc || img.src, label: img.dataset.mdAlt ?? img.alt })) };
+}
 
 /** A percentage from an image's current rendered width against its column. */
 function currentPercent(img: HTMLImageElement): number {
@@ -68,6 +93,12 @@ export function ImageSizeControl({
   const [widthMoved, setWidthMoved] = useState(false);
   const [cropEdges, setCropEdges] = useState<string[]>(NO_CROP);
   const hostRef = useRef<HTMLDivElement>(null);
+  const [viewing, setViewing] = useState<{ images: { src: string; label: string }[]; index: number } | null>(null);
+
+  const openViewer = useCallback((img: HTMLImageElement) => {
+    const { imgs, images } = documentImages(hostRef.current);
+    setViewing({ images, index: Math.max(0, imgs.indexOf(img)) });
+  }, []);
 
   const close = useCallback((restore: boolean) => {
     setTarget((current) => {
@@ -82,9 +113,13 @@ export function ImageSizeControl({
 
   const onClick = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
-      if (!onSave) return;
       const el = event.target as HTMLElement;
-      if (!(el instanceof HTMLImageElement) || !el.classList.contains("md-image")) {
+      const isImage = el instanceof HTMLImageElement && el.classList.contains("md-image");
+      if (!onSave) {
+        if (isImage) openViewer(el);
+        return;
+      }
+      if (!isImage) {
         // A click anywhere else in the document dismisses the control.
         if (!(el.closest(".image-size") instanceof HTMLElement)) close(false);
         return;
@@ -113,7 +148,7 @@ export function ImageSizeControl({
       setWidthMoved(false);
       setCropEdges(parsed.crop ? parsed.crop.map(String) : NO_CROP);
     },
-    [body, close, onSave],
+    [body, close, onSave, openViewer],
   );
 
   // Escape puts the picture back; a body change from elsewhere drops a stale
@@ -199,20 +234,27 @@ export function ImageSizeControl({
             <span className="image-size-value">{percent}%</span>
           </label>
           <div className="image-size-row">
+            <span className="image-size-key">Size</span>
+            <SegmentedControl
+              label="Image size preset"
+              className="image-size-sides"
+              value={sizeFor(percent) === null ? null : String(percent)}
+              onChange={(size) => {
+                preview(Number(size));
+                commit({ width: Number(size) });
+              }}
+              options={IMAGE_SIZES.map((size) => ({ value: String(size.value), label: size.label, title: `${size.value}% of the column` }))}
+            />
+          </div>
+          <div className="image-size-row">
             <span className="image-size-key">Side</span>
-            <div className="seg image-size-sides" role="group" aria-label="Image side">
-              {(["left", "center", "right"] as const).map((side) => (
-                <button
-                  key={side}
-                  type="button"
-                  className={target.placement.align === side ? "seg-on" : undefined}
-                  aria-pressed={target.placement.align === side}
-                  onClick={() => commit({ align: side })}
-                >
-                  {SIDE_LABELS[side]}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              label="Image side"
+              className="image-size-sides"
+              value={target.placement.align ?? null}
+              onChange={(side) => commit({ align: side })}
+              options={(["left", "center", "right"] as const).map((side) => ({ value: side, label: SIDE_LABELS[side] }))}
+            />
           </div>
           <div className="image-size-row">
             <span className="image-size-key">Crop %</span>
@@ -245,12 +287,30 @@ export function ImageSizeControl({
           <div className="image-size-actions">
             <Button
               size="sm"
+              onClick={() => {
+                const img = target.img;
+                close(true);
+                openViewer(img);
+              }}
+            >
+              Open full size
+            </Button>
+            <Button
+              size="sm"
               onClick={() => commit({ width: null, crop: null, align: null })}
             >
               Reset
             </Button>
           </div>
         </div>
+      ) : null}
+      {viewing ? (
+        <ImageViewer
+          images={viewing.images}
+          index={viewing.index}
+          onIndex={(index) => setViewing((current) => (current ? { ...current, index } : current))}
+          onClose={() => setViewing(null)}
+        />
       ) : null}
     </div>
   );

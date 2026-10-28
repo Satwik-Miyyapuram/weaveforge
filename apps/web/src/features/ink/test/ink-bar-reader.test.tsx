@@ -4,6 +4,8 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer, type ReactTestInstance } from "react-test-renderer";
 
@@ -81,9 +83,9 @@ test("Select is pressed and no ink tool is while the reader selects text", () =>
   withWindow(new Map(), () => {
     let picked = "";
     const tree = render(readerBar({ onSelect: () => (picked = "select") }));
-    assert.equal(byLabel(tree, "Select text (V)")[0]!.props["aria-pressed"], true);
+    assert.equal(byLabel(tree, "Select (V)")[0]!.props["aria-pressed"], true);
     assert.equal(byLabel(tree, "Pen (P)")[0]!.props["aria-pressed"], false);
-    act(() => byLabel(tree, "Select text (V)")[0]!.props.onClick());
+    act(() => byLabel(tree, "Select (V)")[0]!.props.onClick());
     assert.equal(picked, "select");
     act(() => tree.unmount());
   });
@@ -219,7 +221,7 @@ test("a paper the reader cannot mark keeps pages and view, drops tools and Inser
   withWindow(new Map(), () => {
     const tree = render(readerBar({ readOnly: true }));
     assert.equal(byLabel(tree, "Pen (P)").length, 0);
-    assert.equal(byLabel(tree, "Select text (V)").length, 0);
+    assert.equal(byLabel(tree, "Select (V)").length, 0);
     assert.equal(tree.root.findAllByType(InsertMenu).length, 0);
     assert.equal(tree.root.findAllByType(PageField).length, 1);
     assert.equal(tree.root.findAllByType(ViewMenu).length, 1);
@@ -256,4 +258,26 @@ test("paletteName reverses paletteHex, and knows no stranger", () => {
   }
   assert.equal(paletteName(palette, paletteHex(palette, "red").toUpperCase()), paletteName(palette, paletteHex(palette, "red")));
   assert.equal(paletteName(palette, "#010203"), null);
+});
+
+const src = (p: string) => readFileSync(fileURLToPath(new URL(p, import.meta.url)), "utf8");
+
+test("the Insert menu offers paste and drop only where the page takes them (DA-115)", () => {
+  withWindow(new Map(), () => {
+    const reader = render(readerBar());
+    assert.equal(reader.root.findByType(InsertMenu).props.takesPictureDrops, undefined);
+    act(() => reader.unmount());
+    const notes = render(readerBar({ onAddPicture: undefined, takesPictureDrops: true }));
+    assert.equal(notes.root.findByType(InsertMenu).props.takesPictureDrops, true);
+    act(() => notes.unmount());
+  });
+  // The menu list is portalled, which this renderer cannot open; pin the gate.
+  const view = src("../ui/ink-bar-view.tsx");
+  assert.match(view, /\{takesPictureDrops \? \(\s*<p className="ink-menu-hint">Or paste an image, or drop one on the page\.<\/p>/);
+  assert.equal(view.match(/ink-menu-hint/g)?.length, 1);
+});
+
+test("the notes page says it takes pasted and dropped pictures; the reader does not (DA-115)", () => {
+  assert.match(src("../ui/ink-host.tsx"), /takesPictureDrops\b/);
+  assert.doesNotMatch(src("../../reader/ui/pdf-reader/pdf-reader.tsx"), /takesPictureDrops/);
 });

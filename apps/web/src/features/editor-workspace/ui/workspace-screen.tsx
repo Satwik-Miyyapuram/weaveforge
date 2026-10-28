@@ -58,6 +58,7 @@ import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, li
 import { FormError } from "@/components/form-error";
 import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
 import { shortcutLabel } from "@/lib/shortcut-label";
+import { RowButton } from "@/components/controls";
 
 function store(): Storage | undefined {
   return typeof localStorage === "undefined" ? undefined : localStorage;
@@ -613,19 +614,17 @@ export function WorkspaceScreen() {
       className={`workspace-shell${explorerHidden ? " is-explorer-hidden" : ""}${focus ? " is-focus" : ""}${phone ? " is-phone" : ""}`}
     >
       {focus ? (
-        <button
-          type="button"
+        <RowButton
           className="focus-exit"
           title={`Exit focus (${shortcutLabel("⌘⇧F")})`}
           aria-label="Exit focus"
           onClick={toggleFocus}
         >
           <FocusGlyph on />
-        </button>
+        </RowButton>
       ) : null}
       {explorerHidden ? (
-        <button
-          type="button"
+        <RowButton
           className="explorer-show"
           title={`Show explorer (${shortcutLabel("⌘B")})`}
           aria-label="Show explorer"
@@ -635,7 +634,7 @@ export function WorkspaceScreen() {
             <rect x="3" y="4" width="18" height="16" rx="2" />
             <path d="M9 4v16" />
           </svg>
-        </button>
+        </RowButton>
       ) : null}
       <ExplorerPanel
         sections={sections}

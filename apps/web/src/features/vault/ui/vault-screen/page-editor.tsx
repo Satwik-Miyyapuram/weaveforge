@@ -28,6 +28,8 @@ import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
 import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
 import { NoteTagEditor } from "./note-tag-editor";
 import { runNoteAction } from "./run-note-action";
+import { RowButton } from "@/components/controls";
+import { Button } from "@/components/button";
 
 /** A note's three views, in the order the Editor's pane header lists them. */
 const NOTE_MODES = ["edit", "read", "ink"] as const;
@@ -206,12 +208,11 @@ export function PageEditor({
           {!readOnly && !sharedPage && (
             <ShareButton resourceType="vault_page" resourceId={page.id} title={`Share: ${page.title}`} showLabel />
           )}
-          <a href="#record-comments" className="btn-ghost wf-tool" aria-label="Comment" title="Comment">
+          <Button variant="ghost" className="wf-tool" href="#record-comments" aria-label="Comment" title="Comment">
             <CommentsIcon />
-          </a>
+          </Button>
           {!sharedPage && !readOnly && (
-            <button
-              type="button"
+            <RowButton
               className="record-action danger"
               onClick={remove}
               disabled={busy}
@@ -219,7 +220,7 @@ export function PageEditor({
               title="Delete"
             >
               <DeleteIcon />
-            </button>
+            </RowButton>
           )}
         </div>
       </nav>
@@ -246,7 +247,7 @@ export function PageEditor({
         <p className="record-mono record-meta">{meta}</p>
       </header>
 
-      <div className={view === "edit" ? "record-grid record-grid--editing" : "record-grid"}>
+      <div className="record-grid">
         <div className="record-main">
           <RecordSection
             label={ink ? "Pages" : "Text"}
@@ -262,9 +263,9 @@ export function PageEditor({
           >
             {view === "read" && !hasBody && !ink ? (
               canEditBody ? (
-                <button type="button" className="record-note-empty" onClick={() => chooseMode("edit")}>
+                <RowButton className="record-note-empty" onClick={() => chooseMode("edit")}>
                   Nothing written yet. Start typing — #hashtags and [[wikilinks]] join this note to the graph.
-                </button>
+                </RowButton>
               ) : (
                 <RecordEmpty>Nothing written yet.</RecordEmpty>
               )
@@ -328,9 +329,9 @@ export function PageEditor({
               <ul className="record-related">
                 {backlinks.map((it) => (
                   <li key={it.id}>
-                    <button type="button" className="record-related-title record-link-btn" onClick={() => onOpenPage?.(it.id)}>
+                    <RowButton className="record-related-title record-link-btn" onClick={() => onOpenPage?.(it.id)}>
                       {it.title}
-                    </button>
+                    </RowButton>
                   </li>
                 ))}
               </ul>

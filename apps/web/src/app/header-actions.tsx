@@ -3,19 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth } from "@/features/auth";
 import { useProfile } from "@/features/org/ui/profile-provider";
 import { useProject } from "@/features/projects";
 import { getContainer } from "@/bootstrap";
-import { AI_PROPOSALS_CHANGED_EVENT } from "@/lib/ai-proposals-changed";
 import { Popover } from "@/components/popover";
 import { SubmenuFlyout } from "@/components/menu";
 import { isExplicitLabMembership, ROLE_LABELS, type Role } from "@weaveforge/core";
 import { ThemeToggle } from "./theme-toggle";
 import { accountLinks, type AccountLinkId } from "./account-links";
+import { NavIcon } from "./nav-icon";
+import { useInbox } from "./use-inbox";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
 import { SyncStatusIndicator } from "./lazy-sync-status";
+import { RowButton } from "@/components/controls";
 
 /** A person, for the account menu. The ellipsis said "more things"; this says
  *  whose things they are, which is what the menu contains. */
@@ -41,12 +43,6 @@ const GridIcon = () => (
   </svg>
 );
 
-const ShareIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="action-icon">
-    <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
-    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-  </svg>
-);
 const GearIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="action-icon">
     <circle cx="12" cy="12" r="3" />
@@ -79,41 +75,25 @@ const LogoutIcon = () => (
  * flips it above the trigger when there is no room below, which is the drop-up
  * the sidebar needs and the drop-down the mobile top bar gets, from one rule.
  */
-export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" }) {
+export function HeaderActions({
+  variant = "list",
+  inbox = true,
+}: {
+  variant?: "list" | "menu";
+  /** The Inbox rows, where no sidebar shows them: the phone and the project picker. */
+  inbox?: boolean;
+}) {
   const { user, signOut } = useAuth();
   const { profile, memberships, activeOrgId, switchOrg } = useProfile();
   const { current, setProject } = useProject();
   const router = useRouter();
-  const [pendingProposals, setPendingProposals] = useState(0);
-  const [local, setLocal] = useState(false);
+  const { links: inboxRows, local } = useInbox();
   const labs = memberships ? memberships.filter(isExplicitLabMembership) : [];
 
-  useEffect(() => {
-    const read = () =>
-      void getContainer().aiProposals.pendingCount().then(setPendingProposals).catch(() => setPendingProposals(0));
-    // On mount the memoized count is what we want — three copies of this
-    // component mount as the breakpoint settles. On an explicit change event it
-    // is exactly what we do not want, so drop it first.
-    const refresh = () => {
-      getContainer().aiProposals.forgetPending();
-      read();
-    };
-    read();
-    // Read through the auth facade rather than the local backend provider: this
-    // component only needs the answer, and reaching for the provider is how a
-    // presentation file ends up knowing which backend a window was built with.
-    setLocal(getContainer().auth.isLocalMode());
-    window.addEventListener(AI_PROPOSALS_CHANGED_EVENT, refresh);
-    return () => window.removeEventListener(AI_PROPOSALS_CHANGED_EVENT, refresh);
-  }, []);
-
   if (!user) return null;
-  const canSupervise = !!profile && profile.role !== "masters";
 
   const ICONS: Record<AccountLinkId, () => React.JSX.Element> = {
     projects: GridIcon,
-    sharing: ShareIcon,
-    "ai-review": () => <></>,
     settings: GearIcon,
     docs: HelpIcon,
     signout: LogoutIcon,
@@ -121,8 +101,6 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
   };
   const TITLES: Partial<Record<AccountLinkId, string>> = {
     projects: "Projects",
-    sharing: canSupervise ? "Supervision & sharing" : "Shared with me and by me",
-    "ai-review": "Review AI suggestions",
     settings: "Settings",
     docs: "Documentation",
   };
@@ -149,19 +127,22 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
           closeMenu={close}
         />
       )}
-      {accountLinks({
-        canSupervise,
-        hasProject: !!current,
-        pendingProposals,
-        local,
-      }).map((link) => {
+      {inbox &&
+        inboxRows.map((row) => (
+          <Link key={row.key} href={row.path} className="header-link" onClick={close}>
+            <NavIcon name={row.icon} />
+            <span>{row.label}</span>
+            {row.badge !== undefined && <b className="nav-badge">{row.badge}</b>}
+          </Link>
+        ))}
+      {accountLinks({ hasProject: !!current, local }).map((link) => {
         const Icon = ICONS[link.id];
 
         // Leaving offline mode is not signing out — there is no session to end.
         // It puts the sign-in screen back, and the local data stays where it is.
         if (link.id === "signin") {
           return (
-            <button
+            <RowButton
               key={link.id}
               className="signout"
               onClick={() => {
@@ -171,14 +152,14 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
               title="Sign in to sync this work with an account. What is on this computer stays here."
             >
               <Icon /><span>{link.label}</span>
-            </button>
+            </RowButton>
           );
         }
         if (link.id === "signout") {
           return (
-            <button key={link.id} className="signout" onClick={() => void signOut()} title={user.email}>
+            <RowButton key={link.id} className="signout" onClick={() => void signOut()} title={user.email}>
               <Icon /><span>{link.label}</span>
-            </button>
+            </RowButton>
           );
         }
         if (link.id === "projects") {
@@ -186,9 +167,8 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
           // is selected, so without this there is no way back from account routes
           // (/settings, /shared, /supervision) once a project is deselected.
           return (
-            <button
+            <RowButton
               key={link.id}
-              type="button"
               className="header-link"
               title={TITLES[link.id]}
               onClick={() => {
@@ -198,14 +178,7 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
               }}
             >
               <Icon /><span>{link.label}</span>
-            </button>
-          );
-        }
-        if (link.id === "ai-review") {
-          return (
-            <Link key={link.id} href={link.href!} className="header-link ai-review-nav-link" title={TITLES[link.id]} onClick={close}>
-              <span>{link.label}</span><b>{link.badge}</b>
-            </Link>
+            </RowButton>
           );
         }
         // External links open in a new tab — losing unsaved work to a
@@ -244,10 +217,21 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
       // like a disclosure that folds, and animated on every open.
       iconOnly
       ariaLabel="Account"
-      triggerClassName="btn-secondary account-btn"
+      triggerClassName="account-btn"
       label={<UserIcon />}
     >
-      {links}
+      {(close) => (
+        <>
+          {/* Whose menu this is (DA-97); the trigger is only a person icon. */}
+          {(profile?.fullName || user.email) && (
+            <div className="account-menu-head">
+              {profile?.fullName && <b>{profile.fullName}</b>}
+              {user.email && <span>{user.email}</span>}
+            </div>
+          )}
+          {links(close)}
+        </>
+      )}
     </Popover>
   );
 }
@@ -270,8 +254,7 @@ function OrgMenuSubmenu({
 
   return (
     <div className="menu-row card-menu-row" ref={rowRef}>
-      <button
-        type="button"
+      <RowButton
         className="header-link menu-item card-menu-item"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
@@ -285,14 +268,13 @@ function OrgMenuSubmenu({
         <span className="card-menu-more menu-more" aria-hidden="true" style={{ marginLeft: "auto", opacity: 0.65 }}>
           ›
         </span>
-      </button>
+      </RowButton>
       {open && (
         <SubmenuFlyout anchorRef={rowRef}>
           <div className="org-menu-flyout-list" style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: "200px" }}>
             {labs.map((m) => (
-              <button
+              <RowButton
                 key={m.orgId}
-                type="button"
                 className={`proj-menu-item${m.orgId === activeOrgId ? " sel" : ""}`}
                 disabled={busy}
                 onClick={async () => {
@@ -313,7 +295,7 @@ function OrgMenuSubmenu({
                   <span className="muted org-menu-role">{ROLE_LABELS[m.role]}</span>
                 </span>
                 {m.orgId === activeOrgId && <span className="check">✓</span>}
-              </button>
+              </RowButton>
             ))}
           </div>
         </SubmenuFlyout>

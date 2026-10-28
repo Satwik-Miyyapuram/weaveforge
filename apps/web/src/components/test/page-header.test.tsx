@@ -60,18 +60,18 @@ test("AI review and Supervision use the shared empty state (DA-51)", () => {
   const superv = src("features/org/ui/supervision-screen.tsx");
   assert.match(superv, /<EmptyState[\s\S]{0,120}?title="No students yet"/);
   // The empty state's one action is the only way to Sharing then.
-  assert.match(superv, /supervisees\.length > 0 && \(\s*<Link className="btn-secondary" href="\/shared">/);
+  assert.match(superv, /supervisees\.length > 0 && \(\s*<Button href="\/shared">/);
 });
 
 test("the 404 has one primary and the rest as text links (DA-55)", () => {
   const page = src("app/not-found.tsx");
-  assert.equal(page.match(/btn-primary/g)?.length, 1);
-  assert.doesNotMatch(page, /btn-secondary/);
+  assert.equal(page.match(/<Button\s/g)?.length, 1);
+  assert.match(page, /<Button variant="primary" href="\/">/);
 });
 
 test("Git with no repository offers one way to settings (DA-56)", () => {
   const git = src("features/sync/ui/git-screen.tsx");
-  assert.match(git, /\{integration && \(\s*<Link className="btn-secondary" href="\/settings">/);
+  assert.match(git, /\{integration && \(\s*<Button href="\/settings">/);
 });
 
 test("every settings panel opens on the same card header (DA-53)", () => {
@@ -94,4 +94,41 @@ test("comments show a count badge, never the word None (D-25)", () => {
   assert.doesNotMatch(inline, /"None"/);
   assert.match(inline, /<CommentsBadge count=\{openThreads\.length\} \/>/);
   assert.match(src("features/sharing/ui/comments-toggle.tsx"), /<CommentsBadge count=\{count\} \/>/);
+});
+
+/**
+ * Where a header's actions break R5.1: `[search] [secondary…] [primary] [⋯]`.
+ * Search is a prop, so ScreenHead draws it first; this reads the children.
+ */
+export function headerOrderProblems(block: string): string[] {
+  const controls = [...block.matchAll(/<(Button|IconButton|ShareButton|Popover)\b([^>]*)>/g)].map(([, tag, attrs = ""]) =>
+    tag === "Popover" && /ariaLabel="More actions"/.test(attrs) ? "more" : /variant="primary"/.test(attrs) ? "primary" : "secondary",
+  );
+  const problems: string[] = [];
+  if (controls.filter((c) => c === "primary").length > 1) problems.push("more than one primary");
+  const primary = controls.indexOf("primary");
+  if (primary >= 0 && controls.slice(primary + 1).some((c) => c === "secondary")) problems.push("secondary after primary");
+  const more = controls.indexOf("more");
+  if (more >= 0 && more !== controls.length - 1) problems.push("⋯ is not last");
+  return problems;
+}
+
+test("the order scanner flags each R5.1 break and passes the rule", () => {
+  const ok = `<ScreenHead><Button>Sync</Button><Button variant="primary">Add</Button><Popover ariaLabel="More actions"></Popover></ScreenHead>`;
+  assert.deepEqual(headerOrderProblems(ok), []);
+  assert.deepEqual(headerOrderProblems(`<Button variant="primary">Add</Button><Button>Sync</Button>`), ["secondary after primary"]);
+  assert.deepEqual(headerOrderProblems(`<Popover ariaLabel="More actions"></Popover><Button variant="primary">Add</Button>`), ["⋯ is not last"]);
+  assert.deepEqual(headerOrderProblems(`<Button variant="primary">A</Button><Button variant="primary">B</Button>`), ["more than one primary"]);
+});
+
+test("every page header orders its actions search, secondary, primary, ⋯ (R5.1)", () => {
+  const root = fileURLToPath(new URL("../../features", import.meta.url));
+  const found = filesUnder(root).flatMap((f) =>
+    [...readFileSync(f, "utf8").matchAll(/<ScreenHead\b[\s\S]*?<\/ScreenHead>/g)].flatMap((m) =>
+      headerOrderProblems(m[0]).map((p) => `${f.slice(root.length + 1)}: ${p}`),
+    ),
+  );
+  assert.deepEqual(found, []);
+  // The dashboard's header actions live in their own bar.
+  assert.deepEqual(headerOrderProblems(src("features/dashboard/ui/dashboard-edit-bar.tsx")), []);
 });

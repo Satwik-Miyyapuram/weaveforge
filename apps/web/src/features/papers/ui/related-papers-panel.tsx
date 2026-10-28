@@ -109,14 +109,14 @@ export function RelatedPapersPanel({ paper, onChanged }: { paper: PaperSummary; 
                 )}
                 <div className="related-paper-actions">
                   {h.url && (
-                    <a
-                      className="link-btn"
+                    <Button variant="link"
+                     
                       href={h.url}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
                       Open paper
-                    </a>
+                    </Button>
                   )}
                   <Button variant="ghost" size="sm" disabled={busy} onClick={() => void addHit(h)}>
                     Add to library

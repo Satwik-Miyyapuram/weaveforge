@@ -40,3 +40,8 @@ test("an icon-only option is named by its ariaLabel", () => {
   );
   assert.match(out, /<button type="button" aria-pressed="true" aria-label="Tree view" class="seg-on" title="Tree view"><svg><\/svg><\/button>/);
 });
+
+test("no value presses no option, for an image with no side set yet", () => {
+  const out = renderToStaticMarkup(<SegmentedControl label="Edges" value={null} onChange={() => {}} options={options} />);
+  assert.doesNotMatch(out, /aria-pressed="true"|seg-on/);
+});

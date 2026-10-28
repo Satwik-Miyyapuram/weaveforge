@@ -137,6 +137,9 @@ export function BarMenuList({
         bottom: "auto",
         width: "max-content",
         maxWidth: "min(340px, calc(100vw - 16px))",
+        // A list taller than the window scrolls inside it rather than off it.
+        maxHeight: "calc(100vh - 16px)",
+        overflowY: "auto",
         zIndex: 100,
         transform: "none",
       }}

@@ -18,6 +18,7 @@ import {
   takeInkRedo,
   takeInkUndo,
   type InkUndoEntry,
+  type InkUndoPatch,
   type InkUndoState,
   type NewReaderAnnotation,
   type ReaderAnnotation,
@@ -26,8 +27,9 @@ import {
 import type { AnnotationActions } from "./use-annotation-actions";
 
 type StrokeWrites = Pick<AnnotationActions, "persistDraft" | "removeLocal" | "saveAnchor">;
+type Writes = StrokeWrites & Partial<Pick<AnnotationActions, "updateLocal">>;
 
-export interface InkUndo extends StrokeWrites {
+export interface InkUndo extends StrokeWrites, Pick<AnnotationActions, "updateLocal"> {
   canUndo: boolean;
   canRedo: boolean;
   /** Delete several marks as one undo step (a lasso delete). */
@@ -53,6 +55,15 @@ function draftFromAnnotation(ann: ReaderAnnotation): NewReaderAnnotation {
   };
 }
 
+/** The current values of the fields `patch` sets, so undo can put them back. */
+function patchBefore(ann: ReaderAnnotation, patch: InkUndoPatch): InkUndoPatch {
+  const before: InkUndoPatch = {};
+  for (const key of Object.keys(patch) as (keyof InkUndoPatch)[]) {
+    (before as Record<string, unknown>)[key] = ann[key];
+  }
+  return before;
+}
+
 /**
  * Wrap the reader's writes so stroke writes are recorded, and expose undo and
  * redo over the record.
@@ -64,7 +75,7 @@ function draftFromAnnotation(ann: ReaderAnnotation): NewReaderAnnotation {
  * callbacks that must not be recreated on every annotation change.
  */
 export function useInkUndo(
-  actions: StrokeWrites,
+  actions: Writes,
   annotations: readonly ReaderAnnotation[],
 ): InkUndo {
   // The stack is a ref so a step can pop it synchronously and then await the
@@ -138,6 +149,21 @@ export function useInkUndo(
     [setState],
   );
 
+  const updateLocal = useCallback(
+    async (id: string, patch: InkUndoPatch) => {
+      const ann = annotationsRef.current.find((a) => a.id === id);
+      await actionsRef.current.updateLocal?.(id, patch);
+      if (!ann) return;
+      setState((s) =>
+        refreshInkUndoAnnotation(
+          pushInkUndo(s, { kind: "update", id, before: patchBefore(ann, patch), after: patch }),
+          { ...ann, ...patch },
+        ),
+      );
+    },
+    [setState],
+  );
+
   /** Apply one step's inverse (undo) or the step itself (redo) through the raw writes. */
   const apply = useCallback(async (entry: InkUndoEntry, direction: "undo" | "redo") => {
     const raw = actionsRef.current;
@@ -164,6 +190,13 @@ export function useInkUndo(
         const anchor = direction === "undo" ? entry.before : entry.after;
         await raw.saveAnchor(target, anchor);
         setState((s) => refreshInkUndoAnnotation(s, { ...target, anchor }));
+        return;
+      }
+      case "update": {
+        const target = annotationsRef.current.find((a) => a.id === entry.id);
+        const patch = direction === "undo" ? entry.before : entry.after;
+        await raw.updateLocal?.(entry.id, patch);
+        if (target) setState((s) => refreshInkUndoAnnotation(s, { ...target, ...patch }));
         return;
       }
     }
@@ -193,6 +226,7 @@ export function useInkUndo(
     removeLocal,
     removeMany,
     saveAnchor,
+    updateLocal,
     canUndo: stack.current.undo.length > 0,
     canRedo: stack.current.redo.length > 0,
     undo: useCallback(() => step("undo"), [step]),

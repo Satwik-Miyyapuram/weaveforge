@@ -29,7 +29,9 @@ test("type defaults to button, so a Button never submits by accident", () => {
 
 test("href renders a link, keeping link semantics", () => {
   const out = html(<Button href="/papers">Papers</Button>);
-  assert.match(out, /^<a href="\/papers" class="btn-secondary">Papers<\/a>$/);
+  assert.match(out, /^<a [^>]*>Papers<\/a>$/);
+  assert.match(out, / href="\/papers"/);
+  assert.match(out, / class="btn-secondary"/);
 });
 
 test("IconButton names itself from label for screen readers and hover", () => {
@@ -97,4 +99,21 @@ test("one rule draws the link arrow, so a chip never shows two (DA-81)", () => {
 test("an in-page jump chip is a button, which the arrow rule does not reach (DA-83)", () => {
   const states = css("../../app/styles/states.css");
   assert.match(states, /a:is\([^)]*\.plan-chip[^)]*\)\[href\]::after \{ content: "\\2197"; \}/);
+});
+
+test("the link variant is a button that reads as inline text", () => {
+  assert.match(html(<Button variant="link">Open</Button>), /^<button type="button" class="link-btn">Open<\/button>$/);
+  assert.match(html(<Button variant="link" size="sm" className="danger">Remove</Button>), /class="link-btn btn-sm danger"/);
+});
+
+test("href goes through next/link, so moving between pages stays client-side", () => {
+  assert.match(css("../button.tsx"), /import Link from "next\/link";/);
+  const out = html(<Button href="https://example.org" target="_blank" rel="noreferrer">Docs</Button>);
+  for (const attr of [/ href="https:\/\/example.org"/, / target="_blank"/, / rel="noreferrer"/, / class="btn-secondary"/]) assert.match(out, attr);
+});
+
+test("IconButton's tip adds to the hover text without changing its name", () => {
+  const out = html(<IconButton label="Undo" tip="Undo (Ctrl+Z)"><svg /></IconButton>);
+  assert.match(out, /aria-label="Undo"/);
+  assert.match(out, /title="Undo \(Ctrl\+Z\)"/);
 });

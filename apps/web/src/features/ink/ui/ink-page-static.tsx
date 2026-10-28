@@ -5,6 +5,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import type { FigureGeometry, InkStroke } from "@weaveforge/core";
 import type { InkPalette } from "../render/ink-palette";
+import type { WikilinkResolver } from "@/components/markdown/markdown";
 import { InkFigures } from "./ink-figures";
 import { InkPageCanvas } from "./ink-page-canvas";
 import { InkSheetTextUnderlay, inkSheetRuleStyle } from "./ink-sheet-underlay";
@@ -32,6 +33,8 @@ export interface InkPageStaticProps {
    * mermaid upgrades thrown away — every time a fetch lands.
    */
   resolveImageSrc?: (src: string) => string | null;
+  /** `[[target]]` → its link, so the sheet reads links as Read mode does. */
+  resolveWikilink?: WikilinkResolver;
   /** Ink strokes on this page. */
   strokes?: readonly InkStroke[];
   /** Theme palette. */
@@ -50,6 +53,7 @@ export const InkPageStatic = memo(function InkPageStatic({
   figureUrls,
   pureText,
   resolveImageSrc,
+  resolveWikilink,
   strokes,
   palette,
   onLoadError,
@@ -99,14 +103,20 @@ export const InkPageStatic = memo(function InkPageStatic({
             onError={onLoadError}
           />
         ) : null}
-        {pureText ? (
-          <InkSheetTextUnderlay text={pureText} scale={scale} resolveImageSrc={resolveImageSrc} />
-        ) : null}
         {figures && figures.length > 0 ? (
           <InkFigures
             figures={figures}
             scale={scale}
             imageUrls={figureUrls ?? new Map()}
+          />
+        ) : null}
+        {/* After the figures, so typed text is not hidden under one (DA-101). */}
+        {pureText ? (
+          <InkSheetTextUnderlay
+            text={pureText}
+            scale={scale}
+            resolveImageSrc={resolveImageSrc}
+            resolveWikilink={resolveWikilink}
           />
         ) : null}
         {near ? (
