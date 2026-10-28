@@ -781,11 +781,52 @@
   display: none;
 }
 
-.workspace-toolbar-doc > .ink-bar {
+.workspace-toolbar-doc > :is(.ink-bar, .ink-reader-bar) {
   padding: 4px 0;
   border: 0;
   background: none;
   box-shadow: none;
+}
+
+/* One row in the toolbar: it scrolls sideways rather than wrapping. */
+.workspace-toolbar-doc > .ink-bar {
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  min-width: 0;
+  gap: 4px;
+  overflow-x: auto;
+}
+
+/* Flat in the toolbar, like its other buttons: no boxes round the groups. */
+.workspace-toolbar-doc :is(.ink-bar-group, .ink-page-pill) {
+  border: 0;
+  background: none;
+}
+
+.workspace-toolbar-doc .ink-quick-colours {
+  gap: 4px;
+  padding-inline: 4px;
+}
+
+/* Recognise is its icon in the toolbar; its progress shows while it runs. */
+.workspace-toolbar-doc .ink-bar > .wf-btn:not(:disabled) > span {
+  display: none;
+}
+
+/* ⋯ stays in reach when a narrow toolbar scrolls. */
+.workspace-toolbar-doc .ink-menu-more {
+  position: sticky;
+  right: 0;
+  background: var(--surface);
+}
+
+:root:root .workspace-toolbar-doc .wf-swatch {
+  width: 20px;
+  height: 20px;
+}
+
+.workspace-toolbar-doc > .ink-reader-bar {
+  flex: 1 1 auto;
 }
 
 .workspace-toolbar-end {
@@ -2006,6 +2047,27 @@
 
 /* Read mode: the page's images are not things to drag off the sheet, and
    only the text underlay is there to select. */
+/* The read-only sheet's bar: page count, then zoom. */
+.ink-reader-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  user-select: none;
+}
+
+.ink-reader-zoom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .ink-reader .ink-sheet img,
 .ink-reader .ink-sheet svg {
   -webkit-user-drag: none;

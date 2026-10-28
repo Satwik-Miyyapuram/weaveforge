@@ -62,3 +62,21 @@ test("the ink bar has no loose separators: they dangled at line ends once the ba
   assert.doesNotMatch(bar, /ink-sep/);
   assert.doesNotMatch(css, /\.ink-sep\b/);
 });
+
+test("in the toolbar the ink bar is one flat row: no wrap, no boxed groups", () => {
+  const css = readFileSync(fileURLToPath(new URL("../../../app/styles/editor-workspace.css", import.meta.url)), "utf8");
+  const rule = (selector: string) => {
+    const at = css.indexOf(`${selector} {`);
+    assert.ok(at >= 0, `missing ${selector}`);
+    return css.slice(at, css.indexOf("}", at));
+  };
+  assert.match(rule(".workspace-toolbar-doc > .ink-bar"), /flex-wrap: nowrap/);
+  assert.match(rule(".workspace-toolbar-doc :is(.ink-bar-group, .ink-page-pill)"), /border: 0/);
+  assert.match(rule(".workspace-toolbar-doc .ink-menu-more"), /position: sticky/);
+  assert.match(rule(".workspace-toolbar-doc .ink-bar > .wf-btn:not(:disabled) > span"), /display: none/);
+});
+
+test("the read-only sheet's page and zoom bar also goes up to the toolbar", () => {
+  const reader = readFileSync(fileURLToPath(new URL("../../ink/ui/ink-reader.tsx", import.meta.url)), "utf8");
+  assert.match(reader, /<ToolbarSlot>\s*<div className="ink-reader-bar">/);
+});

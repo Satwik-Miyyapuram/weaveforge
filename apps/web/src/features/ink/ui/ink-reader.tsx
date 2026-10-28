@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ToolbarSlot } from "@/components/toolbar-slot";
 import { isEditableTarget } from "@/lib/editable-target";
 import {
   INK_A4_HEIGHT,
@@ -221,25 +222,13 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
         background: "var(--bg)",
       }}
     >
-      <div
-        className="ink-reader-bar"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "6px 16px",
-          borderBottom: "1px solid var(--border)",
-          background: "var(--surface)",
-          fontSize: "12px",
-          color: "var(--text-muted)",
-          flexShrink: 0,
-          userSelect: "none",
-        }}
-      >
+      {/* In the Editor this goes up to the one toolbar, shown while focused. */}
+      <ToolbarSlot>
+      <div className="ink-reader-bar">
         <div className="ink-reader-info">
           {pageCount} {pageCount === 1 ? "page" : "pages"}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+        <div className="ink-reader-zoom">
           <IconButton size="sm" label="Zoom out" onClick={() => setZoom(inkZoomOut)} disabled={zoom <= INK_ZOOM_MIN}>
             <MinusIcon />
           </IconButton>
@@ -251,6 +240,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
           </IconButton>
         </div>
       </div>
+      </ToolbarSlot>
       <div style={{ position: "relative", flex: 1, minHeight: 0, width: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
         <div
           className="ink-page-scroll"
