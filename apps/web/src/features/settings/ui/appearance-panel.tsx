@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Switch } from "@/components/controls";
 import { Select } from "@/components/select";
-import { sanitizeCardTint, type CardTint, DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_STYLE_OPTIONS, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, sanitizeThemeId, sanitizeControlSize, sanitizeSurfaceStyle, type ControlSizeId, type SurfaceStyle, type ThemeConfig } from "@/lib/theme/theme";
+import { ANIMATION_SPEED_OPTIONS, sanitizeAnimationSpeed, type AnimationSpeed, sanitizeCardTint, type CardTint, DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_STYLE_OPTIONS, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, sanitizeThemeId, sanitizeControlSize, sanitizeSurfaceStyle, type ControlSizeId, type SurfaceStyle, type ThemeConfig } from "@/lib/theme/theme";
 import { persistThemeChange, readLocalAppearance } from "@/lib/theme/theme-persistence";
 import { CardTintPicker } from "./card-tint-picker";
 import { ThemeConfigPanel } from "./theme-config-panel";
@@ -20,6 +20,7 @@ export function AppearancePanel() {
   const [controlSize, setControlSize] = useState<ControlSizeId>("default");
   const [surfaces, setSurfaces] = useState<SurfaceStyle>("borderless");
   const [reactiveMotion, setReactiveMotion] = useState(false);
+  const [animationSpeed, setAnimationSpeed] = useState<AnimationSpeed>(1);
   const [cardTint, setCardTint] = useState<CardTint>("bar");
   const [cardTilt, setCardTilt] = useState(true);
   const [scanlines, setScanlines] = useState(true);
@@ -32,6 +33,7 @@ export function AppearancePanel() {
     setControlSize(sanitizeControlSize(appearance.controlSize));
     setSurfaces(sanitizeSurfaceStyle(appearance.surfaces));
     setReactiveMotion(appearance.reactiveMotion ?? false);
+    setAnimationSpeed(sanitizeAnimationSpeed(appearance.animationSpeed));
     setCardTint(sanitizeCardTint(appearance.cardTint));
     setCardTilt(appearance.cardTilt ?? true);
     setScanlines(appearance.scanlines ?? true);
@@ -87,6 +89,12 @@ export function AppearancePanel() {
   function handleReactiveMotionChange(on: boolean) {
     setReactiveMotion(on);
     persistThemeChange({ reactiveMotion: on });
+  }
+
+  function handleAnimationSpeedChange(raw: string) {
+    const safe = sanitizeAnimationSpeed(raw);
+    setAnimationSpeed(safe);
+    persistThemeChange({ animationSpeed: safe });
   }
 
   function handleCustomThemeChange(config: ThemeConfig | null) {
@@ -182,6 +190,17 @@ export function AppearancePanel() {
             checked={reactiveMotion}
             onChange={handleReactiveMotionChange}
           />
+        </div>
+        <div className="appearance-row">
+          <div className="appearance-row-text">
+            <label htmlFor="animationSpeed">Animation speed</label>
+            <p>Plays every animation faster or slower than designed, from 0.25&times; to 4&times;.</p>
+          </div>
+          <Select id="animationSpeed" value={String(animationSpeed)} onChange={(e) => handleAnimationSpeedChange(e.target.value)}>
+            {ANIMATION_SPEED_OPTIONS.map((opt) => (
+              <option key={opt.id} value={opt.id}>{opt.label}</option>
+            ))}
+          </Select>
         </div>
         {(lightTheme === "crt" || customTheme?.cardTilt === true) && (
           <div className="appearance-row">

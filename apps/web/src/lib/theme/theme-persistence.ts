@@ -5,6 +5,7 @@ import { ensureContainer, getContainer } from "@/bootstrap";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
 import {
+  applyAnimationSpeed,
   applyCardTilt,
   applyCardTint,
   applyControlSize,
@@ -15,6 +16,7 @@ import {
   applyTheme,
   DEFAULT_DARK_THEME,
   DEFAULT_LIGHT_THEME,
+  readStoredAnimationSpeed,
   readStoredCardTilt,
   readStoredCardTint,
   readStoredControlSize,
@@ -24,6 +26,7 @@ import {
   readStoredScanlines,
   readStoredSurfaceStyle,
   readStoredThemeIds,
+  sanitizeAnimationSpeed,
   sanitizeCardTint,
   sanitizeControlSize,
   sanitizeSurfaceStyle,
@@ -49,6 +52,7 @@ export function readLocalAppearance(): UserAppearance {
     controlSize: readStoredControlSize(),
     surfaces: readStoredSurfaceStyle(),
     reactiveMotion: readStoredReactiveMotion(),
+    animationSpeed: readStoredAnimationSpeed(),
     cardTint: readStoredCardTint(),
     cardTilt: readStoredCardTilt(),
     scanlines: readStoredScanlines(),
@@ -97,6 +101,9 @@ function writeLocalAppearance(appearance: UserAppearance): void {
   if (typeof appearance.reactiveMotion === "boolean") {
     writeStored(THEME_KEY.reactiveMotion, appearance.reactiveMotion ? "1" : "0");
   }
+  if (appearance.animationSpeed !== undefined) {
+    writeStored(THEME_KEY.animationSpeed, String(sanitizeAnimationSpeed(appearance.animationSpeed)));
+  }
   // `customTheme` on the appearance record has already been through
   // normalizeThemeConfig, so what is stored is the validated shape.
   if (appearance.customTheme) {
@@ -113,6 +120,7 @@ function applyThemeFromLocalStorage(): void {
   applyControlSize(readStoredControlSize());
   applySurfaceStyle(readStoredSurfaceStyle());
   applyReactiveMotion(readStoredReactiveMotion());
+  applyAnimationSpeed(readStoredAnimationSpeed());
   applyCardTint(readStoredCardTint());
   applyCardTilt(readStoredCardTilt());
   applyScanlines(readStoredScanlines());
@@ -157,6 +165,7 @@ export function persistThemeChange(
     controlSize: sanitizeControlSize(patch.controlSize ?? current.controlSize) as ControlSizeId,
     surfaces: sanitizeSurfaceStyle(patch.surfaces ?? current.surfaces),
     reactiveMotion: patch.reactiveMotion ?? current.reactiveMotion ?? false,
+    animationSpeed: sanitizeAnimationSpeed(patch.animationSpeed ?? current.animationSpeed),
     cardTint: sanitizeCardTint(patch.cardTint ?? current.cardTint),
     cardTilt: patch.cardTilt ?? current.cardTilt ?? true,
     scanlines: patch.scanlines ?? current.scanlines ?? true,
@@ -175,6 +184,7 @@ export function persistThemeChange(
     applyControlSize(next.controlSize ?? "default");
     applySurfaceStyle(next.surfaces ?? "borderless");
     applyReactiveMotion(next.reactiveMotion ?? false);
+    applyAnimationSpeed(sanitizeAnimationSpeed(next.animationSpeed));
     applyCardTint(next.cardTint ?? "bar");
     applyCardTilt(next.cardTilt ?? true);
     applyScanlines(next.scanlines ?? true);
@@ -203,6 +213,7 @@ async function hydrateThemeFromServerUncached(): Promise<void> {
       appearance?.controlSize ||
       appearance?.surfaces ||
       appearance?.reactiveMotion !== undefined ||
+      appearance?.animationSpeed !== undefined ||
       appearance?.cardTint ||
       appearance?.cardTilt !== undefined ||
       appearance?.scanlines !== undefined ||

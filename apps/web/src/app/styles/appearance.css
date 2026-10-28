@@ -8,13 +8,13 @@
 
 .appearance {
   max-width: 880px;
-  padding: 8px 4px 48px;
   color: var(--text);
 }
 
 .appearance-lede { margin: 8px 0 32px; }
 
 .appearance-section { margin: 0 0 32px; }
+.appearance-section:last-child { margin-bottom: 0; }
 .appearance-section > .record-section-head { margin-bottom: 0; }
 
 .appearance-row {

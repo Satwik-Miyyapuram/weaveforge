@@ -450,7 +450,7 @@ body > canvas.hiddenCanvasElement { display: none; }
   border: var(--bw, 1px) solid var(--bw-line, var(--border)); border-radius: var(--r-control);
   background: var(--surface); color: var(--text); box-shadow: var(--sh-btn, var(--e2));
   font-size: var(--fs); touch-action: manipulation;
-  transition: opacity 0.16s ease, translate 0.16s ease;
+  transition: opacity var(--dur-base) ease, translate var(--dur-base) ease;
   @starting-style { opacity: 0; translate: 0 6px; }
 }
 .pdf-reader-create-bar.is-below { transform: none; }

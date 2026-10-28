@@ -26,6 +26,7 @@ export const THEME_KEY = {
   cardTilt: "thesis.cardTilt",
   scanlines: "thesis.scanlines",
   reactiveMotion: "thesis.reactiveMotion",
+  animationSpeed: "thesis.animationSpeed",
   customTheme: "thesis.customTheme",
 } as const;
 
@@ -226,6 +227,40 @@ export function readStoredReactiveMotion(): boolean {
 }
 
 /* ------------------------------------------------------------------ *
+ * Animation speed
+ * ------------------------------------------------------------------ */
+
+export type AnimationSpeed = 0.25 | 0.5 | 1 | 2 | 4;
+
+export const ANIMATION_SPEED_OPTIONS: ReadonlyArray<{ id: AnimationSpeed; label: string }> = [
+  { id: 0.25, label: "0.25×" },
+  { id: 0.5, label: "0.5×" },
+  { id: 1, label: "1×" },
+  { id: 2, label: "2×" },
+  { id: 4, label: "4×" },
+];
+
+export function sanitizeAnimationSpeed(raw: string | number | null | undefined): AnimationSpeed {
+  const n = Number(raw);
+  return ANIMATION_SPEED_OPTIONS.find((option) => option.id === n)?.id ?? 1;
+}
+
+/**
+ * Every duration token divides by `--anim-speed` (base.css, states.css), so
+ * one property on <html> speeds up or slows down all of them. 1x leaves it
+ * unset and the stylesheets' fallback of 1 applies.
+ */
+export function applyAnimationSpeed(speed: AnimationSpeed): void {
+  const style = document.documentElement.style;
+  if (speed === 1) style.removeProperty("--anim-speed");
+  else style.setProperty("--anim-speed", String(speed));
+}
+
+export function readStoredAnimationSpeed(): AnimationSpeed {
+  return sanitizeAnimationSpeed(readStored(THEME_KEY.animationSpeed));
+}
+
+/* ------------------------------------------------------------------ *
  * Uploaded theme
  * ------------------------------------------------------------------ */
 
@@ -329,6 +364,8 @@ function buildThemeBootScript(): string {
     `if(localStorage.getItem("thesis.cardTilt")==="0")document.documentElement.dataset.tilt="off";` +
     `if(localStorage.getItem("thesis.scanlines")==="0")document.documentElement.dataset.scanlines="off";` +
     `if(localStorage.getItem("thesis.reactiveMotion")==="1")document.documentElement.dataset.motion="reactive";` +
+    `var as=Number(localStorage.getItem("thesis.animationSpeed"));` +
+    `if([0.25,0.5,2,4].indexOf(as)>=0)document.documentElement.style.setProperty("--anim-speed",String(as));` +
     `var vn=${vn},rawT=localStorage.getItem("thesis.customTheme");` +
     `if(rawT){var cfg=JSON.parse(rawT),cv=(cfg&&cfg.vars)||{},okv=/^[#a-zA-Z0-9 ,.%\\/()"_-]{1,120}$/;` +
     `for(var i=0;i<vn.length;i++){var vk=vn[i],vv=cv[vk];` +

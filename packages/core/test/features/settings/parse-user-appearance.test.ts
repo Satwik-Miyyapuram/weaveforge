@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { CARD_TINTS, CONTROL_SIZES, normalizeAppearance } from "../../../src/features/settings/domain/user-appearance.js";
+import { ANIMATION_SPEEDS, CARD_TINTS, CONTROL_SIZES, normalizeAppearance } from "../../../src/features/settings/domain/user-appearance.js";
 
 test("normalizeAppearance returns undefined for absent payloads", () => {
   assert.equal(normalizeAppearance(null), undefined);
@@ -37,4 +37,14 @@ test("normalizeAppearance keeps valid fields only", () => {
 test("normalizeAppearance keeps the CRT tilt and scanline switches when boolean", () => {
   assert.deepEqual(normalizeAppearance({ cardTilt: false, scanlines: true }), { cardTilt: false, scanlines: true });
   assert.equal(normalizeAppearance({ cardTilt: "off", scanlines: 0 }), undefined);
+});
+
+test("normalizeAppearance keeps an animation speed from the list, nothing else", () => {
+  assert.deepEqual([...ANIMATION_SPEEDS], [0.25, 0.5, 1, 2, 4]);
+  for (const animationSpeed of ANIMATION_SPEEDS) {
+    assert.deepEqual(normalizeAppearance({ animationSpeed }), { animationSpeed });
+  }
+  for (const bad of [0, 3, 8, -1, "2", null, Number.NaN]) {
+    assert.equal(normalizeAppearance({ animationSpeed: bad }), undefined, String(bad));
+  }
 });
