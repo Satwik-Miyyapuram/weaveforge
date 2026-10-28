@@ -56,8 +56,10 @@ export function useSyncIssues(): SyncIssuesHandle {
   }, []);
 
   // The sync loop owns the count; re-read whenever it moves so the panel never shows stale rows.
-  const { conflictsCount } = useLiveSync();
-  useEffect(refresh, [refresh, conflictsCount]);
+  // A change is dead-lettered inside a cycle without opening a conflict, so a
+  // cycle ending (the phase leaving "syncing") is a reason to re-read too.
+  const { conflictsCount, phase } = useLiveSync();
+  useEffect(refresh, [refresh, conflictsCount, phase]);
 
   const act = useCallback(
     (run: (sql: LocalRunner) => Promise<void>) => run(new LocalRunner()).then(refresh),
