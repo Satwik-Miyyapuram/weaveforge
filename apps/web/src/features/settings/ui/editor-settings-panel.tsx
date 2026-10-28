@@ -30,7 +30,7 @@ export function EditorSettingsPanel() {
   return (
     <div
       id="settings-editor"
-      className="card add-form settings-anchor"
+      className="add-form settings-anchor"
       role="tabpanel"
       aria-labelledby="settings-tab-editor"
     >

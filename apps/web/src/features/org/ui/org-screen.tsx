@@ -89,7 +89,7 @@ export function OrgPanel() {
 
   if (loading) {
     return (
-      <div className="card add-form">
+      <div className="add-form">
         <h3 className="settings-group">People</h3>
         <ScreenLoader status="Loading organization…" compact showTips={false} />
       </div>
@@ -98,7 +98,7 @@ export function OrgPanel() {
 
   if (!profile) {
     return (
-      <div className="card add-form">
+      <div className="add-form">
         <h3 className="settings-group">Organization</h3>
         <OrgEmptyRow onAction={() => setLabOpen(true)} />
         {labOpen && (
@@ -109,7 +109,7 @@ export function OrgPanel() {
   }
 
   return (
-    <div className="card add-form">
+    <div className="add-form">
       <h3 className="settings-group">Organization</h3>
       <OrgSwitcher />
       {!isInOrg ? (
@@ -246,7 +246,7 @@ function CreateAccountForm({
   }
 
   return (
-    <form className="card add-form" onSubmit={submit}>
+    <form className="add-form" onSubmit={submit}>
       <h3 className="settings-group">Create an account</h3>
       <p className="muted" style={{ margin: "4px 0 12px" }}>
         The new member will be supervised by you.

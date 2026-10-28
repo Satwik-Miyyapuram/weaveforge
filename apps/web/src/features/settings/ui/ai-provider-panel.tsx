@@ -143,7 +143,7 @@ export function AiProviderPanel() {
   return (
     <section
       id="settings-provider"
-      className="card add-form settings-anchor"
+      className="add-form settings-anchor"
       role="tabpanel"
       aria-labelledby="settings-tab-ai"
     >

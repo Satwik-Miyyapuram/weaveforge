@@ -431,10 +431,10 @@ export function SettingsScreen() {
           served by routes a static export does not contain. See
           `deployment/capabilities.ts` and `ai-access-panel.tsx`. */}
       {((tab === "ai" && hasServerRoutes()) || tab === "integrations") && !loading && !loaded && (
-        <div className="card add-form" role="tabpanel"><FormError>{error ?? "Settings did not load."}</FormError><Button onClick={() => void load()}>Retry</Button></div>
+        <div className="add-form" role="tabpanel"><FormError>{error ?? "Settings did not load."}</FormError><Button onClick={() => void load()}>Retry</Button></div>
       )}
       {tab === "ai" && !loading && loaded && hasServerRoutes() && (
-        <div id="settings-ai" className="card add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-ai">
+        <div id="settings-ai" className="add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-ai">
           <h3 className="settings-group">AI & MCP</h3>
           <p className="muted">Control what an AI client such as Codex may read or propose. Access is off by default.</p>
           <div className="integration-item">
@@ -460,7 +460,7 @@ export function SettingsScreen() {
       {tab === "integrations" && !loading && loaded && (
         <>
           {userIntegrations.length > 0 ? (
-            <div id="settings-integrations" className="card add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-integrations">
+            <div id="settings-integrations" className="add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-integrations">
               <h3 className="settings-group">Integrations</h3>
               <p className="muted">Metadata sources for your library. Tap one to configure it.</p>
               {isOfflineBuild() ? (

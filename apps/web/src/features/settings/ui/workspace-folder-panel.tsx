@@ -183,7 +183,7 @@ export function WorkspaceFolderPanel() {
   return (
     <section
       id="settings-workspace"
-      className="card add-form settings-anchor"
+      className="add-form settings-anchor"
       role="tabpanel"
       aria-labelledby="settings-tab-workspace"
     >

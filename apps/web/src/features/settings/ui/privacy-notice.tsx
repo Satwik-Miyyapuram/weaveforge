@@ -21,7 +21,7 @@ export function PrivacyNotice() {
   const paragraphs = disclosable ? PRIVACY_DISCLAIMER_PARAGRAPHS : PRIVACY_LOCAL_PARAGRAPHS;
 
   return (
-    <div className="card add-form privacy-notice">
+    <div className="add-form privacy-notice">
       <h3 className="settings-group">{title}</h3>
       {paragraphs.map((p) => (
         <p key={p} className="muted privacy-notice__p">

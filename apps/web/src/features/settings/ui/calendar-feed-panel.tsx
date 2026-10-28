@@ -110,7 +110,7 @@ export function CalendarFeedPanel() {
   }
 
   return (
-    <div id="settings-calendar" className="card add-form settings-anchor calendar-feed" role="tabpanel" aria-labelledby="settings-tab-calendar">
+    <div id="settings-calendar" className="add-form settings-anchor calendar-feed" role="tabpanel" aria-labelledby="settings-tab-calendar">
       <h3 className="settings-group">Deadlines in your calendar</h3>
       <p className="muted api-token-intro">
         One private link puts every dated milestone in Google Calendar, Outlook or Apple Calendar as an

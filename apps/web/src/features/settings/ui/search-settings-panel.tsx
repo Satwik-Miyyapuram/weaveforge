@@ -65,7 +65,7 @@ export function SearchSettingsPanel({
   return (
     <div
       id="settings-search"
-      className="card add-form settings-anchor"
+      className="add-form settings-anchor"
       role="tabpanel"
       aria-labelledby="settings-tab-search"
     >

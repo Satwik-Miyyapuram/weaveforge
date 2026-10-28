@@ -27,7 +27,7 @@ export function SyncSettingsPanel() {
 
   if (status.enabled) {
     return (
-      <div className="card settings-block">
+      <div className="settings-block">
         <h3 className="settings-group">Sync</h3>
         <p className="muted">
           This device syncs with your account. Everything still works with the network off; changes
@@ -51,7 +51,7 @@ export function SyncSettingsPanel() {
   }
 
   return (
-    <div className="card settings-block">
+    <div className="settings-block">
       <h3 className="settings-group">Sync</h3>
       <p className="muted">
         Your work lives on this machine and needs no account. Turning sync on copies it to an

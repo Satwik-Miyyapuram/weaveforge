@@ -107,11 +107,11 @@ export function AppearancePanel() {
     }
   }
 
-  // The same card and header as every other settings panel (DA-53); inside,
-  // mono section heads over a hairline, one row per preference with its
+  // The same header as every other settings panel, with no card around it;
+  // inside, mono section heads over a hairline, one row per preference with its
   // explanation on the left and the control on the right.
   return (
-    <div id="settings-appearance" className="card add-form settings-anchor appearance" role="tabpanel" aria-labelledby="settings-tab-appearance">
+    <div id="settings-appearance" className="add-form settings-anchor appearance" role="tabpanel" aria-labelledby="settings-tab-appearance">
       <h3 className="settings-group">Appearance</h3>
       <p className="muted appearance-lede">How WeaveForge looks on this device.</p>
 
