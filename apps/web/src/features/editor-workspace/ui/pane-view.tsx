@@ -42,6 +42,8 @@ export interface PaneActions {
 
 export interface PaneViewProps extends PaneActions {
   layout: PaneLayout;
+  /** Focus mode: the toolbar is hidden, so each document keeps its own bar. */
+  focus?: boolean;
   /** What a tab is called in its header — the entity's title, not its path. */
   labelFor: (tab: TabRef) => string;
   /** The editor for a tab. One call per open tab, not per visible tab. */
@@ -144,6 +146,7 @@ function PaneLeafView({
   onClose,
   onFocus,
   onDropTab,
+  focus,
   slot,
 }: TreeProps & { leaf: PaneLeaf }) {
   const focused = layout.focusedPaneId === leaf.id;
@@ -259,7 +262,7 @@ function PaneLeafView({
               // scroll position, its undo history and its live binding.
               return (
                 <div key={tabKey(tab)} className="pane-document" hidden={!shown}>
-                  <ToolbarSlotContext.Provider value={focused && shown ? slot : null}>
+                  <ToolbarSlotContext.Provider value={focus ? undefined : focused && shown ? slot : null}>
                     {renderDocument(tab)}
                   </ToolbarSlotContext.Provider>
                 </div>

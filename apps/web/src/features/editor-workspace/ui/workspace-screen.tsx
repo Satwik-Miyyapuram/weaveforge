@@ -706,6 +706,7 @@ export function WorkspaceScreen() {
         onHide={toggleExplorer}
       />
       <PaneView
+        focus={focus}
         layout={layout}
         labelFor={labelFor}
         renderDocument={renderDocument}

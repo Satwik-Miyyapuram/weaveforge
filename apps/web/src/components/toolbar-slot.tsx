@@ -15,8 +15,9 @@ import { createPortal } from "react-dom";
 /** undefined: not in the Editor. null: in it, but not the focused document. */
 export const ToolbarSlotContext = createContext<HTMLElement | null | undefined>(undefined);
 
-export function ToolbarSlot({ children }: { children: ReactNode }) {
+/** `inline` keeps the bar in place even in the Editor (the reader's own focus). */
+export function ToolbarSlot({ children, inline = false }: { children: ReactNode; inline?: boolean }) {
   const slot = useContext(ToolbarSlotContext);
-  if (slot === undefined) return <>{children}</>;
+  if (slot === undefined || inline) return <>{children}</>;
   return slot ? createPortal(children, slot) : null;
 }

@@ -74,6 +74,7 @@ import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
 import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FocusGlyph } from "@/components/focus-glyph";
+import { ToolbarSlot } from "@/components/toolbar-slot";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink } from "./overlays";
 import { readWritingPage, writeWritingPage } from "./writing-page";
 import { layoutMarginNotes } from "../../application/margin-notes";
@@ -1511,6 +1512,9 @@ export function PdfReader({
       )}
       {/* One panel, two rows: viewport controls above, find/view/annotate below.
           Two free-floating wrapping bars read as scattered chrome. */}
+      {/* In the Editor the bar goes up to the one toolbar; in the reader's own
+          focus it stays, so the pen palette can float over the page. */}
+      <ToolbarSlot inline={focus}>
       <div className="pdf-reader-chrome" data-phone-panel={phonePanel}>
         <div className="pdf-reader-tools">
           <PagePill
@@ -1635,6 +1639,7 @@ export function PdfReader({
           />
         )}
       </div>
+      </ToolbarSlot>
       {/* Both rectangle tools look identical while dragging, so say which one
           is armed and what releasing will do. The pointer tool says more with
           the pen out than without it: with the pen away the ink is read-only,

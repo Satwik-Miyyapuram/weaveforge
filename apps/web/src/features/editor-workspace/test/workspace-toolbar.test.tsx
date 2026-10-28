@@ -80,3 +80,49 @@ test("the read-only sheet's page and zoom bar also goes up to the toolbar", () =
   const reader = readFileSync(fileURLToPath(new URL("../../ink/ui/ink-reader.tsx", import.meta.url)), "utf8");
   assert.match(reader, /<ToolbarSlot>\s*<div className="ink-reader-bar">/);
 });
+
+test("in focus the toolbar hides, so a document keeps its own bar in the pane", async () => {
+  const { PaneView } = await import("../ui/pane-view");
+  const { ToolbarSlot } = await import("@/components/toolbar-slot");
+  const noop = () => {};
+  const view = (focus: boolean) =>
+    renderToStaticMarkup(
+      <PaneView
+        focus={focus}
+        layout={openTab(emptyLayout(), { kind: "note", id: "n1" })}
+        labelFor={() => "Note"}
+        renderDocument={() => (
+          <ToolbarSlot>
+            <i className="doc-bar">bar</i>
+          </ToolbarSlot>
+        )}
+        onActivate={noop}
+        onClose={noop}
+        onFocus={noop}
+        onSplit={noop}
+        onDropTab={noop}
+        onRatio={noop}
+        onSetMode={noop}
+        onTogglePreview={noop}
+      />,
+    );
+  assert.match(view(true), /<div class="pane-document"><i class="doc-bar">/);
+  // Out of focus the bar belongs to the toolbar's slot, never the pane.
+  assert.doesNotMatch(view(false), /pane-document"><i class="doc-bar"/);
+});
+
+test("the PDF reader's bar goes up to the toolbar too, as one flat row", () => {
+  const reader = readFileSync(fileURLToPath(new URL("../../reader/ui/pdf-reader/pdf-reader.tsx", import.meta.url)), "utf8");
+  // In its own focus the reader floats the palette over the page, so it stays put.
+  assert.match(reader, /<ToolbarSlot inline=\{focus\}>\s*<div className="pdf-reader-chrome"/);
+  const css = readFileSync(fileURLToPath(new URL("../../../app/styles/editor-workspace.css", import.meta.url)), "utf8");
+  const rule = (selector: string) => {
+    const at = css.indexOf(`${selector} {`);
+    assert.ok(at >= 0, `missing ${selector}`);
+    return css.slice(at, css.indexOf("}", at));
+  };
+  assert.match(rule(".workspace-toolbar-doc > .pdf-reader-chrome"), /flex-wrap: nowrap/);
+  assert.match(rule(".workspace-toolbar-doc .pdf-reader-tools"), /flex-wrap: nowrap/);
+  // The toolbar has its own Focus.
+  assert.match(rule(".workspace-toolbar-doc .pdf-reader-focus-btn"), /display: none/);
+});

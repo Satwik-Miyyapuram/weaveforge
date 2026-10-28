@@ -829,6 +829,35 @@
   flex: 1 1 auto;
 }
 
+/* The PDF reader's panel, flattened into the row: ink tools, then page, zoom,
+   find and more. The toolbar has its own Focus, so the reader's hides. */
+.workspace-toolbar-doc > .pdf-reader-chrome {
+  position: static;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow-x: auto;
+  border: 0;
+  background: none;
+}
+
+.workspace-toolbar-doc .pdf-reader-chrome .ink-bar {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  padding: 4px 0;
+}
+
+.workspace-toolbar-doc .pdf-reader-tools {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 4px;
+  padding: 4px;
+}
+
+.workspace-toolbar-doc .pdf-reader-focus-btn {
+  display: none;
+}
+
 .workspace-toolbar-end {
   display: inline-flex;
   align-items: center;

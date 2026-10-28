@@ -28,6 +28,16 @@ test("in the Editor, a document that is not focused shows no tools of its own", 
 test("the ink note's bar goes through the slot, and the panes hand it only to the focused document", () => {
   assert.match(read("features/ink/ui/ink-host.tsx"), /<ToolbarSlot>\s*<InkBar/);
   const pane = read("features/editor-workspace/ui/pane-view.tsx");
-  assert.match(pane, /<ToolbarSlotContext\.Provider value=\{focused && shown \? slot : null\}>/);
+  assert.match(pane, /<ToolbarSlotContext\.Provider value=\{focus \? undefined : focused && shown \? slot : null\}>/);
   assert.match(read("features/editor-workspace/ui/workspace-toolbar.tsx"), /className="workspace-toolbar-doc" ref=\{slotRef\}/);
+});
+
+test("a document can keep its bar in place, as the reader does in its own focus", () => {
+  const slot = {} as HTMLElement;
+  const html = renderToStaticMarkup(
+    <ToolbarSlotContext.Provider value={slot}>
+      <ToolbarSlot inline><b>bar</b></ToolbarSlot>
+    </ToolbarSlotContext.Provider>,
+  );
+  assert.equal(html, "<b>bar</b>");
 });
