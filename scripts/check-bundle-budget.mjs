@@ -108,7 +108,9 @@ const ROUTE_ALLOWANCES_KB = {
   // container every route boots, so every route carries their code: +1 KB.
   // Settings houses workspace folder mirror, git 3-way conflict resolution, and sync issues:
   // Plus the local API token panel, Connect panel for local AI clients (0.8.11), and DatePicker.
-  "/settings": 484,
+  // The shared row and tab buttons, connection state and settings find from the
+  // design sweep (#527): +4 KB. No dependency arrived.
+  "/settings": 488,
   // graph and experiments share the top navigation with live sync status indicators;
   // experiments added the image viewer, result editor and token create form, and
   // graph shares the chunk that carries them: +3 KB each.
