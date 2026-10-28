@@ -110,7 +110,7 @@ export function EntityCard({
 
       {tags && tags.length > 0 && (
         // A heavily tagged entity would otherwise wrap to three rows and push
-        // the body off-screen on a phone. One line, then a count.
+        // the body off-screen on a phone. A few tags, then a count.
         <div className="tag-chips chip-row--capped">
           {tags.slice(0, MAX_CARD_TAGS).map((t) => (
             <span key={t} className="tag-chip" title={`#${t}`}>

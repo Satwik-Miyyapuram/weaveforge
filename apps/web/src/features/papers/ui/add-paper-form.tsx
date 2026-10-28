@@ -1,7 +1,7 @@
 "use client";
 
 import { enumLabel } from "@/lib/enum-label";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { PAPER_STATUSES, parsePaperRef, type Paper, type PaperRef, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
@@ -9,6 +9,9 @@ import { scaffoldNewPaperNote } from "../application/paper-source-note-scaffold"
 import { useSubmit } from "@/lib/hooks/use-submit";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/button";
+import { formatError } from "@/lib/format-error";
+import type { PdfDropOutcome } from "../application/paper-from-pdf";
+import { addPdfFiles } from "./pdf-drop";
 
 
 type RefKind = Exclude<PaperRef["kind"], "bibliographic">;
@@ -47,7 +50,17 @@ export function addedPaperMessage(created: boolean): string {
  * ImportPaper use-cases via the container. The import source (arXiv, DOI,
  * Zotero) is chosen here; the resolver picks the matching IMetadataSource.
  */
-export function AddPaperForm({ onAdded }: { onAdded?: (paper: Paper, created: boolean) => void }) {
+export function AddPaperForm({
+  onAdded,
+  onPdfs,
+}: {
+  onAdded?: (paper: Paper, created: boolean) => void;
+  /** Offers a PDF picker; the outcomes are the caller's to announce. */
+  onPdfs?: (outcomes: PdfDropOutcome[]) => void;
+}) {
+  const pdfRef = useRef<HTMLInputElement>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [refKind, setRefKind] = useState<RefKind>("url");
   const [refValue, setRefValue] = useState("");
@@ -77,6 +90,21 @@ export function AddPaperForm({ onAdded }: { onAdded?: (paper: Paper, created: bo
     setRefValue("");
     onAdded?.(paper, created);
   });
+
+  async function pickPdfs(input: HTMLInputElement) {
+    const files = Array.from(input.files ?? []);
+    input.value = "";
+    if (files.length === 0 || !onPdfs) return;
+    setPdfBusy(true);
+    setPdfError(null);
+    try {
+      onPdfs(await addPdfFiles(files));
+    } catch (err) {
+      setPdfError(formatError(err));
+    } finally {
+      setPdfBusy(false);
+    }
+  }
 
   return (
     <form className="card add-form" onSubmit={submit}>
@@ -134,7 +162,32 @@ export function AddPaperForm({ onAdded }: { onAdded?: (paper: Paper, created: bo
           </Select>
         </div>
       </div>
-      {error && <FormError>{error}</FormError>}
+      {onPdfs && (
+        <div className="field">
+          <label htmlFor="pdfFile">…or add from a PDF</label>
+          {/* The native input stays for the label and screen readers; the
+              app's own button opens it, since no theme can restyle the
+              browser's "Choose files / No file chosen". */}
+          <input
+            ref={pdfRef}
+            id="pdfFile"
+            className="sr-only"
+            type="file"
+            accept="application/pdf,.pdf"
+            multiple
+            disabled={pdfBusy}
+            aria-describedby="pdfFileHint"
+            onChange={(e) => void pickPdfs(e.currentTarget)}
+          />
+          <div>
+            <Button size="sm" disabled={pdfBusy} onClick={() => pdfRef.current?.click()}>
+              {pdfBusy ? "Reading PDF…" : "Choose PDFs…"}
+            </Button>
+          </div>
+          <p id="pdfFileHint" className="muted field-hint">The DOI or title on its first page finds the paper. You can also drop PDFs on Papers.</p>
+        </div>
+      )}
+      {(pdfError ?? error) && <FormError>{pdfError ?? error}</FormError>}
       <Button type="submit" variant="primary" disabled={busy}>
         {busy ? "Adding…" : "Add paper"}
       </Button>

@@ -1,16 +1,14 @@
 "use client";
 
-import { formatDate } from "@/lib/format-date";
 import { useCallback, useEffect, useState } from "react";
 import {
   AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS, AI_PROPOSAL_KINDS, AI_READ_CATEGORIES, aiReadCategoryForResource, applyUserIntegrationFields, getUserIntegrationField, type AiAccessSettings, type AiProposalKind, type AiReadCategory, type UserSettings } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
 import { hasServerRoutes } from "@/deployment/capabilities";
-import type { AiSourceOption, McpTokenRecord } from "@/container/facades";
+import type { AiSourceOption } from "@/container/facades";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
-import { ConfirmDialog } from "@/components/confirm-dialog";
 import { formatError } from "@/lib/format-error";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { logToApp } from "@/lib/error-report/app-log";
@@ -73,9 +71,11 @@ export function persistActiveSessions(ai: SessionStore): void {
   );
 }
 
-export function AiAccessPanel({ settings, onChange }: {
+export function AiAccessPanel({ settings, onChange, onManageTokens }: {
   settings: UserSettings;
   onChange: (settings: UserSettings) => void;
+  /** MCP tokens live on Settings › Access tokens with every other kind (DA-132). */
+  onManageTokens: () => void;
 }) {
   const [sources, setSources] = useState<readonly AiSourceOption[]>([]);
   const [selectedSourceIds, setSelectedSourceIds] = useState<readonly string[]>([]);
@@ -86,10 +86,6 @@ export function AiAccessPanel({ settings, onChange }: {
   const [busy, setBusy] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [connection, setConnection] = useState<{ sessionId: string; secret: string } | null>(null);
-  const [mcpTokens, setMcpTokens] = useState<readonly McpTokenRecord[]>([]);
-  const [newMcpToken, setNewMcpToken] = useState<string | null>(null);
-  /** The MCP token awaiting a revoke confirmation, by id. */
-  const [revokingMcp, setRevokingMcp] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [rememberConnection, setRememberConnection] = useState(() => Boolean(getUserIntegrationField(settings, "mcp", "pairingSecret")));
   const access: AiAccessSettings = settings.aiAccess ?? DEFAULT_AI_ACCESS;
@@ -156,29 +152,6 @@ export function AiAccessPanel({ settings, onChange }: {
       current = false;
     };
   }, [access.enabled]);
-
-  /** `isCurrent` lets the caller drop a response that arrived after the gate closed. */
-  const loadMcpTokens = useCallback(async (isCurrent: () => boolean = () => true) => {
-    try {
-      const tokens = await getContainer().settings.mcpTokens.list();
-      if (isCurrent()) setMcpTokens(tokens);
-    } catch {
-      // Advisory list: a failed read leaves the last known set in place rather
-      // than blanking the panel, which says less than showing what it had.
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!access.enabled) {
-      setMcpTokens([]);
-      return;
-    }
-    let current = true;
-    void loadMcpTokens(() => current);
-    return () => {
-      current = false;
-    };
-  }, [access.enabled, loadMcpTokens]);
 
   const persistSessions = useCallback(() => persistActiveSessions(getContainer().aiAssistant), []);
 
@@ -261,35 +234,6 @@ export function AiAccessPanel({ settings, onChange }: {
       setSessionError(formatError(err));
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function createMcpToken() {
-    setBusy(true);
-    setSessionError(null);
-    try {
-      const { plaintext, record } = await getContainer().settings.mcpTokens.create();
-      setNewMcpToken(plaintext);
-      if (record) setMcpTokens((current) => [record, ...current]);
-    } catch (err) {
-      setSessionError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function revokeMcpToken(id: string) {
-    setBusy(true);
-    setSessionError(null);
-    try {
-      await getContainer().settings.mcpTokens.revoke(id);
-      setMcpTokens((current) => current.filter((token) => token.id !== id));
-      setNewMcpToken(null);
-    } catch (err) {
-      setSessionError(formatError(err));
-    } finally {
-      setBusy(false);
-      setRevokingMcp(null);
     }
   }
 
@@ -401,11 +345,9 @@ export function AiAccessPanel({ settings, onChange }: {
                 </div>
                 <label className="ai-master-toggle"><span><strong>Remember this Codex connection on this device</strong><small>Stores only the pairing secret in your encrypted settings. Sessions still expire and require an unlocked browser.</small></span><input className="themed-check" type="checkbox" checked={rememberConnection} onChange={(event) => { setRememberConnection(event.target.checked); if (!event.target.checked) onChange(applyUserIntegrationFields(settings, "mcp", { pairingSecret: "" })); }} /></label>
                 <div className="ai-mcp-token-control">
-                  <div><strong>MCP token</strong><small>Create one token for this Codex plugin connection. It does not expire, is shown only once, and can be revoked here at any time.</small></div>
-                  <Button onClick={() => void createMcpToken()} disabled={busy}>{mcpTokens.length ? "Create replacement" : "Create MCP token"}</Button>
+                  <div><strong>MCP token</strong><small>Codex signs in with an MCP token. Make, copy and revoke them on Settings › Access tokens.</small></div>
+                  <Button onClick={onManageTokens}>Manage MCP tokens</Button>
                 </div>
-                {newMcpToken && <div className="ai-connection-value"><span><small>New MCP token — copy it now</small><code>••••••••••••••••••••••••</code></span><Button onClick={() => copyConnection("token", newMcpToken)}>{copied === "token" ? "Copied" : "Copy"}</Button></div>}
-                {mcpTokens.length > 0 && <div className="ai-token-list"><small>{mcpTokens.length} active MCP token{mcpTokens.length === 1 ? "" : "s"}</small>{mcpTokens.map((token) => <div className="ai-active-session" key={token.id}><span><strong>{token.name}</strong><small>{token.tokenPrefix} · {token.lastUsedAt ? `last used ${formatDate(token.lastUsedAt)}` : "not used yet"}</small></span><Button size="sm" className="danger" onClick={() => setRevokingMcp(token.id)} disabled={busy}>Revoke</Button></div>)}</div>}
                 <div className="ai-source-scope">
                   <div>
                     <strong>Source access</strong>
@@ -462,19 +404,6 @@ export function AiAccessPanel({ settings, onChange }: {
           </section>
         </>
       )}
-
-      {/* The confirmation the app draws, in place of `window.confirm`. */}
-      {revokingMcp ? (
-        <ConfirmDialog
-          title="Revoke this MCP token?"
-          body="Any Codex connection using it will stop immediately."
-          confirmLabel="Revoke"
-          danger
-          busy={busy}
-          onConfirm={() => void revokeMcpToken(revokingMcp)}
-          onClose={() => setRevokingMcp(null)}
-        />
-      ) : null}
     </section>
   );
 }

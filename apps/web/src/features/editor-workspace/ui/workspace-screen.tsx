@@ -59,6 +59,7 @@ import { FormError } from "@/components/form-error";
 import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
 import { shortcutLabel } from "@/lib/shortcut-label";
 import { RowButton } from "@/components/controls";
+import { ScreenLoader } from "@/components/weaveforge-loader";
 
 function store(): Storage | undefined {
   return typeof localStorage === "undefined" ? undefined : localStorage;
@@ -588,7 +589,7 @@ export function WorkspaceScreen() {
   }, [apply, toggleExplorer, toggleFocus]);
 
   if (error && !documents) return <FormError>{error}</FormError>;
-  if (!documents) return <p className="muted">Loading workspace…</p>;
+  if (!documents) return <ScreenLoader status="Loading workspace…" />;
 
   const activeDoc = activeKeyOf ? byKey.get(activeKeyOf) : undefined;
   activeDocRef.current = activeDoc;
@@ -720,5 +721,5 @@ function HydratingDocument({ tab, hydrate }: { tab: TabRef; hydrate: (tab: TabRe
   useEffect(() => {
     hydrate(tab);
   }, [tab, hydrate]);
-  return <p className="muted">Loading…</p>;
+  return <ScreenLoader status="Loading note…" showTips={false} compact />;
 }

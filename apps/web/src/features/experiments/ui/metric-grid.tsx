@@ -65,7 +65,7 @@ export function MetricGrid({
             list={`metric-grid-ticks-${variant}`}
             // Right is zoom in (fewer, bigger charts), same as the + beside it.
             value={max + 1 - cols}
-            aria-label="Chart size"
+            aria-label="Charts per row"
             onChange={(e) => set(max + 1 - Number(e.target.value))}
           />
           <datalist id={`metric-grid-ticks-${variant}`}>
@@ -76,7 +76,7 @@ export function MetricGrid({
           <RowButton aria-label="Zoom in" disabled={cols <= 1} onClick={() => set(cols - 1)}>
             <PlusIcon />
           </RowButton>
-          <span className="seg-on metric-grid-count">{cols} / row</span>
+          <span className="seg-on metric-grid-count">{cols} per row</span>
         </label>
       )}
       <div ref={gridRef} className={`metric-curves metric-curves--${variant}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>

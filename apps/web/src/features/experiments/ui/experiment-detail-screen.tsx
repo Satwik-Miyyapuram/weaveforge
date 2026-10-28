@@ -89,6 +89,13 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   const [resultDraft, setResultDraft] = useState<string | null>(null);
   const [resultError, setResultError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [cmdCopied, setCmdCopied] = useState(false);
+  async function copyRunCommand() {
+    if (!exp?.runCommand) return;
+    await navigator.clipboard.writeText(exp.runCommand);
+    setCmdCopied(true);
+    setTimeout(() => setCmdCopied(false), 2000);
+  }
   async function saveResult() {
     if (!exp || resultDraft === null) return;
     try {
@@ -148,7 +155,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   const activity = [
     exp.finishedAt ? { at: recordDate(exp.finishedAt), what: `Marked ${exp.status}` } : null,
     exp.startedAt ? { at: recordDate(exp.startedAt), what: "Run started" } : null,
-    { at: recordDate(exp.createdAt), what: "Logged" },
+    { at: recordDate(exp.createdAt), what: "Created" },
   ].filter((e): e is { at: string; what: string } => e !== null && e.at !== "");
 
   return (
@@ -178,7 +185,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
         <header className="record-head">
           <h1 className="record-title">{exp.name}</h1>
           {exp.hypothesis && <p className="record-by record-hypothesis">{exp.hypothesis}</p>}
-          {meta && <p className="record-mono record-meta">{meta}</p>}
+          {meta && !asideOpen && <p className="record-mono record-meta">{meta}</p>}
         </header>
 
         <div className={`record-grid${asideOpen ? "" : " record-grid--aside-shut"}`}>
@@ -242,7 +249,14 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
             </RecordSection>
 
             {exp.runCommand && (
-              <RecordSection label="Run command">
+              <RecordSection
+                label="Run command"
+                tag={
+                  <Button size="sm" onClick={() => void copyRunCommand()}>
+                    {cmdCopied ? "Copied" : "Copy"}
+                  </Button>
+                }
+              >
                 <pre className="exp-run-cmd">{exp.runCommand}</pre>
               </RecordSection>
             )}
@@ -271,7 +285,6 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
             <RecordSection label="Record">
               <RecordFacts
                 rows={[
-                  ["Status", exp.status],
                   started ? ["Started", started] : null,
                   finished ? ["Finished", finished] : null,
                   exp.branch ? ["Branch", exp.branch] : null,

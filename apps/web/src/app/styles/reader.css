@@ -7,8 +7,9 @@
   gap: 8px;
   outline: none;
 }
-/* One control surface. Either one unified bar when wide, or a clean 2-line
-   layout (tools top, ink bar bottom) when narrow, separated by a hairline. */
+/* One control surface: the ink bar, then the page, zoom, find and view tools,
+   with Focus at the right end. One lane when they fit; what does not fit
+   wraps into the next lane. Nothing scrolls sideways, which hid Focus. */
 .pdf-reader-chrome {
   border: 1px solid var(--line);
   border-radius: var(--r-control);
@@ -20,59 +21,26 @@
   top: var(--titlebar-h);
   z-index: 5;
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
 }
 .pdf-reader-tools {
-  order: 1;
+  order: 2;
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 4px 8px;
-  border-top: 0;
-  border-bottom: 1px solid var(--line);
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
-.pdf-reader-tools::-webkit-scrollbar {
+.pdf-reader-chrome .ink-bar .ink-bar-spacer {
   display: none;
-}
-.pdf-reader-chrome .ink-bar {
-  order: 2;
-  border: 0;
-  padding: 4px 8px;
 }
 @media (min-width: 721px) {
   .pdf-reader-chrome .pdf-reader-more { display: inline-flex; }
 }
 
-/* Wide screen: single-line toolbar with ink tools on the left and search/focus on the right. */
-@container (min-width: 900px) {
-  .pdf-reader-chrome {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: nowrap;
-  }
-  .pdf-reader-chrome .ink-bar {
-    order: 1;
-    flex: 0 0 auto;
-    border-bottom: 0;
-    border-right: 1px solid var(--line);
-    padding: 4px 8px;
-  }
-  .pdf-reader-chrome .ink-bar .ink-bar-spacer {
-    display: none;
-  }
-  .pdf-reader-chrome > .pdf-reader-tools {
-    order: 2;
-    flex: 1 1 auto;
-    min-width: 0;
-    border-bottom: 0;
-    border-left: 0;
-    padding: 4px 8px;
-  }
-}
 /* Related controls sit in a bordered cluster so grouping is visible, not implied. */
 .pdf-reader-group {
   display: inline-flex; align-items: center; gap: 4px; flex: none;
@@ -98,17 +66,16 @@
      scrolling strip hides it; lead with it instead. (Pinning it with sticky
      just parks it on top of whatever scrolls underneath.) */
   .pdf-reader-tools { gap: 8px; padding: 4px 8px; }
-  /* Keep a usable field and let the strip scroll rather than crushing the
-     input to a few characters. Scoped through .pdf-reader-chrome so it beats
+  /* Keep a usable field and let it wrap to the next lane rather than crushing
+     the input to a few characters. Scoped through .pdf-reader-chrome so it beats
      the base rule, which is defined later in this file. */
   .pdf-reader-chrome .pdf-reader-search { flex: 0 0 auto; }
   .pdf-reader-chrome .pdf-reader-search input { min-width: 9rem; }
   .pdf-reader-chrome:not([data-phone-panel="more"]) .pdf-reader-more { display: none; }
-  .pdf-reader-tools { flex-wrap: nowrap; overflow-x: auto; }
   /* Page, zoom and the two toggles fit one 360px row: tighter icon tiles, and
      "3 / 14" speaks for itself without the word "Page". */
   .pdf-reader-group .pdf-reader-icon-btn { min-width: 28px; padding: 0 8px; }
-  .pdf-reader-more.pdf-reader-group, .pdf-reader-annotate { flex-wrap: nowrap; flex: 0 1 auto; }
+  .pdf-reader-more.pdf-reader-group, .pdf-reader-annotate { flex: 0 1 auto; }
 }
 .pdf-reader-banner {
   padding: 8px 12px; border-radius: var(--r-control); font-size: var(--fs);
@@ -206,7 +173,6 @@
 .pdf-reader-page {
   position: relative;
   background: var(--pdf-paper);
-  box-shadow: var(--e1);
   min-height: 0;
   /* The scroller is a column flex container with a bounded height, so pages
      inherited flex-shrink: 1. Once zoomed, their combined height exceeded that
@@ -318,6 +284,12 @@
 }
 .pdf-reader-outline ul { list-style: none; margin: 0; padding-left: 0.75rem; }
 .pdf-reader-outline > ul { padding-left: 0; }
+/* A long title wraps under itself, read from the left, rather than running
+   past the panel's edge. */
+.pdf-reader-outline .link-btn {
+  display: block; width: 100%; min-width: 0;
+  text-align: left; white-space: normal; overflow-wrap: anywhere;
+}
 .pdf-reader-outline-empty { font-size: var(--fs); padding: 8px; }
 .pdf-reader-textlayer {
   /* Relayout boundary so inserted page spans do not dirty the rest of the document. */
@@ -768,18 +740,19 @@ body > canvas.hiddenCanvasElement { display: none; }
    `.ink-bar` element, only here it is a row inside the reader's panel rather
    than the panel's first line — one control surface, one hairline. */
 .pdf-reader-chrome .ink-bar {
-  order: 2;
-  border-bottom: 0;
-  border-top: 0;
+  order: 1;
+  flex: 0 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+  border: 0;
   background: transparent;
   box-shadow: none;
   padding: 4px 8px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
-.pdf-reader-chrome .ink-bar::-webkit-scrollbar {
-  display: none;
+/* Flat controls: a selected tool shows by its fill, not a lifted shadow, and
+   the themes' offset shadows on buttons and fields stay off this bar. */
+:root:root:root .pdf-reader-chrome :is(.btn, .btn-secondary, .ink-tool, .ink-page-input, .ink-page-pill, .pdf-reader-group, .pdf-reader-search, .pdf-reader-search input, .ink-menu-trigger):not(:focus-visible) {
+  box-shadow: none;
 }
 /* In focus it floats (editor-workspace.css): restore complete border on all sides. */
 :is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .ink-bar.ink-palette {
@@ -799,7 +772,6 @@ body > canvas.hiddenCanvasElement { display: none; }
   background-image: repeating-linear-gradient(to bottom, transparent 0 27px, var(--line) 27px 28px);
   border-left: 1px dashed var(--line);
   pointer-events: none;
-  box-shadow: var(--e1);
 }
 .pdf-reader--dark .pdf-reader-page-margin { background: var(--pdf-margin); }
 .pdf-reader-margin-note {

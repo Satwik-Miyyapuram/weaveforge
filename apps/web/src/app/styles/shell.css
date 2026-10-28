@@ -100,7 +100,7 @@
 /* margin-left: auto, not the row's space-between: the org and project switchers
    that anchor the left both render nothing when no project is selected, and
    space-between then drops this — the row's only child — at the start. */
-.brand-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.brand-right { display: flex; flex: none; align-items: center; gap: 8px; margin-left: auto; }
 .mobile-only .header-link span,
 .mobile-only .signout span,
 .mobile-only .theme-toggle span { display: none; }
@@ -116,24 +116,21 @@
   gap: 8px;
   min-width: 0;
 }
-.brand.mobile-only .org-switcher {
-  flex: 0 1 auto;
-  max-width: 38%;
-  min-width: 0;
-  margin-bottom: 0;
-}
-.brand.mobile-only .org-switcher .proj-chip {
-  max-width: 100%;
-}
 .brand.mobile-only .proj-switcher {
   margin-left: 0;
   flex: 1 1 auto;
   min-width: 0;
 }
-.brand.mobile-only .proj-chip {
+/* The popover is inline-flex and would take the name's full width. */
+.brand.mobile-only .proj-switcher .popover {
   max-width: 100%;
 }
+.brand.mobile-only .proj-chip {
+  max-width: 100%;
+  min-width: 0;
+}
 .brand.mobile-only .proj-chip > span:nth-child(2) {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -223,6 +220,14 @@
      in the bar on a phone. */
   width: var(--touch-min); height: var(--touch-min);
   font-size: calc(var(--icon-size) + 4px); line-height: 1;
+  position: relative;
+}
+/* What needs the person (sync conflicts, AI suggestions) as one count on the
+   icon's corner, like a notification; nothing shows when nothing waits. */
+.account-btn .popover-badge {
+  position: absolute; top: -6px; right: -6px;
+  min-width: 18px; height: 18px; line-height: 18px; pointer-events: none;
+  box-shadow: 0 0 0 2px var(--nav-bg, var(--surface));
 }
 .header-menu {
   position: absolute; z-index: var(--z-popover); top: calc(100% + 8px); right: 0; min-width: 210px;
@@ -260,7 +265,7 @@
  * Full-bleed chrome on `/workspace`.
  *
  * The desktop block in `nav.css` gives `.app-shell` a fluid gutter and the
- * layout a `--nav-inset` left padding so content clears the 216px sidebar.
+ * layout a `--nav-inset` left padding so content clears the 224px sidebar.
  * The editor is not a page inside that frame — it is the frame: the nav rail,
  * its own explorer and panes that must reach the window's edges on all four
  * sides. Both declarations are therefore zeroed on this route only, and every
@@ -277,4 +282,10 @@
 
 .layout.editor-route .app-shell {
   padding: 0;
+}
+/* The workspace runs edge to edge; its phone header keeps the page gutter, or
+   the account button's count hangs off the screen. */
+.layout.editor-route .brand.mobile-only {
+  padding-inline: 16px;
+  margin-top: 8px;
 }

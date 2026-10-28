@@ -76,7 +76,7 @@ function RelatedPaper({ paperId }: { paperId: string }) {
   const title = usePaperTitle(paperId);
   if (!title) return null;
   return (
-    <span className="git-chip" title="Paper this run tests/implements">
+    <span className="git-chip git-chip--paper" title="Paper this run tests/implements">
       <em>paper</em> {title}
     </span>
   );
@@ -189,9 +189,9 @@ export function Artifacts({ urls: entries, detail = false }: { urls: string[]; d
       )}
       {links.length > 0 && (
         <div className="git-chips">
-          {links.map((url) => (
+          {links.map((url, i) => (
             <a key={url} className="git-chip is-link" href={url} target="_blank" rel="noreferrer">
-              artifact
+              {figureLabel(url, i)}
             </a>
           ))}
         </div>

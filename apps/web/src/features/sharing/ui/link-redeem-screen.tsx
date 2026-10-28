@@ -5,7 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { getContainer } from "@/bootstrap";
 import { sharedResourceHref } from "./shared-item-routes.js";
 import { formatError } from "@/lib/format-error";
-import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
+import { EmptyState } from "@/components/empty-state";
+import { NavIcon } from "@/app/nav-icon";
+import { ScreenLoading } from "@/components/screen-loading";
 
 export function LinkRedeemScreen() {
   const params = useSearchParams();
@@ -35,27 +38,26 @@ export function LinkRedeemScreen() {
     })();
   }, [token, router]);
 
-  if (!token) {
+  if (!token || error) {
     return (
       <main className="app-shell link-redeem-screen" data-testid="link-redeem">
-        <FormError>Missing link token.</FormError>
-      </main>
-    );
-  }
-
-  if (error) {
-    return (
-      <main className="app-shell link-redeem-screen" data-testid="link-redeem">
-        <FormError>{error}</FormError>
+        <EmptyState
+          variant="first-run"
+          icon={<NavIcon name="share" />}
+          title={token ? "This link didn't open" : "This link is incomplete"}
+          body={
+            error ??
+            "A shared link ends in a code that opens the item. Ask the person who shared it for the full link."
+          }
+          action={<Button href="/">Go home</Button>}
+        />
       </main>
     );
   }
 
   return (
     <main className="app-shell link-redeem-screen" data-testid="link-redeem">
-      <p className="muted">
-        {redeeming ? "Opening shared item…" : "Preparing shared link…"}
-      </p>
+      <ScreenLoading status={redeeming ? "Opening shared item…" : "Preparing shared link…"} />
     </main>
   );
 }

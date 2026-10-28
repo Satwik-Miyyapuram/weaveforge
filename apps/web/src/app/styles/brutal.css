@@ -603,9 +603,10 @@
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .dashboard-stat-row {
   /* Beside the number, not under it: the grid's stat rows are too short
-     for three lines and a bar. */
+     for three lines and a bar. On the last baseline, a count that wraps on
+     a phone rises beside the number instead of pushing the bar out. */
   flex-direction: row-reverse;
-  align-items: baseline;
+  align-items: last baseline;
   justify-content: flex-end;
   gap: 12px;
 }
@@ -686,6 +687,8 @@
   box-shadow: inset 0 0 0 var(--bw) var(--bw-line), var(--sh-sm);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail-count { font-family: var(--font); font-weight: 400; }
+/* Count badges: the reading face has a true 600; the pixel face only a faux bold. */
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.nav-badge, .popover-badge) { font-family: var(--font); font-weight: 600; letter-spacing: 0; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-panel { padding: 24px 24px; }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-two-pane .list-tree-root > .list-node > .list-row {
   background: transparent; border: 0; padding: 0 0 12px; gap: 12px;
@@ -1123,7 +1126,7 @@
 /* ── Supervision ───────────────────────────────────────────────────────── */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-panels > .card { box-shadow: var(--sh-card); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-head, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-role, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-reviewing, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-note-label,
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-meta, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-log-date, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-screen .superv-picker label { font-family: var(--font); }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-meta, :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-log-date { font-family: var(--font); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-item { border-radius: var(--radius-sm); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-team-item.is-active { background: var(--text); color: var(--surface); }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .superv-avatar { border: var(--bw) solid var(--bw-line); background: var(--chip-reading); color: var(--text); }

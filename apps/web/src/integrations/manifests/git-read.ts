@@ -20,7 +20,7 @@ export const githubGitReadManifest: GitReadIntegrationManifest = {
     {
       id: "github-git-read",
       provider: "github",
-      title: "GitHub — code & experiments",
+      title: "GitHub — Git tab",
       description: "Read commits and branches in the Git tab to track experiments.",
       color: "#2c2a26",
       fields: GITHUB_FIELDS,
@@ -38,8 +38,7 @@ export const gitlabGitReadManifest: GitReadIntegrationManifest = {
       id: "gitlab-git-read",
       provider: "gitlab",
       title: "GitLab — Git tab",
-      description:
-        "Read commits and branches in the Git tab (same repo credentials as logbook when both are enabled).",
+      description: "Read commits and branches in the Git tab to track experiments.",
       color: "#e2503f",
       fields: GITLAB_FIELDS,
       runtimeGate: { kind: "gitRead", providerId: "gitlab" },

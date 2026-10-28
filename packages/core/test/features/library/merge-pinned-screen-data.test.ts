@@ -38,6 +38,7 @@ function share(input: {
 
 const pin = (resourceId: string, ownerId = "alice") => ({
   id: `pin-${resourceId}`,
+  userId: "me",
   projectId: "proj",
   resourceType: "paper" as const,
   resourceId,
@@ -206,4 +207,16 @@ test("merge: one pin that fails to load drops that pin, not the screen (02-15)",
     },
   });
   assert.deepEqual(merged.items.map((item) => item.id), ["p1", "p9"]);
+});
+
+test("a pin of a row the reader owns is not 'shared by' anyone (E13)", async () => {
+  const result = await merge({
+    owned: [{ id: "p1", title: "mine" }, { id: "p2", title: "a project row alice owns" }],
+    pins: [pin("p1", "me"), pin("p2")],
+    shares: [],
+  });
+  assert.deepEqual(result.items.map((x) => x.id), ["p1", "p2"]);
+  assert.equal(result.pinnedSharedBy.has("p1"), false);
+  assert.equal(result.pinnedSharedBy.get("p2"), "alice");
+  assert.equal(result.canEdit.has("p1"), false);
 });

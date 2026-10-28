@@ -64,18 +64,14 @@
 .filter-chip-x:hover { filter: brightness(0.8); color: var(--ink); }
 
 @media (max-width: 899px) {
-  /* One scrolling row; select menus portal out so the scroll can't clip them. */
-  /* Padding keeps the buttons' offset shadow and hover lift inside the scroll clip. */
-  .filter-row { overflow-x: auto; scrollbar-width: none; padding: 4px 4px 4px 0; margin: 16px 0 4px; }
-  .filter-row > * { flex: none; scroll-snap-align: start; }
-  /* Same edge fade and snap as the section strips (DA-93, base.css). */
-  .filter-row {
-    mask-image: linear-gradient(to right, transparent, black var(--fade-start), black calc(100% - var(--fade-end)), transparent);
-    animation: edge-fade linear both;
-    animation-timeline: scroll(self inline);
-    scroll-snap-type: x proximity;
-    scroll-padding-inline: 24px;
-  }
+  /* The row wraps rather than scrolls: a scrolling row cut its last filter
+     at the screen edge. The facet selects share the first line and the view
+     switch drops to the next one when they leave it no room. Each select
+     starts from its label's width, so a longer label is not cut while a
+     shorter one has room to spare. */
+  .filter-row { flex-wrap: wrap; margin: 16px 0 4px; }
+  .filter-row .custom-select-container.filter-select { flex: 1 1 auto; min-width: 0; max-width: 240px; }
+  .filter-row .filter-select .custom-select-button { min-width: 0; width: 100%; }
   .screen-actions .search-input { flex: 1 1 auto; width: auto; }
 }
 
@@ -447,7 +443,25 @@
 .tidy-option > span { display: grid; min-width: 0; }
 
 .papers-screen {
-  overflow-x: clip;
   max-width: min(var(--app-max), 100%);
   width: 100%;
+}
+
+/* Shown only while files are dragged over the window (D-21). */
+.pdf-drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  outline: 3px dashed var(--accent);
+  outline-offset: -12px;
+}
+
+.pdf-drop-label {
+  font-size: var(--fs-h2);
+  font-weight: 600;
+  color: var(--ink);
 }

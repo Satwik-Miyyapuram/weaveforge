@@ -141,9 +141,11 @@
 .share-add-foot {
   display: flex;
   gap: 12px;
-  align-items: center;
+  align-items: flex-end;
   flex-wrap: wrap;
 }
+.share-permission { margin: 0; }
+.share-permission-help { margin: 8px 0 0; font-size: var(--fs-xs); }
 .share-add-submit {
   flex: none;
   align-self: center;
@@ -291,6 +293,7 @@
 }
 .account-menu-head b { font-weight: 600; }
 .account-menu-head span { color: var(--muted); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-menu-head .account-menu-sync { font-size: var(--fs-xs); }
 .popover-panel .header-link svg,
 .popover-panel .signout svg { color: var(--muted); flex: none; }
 .popover-panel .header-link:hover,
@@ -299,7 +302,9 @@
 .popover-panel .signout span { display: inline; }
 /* The project panel is a `Popover` now, so it needs the same treatment as the
    other menus: the rows own their padding rather than the panel's card gap. */
-.popover-panel:has(.proj-menu-item) { padding: 4px; gap: 0; display: block; min-width: 220px; }/* The submenu that opens beside a menu row. It is absolutely positioned inside
+/* The account panel holds lab rows too once its flyout opens; it keeps its own look. */
+.popover-panel:has(.proj-menu-item):not(:has(.header-link, .signout)) { padding: 4px; gap: 0; display: block; min-width: 220px; }
+/* The submenu that opens beside a menu row. It is absolutely positioned inside
    the row, which is itself inside the `Popover` panel -- that panel is `fixed`,
    so it is the containing block, and the flyout lands beside the menu rather
    than under it. */

@@ -56,7 +56,7 @@ export function DashboardEditBar({
         + Add card
       </Button>
       <Button onClick={onReset}>
-        Reset default
+        Reset layout
       </Button>
       <Button variant="primary" onClick={onDone}>
         Done

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
+import { ConnectionState } from "@/components/connection-state";
 import { Popover } from "@/components/popover";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
@@ -135,9 +136,7 @@ function IntegrationRow({
           <strong>{name}</strong>
           <span className="muted">{tagline || descriptor.description}</span>
         </div>
-        <span className={`status ${connected ? "status-done" : "status-not_started"}`}>
-          {connected ? "Connected" : "Not set"}
-        </span>
+        <ConnectionState connected={connected} />
       </RowButton>
 
       {open && (

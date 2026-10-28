@@ -41,10 +41,11 @@ import { toolIcon, toolLabel } from "./ink-bar-glyphs";
 import { MoreMenu, type InkPageGap } from "./ink-bar-more";
 import {
   InsertMenu,
-  PageField,
+  PagePill,
   SelectGlyph,
   PointerGlyph,
   ViewMenu,
+  ZoomPill,
   hasInsertItems,
   type InkInsertTool,
   type ViewMenuProps,
@@ -54,7 +55,6 @@ import { useQuickColours } from "./use-quick-colours";
 import { PaletteDockButton, PaletteFoldButton, usePaletteDock } from "@/components/palette-dock";
 import { Popover } from "@/components/popover";
 import { shortcutLabel } from "@/lib/shortcut-label";
-import { MinusIcon, PlusIcon } from "@/components/view-icons";
 import { RowButton, ToggleButton } from "@/components/controls";
 import { useRovingToolbar } from "@/lib/hooks/use-roving-toolbar";
 
@@ -501,80 +501,14 @@ export function InkBar({
           {readOnly ? null : <span className="ink-sep" aria-hidden="true" />}
 
           {/* 5. Page Switcher & Add Page */}
-          <div className="ink-page-pill">
-            <RowButton
-              className="ink-tool ink-tool-icon-only"
-              onClick={onPrevPage}
-              disabled={page <= 1}
-              title="Previous page"
-              aria-label="Previous page"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="m15 18-6-6 6-6" />
-              </svg>
-            </RowButton>
-            <span className="ink-page-count" aria-label={`Page ${page} of ${pages}`}>
-              {onGoToPage ? (
-                <PageField page={page} pages={pages} onGoToPage={onGoToPage} />
-              ) : (
-                <span className="ink-page-now">{page}</span>
-              )}
-              <span className="ink-page-sep" aria-hidden="true">/</span>
-              <span className="ink-page-total">{pages}</span>
-            </span>
-            <RowButton
-              className="ink-tool ink-tool-icon-only"
-              onClick={onNextPage}
-              disabled={page >= pages}
-              title="Next page"
-              aria-label="Next page"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="m9 18 6-6-6-6" />
-              </svg>
-            </RowButton>
-            {onAddPage ? (
-              <RowButton
-                className="ink-tool ink-tool-icon-only ink-page-add"
-                onClick={onAddPage}
-                title="Add a blank page"
-                aria-label="Add a blank page"
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  aria-hidden="true"
-                >
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-              </RowButton>
-            ) : null}
-          </div>
+          <PagePill
+            page={page}
+            pages={pages}
+            onPrevPage={onPrevPage}
+            onNextPage={onNextPage}
+            onGoToPage={onGoToPage}
+            onAddPage={onAddPage}
+          />
         </>
       ) : null}
 
@@ -583,16 +517,12 @@ export function InkBar({
       ) : zoom !== undefined && onZoom ? (
         <>
           {/* 5b. Zoom: out, the level (click to fit), in */}
-          <div className="ink-page-pill ink-zoom-pill">
-            <RowButton
-              className="ink-tool ink-tool-icon-only"
-              onClick={() => onZoom(inkZoomOut(zoom))}
-              disabled={zoom <= INK_ZOOM_MIN}
-              title="Zoom out"
-              aria-label="Zoom out"
-            >
-              <MinusIcon />
-            </RowButton>
+          <ZoomPill
+            onZoomOut={() => onZoom(inkZoomOut(zoom))}
+            onZoomIn={() => onZoom(inkZoomIn(zoom))}
+            outDisabled={zoom <= INK_ZOOM_MIN}
+            inDisabled={zoom >= INK_ZOOM_MAX}
+          >
             <RowButton
               className="ink-page-count ink-zoom-level"
               onClick={() => onZoom(1)}
@@ -601,16 +531,7 @@ export function InkBar({
             >
               {Math.round(zoom * 100)}%
             </RowButton>
-            <RowButton
-              className="ink-tool ink-tool-icon-only"
-              onClick={() => onZoom(inkZoomIn(zoom))}
-              disabled={zoom >= INK_ZOOM_MAX}
-              title="Zoom in"
-              aria-label="Zoom in"
-            >
-              <PlusIcon />
-            </RowButton>
-          </div>
+          </ZoomPill>
         </>
       ) : null}
 

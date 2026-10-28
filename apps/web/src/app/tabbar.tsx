@@ -17,10 +17,10 @@ import type { InboxLink } from "./inbox-links";
 import { useRailTip } from "./rail-tip";
 import { loadOpenGroups, saveOpenGroups, toggleGroup, withActive } from "./nav-open-groups";
 import { useInbox } from "./use-inbox";
-import { SyncStatusIndicator } from "./lazy-sync-status";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
 import { RowButton } from "@/components/controls";
+import { revealActiveNav } from "./reveal-active-nav";
 
 /**
  * Primary navigation, rendered from the module registry. One markup, two
@@ -89,6 +89,10 @@ export function TabBar({
    * overflowing and not overflowing are the same layout.
    */
   const navScrollRef = useRef<HTMLDivElement | null>(null);
+  /* On a short window the current row can sit below the fold; show it. */
+  useEffect(() => {
+    revealActiveNav(navScrollRef.current);
+  }, [pathname, openGroups]);
   const railTip = useRailTip(collapsed);
   const navClass = [
     "nav",
@@ -262,7 +266,6 @@ export function TabBar({
             <HeaderActions variant="menu" inbox={false} />
           </div>
           <LocalModeBadge />
-          <SyncStatusIndicator attentionOnly />
         </div>
       )}
     </nav>

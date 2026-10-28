@@ -31,9 +31,11 @@
   font-size: var(--fs-xs); letter-spacing: 0.06em;
   color: var(--muted); margin-right: 2px;
 }
+/* A source is a paper title: up to two lines, so it reads as the paper it is. */
 .ai-review-source {
-  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  padding: 4px 8px; border-radius: var(--r-pill); font-size: var(--fs-xs);
+  max-width: 100%; overflow: hidden; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  padding: 4px 8px; border-radius: var(--r-sm); font-size: var(--fs-xs);
   color: var(--text); background: var(--surface-alt); border: 1px solid var(--line);
   text-decoration: none;
 }

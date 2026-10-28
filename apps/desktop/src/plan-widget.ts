@@ -81,16 +81,50 @@ export const WIDGET_PALETTE_KEYS = [
   "soon",
   "soon-ink",
 ] as const;
-export type WidgetPalette = Record<(typeof WIDGET_PALETTE_KEYS)[number], string>;
 
-/** A palette from the app with every key a `#rrggbb` colour, or null. */
+/** A length in px, as getComputedStyle prints it, between `min` and `max`. */
+const px = (min: number, max: number) => (v: string) =>
+  /^\d{1,3}(\.\d+)?px$/.test(v) && parseFloat(v) >= min && parseFloat(v) <= max;
+/** A computed box-shadow: `none`, or rgb()/rgba() colours and px offsets only. */
+const shadow = (v: string) =>
+  v.length <= 300 && (v === "none" || /^(rgba?\([\d.,\s]+\)|-?\d+(\.\d+)?px|inset|,|\s)+$/.test(v));
+
+/**
+ * The theme's shape, by the CSS variable each one sets (design D-27): card and
+ * control corners, border width, card and control shadows, font and text sizes.
+ * Optional, so a palette saved before these crossed over still paints.
+ */
+const WIDGET_SHAPE: Record<string, (v: string) => boolean> = {
+  radius: px(0, 999),
+  "radius-sm": px(0, 999),
+  bw: px(0, 8),
+  sh: shadow,
+  "sh-sm": shadow,
+  font: (v) => v.length <= 300 && /^[\w\s,"'-]+$/.test(v),
+  fs: px(8, 32),
+  "fs-sm": px(8, 32),
+};
+
+export type WidgetPalette = Record<(typeof WIDGET_PALETTE_KEYS)[number], string> & Record<string, string>;
+
+/**
+ * A palette from the app with every colour key a `#rrggbb` colour and every
+ * shape key it carries plain CSS of its kind, or null.
+ */
 export function cleanWidgetPalette(value: unknown): WidgetPalette | null {
   if (!value || typeof value !== "object") return null;
-  const out: Partial<WidgetPalette> = {};
+  const input = value as Record<string, unknown>;
+  const out: Record<string, string> = {};
   for (const key of WIDGET_PALETTE_KEYS) {
-    const colour = (value as Record<string, unknown>)[key];
+    const colour = input[key];
     if (typeof colour !== "string" || !/^#[0-9a-f]{6}$/i.test(colour)) return null;
     out[key] = colour.toLowerCase();
+  }
+  for (const [key, ok] of Object.entries(WIDGET_SHAPE)) {
+    if (!(key in input)) continue;
+    const v = input[key];
+    if (typeof v !== "string" || !ok(v)) return null;
+    out[key] = v;
   }
   return out as WidgetPalette;
 }

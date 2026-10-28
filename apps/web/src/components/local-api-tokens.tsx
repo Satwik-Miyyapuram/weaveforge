@@ -38,14 +38,14 @@ const PERMISSION_GROUPS: {
     ],
   },
   {
-    title: "Notes REST (Obsidian-style)",
+    title: "Notes, for other notes apps",
     items: [
       { id: "rest:read", label: "Read and search Notes" },
       { id: "rest:write", label: "Write and delete Notes" },
     ],
   },
   {
-    title: "MCP",
+    title: "AI clients",
     items: [
       { id: "mcp:read", label: "Read and search the workspace" },
       { id: "mcp:suggest", label: "Leave drafts for you to approve" },
@@ -225,7 +225,7 @@ export function LocalApiTokenCreate({
       )}
       {count >= MAX_TOKENS ? (
         <small className="muted">
-          Five tokens is the limit. Revoke one in Settings → Access tokens.
+          All five tokens are in use.
         </small>
       ) : (
         <form
@@ -295,7 +295,7 @@ export function LocalApiTokenCreate({
         </form>
       )}
       <small className="muted">
-        {count}/{MAX_TOKENS} tokens.{" "}
+        {count} of {MAX_TOKENS} tokens in use. This computer keeps five at most; revoke one to make another.{" "}
         {fixed &&
           `This token can only do: ${fixed.map((p) => PERMISSION_LABEL[p]).join(", ")}.`}
       </small>

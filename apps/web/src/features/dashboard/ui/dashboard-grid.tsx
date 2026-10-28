@@ -20,12 +20,13 @@ import {
   layoutFloors,
   layoutSignature,
 } from "../application/dashboard-layout";
+import { fitLayoutToContent, rowsForHeight, withStoredHeights } from "../application/fit-card-height";
 import { DashboardCardBody } from "./cards/dashboard-card-body";
 import type { DashboardStats } from "../application/build-dashboard-stats";
 import type { SupervisionStats } from "../application/build-supervision-stats";
 import type { Member } from "@weaveforge/core";
-import { CloseIcon } from "@/components/view-icons";
-import { RowButton } from "@/components/controls";
+import { CloseIcon, GripIcon } from "@/components/view-icons";
+import { IconButton } from "@/components/button";
 
 const BREAKPOINTS = { lg: DESKTOP_BREAKPOINT_PX, sm: 0 };
 const COLS = { lg: 12, sm: 4 };
@@ -174,10 +175,37 @@ export function DashboardGrid({
     } as CSSProperties;
   }, [cols, editing, gridWidth, gridMargin, rowHeight]);
 
-  const rglLayouts = useMemo<ResponsiveLayouts>(
-    () => ({ lg: toRgl(layout.lg, COLS.lg), sm: toRgl(layout.sm, COLS.sm) }),
-    [layout],
-  );
+  // List cards take the rows their content needs while viewed (DA-128).
+  const [measuredRows, setMeasuredRows] = useState<ReadonlyMap<string, number>>(new Map());
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap || editing || gridWidth <= 0) return;
+    const measure = () => {
+      const next = new Map<string, number>();
+      wrap.querySelectorAll<HTMLElement>("[data-fit-id]").forEach((fit) => {
+        const content = fit.parentElement;
+        const card = fit.closest<HTMLElement>(".dashboard-card");
+        if (!content || !card) return;
+        const px = card.offsetHeight - content.clientHeight + fit.offsetHeight;
+        next.set(fit.dataset.fitId!, rowsForHeight(px, rowHeight, gridMargin));
+      });
+      setMeasuredRows((prev) =>
+        prev.size === next.size && [...next].every(([id, rows]) => prev.get(id) === rows) ? prev : next,
+      );
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    wrap.querySelectorAll("[data-fit-id]").forEach((fit) => ro.observe(fit));
+    return () => ro.disconnect();
+  }, [editing, gridWidth, layout, breakpoint, rowHeight, gridMargin]);
+
+  const rglLayouts = useMemo<ResponsiveLayouts>(() => {
+    const view = (items: DashboardLayoutItem[], cols: number) => {
+      const rgl = toRgl(fitLayoutToContent(items, measuredRows, editing), cols);
+      return editing ? rgl : rgl.map((r) => ({ ...r, minH: Math.min(r.minH ?? r.h, r.h) }));
+    };
+    return { lg: view(layout.lg, COLS.lg), sm: view(layout.sm, COLS.sm) };
+  }, [layout, measuredRows, editing]);
 
   const smById = useMemo(() => new Map(layout.sm.map((it) => [it.id, it])), [layout.sm]);
   const itemsByBp = { lg: layout.lg, sm: layout.sm };
@@ -261,7 +289,8 @@ export function DashboardGrid({
           if (!rgl) return;
 
           if (bp === "sm") {
-            const merged = mergeRglPositions(itemsByBp.sm, rgl, bpCols);
+            const stored = editing ? rgl : withStoredHeights(rgl, itemsByBp.sm);
+            const merged = mergeRglPositions(itemsByBp.sm, stored, bpCols);
             const packed = normalizeSmLayout(merged);
             const prevSig = layoutSignature(layout.sm);
             const nextSig = layoutSignature(packed);
@@ -280,6 +309,19 @@ export function DashboardGrid({
           const def = getCardDef(lgItem.type);
           const item: DashboardLayoutItem =
             breakpoint === "sm" ? (smById.get(lgItem.id) ?? lgItem) : lgItem;
+          const body = (
+            <DashboardCardBody
+              type={item.type}
+              stats={stats}
+              supervision={supervision}
+              item={item}
+              supervisees={supervisees}
+              shellVisible={shellVisible}
+              showSkeleton={showSkeleton}
+              contentReady={contentReady}
+              onSuperviseeConfig={(memberId) => onSuperviseeConfig(item.id, memberId)}
+            />
+          );
           return (
             <div
               key={item.id}
@@ -293,19 +335,19 @@ export function DashboardGrid({
             >
               {editing && (
                 <div className="dashboard-card-chrome">
-                  <span className="dashboard-drag-handle" title="Drag" aria-hidden>
-                    ≡
+                  <span className="dashboard-drag-handle" title="Drag to move" aria-hidden>
+                    <GripIcon />
                   </span>
                   <span className="dashboard-card-label">{def.label}</span>
-                  <RowButton
+                  <IconButton
                     className="dashboard-card-remove"
+                    label={`Remove ${def.label}`}
                     onMouseDown={(e) => e.stopPropagation()}
                     onTouchStart={(e) => e.stopPropagation()}
                     onClick={() => onRemove(item.id)}
-                    aria-label={`Remove ${def.label}`}
                   >
                     <CloseIcon />
-                  </RowButton>
+                  </IconButton>
                 </div>
               )}
               {!editing && <h3 className="dashboard-card-heading">{def.label}</h3>}
@@ -318,17 +360,13 @@ export function DashboardGrid({
                     : ""
                 }`}
               >
-                <DashboardCardBody
-                  type={item.type}
-                  stats={stats}
-                  supervision={supervision}
-                  item={item}
-                  supervisees={supervisees}
-                  shellVisible={shellVisible}
-                  showSkeleton={showSkeleton}
-                  contentReady={contentReady}
-                  onSuperviseeConfig={(memberId) => onSuperviseeConfig(item.id, memberId)}
-                />
+                {def.fitContent ? (
+                  <div className="dashboard-card-fit" data-fit-id={item.id}>
+                    {body}
+                  </div>
+                ) : (
+                  body
+                )}
               </div>
             </div>
           );

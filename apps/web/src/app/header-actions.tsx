@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type React from "react";
 import { useRef, useState } from "react";
 import { useAuth } from "@/features/auth";
@@ -18,6 +18,10 @@ import { useInbox } from "./use-inbox";
 import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
 import { SyncStatusIndicator } from "./lazy-sync-status";
 import { RowButton } from "@/components/controls";
+import { useLiveSync } from "@/features/offline-sync/ui/use-live-sync";
+import { syncStatus } from "@/features/offline-sync/domain/sync-status";
+import { desktop } from "@/lib/desktop/desktop-bridge";
+import { accountAttention } from "./account-attention";
 
 /** A person, for the account menu. The ellipsis said "more things"; this says
  *  whose things they are, which is what the menu contains. */
@@ -87,7 +91,12 @@ export function HeaderActions({
   const { profile, memberships, activeOrgId, switchOrg } = useProfile();
   const { current, setProject } = useProject();
   const router = useRouter();
+  const pathname = usePathname();
   const { links: inboxRows, local } = useInbox();
+  const live = useLiveSync();
+  const attention = accountAttention({ conflicts: live.conflictsCount, inbox: inboxRows, inboxInMenu: inbox });
+  // Sync runs on the desktop only; its state is words in the menu, not a dot.
+  const sync = desktop() ? syncStatus(live) : null;
   const labs = memberships ? memberships.filter(isExplicitLabMembership) : [];
 
   if (!user) return null;
@@ -144,7 +153,7 @@ export function HeaderActions({
           return (
             <RowButton
               key={link.id}
-              className="signout"
+              className="header-link signout"
               onClick={() => {
                 getContainer().auth.setLocalMode(false);
                 window.location.reload();
@@ -157,7 +166,7 @@ export function HeaderActions({
         }
         if (link.id === "signout") {
           return (
-            <RowButton key={link.id} className="signout" onClick={() => void signOut()} title={user.email}>
+            <RowButton key={link.id} className="header-link signout" onClick={() => void signOut()} title={user.email}>
               <Icon /><span>{link.label}</span>
             </RowButton>
           );
@@ -216,9 +225,10 @@ export function HeaderActions({
       // The person icon says what it is; a caret beside it made the control look
       // like a disclosure that folds, and animated on every open.
       iconOnly
-      ariaLabel="Account"
+      ariaLabel={attention.total > 0 ? `Account, ${attention.total} waiting` : "Account"}
       triggerClassName="account-btn"
       label={<UserIcon />}
+      count={attention.total}
     >
       {(close) => (
         <>
@@ -227,8 +237,27 @@ export function HeaderActions({
             <div className="account-menu-head">
               {profile?.fullName && <b>{profile.fullName}</b>}
               {user.email && <span>{user.email}</span>}
+              {sync && sync.state !== "conflict" && <span className="account-menu-sync">{sync.label}</span>}
             </div>
           )}
+          {/* What needs the person comes first; the icon's count is these. */}
+          {attention.rows.map((row) => (
+            <RowButton
+              key={row.key}
+              className="header-link"
+              onClick={() => {
+                close();
+                // Same-page push does not fire hashchange; setting the hash does, and Settings listens.
+                const [path, hash] = row.path.split("#");
+                if (hash && pathname === path) window.location.hash = hash;
+                else router.push(row.path);
+              }}
+            >
+              <NavIcon name={row.icon} />
+              <span>{row.label}</span>
+              <b className="nav-badge">{row.badge}</b>
+            </RowButton>
+          ))}
           {links(close)}
         </>
       )}

@@ -106,7 +106,7 @@ export function groupForPath(
   groups: NavGroup[] = buildModuleRegistry().navGroups,
 ): NavGroup | undefined {
   if (!pathname) return undefined;
-  return groups.find((g) => g.items.some((it) => pathname.startsWith(it.path)));
+  return groups.find((g) => g.items.some((it) => pathname.startsWith(it.path)) || activeNavItem(g.items, pathname));
 }
 
 /** The views a phone shows of a group: the strip's tabs and the swipe's stops. */
@@ -115,12 +115,14 @@ export function phoneItems<T extends { mobile?: boolean }>(items: readonly T[]):
 }
 
 /** The item a path belongs to: exact or deepest `path/` prefix, so /report/overleaf is not also /report. */
-export function activeNavItem<T extends { path: string }>(
+export function activeNavItem<T extends { path: string; alsoActiveOn?: readonly string[] }>(
   items: readonly T[],
   pathname: string | null | undefined,
 ): T | undefined {
   if (!pathname) return undefined;
+  const under = (path: string) => pathname === path || pathname.startsWith(`${path}/`);
+  const depth = (it: T) => Math.max(...[it.path, ...(it.alsoActiveOn ?? [])].filter(under).map((p) => p.length), -1);
   return items
-    .filter((it) => pathname === it.path || pathname.startsWith(`${it.path}/`))
-    .sort((a, b) => b.path.length - a.path.length)[0];
+    .filter((it) => depth(it) >= 0)
+    .sort((a, b) => depth(b) - depth(a))[0];
 }

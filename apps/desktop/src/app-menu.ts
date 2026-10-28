@@ -130,7 +130,6 @@ function buildMenu(actions: MenuActions): MenuItemConstructorOptions[] {
       { type: "separator" },
       go("Papers", "/papers", actions),
       go("Notes", "/notes", actions),
-      go("Wiki", "/wiki", actions),
       go("Graph", "/graph", actions),
       go("Lists", "/lists", actions),
       { type: "separator" },

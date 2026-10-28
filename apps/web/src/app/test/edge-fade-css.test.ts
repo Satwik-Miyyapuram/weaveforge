@@ -36,10 +36,15 @@ test("the section sub-nav fades its hidden edges and snaps to tabs", () => {
   assert.match(css, /\.sub-tab\s*\{[^}]*scroll-snap-align:\s*start/);
 });
 
-test("the phone filter row fades and snaps the same way, only where it scrolls", () => {
+test("the phone filter row wraps instead of scrolling, so no filter is cut at the edge", () => {
   const phone = papers.slice(papers.indexOf("@media (max-width: 899px)"));
   const row = rule(phone, ".filter-row");
-  assert.match(row, /animation:\s*edge-fade/);
-  assert.match(row, /animation-timeline:\s*scroll\(self inline\)/);
-  assert.match(row, /scroll-snap-type:\s*x proximity/);
+  assert.match(row, /flex-wrap:\s*wrap/);
+  assert.doesNotMatch(row, /overflow-x:\s*auto/);
+  assert.doesNotMatch(row, /edge-fade/);
+  // The facet selects share the line; the view switch takes the next one.
+  // Each starts from its own label's width: an even 88px split cut "Status"
+  // on a 320px phone while "Lists" and "Tags" had room to spare.
+  assert.match(phone, /\.filter-row \.custom-select-container\.filter-select \{[^}]*flex:\s*1 1 auto[^}]*min-width:\s*0/);
+  assert.match(phone, /\.filter-row \.filter-select \.custom-select-button \{[^}]*min-width:\s*0/);
 });

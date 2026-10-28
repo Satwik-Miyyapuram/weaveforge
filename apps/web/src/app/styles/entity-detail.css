@@ -5,9 +5,26 @@
 /* ---- Wiki screen ---- */
 /* Wiki: drafting on the left, health on the right once there is room. */
 .wiki-lede { margin: -4px 0 16px; max-width: 70ch; }
-.wiki-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+/* Health holds the right column alone; Draft and Recently approved stack on
+   the left. The slack goes to the second row, so Recently approved sits right
+   under Draft instead of below the taller Health card. */
+.wiki-layout {
+  display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  grid-template-areas: "draft health" "recent health";
+  grid-template-rows: auto 1fr;
+  gap: 24px; align-items: start;
+}
 .wiki-layout > .card { margin: 0; }
-@media (max-width: 1000px) { .wiki-layout { grid-template-columns: minmax(0, 1fr); } }
+.wiki-draft { grid-area: draft; }
+.wiki-health { grid-area: health; }
+.wiki-recent { grid-area: recent; }
+@media (max-width: 699px) {
+  .wiki-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "draft" "health" "recent";
+    grid-template-rows: none;
+  }
+}
 .wiki-step { margin-top: 12px; }
 .wiki-step-head { display: flex; align-items: center; gap: 12px; }
 .wiki-step-title { flex: 1; min-width: 0; }
@@ -109,12 +126,19 @@ a.related-paper-url:hover { text-decoration: underline; }
   display: flex; align-items: center; justify-content: center;
   font-size: var(--fs-xs); color: var(--muted); background: var(--chip);
 }
-/* Capped chip rows (tags, metrics, git) stay on a single line on a card; the
-   overflow is reported as a "+N" chip rather than wrapping. */
-.chip-row--capped { flex-wrap: nowrap; overflow: hidden; }
-/* A chip that must shrink ends in an ellipsis instead of spilling into the next. */
+/* Capped chip rows (tags, metrics, git) show a few chips on a card and the rest
+   as a "+N" chip. The few wrap as whole chips: held to one line, every chip
+   shrank by a few pixels and each tag lost its last letters. */
+.chip-row--capped { flex-wrap: wrap; }
+/* A chip longer than the whole line ends in an ellipsis instead of spilling. */
 .chip-row--capped > :is(*, .git-chip, .metric-chip, .tag-chip) { min-width: 0; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip-row--capped > .chip-more { flex: none; }
+/* A linked paper's title is the point of the chip: it takes the row's spare
+   width and wraps to two lines rather than being cut mid-letter. */
+.chip-row--capped > .git-chip--paper {
+  flex: 1 1 auto; white-space: normal; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+}
 .chip-more { color: var(--muted); font-style: italic; flex: 0 0 auto; }
 .image-thumb .image-loading { position: absolute; inset: 0; }
 
@@ -222,6 +246,8 @@ a.related-paper-url:hover { text-decoration: underline; }
 /* Logbook */
 .log-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 12px; }
 .log-item { display: grid; gap: 8px; }
+/* The card's padding frames an entry being edited; the form adds none. */
+.log-item > .add-form { margin: 0; }
 .edit-actions { justify-content: flex-end; gap: 16px; }
 /* Editing a long log entry keeps Cancel and Done in view (DA-109). */
 .log-edit-bar { position: sticky; bottom: 0; z-index: var(--z-sticky); background: var(--card-tint, var(--surface)); }
@@ -243,7 +269,7 @@ a.related-paper-url:hover { text-decoration: underline; }
 .log-day-mark strong { font-size: 1.8rem; line-height: 1; }
 .log-day-mark span { color: var(--muted); font-size: var(--fs-xs); }
 .log-side { display: grid; gap: 16px; position: sticky; top: 16px; }
-.log-calendar h2, .log-kinds h2 { margin: 0 0 12px; font-size: var(--fs-h2); }
+.log-calendar h2, .log-kinds h2, .log-check-ins h2 { margin: 0 0 12px; font-size: var(--fs-h2); }
 .log-calendar-top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .log-calendar-top h2 { flex: 1; margin: 0; text-align: center; }
 .log-calendar-top button:disabled { opacity: 0.35; cursor: default; }
@@ -283,9 +309,15 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 .log-kind-chip:hover { border-color: var(--line); }
 .log-kind-chip[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .log-kinds-count { color: var(--muted); font-size: var(--fs-sm); }
+.log-check-ins ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.log-check-in { display: flex; align-items: center; gap: 8px; min-height: var(--control-sm); }
+.log-check-in-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-check-in time { font-size: var(--fs-sm); }
+/* Narrower, the overview leads the timeline: its cards side by side while
+   they fit, stacked on a phone. Past check-ins stay reachable (D24). */
 @media (max-width: 1100px) {
   .log-layout { grid-template-columns: minmax(0, 1fr); }
-  .log-side { display: none; }
+  .log-side { position: static; order: -1; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); align-items: start; }
 }
 @media (max-width: 640px) {
   .log-day { grid-template-columns: minmax(0, 1fr); gap: 8px; }
@@ -360,9 +392,8 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
   :is(.plan-screen, .log-screen) .screen-actions > .search-input { flex: 1 1 auto; width: auto; min-width: 0; }
   :is(.plan-screen, .log-screen) .screen-actions > .btn-primary { flex: 0 0 auto; }
 }
-/* Phone Plan/Log: the calendar leads. */
+/* Phone Plan/Log: the calendar leads, past check-ins under it. */
 @media (max-width: 900px) {
   .log-publish { display: none; }
-  .log-side { display: block; position: static; order: -1; }
   .log-kinds { display: none; }
 }

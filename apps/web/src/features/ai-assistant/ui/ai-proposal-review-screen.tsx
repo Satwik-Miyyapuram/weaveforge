@@ -11,6 +11,7 @@ import { Markdown } from "@/components/markdown/markdown";
 import { EntityCard } from "@/components/entity-card";
 import { ScreenHead } from "@/components/screen-head";
 import { EmptyState } from "@/components/empty-state";
+import { NavIcon } from "@/app/nav-icon";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { buildLocusLink, sanitizeAppHref, sanitizeReaderHref } from "@/features/reader";
 import { loadCiteLinkCatalog, useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
@@ -247,7 +248,7 @@ export function AiProposalReviewScreen() {
     <p className="muted ai-review-lede">Nothing changes until you approve it. Suggestions are encrypted until this unlocked browser reviews them.</p>
     {error && <p className="form-error" role="alert">{error}</p>}
     {created && <p className="muted" role="status">Created &ldquo;{created.title}&rdquo;. <Link href={`/notes?page=${encodeURIComponent(created.id)}`}>Open page &rarr;</Link></p>}
-    {!items.length ? <EmptyState variant="first-run" title="Nothing to review" body="New AI suggestions will appear here before they can change your research workspace." /> : <>
+    {!items.length ? <EmptyState variant="first-run" icon={<NavIcon name="sparkle" />} title="Nothing to review" body="New AI suggestions will appear here before they can change your research workspace." /> : <>
       <div className="card ai-review-toolbar"><div><strong>{items.length} pending suggestion{items.length === 1 ? "" : "s"}</strong><span className="muted"> · Each one waits for you. Additions only add text; nothing is overwritten.</span></div>{appendOnly.length > 1 && <Button variant="primary" disabled={busy !== null} onClick={() => void approveAll()}>Approve the {appendOnly.length} that only add</Button>}</div>
       <div className="ai-review-list">{items.map((item) => {
         const evidence = item.evidence ?? [];

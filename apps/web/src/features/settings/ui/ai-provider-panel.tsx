@@ -150,7 +150,7 @@ export function AiProviderPanel() {
       <h3 className="settings-group">AI provider</h3>
       <p className="muted">
         Point WeaveForge at any OpenAI-compatible, Anthropic, or Ollama endpoint. Calls go
-        straight from this browser to the provider — your key never reaches our servers.
+        straight from this device to the provider — your key never reaches our servers.
       </p>
 
       <div className="field">

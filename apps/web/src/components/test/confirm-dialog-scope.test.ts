@@ -16,9 +16,9 @@ const ALLOWED = [
   "components/local-api-tokens.tsx",
   "features/org/ui/org-screen.tsx",
   "features/projects/ui/projects-screen.tsx",
-  "features/settings/ui/ai-access-panel.tsx",
   "features/settings/ui/api-tokens-panel.tsx",
   "features/settings/ui/calendar-feed-panel.tsx",
+  "features/settings/ui/mcp-tokens-panel.tsx",
 ];
 
 function walk(dir: string, out: string[] = []): string[] {

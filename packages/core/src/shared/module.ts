@@ -30,6 +30,11 @@ export interface NavItem {
    * filtered by id somewhere in the shell.
    */
   readonly mobile?: boolean;
+  /**
+   * Routes with no item of their own that light this one, so the reader is
+   * never on a screen with nothing highlighted (the wiki lights Notes).
+   */
+  readonly alsoActiveOn?: readonly string[];
 }
 
 export interface RouteDef {
