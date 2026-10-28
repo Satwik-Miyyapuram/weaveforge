@@ -32,6 +32,7 @@ import { findRow, useExplorerWindow } from "./use-explorer-window";
 import { useExplorerExpansion } from "./use-explorer-expansion";
 import {
   filterRows,
+  folderIdsOf,
   visibleRows,
   type TreeNodeKind,
   type VisibleRow,
@@ -153,6 +154,10 @@ export function ExplorerPanel({
     return { byId, forced };
   }, [sections, expanded, query]);
 
+  // A new note from the head lands in the open note's folder only when that
+  // parent is a real folder.
+  const folderIds = useMemo(() => folderIdsOf(sections.flatMap((section) => section.tree)), [sections]);
+
   const effectiveExpanded = useMemo(
     () => (query.trim() ? new Set([...expanded, ...filtered.forced]) : expanded),
     [expanded, filtered.forced, query],
@@ -219,9 +224,9 @@ export function ExplorerPanel({
         onDraft?.({ kind, root, parentId: dropParentId(under) });
         return;
       }
-      onDraft?.({ kind, ...creationTarget(kind, activeDoc) });
+      onDraft?.({ kind, ...creationTarget(kind, activeDoc, folderIds) });
     },
-    [activeDoc, onDraft],
+    [activeDoc, folderIds, onDraft],
   );
 
   const submitDraft = useCallback(
@@ -283,8 +288,8 @@ export function ExplorerPanel({
         onRelease?.(node);
         return;
       }
-      if (node.children.length > 0 || !isDocumentKind(node.kind)) setOpen(node.key);
-      if (node.id && isDocumentKind(node.kind)) onOpen({ kind: node.kind, id: node.id });
+      if (node.children.length > 0 || !isDocumentKind(node.kind) || node.folder) setOpen(node.key);
+      if (node.id && isDocumentKind(node.kind) && !node.folder) onOpen({ kind: node.kind, id: node.id });
     },
     [onOpen, onRelease, setOpen],
   );
@@ -569,7 +574,7 @@ export function ExplorerPanel({
                             {branch ? <ChevronIcon open={rowOpen} variant="expand" /> : null}
                           </span>
                           <span className={`explorer-icon${tint ? ` ${tint}` : ""}`} aria-hidden="true">
-                            {!isDocumentKind(node.kind) ? (
+                            {!isDocumentKind(node.kind) || node.folder ? (
                               <FolderIcon />
                             ) : (
                               <NavIcon name={kindIcon(node.kind)} />
@@ -613,7 +618,7 @@ export function ExplorerPanel({
                           {/* Hover actions, VS Code's way: they sit on the
                               row they act on, so "new in here" needs no
                               question about where. */}
-                          {offered.length > 0 && renaming !== node.key ? (
+                          {(offered.length > 0 || (onRename && canRename(node))) && renaming !== node.key ? (
                             <span className="explorer-row-actions">
                               {NEW_HERE.filter((item) => offered.includes(item.kind)).map((item) => (
                                 <IconButton

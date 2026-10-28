@@ -22,6 +22,8 @@ export interface NewVaultPageInput {
   title: string;
   body?: string;
   parentId?: string;
+  /** Make a folder rather than a note. */
+  folder?: boolean;
   sortOrder?: number;
 }
 
@@ -51,6 +53,8 @@ export interface VaultPageSummary extends Identifiable {
   parentId?: string;
   /** The owner pinned it; the Notes screen lists pinned notes first. */
   pinned?: boolean;
+  /** Made as a folder: it holds notes and folders, and is not opened as a note. */
+  folder?: boolean;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -100,6 +104,7 @@ export function createVaultPage(
     title,
     body: input.body ?? "",
     parentId: input.parentId,
+    ...(input.folder ? { folder: true } : {}),
     sortOrder: input.sortOrder ?? 0,
     createdAt: now,
     updatedAt: now,

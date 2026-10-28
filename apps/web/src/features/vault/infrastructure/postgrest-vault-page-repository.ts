@@ -23,13 +23,13 @@ import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-
  * Derived from the row type: these are exactly the fields the mapper reads, and a
  * star would make them "whatever the table grows next".
  */
-const VAULT_PAGE_COLUMNS = "id,title,body,body_preview,parent_id,pinned,sort_order,created_at,updated_at";
+const VAULT_PAGE_COLUMNS = "id,title,body,body_preview,parent_id,pinned,folder,sort_order,created_at,updated_at";
 
 const TABLE = "vault_pages";
 
 /** Tree/card projection — preview only; full body via getById on open. */
 const VAULT_SUMMARY_COLUMNS =
-  "id,title,parent_id,pinned,sort_order,created_at,updated_at,project_id,body_preview";
+  "id,title,parent_id,pinned,folder,sort_order,created_at,updated_at,project_id,body_preview";
 
 export class PostgrestVaultPageRepository extends ProjectRepository implements IVaultPageRepository {
 

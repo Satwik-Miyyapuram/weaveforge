@@ -182,6 +182,7 @@ export async function loadWorkspace(hydrated: ReadonlyMap<string, string>): Prom
         title: page.title,
         parentId: page.parentId ?? undefined,
         kind: "vault_page",
+        folder: page.folder === true,
       })),
       papers: paperRows.map((paper) => ({
         id: paper.id,

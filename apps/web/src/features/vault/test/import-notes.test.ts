@@ -14,7 +14,7 @@ function fakeVault(opts: { failTitle?: string } = {}) {
   let inFlight = 0;
   let peak = 0;
   let loads = 0;
-  const added: { title: string; parentId?: string; id: string }[] = [];
+  const added: { title: string; parentId?: string; folder?: boolean; id: string }[] = [];
   const vault: ImportVault = {
     async pageTitles() {
       loads += 1;
@@ -28,7 +28,7 @@ function fakeVault(opts: { failTitle?: string } = {}) {
         inFlight -= 1;
         if (input.title === opts.failTitle) throw new Error(`boom ${input.title}`);
         const id = `id-${added.length}`;
-        added.push({ title: input.title, parentId: input.parentId, id });
+        added.push({ title: input.title, parentId: input.parentId, folder: input.folder, id });
         return { id };
       },
     },
@@ -60,6 +60,10 @@ test("folders are created before the notes inside them, parents first (34-24)", 
   assert.equal(byTitle.get("b")!.parentId, byTitle.get("a")!.id);
   assert.equal(byTitle.get("deep")!.parentId, byTitle.get("b")!.id);
   assert.equal(byTitle.get("top")!.parentId, byTitle.get("a")!.id);
+  // A directory comes in as a real folder; a file as a note.
+  assert.equal(byTitle.get("a")!.folder, true);
+  assert.equal(byTitle.get("b")!.folder, true);
+  assert.notEqual(byTitle.get("top")!.folder, true);
   // An existing title still gets a suffix.
   assert.deepEqual(out.renamed, [{ from: "Taken", to: "Taken (2)" }]);
 });
