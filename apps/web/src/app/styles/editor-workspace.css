@@ -697,6 +697,18 @@
   .explorer-row-actions { opacity: 1; }
 }
 
+/* In a 25px row the 28px icon button, lifting on hover, popped out and was cut
+   off. Here it is flat and fits the row: hover tints, nothing moves. */
+:root:root .explorer-row .explorer-row-actions > .wf-btn.wf-icon {
+  width: 22px; height: 22px; min-height: 0; min-width: 0; padding: 3px;
+}
+
+:root:root .explorer-row .explorer-row-actions > .wf-btn.wf-icon svg { width: 16px; height: 16px; }
+
+:root:root .explorer-row .explorer-row-actions > .wf-btn.wf-icon:is(:hover, :active, [data-force~="hover"], [data-force~="press"]) {
+  translate: 0 0; box-shadow: none;
+}
+
 /* A draft row or a rename: the label is a text box, in the row's own type. */
 .explorer-row.is-draft { cursor: default; }
 
