@@ -342,8 +342,8 @@
 
 /* ---- Toasts -------------------------------------------------------------- */
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.toast, [data-sonner-toast]) {
-  background: var(--toast-bg);
-  color: var(--toast-fg);
+  background: var(--elev);
+  color: var(--text);
   border: var(--bw) solid var(--bw-line);
   border-radius: var(--radius-sm);
   box-shadow: var(--sh-card);

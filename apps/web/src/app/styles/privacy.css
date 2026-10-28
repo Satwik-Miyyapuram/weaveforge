@@ -73,7 +73,7 @@
 .settings-rail-label { font-weight: 700; }
 .settings-rail-hint { font-size: var(--fs-xs); opacity: 0.75; }
 .settings-rail-tabs { display: grid; gap: 2px; margin: 8px 0 8px 32px; padding-left: 12px; border-left: 2px solid var(--line); }
-.settings-rail-tabs > .wf-tab { justify-content: flex-start; }
+.settings-rail-tabs > .wf-tab { text-align: start; }
 .settings-body { min-width: 0; display: grid; gap: 16px; align-content: start; }
 /* The gap spaces the cards; a card's own margin would drop the first one below the rail. */
 .settings-body > * { margin: 0; }

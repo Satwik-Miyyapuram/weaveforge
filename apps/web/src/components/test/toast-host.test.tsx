@@ -35,3 +35,14 @@ test("Ctrl+Z or Cmd+Z undoes only outside a text field", () => {
   assert.equal(isUndoKey(key({ ctrlKey: true, target: input })), false);
   assert.equal(isUndoKey(key({ ctrlKey: true, target: editable })), false);
 });
+
+test("brutal and crt toasts are a raised card in the theme's own ink, so the Undo button shows", async () => {
+  // Undo is a ghost button inked in --text. An inverted toast (--toast-bg)
+  // put that ink on a near-black card in the light themes and hid it.
+  const { readFileSync } = await import("node:fs");
+  const css = readFileSync(new URL("../../app/styles/brutal.css", import.meta.url), "utf8");
+  const rule = css.match(/\) :is\(\.toast, \[data-sonner-toast\]\) \{([^}]*)\}/)?.[1] ?? "";
+  assert.match(rule, /background:\s*var\(--elev\)/);
+  assert.match(rule, /color:\s*var\(--text\)/);
+  assert.doesNotMatch(rule, /--toast-(bg|fg)/);
+});
