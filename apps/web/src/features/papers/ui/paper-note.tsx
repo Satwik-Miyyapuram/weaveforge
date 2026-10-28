@@ -46,9 +46,10 @@ import { Modal, ModalActions } from "@/components/modal";
 import { Button, IconButton, IconLink } from "@/components/button";
 import { RowButton } from "@/components/controls";
 
-/** A paper note's three views, in the order the Editor's pane header lists them. */
-const NOTE_MODES = ["edit", "read", "ink"] as const;
-type NoteMode = (typeof NOTE_MODES)[number];
+/** The modes the switch offers, as the Editor's toolbar does. */
+const NOTE_MODES = ["edit", "ink"] as const;
+/** Read is what a reader without edit rights sees; the switch never offers it. */
+type NoteMode = (typeof NOTE_MODES)[number] | "read";
 
 function QuoteIcon() {
   return (
@@ -95,10 +96,13 @@ export function PaperNote({
   onDeleted?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  // Read, Edit or Ink, as in the Editor's pane header. A paper's note opens read.
-  const [mode, setMode] = useState<NoteMode>("read");
+  // Text or Ink, as in the Editor's toolbar: a handwritten note opens on its
+  // sheet, any other in Text. Only a reader without edit rights reads.
+  const [mode, setMode] = useState<NoteMode>(() =>
+    readOnly ? "read" : isInkNoteBody(paper.summary ?? "") ? "ink" : "edit",
+  );
   const inkFocus = useInkFocus(mode === "ink");
-  const modeRef = useRef<NoteMode>("read");
+  const modeRef = useRef<NoteMode>(mode);
   modeRef.current = mode;
   const editing = mode !== "read";
   /** The body last written from Edit or Ink, reconciled into tags once put away. */
@@ -395,7 +399,7 @@ export function PaperNote({
               !readOnly ? (
                 <span className="record-mode-tag">
                   {hasSummary && <span>{wordsLabel}</span>}
-                  <DocumentModeSwitch modes={NOTE_MODES} mode={mode} onMode={chooseMode} />
+                  <DocumentModeSwitch modes={NOTE_MODES} mode={mode === "read" ? "edit" : mode} onMode={chooseMode} />
                   {mode === "ink" && <InkFocusButton onClick={inkFocus.toggle} />}
                 </span>
               ) : hasSummary ? (

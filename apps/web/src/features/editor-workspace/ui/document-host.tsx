@@ -117,6 +117,11 @@ export interface DocumentHostProps {
    * owner's, so the read view does not try to resolve them.
    */
   skipArtifactResolve?: boolean;
+  /**
+   * Split shows the preview beside the editor, inside it. The Editor turns
+   * this off: there the preview is a pane of its own.
+   */
+  inlinePreview?: boolean;
 }
 
 /** 1-based `Ln`/`Col` for a character offset, without importing CodeMirror values. */
@@ -243,6 +248,7 @@ export function DocumentHost({
   resolveEmbed,
   citationFormat,
   skipArtifactResolve = false,
+  inlinePreview = true,
 }: DocumentHostProps) {
   // Held in a ref so the editor's `onViewCreated` identity never changes: it is
   // a dependency of the CodeMirror stack, and rebuilding that stack would throw
@@ -449,7 +455,7 @@ export function DocumentHost({
 
   return (
     <LivePreview
-      mode={previewMode}
+      mode={inlinePreview ? previewMode : "off"}
       liveBody={liveBody}
       savedBody={body}
       // The live preview is a read view too: a wikilink clicked there opens

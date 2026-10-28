@@ -23,8 +23,8 @@ import { StatusSelect } from "@/components/status-select";
 import { removeSectionLater } from "./remove-section";
 import { RowButton } from "@/components/controls";
 
-/** A section's two views, in the order the Editor's pane header lists them. */
-const SECTION_MODES = ["edit", "read"] as const;
+/** A section is text only: the switch offers Text, with Ink greyed. */
+const SECTION_MODES = ["edit"] as const;
 type SectionMode = (typeof SECTION_MODES)[number];
 
 /**
@@ -57,8 +57,8 @@ export function SectionNote({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  // Read or Edit, as in the Editor's pane header. A section opens read.
-  const [mode, setMode] = useState<SectionMode>("read");
+  // A section opens in Text, as in the Editor; a reader without rights reads.
+  const [mode, setMode] = useState<SectionMode>("edit");
   const editing = !readOnly && mode === "edit";
   const [saveError, setSaveError] = useState<string | null>(null);
   // Filled in while the editor is on screen, so the buttons can insert at the caret.

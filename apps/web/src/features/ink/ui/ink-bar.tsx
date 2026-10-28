@@ -334,7 +334,6 @@ export function InkBar({
         ))}
       </div>
 
-      <span className="ink-sep" aria-hidden="true" />
 
       {/* 2a. Quick colours: five, one tap each; the pen's palette changes the one in use */}
       <InkQuickColours colours={quickColours} colour={colour} onColour={onColour} />
@@ -398,7 +397,6 @@ export function InkBar({
         </Popover>
       </div>
 
-      <span className="ink-sep" aria-hidden="true" />
 
       {/* 4. Undo / Redo */}
       <div className="ink-bar-group">
@@ -447,7 +445,6 @@ export function InkBar({
           (`onCopyAsText`), deleting marks is both surfaces'. */}
       {selected > 0 && (onCopyStrokes || onCopyAsText || onDeleteSelection) ? (
         <>
-          <span className="ink-sep" aria-hidden="true" />
           <div className="ink-bar-group">
             {onCopyStrokes ? (
               <Button variant="ghost" size="sm"
@@ -482,7 +479,6 @@ export function InkBar({
 
       {page !== undefined && pages !== undefined && onPrevPage && onNextPage ? (
         <>
-          {readOnly ? null : <span className="ink-sep" aria-hidden="true" />}
 
           {/* 5. Page Switcher & Add Page */}
           <PagePill
@@ -516,7 +512,6 @@ export function InkBar({
 
       {onRecognise ? (
         <>
-          <span className="ink-sep" aria-hidden="true" />
 
           {/* 6. OCR Recognise */}
           <Button variant="ghost" size="sm"

@@ -61,9 +61,9 @@ test("a new note is Untitled, numbered past existing ones", () => {
 test("a new note opens with its title focused", () => {
   const editor = src("features/vault/ui/vault-screen/page-editor.tsx");
   assert.match(editor, /autoFocus=\{focusTitle\}/);
-  // The title input exists only in Edit, and a note otherwise opens in Read:
-  // a new note must open in Edit or there is no title to focus.
-  assert.match(editor, /setMode\(focusTitle \? "edit" : "read"\)/);
+  // The title input exists only in Edit, and a handwritten note otherwise
+  // opens on its sheet: a new note must open in Edit or there is no title to focus.
+  assert.match(editor, /setMode\(focusTitle \? "edit" : openMode\(page\.body\)\)/);
   assert.match(src(SCREENS.notes), /focusTitle=\{newPageId === shownPage\.id\}/);
 });
 

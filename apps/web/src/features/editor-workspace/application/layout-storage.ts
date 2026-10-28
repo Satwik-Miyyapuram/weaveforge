@@ -41,7 +41,8 @@ function readRaw(store: LayoutStore, projectId: string | null | undefined): stri
   return legacy;
 }
 
-const MODES: readonly string[] = ["edit", "read", "pdf", "ink"] satisfies readonly DocumentMode[];
+// "read" is not here: Read mode is gone, so a tab stored in it reopens unchosen.
+const MODES: readonly string[] = ["edit", "pdf", "ink"] satisfies readonly DocumentMode[];
 
 /** A tab as stored. A missing or unknown mode reads as none chosen yet. */
 function parseTab(tab: { kind: string; id: string; mode?: unknown }): TabRef {

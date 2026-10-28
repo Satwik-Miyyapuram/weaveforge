@@ -30,9 +30,13 @@ import { runNoteAction } from "./run-note-action";
 import { RowButton } from "@/components/controls";
 import { Button, IconButton, IconLink } from "@/components/button";
 
-/** A note's three views, in the order the Editor's pane header lists them. */
-const NOTE_MODES = ["edit", "read", "ink"] as const;
-type NoteMode = (typeof NOTE_MODES)[number];
+/** The modes the switch offers, as the Editor's toolbar does. */
+const NOTE_MODES = ["edit", "ink"] as const;
+/** Read is what a reader without edit rights sees; the switch never offers it. */
+type NoteMode = (typeof NOTE_MODES)[number] | "read";
+
+/** A handwritten note opens on its sheet, any other in Text. */
+const openMode = (body: string): NoteMode => (isInkNoteBody(body) ? "ink" : "edit");
 
 export function PageEditor({
   page,
@@ -74,9 +78,9 @@ export function PageEditor({
   focusTitle?: boolean;
 }) {
   const [title, setTitle] = useState(page.title);
-  // Read, Edit or Ink, as in the Editor's pane header. A note opens read.
-  const [mode, setMode] = useState<NoteMode>("read");
-  const modeRef = useRef<NoteMode>("read");
+  // Text or Ink, as in the Editor's toolbar.
+  const [mode, setMode] = useState<NoteMode>(() => openMode(page.body));
+  const modeRef = useRef<NoteMode>(mode);
   modeRef.current = mode;
   /** The rendered note, which margin comments select from and light up. */
   const noteTextRef = useRef<HTMLDivElement>(null);
@@ -95,7 +99,7 @@ export function PageEditor({
 
   useEffect(() => {
     // A note New note just made opens in Edit, where its title can be typed over.
-    if (page.id) setMode(focusTitle ? "edit" : "read");
+    if (page.id) setMode(focusTitle ? "edit" : openMode(page.body));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only a page change picks the mode
   }, [page.id]);
 
@@ -248,7 +252,7 @@ export function PageEditor({
               canEditBody ? (
                 <span className="record-mode-tag">
                   {hasBody && <span>{wordsLabel}</span>}
-                  <DocumentModeSwitch modes={NOTE_MODES} mode={view} onMode={chooseMode} />
+                  <DocumentModeSwitch modes={NOTE_MODES} mode={view === "read" ? "edit" : view} onMode={chooseMode} />
                   {view === "ink" && <InkFocusButton onClick={inkFocus.toggle} />}
                 </span>
               ) : hasBody ? wordsLabel : undefined

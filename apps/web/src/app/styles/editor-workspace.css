@@ -413,7 +413,7 @@
 
 /* A 375px screen has no room for a second pane, and the two split buttons
    were taking the width the open tabs needed. */
-.workspace-shell.is-phone .pane-tab-actions > .wf-btn[aria-label^="Split"] {
+.workspace-shell.is-phone .workspace-toolbar-end > .wf-btn[aria-label^="Split"] {
   display: none;
 }
 
@@ -426,14 +426,14 @@
   box-shadow: var(--e3);
 }
 
-.workspace-shell.is-phone.is-explorer-hidden .pane-root > .pane > .pane-tabs .pane-tab-scroll,
-.workspace-shell.is-phone.is-explorer-hidden .pane-root > .pane-split > .pane-half:first-child > .pane > .pane-tabs .pane-tab-scroll {
+.workspace-shell.is-phone.is-explorer-hidden .pane-stage > .pane > .pane-tabs .pane-tab-scroll,
+.workspace-shell.is-phone.is-explorer-hidden .pane-stage > .pane-split > .pane-half:first-child > .pane > .pane-tabs .pane-tab-scroll {
   padding-inline-start: 32px;
 }
 
 /* The strip's first tab starts past the handle, or the two overlap. */
-.workspace-shell.is-explorer-hidden .pane-root > .pane > .pane-tabs .pane-tab-scroll,
-.workspace-shell.is-explorer-hidden .pane-root > .pane-split > .pane-half:first-child > .pane > .pane-tabs .pane-tab-scroll {
+.workspace-shell.is-explorer-hidden .pane-stage > .pane > .pane-tabs .pane-tab-scroll,
+.workspace-shell.is-explorer-hidden .pane-stage > .pane-split > .pane-half:first-child > .pane > .pane-tabs .pane-tab-scroll {
   padding-inline-start: 24px;
 }
 
@@ -449,6 +449,7 @@
 
 .workspace-shell.is-focus .explorer-panel,
 .workspace-shell.is-focus .explorer-show,
+.workspace-shell.is-focus .workspace-toolbar,
 .workspace-shell.is-focus .pane-tabs,
 .workspace-shell.is-focus .breadcrumbs,
 .workspace-shell.is-focus .status-bar {
@@ -700,7 +701,7 @@
 /* In a 25px row the 28px icon button, lifting on hover, popped out and was cut
    off. Here it is flat and fits the row: hover tints, nothing moves. */
 :root:root .explorer-row .explorer-row-actions > .wf-btn.wf-icon {
-  width: 22px; height: 22px; min-height: 0; min-width: 0; padding: 3px;
+  width: 22px; height: 22px; min-height: 0; min-width: 0; padding: 4px;
 }
 
 :root:root .explorer-row .explorer-row-actions > .wf-btn.wf-icon svg { width: 16px; height: 16px; }
@@ -742,8 +743,37 @@
 
 .pane-root {
   flex: 1;
+  flex-direction: column;
   grid-column: 2;
   grid-row: 1;
+}
+
+/* The panes, under the one toolbar. */
+.pane-stage {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The Editor's one toolbar: the focused document's mode and tools, then the
+   layout controls at the end. One slim row over every pane. */
+.workspace-toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding-inline: 8px;
+  border-block-end: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.workspace-toolbar-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-inline-start: auto;
 }
 
 .pane-split-row {
@@ -919,6 +949,8 @@
   opacity: 1;
 }
 
+.pane-tab-actions:empty { display: none; }
+
 .pane-tab-actions {
   display: flex;
   flex: none;
@@ -928,15 +960,14 @@
   border-inline-start: 1px solid var(--border);
 }
 
-/* The pane's toolbar for a tab in Edit mode: the image button, before the
+/* The focused document's tools in the toolbar: the image button, after the
    mode switch. Same icon button the note screen uses, so no new size here. */
 .pane-tools {
   display: inline-flex;
   align-items: center;
   gap: 1px;
-  margin-inline-end: 4px;
-  padding-inline-end: 4px;
-  border-inline-end: 1px solid var(--border);
+  padding-inline-start: 8px;
+  border-inline-start: 1px solid var(--border);
 }
 
 /* Resizing a picture from the read view. The host is the positioning context
@@ -1646,14 +1677,6 @@
   gap: 4px;
   padding: 0 4px;
   white-space: nowrap;
-}
-
-.ink-sep {
-  width: 1px;
-  height: 18px;
-  margin: 0 4px;
-  background: var(--border);
-  flex-shrink: 0;
 }
 
 /* The print menu: the button sits in the bar, the list floats under it. */

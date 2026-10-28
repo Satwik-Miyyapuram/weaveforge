@@ -20,8 +20,8 @@ export function SegmentedControl<V extends string>({
   /** null presses no option. */
   value: V | null;
   onChange: (next: V) => void;
-  /** `ariaLabel` names an option whose label is only an icon. */
-  options: readonly { value: V; label: ReactNode; title?: string; ariaLabel?: string }[];
+  /** `ariaLabel` names an option whose label is only an icon; `disabled` greys one out. */
+  options: readonly { value: V; label: ReactNode; title?: string; ariaLabel?: string; disabled?: boolean }[];
   className?: string;
 }) {
   const cls = className ? `wf-seg ${className}` : "wf-seg";
@@ -33,6 +33,7 @@ export function SegmentedControl<V extends string>({
           pressed={value === o.value}
           aria-label={o.ariaLabel}
           title={o.title}
+          disabled={o.disabled}
           onClick={() => onChange(o.value)}
         >
           {o.label}

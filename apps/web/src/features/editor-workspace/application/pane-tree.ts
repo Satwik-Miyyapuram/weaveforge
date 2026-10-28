@@ -275,18 +275,52 @@ export function setTabMode(layout: PaneLayout, target: TabRef, mode: DocumentMod
 }
 
 /**
- * Flip the document at a pane-and-index between Edit and Read. From PDF the
- * chord goes to Edit, the same as from Read: the chord is "back to source".
- *
- * Addressed by position rather than by `TabRef` on purpose: the caller is a
- * click handler inside the pane and holds the tab *as it was rendered*, so
- * passing that object back would flip based on a stale mode and the second
- * press would be a no-op. This reads the mode from the layout it is changing.
+ * The preview: one tab, not tied to a document, that renders whichever
+ * document was last focused (VS Code's "Open Preview to the Side"). There is
+ * at most one, so Split is a toggle rather than a mode of each document.
  */
-export function toggleTabModeAt(layout: PaneLayout, paneId: string, index: number): PaneLayout {
-  const tab = tabAt(layout, paneId, index);
-  if (!tab) return layout;
-  return setTabMode(layout, tab, tabMode(tab) === "edit" ? "read" : "edit");
+export const PREVIEW_TAB: TabRef = { kind: "preview", id: "active" };
+
+export function isPreviewTab(tab?: TabRef): boolean {
+  return tab?.kind === PREVIEW_TAB.kind;
+}
+
+function previewHost(layout: PaneLayout): { leaf: PaneLeaf; index: number } | null {
+  for (const leaf of leaves(layout.root)) {
+    const index = leaf.tabs.findIndex(isPreviewTab);
+    if (index >= 0) return { leaf, index };
+  }
+  return null;
+}
+
+export function previewOpen(layout: PaneLayout): boolean {
+  return previewHost(layout) !== null;
+}
+
+/**
+ * Open the preview in a new pane to the right of the focused one, keeping focus
+ * on the document; or, when it is open anywhere, close it.
+ */
+export function togglePreview(layout: PaneLayout, newPaneId = nextPaneId()): PaneLayout {
+  const host = previewHost(layout);
+  if (host) return closeTab(layout, host.leaf.id, host.index);
+  const pane = layout.focusedPaneId;
+  const root = replaceLeaf(layout.root, pane, (leaf) => ({
+    type: "split",
+    direction: "row",
+    ratio: 0.5,
+    children: [leaf, { type: "leaf", id: newPaneId, tabs: [PREVIEW_TAB], activeIndex: 0 }],
+  }));
+  return settleFocus(root ?? layout.root, pane);
+}
+
+/**
+ * The document the preview shows: the focused tab, unless that is the preview
+ * itself, in which case it keeps showing `previous`.
+ */
+export function previewSource(layout: PaneLayout, previous?: TabRef): TabRef | undefined {
+  const tab = activeTabRef(layout);
+  return tab && !isPreviewTab(tab) ? tab : previous;
 }
 
 /** The key of every tab open in any pane. */
@@ -314,10 +348,8 @@ export function layoutForCommand(layout: PaneLayout, command: PaneCommand): Pane
   const leaf = findLeaf(layout.root, pane);
   if (!leaf || leaf.tabs.length === 0) return layout;
   if (command === "close-tab") return closeTab(layout, pane, leaf.activeIndex);
-  // `⌘E` flips the document on screen between the source editor and the
-  // rendered read view (§3.9). It is a property of the document, so it
-  // survives a tab switch, a split and a reload of the layout.
-  if (command === "toggle-mode") return toggleTabModeAt(layout, pane, leaf.activeIndex);
+  // `⌘E` is Split: the preview beside the document, and again to close it.
+  if (command === "toggle-mode") return togglePreview(layout);
   // Cycling wraps: Ctrl-Tab on the last tab lands on the first.
   const step = command === "next-tab" ? 1 : -1;
   return activateTab(layout, pane, (leaf.activeIndex + step + leaf.tabs.length) % leaf.tabs.length);
