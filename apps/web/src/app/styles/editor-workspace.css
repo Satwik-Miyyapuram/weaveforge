@@ -769,6 +769,25 @@
   background: var(--surface);
 }
 
+/* The focused document's own tools (the ink bar), brought up from its pane. */
+.workspace-toolbar-doc {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+}
+
+.workspace-toolbar-doc:empty {
+  display: none;
+}
+
+.workspace-toolbar-doc > .ink-bar {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
 .workspace-toolbar-end {
   display: inline-flex;
   align-items: center;

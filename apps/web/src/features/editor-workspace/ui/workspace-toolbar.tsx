@@ -26,6 +26,7 @@ import { SplitGlyph } from "./split-glyph";
  * and a control the document cannot use is greyed rather than gone.
  */
 export function WorkspaceToolbar({
+  slotRef,
   layout,
   renderTools,
   onSetMode,
@@ -33,6 +34,8 @@ export function WorkspaceToolbar({
   onSplit,
   onToggleFocus,
 }: {
+  /** Receives the element the focused document's own tools (the ink bar) render into. */
+  slotRef?: (element: HTMLElement | null) => void;
   layout: PaneLayout;
   /** The document's tools (the image button); `enabled` is false outside Text. */
   renderTools?: (tab: TabRef | undefined, enabled: boolean) => ReactNode;
@@ -55,7 +58,11 @@ export function WorkspaceToolbar({
         onMode={(next) => tab && onSetMode(tab, next)}
         split={{ on: previewOpen(layout), onToggle: onTogglePreview }}
       />
-      {renderTools ? <span className="pane-tools">{renderTools(tab, mode === "edit" && !!tab)}</span> : null}
+      {/* The text tools; a sheet brings its own bar into the slot instead. */}
+      {renderTools && mode !== "ink" ? (
+        <span className="pane-tools">{renderTools(tab, mode === "edit" && !!tab)}</span>
+      ) : null}
+      <span className="workspace-toolbar-doc" ref={slotRef} />
       <span className="workspace-toolbar-end">
         <IconButton size="sm" label="Split right" onClick={() => onSplit(pane, "row")}>
           <SplitGlyph direction="row" />

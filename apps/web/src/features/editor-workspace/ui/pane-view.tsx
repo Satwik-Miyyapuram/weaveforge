@@ -1,9 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { NavIcon } from "@/app/nav-icon";
 import { Select } from "@/components/select";
+import { ToolbarSlotContext } from "@/components/toolbar-slot";
 import type { Crumb } from "../application/breadcrumbs";
 import { shortcutTable, type WorkspaceCommand } from "../application/keybindings";
 import {
@@ -65,9 +66,12 @@ export interface PaneViewProps extends PaneActions {
  * preserve.
  */
 export function PaneView(props: PaneViewProps) {
+  // The toolbar's document slot, where the focused document puts its own tools.
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
   return (
     <div className="pane-root">
       <WorkspaceToolbar
+        slotRef={setSlot}
         layout={props.layout}
         renderTools={props.renderTools}
         onSetMode={props.onSetMode}
@@ -76,13 +80,15 @@ export function PaneView(props: PaneViewProps) {
         onToggleFocus={props.onToggleFocus}
       />
       <div className="pane-stage">
-        <PaneNodeView node={props.layout.root} {...props} />
+        <PaneNodeView node={props.layout.root} {...props} slot={slot} />
       </div>
     </div>
   );
 }
 
-function PaneNodeView({ node, ...props }: PaneViewProps & { node: PaneNode }) {
+type TreeProps = PaneViewProps & { slot: HTMLElement | null };
+
+function PaneNodeView({ node, ...props }: TreeProps & { node: PaneNode }) {
   if (node.type === "leaf") return <PaneLeafView leaf={node} {...props} />;
 
   const split = node;
@@ -138,7 +144,8 @@ function PaneLeafView({
   onClose,
   onFocus,
   onDropTab,
-}: PaneViewProps & { leaf: PaneLeaf }) {
+  slot,
+}: TreeProps & { leaf: PaneLeaf }) {
   const focused = layout.focusedPaneId === leaf.id;
   const showing = activeTab(leaf);
   const peerNames = showing ? (peers?.(showing) ?? []) : [];
@@ -246,17 +253,18 @@ function PaneLeafView({
           {leaf.tabs.length === 0 ? (
             <EmptyState />
           ) : (
-            leaf.tabs.map((tab) => (
+            leaf.tabs.map((tab) => {
+              const shown = showing !== undefined && tabKey(tab) === tabKey(showing);
               // Hidden rather than unmounted: an editor that unmounts loses its
               // scroll position, its undo history and its live binding.
-              <div
-                key={tabKey(tab)}
-                className="pane-document"
-                hidden={showing === undefined || tabKey(tab) !== tabKey(showing)}
-              >
-                {renderDocument(tab)}
-              </div>
-            ))
+              return (
+                <div key={tabKey(tab)} className="pane-document" hidden={!shown}>
+                  <ToolbarSlotContext.Provider value={focused && shown ? slot : null}>
+                    {renderDocument(tab)}
+                  </ToolbarSlotContext.Provider>
+                </div>
+              );
+            })
           )}
         </div>
       </div>
