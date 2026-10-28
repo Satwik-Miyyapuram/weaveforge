@@ -9,6 +9,7 @@ import type { Crumb } from "../application/breadcrumbs";
 import { shortcutTable, type WorkspaceCommand } from "../application/keybindings";
 import {
   activeTab,
+  isPreviewTab,
   leaves,
   tabKey,
   type DocumentMode,
@@ -19,7 +20,7 @@ import {
   type TabRef,
 } from "../application/pane-tree";
 import { Breadcrumbs } from "./breadcrumbs";
-import { WorkspaceToolbar } from "./workspace-toolbar";
+import { PaneModeSwitch, WorkspaceToolbar } from "./workspace-toolbar";
 import { kindIcon, kindSuffix, kindTintClass } from "./kind";
 import { followPointer } from "./follow-pointer";
 import { keyLabel } from "@/lib/shortcut-label";
@@ -76,7 +77,6 @@ export function PaneView(props: PaneViewProps) {
         slotRef={setSlot}
         layout={props.layout}
         renderTools={props.renderTools}
-        onSetMode={props.onSetMode}
         onTogglePreview={props.onTogglePreview}
         onSplit={props.onSplit}
         onToggleFocus={props.onToggleFocus}
@@ -146,6 +146,7 @@ function PaneLeafView({
   onClose,
   onFocus,
   onDropTab,
+  onSetMode,
   focus,
   slot,
 }: TreeProps & { leaf: PaneLeaf }) {
@@ -248,7 +249,13 @@ function PaneLeafView({
           must not. The last crumb carries the kind suffix, because there the
           crumb *is* the path. */}
       {showing ? (
-        <Breadcrumbs crumbs={crumbs} kind={showing.kind} onOpen={onOpenCrumb} />
+        <div className="pane-crumbs">
+          <Breadcrumbs crumbs={crumbs} kind={showing.kind} onOpen={onOpenCrumb} />
+          {/* In Ink the mode switch lives here, in the note, not in the toolbar. */}
+          {!focus && !isPreviewTab(showing) ? (
+            <PaneModeSwitch tab={showing} onSetMode={onSetMode} />
+          ) : null}
+        </div>
       ) : null}
 
       <div className="pane-body-wrap">

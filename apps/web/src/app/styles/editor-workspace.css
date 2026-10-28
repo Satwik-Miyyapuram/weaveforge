@@ -451,7 +451,7 @@
 .workspace-shell.is-focus .explorer-show,
 .workspace-shell.is-focus .workspace-toolbar,
 .workspace-shell.is-focus .pane-tabs,
-.workspace-shell.is-focus .breadcrumbs,
+.workspace-shell.is-focus .pane-crumbs,
 .workspace-shell.is-focus .status-bar {
   display: none;
 }
@@ -763,7 +763,8 @@
   flex: none;
   align-items: center;
   gap: 8px;
-  min-height: 36px;
+  /* The ink bar's height and border, so switching Text and Ink does not move the page. */
+  min-height: 46px;
   padding-inline: 8px;
   border-block-end: 1px solid var(--border);
   background: var(--surface);
@@ -1275,6 +1276,39 @@
 }
 
 .breadcrumbs::-webkit-scrollbar { display: none; }
+
+/* The path row, with Text · Ink at its end in every mode. */
+.pane-crumbs {
+  display: flex;
+  flex: none;
+  align-items: center;
+  background: var(--bg);
+  border-block-end: 1px solid var(--border);
+}
+
+.pane-crumbs > .breadcrumbs {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-block-end: 0;
+}
+
+.pane-crumbs > .view-control {
+  flex: none;
+  margin-inline: 0 8px;
+}
+
+/* :root:root to beat the control states' padding (states.css). */
+:root:root .pane-crumbs .pane-mode > button {
+  height: 22px;
+  padding-block: 0;
+  padding-inline: 8px;
+  line-height: 1;
+}
+
+.pane-crumbs .pane-mode svg {
+  width: 14px;
+  height: 14px;
+}
 
 .breadcrumb {
   display: inline-flex;

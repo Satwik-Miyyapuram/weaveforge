@@ -82,13 +82,10 @@ test("an ink note can be viewed in edit, read and ink modes", () => {
   assert.equal(rendererFor("ink_page", "ink"), "ink");
 });
 
-test("the PDF row is the reader in every mode; PDF on anything else means Edit", () => {
-  assert.equal(rendererFor("paper_pdf", "pdf"), "pdf");
-  assert.equal(rendererFor("paper_pdf", "edit"), "pdf");
-  assert.equal(rendererFor("paper_pdf", "read"), "pdf");
-  assert.equal(rendererFor("paper", "pdf"), "editor");
-  assert.equal(rendererFor("vault_page", "pdf"), "editor");
-  assert.equal(rendererFor("ink_page", "pdf"), "editor");
+test("the PDF row is read and inked in one: the reader with the pen up, in every mode", () => {
+  assert.equal(rendererFor("paper_pdf", "edit"), "pdf_ink");
+  assert.equal(rendererFor("paper_pdf", "read"), "pdf_ink");
+  assert.equal(rendererFor("paper_pdf", "ink"), "pdf_ink");
 });
 
 test("Ink on the PDF row is the PDF with the pen rail up; on a paper's notes an ink canvas", () => {
@@ -99,11 +96,11 @@ test("Ink on the PDF row is the PDF with the pen rail up; on a paper's notes an 
 
 test("a kind's modes come from the table: PDF for the PDF row, Text(/Ink) for text", () => {
   // Read is gone: Text is the editor, and its preview is Split, a pane of its own.
-  assert.deepEqual(modesFor("paper_pdf"), ["pdf"]);
+  assert.deepEqual(modesFor("paper_pdf"), ["ink"]);
   assert.deepEqual(modesFor("paper"), ["edit", "ink"]);
   assert.deepEqual(modesFor("vault_page"), ["edit", "ink"]);
   assert.deepEqual(modesFor("report_section"), ["edit"]);
-  assert.equal(defaultModeFor("paper_pdf"), "pdf");
+  assert.equal(defaultModeFor("paper_pdf"), "ink");
   assert.equal(defaultModeFor("paper"), "edit");
 });
 
@@ -119,7 +116,7 @@ test("opening a document edits it; an ink note opens on its sheet", () => {
   assert.equal(openModeFor("paper", ink), "ink");
   // A section has no sheet, so ink in its body changes nothing.
   assert.equal(openModeFor("report_section", ink), "edit");
-  assert.equal(openModeFor("paper_pdf", ""), "pdf");
+  assert.equal(openModeFor("paper_pdf", ""), "ink");
 });
 
 test("the table says which kinds have a PDF to look at", () => {
@@ -204,7 +201,7 @@ test("every way in opens a document in its own mode (28-02)", () => {
   const ink = "<!-- weaveforge-ink ink-pages=1 ink-paper=blank -->";
   assert.deepEqual(openingTab("vault_page", "n1", "prose"), { kind: "vault_page", id: "n1", mode: "edit" });
   assert.deepEqual(openingTab("vault_page", "n2", ink), { kind: "vault_page", id: "n2", mode: "ink" });
-  assert.deepEqual(openingTab("paper_pdf", "p1", ""), { kind: "paper_pdf", id: "p1", mode: "pdf" });
+  assert.deepEqual(openingTab("paper_pdf", "p1", ""), { kind: "paper_pdf", id: "p1", mode: "ink" });
   // A body not loaded yet opens as the plain kind would.
   assert.deepEqual(openingTab("paper", "p2", undefined), { kind: "paper", id: "p2", mode: "edit" });
 });

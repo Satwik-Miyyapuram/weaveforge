@@ -1,6 +1,7 @@
 /**
  * One mode control for a document, on every screen that shows one: Text · Ink,
- * then Split. Read is gone; its job is Split, the preview beside the editor.
+ * then Preview. Read is gone; its job is Preview, beside the editor. There is
+ * no PDF mode: a PDF is read and inked in one place, so it is Ink.
  * A mode a document cannot take is greyed, not hidden, so the toolbar keeps its
  * shape from one document to the next.
  */
@@ -39,24 +40,33 @@ function withStorage<T>(run: (store: Map<string, string>) => T): T {
 
 test("every text document offers Text and Ink; one without ink greys Ink rather than hiding it", () => {
   const shape = (modes: Parameters<typeof modeOptions>[0]) =>
-    modeOptions(modes).map((o) => `${o.label}${o.disabled ? " (off)" : ""}`);
+    modeOptions(modes).map((o) => `${o.ariaLabel}${o.disabled ? " (off)" : ""}`);
   assert.deepEqual(shape(["edit", "ink"]), ["Text", "Ink"]);
   assert.deepEqual(shape(["edit"]), ["Text", "Ink (off)"]);
-  // The PDF row is the reader: it says so, and Text and Ink are greyed beside it.
-  assert.deepEqual(shape(["pdf"]), ["Text (off)", "Ink (off)", "PDF"]);
+  // A PDF is Ink only: the same two segments, Text greyed, so nothing jumps.
+  assert.deepEqual(shape(["ink"]), ["Text (off)", "Ink"]);
   for (const o of modeOptions(["edit", "ink"])) assert.ok(o.title.length > 0, `${o.value} has a hint`);
 });
 
+test("Text and Ink are icons, not words: each named for screen readers and the hover tip", () => {
+  const html = renderToStaticMarkup(<DocumentModeSwitch modes={["edit", "ink"]} mode="edit" onMode={() => {}} split={false} />);
+  for (const name of ["Text", "Ink"]) {
+    const tag = html.match(new RegExp(`<button[^>]*aria-label="${name}"[^>]*>(.*?)</button>`));
+    assert.ok(tag, `${name} is named`);
+    assert.match(tag[1] ?? "", /^<svg/, `${name} shows an icon`);
+  }
+  assert.doesNotMatch(html, />(Text|Ink)</);
+});
+
 test("there is no Read mode any more", () => {
-  for (const modes of [["edit", "ink"], ["edit"], ["pdf"]] as const) {
-    assert.ok(!modeOptions(modes).some((o) => /read/i.test(o.label)));
+  for (const modes of [["edit", "ink"], ["edit"], ["ink"]] as const) {
+    assert.ok(!modeOptions(modes).some((o) => /read/i.test(o.ariaLabel)));
   }
 });
 
 test("Split is only for Text: a sheet or a PDF has no Markdown to preview", () => {
   assert.equal(canSplit("edit"), true);
   assert.equal(canSplit("ink"), false);
-  assert.equal(canSplit("pdf"), false);
 });
 
 test("the split side is remembered apart from whether the preview is on", () =>
@@ -83,19 +93,15 @@ test("every editor and the header switch share one preview choice", () =>
     assert.equal(heard, 2);
   }));
 
-test("the control is Mode then a Split toggle, pressed while the preview is open", () => {
-  const on = renderToStaticMarkup(
-    <DocumentModeSwitch modes={["edit", "ink"]} mode="edit" onMode={() => {}} split={{ on: true, onToggle: () => {} }} />,
-  );
+test("on a page the control is Mode then a Preview toggle, greyed outside Text", () => {
+  const on = renderToStaticMarkup(<DocumentModeSwitch modes={["edit", "ink"]} mode="edit" onMode={() => {}} />);
   assert.match(on, /aria-label="Mode"/);
-  assert.match(on, /aria-pressed="true"[^>]*>Split</);
+  assert.match(on, /aria-pressed="false"[^>]*>Preview</);
   assert.doesNotMatch(on, />Read</);
-  const ink = renderToStaticMarkup(
-    <DocumentModeSwitch modes={["edit", "ink"]} mode="ink" onMode={() => {}} split={{ on: false, onToggle: () => {} }} />,
-  );
-  assert.match(ink, /disabled=""[^>]*>Split</, "Split greys out on the sheet");
+  const ink = renderToStaticMarkup(<DocumentModeSwitch modes={["edit", "ink"]} mode="ink" onMode={() => {}} />);
+  assert.match(ink, /disabled=""[^>]*>Preview</, "Preview greys out on the sheet");
   const noInk = renderToStaticMarkup(<DocumentModeSwitch modes={["edit"]} mode="edit" onMode={() => {}} />);
-  assert.match(noInk, /disabled=""[^>]*>Ink</, "Ink is greyed, not gone");
+  assert.match(noInk, /<button[^>]*aria-label="Ink"[^>]*disabled=""|<button[^>]*disabled=""[^>]*aria-label="Ink"/, "Ink is greyed, not gone");
   const preview = read("features/editor-workspace/ui/md-live-preview.tsx");
   assert.doesNotMatch(preview, /<SegmentedControl|"Live preview"|PreviewToggle/);
   assert.doesNotMatch(read("app/styles/editor-workspace.css"), /\.md-live-choice\b/);

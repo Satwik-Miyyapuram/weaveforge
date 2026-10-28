@@ -16,7 +16,7 @@
  * `pdf` is a paper's third view: its PDF in the reader, in place.
  * `ink` is a note's freehand drawing view: the ink canvas, in place.
  */
-export type DocumentMode = "edit" | "read" | "pdf" | "ink";
+export type DocumentMode = "edit" | "read" | "ink";
 
 export interface TabRef {
   kind: string;
@@ -225,12 +225,12 @@ export function activeTabKey(layout: PaneLayout): string | undefined {
 
 /**
  * The mode a tab is in. Anything that predates modes was and is Edit; an ink
- * note defaults to Ink and a PDF row to the reader. The two literals are the
+ * note and a PDF row default to Ink. The two literals are the
  * kinds whose default is not Edit; `ui/kind.ts`'s `defaultModeFor` is the same
  * answer for the screen, which cannot be asked from here without the UI layer.
  */
 export function tabMode(tab: TabRef): DocumentMode {
-  return tab.mode ?? (tab.kind === "ink_page" ? "ink" : tab.kind === "paper_pdf" ? "pdf" : "edit");
+  return tab.mode ?? (tab.kind === "ink_page" || tab.kind === "paper_pdf" ? "ink" : "edit");
 }
 
 /** The tab at a pane-and-index, or `undefined` when either is gone. */

@@ -17,32 +17,43 @@ const render = (layout: PaneLayout) =>
     <WorkspaceToolbar
       layout={layout}
       renderTools={(tab, enabled) => <button disabled={!enabled}>Image {tab ? tab.id : "none"}</button>}
-      onSetMode={() => {}}
       onTogglePreview={() => {}}
       onSplit={() => {}}
       onToggleFocus={() => {}}
     />,
   );
 
-test("the toolbar holds the focused document's mode, its tools, then split and focus", () => {
+/** The opening tag of the button named `label`. */
+const button = (html: string, label: string) => html.match(new RegExp(`<button[^>]*aria-label="${label}"[^>]*>`))?.[0] ?? "";
+
+test("the toolbar holds the focused document's tools, then preview, split and focus, never the mode", () => {
   const html = render(openTab(emptyLayout(), { kind: "note", id: "n1" }));
   assert.match(html, /role="toolbar"/);
-  assert.match(html, /aria-label="Mode"/);
+  assert.doesNotMatch(html, /aria-label="Mode"/, "the mode lives in the note's path row");
   assert.match(html, />Image n1</);
-  for (const label of ["Split right", "Split down", "Focus"]) assert.match(html, new RegExp(`aria-label="${label}"`));
-  assert.match(html, /aria-pressed="false"[^>]*>Split</, "no preview open yet");
+  for (const label of ["Preview", "Split right", "Split down", "Focus"]) assert.ok(button(html, label), label);
+  assert.match(button(html, "Preview"), /aria-pressed="false"/, "no preview open yet");
+  assert.match(html.slice(html.indexOf("workspace-toolbar-end")), /aria-label="Preview"/, "Preview sits with the layout icons");
 });
 
-test("Split is pressed while the preview pane is open", () => {
+test("Preview is pressed while the preview pane is open", () => {
   const html = render(togglePreview(openTab(emptyLayout(), { kind: "note", id: "n1" }), "pane-2"));
-  assert.match(html, /aria-pressed="true"[^>]*>Split</);
+  assert.match(button(html, "Preview"), /aria-pressed="true"/);
 });
 
 test("with no document, the controls are greyed, not gone", () => {
   const html = render(emptyLayout());
-  assert.match(html, /aria-label="Mode"/);
   assert.match(html, /disabled=""[^>]*>Image none</);
-  assert.match(html, /disabled=""[^>]*>Text</);
+  assert.match(button(html, "Preview"), /disabled=""/);
+});
+
+test("the toolbar keeps its layout icons in Ink; Preview greys there", () => {
+  for (const tab of [{ kind: "vault_page", id: "n1", mode: "ink" }, { kind: "paper_pdf", id: "p1" }] as const) {
+    const html = render(openTab(emptyLayout(), tab));
+    assert.doesNotMatch(html, /aria-label="Mode"/);
+    assert.match(button(html, "Preview"), /disabled=""/, tab.kind);
+    assert.ok(button(html, "Split right"), tab.kind);
+  }
 });
 
 test("a pane header no longer carries its own mode switch or layout buttons", () => {
@@ -125,4 +136,37 @@ test("the PDF reader's bar goes up to the toolbar too, as one flat row", () => {
   assert.match(rule(".workspace-toolbar-doc .pdf-reader-tools"), /flex-wrap: nowrap/);
   // The toolbar has its own Focus.
   assert.match(rule(".workspace-toolbar-doc .pdf-reader-focus-btn"), /display: none/);
+});
+
+test("the mode switch sits in the note's path row in every mode, so it never moves", async () => {
+  const ink = openTab(emptyLayout(), { kind: "vault_page", id: "n1", mode: "ink" });
+  const text = openTab(emptyLayout(), { kind: "vault_page", id: "n1" });
+  const pdf = openTab(emptyLayout(), { kind: "paper_pdf", id: "p1" });
+  const { PaneView } = await import("../ui/pane-view");
+  const noop = () => {};
+  const pane = (layout: PaneLayout) =>
+    renderToStaticMarkup(
+      <PaneView
+        layout={layout}
+        labelFor={() => "Note"}
+        crumbsFor={() => [{ label: "Notes" }, { label: "Note", current: true }]}
+        renderDocument={() => null}
+        onActivate={noop}
+        onClose={noop}
+        onFocus={noop}
+        onSplit={noop}
+        onDropTab={noop}
+        onRatio={noop}
+        onSetMode={noop}
+        onTogglePreview={noop}
+      />,
+    );
+  const crumbRow = (html: string) => html.slice(html.indexOf('class="pane-crumbs"'), html.indexOf('class="pane-body-wrap"'));
+  for (const layout of [ink, text, pdf]) {
+    const row = crumbRow(pane(layout));
+    assert.match(row, /aria-label="Mode"/);
+    assert.doesNotMatch(row, /Preview/, "Preview is in the toolbar, not the path row");
+  }
+  assert.match(button(crumbRow(pane(text)), "Text"), /aria-pressed="true"/);
+  assert.match(button(crumbRow(pane(ink)), "Ink"), /aria-pressed="true"/);
 });

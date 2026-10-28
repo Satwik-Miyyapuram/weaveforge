@@ -399,7 +399,8 @@ export function documentSuffix(kind: string): string {
  */
 export function modesFor(kind: string): readonly DocumentMode[] {
   const meta = kindMeta(kind);
-  if (meta.document === "pdf") return ["pdf"];
+  // A PDF is read and inked in one place: Ink, with the pen up.
+  if (meta.document === "pdf") return ["ink"];
   return meta.ink ? ["edit", "ink"] : ["edit"];
 }
 

@@ -48,7 +48,6 @@ test("the other modes are unchanged by an ink body", () => {
   assert.equal(rendererFor("vault_page", "edit", INK_HEADER), "editor");
   assert.equal(rendererFor("vault_page", "ink", INK_HEADER), "ink");
   // A PDF row reads and inks through the reader, never the ink sheet.
-  assert.equal(rendererFor("paper_pdf", "pdf"), "pdf");
   assert.equal(rendererFor("paper_pdf", "ink"), "pdf_ink");
 });
 
