@@ -1297,17 +1297,10 @@
   margin-inline: 0 8px;
 }
 
-/* :root:root to beat the control states' padding (states.css). */
-:root:root .pane-crumbs .pane-mode > button {
-  height: 22px;
-  padding-block: 0;
-  padding-inline: 8px;
-  line-height: 1;
-}
-
-.pane-crumbs .pane-mode svg {
-  width: 14px;
-  height: 14px;
+/* Text · Ink as plain icons, side by side like the toolbar's. */
+.pane-mode {
+  display: inline-flex;
+  gap: 1px;
 }
 
 .breadcrumb {

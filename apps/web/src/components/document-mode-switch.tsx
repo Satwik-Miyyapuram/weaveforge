@@ -22,10 +22,10 @@ import type { ReactNode } from "react";
 
 import { shortcutLabel } from "@/lib/shortcut-label";
 import { readMdSplitSide, setMdSplitSide, useMdPreviewMode, type MdSplitSide } from "@/lib/hooks/use-md-preview-mode";
+import { IconButton } from "./button";
 import { CardMenu } from "./card-menu";
 import { ToggleButton } from "./controls";
 import { toolIcon } from "./ink-tool-icons";
-import { SegmentedControl } from "./segmented-control";
 import { TextIcon } from "./view-icons";
 
 export type DocumentModeName = "edit" | "ink";
@@ -77,13 +77,22 @@ export function DocumentModeSwitch<M extends DocumentModeName>({
   });
   return (
     <span className="view-control">
-      <SegmentedControl
-        label="Mode"
-        className="pane-mode"
-        value={mode}
-        onChange={(next) => onMode(next as M)}
-        options={modeOptions(modes)}
-      />
+      {/* Plain icons like the toolbar's; the current mode is the accent-coloured one. */}
+      <span className="pane-mode" role="group" aria-label="Mode">
+        {modeOptions(modes).map((o) => (
+          <IconButton
+            key={o.value}
+            size="sm"
+            label={o.ariaLabel}
+            tip={o.title}
+            aria-pressed={o.value === mode}
+            disabled={o.disabled}
+            onClick={() => onMode(o.value as M)}
+          >
+            {o.label}
+          </IconButton>
+        ))}
+      </span>
       {split !== false && (
       <span className="wf-seg pane-split">
         <ToggleButton

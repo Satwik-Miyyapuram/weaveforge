@@ -58,6 +58,16 @@ test("Text and Ink are icons, not words: each named for screen readers and the h
   assert.doesNotMatch(html, />(Text|Ink)</);
 });
 
+test("Text and Ink are plain icon buttons like the toolbar's, not boxed segments", () => {
+  const html = renderToStaticMarkup(<DocumentModeSwitch modes={["edit", "ink"]} mode="edit" onMode={() => {}} split={false} />);
+  assert.match(html, /role="group" aria-label="Mode"/);
+  assert.doesNotMatch(html, /wf-seg/);
+  for (const name of ["Text", "Ink"]) assert.match(html, new RegExp(`<button[^>]*class="wf-btn wf-icon wf-sm"[^>]*aria-label="${name}"|<button[^>]*aria-label="${name}"[^>]*class="wf-btn wf-icon wf-sm"`));
+  // The current mode, and an open Preview, show as an accent-coloured icon.
+  const css = read("app/styles/buttons.css");
+  assert.match(css, /:root:root \.wf-btn\.wf-icon\[aria-pressed="true"\] \{ color: var\(--accent\); \}/);
+});
+
 test("there is no Read mode any more", () => {
   for (const modes of [["edit", "ink"], ["edit"], ["ink"]] as const) {
     assert.ok(!modeOptions(modes).some((o) => /read/i.test(o.ariaLabel)));
