@@ -181,15 +181,24 @@ function renderMath(source: string, displayMode: boolean, renderer?: MathRendere
   });
 }
 
+/**
+ * The closing `$` of an inline formula, by the pandoc rule: it must not follow a
+ * space and must not precede a digit. That keeps `$5 and $10` as two prices.
+ */
 function closingDollar(s: string, from: number): number {
   for (let index = from; index < s.length; index += 1) {
     if (s[index] === "\\") {
       index += 1;
-    } else if (s[index] === "$") {
+    } else if (s[index] === "$" && !/\s/.test(s[index - 1] ?? " ") && !/\d/.test(s[index + 1] ?? "")) {
       return index;
     }
   }
   return -1;
+}
+
+/** A bracketed or `$$` formula inside a paragraph: display maths, but kept inline with the text. */
+function displayInline(source: string, options?: MarkdownRenderOptions): string {
+  return `<span class="math-display-inline">${renderMath(source, true, options?.mathRenderer)}</span>`;
 }
 
 /** Render inline Markdown while treating code, URLs, and escaped dollars as text. */
@@ -240,7 +249,35 @@ function inline(s: string, options?: MarkdownRenderOptions): string {
       continue;
     }
 
-    if (s[index] === "$" && s[index + 1] !== "$") {
+    // `\(…\)` is inline maths; `\[…\]` is display maths kept within the line.
+    if (s[index] === "\\" && (s[index + 1] === "(" || s[index + 1] === "[")) {
+      const close = s[index + 1] === "(" ? "\\)" : "\\]";
+      const end = s.indexOf(close, index + 2);
+      const source = end === -1 ? "" : s.slice(index + 2, end);
+      if (source.trim()) {
+        flush();
+        out.push(
+          s[index + 1] === "(" ? renderMath(source, false, options?.mathRenderer) : displayInline(source, options),
+        );
+        index = end + close.length - 1;
+        continue;
+      }
+    }
+
+    // `$$…$$` in the middle of a paragraph: display maths, one line.
+    if (s.startsWith("$$", index)) {
+      const end = s.indexOf("$$", index + 2);
+      const source = end === -1 ? "" : s.slice(index + 2, end);
+      if (source.trim()) {
+        flush();
+        out.push(displayInline(source, options));
+        index = end + 1;
+        continue;
+      }
+    }
+
+    // A `$` opens a formula only when a non-space follows it.
+    if (s[index] === "$" && s[index + 1] !== "$" && !/\s/.test(s[index + 1] ?? " ")) {
       const end = closingDollar(s, index + 1);
       const source = end === -1 ? "" : s.slice(index + 1, end);
       if (source && !source.includes("\n")) {
@@ -259,19 +296,45 @@ function inline(s: string, options?: MarkdownRenderOptions): string {
 
 /** Split one table row into cells, honouring `\|` as a literal pipe. */
 function splitRow(line: string): string[] {
-  const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  // Only an unescaped trailing pipe closes the row; `\|` at the end is a cell's text.
+  const trimmed = line.trim().replace(/^\|/, "").replace(/(?<!\\)\|$/, "");
   return trimmed.split(/(?<!\\)\|/).map((cell) => cell.trim().replace(/\\\|/g, "|"));
+}
+
+/** A pipe that separates cells, not one written `\|`. */
+function hasCellPipe(line: string): boolean {
+  return /(?<!\\)\|/.test(line);
 }
 
 const DIVIDER_CELL = /^:?-+:?$/;
 
-/** The `|---|:--:|` line that turns the row above it into a header. */
+/** The `|---|:--:|` line that turns the row above it into a header. With or without leading pipes. */
 function isTableDivider(line: string | undefined): boolean {
-  if (line === undefined) return false;
-  const trimmed = line.trim();
-  if (!trimmed.startsWith("|")) return false;
-  const cells = splitRow(trimmed);
+  if (line === undefined || !hasCellPipe(line)) return false;
+  const cells = splitRow(line);
   return cells.length > 0 && cells.every((cell) => DIVIDER_CELL.test(cell));
+}
+
+/** A header row over a divider with the same number of cells is a table. */
+function isTableStart(lines: readonly string[], index: number): boolean {
+  const header = lines[index];
+  if (header === undefined || !hasCellPipe(header) || !isTableDivider(lines[index + 1])) return false;
+  return splitRow(header).length === splitRow(lines[index + 1]!).length;
+}
+
+/** A line that ends a table: blank, or the start of another block. */
+function endsTable(trimmed: string): boolean {
+  return trimmed === "" || /^(#{1,6}\s|```|>|\$\$|[-*]\s|\d+[.)]\s)/.test(trimmed);
+}
+
+/** The line that closes a `$$` block opened at `index`, or -1 if a blank line comes first. */
+function displayBlockEnd(lines: readonly string[], index: number): number {
+  for (let candidate = index + 1; candidate < lines.length; candidate += 1) {
+    const trimmed = lines[candidate]!.trim();
+    if (trimmed === "") return -1;
+    if (trimmed.endsWith("$$")) return candidate;
+  }
+  return -1;
 }
 
 /** Alignment as a class, not an inline style — the page's CSP has no `unsafe-inline`. */
@@ -283,16 +346,35 @@ function alignClass(cell: string): string {
   return "";
 }
 
-function renderTable(rows: readonly string[], options?: MarkdownRenderOptions): string {
-  const header = splitRow(rows[0]!);
-  const aligns = splitRow(rows[1]!).map(alignClass);
+/**
+ * The cells of each body row. A line that is not a row of its own (no leading
+ * pipe in a pipe-led table, no separator in a bare one) is the rest of the cell
+ * above it, wrapped onto a new line.
+ */
+function tableCells(lines: readonly string[], leadingPipe: boolean): string[][] {
+  const rows: string[][] = [];
+  for (const line of lines) {
+    const isRow = leadingPipe ? line.trim().startsWith("|") : hasCellPipe(line);
+    if (isRow || rows.length === 0) {
+      rows.push(splitRow(line));
+      continue;
+    }
+    const row = rows[rows.length - 1]!;
+    const rest = line.trim().replace(/(?<!\\)\|$/, "").trim();
+    row[row.length - 1] = `${row[row.length - 1] ?? ""} ${rest}`.trim();
+  }
+  return rows;
+}
+
+/** `lines` runs from the header row through the last body row. */
+function renderTable(lines: readonly string[], options?: MarkdownRenderOptions): string {
+  const header = splitRow(lines[0]!);
+  const aligns = splitRow(lines[1]!).map(alignClass);
   const head = header.map((cell, i) => `<th${aligns[i] ?? ""}>${inline(cell, options)}</th>`).join("");
-  const body = rows
-    .slice(2)
-    .map((row) => {
+  const body = tableCells(lines.slice(2), lines[0]!.trim().startsWith("|"))
+    .map((cells) => {
       // A ragged row is padded rather than dropped: one bad line in a pasted
       // spreadsheet should not take the rows around it down with it.
-      const cells = splitRow(row);
       const tds = header
         .map((_, i) => `<td${aligns[i] ?? ""}>${inline(cells[i] ?? "", options)}</td>`)
         .join("");
@@ -331,11 +413,14 @@ export function renderProseMarkdown(md: string, options?: MarkdownRenderOptions)
       out.push(`<div class="math-display">${renderMath(singleLineDisplay[1]!, true, options?.mathRenderer)}</div>`);
       continue;
     }
-    if (trimmed === "$$") {
-      const closing = lines.findIndex((candidate, candidateIndex) => candidateIndex > index && candidate.trim() === "$$");
+    // A display block opens with `$$` (alone, or before its first line of TeX) and
+    // closes on a line ending in `$$`, never across a blank line.
+    if (trimmed.startsWith("$$") && trimmed.indexOf("$$", 2) === -1) {
+      const closing = displayBlockEnd(lines, index);
       if (closing !== -1) {
         closeList();
-        out.push(`<div class="math-display">${renderMath(lines.slice(index + 1, closing).join("\n"), true, options?.mathRenderer)}</div>`);
+        const tex = lines.slice(index, closing + 1).join("\n").trim().slice(2, -2).trim();
+        out.push(`<div class="math-display">${renderMath(tex, true, options?.mathRenderer)}</div>`);
         index = closing;
         continue;
       }
@@ -368,22 +453,26 @@ export function renderProseMarkdown(md: string, options?: MarkdownRenderOptions)
     }
 
     // A table: the header row, its divider, and every row that follows.
-    if (trimmed.startsWith("|") && isTableDivider(lines[index + 1])) {
+    if (isTableStart(lines, index)) {
       closeList();
       let end = index + 2;
-      while (end < lines.length && lines[end]!.trim().startsWith("|")) end += 1;
+      while (end < lines.length && !endsTable(lines[end]!.trim())) end += 1;
       out.push(renderTable(lines.slice(index, end), options));
       index = end - 1;
       continue;
     }
 
-    const h = /^(#{1,3})\s+(.*)$/.exec(line);
+    const h = /^(#{1,6})\s+(.*)$/.exec(line);
     const li = /^\s*[-*]\s+(.*)$/.exec(line);
     const oli = /^\s*\d+[.)]\s+(.*)$/.exec(line);
     if (h) {
       closeList();
+      // `#`…`###` keep their established tags (h3–h5). `####`…`######` share h6, told
+      // apart by class, since there is no tag below h6 to step down to.
       const level = h[1]!.length;
-      out.push(`<h${level + 2} id="${escapeAttr(headingSlug(h[2]!))}">${inline(h[2]!, options)}</h${level + 2}>`);
+      const tag = level <= 3 ? `h${level + 2}` : "h6";
+      const cls = level <= 3 ? "" : ` class="md-h${level}"`;
+      out.push(`<${tag}${cls} id="${escapeAttr(headingSlug(h[2]!))}">${inline(h[2]!, options)}</${tag}>`);
     } else if (li) {
       openList("ul");
       out.push(`<li>${inline(li[1]!, options)}</li>`);

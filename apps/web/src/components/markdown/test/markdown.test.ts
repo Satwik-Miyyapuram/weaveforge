@@ -186,3 +186,61 @@ test("splitFences returns prose and fences in order, with info and body (13-07)"
   assert.deepEqual(splitFences("only prose"), [{ kind: "prose", text: "only prose" }]);
   assert.deepEqual(splitFences("```\nunclosed"), [{ kind: "prose", text: "```\nunclosed" }]);
 });
+
+test("a table needs no leading pipe, keeps escaped pipes, and takes wrapped rows", () => {
+  const noLeadingPipe = renderProseMarkdown("a | b\n--- | ---\n1 | 2");
+  assert.match(noLeadingPipe, /<table class="md-table">/);
+  assert.match(noLeadingPipe, /<td>1<\/td><td>2<\/td>/);
+
+  const escaped = renderProseMarkdown("| code | note |\n|---|---|\n| a \\| b | c \\|");
+  assert.match(escaped, /<td>a \| b<\/td><td>c \|<\/td>/);
+
+  const wrapped = renderProseMarkdown("| k | v |\n|---|---|\n| one | first part\nsecond part |\n| two | 2 |");
+  assert.match(wrapped, /<td>one<\/td><td>first part second part<\/td>/);
+  assert.match(wrapped, /<td>two<\/td><td>2<\/td>/);
+
+  const afterBlank = renderProseMarkdown("| a | b |\n|---|---|\n| 1 | 2 |\n\nafter");
+  assert.match(afterBlank, /<p>after<\/p>/);
+});
+
+test("inline and bracketed maths render; dollar amounts and code stay text", async () => {
+  const options = await withKatex();
+  const midParagraph = renderProseMarkdown("mid $$x+y$$ para", options);
+  assert.match(midParagraph, /<span class="math-display-inline">[\s\S]*class="katex"/);
+  assert.doesNotMatch(midParagraph, /\$/, "no stray dollar left behind");
+
+  const brackets = renderProseMarkdown("\\(x^2\\) and \\[y\\]", options);
+  assert.equal((brackets.match(/class="katex"/g) ?? []).length, 2);
+
+  const prices = renderProseMarkdown("It costs $5 and $10 in total.", { mathRenderer: null });
+  assert.doesNotMatch(prices, /math-pending/);
+  assert.match(prices, /\$5 and \$10/);
+
+  const code = renderProseMarkdown("Use `$x$` literally.", { mathRenderer: null });
+  assert.match(code, /<code>\$x\$<\/code>/);
+  assert.doesNotMatch(code, /math-pending/);
+});
+
+test("a display block may open or close on a line with content, and invalid TeX does not throw", async () => {
+  const options = await withKatex();
+  const multi = renderProseMarkdown("$$x+y\n+z$$", options);
+  assert.match(multi, /<div class="math-display">[\s\S]*katex-display/);
+  assert.doesNotMatch(multi, /<p>\$\$/);
+
+  assert.doesNotThrow(() => renderProseMarkdown("$\\frac{$ and \\(\\unclosed", options));
+});
+
+test("containsMath recognises the bracketed delimiters too", () => {
+  assert.equal(containsMath("\\(x\\)"), true);
+  assert.equal(containsMath("\\[x\\]"), true);
+  assert.equal(containsMath("plain text with a \\(escaped-looking word"), true);
+  assert.equal(containsMath("no maths here"), false);
+});
+
+test("headings four to six hashes render as headings; seven stay text", () => {
+  const html = renderProseMarkdown("#### four\n\n##### five\n\n###### six\n\n####### seven");
+  assert.match(html, /<h6 class="md-h4"[^>]*>four<\/h6>/);
+  assert.match(html, /<h6 class="md-h5"[^>]*>five<\/h6>/);
+  assert.match(html, /<h6 class="md-h6"[^>]*>six<\/h6>/);
+  assert.match(html, /<p>####### seven<\/p>/);
+});
