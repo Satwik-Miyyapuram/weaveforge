@@ -57,7 +57,7 @@ export function DuplicateCopyButton({
 
   return (
     <div className="shared-library-actions" onClick={(e) => e.stopPropagation()}>
-      <Button className="entity-icon-text-btn"
+      <Button size="sm" variant="ghost"
         disabled={busy}
         onClick={() => void copy()}
         aria-label="Make a copy"

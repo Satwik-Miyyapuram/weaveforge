@@ -3,7 +3,7 @@
 import { useProject } from "./project-provider";
 import { showNewProject } from "./projects-screen";
 import { Popover } from "@/components/popover";
-import { RowButton } from "@/components/controls";
+import { MenuItemButton } from "@/components/controls";
 
 const DOT_TITLE = "Project colour";
 
@@ -26,8 +26,6 @@ export function ProjectSwitcher() {
         portal
         align="left"
         ariaLabel={`Project: ${current.name}`}
-        look="custom"
-        triggerClassName="proj-chip"
         label={
           <>
             <span className="project-dot" aria-hidden title={DOT_TITLE} style={{ background: current.color ?? "#7c9885" }} />
@@ -38,10 +36,10 @@ export function ProjectSwitcher() {
         {(close) => (
           <>
             {projects.map((p) => (
-              <RowButton
+              <MenuItemButton
+                kind="radio"
+                checked={p.id === current.id}
                 key={p.id}
-                className={`proj-menu-item${p.id === current.id ? " sel" : ""}`}
-                aria-current={p.id === current.id || undefined}
                 data-autofocus={p.id === current.id || undefined}
                 onClick={() => {
                   setProject(p.id);
@@ -50,24 +48,22 @@ export function ProjectSwitcher() {
               >
                 <span className="project-dot" aria-hidden title={DOT_TITLE} style={{ background: p.color ?? "#7c9885" }} />
                 {p.name}
-                {p.id === current.id && <span className="check">✓</span>}
-              </RowButton>
+              </MenuItemButton>
             ))}
             <div className="proj-menu-sep" />
             {[
               { label: "＋ New project", run: () => showNewProject(setProject) },
               { label: "All projects", run: () => setProject(null) },
             ].map((row) => (
-              <RowButton
+              <MenuItemButton
                 key={row.label}
-                className="proj-menu-item"
                 onClick={() => {
                   row.run();
                   close();
                 }}
               >
                 {row.label}
-              </RowButton>
+              </MenuItemButton>
             ))}
           </>
         )}

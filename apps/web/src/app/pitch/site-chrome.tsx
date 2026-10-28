@@ -5,7 +5,8 @@ import s from "./scrolly.module.css";
 import { DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS } from "@/lib/theme/theme";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
-import { MenuItemButton, RowButton } from "@/components/controls";
+import { MenuItemButton } from "@/components/controls";
+import { Button } from "@/components/button";
 
 /**
  * The pieces the pitch and the docs share: the brand mark, the theme and its
@@ -76,8 +77,7 @@ export function ThemePicker({ theme, onPick }: { theme: string; onPick: (theme: 
   );
   return (
     <div className={s.picker} ref={boxRef}>
-      <RowButton
-        className={s["picker-btn"]}
+      <Button
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Theme: ${themeLabel(theme)}`}
@@ -85,7 +85,7 @@ export function ThemePicker({ theme, onPick }: { theme: string; onPick: (theme: 
       >
         <span className={s.swatch} data-theme={theme === AUTO ? undefined : theme} aria-hidden />
         <span className={s["picker-label"]}>{themeLabel(theme)}</span>
-      </RowButton>
+      </Button>
       {open && (
         <div className={s["picker-menu"]} role="menu" aria-label="Theme">
           {item(AUTO, "Auto")}

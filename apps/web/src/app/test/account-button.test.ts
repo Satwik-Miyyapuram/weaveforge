@@ -1,10 +1,9 @@
 /**
  * The account button sits beside the project chip and must move like it.
  *
- * It used the design system's ghost icon class, which has no shadow at rest and
- * gains one on hover, while the brutal themes draw it as a solid box like the
- * chip. The result jumped on hover and pressed a different distance from its
- * neighbour. It is a plain secondary button now, the chip's own family.
+ * It once had its own class, which jumped on hover and pressed a different
+ * distance from its neighbour. It is now the catalogue's one icon button
+ * (`trigger="icon"`), so it moves exactly like every other button.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -13,14 +12,12 @@ import { fileURLToPath } from "node:url";
 
 const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
 
-test("the account trigger is a secondary button, not the ghost icon class", () => {
+test("the account trigger is the one icon button, chosen by name", () => {
   const src = read("../header-actions.tsx");
-  // The Popover's default look is the secondary Button; `look="custom"` would drop it.
   const block = /<Popover\s[\s\S]*?ariaLabel=[^\n]*"Account"[\s\S]*?label=/.exec(src)?.[0] ?? "";
   assert.ok(block, "account popover found");
-  assert.doesNotMatch(block, /look="custom"/);
-  const trigger = /triggerClassName="([^"]+)"/.exec(block)?.[1] ?? "";
-  assert.ok(!trigger.split(" ").includes("header-overflow-btn"), `trigger class: ${trigger}`);
+  assert.match(block, /trigger="icon"/);
+  assert.doesNotMatch(block, /triggerClassName|iconOnly/);
 });
 
 test("the brutal themes add no hover effect of their own to the account row", () => {
@@ -28,11 +25,16 @@ test("the brutal themes add no hover effect of their own to the account row", ()
   assert.doesNotMatch(css, /\.nav-account-row[^{]*:hover\s*\{/);
 });
 
-test("both account-row popover triggers stay sunk at the press depth while open", () => {
-  // Pressing sinks a button by --wf-press; an open menu keeps its trigger there.
-  // A trigger outside this rule pops back up on release, and one pressing a
-  // different distance slides on release: both read as a jump.
+test("an open popover's button stays sunk at the press depth", () => {
+  // Pressing sinks a button by --wf-press; an open menu keeps its trigger there,
+  // so it does not pop back up on release.
   const css = read("../styles/states.css");
-  const rule = /:is\(([^)]*)\)\.popover-trigger\[aria-expanded="true"\]\s*\{\s*translate: var\(--wf-press\) var\(--wf-press\)/.exec(css)?.[1] ?? "";
-  for (const cls of [".btn-secondary", ".proj-chip"]) assert.ok(rule.split(", ").includes(cls), `open-trigger rule: ${rule}`);
+  assert.match(css, /\.wf-btn\[aria-expanded="true"\] \{ translate: var\(--wf-press\) var\(--wf-press\); box-shadow: none;/);
+});
+
+test("the account button sits on the project chip's centre line, not at the row's top", () => {
+  // The row stretches its children to the chip's height; the account popover
+  // must centre its shorter icon button rather than pin it to the top.
+  const css = read("../styles/nav.css");
+  assert.match(css, /\.nav-account-row > \.popover \{ align-self: center; \}/);
 });

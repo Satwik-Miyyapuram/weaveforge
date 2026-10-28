@@ -14,7 +14,7 @@ import { NavIcon } from "@/app/nav-icon";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { formatError } from "@/lib/format-error";
 import { Button } from "@/components/button";
-import { ToggleButton } from "@/components/controls";
+import { RowButton } from "@/components/controls";
 
 function repoWebUrl(i: Integration): string {
   const { repo } = gitConnection(i);
@@ -188,24 +188,19 @@ export function GitScreen() {
               <ul className="git-branch-list">
                 {branches.map((b) => (
                   <li key={b.name}>
-                    <ToggleButton pressed={b.name === branch}
-                      className={b.name === branch ? "git-branch is-active" : "git-branch"}
-                      onClick={() => void load(b.name)}
-                      disabled={loading}
-                    >
+                    <RowButton current={b.name === branch} onClick={() => void load(b.name)} disabled={loading}>
                       <span className="git-branch-swatch" aria-hidden="true" />
                       <span className="git-branch-name">{b.name}</span>
                       {b.name === integration.branch && <span className="git-branch-note">default</span>}
-                    </ToggleButton>
+                    </RowButton>
                   </li>
                 ))}
               </ul>
-              <Button variant="primary" className="track-branch-btn"
-                onClick={() => void trackBranch()}
-                disabled={loading || tracking || !branch}
-              >
-                {tracking ? "Tracking…" : `Track ${branch} as experiment`}
-              </Button>
+              <span className="track-branch-btn">
+                <Button variant="primary" onClick={() => void trackBranch()} disabled={loading || tracking || !branch}>
+                  {tracking ? "Tracking…" : `Track ${branch} as experiment`}
+                </Button>
+              </span>
               <p className="muted git-branches-note">A tracked branch shows up as an experiment, with its runs.</p>
             </aside>
           </div>

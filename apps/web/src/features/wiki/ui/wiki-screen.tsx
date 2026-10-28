@@ -188,7 +188,7 @@ export function WikiScreen() {
           </Button>
           {/* With a model configured a scan costs the user money per document,
               so narrowing it has to be reachable before running, not after. */}
-          <Button variant={sources ? "ghost" : "secondary"} className={sources ? "btn-cancel" : undefined}
+          <Button variant={sources ? "cancel" : "secondary"}
             disabled={busy !== null}
             onClick={() => (sources ? setSources(null) : void chooseSources())}
           >
@@ -215,9 +215,8 @@ export function WikiScreen() {
               {sources.map((source) => (
                 <li key={source.id}>
                   <label className="field-inline">
-                    <input
+                    <input className="wf-check"
                       type="checkbox"
-                      className="themed-check"
                       checked={scope.has(source.id)}
                       onChange={() =>
                         setScope((prev) => {
@@ -270,9 +269,8 @@ export function WikiScreen() {
                   {preview.plans.map((plan) => (
                     <li key={plan.title}>
                       <label className="field-inline">
-                        <input
+                        <input className="wf-check"
                           type="checkbox"
-                          className="themed-check"
                           checked={selected.has(plan.title)}
                           onChange={() => toggle(plan)}
                         />
@@ -463,7 +461,7 @@ function MergeDialog({
           <pre className="wiki-merge-preview">{preview.result.body}</pre>
 
           <ModalActions>
-            <Button variant="ghost" className="btn-cancel" onClick={onClose}>
+            <Button variant="cancel" onClick={onClose}>
               Cancel
             </Button>
             <Button

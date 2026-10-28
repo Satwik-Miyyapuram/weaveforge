@@ -47,7 +47,7 @@
 }
 .wiki-lint-list li[data-severity="error"] { border-left-color: var(--danger); }
 .wiki-lint-list li[data-severity="warning"] { border-left-color: var(--s-warn, var(--accent)); }
-.wiki-lint-list .link-btn { margin-left: 8px; font-size: var(--fs-xs); }
+.wiki-lint-list .wf-link { margin-left: 8px; }
 
 /* Merge preview: monospace so the merged markdown reads as the file it becomes. */
 .wiki-merge-preview {
@@ -129,16 +129,12 @@ a.related-paper-url:hover { text-decoration: underline; }
 /* Capped chip rows (tags, metrics, git) show a few chips on a card and the rest
    as a "+N" chip. The few wrap as whole chips: held to one line, every chip
    shrank by a few pixels and each tag lost its last letters. */
-.chip-row--capped { flex-wrap: wrap; }
-/* A chip longer than the whole line ends in an ellipsis instead of spilling. */
-.chip-row--capped > :is(*, .git-chip, .metric-chip, .tag-chip) { min-width: 0; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip-row--capped { flex-wrap: wrap; min-width: 0; }
+/* A chip longer than the whole line ends in an ellipsis instead of spilling.
+   It outranks `:root:root .wf-chip`, whose inline-flex ignores text-overflow. */
+:root:root .chip-row--capped > :is(*, .wf-chip) { min-width: 0; max-width: 100%; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip-row--capped > .chip-more { flex: none; }
-/* A linked paper's title is the point of the chip: it takes the row's spare
-   width and wraps to two lines rather than being cut mid-letter. */
-.chip-row--capped > .git-chip--paper {
-  flex: 1 1 auto; white-space: normal; overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
-}
+
 .chip-more { color: var(--muted); font-style: italic; flex: 0 0 auto; }
 .image-thumb .image-loading { position: absolute; inset: 0; }
 
@@ -191,10 +187,9 @@ a.related-paper-url:hover { text-decoration: underline; }
   border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border));
   font-size: var(--fs-sm); line-height: 1.4;
 }
-.brave-graph-warning .link-btn { flex: none; white-space: nowrap; }
+.brave-graph-warning .wf-link { flex: none; white-space: nowrap; }
 .graph-focus-bar .brave-graph-warning { pointer-events: auto; }
 .import-row { grid-template-columns: 130px minmax(0, 1fr) 130px; }
-.link-btn.danger { color: var(--danger); }
 
 /*
  * Shared card chrome: a header row with the title on the left and the delete
@@ -229,8 +224,9 @@ a.related-paper-url:hover { text-decoration: underline; }
  * Grouped by ramp step rather than by feature: a paper, a report, an
  * experiment and a milestone each name their states differently, but a state
  * that means "in flight" has to look the same wherever it is shown. The
- * neutral rules are not redundant with `.status` — `custom-select-button`
- * takes a `status-*` class without it.
+ * neutral rules are not redundant with `.status`. A status select carries
+ * its value as `data-status` instead, and needs :root:root to beat the field
+ * fill in states.css.
  */
 .status-reading, .status-weekly, .status-drafting, .status-running, .status-in_progress {
   background: var(--st-info-bg); color: var(--st-info-fg);
@@ -242,6 +238,12 @@ a.related-paper-url:hover { text-decoration: underline; }
 }
 .status-failed, .status-blocked { background: var(--st-danger-bg); color: var(--st-danger-fg); }
 .status-abandoned { background: var(--st-mute-bg); color: var(--st-mute-fg); }
+:root:root .wf-select:is([data-status="reading"], [data-status="weekly"], [data-status="drafting"], [data-status="running"], [data-status="in_progress"]) { background: var(--st-info-bg); color: var(--st-info-fg); }
+:root:root .wf-select:is([data-status="read"], [data-status="done"], [data-status="daily"]) { background: var(--st-positive-bg); color: var(--st-positive-fg); }
+:root:root .wf-select:is([data-status="skimmed"], [data-status="review"]) { background: var(--st-warn-bg); color: var(--st-warn-fg); }
+:root:root .wf-select:is([data-status="not_started"], [data-status="planned"]) { background: var(--st-neutral-bg); color: var(--st-neutral-fg); }
+:root:root .wf-select:is([data-status="failed"], [data-status="blocked"]) { background: var(--st-danger-bg); color: var(--st-danger-fg); }
+:root:root .wf-select[data-status="abandoned"] { background: var(--st-mute-bg); color: var(--st-mute-fg); }
 
 /* Logbook */
 .log-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 12px; }
@@ -273,19 +275,19 @@ a.related-paper-url:hover { text-decoration: underline; }
 .log-calendar-top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .log-calendar-top h2 { flex: 1; margin: 0; text-align: center; }
 .log-calendar-top button:disabled { opacity: 0.35; cursor: default; }
-.log-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.log-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; text-align: center; }
 .log-calendar-head { color: var(--muted); font-size: var(--fs-xs); }
 .log-calendar-day {
-  display: grid; place-items: center; aspect-ratio: 1; font-size: var(--fs-sm); border-radius: var(--r-sm);
+  position: relative; display: grid; place-items: center; aspect-ratio: 1; font-size: var(--fs-sm); border-radius: var(--r-sm);
   border: 1px solid transparent;
 }
-button.log-calendar-day { position: relative; padding: 0; font: inherit; font-size: var(--fs-sm); color: inherit; cursor: pointer; }
+/* A logged day is a row button around its cell: the cell is the picture. */
+:root:root .log-calendar-grid > .wf-row { display: grid; padding: 0; }
 /* A logged day wears its kind's colour, the same map as the entry cards (DA-111). */
 .log-calendar-day.is-logged { background: color-mix(in srgb, var(--status-chip) 45%, transparent); font-weight: 600; }
 .log-calendar-day.is-logged.is-mixed {
   background: linear-gradient(135deg, var(--chip-read, var(--s-good)) 50%, var(--chip-reading, var(--s-info)) 50%);
 }
-.log-calendar-day.is-logged:hover { border-color: var(--text); }
 /* More than one entry that day: a count tucked in the corner, inside the
    cell, and the headlines in the tooltip. */
 .log-calendar-count {
@@ -302,12 +304,7 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 .log-calendar-swatch.is-today { border-color: var(--accent); }
 .log-kinds ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 /* Each kind is a filter: the whole row toggles, pressed shows the filter is on. */
-.log-kind-chip {
-  display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: var(--control-sm);
-  padding: 0 8px; border: 1px solid transparent; border-radius: var(--r-sm); background: none; font: inherit; color: inherit; cursor: pointer;
-}
-.log-kind-chip:hover { border-color: var(--line); }
-.log-kind-chip[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.log-kinds li > .wf-row { justify-content: space-between; }
 .log-kinds-count { color: var(--muted); font-size: var(--fs-sm); }
 .log-check-ins ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .log-check-in { display: flex; align-items: center; gap: 8px; min-height: var(--control-sm); }
@@ -353,9 +350,13 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 .plan-timeline { position: relative; height: 58px; margin: 24px 12px 0; }
 .plan-track { position: absolute; left: -11px; right: -11px; top: 7px; height: 10px; background: var(--surface2); border-radius: var(--r-pill); overflow: hidden; }
 .plan-track > span { display: block; height: 100%; background: var(--accent); }
+/* A mark is a row button around its stripes; the slot places it on the track. */
+.plan-mark-slot { position: absolute; top: 1px; translate: -50% 0; display: inline-flex; }
+/* Outranks the catalogue's row padding, which pushed each dot below the track. */
+:root:root .plan-mark-slot > .wf-row { display: flex; padding: 0; min-height: 0; }
 .plan-mark {
-  position: absolute; top: 1px; width: 22px; height: 22px; min-height: 0; translate: -50% 0; padding: 0;
-  display: flex; align-items: stretch; overflow: visible; cursor: pointer;
+  position: relative; box-sizing: border-box; width: 22px; height: 22px;
+  display: flex; align-items: stretch; overflow: visible;
   border-radius: 50%; background: var(--surface); border: 2px solid var(--border-strong);
 }
 /* One stripe per milestone in the mark: a cluster shows every status it holds. */
@@ -368,7 +369,7 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
   border-radius: var(--r-pill); background: var(--text); color: var(--surface);
   font: 600 var(--fs-micro)/16px var(--font); text-align: center;
 }
-.plan-done-toggle { display: block; margin: 12px auto; }
+.plan-done-toggle { display: flex; justify-content: center; margin: 12px auto; }
 .card.is-jumped, .log-day.is-jumped .card { outline: 3px solid var(--accent); outline-offset: 3px; }
 .plan-mark--done { background: var(--chip-read, var(--accent)); }
 .plan-mark--in_progress { background: var(--chip-reading, var(--accent)); }
@@ -390,7 +391,7 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 @media (min-width: 480px) and (max-width: 900px) {
   :is(.plan-screen, .log-screen) .screen-actions { flex-wrap: nowrap; }
   :is(.plan-screen, .log-screen) .screen-actions > .search-input { flex: 1 1 auto; width: auto; min-width: 0; }
-  :is(.plan-screen, .log-screen) .screen-actions > .btn-primary { flex: 0 0 auto; }
+  :is(.plan-screen, .log-screen) .screen-actions > .wf-primary { flex: 0 0 auto; }
 }
 /* Phone Plan/Log: the calendar leads, past check-ins under it. */
 @media (max-width: 900px) {

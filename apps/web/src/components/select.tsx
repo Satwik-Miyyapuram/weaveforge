@@ -3,9 +3,8 @@
 import React, { useId, useState, useRef, useEffect } from "react";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
 import { createPortal } from "react-dom";
-import { ChevronIcon } from "@/components/chevron-icon";
 import { anchoredMenuStyle, useAnchoredMenu } from "@/lib/hooks/use-anchored-menu";
-import { ComboboxButton } from "./controls";
+import { ComboboxButton, OptionButton } from "./controls";
 
 interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "onChange"> {
   onChange?: (e: { target: { value: string } }) => void;
@@ -115,7 +114,6 @@ export function Select({
 
   const selectedIndex = options.findIndex((o) => o.value === val);
   const selectedOption = options[selectedIndex];
-  const buttonClass = `custom-select-button${isStatus ? ` status-${val}` : ""}`;
 
   // Portalled and fixed so a scrolling or clipping ancestor (the PDF toolbar) can't trap the menu.
   const { rect: menuRect, up: openUp, place: placeMenu } = useAnchoredMenu(
@@ -248,7 +246,7 @@ export function Select({
       <ComboboxButton expanded={open}
         ref={buttonRef}
         id={id}
-        className={buttonClass}
+        data-status={isStatus ? val : undefined}
         disabled={disabled}
         aria-label={ariaLabel}
         aria-describedby={ariaDescribedBy}
@@ -264,7 +262,6 @@ export function Select({
         onKeyDown={onKeyDown}
       >
         <span className="custom-select-value">{selectedOption ? selectedOption.label : ""}</span>
-        <ChevronIcon />
       </ComboboxButton>
       {open && menuRect && createPortal(
         <div
@@ -302,12 +299,6 @@ export function Select({
             visible.map(({ opt, index }, i) => {
               const sel = opt.value === val;
               const showGroup = opt.group && (i === 0 || visible[i - 1]?.opt.group !== opt.group);
-              const itemClass =
-                "custom-select-item" +
-                (sel ? " sel" : "") +
-                (sel ? (isStatus ? ` status-${opt.value}` : " sel-plain") : "") +
-                (i === active ? " active" : "") +
-                (opt.disabled ? " disabled" : "");
               return (
                 <React.Fragment key={`${opt.group ?? ""}:${opt.value}:${index}`}>
                   {showGroup ? (
@@ -315,18 +306,19 @@ export function Select({
                       {opt.group}
                     </div>
                   ) : null}
-                  <div
-                    role="option"
+                  <OptionButton
+                    selected={sel}
                     id={`${baseId}-opt-${index}`}
+                    tabIndex={-1}
                     data-visible-idx={i}
-                    aria-selected={sel}
+                    data-highlighted={i === active || undefined}
+                    data-status={sel && isStatus ? opt.value : undefined}
                     aria-disabled={opt.disabled || undefined}
-                    className={itemClass}
                     onMouseEnter={() => !opt.disabled && setActive(i)}
                     onClick={() => chooseVisible(i)}
                   >
                     {opt.label}
-                  </div>
+                  </OptionButton>
                 </React.Fragment>
               );
             })

@@ -7,7 +7,7 @@ import { formatError } from "@/lib/format-error";
 import { CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
 import { Select } from "@/components/select";
 import { ChevronIcon } from "@/components/chevron-icon";
-import { CompareViewIcon, FilterIcon, TreeViewIcon, UnlinkIcon } from "@/components/view-icons";
+import { ArrowDownIcon, ArrowUpIcon, CompareViewIcon, FilterIcon, TreeViewIcon, UnlinkIcon } from "@/components/view-icons";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { SegmentedControl } from "@/components/segmented-control";
 import { usePersistedState } from "@/lib/hooks/use-persisted-state";
@@ -15,9 +15,8 @@ import { listDisplayColor, movedIds, reorderedIds } from "./list-ui";
 import { ExtractionTable } from "./extraction-table";
 import { ScreeningPanel } from "./screening-panel";
 import { runListAction } from "./run-list-action";
-import { Button } from "@/components/button";
+import { Button, IconButton } from "@/components/button";
 import { deferDelete, deletedMessage, useHiddenKeys } from "@/lib/toast";
-import { RowButton } from "@/components/controls";
 
 /** The key a list hides under while its Undo toast shows (D-07). */
 export const listKey = (id: string) => `list:${id}`;
@@ -223,14 +222,14 @@ export function ListNode(props: ListNodeProps) {
   return (
     <li id={`list-${list.id}`} className="list-node" style={{ "--depth": depth } as CSSProperties}>
       <div className="list-row">
-        <RowButton
-          className="list-toggle"
+        <IconButton
+          size="sm"
+          label={isCollapsed ? "Expand list" : "Collapse list"}
           aria-expanded={!isCollapsed}
-          aria-label={isCollapsed ? "Expand list" : "Collapse list"}
           onClick={() => onToggleCollapse(list.id)}
         >
           <ChevronIcon open={!isCollapsed} variant="expand" size={14} />
-        </RowButton>
+        </IconButton>
         <span className="list-color-dot" style={{ background: dotColor }} aria-hidden />
         <h3 className="list-row-title">{list.name}</h3>
         <span className="list-count">{countLabel}</span>
@@ -353,7 +352,7 @@ export function ListNode(props: ListNodeProps) {
               >
                 {addBusy ? "Adding…" : "Add"}
               </Button>
-              <Button variant="ghost" className="btn-cancel"
+              <Button variant="cancel"
                 onClick={() => { setShowAdd(false); setPicker(""); setAddError(null); }}
               >
                 Cancel
@@ -361,9 +360,11 @@ export function ListNode(props: ListNodeProps) {
               {addError && <p className="error list-add-error">{addError}</p>}
             </div>
           ) : canAdd && !readOnly ? (
-            <Button variant="link" className="list-add-trigger" onClick={() => setShowAdd(true)}>
-              + Add a paper or note
-            </Button>
+            <span className="list-add-trigger">
+              <Button variant="link" onClick={() => setShowAdd(true)}>
+                + Add a paper or note
+              </Button>
+            </span>
           ) : null}
             </>
           )}
@@ -404,29 +405,23 @@ export function ListItemActions({
 }) {
   return (
     <span className="list-item-actions">
-      <RowButton className="list-item-move entity-icon-btn"
+      <IconButton label="Move up"
         onClick={() => onMove(-1)}
         disabled={isFirst}
-        aria-label="Move up"
-        title="Move up"
       >
-        <span aria-hidden>↑</span>
-      </RowButton>
-      <RowButton className="list-item-move entity-icon-btn"
+        <ArrowUpIcon />
+      </IconButton>
+      <IconButton label="Move down"
         onClick={() => onMove(1)}
         disabled={isLast}
-        aria-label="Move down"
-        title="Move down"
       >
-        <span aria-hidden>↓</span>
-      </RowButton>
-      <RowButton className="list-item-remove entity-icon-btn"
+        <ArrowDownIcon />
+      </IconButton>
+      <IconButton label="Remove from list" tone="danger"
         onClick={onRemove}
-        aria-label="Remove from list"
-        title="Remove from list"
       >
         <UnlinkIcon />
-      </RowButton>
+      </IconButton>
     </span>
   );
 }

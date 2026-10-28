@@ -1,7 +1,7 @@
 "use client";
 
 import { Popover } from "./popover";
-import { ToggleButton } from "./controls";
+import { Swatch } from "./controls";
 
 /**
  * One colour picker for every place a mark gets a colour: the reader's
@@ -27,20 +27,18 @@ export function ColourMenu({
   const extra = recent.filter((c) => !palette.some((p) => same(p, c)));
   return (
     <Popover
-      iconOnly
+      trigger="swatch"
+      colour={value}
       ariaLabel={ariaLabel}
-      look="custom"
-      triggerClassName="colour-menu-trigger"
-      label={<span className="ink-swatch colour-menu-current" style={{ background: value }} aria-hidden />}
+      label={null}
     >
       {(close) => {
         const swatch = (entry: string) => (
-          <ToggleButton pressed={same(entry, value)}
+          <Swatch
             key={entry}
-            className="ink-swatch"
-            style={{ background: entry }}
-            aria-label={`Colour ${entry}`}
-            title={entry}
+            label={`Colour ${entry}`}
+            selected={same(entry, value)}
+            colour={entry}
             onClick={() => { onChange(entry); close(); }}
           />
         );

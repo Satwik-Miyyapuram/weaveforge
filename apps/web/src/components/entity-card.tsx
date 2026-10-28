@@ -1,7 +1,9 @@
 "use client";
 
-import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
+import { useId, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { tagTone } from "@/lib/tag-tone";
+import { Button } from "./button";
+import { Chip } from "./controls";
 
 /**
  * Shared entity list card chrome — papers, report sections, notes, experiments,
@@ -56,6 +58,7 @@ export function EntityCard({
   menu?: ReactNode;
 }) {
   const interactive = Boolean(onActivate);
+  const titleId = useId();
   const shell = [
     "card",
     "entity-card",
@@ -72,25 +75,17 @@ export function EntityCard({
     e.stopPropagation();
   }
 
-  function onKeyDown(e: KeyboardEvent<HTMLElement>) {
-    if (!onActivate) return;
-    if (e.target !== e.currentTarget) return;
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      onActivate();
-    }
-  }
-
+  // The card is a click surface, not a button. The title stays plain text, so it
+  // wraps round the floated controls; keyboard and screen readers open the card
+  // through an empty link button named by the title (invisible to the mouse).
   return (
     <Tag
       id={id}
       className={shell}
       data-status={tone}
       data-tag-tone={tintTag ? tagTone(tintTag) : undefined}
-      role={interactive ? "button" : undefined}
-      tabIndex={interactive ? 0 : undefined}
+      role={interactive ? "presentation" : undefined}
       onClick={onActivate}
-      onKeyDown={interactive ? onKeyDown : undefined}
     >
       <div className="entity-card-head">
         {leading != null && <div className="entity-card-lead">{leading}</div>}
@@ -103,8 +98,9 @@ export function EntityCard({
             {menu}
           </div>
         )}
-        <h3 className="entity-card-title">{title}</h3>
+        <h3 className="entity-card-title" id={onActivate ? titleId : undefined}>{title}</h3>
       </div>
+      {onActivate && <Button variant="link" aria-labelledby={titleId} onClick={(e) => { stop(e); onActivate(); }} />}
 
       {hasMeta && <p className="entity-card-meta">{meta}</p>}
 
@@ -113,12 +109,12 @@ export function EntityCard({
         // the body off-screen on a phone. A few tags, then a count.
         <div className="tag-chips chip-row--capped">
           {tags.slice(0, MAX_CARD_TAGS).map((t) => (
-            <span key={t} className="tag-chip" title={`#${t}`}>
+            <Chip key={t} title={`#${t}`}>
               #{t}
-            </span>
+            </Chip>
           ))}
           {tags.length > MAX_CARD_TAGS && (
-            <span className="tag-chip chip-more">+{tags.length - MAX_CARD_TAGS}</span>
+            <span className="chip-more">+{tags.length - MAX_CARD_TAGS}</span>
           )}
         </div>
       )}

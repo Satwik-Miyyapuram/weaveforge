@@ -15,5 +15,5 @@ test("a blank query offers no create row (12-04)", () => {
 test("a query offers to create the note it names, trimmed", () => {
   const html = render("  Methods  ");
   assert.match(html, /Create note “Methods”/);
-  assert.match(html, /class="jump-to-create"/);
+  assert.match(html, /class="wf-row"/);
 });

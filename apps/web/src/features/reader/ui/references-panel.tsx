@@ -130,7 +130,7 @@ export function ReferencesPanel({
               : reference.title;
           return (
             <li key={`${reference.index}-${reference.page}`} className="pdf-reader-refs-item">
-              <Button variant="link" className="pdf-reader-refs-label"
+              <Button variant="link" size="sm"
                 onClick={() => onJumpToMention(reference)}
                 title={`Jump to where [${reference.index}] is cited`}
               >

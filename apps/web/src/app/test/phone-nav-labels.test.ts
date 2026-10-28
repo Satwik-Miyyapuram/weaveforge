@@ -16,7 +16,7 @@ test("the phone bar's items keep a slim side padding over the shared nav style",
   const at = css.indexOf("@media (max-width: 899px)");
   assert.ok(at >= 0, "a phone-only block");
   const block = css.slice(at, css.indexOf("\n}", at));
-  assert.match(block, /:root:root \.nav \.nav-link \{[^}]*padding-inline:\s*2px/);
+  assert.match(block, /:root:root \.nav \.wf-nav \{[^}]*padding-inline:\s*2px/);
 });
 
 test("on the narrowest phones the labels step down a size to fit", () => {

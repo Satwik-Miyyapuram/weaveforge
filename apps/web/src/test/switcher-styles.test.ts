@@ -69,9 +69,10 @@ test("every class the switchers render has a rule", () => {
 
 test("the shared drop-down the two switchers use is still declared", () => {
   const css = stylesheet();
-  // The three the lab switcher depends on, named so a future cleanup that
-  // greps for the project switcher's usage has to argue with this line.
-  for (const name of ["proj-menu", "proj-menu-item", "proj-menu-sep"]) {
+  // The two the lab switcher depends on, named so a future cleanup that
+  // greps for the project switcher's usage has to argue with this line. Its
+  // rows are catalogue menu items (`.wf-item`).
+  for (const name of ["proj-menu", "proj-menu-sep"]) {
     assert.ok(css.includes(`.${name}`), `.${name} is rendered by OrgSwitcher and has no rule`);
   }
 });

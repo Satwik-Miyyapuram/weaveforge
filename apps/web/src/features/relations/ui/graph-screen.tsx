@@ -30,10 +30,9 @@ import { emptyArray, emptyMap } from "@/lib/empty";
 import type { GraphScreenData } from "@/container/facades";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
-import { Button } from "@/components/button";
+import { Button, IconButton } from "@/components/button";
 import { Popover } from "@/components/popover";
 import { Menu } from "@/components/menu";
-import { RowButton } from "@/components/controls";
 
 /** Graph screen — data loading, view-state, and child presentation components. */
 export function GraphScreen() {
@@ -321,11 +320,9 @@ export function GraphScreen() {
   ) : null;
 
   const settingsButton = (
-    <RowButton
-      className={`entity-icon-btn graph-stage-settings${drawerOpen ? " is-active" : ""}`}
-      aria-label="Graph settings"
+    <IconButton
+      label="Graph settings"
       aria-expanded={drawerOpen}
-      title="Graph settings"
       onClick={() => setDrawerOpen(true)}
     >
       <SettingsIcon />
@@ -334,7 +331,7 @@ export function GraphScreen() {
           {activeFilters}
         </span>
       )}
-    </RowButton>
+    </IconButton>
   );
 
   const graphView = hasGraphItems ? (
@@ -343,9 +340,9 @@ export function GraphScreen() {
         <div className="graph-stage-bar">
           {settingsButton}
           {canvas && (
-            <Button className="graph-focus-btn" onClick={() => setFocus(true)}>
-              Focus
-            </Button>
+            <span className="graph-focus-btn">
+              <Button onClick={() => setFocus(true)}>Focus</Button>
+            </span>
           )}
         </div>
       )}

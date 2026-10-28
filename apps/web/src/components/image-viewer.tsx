@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, MinusIcon, PlusIcon } from "@/components/view-icons";
+import { IconButton } from "./button";
 import { RowButton } from "./controls";
 
 const MIN_SCALE = 0.1;
@@ -151,8 +152,8 @@ export function ImageViewer({
       </div>
       {many && (
         <>
-          <RowButton className="image-viewer-nav prev" onClick={() => step(-1)} aria-label="Previous image"><ChevronLeftIcon /></RowButton>
-          <RowButton className="image-viewer-nav next" onClick={() => step(1)} aria-label="Next image"><ChevronRightIcon /></RowButton>
+          <span className="image-viewer-nav prev"><IconButton label="Previous image" onClick={() => step(-1)}><ChevronLeftIcon /></IconButton></span>
+          <span className="image-viewer-nav next"><IconButton label="Next image" onClick={() => step(1)}><ChevronRightIcon /></IconButton></span>
         </>
       )}
     </div>,

@@ -26,7 +26,7 @@ test("the expanded sidebar keeps the chip and account button in one row", () => 
 });
 
 test("a long project name stays on one line and ends in an ellipsis", () => {
-  const label = rules(".nav-account-row .proj-chip > span:not(.project-dot)");
+  const label = rules(".nav-account-row .proj-switcher .wf-btn > span:not(.project-dot)");
   assert.match(label, /white-space:\s*nowrap/);
   assert.match(label, /text-overflow:\s*ellipsis/);
   assert.doesNotMatch(label, /line-clamp/);

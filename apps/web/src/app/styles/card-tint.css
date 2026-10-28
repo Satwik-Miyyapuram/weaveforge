@@ -86,7 +86,7 @@
 [data-tag-tone="6"] { --status-chip: var(--tag-6-chip, var(--s-neutral)); --status-tint: var(--tag-6-tint, color-mix(in srgb, var(--s-neutral) 24%, var(--surface))); }
 /* Flat themes: on a tinted card the status pill goes solid, as on the pitch
    page, so the card reads as a lighter shade of its pill. */
-:root[data-tint="full"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.entity-card[data-status] :is(.status, .custom-select-button)[class*="status-"] {
+:root[data-tint="full"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .card.entity-card[data-status] :is(.status[class*="status-"], .wf-select[data-status]) {
   background: var(--status-chip);
   color: var(--bg);
   border-color: transparent;

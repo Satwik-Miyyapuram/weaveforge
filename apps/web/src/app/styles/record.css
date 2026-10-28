@@ -30,39 +30,6 @@
   gap: 12px 24px;
   min-height: 36px;
 }
-/* The one back control (components/back-button.tsx): a square chevron box and
-   the name of where it goes, the same on every detail page. */
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  font: inherit;
-  font-size: var(--fs);
-  font-weight: 600;
-  color: var(--text);
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  text-decoration: none;
-  flex: none;
-}
-.back-btn-box {
-  display: inline-grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  color: var(--text);
-  background: var(--surface);
-  border: var(--bw, 1px) solid var(--bw-line, var(--border-strong));
-  border-radius: var(--r-control);
-}
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .back-btn-box { border-radius: var(--r-sm); }
-.back-btn-box svg { width: 18px; height: 18px; }
-@media (hover: hover) {
-  .back-btn:hover .back-btn-box { background: var(--accent-soft); }
-}
-:root[data-theme="crt"] .back-btn-box { background: var(--btn-2); color: var(--text); box-shadow: var(--sh-btn-2); }
 .record-bar-id { white-space: nowrap; }
 
 .record-actions {
@@ -72,29 +39,6 @@
   gap: 4px 16px;
   margin-left: auto;
 }
-.record-action,
-.record-actions .entity-icon-text-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0;
-  min-height: 0;
-  font: inherit;
-  font-size: var(--fs);
-  color: var(--muted);
-  background: none;
-  border: none;
-  box-shadow: none;
-  text-decoration: none;
-  cursor: pointer;
-}
-.record-action:hover,
-.record-actions .entity-icon-text-btn:hover { color: var(--text); background: none; }
-.record-action.is-on { color: var(--text); }
-.record-action.danger:hover { color: var(--s-danger); }
-.record-action:disabled { opacity: 0.5; cursor: default; }
-.record-action .vicon,
-.record-actions .entity-icon-text-btn .vicon { width: 15px; height: 15px; }
 
 /* ── Title block ─────────────────────────────────────────────────────────── */
 
@@ -135,11 +79,11 @@
 .record-aside { min-width: 0; }
 /* Shut side column folds to a rail holding only its toggle. */
 .record-aside { position: relative; }
-.record-aside-toggle { position: absolute; top: 0; right: 0; z-index: 1; }
-.record-aside-toggle svg { transform: rotate(-90deg); }
+.record-aside > .wf-icon { position: absolute; top: 0; right: 0; z-index: 1; }
+.record-aside > .wf-icon svg { transform: rotate(-90deg); }
 .record-grid--aside-shut { grid-template-columns: minmax(0, 1fr) auto; gap: 16px; }
-.record-grid--aside-shut .record-aside-toggle { position: static; }
-.record-grid--aside-shut .record-aside-toggle svg { transform: rotate(90deg); }
+.record-grid--aside-shut .record-aside > .wf-icon { position: static; }
+.record-grid--aside-shut .record-aside > .wf-icon svg { transform: rotate(90deg); }
 
 @media (max-width: 900px) {
   .record-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
@@ -174,21 +118,18 @@
   color: var(--muted);
 }
 
+/* The empty note is a row button around a framed prompt: the frame is the picture. */
+.wf-row:has(> .record-note-empty) { display: block; width: 100%; padding: 0; text-align: start; }
 .record-note-empty {
   display: block;
-  width: 100%;
   min-height: 92px;
   padding: 16px 16px;
-  font: inherit;
   font-size: var(--fs);
-  text-align: left;
   color: var(--faint);
-  background: transparent;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  cursor: text;
 }
-.record-note-empty:hover { border-color: var(--border-strong); color: var(--muted); }
+.wf-row:hover > .record-note-empty { border-color: var(--border-strong); color: var(--muted); }
 
 /* A note read on its page is the Editor's Read view (§NoteReadView). An ink
    note's sheet scrolls inside its own frame, so it is given a height. */
@@ -212,19 +153,6 @@
 }
 .record-ink-focus.is-focus .ink-wrap { height: 100%; border: 0; }
 .record-ink-focus.is-focus > .focus-exit { position: fixed; z-index: 51; }
-.record-focus-btn {
-  display: inline-grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  color: var(--muted);
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  cursor: pointer;
-}
-@media (hover: hover) { .record-focus-btn:hover { color: var(--text); } }
 /* Edit on a record page: the Editor's writing surface, about eight lines to
    start and growing with the text up to the reading height (DA-105). */
 .record-doc--edit .md-live {
@@ -271,7 +199,7 @@ a.record-page-frame:hover { border-color: var(--border-strong); }
   border-color: transparent;
   background: color-mix(in srgb, var(--surface) 70%, transparent);
 }
-:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .record-note-empty:hover,
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .wf-row:hover > .record-note-empty,
 :root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) a.record-page-frame:hover {
   border-color: transparent;
   background: var(--surface2);
@@ -369,31 +297,9 @@ a.record-page-frame:hover { border-color: var(--border-strong); }
   font-size: clamp(1.6rem, 3vw, 2.4rem);
   font-weight: 500;
 }
-.record-link-btn {
-  padding: 0;
-  font: inherit;
-  font-family: var(--font-serif);
-  text-align: left;
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-.record-link-btn:hover { text-decoration: underline; text-underline-offset: 3px; }
 .record-fact dd a { color: var(--text); text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
 .record-fact dd a:hover { text-decoration-color: currentColor; }
-.record-section-tag .btn-secondary {
-  min-height: 0;
-  padding: 0;
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  color: var(--faint);
-  background: none;
-  border: none;
-  box-shadow: none;
-}
-.record-section-tag .btn-secondary:hover { color: var(--text); }
+
 .record .live-dot { font-family: var(--font); font-size: var(--fs-micro); letter-spacing: 0.08em; }
 .record .metric-curves--detail { margin: 0; }
-.record-section-tag .entity-icon-btn { width: 24px; height: 24px; min-height: 0; border: none; background: none; color: var(--faint); }
-.record-section-tag .entity-icon-btn:hover { color: var(--text); }
+

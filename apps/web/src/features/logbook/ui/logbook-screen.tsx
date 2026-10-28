@@ -25,7 +25,7 @@ import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { statusLabel } from "@/components/status-select";
 import { bestEffort, removeLogEntry } from "../application/log-side-effects";
-import { Button } from "@/components/button";
+import { Button, IconButton } from "@/components/button";
 import { RowButton } from "@/components/controls";
 import { PastCheckIns } from "./past-check-ins";
 
@@ -75,9 +75,9 @@ export function LogbookScreen() {
         eyebrow={logEyebrow(entries)}
         search={entries.length > 0 ? { value: search, onChange: setSearch, label: "Search the log" } : undefined}
       >
-        <Button className="log-publish" onClick={() => setPublishOpen(true)}>
-          Send check-in
-        </Button>
+        <span className="log-publish">
+          <Button onClick={() => setPublishOpen(true)}>Send check-in</Button>
+        </span>
         <Button variant="primary" onClick={() => setAddOpen(true)}>New entry</Button>
       </ScreenHead>
 
@@ -356,7 +356,7 @@ function EditLogForm({
       </div>
       {error && <FormError>{error}</FormError>}
       <div className="card-foot edit-actions log-edit-bar">
-        <Button variant="ghost" className="btn-cancel" onClick={onCancel} disabled={busy}>
+        <Button variant="cancel" onClick={onCancel} disabled={busy}>
           Cancel
         </Button>
         {/* In collab mode the body is already persisted by the editor's
@@ -482,9 +482,9 @@ function LogCalendar({ entries }: { entries: readonly LogEntry[] }) {
   return (
     <div className="card log-calendar">
       <div className="log-calendar-top">
-        <RowButton className="entity-icon-btn" aria-label="Previous month" onClick={() => step(-1)}><ChevronLeftIcon /></RowButton>
+        <IconButton label="Previous month" onClick={() => step(-1)}><ChevronLeftIcon /></IconButton>
         <h2>{month.toLocaleDateString(undefined, isCurrent ? { month: "long" } : { month: "long", year: "numeric" })}</h2>
-        <RowButton className="entity-icon-btn" aria-label="Next month" disabled={isCurrent} onClick={() => step(1)}><ChevronRightIcon /></RowButton>
+        <IconButton label="Next month" disabled={isCurrent} onClick={() => step(1)}><ChevronRightIcon /></IconButton>
       </div>
       <div className="log-calendar-grid" role="group" aria-label={`Days logged this month: ${loggedThisMonth}`}>
         {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
@@ -501,16 +501,14 @@ function LogCalendar({ entries }: { entries: readonly LogEntry[] }) {
           const kinds = new Set(dayEntries.map((e) => e.kind));
           const names = dayEntries.map((e) => `${statusLabel(e.kind)}: ${splitHeadline(e.body).headline}`);
           return (
-            <RowButton
-              key={ymd}
-              className={["log-calendar-day", "is-logged", kinds.size > 1 ? "is-mixed" : "", today ? "is-today" : ""].filter(Boolean).join(" ")}
-              data-status={kinds.has("weekly") && kinds.size === 1 ? "weekly" : "daily"}
-              title={names.join("\n")}
-              aria-label={`${ymd}: ${names.join(", ")}`}
-              onClick={() => jump(ymd)}
-            >
-              {d}
-              {dayEntries.length > 1 && <b className="log-calendar-count">{dayEntries.length}</b>}
+            <RowButton key={ymd} title={names.join("\n")} aria-label={`${ymd}: ${names.join(", ")}`} onClick={() => jump(ymd)}>
+              <span
+                className={["log-calendar-day", "is-logged", kinds.size > 1 ? "is-mixed" : "", today ? "is-today" : ""].filter(Boolean).join(" ")}
+                data-status={kinds.has("weekly") && kinds.size === 1 ? "weekly" : "daily"}
+              >
+                {d}
+                {dayEntries.length > 1 && <b className="log-calendar-count">{dayEntries.length}</b>}
+              </span>
             </RowButton>
           );
         })}
@@ -540,7 +538,7 @@ function LogKinds({
       <ul>
         {LOG_KINDS.map((k) => (
           <li key={k}>
-            <RowButton className="log-kind-chip" aria-pressed={active === k} onClick={() => onPick(active === k ? null : k)}>
+            <RowButton current={active === k} aria-pressed={active === k} onClick={() => onPick(active === k ? null : k)}>
               <span className={`status status-${k}`}>{statusLabel(k)}</span>
               <span className="log-kinds-count">{entries.filter((e) => e.kind === k).length}</span>
             </RowButton>

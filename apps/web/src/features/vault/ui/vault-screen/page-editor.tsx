@@ -1,7 +1,6 @@
 "use client";
 
 import { InlineError } from "@/components/form-error";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   extractHashtags,
@@ -29,7 +28,7 @@ import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
 import { NoteTagEditor } from "./note-tag-editor";
 import { runNoteAction } from "./run-note-action";
 import { RowButton } from "@/components/controls";
-import { Button } from "@/components/button";
+import { Button, IconButton, IconLink } from "@/components/button";
 
 /** A note's three views, in the order the Editor's pane header lists them. */
 const NOTE_MODES = ["edit", "read", "ink"] as const;
@@ -200,27 +199,21 @@ export function PageEditor({
               note; Open in editor leaves for the full Editor with its tabs and
               sidebar. */}
           {!readOnly && !sharedPage && (
-            <Link className="record-action" href={editorHref}>
+            <Button variant="ghost" size="sm" href={editorHref}>
               <OpenIcon />
               <span>Open in editor</span>
-            </Link>
+            </Button>
           )}
           {!readOnly && !sharedPage && (
             <ShareButton resourceType="vault_page" resourceId={page.id} title={`Share: ${page.title}`} showLabel />
           )}
-          <Button variant="ghost" className="wf-tool" href="#record-comments" aria-label="Comment" title="Comment">
+          <IconLink label="Comment" href="#record-comments">
             <CommentsIcon />
-          </Button>
+          </IconLink>
           {!sharedPage && !readOnly && (
-            <RowButton
-              className="record-action danger"
-              onClick={remove}
-              disabled={busy}
-              aria-label="Delete note"
-              title="Delete"
-            >
+            <IconButton size="sm" tone="danger" label="Delete note" tip="Delete" onClick={remove} disabled={busy}>
               <DeleteIcon />
-            </RowButton>
+            </IconButton>
           )}
         </div>
       </nav>
@@ -263,8 +256,8 @@ export function PageEditor({
           >
             {view === "read" && !hasBody && !ink ? (
               canEditBody ? (
-                <RowButton className="record-note-empty" onClick={() => chooseMode("edit")}>
-                  Nothing written yet. Start typing — #hashtags and [[wikilinks]] join this note to the graph.
+                <RowButton onClick={() => chooseMode("edit")}>
+                  <span className="record-note-empty">Nothing written yet. Start typing — #hashtags and [[wikilinks]] join this note to the graph.</span>
                 </RowButton>
               ) : (
                 <RecordEmpty>Nothing written yet.</RecordEmpty>
@@ -329,9 +322,9 @@ export function PageEditor({
               <ul className="record-related">
                 {backlinks.map((it) => (
                   <li key={it.id}>
-                    <RowButton className="record-related-title record-link-btn" onClick={() => onOpenPage?.(it.id)}>
-                      {it.title}
-                    </RowButton>
+                    <Button variant="link" onClick={() => onOpenPage?.(it.id)}>
+                      <span className="record-related-title">{it.title}</span>
+                    </Button>
                   </li>
                 ))}
               </ul>

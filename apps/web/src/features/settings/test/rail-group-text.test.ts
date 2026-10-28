@@ -53,3 +53,11 @@ test("the account panel links to the web app and copies the whole Account ID", (
   assert.match(panel, /navigator\.clipboard\.writeText\(user\.id\)/);
   assert.match(panel, /aria-label="Copy Account ID"/);
 });
+
+test("a group's sub-tabs read from the left, like the group above them", () => {
+  // A catalogue tab is a block button, so the browser centres its text and
+  // justify-content does nothing; text-align is what moves it.
+  const css = read("../../app/styles/privacy.css");
+  const rule = css.match(/\n\.settings-rail-tabs > \.wf-tab \{([^}]*)\}/)?.[1] ?? "";
+  assert.match(rule, /text-align:\s*start/);
+});

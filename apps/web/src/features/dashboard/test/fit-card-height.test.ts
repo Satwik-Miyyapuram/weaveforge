@@ -2,8 +2,9 @@
  * Team roster and Team attention stood ~300 px tall holding one line, so the
  * first screen was mostly empty card (design D22, DA-128). List cards now take
  * the rows their content needs while the dashboard is viewed; charts and stat
- * tiles keep the size they were given. Editing shows the saved size, so what
- * the reader drags is what is stored.
+ * tiles keep the size they were given. Editing keeps the fitted size too, so
+ * the dashboard does not change shape when Customize is pressed; a list card's
+ * height then follows its content and only its width can be dragged.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -31,21 +32,28 @@ test("only the list cards fit their content", () => {
 
 test("in view, a list card takes the rows its content needs", () => {
   const items = [item("team", "team-roster", 4), item("attn", "team-attention", 3), item("reading", "reading-progress", 2)];
-  const fitted = fitLayoutToContent(items, new Map([["team", 2], ["attn", 2], ["reading", 1]]), false);
+  const fitted = fitLayoutToContent(items, new Map([["team", 2], ["attn", 2], ["reading", 1]]));
   assert.deepEqual(fitted.map((it) => it.h), [2, 2, 2], "the stat tile ignores a measurement");
 });
 
 test("a fitted card stays between the floor and the card's largest size", () => {
   const items = [item("team", "team-roster", 4), item("attn", "team-attention", 3)];
   const max = getCardDef("team-roster").maxSize.h;
-  const fitted = fitLayoutToContent(items, new Map([["team", 40], ["attn", 0]]), false);
+  const fitted = fitLayoutToContent(items, new Map([["team", 40], ["attn", 0]]));
   assert.deepEqual(fitted.map((it) => it.h), [max, FIT_MIN_ROWS]);
 });
 
-test("a card not measured yet, and every card while editing, keeps its saved height", () => {
+test("a card not measured yet keeps its saved height", () => {
   const items = [item("team", "team-roster", 4)];
-  assert.equal(fitLayoutToContent(items, new Map(), false)[0]!.h, 4);
-  assert.equal(fitLayoutToContent(items, new Map([["team", 2]]), true)[0]!.h, 4);
+  assert.equal(fitLayoutToContent(items, new Map())[0]!.h, 4);
+});
+
+test("editing keeps a list card's fitted height, locked, with rows closed up", () => {
+  const grid = readFileSync(fileURLToPath(new URL("../ui/dashboard-grid.tsx", import.meta.url)), "utf8");
+  assert.match(grid, /fitLayoutToContent\(items, measuredRows\)/);
+  assert.match(grid, /fitted\.filter\(\(it, i\) => it !== items\[i\]\)/);
+  assert.match(grid, /toRgl\(compactLayoutVertical\(fitted, cols\), cols\)/, "rows close up as in view");
+  assert.match(grid, /locked\.has\(r\.i\) \? \{ \.\.\.r, minH: r\.h, maxH: r\.h \} : r/);
 });
 
 test("the grid measures list cards and never saves a fitted height", () => {

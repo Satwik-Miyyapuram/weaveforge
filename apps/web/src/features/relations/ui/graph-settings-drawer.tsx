@@ -13,11 +13,9 @@ import {
 } from "@weaveforge/core";
 import { MultiSelect } from "@/components/multi-select";
 import { SegmentedControl } from "@/components/segmented-control";
-import { IconButton } from "@/components/button";
-import { CloseIcon } from "@/components/view-icons";
+import { Button, CloseButton } from "@/components/button";
 import { ColourSection } from "./graph-colour-section";
-import { Button } from "@/components/button";
-import { RowButton, TabButton, ToggleButton } from "@/components/controls";
+import { Chip, TabButton } from "@/components/controls";
 
 type SettingsTab = "filters" | "appearance" | "physics" | "actions";
 
@@ -65,37 +63,26 @@ export function GraphSettingsDrawer({
 
   return (
     <>
-      <RowButton className="graph-drawer-backdrop" aria-label="Close settings" onClick={onClose} />
+      {/* Like the modal backdrop: a click target only; the Close button and Escape serve the keyboard. */}
+      <div className="graph-drawer-backdrop" role="presentation" onClick={onClose} />
       <div className="graph-settings-shell">
         <aside className="graph-settings-drawer card" aria-label="Graph settings">
           <div className="graph-drawer-head">
             <strong>Graph settings</strong>
-            <IconButton label="Close settings" className="graph-drawer-close" onClick={onClose}><CloseIcon /></IconButton>
+            <span className="graph-drawer-close"><CloseButton label="Close settings" onClick={onClose} /></span>
           </div>
 
           <div className="graph-drawer-tabs" role="tablist" aria-label="Settings categories">
-            <TabButton selected={tab === "filters"}
-              className={`graph-drawer-tab${tab === "filters" ? " active" : ""}`}
-              onClick={() => setTab("filters")}
-            >
+            <TabButton selected={tab === "filters"} onClick={() => setTab("filters")}>
               Filters
             </TabButton>
-            <TabButton selected={tab === "appearance"}
-              className={`graph-drawer-tab${tab === "appearance" ? " active" : ""}`}
-              onClick={() => setTab("appearance")}
-            >
+            <TabButton selected={tab === "appearance"} onClick={() => setTab("appearance")}>
               Appearance
             </TabButton>
-            <TabButton selected={tab === "physics"}
-              className={`graph-drawer-tab${tab === "physics" ? " active" : ""}`}
-              onClick={() => setTab("physics")}
-            >
+            <TabButton selected={tab === "physics"} onClick={() => setTab("physics")}>
               Physics
             </TabButton>
-            <TabButton selected={tab === "actions"}
-              className={`graph-drawer-tab${tab === "actions" ? " active" : ""}`}
-              onClick={() => setTab("actions")}
-            >
+            <TabButton selected={tab === "actions"} onClick={() => setTab("actions")}>
               Actions
             </TabButton>
           </div>
@@ -131,27 +118,24 @@ export function GraphSettingsDrawer({
                 />
               )}
               <label className="graph-check">
-                <input
+                <input className="wf-check"
                   type="checkbox"
-                  className="themed-check"
                   checked={settings.hideOrphans}
                   onChange={(e) => onChange({ hideOrphans: e.target.checked })}
                 />
                 Hide orphan papers
               </label>
               <label className="graph-check">
-                <input
+                <input className="wf-check"
                   type="checkbox"
-                  className="themed-check"
                   checked={settings.showConcepts}
                   onChange={(e) => onChange({ showConcepts: e.target.checked })}
                 />
                 Show concept (#tag) nodes
               </label>
               <label className="graph-check">
-                <input
+                <input className="wf-check"
                   type="checkbox"
-                  className="themed-check"
                   checked={settings.includeListsAsConcepts !== false}
                   onChange={(e) => onChange({ includeListsAsConcepts: e.target.checked })}
                 />
@@ -191,9 +175,9 @@ export function GraphSettingsDrawer({
                   {RELATION_TYPES.map((t) => {
                     const active = settings.relationTypes.includes(t);
                     return (
-                      <ToggleButton pressed={active}
+                      <Chip
+                        pressed={active}
                         key={t}
-                        className={`graph-chip${active ? " active" : ""}`}
                         onClick={() => {
                           const next = active
                             ? settings.relationTypes.filter((x) => x !== t)
@@ -202,7 +186,7 @@ export function GraphSettingsDrawer({
                         }}
                       >
                         {enumLabel("relation", t)}
-                      </ToggleButton>
+                      </Chip>
                     );
                   })}
                 </div>
@@ -248,9 +232,8 @@ export function GraphSettingsDrawer({
                   ]}
                 />
                 <label className="graph-check">
-                  <input
+                  <input className="wf-check"
                     type="checkbox"
-                    className="themed-check"
                     checked={settings.showAutoStyle}
                     onChange={(e) => onChange({ showAutoStyle: e.target.checked })}
                   />
@@ -261,9 +244,8 @@ export function GraphSettingsDrawer({
               <div className="graph-drawer-section">
                 <div className="muted graph-drawer-label">Zoom & Sizing</div>
                 <label className="graph-check">
-                  <input
+                  <input className="wf-check"
                     type="checkbox"
-                    className="themed-check"
                     checked={settings.boundedZoomScale !== false}
                     onChange={(e) => onChange({ boundedZoomScale: e.target.checked })}
                   />

@@ -24,7 +24,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { readStored, writeStored } from "@/lib/safe-storage";
-import { RowButton } from "./controls";
+import { ToolButton } from "./controls";
 
 export const PALETTE_DOCKS = [
   "top-left",
@@ -257,8 +257,7 @@ export function PaletteDockButton({
 
   return (
     <div className="ink-dock">
-      <RowButton
-        className="ink-tool ink-tool-icon-only ink-bar-dock"
+      <ToolButton label="Move the palette: drag it or use the arrow keys" tip={`Drag the palette, or use the arrow keys, to move it to a corner or an edge (it is at the ${DOCK_LABEL[dock]})`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={(event) => endDrag(event, false)}
@@ -270,8 +269,6 @@ export function PaletteDockButton({
           const next = stepPaletteDock(dock, event.key);
           if (next !== dock) onDock(next);
         }}
-        title={`Drag the palette, or use the arrow keys, to move it to a corner or an edge (it is at the ${DOCK_LABEL[dock]})`}
-        aria-label="Move the palette: drag it or use the arrow keys"
       >
         <svg
           width="16"
@@ -288,7 +285,7 @@ export function PaletteDockButton({
           <path d="M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3" />
           <path d="M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" />
         </svg>
-      </RowButton>
+      </ToolButton>
     </div>
   );
 }
@@ -302,12 +299,9 @@ export function PaletteFoldButton({
   onToggle: () => void;
 }) {
   return (
-    <RowButton
-      className="ink-tool ink-tool-icon-only ink-bar-collapse"
+    <ToolButton label={collapsed ? "Show all tools" : "Fold the tools away"}
       onClick={onToggle}
       aria-expanded={!collapsed}
-      title={collapsed ? "Show all tools" : "Fold the tools away"}
-      aria-label={collapsed ? "Show all tools" : "Fold the tools away"}
     >
       <svg
         width="16"
@@ -322,6 +316,6 @@ export function PaletteFoldButton({
       >
         {collapsed ? <path d="M9 6l6 6-6 6" /> : <path d="M15 6l-6 6 6 6" />}
       </svg>
-    </RowButton>
+    </ToolButton>
   );
 }

@@ -18,7 +18,7 @@ import {
   type MetricSeries,
   type Prefs,
 } from "./metric-chart-data";
-import { ToggleButton } from "@/components/controls";
+import { Chip } from "@/components/controls";
 
 export type { MetricSeries };
 
@@ -285,16 +285,16 @@ export function MetricChart({ metric, series, height: baseHeight = 240, showLege
       {wantLegend && (
         <div className="metric-chart-legend" role="group" aria-label="Runs" ref={legendRef} data-names={fit.names}>
           {prepared.runs.map((r) => (
-            <ToggleButton pressed={!hidden.has(r.id)}
+            <Chip
+              pressed={!hidden.has(r.id)}
               key={r.id}
-              className="metric-chart-run"
               onClick={() => toggle(r.id)}
               title={`${r.label}: ${hidden.has(r.id) ? "show" : "hide"}`}
               aria-label={r.label}
             >
               <span className="metric-chart-swatch" style={{ background: r.color }} />
               {fit.names && <span className="metric-chart-run-label">{r.label}</span>}
-            </ToggleButton>
+            </Chip>
           ))}
         </div>
       )}

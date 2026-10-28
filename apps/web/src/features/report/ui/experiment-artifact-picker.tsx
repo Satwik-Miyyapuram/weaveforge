@@ -170,7 +170,7 @@ export function ExperimentArtifactPicker({
           </Select>
           {error && <InlineError>{error}</InlineError>}
           <ModalActions>
-            <Button variant="ghost" className="btn-cancel" onClick={() => setOpen(false)} disabled={busy}>
+            <Button variant="cancel" onClick={() => setOpen(false)} disabled={busy}>
               Cancel
             </Button>
             <Button

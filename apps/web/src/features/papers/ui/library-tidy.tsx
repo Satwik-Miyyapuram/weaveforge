@@ -273,9 +273,8 @@ function DuplicateRow({
       </fieldset>
       {group.conferenceId ? (
         <label className="tidy-option">
-          <input
+          <input className="wf-check"
             type="checkbox"
-            className="themed-check"
             checked={keepId === group.conferenceId}
             onChange={(e) => setKeepId(e.target.checked ? group.conferenceId! : group.keepId)}
           />

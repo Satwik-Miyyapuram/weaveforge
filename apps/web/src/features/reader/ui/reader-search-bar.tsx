@@ -9,9 +9,7 @@ import {
 } from "@weaveforge/core";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { shortcutLabel } from "@/lib/shortcut-label";
-import { CloseIcon } from "@/components/view-icons";
-import { RowButton } from "@/components/controls";
-import { Button } from "@/components/button";
+import { Button, CloseButton, IconButton } from "@/components/button";
 
 interface ReaderSearchBarProps {
   pages: DocumentPageText[];
@@ -53,7 +51,7 @@ export function ReaderSearchBar({
 
   if (!open && !query.trim()) {
     return (
-      <Button size="sm" className="pdf-reader-search-trigger"
+      <Button size="sm"
         onClick={() => setOpen(true)}
         aria-label="Find in document"
         title={`Find in document (${shortcutLabel("⌘F")})`}
@@ -96,37 +94,23 @@ export function ReaderSearchBar({
           <span className="muted pdf-reader-search-count">
             {matches.length ? `${active < 0 ? 0 : active + 1}/${matches.length}` : "0/0"}
           </span>
-          <RowButton
-            className="pdf-reader-search-step"
-            disabled={!matches.length}
-            onClick={() => jump(-1)}
-            aria-label="Previous match"
-            title="Previous match (Shift+Enter)"
-          >
+          <IconButton size="sm" label="Previous match" tip="Previous match (Shift+Enter)" disabled={!matches.length} onClick={() => jump(-1)}>
             <ChevronIcon open size={14} />
-          </RowButton>
-          <RowButton
-            className="pdf-reader-search-step"
-            disabled={!matches.length}
-            onClick={() => jump(1)}
-            aria-label="Next match"
-            title="Next match (Enter)"
-          >
+          </IconButton>
+          <IconButton size="sm" label="Next match" tip="Next match (Enter)" disabled={!matches.length} onClick={() => jump(1)}>
             <ChevronIcon size={14} />
-          </RowButton>
+          </IconButton>
         </>
       )}
-      <RowButton
-        className="pdf-reader-search-close"
+      <CloseButton
+        size="sm"
+        label="Close search"
+        tip="Close (Escape)"
         onClick={() => {
           setQuery("");
           setOpen(false);
         }}
-        aria-label="Close search"
-        title="Close (Escape)"
-      >
-        <CloseIcon />
-      </RowButton>
+      />
     </div>
   );
 }

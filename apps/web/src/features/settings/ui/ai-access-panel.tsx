@@ -284,7 +284,7 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
           <h3 id="ai-access-title">AI assistant access</h3>
           <p>Connect a client such as Codex to only the research sources you choose. PDFs, keys, and account settings are never shared.</p>
         </div>
-        <Switch checked={access.enabled} label="Enable AI assistant access" onClick={() => setEnabled(!access.enabled)} />
+        <Switch checked={access.enabled} label="Enable AI assistant access" onChange={setEnabled} />
       </header>
       {access.enabled && (
         <>
@@ -297,7 +297,7 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
               {AI_READ_CATEGORIES.map((category) => (
                 <label className="ai-permission-row" key={category}>
                   <span>{READ_LABELS[category]}</span>
-                  <input className="themed-check" type="checkbox" checked={access.readCategories.includes(category)} onChange={() => toggleRead(category)} />
+                  <input className="wf-check" type="checkbox" checked={access.readCategories.includes(category)} onChange={() => toggleRead(category)} />
                 </label>
               ))}
             </div>
@@ -311,7 +311,7 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
               {AI_PROPOSAL_KINDS.map((kind) => (
                 <label className="ai-permission-row" key={kind}>
                   <span>{PROPOSAL_LABELS[kind]}{AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS.includes(kind) && <small>Unavailable until Zotero writing is enabled</small>}</span>
-                  <input className="themed-check" type="checkbox" checked={access.proposalKinds.includes(kind)} disabled={AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS.includes(kind)} onChange={() => toggleProposal(kind)} />
+                  <input className="wf-check" type="checkbox" checked={access.proposalKinds.includes(kind)} disabled={AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS.includes(kind)} onChange={() => toggleProposal(kind)} />
                 </label>
               ))}
             </div>
@@ -323,7 +323,7 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
                 <ChevronIcon />
               </div>
             </summary>
-            <div className="ai-permission-list ai-list-2col">{AI_READ_CATEGORIES.map((category) => <label className="ai-permission-row" key={`dynamic-${category}`}><span>{READ_LABELS[category]}</span><input className="themed-check" type="checkbox" disabled={!access.readCategories.includes(category)} checked={(access.autoIncludeNewSourceCategories ?? []).includes(category)} onChange={() => toggleDynamic(category)} /></label>)}</div>
+            <div className="ai-permission-list ai-list-2col">{AI_READ_CATEGORIES.map((category) => <label className="ai-permission-row" key={`dynamic-${category}`}><span>{READ_LABELS[category]}</span><input className="wf-check" type="checkbox" disabled={!access.readCategories.includes(category)} checked={(access.autoIncludeNewSourceCategories ?? []).includes(category)} onChange={() => toggleDynamic(category)} /></label>)}</div>
           </details>
           <section className="ai-section ai-session-section">
             <div className="ai-section-heading"><div><h4>Active access</h4><p>Sessions end when the access duration below runs out, or when you revoke them.</p></div></div>
@@ -343,7 +343,7 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
                     <option value="10080">1 week</option>
                   </Select>
                 </div>
-                <label className="ai-master-toggle"><span><strong>Remember this Codex connection on this device</strong><small>Stores only the pairing secret in your encrypted settings. Sessions still expire and require an unlocked browser.</small></span><input className="themed-check" type="checkbox" checked={rememberConnection} onChange={(event) => { setRememberConnection(event.target.checked); if (!event.target.checked) onChange(applyUserIntegrationFields(settings, "mcp", { pairingSecret: "" })); }} /></label>
+                <label className="ai-master-toggle"><span><strong>Remember this Codex connection on this device</strong><small>Stores only the pairing secret in your encrypted settings. Sessions still expire and require an unlocked browser.</small></span><input className="wf-check" type="checkbox" checked={rememberConnection} onChange={(event) => { setRememberConnection(event.target.checked); if (!event.target.checked) onChange(applyUserIntegrationFields(settings, "mcp", { pairingSecret: "" })); }} /></label>
                 <div className="ai-mcp-token-control">
                   <div><strong>MCP token</strong><small>Codex signs in with an MCP token. Make, copy and revoke them on Settings › Access tokens.</small></div>
                   <Button onClick={onManageTokens}>Manage MCP tokens</Button>
@@ -371,16 +371,16 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
                           <summary><span><strong>{category}</strong><small>{categorySources.filter((source) => selectedSourceIds.includes(source.sourceId)).length} of {categorySources.length} selected</small></span><ChevronIcon /></summary>
                           <div className="ai-source-group-actions"><Button variant="ghost" size="sm" onClick={() => setSelectedSourceIds((current) => allSelected ? current.filter((id) => !categorySources.some((source) => source.sourceId === id)) : [...new Set([...current, ...categorySources.map((source) => source.sourceId)])])}>{allSelected ? "Clear category" : "Select category"}</Button></div>
                           {categorySources.map((source) => <label className="ai-permission-row" key={source.sourceId}>
-                            <span>{source.label}</span><input className="themed-check" type="checkbox" checked={selectedSourceIds.includes(source.sourceId)} onChange={() => toggleSource(source.sourceId)} />
+                            <span>{source.label}</span><input className="wf-check" type="checkbox" checked={selectedSourceIds.includes(source.sourceId)} onChange={() => toggleSource(source.sourceId)} />
                           </label>)}
                         </details>;
                       })}
                     </div>
                   </>
                 )}
-                <Button className="ai-start-access" onClick={() => void startSession()} disabled={busy || (sourceScope === "selected" ? selectedSourceIds.length === 0 : eligibleSources.length === 0)}>
+                <span className="ai-start-access"><Button onClick={() => void startSession()} disabled={busy || (sourceScope === "selected" ? selectedSourceIds.length === 0 : eligibleSources.length === 0)}>
                   {busy ? "Starting…" : `Start access for ${sourceScope === "selected" ? selectedSourceIds.length : eligibleSources.length} source${(sourceScope === "selected" ? selectedSourceIds.length : eligibleSources.length) === 1 ? "" : "s"}`}
-                </Button>
+                </Button></span>
                 <FormError>{sessionError}</FormError>
                 {connection && <div className="ai-connection-details"><div className="ai-section-heading"><div><h4>Live Codex connection</h4><p>Copy this session ID and pairing secret into the local plugin. Use the MCP token you created above. Keep this page open.</p></div></div><div className="ai-connection-value"><span><small>Session ID</small><code>{connection.sessionId}</code></span><Button onClick={() => copyConnection("session", connection.sessionId)}>{copied === "session" ? "Copied" : "Copy"}</Button></div><div className="ai-connection-value"><span><small>Pairing secret</small><code>••••••••••••••••••••••••••••••••</code></span><Button onClick={() => copyConnection("secret", connection.secret)}>{copied === "secret" ? "Copied" : "Copy"}</Button></div></div>}
             </>
@@ -389,7 +389,7 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
                 {sessions.map((session) => (
                   <div className="ai-active-session" key={session.grant.id}>
                     <span><strong>{session.workspace.name}</strong><small>{session.grant.readable.length} source{session.grant.readable.length === 1 ? "" : "s"} · expires {new Date(session.grant.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></span>
-                    <Button size="sm" className="danger" onClick={() => {
+                    <Button variant="danger" size="sm" onClick={() => {
                       getContainer().aiAssistant.stopRelay(session.grant.id);
                       if (connection?.sessionId === session.grant.id) setConnection(null);
                       getContainer().aiAssistant.revokeSession(session.grant.id);
@@ -398,7 +398,7 @@ export function AiAccessPanel({ settings, onChange, onManageTokens }: {
                     }}>Revoke now</Button>
                   </div>
                 ))}
-                <Button size="sm" className="danger" onClick={revokeAll}>Disable all active AI access</Button>
+                <Button variant="danger" size="sm" onClick={revokeAll}>Disable all active AI access</Button>
               </div>
             )}
           </section>

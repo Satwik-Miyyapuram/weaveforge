@@ -18,16 +18,12 @@
 .git-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .git-commits h2, .git-branches h2 { margin: 0 0 8px; font-size: var(--fs-lg); }
 .git-branch-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 4px; }
-.git-branch {
-  display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 12px;
-  border: 0; border-radius: var(--r-control); background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer;
-}
-.git-branch.is-active { background: var(--surface2); }
+.git-branch-list li > .wf-row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: start; }
 .git-branch-swatch { flex: none; width: 14px; height: 14px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface2); }
-.git-branch.is-active .git-branch-swatch { background: var(--accent); }
+.git-branch-list .wf-row[aria-current="true"] .git-branch-swatch { background: var(--accent); }
 .git-branch-name { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: var(--fs); overflow-wrap: anywhere; }
 .git-branch-note { color: var(--muted); font-family: var(--font); font-size: var(--fs-xs); }
-.git-branches .track-branch-btn { width: 100%; }
+.git-branches .track-branch-btn { display: grid; }
 .git-branches-note { margin: 12px 0 0; font-size: var(--fs-sm); }
 .commit-list { list-style: none; padding: 0; margin: 0; display: grid; }
 .commit-item {
@@ -45,14 +41,12 @@
 .exp-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 12px; }
 .exp-item { display: grid; gap: 8px; cursor: pointer; }
 .git-chips, .metric-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.git-chip, .metric-chip {
+.metric-chip {
   display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs);
   padding: 4px 8px; border-radius: var(--r-control); background: var(--chip); color: var(--ink); text-decoration: none;
 }
 .metric-chip { background: var(--chip); border: 1px solid var(--line); }
-.git-chip em, .metric-chip em { font-style: normal; color: var(--muted); font-size: var(--fs-xs); }
-.git-chip.is-link { color: var(--s-info); }
-button.git-chip { border: 0; cursor: pointer; font-family: inherit; }
+.metric-chip em { font-style: normal; color: var(--muted); font-size: var(--fs-xs); }
 
 /* Experiments: live indicator + view switch + compare table */
 .live-dot {
@@ -60,25 +54,6 @@ button.git-chip { border: 0; cursor: pointer; font-family: inherit; }
   animation: live-pulse 1.6s ease-in-out infinite;
 }
 @keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-/* Each button is its own chip (states.css); the group draws no frame. */
-.seg { display: inline-flex; gap: 2px; }
-.seg button {
-  padding: 4px 12px; background: transparent; border: 0; border-radius: var(--r-sm); color: var(--muted);
-  cursor: pointer; font-size: var(--fs-sm); font-weight: 500; transition: background var(--dur-base), color var(--dur-base);
-}
-.seg button.seg-on { background: var(--surface); color: var(--ink); }
-.seg button svg { display: block; }
-/* Compact, for pane headers and editor bars. */
-.seg--sm button { padding: 2px 8px; font-size: var(--fs-xs); }
-.seg button[aria-label] {
-  min-width: var(--touch-min);
-  min-height: var(--touch-min);
-  padding: 12px;
-  line-height: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
 .compare {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -109,7 +84,7 @@ button.git-chip { border: 0; cursor: pointer; font-family: inherit; }
 .cmp-table th, .cmp-table td {
   text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); white-space: nowrap;
 }
-.cmp-table th .link-btn { font: inherit; }
+
 /* The head stays in view while a long table scrolls (D15). */
 .cmp-table thead th {
   position: sticky; top: 0; z-index: 1; background: var(--surface);
@@ -121,13 +96,9 @@ button.git-chip { border: 0; cursor: pointer; font-family: inherit; }
 /* A row reached by keyboard shows where focus is. */
 .cmp-table tbody tr:focus-within td { background: var(--hover); }
 /* Sortable heads: the icon is faint until its column sorts. */
-.sort-btn {
-  display: inline-flex; align-items: center; gap: var(--s1);
-  font-weight: 600; color: var(--ink); white-space: nowrap;
-}
-.sort-btn--on { color: var(--accent-ink); }
+th .wf-link { display: inline-flex; align-items: center; gap: var(--s1); font-weight: 600; white-space: nowrap; }
 .sort-icon { flex: none; opacity: 0.45; }
-.sort-btn--on .sort-icon { opacity: 0.9; }
+th:is([aria-sort="ascending"], [aria-sort="descending"]) .sort-icon { opacity: 0.9; }
 /* On a desktop a tall table scrolls inside itself, so its sticky head works. */
 @media (min-width: 900px) {
   .table-scroll { max-height: 75vh; overflow-y: auto; }
@@ -152,24 +123,8 @@ button.git-chip { border: 0; cursor: pointer; font-family: inherit; }
   isolation: isolate;
 }
 
-/* Plan dependency chips: pills; links lift, external is dashed. */
+/* Plan dependency chips: one wf-chip per dependency. */
 .plan-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .plan-chips-label { align-self: center; font-size: var(--fs-xs); color: var(--muted); }
 .milestone-overdue { color: var(--danger); font-weight: 700; }
-.plan-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font: 600 var(--fs-sm) var(--font);
-  padding: 4px 12px;
-  color: var(--text);
-  background: var(--surface);
-  border: var(--bw, 1px) solid var(--bw-line, var(--border-strong));
-  border-radius: var(--r-pill);
-  text-decoration: none;
-}
-.plan-chip em { font-style: normal; font-weight: 400; color: var(--muted); }
-.plan-chip.is-ext { border-style: dashed; }
-.plan-chip.is-link { cursor: pointer; }
-/* The arrow comes from the shared chip rule in states.css, on links only. */
-.plan-chip.is-missing { opacity: 0.5; text-decoration: line-through; }
+.plan-chips em { font-style: normal; color: var(--muted); }

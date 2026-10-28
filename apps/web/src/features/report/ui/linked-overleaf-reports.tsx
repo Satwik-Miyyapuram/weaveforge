@@ -109,7 +109,7 @@ export function LinkedOverleafReports() {
       {...(breakpoint === "desktop" ? { open: true } : {})}
     >
       <summary className="linked-overleaf-summary">
-        <span className="list-toggle linked-overleaf-toggle" aria-hidden>
+        <span className="linked-overleaf-toggle" aria-hidden>
           <ChevronIcon variant="expand" size={16} />
         </span>
         <div className="linked-overleaf-summary-main">
@@ -146,7 +146,7 @@ export function LinkedOverleafReports() {
           />
         ) : (
           <div className={`linked-overleaf-row${selected?.id === report.id ? " selected" : ""}`} key={report.id}>
-            <RowButton className="linked-overleaf-row__open" onClick={() => void openReport(report)}>
+            <RowButton onClick={() => void openReport(report)}>
               <strong>{report.title}</strong>
               <small>{report.entry_file} · Overleaf project {report.overleaf_project_id}</small>
             </RowButton>
@@ -155,7 +155,7 @@ export function LinkedOverleafReports() {
                 <>
                   <span className="muted">Remove from this project? Overleaf keeps the document.</span>
                   <Button variant="ghost" size="sm" onClick={() => void unlink(report)}>Confirm</Button>
-                  <Button variant="ghost" size="sm" className="btn-cancel" onClick={() => setConfirmId(null)}>Cancel</Button>
+                  <Button variant="cancel" size="sm" onClick={() => setConfirmId(null)}>Cancel</Button>
                 </>
               ) : (
                 <>

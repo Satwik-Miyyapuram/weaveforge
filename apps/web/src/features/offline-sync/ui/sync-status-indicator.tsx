@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useLiveSync } from "./use-live-sync";
 import { setLiveSyncState } from "../domain/live-sync";
 import { desktop } from "@/lib/desktop/desktop-bridge";
-import { RowButton } from "@/components/controls";
+import { Chip } from "@/components/controls";
 import { syncStatus } from "../domain/sync-status";
 
 const DOT = { synced: "green", offline: "muted", conflict: "amber", syncing: "", error: "amber" } as const;
@@ -23,8 +23,8 @@ export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?:
 
   if (status.state === "conflict") {
     return (
-      <RowButton
-        className="sync-badge conflict"
+      <span className="sync-slot">
+      <Chip
         onClick={() => {
           // Same-page push does not fire hashchange; setting the hash does, and Settings listens.
           if (pathname === "/settings") window.location.hash = "settings-sync";
@@ -34,7 +34,8 @@ export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?:
       >
         <span className="sync-dot amber" />
         <span>{status.label}</span>
-      </RowButton>
+      </Chip>
+      </span>
     );
   }
 
@@ -44,8 +45,8 @@ export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?:
   if (lastAdoption && lastAdoption.claimed + lastAdoption.queued + lastAdoption.renamed.length > 0) {
     const renamed = lastAdoption.renamed;
     return (
-      <RowButton
-        className="sync-badge merged"
+      <span className="sync-slot">
+      <Chip
         onClick={() => setLiveSyncState({ lastAdoption: null })}
         title={
           (renamed.length > 0
@@ -58,7 +59,8 @@ export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?:
           Merged with your account{renamed.length > 0 ? ` · ${renamed.length} renamed` : ""}
         </span>
         <span aria-hidden="true">×</span>
-      </RowButton>
+      </Chip>
+      </span>
     );
   }
 
@@ -80,21 +82,24 @@ export function SyncStatusIndicator({ attentionOnly = false }: { attentionOnly?:
     ) : (
       <span className={`sync-dot ${DOT[status.state]}`} />
     );
-  const className = `sync-badge ${status.state}`;
   const label = <span>{status.label}</span>;
 
   if (status.state === "synced" || status.state === "error") {
     return (
-      <RowButton className={className} onClick={syncNow} title={status.tip} aria-label={status.tip}>
-        {mark}
-        {label}
-      </RowButton>
+      <span className="sync-slot">
+        <Chip onClick={syncNow} title={status.tip} aria-label={status.tip}>
+          {mark}
+          {label}
+        </Chip>
+      </span>
     );
   }
   return (
-    <span className={className} role="status" title={status.tip} aria-label={status.tip}>
-      {mark}
-      {label}
+    <span className="sync-slot" role="status" aria-label={status.tip}>
+      <Chip title={status.tip}>
+        {mark}
+        {label}
+      </Chip>
     </span>
   );
 }

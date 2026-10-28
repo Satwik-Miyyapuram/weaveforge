@@ -58,7 +58,7 @@ test("a sort header says its direction to assistive tech and draws an icon, not 
   const row = (el: React.ReactNode) => renderToStaticMarkup(<table><thead><tr>{el}</tr></thead></table>);
   const asc = row(<SortHeader label="Year" active dir="asc" onSort={() => {}} />);
   assert.match(asc, /<th[^>]*aria-sort="ascending"/);
-  assert.match(asc, /<button type="button" class="link-btn sort-btn sort-btn--on">Year<svg[^>]*aria-hidden="true"/);
+  assert.match(asc, /<button type="button" class="wf-link">Year<svg[^>]*aria-hidden="true"/);
   assert.doesNotMatch(asc, /[▲▼↕]/);
   const desc = row(<SortHeader label="Year" active dir="desc" onSort={() => {}} />);
   assert.match(desc, /aria-sort="descending"/);

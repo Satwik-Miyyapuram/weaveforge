@@ -4,8 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ShareableType } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { Button } from "@/components/button";
-import { RowButton } from "@/components/controls";
+import { Button, IconButton } from "@/components/button";
 import { ShareIcon } from "@/components/view-icons";
 import { ShareDialog } from "./share-dialog-lazy";
 import { useShareDialogHost } from "./share-dialog-host";
@@ -92,21 +91,19 @@ export function ShareButton({
       e.stopPropagation();
       setOpen(true);
     },
-    "aria-label": label,
-    title: label,
   };
   return (
     <>
       {!hideTrigger && (
         showLabel ? (
-          <Button className="entity-icon-text-btn" {...trigger}>
+          <Button size="sm" variant="ghost" {...trigger}>
             <ShareIcon />
             <span>{label}</span>
           </Button>
         ) : (
-          <RowButton className="entity-icon-btn" {...trigger}>
+          <IconButton label={label} {...trigger}>
             <ShareIcon />
-          </RowButton>
+          </IconButton>
         )
       )}
       {!host &&

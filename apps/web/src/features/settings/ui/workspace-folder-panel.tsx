@@ -227,9 +227,8 @@ export function WorkspaceFolderPanel() {
             <strong>WeaveForge</strong> subfolder.
           </p>
           <label className="field-inline">
-            <input
+            <input className="wf-check"
               type="checkbox"
-              className="themed-check"
               checked={git}
               onChange={(e) => setGit(e.target.checked)}
             />

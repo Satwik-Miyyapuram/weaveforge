@@ -5,7 +5,7 @@ import { getContainer } from "@/bootstrap";
 import { ImageIcon } from "@/components/view-icons";
 import { formatError } from "@/lib/format-error";
 import type { Experiment } from "@weaveforge/core";
-import { RowButton } from "@/components/controls";
+import { IconButton } from "@/components/button";
 
 /**
  * Attach a file to a run from the app.
@@ -42,14 +42,12 @@ export function AttachArtifactsButton({
 
   return (
     <>
-      <RowButton className="entity-icon-btn"
+      <IconButton label="Attach artifact" tip={busy ? "Uploading…" : "Attach"}
         onClick={() => fileRef.current?.click()}
         disabled={busy}
-        aria-label="Attach artifact"
-        title={busy ? "Uploading…" : "Attach"}
       >
         <ImageIcon />
-      </RowButton>
+      </IconButton>
       <input
         ref={fileRef}
         type="file"

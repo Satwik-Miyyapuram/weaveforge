@@ -6,7 +6,8 @@ import { useProfile } from "./profile-provider";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { formatError } from "@/lib/format-error";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
-import { RowButton } from "@/components/controls";
+import { Button } from "@/components/button";
+import { MenuItemButton } from "@/components/controls";
 
 /** Header chip for switching between labs when the user has multiple memberships. */
 export function OrgSwitcher() {
@@ -51,8 +52,8 @@ export function OrgSwitcherView({ profile, memberships, activeOrgId, switchOrg }
 
   return (
     <div className="proj-switcher org-switcher" ref={ref}>
-      <RowButton
-        className="proj-chip"
+      <Button
+        variant="secondary"
         disabled={busy}
         onClick={() => setOpen((o) => !o)}
         aria-label="Switch lab"
@@ -62,13 +63,14 @@ export function OrgSwitcherView({ profile, memberships, activeOrgId, switchOrg }
         <span className="org-dot" aria-hidden />
         <span>{active.orgName}</span>
         <ChevronIcon />
-      </RowButton>
+      </Button>
       {open && (
         <div className="proj-menu" onMouseLeave={() => setOpen(false)}>
           {labs.map((m) => (
-            <RowButton
+            <MenuItemButton
+              kind="radio"
+              checked={m.orgId === activeOrgId}
               key={m.orgId}
-              className={`proj-menu-item${m.orgId === activeOrgId ? " sel" : ""}`}
               disabled={busy}
               onClick={() => void pick(m.orgId)}
             >
@@ -77,8 +79,7 @@ export function OrgSwitcherView({ profile, memberships, activeOrgId, switchOrg }
                 <span>{m.orgName}</span>
                 <span className="muted org-menu-role">{ROLE_LABELS[m.role]}</span>
               </span>
-              {m.orgId === activeOrgId && <span className="check">✓</span>}
-            </RowButton>
+            </MenuItemButton>
           ))}
           {error && <p className="error" role="alert">{error}</p>}
         </div>

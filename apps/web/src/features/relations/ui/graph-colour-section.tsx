@@ -9,7 +9,6 @@ import {
   type GraphViewSettings,
   type NodePalette,
 } from "@weaveforge/core";
-import { ChevronIcon } from "@/components/chevron-icon";
 import { ColourMenu } from "@/components/colour-menu";
 import { Select } from "@/components/select";
 import { CLUSTER_PALETTE } from "../application/node-colouring";
@@ -17,7 +16,7 @@ import { NODE_COLOR_LABELS, useGraphColours } from "./graph-colours";
 import { CloseIcon } from "@/components/view-icons";
 import { SegmentedControl } from "@/components/segmented-control";
 import { Button } from "@/components/button";
-import { RowButton } from "@/components/controls";
+import { FoldButton } from "@/components/controls";
 
 /** Swatches offered for a node colour; any other comes through the native picker. */
 const NODE_SWATCHES = [
@@ -54,14 +53,9 @@ export function Section({
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="graph-drawer-section">
-      <RowButton
-        className="graph-drawer-section-head"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
+      <FoldButton expanded={open} onClick={() => setOpen((v) => !v)}>
         {title}
-        <ChevronIcon open={open} />
-      </RowButton>
+      </FoldButton>
       {open && <div className="graph-drawer-section-body">{children}</div>}
     </div>
   );

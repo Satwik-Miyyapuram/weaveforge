@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Modal } from "@/components/modal";
 import { ErrorReportPanel } from "@/app/error-report-panel-lazy";
 import type { ReportContext } from "@/app/error-report-panel";
-import { RowButton } from "./controls";
+import { Button } from "./button";
 
 const HEADINGS = "h1, h2, h3, h4, .settings-group";
 
@@ -60,8 +60,8 @@ export function ReportErrorButton({ readMessage }: { readMessage: () => string }
   const [report, setReport] = useState<{ message: string; context: ReportContext } | null>(null);
   return (
     <>
-      <RowButton
-        className="error-report-link"
+      <Button
+        variant="link"
         onClick={(event) =>
           setReport({
             message: readMessage().trim() || "An error was shown",
@@ -70,7 +70,7 @@ export function ReportErrorButton({ readMessage }: { readMessage: () => string }
         }
       >
         Report
-      </RowButton>
+      </Button>
       {report !== null ? (
         <Modal title="Report this problem" onClose={() => setReport(null)}>
           <ErrorReportPanel

@@ -150,10 +150,7 @@ export function ProjectsScreen() {
                * key handler. A button gets the role, the focus ring and both
                * activation keys for free.
                */}
-              <RowButton
-                className="card project-card"
-                onClick={() => setProject(p.id)}
-              >
+              <RowButton onClick={() => setProject(p.id)}>
                 <span className="project-dot" style={{ background: p.color ?? "#7c9885" }} />
                 <span className="project-name">{p.name}</span>
               </RowButton>

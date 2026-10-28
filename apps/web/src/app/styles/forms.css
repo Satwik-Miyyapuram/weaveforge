@@ -24,12 +24,12 @@ textarea { resize: vertical; }
 /* Text fields and selects match the button height (D15, DA-73): 36 desktop,
    moved by density, 44 under a finger. Padding only sets the width. */
 input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]),
-.custom-select-button {
+.wf-select {
   min-height: var(--control-lg); padding-block: 0; box-sizing: border-box;
 }
 @media (pointer: coarse) {
   input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]),
-  .custom-select-button { min-height: var(--touch-min); }
+  .wf-select { min-height: var(--touch-min); }
 }
 
 /* Number fields drop the native spinner. It is a UA widget: it ignores the
@@ -56,8 +56,6 @@ input[type="number"]::-webkit-inner-spin-button {
    elsewhere. It rings while open or when reached by keyboard. */
 input:focus,
 textarea:focus,
-.custom-select-button[aria-expanded="true"],
-.custom-select-button:focus-visible,
 .markdown-code-editor:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
@@ -66,19 +64,11 @@ textarea:focus,
 /* min-width:0 so the select shrinks within its parent grid/flex item and its
    value truncates with an ellipsis rather than overflowing the screen. */
 .custom-select-container { position: relative; width: 100%; min-width: 0; }
-.custom-select-button {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  width: 100%; padding: 0 12px; font: inherit; color: var(--ink);
-  background: var(--input-bg); border: 1px solid var(--line); border-radius: var(--radius-sm);
-  outline: none; transition: border-color var(--dur-base);
-  cursor: pointer; text-align: left;
-}
-.custom-select-button:disabled { opacity: 0.6; cursor: default; }
+.custom-select-container > .wf-select { width: 100%; }
 /* min-width:0 lets the flex child shrink so text-overflow: ellipsis actually
    triggers — without it a long selected value forces the control past the screen
    width on mobile. */
 .custom-select-value { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.custom-select-button .chev { opacity: 0.5; flex: none; display: flex; }
 
 /* Shared chevron: flip = popover/select, expand = tree rows. */
 .chev { display: inline-flex; align-items: center; justify-content: center; flex: none; opacity: 0.55; }
@@ -98,9 +88,9 @@ details[open] > summary .chev-expand svg { transform: rotate(0deg); }
    `ChevronIcon`, pointing right and turning down as it opens. Drawn as a mask so
    it takes the summary's colour, muted or not. */
 summary { cursor: pointer; }
-summary:not(:has(.chev, .list-toggle)) { list-style: none; }
-summary:not(:has(.chev, .list-toggle))::-webkit-details-marker { display: none; }
-summary:not(:has(.chev, .list-toggle))::before {
+summary:not(:has(.chev, .linked-overleaf-toggle)) { list-style: none; }
+summary:not(:has(.chev, .linked-overleaf-toggle))::-webkit-details-marker { display: none; }
+summary:not(:has(.chev, .linked-overleaf-toggle))::before {
   content: "";
   display: inline-block;
   width: 1em; height: 1em;
@@ -113,7 +103,7 @@ summary:not(:has(.chev, .list-toggle))::before {
   transform: rotate(-90deg);
   transition: transform var(--dur-base) ease;
 }
-details[open] > summary:not(:has(.chev, .list-toggle))::before { transform: rotate(0deg); }
+details[open] > summary:not(:has(.chev, .linked-overleaf-toggle))::before { transform: rotate(0deg); }
 summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-sm); }
 
 .custom-select-menu {
@@ -154,24 +144,16 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; b
    open dropdown's ancestors above their siblings. The menu is portalled to
    <body> now, so it has no ancestors to lift and those selectors can never
    match — removed rather than left as dead weight that reads like it matters. */
-.custom-select-item {
-  display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; text-align: left;
-  cursor: pointer; font: inherit; font-size: var(--fs); color: var(--ink);
-  background: none; border: none; padding: 8px 12px; border-radius: var(--r-sm);
-  white-space: normal; overflow-wrap: anywhere;
-}
-.custom-select-item:hover,
-.custom-select-item.active { background: var(--status-neutral); }
+
 /* Selected option: bold + a colored box. For status selects the box color comes
    from the status-<value> class on the item; otherwise a neutral box. The inset
    ring deepens it past the trigger pill. */
-.custom-select-item.sel { font-weight: 600; box-shadow: inset 0 0 0 1.5px var(--sel-ring); }
-.custom-select-item.sel-plain { background: var(--status-neutral); }
+
 .custom-select-group {
   padding: 8px 12px 4px; font-size: var(--fs-micro); font-weight: 600;
  letter-spacing: 0.04em; color: var(--muted);
 }
-.custom-select-item.disabled { opacity: 0.55; cursor: default; }
+
 .custom-select-menu.searchable { max-height: 320px; }
 .custom-select-search {
   position: sticky; top: 0; z-index: 1;
@@ -185,7 +167,6 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; b
 }
 .custom-select-empty { padding: 12px 12px; font-size: var(--fs-sm); }
 /* Multi-select checkbox items. */
-.ms-item.sel { box-shadow: none; }
 .ms-check {
   flex: none; width: 16px; height: 16px; border-radius: var(--r-sm);
   border: 1.5px solid var(--line); position: relative; display: inline-block;
@@ -316,24 +297,11 @@ label.graph-check input[type="checkbox"] { margin: 2px 0 0; }
  * component meant the button could not be centred or placed in a flex row
  * without an override. Call sites that want it in a grid ask for it.
  */
-.btn-primary {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  border: none; cursor: pointer;
-  padding: 8px 16px; border-radius: var(--r-control); font: inherit; font-weight: 600;
-  text-decoration: none;
-  color: var(--accent-fg); background: var(--accent);
-  box-shadow: var(--e1), var(--rim);
-}
+
 /* Hover darkens `--accent` itself through the palette's own alias rather than
    applying `filter: brightness()` to the whole element: `filter` also dims
    `--accent-fg` and the inset highlight, and it mixes toward black regardless
    of the theme. See `--accent-hover` in themes/common.css. */
-.btn-primary:hover {
-  background: var(--accent-hover);
-  box-shadow: var(--e2), var(--rim);
-}
-.btn-primary:active { box-shadow: var(--e1); }
-.btn-primary svg { width: var(--icon-size); height: var(--icon-size); flex: none; }
 
 /*
  * The one container that wanted the old `justify-self: end`.
@@ -349,7 +317,7 @@ label.graph-check input[type="checkbox"] { margin: 2px 0 0; }
  * So the alignment moves to the container that means it. Same visual result as
  * the old component rule, with the layout decision where the layout lives.
  */
-.add-form > .btn-primary {
+.add-form > .wf-primary {
   justify-self: end;
 }
 
@@ -357,18 +325,12 @@ label.graph-check input[type="checkbox"] { margin: 2px 0 0; }
 :root:root .date-picker-panel, .date-picker-panel { width: 264px; min-width: 0; max-height: none; overflow: visible; padding: 8px; gap: 8px; }
 .date-picker-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .date-picker-title { font-weight: 600; font-size: var(--fs); color: var(--ink); }
-.date-picker-nav {
-  width: 28px; height: 28px; font: inherit; font-size: var(--fs-lg); line-height: 1; color: var(--ink);
-  background: none; border: none; border-radius: var(--r-sm); cursor: pointer;
-}
-.date-picker-nav:hover { background: var(--status-neutral); }
-.date-picker-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+:root:root .date-picker-grid.wf-seg { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
 .date-picker-dow { text-align: center; font-size: var(--fs-xs); padding: 2px 0; white-space: nowrap; }
-:root:root .custom-select-item.date-picker-day, .custom-select-item.date-picker-day { justify-content: center; padding: 8px 0; gap: 0; width: 100%; min-width: 0; white-space: nowrap; overflow-wrap: normal; word-break: normal; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; animation: none; }
-.date-picker-day.out { opacity: 0.4; }
-.date-picker-day.today:not(.sel) { color: var(--accent); font-weight: 600; }
+:root:root .date-picker-grid > button { justify-content: center; padding: 8px 0; min-width: 0; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+:root:root .date-picker-grid > button[data-out] { opacity: 0.4; }
+:root:root .date-picker-grid > button[data-today]:not([aria-pressed="true"]) { color: var(--accent); font-weight: 600; }
 .date-picker-foot { display: flex; justify-content: space-between; }
-:root:root .custom-select-item.date-picker-day:disabled, .custom-select-item.date-picker-day:disabled { opacity: 0.3; cursor: default; }
 
 /* Access token form (D15): fields, then the permission groups, then Create. */
 .token-permissions { display: grid; gap: var(--s2); }

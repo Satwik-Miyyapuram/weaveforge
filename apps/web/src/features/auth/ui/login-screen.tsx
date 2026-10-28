@@ -8,7 +8,6 @@ import { appOrigin, authRedirectTo } from "@/lib/desktop/desktop-auth";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { setLocalMode } from "@/backend/providers/local/local-identity";
 import { runBusy } from "./run-busy";
-import { RowButton } from "@/components/controls";
 import { Button } from "@/components/button";
 
 /**
@@ -104,7 +103,7 @@ export function LoginScreen() {
               <p className="auth-sub">
                 We sent a confirmation link to <strong>{email}</strong>. Open it to activate your account.
               </p>
-              <Button variant="primary" className="auth-wide"
+              <Button variant="primary"
                 onClick={() => {
                   setSent(false);
                   setIsSignUp(false);
@@ -119,13 +118,13 @@ export function LoginScreen() {
             <>
               <h2 className="auth-title">Check your email</h2>
               <p className="auth-sub">We sent a sign-in link to <strong>{email}</strong>. Open it to sign in.</p>
-              <Button variant="ghost" className="auth-wide" onClick={() => setMagicLinkSent(false)}>Back</Button>
+              <Button variant="ghost" onClick={() => setMagicLinkSent(false)}>Back</Button>
             </>
           ) : resetSent ? (
             <>
               <h2 className="auth-title">Password reset sent</h2>
               <p className="auth-sub">If an account exists for <strong>{email}</strong>, you&rsquo;ll get a link to choose a new password.</p>
-              <Button variant="ghost" className="auth-wide" onClick={() => setResetSent(false)}>Back</Button>
+              <Button variant="ghost" onClick={() => setResetSent(false)}>Back</Button>
             </>
           ) : otpSent ? (
             <>
@@ -137,18 +136,18 @@ export function LoginScreen() {
                   <input id="email-otp" value={otp} onChange={(event) => setOtp(event.target.value)} inputMode="numeric" autoComplete="one-time-code" required />
                 </div>
                 {error && <FormError>{error}</FormError>}
-                <Button type="submit" variant="primary" className="auth-wide" disabled={busy}>{busy ? "Verifying…" : "Verify code"}</Button>
+                <Button type="submit" variant="primary" disabled={busy}>{busy ? "Verifying…" : "Verify code"}</Button>
               </form>
-              <Button variant="ghost" className="auth-wide" onClick={() => { setOtpSent(false); setOtp(""); }} disabled={busy}>Back</Button>
+              <Button variant="ghost" onClick={() => { setOtpSent(false); setOtp(""); }} disabled={busy}>Back</Button>
             </>
           ) : (
             <>
               <h2 className="auth-title">{isSignUp ? "Create an account" : "Sign in"}</h2>
               <p className="auth-sub">
                 {isSignUp ? "Already have an account? " : "Use your lab email. New here? "}
-                <RowButton className="auth-link" onClick={switchMode} disabled={busy}>
+                <Button variant="link" onClick={switchMode} disabled={busy}>
                   {isSignUp ? "Sign in" : "Create an account"}
-                </RowButton>
+                </Button>
               </p>
 
               <form className="auth-email" onSubmit={submit}>
@@ -168,9 +167,9 @@ export function LoginScreen() {
                   <div className="auth-label-row">
                     <label htmlFor="password">Password</label>
                     {!isSignUp && (
-                      <RowButton className="auth-link auth-link-sm" onClick={() => void sendPasswordReset()} disabled={busy || !email.trim()}>
+                      <Button variant="link" size="sm" onClick={() => void sendPasswordReset()} disabled={busy || !email.trim()}>
                         Forgot password?
-                      </RowButton>
+                      </Button>
                     )}
                   </div>
                   <input
@@ -183,7 +182,7 @@ export function LoginScreen() {
                     required
                   />
                 </div>
-                <Button type="submit" variant="primary" className="auth-wide" disabled={busy}>
+                <Button type="submit" variant="primary" disabled={busy}>
                   {busy ? (isSignUp ? "Creating account…" : "Signing in…") : (isSignUp ? "Create account" : "Sign in")}
                 </Button>
               </form>
@@ -191,25 +190,24 @@ export function LoginScreen() {
               <div className="auth-divider"><span>or</span></div>
 
               <div className="auth-alt">
-                <RowButton className="btn-google auth-wide" onClick={google} disabled={busy}>
+                <Button onClick={google} disabled={busy}>
                   <GoogleMark />
                   Continue with Google
-                </RowButton>
+                </Button>
                 {!isSignUp && (
                   <>
-                    <RowButton className="btn-google auth-wide" onClick={() => void sendOtp()} disabled={busy || !email.trim()}>
+                    <Button onClick={() => void sendOtp()} disabled={busy || !email.trim()}>
                       Email me a sign-in code
-                    </RowButton>
-                    <RowButton className="auth-link auth-link-sm" onClick={() => void sendMagicLink()} disabled={busy || !email.trim()}>
+                    </Button>
+                    <Button variant="link" size="sm" onClick={() => void sendMagicLink()} disabled={busy || !email.trim()}>
                       Email me a sign-in link instead
-                    </RowButton>
+                    </Button>
                   </>
                 )}
               </div>
 
               {onThisComputer && (
-                <RowButton
-                  className="auth-local"
+                <Button variant="link"
                   onClick={() => {
                     // The wiring is built once, at startup, from this choice —
                     // so the choice is remembered and the window reopened.
@@ -218,7 +216,7 @@ export function LoginScreen() {
                   }}
                 >
                   Use without an account, local only
-                </RowButton>
+                </Button>
               )}
 
               {error && <FormError>{error}</FormError>}

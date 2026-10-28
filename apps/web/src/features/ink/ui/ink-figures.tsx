@@ -34,8 +34,8 @@ import {
   type FigureOrderStep,
 } from "@weaveforge/core";
 import { DeleteIcon } from "@/components/view-icons";
-import { RowButton } from "@/components/controls";
 import { FrameHandles, useFrameDrag } from "./ink-figure-frame";
+import { Button, IconButton } from "@/components/button";
 
 export interface InkFiguresProps {
   /** The figures the page's text layer places. */
@@ -439,57 +439,51 @@ export function InkFigureEditor({
         style={popoverStyle(px, pageSize.height * scale, visible, popoverWidth)}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <RowButton
-          className="ink-figure-button ink-figure-button-icon"
-          aria-label="Crop"
-          title="Crop (double-click)"
-          onClick={() => setCropping(true)}
-        >
+        <IconButton size="sm" label="Crop" tip="Crop (double-click)" onClick={() => setCropping(true)}>
           <CropIcon />
-        </RowButton>
+        </IconButton>
         <span className="ink-figure-sep" />
-        <RowButton
-          className="ink-figure-button"
+        <Button
+          variant="ghost"
+          size="sm"
           title="Bring forward (Ctrl+])"
           disabled={atTop}
           onClick={() => onReorder("forward")}
         >
           Forward
-        </RowButton>
-        <RowButton
-          className="ink-figure-button"
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           title="Send backward (Ctrl+[)"
           disabled={atBottom}
           onClick={() => onReorder("backward")}
         >
           Backward
-        </RowButton>
-        <RowButton
-          className="ink-figure-button"
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           title="Bring to front (Ctrl+Shift+])"
           disabled={atTop}
           onClick={() => onReorder("front")}
         >
           Front
-        </RowButton>
-        <RowButton
-          className="ink-figure-button"
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           title="Send to back (Ctrl+Shift+[)"
           disabled={atBottom}
           onClick={() => onReorder("back")}
         >
           Back
-        </RowButton>
+        </Button>
         <span className="ink-figure-sep" />
         {/* No Done: a press off the picture, or Esc, lets it go. */}
-        <RowButton
-          className="ink-figure-button ink-figure-button-icon ink-figure-button-remove"
-          aria-label="Remove"
-          title="Remove (Delete)"
-          onClick={onRemove}
-        >
+        <IconButton size="sm" tone="danger" label="Remove" tip="Remove (Delete)" onClick={onRemove}>
           <DeleteIcon size={18} />
-        </RowButton>
+        </IconButton>
       </div>
     </div>
   );
@@ -645,12 +639,12 @@ function InkFigureCropTool({
       >
         <span className="ink-figure-hint">Drag the marks to choose what to keep</span>
         <span className="ink-figure-sep" />
-        <RowButton className="ink-figure-button" title="Keep the original (Esc)" onClick={onCancel}>
+        <Button variant="cancel" size="sm" title="Keep the original (Esc)" onClick={onCancel}>
           Cancel
-        </RowButton>
-        <RowButton className="ink-figure-button" title="Apply the crop (Enter)" onClick={apply}>
+        </Button>
+        <Button variant="primary" size="sm" title="Apply the crop (Enter)" onClick={apply}>
           Done
-        </RowButton>
+        </Button>
       </div>
     </div>
   );

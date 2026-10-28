@@ -232,7 +232,7 @@ export function Menu({
       if (!list) return;
 
       const buttons = Array.from(
-        list.querySelectorAll<HTMLButtonElement>("li > button.card-menu-item:not(:disabled), li > button.menu-item:not(:disabled)"),
+        list.querySelectorAll<HTMLButtonElement>("li > button.wf-item:not(:disabled)"),
       );
       const activeIndex = buttons.findIndex((b) => b === document.activeElement);
 
@@ -325,7 +325,7 @@ function MenuItemRow({
       role="none"
     >
       <MenuItemButton kind={item.kind === "check" ? "checkbox" : "item"} checked={item.checked === true}
-        className={`card-menu-item menu-item${item.danger ? " danger" : ""}`}
+        danger={item.danger}
         disabled={item.disabled}
         title={item.title}
         aria-haspopup={hasSubmenu ? "menu" : undefined}

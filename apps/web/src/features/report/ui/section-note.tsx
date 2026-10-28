@@ -192,8 +192,8 @@ export function SectionNote({
           readOnly ? (
             <p className="muted summary-empty">No note yet.</p>
           ) : (
-            <RowButton className="record-note-empty" onClick={() => setMode("edit")}>
-              No note yet. Start writing — cite with [[ or @, math with $E = mc^2$.
+            <RowButton onClick={() => setMode("edit")}>
+              <span className="record-note-empty">No note yet. Start writing — cite with [[ or @, math with $E = mc^2$.</span>
             </RowButton>
           )
         ) : (

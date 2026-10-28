@@ -73,7 +73,7 @@ export function AddToLibraryButton({
   return (
     <div className="shared-library-actions" onClick={(e) => e.stopPropagation()}>
       {pinned ? (
-        <Button className="entity-icon-text-btn"
+        <Button size="sm" variant="ghost"
           disabled={busy}
           onClick={() => void unpin()}
         >
@@ -81,7 +81,7 @@ export function AddToLibraryButton({
           <span>In library</span>
         </Button>
       ) : (
-        <Button variant="primary" className="entity-icon-text-btn"
+        <Button size="sm" variant="primary"
           disabled={busy}
           onClick={() => void pin()}
         >

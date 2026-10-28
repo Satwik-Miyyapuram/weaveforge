@@ -8,6 +8,7 @@ import { Select } from "@/components/select";
 import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
 import type { StoredZoteroAnnotation } from "../domain/zotero";
 import { Button } from "@/components/button";
+import { Chip } from "@/components/controls";
 
 type StoredAnnotation = StoredZoteroAnnotation;
 
@@ -114,9 +115,9 @@ export function PaperAnnotations({ paper, readOnly }: { paper: Paper; readOnly: 
                   {a.tags && a.tags.length > 0 && (
                     <div className="tag-chips">
                       {a.tags.map((t) => (
-                        <span key={t} className="tag-chip">
+                        <Chip key={t}>
                           #{t}
-                        </span>
+                        </Chip>
                       ))}
                     </div>
                   )}
@@ -179,9 +180,9 @@ export function PaperAnnotations({ paper, readOnly }: { paper: Paper; readOnly: 
                   {a.tags && a.tags.length > 0 && (
                     <div className="tag-chips">
                       {a.tags.map((t) => (
-                        <span key={t} className="tag-chip">
+                        <Chip key={t}>
                           #{t}
-                        </span>
+                        </Chip>
                       ))}
                     </div>
                   )}

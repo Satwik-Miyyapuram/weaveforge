@@ -19,8 +19,8 @@ import { StatusSelect } from "@/components/status-select";
 import { runReported } from "@/lib/run-reported";
 import { useHiddenKeys } from "@/lib/toast";
 import { removeSectionLater, sectionKey } from "./remove-section";
-import { RowButton } from "@/components/controls";
 import { useRef, useState } from "react";
+import { IconButton } from "@/components/button";
 
 export function SectionRow({
   node,
@@ -177,17 +177,19 @@ export function SectionCard({
       onActivate={onOpen ? () => onOpen(s.id) : undefined}
       leading={
         collapse ? (
-          <RowButton
-            className="list-toggle section-head-toggle"
-            aria-expanded={collapse.open}
-            aria-label={collapse.open ? "Collapse section" : "Expand section"}
-            onClick={(e) => {
-              e.stopPropagation();
-              collapse.onToggle();
-            }}
-          >
-            <ChevronIcon open={collapse.open} variant="expand" size={16} />
-          </RowButton>
+          <span className="section-head-toggle">
+            <IconButton
+              size="sm"
+              label={collapse.open ? "Collapse section" : "Expand section"}
+              aria-expanded={collapse.open}
+              onClick={(e) => {
+                e.stopPropagation();
+                collapse.onToggle();
+              }}
+            >
+              <ChevronIcon open={collapse.open} variant="expand" size={16} />
+            </IconButton>
+          </span>
         ) : inTree ? <span className="section-head-toggle-spacer" aria-hidden /> : undefined
       }
       title={

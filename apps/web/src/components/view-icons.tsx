@@ -255,6 +255,17 @@ export function CloseIcon(props: IconProps) {
   );
 }
 
+/** More actions: three dots in a row. */
+export function MoreIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="5" cy="12" r="1.8" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.8" fill="currentColor" />
+      <circle cx="19" cy="12" r="1.8" fill="currentColor" />
+    </Svg>
+  );
+}
+
 /** Zoom in / add. */
 export function PlusIcon(props: IconProps) {
   return (
@@ -292,6 +303,26 @@ export function ChevronLeftIcon(props: IconProps) {
   return (
     <Svg {...props}>
       <path d="m15 6-6 6 6 6" />
+    </Svg>
+  );
+}
+
+/** Move up (a list item). */
+export function ArrowUpIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 19V5" />
+      <path d="m6 11 6-6 6 6" />
+    </Svg>
+  );
+}
+
+/** Move down (a list item). */
+export function ArrowDownIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 5v14" />
+      <path d="m6 13 6 6 6-6" />
     </Svg>
   );
 }

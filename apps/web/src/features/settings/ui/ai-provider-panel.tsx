@@ -214,9 +214,8 @@ export function AiProviderPanel() {
           </p>
           {storable && (
             <label className="field-inline" htmlFor="provider-remember">
-              <input
+              <input className="wf-check"
                 id="provider-remember"
-                className="themed-check"
                 type="checkbox"
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}

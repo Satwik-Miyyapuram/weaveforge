@@ -72,7 +72,7 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
           checked={state.enabled}
           label={sdk ? "Let programs on this computer connect" : "Serve MCP"}
           disabled={busy}
-          onClick={() => void setEnabled(!state.enabled)}
+          onChange={(on) => void setEnabled(on)}
         />
       </div>
       {!sdk && state.mcp && <McpClients state={state} onChange={setState} />}

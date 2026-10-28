@@ -88,7 +88,7 @@ test("the supervision card never says 'supervisee' (D-05)", () => {
 test("list colour swatches have names, not hex (DA-78)", () => {
   assert.equal(LIST_COLOR_NAMES.length, LIST_COLOR_PRESETS.length);
   for (const n of LIST_COLOR_NAMES) assert.match(n, /^[A-Z][a-z ]+$/);
-  assert.match(src("features/reading-lists/ui/add-list-form.tsx"), /aria-label=\{LIST_COLOR_NAMES\[i\]\}/);
+  assert.match(src("features/reading-lists/ui/add-list-form.tsx"), /label=\{LIST_COLOR_NAMES\[i\] \?\? c\}/);
   assert.equal(renderToStaticMarkup(<>{LIST_COLOR_NAMES[0]}</>), "Sage");
 });
 
