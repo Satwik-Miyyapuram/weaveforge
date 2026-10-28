@@ -23,6 +23,13 @@ test("an icon trigger is a square icon button named by ariaLabel, with no caret"
   assert.doesNotMatch(out, /popover-caret/);
 });
 
+test("a button trigger without a caret is the same secondary button, named and tipped by ariaLabel", () => {
+  // The account button: the chip's own look beside it, so the pair rests and lifts alike.
+  const out = html(<Popover label={<svg />} caret={false} ariaLabel="Account">x</Popover>);
+  for (const attr of ['class="wf-btn"', 'aria-label="Account"', 'title="Account"']) assert.ok(tag(out).includes(attr), attr);
+  assert.doesNotMatch(out, /popover-caret/);
+});
+
 test("a swatch trigger is painted with its colour", () => {
   const out = html(<Popover label={null} trigger="swatch" colour="#ff0000" ariaLabel="Pen colour">x</Popover>);
   for (const attr of ['class="wf-swatch"', 'style="background:#ff0000"', 'aria-label="Pen colour"']) assert.ok(tag(out).includes(attr), attr);

@@ -247,7 +247,7 @@ export function TabBar({
               ⋯ keeps its place, which is where it already was. */}
           <div className="nav-account-row">
             <ProjectSwitcher />
-            <HeaderActions inbox={false} />
+            <HeaderActions inbox={false} alone={collapsed} />
           </div>
           <LocalModeBadge />
         </div>

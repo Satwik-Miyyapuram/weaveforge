@@ -102,7 +102,6 @@ import type {
   PdfReaderProps,
 } from "./types";
 import {
-  CREATE_TOOL_HINTS,
   EMPTY_ANNOTATIONS,
 } from "./constants";
 import {
@@ -470,9 +469,6 @@ export function PdfReader({
    * over it, and a drag across a paragraph is a selection rather than a lasso.
    */
   const inkEditable = penOpen;
-
-  /** What the armed tool will do on release. */
-  const toolHint = CREATE_TOOL_HINTS[createTool];
 
   const {
     penSeen,
@@ -1643,7 +1639,6 @@ export function PdfReader({
           is armed and what releasing will do. The pointer tool says more with
           the pen out than without it: with the pen away the ink is read-only,
           so it highlights text and nothing else. */}
-      {canCreate && toolHint && <p className="pdf-reader-tool-hint muted">{toolHint}</p>}
       {/* Phone only (PhoneReader mock): the colour, ink and annotation list sit
           in one pill above the tab bar, in thumb reach. The wide toolbar's own
           copies of these hide at the same width. */}

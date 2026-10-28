@@ -77,9 +77,12 @@ const LogoutIcon = () => (
  */
 export function HeaderActions({
   inbox = true,
+  alone = false,
 }: {
   /** The Inbox rows, where no sidebar shows them: the phone and the project picker. */
   inbox?: boolean;
+  /** No project chip beside it (the collapsed rail): the plain icon button. */
+  alone?: boolean;
 }) {
   const { user, signOut } = useAuth();
   const { profile, memberships, activeOrgId, switchOrg } = useProfile();
@@ -203,8 +206,10 @@ export function HeaderActions({
       portal
       align="right"
       // The person icon says what it is; a caret beside it made the control look
-      // like a disclosure that folds, and animated on every open.
-      trigger="icon"
+      // like a disclosure that folds, and animated on every open. The chip's own
+      // secondary button, so the pair rests and lifts alike; alone, the icon button.
+      trigger={alone ? "icon" : "button"}
+      caret={false}
       ariaLabel={attention.total > 0 ? `Account, ${attention.total} waiting` : "Account"}
       label={<UserIcon />}
       count={attention.total}

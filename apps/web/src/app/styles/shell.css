@@ -193,7 +193,11 @@
 /* What needs the person (sync conflicts, AI suggestions) as one count on an
    icon trigger's corner, like a notification; nothing shows when nothing waits.
    `.popover` is the positioned box and holds only the trigger. */
-.popover:has(> .wf-icon) .popover-badge {
+/* A trigger without a caret is only an icon (the account button): it keeps the
+   icon's size, and its count sits on the corner like an icon button's. */
+.popover > .wf-btn:not(.wf-icon, :has(.popover-caret)) { padding-inline: 0; aspect-ratio: 1; }
+.popover > .wf-btn:not(.wf-icon, :has(.popover-caret)) > svg { width: 18px; height: 18px; flex: none; }
+.popover > .wf-btn:not(:has(.popover-caret)) > .popover-badge {
   position: absolute; top: -6px; right: -6px;
   min-width: 18px; height: 18px; line-height: 18px; pointer-events: none;
   box-shadow: 0 0 0 2px var(--nav-bg, var(--surface));
