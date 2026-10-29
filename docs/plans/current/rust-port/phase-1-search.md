@@ -35,9 +35,11 @@ parameter. `findDocumentMatches` stays in TS for the reader.
   a seen-set, never a bare `HashSet`.
 - **CJK** ranges are BMP-only, copied from the TS bytes. Supplementary Han
   (Extension B+) is not CJK, in both.
-- **Unicode versions.** Node 24 ICU is Unicode 17; `unicode-normalization`
-  0.1.26 is 18. Fixtures use only characters assigned before 17. Drift on new
-  characters is accepted and documented.
+- **Unicode versions.** Four sources: Node 24.14.1 / ICU 78.2 is Unicode
+  17.0 (the generator and the parity job pin Node 24); `unicode-normalization`
+  0.1.26 is 18; `unicode-properties` 0.1.4 (`\p{L}\p{N}`) is 17; Rust 1.98.1
+  `to_lowercase` follows its std tables. Fixtures use only characters
+  assigned before Unicode 17. Drift on new characters is accepted.
 - **Lone surrogates** become U+FFFD at the wasm-bindgen edge. Both are
   separators for the tokenizer, so tokens match; excerpts may differ by one
   code unit on such input. Kept out of parity.
@@ -47,8 +49,11 @@ parameter. `findDocumentMatches` stays in TS for the reader.
 The TS has none; adding a cap would change results. Rust names its constants
 (`MIN_TOKEN_UTF16_LEN = 2`, `URL_TLDS`, `CJK_RANGES`, `RRF_K = 60`,
 `EXCERPT_MIN_CHARS = 40`, `EXCERPT_DEFAULT_CHARS = 240`,
-`MAX_MODIFIED_DAYS = 36_500`). Inputs are unbounded by design: the index feeds
-whole PDFs, and every pass is linear.
+`MAX_MODIFIED_DAYS = 36_500`). Departure from §4.3, decided here: the core
+loops are bounded by the input, not by a cap, because the index feeds whole
+PDFs and every pass is linear. P1.2 adds a named cap at the WASM boundary
+only (`MAX_INDEX_TEXT_UTF16`), which returns an error instead of truncating,
+so a huge input fails cleanly rather than exhausting linear memory.
 
 ## Parser and kensaku filters
 
@@ -61,8 +66,10 @@ proptest: parsing never panics and `parse(format(parse(s))) == parse(s)`.
 ## Fusion
 
 Rust takes `[{ids, weight}]` and returns ordered ids; the TS wrapper maps ids
-back to items. Ties break on ordinal key order instead of `localeCompare`
-(documented change; fixtures use keys where both agree).
+back to items. Ties break on ordinal key order instead of `localeCompare`.
+The keys are hit ids (`hit.id` in `workspace-search.ts`), which are workspace
+paths, so equal-score hits can reorder (e.g. upper before lower case). Fixtures
+use keys where both agree; the P1.8 switch PR calls the change out.
 
 ## Parity and goldens
 
@@ -77,7 +84,10 @@ parser export (`modifiedWithinDays: null`).
 
 `index_terms(text)` = `tokenize` then `process_term`, no dedup after mapping
 (MiniSearch counts term frequency). MiniSearch's `processTerm` becomes the
-identity. Done when `indexPdf` tokenize ≤ 111 ms in Dev (target < 50 ms).
+identity on both sides: MiniSearch also applies it to query terms, so P1.8
+runs queries through the same Rust `index_terms` before `miniSearch.search`
+(prefix and fuzzy included). Parity case: query "Café" matches index term
+"cafe". Done when `indexPdf` tokenize ≤ 111 ms in Dev (target < 50 ms).
 
 ## PRs
 
