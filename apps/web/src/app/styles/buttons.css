@@ -36,6 +36,9 @@ code, pre, .commit-sha { font-family: var(--font-mono); }
    40 phone, sm 28). Look and motion live in states.css. */
 .wf-btn { min-height: var(--control-lg); box-sizing: border-box; }
 .wf-btn.wf-sm { min-height: var(--control-sm); }
+/* A toggled icon (the current mode, an open Preview) is accent-coloured, not
+   boxed. :root:root to beat the button colour in states.css. */
+:root:root .wf-btn.wf-icon[aria-pressed="true"] { color: var(--accent); }
 /* A finger needs 44px whatever the density. */
 @media (pointer: coarse) {
   .wf-btn { min-height: var(--touch-min); }

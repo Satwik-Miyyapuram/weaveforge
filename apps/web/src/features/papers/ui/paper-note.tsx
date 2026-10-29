@@ -22,13 +22,12 @@ import { NoteComments, ShareButton, PinnedPaperBadge } from "@/features/sharing"
 import { materializePaperBlobImages } from "../lib/paper-images-md";
 import { reconcileTagsFromBodyOrDefer } from "../lib/note-tags";
 import type { EditorHandle } from "@/components/editor-handle";
-import { AttachImageButton } from "@/components/attach-image-button";
 import { BackButton } from "@/components/back-button";
 import { DocumentBody } from "@/components/document-body";
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { InkFocusButton, InkFocusExit, useInkFocus } from "@/components/ink-focus";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
-import { CitationFormatSelect } from "@/components/citation-format-select";
+import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
 import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
 import { formatPaperCitation, resolveCiteKey } from "@/features/overleaf/application/build-overleaf-export";
 import { PaperExternalLink } from "./paper-external-link";
@@ -46,9 +45,10 @@ import { Modal, ModalActions } from "@/components/modal";
 import { Button, IconButton, IconLink } from "@/components/button";
 import { RowButton } from "@/components/controls";
 
-/** A paper note's three views, in the order the Editor's pane header lists them. */
-const NOTE_MODES = ["edit", "read", "ink"] as const;
-type NoteMode = (typeof NOTE_MODES)[number];
+/** The modes the switch offers, as the Editor's toolbar does. */
+const NOTE_MODES = ["edit", "ink"] as const;
+/** Read is what a reader without edit rights sees; the switch never offers it. */
+type NoteMode = (typeof NOTE_MODES)[number] | "read";
 
 function QuoteIcon() {
   return (
@@ -95,10 +95,13 @@ export function PaperNote({
   onDeleted?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  // Read, Edit or Ink, as in the Editor's pane header. A paper's note opens read.
-  const [mode, setMode] = useState<NoteMode>("read");
+  // Text or Ink, as in the Editor's toolbar: a handwritten note opens on its
+  // sheet, any other in Text. Only a reader without edit rights reads.
+  const [mode, setMode] = useState<NoteMode>(() =>
+    readOnly ? "read" : isInkNoteBody(paper.summary ?? "") ? "ink" : "edit",
+  );
   const inkFocus = useInkFocus(mode === "ink");
-  const modeRef = useRef<NoteMode>("read");
+  const modeRef = useRef<NoteMode>(mode);
   modeRef.current = mode;
   const editing = mode !== "read";
   /** The body last written from Edit or Ink, reconciled into tags once put away. */
@@ -392,15 +395,7 @@ export function PaperNote({
           <RecordSection
             label="Note"
             tag={
-              !readOnly ? (
-                <span className="record-mode-tag">
-                  {hasSummary && <span>{wordsLabel}</span>}
-                  <DocumentModeSwitch modes={NOTE_MODES} mode={mode} onMode={chooseMode} />
-                  {mode === "ink" && <InkFocusButton onClick={inkFocus.toggle} />}
-                </span>
-              ) : hasSummary ? (
-                wordsLabel
-              ) : null
+              hasSummary ? wordsLabel : null
             }
           >
             {mode === "read" && !hasSummary ? (
@@ -423,22 +418,38 @@ export function PaperNote({
                 }
               >
                 {inkFocus.focus && <InkFocusExit onClick={inkFocus.toggle} />}
-                {mode === "edit" && (
-                  <div className="summary-editor-bar">
-                    <CitationFormatSelect value={citationFormat} onChange={setCitationFormat} />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={reRenderTemplate}
-                      title="Refresh generated metadata; your edits are preserved"
-                    >
-                      Refresh paper details
-                    </Button>
-                    <AttachImageButton editor={editorHandle} onError={setSaveError} />
-                  </div>
-                )}
                 {/* The Editor's own document host, as a paper tab mounts it:
                     Edit, Read and Ink here are that code, not a copy of it. */}
+                <DocumentToolbar
+                  lead={
+                    !readOnly ? (
+                      <>
+                        <DocumentModeSwitch modes={NOTE_MODES} mode={mode === "read" ? "edit" : mode} onMode={chooseMode} />
+                        {mode === "ink" && <InkFocusButton onClick={inkFocus.toggle} />}
+                      </>
+                    ) : undefined
+                  }
+                  editor={mode === "edit" ? editorHandle : undefined}
+                  onError={setSaveError}
+                  moreSections={
+                    mode === "edit"
+                      ? [
+                          citeAsSection(citationFormat, setCitationFormat),
+                          {
+                            label: "Paper details",
+                            items: [
+                              {
+                                label: "Refresh paper details",
+                                title: "Refresh generated metadata; your edits are preserved",
+                                onSelect: () => void reRenderTemplate(),
+                              },
+                            ],
+                          },
+                        ]
+                      : undefined
+                  }
+                  focus={inkFocus.focus}
+                >
                 <DocumentBody
                   tab={{ kind: "paper", id: paper.id }}
                   mode={mode}
@@ -449,6 +460,7 @@ export function PaperNote({
                   handleRef={editorHandle}
                   onError={setSaveError}
                 />
+                </DocumentToolbar>
               </div>
             )}
             {saveError && <InlineError>{saveError}</InlineError>}

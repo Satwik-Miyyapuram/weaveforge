@@ -216,7 +216,12 @@ export {
   type InkBarProps,
   type InkBarTool,
 } from "./ui/ink-bar";
+export { InkSelectionChip, type InkSelectionChipProps } from "./ui/ink-selection-chip";
+export { InkIdleBar, type InkIdleBarProps } from "./ui/ink-idle-bar";
+export { BarMenuList, useBarMenu, type InkMenuAction, type InkMenuSection } from "./ui/ink-bar-menus";
+export { useFoldOf, useToolbarFold } from "./ui/ink-bar-fold";
 export {
+  Caret,
   PageField,
   PagePill,
   ViewMenu,
@@ -229,6 +234,16 @@ export {
 } from "./ui/ink-bar-more";
 export { InkPage, type InkPageProps } from "./ui/ink-page";
 export { useQuickColours } from "./ui/use-quick-colours";
+export {
+  DEFAULT_TOOL_COLOURS,
+  readToolColours,
+  resetToolColoursCacheForTests,
+  setToolColour,
+  setToolQuickSlot,
+  subscribeToolColours,
+  useToolColours,
+  type ToolColourId,
+} from "./ui/use-tool-colours";
 export { strokePath } from "./application/ink-svg";
 export { InkPrintPreview } from "./ui/ink-print-preview";
 export {

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extractHashtags, normalizeTitleKey } from "@weaveforge/core";
 
 import { getContainer } from "@/bootstrap";
-import { AttachImageButton } from "@/components/attach-image-button";
 import type { EditorHandleRef } from "@/components/editor-handle";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
@@ -16,7 +15,7 @@ import { useWikilinkCreateMode } from "@/lib/wikilink-create-preference";
 import { commandForChord, isTypingTarget } from "../application/keybindings";
 import { readLayout, writeLayout } from "../application/layout-storage";
 import { loadWorkspace, type Document } from "../application/workspace-load";
-import { bodyStats, formatCount, formatCursor } from "../application/document-stats";
+import { bodyStats, formatCount, formatCursor, formatWords } from "../application/document-stats";
 import { breadcrumbs } from "../application/breadcrumbs";
 import { outlineOf } from "../application/outline";
 import {
@@ -36,10 +35,11 @@ import {
   setRatio,
   setTabMode,
   splitPane,
-  tabAt,
   tabKey,
   tabMode,
-  toggleTabModeAt,
+  togglePreview,
+  isPreviewTab,
+  previewSource,
   type PaneLayout,
   type PaneSplit,
   type TabRef,
@@ -60,6 +60,8 @@ import { DESKTOP_BREAKPOINT_PX } from "@/lib/breakpoints";
 import { shortcutLabel } from "@/lib/shortcut-label";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { IconButton } from "@/components/button";
+
+/** The image button with no document under it: greyed, so never pressed. */
 
 function store(): Storage | undefined {
   return typeof localStorage === "undefined" ? undefined : localStorage;
@@ -154,7 +156,7 @@ export function WorkspaceScreen() {
   // One handle per open document, so the pane's image button reaches the
   // editor in the tab it sits over. The boxes outlive their editors: a handle
   // is null until the lazily-loaded editor mounts and null again once it is
-  // gone, which is exactly what `AttachImageButton` expects.
+  // gone, which is what Insert → Image from file… checks for.
   const handles = useRef(new Map<string, EditorHandleRef>());
   const handleFor = useCallback((tab: TabRef): EditorHandleRef => {
     const key = tabKey(tab);
@@ -206,7 +208,7 @@ export function WorkspaceScreen() {
         // same answer a click on it in the explorer gets.
         const open = new Set(loaded.map((doc) => tabKey(doc)));
         const bodyOf = new Map(loaded.map((doc) => [tabKey(doc), doc.body]));
-        let restored = pruneLayout(readLayout(store(), projectId), (tab) => open.has(tabKey(tab)));
+        let restored = pruneLayout(readLayout(store(), projectId), (tab) => isPreviewTab(tab) || open.has(tabKey(tab)));
         // `?open=kind:id` is how another screen hands a document over — the
         // note screen's Edit on a handwritten note, which only this screen can
         // write in. It opens on top of the restored panes, then leaves the URL
@@ -238,9 +240,20 @@ export function WorkspaceScreen() {
     [documents],
   );
 
+  // The preview pane shows the last document focused outside it, so it keeps
+  // its page while the person clicks into it.
+  const previewOfRef = useRef<TabRef | undefined>(undefined);
+  const previewOf = previewSource(layout, previewOfRef.current);
+  previewOfRef.current = previewOf;
+
   const labelFor = useCallback(
-    (tab: TabRef) => byKey.get(tabKey(tab))?.title || "Untitled",
-    [byKey],
+    (tab: TabRef) => {
+      if (isPreviewTab(tab)) {
+        return previewOf ? `Preview · ${byKey.get(tabKey(previewOf))?.title || "Untitled"}` : "Preview";
+      }
+      return byKey.get(tabKey(tab))?.title || "Untitled";
+    },
+    [byKey, previewOf],
   );
 
   const documentsRef = useRef(documents);
@@ -470,6 +483,23 @@ export function WorkspaceScreen() {
 
   const renderDocument = useCallback(
     (tab: TabRef) => {
+      if (isPreviewTab(tab)) {
+        const source = previewOf ? byKey.get(tabKey(previewOf)) : undefined;
+        if (!previewOf || !source?.hydrated) return <p className="muted">Open a note to preview it.</p>;
+        return (
+          <DocumentHost
+            key={tabKey(previewOf)}
+            tab={previewOf}
+            mode="read"
+            body={metrics[tabKey(previewOf)]?.text ?? source.body}
+            links={links}
+            onSave={(body: string) => save(previewOf, body)}
+            onOpenLink={openLink}
+            onCreateNote={createMode === "create" ? createFromLink : undefined}
+            onError={setError}
+          />
+        );
+      }
       const key = tabKey(tab);
       const doc = byKey.get(key);
       if (!doc) return <p className="muted">This document is no longer in the workspace.</p>;
@@ -488,18 +518,26 @@ export function WorkspaceScreen() {
           onCreateNote={createMode === "create" ? createFromLink : undefined}
           handleRef={handleFor(tab)}
           onError={setError}
+          inlinePreview={false}
         />
       );
     },
-    [byKey, links, completions, tags, openLink, save, createMode, createFromLink, handleFor, hydrate],
+    [byKey, links, completions, tags, openLink, save, createMode, createFromLink, handleFor, hydrate, previewOf, metrics],
   );
 
-  // The pane's toolbar, for a tab in Edit mode: the same image button the
-  // note, paper and report screens show, inserting at the caret of the editor
-  // under it. Drag and paste already work inside the editor; this is the third
-  // way in, for a picture on disk.
-  const renderTools = useCallback(
-    (tab: TabRef) => <AttachImageButton editor={handleFor(tab)} onError={setError} />,
+  // Insert ▾ → Picture in Text: a picture on disk at the caret of the focused
+  // editor. Drag and paste already work inside the editor; this is the third way in.
+  const onInsertImage = useCallback(
+    (tab: TabRef, file: File) => {
+      const handle = handleFor(tab).current;
+      // Null only in the moment before the lazily-loaded editor has mounted.
+      if (!handle) {
+        setError("The editor is still loading — try that again in a moment.");
+        return;
+      }
+      setError(null);
+      handle.insertFiles([file]);
+    },
     [handleFor],
   );
 
@@ -546,8 +584,12 @@ export function WorkspaceScreen() {
   // Breadcrumbs are per pane, because a split shows two documents and each
   // one has its own path.
   const crumbsFor = useCallback(
-    (tab: TabRef) => breadcrumbs({ kind: tab.kind, id: tab.id }, tree, listsTree),
-    [tree, listsTree],
+    (tab: TabRef) => {
+      // The preview shows another document, so it shows that one's path.
+      const shown = isPreviewTab(tab) ? previewOf : tab;
+      return shown ? breadcrumbs({ kind: shown.kind, id: shown.id }, tree, listsTree) : [];
+    },
+    [tree, listsTree, previewOf],
   );
 
 
@@ -607,7 +649,7 @@ export function WorkspaceScreen() {
 
   const values: Partial<Record<SegmentKey, string>> = activeDoc
     ? {
-        words: `${formatCount(stats.words)} words`,
+        words: formatWords(stats.words),
         chars: `${formatCount(stats.chars)} chars`,
         cursor: activeMetrics?.cursor ? formatCursor(activeMetrics.cursor) : undefined,
         encoding: "UTF-8",
@@ -667,10 +709,11 @@ export function WorkspaceScreen() {
         onHide={toggleExplorer}
       />
       <PaneView
+        focus={focus}
         layout={layout}
         labelFor={labelFor}
         renderDocument={renderDocument}
-        renderTools={renderTools}
+        onInsertImage={onInsertImage}
         crumbsFor={crumbsFor}
         onOpenCrumb={(crumb) => {
           if (!crumb.key) return;
@@ -685,11 +728,8 @@ export function WorkspaceScreen() {
         onToggleFocus={toggleFocus}
         onDropTab={(from, toPaneId) => apply(moveTab(layout, from, toPaneId))}
         onRatio={(split: PaneSplit, ratio) => apply(setRatio(layout, split, ratio))}
-        onToggleMode={(paneId, index) => apply(toggleTabModeAt(layout, paneId, index))}
-        onSetMode={(paneId, index, mode) => {
-          const tab = tabAt(layout, paneId, index);
-          if (tab) apply(setTabMode(layout, tab, mode));
-        }}
+        onTogglePreview={() => apply(togglePreview(layout))}
+        onSetMode={(tab, mode) => apply(setTabMode(layout, tab, mode))}
       />
       <StatusBar
         save={saveState({ pending, dirty })}

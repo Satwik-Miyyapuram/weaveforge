@@ -22,7 +22,9 @@ export interface OutlineHeading {
 /** The heading slug `markdown.tsx` writes as the element id. */
 export { headingSlug };
 
-const ATX = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
+// The closing `#`s count only after a space: "C#" keeps its `#`.
+const ATX = /^(#{1,6})\s+(.+?)(?:\s+#+)?\s*$/;
+const FENCE = /^\s*(`{3,}|~{3,})/;
 
 /**
  * Headings in document order.
@@ -32,20 +34,27 @@ const ATX = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
  */
 export function outlineOf(body: string, maxLevel = 3): OutlineHeading[] {
   const out: OutlineHeading[] = [];
-  let fenced = false;
+  // The run that opened the current fence; only the same marker, at least as
+  // long and alone on its line, closes it.
+  let fence: string | null = null;
   for (const raw of body.replace(/\r\n/g, "\n").split("\n")) {
     const line = raw.trimEnd();
-    if (/^\s*(```|~~~)/.test(line)) {
-      fenced = !fenced;
+    const marker = FENCE.exec(line)?.[1];
+    if (fence) {
+      if (marker && marker[0] === fence[0] && marker.length >= fence.length && line.trim() === marker) fence = null;
       continue;
     }
-    if (fenced) continue;
+    if (marker) {
+      fence = marker;
+      continue;
+    }
     const match = ATX.exec(line);
     if (!match) continue;
     const level = match[1]!.length;
     if (level > maxLevel) continue;
-    const text = match[2]!.replace(/\s+#+$/, "").trim();
-    if (!text) continue;
+    const text = match[2]!.trim();
+    // "### #" is an empty heading whose only content is its closing sequence.
+    if (!text || /^#+$/.test(text)) continue;
     out.push({ level, text, slug: headingSlug(text) });
   }
   return out;

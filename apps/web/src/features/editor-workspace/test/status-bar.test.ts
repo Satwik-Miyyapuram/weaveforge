@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { bodyStats, formatCount, formatCursor } from "../application/document-stats";
+import { bodyStats, formatCount, formatCursor, formatWords } from "../application/document-stats";
 import { saveLabel, saveState } from "../ui/status-bar";
 
 test("an untouched document is Saved", () => {
@@ -37,4 +37,12 @@ test("counts and cursors are formatted for a 26px strip", () => {
   assert.equal(formatCount(1500), "1\u2009500");
   assert.equal(formatCount(9), "9");
   assert.equal(formatCursor({ line: 7, col: 4 }), "Ln 7, Col 4");
+});
+
+test("the word segment says word for one and adds a reading time", () => {
+  assert.equal(formatWords(0), "0 words");
+  assert.equal(formatWords(1), "1 word · 1 min read");
+  assert.equal(formatWords(238), "238 words · 1 min read");
+  assert.equal(formatWords(239), "239 words · 2 min read");
+  assert.equal(formatWords(12_000), "12\u2009000 words · 51 min read");
 });

@@ -59,3 +59,16 @@ test("POST /api/settings/api-tokens: a database error is a 500 with safe wording
   assert.equal(res.status, 500);
   assert.doesNotMatch((await res.json()).error, /internal detail/);
 });
+
+for (const expiresInDays of ["30", -1, 1.5, 1e9, true]) {
+  test(`POST /api/settings/api-tokens: 400 for expiresInDays ${JSON.stringify(expiresInDays)} (before hitting the service)`, async (t) => {
+    // A string used to be added to the day of the month ("29" + "30" → 2930
+    // days), and a huge number threw a RangeError that surfaced as a 500.
+    fakeTokenBackend(t, { user: "user-1", rest: dbError("42501") });
+    const res = await POST(
+      withToken("http://localhost/api/settings/api-tokens", "POST", { name: "laptop", expiresInDays }),
+    );
+    assert.equal(res.status, 400);
+    assert.match((await res.json()).error, /expiresInDays/);
+  });
+}

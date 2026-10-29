@@ -1,24 +1,26 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { DEFAULT_QUICK_COLOURS, parseQuickColours } from "../ui/use-quick-colours";
+import { DEFAULT_TOOL_COLOURS, quickFrom } from "../ui/use-tool-colours";
 
-test("nothing saved gives the five defaults", () => {
-  assert.deepEqual(parseQuickColours(null), [...DEFAULT_QUICK_COLOURS]);
-  assert.equal(DEFAULT_QUICK_COLOURS.length, 5);
+const PEN = DEFAULT_TOOL_COLOURS.pen.quick;
+
+test("a missing list gives the tool's five defaults", () => {
+  assert.deepEqual(quickFrom(undefined, PEN), [...PEN]);
+  assert.equal(PEN.length, 5);
 });
 
 test("a saved list is read back as saved", () => {
   const saved = ["pink", "yellow", "text", "danger", "purple"];
-  assert.deepEqual(parseQuickColours(JSON.stringify(saved)), saved);
+  assert.deepEqual(quickFrom(saved, PEN), saved);
 });
 
 test("a bad slot falls back alone; the rest are kept", () => {
-  const read = parseQuickColours(JSON.stringify(["pink", "chartreuse", 7]));
-  assert.deepEqual(read, ["pink", DEFAULT_QUICK_COLOURS[1], DEFAULT_QUICK_COLOURS[2], DEFAULT_QUICK_COLOURS[3], DEFAULT_QUICK_COLOURS[4]]);
+  const read = quickFrom(["pink", "chartreuse", 7], PEN);
+  assert.deepEqual(read, ["pink", PEN[1], PEN[2], PEN[3], PEN[4]]);
 });
 
-test("junk is the defaults, not a throw", () => {
-  assert.deepEqual(parseQuickColours("{not json"), [...DEFAULT_QUICK_COLOURS]);
-  assert.deepEqual(parseQuickColours('"pink"'), [...DEFAULT_QUICK_COLOURS]);
+test("a value that is not a list is the defaults, not a throw", () => {
+  assert.deepEqual(quickFrom("pink", PEN), [...PEN]);
+  assert.deepEqual(quickFrom(null, PEN), [...PEN]);
 });

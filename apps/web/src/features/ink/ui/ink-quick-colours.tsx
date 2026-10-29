@@ -21,17 +21,19 @@ export interface InkQuickColoursProps {
   colours: readonly InkColour[];
   colour: InkColour;
   onColour: (colour: InkColour) => void;
+  disabled?: boolean;
 }
 
-export function InkQuickColours({ colours, colour, onColour }: InkQuickColoursProps) {
+export function InkQuickColours({ colours, colour, onColour, disabled = false }: InkQuickColoursProps) {
   return (
     <div className="ink-swatches ink-quick-colours" role="group" aria-label="Quick colours">
       {colours.map((entry, slot) => (
         <Swatch
           key={slot}
           label={`Ink colour: ${entry}`}
-          selected={colour === entry}
+          selected={!disabled && colour === entry}
           colour={`var(${INK_COLOUR_TOKENS[entry]})`}
+          disabled={disabled}
           onClick={() => onColour(entry)}
         />
       ))}

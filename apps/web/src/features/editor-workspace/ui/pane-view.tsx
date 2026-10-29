@@ -1,17 +1,17 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { NavIcon } from "@/app/nav-icon";
 import { Select } from "@/components/select";
-import { FocusGlyph } from "@/components/focus-glyph";
+import { ToolbarSlotContext } from "@/components/toolbar-slot";
 import type { Crumb } from "../application/breadcrumbs";
 import { shortcutTable, type WorkspaceCommand } from "../application/keybindings";
 import {
   activeTab,
+  isPreviewTab,
   leaves,
   tabKey,
-  tabMode,
   type DocumentMode,
   type PaneLayout,
   type PaneLeaf,
@@ -19,13 +19,13 @@ import {
   type PaneSplit,
   type TabRef,
 } from "../application/pane-tree";
-import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { Breadcrumbs } from "./breadcrumbs";
-import { kindIcon, kindSuffix, kindTintClass, modesFor } from "./kind";
+import { PaneModeSwitch, WorkspaceToolbar } from "./workspace-toolbar";
+import { kindIcon, kindSuffix, kindTintClass } from "./kind";
 import { followPointer } from "./follow-pointer";
-import { keyLabel, shortcutLabel } from "@/lib/shortcut-label";
+import { keyLabel } from "@/lib/shortcut-label";
 import { TabButton } from "@/components/controls";
-import { CloseButton, IconButton } from "@/components/button";
+import { CloseButton } from "@/components/button";
 
 export interface PaneActions {
   onActivate: (paneId: string, index: number) => void;
@@ -36,13 +36,15 @@ export interface PaneActions {
   onToggleFocus?: () => void;
   onDropTab: (from: { paneId: string; index: number }, toPaneId: string) => void;
   onRatio: (split: PaneSplit, ratio: number) => void;
-  /** Flip the addressed tab between Edit and Read. */
-  onToggleMode: (paneId: string, index: number) => void;
-  onSetMode: (paneId: string, index: number, mode: DocumentMode) => void;
+  onSetMode: (tab: TabRef, mode: DocumentMode) => void;
+  /** Split: open or close the preview of the focused document. */
+  onTogglePreview: () => void;
 }
 
 export interface PaneViewProps extends PaneActions {
   layout: PaneLayout;
+  /** Focus mode: the toolbar is hidden, so each document keeps its own bar. */
+  focus?: boolean;
   /** What a tab is called in its header — the entity's title, not its path. */
   labelFor: (tab: TabRef) => string;
   /** The editor for a tab. One call per open tab, not per visible tab. */
@@ -53,12 +55,8 @@ export interface PaneViewProps extends PaneActions {
   crumbsFor?: (tab: TabRef) => readonly Crumb[];
   /** A crumb click: open the document the crumb names. */
   onOpenCrumb?: (crumb: Crumb) => void;
-  /**
-   * Tools for the tab on screen while it is being edited — the image button.
-   * Rendered in the strip beside Edit / Read, so a document's controls sit
-   * with its mode rather than in a toolbar of their own.
-   */
-  renderTools?: (tab: TabRef) => ReactNode;
+  /** Insert a picture from disk into the focused document (Text only). */
+  onInsertImage?: (tab: TabRef, file: File) => void;
 }
 
 /**
@@ -71,14 +69,28 @@ export interface PaneViewProps extends PaneActions {
  * preserve.
  */
 export function PaneView(props: PaneViewProps) {
+  // The toolbar's document slot, where the focused document puts its own tools.
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
   return (
     <div className="pane-root">
-      <PaneNodeView node={props.layout.root} {...props} />
+      <WorkspaceToolbar
+        slotRef={setSlot}
+        layout={props.layout}
+        onInsertImage={props.onInsertImage}
+        onTogglePreview={props.onTogglePreview}
+        onSplit={props.onSplit}
+        onToggleFocus={props.onToggleFocus}
+      />
+      <div className="pane-stage">
+        <PaneNodeView node={props.layout.root} {...props} slot={slot} />
+      </div>
     </div>
   );
 }
 
-function PaneNodeView({ node, ...props }: PaneViewProps & { node: PaneNode }) {
+type TreeProps = PaneViewProps & { slot: HTMLElement | null };
+
+function PaneNodeView({ node, ...props }: TreeProps & { node: PaneNode }) {
   if (node.type === "leaf") return <PaneLeafView leaf={node} {...props} />;
 
   const split = node;
@@ -130,18 +142,16 @@ function PaneLeafView({
   peers,
   crumbsFor,
   onOpenCrumb,
-  renderTools,
   onActivate,
   onClose,
   onFocus,
-  onSplit,
-  onToggleFocus,
   onDropTab,
   onSetMode,
-}: PaneViewProps & { leaf: PaneLeaf }) {
+  focus,
+  slot,
+}: TreeProps & { leaf: PaneLeaf }) {
   const focused = layout.focusedPaneId === leaf.id;
   const showing = activeTab(leaf);
-  const editing = showing ? tabMode(showing) : "edit";
   const peerNames = showing ? (peers?.(showing) ?? []) : [];
   const crumbs = showing ? (crumbsFor?.(showing) ?? []) : [];
 
@@ -221,17 +231,6 @@ function PaneLeafView({
           </div>
         ) : null}
         <div className="pane-tab-actions">
-          {showing && editing === "edit" && renderTools ? (
-            <span className="pane-tools">{renderTools(showing)}</span>
-          ) : null}
-          {leaf.tabs.length > 0 && showing ? (
-            // Edit / Read / Ink / PDF, per tab.
-            <DocumentModeSwitch
-              modes={modesFor(showing.kind)}
-              mode={editing}
-              onMode={(mode) => onSetMode(leaf.id, leaf.activeIndex, mode)}
-            />
-          ) : null}
           {peerNames.length > 0 ? (
             // Collaboration exists, but it used to be announced *inside* the
             // document as a line of text. Presence belongs in the chrome.
@@ -243,17 +242,6 @@ function PaneLeafView({
               ))}
             </span>
           ) : null}
-          <IconButton size="sm" label="Split right" onClick={() => onSplit(leaf.id, "row")}>
-            <SplitGlyph direction="row" />
-          </IconButton>
-          {onToggleFocus ? (
-            <IconButton size="sm" label="Focus" tip={`Focus: only the document (${shortcutLabel("⌘⇧F")})`} onClick={onToggleFocus}>
-              <FocusGlyph on={false} />
-            </IconButton>
-          ) : null}
-          <IconButton size="sm" label="Split down" onClick={() => onSplit(leaf.id, "column")}>
-            <SplitGlyph direction="column" />
-          </IconButton>
         </div>
       </div>
 
@@ -261,7 +249,13 @@ function PaneLeafView({
           must not. The last crumb carries the kind suffix, because there the
           crumb *is* the path. */}
       {showing ? (
-        <Breadcrumbs crumbs={crumbs} kind={showing.kind} onOpen={onOpenCrumb} />
+        <div className="pane-crumbs">
+          <Breadcrumbs crumbs={crumbs} kind={showing.kind} onOpen={onOpenCrumb} />
+          {/* In Ink the mode switch lives here, in the note, not in the toolbar. */}
+          {!focus && !isPreviewTab(showing) ? (
+            <PaneModeSwitch tab={showing} onSetMode={onSetMode} />
+          ) : null}
+        </div>
       ) : null}
 
       <div className="pane-body-wrap">
@@ -269,17 +263,18 @@ function PaneLeafView({
           {leaf.tabs.length === 0 ? (
             <EmptyState />
           ) : (
-            leaf.tabs.map((tab) => (
+            leaf.tabs.map((tab) => {
+              const shown = showing !== undefined && tabKey(tab) === tabKey(showing);
               // Hidden rather than unmounted: an editor that unmounts loses its
               // scroll position, its undo history and its live binding.
-              <div
-                key={tabKey(tab)}
-                className="pane-document"
-                hidden={showing === undefined || tabKey(tab) !== tabKey(showing)}
-              >
-                {renderDocument(tab)}
-              </div>
-            ))
+              return (
+                <div key={tabKey(tab)} className="pane-document" hidden={!shown}>
+                  <ToolbarSlotContext.Provider value={focus ? undefined : focused && shown ? slot : null}>
+                    {renderDocument(tab)}
+                  </ToolbarSlotContext.Provider>
+                </div>
+              );
+            })
           )}
         </div>
       </div>
@@ -356,7 +351,7 @@ const SHORTCUT_LABEL: Record<WorkspaceCommand, string> = {
   "new-note": "New note",
   "toggle-explorer": "Hide / show explorer",
   "toggle-focus": "Focus: document only",
-  "toggle-mode": "Edit / Read",
+  "toggle-mode": "Preview",
   "split-right": "Split right",
   "close-tab": "Close tab",
   "next-tab": "Next tab",
@@ -373,25 +368,6 @@ function initials(name: string): string {
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("") || "?";
 }
 
-function SplitGlyph({ direction }: { direction: "row" | "column" }) {
-  // Two panes with the divider between them, drawn at the same weight as the
-  // action set it replaces the two Unicode blocks of (`▥` and `▤`).
-  return (
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {direction === "row" ? (
-        <>
-          <rect x="3" y="4" width="18" height="16" rx="2" />
-          <path d="M12 4v16" />
-        </>
-      ) : (
-        <>
-          <rect x="3" y="4" width="18" height="16" rx="2" />
-          <path d="M3 12h18" />
-        </>
-      )}
-    </svg>
-  );
-}
 
 /** Every tab open anywhere in the layout, deduplicated by document. */
 export function openTabs(layout: PaneLayout): TabRef[] {

@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { renderMarkdownPlain, renderMarkdownWithShiki, renderProseMarkdown, splitFences } from "@/components/markdown/markdown";
 import { containsMath, loadMathRenderer } from "@/components/markdown/math-renderer";
 
@@ -107,7 +109,7 @@ test("links a root-relative target in the same tab, and leaves a bare file name 
 test("renderMarkdownPlain renders prose around a fence and escapes the code", () => {
   const html = renderMarkdownPlain("## Title\n\n```ts\nconst a = 1 < 2;\n```\n\n- item");
 
-  assert.match(html, /<h4[^>]*>Title<\/h4>/);
+  assert.match(html, /<h2[^>]*>Title<\/h2>/);
   assert.match(html, /<pre class="md-code" data-lang="ts"><code>const a = 1 &lt; 2;\n<\/code><\/pre>/);
   assert.match(html, /<ul><li>item<\/li><\/ul>/);
 });
@@ -185,4 +187,121 @@ test("splitFences returns prose and fences in order, with info and body (13-07)"
   assert.deepEqual(splitFences(""), []);
   assert.deepEqual(splitFences("only prose"), [{ kind: "prose", text: "only prose" }]);
   assert.deepEqual(splitFences("```\nunclosed"), [{ kind: "prose", text: "```\nunclosed" }]);
+});
+
+test("a table needs no leading pipe, keeps escaped pipes, and takes wrapped rows", () => {
+  const noLeadingPipe = renderProseMarkdown("a | b\n--- | ---\n1 | 2");
+  assert.match(noLeadingPipe, /<table class="md-table">/);
+  assert.match(noLeadingPipe, /<td>1<\/td><td>2<\/td>/);
+
+  const escaped = renderProseMarkdown("| code | note |\n|---|---|\n| a \\| b | c \\|");
+  assert.match(escaped, /<td>a \| b<\/td><td>c \|<\/td>/);
+
+  const wrapped = renderProseMarkdown("| k | v |\n|---|---|\n| one | first part\nsecond part |\n| two | 2 |");
+  assert.match(wrapped, /<td>one<\/td><td>first part second part<\/td>/);
+  assert.match(wrapped, /<td>two<\/td><td>2<\/td>/);
+
+  const afterBlank = renderProseMarkdown("| a | b |\n|---|---|\n| 1 | 2 |\n\nafter");
+  assert.match(afterBlank, /<p>after<\/p>/);
+});
+
+test("prose on the line straight after a table joins its last cell, not a paragraph", () => {
+  // Deliberate: a bare line with no pipe is the rest of the cell above (see tableCells).
+  // GFM would make it a row of its own, so this is a known difference, pinned here.
+  const html = renderProseMarkdown("| a | b |\n|---|---|\n| 1 | 2 |\nafter the table");
+  assert.match(html, /<td>2 after the table<\/td>/);
+  assert.doesNotMatch(html, /<p>after the table<\/p>/);
+});
+
+test("a list or heading straight after a table still ends it", () => {
+  const list = renderProseMarkdown("| a | b |\n|---|---|\n| 1 | 2 |\n- item");
+  assert.match(list, /<\/table>/);
+  assert.match(list, /<li>item<\/li>/);
+  const heading = renderProseMarkdown("| a | b |\n|---|---|\n| 1 | 2 |\n## after");
+  assert.match(heading, /<h2[^>]*>after<\/h2>/);
+});
+
+test("inline and bracketed maths render; dollar amounts and code stay text", async () => {
+  const options = await withKatex();
+  const midParagraph = renderProseMarkdown("mid $$x+y$$ para", options);
+  assert.match(midParagraph, /<span class="math-display-inline">[\s\S]*class="katex"/);
+  assert.doesNotMatch(midParagraph, /\$/, "no stray dollar left behind");
+
+  const brackets = renderProseMarkdown("\\(x^2\\) and \\[y\\]", options);
+  assert.equal((brackets.match(/class="katex"/g) ?? []).length, 2);
+
+  const prices = renderProseMarkdown("It costs $5 and $10 in total.", { mathRenderer: null });
+  assert.doesNotMatch(prices, /math-pending/);
+  assert.match(prices, /\$5 and \$10/);
+
+  const code = renderProseMarkdown("Use `$x$` literally.", { mathRenderer: null });
+  assert.match(code, /<code>\$x\$<\/code>/);
+  assert.doesNotMatch(code, /math-pending/);
+});
+
+test("a display block may open or close on a line with content, and invalid TeX does not throw", async () => {
+  const options = await withKatex();
+  const multi = renderProseMarkdown("$$x+y\n+z$$", options);
+  assert.match(multi, /<div class="math-display">[\s\S]*katex-display/);
+  assert.doesNotMatch(multi, /<p>\$\$/);
+
+  assert.doesNotThrow(() => renderProseMarkdown("$\\frac{$ and \\(\\unclosed", options));
+});
+
+test("containsMath recognises the bracketed delimiters too", () => {
+  assert.equal(containsMath("\\(x\\)"), true);
+  assert.equal(containsMath("\\[x\\]"), true);
+  assert.equal(containsMath("plain text with a \\(escaped-looking word"), true);
+  assert.equal(containsMath("no maths here"), false);
+});
+
+test("each heading level renders as its own heading element; seven hashes stay text", () => {
+  const html = renderProseMarkdown("# one\n## two\n### three\n#### four\n##### five\n###### six\n####### seven");
+  for (const [level, word] of [[1, "one"], [2, "two"], [3, "three"], [4, "four"], [5, "five"], [6, "six"]] as const) {
+    assert.match(html, new RegExp(`<h${level} id="${word}">${word}</h${level}>`));
+  }
+  assert.doesNotMatch(html, /class="md-h/);
+  assert.match(html, /<p>####### seven<\/p>/);
+});
+
+test("a heading needs a space after its hashes", () => {
+  assert.match(renderProseMarkdown("####four"), /<p>####four<\/p>/);
+});
+
+test("a heading of hashes alone is not an empty heading", () => {
+  assert.doesNotMatch(renderProseMarkdown("####"), /<h\d/);
+});
+
+test("hashes followed only by whitespace are not an empty heading", () => {
+  for (const line of ["#### ", "#   ", "###### 	"]) {
+    assert.doesNotMatch(renderProseMarkdown(line), /<h\d/, JSON.stringify(line));
+  }
+});
+
+test("inline code and maths inside a level-four heading keep their markup", () => {
+  const html = renderProseMarkdown("#### `code` and $x^2$ here");
+  assert.match(html, /<h4[^>]*><code>code<\/code> and <span class="(katex|math-pending)"/);
+});
+
+/** The font-size value that the first rule with exactly this selector sets. */
+/** The font-size and font-style a heading rule sets, as one string. */
+function headingLook(selector: string): string {
+  const css = readFileSync(fileURLToPath(new URL("../../../app/styles/markdown.css", import.meta.url)), "utf8");
+  for (const block of css.split("}")) {
+    const open = block.indexOf("{");
+    if (open < 0) continue;
+    const head = block.slice(0, open).replace(/\/\*[\s\S]*?\*\//g, "").trim();
+    if (head !== selector) continue;
+    const body = block.slice(open + 1);
+    const size = /font-size:\s*([^;]+)/.exec(body)?.[1]?.trim();
+    assert.ok(size, `${selector} sets no font-size`);
+    return `${size} ${/font-style:\s*([^;]+)/.exec(body)?.[1]?.trim() ?? "normal"}`;
+  }
+  assert.fail(`no rule for ${selector}`);
+}
+
+// As in Google Docs, levels 5 and 6 share a size and level 6 is italic.
+test("levels four, five and six each look different", () => {
+  const looks = ["h4", "h5", "h6"].map((level) => headingLook(`.markdown ${level}`));
+  assert.equal(new Set(looks).size, 3, `looks must differ: ${looks.join(", ")}`);
 });

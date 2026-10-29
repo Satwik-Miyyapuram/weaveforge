@@ -22,7 +22,11 @@ import {
   splitPane,
   tabAt,
   tabMode,
-  toggleTabModeAt,
+  isPreviewTab,
+  PREVIEW_TAB,
+  previewOpen,
+  previewSource,
+  togglePreview,
   type PaneLayout,
   type PaneSplit,
 } from "../application/pane-tree";
@@ -245,21 +249,35 @@ test("a mode belongs to the document, so it applies in every pane showing it", (
   }
 });
 
-test("toggling by position flips and flips back, reading the live mode", () => {
-  const layout = openTab(emptyLayout(), A);
-  const read = toggleTabModeAt(layout, "pane-1", 0);
-  assert.equal(tabMode(leaves(read.root)[0]!.tabs[0]!), "read");
-
-  // The second press is the one that matters: addressing by a `TabRef` captured
-  // at render time would re-read `edit` and do nothing.
-  const edit = toggleTabModeAt(read, "pane-1", 0);
-  assert.equal(tabMode(leaves(edit.root)[0]!.tabs[0]!), "edit");
+test("Split opens the preview to the right of the focused pane and keeps focus there", () => {
+  const layout = togglePreview(openTab(emptyLayout(), A), "pane-p");
+  assert.deepEqual(labels(layout), ["a", "active"]);
+  assert.equal(layout.root.type === "split" && layout.root.direction, "row");
+  assert.equal(layout.focusedPaneId, "pane-1", "the editor keeps the caret");
+  assert.equal(previewOpen(layout), true);
+  assert.equal(isPreviewTab(leaves(layout.root)[1]!.tabs[0]), true);
 });
 
-test("toggling a position that is not there changes nothing", () => {
-  const layout = openTab(emptyLayout(), A);
-  assert.equal(toggleTabModeAt(layout, "pane-1", 7), layout);
-  assert.equal(toggleTabModeAt(layout, "pane-gone", 0), layout);
+test("pressing Split again closes the preview, wherever it went", () => {
+  const open = togglePreview(openTab(emptyLayout(), A), "pane-p");
+  const closed = togglePreview(open);
+  assert.deepEqual(labels(closed), ["a"]);
+  assert.equal(previewOpen(closed), false);
+  // From the preview pane itself, too: there is one preview, not one per pane.
+  const fromPreview = togglePreview(focusPane(open, "pane-p"));
+  assert.deepEqual(labels(fromPreview), ["a"]);
+  assert.equal(fromPreview.focusedPaneId, "pane-1");
+});
+
+test("the preview follows the focused document, and holds it while the preview has focus", () => {
+  let layout = togglePreview(openTab(openTab(emptyLayout(), A), B), "pane-p");
+  assert.deepEqual(previewSource(layout), B);
+  layout = activateTab(layout, "pane-1", 0);
+  assert.deepEqual(previewSource(layout, B), A);
+  // Clicking into the preview must not make it preview itself.
+  assert.deepEqual(previewSource(focusPane(layout, "pane-p"), A), A);
+  assert.equal(previewSource(focusPane(layout, "pane-p")), undefined);
+  assert.equal(PREVIEW_TAB.kind, "preview");
 });
 
 test("setting the mode a document is already in returns the same layout", () => {
@@ -299,7 +317,9 @@ test("a pane chord is one pure step from the layout it acts on (28-13)", () => {
   assert.deepEqual(layoutForCommand(two, "next-tab"), activateTab(two, pane, 0));
   assert.deepEqual(layoutForCommand(activateTab(two, pane, 0), "previous-tab"), activateTab(two, pane, 1));
   assert.deepEqual(labels(layoutForCommand(two, "close-tab")), ["a"]);
-  assert.equal(tabMode(tabAt(layoutForCommand(two, "toggle-mode"), pane, 1)!), "read");
+  // ⌘E is Split: the preview beside the document, and again to close it.
+  assert.equal(previewOpen(layoutForCommand(two, "toggle-mode")), true);
+  assert.equal(previewOpen(layoutForCommand(layoutForCommand(two, "toggle-mode"), "toggle-mode")), false);
   assert.equal(leaves(layoutForCommand(two, "split-right").root).length, 2);
 });
 

@@ -51,7 +51,7 @@ export function ReaderSearchBar({
 
   if (!open && !query.trim()) {
     return (
-      <Button size="sm"
+      <Button variant="ghost" size="sm"
         onClick={() => setOpen(true)}
         aria-label="Find in document"
         title={`Find in document (${shortcutLabel("⌘F")})`}

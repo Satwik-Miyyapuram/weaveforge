@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useRef } from "react";
+import { memo, useMemo, useRef, type ReactNode } from "react";
 import {
   pdfRectToScreenBox,
   type FigureGeometry,
@@ -31,6 +31,8 @@ interface AnnotationOverlayProps {
   selectedId: string | null;
   /** The ink marks a lasso has picked up, by annotation id. */
   inkSelectedIds?: readonly string[];
+  /** The lasso's menu, placed at the top-right of what it caught on this page. */
+  inkSelectionActions?: ReactNode;
   /**
    * A highlight was tapped.
    *
@@ -95,6 +97,7 @@ function AnnotationOverlayInner({
   pageWidth,
   selectedId,
   inkSelectedIds,
+  inkSelectionActions,
   onSelect,
   fetchPicture,
   pictureEdit = null,
@@ -137,6 +140,22 @@ function AnnotationOverlayInner({
       })),
     [strokes],
   );
+
+  // The top-right corner of the lassoed strokes on this page, in CSS px.
+  const lassoCorner = useMemo(() => {
+    if (!inkSelectionActions || !inkSelectedIds?.length) return null;
+    const held = new Set(inkSelectedIds);
+    let right = -Infinity;
+    let top = Infinity;
+    for (const stroke of ink) {
+      if (!held.has(stroke.id)) continue;
+      for (let i = 0; i + 1 < stroke.points.length; i += 2) {
+        right = Math.max(right, stroke.points[i] ?? right);
+        top = Math.min(top, stroke.points[i + 1] ?? top);
+      }
+    }
+    return Number.isFinite(right) ? { left: right + INK_SELECTION_HALO_PX, top: top - INK_SELECTION_HALO_PX } : null;
+  }, [ink, inkSelectedIds, inkSelectionActions]);
 
   // Only the pages that carry a picture fetch anything: the list is empty elsewhere.
   const picturePaths = useMemo(
@@ -247,6 +266,11 @@ function AnnotationOverlayInner({
         ),
       )}
     </div>
+    {lassoCorner ? (
+      <div className="ink-selection-chip-anchor" style={lassoCorner}>
+        {inkSelectionActions}
+      </div>
+    ) : null}
     {textEdit && onTextCommit && (
       <TextBoxEditor
         // A fresh editor per box, so one saved box never blocks the next.

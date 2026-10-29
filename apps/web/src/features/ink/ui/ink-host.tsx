@@ -32,6 +32,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PromptDialog } from "@/components/prompt-dialog";
+import { ToolbarSlot } from "@/components/toolbar-slot";
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
@@ -56,6 +57,7 @@ import {
 } from "../application/ink-chunk-store";
 import { pageListProblem, selectedPdfPages } from "../application/pdf-pages";
 import { InkBar } from "./ink-bar";
+import { InkSelectionChip } from "./ink-selection-chip";
 import { InkFigures } from "./ink-figures";
 import { fitScale } from "./ink-page-math";
 import { InkSheetTextUnderlay } from "./ink-sheet-underlay";
@@ -610,63 +612,61 @@ export function InkHost({
           if (file) onImageFile(file);
         }}
       />
-      <InkBar
-        tool={tool}
-        colour={colour}
-        width={width}
-        highlighterWidth={highlighterWidth}
-        page={pageIndex + 1}
-        pages={Math.max(pageCount, 1)}
-        penOnly={pen.penOnly}
-        hand={hand}
-        backend={pen.backend}
-        busy={recognising}
-        progress={progress}
-        canUndo={pageHistory.canUndo}
-        canRedo={pageHistory.canRedo}
-        selected={selection.length}
-        showTextLayer={showTextLayer}
-        onToggleTextLayer={() => setShowTextLayer((prev) => !prev)}
-        selectActive={cursorMode}
-        onSelect={enterCursor}
-        selectPointer
-        onTool={(next) => {
-          if (next !== "lasso" && selection.length > 0) {
-            send({ type: "select-clear" });
-            setSelection([]);
-          }
-          setTool(next);
-        }}
-        onColour={onColourChange}
-        onWidth={widths.onWidth}
-        onHighlighterWidth={widths.setHighlighterWidth}
-        onPenOnly={pen.setPenOnly}
-        onHand={setHand}
-        paper={paper}
-        onPaper={setPaper}
-        onRecognise={() => void recognise()}
-        onPrint={() => void onPrint()}
-        onExportPng={() => void onExportPng()}
-        onExportSvg={() => void onExportSvg()}
-        onUndo={onUndo}
-        onRedo={onRedo}
-        onAddPage={onAddPage}
-        onAddImage={onAddImageToCurrentPage}
-        takesPictureDrops
-        hasPageBackground={Boolean(backgroundPath)}
-        onRemovePageBackground={() => void onRemovePageBackground()}
-        onInsertPage={() => pdfInputRef.current?.click()}
-        onPrevPage={() => goToPage(pageIndex - 1)}
-        onNextPage={() => goToPage(pageIndex + 1)}
-        onGoToPage={(n) => goToPage(n - 1)}
-        onDeleteSelection={onDeleteSelection}
-        onCopyAsText={() => void onCopyAsText()}
-        onCopyStrokes={() => void onCopyStrokes()}
-        zoom={zoom}
-        onZoom={setZoom}
-        pageGap={pageGap}
-        onPageGap={setPageGap}
-      />
+      <ToolbarSlot>
+        <InkBar
+          tool={tool}
+          colour={colour}
+          width={width}
+          highlighterWidth={highlighterWidth}
+          page={pageIndex + 1}
+          pages={Math.max(pageCount, 1)}
+          penOnly={pen.penOnly}
+          hand={hand}
+          backend={pen.backend}
+          busy={recognising}
+          progress={progress}
+          canUndo={pageHistory.canUndo}
+          canRedo={pageHistory.canRedo}
+          showTextLayer={showTextLayer}
+          onToggleTextLayer={() => setShowTextLayer((prev) => !prev)}
+          selectActive={cursorMode}
+          onSelect={enterCursor}
+          selectPointer
+          onTool={(next) => {
+            if (next !== "lasso" && selection.length > 0) {
+              send({ type: "select-clear" });
+              setSelection([]);
+            }
+            setTool(next);
+          }}
+          onColour={onColourChange}
+          onWidth={widths.onWidth}
+          onHighlighterWidth={widths.setHighlighterWidth}
+          onPenOnly={pen.setPenOnly}
+          onHand={setHand}
+          paper={paper}
+          onPaper={setPaper}
+          onRecognise={() => void recognise()}
+          onPrint={() => void onPrint()}
+          onExportPng={() => void onExportPng()}
+          onExportSvg={() => void onExportSvg()}
+          onUndo={onUndo}
+          onRedo={onRedo}
+          onAddPage={onAddPage}
+          onAddImage={onAddImageToCurrentPage}
+          takesPictureDrops
+          hasPageBackground={Boolean(backgroundPath)}
+          onRemovePageBackground={() => void onRemovePageBackground()}
+          onInsertPage={() => pdfInputRef.current?.click()}
+          onPrevPage={() => goToPage(pageIndex - 1)}
+          onNextPage={() => goToPage(pageIndex + 1)}
+          onGoToPage={(n) => goToPage(n - 1)}
+          zoom={zoom}
+          onZoom={setZoom}
+          pageGap={pageGap}
+          onPageGap={setPageGap}
+        />
+      </ToolbarSlot>
       {/* The rail: continuous multi-page scroll with background active page switching. */}
       <InkRail
         scrollRef={scrollRef}
@@ -701,6 +701,7 @@ export function InkHost({
           onErase={onErase}
           onLasso={onLasso}
           selectionBounds={selectionBounds}
+          selectionActions={<InkSelectionChip count={selection.length} onCopy={() => void onCopyStrokes()} onCopyAsText={() => void onCopyAsText()} onDelete={onDeleteSelection} />}
           onMoveSelection={onMoveSelection}
           onDragSelection={onDragSelection}
           penOnly={pen.penOnly}

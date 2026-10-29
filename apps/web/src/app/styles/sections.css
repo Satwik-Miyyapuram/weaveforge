@@ -70,9 +70,12 @@
 }
 .section-note-md-preview .markdown p,
 .section-note-md-preview .markdown ul { margin: 2px 0; }
+.section-note-md-preview .markdown h1,
+.section-note-md-preview .markdown h2,
 .section-note-md-preview .markdown h3,
 .section-note-md-preview .markdown h4,
-.section-note-md-preview .markdown h5 {
+.section-note-md-preview .markdown h5,
+.section-note-md-preview .markdown h6 {
   margin: 4px 0 2px;
   font-size: var(--fs);
 }

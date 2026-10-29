@@ -117,6 +117,11 @@ export interface DocumentHostProps {
    * owner's, so the read view does not try to resolve them.
    */
   skipArtifactResolve?: boolean;
+  /**
+   * Split shows the preview beside the editor, inside it. The Editor turns
+   * this off: there the preview is a pane of its own.
+   */
+  inlinePreview?: boolean;
 }
 
 /** 1-based `Ln`/`Col` for a character offset, without importing CodeMirror values. */
@@ -127,7 +132,7 @@ export function cursorAt(view: EditorView): { line: number; col: number } {
 }
 
 /** Which of the renderers a (kind, mode) pair means. */
-export type RendererName = "editor" | "markdown" | "ink" | "pdf" | "pdf_ink" | "ink_reader";
+export type RendererName = "editor" | "markdown" | "ink" | "pdf_ink" | "ink_reader";
 
 /**
  * The whole decision, as data.
@@ -144,14 +149,10 @@ export type RendererName = "editor" | "markdown" | "ink" | "pdf" | "pdf_ink" | "
  * different document from the one Ink was drawing on.
  */
 export function rendererFor(kind: string, mode: DocumentMode, body = ""): RendererName {
-  // Ink on a paper is the PDF with the pen rail up — same reader, same
-  // annotations, not a separate canvas.
-  if (mode === "ink") {
-    return hasInkView(kind) ? "ink" : hasPdfView(kind) ? "pdf_ink" : "editor";
-  }
-  // Only a PDF row has a PDF, and it has nothing else: every other mode on it
-  // is the reader. The mode on any other kind means Edit.
-  if (mode === "pdf" || documentKind(kind) === "pdf") return hasPdfView(kind) ? "pdf" : "editor";
+  // A PDF row is read and inked in one: the reader with the pen rail up, in
+  // every mode — same annotations, not a separate canvas.
+  if (documentKind(kind) === "pdf") return hasPdfView(kind) ? "pdf_ink" : "editor";
+  if (mode === "ink") return hasInkView(kind) ? "ink" : "editor";
   if (mode === "read") {
     // A note written in ink is read as the sheet it was written on. A note
     // with no ink in it stays prose, which is what it is.
@@ -243,6 +244,7 @@ export function DocumentHost({
   resolveEmbed,
   citationFormat,
   skipArtifactResolve = false,
+  inlinePreview = true,
 }: DocumentHostProps) {
   // Held in a ref so the editor's `onViewCreated` identity never changes: it is
   // a dependency of the CodeMirror stack, and rebuilding that stack would throw
@@ -413,10 +415,10 @@ export function DocumentHost({
     return <NoteReadView ink noteId={tab.id} body={surfaceBody(body, liveBody)} paperId={sheetPaperId} />;
   }
 
-  if (renderer === "pdf" || renderer === "pdf_ink") {
+  if (renderer === "pdf_ink") {
     // The reader's paper half, in the tab. The route is the same component
     // with a header around it; the PDF is not loaded twice.
-    return <PaperPdfPane paperId={tab.id} inkRail={renderer === "pdf_ink"} />;
+    return <PaperPdfPane paperId={tab.id} inkRail />;
   }
 
   if (renderer === "markdown" && tab.kind !== "paper" && tab.kind !== "report_section") {
@@ -449,7 +451,7 @@ export function DocumentHost({
 
   return (
     <LivePreview
-      mode={previewMode}
+      mode={inlinePreview ? previewMode : "off"}
       liveBody={liveBody}
       savedBody={body}
       // The live preview is a read view too: a wikilink clicked there opens

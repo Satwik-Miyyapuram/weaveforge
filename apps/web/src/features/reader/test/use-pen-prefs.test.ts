@@ -5,7 +5,7 @@
  * different names, so what is pinned here is that the mapping is a bijection
  * (a tool picked on the bar comes back as the same tool), that a stored
  * preference from before the bar was shared still resolves — those users have a
- * colour and a nib in `localStorage` already — and that nothing a newer build
+ * nib in `localStorage` already — and that nothing a newer build
  * cannot mean is allowed through.
  */
 import { test } from "node:test";
@@ -52,7 +52,7 @@ test("the tool that used to be the lasso comes back as the lasso", () => {
 });
 
 test("a current preference is kept as it was written", () => {
-  const stored = { tool: "highlighter", colour: "yellow", width: INK_PEN_WIDTHS[0], highlighterWidth: 90 };
+  const stored = { tool: "highlighter", width: INK_PEN_WIDTHS[0], highlighterWidth: 90 };
   assert.deepEqual(parsePenPrefs(stored), stored);
 });
 
@@ -61,7 +61,9 @@ test("a preference written before the shared bar migrates instead of resetting",
   const old = { tool: "erase", color: "#2ea8e5", nib: 1.42, recent: ["#ffd400"] };
   const parsed = parsePenPrefs(old);
   assert.equal(parsed.tool, "erase", "the tool still means the same thing");
-  assert.equal(parsed.colour, "blue", "the stored hex comes back as its ink colour name");
+  // The colour is no longer the pen's to keep: it moved to the per-tool store,
+  // which migrates it from this same key (see `use-tool-colours.test.ts`).
+  assert.equal("colour" in parsed, false);
   // The old nib was in points and has no name in the note's set, so the default
   // stands rather than a width that would be read as 1.42 tenths of a millimetre.
   assert.equal(parsed.width, DEFAULT_PEN_PREFS.width);

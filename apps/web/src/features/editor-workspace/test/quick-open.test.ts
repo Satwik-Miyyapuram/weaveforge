@@ -10,7 +10,7 @@ import {
   titleOf,
   type QuickOpenResult,
 } from "../application/quick-open";
-import { buildWorkspaceTree, flattenTree } from "../application/workspace-tree";
+import { buildWorkspaceTree, flattenTree, type WorkspaceTreeNode } from "../application/workspace-tree";
 
 const DOCUMENTS = flattenTree(
   buildWorkspaceTree({
@@ -113,6 +113,32 @@ test("every result appears in exactly one group", () => {
   const grouped = groupResults(results).flatMap((group) => group.results);
   assert.equal(grouped.length, results.length);
   assert.deepEqual(new Set(grouped), new Set(results));
+});
+
+test("highlight indices still point at the typed letters after a character that lower-cases to two", () => {
+  // "İ" (U+0130) lower-cases to two code units, which used to shift every later index.
+  const node: WorkspaceTreeNode = {
+    key: "vault_page:n9",
+    kind: "vault_page",
+    id: "n9",
+    label: "Plan",
+    path: "İdeas/plan.note.md",
+    children: [],
+  };
+  const [hit] = quickOpenResults([node], "plan");
+  assert.equal(hit!.matched.map((index) => node.path[index]).join(""), "plan");
+});
+
+test("a non-ASCII capital that lower-cases to two units still matches its plain letters", () => {
+  const node: WorkspaceTreeNode = {
+    key: "vault_page:n9",
+    kind: "vault_page",
+    id: "n9",
+    label: "Ideas",
+    path: "İdeas/ideas.note.md",
+    children: [],
+  };
+  assert.deepEqual(quickOpenResults([node], "ideas")[0]?.matched.slice(0, 5), [0, 1, 2, 3, 4]);
 });
 
 test("a kind with no heading yet still gets a group, after the known ones", () => {
