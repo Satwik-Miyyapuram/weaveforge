@@ -19,6 +19,8 @@ specta = { version = "=2.0.0-rc.27", features = ["derive"] }
 specta-serde = "=0.0.14"
 specta-typescript = "=0.0.14"
 thiserror = "=2.0.21"
+wasm-bindgen = "=0.2.129"
+serde-wasm-bindgen = "=0.6.5"
 
 # Plan §4.2/§4.3: no unwrap/expect/panic in library code, every Result handled,
 # functions at most 70 lines (clippy.toml), unsafe only with a SAFETY comment.
@@ -52,3 +54,12 @@ semicolon_if_nothing_returned = "deny"
 # Assertions that protect user data stay on in release (plan §4.3).
 debug-assertions = false
 overflow-checks = true
+
+# Size over speed for the browser download (plan §4.5 WASM size budget).
+# Used only by scripts/build-wasm.mjs; inherits release's overflow checks.
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
