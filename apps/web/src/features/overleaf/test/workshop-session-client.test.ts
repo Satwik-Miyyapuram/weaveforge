@@ -109,10 +109,20 @@ test("an empty project list is a success with no projects", async () => {
   assert.deepEqual(await listWorkshopProjects(deps, SESSION), { ok: true, projects: [] });
 });
 
-test("a 401 on projects marks the stored session as expired", async () => {
-  const { deps } = makeDeps(json({ error: "Overleaf session not found. Sign in again." }, 401));
+test("the route's session-not-found 401 marks the stored session as expired", async () => {
+  const { deps } = makeDeps(json({ error: "Overleaf session not found. Sign in again.", expired: true }, 401));
   const result = await listWorkshopProjects(deps, SESSION);
   assert.deepEqual(result, { ok: false, expired: true, message: "Overleaf session not found. Sign in again." });
+});
+
+test("a 401 from the app's own sign-in (no expired flag) keeps the stored session", async () => {
+  const { deps } = makeDeps(json({ error: "Unauthorized" }, 401));
+  assert.deepEqual(await listWorkshopProjects(deps, SESSION), { ok: false, expired: false, message: "Unauthorized" });
+});
+
+test("a 401 with no body keeps the stored session", async () => {
+  const { deps } = makeDeps(() => new Response("", { status: 401 }));
+  assert.equal((await listWorkshopProjects(deps, SESSION) as { expired?: boolean }).expired, false);
 });
 
 test("a 502 on projects is an error but keeps the session", async () => {

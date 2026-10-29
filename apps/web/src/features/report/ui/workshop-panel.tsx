@@ -37,6 +37,15 @@ const browserStore: WorkshopSessionStore = {
 const browserClient: WorkshopClientDeps = { fetch: (url, init) => fetch(url, init), authHeaders };
 
 /**
+ * The panel needs the app's /api/overleaf/workshop routes. A copy with no account
+ * has none, and neither has the desktop shell: it serves a static bundle and
+ * relays only the /api paths in apps/desktop/src/app-relays.ts.
+ */
+export function canShowWorkshop({ localMode, inDesktopShell }: { localMode: boolean; inDesktopShell: boolean }): boolean {
+  return !localMode && !inDesktopShell;
+}
+
+/**
  * Overleaf Workshop: sign in with an Overleaf session cookie, pick a project and
  * its root .tex file, and see the PDF Overleaf compiles. The cookie is sent once
  * and sealed server-side; this panel only ever holds the session id.
@@ -53,14 +62,19 @@ export function WorkshopPanel({ client = browserClient, store = browserStore }: 
   const [shown, setShown] = useState<WorkshopPdfViewerProps | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  /** The project list failed for the stored session; Retry bumps `attempt` to load again. */
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!sessionId) return;
     let cancelled = false;
     setProjects(null);
+    setLoadFailed(false);
     void listWorkshopProjects(client, sessionId).then((result) => {
       if (cancelled) return;
       if (result.ok) {
+        setError("");
         setProjects(result.projects);
         setProjectId((current) => (result.projects.some((p) => p.id === current) ? current : (result.projects[0]?.id ?? "")));
         return;
@@ -69,15 +83,18 @@ export function WorkshopPanel({ client = browserClient, store = browserStore }: 
       if (result.expired) {
         store.set(null);
         setSessionId(null);
+      } else {
+        setLoadFailed(true);
       }
     });
     return () => { cancelled = true; };
-  }, [sessionId, client, store]);
+  }, [sessionId, client, store, attempt]);
 
   function forget() {
     store.set(null);
     setSessionId(null);
     setProjects(null);
+    setLoadFailed(false);
     setShown(null);
   }
 
@@ -132,6 +149,11 @@ export function WorkshopPanel({ client = browserClient, store = browserStore }: 
             </Button>
           </div>
         </form>
+      ) : projects === null && loadFailed ? (
+        <div className="linked-overleaf-form__actions">
+          <Button variant="primary" onClick={() => setAttempt((n) => n + 1)}>Retry</Button>
+          <Button variant="cancel" onClick={() => void disconnect()}>Disconnect</Button>
+        </div>
       ) : projects === null ? (
         <p className="muted">Loading Overleaf projects…</p>
       ) : (

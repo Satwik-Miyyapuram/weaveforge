@@ -19,7 +19,8 @@ export async function POST(request: Request) {
   let cookies: string | null = null;
   try {
     cookies = await cookiesForSession(auth, parsed.value);
-    if (!cookies) return NextResponse.json({ error: "Overleaf session not found. Sign in again." }, { status: 401 });
+    // `expired` tells the client to forget its stored id; the auth 401 above does not carry it.
+    if (!cookies) return NextResponse.json({ error: "Overleaf session not found. Sign in again.", expired: true }, { status: 401 });
     const result = await listOverleafProjectsWithCookies(cookies);
     if (!result.ok) return NextResponse.json({ error: result.message }, { status: 502 });
     return NextResponse.json({ projects: result.projects }, { headers: { "Cache-Control": "no-store" } });

@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from "react-test-renderer";
 
 import type { WorkshopClientDeps } from "@/features/overleaf/infrastructure/workshop-session-client";
-import { WorkshopPanel, type WorkshopSessionStore } from "../ui/workshop-panel";
+import { WorkshopPanel, canShowWorkshop, type WorkshopSessionStore } from "../ui/workshop-panel";
 import { WorkshopPdfViewer } from "../ui/workshop-pdf-viewer";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -100,7 +100,7 @@ test("a stored session loads projects on mount", async () => {
 });
 
 test("an expired stored session is forgotten and the cookie form returns", async () => {
-  const h = harness(() => json({ error: "Overleaf session not found. Sign in again." }, 401), SESSION);
+  const h = harness(() => json({ error: "Overleaf session not found. Sign in again.", expired: true }, 401), SESSION);
   const tree = await mount(h);
   assert.equal(h.box.id, null);
   assert.ok(byName(tree, "cookies"));
@@ -146,4 +146,46 @@ test("disconnecting deletes the session server-side and forgets it locally", asy
   assert.deepEqual(h.calls.at(-1), { url: `/api/overleaf/workshop/session?id=${SESSION}`, method: "DELETE", body: null });
   assert.ok(byName(tree, "cookies"));
   await act(async () => tree.unmount());
+});
+
+test("a failed project list (Overleaf rejects the stored cookie, 502) keeps Disconnect reachable", async () => {
+  const h = harness((_url, init) => (init.method === "DELETE" ? json({ ok: true }) : json({ error: "Overleaf sign-in failed." }, 502)), SESSION);
+  const tree = await mount(h);
+  assert.match(text(tree), /Overleaf sign-in failed\./);
+  assert.ok(!text(tree).includes("Loading Overleaf projects"), "the panel is not stuck loading");
+  assert.equal(h.box.id, SESSION, "a 502 does not forget the session by itself");
+  await act(async () => button(tree, "Disconnect").props.onClick());
+  assert.equal(h.box.id, null);
+  assert.equal(h.calls.at(-1)?.method, "DELETE");
+  assert.ok(byName(tree, "cookies"), "the cookie form is back");
+  assert.ok(!text(tree).includes("Overleaf sign-in failed"), "the old error is cleared");
+  await act(async () => tree.unmount());
+});
+
+test("Retry after a failed project list loads the projects and clears the error", async () => {
+  let fail = true;
+  const h = harness((url, init) => (fail ? json({ error: "Overleaf is down." }, 502) : projectsOk(url, init)), SESSION);
+  const tree = await mount(h);
+  assert.match(text(tree), /Overleaf is down\./);
+  fail = false;
+  await act(async () => button(tree, "Retry").props.onClick());
+  assert.equal(tree.root.findAllByType("option").length, 2);
+  assert.ok(!text(tree).includes("Overleaf is down"), "a successful load clears the earlier error");
+  assert.equal(h.calls.filter((c) => c.url.endsWith("/projects")).length, 2);
+  await act(async () => tree.unmount());
+});
+
+test("a 401 from the app's own sign-in keeps the stored Overleaf session", async () => {
+  const h = harness(() => json({ error: "Unauthorized" }, 401), SESSION);
+  const tree = await mount(h);
+  assert.equal(h.box.id, SESSION);
+  assert.ok(button(tree, "Disconnect"));
+  await act(async () => tree.unmount());
+});
+
+test("the panel is shown only with an account and outside the desktop shell", () => {
+  assert.equal(canShowWorkshop({ localMode: false, inDesktopShell: false }), true);
+  assert.equal(canShowWorkshop({ localMode: true, inDesktopShell: false }), false);
+  assert.equal(canShowWorkshop({ localMode: false, inDesktopShell: true }), false, "the shell relays no /api/overleaf/workshop routes");
+  assert.equal(canShowWorkshop({ localMode: true, inDesktopShell: true }), false);
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Paper, ReportSectionTreeNode } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { ScreenLoading } from "@/components/screen-loading";
@@ -9,7 +9,8 @@ import { emptyArray } from "@/lib/empty";
 import type { ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
 import { LinkedOverleafReports } from "./linked-overleaf-reports";
 import { ExportOverleafPackagePanel } from "./export-overleaf-package-panel";
-import { WorkshopPanel } from "./workshop-panel";
+import { WorkshopPanel, canShowWorkshop } from "./workshop-panel";
+import { desktop } from "@/lib/desktop/desktop-bridge";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { overleafPapers } from "./overleaf-papers";
@@ -20,7 +21,8 @@ import { Button } from "@/components/button";
  * Outline sections live on `/report` (Sections).
  *
  * The Workshop panel (sign in, pick a project, see the compiled PDF) needs the
- * app's API routes, so a copy with no account does not show it.
+ * app's API routes, so neither a copy with no account nor the desktop shell
+ * shows it (see `canShowWorkshop`).
  */
 export function ReportOverleafScreen() {
   /*
@@ -46,6 +48,11 @@ export function ReportOverleafScreen() {
 
   const { data, loading, error } = useScreenData("report-overleaf", loadScreen);
   const [exportOpen, setExportOpen] = useState(false);
+  // Decided after mount: the server render has no window, so no desktop bridge to see.
+  const [workshop, setWorkshop] = useState(false);
+  useEffect(() => {
+    setWorkshop(canShowWorkshop({ localMode: getContainer().auth.isLocalMode(), inDesktopShell: desktop() !== null }));
+  }, []);
 
   const tree = data?.tree ?? emptyArray<ReportSectionTreeNode>();
   const papers = data?.papers ?? emptyArray<Paper>();
@@ -79,7 +86,7 @@ export function ReportOverleafScreen() {
 
       <LinkedOverleafReports />
 
-      {!getContainer().auth.isLocalMode() && <WorkshopPanel />}
+      {workshop && <WorkshopPanel />}
     </section>
   );
 }

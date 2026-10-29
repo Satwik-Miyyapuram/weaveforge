@@ -43,7 +43,9 @@ export async function signInToWorkshop(deps: WorkshopClientDeps, cookies: string
 /** Lists the user's Overleaf projects for a stored session, sorted by name. */
 export async function listWorkshopProjects(deps: WorkshopClientDeps, sessionId: string): Promise<WorkshopProjectsResult> {
   const res = await post(deps, WORKSHOP_PROJECTS_PATH, { sessionId });
-  if (!res.ok) return { ok: false, expired: res.status === 401, message: res.message };
+  // Only the route's own "session not found" 401 carries `expired`; a 401 because the
+  // app's sign-in lapsed must not forget the Overleaf session (its sealed row would be orphaned).
+  if (!res.ok) return { ok: false, expired: res.status === 401 && res.expired, message: res.message };
   const projects = (res.body as { projects?: unknown }).projects;
   if (!Array.isArray(projects)) return { ok: false, expired: false, message: "The server did not return a project list." };
   return {
@@ -68,7 +70,7 @@ export async function signOutOfWorkshop(deps: WorkshopClientDeps, sessionId: str
   }
 }
 
-type Posted = { ok: true; body: unknown } | { ok: false; status: number; message: string };
+type Posted = { ok: true; body: unknown } | { ok: false; status: number; expired: boolean; message: string };
 
 async function post(deps: WorkshopClientDeps, path: string, payload: unknown): Promise<Posted> {
   let res: Response;
@@ -79,12 +81,17 @@ async function post(deps: WorkshopClientDeps, path: string, payload: unknown): P
       body: JSON.stringify(payload),
     });
   } catch (err) {
-    return { ok: false, status: 0, message: `Could not reach Overleaf: ${err instanceof Error ? err.message : String(err)}` };
+    return { ok: false, status: 0, expired: false, message: `Could not reach Overleaf: ${err instanceof Error ? err.message : String(err)}` };
   }
-  const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
+  const body = (await res.json().catch(() => null)) as { error?: unknown; expired?: unknown } | null;
   if (!res.ok) {
     const error = typeof body?.error === "string" && body.error.trim() ? body.error : null;
-    return { ok: false, status: res.status, message: error ?? `Overleaf request failed (HTTP ${res.status}).` };
+    return {
+      ok: false,
+      status: res.status,
+      expired: body?.expired === true,
+      message: error ?? `Overleaf request failed (HTTP ${res.status}).`,
+    };
   }
   return { ok: true, body: body ?? {} };
 }
