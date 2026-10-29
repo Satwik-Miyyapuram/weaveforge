@@ -396,8 +396,6 @@ fn query_text() -> impl Strategy<Value = String> {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(256))]
-
     #[test]
     fn parsing_never_panics(input in any::<String>()) {
         let query = parse_query(&input);
