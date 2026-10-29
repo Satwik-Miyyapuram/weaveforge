@@ -27,6 +27,16 @@ export function formatCount(value: number): string {
   return value.toLocaleString("en-US").replace(/,/g, "\u2009");
 }
 
+/** Silent-reading pace used for the estimate, in words per minute. */
+const WORDS_PER_MINUTE = 238;
+
+/** The word segment: "1 word", "12 words", plus a reading time once there is text. */
+export function formatWords(words: number): string {
+  const count = `${formatCount(words)} ${words === 1 ? "word" : "words"}`;
+  if (words <= 0) return count;
+  return `${count} · ${Math.ceil(words / WORDS_PER_MINUTE)} min read`;
+}
+
 /** A 1-based line/column as the status bar shows it. */
 export function formatCursor(cursor: { line: number; col: number }): string {
   return `Ln ${cursor.line}, Col ${cursor.col}`;

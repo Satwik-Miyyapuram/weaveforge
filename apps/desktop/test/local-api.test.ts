@@ -121,6 +121,20 @@ test("search reports the files that match and the lines that did", async () => {
   assert.match(results[0]!.matches[0]!.context, /Kettle/);
 });
 
+test("search trims the query like the MCP tool does, and a blank one is refused", async () => {
+  // A padded query used to be searched as typed: " kettle" missed a line that
+  // starts with the word, and a lone space matched every line with a space.
+  const session = await vault();
+  const padded = await routeLocalRequest(session, ask({ method: "POST", url: "/search/simple/?query=%20kettle%20" }), TOKEN);
+  assert.equal(padded.status, 200);
+  assert.deepEqual(
+    (JSON.parse(padded.body) as { filename: string }[]).map((r) => r.filename),
+    ["notes/a.note.md"],
+  );
+  const blank = await routeLocalRequest(session, ask({ method: "POST", url: "/search/simple/?query=%20%20" }), TOKEN);
+  assert.equal(blank.status, 400);
+});
+
 test("an unserved route says so rather than guessing", async () => {
   const answer = await routeLocalRequest(await vault(), ask({ url: "/active/" }), TOKEN);
   assert.equal(answer.status, 404);

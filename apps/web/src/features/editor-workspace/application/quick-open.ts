@@ -35,6 +35,21 @@ function isBoundary(text: string, index: number): boolean {
 }
 
 /**
+ * Lower-case without changing the length. `toLowerCase` can grow a string ("İ"
+ * becomes two code units), which would shift every matched index that
+ * highlighting later reads from the original text. Each code unit is folded on
+ * its own, so index N of the result is always index N of the input.
+ */
+function foldCase(text: string): string {
+  const lower = text.toLowerCase();
+  if (lower.length === text.length) return lower;
+  return text
+    .split("")
+    .map((unit) => unit.toLowerCase().charAt(0))
+    .join("");
+}
+
+/**
  * Score one candidate, or `null` when the query is not a subsequence of it.
  *
  * Greedy left-to-right rather than optimal: an exhaustive best-alignment search
@@ -44,8 +59,8 @@ function isBoundary(text: string, index: number): boolean {
  */
 export function scoreMatch(text: string, query: string): { score: number; matched: number[] } | null {
   if (!query) return { score: 0, matched: [] };
-  const haystack = text.toLowerCase();
-  const needle = query.toLowerCase();
+  const haystack = foldCase(text);
+  const needle = foldCase(query);
 
   let score = 0;
   let at = 0;

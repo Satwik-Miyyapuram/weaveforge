@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isExpiryDays } from "@/features/settings/infrastructure/api-token-crypto";
 import { apiTokenService } from "@/features/settings/infrastructure/api-token-service";
 import { bearerToken } from "@/lib/bearer-token";
 import { formatError, formatErrorForResponse, jsonBodyError } from "@/lib/format-error";
@@ -34,6 +35,12 @@ export async function POST(request: Request) {
   }
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "Expected a JSON object body." }, { status: 400 });
+  }
+  if (!isExpiryDays(body.expiresInDays)) {
+    return NextResponse.json(
+      { error: "expiresInDays must be a whole number of days (0 to 36500), or null." },
+      { status: 400 },
+    );
   }
 
   try {
