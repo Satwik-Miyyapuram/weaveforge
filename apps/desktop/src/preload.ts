@@ -12,6 +12,7 @@ import type {
   DesktopLocalDbState,
   DesktopMenuGroup,
   DesktopOverleafSource,
+  DesktopOverleafSync,
   DesktopPlanWidget,
   DesktopPreferenceValue,
   DesktopUpdate,
@@ -96,6 +97,7 @@ const bridge: DesktopBridge = {
   commitVault: () => call<DesktopCommitResult>(CHANNELS.vaultCommit),
   vaultLog: (limit) => call<DesktopCommit[]>(CHANNELS.vaultLog, limit),
   vaultSync: (action) => call<DesktopVaultSync>(CHANNELS.vaultSync, action),
+  overleafSync: (request) => call<DesktopOverleafSync>(CHANNELS.overleafSync, request),
   localApiState: () => call<DesktopLocalApi>(CHANNELS.localApiState),
   zoteroLocal: (url) => call<DesktopZoteroReply>(CHANNELS.zoteroLocal, url),
   readOverleafProject: (projectId, entryFile) =>

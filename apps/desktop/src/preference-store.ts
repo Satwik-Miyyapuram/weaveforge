@@ -26,6 +26,8 @@ export const PREFERENCE_NAMES = [
   "plan-widget",
   "plan-widget-bounds",
   "plan-widget-theme",
+  /** The Overleaf projects synced into vault folders, as JSON (`overleaf-sync.ts`). Shell-only. */
+  "overleaf-links",
 ] as const;
 export type PreferenceName = (typeof PREFERENCE_NAMES)[number];
 

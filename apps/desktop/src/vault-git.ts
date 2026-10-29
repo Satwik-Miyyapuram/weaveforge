@@ -75,12 +75,25 @@ const LOCAL_ONLY = "/.weaveforge/";
 /** Network calls get longer: a first push of a thesis folder is many megabytes. */
 const REMOTE_TIMEOUT_MS = 300_000;
 
+/**
+ * Where git runs: a folder with its own `.git`, or a folder whose repository
+ * is kept elsewhere (`gitDir`), so a folder already inside another repository
+ * can sync with a second remote without a nested `.git`.
+ */
+export type GitPlace = string | { root: string; gitDir: string };
+
+function placeArgs(where: GitPlace): string[] {
+  return typeof where === "string"
+    ? ["-C", where]
+    : ["-C", where.root, `--git-dir=${where.gitDir}`, `--work-tree=${where.root}`];
+}
+
 async function git(
-  root: string,
+  where: GitPlace,
   args: readonly string[],
   options: { env?: NodeJS.ProcessEnv; timeout?: number } = {},
 ): Promise<string> {
-  const { stdout } = await run("git", [...FLAGS, "-C", root, ...args], {
+  const { stdout } = await run("git", [...FLAGS, ...placeArgs(where), ...args], {
     timeout: options.timeout ?? TIMEOUT_MS,
     maxBuffer: 16 * 1024 * 1024,
     windowsHide: true,
@@ -90,9 +103,9 @@ async function git(
 }
 
 /** True when the command exits 0; for git's yes/no plumbing (`is-ancestor`, `rev-parse --verify`). */
-async function gitTest(root: string, args: readonly string[]): Promise<boolean> {
+async function gitTest(where: GitPlace, args: readonly string[]): Promise<boolean> {
   try {
-    await git(root, args);
+    await git(where, args);
     return true;
   } catch {
     return false;
@@ -138,14 +151,14 @@ function gitOutput(error: unknown): string {
   return typeof stderr === "string" && stderr ? stderr : errorMessage(error, "");
 }
 
-function basicAuth(token: string): string {
-  // GitHub, GitLab and Gitea all take a token as the password, with any user name.
-  return Buffer.from(`x-access-token:${token}`).toString("base64");
+function basicAuth(token: string, username = "x-access-token"): string {
+  // GitHub, GitLab and Gitea all take a token as the password, with any user name; Overleaf wants `git`.
+  return Buffer.from(`${username}:${token}`).toString("base64");
 }
 
 /** Removes the token, and the header form it is sent in, from git's text. */
-export function redactAuth(text: string, token: string | undefined): string {
-  return token ? redactSecret(redactSecret(text, token), basicAuth(token)) : text;
+export function redactAuth(text: string, token: string | undefined, username?: string): string {
+  return token ? redactSecret(redactSecret(text, token), basicAuth(token, username)) : text;
 }
 
 /**
@@ -167,7 +180,7 @@ export function remoteAuth(remote: GitRemoteConfig): { flags: string[]; env: Nod
       ...env,
       GIT_CONFIG_COUNT: "1",
       GIT_CONFIG_KEY_0: `http.${origin}/.extraHeader`,
-      GIT_CONFIG_VALUE_0: `Authorization: Basic ${basicAuth(remote.token)}`,
+      GIT_CONFIG_VALUE_0: `Authorization: Basic ${basicAuth(remote.token, remote.username)}`,
     },
   };
 }
@@ -181,12 +194,13 @@ function httpOrigin(url: string): string | null {
   }
 }
 
-async function gitRemote(root: string, remote: GitRemoteConfig, args: readonly string[]): Promise<string> {
+async function gitRemote(where: GitPlace, remote: GitRemoteConfig, args: readonly string[]): Promise<string> {
   const { flags, env } = remoteAuth(remote);
   try {
-    return await git(root, [...flags, ...args], { env, timeout: REMOTE_TIMEOUT_MS });
+    return await git(where, [...flags, ...args], { env, timeout: REMOTE_TIMEOUT_MS });
   } catch (error) {
-    throw new GitRemoteError(redactAuth(gitReason(error), remote.token), redactAuth(gitOutput(error), remote.token));
+    const hide = (text: string) => redactAuth(text, remote.token, remote.username);
+    throw new GitRemoteError(hide(gitReason(error)), hide(gitOutput(error)));
   }
 }
 
@@ -275,20 +289,33 @@ function parseLog(stdout: string): WorkspaceCommit[] {
 export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
   readonly kind = "native" as const;
   private readonly maxFileBytes: number;
+  /** The remote branch synced with. */
+  private readonly branch: string;
+  private readonly place: GitPlace;
 
+  /**
+   * `gitDir` keeps the repository outside the folder (an absolute path): used
+   * for a subfolder synced with its own remote while the folder above has its
+   * own history.
+   */
   constructor(
     private readonly root: string,
-    options: { maxFileBytes?: number } = {},
+    options: { maxFileBytes?: number; branch?: string; gitDir?: string } = {},
   ) {
     this.maxFileBytes = options.maxFileBytes ?? GIT_SYNC_LIMITS.maxFileBytes;
+    this.branch = options.branch ?? DEFAULT_SYNC_BRANCH;
+    this.place = options.gitDir ? { root, gitDir: path.resolve(options.gitDir) } : root;
   }
 
   async isRepo(): Promise<boolean> {
+    // Probing upwards from the folder would find the enclosing repo; the separate one is asked directly.
+    if (typeof this.place !== "string") return gitTest(this.place, ["rev-parse", "--git-dir"]);
     return (await probeRepo(this.root)).kind === "own";
   }
 
   async init(): Promise<void> {
-    await git(this.root, ["init"]);
+    if (typeof this.place !== "string") await mkdir(path.dirname(this.place.gitDir), { recursive: true });
+    await git(this.place, ["init"]);
   }
 
   /**
@@ -296,7 +323,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
    * and files the sync policy refuses (over the size cap, ignored) are left out; a deletion always counts.
    */
   async status(): Promise<readonly GitFileStatus[]> {
-    const all = parseStatus(await git(this.root, ["status", "--porcelain", "-z", "--untracked-files=all"]));
+    const all = parseStatus(await git(this.place, ["status", "--porcelain", "-z", "--untracked-files=all"]));
     const kept = await Promise.all(
       all.map(async (entry) => {
         if (`/${entry.path}`.startsWith(LOCAL_ONLY)) return false;
@@ -324,10 +351,10 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
     await this.addInPolicy();
     await this.unstageOutOfPolicy();
     // What is staged decides, not the status: an over-size file stays untracked and in the status.
-    if ((await git(this.root, ["diff", "--cached", "--name-only", "-z"])) === "") return null;
+    if ((await git(this.place, ["diff", "--cached", "--name-only", "-z"])) === "") return null;
     // The author is passed per-commit rather than configured, so nothing here
     // writes to the user's global git config.
-    await git(this.root, [
+    await git(this.place, [
       "-c",
       `user.name=${author.name}`,
       "-c",
@@ -350,7 +377,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
    * Best effort: a failed pack only goes in the log.
    */
   private packLoose(): void {
-    const child = spawn("git", [...FLAGS, ...PACK_LIMITS, "-C", this.root, "gc", "--auto", "--no-prune", "--quiet"], {
+    const child = spawn("git", [...FLAGS, ...PACK_LIMITS, ...placeArgs(this.place), "gc", "--auto", "--no-prune", "--quiet"], {
       detached: true,
       stdio: "ignore",
       windowsHide: true,
@@ -365,7 +392,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
   /** The error, or one naming a stale `index.lock` when that is what blocks git. The lock is never deleted. */
   private async withStaleLock(error: unknown): Promise<unknown> {
     try {
-      const lock = path.resolve(this.root, (await git(this.root, ["rev-parse", "--git-path", "index.lock"])).trim());
+      const lock = path.resolve(this.root, (await git(this.place, ["rev-parse", "--git-path", "index.lock"])).trim());
       const age = Date.now() - (await stat(lock)).mtimeMs;
       if (age < STALE_LOCK_MS) return error;
       const minutes = Math.round(age / 60_000);
@@ -380,7 +407,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
 
   /** `EXCLUDES` into `info/exclude`, each once; root `.weaveforge` untracked if an older run added it. */
   private async writeExcludes(): Promise<void> {
-    const file = path.resolve(this.root, (await git(this.root, ["rev-parse", "--git-path", "info/exclude"])).trim());
+    const file = path.resolve(this.root, (await git(this.place, ["rev-parse", "--git-path", "info/exclude"])).trim());
     const current = await readFile(file, "utf8").catch(() => "");
     const present = new Set(current.split(/\r?\n/));
     const missing = EXCLUDES.filter((pattern) => !present.has(pattern));
@@ -388,7 +415,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
       await mkdir(path.dirname(file), { recursive: true });
       await appendFile(file, `${current && !current.endsWith("\n") ? "\n" : ""}${missing.join("\n")}\n`);
     }
-    await git(this.root, ["rm", "-r", "-q", "--cached", "--ignore-unmatch", "--", ".weaveforge"]);
+    await git(this.place, ["rm", "-r", "-q", "--cached", "--ignore-unmatch", "--", ".weaveforge"]);
   }
 
   /**
@@ -400,7 +427,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
    */
   private async addInPolicy(): Promise<void> {
     const candidates = nulList(
-      await git(this.root, ["ls-files", "-z", "--others", "--modified", "--exclude-standard"]),
+      await git(this.place, ["ls-files", "-z", "--others", "--modified", "--exclude-standard"]),
     );
     const refused: string[] = [];
     for (const file of candidates) {
@@ -416,16 +443,16 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
       console.warn(`[vault-git] left out of the history: ${refused.join(", ").slice(0, 300)}`);
     }
     if (refused.length === 0) {
-      await git(this.root, ["add", "-A"]);
+      await git(this.place, ["add", "-A"]);
       return;
     }
     const list = path.resolve(
       this.root,
-      (await git(this.root, ["rev-parse", "--git-path", "weaveforge-add-pathspec"])).trim(),
+      (await git(this.place, ["rev-parse", "--git-path", "weaveforge-add-pathspec"])).trim(),
     );
     await writeFile(list, [".", ...refused.map((file) => `:(exclude,literal)${file}`)].join("\0") + "\0");
     try {
-      await git(this.root, ["add", "-A", `--pathspec-from-file=${list}`, "--pathspec-file-nul"]);
+      await git(this.place, ["add", "-A", `--pathspec-from-file=${list}`, "--pathspec-file-nul"]);
     } finally {
       await rm(list, { force: true });
     }
@@ -439,7 +466,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
    * future commits.
    */
   private async unstageOutOfPolicy(): Promise<void> {
-    const records = nulList(await git(this.root, ["diff", "--cached", "--name-status", "--no-renames", "-z"]));
+    const records = nulList(await git(this.place, ["diff", "--cached", "--name-status", "--no-renames", "-z"]));
     const added: string[] = [];
     const modified: string[] = [];
     for (let i = 0; i + 1 < records.length; i += 2) {
@@ -453,8 +480,8 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
       if (decideGitSyncPath(file, size, this.maxFileBytes).include) continue;
       (code === "A" ? added : modified).push(file);
     }
-    for (const batch of chunks(added)) await git(this.root, ["rm", "--cached", "-q", "--", ...batch]);
-    for (const batch of chunks(modified)) await git(this.root, ["reset", "-q", "--", ...batch]);
+    for (const batch of chunks(added)) await git(this.place, ["rm", "--cached", "-q", "--", ...batch]);
+    for (const batch of chunks(modified)) await git(this.place, ["reset", "-q", "--", ...batch]);
   }
 
   // ---- Remote sync ---------------------------------------------------------
@@ -465,15 +492,15 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
   }
 
   async remoteStatus(remote: GitRemoteConfig): Promise<GitRemoteStatus> {
-    const branch = DEFAULT_SYNC_BRANCH;
+    const branch = this.branch;
     if (!(await this.isRepo())) return { url: null, branch, ahead: 0, behind: 0 };
     await this.prepareRemote(remote);
     const theirs = await this.fetch(remote);
     const head = await this.hasHead();
-    const count = async (range: string) => Number((await git(this.root, ["rev-list", "--count", range])).trim());
+    const count = async (range: string) => Number((await git(this.place, ["rev-list", "--count", range])).trim());
     if (!theirs) return { url: remote.url, branch, ahead: head ? await count("HEAD") : 0, behind: 0 };
     if (!head) return { url: remote.url, branch, ahead: 0, behind: await count(theirs) };
-    const [ahead, behind] = (await git(this.root, ["rev-list", "--left-right", "--count", `HEAD...${theirs}`]))
+    const [ahead, behind] = (await git(this.place, ["rev-list", "--left-right", "--count", `HEAD...${theirs}`]))
       .trim()
       .split(/\s+/)
       .map(Number);
@@ -486,15 +513,15 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
     const theirs = await this.fetch(remote);
     if (!theirs) return { kind: "up-to-date" };
     const head = await this.hasHead();
-    if (head && (await gitTest(this.root, ["merge-base", "--is-ancestor", theirs, "HEAD"]))) {
+    if (head && (await gitTest(this.place, ["merge-base", "--is-ancestor", theirs, "HEAD"]))) {
       return { kind: "up-to-date" };
     }
 
     // Git overwrites an ignored file without asking; a file kept out of history is still the user's.
     const incoming = nulList(
       head
-        ? await git(this.root, ["diff", "--name-only", "--no-renames", "--diff-filter=A", "-z", "HEAD", theirs])
-        : await git(this.root, ["ls-tree", "-r", "--name-only", "-z", theirs]),
+        ? await git(this.place, ["diff", "--name-only", "--no-renames", "--diff-filter=A", "-z", "HEAD", theirs])
+        : await git(this.place, ["ls-tree", "-r", "--name-only", "-z", theirs]),
     );
     const collisions: string[] = [];
     for (const file of incoming) {
@@ -502,9 +529,9 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
     }
     if (collisions.length > 0) return { kind: "conflict", files: collisions };
 
-    const fastForward = !head || (await gitTest(this.root, ["merge-base", "--is-ancestor", "HEAD", theirs]));
+    const fastForward = !head || (await gitTest(this.place, ["merge-base", "--is-ancestor", "HEAD", theirs]));
     try {
-      await git(this.root, [
+      await git(this.place, [
         "-c",
         `user.name=${author.name}`,
         "-c",
@@ -515,20 +542,20 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
         "--allow-unrelated-histories",
         fastForward ? "--ff-only" : "--no-ff",
         "-m",
-        `Merge ${DEFAULT_SYNC_BRANCH} from the remote`,
+        `Merge ${this.branch} from the remote`,
         theirs,
       ]);
     } catch (error) {
-      const unmerged = nulList(await git(this.root, ["diff", "--name-only", "--diff-filter=U", "-z"]).catch(() => ""));
+      const unmerged = nulList(await git(this.place, ["diff", "--name-only", "--diff-filter=U", "-z"]).catch(() => ""));
       if (unmerged.length > 0) {
-        await git(this.root, ["merge", "--abort"]);
+        await git(this.place, ["merge", "--abort"]);
         return { kind: "conflict", files: unmerged };
       }
       const blocked = overwrittenFiles(gitOutput(error));
       if (blocked.length > 0) return { kind: "conflict", files: blocked };
       throw new Error(gitReason(error));
     }
-    const oid = (await git(this.root, ["rev-parse", "HEAD"])).trim();
+    const oid = (await git(this.place, ["rev-parse", "HEAD"])).trim();
     return fastForward ? { kind: "fast-forward", oid } : { kind: "merged", oid };
   }
 
@@ -538,18 +565,18 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
     if (!(await this.hasHead())) return { kind: "up-to-date" };
     const theirs = await this.fetch(remote);
     if (theirs) {
-      if (await gitTest(this.root, ["merge-base", "--is-ancestor", "HEAD", theirs])) return { kind: "up-to-date" };
-      if (!(await gitTest(this.root, ["merge-base", "--is-ancestor", theirs, "HEAD"]))) {
+      if (await gitTest(this.place, ["merge-base", "--is-ancestor", "HEAD", theirs])) return { kind: "up-to-date" };
+      if (!(await gitTest(this.place, ["merge-base", "--is-ancestor", theirs, "HEAD"]))) {
         return { kind: "rejected", reason: PULL_FIRST };
       }
     }
     try {
       // No `--force` of any kind: a remote that moved since the fetch refuses, and that is reported.
-      await gitRemote(this.root, remote, [
+      await gitRemote(this.place, remote, [
         "push",
         "--no-verify",
         SYNC_REMOTE,
-        `HEAD:refs/heads/${DEFAULT_SYNC_BRANCH}`,
+        `HEAD:refs/heads/${this.branch}`,
       ]);
     } catch (error) {
       if (error instanceof GitRemoteError && /\[rejected\]|non-fast-forward|fetch first/.test(error.detail)) {
@@ -565,23 +592,23 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
     if (!(await this.isRepo())) {
       await this.init();
       // On an empty repo this only names the first branch; git before 2.28 has no `init -b`.
-      await git(this.root, ["symbolic-ref", "HEAD", `refs/heads/${DEFAULT_SYNC_BRANCH}`]);
+      await git(this.place, ["symbolic-ref", "HEAD", `refs/heads/${this.branch}`]);
     }
     await this.writeExcludes();
-    const current = await git(this.root, ["remote", "get-url", SYNC_REMOTE]).then(
+    const current = await git(this.place, ["remote", "get-url", SYNC_REMOTE]).then(
       (url) => url.trim(),
       () => null,
     );
-    if (current === null) await git(this.root, ["remote", "add", SYNC_REMOTE, remote.url]);
-    else if (current !== remote.url) await git(this.root, ["remote", "set-url", SYNC_REMOTE, remote.url]);
+    if (current === null) await git(this.place, ["remote", "add", SYNC_REMOTE, remote.url]);
+    else if (current !== remote.url) await git(this.place, ["remote", "set-url", SYNC_REMOTE, remote.url]);
   }
 
   /** The remote-tracking ref after a fetch, or null when the remote has no such branch yet. */
   private async fetch(remote: GitRemoteConfig): Promise<string | null> {
-    const branch = DEFAULT_SYNC_BRANCH;
+    const branch = this.branch;
     const tracking = `refs/remotes/${SYNC_REMOTE}/${branch}`;
     try {
-      await gitRemote(this.root, remote, ["fetch", "--no-tags", SYNC_REMOTE, `+refs/heads/${branch}:${tracking}`]);
+      await gitRemote(this.place, remote, ["fetch", "--no-tags", SYNC_REMOTE, `+refs/heads/${branch}:${tracking}`]);
     } catch (error) {
       if (error instanceof GitRemoteError && /couldn't find remote ref/i.test(error.detail)) return null;
       throw error;
@@ -590,7 +617,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
   }
 
   private async hasHead(): Promise<boolean> {
-    return gitTest(this.root, ["rev-parse", "--verify", "-q", "HEAD"]);
+    return gitTest(this.place, ["rev-parse", "--verify", "-q", "HEAD"]);
   }
 
   /** Local edits go into history before anything from the remote touches the folder. */
@@ -604,7 +631,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
     if (options.limit) args.push(`-n${options.limit}`);
     if (options.path) args.push("--", options.path);
     try {
-      return parseLog(await git(this.root, args));
+      return parseLog(await git(this.place, args));
     } catch (error) {
       // A repository with no commits yet has no log, which is not a failure.
       // Anything else still reads as an empty history, but goes in the log.
@@ -618,7 +645,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
 
   async readAt(oid: string, file: string): Promise<Uint8Array | null> {
     try {
-      const { stdout } = await run("git", [...FLAGS, "-C", this.root, "show", `${oid}:${file}`], {
+      const { stdout } = await run("git", [...FLAGS, ...placeArgs(this.place), "show", `${oid}:${file}`], {
         timeout: TIMEOUT_MS,
         maxBuffer: 64 * 1024 * 1024,
         encoding: "buffer",
@@ -679,7 +706,7 @@ export async function commitVault(
  * together would otherwise trip over each other's `index.lock`.
  */
 let queue: Promise<unknown> = Promise.resolve();
-function serial<T>(work: () => Promise<T>): Promise<T> {
+export function serial<T>(work: () => Promise<T>): Promise<T> {
   const next = queue.then(work, work);
   queue = next.catch(() => undefined);
   return next;

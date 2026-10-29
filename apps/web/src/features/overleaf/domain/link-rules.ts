@@ -19,6 +19,36 @@ export function entryFileError(entryFile: string): string | null {
   return null;
 }
 
+/**
+ * The project id from what a user pastes: the id itself, the project's page
+ * (`https://www.overleaf.com/project/<id>`) or its git URL
+ * (`https://git.overleaf.com/<id>`). Null when it is none of those.
+ */
+export function parseOverleafProjectId(raw: string): string | null {
+  const text = raw.trim();
+  if (OVERLEAF_PROJECT_ID.test(text)) return text;
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" || url.username || url.password) return null;
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id =
+    url.hostname === "git.overleaf.com" && parts.length === 1
+      ? parts[0]
+      : /^(www\.)?overleaf\.com$/.test(url.hostname) && parts.length === 2 && parts[0] === "project"
+        ? parts[1]
+        : undefined;
+  return id && OVERLEAF_PROJECT_ID.test(id) ? id : null;
+}
+
+/** The clone URL; built from a checked id, never from what was pasted. */
+export function overleafGitUrl(overleafProjectId: string): string {
+  return `https://git.overleaf.com/${overleafProjectId}`;
+}
+
 /** Canonical, never user-supplied: this link sits beside a stored credential. */
 export function externalUrl(overleafProjectId: string): string {
   return `https://www.overleaf.com/project/${overleafProjectId}`;
