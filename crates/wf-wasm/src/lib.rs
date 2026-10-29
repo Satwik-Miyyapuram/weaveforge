@@ -39,9 +39,18 @@ pub fn core_info() -> Result<JsValue, serde_wasm_bindgen::Error> {
 
 /// Largest text, in UTF-16 code units, that `tokenize` and `indexTerms`
 /// accept (16 Mi units, 32 MiB as UTF-16). Larger input is an error, never
-/// truncated, so a huge input fails cleanly instead of exhausting linear
-/// memory. The core itself has no cap (phase-1-search.md, Limits).
+/// truncated. The TS wrappers check it before the text crosses into WASM, since
+/// wasm-bindgen's copy would otherwise grow linear memory first; this check
+/// stays for direct callers. The core itself has no cap (phase-1-search.md, Limits).
 pub const MAX_INDEX_TEXT_UTF16: usize = 1 << 24;
+
+/// [`MAX_INDEX_TEXT_UTF16`] for JS, so the wrappers check the cap before the
+/// text is copied into linear memory.
+#[must_use]
+#[wasm_bindgen(js_name = maxIndexTextUtf16)]
+pub fn max_index_text_utf16() -> usize {
+    MAX_INDEX_TEXT_UTF16
+}
 
 /// Reads the JS options object and checks `text` against the cap.
 fn index_input(

@@ -1,7 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { coreInfo, indexTerms, initSync, tokenize, type TokenizerOptions } from "../src/index.js";
+import {
+  coreInfo,
+  indexTerms,
+  initSync,
+  maxIndexTextUtf16,
+  tokenize,
+  type TokenizerOptions,
+} from "../src/index.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 initSync({ module: readFileSync(new URL("wf_wasm_bg.wasm", pkgDir)) });
@@ -59,10 +66,17 @@ test("indexTerms folds each token and keeps duplicates", () => {
   assert.deepEqual(terms, ["cafe", "my", "variable", "myvariable"]);
 });
 
-test("tokenize and indexTerms reject text over MAX_INDEX_TEXT_UTF16", () => {
+test("maxIndexTextUtf16 is the Rust cap", () => {
+  assert.equal(maxIndexTextUtf16(), 2 ** 24);
+});
+
+test("tokenize and indexTerms reject text over MAX_INDEX_TEXT_UTF16 before WASM", () => {
+  // A RangeError comes from the wrapper; the Rust check throws a plain Error.
+  // So the text was never copied into linear memory.
   const huge = "a".repeat(2 ** 24 + 1);
-  assert.throws(() => tokenize(huge, ALL_ON), /MAX_INDEX_TEXT_UTF16/);
-  assert.throws(() => indexTerms(huge, ALL_ON), /MAX_INDEX_TEXT_UTF16/);
+  const beforeWasm = (e: unknown) => e instanceof RangeError && /MAX_INDEX_TEXT_UTF16/.test(e.message);
+  assert.throws(() => tokenize(huge, ALL_ON), beforeWasm);
+  assert.throws(() => indexTerms(huge, ALL_ON), beforeWasm);
 });
 
 test("tokenize accepts text at exactly MAX_INDEX_TEXT_UTF16", () => {

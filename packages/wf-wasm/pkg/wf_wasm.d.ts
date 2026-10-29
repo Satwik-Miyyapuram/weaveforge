@@ -21,6 +21,12 @@ export function coreInfo(): any;
 export function indexTerms(text: string, options: any): any;
 
 /**
+ * [`MAX_INDEX_TEXT_UTF16`] for JS, so the wrappers check the cap before the
+ * text is copied into linear memory.
+ */
+export function maxIndexTextUtf16(): number;
+
+/**
  * [`wf_core::search::tokenizer::tokenize`]: search terms of `text`, deduplicated.
  *
  * # Errors
@@ -36,6 +42,7 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly coreInfo: () => [number, number, number];
     readonly indexTerms: (a: number, b: number, c: any) => [number, number, number];
+    readonly maxIndexTextUtf16: () => number;
     readonly tokenize: (a: number, b: number, c: any) => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

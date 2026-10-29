@@ -38,6 +38,16 @@ export function indexTerms(text, options) {
 }
 
 /**
+ * [`MAX_INDEX_TEXT_UTF16`] for JS, so the wrappers check the cap before the
+ * text is copied into linear memory.
+ * @returns {number}
+ */
+export function maxIndexTextUtf16() {
+    const ret = wasm.maxIndexTextUtf16();
+    return ret >>> 0;
+}
+
+/**
  * [`wf_core::search::tokenizer::tokenize`]: search terms of `text`, deduplicated.
  *
  * # Errors
