@@ -102,6 +102,26 @@ jobs:
       - name: Run editor paste tests
         run: npm run test:e2e:editor
 
+      # @weaveforge/wasm imports the wasm-bindgen glue in packages/wf-wasm/pkg,
+      # which is build output (gitignored), so typecheck needs it built first.
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+
+      # Must equal the wasm-bindgen crate in Cargo.lock; build-wasm.mjs checks.
+      - name: Install wasm-bindgen CLI
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.129
+
+      - name: Build the Rust core to WASM
+        run: npm run build:wasm
+
+      - name: Run WASM package tests
+        run: npm test --workspace @weaveforge/wasm
+
       - name: Run Typechecks
         run: npm run typecheck
 

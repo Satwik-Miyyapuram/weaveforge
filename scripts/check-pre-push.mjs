@@ -7,7 +7,7 @@
  * 2. Architecture map & docs freshness (check:docs)
  * 3. Commit DCO sign-offs (check:dco)
  * 4. Architectural & code boundaries (check:boundaries - 10 gates)
- * 5. Typecheck across all workspaces (typecheck)
+ * 5. WASM build and its tests, then typecheck across all workspaces (build:wasm, typecheck)
  * 6. Linter (lint)
  * 7. Bundle budget (bundle:budget, when .next build exists)
  * 8. Memory budgets (test:memory, ~5 s)
@@ -60,7 +60,10 @@ run(`node scripts/check-dco.mjs ${baseSha} HEAD`, `Checking DCO sign-offs (${bas
 // 4. Boundary gates (SOLID, DRY, API routes, UI, contrast, hygiene, MCP, Android, CI parity)
 run("npm run check:boundaries", "Running architectural boundary gates");
 
-// 5. Full workspace typecheck
+// 5. Full workspace typecheck. @weaveforge/wasm imports the wasm-bindgen glue
+// in packages/wf-wasm/pkg (gitignored), so build it first.
+run("npm run build:wasm", "Building the Rust core to WASM");
+run("npm test --workspace @weaveforge/wasm", "Testing the WASM package");
 run("npm run typecheck", "Typechecking all workspace packages");
 
 // 6. Linter
