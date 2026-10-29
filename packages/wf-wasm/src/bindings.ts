@@ -5,3 +5,15 @@ export type CoreInfo = {
 	/**  Semver version of the core crate. */
 	version: string,
 };
+
+/**  Options for term normalization. Callers always pass them explicitly. */
+export type TokenizerOptions = {
+	/**  Fold é→e, ü→u. TS default: `true`. */
+	foldDiacritics: boolean,
+	/**  Additionally strip Arabic harakat. TS default: `false`. */
+	foldArabicDiacritics: boolean,
+	/**  Emit `my`+`variable` alongside `myVariable`. TS default: `true`. */
+	splitCamelCase: boolean,
+	/**  Emit host and path segments of a URL as separate terms. TS default: `true`. */
+	tokenizeUrls: boolean,
+};

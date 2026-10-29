@@ -12,6 +12,10 @@
 use serde::Serialize;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
+use wf_core::search::js_text::utf16_len;
+use wf_core::search::tokenizer::{
+    TokenizerOptions, index_terms as core_index_terms, tokenize as core_tokenize,
+};
 
 /// Converts a value to the JS shape `bindings.ts` declares for it. Every
 /// export returns through here.
@@ -31,4 +35,69 @@ fn to_js<T: Serialize>(value: &T) -> Result<JsValue, serde_wasm_bindgen::Error> 
 #[wasm_bindgen(js_name = coreInfo)]
 pub fn core_info() -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&wf_core::core_info())
+}
+
+/// Largest text, in UTF-16 code units, that `tokenize` and `indexTerms`
+/// accept (16 Mi units, 32 MiB as UTF-16). Larger input is an error, never
+/// truncated. The TS wrappers check it before the text crosses into WASM, since
+/// wasm-bindgen's copy would otherwise grow linear memory first; this check
+/// stays for direct callers. The core itself has no cap (phase-1-search.md, Limits).
+pub const MAX_INDEX_TEXT_UTF16: usize = 1 << 24;
+
+/// [`MAX_INDEX_TEXT_UTF16`] for JS, so the wrappers check the cap before the
+/// text is copied into linear memory.
+#[must_use]
+#[wasm_bindgen(js_name = maxIndexTextUtf16)]
+pub fn max_index_text_utf16() -> usize {
+    MAX_INDEX_TEXT_UTF16
+}
+
+/// Reads the JS options object and checks `text` against the cap.
+fn index_input(
+    text: &str,
+    options: JsValue,
+) -> Result<TokenizerOptions, serde_wasm_bindgen::Error> {
+    // Checked at compile time: a runtime `debug_assert!` on a const trips clippy's assertions_on_constants.
+    const _: () = assert!(MAX_INDEX_TEXT_UTF16 > 0);
+    // UTF-16 length never exceeds UTF-8 byte length, so short input skips the scan.
+    if text.len() > MAX_INDEX_TEXT_UTF16 {
+        let len = utf16_len(text);
+        if len > MAX_INDEX_TEXT_UTF16 {
+            return Err(serde_wasm_bindgen::Error::new(format!(
+                "text is {len} UTF-16 units; MAX_INDEX_TEXT_UTF16 is {MAX_INDEX_TEXT_UTF16}"
+            )));
+        }
+    }
+    debug_assert!(utf16_len(text) <= MAX_INDEX_TEXT_UTF16);
+    serde_wasm_bindgen::from_value(options)
+}
+
+/// [`wf_core::search::tokenizer::tokenize`]: search terms of `text`, deduplicated.
+///
+/// # Errors
+///
+/// Fails if `text` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or if
+/// `options` is not a valid `TokenizerOptions` object.
+#[wasm_bindgen(js_name = tokenize)]
+pub fn tokenize(text: &str, options: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let options = index_input(text, options)?;
+    debug_assert!(text.len() <= MAX_INDEX_TEXT_UTF16 * 3);
+    let terms = core_tokenize(text, &options);
+    debug_assert!(terms.iter().all(|t| t.len() <= text.len() * 3));
+    to_js(&terms)
+}
+
+/// [`wf_core::search::tokenizer::index_terms`]: what MiniSearch indexes for `text`.
+///
+/// # Errors
+///
+/// Fails if `text` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or if
+/// `options` is not a valid `TokenizerOptions` object.
+#[wasm_bindgen(js_name = indexTerms)]
+pub fn index_terms(text: &str, options: JsValue) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let options = index_input(text, options)?;
+    debug_assert!(text.len() <= MAX_INDEX_TEXT_UTF16 * 3);
+    let terms = core_index_terms(text, &options);
+    debug_assert!(terms.iter().all(|t| t.len() <= text.len() * 3));
+    to_js(&terms)
 }

@@ -12,13 +12,44 @@
  * Call `init` (browser, fetches the .wasm) or `initSync` (bytes in hand, e.g.
  * Node) once before any other export.
  */
-import init, { initSync, coreInfo as rawCoreInfo } from "../pkg/wf_wasm.js";
-import type { CoreInfo } from "./bindings.js";
+import init, {
+  initSync,
+  coreInfo as rawCoreInfo,
+  maxIndexTextUtf16 as rawMaxIndexTextUtf16,
+  tokenize as rawTokenize,
+  indexTerms as rawIndexTerms,
+} from "../pkg/wf_wasm.js";
+import type { CoreInfo, TokenizerOptions } from "./bindings.js";
 
-export type { CoreInfo };
+export type { CoreInfo, TokenizerOptions };
 export { init, initSync };
 
 /** Facts about this core build, such as its version. */
 export function coreInfo(): CoreInfo {
   return rawCoreInfo() as CoreInfo;
+}
+
+/** Largest text, in UTF-16 units, that `tokenize` and `indexTerms` accept (Rust `MAX_INDEX_TEXT_UTF16`). */
+export function maxIndexTextUtf16(): number {
+  return rawMaxIndexTextUtf16();
+}
+
+/** Throws before the text is copied into WASM, which would grow linear memory for good. */
+function checkIndexText(text: string): void {
+  const max = rawMaxIndexTextUtf16();
+  if (text.length > max) {
+    throw new RangeError(`text is ${text.length} UTF-16 units; MAX_INDEX_TEXT_UTF16 is ${max}`);
+  }
+}
+
+/** Search terms of `text`, deduplicated, first occurrence wins. Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function tokenize(text: string, options: TokenizerOptions): string[] {
+  checkIndexText(text);
+  return rawTokenize(text, options) as string[];
+}
+
+/** `tokenize` then `processTerm` on each token: what MiniSearch indexes. Not deduplicated. */
+export function indexTerms(text: string, options: TokenizerOptions): string[] {
+  checkIndexText(text);
+  return rawIndexTerms(text, options) as string[];
 }

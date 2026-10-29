@@ -10,7 +10,8 @@ use crate::search::js_text::{is_letter_or_number, utf16_len};
 use crate::search::url_parts::url_parts;
 
 /// Options for term normalization. Callers always pass them explicitly.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct TokenizerOptions {
     /// Fold é→e, ü→u. TS default: `true`.
     pub fold_diacritics: bool,

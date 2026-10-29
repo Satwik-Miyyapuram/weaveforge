@@ -441,6 +441,31 @@ jobs:
       - name: Rust gates (fmt, clippy, nextest, doctest, deny, advisories)
         run: node scripts/check-rust.mjs
 
+  wasm-parity:
+    # TS vs Rust on frozen goldens (plan P1.2). Node is pinned to the version
+    # the fixtures were generated on: its ICU fixes toLowerCase and \p{...}
+    # behaviour, so another Node could fail on the TS side, not the port.
+    # Uses the committed pkg/; build-and-test's wasm:fresh proves it current.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.1
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Core package
+        run: npm run build:core
+
+      - name: TS/Rust parity on fixtures
+        run: npm run parity --workspace @weaveforge/wasm
+
   python-sdk:
     runs-on: ubuntu-latest
     steps:
