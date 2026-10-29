@@ -272,12 +272,18 @@ test("a heading of hashes alone is not an empty heading", () => {
   assert.doesNotMatch(renderProseMarkdown("####"), /<h\d/);
 });
 
+test("hashes followed only by whitespace are not an empty heading", () => {
+  for (const line of ["#### ", "#   ", "###### 	"]) {
+    assert.doesNotMatch(renderProseMarkdown(line), /<h\d/, JSON.stringify(line));
+  }
+});
+
 test("inline code and maths inside a level-four heading keep their markup", () => {
   const html = renderProseMarkdown("#### `code` and $x^2$ here");
   assert.match(html, /<h4[^>]*><code>code<\/code> and <span class="(katex|math-pending)"/);
 });
 
-/** The font-size token that the first rule with exactly this selector sets. */
+/** The font-size value that the first rule with exactly this selector sets. */
 function headingSizeToken(selector: string): string {
   const css = readFileSync(fileURLToPath(new URL("../../../app/styles/markdown.css", import.meta.url)), "utf8");
   for (const block of css.split("}")) {
@@ -285,8 +291,8 @@ function headingSizeToken(selector: string): string {
     if (open < 0) continue;
     const head = block.slice(0, open).replace(/\/\*[\s\S]*?\*\//g, "").trim();
     if (head !== selector) continue;
-    const token = /font-size:\s*(var\(--[\w-]+\))/.exec(block.slice(open + 1))?.[1];
-    assert.ok(token, `${selector} sets no font-size token`);
+    const token = /font-size:\s*([^;]+)/.exec(block.slice(open + 1))?.[1]?.trim();
+    assert.ok(token, `${selector} sets no font-size`);
     return token;
   }
   assert.fail(`no rule for ${selector}`);

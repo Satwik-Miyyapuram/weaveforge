@@ -36,13 +36,27 @@ test("markdown.css gives every heading level a size and a margin", () => {
   }
 });
 
-test("the first three levels keep the sizes they had as h3-h5", () => {
-  const size = (level: number) =>
-    rules("markdown.css")
+test("no heading level is larger than the level above it at a 14px base", () => {
+  const BASE = 14;
+  const px = (level: number) => {
+    const value = rules("markdown.css")
       .filter((r) => r.selectors.includes(`.markdown h${level}`))
       .map((r) => /font-size:\s*([^;]+)/.exec(r.body)?.[1]?.trim())
       .find(Boolean);
-  assert.deepEqual([size(1), size(2), size(3)], ["1.17em", "1em", "0.83em"]);
+    const m = /^([\d.]+)(em|px)$/.exec(value ?? "");
+    assert.ok(m, `.markdown h${level} font-size ${value} is not an em or px size`);
+    return m[2] === "em" ? Number(m[1]) * BASE : Number(m[1]);
+  };
+  for (const level of [2, 3, 4, 5, 6]) {
+    assert.ok(px(level) <= px(level - 1), `h${level} (${px(level)}px) is larger than h${level - 1} (${px(level - 1)}px)`);
+  }
+  assert.ok(px(1) > px(6), "the levels do not step down at all");
+});
+
+test("the AI review screen's title rule does not reach a # heading in a proposal", () => {
+  const css = rules("ai-review.css");
+  assert.ok(css.every((r) => !r.selectors.includes(".ai-review-screen h1")), "an unscoped .ai-review-screen h1 rule remains");
+  assert.ok(css.some((r) => r.selectors.includes(".ai-review-screen .screen-head h1")), "the title rule is not scoped to the screen head");
 });
 
 test("no stylesheet still styles the retired h6.md-hN classes", () => {

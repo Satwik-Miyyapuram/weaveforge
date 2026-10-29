@@ -487,7 +487,7 @@ export function renderProseMarkdown(md: string, options?: MarkdownRenderOptions)
       continue;
     }
 
-    const h = /^(#{1,6})\s+(.*)$/.exec(line);
+    const h = /^(#{1,6})\s+(\S.*)$/.exec(line);
     const li = /^\s*[-*]\s+(.*)$/.exec(line);
     const oli = /^\s*\d+[.)]\s+(.*)$/.exec(line);
     if (h) {
