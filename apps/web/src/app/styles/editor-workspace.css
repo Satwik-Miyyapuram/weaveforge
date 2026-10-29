@@ -2454,7 +2454,7 @@
   line-height: 1.5;
 }
 
-.ink-text h4 {
+.ink-text > h4 {
   display: flex;
   align-items: center;
   margin: 0 0 12px;
@@ -2465,7 +2465,7 @@
   letter-spacing: 0.06em;
 }
 
-.ink-text h4 .ink-conf { margin-left: auto; letter-spacing: 0; text-transform: none; }
+.ink-text > h4 .ink-conf { margin-left: auto; letter-spacing: 0; text-transform: none; }
 .ink-text p { margin: 0 0 12px; }
 .ink-text .ink-empty { color: var(--faint); }
 /* A line is a paragraph; unsure ones are dotted (§5.4), accepted ones plain. */
@@ -2487,16 +2487,17 @@
    estimate in ink-text-flow stays close to what is drawn. */
 .ink-sheet-text-underlay { max-width: none; }
 /* `.ink-sheet` in the selector outranks markdown.css's own block margins. */
-.ink-sheet .ink-sheet-text-underlay :is(p, ul, ol, li, h3, h4, h5, pre, table, blockquote, .callout, .math-display, .md-mermaid) {
+.ink-sheet .ink-sheet-text-underlay :is(p, ul, ol, li, h1, h2, h3, h4, h5, h6, pre, table, blockquote, .callout, .math-display, .md-mermaid) {
   margin: 0;
 }
 .ink-sheet .ink-sheet-text-underlay :is(p, li) { line-height: var(--ink-rule, 1.6em); }
-.ink-sheet-text-underlay h3,
-.ink-sheet-text-underlay h4,
-.ink-sheet-text-underlay h5 { margin: 0; line-height: var(--ink-rule, 1.6em); }
-.ink-sheet-text-underlay h3 { font-size: 1.35em; }
-.ink-sheet-text-underlay h4 { font-size: 1.18em; }
-.ink-sheet-text-underlay h5 { font-size: 1.05em; }
+.ink-sheet-text-underlay :is(h1, h2, h3, h4, h5, h6) { margin: 0; line-height: var(--ink-rule, 1.6em); }
+.ink-sheet-text-underlay h1 { font-size: 1.35em; }
+.ink-sheet-text-underlay h2 { font-size: 1.18em; }
+.ink-sheet-text-underlay h3 { font-size: 1.05em; }
+.ink-sheet-text-underlay h4 { font-size: 1em; }
+.ink-sheet-text-underlay h5 { font-size: 0.95em; }
+.ink-sheet-text-underlay h6 { font-size: 0.9em; }
 .ink-sheet-text-underlay ul,
 .ink-sheet-text-underlay ol { margin: 0; padding-left: 1.4em; }
 .ink-sheet-text-underlay .md-code {
