@@ -210,6 +210,15 @@ function gitIn(root: string, args: string[]): string {
   return execFileSync("git", ["-C", root, "-c", "core.longpaths=true", ...args], { encoding: "utf8" });
 }
 
+/** The pack runs detached after the commit, so wait for it before the folder is removed. */
+async function packed(root: string, tries = 300): Promise<boolean> {
+  for (let i = 0; i < tries; i++) {
+    if (/^packs: [1-9]/m.test(gitIn(root, ["count-objects", "-v"])) && !existsSync(path.join(root, ".git", "gc.pid"))) return true;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  return false;
+}
+
 function newRepo(t: { after: (fn: () => void) => void }): string {
   const root = mkdtempSync(path.join(tmpdir(), "wf-vault-git-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -228,7 +237,7 @@ test("a commit packs loose history but prunes nothing, so an older version stays
   const second = await commitVault(root, true);
   assert.ok(second.committed);
 
-  assert.match(gitIn(root, ["count-objects", "-v"]), /^packs: [1-9]/m);
+  assert.ok(await packed(root), "the history was packed");
   const old = await new NativeWorkspaceGit(root).readAt(first.committed.oid, "n0.note.md");
   assert.equal(new TextDecoder().decode(old ?? new Uint8Array()), "# Note 0");
 });
@@ -260,7 +269,7 @@ test("a pack keeps an unreachable object older than two weeks, which git's defau
 
   const result = await commitVault(root, true);
   assert.ok(result.committed);
-  assert.match(gitIn(root, ["count-objects", "-v"]), /^packs: [1-9]/m);
+  assert.ok(await packed(root), "the history was packed");
   assert.equal(gitIn(root, ["cat-file", "-t", oid]).trim(), "blob");
 });
 
@@ -276,13 +285,59 @@ test("default git gc settings pack a history past the 6,700 loose-object thresho
   const result = await commitVault(root, true);
   assert.equal(result.reason, undefined);
   assert.ok(result.committed);
-  // Default gc detaches the repack, so wait for it to finish before the folder is removed.
-  let packed = false;
-  for (let i = 0; i < 300 && !packed; i++) {
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    packed = /^packs: [1-9]/m.test(gitIn(root, ["count-objects", "-v"])) && !existsSync(path.join(root, ".git", "gc.pid"));
-  }
-  assert.ok(packed, "the detached repack did not finish within 60 seconds");
+  // On Windows git cannot detach gc, so the vault starts the pack as its own detached process.
+  assert.ok(await packed(root), "the pack did not finish within 60 seconds");
+});
+
+test("the commit itself never runs git's auto gc, which on Windows blocks inside the 30-second bound", async (t) => {
+  const root = newRepo(t);
+  gitIn(root, ["config", "gc.auto", "1"]);
+  gitIn(root, ["config", "gc.autoDetach", "false"]);
+  // pre-auto-gc runs once per auto gc, then aborts it: one run is the vault's own pack, a second is the commit's.
+  const runs = path.join(root, ".git", "auto-gc-runs");
+  const hooks = path.join(root, ".git", "hooks");
+  mkdirSync(hooks, { recursive: true });
+  writeFileSync(path.join(hooks, "pre-auto-gc"), `#!/bin/sh\necho run >> "${runs.replace(/\\/g, "/")}"\nexit 1\n`, { mode: 0o755 });
+  for (let i = 0; i < 1000; i++) writeFileSync(path.join(root, `n${i}.note.md`), `# Note ${i}`);
+
+  const result = await commitVault(root, true);
+  assert.equal(result.reason, undefined);
+  assert.ok(result.committed);
+  const count = () => (existsSync(runs) ? readFileSync(runs, "utf8").split(/\r?\n/).filter(Boolean).length : 0);
+  for (let i = 0; i < 100 && count() === 0; i++) await new Promise((resolve) => setTimeout(resolve, 100));
+  await new Promise((resolve) => setTimeout(resolve, 1_000));
+  assert.equal(count(), 1, "only the vault's own pack ran auto gc, not git commit");
+});
+
+test("a stale index.lock left by a killed git is named in the commit failure, and left in place", async (t) => {
+  const root = newRepo(t);
+  writeFileSync(path.join(root, "a.note.md"), "# A");
+  await commitVault(root, true);
+  const lock = path.join(root, ".git", "index.lock");
+  writeFileSync(lock, "");
+  const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  utimesSync(lock, hourAgo, hourAgo);
+  writeFileSync(path.join(root, "a.note.md"), "# A, edited");
+
+  const result = await commitVault(root, true);
+  assert.equal(result.committed, null);
+  assert.match(result.reason ?? "", /stale/i);
+  assert.match(result.reason ?? "", /index\.lock/);
+  assert.match(result.reason ?? "", /60 min/);
+  assert.ok(existsSync(lock), "the lock is only reported, never deleted");
+});
+
+test("a fresh index.lock, as from a git still running, is not called stale", async (t) => {
+  const root = newRepo(t);
+  writeFileSync(path.join(root, "a.note.md"), "# A");
+  await commitVault(root, true);
+  writeFileSync(path.join(root, ".git", "index.lock"), "");
+  writeFileSync(path.join(root, "a.note.md"), "# A, edited");
+
+  const result = await commitVault(root, true);
+  assert.equal(result.committed, null);
+  assert.match(result.reason ?? "", /index\.lock/);
+  assert.doesNotMatch(result.reason ?? "", /stale/i);
 });
 
 test("a folder whose only changes are local-only database files commits nothing and throws nothing", async (t) => {
@@ -428,6 +483,51 @@ test("a tracked file that grows past the cap keeps its last small version; other
   assert.deepEqual(headFiles(root), ["M\ta.note.md"]);
   assert.equal(gitIn(root, ["show", "HEAD:grows.bin"]), "small");
   assert.ok(first.committed);
+});
+
+test("a file over the cap that is already staged is unstaged, not committed", async (t) => {
+  t.mock.method(console, "warn", () => undefined);
+  const root = newRepo(t);
+  writeFileSync(path.join(root, "a.note.md"), "# A");
+  await commitVault(root, true, capped(root));
+  // Staged by a git add that was killed before its commit, or by the user.
+  writeFileSync(path.join(root, "big.pdf"), Buffer.alloc(CAP + 1, 7));
+  gitIn(root, ["add", "big.pdf"]);
+  writeFileSync(path.join(root, "a.note.md"), "# A, edited");
+
+  const result = await commitVault(root, true, capped(root));
+  assert.ok(result.committed);
+  assert.deepEqual(headFiles(root), ["M\ta.note.md"]);
+  assert.deepEqual(gitIn(root, ["ls-files"]).split(/\r?\n/).filter(Boolean), ["a.note.md"]);
+});
+
+test("a staged big file in a folder with no commits yet is unstaged too", async (t) => {
+  t.mock.method(console, "warn", () => undefined);
+  const root = newRepo(t);
+  writeFileSync(path.join(root, "big.pdf"), Buffer.alloc(CAP + 1, 7));
+  gitIn(root, ["add", "big.pdf"]);
+  writeFileSync(path.join(root, "a.note.md"), "# A");
+
+  const result = await commitVault(root, true, capped(root));
+  assert.equal(result.reason, undefined);
+  assert.ok(result.committed);
+  assert.deepEqual(gitIn(root, ["ls-files"]).split(/\r?\n/).filter(Boolean), ["a.note.md"]);
+});
+
+test("a tracked file that grew past the cap and was staged keeps its last small version", async (t) => {
+  t.mock.method(console, "warn", () => undefined);
+  const root = newRepo(t);
+  writeFileSync(path.join(root, "grows.bin"), "small");
+  writeFileSync(path.join(root, "a.note.md"), "# A");
+  await commitVault(root, true, capped(root));
+  writeFileSync(path.join(root, "grows.bin"), Buffer.alloc(CAP + 1, 7));
+  gitIn(root, ["add", "grows.bin"]);
+  writeFileSync(path.join(root, "a.note.md"), "# A, edited");
+
+  const result = await commitVault(root, true, capped(root));
+  assert.ok(result.committed);
+  assert.deepEqual(headFiles(root), ["M\ta.note.md"]);
+  assert.equal(gitIn(root, ["show", "HEAD:grows.bin"]), "small");
 });
 
 test("a tracked file over the cap that is deleted is still removed from the index", async (t) => {

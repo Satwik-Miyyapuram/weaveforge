@@ -1,5 +1,5 @@
-import { execFile } from "node:child_process";
-import { appendFile, lstat, mkdir, readFile } from "node:fs/promises";
+import { execFile, spawn } from "node:child_process";
+import { appendFile, lstat, mkdir, readFile, stat } from "node:fs/promises";
 import * as path from "node:path";
 import { promisify } from "node:util";
 
@@ -35,14 +35,20 @@ const run = promisify(execFile);
 const TIMEOUT_MS = 30_000;
 
 /**
- * Bounds the `gc --auto` call only. Git detaches the repack by default, so the repack itself runs past
- * this bound. A call killed here may leave `.git/gc.pid` behind, and later auto-gc then reports "gc already running".
+ * A git killed by TIMEOUT_MS can leave `index.lock` behind, and every later add fails on it. A lock this old
+ * is not a git still running: the commit failure names it, so the user can delete it.
  */
-const GC_TIMEOUT_MS = 60_000;
+const STALE_LOCK_MS = 5 * 60_000;
+
+/**
+ * `git commit` runs auto gc itself, and on Windows git cannot detach it: it would run inside the commit's
+ * 30-second bound and get killed there. So the commit runs with it off and `packLoose` packs instead.
+ */
+const NO_AUTO_GC = ["-c", "maintenance.auto=false", "-c", "gc.auto=0"];
 
 // Paper paths pass 260 chars on Windows; without longpaths `add -A` skips or refuses them.
-// `gc.pruneExpire=never`: git's own auto-gc runs inside every commit and would otherwise prune unreachable
-// objects older than two weeks before `packLoose` runs.
+// `gc.pruneExpire=never`: any gc started through here, the vault's own or one git starts itself,
+// would otherwise prune unreachable objects older than two weeks.
 const FLAGS = ["-c", "core.longpaths=true", "-c", "core.autocrlf=false", "-c", "gc.pruneExpire=never"];
 
 /** This machine's database, cache and lock under the folder root; never history. */
@@ -154,8 +160,17 @@ export class NativeWorkspaceGit implements IWorkspaceGit {
   }
 
   async commitAll(message: string, author: GitAuthor): Promise<WorkspaceCommit | null> {
+    try {
+      return await this.commitChanges(message, author);
+    } catch (error) {
+      throw await this.withStaleLock(error);
+    }
+  }
+
+  private async commitChanges(message: string, author: GitAuthor): Promise<WorkspaceCommit | null> {
     await this.excludeLocalOnly();
     // A file over the cap is never added, so not even a loose copy of it lands in the object store.
+    // A file that grows past the cap between this size check and the add still goes in: rare, and accepted.
     const { tooLarge } = await this.changes();
     if (tooLarge.length > 0) {
       const cap = Math.round(this.maxFileBytes / (1024 * 1024));
@@ -163,6 +178,11 @@ export class NativeWorkspaceGit implements IWorkspaceGit {
     }
     const pathspecs = [".", ...tooLarge.map((file) => `:(exclude,literal)${file}`)];
     await git(this.root, ["add", "-A", "--pathspec-from-file=-", "--pathspec-file-nul"], `${pathspecs.join("\0")}\0`);
+    // One staged earlier (by an add killed before its commit, or by the user) is still in the index: back to HEAD.
+    if (tooLarge.length > 0) {
+      const literal = tooLarge.map((file) => `:(literal)${file}\0`).join("");
+      await git(this.root, ["reset", "-q", "--pathspec-from-file=-", "--pathspec-file-nul"], literal);
+    }
     // The status still lists skipped files, so only the index says whether anything is left to commit.
     if (!(await git(this.root, ["diff", "--cached", "--name-only", "-z"]))) return null;
     // The author is passed per-commit rather than configured, so nothing here
@@ -172,28 +192,49 @@ export class NativeWorkspaceGit implements IWorkspaceGit {
       `user.name=${author.name}`,
       "-c",
       `user.email=${author.email}`,
+      ...NO_AUTO_GC,
       "commit",
       "--no-verify",
       "-m",
       message,
     ]);
-    await this.packLoose();
+    this.packLoose();
     const [head] = await this.log({ limit: 1 });
     return head ?? null;
   }
 
   /**
-   * Packs loose objects once they pile up, as `git commit` does itself, but never with `--prune`:
-   * an object nothing references any more is kept. Best effort: a failed pack only goes in the log.
+   * Packs loose objects once they pile up, as `git commit` would, but never with `--prune`: an object
+   * nothing references any more is kept. A first pack of a big history takes minutes, so it runs as its
+   * own detached process with no time bound; `gc.pid` keeps a second one from starting meanwhile.
+   * Best effort: a failed pack only goes in the log.
    */
-  private async packLoose(): Promise<void> {
+  private packLoose(): void {
+    const child = spawn("git", [...FLAGS, "-C", this.root, "gc", "--auto", "--no-prune", "--quiet"], {
+      detached: true,
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    child.on("error", (error) => console.warn(`[vault-git] could not pack the history: ${errorMessage(error, "")}`));
+    child.on("exit", (code) => {
+      if (code) console.warn(`[vault-git] could not pack the history: git gc exited with ${code}`);
+    });
+    child.unref();
+  }
+
+  /** The error, or one naming a stale `index.lock` when that is what blocks git. The lock is never deleted. */
+  private async withStaleLock(error: unknown): Promise<unknown> {
     try {
-      await run("git", [...FLAGS, "-C", this.root, "gc", "--auto", "--no-prune"], {
-        timeout: GC_TIMEOUT_MS,
-        windowsHide: true,
-      });
-    } catch (error) {
-      console.warn(`[vault-git] could not pack the history: ${gitReason(error).slice(0, 300)}`);
+      const lock = path.resolve(this.root, (await git(this.root, ["rev-parse", "--git-path", "index.lock"])).trim());
+      const age = Date.now() - (await stat(lock)).mtimeMs;
+      if (age < STALE_LOCK_MS) return error;
+      const minutes = Math.round(age / 60_000);
+      return new Error(
+        `A stale ${lock}, left ${minutes} min ago by a git that was stopped, blocks every commit. ` +
+          `Quit WeaveForge, check no git is running, then delete it. (${gitReason(error)})`,
+      );
+    } catch {
+      return error;
     }
   }
 
