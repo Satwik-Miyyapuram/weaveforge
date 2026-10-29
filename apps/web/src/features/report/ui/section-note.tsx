@@ -10,10 +10,9 @@ import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { CardMenu } from "@/components/card-menu";
 import { ShareButton, CommentsToggle, PinnedPaperBadge } from "@/features/sharing";
 import type { EditorHandle } from "@/components/editor-handle";
-import { AttachImageButton } from "@/components/attach-image-button";
 import { formatError } from "@/lib/format-error";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
-import { CitationFormatSelect } from "@/components/citation-format-select";
+import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
 import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
 import { materializeReportBlobImages } from "../lib/report-images-md";
 import { sectionProgress, type SectionProgress } from "../lib/section-progress";
@@ -23,8 +22,8 @@ import { StatusSelect } from "@/components/status-select";
 import { removeSectionLater } from "./remove-section";
 import { RowButton } from "@/components/controls";
 
-/** A section's two views, in the order the Editor's pane header lists them. */
-const SECTION_MODES = ["edit", "read"] as const;
+/** A section is text only: the switch offers Text, with Ink greyed. */
+const SECTION_MODES = ["edit"] as const;
 type SectionMode = (typeof SECTION_MODES)[number];
 
 /**
@@ -57,14 +56,15 @@ export function SectionNote({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  // Read or Edit, as in the Editor's pane header. A section opens read.
-  const [mode, setMode] = useState<SectionMode>("read");
+  // A section opens in Text, as in the Editor; a reader without rights reads.
+  const [mode, setMode] = useState<SectionMode>("edit");
   const editing = !readOnly && mode === "edit";
   const [saveError, setSaveError] = useState<string | null>(null);
   // Filled in while the editor is on screen, so the buttons can insert at the caret.
   const editorHandle = useRef<EditorHandle | null>(null);
   const { completions } = useCiteLinkCatalog();
   const [citationFormat, setCitationFormat] = useCitationFormatPreference();
+  const [pickingArtifact, setPickingArtifact] = useState(false);
 
   const hasNotes = Boolean(section.notes?.trim());
   const { words, target, pct: progress } = rolled ?? sectionProgress({ section, children: [] });
@@ -150,7 +150,6 @@ export function SectionNote({
       </div>
 
       <div className="paper-note-head section-note-toolbar" role="toolbar" aria-label="Section">
-        {!readOnly && <DocumentModeSwitch modes={SECTION_MODES} mode={mode} onMode={setMode} />}
         <CommentsToggle
           resourceType="report_section"
           resourceId={section.id}
@@ -198,15 +197,22 @@ export function SectionNote({
           )
         ) : (
           <div className={editing ? "record-doc record-doc--edit" : "summary"}>
-            {editing && (
-              <div className="summary-editor-bar">
-                <CitationFormatSelect value={citationFormat} onChange={setCitationFormat} />
-                <ExperimentArtifactPicker disabled={busy} onInsert={insertSnippet} />
-                <AttachImageButton editor={editorHandle} onError={setSaveError} />
-              </div>
+            {pickingArtifact && (
+              <ExperimentArtifactPicker onInsert={insertSnippet} onClose={() => setPickingArtifact(false)} />
             )}
             {/* The Editor's own document host, as a section tab mounts it:
                 Edit and Read here are that code, not a copy of it. */}
+            <DocumentToolbar
+              lead={!readOnly ? <DocumentModeSwitch modes={SECTION_MODES} mode={mode} onMode={setMode} /> : undefined}
+              editor={editing ? editorHandle : undefined}
+              onError={setSaveError}
+              insertItems={
+                editing && !busy
+                  ? [{ label: "Experiment artifact…", title: "Insert experiment artifact", onSelect: () => setPickingArtifact(true) }]
+                  : undefined
+              }
+              moreSections={editing ? [citeAsSection(citationFormat, setCitationFormat)] : undefined}
+            >
             <DocumentBody
               tab={{ kind: "report_section", id: section.id }}
               mode={editing ? "edit" : "read"}
@@ -218,6 +224,7 @@ export function SectionNote({
               handleRef={editorHandle}
               onError={setSaveError}
             />
+            </DocumentToolbar>
           </div>
         )}
         {saveError && <InlineError>{saveError}</InlineError>}

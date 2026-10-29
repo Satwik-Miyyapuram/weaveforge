@@ -413,7 +413,7 @@
 
 /* A 375px screen has no room for a second pane, and the two split buttons
    were taking the width the open tabs needed. */
-.workspace-shell.is-phone .pane-tab-actions > .wf-btn[aria-label^="Split"] {
+.workspace-shell.is-phone .workspace-toolbar-end > .wf-btn[aria-label^="Split"] {
   display: none;
 }
 
@@ -426,14 +426,14 @@
   box-shadow: var(--e3);
 }
 
-.workspace-shell.is-phone.is-explorer-hidden .pane-root > .pane > .pane-tabs .pane-tab-scroll,
-.workspace-shell.is-phone.is-explorer-hidden .pane-root > .pane-split > .pane-half:first-child > .pane > .pane-tabs .pane-tab-scroll {
+.workspace-shell.is-phone.is-explorer-hidden .pane-stage > .pane > .pane-tabs .pane-tab-scroll,
+.workspace-shell.is-phone.is-explorer-hidden .pane-stage > .pane-split > .pane-half:first-child > .pane > .pane-tabs .pane-tab-scroll {
   padding-inline-start: 32px;
 }
 
 /* The strip's first tab starts past the handle, or the two overlap. */
-.workspace-shell.is-explorer-hidden .pane-root > .pane > .pane-tabs .pane-tab-scroll,
-.workspace-shell.is-explorer-hidden .pane-root > .pane-split > .pane-half:first-child > .pane > .pane-tabs .pane-tab-scroll {
+.workspace-shell.is-explorer-hidden .pane-stage > .pane > .pane-tabs .pane-tab-scroll,
+.workspace-shell.is-explorer-hidden .pane-stage > .pane-split > .pane-half:first-child > .pane > .pane-tabs .pane-tab-scroll {
   padding-inline-start: 24px;
 }
 
@@ -449,8 +449,9 @@
 
 .workspace-shell.is-focus .explorer-panel,
 .workspace-shell.is-focus .explorer-show,
+.workspace-shell.is-focus .workspace-toolbar,
 .workspace-shell.is-focus .pane-tabs,
-.workspace-shell.is-focus .breadcrumbs,
+.workspace-shell.is-focus .pane-crumbs,
 .workspace-shell.is-focus .status-bar {
   display: none;
 }
@@ -532,15 +533,16 @@
 :is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom-right"],
 .pdf-reader.is-focus .ink-palette[data-dock="bottom-right"] { inset-block-end: 10px; inset-inline-end: 10px; }
 
-/* Along the top and bottom edges the palette runs as a row. */
+/* Along the top and bottom edges the palette runs as a row, wrapping whole
+   groups when the window is narrow; it never scrolls. */
 :is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="top"],
 :is(.workspace-shell, .record-ink-focus).is-focus .ink-palette[data-dock="bottom"],
 .pdf-reader.is-focus .ink-palette[data-dock="top"],
 .pdf-reader.is-focus .ink-palette[data-dock="bottom"] {
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
   max-width: calc(100% - 20px);
-  overflow-x: auto;
 }
 
 /* The bar in focus — both surfaces are this one bar now
@@ -742,8 +744,220 @@
 
 .pane-root {
   flex: 1;
+  flex-direction: column;
   grid-column: 2;
   grid-row: 1;
+}
+
+/* The panes, under the one toolbar. */
+.pane-stage {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The Editor's one toolbar: the focused document's mode and tools, then the
+   layout controls at the end. One slim row over every pane. */
+.workspace-toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  /* The ink bar's height and border, so switching Text and Ink does not move the page. */
+  min-height: 46px;
+  padding-inline: 8px;
+  border-block-end: 1px solid var(--border);
+  background: var(--surface);
+  /* It folds rather than wraps (ink-bar-fold.tsx); nothing may spill meanwhile. */
+  overflow: hidden;
+}
+
+/* The focused document's own tools (the ink bar), brought up from its pane. */
+.workspace-toolbar-doc {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+}
+
+.workspace-toolbar-doc:empty {
+  display: none;
+}
+
+/* The greyed bar gives way once a sheet or a paper brings its live one. */
+.workspace-toolbar-doc:not(:empty) + .workspace-toolbar-idle {
+  display: none;
+}
+
+/* Flat in the toolbar. It never scrolls nor wraps: a narrow pane folds
+   controls into More and Layout ▾ instead (ink-bar-fold.tsx). */
+.workspace-toolbar-doc > .ink-bar {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  min-width: 0;
+  gap: 4px;
+}
+
+/* Flat in the toolbar, like its other buttons: no boxes round the groups. */
+.workspace-toolbar-doc :is(.ink-bar-group, .ink-page-pill) {
+  flex-wrap: nowrap;
+  border: 0;
+  background: none;
+}
+
+.workspace-toolbar-doc .ink-quick-colours {
+  gap: var(--s3);
+  padding-inline: 4px;
+}
+
+
+:root:root .workspace-toolbar-doc .wf-swatch {
+  width: 20px;
+  height: 20px;
+}
+
+/* The PDF reader's panel, flattened into the row: ink tools, then page, zoom,
+   find and more. The toolbar has its own Focus, so the reader's hides. */
+.workspace-toolbar-doc > .pdf-reader-chrome {
+  position: static;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  min-width: 0;
+  border: 0;
+  background: none;
+}
+
+.workspace-toolbar-doc .pdf-reader-chrome .ink-bar {
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  min-width: 0;
+  padding: 4px 0;
+}
+
+.workspace-toolbar-doc .pdf-reader-tools {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 4px;
+  padding: 4px;
+}
+
+.workspace-toolbar-doc .pdf-reader-focus-btn {
+  display: none;
+}
+
+.workspace-toolbar-end {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 1px;
+  margin-inline-start: auto;
+}
+
+/* The fold, a stage at a time as the bar narrows (FOLD_STAGES): first the
+   zoom and page pills shrink, then controls move into More (a dot on it says
+   so), Preview and Split into Layout ▾, the quick colours into the pen's
+   swatch, and Focus last. */
+.workspace-toolbar-end > .workspace-toolbar-layout {
+  display: none;
+}
+
+.workspace-toolbar[data-fold~="layout"] .workspace-toolbar-layout {
+  display: inline-flex;
+}
+
+:root:root .workspace-toolbar-layout > .wf-tool {
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  gap: 2px;
+  padding: 0 4px;
+}
+
+.workspace-toolbar-layout > .wf-tool svg {
+  flex: none;
+}
+
+:root:root:root .workspace-toolbar[data-fold~="zoom"] .ink-zoom-pill .ink-menu-caret {
+  display: none;
+}
+
+:root:root:root .workspace-toolbar[data-fold~="zoom"] .ink-zoom-pill .wf-tool {
+  width: 22px;
+  min-width: 22px;
+}
+
+:root:root:root .workspace-toolbar[data-fold~="zoom"] .ink-zoom-pill .wf-btn {
+  min-width: 0;
+  padding-inline: 2px;
+}
+
+:root:root:root .workspace-toolbar[data-fold~="pages"] .ink-page-pill:not(.ink-zoom-pill) .wf-tool {
+  width: 20px;
+  min-width: 20px;
+}
+
+:root:root:root .workspace-toolbar[data-fold~="pages"] .ink-page-input {
+  width: 2.2ch;
+  padding: 0;
+  border-color: transparent;
+  background: none;
+}
+
+:root:root:root .workspace-toolbar[data-fold~="zoom-out"] .workspace-toolbar-doc .ink-zoom-pill,
+:root:root:root .workspace-toolbar[data-fold~="pages-out"] .workspace-toolbar-doc .ink-page-pill:not(.ink-zoom-pill),
+:root:root:root .workspace-toolbar[data-fold~="pages-out"] .workspace-toolbar-doc [aria-label="Add a blank page"],
+:root:root:root .workspace-toolbar[data-fold~="recognise"] .workspace-toolbar-doc [aria-label="Recognise"],
+:root:root:root .workspace-toolbar[data-fold~="insert"] .workspace-toolbar-doc .ink-menu-insert,
+:root:root:root .workspace-toolbar[data-fold~="find"] .workspace-toolbar-doc button[aria-label="Find in document"],
+:root:root:root .workspace-toolbar[data-fold~="history"] .workspace-toolbar-doc .ink-bar-group:has([aria-label="Undo"]),
+:root:root:root .workspace-toolbar[data-fold~="colours"] .workspace-toolbar-doc .ink-quick-colours,
+:root:root:root .workspace-toolbar[data-fold~="layout"] .workspace-toolbar-end > :is([aria-label="Preview"], [aria-label^="Split"]),
+:root:root:root .workspace-toolbar[data-fold~="focus"] .workspace-toolbar-end > [aria-label="Focus"] {
+  display: none;
+}
+
+.workspace-toolbar[data-moved] .workspace-toolbar-doc .ink-menu-more {
+  position: relative;
+}
+
+.workspace-toolbar[data-moved] .workspace-toolbar-doc .ink-menu-more::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--surface);
+  pointer-events: none;
+}
+
+/* What moved, at the top of More: a row each for undo, the page and the zoom. */
+.ink-menu-fold-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 8px 2px 12px;
+  min-height: 36px;
+}
+
+.ink-menu-fold-row > .ink-menu-heading {
+  flex: 1;
+  padding: 0;
+  margin: 0;
+}
+
+.ink-menu-fold-row :is(.ink-page-pill, .ink-bar-group) {
+  border: 0;
+  background: none;
+  box-shadow: none;
 }
 
 .pane-split-row {
@@ -856,6 +1070,12 @@
 
 .pane-tab-slot > .wf-tab[aria-selected="true"] .pane-tab-icon { color: inherit; }
 
+/* The open tab stands out: lifted to the page colour with an accent rule under it. */
+.pane-tab-slot:has(> .wf-tab[aria-selected="true"]) {
+  background: var(--surface);
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+
 /* The suffix always shows here: two tabs can share a title, and the tab is the
    one place the path is gone entirely (§3.2). */
 .pane-tab-ext {
@@ -919,6 +1139,8 @@
   opacity: 1;
 }
 
+.pane-tab-actions:empty { display: none; }
+
 .pane-tab-actions {
   display: flex;
   flex: none;
@@ -928,16 +1150,6 @@
   border-inline-start: 1px solid var(--border);
 }
 
-/* The pane's toolbar for a tab in Edit mode: the image button, before the
-   mode switch. Same icon button the note screen uses, so no new size here. */
-.pane-tools {
-  display: inline-flex;
-  align-items: center;
-  gap: 1px;
-  margin-inline-end: 4px;
-  padding-inline-end: 4px;
-  border-inline-end: 1px solid var(--border);
-}
 
 /* Resizing a picture from the read view. The host is the positioning context
    so the control sits under the picture and scrolls with the document. */
@@ -1155,6 +1367,32 @@
 }
 
 .breadcrumbs::-webkit-scrollbar { display: none; }
+
+/* The path row, with Text · Ink at its end in every mode. */
+.pane-crumbs {
+  display: flex;
+  flex: none;
+  align-items: center;
+  background: var(--bg);
+  border-block-end: 1px solid var(--border);
+}
+
+.pane-crumbs > .breadcrumbs {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-block-end: 0;
+}
+
+.pane-crumbs > .view-control {
+  flex: none;
+  margin-inline: 0 8px;
+}
+
+/* Text · Ink as plain icons, side by side like the toolbar's. */
+.pane-mode {
+  display: inline-flex;
+  gap: 1px;
+}
 
 .breadcrumb {
   display: inline-flex;
@@ -1648,14 +1886,6 @@
   white-space: nowrap;
 }
 
-.ink-sep {
-  width: 1px;
-  height: 18px;
-  margin: 0 4px;
-  background: var(--border);
-  flex-shrink: 0;
-}
-
 /* The print menu: the button sits in the bar, the list floats under it. */
 .ink-menu {
   position: relative;
@@ -1890,6 +2120,25 @@
   stroke: var(--accent);
   stroke-width: 1.5;
   stroke-dasharray: 5 4;
+}
+
+/* The lasso's menu, at the selection's top-right corner (note and paper). */
+.ink-selection-chip-anchor {
+  position: absolute;
+  /* Over the selection overlay (z 2) and the paper's marks. */
+  z-index: 4;
+  transform: translate(-100%, -100%);
+  pointer-events: auto;
+}
+.ink-selection-chip {
+  display: flex;
+  gap: var(--s1);
+  padding: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  white-space: nowrap;
 }
 
 /* The ink surface: the topmost thing in the page area, and never drawn over. */
@@ -2398,6 +2647,7 @@
 :root:root .ink-bar .wf-btn { flex: none; white-space: nowrap; }
 .ink-menu-caret { display: inline-flex; opacity: 0.6; }
 .ink-menu-rule { margin: 4px 0; border: 0; border-top: 1px solid var(--border); }
+.ink-menu-rule:last-child { display: none; }
 .ink-menu-insert-list, .ink-menu-view-list { min-width: 200px; }
 
 .ink-menu-hint { margin: 4px 8px 2px; font-size: var(--fs-xs); color: var(--muted); white-space: normal; }

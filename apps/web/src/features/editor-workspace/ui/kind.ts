@@ -393,14 +393,15 @@ export function documentSuffix(kind: string): string {
 }
 
 /**
- * The modes a tab of this kind offers, in button order. A PDF row has the
- * reader and the pen; everything else edits and reads, with Ink where the
- * table says so.
+ * The modes a tab of this kind offers, in button order. A PDF row is the
+ * reader; everything else is Text, with Ink where the table says so. There is
+ * no Read: the preview beside the editor (Split) does that job.
  */
 export function modesFor(kind: string): readonly DocumentMode[] {
   const meta = kindMeta(kind);
-  if (meta.document === "pdf") return ["pdf"];
-  return meta.ink ? ["edit", "read", "ink"] : ["edit", "read"];
+  // A PDF is read and inked in one place: Ink, with the pen up.
+  if (meta.document === "pdf") return ["ink"];
+  return meta.ink ? ["edit", "ink"] : ["edit"];
 }
 
 /** The mode a fresh tab of this kind opens in. */
@@ -409,23 +410,12 @@ export function defaultModeFor(kind: string): DocumentMode {
 }
 
 /**
- * The mode an *existing* document opens in, which is Read rather than Edit.
- *
- * Reading is what opening a document means: Edit is a deliberate step, and a
- * tab that lands you in a caret invites an accidental keystroke into someone's
- * note. Two exceptions, both of them the point of the document:
- *
- *   - a note whose body carries ink opens on the sheet it was written on, since
- *     the writing is the content;
- *   - a kind with no Read of its own (a folder, a reading list) keeps whatever
- *     mode it does have, which is Edit.
- *
- * A *new* note is not this function's caller: creating one opens in Edit, so
- * there is somewhere to type the thing you just named.
+ * The mode an *existing* document opens in: its default, except that a note
+ * whose body carries ink opens on the sheet it was written on, since the
+ * writing is the content. A kind with no Ink keeps its default even then.
  */
 export function openModeFor(kind: string, body: string): DocumentMode {
-  if (!modesFor(kind).includes("read")) return defaultModeFor(kind);
-  return isInkNoteBody(body) ? "ink" : "read";
+  return modesFor(kind).includes("ink") && isInkNoteBody(body) ? "ink" : defaultModeFor(kind);
 }
 
 /** The tab that opens a document, in its `openModeFor` mode: the explorer and quick-open both open through this. */

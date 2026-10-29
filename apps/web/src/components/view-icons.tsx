@@ -130,6 +130,27 @@ export function CommentsIcon(props: IconProps) {
   );
 }
 
+/** A capital T — the text of a note. */
+export function TextIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 7V4h16v3" />
+      <path d="M12 4v16" />
+      <path d="M9 20h6" />
+    </Svg>
+  );
+}
+
+/** An eye — preview the rendered Markdown. */
+export function PreviewIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </Svg>
+  );
+}
+
 /** Pencil — edit. */
 export function EditIcon(props: IconProps) {
   return (

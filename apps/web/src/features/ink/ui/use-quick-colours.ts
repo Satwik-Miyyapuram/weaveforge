@@ -1,53 +1,17 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 
-import { INK_COLOURS } from "@weaveforge/core";
+import type { InkColour } from "@weaveforge/core";
 
-import { readStored, writeStored } from "@/lib/safe-storage";
+import { setToolQuickSlot, useToolColours, type ToolColourId } from "./use-tool-colours";
 
-type InkColour = (typeof INK_COLOURS)[number];
-
-const QUICK_COLOURS_KEY = "weaveforge.ink.quick-colours";
-
-/** The five colours the bar offers before anyone changes one. */
-export const DEFAULT_QUICK_COLOURS: readonly InkColour[] = ["text", "accent", "red", "blue", "green"];
-
-/**
- * A saved list, read back as five known colours.
- *
- * Anything else — a list of the wrong length, a colour this build has never
- * heard of, a hand-edited string — falls back slot by slot to the default, so
- * one bad entry costs that slot and not the other four.
- */
-export function parseQuickColours(saved: string | null): InkColour[] {
-  let parsed: unknown = null;
-  try {
-    parsed = saved ? JSON.parse(saved) : null;
-  } catch {
-    parsed = null;
-  }
-  const list = Array.isArray(parsed) ? parsed : [];
-  return DEFAULT_QUICK_COLOURS.map((fallback, i) =>
-    (INK_COLOURS as readonly unknown[]).includes(list[i]) ? (list[i] as InkColour) : fallback,
+/** One tool's five quick colours, and a setter for one slot that remembers it on this device. */
+export function useQuickColours(
+  tool: ToolColourId = "pen",
+): [InkColour[], (slot: number, colour: InkColour) => void] {
+  const quick = useToolColours()[tool].quick;
+  const setSlot = useCallback(
+    (slot: number, colour: InkColour) => setToolQuickSlot(tool, slot, colour),
+    [tool],
   );
-}
-
-export function readQuickColours(): InkColour[] {
-  return parseQuickColours(readStored(QUICK_COLOURS_KEY));
-}
-
-function writeQuickColours(colours: readonly InkColour[]) {
-  writeStored(QUICK_COLOURS_KEY, JSON.stringify(colours));
-}
-
-/** The bar's quick colours, and a setter for one slot that remembers it on this device. */
-export function useQuickColours(): [InkColour[], (slot: number, colour: InkColour) => void] {
-  const [colours, setColours] = useState<InkColour[]>(readQuickColours);
-  const setSlot = useCallback((slot: number, colour: InkColour) => {
-    setColours((was) => {
-      const next = was.map((entry, i) => (i === slot ? colour : entry));
-      writeQuickColours(next);
-      return next;
-    });
-  }, []);
-  return [colours, setSlot];
+  return [quick, setSlot];
 }

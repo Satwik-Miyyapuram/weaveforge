@@ -66,10 +66,11 @@ test("the pages and their writing strip carry no shadow", () => {
   }
 });
 
-test("the reader draws the note's page pill rather than its own copy", () => {
+test("the reader's pages are the note's page pill, in the one bar, not its own copy", () => {
   const pdf = read("../ui/pdf-reader/pdf-reader.tsx");
   const bar = read("../../ink/ui/ink-bar.tsx");
-  assert.match(pdf, /<PagePill\b/);
+  assert.match(pdf, /<InkBar\b[\s\S]*?\bpages=/);
+  assert.doesNotMatch(pdf, /<PagePill\b/);
   assert.match(bar, /<PagePill\b/);
   assert.doesNotMatch(pdf, /className="ink-page-pill/);
   assert.doesNotMatch(bar, /className="ink-page-pill/);
