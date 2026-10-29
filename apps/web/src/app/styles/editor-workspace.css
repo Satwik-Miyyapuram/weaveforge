@@ -876,7 +876,7 @@
   align-items: center;
   width: auto;
   gap: 2px;
-  padding: 0 4px 0 6px;
+  padding: 0 4px;
 }
 
 .workspace-toolbar-layout > .wf-tool svg {
