@@ -9,7 +9,7 @@
  * (phase-1-search.md, Unicode).
  */
 import { mkdirSync, writeFileSync } from "node:fs";
-import { fuseRankings, parseSearchQuery, processTerm, tokenize, type TokenizerOptions } from "@weaveforge/core";
+import { buildExcerpt, fuseRankings, parseSearchQuery, processTerm, tokenize, type TokenizerOptions } from "@weaveforge/core";
 
 /** Every text runs under all 16 option combinations. */
 const TOKENIZER_TEXTS = [
@@ -80,6 +80,45 @@ const FUSIONS: { lists: { items: string[]; weight?: number }[]; k?: number; limi
   { lists: [{ items: span(0, 200, 13) }, { items: span(3, 150, 11) }], k: 7, limit: 25 },
 ];
 
+/**
+ * Excerpt calls, the inputs of crates/wf-core/tests/goldens/search-excerpt.mjs:
+ * [body, terms, maxChars, singleLine], undefined meaning the key is left out.
+ */
+const filler = (n: number) => "lorem ipsum ".repeat(n);
+const EXCERPTS: [string, string[], number | undefined, boolean | undefined][] = [
+  ["", ["x"], undefined, undefined],
+  [" \n\t ", ["x"], undefined, undefined],
+  ["Graph neural networks", ["graph"], undefined, undefined],
+  ["Graph neural networks", ["GRAPH", "Networks"], undefined, undefined],
+  ["no hit here", ["absent"], undefined, undefined],
+  ["a short body", ["x"], 10, undefined],
+  [filler(30), ["zzz"], undefined, undefined],
+  [filler(30), ["zzz"], 60, undefined],
+  [`${filler(20)}target ${filler(20)}`, ["target"], 60, undefined],
+  [`alpha ${filler(15)}beta gamma delta ${filler(15)}`, ["alpha", "beta", "gamma", "delta"], 60, undefined],
+  [`${filler(25)}end match`, ["match"], 60, undefined],
+  ["abc abc", ["ab", "bc"], undefined, undefined],
+  ["aaaa", ["aa"], undefined, undefined],
+  ["xx yy", ["xx", "x y"], undefined, undefined],
+  ["one two", ["o", " t ", "  "], undefined, undefined],
+  ["line one\n\nline two\r\n  three", ["two"], undefined, undefined],
+  ["line one\n\nline two\r\n  three", ["two"], undefined, false],
+  ["  padded\u{a0}\u{feff}text\u{2028}here\u{85}x  ", ["text"], undefined, undefined],
+  ["\u{130}stanbul and ISTANBUL", ["istanbul"], undefined, undefined],
+  ["\u{130}stanbul", ["i\u{307}s"], undefined, undefined],
+  ["\u{3a3}\u{391}\u{3a3} \u{3c3}\u{3b1}\u{3c3}", ["\u{3c3}\u{3b1}\u{3a3}"], undefined, undefined],
+  ["\u{3a3}\u{391}\u{3a3} \u{3c3}\u{3b1}\u{3c2}", ["\u{3c3}\u{3b1}\u{3c2}"], undefined, undefined],
+  ["\u{212a}elvin kelvin", ["kelvin"], undefined, undefined],
+  ["Stra\u{df}e STRASSE", ["stra\u{df}e"], undefined, undefined],
+  ["\u{c9}cole \u{e9}cole", ["\u{e9}cole"], undefined, undefined],
+  [`${"\u{1f600}".repeat(30)}hit${"\u{1f600}".repeat(30)}`, ["hit"], 40, undefined],
+  [`${"\u{1f600}".repeat(30)}`, ["zz"], 41, undefined],
+  ["\u{1f600}x\u{1f600}x", ["\u{1f600}x"], undefined, undefined],
+  [`${filler(4)}straddle${filler(6)}`, ["lorem ipsum lorem ipsum lorem ipsum lorem"], 40, undefined],
+  ["exact forty characters of text right here", ["here"], 40, undefined],
+  [filler(3), ["lorem"], 0, undefined],
+];
+
 /** Mask bits: 1 fold, 2 Arabic, 4 camelCase, 8 URLs (as in the Rust goldens). */
 function optionsFor(mask: number): Required<TokenizerOptions> {
   return {
@@ -105,10 +144,19 @@ for (const text of TOKENIZER_TEXTS) {
   // With the u flag, \p{Cs} matches only an unpaired surrogate.
   if (/\p{Cs}/u.test(text)) throw new Error(`lone surrogate in ${JSON.stringify(text)}`);
 }
+for (const [body, terms] of EXCERPTS) {
+  if ([body, ...terms].some((s) => /\p{Cs}/u.test(s))) throw new Error(`lone surrogate in ${JSON.stringify(body)}`);
+}
 for (const query of QUERIES) {
   if (/(^|\s|-)(type|in|modified):/i.test(query)) throw new Error(`Rust-only filter in ${JSON.stringify(query)}`);
 }
 write("fuse-rankings", "runs.json", { runs: FUSIONS }, FUSIONS.map(({ lists, k, limit }) => fuseRankings(lists, (x) => x, { k, limit })));
+const excerptRuns = EXCERPTS.map(([body, terms, maxChars, singleLine]) => ({
+  body,
+  terms,
+  options: { ...(maxChars === undefined ? {} : { maxChars }), ...(singleLine === undefined ? {} : { singleLine }) },
+}));
+write("excerpt", "runs.json", { runs: excerptRuns }, excerptRuns.map(({ body, terms, options }) => buildExcerpt(body, terms, options)));
 write("parse-query", "queries.json", { queries: QUERIES }, QUERIES.map((q) => parseSearchQuery(q)));
 for (let mask = 0; mask < 16; mask += 1) {
   const options = optionsFor(mask);

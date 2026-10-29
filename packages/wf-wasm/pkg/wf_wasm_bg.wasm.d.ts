@@ -1,6 +1,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export const buildExcerpt: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
 export const coreInfo: () => [number, number, number];
 export const fuseRankings: (a: any, b: number, c: number) => [number, number, number];
 export const indexTerms: (a: number, b: number, c: any) => [number, number, number];

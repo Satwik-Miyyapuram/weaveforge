@@ -13,6 +13,7 @@ use serde::Serialize;
 use std::num::NonZeroUsize;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
+use wf_core::search::excerpt::ExcerptOptions;
 use wf_core::search::fusion::{RRF_K, RankedList};
 use wf_core::search::js_text::utf16_len;
 use wf_core::search::tokenizer::{
@@ -126,6 +127,53 @@ pub fn parse_query(query: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     debug_assert!(parsed.text.len() <= query.len() * 3);
     debug_assert!(parsed.modified_within_days.is_none_or(|d| d >= 1));
     to_js(&parsed)
+}
+
+/// Reads the JS terms and checks their total length against [`MAX_INDEX_TEXT_UTF16`].
+fn excerpt_terms(terms: JsValue) -> Result<Vec<String>, serde_wasm_bindgen::Error> {
+    let terms: Vec<String> = serde_wasm_bindgen::from_value(terms)?;
+    let total: usize = terms.iter().map(|t| utf16_len(t)).sum();
+    if total > MAX_INDEX_TEXT_UTF16 {
+        return Err(serde_wasm_bindgen::Error::new(format!(
+            "terms are {total} UTF-16 units in total; MAX_INDEX_TEXT_UTF16 is {MAX_INDEX_TEXT_UTF16}"
+        )));
+    }
+    debug_assert!(terms.iter().map(|t| utf16_len(t)).sum::<usize>() <= MAX_INDEX_TEXT_UTF16);
+    debug_assert!(terms.iter().all(|t| t.len() <= MAX_INDEX_TEXT_UTF16 * 3));
+    Ok(terms)
+}
+
+/// [`wf_core::search::excerpt::build_excerpt`]: a snippet of `body` around the
+/// densest cluster of `terms`, as `{ text, highlights }` where `text` is UTF-16
+/// code units (the TS wrapper turns them into a string, lone surrogates kept).
+/// `max_chars` defaults to 240 and `single_line` to true.
+///
+/// # Errors
+///
+/// Fails if `body`, or all `terms` together, exceed `MAX_INDEX_TEXT_UTF16`
+/// UTF-16 units, or if `terms` is not an array of strings.
+#[wasm_bindgen(js_name = buildExcerpt)]
+pub fn build_excerpt(
+    body: &str,
+    terms: JsValue,
+    max_chars: Option<u32>,
+    single_line: Option<bool>,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    check_text(body)?;
+    let terms = excerpt_terms(terms)?;
+    let options = ExcerptOptions {
+        max_chars: max_chars.and_then(|n| usize::try_from(n).ok()),
+        single_line: single_line.unwrap_or(true),
+    };
+    let excerpt = wf_core::search::excerpt::build_excerpt(body, &terms, options);
+    debug_assert!(
+        excerpt
+            .highlights
+            .iter()
+            .all(|h| h.start < h.end && h.end <= excerpt.text.len())
+    );
+    debug_assert!(excerpt.text.len() <= utf16_len(body) + 2);
+    to_js(&excerpt)
 }
 
 /// Most ids all ranked lists together may carry into `fuseRankings` (about
