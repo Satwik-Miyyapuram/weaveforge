@@ -127,6 +127,15 @@ jobs:
       - name: Check the rebuilt WASM package matches the committed one
         run: npm run wasm:pkg
 
+      # The CI-built module, so a mismatch can be diffed against the committed one.
+      - name: Keep the rebuilt WASM package
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wf-wasm-pkg
+          path: packages/wf-wasm/pkg/
+          retention-days: 7
+
       - name: Run WASM package tests
         run: npm test --workspace @weaveforge/wasm
 
