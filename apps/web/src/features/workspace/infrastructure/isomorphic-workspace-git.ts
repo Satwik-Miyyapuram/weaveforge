@@ -1,9 +1,12 @@
-import type {
-  GitAuthor,
-  GitFileStatus,
-  IWorkspaceFs,
-  IWorkspaceGit,
-  WorkspaceCommit,
+import {
+  isLocalOnlyPath,
+  keptOutOfHistory,
+  MAX_COMMIT_FILE_BYTES,
+  type GitAuthor,
+  type GitFileStatus,
+  type IWorkspaceFs,
+  type IWorkspaceGit,
+  type WorkspaceCommit,
 } from "@weaveforge/core";
 import { isomorphicFsFrom } from "./isomorphic-fs-adapter";
 
@@ -22,7 +25,10 @@ export class IsomorphicWorkspaceGit implements IWorkspaceGit {
   private readonly fs;
   private readonly dir = "/";
 
-  constructor(workspaceFs: IWorkspaceFs) {
+  constructor(
+    private readonly workspaceFs: IWorkspaceFs,
+    private readonly maxFileBytes: number = MAX_COMMIT_FILE_BYTES,
+  ) {
     this.fs = isomorphicFsFrom(workspaceFs);
   }
 
@@ -48,7 +54,8 @@ export class IsomorphicWorkspaceGit implements IWorkspaceGit {
 
   async status(): Promise<readonly GitFileStatus[]> {
     const git = await this.git();
-    const rows = await git.statusMatrix({ fs: this.fs, dir: this.dir });
+    // This machine's database is never history, so it is not even hashed.
+    const rows = await git.statusMatrix({ fs: this.fs, dir: this.dir, filter: (file) => !isLocalOnlyPath(file) });
     const out: GitFileStatus[] = [];
     // Row shape is [path, head, workdir, stage]: 0 means absent, 1 unchanged,
     // 2 modified.
@@ -57,7 +64,11 @@ export class IsomorphicWorkspaceGit implements IWorkspaceGit {
       else if (head > 0 && workdir === 0) out.push({ path: String(path), state: "deleted" });
       else if (head > 0 && workdir === 2) out.push({ path: String(path), state: "modified" });
     }
-    return out;
+    // A file over the size cap stays on disk but out of history: every save would add a full copy.
+    const sizes = await Promise.all(
+      out.map(async (entry) => (entry.state === "deleted" ? null : ((await this.workspaceFs.stat(entry.path))?.size ?? null))),
+    );
+    return out.filter((entry, i) => keptOutOfHistory(entry.path, sizes[i] ?? null, this.maxFileBytes) === null);
   }
 
   async commitAll(message: string, author: GitAuthor): Promise<WorkspaceCommit | null> {

@@ -129,3 +129,45 @@ test("a repo whose HEAD points at a missing commit rejects instead of reading as
 
   await assert.rejects(git.log());
 });
+
+// Storage growth: this machine's database and files over the size cap never reach the history.
+test("the root .weaveforge folder is never reported or committed; a project's own one is", async () => {
+  const { fs, git } = await repo();
+  await fs.writeFile(".weaveforge/db/base/5/18522", "relfile");
+  await fs.writeFile("project--6052c0/.weaveforge/manifest.json", "{}");
+
+  assert.deepEqual(await git.status(), [{ path: "project--6052c0/.weaveforge/manifest.json", state: "added" }]);
+  const commit = await git.commitAll("first", author);
+  assert.ok(commit);
+  assert.equal(await git.readAt(commit!.oid, ".weaveforge/db/base/5/18522"), null);
+});
+
+test("a file over the size cap is left out; one exactly at it is committed", async () => {
+  const fs = new MemoryWorkspaceFs(advancingClock());
+  const git = new IsomorphicWorkspaceGit(fs, 1_024);
+  await git.init();
+  await fs.writeFile("papers/big.pdf", new Uint8Array(1_025));
+  await fs.writeFile("papers/edge.pdf", new Uint8Array(1_024));
+
+  assert.deepEqual(await git.status(), [{ path: "papers/edge.pdf", state: "added" }]);
+  const commit = await git.commitAll("first", author);
+  assert.ok(commit);
+  assert.equal(await git.readAt(commit!.oid, "papers/big.pdf"), null);
+  // Only the big file left: nothing to commit, no empty commit.
+  assert.equal(await git.commitAll("second", author), null);
+});
+
+test("a tracked file that grows past the cap keeps its old version; its deletion still commits", async () => {
+  const fs = new MemoryWorkspaceFs(advancingClock());
+  const git = new IsomorphicWorkspaceGit(fs, 1_024);
+  await git.init();
+  await fs.writeFile("grows.bin", "small");
+  const first = await git.commitAll("first", author);
+  await fs.writeFile("grows.bin", new Uint8Array(2_048));
+
+  assert.deepEqual(await git.status(), []);
+  await fs.remove("grows.bin");
+  assert.deepEqual(await git.status(), [{ path: "grows.bin", state: "deleted" }]);
+  assert.ok(await git.commitAll("removed", author));
+  assert.equal(new TextDecoder().decode((await git.readAt(first!.oid, "grows.bin"))!), "small");
+});

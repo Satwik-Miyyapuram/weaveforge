@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { appendFile, mkdir, readFile } from "node:fs/promises";
+import { appendFile, lstat, mkdir, readFile } from "node:fs/promises";
 import * as path from "node:path";
 import { promisify } from "node:util";
 
@@ -7,6 +7,8 @@ import {
   errorMessage,
   decideVaultCommit,
   describeChanges,
+  keptOutOfHistory,
+  MAX_COMMIT_FILE_BYTES,
   type GitAuthor,
   type GitFileStatus,
   type IWorkspaceGit,
@@ -32,19 +34,37 @@ const run = promisify(execFile);
 /** Long enough for a large first commit, short enough to not hang a mirror. */
 const TIMEOUT_MS = 30_000;
 
+/**
+ * Bounds the `gc --auto` call only. Git detaches the repack by default, so the repack itself runs past
+ * this bound. A call killed here may leave `.git/gc.pid` behind, and later auto-gc then reports "gc already running".
+ */
+const GC_TIMEOUT_MS = 60_000;
+
 // Paper paths pass 260 chars on Windows; without longpaths `add -A` skips or refuses them.
-const FLAGS = ["-c", "core.longpaths=true", "-c", "core.autocrlf=false"];
+// `gc.pruneExpire=never`: git's own auto-gc runs inside every commit and would otherwise prune unreachable
+// objects older than two weeks before `packLoose` runs.
+const FLAGS = ["-c", "core.longpaths=true", "-c", "core.autocrlf=false", "-c", "gc.pruneExpire=never"];
 
 /** This machine's database, cache and lock under the folder root; never history. */
 const LOCAL_ONLY = "/.weaveforge/";
 
-async function git(root: string, args: readonly string[]): Promise<string> {
-  const { stdout } = await run("git", [...FLAGS, "-C", root, ...args], {
+/** `input` goes to git's stdin, for path lists too long for a command line. */
+async function git(root: string, args: readonly string[], input?: string): Promise<string> {
+  const pending = run("git", [...FLAGS, "-C", root, ...args], {
     timeout: TIMEOUT_MS,
     maxBuffer: 16 * 1024 * 1024,
     windowsHide: true,
   });
-  return stdout;
+  if (input !== undefined) pending.child.stdin?.end(input);
+  return (await pending).stdout;
+}
+
+/** Bytes on disk, or null when the file is gone. A symlink counts as itself, as git stores it. */
+async function sizeOf(file: string): Promise<number | null> {
+  return lstat(file).then(
+    (stats) => stats.size,
+    () => null,
+  );
 }
 
 /**
@@ -98,7 +118,10 @@ function parseLog(stdout: string): WorkspaceCommit[] {
 export class NativeWorkspaceGit implements IWorkspaceGit {
   readonly kind = "native" as const;
 
-  constructor(private readonly root: string) {}
+  constructor(
+    private readonly root: string,
+    private readonly maxFileBytes: number = MAX_COMMIT_FILE_BYTES,
+  ) {}
 
   async isRepo(): Promise<boolean> {
     return (await probeRepo(this.root)).kind === "own";
@@ -109,17 +132,39 @@ export class NativeWorkspaceGit implements IWorkspaceGit {
   }
 
   async status(): Promise<readonly GitFileStatus[]> {
-    // Root `.weaveforge/` is never committed, so it is not a change to describe.
-    return parseStatus(await git(this.root, ["status", "--porcelain", "-z", "--untracked-files=all"])).filter(
-      (entry) => !`/${entry.path}`.startsWith(LOCAL_ONLY),
+    return (await this.changes()).committable;
+  }
+
+  /**
+   * Every change, split into what the history takes and the files over the size cap it leaves out.
+   * Root `.weaveforge/` is never committed, so it is in neither: it is not a change to describe.
+   */
+  private async changes(): Promise<{ committable: GitFileStatus[]; tooLarge: string[] }> {
+    const all = parseStatus(await git(this.root, ["status", "--porcelain", "-z", "--untracked-files=all"]));
+    const verdicts = await Promise.all(
+      all.map(async (entry) => {
+        const bytes = entry.state === "deleted" ? null : await sizeOf(path.join(this.root, entry.path));
+        return keptOutOfHistory(entry.path, bytes, this.maxFileBytes);
+      }),
     );
+    return {
+      committable: all.filter((_, i) => verdicts[i] === null),
+      tooLarge: all.filter((_, i) => verdicts[i] === "too-large").map((entry) => entry.path),
+    };
   }
 
   async commitAll(message: string, author: GitAuthor): Promise<WorkspaceCommit | null> {
     await this.excludeLocalOnly();
-    await git(this.root, ["add", "-A"]);
-    const staged = await this.status();
-    if (staged.length === 0) return null;
+    // A file over the cap is never added, so not even a loose copy of it lands in the object store.
+    const { tooLarge } = await this.changes();
+    if (tooLarge.length > 0) {
+      const cap = Math.round(this.maxFileBytes / (1024 * 1024));
+      console.warn(`[vault-git] left out of the history, over ${cap} MB: ${tooLarge.join(", ").slice(0, 300)}`);
+    }
+    const pathspecs = [".", ...tooLarge.map((file) => `:(exclude,literal)${file}`)];
+    await git(this.root, ["add", "-A", "--pathspec-from-file=-", "--pathspec-file-nul"], `${pathspecs.join("\0")}\0`);
+    // The status still lists skipped files, so only the index says whether anything is left to commit.
+    if (!(await git(this.root, ["diff", "--cached", "--name-only", "-z"]))) return null;
     // The author is passed per-commit rather than configured, so nothing here
     // writes to the user's global git config.
     await git(this.root, [
@@ -132,8 +177,24 @@ export class NativeWorkspaceGit implements IWorkspaceGit {
       "-m",
       message,
     ]);
+    await this.packLoose();
     const [head] = await this.log({ limit: 1 });
     return head ?? null;
+  }
+
+  /**
+   * Packs loose objects once they pile up, as `git commit` does itself, but never with `--prune`:
+   * an object nothing references any more is kept. Best effort: a failed pack only goes in the log.
+   */
+  private async packLoose(): Promise<void> {
+    try {
+      await run("git", [...FLAGS, "-C", this.root, "gc", "--auto", "--no-prune"], {
+        timeout: GC_TIMEOUT_MS,
+        windowsHide: true,
+      });
+    } catch (error) {
+      console.warn(`[vault-git] could not pack the history: ${gitReason(error).slice(0, 300)}`);
+    }
   }
 
   /** Kept out through `info/exclude`, so no file of the user's is written; untracked if an older run added it. */

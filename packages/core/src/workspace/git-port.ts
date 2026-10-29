@@ -73,6 +73,32 @@ export class NoOpWorkspaceGit implements IWorkspaceGit {
   }
 }
 
+/**
+ * Largest file the folder history takes. Above it a file stays on disk but out of
+ * history: every save of it would add a full copy that is never removed. Git hosts
+ * warn at 50 MB and refuse 100 MB; paper PDFs sit well below.
+ */
+export const MAX_COMMIT_FILE_BYTES = 50 * 1024 * 1024;
+
+/** This machine's database, cache and lock: `.weaveforge/` at the folder root, never history. */
+export function isLocalOnlyPath(path: string): boolean {
+  const p = path.replace(/\\/g, "/").replace(/^\/+/, "");
+  return p === ".weaveforge" || p.startsWith(".weaveforge/");
+}
+
+/**
+ * Why a changed file stays out of the history, or null when it goes in.
+ * `bytes` is null when unknown, as for a deleted file, whose removal always goes in.
+ */
+export function keptOutOfHistory(
+  path: string,
+  bytes: number | null,
+  maxBytes: number = MAX_COMMIT_FILE_BYTES,
+): "local-only" | "too-large" | null {
+  if (isLocalOnlyPath(path)) return "local-only";
+  return bytes !== null && bytes > maxBytes ? "too-large" : null;
+}
+
 /** A commit message describing what changed, for the automatic mirror commits. */
 export function describeChanges(status: readonly GitFileStatus[]): string {
   if (status.length === 0) return "No changes";
