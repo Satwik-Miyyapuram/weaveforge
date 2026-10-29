@@ -186,3 +186,14 @@ export function paintedOrder(results: readonly QuickOpenResult[]): QuickOpenResu
 
 /** An Enter that picks a row: not the one that confirms an IME composition. */
 export { isCommitEnter as isPickEnter } from "@/lib/commit-enter";
+
+/**
+ * The row an arrow lands on. It wraps, as `⌘⇥` does over tabs, so the bottom
+ * hit is one `↑` away from an empty query instead of a held key. A cursor left
+ * past the end by a shorter list steps from the last row.
+ */
+export function stepCursor(cursor: number, delta: 1 | -1, length: number): number {
+  if (length <= 0) return 0;
+  const from = Math.min(Math.max(cursor, 0), length - 1);
+  return (from + delta + length) % length;
+}

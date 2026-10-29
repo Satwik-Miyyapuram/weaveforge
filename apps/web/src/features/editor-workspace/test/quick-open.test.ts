@@ -7,6 +7,7 @@ import {
   paintedOrder,
   quickOpenResults,
   scoreMatch,
+  stepCursor,
   titleOf,
   type QuickOpenResult,
 } from "../application/quick-open";
@@ -169,4 +170,16 @@ test("every result of a kind with no heading is kept, not only the first", () =>
     ["a", "b", "c"],
   );
   assert.equal(paintedOrder([row("a", 30), row("b", 20)]).length, 2);
+});
+
+test("the arrows wrap: down from the last row lands on the first, up from the first on the last", () => {
+  assert.equal(stepCursor(0, 1, 3), 1);
+  assert.equal(stepCursor(2, 1, 3), 0);
+  assert.equal(stepCursor(0, -1, 3), 2);
+  assert.equal(stepCursor(1, -1, 3), 0);
+  // A cursor left past the end by a shorter list steps from the last row.
+  assert.equal(stepCursor(7, -1, 3), 1);
+  // No rows: the cursor stays on row 0 rather than going negative.
+  assert.equal(stepCursor(0, 1, 0), 0);
+  assert.equal(stepCursor(0, -1, 0), 0);
 });

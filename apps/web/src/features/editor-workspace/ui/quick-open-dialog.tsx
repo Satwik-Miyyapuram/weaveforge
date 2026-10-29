@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 
 import { Modal } from "@/components/modal";
 import { NavIcon } from "@/app/nav-icon";
-import { groupResults, isPickEnter, paintedOrder, quickOpenResults, titleOf } from "../application/quick-open";
+import { groupResults, isPickEnter, paintedOrder, quickOpenResults, stepCursor, titleOf } from "../application/quick-open";
 import type { WorkspaceTreeNode } from "../application/workspace-tree";
 import { kindIcon } from "./kind";
 import { OptionButton } from "@/components/controls";
@@ -46,12 +46,12 @@ export function QuickOpenDialog({
         onKeyDown={(event) => {
           if (event.key === "ArrowDown") {
             event.preventDefault();
-            setCursor((c) => Math.min(c + 1, results.length - 1));
+            setCursor((c) => stepCursor(c, 1, results.length));
             return;
           }
           if (event.key === "ArrowUp") {
             event.preventDefault();
-            setCursor((c) => Math.max(c - 1, 0));
+            setCursor((c) => stepCursor(c, -1, results.length));
             return;
           }
           if (isPickEnter(event)) {
