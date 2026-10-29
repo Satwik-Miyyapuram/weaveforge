@@ -4,3 +4,4 @@
 
 pub mod js_text;
 pub mod tokenizer;
+pub mod url_parts;
