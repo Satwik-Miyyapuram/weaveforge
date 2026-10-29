@@ -205,6 +205,22 @@ test("a table needs no leading pipe, keeps escaped pipes, and takes wrapped rows
   assert.match(afterBlank, /<p>after<\/p>/);
 });
 
+test("prose on the line straight after a table joins its last cell, not a paragraph", () => {
+  // Deliberate: a bare line with no pipe is the rest of the cell above (see tableCells).
+  // GFM would make it a row of its own, so this is a known difference, pinned here.
+  const html = renderProseMarkdown("| a | b |\n|---|---|\n| 1 | 2 |\nafter the table");
+  assert.match(html, /<td>2 after the table<\/td>/);
+  assert.doesNotMatch(html, /<p>after the table<\/p>/);
+});
+
+test("a list or heading straight after a table still ends it", () => {
+  const list = renderProseMarkdown("| a | b |\n|---|---|\n| 1 | 2 |\n- item");
+  assert.match(list, /<\/table>/);
+  assert.match(list, /<li>item<\/li>/);
+  const heading = renderProseMarkdown("| a | b |\n|---|---|\n| 1 | 2 |\n## after");
+  assert.match(heading, /<h4[^>]*>after<\/h4>/);
+});
+
 test("inline and bracketed maths render; dollar amounts and code stay text", async () => {
   const options = await withKatex();
   const midParagraph = renderProseMarkdown("mid $$x+y$$ para", options);
