@@ -7,6 +7,7 @@ import {
   activeTabKey,
   activeTabRef,
   closeTab,
+  closedTabs,
   emptyLayout,
   focusPane,
   focusedTabCount,
@@ -340,4 +341,16 @@ test("the focused pane's tab count is what a tab-number chord can reach", () => 
   const three = openTab(openTab(openTab(emptyLayout(), A), B), C);
   assert.equal(focusedTabCount(three), 3);
   assert.equal(focusedTabCount(emptyLayout()), 0);
+});
+
+test("closedTabs lists tabs gone from every pane, in the order they were shown", () => {
+  const a = { kind: "note", id: "a" };
+  const b = { kind: "note", id: "b" };
+  let layout = openTab(openTab(emptyLayout(), a), b);
+  assert.deepEqual(closedTabs(layout, closeTab(layout, "pane-1", 0)), [a]);
+  // A tab still open in another pane is not closed.
+  const split = splitPane(layout, "pane-1", "row", "pane-2");
+  layout = closeTab(split, "pane-2", 0);
+  assert.deepEqual(closedTabs(split, layout), []);
+  assert.deepEqual(closedTabs(layout, layout), []);
 });

@@ -294,6 +294,18 @@ export function openTabKeys(layout: PaneLayout): Set<string> {
   return new Set(leaves(layout.root).flatMap((leaf) => leaf.tabs.map(tabKey)));
 }
 
+/** Tabs open in `before` and in no pane of `after`, in the order they were shown. */
+export function closedTabs(before: PaneLayout, after: PaneLayout): TabRef[] {
+  const still = openTabKeys(after);
+  const seen = new Set<string>();
+  return leaves(before.root).flatMap((leaf) => leaf.tabs).filter((tab) => {
+    const key = tabKey(tab);
+    if (still.has(key) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 /** `byKey` without the entries of documents no longer open; `byKey` itself when nothing closed. */
 export function keepOpen<T>(byKey: Record<string, T>, open: ReadonlySet<string>): Record<string, T> {
   const keys = Object.keys(byKey);

@@ -90,3 +90,13 @@ test("⌘1–⌘9 are read by physical key, so AZERTY's symbol keys still work",
   // Shift still means a symbol, not a tab, whatever the code says.
   assert.equal(commandForChord({ key: "1", code: "Digit1", ctrlKey: true, shiftKey: true }, 3), null);
 });
+
+test("⌘/ shows the shortcuts and ⌘⇧T reopens the last closed tab", () => {
+  assert.equal(commandForChord({ key: "/", ctrlKey: true }), "show-shortcuts");
+  assert.equal(commandForChord({ key: "?", code: "Slash", metaKey: true, shiftKey: true }), "show-shortcuts");
+  assert.equal(commandForChord({ key: "T", ctrlKey: true, shiftKey: true }), "reopen-tab");
+  // Plain ⌘T stays the browser's "new tab".
+  assert.equal(commandForChord({ key: "t", ctrlKey: true }), null);
+  assert.equal(shortcutTable()["show-shortcuts"], "⌘/");
+  assert.equal(shortcutTable()["reopen-tab"], "⌘⇧T");
+});

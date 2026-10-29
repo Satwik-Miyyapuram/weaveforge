@@ -17,6 +17,8 @@ export type WorkspaceCommand =
   | "new-note"
   | "toggle-explorer"
   | "toggle-focus"
+  | "show-shortcuts"
+  | "reopen-tab"
   | TabNumberCommand;
 
 /** `⌘1`–`⌘8` pick a tab by position and `⌘9` the last one, as a browser does. */
@@ -57,6 +59,10 @@ export function commandForChord(chord: KeyChord, tabCount = Number.POSITIVE_INFI
   // `⌘⇧F`: the document alone — no rail, no explorer, no strip, no status
   // bar. For a hand on a pen the chrome is inches of page it cannot write on.
   if (key === "f" && chord.shiftKey) return "toggle-focus";
+  // `⌘/` is read by physical key: on many layouts `/` needs Shift and types `?`.
+  if (key === "/" || chord.code === "Slash") return "show-shortcuts";
+  // `⌘⇧T` is a browser's "reopen closed tab"; plain `⌘T` stays its "new tab".
+  if (key === "t" && chord.shiftKey) return "reopen-tab";
   if (key === "\\") return "split-right";
   if (key === "w") return "close-tab";
   if (key === "tab") return chord.shiftKey ? "previous-tab" : "next-tab";
@@ -92,6 +98,8 @@ const CHORDS: Record<WorkspaceCommand, string> = {
   "new-note": "⌘N",
   "toggle-explorer": "⌘B",
   "toggle-focus": "⌘⇧F",
+  "show-shortcuts": "⌘/",
+  "reopen-tab": "⌘⇧T",
   "split-right": "⌘\\",
   "close-tab": "⌘W",
   "next-tab": "⌘⇥",
