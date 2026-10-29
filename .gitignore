@@ -175,3 +175,6 @@ apps/web/public/ort-wasm-*
 
 # local diagnostics probes
 .scratch/
+
+# Rust build output
+/target/
