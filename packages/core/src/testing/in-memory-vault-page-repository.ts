@@ -58,6 +58,7 @@ export class InMemoryVaultPageRepository implements IVaultPageRepository {
       bodyPreview: vaultBodyPreview(p.body),
       parentId: p.parentId,
       pinned: p.pinned,
+      folder: p.folder,
       sortOrder: p.sortOrder,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,

@@ -10,7 +10,7 @@ import test from "node:test";
 
 import { THEME_STORAGE_KEYS, clearStoredAppearance } from "@/lib/theme/theme";
 
-const ELEVEN = [
+const KEYS = [
   "thesis.mode",
   "thesis.theme",
   "thesis.theme.light",
@@ -21,15 +21,16 @@ const ELEVEN = [
   "thesis.cardTilt",
   "thesis.scanlines",
   "thesis.reactiveMotion",
+  "thesis.animationSpeed",
   "thesis.customTheme",
 ];
 
-test("the theme key list is pinned at eleven keys", () => {
-  assert.deepEqual([...THEME_STORAGE_KEYS].sort(), [...ELEVEN].sort());
+test("the theme key list is pinned at twelve keys", () => {
+  assert.deepEqual([...THEME_STORAGE_KEYS].sort(), [...KEYS].sort());
 });
 
-test("clearing the appearance removes all eleven keys and nothing else", () => {
-  const store = new Map<string, string>(ELEVEN.map((k) => [k, "x"]));
+test("clearing the appearance removes every key and nothing else", () => {
+  const store = new Map<string, string>(KEYS.map((k) => [k, "x"]));
   store.set("thesis.projectId", "p1");
   const g = globalThis as Record<string, unknown>;
   const saved = g.localStorage;

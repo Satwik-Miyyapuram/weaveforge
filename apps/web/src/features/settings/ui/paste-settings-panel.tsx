@@ -160,7 +160,7 @@ export function PasteSettingsPanel() {
   return (
     <div
       id="settings-paste"
-      className="card add-form settings-anchor"
+      className="add-form settings-anchor"
       role="tabpanel"
       aria-labelledby="settings-tab-paste"
     >

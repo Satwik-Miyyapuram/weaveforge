@@ -120,7 +120,6 @@
 :is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .pdf-reader-chrome > :not(.ink-bar),
 :is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .pdf-reader-side,
 :is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .pdf-reader-side-rail,
-:is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .pdf-reader-tool-hint,
 :is(.pdf-reader.is-focus, :is(.workspace-shell, .record-ink-focus).is-focus .pdf-reader) .pdf-reader-banner {
   display: none;
 }
@@ -451,7 +450,7 @@ body > canvas.hiddenCanvasElement { display: none; }
   border: var(--bw, 1px) solid var(--bw-line, var(--border)); border-radius: var(--r-control);
   background: var(--surface); color: var(--text); box-shadow: var(--sh-btn, var(--e2));
   font-size: var(--fs); touch-action: manipulation;
-  transition: opacity 0.16s ease, translate 0.16s ease;
+  transition: opacity var(--dur-base) ease, translate var(--dur-base) ease;
   @starting-style { opacity: 0; translate: 0 6px; }
 }
 .pdf-reader-create-bar.is-below { transform: none; }
@@ -633,9 +632,6 @@ body > canvas.hiddenCanvasElement { display: none; }
 .pdf-reader-loading, .pdf-reader-error { padding: 24px; color: var(--muted); }
 .pdf-reader-error { display: grid; gap: 12px; justify-items: start; }
 @media (max-width: 640px) { .ai-review-screen .screen-header, .ai-review-actions { align-items: flex-start; flex-direction: column; } .ai-review-toolbar { align-items: stretch; flex-direction: column; } }
-
-/* One-line statement of what the armed annotation tool will do. */
-.pdf-reader-tool-hint { margin: 8px 0 0; font-size: var(--fs-sm); }
 
 /* =====================================================================
  * DEPTH — borderless elevation

@@ -697,6 +697,18 @@
   .explorer-row-actions { opacity: 1; }
 }
 
+/* In a 25px row the 28px icon button, lifting on hover, popped out and was cut
+   off. Here it is flat and fits the row: hover tints, nothing moves. */
+:root:root .explorer-row .explorer-row-actions > .wf-btn.wf-icon {
+  width: 22px; height: 22px; min-height: 0; min-width: 0; padding: 4px;
+}
+
+:root:root .explorer-row .explorer-row-actions > .wf-btn.wf-icon svg { width: 16px; height: 16px; }
+
+:root:root .explorer-row .explorer-row-actions > .wf-btn.wf-icon:is(:hover, :active, [data-force~="hover"], [data-force~="press"]) {
+  translate: 0 0; box-shadow: none;
+}
+
 /* A draft row or a rename: the label is a text box, in the row's own type. */
 .explorer-row.is-draft { cursor: default; }
 
@@ -1849,7 +1861,6 @@
   position: relative;
   flex: none;
   border-radius: 2px;
-  box-shadow: var(--e1);
   background: var(--surface);
   transition: outline var(--dur-base) ease;
 }
@@ -2009,7 +2020,6 @@
 .ink-figure {
   pointer-events: none;
   background: color-mix(in srgb, var(--surface) 85%, transparent);
-  box-shadow: var(--e1);
   border-radius: 2px;
 }
 .ink-figure.is-active {
@@ -2029,7 +2039,7 @@
 }
 /* The corners: dots where the page's own corner hit-test looks, so the eye
    finds what the hand is about to drag. Always drawn — 8 px of border
-   against paper, quieter than the figure's own shadow. */
+   against paper. */
 /* The selected figure's editor: over the canvas (z 1 in its dock), and
    transparent to the pointer except for the frame, its handles and the bar. */
 .ink-figure-editor {

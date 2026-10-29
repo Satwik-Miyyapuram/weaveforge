@@ -134,6 +134,23 @@
   scale: 0.985;
 }
 
+/* CRT: a card moves like a button. It lifts up and left while its shadow grows
+   by the same amount, so the shadow stays put on the page; no tilt, which
+   would drag the shadow along. Lift and shadow share one fast, stepped timing. */
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-theme="crt"][data-motion="reactive"] :is(.entity-card, .paper-card, .dashboard-card, .artifact-card, [data-reactive]) {
+    transition:
+      translate var(--dur-fast) steps(2, end),
+      box-shadow var(--dur-fast) steps(2, end),
+      scale var(--rm-fast) var(--layout-ease);
+  }
+  :root[data-theme="crt"][data-motion="reactive"] :is(.entity-card, .paper-card, .dashboard-card, .artifact-card, [data-reactive]):hover {
+    transform: none;
+    translate: var(--wf-lift-x) var(--wf-lift);
+    --sh-card: var(--sh-card-up);
+  }
+}
+
 /* A light under the cursor, and the card is the mask.
    
    The glow does not belong to the card and does not come out of it: it is a
@@ -273,6 +290,18 @@
          or the list looks like it is still loading while you are reading it.
          Capped in px: 22% of a page-tall card is thousands of px of half-faded card. */
       animation-range: cover 0% cover min(22%, 240px);
+    }
+
+    /* CRT: rise on `transform`, not `translate`. An animation beats :hover,
+       so a rise on `translate` held a half-visible card still while its
+       shadow grew on hover; the shadow jumped. CRT cards never tilt, so
+       `transform` is free and hover keeps `translate`. */
+    @keyframes reactive-rise-crt {
+      from { transform: translateY(10px); }
+    }
+
+    :root[data-theme="crt"][data-motion="reactive"] :is(.entity-card, .paper-card, .dashboard-card, .artifact-card) {
+      animation-name: reactive-rise-crt;
     }
   }
 

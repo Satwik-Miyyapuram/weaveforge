@@ -22,6 +22,7 @@ export function Popover({
   align = "left",
   ariaLabel,
   trigger = "button",
+  caret = true,
   colour,
   portal = false,
   children,
@@ -37,6 +38,11 @@ export function Popover({
    * field. The icon and swatch take their name from `ariaLabel`.
    */
   trigger?: Trigger;
+  /**
+   * The `button` trigger's caret. Off for a button whose label is only an icon:
+   * it is named and tipped by `ariaLabel` instead.
+   */
+  caret?: boolean;
   /** The swatch trigger's colour. */
   colour?: string;
   /**
@@ -163,10 +169,10 @@ export function Popover({
         {badge}
       </ComboboxButton>
     ) : (
-      <Button {...opens} aria-expanded={open} aria-label={ariaLabel}>
+      <Button {...opens} aria-expanded={open} aria-label={ariaLabel} title={caret ? undefined : ariaLabel}>
         {label}
         {badge}
-        <ChevronIcon open={open} className="popover-caret" />
+        {caret && <ChevronIcon open={open} className="popover-caret" />}
       </Button>
     );
   return (

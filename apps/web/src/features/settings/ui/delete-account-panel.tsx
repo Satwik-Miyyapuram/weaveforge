@@ -75,7 +75,7 @@ export function DeleteAccountPanel() {
   }
 
   return (
-    <div className="card add-form delete-account-panel">
+    <div className="add-form delete-account-panel">
       <h3 className="settings-group">Delete account</h3>
       <p className="muted">
         Permanently delete your account and all associated data (papers, experiments, images,

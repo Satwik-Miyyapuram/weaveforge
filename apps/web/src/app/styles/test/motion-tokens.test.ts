@@ -69,9 +69,9 @@ test("the curve scanner flags a written bezier but not its token", () => {
 
 test("the duration tokens are the R3 scale", () => {
   const base = readApp("styles/base.css");
-  assert.match(base, /--dur-fast: 80ms;/);
-  assert.match(base, /--dur-base: 160ms;/);
-  assert.match(base, /--dur-slow: 280ms;/);
+  assert.match(base, /--dur-fast: calc\(80ms \/ var\(--anim-speed, 1\)\);/);
+  assert.match(base, /--dur-base: calc\(160ms \/ var\(--anim-speed, 1\)\);/);
+  assert.match(base, /--dur-slow: calc\(280ms \/ var\(--anim-speed, 1\)\);/);
   assert.match(base, /--layout-duration: var\(--dur-slow\);/);
 });
 

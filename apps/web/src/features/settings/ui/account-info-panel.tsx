@@ -111,7 +111,7 @@ export function AccountInfoPanel() {
   ];
 
   return (
-    <div id="settings-account" className="card add-form account-info-panel settings-anchor" style={{ marginBottom: "24px" }}>
+    <div id="settings-account" className="add-form account-info-panel settings-anchor" style={{ marginBottom: "24px" }}>
       <h3 className="settings-group">Account</h3>
       <p className="muted" style={{ margin: "4px 0 0" }}>
         {user.providers.includes("local")

@@ -67,7 +67,7 @@ export function SyncIssuesPanel() {
     .join(" · ");
 
   return (
-    <div className="card settings-block sync-issues">
+    <div className="settings-block sync-issues">
       <div className="sync-issues-head">
         <div>
           <h3 className="settings-group">Needs you</h3>

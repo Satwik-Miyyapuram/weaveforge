@@ -45,7 +45,7 @@ export function SyncSettings() {
   if (!current || descriptors.length === 0) return null;
 
   return (
-    <div className="card settings-block">
+    <div className="settings-block">
       <h3 className="settings-group">Connections — {current.name}</h3>
       <p className="muted">Version this project&rsquo;s work to git and post plan updates. Choose a service to set it up; its token is kept with this project only.</p>
       {loading ? (

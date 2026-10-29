@@ -43,7 +43,7 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
   return (
     <div
       id={sdk ? "settings-tokens" : "settings-ai"}
-      className="card add-form settings-anchor"
+      className="add-form settings-anchor"
       role="tabpanel"
       aria-labelledby={sdk ? "settings-tab-tokens" : "settings-tab-ai"}
     >

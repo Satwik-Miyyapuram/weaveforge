@@ -69,10 +69,12 @@
      its breakpoint, takes `slow`. Loops and attention pulses of half a second
      or more are a different kind of motion and keep their own lengths. The
      reactive layer in `motion.css` derives its ramp from `base`, so
-     `--motion-scale` still reaches all three of its values at once. */
-  --dur-fast: 80ms;
-  --dur-base: 160ms;
-  --dur-slow: 280ms;
+     `--motion-scale` still reaches all three of its values at once. Each one
+     divides by `--anim-speed`, the Appearance setting (0.25x to 4x), which
+     theme.ts sets on <html>; unset means 1. */
+  --dur-fast: calc(80ms / var(--anim-speed, 1));
+  --dur-base: calc(160ms / var(--anim-speed, 1));
+  --dur-slow: calc(280ms / var(--anim-speed, 1));
 
   /*
    * The stacking ladder.

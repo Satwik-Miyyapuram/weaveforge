@@ -71,7 +71,7 @@ export function McpTokensPanel() {
   }
 
   return (
-    <div id="settings-mcp-tokens" className="card add-form settings-anchor">
+    <div id="settings-mcp-tokens" className="add-form settings-anchor">
       <h3 className="settings-group">AI client (MCP) tokens</h3>
       <p className="muted">
         An AI client such as Codex signs in with one of these. A token does not expire and is shown

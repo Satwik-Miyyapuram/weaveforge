@@ -4,7 +4,7 @@
 :root {
   --wf-bw: 1px; --wf-press: 1px; --wf-lift: -1px; --wf-lift-x: 0px;
   --wf-rc: 8px; --wf-rp: 10px; --wf-rm: 6px; --wf-rcard: 14px;
-  --wf-t: 120ms; --wf-t-press: 60ms; --wf-t-pop: 120ms; --wf-t-exit: 80ms; --wf-t-modal: 180ms;
+  --wf-t: calc(120ms / var(--anim-speed, 1)); --wf-t-press: calc(60ms / var(--anim-speed, 1)); --wf-t-pop: calc(120ms / var(--anim-speed, 1)); --wf-t-exit: calc(80ms / var(--anim-speed, 1)); --wf-t-modal: calc(180ms / var(--anim-speed, 1));
   --wf-ease: cubic-bezier(.2, .7, .2, 1); --wf-ease-hover: var(--wf-ease); --wf-ease-pop: var(--wf-ease);
   --wf-pop-y: 6px; --wf-pop-s: 1; --wf-tip-y: 4px; --wf-toast-y: 12px; --wf-modal-y: 8px; --wf-modal-s: .98;
   --wf-stagger: 0ms; --wf-item-anim: none; --wf-sw-hover: 1.08; --wf-back-x: -2px;
@@ -58,10 +58,10 @@
 }
 /* Reactive motion: longer, springier, further */
 :root[data-motion="reactive"] {
-  --wf-t: 200ms; --wf-t-pop: 200ms; --wf-t-modal: 260ms; --wf-lift: -2px;
+  --wf-t: calc(200ms / var(--anim-speed, 1)); --wf-t-pop: calc(200ms / var(--anim-speed, 1)); --wf-t-modal: calc(260ms / var(--anim-speed, 1)); --wf-lift: -2px;
   --wf-ease-hover: cubic-bezier(.34, 1.56, .64, 1); --wf-ease-pop: cubic-bezier(.34, 1.56, .64, 1);
   --wf-pop-y: 10px; --wf-pop-s: .97; --wf-tip-y: 6px; --wf-toast-y: 16px; --wf-modal-y: 16px; --wf-modal-s: .94;
-  --wf-stagger: 18ms; --wf-item-anim: wf-item-in; --wf-sw-hover: 1.15; --wf-back-x: -4px;
+  --wf-stagger: calc(18ms / var(--anim-speed, 1)); --wf-item-anim: wf-item-in; --wf-sw-hover: 1.15; --wf-back-x: -4px;
 }
 /* Hard shadows: the button moves, its shadow never does. Hover lifts the button up and left
    by as much as the raised shadow grows, so the shadow stays put; press (the rest offset)
@@ -70,7 +70,7 @@
 :root:root:is([data-theme="brutal"], [data-theme="brutal-dark"]) { --wf-lift-x: -1px; --wf-lift: -1px; }
 /* CRT + Reactive: more steps, still no slide */
 :root[data-theme="crt"][data-motion="reactive"] {
-  --wf-t: 160ms; --wf-t-pop: 160ms; --wf-t-modal: 220ms;
+  --wf-t: calc(160ms / var(--anim-speed, 1)); --wf-t-pop: calc(160ms / var(--anim-speed, 1)); --wf-t-modal: calc(220ms / var(--anim-speed, 1));
   --wf-ease: steps(4, end); --wf-ease-hover: steps(4, end); --wf-ease-pop: steps(6, end);
   --wf-pop-y: 0px; --wf-pop-s: 1; --wf-tip-y: 0px;
 }
@@ -422,7 +422,7 @@
   transition: opacity var(--wf-t-modal) var(--wf-ease), translate var(--wf-t-modal) var(--wf-ease-pop), scale var(--wf-t-modal) var(--wf-ease-pop);
 }
 @starting-style { :root:root :is(.wf-modal, .modal) { opacity: 0; translate: 0 var(--wf-modal-y); scale: var(--wf-modal-s); } }
-:root:root :is(:is(.wf-modal, .modal), :is(.wf-scrim, .modal-backdrop), :is(.wf-sheet, .comments-sheet)):is(.wf-closing, [data-state="closed"]) { opacity: 0; transition-duration: 120ms; transition-timing-function: ease; }
+:root:root :is(:is(.wf-modal, .modal), :is(.wf-scrim, .modal-backdrop), :is(.wf-sheet, .comments-sheet)):is(.wf-closing, [data-state="closed"]) { opacity: 0; transition-duration: calc(120ms / var(--anim-speed, 1)); transition-timing-function: ease; }
 :root:root:root[data-theme="crt"] :is(.wf-modal, .modal) { clip-path: inset(-12px); transition: clip-path var(--wf-t-modal) steps(4, end); }
 @starting-style { :root:root:root[data-theme="crt"] :is(.wf-modal, .modal) { opacity: 1; translate: 0 0; scale: 1; clip-path: inset(50% 0 50% 0); } }
 :root:root :is(.wf-sheet, .comments-sheet) {

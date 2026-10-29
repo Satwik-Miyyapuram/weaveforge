@@ -85,7 +85,7 @@ export function ApiTokensPanel() {
   }
 
   return (
-    <div id="settings-tokens" className="card add-form settings-anchor" style={{ marginBottom: "24px" }}>
+    <div id="settings-tokens" className="add-form settings-anchor" style={{ marginBottom: "24px" }}>
       <h3 className="settings-group">Python SDK access tokens</h3>
       <p className="muted api-token-intro">
         Generate personal access tokens for the{" "}

@@ -143,7 +143,7 @@
        column. The text keeps its inset through the row's own `padding: 10px
        14px`, so nothing moves — measured, the icon and label stay at x=28 and
        a full-width fill lands flush at 224 instead of stopping at 201.2. */
-    padding: 24px 0;
+    padding: 24px 0 0;
     border-radius: 0;
     border: none;
     border-right: 1px solid var(--line);
@@ -237,7 +237,7 @@
        measured, logo centre y=44.4 expanded and y=38.4 collapsed. The horizontal
        8px is what holds a 40px row centred in a 56px rail. */
     --rail-pad: 8px;
-    padding: 24px var(--rail-pad) 16px;
+    padding: 24px var(--rail-pad) 0;
     align-items: center;
   }
   .layout.nav-collapsed .menu-toggle { align-self: center; margin-bottom: 8px; }
@@ -257,7 +257,7 @@
 .layout.nav-collapsed .local-mode-badge,
 .layout.nav-collapsed .theme-toggle span { display: none; }
   .layout.nav-collapsed .nav-bottom.desktop-only {
-    align-items: center; gap: 8px; padding-top: 12px; padding-bottom: 16px;
+    align-items: center; gap: 8px; padding-top: 16px; padding-bottom: 16px;
     overflow: visible;
   }
   .layout.nav-collapsed .nav-bottom .header-actions { align-items: center; }
@@ -450,7 +450,9 @@ html[data-workspace-focus] .layout.editor-route .nav { display: none; }
      the button out: it truncates instead, and there is already an ellipsis on
      the label. */
   .nav-account-row {
-    display: flex; align-items: stretch; gap: 8px;
+    /* One height open and closed, or the line above it moves when the sidebar
+       toggles; the bottom paddings below match in both states for the same reason. */
+    display: flex; align-items: stretch; gap: 8px; min-height: 42px;
   }
   /*
    * The inset, and the two overrides that un-stretch the switchers, apply to the

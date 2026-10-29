@@ -1,6 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  BLOB_VIEW_STEP_S,
+  blobCacheControl,
   blobContentUrl,
   mintBlobViewToken,
   verifyBlobViewToken,
@@ -111,5 +113,38 @@ describe("blob-view-token secret", () => {
       const url = blobContentUrl("http://localhost:3000", payload, 60, "explicit");
       assert.match(url, /\/api\/blobs\/content\?t=/);
     });
+  });
+});
+
+/**
+ * A figure used to be re-downloaded on every view: each signing minted a new
+ * expiry (to the second), so a new URL, and the route said `no-store`. Now the
+ * expiry rounds up to a five-minute step, so signing again within it gives the
+ * same URL, and the browser may keep the bytes until the token dies.
+ */
+describe("blob view caching", () => {
+  const p = { uid: "u1", bucket: "experiment-artifacts", path: "u1/e/x.png", tier: "hot" as const };
+
+  it("signing twice in the same step gives the same URL", () => {
+    const now = 1_700_000_000_000; // a step starts at 1_700_003_400 s
+    assert.equal(
+      blobContentUrl("http://h", p, 3600, "s", now),
+      blobContentUrl("http://h", p, 3600, "s", now + 30_000),
+    );
+  });
+
+  it("a token never lives less than asked, and at most one step more", () => {
+    const now = Date.now();
+    const url = blobContentUrl("http://h", p, 3600, "s", now);
+    const exp = verifyBlobViewToken(decodeURIComponent(url.split("t=")[1] ?? ""), "s")?.exp ?? 0;
+    const nowS = Math.floor(now / 1000);
+    assert.ok(exp >= nowS + 3600, `${exp}`);
+    assert.ok(exp <= nowS + 3600 + BLOB_VIEW_STEP_S, `${exp}`);
+    assert.equal(exp % BLOB_VIEW_STEP_S, 0);
+  });
+
+  it("the browser keeps the bytes privately, and only until the token expires", () => {
+    assert.equal(blobCacheControl(1_000_600, 1_000_000_000), "private, max-age=600, immutable");
+    assert.equal(blobCacheControl(999, 1_000_000), "private, no-store");
   });
 });

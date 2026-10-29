@@ -44,7 +44,7 @@ import {
   type PaneSplit,
   type TabRef,
 } from "../application/pane-tree";
-import { flattenTree, type WorkspaceTreeNode } from "../application/workspace-tree";
+import { flattenTree, folderIdsOf, type WorkspaceTreeNode } from "../application/workspace-tree";
 import type { ExplorerSection } from "../application/explorer-state";
 import { DocumentHost, type DocumentMetrics } from "./document-host";
 import { ExplorerPanel } from "./explorer-panel";
@@ -122,6 +122,7 @@ export function WorkspaceScreen() {
   // The chord handler is bound once; it reads the document on screen through
   // a ref rather than closing over a stale one.
   const activeDocRef = useRef<Document | undefined>(undefined);
+  const folderIdsRef = useRef<ReadonlySet<string>>(new Set());
   useEffect(() => setExplorerHidden(readHidden(store())), []);
   // On a phone there is no room for the explorer beside a document: at 375px
   // the two shared the width, the tree's labels truncated to a letter and the
@@ -354,7 +355,10 @@ export function WorkspaceScreen() {
   // it, then opened as a tab. Titles are unique, so a title that exists
   // already opens rather than fails.
   const createNote = useCallback(
-    async (input: { title: string; parentId?: string; ink?: boolean }, opts: { open?: boolean } = {}) => {
+    async (
+      input: { title: string; parentId?: string; ink?: boolean; folder?: boolean },
+      opts: { open?: boolean } = {},
+    ) => {
       const wanted = normalizeTitleKey(input.title);
       const existing = (documents ?? []).find(
         (doc) => isCreatableKind(doc.kind) && normalizeTitleKey(doc.title) === wanted,
@@ -369,6 +373,7 @@ export function WorkspaceScreen() {
               title: input.title,
               parentId: input.parentId,
               ...(body !== undefined ? { body } : {}),
+              ...(input.folder ? { folder: true } : {}),
             })
           ).id;
       if (!existing) await reload();
@@ -397,7 +402,7 @@ export function WorkspaceScreen() {
       }
       const makes = draftMakes(target.kind);
       await createNote(
-        { title, parentId: target.parentId ?? undefined, ink: makes.ink },
+        { title, parentId: target.parentId ?? undefined, ink: makes.ink, folder: makes.folder },
         { open: makes.opens },
       );
     },
@@ -501,6 +506,7 @@ export function WorkspaceScreen() {
   // One mount per open document, not per visible tab, so the same note in two
   // panes is the same editor twice rather than two documents.
   const documentNodes = useMemo(() => flattenTree(tree), [tree]);
+  folderIdsRef.current = useMemo(() => folderIdsOf(tree), [tree]);
 
   // The Outline section: the headings of the document on screen, read from the
   // same parse Read mode renders. Collapsed by default, and empty for a
@@ -547,7 +553,7 @@ export function WorkspaceScreen() {
 
   const openNode = useCallback(
     (node: WorkspaceTreeNode, options: { split: boolean }) => {
-      if (!node.id || !isDocumentKind(node.kind)) return;
+      if (!node.id || !isDocumentKind(node.kind) || node.folder) return;
       const tab = openingTab(node.kind, node.id, byKey.get(tabKey({ kind: node.kind, id: node.id }))?.body);
       apply(openTab(options.split ? splitPane(layout, layout.focusedPaneId, "row") : layout, tab));
       setPaletteOpen(false);
@@ -574,7 +580,7 @@ export function WorkspaceScreen() {
         // comes from the create table, so a new root states its own default.
         const doc = activeDocRef.current;
         const kind = creationKindFor(doc);
-        setDraft({ kind, ...creationTarget(kind, doc) });
+        setDraft({ kind, ...creationTarget(kind, doc, folderIdsRef.current) });
         return;
       }
 

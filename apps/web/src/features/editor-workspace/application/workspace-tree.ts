@@ -67,6 +67,8 @@ export interface WorkspaceTreeNode {
    * is why it is the one kind of row that scrolls a pane instead.
    */
   headingLevel?: number;
+  /** A note made as a folder: it holds notes and folders and opens nothing. */
+  folder?: boolean;
 }
 
 export interface PaperEntry {
@@ -81,6 +83,7 @@ export interface PaperEntry {
  */
 export interface NoteNode extends FolderNode {
   kind?: "vault_page" | "ink_page";
+  folder?: boolean;
 }
 
 /**
@@ -155,6 +158,7 @@ function nestedRoot(
       label: node.title.trim() || "Untitled",
       path,
       children: [],
+      ...(node.folder ? { folder: true } : {}),
     });
   }
 
@@ -280,8 +284,19 @@ export function flattenTree(nodes: readonly WorkspaceTreeNode[]): WorkspaceTreeN
  * `kind.ts`'s `isDocumentKind`, which answers for a kind string coming from a
  * tab or a palette row, and which has to know about ink's heading rows too.
  */
-export function isDocumentNode(node: Pick<WorkspaceTreeNode, "kind">): boolean {
-  return node.kind !== "folder";
+export function isDocumentNode(node: Pick<WorkspaceTreeNode, "kind" | "folder">): boolean {
+  return node.kind !== "folder" && !node.folder;
+}
+
+/** The ids of the notes made as folders: the only notes a new note may go into. */
+export function folderIdsOf(nodes: readonly WorkspaceTreeNode[]): Set<string> {
+  const out = new Set<string>();
+  const walk = (node: WorkspaceTreeNode) => {
+    if (node.folder && node.id) out.add(node.id);
+    for (const child of node.children) walk(child);
+  };
+  for (const node of nodes) walk(node);
+  return out;
 }
 
 export interface VisibleRow {
