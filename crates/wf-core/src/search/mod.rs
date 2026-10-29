@@ -4,5 +4,6 @@
 
 pub mod fusion;
 pub mod js_text;
+pub mod query;
 pub mod tokenizer;
 pub mod url_parts;
