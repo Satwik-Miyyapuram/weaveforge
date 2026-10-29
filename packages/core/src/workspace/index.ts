@@ -18,3 +18,4 @@ export * from "./git-gate.js";
 export * from "./folder-mirror.js";
 export * from "./json-entities.js";
 export * from "./text-diff.js";
+export * from "./git-sync-policy.js";
