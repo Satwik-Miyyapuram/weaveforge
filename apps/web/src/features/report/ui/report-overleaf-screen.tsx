@@ -10,7 +10,6 @@ import type { ReportScreenData } from "@/features/report/application/load-report
 import { LinkedOverleafReports } from "./linked-overleaf-reports";
 import { ExportOverleafPackagePanel } from "./export-overleaf-package-panel";
 import { WorkshopPanel, canShowWorkshop } from "./workshop-panel";
-import { desktop } from "@/lib/desktop/desktop-bridge";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { overleafPapers } from "./overleaf-papers";
@@ -21,8 +20,8 @@ import { Button } from "@/components/button";
  * Outline sections live on `/report` (Sections).
  *
  * The Workshop panel (sign in, pick a project, see the compiled PDF) needs the
- * app's API routes, so neither a copy with no account nor the desktop shell
- * shows it (see `canShowWorkshop`).
+ * app's API routes, so a copy with no account does not show it; the desktop
+ * shell relays them (see `canShowWorkshop`).
  */
 export function ReportOverleafScreen() {
   /*
@@ -48,10 +47,10 @@ export function ReportOverleafScreen() {
 
   const { data, loading, error } = useScreenData("report-overleaf", loadScreen);
   const [exportOpen, setExportOpen] = useState(false);
-  // Decided after mount: the server render has no window, so no desktop bridge to see.
+  // Decided after mount, so the server render and first paint agree.
   const [workshop, setWorkshop] = useState(false);
   useEffect(() => {
-    setWorkshop(canShowWorkshop({ localMode: getContainer().auth.isLocalMode(), inDesktopShell: desktop() !== null }));
+    setWorkshop(canShowWorkshop({ localMode: getContainer().auth.isLocalMode() }));
   }, []);
 
   const tree = data?.tree ?? emptyArray<ReportSectionTreeNode>();

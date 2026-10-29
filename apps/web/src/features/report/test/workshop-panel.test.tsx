@@ -194,9 +194,7 @@ test("a 401 from the app's own sign-in keeps the stored Overleaf session", async
   await act(async () => tree.unmount());
 });
 
-test("the panel is shown only with an account and outside the desktop shell", () => {
-  assert.equal(canShowWorkshop({ localMode: false, inDesktopShell: false }), true);
-  assert.equal(canShowWorkshop({ localMode: true, inDesktopShell: false }), false);
-  assert.equal(canShowWorkshop({ localMode: false, inDesktopShell: true }), false, "the shell relays no /api/overleaf/workshop routes");
-  assert.equal(canShowWorkshop({ localMode: true, inDesktopShell: true }), false);
+test("the panel is shown with an account, in the browser and in the desktop shell alike", () => {
+  assert.equal(canShowWorkshop({ localMode: false }), true);
+  assert.equal(canShowWorkshop({ localMode: true }), false);
 });

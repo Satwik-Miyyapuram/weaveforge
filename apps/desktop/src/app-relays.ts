@@ -10,6 +10,7 @@ import { isAccountProxyRequest, proxyAccount } from "./account-proxy";
 import { isArxivProxyRequest, proxyArxiv } from "./arxiv-proxy";
 import { isBlobProxyRequest, proxyBlob } from "./blob-proxy";
 import { isHtmlProxyRequest, proxyHtml } from "./html-proxy";
+import { isOverleafProxyRequest, proxyOverleaf } from "./overleaf-proxy";
 import { isPdfProxyRequest, proxyPdf } from "./pdf-proxy";
 import type { ProxyFetch } from "./proxy-shared";
 import { isSemanticScholarProxyRequest, proxySemanticScholar } from "./semantic-scholar-proxy";
@@ -28,5 +29,7 @@ export function answerRelay(request: Request, fetchFn: ProxyFetch): Promise<Resp
   if (isBlobProxyRequest(request.url)) return proxyBlob(request, fetchFn);
   // Account deletion: both steps need the server's service-role key.
   if (isAccountProxyRequest(request.url)) return proxyAccount(request, fetchFn);
+  // Overleaf Workshop: the server seals the Overleaf session and compiles.
+  if (isOverleafProxyRequest(request.url)) return proxyOverleaf(request, fetchFn);
   return null;
 }

@@ -39,11 +39,11 @@ const browserClient: WorkshopClientDeps = { fetch: (url, init) => fetch(url, ini
 
 /**
  * The panel needs the app's /api/overleaf/workshop routes. A copy with no account
- * has none, and neither has the desktop shell: it serves a static bundle and
- * relays only the /api paths in apps/desktop/src/app-relays.ts.
+ * has none. The desktop shell relays them to the hosted app
+ * (apps/desktop/src/overleaf-proxy.ts), so it shows the panel too.
  */
-export function canShowWorkshop({ localMode, inDesktopShell }: { localMode: boolean; inDesktopShell: boolean }): boolean {
-  return !localMode && !inDesktopShell;
+export function canShowWorkshop({ localMode }: { localMode: boolean }): boolean {
+  return !localMode;
 }
 
 /**
