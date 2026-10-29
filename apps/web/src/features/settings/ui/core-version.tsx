@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { coreInfo } from "@weaveforge/wasm";
 import { loadCore } from "@/lib/rust-core";
 
 /** The Rust core's version, the first thing the app asks the core. */
@@ -10,7 +9,7 @@ export function CoreVersion() {
   useEffect(() => {
     let live = true;
     loadCore().then(
-      () => live && setVersion(coreInfo().version),
+      (core) => live && setVersion(core.coreInfo().version),
       (error: unknown) => console.error("Rust core failed to load", error),
     );
     return () => {

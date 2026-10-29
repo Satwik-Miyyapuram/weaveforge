@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { coreInfo } from "@weaveforge/wasm";
 import { loadCore } from "../rust-core";
 
 const wasm = readFileSync(new URL("../../../../../packages/wf-wasm/pkg/wf_wasm_bg.wasm", import.meta.url));
@@ -10,14 +9,14 @@ const version = cargo.match(/^version = "([^"]+)"/m)?.[1];
 
 test("a failed load is not cached; the next call retries", async () => {
   await assert.rejects(loadCore(new Uint8Array([0, 1, 2, 3])));
-  await loadCore(wasm);
-  assert.deepEqual(coreInfo(), { version });
+  const core = await loadCore(wasm);
+  assert.deepEqual(core.coreInfo(), { version });
 });
 
-test("loadCore returns the Rust core version after init", async () => {
+test("loadCore resolves to the initialised core module", async () => {
   assert.ok(version);
-  await loadCore(wasm);
-  assert.deepEqual(coreInfo(), { version });
+  const core = await loadCore(wasm);
+  assert.deepEqual(core.coreInfo(), { version });
 });
 
 test("loadCore loads the module once", async () => {
