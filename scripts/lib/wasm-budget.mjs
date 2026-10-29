@@ -10,11 +10,17 @@ import { gzipSync } from "node:zlib";
  */
 export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packages/wf-wasm/pkg/wf_wasm.js"];
 
-// Today the sum is 12,676 bytes (P0.3c: module 10,889 + glue 1,787, coreInfo
-// only, name and producers sections removed), so 14 KB leaves about 13%
-// headroom. Lower it when the size drops; raising it needs a note here saying
-// which crate or feature made it grow.
-export const WASM_GZIP_BUDGET = 14 * 1024;
+// Lower it when the size drops; raising it needs a note here saying which
+// crate or feature made it grow.
+// - P0.3c: 12,676 bytes (module 10,889 + glue 1,787), coreInfo only. 14 KB.
+// - P1.2: 125,322 bytes (module 121,471 + glue 3,851). The tokenizer exports
+//   pull in wf-core's search module and its Unicode tables: the data section
+//   is 84.6 KB gzipped (NFD and NFC tables from unicode-normalization, general
+//   category from unicode-properties, std lowercase), code 34.8 KB. The TS
+//   got these from the JS engine for free; exact parity needs them. The .wasm
+//   loads lazily, not in first-load JS. 136 KB leaves ~11% for the query,
+//   fusion and excerpt exports (P1.4, P1.7).
+export const WASM_GZIP_BUDGET = 136 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.

@@ -30,7 +30,9 @@ pub enum BindingsError {
 /// Every type exported to TypeScript. Add new types here.
 #[must_use]
 pub fn types() -> Types {
-    Types::default().register::<wf_core::CoreInfo>()
+    Types::default()
+        .register::<wf_core::CoreInfo>()
+        .register::<wf_core::search::tokenizer::TokenizerOptions>()
 }
 
 /// Render the full bindings file.
@@ -111,6 +113,8 @@ mod tests {
         let out = render().unwrap();
         assert!(out.contains("export type CoreInfo"));
         assert!(out.contains("version: string"));
+        assert!(out.contains("export type TokenizerOptions"));
+        assert!(out.contains("splitCamelCase: boolean"));
     }
 
     #[test]

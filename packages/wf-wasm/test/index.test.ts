@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { coreInfo, initSync } from "../src/index.js";
+import { coreInfo, indexTerms, initSync, tokenize, type TokenizerOptions } from "../src/index.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 initSync({ module: readFileSync(new URL("wf_wasm_bg.wasm", pkgDir)) });
@@ -38,4 +38,43 @@ test("wf-wasm exports no classes or enums", () => {
   // Agree how to type them before adding one.
   const dts = read(new URL("wf_wasm.d.ts", pkgDir));
   assert.doesNotMatch(dts, /^export (declare )?(class|enum) /m);
+});
+
+const ALL_ON: TokenizerOptions = {
+  foldDiacritics: true,
+  foldArabicDiacritics: true,
+  splitCamelCase: true,
+  tokenizeUrls: true,
+};
+
+test("tokenize returns deduplicated lowercase terms", () => {
+  assert.deepEqual(tokenize("Hello, World! hello", ALL_ON), ["hello", "world"]);
+  assert.deepEqual(tokenize("", ALL_ON), []);
+});
+
+test("indexTerms folds each token and keeps duplicates", () => {
+  const terms = indexTerms("café myVariable", ALL_ON);
+  assert.ok(Array.isArray(terms));
+  assert.ok(terms.every((t) => typeof t === "string"));
+  assert.deepEqual(terms, ["cafe", "my", "variable", "myvariable"]);
+});
+
+test("tokenize and indexTerms reject text over MAX_INDEX_TEXT_UTF16", () => {
+  const huge = "a".repeat(2 ** 24 + 1);
+  assert.throws(() => tokenize(huge, ALL_ON), /MAX_INDEX_TEXT_UTF16/);
+  assert.throws(() => indexTerms(huge, ALL_ON), /MAX_INDEX_TEXT_UTF16/);
+});
+
+test("tokenize accepts text at exactly MAX_INDEX_TEXT_UTF16", () => {
+  // Multi-byte chars: 2**24 UTF-16 units but 3 * 2**24 UTF-8 bytes, past the fast path.
+  assert.equal(tokenize("é".repeat(2 ** 24), ALL_ON).length, 1);
+});
+
+test("tokenize rejects malformed options", () => {
+  // Extra keys are not rejected: serde-wasm-bindgen reads only the struct's
+  // own fields, so deny_unknown_fields never fires. TokenizerOptions is exact in TS.
+  const bad = (o: unknown) => () => tokenize("x", o as TokenizerOptions);
+  assert.throws(bad({ foldDiacritics: true }), /missing field/);
+  assert.throws(bad({ ...ALL_ON, tokenizeUrls: "yes" }));
+  assert.throws(bad(undefined));
 });

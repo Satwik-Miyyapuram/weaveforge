@@ -10,11 +10,35 @@
  */
 export function coreInfo(): any;
 
+/**
+ * [`wf_core::search::tokenizer::index_terms`]: what MiniSearch indexes for `text`.
+ *
+ * # Errors
+ *
+ * Fails if `text` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or if
+ * `options` is not a valid `TokenizerOptions` object.
+ */
+export function indexTerms(text: string, options: any): any;
+
+/**
+ * [`wf_core::search::tokenizer::tokenize`]: search terms of `text`, deduplicated.
+ *
+ * # Errors
+ *
+ * Fails if `text` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or if
+ * `options` is not a valid `TokenizerOptions` object.
+ */
+export function tokenize(text: string, options: any): any;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly coreInfo: () => [number, number, number];
+    readonly indexTerms: (a: number, b: number, c: any) => [number, number, number];
+    readonly tokenize: (a: number, b: number, c: any) => [number, number, number];
+    readonly __wbindgen_malloc: (a: number, b: number) => number;
+    readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __externref_table_dealloc: (a: number) => void;
     readonly __wbindgen_start: () => void;
