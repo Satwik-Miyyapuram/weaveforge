@@ -116,7 +116,7 @@ async function insideVault(vaultRoot: string, folder: string): Promise<string> {
 }
 
 function gitDirFor(deps: OverleafSyncDeps, link: OverleafLink): string {
-  const key = createHash("sha1").update(`${path.resolve(deps.vaultRoot)}\0${link.folder}`).digest("hex").slice(0, 12);
+  const key = createHash("sha256").update(`${path.resolve(deps.vaultRoot)}\0${link.folder}`).digest("hex").slice(0, 12);
   return path.join(deps.userData, "overleaf-git", `${key}-${link.projectId}.git`);
 }
 
