@@ -30,6 +30,8 @@ export function useInkFigureUrls(deps: InkFigureUrlsDeps) {
     new Map(),
   );
   const inFlight = useRef(new Set<string>());
+  /** The paths on the page now; a fetch that lands for any other is dropped. */
+  const wanted = useRef(new Set<string>());
   const mounted = useRef(true);
   /** Every URL made, so unmounting frees the blobs behind them (21-04). */
   const made = useRef(new Set<string>());
@@ -44,14 +46,27 @@ export function useInkFigureUrls(deps: InkFigureUrlsDeps) {
   }, []);
 
   useEffect(() => {
-    const wanted = new Set(deps.figures.map((figure) => figure.path));
-    for (const path of wanted) {
+    const onPage = new Set(deps.figures.map((figure) => figure.path));
+    wanted.current = onPage;
+    // A figure that left the page frees its blob (the URL is kept only for the
+    // page being looked at).
+    const left = [...figureUrls].filter(([path]) => !onPage.has(path));
+    if (left.length > 0) {
+      for (const [, url] of left) {
+        URL.revokeObjectURL(url);
+        made.current.delete(url);
+      }
+      setFigureUrls(
+        (current) => new Map([...current].filter(([path]) => onPage.has(path))),
+      );
+    }
+    for (const path of onPage) {
       if (figureUrls.has(path) || inFlight.current.has(path)) continue;
       inFlight.current.add(path);
       void deps
         .fetchBlob(path)
         .then((blob) => {
-          if (!mounted.current) return;
+          if (!mounted.current || !wanted.current.has(path)) return;
           const url = URL.createObjectURL(blob);
           made.current.add(url);
           setFigureUrls((current) => new Map(current).set(path, url));
