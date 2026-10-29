@@ -155,3 +155,18 @@ test("isPickEnter ignores Enter while an IME is composing", () => {
   assert.equal(isPickEnter({ key: "Enter", keyCode: 229, nativeEvent: {} }), false);
   assert.equal(isPickEnter({ key: "a", nativeEvent: { isComposing: false } }), false);
 });
+
+test("every result of a kind with no heading is kept, not only the first", () => {
+  const row = (id: string, score: number): QuickOpenResult => ({
+    node: { key: `experiment:${id}`, kind: "experiment", id, label: id, path: `experiments/${id}.experiment.md`, children: [] },
+    score,
+    matched: [],
+  });
+  const groups = groupResults([row("a", 30), row("b", 20), row("c", 10)]);
+  assert.equal(groups.length, 1);
+  assert.deepEqual(
+    groups[0]!.results.map((r) => r.node.id),
+    ["a", "b", "c"],
+  );
+  assert.equal(paintedOrder([row("a", 30), row("b", 20)]).length, 2);
+});

@@ -159,8 +159,9 @@ export function groupResults(results: readonly QuickOpenResult[]): QuickOpenGrou
     group.results.push(...found);
   }
 
+  const headed = new Set(GROUP_ORDER.map((entry) => entry.kind));
   for (const result of results) {
-    if (byKind.has(result.node.kind)) continue;
+    if (headed.has(result.node.kind)) continue;
     let group = byKind.get(result.node.kind);
     if (!group) {
       group = { kind: result.node.kind, label: titleCase(result.node.kind), results: [] };
@@ -183,11 +184,5 @@ export function paintedOrder(results: readonly QuickOpenResult[]): QuickOpenResu
   return groupResults(results).flatMap((group) => group.results);
 }
 
-/** An Enter that picks a row: not the one that confirms an IME composition (keyCode 229 on older engines). */
-export function isPickEnter(event: {
-  key: string;
-  keyCode?: number;
-  nativeEvent: { isComposing?: boolean };
-}): boolean {
-  return event.key === "Enter" && !event.nativeEvent.isComposing && event.keyCode !== 229;
-}
+/** An Enter that picks a row: not the one that confirms an IME composition. */
+export { isCommitEnter as isPickEnter } from "@/lib/commit-enter";
