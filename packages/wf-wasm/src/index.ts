@@ -24,7 +24,8 @@ import init, {
 } from "../pkg/wf_wasm.js";
 import type { CoreInfo, ParsedQuery, RankedList, SearchKind, TokenizerOptions } from "./bindings.js";
 
-export type { CoreInfo, ParsedQuery, RankedList, SearchKind, TokenizerOptions };
+// RankedList stays internal: its generated `weight` allows null, which Rust rejects.
+export type { CoreInfo, ParsedQuery, SearchKind, TokenizerOptions };
 export { init, initSync };
 
 /** Facts about this core build, such as its version. */
@@ -63,7 +64,7 @@ export function parseQuery(query: string): ParsedQuery {
   return rawParseQuery(query) as ParsedQuery;
 }
 
-/** Most ids one list may pass to `fuseRankings` (Rust `MAX_FUSION_IDS`). */
+/** Most ids all lists together may pass to `fuseRankings` (Rust `MAX_FUSION_IDS`). */
 export function maxFusionIds(): number {
   return rawMaxFusionIds();
 }
@@ -89,11 +90,12 @@ export function fuseRankings<T>(
   checkU32("k", options.k);
   checkU32("limit", options.limit);
   const max = rawMaxFusionIds();
+  const total = lists.reduce((sum, list) => sum + list.items.length, 0);
+  if (total > max) {
+    throw new RangeError(`lists have ${total} ids in total; MAX_FUSION_IDS is ${max}`);
+  }
   const representative = new Map<string, T>();
-  const ranked: RankedList[] = lists.map((list, index) => {
-    if (list.items.length > max) {
-      throw new RangeError(`list ${index} has ${list.items.length} ids; MAX_FUSION_IDS is ${max}`);
-    }
+  const ranked: RankedList[] = lists.map((list) => {
     const ids = list.items.map((item) => {
       const id = identify(item);
       if (!representative.has(id)) representative.set(id, item);

@@ -22,8 +22,8 @@ export function coreInfo() {
  *
  * # Errors
  *
- * Fails if a list is malformed, has more than `MAX_FUSION_IDS` ids, or has a
- * weight that is not finite and >= 0.
+ * Fails if a list is malformed, the lists have more than `MAX_FUSION_IDS` ids
+ * in total, or a weight is not finite and >= 0.
  * @param {any} lists
  * @param {number | null} [k]
  * @param {number | null} [limit]

@@ -128,8 +128,8 @@ pub fn parse_query(query: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&parsed)
 }
 
-/// Most ids one ranked list may carry into `fuseRankings` (about 1 Mi). Larger
-/// lists are an error; the TS wrapper checks before the ids cross into WASM.
+/// Most ids all ranked lists together may carry into `fuseRankings` (about
+/// 1 Mi). More is an error; the TS wrapper checks before the ids cross into WASM.
 pub const MAX_FUSION_IDS: usize = 1 << 20;
 
 /// [`MAX_FUSION_IDS`] for JS.
@@ -139,16 +139,16 @@ pub fn max_fusion_ids() -> usize {
     MAX_FUSION_IDS
 }
 
-/// Reads the JS lists and checks each one's size and weight.
+/// Reads the JS lists and checks their total size and each weight.
 fn fusion_input(lists: JsValue) -> Result<Vec<RankedList>, serde_wasm_bindgen::Error> {
     let lists: Vec<RankedList> = serde_wasm_bindgen::from_value(lists)?;
+    let total: usize = lists.iter().map(|l| l.ids.len()).sum();
+    if total > MAX_FUSION_IDS {
+        return Err(serde_wasm_bindgen::Error::new(format!(
+            "lists have {total} ids in total; MAX_FUSION_IDS is {MAX_FUSION_IDS}"
+        )));
+    }
     for (index, list) in lists.iter().enumerate() {
-        if list.ids.len() > MAX_FUSION_IDS {
-            return Err(serde_wasm_bindgen::Error::new(format!(
-                "list {index} has {} ids; MAX_FUSION_IDS is {MAX_FUSION_IDS}",
-                list.ids.len()
-            )));
-        }
         if !list.weight.is_finite() || list.weight < 0.0 {
             return Err(serde_wasm_bindgen::Error::new(format!(
                 "list {index} weight {} must be finite and >= 0",
@@ -156,7 +156,7 @@ fn fusion_input(lists: JsValue) -> Result<Vec<RankedList>, serde_wasm_bindgen::E
             )));
         }
     }
-    debug_assert!(lists.iter().all(|l| l.ids.len() <= MAX_FUSION_IDS));
+    debug_assert!(lists.iter().map(|l| l.ids.len()).sum::<usize>() <= MAX_FUSION_IDS);
     debug_assert!(
         lists
             .iter()
@@ -170,8 +170,8 @@ fn fusion_input(lists: JsValue) -> Result<Vec<RankedList>, serde_wasm_bindgen::E
 ///
 /// # Errors
 ///
-/// Fails if a list is malformed, has more than `MAX_FUSION_IDS` ids, or has a
-/// weight that is not finite and >= 0.
+/// Fails if a list is malformed, the lists have more than `MAX_FUSION_IDS` ids
+/// in total, or a weight is not finite and >= 0.
 #[wasm_bindgen(js_name = fuseRankings)]
 pub fn fuse_rankings(
     lists: JsValue,

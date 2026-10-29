@@ -16,8 +16,8 @@ export function coreInfo(): any;
  *
  * # Errors
  *
- * Fails if a list is malformed, has more than `MAX_FUSION_IDS` ids, or has a
- * weight that is not finite and >= 0.
+ * Fails if a list is malformed, the lists have more than `MAX_FUSION_IDS` ids
+ * in total, or a weight is not finite and >= 0.
  */
 export function fuseRankings(lists: any, k?: number | null, limit?: number | null): any;
 

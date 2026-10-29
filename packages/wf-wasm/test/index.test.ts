@@ -13,6 +13,7 @@ import {
   type ParsedQuery,
   type TokenizerOptions,
 } from "../src/index.js";
+import { fuseRankings as rawFuseRankings } from "../pkg/wf_wasm.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 initSync({ module: readFileSync(new URL("wf_wasm_bg.wasm", pkgDir)) });
@@ -184,13 +185,27 @@ test("fuseRankings rejects a weight that is negative or not finite", () => {
   }
 });
 
-test("fuseRankings rejects a list over MAX_FUSION_IDS before identify runs", () => {
+test("fuseRankings rejects more than MAX_FUSION_IDS ids in total before identify runs", () => {
+  // Each list is under the cap; together they are one over it.
   let calls = 0;
-  const huge = { items: new Array<string>(2 ** 20 + 1).fill("a") };
+  const half = () => ({ items: new Array<string>(2 ** 19).fill("a") });
   const count = (id: string) => {
     calls += 1;
     return id;
   };
-  assert.throws(() => fuseRankings([{ items: ["b"] }, huge], count), (e: unknown) => e instanceof RangeError && /list 1 has 1048577 ids; MAX_FUSION_IDS/.test(e.message));
-  assert.equal(calls, 1);
+  const over = [half(), { items: ["b"] }, half()];
+  assert.throws(() => fuseRankings(over, count), (e: unknown) => e instanceof RangeError && /lists have 1048577 ids in total; MAX_FUSION_IDS is 1048576/.test(e.message));
+  assert.equal(calls, 0);
+  assert.equal(fuseRankings([half(), half()], self).length, 1);
+});
+
+test("fuseRankings raw export rejects more than MAX_FUSION_IDS ids in total", () => {
+  const ids = new Array<string>(2 ** 19 + 1).fill("a");
+  assert.throws(() => rawFuseRankings([{ ids, weight: 1 }, { ids, weight: 1 }]), /lists have 1048578 ids in total; MAX_FUSION_IDS is 1048576/);
+});
+
+test("index.ts does not re-export RankedList", () => {
+  // Its generated weight is `number | null`, but Rust rejects null; the wrapper's {items, weight?} is the public shape.
+  const src = read(new URL("../src/index.ts", import.meta.url));
+  assert.doesNotMatch(src, /export type \{[^}]*RankedList/);
 });
