@@ -310,6 +310,7 @@ dependencies = [
 name = "wf-wasm"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "serde-wasm-bindgen",
  "wasm-bindgen",
  "wf-core",

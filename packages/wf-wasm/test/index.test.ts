@@ -32,3 +32,10 @@ test("every raw wasm export has a typed wrapper", () => {
     assert.match(src, new RegExp(`^export function ${name}\\(`, "m"), `no typed wrapper for ${name}`);
   }
 });
+
+test("wf-wasm exports no classes or enums", () => {
+  // A #[wasm_bindgen] struct or enum would bypass the wrapper and bindings.ts.
+  // Agree how to type them before adding one.
+  const dts = read(new URL("wf_wasm.d.ts", pkgDir));
+  assert.doesNotMatch(dts, /^export (declare )?(class|enum) /m);
+});

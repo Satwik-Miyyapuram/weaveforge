@@ -6,6 +6,9 @@
  * ./bindings.ts. This file declares no types of its own, and every raw export
  * has a wrapper here; test/index.test.ts checks both.
  *
+ * The `as` in each wrapper is unchecked, so every wrapper needs a test that
+ * checks the runtime value against its type, like the `coreInfo` one.
+ *
  * Call `init` (browser, fetches the .wasm) or `initSync` (bytes in hand, e.g.
  * Node) once before any other export.
  */
