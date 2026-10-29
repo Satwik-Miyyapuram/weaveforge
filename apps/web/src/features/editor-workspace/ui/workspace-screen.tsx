@@ -22,6 +22,7 @@ import {
   activateTab,
   activeTabRef,
   closeTab,
+  closedTabs,
   emptyLayout,
   focusPane,
   leaves,
@@ -54,6 +55,7 @@ import { readHidden, writeHidden } from "../application/explorer-state";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
+import { ShortcutsDialog } from "./shortcuts-dialog";
 import { StatusBar, saveState, type SegmentKey } from "./status-bar";
 import { hasInkView, hasLazyBody, isCreatableKind, isDocumentKind, kindOwner, linkGroupOf, openingTab, openModeFor, segmentsFor } from "./kind";
 import { FormError } from "@/components/form-error";
@@ -76,6 +78,9 @@ function requestedTab(): TabRef | null {
   const id = rest.join(":");
   return kind && id ? { kind, id } : null;
 }
+
+/** How many closed tabs `⌘⇧T` can bring back. */
+const CLOSED_TABS_KEPT = 20;
 
 /**
  * The desktop editor: the workspace as a stack of explorer sections and a set
@@ -101,6 +106,9 @@ export function WorkspaceScreen() {
   layoutRef.current = layout;
   const [error, setError] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  /** Tabs closed this session, newest last, for `⌘⇧T`. */
+  const closedRef = useRef<TabRef[]>([]);
   // The explorer's draft row: what it will make and where. Owned here so the
   // `⌘N` chord and the panel's own buttons start the same thing.
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -231,6 +239,8 @@ export function WorkspaceScreen() {
   }, [reload, projectId]);
 
   const apply = useCallback((next: PaneLayout) => {
+    const gone = closedTabs(layoutRef.current, next);
+    if (gone.length > 0) closedRef.current = [...closedRef.current, ...gone].slice(-CLOSED_TABS_KEPT);
     writeLayout(store(), next, projectId);
     setLayout(next);
     return next;
@@ -604,6 +614,16 @@ export function WorkspaceScreen() {
     [apply, layout, byKey],
   );
 
+  /** The newest closed tab whose document still exists and is not open again already. */
+  const reopenTab = useCallback(() => {
+    const open = openTabKeys(layoutRef.current);
+    while (closedRef.current.length > 0) {
+      const tab = closedRef.current.at(-1)!;
+      closedRef.current = closedRef.current.slice(0, -1);
+      if (byKey.has(tabKey(tab)) && !open.has(tabKey(tab))) return void apply(openTab(layoutRef.current, tab));
+    }
+  }, [apply, byKey]);
+
   // Bound on the window rather than on the shell so a shortcut still works
   // while focus is inside a CodeMirror instance, which stops propagation of
   // plenty of keys on its way to handling them.
@@ -614,9 +634,14 @@ export function WorkspaceScreen() {
       const command = commandForChord(event, focusedTabCount(layoutRef.current));
       if (!command) return;
       if (isTypingTarget(event.target as HTMLElement | null)) return;
+      // Inside a document `⌘/` is CodeMirror's "toggle comment"; it has already
+      // run, so the sheet opens only from outside the text.
+      if (command === "show-shortcuts" && event.defaultPrevented) return;
       event.preventDefault();
 
       if (command === "quick-open") return setPaletteOpen(true);
+      if (command === "show-shortcuts") return setShortcutsOpen((open) => !open);
+      if (command === "reopen-tab") return reopenTab();
       if (command === "toggle-explorer") return toggleExplorer();
       if (command === "toggle-focus") return toggleFocus();
       if (command === "new-note") {
@@ -637,7 +662,7 @@ export function WorkspaceScreen() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [apply, toggleExplorer, toggleFocus]);
+  }, [apply, toggleExplorer, toggleFocus, reopenTab]);
 
   if (error && !documents) return <FormError>{error}</FormError>;
   if (!documents) return <ScreenLoader status="Loading workspace…" />;
@@ -751,6 +776,7 @@ export function WorkspaceScreen() {
           onClose={() => setPaletteOpen(false)}
         />
       ) : null}
+      {shortcutsOpen ? <ShortcutsDialog onClose={() => setShortcutsOpen(false)} /> : null}
     </div>
   );
 }

@@ -299,7 +299,6 @@ function EmptyState() {
     "next-tab",
     "toggle-mode",
   ];
-  const table = shortcutTable();
   return (
     <div className="pane-empty-state">
       <span className="pane-empty-mark" aria-hidden="true">
@@ -310,19 +309,27 @@ function EmptyState() {
         Pick a document on the left, or go straight to one by name. Your layout comes back when you
         return.
       </p>
-      <dl className="pane-shortcuts">
-        {commands.map((command) => (
-          <div className="pane-shortcut" key={command}>
-            <dt>
-              {chordKeys(table[command]).map((key, index) => (
-                <kbd key={`${command}-${index}`}>{keyLabel(key)}</kbd>
-              ))}
-            </dt>
-            <dd>{SHORTCUT_LABEL[command]}</dd>
-          </div>
-        ))}
-      </dl>
+      <ShortcutGrid commands={commands} />
     </div>
+  );
+}
+
+/** Keycaps beside a label, one row per command; the empty state and the `⌘/` sheet share it. */
+export function ShortcutGrid({ commands }: { commands: readonly WorkspaceCommand[] }) {
+  const table = shortcutTable();
+  return (
+    <dl className="pane-shortcuts">
+      {commands.map((command) => (
+        <div className="pane-shortcut" key={command}>
+          <dt>
+            {chordKeys(table[command]).map((key, index) => (
+              <kbd key={`${command}-${index}`}>{keyLabel(key)}</kbd>
+            ))}
+          </dt>
+          <dd>{SHORTCUT_LABEL[command]}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -351,6 +358,8 @@ const SHORTCUT_LABEL: Record<WorkspaceCommand, string> = {
   "new-note": "New note",
   "toggle-explorer": "Hide / show explorer",
   "toggle-focus": "Focus: document only",
+  "show-shortcuts": "Keyboard shortcuts",
+  "reopen-tab": "Reopen closed tab",
   "toggle-mode": "Preview",
   "split-right": "Split right",
   "close-tab": "Close tab",
