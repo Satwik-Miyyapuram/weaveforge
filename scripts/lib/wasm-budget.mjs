@@ -10,10 +10,11 @@ import { gzipSync } from "node:zlib";
  */
 export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packages/wf-wasm/pkg/wf_wasm.js"];
 
-// Today the sum is 16,056 bytes (P0.3: module 14,269 + glue 1,787, coreInfo
-// only), so 18 KB leaves about 15% headroom. Lower it when the size drops;
-// raising it needs a note here saying which crate or feature made it grow.
-export const WASM_GZIP_BUDGET = 18 * 1024;
+// Today the sum is 12,676 bytes (P0.3c: module 10,889 + glue 1,787, coreInfo
+// only, name and producers sections removed), so 14 KB leaves about 13%
+// headroom. Lower it when the size drops; raising it needs a note here saying
+// which crate or feature made it grow.
+export const WASM_GZIP_BUDGET = 14 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.

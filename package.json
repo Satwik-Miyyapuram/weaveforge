@@ -53,6 +53,7 @@
     "bindings": "cargo run -p wf-bindings --locked",
     "build:wasm": "node scripts/build-wasm.mjs",
     "wasm:budget": "node scripts/check-wasm-budget.mjs",
+    "wasm:fresh": "node scripts/check-wasm-fresh.mjs",
     "check:rust": "node scripts/check-rust.mjs",
     "bundle:budget": "node scripts/check-bundle-budget.mjs",
     "bundle:duplicates": "node scripts/check-bundle-duplicates.mjs",

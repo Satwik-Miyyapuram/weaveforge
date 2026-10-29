@@ -7,7 +7,7 @@
  * 2. Architecture map & docs freshness (check:docs)
  * 3. Commit DCO sign-offs (check:dco)
  * 4. Architectural & code boundaries (check:boundaries - 10 gates)
- * 5. WASM build, its tests and size budget, then typecheck across all workspaces (build:wasm, typecheck)
+ * 5. WASM build (committed pkg must not change), its tests and size budget, then typecheck (build:wasm, typecheck)
  * 6. Linter (lint)
  * 7. Bundle budget (bundle:budget, when .next build exists)
  * 8. Memory budgets (test:memory, ~5 s)
@@ -60,9 +60,16 @@ run(`node scripts/check-dco.mjs ${baseSha} HEAD`, `Checking DCO sign-offs (${bas
 // 4. Boundary gates (SOLID, DRY, API routes, UI, contrast, hygiene, MCP, Android, CI parity)
 run("npm run check:boundaries", "Running architectural boundary gates");
 
-// 5. Full workspace typecheck. @weaveforge/wasm imports the wasm-bindgen glue
-// in packages/wf-wasm/pkg (gitignored), so build it first.
+// 5. Rebuild the committed WASM package; a push with Rust changes but a stale
+// packages/wf-wasm/pkg stops here so the rebuilt files get committed. The
+// module bytes differ by build OS, so as in CI only glue, types and the input
+// stamp are compared; the stamp changes whenever the Rust inputs do.
 run("npm run build:wasm", "Building the Rust core to WASM");
+const pkgStatus = "git status --porcelain -- packages/wf-wasm/pkg :(exclude)packages/wf-wasm/pkg/wf_wasm_bg.wasm";
+if (execSync(pkgStatus, { cwd: root, encoding: "utf8" }).trim()) {
+  console.error("\n[pre-push] packages/wf-wasm/pkg changed after build:wasm. Commit it and push again.");
+  process.exit(1);
+}
 run("npm test --workspace @weaveforge/wasm", "Testing the WASM package");
 run("npm run wasm:budget", "Checking the WASM size budget");
 run("npm run typecheck", "Typechecking all workspace packages");

@@ -178,5 +178,3 @@ apps/web/public/ort-wasm-*
 
 # Rust build output
 /target/
-# wasm-bindgen output; rebuilt by `npm run build:wasm`
-/packages/wf-wasm/pkg/
