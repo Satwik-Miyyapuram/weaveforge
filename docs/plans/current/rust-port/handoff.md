@@ -70,7 +70,7 @@ Update after every merged PR. A phase is done only when its **done when** is met
 
 | Phase | State | PRs | Done-when evidence |
 |---|---|---|---|
-| 0 Foundations | in progress | #540 (0.1), #541 (0.2) | 0.1: cargo workspace + wf-core skeleton; 6/6 Rust gates green in CI (fmt, clippy, nextest 2 tests, doctest, deny, advisories); pre-push runs 5 offline gates. 0.2: specta bindings to packages/wf-wasm/src/bindings.ts with a staleness gate; 7/7 Rust gates green in CI, nextest 11 tests |
+| 0 Foundations | in progress | #540 (0.1), #541 (0.2), #542 (0.3) | 0.1: cargo workspace + wf-core skeleton; 6/6 Rust gates green in CI (fmt, clippy, nextest 2 tests, doctest, deny, advisories); pre-push runs 5 offline gates. 0.2: specta bindings to packages/wf-wasm/src/bindings.ts with a staleness gate; 7/7 Rust gates green in CI, nextest 11 tests. 0.3: wf-wasm crate + typed @weaveforge/wasm package (coreInfo); wasm-release build 43,886 B raw / 14,292 B gzip; 4 wasm package tests; build:wasm runs in CI and pre-push; 0.3b: gzip budget 20 KB gated in CI and pre-push |
 | 1 Search pilot | not started | | |
 | 2 Desktop on Tauri 2 | not started | | |
 | 3 Storage, sync, offline | not started | | |
