@@ -53,6 +53,20 @@ test("no heading level is larger than the level above it at a 14px base", () => 
   assert.ok(px(1) > px(6), "the levels do not step down at all");
 });
 
+test("heading sizes follow Google Docs' defaults (20/16/14/12/11/11pt over an 11pt body)", () => {
+  const css = rules("markdown.css");
+  const prop = (level: number, name: string) =>
+    css
+      .filter((r) => r.selectors.includes(`.markdown h${level}`))
+      .map((r) => new RegExp(`(?:^|;)\\s*${name}:\\s*([^;]+)`).exec(r.body)?.[1]?.trim())
+      .find(Boolean);
+  assert.deepEqual([1, 2, 3, 4, 5, 6].map((level) => prop(level, "font-size")), ["1.82em", "1.45em", "1.27em", "1.09em", "1em", "1em"]);
+  assert.equal(prop(6, "font-style"), "italic");
+  // Docs greys its lower levels (#434343, #666666); here they take the theme's muted colour.
+  for (const level of [3, 4, 5, 6]) assert.ok(prop(level, "color"), `h${level} has no colour`);
+  for (const level of [1, 2]) assert.equal(prop(level, "color"), undefined, `h${level} should keep the text colour`);
+});
+
 test("the AI review screen's title rule does not reach a # heading in a proposal", () => {
   const css = rules("ai-review.css");
   assert.ok(css.every((r) => !r.selectors.includes(".ai-review-screen h1")), "an unscoped .ai-review-screen h1 rule remains");

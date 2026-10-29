@@ -284,21 +284,24 @@ test("inline code and maths inside a level-four heading keep their markup", () =
 });
 
 /** The font-size value that the first rule with exactly this selector sets. */
-function headingSizeToken(selector: string): string {
+/** The font-size and font-style a heading rule sets, as one string. */
+function headingLook(selector: string): string {
   const css = readFileSync(fileURLToPath(new URL("../../../app/styles/markdown.css", import.meta.url)), "utf8");
   for (const block of css.split("}")) {
     const open = block.indexOf("{");
     if (open < 0) continue;
     const head = block.slice(0, open).replace(/\/\*[\s\S]*?\*\//g, "").trim();
     if (head !== selector) continue;
-    const token = /font-size:\s*([^;]+)/.exec(block.slice(open + 1))?.[1]?.trim();
-    assert.ok(token, `${selector} sets no font-size`);
-    return token;
+    const body = block.slice(open + 1);
+    const size = /font-size:\s*([^;]+)/.exec(body)?.[1]?.trim();
+    assert.ok(size, `${selector} sets no font-size`);
+    return `${size} ${/font-style:\s*([^;]+)/.exec(body)?.[1]?.trim() ?? "normal"}`;
   }
   assert.fail(`no rule for ${selector}`);
 }
 
-test("levels four, five and six each get their own heading size", () => {
-  const sizes = ["h4", "h5", "h6"].map((level) => headingSizeToken(`.markdown ${level}`));
-  assert.equal(new Set(sizes).size, 3, `sizes must differ: ${sizes.join(", ")}`);
+// As in Google Docs, levels 5 and 6 share a size and level 6 is italic.
+test("levels four, five and six each look different", () => {
+  const looks = ["h4", "h5", "h6"].map((level) => headingLook(`.markdown ${level}`));
+  assert.equal(new Set(looks).size, 3, `looks must differ: ${looks.join(", ")}`);
 });
