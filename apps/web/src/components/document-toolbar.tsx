@@ -11,7 +11,8 @@
  */
 
 import { useState, type ReactNode } from "react";
-import { InkIdleBar, type InkMenuAction, type InkMenuSection } from "@/features/ink";
+import dynamic from "next/dynamic";
+import { type InkMenuAction, type InkMenuSection } from "@/features/ink";
 import {
   EDITOR_CITATION_FORMATS,
   EDITOR_CITATION_FORMAT_LABELS,
@@ -19,6 +20,19 @@ import {
 } from "@/lib/citation-format-preference";
 import type { EditorHandleRef } from "./editor-handle";
 import { ToolbarSlotContext } from "./toolbar-slot";
+
+/*
+ * The ink feature is loaded on demand: a note, paper or report section that is
+ * not inking should not carry the pen, the renderer and the text layer on its
+ * first load (the bundle budget). Until it arrives the greyed bar stands in.
+ */
+const LazyInkIdleBar = dynamic(
+  () => import("@/features/ink").then((m) => m.InkIdleBar),
+  {
+    ssr: false,
+    loading: () => <span className="workspace-toolbar-doc workspace-toolbar-idle" />,
+  },
+);
 
 export interface DocumentToolbarProps {
   /** Before the bar: the mode switch and the focus button. */
@@ -54,7 +68,7 @@ export function DocumentToolbar({ lead, editor, onError, insertItems, moreSectio
         <div className="document-toolbar" role="toolbar" aria-label="Document">
           {lead}
           <span className="workspace-toolbar-doc" ref={setSlot} />
-          <InkIdleBar onInsertImage={editor ? insertImage : undefined} insertItems={insertItems} moreSections={moreSections} />
+          <LazyInkIdleBar onInsertImage={editor ? insertImage : undefined} insertItems={insertItems} moreSections={moreSections} />
         </div>
       )}
       <ToolbarSlotContext.Provider value={focus ? undefined : slot}>{children}</ToolbarSlotContext.Provider>
