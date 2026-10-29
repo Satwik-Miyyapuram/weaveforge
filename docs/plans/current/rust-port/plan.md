@@ -1,0 +1,301 @@
+# Plan: Rust core + Tauri 2 shells + React UI
+
+Status: proposal. Nothing in the repo changed. Date: 2026-10-29.
+
+## 1. Decision
+
+- **One Rust core, several thin shells.** Not two apps, and not a Rust UI.
+- **Core:** search, parsing, sync and merge, the workspace model, git and Overleaf live once, in Rust.
+- **Shells:** Tauri 2 on Windows, Mac, Linux, Android and iOS. Each shell loads the same React UI.
+- **Browser:** the web app uses the same core compiled to WASM.
+- **What stays in TypeScript:** React screens, CodeMirror, PDF.js and ink drawing.
+
+The rule that makes this work is **one source of truth**:
+- A piece of logic exists in one place.
+- When it moves to Rust, its TS copy is deleted in the same PR.
+- TS types for anything crossing the boundary are **generated** from Rust, never hand-written.
+
+## 2. What we measured already (do not re-guess)
+
+Sources: `docs/plans/speed-plan.md` and `docs/internal/design/memory-optimization.md`. Tool: `scripts/perf/baseline.mjs`, which talks CDP on port 9223 to WeaveForge Dev.
+
+| Metric | Baseline 2026-10-18 | Now (Electron 44) |
+|---|---|---|
+| Idle private memory | 723 MB | 471–507 MB |
+| Peak private memory | 1,281 MB | 864–1,101 MB |
+| Idle JS heap | 7 MB | — |
+| JS heap, ink note open | 124 MB | — |
+| Idle per process | — | GPU 236, browser 298, renderer 154 MB |
+| Nav p50 / p95 | 79.5 / 151 ms | 65 ms p50 |
+| `pdf:page-render` p95 | 544 ms | — |
+| `ink:note-paint` | 1,960 ms | — |
+| MiniSearch tokenize, `indexPdf` | 223 ms | sliced to 111 ms |
+| `ink:parse`, 50 pages | 83 ms | — |
+| Embed 1,039 passages, ONNX WASM, 4 threads | ~6 min | — |
+
+**What this means (corrects my earlier "about half the RAM"):**
+
+- **Memory is in Chromium, not in our code.**
+  - The JS heap is small, 7 MB idle.
+  - The GPU process alone is about 330 MB of ANGLE/D3D11 driver memory.
+  - Moving logic to Rust saves little memory.
+- **Tauri on Windows uses WebView2, which is also Chromium.**
+  - Measured: Tauri 370–399 MB against Electron 312–318 MB ([tauri#5889](https://github.com/tauri-apps/tauri/issues/5889)).
+  - Expect about the same RAM on Windows. Only the Node main process (about 70–90 MB) goes away.
+  - Mac and Linux use the system WebKit and gain more.
+- **Long frames come from layout and paint**, and Rust does not touch those.
+
+**Where Rust wins (realistic):**
+
+| Area | Today | Rust expectation | How we prove it |
+|---|---|---|---|
+| Embeddings | ~6 min in WASM | native `ort`, maybe NPU: 5–20× faster | time the same 1,039 passages |
+| PDF index tokenize | 223 ms | 3–10× faster, off the UI thread | `indexPdf` mark |
+| Ink parse | 83 ms / 50 pages | 3–10× faster | `ink:parse` mark |
+| Git sync | isomorphic-git / child process | in-process `gix`/`git2` | sync timing test |
+| Installer size | Electron, ~100+ MB | Tauri, ~10–20 MB | file size |
+| iOS | online only | offline, local core | feature test |
+| Correctness | TS runtime errors | whole bug classes gone (see §3) | defect rate |
+
+Rendering, layout, PDF.js paint and the CodeMirror UI stay the same speed.
+
+## 3. Why Rust helps correctness, and where it doesn't
+
+**It helps.** Google's Android data from Nov 2025 ([blog](https://blog.google/security/rust-in-android-move-fast-fix-things/)):
+- About 1000× fewer memory-safety bugs per line.
+- A 4× lower rollback rate.
+- 25% less review time.
+- About 20% fewer revisions.
+
+**It removes:**
+- null and undefined errors (`Option`)
+- unhandled errors (`Result` plus `?`, and the compiler forces handling)
+- data races
+- missing match cases (exhaustive `match`)
+
+**It does not remove:**
+- logic bugs
+- wrong specs
+- UI bugs
+- bugs in the boundary between Rust and TS
+
+The boundary is the dangerous part. Mozilla found that hand-written wrappers around their Rust core caused "many serious bugs" and crashes, and fixed it by **generating** the bindings ([Mozilla UniFFI post](https://hacks.mozilla.org/2023/08/autogenerating-rust-js-bindings-with-uniffi/)). We do the same.
+
+## 4. How the best teams avoid errors: rules for this project
+
+### 4.1 One source of truth
+
+| Thing | Single source | Everything else |
+|---|---|---|
+| Data types crossing Rust↔TS | Rust structs + `#[derive(specta::Type)]` | generated `bindings.ts`; CI fails if stale |
+| Commands/events (shell IPC) | Rust fns with `#[tauri::command]` + [tauri-specta](https://docs.rs/tauri-specta) | generated typed TS client |
+| WASM API | Rust + `wasm-bindgen` + [specta](https://github.com/specta-rs/specta)/`tsify` | generated `.d.ts` |
+| DB schema | `db/migrations` (unchanged) | Rust row types checked by tests against the schema |
+| Business rules (rank, merge, parse) | `wf-core` | TS only calls them; no copies |
+| Constants and limits | one `limits.rs` | exported to TS by the same generator |
+| Docs for the IPC API | generated from the Rust doc comments | `check:docs`-style staleness gate |
+
+Same pattern as the existing `docs:generate` / `check:docs`: a generated file is checked in, and CI regenerates it and fails on any diff.
+
+### 4.2 Make illegal states impossible
+
+- **Parse, don't validate.** Turn raw input into a typed value once, at the edge, and pass only typed values inside. Examples: `DocPath`, `VaultId`, `NonEmptyQuery`.
+- **Newtypes instead of bare `String` or `u64`:** `PageIndex(u32)`, `ByteLen(u64)`, `DurationMs(u64)`. Put units last in names, for example `latency_ms_max`.
+- **Use enums for states, never several boolean flags.** For example, `SyncState::{Idle, Pulling{since}, Conflict{paths}, Failed{err}}`.
+- **No `unwrap`/`expect`/`panic!` in library code.** Clippy denies them. Tests may use them.
+- **One error enum per crate** using `thiserror`. Errors carry context and never secrets.
+
+### 4.3 TigerStyle rules we adopt
+
+Source: [TIGER_STYLE.md](https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/TIGER_STYLE.md), based on NASA's Power of Ten.
+
+- **Design first.** Each phase starts with a one-page design: data types, invariants, and back-of-the-envelope numbers.
+- **Assertions.**
+  - Aim for 2 or more per non-trivial function.
+  - Check arguments, return values and invariants.
+  - Pair them: check both what must happen and what must not.
+  - `debug_assert!` covers the hot path; `assert!` covers invariants that protect user data. Those stay on in release.
+- **Limit everything.** Every loop, queue, buffer and retry has an upper bound and a named constant.
+- **Functions at most 70 lines.** Put `if`s up and `for`s down; leaf functions stay pure.
+- **Handle every error.** No ignored `Result`; `#[must_use]` is respected.
+- **Warnings are errors from day one:** `-D warnings`.
+- **Be explicit.** Pass options instead of relying on library defaults.
+- **Zero tech debt.** No TODO is merged without an issue link. Comments say *why*.
+
+### 4.4 Test layers (each catches what the others miss)
+
+| Layer | Tool | Catches | When |
+|---|---|---|---|
+| Unit + integration + doc tests | `cargo nextest` | logic bugs | every commit |
+| Snapshot tests | `insta` | unintended output changes | every commit |
+| **Parity / golden tests** | old TS and new Rust run on the same inputs, outputs compared | port mistakes | every port PR, until the TS is deleted |
+| Property tests | `proptest` | edge cases nobody thought of (merge, parse, rank) | every commit, 256 cases; nightly 10k |
+| Fuzzing | `cargo-fuzz` + `Arbitrary` | crashes and hangs on hostile input (PDF text, BibTeX, markdown, git packs) | nightly |
+| Deterministic simulation | seeded fake fs/clock/network with fault injection, in the style of TigerBeetle [VOPR](https://docs.tigerbeetle.com/about/vopr) | sync and data-loss bugs; any failure replays from seed + commit | nightly, for `wf-store` sync |
+| Crash tests | kill mid-write, reopen | torn writes | phase 3 |
+| Mutation testing | [cargo-mutants](https://mutants.rs) | tests that check nothing | weekly; needs non-flaky tests first |
+| Existing TS tests + e2e | unchanged | UI regressions | every commit |
+| Perf gate | `scripts/perf/baseline.mjs` | slowdowns, memory growth | end of each phase |
+
+### 4.5 Gates (pre-push + CI; nothing merges red)
+
+- `cargo fmt --check`
+- `cargo clippy --all-targets -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic`, plus a chosen pedantic subset
+- `cargo nextest run`
+- `cargo deny check`: licences compatible with AGPL-3.0, no known advisories, no duplicate major versions
+- Bindings staleness check: regenerate and fail on any diff
+- WASM size budget, alongside the existing `check-bundle-budget`
+- `#![forbid(unsafe_code)]` in `wf-core`. Any `unsafe` elsewhere needs a `// SAFETY:` comment and a test.
+- Existing gates stay: check-solid, check-dry, check:boundaries, typecheck, tests.
+
+### 4.6 Process rules
+
+- **Small PRs.** One concern each, about 400 changed lines or less, stacked if needed.
+- **Tests first.** A failing test lands in the same PR before the code that makes it pass.
+- **Strangler pattern.** The new Rust path sits behind the old interface, parity tests prove they match, then the switch is made and the old code deleted. The app works after every PR.
+- **No big-bang rewrite.** The Electron build stays shippable until the Tauri build passes every desktop test. Keep it one release as a fallback.
+- **One integration branch: `feat/rust-port`.**
+  - Cut it from main once, at the start of phase 0.
+  - Every task and phase PR targets `feat/rust-port` and merges there.
+  - **Nothing merges into main until phases 0–4 are all done.** The end is one final PR, `feat/rust-port` → main.
+  - Merge main **into** `feat/rust-port` about weekly (only in that direction), so the final merge stays small.
+  - Normal fixes keep landing on main the whole time.
+
+## 5. Agent workflow (Haiku builders, Opus reviewer, orchestrator)
+
+| Role | Model | Does | Never does |
+|---|---|---|---|
+| **Orchestrator** (the main session) | Opus | splits the phase into tasks; writes the exact spec for each (files, signatures, tests to make pass); runs the gates; reads every diff; commits; opens PRs | hands off vague tasks |
+| **Builder** | Haiku (`builder` agent) | applies one exact spec to 1–3 named files; writes the listed tests first | design, scope growth, touching other files |
+| **Reviewer** | Opus, **persistent** (one agent per session, read-only) | reviews each PR diff against the spec and the §4 rules: correctness, missed edge cases, limits and asserts, single source of truth, secrets | edits code |
+
+**One task cycle:**
+1. The orchestrator writes the spec. It contains the goal, the files, the Rust signatures, the invariants, the test names with their inputs and expected outputs, and the done-when check.
+2. A builder (Haiku) writes the tests first, then the code, then runs `cargo nextest` on that crate.
+3. The orchestrator runs all the gates and reads the diff line by line, following the "verify Haiku work" rule.
+4. The persistent reviewer (Opus) reviews the PR diff. It is sent each diff with `SendMessage`; it is not spawned again.
+5. The orchestrator fixes findings, or sends them back to the builder with an exact spec.
+6. The orchestrator commits with DCO sign-off, pushes, and opens the PR against `feat/rust-port`. When CI is green and the reviewer has no open findings, the orchestrator squash-merges it into `feat/rust-port`. Never into main.
+
+**Parallelism:** at most 3 builders at once, each on separate files in its own worktree. The orchestrator does all merging.
+
+**The persistent reviewer:**
+- Spawned **once** per session, at the start, with `Agent` (`subagent_type: general-purpose`, `model: opus`, name `rust-reviewer`). Its first prompt: read this plan (§4 rules, the current phase), then wait for diffs. It edits nothing. At each new phase, send it the phase number so it rereads that phase.
+- Every later review goes to the **same** agent with `SendMessage` (to `rust-reviewer`): the spec, the diff (`git diff feat/rust-port...HEAD`), and the gate results. It keeps what it learned about the phase, so it catches drift across PRs.
+- Output: one line per finding, `path:line: severity: problem. fix.` No praise.
+- Never spawn a second reviewer in the same session. If it is gone (session ended), spawn one again the same way.
+
+**Run:** one session runs all phases, 0 → 4, in order, without stopping between them. Context compaction handles length. A phase starts only when the previous phase's **done when** is met and recorded in `handoff.md` (§ Progress). If a session ends early, the next one reads `handoff.md` and resumes at the first phase not marked done.
+
+## 6. Target layout
+
+```
+crates/                        Cargo workspace
+  wf-core       pure logic: search, parse (md, BibTeX, ink), merge, workspace model. No I/O. forbid(unsafe)
+  wf-store      native I/O: files, blobs, git (gix), Overleaf git bridge, embeddings (ort)
+  wf-wasm       wf-core → WASM for the browser
+  wf-bindings   one binary: writes bindings.ts from all specta types/commands
+apps/shell      Tauri 2 app: desktop + Android + iOS; plugins: stylus overlay (Kotlin), fs, git
+apps/web        React UI; imports generated bindings only
+```
+
+## 7. Phases
+
+Each phase lands on `feat/rust-port`, and the app on that branch works after every one. Main gets the whole port in one final PR after phase 4. Phase 5 is optional and comes later.
+
+### Phase 0: Foundations (about 1 week)
+- Cargo workspace and `rust-toolchain.toml` (pinned version).
+- All the §4.5 gates, wired into pre-push and CI.
+- `wf-bindings` generator and its staleness check.
+- `wf-wasm` builds, and the web app calls one function (`wf_core::version()`) through generated types, tested.
+- Parity test harness: a Node script that feeds the same JSON fixtures to TS and Rust and diffs the outputs.
+- **Done when** all gates run and are green on an empty core, and one generated call works on web and in Electron.
+
+### Phase 1: Pilot, search (about 2 weeks)
+- Port the pure parts of `packages/core/src/search`: tokenizer, query parser, rank fusion and excerpts.
+- Add kensaku-style filters in the new parser: `type:`, `in:`, `-word` and `modified:7d`.
+- Parity tests on golden fixtures, and proptest for the parser (it never panics, and a parse round-trips).
+- **Done when:**
+  - the palette uses Rust ranking on web and desktop
+  - the TS ranking is deleted
+  - `indexPdf` tokenize is at most 111 ms, and if possible below 50
+  - every gate is green.
+
+### Phase 2: Desktop shell, Electron → Tauri 2 (about 3–4 weeks)
+- Port `apps/desktop/src` (fs IPC, git file sync, Overleaf sync, Workshop relay) to `wf-store` plus Tauri commands. Keep **the same IPC contract**, now generated, so the React UI does not change.
+- Move embeddings to native `ort`.
+- Run the e2e suite on WebView2 (Windows) and on WebKit (Mac and Linux). WebKit differs from Chromium.
+- **Done when:**
+  - the existing desktop tests pass on the Tauri build
+  - `baseline.mjs` shows no regression in nav p50, and idle private memory at most 510 MB on Windows
+  - installer size is measured
+  - embedding the 1,039 passages takes under 1 minute.
+
+### Phase 3: Storage, sync and offline engine (about 4 weeks; highest risk)
+- Port the storage, sync and offline-sync parts of `packages/core`.
+- Simulation tests with fault injection: a fake fs, clock and network that can drop or reorder, plus a kill at every write point.
+- proptest checks merge invariants:
+  - it is commutative where the spec says so
+  - it never loses a line from either side without a conflict marker.
+- Fuzz the git pack and file parsers.
+- **Done when:**
+  - the old sync tests pass on Rust
+  - 10k proptest cases and a nightly seed run come back clean for 7 days
+  - crash tests show no torn file.
+
+### Phase 4: Phones on Tauri 2 (about 3–4 weeks)
+- **Android:**
+  - The Kotlin `InkingOverlayView` becomes a Tauri plugin. The Kotlin code is kept and the WebView is reached through the plugin `load` hook ([Tauri mobile plugins](https://v2.tauri.app/develop/plugins/develop-mobile/)).
+  - Spike it first, because overlay z-order and passing touches through to the WebView are not documented.
+- **iOS:** the app ships the bundled UI and the core, so it works offline.
+- **Done when:**
+  - the phones have the same feature list as desktop
+  - ink latency is at most today's overlay
+  - offline open, edit and sync work on iOS.
+
+### Phase 5: Server (optional; decide after phase 3)
+- Move the Next.js API routes to axum only if there is a clear reason, such as sharing code with the core or measured speed. Otherwise keep them.
+
+## 8. Risks
+
+| Risk | Mitigation |
+|---|---|
+| WebKit (Mac/iOS) behaves differently from Chromium | e2e on WebKit from phase 2; feature checks, not browser sniffing |
+| Android overlay can't sit over the Tauri WebView | phase 4 starts with a 2-day spike; fallback is to keep the Kotlin shell + Rust core via JNI |
+| Two copies of logic during a port | parity tests + delete the TS copy in the same PR as the switch |
+| Boundary bugs | generated bindings only; async calls; no hand-written glue |
+| Rust learning curve slows reviews | small PRs, strict clippy, the Opus reviewer reads everything |
+| Memory does not improve on Windows | expected (§2); the goal there is speed, size and correctness, not RAM |
+| Data loss in the sync port | simulation + crash tests gate phase 3; Electron fallback for one release |
+
+## 9. Decisions (answered 2026-10-29)
+
+1. Pilot: **search**, including the kensaku-style filters.
+2. Phase 5 server move: **decide after phase 3**.
+3. Electron: **kept for one release** after Tauri ships, then removed.
+4. Limits and assertions also go into the TypeScript we keep: **yes**, starting with the sync and storage code.
+
+## 10. After the port (not before)
+
+Doing these now in TS is wasted work, so they wait for the port to land on main.
+
+- **Shortcuts 1–5** (already shipped by #538: `Ctrl+/` sheet, `Ctrl+Shift+T`, `F2` on explorer rows):
+  1. `F2` renames the **active document**, not only the explorer row.
+  2. `Ctrl+Shift+B` toggles the app sidebar.
+  3. `Ctrl+D` duplicates the current note; inside CodeMirror text it stays "select next match".
+  4. `Ctrl+Shift+P` command palette. Recommended: the `Ctrl+K` palette in commands mode. Ask the user first.
+  5. `Ctrl+Shift+F` workspace search on desktop and mobile; focus mode moves to `F11` (approved).
+  - Tests first per key (inside and outside the editor, no CodeMirror clash). Update the `Ctrl+/` sheet in the same PR. Prove it in WeaveForge Dev.
+- **Kensaku-style filters** (`type:`, `in:`, `-word`, `modified:7d`, sort, recent-weighted ranking, Space to preview): the parser part is built in Rust phase 1. The UI parts left after the port (sort control, Space preview) come here.
+
+## 11. Sources
+
+- [Mozilla: autogenerating Rust-JS bindings with UniFFI](https://hacks.mozilla.org/2023/08/autogenerating-rust-js-bindings-with-uniffi/)
+- [Ferrostar: cross-platform SDK in Rust](https://stadiamaps.com/blog/ferrostar-building-a-cross-platform-navigation-sdk-in-rust-part-1/)
+- [Google: Rust in Android, move fast and fix things](https://blog.google/security/rust-in-android-move-fast-fix-things/)
+- [TigerBeetle TIGER_STYLE.md](https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/TIGER_STYLE.md)
+- [TigerBeetle VOPR](https://docs.tigerbeetle.com/about/vopr)
+- [Tauri issue #5889: memory vs Electron](https://github.com/tauri-apps/tauri/issues/5889)
+- [Tauri mobile plugin development](https://v2.tauri.app/develop/plugins/develop-mobile/)
+- [specta](https://github.com/specta-rs/specta) and [tauri-specta](https://docs.rs/tauri-specta)
+- [cargo-mutants](https://mutants.rs)
