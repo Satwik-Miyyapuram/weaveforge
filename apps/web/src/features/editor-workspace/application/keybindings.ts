@@ -24,6 +24,8 @@ export type TabNumberCommand = `tab-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}` | "last-ta
 
 export interface KeyChord {
   key: string;
+  /** The physical key. Digits are read from here, since AZERTY types them as symbols. */
+  code?: string;
   ctrlKey?: boolean;
   metaKey?: boolean;
   shiftKey?: boolean;
@@ -36,8 +38,11 @@ export interface KeyChord {
  * `Ctrl` and `Cmd` are interchangeable rather than platform-detected: a mac
  * keyboard sends Cmd, an external PC keyboard on the same machine sends Ctrl,
  * and both mean "the modifier" to the person pressing it.
+ *
+ * `tabCount` is how many tabs the focused pane has. A tab-number chord with no
+ * tab behind it is not claimed, so the browser keeps it (its own tab switch).
  */
-export function commandForChord(chord: KeyChord): WorkspaceCommand | null {
+export function commandForChord(chord: KeyChord, tabCount = Number.POSITIVE_INFINITY): WorkspaceCommand | null {
   const mod = Boolean(chord.ctrlKey || chord.metaKey);
   if (!mod || chord.altKey) return null;
 
@@ -56,9 +61,18 @@ export function commandForChord(chord: KeyChord): WorkspaceCommand | null {
   if (key === "w") return "close-tab";
   if (key === "tab") return chord.shiftKey ? "previous-tab" : "next-tab";
   // `⌘0` stays the host's "reset zoom"; a shifted digit is a symbol.
-  if (/^[1-8]$/.test(key) && !chord.shiftKey) return `tab-${Number(key) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`;
-  if (key === "9" && !chord.shiftKey) return "last-tab";
-  return null;
+  const digit = digitOf(chord);
+  if (digit === null || chord.shiftKey) return null;
+  if (digit === 9) return tabCount >= 1 ? "last-tab" : null;
+  if (digit > tabCount) return null;
+  return `tab-${digit}` as TabNumberCommand;
+}
+
+/** The digit 1–9 a chord names by its physical key, else by its character. */
+function digitOf(chord: KeyChord): number | null {
+  const fromCode = /^Digit([1-9])$/.exec(chord.code ?? "");
+  const digit = fromCode ? fromCode[1] : /^[1-9]$/.test(chord.key) ? chord.key : null;
+  return digit === null ? null : Number(digit);
 }
 
 /**

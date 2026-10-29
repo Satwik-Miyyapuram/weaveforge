@@ -315,6 +315,11 @@ export type PaneCommand =
  * The layout after one pane chord. Pure, so the screen computes it once and
  * writes it once; a tab chord on an empty pane returns `layout` unchanged.
  */
+/** How many tabs the focused pane has: what a ⌘1–⌘9 chord can point at. */
+export function focusedTabCount(layout: PaneLayout): number {
+  return findLeaf(layout.root, layout.focusedPaneId)?.tabs.length ?? 0;
+}
+
 export function layoutForCommand(layout: PaneLayout, command: PaneCommand): PaneLayout {
   const pane = layout.focusedPaneId;
   if (command === "split-right") return splitPane(layout, pane, "row");

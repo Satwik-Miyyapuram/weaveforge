@@ -9,6 +9,7 @@ import {
   closeTab,
   emptyLayout,
   focusPane,
+  focusedTabCount,
   hydrateTabModes,
   layoutForCommand,
   leaves,
@@ -333,4 +334,10 @@ test("a tab-number chord activates that tab; one past the end does nothing", () 
   assert.equal(layoutForCommand(three, "tab-5"), three);
   const empty = emptyLayout();
   assert.equal(layoutForCommand(empty, "last-tab"), empty);
+});
+
+test("the focused pane's tab count is what a tab-number chord can reach", () => {
+  const three = openTab(openTab(openTab(emptyLayout(), A), B), C);
+  assert.equal(focusedTabCount(three), 3);
+  assert.equal(focusedTabCount(emptyLayout()), 0);
 });
