@@ -49,16 +49,22 @@ export function useInkFigureUrls(deps: InkFigureUrlsDeps) {
     const onPage = new Set(deps.figures.map((figure) => figure.path));
     wanted.current = onPage;
     // A figure that left the page frees its blob (the URL is kept only for the
-    // page being looked at).
-    const left = [...figureUrls].filter(([path]) => !onPage.has(path));
-    if (left.length > 0) {
-      for (const [, url] of left) {
-        URL.revokeObjectURL(url);
-        made.current.delete(url);
-      }
-      setFigureUrls(
-        (current) => new Map([...current].filter(([path]) => onPage.has(path))),
-      );
+    // page being looked at). The revoke runs on the state the drop sees, so a
+    // URL that landed after this render is freed too, not just dropped.
+    if ([...figureUrls.keys()].some((path) => !onPage.has(path))) {
+      setFigureUrls((current) => {
+        const kept = new Map<string, string>();
+        for (const [path, url] of current) {
+          if (onPage.has(path)) {
+            kept.set(path, url);
+          } else {
+            // Revoking twice (StrictMode runs updaters twice) is harmless.
+            URL.revokeObjectURL(url);
+            made.current.delete(url);
+          }
+        }
+        return kept;
+      });
     }
     for (const path of onPage) {
       if (figureUrls.has(path) || inFlight.current.has(path)) continue;

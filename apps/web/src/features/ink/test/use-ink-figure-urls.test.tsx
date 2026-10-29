@@ -5,7 +5,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { StrictMode, createElement } from "react";
+import { StrictMode, createElement, useLayoutEffect } from "react";
 import { act, create } from "react-test-renderer";
 
 import { useInkFigureUrls } from "../ui/use-ink-figure-urls";
@@ -273,6 +273,49 @@ test("under StrictMode's double effect at mount, the URL still shows once fetche
     assert.equal(calls, 1, "the path is asked for once");
     assert.deepEqual(seen.get("a.png"), blobUrls.created[0]);
     assert.deepEqual(blobUrls.revoked, []);
+  } finally {
+    blobUrls.restore();
+  }
+});
+
+test("a fetch landing between commit and the effect, for a figure that then leaves, is revoked", async () => {
+  const blobUrls = stubBlobUrls();
+  try {
+    // a.png answers only when told, and synchronously, so it can land in the
+    // gap after a commit and before the passive effect runs.
+    let landA: (blob: Blob) => void = () => {};
+    const fetchBlob = (path: string) =>
+      path === "a.png"
+        ? ({
+            then: (ok: (blob: Blob) => void) => {
+              landA = ok;
+              return { catch: () => ({ finally: () => undefined }) };
+            },
+          } as unknown as Promise<Blob>)
+        : Promise.resolve(new Blob([path]));
+    let seen: ReadonlyMap<string, string> = new Map();
+    function Lander({ fire }: { fire: boolean }) {
+      useLayoutEffect(() => {
+        if (fire) landA(new Blob(["a"]));
+      }, [fire]);
+      return null;
+    }
+    function Host({ paths, fire }: { paths: string[]; fire: boolean }) {
+      seen = useInkFigureUrls({ fetchBlob, figures: paths.map((path) => ({ path })) });
+      return createElement(Lander, { fire });
+    }
+    let renderer!: ReturnType<typeof create>;
+    await act(async () => {
+      renderer = create(createElement(Host, { paths: ["a.png", "b.png", "c.png"], fire: false }));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    // A page turn leaves only b.png; a.png's fetch lands in the same commit.
+    act(() => renderer.update(createElement(Host, { paths: ["b.png"], fire: true })));
+    assert.deepEqual([...seen.keys()], ["b.png"]);
+    const leaked = blobUrls.created.filter(
+      (url) => url !== seen.get("b.png") && !blobUrls.revoked.includes(url),
+    );
+    assert.deepEqual(leaked, [], "every URL not shown is revoked");
   } finally {
     blobUrls.restore();
   }
