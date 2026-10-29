@@ -43,6 +43,59 @@ pub fn render() -> Result<String, BindingsError> {
         .export(&types(), specta_serde::Format)?)
 }
 
+/// What the binary was asked to do.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    /// Write the bindings file.
+    Write,
+    /// Fail if the file on disk differs from a fresh render.
+    Check,
+}
+
+/// Parse CLI args (without the program name). `None` for anything but no args or exactly `--check`.
+#[must_use]
+pub fn parse_mode(args: &[String]) -> Option<Mode> {
+    match args {
+        [] => Some(Mode::Write),
+        [a] if a == "--check" => Some(Mode::Check),
+        _ => None,
+    }
+}
+
+/// True when `path` holds exactly the rendered bindings. A missing file is stale (false).
+///
+/// # Errors
+/// [`BindingsError::Export`] when rendering fails; [`BindingsError::Io`] for any read error other than not found.
+pub fn is_fresh(path: &std::path::Path) -> Result<bool, BindingsError> {
+    let fresh = render()?;
+    match std::fs::read_to_string(path) {
+        Ok(current) => Ok(current == fresh),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(source) => Err(BindingsError::Io {
+            path: path.to_path_buf(),
+            source,
+        }),
+    }
+}
+
+/// Write the rendered bindings to `path`, creating parent directories.
+///
+/// # Errors
+/// [`BindingsError::Export`] when rendering fails; [`BindingsError::Io`] when a directory or the file cannot be written.
+pub fn write(path: &std::path::Path) -> Result<(), BindingsError> {
+    let fresh = render()?;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|source| BindingsError::Io {
+            path: dir.to_path_buf(),
+            source,
+        })?;
+    }
+    std::fs::write(path, fresh).map_err(|source| BindingsError::Io {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -63,5 +116,59 @@ mod tests {
     #[test]
     fn render_is_deterministic() {
         assert_eq!(render().unwrap(), render().unwrap());
+    }
+
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("wf-bindings-{}-{name}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| (*s).to_owned()).collect()
+    }
+
+    #[test]
+    fn parse_mode_accepts_no_args_and_check_only() {
+        assert_eq!(parse_mode(&args(&[])), Some(Mode::Write));
+        assert_eq!(parse_mode(&args(&["--check"])), Some(Mode::Check));
+        assert_eq!(parse_mode(&args(&["--chek"])), None);
+        assert_eq!(parse_mode(&args(&["--check", "x"])), None);
+    }
+
+    #[test]
+    fn is_fresh_missing_file_is_stale() {
+        let dir = scratch("missing");
+        let ok = is_fresh(&dir.join("bindings.ts")).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(!ok);
+    }
+
+    #[test]
+    fn is_fresh_different_bytes_is_stale() {
+        let dir = scratch("different");
+        let file = dir.join("bindings.ts");
+        std::fs::write(&file, "stale").unwrap();
+        let ok = is_fresh(&file).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(!ok);
+    }
+
+    #[test]
+    fn write_creates_nested_parent_and_is_then_fresh() {
+        let dir = scratch("nested");
+        let file = dir.join("a").join("b").join("bindings.ts");
+        write(&file).unwrap();
+        let ok = is_fresh(&file).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(ok);
+    }
+
+    #[test]
+    fn is_fresh_on_directory_is_io_error() {
+        let dir = scratch("is-dir");
+        let result = is_fresh(&dir);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(matches!(result, Err(BindingsError::Io { .. })));
     }
 }
