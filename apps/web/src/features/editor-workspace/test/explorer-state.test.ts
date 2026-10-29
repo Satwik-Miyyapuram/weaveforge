@@ -306,3 +306,23 @@ test("a malformed stored section list falls back to the defaults", () => {
   const state = readSections(memoryStore("not json"), SECTIONS);
   assert.equal(isSectionOpen(state, "files"), true);
 });
+
+/** A visible row by hand: label, depth and nothing else the filter reads. */
+function row(label: string, depth: number) {
+  const node: WorkspaceTreeNode = { key: label, kind: "vault_page", id: label, label, path: "", children: [] };
+  return { node, depth };
+}
+
+test("a match inside a matched branch does not cut off its siblings", () => {
+  // "Plans" matches and so keeps everything under it. "Plan A" matches too;
+  // "Budget" does not, but it is still under "Plans" and must stay.
+  const rows = [row("Plans", 0), row("Plan A", 1), row("Plan A notes", 2), row("Budget", 1), row("Other", 0)];
+  const labels = filterRows(rows, "plan").rows.map((r) => r.node.label);
+  assert.deepEqual(labels, ["Plans", "Plan A", "Plan A notes", "Budget"]);
+});
+
+test("a branch ends at the first row back at its own depth", () => {
+  const rows = [row("Inbox", 0), row("Drafts", 1), row("Plan", 1), row("Child", 2), row("Sibling", 1)];
+  const labels = filterRows(rows, "plan").rows.map((r) => r.node.label);
+  assert.deepEqual(labels, ["Inbox", "Plan", "Child"]);
+});

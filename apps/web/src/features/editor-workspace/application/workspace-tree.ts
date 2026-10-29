@@ -561,7 +561,9 @@ export function filterRows(
         depth = rows[i]!.depth;
       }
     }
-    branchDepth = row.depth;
+    // A match inside a branch already kept stays inside it: narrowing the
+    // branch to this row would drop the siblings that follow it.
+    if (!(branchDepth >= 0 && row.depth > branchDepth)) branchDepth = row.depth;
   });
 
   return { rows: rows.filter((_row, index) => keep.has(index)), expand };
