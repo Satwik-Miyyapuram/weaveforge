@@ -94,6 +94,8 @@ export const CHANNELS = {
   vaultLog: "weaveforge:vault-log",
   /** Pull, push or check the folder against its git remote (`syncVault`). */
   vaultSync: "weaveforge:vault-sync",
+  /** List, link, pull or push the Overleaf projects synced into vault folders (`syncOverleaf`). */
+  overleafSync: "weaveforge:overleaf-sync",
   localApiState: "weaveforge:local-api-state",
   /**
    * One read of the Zotero running on this machine, proxied.

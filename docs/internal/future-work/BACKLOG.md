@@ -36,6 +36,7 @@ already reworked to **server-key** (done). Affected tables (`ai_proposals`, `ai_
 | 6 | **Cite / excerpts / discovery** | [`competitive-scan-implementation-plan.md`](../plans/completed/competitive-scan-implementation-plan.md) · [`../competitive-scan.md`](../strategy/competitive-scan.md) · [`../usage-cite-and-excerpts.md`](../../using/citations-and-overleaf.md) | ✅ merged (PR #29): excerpts, cite AC, LaTeX `\cite`, pin-to-section, related papers, board, jump-to, docs |
 | 7 | **Citation alerts** | [`../competitive-scan.md`](../strategy/competitive-scan.md) (steal #9) | ✅ merged (PR #33): `citation_alert_tracks` + Semantic Scholar polling → Log + Mattermost |
 | 8 | **Library knowledge loop** | `library-knowledge-loop-plan.md` · [`../usage-cite-and-excerpts.md`](../../using/citations-and-overleaf.md) | ✅ on `feat/library-knowledge-loop`: annotation cards + `annotation_pins`, jump recents, custom fields, extraction table, relations/rollups, source-note layout. AI column fill still deferred. Apply migrations `0103`–`0105` |
+| 9 | **Live Overleaf sync** | — | Today: desktop pull/push of a project into a vault folder over Overleaf's git bridge (`overleaf-sync.ts`). Later: as-you-type sync through Overleaf's editor protocol (socket.io + operational transforms), so edits move both ways without pull/push. Unofficial protocol: needs a session cookie, can break when Overleaf changes it; weigh against the git bridge first |
 
 ---
 

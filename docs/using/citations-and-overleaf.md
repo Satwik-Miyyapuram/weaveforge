@@ -62,6 +62,40 @@ On **Report → Overleaf**, export a ZIP (`main.tex`, `references.bib`, figures)
 
 Compile in Overleaf with **biber** (biblatex is preconfigured in `main.tex`).
 
+## Edit an Overleaf project in the vault (desktop)
+
+The desktop app can keep an Overleaf project in a folder of your vault, so you
+edit its `.tex` files here and send them back. It uses Overleaf's git
+integration (a paid Overleaf feature), not the live editor: changes move when
+you press **Pull** or **Push**, not as you type.
+
+1. In Overleaf, open **Account settings → Git integration** and create a git
+   token (`olp_…`).
+2. In WeaveForge, open **Settings → Workspace folder → Overleaf projects**,
+   paste the token and press **Save token**. It goes to this machine's
+   keychain and is never shown again.
+3. Paste the project's URL (`https://www.overleaf.com/project/<id>`) or its git
+   URL, pick a folder (default `Overleaf/<id>`) and press **Link project**.
+4. Press **Pull** to bring the project in. Edit, then press **Push**.
+
+What to expect:
+
+- **Pull** commits your edits first, then brings in Overleaf's. When the same
+  file changed on both sides it stops and changes nothing, and names the files;
+  sort them out (for example push from Overleaf's side or copy your edit
+  aside) and pull again.
+- **Push** never overwrites Overleaf. If Overleaf has newer changes it says so;
+  pull first.
+- **Check** counts commits to push and to pull.
+- **Unlink** forgets the link. The files stay in the folder and on Overleaf.
+- The project's git history lives in the app's data folder, not in the vault,
+  so there is no `.git` inside the folder and the vault's own history sees
+  plain files.
+- Linking the same project to another folder later starts fresh there; the old
+  folder is left as it was.
+
+Live, as-you-type sync with Overleaf's editor is not supported yet.
+
 ---
 
 ## Find related papers

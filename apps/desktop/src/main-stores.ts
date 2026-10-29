@@ -5,6 +5,7 @@ import path from "node:path";
 import { PreferenceStore, pagePreferences } from "./preference-store";
 import { readIfPresent } from "./read-if-present";
 import { SecretStore, pageSecrets } from "./secret-store";
+import { parseLinks, type OverleafLink } from "./overleaf-sync";
 import type { VaultSyncSettings } from "./vault-git";
 import { temporaryName } from "./write-queue";
 
@@ -84,6 +85,21 @@ export const pageSecretStore = () => pageSecrets(secretStore());
  * the history switch, the remote's URL and its token. The token goes to git
  * and never back to the page.
  */
+/**
+ * The Overleaf links, kept in the settings file as one JSON string and written
+ * only from this side: a link decides which vault folder git writes into.
+ */
+export const overleafLinkStore = {
+  read: async (): Promise<OverleafLink[]> => {
+    const stored = await preferenceStore().read("overleaf-links");
+    return stored.ok ? parseLinks(stored.value) : [];
+  },
+  write: async (links: readonly OverleafLink[]): Promise<void> => {
+    const result = await preferenceStore().write("overleaf-links", JSON.stringify(links));
+    if (!result.ok) throw new Error(result.message);
+  },
+};
+
 export async function readVaultSyncSettings(): Promise<VaultSyncSettings> {
   const [enabled, url, token] = await Promise.all([
     preferenceStore().read("vault-git"),

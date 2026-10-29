@@ -18,6 +18,8 @@ export interface GitRemoteConfig {
   url: string;
   /** Personal access token, sent as HTTP basic auth. Never logged or stored in the repo. */
   token?: string;
+  /** The basic-auth user name sent with the token. Hosts that ignore it get `x-access-token`; Overleaf wants `git`. */
+  username?: string;
 }
 
 export interface GitRemoteStatus {

@@ -193,6 +193,12 @@ export interface DesktopBridge {
    * as `hasToken`). Rejects with a message fit to show. Absent on older shells.
    */
   vaultSync?(action: DesktopVaultSyncAction): Promise<DesktopVaultSync>;
+  /**
+   * Overleaf projects synced into folders of the vault over Overleaf's git
+   * bridge. The shell keeps the links and reads the `overleaf-token` itself.
+   * Rejects with a message fit to show. Absent on older shells.
+   */
+  overleafSync?(request: DesktopOverleafSyncRequest): Promise<DesktopOverleafSync>;
   /** Whether the local HTTP surface is listening, and on what. */
   localApiState(): Promise<DesktopLocalApi>;
   /**
@@ -531,6 +537,20 @@ export interface DesktopVaultSync {
     | { kind: "merged"; oid: string }
     | { kind: "conflict"; files: readonly string[] };
   push?: { kind: "pushed" } | { kind: "up-to-date" } | { kind: "rejected"; reason: string };
+}
+
+export type DesktopOverleafSyncRequest =
+  | { action: "list" }
+  | { action: "link"; projectId: string; folder?: string }
+  | { action: "unlink" | "status" | "pull" | "push"; projectId: string };
+
+/** Mirrors `OverleafSyncReply` in the shell's `overleaf-sync.ts`. */
+export interface DesktopOverleafSync {
+  links: { projectId: string; folder: string }[];
+  hasToken: boolean;
+  status?: DesktopVaultSync["status"];
+  pull?: DesktopVaultSync["pull"];
+  push?: DesktopVaultSync["push"];
 }
 
 export interface DesktopCommit {

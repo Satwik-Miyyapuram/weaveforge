@@ -31,6 +31,7 @@ import {
   readVaultFile,
   commitVaultFolder,
   logVaultFolder,
+  syncOverleafFolder,
   syncVaultFolder,
   removeVaultFile,
   restoreRoot,
@@ -60,7 +61,14 @@ import { installApiCors } from "./api-cors";
 import { startAuthLoopback } from "./auth-loopback";
 import { sendWhenLoaded } from "./sign-in-relay";
 import { CHANNELS, type IpcResult, type MenuGroupPayload } from "./channels";
-import { pagePreferenceStore, pageSecretStore, preferenceStore, readVaultSyncSettings, secretStore } from "./main-stores";
+import {
+  overleafLinkStore,
+  pagePreferenceStore,
+  pageSecretStore,
+  preferenceStore,
+  readVaultSyncSettings,
+  secretStore,
+} from "./main-stores";
 import { checkUpdateReply, fetchReleases } from "./update-check";
 import { installMenu, invokeMenuItem, menuModel, pageCommand, routeTo } from "./app-menu";
 import { realUpdater, startAutoUpdate } from "./auto-update";
@@ -691,6 +699,15 @@ ipc.handle(CHANNELS.vaultLog, (_event, limit: unknown) => logVaultFolder(vault, 
 ipc.handle(CHANNELS.vaultSync, async (_event, action: unknown) =>
   syncVaultFolder(vault, action, await readVaultSyncSettings()),
 );
+// Overleaf projects synced into vault folders: links and token stay on this side.
+ipc.handle(CHANNELS.overleafSync, async (_event, request: unknown) => {
+  const token = await secretStore().read("overleaf-token");
+  return syncOverleafFolder(vault, request, {
+    userData: app.getPath("userData"),
+    token: token.ok && typeof token.value === "string" && token.value ? token.value : null,
+    links: overleafLinkStore,
+  });
+});
 
 /**
  * The one thing `will-quit` waits for, and it is not allowed to wait forever.
