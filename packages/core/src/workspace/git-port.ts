@@ -5,10 +5,17 @@
  * "keep a history of my folder and let me look at it" — staging areas,
  * branching, rebasing, and conflict resolution are a different product.
  *
- * There is deliberately no clone, push, pull, or merge: in-browser remotes need
- * a CORS proxy plus stored credentials, and merge needs a resolution UI. Both
- * are separate decisions, not implied by wanting local history.
+ * Remotes (connect, pull, push) are `IWorkspaceGitRemote` in `git-remote.ts`,
+ * kept apart so local history never implies talking to a server.
  */
+
+import {
+  DEFAULT_SYNC_BRANCH,
+  type GitPullResult,
+  type GitPushResult,
+  type GitRemoteStatus,
+  type IWorkspaceGitRemote,
+} from "./git-remote.js";
 
 export interface WorkspaceCommit {
   oid: string;
@@ -45,7 +52,7 @@ export interface IWorkspaceGit {
  * export, import — has to work with git switched off, so "no git" is a real
  * implementation rather than a null check at every call site.
  */
-export class NoOpWorkspaceGit implements IWorkspaceGit {
+export class NoOpWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
   readonly kind = "none" as const;
 
   async isRepo(): Promise<boolean> {
@@ -71,33 +78,25 @@ export class NoOpWorkspaceGit implements IWorkspaceGit {
   async readAt(): Promise<Uint8Array | null> {
     return null;
   }
+
+  async remoteStatus(): Promise<GitRemoteStatus> {
+    return { url: null, branch: DEFAULT_SYNC_BRANCH, ahead: 0, behind: 0 };
+  }
+
+  async connect(): Promise<GitRemoteStatus> {
+    throw new Error(NO_HISTORY);
+  }
+
+  async pull(): Promise<GitPullResult> {
+    throw new Error(NO_HISTORY);
+  }
+
+  async push(): Promise<GitPushResult> {
+    throw new Error(NO_HISTORY);
+  }
 }
 
-/**
- * Largest file the folder history takes. Above it a file stays on disk but out of
- * history: every save of it would add a full copy that is never removed. Git hosts
- * warn at 50 MB and refuse 100 MB; paper PDFs sit well below.
- */
-export const MAX_COMMIT_FILE_BYTES = 50 * 1024 * 1024;
-
-/** This machine's database, cache and lock: `.weaveforge/` at the folder root, never history. */
-export function isLocalOnlyPath(path: string): boolean {
-  const p = path.replace(/\\/g, "/").replace(/^\/+/, "");
-  return p === ".weaveforge" || p.startsWith(".weaveforge/");
-}
-
-/**
- * Why a changed file stays out of the history, or null when it goes in.
- * `bytes` is null when unknown, as for a deleted file, whose removal always goes in.
- */
-export function keptOutOfHistory(
-  path: string,
-  bytes: number | null,
-  maxBytes: number = MAX_COMMIT_FILE_BYTES,
-): "local-only" | "too-large" | null {
-  if (isLocalOnlyPath(path)) return "local-only";
-  return bytes !== null && bytes > maxBytes ? "too-large" : null;
-}
+const NO_HISTORY = "Syncing with a remote needs folder history switched on.";
 
 /** A commit message describing what changed, for the automatic mirror commits. */
 export function describeChanges(status: readonly GitFileStatus[]): string {

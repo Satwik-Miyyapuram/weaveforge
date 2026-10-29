@@ -5,6 +5,7 @@ import path from "node:path";
 import { PreferenceStore, pagePreferences } from "./preference-store";
 import { readIfPresent } from "./read-if-present";
 import { SecretStore, pageSecrets } from "./secret-store";
+import type { VaultSyncSettings } from "./vault-git";
 import { temporaryName } from "./write-queue";
 
 /**
@@ -77,3 +78,21 @@ export function secretStore(): SecretStore {
  */
 export const pagePreferenceStore = () => pagePreferences(preferenceStore());
 export const pageSecretStore = () => pageSecrets(secretStore());
+
+/**
+ * What a folder sync runs with, read from the stores and never from the page:
+ * the history switch, the remote's URL and its token. The token goes to git
+ * and never back to the page.
+ */
+export async function readVaultSyncSettings(): Promise<VaultSyncSettings> {
+  const [enabled, url, token] = await Promise.all([
+    preferenceStore().read("vault-git"),
+    preferenceStore().read("vault-git-remote"),
+    secretStore().read("git-sync-token"),
+  ]);
+  return {
+    enabled: enabled.ok && enabled.value === true,
+    url: url.ok && typeof url.value === "string" ? url.value : null,
+    token: token.ok && typeof token.value === "string" && token.value ? token.value : null,
+  };
+}
