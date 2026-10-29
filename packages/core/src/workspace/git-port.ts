@@ -13,7 +13,6 @@ import {
   DEFAULT_SYNC_BRANCH,
   type GitPullResult,
   type GitPushResult,
-  type GitRemoteConfig,
   type GitRemoteStatus,
   type IWorkspaceGitRemote,
 } from "./git-remote.js";
@@ -80,8 +79,8 @@ export class NoOpWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
     return null;
   }
 
-  async remoteStatus(remote: GitRemoteConfig): Promise<GitRemoteStatus> {
-    return { url: null, branch: remote.branch ?? DEFAULT_SYNC_BRANCH, ahead: 0, behind: 0 };
+  async remoteStatus(): Promise<GitRemoteStatus> {
+    return { url: null, branch: DEFAULT_SYNC_BRANCH, ahead: 0, behind: 0 };
   }
 
   async connect(): Promise<GitRemoteStatus> {

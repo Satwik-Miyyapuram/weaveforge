@@ -4,7 +4,6 @@ import { test } from "node:test";
 import { NoOpWorkspaceGit } from "../../src/workspace/git-port.js";
 import {
   checkGitRemoteUrl,
-  checkSyncBranch,
   describePull,
   describePush,
   redactSecret,
@@ -45,15 +44,6 @@ test("a token is never echoed back in the refusal for a credentialed URL", () =>
   assert.ok(!JSON.stringify(result).includes("ghp_secret"));
 });
 
-test("branch names: default, safe names, and refusals", () => {
-  assert.equal(checkSyncBranch(undefined), "main");
-  assert.equal(checkSyncBranch(""), "main");
-  assert.equal(checkSyncBranch("thesis/draft-2"), "thesis/draft-2");
-  for (const bad of ["-x", "a..b", "a b", "x.lock", "../etc", 7, "a;rm"]) {
-    assert.equal(checkSyncBranch(bad), null, `expected ${String(bad)} to be refused`);
-  }
-});
-
 test("redactSecret removes every occurrence of the token, and leaves text alone without one", () => {
   assert.equal(redactSecret("auth abc failed for abc", "abc"), "auth *** failed for ***");
   assert.equal(redactSecret("nothing here", undefined), "nothing here");
@@ -72,7 +62,7 @@ test("pull and push outcomes read as one sentence; conflicts name the files and 
 
 test("the no-git backend reports no remote and refuses to sync", async () => {
   const git = new NoOpWorkspaceGit();
-  assert.deepEqual(await git.remoteStatus({ url: "https://x.test/r.git" }), {
+  assert.deepEqual(await git.remoteStatus(), {
     url: null,
     branch: "main",
     ahead: 0,
@@ -80,5 +70,5 @@ test("the no-git backend reports no remote and refuses to sync", async () => {
   });
   await assert.rejects(git.pull({ url: "https://x.test/r.git" }, SYNC_AUTHOR), /history/);
   await assert.rejects(git.push({ url: "https://x.test/r.git" }, SYNC_AUTHOR), /history/);
-  await assert.rejects(git.connect({ url: "https://x.test/r.git" }, SYNC_AUTHOR), /history/);
+  await assert.rejects(git.connect(), /history/);
 });

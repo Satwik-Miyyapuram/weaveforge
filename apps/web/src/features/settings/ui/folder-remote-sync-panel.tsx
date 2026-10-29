@@ -7,7 +7,9 @@ import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
 import {
   describeRemoteSync,
+  disconnectRemote,
   folderRemoteSync,
+  forgetRemoteToken,
   saveRemoteSyncSettings,
 } from "@/features/workspace/application/folder-remote-sync";
 
@@ -24,6 +26,8 @@ const LABELS: Record<Exclude<DesktopVaultSyncAction, "settings">, [idle: string,
  */
 export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
   const [url, setUrl] = useState("");
+  // What the shell holds. Connect, Pull, Push and Check use it, not the field.
+  const [savedUrl, setSavedUrl] = useState("");
   const [token, setToken] = useState("");
   const [hasToken, setHasToken] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -36,6 +40,7 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
       .then((reply) => {
         if (!live) return;
         setUrl(reply.url ?? "");
+        setSavedUrl(reply.url ?? "");
         setHasToken(reply.hasToken);
       })
       .catch(() => undefined);
@@ -63,6 +68,8 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
       setStatus(describeRemoteSync(reply));
       if (reply.pull && (reply.pull.kind === "fast-forward" || reply.pull.kind === "merged")) onPulled?.();
     });
+
+  const unsaved = url.trim() !== savedUrl;
 
   return (
     <>
@@ -103,7 +110,9 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
           disabled={busy !== null}
           onClick={() =>
             void run("save", async () => {
-              await saveRemoteSyncSettings({ url, token });
+              const stored = await saveRemoteSyncSettings({ url, token });
+              setUrl(stored);
+              setSavedUrl(stored);
               if (token.trim()) setHasToken(true);
               setToken("");
               setStatus("Saved.");
@@ -118,7 +127,7 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
             disabled={busy !== null}
             onClick={() =>
               void run("forget", async () => {
-                await saveRemoteSyncSettings({ url, token: null });
+                await forgetRemoteToken();
                 setHasToken(false);
                 setStatus("Token forgotten.");
               })
@@ -127,12 +136,35 @@ export function FolderRemoteSyncPanel({ onPulled }: { onPulled?: () => void }) {
             Forget token
           </Button>
         )}
+        {savedUrl && (
+          <Button
+            variant="ghost"
+            disabled={busy !== null}
+            onClick={() =>
+              void run("disconnect", async () => {
+                await disconnectRemote();
+                setUrl("");
+                setSavedUrl("");
+                setHasToken(false);
+                setStatus("Disconnected. The folder and its history are unchanged.");
+              })
+            }
+          >
+            Disconnect
+          </Button>
+        )}
         {(Object.keys(LABELS) as (keyof typeof LABELS)[]).map((action) => (
-          <Button key={action} variant="secondary" disabled={busy !== null} onClick={() => void act(action)}>
+          <Button
+            key={action}
+            variant="secondary"
+            disabled={busy !== null || unsaved || !savedUrl}
+            onClick={() => void act(action)}
+          >
             {busy === action ? LABELS[action][1] : LABELS[action][0]}
           </Button>
         ))}
       </div>
+      {unsaved && <p className="muted jump-to-meta">Save the URL first.</p>}
     </>
   );
 }

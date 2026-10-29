@@ -4,18 +4,11 @@ import {
   isUnderIgnoredFolder,
   type GitAuthor,
   type GitFileStatus,
-  type GitSyncSkipReason,
   type IWorkspaceFs,
   type IWorkspaceGit,
   type WorkspaceCommit,
 } from "@weaveforge/core";
 import { isomorphicFsFrom } from "./isomorphic-fs-adapter";
-
-/** A changed file that was not committed, and the rule that kept it out. */
-export interface GitSkippedFile {
-  path: string;
-  reason: GitSyncSkipReason;
-}
 
 export interface IsomorphicWorkspaceGitOptions {
   /** Overrides the size cap; tests use it to avoid 25 MB fixtures. */
@@ -70,7 +63,11 @@ export class IsomorphicWorkspaceGit implements IWorkspaceGit {
     await git.init({ fs: this.fs, dir: this.dir, defaultBranch: "main" });
   }
 
-  /** Folders the sync policy never walks (node_modules and the like) do not appear here. */
+  /**
+   * Files in folders the sync policy ignores (node_modules and the like) do
+   * not appear here. isomorphic-git still walks those folders; the filter only
+   * keeps them out of the result.
+   */
   async status(): Promise<readonly GitFileStatus[]> {
     const git = await this.git();
     const rows = await git.statusMatrix({
@@ -93,12 +90,9 @@ export class IsomorphicWorkspaceGit implements IWorkspaceGit {
     const git = await this.git();
     const { kept, skipped } = await this.classify(await this.status());
     if (skipped.length > 0) {
-      console.warn(`[git-sync] ${skipped.length} changed file(s) not committed (size cap, ignored or unreadable)`);
+      console.warn(`[git-sync] ${skipped.length} changed file(s) not committed (size cap or ignored)`);
     }
-    await this.unstageOutOfScope(
-      new Set(kept.map((change) => change.path)),
-      new Set(skipped.map((file) => file.path)),
-    );
+    await this.unstageOutOfScope(new Set(kept.map((change) => change.path)), new Set(skipped));
 
     // Committing nothing produces an empty commit on every mirror pass, which
     // would make the history useless for seeing what actually changed.
@@ -127,47 +121,16 @@ export class IsomorphicWorkspaceGit implements IWorkspaceGit {
     };
   }
 
-  /**
-   * Changed files the policy keeps out of history, with the reason. Ignored
-   * folders are not listed: they are never meant to sync, so reporting them
-   * would be noise. Every other exclusion (size cap, desktop.ini, LaTeX
-   * byproducts, unreadable files) is listed so the user can see what is not
-   * backed up.
-   */
-  async skippedFiles(): Promise<readonly GitSkippedFile[]> {
-    return (await this.classify(await this.status())).skipped;
-  }
-
-  /**
-   * Splits changes into what is committed and what is skipped. A file that
-   * cannot be stat'd (for example a desktop bridge error) is skipped rather
-   * than failing the whole commit.
-   */
-  private async classify(
-    changes: readonly GitFileStatus[],
-  ): Promise<{ kept: GitFileStatus[]; skipped: GitSkippedFile[] }> {
+  /** Splits changes into what is committed and the paths the policy keeps out. */
+  private async classify(changes: readonly GitFileStatus[]): Promise<{ kept: GitFileStatus[]; skipped: string[] }> {
     const kept: GitFileStatus[] = [];
-    const skipped: GitSkippedFile[] = [];
+    const skipped: string[] = [];
     for (const change of changes) {
-      const size = change.state === "deleted" ? 0 : await this.sizeOf(change.path);
-      if (size === null) {
-        skipped.push({ path: change.path, reason: "unreadable" });
-        continue;
-      }
-      const decision = decideGitSyncPath(change.path, size, this.maxFileBytes);
-      if (decision.include) kept.push(change);
-      else skipped.push({ path: change.path, reason: decision.reason });
+      const size = change.state === "deleted" ? 0 : ((await this.workspace.stat(change.path))?.size ?? 0);
+      if (decideGitSyncPath(change.path, size, this.maxFileBytes).include) kept.push(change);
+      else skipped.push(change.path);
     }
     return { kept, skipped };
-  }
-
-  /** Byte size of a workspace file, 0 when absent, or null when it cannot be read. */
-  private async sizeOf(path: string): Promise<number | null> {
-    try {
-      return (await this.workspace.stat(path))?.size ?? 0;
-    } catch {
-      return null;
-    }
   }
 
   /**

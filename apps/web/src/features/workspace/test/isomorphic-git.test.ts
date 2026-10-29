@@ -285,10 +285,9 @@ test("a tracked file that grows over the cap keeps its last committed version (s
 
   assert.ok(commit);
   assert.equal(await text(await git.readAt(commit.oid, "notes/big.md")), "small");
-  assert.deepEqual(await git.skippedFiles(), [{ path: "notes/big.md", reason: "too-large" }]);
 });
 
-test("a file over the size cap is skipped and reported with its path and reason (warn + skip)", async () => {
+test("a file over the size cap is not committed, and the rest is (warn + skip)", async () => {
   const { fs, git } = await repo({ maxFileBytes: 10 });
   await fs.writeFile("notes/a.md", "keep");
   await fs.writeFile("papers/scan.pdf", new Uint8Array(11));
@@ -296,29 +295,13 @@ test("a file over the size cap is skipped and reported with its path and reason 
   const commit = await git.commitAll("first", author);
 
   assert.ok(commit);
+  assert.equal(await text(await git.readAt(commit.oid, "notes/a.md")), "keep");
   assert.equal(await git.readAt(commit.oid, "papers/scan.pdf"), null);
-  assert.deepEqual(await git.skippedFiles(), [{ path: "papers/scan.pdf", reason: "too-large" }]);
 });
 
-test("a desktop.ini is reported as skipped, so the user can see it is not backed up", async () => {
-  const { fs, git } = await repo();
-  await fs.writeFile("notes/a.md", "keep");
-  await fs.writeFile("notes/desktop.ini", "[.ShellClassInfo]");
-  await git.commitAll("first", author);
-
-  assert.deepEqual(await git.skippedFiles(), [{ path: "notes/desktop.ini", reason: "ignored-file" }]);
-});
-
-test("ignored folders are not reported as skipped, since they are never meant to sync", async () => {
-  const { fs, git } = await repo();
-  await fs.writeFile("notes/a.md", "keep");
-  await fs.writeFile("node_modules/x.js", "x");
-  await git.commitAll("first", author);
-
-  assert.deepEqual(await git.skippedFiles(), []);
-});
-
-test("a file that cannot be stat'd is skipped as unreadable, and the rest still commits", async () => {
+test("a file that cannot be stat'd fails the commit and leaves history as it was", async () => {
+  // isomorphic-git's own status walk stats every file, so one it cannot read
+  // stops the commit there; nothing half-done reaches history.
   const fs = new MemoryWorkspaceFs(advancingClock());
   const stat = fs.stat.bind(fs);
   fs.stat = async (path: string) => {
@@ -330,10 +313,6 @@ test("a file that cannot be stat'd is skipped as unreadable, and the rest still 
   await fs.writeFile("notes/a.md", "keep");
   await fs.writeFile("notes/bad.md", "unreadable");
 
-  const commit = await git.commitAll("first", author);
-
-  assert.ok(commit);
-  assert.ok(await git.readAt(commit.oid, "notes/a.md"));
-  assert.equal(await git.readAt(commit.oid, "notes/bad.md"), null);
-  assert.deepEqual(await git.skippedFiles(), [{ path: "notes/bad.md", reason: "unreadable" }]);
+  await assert.rejects(git.commitAll("first", author));
+  assert.deepEqual(await git.log(), []);
 });

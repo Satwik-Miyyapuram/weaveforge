@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { appendFile, lstat, mkdir, readFile } from "node:fs/promises";
+import { appendFile, lstat, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import { promisify } from "node:util";
 
@@ -123,7 +123,8 @@ function basicAuth(token: string): string {
   return Buffer.from(`x-access-token:${token}`).toString("base64");
 }
 
-function redactAuth(text: string, token: string | undefined): string {
+/** Removes the token, and the header form it is sent in, from git's text. */
+export function redactAuth(text: string, token: string | undefined): string {
   return token ? redactSecret(redactSecret(text, token), basicAuth(token)) : text;
 }
 
@@ -131,24 +132,37 @@ function redactAuth(text: string, token: string | undefined): string {
  * The token goes in as an HTTP header through git's environment config
  * (git 2.31+), never on the command line (other processes can read that) and
  * never in `.git/config`. With a token, the credential helper is switched off
- * so a wrong token fails here instead of opening a sign-in window.
+ * so a wrong token fails here instead of opening a sign-in window. The header
+ * is scoped to the remote's own origin (`http.<origin>/.extraHeader`), so a
+ * redirect or submodule on another host never receives it; a remote that is
+ * not http(s) gets no header.
  */
-function authenticated(remote: GitRemoteConfig): { flags: string[]; env: NodeJS.ProcessEnv } {
+export function remoteAuth(remote: GitRemoteConfig): { flags: string[]; env: NodeJS.ProcessEnv } {
   const env: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
-  if (!remote.token) return { flags: [], env };
+  const origin = httpOrigin(remote.url);
+  if (!remote.token || !origin) return { flags: [], env };
   return {
     flags: ["-c", "credential.helper="],
     env: {
       ...env,
       GIT_CONFIG_COUNT: "1",
-      GIT_CONFIG_KEY_0: "http.extraHeader",
+      GIT_CONFIG_KEY_0: `http.${origin}/.extraHeader`,
       GIT_CONFIG_VALUE_0: `Authorization: Basic ${basicAuth(remote.token)}`,
     },
   };
 }
 
+function httpOrigin(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.origin : null;
+  } catch {
+    return null;
+  }
+}
+
 async function gitRemote(root: string, remote: GitRemoteConfig, args: readonly string[]): Promise<string> {
-  const { flags, env } = authenticated(remote);
+  const { flags, env } = remoteAuth(remote);
   try {
     return await git(root, [...flags, ...args], { env, timeout: REMOTE_TIMEOUT_MS });
   } catch (error) {
@@ -266,7 +280,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
 
   async commitAll(message: string, author: GitAuthor): Promise<WorkspaceCommit | null> {
     await this.writeExcludes();
-    await git(this.root, ["add", "-A"]);
+    await this.addInPolicy();
     await this.unstageOutOfPolicy();
     // What is staged decides, not the status: an over-size file stays untracked and in the status.
     if ((await git(this.root, ["diff", "--cached", "--name-only", "-z"])) === "") return null;
@@ -300,7 +314,44 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
   }
 
   /**
-   * Takes back out of the index what the sync policy refuses: a path in an
+   * `git add -A` minus the files the sync policy refuses (over the size cap,
+   * or in an ignored folder the exclude patterns missed), so they are never
+   * hashed into the object store. Candidates are what git would add: untracked
+   * and modified files. The pathspecs go through a file, not the command line,
+   * so any number of them fits.
+   */
+  private async addInPolicy(): Promise<void> {
+    const candidates = nulList(
+      await git(this.root, ["ls-files", "-z", "--others", "--modified", "--exclude-standard"]),
+    );
+    const refused: string[] = [];
+    for (const file of candidates) {
+      const size = await lstat(path.join(this.root, file)).then(
+        (stats) => stats.size,
+        () => null,
+      );
+      // Gone from disk: a deletion, which always goes through.
+      if (size === null) continue;
+      if (!decideGitSyncPath(file, size, this.maxFileBytes).include) refused.push(file);
+    }
+    if (refused.length === 0) {
+      await git(this.root, ["add", "-A"]);
+      return;
+    }
+    const list = path.resolve(
+      this.root,
+      (await git(this.root, ["rev-parse", "--git-path", "weaveforge-add-pathspec"])).trim(),
+    );
+    await writeFile(list, [".", ...refused.map((file) => `:(exclude,literal)${file}`)].join("\0") + "\0");
+    try {
+      await git(this.root, ["add", "-A", `--pathspec-from-file=${list}`, "--pathspec-file-nul"]);
+    } finally {
+      await rm(list, { force: true });
+    }
+  }
+
+  /**
+   * The backstop after `addInPolicy`: takes back out of the index what the sync policy refuses: a path in an
    * ignored folder the exclude patterns missed, or a file over the size cap.
    * A new file is unstaged; a tracked one keeps its last committed version.
    * Deletions always go through, so an over-size file can leave history's
@@ -327,14 +378,13 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
 
   // ---- Remote sync ---------------------------------------------------------
 
-  async connect(remote: GitRemoteConfig, author: GitAuthor): Promise<GitRemoteStatus> {
-    void author;
+  async connect(remote: GitRemoteConfig): Promise<GitRemoteStatus> {
     await this.prepareRemote(remote);
     return this.remoteStatus(remote);
   }
 
   async remoteStatus(remote: GitRemoteConfig): Promise<GitRemoteStatus> {
-    const branch = remote.branch ?? DEFAULT_SYNC_BRANCH;
+    const branch = DEFAULT_SYNC_BRANCH;
     if (!(await this.isRepo())) return { url: null, branch, ahead: 0, behind: 0 };
     await this.prepareRemote(remote);
     const theirs = await this.fetch(remote);
@@ -384,7 +434,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
         "--allow-unrelated-histories",
         fastForward ? "--ff-only" : "--no-ff",
         "-m",
-        `Merge ${remote.branch ?? DEFAULT_SYNC_BRANCH} from the remote`,
+        `Merge ${DEFAULT_SYNC_BRANCH} from the remote`,
         theirs,
       ]);
     } catch (error) {
@@ -418,7 +468,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
         "push",
         "--no-verify",
         SYNC_REMOTE,
-        `HEAD:refs/heads/${remote.branch ?? DEFAULT_SYNC_BRANCH}`,
+        `HEAD:refs/heads/${DEFAULT_SYNC_BRANCH}`,
       ]);
     } catch (error) {
       if (error instanceof GitRemoteError && /\[rejected\]|non-fast-forward|fetch first/.test(error.detail)) {
@@ -434,7 +484,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
     if (!(await this.isRepo())) {
       await this.init();
       // On an empty repo this only names the first branch; git before 2.28 has no `init -b`.
-      await git(this.root, ["symbolic-ref", "HEAD", `refs/heads/${remote.branch ?? DEFAULT_SYNC_BRANCH}`]);
+      await git(this.root, ["symbolic-ref", "HEAD", `refs/heads/${DEFAULT_SYNC_BRANCH}`]);
     }
     await this.writeExcludes();
     const current = await git(this.root, ["remote", "get-url", SYNC_REMOTE]).then(
@@ -447,7 +497,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
 
   /** The remote-tracking ref after a fetch, or null when the remote has no such branch yet. */
   private async fetch(remote: GitRemoteConfig): Promise<string | null> {
-    const branch = remote.branch ?? DEFAULT_SYNC_BRANCH;
+    const branch = DEFAULT_SYNC_BRANCH;
     const tracking = `refs/remotes/${SYNC_REMOTE}/${branch}`;
     try {
       await gitRemote(this.root, remote, ["fetch", "--no-tags", SYNC_REMOTE, `+refs/heads/${branch}:${tracking}`]);
@@ -601,7 +651,9 @@ export async function syncVault(
   if (!url.ok) throw new Error(url.reason);
   const remote: GitRemoteConfig = settings.token ? { url: url.url, token: settings.token } : { url: url.url };
 
-  // Status is a look, not a change: a folder with no repository yet is not given one.
+  // Status never creates a repository: a folder with none yet is not given one.
+  // On an existing repo it does point the sync remote at this URL and write
+  // `info/exclude` (both in `.git`, none of the user's files), then fetches.
   if (action === "status" && verdict.action === "init") {
     return { ...base, status: { url: null, branch: DEFAULT_SYNC_BRANCH, ahead: 0, behind: 0 } };
   }
@@ -611,7 +663,7 @@ export async function syncVault(
         case "status":
           return { ...base, status: await repo.remoteStatus(remote) };
         case "connect":
-          return { ...base, status: await repo.connect(remote, SYNC_AUTHOR) };
+          return { ...base, status: await repo.connect(remote) };
         case "pull":
           return { ...base, pull: await repo.pull(remote, SYNC_AUTHOR) };
         case "push":

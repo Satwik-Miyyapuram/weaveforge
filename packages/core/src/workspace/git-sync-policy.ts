@@ -46,7 +46,6 @@ export type GitSyncSkipReason =
   | "ignored-directory"
   | "ignored-file"
   | "too-large"
-  | "unreadable"
   | "invalid-path";
 
 export type GitSyncDecision = { include: true } | { include: false; reason: GitSyncSkipReason };
@@ -66,8 +65,8 @@ function segmentsOf(relPath: string): string[] {
 /**
  * True when a path sits inside an ignored folder. The last segment is never a
  * folder here, so a file or folder named `dist` at any level is not matched by
- * itself, only what is below it. This is what the status walk filters on, so
- * ignored trees are not hashed on every mirror pass.
+ * itself, only what is below it. The browser status walk filters on this, so
+ * ignored trees are left out of its result (isomorphic-git still walks them).
  */
 export function isUnderIgnoredFolder(relPath: string): boolean {
   const segments = segmentsOf(relPath);

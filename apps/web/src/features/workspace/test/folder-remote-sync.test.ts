@@ -5,7 +5,9 @@ import type { DesktopVaultSync, DesktopVaultSyncAction } from "@/lib/desktop/des
 
 import {
   describeRemoteSync,
+  disconnectRemote,
   folderRemoteSync,
+  forgetRemoteToken,
   remoteSyncAvailable,
   saveRemoteSyncSettings,
 } from "../application/folder-remote-sync";
@@ -69,10 +71,30 @@ test("saving writes the URL, and the token only when one was typed", async () =>
   ]);
 });
 
-test("forgetting the token clears it", async () => {
+test("saving returns the URL as stored, trimmed", async () => {
+  fakeShell(reply());
+  assert.equal(await saveRemoteSyncSettings({ url: " https://github.com/me/notes.git ", token: "" }), "https://github.com/me/notes.git");
+});
+
+test("forgetting the token clears it, whatever the URL field holds", async () => {
   const calls = fakeShell(reply());
-  await saveRemoteSyncSettings({ url: "https://github.com/me/notes.git", token: null });
-  assert.deepEqual(calls.at(-1), ["clear", "git-sync-token"]);
+  await forgetRemoteToken();
+  assert.deepEqual(calls, [["clear", "git-sync-token"]]);
+});
+
+test("disconnecting forgets both the URL and the token", async () => {
+  const calls = fakeShell(reply());
+  await disconnectRemote();
+  assert.deepEqual(calls, [
+    ["pref", "vault-git-remote", null],
+    ["clear", "git-sync-token"],
+  ]);
+});
+
+test("forgetting and disconnecting need the shell", async () => {
+  delete (globalThis as { window?: unknown }).window;
+  await assert.rejects(forgetRemoteToken(), /desktop app/);
+  await assert.rejects(disconnectRemote(), /desktop app/);
 });
 
 test("each action goes to the shell as named", async () => {

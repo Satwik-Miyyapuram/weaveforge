@@ -31,9 +31,9 @@ export function remoteSyncAvailable(): boolean {
 /**
  * Store the remote's URL, and the token when one was typed. An empty token
  * keeps the stored one; `null` forgets it. A URL that is not plain https is
- * refused before anything is stored.
+ * refused before anything is stored. Answers the URL as stored.
  */
-export async function saveRemoteSyncSettings(input: { url: string; token: string | null }): Promise<void> {
+export async function saveRemoteSyncSettings(input: { url: string; token: string | null }): Promise<string> {
   const url = checkGitRemoteUrl(input.url);
   if (!url.ok) throw new Error(url.reason);
   const bridge = shell();
@@ -41,6 +41,25 @@ export async function saveRemoteSyncSettings(input: { url: string; token: string
   await bridge.writePreference("vault-git-remote", url.url);
   if (input.token === null) await bridge.clearSecret("git-sync-token");
   else if (input.token.trim()) await bridge.writeSecret("git-sync-token", input.token.trim());
+  return url.url;
+}
+
+/** Forget the stored token; the URL, typed or stored, plays no part. */
+export async function forgetRemoteToken(): Promise<void> {
+  const bridge = shell();
+  if (!bridge) throw new Error(NO_SHELL);
+  await bridge.clearSecret("git-sync-token");
+}
+
+/**
+ * Forget the remote: its URL and its token. The folder and its history stay
+ * as they are; only syncing stops until a URL is saved again.
+ */
+export async function disconnectRemote(): Promise<void> {
+  const bridge = shell();
+  if (!bridge) throw new Error(NO_SHELL);
+  await bridge.writePreference("vault-git-remote", null);
+  await bridge.clearSecret("git-sync-token");
 }
 
 export function folderRemoteSync(action: DesktopVaultSyncAction): Promise<DesktopVaultSync> {
