@@ -36,7 +36,8 @@ parameter. `findDocumentMatches` stays in TS for the reader.
 - **CJK** ranges are BMP-only, copied from the TS bytes. Supplementary Han
   (Extension B+) is not CJK, in both.
 - **Unicode versions.** Four sources: Node 24.14.1 / ICU 78.2 is Unicode
-  17.0 (the generator and the parity job pin Node 24); `unicode-normalization`
+  17.0 (the goldens were generated on it; CI runs Node 22 today, so P1.2
+  pins the parity job to Node 24); `unicode-normalization`
   0.1.26 is 18; `unicode-properties` 0.1.4 (`\p{L}\p{N}`) is 17; Rust 1.98.1
   `to_lowercase` follows its std tables. Fixtures use only characters
   assigned before Unicode 17. Drift on new characters is accepted.
