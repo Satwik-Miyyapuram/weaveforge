@@ -158,10 +158,10 @@ test("a store without removeItem still adopts the legacy layout", () => {
 
 test("a tab's mode survives a restart (28-01)", () => {
   const store = memoryStore();
-  const layout = openTab(emptyLayout(), { kind: "vault_page", id: "a", mode: "read" });
+  const layout = openTab(emptyLayout(), { kind: "vault_page", id: "a", mode: "ink" });
   writeLayout(store, layout);
   const [leaf] = leaves(readLayout(store).root);
-  assert.deepEqual(leaf!.tabs, [{ kind: "vault_page", id: "a", mode: "read" }]);
+  assert.deepEqual(leaf!.tabs, [{ kind: "vault_page", id: "a", mode: "ink" }]);
 });
 
 test("an old record without modes, or with an unknown one, restores tabs with no mode (28-01)", () => {
@@ -180,5 +180,22 @@ test("an old record without modes, or with an unknown one, restores tabs with no
   assert.deepEqual(leaf!.tabs, [
     { kind: "vault_page", id: "old" },
     { kind: "vault_page", id: "odd" },
+  ]);
+});
+
+test("a tab left in the old Read mode comes back unchosen, so it opens as it would today", () => {
+  const stored = JSON.stringify({
+    root: {
+      type: "leaf",
+      id: "pane-1",
+      tabs: [{ kind: "vault_page", id: "n1", mode: "read" }, { kind: "vault_page", id: "n2", mode: "ink" }],
+      activeIndex: 0,
+    },
+  });
+
+  const restored = readLayout(memoryStore(stored));
+  assert.deepEqual(leaves(restored.root)[0]!.tabs, [
+    { kind: "vault_page", id: "n1" },
+    { kind: "vault_page", id: "n2", mode: "ink" },
   ]);
 });

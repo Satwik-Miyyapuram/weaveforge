@@ -1,7 +1,15 @@
 /* Long-form prose: `pretty` rather than `balance`, because what shows up in a
    paragraph is not an uneven first line but an orphaned last word. */
 .markdown { text-wrap: pretty; }
-.markdown h3, .markdown h4, .markdown h5 { margin: 12px 0 4px; letter-spacing: -0.01em; }
+/* Google Docs' heading styles over its 11pt body: 20, 16, 14, 12, 11 and 11pt
+   italic. Docs greys levels 3-6 (#434343, then #666666); here level 3 sits
+   between the text and muted colours and 4-6 are muted, so dark themes work. */
+.markdown h1 { margin: 12px 0 4px; font-size: 1.82em; letter-spacing: -0.01em; }
+.markdown h2 { margin: 12px 0 4px; font-size: 1.45em; letter-spacing: -0.01em; }
+.markdown h3 { margin: 12px 0 4px; font-size: 1.27em; letter-spacing: -0.01em; color: color-mix(in srgb, var(--text) 60%, var(--muted)); }
+.markdown h4 { margin: 12px 0 4px; font-size: 1.09em; font-weight: 600; letter-spacing: -0.01em; color: var(--muted); }
+.markdown h5 { margin: 8px 0 4px; font-size: 1em; font-weight: 600; letter-spacing: -0.01em; color: var(--muted); }
+.markdown h6 { margin: 8px 0 4px; font-size: 1em; font-weight: 600; font-style: italic; color: var(--muted); }
 .markdown ul, .markdown ol { margin: 8px 0; padding-left: 24px; }
 .markdown ol { list-style: decimal; }
 /* Wrapped in its own scroller: a wide table must not widen the page. */
@@ -31,6 +39,8 @@
 .markdown img.md-figure-right { float: right; margin: 8px 0 8px 16px; }
 .markdown img.md-figure-center { display: block; margin: 12px auto; float: none; }
 .markdown .math-display { overflow-x: auto; margin: 12px 0; padding: 4px 0; }
+/* Display maths written mid-line (`text $$x$$ text`): stays in the line, scrolls rather than overflowing. */
+.markdown .math-display-inline { display: inline-block; max-width: 100%; overflow-x: auto; vertical-align: middle; }
 .markdown blockquote { margin: 12px 0; padding: 4px 12px; border-left: 3px solid var(--line); color: var(--muted); }
 /* Obsidian-style callouts: [!note] / [!warning] / [!tip] etc. */
 .callout { margin: 12px 0; border-radius: var(--r-control); border: 1px solid var(--line); border-left-width: 3px; background: color-mix(in srgb, var(--accent) 7%, var(--surface)); overflow: hidden; }
@@ -264,7 +274,8 @@
 .vault-screen .empty { padding: 48px 24px; }
 
 /* Org setup + invite codes */
-.org-setup-screen { display: grid; place-items: center; min-height: 60vh; padding: 24px; }.markdown .md-mermaid { margin: 12px 0; overflow-x: auto; }
+.org-setup-screen { display: grid; place-items: center; min-height: 60vh; padding: 24px; }
+.markdown .md-mermaid { margin: 16px 0; overflow-x: auto; }
 /* pele draws diagrams with CSS variables, so they follow the theme with no re-render. */
 .md-mermaid {
   --pele-bg: var(--surface);
@@ -278,6 +289,7 @@
   --pele-font: var(--font);
   --pele-font-mono: var(--font-mono);
 }
-.markdown .md-mermaid svg { max-width: 100%; height: auto; }
+/* Block-level and centred: an inline svg sat on the text baseline, leaving a gap under it. */
+.markdown .md-mermaid svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
 .markdown .md-mermaid-error { border-left: 3px solid var(--danger); padding-left: 12px; }
 .markdown .md-mermaid-message { margin: 4px 0 0; font-size: var(--fs-xs); color: var(--danger); white-space: pre-wrap; }

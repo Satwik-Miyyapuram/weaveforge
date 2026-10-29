@@ -11,13 +11,13 @@ import { getContainer } from "@/bootstrap";
 import { deletedMessage, removeLater } from "@/lib/toast";
 import { noteKey } from "./note-key";
 import { readableText } from "@/lib/page-text";
-import { AttachImageButton } from "@/components/attach-image-button";
 import type { EditorHandle } from "@/components/editor-handle";
 import { CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
 import { RecordEmpty, RecordFacts, RecordSection, recordDate, wordCount } from "@/components/record";
 import { BackButton } from "@/components/back-button";
 import { DocumentBody } from "@/components/document-body";
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
+import { DocumentToolbar } from "@/components/document-toolbar";
 import { InkFocusButton, InkFocusExit, useInkFocus } from "@/components/ink-focus";
 import { RelatedPanel } from "@/components/related-panel";
 import { NoteComments, ShareButton, PinnedPaperBadge } from "@/features/sharing";
@@ -30,9 +30,13 @@ import { runNoteAction } from "./run-note-action";
 import { RowButton } from "@/components/controls";
 import { Button, IconButton, IconLink } from "@/components/button";
 
-/** A note's three views, in the order the Editor's pane header lists them. */
-const NOTE_MODES = ["edit", "read", "ink"] as const;
-type NoteMode = (typeof NOTE_MODES)[number];
+/** The modes the switch offers, as the Editor's toolbar does. */
+const NOTE_MODES = ["edit", "ink"] as const;
+/** Read is what a reader without edit rights sees; the switch never offers it. */
+type NoteMode = (typeof NOTE_MODES)[number] | "read";
+
+/** A handwritten note opens on its sheet, any other in Text. */
+const openMode = (body: string): NoteMode => (isInkNoteBody(body) ? "ink" : "edit");
 
 export function PageEditor({
   page,
@@ -74,9 +78,9 @@ export function PageEditor({
   focusTitle?: boolean;
 }) {
   const [title, setTitle] = useState(page.title);
-  // Read, Edit or Ink, as in the Editor's pane header. A note opens read.
-  const [mode, setMode] = useState<NoteMode>("read");
-  const modeRef = useRef<NoteMode>("read");
+  // Text or Ink, as in the Editor's toolbar.
+  const [mode, setMode] = useState<NoteMode>(() => openMode(page.body));
+  const modeRef = useRef<NoteMode>(mode);
   modeRef.current = mode;
   /** The rendered note, which margin comments select from and light up. */
   const noteTextRef = useRef<HTMLDivElement>(null);
@@ -95,7 +99,7 @@ export function PageEditor({
 
   useEffect(() => {
     // A note New note just made opens in Edit, where its title can be typed over.
-    if (page.id) setMode(focusTitle ? "edit" : "read");
+    if (page.id) setMode(focusTitle ? "edit" : openMode(page.body));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only a page change picks the mode
   }, [page.id]);
 
@@ -245,13 +249,7 @@ export function PageEditor({
           <RecordSection
             label={ink ? "Pages" : "Text"}
             tag={
-              canEditBody ? (
-                <span className="record-mode-tag">
-                  {hasBody && <span>{wordsLabel}</span>}
-                  <DocumentModeSwitch modes={NOTE_MODES} mode={view} onMode={chooseMode} />
-                  {view === "ink" && <InkFocusButton onClick={inkFocus.toggle} />}
-                </span>
-              ) : hasBody ? wordsLabel : undefined
+              hasBody ? wordsLabel : undefined
             }
           >
             {view === "read" && !hasBody && !ink ? (
@@ -268,13 +266,21 @@ export function PageEditor({
                 className={view === "read" ? (ink ? "record-note-read record-note-read--ink" : "record-note-read") : `record-doc record-doc--${view}${inkFocus.focus ? " record-ink-focus is-focus" : ""}`}
               >
                 {inkFocus.focus && <InkFocusExit onClick={inkFocus.toggle} />}
-                {view === "edit" && (
-                  <div className="summary-editor-bar">
-                    <AttachImageButton editor={editorHandle} onError={setSaveError} />
-                  </div>
-                )}
                 {/* The Editor's own document host: Edit, Read and Ink here are
                     the same code as in a tab, not a copy of it. */}
+                <DocumentToolbar
+                  lead={
+                    canEditBody ? (
+                      <>
+                        <DocumentModeSwitch modes={NOTE_MODES} mode={view === "read" ? "edit" : view} onMode={chooseMode} />
+                        {view === "ink" && <InkFocusButton onClick={inkFocus.toggle} />}
+                      </>
+                    ) : undefined
+                  }
+                  editor={view === "edit" ? editorHandle : undefined}
+                  onError={setSaveError}
+                  focus={inkFocus.focus}
+                >
                 <DocumentBody
                   tab={{ kind: "vault_page", id: page.id }}
                   mode={view}
@@ -287,6 +293,7 @@ export function PageEditor({
                   handleRef={editorHandle}
                   onError={setSaveError}
                 />
+                </DocumentToolbar>
               </div>
             )}
             {saveError && <InlineError>{saveError}</InlineError>}

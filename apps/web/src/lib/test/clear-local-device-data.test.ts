@@ -63,6 +63,7 @@ const KEPT = [
   "weaveforge.local-first",
   "weaveforge.ink.penOnly",
   "weaveforge.ink.quick-colours",
+  "weaveforge.ink.tool-colours",
   "weaveforge.ink.palette-dock",
   "weaveforge.reader.pen",
   "weaveforge.reader.linkCitations",

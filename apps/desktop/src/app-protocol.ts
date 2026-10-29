@@ -170,6 +170,8 @@ export function appHeaders(contentType: string): Record<string, string> {
  *
  * `app://artifacts` in `img-src` shows SDK uploads kept on this disk.
  *
+ * `blob:` in `frame-src` shows the Overleaf Workshop's compiled PDF.
+ *
  * Both are schemes rather than wildcards: `app:` still confines this to the app's
  * own protocol, and `cache:` is the whole of what the Cache API needs.
  */
@@ -182,6 +184,7 @@ const APP_CSP = [
   "connect-src 'self' app: cache: https: wss: http://localhost:* http://127.0.0.1:*",
   "worker-src 'self' blob:",
   "media-src 'self' blob: https:",
+  "frame-src 'self' blob:",
   "object-src 'none'",
   "frame-ancestors 'none'",
   "base-uri 'self'",

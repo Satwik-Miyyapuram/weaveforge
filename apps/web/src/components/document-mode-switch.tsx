@@ -1,75 +1,73 @@
 "use client";
 
 /**
- * Edit · Split · Read · Ink · PDF: the one View control a document shows, in
- * the Editor's pane header and on a note's own page alike, so the two offer
- * the same modes under the same names. Split is Edit with the live preview
- * beside or below it (DA-103); which of the two lives in the ⋯ next to it.
+ * Text · Ink, then Preview: the one mode control a document shows, in the
+ * Editor's path row and on a note's own page alike, so both offer the same
+ * modes under the same icons. A mode the document cannot take is greyed, not
+ * hidden, so the control keeps its shape from one document to the next.
+ *
+ * There is no PDF mode: a PDF is read and inked in one place, so it is Ink,
+ * with Text greyed beside it.
+ *
+ * Preview is the rendered Markdown beside the text. In the Editor it is a tab of
+ * its own, toggled from the toolbar (the caller passes `split={false}`); on a
+ * page it is inline, beside or below the editor, and which of the two lives in
+ * the ⋯ next to it.
  *
  * Here rather than in the editor workspace because the Notes page uses it too,
  * and a feature reaching into another's `ui/` fails `check:solid`.
  */
 
+import type { ReactNode } from "react";
+
 import { shortcutLabel } from "@/lib/shortcut-label";
-import {
-  readMdSplitSide,
-  setMdSplitSide,
-  useMdPreviewMode,
-  type MdPreviewMode,
-  type MdSplitSide,
-} from "@/lib/hooks/use-md-preview-mode";
+import { readMdSplitSide, setMdSplitSide, useMdPreviewMode, type MdSplitSide } from "@/lib/hooks/use-md-preview-mode";
+import { IconButton } from "./button";
 import { CardMenu } from "./card-menu";
-import { SegmentedControl } from "./segmented-control";
+import { ToggleButton } from "./controls";
+import { toolIcon } from "./ink-tool-icons";
+import { TextIcon } from "./view-icons";
 
-export type DocumentModeName = "edit" | "read" | "ink" | "pdf";
-type ViewName = DocumentModeName | "split";
+export type DocumentModeName = "edit" | "ink";
 
-const VIEW_LABELS: Record<ViewName, string> = { edit: "Edit", split: "Split", read: "Read", ink: "Ink", pdf: "PDF" };
-const VIEW_TITLES: Record<ViewName, string> = {
-  edit: `Edit source (${shortcutLabel("⌘E")})`,
-  split: "Edit with the preview beside or below",
-  read: `Read view (${shortcutLabel("⌘E")})`,
+const NAMES: Record<DocumentModeName, string> = { edit: "Text", ink: "Ink" };
+const ICONS: Record<DocumentModeName, () => ReactNode> = { edit: () => <TextIcon />, ink: () => toolIcon("pen") };
+const TITLES: Record<DocumentModeName, string> = {
+  edit: "Edit the text",
   ink: "Ink — write by hand",
-  pdf: "The paper's PDF",
 };
 
-const canSplit = (modes: readonly DocumentModeName[]) => modes.includes("edit") && modes.includes("read");
-
-/** The View control's choices: the modes, with Split after Edit when there is a Read to preview. */
-export function viewOptions(modes: readonly DocumentModeName[]) {
-  const views = modes.flatMap((each): ViewName[] => (each === "edit" && canSplit(modes) ? ["edit", "split"] : [each]));
-  return views.map((each) => ({ value: each, label: VIEW_LABELS[each], title: VIEW_TITLES[each] }));
+/** The mode segments: Text and Ink, always; each greyed when `modes` lacks it. */
+export function modeOptions(modes: readonly DocumentModeName[]) {
+  const shown: DocumentModeName[] = ["edit", "ink"];
+  return shown.map((each) => ({
+    value: each,
+    label: ICONS[each](),
+    ariaLabel: NAMES[each],
+    title: TITLES[each],
+    disabled: !modes.includes(each),
+  }));
 }
 
-/** What the control shows as chosen. */
-export function viewValue(modes: readonly DocumentModeName[], mode: DocumentModeName, preview: MdPreviewMode): ViewName {
-  return mode === "edit" && preview !== "off" && canSplit(modes) ? "split" : mode;
-}
-
-/** What choosing a view does: the document mode, and for Edit or Split the preview. */
-export function viewChoice(view: ViewName, side: MdSplitSide): { mode: DocumentModeName; preview?: MdPreviewMode } {
-  if (view === "split") return { mode: "edit", preview: side };
-  if (view === "edit") return { mode: "edit", preview: "off" };
-  return { mode: view };
-}
+/** Preview renders Markdown, so only Text has one. */
+export const canSplit = (mode: DocumentModeName) => mode === "edit";
 
 export function DocumentModeSwitch<M extends DocumentModeName>({
   modes,
   mode,
   onMode,
+  split,
 }: {
   modes: readonly M[];
   mode: M;
   onMode: (mode: M) => void;
+  /** `false`: no Preview here (the Editor's toolbar has it). Otherwise Preview is inline on this page. */
+  split?: false;
 }) {
   const [preview, setPreview] = useMdPreviewMode();
-  if (modes.length <= 1) return null;
-  const value = viewValue(modes, mode, preview);
-  const choose = (view: ViewName) => {
-    const next = viewChoice(view, readMdSplitSide());
-    if (next.preview) setPreview(next.preview);
-    onMode(next.mode as M);
-  };
+  const inline = split === undefined;
+  const on = preview !== "off";
+  const toggle = () => setPreview(on ? "off" : readMdSplitSide());
   const side = (each: MdSplitSide, label: string) => ({
     id: each,
     label,
@@ -79,14 +77,35 @@ export function DocumentModeSwitch<M extends DocumentModeName>({
   });
   return (
     <span className="view-control">
-      <SegmentedControl
-        label="View"
-        className="pane-mode"
-        value={value}
-        onChange={choose}
-        options={viewOptions(modes)}
-      />
-      {value === "split" && (
+      {/* Plain icons like the toolbar's; the current mode is the accent-coloured one. */}
+      <span className="pane-mode" role="group" aria-label="Mode">
+        {modeOptions(modes).map((o) => (
+          <IconButton
+            key={o.value}
+            size="sm"
+            label={o.ariaLabel}
+            tip={o.title}
+            aria-pressed={o.value === mode}
+            disabled={o.disabled}
+            onClick={() => onMode(o.value as M)}
+          >
+            {o.label}
+          </IconButton>
+        ))}
+      </span>
+      {split !== false && (
+      <span className="wf-seg pane-split">
+        <ToggleButton
+          pressed={on && canSplit(mode)}
+          disabled={!canSplit(mode)}
+          title={`Preview beside the text (${shortcutLabel("⌘E")})`}
+          onClick={toggle}
+        >
+          Preview
+        </ToggleButton>
+      </span>
+      )}
+      {inline && on && canSplit(mode) && (
         <CardMenu label="Split options" items={[side("side", "Preview beside"), side("below", "Preview below")]} />
       )}
     </span>

@@ -4,7 +4,11 @@ import test, { afterEach } from "node:test";
 import { messageOf } from "../ui/error-message";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import { readPageGap, writePageGap } from "../ui/use-page-gap";
-import { DEFAULT_QUICK_COLOURS, readQuickColours } from "../ui/use-quick-colours";
+import {
+  DEFAULT_TOOL_COLOURS,
+  readToolColours,
+  resetToolColoursCacheForTests,
+} from "../ui/use-tool-colours";
 
 const g = globalThis as { window?: unknown };
 const hadWindow = "window" in g;
@@ -75,11 +79,13 @@ test("page gap: unknown, missing or blocked falls back to none", () => {
   assert.doesNotThrow(() => writePageGap("small"));
 });
 
-test("quick colours: same key, and blocked storage gives the defaults", () => {
+test("tool colours: the pen's quick list migrates from its old key, and blocked storage gives the defaults", () => {
   memoryWindow({ "weaveforge.ink.quick-colours": JSON.stringify(["pink", "yellow", "text", "danger", "purple"]) });
-  assert.deepEqual(readQuickColours(), ["pink", "yellow", "text", "danger", "purple"]);
+  resetToolColoursCacheForTests();
+  assert.deepEqual(readToolColours().pen.quick, ["pink", "yellow", "text", "danger", "purple"]);
   blockedWindow();
-  assert.deepEqual(readQuickColours(), [...DEFAULT_QUICK_COLOURS]);
+  resetToolColoursCacheForTests();
+  assert.deepEqual(readToolColours(), DEFAULT_TOOL_COLOURS);
 });
 
 test("messageOf reads an Error's message and stringifies anything else", () => {

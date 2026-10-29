@@ -25,6 +25,7 @@ export function Popover({
   caret = true,
   colour,
   portal = false,
+  disabled = false,
   children,
 }: {
   label: React.ReactNode;
@@ -45,6 +46,8 @@ export function Popover({
   caret?: boolean;
   /** The swatch trigger's colour. */
   colour?: string;
+  /** Greys the trigger; the panel cannot open. */
+  disabled?: boolean;
   /**
    * Render the panel into `<body>` instead of under the trigger.
    *
@@ -145,6 +148,7 @@ export function Popover({
     ref: triggerRef,
     "aria-haspopup": "dialog" as const,
     "aria-controls": panelId,
+    disabled,
     onClick: (e: React.MouseEvent) => {
       openedByPointer.current = e.detail > 0;
       setOpen((v) => !v);

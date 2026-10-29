@@ -202,7 +202,8 @@ export async function routeLocalRequest(
   }
 
   if (path === "/search/simple/" && request.method === "POST") {
-    return simpleSearch(session, url.searchParams.get("query") ?? "");
+    // Trimmed as the MCP tool trims it, so the two surfaces search alike.
+    return simpleSearch(session, (url.searchParams.get("query") ?? "").trim());
   }
 
   if (path.startsWith("/vault/")) {

@@ -4,7 +4,7 @@
    narrows, and it narrows to the reading measure (`.markdown`). */
 .ai-review-screen { max-width: min(var(--app-max), 100%); }
 .ai-review-screen .screen-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
-.ai-review-screen h1 { margin: 4px 0 8px; font-family: var(--font-serif); }
+.ai-review-screen .screen-head h1 { margin: 4px 0 8px; font-family: var(--font-serif); }
 .ai-review-toolbar, .ai-review-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .ai-review-toolbar { margin: 12px 0; }
 .ai-review-list { display: grid; gap: 12px; }

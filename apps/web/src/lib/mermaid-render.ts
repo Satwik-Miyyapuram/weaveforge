@@ -40,6 +40,33 @@ export function clearMermaidCache(): void {
 registerSessionReset(clearMermaidCache);
 
 /**
+ * The theme token each `--pele-*` colour falls back to. `.md-mermaid` (markdown.css)
+ * sets the same mapping; this covers the SVG where that rule is not inherited.
+ */
+const PELE_FALLBACK_TOKEN: Record<string, string> = {
+  "--pele-bg": "--surface",
+  "--pele-fg": "--ink",
+  "--pele-muted": "--muted",
+  "--pele-line": "--muted",
+  "--pele-surface": "--surface-alt",
+  "--pele-surface-alt": "--surface-alt",
+  "--pele-border": "--line",
+  "--pele-accent": "--accent",
+};
+
+/**
+ * pele writes each colour as `var(--pele-x,#hex)`, and that hex is white or grey
+ * whatever theme is active. Swap every hex fallback for the theme token it stands
+ * for, so a diagram drawn before the variable is set still follows the theme.
+ */
+export function themePeleSvg(svg: string): string {
+  return svg.replace(/var\((--pele-[\w-]+),#[0-9a-fA-F]{3,6}\)/g, (match, name: string) => {
+    const token = PELE_FALLBACK_TOKEN[name];
+    return token ? `var(${name},var(${token}))` : match;
+  });
+}
+
+/**
  * An id for a diagram from its source, so the same fence renders to the same
  * markup every time. A running counter made each render a different string,
  * which made React rewrite the body — and kill any link mid-click — whenever
@@ -101,7 +128,7 @@ export async function renderMermaidBlock(code: string): Promise<string> {
   try {
     const pele = await getMermaid();
     const { svg } = await pele.renderAsync(source, { idPrefix: diagramId(source) });
-    const html = `<div class="md-mermaid">${svg}</div>`;
+    const html = `<div class="md-mermaid">${themePeleSvg(svg)}</div>`;
     renderCache.set(source, html);
     if (renderCache.size > MAX_CACHE_ENTRIES) {
       const oldest = renderCache.keys().next().value;

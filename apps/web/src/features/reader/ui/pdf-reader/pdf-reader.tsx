@@ -30,13 +30,13 @@ import type { InkColour, TextSelectionRange } from "@weaveforge/core";
 import {
   InkBar,
   INK_RENDER_COLOURS,
-  PagePill,
-  ViewMenu,
-  MoreMenu,
+  InkSelectionChip,
   paletteHex,
-  paletteName,
   readThemePalette,
-  useQuickColours,
+  setToolColour,
+  setToolQuickSlot,
+  useToolColours,
+  type ToolColourId,
   type InkPalette,
   InkPrintPreview,
 } from "@/features/ink";
@@ -74,6 +74,7 @@ import { darkPdfCanvasFilter } from "../../application/reader-pdf-theme";
 import { backlinksForAnnotation } from "../../application/annotation-backlinks";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FocusGlyph } from "@/components/focus-glyph";
+import { ToolbarSlot } from "@/components/toolbar-slot";
 import { DraftShapeOverlay, PageMargin, SafeExternalLink } from "./overlays";
 import { readWritingPage, writeWritingPage } from "./writing-page";
 import { layoutMarginNotes } from "../../application/margin-notes";
@@ -88,6 +89,7 @@ import { usePenTextSelect } from "./use-pen-text-select";
 import { useReaderGestures } from "../use-reader-gestures";
 import { useInkUndo } from "./use-ink-undo";
 import { usePenPrefs, barToolFor, inkCursorFor, readerToolFor } from "./use-pen-prefs";
+import { colourToolFor, markColourTool, rememberRecolour, rememberToolColour } from "./colour-tools";
 import { useReaderReferences } from "./use-reader-references";
 import { ReferencePopoverHost } from "./reference-popover-host";
 import { CitationTextLayer } from "./citation-text-layer";
@@ -149,12 +151,10 @@ export function PdfReader({
   const [captionTarget, setCaptionTarget] = useState<FigureTarget | null>(null);
   const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
   const [pickedTool, setCreateTool] = useState<ReaderCreateTool>("select");
-  // Colours are the ink note's names everywhere; `createColor` below is the
-  // one place a name becomes the hex a stored annotation carries.
-  const [pickedColor, setCreateColor] = useState<InkColour>("yellow");
-  // One list for the bar, the phone pill and the mark popover, shared with the
-  // ink note, so a swapped slot shows in all of them.
-  const [quickColours, setQuickColour] = useQuickColours();
+  // Each tool keeps its own colour and five quick colours on this device, shared
+  // with the ink note. Colours are the ink note's names; `hexOf` below turns one
+  // into the hex a stored annotation carries.
+  const toolColours = useToolColours();
   // The pen bar, once up, is the tool picker: what it holds is what draws. Its
   // choices persist per user (`usePenPrefs`), the PDF toolbar's do not.
   const [penOpen, setPenOpen] = useState(inkRail);
@@ -208,8 +208,19 @@ export function PdfReader({
    */
   const [inkPalette, setInkPalette] = useState<InkPalette>(INK_RENDER_COLOURS);
   useEffect(() => setInkPalette(readThemePalette(document)), []);
-  const createColor = paletteHex(inkPalette, penOpen ? pen.prefs.colour : pickedColor);
-  const quickHexes = quickColours.map((colour) => paletteHex(inkPalette, colour));
+  const hexOf = (colour: InkColour) => paletteHex(inkPalette, colour);
+  /** The tool whose colour the create actions draw with right now. */
+  const colourTool = colourToolFor({ penOpen, penTool: pen.prefs.tool, pickedTool });
+  const drawColour = toolColours[colourTool].colour;
+  const quickColours = toolColours[colourTool].quick;
+  const quickHexes = quickColours.map(hexOf);
+  const createColor = hexOf(drawColour);
+  const setQuickColour = (slot: number, colour: InkColour) => setToolQuickSlot(colourTool, slot, colour);
+  /** A selection makes a highlight or an underline, each in its own colour. */
+  const highlightHex = hexOf(toolColours.highlight.colour);
+  const underlineHex = hexOf(toolColours.underline.colour);
+  /** The swatches a mark is recoloured from: the list of the tool that made it. */
+  const markQuickHexes = (type: string) => toolColours[markColourTool(type)].quick.map(hexOf);
   /** The nib in PDF points, from the note's 0.1 mm — one nib set for both surfaces. */
   const penWidth = inkNoteWidthToPdfPoints(pen.prefs.width);
   // Focus, the workspace's way (`⌘⇧F`): the paper and nothing else. Per
@@ -1347,7 +1358,7 @@ export function PdfReader({
     const fullText = sel?.toString().trim() || "";
     const draft = draftFromTextSelection({
       type: "highlight",
-      color: createColor,
+      color: highlightHex,
       selection: range,
       page: geometry,
       exactRects: exactRects.length > 0 ? exactRects : undefined,
@@ -1482,7 +1493,7 @@ export function PdfReader({
           // Tint the live text selection with the colour the highlight will
           // actually be, so dragging over text previews the result instead of
           // showing the browser's default blue until you confirm.
-          ["--reader-select-color" as string]: createColor,
+          ["--reader-select-color" as string]: highlightHex,
           ...(darkPdf ? { ["--pdf-dark-filter" as string]: darkPdfCanvasFilter() } : {}),
         } as CSSProperties
       }
@@ -1511,37 +1522,11 @@ export function PdfReader({
       )}
       {/* One panel, two rows: viewport controls above, find/view/annotate below.
           Two free-floating wrapping bars read as scattered chrome. */}
+      {/* In the Editor the bar goes up to the one toolbar; in the reader's own
+          focus it stays, so the pen palette can float over the page. */}
+      <ToolbarSlot inline={focus}>
       <div className="pdf-reader-chrome" data-phone-panel={phonePanel}>
         <div className="pdf-reader-tools">
-          <PagePill
-            page={viewport.page}
-            pages={Math.max(1, numPages)}
-            onPrevPage={() => viewport.setPage(viewport.page - 1)}
-            onNextPage={() => viewport.setPage(viewport.page + 1)}
-            onGoToPage={viewport.setPage}
-          />
-          <ViewMenu
-            zoomPercent={Math.round(viewport.renderScale * 100)}
-            onZoomIn={viewport.zoomIn}
-            onZoomOut={viewport.zoomOut}
-            onZoomTo={(percent) => viewport.setCustomScale(percent / 100)}
-            fit={viewport.fit}
-            onFitPage={penOpen ? undefined : viewport.fitPage}
-            onFitWidth={penOpen ? undefined : viewport.fitWidth}
-            onRotate={viewport.rotateClockwise}
-            writingPage={writingPage}
-            onWritingPage={toggleWritingPage}
-          />
-          <ReaderSearchBar
-            pages={pageTexts}
-            isOpen={searchOpen}
-            onOpenChange={setSearchOpen}
-            onJump={(match) => {
-              viewport.setPage(match.pageIndex + 1);
-            }}
-            onMatches={(matches, active) => setFind({ matches, active })}
-          />
-          <MoreMenu onPrintPaper={(withComments) => void readerPrint.print(withComments)} />
           {/* Wide screens switch tabs in the expanded sidebar. */}
           <div className={`pdf-reader-group pdf-reader-more${toolbarExtra ? "" : " pdf-reader-narrow-only"}`}>
             <ViewSwitch
@@ -1562,31 +1547,51 @@ export function PdfReader({
         {/* The ink note's own bar, not a copy of it: same tools, same swatches,
             same nibs, same fold and move handles. Select and the Insert tools
             put the pen away; any ink tool takes it out. A paper the reader may
-            not mark keeps only the page and view controls. */}
+            not mark greys its tools and keeps pages, view, find and more. */}
         <InkBar
           readOnly={!canCreate}
           tool={barToolFor(pen.prefs.tool)}
-          colour={penOpen ? pen.prefs.colour : pickedColor}
+          colour={drawColour}
           width={pen.prefs.width}
           highlighterWidth={pen.prefs.highlighterWidth}
           canUndo={inkUndo.canUndo}
           canRedo={inkUndo.canRedo}
+          page={viewport.page}
+          pages={Math.max(1, numPages)}
+          onPrevPage={() => viewport.setPage(viewport.page - 1)}
+          onNextPage={() => viewport.setPage(viewport.page + 1)}
+          onGoToPage={viewport.setPage}
+          view={{
+            zoomPercent: Math.round(viewport.renderScale * 100),
+            onZoomIn: viewport.zoomIn,
+            onZoomOut: viewport.zoomOut,
+            onZoomTo: (percent) => viewport.setCustomScale(percent / 100),
+            fit: viewport.fit,
+            onFitPage: penOpen ? undefined : viewport.fitPage,
+            onFitWidth: penOpen ? undefined : viewport.fitWidth,
+            onRotate: viewport.rotateClockwise,
+            writingPage,
+            onWritingPage: toggleWritingPage,
+          }}
+          find={
+            <ReaderSearchBar
+              pages={pageTexts}
+              isOpen={searchOpen}
+              onOpenChange={setSearchOpen}
+              onJump={(match) => {
+                viewport.setPage(match.pageIndex + 1);
+              }}
+              onMatches={(matches, active) => setFind({ matches, active })}
+            />
+          }
+          onPrintPaper={(withComments) => void readerPrint.print(withComments)}
           selectActive={!penOpen && pickedTool === "select"}
           onSelect={() => putPenAway("select")}
           insertTool={penOpen ? null : pickedTool === "image" ? "clip" : pickedTool === "text" ? "text" : null}
-          onClip={() => putPenAway("image")}
-          onTextBox={() => putPenAway("text")}
+          onClip={canCreate ? () => putPenAway("image") : undefined}
+          onTextBox={canCreate ? () => putPenAway("text") : undefined}
           quickColours={quickColours}
           onQuickColour={setQuickColour}
-          // What the lasso caught: the bar's two selection actions appear
-          // only then, and Delete takes the whole selection.
-          selected={lassoed.length}
-          onDeleteSelection={() => {
-            const doomed = [...lassoed];
-            clearLasso();
-            // One undo step for the whole selection.
-            void removeMany(doomed);
-          }}
           onTool={(tool) => {
             // Switching tool ends the mark in progress, so the next stroke
             // never merges into one drawn with a different nib.
@@ -1599,8 +1604,7 @@ export function PdfReader({
           }}
           onColour={(colour) => {
             endInkGroup();
-            if (penOpen) pen.setColour(colour);
-            else setCreateColor(colour);
+            setToolColour(colourTool, colour);
           }}
           onWidth={(width) => {
             endInkGroup();
@@ -1635,6 +1639,7 @@ export function PdfReader({
           />
         )}
       </div>
+      </ToolbarSlot>
       {/* Both rectangle tools look identical while dragging, so say which one
           is armed and what releasing will do. The pointer tool says more with
           the pen out than without it: with the pen away the ink is read-only,
@@ -1651,10 +1656,10 @@ export function PdfReader({
                   key={colour}
                   label={`Colour ${colour}`}
                   colour={quickHexes[i]}
-                  selected={pickedColor === colour}
+                  selected={drawColour === colour}
                   onClick={() => {
                     endInkGroup();
-                    setCreateColor(colour);
+                    setToolColour(colourTool, colour);
                   }}
                 />
               ))}
@@ -1735,10 +1740,10 @@ export function PdfReader({
             <SelectionCreateBar
               at={pendingCreate.at}
               busy={createBusy}
-              color={createColor}
+              highlightColour={highlightHex}
+              underlineColour={underlineHex}
               onCreate={(type, color, comment) => {
-                const named = paletteName(inkPalette, color);
-                if (named) setCreateColor(named);
+                rememberToolColour(type, color, inkPalette);
                 void createFromPending(type, color, comment);
               }}
               onCancel={() => setPendingCreate(null)}
@@ -1749,8 +1754,11 @@ export function PdfReader({
               at={markPopover.at}
               actions={markPopover.actions}
               colour={markPopover.ann.color}
-              colours={quickHexes}
-              onColour={(colour) => void updateLocal(markPopover.ann.id, { color: colour })}
+              colours={markQuickHexes(markPopover.ann.type)}
+              onColour={(colour) => {
+                rememberRecolour(markPopover.ann.type, colour, inkPalette);
+                void updateLocal(markPopover.ann.id, { color: colour });
+              }}
               onComment={(comment) => {
                 setMarkAt(null);
                 void updateLocal(markPopover.ann.id, { comment });
@@ -1839,6 +1847,20 @@ export function PdfReader({
                     // `undefined` is a stable prop where a fresh `[]` would
                     // re-render every page's overlay on every frame.
                     inkSelectedIds={inkEditable ? lassoed : undefined}
+                    // What the lasso caught is deleted from a menu at it;
+                    // Delete takes the whole selection, as one undo step.
+                    inkSelectionActions={
+                      inkEditable && lassoed.length > 0 ? (
+                        <InkSelectionChip
+                          count={lassoed.length}
+                          onDelete={() => {
+                            const doomed = [...lassoed];
+                            clearLasso();
+                            void removeMany(doomed);
+                          }}
+                        />
+                      ) : undefined
+                    }
                     onSelect={selectOnPage}
                     fetchPicture={fetchPicture}
                     pictureEdit={pictures.edit?.pageNumber === n ? pictures.edit : null}

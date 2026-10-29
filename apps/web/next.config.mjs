@@ -131,6 +131,9 @@ const securityHeaders = [
       // is the most confusing shape a bug can take. The desktop shell already
       // allows it (`apps/desktop/src/app-protocol.ts`); this is the web half.
       "worker-src 'self' blob:",
+      // The Workshop PDF viewer embeds the compiled PDF as `<iframe src="blob:...">`.
+      // Without this, frame-src falls back to default-src 'self' and refuses the blob.
+      "frame-src 'self' blob:",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

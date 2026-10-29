@@ -112,6 +112,8 @@ export interface InkPageProps {
    * which takes its own pointer events from any pointer.
    */
   above?: React.ReactNode;
+  /** The lasso's copy and delete menu, placed at the selection's top-right corner. */
+  selectionActions?: React.ReactNode;
   /**
    * The canvas covers the whole pane, not just the live sheet, so a pointer
    * can land on a neighbouring page's visible part. Called first on every

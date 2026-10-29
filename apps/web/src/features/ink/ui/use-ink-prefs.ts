@@ -18,6 +18,7 @@ import {
 } from "@weaveforge/core";
 
 import type { InkBarTool } from "./ink-bar";
+import { setToolColour, useToolColours } from "./use-tool-colours";
 
 /** The two tools that put ink on paper, as opposed to pointing or erasing. */
 export const PEN_MODE_TOOLS = ["pen", "highlighter"] as const;
@@ -55,9 +56,8 @@ export function isPenMode(tool: InkBarTool | "shape"): tool is PenModeTool {
 
 export function useInkPrefs() {
   const [tool, setToolState] = useState<InkBarTool | "shape">("pen");
-  const [penColour, setPenColour] = useState<InkColour>("text");
-  const [highlighterColour, setHighlighterColour] =
-    useState<InkColour>("warn");
+  // Each tool's colour lives in the shared store, so every pane sees the same one.
+  const toolColours = useToolColours();
   const [width, setWidthState] = useState<number>(INK_PEN_WIDTH);
   const [highlighterWidth, setHighlighterWidth] = useState<number>(INK_HIGHLIGHTER_WIDTH);
 
@@ -91,7 +91,7 @@ export function useInkPrefs() {
   }, []);
 
   /** The colour the current tool draws with, whichever tool that is. */
-  const colour = tool === "highlighter" ? highlighterColour : penColour;
+  const colour = toolColours[tool === "highlighter" ? "highlighter" : "pen"].colour;
 
   /**
    * A colour is chosen for the tool in force; a choice made for the pen
@@ -100,9 +100,9 @@ export function useInkPrefs() {
   const onColourChange = useCallback(
     (c: InkColour) => {
       if (tool === "highlighter") {
-        setHighlighterColour(c);
+        setToolColour("highlighter", c);
       } else {
-        setPenColour(c);
+        setToolColour("pen", c);
         if (tool !== "pen") setTool("pen");
       }
     },

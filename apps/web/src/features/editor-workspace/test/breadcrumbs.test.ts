@@ -100,6 +100,22 @@ test("a document with no headings has an empty outline, and that is not an error
   assert.deepEqual(outlineOf(""), []);
 });
 
+test("a heading ending in # keeps it unless the # is a closing sequence", () => {
+  // `.+?` used to give the trailing `#` of "C#" to the closing sequence, so the
+  // outline said "Learning C" while the read view said "Learning C#".
+  const headings = outlineOf("## Learning C#\n\n## Closed ##\n\n# Issue #12\n\n### #");
+  assert.deepEqual(
+    headings.map((heading) => heading.text),
+    ["Learning C#", "Closed", "Issue #12"],
+  );
+});
 
-
-
+test("a fence closes only on the same marker, at least as long", () => {
+  // A ```` fence that shows a ``` fence, or a ~~~ line inside a ``` block,
+  // used to toggle the fence and list the code's `# comment` as a heading.
+  const body = "````md\n```\n# not a heading\n```\n````\n\n```sh\n~~~\n# nor this\n```\n\n## Real";
+  assert.deepEqual(
+    outlineOf(body).map((heading) => heading.text),
+    ["Real"],
+  );
+});
