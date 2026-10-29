@@ -492,12 +492,9 @@ export function renderProseMarkdown(md: string, options?: MarkdownRenderOptions)
     const oli = /^\s*\d+[.)]\s+(.*)$/.exec(line);
     if (h) {
       closeList();
-      // `#`…`###` keep their established tags (h3–h5). `####`…`######` share h6, told
-      // apart by class, since there is no tag below h6 to step down to.
-      const level = h[1]!.length;
-      const tag = level <= 3 ? `h${level + 2}` : "h6";
-      const cls = level <= 3 ? "" : ` class="md-h${level}"`;
-      out.push(`<${tag}${cls} id="${escapeAttr(headingSlug(h[2]!))}">${inline(h[2]!, options)}</${tag}>`);
+      // Each level is its own element: `#` is h1 … `######` is h6. markdown.css sizes them.
+      const tag = `h${h[1]!.length}`;
+      out.push(`<${tag} id="${escapeAttr(headingSlug(h[2]!))}">${inline(h[2]!, options)}</${tag}>`);
     } else if (li) {
       openList("ul");
       out.push(`<li>${inline(li[1]!, options)}</li>`);

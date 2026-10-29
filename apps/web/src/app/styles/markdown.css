@@ -1,12 +1,15 @@
 /* Long-form prose: `pretty` rather than `balance`, because what shows up in a
    paragraph is not an uneven first line but an orphaned last word. */
 .markdown { text-wrap: pretty; }
-.markdown h3, .markdown h4, .markdown h5 { margin: 12px 0 4px; letter-spacing: -0.01em; }
-/* Levels 4-6 render as h6 (see renderProseMarkdown) so the browser sizes nothing;
-   the size comes from the existing type scale, and level 6 is quieter than level 4. */
-.markdown h6.md-h4 { margin: 12px 0 4px; font-size: var(--fs); font-weight: 600; letter-spacing: -0.01em; }
-.markdown h6.md-h5 { margin: 8px 0 4px; font-size: var(--fs-sm); font-weight: 600; letter-spacing: -0.01em; }
-.markdown h6.md-h6 { margin: 8px 0 4px; font-size: var(--fs-xs); font-weight: 600; color: var(--muted); }
+/* `#` … `###` render as h1-h3 but keep the sizes they had when they rendered as
+   h3-h5 (the browser's 1.17em, 1em and 0.83em); levels 4-6 use the type scale,
+   and level 6 is quieter than level 4. */
+.markdown h1 { margin: 12px 0 4px; font-size: 1.17em; letter-spacing: -0.01em; }
+.markdown h2 { margin: 12px 0 4px; font-size: 1em; letter-spacing: -0.01em; }
+.markdown h3 { margin: 12px 0 4px; font-size: 0.83em; letter-spacing: -0.01em; }
+.markdown h4 { margin: 12px 0 4px; font-size: var(--fs); font-weight: 600; letter-spacing: -0.01em; }
+.markdown h5 { margin: 8px 0 4px; font-size: var(--fs-sm); font-weight: 600; letter-spacing: -0.01em; }
+.markdown h6 { margin: 8px 0 4px; font-size: var(--fs-xs); font-weight: 600; color: var(--muted); }
 .markdown ul, .markdown ol { margin: 8px 0; padding-left: 24px; }
 .markdown ol { list-style: decimal; }
 /* Wrapped in its own scroller: a wide table must not widen the page. */

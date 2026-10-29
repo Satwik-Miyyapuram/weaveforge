@@ -109,7 +109,7 @@ test("links a root-relative target in the same tab, and leaves a bare file name 
 test("renderMarkdownPlain renders prose around a fence and escapes the code", () => {
   const html = renderMarkdownPlain("## Title\n\n```ts\nconst a = 1 < 2;\n```\n\n- item");
 
-  assert.match(html, /<h4[^>]*>Title<\/h4>/);
+  assert.match(html, /<h2[^>]*>Title<\/h2>/);
   assert.match(html, /<pre class="md-code" data-lang="ts"><code>const a = 1 &lt; 2;\n<\/code><\/pre>/);
   assert.match(html, /<ul><li>item<\/li><\/ul>/);
 });
@@ -218,7 +218,7 @@ test("a list or heading straight after a table still ends it", () => {
   assert.match(list, /<\/table>/);
   assert.match(list, /<li>item<\/li>/);
   const heading = renderProseMarkdown("| a | b |\n|---|---|\n| 1 | 2 |\n## after");
-  assert.match(heading, /<h4[^>]*>after<\/h4>/);
+  assert.match(heading, /<h2[^>]*>after<\/h2>/);
 });
 
 test("inline and bracketed maths render; dollar amounts and code stay text", async () => {
@@ -255,21 +255,26 @@ test("containsMath recognises the bracketed delimiters too", () => {
   assert.equal(containsMath("no maths here"), false);
 });
 
-test("headings four to six hashes render as headings; seven stay text", () => {
-  const html = renderProseMarkdown("#### four\n\n##### five\n\n###### six\n\n####### seven");
-  assert.match(html, /<h6 class="md-h4"[^>]*>four<\/h6>/);
-  assert.match(html, /<h6 class="md-h5"[^>]*>five<\/h6>/);
-  assert.match(html, /<h6 class="md-h6"[^>]*>six<\/h6>/);
+test("each heading level renders as its own heading element; seven hashes stay text", () => {
+  const html = renderProseMarkdown("# one\n## two\n### three\n#### four\n##### five\n###### six\n####### seven");
+  for (const [level, word] of [[1, "one"], [2, "two"], [3, "three"], [4, "four"], [5, "five"], [6, "six"]] as const) {
+    assert.match(html, new RegExp(`<h${level} id="${word}">${word}</h${level}>`));
+  }
+  assert.doesNotMatch(html, /class="md-h/);
   assert.match(html, /<p>####### seven<\/p>/);
 });
 
+test("a heading needs a space after its hashes", () => {
+  assert.match(renderProseMarkdown("####four"), /<p>####four<\/p>/);
+});
+
 test("a heading of hashes alone is not an empty heading", () => {
-  assert.doesNotMatch(renderProseMarkdown("####"), /<h6/);
+  assert.doesNotMatch(renderProseMarkdown("####"), /<h\d/);
 });
 
 test("inline code and maths inside a level-four heading keep their markup", () => {
   const html = renderProseMarkdown("#### `code` and $x^2$ here");
-  assert.match(html, /<h6 class="md-h4"[^>]*><code>code<\/code> and <span class="(katex|math-pending)"/);
+  assert.match(html, /<h4[^>]*><code>code<\/code> and <span class="(katex|math-pending)"/);
 });
 
 /** The font-size token that the first rule with exactly this selector sets. */
@@ -288,6 +293,6 @@ function headingSizeToken(selector: string): string {
 }
 
 test("levels four, five and six each get their own heading size", () => {
-  const sizes = ["h6.md-h4", "h6.md-h5", "h6.md-h6"].map((level) => headingSizeToken(`.markdown ${level}`));
+  const sizes = ["h4", "h5", "h6"].map((level) => headingSizeToken(`.markdown ${level}`));
   assert.equal(new Set(sizes).size, 3, `sizes must differ: ${sizes.join(", ")}`);
 });
