@@ -221,6 +221,9 @@ const CASES: &[ExcerptCase] = &[
     ),
 ];
 
+/// (case index, unit index, unit): lone surrogate halves in the TS text.
+const LONE_UNITS: &[(usize, usize, u16)] = &[(25, 40, 0xd83d), (26, 40, 0xd83d)];
+
 fn excerpt(body: &str, terms: &[&str], max_chars: Option<usize>, single_line: bool) -> Excerpt {
     let terms: Vec<String> = terms.iter().map(|term| (*term).to_owned()).collect();
     build_excerpt(
@@ -257,7 +260,8 @@ fn every_case_matches_the_typescript() {
     for (body, terms, max_chars, single_line, text, highlights) in CASES {
         let built = excerpt(body, terms, *max_chars, single_line.unwrap_or(true));
         // A window edge can split a surrogate pair. Lossy decoding turns the
-        // lone half into U+FFFD, one unit, as toWellFormed() did in the generator.
+        // lone half into U+FFFD, one unit, as toWellFormed() did in the generator;
+        // `split_surrogates_keep_the_same_half` checks which half it was.
         assert_eq!(
             String::from_utf16_lossy(&built.text),
             *text,
@@ -271,6 +275,26 @@ fn every_case_matches_the_typescript() {
         assert_eq!(pairs(&built), *highlights, "highlights of {body:?}");
         assert_well_formed(&built);
     }
+}
+
+#[test]
+fn split_surrogates_keep_the_same_half() {
+    for &(case, at, unit) in LONE_UNITS {
+        let (body, terms, max_chars, single_line, _, _) =
+            CASES.get(case).copied().unwrap_or_default();
+        let built = excerpt(body, terms, max_chars, single_line.unwrap_or(true));
+        assert_eq!(
+            built.text.get(at).copied(),
+            Some(unit),
+            "unit {at} of {body:?}"
+        );
+    }
+    // Every U+FFFD in the expected text is a lone half pinned above.
+    let replaced: usize = CASES
+        .iter()
+        .map(|case| case.4.matches('\u{fffd}').count())
+        .sum();
+    assert_eq!(replaced, LONE_UNITS.len());
 }
 
 #[test]

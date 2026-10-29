@@ -4,6 +4,7 @@
 //   node crates/wf-core/tests/goldens/search-excerpt.mjs
 // The expected text goes through toWellFormed(): a window edge can split a
 // surrogate pair, and Rust compares the lossy decoding (same UTF-16 length).
+// LONE_UNITS then pins each lone half exactly: (case index, unit index, unit).
 import { buildExcerpt } from "../../../../packages/core/dist/index.js";
 
 const filler = (n) => "lorem ipsum ".repeat(n);
@@ -54,11 +55,18 @@ const opt = (v, f) => (v === undefined ? "None" : `Some(${f(v)})`);
 
 console.log("/// (body, terms, max_chars, single_line, text, highlights)");
 console.log("const CASES: &[ExcerptCase] = &[");
-for (const [body, terms, maxChars, singleLine] of INPUTS) {
+const lone = [];
+for (const [index, [body, terms, maxChars, singleLine]] of INPUTS.entries()) {
   const options = {};
   if (maxChars !== undefined) options.maxChars = maxChars;
   if (singleLine !== undefined) options.singleLine = singleLine;
   const e = buildExcerpt(body, terms, options);
+  // for...of yields a lone half as a one-unit string.
+  let at = 0;
+  for (const ch of e.text) {
+    if (!ch.isWellFormed()) lone.push(`(${index}, ${at}, 0x${ch.charCodeAt(0).toString(16)})`);
+    at += ch.length;
+  }
   const hl = e.highlights.map((r) => `(${r.start}, ${r.end})`).join(", ");
   console.log(
     `(${rs(body)}, &[${terms.map(rs).join(", ")}], ${opt(maxChars, String)}, ` +
@@ -66,3 +74,5 @@ for (const [body, terms, maxChars, singleLine] of INPUTS) {
   );
 }
 console.log("];");
+console.log("/// (case index, unit index, unit): lone surrogate halves in the TS text.");
+console.log(`const LONE_UNITS: &[(usize, usize, u16)] = &[${lone.join(", ")}];`);
