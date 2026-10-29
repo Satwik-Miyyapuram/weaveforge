@@ -1,10 +1,10 @@
 /**
  * Pins the WASM size budget. The browser downloads the gzipped module, so the
- * gate must fail exactly when that size passes the ratchet.
+ * gate must fail exactly when that size passes the budget.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkWasmBudget, gzipSize, WASM_GZIP_BUDGET } from "../wasm-budget.mjs";
+import { checkWasmBudget, gzipSize, WASM_BUDGET_FILES, WASM_GZIP_BUDGET } from "../wasm-budget.mjs";
 
 test("exactly at the budget is ok", () => {
   assert.equal(checkWasmBudget(WASM_GZIP_BUDGET, WASM_GZIP_BUDGET).ok, true);
@@ -28,4 +28,11 @@ test("gzipSize compresses a zero-filled buffer", () => {
 
 test("the budget is a positive integer", () => {
   assert.ok(Number.isInteger(WASM_GZIP_BUDGET) && WASM_GZIP_BUDGET > 0);
+});
+
+test("the budget covers the module and its JS glue", () => {
+  assert.deepEqual(
+    [...WASM_BUDGET_FILES].sort(),
+    ["packages/wf-wasm/pkg/wf_wasm.js", "packages/wf-wasm/pkg/wf_wasm_bg.wasm"],
+  );
 });
