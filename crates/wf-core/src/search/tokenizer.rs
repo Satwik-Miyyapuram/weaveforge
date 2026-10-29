@@ -1,7 +1,7 @@
 //! Term normalization shared by indexing and querying: diacritic folding,
 //! lowercasing and CJK detection. Port of `packages/core/src/search/search-tokenizer.ts`.
 
-use std::collections::BTreeSet;
+use std::collections::HashSet;
 use std::ops::RangeInclusive;
 
 use unicode_normalization::UnicodeNormalization;
@@ -93,7 +93,7 @@ pub const MIN_TOKEN_UTF16_LEN: usize = 2;
 #[must_use]
 pub fn tokenize(text: &str, options: &TokenizerOptions) -> Vec<String> {
     let mut out = Vec::new();
-    let mut seen = BTreeSet::new();
+    let mut seen = HashSet::new();
     if text.is_empty() {
         return out;
     }
@@ -118,7 +118,9 @@ pub fn tokenize(text: &str, options: &TokenizerOptions) -> Vec<String> {
 }
 
 /// `tokenize` then `process_term` on each token: what MiniSearch indexes.
-/// Not deduplicated after processing.
+/// Not deduplicated after processing. A term can be empty when Arabic folding
+/// removes every char (U+06E5 and U+06E6 are letters and Arabic marks); the
+/// TypeScript keeps it too, and MiniSearch skips it.
 #[must_use]
 pub fn index_terms(text: &str, options: &TokenizerOptions) -> Vec<String> {
     let tokens = tokenize(text, options);
@@ -127,7 +129,7 @@ pub fn index_terms(text: &str, options: &TokenizerOptions) -> Vec<String> {
         .map(|token| process_term(token, options))
         .collect();
     debug_assert_eq!(terms.len(), tokens.len());
-    debug_assert!(terms.iter().all(|term| !term.is_empty()));
+    debug_assert!(terms.iter().all(|term| term.len() <= text.len() * 3));
     terms
 }
 
@@ -165,7 +167,7 @@ fn camel_case_parts(token: &str) -> Vec<String> {
 }
 
 /// Adds `token` unless already seen; empty tokens are never added.
-fn push_unique(out: &mut Vec<String>, seen: &mut BTreeSet<String>, token: String) {
+fn push_unique(out: &mut Vec<String>, seen: &mut HashSet<String>, token: String) {
     debug_assert!(out.len() == seen.len());
     let before = out.len();
     if !token.is_empty() && seen.insert(token.clone()) {
@@ -175,8 +177,9 @@ fn push_unique(out: &mut Vec<String>, seen: &mut BTreeSet<String>, token: String
 }
 
 /// Walks a lowercased raw token, grouping runs of CJK and non-CJK characters.
-fn push_script_runs(lower: &str, out: &mut Vec<String>, seen: &mut BTreeSet<String>) {
-    debug_assert!(!lower.is_empty());
+/// `lower` is empty when Arabic folding removed every char; then nothing is added.
+fn push_script_runs(lower: &str, out: &mut Vec<String>, seen: &mut HashSet<String>) {
+    debug_assert!(out.len() == seen.len());
     let mut buffer = String::new();
     let mut buffer_is_cjk = false;
     for ch in lower.chars() {
@@ -196,7 +199,7 @@ fn push_script_runs(lower: &str, out: &mut Vec<String>, seen: &mut BTreeSet<Stri
 }
 
 /// Emits one script run: CJK as unigrams and bigrams, anything else whole.
-fn push_run(run: &str, cjk: bool, out: &mut Vec<String>, seen: &mut BTreeSet<String>) {
+fn push_run(run: &str, cjk: bool, out: &mut Vec<String>, seen: &mut HashSet<String>) {
     debug_assert!(!run.is_empty());
     let tokens = if cjk {
         cjk_tokens(run)

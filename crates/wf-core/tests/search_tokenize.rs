@@ -1236,6 +1236,102 @@ const OPTION_CASES: &[OptionCase] = &[
             "angstromlab",
         ],
     ),
+    (
+        "\u{6e5} x.io/\u{6e5}\u{6e6} a",
+        0,
+        &["\u{6e5}", "x", "io", "\u{6e5}\u{6e6}", "a"],
+        &["\u{6e5}", "x", "io", "\u{6e5}\u{6e6}", "a"],
+    ),
+    (
+        "\u{6e5} x.io/\u{6e5}\u{6e6} a",
+        1,
+        &["\u{6e5}", "x", "io", "\u{6e5}\u{6e6}", "a"],
+        &["\u{6e5}", "x", "io", "\u{6e5}\u{6e6}", "a"],
+    ),
+    (
+        "\u{6e5} x.io/\u{6e5}\u{6e6} a",
+        2,
+        &["\u{6e5}", "x", "io", "\u{6e5}\u{6e6}", "a"],
+        &["\u{6e5}", "x", "io", "\u{6e5}\u{6e6}", "a"],
+    ),
+    (
+        "\u{6e5} x.io/\u{6e5}\u{6e6} a",
+        3,
+        &["x", "io", "a"],
+        &["x", "io", "a"],
+    ),
+    (
+        "\u{6e5} x.io/\u{6e5}\u{6e6} a",
+        4,
+        &["\u{6e5}", "x", "io", "\u{6e5}\u{6e6}", "a"],
+        &["\u{6e5}", "x", "io", "\u{6e5}\u{6e6}", "a"],
+    ),
+    (
+        "\u{6e5} x.io/\u{6e5}\u{6e6} a",
+        5,
+        &["\u{6e5}", "x", "io", "\u{6e5}\u{6e6}", "a"],
+        &["\u{6e5}", "x", "io", "\u{6e5}\u{6e6}", "a"],
+    ),
+    (
+        "\u{6e5} x.io/\u{6e5}\u{6e6} a",
+        6,
+        &["\u{6e5}", "x", "io", "\u{6e5}\u{6e6}", "a"],
+        &["\u{6e5}", "x", "io", "\u{6e5}\u{6e6}", "a"],
+    ),
+    (
+        "\u{6e5} x.io/\u{6e5}\u{6e6} a",
+        7,
+        &["x", "io", "a"],
+        &["x", "io", "a"],
+    ),
+    (
+        "\u{6e5} x.io/\u{6e5}\u{6e6} a",
+        8,
+        &["io", "\u{6e5}\u{6e6}", "\u{6e5}", "x", "a"],
+        &["io", "\u{6e5}\u{6e6}", "\u{6e5}", "x", "a"],
+    ),
+    (
+        "\u{6e5} x.io/\u{6e5}\u{6e6} a",
+        9,
+        &["io", "\u{6e5}\u{6e6}", "\u{6e5}", "x", "a"],
+        &["io", "\u{6e5}\u{6e6}", "\u{6e5}", "x", "a"],
+    ),
+    (
+        "\u{6e5} x.io/\u{6e5}\u{6e6} a",
+        10,
+        &["io", "\u{6e5}\u{6e6}", "\u{6e5}", "x", "a"],
+        &["io", "\u{6e5}\u{6e6}", "\u{6e5}", "x", "a"],
+    ),
+    (
+        "\u{6e5} x.io/\u{6e5}\u{6e6} a",
+        11,
+        &["io", "\u{6e5}\u{6e6}", "x", "a"],
+        &["io", "", "x", "a"],
+    ),
+    (
+        "\u{6e5} x.io/\u{6e5}\u{6e6} a",
+        12,
+        &["io", "\u{6e5}\u{6e6}", "\u{6e5}", "x", "a"],
+        &["io", "\u{6e5}\u{6e6}", "\u{6e5}", "x", "a"],
+    ),
+    (
+        "\u{6e5} x.io/\u{6e5}\u{6e6} a",
+        13,
+        &["io", "\u{6e5}\u{6e6}", "\u{6e5}", "x", "a"],
+        &["io", "\u{6e5}\u{6e6}", "\u{6e5}", "x", "a"],
+    ),
+    (
+        "\u{6e5} x.io/\u{6e5}\u{6e6} a",
+        14,
+        &["io", "\u{6e5}\u{6e6}", "\u{6e5}", "x", "a"],
+        &["io", "\u{6e5}\u{6e6}", "\u{6e5}", "x", "a"],
+    ),
+    (
+        "\u{6e5} x.io/\u{6e5}\u{6e6} a",
+        15,
+        &["io", "\u{6e5}\u{6e6}", "x", "a"],
+        &["io", "", "x", "a"],
+    ),
 ];
 
 #[test]
@@ -1274,7 +1370,7 @@ fn index_terms_with_defaults_match_the_typescript() {
 
 #[test]
 fn every_option_combination_matches_the_typescript() {
-    assert_eq!(OPTION_CASES.len(), 32);
+    assert_eq!(OPTION_CASES.len(), 48);
     for (input, mask, tokens, terms) in OPTION_CASES {
         let options = options_for(*mask);
         assert_eq!(
@@ -1301,8 +1397,6 @@ fn mixed_text() -> impl Strategy<Value = String> {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(256))]
-
     #[test]
     fn tokenize_yields_distinct_non_empty_tokens(text in mixed_text(), mask in 0u8..16) {
         let options = options_for(mask);

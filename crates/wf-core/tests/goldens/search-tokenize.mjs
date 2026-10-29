@@ -26,7 +26,7 @@ const INPUTS = [
   "x:y a:b.org",
 ];
 
-const RICH = ["parseHTTPResponse café https://Ex.org/Été مُحَمَّد VAE編碼器", "myVar x.io ÅngströmLab"];
+const RICH = ["parseHTTPResponse café https://Ex.org/Été مُحَمَّد VAE編碼器", "myVar x.io ÅngströmLab", "\u{6e5} x.io/\u{6e5}\u{6e6} a"];
 
 const BS = String.fromCharCode(92);
 const rs = (s) => {
@@ -52,7 +52,7 @@ for (const w of INPUTS) console.log(`(${rs(w)}, ${arr(urlParts(w))}, ${arr(token
 console.log("];");
 console.log("");
 console.log("/// (input, option mask, tokenize, index_terms). Mask bits: 1 fold, 2 Arabic, 4 camelCase, 8 URLs.");
-console.log("const OPTION_CASES: &[(&str, u8, &[&str], &[&str])] = &[");
+console.log("const OPTION_CASES: &[OptionCase] = &[");
 for (const w of RICH) {
   for (let m = 0; m < 16; m += 1) {
     const o = optionsFor(m);
