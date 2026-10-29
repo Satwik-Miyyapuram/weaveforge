@@ -60,7 +60,7 @@ import { installApiCors } from "./api-cors";
 import { startAuthLoopback } from "./auth-loopback";
 import { sendWhenLoaded } from "./sign-in-relay";
 import { CHANNELS, type IpcResult, type MenuGroupPayload } from "./channels";
-import { pagePreferenceStore, pageSecretStore, preferenceStore, secretStore } from "./main-stores";
+import { pagePreferenceStore, pageSecretStore, preferenceStore, readVaultSyncSettings, secretStore } from "./main-stores";
 import { checkUpdateReply, fetchReleases } from "./update-check";
 import { installMenu, invokeMenuItem, menuModel, pageCommand, routeTo } from "./app-menu";
 import { realUpdater, startAutoUpdate } from "./auto-update";
@@ -687,20 +687,10 @@ ipc.handle(CHANNELS.vaultCommit, async () => {
   return commitVaultFolder(vault, enabled.ok && enabled.value === true);
 });
 ipc.handle(CHANNELS.vaultLog, (_event, limit: unknown) => logVaultFolder(vault, limit));
-ipc.handle(CHANNELS.vaultSync, async (_event, action: unknown) => {
-  // URL and token come from the stores, never from the page, for the same reason
-  // as the commit switch above; the token never goes back to it.
-  const [enabled, url, token] = await Promise.all([
-    preferenceStore().read("vault-git"),
-    preferenceStore().read("vault-git-remote"),
-    secretStore().read("git-sync-token"),
-  ]);
-  return syncVaultFolder(vault, action, {
-    enabled: enabled.ok && enabled.value === true,
-    url: url.ok && typeof url.value === "string" ? url.value : null,
-    token: token.ok && typeof token.value === "string" && token.value ? token.value : null,
-  });
-});
+// URL and token come from the stores, never from the page, as the commit switch does.
+ipc.handle(CHANNELS.vaultSync, async (_event, action: unknown) =>
+  syncVaultFolder(vault, action, await readVaultSyncSettings()),
+);
 
 /**
  * The one thing `will-quit` waits for, and it is not allowed to wait forever.
