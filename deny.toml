@@ -35,6 +35,12 @@ ignore = true
 multiple-versions = "deny"
 wildcards = "deny"
 allow-wildcard-paths = true
+# Every duplicate needs a reason. Remove an entry once its crates agree.
+skip = [
+  # Proc-macro only (compile time, not in the binary): specta-macros =2.0.0-rc.27
+  # is on syn 2, serde_derive 1.0.229 on syn 3.
+  { crate = "syn@2", reason = "specta-macros rc.27 still on syn 2; build-time only" },
+]
 
 [sources]
 unknown-registry = "deny"

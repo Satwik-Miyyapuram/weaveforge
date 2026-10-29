@@ -14,3 +14,8 @@ fn version_is_semver_triple() {
         assert!(part.bytes().all(|b| b.is_ascii_digit()));
     }
 }
+
+#[test]
+fn core_info_reports_version() {
+    assert_eq!(wf_core::core_info().version, wf_core::version());
+}

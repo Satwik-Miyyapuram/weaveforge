@@ -11,6 +11,15 @@ license = "AGPL-3.0-only"
 repository = "https://github.com/Satwik-Miyyapuram/weaveforge"
 publish = false
 
+# Exact pins: specta is a release candidate and its API moves between rcs.
+[workspace.dependencies]
+wf-core = { path = "crates/wf-core" }
+serde = { version = "=1.0.229", features = ["derive"] }
+specta = { version = "=2.0.0-rc.27", features = ["derive"] }
+specta-serde = "=0.0.14"
+specta-typescript = "=0.0.14"
+thiserror = "=2.0.21"
+
 # Plan §4.2/§4.3: no unwrap/expect/panic in library code, every Result handled,
 # functions at most 70 lines (clippy.toml), unsafe only with a SAFETY comment.
 # wf-core additionally sets #![forbid(unsafe_code)] in its lib.rs.
