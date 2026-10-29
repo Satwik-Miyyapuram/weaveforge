@@ -1,11 +1,14 @@
 "use client";
 
-import type { ReactNode } from "react";
+
+import { useRef } from "react";
 
 import { IconButton } from "@/components/button";
+import { MenuItemButton, ToolButton } from "@/components/controls";
 import { DocumentModeSwitch, canSplit, type DocumentModeName } from "@/components/document-mode-switch";
 import { FocusGlyph } from "@/components/focus-glyph";
 import { PreviewIcon } from "@/components/view-icons";
+import { BarMenuList, Caret, InkIdleBar, useBarMenu, useFoldOf, useToolbarFold } from "@/features/ink";
 import { shortcutLabel } from "@/lib/shortcut-label";
 import {
   activeTabRef,
@@ -24,14 +27,15 @@ import { SplitGlyph } from "./split-glyph";
  * The Editor's one toolbar, over every pane: the focused document's tools, then
  * the layout (preview, split, focus). It acts on the focused pane, so a split
  * screen has one set of controls rather than one per pane, and a control the
- * document cannot use is greyed rather than gone. The mode (Text · Ink) is not
+ * document cannot use is greyed rather than gone: the text tools in Ink, the
+ * ink tools in Text, so the bar keeps one shape in every mode. The mode (Text · Ink) is not
  * here: it sits in each note's path row (`PaneModeSwitch`), the same place in
  * every mode, so switching never moves it.
  */
 export function WorkspaceToolbar({
   slotRef,
   layout,
-  renderTools,
+  onInsertImage,
   onTogglePreview,
   onSplit,
   onToggleFocus,
@@ -39,8 +43,8 @@ export function WorkspaceToolbar({
   /** Receives the element the focused document's own tools (the ink bar) render into. */
   slotRef?: (element: HTMLElement | null) => void;
   layout: PaneLayout;
-  /** The document's tools (the image button); `enabled` is false outside Text. */
-  renderTools?: (tab: TabRef | undefined, enabled: boolean) => ReactNode;
+  /** Insert ▾ → Picture in Text: a picture from disk at the caret of the focused editor. */
+  onInsertImage?: (tab: TabRef, file: File) => void;
   onTogglePreview: () => void;
   onSplit: (paneId: string, direction: PaneSplit["direction"]) => void;
   onToggleFocus?: () => void;
@@ -51,20 +55,31 @@ export function WorkspaceToolbar({
   const mode = (tab ? tabMode(tab) : "edit") as DocumentModeName;
   const pane = layout.focusedPaneId;
   const preview = previewOpen(layout);
+  const bar = useRef<HTMLDivElement>(null);
+  // Too narrow for one row: stages fold away rather than the bar wrapping.
+  useToolbarFold(bar);
+  const previewOff = !focused || !canSplit(mode);
   return (
-    <div className="workspace-toolbar" role="toolbar" aria-label="Document">
-      {/* The text tools; a sheet brings its own bar into the slot instead. */}
-      {renderTools && mode !== "ink" ? (
-        <span className="pane-tools">{renderTools(tab, mode === "edit" && !!tab)}</span>
-      ) : null}
+    <div className="workspace-toolbar" role="toolbar" aria-label="Document" ref={bar}>
+      {/* A sheet or a paper brings its live bar into the slot; anywhere else the
+          same bar shows greyed (CSS hides this one once the slot is filled). */}
       <span className="workspace-toolbar-doc" ref={slotRef} />
+      {mode !== "ink" ? (
+        <InkIdleBar onInsertImage={mode === "edit" && tab && onInsertImage ? (file) => onInsertImage(tab, file) : undefined} />
+      ) : null}
       <span className="workspace-toolbar-end">
+        <LayoutMenu
+          previewOff={previewOff}
+          onTogglePreview={onTogglePreview}
+          onSplit={(direction) => onSplit(pane, direction)}
+          onToggleFocus={onToggleFocus}
+        />
         <IconButton
           size="sm"
           label="Preview"
           tip={`Preview beside the text (${shortcutLabel("⌘E")})`}
           aria-pressed={preview && canSplit(mode)}
-          disabled={!focused || !canSplit(mode)}
+          disabled={previewOff}
           onClick={onTogglePreview}
         >
           <PreviewIcon />
@@ -81,6 +96,49 @@ export function WorkspaceToolbar({
           </IconButton>
         ) : null}
       </span>
+    </div>
+  );
+}
+
+/**
+ * Layout ▾: Preview and the splits once the fold takes them off the bar
+ * (CSS shows it from the `layout` stage), and Focus too at the last stage.
+ */
+function LayoutMenu({
+  previewOff,
+  onTogglePreview,
+  onSplit,
+  onToggleFocus,
+}: {
+  previewOff: boolean;
+  onTogglePreview: () => void;
+  onSplit: (direction: PaneSplit["direction"]) => void;
+  onToggleFocus?: () => void;
+}) {
+  const { open, setOpen, menuRef, listRef, pos, choose } = useBarMenu();
+  const focusIn = useFoldOf(menuRef).includes("focus") && onToggleFocus;
+  return (
+    <div className="ink-menu workspace-toolbar-layout" ref={menuRef}>
+      <ToolButton label="Layout" tip="Layout" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((was) => !was)}>
+        <SplitGlyph direction="row" />
+        <Caret open={open} />
+      </ToolButton>
+      {open ? (
+        <BarMenuList label="Layout" listRef={listRef} pos={pos}>
+          <MenuItemButton disabled={previewOff} onClick={choose(onTogglePreview)}>
+            <span>Preview</span>
+            <kbd>{shortcutLabel("⌘E")}</kbd>
+          </MenuItemButton>
+          <MenuItemButton onClick={choose(() => onSplit("row"))}>Split right</MenuItemButton>
+          <MenuItemButton onClick={choose(() => onSplit("column"))}>Split down</MenuItemButton>
+          {focusIn ? (
+            <MenuItemButton onClick={choose(focusIn)}>
+              <span>Focus</span>
+              <kbd>{shortcutLabel("⌘⇧F")}</kbd>
+            </MenuItemButton>
+          ) : null}
+        </BarMenuList>
+      ) : null}
     </div>
   );
 }

@@ -11,13 +11,13 @@ import { getContainer } from "@/bootstrap";
 import { deletedMessage, removeLater } from "@/lib/toast";
 import { noteKey } from "./note-key";
 import { readableText } from "@/lib/page-text";
-import { AttachImageButton } from "@/components/attach-image-button";
 import type { EditorHandle } from "@/components/editor-handle";
 import { CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
 import { RecordEmpty, RecordFacts, RecordSection, recordDate, wordCount } from "@/components/record";
 import { BackButton } from "@/components/back-button";
 import { DocumentBody } from "@/components/document-body";
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
+import { DocumentToolbar } from "@/components/document-toolbar";
 import { InkFocusButton, InkFocusExit, useInkFocus } from "@/components/ink-focus";
 import { RelatedPanel } from "@/components/related-panel";
 import { NoteComments, ShareButton, PinnedPaperBadge } from "@/features/sharing";
@@ -249,13 +249,7 @@ export function PageEditor({
           <RecordSection
             label={ink ? "Pages" : "Text"}
             tag={
-              canEditBody ? (
-                <span className="record-mode-tag">
-                  {hasBody && <span>{wordsLabel}</span>}
-                  <DocumentModeSwitch modes={NOTE_MODES} mode={view === "read" ? "edit" : view} onMode={chooseMode} />
-                  {view === "ink" && <InkFocusButton onClick={inkFocus.toggle} />}
-                </span>
-              ) : hasBody ? wordsLabel : undefined
+              hasBody ? wordsLabel : undefined
             }
           >
             {view === "read" && !hasBody && !ink ? (
@@ -272,13 +266,21 @@ export function PageEditor({
                 className={view === "read" ? (ink ? "record-note-read record-note-read--ink" : "record-note-read") : `record-doc record-doc--${view}${inkFocus.focus ? " record-ink-focus is-focus" : ""}`}
               >
                 {inkFocus.focus && <InkFocusExit onClick={inkFocus.toggle} />}
-                {view === "edit" && (
-                  <div className="summary-editor-bar">
-                    <AttachImageButton editor={editorHandle} onError={setSaveError} />
-                  </div>
-                )}
                 {/* The Editor's own document host: Edit, Read and Ink here are
                     the same code as in a tab, not a copy of it. */}
+                <DocumentToolbar
+                  lead={
+                    canEditBody ? (
+                      <>
+                        <DocumentModeSwitch modes={NOTE_MODES} mode={view === "read" ? "edit" : view} onMode={chooseMode} />
+                        {view === "ink" && <InkFocusButton onClick={inkFocus.toggle} />}
+                      </>
+                    ) : undefined
+                  }
+                  editor={view === "edit" ? editorHandle : undefined}
+                  onError={setSaveError}
+                  focus={inkFocus.focus}
+                >
                 <DocumentBody
                   tab={{ kind: "vault_page", id: page.id }}
                   mode={view}
@@ -291,6 +293,7 @@ export function PageEditor({
                   handleRef={editorHandle}
                   onError={setSaveError}
                 />
+                </DocumentToolbar>
               </div>
             )}
             {saveError && <InlineError>{saveError}</InlineError>}

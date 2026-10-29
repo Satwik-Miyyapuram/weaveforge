@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extractHashtags, normalizeTitleKey } from "@weaveforge/core";
 
 import { getContainer } from "@/bootstrap";
-import { AttachImageButton } from "@/components/attach-image-button";
 import type { EditorHandleRef } from "@/components/editor-handle";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
@@ -63,7 +62,6 @@ import { ScreenLoader } from "@/components/weaveforge-loader";
 import { IconButton } from "@/components/button";
 
 /** The image button with no document under it: greyed, so never pressed. */
-const NO_EDITOR: EditorHandleRef = { current: null };
 
 function store(): Storage | undefined {
   return typeof localStorage === "undefined" ? undefined : localStorage;
@@ -158,7 +156,7 @@ export function WorkspaceScreen() {
   // One handle per open document, so the pane's image button reaches the
   // editor in the tab it sits over. The boxes outlive their editors: a handle
   // is null until the lazily-loaded editor mounts and null again once it is
-  // gone, which is exactly what `AttachImageButton` expects.
+  // gone, which is what Insert → Image from file… checks for.
   const handles = useRef(new Map<string, EditorHandleRef>());
   const handleFor = useCallback((tab: TabRef): EditorHandleRef => {
     const key = tabKey(tab);
@@ -527,14 +525,19 @@ export function WorkspaceScreen() {
     [byKey, links, completions, tags, openLink, save, createMode, createFromLink, handleFor, hydrate, previewOf, metrics],
   );
 
-  // The toolbar's tools for the focused document: the same image button the
-  // note, paper and report screens show, inserting at the caret of the editor
-  // under it. Drag and paste already work inside the editor; this is the third
-  // way in, for a picture on disk.
-  const renderTools = useCallback(
-    (tab: TabRef | undefined, enabled: boolean) => (
-      <AttachImageButton editor={tab ? handleFor(tab) : NO_EDITOR} disabled={!enabled} onError={setError} />
-    ),
+  // Insert ▾ → Picture in Text: a picture on disk at the caret of the focused
+  // editor. Drag and paste already work inside the editor; this is the third way in.
+  const onInsertImage = useCallback(
+    (tab: TabRef, file: File) => {
+      const handle = handleFor(tab).current;
+      // Null only in the moment before the lazily-loaded editor has mounted.
+      if (!handle) {
+        setError("The editor is still loading — try that again in a moment.");
+        return;
+      }
+      setError(null);
+      handle.insertFiles([file]);
+    },
     [handleFor],
   );
 
@@ -710,7 +713,7 @@ export function WorkspaceScreen() {
         layout={layout}
         labelFor={labelFor}
         renderDocument={renderDocument}
-        renderTools={renderTools}
+        onInsertImage={onInsertImage}
         crumbsFor={crumbsFor}
         onOpenCrumb={(crumb) => {
           if (!crumb.key) return;

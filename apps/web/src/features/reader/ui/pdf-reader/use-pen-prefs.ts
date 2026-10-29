@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * What the pen remembers between papers: the tool in hand, its colour, and its
- * nib.
+ * What the pen remembers between papers: the tool in hand and its nib. Colours
+ * are kept per tool in `features/ink/ui/use-tool-colours.ts`.
  *
  * Per user, not per paper — a person who writes in red with a 0.5 mm nib
  * writes that way on every paper, and asking again on each one is the
@@ -11,27 +11,22 @@
  * the web app each keep their own without a server round-trip.
  *
  * The shape is deliberately the ink note's rather than the reader's: the tool
- * is one the shared bar draws (`INK_BAR_TOOLS`), the colour is an ink colour
- * *name* rather than a hex, and the nib is the note's 0.1 mm. That is what lets
+ * is one the shared bar draws (`INK_BAR_TOOLS`), and the nib is the note's 0.1 mm. That is what lets
  * one toolbar — `features/ink/ui/ink-bar` — drive both surfaces, and it is why
  * a paper's ink is drawn by the note's renderer at the note's nib sizes.
  */
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  INK_COLOURS,
   INK_HIGHLIGHTER_WIDTH,
   INK_HIGHLIGHTER_WIDTHS,
   INK_PEN_WIDTH,
   INK_PEN_WIDTHS,
-  type InkColour,
 } from "@weaveforge/core";
 import { INK_TOOL_CURSORS, inkToolCursor, type InkBarTool, type InkCursorInk } from "@/features/ink";
+import { readToolColours } from "@/features/ink/ui/use-tool-colours";
 import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
-import {
-  READER_ANNOTATION_COLORS,
-  type ReaderCreateTool,
-} from "../../application/reader-annotation-helpers";
+import type { ReaderCreateTool } from "../../application/reader-annotation-helpers";
 
 const PEN_PREFS_KEY = "weaveforge.reader.pen";
 
@@ -102,44 +97,17 @@ export function inkCursorFor(tool: ReaderCreateTool, ink?: InkCursorInk): string
 
 export interface PenPrefs {
   tool: PenTool;
-  /** An ink colour name; the bar's swatches and the annotation colour both read it. */
-  colour: InkColour;
   /** Nib width in the note's unit, 0.1 mm — one of `INK_PEN_WIDTHS`. */
   width: number;
   /** The highlighter's width, 0.1 mm — one of `INK_HIGHLIGHTER_WIDTHS`. */
   highlighterWidth: number;
 }
 
-/**
- * The marker colours as names, which is how the reader's own palette — the
- * eight hexes a PDF annotation takes — is written down. Older builds stored the
- * hex itself, so this is also the migration path.
- */
-const MARKER_COLOURS: readonly InkColour[] = [
-  "yellow",
-  "red",
-  "green",
-  "blue",
-  "purple",
-  "pink",
-  "orange",
-  "grey",
-];
-
 export const DEFAULT_PEN_PREFS: PenPrefs = {
   tool: "ink",
-  colour: "red",
   width: INK_PEN_WIDTHS[2] ?? INK_PEN_WIDTH,
   highlighterWidth: INK_HIGHLIGHTER_WIDTH,
 };
-
-/** A stored hex back to its name, for the preference shape older builds wrote. */
-function colourFromHex(hex: string): InkColour | null {
-  const i = READER_ANNOTATION_COLORS.findIndex(
-    (candidate) => candidate.toLowerCase() === hex.toLowerCase(),
-  );
-  return i >= 0 ? (MARKER_COLOURS[i] ?? null) : null;
-}
 
 /**
  * The tool a stored preference names.
@@ -156,31 +124,27 @@ function toolFromStored(stored: unknown): PenTool {
 /** Parse what was stored, dropping anything a newer build no longer means. */
 export function parsePenPrefs(raw: unknown): PenPrefs {
   if (!raw || typeof raw !== "object") return DEFAULT_PEN_PREFS;
-  const value = raw as Partial<Record<keyof PenPrefs, unknown>> & {
-    /** What a build before the shared bar wrote: a literal hex. */
-    color?: unknown;
-    /** …and its nib, in PDF points. */
-    nib?: unknown;
-  };
+  const value = raw as Partial<Record<keyof PenPrefs, unknown>>;
   const tool = toolFromStored(value.tool);
-
-  const stored =
-    typeof value.colour === "string" &&
-    (INK_COLOURS as readonly string[]).includes(value.colour)
-      ? (value.colour as InkColour)
-      : typeof value.color === "string"
-        ? colourFromHex(value.color)
-        : null;
-  const colour = stored ?? DEFAULT_PEN_PREFS.colour;
 
   const width = INK_PEN_WIDTHS.find((w) => w === value.width) ?? DEFAULT_PEN_PREFS.width;
   const highlighterWidth =
     INK_HIGHLIGHTER_WIDTHS.find((w) => w === value.highlighterWidth) ?? DEFAULT_PEN_PREFS.highlighterWidth;
-  return { tool, colour, width, highlighterWidth };
+  return { tool, width, highlighterWidth };
 }
 
 function readPenPrefs(): PenPrefs {
   return parsePenPrefs(readStoredJson<unknown>(PEN_PREFS_KEY, null));
+}
+
+/**
+ * Save the pen's preferences. The colours are read first, so a build's old
+ * colour is migrated into the tool-colours key before this write drops it
+ * from the pen preference.
+ */
+export function persistPenPrefs(value: PenPrefs) {
+  readToolColours();
+  writeStoredJson(PEN_PREFS_KEY, value);
 }
 
 export function usePenPrefs() {
@@ -195,7 +159,7 @@ export function usePenPrefs() {
     setPrefs((prev) => {
       const value = typeof next === "function" ? next(prev) : next;
       // Private mode: the choice lasts the session.
-      writeStoredJson(PEN_PREFS_KEY, value);
+      persistPenPrefs(value);
       return value;
     });
   }, []);
@@ -203,10 +167,6 @@ export function usePenPrefs() {
   return {
     prefs,
     setTool: useCallback((tool: PenTool) => update((p) => ({ ...p, tool })), [update]),
-    setColour: useCallback(
-      (colour: InkColour) => update((p) => ({ ...p, colour })),
-      [update],
-    ),
     setWidth: useCallback((width: number) => update((p) => ({ ...p, width })), [update]),
     setHighlighterWidth: useCallback(
       (highlighterWidth: number) => update((p) => ({ ...p, highlighterWidth })),

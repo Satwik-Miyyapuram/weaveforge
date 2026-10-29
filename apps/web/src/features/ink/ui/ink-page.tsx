@@ -66,6 +66,7 @@ export function InkPage({
   onFigureDrop,
   editingFigure = null,
   above,
+  selectionActions,
   ensurePage,
   penActive,
   cursorMode = false,
@@ -627,6 +628,17 @@ export function InkPage({
           )}
         </svg>
       )}
+      {box && selectionActions ? (
+        <div
+          className="ink-selection-chip-anchor"
+          style={{
+            left: `${((box[2] + shift.x + 20) * width) / pageSize.width}px`,
+            top: `${((box[1] + shift.y - 20) * height) / pageSize.height}px`,
+          }}
+        >
+          {selectionActions}
+        </div>
+      ) : null}
       </div>
       </div>
     </div>

@@ -16,7 +16,7 @@ const render = (layout: PaneLayout) =>
   renderToStaticMarkup(
     <WorkspaceToolbar
       layout={layout}
-      renderTools={(tab, enabled) => <button disabled={!enabled}>Image {tab ? tab.id : "none"}</button>}
+      onInsertImage={() => {}}
       onTogglePreview={() => {}}
       onSplit={() => {}}
       onToggleFocus={() => {}}
@@ -30,7 +30,9 @@ test("the toolbar holds the focused document's tools, then preview, split and fo
   const html = render(openTab(emptyLayout(), { kind: "note", id: "n1" }));
   assert.match(html, /role="toolbar"/);
   assert.doesNotMatch(html, /aria-label="Mode"/, "the mode lives in the note's path row");
-  assert.match(html, />Image n1</);
+  assert.ok(button(html, "Insert"), "Insert (a picture) is in the one bar");
+  assert.doesNotMatch(button(html, "Insert"), /disabled=""/);
+  assert.doesNotMatch(html, /aria-label="Add image"/, "the image button merged into Insert");
   for (const label of ["Preview", "Split right", "Split down", "Focus"]) assert.ok(button(html, label), label);
   assert.match(button(html, "Preview"), /aria-pressed="false"/, "no preview open yet");
   assert.match(html.slice(html.indexOf("workspace-toolbar-end")), /aria-label="Preview"/, "Preview sits with the layout icons");
@@ -43,7 +45,7 @@ test("Preview is pressed while the preview pane is open", () => {
 
 test("with no document, the controls are greyed, not gone", () => {
   const html = render(emptyLayout());
-  assert.match(html, /disabled=""[^>]*>Image none</);
+  assert.match(button(html, "Insert"), /disabled=""/);
   assert.match(button(html, "Preview"), /disabled=""/);
 });
 
@@ -54,6 +56,30 @@ test("the toolbar keeps its layout icons in Ink; Preview greys there", () => {
     assert.match(button(html, "Preview"), /disabled=""/, tab.kind);
     assert.ok(button(html, "Split right"), tab.kind);
   }
+});
+
+test("one toolbar in every mode: Text greys the ink tools, Ink greys the text tools", () => {
+  const text = render(openTab(emptyLayout(), { kind: "note", id: "n1" }));
+  const idle = text.slice(text.indexOf("workspace-toolbar-idle"));
+  assert.match(idle, /aria-label="Page controls"/, "the one bar shows in Text, greyed");
+  assert.match(button(idle, "Select \\(V\\)"), /disabled=""/, "the greyed bar has the same tools as the live one");
+  assert.doesNotMatch(button(idle, "Insert"), /disabled=""/, "Insert works in Text");
+  assert.doesNotMatch(text, /<fieldset/, "greyed per control, not by a fieldset");
+  for (const tab of [{ kind: "vault_page", id: "n1", mode: "ink" }, { kind: "paper_pdf", id: "p1" }] as const) {
+    const ink = render(openTab(emptyLayout(), tab));
+    assert.doesNotMatch(ink, /workspace-toolbar-idle/, `${tab.kind}: the live ink bar takes the slot`);
+  }
+});
+
+test("the active tab is marked by more than its text colour, and the colours have room", () => {
+  const css = readFileSync(fileURLToPath(new URL("../../../app/styles/editor-workspace.css", import.meta.url)), "utf8");
+  assert.match(css, /\.pane-tab-slot:has\(> \.wf-tab\[aria-selected="true"\]\) \{[^}]*background: var\(--surface\);[^}]*box-shadow: inset 0 -3px 0 var\(--accent\);/);
+  assert.match(css, /\.workspace-toolbar-doc \.ink-quick-colours \{\s*gap: var\(--s3\);/);
+  assert.match(
+    css,
+    /\.workspace-toolbar-doc:not\(:empty\) \+ \.workspace-toolbar-idle \{\s*display: none;/,
+    "a PDF's live bar replaces the greyed one",
+  );
 });
 
 test("a pane header no longer carries its own mode switch or layout buttons", () => {
@@ -74,22 +100,35 @@ test("the ink bar has no loose separators: they dangled at line ends once the ba
   assert.doesNotMatch(css, /\.ink-sep\b/);
 });
 
-test("in the toolbar the ink bar is one flat row: no wrap, no boxed groups", () => {
+test("in the toolbar the ink bar is flat and never scrolls: a narrow pane folds into More", () => {
   const css = readFileSync(fileURLToPath(new URL("../../../app/styles/editor-workspace.css", import.meta.url)), "utf8");
   const rule = (selector: string) => {
     const at = css.indexOf(`${selector} {`);
     assert.ok(at >= 0, `missing ${selector}`);
     return css.slice(at, css.indexOf("}", at));
   };
-  assert.match(rule(".workspace-toolbar-doc > .ink-bar"), /flex-wrap: nowrap/);
+  const bar = rule(".workspace-toolbar-doc > .ink-bar");
+  assert.match(bar, /flex-wrap: nowrap/);
+  assert.doesNotMatch(bar, /overflow-x/);
   assert.match(rule(".workspace-toolbar-doc :is(.ink-bar-group, .ink-page-pill)"), /border: 0/);
-  assert.match(rule(".workspace-toolbar-doc .ink-menu-more"), /position: sticky/);
-  assert.match(rule(".workspace-toolbar-doc .ink-bar > .wf-btn:not(:disabled) > span"), /display: none/);
+  assert.match(rule(".workspace-toolbar-doc :is(.ink-bar-group, .ink-page-pill)"), /flex-wrap: nowrap/);
+  // Nothing in the toolbar scrolls sideways, so nothing needs to stick.
+  assert.doesNotMatch(css, /\.workspace-toolbar-doc[^{]*\{[^}]*overflow-x: auto/);
+  assert.doesNotMatch(css, /\.workspace-toolbar-doc \.ink-menu-more \{[^}]*position: sticky/);
 });
 
-test("the read-only sheet's page and zoom bar also goes up to the toolbar", () => {
+test("the focus palette docked top or bottom wraps rather than scrolls", () => {
+  const css = readFileSync(fileURLToPath(new URL("../../../app/styles/editor-workspace.css", import.meta.url)), "utf8");
+  const at = css.indexOf("the palette runs as a row");
+  assert.ok(at >= 0);
+  const body = css.slice(at, css.indexOf("}", at));
+  assert.match(body, /flex-wrap: wrap/);
+  assert.doesNotMatch(body, /overflow-x/);
+});
+
+test("the read-only sheet's bar, the one bar greyed, also goes up to the toolbar", () => {
   const reader = readFileSync(fileURLToPath(new URL("../../ink/ui/ink-reader.tsx", import.meta.url)), "utf8");
-  assert.match(reader, /<ToolbarSlot>\s*<div className="ink-reader-bar">/);
+  assert.match(reader, /<ToolbarSlot>\s*<InkBar\b/);
 });
 
 test("in focus the toolbar hides, so a document keeps its own bar in the pane", async () => {
@@ -122,7 +161,7 @@ test("in focus the toolbar hides, so a document keeps its own bar in the pane", 
   assert.doesNotMatch(view(false), /pane-document"><i class="doc-bar"/);
 });
 
-test("the PDF reader's bar goes up to the toolbar too, as one flat row", () => {
+test("the PDF reader's bar goes up to the toolbar too, folding rather than scrolling", () => {
   const reader = readFileSync(fileURLToPath(new URL("../../reader/ui/pdf-reader/pdf-reader.tsx", import.meta.url)), "utf8");
   // In its own focus the reader floats the palette over the page, so it stays put.
   assert.match(reader, /<ToolbarSlot inline=\{focus\}>\s*<div className="pdf-reader-chrome"/);
@@ -133,6 +172,7 @@ test("the PDF reader's bar goes up to the toolbar too, as one flat row", () => {
     return css.slice(at, css.indexOf("}", at));
   };
   assert.match(rule(".workspace-toolbar-doc > .pdf-reader-chrome"), /flex-wrap: nowrap/);
+  assert.match(rule(".workspace-toolbar-doc .pdf-reader-chrome .ink-bar"), /flex-wrap: nowrap/);
   assert.match(rule(".workspace-toolbar-doc .pdf-reader-tools"), /flex-wrap: nowrap/);
   // The toolbar has its own Focus.
   assert.match(rule(".workspace-toolbar-doc .pdf-reader-focus-btn"), /display: none/);
@@ -169,4 +209,20 @@ test("the mode switch sits in the note's path row in every mode, so it never mov
   }
   assert.match(button(crumbRow(pane(text)), "Text"), /aria-pressed="true"/);
   assert.match(button(crumbRow(pane(ink)), "Ink"), /aria-pressed="true"/);
+});
+
+test("the bar folds rather than wraps: a Layout ▾ holds Preview and Split once it is narrow", () => {
+  const html = render(openTab(emptyLayout(), { kind: "note", id: "n1" }));
+  const end = html.slice(html.indexOf("workspace-toolbar-end"));
+  const layout = button(end, "Layout");
+  assert.ok(layout, "Layout ▾ waits in the layout group");
+  assert.match(layout, /aria-haspopup="menu"/);
+  assert.match(end.slice(end.indexOf('aria-label="Layout"')), /ink-menu-caret/, "a caret, like Insert");
+  assert.match(button(html, "Find in document"), /wf-ghost/, "Find is a ghost button");
+  const css = readFileSync(fileURLToPath(new URL("../../../app/styles/editor-workspace.css", import.meta.url)), "utf8");
+  assert.match(css, /\.workspace-toolbar-layout \{[^}]*display: none;/, "Layout ▾ is hidden until the fold needs it");
+  assert.match(css, /\.workspace-toolbar\[data-fold~="layout"\] \.workspace-toolbar-layout/);
+  assert.match(css, /\.workspace-toolbar\[data-fold~="colours"\] \.workspace-toolbar-doc \.ink-quick-colours/);
+  assert.match(css, /\.workspace-toolbar\[data-moved\] \.workspace-toolbar-doc \.ink-menu-more::after/, "a dot on More once something moved");
+  assert.match(css, /\.workspace-toolbar-doc > \.ink-bar \{[^}]*flex-wrap: nowrap;/, "never wraps");
 });

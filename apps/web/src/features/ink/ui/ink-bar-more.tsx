@@ -10,10 +10,13 @@
  * reader, which has none of them, gets no ⋯ at all.
  */
 
+import { useState, type ReactNode } from "react";
 import { INK_PAPERS, type InkHand, type InkPaper } from "@weaveforge/core";
 
+import { FoldedItems, foldedFind, foldMoves, useFoldOf } from "./ink-bar-fold";
 import { paperLabel } from "./ink-bar-glyphs";
-import { BarMenuList, useBarMenu } from "./ink-bar-menus";
+import { InsertItems, hasInsertItems, type InsertMenuProps } from "./ink-bar-view";
+import { BarMenuList, useBarMenu, type InkMenuSection } from "./ink-bar-menus";
 import { shortcutLabel } from "@/lib/shortcut-label";
 import { MenuItemButton, ToolButton } from "@/components/controls";
 
@@ -60,6 +63,49 @@ export interface MoreMenuProps {
   onPenOnly?: (value: boolean) => void;
   hand?: InkHand;
   onHand?: (value: InkHand) => void;
+  /** The document's own sections (a citation format), first in the list. */
+  sections?: readonly InkMenuSection[];
+  /** What the toolbar's fold can move in here (`ink-bar-fold.tsx`). */
+  folded?: {
+    history: ReactNode;
+    page: ReactNode;
+    zoom: ReactNode;
+    insert?: InsertMenuProps;
+    onRecognise?: () => void;
+  };
+}
+
+/**
+ * A document's own More sections. A checked/unchecked item is one of a set and
+ * keeps the menu open, like Paper; a plain item is an action and closes it.
+ */
+export function MenuSections({
+  sections,
+  choose,
+}: {
+  sections: readonly InkMenuSection[];
+  choose: (run: () => void) => () => void;
+}) {
+  return (
+    <>
+      {sections.map((section) => (
+        <div key={section.label} className="ink-menu-section" role="group" aria-label={section.label}>
+          <span className="ink-menu-heading">{section.label}</span>
+          {section.items.map((item) =>
+            item.checked === undefined ? (
+              <MenuItemButton key={item.label} title={item.title} onClick={choose(item.onSelect)}>
+                {item.label}
+              </MenuItemButton>
+            ) : (
+              <MenuItemButton key={item.label} kind="radio" checked={item.checked} title={item.title} onClick={item.onSelect}>
+                {item.label}
+              </MenuItemButton>
+            ),
+          )}
+        </div>
+      ))}
+    </>
+  );
 }
 
 export function MoreMenu({
@@ -77,19 +123,31 @@ export function MoreMenu({
   onPenOnly,
   hand,
   onHand,
+  sections = [],
+  folded,
 }: MoreMenuProps) {
-  const { open, setOpen, menuRef, listRef, pos, choose } = useBarMenu();
+  // Insert ›: its entries take More's place until More closes.
+  const [sub, setSub] = useState(false);
+  const { open, setOpen, menuRef, listRef, pos, choose } = useBarMenu(sub);
+  const fold = useFoldOf(menuRef);
+  const moved = Boolean(folded) && foldMoves(fold);
 
   const hasPaper = Boolean(paper && onPaper);
   const hasGap = Boolean(pageGap && onPageGap);
   const hasExport = Boolean((onPrint && onExportPng) || onPrintPaper);
   const hasInput = Boolean(onToggleTextLayer || onPenOnly || (onHand && hand));
-  if (!hasPaper && !hasGap && !hasExport && !hasInput) return null;
+  // Nothing to offer: greyed, not gone, so the bar keeps its shape.
+  const empty = !moved && !hasPaper && !hasGap && !hasExport && !hasInput && sections.length === 0;
+  const insert = folded?.insert;
 
   return (
-    <div className="ink-menu ink-menu-more" ref={open ? menuRef : undefined}>
+    <div className="ink-menu ink-menu-more" ref={menuRef}>
       <ToolButton label="More ink options" tip="More"
-        onClick={() => setOpen((was) => !was)}
+        disabled={empty}
+        onClick={() => {
+          setSub(false);
+          setOpen((was) => !was);
+        }}
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -99,8 +157,22 @@ export function MoreMenu({
           <circle cx="19" cy="12" r="1.8" />
         </svg>
       </ToolButton>
-      {open ? (
+      {open && sub && insert ? (
+        <BarMenuList label="Insert" className="ink-menu-more-list" listRef={listRef} pos={pos}>
+          <InsertItems {...insert} choose={choose} />
+        </BarMenuList>
+      ) : open ? (
         <BarMenuList label="More ink options" className="ink-menu-more-list" listRef={listRef} pos={pos}>
+          {folded ? (
+            <FoldedItems
+              on={fold}
+              {...folded}
+              onFind={foldedFind(menuRef.current)}
+              onInsert={insert && hasInsertItems(insert) ? () => setSub(true) : undefined}
+              choose={choose}
+            />
+          ) : null}
+          <MenuSections sections={sections} choose={choose} />
           {paper && onPaper ? (
             <div className="ink-menu-section" role="group" aria-label="Paper">
               <span className="ink-menu-heading">Paper</span>

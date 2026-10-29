@@ -22,13 +22,12 @@ import { NoteComments, ShareButton, PinnedPaperBadge } from "@/features/sharing"
 import { materializePaperBlobImages } from "../lib/paper-images-md";
 import { reconcileTagsFromBodyOrDefer } from "../lib/note-tags";
 import type { EditorHandle } from "@/components/editor-handle";
-import { AttachImageButton } from "@/components/attach-image-button";
 import { BackButton } from "@/components/back-button";
 import { DocumentBody } from "@/components/document-body";
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { InkFocusButton, InkFocusExit, useInkFocus } from "@/components/ink-focus";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
-import { CitationFormatSelect } from "@/components/citation-format-select";
+import { DocumentToolbar, citeAsSection } from "@/components/document-toolbar";
 import { useCitationFormatPreference } from "@/lib/hooks/use-citation-format-preference";
 import { formatPaperCitation, resolveCiteKey } from "@/features/overleaf/application/build-overleaf-export";
 import { PaperExternalLink } from "./paper-external-link";
@@ -396,15 +395,7 @@ export function PaperNote({
           <RecordSection
             label="Note"
             tag={
-              !readOnly ? (
-                <span className="record-mode-tag">
-                  {hasSummary && <span>{wordsLabel}</span>}
-                  <DocumentModeSwitch modes={NOTE_MODES} mode={mode === "read" ? "edit" : mode} onMode={chooseMode} />
-                  {mode === "ink" && <InkFocusButton onClick={inkFocus.toggle} />}
-                </span>
-              ) : hasSummary ? (
-                wordsLabel
-              ) : null
+              hasSummary ? wordsLabel : null
             }
           >
             {mode === "read" && !hasSummary ? (
@@ -427,22 +418,38 @@ export function PaperNote({
                 }
               >
                 {inkFocus.focus && <InkFocusExit onClick={inkFocus.toggle} />}
-                {mode === "edit" && (
-                  <div className="summary-editor-bar">
-                    <CitationFormatSelect value={citationFormat} onChange={setCitationFormat} />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={reRenderTemplate}
-                      title="Refresh generated metadata; your edits are preserved"
-                    >
-                      Refresh paper details
-                    </Button>
-                    <AttachImageButton editor={editorHandle} onError={setSaveError} />
-                  </div>
-                )}
                 {/* The Editor's own document host, as a paper tab mounts it:
                     Edit, Read and Ink here are that code, not a copy of it. */}
+                <DocumentToolbar
+                  lead={
+                    !readOnly ? (
+                      <>
+                        <DocumentModeSwitch modes={NOTE_MODES} mode={mode === "read" ? "edit" : mode} onMode={chooseMode} />
+                        {mode === "ink" && <InkFocusButton onClick={inkFocus.toggle} />}
+                      </>
+                    ) : undefined
+                  }
+                  editor={mode === "edit" ? editorHandle : undefined}
+                  onError={setSaveError}
+                  moreSections={
+                    mode === "edit"
+                      ? [
+                          citeAsSection(citationFormat, setCitationFormat),
+                          {
+                            label: "Paper details",
+                            items: [
+                              {
+                                label: "Refresh paper details",
+                                title: "Refresh generated metadata; your edits are preserved",
+                                onSelect: () => void reRenderTemplate(),
+                              },
+                            ],
+                          },
+                        ]
+                      : undefined
+                  }
+                  focus={inkFocus.focus}
+                >
                 <DocumentBody
                   tab={{ kind: "paper", id: paper.id }}
                   mode={mode}
@@ -453,6 +460,7 @@ export function PaperNote({
                   handleRef={editorHandle}
                   onError={setSaveError}
                 />
+                </DocumentToolbar>
               </div>
             )}
             {saveError && <InlineError>{saveError}</InlineError>}

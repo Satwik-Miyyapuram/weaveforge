@@ -57,6 +57,7 @@ import {
 } from "../application/ink-chunk-store";
 import { pageListProblem, selectedPdfPages } from "../application/pdf-pages";
 import { InkBar } from "./ink-bar";
+import { InkSelectionChip } from "./ink-selection-chip";
 import { InkFigures } from "./ink-figures";
 import { fitScale } from "./ink-page-math";
 import { InkSheetTextUnderlay } from "./ink-sheet-underlay";
@@ -626,7 +627,6 @@ export function InkHost({
           progress={progress}
           canUndo={pageHistory.canUndo}
           canRedo={pageHistory.canRedo}
-          selected={selection.length}
           showTextLayer={showTextLayer}
           onToggleTextLayer={() => setShowTextLayer((prev) => !prev)}
           selectActive={cursorMode}
@@ -661,9 +661,6 @@ export function InkHost({
           onPrevPage={() => goToPage(pageIndex - 1)}
           onNextPage={() => goToPage(pageIndex + 1)}
           onGoToPage={(n) => goToPage(n - 1)}
-          onDeleteSelection={onDeleteSelection}
-          onCopyAsText={() => void onCopyAsText()}
-          onCopyStrokes={() => void onCopyStrokes()}
           zoom={zoom}
           onZoom={setZoom}
           pageGap={pageGap}
@@ -704,6 +701,14 @@ export function InkHost({
           onErase={onErase}
           onLasso={onLasso}
           selectionBounds={selectionBounds}
+          selectionActions={
+            <InkSelectionChip
+              count={selection.length}
+              onCopy={() => void onCopyStrokes()}
+              onCopyAsText={() => void onCopyAsText()}
+              onDelete={onDeleteSelection}
+            />
+          }
           onMoveSelection={onMoveSelection}
           onDragSelection={onDragSelection}
           penOnly={pen.penOnly}

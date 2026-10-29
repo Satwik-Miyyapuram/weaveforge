@@ -55,8 +55,8 @@ export interface PaneViewProps extends PaneActions {
   crumbsFor?: (tab: TabRef) => readonly Crumb[];
   /** A crumb click: open the document the crumb names. */
   onOpenCrumb?: (crumb: Crumb) => void;
-  /** The focused document's tools (the image button), greyed outside Text. */
-  renderTools?: (tab: TabRef | undefined, enabled: boolean) => ReactNode;
+  /** Insert a picture from disk into the focused document (Text only). */
+  onInsertImage?: (tab: TabRef, file: File) => void;
 }
 
 /**
@@ -76,7 +76,7 @@ export function PaneView(props: PaneViewProps) {
       <WorkspaceToolbar
         slotRef={setSlot}
         layout={props.layout}
-        renderTools={props.renderTools}
+        onInsertImage={props.onInsertImage}
         onTogglePreview={props.onTogglePreview}
         onSplit={props.onSplit}
         onToggleFocus={props.onToggleFocus}

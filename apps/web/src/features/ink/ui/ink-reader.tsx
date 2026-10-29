@@ -15,8 +15,8 @@ import { isEditableTarget } from "@/lib/editable-target";
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
-  INK_ZOOM_MAX,
-  INK_ZOOM_MIN,
+  INK_COLOURS,
+  INK_PEN_WIDTHS,
   clampInkPageSize,
   clampInkZoom,
   inkPageFigures,
@@ -43,8 +43,7 @@ import {
 } from "./use-ink-sheet-images";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
 import { logToApp } from "@/lib/error-report/app-log";
-import { MinusIcon, PlusIcon } from "@/components/view-icons";
-import { Button, IconButton } from "@/components/button";
+import { InkBar } from "./ink-bar";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 
 export interface InkReaderProps {
@@ -59,10 +58,14 @@ export interface InkReaderProps {
   paperId?: string | null;
 }
 
+const noop = () => {};
+
 export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState(800);
   const [zoom, setZoom] = useState(1);
+  // The page at the top third of the view, for the bar's page field.
+  const [page, setPage] = useState(1);
   const [palette, setPalette] = useState<InkPalette>(INK_RENDER_COLOURS);
   const [pages, setPages] = useState<readonly InkStoredPage[] | null>(null);
 
@@ -169,6 +172,28 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
     return () => observer.disconnect();
   }, []);
 
+  // Follow the page in view as the reader scrolls.
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+    const onScroll = () => {
+      const line = scroller.scrollTop + scroller.clientHeight / 3;
+      let current = 1;
+      Array.from(scroller.children).forEach((child, index) => {
+        if ((child as HTMLElement).offsetTop <= line) current = index + 1;
+      });
+      setPage(current);
+    };
+    onScroll();
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    return () => scroller.removeEventListener("scroll", onScroll);
+  }, [pageCount]);
+
+  const goToPage = (target: number) => {
+    const child = scrollRef.current?.children[Math.max(0, Math.min(pageCount, target) - 1)];
+    child?.scrollIntoView({ block: "start" });
+  };
+
   // Support Ctrl/Cmd + Wheel / trackpad pinch zoom.
   useEffect(() => {
     const scroller = scrollRef.current;
@@ -222,24 +247,29 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
         background: "var(--bg)",
       }}
     >
-      {/* In the Editor this goes up to the one toolbar, shown while focused. */}
+      {/* The one bar, read-only: pages and zoom work, the pen is greyed. In the
+          Editor it goes up to the one toolbar, shown while focused. */}
       <ToolbarSlot>
-      <div className="ink-reader-bar">
-        <div className="ink-reader-info">
-          {pageCount} {pageCount === 1 ? "page" : "pages"}
-        </div>
-        <div className="ink-reader-zoom">
-          <IconButton size="sm" label="Zoom out" onClick={() => setZoom(inkZoomOut)} disabled={zoom <= INK_ZOOM_MIN}>
-            <MinusIcon />
-          </IconButton>
-          <Button variant="ghost" size="sm" onClick={() => setZoom(1)} aria-label="Reset zoom">
-            {Math.round(zoom * 100)}%
-          </Button>
-          <IconButton size="sm" label="Zoom in" onClick={() => setZoom(inkZoomIn)} disabled={zoom >= INK_ZOOM_MAX}>
-            <PlusIcon />
-          </IconButton>
-        </div>
-      </div>
+        <InkBar
+          readOnly
+          tool="pen"
+          colour={INK_COLOURS[0]}
+          width={INK_PEN_WIDTHS[1]}
+          onTool={noop}
+          onColour={noop}
+          onWidth={noop}
+          onUndo={noop}
+          onRedo={noop}
+          onSelect={noop}
+          selectPointer
+          page={page}
+          pages={pageCount}
+          onPrevPage={() => goToPage(page - 1)}
+          onNextPage={() => goToPage(page + 1)}
+          onGoToPage={goToPage}
+          zoom={zoom}
+          onZoom={setZoom}
+        />
       </ToolbarSlot>
       <div style={{ position: "relative", flex: 1, minHeight: 0, width: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
         <div

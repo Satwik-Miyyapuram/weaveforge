@@ -38,12 +38,13 @@ import {
 
 import { toolIcon, toolLabel } from "./ink-bar-glyphs";
 import { MoreMenu, type InkPageGap } from "./ink-bar-more";
+import type { InkMenuAction, InkMenuSection } from "./ink-bar-menus";
 import {
   InsertMenu,
   PagePill,
-  SelectGlyph,
   PointerGlyph,
   ViewMenu,
+  ZoomPill,
   hasInsertItems,
   type InkInsertTool,
   type ViewMenuProps,
@@ -114,8 +115,6 @@ export interface InkBarProps {
   progress?: string | null;
   canUndo?: boolean;
   canRedo?: boolean;
-  /** How many strokes the lasso holds; the selection tools show only then. */
-  selected?: number;
   showTextLayer?: boolean;
   onToggleTextLayer?: () => void;
   onTool: (tool: InkBarTool | "shape") => void;
@@ -157,10 +156,6 @@ export interface InkBarProps {
   takesPictureDrops?: boolean;
   onPrevPage?: () => void;
   onNextPage?: () => void;
-  onDeleteSelection?: () => void;
-  onCopyAsText?: () => void;
-  /** Copy the selected strokes, to paste into any note (Ctrl+C). */
-  onCopyStrokes?: () => void;
   /** The room between pages; absent, the ⋯ menu offers no spacing. */
   pageGap?: InkPageGap;
   onPageGap?: (gap: InkPageGap) => void;
@@ -194,11 +189,18 @@ export interface InkBarProps {
    */
   quickColours?: readonly (typeof INK_COLOURS)[number][];
   onQuickColour?: (slot: number, colour: (typeof INK_COLOURS)[number]) => void;
+  /** The surface's own find (the reader's search); absent, a greyed Find holds its place. */
+  find?: ReactNode;
+  /** The document's own Insert entries; they keep Insert live even when the page is read-only. */
+  insertItems?: readonly InkMenuAction[];
+  /** The document's own More sections; they keep More live even when the page is read-only. */
+  moreSections?: readonly InkMenuSection[];
   /** The surface's own controls, at the bar's end (the reader's phone toggles). */
   children?: ReactNode;
   /**
-   * A paper the reader may look at but not mark: the bar keeps its page and
-   * view controls and drops every tool, colour and undo.
+   * A page the reader may look at but not mark (a read-only paper, a note in
+   * Text): every tool, colour and undo is greyed, never dropped, so the bar
+   * keeps one shape on every surface.
    */
   readOnly?: boolean;
 }
@@ -218,7 +220,6 @@ export function InkBar({
   progress,
   canUndo = true,
   canRedo = true,
-  selected = 0,
   showTextLayer = false,
   onToggleTextLayer,
   onTool,
@@ -244,9 +245,6 @@ export function InkBar({
   takesPictureDrops,
   onPrevPage,
   onNextPage,
-  onDeleteSelection,
-  onCopyAsText,
-  onCopyStrokes,
   pageGap,
   onPageGap,
   zoom,
@@ -261,14 +259,20 @@ export function InkBar({
   insertTool = null,
   quickColours: givenQuickColours,
   onQuickColour,
+  find,
+  insertItems,
+  moreSections,
   children,
   readOnly = false,
 }: InkBarProps) {
-  const [ownQuickColours, setOwnQuickColour] = useQuickColours();
+  // The highlighter keeps its own five quick colours; every other tool uses the pen's.
+  const [ownQuickColours, setOwnQuickColour] = useQuickColours(
+    tool === "highlighter" ? "highlighter" : "pen",
+  );
   const quickColours = givenQuickColours ?? ownQuickColours;
   const setQuickColour = onQuickColour ?? setOwnQuickColour;
   /** An ink tool is in force only while neither Select nor an Insert tool is. */
-  const inking = !selectActive && insertTool === null;
+  const inking = !readOnly && !selectActive && insertTool === null;
   const insert = {
     active: insertTool,
     onAddPicture,
@@ -279,6 +283,7 @@ export function InkBar({
     onClip,
     onTextBox,
     takesPictureDrops,
+    items: insertItems,
   };
   /**
    * Folded, in focus mode: the palette shrinks to the tools and its own
@@ -292,6 +297,33 @@ export function InkBar({
   const [dock, setDock] = usePaletteDock();
   // One tab stop for the whole bar; arrows walk the tools and swatches (DA-120).
   const roving = useRovingToolbar();
+
+  const history = <UndoRedo onUndo={onUndo} onRedo={onRedo} undoOff={readOnly || !canUndo} redoOff={readOnly || !canRedo} />;
+  const pagePill = (
+    <PagePill
+      page={page ?? 1}
+      pages={pages ?? 1}
+      onPrevPage={onPrevPage}
+      onNextPage={onNextPage}
+      onGoToPage={onGoToPage}
+      onAddPage={readOnly ? undefined : onAddPage}
+    />
+  );
+  // 5b. The note's zoom is the reader's own view menu, so both bars match;
+  // 1 is the note's fit to the page width. Nothing to zoom: greyed.
+  const zoomView: ViewMenuProps =
+    view ??
+    (zoom !== undefined && onZoom
+      ? {
+          zoomPercent: Math.round(zoom * 100),
+          onZoomOut: () => onZoom(inkZoomOut(zoom)),
+          onZoomIn: () => onZoom(inkZoomIn(zoom)),
+          onZoomTo: (percent) => onZoom(clampInkZoom(percent / 100)),
+          fit: zoom === 1 ? "width" : "custom",
+          onFitWidth: () => onZoom(1),
+        }
+      : { zoomPercent: 100, onZoomIn: noop, onZoomOut: noop, disabled: true });
+  const recogniseOff = readOnly || busy || !onRecognise;
 
   return (
     <div
@@ -309,25 +341,23 @@ export function InkBar({
         <PaletteFoldButton collapsed={collapsed} onToggle={() => setCollapsed((was) => !was)} />
       </div>
 
-      {readOnly ? null : (
-        <>
       {/* 1. Drawing Tools Segmented Pill */}
       <div
         className="ink-bar-group ink-bar-tools"
         role="radiogroup"
         aria-label="Drawing tools"
       >
-        {onSelect ? (
-          <ToolButton label="Select (V)" pressed={selectActive}
-            onClick={onSelect}
-          >
-            {selectPointer ? <PointerGlyph /> : <SelectGlyph />}
-          </ToolButton>
-        ) : null}
+        <ToolButton label="Select (V)" pressed={!readOnly && selectActive}
+          onClick={onSelect}
+          disabled={readOnly || !onSelect}
+        >
+          <PointerGlyph />
+        </ToolButton>
         {INK_BAR_TOOLS.map((entry) => (
           <ToolButton label={`${toolLabel(entry)} (${entry[0]!.toUpperCase()})`} pressed={inking && tool === entry}
             key={entry}
             onClick={() => onTool(entry)}
+            disabled={readOnly}
           >
             {toolIcon(entry)}
           </ToolButton>
@@ -336,7 +366,7 @@ export function InkBar({
 
 
       {/* 2a. Quick colours: five, one tap each; the pen's palette changes the one in use */}
-      <InkQuickColours colours={quickColours} colour={colour} onColour={onColour} />
+      <InkQuickColours colours={quickColours} colour={colour} onColour={onColour} disabled={readOnly} />
 
       {/* 2. The pen: colour and nib behind one swatch. The trigger shows both —
           the colour as the swatch, the nib as the dot on it — so what the next
@@ -347,6 +377,7 @@ export function InkBar({
           trigger="swatch"
           colour={`var(${INK_COLOUR_TOKENS[colour]})`}
           portal
+          disabled={readOnly}
           ariaLabel="Pen colour and nib"
           label={
             <span aria-hidden>
@@ -399,10 +430,93 @@ export function InkBar({
 
 
       {/* 4. Undo / Redo */}
+      {history}
+
+      {/* 5. Page Switcher & Add Page */}
+      {pagePill}
+
+      <ViewMenu {...zoomView} />
+
+      {/* 5b. Find: the reader's search, or its place held greyed */}
+      {find ?? <FindPlaceholder />}
+
+      {/* 5c. Insert: a picture, PDF pages, a snip, a text box (`ink-bar-view.tsx`) */}
+      <InsertMenu {...insert} disabled={!hasInsertItems(insert)} />
+
+      {/* 6. OCR Recognise */}
+      <ToolButton label="Recognise"
+        tip={busy ? (progress ?? "Recognising…") : `Recognise this page (${shortcutLabel("⌘⇧R")})`}
+        onClick={onRecognise}
+        disabled={recogniseOff}
+      >
+        <RecogniseGlyph />
+      </ToolButton>
+
+      <span className="ink-bar-spacer" />
+
+      {/* 11. Everything else: pages, paper, spacing, export, input; and what the toolbar folded */}
+      <MoreMenu
+        paper={paper}
+        onPaper={onPaper}
+        pageGap={pageGap}
+        onPageGap={onPageGap}
+        onPrint={onPrint}
+        onPrintPaper={onPrintPaper}
+        onExportPng={onExportPng}
+        onExportSvg={onExportSvg}
+        showTextLayer={showTextLayer}
+        onToggleTextLayer={onToggleTextLayer}
+        penOnly={penOnly}
+        onPenOnly={onPenOnly}
+        hand={hand}
+        onHand={onHand}
+        sections={moreSections}
+        folded={{
+          history,
+          page: pagePill,
+          zoom: (
+            <ZoomPill onZoomOut={zoomView.onZoomOut} onZoomIn={zoomView.onZoomIn}
+              outDisabled={zoomView.disabled} inDisabled={zoomView.disabled}
+            >
+              <span className="ink-menu-value">{zoomView.zoomPercent}%</span>
+            </ZoomPill>
+          ),
+          insert,
+          onRecognise: recogniseOff ? undefined : onRecognise,
+        }}
+      />
+      {children}
+    </div>
+  );
+}
+
+const noop = () => {};
+
+function RecogniseGlyph() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z" />
+    </svg>
+  );
+}
+
+/** Undo and Redo: on the bar, or in More's Undo · Redo row once folded. */
+function UndoRedo({ onUndo, onRedo, undoOff, redoOff }: { onUndo: () => void; onRedo: () => void; undoOff: boolean; redoOff: boolean }) {
+  return (
       <div className="ink-bar-group">
         <ToolButton label="Undo" tip={`Undo (${shortcutLabel("⌘Z")})`}
           onClick={onUndo}
-          disabled={!canUndo}
+          disabled={undoOff}
         >
           <svg
             width="16"
@@ -421,7 +535,7 @@ export function InkBar({
         </ToolButton>
         <ToolButton label="Redo" tip={`Redo (${shortcutLabel("⌘⇧Z")})`}
           onClick={onRedo}
-          disabled={!canRedo}
+          disabled={redoOff}
         >
           <svg
             width="16"
@@ -440,124 +554,18 @@ export function InkBar({
         </ToolButton>
       </div>
 
-      {/* Lasso Selection Actions. Each button is drawn only when its surface
-          can do that thing: recognising a page's handwriting is the note's
-          (`onCopyAsText`), deleting marks is both surfaces'. */}
-      {selected > 0 && (onCopyStrokes || onCopyAsText || onDeleteSelection) ? (
-        <>
-          <div className="ink-bar-group">
-            {onCopyStrokes ? (
-              <Button variant="ghost" size="sm"
-                onClick={onCopyStrokes}
-                title="Copy the selected strokes to paste into any note (Ctrl+C)"
-              >
-                Copy
-              </Button>
-            ) : null}
-            {onCopyAsText ? (
-              <Button variant="ghost" size="sm"
-                onClick={onCopyAsText}
-                title="Copy the selected strokes' recognised text"
-              >
-                Copy as text
-              </Button>
-            ) : null}
-            {onDeleteSelection ? (
-              <Button variant="ghost" size="sm"
-                onClick={onDeleteSelection}
-                title={`Delete the ${selected} selected stroke${selected === 1 ? "" : "s"} (Delete)`}
-              >
-                Delete {selected} stroke{selected === 1 ? "" : "s"}
-              </Button>
-            ) : null}
-          </div>
-        </>
-      ) : null}
+  );
+}
 
-        </>
-      )}
-
-      {page !== undefined && pages !== undefined && onPrevPage && onNextPage ? (
-        <>
-
-          {/* 5. Page Switcher & Add Page */}
-          <PagePill
-            page={page}
-            pages={pages}
-            onPrevPage={onPrevPage}
-            onNextPage={onNextPage}
-            onGoToPage={onGoToPage}
-            onAddPage={onAddPage}
-          />
-        </>
-      ) : null}
-
-      {view ? (
-        <ViewMenu {...view} />
-      ) : zoom !== undefined && onZoom ? (
-        // 5b. The note's zoom: the reader's own view menu, so both bars match.
-        // 1 is the note's fit to the page width.
-        <ViewMenu
-          zoomPercent={Math.round(zoom * 100)}
-          onZoomOut={() => onZoom(inkZoomOut(zoom))}
-          onZoomIn={() => onZoom(inkZoomIn(zoom))}
-          onZoomTo={(percent) => onZoom(clampInkZoom(percent / 100))}
-          fit={zoom === 1 ? "width" : "custom"}
-          onFitWidth={() => onZoom(1)}
-        />
-      ) : null}
-
-      {/* 5c. Insert: a picture, PDF pages, a snip, a text box (`ink-bar-view.tsx`) */}
-      {!readOnly && hasInsertItems(insert) ? <InsertMenu {...insert} /> : null}
-
-      {onRecognise ? (
-        <>
-
-          {/* 6. OCR Recognise */}
-          <Button variant="ghost" size="sm"
-            onClick={onRecognise}
-            disabled={busy}
-            title={`Recognise this page (${shortcutLabel("⌘⇧R")})`}
-          >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z" />
-            </svg>
-            <span>{busy ? (progress ?? "Recognising…") : "Recognise"}</span>
-          </Button>
-        </>
-      ) : null}
-
-      <span className="ink-bar-spacer" />
-
-      {/* 11. Everything else: pages, paper, spacing, export, input */}
-      <MoreMenu
-        paper={paper}
-        onPaper={onPaper}
-        pageGap={pageGap}
-        onPageGap={onPageGap}
-        onPrint={onPrint}
-        onPrintPaper={onPrintPaper}
-        onExportPng={onExportPng}
-        onExportSvg={onExportSvg}
-        showTextLayer={showTextLayer}
-        onToggleTextLayer={onToggleTextLayer}
-        penOnly={penOnly}
-        onPenOnly={onPenOnly}
-        hand={hand}
-        onHand={onHand}
-      />
-      {children}
-    </div>
+/** Find where the surface has none: the reader's Find button, greyed. */
+function FindPlaceholder() {
+  return (
+    <Button type="button" variant="ghost" size="sm" aria-label="Find in document" title="Find in document" disabled>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+        <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.2-4.2" />
+      </svg>
+      <span>Find</span>
+    </Button>
   );
 }
 

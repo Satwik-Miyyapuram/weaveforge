@@ -61,8 +61,10 @@ export function Glyph({ d }: { d: string }) {
 interface SelectionCreateBarProps {
   at: SelectionAnchor;
   busy?: boolean;
-  /** Active colour from the palette. */
-  color?: string;
+  /** The colour a highlight is made in, and the Comment with it. */
+  highlightColour?: string;
+  /** The colour an underline is made in. */
+  underlineColour?: string;
   /** Comment makes a highlight carrying the typed comment. */
   onCreate: (type: Extract<ReaderAnnotationType, "highlight" | "underline">, color: string, comment?: string) => void;
   onCancel: () => void;
@@ -75,7 +77,8 @@ interface SelectionCreateBarProps {
 export function SelectionCreateBar({
   at,
   busy,
-  color = READER_ANNOTATION_COLORS[0],
+  highlightColour = READER_ANNOTATION_COLORS[0],
+  underlineColour = READER_ANNOTATION_COLORS[0],
   onCreate,
   onCancel,
 }: SelectionCreateBarProps) {
@@ -88,7 +91,7 @@ export function SelectionCreateBar({
             placeholder="Comment on this…"
             initial=""
             busy={busy}
-            onSave={(comment) => onCreate("highlight", color, comment)}
+            onSave={(comment) => onCreate("highlight", highlightColour, comment)}
             onCancel={onCancel}
           />
         </div>
@@ -98,7 +101,7 @@ export function SelectionCreateBar({
   return (
     <AnchoredBar at={at} label="Create annotation">
       {CREATE_ACTIONS.map(({ type, label, path }) => (
-        <CreateTool key={type} label={label} path={path} disabled={busy} onClick={() => onCreate(type, color)} />
+        <CreateTool key={type} label={label} path={path} disabled={busy} onClick={() => onCreate(type, type === "highlight" ? highlightColour : underlineColour)} />
       ))}
       <CreateTool label="Comment" path={COMMENT_PATH} disabled={busy} onClick={() => setCommenting(true)} />
       <span className="pdf-reader-create-vr" aria-hidden="true" />

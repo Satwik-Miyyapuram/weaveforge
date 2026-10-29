@@ -13,7 +13,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import { ChevronIcon } from "@/components/chevron-icon";
-import { BarMenuList, useBarMenu } from "./ink-bar-menus";
+import { BarMenuList, useBarMenu, type InkMenuAction } from "./ink-bar-menus";
 import { Button } from "@/components/button";
 import { MenuItemButton, ToolButton } from "@/components/controls";
 import { MinusIcon, PlusIcon } from "@/components/view-icons";
@@ -34,6 +34,8 @@ export interface InsertMenuProps {
   onTextBox?: () => void;
   /** The page takes a pasted or dropped picture, so the menu says so. */
   takesPictureDrops?: boolean;
+  /** The document's own inserts (a report's experiment artifact), after the rest. */
+  items?: readonly InkMenuAction[];
 }
 
 export function hasInsertItems(props: InsertMenuProps): boolean {
@@ -43,27 +45,19 @@ export function hasInsertItems(props: InsertMenuProps): boolean {
       props.onInsertPage ||
       props.onClip ||
       props.onTextBox ||
+      props.items?.length ||
       (props.hasPageBackground && props.onRemovePageBackground),
   );
 }
 
-export function InsertMenu({
-  active = null,
-  onAddPicture,
-  onAddImage,
-  hasPageBackground = false,
-  onRemovePageBackground,
-  onInsertPage,
-  onClip,
-  onTextBox,
-  takesPictureDrops = false,
-}: InsertMenuProps) {
+export function InsertMenu({ disabled = false, ...props }: InsertMenuProps & { disabled?: boolean }) {
   const { open, setOpen, menuRef, listRef, pos, choose } = useBarMenu();
-  const picture = onAddPicture ?? onAddImage;
+  const active = props.active ?? null;
 
   return (
     <div className="ink-menu ink-menu-insert" ref={open ? menuRef : undefined}>
       <ToolButton label="Insert" tip="Insert a picture, a snip or a text box" pressed={active !== null}
+        disabled={disabled}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((was) => !was)}
@@ -73,6 +67,30 @@ export function InsertMenu({
       </ToolButton>
       {open ? (
         <BarMenuList label="Insert" className="ink-menu-insert-list" listRef={listRef} pos={pos}>
+          <InsertItems {...props} choose={choose} />
+        </BarMenuList>
+      ) : null}
+    </div>
+  );
+}
+
+/** Insert's entries: its own list, or More's Insert › once the bar has folded it away. */
+export function InsertItems({
+  active = null,
+  onAddPicture,
+  onAddImage,
+  hasPageBackground = false,
+  onRemovePageBackground,
+  onInsertPage,
+  onClip,
+  onTextBox,
+  takesPictureDrops = false,
+  items = [],
+  choose,
+}: InsertMenuProps & { choose: (run: () => void) => () => void }) {
+  const picture = onAddPicture ?? onAddImage;
+  return (
+    <>
           {picture ? (
             <MenuItemButton onClick={choose(picture)}>
               <ImageGlyph />
@@ -109,12 +127,15 @@ export function InsertMenu({
               <span>Text box</span>
             </MenuItemButton>
           ) : null}
+          {items.map((item) => (
+            <MenuItemButton key={item.label} title={item.title} onClick={choose(item.onSelect)}>
+              <span>{item.label}</span>
+            </MenuItemButton>
+          ))}
           {takesPictureDrops ? (
             <p className="ink-menu-hint">Or paste an image, or drop one on the page.</p>
           ) : null}
-        </BarMenuList>
-      ) : null}
-    </div>
+    </>
   );
 }
 
@@ -138,6 +159,8 @@ export interface ViewMenuProps {
    */
   writingPage?: boolean;
   onWritingPage?: (on: boolean) => void;
+  /** Nothing to zoom (a note in Text): drawn greyed, to keep the bar's shape. */
+  disabled?: boolean;
 }
 
 /** The levels the zoom menu offers. */
@@ -159,18 +182,20 @@ export function ViewMenu({
   onRotate,
   writingPage,
   onWritingPage,
+  disabled = false,
 }: ViewMenuProps) {
   const { open, setOpen, menuRef, listRef, pos, choose } = useBarMenu();
   const fits = Boolean(onFitPage || onFitWidth);
 
   return (
-    <ZoomPill onZoomOut={onZoomOut} onZoomIn={onZoomIn}>
+    <ZoomPill onZoomOut={onZoomOut} onZoomIn={onZoomIn} outDisabled={disabled} inDisabled={disabled}>
       <div className="ink-menu ink-menu-view" ref={open ? menuRef : undefined}>
         <Button variant="ghost" size="sm"
           aria-haspopup="menu"
           aria-expanded={open}
-          aria-label={`Zoom ${zoomPercent}%, fit and rotate`}
-          title="Zoom, fit and rotate"
+          aria-label="Zoom, fit and rotate"
+          title={`Zoom ${zoomPercent}%, fit and rotate`}
+          disabled={disabled}
           onClick={() => setOpen((was) => !was)}
         >
           {zoomPercent}%
@@ -261,41 +286,35 @@ export function PagePill({
 }: {
   page: number;
   pages: number;
-  onPrevPage: () => void;
-  onNextPage: () => void;
+  onPrevPage?: () => void;
+  onNextPage?: () => void;
   onGoToPage?: (page: number) => void;
   onAddPage?: () => void;
 }) {
   return (
     <>
       <div className="ink-page-pill">
-        <ToolButton label="Previous page" onClick={onPrevPage} disabled={page <= 1}>
+        <ToolButton label="Previous page" onClick={onPrevPage} disabled={!onPrevPage || page <= 1}>
           <Svg size={14} width={2.2}>
             <path d="m15 18-6-6 6-6" />
           </Svg>
         </ToolButton>
         <span className="ink-page-count" aria-label={`Page ${page} of ${pages}`}>
-          {onGoToPage ? (
-            <PageField page={page} pages={pages} onGoToPage={onGoToPage} />
-          ) : (
-            <span className="ink-page-now">{page}</span>
-          )}
+          <PageField page={page} pages={pages} onGoToPage={onGoToPage} />
           <span className="ink-page-sep" aria-hidden="true">/</span>
           <span className="ink-page-total">{pages}</span>
         </span>
-        <ToolButton label="Next page" onClick={onNextPage} disabled={page >= pages}>
+        <ToolButton label="Next page" onClick={onNextPage} disabled={!onNextPage || page >= pages}>
           <Svg size={14} width={2.2}>
             <path d="m9 18 6-6-6-6" />
           </Svg>
         </ToolButton>
       </div>
-      {onAddPage ? (
-        <ToolButton label="Add a blank page" onClick={onAddPage}>
-          <Svg size={14} width={2.2}>
-            <path d="M12 5v14M5 12h14" />
-          </Svg>
-        </ToolButton>
-      ) : null}
+      <ToolButton label="Add a blank page" onClick={onAddPage} disabled={!onAddPage}>
+        <Svg size={14} width={2.2}>
+          <path d="M12 5v14M5 12h14" />
+        </Svg>
+      </ToolButton>
     </>
   );
 }
@@ -350,7 +369,8 @@ export function PageField({
 }: {
   page: number;
   pages: number;
-  onGoToPage: (page: number) => void;
+  /** Absent, the field shows the page greyed. */
+  onGoToPage?: (page: number) => void;
 }) {
   const [draft, setDraft] = useState(String(page));
   useEffect(() => {
@@ -365,7 +385,7 @@ export function PageField({
       return;
     }
     const clamped = Math.min(pages, Math.max(1, Math.round(next)));
-    onGoToPage(clamped);
+    onGoToPage?.(clamped);
     setDraft(String(clamped));
   }
 
@@ -377,13 +397,14 @@ export function PageField({
       min={1}
       max={pages}
       value={draft}
+      disabled={!onGoToPage}
       aria-label="Page number"
       onChange={(event) => {
         const value = event.target.value;
         setDraft(value);
         const next = Number(value);
         if (value.trim() !== "" && Number.isFinite(next)) {
-          onGoToPage(Math.min(pages, Math.max(1, Math.round(next))));
+          onGoToPage?.(Math.min(pages, Math.max(1, Math.round(next))));
         }
       }}
       onBlur={(event) => commit(event.target.value)}
@@ -412,7 +433,7 @@ function Svg({ size = 15, width = 2, children }: { size?: number; width?: number
   );
 }
 
-function Caret({ open, size = 12 }: { open?: boolean; size?: number }) {
+export function Caret({ open, size = 12 }: { open?: boolean; size?: number }) {
   return <ChevronIcon open={open} size={size} className="ink-menu-caret" />;
 }
 
