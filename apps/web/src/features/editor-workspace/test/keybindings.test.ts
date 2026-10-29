@@ -59,3 +59,15 @@ test("a form field swallows shortcuts; the editor surface does not", () => {
   assert.equal(isTypingTarget({ tagName: "DIV" }), false);
   assert.equal(isTypingTarget(null), false);
 });
+
+test("⌘1–⌘8 jump to that tab and ⌘9 to the last, as in a browser", () => {
+  assert.equal(commandForChord({ key: "1", ctrlKey: true }), "tab-1");
+  assert.equal(commandForChord({ key: "8", metaKey: true }), "tab-8");
+  assert.equal(commandForChord({ key: "9", ctrlKey: true }), "last-tab");
+  // ⌘0 is the host's "reset zoom"; a shifted digit is a symbol, not a tab.
+  assert.equal(commandForChord({ key: "0", ctrlKey: true }), null);
+  assert.equal(commandForChord({ key: "1", ctrlKey: true, shiftKey: true }), null);
+  assert.equal(commandForChord({ key: "1" }), null);
+  assert.equal(shortcutTable()["tab-1"], "⌘1");
+  assert.equal(shortcutTable()["last-tab"], "⌘9");
+});

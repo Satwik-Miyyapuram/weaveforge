@@ -361,6 +361,15 @@ const SHORTCUT_LABEL: Record<WorkspaceCommand, string> = {
   "close-tab": "Close tab",
   "next-tab": "Next tab",
   "previous-tab": "Previous tab",
+  "tab-1": "Tab 1",
+  "tab-2": "Tab 2",
+  "tab-3": "Tab 3",
+  "tab-4": "Tab 4",
+  "tab-5": "Tab 5",
+  "tab-6": "Tab 6",
+  "tab-7": "Tab 7",
+  "tab-8": "Tab 8",
+  "last-tab": "Last tab",
 };
 
 /** The tint class for a kind. `kind.ts` owns which tint a kind carries. */

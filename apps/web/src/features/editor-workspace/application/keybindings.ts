@@ -16,7 +16,11 @@ export type WorkspaceCommand =
   | "toggle-mode"
   | "new-note"
   | "toggle-explorer"
-  | "toggle-focus";
+  | "toggle-focus"
+  | TabNumberCommand;
+
+/** `⌘1`–`⌘8` pick a tab by position and `⌘9` the last one, as a browser does. */
+export type TabNumberCommand = `tab-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}` | "last-tab";
 
 export interface KeyChord {
   key: string;
@@ -51,6 +55,9 @@ export function commandForChord(chord: KeyChord): WorkspaceCommand | null {
   if (key === "\\") return "split-right";
   if (key === "w") return "close-tab";
   if (key === "tab") return chord.shiftKey ? "previous-tab" : "next-tab";
+  // `⌘0` stays the host's "reset zoom"; a shifted digit is a symbol.
+  if (/^[1-8]$/.test(key) && !chord.shiftKey) return `tab-${Number(key) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`;
+  if (key === "9" && !chord.shiftKey) return "last-tab";
   return null;
 }
 
@@ -75,6 +82,15 @@ const CHORDS: Record<WorkspaceCommand, string> = {
   "close-tab": "⌘W",
   "next-tab": "⌘⇥",
   "previous-tab": "⌘⇧⇥",
+  "tab-1": "⌘1",
+  "tab-2": "⌘2",
+  "tab-3": "⌘3",
+  "tab-4": "⌘4",
+  "tab-5": "⌘5",
+  "tab-6": "⌘6",
+  "tab-7": "⌘7",
+  "tab-8": "⌘8",
+  "last-tab": "⌘9",
 };
 
 export function shortcutTable(): Record<WorkspaceCommand, string> {
