@@ -1,7 +1,7 @@
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { BaseAPI } from "../vendor/overleaf-workshop/base-api";
-import { compileOverleafProjectWithCookies, fetchOverleafPdfWithCookies } from "../infrastructure/overleaf-workshop-compile";
+import { compileOverleafProjectWithCookies, fetchOverleafPdfWithCookies, workshopPdfResponse } from "../infrastructure/overleaf-workshop-compile";
 
 const realFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = realFetch; });
@@ -91,4 +91,12 @@ test("PDF: an empty download (404 from CLSI) is reported, not returned empty", a
   });
   const r = await fetchOverleafPdfWithCookies("c=1", "p1", "main.tex", api());
   assert.deepEqual(r, { ok: false, message: "The PDF could not be downloaded." });
+});
+
+test("the PDF response is application/pdf, uncached, and carries the exact bytes", async () => {
+  const res = workshopPdfResponse(new Uint8Array([37, 80, 68, 70]));
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("Content-Type"), "application/pdf");
+  assert.equal(res.headers.get("Cache-Control"), "no-store");
+  assert.deepEqual(Array.from(new Uint8Array(await res.arrayBuffer())), [37, 80, 68, 70]);
 });

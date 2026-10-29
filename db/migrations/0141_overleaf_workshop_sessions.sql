@@ -14,6 +14,9 @@ create index if not exists overleaf_workshop_sessions_user_idx
 
 alter table overleaf_workshop_sessions enable row level security;
 
+-- RLS only filters rows; the role also needs table privileges to use them.
+grant select, insert, delete on overleaf_workshop_sessions to authenticated;
+
 drop policy if exists "overleaf_workshop_sessions_own" on overleaf_workshop_sessions;
 create policy "overleaf_workshop_sessions_own" on overleaf_workshop_sessions
   for all to authenticated using ((select auth.uid()) = user_id)

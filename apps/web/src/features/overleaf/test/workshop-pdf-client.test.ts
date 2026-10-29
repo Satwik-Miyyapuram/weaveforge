@@ -118,6 +118,19 @@ test("no sign-in token gives a message and sends no request", async () => {
   assert.equal(created.length, 0);
 });
 
+test("a superseded request does not read the PDF body at all", async () => {
+  let bodyRead = false;
+  const { deps } = makeDeps(() => {
+    const res = new Response(PDF_BYTES, { status: 200, headers: { "Content-Type": "application/pdf" } });
+    const blob = res.blob.bind(res);
+    Object.defineProperty(res, "blob", { value: () => { bodyRead = true; return blob(); } });
+    return res;
+  });
+  const result = await fetchWorkshopPdf(deps, SESSION, "p1", "main.tex", () => false);
+  assert.equal(result.ok, false);
+  assert.equal(bodyRead, false, "a superseded response must not be downloaded");
+});
+
 test("a response that is stale when it arrives is not turned into a URL", async () => {
   const { deps, created } = makeDeps(pdfResponse());
   const result = await fetchWorkshopPdf(deps, SESSION, "p1", "main.tex", () => false);

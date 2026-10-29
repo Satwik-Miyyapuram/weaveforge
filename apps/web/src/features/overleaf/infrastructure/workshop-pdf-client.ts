@@ -38,6 +38,8 @@ export async function fetchWorkshopPdf(
     return fail(`Could not load the PDF: ${errorText(err)}`);
   }
 
+  // Checked before the body is read, so a superseded request never downloads the PDF.
+  if (!isCurrent()) return fail(SUPERSEDED);
   if (res.status === 401) return fail("Sign in again to load this PDF.");
   if (!res.ok) return fail((await serverError(res)) ?? `Could not load the PDF (HTTP ${res.status}).`);
 

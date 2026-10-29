@@ -16,13 +16,14 @@ export async function POST(request: Request) {
   try { body = await request.json(); } catch (err) { return NextResponse.json({ error: jsonBodyError(err) }, { status: 400 }); }
   const parsed = readWorkshopSessionId(body);
   if (!parsed.ok) return NextResponse.json({ error: parsed.message }, { status: 400 });
+  let cookies: string | null = null;
   try {
-    const cookies = await cookiesForSession(auth, parsed.value);
+    cookies = await cookiesForSession(auth, parsed.value);
     if (!cookies) return NextResponse.json({ error: "Overleaf session not found. Sign in again." }, { status: 401 });
     const result = await listOverleafProjectsWithCookies(cookies);
     if (!result.ok) return NextResponse.json({ error: result.message }, { status: 502 });
     return NextResponse.json({ projects: result.projects }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
-    return NextResponse.json({ error: safeOverleafError(err) }, { status: 502 });
+    return NextResponse.json({ error: safeOverleafError(err, cookies ?? undefined) }, { status: 502 });
   }
 }

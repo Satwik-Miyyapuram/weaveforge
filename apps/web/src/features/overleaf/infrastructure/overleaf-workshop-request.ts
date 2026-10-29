@@ -9,7 +9,7 @@ export type WorkshopRequestResult =
   | { ok: false; message: string };
 
 const PROJECT_ID = /^[A-Za-z0-9]+$/;
-const SESSION_ID = /^[0-9a-f-]{36}$/i;
+const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Validates a request body for the Workshop routes. The body carries a session id, never a cookie. */
 export function readWorkshopRequest(body: unknown): WorkshopRequestResult {
