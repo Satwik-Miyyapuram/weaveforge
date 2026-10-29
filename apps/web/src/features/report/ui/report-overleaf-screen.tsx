@@ -9,14 +9,18 @@ import { emptyArray } from "@/lib/empty";
 import type { ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
 import { LinkedOverleafReports } from "./linked-overleaf-reports";
 import { ExportOverleafPackagePanel } from "./export-overleaf-package-panel";
+import { WorkshopPdfViewer, type WorkshopPdfViewerProps } from "./workshop-pdf-viewer";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 
 /**
  * Overleaf tab — linked Overleaf projects + browser ZIP export.
  * Outline sections live on `/report` (Sections).
+ *
+ * `workshop` shows the compiled PDF for a stored Workshop session. Nothing passes
+ * it yet: there is no sign-in flow that creates a session id.
  */
-export function ReportOverleafScreen() {
+export function ReportOverleafScreen({ workshop }: { workshop?: WorkshopPdfViewerProps } = {}) {
   /*
    * Full papers, not the summary projection.
    *
@@ -69,6 +73,8 @@ export function ReportOverleafScreen() {
       />
 
       <LinkedOverleafReports />
+
+      {workshop && <WorkshopPdfViewer {...workshop} />}
     </section>
   );
 }
