@@ -24,6 +24,8 @@ serde-wasm-bindgen = "=0.6.5"
 # Search text rules (phase 1): NFD/NFC and general categories for \p{L}/\p{N}.
 unicode-normalization = "=0.1.26"
 unicode-properties = { version = "=0.1.4", default-features = false, features = ["general-category"] }
+# Property tests (plan §4.4): 256 cases per commit. No fork/timeout features.
+proptest = { version = "=1.11.0", default-features = false, features = ["std"] }
 
 # Plan §4.2/§4.3: no unwrap/expect/panic in library code, every Result handled,
 # functions at most 70 lines (clippy.toml), unsafe only with a SAFETY comment.

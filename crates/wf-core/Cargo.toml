@@ -16,3 +16,6 @@ serde.workspace = true
 specta.workspace = true
 unicode-normalization.workspace = true
 unicode-properties.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
