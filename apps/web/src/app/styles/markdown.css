@@ -4,8 +4,8 @@
 .markdown h3, .markdown h4, .markdown h5 { margin: 12px 0 4px; letter-spacing: -0.01em; }
 /* Levels 4-6 render as h6 (see renderProseMarkdown) so the browser sizes nothing;
    the size comes from the existing type scale, and level 6 is quieter than level 4. */
-.markdown h6.md-h4 { margin: 12px 0 4px; font-size: var(--fs-sm); font-weight: 600; letter-spacing: -0.01em; }
-.markdown h6.md-h5 { margin: 8px 0 4px; font-size: var(--fs-xs); font-weight: 600; letter-spacing: -0.01em; }
+.markdown h6.md-h4 { margin: 12px 0 4px; font-size: var(--fs); font-weight: 600; letter-spacing: -0.01em; }
+.markdown h6.md-h5 { margin: 8px 0 4px; font-size: var(--fs-sm); font-weight: 600; letter-spacing: -0.01em; }
 .markdown h6.md-h6 { margin: 8px 0 4px; font-size: var(--fs-xs); font-weight: 600; color: var(--muted); }
 .markdown ul, .markdown ol { margin: 8px 0; padding-left: 24px; }
 .markdown ol { list-style: decimal; }
@@ -270,7 +270,8 @@
 .vault-screen .empty { padding: 48px 24px; }
 
 /* Org setup + invite codes */
-.org-setup-screen { display: grid; place-items: center; min-height: 60vh; padding: 24px; }.markdown .md-mermaid { margin: 12px 0; overflow-x: auto; }
+.org-setup-screen { display: grid; place-items: center; min-height: 60vh; padding: 24px; }
+.markdown .md-mermaid { margin: 16px 0; overflow-x: auto; }
 /* pele draws diagrams with CSS variables, so they follow the theme with no re-render. */
 .md-mermaid {
   --pele-bg: var(--surface);
@@ -284,6 +285,7 @@
   --pele-font: var(--font);
   --pele-font-mono: var(--font-mono);
 }
-.markdown .md-mermaid svg { max-width: 100%; height: auto; }
+/* Block-level and centred: an inline svg sat on the text baseline, leaving a gap under it. */
+.markdown .md-mermaid svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
 .markdown .md-mermaid-error { border-left: 3px solid var(--danger); padding-left: 12px; }
 .markdown .md-mermaid-message { margin: 4px 0 0; font-size: var(--fs-xs); color: var(--danger); white-space: pre-wrap; }

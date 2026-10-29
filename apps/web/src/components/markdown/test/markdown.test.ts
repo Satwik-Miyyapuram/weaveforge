@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { renderMarkdownPlain, renderMarkdownWithShiki, renderProseMarkdown, splitFences } from "@/components/markdown/markdown";
 import { containsMath, loadMathRenderer } from "@/components/markdown/math-renderer";
 
@@ -243,4 +245,33 @@ test("headings four to six hashes render as headings; seven stay text", () => {
   assert.match(html, /<h6 class="md-h5"[^>]*>five<\/h6>/);
   assert.match(html, /<h6 class="md-h6"[^>]*>six<\/h6>/);
   assert.match(html, /<p>####### seven<\/p>/);
+});
+
+test("a heading of hashes alone is not an empty heading", () => {
+  assert.doesNotMatch(renderProseMarkdown("####"), /<h6/);
+});
+
+test("inline code and maths inside a level-four heading keep their markup", () => {
+  const html = renderProseMarkdown("#### `code` and $x^2$ here");
+  assert.match(html, /<h6 class="md-h4"[^>]*><code>code<\/code> and <span class="(katex|math-pending)"/);
+});
+
+/** The font-size token that the first rule with exactly this selector sets. */
+function headingSizeToken(selector: string): string {
+  const css = readFileSync(fileURLToPath(new URL("../../../app/styles/markdown.css", import.meta.url)), "utf8");
+  for (const block of css.split("}")) {
+    const open = block.indexOf("{");
+    if (open < 0) continue;
+    const head = block.slice(0, open).replace(/\/\*[\s\S]*?\*\//g, "").trim();
+    if (head !== selector) continue;
+    const token = /font-size:\s*(var\(--[\w-]+\))/.exec(block.slice(open + 1))?.[1];
+    assert.ok(token, `${selector} sets no font-size token`);
+    return token;
+  }
+  assert.fail(`no rule for ${selector}`);
+}
+
+test("levels four, five and six each get their own heading size", () => {
+  const sizes = ["h6.md-h4", "h6.md-h5", "h6.md-h6"].map((level) => headingSizeToken(`.markdown ${level}`));
+  assert.equal(new Set(sizes).size, 3, `sizes must differ: ${sizes.join(", ")}`);
 });
