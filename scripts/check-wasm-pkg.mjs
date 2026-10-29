@@ -5,11 +5,16 @@
  * Glue, types and stamp must match exactly, and no new file may appear. The
  * committed module is the Linux build (CI), and only a Linux host compares it:
  * rustc on Windows can emit different code for the same inputs, so a Windows
- * rebuild is not expected to match. Off Linux this script puts the committed
- * module back over the rebuilt one, so the tests and budget that follow run on
- * the module that ships and the working tree stays clean. To refresh the
- * module from Windows, take `wf_wasm_bg.wasm` from the `wf-wasm-pkg` artifact
- * of the CI run.
+ * rebuild is not expected to match. Off Linux, once glue, types and stamp
+ * match, this script puts the committed module back over the rebuilt one, so
+ * the tests and budget that follow run on the module that ships and the
+ * working tree stays clean. When they do not match, the rebuilt module stays:
+ * it belongs with the new glue.
+ *
+ * Changing the Rust from Windows takes two pushes: commit the whole rebuilt
+ * pkg (its module is a Windows placeholder) and push; CI fails the module
+ * compare and uploads the `wf-wasm-pkg` artifact; commit its
+ * `wf_wasm_bg.wasm` and push again.
  *
  *     npm run build:wasm && npm run wasm:pkg
  */
@@ -24,8 +29,8 @@ const PKG = "packages/wf-wasm/pkg";
 const MODULE = `${PKG}/wf_wasm_bg.wasm`;
 const git = (args, encoding = "utf8") => execFileSync("git", args, { cwd: repoRoot, encoding, maxBuffer: 64 << 20 });
 const fix =
-  "Run npm run build:wasm and commit packages/wf-wasm/pkg; off Linux, commit glue, types and stamp, " +
-  "and take wf_wasm_bg.wasm from the wf-wasm-pkg artifact of the CI run.";
+  "Run npm run build:wasm and commit all of packages/wf-wasm/pkg. Off Linux the module is a placeholder: " +
+  "push, then commit wf_wasm_bg.wasm from that CI run's wf-wasm-pkg artifact and push again.";
 
 const changed = git(["status", "--porcelain", "--", PKG, `:(exclude)${MODULE}`]).trim();
 if (changed) {
