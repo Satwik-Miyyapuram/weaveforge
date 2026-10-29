@@ -1201,7 +1201,7 @@ reranker (brief P2) would go after.
   Two new tests: a function-word match is not fused in; an off-topic question
   returns nothing.
 - The benchmark's `APP` variant imports the shipped helpers from
-  `packages/core/dist` and scores 0.837 / 1/10 — identical to H.
+  the built `packages/core` output and scores 0.837 / 1/10 — identical to H.
 - Tests: core 1276/1276, web 1689/1689, web type-check clean.
 
 ## 4 · Deferred
