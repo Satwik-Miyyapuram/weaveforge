@@ -68,8 +68,8 @@ test("Select has one name on every surface", () => {
 test("the note's zoom level opens the same view menu as the reader's", () => {
   withWindow(() => {
     const tree = render({ zoom: 1, onZoom: noop });
-    const level = tree.root.find((n) => n.type === "button" && n.props["aria-haspopup"] === "menu" && String(n.props["aria-label"]).startsWith("Zoom "));
-    assert.equal(level.props["aria-label"], "Zoom 100%, fit and rotate");
+    const level = tree.root.find((n) => n.type === "button" && n.props["aria-haspopup"] === "menu" && n.props["aria-label"] === "Zoom, fit and rotate");
+    assert.equal(level.props.title, "Zoom 100%, fit and rotate");
     act(() => tree.unmount());
   });
 });

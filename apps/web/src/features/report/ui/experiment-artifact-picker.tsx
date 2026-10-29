@@ -44,16 +44,16 @@ function artifactLabel(name: string, siblings: readonly string[]): string {
 }
 
 /**
- * `/experiment` picker — inserts an `expartifact:` markdown ref (Phase C4).
+ * The experiment artifact picker (Insert → Experiment artifact…): inserts an
+ * `expartifact:` markdown ref (Phase C4). Open while mounted.
  */
 export function ExperimentArtifactPicker({
   onInsert,
-  disabled = false,
+  onClose,
 }: {
   onInsert: (markdown: string) => void;
-  disabled?: boolean;
+  onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [experimentId, setExperimentId] = useState("");
   const [artifactName, setArtifactName] = useState("");
@@ -61,7 +61,6 @@ export function ExperimentArtifactPicker({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
     let cancelled = false;
     setBusy(true);
     setError(null);
@@ -93,7 +92,7 @@ export function ExperimentArtifactPicker({
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, []);
 
   const selected = experiments.find((e) => e.id === experimentId);
   const artifacts = selected?.artifacts ?? [];
@@ -112,24 +111,12 @@ export function ExperimentArtifactPicker({
         alt: artifactCollisionKey(name),
       }),
     );
-    setOpen(false);
+    onClose();
   }
-
-  const trigger = (
-    <Button variant="link"
-      disabled={disabled}
-      onClick={() => setOpen(true)}
-      title="Insert experiment artifact"
-    >
-      /experiment
-    </Button>
-  );
-  if (!open) return trigger;
 
   return (
     <>
-      {trigger}
-      <Modal title="Insert experiment artifact" onClose={() => { if (!busy) setOpen(false); }}>
+      <Modal title="Insert experiment artifact" onClose={() => { if (!busy) onClose(); }}>
         <div className="form-stack">
           <Select
             aria-label="Experiment"
@@ -170,7 +157,7 @@ export function ExperimentArtifactPicker({
           </Select>
           {error && <InlineError>{error}</InlineError>}
           <ModalActions>
-            <Button variant="cancel" onClick={() => setOpen(false)} disabled={busy}>
+            <Button variant="cancel" onClick={onClose} disabled={busy}>
               Cancel
             </Button>
             <Button

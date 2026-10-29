@@ -28,7 +28,8 @@ test("Comment opens the input and Save makes a highlight carrying it", () => {
     tree = create(
       createElement(SelectionCreateBar, {
         at: { x: 0, top: 0, bottom: 0, below: false },
-        color: "#ff6666",
+        highlightColour: "#ff6666",
+        underlineColour: "#2ea8e5",
         onCreate: (...args: unknown[]) => made.push(args),
         onCancel: () => {},
       }),
@@ -65,5 +66,29 @@ test("Enter while a save is in flight saves nothing more (24-20)", () => {
   act(() => tree.root.find((n) => n.type === "input").props.onKeyDown({ key: "Enter", stopPropagation: () => {} }));
   act(() => tree.root.find((n) => n.type === "input").props.onKeyDown({ key: "Enter", stopPropagation: () => {} }));
   assert.equal(made.length, 1);
+  act(() => tree.unmount());
+});
+
+test("Underline is made in the underline colour, and Highlight in the highlight colour", () => {
+  const made: unknown[] = [];
+  let tree!: ReactTestRenderer;
+  act(() => {
+    tree = create(
+      createElement(SelectionCreateBar, {
+        at: { x: 0, top: 0, bottom: 0, below: false },
+        highlightColour: "#ff6666",
+        underlineColour: "#2ea8e5",
+        onCreate: (...args: unknown[]) => made.push(args),
+        onCancel: () => {},
+      }),
+    );
+  });
+  const button = (label: string) => tree.root.find((n) => n.type === "button" && n.props["aria-label"] === label);
+  act(() => button("Underline").props.onClick());
+  act(() => button("Highlight").props.onClick());
+  assert.deepEqual(made, [
+    ["underline", "#2ea8e5"],
+    ["highlight", "#ff6666"],
+  ]);
   act(() => tree.unmount());
 });

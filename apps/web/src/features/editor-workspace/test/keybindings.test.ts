@@ -16,7 +16,7 @@ test("the shell's four gestures are bound and nothing else is", () => {
   assert.equal(commandForChord({ key: "q", ctrlKey: true }), null);
 });
 
-test("⌘E toggles the document between Edit and Read", () => {
+test("⌘E toggles the preview beside the document", () => {
   assert.equal(commandForChord({ key: "e", metaKey: true }), "toggle-mode");
   assert.equal(commandForChord({ key: "E", ctrlKey: true }), "toggle-mode");
   assert.equal(commandForChord({ key: "e" }), null);

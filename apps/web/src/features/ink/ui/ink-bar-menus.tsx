@@ -21,6 +21,24 @@ import { type InkPaper } from "@weaveforge/core";
  * the palette in focus mode (CSS); elsewhere the bar is a plain row, and its
  * lists drop under their buttons like every other menu.
  */
+/**
+ * One entry a document adds to the bar's Insert or More: a report's experiment
+ * artifact, a paper note's citation format. With `checked` it is one of a set
+ * (a radio) and the menu stays open; without, an action that closes it.
+ */
+export interface InkMenuAction {
+  label: string;
+  onSelect: () => void;
+  checked?: boolean;
+  title?: string;
+}
+
+/** A headed group of a document's own entries in More. */
+export interface InkMenuSection {
+  label: string;
+  items: readonly InkMenuAction[];
+}
+
 export function barMenuDock(menu: Element): string {
   if (!menu.closest(".is-focus")) return "";
   return menu.closest(".ink-palette")?.getAttribute("data-dock") ?? "";
@@ -63,7 +81,7 @@ export function placeBarMenu(
  * than guessed, before the paint, and clamped to the bar rather than to the
  * window because the bar is what the clipping ancestor is sized to.
  */
-export function useBarMenu() {
+export function useBarMenu(content?: unknown) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -102,11 +120,23 @@ export function useBarMenu() {
     place();
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, true);
+    // The toolbar's fold can hide the button while its list is open: close the
+    // list rather than leave it anchored to nothing.
+    const watch =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => {
+            if (menu.getClientRects().length === 0) setOpen(false);
+            else place();
+          });
+    watch?.observe(menu);
     return () => {
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
+      watch?.disconnect();
     };
-  }, [open]);
+    // `content`: a list swapped in place (More's Insert ›) is measured afresh.
+  }, [open, content]);
 
   /** Close the menu, then run what was chosen. */
   const choose = (run: () => void) => () => {

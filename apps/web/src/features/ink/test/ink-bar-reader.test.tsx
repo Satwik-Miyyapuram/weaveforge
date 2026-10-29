@@ -109,7 +109,7 @@ test("the reader's View menu: no fits while the pen is out", () => {
     const view = tree.root.findByType(ViewMenu);
     assert.equal(view.props.onFitPage, undefined);
     assert.equal(view.props.onFitWidth, undefined);
-    assert.equal(byLabel(tree, "Zoom 90%, fit and rotate").length, 1);
+    assert.equal(byLabel(tree, "Zoom, fit and rotate").length, 1);
     // One pair of steppers, inside the zoom control.
     assert.equal(byLabel(tree, "Zoom in").length, 1);
     assert.equal(byLabel(tree, "Zoom out").length, 1);
@@ -133,7 +133,7 @@ test("the writing-page switch is a checked menu item that reports a click", () =
 test("the zoom percent is its own trigger, not a square tool", () => {
   withWindow(new Map(), () => {
     const tree = render(readerBar({ view: { zoomPercent: 100, onZoomIn: noop, onZoomOut: noop, onZoomTo: noop } }));
-    const trigger = byLabel(tree, "Zoom 100%, fit and rotate")[0]!;
+    const trigger = byLabel(tree, "Zoom, fit and rotate")[0]!;
     // `.ink-tool` is a 32px square everywhere, which clipped the percent.
     assert.equal(String(trigger.props.className).split(" ").includes("ink-tool"), false);
     act(() => tree.unmount());
@@ -217,12 +217,12 @@ test("the reader's own quick colours are drawn, not the pen's saved ones", () =>
   });
 });
 
-test("a paper the reader cannot mark keeps pages and view, drops tools and Insert", () => {
+test("a paper the reader cannot mark keeps pages and view, greys tools and Insert", () => {
   withWindow(new Map(), () => {
     const tree = render(readerBar({ readOnly: true }));
-    assert.equal(byLabel(tree, "Pen (P)").length, 0);
-    assert.equal(byLabel(tree, "Select (V)").length, 0);
-    assert.equal(tree.root.findAllByType(InsertMenu).length, 0);
+    assert.equal(byLabel(tree, "Pen (P)")[0]!.props.disabled, true);
+    assert.equal(byLabel(tree, "Select (V)")[0]!.props.disabled, true);
+    assert.equal(tree.root.findAllByType(InsertMenu).length, 1, "greyed, not dropped");
     assert.equal(tree.root.findAllByType(PageField).length, 1);
     assert.equal(tree.root.findAllByType(ViewMenu).length, 1);
     assert.equal(byLabel(tree, "Page controls").length, 1);

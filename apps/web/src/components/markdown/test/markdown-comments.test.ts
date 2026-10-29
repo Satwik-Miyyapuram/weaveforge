@@ -7,7 +7,7 @@ import test from "node:test";
 import { renderMarkdownPlain, renderProseMarkdown } from "@/components/markdown/markdown";
 
 test("the ink header renders nothing, on one line or several", () => {
-  assert.equal(renderProseMarkdown('<!-- weaveforge-ink v=1 pages=2 -->\n# Title'), '<h3 id="title">Title</h3>');
+  assert.equal(renderProseMarkdown('<!-- weaveforge-ink v=1 pages=2 -->\n# Title'), '<h1 id="title">Title</h1>');
   assert.equal(renderProseMarkdown("<!-- weaveforge-ink\n  v=1\n-->\nText"), "<p>Text</p>");
 });
 
