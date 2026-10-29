@@ -182,7 +182,12 @@ pub fn parse_query(input: &str) -> ParsedQuery {
     ParsedQuery::from_clauses(&parse_clauses(input))
 }
 
-/// Canonical text that parses back to the same clauses.
+/// Canonical text for `clauses`. Output of [`parse_clauses`] parses back to
+/// the same clauses, with one exception kept from the TypeScript: a term whose
+/// field name only matches after lowercasing a non-ASCII character (Kelvin
+/// sign `\u{212a}IND:note` is the term `kind:note`) reparses as that filter.
+/// Hand-built clauses the parser never makes (`ModifiedWithinDays(0)`, an
+/// empty or whitespace-containing `Term`) have no such guarantee.
 #[must_use]
 pub fn format_query(clauses: &[Clause]) -> String {
     let parts: Vec<String> = clauses.iter().map(format_clause).collect();

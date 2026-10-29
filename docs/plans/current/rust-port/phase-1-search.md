@@ -62,7 +62,11 @@ so a huge input fails cleanly rather than exhausting linear memory.
 `in:` (alias of `path:`) and `modified:<n><d|w|m|y>` → `modifiedWithinDays`
 (`m` = 30, `y` = 365 days; the smallest wins; invalid or over the limit is
 dropped). `SearchKind` is an enum. `format_query` prints the canonical form;
-proptest: parsing never panics and `parse(format(parse(s))) == parse(s)`.
+proptest: parsing never panics and `parse(format(parse(s))) == parse(s)`,
+except where a field name only matches after non-ASCII lowercasing (Kelvin
+sign `\u{212a}IND:note` is a term, printed `kind:note`, reparsed as a filter),
+as in the TS; the proptest alphabet leaves that case out and a golden pins it.
+`format_query` promises nothing for clauses the parser never produces.
 
 ## Fusion
 
