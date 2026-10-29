@@ -122,6 +122,9 @@ jobs:
       - name: Run WASM package tests
         run: npm test --workspace @weaveforge/wasm
 
+      - name: Check WASM size budget
+        run: npm run wasm:budget
+
       - name: Run Typechecks
         run: npm run typecheck
 
