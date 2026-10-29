@@ -31,6 +31,7 @@ import {
   readVaultFile,
   commitVaultFolder,
   logVaultFolder,
+  syncVaultFolder,
   removeVaultFile,
   restoreRoot,
   statVaultFile,
@@ -59,7 +60,8 @@ import { installApiCors } from "./api-cors";
 import { startAuthLoopback } from "./auth-loopback";
 import { sendWhenLoaded } from "./sign-in-relay";
 import { CHANNELS, type IpcResult, type MenuGroupPayload } from "./channels";
-import { pagePreferenceStore, pageSecretStore, preferenceStore, secretStore } from "./main-stores";
+import { pagePreferenceStore, pageSecretStore, preferenceStore, readOverleafSyncDeps, readVaultSyncSettings, secretStore } from "./main-stores";
+import { syncOverleafFolder } from "./overleaf-sync";
 import { checkUpdateReply, fetchReleases } from "./update-check";
 import { installMenu, invokeMenuItem, menuModel, pageCommand, routeTo } from "./app-menu";
 import { realUpdater, startAutoUpdate } from "./auto-update";
@@ -686,6 +688,11 @@ ipc.handle(CHANNELS.vaultCommit, async () => {
   return commitVaultFolder(vault, enabled.ok && enabled.value === true);
 });
 ipc.handle(CHANNELS.vaultLog, (_event, limit: unknown) => logVaultFolder(vault, limit));
+// URL and token come from the stores, never from the page, as the commit switch does.
+ipc.handle(CHANNELS.vaultSync, async (_event, action: unknown) =>
+  syncVaultFolder(vault, action, await readVaultSyncSettings()),
+);
+ipc.handle(CHANNELS.overleafSync, async (_event, request: unknown) => syncOverleafFolder(vault, request, await readOverleafSyncDeps()));
 
 /**
  * The one thing `will-quit` waits for, and it is not allowed to wait forever.

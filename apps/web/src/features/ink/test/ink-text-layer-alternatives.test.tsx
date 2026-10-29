@@ -52,3 +52,17 @@ test("blurring the field still accepts the typed draft", () => {
   act(() => tree.root.findByType("input").props.onBlur());
   assert.deepEqual(accepted, [[0, "hullo"]]);
 });
+
+test("the Enter that confirms an IME composition does not accept the line", () => {
+  const accepted: [number, string][] = [];
+  const tree = renderLayer(accepted);
+  const input = () => tree.root.findByType("input");
+  act(() => input().props.onChange({ target: { value: "にほ" } }));
+  act(() => input().props.onKeyDown({ key: "Enter", nativeEvent: { isComposing: true } }));
+  act(() => input().props.onKeyDown({ key: "Enter", keyCode: 229, nativeEvent: {} }));
+  assert.deepEqual(accepted, []);
+  assert.equal(tree.root.findAllByType("input").length, 1, "the editor stays open");
+  act(() => input().props.onChange({ target: { value: "日本" } }));
+  act(() => input().props.onKeyDown({ key: "Enter", nativeEvent: {} }));
+  assert.deepEqual(accepted, [[0, "日本"]]);
+});

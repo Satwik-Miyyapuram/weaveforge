@@ -43,7 +43,7 @@ export interface SecretFile {
 /**
  * The secrets a page may name.
  *
- * Three today. Adding one is a deliberate act with a review attached,
+ * Four today. Adding one is a deliberate act with a review attached,
  * which is the entire point of the list being short and here.
  *
  * `overleaf-token` is the newest, and it is here rather than in the database
@@ -52,8 +52,11 @@ export interface SecretFile {
  * key and no server to hold one. The keychain is the equivalent this machine
  * actually has, and it never crosses back to the page — the clone that uses it
  * happens on this side.
+ *
+ * `git-sync-token` is the same shape for the folder's git remote: typed in
+ * Settings, used only by the pull and push on this side, never read back.
  */
-export const SECRET_NAMES = ["ai-provider", "local-api-token", "overleaf-token"] as const;
+export const SECRET_NAMES = ["ai-provider", "local-api-token", "overleaf-token", "git-sync-token"] as const;
 export type SecretName = (typeof SECRET_NAMES)[number];
 
 const UNKNOWN_NAME = "That is not something this app stores.";
@@ -161,9 +164,11 @@ export class SecretStore {
  *   mints its own access. Only `main-local-api.ts` touches it.
  * - `overleaf-token` is typed into the link form, so the page writes (and may
  *   forget) it, but only the clone on this side ever reads it back.
+ * - `git-sync-token` likewise: written from Settings, read only by the folder's
+ *   pull and push in `vault-git.ts`.
  */
 const PAGE_READABLE: readonly SecretName[] = ["ai-provider"];
-const PAGE_WRITABLE = ["ai-provider", "overleaf-token"] as const satisfies readonly SecretName[];
+const PAGE_WRITABLE = ["ai-provider", "overleaf-token", "git-sync-token"] as const satisfies readonly SecretName[];
 
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 /**

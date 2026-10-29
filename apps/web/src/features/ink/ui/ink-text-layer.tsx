@@ -17,6 +17,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { isUnsureLine, type RecognisedLine } from "@weaveforge/core";
 import { Markdown } from "@/components/markdown/markdown";
+import { isCommitEnter } from "@/lib/commit-enter";
 import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 import { Button } from "@/components/button";
 
@@ -125,7 +126,7 @@ export function InkTextLayer({
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter") accept(index, draft);
+                  if (isCommitEnter(event)) accept(index, draft);
                   if (event.key === "Escape") setEditing(null);
                 }}
                 onBlur={() => accept(index, draft)}

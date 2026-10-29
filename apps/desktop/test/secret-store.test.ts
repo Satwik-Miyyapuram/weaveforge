@@ -216,6 +216,16 @@ test("the page may store and forget the Overleaf token", async () => {
   assert.deepEqual(await store.read("overleaf-token"), { ok: true, value: null });
 });
 
+test("the page may store the git sync token but never read it back", async () => {
+  const { store } = seededStore();
+  const page = pageSecrets(store);
+  assert.deepEqual(await page.write("git-sync-token", "ghp_x"), { ok: true, value: null });
+  assert.deepEqual(await store.read("git-sync-token"), { ok: true, value: "ghp_x" });
+  assert.equal((await page.read("git-sync-token")).ok, false);
+  assert.deepEqual(await page.clear("git-sync-token"), { ok: true, value: null });
+  assert.deepEqual(await store.read("git-sync-token"), { ok: true, value: null });
+});
+
 test("the page cannot overwrite or clear the local API token", async () => {
   const { store, file } = seededStore();
   await store.write("local-api-token", "[\"real\"]");

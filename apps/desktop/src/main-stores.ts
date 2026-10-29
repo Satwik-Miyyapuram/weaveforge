@@ -5,6 +5,8 @@ import path from "node:path";
 import { PreferenceStore, pagePreferences } from "./preference-store";
 import { readIfPresent } from "./read-if-present";
 import { SecretStore, pageSecrets } from "./secret-store";
+import { parseLinks, type OverleafLink, type OverleafSyncDeps } from "./overleaf-sync";
+import type { VaultSyncSettings } from "./vault-git";
 import { temporaryName } from "./write-queue";
 
 /**
@@ -77,3 +79,44 @@ export function secretStore(): SecretStore {
  */
 export const pagePreferenceStore = () => pagePreferences(preferenceStore());
 export const pageSecretStore = () => pageSecrets(secretStore());
+
+/**
+ * What an Overleaf sync runs with, read from the stores and never from the
+ * page. The links live in the settings file as one JSON string, written only
+ * from this side, since a link decides which vault folder git writes into.
+ */
+export async function readOverleafSyncDeps(): Promise<Omit<OverleafSyncDeps, "vaultRoot">> {
+  const token = await secretStore().read("overleaf-token");
+  return {
+    userData: app.getPath("userData"),
+    token: token.ok && typeof token.value === "string" && token.value ? token.value : null,
+    links: {
+      read: async (): Promise<OverleafLink[]> => {
+        const stored = await preferenceStore().read("overleaf-links");
+        return stored.ok ? parseLinks(stored.value) : [];
+      },
+      write: async (links: readonly OverleafLink[]): Promise<void> => {
+        const result = await preferenceStore().write("overleaf-links", JSON.stringify(links));
+        if (!result.ok) throw new Error(result.message);
+      },
+    },
+  };
+}
+
+/**
+ * What a folder sync runs with, read from the stores and never from the page:
+ * the history switch, the remote's URL and its token. The token goes to git
+ * and never back to the page.
+ */
+export async function readVaultSyncSettings(): Promise<VaultSyncSettings> {
+  const [enabled, url, token] = await Promise.all([
+    preferenceStore().read("vault-git"),
+    preferenceStore().read("vault-git-remote"),
+    secretStore().read("git-sync-token"),
+  ]);
+  return {
+    enabled: enabled.ok && enabled.value === true,
+    url: url.ok && typeof url.value === "string" ? url.value : null,
+    token: token.ok && typeof token.value === "string" && token.value ? token.value : null,
+  };
+}

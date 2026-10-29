@@ -208,6 +208,14 @@ test("a write that fails does not stop the ones queued behind it", async () => {
 // The page's view of the preferences (B01: xipc-03). The shell writes every
 // name itself; the page may write only the one it owns.
 
+test("the page writes the remote URL for folder sync", async () => {
+  const store = new PreferenceStore(file());
+  const page = pagePreferences(store);
+  const url = "https://github.com/me/notes.git";
+  assert.deepEqual(await page.write("vault-git-remote", url), { ok: true, value: null });
+  assert.deepEqual(await store.read("vault-git-remote"), { ok: true, value: url });
+});
+
 test("the page writes the preference it owns", async () => {
   const store = new PreferenceStore(file());
   const page = pagePreferences(store);
@@ -276,7 +284,7 @@ test("the renderer's preference names are the ones the page may write", () => {
   const same: Same<DesktopPreferenceName, PageWritablePreference> = true;
   assert.equal(same, true);
   // Run-time: every page-writable name is one the store knows.
-  assert.deepEqual([...PAGE_WRITABLE], ["vault-git"]);
+  assert.deepEqual([...PAGE_WRITABLE], ["vault-git", "vault-git-remote"]);
   for (const name of PAGE_WRITABLE) assert.ok(PREFERENCE_NAMES.includes(name), name);
   assert.equal((PREFERENCE_NAMES as readonly string[]).includes("sync-offer-shown"), false);
 });

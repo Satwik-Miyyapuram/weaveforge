@@ -29,6 +29,10 @@ import { FormError } from "@/components/form-error";
 import { ProjectContext } from "@/features/projects";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/button";
+import { remoteSyncAvailable } from "@/features/workspace/application/folder-remote-sync";
+import { FolderRemoteSyncPanel } from "./folder-remote-sync-panel";
+import { overleafSyncAvailable } from "@/features/overleaf/application/overleaf-folder-sync";
+import { OverleafSyncPanel } from "./overleaf-sync-panel";
 
 const FolderConflictCard = dynamic(
   () => import("./folder-conflict-card").then((m) => m.FolderConflictCard),
@@ -309,6 +313,12 @@ export function WorkspaceFolderPanel() {
                 </li>
               ))}
             </ul>
+          )}
+          {hasShell && session.kind === "desktop" && remoteSyncAvailable() && (
+            <FolderRemoteSyncPanel onPulled={() => void folderHistory().then(setHistory, () => undefined)} />
+          )}
+          {hasShell && session.kind === "desktop" && overleafSyncAvailable() && (
+            <OverleafSyncPanel onPulled={() => void folderHistory().then(setHistory, () => undefined)} />
           )}
         </>
       )}

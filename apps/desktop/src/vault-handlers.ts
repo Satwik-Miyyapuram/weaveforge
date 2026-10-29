@@ -2,7 +2,7 @@ import type { WorkspaceCommit } from "@weaveforge/core";
 
 import type { IpcResult, VaultEntryPayload, VaultRootPayload } from "./channels";
 import { NodeWorkspaceFs, verifyRoot, workspaceRootFor } from "./vault-folder";
-import { commitVault, vaultLog } from "./vault-git";
+import { commitVault, syncVault, vaultLog, type VaultSyncReply, type VaultSyncSettings } from "./vault-git";
 
 /**
  * What the workspace-folder channels do, with no Electron in sight.
@@ -293,6 +293,24 @@ export async function logVaultFolder(
   if (!session.root) return { ok: false, message: NO_ROOT };
   const n = typeof limit === "number" && Number.isInteger(limit) && limit > 0 ? Math.min(limit, 200) : 20;
   return { ok: true, value: await vaultLog(session.root.path, n) };
+}
+
+/**
+ * Sync the chosen folder with its git remote. As with commits, the caller reads
+ * the settings (history switch, URL, token) from the shell's stores; the page
+ * sends only which action.
+ */
+export async function syncVaultFolder(
+  session: VaultSession,
+  action: unknown,
+  settings: VaultSyncSettings,
+): Promise<IpcResult<VaultSyncReply>> {
+  if (!session.root) return { ok: false, message: NO_ROOT };
+  try {
+    return { ok: true, value: await syncVault(session.root.path, action, settings) };
+  } catch (error) {
+    return { ok: false, message: messageOf(error) };
+  }
 }
 
 function messageOf(error: unknown): string {

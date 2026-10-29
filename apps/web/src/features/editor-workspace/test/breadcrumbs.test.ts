@@ -119,3 +119,10 @@ test("a fence closes only on the same marker, at least as long", () => {
     ["Real"],
   );
 });
+
+test("a '#' that ends a heading word is kept; only a spaced closing run is dropped", () => {
+  assert.deepEqual(
+    outlineOf("# Learning C#\n## F# notes ##\n## Intro ##\n### #hashtag topic").map((h) => h.text),
+    ["Learning C#", "F# notes", "Intro", "#hashtag topic"],
+  );
+});

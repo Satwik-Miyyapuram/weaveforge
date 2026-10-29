@@ -419,7 +419,7 @@ test("a backslash in a note name is committed under that name on systems that al
 const CAP = 1_024;
 
 function capped(root: string): NativeWorkspaceGit {
-  return new NativeWorkspaceGit(root, CAP);
+  return new NativeWorkspaceGit(root, { maxFileBytes: CAP });
 }
 
 function headFiles(root: string): string[] {
@@ -556,9 +556,9 @@ test("a big file whose name has glob characters is skipped alone, not its look-a
   assert.deepEqual(gitIn(root, ["ls-files", "-z"]).split("\0").filter(Boolean), ["big1.pdf"]);
 });
 
-test("the default cap lets a 30 MB paper PDF into the history", async (t) => {
+test("the default cap lets a 20 MB paper PDF into the history", async (t) => {
   const root = newRepo(t);
-  writeFileSync(path.join(root, "paper.pdf"), Buffer.alloc(30 * 1024 * 1024, 1));
+  writeFileSync(path.join(root, "paper.pdf"), Buffer.alloc(20 * 1024 * 1024, 1));
   const result = await commitVault(root, true);
   assert.ok(result.committed);
   assert.deepEqual(gitIn(root, ["ls-files"]).split(/\r?\n/).filter(Boolean), ["paper.pdf"]);
