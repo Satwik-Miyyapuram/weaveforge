@@ -7,7 +7,7 @@
  * 2. Architecture map & docs freshness (check:docs)
  * 3. Commit DCO sign-offs (check:dco)
  * 4. Architectural & code boundaries (check:boundaries - 10 gates)
- * 5. WASM build (committed pkg must not change), its tests, parity (Node 24.14.1 only) and size budget, then typecheck (build:wasm, typecheck)
+ * 5. WASM build (committed glue, types and stamp must not change; the module is compared on Linux only), its tests, parity (Node 24.14.1 only) and size budget, then typecheck (build:wasm, typecheck)
  * 6. Linter (lint)
  * 7. Bundle budget (bundle:budget, when .next build exists)
  * 8. Memory budgets (test:memory, ~5 s)

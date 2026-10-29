@@ -13,7 +13,9 @@ import { collectInputs } from "./lib/wasm-inputs.mjs";
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const stampPath = path.join(repoRoot, WASM_STAMP_FILE);
-const fix = "Run npm run build:wasm and commit packages/wf-wasm/pkg.";
+const fix =
+  "Run npm run build:wasm and commit packages/wf-wasm/pkg; off Linux, commit glue, types and stamp, " +
+  "and take wf_wasm_bg.wasm from the wf-wasm-pkg artifact of the CI run.";
 
 if (!existsSync(stampPath)) {
   console.error(`FAIL: ${WASM_STAMP_FILE} not found. ${fix}`);
