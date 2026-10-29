@@ -46,10 +46,21 @@ async function mount(h: ReturnType<typeof harness>): Promise<ReactTestRenderer> 
   return tree!;
 }
 
+/** The project picker's option values, read from the shared Select's children. */
+const projectOptions = (tree: ReactTestRenderer) =>
+  ([] as { props: { value: string } }[]).concat(byName(tree, "projectId").props.children).map((o) => o.props.value);
 const text = (tree: ReactTestRenderer) => JSON.stringify(tree.toJSON());
 const byName = (tree: ReactTestRenderer, name: string) => tree.root.find((n) => n.props.name === name);
-const button = (tree: ReactTestRenderer, label: string) =>
-  tree.root.find((n) => n.type === "button" && JSON.stringify(n.props.children ?? "").includes(label));
+/** A node's rendered text. Children can be elements with owners, which JSON.stringify cannot walk. */
+const textOf = (node: ReactTestInstance): string =>
+  node.children.map((c) => (typeof c === "string" ? c : textOf(c))).join("");
+const buttons = (tree: ReactTestRenderer, label: string) =>
+  tree.root.findAll((n) => n.type === "button" && textOf(n).includes(label));
+const button = (tree: ReactTestRenderer, label: string) => {
+  const [found, ...rest] = buttons(tree, label);
+  assert.ok(found && rest.length === 0, `exactly one "${label}" button`);
+  return found;
+};
 
 async function type(node: ReactTestInstance, value: string) {
   await act(async () => node.props.onChange({ target: { value } }));
@@ -74,7 +85,7 @@ test("signing in stores only the session id and lists projects by name", async (
   await submit(tree);
   assert.equal(h.box.id, SESSION);
   assert.deepEqual(h.calls.map((c) => c.url), ["/api/overleaf/workshop/session", "/api/overleaf/workshop/projects"]);
-  const options = tree.root.findAllByType("option").map((o) => o.props.value as string);
+  const options = projectOptions(tree);
   assert.deepEqual(options, ["p1", "p2"]);
   assert.ok(!text(tree).includes("overleaf_session2=abc"), "the cookie is not kept on screen");
   await act(async () => tree.unmount());
@@ -95,7 +106,7 @@ test("a stored session loads projects on mount", async () => {
   const h = harness(projectsOk, SESSION);
   const tree = await mount(h);
   assert.deepEqual(h.calls.map((c) => c.body), [{ sessionId: SESSION }]);
-  assert.equal(tree.root.findAllByType("option").length, 2);
+  assert.equal(projectOptions(tree).length, 2);
   await act(async () => tree.unmount());
 });
 
@@ -112,7 +123,7 @@ test("an account with no projects says so and offers no PDF button", async () =>
   const h = harness(() => json({ projects: [] }), SESSION);
   const tree = await mount(h);
   assert.match(text(tree), /No Overleaf projects/);
-  assert.equal(tree.root.findAll((n) => n.type === "button" && JSON.stringify(n.props.children).includes("Show PDF")).length, 0);
+  assert.equal(buttons(tree, "Show PDF").length, 0);
   await act(async () => tree.unmount());
 });
 
@@ -169,7 +180,7 @@ test("Retry after a failed project list loads the projects and clears the error"
   assert.match(text(tree), /Overleaf is down\./);
   fail = false;
   await act(async () => button(tree, "Retry").props.onClick());
-  assert.equal(tree.root.findAllByType("option").length, 2);
+  assert.equal(projectOptions(tree).length, 2);
   assert.ok(!text(tree).includes("Overleaf is down"), "a successful load clears the earlier error");
   assert.equal(h.calls.filter((c) => c.url.endsWith("/projects")).length, 2);
   await act(async () => tree.unmount());

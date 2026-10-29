@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { authHeaders } from "@/lib/auth-headers";
 import { Button } from "@/components/button";
 import { FormError } from "@/components/form-error";
+import { Select } from "@/components/select";
 import {
   listWorkshopProjects,
   signInToWorkshop,
@@ -164,9 +165,9 @@ export function WorkshopPanel({ client = browserClient, store = browserStore }: 
             <>
               <label>
                 Project
-                <select name="projectId" value={projectId} onChange={(event) => setProjectId(event.target.value)}>
+                <Select name="projectId" aria-label="Project" value={projectId} onChange={(event) => setProjectId(event.target.value)}>
                   {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+                </Select>
               </label>
               <label>
                 Root file
