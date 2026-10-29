@@ -22,7 +22,8 @@ export interface OutlineHeading {
 /** The heading slug `markdown.tsx` writes as the element id. */
 export { headingSlug };
 
-const ATX = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
+/** A closing `#` run counts only after a space, so `# C#` keeps its `#`. */
+const ATX = /^(#{1,6})\s+(.+?)(?:\s+#+)?\s*$/;
 
 /**
  * Headings in document order.
