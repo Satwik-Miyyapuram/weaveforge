@@ -61,10 +61,10 @@ test("deny checks licences, bans and sources offline; advisories only in CI", ()
   );
 });
 
-test("plugins probed are the ones the gates call", () => {
-  const used = new Set(RUST_GATES.map((g) => g.args[0]));
-  for (const p of CARGO_PLUGINS) assert.ok(used.has(p), `${p} unused`);
-  for (const sub of ["nextest", "deny"]) assert.ok(CARGO_PLUGINS.includes(sub));
+test("plugins probed are exactly the non-built-in subcommands the gates call", () => {
+  const builtIn = new Set(["fmt", "clippy", "test"]);
+  const plugins = [...new Set(RUST_GATES.map((g) => g.args[0]))].filter((s) => !builtIn.has(s));
+  assert.deepEqual([...CARGO_PLUGINS].sort(), plugins.sort());
 });
 
 test("list is frozen", () => {

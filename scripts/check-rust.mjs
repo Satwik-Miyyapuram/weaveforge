@@ -39,6 +39,10 @@ if (missing.length) {
 const selected = RUST_GATES.filter(
   (g) => (requested.length ? requested.includes(g.name) : true) && !(local && g.ciOnly),
 );
+if (selected.length === 0) {
+  console.error("FAIL: no rust gate selected (every requested gate is CI-only and --local is set)");
+  process.exit(1);
+}
 
 for (const g of selected) {
   console.log(`==> [rust] ${g.name}`);
