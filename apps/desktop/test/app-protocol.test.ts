@@ -167,3 +167,14 @@ test("a clean path, or no URL at all, needs no redirect", () => {
   assert.equal(canonicalAppUrl("app://weaveforge/notes/?page=a//b"), null);
   assert.equal(canonicalAppUrl("not a url"), null);
 });
+
+/**
+ * The Overleaf Workshop shows its compiled PDF as `<iframe src="blob:...">`.
+ * With no `frame-src`, frames fall back to `default-src 'self'` and the blob is
+ * refused, as on the web (`apps/web/next.config.mjs`).
+ */
+test("frame-src allows blob:, which the Workshop PDF viewer needs", () => {
+  const policy = appHeaders("text/html; charset=utf-8")["content-security-policy"] ?? "";
+  const frameSrc = /frame-src ([^;]+)/.exec(policy)?.[1] ?? "";
+  assert.deepEqual(frameSrc.split(" "), ["'self'", "blob:"]);
+});

@@ -542,11 +542,11 @@
       into either one.
     </p>
     <div class="facts">
-      <div class="fact"><b>227,973</b><span>web app lines</span></div>
+      <div class="fact"><b>229,983</b><span>web app lines</span></div>
       <div class="fact"><b>56,414</b><span>core lines</span></div>
-      <div class="fact"><b>20,733</b><span>desktop lines</span></div>
+      <div class="fact"><b>20,863</b><span>desktop lines</span></div>
       <div class="fact"><b>3,375</b><span>python sdk</span></div>
-      <div class="fact"><b>152</b><span>migrations</span></div>
+      <div class="fact"><b>153</b><span>migrations</span></div>
       <div class="fact"><b>31</b><span>web features</span></div>
     </div>
   </header>
@@ -669,8 +669,8 @@ flowchart TB
 │   ├── config/                    <i>defineConfig + plugin contract</i>
 │   └── shared/                    <i>clock, dates, three-way-merge, tree, repository</i>
 │
-├── <b>apps/web/src/</b>                 <i>227,973 lines</i>
-│   ├── <u>app/</u>                      <i>25 pages + 39 API routes</i>
+├── <b>apps/web/src/</b>                 <i>229,983 lines</i>
+│   ├── <u>app/</u>                      <i>25 pages + 43 API routes</i>
 │   ├── <u>features/</u>                 <i>31 slices — core's 19 plus the web-only ones:</i>
 │   │                              <i>offline-sync, sync, workspace, editor-workspace,</i>
 │   │                              <i>auth, search, export, overleaf, reader, startup,</i>
@@ -678,7 +678,7 @@ flowchart TB
 │   ├── backend/                   <i>provider wiring: postgrest | postgres | local</i>
 │   └── deployment/                <i>generated registry — the one composition root</i>
 │
-├── <b>apps/desktop/src/</b>              <i>20,733 lines, 72 files, main + preload only</i>
+├── <b>apps/desktop/src/</b>              <i>20,863 lines, 73 files, main + preload only</i>
 │   ├── main.ts  preload.ts  channels.ts
 │   ├── local-db.ts  local-db-host.ts     <i>PGlite in the main process</i>
 │   ├── local-api-server.ts  local-api.ts <i>127.0.0.1:27123</i>
@@ -695,7 +695,7 @@ flowchart TB
 │   ├── integrations/              <i>lightning · keras callbacks</i>
 │   └── tracking.py  container.py  cli.py
 │
-├── <b>db/migrations/</b>           <i>0001 → 0154, 8,273 lines</i>
+├── <b>db/migrations/</b>           <i>0001 → 0155, 8,296 lines</i>
 ├── <b>scripts/</b>                       <i>74 files — boundary gates, migration, seeding</i>
 ├── <b>plugins/weaveforge-research/</b>    <i>stdio MCP server, outside every workspace</i>
 └── <b>docs/</b>                          <i>78 files, 27,533 lines</i>
@@ -908,7 +908,7 @@ sequenceDiagram
 </pre>
       </div>
 
-      <h3>The 39 API routes, by why they exist</h3>
+      <h3>The 43 API routes, by why they exist</h3>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Group</th><th>Routes</th><th>Reason it is not a direct query</th></tr></thead>
@@ -986,7 +986,7 @@ flowchart TB
   BRIDGE["preload.ts<br/>window.weaveforge<br/>one bridge object, 26 members"]
 
   subgraph main["Main process"]
-    DB["local-db.ts<br/>PGlite + the 152 migrations"]
+    DB["local-db.ts<br/>PGlite + the 153 migrations"]
     FOLDER["vault-folder.ts<br/>read / write / list / stat"]
     WATCH["vault-watch.ts<br/>notices outside edits"]
     GIT["vault-git.ts<br/>commit history"]
@@ -1291,7 +1291,7 @@ flowchart TB
     <section id="data">
       <h2>Data layer</h2>
       <p>
-        152 numbered migrations, applied in order, by all three backends. Access control is in
+        153 numbered migrations, applied in order, by all three backends. Access control is in
         the database rather than in the app: a missing check in a React component is a bug, a
         missing RLS policy is a breach, so the policy is the one that decides.
       </p>

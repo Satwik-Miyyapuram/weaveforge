@@ -1,0 +1,18 @@
+This directory contains code adapted from Overleaf Workshop
+(https://github.com/iamhyc/Overleaf-Workshop), a VS Code extension by its
+authors, licensed under the GNU Affero General Public License v3.0.
+
+Files:
+  base-api.ts  adapted from src/api/base.ts. Kept: cookie login, the
+               userProjectsJson/compile/getFileFromClsi request paths, retry
+               and cookie handling. Removed: the VS Code glue, socket.io,
+               passport login and every other API method. Replaced: undici and
+               form-data with the global fetch, and the uuid helper is not used.
+
+The full licence text is the LICENSE file at the root of this repository,
+which is the same AGPL-3.0 licence.
+
+Local changes to base-api.ts: three non-null assertions (`!`) in getUserId,
+needed for the repo's strict noUncheckedIndexedAccess setting; the regex
+match is already checked before they are read. The userEmail default now uses
+optional chaining. No other lines differ in behaviour.
