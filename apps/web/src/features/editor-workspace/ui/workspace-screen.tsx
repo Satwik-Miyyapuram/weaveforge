@@ -16,7 +16,7 @@ import { useWikilinkCreateMode } from "@/lib/wikilink-create-preference";
 import { commandForChord, isTypingTarget } from "../application/keybindings";
 import { readLayout, writeLayout } from "../application/layout-storage";
 import { loadWorkspace, type Document } from "../application/workspace-load";
-import { bodyStats, formatCount, formatCursor } from "../application/document-stats";
+import { bodyStats, formatCount, formatCursor, formatWords } from "../application/document-stats";
 import { breadcrumbs } from "../application/breadcrumbs";
 import { outlineOf } from "../application/outline";
 import {
@@ -607,7 +607,7 @@ export function WorkspaceScreen() {
 
   const values: Partial<Record<SegmentKey, string>> = activeDoc
     ? {
-        words: `${formatCount(stats.words)} words`,
+        words: formatWords(stats.words),
         chars: `${formatCount(stats.chars)} chars`,
         cursor: activeMetrics?.cursor ? formatCursor(activeMetrics.cursor) : undefined,
         encoding: "UTF-8",
