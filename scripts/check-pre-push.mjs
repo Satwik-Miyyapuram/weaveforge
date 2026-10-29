@@ -61,15 +61,10 @@ run(`node scripts/check-dco.mjs ${baseSha} HEAD`, `Checking DCO sign-offs (${bas
 run("npm run check:boundaries", "Running architectural boundary gates");
 
 // 5. Rebuild the committed WASM package; a push with Rust changes but a stale
-// packages/wf-wasm/pkg stops here so the rebuilt files get committed. The
-// module bytes differ by build OS, so as in CI only glue, types and the input
-// stamp are compared; the stamp changes whenever the Rust inputs do.
+// packages/wf-wasm/pkg stops here so the rebuilt files get committed
+// (scripts/check-wasm-pkg.mjs, the same check CI runs).
 run("npm run build:wasm", "Building the Rust core to WASM");
-const pkgStatus = "git status --porcelain -- packages/wf-wasm/pkg :(exclude)packages/wf-wasm/pkg/wf_wasm_bg.wasm";
-if (execSync(pkgStatus, { cwd: root, encoding: "utf8" }).trim()) {
-  console.error("\n[pre-push] packages/wf-wasm/pkg changed after build:wasm. Commit it and push again.");
-  process.exit(1);
-}
+run("npm run wasm:pkg", "Checking the committed WASM package matches the build");
 run("npm test --workspace @weaveforge/wasm", "Testing the WASM package");
 run("npm run wasm:budget", "Checking the WASM size budget");
 run("npm run typecheck", "Typechecking all workspace packages");

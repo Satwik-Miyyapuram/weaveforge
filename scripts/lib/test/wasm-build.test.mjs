@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { cliVersion, inputDigest, lockedVersion, remapFlags } from "../wasm-build.mjs";
+import { cliVersion, inputDigest, lockedVersion, remapFlags, sameModule } from "../wasm-build.mjs";
 import { collectInputs } from "../wasm-inputs.mjs";
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -93,4 +93,29 @@ test("collectInputs finds the wasm crate and skips target", () => {
   assert.ok(paths.includes("Cargo.lock"));
   assert.ok(paths.every((p) => !p.includes("/target/")));
   assert.ok(paths.every((p) => !p.includes("\\")));
+});
+
+test("collectInputs reads only files git tracks", () => {
+  // An untracked scratch file under crates/ is on this disk but not on CI, so
+  // hashing it would make a correct local stamp fail there.
+  const paths = collectInputs(repoRoot).map((f) => f.path);
+  assert.ok(paths.every((p) => !p.endsWith(".rs.bk") && !p.endsWith(".orig")));
+  assert.ok(!paths.includes("crates/wf-wasm/pkg"));
+});
+
+test("sameModule accepts identical bytes", () => {
+  assert.equal(sameModule(Buffer.from("abc"), Buffer.from("abc")), true);
+});
+
+test("sameModule treats backslash and slash as the same byte", () => {
+  // Windows builds write "/cargo\registry\..." where Linux writes "/cargo/registry/...".
+  assert.equal(sameModule(Buffer.from("/cargo\\registry\\x"), Buffer.from("/cargo/registry/x")), true);
+});
+
+test("sameModule rejects any other byte difference", () => {
+  assert.equal(sameModule(Buffer.from("abc"), Buffer.from("abd")), false);
+});
+
+test("sameModule rejects a length difference", () => {
+  assert.equal(sameModule(Buffer.from("abc"), Buffer.from("abcd")), false);
 });

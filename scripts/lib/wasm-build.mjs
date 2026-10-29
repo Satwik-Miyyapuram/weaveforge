@@ -83,3 +83,24 @@ export function cliVersion(output) {
   const m = output.match(/^wasm-bindgen (\S+)/m);
   return m ? m[1] : null;
 }
+
+const BACKSLASH = 0x5c;
+const SLASH = 0x2f;
+
+/**
+ * Whether two builds of the module are the same. The only bytes that differ
+ * between a Windows and a Linux build are path separators in the remapped panic
+ * locations, and both are one byte, so a backslash counts as a slash.
+ * @param {Uint8Array} a committed module
+ * @param {Uint8Array} b rebuilt module
+ * @returns {boolean}
+ */
+export function sameModule(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i] === BACKSLASH ? SLASH : a[i];
+    const y = b[i] === BACKSLASH ? SLASH : b[i];
+    if (x !== y) return false;
+  }
+  return true;
+}
