@@ -6,7 +6,9 @@ import { ErrorReportPanel } from "@/app/error-report-panel-lazy";
 import type { ReportContext } from "@/app/error-report-panel";
 import { Button } from "./button";
 
-const HEADINGS = "h1, h2, h3, h4, .settings-group";
+/** Headings inside rendered markdown (a note's `#` line) are content, not the page's sections. */
+export const HEADINGS = "h1:not(.markdown *), h2:not(.markdown *), h3:not(.markdown *), h4:not(.markdown *), .settings-group";
+export const PAGE_TITLE = "main h1:not(.markdown *), h1:not(.markdown *)";
 
 /**
  * The screen and section an element sits in, as a reader would name them:
@@ -42,7 +44,7 @@ function locate(from: Element): string {
     }
     node = node.parentElement;
   }
-  const page = document.querySelector("main h1, h1")?.textContent?.trim();
+  const page = document.querySelector(PAGE_TITLE)?.textContent?.trim();
   if (page && !trail.includes(page)) trail.unshift(page);
   return trail.map((part) => clipText(part, 60)).join(" › ");
 }

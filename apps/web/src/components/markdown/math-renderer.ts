@@ -56,6 +56,8 @@ export function loadMathRenderer(): Promise<MathRenderer> {
  * to do with it.
  */
 export function containsMath(md: string): boolean {
+  // `\(` and `\[` open the bracketed delimiters, so either one counts as maths.
+  if (/\\[([]/.test(md)) return true;
   let index = 0;
   while (index < md.length) {
     const dollar = md.indexOf("$", index);
