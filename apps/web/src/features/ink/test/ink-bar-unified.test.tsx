@@ -10,7 +10,6 @@ import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
 import { InkBar } from "@/features/ink";
-import { ReaderSearchBar } from "@/features/reader/ui/reader-search-bar";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -59,7 +58,7 @@ function pdf(readOnly: boolean): BarProps {
     readOnly,
     page: 3, pages: 12, onPrevPage: noop, onNextPage: noop, onGoToPage: noop,
     view: { zoomPercent: 125, onZoomIn: noop, onZoomOut: noop, onZoomTo: noop, fit: "width", onFitPage: noop, onFitWidth: noop, onRotate: noop },
-    find: createElement(ReaderSearchBar, { pages: [], isOpen: false, onOpenChange: noop, onJump: noop, onMatches: noop }),
+    find: createElement("button", { type: "button", "aria-label": "Find in document" }),
     onSelect: noop, selected: 1, onDeleteSelection: noop,
     onClip: readOnly ? undefined : noop,
     onTextBox: readOnly ? undefined : noop,

@@ -235,8 +235,12 @@ export {
 export { InkPage, type InkPageProps } from "./ui/ink-page";
 export { useQuickColours } from "./ui/use-quick-colours";
 export {
+  DEFAULT_TOOL_COLOURS,
+  readToolColours,
+  resetToolColoursCacheForTests,
   setToolColour,
   setToolQuickSlot,
+  subscribeToolColours,
   useToolColours,
   type ToolColourId,
 } from "./ui/use-tool-colours";

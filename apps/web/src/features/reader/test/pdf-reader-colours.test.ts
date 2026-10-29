@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { INK_RENDER_COLOURS, paletteHex } from "@/features/ink/render/ink-palette";
-import { readToolColours, resetToolColoursCacheForTests } from "@/features/ink/ui/use-tool-colours";
+import { readToolColours, resetToolColoursCacheForTests } from "@/features/ink";
 
 import { colourToolFor, markColourTool, rememberRecolour, rememberToolColour } from "../ui/pdf-reader/colour-tools";
 

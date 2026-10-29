@@ -4,7 +4,7 @@
  */
 
 import { paletteName, type InkPalette } from "@/features/ink/render/ink-palette";
-import { setToolColour, type ToolColourId } from "@/features/ink/ui/use-tool-colours";
+import { setToolColour, type ToolColourId } from "@/features/ink";
 
 import type { ReaderCreateTool } from "../../application/reader-annotation-helpers";
 import type { PenTool } from "./use-pen-prefs";
