@@ -701,14 +701,7 @@ export function InkHost({
           onErase={onErase}
           onLasso={onLasso}
           selectionBounds={selectionBounds}
-          selectionActions={
-            <InkSelectionChip
-              count={selection.length}
-              onCopy={() => void onCopyStrokes()}
-              onCopyAsText={() => void onCopyAsText()}
-              onDelete={onDeleteSelection}
-            />
-          }
+          selectionActions={<InkSelectionChip count={selection.length} onCopy={() => void onCopyStrokes()} onCopyAsText={() => void onCopyAsText()} onDelete={onDeleteSelection} />}
           onMoveSelection={onMoveSelection}
           onDragSelection={onDragSelection}
           penOnly={pen.penOnly}
