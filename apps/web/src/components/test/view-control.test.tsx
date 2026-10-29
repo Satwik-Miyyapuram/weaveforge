@@ -97,3 +97,10 @@ test("the split side lives in the View control's ⋯ menu", () => {
   assert.match(src, /Preview beside/);
   assert.match(src, /Preview below/);
 });
+
+test("the page number has no field box, like the zoom value beside it", () => {
+  // The bold themes' input border beat .ink-page-input { border: 0 }, so the
+  // page switcher showed a boxed field the zoom pill does not have.
+  const css = readFileSync(fileURLToPath(new URL("../../app/styles/editor-workspace.css", import.meta.url)), "utf8");
+  assert.match(css, /:root:root:root \.ink-page-input \{ border: 0; \}/);
+});

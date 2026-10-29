@@ -99,9 +99,8 @@ export function CompareView({ experiments }: { experiments: Experiment[] }) {
             {rows.map((e, i) => (
               <tr key={e.id} className={sortKey && i === 0 ? "leader" : ""}>
                 <td>
-                  <input
+                  <input className="wf-check"
                     type="checkbox"
-                    className="themed-check"
                     checked={selected.includes(e.id)}
                     onChange={() => toggleSel(e.id)}
                     aria-label={`compare ${e.name}`}

@@ -2,8 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 
-import { Button, IconButton } from "@/components/button";
-import { CloseIcon } from "@/components/view-icons";
+import { Button, CloseButton } from "./button";
 import { isEditableTarget } from "@/lib/editable-target";
 import { toasts, type Toast, type ToastStore } from "@/lib/toast/toast-store";
 
@@ -31,13 +30,11 @@ export function ToastList({ store, toasts: list }: { store: ToastStore; toasts: 
         >
           <span className="toast-message">{t.message}</span>
           {t.actionLabel && (
-            <Button size="sm" variant="ghost" className="toast-action" onClick={() => store.act(t.id)}>
+            <Button size="sm" variant="ghost" onClick={() => store.act(t.id)}>
               {t.actionLabel}
             </Button>
           )}
-          <IconButton label="Dismiss" className="toast-close" onClick={() => store.dismiss(t.id)}>
-            <CloseIcon />
-          </IconButton>
+          <CloseButton label="Dismiss" onClick={() => store.dismiss(t.id)} />
         </div>
       ))}
     </div>

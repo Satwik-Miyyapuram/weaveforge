@@ -15,7 +15,7 @@ import {
 import type { AnnotationBacklinkTarget } from "../application/annotation-backlinks";
 import { Select } from "@/components/select";
 import { Button } from "@/components/button";
-import { RowButton } from "@/components/controls";
+import { RowButton, Swatch } from "@/components/controls";
 import { SegmentedControl } from "@/components/segmented-control";
 
 export interface ReportSectionOption {
@@ -155,10 +155,7 @@ export function AnnotationSidebar({
           const localEditable = canEditLocal && a.origin === "local";
           return (
             <li key={a.id}>
-              <RowButton
-                className={`pdf-reader-sidebar-item${selectedId === a.id ? " is-selected" : ""}`}
-                onClick={() => onSelect(a.id)}
-              >
+              <RowButton current={selectedId === a.id} onClick={() => onSelect(a.id)}>
                 <span
                   className="pdf-reader-sidebar-swatch"
                   style={{ background: a.color }}
@@ -218,11 +215,11 @@ export function AnnotationSidebar({
                   />
                   <div className="pdf-reader-create-colors" role="group" aria-label="Colour">
                     {READER_ANNOTATION_COLORS.map((color) => (
-                      <RowButton
+                      <Swatch
                         key={color}
-                        className="pdf-reader-create-swatch"
-                        style={{ background: color }}
-                        aria-label={`Set colour ${color}`}
+                        label={`Set colour ${color}`}
+                        colour={color}
+                        selected={a.color === color}
                         disabled={busyId === a.id}
                         onClick={() => void onUpdateLocal?.(a.id, { color })}
                       />
@@ -235,7 +232,7 @@ export function AnnotationSidebar({
                     >
                       Save
                     </Button>
-                    <Button variant="ghost" size="sm" className="btn-cancel" onClick={() => setEditingId(null)}>
+                    <Button variant="cancel" size="sm" onClick={() => setEditingId(null)}>
                       Cancel
                     </Button>
                   </div>

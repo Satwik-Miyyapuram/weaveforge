@@ -3,12 +3,13 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
+import { Button, IconButton } from "./button";
 import { ChevronIcon } from "./chevron-icon";
+import { ComboboxButton, Swatch } from "./controls";
 import { focusFirstControl, focusFirstField } from "./modal";
 import { VIEWPORT_PAD } from "./viewport-pad";
-import { Button } from "./button";
-import { RowButton } from "./controls";
-
+/** What the trigger is drawn as; each maps to one button primitive. */
+type Trigger = "button" | "icon" | "swatch" | "select";
 
 /**
  * A button that opens an anchored panel (used for filters that we don't want
@@ -20,9 +21,9 @@ export function Popover({
   count,
   align = "left",
   ariaLabel,
-  iconOnly = false,
-  look = "button",
-  triggerClassName,
+  trigger = "button",
+  caret = true,
+  colour,
   portal = false,
   children,
 }: {
@@ -31,12 +32,19 @@ export function Popover({
   align?: "left" | "right";
   /** Accessible name when `label` is an icon. */
   ariaLabel?: string;
-  /** Compact icon trigger — hides the caret. */
-  iconOnly?: boolean;
-  /** `button` is a secondary Button; `custom` is a swatch, chip or icon styled by `triggerClassName`. */
-  look?: "button" | "custom";
-  /** Extra class on the trigger. */
-  triggerClassName?: string;
+  /**
+   * What the trigger is drawn as: a secondary `button` with a caret, a square
+   * `icon` button, a colour `swatch` (painted with `colour`), or a `select`
+   * field. The icon and swatch take their name from `ariaLabel`.
+   */
+  trigger?: Trigger;
+  /**
+   * The `button` trigger's caret. Off for a button whose label is only an icon:
+   * it is named and tipped by `ariaLabel` instead.
+   */
+  caret?: boolean;
+  /** The swatch trigger's colour. */
+  colour?: string;
   /**
    * Render the panel into `<body>` instead of under the trigger.
    *
@@ -132,27 +140,44 @@ export function Popover({
     return () => trigger?.focus();
   }, [shown]);
 
-  const Trigger = look === "button" ? Button : RowButton;
+  // Shared by every trigger; the open state is `aria-expanded`.
+  const opens = {
+    ref: triggerRef,
+    "aria-haspopup": "dialog" as const,
+    "aria-controls": panelId,
+    onClick: (e: React.MouseEvent) => {
+      openedByPointer.current = e.detail > 0;
+      setOpen((v) => !v);
+    },
+  };
+  const badge = count ? <span className="popover-badge">{count}</span> : null;
+  // An icon or swatch has no words of its own; the primitive gives it a tooltip from `ariaLabel`.
+  const triggerButton =
+    trigger === "icon" ? (
+      <IconButton {...opens} aria-expanded={open} label={ariaLabel ?? ""}>
+        {label}
+        {badge}
+      </IconButton>
+    ) : trigger === "swatch" ? (
+      <Swatch {...opens} aria-expanded={open} label={ariaLabel ?? ""} colour={colour}>
+        {label}
+        {badge}
+      </Swatch>
+    ) : trigger === "select" ? (
+      <ComboboxButton {...opens} expanded={open} aria-label={ariaLabel}>
+        {label}
+        {badge}
+      </ComboboxButton>
+    ) : (
+      <Button {...opens} aria-expanded={open} aria-label={ariaLabel} title={caret ? undefined : ariaLabel}>
+        {label}
+        {badge}
+        {caret && <ChevronIcon open={open} className="popover-caret" />}
+      </Button>
+    );
   return (
     <div className="popover" ref={ref}>
-      <Trigger
-        ref={triggerRef}
-        className={`${triggerClassName ? `${triggerClassName} ` : ""}popover-trigger${open ? " on" : ""}${iconOnly ? " popover-trigger--icon" : ""}`}
-        aria-label={ariaLabel}
-        // An icon has no words of its own; the tooltip gives the pointer the name a screen reader gets.
-        title={iconOnly ? ariaLabel : undefined}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls={panelId}
-        onClick={(e) => {
-          openedByPointer.current = e.detail > 0;
-          setOpen((v) => !v);
-        }}
-      >
-        {label}
-        {count ? <span className="popover-badge">{count}</span> : null}
-        {!iconOnly && <ChevronIcon open={open} className="popover-caret" />}
-      </Trigger>
+      {triggerButton}
       {open &&
         (() => {
           const panel = (

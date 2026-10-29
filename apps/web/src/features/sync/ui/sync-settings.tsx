@@ -17,7 +17,7 @@ import { FormError } from "@/components/form-error";
 import { MattermostSignInControls, useMattermostSignIn } from "./mattermost-sign-in-controls";
 import { loadIntegrations } from "./load-integrations";
 import { Button } from "@/components/button";
-import { RowButton, Switch, ToggleButton } from "@/components/controls";
+import { MenuItemButton, RowButton, Switch } from "@/components/controls";
 
 export function SyncSettings() {
   const { current } = useProject();
@@ -45,7 +45,7 @@ export function SyncSettings() {
   if (!current || descriptors.length === 0) return null;
 
   return (
-    <div className="card settings-block">
+    <div className="settings-block">
       <h3 className="settings-group">Connections — {current.name}</h3>
       <p className="muted">Version this project&rsquo;s work to git and post plan updates. Choose a service to set it up; its token is kept with this project only.</p>
       {loading ? (
@@ -130,14 +130,16 @@ function IntegrationRow({
 
   return (
     <>
-      <RowButton className="integration-item" onClick={() => setOpen(true)}>
-        <span className="integration-logo" style={{ background: descriptor.color }} />
-        <div className="integration-main">
-          <strong>{name}</strong>
-          <span className="muted">{tagline || descriptor.description}</span>
-        </div>
-        <ConnectionState connected={connected} />
-      </RowButton>
+      <div className="integration-item">
+        <RowButton onClick={() => setOpen(true)}>
+          <span className="integration-logo" style={{ background: descriptor.color }} />
+          <span className="integration-main">
+            <strong>{name}</strong>
+            <span className="muted">{tagline || descriptor.description}</span>
+          </span>
+          <ConnectionState connected={connected} />
+        </RowButton>
+      </div>
 
       {open && (
         <Modal title={name} onClose={() => setOpen(false)}>
@@ -147,7 +149,7 @@ function IntegrationRow({
             <div className="integration-enable">
               <span>Enabled</span>
               <Switch checked={value.enabled} label="Enabled"
-                onClick={() => patch({ enabled: !value.enabled })} />
+                onChange={(on) => patch({ enabled: on })} />
             </div>
             {isMattermost && (
               <MattermostSignInControls
@@ -230,7 +232,7 @@ function MattermostEventControls({
       <div className="integration-enable">
         <span>Use the same channel for everything</span>
         <Switch checked={opts.sameChannel} label="Use the same channel for everything"
-          onClick={() => set({ sameChannel: !opts.sameChannel })} />
+          onChange={(on) => set({ sameChannel: on })} />
       </div>
       <div className="integration-enable">
         <span>Events</span>
@@ -239,9 +241,10 @@ function MattermostEventControls({
             {MATTERMOST_EVENTS.map((e) => {
               const on = opts.events[e.id] === true;
               return (
-                <ToggleButton pressed={on}
+                <MenuItemButton
+                  kind="checkbox"
+                  checked={on}
                   key={e.id}
-                  className={`custom-select-item ms-item${on ? " sel" : ""}`}
                   onClick={() => set({ events: { ...opts.events, [e.id]: !on } })}
                 >
                   <span className={`ms-check${on ? " on" : ""}`} aria-hidden />
@@ -249,7 +252,7 @@ function MattermostEventControls({
                     {e.label}
                     <span className="muted mm-event-hint">{e.hint}</span>
                   </span>
-                </ToggleButton>
+                </MenuItemButton>
               );
             })}
           </div>

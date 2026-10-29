@@ -62,13 +62,12 @@ test("the share expiry hint reads as a hint, not a warning (DA-36)", () => {
   assert.match(rule(read("../styles/settings.css"), ".share-link-expiry-hint"), /color:\s*var\(--muted\);/);
 });
 
-test("explorer section count uses muted (DA-35)", () => {
-  const css = read("../styles/editor-workspace.css");
-  for (const sel of [".explorer-section-count"]) assert.match(rule(css, sel), /color:\s*var\(--muted\);/);
+test("a fold's count (the explorer section count) uses muted (DA-35)", () => {
+  assert.match(rule(read("../styles/states.css"), ":root:root .wf-fold-count"), /color:\s*var\(--muted\);/);
 });
 
 test("the graph settings badge uses the text-on-accent token (DA-35)", () => {
-  assert.match(rule(read("../styles/graph.css"), ".graph-stage-settings .graph-settings-count,\n.graph-settings-count"), /color:\s*var\(--accent-fg\);/);
+  assert.match(rule(read("../styles/graph.css"), ".graph-settings-count"), /color:\s*var\(--accent-fg\);/);
 });
 
 // Brutal and CRT set their own ink: plain text colour, underlined.

@@ -10,7 +10,7 @@
 
 import type { Crumb } from "../application/breadcrumbs";
 import { kindSuffix } from "./kind";
-import { RowButton } from "@/components/controls";
+import { Button } from "@/components/button";
 
 export function Breadcrumbs({
   crumbs,
@@ -38,9 +38,9 @@ export function Breadcrumbs({
               </span>
             ) : null}
             {crumb.key && onOpen && !last ? (
-              <RowButton className="breadcrumb-btn" onClick={() => onOpen(crumb)}>
+              <Button variant="link" onClick={() => onOpen(crumb)}>
                 {crumb.label}
-              </RowButton>
+              </Button>
             ) : (
               <span className={last ? "breadcrumb-current" : "breadcrumb-plain"}>{crumb.label}</span>
             )}

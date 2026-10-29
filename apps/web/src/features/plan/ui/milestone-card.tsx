@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, type MouseEvent } from "react";
-import Link from "next/link";
+import { useState, type SyntheticEvent } from "react";
 import {
   MILESTONE_STATUSES,
   type Experiment,
@@ -22,7 +21,10 @@ import { runReported } from "@/lib/run-reported";
 import { statusLabel } from "@/components/status-select";
 import { MilestoneForm } from "./milestone-form";
 import { planChipTarget } from "./plan-chip";
-import { RowButton } from "@/components/controls";
+import { Chip } from "@/components/controls";
+
+/** Chip clicks stay on the chip: the card under them opens on click. */
+const stop = (e: SyntheticEvent) => e.stopPropagation();
 
 export function MilestoneCard({
   milestone: m,
@@ -118,9 +120,8 @@ export function MilestoneCard({
       tone={m.status}
       title={m.title}
       leading={
-        <input
+        <input className="wf-check"
           type="checkbox"
-          className="themed-check milestone-check"
           checked={m.status === "done"}
           disabled={readOnly}
           onChange={(e) => void setStatus(e.target.checked ? "done" : "planned")}
@@ -181,48 +182,34 @@ export function MilestoneCard({
     >
       {m.description && <p className="summary">{m.description}</p>}
       {m.dependencies.length > 0 && (
-        <div className="plan-chips">
+        <div className="plan-chips" onClick={stop} onKeyDown={stop}>
           <span className="plan-chips-label">Waits for:</span>
           {m.dependencies.map((d, i) => {
             const labelText = d.kind === "external" ? d.label : labels.get(d.refId ?? "") ?? d.label ?? d.refId;
             const target = planChipTarget(d, labels, milestones);
             const body = <><em>{d.kind}</em> {labelText}</>;
-            const cls = `plan-chip${d.kind === "external" ? " is-ext" : ""}`;
             if (target.kind === "jump" && onJump) {
               return (
-                <RowButton
-                  key={i}
-                  className={`${cls} is-link`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onJump(target.milestoneId);
-                  }}
-                  title={`Jump to ${labelText}`}
-                >
+                <Chip key={i} onClick={() => onJump(target.milestoneId)} title={`Jump to ${labelText}`}>
                   {body}
-                </RowButton>
+                </Chip>
               );
             }
             if (target.kind === "link") {
-              const stop = (e: MouseEvent) => e.stopPropagation();
               return target.external ? (
-                <a key={i} className={`${cls} is-link`} href={target.href} target="_blank" rel="noreferrer" onClick={stop} title={target.href}>
+                <Chip key={i} href={target.href} target="_blank" rel="noreferrer" title={target.href}>
                   {body}
-                </a>
+                </Chip>
               ) : (
-                <Link key={i} className={`${cls} is-link`} href={target.href} onClick={stop} title={`Open ${labelText}`}>
+                <Chip key={i} href={target.href} title={`Open ${labelText}`}>
                   {body}
-                </Link>
+                </Chip>
               );
             }
             return (
-              <span
-                key={i}
-                className={`${cls}${target.kind === "missing" ? " is-missing" : ""}`}
-                title={target.kind === "missing" ? `${labelText} was deleted` : undefined}
-              >
-                {body}
-              </span>
+              <Chip key={i} title={target.kind === "missing" ? `${labelText} was deleted` : undefined}>
+                {target.kind === "missing" ? <s>{body}</s> : body}
+              </Chip>
             );
           })}
         </div>

@@ -40,7 +40,7 @@ interface Pressed {
   stopPropagation: () => void;
 }
 
-async function render(searchable: boolean) {
+async function render(searchable: boolean, className?: string) {
   const chosen: string[] = [];
   // One mock per host element type, so `searchRef.current` is the very object a
   // key pressed in the search box carries as its target.
@@ -60,6 +60,7 @@ async function render(searchable: boolean) {
           id: "s",
           value: "a",
           searchable,
+          className,
           "aria-label": "Pick",
           onChange: (e: { target: { value: string } }) => chosen.push(e.target.value),
         },
@@ -96,7 +97,8 @@ async function render(searchable: boolean) {
     return event;
   };
   const activeOption = () => trigger().props["aria-activedescendant"] as string | undefined;
-  return { chosen, trigger, listbox, search, press, activeOption };
+  const options = () => renderer.root.findAll((n) => typeof n.type === "string" && (n.props as { role?: string }).role === "option");
+  return { chosen, trigger, listbox, search, press, activeOption, options };
 }
 
 test("Select search box: Enter chooses once", async () => {
@@ -143,4 +145,16 @@ test("Select without search: the listbox moves one row and chooses once", async 
   assert.equal(view.activeOption(), "s-opt-1");
   view.press(view.listbox(), "Enter");
   assert.deepEqual(view.chosen, ["b"]);
+});
+
+test("Select rows are catalogue items: highlighted row and the chosen status keep their colour", async () => {
+  const view = await render(false, "status-select");
+  view.press(view.trigger(), "ArrowDown");
+  const [a = {}, b = {}] = view.options().map((o) => o.props as Record<string, unknown>);
+  assert.equal(a.className, "wf-item");
+  assert.equal(a["aria-selected"], true);
+  assert.equal(a["data-status"], "a", "the chosen status row carries its status colour");
+  assert.equal(a["data-highlighted"], true);
+  assert.equal(b["data-status"], undefined);
+  assert.equal(b["data-highlighted"], undefined);
 });

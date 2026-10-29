@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { readStorageConfig } from "@/storage/config";
 import { resolveBlobTierForViewer } from "@/storage/server/blob-access";
 import { streamBlobObject } from "@/storage/server/blob-api";
-import { verifyBlobViewToken } from "@/storage/server/blob-view-token";
+import { blobCacheControl, verifyBlobViewToken } from "@/storage/server/blob-view-token";
 import { formatErrorForResponse } from "@/lib/format-error";
 
 export const runtime = "nodejs";
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
     return new NextResponse(object.stream, {
       headers: {
         "Content-Type": object.contentType,
-        "Cache-Control": "private, no-store",
+        "Cache-Control": blobCacheControl(payload.exp),
         // An uploaded SVG or HTML would otherwise run as this origin's script.
         // Sandboxed and script-less, it can still be shown in an <img>.
         "Content-Security-Policy": "default-src 'none'; sandbox",

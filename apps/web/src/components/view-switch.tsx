@@ -23,13 +23,12 @@ export function ViewSwitch<V extends string>({
   className?: string;
 }) {
   return (
-    <div className={className ? `seg view-switch ${className}` : "seg view-switch"} role="tablist" aria-label={label}>
+    <div className={className ? `wf-seg view-switch ${className}` : "wf-seg view-switch"} role="tablist" aria-label={label}>
       {options.map((o) => (
         <TabButton
           key={o.value}
           selected={value === o.value}
           title={o.title}
-          className={value === o.value ? "seg-on" : undefined}
           onClick={() => onChange(o.value)}
         >
           {o.icon}

@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 const read = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
 const reader = read("../../../app/styles/reader.css");
 const workspace = read("../../../app/styles/editor-workspace.css");
+const states = read("../../../app/styles/states.css");
 
 /** Every `selector { body }` pair, including the ones inside @media and @container. */
 function rules(css: string): { selector: string; body: string }[] {
@@ -49,8 +50,9 @@ test("Focus is always the last control, at the right end", () => {
 });
 
 test("a selected tool and the bar's controls carry no shadow", () => {
-  const pressed = rules(workspace).find((r) => r.selector === '.ink-tool[aria-pressed="true"]')!;
-  assert.doesNotMatch(pressed.body, /box-shadow/);
+  // A pressed tool is the catalogue's wf-tool, which never draws a shadow.
+  assert.doesNotMatch(workspace, /\.ink-tool\[aria-pressed/);
+  for (const r of rules(states).filter((x) => x.selector.includes(".wf-tool"))) assert.doesNotMatch(r.body, /box-shadow:\s*var/, r.selector);
   const flat = rules(reader).find((r) => r.selector.startsWith(":root:root:root") && r.selector.includes(".pdf-reader-chrome"));
   assert.ok(flat, "a rule that flattens the reader's bar");
   assert.match(flat.body, /box-shadow:\s*none/);
@@ -74,7 +76,7 @@ test("the reader draws the note's page pill rather than its own copy", () => {
 });
 
 test("outline entries read left to right and wrap rather than run off", () => {
-  const entry = rules(reader).find((r) => r.selector === ".pdf-reader-outline .link-btn")!;
+  const entry = rules(reader).find((r) => r.selector === ".pdf-reader-outline .wf-link")!;
   assert.ok(entry);
   assert.match(entry.body, /text-align:\s*left/);
   assert.match(entry.body, /white-space:\s*normal/);

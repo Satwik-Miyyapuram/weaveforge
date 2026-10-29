@@ -13,8 +13,8 @@ test("share buttons have no sort glyph; ShareButton draws its own icon (E03)", (
 });
 
 test("git chip links have no literal arrow; states.css adds it once (E04)", () => {
-  assert.match(read("../../../app/styles/states.css"), /a:is\(\.wf-chip, \.tag-chip, \.git-chip[^)]*\)\[href\]::after \{ content: "\\2197"; \}/);
-  for (const m of read("../ui/experiment-panels.tsx").matchAll(/<a [^>]*className="git-chip[^>]*>([\s\S]*?)<\/a>/g)) {
+  assert.match(read("../../../app/styles/states.css"), /a\.wf-chip\[href\]::after \{ content: "\\2197"; \}/);
+  for (const m of read("../ui/experiment-panels.tsx").matchAll(/<Chip [^>]*href=[^>]*>([\s\S]*?)<\/Chip>/g)) {
     assert.doesNotMatch(m[1] ?? "", /↗/, m[0]);
   }
 });

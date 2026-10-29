@@ -27,6 +27,7 @@ import { PlanTimelineBar } from "@/features/plan/ui/plan-timeline-bar";
 import { MilestoneForm } from "./milestone-form";
 import { MilestoneCard } from "./milestone-card";
 import { Button } from "@/components/button";
+import { FoldButton } from "@/components/controls";
 
 type PlanViewData = PlanScreenData & { ownerNames: Map<string, string> };
 
@@ -282,12 +283,11 @@ export function PlanScreen() {
       )}
       <ul className="exp-list plan-list">{openItems.map(renderCard)}</ul>
       {doneItems.length > 0 && openItems.length > 0 && (
-        <Button variant="ghost" className="plan-done-toggle"
-          aria-expanded={doneVisible}
-          onClick={() => setShowDone((v) => !v)}
-        >
-          {doneVisible ? "Hide" : "Show"} {doneItems.length} done
-        </Button>
+        <span className="plan-done-toggle">
+          <FoldButton expanded={doneVisible} onClick={() => setShowDone((v) => !v)}>
+            {doneVisible ? "Hide" : "Show"} {doneItems.length} done
+          </FoldButton>
+        </span>
       )}
       {doneVisible && doneItems.length > 0 && (
         <ul className="exp-list plan-list">{doneItems.map(renderCard)}</ul>

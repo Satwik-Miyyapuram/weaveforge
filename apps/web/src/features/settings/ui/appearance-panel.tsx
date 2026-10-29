@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Switch } from "@/components/controls";
 import { Select } from "@/components/select";
-import { sanitizeCardTint, type CardTint, DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_STYLE_OPTIONS, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, sanitizeThemeId, sanitizeControlSize, sanitizeSurfaceStyle, type ControlSizeId, type SurfaceStyle, type ThemeConfig } from "@/lib/theme/theme";
+import { ANIMATION_SPEED_OPTIONS, sanitizeAnimationSpeed, type AnimationSpeed, sanitizeCardTint, type CardTint, DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_STYLE_OPTIONS, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, sanitizeThemeId, sanitizeControlSize, sanitizeSurfaceStyle, type ControlSizeId, type SurfaceStyle, type ThemeConfig } from "@/lib/theme/theme";
 import { persistThemeChange, readLocalAppearance } from "@/lib/theme/theme-persistence";
 import { CardTintPicker } from "./card-tint-picker";
 import { ThemeConfigPanel } from "./theme-config-panel";
@@ -19,6 +20,7 @@ export function AppearancePanel() {
   const [controlSize, setControlSize] = useState<ControlSizeId>("default");
   const [surfaces, setSurfaces] = useState<SurfaceStyle>("borderless");
   const [reactiveMotion, setReactiveMotion] = useState(false);
+  const [animationSpeed, setAnimationSpeed] = useState<AnimationSpeed>(1);
   const [cardTint, setCardTint] = useState<CardTint>("bar");
   const [cardTilt, setCardTilt] = useState(true);
   const [scanlines, setScanlines] = useState(true);
@@ -31,6 +33,7 @@ export function AppearancePanel() {
     setControlSize(sanitizeControlSize(appearance.controlSize));
     setSurfaces(sanitizeSurfaceStyle(appearance.surfaces));
     setReactiveMotion(appearance.reactiveMotion ?? false);
+    setAnimationSpeed(sanitizeAnimationSpeed(appearance.animationSpeed));
     setCardTint(sanitizeCardTint(appearance.cardTint));
     setCardTilt(appearance.cardTilt ?? true);
     setScanlines(appearance.scanlines ?? true);
@@ -88,6 +91,12 @@ export function AppearancePanel() {
     persistThemeChange({ reactiveMotion: on });
   }
 
+  function handleAnimationSpeedChange(raw: string) {
+    const safe = sanitizeAnimationSpeed(raw);
+    setAnimationSpeed(safe);
+    persistThemeChange({ animationSpeed: safe });
+  }
+
   function handleCustomThemeChange(config: ThemeConfig | null) {
     setCustomTheme(config);
     if (config) {
@@ -98,11 +107,11 @@ export function AppearancePanel() {
     }
   }
 
-  // The same card and header as every other settings panel (DA-53); inside,
-  // mono section heads over a hairline, one row per preference with its
+  // The same header as every other settings panel, with no card around it;
+  // inside, mono section heads over a hairline, one row per preference with its
   // explanation on the left and the control on the right.
   return (
-    <div id="settings-appearance" className="card add-form settings-anchor appearance" role="tabpanel" aria-labelledby="settings-tab-appearance">
+    <div id="settings-appearance" className="add-form settings-anchor appearance" role="tabpanel" aria-labelledby="settings-tab-appearance">
       <h3 className="settings-group">Appearance</h3>
       <p className="muted appearance-lede">How WeaveForge looks on this device.</p>
 
@@ -175,14 +184,23 @@ export function AppearancePanel() {
               system &ldquo;reduce motion&rdquo; setting overrides this.
             </p>
           </div>
-          <input
+          <Switch
             id="reactiveMotion"
-            type="checkbox"
-            role="switch"
-            className="themed-check appearance-switch"
+            label="Reactive animations"
             checked={reactiveMotion}
-            onChange={(e) => handleReactiveMotionChange(e.target.checked)}
+            onChange={handleReactiveMotionChange}
           />
+        </div>
+        <div className="appearance-row">
+          <div className="appearance-row-text">
+            <label htmlFor="animationSpeed">Animation speed</label>
+            <p>Plays every animation faster or slower than designed, from 0.25&times; to 4&times;.</p>
+          </div>
+          <Select id="animationSpeed" value={String(animationSpeed)} onChange={(e) => handleAnimationSpeedChange(e.target.value)}>
+            {ANIMATION_SPEED_OPTIONS.map((opt) => (
+              <option key={opt.id} value={opt.id}>{opt.label}</option>
+            ))}
+          </Select>
         </div>
         {(lightTheme === "crt" || customTheme?.cardTilt === true) && (
           <div className="appearance-row">
@@ -194,13 +212,11 @@ export function AppearancePanel() {
                 <code>&quot;tilt&quot;: true</code>.
               </p>
             </div>
-            <input
+            <Switch
               id="cardTilt"
-              type="checkbox"
-              role="switch"
-              className="themed-check appearance-switch"
+              label="Tilted cards"
               checked={cardTilt}
-              onChange={(e) => handleCardTiltChange(e.target.checked)}
+              onChange={handleCardTiltChange}
             />
           </div>
         )}
@@ -210,13 +226,11 @@ export function AppearancePanel() {
               <label htmlFor="scanlines">Scanlines</label>
               <p>Only for the CRT theme.</p>
             </div>
-            <input
+            <Switch
               id="scanlines"
-              type="checkbox"
-              role="switch"
-              className="themed-check appearance-switch"
+              label="Scanlines"
               checked={scanlines}
-              onChange={(e) => handleScanlinesChange(e.target.checked)}
+              onChange={handleScanlinesChange}
             />
           </div>
         )}

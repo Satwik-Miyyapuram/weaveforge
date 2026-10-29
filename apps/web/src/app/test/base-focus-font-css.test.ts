@@ -10,6 +10,7 @@ const forms = read("../styles/forms.css");
 const markdown = read("../styles/markdown.css");
 const nav = read("../styles/nav.css");
 const titleBar = read("../styles/title-bar.css");
+const states = read("../styles/states.css");
 const workspace = read("../styles/editor-workspace.css");
 
 /** Declarations of the rule whose selector list is exactly `selector`. */
@@ -43,17 +44,11 @@ test("source text shows `<!--` as typed, not as a ligature (DA-05)", () => {
   assert.match(rule(base, ":root :is(code, pre, kbd, samp, .cm-content)"), /font-variant-ligatures:\s*none;/);
 });
 
-test("the nav collapse button shows a ring for keyboard focus (DA-04, E18)", () => {
-  // Mouse focus stays quiet; keyboard focus must ring.
-  assert.doesNotMatch(nav, /button\.nav-collapse:focus-visible\s*\{[^}]*outline:\s*none/);
-  assert.doesNotMatch(nav, /button\.nav-collapse:focus-visible,/);
-  assert.match(nav, /button\.nav-collapse:focus:not\(:focus-visible\)/);
-});
-
-test("title-bar menus show a ring for keyboard focus (DA-04)", () => {
-  const body = rule(titleBar, ".title-bar-button:focus-visible");
-  assert.doesNotMatch(body, /outline:\s*none/);
-  assert.match(body, /outline:\s*3px solid/);
+test("nav and title-bar buttons keep the shared keyboard ring (DA-04, E18)", () => {
+  // Both are catalogue buttons now: the one ring lives in states.css, and
+  // neither stylesheet may switch it off for keyboard focus.
+  assert.match(states, /\.wf-btn,[^{]*:focus-visible[^{]*\{[^}]*outline: 3px solid var\(--wf-focus\)/);
+  for (const css of [nav, titleBar]) assert.doesNotMatch(css, /:focus-visible[^{]*\{[^}]*outline:\s*none/);
 });
 
 test("the workspace editor pane rings while it has focus (DA-04)", () => {

@@ -1,10 +1,8 @@
 "use client";
 
 import type { ParsedReference } from "@weaveforge/core";
-import { IconButton } from "@/components/button";
-import { CloseIcon } from "@/components/view-icons";
+import { Button, CloseButton } from "@/components/button";
 import type { ResolvedReference } from "../application/reference-lookup";
-import { RowButton } from "@/components/controls";
 
 export interface ReferencePopoverProps {
   entry: ParsedReference;
@@ -38,10 +36,10 @@ export function ReferencePopover(props: ReferencePopoverProps) {
     .join(" · ");
   const lowConfidence = props.confidence != null && props.confidence < 0.7;
   const action = (label: string, onClick?: () => void) =>
-    onClick ? <RowButton className="pdf-reader-ref-action" onClick={onClick}>{label}</RowButton> : null;
+    onClick ? <Button variant="link" size="sm" onClick={onClick}>{label}</Button> : null;
   return (
     <section className="pdf-reader-ref-body" aria-label="Reference details" aria-busy={resolution.status === "pending"}>
-      <IconButton label="Close reference details" className="pdf-reader-ref-close" onClick={onClose}><CloseIcon /></IconButton>
+      <span className="pdf-reader-ref-close"><CloseButton size="sm" label="Close reference details" onClick={onClose} /></span>
       {title ? (
         <>
           <h3>{title}</h3>
@@ -61,7 +59,7 @@ export function ReferencePopover(props: ReferencePopoverProps) {
         {resolution.status === "resolved" && action("Copy citation", props.onCite)}
         {resolution.status === "unresolved" && action("Add manually", props.onAddManually)}
         {action("Go to reference", props.onJumpToEntry)}
-        <a className="pdf-reader-ref-action" href={outside.href} target="_blank" rel="noopener noreferrer">{outside.label}</a>
+        <Button variant="link" size="sm" href={outside.href} target="_blank" rel="noopener noreferrer">{outside.label}</Button>
       </div>
     </section>
   );

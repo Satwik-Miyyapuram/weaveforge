@@ -43,7 +43,7 @@ export function CardPickerSheet({
 function PickerRow({ def, onPick }: { def: CardDef; onPick: () => void }) {
   return (
     <li>
-      <RowButton className="dashboard-picker-btn" onClick={onPick}>
+      <RowButton onClick={onPick}>
         {def.label}
       </RowButton>
     </li>

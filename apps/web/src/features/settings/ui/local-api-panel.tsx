@@ -43,7 +43,7 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
   return (
     <div
       id={sdk ? "settings-tokens" : "settings-ai"}
-      className="card add-form settings-anchor"
+      className="add-form settings-anchor"
       role="tabpanel"
       aria-labelledby={sdk ? "settings-tab-tokens" : "settings-tab-ai"}
     >
@@ -72,7 +72,7 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
           checked={state.enabled}
           label={sdk ? "Let programs on this computer connect" : "Serve MCP"}
           disabled={busy}
-          onClick={() => void setEnabled(!state.enabled)}
+          onChange={(on) => void setEnabled(on)}
         />
       </div>
       {!sdk && state.mcp && <McpClients state={state} onChange={setState} />}

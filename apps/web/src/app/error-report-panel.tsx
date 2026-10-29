@@ -8,7 +8,6 @@ import { recentLogs } from "@/lib/error-report/log-buffer";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { redactAndCap } from "@/lib/error-report/redact";
 import { Button } from "@/components/button";
-import { RowButton } from "@/components/controls";
 
 /** Where the error was shown, read off the page when "Report" was pressed. */
 export interface ReportContext {
@@ -208,9 +207,9 @@ export function ErrorReportPanel({
       <section className="report-attached" aria-label="Attached automatically">
         <div className="report-attached-head">
           <span>Attached automatically</span>
-          <RowButton className="error-report-link" onClick={() => setShowAttached((v) => !v)}>
+          <Button variant="link" onClick={() => setShowAttached((v) => !v)}>
             {showAttached ? "Hide full text" : "Show full text"}
-          </RowButton>
+          </Button>
         </div>
         <dl>
           {attached

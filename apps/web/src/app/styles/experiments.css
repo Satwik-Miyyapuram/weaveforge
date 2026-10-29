@@ -70,7 +70,6 @@
 .exp-detail { display: block; }
 .exp-detail .git-chips,
 .exp-detail .metric-chips { gap: 8px 12px; }
-.exp-detail .git-chip,
 .exp-detail .metric-chip { padding: 4px 12px; border-radius: var(--r-control); }
 .exp-run-cmd {
   margin: 0; padding: 12px 16px; border-radius: var(--r-control);
@@ -87,17 +86,12 @@
 /* One row, measured: names drop to swatches when the row overflows. */
 .metric-chart-legend { display: flex; flex-wrap: nowrap; overflow: hidden; gap: 8px; }
 .metric-chart-legend[data-names="false"] { flex-wrap: wrap; gap: 4px; }
-.metric-chart-run {
-  display: inline-flex; flex: none; align-items: center; gap: 8px;
-  font: inherit; font-size: var(--fs-xs); color: var(--ink);
-  padding: 4px 8px; border: 1px solid var(--line); border-radius: var(--r-pill);
-  background: transparent; cursor: pointer;
-}
-.metric-chart-run[aria-pressed="false"] { opacity: 0.4; text-decoration: line-through; }
+.metric-chart-legend > .wf-chip { flex: none; }
+.metric-chart-legend > .wf-chip[aria-pressed="false"] { text-decoration: line-through; }
 .metric-chart-swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
 .metric-chart-plot-wrap { position: relative; min-width: 0; overflow: hidden; }
 .metric-chart-run-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.metric-chart-legend[data-names="false"] .metric-chart-run { padding: 4px; }
+
 @container (max-width: 360px) {
   .metric-chart .entity-card-title { overflow-wrap: anywhere; }
 }
@@ -149,12 +143,7 @@
   max-width: 100%; max-height: 100%; object-fit: contain;
   transform-origin: center; background: var(--white);
 }
-.image-viewer-nav {
-  position: absolute; top: 50%; transform: translateY(-50%);
-  width: 44px; height: 64px; border: 0; border-radius: var(--r-control);
-  background: color-mix(in srgb, var(--white) 10%, transparent); color: var(--white); font-size: 2rem; cursor: pointer;
-}
-.image-viewer-nav:hover { background: color-mix(in srgb, var(--white) 22%, transparent); }
+.image-viewer-nav { position: absolute; top: 50%; transform: translateY(-50%); }
 .image-viewer-nav.prev { left: 12px; }
 .image-viewer-nav.next { right: 12px; }
 @media (max-width: 640px) {
@@ -166,7 +155,6 @@
 .exp-detail .record-abstract { white-space: pre-wrap; }
 
 .metric-grid { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.metric-grid-zoom { align-self: flex-end; align-items: center; }
-.metric-grid-zoom button:disabled { opacity: 0.4; cursor: default; }
+.metric-grid-zoom { display: inline-flex; align-self: flex-end; align-items: center; gap: 4px; }
 .metric-grid-zoom input[type="range"] { width: 140px; margin: 0 8px; accent-color: var(--accent); }
 .metric-grid-count { padding: 0 8px; font-variant-numeric: tabular-nums; }

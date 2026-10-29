@@ -14,7 +14,6 @@ export function SegmentedControl<V extends string>({
   value,
   onChange,
   options,
-  size = "default",
   className,
 }: {
   label: string;
@@ -23,10 +22,9 @@ export function SegmentedControl<V extends string>({
   onChange: (next: V) => void;
   /** `ariaLabel` names an option whose label is only an icon. */
   options: readonly { value: V; label: ReactNode; title?: string; ariaLabel?: string }[];
-  size?: "default" | "sm";
   className?: string;
 }) {
-  const cls = ["seg", size === "sm" ? "seg--sm" : "", className ?? ""].filter(Boolean).join(" ");
+  const cls = className ? `wf-seg ${className}` : "wf-seg";
   return (
     <div className={cls} role="group" aria-label={label}>
       {options.map((o) => (
@@ -34,7 +32,6 @@ export function SegmentedControl<V extends string>({
           key={o.value}
           pressed={value === o.value}
           aria-label={o.ariaLabel}
-          className={value === o.value ? "seg-on" : undefined}
           title={o.title}
           onClick={() => onChange(o.value)}
         >

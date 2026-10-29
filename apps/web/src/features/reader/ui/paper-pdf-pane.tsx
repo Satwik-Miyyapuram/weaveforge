@@ -540,9 +540,8 @@ export function PaperPdfPane({
           </div>
           {pdfDownloadNeedsConsent() && (
             <label className="field-inline">
-              <input
+              <input className="wf-check"
                 type="checkbox"
-                className="themed-check"
                 checked={rememberChoice}
                 onChange={(event) => setRememberChoice(event.target.checked)}
               />

@@ -36,7 +36,7 @@ test("recent and palette swatches pick a colour and close the menu (12-12)", () 
       r!.root.findAll((n: ReactTestInstance) => n.type === "button" && String(n.props["aria-label"]).startsWith("Colour "));
     act(() => { r!.root.findByProps({ "aria-label": "Ink colour" }).props.onClick({ detail: 1 }); });
 
-    assert.deepEqual(swatches().map((b) => b.props.title), ["#123456", "#aa0000", "#00aa00"]);
+    assert.deepEqual(swatches().map((b) => b.props.title), ["Colour #123456", "Colour #aa0000", "Colour #00aa00"]);
     assert.deepEqual(swatches().map((b) => b.props["aria-pressed"]), [false, true, false]);
     assert.equal(swatches()[0]!.props.style.background, "#123456");
 

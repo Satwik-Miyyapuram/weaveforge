@@ -268,7 +268,6 @@ export function DesktopTitleBar() {
             <MenuItemButton
               aria-haspopup="menu"
               aria-expanded={open === index}
-              className={`title-bar-button${open === index ? " open" : ""}`}
               onClick={() => {
                 setActive(-1);
                 setOpen((at) => (at === index ? null : index));
@@ -293,7 +292,7 @@ export function DesktopTitleBar() {
                         <MenuItemButton kind={item.kind === "check" ? "checkbox" : "item"} checked={item.checked === true}
                           disabled={!item.enabled}
                           aria-current={item.route && isHere(pathname, item.route) ? "page" : undefined}
-                          className={`card-menu-item title-bar-item${at === active ? " active" : ""}`}
+                          data-highlighted={at === active || undefined}
                           onPointerEnter={() => setActive(at)}
                           onClick={() => run(item)}
                         >

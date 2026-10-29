@@ -24,5 +24,5 @@ test("the sync panel dates its last check without seconds", () => {
 });
 
 test("a settings block's button is as wide as its label", () => {
-  assert.match(css, /\.settings-block > \.btn-secondary, \.settings-block > \.btn-primary \{ align-self: flex-start; \}/);
+  assert.match(css, /\.settings-block > \.wf-btn \{ align-self: flex-start; \}/);
 });

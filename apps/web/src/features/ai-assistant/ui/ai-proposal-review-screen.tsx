@@ -291,7 +291,7 @@ export function AiProposalReviewScreen() {
               })}
             </p>
           )}
-          <div className="ai-review-actions"><Button variant="ghost" className="btn-cancel" disabled={busy !== null} onClick={() => void run(item.id, "reject")}>Reject</Button><Button variant="primary" disabled={busy !== null} onClick={() => void run(item.id, "approve")}>{busy === item.id ? "Applying…" : approveLabel(item)}</Button></div>
+          <div className="ai-review-actions"><Button variant="cancel" disabled={busy !== null} onClick={() => void run(item.id, "reject")}>Reject</Button><Button variant="primary" disabled={busy !== null} onClick={() => void run(item.id, "approve")}>{busy === item.id ? "Applying…" : approveLabel(item)}</Button></div>
         </EntityCard>;
       })}</div>
     </>}

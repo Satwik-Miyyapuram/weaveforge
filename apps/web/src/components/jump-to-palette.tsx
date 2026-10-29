@@ -24,13 +24,13 @@ import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
 import { createNoteFromQuery } from "@/lib/create-note-from-query";
 import { FormError } from "@/components/form-error";
 import { JumpToCreateRow } from "@/components/jump-to-create-row";
-import { CloseIcon } from "@/components/view-icons";
 import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
 import { useTheme } from "@/lib/hooks/use-theme";
 import { isMacPlatform } from "@/lib/shortcut-label";
 import { groupPaletteRows, matchingPages, paletteKeys, type PaletteGroup } from "@/lib/palette-groups";
 import { showNewProject, useProject } from "@/features/projects";
-import { RowButton } from "./controls";
+import { Chip, RowButton } from "./controls";
+import { CloseButton } from "./button";
 
 /** Kinds recorded as recent targets when opened. */
 const RECENT_KINDS = ["paper", "note", "section"] as const satisfies readonly RecentTargetKind[];
@@ -413,18 +413,14 @@ export function JumpToPalette() {
         <ul className="jump-to-history" aria-label="Recent searches">
           {history.slice(0, 6).map((entry) => (
             <li key={entry}>
-              <RowButton className="jump-to-chip" onClick={() => setQuery(entry)}>
-                {entry}
-              </RowButton>
+              <Chip onClick={() => setQuery(entry)}>{entry}</Chip>
               {/* A search you regret is a search you should be able to drop,
                   without clearing the five useful ones next to it. */}
-              <RowButton
-                className="jump-to-chip-remove"
-                aria-label={`Remove “${entry}” from recent searches`}
+              <CloseButton
+                size="sm"
+                label={`Remove “${entry}” from recent searches`}
                 onClick={() => saveHistory(forgetSearchQuery(history, entry))}
-              >
-                <CloseIcon />
-              </RowButton>
+              />
             </li>
           ))}
         </ul>

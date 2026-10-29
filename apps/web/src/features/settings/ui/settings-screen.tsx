@@ -353,8 +353,7 @@ export function SettingsScreen() {
           return (
             <div key={g.id} className={`settings-rail-group${open ? " is-open" : ""}`}>
               <RowButton
-                className="settings-rail-head"
-                aria-current={open ? "true" : undefined}
+                current={open}
                 onClick={() => { if (!open) selectTab(g.tabs[0]!); }}
               >
                 <span className="settings-rail-icon" aria-hidden>
@@ -379,7 +378,6 @@ export function SettingsScreen() {
                       key={id}
                       id={`settings-tab-${id}`}
                       aria-controls={`settings-${id}`}
-                      className={tab === id ? "is-active" : ""}
                       onClick={() => selectTab(id)}
                     >
                       {labelOf.get(id)}
@@ -433,17 +431,19 @@ export function SettingsScreen() {
           served by routes a static export does not contain. See
           `deployment/capabilities.ts` and `ai-access-panel.tsx`. */}
       {((tab === "ai" && hasServerRoutes()) || tab === "integrations") && !loading && !loaded && (
-        <div className="card add-form" role="tabpanel"><FormError>{error ?? "Settings did not load."}</FormError><Button onClick={() => void load()}>Retry</Button></div>
+        <div className="add-form" role="tabpanel"><FormError>{error ?? "Settings did not load."}</FormError><Button onClick={() => void load()}>Retry</Button></div>
       )}
       {tab === "ai" && !loading && loaded && hasServerRoutes() && (
-        <div id="settings-ai" className="card add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-ai">
+        <div id="settings-ai" className="add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-ai">
           <h3 className="settings-group">AI & MCP</h3>
           <p className="muted">Control what an AI client such as Codex may read or propose. Access is off by default.</p>
-          <RowButton className="integration-item ai-access-launcher" onClick={() => setAiAccessOpen(true)}>
-            <span className="integration-logo ai-access-launcher-icon">✦</span>
-            <div className="integration-main"><strong>AI assistant access</strong><span className="muted">Sources, proposals, active sessions, and revocation.</span></div>
-            <span className={`status ${settings.aiAccess?.enabled ? "status-done" : "status-not_started"}`}>{settings.aiAccess?.enabled ? "Enabled" : "Disabled"}</span>
-          </RowButton>
+          <div className="integration-item">
+            <RowButton onClick={() => setAiAccessOpen(true)}>
+              <span className="integration-logo ai-access-launcher-icon">✦</span>
+              <span className="integration-main"><strong>AI assistant access</strong><span className="muted">Sources, proposals, active sessions, and revocation.</span></span>
+              <span className={`status ${settings.aiAccess?.enabled ? "status-done" : "status-not_started"}`}>{settings.aiAccess?.enabled ? "Enabled" : "Disabled"}</span>
+            </RowButton>
+          </div>
         </div>
       )}
       {/* Desktop: MCP is served by the shell on loopback instead. */}
@@ -460,7 +460,7 @@ export function SettingsScreen() {
       {tab === "integrations" && !loading && loaded && (
         <>
           {userIntegrations.length > 0 ? (
-            <div id="settings-integrations" className="card add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-integrations">
+            <div id="settings-integrations" className="add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-integrations">
               <h3 className="settings-group">Integrations</h3>
               <p className="muted">Metadata sources for your library. Tap one to configure it.</p>
               {isOfflineBuild() ? (
@@ -482,18 +482,16 @@ export function SettingsScreen() {
                     d.fields.map((f) => f.id),
                   );
                   return (
-                    <RowButton
-                      key={d.providerId}
-                      className="integration-item"
-                      onClick={() => setActiveProvider(d)}
-                    >
-                      <span className="integration-logo" style={{ background: d.color }} />
-                      <div className="integration-main">
-                        <strong>{d.title}</strong>
-                        <span className="muted">{d.description}</span>
-                      </div>
-                      <ConnectionState connected={connected} />
-                    </RowButton>
+                    <div key={d.providerId} className="integration-item">
+                      <RowButton onClick={() => setActiveProvider(d)}>
+                        <span className="integration-logo" style={{ background: d.color }} />
+                        <span className="integration-main">
+                          <strong>{d.title}</strong>
+                          <span className="muted">{d.description}</span>
+                        </span>
+                        <ConnectionState connected={connected} />
+                      </RowButton>
+                    </div>
                   );
                 })}
               </div>
@@ -570,7 +568,7 @@ export function SettingsScreen() {
           <form className="add-form ai-access-modal" onSubmit={(event) => { void submit(event).then((ok) => { if (ok) setAiAccessOpen(false); }); }}>
             <AiAccessPanel settings={settings} onChange={setSettings} onManageTokens={() => void openTokensFromAiAccess()} />
             {error && <FormError>{error}</FormError>}
-            <ModalActions><Button className="btn-cancel" onClick={() => setAiAccessOpen(false)}>Cancel</Button><Button type="submit" variant="primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</Button></ModalActions>
+            <ModalActions><Button variant="cancel" onClick={() => setAiAccessOpen(false)}>Cancel</Button><Button type="submit" variant="primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</Button></ModalActions>
           </form>
         </Modal>
       )}

@@ -53,7 +53,7 @@ export function MattermostSignInControls({
       <div className="integration-enable">
         <span>Sign in with Mattermost instead of a bot token</span>
         <Switch checked={signIn} label="Sign in with Mattermost instead of a bot token"
-          onClick={() => onChooseSignIn(!signIn)} />
+          onChange={onChooseSignIn} />
       </div>
       {signIn && (
         <>

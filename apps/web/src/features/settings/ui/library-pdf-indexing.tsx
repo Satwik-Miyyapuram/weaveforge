@@ -116,9 +116,8 @@ export function LibraryPdfIndexing() {
           the background for a while on a large library.
         </p>
         <label className="field-inline">
-          <input
+          <input className="wf-check"
             type="checkbox"
-            className="themed-check"
             checked={auto}
             onChange={(e) => {
               setAuto(e.target.checked);

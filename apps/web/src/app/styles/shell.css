@@ -101,11 +101,7 @@
    that anchor the left both render nothing when no project is selected, and
    space-between then drops this — the row's only child — at the start. */
 .brand-right { display: flex; flex: none; align-items: center; gap: 8px; margin-left: auto; }
-.mobile-only .header-link span,
-.mobile-only .signout span,
 .mobile-only .theme-toggle span { display: none; }
-.mobile-only .header-link,
-.mobile-only .signout,
 .mobile-only .theme-toggle {
   gap: 0; padding: 0;
   min-width: var(--touch-min); min-height: var(--touch-min);       /* WCAG touch target */
@@ -125,11 +121,11 @@
 .brand.mobile-only .proj-switcher .popover {
   max-width: 100%;
 }
-.brand.mobile-only .proj-chip {
+:root:root .brand.mobile-only .proj-switcher .wf-btn {
   max-width: 100%;
   min-width: 0;
 }
-.brand.mobile-only .proj-chip > span:nth-child(2) {
+.brand.mobile-only .proj-switcher .wf-btn > span:nth-child(2) {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -162,12 +158,7 @@
 .app-brand .app-name { font-size: var(--fs-lg); margin: 0; letter-spacing: -0.01em; font-weight: 600; }
 /* Project switcher + projects screen */
 .proj-switcher { position: relative; margin-left: 12px; }
-.proj-chip {
-  display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font: inherit;
-  font-size: var(--fs-sm); font-weight: 500; color: var(--ink);
-  background: var(--pill); border: 1px solid var(--line); padding: 4px 12px; border-radius: var(--r-pill);
-}
-.proj-chip .chev { opacity: 0.5; display: flex; align-items: center; }
+
 .proj-menu {
   /* Matches .header-menu, its sibling in the same row. At 20 it tied with the
      sticky .sub-nav and lost on DOM order, so the tabs painted through it. */
@@ -175,17 +166,10 @@
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
   box-shadow: var(--shadow); padding: 8px; display: grid; gap: 2px;
 }
-.proj-menu-item {
-  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
-  cursor: pointer; font: inherit; font-size: var(--fs); color: var(--ink);
-  background: none; border: none; padding: 8px 12px; border-radius: var(--r-control);
-}
-.proj-menu-item:hover { background: var(--status-neutral); }
-.proj-menu-item.sel { color: var(--accent-ink); }
-.proj-menu-item .check { margin-left: auto; color: var(--accent-ink); }
+
 .proj-menu-sep { height: 1px; background: var(--line); margin: 4px 0; }
 .org-switcher { margin-bottom: 8px; }
-.org-switcher .proj-chip { width: 100%; justify-content: flex-start; }
+:root:root .org-switcher .wf-btn { width: 100%; justify-content: flex-start; }
 .org-dot {
   width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
   background: linear-gradient(135deg, var(--clay), var(--accent));
@@ -196,17 +180,9 @@
 .vault-pinned-label { margin: 16px 0 12px; font-size: var(--fs-xs); }
 .project-dot { width: 11px; height: 11px; border-radius: var(--r-pill); flex: none; display: inline-block; }
 .project-list { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 12px; }
-/* A project row is a `<button>` inside its `<li>`. Reset the UA button chrome
-   so it sits exactly as the old clickable list item did, and keep the card
-   surface (`.card`) underneath. It is a full-width row rather than a shrink-to
-   -fit button, because the row is the target. */
-.project-card {
-  display: flex; align-items: center; gap: 12px; cursor: pointer;
-  width: 100%; text-align: start; font: inherit; color: var(--ink);
-}
+/* A project row is a wf-row button beside its menu: the row is the target. */
 .project-row { display: flex; align-items: center; gap: 8px; }
-.project-row > .project-card { flex: 1; min-width: 0; }
-.project-card:hover { border-color: var(--accent); }
+.project-row > .wf-row { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; text-align: start; }
 .project-name { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em; }
 
 .header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
@@ -214,17 +190,14 @@
 /* The account button: a secondary button, so it rests, lifts and presses like
    the project chip beside it. Only its size is its own. */
 .header-overflow { position: relative; display: inline-flex; }
-.account-btn {
-  /* The shared touch target, not a number: 40px was under `--touch-min` (44px),
-     so the one control that opens the whole account menu was the smallest thing
-     in the bar on a phone. */
-  width: var(--touch-min); height: var(--touch-min);
-  font-size: calc(var(--icon-size) + 4px); line-height: 1;
-  position: relative;
-}
-/* What needs the person (sync conflicts, AI suggestions) as one count on the
-   icon's corner, like a notification; nothing shows when nothing waits. */
-.account-btn .popover-badge {
+/* What needs the person (sync conflicts, AI suggestions) as one count on an
+   icon trigger's corner, like a notification; nothing shows when nothing waits.
+   `.popover` is the positioned box and holds only the trigger. */
+/* A trigger without a caret is only an icon (the account button): it keeps the
+   icon's size, and its count sits on the corner like an icon button's. */
+.popover > .wf-btn:not(.wf-icon, :has(.popover-caret)) { padding-inline: 0; aspect-ratio: 1; }
+.popover > .wf-btn:not(.wf-icon, :has(.popover-caret)) > svg { width: 18px; height: 18px; flex: none; }
+.popover > .wf-btn:not(:has(.popover-caret)) > .popover-badge {
   position: absolute; top: -6px; right: -6px;
   min-width: 18px; height: 18px; line-height: 18px; pointer-events: none;
   box-shadow: 0 0 0 2px var(--nav-bg, var(--surface));
@@ -234,32 +207,12 @@
   background: var(--elev); border: 1px solid var(--border); border-radius: var(--r-card);
   box-shadow: var(--e3); padding: 8px; display: grid; gap: 2px;
 }
-.header-menu .header-link,
-.header-menu .signout {
-  width: 100%; justify-content: flex-start; gap: 12px;
-  padding: 8px 12px; border-radius: var(--r-control); font-size: var(--fs); color: var(--text);
-}
-.header-menu .header-link svg,
-.header-menu .signout svg { color: var(--muted); }
-.header-menu .header-link:hover,
-.header-menu .signout:hover { background: var(--surface2); color: var(--text); }
+
 /* Show labels inside the menu even though the compact bar hides header labels. */
-.header-menu .header-link span,
-.header-menu .signout span { display: inline; }
-.header-menu .header-link,
-.header-menu .signout { min-width: 0; min-height: 0; }
-.header-link {
-  display: inline-flex; align-items: center; gap: 8px;
-  text-decoration: none; color: var(--muted); font-size: var(--fs-xs); font-weight: 500;
-  padding: 4px 12px; border-radius: var(--r-pill); transition: color var(--dur-base), background var(--dur-base);
-  /* Reset UA button chrome (theme-toggle uses this class on a <button>). */
-  background: none; border: none; cursor: pointer; font-family: inherit;
-}
+
 /* Tracks the density setting like every other glyph. These were pinned at
    15px, so the top bar — the most permanently visible chrome in the app —
    looked identical at all three control sizes. */
-.header-link svg, .signout svg { width: var(--icon-size); height: var(--icon-size); flex: none; }
-.header-link:hover { color: var(--accent-ink); background: var(--hover); }
 
 /*
  * Full-bleed chrome on `/workspace`.

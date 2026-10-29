@@ -133,3 +133,13 @@ test("the duplicate-title check reads no page list (05-02)", async () => {
   await uc.add({ title: "alpha" });
   assert.equal(listed, 0);
 });
+
+test("add: a folder is saved as one, so an empty folder is still a folder", async () => {
+  const { uc, repo } = makeUseCase();
+  const folder = await uc.add({ title: "Methods", folder: true });
+  const note = await uc.add({ title: "Sampling", parentId: folder.id });
+  assert.equal((await repo.getById(folder.id))!.folder, true);
+  assert.equal((await repo.getById(note.id))!.folder, undefined);
+  assert.equal((await uc.update(folder.id, { title: "Method" })).folder, true, "an edit keeps it");
+  assert.equal((await repo.listSummaries()).find((p) => p.id === folder.id)!.folder, true);
+});

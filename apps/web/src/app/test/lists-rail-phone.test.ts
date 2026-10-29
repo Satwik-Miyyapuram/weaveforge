@@ -13,6 +13,6 @@ const css = readFileSync(fileURLToPath(new URL("../styles/lists.css", import.met
 const phone = css.slice(css.indexOf("@media (max-width: 900px) {\n  .lists-two-pane"));
 
 test("a phone list pill fits the row and wraps a long name", () => {
-  assert.match(phone, /\.lists-rail-item \{[^}]*max-width:\s*100%/);
+  assert.match(phone, /\.lists-rail > \.wf-row \{[^}]*max-width:\s*100%/);
   assert.match(phone, /\.lists-rail-name \{[^}]*white-space:\s*normal[^}]*overflow-wrap:\s*anywhere/);
 });

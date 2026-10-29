@@ -18,7 +18,6 @@ import { grownTextRect } from "../application/draft-local-annotation";
 import { projectPageAnnotationGeometry } from "../application/project-annotation-geometry";
 import { pagePictures } from "../application/reader-picture";
 import type { PictureEdit } from "./pdf-reader/use-pdf-pictures";
-import { RowButton } from "@/components/controls";
 
 interface AnnotationOverlayProps {
   annotations: ReaderAnnotation[];
@@ -197,7 +196,10 @@ function AnnotationOverlayInner({
       />
       {boxes.map((box, i) =>
         (box.picture && upright) || (textEdit && box.id === textEdit.id) ? null : box.picture ? (
-          <RowButton
+          // Painted marks, not buttons: the layer is aria-hidden and the
+          // annotation list is the keyboard way to the same marks.
+          <span
+            role="presentation"
             key={`${box.id}-${i}`}
             className={`pdf-reader-picture${selectedId === box.id ? " is-selected" : ""}`}
             data-ann-id={box.id}
@@ -205,9 +207,10 @@ function AnnotationOverlayInner({
             onClick={onSelect ? () => onSelect(box.id) : undefined}
           >
             {pictureUrls.get(box.picture) ? <img src={pictureUrls.get(box.picture)} alt="" /> : null}
-          </RowButton>
+          </span>
         ) : (
-          <RowButton
+          <span
+            role="presentation"
             key={`${box.id}-${i}`}
             className={`pdf-reader-ann${selectedId === box.id ? " is-selected" : ""}${
               box.underline ? " is-underline" : ""
@@ -240,7 +243,7 @@ function AnnotationOverlayInner({
             }}
           >
             {box.text}
-          </RowButton>
+          </span>
         ),
       )}
     </div>

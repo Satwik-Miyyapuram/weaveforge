@@ -31,3 +31,11 @@ test("a chosen chip shows more than an outline", () => {
   assert.ok(at >= 0);
   assert.match(css.slice(at, css.indexOf("}", at)), /background:\s*var\(--accent-soft\)/);
 });
+
+test("a chip's hidden radio takes no room, so the swatch sits at the chip's edge", () => {
+  // `:root:root .wf-radio` (0,3,0) made the radio relative again, leaving an
+  // empty 18px slot plus a gap before the swatch; this rule must outrank it.
+  const css = readFileSync(fileURLToPath(new URL("../../../app/styles/appearance.css", import.meta.url)), "utf8");
+  const rule = css.match(/:root:root \.theme-chip > \.wf-radio \{([^}]*)\}/)?.[1] ?? "";
+  assert.match(rule, /position:\s*absolute/);
+});

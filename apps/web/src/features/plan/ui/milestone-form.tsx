@@ -237,9 +237,9 @@ export function MilestoneForm({
                 ))}
               </Select>
             )}
-            <Button
+            <Button variant="danger"
              
-              size="sm" className="danger"
+              size="sm"
               onClick={() => setDeps((prev) => prev.filter((_, k) => k !== i))}
               aria-label="Remove dependency"
             >
@@ -247,11 +247,11 @@ export function MilestoneForm({
             </Button>
           </div>
         ))}
-        <Button variant="link" className="builder-add"
-          onClick={() => setDeps((prev) => [...prev, { kind: "external", refId: "", label: "" }])}
-        >
-          + Add dependency
-        </Button>
+        <span className="builder-add">
+          <Button variant="link" onClick={() => setDeps((prev) => [...prev, { kind: "external", refId: "", label: "" }])}>
+            + Add dependency
+          </Button>
+        </span>
       </div>
 
       <div className="field">
@@ -286,9 +286,9 @@ export function MilestoneForm({
               placeholder="notes"
               aria-label="Notes"
             />
-            <Button
+            <Button variant="danger"
              
-              size="sm" className="danger"
+              size="sm"
               onClick={() => setCompute((prev) => prev.filter((_, k) => k !== i))}
               aria-label="Remove compute need"
             >
@@ -296,19 +296,17 @@ export function MilestoneForm({
             </Button>
           </div>
         ))}
-        <Button variant="link" className="builder-add"
-          onClick={() =>
-            setCompute((prev) => [...prev, { resource: "", count: "", hours: "", notes: "" }])
-          }
-        >
-          + Add compute
-        </Button>
+        <span className="builder-add">
+          <Button variant="link" onClick={() => setCompute((prev) => [...prev, { resource: "", count: "", hours: "", notes: "" }])}>
+            + Add compute
+          </Button>
+        </span>
       </div>
 
       {error && <FormError>{error}</FormError>}
       <div className={onCancel ? "card-foot edit-actions" : "card-foot form-foot"}>
         {onCancel && (
-          <Button variant="ghost" className="btn-cancel" onClick={onCancel} disabled={busy}>
+          <Button variant="cancel" onClick={onCancel} disabled={busy}>
             Cancel
           </Button>
         )}

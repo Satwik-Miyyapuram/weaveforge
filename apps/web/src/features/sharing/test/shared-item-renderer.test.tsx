@@ -49,7 +49,7 @@ for (const [name, item] of Object.entries(ITEMS)) {
   test(`${name} share card keeps the shared shell (33-21)`, () => {
     const html = render(item);
     assert.match(html, /^<li class="card exp-item shared-item">/);
-    assert.match(html, /<div class="card-head"><h3 class="card-title">[^<]+<\/h3><span class="tag-chip shared-by-chip">Shared by Ada<\/span><\/div>/);
+    assert.match(html, /<div class="card-head"><h3 class="card-title">[^<]+<\/h3><span class="shared-by-chip"><span class="wf-chip">Shared by Ada<\/span><\/span><\/div>/);
     assert.match(html, /<span class="shared-access">Can comment<\/span>/);
     assert.match(html, /<div class="card-foot shared-item-foot">.*aria-label="Open".*<\/div><\/li>$/);
   });

@@ -110,7 +110,7 @@ export function CalendarFeedPanel() {
   }
 
   return (
-    <div id="settings-calendar" className="card add-form settings-anchor calendar-feed" role="tabpanel" aria-labelledby="settings-tab-calendar">
+    <div id="settings-calendar" className="add-form settings-anchor calendar-feed" role="tabpanel" aria-labelledby="settings-tab-calendar">
       <h3 className="settings-group">Deadlines in your calendar</h3>
       <p className="muted api-token-intro">
         One private link puts every dated milestone in Google Calendar, Outlook or Apple Calendar as an
@@ -131,7 +131,7 @@ export function CalendarFeedPanel() {
           </Select>
         </div>
         <label className="calendar-feed-check">
-          <input type="checkbox" className="themed-check" checked={includeDone} onChange={(e) => setIncludeDone(e.target.checked)} />
+          <input className="wf-check" type="checkbox" checked={includeDone} onChange={(e) => setIncludeDone(e.target.checked)} />
           Include finished milestones
         </label>
       </div>
@@ -185,7 +185,7 @@ export function CalendarFeedPanel() {
             {busy ? "Working…" : link ? "Make a new link" : "Make a link"}
           </Button>
           {link ? (
-            <Button variant="link" className="danger" disabled={busy} onClick={() => setConfirming("off")}>
+            <Button variant="cancel" disabled={busy} onClick={() => setConfirming("off")}>
               Turn off
             </Button>
           ) : null}

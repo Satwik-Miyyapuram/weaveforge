@@ -75,15 +75,15 @@ export function DeleteAccountPanel() {
   }
 
   return (
-    <div className="card add-form delete-account-panel">
+    <div className="add-form delete-account-panel">
       <h3 className="settings-group">Delete account</h3>
       <p className="muted">
         Permanently delete your account and all associated data (papers, experiments, images,
         settings). We email a one-time code to confirm it is you. This cannot be undone.
       </p>
-      <Button
+      <Button variant="danger"
        
-        size="sm" className="danger"
+        size="sm"
         onClick={() => {
           resetModal();
           setOpen(true);

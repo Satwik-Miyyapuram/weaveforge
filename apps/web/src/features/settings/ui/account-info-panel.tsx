@@ -111,7 +111,7 @@ export function AccountInfoPanel() {
   ];
 
   return (
-    <div id="settings-account" className="card add-form account-info-panel settings-anchor" style={{ marginBottom: "24px" }}>
+    <div id="settings-account" className="add-form account-info-panel settings-anchor" style={{ marginBottom: "24px" }}>
       <h3 className="settings-group">Account</h3>
       <p className="muted" style={{ margin: "4px 0 0" }}>
         {user.providers.includes("local")
@@ -127,9 +127,11 @@ export function AccountInfoPanel() {
             <dd>
               {value}
               {copy && (
-                <Button size="sm" className="account-id-copy" aria-label="Copy Account ID" onClick={copy}>
-                  {idCopied ? "Copied" : "Copy"}
-                </Button>
+                <span className="account-id-copy">
+                  <Button size="sm" aria-label="Copy Account ID" onClick={copy}>
+                    {idCopied ? "Copied" : "Copy"}
+                  </Button>
+                </span>
               )}
             </dd>
           </div>
@@ -158,7 +160,7 @@ export function AccountInfoPanel() {
             {passwordSuccess && <p className="success">Your login password was changed.</p>}
             <div className="button-row">
               <Button type="submit" variant="primary" disabled={passwordBusy}>{passwordBusy ? "Saving…" : "Change password"}</Button>
-              <Button className="btn-cancel" onClick={() => setPasswordOpen(false)} disabled={passwordBusy}>Cancel</Button>
+              <Button variant="cancel" onClick={() => setPasswordOpen(false)} disabled={passwordBusy}>Cancel</Button>
             </div>
           </form>
         </Modal>

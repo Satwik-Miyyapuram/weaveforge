@@ -21,9 +21,7 @@
 
 /* "AI settings" is a two-word control, not a paragraph — it wrapped mid-label
    at narrow widths and read as a broken box next to the heading. */
-.ai-review-screen .screen-header .btn-secondary {
-  white-space: nowrap; align-self: start; text-decoration: none;
-}
+.ai-review-screen .screen-header .wf-btn { align-self: start; }
 
 /* Sources read as named chips, not a comma-run of ids. */
 .ai-review-sources { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 0; }

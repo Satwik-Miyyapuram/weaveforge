@@ -38,7 +38,6 @@ export function ReferencePopoverHost({ refs, onOpenInReader }: ReferencePopoverH
           {cited.map((e) => (
             <TabButton selected={e.index === entry.index}
               key={e.index}
-              className={`pdf-reader-ref-action${e.index === entry.index ? " is-active" : ""}`}
               onClick={() => { setChosen(e.index); ensureResolved(e); }}
             >
               {e.label ?? `[${e.index}]`}

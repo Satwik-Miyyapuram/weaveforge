@@ -53,7 +53,6 @@
 }
 .extraction-table .paper-field-multi { max-width: 280px; }
 .extraction-th { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; }
-.extraction-propose-btn { font-size: var(--fs-xs); }
 .extraction-propose-panel {
   margin-top: 8px;
   padding: 8px 12px;
@@ -144,56 +143,27 @@
 .list-item-kind--note { color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 12%, var(--chip)); }
 /* Move up, move down, remove: hidden until the row is hovered or focused. */
 .list-item-actions { margin-left: auto; display: flex; gap: 2px; flex: none; }
-.list-item-remove,
-.list-item-move {
-  color: var(--muted);
-  opacity: 0;
-  transition: opacity var(--dur-base), color var(--dur-base), background var(--dur-base), border-color var(--dur-base);
-}
-.list-item-remove:hover { color: var(--danger); }
-.list-item-move:hover:not(:disabled) { color: var(--text); }
-.list-item-move:disabled { visibility: hidden; }
-.list-paper-row:hover :is(.list-item-remove, .list-item-move),
-.list-paper-row:focus-within :is(.list-item-remove, .list-item-move) { opacity: 1; }
+.list-item-actions > .wf-icon { opacity: 0; }
+.list-item-actions > .wf-icon:disabled { visibility: hidden; }
+.list-paper-row:hover .list-item-actions > .wf-icon,
+.list-paper-row:focus-within .list-item-actions > .wf-icon { opacity: 1; }
 @media (hover: none) {
-  .list-item-remove,
-  .list-item-move { opacity: 1; }
+  .list-item-actions > .wf-icon { opacity: 1; }
 }
 .list-via-badge {
   flex: none; font-size: var(--fs-micro); color: var(--muted);
   padding: 2px 8px; border-radius: var(--r-pill); background: var(--surface2);
   white-space: nowrap;
 }
-.list-papers li > .link-btn { flex: none; }
-.list-add-trigger { margin: 2px 0 4px; font-size: var(--fs-xs); }
+.list-papers li > .wf-link { flex: none; }
+.list-add-trigger { display: flex; margin: 2px 0 4px; }
 .list-add { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; margin: 4px 0; }
 .list-add .custom-select-container { flex: 1 1 180px; min-width: 0; width: auto; }
-.list-add .btn-primary { flex: none; padding: 8px 16px; }
+
 .list-add-error { flex: 1 1 100%; margin: 0; font-size: var(--fs-sm); }
 .list-color-label { font-size: var(--fs-sm); color: var(--muted); }
 .list-color-picks { display: flex; flex-wrap: wrap; gap: 8px; }
-.list-color-pick {
-  width: 26px; height: 26px; border-radius: var(--r-pill); border: 2px solid transparent;
-  cursor: pointer; padding: 0;
-}
-.list-color-pick.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--surface); }
-.list-toggle {
-  position: relative; z-index: 2;
-  flex: none;
-  width: var(--control-sm);
-  height: var(--control-sm);
-  display: inline-flex; align-items: center; justify-content: center;
-  border: 1px solid var(--line); background: var(--surface); cursor: pointer; color: var(--muted);
-  border-radius: var(--control-radius-sm); padding: 0; line-height: 1;
-}
-.list-toggle:hover { color: var(--ink); background: var(--pill); }
-.list-toggle:focus { outline: none; }
-.list-toggle:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
-.link-btn {
-  border: none; background: none; cursor: pointer; font: inherit;
-  font-size: var(--fs-xs); color: var(--muted); padding: 2px 4px;
-}
-.link-btn:hover { color: var(--ink); text-decoration: underline; }
+.list-row > .wf-btn:first-child { position: relative; z-index: 2; flex: none; }
 
 /* Graph */
 .graph-stage { position: relative; margin: 8px 0 12px; }
@@ -226,14 +196,11 @@
   position: sticky; top: 12px; display: grid; gap: 2px; padding: 8px;
   max-height: calc(100vh - 140px); overflow-y: auto;
 }
-.lists-rail-item {
-  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 38px;
-  padding: 8px 12px 8px calc(12px + var(--depth, 0) * 16px);
-  border: 0; border-radius: var(--r-control); background: none; color: var(--text);
-  font: inherit; text-align: left; cursor: pointer;
+/* A rail row is a wf-row; the slot only indents it by depth. */
+.lists-rail > .wf-row {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding-inline-start: calc(12px + var(--depth, 0) * 16px); text-align: start;
 }
-.lists-rail-item:hover { filter: brightness(0.96); background: var(--chip); }
-.lists-rail-item[aria-current="true"] { background: var(--active-bg); color: var(--active-fg); font-weight: 700; }
 .lists-rail-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lists-rail-count { flex: none; font-size: var(--fs-xs); opacity: 0.75; }
 .lists-rail-label {
@@ -241,16 +208,13 @@
   color: var(--muted);
 }
 /* The picked list is always open, so its own collapse chevron has nothing to do. */
-.lists-two-pane .list-tree-root > .list-node > .list-row > .list-toggle { display: none; }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .lists-rail-item[aria-current="true"] {
-  box-shadow: inset 0 0 0 var(--bw, 2px) var(--bw-line, currentColor);
-}
+.lists-two-pane .list-tree-root > .list-node > .list-row > .wf-btn:first-child { display: none; }
 @media (max-width: 900px) {
   .lists-two-pane { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .lists-rail {
     position: static; max-height: none; display: flex; flex-wrap: wrap; gap: 8px;
   }
-  .lists-rail-item { width: auto; max-width: 100%; min-height: 36px; padding: 8px 12px; border-radius: var(--r-pill); background: var(--surface2); }
+  .lists-rail > .wf-row { width: auto; max-width: 100%; padding-inline-start: 12px; }
   /* A long name wraps inside its pill rather than running off the rail. */
   .lists-rail-name { white-space: normal; overflow-wrap: anywhere; }
   .lists-rail-label { flex: 1 1 100%; margin: 8px 4px 0; }

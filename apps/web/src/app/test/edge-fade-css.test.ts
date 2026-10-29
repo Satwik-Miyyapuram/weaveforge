@@ -33,7 +33,7 @@ test("the section sub-nav fades its hidden edges and snaps to tabs", () => {
   assert.match(strip, /mask-image:\s*linear-gradient\(to right/);
   assert.match(strip, /animation-timeline:\s*scroll\(self inline\)/);
   assert.match(strip, /scroll-snap-type:\s*x proximity/);
-  assert.match(css, /\.sub-tab\s*\{[^}]*scroll-snap-align:\s*start/);
+  assert.match(css, /\.sub-nav > \.wf-nav\s*\{[^}]*scroll-snap-align:\s*start/);
 });
 
 test("the phone filter row wraps instead of scrolling, so no filter is cut at the edge", () => {
@@ -46,5 +46,5 @@ test("the phone filter row wraps instead of scrolling, so no filter is cut at th
   // Each starts from its own label's width: an even 88px split cut "Status"
   // on a 320px phone while "Lists" and "Tags" had room to spare.
   assert.match(phone, /\.filter-row \.custom-select-container\.filter-select \{[^}]*flex:\s*1 1 auto[^}]*min-width:\s*0/);
-  assert.match(phone, /\.filter-row \.filter-select \.custom-select-button \{[^}]*min-width:\s*0/);
+  assert.match(phone, /\.filter-row \.filter-select \.wf-select \{[^}]*min-width:\s*0/);
 });

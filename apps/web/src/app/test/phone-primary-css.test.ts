@@ -20,7 +20,7 @@ function phoneBlock(css: string): string {
 test("on a phone the primary action takes a full row right under the search", () => {
   const phone = phoneBlock(read("../styles/dashboard.css"));
   assert.match(phone, /\.screen-actions > \.search-input \{[^}]*flex: 1 1 100%[^}]*order: -2/);
-  assert.match(phone, /\.screen-actions > \.btn-primary \{[^}]*flex: 1 1 100%[^}]*order: -1/);
+  assert.match(phone, /\.screen-actions > \.wf-primary \{[^}]*flex: 1 1 100%[^}]*order: -1/);
 });
 
 test("Plan and Log keep search and add on one row only where there is room", () => {

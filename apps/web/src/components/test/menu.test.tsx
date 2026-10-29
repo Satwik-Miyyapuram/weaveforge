@@ -102,7 +102,7 @@ test("Menu: renders items and handles clicks and callbacks", () => {
   assert.equal(buttons.length, 2, "renders 2 action buttons");
 
   // Share button
-  assert.equal(buttons[0]?.props.className.includes("card-menu-item"), true);
+  assert.equal(buttons[0]?.props.className, "wf-item");
   act(() => {
     buttons[0]?.props.onClick();
   });

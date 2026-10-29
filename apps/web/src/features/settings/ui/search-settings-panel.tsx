@@ -65,7 +65,7 @@ export function SearchSettingsPanel({
   return (
     <div
       id="settings-search"
-      className="card add-form settings-anchor"
+      className="add-form settings-anchor"
       role="tabpanel"
       aria-labelledby="settings-tab-search"
     >
@@ -109,9 +109,8 @@ export function SearchSettingsPanel({
       </div>
 
       <label className="field-inline">
-        <input
+        <input className="wf-check"
           type="checkbox"
-          className="themed-check"
           checked={value?.recencyBoost !== false}
           onChange={(e) => onChange({ ...value, recencyBoost: e.target.checked })}
         />
@@ -119,9 +118,8 @@ export function SearchSettingsPanel({
       </label>
 
       <label className="field-inline">
-        <input
+        <input className="wf-check"
           type="checkbox"
-          className="themed-check"
           checked={value?.ignoreArabicDiacritics === true}
           onChange={(e) => onChange({ ...value, ignoreArabicDiacritics: e.target.checked })}
         />
@@ -189,9 +187,8 @@ function SemanticSearchToggle() {
     <div className="field field-with-steps">
       <div>
         <label className="field-inline">
-          <input
+          <input className="wf-check"
             type="checkbox"
-            className="themed-check"
             checked={on}
             disabled={busy || working}
             onChange={(e) => void toggle(e.target.checked)}

@@ -74,13 +74,13 @@ test("Git with no repository offers one way to settings (DA-56)", () => {
   assert.match(git, /\{integration && \(\s*<Button href="\/settings">/);
 });
 
-test("every settings panel opens on the same card header (DA-53)", () => {
+test("every settings panel opens on the same header (DA-53)", () => {
   const dir = fileURLToPath(new URL("../../features/settings/ui", import.meta.url));
   for (const f of filesUnder(dir)) {
     const s = readFileSync(f, "utf8");
     assert.doesNotMatch(s, /appearance-title|<h2>/, f);
   }
-  assert.match(src("features/settings/ui/appearance-panel.tsx"), /className="card add-form settings-anchor appearance"/);
+  assert.match(src("features/settings/ui/appearance-panel.tsx"), /className="add-form settings-anchor appearance"/);
 });
 
 test("a report section page is as wide as the report list (DA-54)", () => {

@@ -220,9 +220,8 @@ function PaperFieldEditor({
               const checked = multiValue.includes(p.id);
               return (
                 <label key={p.id} className="paper-field-check">
-                  <input
+                  <input className="wf-check"
                     type="checkbox"
-                    className="themed-check"
                     checked={checked}
                     disabled={disabled}
                     onChange={() => {
@@ -241,9 +240,8 @@ function PaperFieldEditor({
               const checked = multiValue.includes(opt);
               return (
                 <label key={opt} className="paper-field-check">
-                  <input
+                  <input className="wf-check"
                     type="checkbox"
-                    className="themed-check"
                     checked={checked}
                     disabled={disabled}
                     onChange={() => {
@@ -340,7 +338,7 @@ function PaperFieldsManager({
                 </Button>
                 <Button
                  
-                  variant="ghost" size="sm" className="btn-cancel"
+                  variant="cancel" size="sm"
                   disabled={busy}
                   onClick={() => setRenameId(null)}
                 >

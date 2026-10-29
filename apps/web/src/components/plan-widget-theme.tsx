@@ -90,7 +90,7 @@ export function PlanWidgetTheme() {
       const card = document.createElement("div");
       card.className = "card";
       const control = document.createElement("span");
-      control.className = "btn-secondary btn-sm";
+      control.className = "wf-btn wf-sm";
       const small = document.createElement("span");
       small.style.fontSize = "var(--fs-xs)";
       probe.style.fontSize = "var(--fs)";

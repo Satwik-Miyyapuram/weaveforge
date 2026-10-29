@@ -47,7 +47,7 @@ test("the account icon carries the count and the menu lists the rows", () => {
   assert.match(menu, /attention\.rows\.map\(/);
   assert.match(src, /accountAttention\(\{/);
   const css = read("../styles/shell.css");
-  assert.match(css, /\.account-btn \.popover-badge \{[^}]*position: absolute/);
+  assert.match(css, /\.popover > \.wf-btn:not\(:has\(\.popover-caret\)\) > \.popover-badge \{[^}]*position: absolute/);
 });
 
 test("the sidebar has no sync dot of its own any more", () => {

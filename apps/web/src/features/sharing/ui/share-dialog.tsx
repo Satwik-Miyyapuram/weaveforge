@@ -144,7 +144,7 @@ export function ShareDialog({
                 >
                   {accessOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </Select>
-                <Button size="sm" className="danger" disabled={busy} onClick={() => void revoke(s)}>Remove</Button>
+                <Button variant="danger" size="sm" disabled={busy} onClick={() => void revoke(s)}>Remove</Button>
               </li>
             ))}
           </ul>
@@ -171,12 +171,11 @@ export function ShareDialog({
               {accessOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </Select>
           </div>
-          <Button variant="primary" className="share-add-submit"
-            disabled={busy || !canGrant}
-            onClick={() => void grantSelected()}
-          >
-            {busy ? "Sharing…" : toAdd.length > 0 ? `Share (${toAdd.length})` : "Share"}
-          </Button>
+          <span className="share-add-submit">
+            <Button variant="primary" disabled={busy || !canGrant} onClick={() => void grantSelected()}>
+              {busy ? "Sharing…" : toAdd.length > 0 ? `Share (${toAdd.length})` : "Share"}
+            </Button>
+          </span>
         </div>
         <p id="share-permission-help" className="muted share-permission-help">
           View can read. Comment can read and comment.{supportsEdit ? " Edit can change it too." : ""}

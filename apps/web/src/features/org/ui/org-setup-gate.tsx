@@ -118,21 +118,20 @@ function OrgSetupForm({ onDone }: { onDone: () => void | Promise<void> }) {
   return (
     <div className="org-setup-choose">
       <div className="org-modal-choices">
-        <RowButton className="org-choice-card" onClick={() => setMode("create")}>
+        <RowButton onClick={() => setMode("create")}>
           <span className="org-choice-title">Create a lab</span>
           <p className="org-choice-desc">Start a new research group and invite teammates with codes.</p>
         </RowButton>
-        <RowButton className="org-choice-card" onClick={() => setMode("join")}>
+        <RowButton onClick={() => setMode("join")}>
           <span className="org-choice-title">Join with code</span>
           <p className="org-choice-desc">Enter an invite code from your supervisor or lab admin.</p>
         </RowButton>
       </div>
-      <Button variant="link" className="org-modal-skip"
-        disabled={busy}
-        onClick={() => void finishStandalone()}
-      >
-        {busy ? "Saving…" : "Continue without an org"}
-      </Button>
+      <span className="org-modal-skip">
+        <Button variant="link" disabled={busy} onClick={() => void finishStandalone()}>
+          {busy ? "Saving…" : "Continue without an org"}
+        </Button>
+      </span>
       <p className="muted org-setup-hint">
         You can create or join a lab later from <strong>Settings → Organization</strong>.
       </p>

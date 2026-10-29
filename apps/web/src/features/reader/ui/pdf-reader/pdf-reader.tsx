@@ -102,7 +102,6 @@ import type {
   PdfReaderProps,
 } from "./types";
 import {
-  CREATE_TOOL_HINTS,
   EMPTY_ANNOTATIONS,
 } from "./constants";
 import {
@@ -114,8 +113,8 @@ import {
 } from "./pdf-document";
 import { readStored, writeStored } from "@/lib/safe-storage";
 import { shortcutLabel } from "@/lib/shortcut-label";
-import { Button } from "@/components/button";
-import { RadioButton, RowButton } from "@/components/controls";
+import { Button, IconButton } from "@/components/button";
+import { RowButton, Swatch, ToolButton } from "@/components/controls";
 import { ViewSwitch } from "@/components/view-switch";
 import { useRovingToolbar } from "@/lib/hooks/use-roving-toolbar";
 
@@ -470,9 +469,6 @@ export function PdfReader({
    * over it, and a drag across a paragraph is a selection rather than a lasso.
    */
   const inkEditable = penOpen;
-
-  /** What the armed tool will do on release. */
-  const toolHint = CREATE_TOOL_HINTS[createTool];
 
   const {
     penSeen,
@@ -1492,14 +1488,11 @@ export function PdfReader({
       }
     >
       {focus && (
-        <RowButton
-          className="focus-exit"
-          title={`Exit focus (${shortcutLabel("⌘⇧F")})`}
-          aria-label="Exit focus"
-          onClick={toggleFocus}
-        >
-          <FocusGlyph on />
-        </RowButton>
+        <span className="focus-exit">
+          <IconButton label="Exit focus" tip={`Exit focus (${shortcutLabel("⌘⇧F")})`} size="sm" onClick={toggleFocus}>
+            <FocusGlyph on />
+          </IconButton>
+        </span>
       )}
       {locus && jump.status !== "idle" && (
         <div className={`pdf-reader-banner pdf-reader-banner--${jump.status}`} role="status">
@@ -1560,13 +1553,11 @@ export function PdfReader({
             />
             {toolbarExtra}
           </div>
-          <Button size="sm" className="pdf-reader-focus-btn"
-            title={`Focus (${shortcutLabel("⌘⇧F")})`}
-            aria-label="Focus"
-            onClick={toggleFocus}
-          >
-            <FocusGlyph on={false} />
-          </Button>
+          <span className="pdf-reader-focus-btn">
+            <IconButton size="sm" label="Focus" tip={`Focus (${shortcutLabel("⌘⇧F")})`} onClick={toggleFocus}>
+              <FocusGlyph on={false} />
+            </IconButton>
+          </span>
         </div>
         {/* The ink note's own bar, not a copy of it: same tools, same swatches,
             same nibs, same fold and move handles. Select and the Insert tools
@@ -1648,20 +1639,19 @@ export function PdfReader({
           is armed and what releasing will do. The pointer tool says more with
           the pen out than without it: with the pen away the ink is read-only,
           so it highlights text and nothing else. */}
-      {canCreate && toolHint && <p className="pdf-reader-tool-hint muted">{toolHint}</p>}
       {/* Phone only (PhoneReader mock): the colour, ink and annotation list sit
           in one pill above the tab bar, in thumb reach. The wide toolbar's own
           copies of these hide at the same width. */}
       {canCreate && (
         <div className="pdf-reader-pill" role="toolbar" aria-label="Annotate" {...roving}>
           {!penOpen && (
-            <div className="pdf-reader-pill-colours" role="radiogroup" aria-label="Annotation colour">
+            <div className="pdf-reader-pill-colours" role="group" aria-label="Annotation colour">
               {quickColours.slice(0, 4).map((colour, i) => (
-                <RadioButton checked={pickedColor === colour}
+                <Swatch
                   key={colour}
-                  aria-label={`Colour ${colour}`}
-                  className="pdf-reader-pill-swatch"
-                  style={{ background: quickHexes[i] }}
+                  label={`Colour ${colour}`}
+                  colour={quickHexes[i]}
+                  selected={pickedColor === colour}
                   onClick={() => {
                     endInkGroup();
                     setCreateColor(colour);
@@ -1671,11 +1661,9 @@ export function PdfReader({
             </div>
           )}
           {!penOpen && <span className="pdf-reader-pill-sep" aria-hidden="true" />}
-          <Button size="sm"
-            className={`pdf-reader-icon-btn${penOpen ? " is-active" : ""}`}
-            aria-pressed={penOpen}
-            aria-label="Ink mode"
-            title="Ink mode"
+          <ToolButton
+            pressed={penOpen}
+            label="Ink mode"
             onClick={() => {
               endInkGroup();
               const next = !penOpen;
@@ -1686,19 +1674,18 @@ export function PdfReader({
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
               <path d="M4 20h4L19 9l-4-4L4 16z" />
             </svg>
-          </Button>
+          </ToolButton>
           {!penOpen && (
-            <Button size="sm"
-              className={`pdf-reader-icon-btn${!sideCollapsed && activeSideTab === "annotations" ? " is-active" : ""}`}
-              aria-pressed={!sideCollapsed && activeSideTab === "annotations"}
-              aria-label={`Annotations${listed.length ? ` (${listed.length})` : ""}`}
-              title="Annotations"
+            <ToolButton
+              pressed={!sideCollapsed && activeSideTab === "annotations"}
+              label={`Annotations${listed.length ? ` (${listed.length})` : ""}`}
+              tip="Annotations"
               onClick={() => selectSideTab("annotations")}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                 <path d="M5 6h14M5 12h14M5 18h9" />
               </svg>
-            </Button>
+            </ToolButton>
           )}
         </div>
       )}
@@ -1926,8 +1913,8 @@ export function PdfReader({
         {/* Collapsed, the whole column folds to one vertical tab that still
             says how many annotations wait behind it. */}
         {sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
+          <span className="pdf-reader-side-rail">
           <RowButton
-            className="pdf-reader-side-rail"
             aria-expanded={false}
             aria-label="Show the side panel"
             title="Show the side panel"
@@ -1945,6 +1932,7 @@ export function PdfReader({
                 : `Annotations ${listed.length ? `(${listed.length})` : ""}`}
             </span>
           </RowButton>
+          </span>
         )}
         {!sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
           <div className="pdf-reader-side is-list-open">
@@ -1956,16 +1944,13 @@ export function PdfReader({
                 onChange={setActiveSideTab}
                 options={sideTabs}
               />
-              <Button size="sm" className="pdf-reader-icon-btn pdf-reader-side-collapse"
-                aria-expanded
-                aria-label="Hide the side panel"
-                title="Hide the side panel"
-                onClick={toggleSide}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M9 6l6 6-6 6" />
-                </svg>
-              </Button>
+              <span className="pdf-reader-side-collapse">
+                <IconButton size="sm" label="Hide the side panel" aria-expanded onClick={toggleSide}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M9 6l6 6-6 6" />
+                  </svg>
+                </IconButton>
+              </span>
             </div>
             {activeSideTab === "outline" ? (
               <ReaderOutline items={outline} onNavigate={(n) => viewport.setPage(n)} />

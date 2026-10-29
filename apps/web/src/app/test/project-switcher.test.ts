@@ -14,7 +14,7 @@ const screen = read("../../features/projects/ui/projects-screen.tsx");
 
 test("a keyboard open focuses the current project, not the first row", () => {
   assert.match(switcher, /data-autofocus=\{p\.id === current\.id \|\| undefined\}/);
-  assert.match(switcher, /aria-current=\{p\.id === current\.id \|\| undefined\}/);
+  assert.match(switcher, /checked=\{p\.id === current\.id\}/);
   assert.match(popover, /querySelector<HTMLElement>\("\[data-autofocus\]"\)/);
 });
 

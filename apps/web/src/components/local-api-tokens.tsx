@@ -268,9 +268,8 @@ export function LocalApiTokenCreate({
                   <small className="muted">{g.title}</small>
                   {g.items.map((item) => (
                     <label key={item.id} className="field-inline">
-                      <input
+                      <input className="wf-check"
                         type="checkbox"
-                        className="themed-check"
                         checked={picked.includes(item.id)}
                         onChange={(e) =>
                           setPicked((prev) =>

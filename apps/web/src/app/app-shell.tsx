@@ -29,10 +29,8 @@ import { SwipeViews } from "./swipe-views";
 import { StartupProvider } from "@/features/startup";
 import { EmailRecoveryScreen } from "@/components/email-recovery-screen";
 import { PasswordResetScreen } from "@/components/password-reset-screen";
-import { CloseIcon } from "@/components/view-icons";
 import { ToastHost } from "@/components/toast-host";
-import { RowButton } from "@/components/controls";
-import { Button } from "@/components/button";
+import { Button, CloseButton } from "@/components/button";
 
 /* Both paint nothing and only matter once a folder is connected; the folder
    code they carry is loaded after the page rather than with every one. */
@@ -213,7 +211,7 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
           <div className="brand mobile-only">
             <ProjectSwitcher />
             <div className="brand-right">
-              <HeaderActions variant="menu" />
+              <HeaderActions />
             </div>
           </div>
         )}
@@ -243,14 +241,14 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
           // RoutePending drives nav-pending state that only makes sense there.
           <>
             <div className="project-picker-bar desktop-only">
-              <HeaderActions variant="menu" />
+              <HeaderActions />
             </div>
             {children}
           </>
         ) : (
           <>
             <div className="project-picker-bar desktop-only">
-              <HeaderActions variant="menu" />
+              <HeaderActions />
             </div>
             <ProjectsScreen />
           </>
@@ -283,7 +281,7 @@ function SessionExpiredPrompt() {
   if (open) {
     return (
       <div className="session-expired-overlay" role="dialog" aria-modal="true" aria-label="Sign in again">
-        <RowButton className="session-expired-close" onClick={() => setOpen(false)} aria-label="Not now"><CloseIcon /></RowButton>
+        <CloseButton label="Not now" onClick={() => setOpen(false)} />
         <LoginScreen />
       </div>
     );
@@ -294,14 +292,8 @@ function SessionExpiredPrompt() {
       <span className="session-expired-text">
         <strong>You&apos;re signed out.</strong> Sign in to sync. Your workspace folder stays connected.
       </span>
-      <Button variant="primary" size="sm" className="btn" onClick={() => setOpen(true)}>Sign in to sync</Button>
-      <Button variant="ghost" className="btn-icon session-expired-dismiss"
-        onClick={() => setDismissed(true)}
-        aria-label="Close"
-        title="Close"
-      >
-        <CloseIcon />
-      </Button>
+      <Button variant="primary" size="sm" onClick={() => setOpen(true)}>Sign in to sync</Button>
+      <CloseButton onClick={() => setDismissed(true)} />
     </div>
   );
 }

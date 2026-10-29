@@ -104,8 +104,7 @@ export function SupervisionScreen() {
               {supervisees.map((m) => (
                 <li key={m.id} style={{ paddingLeft: depthOf(m, supervisees) * 18 }}>
                   <RowButton
-                    className={`superv-team-item${m.id === selectedId ? " is-active" : ""}`}
-                    aria-current={m.id === selectedId ? "true" : undefined}
+                    current={m.id === selectedId}
                     onClick={() => setSelectedId(m.id)}
                   >
                     <span className={`superv-avatar superv-avatar--${m.role}`} aria-hidden>{initials(m)}</span>

@@ -27,7 +27,7 @@ export function ExportDataPanel() {
   }
 
   return (
-    <section id="settings-data" className="card export-data-panel settings-anchor">
+    <section id="settings-data" className="export-data-panel settings-anchor">
       <h3>Your data</h3>
       <p className="muted">
         Download everything in your account — notes, papers, reading lists, report outline,

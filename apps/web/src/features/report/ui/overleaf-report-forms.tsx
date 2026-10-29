@@ -45,7 +45,7 @@ export function EditOverleafReportForm({ report, onSaved, onCancel, onError }: {
       <label>Entry file<input name="entryFile" required defaultValue={report.entry_file} /></label>
       <div className="linked-overleaf-form__actions">
         <Button variant="primary" disabled={busy} type="submit">{busy ? "Saving…" : "Save changes"}</Button>
-        <Button className="btn-cancel" disabled={busy} onClick={onCancel}>Cancel</Button>
+        <Button variant="cancel" disabled={busy} onClick={onCancel}>Cancel</Button>
       </div>
     </form>
   );

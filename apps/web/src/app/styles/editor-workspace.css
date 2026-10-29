@@ -225,19 +225,7 @@
   position: absolute;
   inset-inline-end: 12px;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 17px;
-  height: 17px;
-  padding: 0;
-  border: none;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--faint);
-  cursor: pointer;
 }
-
-.explorer-filter-clear:hover { background: var(--surface2); color: var(--text); }
 
 .explorer-head-actions {
   display: flex;
@@ -245,25 +233,6 @@
   align-items: center;
   gap: 1px;
 }
-
-.explorer-action {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--faint);
-  cursor: pointer;
-  transition: background var(--dur-base), color var(--dur-base);
-}
-
-.explorer-action:hover { background: var(--surface2); color: var(--text); }
-.explorer-action .nav-icon { width: 16px; height: 16px; }
-.explorer-action .vicon { width: 15px; height: 15px; }
 
 /* The scroll container. Sections stack from the top and the last one takes the
    remaining height, so a long Files list scrolls instead of pushing Reading
@@ -301,43 +270,12 @@
   background: var(--surface);
 }
 
-.explorer-section-toggle {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  height: 26px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: var(--fs-micro);
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-align: start;
-  cursor: pointer;
-  user-select: none;
-}
-
-.explorer-section-toggle:hover { color: var(--text); }
-.explorer-section-toggle .chev { display: grid; place-items: center; width: 14px; height: 14px; }
-.explorer-section-toggle .chev svg { width: 12px; height: 12px; }
+.explorer-section-head > .wf-fold { flex: 1; min-width: 0; }
 
 .explorer-section-title {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-.explorer-section-count {
-  margin-inline-start: auto;
-  color: var(--muted);
-  font-family: var(--font);
-  font-size: var(--fs-micro);
-  font-weight: 500;
-  letter-spacing: 0;
 }
 
 .explorer-section-rows {
@@ -366,16 +304,10 @@
 
 /* Offered rather than shown as a state: a paper with no note is normal. */
 .explorer-start-note {
+  display: inline-flex;
   flex: none;
   margin-inline-start: auto;
-  padding: 0 0.35rem;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--muted);
-  font-size: var(--fs-xs);
   opacity: 0;
-  cursor: pointer;
 }
 
 .explorer-row:hover .explorer-start-note,
@@ -407,18 +339,12 @@
     inset-inline-end: 8px;
     top: 50%;
     transform: translateY(-50%);
-    background: var(--surface2); /* the hovered row's own fill */
     pointer-events: none;
   }
   .explorer-row:hover .explorer-start-note,
   .explorer-row:focus-within .explorer-start-note {
     pointer-events: auto;
   }
-}
-
-.explorer-start-note:hover {
-  border-color: var(--accent);
-  color: var(--accent-ink);
 }
 
 /*
@@ -468,23 +394,11 @@
 
 .explorer-show {
   position: absolute;
-  inset-block-start: 0;
+  inset-block-start: 6px;
   inset-inline-start: 0;
   z-index: 3;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 36px;
-  border: 0;
-  border-inline-end: 1px solid var(--border);
-  border-block-end: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--muted);
-  cursor: pointer;
 }
-
-.explorer-show:hover { color: var(--text); background: var(--surface2); }
 
 /* Phone: the explorer is a drawer over the document, not a column beside it
    (workspace-screen.tsx sets `.is-phone` below the desktop breakpoint). The
@@ -499,7 +413,7 @@
 
 /* A 375px screen has no room for a second pane, and the two split buttons
    were taking the width the open tabs needed. */
-.workspace-shell.is-phone .pane-action[aria-label^="Split"] {
+.workspace-shell.is-phone .pane-tab-actions > .wf-btn[aria-label^="Split"] {
   display: none;
 }
 
@@ -510,11 +424,6 @@
   z-index: 6;
   width: min(86vw, 340px);
   box-shadow: var(--e3);
-}
-
-.workspace-shell.is-phone .explorer-show {
-  width: 36px;
-  height: 40px;
 }
 
 .workspace-shell.is-phone.is-explorer-hidden .pane-root > .pane > .pane-tabs .pane-tab-scroll,
@@ -554,24 +463,14 @@
   inset-inline-end: 16px;
   z-index: 55;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  background: var(--surface);
-  color: var(--muted);
   opacity: 0.55;
-  cursor: pointer;
   transition: opacity var(--dur-base) ease;
 }
 
-.focus-exit:hover,
-.focus-exit:focus-visible { color: var(--text); opacity: 1; }
+.focus-exit:is(:hover, :focus-within) { opacity: 1; }
 
 @media (pointer: coarse) {
-  .focus-exit { width: 36px; height: 36px; opacity: 0.8; }
+  .focus-exit { opacity: 0.8; }
 }
 
 /* Ink in focus, OneNote's way: the toolbar row goes, and what a hand needs
@@ -676,12 +575,10 @@
   flex-direction: row;
 }
 .ink-dock { position: relative; display: inline-flex; }
-.ink-bar-dock,
-.ink-bar-collapse { color: var(--muted); }
 /* The grip drags the palette: no browser panning on it, and a hand cursor. */
-.ink-bar-dock { cursor: grab; touch-action: none; }
+:root:root .ink-dock > .wf-tool { cursor: grab; touch-action: none; }
 .ink-palette[data-dragging] { transition: none; cursor: grabbing; }
-.ink-palette[data-dragging] .ink-bar-dock { cursor: grabbing; }
+:root:root .ink-palette[data-dragging] .ink-dock > .wf-tool { cursor: grabbing; }
 
 /* The selection halo the ink renderer draws under a selected stroke
    (`features/ink/ui/ink-strokes`), on whichever surface offers selection: the
@@ -731,11 +628,10 @@
 
 /* Targets for a pen held mid-air, not a mouse: 36px buttons, 26px swatches,
    and a little more air between them. */
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool { width: 36px; height: 36px; }
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool.ink-menu-trigger { width: auto; }
+:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .wf-tool { width: 36px; height: 36px; }
+:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-menu-insert > .wf-tool { width: auto; }
 /* Labelled buttons keep their text on one line instead of the 36px square. */
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool.ink-tool-text { width: auto; white-space: nowrap; }
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool svg { width: 18px; height: 18px; }
+:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .wf-btn { white-space: nowrap; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-bar-group,
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill { gap: 4px; padding: 4px; border-radius: var(--r-control); }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill {
@@ -743,12 +639,12 @@
   max-width: 36px;
   box-sizing: border-box;
 }
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill .ink-tool {
+:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill .wf-tool {
   width: 28px;
   height: 28px;
 }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-swatches { gap: 8px; padding: 8px 4px; }
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-swatch { width: 26px; height: 26px; }
+
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-bar .ink-page-count {
   flex-direction: column;
   gap: 0;
@@ -801,23 +697,17 @@
   .explorer-row-actions { opacity: 1; }
 }
 
-.explorer-row-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
+/* In a 25px row the 28px icon button, lifting on hover, popped out and was cut
+   off. Here it is flat and fits the row: hover tints, nothing moves. */
+:root:root .explorer-row .explorer-row-actions > .wf-btn.wf-icon {
+  width: 22px; height: 22px; min-height: 0; min-width: 0; padding: 4px;
 }
 
-.explorer-row-action:hover { background: var(--surface3, var(--border)); color: var(--text); }
-.explorer-row-action .nav-icon { width: 14px; height: 14px; }
-.explorer-row-action .vicon { width: 13px; height: 13px; }
+:root:root .explorer-row .explorer-row-actions > .wf-btn.wf-icon svg { width: 16px; height: 16px; }
+
+:root:root .explorer-row .explorer-row-actions > .wf-btn.wf-icon:is(:hover, :active, [data-force~="hover"], [data-force~="press"]) {
+  translate: 0 0; box-shadow: none;
+}
 
 /* A draft row or a rename: the label is a text box, in the row's own type. */
 .explorer-row.is-draft { cursor: default; }
@@ -933,50 +823,26 @@
    Tabs (§3.6)
    ---------------------------------------------------------------------- */
 
-.pane-tab {
-  position: relative;
+/* One open document: the tab (wf-tab) and its close (×) side by side. The
+   slot holds layout only; the look is the catalogue's. */
+.pane-tab-slot {
   display: flex;
   flex: none;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
   /* Room for a typical name beside its always-shown extension. */
   max-width: 256px;
   min-width: 0;
-  padding: 0 12px;
-  background: var(--surface);
-  color: var(--muted);
-  font-size: var(--fs-sm);
+  padding-inline-end: 4px;
   white-space: nowrap;
   border-inline-end: 1px solid var(--border);
-  /* A tab is clicked to switch documents: it has to answer the pointer. */
-  cursor: pointer;
-  transition: background var(--dur-base), color var(--dur-base);
 }
 
-.pane-tab:hover {
-  background: var(--surface2);
-  color: var(--text);
-}
-
-/* The active document is marked by a 2px accent rule on the tab's top edge and
-   lifted onto the document's own background. */
-.pane-tab.is-active {
-  background: var(--bg);
-  color: var(--text);
-}
-
-.pane-tab.is-active::before {
-  content: "";
-  position: absolute;
-  inset-block-start: 0;
-  inset-inline: 0;
-  height: 2px;
-  background: var(--accent);
-}
-
-.pane-tab:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+.pane-tab-slot > .wf-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .pane-tab-icon {
@@ -988,7 +854,7 @@
 
 .pane-tab-icon .nav-icon { width: 14px; height: 14px; }
 
-.pane-tab.is-active .pane-tab-icon { color: inherit; }
+.pane-tab-slot > .wf-tab[aria-selected="true"] .pane-tab-icon { color: inherit; }
 
 /* The suffix always shows here: two tabs can share a title, and the tab is the
    one place the path is gone entirely (§3.2). */
@@ -1001,7 +867,7 @@
   letter-spacing: -0.01em;
 }
 
-.pane-tab.is-active .pane-tab-ext { opacity: 0.75; }
+.pane-tab-slot > .wf-tab[aria-selected="true"] .pane-tab-ext { opacity: 0.75; }
 
 .pane-tab-label {
   overflow: hidden;
@@ -1043,61 +909,14 @@
 /* The View control and, in Split, its ⋯ for the side. */
 .view-control { display: inline-flex; align-items: center; gap: 2px; }
 
-/* The close control lives in a 16px slot that is the dirty dot until the tab
-   is hovered — the standard gesture, and it takes the permanent `×` off every
-   tab. */
-.pane-tab-close {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  border: none;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: inherit;
-  line-height: 1;
-  opacity: 0;
-  cursor: pointer;
-  transition: opacity var(--dur-base), background var(--dur-base);
-}
+/* The close shows on the active tab and the hovered one — the standard
+   gesture, and it takes the permanent `×` off every other tab. */
+.pane-tab-slot > .wf-btn { opacity: 0; }
 
-.pane-tab:hover .pane-tab-close,
-.pane-tab.is-active .pane-tab-close,
-.pane-tab-close:focus-visible {
+.pane-tab-slot:hover > .wf-btn,
+.pane-tab-slot:has(> .wf-tab[aria-selected="true"]) > .wf-btn,
+.pane-tab-slot > .wf-btn:focus-visible {
   opacity: 1;
-}
-
-.pane-tab-close:hover {
-  background: var(--surface2);
-  color: var(--text);
-}
-
-.pane-action {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--faint);
-  line-height: 1;
-  cursor: pointer;
-  transition: background var(--dur-base), color var(--dur-base);
-}
-
-.pane-action:hover {
-  background: var(--surface2);
-  color: var(--text);
-}
-
-.pane-action:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
 }
 
 .pane-tab-actions {
@@ -1118,11 +937,6 @@
   margin-inline-end: 4px;
   padding-inline-end: 4px;
   border-inline-end: 1px solid var(--border);
-}
-
-.pane-tools .entity-icon-btn {
-  width: 26px;
-  height: 26px;
 }
 
 /* Resizing a picture from the read view. The host is the positioning context
@@ -1258,26 +1072,11 @@
   list-style: none;
 }
 
-.quick-open-result {
+.quick-open-group-rows .wf-item {
   display: flex;
   align-items: baseline;
   gap: 0.6rem;
   width: 100%;
-  padding: 0.35rem 0.5rem;
-  border: none;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--text);
-  text-align: start;
-  /* A result is a `<button>`. It was styled as a static row. */
-  cursor: pointer;
-}
-
-.quick-open-result:hover { background: var(--surface2); }
-
-.quick-open-result.is-active {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
 }
 
 /* The kind column, so Notes, Papers, Lists and Report hits do not interleave
@@ -1295,10 +1094,10 @@
   font-weight: 500;
 }
 
-.quick-open-result.is-active .quick-open-title { color: inherit; }
+.quick-open-group-rows .wf-item[aria-selected="true"] .quick-open-title { color: inherit; }
 
 .quick-open-kind .nav-icon { width: 14px; height: 14px; }
-.quick-open-result.is-active .quick-open-kind { color: inherit; }
+.quick-open-group-rows .wf-item[aria-selected="true"] .quick-open-kind { color: inherit; }
 
 .quick-open-group {
   margin: 0;
@@ -1370,7 +1169,7 @@
    with an ellipsis instead of spilling over the next crumb, which on a phone
    printed "PDF" on top of the title. */
 .breadcrumb-plain,
-.breadcrumb-btn,
+.breadcrumbs .wf-link,
 .breadcrumb-current {
   min-width: 2ch;
   overflow: hidden;
@@ -1382,19 +1181,7 @@
    ("Papers›Title"). */
 .breadcrumb-plain { padding: 2px 8px; }
 
-.breadcrumb-btn,
-.breadcrumb-current {
-  padding: 2px 8px;
-  border: none;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  transition: background var(--dur-base), color var(--dur-base);
-}
-
-.breadcrumb-btn:hover { background: var(--surface2); color: var(--text); }
+.breadcrumb-current { padding: 2px 8px; }
 
 /* The last crumb is where you already are, so it is the one crumb that is not
    a control: it renders as a plain span, takes no focus and answers no click.
@@ -1749,10 +1536,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .explorer-row,
-  .pane-tab,
-  .breadcrumb-btn,
-  .explorer-action {
+  .explorer-row {
     transition: none !important;
   }
 }
@@ -1817,54 +1601,6 @@
   border: 1px solid var(--border);
 }
 
-.ink-tool {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 28px;
-  padding: 0 8px;
-  border: 1px solid transparent;
-  border-radius: var(--r-sm);
-  background: none;
-  color: var(--muted);
-  font: inherit;
-  font-size: var(--fs-xs);
-  cursor: pointer;
-  user-select: none;
-  transition: all var(--dur-base) ease;
-}
-
-.ink-tool:hover {
-  background: var(--bg);
-  color: var(--text);
-}
-
-.ink-tool[aria-pressed="true"] {
-  background: var(--surface);
-  color: var(--accent-ink);
-  border-color: var(--border);
-}
-
-.ink-tool:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.ink-tool-icon-only {
-  width: 28px;
-  padding: 0;
-}
-
-.ink-tool-hand {
-  font-size: var(--fs-xs);
-  padding: 0 8px;
-}
-
-.ink-action-recognise {
-  padding: 0 12px;
-}
-
 .ink-nib-dot {
   display: inline-block;
   border-radius: 50%;
@@ -1889,14 +1625,16 @@
   gap: 2px;
   font-family: var(--font);
   font-size: var(--fs-xs);
+  font-weight: 500;
   color: var(--muted);
   background: var(--chip);
   border-radius: var(--r-sm);
   border: 1px solid var(--border);
-  padding: 0 4px;
+  /* Room all round, so the page field and the zoom value never touch the edge. */
+  padding: var(--s1);
 }
 
-.ink-page-pill .ink-tool {
+:root:root .ink-page-pill .wf-tool {
   height: 24px;
   width: 24px;
   padding: 0;
@@ -1907,7 +1645,6 @@
   align-items: center;
   gap: 4px;
   padding: 0 4px;
-  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -1946,57 +1683,6 @@
   transform: translateX(var(--ink-menu-shift, 0px));
 }
 
-.ink-menu-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  padding: 8px 8px;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: var(--fs-sm);
-  text-align: left;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.ink-menu-item:hover,
-.ink-menu-item:focus-visible {
-  background: var(--chip);
-}
-
-.ink-menu-item kbd {
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  color: var(--muted);
-}
-
-.ink-swatch {
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border-radius: 50%;
-  border: 1.5px solid var(--border-strong);
-  cursor: pointer;
-  transition: transform var(--dur-base) ease, box-shadow var(--dur-base) ease;
-  flex-shrink: 0;
-}
-
-.ink-swatch[aria-pressed="true"] {
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
-}
-
-.ink-swatch-text { --sw: var(--text); }
-.ink-swatch-accent { --sw: var(--accent); }
-.ink-swatch-warn { --sw: var(--s-warn); }
-.ink-swatch-good { --sw: var(--s-good); }
-.ink-swatch-info { --sw: var(--s-info); }
-.ink-swatch-danger { --sw: var(--s-danger); }
-
 /* The marker colours: the reader's eight, fixed hex in every theme, so a
    yellow highlight on a note is the yellow on a paper. The ink renderer reads
    the same tokens (`INK_COLOUR_TOKENS`). */
@@ -2010,14 +1696,6 @@
   --ink-orange: #f19837;
   --ink-grey: #aaaaaa;
 }
-.ink-swatch-yellow { --sw: var(--ink-yellow); }
-.ink-swatch-red { --sw: var(--ink-red); }
-.ink-swatch-green { --sw: var(--ink-green); }
-.ink-swatch-blue { --sw: var(--ink-blue); }
-.ink-swatch-purple { --sw: var(--ink-purple); }
-.ink-swatch-pink { --sw: var(--ink-pink); }
-.ink-swatch-orange { --sw: var(--ink-orange); }
-.ink-swatch-grey { --sw: var(--ink-grey); }
 
 .ink-bar-spacer { flex: 1 1 auto; }
 
@@ -2110,7 +1788,6 @@
   }
 }
 
-
 /*
  * The live layer: the one copy of the page being written on, rendered once
  * and moved over the current slot on a flip. It must never remount — the
@@ -2184,7 +1861,6 @@
   position: relative;
   flex: none;
   border-radius: 2px;
-  box-shadow: var(--e1);
   background: var(--surface);
   transition: outline var(--dur-base) ease;
 }
@@ -2285,8 +1961,6 @@
   background-image: linear-gradient(var(--muted) 1px, transparent 1px);
   background-size: 100% 6px;
 }
-.ink-menu-paper .ink-menu-item { justify-content: flex-start; gap: 8px; }
-.ink-menu-item[aria-checked="true"] { font-weight: 600; }
 
 /* Read mode: the page's images are not things to drag off the sheet, and
    only the text underlay is there to select. */
@@ -2346,7 +2020,6 @@
 .ink-figure {
   pointer-events: none;
   background: color-mix(in srgb, var(--surface) 85%, transparent);
-  box-shadow: var(--e1);
   border-radius: 2px;
 }
 .ink-figure.is-active {
@@ -2366,7 +2039,7 @@
 }
 /* The corners: dots where the page's own corner hit-test looks, so the eye
    finds what the hand is about to drag. Always drawn — 8 px of border
-   against paper, quieter than the figure's own shadow. */
+   against paper. */
 /* The selected figure's editor: over the canvas (z 1 in its dock), and
    transparent to the pointer except for the frame, its handles and the bar. */
 .ink-figure-editor {
@@ -2398,7 +2071,8 @@
   border-radius: 50%;
   border: 1.5px solid var(--accent);
   background: var(--surface);
-  box-shadow: var(--e1);
+  /* Flat: a theme's hard drop shadow reads as a second dot. */
+  box-shadow: none;
   pointer-events: auto;
   touch-action: none;
 }
@@ -2508,28 +2182,6 @@
   background: var(--surface);
   box-shadow: var(--e2);
 }
-.ink-figure-button {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--control-sm);
-  font-size: var(--fs-xs);
-  font-family: var(--font);
-  color: var(--muted);
-  padding: 0 8px;
-  border: none;
-  border-radius: var(--r-sm);
-  background: transparent;
-  cursor: pointer;
-}
-.ink-figure-button:hover {
-  color: var(--text);
-  background: color-mix(in srgb, var(--muted) 12%, transparent);
-}
-.ink-figure-button:disabled {
-  opacity: 0.5;
-  cursor: default;
-  background: none;
-}
 .ink-figure-hint {
   padding: 0 8px;
   font-size: var(--fs-xs);
@@ -2540,17 +2192,6 @@
   height: 14px;
   margin: 0 4px;
   background: var(--border);
-}
-.ink-figure-button-icon {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 4px;
-}
-.ink-figure-button-remove {
-  color: var(--danger);
-}
-.ink-figure-button-remove:hover {
-  background: color-mix(in srgb, var(--danger) 14%, transparent);
 }
 
 .ink-text {
@@ -2591,8 +2232,6 @@
   .ink-wrap { grid-template-columns: minmax(0, 1fr); }
   .ink-text { display: none; }
 }
-
-
 
 /* Ink sheet text layer: rendered markdown under the ink. Blocks keep the
    underlay's line rhythm (one row per source line, roughly) so the page flow
@@ -2683,7 +2322,7 @@
   /* The shared Select, flattened into the tab bar. Scoped to the container
      and its trigger: the menu carries the same class and keeps its own look. */
   .custom-select-container.pane-tab-select { flex: 1; min-width: 0; width: auto; height: 100%; }
-  .pane-tab-select > .custom-select-button {
+  .pane-tab-select > .wf-select {
     height: 100%;
     padding: 0 4px 0 0;
     border: none;
@@ -2692,8 +2331,8 @@
     color: inherit;
     font: inherit;
   }
-  .pane-tab-select > .custom-select-button:focus { box-shadow: none; }
-  .pane-tab-select > .custom-select-button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .pane-tab-select > .wf-select:focus { box-shadow: none; }
+  .pane-tab-select > .wf-select:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   .pane-tab-count {
     flex: none;
     min-width: 18px;
@@ -2705,7 +2344,6 @@
     line-height: 18px;
     text-align: center;
   }
-  .pane-tab-switcher .pane-tab-close { opacity: 1; width: 24px; height: 24px; }
   /* Save state, words and the kind fit a phone; the rest ran off its edge. */
   .status-bar-segment:is([data-segment="chars"], [data-segment="cursor"], [data-segment="encoding"], [data-segment="strokes"], [data-segment="pen"]) {
     display: none;
@@ -2713,10 +2351,7 @@
 }
 
 /* The pen: one swatch carries the colour, the dot on it the nib. */
-.ink-pen-trigger .colour-menu-current {
-  width: 24px; height: 24px;
-  display: inline-flex; align-items: center; justify-content: center;
-}
+.ink-pen-pick .popover > .wf-swatch { display: inline-flex; align-items: center; justify-content: center; }
 .ink-pen-trigger-nib {
   display: block; border-radius: 50%;
   background: var(--surface);
@@ -2736,11 +2371,8 @@
    sideways and its chrome clips, so a list hung inside either was cut off. */
 
 /* The zoom pill reads like the page pill; its level resets to fit. */
-.ink-zoom-level {
-  border: 0; background: none; color: inherit; font: inherit;
-  min-width: 3.4em; justify-content: center; cursor: pointer;
-}
-.ink-zoom-level:hover { color: var(--text); }
+/* Room for "999%" and the caret, in same-width digits: zoom in stays put as the level changes. */
+:root:root .ink-zoom-pill .wf-btn { font-variant-numeric: tabular-nums; min-width: calc(4.5ch + 12px + var(--s5)); justify-content: center; }
 
 /* The ⋯ menu: sections split by a rule, chips for the one-of-n choices. */
 .ink-menu-more-list { min-width: 240px; gap: 0; }
@@ -2750,40 +2382,23 @@
   padding: 2px 8px 4px;
   font-size: var(--fs-xs); color: var(--muted);
 }
-.ink-menu-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 8px 2px; }
-.ink-menu-chip {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 4px 8px;
-  border: 1px solid var(--border); border-radius: var(--r-sm);
-  background: none; color: var(--text);
-  font: inherit; font-size: var(--fs-xs); cursor: pointer;
-}
-.ink-menu-chip:hover { filter: brightness(1.05); background: var(--chip); }
-.ink-menu-chip[aria-checked="true"] {
-  background: var(--active-bg, var(--chip)); color: var(--active-fg, var(--text));
-  border-color: var(--text);
-}
+.ink-menu-chips { display: flex; flex-direction: column; gap: 1px; }
+
 .ink-menu-value { color: var(--muted); font-size: var(--fs-xs); }
 
 /* Insert and View: a bar button with a caret that opens a short list. */
-/* The shared tool rule makes .ink-tool a 32px square grid; a trigger carries
+/* The shared tool rule makes .wf-tool a 32px square grid; a trigger carries
    a caret beside its icon, so it widens and lays out in a row. */
-:root:root .ink-tool.ink-menu-trigger {
+:root:root .ink-menu-insert > .wf-tool {
   display: inline-flex; align-items: center; gap: 2px;
   width: auto; padding: 0 4px 0 8px;
 }
-/* Recognise carries a label too: a row, as wide as its words, never wrapped. */
-:root:root .ink-tool.ink-action-recognise {
-  display: inline-flex; align-items: center; gap: 8px;
-  width: auto; flex: none; padding: 0 12px; white-space: nowrap;
-}
+/* Labelled bar buttons (Recognise, Copy) stay as wide as their words. */
+:root:root .ink-bar .wf-btn { flex: none; white-space: nowrap; }
 .ink-menu-caret { display: inline-flex; opacity: 0.6; }
 .ink-menu-rule { margin: 4px 0; border: 0; border-top: 1px solid var(--border); }
 .ink-menu-insert-list, .ink-menu-view-list { min-width: 200px; }
-.ink-menu-insert-list .ink-menu-item,
-.ink-menu-view-list .ink-menu-item { justify-content: flex-start; gap: 8px; }
-.ink-menu-insert-list .ink-menu-item kbd,
-.ink-menu-view-list .ink-menu-item kbd { margin-left: auto; }
+
 .ink-menu-hint { margin: 4px 8px 2px; font-size: var(--fs-xs); color: var(--muted); white-space: normal; }
 /* The typed page number: as wide as three digits, no spinner. */
 .ink-page-input {
@@ -2792,6 +2407,12 @@
   color: var(--text); font: inherit; text-align: center; font-variant-numeric: tabular-nums;
   appearance: textfield; -moz-appearance: textfield;
 }
+/* Beats the bold themes' input border: the number reads like the zoom value. */
+:root:root:root .ink-page-input { border: 0; }
+/* The pill's controls stand 24px tall, as the arrows do, so the page field and
+   the zoom value have room round them and read at the pill's own text size. */
+:root:root:root .ink-page-input { height: 24px; min-height: 0; box-sizing: border-box; }
+:root:root:root .ink-zoom-pill .wf-btn { height: 24px; min-height: 0; padding: 0 var(--s1); font-family: inherit; font-size: inherit; font-weight: inherit; }
 .ink-page-input::-webkit-inner-spin-button,
 .ink-page-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 

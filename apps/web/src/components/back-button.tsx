@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { RowButton } from "./controls";
+import { Button } from "./button";
+import { ChevronLeftIcon } from "./view-icons";
 
 /**
  * The one way back from a detail page to where it came from: a square chevron
@@ -20,22 +20,18 @@ export function BackButton({
 }) {
   const inner = (
     <>
-      <span className="back-btn-box" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M15 6l-6 6 6 6" />
-        </svg>
-      </span>
-      <span className="back-btn-label">{label}</span>
+      <ChevronLeftIcon />
+      {label}
     </>
   );
   const title = `Back to ${label}`;
   return href ? (
-    <Link className="back-btn" href={href} title={title}>
+    <Button variant="ghost" href={href} title={title}>
       {inner}
-    </Link>
+    </Button>
   ) : (
-    <RowButton className="back-btn" onClick={onClick} title={title}>
+    <Button variant="ghost" onClick={onClick} title={title}>
       {inner}
-    </RowButton>
+    </Button>
   );
 }

@@ -67,7 +67,7 @@ export function SyncIssuesPanel() {
     .join(" · ");
 
   return (
-    <div className="card settings-block sync-issues">
+    <div className="settings-block sync-issues">
       <div className="sync-issues-head">
         <div>
           <h3 className="settings-group">Needs you</h3>
@@ -290,12 +290,10 @@ function FieldMerge({ field, choice, onChoose }: { field: Field; choice?: Choice
       {long ? (
         <TextMerge field={field} choice={choice} onChoose={onChoose} />
       ) : (
-        <div className="sync-sides" role="radiogroup" aria-label={humanize(field.field)}>
+        <div className="sync-sides wf-seg" role="radiogroup" aria-label={humanize(field.field)}>
           {(["local", "remote"] as const).map((side) => (
             <RadioButton checked={choice?.kind === side}
               key={side}
-              className="sync-side"
-              data-side={side}
               onClick={() => onChoose({ kind: side })}
             >
               <span className="sync-side-tag">{side === "local" ? "This device" : "Cloud"}</span>
@@ -341,7 +339,6 @@ function TextMerge({ field, choice, onChoose }: { field: Field; choice?: Choice;
     <div className="sync-text">
       <SegmentedControl
         label={humanize(field.field)}
-        size="sm"
         className="sync-modes"
         value={modes.find((m) => m.checked)?.label ?? null}
         onChange={(next) => modes.find((m) => m.label === next)?.choose()}
@@ -374,7 +371,6 @@ function TextMerge({ field, choice, onChoose }: { field: Field; choice?: Choice;
                 <div className="sync-hunk-pick">
                   <SegmentedControl
                     label={`Change ${group.hunk + 1}`}
-                    size="sm"
                     value={hunkPicks[group.hunk] ?? null}
                     onChange={(p) => pickHunk(group.hunk!, p)}
                     options={HUNK_OPTIONS}
