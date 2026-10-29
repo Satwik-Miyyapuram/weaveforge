@@ -17,6 +17,7 @@ import {
   APP_SCHEME,
   appHeaders,
   contentTypeFor,
+  canonicalAppUrl,
   isPageRequest,
   resolveAppFile,
 } from "./app-protocol";
@@ -24,7 +25,6 @@ import { readHomeConfig, writeHomeConfig } from "./home-config";
 import {
   chooseRoot,
   currentRoot,
-  forgetRoot,
   listVaultFiles,
   newVaultSession,
   readVaultBytes,
@@ -48,19 +48,19 @@ import { registerMainLocalApi, shellMcpDeps } from "./main-local-api";
 import { registerMainUpdateOffer } from "./main-update-offer";
 import { registerMainVaultWatch } from "./main-vault-watch";
 import { fetchZoteroLocal } from "./zotero-local";
-import { probeTex } from "./tex";
 import { registerMainTex } from "./main-tex";
 import { registerMattermostSignIn } from "./mattermost-signin";
 import { ARTIFACT_HOST, serveLocalArtifact } from "./local-artifacts";
-import { MODEL_HOST, serveModelFile } from "./model-cache";
+import { modelCacheUrl, serveModelFile } from "./model-cache";
 import { handleOverleafRead } from "./overleaf-source";
 import { handleFetchImage, handleFetchTitle, mayOpenExternally } from "./handlers";
 import { answerRelay } from "./app-relays";
 import { installApiCors } from "./api-cors";
 import { startAuthLoopback } from "./auth-loopback";
+import { sendWhenLoaded } from "./sign-in-relay";
 import { CHANNELS, type IpcResult, type MenuGroupPayload } from "./channels";
 import { pagePreferenceStore, pageSecretStore, preferenceStore, secretStore } from "./main-stores";
-import { fetchReleases, findUpdate } from "./update-check";
+import { checkUpdateReply, fetchReleases } from "./update-check";
 import { installMenu, invokeMenuItem, menuModel, pageCommand, routeTo } from "./app-menu";
 import { realUpdater, startAutoUpdate } from "./auto-update";
 import { originOf, registerGuardedIpc, sameOrigin } from "./ipc-guard";
@@ -342,7 +342,8 @@ function deliverSignIn(query: string): void {
   if (!window) return;
   if (window.isMinimized()) window.restore();
   window.focus();
-  window.webContents.send(CHANNELS.signIn, query);
+  // A window made just now is still loading; a send before the load is lost (38-07).
+  sendWhenLoaded(window.webContents, CHANNELS.signIn, query);
   void offerUpdate();
 }
 
@@ -377,9 +378,6 @@ ipc.on(CHANNELS.titleBarColors, (_event, colors: unknown) => {
 /** The application log's channels (§main-app-log). */
 registerMainAppLog({ ipc, appLog });
 
-ipc.handle(CHANNELS.preferenceRead, (_event, name: unknown) =>
-  pagePreferenceStore().read(name),
-);
 ipc.handle(CHANNELS.preferenceWrite, (_event, name: unknown, value: unknown) =>
   pagePreferenceStore().write(name, value),
 );
@@ -393,10 +391,9 @@ ipc.handle(CHANNELS.fetchImage, (_event, url: unknown) =>
 // The settings panel asking, rather than the shell announcing. A failure is
 // null and not an error: a settings section that cannot reach GitHub should
 // say it does not know, not turn red.
-ipc.handle(CHANNELS.checkUpdate, async () => {
-  if (!app.isPackaged) return null;
-  return findUpdate({ currentVersion: app.getVersion(), fetchReleases });
-});
+ipc.handle(CHANNELS.checkUpdate, () =>
+  checkUpdateReply({ isPackaged: app.isPackaged, currentVersion: app.getVersion(), fetchReleases }),
+);
 
 /**
  * Declares `app://` a real origin.
@@ -431,9 +428,10 @@ if (bundled) {
 function serveBundle(): void {
   protocol.handle(APP_SCHEME, async (request) => {
     const host = new URL(request.url).hostname;
-    // `app://models/...` is the encoder's weights, cached on the disk so the
-    // feature keeps working with the network unplugged.
-    if (host === MODEL_HOST) return serveModelFile(path.join(app.getPath("userData"), "models"), request.url);
+    // `app://weaveforge/models/...` is the encoder's weights, cached on the disk
+    // so the feature keeps working with the network unplugged.
+    const modelUrl = modelCacheUrl(request.url, APP_HOST);
+    if (modelUrl) return serveModelFile(path.join(app.getPath("userData"), "models"), modelUrl);
     if (host === ARTIFACT_HOST) {
       return serveLocalArtifact(path.join(app.getPath("userData"), "artifacts"), request.url);
     }
@@ -441,6 +439,8 @@ function serveBundle(): void {
     // The `/api/*` routes the web app has on a server, relayed by the shell.
     const relayed = answerRelay(request, net.fetch);
     if (relayed) return relayed;
+    const canonical = canonicalAppUrl(request.url);
+    if (canonical) return new Response(null, { status: 308, headers: { location: canonical } });
 
     // A file, not merely a path: `/reader` names the `reader/` folder before
     // it names `reader/index.html`, and a folder handed to net.fetch throws.
@@ -602,12 +602,6 @@ async function chooseWorkspaceFolder() {
 ipc.handle(CHANNELS.vaultChoose, () => chooseWorkspaceFolder());
 
 ipc.handle(CHANNELS.vaultRoot, () => currentRoot(vault));
-ipc.handle(CHANNELS.vaultForget, () => {
-  vaultWatcher.stop();
-  const forgotten = forgetRoot(vault, rememberRoot);
-  refreshMenu();
-  return forgotten;
-});
 ipc.handle(CHANNELS.vaultRead, (_event, at: unknown) =>
   readVaultFile(vault, at),
 );
@@ -674,8 +668,6 @@ ipc.handle(CHANNELS.zoteroLocal, async (_event, url: unknown) => {
     };
   }
 });
-
-ipc.handle(CHANNELS.texProbe, async () => ({ ok: true, value: await probeTex() }));
 
 /**
  * The handwriting helper's door (§main-ink): started on the first probe,

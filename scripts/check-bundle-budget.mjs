@@ -26,7 +26,8 @@ import path from "node:path";
 import { gzipSync } from "node:zlib";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const buildDir = path.join(root, "apps/web/.next");
+// BUNDLE_BUILD_DIR lets a test point this at a made-up build.
+const buildDir = process.env.BUNDLE_BUILD_DIR ?? path.join(root, "apps/web/.next");
 
 /**
  * What a route may load before it paints, gzipped — a ratchet.
@@ -107,14 +108,20 @@ const ROUTE_ALLOWANCES_KB = {
   // container every route boots, so every route carries their code: +1 KB.
   // Settings houses workspace folder mirror, git 3-way conflict resolution, and sync issues:
   // Plus the local API token panel, Connect panel for local AI clients (0.8.11), and DatePicker.
-  "/settings": 484,
+  // The shared row and tab buttons, connection state and settings find from the
+  // design sweep (#527): +4 KB. No dependency arrived.
+  "/settings": 488,
   // graph and experiments share the top navigation with live sync status indicators;
   // experiments added the image viewer, result editor and token create form, and
   // graph shares the chunk that carries them: +3 KB each.
   // Graph settings drawer added tabs, relation chips, and reading list integration: +4 KB.
   "/graph": 473,
   // Reader zoom keys in the shell and aborted-transaction recovery in the screen loader: +1 KB.
-  "/experiments": 442,
+  // Logged failures and a once-per-mount TeX probe from the S10 sweep (#504): +1 KB.
+  // No dependency arrived; the code is the error paths that used to be empty.
+  // The S13 sweep (#505) logs live-sync probe and listener failures in the shared
+  // top navigation: +1 KB, again error paths and no new dependency.
+  "/experiments": 444,
   // The review panel and the PDF reader shell each sit a little above the default.
   "/ai-review": 432,
   "/reader": 428,
@@ -132,10 +139,23 @@ function allowanceFor(route) {
   return (match ? ROUTE_ALLOWANCES_KB[match] : ROUTE_BUDGET_KB) + ENVIRONMENT_ALLOWANCE_KB;
 }
 
+/** Chunks a manifest names that the build did not write; see the check below. */
+const missingChunks = new Set();
+
+/** Gzipped size by chunk path: most chunks are shared, so each is compressed once (41-06). */
+const gzippedSizes = new Map();
+
 function gzippedChunkSize(file) {
+  if (!gzippedSizes.has(file)) gzippedSizes.set(file, measureChunk(file));
+  return gzippedSizes.get(file);
+}
+
+function measureChunk(file) {
   try {
     return gzipSync(readFileSync(file)).byteLength;
   } catch {
+    // Counting it as zero would pass a route whose bytes were never measured (41-05).
+    missingChunks.add(path.relative(buildDir, file).split(path.sep).join("/"));
     return 0;
   }
 }
@@ -185,8 +205,16 @@ const measured = [];
 for (const [route, files] of routes) {
   let bytes = 0;
   // Manifest paths are relative to the build root (`static/chunks/…`).
-  for (const file of files) bytes += gzippedChunkSize(path.join(buildDir, file));
+  // The manifest names a dynamic segment URL-encoded (`%5Bid%5D`); the file on disk is `[id]`.
+  for (const file of files) bytes += gzippedChunkSize(path.join(buildDir, decodeURIComponent(file)));
   measured.push({ route, kb: Math.round(bytes / 1024) });
+}
+
+if (missingChunks.size) {
+  console.error("FAIL: the build manifest names chunks the build did not write, so their size is unknown:");
+  for (const chunk of missingChunks) console.error(`  ${chunk}`);
+  console.error("\n  Rebuild (`npm run build`) and run this again on the fresh output.");
+  process.exit(1);
 }
 
 if (measured.length === 0) {

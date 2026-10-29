@@ -12,6 +12,7 @@ import {
   studentDefaultLg,
   studentDefaultSm,
   mergeSupervisorCardsIfMissing,
+  initialDashboardLayout,
   syncDashboardLayouts,
   mergeRglPositions,
   lgLayoutNeedsRepair,
@@ -146,11 +147,55 @@ describe("mergeSupervisorCardsIfMissing", () => {
   });
 });
 
+describe("initialDashboardLayout (35-12)", () => {
+  const SUP = ["team-roster", "team-attention", "supervisee-snapshot"] as const;
+
+  it("gives a supervisor with no saved layout every supervisor card", () => {
+    const types = new Set(initialDashboardLayout(null, true).lg.map((c) => c.type));
+    for (const type of SUP) assert.ok(types.has(type), type);
+  });
+
+  it("gives a student with no saved layout no supervisor cards", () => {
+    const types = new Set(initialDashboardLayout(null, false).lg.map((c) => c.type));
+    for (const type of SUP) assert.ok(!types.has(type), type);
+  });
+
+  it("keeps a supervisor card the user removed removed", () => {
+    const full = initialDashboardLayout(null, true);
+    const removed = {
+      lg: full.lg.filter((c) => c.type !== "team-roster"),
+      sm: full.sm.filter((c) => c.type !== "team-roster"),
+    };
+    const reopened = initialDashboardLayout(removed, true);
+    assert.equal(reopened.lg.filter((c) => c.type === "team-roster").length, 0);
+    assert.equal(reopened.sm.filter((c) => c.type === "team-roster").length, 0);
+    assert.equal(reopened.lg.length, removed.lg.length);
+  });
+
+  it("returns a saved layout's cards unchanged in count", () => {
+    const saved = defaultLayout(false);
+    assert.equal(initialDashboardLayout(saved, true).lg.length, saved.lg.length);
+  });
+});
+
 describe("parseDashboardLayout", () => {
   it("returns null for invalid payloads", () => {
     assert.equal(parseDashboardLayout(null), null);
     assert.equal(parseDashboardLayout({ lg: [] }), null);
-    assert.equal(parseDashboardLayout({ lg: [{ id: "x", type: "not-a-type", x: 0, y: 0, w: 1, h: 1 }], sm: [] }), null);
+  });
+
+  it("keeps the user's cards when one stored item is unknown (35-11)", () => {
+    const lg = studentDefaultLg();
+    const sm = studentDefaultSm();
+    const parsed = parseDashboardLayout({
+      lg: [...lg, { id: "x", type: "not-a-type", x: 0, y: 99, w: 1, h: 1 }],
+      sm,
+    });
+    assert.ok(parsed);
+    assert.deepEqual(
+      parsed.lg.map((c) => c.id).sort(),
+      lg.map((c) => c.id).sort(),
+    );
   });
 
   it("parses valid layout", () => {

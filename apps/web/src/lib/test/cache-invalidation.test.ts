@@ -62,6 +62,15 @@ test("unknown resource type falls back to clear-all", async () => {
   invalidateAllRepoCaches();
 });
 
+test("a prototype key is an unknown resource type, not a plan (11-03)", async () => {
+  const { isKnownResourceType } = await import("@/lib/cache/cache-invalidation-map");
+  for (const key of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+    assert.equal(isKnownResourceType(key), false, key);
+    assert.doesNotThrow(() => invalidateForWrite(key), key);
+  }
+  assert.equal(isKnownResourceType("paper"), true);
+});
+
 // --- what a container takes back when it goes -------------------------------
 //
 // `createAppContainer` registers 24 repository caches, one session-reset hook

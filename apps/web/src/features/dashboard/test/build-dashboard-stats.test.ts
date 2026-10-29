@@ -28,6 +28,18 @@ describe("build-dashboard-stats", () => {
     assert.equal(p.pct, 50);
   });
 
+  it("readingProgress of nothing is 0 of 0 at 0%, and rounds the percentage", () => {
+    assert.deepEqual(readingProgress([]), { done: 0, total: 0, pct: 0 });
+    const third = readingProgress([paper("a", "read"), paper("b", "to_read"), paper("c", "to_read")]);
+    assert.equal(third.pct, 33);
+  });
+
+  it("needsAttention treats a milestone due on the given day as not overdue", () => {
+    const due = { id: "m", title: "T", status: "planned", targetDate: "2026-03-10", dependencies: [], compute: [], createdAt: "2026-01-01" } as Milestone;
+    const items = needsAttention([], [due], [], "2026-03-10");
+    assert.ok(!items.some((i) => i.label.includes("overdue")));
+  });
+
   it("needsAttention lists unread, overdue, and upcoming", () => {
     const items = needsAttention(
       [paper("a", "to_read")],

@@ -19,7 +19,10 @@ import {
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
+import { latestGate } from "@/lib/latest-gate";
 import { collectListIds } from "./list-ui";
+import { Button } from "@/components/button";
+import { ToggleButton } from "@/components/controls";
 
 const STAGE_LABEL: Record<ScreeningStage, string> = {
   title_abstract: "Title & abstract",
@@ -75,22 +78,39 @@ export function ScreeningPanel({
     [papers],
   );
 
+  // A reload runs on mount and after each decision: keep only the newest answer.
+  const [beginReload] = useState(latestGate);
+
   const reload = useCallback(async () => {
+    const isCurrent = beginReload();
     const container = getContainer();
-    const listIds = collectListIds([node]);
-    const [rows, user] = await Promise.all([
-      container.readingLists.listItemsForLists(listIds),
-      container.auth.auth.getUser(),
-    ]);
+    const rows = await container.readingLists.listItemsForLists(collectListIds([node]));
     const screened = rows.filter((row) => !row.inheritedFromListId);
+    const nextSummary = await container.readingLists.screenItems.summarize(screened);
+    if (!isCurrent()) return;
     setItems(screened);
-    setSummary(await container.readingLists.screenItems.summarize(screened));
-    setMe(user?.id ?? null);
-  }, [node]);
+    setSummary(nextSummary);
+  }, [node, beginReload]);
 
   useEffect(() => {
     reload().catch((e) => setError(formatError(e)));
   }, [reload]);
+
+  // Who is screening does not change between decisions: ask once.
+  useEffect(() => {
+    let cancelled = false;
+    getContainer()
+      .auth.auth.getUser()
+      .then((user) => {
+        if (!cancelled) setMe(user?.id ?? null);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(formatError(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const decide = async (itemId: string, state: ScreeningState) => {
     if (!me) {
@@ -148,20 +168,16 @@ export function ScreeningPanel({
   return (
     <div className="screening-panel">
       <div className="screening-toolbar">
-        {SCREENING_STAGES.map((s) => (
-          <button
-            key={s}
-            type="button"
-            className={`link-btn${stage === s ? " is-active" : ""}`}
-            aria-pressed={stage === s}
-            onClick={() => setStage(s)}
-          >
-            {STAGE_LABEL[s]}
-          </button>
-        ))}
-        <button type="button" className="link-btn" onClick={copyFigure} disabled={!summary}>
+        <span className="wf-seg" role="group" aria-label="Screening stage">
+          {SCREENING_STAGES.map((s) => (
+            <ToggleButton key={s} pressed={stage === s} onClick={() => setStage(s)}>
+              {STAGE_LABEL[s]}
+            </ToggleButton>
+          ))}
+        </span>
+        <Button variant="ghost" size="sm" onClick={copyFigure} disabled={!summary}>
           Copy PRISMA figure
-        </button>
+        </Button>
       </div>
 
       {error && <p className="error-text">{error}</p>}
@@ -199,18 +215,13 @@ export function ScreeningPanel({
                         setReason((prev) => ({ ...prev, [item.id]: e.target.value }))
                       }
                     />
-                    {(Object.keys(STATE_LABEL) as ScreeningState[]).map((state) => (
-                      <button
-                        key={state}
-                        type="button"
-                        className={`link-btn${mine?.state === state ? " is-active" : ""}`}
-                        aria-pressed={mine?.state === state}
-                        disabled={busy}
-                        onClick={() => decide(item.id, state)}
-                      >
-                        {STATE_LABEL[state]}
-                      </button>
-                    ))}
+                    <span className="wf-seg" role="group" aria-label="Decision">
+                      {(Object.keys(STATE_LABEL) as ScreeningState[]).map((state) => (
+                        <ToggleButton key={state} pressed={mine?.state === state} disabled={busy} onClick={() => decide(item.id, state)}>
+                          {STATE_LABEL[state]}
+                        </ToggleButton>
+                      ))}
+                    </span>
                   </span>
                 )}
               </li>

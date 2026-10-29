@@ -61,7 +61,10 @@ export class AiAccessPolicy {
     if (!input.encryptionUnlocked) {
       return { allowed: false, reason: "encryption_locked" };
     }
-    if (Date.parse(input.grant.expiresAt) <= Date.parse(input.now ?? new Date().toISOString())) {
+    // Written as "not still valid" so a date that does not parse (NaN) fails closed.
+    const expiresAt = Date.parse(input.grant.expiresAt);
+    const now = Date.parse(input.now ?? new Date().toISOString());
+    if (!(expiresAt > now)) {
       return { allowed: false, reason: "grant_expired" };
     }
     if (!input.grant.allowedTools.includes(input.tool)) {

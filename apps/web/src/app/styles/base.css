@@ -7,6 +7,24 @@
   --radius: var(--radius-card, 14px);
   --radius-sm: var(--radius-control, 10px);
   --radius-pill: var(--radius-chip, 999px);
+  /* Geometry roles (design R1.1). Feature CSS reads only these; the old names
+     above stay as the theme-facing slots until every call site has moved. A
+     theme has four corners: a tag, a control, a card and a pill. */
+  --r-sm: calc(var(--radius-sm) / 2);
+  --r-control: var(--radius-sm);
+  --r-card: var(--radius);
+  --r-pill: var(--radius-pill);
+  --sh-rest: var(--wf-sh-rest);
+  --sh-raised: var(--wf-sh-up);
+  --sh-overlay: var(--shadow);
+  /* Spacing scale (R4.1): padding, margin and gap use these steps only. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
   /* Duration multiplier for the reactive layer; config.json may scale it. */
   --motion-scale: 1;
   /* Icon / toggle control scale — overridden by data-control-size + viewport. */
@@ -33,26 +51,30 @@
   --font-serif: var(--font-face-sans), ui-sans-serif, system-ui, "Segoe UI", sans-serif;
   --font-mono: var(--font-face-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
 
-  /* Transition durations, so a press reads as a press everywhere. The audit
-     asked for `--dur-fast: 60ms`; 60ms was below the threshold at which a
-     press is legible at all — it is a snap — and it was half the value of the
-     control sitting beside it in the same form, so the pair is one value.
+  /* Type roles (design R11.2). Every text size below display size is one of
+     these, in rem so the browser's own text size scales them all. `micro` is
+     only for counters and overlines inside a fixed-size box. */
+  --fs-micro: 0.6875rem; /* 11px: badge counts, overlines */
+  --fs-xs: 0.75rem;      /* 12px: caption */
+  --fs-sm: 0.8125rem;    /* 13px: body-sm, label, code */
+  --fs: 0.875rem;        /* 14px: body */
+  --fs-lg: 1rem;         /* 16px: h3, reading */
+  --fs-h2: 1.25rem;      /* 20px: section title */
+  --fs-h1: 1.6rem;       /* screen title */
 
-     These govern *press and selection feedback*: the duration of a control
-     answering a person. Fifty `0.15s` literals across thirteen stylesheets
-     agreed with `--dur-base` by coincidence, which meant retuning the token
-     would have moved the buttons and left everything else behind. They now
-     read it, and the reactive layer in `motion.css` derives its ramp from
-     `--dur-fast` so `--motion-scale` still reaches all three of its values at
-     once.
-
-     Other durations stay literal on purpose, because they are different kinds
-     of motion with their own tuned values: hover fades at `0.12s`, the
-     breakpoint-crossing layout ease at `--layout-duration`, and the
-     multi-second skeleton and loading animations. Folding those into one
-     feedback token would be a design change, not a consistency fix. */
-  --dur-fast: 150ms;
-  --dur-base: 150ms;
+  /* The motion scale (R3, G3): three durations, and every transition or
+     one-shot animation in the app reads one of them. A control answers a
+     press in `fast`; hovers, fades and colour changes take `base`; anything
+     that travels or changes size, like a panel opening or the layout crossing
+     its breakpoint, takes `slow`. Loops and attention pulses of half a second
+     or more are a different kind of motion and keep their own lengths. The
+     reactive layer in `motion.css` derives its ramp from `base`, so
+     `--motion-scale` still reaches all three of its values at once. Each one
+     divides by `--anim-speed`, the Appearance setting (0.25x to 4x), which
+     theme.ts sets on <html>; unset means 1. */
+  --dur-fast: calc(80ms / var(--anim-speed, 1));
+  --dur-base: calc(160ms / var(--anim-speed, 1));
+  --dur-slow: calc(280ms / var(--anim-speed, 1));
 
   /*
    * The stacking ladder.
@@ -77,6 +99,12 @@
   --z-modal: 10000;  /* .modal-backdrop, portalled to <body> */
   --z-menu: 10050;   /* a select portalled to <body>, above the modal it opened from */
   --z-toast: 10100;  /* toasts, above everything */
+
+  /* The editor's two tints (DA-107). Both used to be accent washes, so a
+     selection on the caret's line read as the line highlight. The line is a
+     neutral wash now; only the selection carries the accent. */
+  --editor-selection: color-mix(in srgb, var(--accent) 30%, transparent);
+  --editor-active-line: color-mix(in srgb, var(--ink) 5%, transparent);
 }
 
 /* Each density also moves --icon-size. Without that only the button *box*
@@ -123,6 +151,16 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 
+/* Native controls take the app font. Left to the UA they render in Arial at
+   13.33px (the palette rows, the supervision picker). */
+button, input, select, textarea { font: inherit; }
+/* Element weight only, so any class rule for a link still wins. */
+a { color: var(--link); }
+
+/* Source text shows what was typed: `<!--` and `->` stay characters, not
+   arrows. `:root` lifts it above rules that reset `font` by shorthand. */
+:root :is(code, pre, kbd, samp, .cm-content) { font-variant-ligatures: none; }
+
 /* Chrome on Android draws the tap highlight from an element's border-box rects,
    before the border-radius clip applies — so every rounded card, chip and icon
    button flashed a hard grey rectangle. Drop the UA overlay and supply our own
@@ -132,14 +170,8 @@ html, body { margin: 0; padding: 0; }
 /* Press feedback for anything tappable. `background-color` on the element
    itself is clipped by its own border-radius, so the shape is always right. */
 @media (hover: none) {
-  .card[role="button"]:active,
-  .entity-card[role="button"]:active,
-  .nav-link:active,
-  .sub-nav a:active,
-  .entity-icon-btn:active,
-  .git-chip.link:active,
-  .plan-chip.link:active,
-  button:not(:disabled):active {
+  .card[role="presentation"]:active,
+button:not(:disabled):active {
     background-color: var(--press);
   }
 }
@@ -156,6 +188,9 @@ html {
      indistinguishable from a hung app. With the colour on the root as well, a
      missed paint shows the theme instead of a blackout. */
   background: var(--bg);
+  /* The page scrolls under the fixed title bar; keep a focused control clear
+     of it. */
+  scroll-padding-top: calc(var(--titlebar-h) + 8px);
 }
 html::-webkit-scrollbar { display: none; }
 body {
@@ -180,7 +215,7 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   /* Smooth cross-fade when switching themes. */
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: background-color var(--dur-slow) ease, color var(--dur-slow) ease;
 }
 
 /* Scrollbars are an overlay that reveals itself, everywhere.
@@ -229,20 +264,22 @@ body {
 *::-webkit-scrollbar-thumb {
   background: transparent;
   border: 3px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background-clip: padding-box;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  *::-webkit-scrollbar-thumb { transition: background-color 0.18s ease; }
+  *::-webkit-scrollbar-thumb { transition: background-color var(--dur-base) ease; }
 }
 
-/* Visible keyboard focus for all interactive controls (mouse clicks unaffected). */
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+/* Visible keyboard focus for all interactive controls (mouse clicks unaffected).
+   The one ring: the same token, width and offset as the states catalogue, and
+   no transition, so it is there the moment focus lands. */
+:focus-visible { outline: 3px solid var(--wf-focus, var(--accent)); outline-offset: 2px; border-radius: var(--r-sm); }
 
 /* Page fade-in, replayed on every route change (keyed by pathname). */
 @keyframes page-in { from { opacity: 0; } }
-.page-transition { animation: page-in 0.2s ease-out; }
+.page-transition { animation: page-in var(--dur-base) ease-out; }
 .page-transition--dashboard { animation: none; }
 /* Set by navTransition once its crossfade showed the page: no second fade. */
 .page-transition--vt { animation: none; }
@@ -253,7 +290,7 @@ body {
    row animates just that row. A small per-row delay gives a gentle stagger. */
 .log-item, .exp-item, .section-node, .list-item,
 .commit-item, .graph-wrap, .progress-card, .empty {
-  animation: content-in 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: content-in var(--dur-slow) var(--ease-out) both;
 }
 .log-item:nth-child(n+2),
 .exp-item:nth-child(n+2),
@@ -291,7 +328,9 @@ body {
 /* Shared easing when crossing the mobile ↔ desktop breakpoint (900px). */
 :root {
   --layout-ease: cubic-bezier(0.4, 0, 0.2, 1);
-  --layout-duration: 0.32s;
+  /* Decelerating entrance: content arriving on screen. */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --layout-duration: var(--dur-slow);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -312,63 +351,54 @@ body {
   position: sticky;
   top: var(--titlebar-h);
   z-index: var(--z-sticky);
-  display: flex; gap: 2px; margin: 18px 0 4px; padding: 3px;
+  display: flex; gap: 2px; margin: 16px 0 4px; padding: 4px;
   background: color-mix(in srgb, var(--surface2) 72%, transparent);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   border: 1px solid var(--glass-border);
-  border-radius: 10px;
+  border-radius: var(--r-control);
   box-shadow: var(--glass-shadow);
   width: 100%; overflow-x: auto; scrollbar-width: none;
 }
 .sub-nav::-webkit-scrollbar { display: none; }
-/* Sliding tile behind the active tab. Local ordering — the tile sits behind
-   its own label, and the 0/1 pair is scoped to `.sub-nav`. */
-.sub-tab-indicator {
-  position: absolute; top: 3px; bottom: 3px; left: 0; z-index: 0;
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
-  backdrop-filter: blur(10px) saturate(1.1);
-  -webkit-backdrop-filter: blur(10px) saturate(1.1);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  transition: transform 0.32s cubic-bezier(0.22, 0.61, 0.36, 1), width 0.32s cubic-bezier(0.22, 0.61, 0.36, 1);
+/* Sideways strips show there is more past an edge (DA-93): the edge that
+   hides tabs fades, and a swipe stops on a tab rather than mid-word. The fade
+   is driven by the strip's own scroll, so a strip that fits never fades, and
+   the far edge clears once you reach it. Browsers without scroll timelines
+   keep the plain strip. */
+@property --fade-start { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --fade-end { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@keyframes edge-fade {
+  from { --fade-start: 0px; --fade-end: 24px; }
+  8% { --fade-start: 24px; }
+  92% { --fade-end: 24px; }
+  to { --fade-start: 24px; --fade-end: 0px; }
 }
-.sub-tab {
-  position: relative; z-index: 1; flex: 1; text-align: center;
-  text-decoration: none; color: var(--muted);
-  font-size: 0.82rem; font-weight: 500; white-space: nowrap;
-  padding: 6px 15px; border-radius: 7px; transition: color 0.2s ease;
-  display: inline-flex; align-items: center; justify-content: center;
+.sub-nav {
+  mask-image: linear-gradient(to right, transparent, black var(--fade-start), black calc(100% - var(--fade-end)), transparent);
+  animation: edge-fade linear both;
+  animation-timeline: scroll(self inline);
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 24px;
 }
-.sub-tab.active { color: var(--ink); }
-/* Baseline hover. A navigation tab that does not acknowledge the pointer reads
-   as disabled, so this is not part of the optional motion layer — it is the
-   affordance. The sliding indicator marks the *active* tab; this marks the one
-   you are about to pick. */
-.sub-tab:hover { color: var(--ink); }
-.sub-tab:not(.active):hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
-.sub-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-
-/* Touch sizing follows the *pointer*, not the window.
-   The 44px floor for these tabs lives inside the ≤899px layout query in
-   `dashboard.css`, which meant an iPad in landscape (1024px, so `desktop`
-   layout) got 32px-tall tabs while the same iPad in portrait (820px, `mobile`)
-   got 44px — the adaptation inverted itself when the device was rotated. A
-   coarse pointer is the thing that actually needs the bigger target, wherever
-   the layout breakpoint happens to fall. */
+/* Each view is a catalogue nav item (`.wf-nav`); the strip only lays them out. */
+:root:root .sub-nav > .wf-nav {
+  scroll-snap-align: start; flex: 1; justify-content: center; white-space: nowrap;
+  font-size: var(--fs-sm); padding: 8px 16px;
+}
+/* Touch sizing follows the pointer, not the window, so a landscape iPad gets the 44px floor too. */
 @media (pointer: coarse) {
-  .sub-tab { min-height: 44px; }
+  .sub-nav > .wf-nav { min-height: 44px; }
 }
 /* Library's six tabs must fit 360px, bold themes included. */
 @media (max-width: 480px) {
-  .sub-tab { padding: 6px 4px; font-size: 0.78rem; }
+  :root:root .sub-nav > .wf-nav { padding: 8px 4px; font-size: var(--fs-xs); }
 }
 
 /* Respect users who prefer reduced motion. */
 @media (prefers-reduced-motion: reduce) {
   .page-transition { animation: none; }
   .page-transition--dashboard { animation: none; }
-  .sub-tab-indicator { transition: none; }
 }
 
 /* The reveal. `:hover` is on the scroll container itself, so a thumb appears for

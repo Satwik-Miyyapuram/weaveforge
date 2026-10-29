@@ -100,7 +100,6 @@ export {
   INK_AA_MARGIN_PX,
   INK_INSTANCE_FLOATS,
   INK_SELECTION_HALO_PX,
-  capsuleHalfExtent,
   packStrokeInstances,
   radiusAt,
   usesHighlighterPass,
@@ -153,7 +152,7 @@ export {
   type InkHostProps,
 } from "./ui/ink-host";
 export { InkReader, type InkReaderProps } from "./ui/ink-reader";
-export { fitScale, headerForTool, selectedText } from "./ui/ink-page-math";
+export { fitScale, selectedText } from "./ui/ink-page-math";
 export {
   DRAW_CURSOR,
   ERASER_CURSOR,
@@ -219,7 +218,9 @@ export {
 } from "./ui/ink-bar";
 export {
   PageField,
+  PagePill,
   ViewMenu,
+  ZoomPill,
   type ViewMenuProps,
 } from "./ui/ink-bar-view";
 export {

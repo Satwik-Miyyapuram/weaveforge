@@ -114,3 +114,18 @@ test("without a token, tells the user to connect; never sends to a host off this
   );
   assert.match((remote.answers[0]!.error as { message: string }).message, /127\.0\.0\.1/);
 });
+
+test("a line that is JSON but not a request gets an error, and later requests are still answered (43-10)", async () => {
+  const home = tempHome();
+  const run = await runBridge(
+    ["null", "42", '"text"', { jsonrpc: "2.0", id: 7, method: "tools/call", params: { name: "x" } }],
+    { WEAVEFORGE_MCP_FILE: join(home, "none.json") },
+    home,
+  );
+  assert.equal(run.answers.length, 4);
+  for (const bad of run.answers.slice(0, 3)) {
+    assert.deepEqual(bad, { jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid request." } });
+  }
+  assert.equal(run.answers[3]!.id, 7);
+  assert.match((run.answers[3]!.result as { content: { text: string }[] }).content[0]!.text, /Connect/);
+});

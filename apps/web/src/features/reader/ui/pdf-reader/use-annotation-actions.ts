@@ -1,5 +1,6 @@
 "use client";
 
+import { errorMessage } from "@weaveforge/core";
 import { useCallback, useState } from "react";
 import type { NewReaderAnnotation, ReaderAnnotation } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
@@ -19,7 +20,6 @@ export interface AnnotationActionsDeps {
   onActivity: PdfReaderProps["onActivity"];
   /** Record a pin locally once it is written; see `useAnnotationContext`. */
   applyPin: (annotationKey: string, sectionId: string | null, paperId: string) => void;
-  selectedAnnId: string | null;
   setSelectedAnnId: (update: string | null | ((prev: string | null) => string | null)) => void;
   /** Drop the pending text selection once a draft is on its way. */
   clearPendingCreate: () => void;
@@ -37,15 +37,21 @@ export interface AnnotationActions {
     id: string,
     patch: { comment?: string; tags?: string[]; color?: string; text?: string },
   ) => Promise<void>;
-  /** Delete now, no question asked; Ctrl+Z brings it back (`use-ink-undo.ts`). */
-  removeLocal: (id: string) => Promise<void>;
+  /**
+   * Delete now, no question asked; Ctrl+Z brings it back (`use-ink-undo.ts`).
+   * Resolves false when nothing was deleted, so undo records only real deletes.
+   */
+  removeLocal: (id: string) => Promise<boolean>;
   pinLocal: (ann: ReaderAnnotation, sectionId: string | null) => Promise<void>;
-  /** Move a mark; `comment`, when given, is written in the same request. */
+  /**
+   * Move a mark; `comment`, when given, is written in the same request.
+   * Resolves false when the move was not saved (and was rolled back).
+   */
   saveAnchor: (
     ann: ReaderAnnotation,
     anchor: ReaderAnnotation["anchor"],
     comment?: string,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
 }
 
 /**
@@ -62,7 +68,6 @@ export function useAnnotationActions({
   onAnnotationsChange,
   onActivity,
   applyPin,
-  selectedAnnId,
   setSelectedAnnId,
   clearPendingCreate,
 }: AnnotationActionsDeps): AnnotationActions {
@@ -96,7 +101,7 @@ export function useAnnotationActions({
         // vanishes on the next reload with no explanation.
         change((prev) => prev.filter((a) => a.id !== tempId));
         setSelectedAnnId((prev) => (prev === tempId ? null : prev));
-        setAnnError(err instanceof Error ? err.message : "Could not save the annotation.");
+        setAnnError(errorMessage(err, "Could not save the annotation."));
         return null;
       } finally {
         setCreateBusy(false);
@@ -129,7 +134,7 @@ export function useAnnotationActions({
           const restore = previous;
           change((prev) => prev.map((a) => (a.id === id ? restore : a)));
         }
-        setAnnError(err instanceof Error ? err.message : "Could not update the annotation.");
+        setAnnError(errorMessage(err, "Could not update the annotation."));
       }
     },
     [onAnnotationsChange, onActivity],
@@ -137,28 +142,31 @@ export function useAnnotationActions({
 
   /** Delete a local annotation. No dialog: undo is the safety net. */
   const removeLocal = useCallback(
-    async (id: string) => {
-      if (!onAnnotationsChange) return;
+    async (id: string): Promise<boolean> => {
+      if (!onAnnotationsChange) return false;
       const change: ChangeAnnotations = onAnnotationsChange;
       let removed: ReaderAnnotation | undefined;
       change((prev) => {
         removed = prev.find((a) => a.id === id);
         return prev.filter((a) => a.id !== id);
       });
-      if (selectedAnnId === id) setSelectedAnnId(null);
+      // Functional, so this callback does not change with every selection.
+      setSelectedAnnId((prev) => (prev === id ? null : prev));
       setAnnError(null);
       try {
         await getContainer().papers.removeReaderAnnotation(id);
         onActivity?.("annotate", "Deleted annotation");
+        return true;
       } catch (err) {
         if (removed) {
           const restore = removed;
           change((prev) => (prev.some((a) => a.id === restore.id) ? prev : [...prev, restore]));
         }
-        setAnnError(err instanceof Error ? err.message : "Could not delete the annotation.");
+        setAnnError(errorMessage(err, "Could not delete the annotation."));
+        return false;
       }
     },
-    [onAnnotationsChange, onActivity, selectedAnnId, setSelectedAnnId],
+    [onAnnotationsChange, onActivity, setSelectedAnnId],
   );
 
   const pinLocal = useCallback(
@@ -170,15 +178,15 @@ export function useAnnotationActions({
         applyPin(key, sectionId, paperId);
         setAnnError(null);
       } catch (err) {
-        setAnnError(err instanceof Error ? err.message : "Could not pin the annotation.");
+        setAnnError(errorMessage(err, "Could not pin the annotation."));
       }
     },
     [paperId, applyPin],
   );
 
   const saveAnchor = useCallback(
-    async (ann: ReaderAnnotation, anchor: ReaderAnnotation["anchor"], comment?: string) => {
-      if (!onAnnotationsChange) return;
+    async (ann: ReaderAnnotation, anchor: ReaderAnnotation["anchor"], comment?: string): Promise<boolean> => {
+      if (!onAnnotationsChange) return false;
       const change: ChangeAnnotations = onAnnotationsChange;
       // A comment that moves with the anchor (a picture's crop) goes in the same
       // write: two writes would each reconcile with the row they got back, and
@@ -190,10 +198,12 @@ export function useAnnotationActions({
       try {
         const updated = await getContainer().papers.updateReaderAnnotation(ann.id, patch);
         change((prev) => prev.map((a) => (a.id === ann.id ? updated : a)));
+        return true;
       } catch (err) {
         const restore = comment === undefined ? { anchor: before.anchor } : before;
         change((prev) => prev.map((a) => (a.id === ann.id ? { ...a, ...restore } : a)));
-        setAnnError(err instanceof Error ? err.message : "Could not move the annotation.");
+        setAnnError(errorMessage(err, "Could not move the annotation."));
+        return false;
       }
     },
     [onAnnotationsChange],

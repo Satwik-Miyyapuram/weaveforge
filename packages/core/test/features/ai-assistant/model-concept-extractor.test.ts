@@ -183,3 +183,78 @@ test("maxConcepts trims concepts and their mentions together", async () => {
   assert.equal(result.concepts.length, 1);
   assert.ok(result.mentions.every((m) => m.conceptName === result.concepts[0]!.name));
 });
+
+test("when every batch fails the run fails, with the model's error (02-08)", async () => {
+  const model: IModelConversation = {
+    provider: "fake",
+    async complete(): Promise<AiModelResponse> {
+      throw new Error("invalid api key");
+    },
+  };
+  await assert.rejects(
+    new ModelConceptExtractor(model, { batchSize: 1 }).extract({ documents: DOCS }),
+    /invalid api key/,
+  );
+});
+
+test("a reply with no concepts is a success, not a failure", async () => {
+  const result = await new ModelConceptExtractor(fakeModel('{"concepts":[]}')).extract({ documents: DOCS });
+  assert.deepEqual(result.concepts, []);
+});
+
+test("batches go to the model one at a time (02-10)", async () => {
+  let inFlight = 0;
+  let most = 0;
+  const model: IModelConversation = {
+    provider: "fake",
+    async complete(): Promise<AiModelResponse> {
+      inFlight += 1;
+      most = Math.max(most, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      inFlight -= 1;
+      return { text: REPLY, model: "fake", provider: "fake", sourceLinks: [] };
+    },
+  };
+  const docs = Array.from({ length: 6 }, (_u, i) => ({ id: `d${i}`, title: `t${i}`, text: "x" }));
+  await new ModelConceptExtractor(model, { batchSize: 1 }).extract({ documents: docs });
+  assert.equal(most, 1);
+});
+
+test("a brace in the preamble does not hide the JSON after it (02-09)", () => {
+  const text = 'I filled in the {concepts} template:\n' + REPLY;
+  assert.equal(parseExtractionJson(text).length, 2);
+});
+
+test("an object without concepts is skipped for the one that has them (02-09)", () => {
+  const text = '{"status":"ok"}\n' + REPLY;
+  assert.equal(parseExtractionJson(text).length, 2);
+});
+
+test("an empty concepts list is still the answer, not a reason to keep looking", () => {
+  const text = '{"concepts":[]} and later {"concepts":[{"name":"x","documentIds":["d1"]}]}';
+  assert.deepEqual(parseExtractionJson(text), []);
+});
+
+test("broken entries cost themselves, not the valid ones beside them (02-09)", () => {
+  const raw = [
+    null,
+    7,
+    "attention",
+    [],
+    { name: "Attention", aliases: [], kind: "concept", documentIds: ["d1"] },
+  ] as unknown as Parameters<typeof toExtractionResult>[0];
+  const result = toExtractionResult(raw, DOCS);
+  assert.deepEqual(result.concepts.map((c) => c.name), ["Attention"]);
+  assert.deepEqual(result.mentions, [{ documentId: "d1", conceptName: "Attention", evidence: "" }]);
+});
+
+test("a reply whose list holds a null still yields its valid concepts (02-09)", async () => {
+  const reply = '{"concepts":[null,{"name":"LSTM","aliases":[],"kind":"method","documentIds":["d2"]}]}';
+  const result = await new ModelConceptExtractor(fakeModel(reply)).extract({ documents: DOCS });
+  assert.deepEqual(result.concepts.map((c) => c.name), ["LSTM"]);
+});
+
+test("a reply with no balanced object yields nothing", () => {
+  assert.deepEqual(parseExtractionJson('{"concepts":[{"name":"x"'), []);
+  assert.deepEqual(parseExtractionJson("}{"), []);
+});

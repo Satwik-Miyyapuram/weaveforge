@@ -1,50 +1,20 @@
 .dashboard-screen .screen-title-block { flex: 1 1 auto; min-width: 0; }
-.dashboard-screen .screen-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dashboard-customize-btn {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-lg);
-  height: var(--control-lg);
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--control-radius);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition: background var(--dur-base), color var(--dur-base), border-color var(--dur-base);
-}
-.dashboard-customize-btn:hover {
-  background: var(--pill);
-  color: var(--ink);
-  border-color: var(--border);
-}
-.dashboard-screen .screen-title { font-size: 1.1rem; margin: 0; }
+/* The project's name heads the page; a long one wraps rather than losing its end. */
+.dashboard-screen .screen-title { overflow-wrap: anywhere; }
+
+/* The shared button rule pads every button 7px 13px at :root:root weight;
+   on this 36px square that left the icon 9px wide. An icon button has no padding. */
+
 .report-screen .screen-title {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: 1.25rem;
-  font-weight: 600;
   flex: 1 1 auto;
   min-width: 0;
 }
 .dashboard-edit-bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.dashboard-screen .head-row:has(.dashboard-edit-bar--editing) {
-  flex-wrap: wrap;
-  row-gap: 10px;
-}
-.dashboard-screen .head-row:has(.dashboard-edit-bar--editing) > * {
-  flex: 1 1 100%;
-}
-.dashboard-edit-bar--editing {
-  width: 100%;
-}
 /* `--danger` (the alias onto `--s-danger`), not `--error`: the latter is defined
    by no theme, so the literal fallback was the only value this ever painted. */
 .dashboard-inline-error {
-  font-size: 0.82rem; margin: 0 0 10px; padding: 8px 12px;
-  border-radius: 8px; background: color-mix(in srgb, var(--danger) 12%, transparent);
+  font-size: var(--fs-sm); margin: 0 0 12px; padding: 8px 12px;
+  border-radius: var(--r-control); background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
 /* No sideways clip here: .app-shell already clips, with its gutter as room.
    A clip at the grid's own edge sliced the corners and shadows off tilted
@@ -75,7 +45,7 @@
   transition: none !important;
 }
 .dashboard-grid--enter .dashboard-card {
-  animation: dashboard-card-fade-in 0.2s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: dashboard-card-fade-in var(--dur-base) var(--ease-out) both;
   animation-delay: calc(var(--card-i, 0) * 12ms);
 }
 .dashboard-card-content--shell {
@@ -83,7 +53,7 @@
   min-height: 1.5rem;
 }
 .dashboard-card-content--ready {
-  animation: dashboard-content-in 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: dashboard-content-in var(--dur-slow) var(--ease-out) both;
 }
 .dashboard-card-skeleton {
   display: flex;
@@ -93,14 +63,14 @@
   min-height: 0;
 }
 .dashboard-stat-bar.progress-bar > span {
-  transition: width 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: width var(--dur-slow) var(--ease-out);
 }
 .dashboard-grid-wrap--editing .react-grid-layout {
   background-image:
     linear-gradient(to right, color-mix(in srgb, var(--line) 70%, transparent) 1px, transparent 1px),
     linear-gradient(to bottom, color-mix(in srgb, var(--line) 70%, transparent) 1px, transparent 1px);
   background-size: var(--dash-step-x, 0) var(--dash-step-y, 0);
-  border-radius: 8px;
+  border-radius: var(--r-control);
 }
 .dashboard-grid-wrap:not(.dashboard-grid-wrap--editing) .react-resizable-handle {
   display: none !important;
@@ -127,7 +97,7 @@
   bottom: 5px;
   width: 10px;
   height: 10px;
-  border-radius: 0 0 4px 0;
+  border-radius: 0 0 var(--r-sm) 0;
   opacity: 0.55;
   transition: opacity var(--dur-base) ease;
   background:
@@ -173,13 +143,13 @@
   flex-direction: column;
   height: 100%;
   margin: 0 !important;
-  padding: 12px 14px;
+  padding: 12px 16px;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-card);
   box-shadow: none;
 }
-.dashboard-card--stat { padding: 10px 12px 12px; }
+.dashboard-card--stat { padding: 12px 12px 12px; }
 .dashboard-card--editing {
   border-style: dashed;
   cursor: grab;
@@ -188,30 +158,25 @@
 .react-draggable-dragging .dashboard-card--editing {
   cursor: grabbing;
 }
+/* Laid over the card's top corner, so a card keeps its heading and height in edit mode. */
 .dashboard-card-chrome {
+  position: absolute;
+  top: var(--s1);
+  right: var(--s1);
+  z-index: 2;
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 0 0 4px;
-  padding: 0;
-  flex-shrink: 0;
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: var(--muted);
-  letter-spacing: 0.06em;
-  min-height: 1em;
+  gap: var(--s1);
 }
-.dashboard-drag-handle { cursor: grab; user-select: none; padding: 0 2px; line-height: 1; }
-.dashboard-card-label {
-  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.dashboard-drag-handle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--control-lg); height: var(--control-lg); flex: none;
+  cursor: grab; user-select: none; color: var(--muted);
 }
-.dashboard-card-remove {
-  border: none; background: none; color: var(--muted); cursor: pointer; padding: 0 2px;
-  line-height: 1; flex: none;
-}
-.dashboard-card-remove:hover { color: var(--ink); }
+.dashboard-edit-hint { margin: 0 0 8px; }
+
 .dashboard-card-heading {
-  font-size: 0.68rem; font-weight: 600; margin: 0 0 6px; color: var(--muted);
+  font-size: var(--fs-micro); font-weight: 600; margin: 0 0 8px; color: var(--muted);
  letter-spacing: 0.06em;
   flex-shrink: 0;
 }
@@ -221,88 +186,93 @@
   display: flex; flex-direction: column; justify-content: flex-start;
 }
 .dashboard-card--stat .dashboard-card-content { flex: 1; }
+/* A list card's natural height, measured to fit the card to it (DA-128). */
+.dashboard-card-fit { flex: none; display: flex; flex-direction: column; }
 .dashboard-stat-link {
   display: flex; flex-direction: column; flex: 1; min-height: 0;
   justify-content: flex-start; text-decoration: none; color: inherit;
+  container-type: inline-size;
 }
 .dashboard-card--editing .dashboard-stat-link,
 .dashboard-card--editing .dashboard-list-row {
   pointer-events: none;
 }
 .dashboard-stat-link:hover .dashboard-stat-pct { color: var(--accent-ink, var(--accent)); }
+/* Bottom-aligned, not on the first baseline: a count that wraps on a phone
+   tile then stays within the percentage's height instead of pushing the bar
+   out of the card. */
 .dashboard-stat-row {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 8px;
   flex-shrink: 0;
 }
-.dashboard-stat-count { font-size: 0.82rem; color: var(--muted); }
+/* The narrowest tiles (a 320px phone) have room for "3 of 9 done" only. */
+@container (max-width: 124px) {
+  .dashboard-stat-extra { display: none; }
+}
+.dashboard-stat-count { font-size: var(--fs-sm); color: var(--muted); }
 .dashboard-stat-pct {
-  font-size: 1.5rem; font-weight: 600; line-height: 1;
+  font-size: var(--fs-h1); font-weight: 600; line-height: 1;
   letter-spacing: -0.03em; color: var(--ink);
   transition: color var(--dur-base);
   flex-shrink: 0;
 }
-.dashboard-stat-pct--solo { font-size: 1.65rem; flex-shrink: 0; }
-.dashboard-stat-caption { font-size: 0.78rem; color: var(--muted); line-height: 1.25; }
+.dashboard-stat-pct--solo { font-size: var(--fs-h1); flex-shrink: 0; }
+.dashboard-stat-caption { font-size: var(--fs-xs); color: var(--muted); line-height: 1.25; }
 .dashboard-stat-bar,
 .dashboard-stat-footer { margin-top: auto; flex-shrink: 0; }
 .dashboard-stat-bar { width: 100%; }
-.dashboard-card-meta { font-size: 0.88rem; color: var(--muted); }
-.dashboard-card-empty { margin: 0; font-size: 0.88rem; }
-.dashboard-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; min-width: 0; }
+.dashboard-card-meta { font-size: var(--fs); color: var(--muted); }
+.dashboard-card-empty { margin: 0; font-size: var(--fs); }
+.dashboard-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
 /* A bare grid track is minmax(auto, 1fr): a long log preview set the row to its
    full nowrap width and ran it out of the card on a phone instead of ellipsing. */
 .dashboard-list { grid-template-columns: minmax(0, 1fr); }
 .dashboard-list-row {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   min-width: 0;
-  text-decoration: none; color: var(--ink); font-size: 0.88rem; padding: 4px 0;
+  text-decoration: none; color: var(--ink); font-size: var(--fs); padding: 4px 0;
 }
 .dashboard-list-row > span:first-child {
   flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .dashboard-list-row:hover { color: var(--accent-ink, var(--accent)); }
 .dashboard-list-arrow { color: var(--muted); flex: none; }
-.dashboard-list-more { font-size: 0.82rem; padding: 2px 0; }
-.dashboard-list-more-btn {
-  background: none; border: 0; padding: 0; font: inherit; color: var(--accent-ink); cursor: pointer;
-}
-.dashboard-list-more-btn:hover { text-decoration: underline; }
+.dashboard-list-more { font-size: var(--fs-sm); padding: 2px 0; }
+
 /* Every item shown: the list scrolls inside the card, which keeps its size. */
 .dashboard-list--all { max-height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .dashboard-log-row { flex-direction: column; align-items: flex-start; gap: 2px; }
 .dashboard-log-row > span:first-child { flex: none; white-space: nowrap; }
-.dashboard-log-date { color: var(--muted); font-size: 0.78rem; }
+.dashboard-log-date { color: var(--muted); font-size: var(--fs-xs); }
 .dashboard-log-preview {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
 }
 .dashboard-roster-name { font-weight: 500; }
-.dashboard-supervisee { display: grid; gap: 10px; align-content: start; }
+.dashboard-supervisee { display: grid; gap: 12px; align-content: start; }
+.dashboard-supervisee-link { gap: 12px; }
+/* The card (a positioned grid item) is the link's hit area. */
+.dashboard-supervisee-link::after { content: ""; position: absolute; inset: 0; }
+.dashboard-supervisee-select-wrap { position: relative; z-index: 1; }
 .dashboard-supervisee-name {
-  margin: 0; font-weight: 600; font-size: 0.95rem; color: var(--ink);
+  margin: 0; font-weight: 600; font-size: var(--fs-lg); color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .dashboard-supervisee-select { width: 100%; }
-.dashboard-supervisee-select .custom-select-button {
-  padding: 8px 10px; font-size: 0.88rem; background: var(--pill); border-color: var(--border);
+.dashboard-supervisee-select .wf-select {
+  padding: 8px 12px; font-size: var(--fs); background: var(--pill); border-color: var(--border);
 }
-.dashboard-supervisee-meta { margin: 0; font-size: 0.82rem; }
-.dashboard-view-full {
-  justify-self: start; margin-top: 2px; font-size: 0.85rem;
-}
+.dashboard-supervisee-meta { margin: 0; font-size: var(--fs-sm); }
+
 .dashboard-picker { display: grid; gap: 16px; }
-.dashboard-picker-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.dashboard-picker-btn {
-  width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--line);
-  border-radius: 8px; background: var(--card); cursor: pointer; color: var(--ink);
-}
-.dashboard-picker-btn:hover { background: var(--pill); }
-.react-grid-placeholder { background: var(--active-bg) !important; opacity: 0.35 !important; border-radius: 8px; }
+.dashboard-picker-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+
+.react-grid-placeholder { background: var(--active-bg) !important; opacity: 0.35 !important; border-radius: var(--r-control); }
 
 /* ---- Mobile layout (≤899px — matches nav + dashboard breakpoint) ---- */
 @media (max-width: 899px) {
   .app-shell {
-    padding: 16px max(14px, env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom))
-      max(14px, env(safe-area-inset-left));
+    padding: 16px max(16px, env(safe-area-inset-right)) var(--nav-clear)
+      max(16px, env(safe-area-inset-left));
   }
 
   /* Let the swipe surface fill the viewport so horizontal swipes register on
@@ -312,11 +282,11 @@
   .view-scope > .swipe-views { flex: 1 1 auto; min-width: 0; width: 100%; }
 
   .mobile-only { margin-bottom: 8px; }
-  .sub-nav { margin: 10px 0 4px; }
-  .sub-tab { min-height: 44px; }
+  .sub-nav { margin: 12px 0 4px; }
+  .sub-nav > .wf-nav { min-height: 44px; }
 
   /* Header: title on its own row when present; actions may wrap on narrow phones. */
-  .head-row { flex-wrap: wrap; row-gap: 10px; }
+  .head-row { flex-wrap: wrap; row-gap: 12px; }
   .head-row > h1 { flex: 1 1 100%; }
   .screen-actions {
     width: 100%;
@@ -324,8 +294,6 @@
     flex-wrap: wrap;
     gap: 8px;
   }
-  .screen-actions .btn-primary,
-  .screen-actions .btn-secondary { padding: 9px 14px; }
 
   /* Progress lives on Home; Plan keeps its timeline. */
   .screen:not(.plan-screen) .progress-card { display: none; }
@@ -334,10 +302,10 @@
   .sub-nav { top: env(safe-area-inset-top, 0px); }
 
   /* Thumb-friendly text actions (edit / delete / share links). */
-  .link-btn {
+  .wf-link {
     min-height: var(--touch-min);
     min-width: var(--touch-min);
-    padding: 10px 8px;
+    padding: 12px 8px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -357,14 +325,13 @@
 
   .dashboard-screen .screen-title-block { flex: 1 1 auto; }
   .dashboard-screen .screen-actions { flex-wrap: wrap; row-gap: 8px; }
-  .dashboard-card { padding: 8px 10px; border-radius: 14px; }
-  .dashboard-card--stat { padding: 8px 10px 10px; }
-  .dashboard-card-heading { margin-bottom: 2px; font-size: 0.62rem; }
-  .dashboard-stat-pct { font-size: 1.25rem; }
-  .dashboard-stat-pct--solo { font-size: 1.35rem; }
-  .dashboard-stat-count { font-size: 0.75rem; }
-  .dashboard-stat-caption { font-size: 0.7rem; }
-  .dashboard-card-chrome { margin-bottom: 4px; }
+  .dashboard-card { padding: 8px 12px; border-radius: var(--r-card); }
+  .dashboard-card--stat { padding: 8px 12px 12px; }
+  .dashboard-card-heading { margin-bottom: 2px; font-size: var(--fs-micro); }
+  .dashboard-stat-pct { font-size: var(--fs-h2); }
+  .dashboard-stat-pct--solo { font-size: var(--fs-h2); }
+  .dashboard-stat-count { font-size: var(--fs-xs); }
+  .dashboard-stat-caption { font-size: var(--fs-micro); }
   .progress-bar { height: 6px; }
 
   /* Stacked form rows so inputs (e.g. the import URL) get full width */
@@ -372,46 +339,36 @@
 
   .superv-panels { grid-template-columns: minmax(0, 1fr); }
 
-  .report-screen .section-item .status-select,
-  .report-screen .section-item .custom-select-container {
-    min-width: 7.5rem;
-    max-width: none;
-    width: auto;
-  }
   .paper-card-head,
   .entity-card-head { flex-direction: row; align-items: flex-start; gap: 8px; }
 
   /* Tighter indent on phones so deep nesting keeps a usable content width. */
-  .section-tree.nested { padding-left: 7px; }
-  .section-item--nested { padding: 9px 10px; }
-  .lists-screen .list-children { margin-left: 8px; padding-left: 6px; }
+  .section-tree.nested { padding-left: 8px; }
+  .section-item--nested { padding: 8px 12px; }
+  .lists-screen .list-children { margin-left: 8px; padding-left: 8px; }
   .lists-screen .list-body > .list-papers,
   .lists-screen .list-body > .list-empty,
   .lists-screen .list-body > .list-add,
   .lists-screen .list-body > .list-add-trigger {
-    margin-left: 8px; padding-left: 9px;
+    margin-left: 8px; padding-left: 8px;
   }
 
 }
 
-/* Phone head: search owns a row, the head's buttons share the next evenly. */
+/* Phone head, the same on every screen (DA-94): search owns the first row,
+   the primary action the second at full width, and the other buttons share
+   the row after evenly. */
 @media (max-width: 479px) {
-  .screen-actions > .search-input { flex: 1 1 100%; }
-  .screen-actions > :is(.btn-primary, .btn-secondary, .popover, a):not(.dashboard-customize-btn) { flex: 1 1 0; justify-content: center; }
+  .screen-actions > .search-input { flex: 1 1 100%; order: -2; }
+  .screen-actions > :is(.wf-btn, .popover, a):not(.wf-icon) { flex: 1 1 0; justify-content: center; }
+  .screen-actions > .wf-primary { flex: 1 1 100%; order: -1; }
   .screen-actions > .popover > button { width: 100%; }
 }
 
 /* Tall-phone / short-height density (21:9 and similar). */
 @media (max-width: 899px) and (max-height: 740px) {
-  .mobile-only { margin-bottom: 6px; }
-  .sub-nav { margin: 6px 0 2px; }
+  .mobile-only { margin-bottom: 8px; }
+  .sub-nav { margin: 8px 0 2px; }
   .app-shell { padding-top: 12px; }
-  .controls-row,
   .filter-row { margin-top: 8px; }
-  .vault-editor {
-    min-height: 240px !important;
-  }
-  .markdown-code-editor--notes .cm-editor {
-    min-height: 200px !important;
-  }
 }

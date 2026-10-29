@@ -5,6 +5,19 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/ui/auth-provider";
 import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
+import { Button } from "@/components/button";
+
+/** The card every status branch of the reset screen sits in. */
+export function ResetShell({ title, children }: { title: string; children?: React.ReactNode }) {
+  return (
+    <main className="app-shell">
+      <div className="card crypto-setup-card">
+        <h1 className="screen-title">{title}</h1>
+        {children}
+      </div>
+    </main>
+  );
+}
 
 export function PasswordResetScreen() {
   const { user, loading, updatePassword } = useAuth();
@@ -34,9 +47,22 @@ export function PasswordResetScreen() {
     }
   }
 
-  if (loading) return <main className="app-shell"><div className="card crypto-setup-card"><h1 className="screen-title">Checking your reset link…</h1></div></main>;
-  if (!user) return <main className="app-shell"><div className="card crypto-setup-card"><h1 className="screen-title">Reset link unavailable</h1><FormError>This link is expired or has already been used. Request a new password reset email.</FormError></div></main>;
-  if (done) return <main className="app-shell"><div className="card crypto-setup-card"><h1 className="screen-title">Password changed</h1><p className="muted">Your login password has been updated. Your encryption recovery credentials are unchanged.</p><button type="button" className="btn-primary" onClick={() => router.replace("/dashboard")}>Continue</button></div></main>;
+  if (loading) return <ResetShell title="Checking your reset link…" />;
+  if (!user) {
+    return (
+      <ResetShell title="Reset link unavailable">
+        <FormError>This link is expired or has already been used. Request a new password reset email.</FormError>
+      </ResetShell>
+    );
+  }
+  if (done) {
+    return (
+      <ResetShell title="Password changed">
+        <p className="muted">Your login password has been updated. Your encryption recovery credentials are unchanged.</p>
+        <Button variant="primary" onClick={() => router.replace("/dashboard")}>Continue</Button>
+      </ResetShell>
+    );
+  }
   return (
     <main className="app-shell">
       <form className="card crypto-setup-card" onSubmit={(event) => void submit(event)}>
@@ -45,7 +71,7 @@ export function PasswordResetScreen() {
         <label className="field"><span>New password</span><input name="password" type="password" autoComplete="new-password" minLength={8} required /></label>
         <label className="field"><span>Retype new password</span><input name="confirmation" type="password" autoComplete="new-password" minLength={8} required /></label>
         {error && <FormError>{error}</FormError>}
-        <button type="submit" className="btn-primary" disabled={busy}>{busy ? "Saving…" : "Set new password"}</button>
+        <Button type="submit" variant="primary" disabled={busy}>{busy ? "Saving…" : "Set new password"}</Button>
       </form>
     </main>
   );

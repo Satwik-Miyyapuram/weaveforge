@@ -18,6 +18,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { OpenAccessIds, PdfLocus, QuotationType, ReaderAnnotation } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { PdfReader } from "./pdf-reader";
 import { proxiedPdfUrl } from "../application/sanitize-reader-url";
@@ -42,7 +44,9 @@ import type { ZoteroAnnotation } from "@/features/papers/domain/zotero";
 import { formatError } from "@/lib/format-error";
 import type { PaperHtmlPage } from "../application/paper-html";
 import { describeFreeCopyFailure, isWebArticle, openAccessIdsOf } from "../application/find-free-copy";
+import { linkPdfSource } from "../application/link-pdf-source";
 import { PaperHtmlView } from "./paper-html-view";
+import { Button } from "@/components/button";
 
 async function keptHtmlPage(paperId: string): Promise<PaperHtmlPage | null> {
   const { paperHtmlStore } = await import("../infrastructure/paper-html-store");
@@ -188,7 +192,14 @@ export function PaperPdfPane({
         let local: ReaderAnnotation[] = [];
         try {
           local = await getContainer().papers.listReaderAnnotations(paper.id);
-        } catch {
+        } catch (err) {
+          // The reader opens without them; say why they are missing.
+          logToApp({
+            level: "warn",
+            source: "reader",
+            message: "Could not load this paper's annotations",
+            detail: err instanceof Error ? (err.stack ?? err.message) : describeRejection(err),
+          });
           local = [];
         }
         if (!cancelled) setAnnotations(mergeReaderAnnotations(projected, local));
@@ -352,11 +363,7 @@ export function PaperPdfPane({
         );
         return;
       }
-      try {
-        await getContainer().papers.updatePaper.setPdfSource(paperId, url);
-      } catch {
-        // The bytes are kept either way; the link is a convenience for next time.
-      }
+      await linkPdfSource((id, link) => getContainer().papers.updatePaper.setPdfSource(id, link), paperId, url);
       activityRef.current?.("reader", `Fetched the PDF from ${new URL(url).hostname} and linked it to this paper.`);
       setTypedUrl("");
       setError(null);
@@ -387,11 +394,11 @@ export function PaperPdfPane({
       const outcome = await findFreeCopyInBrowser(paperId, openAccessIds.current);
       if (outcome.kind === "pdf") {
         const host = new URL(outcome.candidate.url).hostname;
-        try {
-          await getContainer().papers.updatePaper.setPdfSource(paperId, outcome.candidate.url);
-        } catch {
-          // The bytes are kept either way; the link is for next time.
-        }
+        await linkPdfSource(
+          (id, link) => getContainer().papers.updatePaper.setPdfSource(id, link),
+          paperId,
+          outcome.candidate.url,
+        );
         activityRef.current?.("reader", `Found a free PDF on ${host}; it is kept with this paper.`);
         setFreeStatus(null);
         setError(null);
@@ -447,9 +454,9 @@ export function PaperPdfPane({
   const canLoad = allowLoad && Boolean(paperId);
   const freeCopy = canLoad ? (
     <div className="paper-free-copy">
-      <button type="button" className="btn-primary btn-sm" disabled={freeBusy} onClick={() => void findFree()}>
+      <Button variant="primary" size="sm" disabled={freeBusy} onClick={() => void findFree()}>
         {freeBusy ? "Searching…" : openAccessIds.current && isWebArticle(openAccessIds.current) ? "Open the page" : "Find a free copy"}
-      </button>
+      </Button>
       {freeStatus && (
         <p className="paper-free-copy-status" role={freeStatus.error ? "alert" : "status"}>
           {freeStatus.text}
@@ -481,22 +488,21 @@ export function PaperPdfPane({
             if (typedError) setTypedError(null);
           }}
         />
-        <button type="submit" className="btn-primary btn-sm" disabled={typedBusy || !typedUrl.trim()}>
+        <Button type="submit" variant="primary" size="sm" disabled={typedBusy || !typedUrl.trim()}>
           {typedBusy ? "Fetching…" : "Fetch & link"}
-        </button>
+        </Button>
       </div>
       {typedError && <p className="paper-pdf-fetch-error" role="alert">{typedError}</p>}
     </form>
   ) : null;
   const loadButton = canLoad ? (
-    <button
-      type="button"
-      className="btn-secondary btn-sm"
+    <Button
+      size="sm"
       title="Use a PDF from this device for this paper"
       onClick={() => fileInputRef.current?.click()}
     >
       Load PDF…
-    </button>
+    </Button>
   ) : null;
 
   return (
@@ -527,16 +533,15 @@ export function PaperPdfPane({
             the paper opens offline from then on.
           </p>
           <div className="empty-actions">
-            <button type="button" className="btn-primary" onClick={acceptDownload}>
+            <Button variant="primary" onClick={acceptDownload}>
               Fetch PDF
-            </button>
+            </Button>
             {loadButton}
           </div>
           {pdfDownloadNeedsConsent() && (
             <label className="field-inline">
-              <input
+              <input className="wf-check"
                 type="checkbox"
-                className="themed-check"
                 checked={rememberChoice}
                 onChange={(event) => setRememberChoice(event.target.checked)}
               />

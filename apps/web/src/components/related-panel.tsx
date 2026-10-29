@@ -6,6 +6,9 @@ import { explainArm, type RelatedArm } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { semanticEnabled, semanticSupported } from "@/features/search/application/semantic-search";
 import { useHybridSearchIndex } from "@/lib/hooks/use-search-index";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
+import type { WorkspaceSearch } from "@/features/search/application/workspace-search";
 
 interface RelatedItem {
   id: string;
@@ -26,6 +29,11 @@ const ARM_LABEL: Record<RelatedArm, string> = {
   none: "",
 };
 
+/** The labelled methods that found an entry, joined: "linked + shared tags". */
+export function armsText(arms: readonly RelatedArm[]): string {
+  return arms.map((arm) => ARM_LABEL[arm]).filter(Boolean).join(" + ");
+}
+
 /** Which methods ran, for the line under the heading. */
 function methodsLine(items: readonly RelatedItem[]): string {
   const used = new Set(items.flatMap((item) => item.arms));
@@ -36,6 +44,59 @@ function methodsLine(items: readonly RelatedItem[]): string {
   if (used.has("lexical")) parts.push("similar wording");
   if (used.has("tags")) parts.push("shared tags");
   return `Found by ${parts.join(", ").replace(/, ([^,]*)$/, " and $1")}`;
+}
+
+/** The part of the search service the panel reads. */
+export type RelatedSearch = Pick<WorkspaceSearch, "ensure" | "relatedHybrid" | "hitById">;
+
+/**
+ * Looks up what is related to `seed`. Graph first, then meaning (when the
+ * reader turned semantic search on), then wording — see
+ * `WorkspaceSearch.relatedHybrid`.
+ *
+ * `getSearch` is called inside the guard: before the container is ready it
+ * throws, and that is a failure like any other.
+ *
+ * Returns null when cancelled part-way. A failure shows nothing, as before, but
+ * is logged: a broken index would otherwise look like an entry with no relatives.
+ */
+export async function loadRelated(
+  getSearch: () => RelatedSearch,
+  seed: string,
+  limit: number,
+  isCancelled: () => boolean,
+): Promise<RelatedItem[] | null> {
+  try {
+    const search = getSearch();
+    await search.ensure();
+    if (isCancelled()) return null;
+    const hits = await search.relatedHybrid(seed, limit);
+    return hits.flatMap((hit) => {
+      // The index holds the title and the link; look the document up by
+      // its own id. A result whose document is gone is dropped rather than
+      // rendered as its uuid, which named nothing a reader could use.
+      const doc = search.hitById(hit.id);
+      if (!doc) return [];
+      return [
+        {
+          id: hit.id,
+          title: doc.title,
+          href: doc.href,
+          kind: doc.kind,
+          arms: hit.arms?.length ? hit.arms : [hit.arm],
+          similarity: hit.similarity,
+        },
+      ];
+    });
+  } catch (error) {
+    logToApp({
+      level: "warn",
+      source: "related-panel",
+      message: "Related lookup failed",
+      detail: describeRejection(error),
+    });
+    return [];
+  }
 }
 
 /**
@@ -69,38 +130,9 @@ export function RelatedPanel({
     let cancelled = false;
     // `searchIndex` changes identity once the index is warm; that is the
     // signal to compute, since related-lookup needs the graph it builds.
-    void (async () => {
-      try {
-        const container = getContainer();
-        await container.search.ensure();
-        if (cancelled) return;
-
-        // Graph first, then meaning (when the reader turned semantic search on),
-        // then wording — see `WorkspaceSearch.relatedHybrid`.
-        const hits = await container.search.relatedHybrid(`${seedKind}:${seedId}`, limit);
-        if (cancelled) return;
-        const resolved = hits.flatMap((hit) => {
-          // The index holds the title and the link; look the document up by
-          // its own id. A result whose document is gone is dropped rather than
-          // rendered as its uuid, which named nothing a reader could use.
-          const doc = container.search.hitById(hit.id);
-          if (!doc) return [];
-          return [
-            {
-              id: hit.id,
-              title: doc.title,
-              href: doc.href,
-              kind: doc.kind,
-              arms: hit.arms?.length ? hit.arms : [hit.arm],
-              similarity: hit.similarity,
-            },
-          ];
-        });
-        if (!cancelled) setItems(resolved);
-      } catch {
-        if (!cancelled) setItems([]);
-      }
-    })();
+    void loadRelated(() => getContainer().search, `${seedKind}:${seedId}`, limit, () => cancelled).then((found) => {
+      if (found && !cancelled) setItems(found);
+    });
 
     return () => {
       cancelled = true;
@@ -127,7 +159,7 @@ export function RelatedPanel({
             <li key={item.id}>
               <Link href={item.href} className="record-related-title">{item.title}</Link>
               {item.similarity !== undefined ? (
-                <span className="record-related-score" title={item.arms.map((arm) => ARM_LABEL[arm]).filter(Boolean).join(" + ")}>
+                <span className="record-related-score" title={armsText(item.arms)}>
                   <span className="record-bar-track" aria-hidden>
                     <span className="record-bar-fill" style={{ width: `${Math.round(Math.max(0, Math.min(1, item.similarity)) * 100)}%` }} />
                   </span>
@@ -135,7 +167,7 @@ export function RelatedPanel({
                 </span>
               ) : (
                 <span className="record-mono record-related-arm">
-                  {item.arms.map((arm) => ARM_LABEL[arm]).filter(Boolean).join(" + ") || item.kind}
+                  {armsText(item.arms) || item.kind}
                 </span>
               )}
             </li>
@@ -165,8 +197,7 @@ export function RelatedPanel({
             <span className="jump-to-meta">
               {" "}
               · {item.kind}
-              {item.arms.some((arm) => ARM_LABEL[arm]) &&
-                ` · ${item.arms.map((arm) => ARM_LABEL[arm]).filter(Boolean).join(" + ")}`}
+              {armsText(item.arms) && ` · ${armsText(item.arms)}`}
             </span>
           </li>
         ))}

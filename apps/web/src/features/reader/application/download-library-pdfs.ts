@@ -69,20 +69,12 @@ export async function downloadLibraryPdfs(
   for (const paper of papers) {
     if (options.signal?.aborted) break;
     try {
-      const held = await cache.get(paper.id);
-      if (held && held.byteLength > 0) {
+      if (await cache.has(paper.id)) {
         progress.skipped += 1;
         continue;
       }
       // The ladder without the cache rung: what is wanted is the network.
-      const resolution = await resolvePaperPdfSource({
-        id: paper.id,
-        url: paper.url,
-        arxivId: paper.arxivId,
-        doi: paper.doi,
-        pdfPath: paper.pdfPath,
-        metadata: paper.metadata,
-      });
+      const resolution = await resolvePaperPdfSource(paper);
       if (!resolution.ok) {
         progress.skipped += 1;
         continue;
@@ -135,19 +127,11 @@ export async function downloadPaperPdf(paperId: string): Promise<boolean> {
   const cache = getReaderPdfByteCache();
   if (!cache) return false;
   try {
-    const held = await cache.get(paperId);
-    if (held && held.byteLength > 0) return true;
+    if (await cache.has(paperId)) return true;
     const container = getContainer();
     const paper = await container.papers.getPaper(paperId);
     if (!paper) return false;
-    const resolution = await resolvePaperPdfSource({
-      id: paper.id,
-      url: paper.url,
-      arxivId: paper.arxivId,
-      doi: paper.doi,
-      pdfPath: paper.pdfPath,
-      metadata: paper.metadata,
-    });
+    const resolution = await resolvePaperPdfSource(paper);
     if (!resolution.ok) return false;
     const bytes = await fetchPdfBytesForCache(resolution.hit.url);
     if (!bytes) return false;

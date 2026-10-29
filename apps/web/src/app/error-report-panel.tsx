@@ -7,6 +7,7 @@ import { newIssueUrl, reportMarkdown } from "@/lib/error-report/issue-url";
 import { recentLogs } from "@/lib/error-report/log-buffer";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { redactAndCap } from "@/lib/error-report/redact";
+import { Button } from "@/components/button";
 
 /** Where the error was shown, read off the page when "Report" was pressed. */
 export interface ReportContext {
@@ -97,8 +98,9 @@ export function ErrorReportPanel({
     ["Time", at.replace("T", " ").replace(/\.\d+Z$/, " UTC")],
   ];
   const cleanSteps = redactAndCap(steps).text;
-  const markdown = () =>
+  const markdown = (withHeading = true) =>
     reportMarkdown({
+      withHeading,
       detail: shown,
       steps: cleanSteps,
       route: where,
@@ -130,9 +132,10 @@ export function ErrorReportPanel({
         },
         body: JSON.stringify({
           title: summary,
-          // The route files `detail` as "What happened"; the steps and the
-          // context ride in it, so the server's layout needs no new fields.
-          detail: markdown().replace(/^### What happened\n\n/, ""),
+          // The route files `detail` under its own "What happened" heading;
+          // the steps and the context ride in it, so the server's layout
+          // needs no new fields.
+          detail: markdown(false),
           logs,
           route: where,
           appVersion: version,
@@ -204,9 +207,9 @@ export function ErrorReportPanel({
       <section className="report-attached" aria-label="Attached automatically">
         <div className="report-attached-head">
           <span>Attached automatically</span>
-          <button type="button" className="error-report-link" onClick={() => setShowAttached((v) => !v)}>
+          <Button variant="link" onClick={() => setShowAttached((v) => !v)}>
             {showAttached ? "Hide full text" : "Show full text"}
-          </button>
+          </Button>
         </div>
         <dl>
           {attached
@@ -228,17 +231,17 @@ export function ErrorReportPanel({
 
       <div className="report-actions">
         {noEndpoint ? (
-          <a className="btn-primary" href={githubUrl()} target="_blank" rel="noreferrer">
+          <Button variant="primary" href={githubUrl()} target="_blank" rel="noreferrer">
             Open on GitHub to send
-          </a>
+          </Button>
         ) : (
-          <button type="button" className="btn-primary" onClick={() => void send()} disabled={state.status === "sending"}>
+          <Button variant="primary" onClick={() => void send()} disabled={state.status === "sending"}>
             {state.status === "sending" ? "Sending…" : "Send report"}
-          </button>
+          </Button>
         )}
-        <button type="button" className="btn-secondary" onClick={() => void copy()}>
+        <Button onClick={() => void copy()}>
           {copied ? "Copied" : "Copy report"}
-        </button>
+        </Button>
         {noEndpoint ? <span className="report-hint">Opens GitHub with this filled in; you submit it there.</span> : null}
       </div>
       {state.status === "failed" ? (

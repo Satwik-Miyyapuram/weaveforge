@@ -11,10 +11,14 @@ import {
 } from "react";
 import type { Member, OrgMembershipView, UserSettings } from "@weaveforge/core";
 import type { AppContainer } from "@/bootstrap";
-import { hasActiveLab, needsDisclaimerAcceptance, needsStandaloneRoleSync } from "@weaveforge/core";
+import { needsDisclaimerAcceptance } from "@weaveforge/core";
 import { continueStandalone, fetchMemberships } from "@/features/org/infrastructure/org-api";
+import { shouldSyncStandalone } from "@/features/org/application/org-profile-state";
+import { logToApp } from "@/lib/error-report/app-log";
 import { singleFlight } from "@/lib/cache/single-flight";
 import { formatError } from "@/lib/format-error";
+import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
+import { loggedFallback } from "./logged-fallback";
 
 export interface StartupSnapshot {
   settings: UserSettings | null;
@@ -65,36 +69,44 @@ interface OrgBatch {
   memberships: OrgMembershipView[];
 }
 
-/** The four org reads plus the project-list warm — one parallel round trip. */
-async function loadOrgBatch(c: AppContainer): Promise<OrgBatch> {
+const startupWarn = (message: string) => (err: unknown) =>
+  logToApp({ level: "warn", source: "startup", message, detail: formatError(err) });
+
+/**
+ * The four org reads plus the project-list warm — one parallel round trip.
+ * Each read keeps its fallback, and a fallback used is logged.
+ * @internal `memberships` is a parameter for tests.
+ */
+export async function loadOrgBatch(c: AppContainer, memberships = fetchMemberships): Promise<OrgBatch> {
   const [mine, members, lab, labs] = await Promise.all([
-    c.org.loadProfile().catch(() => null),
-    c.org.loadTeam().catch(() => [] as Member[]),
-    c.org.loadLab().catch(() => [] as Member[]),
-    fetchMemberships().catch(() => [] as OrgMembershipView[]),
+    c.org.loadProfile().catch(loggedFallback("Profile", null)),
+    c.org.loadTeam().catch(loggedFallback("Team", [] as Member[])),
+    c.org.loadLab().catch(loggedFallback("Lab members", [] as Member[])),
+    // null, not []: a failed read is not "no labs" (see shouldSyncStandalone).
+    memberships().catch(loggedFallback("Memberships", null)),
     // Warm the project list in the same batch. ProjectProvider mounts below
     // every gate in the shell, so its own listProjects() would otherwise be a
     // further serial round trip after all of these — and nothing renders until
     // it resolves. The repository is cache-wrapped, so the provider's own call
     // hits a settled entry.
-    c.projects.listProjects().catch(() => []),
+    c.projects.listProjects().catch((err: unknown) => (startupWarn("Project list did not load.")(err), [])),
   ]);
 
   let profile = mine;
   let team = members;
   let labMembers = lab;
-  const inLab = hasActiveLab(profile?.activeOrgId, labs);
-  if (needsStandaloneRoleSync(profile, labs, inLab)) {
+  if (shouldSyncStandalone(profile, labs)) {
     try {
       await continueStandalone();
       profile = await c.org.loadProfile();
       team = await c.org.loadTeam();
       labMembers = await c.org.loadLab();
-    } catch {
-      /* display layer still resolves standalone role */
+    } catch (err) {
+      // The display layer still resolves the standalone role.
+      startupWarn("Standalone profile sync failed.")(err);
     }
   }
-  return { profile, team, labMembers, memberships: labs };
+  return { profile, team, labMembers, memberships: labs ?? [] };
 }
 
 async function loadStartupBundleUncached(
@@ -197,9 +209,10 @@ async function loadStartupBundleUncached(
     team = orgData.team;
     labMembers = orgData.labMembers;
     memberships = orgData.memberships;
-  } catch {
+  } catch (err) {
     /* Org batch failure must not crash startup or keep the user stuck at the privacy gate.
        Downstream ProfileProvider handles retrying and profile loading independently. */
+    startupWarn("Org data did not load.")(err);
   }
 
   return {
@@ -240,20 +253,11 @@ function cacheProvesAccepted(cached: StartupSnapshot | null): boolean {
 const STARTUP_CACHE_PREFIX = "thesis.startup.";
 
 function readCachedSnapshot(userId: string): StartupSnapshot | null {
-  try {
-    const raw = localStorage.getItem(STARTUP_CACHE_PREFIX + userId);
-    return raw ? (JSON.parse(raw) as StartupSnapshot) : null;
-  } catch {
-    return null;
-  }
+  return readStoredJson<StartupSnapshot | null>(STARTUP_CACHE_PREFIX + userId, null);
 }
 
 function writeCachedSnapshot(userId: string, snapshot: StartupSnapshot): void {
-  try {
-    localStorage.setItem(STARTUP_CACHE_PREFIX + userId, JSON.stringify(snapshot));
-  } catch {
-    /* best-effort */
-  }
+  writeStoredJson(STARTUP_CACHE_PREFIX + userId, snapshot);
 }
 
 /** Parallel startup after auth; profile/org load waits until privacy disclaimer accepted. */

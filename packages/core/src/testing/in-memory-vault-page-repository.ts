@@ -1,5 +1,6 @@
 import {
   buildPageTree,
+  normalizeTitleKey,
   vaultBodyPreview,
   type VaultPage,
   type VaultPageFilter,
@@ -13,6 +14,15 @@ export class InMemoryVaultPageRepository implements IVaultPageRepository {
 
   async getById(id: string): Promise<VaultPage | null> {
     return this.store.get(id) ?? null;
+  }
+
+  async titleTaken(title: string, exceptId?: string): Promise<boolean> {
+    const key = normalizeTitleKey(title);
+    if (!key) return false;
+    for (const p of this.store.values()) {
+      if (p.id !== exceptId && normalizeTitleKey(p.title) === key) return true;
+    }
+    return false;
   }
 
   async list(filter?: VaultPageFilter): Promise<VaultPage[]> {
@@ -48,6 +58,7 @@ export class InMemoryVaultPageRepository implements IVaultPageRepository {
       bodyPreview: vaultBodyPreview(p.body),
       parentId: p.parentId,
       pinned: p.pinned,
+      folder: p.folder,
       sortOrder: p.sortOrder,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,

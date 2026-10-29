@@ -115,4 +115,21 @@ describe("TieredBlobStore", () => {
     assert.equal(cold.files.has("paper-images/u/p/old.webp"), false);
     assert.equal(await registry.get("paper-images", "u/p/old.webp"), null);
   });
+
+  it("returns the link when recording the access fails, and logs it (10-08)", async (t) => {
+    const hot = new MapBlobStore();
+    const registry = new InMemoryBlobRegistry();
+    await hot.upload("paper-images", "u/p/a.webp", new Blob(["x"]));
+    await hot.upload("paper-images", "u/p/b.webp", new Blob(["x"]));
+    for (const path of ["u/p/a.webp", "u/p/b.webp"]) {
+      await registry.register({ bucket: "paper-images", path, tier: "hot", sizeBytes: 1 });
+    }
+    registry.recordAccess = async () => Promise.reject(new Error("registry down"));
+    const warn = t.mock.method(console, "warn", () => undefined);
+    const store = new TieredBlobStore({ hot, cold: hot, registry });
+    const urls = await store.signedUrls("paper-images", ["u/p/a.webp", "u/p/b.webp"], 60);
+    assert.deepEqual(urls, ["mem://u/p/a.webp", "mem://u/p/b.webp"]);
+    assert.equal(warn.mock.callCount(), 2);
+    assert.match(String(warn.mock.calls[0]!.arguments.join(" ")), /paper-images.*registry down/);
+  });
 });

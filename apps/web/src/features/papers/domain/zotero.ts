@@ -53,6 +53,9 @@ export interface ZoteroAnnotation {
   annotationSortIndex?: string;
 }
 
+/** An annotation as cached on a paper (`metadata.annotations`): older caches may lack `tags`. */
+export type StoredZoteroAnnotation = Omit<ZoteroAnnotation, "tags"> & { tags?: string[] };
+
 export interface ZoteroSyncResult {
   pushed: number;
   pulled: number;
@@ -84,5 +87,4 @@ export interface ZoteroAnnotationPull {
 
 export interface IZoteroAnnotationPull {
   pull(): Promise<ZoteroAnnotationPull>;
-  pullAll(): Promise<Map<string, ZoteroAnnotation[]>>;
 }

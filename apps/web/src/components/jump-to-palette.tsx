@@ -15,18 +15,26 @@ import { loadCiteLinkCatalog, type CiteCompletion } from "@/lib/hooks/use-cite-l
 import { getContainer } from "@/bootstrap";
 import { useHybridSearchIndex } from "@/lib/hooks/use-search-index";
 import {
+  pinRecentTargets,
   readRecentTargets,
   rememberRecentTarget,
   type RecentTargetKind,
 } from "@/lib/recent-targets";
+import { readStoredJson, writeStoredJson } from "@/lib/safe-storage";
+import { createNoteFromQuery } from "@/lib/create-note-from-query";
+import { FormError } from "@/components/form-error";
+import { JumpToCreateRow } from "@/components/jump-to-create-row";
+import { useModuleRegistry } from "@/lib/hooks/use-nav-groups";
+import { useTheme } from "@/lib/hooks/use-theme";
+import { isMacPlatform } from "@/lib/shortcut-label";
+import { groupPaletteRows, matchingPages, paletteKeys, type PaletteGroup } from "@/lib/palette-groups";
+import { showNewProject, useProject } from "@/features/projects";
+import { Chip, RowButton } from "./controls";
+import { CloseButton } from "./button";
 
 /** Kinds recorded as recent targets when opened. */
 const RECENT_KINDS = ["paper", "note", "section"] as const satisfies readonly RecentTargetKind[];
 
-/**
- * Kinds the palette searches. PDF pages are included but are not recent-target
- * kinds — they open the reader at a page rather than an entity screen.
- */
 /**
  * Kinds the palette shows. PDF pages and highlights are locations inside a
  * paper rather than entities of their own, which is why they are listed here
@@ -53,22 +61,33 @@ type JumpItem = CiteCompletion & {
   excerpt?: SearchExcerpt;
 };
 
+/** One palette row: a search hit, a page or an action, under its heading. */
+interface Entry {
+  group: PaletteGroup;
+  key: string;
+  label: string;
+  meta?: string;
+  excerpt?: SearchExcerpt;
+  run: () => void;
+}
+
+const HIT_GROUP: Record<JumpItem["kind"], PaletteGroup> = {
+  paper: "Papers",
+  note: "Notes",
+  section: "Report sections",
+  pdf: "In papers",
+  annotation: "In papers",
+};
+
 const HISTORY_KEY = "thesis.search.history";
 
 function readHistory(): string[] {
-  try {
-    return normalizeSearchHistory(JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]"));
-  } catch {
-    return [];
-  }
+  return normalizeSearchHistory(readStoredJson<unknown>(HISTORY_KEY, []));
 }
 
+/** Storage disabled or full: history is a convenience, not state. */
 function writeHistory(history: readonly string[]): void {
-  try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-  } catch {
-    /* storage disabled or full; history is a convenience, not state */
-  }
+  writeStoredJson(HISTORY_KEY, history);
 }
 
 /**
@@ -87,7 +106,8 @@ export function openSearchPalette(): void {
 }
 
 /**
- * Ctrl/Cmd+K jump palette across papers, notes, and report sections.
+ * Ctrl/Cmd+K jump palette across papers, notes, report sections, pages and a
+ * few actions, under group headings (DA-99).
  */
 export function JumpToPalette() {
   const router = useRouter();
@@ -104,6 +124,16 @@ export function JumpToPalette() {
   // encoder is attached, so nothing changes for anyone who has not opted in.
   const { search: searchIndex, searchHybrid, ready: indexReady } = useHybridSearchIndex(open);
   const [history, setHistory] = useState<string[]>([]);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const registry = useModuleRegistry();
+  const { setProject } = useProject();
+  const theme = useTheme();
+  const [mac, setMac] = useState(false);
+  useEffect(() => setMac(isMacPlatform()), []);
+  const saveHistory = useCallback((next: string[]) => {
+    setHistory(next);
+    writeHistory(next);
+  }, []);
 
   const reload = useCallback(async () => {
     const catalog = await loadCiteLinkCatalog();
@@ -133,21 +163,13 @@ export function JumpToPalette() {
       })),
     ];
     const projectId = getContainer().projects.context.projectId;
-    const recentKeys = new Set(
-      readRecentTargets(projectId).map((item) => `${item.kind}:${item.id}`),
-    );
-    const recent = readRecentTargets(projectId).flatMap((target) => {
-      const match = all.find(
-        (item) => item.id === target.id && item.kind === target.kind,
-      );
-      return match ? [{ ...match, recent: true }] : [];
-    });
-    setItems([...recent, ...all.filter((item) => !recentKeys.has(`${item.kind}:${item.id}`))]);
+    setItems(pinRecentTargets(all, readRecentTargets(projectId)));
   }, []);
 
   const openPalette = useCallback(() => {
     setOpen(true);
     setQuery("");
+    setCreateError(null);
     setActive(0);
     setHistory(readHistory());
     void reload();
@@ -276,10 +298,50 @@ export function JumpToPalette() {
     return bySubstring();
   }, [items, query, searchIndex, rowsFromHits, semanticRows]);
 
+  /** Pages the nav reaches, plus Settings, which lives in the account menu. */
+  const pages = useMemo(() => {
+    const all = [registry.homeNavItem, ...registry.navItems, { key: "settings", label: "Settings", path: "/settings" }];
+    return all.filter((page, index) => all.findIndex((other) => other.path === page.path) === index);
+  }, [registry]);
+
+  const entries = useMemo(() => {
+    const leave = (then: () => void) => () => {
+      setOpen(false);
+      then();
+    };
+    const actions = [
+      { key: "new-project", label: "New project", run: leave(() => showNewProject(setProject)) },
+      {
+        key: "theme",
+        label: theme.dark ? "Switch to light theme" : "Switch to dark theme",
+        run: leave(theme.toggle),
+      },
+    ];
+    const rows: Entry[] = [
+      ...matchingPages(pages, query).map((page) => ({
+        group: "Pages" as const,
+        key: `page:${page.path}`,
+        label: page.label,
+        run: leave(() => router.push(page.path)),
+      })),
+      ...filtered.map((c) => ({
+        group: c.recent ? ("Recent" as const) : HIT_GROUP[c.kind],
+        key: `${c.kind}-${c.id}`,
+        label: c.label,
+        meta: c.detail,
+        excerpt: c.excerpt,
+        run: () => go(c),
+      })),
+      ...matchingPages(actions, query).map((action) => ({ ...action, group: "Actions" as const })),
+    ];
+    return groupPaletteRows(rows);
+    // `go` reads the same state as these dependencies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pages, query, filtered, theme.dark, theme.toggle, setProject, router]);
+  const flat = useMemo(() => entries.flatMap((group) => group.rows), [entries]);
+
   function go(item: JumpItem) {
-    const next = rememberSearchQuery(history, query);
-    setHistory(next);
-    writeHistory(next);
+    saveHistory(rememberSearchQuery(history, query));
     // Only entity screens are recent targets; a PDF page or a highlight is a
     // location inside one, and recording it would push the paper itself out of
     // the list.
@@ -297,15 +359,19 @@ export function JumpToPalette() {
 
   /** Turn a fruitless search into the note it was looking for. */
   const createFromQuery = useCallback(async () => {
-    const title = query.trim();
-    if (!title) return;
-    const page = await getContainer().vault.manageVaultPage.add({ title });
-    const next = rememberSearchQuery(history, title);
-    setHistory(next);
-    writeHistory(next);
+    setCreateError(null);
+    const result = await createNoteFromQuery(query, (input) => getContainer().vault.manageVaultPage.add(input));
+    if (!result) return;
+    if (!result.ok) {
+      // The palette stays open with the query, so the user can retry.
+      setCreateError(result.error);
+      return;
+    }
+    const { page } = result;
+    saveHistory(rememberSearchQuery(history, query.trim()));
     setOpen(false);
     router.push(`/notes?page=${encodeURIComponent(page.id)}`);
-  }, [query, history, router]);
+  }, [query, history, router, saveHistory]);
 
   if (!open) return null;
 
@@ -322,13 +388,13 @@ export function JumpToPalette() {
         const vimUp = e.ctrlKey && (e.key === "k" || e.key === "p");
         if (e.key === "ArrowDown" || vimDown) {
           e.preventDefault();
-          setActive((i) => Math.min(i + 1, filtered.length - 1));
+          setActive((i) => Math.min(i + 1, flat.length - 1));
         } else if (e.key === "ArrowUp" || vimUp) {
           e.preventDefault();
           setActive((i) => Math.max(i - 1, 0));
-        } else if (e.key === "Enter" && filtered[active]) {
+        } else if (e.key === "Enter" && flat[active]) {
           e.preventDefault();
-          go(filtered[active]!);
+          flat[active]!.run();
         }
       }}
     >
@@ -338,6 +404,7 @@ export function JumpToPalette() {
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
+          setCreateError(null);
           setActive(0);
         }}
         aria-label="Search"
@@ -346,59 +413,63 @@ export function JumpToPalette() {
         <ul className="jump-to-history" aria-label="Recent searches">
           {history.slice(0, 6).map((entry) => (
             <li key={entry}>
-              <button type="button" className="jump-to-chip" onClick={() => setQuery(entry)}>
-                {entry}
-              </button>
+              <Chip onClick={() => setQuery(entry)}>{entry}</Chip>
               {/* A search you regret is a search you should be able to drop,
                   without clearing the five useful ones next to it. */}
-              <button
-                type="button"
-                className="jump-to-chip-remove"
-                aria-label={`Remove “${entry}” from recent searches`}
-                onClick={() => {
-                  const next = forgetSearchQuery(history, entry);
-                  setHistory(next);
-                  writeHistory(next);
-                }}
-              >
-                ×
-              </button>
+              <CloseButton
+                size="sm"
+                label={`Remove “${entry}” from recent searches`}
+                onClick={() => saveHistory(forgetSearchQuery(history, entry))}
+              />
             </li>
           ))}
         </ul>
       )}
       <ul className="jump-to-list" role="listbox">
-        {filtered.map((c, i) => (
-          <li key={`${c.kind}-${c.id}`} role="option" aria-selected={i === active}>
-            <button type="button" onClick={() => go(c)}>
-              <div>{c.label}</div>
-              {c.excerpt && c.excerpt.text && (
-                <div className="jump-to-excerpt">
-                  {excerptSegments(c.excerpt).map((segment, index) =>
-                    segment.highlighted ? (
-                      <mark key={index}>{segment.text}</mark>
-                    ) : (
-                      <span key={index}>{segment.text}</span>
-                    ),
-                  )}
-                </div>
-              )}
-              {c.detail && (
-                <div className="jump-to-meta">{c.recent ? `recent · ${c.detail}` : c.detail}</div>
-              )}
-            </button>
+        {entries.map((group) => (
+          <li key={group.label} role="presentation">
+            <div className="jump-to-group" role="presentation">
+              {group.label}
+            </div>
+            <ul role="group" aria-label={group.label}>
+              {group.rows.map((c) => {
+                const i = flat.indexOf(c);
+                return (
+                <li key={c.key} role="option" aria-selected={i === active}>
+                  <RowButton onClick={c.run}>
+                    <div>{c.label}</div>
+                    {c.excerpt && c.excerpt.text && (
+                      <div className="jump-to-excerpt">
+                        {excerptSegments(c.excerpt).map((segment, index) =>
+                          segment.highlighted ? (
+                            <mark key={index}>{segment.text}</mark>
+                          ) : (
+                            <span key={index}>{segment.text}</span>
+                          ),
+                        )}
+                      </div>
+                    )}
+                    {c.meta && <div className="jump-to-meta">{c.meta}</div>}
+                  </RowButton>
+                </li>
+                );
+              })}
+            </ul>
           </li>
         ))}
-        {filtered.length === 0 && (
-          <li>
-            {/* A search that finds nothing is often a note that should exist. */}
-            <button type="button" className="jump-to-create" onClick={() => void createFromQuery()}>
-              Create note “{query.trim()}”
-            </button>
-          </li>
-        )}
+        {filtered.length === 0 && <JumpToCreateRow query={query} onCreate={() => void createFromQuery()} />}
       </ul>
-      <p className="muted jump-to-meta">Ctrl/Cmd+K · Ctrl+J/K to move · Esc to close</p>
+      {createError ? <FormError reportable={false}>{createError}</FormError> : null}
+      <p className="muted jump-to-meta jump-to-keys">
+        {paletteKeys(mac).map((hint) => (
+          <span key={hint.label}>
+            {hint.keys.map((key) => (
+              <kbd key={key}>{key}</kbd>
+            ))}{" "}
+            {hint.label}
+          </span>
+        ))}
+      </p>
     </Modal>
   );
 }

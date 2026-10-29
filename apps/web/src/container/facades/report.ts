@@ -2,9 +2,12 @@ import type {
   IReportSectionRepository,
   ManageReportSectionUseCase,
   ReportSection,
+  ReportSectionTreeNode,
 } from "@weaveforge/core";
 import type { LoadReportScreenUseCase, ReportScreenData } from "@/features/report/application/load-report-screen.use-case";
 import { reportImagePathsInBody } from "@/features/report/lib/report-images-md";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
 
 export class ReportFacade {
   constructor(
@@ -41,22 +44,46 @@ export class ReportFacade {
   }
 
   /**
-   * Delete a section and best-effort remove `reportimg:` blobs referenced in its notes
-   * (same pattern as paper delete + metadata.images).
+   * Delete a section with its whole subtree, then best-effort remove the
+   * `reportimg:` blobs referenced in any removed section's notes. The database
+   * cascades the row delete to subsections, so the subtree goes in one step;
+   * blobs go only after the rows are gone, so a failed delete loses no image.
    */
   async removeSection(section: ReportSection): Promise<void> {
-    const paths = reportImagePathsInBody(section.notes ?? "");
+    const tree = await this.deps.sections.getTree().catch(() => []);
+    const node = findNode(tree, section.id);
+    const removed = node ? flatten(node) : [section];
+    const paths = [...new Set(removed.flatMap((s) => reportImagePathsInBody(s.notes ?? "")))];
+    await this.deps.manageReportSection.remove(section.id);
     await Promise.all(
       paths.map(async (path) => {
         try {
           await this.deps.images.remove(path);
-        } catch {
-          /* best-effort — row delete still proceeds */
+        } catch (err) {
+          // Best-effort: the rows are already gone. An image left behind is logged.
+          logToApp({
+            level: "warn",
+            source: "storage",
+            message: "Could not delete a report image from storage",
+            detail: `${path}: ${describeRejection(err)}`,
+          });
         }
       }),
     );
-    await this.deps.manageReportSection.remove(section.id);
   }
+}
+
+function findNode(nodes: readonly ReportSectionTreeNode[], id: string): ReportSectionTreeNode | undefined {
+  for (const node of nodes) {
+    if (node.section.id === id) return node;
+    const hit = findNode(node.children, id);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+function flatten(node: ReportSectionTreeNode): ReportSection[] {
+  return [node.section, ...node.children.flatMap(flatten)];
 }
 
 export type { ReportScreenData };

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { formatDate } from "@/lib/format-date";
+import { useEffect, useId, useState } from "react";
 import { formatError } from "@/lib/format-error";
 import {
   desktop,
@@ -11,6 +12,9 @@ import { FormError } from "@/components/form-error";
 import { Select } from "@/components/select";
 import { DatePicker } from "@/components/date-picker";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Button } from "@/components/button";
+import { Field } from "@/components/field";
+import { Table } from "@/components/table";
 
 const MAX_TOKENS = 5;
 const EXPIRY_CHOICES = [
@@ -34,14 +38,14 @@ const PERMISSION_GROUPS: {
     ],
   },
   {
-    title: "Notes REST (Obsidian-style)",
+    title: "Notes, for other notes apps",
     items: [
       { id: "rest:read", label: "Read and search Notes" },
       { id: "rest:write", label: "Write and delete Notes" },
     ],
   },
   {
-    title: "MCP",
+    title: "AI clients",
     items: [
       { id: "mcp:read", label: "Read and search the workspace" },
       { id: "mcp:suggest", label: "Leave drafts for you to approve" },
@@ -66,6 +70,17 @@ function expiryFor(id: ExpiryId, custom: string): string | null | "invalid" {
   }
   const days = EXPIRY_CHOICES.find((c) => c.id === id)?.days ?? 30;
   return new Date(Date.now() + days * 86_400_000).toISOString();
+}
+
+/**
+ * The earliest custom expiry day, tomorrow, as the local `YYYY-MM-DD` the date
+ * picker and `expiryFor` both read. A UTC date would be a day ahead in the
+ * evening west of UTC and disable tomorrow.
+ */
+export function customExpiryMin(now: Date = new Date()): string {
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}`;
 }
 
 export function sdkEnvLines(token: string, url: string): string {
@@ -101,7 +116,7 @@ function when(iso: string | null): string {
   const at = Date.parse(iso);
   return at <= 0
     ? "—"
-    : new Date(at).toLocaleDateString(undefined, { dateStyle: "medium" });
+    : formatDate(at);
 }
 
 /**
@@ -120,6 +135,7 @@ export function LocalApiTokenCreate({
 }) {
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState("");
+  const permsId = useId();
   const [picked, setPicked] = useState<DesktopLocalApiPermission[]>(
     fixed ?? ["experiments"],
   );
@@ -187,105 +203,98 @@ export function LocalApiTokenCreate({
             >
               {issued.token}
             </code>
-            <button
-              type="button"
-              className="btn-secondary"
+            <Button
               onClick={() => void copy("t", issued.token)}
             >
               {copied === "t" ? "Copied" : "Copy"}
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
+            </Button>
+            <Button
               onClick={() =>
                 void copy("e", sdkEnvLines(issued.token, state.url))
               }
             >
               {copied === "e" ? "Copied" : "Copy env lines"}
-            </button>
-            <button
-              type="button"
-              className="btn-secondary"
+            </Button>
+            <Button
               onClick={() => setIssued(null)}
             >
               Done
-            </button>
+            </Button>
           </div>
         </div>
       )}
-      {!fixed && count < MAX_TOKENS && (
-        <fieldset className="token-permissions">
-          <legend>Permissions</legend>
-          {PERMISSION_GROUPS.map((g) => (
-            <div key={g.title}>
-              <small className="muted">{g.title}</small>
-              {g.items.map((item) => (
-                <label key={item.id} className="field-inline">
-                  <input
-                    type="checkbox"
-                    className="themed-check"
-                    checked={picked.includes(item.id)}
-                    onChange={(e) =>
-                      setPicked((prev) =>
-                        e.target.checked
-                          ? [...prev, item.id]
-                          : prev.filter((p) => p !== item.id),
-                      )
-                    }
-                  />
-                  {item.label}
-                </label>
-              ))}
-            </div>
-          ))}
-        </fieldset>
-      )}
       {count >= MAX_TOKENS ? (
         <small className="muted">
-          Five tokens is the limit. Revoke one in Settings → Access tokens.
+          All five tokens are in use.
         </small>
       ) : (
         <form
-          className="field-inline"
+          className="add-form token-form"
           onSubmit={(e) => {
             e.preventDefault();
             void create();
           }}
         >
-          <input
-            type="text"
-            aria-label="New token name"
-            placeholder="Name, e.g. lab GPU box"
-            maxLength={60}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <Select
-            aria-label="Expires"
-            value={expiry}
-            onChange={(e) => setExpiry(e.target.value as ExpiryId)}
-          >
-            {EXPIRY_CHOICES.map((c) => (
-              <option key={c.id} value={c.id}>
-                Expires: {c.label}
-              </option>
-            ))}
-          </Select>
-          {expiry === "custom" && (
-            <DatePicker
-              aria-label="Custom expiry date"
-              value={customDate}
-              min={new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)}
-              onChange={setCustomDate}
+          <Field label="Name">
+            <input
+              type="text"
+              placeholder="e.g. lab GPU box"
+              maxLength={60}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
             />
+          </Field>
+          <Field label="Expires">
+            <Select value={expiry} onChange={(e) => setExpiry(e.target.value as ExpiryId)}>
+              {EXPIRY_CHOICES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {expiry === "custom" && (
+            <Field label="Expiry date">
+              <DatePicker value={customDate} min={customExpiryMin()} onChange={setCustomDate} />
+            </Field>
           )}
-          <button type="submit" className="btn-primary" disabled={busy}>
-            Create token
-          </button>
+          {!fixed && (
+            <div className="token-permissions" role="group" aria-labelledby={permsId}>
+              <span id={permsId} className="token-permissions-label">
+                Permissions
+              </span>
+              {PERMISSION_GROUPS.map((g) => (
+                <div key={g.title}>
+                  <small className="muted">{g.title}</small>
+                  {g.items.map((item) => (
+                    <label key={item.id} className="field-inline">
+                      <input className="wf-check"
+                        type="checkbox"
+                        checked={picked.includes(item.id)}
+                        onChange={(e) =>
+                          setPicked((prev) =>
+                            e.target.checked
+                              ? [...prev, item.id]
+                              : prev.filter((p) => p !== item.id),
+                          )
+                        }
+                      />
+                      {item.label}
+                    </label>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+          <div>
+            <Button type="submit" variant="primary" disabled={busy}>
+              Create token
+            </Button>
+          </div>
         </form>
       )}
       <small className="muted">
-        {count}/{MAX_TOKENS} tokens.{" "}
+        {count} of {MAX_TOKENS} tokens in use. This computer keeps five at most; revoke one to make another.{" "}
         {fixed &&
           `This token can only do: ${fixed.map((p) => PERMISSION_LABEL[p]).join(", ")}.`}
       </small>
@@ -323,22 +332,23 @@ export function LocalApiTokenTable({
     }
   };
 
-  if (!tokens.length) return <p className="muted">No tokens yet.</p>;
   return (
     <>
       {error && <FormError>{error}</FormError>}
-      <div style={{ overflowX: "auto", maxWidth: "100%" }}>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Permissions</th>
-              <th>Created</th>
-              <th>Expires</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
+      <Table
+        empty="No tokens yet."
+        head={
+          <>
+            <th>Name</th>
+            <th>Permissions</th>
+            <th>Created</th>
+            <th>Expires</th>
+            <th>
+              <span className="sr-only">Actions</span>
+            </th>
+          </>
+        }
+      >
             {tokens.map((t) => {
               const expired = !!t.expiresAt && Date.parse(t.expiresAt) <= now;
               return (
@@ -356,21 +366,17 @@ export function LocalApiTokenTable({
                       : when(t.expiresAt)}
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      className="btn-secondary"
+                    <Button
                       disabled={busy}
                       onClick={() => setPending({ id: t.id, name: t.name })}
                     >
                       Revoke
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               );
             })}
-          </tbody>
-        </table>
-      </div>
+      </Table>
       {pending && (
         <ConfirmDialog
           title={`Revoke "${pending.name}"?`}

@@ -48,7 +48,7 @@
     "check:pre-push": "npm run clean:desktop-ini && node scripts/check-pre-push.mjs",
     "generate:routes": "node scripts/generate-module-routes.mjs",
     "docs:generate": "node scripts/update-docs.mjs && node scripts/build-atlas.mjs",
-    "check:docs": "node scripts/update-docs.mjs --check && node scripts/build-atlas.mjs --check",
+    "check:docs": "node --test \"scripts/lib/test/*.test.mjs\" && node scripts/update-docs.mjs --check && node scripts/build-atlas.mjs --check",
     "check:ci-parity": "node scripts/check-ci-parity.mjs",
     "bundle:budget": "node scripts/check-bundle-budget.mjs",
     "bundle:duplicates": "node scripts/check-bundle-duplicates.mjs",
@@ -70,6 +70,7 @@
     "rollup:metrics": "node scripts/rollup-metric-chunks.mjs",
     "prune:metrics": "node scripts/prune-metric-series.mjs",
     "test:desktop": "npm run test --workspace @weaveforge/desktop",
+    "test:memory": "npm run test:memory --workspace @weaveforge/desktop && npm run test:memory --workspace @weaveforge/web",
     "build:desktop": "npm run build --workspace @weaveforge/desktop"
   },
   "devDependencies": {

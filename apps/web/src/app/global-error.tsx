@@ -1,8 +1,9 @@
 "use client";
 
-import { resetAppData } from "@/lib/client-runtime-recovery";
+import { isAndroidApp, RESET_APP_DATA_CONFIRM, resetAppData } from "@/lib/client-runtime-recovery";
 import { errorDetail, useLoggedError, type ErrorBoundaryProps } from "./error-boundary-parts";
 import { ErrorReportPanel } from "./error-report-panel-lazy";
+import { RowButton } from "@/components/controls";
 
 /**
  * Strictly last-resort boundary — shown when the root layout itself crashes, so
@@ -45,12 +46,12 @@ export default function GlobalError({ error, reset }: ErrorBoundaryProps) {
             </details>
           ) : null}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
-            <button type="button" onClick={() => reset()}>
+            <RowButton onClick={() => reset()}>
               Try again
-            </button>
-            <button type="button" onClick={() => window.location.reload()}>
+            </RowButton>
+            <RowButton onClick={() => window.location.reload()}>
               Reload this page
-            </button>
+            </RowButton>
           </div>
 
           {isAndroidApp() ? (
@@ -79,8 +80,7 @@ export default function GlobalError({ error, reset }: ErrorBoundaryProps) {
               offline copies of your work — and returns to the start. Work already saved to
               your account is not affected. This cannot be undone.
             </p>
-            <button
-              type="button"
+            <RowButton
               style={{ color: "#ffb4a8" }}
               onClick={() => {
                 // `window.confirm` is deliberate here, and this is the other
@@ -88,32 +88,15 @@ export default function GlobalError({ error, reset }: ErrorBoundaryProps) {
                 // document, so it cannot rely on the component tree that draws
                 // the app's own modal — that tree is what may have failed.
                 // Everywhere else uses `components/confirm-dialog.tsx`.
-                if (!window.confirm("Reset app data? Offline copies of your work on this device will be deleted. This cannot be undone.")) return;
+                if (!window.confirm(RESET_APP_DATA_CONFIRM)) return;
                 resetAppData();
               }}
             >
               Reset app data
-            </button>
+            </RowButton>
           </section>
         </main>
       </body>
     </html>
   );
-}
-
-/**
- * Whether this is the installed Android app.
- *
- * Duplicated from `route-error.tsx` because this boundary must not import the
- * app's modules at all: it renders when the layout crashed, which is exactly
- * when reaching further into the bundle is likeliest to fail again. See that
- * file for why the tell is the `android-app://` referrer.
- */
-function isAndroidApp(): boolean {
-  if (typeof document === "undefined") return false;
-  try {
-    return document.referrer.startsWith("android-app://");
-  } catch {
-    return false;
-  }
 }

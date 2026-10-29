@@ -111,3 +111,61 @@ test("a miss is not written to the disk cache, so a later session retries it", a
   assert.equal((await service.resolve("p1", ref({ title: "Missing" }))).status, "unresolved");
   assert.equal(store.size, 0);
 });
+
+test("title lookups share one library listing within a short window (22-01)", async () => {
+  const papers = new InMemoryPaperRepository();
+  let calls = 0;
+  const list = papers.listSummaries.bind(papers);
+  papers.listSummaries = async () => { calls += 1; return list(); };
+  let clock = 1_000;
+  const service = new ReferenceLookupService(
+    { resolveWithSource: async (r: PaperRef) => ({ metadata: paper({ title: `A long enough title for matching number ${r.value}` }), sourceId: "fake" }) },
+    papers,
+    undefined,
+    () => clock,
+  );
+  for (let i = 0; i < 5; i += 1) await service.resolve("p1", ref({ index: i, title: String(i) }));
+  assert.equal(calls, 1);
+
+  // A paper added mid-session is found once the window has passed.
+  await papers.save(paper({ id: "new", title: "A long enough title for matching number 9" }));
+  clock += 60_000;
+  const later = await service.resolve("p1", ref({ index: 9, title: "9" }));
+  assert.equal(later.status === "resolved" && later.inLibrary?.id, "new");
+  assert.equal(calls, 2);
+});
+
+test("a failed library listing is not memoised (22-01)", async () => {
+  const papers = new InMemoryPaperRepository();
+  let fail = true;
+  const list = papers.listSummaries.bind(papers);
+  papers.listSummaries = async () => { if (fail) throw new Error("offline"); return list(); };
+  await papers.save(paper({ id: "x", title: "A long enough title for matching number 1" }));
+  const service = new ReferenceLookupService(
+    { resolveWithSource: async (r: PaperRef) => ({ metadata: paper({ title: `A long enough title for matching number ${r.value}` }), sourceId: "fake" }) },
+    papers,
+    undefined,
+    () => 0,
+  );
+  const first = await service.resolve("p1", ref({ index: 1, title: "1" }));
+  assert.equal(first.status === "resolved" && first.inLibrary, undefined);
+  fail = false;
+  const ok = await service.resolve("p1", ref({ index: 2, title: "1" }));
+  assert.equal(ok.status === "resolved" && ok.inLibrary?.id, "x");
+});
+
+test("a library lookup that throws keeps the resolution and does not re-resolve (22-02)", async () => {
+  const papers = new InMemoryPaperRepository();
+  papers.listSummaries = async () => { throw new Error("offline"); };
+  let resolves = 0;
+  const service = new ReferenceLookupService(
+    { resolveWithSource: async () => { resolves += 1; return { metadata: paper({ title: "A long enough title for matching" }), sourceId: "fake" }; } },
+    papers,
+    undefined,
+    () => 0,
+  );
+  const out = await service.resolve("p1", ref({ arxivId: "2101.00001", title: "A long enough title for matching" }));
+  assert.equal(out.status, "resolved");
+  assert.equal(out.status === "resolved" && out.inLibrary, undefined);
+  assert.equal(resolves, 1, "the second form is not tried for a library failure");
+});

@@ -223,7 +223,9 @@ export async function fetchTypedPdfToCache(
   let bytes: ArrayBuffer | null = null;
   if (isAllowedPdfProxyUrl(url)) {
     bytes = await fetchPdfBytesForCache(url);
-    if (!bytes) return { ok: false, reason: "not-pdf" };
+    // Null here is the proxy refusing, no token, or an empty body: a failed
+    // fetch. Whether the bytes are a PDF is checked below.
+    if (!bytes) return { ok: false, reason: "failed" };
   } else if (desktop() !== null) {
     const res = await fetchFn(`/api/pdf-proxy?url=${encodeURIComponent(url)}&typed=1`);
     if (!res.ok) return { ok: false, reason: res.status === 415 ? "not-pdf" : "failed" };
@@ -256,8 +258,7 @@ async function seedCacheFromUrl(cache: IPdfByteCache, key: string, url: string):
     // Only the first open of a paper pays for a second download; afterwards the
     // ladder resolves `cache://` before it ever reaches a network step. pdf.js
     // keeps its own URL so it can still range-request and paint page one early.
-    const existing = await cache.get(key);
-    if (existing && existing.byteLength > 0) return;
+    if (await cache.has(key)) return;
     const bytes = await fetchPdfBytesForCache(url);
     if (bytes) await cache.set(key, bytes);
   } catch {

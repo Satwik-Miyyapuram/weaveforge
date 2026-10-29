@@ -9,29 +9,21 @@ import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { buildTree } from "../../../shared/tree.js";
 import { ValidationError } from "../../../shared/errors.js";
 
-export interface VaultPage extends Identifiable {
-  id: string;
-  title: string;
+/**
+ * A full page: the summary fields plus the body. Keep `bodyPreview`
+ * empty/`undefined` on full pages so hydrate-on-open still fetches.
+ */
+export interface VaultPage extends VaultPageSummary {
   /** Markdown body; may reference vault assets via `vault:{path}` image URLs. */
   body: string;
-  /**
-   * Short body prefix for note cards when `listSummaries` omits full `body`.
-   * Keep empty/`undefined` on full pages so hydrate-on-open still fetches.
-   */
-  bodyPreview?: string;
-  /** Parent page for nesting; undefined = top level. */
-  parentId?: string;
-  /** The owner pinned it; the Notes screen lists pinned notes first. */
-  pinned?: boolean;
-  sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface NewVaultPageInput {
   title: string;
   body?: string;
   parentId?: string;
+  /** Make a folder rather than a note. */
+  folder?: boolean;
   sortOrder?: number;
 }
 
@@ -49,7 +41,7 @@ export interface NewVaultPageInput {
  * Everything the card/tree actually paints is here; the full text arrives via
  * {@link VaultPage} from `getById` when a page is opened.
  */
-export interface VaultPageSummary {
+export interface VaultPageSummary extends Identifiable {
   id: string;
   title: string;
   /**
@@ -61,6 +53,8 @@ export interface VaultPageSummary {
   parentId?: string;
   /** The owner pinned it; the Notes screen lists pinned notes first. */
   pinned?: boolean;
+  /** Made as a folder: it holds notes and folders, and is not opened as a note. */
+  folder?: boolean;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -110,6 +104,7 @@ export function createVaultPage(
     title,
     body: input.body ?? "",
     parentId: input.parentId,
+    ...(input.folder ? { folder: true } : {}),
     sortOrder: input.sortOrder ?? 0,
     createdAt: now,
     updatedAt: now,
@@ -164,7 +159,16 @@ function maskCode(body: string): string {
     .replace(/`[^`\n]*`/g, (m) => " ".repeat(m.length));
 }
 
-function parseWikilinkInner(inner: string, raw: string): WikilinkRef | null {
+/**
+ * One `[[...]]` on one line; group 1 is the inside. A new regex per call: a
+ * shared `/g` regex carries `lastIndex` from one caller into the next.
+ */
+export function wikilinkPattern(): RegExp {
+  return /\[\[([^\[\]\n]+?)\]\]/g;
+}
+
+/** Read `Target`, `Target|alias`, `Target#Heading` or `Target#^block`: the inside of one `[[...]]`. */
+export function parseWikilinkInner(inner: string, raw: string): WikilinkRef | null {
   const pipe = inner.indexOf("|");
   const link = (pipe === -1 ? inner : inner.slice(0, pipe)).trim();
   const alias = pipe === -1 ? undefined : inner.slice(pipe + 1).trim() || undefined;
@@ -188,7 +192,7 @@ function parseWikilinkInner(inner: string, raw: string): WikilinkRef | null {
 export function extractWikilinks(body?: string): WikilinkRef[] {
   if (!body) return [];
   const masked = maskCode(body);
-  const re = /\[\[([^\[\]\n]+?)\]\]/g;
+  const re = wikilinkPattern();
   const out: WikilinkRef[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(masked)) !== null) {
@@ -212,6 +216,8 @@ export function bodyLinksTo(body: string | undefined, targetKey: string): boolea
 export interface ParsedFrontmatter {
   body: string;
   tags: string[];
+  /** `aliases:` values, whole (multi-word names stay one entry). */
+  aliases: string[];
 }
 
 /**
@@ -221,28 +227,36 @@ export interface ParsedFrontmatter {
  */
 export function stripFrontmatter(md: string): ParsedFrontmatter {
   const match = /^﻿?---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(md);
-  if (!match) return { body: md, tags: [] };
+  if (!match) return { body: md, tags: [], aliases: [] };
   const body = md.slice(match[0].length);
   const lines = match[1]!.split(/\r?\n/);
   const tags = new Set<string>();
-  const collect = (raw: string) =>
+  const aliases = new Set<string>();
+  const clean = (s: string) => trimQuotes(s.trim().replace(/^["'#]+/, "")).trim().replace(/\s+/g, " ");
+  // A tag is one word, so tags split on spaces too; an alias is a name and
+  // splits on commas only. It still becomes a tag, hyphenated to stay one.
+  const collect = (raw: string, isAlias: boolean) =>
     raw
-      .split(/[,\s]+/)
-      .map((s) => trimQuotes(s.replace(/^["'#]+/, "")).trim())
+      .split(isAlias ? /,/ : /[,\s]+/)
+      .map(clean)
       .filter(Boolean)
-      .forEach((t) => tags.add(t));
+      .forEach((t) => {
+        if (isAlias) aliases.add(t);
+        tags.add(t.replace(/ /g, "-"));
+      });
   for (let i = 0; i < lines.length; i += 1) {
     const inline = /^(tags|aliases):(.*)$/i.exec(lines[i]!);
     if (!inline) continue;
+    const isAlias = inline[1]!.toLowerCase() === "aliases";
     let rest = inline[2]!.trim();
     if (rest.startsWith("[")) rest = rest.replace(/^\[|\]$/g, "");
-    if (rest) collect(rest);
+    if (rest) collect(rest, isAlias);
     for (let j = i + 1; j < lines.length && /^\s*-\s+/.test(lines[j]!); j += 1) {
-      collect(lines[j]!.replace(/^\s*-\s+/, ""));
+      collect(lines[j]!.replace(/^\s*-\s+/, ""), isAlias);
       i = j;
     }
   }
-  return { body, tags: [...tags] };
+  return { body, tags: [...tags], aliases: [...aliases] };
 }
 
 /** Drops trailing quotes without a backtracking `["']+$` regex. */

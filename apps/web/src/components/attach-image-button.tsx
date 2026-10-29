@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { ImageIcon } from "@/components/view-icons";
 import type { EditorHandleRef } from "./editor-handle";
+import { IconButton } from "./button";
 
 /**
  * The toolbar button that puts a picture into the note being edited.
@@ -50,16 +51,12 @@ export function AttachImageButton({
 
   return (
     <>
-      <button
-        type="button"
-        className="entity-icon-btn"
+      <IconButton label="Add image"
         onClick={() => fileRef.current?.click()}
         disabled={disabled}
-        aria-label="Add image"
-        title="Image"
       >
         <ImageIcon />
-      </button>
+      </IconButton>
       <input
         ref={fileRef}
         type="file"

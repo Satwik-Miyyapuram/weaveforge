@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { LOCAL_BOOTSTRAP_SQL, type Migration } from "@weaveforge/core";
+import { errorMessage, LOCAL_BOOTSTRAP_SQL, type Migration } from "@weaveforge/core";
 import { LocalDatabase, type LocalClient } from "./local-db";
 import type { IpcResult } from "./channels";
+import type { Dumpable } from "./local-db-backup";
 
 /**
  * The local database as the rest of this process sees it: one function that
@@ -86,6 +87,12 @@ export interface LocalDbHostOptions {
    * failure is shown to anybody.
    */
   recover?: (cause: unknown) => Promise<{ client: LocalClient; from: string } | null>;
+  /**
+   * Called once the engine is open and migrated. Main uses it to collect the
+   * boot's garbage at once instead of holding it until V8's idle GC (M03).
+   * A throw here is ignored: the database is open either way.
+   */
+  opened?: () => void;
   /** Where failed queries are reported; main's console lands in weaveforge.log. */
   log?: (line: string) => void;
 }
@@ -107,7 +114,7 @@ function writes(sql: string): boolean {
 /** An open that failed, told apart from a query that did. */
 class OpenError extends Error {
   constructor(cause: unknown) {
-    super(`${OPEN_FAILED} ${cause instanceof Error ? cause.message : String(cause)}`);
+    super(`${OPEN_FAILED} ${errorMessage(cause)}`);
   }
 }
 
@@ -149,6 +156,11 @@ export class LocalDbHost {
         );
         await db.migrate(LOCAL_BOOTSTRAP_SQL, migrations);
         await db.ensureLocalUser();
+        try {
+          this.options.opened?.();
+        } catch {
+          // Best effort; see `opened`.
+        }
         return db;
       } catch (error) {
         // Closed before the field is cleared, and cleared only once the close
@@ -186,7 +198,7 @@ export class LocalDbHost {
       if (IDENTITY_CHANGES.test(sql)) this.user = undefined;
       return { ok: true, value: rows };
     } catch (error) {
-      const message = error instanceof Error ? error.message : OPEN_FAILED;
+      const message = errorMessage(error, OPEN_FAILED);
       // SQL only, never params: they can hold a person's text.
       const code = (error as { code?: unknown } | null)?.code;
       (this.options.log ?? console.error)(
@@ -205,17 +217,27 @@ export class LocalDbHost {
   }
 
   /**
-   * A copy of the database if it is open and has changed since the last one;
-   * `null` otherwise. Never opens: a backup of a database nobody has used is
-   * a backup of nothing. The change flag is cleared once the dump is made,
-   * so a dump that fails leaves the next call to try again.
+   * Something that can dump the database, if it is open and has changed since
+   * the last dump; `null` otherwise. Never opens: a backup of a database
+   * nobody has used is a backup of nothing. The change flag is cleared when a
+   * dump starts, so a write that lands while it runs marks the next one, and
+   * set again if the dump fails, so the next call tries again.
    */
-  async snapshot(): Promise<Blob | null> {
+  async snapshot(): Promise<Dumpable | null> {
     if (!this.opening || !this.dirty) return null;
     const db = await this.opening.catch(() => undefined);
-    const blob = await db?.dump();
-    if (blob) this.dirty = false;
-    return blob ?? null;
+    if (!db?.canDump) return null;
+    return {
+      dumpTo: async (file) => {
+        this.dirty = false;
+        try {
+          await db.dumpTo(file);
+        } catch (error) {
+          this.dirty = true;
+          throw error;
+        }
+      },
+    };
   }
 
   /**
@@ -234,7 +256,7 @@ export class LocalDbHost {
       this.failure = undefined;
       return { ok: true, value: null };
     } catch (error) {
-      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+      return { ok: false, message: errorMessage(error) };
     }
   }
 

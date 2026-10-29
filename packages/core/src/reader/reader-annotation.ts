@@ -8,22 +8,9 @@ export type AnnotationOrigin = "zotero" | "local";
  * Zotero's complete annotation type set — see zotero/zotero annotations.js.
  * There is no `strikeout`. Local types must be a subset of this set (R3 rule).
  */
-export type ReaderAnnotationType =
-  | "highlight"
-  | "underline"
-  | "note"
-  | "image"
-  | "ink"
-  | "text";
+export const READER_ANNOTATION_TYPES = ["highlight", "underline", "note", "image", "ink", "text"] as const;
 
-export const READER_ANNOTATION_TYPES: readonly ReaderAnnotationType[] = [
-  "highlight",
-  "underline",
-  "note",
-  "image",
-  "ink",
-  "text",
-] as const;
+export type ReaderAnnotationType = (typeof READER_ANNOTATION_TYPES)[number];
 
 export function isReaderAnnotationType(value: string): value is ReaderAnnotationType {
   return (READER_ANNOTATION_TYPES as readonly string[]).includes(value);

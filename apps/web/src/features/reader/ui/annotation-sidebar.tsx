@@ -14,6 +14,9 @@ import {
 } from "../application/reader-annotation-helpers";
 import type { AnnotationBacklinkTarget } from "../application/annotation-backlinks";
 import { Select } from "@/components/select";
+import { Button } from "@/components/button";
+import { RowButton, Swatch } from "@/components/controls";
+import { SegmentedControl } from "@/components/segmented-control";
 
 export interface ReportSectionOption {
   id: string;
@@ -119,19 +122,7 @@ export function AnnotationSidebar({
       </div>
       {/* What the list shows, the mock's three tabs. Pressed buttons rather than
           a tablist: they filter one list, they do not switch between panels. */}
-      <div className="seg pdf-reader-sidebar-kinds" role="group" aria-label="Show">
-        {KIND_CHOICES.map((choice) => (
-          <button
-            key={choice.value}
-            type="button"
-            aria-pressed={kindFilter === choice.value}
-            className={kindFilter === choice.value ? "seg-on" : undefined}
-            onClick={() => setKindFilter(choice.value)}
-          >
-            {choice.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl label="Show" className="pdf-reader-sidebar-kinds" value={kindFilter} onChange={setKindFilter} options={KIND_CHOICES} />
       <div className="pdf-reader-sidebar-filters">
         {tags.length > 0 && (
         <Select
@@ -164,11 +155,7 @@ export function AnnotationSidebar({
           const localEditable = canEditLocal && a.origin === "local";
           return (
             <li key={a.id}>
-              <button
-                type="button"
-                className={`pdf-reader-sidebar-item${selectedId === a.id ? " is-selected" : ""}`}
-                onClick={() => onSelect(a.id)}
-              >
+              <RowButton current={selectedId === a.id} onClick={() => onSelect(a.id)}>
                 <span
                   className="pdf-reader-sidebar-swatch"
                   style={{ background: a.color }}
@@ -189,26 +176,26 @@ export function AnnotationSidebar({
                     <span className="muted">{a.comment}</span>
                   )}
                 </span>
-              </button>
+              </RowButton>
               <div className="pdf-reader-sidebar-actions">
                 {(a.text || a.comment) && (
-                  <button type="button" className="link-btn" onClick={() => void copyCite(a)}>
+                  <Button variant="ghost" size="sm" onClick={() => void copyCite(a)}>
                     Copy quote + cite
-                  </button>
+                  </Button>
                 )}
                 {localEditable && editingId !== a.id && (
                   <>
-                    <button type="button" className="link-btn" onClick={() => beginEdit(a)}>
+                    <Button variant="ghost" size="sm" onClick={() => beginEdit(a)}>
                       Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="link-btn"
+                    </Button>
+                    <Button
+                     
+                      variant="ghost" size="sm"
                       disabled={busyId === a.id}
                       onClick={() => onRemoveLocal?.(a.id)}
                     >
                       Delete
-                    </button>
+                    </Button>
                   </>
                 )}
               </div>
@@ -228,29 +215,26 @@ export function AnnotationSidebar({
                   />
                   <div className="pdf-reader-create-colors" role="group" aria-label="Colour">
                     {READER_ANNOTATION_COLORS.map((color) => (
-                      <button
+                      <Swatch
                         key={color}
-                        type="button"
-                        className="pdf-reader-create-swatch"
-                        style={{ background: color }}
-                        aria-label={`Set colour ${color}`}
+                        label={`Set colour ${color}`}
+                        colour={color}
+                        selected={a.color === color}
                         disabled={busyId === a.id}
                         onClick={() => void onUpdateLocal?.(a.id, { color })}
                       />
                     ))}
                   </div>
                   <div className="pdf-reader-sidebar-actions">
-                    <button
-                      type="button"
-                      className="btn-secondary btn-sm"
+                    <Button size="sm"
                       disabled={busyId === a.id}
                       onClick={() => void saveEdit(a)}
                     >
                       Save
-                    </button>
-                    <button type="button" className="link-btn btn-cancel" onClick={() => setEditingId(null)}>
+                    </Button>
+                    <Button variant="cancel" size="sm" onClick={() => setEditingId(null)}>
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -296,7 +280,7 @@ export function AnnotationSidebar({
                   href={
                     b.kind === "report_section"
                       ? `/report?section=${encodeURIComponent(b.id)}`
-                      : `/vault?page=${encodeURIComponent(b.id)}`
+                      : `/notes?page=${encodeURIComponent(b.id)}`
                   }
                 >
                   {b.kind === "report_section" ? "Report" : "Note"} · {b.title}

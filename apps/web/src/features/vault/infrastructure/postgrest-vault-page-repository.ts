@@ -1,5 +1,6 @@
 import {
   buildPageTree,
+  normalizeTitleKey,
   vaultBodyPreview,
   type IVaultPageRepository,
   type VaultPage,
@@ -13,25 +14,22 @@ import {
   toSummaryDomain,
   toRow,
 } from "./vault-page-rows";
-import { one, rows, run } from "@/backend/providers/postgrest/row-access";
+import { inChunks, one, rows, run } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 
-/** Ids per `in (...)` request; the list travels in the URL. */
 /**
  * The columns a VaultPageRow is read as, named rather than starred.
  *
  * Derived from the row type: these are exactly the fields the mapper reads, and a
  * star would make them "whatever the table grows next".
  */
-const VAULT_PAGE_COLUMNS = "id,title,body,body_preview,parent_id,pinned,sort_order,created_at,updated_at";
-
-const ID_CHUNK = 200;
+const VAULT_PAGE_COLUMNS = "id,title,body,body_preview,parent_id,pinned,folder,sort_order,created_at,updated_at";
 
 const TABLE = "vault_pages";
 
 /** Tree/card projection — preview only; full body via getById on open. */
 const VAULT_SUMMARY_COLUMNS =
-  "id,title,parent_id,pinned,sort_order,created_at,updated_at,project_id,body_preview";
+  "id,title,parent_id,pinned,folder,sort_order,created_at,updated_at,project_id,body_preview";
 
 export class PostgrestVaultPageRepository extends ProjectRepository implements IVaultPageRepository {
 
@@ -55,25 +53,15 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
   }
 
   async listByIds(ids: readonly string[]): Promise<VaultPage[]> {
-    if (ids.length === 0) return [];
-    const chunks: string[][] = [];
-    // Chunked: an `in` list travels in the URL, and a large one is rejected.
-    // Requested together rather than one after another, and ordered by `id` so
-    // the result is deterministic — the same two omissions the papers
-    // repository had.
-    for (let start = 0; start < ids.length; start += ID_CHUNK) {
-      chunks.push(ids.slice(start, start + ID_CHUNK) as string[]);
-    }
-    const pages = await Promise.all(
-      chunks.map((chunk) =>
-        rows<VaultPageRow>(
-          this.scoped(this.db.from(TABLE).select(VAULT_PAGE_COLUMNS))
-            .in("id", chunk)
-            .order("id", { ascending: true }),
-        ),
+    // Ordered by `id` so the result is deterministic.
+    const found = await inChunks(ids, (chunk) =>
+      rows<VaultPageRow>(
+        this.scoped(this.db.from(TABLE).select(VAULT_PAGE_COLUMNS))
+          .in("id", chunk)
+          .order("id", { ascending: true }),
       ),
     );
-    return pages.flat().map(toDomain);
+    return found.map(toDomain);
   }
 
   async list(filter?: VaultPageFilter): Promise<VaultPage[]> {
@@ -85,8 +73,11 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
           : query.eq("parent_id", filter.parentId);
     }
     if (filter?.query) {
-      const pattern = `%${filter.query.replace(/[\\%_]/g, "\\$&")}%`;
-      query = query.or(`title.ilike."${pattern}",body.ilike."${pattern}"`);
+      // Two escapes, in order: LIKE's (`\ % _` are text), then PostgREST's
+      // double-quoted value (`\ "`), which it reads once before LIKE sees it.
+      const like = `%${filter.query.replace(/[\\%_]/g, "\\$&")}%`;
+      const quoted = like.replace(/[\\"]/g, "\\$&");
+      query = query.or(`title.ilike."${quoted}",body.ilike."${quoted}"`);
     }
     query = query.order("sort_order", { ascending: true }).order("title", { ascending: true });
     return (await rows<VaultPageRow>(query)).map(toDomain);
@@ -119,14 +110,8 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
     const { data, error } = await query;
     if (error) throw error;
     return (data as VaultPageRow[]).map((row) => ({
-      id: row.id,
-      title: row.title,
-      body: "",
+      ...toSummaryDomain(row),
       bodyPreview: vaultBodyPreview(row.body ?? ""),
-      parentId: row.parent_id ?? undefined,
-      sortOrder: row.sort_order,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
     }));
   }
 
@@ -142,6 +127,18 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
     return buildPageTree((data as VaultPageRow[]).map(toSummaryDomain));
   }
 
+  async titleTaken(title: string, exceptId?: string): Promise<boolean> {
+    const key = normalizeTitleKey(title);
+    if (!key) return false;
+    // ILIKE narrows to candidates (each whitespace run may differ, hence %);
+    // the exact rule is applied here so both backends agree.
+    const pattern = key.split(" ").map(escapeLike).join("%");
+    const found = await rows<{ id: string; title: string }>(
+      this.scoped(this.db.from(TABLE).select("id,title")).ilike("title", pattern),
+    );
+    return found.some((r) => r.id !== exceptId && normalizeTitleKey(r.title) === key);
+  }
+
   async save(entity: VaultPage): Promise<void> {
     const row = toRow(entity);
     if (this.pid) row.project_id = this.pid;
@@ -151,6 +148,11 @@ export class PostgrestVaultPageRepository extends ProjectRepository implements I
   async delete(id: string): Promise<void> {
     await run(this.scoped(this.db.from(TABLE).delete()).eq("id", id));
   }
+}
+
+/** Make `%`, `_` and `\` match themselves in a LIKE pattern. */
+function escapeLike(text: string): string {
+  return text.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
 function isMissingBodyPreviewColumn(error: { message?: string; code?: string }): boolean {

@@ -13,11 +13,17 @@ export type PdfLib = typeof import("pdfjs-dist");
 /** The pdf.js bundle is a megabyte; it is fetched once, on the first open. */
 let pdfLibPromise: Promise<PdfLib> | null = null;
 
-export async function loadPdfLib(): Promise<PdfLib> {
+export async function loadPdfLib(
+  importPdfJs: () => Promise<PdfLib> = () => import("pdfjs-dist"),
+): Promise<PdfLib> {
   if (!pdfLibPromise) {
-    pdfLibPromise = import("pdfjs-dist").then((lib) => {
+    pdfLibPromise = importPdfJs().then((lib) => {
       lib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
       return lib;
+    });
+    // A failed load is retried on the next open, not kept until a reload.
+    pdfLibPromise.catch(() => {
+      pdfLibPromise = null;
     });
   }
   return pdfLibPromise;

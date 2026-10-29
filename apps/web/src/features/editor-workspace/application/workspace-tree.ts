@@ -67,6 +67,8 @@ export interface WorkspaceTreeNode {
    * is why it is the one kind of row that scrolls a pane instead.
    */
   headingLevel?: number;
+  /** A note made as a folder: it holds notes and folders and opens nothing. */
+  folder?: boolean;
 }
 
 export interface PaperEntry {
@@ -81,6 +83,7 @@ export interface PaperEntry {
  */
 export interface NoteNode extends FolderNode {
   kind?: "vault_page" | "ink_page";
+  folder?: boolean;
 }
 
 /**
@@ -120,6 +123,20 @@ export interface WorkspaceTreeInput {
 const byLabel = (a: WorkspaceTreeNode, b: WorkspaceTreeNode) =>
   a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: "base" });
 
+/**
+ * True when following parents up from `id` comes back to `id`: a corrupt loop
+ * (A→B→A, or a node that is its own parent). A node on such a loop has no real
+ * parent, so the caller roots it instead of dropping it with its subtree.
+ */
+function onParentLoop(id: string, parentOf: (id: string) => string | null | undefined): boolean {
+  const seen = new Set<string>();
+  for (let at = parentOf(id); at && !seen.has(at); at = parentOf(at)) {
+    if (at === id) return true;
+    seen.add(at);
+  }
+  return false;
+}
+
 /** Build one root by nesting nodes under their parents, in `treePaths` order. */
 function nestedRoot(
   label: string,
@@ -141,15 +158,18 @@ function nestedRoot(
       label: node.title.trim() || "Untitled",
       path,
       children: [],
+      ...(node.folder ? { folder: true } : {}),
     });
   }
 
+  const parentOf = new Map(nodes.map((node) => [node.id, node.parentId]));
   const roots: WorkspaceTreeNode[] = [];
   for (const node of nodes) {
     const built_ = built.get(node.id)!;
-    // A parent that is missing — or that points at itself through a corrupted
-    // chain — leaves the node at the root rather than dropping it from the tree.
-    const parent = node.parentId && node.parentId !== node.id ? built.get(node.parentId) : undefined;
+    // A parent that is missing — or a chain that loops back to the node —
+    // leaves the node at the root rather than dropping it from the tree.
+    const looped = onParentLoop(node.id, (id) => parentOf.get(id));
+    const parent = node.parentId && !looped ? built.get(node.parentId) : undefined;
     if (parent) parent.children.push(built_);
     else roots.push(built_);
   }
@@ -264,8 +284,19 @@ export function flattenTree(nodes: readonly WorkspaceTreeNode[]): WorkspaceTreeN
  * `kind.ts`'s `isDocumentKind`, which answers for a kind string coming from a
  * tab or a palette row, and which has to know about ink's heading rows too.
  */
-export function isDocumentNode(node: Pick<WorkspaceTreeNode, "kind">): boolean {
-  return node.kind !== "folder";
+export function isDocumentNode(node: Pick<WorkspaceTreeNode, "kind" | "folder">): boolean {
+  return node.kind !== "folder" && !node.folder;
+}
+
+/** The ids of the notes made as folders: the only notes a new note may go into. */
+export function folderIdsOf(nodes: readonly WorkspaceTreeNode[]): Set<string> {
+  const out = new Set<string>();
+  const walk = (node: WorkspaceTreeNode) => {
+    if (node.folder && node.id) out.add(node.id);
+    for (const child of node.children) walk(child);
+  };
+  for (const node of nodes) walk(node);
+  return out;
 }
 
 export interface VisibleRow {
@@ -386,10 +417,12 @@ export function buildListsTree(input: ListsTreeInput): WorkspaceTreeNode[] {
   }));
   const byId = new Map(input.lists.map((list, index) => [list.id, lists[index]!]));
 
+  const listParent = new Map(input.lists.map((list) => [list.id, list.parentId]));
   const roots: WorkspaceTreeNode[] = [];
   input.lists.forEach((list, index) => {
     const node = lists[index]!;
-    const parent = list.parentId && list.parentId !== list.id ? byId.get(list.parentId) : undefined;
+    const looped = onParentLoop(list.id, (id) => listParent.get(id));
+    const parent = list.parentId && !looped ? byId.get(list.parentId) : undefined;
     if (parent) parent.children.push(node);
     else roots.push(node);
   });

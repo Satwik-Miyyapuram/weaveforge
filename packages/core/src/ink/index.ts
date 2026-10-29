@@ -28,13 +28,21 @@ export {
   INK_PRESSURE_MIN_FACTOR,
   INK_PRESSURE_MAX_FACTOR,
   clampInkNoteWidth,
-  isHighlighterWidth,
   inkPressureFactor,
   inkVelocityFactor,
   nibWidth,
   inkVelocityBetween,
   strokeBaseWidth,
 } from "./width.js";
+
+export {
+  INK_ZOOM_MIN,
+  INK_ZOOM_MAX,
+  INK_ZOOM_STEP,
+  clampInkZoom,
+  inkZoomIn,
+  inkZoomOut,
+} from "./zoom.js";
 
 export {
   INK_SMOOTH_SPACING,
@@ -70,7 +78,6 @@ export {
   makeInkStroke,
   blankInkPage,
   clampInkPageSize,
-  packInkStroke,
   pressureByte,
   defaultInkNoteMeta,
   isInkNoteFrontmatter,
@@ -106,6 +113,8 @@ export {
   type InkNoteMeta,
   type PackedInkStroke,
 } from "./ink-note.js";
+export { inkCurveAt, inkTangentAt } from "./curve.js";
+export { packInkStroke, InkStrokePacker, type InkStrokePackerOptions } from "./stroke-packer.js";
 
 export {
   FIGURE_ALT,

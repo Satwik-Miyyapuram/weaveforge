@@ -29,10 +29,20 @@ export interface IMetadataSource {
   fetch(ref: PaperRef): Promise<PaperMetadata>;
 }
 
+/** Why one provider could not answer. */
+export interface MetadataSourceFailure {
+  sourceId: string;
+  message: string;
+}
+
 export class MetadataResolutionError extends WeaveForgeError {
-  constructor(message: string) {
-    super(message);
+  /** Each provider's error, in the order tried, so an outage does not read as "not found". */
+  readonly failures: readonly MetadataSourceFailure[];
+
+  constructor(message: string, failures: readonly MetadataSourceFailure[] = []) {
+    super(failures.length ? `${message} ${failures.map((f) => `${f.sourceId}: ${f.message}`).join("; ")}` : message);
     this.name = "MetadataResolutionError";
+    this.failures = failures;
   }
 }
 
@@ -73,13 +83,16 @@ export class MetadataResolver {
       const source = sources[0]!;
       return { metadata: await source.fetch(ref), sourceId: source.id };
     }
+    const failures: MetadataSourceFailure[] = [];
     for (const source of sources) {
       try {
         return { metadata: await source.fetch(ref), sourceId: source.id };
-      } catch {
-        /* try the next provider */
+      } catch (err) {
+        // Kept, then the next provider is tried.
+        const message = err instanceof Error ? err.message : String(err);
+        failures.push({ sourceId: source.id, message: message.slice(0, 300) });
       }
     }
-    throw new MetadataResolutionError(`No metadata source resolved the ${ref.kind} reference.`);
+    throw new MetadataResolutionError(`No metadata source resolved the ${ref.kind} reference.`, failures);
   }
 }

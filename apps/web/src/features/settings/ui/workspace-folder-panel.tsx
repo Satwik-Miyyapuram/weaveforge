@@ -28,6 +28,7 @@ import {
 import { FormError } from "@/components/form-error";
 import { ProjectContext } from "@/features/projects";
 import dynamic from "next/dynamic";
+import { Button } from "@/components/button";
 
 const FolderConflictCard = dynamic(
   () => import("./folder-conflict-card").then((m) => m.FolderConflictCard),
@@ -124,7 +125,11 @@ export function WorkspaceFolderPanel() {
   useEffect(() => {
     if (!session) return;
     let live = true;
-    void folderHistory().then((log) => live && setHistory(log), () => {});
+    // A history that cannot be read is a damaged repo; say so rather than show none.
+    void folderHistory().then(
+      (log) => live && setHistory(log),
+      (err) => live && setError(`Folder history could not be read: ${formatError(err)}`),
+    );
     return () => {
       live = false;
     };
@@ -178,7 +183,7 @@ export function WorkspaceFolderPanel() {
   return (
     <section
       id="settings-workspace"
-      className="card add-form settings-anchor"
+      className="add-form settings-anchor"
       role="tabpanel"
       aria-labelledby="settings-tab-workspace"
     >
@@ -222,9 +227,8 @@ export function WorkspaceFolderPanel() {
             <strong>WeaveForge</strong> subfolder.
           </p>
           <label className="field-inline">
-            <input
+            <input className="wf-check"
               type="checkbox"
-              className="themed-check"
               checked={git}
               onChange={(e) => setGit(e.target.checked)}
             />
@@ -232,9 +236,9 @@ export function WorkspaceFolderPanel() {
           </label>
           <div className="screen-actions screen-actions--start">
             {(hasShell || supportsDirectoryPicker()) && (
-              <button
-                className="btn-primary"
-                type="button"
+              <Button
+                variant="primary"
+               
                 disabled={busy !== null}
                 onClick={() =>
                   void run("pick", async () => {
@@ -244,11 +248,9 @@ export function WorkspaceFolderPanel() {
                 }
               >
                 {busy === "pick" ? "Choosing…" : "Choose a folder…"}
-              </button>
+              </Button>
             )}
-            <button
-              className="btn-secondary"
-              type="button"
+            <Button
               disabled={busy !== null}
               onClick={() =>
                 void run("opfs", async () => {
@@ -258,7 +260,7 @@ export function WorkspaceFolderPanel() {
               }
             >
               {busy === "opfs" ? "Setting up…" : "Use browser storage"}
-            </button>
+            </Button>
           </div>
           {!hasShell && !supportsDirectoryPicker() && (
             <p className="muted jump-to-meta">Choosing a real folder needs a Chromium-based browser.</p>
@@ -272,9 +274,7 @@ export function WorkspaceFolderPanel() {
               : "One folder for your account; each project writes its own subfolder. Open a project to write it."}
           </p>
           <div className="screen-actions screen-actions--start">
-            <button
-              className="btn-secondary"
-              type="button"
+            <Button
               disabled={busy !== null || !current}
               onClick={() =>
                 void run("sync", async () => {
@@ -284,10 +284,10 @@ export function WorkspaceFolderPanel() {
               }
             >
               {busy === "sync" ? "Writing…" : "Write everything now"}
-            </button>
-            <button
-              className="btn-ghost"
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+             
               disabled={busy !== null}
               onClick={() => {
                 closeFolder();
@@ -298,7 +298,7 @@ export function WorkspaceFolderPanel() {
               }}
             >
               Disconnect
-            </button>
+            </Button>
           </div>
           {history.length > 0 && (
             <ul className="wiki-lint-list">
@@ -335,9 +335,7 @@ export function WorkspaceFolderPanel() {
       />
       <div className="screen-actions screen-actions--start">
         {session && (
-          <button
-            className={outside.length > 0 ? "btn-primary" : "btn-secondary"}
-            type="button"
+          <Button variant={outside.length > 0 ? "primary" : "secondary"}
             disabled={busy !== null}
             onClick={() =>
               void run("preview", async () => {
@@ -352,16 +350,14 @@ export function WorkspaceFolderPanel() {
               : outside.length > 0
                 ? `Review ${outside.length} outside edit${outside.length === 1 ? "" : "s"}`
                 : "Check for changes"}
-          </button>
+          </Button>
         )}
-        <button
-          className="btn-secondary"
-          type="button"
+        <Button
           disabled={busy !== null}
           onClick={() => archiveInput.current?.click()}
         >
           {busy === "zip" ? "Reading…" : "Import a ZIP…"}
-        </button>
+        </Button>
       </div>
       {diff && <ImportPreview diff={diff} onApplied={(msg) => { setStatus(msg); setDiff(null); clearExternalChanges(); }} />}
 
@@ -424,9 +420,9 @@ function ImportPreview({
       {error && <FormError>{error}</FormError>}
 
       <div className="screen-actions screen-actions--start">
-        <button
-          className="btn-primary"
-          type="button"
+        <Button
+          variant="primary"
+         
           disabled={busy || writable === 0}
           onClick={() => {
             setBusy(true);
@@ -440,7 +436,7 @@ function ImportPreview({
           }}
         >
           {busy ? "Importing…" : `Import ${writable} change${writable === 1 ? "" : "s"}`}
-        </button>
+        </Button>
       </div>
       <p className="muted jump-to-meta">
         Only notes are imported. Papers and experiments carry structured fields a markdown body

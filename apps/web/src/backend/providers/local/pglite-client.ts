@@ -1,4 +1,4 @@
-import { LOCAL_USER_ID } from "@weaveforge/core";
+import { errorMessage, LOCAL_USER_ID } from "@weaveforge/core";
 
 import { decodeBytea } from "@/lib/bytea";
 
@@ -49,7 +49,7 @@ function postgresCode(error: unknown): string | undefined {
  */
 function toPostgrestError(error: unknown): PostgrestError {
   return {
-    message: error instanceof Error ? error.message : String(error),
+    message: errorMessage(error),
     code: postgresCode(error),
   };
 }
@@ -83,6 +83,13 @@ function ident(name: string): string {
     throw new Error(`Not a column name the local database will accept: ${name}`);
   }
   return `"${trimmed}"`;
+}
+
+/** The right side of `is` is spliced into the SQL, so only these three pass. */
+function isLiteral(value: unknown): "null" | "true" | "false" {
+  const text = value === null ? "null" : String(value);
+  if (text === "null" || text === "true" || text === "false") return text;
+  throw new Error(`\`is\` takes null, true or false, not: ${text}`);
 }
 
 /** `"id, title"` and `"*"` both mean a projection; nothing here has joins. */
@@ -179,13 +186,27 @@ function encode(
   return value as string | number | boolean;
 }
 
-/** Splits top-level comma-separated expressions, ignoring commas inside parentheses like `col.in.(a,b)`. */
+/**
+ * Splits top-level comma-separated expressions, ignoring commas inside
+ * parentheses like `col.in.(a,b)` and inside PostgREST's double-quoted values,
+ * where `\` escapes the next character.
+ */
 function splitTopLevel(expression: string): string[] {
   const parts: string[] = [];
   let current = "";
   let depth = 0;
+  let quoted = false;
+  let escaped = false;
   for (const ch of expression) {
-    if (ch === "(") depth++;
+    if (quoted) {
+      current += ch;
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') quoted = false;
+      continue;
+    }
+    if (ch === '"') quoted = true;
+    else if (ch === "(") depth++;
     else if (ch === ")") depth--;
     if (ch === "," && depth === 0) {
       if (current.trim()) parts.push(current.trim());
@@ -258,7 +279,7 @@ class Builder<T> implements PromiseLike<Reply<T>> {
   }
 
   is(column: string, value: null | boolean): this {
-    this.wheres.push(`${ident(column)} is ${value === null ? "null" : String(value)}`);
+    this.wheres.push(`${ident(column)} is ${isLiteral(value)}`);
     return this;
   }
 
@@ -317,8 +338,10 @@ class Builder<T> implements PromiseLike<Reply<T>> {
   or(expression: string): this {
     const parts = splitTopLevel(expression).map((clause) => {
       const [column = "", operator = "", ...rest] = clause.split(".");
-      const raw = rest.join(".");
-      if (operator === "is") return `${ident(column)} is ${raw === "null" ? "null" : raw}`;
+      const joined = rest.join(".");
+      // A double-quoted value is PostgREST's way to carry `,` `.` `(` `)` as text.
+      const raw = /^".*"$/s.test(joined) ? joined.slice(1, -1).replace(/\\(.)/gs, "$1") : joined;
+      if (operator === "is") return `${ident(column)} is ${isLiteral(raw.toLowerCase())}`;
       if (operator === "in") {
         const items = raw.replace(/^\(|\)$/g, "").split(",").map((s) => s.trim()).filter(Boolean);
         if (items.length === 0) return "false";

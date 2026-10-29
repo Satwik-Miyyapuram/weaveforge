@@ -102,8 +102,8 @@ A workspace exists to hold other people's papers and notes. Every one of them is
 text somebody else wrote, and any of it may contain a line addressed to a model
 rather than to a reader. Two places have to account for that.
 
-**Inbound — context we build.** `run-ai-query` and the concept extractor are the
-only two places that paste indexed content into a prompt, and both go through
+**Inbound — context we build.** The concept extractor pastes indexed content
+into a prompt, and it goes through
 `packages/core/src/features/ai-assistant/domain/untrusted-context.ts`. Excerpts
 are wrapped in a fence carrying a random nonce the text cannot predict, the
 system turn states that the fenced material is data and that instructions found

@@ -5,14 +5,18 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
+  useRef,
   useState,
 } from "react";
 import type { Member, OrgMembershipView } from "@weaveforge/core";
-import { hasActiveLab, needsStandaloneRoleSync } from "@weaveforge/core";
 import { useAuth } from "@/features/auth";
 import { useStartupOptional } from "@/features/startup";
 import { continueStandalone, fetchMemberships, switchOrg as switchActiveOrg } from "../infrastructure/org-api";
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
+import { logToApp } from "@/lib/error-report/app-log";
+import { formatError } from "@/lib/format-error";
+import { latestGate, loadProfileBundle } from "../application/profile-refresh";
 
 const EMPTY_PROFILE_STATE = {
   profile: null as Member | null,
@@ -33,6 +37,8 @@ interface ProfileState {
   /** Active lab from profiles.active_org_id. */
   activeOrgId: string | null;
   loading: boolean;
+  /** Set when the last load failed; the state above is then the previous one. */
+  error: string | null;
   refresh: () => Promise<void>;
   switchOrg: (orgId: string) => Promise<void>;
 }
@@ -52,14 +58,19 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [labMembers, setLabMembers] = useState<Member[]>([]);
   const [memberships, setMemberships] = useState<OrgMembershipView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  // Overlapping refreshes (sign-in, switching labs) apply only the latest answer.
+  const gate = useRef(latestGate());
 
   const refresh = useCallback(async () => {
+    const isLatest = gate.current.begin();
     const userId = user?.id;
     if (!userId) {
       setProfile(null);
       setTeam([]);
       setLabMembers([]);
       setMemberships([]);
+      setError(null);
       return;
     }
     try {
@@ -69,38 +80,24 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       }
       const { ensureContainer } = await import("@/bootstrap");
       const org = (await ensureContainer()).org;
-      const [mine, members, lab, labs] = await Promise.all([
-        org.loadProfile(),
-        org.loadTeam(),
-        org.loadLab(),
-        fetchMemberships().catch(() => [] as OrgMembershipView[]),
-      ]);
-
-      let profile = mine;
-      let team = members;
-      let labRoster = lab;
-      const inLab = hasActiveLab(profile?.activeOrgId, labs);
-      if (needsStandaloneRoleSync(profile, labs, inLab)) {
-        try {
-          await continueStandalone();
-          invalidateAllRepoCaches();
-          profile = await org.loadProfile();
-          team = await org.loadTeam();
-          labRoster = await org.loadLab();
-        } catch {
-          /* display layer still resolves standalone role */
-        }
-      }
-
-      setProfile(profile);
-      setTeam(team);
-      setLabMembers(labRoster);
-      setMemberships(labs);
-    } catch {
-      setProfile(null);
-      setTeam([]);
-      setLabMembers([]);
-      setMemberships([]);
+      const next = await loadProfileBundle({
+        org,
+        fetchMemberships,
+        continueStandalone,
+        invalidateCaches: invalidateAllRepoCaches,
+      });
+      if (!isLatest()) return;
+      setProfile(next.profile);
+      setTeam(next.team);
+      setLabMembers(next.labMembers);
+      if (next.memberships) setMemberships(next.memberships);
+      setError(null);
+    } catch (err) {
+      // Keep what was shown: a transient failure is not "no profile", which
+      // would put an existing lab member on the setup screen.
+      const message = formatError(err);
+      logToApp({ level: "error", source: "profile", message: "Profile did not load.", detail: message });
+      if (isLatest()) setError(message);
     }
   }, [user?.id, startup]);
 
@@ -150,19 +147,23 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     };
   }, [refresh, startupPresent, startupLoading, startup?.snapshot]);
 
+  const value = useMemo(
+    () => ({
+      profile,
+      team,
+      labMembers,
+      memberships,
+      activeOrgId: profile?.activeOrgId ?? null,
+      loading,
+      error,
+      refresh,
+      switchOrg,
+    }),
+    [profile, team, labMembers, memberships, loading, error, refresh, switchOrg],
+  );
+
   return (
-    <Ctx.Provider
-      value={{
-        profile,
-        team,
-        labMembers,
-        memberships,
-        activeOrgId: profile?.activeOrgId ?? null,
-        loading,
-        refresh,
-        switchOrg,
-      }}
-    >
+    <Ctx.Provider value={value}>
       {children}
     </Ctx.Provider>
   );

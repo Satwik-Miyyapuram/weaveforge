@@ -96,9 +96,38 @@ test("an unwritable directory costs a log line, not a launch", async () => {
   const log = createAppLog({ dir: path.join(fileAhead, "under-a-file") });
   log.record({ level: "error", source: "test", message: "still recorded" });
   await log.flush();
-  assert.equal(log.entries().length, 1);
   // And the memory answer is intact even though the disk one could not be.
   assert.equal(log.entries()[0]?.message, "still recorded");
+  // The ring also says the file is not being written (xlog-18), once.
+  log.record({ level: "error", source: "test", message: "second" });
+  await log.flush();
+  const degraded = log.entries().filter((e) => e.source === "log");
+  assert.equal(degraded.length, 1);
+  assert.equal(degraded[0]?.level, "warn");
+  assert.match(degraded[0]?.message ?? "", /not being written/);
+  assert.equal(log.entries().length, 3);
+});
+
+test("a log file that recovers can report the next failure again", async () => {
+  const dir = await tempDir();
+  const fileAhead = path.join(dir, "file");
+  await writeFile(fileAhead, "x");
+  let target = path.join(fileAhead, "under-a-file");
+  const log = createAppLog({ dir: () => target });
+  log.record({ level: "info", source: "test", message: "a" });
+  await log.flush();
+  target = path.join(dir, "ok");
+  log.record({ level: "info", source: "test", message: "b" });
+  await log.flush();
+  target = path.join(fileAhead, "under-a-file");
+  log.record({ level: "info", source: "test", message: "c" });
+  await log.flush();
+  assert.equal(log.entries().filter((e) => e.source === "log").length, 2);
+  // A healthy log adds nothing.
+  const healthy = createAppLog({ dir: await tempDir() });
+  healthy.record({ level: "info", source: "test", message: "fine" });
+  await healthy.flush();
+  assert.equal(healthy.entries().length, 1);
 });
 
 /**
@@ -207,4 +236,51 @@ test("restoring into a ring that already has entries stops at the cap", async ()
   assert.equal(log.entries().length, MAX_ENTRIES);
   assert.equal(log.entries()[MAX_ENTRIES - 1]?.message, "newest");
   assert.equal(log.entries()[0]?.source, "old");
+});
+
+// 37-01: slice(-0) is the whole array, so a full ring must take nothing back.
+test("restoring into a ring that is already full adds nothing", async () => {
+  const dir = await tempDir();
+  const writer = createAppLog({ dir });
+  writer.record({ level: "info", source: "old", message: "old line" });
+  await writer.flush();
+
+  const log = createAppLog({ dir });
+  for (let index = 0; index < MAX_ENTRIES; index++) {
+    log.record({ level: "info", source: "new", message: `new ${index}` });
+  }
+  await log.restoreFromDisk();
+  assert.equal(log.entries().length, MAX_ENTRIES);
+  assert.ok(log.entries().every((entry) => entry.source === "new"));
+});
+
+// xlog-17: the log is the thing a reader copies into a bug report; it names no home folder.
+test("the home folder is written as ~, in messages, details and captured console lines", async () => {
+  const dir = await tempDir();
+  const target = fakeConsole();
+  const home = "C:\\Users\\Ada";
+  const log = createAppLog({ dir, target, home });
+  log.record({ level: "info", source: "main", message: "[local-db] moved: C:\\Users\\Ada\\AppData\\db", detail: "c:/users/ada/notes" });
+  log.installConsoleCapture();
+  target.log("[local-db] backed up to C:\\Users\\Ada\\b1, C:\\Users\\Ada\\b2");
+  log.record({ level: "info", source: "main", message: "C:\\Users\\Adam\\x and C:\\Users\\Ada" });
+  await log.flush();
+
+  const [moved, backedUp, other] = log.entries();
+  assert.equal(moved!.message, "[local-db] moved: ~\\AppData\\db");
+  assert.equal(moved!.detail, "~/notes");
+  assert.equal(backedUp!.message, "[local-db] backed up to ~\\b1, ~\\b2");
+  assert.equal(other!.message, "C:\\Users\\Adam\\x and ~", "another user's folder is not mistaken for this one");
+  const file = await readFile(path.join(dir, APP_LOG_FILENAME), "utf8");
+  assert.ok(!/Users\\\\Ada\b/i.test(file), file);
+  // The terminal still sees the line as it was said.
+  assert.match(target.seen[0]!, /C:\\Users\\Ada\\b1/);
+});
+
+test("a home folder too short to be one is not redacted", async () => {
+  for (const home of ["", "/", "C:"]) {
+    const log = createAppLog({ dir: await tempDir(), target: fakeConsole(), home });
+    log.record({ level: "info", source: "main", message: "/srv/data C:/x" });
+    assert.equal(log.entries()[0]!.message, "/srv/data C:/x", home);
+  }
 });

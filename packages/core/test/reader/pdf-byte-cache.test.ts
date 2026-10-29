@@ -65,3 +65,31 @@ test("the ladder skips a paper whose bytes were removed", async () => {
 
   assert.equal(await resolver.resolve({ id: "paper-a" }), null);
 });
+
+test("has answers whether non-empty bytes are held", async () => {
+  const cache = new InMemoryPdfByteCache(4);
+  await cache.set("paper-a", new ArrayBuffer(8));
+  await cache.set("empty", new ArrayBuffer(0));
+  assert.equal(await cache.has("paper-a"), true);
+  assert.equal(await cache.has("empty"), false);
+  assert.equal(await cache.has("absent"), false);
+  await cache.remove("paper-a");
+  assert.equal(await cache.has("paper-a"), false);
+});
+
+test("the cache resolver asks has and never loads the bytes", async () => {
+  // Loading a whole PDF only to learn it is there cost 125 MB at startup for
+  // a 29-paper library: one copy in each process until the next full GC.
+  const held = new Set(["paper-a"]);
+  const cache = {
+    has: async (key: string) => held.has(key),
+    get: async () => assert.fail("resolve must not read the bytes"),
+    set: async () => {},
+    remove: async () => {},
+    clear: async () => {},
+    size: async () => held.size,
+  };
+  const resolver = new PdfByteCacheResolver(cache);
+  assert.deepEqual(await resolver.resolve({ id: "paper-a" }), { url: "cache://paper-a" });
+  assert.equal(await resolver.resolve({ id: "missing" }), null);
+});

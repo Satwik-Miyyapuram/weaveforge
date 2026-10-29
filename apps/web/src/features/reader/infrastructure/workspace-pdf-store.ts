@@ -39,6 +39,13 @@ export class WorkspacePdfStore implements IPdfByteCache {
     ) as ArrayBuffer;
   }
 
+  async has(key: string): Promise<boolean> {
+    const fs = this.fs();
+    if (!fs) return false;
+    const stat = await fs.stat(paperPdfPath(key, await this.projectRoot()));
+    return (stat?.size ?? 0) > 0;
+  }
+
   async set(key: string, bytes: ArrayBuffer): Promise<void> {
     const fs = this.fs();
     if (!fs) return;
@@ -78,6 +85,9 @@ export class RoutedPdfByteCache implements IPdfByteCache {
 
   get(key: string) {
     return this.pick().get(key);
+  }
+  has(key: string) {
+    return this.pick().has(key);
   }
   set(key: string, bytes: ArrayBuffer) {
     return this.pick().set(key, bytes);

@@ -90,6 +90,28 @@ export function runCommentRepositoryContract(
     assert.equal((await repo.list("vault_page", "n1")).length, 0);
   });
 
+  test(`[${label}] a reply answers a root comment on the same resource (08-08)`, async () => {
+    const repo = makeRepo();
+    const root = await repo.add({ resourceType: "vault_page", resourceId: "n1", body: "why?" });
+    const reply = await repo.add({ resourceType: "vault_page", resourceId: "n1", body: "because", parentId: root.id });
+    const add = (over: { resourceType?: string; resourceId?: string; parentId: string }) =>
+      repo.add({ resourceType: "vault_page", resourceId: "n1", body: "x", ...over });
+    await assert.rejects(add({ parentId: reply.id }));
+    await assert.rejects(add({ parentId: "missing" }));
+    await assert.rejects(add({ resourceId: "n2", parentId: root.id }));
+    await assert.rejects(add({ resourceType: "paper", parentId: root.id }));
+    assert.equal((await repo.list("vault_page", "n1")).length, 2);
+    // A reply carries no anchor of its own: it sits on its root's.
+    const anchored = await repo.add({
+      resourceType: "vault_page",
+      resourceId: "n1",
+      body: "here too",
+      parentId: root.id,
+      anchor: { quote: "q", prefix: "", suffix: "" },
+    });
+    assert.equal(anchored.anchor, null);
+  });
+
   test(`[${label}] a thread resolves and reopens at its root`, async () => {
     const repo = makeRepo();
     const root = await repo.add({ resourceType: "vault_page", resourceId: "n1", body: "fix" });

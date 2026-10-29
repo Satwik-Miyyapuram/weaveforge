@@ -64,8 +64,6 @@ export type EmbedWorkerResponse =
   | { id: number; type: "ready"; dimensions: number }
   | { id: number; type: "progress"; loaded: number; total: number }
   | { id: number; type: "vectors"; vectors: Float32Array[] }
-  /** What the encoder factory returned, for the one failure that needs it. */
-  | { id: number; type: "diagnostic"; message: string }
   | { id: number; type: "error"; message: string };
 
 type FeatureExtractor = (
@@ -210,14 +208,12 @@ async function load(id: number, model: string, host?: string): Promise<void> {
   /*
    * Where this app actually keeps the weights.
    *
-   * `host` is the caller's `app://models` — its own cache host — and `base` is the
-   * app's origin, which is **not** where the models live. Composing the prefix from
-   * `base` would have asked for `app://weaveforge/models/…`, a path the shell
-   * answers with a 404, so this is the one place the passed-in host is still the
-   * right answer.
+   * `host` is the caller's cache, `app://weaveforge/models` in the desktop app:
+   * same-origin, because `app:` is not CORS-enabled and a fetch to the shell's
+   * `app://models` host is blocked as cross-origin before it is sent.
    */
   // No host means no cache of this app's own: a browser, where the weights come
-  // straight from upstream. Defaulting to `app://models` there sent every
+  // straight from upstream. Defaulting to an `app:` host there sent every
   // download to a scheme no browser can fetch, and enabling search by meaning
   // on the web failed with a bare "Failed to fetch".
   const cachePrefix = host ? `${host.replace(/\/+$/, "")}/` : null;

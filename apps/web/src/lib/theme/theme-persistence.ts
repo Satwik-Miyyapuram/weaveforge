@@ -1,8 +1,11 @@
 "use client";
 
 import type { UserAppearance } from "@weaveforge/core";
-import { getContainer } from "@/bootstrap";
+import { ensureContainer, getContainer } from "@/bootstrap";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
 import {
+  applyAnimationSpeed,
   applyCardTilt,
   applyCardTint,
   applyControlSize,
@@ -13,6 +16,7 @@ import {
   applyTheme,
   DEFAULT_DARK_THEME,
   DEFAULT_LIGHT_THEME,
+  readStoredAnimationSpeed,
   readStoredCardTilt,
   readStoredCardTint,
   readStoredControlSize,
@@ -22,15 +26,18 @@ import {
   readStoredScanlines,
   readStoredSurfaceStyle,
   readStoredThemeIds,
+  sanitizeAnimationSpeed,
   sanitizeCardTint,
   sanitizeControlSize,
   sanitizeSurfaceStyle,
   sanitizeThemeId,
+  THEME_KEY,
   type ControlSizeId,
   type ThemeMode,
 } from "@/lib/theme/theme";
-import { THEME_CHANGE_EVENT } from "@/lib/hooks/use-theme";
+import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 import { singleFlight } from "@/lib/cache/single-flight";
+import { removeStored, writeStored } from "@/lib/safe-storage";
 
 let hydrating = false;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -45,6 +52,7 @@ export function readLocalAppearance(): UserAppearance {
     controlSize: readStoredControlSize(),
     surfaces: readStoredSurfaceStyle(),
     reactiveMotion: readStoredReactiveMotion(),
+    animationSpeed: readStoredAnimationSpeed(),
     cardTint: readStoredCardTint(),
     cardTilt: readStoredCardTilt(),
     scanlines: readStoredScanlines(),
@@ -52,53 +60,56 @@ export function readLocalAppearance(): UserAppearance {
   };
 }
 
+/**
+ * The server's appearance over this device's. A missing or null server field
+ * keeps the local one, except `customTheme`: null there means "no custom theme".
+ */
+export function mergeServerAppearance(local: UserAppearance, server: UserAppearance): UserAppearance {
+  const merged: UserAppearance = { ...local };
+  for (const [key, value] of Object.entries(server) as [keyof UserAppearance, unknown][]) {
+    if (value === undefined || (value === null && key !== "customTheme")) continue;
+    (merged as Record<string, unknown>)[key] = value;
+  }
+  return merged;
+}
+
 function writeLocalAppearance(appearance: UserAppearance): void {
-  try {
-    if (appearance.mode === "light" || appearance.mode === "dark") {
-      localStorage.setItem("thesis.mode", appearance.mode);
-    }
-    if (appearance.lightTheme) {
-      localStorage.setItem(
-        "thesis.theme.light",
-        sanitizeThemeId(appearance.lightTheme, "light"),
-      );
-    }
-    if (appearance.darkTheme) {
-      localStorage.setItem(
-        "thesis.theme.dark",
-        sanitizeThemeId(appearance.darkTheme, "dark"),
-      );
-    }
-    if (appearance.controlSize) {
-      localStorage.setItem(
-        "thesis.controlSize",
-        sanitizeControlSize(appearance.controlSize),
-      );
-    }
-    if (appearance.surfaces) {
-      localStorage.setItem("thesis.surfaces", sanitizeSurfaceStyle(appearance.surfaces));
-    }
-    if (appearance.cardTint) {
-      localStorage.setItem("thesis.cardTint", sanitizeCardTint(appearance.cardTint));
-    }
-    if (typeof appearance.cardTilt === "boolean") {
-      localStorage.setItem("thesis.cardTilt", appearance.cardTilt ? "1" : "0");
-    }
-    if (typeof appearance.scanlines === "boolean") {
-      localStorage.setItem("thesis.scanlines", appearance.scanlines ? "1" : "0");
-    }
-    if (typeof appearance.reactiveMotion === "boolean") {
-      localStorage.setItem("thesis.reactiveMotion", appearance.reactiveMotion ? "1" : "0");
-    }
-    // `customTheme` on the appearance record has already been through
-    // normalizeThemeConfig, so what is stored is the validated shape.
-    if (appearance.customTheme) {
-      localStorage.setItem("thesis.customTheme", JSON.stringify(appearance.customTheme));
-    } else if (appearance.customTheme === null) {
-      localStorage.removeItem("thesis.customTheme");
-    }
-  } catch {
-    /* ignore */
+  if (appearance.mode === "light" || appearance.mode === "dark") {
+    writeStored(THEME_KEY.mode, appearance.mode);
+  }
+  if (appearance.lightTheme) {
+    writeStored(THEME_KEY.light, sanitizeThemeId(appearance.lightTheme, "light"));
+  }
+  if (appearance.darkTheme) {
+    writeStored(THEME_KEY.dark, sanitizeThemeId(appearance.darkTheme, "dark"));
+  }
+  if (appearance.controlSize) {
+    writeStored(THEME_KEY.controlSize, sanitizeControlSize(appearance.controlSize));
+  }
+  if (appearance.surfaces) {
+    writeStored(THEME_KEY.surfaces, sanitizeSurfaceStyle(appearance.surfaces));
+  }
+  if (appearance.cardTint) {
+    writeStored(THEME_KEY.cardTint, sanitizeCardTint(appearance.cardTint));
+  }
+  if (typeof appearance.cardTilt === "boolean") {
+    writeStored(THEME_KEY.cardTilt, appearance.cardTilt ? "1" : "0");
+  }
+  if (typeof appearance.scanlines === "boolean") {
+    writeStored(THEME_KEY.scanlines, appearance.scanlines ? "1" : "0");
+  }
+  if (typeof appearance.reactiveMotion === "boolean") {
+    writeStored(THEME_KEY.reactiveMotion, appearance.reactiveMotion ? "1" : "0");
+  }
+  if (appearance.animationSpeed !== undefined) {
+    writeStored(THEME_KEY.animationSpeed, String(sanitizeAnimationSpeed(appearance.animationSpeed)));
+  }
+  // `customTheme` on the appearance record has already been through
+  // normalizeThemeConfig, so what is stored is the validated shape.
+  if (appearance.customTheme) {
+    writeStored(THEME_KEY.customTheme, JSON.stringify(appearance.customTheme));
+  } else if (appearance.customTheme === null) {
+    removeStored(THEME_KEY.customTheme);
   }
 }
 
@@ -109,6 +120,7 @@ function applyThemeFromLocalStorage(): void {
   applyControlSize(readStoredControlSize());
   applySurfaceStyle(readStoredSurfaceStyle());
   applyReactiveMotion(readStoredReactiveMotion());
+  applyAnimationSpeed(readStoredAnimationSpeed());
   applyCardTint(readStoredCardTint());
   applyCardTilt(readStoredCardTilt());
   applyScanlines(readStoredScanlines());
@@ -122,13 +134,22 @@ function scheduleAppearanceSave(appearance: UserAppearance): void {
   saveTimer = setTimeout(() => {
     const toSave = pendingAppearance;
     pendingAppearance = null;
-    if (!toSave) return;
-    void getContainer()
-      .settings.manageSettings.saveAppearance(toSave)
-      .catch(() => {
-        /* best-effort sync */
-      });
+    if (toSave) void saveAppearance(toSave);
   }, 600);
+}
+
+/** Best-effort server copy: a failure is logged, never thrown into the timer. */
+async function saveAppearance(appearance: UserAppearance): Promise<void> {
+  try {
+    await getContainer().settings.manageSettings.saveAppearance(appearance);
+  } catch (error) {
+    logToApp({
+      level: "warn",
+      source: "appearance",
+      message: "Saving the appearance to the server failed",
+      detail: describeRejection(error),
+    });
+  }
 }
 
 /** Update local theme immediately and debounce-save to the user settings row. */
@@ -144,6 +165,7 @@ export function persistThemeChange(
     controlSize: sanitizeControlSize(patch.controlSize ?? current.controlSize) as ControlSizeId,
     surfaces: sanitizeSurfaceStyle(patch.surfaces ?? current.surfaces),
     reactiveMotion: patch.reactiveMotion ?? current.reactiveMotion ?? false,
+    animationSpeed: sanitizeAnimationSpeed(patch.animationSpeed ?? current.animationSpeed),
     cardTint: sanitizeCardTint(patch.cardTint ?? current.cardTint),
     cardTilt: patch.cardTilt ?? current.cardTilt ?? true,
     scanlines: patch.scanlines ?? current.scanlines ?? true,
@@ -162,7 +184,8 @@ export function persistThemeChange(
     applyControlSize(next.controlSize ?? "default");
     applySurfaceStyle(next.surfaces ?? "borderless");
     applyReactiveMotion(next.reactiveMotion ?? false);
-    applyCardTint(next.cardTint ?? "full");
+    applyAnimationSpeed(sanitizeAnimationSpeed(next.animationSpeed));
+    applyCardTint(next.cardTint ?? "bar");
     applyCardTilt(next.cardTilt ?? true);
     applyScanlines(next.scanlines ?? true);
     if (patch.customTheme !== undefined) applyCustomTheme(next.customTheme ?? null);
@@ -181,7 +204,6 @@ export function hydrateThemeFromServer(): Promise<void> {
 async function hydrateThemeFromServerUncached(): Promise<void> {
   hydrating = true;
   try {
-    const { ensureContainer } = await import("@/bootstrap");
     const container = await ensureContainer();
     const { appearance } = await container.settings.manageSettings.getMetadata();
     if (
@@ -191,26 +213,13 @@ async function hydrateThemeFromServerUncached(): Promise<void> {
       appearance?.controlSize ||
       appearance?.surfaces ||
       appearance?.reactiveMotion !== undefined ||
+      appearance?.animationSpeed !== undefined ||
       appearance?.cardTint ||
       appearance?.cardTilt !== undefined ||
       appearance?.scanlines !== undefined ||
       appearance?.customTheme !== undefined
     ) {
-      writeLocalAppearance({
-        mode: appearance.mode ?? readStoredMode(),
-        lightTheme: appearance.lightTheme ?? readStoredThemeIds().light,
-        darkTheme: appearance.darkTheme ?? readStoredThemeIds().dark,
-        controlSize: appearance.controlSize ?? readStoredControlSize(),
-        surfaces: appearance.surfaces ?? readStoredSurfaceStyle(),
-        reactiveMotion: appearance.reactiveMotion ?? readStoredReactiveMotion(),
-        cardTint: appearance.cardTint ?? readStoredCardTint(),
-        cardTilt: appearance.cardTilt ?? readStoredCardTilt(),
-        scanlines: appearance.scanlines ?? readStoredScanlines(),
-        customTheme:
-          appearance.customTheme === undefined
-            ? readStoredCustomTheme()
-            : appearance.customTheme,
-      });
+      writeLocalAppearance(mergeServerAppearance(readLocalAppearance(), appearance));
       applyThemeFromLocalStorage();
       window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
       return;

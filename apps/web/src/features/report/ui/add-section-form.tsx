@@ -7,6 +7,7 @@ import type { ReportSection } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 export type ReportParentOption = { section: ReportSection; depth: number };
 
@@ -79,7 +80,7 @@ export function AddSectionForm({
           value={parentId}
           onChange={(e) => setParentId(e.target.value)}
         >
-          <option value="">— top level —</option>
+          <option value="">None (top level)</option>
           {parentOptions.map((opt) => (
             <option key={opt.section.id} value={opt.section.id}>
               {parentOptionLabel(opt)}
@@ -109,9 +110,9 @@ export function AddSectionForm({
         </div>
       </div>
       {error && <FormError>{error}</FormError>}
-      <button className="btn-primary" disabled={busy}>
-        {busy ? "Adding…" : "Add section"}
-      </button>
+      <Button type="submit" variant="primary" disabled={busy}>
+        {busy ? "Creating…" : "Create"}
+      </Button>
     </form>
   );
 }

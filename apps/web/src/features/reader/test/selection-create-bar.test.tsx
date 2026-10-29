@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 
+import { CloseButton } from "@/components/button";
 import { SelectionCreateBar } from "../ui/selection-create-bar";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -14,7 +15,7 @@ test("the bar offers icons in the mock's order, with a rule before Close", () =>
     tree = create(createElement(SelectionCreateBar, { at: { x: 0, top: 0, bottom: 0, below: false }, onCreate: () => {}, onCancel: () => {} }));
   });
   const kids = tree.root.find((n) => n.props.role === "toolbar").children.map((c) =>
-    typeof c === "string" ? c : ((c.props.label as string | undefined) ?? c.props.className),
+    typeof c === "string" ? c : c.type === CloseButton ? "Close" : ((c.props.label as string | undefined) ?? c.props.className),
   );
   assert.deepEqual(kids, ["Highlight", "Underline", "Comment", "pdf-reader-create-vr", "Close"]);
   act(() => tree.unmount());
@@ -39,5 +40,30 @@ test("Comment opens the input and Save makes a highlight carrying it", () => {
   act(() => input.props.onChange({ target: { value: " a note " } }));
   act(() => input.props.onKeyDown({ key: "Enter", stopPropagation: () => {} }));
   assert.deepEqual(made, [["highlight", "#ff6666", "a note"]]);
+  act(() => tree.unmount());
+});
+
+test("Enter while a save is in flight saves nothing more (24-20)", () => {
+  const made: unknown[] = [];
+  let busy = false;
+  let tree!: ReactTestRenderer;
+  const render = () =>
+    createElement(SelectionCreateBar, {
+      at: { x: 0, top: 0, bottom: 0, below: false },
+      busy,
+      onCreate: (...args: unknown[]) => {
+        made.push(args);
+        busy = true;
+        tree.update(render());
+      },
+      onCancel: () => {},
+    });
+  act(() => {
+    tree = create(render());
+  });
+  act(() => tree.root.find((n) => n.type === "button" && n.props["aria-label"] === "Comment").props.onClick());
+  act(() => tree.root.find((n) => n.type === "input").props.onKeyDown({ key: "Enter", stopPropagation: () => {} }));
+  act(() => tree.root.find((n) => n.type === "input").props.onKeyDown({ key: "Enter", stopPropagation: () => {} }));
+  assert.equal(made.length, 1);
   act(() => tree.unmount());
 });

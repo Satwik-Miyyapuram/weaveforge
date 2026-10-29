@@ -16,7 +16,7 @@
  *     rather than the guard;
  *   * and, in the layer that owns the body, compaction waits until the body it
  *     is about to make the only copy of has actually been written. That is
- *     `EncryptedYjsProvider`'s barrier, not this class's — a use case cannot know
+ *     `RealtimeYjsProvider`'s barrier, not this class's — a use case cannot know
  *     whether a document's text has landed.
  *
  * Two writers co-editing means two clients can compact, so the answer matters:
@@ -26,7 +26,7 @@
 import type { CompactOutcome, ICrdtUpdateStore } from "../domain/crdt-update-store.js";
 
 export class CompactCrdtLogUseCase {
-  constructor(private readonly deps: { crdtStore: ICrdtUpdateStore }) {}
+  constructor(private readonly deps: { crdtStore: Pick<ICrdtUpdateStore, "compact"> }) {}
 
   async execute(input: {
     resourceType: string;

@@ -80,3 +80,43 @@ After.`);
   assert.match(latex, /Before\./);
   assert.match(latex, /After\./);
 });
+
+test("markdownToLatex keeps a link URL raw and escapes only its label (05-03)", () => {
+  const { latex } = markdownToLatex("See [a_b **x**](https://x.org/a_b~c&d%20#f) now_ok");
+  assert.ok(
+    latex.includes(String.raw`\href{https://x.org/a_b~c&d\%20\#f}{a\_b \textbf{x}}`),
+    latex,
+  );
+  assert.ok(latex.includes(String.raw`now\_ok`), latex);
+});
+
+test("markdownToLatex keeps a code fence's \\end{verbatim} inside the block (05-10)", () => {
+  const md = [
+    "```tex",
+    String.raw`before \end{verbatim} and \end{verbatim} again`,
+    String.raw`\input{rest}`,
+    "```",
+    "",
+    "After.",
+  ].join("\n");
+  const { latex, warnings } = markdownToLatex(md);
+
+  // Only the block's own closer ends the verbatim; the rest stays code.
+  assert.equal(latex.split(String.raw`\end{verbatim}`).length - 1, 1, latex);
+  assert.ok(latex.includes(String.raw`before \end {verbatim} and \end {verbatim} again`), latex);
+  assert.ok(latex.indexOf(String.raw`\input{rest}`) < latex.indexOf(String.raw`\end{verbatim}`), latex);
+  assert.ok(latex.includes("After."), latex);
+  assert.equal(warnings.filter((w) => /end\{verbatim\}/.test(w)).length, 1, warnings.join("\n"));
+});
+
+test("markdownToLatex leaves a plain code fence unchanged and unwarned (05-10)", () => {
+  const { latex, warnings } = markdownToLatex("```\nx = {1}\n```");
+  assert.ok(latex.includes("\\begin{verbatim}\nx = {1}\n\\end{verbatim}"), latex);
+  assert.deepEqual(warnings, []);
+});
+
+test("markdownToLatex leaves non-http brackets as text (05-03)", () => {
+  const { latex } = markdownToLatex("[a_b](ftp://x_y)");
+  assert.ok(!latex.includes(String.raw`\href`), latex);
+  assert.ok(latex.includes(String.raw`a\_b`), latex);
+});

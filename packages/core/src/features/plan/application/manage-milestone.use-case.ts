@@ -5,6 +5,7 @@
 
 import {
   createMilestone,
+  isIsoDay,
   validateCompute,
   validateDependencies,
   MilestoneValidationError,
@@ -43,7 +44,7 @@ export class ManageMilestoneUseCase {
     if (input.title != null && !input.title.trim()) {
       throw new MilestoneValidationError("Milestone title is required.");
     }
-    if (input.targetDate != null && input.targetDate !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(input.targetDate)) {
+    if (input.targetDate != null && input.targetDate !== "" && !isIsoDay(input.targetDate)) {
       throw new MilestoneValidationError("Target date must be yyyy-mm-dd.");
     }
     if (input.dependencies) validateDependencies(input.dependencies);

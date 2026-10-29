@@ -1,5 +1,7 @@
 "use client";
 
+import { Chip } from "./controls";
+
 /**
  * The chips a note's #hashtags render as, with a delete on each.
  *
@@ -21,18 +23,9 @@ export function TagChips({
     <div className="tag-editor">
       <div className="tag-chips">
         {tags.map((t) => (
-          <span key={t} className="tag-chip editable">
+          <Chip key={t} onRemove={busy ? undefined : () => onRemove(t)} removeLabel={`Remove #${t}`}>
             #{t}
-            <button
-              type="button"
-              className="tag-del"
-              aria-label={`Remove #${t}`}
-              disabled={busy}
-              onClick={() => onRemove(t)}
-            >
-              ×
-            </button>
-          </span>
+          </Chip>
         ))}
       </div>
     </div>

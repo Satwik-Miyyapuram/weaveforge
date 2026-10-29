@@ -22,6 +22,15 @@ node -e "const{Client}=require('pg');const fs=require('fs');(async()=>{const c=n
 | `0116_ai_mcp_relay_retention.sql` | The retention job over `ai_mcp_relay_requests` |
 | `0131_metric_activity_rpc.sql` | `latest_metric_activity`, `metric_history` and the activity index — read-only, so lossless |
 | `0132_compact_crdt_log_rpc.sql` | `compact_crdt_log` — lossless in data, a regression in behaviour: without it compaction is two calls with no rights check |
+| `0141_privileged_rpc_grants.sql` | Server-only RPC revokes, per-caller share-link miss limit, metric name cap — lossless in data, a security regression; also stop applying self-hosted `0030` |
+| `0142_project_ownership_policies.sql` | Project, paper and list ownership checks in row policies (0077, 0102–0104, 0107, 0110, 0120) — lossless in data, a security regression |
+| `0143_unlink_not_cascade.sql` | Supervisor and CRDT author foreign keys back to cascade (0122) — lossless in data; deleting an account deletes other users' rows again; `crdt_updates.author_id` stays nullable |
+| `0144_metric_chunk_fixes.sql` | The 0144 chunk fixes — restores the 0115 removal and rollup and the 0131 activity read; cleared duplicate chunk copies do not come back |
+| `local-0020_outbox_row_lookups.sql` | Device database, `db/migrations-local/0020_outbox_row_lookups.sql` — drops the outbox row index, restores the `information_schema` column lookup and the backfill that can queue a row twice |
+| `0145_ai_proposal_executing.sql` | AI proposal status check without `executing` (0070) — `executing` rows go back to `pending`; roll the app back too, or approvals fail the check |
+| `0146_project_showcase_flag.sql` | The `projects.is_showcase` marker — lossless in data; a showcase reset deletes same-name user projects again |
+| `0148_org_policies_drop_admin.sql` | The dead `admin` branch in the two org read policies (0085) — lossless; no role can be `admin` |
+| `0149_api_token_touch_hourly.sql` | `resolve_api_token` writing `last_used_at` on every call (0129) — lossless in data, one row write per SDK request again |
 
 This table had drifted three migrations behind the folder — `0116`, `0131` and
 `0132` were all absent, and a rollback nobody can find is one nobody runs.

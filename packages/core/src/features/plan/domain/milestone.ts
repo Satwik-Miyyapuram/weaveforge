@@ -95,7 +95,18 @@ export class MilestoneValidationError extends ValidationError {
   }
 }
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** True for a `yyyy-mm-dd` day that is on the calendar: not 2026-02-31. */
+export function isIsoDay(value: string): boolean {
+  const m = DATE_RE.exec(value);
+  if (!m) return false;
+  const [year, month, day] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const date = new Date(0);
+  // setUTCFullYear, not Date.UTC, which reads years 0-99 as 1900-1999.
+  date.setUTCFullYear(year, month - 1, day);
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
 
 /** Validate a dependency list; throws on structurally invalid entries. */
 export function validateDependencies(deps: MilestoneDependency[]): void {
@@ -134,7 +145,7 @@ export function createMilestone(
 ): Milestone {
   const title = input.title?.trim();
   if (!title) throw new MilestoneValidationError("Milestone title is required.");
-  if (input.targetDate && !DATE_RE.test(input.targetDate)) {
+  if (input.targetDate && !isIsoDay(input.targetDate)) {
     throw new MilestoneValidationError("Target date must be yyyy-mm-dd.");
   }
   const dependencies = input.dependencies ?? [];

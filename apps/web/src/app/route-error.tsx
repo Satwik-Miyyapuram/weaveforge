@@ -1,8 +1,9 @@
 "use client";
 
-import { resetAppData } from "@/lib/client-runtime-recovery";
+import { isAndroidApp, RESET_APP_DATA_CONFIRM, resetAppData } from "@/lib/client-runtime-recovery";
 import { errorDetail, useLoggedError, type ErrorBoundaryProps } from "./error-boundary-parts";
 import { ErrorReportPanel } from "./error-report-panel-lazy";
+import { Button } from "@/components/button";
 
 /**
  * The body of every route error boundary.
@@ -63,16 +64,14 @@ export function RouteError({
         unlike reset(), it rebuilds the module registry and the screen cache.
       */}
       <div className="screen-actions" style={{ justifyContent: "flex-start" }}>
-        <button type="button" className="btn-primary" onClick={() => reset()}>
+        <Button variant="primary" onClick={() => reset()}>
           Try again
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
+        </Button>
+        <Button
           onClick={() => window.location.reload()}
         >
           Reload this page
-        </button>
+        </Button>
       </div>
 
       {isAndroidApp() ? (
@@ -113,9 +112,7 @@ export function RouteError({
           copies of your work — and returns to the start. Work already saved to your account
           is not affected. This cannot be undone.
         </p>
-        <button
-          type="button"
-          className="btn-secondary danger"
+        <Button variant="danger"
           onClick={() => {
             // `window.confirm` is deliberate here, and this is one of the two
             // places in the product that keeps it. An error boundary may be
@@ -123,33 +120,13 @@ export function RouteError({
             // modal is what failed, so the confirmation has to depend on
             // nothing that could be the thing that broke. Everywhere else uses
             // `components/confirm-dialog.tsx`.
-            if (!window.confirm("Reset app data? Offline copies of your work on this device will be deleted. This cannot be undone.")) return;
+            if (!window.confirm(RESET_APP_DATA_CONFIRM)) return;
             resetAppData();
           }}
         >
           Reset app data
-        </button>
+        </Button>
       </div>
     </section>
   );
-}
-
-/**
- * Whether this is the installed Android app.
- *
- * Written out here rather than reused from `features/search/infrastructure/
- * index-cache-policy` on purpose: an error boundary has to render when the
- * module that failed to load is exactly the one it would import, so it depends
- * on nothing but `lib/client-runtime-recovery` and its siblings. The tell is
- * the same one that file uses — a trusted web activity is referred by its own
- * `android-app://` scheme, which is the only signal that survives before the
- * display-mode query matches.
- */
-function isAndroidApp(): boolean {
-  if (typeof document === "undefined") return false;
-  try {
-    return document.referrer.startsWith("android-app://");
-  } catch {
-    return false;
-  }
 }

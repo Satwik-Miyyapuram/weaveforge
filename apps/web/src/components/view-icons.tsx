@@ -245,3 +245,93 @@ export function UnlinkIcon(props: IconProps) {
     </Svg>
   );
 }
+
+/** Close / dismiss: an X, not the × or ✕ character (DA-82). */
+export function CloseIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </Svg>
+  );
+}
+
+/** More actions: three dots in a row. */
+export function MoreIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="5" cy="12" r="1.8" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.8" fill="currentColor" />
+      <circle cx="19" cy="12" r="1.8" fill="currentColor" />
+    </Svg>
+  );
+}
+
+/** Zoom in / add. */
+export function PlusIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 5v14M5 12h14" />
+    </Svg>
+  );
+}
+
+/** Zoom out. */
+/** Six dots: something that can be dragged. */
+export function GripIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="9" cy="6" r="1" />
+      <circle cx="15" cy="6" r="1" />
+      <circle cx="9" cy="12" r="1" />
+      <circle cx="15" cy="12" r="1" />
+      <circle cx="9" cy="18" r="1" />
+      <circle cx="15" cy="18" r="1" />
+    </Svg>
+  );
+}
+
+export function MinusIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M5 12h14" />
+    </Svg>
+  );
+}
+
+/** Previous (month, image). */
+export function ChevronLeftIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="m15 6-6 6 6 6" />
+    </Svg>
+  );
+}
+
+/** Move up (a list item). */
+export function ArrowUpIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 19V5" />
+      <path d="m6 11 6-6 6 6" />
+    </Svg>
+  );
+}
+
+/** Move down (a list item). */
+export function ArrowDownIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 5v14" />
+      <path d="m6 13 6 6 6-6" />
+    </Svg>
+  );
+}
+
+/** Next (month, image). */
+export function ChevronRightIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="m9 6 6 6-6 6" />
+    </Svg>
+  );
+}

@@ -49,19 +49,7 @@ export class ManageReadingListUseCase {
     if (!listId || !paperId) {
       throw new ReadingListValidationError("listId and paperId are required.");
     }
-
-    const targets = [listId, ...(await this.ancestorListIds(listId))];
-    let primary: ReadingListItem | null = null;
-    for (const targetId of targets) {
-      const item = await this.addPaperToListOne(
-        targetId,
-        paperId,
-        targetId === listId ? note : undefined,
-        targetId === listId ? undefined : listId,
-      );
-      if (targetId === listId) primary = item;
-    }
-    return primary!;
+    return this.addToListAndAncestors(listId, { paperId }, note);
   }
 
   /** Add a note to a list and every ancestor list. Idempotent per list. */
@@ -73,19 +61,7 @@ export class ManageReadingListUseCase {
     if (!listId || !vaultPageId) {
       throw new ReadingListValidationError("listId and vaultPageId are required.");
     }
-
-    const targets = [listId, ...(await this.ancestorListIds(listId))];
-    let primary: ReadingListItem | null = null;
-    for (const targetId of targets) {
-      const item = await this.addNoteToListOne(
-        targetId,
-        vaultPageId,
-        targetId === listId ? note : undefined,
-        targetId === listId ? undefined : listId,
-      );
-      if (targetId === listId) primary = item;
-    }
-    return primary!;
+    return this.addToListAndAncestors(listId, { vaultPageId }, note);
   }
 
   /** Persist a new paper order for one list. */
@@ -134,27 +110,11 @@ export class ManageReadingListUseCase {
   }
 
   async removePaperFromList(listId: string, paperId: string): Promise<void> {
-    const existing = await this.deps.items.find(listId, paperId);
-    if (existing) await this.deps.items.remove(existing.id);
-
-    const memberships = await this.deps.items.listsForPaper(paperId);
-    for (const item of memberships) {
-      if (item.inheritedFromListId === listId) {
-        await this.deps.items.remove(item.id);
-      }
-    }
+    await this.removeFromList(listId, { paperId });
   }
 
   async removeNoteFromList(listId: string, vaultPageId: string): Promise<void> {
-    const existing = await this.deps.items.findNote(listId, vaultPageId);
-    if (existing) await this.deps.items.remove(existing.id);
-
-    const memberships = await this.deps.items.listsForNote(vaultPageId);
-    for (const item of memberships) {
-      if (item.inheritedFromListId === listId) {
-        await this.deps.items.remove(item.id);
-      }
-    }
+    await this.removeFromList(listId, { vaultPageId });
   }
 
   /** Delete a list, its items, and nested sublists (deepest first). */
@@ -164,14 +124,18 @@ export class ManageReadingListUseCase {
     // NotFound, not Validation: see the vault use case for the reasoning.
     if (!list) throw new NotFoundError(`List ${listId} not found.`);
 
+    // One read of the lists; the tree is walked in memory.
     const all = await this.deps.lists.list();
-    for (const child of all.filter((l) => l.parentId === listId)) {
-      await this.removeList(child.id);
+    const deepestFirst = (id: string): string[] => [
+      ...all.filter((l) => l.parentId === id).flatMap((child) => deepestFirst(child.id)),
+      id,
+    ];
+    for (const id of deepestFirst(listId)) {
+      for (const item of await this.deps.items.listItems(id)) {
+        await this.deps.items.remove(item.id);
+      }
+      await this.deps.lists.delete(id);
     }
-    for (const item of await this.deps.items.listItems(listId)) {
-      await this.deps.items.remove(item.id);
-    }
-    await this.deps.lists.delete(listId);
   }
 
   /** Walk parentId links from listId up to the root. */
@@ -185,13 +149,74 @@ export class ManageReadingListUseCase {
     return ancestors;
   }
 
-  private async addPaperToListOne(
+  private findRef(listId: string, ref: ItemRef): Promise<ReadingListItem | null> {
+    return "paperId" in ref
+      ? this.deps.items.find(listId, ref.paperId)
+      : this.deps.items.findNote(listId, ref.vaultPageId);
+  }
+
+  private membershipsOf(ref: ItemRef): Promise<ReadingListItem[]> {
+    return "paperId" in ref
+      ? this.deps.items.listsForPaper(ref.paperId)
+      : this.deps.items.listsForNote(ref.vaultPageId);
+  }
+
+  private async addToListAndAncestors(
     listId: string,
-    paperId: string,
+    ref: ItemRef,
+    note?: string,
+  ): Promise<ReadingListItem> {
+    const primary = await this.addToListOne(listId, ref, note);
+    for (const ancestorId of await this.ancestorListIds(listId)) {
+      await this.addToListOne(ancestorId, ref, undefined, listId);
+    }
+    return primary;
+  }
+
+  /**
+   * Remove the item from listId. An ancestor row inherited from listId stays
+   * when another list under that ancestor still holds the item directly; it
+   * is re-pointed at that holder. Otherwise it goes too.
+   */
+  private async removeFromList(listId: string, ref: ItemRef): Promise<void> {
+    const existing = await this.findRef(listId, ref);
+    if (existing) await this.deps.items.remove(existing.id);
+
+    const memberships = await this.membershipsOf(ref);
+    const inherited = memberships.filter((m) => m.inheritedFromListId === listId);
+    if (inherited.length === 0) return;
+
+    const directHolders = memberships.filter(
+      (m) => m.listId !== listId && m.inheritedFromListId === undefined,
+    );
+    for (const item of inherited) {
+      const holder = await this.firstDescendant(item.listId, directHolders);
+      if (holder) {
+        await this.deps.items.add({ ...item, inheritedFromListId: holder.listId });
+      } else {
+        await this.deps.items.remove(item.id);
+      }
+    }
+  }
+
+  /** First candidate whose list sits below ancestorId. */
+  private async firstDescendant(
+    ancestorId: string,
+    candidates: readonly ReadingListItem[],
+  ): Promise<ReadingListItem | undefined> {
+    for (const c of candidates) {
+      if ((await this.ancestorListIds(c.listId)).includes(ancestorId)) return c;
+    }
+    return undefined;
+  }
+
+  private async addToListOne(
+    listId: string,
+    ref: ItemRef,
     note?: string,
     inheritedFromListId?: string,
   ): Promise<ReadingListItem> {
-    const existing = await this.deps.items.find(listId, paperId);
+    const existing = await this.findRef(listId, ref);
     if (existing) return existing;
 
     const siblings = await this.deps.items.listItems(listId);
@@ -203,7 +228,7 @@ export class ManageReadingListUseCase {
     const item: ReadingListItem = {
       id: this.deps.ids.newId(),
       listId,
-      paperId,
+      ...ref,
       sortOrder,
       note,
       inheritedFromListId,
@@ -211,43 +236,24 @@ export class ManageReadingListUseCase {
     try {
       await this.deps.items.add(item);
     } catch (err) {
-      if (!inheritedFromListId) throw err;
-      await this.deps.items.add({ ...item, inheritedFromListId: undefined });
-      return { ...item, inheritedFromListId: undefined };
+      if (!inheritedFromListId || !isInheritedLinkError(err)) throw err;
+      const plain = { ...item, inheritedFromListId: undefined };
+      await this.deps.items.add(plain);
+      return plain;
     }
     return item;
   }
+}
 
-  private async addNoteToListOne(
-    listId: string,
-    vaultPageId: string,
-    note?: string,
-    inheritedFromListId?: string,
-  ): Promise<ReadingListItem> {
-    const existing = await this.deps.items.findNote(listId, vaultPageId);
-    if (existing) return existing;
+type ItemRef = { paperId: string } | { vaultPageId: string };
 
-    const siblings = await this.deps.items.listItems(listId);
-    const sortOrder =
-      siblings.length === 0
-        ? 0
-        : Math.max(...siblings.map((i) => i.sortOrder)) + 1;
-
-    const item: ReadingListItem = {
-      id: this.deps.ids.newId(),
-      listId,
-      vaultPageId,
-      sortOrder,
-      note,
-      inheritedFromListId,
-    };
-    try {
-      await this.deps.items.add(item);
-    } catch (err) {
-      if (!inheritedFromListId) throw err;
-      await this.deps.items.add({ ...item, inheritedFromListId: undefined });
-      return { ...item, inheritedFromListId: undefined };
-    }
-    return item;
-  }
+/**
+ * The inherited link alone can fail: the source list was deleted meanwhile
+ * (FK 23503) or an old schema lacks the column (42703 / PGRST204). Only then
+ * is a plain row worth retrying; anything else is a real failure.
+ */
+const INHERITED_LINK_CODES = new Set(["23503", "42703", "PGRST204"]);
+function isInheritedLinkError(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  return typeof code === "string" && INHERITED_LINK_CODES.has(code);
 }

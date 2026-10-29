@@ -21,7 +21,7 @@ import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 
-import { createInkRecogniser, inkRecogniserPath } from "../src/ink-recogniser";
+import { createInkRecogniser, inkRecogniserPath, readInkRequest } from "../src/ink-recogniser";
 
 /** A stand-in helper: a real duplex pipe, so the client's parsing is exercised. */
 function fakeHelper(options: { ready?: boolean; echo?: boolean } = {}) {
@@ -143,6 +143,22 @@ test("a request is correlated by id and answered with its lines", async () => {
   assert.deepEqual(sent.vocabulary, ["Graph-prior module"]);
   assert.equal(sent.lang, "en-US");
   recogniser.dispose();
+});
+
+// 37-09: dispose is for quitting; the doc used to promise a restart that never came.
+test("a disposed recogniser stays stopped and spawns nothing more", async () => {
+  let spawned = 0;
+  const recogniser = createInkRecogniser({
+    executable: "fake.exe",
+    spawnHelper: () => {
+      spawned++;
+      return fakeHelper();
+    },
+  });
+  assert.equal(await recogniser.available(), true);
+  recogniser.dispose();
+  assert.equal(await recogniser.available(), false);
+  assert.equal(spawned, 1);
 });
 
 test("two pages in flight are both answered, not serialised", async () => {
@@ -314,3 +330,37 @@ test(
     }
   },
 );
+
+// xipc-22: the page's request is checked whole before it reaches the helper.
+// This is the shape web's desktopInkRequest (features/ink/application/recognisers.ts) sends.
+test("readInkRequest: the web page's real payload is accepted as it is", () => {
+  const sent = {
+    lines: [{ strokes: [[10, 20, 128, 11, 21, 130], [30, 40, 0.5]] }, { strokes: [] }],
+    vocabulary: ["entropy", "Kalman"],
+    lang: "en-GB",
+  };
+  assert.deepEqual(readInkRequest(sent), sent);
+  assert.deepEqual(readInkRequest({ lines: [], vocabulary: [], lang: undefined }), { lines: [], vocabulary: [] });
+  assert.deepEqual(readInkRequest({ lines: [] }), { lines: [] });
+});
+
+test("readInkRequest: anything else is refused", () => {
+  const bad: unknown[] = [
+    null,
+    "lines",
+    { lines: "x" },
+    { lines: [null] },
+    { lines: [{}] },
+    { lines: [{ strokes: "x" }] },
+    { lines: [{ strokes: [null] }] },
+    { lines: [{ strokes: [[1, "2", 3]] }] },
+    { lines: [{ strokes: [[1, Number.NaN, 3]] }] },
+    { lines: [{ strokes: [[1, Infinity, 3]] }] },
+    { lines: [], vocabulary: "word" },
+    { lines: [], vocabulary: ["ok", 3] },
+    { lines: [], lang: 7 },
+  ];
+  for (const request of bad) {
+    assert.equal(readInkRequest(request), null, `accepted ${JSON.stringify(request)}`);
+  }
+});

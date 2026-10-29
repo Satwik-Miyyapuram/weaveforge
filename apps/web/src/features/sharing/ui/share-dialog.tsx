@@ -1,5 +1,6 @@
 "use client";
 
+import { enumOptions } from "@/lib/enum-label";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Member, Share, ShareableType, ShareAccess } from "@weaveforge/core";
 import { isBlanketShare, shareSupportsEditAccess } from "@weaveforge/core";
@@ -10,7 +11,9 @@ import { Select } from "@/components/select";
 import { MemberPicker } from "./member-picker";
 import { ShareLinkPanel } from "./share-link-panel";
 import { formatError } from "@/lib/format-error";
+import { runShareAction } from "./share-action";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 /**
  * Manage who an item (or all of a type, when `resourceId` is null) is shared
@@ -79,49 +82,45 @@ export function ShareDialog({
 
   const canGrant = toAdd.length > 0 && (!isBlanket || activeProjectId != null);
 
+  const ui = { setBusy, setError };
+
   async function grantSelected() {
     if (isBlanket && !activeProjectId) {
       setError("Select a project before blanket sharing.");
       return;
     }
-    setBusy(true);
-    setError(null);
-    try {
+    await runShareAction(async () => {
       for (const recipientId of toAdd) {
         await getContainer().sharing.manageSharing.grant({ recipientId, resourceType, resourceId, access });
       }
       setToAdd([]);
       await reload();
-    } catch (e) {
-      setError(formatError(e));
-    } finally {
-      setBusy(false);
-    }
+    }, ui);
   }
 
+  // The row's select is controlled by the stored share, so a refused change
+  // leaves it showing the access the recipient still has.
   async function changeAccess(s: Share, next: ShareAccess) {
-    await getContainer().sharing.manageSharing.grant({
-      recipientId: s.recipientId,
-      resourceType,
-      resourceId,
-      access: next,
-    });
-    await reload();
+    await runShareAction(async () => {
+      await getContainer().sharing.manageSharing.grant({
+        recipientId: s.recipientId,
+        resourceType,
+        resourceId,
+        access: next,
+      });
+      await reload();
+    }, ui);
   }
 
   async function revoke(s: Share) {
-    setBusy(true);
-    setError(null);
-    try {
+    await runShareAction(async () => {
       await getContainer().sharing.manageSharing.revoke(s.id);
       await reload();
-    } catch (e) {
-      setError(formatError(e));
-    } finally {
-      setBusy(false);
-    }
+    }, ui);
   }
 
+  // One order everywhere: view, comment, edit (D-16); edit only where it applies.
+  const accessOptions = enumOptions("shareAccess").filter((o) => supportsEdit || o.value !== "edit");
   return (
     <Modal title={title} onClose={onClose}>
       {error && <FormError>{error}</FormError>}
@@ -140,20 +139,17 @@ export function ShareDialog({
                 <Select
                   className="share-access"
                   value={s.access}
+                  disabled={busy}
                   onChange={(e) => void changeAccess(s, e.target.value as ShareAccess)}
                 >
-                  <option value="view">can view</option>
-                  <option value="comment">can comment</option>
-                  {supportsEdit ? <option value="edit">can edit</option> : null}
+                  {accessOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </Select>
-                <button className="link-btn danger" onClick={() => void revoke(s)}>remove</button>
+                <Button variant="danger" size="sm" disabled={busy} onClick={() => void revoke(s)}>Remove</Button>
               </li>
             ))}
           </ul>
         )}
       </div>
-
-      {resourceId && <ShareLinkPanel resourceType={resourceType} resourceId={resourceId} />}
 
       <div className="share-add">
         <h4 className="settings-group">Add people</h4>
@@ -163,26 +159,30 @@ export function ShareDialog({
           onToggle={(id) => setToAdd((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))}
         />
         <div className="share-add-foot">
-          <Select
-            className="share-access"
-            value={access}
-            onChange={(e) => setAccess(e.target.value as ShareAccess)}
-            aria-label="Access level"
-          >
-            <option value="comment">can comment</option>
-            <option value="view">can view</option>
-            {supportsEdit ? <option value="edit">can edit</option> : null}
-          </Select>
-          <button
-            type="button"
-            className="btn-primary share-add-submit"
-            disabled={busy || !canGrant}
-            onClick={() => void grantSelected()}
-          >
-            {busy ? "Sharing…" : toAdd.length > 0 ? `Share (${toAdd.length})` : "Share"}
-          </button>
+          <div className="field share-permission">
+            <label htmlFor="share-permission">Permission</label>
+            <Select
+              id="share-permission"
+              className="share-access"
+              value={access}
+              onChange={(e) => setAccess(e.target.value as ShareAccess)}
+              aria-describedby="share-permission-help"
+            >
+              {accessOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </Select>
+          </div>
+          <span className="share-add-submit">
+            <Button variant="primary" disabled={busy || !canGrant} onClick={() => void grantSelected()}>
+              {busy ? "Sharing…" : toAdd.length > 0 ? `Share (${toAdd.length})` : "Share"}
+            </Button>
+          </span>
         </div>
+        <p id="share-permission-help" className="muted share-permission-help">
+          View can read. Comment can read and comment.{supportsEdit ? " Edit can change it too." : ""}
+        </p>
       </div>
+
+      {resourceId && <ShareLinkPanel resourceType={resourceType} resourceId={resourceId} />}
     </Modal>
   );
 }

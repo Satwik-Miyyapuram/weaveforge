@@ -4,7 +4,6 @@ import { Popover } from "./popover";
 import { Menu, type MenuItem } from "./menu";
 
 export type CardMenuItem = MenuItem;
-export { Menu, SubmenuFlyout, computeSubmenuPosition } from "./menu";
 
 /**
  * The card's overflow menu.
@@ -28,13 +27,12 @@ export function CardMenu({
   return (
     <Popover
       align="right"
-      iconOnly
+      trigger="icon"
       // Portalled: a card animates on hover, which makes it a containing block
       // for `position: fixed`, and the panel would otherwise open pinned to the
       // card rather than under the kebab that was pressed. See `Popover.portal`.
       portal
       ariaLabel={label}
-      triggerClassName="entity-icon-btn card-menu-trigger"
       label={<KebabIcon />}
     >
       {(close) => <Menu items={items} onClose={close} />}

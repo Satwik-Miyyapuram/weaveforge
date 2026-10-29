@@ -29,7 +29,7 @@ import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
  * opt-in escape hatch for anything not covered by a class.
  */
 const REACTIVE_SURFACES =
-  ".entity-card, .paper-card, .dashboard-card, .artifact-card, .org-choice-card, .integration-item, [data-reactive]";
+  ".entity-card, .paper-card, .dashboard-card, .artifact-card, .integration-item, [data-reactive]";
 
 /**
  * Whether the pointer listeners should be attached.

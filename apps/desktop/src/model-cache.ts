@@ -13,7 +13,8 @@
  */
 
 import { net } from "electron";
-import { readFile, mkdir, rename, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { readFile, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 /** The host the weights actually come from, when they are not here yet. */
@@ -51,8 +52,25 @@ export function isUpstreamHost(hostname: string): boolean {
   );
 }
 
-/** The hostname the renderer points `env.remoteHost` at. */
+/** The cache's own hostname; the file a URL names is its path under this host. */
 export const MODEL_HOST = "models";
+
+/** The folder of the app's own origin the renderer asks for weights under. */
+const MODEL_PATH = "/models/";
+
+/**
+ * The cache URL a request names, or null when it is not a weights request.
+ *
+ * The renderer asks under its own origin, `app://<appHost>/models/<repo>/…`:
+ * `app:` is not a CORS-enabled scheme, so Chromium blocks a fetch from
+ * `app://weaveforge` to `app://models` before this shell ever sees it.
+ */
+export function modelCacheUrl(url: string, appHost: string): string | null {
+  const parsed = new URL(url);
+  if (parsed.hostname === MODEL_HOST) return url;
+  if (parsed.hostname !== appHost || !parsed.pathname.startsWith(MODEL_PATH)) return null;
+  return `app://${MODEL_HOST}/${parsed.pathname.slice(MODEL_PATH.length)}${parsed.search}`;
+}
 
 /** A model file is tens of megabytes; anything far past that is not one. */
 const MAX_FILE_BYTES = 512 * 1024 * 1024;
@@ -102,6 +120,27 @@ export async function serveModelFile(
   const cached = await readFile(file).catch(() => null);
   if (cached) return new Response(new Uint8Array(cached), { status: 200, headers: headersFor(file) });
 
+  // Asks that arrive while the file is downloading share that download (38-03):
+  // two downloads of one file would race to write and rename it.
+  let pending = downloads.get(file);
+  if (!pending) {
+    pending = download(file, url, fetchUpstream).finally(() => downloads.delete(file));
+    downloads.set(file, pending);
+  }
+  const done = await pending;
+  return done.bytes
+    ? new Response(done.bytes, { status: 200, headers: headersFor(file) })
+    : new Response(null, { status: done.status });
+}
+
+/** Downloads in flight, by the file they will land in. */
+const downloads = new Map<string, Promise<{ status: number; bytes?: Uint8Array<ArrayBuffer> }>>();
+
+async function download(
+  file: string,
+  url: string,
+  fetchUpstream: FetchLike,
+): Promise<{ status: number; bytes?: Uint8Array<ArrayBuffer> }> {
   const target = `${UPSTREAM}${new URL(url).pathname}`;
   /*
    * Redirects are followed by `net.fetch`, not walked by hand.
@@ -135,20 +174,29 @@ export async function serveModelFile(
     console.warn(`[models] fetch failed for ${target}: ${String(error)}`);
     return null;
   });
-  if (!upstream) return new Response(null, { status: 502 });
-  if (!upstream.ok) return new Response(null, { status: upstream.status });
+  if (!upstream) return { status: 502 };
+  if (!upstream.ok) return { status: upstream.status };
+  // Refuse a declared oversize file before buffering it; the check after the
+  // read still catches a missing or lying header.
+  const declared = Number(upstream.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > MAX_FILE_BYTES) return { status: 502 };
 
   const bytes = new Uint8Array(await upstream.arrayBuffer());
-  if (bytes.byteLength > MAX_FILE_BYTES) return new Response(null, { status: 502 });
+  if (bytes.byteLength > MAX_FILE_BYTES) return { status: 502 };
 
   // Written under a temporary name and renamed, so an interrupted download
   // never leaves a half file that later reads would trust.
   await mkdir(path.dirname(file), { recursive: true });
-  const temporary = `${file}.part`;
+  // A name only this download uses, in case another process fills the same cache.
+  const temporary = `${file}.${randomUUID()}.part`;
   await writeFile(temporary, bytes);
-  await rename(temporary, file).catch(() => {});
+  // A failed rename still serves these bytes; the next ask downloads again.
+  await rename(temporary, file).catch(async (error: unknown) => {
+    console.warn(`[models] could not keep ${file}: ${String(error).slice(0, 300)}`);
+    await rm(temporary, { force: true });
+  });
 
-  return new Response(bytes, { status: 200, headers: headersFor(file) });
+  return { status: 200, bytes };
 }
 
 /**
@@ -157,9 +205,9 @@ export async function serveModelFile(
  * No `access-control-allow-origin`. It was `*`, which invites any page in any
  * frame to read the encoder's weights and its config through this app -- a
  * cross-origin read of a resource that is otherwise only reachable from the
- * app's own origin. Nothing asks for it: the renderer fetches `app://models/...`
- * as a same-origin request, where CORS is not consulted at all, and the browser
- * build never touches this host.
+ * app's own origin. Nothing asks for it: the renderer fetches
+ * `app://weaveforge/models/...` as a same-origin request, where CORS is not
+ * consulted at all, and the browser build never touches this host.
  */
 function headersFor(file: string): Record<string, string> {
   const type = file.endsWith(".json")

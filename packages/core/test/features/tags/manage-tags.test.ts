@@ -8,8 +8,8 @@ import {
   type TagSource,
   type ITagRepository,
   type IPaperTagRepository,
-  type IPaperRepository,
 } from "../../../src/index.js";
+import { InMemoryPaperRepository } from "../../../src/testing/in-memory-paper-repository.js";
 
 class FakeTagRepo implements ITagRepository {
   readonly rows = new Map<string, Tag>();
@@ -63,33 +63,13 @@ class FakePaperTagRepo implements IPaperTagRepository {
   }
 }
 
-class FakePaperRepo implements IPaperRepository {
-  readonly rows = new Map<string, Paper>();
-  async getById(id: string) {
-    return this.rows.get(id) ?? null;
-  }
-  async list() {
-    return [...this.rows.values()];
-  }
-  async save(p: Paper) {
-    this.rows.set(p.id, p);
-  }
-  async delete(id: string) {
-    this.rows.delete(id);
-  }
-  async findByArxivId() {
-    return null;
-  }
-  async findByDoi() {
-    return null;
-  }
-}
+const P1: Paper = { id: "p1", title: "P1", authors: [], status: "to_read", tags: [], metadata: {}, createdAt: "t", updatedAt: "t" };
 
 function makeSetup() {
   const tags = new FakeTagRepo();
   const paperTags = new FakePaperTagRepo();
-  const papers = new FakePaperRepo();
-  papers.rows.set("p1", { id: "p1", title: "P1", authors: [], status: "to_read", tags: [], metadata: {}, createdAt: "t", updatedAt: "t" } as Paper);
+  const papers = new InMemoryPaperRepository();
+  void papers.save(P1);
   let n = 0;
   const uc = new ManageTagsUseCase({
     tags,
@@ -106,7 +86,7 @@ test("setManualTags: creates tags, links them, and refreshes the paper cache", a
   const paper = await uc.setManualTags("p1", ["ml", "  NLP  "]);
   assert.deepEqual(paper.tags.sort(), ["ml", "nlp"]);
   assert.equal((await paperTags.listForPaper("p1")).length, 2);
-  assert.deepEqual((papers.rows.get("p1")!.tags).sort(), ["ml", "nlp"]);
+  assert.deepEqual((await papers.getById("p1"))!.tags.sort(), ["ml", "nlp"]);
 });
 
 test("setManualTags: replacing removes dropped manual tags", async () => {
@@ -115,6 +95,15 @@ test("setManualTags: replacing removes dropped manual tags", async () => {
   const paper = await uc.setManualTags("p1", ["b", "c"]);
   assert.deepEqual(paper.tags.sort(), ["b", "c"]);
   assert.equal((await paperTags.listForPaper("p1")).length, 2);
+});
+
+// Moved from UpdatePaperUseCase.setTags, a wrapper that was removed (03-10).
+test("setManualTags then mergeTags: hashes, case and repeats fold to one tag", async () => {
+  const { uc } = makeSetup();
+  const a = await uc.setManualTags("p1", ["#Bayes", " vae ", "VAE", "generative"]);
+  assert.deepEqual(a.tags.sort(), ["bayes", "generative", "vae"]);
+  const b = await uc.mergeTags("p1", ["vae", "#latent"]);
+  assert.deepEqual(b.tags.sort(), ["bayes", "generative", "latent", "vae"]);
 });
 
 test("mergeTags: unions with existing tags of that source", async () => {
@@ -137,4 +126,77 @@ test("reuses an existing tag row rather than creating a duplicate", async () => 
   const countAfterFirst = tags.rows.size;
   await uc.mergeTags("p1", ["shared"]);
   assert.equal(tags.rows.size, countAfterFirst);
+});
+
+test("refreshing the tag cache writes only the tags, so an edit made meanwhile is kept", async () => {
+  // The cache was written back as the whole row read moments earlier, which
+  // reverted any edit that landed in between (here: the summary).
+  const { papers, paperTags, uc } = makeSetup();
+  const listForPaper = paperTags.listForPaper.bind(paperTags);
+  paperTags.listForPaper = async (paperId) => {
+    await papers.save({ ...P1, summary: "Edited meanwhile", updatedAt: "t2" });
+    return listForPaper(paperId);
+  };
+
+  const paper = await uc.setManualTags("p1", ["ml"]);
+
+  const stored = await papers.getById("p1");
+  assert.equal(stored?.summary, "Edited meanwhile");
+  assert.deepEqual(stored?.tags, ["ml"]);
+  assert.equal(stored?.updatedAt, "2026-07-23T09:00:00.000Z");
+  assert.deepEqual(paper, stored, "the returned paper is the stored row");
+});
+
+test("refreshing the tag cache of a paper deleted meanwhile does not bring it back", async () => {
+  const { papers, paperTags, uc } = makeSetup();
+  const listForPaper = paperTags.listForPaper.bind(paperTags);
+  paperTags.listForPaper = async (paperId) => {
+    await papers.delete("p1");
+    return listForPaper(paperId);
+  };
+
+  await assert.rejects(uc.setManualTags("p1", ["ml"]), /No paper with id "p1"/);
+  assert.equal(await papers.getById("p1"), null);
+});
+
+test("tag lookups for a paper run once per tag and in parallel (05-01)", async () => {
+  const { tags, paperTags, uc } = makeSetup();
+  await uc.setManualTags("p1", ["a", "b", "c"]);
+  // The same tag linked from a second source must not be fetched twice.
+  const first = (await paperTags.listForPaper("p1"))[0]!;
+  await paperTags.link({ ...first, source: "summary" });
+
+  const real = tags.getById.bind(tags);
+  let calls = 0;
+  let inFlight = 0;
+  let maxInFlight = 0;
+  tags.getById = async (id: string) => {
+    calls += 1;
+    maxInFlight = Math.max(maxInFlight, ++inFlight);
+    await new Promise((r) => setTimeout(r, 1));
+    inFlight -= 1;
+    return real(id);
+  };
+
+  const listed = await uc.listForPaper("p1");
+  assert.deepEqual(listed.map((t) => t.name), ["a", "b", "c"]);
+  assert.equal(calls, 3);
+  assert.equal(maxInFlight, 3);
+
+  calls = 0;
+  const links = await uc.listPaperTagLinks("p1");
+  assert.equal(links.length, 4);
+  assert.equal(calls, 3);
+
+  await uc.removeManualTag("p1", "c");
+  assert.deepEqual((await uc.listForPaper("p1")).map((t) => t.name), ["a", "b"]);
+});
+
+test("a link to a deleted tag is skipped (05-01)", async () => {
+  const { tags, uc } = makeSetup();
+  await uc.setManualTags("p1", ["a", "b"]);
+  const b = await tags.findByName("b");
+  tags.rows.delete(b!.id);
+  assert.deepEqual((await uc.listForPaper("p1")).map((t) => t.name), ["a"]);
+  assert.deepEqual((await uc.listPaperTagLinks("p1")).map((l) => l.name), ["a"]);
 });

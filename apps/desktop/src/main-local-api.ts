@@ -7,6 +7,7 @@
  * optional expiry; each is shown once at creation and revocable on its own.
  */
 
+import { errorMessage } from "@weaveforge/core";
 import path from "node:path";
 import type { App, BrowserWindow, Shell } from "electron";
 
@@ -92,6 +93,22 @@ export interface MainLocalApi {
   close(): Promise<void>;
 }
 
+/**
+ * The window's answer to a semantic rank: the names it sent, or null to keep
+ * the order. A reason means the window's ranking threw; it is logged, cut short,
+ * since the answer is still "keep the order" and nothing else would show it.
+ */
+export function readRankAnswer(
+  order: unknown,
+  error: unknown,
+  warn: (line: string) => void = console.warn,
+): string[] | null {
+  if (typeof error === "string") {
+    warn(`[local-api] semantic ranking failed in the window: ${error.slice(0, 200)}`);
+  }
+  return Array.isArray(order) ? order.filter((name): name is string => typeof name === "string") : null;
+}
+
 export function registerMainLocalApi(
   deps: MainLocalApiDeps,
 ): MainLocalApi {
@@ -144,16 +161,12 @@ export function registerMainLocalApi(
   let nextRankId = 1;
   const pendingRanks = new Map<number, (order: string[] | null) => void>();
 
-  ipc.on(CHANNELS.semanticRanked, (_event, id: unknown, order: unknown) => {
+  ipc.on(CHANNELS.semanticRanked, (_event, id: unknown, order: unknown, error: unknown) => {
     if (typeof id !== "number") return;
     const waiting = pendingRanks.get(id);
     if (!waiting) return;
     pendingRanks.delete(id);
-    waiting(
-      Array.isArray(order)
-        ? (order as string[]).filter((name) => typeof name === "string")
-        : null,
-    );
+    waiting(readRankAnswer(order, error));
   });
 
   function rankSemantically(
@@ -196,8 +209,8 @@ export function registerMainLocalApi(
       // plugin, most likely. Reported rather than retried: two things answering
       // on one port is not something to resolve behind the user's back.
       if ((error as NodeJS.ErrnoException)?.code === "EADDRINUSE")
-        return (startError = `Another program is using port ${LOCAL_API_PORT}, so AI clients cannot reach WeaveForge. Close it, then tick Serve MCP again.`);
-      return (startError = error instanceof Error ? error.message : "The port is not available.");
+        return (startError = `Another program is using port ${LOCAL_API_PORT}, so AI clients cannot reach WeaveForge. Close it, then turn Serve MCP on again.`);
+      return (startError = errorMessage(error, "The port is not available."));
     }
   }
 
@@ -239,24 +252,45 @@ export function registerMainLocalApi(
     };
   }
 
-  ipc.handle(CHANNELS.localApiState, async () => ({ ok: true, value: await snapshot() }));
+  /**
+   * Every handler answers `{ ok: false }` rather than rejecting (xipc-07): a
+   * rejected invoke reaches the page as a bare error the panels do not show.
+   */
+  const handle = (channel: string, listener: (event: unknown, ...args: unknown[]) => Promise<unknown>) =>
+    ipc.handle(channel, async (event, ...args) => {
+      try {
+        return await listener(event, ...args);
+      } catch (error) {
+        return { ok: false, message: errorMessage(error, "Something went wrong.") };
+      }
+    });
 
-  ipc.handle(CHANNELS.localApiSet, async (_event, enabled: unknown) => {
+  /** Save the switch, or say why it did not stick (xipc-11). */
+  async function saveEnabled(enabled: boolean): Promise<{ ok: true } | { ok: false; message: string }> {
+    const saved = await preferenceStore().write("local-api", enabled);
+    return saved.ok ? { ok: true } : { ok: false, message: `Could not save the setting: ${saved.message}` };
+  }
+
+  handle(CHANNELS.localApiState, async () => ({ ok: true, value: await snapshot() }));
+
+  handle(CHANNELS.localApiSet, async (_event, enabled: unknown) => {
     if (enabled !== true) {
       // Tokens survive switching off, so scripts work again once it is back on.
-      await preferenceStore().write("local-api", false);
+      const saved = await saveEnabled(false);
+      if (!saved.ok) return saved;
       await localApi?.close();
       localApi = null;
       startError = undefined;
       return { ok: true, value: await snapshot() };
     }
     remember(await readTokens());
-    await preferenceStore().write("local-api", true);
+    const saved = await saveEnabled(true);
+    if (!saved.ok) return saved;
     await startIfEnabled();
     return { ok: true, value: await snapshot() };
   });
 
-  ipc.handle(CHANNELS.localApiTokenCreate, async (_event, request: unknown) => {
+  handle(CHANNELS.localApiTokenCreate, async (_event, request: unknown) => {
     const r = (request ?? {}) as { name?: unknown; permissions?: unknown; expiresAt?: unknown };
     const tokens = await readTokens();
     if (tokens.length >= MAX_LOCAL_API_TOKENS)
@@ -280,7 +314,8 @@ export function registerMainLocalApi(
     return { ok: true, value: await snapshot({ issued: { id: record.id, token } }) };
   });
 
-  ipc.handle(CHANNELS.localApiTokenRevoke, async (_event, id: unknown) => {
+  handle(CHANNELS.localApiTokenRevoke, async (_event, id: unknown) => {
+    if (typeof id !== "string" || !id) return { ok: false, message: "That is not a token to revoke." };
     const tokens = await readTokens();
     const saved = await savedMcp(tokens);
     const kept = await writeTokens(tokens.filter((t) => t.id !== id));
@@ -290,9 +325,10 @@ export function registerMainLocalApi(
     return { ok: true, value: await snapshot() };
   });
 
-  ipc.handle(CHANNELS.mcpConnect, async () => {
+  handle(CHANNELS.mcpConnect, async () => {
     const tokens = await readTokens();
     let connection = await savedMcp(tokens);
+    let issued: string | null = null;
     if (!connection) {
       if (tokens.length >= MAX_LOCAL_API_TOKENS)
         return { ok: false, message: `At most ${MAX_LOCAL_API_TOKENS} tokens. Revoke one in Access tokens first.` };
@@ -300,6 +336,7 @@ export function registerMainLocalApi(
       const kept = await writeTokens([...tokens, record]);
       if (!kept.ok) return kept;
       connection = { url: "", apiUrl: "", token, tokenId: record.id };
+      issued = record.id;
     }
     try {
       await writeMcpConnection(
@@ -308,15 +345,18 @@ export function registerMainLocalApi(
         listedTools(true),
       );
     } catch (error) {
+      // A token no client file names is one nobody can use or see to revoke (37-20).
+      if (issued) await writeTokens(tokens.filter((t) => t.id !== issued));
       return { ok: false, message: `Could not write ${deps.mcpPaths.file}: ${error instanceof Error ? error.message : error}` };
     }
     remember(await readTokens());
-    await preferenceStore().write("local-api", true);
+    const saved = await saveEnabled(true);
+    if (!saved.ok) return saved;
     await startIfEnabled();
     return { ok: true, value: await snapshot() };
   });
 
-  ipc.handle(CHANNELS.mcpDisconnect, async () => {
+  handle(CHANNELS.mcpDisconnect, async () => {
     const tokens = await readTokens();
     const saved = await readMcpConnection(deps.mcpPaths.file);
     if (saved) {
@@ -327,7 +367,7 @@ export function registerMainLocalApi(
     return { ok: true, value: await snapshot() };
   });
 
-  ipc.handle(CHANNELS.mcpOpenClient, async (_event, client: unknown) => {
+  handle(CHANNELS.mcpOpenClient, async (_event, client: unknown) => {
     if (!MCP_OPEN_CLIENTS.includes(client as McpOpenClient)) return { ok: false, message: "Unknown client." };
     if (!(await savedMcp(await readTokens()))) return { ok: false, message: "Connect first." };
     const launch = mcpLaunch(deps.mcpPaths, deps.execPath);

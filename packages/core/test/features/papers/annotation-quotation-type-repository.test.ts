@@ -22,3 +22,15 @@ test("upserts one quotation type per paper annotation", async () => {
   await repository.remove("paper-1", "ann-1");
   assert.deepEqual(await repository.listForPaper("paper-1"), []);
 });
+
+test("live quotation types keep distinct ids after a remove (08-03)", async () => {
+  const repository = new InMemoryAnnotationQuotationTypeRepository();
+  const save = (annotationKey: string) =>
+    repository.save({ paperId: "paper-1", annotationKey, quotationType: "direct" });
+  await save("ann-1");
+  await save("ann-2");
+  await repository.remove("paper-1", "ann-1");
+  await save("ann-3");
+  const ids = (await repository.listForPaper("paper-1")).map((row) => row.id);
+  assert.equal(new Set(ids).size, 2);
+});

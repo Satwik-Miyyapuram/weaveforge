@@ -7,6 +7,7 @@ import { Modal, ModalActions } from "@/components/modal";
 import { FormError } from "@/components/form-error";
 import { Select } from "@/components/select";
 import { formatError } from "@/lib/format-error";
+import { Button } from "@/components/button";
 
 /**
  * Compact trigger + modal for a plaintext Overleaf ZIP (browser-only; nothing
@@ -70,20 +71,18 @@ export function ExportOverleafPackagePanel({
   return (
     <>
       {!hideTrigger && (
-        <button
-          type="button"
-          className="btn-secondary"
+        <Button
           onClick={() => {
             setError(null);
             setWarnings([]);
             setOpen(true);
           }}
         >
-          Export LaTeX…
-        </button>
+          Export for Overleaf…
+        </Button>
       )}
       {open && (
-        <Modal title="Export to Overleaf" onClose={close}>
+        <Modal title="Export for Overleaf" onClose={close}>
           <p className="muted" style={{ marginTop: 0 }}>
             Builds a plaintext LaTeX ZIP (main.tex + bibliography + figures) in this browser only.
             WeaveForge does not push to Overleaf.
@@ -102,9 +101,8 @@ export function ExportOverleafPackagePanel({
               />
             </label>
             <label className="export-overleaf-check">
-              <input
+              <input className="wf-check"
                 type="checkbox"
-                className="themed-check"
                 checked={includeNotes}
                 onChange={(e) => setIncludeNotes(e.target.checked)}
                 disabled={busy}
@@ -112,9 +110,8 @@ export function ExportOverleafPackagePanel({
               <span>Include section notes (Markdown → LaTeX)</span>
             </label>
             <label className="export-overleaf-check">
-              <input
+              <input className="wf-check"
                 type="checkbox"
-                className="themed-check"
                 checked={includeBib}
                 onChange={(e) => setIncludeBib(e.target.checked)}
                 disabled={busy}
@@ -150,12 +147,12 @@ export function ExportOverleafPackagePanel({
               </ul>
             )}
             <ModalActions>
-              <button className="btn-secondary btn-cancel" type="button" disabled={busy} onClick={close}>
+              <Button variant="cancel" disabled={busy} onClick={close}>
                 Cancel
-              </button>
-              <button className="btn-primary" type="button" disabled={busy} onClick={() => void run()}>
+              </Button>
+              <Button variant="primary" disabled={busy} onClick={() => void run()}>
                 {busy ? "Building…" : "Download ZIP"}
-              </button>
+              </Button>
             </ModalActions>
           </div>
         </Modal>

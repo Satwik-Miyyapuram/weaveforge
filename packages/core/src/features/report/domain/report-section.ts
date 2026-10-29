@@ -11,14 +11,10 @@ import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { buildTree } from "../../../shared/tree.js";
 import { ValidationError } from "../../../shared/errors.js";
 
-export type ReportStatus = "not_started" | "drafting" | "review" | "done";
+/** A section's writing status, in workflow order. */
+export const REPORT_STATUSES = ["not_started", "drafting", "review", "done"] as const;
 
-export const REPORT_STATUSES: readonly ReportStatus[] = [
-  "not_started",
-  "drafting",
-  "review",
-  "done",
-];
+export type ReportStatus = (typeof REPORT_STATUSES)[number];
 
 export interface ReportSection extends Identifiable {
   id: string;

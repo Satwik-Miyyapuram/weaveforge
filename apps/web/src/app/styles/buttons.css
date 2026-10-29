@@ -1,142 +1,45 @@
 /* `text-wrap: balance` so a two-line screen title breaks evenly rather than
    leaving one word on the second line. It was pitch-only before this. */
-.screen-head h1 { font-family: var(--font-serif); font-weight: 600; font-size: 1.6rem; margin: 18px 0 2px; letter-spacing: -0.01em; text-wrap: balance; }
+.screen-head h1 { font-family: var(--font-serif); font-weight: 600; font-size: var(--fs-h1); margin: 16px 0 2px; letter-spacing: -0.01em; text-wrap: balance; }
 /* Code/monospace surfaces adopt the mono face (JetBrains Mono). */
-code, pre, .git-chip, .metric-chip, .commit-sha { font-family: var(--font-mono); }
+code, pre, .commit-sha { font-family: var(--font-mono); }
 .head-row { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .screen-head:empty { display: none; }
 /* One gap between a screen's head and its first card, on every screen. It was
    whatever the first card's own top margin happened to be: 0 on Lists, 4 on the
    dashboard, 14 on Experiments, 18 on Papers. */
-.screen > .screen-head:not(:empty) { margin-bottom: 22px; }
+.screen > .screen-head:not(:empty) { margin-bottom: 24px; }
 .screen > .screen-head:not(:empty) + * { margin-top: 0; }
-/* The route-named <h1> a screen gets when it names no title: read by assistive
-   technology, drawn only by themes that open pages on a title (brutal.css). */
+/* The route-named <h1> a screen gets when it names no title is drawn like any
+   other title: one visible page title per route (D11, DA-50). */
 .screen-title-block { margin-right: auto; min-width: 0; }
-.screen-title--auto { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 .screen-eyebrow { display: none; }
-/* Destructive primary. Same shape as `.btn-primary` — a decision reads as one
-   control group — but the side that discards something is coloured for it.
-   Pairs with `.btn-secondary.danger`, which is the lighter form. */
-.btn-primary.btn-danger { background: var(--danger); color: var(--accent-fg); }
-.btn-primary.btn-danger:hover { background: color-mix(in srgb, var(--danger) 88%, var(--ink)); }
-
 /* Confirmation dialogs: one sentence, then the two choices. */
-.confirm-dialog-body { margin: 0; font-size: 0.9rem; line-height: 1.6; }
+.confirm-dialog-body { margin: 0; font-size: var(--fs); line-height: 1.6; }
 
 /* A dialog that asks for a value rather than a yes: one labelled field between
    the sentence and the choices. */
-.prompt-dialog-field { display: block; margin: 14px 0 0; }
+.prompt-dialog-field { display: block; margin: 16px 0 0; }
 .prompt-dialog-field > span {
-  display: block; margin-bottom: 6px;
-  font-size: 0.78rem; font-weight: 600; color: var(--muted);
+  display: block; margin-bottom: 8px;
+  font-size: var(--fs-xs); font-weight: 600; color: var(--muted);
 }
 .prompt-dialog-field input {
-  width: 100%; font: inherit; font-size: 0.9rem;
+  width: 100%; font: inherit; font-size: var(--fs);
   color: var(--text); background: var(--surface2);
-  border: 1px solid var(--border-strong); border-radius: 9px;
-  padding: 9px 11px;
+  border: 1px solid var(--border-strong); border-radius: var(--r-control);
+  padding: 8px 12px;
 }
 .prompt-dialog-field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-.btn-secondary {
-  cursor: pointer; font: inherit; font-size: 0.82rem; font-weight: 500;
-  color: var(--text); background: transparent; border: 1px solid var(--border-strong);
-  padding: 8px 14px; border-radius: 9px;
-  /* Links wear this class too (reader, AI review) — a button that underlines
-     itself does not read as a button. */
-  display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
-}
-.btn-secondary:hover { background: var(--surface2); }
-.btn-secondary:disabled { opacity: 0.6; cursor: default; }
-/* Destructive secondary — pairs with .btn-primary so a decision reads as one
-   control group, while still colouring the side that discards something. */
-.btn-secondary.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border-strong)); }
-.btn-secondary.danger:hover { background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
-/* Ghost: borderless secondary for low-emphasis chrome (e.g. org setup Back). */
-.btn-ghost {
-  cursor: pointer; font: inherit; font-size: 0.82rem; font-weight: 500;
-  color: var(--muted); background: transparent; border: 1px solid transparent; padding: 7px 9px;
-  border-radius: 9px;
-}
-.btn-ghost:hover { color: var(--ink); }
-.btn-ghost:disabled { opacity: 0.6; cursor: default; }
-/* Size modifier — compose with .btn-secondary (or .btn-primary) for denser actions. */
-.btn-sm { padding: 6px 12px; font-size: 0.78rem; border-radius: 8px; }
-
-/* One button motion. Raised buttons (primary, secondary, link chips, back) lift
-   and their shadow grows on hover, then sink on press; ghost and icon buttons
-   pop out into the same thing. Themes change the distances and shadows through
-   these tokens (brutal.css), never the motion. */
-:root {
-  --btn-dur: 120ms;
-  --btn-lift: 0 -1px;
-  --btn-sink: 1px 1px;
-  --btn-sink-flat: 0.67px 0.67px;
-  --btn-sh-rest: 0 1px 2px rgba(30, 30, 40, 0.08);
-  --btn-sh-hover: var(--e2);
-  --btn-sh-press: 0 0 0 transparent;
-  --btn-pop-line: var(--border-strong);
-}
-:is([data-theme="dark"], [data-theme="mocha"], [data-theme="dracula"], [data-theme="amoled"], [data-theme="contrast"], [data-theme="vivid-dark"], [data-theme="pastel-dark"], [data-theme="confetti-dark"]) {
-  --btn-sh-rest: 0 1px 2px rgba(0, 0, 0, 0.4);
-}
-:is(.btn-primary, .btn-secondary, .btn-ghost, .entity-icon-btn, .entity-open-icon, .paper-open-icon, .back-btn-box, .plan-chip) {
-  translate: 0;
-  transition:
-    translate var(--btn-dur) var(--layout-ease),
-    transform var(--btn-dur) var(--layout-ease),
-    box-shadow var(--btn-dur) var(--layout-ease),
-    background-color var(--btn-dur) var(--layout-ease),
-    border-color var(--btn-dur) var(--layout-ease),
-    color var(--btn-dur) var(--layout-ease);
-}
-:is(.btn-primary, .btn-secondary, .back-btn-box, .plan-chip.link) { box-shadow: var(--btn-sh-rest); }
-@media (hover: hover) {
-  :is(.btn-primary, .btn-secondary, .plan-chip.link):hover:not(:disabled),
-  .back-btn:hover .back-btn-box {
-    translate: var(--btn-lift);
-    box-shadow: var(--btn-sh-hover);
-  }
-  :is(.btn-ghost, .entity-icon-btn, .entity-open-icon, .paper-open-icon):hover:not(:disabled) {
-    translate: var(--btn-lift);
-    border-color: var(--btn-pop-line);
-    background-color: var(--hover);
-    box-shadow: var(--btn-sh-rest);
-  }
-}
-:is(.btn-primary, .btn-secondary, .plan-chip.link):active:not(:disabled),
-.back-btn:active .back-btn-box {
-  translate: var(--btn-sink);
-  box-shadow: var(--btn-sh-press);
-  transition-duration: 60ms;
-}
-:is(.btn-ghost, .entity-icon-btn, .entity-open-icon, .paper-open-icon):active:not(:disabled) {
-  translate: var(--btn-sink-flat);
-  box-shadow: var(--btn-sh-press);
-  transition-duration: 60ms;
-}
-/* The back chevron leans the way it goes. */
-.back-btn-box svg { transition: translate var(--btn-dur) var(--layout-ease); }
-@media (hover: hover) { .back-btn:hover .back-btn-box svg { translate: -2px 0; } }
-/* Three roots: outranks the theme tokens in brutal.css. */
-@media (prefers-reduced-motion: reduce) {
-  :root:root:root { --btn-lift: 0 0; --btn-sink: 0 0; --btn-sink-flat: 0 0; }
-  .back-btn:hover .back-btn-box svg { translate: none; }
+/* One height for every button, from the control tokens (D-03: 36 desktop,
+   40 phone, sm 28). Look and motion live in states.css. */
+.wf-btn { min-height: var(--control-lg); box-sizing: border-box; }
+.wf-btn.wf-sm { min-height: var(--control-sm); }
+/* A finger needs 44px whatever the density. */
+@media (pointer: coarse) {
+  .wf-btn { min-height: var(--touch-min); }
+  .wf-btn.wf-icon { min-width: var(--touch-min); }
 }
 .muted { color: var(--muted); margin: 2px 0; }
 .error { color: var(--danger); }
-/* "Report" after an inline error: quiet, so it reads as an option, not a second alarm. */
-.error-report-link {
-  margin-inline-start: 8px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.85em;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
-.error-report-link:hover { color: var(--text); }

@@ -8,22 +8,13 @@
 
 .appearance {
   max-width: 880px;
-  padding: 8px 4px 48px;
   color: var(--text);
 }
 
-.appearance-head { margin: 8px 0 32px; }
-.appearance-title {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: 1.6rem;
-  font-weight: 500;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-}
-.appearance-lede { margin: 6px 0 0; color: var(--muted); font-size: 0.92rem; }
+.appearance-lede { margin: 8px 0 32px; }
 
-.appearance-section { margin: 0 0 36px; }
+.appearance-section { margin: 0 0 32px; }
+.appearance-section:last-child { margin-bottom: 0; }
 .appearance-section > .record-section-head { margin-bottom: 0; }
 
 .appearance-row {
@@ -43,24 +34,24 @@
 .appearance-row-text .appearance-label {
   display: block;
   margin: 0;
-  font-size: 0.95rem;
+  font-size: var(--fs-lg);
   font-weight: 500;
   color: var(--text);
 }
 .appearance-row-text p {
   margin: 4px 0 0;
   max-width: 60ch;
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   line-height: 1.5;
   color: var(--faint);
 }
-.appearance-row-text code { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); }
+.appearance-row-text code { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--muted); }
 
 .appearance .theme-config-actions { justify-content: flex-end; gap: 8px; }
 .appearance .theme-config-active {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   letter-spacing: 0.04em;
   color: var(--muted);
 }
@@ -68,7 +59,7 @@
 /* A switch, not a checkbox: the row already names the setting, so the control
    only has to say on or off. Sits at the right edge like the selects above. */
 /* Switches align to the right edge of their appearance row; toggle styling handled by states.css */
-.appearance-switch {
+.appearance-row > .wf-toggle {
   justify-self: end;
 }
 
@@ -81,28 +72,28 @@
 /* Card tint as three sample cards, one per option, each drawn the way the
    papers grid draws that option (styles/brutal.css). */
 .appearance-tag {
-  display: inline-block; margin-left: 8px; padding: 1px 8px; border: 1px solid var(--line); border-radius: 999px;
-  font-family: var(--font-mono); font-size: 0.7rem; font-weight: 400; color: var(--muted); vertical-align: 2px;
+  display: inline-block; margin-left: 8px; padding: 1px 8px; border: 1px solid var(--line); border-radius: var(--r-pill);
+  font-family: var(--font); font-size: var(--fs-micro); font-weight: 400; color: var(--muted); vertical-align: 2px;
 }
 .tint-picker { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 12px; margin-top: 12px; }
-.tint-option { display: grid; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; cursor: pointer; background: var(--surface); }
+.tint-option { display: grid; border: 1px solid var(--line); border-radius: var(--r-control); overflow: hidden; cursor: pointer; background: var(--surface); }
 .tint-option.is-on { border-color: var(--text); }
-.tint-sample { display: block; padding: 14px; background: var(--surface-alt); }
+.tint-sample { display: block; padding: 16px; background: var(--surface-alt); }
 .tint-sample-card {
-  display: flex; overflow: hidden; border-radius: 6px; border: 1px solid var(--line);
-  background: var(--surface); font-size: 0.82rem; line-height: 1.25;
+  display: flex; overflow: hidden; border-radius: var(--r-sm); border: 1px solid var(--line);
+  background: var(--surface); font-size: var(--fs-sm); line-height: 1.25;
 }
 .tint-sample-band { flex: none; width: 10px; background: var(--chip-reading, var(--accent)); border-right: 1px solid var(--line); }
-.tint-sample-body { display: grid; gap: 5px; min-width: 0; padding: 10px 12px; }
+.tint-sample-body { display: grid; gap: 4px; min-width: 0; padding: 12px 12px; }
 .tint-option--full .tint-sample-card { background: var(--tint-reading, var(--surface2)); }
 .tint-option--border .tint-sample-card { border: 3px solid var(--chip-reading, var(--accent)); }
-.tint-sample-meta { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); }
-.tint-sample-chip { justify-self: start; padding: 1px 9px; border-radius: 999px; font-size: 0.7rem; background: var(--chip-reading, var(--pill)); }
-.tint-option-foot { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; }
+.tint-sample-meta { font-family: var(--font); font-size: var(--fs-micro); color: var(--muted); }
+.tint-sample-chip { justify-self: start; padding: 1px 8px; border-radius: var(--r-pill); font-size: var(--fs-micro); background: var(--chip-reading, var(--pill)); }
+.tint-option-foot { display: flex; align-items: flex-start; gap: 8px; padding: 12px 12px; }
 .tint-option-foot input { margin-top: 2px; }
 .tint-option-text { display: grid; gap: 2px; }
 .tint-option-name { font-weight: 700; }
-.tint-option-note { font-size: 0.8rem; color: var(--muted); }
+.tint-option-note { font-size: var(--fs-sm); color: var(--muted); }
 /* Desktop offers the edge bar, a phone the border in its place (a phone card
    has no room for a band). The one in use always shows, so a choice made on the
    other screen is never hidden from the picker. */
@@ -116,25 +107,27 @@
 /* Theme as preview cards; the less-used palettes as chips underneath. */
 .theme-picker { display: grid; gap: 12px; margin: 4px 0 16px; }
 .theme-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.theme-card { display: grid; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; cursor: pointer; background: var(--surface); }
+.theme-card { display: grid; border: 1px solid var(--line); border-radius: var(--r-control); overflow: hidden; cursor: pointer; background: var(--surface); }
 .theme-card:hover, .theme-chip:hover { filter: brightness(1.04); }
 .theme-card.is-on { border-color: var(--text); }
 .theme-card-preview {
-  display: grid; gap: 6px; padding: 12px; min-height: 84px; align-content: start;
+  display: grid; gap: 8px; padding: 12px; min-height: 84px; align-content: start;
   background: var(--bg); border-bottom: 1px solid var(--border);
 }
-.theme-card-bar { display: block; width: 40%; height: 7px; border-radius: 4px; background: var(--text); }
-.theme-card-block { display: block; height: 18px; border-radius: 4px; border: 1px solid var(--border); }
+.theme-card-bar { display: block; width: 40%; height: 7px; border-radius: var(--r-sm); background: var(--text); }
+.theme-card-block { display: block; height: 18px; border-radius: var(--r-sm); border: 1px solid var(--border); }
 .theme-card-block--a { background: var(--accent); }
 .theme-card-block--b { background: var(--s-good-bg); }
 .theme-card-foot, .theme-chip { display: flex; align-items: center; gap: 8px; font-weight: 700; }
-.theme-card-foot { padding: 10px 12px; }
+.theme-card-foot { padding: 12px 12px; }
 .theme-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.theme-chips-label { font-size: 0.8rem; }
-.theme-chip { position: relative; padding: 4px 12px 4px 8px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; background: var(--surface); }
-.theme-chip.is-on { border-color: var(--text); }
+.theme-chips-label { font-size: var(--fs-sm); }
+.theme-chip { position: relative; padding: 4px 12px 4px 8px; border: 1px solid var(--line); border-radius: var(--r-pill); cursor: pointer; background: var(--surface); }
+.theme-chip.is-on { border-color: var(--text); background: var(--accent-soft); }
 .theme-chip input { position: absolute; opacity: 0; pointer-events: none; }
-.theme-chip:has(input:focus-visible) { outline: 2px solid var(--text); outline-offset: 2px; }
+/* Outranks the catalogue radio, which kept an empty slot before the swatch. */
+:root:root .theme-chip > .wf-radio { position: absolute; }
+.theme-chip:has(input:focus-visible) { outline: 3px solid var(--wf-focus, var(--accent)); outline-offset: 2px; }
 .theme-chip-dot {
   width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border-strong);
   background: linear-gradient(135deg, var(--bg) 50%, var(--accent) 50%);

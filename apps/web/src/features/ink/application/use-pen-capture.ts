@@ -264,11 +264,12 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
   }
 
   const workerRef = useRef<InkWorkerLike | null>(null);
-  const gateRef = useRef<InkPenGate>(
-    new InkPenGate({ handedness: options.handedness ?? "right" }),
-  );
-  const filterRef = useRef<NibFilter>(new NibFilter());
-  const poolRef = useRef<InkSamplePool>(new InkSamplePool({ capacity: 4 }));
+  // Built once: `useRef(new X())` would build and drop a new X every render.
+  const [gateRef] = useState(() => ({
+    current: new InkPenGate({ handedness: options.handedness ?? "right" }),
+  }));
+  const [filterRef] = useState(() => ({ current: new NibFilter() }));
+  const [poolRef] = useState(() => ({ current: new InkSamplePool({ capacity: 4 }) }));
   const deferTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
@@ -452,7 +453,11 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         // The listener stays so the `page-saved` it produces still lands; the
         // worker closes itself after it, and is terminated here as a backstop.
         worker.postMessage({ type: "dispose" });
-        const backstop = setTimeout(() => worker.terminate(), 5000);
+        const backstop = setTimeout(() => {
+          worker.terminate();
+          // It never said so itself; whatever still waits on it must hear it.
+          callbacksRef.current.onEvent?.({ type: "disposed" });
+        }, 5000);
         worker.addEventListener("message", (event: MessageEvent<InkWorkerEvent>) => {
           if (event.data.type !== "disposed") return;
           clearTimeout(backstop);
@@ -470,17 +475,41 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
 
     // The presenter is asked for first because its answer picks the canvas's
     // context attributes; without a trail option the worker starts at once.
-    const trail = callbacksRef.current.trail;
-    if (trail) {
-      void (trail.request ?? requestInkPresenter)(canvas).then(start, () =>
-        start(null),
-      );
+    const begin = () => {
+      const trail = callbacksRef.current.trail;
+      if (trail) {
+        void (trail.request ?? requestInkPresenter)(canvas).then(start, () =>
+          start(null),
+        );
+      } else {
+        start(null);
+      }
+    };
+
+    // A page in a hidden tab has no box. The workspace keeps hidden tabs
+    // mounted, so starting there would hold a worker and a WebGL context for
+    // a page nobody sees; it starts when the canvas is first laid out instead.
+    // What the host sends meanwhile waits in `pendingRef`.
+    const hasBox = () => {
+      const box = canvas.getBoundingClientRect();
+      return box.width > 0 && box.height > 0;
+    };
+    let observer: ResizeObserver | null = null;
+    if (hasBox() || typeof ResizeObserver === "undefined") {
+      begin();
     } else {
-      start(null);
+      observer = new ResizeObserver(() => {
+        if (!hasBox()) return;
+        observer?.disconnect();
+        observer = null;
+        begin();
+      });
+      observer.observe(canvas);
     }
 
     return () => {
       disposed = true;
+      observer?.disconnect();
       dispose?.();
     };
     // One worker per canvas, deliberately: re-creating it would throw away the
@@ -488,16 +517,31 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** The frame pump: batches reach the worker once per frame, not per sample. */
-  useEffect(() => {
-    let raf = 0;
+  /**
+   * The frame pump: batches reach the worker once per frame, not per sample.
+   * It runs only while a stroke is in progress, because between strokes there
+   * is nothing to send, and an always-on loop per ink page kept the renderer
+   * busy at 60 fps on an idle workspace (M04).
+   */
+  const pumpFrame = useRef(0);
+  const startPump = useCallback(() => {
+    if (pumpFrame.current || !sessionRef.current?.active) return;
     const tick = () => {
-      sessionRef.current?.flush();
-      raf = window.requestAnimationFrame(tick);
+      const session = sessionRef.current;
+      session?.flush();
+      pumpFrame.current = session?.active
+        ? window.requestAnimationFrame(tick)
+        : 0;
     };
-    raf = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(raf);
+    pumpFrame.current = window.requestAnimationFrame(tick);
   }, []);
+  useEffect(
+    () => () => {
+      window.cancelAnimationFrame(pumpFrame.current);
+      pumpFrame.current = 0;
+    },
+    [],
+  );
 
   useEffect(
     () => () => {
@@ -518,7 +562,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
     gateRef.current.penOnly = true;
     setPenOnlyState(true);
     writeStoredPenOnly(storageRef.current ?? null, true);
-  }, []);
+  }, [gateRef]);
 
   const onPointerDown = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -531,6 +575,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
       });
       const gateEvent = toGateEvent(event);
       const claim = session.pointerDown(gateEvent);
+      startPump();
 
       if (event.pointerType === "pen") {
         // The pen is here, so a pen mode should be in force. Fired on every pen
@@ -568,6 +613,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
           ? { x: newest.clientX ?? 0, y: newest.clientY ?? 0 }
           : null;
         session.confirmTouch(at, newest);
+        startPump();
         if (session.active) {
           try {
             event.currentTarget.setPointerCapture?.(pointerId);
@@ -577,7 +623,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
         }
       }, TOUCH_DEFER_MS);
     },
-    [toGateEvent, guardForPen],
+    [toGateEvent, guardForPen, startPump],
   );
 
   const onPointerMove = useCallback(
@@ -592,7 +638,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
       }
       session.pointerRawUpdate(toGateEvent(event));
     },
-    [toGateEvent, guardForPen],
+    [toGateEvent, guardForPen, gateRef],
   );
 
   const onPointerUp = useCallback(
@@ -623,7 +669,7 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
     gateRef.current.penOnly = value;
     setPenOnlyState(value);
     writeStoredPenOnly(storageRef.current ?? null, value);
-  }, []);
+  }, [gateRef]);
 
   // The stored choice is applied after mount: the server has no storage, and
   // deciding during render would ship a guard that flips on hydration.
@@ -633,12 +679,12 @@ export function usePenCapture(options: UsePenCaptureOptions): PenCaptureHandle {
       gateRef.current.penOnly = stored;
       setPenOnlyState(stored);
     }
-  }, []);
+  }, [gateRef]);
 
   // Handedness is the note's, and a note can change hands mid-session.
   useEffect(() => {
     gateRef.current.handedness = options.handedness ?? "right";
-  }, [options.handedness]);
+  }, [gateRef, options.handedness]);
 
   const handlers = useMemo(
     () => ({ onPointerDown, onPointerMove, onPointerUp, onPointerCancel }),

@@ -9,6 +9,7 @@ import {
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { Select } from "@/components/select";
 import { useProfile } from "./profile-provider";
@@ -18,6 +19,8 @@ import { OrgSwitcher } from "./org-switcher";
 import { fetchOwnedOrgs, leaveOrg } from "../infrastructure/org-api";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
+import { ownedOrgsOrError, type OwnedOrg } from "./owned-orgs";
+import { Button } from "@/components/button";
 
 /**
  * People / Organization panel. Embedded in Settings (not its own screen). Shows
@@ -27,9 +30,11 @@ import { FormError } from "@/components/form-error";
  */
 export function OrgPanel() {
   const { profile, labMembers, memberships, activeOrgId, loading, refresh } = useProfile();
-  const [ownedOrgs, setOwnedOrgs] = useState<{ id: string; name: string; ownerId: string }[]>([]);
+  const [ownedOrgs, setOwnedOrgs] = useState<OwnedOrg[]>([]);
+  const [ownedError, setOwnedError] = useState<string | null>(null);
   const [labOpen, setLabOpen] = useState(false);
   const [leaveBusy, setLeaveBusy] = useState(false);
+  const [leaveAsk, setLeaveAsk] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
 
   const activeMembership =
@@ -49,16 +54,15 @@ export function OrgPanel() {
   useEffect(() => {
     if (profile?.role !== "professor") {
       setOwnedOrgs([]);
+      setOwnedError(null);
       return;
     }
     let current = true;
-    void fetchOwnedOrgs()
-      .then((orgs) => {
-        if (current) setOwnedOrgs(orgs);
-      })
-      .catch(() => {
-        if (current) setOwnedOrgs([]);
-      });
+    void ownedOrgsOrError(fetchOwnedOrgs).then(({ orgs, error }) => {
+      if (!current) return;
+      setOwnedOrgs(orgs);
+      setOwnedError(error);
+    });
     // Keyed on the profile, so a response for the previous one must not land.
     return () => {
       current = false;
@@ -70,8 +74,6 @@ export function OrgPanel() {
 
   async function handleLeaveOrg() {
     if (!activeMembership) return;
-    const name = activeMembership.orgName;
-    if (!confirm(`Leave ${name}? You can rejoin later with an invite code.`)) return;
     setLeaveBusy(true);
     setLeaveError(null);
     try {
@@ -81,12 +83,13 @@ export function OrgPanel() {
       setLeaveError(formatError(err));
     } finally {
       setLeaveBusy(false);
+      setLeaveAsk(false);
     }
   }
 
   if (loading) {
     return (
-      <div className="card add-form">
+      <div className="add-form">
         <h3 className="settings-group">People</h3>
         <ScreenLoader status="Loading organization…" compact showTips={false} />
       </div>
@@ -95,7 +98,7 @@ export function OrgPanel() {
 
   if (!profile) {
     return (
-      <div className="card add-form">
+      <div className="add-form">
         <h3 className="settings-group">Organization</h3>
         <OrgEmptyRow onAction={() => setLabOpen(true)} />
         {labOpen && (
@@ -106,7 +109,7 @@ export function OrgPanel() {
   }
 
   return (
-    <div className="card add-form">
+    <div className="add-form">
       <h3 className="settings-group">Organization</h3>
       <OrgSwitcher />
       {!isInOrg ? (
@@ -121,24 +124,23 @@ export function OrgPanel() {
                 : `You're in ${activeMembership?.orgName ?? "a lab"}. Your supervisor and teammates are listed below.`}
           </p>
           <div className="head-row org-panel-actions">
-            <button type="button" className="btn-secondary" onClick={() => setLabOpen(true)}>
+            <Button onClick={() => setLabOpen(true)}>
               Create / join another lab
-            </button>
+            </Button>
             {canLeaveActiveOrg && (
-              <button
-                type="button"
-                className="link-btn danger"
+              <Button variant="cancel"
                 disabled={leaveBusy}
-                onClick={() => void handleLeaveOrg()}
+                onClick={() => setLeaveAsk(true)}
               >
                 {leaveBusy ? "Leaving…" : `Leave ${activeMembership?.orgName ?? "lab"}`}
-              </button>
+              </Button>
             )}
           </div>
         </>
       )}
 
       {leaveError && <FormError>{leaveError}</FormError>}
+      {ownedError && <FormError>{ownedError}</FormError>}
 
       {isOrgHead && (
         <>
@@ -155,7 +157,7 @@ export function OrgPanel() {
       {allowedRoles.length > 0 && (
         <div className="head-row">
           <div className="screen-actions">
-            <button className="btn-secondary" onClick={() => setAddOpen(true)}>New account</button>
+            <Button onClick={() => setAddOpen(true)}>New account</Button>
           </div>
         </div>
       )}
@@ -167,6 +169,19 @@ export function OrgPanel() {
             onCreated={async () => { setAddOpen(false); await refresh(); }}
           />
         </Modal>
+      )}
+
+      {/* Leaving a lab cannot be undone from here: it needs a new invite (D-07). */}
+      {leaveAsk && activeMembership && (
+        <ConfirmDialog
+          title="Leave lab?"
+          body={`You leave ${activeMembership.orgName}. You can rejoin later with an invite code.`}
+          confirmLabel="Leave lab"
+          danger
+          busy={leaveBusy}
+          onConfirm={() => void handleLeaveOrg()}
+          onClose={() => setLeaveAsk(false)}
+        />
       )}
 
       {labMembers.length === 0 || (!isInOrg && labMembers.every((m) => m.id === profile.id)) ? (
@@ -184,9 +199,9 @@ function OrgEmptyRow({ onAction }: { onAction: () => void }) {
   return (
     <div className="org-empty-row">
       <p className="muted org-empty-text">You are not part of any org yet.</p>
-      <button type="button" className="btn-secondary" onClick={onAction}>
+      <Button onClick={onAction}>
         Create or join
-      </button>
+      </Button>
     </div>
   );
 }
@@ -231,7 +246,7 @@ function CreateAccountForm({
   }
 
   return (
-    <form className="card add-form" onSubmit={submit}>
+    <form className="add-form" onSubmit={submit}>
       <h3 className="settings-group">Create an account</h3>
       <p className="muted" style={{ margin: "4px 0 12px" }}>
         The new member will be supervised by you.
@@ -286,9 +301,9 @@ function CreateAccountForm({
 
       {error && <FormError>{error}</FormError>}
       {done && <p className="muted">{done}</p>}
-      <button className="btn-primary" disabled={busy}>
+      <Button type="submit" variant="primary" disabled={busy}>
         {busy ? "Creating…" : "Create account"}
-      </button>
+      </Button>
     </form>
   );
 }

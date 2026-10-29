@@ -113,6 +113,17 @@ export function fitGraphView(fg: FgHandle, nodes: { x?: number; y?: number }[], 
   return true;
 }
 
+const SIM_KEYS = ["x", "y", "vx", "vy", "index"] as const;
+
+function simState(node: object): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const key of SIM_KEYS) {
+    const value = (node as Record<string, unknown>)[key];
+    if (typeof value === "number") out[key] = value;
+  }
+  return out;
+}
+
 /** Reuse simulation node objects so x/y/vx/vy survive graph updates. */
 export function mergeSimNodes<T extends { id: string; label: string; val: number; color: string; kind: string; paperId?: string; noteId?: string; tagName?: string; x?: number; y?: number; fx?: number; fy?: number }>(
   incoming: T[],
@@ -123,9 +134,8 @@ export function mergeSimNodes<T extends { id: string; label: string; val: number
   const next = new Map<string, T>();
   for (const n of incoming) {
     const prev = cache.get(n.id);
-    const node: T = prev
-      ? { ...prev, label: n.label, val: n.val, color: n.color, kind: n.kind, paperId: n.paperId, noteId: n.noteId, tagName: n.tagName }
-      : { ...n };
+    // Data comes from the new node; only the simulation's state carries over.
+    const node: T = prev ? { ...n, ...simState(prev) } : { ...n };
     const pin = pinned.get(n.id);
     const lane = laneX?.(node) ?? null;
     if (pin) {

@@ -32,6 +32,18 @@ export function isChildItem(d: ZoteroItemData): boolean {
   return CHILD_ITEM_TYPES.has(d.itemType ?? "") || !!d.parentItem;
 }
 
+/**
+ * Zotero's own settings page shows a bare user id ("123456"), so that is what
+ * people paste. The API needs a library *path*: `users/<id>` or `groups/<id>`.
+ * Anything else is `undefined`.
+ */
+export function normalizeZoteroLibrary(library: string | undefined): string | undefined {
+  const value = library?.trim();
+  if (!value) return undefined;
+  if (/^\d+$/.test(value)) return `users/${value}`;
+  return /^(users|groups)\/\d+$/.test(value) ? value : undefined;
+}
+
 export function zoteroLibraryUrl(library: string, apiOrigin = ZOTERO_API_ORIGIN): string {
   return `${apiOrigin.replace(/\/$/, "")}/${library.replace(/^\//, "")}`;
 }

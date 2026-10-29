@@ -7,9 +7,9 @@ import type { FeatureModule } from "@weaveforge/core";
 export const reportModule: FeatureModule = {
   id: "report",
   title: "Report",
-  navGroup: "report",
+  navGroup: "write",
   navItems: [
-    { key: "report-sections", label: "Sections", path: "/report", icon: "doc" },
+    { key: "report-sections", label: "Report", path: "/report", icon: "doc" },
     { key: "report-overleaf", label: "Overleaf", path: "/report/overleaf", icon: "overleaf" },
   ],
   routes: [

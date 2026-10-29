@@ -1,4 +1,6 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webFrame } from "electron";
+import { createSignInInbox } from "./sign-in-relay";
+import { settleAfterLoad } from "./settle-after-load";
 import type {
   DesktopBridge,
   DesktopCommit,
@@ -54,13 +56,19 @@ async function call<T>(channel: string, ...args: unknown[]): Promise<T> {
   return result.value;
 }
 
+/**
+ * Sign-ins are caught from the moment the page loads, not from when the app
+ * subscribes after React mounts; one that lands in between waits here (38-07).
+ */
+const signInInbox = createSignInInbox();
+ipcRenderer.on(CHANNELS.signIn, (_event: unknown, query: string) => signInInbox.deliver(query));
+
 const bridge: DesktopBridge = {
   version: __APP_VERSION__,
   platform: process.platform as DesktopBridge["platform"],
   fetchTitle: (url) => call<TitlePayload>(CHANNELS.fetchTitle, url),
   fetchImage: (url) => call<ImagePayload>(CHANNELS.fetchImage, url),
-  checkUpdate: () => ipcRenderer.invoke(CHANNELS.checkUpdate) as Promise<DesktopUpdate | null>,
-  readPreference: (name) => call<DesktopPreferenceValue>(CHANNELS.preferenceRead, name),
+  checkUpdate: () => call<DesktopUpdate | null>(CHANNELS.checkUpdate),
   writePreference: async (name, value) => {
     await call<null>(CHANNELS.preferenceWrite, name, value);
   },
@@ -71,9 +79,6 @@ const bridge: DesktopBridge = {
   },
   chooseVaultRoot: () => call<DesktopVaultRoot | null>(CHANNELS.vaultChoose),
   vaultRoot: () => call<DesktopVaultRoot | null>(CHANNELS.vaultRoot),
-  forgetVaultRoot: async () => {
-    await call<null>(CHANNELS.vaultForget);
-  },
   readVaultFile: (path) => call<string | null>(CHANNELS.vaultRead, path),
   writeVaultFile: async (path, contents) => {
     await call<null>(CHANNELS.vaultWrite, path, contents);
@@ -147,21 +152,27 @@ const bridge: DesktopBridge = {
     const listener = (_event: unknown, id: number, query: string, candidates: string[]) => {
       // The answer goes back on its own channel rather than through the event,
       // for the same reason the event object is never handed over.
-      void Promise.resolve(cb(query, candidates))
-        .catch(() => null)
-        .then((order) => ipcRenderer.send(CHANNELS.semanticRanked, id, order));
+      // A failure still answers (null keeps the order), with its reason so
+      // main can log it; a synchronous throw counts as a failure too.
+      void Promise.resolve()
+        .then(() => cb(query, candidates))
+        .then(
+          (order) => ipcRenderer.send(CHANNELS.semanticRanked, id, order),
+          (err: unknown) =>
+            ipcRenderer.send(CHANNELS.semanticRanked, id, null, err instanceof Error ? err.message : String(err)),
+        );
     };
     ipcRenderer.on(CHANNELS.semanticRank, listener);
     return () => ipcRenderer.off(CHANNELS.semanticRank, listener);
   },
   onSignIn: (cb) => {
-    // The listener is wrapped rather than passed through, so the renderer never
+    // The inbox hands on only the query, so the renderer never
     // receives Electron's `IpcRendererEvent` — which carries `sender`, and with
     // it a way back into this process that the contract does not offer.
-    const listener = (_event: unknown, query: string) => cb(query);
-    ipcRenderer.on(CHANNELS.signIn, listener);
-    return () => ipcRenderer.off(CHANNELS.signIn, listener);
+    return signInInbox.subscribe(cb);
   },
 };
 
 contextBridge.exposeInMainWorld("weaveforge", bridge);
+
+settleAfterLoad(window, () => webFrame.clearCache());

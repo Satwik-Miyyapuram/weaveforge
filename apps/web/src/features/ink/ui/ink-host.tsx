@@ -77,7 +77,9 @@ import { useInkNoteStore } from "./use-ink-note-store";
 import { useInkPageLifecycle } from "./use-ink-page-lifecycle";
 import { useInkPageMedia } from "./use-ink-page-media";
 import { useInkPen } from "./use-ink-pen";
+import { useInkMetaSetters } from "./use-ink-meta-setters";
 import { useInkPrefs } from "./use-ink-prefs";
+import { useInkPageHistory } from "./use-ink-page-history";
 import { useInkShortcuts } from "./use-ink-shortcuts";
 import { useInkWorkerRpc } from "./use-ink-worker-rpc";
 import { useInkRecognition } from "./use-ink-recognition";
@@ -228,6 +230,7 @@ export function InkHost({
     ensurePageCount,
     onAddPage,
     goToPage,
+    loadError,
   } = useInkNoteStore({
       noteId,
       onSave,
@@ -304,29 +307,8 @@ export function InkHost({
     [],
   );
 
-  /**
-   * The paper is the note's too (§6.2.12): every stored page carries a copy,
-   * so the pages already loaded take the new one before the sheet re-renders.
-   */
-  const setPaper = useCallback(
-    (next: InkPaper) => {
-      metaRef.current = { ...metaRef.current, paper: next };
-      for (const stored of pagesRef.current ?? []) stored.paper = next;
-      setPaperState(next);
-      scheduleSave();
-    },
-    [scheduleSave],
-  );
-
-  /** The hand is the note's (§4.1), so changing it is a save. */
-  const setHand = useCallback(
-    (next: InkHand) => {
-      metaRef.current = { ...metaRef.current, hand: next };
-      setHandState(next);
-      scheduleSave();
-    },
-    [scheduleSave],
-  );
+  /** The paper and the hand are the note's: each change is a save (§use-ink-meta-setters). */
+  const { setPaper, setHand } = useInkMetaSetters({ metaRef, pagesRef, setHandState, setPaperState, scheduleSave });
 
   /**
    * The current page's recognition, for the column and for corrections
@@ -338,7 +320,8 @@ export function InkHost({
     recogniser: deps.recogniser.bind(deps),
     hints: deps.hints.bind(deps),
     requestModel,
-    sendReplace: (page) => send({ type: "replace-page", page }),
+    sendReplace: (page, pageIndex) =>
+      send({ type: "replace-page", pageIndex, page }),
     metaRef,
     textPagesRef,
     pageIndex,
@@ -348,7 +331,14 @@ export function InkHost({
     recognition;
 
   /** The page's figures (§use-ink-figures): the text layer's block, mirrored. */
-  const figureState = useInkFigures({ textPagesRef, pageIndexRef, scheduleSave });
+  /** One undo order for strokes and figure edits (§use-ink-page-history). */
+  const pageHistory = useInkPageHistory({ depth: history.undo, pageIndex });
+  const figureState = useInkFigures({
+    textPagesRef,
+    pageIndexRef,
+    scheduleSave,
+    onStep: pageHistory.record,
+  });
   const { figures, figuresRef, setFigures, figureControls, setFigureControls } = figureState;
   const { onFiguresChange, onFigureChange } = figureState;
 
@@ -533,13 +523,25 @@ export function InkHost({
       wrapRef,
     });
 
+  /** Pan, pinch, erase, undo, redo (§use-ink-edit-actions). */
+  const { onPan, onPinch, onErase, onUndo, onRedo } = useInkEditActions({
+    send,
+    scheduleSave,
+    scrollRef,
+    setZoom,
+    project,
+    takeStep: pageHistory.take,
+    restoreFigures: figureState.restoreFigures,
+  });
+
   /**
    * The keyboard and the wheel (§use-ink-shortcuts): tools, undo, recognise,
    * print and export, the selection, and the zoom a ⌘/Ctrl wheel asks for.
    */
   useInkShortcuts({
     send,
-    scheduleSave,
+    onUndo,
+    onRedo,
     setTool,
     onCursor: enterCursor,
     onColourChange,
@@ -552,11 +554,6 @@ export function InkHost({
     onExportSvg: () => void onExportSvg(),
     scrollRef,
     setZoom,
-  });
-
-  /** Pan, pinch, erase, undo, redo (§use-ink-edit-actions). */
-  const { onPan, onPinch, onErase, onUndo, onRedo } = useInkEditActions({
-    send, scheduleSave, scrollRef, setZoom, project,
   });
 
   // The text as shown, flowed across pages (§ink-text-flow).
@@ -625,14 +622,14 @@ export function InkHost({
         backend={pen.backend}
         busy={recognising}
         progress={progress}
-        canUndo={history.undo > 0}
-        canRedo={history.redo > 0}
+        canUndo={pageHistory.canUndo}
+        canRedo={pageHistory.canRedo}
         selected={selection.length}
         showTextLayer={showTextLayer}
         onToggleTextLayer={() => setShowTextLayer((prev) => !prev)}
         selectActive={cursorMode}
         onSelect={enterCursor}
-        selectLabel="Cursor" selectPointer
+        selectPointer
         onTool={(next) => {
           if (next !== "lasso" && selection.length > 0) {
             send({ type: "select-clear" });
@@ -655,11 +652,13 @@ export function InkHost({
         onRedo={onRedo}
         onAddPage={onAddPage}
         onAddImage={onAddImageToCurrentPage}
+        takesPictureDrops
         hasPageBackground={Boolean(backgroundPath)}
         onRemovePageBackground={() => void onRemovePageBackground()}
         onInsertPage={() => pdfInputRef.current?.click()}
         onPrevPage={() => goToPage(pageIndex - 1)}
         onNextPage={() => goToPage(pageIndex + 1)}
+        onGoToPage={(n) => goToPage(n - 1)}
         onDeleteSelection={onDeleteSelection}
         onCopyAsText={() => void onCopyAsText()}
         onCopyStrokes={() => void onCopyStrokes()}
@@ -733,16 +732,17 @@ export function InkHost({
                   draggable={false}
                 />
               ) : null}
-              <InkSheetTextUnderlay
-                text={pureText}
-                scale={scale}
-                resolveImageSrc={resolveImageSrc}
-              />
               <InkFigures
                 figures={figures}
                 scale={scale}
                 imageUrls={figureUrls}
                 activeIndex={figureControls}
+              />
+              {/* After the figures, so typed text is not hidden under one (DA-101). */}
+              <InkSheetTextUnderlay
+                text={pureText}
+                scale={scale}
+                resolveImageSrc={resolveImageSrc}
               />
               <InkPageInk
                 strokes={sheetStrokes}
@@ -768,7 +768,7 @@ export function InkHost({
         lines={lines}
         confidence={confidence}
         progress={progress}
-        unavailable={unavailable}
+        unavailable={loadError ?? unavailable}
         onAccept={onAccept}
         rawText={pureText}
       />

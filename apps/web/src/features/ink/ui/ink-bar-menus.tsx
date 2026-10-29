@@ -17,6 +17,43 @@ import { createPortal } from "react-dom";
 import { type InkPaper } from "@weaveforge/core";
 
 /**
+ * The edge the palette is docked to, or "" when it is not. The dock only moves
+ * the palette in focus mode (CSS); elsewhere the bar is a plain row, and its
+ * lists drop under their buttons like every other menu.
+ */
+export function barMenuDock(menu: Element): string {
+  if (!menu.closest(".is-focus")) return "";
+  return menu.closest(".ink-palette")?.getAttribute("data-dock") ?? "";
+}
+
+type Box = { top: number; bottom: number; left: number; right: number };
+
+/** Where a list of size lw x lh opens for a button at `mr`, kept on screen. */
+export function placeBarMenu(
+  mr: Box,
+  dock: string,
+  { lw, lh, vw, vh }: { lw: number; lh: number; vw: number; vh: number },
+): { top: number; left: number } {
+  const pad = 8;
+  let top = mr.bottom + 6;
+  let left = mr.right - lw;
+
+  if (dock === "left" || (dock.includes("left") && mr.left < 100)) {
+    left = mr.right + 6;
+    top = mr.top;
+  } else if (dock === "right" || (dock.includes("right") && mr.right > vw - 100)) {
+    left = mr.left - lw - 6;
+    top = mr.top;
+  } else if (dock === "bottom" || mr.top > vh / 2) {
+    top = mr.top - lh - 6;
+  }
+
+  left = Math.max(pad, Math.min(left, vw - lw - pad));
+  top = Math.max(pad, Math.min(top, vh - lh - pad));
+  return { top: Math.round(top), left: Math.round(left) };
+}
+
+/**
  * One drop-down's own state: open or not, and the two refs it needs.
  *
  * The bar wraps, so a button can sit at the left end of a row on a narrow pane
@@ -57,34 +94,9 @@ export function useBarMenu() {
     if (!menu || !list) return;
 
     const place = () => {
-      const mr = menu.getBoundingClientRect();
       const lr = list.getBoundingClientRect();
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const pad = 8;
-      const lw = lr.width || 240;
-      const lh = lr.height || 260;
-
-      const palette = menu.closest<HTMLElement>(".ink-palette");
-      const dock = palette?.getAttribute("data-dock") ?? "";
-
-      let top = mr.bottom + 6;
-      let left = mr.right - lw;
-
-      if (dock === "left" || (dock.includes("left") && mr.left < 100)) {
-        left = mr.right + 6;
-        top = mr.top;
-      } else if (dock === "right" || (dock.includes("right") && mr.right > vw - 100)) {
-        left = mr.left - lw - 6;
-        top = mr.top;
-      } else if (dock === "bottom" || mr.top > vh / 2) {
-        top = mr.top - lh - 6;
-      }
-
-      left = Math.max(pad, Math.min(left, vw - lw - pad));
-      top = Math.max(pad, Math.min(top, vh - lh - pad));
-
-      setPos({ top: Math.round(top), left: Math.round(left) });
+      const view = { lw: lr.width || 240, lh: lr.height || 260, vw: window.innerWidth, vh: window.innerHeight };
+      setPos(placeBarMenu(menu.getBoundingClientRect(), barMenuDock(menu), view));
     };
 
     place();
@@ -96,7 +108,13 @@ export function useBarMenu() {
     };
   }, [open]);
 
-  return { open, setOpen, menuRef, listRef, pos };
+  /** Close the menu, then run what was chosen. */
+  const choose = (run: () => void) => () => {
+    setOpen(false);
+    run();
+  };
+
+  return { open, setOpen, menuRef, listRef, pos, choose };
 }
 
 /**
@@ -131,6 +149,9 @@ export function BarMenuList({
         bottom: "auto",
         width: "max-content",
         maxWidth: "min(340px, calc(100vw - 16px))",
+        // A list taller than the window scrolls inside it rather than off it.
+        maxHeight: "calc(100vh - 16px)",
+        overflowY: "auto",
         zIndex: 100,
         transform: "none",
       }}

@@ -2,13 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { readStorageConfig } from "@/storage/config";
 import { buildTieredBlobStoreFromRegistry } from "@/storage/build-tiered-blob-store";
 import { PostgrestBlobRegistry } from "@/storage/providers/postgrest/blob-registry";
-
-const STORAGE_BUCKETS = [
-  "paper-images",
-  "experiment-artifacts",
-  "vault-assets",
-  "report-images",
-] as const;
+import { BLOB_STORAGE_BUCKETS } from "@/storage/server/blob-access";
 
 interface BlobRow {
   bucket: string;
@@ -54,7 +48,7 @@ export async function purgeUserBlobs(
     }
   }
 
-  for (const bucket of STORAGE_BUCKETS) {
+  for (const bucket of BLOB_STORAGE_BUCKETS) {
     await removeStoragePrefix(admin, bucket, userId);
   }
 
@@ -65,8 +59,12 @@ export async function purgeUserBlobs(
     );
   }
 
-  await admin.from("blob_objects").delete().eq("user_id", userId);
+  const { error: deleteError } = await admin.from("blob_objects").delete().eq("user_id", userId);
+  if (deleteError) throw deleteError;
 }
+
+/** One listing call returns at most this many entries; longer prefixes are paged. */
+const LIST_PAGE = 200;
 
 async function removeStoragePrefix(
   admin: SupabaseClient,
@@ -78,22 +76,28 @@ async function removeStoragePrefix(
 
   while (queue.length) {
     const current = queue.pop()!;
-    const { data, error } = await admin.storage.from(bucket).list(current, { limit: 200 });
-    /* Returning here skipped the rest of the bucket and reported success, so a
-       listing failure looked exactly like an empty bucket. */
-    if (error) throw error;
+    for (let offset = 0; ; offset += LIST_PAGE) {
+      const { data, error } = await admin.storage
+        .from(bucket)
+        .list(current, { limit: LIST_PAGE, offset });
+      /* Returning here skipped the rest of the bucket and reported success, so a
+         listing failure looked exactly like an empty bucket. */
+      if (error) throw error;
 
-    for (const entry of data ?? []) {
-      const full = current ? `${current}/${entry.name}` : entry.name;
-      if (entry.id) {
-        paths.push(full);
-      } else {
-        queue.push(full);
+      for (const entry of data ?? []) {
+        const full = current ? `${current}/${entry.name}` : entry.name;
+        if (entry.id) {
+          paths.push(full);
+        } else {
+          queue.push(full);
+        }
       }
+      if ((data?.length ?? 0) < LIST_PAGE) break;
     }
   }
 
   if (paths.length) {
-    await admin.storage.from(bucket).remove(paths);
+    const { error } = await admin.storage.from(bucket).remove(paths);
+    if (error) throw error;
   }
 }

@@ -13,7 +13,14 @@ import { createElement, type ReactNode } from "react";
 import type { Project } from "@weaveforge/core";
 
 import { useScreenData } from "@/lib/hooks/use-screen-data";
-import { clearAllScreenCaches, screenCacheKey, setScreenCache } from "@/lib/cache/screen-cache";
+import {
+  clearAllScreenCaches,
+  clearScreenCachesForScreens,
+  screenCacheKey,
+  setScreenCache,
+} from "@/lib/cache/screen-cache";
+import { cacheRepo } from "@/lib/cache/cache-repo";
+import { closeAppDb } from "@/lib/cache/app-idb";
 import { ProjectContext } from "@/features/projects/ui/project-provider";
 import { createFakeIndexedDb } from "./fake-indexeddb.js";
 import { renderHook } from "./react-harness.js";
@@ -222,4 +229,178 @@ test("screen data: a failed load is written to the app log, not only to state", 
   } finally {
     (globalThis as { window?: unknown }).window = originalWindow;
   }
+});
+
+for (const [label, thrown] of [
+  ["a network failure", new TypeError("Failed to fetch")],
+  ["a PostgREST refusal", { code: "42501", details: null, hint: null, message: "permission denied for table papers" }],
+] as const) {
+  test(`screen data: ${label} is left to the request log, not logged twice`, async () => {
+    // The request log already wrote this one when the request failed (xlog-15).
+    clearAllScreenCaches();
+    const reports: { source: string }[] = [];
+    const originalWindow = (globalThis as { window?: unknown }).window;
+    (globalThis as { window?: unknown }).window = {
+      location: { origin: "http://localhost:3000" },
+      weaveforge: {
+        fetchTitle: () => Promise.resolve({}),
+        reportAppLog: (entry: { source: string }) => void reports.push(entry),
+      },
+    };
+    try {
+      const harness = await renderHook(
+        () =>
+          useScreenData<Payload>(SCREEN, async () => {
+            throw thrown;
+          }),
+        undefined,
+        { wrapper: withProject },
+      );
+      await harness.flush();
+      assert.ok(harness.current.error, "the screen still shows the error");
+      assert.deepEqual(reports.filter((r) => r.source === "screen"), []);
+      await harness.unmount();
+    } finally {
+      (globalThis as { window?: unknown }).window = originalWindow;
+    }
+  });
+}
+
+test("screen data: refresh goes past the repository memo, not only the screen cache", async () => {
+  // `refresh` exists for a write the write-watch did not see. That write left
+  // the repository memo stale too, so clearing only the screen cache reloaded
+  // the same old payload from the memo.
+  clearAllScreenCaches();
+  let stored = "before";
+  const repo = cacheRepo({ list: async () => stored }, ["list"], [], () => PROJECT_ID);
+  const harness = await renderHook(
+    () => useScreenData<Payload>(SCREEN, async () => ({ label: await repo.list() })),
+    undefined,
+    { wrapper: withProject },
+  );
+  await harness.flush();
+  assert.equal(harness.current.data?.label, "before");
+
+  stored = "after";
+  await harness.current.refresh();
+  await harness.flush();
+  assert.equal(harness.current.data?.label, "after");
+  await harness.unmount();
+});
+
+test("screen data: a payload cleared just before mount is not restored (xapi-13)", async () => {
+  // The clear deletes the stored payload asynchronously. A mount that reads
+  // IndexedDB before that delete lands used to paint the payload the write
+  // had just made stale.
+  clearAllScreenCaches();
+  const idb = createFakeIndexedDb();
+  idb.seed("screens", CACHE_KEY, {
+    version: 1,
+    fetchedAt: Date.now(),
+    value: { label: "stale" } satisfies Payload,
+  });
+  closeAppDb(); // a handle cached by an earlier test points at its fake
+  idb.install();
+  try {
+    clearScreenCachesForScreens(PROJECT_ID, [SCREEN]);
+    const gate = deferred<Payload>();
+    const harness = await renderHook(
+      () => useScreenData<Payload>(SCREEN, () => gate.promise),
+      undefined,
+      { wrapper: withProject },
+    );
+    await idb.settle(harness.flush);
+    assert.equal(harness.current.data, null, "the cleared payload stays cleared");
+    gate.resolve({ label: "fresh" });
+    await harness.flush();
+    assert.equal((harness.current.data as Payload | null)?.label, "fresh");
+    await harness.unmount();
+  } finally {
+    idb.uninstall();
+    clearAllScreenCaches();
+  }
+});
+
+test("screen data: a payload for another screen is still restored after a clear", async () => {
+  clearAllScreenCaches();
+  const idb = createFakeIndexedDb();
+  idb.seed("screens", CACHE_KEY, {
+    version: 1,
+    fetchedAt: Date.now(),
+    value: { label: "restored" } satisfies Payload,
+  });
+  closeAppDb(); // a handle cached by an earlier test points at its fake
+  idb.install();
+  try {
+    clearScreenCachesForScreens(PROJECT_ID, ["logbook"]);
+    const gate = deferred<Payload>();
+    const harness = await renderHook(
+      () => useScreenData<Payload>(SCREEN, () => gate.promise),
+      undefined,
+      { wrapper: withProject },
+    );
+    await idb.settle(harness.flush);
+    assert.equal(harness.current.data?.label, "restored");
+    await harness.unmount();
+  } finally {
+    idb.uninstall();
+    clearAllScreenCaches();
+  }
+});
+
+test("screen data: a clear that starts while the restore is reading drops what it read", async () => {
+  clearAllScreenCaches();
+  const idb = createFakeIndexedDb();
+  idb.seed("screens", CACHE_KEY, {
+    version: 1,
+    fetchedAt: Date.now(),
+    value: { label: "stale" } satisfies Payload,
+  });
+  closeAppDb(); // a handle cached by an earlier test points at its fake
+  idb.install();
+  try {
+    const gate = deferred<Payload>();
+    const harness = await renderHook(
+      () => useScreenData<Payload>(SCREEN, () => gate.promise),
+      undefined,
+      { wrapper: withProject },
+    );
+    // The read is queued ahead of this delete, so it still finds the payload.
+    clearScreenCachesForScreens(PROJECT_ID, [SCREEN]);
+    await idb.settle(harness.flush);
+    assert.equal(harness.current.data, null, "a payload read across a clear is not painted");
+    await harness.unmount();
+  } finally {
+    idb.uninstall();
+    clearAllScreenCaches();
+  }
+});
+
+test("screen data: a screen mounted after a hover prefetch does not fetch again (xapi-14)", async () => {
+  // The prefetch warms the repository memo, not the screen cache: screens
+  // shape their payloads differently from the facades' loaders. The mount's
+  // load then answers from the memo.
+  clearAllScreenCaches();
+  let fetches = 0;
+  const repo = cacheRepo(
+    {
+      list: async () => {
+        fetches += 1;
+        return "rows";
+      },
+    },
+    ["list"],
+    [],
+    () => PROJECT_ID,
+  );
+  await repo.list();
+  const harness = await renderHook(
+    () => useScreenData<Payload>(SCREEN, async () => ({ label: await repo.list() })),
+    undefined,
+    { wrapper: withProject },
+  );
+  await harness.flush();
+  assert.equal(harness.current.data?.label, "rows");
+  assert.equal(fetches, 1);
+  await harness.unmount();
 });

@@ -44,6 +44,7 @@ import { ReferenceLookupService } from "@/features/reader/application/reference-
 import { createReferenceActions } from "@/features/reader/application/reference-actions";
 import { IdbReferenceLookupCache } from "@/features/reader/infrastructure/reference-lookup-cache";
 import { ArxivMetadataSource } from "@/features/papers/infrastructure/arxiv-metadata-source";
+import { localZoteroCollection } from "@/features/papers/infrastructure/zotero-collection";
 import { CrossrefMetadataSource } from "@/features/papers/infrastructure/crossref-metadata-source";
 import { UrlMetadataSource } from "@/features/papers/infrastructure/url-metadata-source";
 import { DeletePaperUseCase } from "@/features/papers/application/delete-paper.use-case";
@@ -97,6 +98,7 @@ import { FsInkChunkStore } from "@/features/ink/infrastructure/fs-ink-chunk-stor
 import { RoutedInkChunkStore } from "@/features/ink/infrastructure/routed-ink-chunk-store";
 import { activeWorkspaceFs, folderRestored } from "@/features/workspace/application/workspace-folder";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { reportCitationAlertError } from "@/features/relations/infrastructure/report-citation-alert-error";
 import type { ProjectContext } from "@/lib/project-context";
 import { randomBytes, systemClock, uuidIds } from "@/lib/system";
 import type { ProjectLwwInvalidator } from "@/lib/cache/project-lww-invalidator";
@@ -106,6 +108,7 @@ import { FetchingBlobStore } from "@/storage/fetching-blob-store";
 import { PaperImageStore } from "@/features/papers/infrastructure/paper-image-store";
 import { VaultAssetStore } from "@/features/vault/infrastructure/vault-asset-store";
 import { ReportImageStore } from "@/features/report/infrastructure/report-image-store";
+import { LogImageStore } from "@/features/logbook/infrastructure/log-image-store";
 import { ExperimentArtifactStore } from "@/features/experiments/infrastructure/experiment-artifact-store";
 import { createCredentialReader } from "@/integrations/credentials";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
@@ -184,6 +187,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
   const paperImageStore = new PaperImageStore(encryptedBlobStore, backend.session);
   const vaultAssetStore = new VaultAssetStore(encryptedBlobStore, backend.session);
   const reportImageStore = new ReportImageStore(encryptedBlobStore, backend.session);
+  const logImageStore = new LogImageStore(encryptedBlobStore, backend.session);
   // Signs artifact paths on read. Nothing stores a signed URL: SigV4 caps one
   // at seven days, so a stored link is a link with a deadline.
   const experimentArtifactStore = new ExperimentArtifactStore(encryptedBlobStore, backend.session);
@@ -330,6 +334,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     notifications,
     clock: systemClock,
     getProjectId: pid,
+    onError: reportCitationAlertError,
   });
 
   const managePaperFields = new ManagePaperFieldsUseCase({
@@ -367,9 +372,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     shareLinkRepository && new ManageShareLinksUseCase({ shareLinks: shareLinkRepository });
   const revokeShareLink =
     shareLinkRepository &&
-    new RevokeShareLinkUseCase({
-      shareLinks: shareLinkRepository,
-    });
+    new RevokeShareLinkUseCase({ shareLinks: shareLinkRepository });
   const pinSharedResource = new PinSharedResourceUseCase({
     pins: backend.libraryPinRepository,
     shares: backend.shareRepository,
@@ -410,22 +413,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     manageTags,
     // Lazily, because the desktop bridge is only meaningful inside the shell.
     bridge: async () => (await import("@/lib/desktop/desktop-bridge")).desktop(),
-    // The same per-project collection the cloud sync reads, so "read Zotero on
-    // this computer" takes the collection the reader is working on rather than
-    // their whole library. `undefined` — no project, or none chosen — means the
-    // whole library, which is what the cloud path does too.
-    collection: async () => {
-      const projectId = pid();
-      if (!projectId) return undefined;
-      try {
-        return await projectBibliographyCollection.getCollection(projectId);
-      } catch {
-        // A collection setting that cannot be read is not a reason to refuse
-        // the import: the whole library is a superset of it, and a reader gets
-        // their papers rather than an error about a setting.
-        return undefined;
-      }
-    },
+    collection: localZoteroCollection(projectBibliographyCollection, pid),
   });
   const aiProposalExecutors = new AiProposalExecutorRegistry(
     GENERATED_MCP_PROPOSAL_EXECUTOR_FACTORY
@@ -650,6 +638,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
       addLogEntry,
       logSync,
       notifications,
+      images: logImageStore,
     }),
     report: new ReportFacade({
       load: loadReportScreen,
@@ -696,7 +685,6 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     }),
     dashboard: new DashboardFacade({
       layout: backend.dashboardLayoutRepository,
-      prefetch: prefetchProject,
       projectId: pid,
       papers: paperRepository,
       sections: reportSectionRepository,
@@ -793,6 +781,7 @@ export async function createAppContainer(): Promise<CreatedAppContainer> {
     prefetchProject,
     integrationConfig: wiredIntegrations.config,
   };
+  lifecycle.registerReset(() => container.aiProposals.forgetPending()); // the next user's queue, not ours
 
-  return { container, projectLww, dispose: lifecycle.dispose };
+  return { container, projectLww, dispose: () => (lifecycle.dispose(), backend.dispose()) };
 }

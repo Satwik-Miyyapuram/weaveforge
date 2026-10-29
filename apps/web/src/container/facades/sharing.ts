@@ -19,6 +19,12 @@ import type { ISharedReader } from "@/features/sharing/domain/shared-reader";
 import type { LoadSharedWithMeScreenUseCase, LoadSharedWithMeScreenData } from "@/features/sharing/application/load-shared-with-me-screen.use-case";
 import type { ICurrentUserProvider } from "@weaveforge/core";
 
+/** A share-link use case, or the one error every caller gets without it. */
+function requireLinks<T>(useCase: T | null): T {
+  if (!useCase) throw new Error("Share links require the PostgREST backend.");
+  return useCase;
+}
+
 export class SharingFacade {
   constructor(
     private readonly deps: {
@@ -49,14 +55,13 @@ export class SharingFacade {
     resourceId: string;
     expiresAt?: string | null;
   }) {
-    if (!this.deps.createShareLink) throw new Error("Share links require the PostgREST backend.");
+    const createShareLink = requireLinks(this.deps.createShareLink);
     const ownerId = await this.deps.session.requireUserId();
-    return this.deps.createShareLink.execute({ ownerId, ...input });
+    return createShareLink.execute({ ownerId, ...input });
   }
 
   async redeemShareLink(urlToken: string) {
-    if (!this.deps.redeemShareLink) throw new Error("Share links require the PostgREST backend.");
-    return this.deps.redeemShareLink.execute(urlToken);
+    return requireLinks(this.deps.redeemShareLink).execute(urlToken);
   }
 
   listShareLinks(resourceType: ShareableType, resourceId: string) {
@@ -64,10 +69,10 @@ export class SharingFacade {
     return this.deps.manageShareLinks.listForResource(resourceType, resourceId);
   }
 
-  async revokeShareLink(input: { id: string; rotateDek?: boolean }) {
-    if (!this.deps.revokeShareLink) throw new Error("Share links require the PostgREST backend.");
+  async revokeShareLink(input: { id: string }) {
+    const revokeShareLink = requireLinks(this.deps.revokeShareLink);
     const ownerId = await this.deps.session.requireUserId();
-    return this.deps.revokeShareLink.execute({ ownerId, linkId: input.id, rotateDek: input.rotateDek });
+    return revokeShareLink.execute({ ownerId, linkId: input.id });
   }
 
   get manageSharing() {

@@ -5,7 +5,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { previewReaderHref, siteOf } from "../application/paper-preview";
+import { PreviewCache, previewReaderHref, siteOf } from "../application/paper-preview";
 
 const local = "/workspace?locus=p1";
 
@@ -29,4 +29,34 @@ test("with nothing to open there is no link", () => {
 test("the site is the host without www", () => {
   assert.equal(siteOf("https://www.example.org/post/1"), "example.org");
   assert.equal(siteOf("not a url"), "not a url");
+});
+
+test("the preview cache keeps the newest, revoking the picture it drops (25-16)", () => {
+  const revoked: string[] = [];
+  const cache = new PreviewCache(2, (url) => revoked.push(url));
+  cache.remember("a", { kind: "pdf", imageUrl: "blob:a" });
+  cache.remember("b", { kind: "page", title: "B", site: "b.org" });
+  assert.equal(cache.get("a")?.kind, "pdf"); // a is now the most recent
+  cache.remember("c", { kind: "pdf", imageUrl: "blob:c" });
+  assert.equal(cache.get("b"), undefined);
+  assert.deepEqual(revoked, []); // b had no picture
+  cache.remember("d", { kind: "pdf", imageUrl: "blob:d" });
+  assert.equal(cache.get("a"), undefined);
+  assert.deepEqual(revoked, ["blob:a"]);
+});
+
+test("a second preview for the same paper is revoked and the first kept (25-16)", () => {
+  const revoked: string[] = [];
+  const cache = new PreviewCache(4, (url) => revoked.push(url));
+  const first = cache.remember("a", { kind: "pdf", imageUrl: "blob:1" });
+  const second = cache.remember("a", { kind: "pdf", imageUrl: "blob:2" });
+  assert.deepEqual(first, second);
+  assert.deepEqual(second, { kind: "pdf", imageUrl: "blob:1" });
+  assert.deepEqual(revoked, ["blob:2"]);
+});
+
+test("nothing is remembered for a paper with no preview (25-16)", () => {
+  const cache = new PreviewCache(4, () => {});
+  assert.deepEqual(cache.remember("a", { kind: "none" }), { kind: "none" });
+  assert.equal(cache.get("a"), undefined);
 });

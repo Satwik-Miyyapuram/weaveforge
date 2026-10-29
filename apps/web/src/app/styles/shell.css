@@ -5,8 +5,8 @@
   margin: 0;
   overflow-x: clip;
   /* Fluid gutters: scale with the viewport instead of a fixed column. */
-  padding: 24px max(clamp(14px, 4vw, 28px), env(safe-area-inset-right)) calc(92px + env(safe-area-inset-bottom))
-    max(clamp(14px, 4vw, 28px), env(safe-area-inset-left));
+  padding: 24px max(clamp(16px, 4vw, 32px), env(safe-area-inset-right)) var(--nav-clear)
+    max(clamp(16px, 4vw, 32px), env(safe-area-inset-left));
   transition:
     max-width var(--layout-duration) var(--layout-ease),
     margin var(--layout-duration) var(--layout-ease),
@@ -70,12 +70,12 @@
   left: -999px;
   top: 0;
   z-index: var(--z-toast);
-  padding: 8px 14px;
+  padding: 8px 16px;
   border: 1px solid var(--border-strong);
-  border-radius: 0 0 10px 0;
+  border-radius: 0 0 var(--r-control) 0;
   background: var(--elev);
   color: var(--text);
-  font-size: 0.85rem;
+  font-size: var(--fs);
   font-weight: 500;
   text-decoration: none;
   box-shadow: var(--shadow);
@@ -90,7 +90,7 @@
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
   /* Notch / Dynamic Island — needs viewport-fit=cover on <meta viewport>. */
   padding-top: env(safe-area-inset-top, 0px);
 }
@@ -100,12 +100,8 @@
 /* margin-left: auto, not the row's space-between: the org and project switchers
    that anchor the left both render nothing when no project is selected, and
    space-between then drops this — the row's only child — at the start. */
-.brand-right { display: flex; align-items: center; gap: 6px; margin-left: auto; }
-.mobile-only .header-link span,
-.mobile-only .signout span,
+.brand-right { display: flex; flex: none; align-items: center; gap: 8px; margin-left: auto; }
 .mobile-only .theme-toggle span { display: none; }
-.mobile-only .header-link,
-.mobile-only .signout,
 .mobile-only .theme-toggle {
   gap: 0; padding: 0;
   min-width: var(--touch-min); min-height: var(--touch-min);       /* WCAG touch target */
@@ -113,27 +109,24 @@
 }
 /* Mobile brand row: project chip is the left anchor — no sidebar offset. */
 .brand.mobile-only {
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
-}
-.brand.mobile-only .org-switcher {
-  flex: 0 1 auto;
-  max-width: 38%;
-  min-width: 0;
-  margin-bottom: 0;
-}
-.brand.mobile-only .org-switcher .proj-chip {
-  max-width: 100%;
 }
 .brand.mobile-only .proj-switcher {
   margin-left: 0;
   flex: 1 1 auto;
   min-width: 0;
 }
-.brand.mobile-only .proj-chip {
+/* The popover is inline-flex and would take the name's full width. */
+.brand.mobile-only .proj-switcher .popover {
   max-width: 100%;
 }
-.brand.mobile-only .proj-chip > span:nth-child(2) {
+:root:root .brand.mobile-only .proj-switcher .wf-btn {
+  max-width: 100%;
+  min-width: 0;
+}
+.brand.mobile-only .proj-switcher .wf-btn > span:nth-child(2) {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -146,12 +139,12 @@
   padding: 0 0 12px;
 }
 
-.app-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.app-logo { width: 24px; height: 24px; border-radius: 8px; flex: none; }
+.app-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.app-logo { width: 24px; height: 24px; border-radius: var(--r-control); flex: none; }
 .menu-toggle {
   display: none;
   background: none; border: none; cursor: pointer; color: var(--ink);
-  padding: 8px; border-radius: 999px;
+  padding: 8px; border-radius: var(--r-pill);
   align-items: center; justify-content: center;
   transition: background var(--dur-base);
   align-self: flex-start;
@@ -159,110 +152,73 @@
 }
 .menu-toggle:hover { background: var(--hover); }
 .app-brand .dot, .dot {
-  width: 22px; height: 22px; border-radius: 8px;
+  width: 22px; height: 22px; border-radius: var(--r-control);
   background: linear-gradient(135deg, var(--accent), var(--clay));
 }
-.app-brand .app-name { font-size: 1.05rem; margin: 0; letter-spacing: -0.01em; font-weight: 600; }
+.app-brand .app-name { font-size: var(--fs-lg); margin: 0; letter-spacing: -0.01em; font-weight: 600; }
 /* Project switcher + projects screen */
 .proj-switcher { position: relative; margin-left: 12px; }
-.proj-chip {
-  display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font: inherit;
-  font-size: 0.8rem; font-weight: 500; color: var(--ink);
-  background: var(--pill); border: 1px solid var(--line); padding: 5px 10px; border-radius: 999px;
-}
-.proj-chip .chev { opacity: 0.5; display: flex; align-items: center; }
+
 .proj-menu {
   /* Matches .header-menu, its sibling in the same row. At 20 it tied with the
      sticky .sub-nav and lost on DOM order, so the tabs painted through it. */
   position: absolute; top: 110%; left: 0; z-index: var(--z-popover); min-width: 220px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
-  box-shadow: var(--shadow); padding: 6px; display: grid; gap: 2px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
+  box-shadow: var(--shadow); padding: 8px; display: grid; gap: 2px;
 }
-.proj-menu-item {
-  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
-  cursor: pointer; font: inherit; font-size: 0.88rem; color: var(--ink);
-  background: none; border: none; padding: 8px 10px; border-radius: 8px;
-}
-.proj-menu-item:hover { background: var(--status-neutral); }
-.proj-menu-item.sel { color: var(--accent-ink); }
-.proj-menu-item .check { margin-left: auto; color: var(--accent-ink); }
+
 .proj-menu-sep { height: 1px; background: var(--line); margin: 4px 0; }
 .org-switcher { margin-bottom: 8px; }
-.org-switcher .proj-chip { width: 100%; justify-content: flex-start; }
+:root:root .org-switcher .wf-btn { width: 100%; justify-content: flex-start; }
 .org-dot {
   width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
   background: linear-gradient(135deg, var(--clay), var(--accent));
 }
-.org-menu-label { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
-.org-menu-role { font-size: 0.72rem; }
-.desktop-only .org-switcher { margin-left: 0; margin-bottom: 10px; width: 100%; }
-.vault-pinned-label { margin: 18px 0 10px; font-size: 0.75rem; }
-.vault-title-readonly { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; }
-.vault-title-readonly h2 { margin: 0; font-size: 1.25rem; }
-.project-dot { width: 11px; height: 11px; border-radius: 999px; flex: none; display: inline-block; }
-.project-list { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 10px; }
-/* A project row is a `<button>` inside its `<li>`. Reset the UA button chrome
-   so it sits exactly as the old clickable list item did, and keep the card
-   surface (`.card`) underneath. It is a full-width row rather than a shrink-to
-   -fit button, because the row is the target. */
-.project-card {
-  display: flex; align-items: center; gap: 10px; cursor: pointer;
-  width: 100%; text-align: start; font: inherit; color: var(--ink);
-}
-.project-row { display: flex; align-items: center; gap: 6px; }
-.project-row > .project-card { flex: 1; min-width: 0; }
-.project-card:hover { border-color: var(--accent); }
-.project-name { font-size: 1.02rem; font-weight: 600; letter-spacing: -0.01em; }
+.org-menu-label { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.org-menu-role { font-size: var(--fs-xs); }
+.desktop-only .org-switcher { margin-left: 0; margin-bottom: 12px; width: 100%; }
+.vault-pinned-label { margin: 16px 0 12px; font-size: var(--fs-xs); }
+.project-dot { width: 11px; height: 11px; border-radius: var(--r-pill); flex: none; display: inline-block; }
+.project-list { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 12px; }
+/* A project row is a wf-row button beside its menu: the row is the target. */
+.project-row { display: flex; align-items: center; gap: 8px; }
+.project-row > .wf-row { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; text-align: start; }
+.project-name { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em; }
 
-.header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 
 /* The account button: a secondary button, so it rests, lifts and presses like
    the project chip beside it. Only its size is its own. */
 .header-overflow { position: relative; display: inline-flex; }
-.account-btn {
-  /* The shared touch target, not a number: 40px was under `--touch-min` (44px),
-     so the one control that opens the whole account menu was the smallest thing
-     in the bar on a phone. */
-  width: var(--touch-min); height: var(--touch-min);
-  font-size: calc(var(--icon-size) + 4px); line-height: 1;
+/* What needs the person (sync conflicts, AI suggestions) as one count on an
+   icon trigger's corner, like a notification; nothing shows when nothing waits.
+   `.popover` is the positioned box and holds only the trigger. */
+/* A trigger without a caret is only an icon (the account button): it keeps the
+   icon's size, and its count sits on the corner like an icon button's. */
+.popover > .wf-btn:not(.wf-icon, :has(.popover-caret)) { padding-inline: 0; aspect-ratio: 1; }
+.popover > .wf-btn:not(.wf-icon, :has(.popover-caret)) > svg { width: 18px; height: 18px; flex: none; }
+.popover > .wf-btn:not(:has(.popover-caret)) > .popover-badge {
+  position: absolute; top: -6px; right: -6px;
+  min-width: 18px; height: 18px; line-height: 18px; pointer-events: none;
+  box-shadow: 0 0 0 2px var(--nav-bg, var(--surface));
 }
 .header-menu {
   position: absolute; z-index: var(--z-popover); top: calc(100% + 8px); right: 0; min-width: 210px;
-  background: var(--elev); border: 1px solid var(--border); border-radius: 12px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22); padding: 6px; display: grid; gap: 2px;
+  background: var(--elev); border: 1px solid var(--border); border-radius: var(--r-card);
+  box-shadow: var(--e3); padding: 8px; display: grid; gap: 2px;
 }
-.header-menu .header-link,
-.header-menu .signout {
-  width: 100%; justify-content: flex-start; gap: 11px;
-  padding: 9px 10px; border-radius: 8px; font-size: 0.86rem; color: var(--text);
-}
-.header-menu .header-link svg,
-.header-menu .signout svg { color: var(--muted); }
-.header-menu .header-link:hover,
-.header-menu .signout:hover { background: var(--surface2); color: var(--text); }
+
 /* Show labels inside the menu even though the compact bar hides header labels. */
-.header-menu .header-link span,
-.header-menu .signout span { display: inline; }
-.header-menu .header-link,
-.header-menu .signout { min-width: 0; min-height: 0; }
-.header-link {
-  display: inline-flex; align-items: center; gap: 6px;
-  text-decoration: none; color: var(--muted); font-size: 0.78rem; font-weight: 500;
-  padding: 5px 10px; border-radius: 999px; transition: color var(--dur-base), background var(--dur-base);
-  /* Reset UA button chrome (theme-toggle uses this class on a <button>). */
-  background: none; border: none; cursor: pointer; font-family: inherit;
-}
+
 /* Tracks the density setting like every other glyph. These were pinned at
    15px, so the top bar — the most permanently visible chrome in the app —
    looked identical at all three control sizes. */
-.header-link svg, .signout svg { width: var(--icon-size); height: var(--icon-size); flex: none; }
-.header-link:hover { color: var(--accent-ink); background: var(--hover); }
 
 /*
  * Full-bleed chrome on `/workspace`.
  *
  * The desktop block in `nav.css` gives `.app-shell` a fluid gutter and the
- * layout a `--nav-inset` left padding so content clears the 216px sidebar.
+ * layout a `--nav-inset` left padding so content clears the 224px sidebar.
  * The editor is not a page inside that frame — it is the frame: the nav rail,
  * its own explorer and panes that must reach the window's edges on all four
  * sides. Both declarations are therefore zeroed on this route only, and every
@@ -279,4 +235,10 @@
 
 .layout.editor-route .app-shell {
   padding: 0;
+}
+/* The workspace runs edge to edge; its phone header keeps the page gutter, or
+   the account button's count hangs off the screen. */
+.layout.editor-route .brand.mobile-only {
+  padding-inline: 16px;
+  margin-top: 8px;
 }

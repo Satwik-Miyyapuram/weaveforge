@@ -1,6 +1,8 @@
 "use client";
 
+import { humanise } from "@/lib/enum-label";
 import { useCallback, useEffect, useState } from "react";
+import { deferDelete, deletedMessage, useHiddenKeys } from "@/lib/toast";
 import {
   PAPER_FIELD_KINDS,
   computeRollup,
@@ -14,13 +16,19 @@ import {
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
+import { Button } from "@/components/button";
 
 /**
  * Project-scoped custom fields: inline values on the paper + a small manager
  * for define / rename / remove.
  */
+const paperFieldKey = (id: string) => `paperField:${id}`;
+
 export function PaperFieldsStrip({ paperId, readOnly }: { paperId: string; readOnly: boolean }) {
-  const [defs, setDefs] = useState<PaperFieldDef[]>([]);
+  const [allDefs, setDefs] = useState<PaperFieldDef[]>([]);
+  // A removed field leaves at once and is deleted when its Undo toast closes.
+  const hiddenKeys = useHiddenKeys();
+  const defs = allDefs.filter((d) => !hiddenKeys.has(paperFieldKey(d.id)));
   const [values, setValues] = useState<Map<string, PaperFieldValueData>>(new Map());
   const [projectValues, setProjectValues] = useState<PaperFieldValue[]>([]);
   // The relation picker only needs an id and a title per candidate paper, both
@@ -77,13 +85,11 @@ export function PaperFieldsStrip({ paperId, readOnly }: { paperId: string; readO
         Custom fields
         {msg ? ` · ${msg}` : ""}
         {!readOnly && (
-          <button
-            type="button"
-            className="link-btn"
+          <Button variant="link"
             onClick={() => setManaging((open) => !open)}
           >
             {managing ? "Done" : "Manage"}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -214,9 +220,8 @@ function PaperFieldEditor({
               const checked = multiValue.includes(p.id);
               return (
                 <label key={p.id} className="paper-field-check">
-                  <input
+                  <input className="wf-check"
                     type="checkbox"
-                    className="themed-check"
                     checked={checked}
                     disabled={disabled}
                     onChange={() => {
@@ -235,9 +240,8 @@ function PaperFieldEditor({
               const checked = multiValue.includes(opt);
               return (
                 <label key={opt} className="paper-field-check">
-                  <input
+                  <input className="wf-check"
                     type="checkbox"
-                    className="themed-check"
                     checked={checked}
                     disabled={disabled}
                     onChange={() => {
@@ -319,9 +323,9 @@ function PaperFieldsManager({
                   onChange={(e) => setRenameName(e.target.value)}
                   aria-label={`Rename ${def.name}`}
                 />
-                <button
-                  type="button"
-                  className="link-btn"
+                <Button
+                 
+                  variant="ghost" size="sm"
                   disabled={busy}
                   onClick={() =>
                     void run(async () => {
@@ -331,25 +335,23 @@ function PaperFieldsManager({
                   }
                 >
                   Save
-                </button>
-                <button
-                  type="button"
-                  className="link-btn btn-cancel"
+                </Button>
+                <Button
+                 
+                  variant="cancel" size="sm"
                   disabled={busy}
                   onClick={() => setRenameId(null)}
                 >
                   Cancel
-                </button>
+                </Button>
               </>
             ) : (
               <>
                 <span>
                   {def.name}{" "}
-                  <span className="muted">({def.kind.replace("_", " ")})</span>
+                  <span className="muted">({humanise(def.kind).toLowerCase()})</span>
                 </span>
-                <button
-                  type="button"
-                  className="link-btn"
+                <Button variant="link"
                   disabled={busy}
                   onClick={() => {
                     setRenameId(def.id);
@@ -357,20 +359,24 @@ function PaperFieldsManager({
                   }}
                 >
                   Rename
-                </button>
-                <button
-                  type="button"
-                  className="link-btn"
+                </Button>
+                <Button
+                 
+                  variant="ghost" size="sm"
                   disabled={busy}
-                  onClick={() => {
-                    if (!confirm(`Remove field "${def.name}"? Values on papers will be deleted.`)) {
-                      return;
-                    }
-                    void run(() => getContainer().paperFields.removePaperField(def.id));
-                  }}
+                  onClick={() =>
+                    deferDelete({
+                      keys: [paperFieldKey(def.id)],
+                      message: deletedMessage(def.name, "Field"),
+                      commit: async () => {
+                        await getContainer().paperFields.removePaperField(def.id);
+                        await onChanged();
+                      },
+                    })
+                  }
                 >
                   Remove
-                </button>
+                </Button>
               </>
             )}
           </li>
@@ -393,7 +399,7 @@ function PaperFieldsManager({
           aria-label="Field kind"
         >
           {PAPER_FIELD_KINDS.map((k) => (
-            <option key={k} value={k}>{k.replace("_", " ")}</option>
+            <option key={k} value={k}>{humanise(k)}</option>
           ))}
         </Select>
         {needsOptions && (
@@ -445,9 +451,7 @@ function PaperFieldsManager({
             )}
           </>
         )}
-        <button
-          type="button"
-          className="btn-secondary"
+        <Button
           disabled={
             busy ||
             !name.trim() ||
@@ -481,7 +485,7 @@ function PaperFieldsManager({
           }
         >
           Add field
-        </button>
+        </Button>
       </div>
     </div>
   );

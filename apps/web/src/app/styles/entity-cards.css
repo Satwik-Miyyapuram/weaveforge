@@ -16,7 +16,7 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 40px 32px;
+  padding: 48px 32px;
 }
 
 /* The mark: the screen's own icon in a tile — the same treatment the editor
@@ -26,7 +26,7 @@
   place-items: center;
   width: 52px;
   height: 52px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
@@ -40,7 +40,7 @@
   margin: 0;
   color: var(--text);
   font-family: var(--font-serif);
-  font-size: 1.08rem;
+  font-size: var(--fs-lg);
   font-weight: 600;
   letter-spacing: -0.01em;
   text-wrap: balance;
@@ -48,7 +48,7 @@
 
 .empty--first-run .empty-body {
   max-width: 46ch;
-  font-size: 0.9rem;
+  font-size: var(--fs);
   line-height: 1.62;
 }
 
@@ -58,11 +58,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 28px 32px;
+  gap: 12px;
+  padding: 32px 32px;
 }
 
-.empty--no-results .empty-body { font-size: 0.9rem; }
+.empty--no-results .empty-body { font-size: var(--fs); }
 
 .empty-actions {
   display: flex;
@@ -70,10 +70,10 @@
   gap: 8px;
   align-items: center;
   justify-content: center;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
-.summary { margin: 8px 0 0; font-size: 0.92rem; overflow-wrap: anywhere; }
+.summary { margin: 8px 0 0; font-size: var(--fs); overflow-wrap: anywhere; }
 
 /* Shared entity cards (papers / report / notes / experiments / milestones). */
 /* Masonry card layout — see `CardColumns`, which owns the column split.
@@ -88,7 +88,6 @@
   align-items: flex-start;
   margin: 8px 0;
   max-width: 100%;
-  overflow-x: clip;
 }
 .card-columns-col {
   flex: 1 1 0;
@@ -116,8 +115,8 @@
 .card-columns-item.is-deferred {
   content-visibility: auto;
   contain-intrinsic-size: auto 170px;
-  padding: 6px 14px 18px;
-  margin: -6px -14px -18px;
+  padding: 8px 16px 16px;
+  margin: -8px -16px -16px;
   /* Those padded halos overlap the neighbouring column, so the wrapper must not
      swallow clicks meant for the card underneath it. */
   pointer-events: none;
@@ -149,20 +148,20 @@
   display: grid;
   gap: 4px;
   min-width: 0;
-  padding: 10px 12px;
+  padding: 12px 12px;
   transition: border-color var(--dur-base), background var(--dur-base);
 }
-.entity-card[role="button"],
-.paper-card[role="button"] { cursor: pointer; }
+.entity-card[role="presentation"],
+.paper-card[role="presentation"] { cursor: pointer; }
 @media (hover: hover) {
-.entity-card[role="button"]:hover,
-.paper-card[role="button"]:hover {
+.entity-card[role="presentation"]:hover,
+.paper-card[role="presentation"]:hover {
   border-color: var(--border-strong);
   background: var(--surface2);
 }
 }
 .entity-card--nested {
-  padding: 8px 10px;
+  padding: 8px 12px;
   background: color-mix(in srgb, var(--surface2) 40%, transparent);
   box-shadow: none;
 }
@@ -182,7 +181,7 @@
   margin: 0;
   font-family: var(--font-serif);
   font-weight: 500;
-  font-size: 0.98rem;
+  font-size: var(--fs-lg);
   line-height: 1.3;
   letter-spacing: -0.01em;
   overflow-wrap: break-word;
@@ -192,28 +191,34 @@
      the same title wrapped raggedly on /papers and evenly on the pitch. */
   text-wrap: balance;
 }
-/* Every card: status and controls float top-right; the title wraps around them. */
-.entity-card-heading { flex: 1; min-width: 0; display: flow-root; }
-.entity-card-actions {
+/* The head is [lead] title with badge · status · ⋯ floated top-right: the
+   title's text wraps around the controls instead of giving them a column or
+   a row of their own (D09, E42). */
+.entity-card-head { display: flow-root; }
+.entity-card-head > .entity-card-title { display: block; text-wrap: pretty; }
+/* A card opens on a click anywhere. Its open button is for the keyboard only:
+   no text, no pointer hits, and on focus it rings the whole card. */
+.entity-card:has(> .wf-link) { position: relative; }
+.entity-card > .wf-link {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.entity-card-lead {
+  float: left;
+  display: flex;
+  margin-right: 12px;
+}
+.entity-card-controls {
   float: right;
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin: -4px -6px 2px 10px;
+  gap: 8px;
+  margin-left: 8px;
 }
-.entity-card-heading > .entity-card-title { text-wrap: pretty; }
-/* Phone: floated controls left ~85px for the title and split words mid-way. */
-/* Title first, beside its tick box; ⋯ alone sits beside it, status and ⋯ take the row under it. */
-@media (max-width: 479px) {
-  .entity-card .entity-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "lead title actions"; gap: 8px; }
-  .entity-card .entity-card-head:has(.entity-card-status) { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "lead title" "actions actions"; }
-  .entity-card-head:has(> :not(.entity-card-heading)) { column-gap: 12px; }
-  .entity-card-head > :not(.entity-card-heading) { grid-area: lead; }
-  .entity-card-heading { display: contents; }
-  .entity-card-heading > .entity-card-title { grid-area: title; align-self: center; }
-  .entity-card-actions { grid-area: actions; float: none; flex-wrap: wrap; justify-content: flex-start; margin: 0 -6px 0 0; }
-  .entity-card-actions > .entity-card-status { margin-right: auto; }
-}
+/* A trailing ⋯ has its own padding, so the cluster sits into it; a text badge would touch the edge. */
+.entity-card-controls--menu { margin-right: -8px; }
 .entity-card-status {
   flex: none;
   display: flex;
@@ -226,25 +231,25 @@
   min-width: 6.5rem;
   max-width: none;
 }
-.entity-card-status .status-select .custom-select-button {
-  padding: 4px 10px;
+.entity-card-status .status-select .wf-select {
+  padding: 4px 12px;
   min-height: var(--control-sm);
 }
 .entity-card-meta,
 .paper-card-authors {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   line-height: 1.35;
   color: var(--muted);
   overflow-wrap: break-word;
 }
-.paper-external-link { margin: 0; font-size: 0.8rem; min-width: 0; overflow-wrap: anywhere; }
+.paper-external-link { margin: 0; font-size: var(--fs-sm); min-width: 0; overflow-wrap: anywhere; }
 .paper-external-link a { color: var(--accent-ink); text-decoration: none; }
 .paper-external-link a:hover { text-decoration: underline; }
 .entity-card-snippet,
 .paper-card-snippet {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   line-height: 1.4;
   color: var(--muted);
   overflow-wrap: break-word;
@@ -256,94 +261,23 @@
 }
 .paper-card-foot {
   margin-top: 2px;
-  padding-top: 6px;
+  padding-top: 8px;
   border-top: 1px solid var(--border);
-  gap: 6px;
+  gap: 8px;
   min-height: 0;
 }
-.entity-card .entity-icon-btn,
-.entity-card .entity-open-icon,
-.paper-card .entity-icon-btn,
-.paper-card .entity-open-icon,
-.section-item .entity-icon-btn {
-  width: var(--control-md);
-  height: var(--control-md);
-  border-radius: var(--control-radius-sm);
-}
+
 .entity-card .tag-chips,
 .paper-card .tag-chips {
   margin: 2px 0 0;
   gap: 4px;
 }
 /* One quiet tag chip on every card, in every theme. */
-.card.entity-card .tag-chips > .tag-chip {
-  padding: 2px 7px;
-  border: 0;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--text) 7%, transparent);
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  letter-spacing: 0;
-  line-height: 1.4;
-}
+
 /* Icon-only card/list actions (open, share, comments, edit, delete, …). */
-.entity-icon-btn,
-.entity-open-icon,
-.paper-open-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-lg);
-  height: var(--control-lg);
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--control-radius);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  flex: none;
-}
-.entity-icon-btn:hover,
-.entity-open-icon:hover,
-.paper-open-icon:hover {
-  color: var(--text);
-  background: var(--surface);
-}
-.entity-icon-btn:disabled,
-.entity-open-icon:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-a.entity-icon-btn {
-  text-decoration: none;
-  color: var(--muted);
-}
-a.entity-icon-btn:hover {
-  text-decoration: none;
-}
-.entity-icon-btn.danger,
-.entity-icon-btn.danger:hover {
-  color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 40%, var(--line));
-}
-.entity-icon-btn.danger:hover {
-  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
-}
+
 /* The accented pill an icon button wears while its panel is open or its mode
    is on. Three files carried a copy, keyed off three different attributes. */
-.entity-icon-btn[aria-expanded="true"],
-.entity-icon-btn.is-active,
-.comments-trigger-detail[aria-expanded="true"] {
-  color: var(--accent-ink);
-  border-color: var(--accent);
-  background: var(--pill);
-}
+
 /* Icon + label (Make a copy, Image, library). */
-.entity-icon-text-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-}
-.entity-icon-text-btn > svg { flex: none; }
+

@@ -66,10 +66,9 @@ test("the editor sits at the top with Home and Search, not inside Library", asyn
   assert.equal(grouped.includes("editor-workspace"), false);
 });
 
-test("on a phone, swiping on from Notes lands on Graph", async () => {
-  const { buildModuleRegistry, groupForPath, phoneItems } = await import("../registry");
-  const items = phoneItems(groupForPath("/notes", buildModuleRegistry().navGroups)?.items ?? []);
-  const notes = items.findIndex((item) => item.path === "/notes");
-  assert.equal(items[notes + 1]?.path, "/graph");
+test("on a phone, /wiki sits in Library with Notes as its stop (DA-85)", async () => {
+  const { activeNavItem, buildModuleRegistry, groupForPath, phoneItems } = await import("../registry");
+  const items = phoneItems(groupForPath("/wiki", buildModuleRegistry().navGroups)?.items ?? []);
+  assert.equal(activeNavItem(items, "/wiki")?.path, "/notes");
   assert.equal(items.some((item) => item.mobile === false), false);
 });

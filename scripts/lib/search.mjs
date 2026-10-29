@@ -50,9 +50,9 @@ const missingRipgrep = (detail) => {
   return ripgrepMissing;
 };
 
-/** True once ripgrep has been tried and found unusable in this process. */
-export function ripgrepUnavailable() {
-  return ripgrepMissing;
+/** Why a spawned command failed: the spawn error, else its stderr, else its exit code. */
+export function spawnFailureDetail(result) {
+  return result.error?.message ?? ((result.stderr ?? "").trim() || `exit ${result.status}`);
 }
 
 /**
@@ -288,7 +288,7 @@ export function trackedFiles(root, paths) {
   });
 
   if (result.error || result.status !== 0) {
-    const detail = result.error?.message ?? (result.stderr ?? "").trim() ?? `exit ${result.status}`;
+    const detail = spawnFailureDetail(result);
     throw new Error(
       `git ls-files failed: ${detail}\n` +
         "      the boundary gates need git to know which files are tracked; run them inside the checkout",

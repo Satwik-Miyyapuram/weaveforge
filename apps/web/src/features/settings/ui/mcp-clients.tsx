@@ -1,9 +1,11 @@
 "use client";
 
+import { formatDate } from "@/lib/format-date";
 import { useState, type KeyboardEvent } from "react";
 import { formatError } from "@/lib/format-error";
 import { desktop, type DesktopLocalApi, type DesktopLocalApiPermission } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
+import { copyText } from "@/lib/clipboard";
 import {
   MCP_CLIENT_TABS,
   claudeCodeCommands,
@@ -13,6 +15,8 @@ import {
   vscodeJson,
   type McpClientId,
 } from "./mcp-client-config";
+import { Button } from "@/components/button";
+import { TabButton } from "@/components/controls";
 
 const CHIP: Partial<Record<DesktopLocalApiPermission, string>> = {
   "mcp:read": "read & search",
@@ -21,7 +25,7 @@ const CHIP: Partial<Record<DesktopLocalApiPermission, string>> = {
 };
 
 function day(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  return formatDate(iso);
 }
 
 function ago(iso: string, now: number): string {
@@ -63,19 +67,20 @@ export function McpClients({
     }
   };
   const copy = (key: string, text: string) =>
-    void navigator.clipboard.writeText(text).then(() => {
+    void copyText(text).then((ok) => {
+      if (!ok) return;
       setCopied(key);
       window.setTimeout(() => setCopied((c) => (c === key ? null : c)), 1200);
     });
   const copyBtn = (key: string, label: string, text: string) => (
-    <button type="button" className="btn-secondary" onClick={() => copy(key, text)}>
+    <Button onClick={() => copy(key, text)}>
       {copied === key ? "Copied" : label}
-    </button>
+    </Button>
   );
   const openBtn = (client: "cursor" | "vscode" | "claude-desktop", label: string) => (
-    <button type="button" className="btn-primary" disabled={busy} onClick={() => void act(() => desktop()?.openMcpClient?.(client))}>
+    <Button variant="primary" disabled={busy} onClick={() => void act(() => desktop()?.openMcpClient?.(client))}>
       {label}
-    </button>
+    </Button>
   );
   const onTabKey = (e: KeyboardEvent) => {
     const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
@@ -161,7 +166,7 @@ export function McpClients({
     <>
       {error && <FormError>{error}</FormError>}
       {mcp.connected && !state.enabled && (
-        <FormError>{state.reason ?? "MCP is not being served, so AI clients cannot reach WeaveForge. Tick Serve MCP above."}</FormError>
+        <FormError>{state.reason ?? "MCP is not being served, so AI clients cannot reach WeaveForge. Turn on Serve MCP above."}</FormError>
       )}
       <div className="mcp-client">
         <header>
@@ -182,16 +187,16 @@ export function McpClients({
               </>
             )}
             <div className="mcp-row">
-              <button type="button" className="mcp-danger" disabled={busy} onClick={() => void act(() => desktop()?.disconnectMcp?.())}>
+              <Button variant="cancel" disabled={busy} onClick={() => void act(() => desktop()?.disconnectMcp?.())}>
                 Disconnect
-              </button>
+              </Button>
             </div>
           </>
         ) : (
           <div className="mcp-row">
-            <button type="button" className="btn-primary" disabled={busy} onClick={() => void act(() => desktop()?.connectMcp?.())}>
+            <Button variant="primary" disabled={busy} onClick={() => void act(() => desktop()?.connectMcp?.())}>
               Connect
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -203,19 +208,15 @@ export function McpClients({
           </header>
           <div className="mcp-tabs" role="tablist" aria-label="Client" onKeyDown={onTabKey}>
             {MCP_CLIENT_TABS.map((t) => (
-              <button
+              <TabButton selected={t.id === tab}
                 key={t.id}
                 id={`mcp-tab-${t.id}`}
-                type="button"
-                role="tab"
-                className="mcp-tab"
-                aria-selected={t.id === tab}
                 aria-controls="mcp-client-pane"
                 tabIndex={t.id === tab ? 0 : -1}
                 onClick={() => setTab(t.id)}
               >
                 {t.label}
-              </button>
+              </TabButton>
             ))}
           </div>
           <div id="mcp-client-pane" className="mcp-pane" role="tabpanel" aria-labelledby={`mcp-tab-${tab}`}>

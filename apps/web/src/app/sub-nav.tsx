@@ -1,16 +1,16 @@
 "use client";
 
-import Link from "next/link";
 import { useNavPending } from "@/lib/nav-pending";
-import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { activeNavItem, groupForPath, phoneItems } from "@/registry";
 import { useNavGroups } from "@/lib/hooks/use-nav-groups";
 import { prefetchScreenForPath } from "@/lib/cache/prefetch-screen";
+import { NavLink } from "@/components/controls";
 
 /**
  * Segmented sub-navigation for grouped sections (Library → Papers/Notes/Graph,
- * Experiments → Experiments/Git). A pill indicator slides horizontally to the
- * active tab. Renders only when the current group has more than one view.
+ * Experiments → Experiments/Git), one nav item per view. Renders only when the
+ * current group has more than one view.
  *
  * Mobile only — the shell gates it (`app-shell.tsx`). On a desktop the sidebar
  * carries every destination, and this strip was the thing that made a section
@@ -19,7 +19,6 @@ import { prefetchScreenForPath } from "@/lib/cache/prefetch-screen";
 export function SubNav() {
   const { effectivePath: pathname } = useNavPending();
   const navRef = useRef<HTMLElement>(null);
-  const [pill, setPill] = useState<{ left: number; width: number } | null>(null);
   const navGroups = useNavGroups();
   const group = groupForPath(pathname, navGroups);
   // A view that declared itself out of the mobile bar is out of the strip too:
@@ -27,59 +26,32 @@ export function SubNav() {
   const items = phoneItems(group?.items ?? []);
   const multi = items.length > 1;
   const activeItem = activeNavItem(items, pathname);
-  const warmPath = useCallback((href: string) => {
-    prefetchScreenForPath(href.split(/[?#]/)[0] ?? href);
-  }, []);
 
-  // Position the sliding indicator under the active tab (after layout).
+  // On a phone the strip scrolls sideways; a later tab would otherwise be
+  // current but out of sight, which reads as "not here".
   useLayoutEffect(() => {
-    if (!multi) {
-      setPill(null);
-      return;
-    }
     const nav = navRef.current;
-    const el = nav?.querySelector<HTMLElement>(".sub-tab.active");
-    if (!nav || !el) return;
-    setPill({ left: el.offsetLeft, width: el.offsetWidth });
-    // On a phone the strip scrolls sideways; a later tab would otherwise be
-    // active but out of sight, which reads as "not here".
+    const el = nav?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!multi || !nav || !el) return;
     if (el.offsetLeft < nav.scrollLeft || el.offsetLeft + el.offsetWidth > nav.scrollLeft + nav.clientWidth) {
       nav.scrollLeft = el.offsetLeft - (nav.clientWidth - el.offsetWidth) / 2;
     }
   }, [pathname, multi, group?.key]);
 
-  // Reposition on resize (label widths can change).
-  useEffect(() => {
-    if (!multi) return;
-    const onResize = () => {
-      const el = navRef.current?.querySelector<HTMLElement>(".sub-tab.active");
-      if (el) setPill({ left: el.offsetLeft, width: el.offsetWidth });
-    };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [multi]);
-
   if (!group || !multi) return null;
   return (
     <nav className="sub-nav" aria-label={`${group.label} views`} ref={navRef}>
-      {pill && (
-        <span
-          className="sub-tab-indicator"
-          style={{ transform: `translateX(${pill.left}px)`, width: pill.width }}
-        />
-      )}
       {items.map((it) => {
         const active = activeItem?.key === it.key;
         return (
-          <Link
+          <NavLink
             key={it.key}
             href={it.path}
-            className={active ? "sub-tab active" : "sub-tab"}
-            aria-current={active ? "page" : undefined}
-            onPointerEnter={() => warmPath(it.path)}
+            current={active}
+            onPointerEnter={() => prefetchScreenForPath(it.path)}
           >
             {it.label}
-          </Link>
+          </NavLink>
         );
       })}
     </nav>

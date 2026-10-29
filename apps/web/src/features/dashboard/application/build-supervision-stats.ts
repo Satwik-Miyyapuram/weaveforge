@@ -1,5 +1,5 @@
 import type { LogEntry, Member, Milestone } from "@weaveforge/core";
-import { addDays } from "@weaveforge/core";
+import { addDays, localIsoDate } from "@weaveforge/core";
 
 export interface SuperviseeSummary {
   member: Member;
@@ -27,7 +27,7 @@ export function summarizeSupervisee(
   member: Member,
   milestones: readonly Milestone[],
   logs: readonly LogEntry[],
-  today = new Date().toISOString().slice(0, 10),
+  today = localIsoDate(),
 ): SuperviseeSummary {
   const milestonesDone = milestones.filter((m) => m.status === "done").length;
   const blocked = milestones.filter((m) => m.status === "blocked").length;
@@ -58,7 +58,7 @@ export function summarizeSupervisee(
 export function teamAttentionItems(
   summaries: readonly SuperviseeSummary[],
   milestonesByMember: ReadonlyMap<string, readonly Milestone[]>,
-  today = new Date().toISOString().slice(0, 10),
+  today = localIsoDate(),
 ): TeamAttentionItem[] {
   const items: TeamAttentionItem[] = [];
   for (const s of summaries) {

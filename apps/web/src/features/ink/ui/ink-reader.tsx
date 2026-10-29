@@ -10,11 +10,17 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { isEditableTarget } from "@/lib/editable-target";
 import {
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
+  INK_ZOOM_MAX,
+  INK_ZOOM_MIN,
   clampInkPageSize,
+  clampInkZoom,
   inkPageFigures,
+  inkZoomIn,
+  inkZoomOut,
   readInkNoteBody,
   splitInkTextLayer,
 } from "@weaveforge/core";
@@ -35,6 +41,10 @@ import {
   useStableResolver,
 } from "./use-ink-sheet-images";
 import { OverlayScrollbar } from "@/components/overlay-scrollbar";
+import { logToApp } from "@/lib/error-report/app-log";
+import { MinusIcon, PlusIcon } from "@/components/view-icons";
+import { Button, IconButton } from "@/components/button";
+import { useWikilinkNavigation } from "@/lib/hooks/use-cite-links";
 
 export interface InkReaderProps {
   noteId: string;
@@ -81,6 +91,10 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
       .then((loaded) => {
         if (!live) return;
         setPages(loaded);
+      })
+      // The reader only shows; a failed load leaves the pages it has (21-17).
+      .catch((err: unknown) => {
+        logToApp({ level: "error", source: "ink", message: `Could not load the ink of ${noteId}`, detail: String(err) });
       });
     return () => {
       live = false;
@@ -129,6 +143,8 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
   // underlay's markdown pass and throw its mermaid diagrams away.
   const sheetImages = useInkSheetImageUrls(parsed.text, paperId);
   const resolveImageSrc = useStableResolver(sheetImages.resolveImageSrc);
+  // `[[links]]` read as links, as in a typed note's Read view (DA-101).
+  const { resolveWikilink } = useWikilinkNavigation();
 
   // Measure container width for responsive scaling.
   useEffect(() => {
@@ -164,7 +180,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
         else if (e.deltaMode === 2) dy *= 100;
         dy = Math.max(-200, Math.min(200, dy));
         const factor = Math.exp(-dy * 0.002);
-        setZoom((z) => Math.max(0.5, Math.min(3, z * factor)));
+        setZoom((z) => clampInkZoom(z * factor));
       }
     };
     scroller.addEventListener("wheel", onWheel, { passive: false });
@@ -174,15 +190,15 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
   // Keyboard zoom shortcuts (Ctrl++, Ctrl+-, Ctrl+0).
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement).tagName)) return;
+      if (isEditableTarget(e.target)) return;
       if (e.ctrlKey || e.metaKey) {
         const key = e.key.toLowerCase();
         if (key === "+" || key === "=" || e.code === "Equal" || e.code === "NumpadAdd" || e.key === "Add") {
           e.preventDefault();
-          setZoom((z) => Math.min(3, Math.max(0.5, z * 1.25)));
+          setZoom(inkZoomIn);
         } else if (key === "-" || key === "_" || e.code === "Minus" || e.code === "NumpadSubtract" || e.key === "Subtract") {
           e.preventDefault();
-          setZoom((z) => Math.min(3, Math.max(0.5, z / 1.25)));
+          setZoom(inkZoomOut);
         } else if (key === "0" || e.code === "Digit0" || e.code === "Numpad0") {
           e.preventDefault();
           setZoom(1);
@@ -224,33 +240,15 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
           {pageCount} {pageCount === 1 ? "page" : "pages"}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={() => setZoom((z) => Math.max(0.5, z - 0.15))}
-            aria-label="Zoom out"
-            style={{ padding: "2px 8px", minHeight: 0, height: "24px" }}
-          >
-            -
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={() => setZoom(1)}
-            aria-label="Reset zoom"
-            style={{ padding: "2px 8px", minHeight: 0, height: "24px" }}
-          >
+          <IconButton size="sm" label="Zoom out" onClick={() => setZoom(inkZoomOut)} disabled={zoom <= INK_ZOOM_MIN}>
+            <MinusIcon />
+          </IconButton>
+          <Button variant="ghost" size="sm" onClick={() => setZoom(1)} aria-label="Reset zoom">
             {Math.round(zoom * 100)}%
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={() => setZoom((z) => Math.min(3, z + 0.15))}
-            aria-label="Zoom in"
-            style={{ padding: "2px 8px", minHeight: 0, height: "24px" }}
-          >
-            +
-          </button>
+          </Button>
+          <IconButton size="sm" label="Zoom in" onClick={() => setZoom(inkZoomIn)} disabled={zoom >= INK_ZOOM_MAX}>
+            <PlusIcon />
+          </IconButton>
         </div>
       </div>
       <div style={{ position: "relative", flex: 1, minHeight: 0, width: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
@@ -273,6 +271,7 @@ export function InkReader({ noteId, body, deps, paperId = null }: InkReaderProps
                 figureUrls={figureUrls}
                 pureText={flowedText[index] ?? ""}
                 resolveImageSrc={resolveImageSrc}
+                resolveWikilink={resolveWikilink}
                 strokes={strokesMap.get(index)}
                 palette={palette}
               />

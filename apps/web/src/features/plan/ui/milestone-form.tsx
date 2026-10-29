@@ -17,7 +17,9 @@ import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
+import { logToApp } from "@/lib/error-report/app-log";
 import { statusLabel } from "@/components/status-select";
+import { Button } from "@/components/button";
 
 export interface DepDraft {
   kind: DependencyKind;
@@ -133,7 +135,11 @@ export function MilestoneForm({
           dependencies,
           compute: computeNeeds,
         });
-        try { await plan.notifyMilestone("added", added); } catch { /* best-effort */ }
+        try {
+          await plan.notifyMilestone("added", added);
+        } catch (notifyErr) {
+          logToApp({ level: "warn", source: "plan", message: "Milestone notification failed", detail: formatError(notifyErr) });
+        }
         setTitle("");
         setDescription("");
         setTargetDate("");
@@ -231,23 +237,21 @@ export function MilestoneForm({
                 ))}
               </Select>
             )}
-            <button
-              type="button"
-              className="link-btn danger"
+            <Button variant="danger"
+             
+              size="sm"
               onClick={() => setDeps((prev) => prev.filter((_, k) => k !== i))}
               aria-label="Remove dependency"
             >
               Remove
-            </button>
+            </Button>
           </div>
         ))}
-        <button
-          type="button"
-          className="link-btn builder-add"
-          onClick={() => setDeps((prev) => [...prev, { kind: "external", refId: "", label: "" }])}
-        >
-          + Add dependency
-        </button>
+        <span className="builder-add">
+          <Button variant="link" onClick={() => setDeps((prev) => [...prev, { kind: "external", refId: "", label: "" }])}>
+            + Add dependency
+          </Button>
+        </span>
       </div>
 
       <div className="field">
@@ -282,37 +286,33 @@ export function MilestoneForm({
               placeholder="notes"
               aria-label="Notes"
             />
-            <button
-              type="button"
-              className="link-btn danger"
+            <Button variant="danger"
+             
+              size="sm"
               onClick={() => setCompute((prev) => prev.filter((_, k) => k !== i))}
               aria-label="Remove compute need"
             >
               Remove
-            </button>
+            </Button>
           </div>
         ))}
-        <button
-          type="button"
-          className="link-btn builder-add"
-          onClick={() =>
-            setCompute((prev) => [...prev, { resource: "", count: "", hours: "", notes: "" }])
-          }
-        >
-          + Add compute
-        </button>
+        <span className="builder-add">
+          <Button variant="link" onClick={() => setCompute((prev) => [...prev, { resource: "", count: "", hours: "", notes: "" }])}>
+            + Add compute
+          </Button>
+        </span>
       </div>
 
       {error && <FormError>{error}</FormError>}
       <div className={onCancel ? "card-foot edit-actions" : "card-foot form-foot"}>
         {onCancel && (
-          <button type="button" className="btn-ghost btn-cancel" onClick={onCancel} disabled={busy}>
+          <Button variant="cancel" onClick={onCancel} disabled={busy}>
             Cancel
-          </button>
+          </Button>
         )}
-        <button className="btn-primary" disabled={busy}>
-          {busy ? "Saving…" : initial ? "Save" : "Add milestone"}
-        </button>
+        <Button type="submit" variant="primary" disabled={busy}>
+          {busy ? "Saving…" : initial ? "Save" : "Create"}
+        </Button>
       </div>
     </form>
   );

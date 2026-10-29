@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDate, formatDateTime } from "@/lib/format-date";
 import { Fragment, useState } from "react";
 import {
   diffBody,
@@ -13,7 +14,16 @@ import {
 } from "@weaveforge/core";
 import type { OpenConflict } from "../domain/conflicts";
 import { sameValue } from "../domain/merge";
+import { FormError } from "@/components/form-error";
+import { runSyncAction } from "./run-sync-action";
 import { useSyncIssues } from "./use-sync-issues";
+import { Button } from "@/components/button";
+import { deferDelete, useHiddenKeys } from "@/lib/toast";
+import { RadioButton } from "@/components/controls";
+import { SegmentedControl } from "@/components/segmented-control";
+
+/** The key an unsaved change hides under while its Undo toast shows. */
+export const syncOpKey = (opId: string) => `syncop:${opId}`;
 
 /**
  * What sync could not decide on its own.
@@ -22,13 +32,23 @@ import { useSyncIssues } from "./use-sync-issues";
  * absent when there are none: a permanent "no conflicts" section trains the
  * reader to stop looking at the one place that will eventually matter.
  */
-/** Refused writes listed before the rest fold behind "Show all". */
+/** Unsaved changes listed before the rest fold behind "Show all". */
 const DEAD_SHOWN = 5;
 
 export function SyncIssuesPanel() {
   const { issues, keep, resolveDeletion, keepAllConflicts, retry, discard } = useSyncIssues();
   const [showAll, setShowAll] = useState(false);
-  const { dead } = issues;
+  const [error, setError] = useState<string | null>(null);
+  const run = (action: () => Promise<unknown>) => void runSyncAction(action, setError);
+  // A discarded write leaves the list at once; it is dropped when the Undo toast closes (D-07).
+  const hiddenKeys = useHiddenKeys();
+  const dead = issues.dead.filter((e) => !hiddenKeys.has(syncOpKey(e.opId)));
+  const discardLater = (opIds: string[]) =>
+    deferDelete({
+      keys: opIds.map(syncOpKey),
+      message: opIds.length === 1 ? "Unsaved change discarded" : `${opIds.length} unsaved changes discarded`,
+      commit: () => runSyncAction(() => Promise.all(opIds.map((id) => discard(id))), setError),
+    });
   // A conflict with no cloud copy yet has nothing to choose between; the next pull settles or fills it.
   const conflicts = issues.conflicts.filter((c) => c.kind === "edit" && c.fields.length > 0);
   const deletions = issues.conflicts.filter((c) => c.kind !== "edit");
@@ -40,14 +60,14 @@ export function SyncIssuesPanel() {
   const summary = [
     conflicts.length > 0 && plural(conflicts.length, "conflict"),
     deletions.length > 0 && plural(deletions.length, "delete to confirm", "deletes to confirm"),
-    dead.length > 0 && plural(dead.length, "refused write"),
+    dead.length > 0 && plural(dead.length, "unsaved change"),
     waiting > 0 && `${waiting} waiting`,
   ]
     .filter(Boolean)
     .join(" · ");
 
   return (
-    <div className="card settings-block sync-issues">
+    <div className="settings-block sync-issues">
       <div className="sync-issues-head">
         <div>
           <h3 className="settings-group">Needs you</h3>
@@ -55,19 +75,20 @@ export function SyncIssuesPanel() {
         </div>
         {decisions > 1 && (
           <div className="field-inline">
-            <button type="button" className="btn-secondary btn-sm" onClick={() => void keepAllConflicts("local")}>
-              Keep all mine
-            </button>
-            <button type="button" className="btn-secondary btn-sm" onClick={() => void keepAllConflicts("remote")}>
-              Take all cloud
-            </button>
+            <Button size="sm" onClick={() => run(() => keepAllConflicts("local"))}>
+              Keep this device&apos;s for all
+            </Button>
+            <Button size="sm" onClick={() => run(() => keepAllConflicts("remote"))}>
+              Keep the cloud&apos;s for all
+            </Button>
           </div>
         )}
       </div>
+      <FormError>{error}</FormError>
       {waiting > 0 && (
         <p className="muted">
-          {waiting === 1 ? "One edit was" : `${waiting} edits were`} refused as out of date. Waiting for the
-          cloud copy to compare against.
+          {waiting === 1 ? "One edit was" : `${waiting} edits were`} made to an older copy than the cloud&apos;s.
+          Waiting for the cloud copy to compare against.
         </p>
       )}
       {conflicts.map((conflict) => (
@@ -83,15 +104,15 @@ export function SyncIssuesPanel() {
       {dead.length > 0 && (
         <section className="sync-dead">
           <div className="sync-issues-head">
-            <h4>Refused writes</h4>
+            <h4>Changes that could not be saved</h4>
             {dead.length > 1 && (
               <div className="field-inline">
-                <button type="button" className="btn-secondary btn-sm" onClick={() => dead.forEach((e) => void retry(e.opId))}>
+                <Button size="sm" onClick={() => run(() => Promise.all(dead.map((e) => retry(e.opId))))}>
                   Try all again
-                </button>
-                <button type="button" className="btn-ghost btn-sm" onClick={() => dead.forEach((e) => void discard(e.opId))}>
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => discardLater(dead.map((e) => e.opId))}>
                   Discard all
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -99,25 +120,25 @@ export function SyncIssuesPanel() {
             <div key={entry.opId} className="sync-issue">
               <div>
                 <p>
-                  <span className="sync-chip">{kindOf(entry.table)}</span> {entry.op} refused after{" "}
+                  <span className="sync-chip">{kindOf(entry.table)}</span> {entry.op} not saved after{" "}
                   {plural(entry.attempts, "try", "tries")}
                 </p>
                 <p className="muted">{entry.lastError ?? "No reason given."}</p>
               </div>
               <div className="field-inline">
-                <button type="button" className="btn-secondary btn-sm" onClick={() => void retry(entry.opId)}>
+                <Button size="sm" onClick={() => run(() => retry(entry.opId))}>
                   Try again
-                </button>
-                <button type="button" className="btn-ghost btn-sm" onClick={() => void discard(entry.opId)}>
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => discardLater([entry.opId])}>
                   Discard
-                </button>
+                </Button>
               </div>
             </div>
           ))}
           {dead.length > shown.length && (
-            <button type="button" className="btn-ghost btn-sm" onClick={() => setShowAll(true)}>
+            <Button variant="ghost" size="sm" onClick={() => setShowAll(true)}>
               Show the other {dead.length - shown.length}
-            </button>
+            </Button>
           )}
         </section>
       )}
@@ -138,14 +159,12 @@ function DeletionCard({
   onResolve: (choice: "keep" | "delete") => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const here = conflict.kind === "deleted_local";
   const choose = async (choice: "keep" | "delete") => {
     setBusy(true);
-    try {
-      await onResolve(choice);
-    } finally {
-      setBusy(false);
-    }
+    await runSyncAction(() => onResolve(choice), setError);
+    setBusy(false);
   };
   return (
     <article className="sync-conflict" data-kind={conflict.kind}>
@@ -160,13 +179,14 @@ function DeletionCard({
         <span className="muted">
           {here ? "Restoring brings back the cloud copy." : "Keeping sends your copy back to the cloud."}
         </span>
+        <FormError>{error}</FormError>
         <span className="sync-conflict-actions">
-          <button type="button" className="btn-ghost btn-sm" disabled={busy} onClick={() => void choose(here ? "keep" : "delete")}>
-            {here ? "Restore cloud copy" : "Delete it"}
-          </button>
-          <button type="button" className="btn-primary btn-sm" disabled={busy} onClick={() => void choose(here ? "delete" : "keep")}>
-            {here ? "Keep deleted" : "Keep mine"}
-          </button>
+          <Button variant="ghost" size="sm" disabled={busy} onClick={() => void choose(here ? "keep" : "delete")}>
+            Keep the cloud&apos;s
+          </Button>
+          <Button variant="primary" size="sm" disabled={busy} onClick={() => void choose(here ? "delete" : "keep")}>
+            Keep this device&apos;s
+          </Button>
         </span>
       </footer>
     </article>
@@ -191,6 +211,7 @@ function ConflictCard({
 }) {
   const [choices, setChoices] = useState<Record<string, Choice>>({});
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   // Fields equal on both sides need no choice; showing them hid the real difference.
   const fields = conflict.fields.filter((f) => !sameValue(f.local ?? null, f.remote ?? null));
   const equal = conflict.fields.filter((f) => !fields.includes(f));
@@ -207,11 +228,8 @@ function ConflictCard({
       else overrides[f.field] = mergeHunks(text(f.local), text(f.remote), c.picks);
     }
     setBusy(true);
-    try {
-      await onResolve(picks, overrides);
-    } finally {
-      setBusy(false);
-    }
+    await runSyncAction(() => onResolve(picks, overrides), setError);
+    setBusy(false);
   };
 
   return (
@@ -233,25 +251,25 @@ function ConflictCard({
         <span className="muted">
           {settled} of {fields.length} chosen
         </span>
+        <FormError>{error}</FormError>
         <span className="sync-conflict-actions">
           {fields.length > 1 && (
             <>
-              <button type="button" className="btn-ghost btn-sm" onClick={() => all("local")}>
-                All mine
-              </button>
-              <button type="button" className="btn-ghost btn-sm" onClick={() => all("remote")}>
-                All cloud
-              </button>
+              <Button variant="ghost" size="sm" onClick={() => all("local")}>
+                Keep this device&apos;s
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => all("remote")}>
+                Keep the cloud&apos;s
+              </Button>
             </>
           )}
-          <button
-            type="button"
-            className="btn-primary btn-sm"
+          <Button
+            variant="primary" size="sm"
             disabled={busy || settled < fields.length}
             onClick={() => void resolve()}
           >
             Resolve
-          </button>
+          </Button>
         </span>
       </footer>
     </article>
@@ -272,26 +290,27 @@ function FieldMerge({ field, choice, onChoose }: { field: Field; choice?: Choice
       {long ? (
         <TextMerge field={field} choice={choice} onChoose={onChoose} />
       ) : (
-        <div className="sync-sides" role="radiogroup" aria-label={humanize(field.field)}>
+        <div className="sync-sides wf-seg" role="radiogroup" aria-label={humanize(field.field)}>
           {(["local", "remote"] as const).map((side) => (
-            <button
+            <RadioButton checked={choice?.kind === side}
               key={side}
-              type="button"
-              role="radio"
-              aria-checked={choice?.kind === side}
-              className="sync-side"
-              data-side={side}
               onClick={() => onChoose({ kind: side })}
             >
               <span className="sync-side-tag">{side === "local" ? "This device" : "Cloud"}</span>
               <span className="sync-side-value">{show(field[side])}</span>
-            </button>
+            </RadioButton>
           ))}
         </div>
       )}
     </div>
   );
 }
+
+const HUNK_OPTIONS = [
+  { value: "ours", label: "Mine" },
+  { value: "theirs", label: "Cloud" },
+  { value: "both", label: "Both" },
+] as const satisfies readonly { value: HunkPick; label: string }[];
 
 /** Long text merges the way git does: a diff, a pick per hunk, or the markers to edit by hand. */
 function TextMerge({ field, choice, onChoose }: { field: Field; choice?: Choice; onChoose: (c: Choice) => void }) {
@@ -318,13 +337,13 @@ function TextMerge({ field, choice, onChoose }: { field: Field; choice?: Choice;
 
   return (
     <div className="sync-text">
-      <div className="sync-seg" role="radiogroup" aria-label={humanize(field.field)}>
-        {modes.map((m) => (
-          <button key={m.label} type="button" role="radio" aria-checked={m.checked} onClick={m.choose}>
-            {m.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        label={humanize(field.field)}
+        className="sync-modes"
+        value={modes.find((m) => m.checked)?.label ?? null}
+        onChange={(next) => modes.find((m) => m.label === next)?.choose()}
+        options={modes.map((m) => ({ value: m.label, label: m.label }))}
+      />
       {choice?.kind === "edit" ? (
         <>
           <textarea
@@ -349,17 +368,13 @@ function TextMerge({ field, choice, onChoose }: { field: Field; choice?: Choice;
               </Fragment>
             ) : (
               <div key={i} className="sync-hunk">
-                <div className="sync-hunk-pick" role="group" aria-label={`Change ${group.hunk + 1}`}>
-                  {(["ours", "theirs", "both"] as const).map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      aria-pressed={hunkPicks[group.hunk!] === p}
-                      onClick={() => pickHunk(group.hunk!, p)}
-                    >
-                      {p === "ours" ? "Mine" : p === "theirs" ? "Cloud" : "Both"}
-                    </button>
-                  ))}
+                <div className="sync-hunk-pick">
+                  <SegmentedControl
+                    label={`Change ${group.hunk + 1}`}
+                    value={hunkPicks[group.hunk] ?? null}
+                    onChange={(p) => pickHunk(group.hunk!, p)}
+                    options={HUNK_OPTIONS}
+                  />
                 </div>
                 {group.lines.map((l, j) => (
                   <DiffRow key={j} line={l} />
@@ -449,7 +464,7 @@ function format(value: unknown): string {
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "string" && ISO.test(value)) {
     const d = new Date(value);
-    if (!Number.isNaN(d.getTime())) return value.length > 10 ? d.toLocaleString() : d.toLocaleDateString();
+    if (!Number.isNaN(d.getTime())) return value.length > 10 ? formatDateTime(d) : formatDate(d);
   }
   const out = typeof value === "string" ? value : JSON.stringify(value);
   return out.length > 80 ? `${out.slice(0, 80)}…` : out;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
 import { ScreenLoader } from "@/components/weaveforge-loader";
@@ -11,12 +11,22 @@ import { FormError } from "@/components/form-error";
 import { EmptyState } from "@/components/empty-state";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
 import { isLocalMode } from "@/backend/providers/local/local-identity";
-import { loadLocalDemoWorkspace } from "@/features/showcase/application/load-local-demo";
 import dynamic from "next/dynamic";
+import { Button } from "@/components/button";
+import { RowButton } from "@/components/controls";
 
 // Lazy: this screen sits in the root layout, which has a tight JS budget.
 const ConfirmDialog = dynamic(() => import("@/components/confirm-dialog").then((m) => m.ConfirmDialog), { ssr: false });
 const EntityCardMenu = dynamic(() => import("@/components/entity-card-menu").then((m) => m.EntityCardMenu), { ssr: false });
+
+/** Set by `showNewProject`, so the screen mounts with its New project dialog open. */
+let openCreateOnMount = false;
+
+/** Leave the current project and open the New project dialog (DA-98). */
+export function showNewProject(setProject: (id: string | null) => void) {
+  openCreateOnMount = true;
+  setProject(null);
+}
 
 /**
  * Project picker / creator. Shown when no project is selected. Choosing a
@@ -25,7 +35,11 @@ const EntityCardMenu = dynamic(() => import("@/components/entity-card-menu").the
 export function ProjectsScreen() {
   const { projects, loading, current, setProject, refresh } = useProject();
   const [name, setName] = useState("");
-  const [addOpen, setAddOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(() => openCreateOnMount);
+  // Reset after mount, not in the initializer: Strict Mode runs that twice.
+  useEffect(() => {
+    openCreateOnMount = false;
+  }, []);
   const local = isLocalMode();
 
   const { busy, error, submit: create } = useSubmit(async () => {
@@ -49,21 +63,23 @@ export function ProjectsScreen() {
   // The no-account copy starts empty. A filled workspace shows what every
   // screen looks like without the visitor first entering thirty papers.
   const { busy: demoBusy, error: demoError, submit: loadDemo } = useSubmit(async () => {
+    // Lazy: the seeder carries the whole showcase data set.
+    const { loadLocalDemoWorkspace } = await import("@/features/showcase/application/load-local-demo");
     const { projectId } = await loadLocalDemoWorkspace();
     await refresh();
     setProject(projectId);
   });
   const demoButton = local ? (
-    <button type="button" className="btn-secondary" disabled={demoBusy} onClick={() => void loadDemo()}>
+    <Button disabled={demoBusy} onClick={() => void loadDemo()}>
       {demoBusy ? "Loading demo…" : "Load demo workspace"}
-    </button>
+    </Button>
   ) : null;
 
   return (
     <section className="screen">
       <ScreenHead>
         {demoButton}
-        <button className="btn-primary" onClick={() => setAddOpen(true)}>New project</button>
+        <Button variant="primary" onClick={() => setAddOpen(true)}>New project</Button>
       </ScreenHead>
 
       {demoError && <FormError>{demoError}</FormError>}
@@ -75,6 +91,7 @@ export function ProjectsScreen() {
           confirmLabel="Delete project"
           danger
           busy={removeBusy}
+          requireText={removing.name}
           onConfirm={() => void remove()}
           onClose={() => setRemoving(null)}
         />
@@ -95,9 +112,9 @@ export function ProjectsScreen() {
               />
             </div>
             {error && <FormError>{error}</FormError>}
-            <button className="btn-primary" disabled={busy}>
+            <Button type="submit" variant="primary" disabled={busy}>
               {busy ? "Creating…" : "Create project"}
-            </button>
+            </Button>
           </form>
         </Modal>
       )}
@@ -112,9 +129,9 @@ export function ProjectsScreen() {
           body="A project is one piece of research: a thesis, a paper, a lab rotation. Everything you add — papers, notes, runs, the report — belongs to one, and switching projects switches the whole workspace."
           action={
             <>
-              <button type="button" className="btn-primary" onClick={() => setAddOpen(true)}>
+              <Button variant="primary" onClick={() => setAddOpen(true)}>
                 + New project
-              </button>
+              </Button>
               {demoButton}
             </>
           }
@@ -126,24 +143,21 @@ export function ProjectsScreen() {
           {projects.map((p) => (
             <li key={p.id} className="project-row">
               {/*
-               * A real `<button>`, not a `<li>` with an `onClick`. This is the
+               * A real button element, not a `<li>` with an `onClick`. This is the
                * first screen a signed-in user with no project sees, and the
                * clickable list item could not be reached by keyboard or
                * activated with Enter or Space — no `role`, no `tabIndex`, no
                * key handler. A button gets the role, the focus ring and both
                * activation keys for free.
                */}
-              <button
-                type="button"
-                className="card project-card"
-                onClick={() => setProject(p.id)}
-              >
+              <RowButton onClick={() => setProject(p.id)}>
                 <span className="project-dot" style={{ background: p.color ?? "#7c9885" }} />
                 <span className="project-name">{p.name}</span>
-              </button>
+              </RowButton>
               <EntityCardMenu
                 shareable={false}
                 title={p.name}
+                name={p.name}
                 onDelete={() => setRemoving(p)}
                 deleteLabel="Delete project"
               />

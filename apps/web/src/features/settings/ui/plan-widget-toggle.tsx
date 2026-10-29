@@ -61,9 +61,8 @@ export function PlanWidgetToggle() {
       <FormError>{error}</FormError>
       {hasLocalCopy || state.enabled ? (
         <label className="calendar-feed-check">
-          <input
+          <input className="wf-check"
             type="checkbox"
-            className="themed-check"
             checked={state.enabled}
             disabled={busy}
             onChange={(e) => void toggle(e.target.checked)}

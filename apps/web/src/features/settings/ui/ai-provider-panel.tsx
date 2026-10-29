@@ -15,6 +15,8 @@ import {
 import { getContainer } from "@/bootstrap";
 import { PROVIDER_PRESETS, type ProviderApi } from "@/container/facades";
 import { FormError } from "@/components/form-error";
+import { logToApp } from "@/lib/error-report/app-log";
+import { Button } from "@/components/button";
 
 /**
  * Settings → AI provider.
@@ -53,11 +55,16 @@ export function AiProviderPanel() {
    */
   useEffect(() => {
     let live = true;
-    void restoreActiveProvider().then((found) => {
-      if (!live || !found) return;
-      setActive(activeProviderLabel());
-      setRemember(true);
-    });
+    void restoreActiveProvider()
+      .then((found) => {
+        if (!live || !found) return;
+        setActive(activeProviderLabel());
+        setRemember(true);
+      })
+      // A keychain that will not answer looks like nothing stored; say why in the log.
+      .catch((err) =>
+        logToApp({ level: "warn", source: "ai-provider", message: "Could not restore the stored AI provider", detail: String(err) }),
+      );
     return () => {
       live = false;
     };
@@ -136,14 +143,14 @@ export function AiProviderPanel() {
   return (
     <section
       id="settings-provider"
-      className="card add-form settings-anchor"
+      className="add-form settings-anchor"
       role="tabpanel"
       aria-labelledby="settings-tab-ai"
     >
       <h3 className="settings-group">AI provider</h3>
       <p className="muted">
         Point WeaveForge at any OpenAI-compatible, Anthropic, or Ollama endpoint. Calls go
-        straight from this browser to the provider — your key never reaches our servers.
+        straight from this device to the provider — your key never reaches our servers.
       </p>
 
       <div className="field">
@@ -207,9 +214,8 @@ export function AiProviderPanel() {
           </p>
           {storable && (
             <label className="field-inline" htmlFor="provider-remember">
-              <input
+              <input className="wf-check"
                 id="provider-remember"
-                className="themed-check"
                 type="checkbox"
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
@@ -235,24 +241,24 @@ export function AiProviderPanel() {
       )}
 
       <div className="screen-actions">
-        <button
-          className="btn-secondary"
-          type="button"
+        <Button
           disabled={testing || !ready}
           onClick={() => void test()}
         >
           {testing ? "Testing…" : active ? "Test and update" : "Test and use"}
-        </button>
+        </Button>
         {active && (
-          <button
-            className="btn-ghost"
-            type="button"
+          <Button
+            variant="ghost"
+           
             disabled={testing}
             onClick={() => {
               clearActiveProvider();
               // The stored copy goes with it. Leaving it would mean "stop using
               // it" lasting until the next launch, which is not what it says.
-              void forgetStoredProvider();
+              void forgetStoredProvider().catch((err) =>
+                setError(`Could not forget the stored key: ${formatError(err)}`),
+              );
               setActive(null);
               setApiKey("");
               setResult(null);
@@ -261,7 +267,7 @@ export function AiProviderPanel() {
             }}
           >
             Stop using it
-          </button>
+          </Button>
         )}
       </div>
 

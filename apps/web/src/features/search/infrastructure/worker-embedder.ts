@@ -28,7 +28,7 @@ export interface WorkerEmbedderOptions {
  * are 80–120 MB of WASM heap that nothing else can reclaim; the browser's HTTP
  * cache keeps the download, so the next `embed` pays only the model's start.
  */
-const IDLE_EVICT_MS = 5 * 60_000;
+export const IDLE_EVICT_MS = 5 * 60_000;
 
 export class WorkerEmbedder implements IEmbedder {
   readonly id: string;
@@ -60,14 +60,20 @@ export class WorkerEmbedder implements IEmbedder {
    *
    * Idempotent and shared: several screens may ask at once, and the model must
    * be fetched once. A failure clears the promise so a retry is possible —
-   * caching a rejection would make a transient network error permanent.
+   * caching a rejection would make a transient network error permanent. The
+   * half-started worker is stopped too, or it would hold its heap until the
+   * tab closed. A load with no query after it (stored vectors all current)
+   * starts the quiet period too, or the model would stay for the session.
    */
   load(): Promise<void> {
     if (this.ready) return this.ready;
-    this.ready = this.start().catch((error: unknown) => {
-      this.ready = null;
-      throw error;
-    });
+    this.ready = this.start().then(
+      () => this.scheduleIdle(),
+      (error: unknown) => {
+        this.dispose();
+        throw error;
+      },
+    );
     return this.ready;
   }
 
@@ -189,9 +195,12 @@ export function supportsLocalEmbedding(): boolean {
  * upstream the first time. That is what makes the feature keep working with
  * the network unplugged; a browser copy has no such folder and uses the
  * encoder library's own default host.
+ *
+ * Under the page's own origin: `app:` is not a CORS-enabled scheme, so a fetch
+ * to another `app:` host such as `app://models` is blocked before it is sent.
  */
 function cachedWeightHost(): string | undefined {
   return typeof location !== "undefined" && location.protocol === "app:"
-    ? "app://models"
+    ? `${location.origin}/models`
     : undefined;
 }

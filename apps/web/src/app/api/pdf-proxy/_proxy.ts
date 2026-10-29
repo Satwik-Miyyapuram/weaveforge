@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { formatError } from "@/lib/format-error";
+import { hasPdfMagic, isPdfContentType, PDF_MAGIC_WINDOW } from "@/features/reader/application/pdf-response-rules";
 import {
   isAllowedPdfProxyUrl,
   PDF_PROXY_MAX_BYTES,
@@ -37,8 +38,6 @@ const HEADER_TIMEOUT_MS = 30_000;
  */
 const BODY_TIMEOUT_MS = 60_000;
 
-const PDF_MAGIC_WINDOW = 1024;
-
 export { isAllowedPdfProxyUrl };
 
 function pdfResponseHeaders(): HeadersInit {
@@ -49,12 +48,6 @@ function pdfResponseHeaders(): HeadersInit {
     "content-security-policy": "default-src 'none'; sandbox",
     "cache-control": "private, max-age=3600",
   };
-}
-
-function isPdfContentType(value: string | null): boolean {
-  if (!value) return false;
-  const type = value.split(";")[0]?.trim().toLowerCase() ?? "";
-  return type === "application/pdf" || type === "application/octet-stream";
 }
 
 /**
@@ -225,12 +218,6 @@ async function readPrefix(
     },
   });
   return { head, rest };
-}
-
-function hasPdfMagic(bytes: Uint8Array): boolean {
-  const window = bytes.subarray(0, Math.min(PDF_MAGIC_WINDOW, bytes.byteLength));
-  const ascii = new TextDecoder("latin1").decode(window);
-  return ascii.includes("%PDF");
 }
 
 /**

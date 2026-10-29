@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   groupResults,
+  isPickEnter,
+  paintedOrder,
   quickOpenResults,
   scoreMatch,
   titleOf,
@@ -130,4 +132,26 @@ test("a kind with no heading yet still gets a group, after the known ones", () =
   const groups = groupResults([stranger, ...results]);
   assert.equal(groups[groups.length - 1]!.kind, "experiment");
   assert.equal(groups[groups.length - 1]!.label, "Experiment");
+});
+
+// 28-03: the arrows and Enter walk the rows in the order they are painted.
+test("paintedOrder follows the groups, not the score order", () => {
+  const results = quickOpenResults(DOCUMENTS, "b");
+  const kinds = new Set(results.map((r) => r.node.kind));
+  assert.ok(kinds.size > 1, "the query must mix kinds");
+  const painted = paintedOrder(results);
+  assert.deepEqual(painted, groupResults(results).flatMap((g) => g.results));
+  assert.notDeepEqual(painted, results, "score order interleaves kinds, so the two differ");
+});
+
+test("paintedOrder of no results is empty", () => {
+  assert.deepEqual(paintedOrder([]), []);
+});
+
+// 28-09: Enter that confirms an IME composition does not pick a row.
+test("isPickEnter ignores Enter while an IME is composing", () => {
+  assert.equal(isPickEnter({ key: "Enter", nativeEvent: { isComposing: false } }), true);
+  assert.equal(isPickEnter({ key: "Enter", nativeEvent: { isComposing: true } }), false);
+  assert.equal(isPickEnter({ key: "Enter", keyCode: 229, nativeEvent: {} }), false);
+  assert.equal(isPickEnter({ key: "a", nativeEvent: { isComposing: false } }), false);
 });

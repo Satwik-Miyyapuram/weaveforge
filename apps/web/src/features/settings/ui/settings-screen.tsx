@@ -12,6 +12,7 @@ import {
 import { getContainer } from "@/bootstrap";
 import { Modal, ModalActions } from "@/components/modal";
 import { ScreenHead } from "@/components/screen-head";
+import { ConnectionState } from "@/components/connection-state";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
 import { SyncSettings } from "@/features/sync";
@@ -27,23 +28,27 @@ import { ExportDataPanel } from "./export-data-panel";
 import { GitHubLinkCard } from "./github-link-card";
 import { Select } from "@/components/select";
 import { userIntegrationsForConfig } from "@/integrations/descriptors-resolve";
+import { railGroupText, type RailGroupWords } from "./rail-group-text";
 import { isOfflineBuild } from "@/deployment/build-target";
-import { sanitizeCardTint, type CardTint, DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS, CONTROL_SIZE_OPTIONS, SURFACE_STYLE_OPTIONS, DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, sanitizeThemeId, sanitizeControlSize, sanitizeSurfaceStyle, type ControlSizeId, type SurfaceStyle, type ThemeConfig } from "@/lib/theme/theme";
-import { persistThemeChange, readLocalAppearance } from "@/lib/theme/theme-persistence";
 import { AiAccessPanel } from "./ai-access-panel";
-import { CardTintPicker } from "./card-tint-picker";
-import { ThemeConfigPanel } from "./theme-config-panel";
-import { ThemeCardPicker } from "./theme-card-picker";
+import { AppearancePanel } from "./appearance-panel";
 import { SyncIssuesPanel, SyncSettingsPanel } from "@/features/offline-sync";
 import { DesktopUpdatePanel, useDesktopUpdate } from "./desktop-update-panel";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { formatError } from "@/lib/format-error";
 import { useSubmit } from "@/lib/hooks/use-submit";
 import { useCapability, hasServerRoutes } from "@/deployment/capabilities";
+import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
+import { RowButton, TabButton } from "@/components/controls";
 
 // Only the Tokens tab paints it, so it stays out of the route's first load.
 const ApiTokensPanel = dynamic(() => import("./api-tokens-panel").then((m) => m.ApiTokensPanel), { ssr: false });
+const McpTokensPanel = dynamic(() => import("./mcp-tokens-panel").then((m) => m.McpTokensPanel), { ssr: false });
+// The MCP relay and its tokens are server routes; a static export has neither.
+// Both are fixed at build time, so this is worked out once.
+const mcpTokensServed = GENERATED_MCP_ENABLED && hasServerRoutes();
 // The same for the panels only one tab each paints: the organisation panel is
 // the largest single import this route had, and the log and account-deletion
 // panels sit at the bottom of theirs.
@@ -79,19 +84,26 @@ type SettingsTabId = (typeof SETTINGS_TABS)[number]["id"];
  * The tabs, gathered into the six groups the side rail lists. Choosing a group
  * opens its first tab; the group's other tabs sit under it while it is open.
  */
-const SETTINGS_GROUPS: readonly {
+const SETTINGS_GROUPS: readonly (RailGroupWords & {
   id: string;
-  label: string;
-  hint: string;
   icon: keyof typeof GROUP_ICONS;
   tabs: readonly SettingsTabId[];
-}[] = [
-  { id: "account", label: "Account and lab", hint: "Profile, password, lab", icon: "person", tabs: ["account", "org", "tokens"] },
-  { id: "appearance", label: "Appearance", hint: "Theme, tint, text", icon: "palette", tabs: ["appearance"] },
-  { id: "editor", label: "Editor and writing", hint: "Editor, paste, workspace", icon: "pen", tabs: ["editor", "paste", "workspace"] },
-  { id: "ai", label: "Search and AI", hint: "Search, models, API keys", icon: "search", tabs: ["search", "ai"] },
-  { id: "sync", label: "Sync and integrations", hint: "Cloud, Zotero, calendar", icon: "sync", tabs: ["sync", "integrations", "calendar"] },
-  { id: "data", label: "Data and updates", hint: "Backups, export, version", icon: "data", tabs: ["data", "updates"] },
+})[] = [
+  {
+    id: "account", label: "Account and lab", labelWithout: { tab: "org", label: "Account" }, icon: "person",
+    tabs: ["account", "org", "tokens"], hints: [["account", "profile, password"], ["org", "lab"], ["tokens", "tokens"]],
+  },
+  { id: "appearance", label: "Appearance", icon: "palette", tabs: ["appearance"], hints: [["appearance", "theme, tint, text"]] },
+  {
+    id: "editor", label: "Editor and writing", icon: "pen",
+    tabs: ["editor", "paste", "workspace"], hints: [["editor", "editor"], ["paste", "paste"], ["workspace", "workspace"]],
+  },
+  { id: "ai", label: "Search and AI", icon: "search", tabs: ["search", "ai"], hints: [["search", "search"], ["ai", "models, API keys"]] },
+  {
+    id: "sync", label: "Sync and integrations", icon: "sync",
+    tabs: ["sync", "integrations", "calendar"], hints: [["sync", "cloud"], ["integrations", ""], ["calendar", "calendar"]],
+  },
+  { id: "data", label: "Data and updates", icon: "data", tabs: ["data", "updates"], hints: [["data", "backups, export"], ["updates", "version"]] },
 ];
 
 const GROUP_ICONS = {
@@ -147,22 +159,11 @@ export function SettingsScreen() {
 
   const [settings, setSettings] = useState<UserSettings>({});
   const [loading, setLoading] = useState(true);
-  const [, setSaved] = useState(false);
+  const [loaded, setLoaded] = useState(false); // Saving replaces every stored credential.
   const [collections, setCollections] = useState<{ key: string; name: string }[]>([]);
   /** State of the live credential probe shown inside the connection dialog. */
-  const [collectionsProbe, setCollectionsProbe] = useState<
-    "idle" | "loading" | "ready" | "empty" | "failed"
-  >("idle");
+  const [collectionsProbe, setCollectionsProbe] = useState<"idle" | "loading" | "ready" | "empty" | "failed">("idle");
   const [projectCollection, setProjectCollection] = useState<string>("");
-  const [lightTheme, setLightTheme] = useState<string>(DEFAULT_LIGHT_THEME);
-  const [darkTheme, setDarkTheme] = useState<string>(DEFAULT_DARK_THEME);
-  const [controlSize, setControlSize] = useState<ControlSizeId>("default");
-  const [surfaces, setSurfaces] = useState<SurfaceStyle>("borderless");
-  const [reactiveMotion, setReactiveMotion] = useState(false);
-  const [cardTint, setCardTint] = useState<CardTint>("full");
-  const [cardTilt, setCardTilt] = useState(true);
-  const [scanlines, setScanlines] = useState(true);
-  const [customTheme, setCustomTheme] = useState<ThemeConfig | null>(null);
   const [activeProvider, setActiveProvider] = useState<UserIntegrationDescriptor | null>(null);
   const [aiAccessOpen, setAiAccessOpen] = useState(false);
   const [tab, setTab] = useState<SettingsTabId>("account");
@@ -182,7 +183,15 @@ export function SettingsScreen() {
     history.replaceState(null, "", `#settings-${next}`);
   }
 
+  /** Saved first, so leaving the dialog keeps what the reader set in it (DA-132). */
+  async function openTokensFromAiAccess() {
+    if (!(await submit())) return;
+    setAiAccessOpen(false);
+    selectTab("tokens");
+  }
+
   const { busy, error, setError, submit } = useSubmit(async () => {
+    if (!loaded) throw new Error("Settings did not load; reload before saving.");
     await getContainer().settings.manageSettings.save(settings);
     // The ink engine is probed once per session and kept. Saving settings can
     // change what the *desktop shell* answers — the local API's switch is the
@@ -190,14 +199,13 @@ export function SettingsScreen() {
     getContainer().ink.reset();
     // Ranking is read per query, so this lands without a reindex.
     getContainer().search.setSettings(settings.search);
-    setSaved(true);
   });
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      setSettings(await getContainer().settings.manageSettings.get());
+      setSettings(await getContainer().settings.manageSettings.get()); setLoaded(true);
     } catch (err) {
       setError(formatError(err));
     } finally {
@@ -207,78 +215,7 @@ export function SettingsScreen() {
 
   useEffect(() => {
     void load();
-    const appearance = readLocalAppearance();
-    setLightTheme(appearance.lightTheme ?? DEFAULT_LIGHT_THEME);
-    setDarkTheme(appearance.darkTheme ?? DEFAULT_DARK_THEME);
-    setControlSize(sanitizeControlSize(appearance.controlSize));
-    setSurfaces(sanitizeSurfaceStyle(appearance.surfaces));
-    setReactiveMotion(appearance.reactiveMotion ?? false);
-    setCardTint(sanitizeCardTint(appearance.cardTint));
-    setCardTilt(appearance.cardTilt ?? true);
-    setScanlines(appearance.scanlines ?? true);
-    setCustomTheme(appearance.customTheme ?? null);
   }, [load]);
-
-  function handleLightThemeChange(val: string) {
-    const safe = sanitizeThemeId(val, "light");
-    setLightTheme(safe);
-    persistThemeChange(
-      { lightTheme: safe },
-      { apply: document.documentElement.dataset.mode !== "dark" },
-    );
-  }
-
-  function handleDarkThemeChange(val: string) {
-    const safe = sanitizeThemeId(val, "dark");
-    setDarkTheme(safe);
-    persistThemeChange(
-      { darkTheme: safe },
-      { apply: document.documentElement.dataset.mode === "dark" },
-    );
-  }
-
-  function handleCardTintChange(val: string) {
-    const safe = sanitizeCardTint(val);
-    setCardTint(safe);
-    persistThemeChange({ cardTint: safe });
-  }
-
-  function handleCardTiltChange(on: boolean) {
-    setCardTilt(on);
-    persistThemeChange({ cardTilt: on });
-  }
-
-  function handleScanlinesChange(on: boolean) {
-    setScanlines(on);
-    persistThemeChange({ scanlines: on });
-  }
-
-  function handleControlSizeChange(val: string) {
-    const safe = sanitizeControlSize(val);
-    setControlSize(safe);
-    persistThemeChange({ controlSize: safe });
-  }
-
-  function handleSurfacesChange(val: string) {
-    const safe = sanitizeSurfaceStyle(val);
-    setSurfaces(safe);
-    persistThemeChange({ surfaces: safe });
-  }
-
-  function handleReactiveMotionChange(on: boolean) {
-    setReactiveMotion(on);
-    persistThemeChange({ reactiveMotion: on });
-  }
-
-  function handleCustomThemeChange(config: ThemeConfig | null) {
-    setCustomTheme(config);
-    if (config) {
-      // A theme file carries its own surface and motion preference, so the
-      // controls above have to follow what was just applied.
-      setSurfaces(config.surfaces);
-      setReactiveMotion(config.reactiveMotion);
-    }
-  }
 
   const loadCollections = useCallback(async () => {
     if (integrationConfig.bibliography === "none") return;
@@ -361,7 +298,6 @@ export function SettingsScreen() {
 
   function patchProviderField(providerId: string, fieldId: string, value: string) {
     setSettings((s) => applyUserIntegrationFields(s, providerId, { [fieldId]: value }));
-    setSaved(false);
   }
 
   const showBibliographyCollection =
@@ -378,7 +314,7 @@ export function SettingsScreen() {
     // to issue a token, no second device to reconcile with.
     if (t.id === "org") return hasOrgs;
     // Desktop issues its token from the shell, account or not.
-    if (t.id === "tokens") return hasApiTokens || isDesktop;
+    if (t.id === "tokens") return hasApiTokens || isDesktop || mcpTokensServed;
     if (t.id === "sync") return hasSync;
     return true;
   });
@@ -387,7 +323,11 @@ export function SettingsScreen() {
   const labelOf = new Map<SettingsTabId, string>(tabs.map((t) => [t.id, t.label]));
   const findHits = findSettings(findQuery, tabs);
   const groups = SETTINGS_GROUPS
-    .map((g) => ({ ...g, tabs: g.tabs.filter((id) => visible.has(id)) }))
+    .map((g) => ({
+      ...g,
+      ...railGroupText(g, visible, userIntegrations.map((d) => d.title)),
+      tabs: g.tabs.filter((id) => visible.has(id)),
+    }))
     .filter((g) => g.tabs.length > 0);
 
   return (
@@ -412,10 +352,8 @@ export function SettingsScreen() {
           const open = g.tabs.includes(tab);
           return (
             <div key={g.id} className={`settings-rail-group${open ? " is-open" : ""}`}>
-              <button
-                type="button"
-                className="settings-rail-head"
-                aria-current={open ? "true" : undefined}
+              <RowButton
+                current={open}
                 onClick={() => { if (!open) selectTab(g.tabs[0]!); }}
               >
                 <span className="settings-rail-icon" aria-hidden>
@@ -432,23 +370,19 @@ export function SettingsScreen() {
                   </span>
                   <span className="settings-rail-hint">{g.hint}</span>
                 </span>
-              </button>
+              </RowButton>
               {open && g.tabs.length > 1 && (
                 <div className="settings-rail-tabs" role="tablist" aria-label={g.label}>
                   {g.tabs.map((id) => (
-                    <button
+                    <TabButton selected={tab === id}
                       key={id}
-                      type="button"
-                      role="tab"
                       id={`settings-tab-${id}`}
-                      aria-selected={tab === id}
                       aria-controls={`settings-${id}`}
-                      className={tab === id ? "is-active" : ""}
                       onClick={() => selectTab(id)}
                     >
                       {labelOf.get(id)}
                       {id === "updates" && update && <span className="tab-dot" aria-label="update available" />}
-                    </button>
+                    </TabButton>
                   ))}
                 </div>
               )}
@@ -489,148 +423,27 @@ export function SettingsScreen() {
       {tab === "paste" && <PasteSettingsPanel />}
       {tab === "editor" && <EditorSettingsPanel />}
 
-      {/* Laid out like a record page (styles/appearance.css): mono section
-          heads over a hairline, one row per preference with its explanation on
-          the left and the control on the right, and no box around any of it. */}
-      {tab === "appearance" && (
-      <div id="settings-appearance" className="settings-anchor appearance" role="tabpanel" aria-labelledby="settings-tab-appearance">
-        <header className="appearance-head">
-          <h3 className="appearance-title">Appearance</h3>
-          <p className="appearance-lede">How WeaveForge looks on this device.</p>
-        </header>
-
-        <section className="appearance-section" aria-labelledby="appearance-theme-head">
-          <h4 id="appearance-theme-head" className="record-section-head">Theme</h4>
-          <div className="appearance-row">
-            <div className="appearance-row-text">
-              <span className="appearance-label" id="lightThemeLabel">Light theme</span>
-              <p>Used while your system is in light mode.</p>
-            </div>
-          </div>
-          <ThemeCardPicker
-            name="lightTheme"
-            labelledBy="lightThemeLabel"
-            options={LIGHT_THEME_OPTIONS}
-            value={lightTheme}
-            onChange={handleLightThemeChange}
-          />
-          <div className="appearance-row">
-            <div className="appearance-row-text">
-              <span className="appearance-label" id="darkThemeLabel">Dark theme</span>
-              <p>Used while your system is in dark mode.</p>
-            </div>
-          </div>
-          <ThemeCardPicker
-            name="darkTheme"
-            labelledBy="darkThemeLabel"
-            options={DARK_THEME_OPTIONS}
-            value={darkTheme}
-            onChange={handleDarkThemeChange}
-          />
-          <CardTintPicker value={cardTint} onChange={handleCardTintChange} />
-          <ThemeConfigPanel current={customTheme} onChange={handleCustomThemeChange} />
-        </section>
-
-        <section className="appearance-section" aria-labelledby="appearance-interface-head">
-          <h4 id="appearance-interface-head" className="record-section-head">Interface</h4>
-          <div className="appearance-row">
-            <div className="appearance-row-text">
-              <label htmlFor="surfaces">Surfaces</label>
-              <p>
-                Borderless separates panels and cards with shadow and a faint fill; Bordered
-                outlines each with a hairline. Pick Bordered with High Contrast, where a
-                shadow carries too little contrast to mark an edge.
-              </p>
-            </div>
-            <Select id="surfaces" value={surfaces} onChange={(e) => handleSurfacesChange(e.target.value)}>
-              {SURFACE_STYLE_OPTIONS.map((opt) => (
-                <option key={opt.id} value={opt.id}>{opt.label}</option>
-              ))}
-            </Select>
-          </div>
-          <div className="appearance-row">
-            <div className="appearance-row-text">
-              <label htmlFor="controlSize">Button size</label>
-              <p>Scales icon buttons and expand toggles (lists, report sections, cards) together.</p>
-            </div>
-            <Select id="controlSize" value={controlSize} onChange={(e) => handleControlSizeChange(e.target.value)}>
-              {CONTROL_SIZE_OPTIONS.map((opt) => (
-                <option key={opt.id} value={opt.id}>{opt.label}</option>
-              ))}
-            </Select>
-          </div>
-          <div className="appearance-row">
-            <div className="appearance-row-text">
-              <label htmlFor="reactiveMotion">Reactive animations</label>
-              <p>
-                Cards tilt toward the pointer and catch a light sheen; buttons and nav icons
-                respond to hover and press. Ordinary transitions are unaffected, and a
-                system &ldquo;reduce motion&rdquo; setting overrides this.
-              </p>
-            </div>
-            <input
-              id="reactiveMotion"
-              type="checkbox"
-              role="switch"
-              className="themed-check appearance-switch"
-              checked={reactiveMotion}
-              onChange={(e) => handleReactiveMotionChange(e.target.checked)}
-            />
-          </div>
-          {(lightTheme === "crt" || customTheme?.cardTilt === true) && (
-            <div className="appearance-row">
-              <div className="appearance-row-text">
-                <label htmlFor="cardTilt">Tilted cards</label>
-                <p>
-                  Cards lean a little off square, like a hand of dealt cards. On by default
-                  for CRT; a theme file can turn it on for any theme with{" "}
-                  <code>&quot;tilt&quot;: true</code>.
-                </p>
-              </div>
-              <input
-                id="cardTilt"
-                type="checkbox"
-                role="switch"
-                className="themed-check appearance-switch"
-                checked={cardTilt}
-                onChange={(e) => handleCardTiltChange(e.target.checked)}
-              />
-            </div>
-          )}
-          {lightTheme === "crt" && (
-            <div className="appearance-row">
-              <div className="appearance-row-text">
-                <label htmlFor="scanlines">Scanlines</label>
-                <p>Only for the CRT theme.</p>
-              </div>
-              <input
-                id="scanlines"
-                type="checkbox"
-                role="switch"
-                className="themed-check appearance-switch"
-                checked={scanlines}
-                onChange={(e) => handleScanlinesChange(e.target.checked)}
-              />
-            </div>
-          )}
-        </section>
-      </div>
-      )}
+      {tab === "appearance" && <AppearancePanel />}
 
       {tab === "ai" && loading && <ScreenLoader status="Loading settings…" compact />}
       {/* The MCP half only. The provider panel below it is a client-side BYOK
           setting and works with no server; the MCP relay and its tokens are both
           served by routes a static export does not contain. See
           `deployment/capabilities.ts` and `ai-access-panel.tsx`. */}
-      {tab === "ai" && !loading && hasServerRoutes() && (
-        <div id="settings-ai" className="card add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-ai">
+      {((tab === "ai" && hasServerRoutes()) || tab === "integrations") && !loading && !loaded && (
+        <div className="add-form" role="tabpanel"><FormError>{error ?? "Settings did not load."}</FormError><Button onClick={() => void load()}>Retry</Button></div>
+      )}
+      {tab === "ai" && !loading && loaded && hasServerRoutes() && (
+        <div id="settings-ai" className="add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-ai">
           <h3 className="settings-group">AI & MCP</h3>
           <p className="muted">Control what an AI client such as Codex may read or propose. Access is off by default.</p>
-          <button type="button" className="integration-item ai-access-launcher" onClick={() => setAiAccessOpen(true)}>
-            <span className="integration-logo ai-access-launcher-icon">✦</span>
-            <div className="integration-main"><strong>AI assistant access</strong><span className="muted">Sources, proposals, active sessions, and revocation.</span></div>
-            <span className={`status ${settings.aiAccess?.enabled ? "status-done" : "status-not_started"}`}>{settings.aiAccess?.enabled ? "Enabled" : "Disabled"}</span>
-          </button>
+          <div className="integration-item">
+            <RowButton onClick={() => setAiAccessOpen(true)}>
+              <span className="integration-logo ai-access-launcher-icon">✦</span>
+              <span className="integration-main"><strong>AI assistant access</strong><span className="muted">Sources, proposals, active sessions, and revocation.</span></span>
+              <span className={`status ${settings.aiAccess?.enabled ? "status-done" : "status-not_started"}`}>{settings.aiAccess?.enabled ? "Enabled" : "Disabled"}</span>
+            </RowButton>
+          </div>
         </div>
       )}
       {/* Desktop: MCP is served by the shell on loopback instead. */}
@@ -642,11 +455,12 @@ export function SettingsScreen() {
 
       {tab === "tokens" && isDesktop && <LocalApiPanel purpose="sdk" />}
       {tab === "tokens" && !loading && hasApiTokens && <ApiTokensPanel />}
+      {tab === "tokens" && !loading && mcpTokensServed && <McpTokensPanel />}
 
-      {tab === "integrations" && !loading && (
+      {tab === "integrations" && !loading && loaded && (
         <>
           {userIntegrations.length > 0 ? (
-            <div id="settings-integrations" className="card add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-integrations">
+            <div id="settings-integrations" className="add-form settings-anchor" role="tabpanel" aria-labelledby="settings-tab-integrations">
               <h3 className="settings-group">Integrations</h3>
               <p className="muted">Metadata sources for your library. Tap one to configure it.</p>
               {isOfflineBuild() ? (
@@ -668,21 +482,16 @@ export function SettingsScreen() {
                     d.fields.map((f) => f.id),
                   );
                   return (
-                    <button
-                      key={d.providerId}
-                      type="button"
-                      className="integration-item"
-                      onClick={() => setActiveProvider(d)}
-                    >
-                      <span className="integration-logo" style={{ background: d.color }} />
-                      <div className="integration-main">
-                        <strong>{d.title}</strong>
-                        <span className="muted">{d.description}</span>
-                      </div>
-                      <span className={`status ${connected ? "status-done" : "status-not_started"}`}>
-                        {connected ? "Connected" : "Not set"}
-                      </span>
-                    </button>
+                    <div key={d.providerId} className="integration-item">
+                      <RowButton onClick={() => setActiveProvider(d)}>
+                        <span className="integration-logo" style={{ background: d.color }} />
+                        <span className="integration-main">
+                          <strong>{d.title}</strong>
+                          <span className="muted">{d.description}</span>
+                        </span>
+                        <ConnectionState connected={connected} />
+                      </RowButton>
+                    </div>
                   );
                 })}
               </div>
@@ -695,7 +504,7 @@ export function SettingsScreen() {
         <Modal title={activeProvider.title} onClose={() => setActiveProvider(null)}>
           <form
             className="add-form"
-            onSubmit={(e) => { void submit(e).then(() => setActiveProvider(null)); }}
+            onSubmit={(e) => { void submit(e).then((ok) => { if (ok) setActiveProvider(null); }); }}
           >
             <p className="muted" style={{ marginTop: 0 }}>{activeProvider.description}</p>
             {activeProvider.fields.map((field) => (
@@ -747,19 +556,19 @@ export function SettingsScreen() {
               </div>
             )}
             {error && <FormError>{error}</FormError>}
-            <button className="btn-primary" disabled={busy}>
+            <Button type="submit" variant="primary" disabled={busy}>
               {busy ? "Saving…" : "Save connection"}
-            </button>
+            </Button>
           </form>
         </Modal>
       )}
 
       {aiAccessOpen && (
         <Modal title="AI & MCP access" onClose={() => !busy && setAiAccessOpen(false)}>
-          <form className="add-form ai-access-modal" onSubmit={(event) => { void submit(event).then(() => setAiAccessOpen(false)); }}>
-            <AiAccessPanel settings={settings} onChange={setSettings} />
+          <form className="add-form ai-access-modal" onSubmit={(event) => { void submit(event).then((ok) => { if (ok) setAiAccessOpen(false); }); }}>
+            <AiAccessPanel settings={settings} onChange={setSettings} onManageTokens={() => void openTokensFromAiAccess()} />
             {error && <FormError>{error}</FormError>}
-            <ModalActions><button type="button" className="btn-secondary btn-cancel" onClick={() => setAiAccessOpen(false)}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</button></ModalActions>
+            <ModalActions><Button variant="cancel" onClick={() => setAiAccessOpen(false)}>Cancel</Button><Button type="submit" variant="primary" disabled={busy}>{busy ? "Saving…" : "Save AI access"}</Button></ModalActions>
           </form>
         </Modal>
       )}

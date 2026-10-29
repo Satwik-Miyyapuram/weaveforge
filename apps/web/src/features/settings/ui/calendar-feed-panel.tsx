@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/format-date";
 import { useCallback, useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -9,11 +10,13 @@ import { useAuth } from "@/features/auth";
 import { hasServerRoutes } from "@/deployment/capabilities";
 import { formatError } from "@/lib/format-error";
 import { PlanWidgetToggle } from "./plan-widget-toggle";
+import { copyText } from "@/lib/clipboard";
 import {
   planFeedOrigin,
   planFeedUrls,
   type PlanFeedLink,
 } from "@/features/plan/infrastructure/plan-feed-links";
+import { Button } from "@/components/button";
 
 const REMINDER_OPTIONS = [
   { value: "0", label: "No reminder" },
@@ -24,7 +27,7 @@ const REMINDER_OPTIONS = [
 
 function formatWhen(iso: string | null): string {
   if (!iso) return "never";
-  return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return formatDateTime(iso);
 }
 
 /**
@@ -99,14 +102,15 @@ export function CalendarFeedPanel() {
     : null;
 
   function copy(key: string, value: string) {
-    void navigator.clipboard.writeText(value).then(() => {
+    void copyText(value).then((ok) => {
+      if (!ok) return;
       setCopied(key);
       window.setTimeout(() => setCopied(null), 1200);
     });
   }
 
   return (
-    <div id="settings-calendar" className="card add-form settings-anchor calendar-feed" role="tabpanel" aria-labelledby="settings-tab-calendar">
+    <div id="settings-calendar" className="add-form settings-anchor calendar-feed" role="tabpanel" aria-labelledby="settings-tab-calendar">
       <h3 className="settings-group">Deadlines in your calendar</h3>
       <p className="muted api-token-intro">
         One private link puts every dated milestone in Google Calendar, Outlook or Apple Calendar as an
@@ -127,7 +131,7 @@ export function CalendarFeedPanel() {
           </Select>
         </div>
         <label className="calendar-feed-check">
-          <input type="checkbox" className="themed-check" checked={includeDone} onChange={(e) => setIncludeDone(e.target.checked)} />
+          <input className="wf-check" type="checkbox" checked={includeDone} onChange={(e) => setIncludeDone(e.target.checked)} />
           Include finished milestones
         </label>
       </div>
@@ -147,9 +151,9 @@ export function CalendarFeedPanel() {
               <label htmlFor={`calendar-${key}`}>{label}</label>
               <div className="calendar-feed-row">
                 <input id={`calendar-${key}`} className="mono" value={value} readOnly onFocus={(e) => e.target.select()} />
-                <button type="button" className="btn-secondary" onClick={() => copy(key, value)}>
+                <Button onClick={() => copy(key, value)}>
                   {copied === key ? "Copied" : "Copy"}
-                </button>
+                </Button>
               </div>
             </div>
           ))}
@@ -173,18 +177,17 @@ export function CalendarFeedPanel() {
 
       {!loading && (
         <div className="api-token-toolbar calendar-feed-actions">
-          <button
-            type="button"
-            className="btn-primary"
+          <Button
+            variant="primary"
             disabled={busy}
             onClick={() => (link ? setConfirming("replace") : void make())}
           >
             {busy ? "Working…" : link ? "Make a new link" : "Make a link"}
-          </button>
+          </Button>
           {link ? (
-            <button type="button" className="link-btn danger" disabled={busy} onClick={() => setConfirming("off")}>
+            <Button variant="cancel" disabled={busy} onClick={() => setConfirming("off")}>
               Turn off
-            </button>
+            </Button>
           ) : null}
         </div>
       )}

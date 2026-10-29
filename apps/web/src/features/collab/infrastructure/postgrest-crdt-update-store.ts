@@ -20,7 +20,7 @@ interface CrdtRow {
   project_id: string | null;
   epoch: number;
   payload: string;
-  author_id: string;
+  author_id: string | null;
   created_at: string;
 }
 
@@ -86,14 +86,6 @@ export class PostgrestCrdtUpdateStore implements ICrdtUpdateStore {
       .eq("resource_type", resourceType)
       .eq("resource_id", resourceId)
       .lte("id", uptoId));
-  }
-
-  async deleteAll(resourceType: string, resourceId: string): Promise<void> {
-    await run(this.db
-      .from(TABLE)
-      .delete()
-      .eq("resource_type", resourceType)
-      .eq("resource_id", resourceId));
   }
 
   async countAfter(

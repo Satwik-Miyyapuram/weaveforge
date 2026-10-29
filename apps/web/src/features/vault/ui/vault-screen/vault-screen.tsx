@@ -2,25 +2,28 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  bodyLinksTo, extractHashtags, normalizeTitleKey,
-  type VaultPage, type VaultPageSummary } from "@weaveforge/core";
+import { normalizeTitleKey, type VaultPage, type VaultPageSummary } from "@weaveforge/core";
 import type { ReadingList } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { Modal } from "@/components/modal";
 import { ScreenLoading } from "@/components/screen-loading";
-import { CardColumns } from "@/components/card-columns";
 import { loadPinnedOwnerNames } from "@/features/sharing/application/load-pinned-owner-names";
-import { AddVaultPageForm } from "../add-vault-page-form";
+import { untitledTitle } from "../../application/untitled-title";
 import { importNotesFromFiles } from "../../application/import-notes";
+import { loadLinkTargets } from "../../application/load-link-targets";
+import { createNoteFromLink as createOrReuseNote } from "../../application/create-note-from-link";
+import { logToApp } from "@/lib/error-report/app-log";
 import { useScreenData } from "@/lib/hooks/use-screen-data";
 import { useDetailBack, useDetailPushFlag } from "@/lib/hooks/use-detail-back";
 import { emptyArray, emptyMap, emptySet } from "@/lib/empty";
-import { usePersistedState } from "@/lib/hooks/use-persisted-state";
+import { useProject } from "@/features/projects";
+import { projectScopedKey, usePersistedState } from "@/lib/hooks/use-persisted-state";
 import { formatError } from "@/lib/format-error";
 import { rememberRecentTarget } from "@/lib/recent-targets";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
-import { NoteCard, noteBodyText, isHydratedPage } from "./note-card";
+import { noteBodyText, isHydratedPage } from "./note-card";
+import { NoteCardGrid } from "./note-card-grid";
+import { noteBacklinks, noteTags, scopeNotes } from "../../application/note-derivations";
+import { openNoteBody } from "./open-note-body";
 import { PageEditor } from "./page-editor";
 import type { VaultViewData } from "./types";
 import { FilterRow } from "@/components/filter-row";
@@ -29,6 +32,9 @@ import { NavIcon } from "@/app/nav-icon";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { navTransition } from "@/lib/view-transition";
+import { Button } from "@/components/button";
+import { Popover } from "@/components/popover";
+import { Menu } from "@/components/menu";
 
 export function VaultScreen() {
   const router = useRouter();
@@ -36,31 +42,42 @@ export function VaultScreen() {
   const selectedId = searchParams.get("page");
   const isSharedView = searchParams.get("shared") === "1";
 
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [composeMode, setComposeMode] = useState<"menu" | "new">("menu");
+  // The note New note just made: it opens with its title focused.
+  const [newPageId, setNewPageId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const importZipRef = useRef<HTMLInputElement | null>(null);
   const importFolderRef = useRef<HTMLInputElement | null>(null);
   // File inputs stay mounted outside the modal so pickers survive dialog close.
-  const [listFilter, setListFilter] = usePersistedState<string[]>("thesis.notes.list", []);
-  const [tagFilter, setTagFilter] = usePersistedState<string[]>("thesis.notes.tags", []);
-  const [search, setSearch] = usePersistedState<string>("thesis.notes.search", "");
+  // Filters name lists and tags of one project, so each project keeps its own.
+  const projectId = useProject().current?.id;
+  const [listFilter, setListFilter] = usePersistedState<string[]>(projectScopedKey("thesis.notes.list", projectId), []);
+  const [tagFilter, setTagFilter] = usePersistedState<string[]>(projectScopedKey("thesis.notes.tags", projectId), []);
+  const [search, setSearch] = usePersistedState<string>(projectScopedKey("thesis.notes.search", projectId), "");
   const appliedPageFromUrl = useRef<string | null>(null);
   const { setPushed, consumePushed } = useDetailPushFlag();
   const goBackToList = useDetailBack("/notes", "page", consumePushed);
 
   const loadScreen = useCallback(async (): Promise<VaultViewData> => {
     const data = await getContainer().vault.loadScreenData();
-    const [ownerNames, papersData, reportData] = await Promise.all([
+    const [ownerNames, links] = await Promise.all([
       loadPinnedOwnerNames(data.pinnedSharedBy),
-      getContainer().papers.loadScreenData().catch(() => null),
-      getContainer().report.loadScreenData().catch(() => null),
+      loadLinkTargets(
+        {
+          papers: () => getContainer().papers.loadScreenData(),
+          sections: () => getContainer().report.loadScreenData(),
+        },
+        logToApp,
+      ),
     ]);
-    const paperEntries = (papersData?.papers ?? []).map((p) => ({ id: p.id, title: p.title }));
-    const sectionEntries = (reportData?.flat ?? []).map((s) => ({ id: s.id, title: s.title }));
-    return { ...data, ownerNames, paperEntries, sectionEntries };
+    return {
+      ...data,
+      ownerNames,
+      paperEntries: links.paperEntries,
+      sectionEntries: links.sectionEntries,
+      linkTargetsError: links.error,
+    };
   }, []);
 
   const { data, loading, error: loadError, reload: load, setData } = useScreenData("vault", loadScreen);
@@ -91,15 +108,7 @@ export function VaultScreen() {
     () => flat.map((p) => ({ id: p.id, title: p.title })),
     [flat],
   );
-  const backlinks = useMemo(() => {
-    if (!selectedId) return [] as { id: string; title: string }[];
-    const target = flat.find((p) => p.id === selectedId);
-    if (!target) return [];
-    const key = normalizeTitleKey(target.title);
-    return flat
-      .filter((p) => p.id !== target.id && bodyLinksTo(noteBodyText(p), key))
-      .map((p) => ({ id: p.id, title: p.title }));
-  }, [selectedId, flat]);
+  const backlinks = useMemo(() => noteBacklinks(flat, selectedId), [selectedId, flat]);
 
   const selected = useMemo(
     () => flat.find((p) => p.id === selectedId) ?? null,
@@ -111,6 +120,8 @@ export function VaultScreen() {
   // stays mounted — and its Edit / Read / Ink mode with it — instead of
   // dropping to "Opening note…" and coming back in Read.
   const [heldPage, setHeldPage] = useState<VaultPage | null>(null);
+  // Why the selected note could not be opened, shown instead of "Opening note…".
+  const [openError, setOpenError] = useState<string | null>(null);
   if (selected && isHydratedPage(selected) && selected !== heldPage) setHeldPage(selected);
   const shownPage: VaultPage | VaultPageSummary | null =
     selected && !isHydratedPage(selected) && heldPage?.id === selected.id ? heldPage : selected;
@@ -165,13 +176,13 @@ export function VaultScreen() {
     // screen hit every time. The repository caches the row, so asking again is
     // a lookup, not a round trip.
     let cancelled = false;
-    void getContainer()
-      .vault.getPage(selectedId)
-      .then((p) => {
-        if (cancelled || !p) return;
-        appliedPageFromUrl.current = selectedId;
-        upsertFlatPage(p);
-      });
+    setOpenError(null);
+    void openNoteBody((id) => getContainer().vault.getPage(id), selectedId).then(({ page, error: failed }) => {
+      if (cancelled) return;
+      if (!page) return setOpenError(failed);
+      appliedPageFromUrl.current = selectedId;
+      upsertFlatPage(page);
+    });
     return () => {
       cancelled = true;
     };
@@ -202,19 +213,23 @@ export function VaultScreen() {
     navTransition("forward", () => router.push(`/notes?${params.toString()}`));
   }
 
-  function closeCompose() {
-    setComposeOpen(false);
-    setComposeMode("menu");
-  }
-
-  function openCompose() {
-    setComposeMode("menu");
-    setComposeOpen(true);
+  /** New note: an Untitled note, opened, title focused to type over (DA-71). */
+  async function createUntitled() {
+    setError(null);
+    try {
+      const page = await getContainer().vault.manageVaultPage.add({
+        title: untitledTitle(flat.map((p) => p.title)),
+      });
+      setNewPageId(page.id);
+      await load();
+      openPage(page.id);
+    } catch (err) {
+      setError(formatError(err));
+    }
   }
 
   async function onImportFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
-    closeCompose();
     setImporting(true);
     setImportMsg(null);
     setError(null);
@@ -250,51 +265,45 @@ export function VaultScreen() {
     [flat],
   );
 
-  /** Clicking an unresolved `[[wikilink]]` creates that note and opens it. */
+  /**
+   * An unresolved `[[wikilink]]` creates that note, or reuses one with the same
+   * title. A click opens it; a link finished while typing passes `open: false`.
+   */
   const createNoteFromLink = useCallback(
-    async (title: string) => {
+    async (title: string, opts?: { open?: boolean }) => {
       try {
-        const page = await getContainer().vault.manageVaultPage.add({ title });
-        await load();
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("page", page.id);
-        setPushed();
-        router.push(`/notes?${params.toString()}`);
+        await createOrReuseNote(title, opts, {
+          existing: flat,
+          add: (t) => getContainer().vault.manageVaultPage.add({ title: t }),
+          reload: load,
+          open: (id) => {
+            const params = new URLSearchParams(searchParams.toString());
+            params.set("page", id);
+            setPushed();
+            router.push(`/notes?${params.toString()}`);
+          },
+        });
       } catch (err) {
         setError(formatError(err));
       }
     },
-    [load, searchParams, setPushed, router],
+    [flat, load, searchParams, setPushed, router],
   );
 
-  const parents = flat.filter((p) => !p.parentId && !pinnedSharedBy.has(p.id));
   const ownedNotes = useMemo(
     () => flat.filter((p) => ownedIds.has(p.id) && !pinnedSharedBy.has(p.id)),
     [flat, ownedIds, pinnedSharedBy],
   );
 
-  const allTags = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of flat) for (const t of extractHashtags(noteBodyText(p))) set.add(t);
-    return [...set].sort();
-  }, [flat]);
+  const allTags = useMemo(() => noteTags(flat), [flat]);
 
   const hasNotes = ownedNotes.length > 0 || pinnedPages.length > 0;
 
   const match = useScreenSearch(search, "note");
   const filterNotes = useCallback(
     (notes: (VaultPageSummary | VaultPage)[]) => {
-      const inAnyList = (id: string) =>
-        listFilter.some((lid) => membership.get(lid)?.has(id) ?? false);
-      const hasAnyTag = (p: VaultPageSummary | VaultPage) =>
-        tagFilter.some((t) => extractHashtags(noteBodyText(p)).includes(t));
-      // List and tag filters first: they are cheap set membership, and the
-      // ranked pass should only order what survives them.
-      const scoped = notes.filter(
-        (p) =>
-          (listFilter.length === 0 || inAnyList(p.id)) &&
-          (tagFilter.length === 0 || hasAnyTag(p)),
-      );
+      // List and tag filters first, so the ranked pass orders only what survives.
+      const scoped = scopeNotes(notes, { listFilter, tagFilter, membership });
       return match(scoped, (p) => p.id, (p) => `${p.title}\n${noteBodyText(p)}`);
     },
     [listFilter, tagFilter, membership, match],
@@ -320,19 +329,41 @@ export function VaultScreen() {
         eyebrow={hasNotes ? `${ownedNotes.length} ${ownedNotes.length === 1 ? "note" : "notes"}` : undefined}
         search={hasNotes ? { value: search, onChange: setSearch, label: "Search notes" } : undefined}
       >
-        <button
-          className="btn-primary"
-          type="button"
+        <Button
+          variant="primary"
+         
           disabled={importing}
-          onClick={openCompose}
+          onClick={() => void createUntitled()}
         >
           {importing ? "Importing…" : "New note"}
-        </button>
-        {/* Same button, same screen as on Papers — the wiki reads notes *and*
-            papers, so neither screen owns it. See `papers-list.tsx`. */}
-        <button className="btn-secondary" type="button" onClick={() => router.push("/wiki")}>
-          Wiki
-        </button>
+        </Button>
+        {/* Imports and the wiki sit one click away, as on Papers: the wiki
+            reads notes *and* papers, so neither screen owns it. */}
+        <Popover label="More" ariaLabel="More actions" align="right">
+          {(close) => (
+            <Menu
+              onClose={close}
+              items={[
+                {
+                  id: "import-zip",
+                  label: "Import zip…",
+                  disabled: importing,
+                  title: "A .zip of markdown notes (Obsidian vault, Notion export, …)",
+                  onSelect: () => importZipRef.current?.click(),
+                },
+                {
+                  id: "import-folder",
+                  label: "Import folder…",
+                  disabled: importing,
+                  title: "A local folder of markdown notes",
+                  onSelect: () => importFolderRef.current?.click(),
+                },
+                { id: "sep", label: "", kind: "separator" as const },
+                { id: "wiki", label: "Wiki", onSelect: () => router.push("/wiki") },
+              ]}
+            />
+          )}
+        </Popover>
         <input
           ref={importZipRef}
           type="file"
@@ -362,56 +393,8 @@ export function VaultScreen() {
       </ScreenHead>
       )}
 
-      {composeOpen && (
-        <Modal
-          title={composeMode === "new" ? "New note" : "Add notes"}
-          onClose={closeCompose}
-        >
-          {composeMode === "menu" ? (
-            <div className="org-modal-choices">
-              <button
-                type="button"
-                className="org-choice-card"
-                onClick={() => setComposeMode("new")}
-              >
-                <span className="org-choice-title">New note</span>
-                <p className="org-choice-desc">Create a blank markdown note.</p>
-              </button>
-              <button
-                type="button"
-                className="org-choice-card"
-                disabled={importing}
-                onClick={() => importZipRef.current?.click()}
-              >
-                <span className="org-choice-title">Import zip</span>
-                <p className="org-choice-desc">
-                  Upload a .zip of markdown notes (Obsidian vault, Notion export, …).
-                </p>
-              </button>
-              <button
-                type="button"
-                className="org-choice-card"
-                disabled={importing}
-                onClick={() => importFolderRef.current?.click()}
-              >
-                <span className="org-choice-title">Import folder</span>
-                <p className="org-choice-desc">Pick a local folder of markdown notes.</p>
-              </button>
-            </div>
-          ) : (
-            <AddVaultPageForm
-              parents={parents.map((p) => ({ id: p.id, title: p.title }))}
-              onClose={closeCompose}
-              onAdded={(id) => {
-                closeCompose();
-                void load().then(() => openPage(id));
-              }}
-            />
-          )}
-        </Modal>
-      )}
-
       {error && <FormError>{error}</FormError>}
+      {data?.linkTargetsError && <FormError>{data.linkTargetsError}</FormError>}
       {importMsg && <p className="muted vault-import-msg">{importMsg}</p>}
 
       {!error && !selected && hasNotes && (
@@ -448,7 +431,9 @@ export function VaultScreen() {
                 page, show the loading row instead. `isHydratedPage` tests for
                 the property, not its value, so an intentionally empty note
                 still reaches the editor. */}
-            {!shownPage || !isHydratedPage(shownPage) ? (
+            {openError && (!shownPage || !isHydratedPage(shownPage)) ? (
+              <FormError>{openError}</FormError>
+            ) : !shownPage || !isHydratedPage(shownPage) ? (
               <ScreenLoading status="Opening note…" />
             ) : (
               <PageEditor
@@ -470,6 +455,7 @@ export function VaultScreen() {
                 onBack={goBackToList}
                 backlinks={backlinks}
                 onOpenPage={openPage}
+                focusTitle={newPageId === shownPage.id}
               />
             )}
           </div>
@@ -480,13 +466,12 @@ export function VaultScreen() {
             title="No notes yet"
             body="Notes are where the reading becomes yours: the derivation you worked through, the paragraph you will still want to quote in eight months. Link them with [[ ]] and they join the graph."
             action={
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => { setComposeMode("new"); setComposeOpen(true); }}
+              <Button
+                variant="primary"
+                onClick={() => void createUntitled()}
               >
                 New note
-              </button>
+              </Button>
             }
           />
         ) : visibleCount === 0 ? (
@@ -504,53 +489,15 @@ export function VaultScreen() {
             }
           />
         ) : (
-          <>
-            {visibleMine.length > 0 && (
-              <>
-                <h4 className="settings-group vault-pinned-label">Pinned</h4>
-                <CardColumns
-                  items={visibleMine}
-                  getKey={(p) => p.id}
-                  renderItem={(p) => (
-                    <NoteCard page={p} onOpen={() => openPage(p.id)} onChanged={load} />
-                  )}
-                />
-                {visibleUnpinned.length > 0 && (
-                  <h4 className="settings-group vault-pinned-label">All notes</h4>
-                )}
-              </>
-            )}
-            {visibleUnpinned.length > 0 && (
-              <CardColumns
-                items={visibleUnpinned}
-                getKey={(p) => p.id}
-                deferOffscreen={visibleUnpinned.length > 20}
-                renderItem={(p) => (
-                  <NoteCard page={p} onOpen={() => openPage(p.id)} onChanged={load} />
-                )}
-              />
-            )}
-            {visiblePinned.length > 0 && (
-              <>
-                <h4 className="settings-group vault-pinned-label">Shared with you</h4>
-                <CardColumns
-                  items={visiblePinned}
-                  getKey={(p) => p.id}
-                  deferOffscreen={visiblePinned.length > 20}
-                  renderItem={(p) => (
-                    <NoteCard
-                      page={p}
-                      readOnly
-                      isPinned={pinnedSharedBy.has(p.id)}
-                      sharedByName={sharedOwnerName(p.id)}
-                      onOpen={() => openPage(p.id)}
-                      onChanged={load}
-                    />
-                  )}
-                />
-              </>
-            )}
-          </>
+          <NoteCardGrid
+            mine={visibleMine}
+            unpinned={visibleUnpinned}
+            shared={visiblePinned}
+            isPinned={(id) => pinnedSharedBy.has(id)}
+            sharedOwnerName={sharedOwnerName}
+            onOpen={openPage}
+            onChanged={load}
+          />
         )
       )}
     </section>

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { notifyEach } from "@/lib/notify-each";
+
 /**
  * Notice when anything writes, without asking every writer to say so.
  *
@@ -18,6 +20,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * every repository written afterwards, and the failure mode of forgetting one
  * is a folder that is silently stale for exactly one kind of edit.
  *
+ * Database functions that write are the one path around `from()`; they are
+ * listed in `RPC_WRITES` and reported the same way.
+ *
  * The wrapper is deliberately narrow. It reports the table name after a write
  * resolves without error, and does nothing else: no batching, no payloads, no
  * opinion about what the listener should do. Reads are untouched, so the
@@ -30,6 +35,42 @@ const MUTATIONS = new Set(["insert", "update", "upsert", "delete"]);
 export type WriteListener = (table: string) => void;
 
 /**
+ * Every RPC the app calls, mapped to the workspace table it writes, or `null`
+ * when it writes nothing a workspace listener cares about.
+ *
+ * A database function writes without passing through `from()`, so the proxy
+ * cannot see it and has to be told. `null` covers reads, access bookkeeping,
+ * account and organisation calls, and server-only token lookups. A test scans
+ * the source and fails on any RPC missing here, so a new one cannot default to
+ * "read" by being forgotten.
+ */
+export const RPC_WRITES: Readonly<Record<string, string | null>> = {
+  set_comment_resolved: "comments",
+  redeem_share_link: "shares",
+  compact_crdt_log: "crdt_updates",
+
+  api_token_scopes: null,
+  claim_ai_mcp_relay_requests: null,
+  complete_org_setup: null,
+  create_organization_atomic: null,
+  delete_user_account_data: null,
+  ensure_user_provisioned: null,
+  join_organization_atomic: null,
+  latest_metric_activity: null,
+  leave_org: null,
+  metric_history: null,
+  record_blob_access: null,
+  record_blob_access_many: null,
+  resolve_api_token: null,
+  resolve_mcp_relay_token: null,
+  resolve_plan_feed_token: null,
+  resolve_share_link: null,
+  shared_to_user: null,
+  switch_active_org: null,
+  sync_changes: null,
+};
+
+/**
  * Wrap a client so `onWrite(table)` fires after each successful write.
  *
  * A failed write is not a change: reporting one would have the mirror re-read
@@ -39,7 +80,16 @@ export function watchWrites<T extends SupabaseClient>(db: T, onWrite: WriteListe
   return new Proxy(db, {
     get(target, prop, receiver) {
       const value = Reflect.get(target, prop, receiver);
-      if (prop !== "from" || typeof value !== "function") return value;
+      if (typeof value !== "function") return value;
+      if (prop === "rpc") {
+        return (...args: unknown[]) => {
+          const result = (value as (...a: unknown[]) => unknown).apply(target, args);
+          const fn = args[0];
+          const table = typeof fn === "string" && Object.hasOwn(RPC_WRITES, fn) ? RPC_WRITES[fn] : null;
+          return table ? watchBuilder(result, table, onWrite, true) : result;
+        };
+      }
+      if (prop !== "from") return value;
       return (...args: unknown[]) => {
         const builder = (value as (...a: unknown[]) => unknown).apply(target, args);
         const table = typeof args[0] === "string" ? args[0] : "";
@@ -92,12 +142,9 @@ function watchBuilder(builder: unknown, table: string, onWrite: WriteListener, a
  * A listener must never be able to fail a write that already succeeded.
  *
  * The row is in the database either way, and turning a bookkeeping error into
- * a failed save would be the one outcome worth avoiding here.
+ * a failed save would be the one outcome worth avoiding here. The failure is
+ * logged instead.
  */
 function report(table: string, onWrite: WriteListener): void {
-  try {
-    onWrite(table);
-  } catch {
-    // Nothing to do with it, and nowhere useful to put it.
-  }
+  notifyEach([onWrite], "watch-writes", table);
 }

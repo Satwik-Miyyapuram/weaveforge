@@ -3,28 +3,28 @@
 import { useState } from "react";
 import { ROLE_LABELS, type OrgInviteCodePlaintext } from "@weaveforge/core";
 import { useProfile } from "./profile-provider";
+import { needsOrgSetup } from "../application/org-profile-state";
 import { createOrg, joinOrg, previewOrgCode, regenerateOrgCode, continueStandalone } from "../infrastructure/org-api";
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
 import { Select } from "@/components/select";
 import { formatError } from "@/lib/format-error";
 import { useCapability } from "@/deployment/capabilities";
+import { Button } from "@/components/button";
+import { RowButton } from "@/components/controls";
 
 /**
  * First-run gate: create a lab, join with a code, or continue standalone.
  * Helps both multi-user deployments and solo thesis tracking.
  */
 export function OrgSetupGate({ children }: { children: React.ReactNode }) {
-  const { profile, loading, refresh } = useProfile();
+  const { profile, loading, error, refresh } = useProfile();
   // A copy with no account has no lab to create, none to join, and — the part
   // that made this a dead end rather than a pointless screen — no server to
   // answer `continueStandalone`, whose only implementation is an RPC. The
   // gate was unanswerable, so it is not asked.
   const hasOrgs = useCapability("org");
-  const needsSetup =
-    hasOrgs &&
-    !loading &&
-    (!profile || profile.orgSetupComplete === false);
+  const needsSetup = needsOrgSetup({ hasOrgs, loading, profile, error });
 
   if (!needsSetup) return <>{children}</>;
 
@@ -65,7 +65,7 @@ function OrgSetupForm({ onDone }: { onDone: () => void | Promise<void> }) {
       <div className="org-setup-done">
         <p><strong>Lab created.</strong> Share these codes (shown once):</p>
         <CodeList codes={createdCodes} />
-        <button type="button" className="btn-primary" onClick={() => void onDone()}>Continue</button>
+        <Button variant="primary" onClick={() => void onDone()}>Continue</Button>
       </div>
     );
   }
@@ -118,23 +118,20 @@ function OrgSetupForm({ onDone }: { onDone: () => void | Promise<void> }) {
   return (
     <div className="org-setup-choose">
       <div className="org-modal-choices">
-        <button type="button" className="org-choice-card" onClick={() => setMode("create")}>
+        <RowButton onClick={() => setMode("create")}>
           <span className="org-choice-title">Create a lab</span>
           <p className="org-choice-desc">Start a new research group and invite teammates with codes.</p>
-        </button>
-        <button type="button" className="org-choice-card" onClick={() => setMode("join")}>
+        </RowButton>
+        <RowButton onClick={() => setMode("join")}>
           <span className="org-choice-title">Join with code</span>
           <p className="org-choice-desc">Enter an invite code from your supervisor or lab admin.</p>
-        </button>
+        </RowButton>
       </div>
-      <button
-        type="button"
-        className="link-btn org-modal-skip"
-        disabled={busy}
-        onClick={() => void finishStandalone()}
-      >
-        {busy ? "Saving…" : "Continue without an org"}
-      </button>
+      <span className="org-modal-skip">
+        <Button variant="link" disabled={busy} onClick={() => void finishStandalone()}>
+          {busy ? "Saving…" : "Continue without an org"}
+        </Button>
+      </span>
       <p className="muted org-setup-hint">
         You can create or join a lab later from <strong>Settings → Organization</strong>.
       </p>
@@ -169,10 +166,10 @@ function CreateLabForm({
       </label>
       {error && <FormError>{error}</FormError>}
       <div className="head-row">
-        <button type="button" className="btn-ghost" onClick={onBack}>Back</button>
-        <button type="submit" className="btn-primary" disabled={busy || !name.trim()}>
+        <Button variant="ghost" onClick={onBack}>Back</Button>
+        <Button type="submit" variant="primary" disabled={busy || !name.trim()}>
           {busy ? "Creating…" : "Create"}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -280,17 +277,17 @@ function JoinLabForm({
       {lookupError && <FormError>{lookupError}</FormError>}
       {error && <FormError>{error}</FormError>}
       <div className="head-row">
-        <button type="button" className="btn-ghost" onClick={onBack}>Back</button>
+        <Button variant="ghost" onClick={onBack}>Back</Button>
         {/* The supervisor pickers used to carry `required`, which the themed
             Select cannot express — it renders a button, not a form control — so
             the same rule is enforced here instead. */}
-        <button
+        <Button
           type="submit"
-          className="btn-primary"
+          variant="primary"
           disabled={busy || !code.trim() || missingSupervisor}
         >
           {busy ? "Joining…" : "Join lab"}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -330,22 +327,20 @@ export function OrgCodesPanel({ orgId, orgName }: { orgId: string; orgName: stri
             <span className="org-code-role">{r.label}</span>
             <code className="org-code-value">{revealed[r.id] ?? "•••-•••-•••"}</code>
             <div className="org-code-actions">
-              <button
-                type="button"
-                className="btn-secondary btn-sm"
+              <Button
+                size="sm"
                 disabled={busy === r.id}
                 onClick={() => void regen(r.id)}
               >
                 {busy === r.id ? "…" : revealed[r.id] ? "Regenerate" : "Reveal"}
-              </button>
+              </Button>
               {revealed[r.id] && (
-                <button
-                  type="button"
-                  className="btn-secondary btn-sm"
+                <Button
+                  size="sm"
                   onClick={() => void navigator.clipboard.writeText(revealed[r.id]!)}
                 >
                   Copy
-                </button>
+                </Button>
               )}
             </div>
           </li>

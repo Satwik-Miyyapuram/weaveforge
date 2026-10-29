@@ -41,7 +41,8 @@ export async function resolveProjects(session: VaultSession, source?: ProjectSou
     : [{ name: "workspace", dir: "" }];
 }
 
-const norm = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
+/** A name as matching reads it: trimmed, lowercased, whitespace runs folded. Entries match the same way. */
+export const norm = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
 
 /** By id, name or folder, then a unique partial name; a miss lists what there is. */
 export function pickProject(projects: readonly ProjectRef[], needle: unknown): ProjectRef {

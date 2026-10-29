@@ -5,9 +5,10 @@
  *
  * Usage: npm run generate:routes
  */
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { walkFiles } from "./lib/db-connection.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -17,19 +18,6 @@ const PLUGINS_ROOT = join(WEB_SRC, "plugins");
 
 const ROUTE_ENTRY_RE = /\{\s*path:\s*["']([^"']+)["']\s*,\s*component:\s*["']([^"']+)["']\s*\}/g;
 const EXPORT_RE = (name) => new RegExp(`export\\s+(?:async\\s+)?(?:function|const)\\s+${name}\\b`);
-
-function walkModuleFiles(dir) {
-  const out = [];
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) {
-      out.push(...walkModuleFiles(full));
-    } else if (name === "module.ts") {
-      out.push(full);
-    }
-  }
-  return out;
-}
 
 function toImportAlias(absPath) {
   const rel = relative(WEB_SRC, absPath).replace(/\\/g, "/").replace(/\.tsx?$/, "");
@@ -52,7 +40,7 @@ function resolveScreenImport(moduleDir, exportName) {
 function collectPluginRoutes() {
   if (!existsSync(PLUGINS_ROOT)) return [];
   const routes = [];
-  for (const file of walkModuleFiles(PLUGINS_ROOT)) {
+  for (const file of walkFiles(PLUGINS_ROOT, (name) => name === "module.ts")) {
     const text = readFileSync(file, "utf8");
     const moduleDir = dirname(file);
     for (const match of text.matchAll(ROUTE_ENTRY_RE)) {

@@ -11,7 +11,6 @@
  */
 
 import { bodyFontSize, isRotatedText, type OutlineTextItem, type ReaderOutlineItem } from "../outline-from-text.js";
-import { detectCitationStyle } from "../find-citation-mentions.js";
 import { findFigureMentions } from "../find-figure-mentions.js";
 import { textFingerprint } from "../text-fingerprint.js";
 import {
@@ -21,7 +20,7 @@ import { detectColumns, sortByReadingOrder } from "./column-detection.js";
 import { findHeadingLines, headingOutline, outlineIsPlausible } from "./heading-analysis.js";
 import { findReferenceSection } from "./reference-section.js";
 import { parseBibliography } from "./bibliography-parser.js";
-import { looksLikeSuperscriptStyle, matchPageCitations } from "./citation-matcher.js";
+import { matchPageCitations } from "./citation-matcher.js";
 import { pageTextFromItems, reconstructLines, type TextLine } from "./line-reconstruction.js";
 import type {
   AnalyzePdfPage,
@@ -89,7 +88,8 @@ export function analyzePdfDocument(
   const columnsByPage = new Map<number, number>();
   for (const page of pages) {
     // Rotated runs (arXiv's side stamp) are never body or headings.
-    const lines = reconstructLines(page.pageNumber, page.items.filter((item) => !isRotatedText(item.transform)));
+    // Kept out by predicate, not filtered, so line offsets still index `texts`.
+    const lines = reconstructLines(page.pageNumber, page.items, (item) => !isRotatedText(item.transform));
     const columns = detectColumns(lines);
     columnsByPage.set(page.pageNumber, Math.max(1, ...columns.map((c) => c + 1)));
     lines.forEach((line, j) => tagged.push({ line, column: columns[j] ?? 0 }));
@@ -113,20 +113,6 @@ export function analyzePdfDocument(
   const references: ParsedReference[] = parseBibliography(referenceLines);
   const referenceRanges = rangesOf(referenceLines);
 
-  // Style is decided over the whole body once, so a stray "(Smith 2019)" in
-  // a numeric paper — or a "[3]" in an author-year one — is never painted as
-  // a citation. Pure-superscript (Vancouver) papers show no token at all, so
-  // their style is recovered from the small-digit geometry instead.
-  const firstReferencePage = references.length ? Math.min(...references.map((ref) => ref.page)) : Infinity;
-  const style =
-    detectCitationStyle(texts) ??
-    (looksLikeSuperscriptStyle(
-      pages.map((page, i) => ({ number: page.pageNumber, outlineItems: outlinePages[i]! })),
-      body,
-      firstReferencePage,
-    )
-      ? ("numeric" as const)
-      : null);
   const citations: CitationMention[] = [];
   const pageAnalyses: PageAnalysis[] = [];
   for (const [i, page] of pages.entries()) {
@@ -140,8 +126,6 @@ export function analyzePdfDocument(
           links: page.links ?? [],
         },
         references,
-        body,
-        style,
         referenceRanges,
       ),
     );

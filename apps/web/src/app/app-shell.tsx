@@ -8,7 +8,7 @@ import { useAuth } from "@/features/auth/ui/auth-provider";
 import { LoginScreen } from "@/features/auth/ui/login-screen";
 import { ThesisLoaderScreen } from "@/components/weaveforge-loader";
 import { ProjectProvider, ProjectSwitcher, ProjectsScreen, useProject } from "@/features/projects";
-import { ProfileProvider, OrgSwitcher } from "@/features/org";
+import { ProfileProvider } from "@/features/org";
 import { PrivacyDisclaimerGate } from "@/features/auth/ui/privacy-disclaimer-gate";
 import { ThemeSyncProvider } from "@/features/settings/ui/theme-sync-provider";
 import { OrgSetupGate } from "@/features/org/ui/org-setup-gate";
@@ -29,6 +29,8 @@ import { SwipeViews } from "./swipe-views";
 import { StartupProvider } from "@/features/startup";
 import { EmailRecoveryScreen } from "@/components/email-recovery-screen";
 import { PasswordResetScreen } from "@/components/password-reset-screen";
+import { ToastHost } from "@/components/toast-host";
+import { Button, CloseButton } from "@/components/button";
 
 /* Both paint nothing and only matter once a folder is connected; the folder
    code they carry is loaded after the page rather than with every one. */
@@ -78,6 +80,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     re-ask on every switch. See the component for why this is
                     not in the Settings panel. */}
                 <WorkspaceFolderRestore />
+                <ToastHost />
                 {expired && <SessionExpiredPrompt />}
                 {/* Keyed on the session epoch: after signing back in, every
                     screen that loaded while signed out loads again. */}
@@ -134,7 +137,7 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
   // one screen where the sidebar is narrowest.
   //
   // `railByDefault` joins the default for the same reason `/workspace` is in it:
-  // between the 900px layout breakpoint and 1100px a 216px sidebar is a quarter
+  // between the 900px layout breakpoint and 1100px a 224px sidebar is a quarter
   // of the window, and both those widths are real tablets in landscape. It is a
   // *default*, not a rule — the toggle above still wins, and widening the window
   // past the threshold puts the sidebar back on its own.
@@ -189,13 +192,6 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
         collapsed ? "nav-collapsed" : ""
       } ${editorRoute ? "editor-route" : ""}`.replace(/\s+/g, " ").trim()}
     >
-      {/* First focusable thing in the shell. The primary nav renders above
-          `<main>` and is a nine-item sidebar on desktop, so without this a
-          keyboard user tabs the whole navigation on every route before reaching
-          content. Hidden until focused; `base.css` already draws the ring. */}
-      <a className="skip-link" href="#main">
-        Skip to content
-      </a>
       {current && (
         <TabBar
           collapsed={collapsed}
@@ -208,13 +204,14 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
         <JumpToPalette />
         {/* Mobile's home for the account controls; on desktop they live in the
             nav. Rendered for one breakpoint only — mounting both and hiding one
-            with CSS gave every switcher a second copy holding its own state. */}
+            with CSS gave every switcher a second copy holding its own state.
+            No lab chip: beside the project name it left neither room, and the
+            account menu switches labs. */}
         {breakpoint === "mobile" && !detailView && (
           <div className="brand mobile-only">
-            <OrgSwitcher />
             <ProjectSwitcher />
             <div className="brand-right">
-              <HeaderActions variant="menu" />
+              <HeaderActions />
             </div>
           </div>
         )}
@@ -244,14 +241,14 @@ function ProjectScopedShell({ children }: { children: React.ReactNode }) {
           // RoutePending drives nav-pending state that only makes sense there.
           <>
             <div className="project-picker-bar desktop-only">
-              <HeaderActions variant="menu" />
+              <HeaderActions />
             </div>
             {children}
           </>
         ) : (
           <>
             <div className="project-picker-bar desktop-only">
-              <HeaderActions variant="menu" />
+              <HeaderActions />
             </div>
             <ProjectsScreen />
           </>
@@ -284,7 +281,7 @@ function SessionExpiredPrompt() {
   if (open) {
     return (
       <div className="session-expired-overlay" role="dialog" aria-modal="true" aria-label="Sign in again">
-        <button type="button" className="session-expired-close" onClick={() => setOpen(false)} aria-label="Not now">×</button>
+        <CloseButton label="Not now" onClick={() => setOpen(false)} />
         <LoginScreen />
       </div>
     );
@@ -295,16 +292,8 @@ function SessionExpiredPrompt() {
       <span className="session-expired-text">
         <strong>You&apos;re signed out.</strong> Sign in to sync. Your workspace folder stays connected.
       </span>
-      <button type="button" className="btn btn-primary btn-sm" onClick={() => setOpen(true)}>Sign in to sync</button>
-      <button
-        type="button"
-        className="btn-ghost btn-icon session-expired-dismiss"
-        onClick={() => setDismissed(true)}
-        aria-label="Close"
-        title="Close"
-      >
-        ×
-      </button>
+      <Button variant="primary" size="sm" onClick={() => setOpen(true)}>Sign in to sync</Button>
+      <CloseButton onClick={() => setDismissed(true)} />
     </div>
   );
 }

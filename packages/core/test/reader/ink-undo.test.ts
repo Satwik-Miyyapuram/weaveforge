@@ -95,3 +95,31 @@ test("refreshing a snapshot updates the row's create and remove entries only", (
   assert.equal(a.kind === "create" && a.annotation.anchor.zoteroPosition?.paths?.length, 2);
   assert.equal(b.kind === "create" && b.annotation.anchor.zoteroPosition?.paths?.length, 1);
 });
+
+test("a batch removal renames and refreshes every annotation it holds (23-16)", () => {
+  let state: InkUndoState = pushInkUndo(EMPTY_INK_UNDO, {
+    kind: "removeMany",
+    annotations: [ink("a"), ink("b")],
+  });
+  state = renameInkUndoId(state, "b", "b2");
+  const grown = ink("a", [[0, 0, 5, 5]]);
+  state = refreshInkUndoAnnotation(state, grown);
+  const entry = state.undo[0]!;
+  assert.equal(entry.kind, "removeMany");
+  if (entry.kind !== "removeMany") return;
+  assert.deepEqual(entry.annotations.map((a) => a.id), ["a", "b2"]);
+  assert.deepEqual(entry.annotations[0]!.anchor, grown.anchor);
+});
+test("a colour, comment or text edit is a step that follows its row's id (D18, DA-112)", () => {
+  let state: InkUndoState = pushInkUndo(EMPTY_INK_UNDO, {
+    kind: "update",
+    id: "old",
+    before: { color: "#ff6666", comment: "" },
+    after: { color: "#66ff66", comment: "why" },
+  });
+  state = renameInkUndoId(state, "old", "new");
+  const entry = state.undo[0]!;
+  assert.equal(entry.kind === "update" && entry.id, "new");
+  // An edit holds no snapshot, so refreshing the row leaves it as it was.
+  assert.equal(refreshInkUndoAnnotation(state, ink("new")).undo[0], entry);
+});

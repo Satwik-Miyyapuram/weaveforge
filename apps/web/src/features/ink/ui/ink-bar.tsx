@@ -29,6 +29,9 @@ import {
   INK_PEN_WIDTHS,
   INK_HIGHLIGHTER_WIDTH,
   INK_HIGHLIGHTER_WIDTHS,
+  clampInkZoom,
+  inkZoomIn,
+  inkZoomOut,
   type InkHand,
   type InkPaper,
 } from "@weaveforge/core";
@@ -37,7 +40,7 @@ import { toolIcon, toolLabel } from "./ink-bar-glyphs";
 import { MoreMenu, type InkPageGap } from "./ink-bar-more";
 import {
   InsertMenu,
-  PageField,
+  PagePill,
   SelectGlyph,
   PointerGlyph,
   ViewMenu,
@@ -46,9 +49,14 @@ import {
   type ViewMenuProps,
 } from "./ink-bar-view";
 import { InkQuickColours } from "./ink-quick-colours";
+import { INK_COLOUR_TOKENS } from "../render/ink-palette";
 import { useQuickColours } from "./use-quick-colours";
 import { PaletteDockButton, PaletteFoldButton, usePaletteDock } from "@/components/palette-dock";
 import { Popover } from "@/components/popover";
+import { shortcutLabel } from "@/lib/shortcut-label";
+import { Button } from "@/components/button";
+import { Swatch, ToolButton } from "@/components/controls";
+import { useRovingToolbar } from "@/lib/hooks/use-roving-toolbar";
 
 export { toolLabel } from "./ink-bar-glyphs";
 
@@ -145,6 +153,8 @@ export interface InkBarProps {
   onInsertPage?: () => void;
   /** Lay a picture on the current page, over it rather than under it (the PDF reader). */
   onAddPicture?: () => void;
+  /** The page takes a pasted or dropped picture; Insert says so. */
+  takesPictureDrops?: boolean;
   onPrevPage?: () => void;
   onNextPage?: () => void;
   onDeleteSelection?: () => void;
@@ -170,8 +180,6 @@ export interface InkBarProps {
    */
   selectActive?: boolean;
   onSelect?: () => void;
-  /** The Select button's name; notes call it Cursor. */
-  selectLabel?: string;
   /** Mouse pointer instead of the text I-beam. */
   selectPointer?: boolean;
   /** Snip a region of the page (the reader's clip). */
@@ -233,6 +241,7 @@ export function InkBar({
   onRemovePageBackground,
   onInsertPage,
   onAddPicture,
+  takesPictureDrops,
   onPrevPage,
   onNextPage,
   onDeleteSelection,
@@ -246,7 +255,6 @@ export function InkBar({
   onGoToPage,
   selectActive = false,
   onSelect,
-  selectLabel = "Select text",
   selectPointer = false,
   onClip,
   onTextBox,
@@ -270,6 +278,7 @@ export function InkBar({
     onInsertPage,
     onClip,
     onTextBox,
+    takesPictureDrops,
   };
   /**
    * Folded, in focus mode: the palette shrinks to the tools and its own
@@ -281,11 +290,14 @@ export function InkBar({
    */
   const [collapsed, setCollapsed] = useState(false);
   const [dock, setDock] = usePaletteDock();
+  // One tab stop for the whole bar; arrows walk the tools and swatches (DA-120).
+  const roving = useRovingToolbar();
 
   return (
     <div
       className="ink-bar ink-palette"
       role="toolbar"
+      {...roving}
       aria-label={readOnly ? "Page controls" : "Ink tools"}
       data-collapsed={collapsed || undefined}
       data-dock={dock}
@@ -306,29 +318,19 @@ export function InkBar({
         aria-label="Drawing tools"
       >
         {onSelect ? (
-          <button
-            type="button"
-            className="ink-tool ink-tool-icon-only"
-            aria-pressed={selectActive}
-            aria-label={`${selectLabel} (V)`}
-            title={`${selectLabel} (V)`}
+          <ToolButton label="Select (V)" pressed={selectActive}
             onClick={onSelect}
           >
             {selectPointer ? <PointerGlyph /> : <SelectGlyph />}
-          </button>
+          </ToolButton>
         ) : null}
         {INK_BAR_TOOLS.map((entry) => (
-          <button
+          <ToolButton label={`${toolLabel(entry)} (${entry[0]!.toUpperCase()})`} pressed={inking && tool === entry}
             key={entry}
-            type="button"
-            className="ink-tool ink-tool-icon-only"
-            aria-pressed={inking && tool === entry}
-            aria-label={`${toolLabel(entry)} (${entry[0]!.toUpperCase()})`}
-            title={`${toolLabel(entry)} (${entry[0]!.toUpperCase()})`}
             onClick={() => onTool(entry)}
           >
             {toolIcon(entry)}
-          </button>
+          </ToolButton>
         ))}
       </div>
 
@@ -343,18 +345,17 @@ export function InkBar({
           stays `ink-swatches` so the docked focus palette keeps it. */}
       <div className="ink-swatches ink-pen-pick">
         <Popover
-          iconOnly
+          trigger="swatch"
+          colour={`var(${INK_COLOUR_TOKENS[colour]})`}
           portal
           ariaLabel="Pen colour and nib"
-          triggerClassName="colour-menu-trigger ink-pen-trigger"
           label={
-            <span className={`ink-swatch colour-menu-current ink-swatch-${colour}`} aria-hidden>
-              {inking && tool === "pen" ? (
-                <span
-                  className="ink-pen-trigger-nib"
-                  style={{ width: `${3 + width}px`, height: `${3 + width}px` }}
-                />
-              ) : null}
+            <span aria-hidden>
+              {/* The nib shows whatever the tool, so the swatch reads as the pen's colour and size. */}
+              <span
+                className="ink-pen-trigger-nib"
+                style={{ width: `${3 + width}px`, height: `${3 + width}px` }}
+              />
             </span>
           }
         >
@@ -368,13 +369,11 @@ export function InkBar({
                   aria-label={i === 0 ? "Theme colours" : "Marker colours"}
                 >
                   {row.map((entry) => (
-                    <button
+                    <Swatch
                       key={entry}
-                      type="button"
-                      className={`ink-swatch ink-swatch-${entry}`}
-                      aria-pressed={colour === entry}
-                      aria-label={`Ink colour: ${entry}`}
-                      title={`Ink colour: ${entry}`}
+                      label={`Ink colour: ${entry}`}
+                      selected={colour === entry}
+                      colour={`var(${INK_COLOUR_TOKENS[entry]})`}
                       onClick={() => {
                         // The quick colour in use takes the new colour, so the
                         // five are changed here rather than in a second palette.
@@ -403,13 +402,9 @@ export function InkBar({
 
       {/* 4. Undo / Redo */}
       <div className="ink-bar-group">
-        <button
-          type="button"
-          className="ink-tool ink-tool-icon-only"
+        <ToolButton label="Undo" tip={`Undo (${shortcutLabel("⌘Z")})`}
           onClick={onUndo}
           disabled={!canUndo}
-          title="Undo (⌘Z)"
-          aria-label="Undo"
         >
           <svg
             width="16"
@@ -425,14 +420,10 @@ export function InkBar({
             <path d="M3 7v6h6" />
             <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
           </svg>
-        </button>
-        <button
-          type="button"
-          className="ink-tool ink-tool-icon-only"
+        </ToolButton>
+        <ToolButton label="Redo" tip={`Redo (${shortcutLabel("⌘⇧Z")})`}
           onClick={onRedo}
           disabled={!canRedo}
-          title="Redo (⌘⇧Z)"
-          aria-label="Redo"
         >
           <svg
             width="16"
@@ -448,7 +439,7 @@ export function InkBar({
             <path d="M21 7v6h-6" />
             <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
           </svg>
-        </button>
+        </ToolButton>
       </div>
 
       {/* Lasso Selection Actions. Each button is drawn only when its surface
@@ -459,34 +450,28 @@ export function InkBar({
           <span className="ink-sep" aria-hidden="true" />
           <div className="ink-bar-group">
             {onCopyStrokes ? (
-              <button
-                type="button"
-                className="ink-tool ink-tool-text"
+              <Button variant="ghost" size="sm"
                 onClick={onCopyStrokes}
                 title="Copy the selected strokes to paste into any note (Ctrl+C)"
               >
                 Copy
-              </button>
+              </Button>
             ) : null}
             {onCopyAsText ? (
-              <button
-                type="button"
-                className="ink-tool ink-tool-text"
+              <Button variant="ghost" size="sm"
                 onClick={onCopyAsText}
                 title="Copy the selected strokes' recognised text"
               >
                 Copy as text
-              </button>
+              </Button>
             ) : null}
             {onDeleteSelection ? (
-              <button
-                type="button"
-                className="ink-tool ink-tool-text"
+              <Button variant="ghost" size="sm"
                 onClick={onDeleteSelection}
                 title={`Delete the ${selected} selected stroke${selected === 1 ? "" : "s"} (Delete)`}
               >
                 Delete {selected} stroke{selected === 1 ? "" : "s"}
-              </button>
+              </Button>
             ) : null}
           </div>
         </>
@@ -500,122 +485,30 @@ export function InkBar({
           {readOnly ? null : <span className="ink-sep" aria-hidden="true" />}
 
           {/* 5. Page Switcher & Add Page */}
-          <div className="ink-page-pill">
-            <button
-              type="button"
-              className="ink-tool ink-tool-icon-only"
-              onClick={onPrevPage}
-              disabled={page <= 1}
-              title="Previous page"
-              aria-label="Previous page"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="m15 18-6-6 6-6" />
-              </svg>
-            </button>
-            <span className="ink-page-count" aria-label={`Page ${page} of ${pages}`}>
-              {onGoToPage ? (
-                <PageField page={page} pages={pages} onGoToPage={onGoToPage} />
-              ) : (
-                <span className="ink-page-now">{page}</span>
-              )}
-              <span className="ink-page-sep" aria-hidden="true">/</span>
-              <span className="ink-page-total">{pages}</span>
-            </span>
-            <button
-              type="button"
-              className="ink-tool ink-tool-icon-only"
-              onClick={onNextPage}
-              disabled={page >= pages}
-              title="Next page"
-              aria-label="Next page"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="m9 18 6-6-6-6" />
-              </svg>
-            </button>
-            {onAddPage ? (
-              <button
-                type="button"
-                className="ink-tool ink-tool-icon-only ink-page-add"
-                onClick={onAddPage}
-                title="Add a blank page"
-                aria-label="Add a blank page"
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  aria-hidden="true"
-                >
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-              </button>
-            ) : null}
-          </div>
+          <PagePill
+            page={page}
+            pages={pages}
+            onPrevPage={onPrevPage}
+            onNextPage={onNextPage}
+            onGoToPage={onGoToPage}
+            onAddPage={onAddPage}
+          />
         </>
       ) : null}
 
       {view ? (
         <ViewMenu {...view} />
       ) : zoom !== undefined && onZoom ? (
-        <>
-          {/* 5b. Zoom: out, the level (click to fit), in */}
-          <div className="ink-page-pill ink-zoom-pill">
-            <button
-              type="button"
-              className="ink-tool ink-tool-icon-only"
-              onClick={() => onZoom(Math.max(0.5, zoom / 1.2))}
-              disabled={zoom <= 0.5}
-              title="Zoom out"
-              aria-label="Zoom out"
-            >
-              −
-            </button>
-            <button
-              type="button"
-              className="ink-page-count ink-zoom-level"
-              onClick={() => onZoom(1)}
-              title="Fit the page width"
-            >
-              {Math.round(zoom * 100)}%
-            </button>
-            <button
-              type="button"
-              className="ink-tool ink-tool-icon-only"
-              onClick={() => onZoom(Math.min(4, zoom * 1.2))}
-              disabled={zoom >= 4}
-              title="Zoom in"
-              aria-label="Zoom in"
-            >
-              +
-            </button>
-          </div>
-        </>
+        // 5b. The note's zoom: the reader's own view menu, so both bars match.
+        // 1 is the note's fit to the page width.
+        <ViewMenu
+          zoomPercent={Math.round(zoom * 100)}
+          onZoomOut={() => onZoom(inkZoomOut(zoom))}
+          onZoomIn={() => onZoom(inkZoomIn(zoom))}
+          onZoomTo={(percent) => onZoom(clampInkZoom(percent / 100))}
+          fit={zoom === 1 ? "width" : "custom"}
+          onFitWidth={() => onZoom(1)}
+        />
       ) : null}
 
       {/* 5c. Insert: a picture, PDF pages, a snip, a text box (`ink-bar-view.tsx`) */}
@@ -626,12 +519,10 @@ export function InkBar({
           <span className="ink-sep" aria-hidden="true" />
 
           {/* 6. OCR Recognise */}
-          <button
-            type="button"
-            className="ink-tool ink-action-recognise"
+          <Button variant="ghost" size="sm"
             onClick={onRecognise}
             disabled={busy}
-            title="Recognise this page (⌘⇧R)"
+            title={`Recognise this page (${shortcutLabel("⌘⇧R")})`}
           >
             <svg
               width="15"
@@ -647,7 +538,7 @@ export function InkBar({
               <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z" />
             </svg>
             <span>{busy ? (progress ?? "Recognising…") : "Recognise"}</span>
-          </button>
+          </Button>
         </>
       ) : null}
 
@@ -696,17 +587,12 @@ export function NibRow({
     return (
       <div className="colour-menu-row ink-bar-widths" role="group" aria-label="Highlighter width">
         {INK_HIGHLIGHTER_WIDTHS.map((entry) => (
-          <button
+          <ToolButton label={`Highlighter ${entry / 10} mm`} pressed={highlighterWidth === entry}
             key={entry}
-            type="button"
-            className="ink-tool ink-tool-icon-only ink-tool-nib"
-            aria-pressed={highlighterWidth === entry}
-            aria-label={`Highlighter ${entry / 10} mm`}
-            title={`Highlighter ${entry / 10} mm`}
             onClick={() => onHighlighterWidth(entry)}
           >
             <span className="ink-nib-dot ink-nib-bar" style={{ width: "6px", height: `${3 + entry / 10}px` }} />
-          </button>
+          </ToolButton>
         ))}
       </div>
     );
@@ -716,17 +602,12 @@ export function NibRow({
       {INK_PEN_WIDTHS.map((entry) => {
         const dotSize = 3 + entry;
         return (
-          <button
+          <ToolButton label={`Nib ${(entry / 10).toFixed(1)} mm`} pressed={width === entry && tool === "pen"}
             key={entry}
-            type="button"
-            className="ink-tool ink-tool-icon-only ink-tool-nib"
-            aria-pressed={width === entry && tool === "pen"}
-            aria-label={`Nib ${(entry / 10).toFixed(1)} mm`}
-            title={`Nib ${(entry / 10).toFixed(1)} mm`}
             onClick={() => onWidth(entry)}
           >
             <span className="ink-nib-dot" style={{ width: `${dotSize}px`, height: `${dotSize}px` }} />
-          </button>
+          </ToolButton>
         );
       })}
     </div>

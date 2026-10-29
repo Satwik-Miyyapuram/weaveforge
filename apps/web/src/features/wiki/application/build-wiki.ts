@@ -6,6 +6,7 @@ import {
   planFixOrder,
   planWikiPages,
   replaceWikiIndex,
+  wikiProposalContent,
   type ExtractionDocument,
   type IConceptExtractor,
   type LintReport,
@@ -94,6 +95,14 @@ function wikiPageRefs(pages: Awaited<ReturnType<typeof notes>>): WikiPageRef[] {
   }));
 }
 
+/**
+ * Every note title, wiki or not. A proposed page must not share a title with
+ * any note, or its `[[links]]` would point at two notes (E37).
+ */
+export function takenTitles(pages: readonly { title: string }[]): string[] {
+  return pages.map((page) => page.title);
+}
+
 export interface WikiBuildPreview {
   plans: WikiPagePlan[];
   /** Concepts found but already covered, so "nothing to do" is explicable. */
@@ -142,7 +151,7 @@ export async function previewWikiBuild(
   const titleById = new Map(documents.map((doc) => [doc.id, doc.title]));
   const plans = planWikiPages({
     extraction,
-    existingTitles: titles,
+    existingTitles: takenTitles(pages),
     titleOf: (id) => titleById.get(id),
   });
 
@@ -173,7 +182,7 @@ export async function proposeWikiPages(plans: readonly WikiPagePlan[]): Promise<
     await container.aiProposals.draftLocal({
       kind: "create_vault_note",
       resourceId: root.id,
-      content: `Create wiki page "${plan.title}" (${plan.mentions} mentions)`,
+      content: wikiProposalContent(plan),
       payload: { title: plan.title, body: plan.body, parentId: root.id },
       sourceLinks: plan.sourceDocumentIds,
     });
@@ -183,7 +192,10 @@ export async function proposeWikiPages(plans: readonly WikiPagePlan[]): Promise<
 }
 
 export async function runWikiLint(): Promise<{ report: LintReport; steps: ReturnType<typeof planFixOrder> }> {
-  const report = lintWiki(await existingWikiPages());
+  const [pages, papers] = await Promise.all([notes(), getContainer().papers.listPapers()]);
+  // Links to ordinary notes and papers resolve; only wiki pages are linted (E39).
+  const outside = [...takenTitles(pages), ...papers.map((paper) => paper.title)];
+  const report = lintWiki(wikiPageRefs(pages), outside);
   return { report, steps: planFixOrder(report) };
 }
 
@@ -268,25 +280,27 @@ export async function regenerateWikiIndex(): Promise<{ pages: number }> {
 }
 
 /**
- * Queue the page a dead link points at.
+ * The pages dead links point at, as plans: one per distinct target.
  *
  * The link already says what it wants to exist; the missing half is a page to
- * land on. It goes through review like any other generated page rather than
+ * land on. Each goes through review like any other generated page rather than
  * appearing, because "a link mentioned it" is thin evidence that a page is
- * worth having.
+ * worth having. Blank targets are dropped, and a target named twice is one page.
  */
-export async function proposeMissingPage(target: string): Promise<void> {
-  const title = target.trim();
-  if (!title) return;
+export function missingPagePlans(targets: readonly string[]): WikiPagePlan[] {
+  const titles = new Set(targets.map((target) => target.trim()).filter(Boolean));
+  return [...titles].map((title) => ({
+    title,
+    body: `# ${title}\n\n_Not written yet._\n`,
+    mentions: 1,
+    sourceDocumentIds: [],
+  }));
+}
 
-  await proposeWikiPages([
-    {
-      title,
-      body: `# ${title}\n\n_Not written yet._\n`,
-      mentions: 1,
-      sourceDocumentIds: [],
-    },
-  ]);
+/** Queue every page the dead links point at, in one pass over the wiki. */
+export async function proposeMissingPages(targets: readonly string[]): Promise<number> {
+  const plans = missingPagePlans(targets);
+  return plans.length ? proposeWikiPages(plans) : 0;
 }
 
 /**

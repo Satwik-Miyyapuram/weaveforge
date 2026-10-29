@@ -7,6 +7,7 @@ import { ShikiMarkdown } from "@/components/markdown/shiki-markdown";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import { makeWikilinkResolver, useWikilinkClick, type CiteLinkEntry } from "@/lib/hooks/use-cite-links";
 import { stripRegionMarkers } from "../application/note-template-engine";
+import { assetOrNull, hashTargetId } from "./vault-markdown-helpers";
 
 /** Minimal title/id pair for wikilink resolution. */
 export type WikilinkEntry = CiteLinkEntry;
@@ -79,10 +80,7 @@ export function VaultMarkdown({
   const fetchers = useMemo(
     () => ({
       cacheBucket: VAULT_ASSETS_BUCKET,
-      fetchOne: (path: string) =>
-        getContainer()
-          .vault.fetchAssetBlob(path)
-          .catch(() => null),
+      fetchOne: (path: string) => assetOrNull((p) => getContainer().vault.fetchAssetBlob(p), path),
       fetchMany: (ps: readonly string[]) => getContainer().vault.fetchAssetBlobs(ps),
     }),
     [],
@@ -104,7 +102,7 @@ export function VaultMarkdown({
   useEffect(() => {
     const hash = typeof window !== "undefined" ? window.location.hash.slice(1) : "";
     if (!hash) return;
-    const id = decodeURIComponent(hash);
+    const id = hashTargetId(hash);
     const el = document.getElementById(id) ?? document.getElementById(`^${id.replace(/^\^/, "")}`);
     el?.scrollIntoView({ block: "start", behavior: "smooth" });
   }, [resolved]);

@@ -1,5 +1,6 @@
 import {
   normalizeDoi,
+  titleKey,
   type IPaperRepository,
   type Paper,
   type PaperFilter,
@@ -8,11 +9,13 @@ import {
 } from "@weaveforge/core";
 import type { EntityStamp } from "@weaveforge/core";
 import {
+  emptyToNull,
   type PaperRow,
   toRow,
   toDomain,
+  toSummary,
 } from "./paper-rows";
-import { one, rows, run } from "@/backend/providers/postgrest/row-access";
+import { inChunks, one, rows, run } from "@/backend/providers/postgrest/row-access";
 import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-repository";
 
 /**
@@ -37,9 +40,6 @@ import { ProjectRepository } from "@/backend/providers/postgrest/project-scoped-
  */
 
 const TABLE = "papers";
-
-/** Ids per `in (...)` request; the list travels in the URL. */
-const ID_CHUNK = 200;
 
 /** Full list projection for sync/search consumers that need abstracts/bibtex. */
 const PAPER_LIST_COLUMNS =
@@ -105,20 +105,14 @@ export class PostgrestPaperRepository extends ProjectRepository implements IPape
    * should build a Map from the result.
    */
   async listByIds(ids: readonly string[]): Promise<Paper[]> {
-    if (ids.length === 0) return [];
-    const chunks: string[][] = [];
-    for (let start = 0; start < ids.length; start += ID_CHUNK) {
-      chunks.push(ids.slice(start, start + ID_CHUNK) as string[]);
-    }
-    const pages = await Promise.all(
-      chunks.map((chunk) => {
-        let query = this.scoped(this.db.from(TABLE).select(PAPER_LIST_COLUMNS));
-        query = query.in("id", chunk);
-        query = query.order("id", { ascending: true });
-        return rows<PaperRow>(query);
-      }),
+    const found = await inChunks(ids, (chunk) =>
+      rows<PaperRow>(
+        this.scoped(this.db.from(TABLE).select(PAPER_LIST_COLUMNS))
+          .in("id", chunk)
+          .order("id", { ascending: true }),
+      ),
     );
-    return pages.flat().map(toDomain);
+    return found.map(toDomain);
   }
 
   async list(filter?: PaperFilter): Promise<Paper[]> {
@@ -161,13 +155,58 @@ export class PostgrestPaperRepository extends ProjectRepository implements IPape
     let query = this.scoped(this.db.from(TABLE).select(PAPER_SUMMARY_COLUMNS));
     query = query.order("created_at", { ascending: false });
     query = query.order("id", { ascending: true });
-    return (await rows<PaperRow>(query)).map(toDomain);
+    return (await rows<PaperRow>(query)).map(toSummary);
   }
 
   async save(entity: Paper): Promise<void> {
     const row = toRow(entity);
     if (this.pid) row.project_id = this.pid;
     await run(this.db.from(TABLE).upsert(row, { onConflict: "id" }));
+  }
+
+  async setTags(id: string, tags: string[], updatedAt: string): Promise<void> {
+    let query = this.scoped(this.db.from(TABLE).update({ tags, updated_at: updatedAt }));
+    query = query.eq("id", id);
+    await run(query);
+  }
+
+  /**
+   * A compare-and-set on the summary: the update matches only while the column
+   * still holds `expected`, and the returned ids say whether it did.
+   */
+  async replaceSummary(
+    id: string,
+    expected: string | undefined,
+    next: string,
+    updatedAt: string,
+  ): Promise<boolean> {
+    let query = this.scoped(
+      this.db.from(TABLE).update({ summary: emptyToNull(next), updated_at: updatedAt }),
+    );
+    query = query.eq("id", id);
+    const was = emptyToNull(expected);
+    query = was === null ? query.is("summary", null) : query.eq("summary", was);
+    return (await rows<{ id: string }>(query.select("id"))).length > 0;
+  }
+
+  /**
+   * The paper with this title key, reading titles only.
+   *
+   * The key is lower-case ASCII-ish text, so it cannot be compared in SQL; the
+   * request narrows to titles containing one of its longer words, and
+   * `titleKey` decides. Any word, not one: a word written with an accent in the
+   * stored title ("Über") is spelled without it in the key, and would miss. A
+   * key with no word of four letters reads every title, which is still two
+   * columns and not the whole library.
+   */
+  async findByTitleKey(key: string): Promise<Paper | null> {
+    let query = this.scoped(this.db.from(TABLE).select("id,title"));
+    const words = [...new Set(key.split(" ").filter((w) => /^[a-z0-9]{4,}$/.test(w)))];
+    if (words.length > 0) query = query.or(words.map((w) => `title.ilike.%${w}%`).join(","));
+    query = query.order("created_at", { ascending: false });
+    query = query.order("id", { ascending: true });
+    const hit = (await rows<{ id: string; title: string }>(query)).find((row) => titleKey(row.title) === key);
+    return hit ? this.getById(hit.id) : null;
   }
 
   async delete(id: string): Promise<void> {

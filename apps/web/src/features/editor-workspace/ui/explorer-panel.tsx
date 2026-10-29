@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { errorMessage } from "@weaveforge/core";
 import { ChevronIcon } from "@/components/chevron-icon";
 import { FolderIcon } from "@/components/view-icons";
 import { NavIcon } from "@/app/nav-icon";
@@ -26,23 +27,34 @@ import {
   writeSections,
   type ExplorerSection,
 } from "../application/explorer-state";
+import { EXPLORER_ROW_PX, rowSlots } from "../application/explorer-window";
+import { findRow, useExplorerWindow } from "./use-explorer-window";
 import { useExplorerExpansion } from "./use-explorer-expansion";
 import {
   filterRows,
+  folderIdsOf,
   visibleRows,
   type TreeNodeKind,
   type VisibleRow,
   type WorkspaceTreeNode,
 } from "../application/workspace-tree";
-import { documentSuffix, isDocumentKind, kindIcon, kindIconClass } from "./kind";
+import { isDocumentKind, kindIcon, kindIconClass } from "./kind";
 import {
-  CloseGlyph,
   DraftIcon,
   HideGlyph,
   InlineTitle,
   RefreshGlyph,
-  messageOf,
 } from "./explorer-glyphs";
+import { shortcutLabel } from "@/lib/shortcut-label";
+import { FoldButton } from "@/components/controls";
+import { Button, CloseButton, IconButton } from "@/components/button";
+
+/** The "new in here" hover actions on a row, in the order they show. */
+const NEW_HERE: { kind: CreateKind; label: string; icon: React.ReactNode }[] = [
+  { kind: "note", label: "New note here", icon: <NavIcon name="notes" /> },
+  { kind: "section", label: "New section here", icon: <NavIcon name="doc" /> },
+  { kind: "folder", label: "New folder here", icon: <FolderIcon /> },
+];
 
 export interface ExplorerSelection {
   kind: TreeNodeKind;
@@ -123,6 +135,7 @@ export function ExplorerPanel({
   const [query, setQuery] = useState("");
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const { bodyRef, views, focusOncePainted } = useExplorerWindow(listRef);
   /** The row whose label is a text box, and what its last attempt said. */
   const [renaming, setRenaming] = useState<string | null>(null);
   const [problem, setProblem] = useState<{ key: string; message: string } | null>(null);
@@ -141,6 +154,10 @@ export function ExplorerPanel({
     return { byId, forced };
   }, [sections, expanded, query]);
 
+  // A new note from the head lands in the open note's folder only when that
+  // parent is a real folder.
+  const folderIds = useMemo(() => folderIdsOf(sections.flatMap((section) => section.tree)), [sections]);
+
   const effectiveExpanded = useMemo(
     () => (query.trim() ? new Set([...expanded, ...filtered.forced]) : expanded),
     [expanded, filtered.forced, query],
@@ -152,14 +169,23 @@ export function ExplorerPanel({
 
   const setOpen = useCallback(
     (key: string) => {
-      setExpanded((current) => {
-        const next = toggleExpanded(current, key);
-        persistExpanded(next);
-        return next;
-      });
+      // Persist outside the updater: React may run an updater twice.
+      const next = toggleExpanded(expanded, key);
+      setExpanded(next);
+      persistExpanded(next);
     },
-    [persistExpanded, setExpanded],
+    [expanded, persistExpanded, setExpanded],
   );
+
+  const nodeByKey = useMemo(() => {
+    const map = new Map<string, WorkspaceTreeNode>();
+    const walk = (node: WorkspaceTreeNode) => {
+      map.set(node.key, node);
+      for (const child of node.children) walk(child);
+    };
+    for (const section of sections) for (const root of section.tree) walk(root);
+    return map;
+  }, [sections]);
 
   /**
    * The key of the row a draft sits under. A note's parent is a note row;
@@ -169,15 +195,11 @@ export function ExplorerPanel({
   const draftParentKey = useMemo(() => {
     if (!draft) return null;
     if (draft.parentId === null) return rootKey(draft.root);
-    let found: string | null = null;
-    const walk = (node: WorkspaceTreeNode) => {
-      if (found) return;
-      if (node.id === draft.parentId && rootOf(node) === draft.root) found = node.key;
-      for (const child of node.children) walk(child);
-    };
-    for (const section of sections) for (const root of section.tree) walk(root);
-    return found ?? rootKey(draft.root);
-  }, [draft, sections]);
+    for (const node of nodeByKey.values()) {
+      if (node.id === draft.parentId && rootOf(node) === draft.root) return node.key;
+    }
+    return rootKey(draft.root);
+  }, [draft, nodeByKey]);
 
   // A draft's folder opens, or the draft would be typed into blind.
   useEffect(() => {
@@ -202,9 +224,9 @@ export function ExplorerPanel({
         onDraft?.({ kind, root, parentId: dropParentId(under) });
         return;
       }
-      onDraft?.({ kind, ...creationTarget(kind, activeDoc) });
+      onDraft?.({ kind, ...creationTarget(kind, activeDoc, folderIds) });
     },
-    [activeDoc, onDraft],
+    [activeDoc, folderIds, onDraft],
   );
 
   const submitDraft = useCallback(
@@ -219,7 +241,7 @@ export function ExplorerPanel({
         setProblem(null);
         onDraft?.(null);
       } catch (error) {
-        setProblem({ key: "draft", message: messageOf(error) });
+        setProblem({ key: "draft", message: errorMessage(error) });
       }
     },
     [draft, onCreate, onDraft],
@@ -236,21 +258,11 @@ export function ExplorerPanel({
         setProblem(null);
         setRenaming(null);
       } catch (error) {
-        setProblem({ key: node.key, message: messageOf(error) });
+        setProblem({ key: node.key, message: errorMessage(error) });
       }
     },
     [onRename],
   );
-
-  const nodeByKey = useMemo(() => {
-    const map = new Map<string, WorkspaceTreeNode>();
-    const walk = (node: WorkspaceTreeNode) => {
-      map.set(node.key, node);
-      for (const child of node.children) walk(child);
-    };
-    for (const section of sections) for (const root of section.tree) walk(root);
-    return map;
-  }, [sections]);
 
   /** The dragged row, read off the transfer; `null` when it is not ours. */
   const draggedFrom = (event: React.DragEvent): WorkspaceTreeNode | null => {
@@ -276,18 +288,22 @@ export function ExplorerPanel({
         onRelease?.(node);
         return;
       }
-      if (node.children.length > 0 || !isDocumentKind(node.kind)) setOpen(node.key);
-      if (node.id && isDocumentKind(node.kind)) onOpen({ kind: node.kind, id: node.id });
+      if (node.children.length > 0 || !isDocumentKind(node.kind) || node.folder) setOpen(node.key);
+      if (node.id && isDocumentKind(node.kind) && !node.folder) onOpen({ kind: node.kind, id: node.id });
     },
     [onOpen, onRelease, setOpen],
   );
 
   // Focus follows the roving tabindex, so the browser scrolls the row into view
   // for us and screen readers announce the move.
+  // Home, End and a climb can land on a row scrolled out of the painted window;
+  // the focused row is always painted, so it is focused once it renders.
   const focusRow = useCallback((key: string) => {
     setFocusKey(key);
-    listRef.current?.querySelector<HTMLElement>(`[data-row-key="${CSS.escape(key)}"]`)?.focus();
-  }, []);
+    const row = findRow(listRef.current, key);
+    if (row) row.focus();
+    else focusOncePainted(key);
+  }, [focusOncePainted]);
 
   // One flat list across every open section is what makes an arrow key mean
   // "the next row" rather than "the next row in this section".
@@ -300,6 +316,7 @@ export function ExplorerPanel({
         .map((row, index) => ({ ...row, index })),
     [sections, openSections, filtered.byId],
   );
+  const flatByKey = useMemo(() => new Map(flat.map((row) => [row.node.key, row])), [flat]);
 
   const onKeyDown = (event: React.KeyboardEvent, row: PaintedRow) => {
     const { node } = row;
@@ -364,6 +381,14 @@ export function ExplorerPanel({
     ? focusKey
     : (flat[0]?.node.key ?? null);
 
+  // Rows that stay painted out of view: unmounting them would drop the tree's
+  // focus, or the text of a rename or a draft being typed.
+  const pinnedKeys = new Set(
+    [focused, renaming, draft ? draftParentKey : null, problem?.key].filter(
+      (key): key is string => Boolean(key),
+    ),
+  );
+
   return (
     <nav className="explorer-panel" aria-label="Workspace">
       {/* Head: the panel's name and its actions. 36px, with the filter on the
@@ -374,47 +399,23 @@ export function ExplorerPanel({
         <div className="explorer-head-actions">
           {onDraft ? (
             <>
-              <button
-                type="button"
-                className="explorer-action"
-                title="New note"
-                aria-label="New note"
-                onClick={() => startDraft("note")}
-              >
+              <IconButton size="sm" label="New note" onClick={() => startDraft("note")}>
                 <NavIcon name="notes" />
-              </button>
-              <button
-                type="button"
-                className="explorer-action"
-                title="New folder"
-                aria-label="New folder"
-                onClick={() => startDraft("folder")}
-              >
+              </IconButton>
+              <IconButton size="sm" label="New folder" onClick={() => startDraft("folder")}>
                 <FolderIcon />
-              </button>
+              </IconButton>
             </>
           ) : null}
           {onHide ? (
-            <button
-              type="button"
-              className="explorer-action"
-              title="Hide explorer (⌘B)"
-              aria-label="Hide explorer"
-              onClick={onHide}
-            >
+            <IconButton size="sm" label="Hide explorer" tip={`Hide explorer (${shortcutLabel("⌘B")})`} onClick={onHide}>
               <HideGlyph />
-            </button>
+            </IconButton>
           ) : null}
           {onRefresh ? (
-            <button
-              type="button"
-              className="explorer-action"
-              title="Refresh"
-              aria-label="Refresh"
-              onClick={onRefresh}
-            >
+            <IconButton size="sm" label="Refresh" onClick={onRefresh}>
               <RefreshGlyph />
-            </button>
+            </IconButton>
           ) : null}
         </div>
       </div>
@@ -433,19 +434,13 @@ export function ExplorerPanel({
           onKeyDown={(event) => event.stopPropagation()}
         />
         {query ? (
-          <button
-            type="button"
-            className="explorer-filter-clear"
-            aria-label="Clear filter"
-            title="Clear filter"
-            onClick={() => setQuery("")}
-          >
-            <CloseGlyph />
-          </button>
+          <span className="explorer-filter-clear">
+            <CloseButton size="sm" label="Clear filter" onClick={() => setQuery("")} />
+          </span>
         ) : null}
       </div>
 
-      <div className="explorer-body">
+      <div className="explorer-body" ref={bodyRef}>
         <ul className="explorer-tree" role="tree" ref={listRef}>
           {sections.map((section) => {
             const open = isSectionOpen(openSections, section.id);
@@ -458,32 +453,41 @@ export function ExplorerPanel({
               >
                 <div className="explorer-section-head">
                   {/* The header *is* the collapse control. */}
-                  <button
-                    type="button"
-                    className="explorer-section-toggle"
-                    aria-expanded={open}
+                  <FoldButton
+                    expanded={open}
                     aria-controls={`explorer-section-${section.id}`}
                     onClick={() => onToggleSection(section.id)}
+                    count={rows.length > 0 ? rows.length : undefined}
                   >
-                    <ChevronIcon open={open} variant="expand" />
                     <span className="explorer-section-title">{section.title}</span>
-                    {rows.length > 0 ? (
-                      <span className="explorer-section-count">{rows.length}</span>
-                    ) : null}
-                  </button>
+                  </FoldButton>
                 </div>
                 <ul
                   id={`explorer-section-${section.id}`}
                   className="explorer-section-rows"
                   role="group"
                   hidden={!open}
+                  data-section-rows={section.id}
                 >
-                  {rows.map((row) => {
+                  {rowSlots(
+                    rows.length,
+                    views?.[section.id] ?? null,
+                    rows.flatMap((row, i) => (pinnedKeys.has(row.node.key) ? [i] : [])),
+                  ).map((slot, s) => {
+                    if (slot.kind === "gap") {
+                      return (
+                        <li
+                          key={`gap-${s}`}
+                          role="none"
+                          style={{ height: `${slot.rows * EXPLORER_ROW_PX}px` }}
+                        />
+                      );
+                    }
+                    const row = rows[slot.index]!;
                     const { node, depth } = row;
-                    const painted = flat.find((candidate) => candidate.node.key === node.key);
+                    const painted = flatByKey.get(node.key);
                     const branch = node.children.length > 0;
                     const rowOpen = effectiveExpanded.has(node.key);
-                    const suffix = isDocumentKind(node.kind) ? documentSuffix(node.kind) : null;
                     const lists = node.id ? listNames?.get(`${node.kind}:${node.id}`) : undefined;
                     const git = gitStatus?.get(node.key);
                     const tint = kindIconClass(node.kind, rowOpen);
@@ -553,7 +557,7 @@ export function ExplorerPanel({
                             if (!source || !canDrop(source, node)) return;
                             event.preventDefault();
                             void onMove?.(source, dropParentId(node)).catch((error) =>
-                              setProblem({ key: node.key, message: messageOf(error) }),
+                              setProblem({ key: node.key, message: errorMessage(error) }),
                             );
                           }}
                         >
@@ -570,7 +574,7 @@ export function ExplorerPanel({
                             {branch ? <ChevronIcon open={rowOpen} variant="expand" /> : null}
                           </span>
                           <span className={`explorer-icon${tint ? ` ${tint}` : ""}`} aria-hidden="true">
-                            {!isDocumentKind(node.kind) ? (
+                            {!isDocumentKind(node.kind) || node.folder ? (
                               <FolderIcon />
                             ) : (
                               <NavIcon name={kindIcon(node.kind)} />
@@ -588,10 +592,11 @@ export function ExplorerPanel({
                               }}
                             />
                           ) : (
-                            <span className="explorer-label">{node.label}</span>
+                            <span className="explorer-label" title={node.label}>{node.label}</span>
                           )}
-                          {/* An Outline row says its heading level in mono,
-                              where a file row would carry its kind suffix. */}
+                          {/* An Outline row says its heading level in mono. A
+                              file row shows no suffix: its icon says the kind,
+                              and the tab and breadcrumbs show the filename (DA-32). */}
                           {node.headingLevel !== undefined ? (
                             <span className="explorer-heading-level">H{node.headingLevel}</span>
                           ) : null}
@@ -610,60 +615,29 @@ export function ExplorerPanel({
                               {git}
                             </span>
                           ) : null}
-                          {suffix ? <span className="explorer-ext">{suffix}</span> : null}
                           {/* Hover actions, VS Code's way: they sit on the
                               row they act on, so "new in here" needs no
                               question about where. */}
-                          {offered.length > 0 && renaming !== node.key ? (
+                          {(offered.length > 0 || (onRename && canRename(node))) && renaming !== node.key ? (
                             <span className="explorer-row-actions">
-                              {offered.includes("note") ? (
-                                <button
-                                  type="button"
-                                  className="explorer-row-action"
-                                  title="New note here"
-                                  aria-label="New note here"
+                              {NEW_HERE.filter((item) => offered.includes(item.kind)).map((item) => (
+                                <IconButton
+                                  key={item.kind}
+                                  size="sm"
+                                  label={item.label}
                                   onClick={(event) => {
                                     event.stopPropagation();
-                                    startDraft("note", node);
+                                    startDraft(item.kind, node);
                                   }}
                                 >
-                                  <NavIcon name="notes" />
-                                </button>
-                              ) : null}
-                              {offered.includes("section") ? (
-                                <button
-                                  type="button"
-                                  className="explorer-row-action"
-                                  title="New section here"
-                                  aria-label="New section here"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    startDraft("section", node);
-                                  }}
-                                >
-                                  <NavIcon name="doc" />
-                                </button>
-                              ) : null}
-                              {offered.includes("folder") ? (
-                                <button
-                                  type="button"
-                                  className="explorer-row-action"
-                                  title="New folder here"
-                                  aria-label="New folder here"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    startDraft("folder", node);
-                                  }}
-                                >
-                                  <FolderIcon />
-                                </button>
-                              ) : null}
+                                  {item.icon}
+                                </IconButton>
+                              ))}
                               {onRename && canRename(node) ? (
-                                <button
-                                  type="button"
-                                  className="explorer-row-action"
-                                  title="Rename (F2)"
-                                  aria-label="Rename"
+                                <IconButton
+                                  size="sm"
+                                  label="Rename"
+                                  tip="Rename (F2)"
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     setProblem(null);
@@ -671,21 +645,23 @@ export function ExplorerPanel({
                                   }}
                                 >
                                   <NavIcon name="pencil" />
-                                </button>
+                                </IconButton>
                               ) : null}
                             </span>
                           ) : null}
                           {node.missingNote && onStartNote && node.id ? (
-                            <button
-                              type="button"
-                              className="explorer-start-note"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                onStartNote(node.id!);
-                              }}
-                            >
-                              Start note
-                            </button>
+                            <span className="explorer-start-note">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  onStartNote(node.id!);
+                                }}
+                              >
+                                Start note
+                              </Button>
+                            </span>
                           ) : null}
                         </div>
                         {rowProblem ? (

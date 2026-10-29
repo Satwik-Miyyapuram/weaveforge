@@ -5,6 +5,8 @@
 import { isLocalMode } from "@/backend/providers/local/local-identity";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { getRealtimeClient } from "@/backend/providers/postgrest/client";
+import { logToApp } from "@/lib/error-report/app-log";
+import { formatError } from "@/lib/format-error";
 
 import {
   isKnownResourceType,
@@ -81,16 +83,25 @@ export function registerRepoCacheEntry(entry: RepoCacheEntry): RepoCacheDisposer
   return dispose;
 }
 
-export function invalidateAllRepoCaches(): void {
+/** Forget every repository read memo, without touching the screen caches. */
+export function clearRepoCaches(): void {
   for (const { cache, settled } of allRepoCaches) {
     cache.clear();
     settled.clear();
   }
+}
+
+export function invalidateAllRepoCaches(): void {
+  clearRepoCaches();
   clearAllScreenCaches();
   logInvalidation(undefined, ["*"], ["*"]);
 }
 
-export function invalidateForWrite(resourceType?: string): void {
+/**
+ * Clear what a write of `resourceType` makes stale. Screens are cleared for
+ * `projectId`, the project the write happened in; it defaults to the open one.
+ */
+export function invalidateForWrite(resourceType?: string, projectId: string | null = activeProjectId()): void {
   if (!isScopedCacheInvalidationEnabled() || !resourceType || !isKnownResourceType(resourceType)) {
     invalidateAllRepoCaches();
     return;
@@ -104,7 +115,7 @@ export function invalidateForWrite(resourceType?: string): void {
     entry.settled.clear();
   }
 
-  clearScreenCachesForScreens(activeProjectId(), plan.screens);
+  clearScreenCachesForScreens(projectId, plan.screens);
   logInvalidation(resourceType, [...repoTypes], [...plan.screens]);
 }
 
@@ -137,8 +148,8 @@ export function cacheWriteNotify(resourceType?: ResourceType): void {
 export class ProjectLwwInvalidator {
   private channel: RealtimeChannel | null = null;
 
-  clearLocal(resourceType?: ResourceType) {
-    invalidateForWrite(resourceType);
+  clearLocal(resourceType?: ResourceType, projectId?: string | null) {
+    invalidateForWrite(resourceType, projectId ?? undefined);
   }
 
   watch(db: SupabaseClient, projectId: string | null) {
@@ -165,7 +176,7 @@ export class ProjectLwwInvalidator {
           ? String((payload as { resourceType?: string }).resourceType)
           : undefined;
       if (resourceType && isKnownResourceType(resourceType)) {
-        this.clearLocal(resourceType);
+        this.clearLocal(resourceType, projectId);
       } else {
         invalidateAllRepoCaches();
       }
@@ -173,8 +184,17 @@ export class ProjectLwwInvalidator {
     // Token first, then join. A private channel is authorized against the
     // caller's identity, and a join that goes out before the socket has a token
     // is an anonymous one — refused, then retried on a loop.
+    // Nothing awaits the token, so a refusal is logged here. A channel replaced
+    // or disposed while the token was on its way must not join.
     const channel = this.channel;
-    void realtime.realtime.setAuth().then(() => channel.subscribe());
+    void realtime.realtime
+      .setAuth()
+      .then(() => {
+        if (this.channel === channel) channel.subscribe();
+      })
+      .catch((err: unknown) =>
+        logToApp({ level: "warn", source: "realtime", message: "Realtime auth failed", detail: formatError(err) }),
+      );
   }
 
   /**
@@ -192,10 +212,12 @@ export class ProjectLwwInvalidator {
   }
 
   notifyPeers(resourceType?: ResourceType) {
-    void this.channel?.send({
-      type: "broadcast",
-      event: "lww",
-      payload: resourceType ? { resourceType } : {},
-    });
+    if (!this.channel) return;
+    // A broadcast that fails costs peers a fresh read later; log it, don't throw.
+    void this.channel
+      .send({ type: "broadcast", event: "lww", payload: resourceType ? { resourceType } : {} })
+      .catch((err: unknown) =>
+        logToApp({ level: "warn", source: "realtime", message: "Realtime broadcast failed", detail: formatError(err) }),
+      );
   }
 }

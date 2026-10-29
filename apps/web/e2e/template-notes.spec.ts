@@ -32,7 +32,7 @@ test.describe("source-note template re-render preserves edits (C1)", () => {
     const editor = page.locator(".summary-input .cm-content");
     await editor.waitFor({ timeout: 30_000 });
 
-    await page.getByRole("button", { name: "Re-render template" }).click();
+    await page.getByRole("button", { name: "Refresh paper details" }).click();
     await expect(page.locator(".summary-input")).toContainText("<!-- wf:editable:notes -->", {
       timeout: 15_000,
     });
@@ -43,7 +43,7 @@ test.describe("source-note template re-render preserves edits (C1)", () => {
     await page.keyboard.type(`\n\n## My appendix\n\n${sentinel}\n`);
     await expect(page.locator(".summary-input")).toContainText(sentinel);
 
-    await page.getByRole("button", { name: "Re-render template" }).click();
+    await page.getByRole("button", { name: "Refresh paper details" }).click();
     await expect(page.locator(".summary-input")).toContainText(sentinel, { timeout: 15_000 });
     await expect(page.locator(".summary-input")).toContainText("## My appendix");
     await expect(page.locator(".summary-input")).toContainText(title);

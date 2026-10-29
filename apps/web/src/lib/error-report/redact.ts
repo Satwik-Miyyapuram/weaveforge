@@ -46,9 +46,9 @@ const RULES: { pattern: RegExp; replacement: string }[] = [
   },
   { pattern: /\bsk-[A-Za-z0-9_-]{16,}/g, replacement: "<key>" },
   // A credential in a query string. Keeps the parameter name, which is the part
-  // that is useful in a bug report.
+  // that is useful in a bug report. `t` is the blob view token.
   {
-    pattern: /([?&](?:key|token|access_token|refresh_token|apikey|api_key|secret|code|password|signature)=)[^&\s"']+/gi,
+    pattern: /([?&](?:t|key|token|access_token|refresh_token|apikey|api_key|secret|code|password|signature)=)[^&\s"']+/gi,
     replacement: "$1<redacted>",
   },
   // An absolute home directory: `C:\Users\sam\...`, `/Users/sam/...`,

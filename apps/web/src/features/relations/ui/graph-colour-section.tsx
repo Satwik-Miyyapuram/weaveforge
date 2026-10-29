@@ -9,11 +9,14 @@ import {
   type GraphViewSettings,
   type NodePalette,
 } from "@weaveforge/core";
-import { ChevronIcon } from "@/components/chevron-icon";
 import { ColourMenu } from "@/components/colour-menu";
 import { Select } from "@/components/select";
 import { CLUSTER_PALETTE } from "../application/node-colouring";
 import { NODE_COLOR_LABELS, useGraphColours } from "./graph-colours";
+import { CloseIcon } from "@/components/view-icons";
+import { SegmentedControl } from "@/components/segmented-control";
+import { Button } from "@/components/button";
+import { FoldButton } from "@/components/controls";
 
 /** Swatches offered for a node colour; any other comes through the native picker. */
 const NODE_SWATCHES = [
@@ -50,15 +53,9 @@ export function Section({
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="graph-drawer-section">
-      <button
-        type="button"
-        className="graph-drawer-section-head"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
+      <FoldButton expanded={open} onClick={() => setOpen((v) => !v)}>
         {title}
-        <ChevronIcon open={open} />
-      </button>
+      </FoldButton>
       {open && <div className="graph-drawer-section-body">{children}</div>}
     </div>
   );
@@ -92,27 +89,25 @@ function GroupRules({
               ariaLabel={`Group ${i + 1} colour`}
               onChange={(color) => set(i, { color })}
             />
-            <button
-              type="button"
-              className="btn-ghost btn-sm"
+            <Button
+              variant="ghost" size="sm"
               aria-label={`Remove group ${i + 1}`}
               onClick={() => onChange(groups.filter((_, j) => j !== i))}
             >
-              ×
-            </button>
+              <CloseIcon />
+            </Button>
           </li>
         ))}
       </ul>
       {groups.length < MAX_COLOR_GROUPS && (
-        <button
-          type="button"
-          className="btn-secondary btn-sm"
+        <Button
+          size="sm"
           onClick={() =>
             onChange([...groups, { query: "", color: CLUSTER_PALETTE[groups.length % CLUSTER_PALETTE.length]! }])
           }
         >
           Add group
-        </button>
+        </Button>
       )}
     </>
   );
@@ -146,19 +141,15 @@ export function ColourSection({
       )}
       {USES_KIND_COLOURS.has(settings.colorBy) && (
         <>
-          <div className="seg" role="group" aria-label="Node palette">
-            {(["theme", "classic"] as NodePalette[]).map((p) => (
-              <button
-                key={p}
-                type="button"
-                className={`seg-btn${settings.nodePalette === p ? " seg-on" : ""}`}
-                aria-pressed={settings.nodePalette === p}
-                onClick={() => onChange({ nodePalette: p })}
-              >
-                {p === "theme" ? "Theme" : "Classic"}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl<NodePalette>
+            label="Node palette"
+            value={settings.nodePalette}
+            onChange={(nodePalette) => onChange({ nodePalette })}
+            options={[
+              { value: "theme", label: "Theme" },
+              { value: "classic", label: "Classic" },
+            ]}
+          />
           <ul className="graph-colour-list">
             {NODE_COLOR_KEYS.map((key) => (
               <li key={key} className="graph-colour-row">
@@ -173,9 +164,9 @@ export function ColourSection({
             ))}
           </ul>
           {overridden && (
-            <button type="button" className="btn-ghost btn-sm" onClick={() => onChange({ nodeColors: {} })}>
+            <Button variant="ghost" size="sm" onClick={() => onChange({ nodeColors: {} })}>
               Reset colours
-            </button>
+            </Button>
           )}
         </>
       )}

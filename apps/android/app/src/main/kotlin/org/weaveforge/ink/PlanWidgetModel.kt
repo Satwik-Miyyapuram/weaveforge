@@ -46,7 +46,7 @@ object PlanWidgetModel {
         val uri = runCatching { URI(trimmed.replaceFirst(Regex("^webcal://", RegexOption.IGNORE_CASE), "https://")) }
             .getOrNull() ?: return null
         val host = uri.host?.lowercase() ?: return null
-        if (allowedHosts.none { host == it || host.endsWith(".$it") }) return null
+        if (!HostAllowList.allows(host, allowedHosts)) return null
         val scheme = uri.scheme?.lowercase()
         // Plain http only in a build that was itself pointed at an http address.
         if (scheme != "https" && !(scheme == "http" && allowCleartext)) return null
@@ -54,6 +54,15 @@ object PlanWidgetModel {
         val port = if (uri.port == -1) "" else ":${uri.port}"
         return "$scheme://$host$port/api/plan/feed/${match.groupValues[1]}/widget.json"
     }
+
+    /**
+     * Whether a fetch made with `fetchedWith` may still be stored.
+     *
+     * Only while that is still the saved link: a link saved again, or cleared when
+     * the last widget went, while the fetch was in flight means the result belongs
+     * to a link nobody is using any more.
+     */
+    fun isCurrentFetch(fetchedWith: String, current: String?): Boolean = fetchedWith == current
 
     /** The feed's `widget.json`, or null if it is not one. Unknown fields are ignored. */
     fun parse(json: String): Data? = runCatching {

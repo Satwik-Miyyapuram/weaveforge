@@ -120,22 +120,17 @@ function ico(png) {
   return Buffer.concat([header, entry, png]);
 }
 
-await Promise.all([
-  build({
-    ...shared,
-    entryPoints: [path.join(root, "src/main.ts")],
-    outfile: path.join(root, "dist/main.js"),
-  }),
-  build({
-    ...shared,
-    entryPoints: [path.join(root, "src/preload.ts")],
-    outfile: path.join(root, "dist/preload.js"),
-  }),
-  // The plan widget's page and its own, much smaller, preload.
-  build({
-    ...shared,
-    entryPoints: [path.join(root, "src/plan-widget-preload.ts")],
-    outfile: path.join(root, "dist/plan-widget-preload.js"),
-  }),
-]);
+// The main process, the window's preload, and the plan widget's own, much
+// smaller, preload: each `src/<name>.ts` to `dist/<name>.js`.
+const ENTRY_POINTS = ["main", "preload", "plan-widget-preload"];
+await Promise.all(
+  ENTRY_POINTS.map((name) =>
+    build({
+      ...shared,
+      entryPoints: [path.join(root, `src/${name}.ts`)],
+      outfile: path.join(root, `dist/${name}.js`),
+    }),
+  ),
+);
 fs.copyFileSync(path.join(root, "src/plan-widget.html"), path.join(root, "dist/plan-widget.html"));
+fs.cpSync(path.join(root, "src/fonts"), path.join(root, "dist/fonts"), { recursive: true });

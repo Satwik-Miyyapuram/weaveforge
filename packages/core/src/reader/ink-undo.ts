@@ -12,6 +12,9 @@
  * removal must recreate the row, and recreating gives it a new id: every entry
  * that named the old id must then be told the new one (`renameInkUndoId`),
  * or a later undo would try to delete a row that no longer exists.
+ *
+ * Deleting several marks at once (a lasso) is one `removeMany` step, so one
+ * undo brings them all back.
  */
 
 import type { ReaderAnnotation } from "./reader-annotation.js";
@@ -21,13 +24,20 @@ export type InkUndoEntry =
   | { kind: "create"; annotation: ReaderAnnotation }
   /** A stroke was erased; undo creates it again, redo removes it. */
   | { kind: "remove"; annotation: ReaderAnnotation }
+  /** Several marks were deleted together; undo recreates all, redo removes all. */
+  | { kind: "removeMany"; annotations: ReaderAnnotation[] }
   /** A mark's paths were rewritten (a stroke joined it, or it was moved). */
   | {
       kind: "anchor";
       id: string;
       before: ReaderAnnotation["anchor"];
       after: ReaderAnnotation["anchor"];
-    };
+    }
+  /** A mark's colour, comment, tags or text changed; each side holds the fields it set. */
+  | { kind: "update"; id: string; before: InkUndoPatch; after: InkUndoPatch };
+
+/** The fields an edit can change, as `updateLocal` takes them. */
+export type InkUndoPatch = Partial<Pick<ReaderAnnotation, "color" | "comment" | "tags" | "text">>;
 
 export interface InkUndoState {
   undo: readonly InkUndoEntry[];
@@ -73,7 +83,11 @@ export function takeInkRedo(
 export function renameInkUndoId(state: InkUndoState, from: string, to: string): InkUndoState {
   if (from === to) return state;
   const rename = (entry: InkUndoEntry): InkUndoEntry => {
-    if (entry.kind === "anchor") return entry.id === from ? { ...entry, id: to } : entry;
+    if (entry.kind === "anchor" || entry.kind === "update") return entry.id === from ? { ...entry, id: to } : entry;
+    if (entry.kind === "removeMany") {
+      if (!entry.annotations.some((a) => a.id === from)) return entry;
+      return { ...entry, annotations: entry.annotations.map((a) => (a.id === from ? { ...a, id: to } : a)) };
+    }
     if (entry.annotation.id !== from) return entry;
     return { ...entry, annotation: { ...entry.annotation, id: to } };
   };
@@ -89,9 +103,13 @@ export function refreshInkUndoAnnotation(
   state: InkUndoState,
   annotation: ReaderAnnotation,
 ): InkUndoState {
-  const refresh = (entry: InkUndoEntry): InkUndoEntry =>
-    entry.kind !== "anchor" && entry.annotation.id === annotation.id
-      ? { ...entry, annotation }
-      : entry;
+  const refresh = (entry: InkUndoEntry): InkUndoEntry => {
+    if (entry.kind === "anchor" || entry.kind === "update") return entry;
+    if (entry.kind === "removeMany") {
+      if (!entry.annotations.some((a) => a.id === annotation.id)) return entry;
+      return { ...entry, annotations: entry.annotations.map((a) => (a.id === annotation.id ? annotation : a)) };
+    }
+    return entry.annotation.id === annotation.id ? { ...entry, annotation } : entry;
+  };
   return { undo: state.undo.map(refresh), redo: state.redo.map(refresh) };
 }

@@ -14,6 +14,7 @@ import {
 } from "../domain/paper-relation.js";
 import type { IPaperRelationRepository } from "../domain/paper-relation-repository.js";
 import type { ICitationSource } from "./citation-source.js";
+import { paperRef } from "./paper-ref.js";
 import type { Clock, IdGenerator } from "../../../shared/clock.js";
 import { normalizeDoi, type Paper } from "../../papers/domain/paper.js";
 import type { IPaperIdentityLookup, PaperIdentity } from "../../papers/domain/paper-identity.js";
@@ -51,6 +52,8 @@ export interface LinkCitationsResult {
   created: PaperRelation[];
   /** References returned by the source that matched no local paper. */
   unmatched: number;
+  /** Papers whose references or edge writes threw; the rest still linked. */
+  failed: number;
 }
 
 export class LinkCitationsUseCase {
@@ -68,12 +71,19 @@ export class LinkCitationsUseCase {
    */
   async forPaper(paper: Paper): Promise<LinkCitationsResult> {
     const ref = paperRef(paper);
-    if (!ref) return { created: [], unmatched: 0 };
+    if (!ref) return { created: [], unmatched: 0, failed: 0 };
 
     const source = this.sources.find((s) => s.supports(ref));
-    if (!source) return { created: [], unmatched: 0 };
+    if (!source) return { created: [], unmatched: 0, failed: 0 };
 
     const references = await source.references(ref);
+    // One read of this paper's edges, so a re-run reports nothing new without a
+    // lookup per reference (add() still checks before it writes).
+    const linked = new Set(
+      (await this.relations.relationsFor(paper.id))
+        .filter((e) => e.relation === "cites" && e.fromPaper === paper.id)
+        .map((e) => e.toPaper),
+    );
     const created: PaperRelation[] = [];
     let unmatched = 0;
 
@@ -83,22 +93,18 @@ export class LinkCitationsUseCase {
         unmatched += 1;
         continue;
       }
-      // Was this exact edge already present? (so re-runs don't over-report)
-      const preexisting = await this.relations.findEdge(
-        paper.id,
-        match.id,
-        "cites",
-      );
+      if (linked.has(match.id)) continue; // already linked: not new
       const edge = await this.addRelation.add({
         fromPaper: paper.id,
         toPaper: match.id,
         relation: "cites",
         source: "auto",
       });
-      if (!preexisting) created.push(edge);
+      linked.add(match.id);
+      created.push(edge);
     }
 
-    return { created, unmatched };
+    return { created, unmatched, failed: 0 };
   }
 
   /**
@@ -140,16 +146,21 @@ export class LinkCitationsUseCase {
       .map((r, i) => ({ r, i }))
       .filter((x): x is { r: PaperRef; i: number } => !!x.r);
     const source = this.sources.find((s) => resolvable.some((x) => s.supports(x.r)));
-    if (!source) return { created: [], unmatched: 0 };
+    if (!source) return { created: [], unmatched: 0, failed: 0 };
     const supported = resolvable.filter((x) => source.supports(x.r));
 
     const refsByPaper: (PaperRef[] | null)[] = new Array(library.length).fill(null);
+    const failedPapers = new Set<number>();
     if (source.referencesBatch) {
       const lists = await source.referencesBatch(supported.map((x) => x.r));
       supported.forEach((x, k) => (refsByPaper[x.i] = lists[k] ?? null));
     } else {
       for (const x of supported) {
-        refsByPaper[x.i] = await source.references(x.r);
+        try {
+          refsByPaper[x.i] = await source.references(x.r);
+        } catch {
+          failedPapers.add(x.i); // one rate-limited paper must not stop the rest
+        }
       }
     }
 
@@ -178,23 +189,20 @@ export class LinkCitationsUseCase {
         }
         const key = `${paper.id}|${match.id}`;
         if (existing.has(key)) continue; // already linked — skip without a query
-        const edge = await this.addRelation.add({
-          fromPaper: paper.id,
-          toPaper: match.id,
-          relation: "cites",
-          source: "auto",
-        });
-        existing.add(key);
-        created.push(edge);
+        try {
+          const edge = await this.addRelation.add({
+            fromPaper: paper.id,
+            toPaper: match.id,
+            relation: "cites",
+            source: "auto",
+          });
+          existing.add(key);
+          created.push(edge);
+        } catch {
+          failedPapers.add(i);
+        }
       }
     }
-    return { created, unmatched };
+    return { created, unmatched, failed: failedPapers.size };
   }
-}
-
-/** Prefer arXiv id, fall back to DOI, for resolving a paper externally. */
-function paperRef(paper: Paper): PaperRef | null {
-  if (paper.arxivId) return { kind: "arxiv", value: paper.arxivId };
-  if (paper.doi) return { kind: "doi", value: paper.doi };
-  return null;
 }

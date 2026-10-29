@@ -1,6 +1,7 @@
 "use client";
 
 import { Popover } from "./popover";
+import { Swatch } from "./controls";
 
 /**
  * One colour picker for every place a mark gets a colour: the reader's
@@ -26,54 +27,43 @@ export function ColourMenu({
   const extra = recent.filter((c) => !palette.some((p) => same(p, c)));
   return (
     <Popover
-      iconOnly
+      trigger="swatch"
+      colour={value}
       ariaLabel={ariaLabel}
-      triggerClassName="colour-menu-trigger"
-      label={<span className="ink-swatch colour-menu-current" style={{ background: value }} aria-hidden />}
+      label={null}
     >
-      {(close) => (
-        <div className="colour-menu">
-          {extra.length > 0 && (
-            <div className="colour-menu-row" role="group" aria-label="Recent colours">
-              {extra.map((entry) => (
-                <button
-                  key={entry}
-                  type="button"
-                  className="ink-swatch"
-                  style={{ background: entry }}
-                  aria-pressed={same(entry, value)}
-                  aria-label={`Colour ${entry}`}
-                  title={entry}
-                  onClick={() => { onChange(entry); close(); }}
-                />
-              ))}
+      {(close) => {
+        const swatch = (entry: string) => (
+          <Swatch
+            key={entry}
+            label={`Colour ${entry}`}
+            selected={same(entry, value)}
+            colour={entry}
+            onClick={() => { onChange(entry); close(); }}
+          />
+        );
+        return (
+          <div className="colour-menu">
+            {extra.length > 0 && (
+              <div className="colour-menu-row" role="group" aria-label="Recent colours">
+                {extra.map(swatch)}
+              </div>
+            )}
+            <div className="colour-menu-row" role="group" aria-label="Palette">
+              {palette.map(swatch)}
             </div>
-          )}
-          <div className="colour-menu-row" role="group" aria-label="Palette">
-            {palette.map((entry) => (
-              <button
-                key={entry}
-                type="button"
-                className="ink-swatch"
-                style={{ background: entry }}
-                aria-pressed={same(entry, value)}
-                aria-label={`Colour ${entry}`}
-                title={entry}
-                onClick={() => { onChange(entry); close(); }}
+            <label className="colour-menu-custom">
+              <span>Other…</span>
+              <input
+                type="color"
+                value={value}
+                aria-label="Other colour"
+                onChange={(e) => onChange(e.target.value)}
               />
-            ))}
+            </label>
           </div>
-          <label className="colour-menu-custom">
-            <span>Other…</span>
-            <input
-              type="color"
-              value={value}
-              aria-label="Other colour"
-              onChange={(e) => onChange(e.target.value)}
-            />
-          </label>
-        </div>
-      )}
+        );
+      }}
     </Popover>
   );
 }

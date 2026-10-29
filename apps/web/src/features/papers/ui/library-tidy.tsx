@@ -1,5 +1,6 @@
 "use client";
 
+import { enumLabel } from "@/lib/enum-label";
 import { useEffect, useMemo, useState } from "react";
 import {
   findDuplicateGroups,
@@ -13,9 +14,13 @@ import type { LibraryTidyScan, TidyDuplicateGroup } from "@/container/facades/li
 import { formatError } from "@/lib/format-error";
 import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
+import { useHiddenKeys } from "@/lib/toast";
+import { mergeLater } from "./merge-later";
+import { paperKey } from "./remove-paper";
 
 /** What the tidy-up would offer for these papers. Pure, so the screen can count it cheaply. */
-export function useLibraryTidy(papers: readonly PaperSummary[]) {
+function useLibraryTidy(papers: readonly PaperSummary[]) {
   return useMemo(
     () => ({ titles: titleFixes(papers), duplicates: findDuplicateGroups([...papers]) }),
     [papers],
@@ -60,9 +65,9 @@ export function LibraryTidyNotice({
               : "Some imports kept a file name or page label as the title."}
           </span>
         </div>
-        <button type="button" className="btn-secondary" onClick={() => setOpen(true)}>
+        <Button onClick={() => setOpen(true)}>
           Review
-        </button>
+        </Button>
       </div>
       {open && (
         <Modal title="Tidy the library" onClose={() => setOpen(false)}>
@@ -106,11 +111,13 @@ function LibraryTidyPanel({
     };
   }, [duplicates]);
   const byId = scan?.papers ?? localById;
+  const hiddenKeys = useHiddenKeys();
   // The scan is a snapshot: after a merge the papers reload but the scan does
   // not (and is not rerun once no duplicates remain), so a merged group would
   // stay on screen reading "Merged". Only offer groups whose copies all still exist.
+  // A group being merged (its Undo toast still up) is hidden too.
   const groups: TidyDuplicateGroup[] = (scan?.duplicates ?? duplicates).filter((g) =>
-    g.ids.every((id) => localById.has(id)),
+    g.ids.every((id) => localById.has(id) && !hiddenKeys.has(paperKey(id))),
   );
   return (
     <div className="tidy-panel">
@@ -208,9 +215,9 @@ function TitleFixRow({
           aria-label={`New title for ${fix.current || "untitled paper"}`}
           disabled={done}
         />
-        <button type="button" className="btn-secondary" disabled={busy || done || !value.trim()} onClick={() => void apply()}>
+        <Button disabled={busy || done || !value.trim()} onClick={() => void apply()}>
           {done ? "Applied" : busy ? "Saving…" : "Apply"}
-        </button>
+        </Button>
       </div>
       {error && <FormError>{error}</FormError>}
     </li>
@@ -219,7 +226,7 @@ function TitleFixRow({
 
 function describe(p: (PaperSummary & { venue?: string }) | undefined): string {
   if (!p) return "";
-  return [p.year, p.venue, p.pdfPath ? "PDF" : null, p.status.replace("_", " "), p.doi ? `doi:${p.doi}` : null]
+  return [p.year, p.venue, p.pdfPath ? "PDF" : null, enumLabel("paperStatus", p.status), p.doi ? `doi:${p.doi}` : null]
     .filter(Boolean)
     .join(" · ");
 }
@@ -234,36 +241,22 @@ function DuplicateRow({
   onMerged: () => void | Promise<void>;
 }) {
   const [keepId, setKeepId] = useState(group.keepId);
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
-  // Asked in the row rather than through `window.confirm`: a native dialog is
-  // one the desktop shell may not show at all, and then the merge silently
-  // never started. The answer also sits next to the choice it confirms.
-  const [confirming, setConfirming] = useState(false);
-  // Beside the row, not at the top of the dialog: with a long list the only
-  // sign a merge failed was scrolled out of view, and the row looked untouched.
-  const [error, setError] = useState<string | null>(null);
   const name = `keep-${group.ids.join("-")}`;
-  const others = group.ids.length - 1;
 
-  async function merge() {
-    setConfirming(false);
-    setBusy(true);
-    setError(null);
-    try {
-      await getContainer().libraryTidy.merge(keepId, group.ids);
-      setDone(true);
-      await onMerged();
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
+  // Rule D-07: the other copies go at once; the merge runs when the Undo toast
+  // closes, and a failed merge says so in a toast.
+  function merge() {
+    mergeLater({
+      keepId,
+      ids: group.ids,
+      merge: () => getContainer().libraryTidy.merge(keepId, group.ids),
+      onMerged,
+    });
   }
 
   return (
     <li className="tidy-row">
-      <fieldset className="tidy-group" disabled={busy || done}>
+      <fieldset className="tidy-group">
         <legend className="muted">{REASON[group.reason]} — keep:</legend>
         {group.ids.map((id) => {
           const p = byId.get(id);
@@ -280,11 +273,9 @@ function DuplicateRow({
       </fieldset>
       {group.conferenceId ? (
         <label className="tidy-option">
-          <input
+          <input className="wf-check"
             type="checkbox"
-            className="themed-check"
             checked={keepId === group.conferenceId}
-            disabled={busy || done}
             onChange={(e) => setKeepId(e.target.checked ? group.conferenceId! : group.keepId)}
           />
           <span>
@@ -293,30 +284,8 @@ function DuplicateRow({
           </span>
         </label>
       ) : null}
-      {error && <FormError>{error}</FormError>}
       <div className="tidy-actions">
-        {confirming ? (
-          <>
-            <span className="muted tidy-confirm">
-              The other cop{others === 1 ? "y is" : "ies are"} deleted once {others === 1 ? "its" : "their"} contents move across.
-            </span>
-            <button type="button" className="btn-ghost btn-sm btn-cancel" onClick={() => setConfirming(false)}>
-              Cancel
-            </button>
-            <button type="button" className="btn-primary btn-danger btn-sm" onClick={() => void merge()}>
-              Merge
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            className="btn-secondary"
-            disabled={busy || done}
-            onClick={() => setConfirming(true)}
-          >
-            {done ? "Merged" : busy ? "Merging…" : "Merge…"}
-          </button>
-        )}
+        <Button onClick={merge}>Merge</Button>
       </div>
     </li>
   );

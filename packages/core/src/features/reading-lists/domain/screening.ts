@@ -94,13 +94,36 @@ export function latestByReviewer(
   itemId: string,
   stage: ScreeningStage,
 ): Map<string, ScreeningDecision> {
-  const latest = new Map<string, ScreeningDecision>();
+  return latestIndex(decisions.filter((d) => d.itemId === itemId && d.stage === stage)).get(itemId, stage);
+}
+
+/** Each item's latest decision per reviewer, per stage. */
+interface LatestIndex {
+  get(itemId: string, stage: ScreeningStage): Map<string, ScreeningDecision>;
+  /** Items with any decision, in first-seen order. */
+  itemIds(): Iterable<string>;
+}
+
+/**
+ * Groups the decisions in one pass, so a whole screen costs O(decisions)
+ * instead of one scan of every decision per item.
+ */
+function latestIndex(decisions: readonly ScreeningDecision[]): LatestIndex {
+  const byKey = new Map<string, Map<string, ScreeningDecision>>();
+  const ids = new Set<string>();
+  const key = (itemId: string, stage: ScreeningStage) => `${stage}\u0000${itemId}`;
   for (const decision of decisions) {
-    if (decision.itemId !== itemId || decision.stage !== stage) continue;
+    ids.add(decision.itemId);
+    const k = key(decision.itemId, decision.stage);
+    let latest = byKey.get(k);
+    if (!latest) byKey.set(k, (latest = new Map()));
     const held = latest.get(decision.reviewerId);
     if (!held || held.decidedAt <= decision.decidedAt) latest.set(decision.reviewerId, decision);
   }
-  return latest;
+  return {
+    get: (itemId, stage) => byKey.get(key(itemId, stage)) ?? new Map(),
+    itemIds: () => ids,
+  };
 }
 
 export interface ItemVerdict {
@@ -128,7 +151,21 @@ export function verdictFor(
   itemId: string,
   stage: ScreeningStage,
 ): ItemVerdict {
-  const latest = [...latestByReviewer(decisions, itemId, stage).values()];
+  return verdictOf(latestByReviewer(decisions, itemId, stage), itemId, stage);
+}
+
+/** Both stages' verdicts for each item, in item order, from one pass over the decisions. */
+export function verdictsFor(
+  items: readonly { id: string }[],
+  decisions: readonly ScreeningDecision[],
+): ItemVerdict[] {
+  const index = latestIndex(decisions);
+  return items.flatMap((item) =>
+    SCREENING_STAGES.map((stage) => verdictOf(index.get(item.id, stage), item.id, stage)));
+}
+
+function verdictOf(byReviewer: Map<string, ScreeningDecision>, itemId: string, stage: ScreeningStage): ItemVerdict {
+  const latest = [...byReviewer.values()];
   const states = new Set(latest.map((decision) => decision.state));
   const only = [...states][0];
   return {
@@ -176,8 +213,9 @@ export function agreementBetween(
 ): Agreement {
   const [first, second] = reviewers;
   const pairs: Pair[] = [];
-  for (const itemId of new Set(decisions.map((decision) => decision.itemId))) {
-    const latest = latestByReviewer(decisions, itemId, stage);
+  const index = latestIndex(decisions);
+  for (const itemId of index.itemIds()) {
+    const latest = index.get(itemId, stage);
     const a = latest.get(first)?.state;
     const b = latest.get(second)?.state;
     if (a && b) pairs.push({ a, b });
@@ -247,9 +285,10 @@ export function prismaCounts(
   let included = 0;
   let undecided = 0;
   let conflicts = 0;
+  const index = latestIndex(decisions);
 
   for (const item of screenedItems) {
-    const abstract = verdictFor(decisions, item.id, "title_abstract");
+    const abstract = verdictOf(index.get(item.id, "title_abstract"), item.id, "title_abstract");
     if (abstract.conflict) conflicts += 1;
     if (!abstract.answered) {
       undecided += 1;
@@ -263,7 +302,7 @@ export function prismaCounts(
     // what full-text screening is for: the abstract could not answer it.
     eligible += 1;
 
-    const full = verdictFor(decisions, item.id, "full_text");
+    const full = verdictOf(index.get(item.id, "full_text"), item.id, "full_text");
     if (full.conflict) conflicts += 1;
     if (!full.answered) undecided += 1;
     else if (full.state === "included") included += 1;
@@ -289,13 +328,17 @@ export function exclusionReasons(
   stage: ScreeningStage = "full_text",
 ): { reason: string; count: number }[] {
   const counts = new Map<string, number>();
-  for (const itemId of new Set(decisions.map((decision) => decision.itemId))) {
-    if (verdictFor(decisions, itemId, stage).state !== "excluded") continue;
+  const index = latestIndex(decisions);
+  for (const itemId of index.itemIds()) {
+    const latest = index.get(itemId, stage);
+    if (verdictOf(latest, itemId, stage).state !== "excluded") continue;
     // One reason per item, not one per reviewer: two people excluding the same
     // paper for the same reason is one exclusion, and the box counts papers.
-    for (const decision of latestByReviewer(decisions, itemId, stage).values()) {
+    // The first reviewer who gave a reason supplies it; a blank one is skipped.
+    for (const decision of latest.values()) {
       const reason = decision.reason?.trim();
-      if (reason) counts.set(reason, (counts.get(reason) ?? 0) + 1);
+      if (!reason) continue;
+      counts.set(reason, (counts.get(reason) ?? 0) + 1);
       break;
     }
   }

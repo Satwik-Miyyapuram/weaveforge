@@ -50,6 +50,7 @@ import { PostgrestLogEntryRepository } from "@/features/logbook/infrastructure/p
 import { PostgrestMemberRepository } from "@/features/org/infrastructure/postgrest-member-repository";
 import { PostgrestSupervisionRepository } from "@/features/org/infrastructure/postgrest-supervision-repository";
 import { PostgrestPaperRepository } from "@/features/papers/infrastructure/postgrest-paper-repository";
+import { cachePaperRepository } from "@/features/papers/infrastructure/cached-paper-repository";
 import { PostgrestMilestoneRepository } from "@/features/plan/infrastructure/postgrest-milestone-repository";
 import { PostgrestProjectRepository } from "@/features/projects/infrastructure/postgrest-project-repository";
 import { ProjectZoteroStore } from "@/features/projects/infrastructure/project-zotero-store";
@@ -79,6 +80,7 @@ import { PostgrestTagRepository, PostgrestPaperTagRepository } from "@/features/
 import { PostgrestLibraryPinRepository } from "@/features/library";
 import type { ProjectContext } from "@/lib/project-context";
 import { cacheRepo } from "@/lib/cache/cache-repo";
+import { systemClock } from "@/lib/system";
 import type { BackendConfig } from "@/backend/config";
 import { createDataClient } from "./client";
 import { SupabaseSessionProvider } from "../supabase-auth/session";
@@ -128,6 +130,8 @@ export interface WiredPostgrestBackend {
     IReaderAnnotationSyncRecorder &
     IReaderAnnotationProjectSource;
   readonly paperFieldRepository: IPaperFieldRepository;
+  /** Release what this wiring subscribed to (the session's auth listener). */
+  dispose(): void;
 }
 
 /**
@@ -166,7 +170,9 @@ export function wirePostgrestBackend(
   const db =
     parts?.db ??
     watchWrites(createDataClient(url as string, anonKey as string, config.dataUrl), notifyWorkspaceChange);
-  const session = parts?.session ?? new SupabaseSessionProvider(db);
+  // A session built here listens on the client; one passed in is its owner's.
+  const ownSession = parts?.session ? null : new SupabaseSessionProvider(db);
+  const session = parts?.session ?? ownSession!;
   const auth = parts?.auth ?? new SupabaseAuthService(db);
   const adminProvisioner =
     !parts && url && config.supabaseServiceRoleKey
@@ -175,7 +181,7 @@ export function wirePostgrestBackend(
 
   const settingsRepository =
     parts?.settingsRepository ?? new PostgrestSettingsRepository(db, session, secretsStoreFor(db));
-  const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository });
+  const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock });
   const projectRepository = cacheRepo(
     new PostgrestProjectRepository(db, session),
     ["getById", "list"],
@@ -198,13 +204,7 @@ export function wirePostgrestBackend(
     { resourceType: "graph_settings" },
   );
   const integrationsStore: IIntegrationsStore = new PostgrestIntegrationsStore(db);
-  const paperRepository = cacheRepo(
-    new PostgrestPaperRepository(db, projectContext),
-    ["getById", "list"],
-    ["save", "delete"],
-    pid,
-    { resourceType: "paper" },
-  );
+  const paperRepository = cachePaperRepository(new PostgrestPaperRepository(db, projectContext), pid);
 
   const tagPaperCache = new Map<string, Promise<unknown>>();
   const tagPaperSettled = new Map<string, unknown>();
@@ -276,7 +276,7 @@ export function wirePostgrestBackend(
   const experimentRepository = cacheRepo(
     new PostgrestExperimentRepository(db, projectContext),
     ["getById", "list"],
-    ["save", "delete"],
+    ["save", "patch", "delete"],
     pid,
     { resourceType: "experiment" },
   );
@@ -289,11 +289,14 @@ export function wirePostgrestBackend(
     { resourceType: "share" },
   );
   const commentRepository = new PostgrestCommentRepository(db);
+  // What you can read depends on the grants, so a share change (yours or a
+  // peer's broadcast) clears this memo with the share repository's.
   const sharedReader: ISharedReader = cacheRepo(
     new PostgrestSharedReader(db),
     ["read"],
     [],
     pid,
+    { resourceType: "share" },
   );
   const milestoneRepository = cacheRepo(
     new PostgrestMilestoneRepository(db, projectContext),
@@ -306,7 +309,8 @@ export function wirePostgrestBackend(
   // RLS predicate calls the recursive `lab_root` per row — measured at ~1.8s
   // against a real database, dwarfing every other query on a screen load. Five
   // screens await it before rendering, and it was refetched on each of them.
-  // Membership does not change during a session, so it caches like the rest.
+  // Membership rarely changes during a session, so it caches like the rest; the
+  // org calls that change it (create, join, roles, new accounts) clear every memo.
   const memberRepository = cacheRepo(
     new PostgrestMemberRepository(db, session),
     ["getMine", "listTeam", "listDirectory", "listLab"],
@@ -406,5 +410,6 @@ export function wirePostgrestBackend(
     labSnapshotRepository,
     readerAnnotationRepository,
     paperFieldRepository,
+    dispose: () => ownSession?.dispose(),
   };
 }

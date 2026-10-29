@@ -1,5 +1,6 @@
 "use client";
 
+import { enumLabel } from "@/lib/enum-label";
 import { useState } from "react";
 import {
   DEFAULT_GRAPH_SETTINGS,
@@ -11,7 +12,10 @@ import {
   type ReadingList,
 } from "@weaveforge/core";
 import { MultiSelect } from "@/components/multi-select";
+import { SegmentedControl } from "@/components/segmented-control";
+import { Button, CloseButton } from "@/components/button";
 import { ColourSection } from "./graph-colour-section";
+import { Chip, TabButton } from "@/components/controls";
 
 type SettingsTab = "filters" | "appearance" | "physics" | "actions";
 
@@ -59,51 +63,28 @@ export function GraphSettingsDrawer({
 
   return (
     <>
-      <button type="button" className="graph-drawer-backdrop" aria-label="Close settings" onClick={onClose} />
+      {/* Like the modal backdrop: a click target only; the Close button and Escape serve the keyboard. */}
+      <div className="graph-drawer-backdrop" role="presentation" onClick={onClose} />
       <div className="graph-settings-shell">
         <aside className="graph-settings-drawer card" aria-label="Graph settings">
           <div className="graph-drawer-head">
             <strong>Graph settings</strong>
-            <button type="button" className="link-btn graph-drawer-close" onClick={onClose}>✕</button>
+            <span className="graph-drawer-close"><CloseButton label="Close settings" onClick={onClose} /></span>
           </div>
 
           <div className="graph-drawer-tabs" role="tablist" aria-label="Settings categories">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "filters"}
-              className={`graph-drawer-tab${tab === "filters" ? " active" : ""}`}
-              onClick={() => setTab("filters")}
-            >
+            <TabButton selected={tab === "filters"} onClick={() => setTab("filters")}>
               Filters
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "appearance"}
-              className={`graph-drawer-tab${tab === "appearance" ? " active" : ""}`}
-              onClick={() => setTab("appearance")}
-            >
+            </TabButton>
+            <TabButton selected={tab === "appearance"} onClick={() => setTab("appearance")}>
               Appearance
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "physics"}
-              className={`graph-drawer-tab${tab === "physics" ? " active" : ""}`}
-              onClick={() => setTab("physics")}
-            >
+            </TabButton>
+            <TabButton selected={tab === "physics"} onClick={() => setTab("physics")}>
               Physics
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "actions"}
-              className={`graph-drawer-tab${tab === "actions" ? " active" : ""}`}
-              onClick={() => setTab("actions")}
-            >
+            </TabButton>
+            <TabButton selected={tab === "actions"} onClick={() => setTab("actions")}>
               Actions
-            </button>
+            </TabButton>
           </div>
 
           {tab === "filters" && (
@@ -137,27 +118,24 @@ export function GraphSettingsDrawer({
                 />
               )}
               <label className="graph-check">
-                <input
+                <input className="wf-check"
                   type="checkbox"
-                  className="themed-check"
                   checked={settings.hideOrphans}
                   onChange={(e) => onChange({ hideOrphans: e.target.checked })}
                 />
                 Hide orphan papers
               </label>
               <label className="graph-check">
-                <input
+                <input className="wf-check"
                   type="checkbox"
-                  className="themed-check"
                   checked={settings.showConcepts}
                   onChange={(e) => onChange({ showConcepts: e.target.checked })}
                 />
                 Show concept (#tag) nodes
               </label>
               <label className="graph-check">
-                <input
+                <input className="wf-check"
                   type="checkbox"
-                  className="themed-check"
                   checked={settings.includeListsAsConcepts !== false}
                   onChange={(e) => onChange({ includeListsAsConcepts: e.target.checked })}
                 />
@@ -179,33 +157,27 @@ export function GraphSettingsDrawer({
                 <div className="graph-chip-actions">
                   <span className="muted graph-drawer-label">Relation types</span>
                   <div style={{ display: "flex", gap: "8px" }}>
-                    <button
-                      type="button"
-                      className="link-btn"
+                    <Button variant="link"
                       style={{ fontSize: "0.72rem" }}
                       onClick={() => onChange({ relationTypes: [...RELATION_TYPES] })}
                     >
                       All
-                    </button>
-                    <button
-                      type="button"
-                      className="link-btn"
+                    </Button>
+                    <Button variant="link"
                       style={{ fontSize: "0.72rem" }}
                       onClick={() => onChange({ relationTypes: ["cites"] })}
                     >
                       Cites only
-                    </button>
+                    </Button>
                   </div>
                 </div>
                 <div className="graph-chip-grid" role="group" aria-label="Relation types">
                   {RELATION_TYPES.map((t) => {
                     const active = settings.relationTypes.includes(t);
                     return (
-                      <button
+                      <Chip
+                        pressed={active}
                         key={t}
-                        type="button"
-                        className={`graph-chip${active ? " active" : ""}`}
-                        aria-pressed={active}
                         onClick={() => {
                           const next = active
                             ? settings.relationTypes.filter((x) => x !== t)
@@ -213,8 +185,8 @@ export function GraphSettingsDrawer({
                           onChange({ relationTypes: next.length ? next : ["cites"] });
                         }}
                       >
-                        {t.replace("_", " ")}
-                      </button>
+                        {enumLabel("relation", t)}
+                      </Chip>
                     );
                   })}
                 </div>
@@ -235,14 +207,12 @@ export function GraphSettingsDrawer({
                     disabled={!localSeed}
                   />
                 </label>
-                <button
-                  type="button"
-                  className="btn-secondary"
+                <Button
                   onClick={onResetLocal}
                   disabled={!localSeed}
                 >
                   Show all papers
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -251,23 +221,19 @@ export function GraphSettingsDrawer({
             <div className="graph-tab-panel" role="tabpanel" aria-label="Appearance">
               <div className="graph-drawer-group">
                 <div className="muted graph-drawer-label">Edges</div>
-                <div className="seg" role="group" aria-label="Edges">
-                  {(["cites", "tags", "both"] as EdgeMode[]).map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      className={`seg-btn${settings.edgeMode === m ? " seg-on" : ""}`}
-                      aria-pressed={settings.edgeMode === m}
-                      onClick={() => onChange({ edgeMode: m })}
-                    >
-                      {m}
-                    </button>
-                  ))}
-                </div>
+                <SegmentedControl<EdgeMode>
+                  label="Edges"
+                  value={settings.edgeMode}
+                  onChange={(edgeMode) => onChange({ edgeMode })}
+                  options={[
+                    { value: "cites", label: "Cites" },
+                    { value: "tags", label: "Tags" },
+                    { value: "both", label: "Both" },
+                  ]}
+                />
                 <label className="graph-check">
-                  <input
+                  <input className="wf-check"
                     type="checkbox"
-                    className="themed-check"
                     checked={settings.showAutoStyle}
                     onChange={(e) => onChange({ showAutoStyle: e.target.checked })}
                   />
@@ -278,9 +244,8 @@ export function GraphSettingsDrawer({
               <div className="graph-drawer-section">
                 <div className="muted graph-drawer-label">Zoom & Sizing</div>
                 <label className="graph-check">
-                  <input
+                  <input className="wf-check"
                     type="checkbox"
-                    className="themed-check"
                     checked={settings.boundedZoomScale !== false}
                     onChange={(e) => onChange({ boundedZoomScale: e.target.checked })}
                   />
@@ -323,19 +288,16 @@ export function GraphSettingsDrawer({
 
               <div className="graph-drawer-section">
                 <div className="muted graph-drawer-label">Group by</div>
-                <div className="seg" role="group" aria-label="Group by">
-                  {(["none", "status", "list"] as GroupBy[]).map((g) => (
-                    <button
-                      key={g}
-                      type="button"
-                      className={`seg-btn${settings.groupBy === g ? " seg-on" : ""}`}
-                      aria-pressed={settings.groupBy === g}
-                      onClick={() => onChange({ groupBy: g, colorBy: g === "list" ? "list" : settings.colorBy })}
-                    >
-                      {g}
-                    </button>
-                  ))}
-                </div>
+                <SegmentedControl<GroupBy>
+                  label="Group by"
+                  value={settings.groupBy}
+                  onChange={(g) => onChange({ groupBy: g, colorBy: g === "list" ? "list" : settings.colorBy })}
+                  options={[
+                    { value: "none", label: "None" },
+                    { value: "status", label: "Status" },
+                    { value: "list", label: "List" },
+                  ]}
+                />
               </div>
 
               <ColourSection settings={settings} onChange={onChange} />
@@ -346,19 +308,15 @@ export function GraphSettingsDrawer({
             <div className="graph-tab-panel" role="tabpanel" aria-label="Physics">
               <div className="graph-drawer-group">
                 <div className="muted graph-drawer-label">Layout</div>
-                <div className="seg" role="group" aria-label="Layout">
-                  {(["force", "timeline"] as LayoutMode[]).map((l) => (
-                    <button
-                      key={l}
-                      type="button"
-                      className={`seg-btn${settings.layout === l ? " seg-on" : ""}`}
-                      aria-pressed={settings.layout === l}
-                      onClick={() => onChange({ layout: l })}
-                    >
-                      {l}
-                    </button>
-                  ))}
-                </div>
+                <SegmentedControl<LayoutMode>
+                  label="Layout"
+                  value={settings.layout}
+                  onChange={(layout) => onChange({ layout })}
+                  options={[
+                    { value: "force", label: "Force" },
+                    { value: "timeline", label: "Timeline" },
+                  ]}
+                />
                 <p className="muted graph-drawer-note">
                   Timeline pins each paper to its publication year, left to right. Papers with no year recorded stay where the forces put them.
                 </p>
@@ -397,9 +355,9 @@ export function GraphSettingsDrawer({
                     onChange={(e) => onChange({ linkDistance: Number(e.target.value) })}
                   />
                 </label>
-                <button
-                  type="button"
-                  className="link-btn"
+                <Button
+                 
+                  variant="ghost" size="sm"
                   onClick={() => onChange({
                     centerStrength: DEFAULT_GRAPH_SETTINGS.centerStrength,
                     chargeStrength: DEFAULT_GRAPH_SETTINGS.chargeStrength,
@@ -407,7 +365,7 @@ export function GraphSettingsDrawer({
                   })}
                 >
                   Reset forces to default
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -419,14 +377,12 @@ export function GraphSettingsDrawer({
                 <p className="muted graph-drawer-note">
                   Double-click or right-click any node on canvas to pin or unpin its position.
                 </p>
-                <button
-                  type="button"
-                  className="btn-secondary"
+                <Button
                   onClick={onUnpinAll}
                   disabled={pinnedCount === 0}
                 >
                   {pinnedCount > 0 ? `Unpin all (${pinnedCount})` : "No pinned nodes"}
-                </button>
+                </Button>
               </div>
 
               <div className="graph-card-sub">
@@ -434,9 +390,9 @@ export function GraphSettingsDrawer({
                 <p className="muted graph-drawer-note">
                   Download a Markdown summary of the papers currently visible in this graph view.
                 </p>
-                <button type="button" className="btn-secondary" onClick={onExport}>
+                <Button onClick={onExport}>
                   Export visible papers (.md)
-                </button>
+                </Button>
               </div>
             </div>
           )}

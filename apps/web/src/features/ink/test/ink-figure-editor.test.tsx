@@ -144,11 +144,96 @@ test("editor: the crop tool applies the kept rectangle as the box, with insets",
   act(() => east.props.onPointerDown(ev(300)));
   act(() => east.props.onPointerMove(ev(200)));
   act(() => east.props.onPointerUp(ev(200)));
-  assert.equal(root.findAll((n) => n.props.role === "toolbar").length, 0);
-  // Enter commits, as a press outside the kept rectangle does.
+  // The image's own bar is gone; the crop's bar says what it does.
+  const bars = root.findAll((n) => n.type === "div" && n.props.role === "toolbar");
+  assert.deepEqual(bars.map((n) => n.props["aria-label"]), ["Crop"]);
+  // Enter commits, as Done and a press outside the kept rectangle do.
   const editor = root.find((n) => n.props.className === "ink-figure-editor is-cropping");
   act(() => editor.props.onKeyDown({ key: "Enter", preventDefault() {} }));
   assert.deepEqual(calls.change, [{ x: 100, y: 200, w: 200, h: 300, crop: [0, 0, 50, 0] }]);
   // Applying closes the tool: the ordinary bar is back.
   assert.ok(button(root, "Forward"));
+});
+
+/** The crop tool, opened, with its east handle dragged in by 100 px. */
+function croppedIn() {
+  const mounted = mount();
+  const { root } = mounted;
+  act(() => labelled(root, "Crop").props.onClick());
+  const east = root.find((n) => n.props["data-handle"] === "e");
+  const target = { setPointerCapture() {}, hasPointerCapture: () => true, releasePointerCapture() {} };
+  const ev = (clientX: number) => ({
+    pointerId: 1, pointerType: "mouse", button: 0, clientX, clientY: 0, shiftKey: false,
+    currentTarget: target, preventDefault() {}, stopPropagation() {},
+  });
+  act(() => east.props.onPointerDown(ev(300)));
+  act(() => east.props.onPointerMove(ev(200)));
+  act(() => east.props.onPointerUp(ev(200)));
+  return mounted;
+}
+
+const textOf = (n: ReactTestInstance): string =>
+  n.children.map((c) => (typeof c === "string" ? c : textOf(c))).join("");
+
+test("editor: the crop bar has a hint, Done and Cancel (DA-117)", () => {
+  const { root } = croppedIn();
+  const bar = root.find((n) => n.type === "div" && n.props.role === "toolbar" && n.props["aria-label"] === "Crop");
+  assert.match(textOf(bar), /Drag the marks to choose what to keep/);
+  assert.ok(button(bar, "Done"));
+  assert.ok(button(bar, "Cancel"));
+  // The bar's own press must not count as a press outside the crop.
+  let stopped = false;
+  bar.props.onPointerDown({ stopPropagation: () => void (stopped = true) });
+  assert.equal(stopped, true);
+});
+
+test("editor: Done applies the crop (DA-117)", () => {
+  const { root, calls } = croppedIn();
+  act(() => button(root, "Done").props.onClick());
+  assert.deepEqual(calls.change, [{ x: 100, y: 200, w: 200, h: 300, crop: [0, 0, 50, 0] }]);
+  assert.ok(button(root, "Forward"));
+});
+
+test("editor: Cancel and Escape leave the figure as it was (DA-117)", () => {
+  const first = croppedIn();
+  act(() => button(first.root, "Cancel").props.onClick());
+  assert.deepEqual(first.calls.change, []);
+  assert.ok(button(first.root, "Forward"));
+
+  const second = croppedIn();
+  const editor = second.root.find((n) => n.props.className === "ink-figure-editor is-cropping");
+  act(() => editor.props.onKeyDown({ key: "Escape", preventDefault() {} }));
+  assert.deepEqual(second.calls.change, []);
+  assert.ok(button(second.root, "Forward"));
+});
+
+const popover = (root: ReactTestInstance) => root.find((n) => n.props.className === "ink-figure-popover");
+
+test("editor: the image's bar sits under the picture, clear of its top handles (DA-117)", () => {
+  const { root } = mount();
+  // The box is 100..250 px down at scale 0.5; the bar starts 8 px under it.
+  assert.equal(popover(root).props.style.top, "258px");
+});
+
+test("editor: a picture at the foot of the page has its bar above it (DA-117)", () => {
+  // 2600..2900 of a 2970 page: at scale 0.5 the bar would hang off the sheet.
+  const { root } = mount({ figure: { ...FIGURE, y: 2600 } });
+  assert.equal(popover(root).props.style.top, `${2600 * 0.5 - 40 - 8}px`);
+});
+
+test("editor: the order buttons are full-size and readable (DA-117)", async () => {
+  // They are catalogue ghost buttons at the small size, with no sheet of their own.
+  const { readFileSync } = await import("node:fs");
+  const css = readFileSync(new URL("../../../app/styles/editor-workspace.css", import.meta.url), "utf8");
+  const src = readFileSync(new URL("../ui/ink-figures.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(css, /\.ink-figure-button/);
+  assert.match(src, /<Button\s+variant="ghost"\s+size="sm"\s+title="Bring forward \(Ctrl\+\]\)"/);
+});
+
+test("editor: the selection's handles are flat, no shadow under the dots", async () => {
+  const { readFileSync } = await import("node:fs");
+  const css = readFileSync(new URL("../../../app/styles/editor-workspace.css", import.meta.url), "utf8");
+  const rule = css.match(/\n\.ink-figure-handle \{([^}]*)\}/)?.[1] ?? "";
+  assert.match(rule, /border-radius: 50%/);
+  assert.match(rule, /box-shadow: none/);
 });

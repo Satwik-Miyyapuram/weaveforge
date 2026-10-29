@@ -1,4 +1,4 @@
-import type { DocumentPageText, Paper } from "@weaveforge/core";
+import { errorMessage, pageTextFromItems, type DocumentPageText, type Paper } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { resolvePaperPdfUrl } from "@/features/reader/application/sanitize-reader-url";
 import {
@@ -47,6 +47,8 @@ export interface LibraryIndexResult {
    * produced that exact summary and nothing else to act on.
    */
   reasons: Record<string, string>;
+  /** Ids of the papers skipped or failed; titles can repeat, ids cannot. */
+  unreadIds: string[];
 }
 
 /** Papers with a PDF that is not already indexed. */
@@ -99,19 +101,32 @@ async function extractPages(bytes: ArrayBuffer): Promise<DocumentPageText[]> {
   const lib = await import("pdfjs-dist");
   lib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
   const doc = await lib.getDocument({ data: bytes }).promise;
-
-  const pages: DocumentPageText[] = [];
-  for (let n = 1; n <= doc.numPages; n += 1) {
-    const page = await doc.getPage(n);
-    const content = await page.getTextContent();
-    const text = content.items
-      .map((item) => (typeof (item as { str?: string }).str === "string" ? (item as { str: string }).str : ""))
-      .join("");
-    pages.push({ pageIndex: n - 1, text });
+  try {
+    const pages: DocumentPageText[] = [];
+    for (let n = 1; n <= doc.numPages; n += 1) {
+      const page = await doc.getPage(n);
+      const content = await page.getTextContent();
+      pages.push({ pageIndex: n - 1, text: pdfPageText(content.items) });
+    }
+    return pages;
+  } finally {
+    // Release the worker even when a page fails; a few hundred documents otherwise accumulate.
+    await doc.destroy();
   }
-  // Release the worker; a few hundred documents otherwise accumulate.
-  await doc.destroy();
-  return pages;
+}
+
+/**
+ * A page's text the way the reader builds it: a newline after each line-ending
+ * run, so the last word of a line is not glued to the next (27-03). Marked
+ * content items carry no text and are skipped.
+ */
+export function pdfPageText(items: readonly unknown[]): string {
+  return pageTextFromItems(
+    items.filter(
+      (item): item is { str: string; hasEOL?: boolean } =>
+        typeof (item as { str?: unknown }).str === "string",
+    ),
+  );
 }
 
 /**
@@ -139,6 +154,20 @@ const pause = (ms: number, signal?: AbortSignal) =>
   });
 
 /**
+ * The host of a PDF address, for a failure line.
+ *
+ * The whole URL was shown, and a publisher's signed link is a screenful of
+ * tokens — which also expire, so the line was unreadable and useless to copy.
+ */
+export function hostOf(url: string): string {
+  try {
+    return new URL(url).host || url;
+  } catch {
+    return url.length > 60 ? `${url.slice(0, 57)}…` : url;
+  }
+}
+
+/**
  * Why a paper could not be read, in words that say whether to act.
  *
  * Extracted and exported so it can be tested without a container, a network,
@@ -153,23 +182,9 @@ const pause = (ms: number, signal?: AbortSignal) =>
  * no server behind it — can still reach this, and a bare `TypeError: Failed to
  * fetch` identical to a dead network is worth naming when it happens.
  */
-/**
- * The host of a PDF address, for a failure line.
- *
- * The whole URL was shown, and a publisher's signed link is a screenful of
- * tokens — which also expire, so the line was unreadable and useless to copy.
- */
-export function hostOf(url: string): string {
-  try {
-    return new URL(url).host || url;
-  } catch {
-    return url.length > 60 ? `${url.slice(0, 57)}…` : url;
-  }
-}
-
 export function readFailureReason(error: unknown, status?: number): string {
   if (status !== undefined) return `the host answered ${status}`;
-  const message = error instanceof Error ? error.message : String(error);
+  const message = errorMessage(error);
   if (/failed to fetch|networkerror|load failed/i.test(message)) {
     return "the host does not allow this app to read its PDF (cross-origin)";
   }
@@ -200,6 +215,7 @@ export async function indexLibraryPdfs(
   let failed = 0;
   const failures: string[] = [];
   const reasons: Record<string, string> = {};
+  const unreadIds: string[] = [];
 
   const report = (done: number, current?: string) =>
     options.onProgress?.({ done, total: papers.length, current, indexed, skipped, failed });
@@ -230,6 +246,7 @@ export async function indexLibraryPdfs(
           continue;
         }
         skipped += 1;
+        unreadIds.push(paper.id);
         reasons[paper.title] = `no readable source (${resolution.reason ?? "unknown"})`;
         continue;
       }
@@ -278,6 +295,7 @@ export async function indexLibraryPdfs(
     } catch (error) {
       failed += 1;
       failures.push(paper.title);
+      unreadIds.push(paper.id);
       reasons[paper.title] = readFailureReason(error);
     } finally {
       // Object URLs from the ladder are per-document; leaking one per paper
@@ -294,5 +312,5 @@ export async function indexLibraryPdfs(
   // The corpus changed, so the cached index is stale by construction.
   container.search.invalidate();
 
-  return { indexed, skipped, failed, failures, reasons };
+  return { indexed, skipped, failed, failures, reasons, unreadIds };
 }

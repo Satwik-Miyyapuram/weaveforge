@@ -1,11 +1,19 @@
 import type { Paper, PaperSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { deferDelete, deletedMessage } from "@/lib/toast";
+
+/** The two paper calls a delete needs. */
+export interface PaperRemover {
+  getPaper(id: string): Promise<Paper | null>;
+  deletePaper(paper: Paper): Promise<unknown>;
+}
+
+/** The key screens hide while a paper's Undo toast shows. */
+export const paperKey = (id: string) => `paper:${id}`;
 
 /**
- * Delete a paper after confirming, from the card and from the note page alike.
- *
- * Both screens asked the same question, ran the same delete, and toggled the
- * same busy flag, so the wording of the warning could drift between them.
+ * Delete a paper, from the card and from the note page alike (rule D-07): it
+ * disappears at once, and the delete runs when the Undo toast closes.
  *
  * Takes the summary projection as well as a full paper, and re-reads the full
  * row before deleting. The delete needs the paper's `metadata` — the Zotero key
@@ -16,25 +24,21 @@ import { getContainer } from "@/bootstrap";
  * right place to pay it: a delete is a deliberate, single action, not something
  * a list render does per row.
  */
-export async function confirmRemovePaper(
+export function removePaper(
   paper: PaperSummary | Paper,
-  setBusy: (busy: boolean) => void,
-  onChanged: () => void,
-): Promise<void> {
-  if (!confirm(`Remove "${paper.title}"? This also deletes its list memberships and graph edges.`)) return;
-  setBusy(true);
-  try {
-    const container = getContainer();
-    // A full paper is already what the note page hands in; only the projection
-    // needs the read. Inventing a full `Paper` from a summary to satisfy the
-    // signature would mean making up an `abstract`, a `venue` and a `metadata`
-    // bag, which is exactly the fabrication this review is removing.
-    const full = "metadata" in paper ? paper : await container.papers.getPaper(paper.id);
-    // `null` means the row is already gone, so there is nothing left to delete
-    // — but the caller still has to be told, or the card stays on screen.
-    if (full) await container.papers.deletePaper(full);
-    onChanged();
-  } finally {
-    setBusy(false);
-  }
+  { onHidden, onDeleted }: { onHidden?: () => void; onDeleted?: () => void },
+  papers: PaperRemover = getContainer().papers,
+): void {
+  deferDelete({
+    keys: [paperKey(paper.id)],
+    message: deletedMessage(paper.title),
+    commit: async () => {
+      const full = "metadata" in paper ? paper : await papers.getPaper(paper.id);
+      // `null` means the row is already gone, so there is nothing left to
+      // delete — but the caller still has to be told, or the card stays.
+      if (full) await papers.deletePaper(full);
+      onDeleted?.();
+    },
+  });
+  onHidden?.();
 }

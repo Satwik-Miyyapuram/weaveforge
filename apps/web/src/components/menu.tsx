@@ -10,6 +10,8 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { VIEWPORT_PAD } from "./viewport-pad";
+import { MenuItemButton } from "./controls";
 
 export interface MenuItem {
   id: string;
@@ -39,7 +41,6 @@ export interface SubmenuPlacement {
   maxWidth: number;
 }
 
-const VIEWPORT_PAD = 12;
 const SUBMENU_GAP = 6;
 
 /**
@@ -108,7 +109,6 @@ export interface SubmenuFlyoutProps {
   style?: CSSProperties;
   gap?: number;
   pad?: number;
-  onClose?: () => void;
 }
 
 /**
@@ -232,20 +232,25 @@ export function Menu({
       if (!list) return;
 
       const buttons = Array.from(
-        list.querySelectorAll<HTMLButtonElement>("li > button.card-menu-item:not(:disabled), li > button.menu-item:not(:disabled)"),
+        list.querySelectorAll<HTMLButtonElement>("li > button.wf-item:not(:disabled)"),
       );
       const activeIndex = buttons.findIndex((b) => b === document.activeElement);
 
+      // A submenu list sits inside its parent's list. Keys handled here stop
+      // so the parent does not move focus a second time.
       if (e.key === "ArrowDown") {
         e.preventDefault();
+        e.stopPropagation();
         const next = activeIndex < buttons.length - 1 ? activeIndex + 1 : 0;
         buttons[next]?.focus();
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
+        e.stopPropagation();
         const prev = activeIndex > 0 ? activeIndex - 1 : buttons.length - 1;
         buttons[prev]?.focus();
       } else if (e.key === "Escape") {
         e.preventDefault();
+        e.stopPropagation();
         if (openSub) {
           setOpenSub(null);
         } else {
@@ -254,6 +259,7 @@ export function Menu({
       } else if (e.key === "ArrowLeft") {
         if (openSub) {
           e.preventDefault();
+          e.stopPropagation();
           setOpenSub(null);
         }
       }
@@ -318,11 +324,8 @@ function MenuItemRow({
       className={`menu-row${hasSubmenu ? " card-menu-row" : ""}`}
       role="none"
     >
-      <button
-        type="button"
-        role={item.kind === "check" ? "menuitemcheckbox" : "menuitem"}
-        aria-checked={item.kind === "check" ? item.checked === true : undefined}
-        className={`card-menu-item menu-item${item.danger ? " danger" : ""}`}
+      <MenuItemButton kind={item.kind === "check" ? "checkbox" : "item"} checked={item.checked === true}
+        danger={item.danger}
         disabled={item.disabled}
         title={item.title}
         aria-haspopup={hasSubmenu ? "menu" : undefined}
@@ -345,9 +348,9 @@ function MenuItemRow({
             ›
           </span>
         )}
-      </button>
+      </MenuItemButton>
       {hasSubmenu && isOpen && (
-        <SubmenuFlyout anchorRef={rowRef} onClose={() => onToggleSubmenu()}>
+        <SubmenuFlyout anchorRef={rowRef}>
           {renderSubmenuContent()}
         </SubmenuFlyout>
       )}

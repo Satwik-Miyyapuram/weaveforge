@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { formatError } from "@/lib/format-error";
+import {
+  forwardedHeaders,
+  SEMANTIC_SCHOLAR_RELAY_PREFIX,
+  semanticScholarTarget,
+} from "@/lib/semantic-scholar-relay";
 
 /**
  * The Semantic Scholar relay's forwarding half.
@@ -10,30 +15,15 @@ import { formatError } from "@/lib/format-error";
  * the router, matching `api/pdf-proxy/_proxy.ts` and `api/sdk/_shared.ts`.
  *
  * The desktop shell has the same relay (`apps/desktop/src/semantic-scholar-proxy.ts`).
- * They are kept deliberately parallel rather than shared: the shell's is
- * mounted on `app://` in front of `net.fetch`, this one is a Next route with
- * `requireSdkUser` in front of it, and the two have no module boundary between
- * them that does not drag one runtime into the other. The *policy* is what must
- * not drift, and it is four lines: one prefix, one upstream host, GET and POST
- * only, and only the two headers the sources set.
+ * The two stay separate modules: the shell's is mounted on `app://` in front of
+ * `net.fetch`, this one is a Next route with `requireSdkUser` in front of it.
+ * The *policy* is shared, from `@/lib/semantic-scholar-relay`: one prefix, one
+ * upstream host, no smuggled target, and only the two headers the sources set.
  */
 
-/** The path the browser calls. `semanticScholarUrl` builds it. */
-export const SEMANTIC_SCHOLAR_RELAY_PREFIX = "/api/semantic-scholar/";
-const UPSTREAM = "https://api.semanticscholar.org";
+export { SEMANTIC_SCHOLAR_RELAY_PREFIX };
 const RETRIES = 3;
 const TIMEOUT_MS = 30_000;
-
-/**
- * Request headers forwarded upstream, and nothing else.
- *
- * `x-api-key` is the caller's own credential — the reader's sources read it
- * from settings and send it per call — and `content-type` is needed for the
- * POST endpoints. Cookies, `authorization` and `referer` are not forwarded: the
- * upstream has no use for them, and passing a browser's whole header set to a
- * third party is how a relay leaks a session it was never asked to.
- */
-const FORWARDED = ["x-api-key", "content-type"] as const;
 
 function refuse(status: number, error: string): NextResponse {
   return NextResponse.json({ error }, { status });
@@ -50,19 +40,9 @@ export async function relaySemanticScholar(
   if (method !== "GET" && method !== "POST") return refuse(405, "Method not allowed");
 
   const url = new URL(request.url);
-  const rest = url.pathname.slice(SEMANTIC_SCHOLAR_RELAY_PREFIX.length);
-  // No traversal, and no absolute target smuggled in the path: the destination
-  // is this origin's own path plus the upstream host, always.
-  if (!rest || rest.includes("..") || rest.startsWith("/") || /^[a-z]+:\/\//i.test(rest)) {
-    return refuse(400, "Bad Semantic Scholar path");
-  }
-  const target = `${UPSTREAM}/${rest}${url.search}`;
-
-  const headers: Record<string, string> = { accept: "application/json" };
-  for (const name of FORWARDED) {
-    const value = request.headers.get(name);
-    if (value) headers[name] = value;
-  }
+  const target = semanticScholarTarget(url.pathname, url.search);
+  if (!target) return refuse(400, "Bad Semantic Scholar path");
+  const headers = forwardedHeaders(request.headers);
   const body = method === "POST" ? await request.text() : undefined;
 
   const send = () =>
@@ -76,12 +56,16 @@ export async function relaySemanticScholar(
     });
 
   let upstream: Response;
+  let payload: ArrayBuffer;
   try {
     upstream = await send();
     for (let attempt = 0; upstream.status === 429 && attempt < RETRIES; attempt++) {
       await wait(1000 * (attempt + 1));
       upstream = await send();
     }
+    // Buffered inside the try: the timeout also covers the body, and a read
+    // cut off there is the upstream failing, not this route.
+    payload = await upstream.arrayBuffer();
   } catch (err) {
     return refuse(502, `Semantic Scholar fetch failed: ${formatError(err)}`);
   }
@@ -89,7 +73,7 @@ export async function relaySemanticScholar(
   // The status and the body are the upstream's; the headers are not. The API's
   // own `access-control-allow-origin` is meaningless same-origin, and copying
   // a redirect's `location` through would let the browser follow it off-origin.
-  return new NextResponse(await upstream.arrayBuffer(), {
+  return new NextResponse(payload, {
     status: upstream.status,
     statusText: upstream.statusText,
     headers: {

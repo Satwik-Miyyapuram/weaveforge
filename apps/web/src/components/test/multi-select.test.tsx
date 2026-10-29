@@ -114,7 +114,7 @@ test("MultiSelect: ArrowDown opens the menu on the first selected row", async ()
   assert.equal(view.trigger()!.props["aria-expanded"], true);
   assert.ok(view.listbox(), "the listbox is rendered once open");
   // "failed" is option index 2, so row 3 — row 0 is the "all" row.
-  assert.equal(classNameOf(view.byDataRow(3)!).includes(" active"), true);
+  assert.equal(view.byDataRow(3)!.props["data-highlighted"], true);
 });
 
 test("MultiSelect: Space toggles the active row and leaves the menu open", async () => {
@@ -138,12 +138,12 @@ test("MultiSelect: Home and End reach the first and last rows", async () => {
   const list = view.listbox()!;
 
   view.keyOn(list, "End");
-  assert.equal(classNameOf(view.byDataRow(3)!).includes(" active"), true);
+  assert.equal(view.byDataRow(3)!.props["data-highlighted"], true);
   view.keyOn(list, "Enter");
   assert.deepEqual(seen, [["failed"]]);
 
   view.keyOn(list, "Home");
-  assert.equal(classNameOf(view.byDataRow(0)!).includes(" active"), true);
+  assert.equal(view.byDataRow(0)!.props["data-highlighted"], true);
 });
 
 test("MultiSelect: Escape closes, restores focus to the trigger and stops propagating", async () => {

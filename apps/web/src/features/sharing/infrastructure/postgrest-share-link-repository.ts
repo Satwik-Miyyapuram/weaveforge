@@ -32,11 +32,8 @@ interface ShareLinkRow {
   resource_type: ShareableType;
   resource_id: string;
   access: "view";
-  token_hash: string;
   expires_at: string | null;
   created_at: string;
-  dek_wrap: string | null;
-  dek_epoch: number | null;
 }
 
 function mapRow(row: ShareLinkRow): ShareLink {
@@ -77,7 +74,7 @@ export class PostgrestShareLinkRepository implements IShareLinkRepository {
   async getById(id: string): Promise<ShareLink | null> {
     const { data, error } = await this.db
       .from(TABLE)
-      .select("id, owner_id, resource_type, resource_id, access, token_hash, expires_at, created_at, dek_wrap, dek_epoch")
+      .select(SHARE_LINK_COLUMNS)
       .eq("id", id)
       .maybeSingle();
     if (error) throwDataError(error, "Failed to load share link.");
@@ -87,7 +84,7 @@ export class PostgrestShareLinkRepository implements IShareLinkRepository {
   async listForResource(resourceType: ShareableType, resourceId: string): Promise<ShareLink[]> {
     const { data, error } = await this.db
       .from(TABLE)
-      .select("id, owner_id, resource_type, resource_id, access, token_hash, expires_at, created_at, dek_wrap, dek_epoch")
+      .select(SHARE_LINK_COLUMNS)
       .eq("resource_type", resourceType)
       .eq("resource_id", resourceId)
       .order("created_at", { ascending: false });
@@ -118,24 +115,6 @@ export class PostgrestShareLinkRepository implements IShareLinkRepository {
   async delete(id: string): Promise<void> {
     const { error } = await this.db.from(TABLE).delete().eq("id", id);
     if (error) throwDataError(error, "Failed to load share link.");
-  }
-
-  async resolveByTokenHash(tokenHash: Uint8Array): Promise<ResolvedShareLink | null> {
-    const { data, error } = await this.db.rpc("resolve_share_link", {
-      p_token_hash: encodeBytea(tokenHash),
-    });
-    if (error) throwDataError(error, "Failed to load share link.");
-    const row = (data as Record<string, unknown>[] | null)?.[0];
-    if (!row) return null;
-    return mapResolved({
-      id: row.id as string,
-      owner_id: row.owner_id as string,
-      resource_type: row.resource_type as ShareableType,
-      resource_id: row.resource_id as string,
-      access: row.access as "view",
-      dek_wrap: (row.dek_wrap as string | null) ?? null,
-      dek_epoch: (row.dek_epoch as number | null) ?? null,
-    });
   }
 
   async redeem(tokenHash: Uint8Array): Promise<ResolvedShareLink | null> {

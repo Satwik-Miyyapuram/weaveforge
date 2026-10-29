@@ -8,6 +8,7 @@ import { Modal, ModalActions } from "@/components/modal";
 import { Select } from "@/components/select";
 import { artifactBasename, serialiseArtifactRef } from "../application/artifact-refs";
 import { formatError } from "@/lib/format-error";
+import { Button } from "@/components/button";
 
 /** Collision key matching {@link artifactLabel} / insert serialization. */
 function artifactCollisionKey(name: string): string {
@@ -99,9 +100,8 @@ export function ExperimentArtifactPicker({
 
   function insert() {
     if (!experimentId || !artifactName.trim()) return;
-    const selectedArtifacts = experiments.find((e) => e.id === experimentId)?.artifacts ?? [];
     const base = artifactCollisionKey(artifactName);
-    const collisions = selectedArtifacts.filter((a) => artifactCollisionKey(a) === base);
+    const collisions = artifacts.filter((a) => artifactCollisionKey(a) === base);
     // On basename collision keep the full URL so resolve can exact-match.
     const name =
       collisions.length > 1 ? artifactName.trim() : base || artifactName.trim();
@@ -116,15 +116,13 @@ export function ExperimentArtifactPicker({
   }
 
   const trigger = (
-    <button
-      type="button"
-      className="link-btn"
+    <Button variant="link"
       disabled={disabled}
       onClick={() => setOpen(true)}
       title="Insert experiment artifact"
     >
       /experiment
-    </button>
+    </Button>
   );
   if (!open) return trigger;
 
@@ -172,17 +170,16 @@ export function ExperimentArtifactPicker({
           </Select>
           {error && <InlineError>{error}</InlineError>}
           <ModalActions>
-            <button type="button" className="btn-ghost btn-cancel" onClick={() => setOpen(false)} disabled={busy}>
+            <Button variant="cancel" onClick={() => setOpen(false)} disabled={busy}>
               Cancel
-            </button>
-            <button
-              type="button"
-              className="btn-primary"
+            </Button>
+            <Button
+              variant="primary"
               onClick={insert}
               disabled={busy || !experimentId || !artifactName.trim()}
             >
               Insert
-            </button>
+            </Button>
           </ModalActions>
         </div>
       </Modal>

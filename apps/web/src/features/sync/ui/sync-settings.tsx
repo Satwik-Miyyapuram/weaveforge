@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { Modal } from "@/components/modal";
+import { ConnectionState } from "@/components/connection-state";
 import { Popover } from "@/components/popover";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { useProject } from "@/features/projects";
@@ -12,9 +13,11 @@ import type { ProjectSyncDescriptor } from "@/integrations/descriptors-types";
 import { gitConnectionReady, mattermostConnectionReady } from "../domain/integration-fields";
 import { MATTERMOST_EVENTS, mattermostOptions, type MattermostOptions } from "../domain/mattermost-options";
 import { formatError } from "@/lib/format-error";
-import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
-import { DEFAULT_MATTERMOST_SERVER, MattermostSignInButton } from "./mattermost-sign-in-button";
+import { MattermostSignInControls, useMattermostSignIn } from "./mattermost-sign-in-controls";
+import { loadIntegrations } from "./load-integrations";
+import { Button } from "@/components/button";
+import { MenuItemButton, RowButton, Switch } from "@/components/controls";
 
 export function SyncSettings() {
   const { current } = useProject();
@@ -24,21 +27,17 @@ export function SyncSettings() {
   );
   const [items, setItems] = useState<Record<string, Integration>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!current || descriptors.length === 0) return;
     setLoading(true);
-    try {
-      const store = getContainer().sync.integrations;
-      const providers = [...new Set(descriptors.map((d) => d.provider))];
-      const loaded = await Promise.all(providers.map((p) => store.get(current.id, p)));
-      const byProvider = Object.fromEntries(
-        providers.map((p, i) => [p, loaded[i] ?? emptyIntegration(p)]),
-      ) as Record<string, Integration>;
-      setItems(byProvider);
-    } finally {
-      setLoading(false);
-    }
+    const store = getContainer().sync.integrations;
+    const providers = [...new Set(descriptors.map((d) => d.provider))];
+    const { items: loaded, error } = await loadIntegrations((p) => store.get(current.id, p), providers);
+    setItems(loaded);
+    setLoadError(error);
+    setLoading(false);
   }, [current, descriptors]);
 
   useEffect(() => { void load(); }, [load]);
@@ -46,11 +45,13 @@ export function SyncSettings() {
   if (!current || descriptors.length === 0) return null;
 
   return (
-    <div className="card settings-block">
+    <div className="settings-block">
       <h3 className="settings-group">Connections — {current.name}</h3>
       <p className="muted">Version this project&rsquo;s work to git and post plan updates. Choose a service to set it up; its token is kept with this project only.</p>
       {loading ? (
         <ScreenLoader status="Loading connections…" compact showTips={false} />
+      ) : loadError ? (
+        <FormError>{loadError}</FormError>
       ) : (
         <div className="integration-list">
           {descriptors.map((d) => (
@@ -67,6 +68,14 @@ export function SyncSettings() {
       )}
     </div>
   );
+}
+
+/**
+ * The connection fields to ask for. Mattermost sign-in brings its own token,
+ * so in that mode only the server URL and channel are asked for.
+ */
+export function fieldsShown<F extends { key: string }>(fields: readonly F[], mattermostSignIn: boolean): F[] {
+  return fields.filter((field) => !mattermostSignIn || field.key !== "token");
 }
 
 function IntegrationRow({
@@ -88,28 +97,7 @@ function IntegrationRow({
   const [error, setError] = useState<string | null>(null);
 
   const isMattermost = descriptor.provider === "mattermost";
-  // Sign-in vs bot token is a per-reader choice about how the token in the
-  // `token` slot was obtained, not a stored field — both end up as one token.
-  const modeKey = `wf.mm-signin.${projectId}`;
-  const [signIn, setSignIn] = useState(false);
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(modeKey);
-      // Sign-in is the default; a saved bot token keeps its own mode.
-      setSignIn(stored === "1" || (stored === null && !value.token));
-    } catch {
-      setSignIn(!value.token);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mode is chosen once per project
-  }, [modeKey]);
-  function chooseSignIn(on: boolean) {
-    setSignIn(on);
-    try {
-      localStorage.setItem(modeKey, on ? "1" : "0");
-    } catch {
-      /* best effort */
-    }
-  }
+  const [signIn, chooseSignIn] = useMattermostSignIn(projectId, Boolean(value.token));
 
   const connected =
     descriptor.provider === "mattermost"
@@ -142,16 +130,16 @@ function IntegrationRow({
 
   return (
     <>
-      <button type="button" className="integration-item" onClick={() => setOpen(true)}>
-        <span className="integration-logo" style={{ background: descriptor.color }} />
-        <div className="integration-main">
-          <strong>{name}</strong>
-          <span className="muted">{tagline || descriptor.description}</span>
-        </div>
-        <span className={`status ${connected ? "status-done" : "status-not_started"}`}>
-          {connected ? "Connected" : "Not set"}
-        </span>
-      </button>
+      <div className="integration-item">
+        <RowButton onClick={() => setOpen(true)}>
+          <span className="integration-logo" style={{ background: descriptor.color }} />
+          <span className="integration-main">
+            <strong>{name}</strong>
+            <span className="muted">{tagline || descriptor.description}</span>
+          </span>
+          <ConnectionState connected={connected} />
+        </RowButton>
+      </div>
 
       {open && (
         <Modal title={name} onClose={() => setOpen(false)}>
@@ -160,52 +148,18 @@ function IntegrationRow({
             {sharedHint && <p className="muted">{sharedHint}</p>}
             <div className="integration-enable">
               <span>Enabled</span>
-              <button
-                type="button"
-                className={`toggle${value.enabled ? " on" : ""}`}
-                role="switch"
-                aria-checked={value.enabled}
-                onClick={() => patch({ enabled: !value.enabled })}
-              >
-                <span className="knob" />
-              </button>
+              <Switch checked={value.enabled} label="Enabled"
+                onChange={(on) => patch({ enabled: on })} />
             </div>
-            {isMattermost && !desktop()?.mattermostPost && (
-              <p className="muted">
-                Posting from the website only works if your Mattermost server allows it. Servers run by
-                universities and other institutions usually block it, so if test messages fail here, connect
-                Mattermost from the desktop app instead.
-              </p>
-            )}
             {isMattermost && (
-              <div className="integration-enable">
-                <span>Sign in with Mattermost instead of a bot token</span>
-                <button
-                  type="button"
-                  className={`toggle${signIn ? " on" : ""}`}
-                  role="switch"
-                  aria-checked={signIn}
-                  onClick={() => chooseSignIn(!signIn)}
-                >
-                  <span className="knob" />
-                </button>
-              </div>
+              <MattermostSignInControls
+                value={value}
+                signIn={signIn}
+                onChooseSignIn={chooseSignIn}
+                onToken={(token) => save({ ...value, token, repo: value.repo?.trim() }, false)}
+              />
             )}
-            {isMattermost && signIn && (
-              <>
-                {value.token && <p className="muted">Signed in to {value.repo || DEFAULT_MATTERMOST_SERVER}.</p>}
-                <MattermostSignInButton
-                  serverUrl={value.repo ?? ""}
-                  label={value.token ? "Sign in again" : "Sign in with Mattermost"}
-                  onToken={(token) =>
-                    save({ ...value, token, repo: value.repo?.trim() || DEFAULT_MATTERMOST_SERVER }, false)
-                  }
-                />
-              </>
-            )}
-            {descriptor.fields
-              // Sign-in brings its own token and server; only the channel is asked for.
-              .filter((field) => !(isMattermost && signIn && field.key !== "branch"))
+            {fieldsShown(descriptor.fields, isMattermost && signIn)
               .map((field) => (
                 <div className="field" key={field.key}>
                   <label>{field.label}</label>
@@ -223,9 +177,9 @@ function IntegrationRow({
             )}
             {error && <FormError>{error}</FormError>}
             {saved && <p className="muted">Saved.</p>}
-            <button type="button" className="btn-primary" onClick={() => void save()} disabled={saving}>
+            <Button variant="primary" onClick={() => void save()} disabled={saving}>
               {saving ? "Saving…" : "Save connection"}
-            </button>
+            </Button>
           </div>
         </Modal>
       )}
@@ -277,16 +231,8 @@ function MattermostEventControls({
       <p className="muted" style={{ margin: 0 }}>Nothing is posted until you switch an event on.</p>
       <div className="integration-enable">
         <span>Use the same channel for everything</span>
-        <button
-          type="button"
-          className={`toggle${opts.sameChannel ? " on" : ""}`}
-          role="switch"
-          aria-checked={opts.sameChannel}
-          aria-label="Use the same channel for everything"
-          onClick={() => set({ sameChannel: !opts.sameChannel })}
-        >
-          <span className="knob" />
-        </button>
+        <Switch checked={opts.sameChannel} label="Use the same channel for everything"
+          onChange={(on) => set({ sameChannel: on })} />
       </div>
       <div className="integration-enable">
         <span>Events</span>
@@ -295,11 +241,10 @@ function MattermostEventControls({
             {MATTERMOST_EVENTS.map((e) => {
               const on = opts.events[e.id] === true;
               return (
-                <button
-                  type="button"
+                <MenuItemButton
+                  kind="checkbox"
+                  checked={on}
                   key={e.id}
-                  aria-pressed={on}
-                  className={`custom-select-item ms-item${on ? " sel" : ""}`}
                   onClick={() => set({ events: { ...opts.events, [e.id]: !on } })}
                 >
                   <span className={`ms-check${on ? " on" : ""}`} aria-hidden />
@@ -307,7 +252,7 @@ function MattermostEventControls({
                     {e.label}
                     <span className="muted mm-event-hint">{e.hint}</span>
                   </span>
-                </button>
+                </MenuItemButton>
               );
             })}
           </div>
@@ -327,9 +272,9 @@ function MattermostEventControls({
             />
           </div>
         ))}
-      <button type="button" className="btn-ghost" onClick={() => void test()} disabled={testing}>
+      <Button variant="ghost" onClick={() => void test()} disabled={testing}>
         {testing ? "Sending…" : "Send test message"}
-      </button>
+      </Button>
       {tested && <p className="muted" style={{ margin: 0 }}>{tested}</p>}
     </div>
   );

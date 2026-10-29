@@ -3,12 +3,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { Comment, CommentAnchor, Member } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { ChevronIcon } from "@/components/chevron-icon";
 import { CommentsIcon, DeleteIcon } from "@/components/view-icons";
 import { FormError } from "@/components/form-error";
 import { useProfile } from "@/features/org";
 import { formatError } from "@/lib/format-error";
+import { readStored, writeStored } from "@/lib/safe-storage";
+import { buildMemberNameMap } from "../application/member-labels";
 import { anchorAt, locateAnchor, type TextSpan } from "../domain/text-anchor";
+import { offsetOf, paintHighlights } from "./note-text-ranges";
+import { CommentsBadge } from "./comments-badge";
+import { Button, IconButton } from "@/components/button";
+import { deferDelete, useHiddenKeys } from "@/lib/toast";
+import { FoldButton } from "@/components/controls";
+
+const commentKey = (id: string) => `comment:${id}`;
 
 /**
  * The one comment system: threads with replies that resolve and fold away. Given
@@ -22,8 +30,6 @@ import { anchorAt, locateAnchor, type TextSpan } from "../domain/text-anchor";
  * work; they just aren't lit in the text.
  */
 const OPEN_KEY = "wf-note-comments-open";
-const HL = "wf-comment";
-const HL_ACTIVE = "wf-comment-active";
 
 interface Thread {
   root: Comment;
@@ -71,20 +77,14 @@ export function NoteComments({
   const cardRefs = useRef(new Map<string, HTMLLIElement>());
 
   useEffect(() => {
-    try {
-      if (localStorage.getItem(OPEN_KEY) === "0") setOpen(false);
-    } catch {
-      /* a blocked store keeps the default */
-    }
+    // A blocked store keeps the default.
+    if (readStored(OPEN_KEY) === "0") setOpen(false);
   }, []);
 
   function toggleOpen() {
     setOpen((was) => {
-      try {
-        localStorage.setItem(OPEN_KEY, was ? "0" : "1");
-      } catch {
-        /* remembered for this view only */
-      }
+      // Remembered for this view only when storage is blocked.
+      writeStored(OPEN_KEY, was ? "0" : "1");
       return !was;
     });
   }
@@ -106,7 +106,7 @@ export function NoteComments({
   }, [reload]);
 
   const nameOf = useMemo(() => {
-    const map = new Map(members.map((m) => [m.id, m.fullName ?? m.email ?? "Member"]));
+    const map = buildMemberNameMap(members);
     return (id: string) => (id === profile?.id ? "You" : map.get(id) ?? "Member");
   }, [members, profile?.id]);
 
@@ -115,43 +115,33 @@ export function NoteComments({
     setText(contentRef?.current?.textContent ?? "");
   }, [contentRef, contentKey]);
 
+  // A deleted comment hides while its Undo toast shows (D-07); a hidden root
+  // takes its replies with it, as the delete will.
+  const hiddenKeys = useHiddenKeys();
   const threads = useMemo(() => {
     const byRoot = new Map<string, Thread>();
-    for (const c of comments) {
+    const shown = comments.filter((c) => !hiddenKeys.has(commentKey(c.id)));
+    for (const c of shown) {
       if (!c.parentId) byRoot.set(c.id, { root: c, replies: [], span: c.anchor ? locateAnchor(text, c.anchor) : null });
     }
-    for (const c of comments) if (c.parentId) byRoot.get(c.parentId)?.replies.push(c);
+    for (const c of shown) if (c.parentId) byRoot.get(c.parentId)?.replies.push(c);
     // Pinned threads in reading order, then page-level ones, then detached ones.
     const rank = (t: Thread) => (t.span ? t.span.start : t.root.anchor ? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER - 1);
     return [...byRoot.values()].sort((a, b) => rank(a) - rank(b) || a.root.createdAt.localeCompare(b.root.createdAt));
-  }, [comments, text]);
+  }, [comments, text, hiddenKeys]);
 
   const openThreads = useMemo(() => threads.filter((t) => !t.root.resolvedAt), [threads]);
   const resolved = useMemo(() => threads.filter((t) => t.root.resolvedAt), [threads]);
 
   // Light the open threads' passages, and the active one more strongly.
   useEffect(() => {
-    const el = contentRef?.current;
-    const reg = typeof CSS !== "undefined" ? (CSS as unknown as { highlights?: Map<string, unknown> }).highlights : undefined;
-    const HighlightCtor = (globalThis as { Highlight?: new (...r: Range[]) => unknown }).Highlight;
     // No text to light; leave the page-wide highlights to the instance that has one.
-    if (!contentRef || !reg || !HighlightCtor) return;
-    const all: Range[] = [];
-    const active: Range[] = [];
-    if (el) {
-      for (const t of openThreads) {
-        if (!t.span) continue;
-        const range = rangeAt(el, t.span);
-        if (!range) continue;
-        (t.root.id === activeId ? active : all).push(range);
-      }
-    }
-    reg.set(HL, new HighlightCtor(...all));
-    reg.set(HL_ACTIVE, new HighlightCtor(...active));
-    return () => {
-      reg.delete(HL);
-      reg.delete(HL_ACTIVE);
-    };
+    if (!contentRef) return;
+    return paintHighlights(
+      contentRef.current,
+      openThreads.map((t) => ({ id: t.root.id, span: t.span })),
+      activeId,
+    );
   }, [contentRef, openThreads, activeId, text]);
 
   // Selecting text in the note offers a comment on it; clicking a lit passage
@@ -239,7 +229,15 @@ export function NoteComments({
   const resolve = (c: Comment, done: boolean) =>
     run(() => getContainer().sharing.manageComments.setResolved(c.id, done));
 
-  const remove = (c: Comment) => run(() => getContainer().sharing.manageComments.remove(c.id));
+  const remove = (c: Comment) =>
+    deferDelete({
+      keys: [commentKey(c.id)],
+      message: c.parentId ? "Reply deleted" : "Comment deleted",
+      commit: async () => {
+        await getContainer().sharing.manageComments.remove(c.id);
+        await reload();
+      },
+    });
 
   function renderThread(t: Thread) {
     const { root } = t;
@@ -259,36 +257,36 @@ export function NoteComments({
             {root.anchor.quote}
           </p>
         )}
-        <CommentLine c={root} name={nameOf(root.authorId)} canDelete={mine} onDelete={() => void remove(root)} />
+        <CommentLine c={root} name={nameOf(root.authorId)} canDelete={mine} onDelete={() => remove(root)} />
         {t.replies.map((r) => (
           <CommentLine
             key={r.id}
             c={r}
             name={nameOf(r.authorId)}
             canDelete={r.authorId === profile?.id}
-            onDelete={() => void remove(r)}
+            onDelete={() => remove(r)}
           />
         ))}
         <div className="note-thread-actions">
           {canComment && !root.resolvedAt && replyTo !== root.id && (
-            <button type="button" className="link-btn" onClick={() => { setReplyTo(root.id); setReply(""); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setReplyTo(root.id); setReply(""); }}>
               Reply
-            </button>
+            </Button>
           )}
           {(mine || isOwner) && (
-            <button type="button" className="link-btn" disabled={busy} onClick={() => void resolve(root, !root.resolvedAt)}>
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => void resolve(root, !root.resolvedAt)}>
               {root.resolvedAt ? "Reopen" : "Resolve"}
-            </button>
+            </Button>
           )}
         </div>
         {replyTo === root.id && (
           <div className="comment-add">
             <textarea rows={2} value={reply} autoFocus placeholder="Reply…" onChange={(e) => setReply(e.target.value)} />
             <div className="note-thread-actions">
-              <button type="button" className="btn-ghost btn-cancel" onClick={() => setReplyTo(null)}>Cancel</button>
-              <button type="button" className="btn-primary" disabled={busy || !reply.trim()} onClick={() => void answer(root.id)}>
+              <Button variant="cancel" onClick={() => setReplyTo(null)}>Cancel</Button>
+              <Button variant="primary" disabled={busy || !reply.trim()} onClick={() => void answer(root.id)}>
                 Reply
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -303,25 +301,26 @@ export function NoteComments({
     >
       {!embedded && (
         <h2 className="record-section-head">
-          <button type="button" className="note-comments-toggle" aria-expanded={open} onClick={toggleOpen}>
+          <FoldButton expanded={shown} onClick={toggleOpen}>
+            <CommentsIcon size={14} />
             <span>Comments</span>
-            <span className="record-section-tag">{openThreads.length > 0 ? String(openThreads.length) : "None"}</span>
-            <ChevronIcon open={shown} size={14} />
-          </button>
+            <CommentsBadge count={openThreads.length} />
+          </FoldButton>
         </h2>
       )}
 
       {selection && (
-        <button
-          type="button"
-          className="note-comment-pop"
-          style={{ left: selection.x, top: selection.y }}
-          // Keep the selection alive through the press.
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={startFromSelection}
-        >
-          <CommentsIcon size={14} /> Comment
-        </button>
+        <span className="note-comment-pop" style={{ left: selection.x, top: selection.y }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            // Keep the selection alive through the press.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={startFromSelection}
+          >
+            <CommentsIcon size={14} /> Comment
+          </Button>
+        </span>
       )}
 
       {shown && (
@@ -342,11 +341,11 @@ export function NoteComments({
               />
               <div className="note-thread-actions">
                 {pending && (
-                  <button type="button" className="btn-ghost btn-cancel" onClick={() => setPending(null)}>Cancel</button>
+                  <Button variant="cancel" onClick={() => setPending(null)}>Cancel</Button>
                 )}
-                <button type="button" className="btn-primary" disabled={busy || !draft.trim()} onClick={() => void add()}>
+                <Button variant="primary" disabled={busy || !draft.trim()} onClick={() => void add()}>
                   {busy ? "Posting…" : "Comment"}
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -355,9 +354,9 @@ export function NoteComments({
           <ul className="note-threads">{openThreads.map(renderThread)}</ul>
           {resolved.length > 0 && (
             <>
-              <button type="button" className="note-comments-resolved" aria-expanded={showResolved} onClick={() => setShowResolved((v) => !v)}>
-                Resolved ({resolved.length})
-              </button>
+              <FoldButton expanded={showResolved} count={resolved.length} onClick={() => setShowResolved((v) => !v)}>
+                Resolved
+              </FoldButton>
               {showResolved && <ul className="note-threads">{resolved.map(renderThread)}</ul>}
             </>
           )}
@@ -374,47 +373,14 @@ function CommentLine({ c, name, canDelete, onDelete }: { c: Comment; name: strin
         <span className="comment-author">{name}</span>
         <span className="muted comment-time">{c.createdAt.slice(0, 10)}</span>
         {canDelete && (
-          <button
-            type="button"
-            className="entity-icon-btn danger comment-del"
+          <IconButton label="Delete comment" tone="danger" tip="Delete" size="sm"
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            aria-label="Delete comment"
-            title="Delete"
           >
             <DeleteIcon size={14} />
-          </button>
+          </IconButton>
         )}
       </div>
       <p className="note-comment-body">{c.body}</p>
     </div>
   );
-}
-
-/** Character offset of a DOM point within `root`'s text. */
-function offsetOf(root: Node, node: Node, offset: number): number {
-  const range = document.createRange();
-  range.selectNodeContents(root);
-  range.setEnd(node, offset);
-  return range.toString().length;
-}
-
-/** A DOM range over `span` of `root`'s text, or null when the text has moved on. */
-function rangeAt(root: Node, span: TextSpan): Range | null {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  const range = document.createRange();
-  let seen = 0;
-  let started = false;
-  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-    const len = n.nodeValue?.length ?? 0;
-    if (!started && span.start <= seen + len) {
-      range.setStart(n, span.start - seen);
-      started = true;
-    }
-    if (started && span.end <= seen + len) {
-      range.setEnd(n, span.end - seen);
-      return range;
-    }
-    seen += len;
-  }
-  return null;
 }

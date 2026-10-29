@@ -1,4 +1,4 @@
-import { safeWorkspacePath, type IWorkspaceFs, type WorkspaceStat } from "@weaveforge/core";
+import { safeWorkspacePath, walkByList, type IWorkspaceFs, type WorkspaceStat } from "@weaveforge/core";
 
 /**
  * `IWorkspaceFs` over the File System Access API.
@@ -110,8 +110,9 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
     if (!dir) return;
     try {
       await dir.removeEntry(name, { recursive: options?.recursive ?? false });
-    } catch {
-      /* already gone */
+    } catch (error) {
+      // Only a missing entry is "already gone"; any other refusal is a failed delete.
+      if ((error as { name?: unknown } | null)?.name !== "NotFoundError") throw error;
     }
   }
 
@@ -140,15 +141,8 @@ export class BrowserWorkspaceFs implements IWorkspaceFs {
     return out.sort((a, b) => a.path.localeCompare(b.path));
   }
 
-  async *walk(dir: string): AsyncIterable<WorkspaceStat> {
-    const entries = await this.list(dir);
-    for (const entry of entries) {
-      if (entry.kind === "file") {
-        yield entry;
-        continue;
-      }
-      yield* this.walk(entry.path);
-    }
+  walk(dir: string): AsyncIterable<WorkspaceStat> {
+    return walkByList(this, dir);
   }
 
   async stat(path: string): Promise<WorkspaceStat | null> {

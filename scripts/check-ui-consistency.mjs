@@ -14,11 +14,13 @@
  * A rule must be clean when it is added. A gate that ships red teaches people
  * to ignore it.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { walkFiles } from "./lib/db-connection.mjs";
 
-const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+// UI_GATE_ROOT points the gate at a planted tree in its own self-test.
+const root = process.env.UI_GATE_ROOT ?? path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /** Where app UI lives. Shared components themselves are exempt per-rule. */
 const UI_PATHS = [
@@ -54,9 +56,10 @@ const RULES = [
   },
   {
     name: "unthemed checkbox",
-    pattern: /<input\b[^>]*?type="checkbox"[^>]*?>/gs,
-    unless: "themed-check",
-    use: 'className="themed-check" on the input',
+    // A switch is themed by Switch (wf-toggle), not wf-check.
+    pattern: /<input\b(?![^>]*role="switch")[^>]*?type="checkbox"[^>]*?>/gs,
+    unless: "wf-check",
+    use: 'className="wf-check" on the input',
     why: "the bare browser checkbox does not follow the active theme",
   },
   {
@@ -68,7 +71,8 @@ const RULES = [
     // rendering because the component tree that draws the app's own modal is
     // what failed, so their confirmation must depend on nothing that could be
     // the thing that broke. Both carry a comment saying so.
-    allow: ["app/route-error.tsx", "app/global-error.tsx"],
+    // The guard test names the calls it scans for.
+    allow: ["app/route-error.tsx", "app/global-error.tsx", "components/test/no-window-confirm.test.ts"],
   },
   {
     name: "onClick on a list item",
@@ -81,6 +85,13 @@ const RULES = [
     pattern: /className="empty"/g,
     use: '<EmptyState variant="first-run" | "no-results"> from @/components/empty-state',
     why: "one grey sentence with nothing to click, on the screen where a new user decides whether the product is for them",
+  },
+  {
+    name: "raw <button> (G1)",
+    pattern: /<button\b/g,
+    use: "<Button> or <IconButton> from @/components/button, or a control from @/components/controls",
+    why: "a hand-rolled button picks its own height, padding and disabled look",
+    allow: ["components/button.tsx", "components/controls.tsx", "/test/"],
   },
 ];
 
@@ -96,19 +107,8 @@ const RULES = [
  * into the product *after* the design audit that found the last three had been
  * closed. A gate that cannot see the file the violation is in is not a gate.
  */
-function collect(dir, out = []) {
-  for (const entry of readdirSync(dir)) {
-    const full = path.join(dir, entry);
-    if (statSync(full).isDirectory()) {
-      collect(full, out);
-    } else if (entry.endsWith(".tsx") || entry.endsWith(".ts")) {
-      out.push(full);
-    }
-  }
-  return out;
-}
-
-const files = UI_PATHS.flatMap((p) => collect(path.join(root, p)));
+const isSource = (name) => name.endsWith(".tsx") || name.endsWith(".ts");
+const files = UI_PATHS.flatMap((p) => walkFiles(path.join(root, p), isSource));
 let failed = false;
 
 for (const rule of RULES) {

@@ -62,6 +62,23 @@ test("a link resolving through an alias is not dead", () => {
   assert.equal(report.counts["dead-link"], 0);
 });
 
+test("a link to a note or paper outside the wiki is not dead (E39)", () => {
+  // A drafted page lists the notes and papers it came from. They exist, just
+  // not as wiki pages; calling them dead offered to create notes named after papers.
+  const report = lintWiki(
+    [page("a", "ResNet", "From [[Deep Residual Learning]] and [[Method]], at some length.")],
+    ["deep residual learning", "Method"],
+  );
+
+  assert.equal(report.counts["dead-link"], 0);
+});
+
+test("a link to nothing at all is still dead with other titles given", () => {
+  const report = lintWiki([page("a", "ResNet", "See [[Nowhere]] for details, at some length.")], ["Method"]);
+
+  assert.equal(report.counts["dead-link"], 1);
+});
+
 test("a page with only structure is reported as empty", () => {
   const generated = ["## Summary", "", "_Not written yet._", "", "## Mentioned in", "", "- [[Method]]", "", "#concept"].join("\n");
 
@@ -194,4 +211,66 @@ test("merging an empty page changes nothing but the aliases", () => {
 
   assert.match(result.body, /Original content stays/);
   assert.deepEqual(result.contradictions, []);
+});
+
+// ------------------------------------------------- lint cost (02-02, 02-16)
+
+const WORDS = ["neural", "graph", "attention", "variational", "autoencoder", "diffusion", "transformer",
+  "kernel", "bayesian", "sparse", "contrastive", "learning", "model", "network", "inference"];
+const manyPages = (n: number) =>
+  Array.from({ length: n }, (_, i) =>
+    page(String(i), `${WORDS[i % 15]} ${WORDS[(i * 7) % 15]} ${WORDS[(i * 11) % 13]} ${i}`));
+
+test("near-duplicates are exactly the pairs titleSimilarity puts over the threshold", () => {
+  const pages = manyPages(120);
+  const expected: string[] = [];
+  for (let i = 0; i < pages.length; i += 1) {
+    for (let j = i + 1; j < pages.length; j += 1) {
+      const s = titleSimilarity(pages[i]!.title, pages[j]!.title);
+      if (s >= NEAR_DUPLICATE_THRESHOLD && s !== 1) expected.push(`${pages[j]!.id}~${pages[i]!.id}`);
+    }
+  }
+  const found = lintWiki(pages).findings
+    .filter((f) => f.kind === "near-duplicate")
+    .map((f) => `${f.pageId}~${f.relatedPageId}`);
+  assert.ok(expected.length > 0, "the fixture has near-duplicates");
+  assert.deepEqual(found, expected);
+});
+
+test("linting a 2000-page wiki does not rebuild title trigrams per pair", () => {
+  const pages = manyPages(2000);
+  const started = performance.now();
+  lintWiki(pages);
+  // Rebuilding both trigram sets for each of the ~2M pairs took ~20 s here.
+  assert.ok(performance.now() - started < 8000, `took ${Math.round(performance.now() - started)} ms`);
+});
+
+test("a page whose only link has a blank target links out, and is neither orphan nor dead", () => {
+  for (const link of ["[[ ]]", "[[|alias]]", "[[#Section]]"]) {
+    const report = lintWiki([page("a", "Stub", `Real prose about a stub, with a ${link} link in it.`)]);
+    assert.equal(report.counts.orphan, 0, link);
+    assert.equal(report.counts["dead-link"], 0, link);
+  }
+});
+
+test("frontmatter is not content, and the prose after it is", () => {
+  const fm = "---\ntags: [x]\nsummary: a long line of metadata that is not prose at all\n---\n";
+  assert.equal(lintWiki([page("a", "A", `${fm}# A\n`)]).counts.empty, 1);
+  assert.equal(lintWiki([page("a", "A", `${fm}Real prose about this page, long enough to count.`)]).counts.empty, 0);
+  // An unclosed fence is not frontmatter: the text stays content.
+  assert.equal(lintWiki([page("a", "A", "---\nReal prose about this page, long enough to count.")]).counts.empty, 0);
+});
+
+test("a body of dashes with no closing fence lints in linear time", () => {
+  const started = performance.now();
+  lintWiki([page("a", "A", "---" + "-".repeat(200_000))]);
+  assert.ok(performance.now() - started < 1000, `took ${Math.round(performance.now() - started)} ms`);
+});
+
+test("headings and bullet markers are not content, and long runs of spaces lint fast", () => {
+  assert.equal(lintWiki([page("a", "A", "# A heading that is long enough to count as text\n-   \n")]).counts.empty, 1);
+  assert.equal(lintWiki([page("a", "A", "## Part\n- Real prose in a bullet, long enough to count.")]).counts.empty, 0);
+  const started = performance.now();
+  lintWiki([page("a", "A", "#" + " ".repeat(100_000) + "x\n" + " ".repeat(100_000) + "-")]);
+  assert.ok(performance.now() - started < 1000, `took ${Math.round(performance.now() - started)} ms`);
 });

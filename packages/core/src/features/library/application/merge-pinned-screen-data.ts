@@ -85,11 +85,22 @@ export async function mergePinnedScreenData<
   shares: Share[];
   loadById: (id: string) => Promise<TFull | null>;
 }): Promise<PinnedScreenMerge<TSummary>> {
-  const typePins = input.pins.filter((p) => p.resourceType === input.resourceType);
+  // A pin of the reader's own row is not shared with them: counting it put
+  // "Shared by <your own name>" on the row and made it read-only (E13).
+  const typePins = input.pins.filter(
+    (p) => p.resourceType === input.resourceType && p.ownerId !== p.userId,
+  );
   const pinnedSharedBy = new Map(typePins.map((p) => [p.resourceId, p.ownerId]));
   const ownedIds = new Set(input.owned.map((x) => x.id));
-  const extraIds = typePins.map((p) => p.resourceId).filter((id) => !ownedIds.has(id));
-  const loaded = await Promise.all(extraIds.map((id) => input.loadById(id)));
+  // A Set: the same resource pinned twice is one row, not two.
+  const extraIds = [...new Set(typePins.map((p) => p.resourceId))].filter(
+    (id) => !ownedIds.has(id),
+  );
+  // A pin whose resource can no longer be read (unshared, deleted) drops that
+  // pin; it must not take the owner's own list down with it.
+  const loaded = await Promise.all(
+    extraIds.map((id) => input.loadById(id).catch(() => null)),
+  );
   const extras = loaded.filter((item): item is NonNullable<typeof item> => item != null);
 
   // Every share of this type that names a resource, not only the pinned ones:

@@ -7,7 +7,7 @@ import {
   DEFAULT_GRAPH_SETTINGS,
   mergeGraphPersistedState,
 } from "@weaveforge/core";
-import { getContainer } from "@/bootstrap";
+import { getContainer, type AppContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import {
   clearLegacyGraphStorage,
@@ -16,7 +16,10 @@ import {
   writeGraphStateCache,
 } from "./graph-legacy-storage";
 
-const stateCache = new Map<string, GraphPersistedState>();
+// The graph state lives in the graph settings repository (memoized like every
+// repository) and, for a first paint without a loader, in localStorage. No
+// module copy: localStorage already paints a remount, survives a reload, and is
+// wiped on sign-out, which a module Map never was.
 
 function pinnedFromRecord(record: GraphPersistedState["pinned"]): Map<string, { x: number; y: number }> {
   return new Map(Object.entries(record));
@@ -26,13 +29,26 @@ function pinnedToRecord(pinned: Map<string, { x: number; y: number }>): GraphPer
   return Object.fromEntries(pinned.entries());
 }
 
-export function useGraphPersistedState(projectId: string | null | undefined) {
+/** Where the graph settings are stored; the app container's by default. */
+export type GraphSettingsStore = Pick<AppContainer["graph"], "getSettings" | "saveSettings">;
+
+const containerGraph: GraphSettingsStore = {
+  getSettings: (projectId) => getContainer().graph.getSettings(projectId),
+  saveSettings: (projectId, state) => getContainer().graph.saveSettings(projectId, state),
+};
+
+export function useGraphPersistedState(
+  projectId: string | null | undefined,
+  graph: GraphSettingsStore = containerGraph,
+) {
   const [state, setState] = useState<GraphPersistedState>(DEFAULT_GRAPH_PERSISTED_STATE);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const ready = useRef(false);
   const dirty = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The latest edit, with the project it was made in, for the save on leave.
+  const lastEdit = useRef<{ projectId: string; state: GraphPersistedState } | null>(null);
 
   useEffect(() => {
     ready.current = false;
@@ -46,11 +62,9 @@ export function useGraphPersistedState(projectId: string | null | undefined) {
     }
 
     let active = true;
-    const cached = stateCache.get(projectId) ?? readGraphStateCache(projectId);
+    const cached = readGraphStateCache(projectId);
     if (cached) {
-      const next = mergeGraphPersistedState(cached);
-      stateCache.set(projectId, next);
-      setState(next);
+      setState(mergeGraphPersistedState(cached));
       setLoading(false);
     } else {
       setState(DEFAULT_GRAPH_PERSISTED_STATE);
@@ -59,35 +73,35 @@ export function useGraphPersistedState(projectId: string | null | undefined) {
 
     (async () => {
       try {
-        let stored = await getContainer().graph.getSettings(projectId);
+        let stored = await graph.getSettings(projectId);
         if (!stored) {
           const legacy = readLegacyGraphPersistedState();
           if (legacy) {
             stored = legacy;
-            await getContainer().graph.saveSettings(projectId, legacy);
+            await graph.saveSettings(projectId, legacy);
             clearLegacyGraphStorage();
           }
         }
         if (!active) return;
         const next = mergeGraphPersistedState(stored);
-        stateCache.set(projectId, next);
         writeGraphStateCache(projectId, next);
         setState(next);
+        // Only a load that went through lets edits save: after a failed one
+        // the shown state is a cache or the defaults, and saving it would
+        // overwrite the stored settings (26-01).
+        ready.current = true;
       } catch (err) {
         if (!active) return;
         setError(formatError(err));
       } finally {
-        if (active) {
-          setLoading(false);
-          ready.current = true;
-        }
+        if (active) setLoading(false);
       }
     })();
 
     return () => {
       active = false;
     };
-  }, [projectId]);
+  }, [projectId, graph]);
 
   const markDirty = useCallback(() => {
     dirty.current = true;
@@ -99,8 +113,8 @@ export function useGraphPersistedState(projectId: string | null | undefined) {
       setState((prev) => {
         const next = updater(prev);
         if (projectId) {
-          stateCache.set(projectId, next);
           writeGraphStateCache(projectId, next);
+          lastEdit.current = { projectId, state: next };
         }
         return next;
       });
@@ -112,9 +126,8 @@ export function useGraphPersistedState(projectId: string | null | undefined) {
     if (!projectId || !ready.current || loading || !dirty.current) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      const toSave = stateCache.get(projectId) ?? state;
-      void getContainer()
-        .graph.saveSettings(projectId, toSave)
+      void graph
+        .saveSettings(projectId, state)
         .then(() => {
           dirty.current = false;
         })
@@ -123,7 +136,20 @@ export function useGraphPersistedState(projectId: string | null | undefined) {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [state, projectId, loading]);
+  }, [state, projectId, loading, graph]);
+
+  // On unmount or a project switch, save an edit still waiting on the
+  // debounce, to the project it was made in (26-02). Not in the effect above,
+  // whose cleanup runs on every edit.
+  useEffect(() => {
+    return () => {
+      if (!projectId || !ready.current || !dirty.current) return;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+      const toSave = lastEdit.current;
+      if (toSave?.projectId === projectId) void graph.saveSettings(projectId, toSave.state).catch(() => {});
+    };
+  }, [projectId, graph]);
 
   const settings = useMemo(
     () => ({

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  DEFAULT_GIT_BRANCH,
   emptyIntegration,
   type Integration,
   type SyncProvider,
@@ -8,6 +9,16 @@ import {
   type IntegrationRow,
 } from "./integrations-rows";
 import { run } from "@/backend/providers/postgrest/row-access";
+
+/**
+ * `branch` is the channel id for Mattermost. Rows saved before 33-11 filled a
+ * blank channel with "main"; a Mattermost channel id is 26 characters, never
+ * "main", so such a row reads back as unset.
+ */
+function readBranch(provider: SyncProvider, branch: string | null): string {
+  if (provider !== "mattermost") return branch ?? DEFAULT_GIT_BRANCH;
+  return branch === DEFAULT_GIT_BRANCH ? "" : branch ?? "";
+}
 
 /** Reads/writes `project_integrations` per (project, provider). */
 export class PostgrestIntegrationsStore {
@@ -28,7 +39,7 @@ export class PostgrestIntegrationsStore {
       enabled: r.enabled,
       token: r.token ?? undefined,
       repo: r.repo ?? undefined,
-      branch: r.branch ?? "main",
+      branch: readBranch(provider, r.branch),
       options: r.options ?? undefined,
     };
   }
@@ -41,7 +52,8 @@ export class PostgrestIntegrationsStore {
         enabled: integration.enabled,
         token: integration.token ?? null,
         repo: integration.repo ?? null,
-        branch: integration.branch || "main",
+        // For Mattermost this is the channel id; a blank one stays blank.
+        branch: integration.provider === "mattermost" ? integration.branch : integration.branch || DEFAULT_GIT_BRANCH,
         options: integration.options ?? {},
         updated_at: new Date().toISOString(),
       },

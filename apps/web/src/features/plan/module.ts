@@ -4,7 +4,7 @@ import type { FeatureModule } from "@weaveforge/core";
 export const planModule: FeatureModule = {
   id: "plan",
   title: "Plan",
-  navGroup: "plan",
+  navGroup: "work",
   navItems: [{ key: "plan", label: "Plan", path: "/plan", icon: "flag" }],
   routes: [{ path: "/plan", component: "plan/PlanPage" }],
   migrations: ["0011_milestones.sql"],

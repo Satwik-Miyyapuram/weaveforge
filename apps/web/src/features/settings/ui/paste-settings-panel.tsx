@@ -145,9 +145,8 @@ export function PasteSettingsPanel() {
   const renderRule = (rule: Rule) => (
     <div className="field" key={rule.key}>
       <label className="field-inline">
-        <input
+        <input className="wf-check"
           type="checkbox"
-          className="themed-check"
           disabled={!settings.cleanOnPaste}
           checked={settings[rule.key]}
           onChange={(e) => update({ ...settings, [rule.key]: e.target.checked })}
@@ -161,20 +160,19 @@ export function PasteSettingsPanel() {
   return (
     <div
       id="settings-paste"
-      className="card add-form settings-anchor"
+      className="add-form settings-anchor"
       role="tabpanel"
       aria-labelledby="settings-tab-paste"
     >
       <h3 className="settings-group">Paste</h3>
       <p className="muted jump-to-meta">
-        What happens to text on its way into a note. Stored in this browser alongside your
+        What happens to text on its way into a note. Stored on this device alongside your
         theme, so a shared machine and your own can answer differently.
       </p>
 
       <label className="field-inline">
-        <input
+        <input className="wf-check"
           type="checkbox"
-          className="themed-check"
           checked={settings.cleanOnPaste}
           onChange={(e) => update({ ...settings, cleanOnPaste: e.target.checked })}
         />
@@ -225,8 +223,8 @@ export function PasteSettingsPanel() {
           aria-label="Sample links to test the rules against"
         />
       </div>
-      {preview.map((row) => (
-        <div className="field" key={row.before}>
+      {preview.map((row, i) => (
+        <div className="field" key={`${i}:${row.before}`}>
           <p className="muted field-hint">{row.before}</p>
           <p className="field-hint">
             {row.after === row.before ? <span className="muted">unchanged</span> : row.after}

@@ -1,3 +1,4 @@
+import { enumLabel } from "@/lib/enum-label";
 import type { CitationCandidate, LogEntry, Milestone, Paper } from "@weaveforge/core";
 import type { Integration } from "../domain/integration";
 import { mattermostConnection, mattermostConnectionReady } from "../domain/integration-fields";
@@ -15,8 +16,8 @@ export class MattermostNotifier {
   /** `channel` overrides the connection's main channel (per-event routing). */
   async post(integration: Integration, message: string, channel?: string): Promise<void> {
     if (!mattermostConnectionReady(integration)) return;
-    const { botToken, serverUrl } = mattermostConnection(integration);
-    const channelId = channel?.trim() || mattermostConnection(integration).channelId;
+    const { botToken, serverUrl, channelId: mainChannel } = mattermostConnection(integration);
+    const channelId = channel?.trim() || mainChannel;
     let origin: string;
     try {
       const url = new URL(serverUrl);
@@ -51,7 +52,7 @@ export function milestoneMessage(event: "added" | "status", m: Milestone): strin
   const head =
     event === "added"
       ? `:new: Milestone added: **${m.title}**`
-      : `:arrows_counterclockwise: Milestone **${m.title}** → \`${m.status.replace("_", " ")}\``;
+      : `:arrows_counterclockwise: Milestone **${m.title}** → \`${enumLabel("milestoneStatus", m.status)}\``;
   const lines = [head];
   if (m.targetDate) lines.push(`Target: ${m.targetDate}`);
   if (m.compute.length > 0) {

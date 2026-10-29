@@ -3,6 +3,7 @@
 import { useRef } from "react";
 
 import { Modal, ModalActions } from "@/components/modal";
+import { Button } from "@/components/button";
 
 /**
  * The page before it is printed: the print document in a frame of its own,
@@ -31,12 +32,11 @@ export function InkPrintPreview({
           srcDoc={html}
         />
         <ModalActions>
-          <button type="button" className="btn-secondary" onClick={onClose}>
+          <Button onClick={onClose}>
             Close
-          </button>
-          <button
-            type="button"
-            className="btn-primary"
+          </Button>
+          <Button
+            variant="primary"
             onClick={() => {
               const frame = frameRef.current?.contentWindow;
               if (!frame) return;
@@ -45,7 +45,7 @@ export function InkPrintPreview({
             }}
           >
             Print…
-          </button>
+          </Button>
         </ModalActions>
       </div>
     </Modal>

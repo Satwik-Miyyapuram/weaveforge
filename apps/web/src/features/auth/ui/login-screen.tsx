@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { getLightContainer } from "@/light-bootstrap";
 import { FormError } from "@/components/form-error";
 import { WeaveForgeLogo } from "@/components/weave-forge-logo";
-import { formatError } from "@/lib/format-error";
 import { appOrigin, authRedirectTo } from "@/lib/desktop/desktop-auth";
 import { desktop } from "@/lib/desktop/desktop-bridge";
 import { setLocalMode } from "@/backend/providers/local/local-identity";
+import { runBusy } from "./run-busy";
+import { Button } from "@/components/button";
 
 /**
  * Sign in: password, Google, an emailed code or link, or (desktop only) no
@@ -35,90 +36,55 @@ export function LoginScreen() {
   // `lib/desktop-auth.ts` for why those differ.
   const redirectTo = authRedirectTo;
 
-  async function submit(e: React.FormEvent) {
+  // Every action below: busy while it runs, its failure shown, the button freed.
+  const run = (action: () => Promise<void>) => runBusy(setBusy, setError, action);
+
+  function submit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
+    return run(async () => {
       if (isSignUp) {
         await getLightContainer().auth.signUpWithPassword(email.trim(), password);
         setSent(true);
       } else {
         await getLightContainer().auth.signInWithPassword(email.trim(), password);
       }
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
-  async function google() {
-    setBusy(true);
-    setError(null);
-    try {
-      await getLightContainer().auth.signInWithGoogle(redirectTo());
-      // Browser redirects to Google; nothing more to do here.
-    } catch (err) {
-      setError(formatError(err));
-      setBusy(false);
-    }
+  function google() {
+    // Either the browser leaves for Google, or (Android) the account picker
+    // signs in here or is closed; both of those leave the screen usable.
+    return run(() => getLightContainer().auth.signInWithGoogle(redirectTo()));
   }
 
-  async function sendMagicLink() {
-    setBusy(true);
-    setError(null);
-    try {
+  function sendMagicLink() {
+    return run(async () => {
       await getLightContainer().auth.sendMagicLink(email.trim(), redirectTo());
       setMagicLinkSent(true);
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
-  async function sendPasswordReset() {
-    setBusy(true);
-    setError(null);
-    try {
+  function sendPasswordReset() {
+    return run(async () => {
       // A path is appended here, so this one wants the plain origin rather
       // than wherever a provider sign-in is told to come back to.
       const origin = appOrigin();
       if (!origin) throw new Error("Password reset is only available in a browser.");
       await getLightContainer().auth.sendPasswordReset(email.trim(), `${origin}/reset-password`);
       setResetSent(true);
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
-  async function sendOtp() {
-    setBusy(true);
-    setError(null);
-    try {
+  function sendOtp() {
+    return run(async () => {
       await getLightContainer().auth.sendEmailOtp(email.trim());
       setOtpSent(true);
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
-  async function verifyOtp(event: React.FormEvent<HTMLFormElement>) {
+  function verifyOtp(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await getLightContainer().auth.verifyEmailOtp(email.trim(), otp.trim());
-    } catch (err) {
-      setError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
+    return run(() => getLightContainer().auth.verifyEmailOtp(email.trim(), otp.trim()));
   }
 
   const switchMode = () => {
@@ -137,9 +103,7 @@ export function LoginScreen() {
               <p className="auth-sub">
                 We sent a confirmation link to <strong>{email}</strong>. Open it to activate your account.
               </p>
-              <button
-                type="button"
-                className="btn-primary auth-wide"
+              <Button variant="primary"
                 onClick={() => {
                   setSent(false);
                   setIsSignUp(false);
@@ -148,19 +112,19 @@ export function LoginScreen() {
                 }}
               >
                 Back to sign in
-              </button>
+              </Button>
             </>
           ) : magicLinkSent ? (
             <>
               <h2 className="auth-title">Check your email</h2>
               <p className="auth-sub">We sent a sign-in link to <strong>{email}</strong>. Open it to sign in.</p>
-              <button type="button" className="btn-ghost auth-wide" onClick={() => setMagicLinkSent(false)}>Back</button>
+              <Button variant="ghost" onClick={() => setMagicLinkSent(false)}>Back</Button>
             </>
           ) : resetSent ? (
             <>
               <h2 className="auth-title">Password reset sent</h2>
               <p className="auth-sub">If an account exists for <strong>{email}</strong>, you&rsquo;ll get a link to choose a new password.</p>
-              <button type="button" className="btn-ghost auth-wide" onClick={() => setResetSent(false)}>Back</button>
+              <Button variant="ghost" onClick={() => setResetSent(false)}>Back</Button>
             </>
           ) : otpSent ? (
             <>
@@ -172,18 +136,18 @@ export function LoginScreen() {
                   <input id="email-otp" value={otp} onChange={(event) => setOtp(event.target.value)} inputMode="numeric" autoComplete="one-time-code" required />
                 </div>
                 {error && <FormError>{error}</FormError>}
-                <button className="btn-primary auth-wide" disabled={busy}>{busy ? "Verifying…" : "Verify code"}</button>
+                <Button type="submit" variant="primary" disabled={busy}>{busy ? "Verifying…" : "Verify code"}</Button>
               </form>
-              <button type="button" className="btn-ghost auth-wide" onClick={() => { setOtpSent(false); setOtp(""); }} disabled={busy}>Back</button>
+              <Button variant="ghost" onClick={() => { setOtpSent(false); setOtp(""); }} disabled={busy}>Back</Button>
             </>
           ) : (
             <>
               <h2 className="auth-title">{isSignUp ? "Create an account" : "Sign in"}</h2>
               <p className="auth-sub">
                 {isSignUp ? "Already have an account? " : "Use your lab email. New here? "}
-                <button type="button" className="auth-link" onClick={switchMode} disabled={busy}>
+                <Button variant="link" onClick={switchMode} disabled={busy}>
                   {isSignUp ? "Sign in" : "Create an account"}
-                </button>
+                </Button>
               </p>
 
               <form className="auth-email" onSubmit={submit}>
@@ -203,9 +167,9 @@ export function LoginScreen() {
                   <div className="auth-label-row">
                     <label htmlFor="password">Password</label>
                     {!isSignUp && (
-                      <button type="button" className="auth-link auth-link-sm" onClick={() => void sendPasswordReset()} disabled={busy || !email.trim()}>
+                      <Button variant="link" size="sm" onClick={() => void sendPasswordReset()} disabled={busy || !email.trim()}>
                         Forgot password?
-                      </button>
+                      </Button>
                     )}
                   </div>
                   <input
@@ -218,34 +182,32 @@ export function LoginScreen() {
                     required
                   />
                 </div>
-                <button className="btn-primary auth-wide" disabled={busy}>
+                <Button type="submit" variant="primary" disabled={busy}>
                   {busy ? (isSignUp ? "Creating account…" : "Signing in…") : (isSignUp ? "Create account" : "Sign in")}
-                </button>
+                </Button>
               </form>
 
               <div className="auth-divider"><span>or</span></div>
 
               <div className="auth-alt">
-                <button type="button" className="btn-google auth-wide" onClick={google} disabled={busy}>
+                <Button onClick={google} disabled={busy}>
                   <GoogleMark />
                   Continue with Google
-                </button>
+                </Button>
                 {!isSignUp && (
                   <>
-                    <button type="button" className="btn-google auth-wide" onClick={() => void sendOtp()} disabled={busy || !email.trim()}>
+                    <Button onClick={() => void sendOtp()} disabled={busy || !email.trim()}>
                       Email me a sign-in code
-                    </button>
-                    <button type="button" className="auth-link auth-link-sm" onClick={() => void sendMagicLink()} disabled={busy || !email.trim()}>
+                    </Button>
+                    <Button variant="link" size="sm" onClick={() => void sendMagicLink()} disabled={busy || !email.trim()}>
                       Email me a sign-in link instead
-                    </button>
+                    </Button>
                   </>
                 )}
               </div>
 
               {onThisComputer && (
-                <button
-                  type="button"
-                  className="auth-local"
+                <Button variant="link"
                   onClick={() => {
                     // The wiring is built once, at startup, from this choice —
                     // so the choice is remembered and the window reopened.
@@ -254,7 +216,7 @@ export function LoginScreen() {
                   }}
                 >
                   Use without an account, local only
-                </button>
+                </Button>
               )}
 
               {error && <FormError>{error}</FormError>}

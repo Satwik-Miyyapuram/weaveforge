@@ -6,6 +6,7 @@ import type {
 
 export class InMemoryLabSnapshotRepository implements ILabSnapshotRepository {
   private readonly items = new Map<string, LabSnapshot & { ownerId: string }>();
+  private seq = 0;
   private ownerId = "self";
 
   /** Test helper: change the synthetic current user / publish owner. */
@@ -16,7 +17,7 @@ export class InMemoryLabSnapshotRepository implements ILabSnapshotRepository {
   async publish(input: PublishLabSnapshotInput): Promise<LabSnapshot> {
     const now = new Date().toISOString();
     const snapshot: LabSnapshot & { ownerId: string } = {
-      id: `lab-snapshot-${this.items.size + 1}`,
+      id: `lab-snapshot-${++this.seq}`,
       projectId: "project-1",
       title: input.title.trim(),
       note: input.note?.trim() || undefined,

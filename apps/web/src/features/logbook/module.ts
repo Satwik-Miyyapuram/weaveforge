@@ -8,7 +8,7 @@ import type { FeatureModule } from "@weaveforge/core";
 export const logbookModule: FeatureModule = {
   id: "logbook",
   title: "Log",
-  navGroup: "plan",
+  navGroup: "work",
   navItems: [{ key: "logbook", label: "Log", path: "/log", icon: "calendar" }],
   routes: [{ path: "/log", component: "logbook/LogbookPage" }],
   migrations: ["0002_log_entries.sql"],

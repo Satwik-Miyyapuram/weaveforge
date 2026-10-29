@@ -184,7 +184,11 @@ export function startLocalApi(
           });
           res.end(answer.body);
         })
-        .catch(() => {
+        .catch((error: unknown) => {
+          // The caller is told nothing; the log keeps why. The path only: a
+          // query string is the caller's and may carry anything.
+          const pathname = new URL(request.url, "http://127.0.0.1").pathname;
+          console.error(`[local-api] ${request.method} ${pathname} failed: ${String(error)}`);
           res.writeHead(500, { "content-type": "application/json" });
           res.end(JSON.stringify({ errorCode: 500, message: "Something went wrong." }));
         });

@@ -6,14 +6,16 @@ import { sanitizePdfUrl } from "../../application/sanitize-reader-url";
 import { InkStrokes } from "@/features/ink";
 import type { DraftShape } from "./types";
 import type { MarginNote } from "../../application/margin-notes";
+import { RowButton } from "@/components/controls";
+import { Button } from "@/components/button";
 
 export function SafeExternalLink({ href, children }: { href: string; children: ReactNode }) {
   const safe = sanitizePdfUrl(href);
   if (!safe) return null;
   return (
-    <a className="btn-secondary" href={safe} target="_blank" rel="noreferrer">
+    <Button href={safe} target="_blank" rel="noreferrer">
       {children}
-    </a>
+    </Button>
   );
 }
 
@@ -138,19 +140,20 @@ export function PageMargin({
   return (
     <div className="pdf-reader-page-margin" style={{ width: `${width}px` }} aria-label="Writing margin">
       {notes.map((note) => (
-        <button
-          type="button"
-          key={note.annotation.id}
-          className={`pdf-reader-margin-note${selectedId === note.annotation.id ? " is-selected" : ""}`}
-          style={{ top: `${note.top}px`, borderLeftColor: note.annotation.color }}
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={() => onSelect(note.annotation.id)}
-        >
-          {note.annotation.text && (
-            <span className="pdf-reader-margin-note-quote">{note.annotation.text}</span>
-          )}
-          <span className="pdf-reader-margin-note-comment">{note.annotation.comment}</span>
-        </button>
+        <span key={note.annotation.id} className="pdf-reader-margin-note-slot" style={{ top: `${note.top}px` }}>
+          <RowButton
+            current={selectedId === note.annotation.id}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => onSelect(note.annotation.id)}
+          >
+            <span className="pdf-reader-margin-note" style={{ borderLeftColor: note.annotation.color }}>
+              {note.annotation.text && (
+                <span className="pdf-reader-margin-note-quote">{note.annotation.text}</span>
+              )}
+              <span className="pdf-reader-margin-note-comment">{note.annotation.comment}</span>
+            </span>
+          </RowButton>
+        </span>
       ))}
     </div>
   );

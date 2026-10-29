@@ -4,6 +4,8 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer, type ReactTestInstance } from "react-test-renderer";
 
@@ -81,9 +83,9 @@ test("Select is pressed and no ink tool is while the reader selects text", () =>
   withWindow(new Map(), () => {
     let picked = "";
     const tree = render(readerBar({ onSelect: () => (picked = "select") }));
-    assert.equal(byLabel(tree, "Select text (V)")[0]!.props["aria-pressed"], true);
+    assert.equal(byLabel(tree, "Select (V)")[0]!.props["aria-pressed"], true);
     assert.equal(byLabel(tree, "Pen (P)")[0]!.props["aria-pressed"], false);
-    act(() => byLabel(tree, "Select text (V)")[0]!.props.onClick());
+    act(() => byLabel(tree, "Select (V)")[0]!.props.onClick());
     assert.equal(picked, "select");
     act(() => tree.unmount());
   });
@@ -219,7 +221,7 @@ test("a paper the reader cannot mark keeps pages and view, drops tools and Inser
   withWindow(new Map(), () => {
     const tree = render(readerBar({ readOnly: true }));
     assert.equal(byLabel(tree, "Pen (P)").length, 0);
-    assert.equal(byLabel(tree, "Select text (V)").length, 0);
+    assert.equal(byLabel(tree, "Select (V)").length, 0);
     assert.equal(tree.root.findAllByType(InsertMenu).length, 0);
     assert.equal(tree.root.findAllByType(PageField).length, 1);
     assert.equal(tree.root.findAllByType(ViewMenu).length, 1);
@@ -256,4 +258,101 @@ test("paletteName reverses paletteHex, and knows no stranger", () => {
   }
   assert.equal(paletteName(palette, paletteHex(palette, "red").toUpperCase()), paletteName(palette, paletteHex(palette, "red")));
   assert.equal(paletteName(palette, "#010203"), null);
+});
+
+const src = (p: string) => readFileSync(fileURLToPath(new URL(p, import.meta.url)), "utf8");
+
+test("the Insert menu offers paste and drop only where the page takes them (DA-115)", () => {
+  withWindow(new Map(), () => {
+    const reader = render(readerBar());
+    assert.equal(reader.root.findByType(InsertMenu).props.takesPictureDrops, undefined);
+    act(() => reader.unmount());
+    const notes = render(readerBar({ onAddPicture: undefined, takesPictureDrops: true }));
+    assert.equal(notes.root.findByType(InsertMenu).props.takesPictureDrops, true);
+    act(() => notes.unmount());
+  });
+  // The menu list is portalled, which this renderer cannot open; pin the gate.
+  const view = src("../ui/ink-bar-view.tsx");
+  assert.match(view, /\{takesPictureDrops \? \(\s*<p className="ink-menu-hint">Or paste an image, or drop one on the page\.<\/p>/);
+  assert.equal(view.match(/ink-menu-hint/g)?.length, 1);
+});
+
+test("the notes page says it takes pasted and dropped pictures; the reader does not (DA-115)", () => {
+  assert.match(src("../ui/ink-host.tsx"), /takesPictureDrops\b/);
+  assert.doesNotMatch(src("../../reader/ui/pdf-reader/pdf-reader.tsx"), /takesPictureDrops/);
+});
+
+test("the reader's zoom is the note's zoom pill, steps and all", () => {
+  withWindow(new Map(), () => {
+    const shape = (tree: ReactTestRenderer) => {
+      const out = byLabel(tree, "Zoom out")[0]!;
+      let pill = out.parent!;
+      while (pill.type !== "div") pill = pill.parent!;
+      return {
+        pill: pill.props.className,
+        out: out.props.className,
+        into: byLabel(tree, "Zoom in")[0]!.props.className,
+        steps: pill.children.length,
+      };
+    };
+    const reader = render(readerBar({ view: { zoomPercent: 100, onZoomIn: noop, onZoomOut: noop, onZoomTo: noop } }));
+    const note = render(readerBar({ view: undefined, zoom: 1, onZoom: noop }));
+    assert.deepEqual(shape(reader), shape(note));
+    assert.equal(shape(note).pill, "ink-page-pill ink-zoom-pill");
+    act(() => reader.unmount());
+    act(() => note.unmount());
+  });
+});
+
+test("the note's bar has the reader's page field and view menu (Image #42/#43)", () => {
+  withWindow(new Map(), () => {
+    const zoomed: number[] = [];
+    const tree = render(readerBar({ view: undefined, zoom: 1.25, onZoom: (z) => zoomed.push(z) }));
+    assert.equal(tree.root.findAllByType(PageField).length, 1);
+    const menu = tree.root.findByType(ViewMenu);
+    assert.equal(menu.props.zoomPercent, 125);
+    act(() => menu.props.onZoomTo(150));
+    act(() => menu.props.onFitWidth());
+    assert.deepEqual(zoomed, [1.5, 1]);
+    assert.equal(menu.props.fit, "custom");
+    act(() => tree.unmount());
+  });
+  // The note host hands the bar its page jump, so the field shows there too.
+  assert.match(src("../ui/ink-host.tsx"), /onGoToPage=\{\(n\) => goToPage\(n - 1\)\}/);
+});
+
+test("the page pill holds the same controls in the note and the reader; Add page sits beside it", () => {
+  withWindow(new Map(), () => {
+    const pill = (tree: ReactTestRenderer) =>
+      tree.root.find((n) => n.type === "div" && n.props.className === "ink-page-pill");
+    const reader = render(readerBar());
+    const note = render(readerBar({ view: undefined, zoom: 1, onZoom: noop, onAddPage: noop }));
+    assert.equal(pill(note).children.length, pill(reader).children.length);
+    assert.equal(pill(note).findAll((n) => n.props.label === "Add a blank page").length, 0);
+    assert.equal(byLabel(note, "Add a blank page").length > 0, true);
+    act(() => reader.unmount());
+    act(() => note.unmount());
+  });
+});
+
+test("pill controls sit 24px tall inside the pill, so the page field has room round it", () => {
+  const css = src("../../../app/styles/editor-workspace.css");
+  assert.match(css, /:root:root:root \.ink-page-input \{[^}]*height: 24px;[^}]*min-height: 0;/);
+  assert.match(css, /:root:root:root \.ink-zoom-pill \.wf-btn \{[^}]*height: 24px;[^}]*font-size: inherit;/);
+});
+
+test("both pills leave room round their controls, and the zoom value reads in the pill's own face", () => {
+  const css = src("../../../app/styles/editor-workspace.css");
+  assert.match(css, /\n\.ink-page-pill \{[^}]*padding: var\(--s1\);/);
+  // One weight for the page number and the zoom value: the pill's.
+  assert.match(css, /\n\.ink-page-pill \{[^}]*font-weight: 500;/);
+  assert.doesNotMatch(css, /\n\.ink-page-count \{[^}]*font-weight/);
+  assert.match(css, /:root:root:root \.ink-zoom-pill \.wf-btn \{[^}]*font-family: inherit;/);
+});
+
+test("the zoom level holds room for three digits, so zoom in never moves as the number grows", () => {
+  const css = src("../../../app/styles/editor-workspace.css");
+  // Same-width digits, and a floor that fits "999%" and the caret: 25% and 149% are one width.
+  assert.match(css, /:root:root \.ink-zoom-pill \.wf-btn \{[^}]*font-variant-numeric: tabular-nums;/);
+  assert.match(css, /:root:root \.ink-zoom-pill \.wf-btn \{[^}]*min-width: calc\(4\.5ch \+ 12px \+ var\(--s5\)\);/);
 });

@@ -56,7 +56,9 @@ if (copiesByName.size === 0) {
 }
 
 const duplicated = [...copiesByName].filter(([, copies]) => copies.length > 1);
-const unexpected = duplicated.filter(([name]) => !(name in ALLOWED));
+// hasOwn, not `in`: a package named "constructor" or "toString" would otherwise
+// match Object.prototype and pass as allowed.
+const unexpected = duplicated.filter(([name]) => !Object.hasOwn(ALLOWED, name));
 const stale = Object.keys(ALLOWED).filter((name) => !duplicated.some(([dup]) => dup === name));
 
 if (unexpected.length) {

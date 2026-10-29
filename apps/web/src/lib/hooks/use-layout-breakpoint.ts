@@ -37,7 +37,7 @@ function readRailByDefault(): boolean {
 }
 
 /** Match --layout-duration in styles/base.css */
-const LAYOUT_TRANSITION_MS = 320;
+const LAYOUT_TRANSITION_MS = 280;
 
 /**
  * Tracks mobile ↔ desktop breakpoint and fires a one-shot nav entrance

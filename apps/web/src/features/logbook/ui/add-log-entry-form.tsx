@@ -6,6 +6,10 @@ import { LOG_KINDS, type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
+import { bestEffort } from "../application/log-side-effects";
+import { Button } from "@/components/button";
+import { MarkdownField } from "@/components/markdown-field";
+import { logImageUpload } from "./log-image-upload";
 
 /**
  * Add-log-entry form. UI only: it collects input and delegates to the
@@ -15,12 +19,16 @@ import { FormError } from "@/components/form-error";
 export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
   const [body, setBody] = useState("");
   const [kind, setKind] = useState<LogKind>("daily");
+  const [imageError, setImageError] = useState<string | null>(null);
+  // The entry has no id until Create, so its images go under a folder of
+  // their own, made once per form.
+  const [imagePaste] = useState(() => logImageUpload(crypto.randomUUID(), setImageError));
 
   const { busy, error, submit } = useSubmit(async () => {
     const logbook = getContainer().logbook;
     const entry = await logbook.addLogEntry.add({ body, kind });
-    try { await logbook.pushLog(entry); } catch { /* git sync best-effort */ }
-    try { await logbook.notifyNewLog(entry); } catch { /* chat post best-effort */ }
+    await bestEffort("Git push", () => logbook.pushLog(entry));
+    await bestEffort("Chat post", () => logbook.notifyNewLog(entry));
     setBody("");
     onAdded?.();
   });
@@ -28,14 +36,14 @@ export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
   return (
     <form className="card add-form" onSubmit={submit}>
       <div className="field">
-        <label htmlFor="body">What did you do?</label>
-        <textarea
-          id="body"
+        <label id="log-new-body">What did you do?</label>
+        <MarkdownField
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={setBody}
           placeholder="Today I… (markdown supported)"
-          rows={3}
-          required
+          labelledBy="log-new-body"
+          className="log-body-editor"
+          imagePaste={imagePaste}
         />
       </div>
       <div className="field">
@@ -52,10 +60,10 @@ export function AddLogEntryForm({ onAdded }: { onAdded?: () => void }) {
           ))}
         </Select>
       </div>
-      {error && <FormError>{error}</FormError>}
-      <button className="btn-primary" disabled={busy}>
-        {busy ? "Saving…" : "Add log entry"}
-      </button>
+      {(error ?? imageError) && <FormError>{error ?? imageError}</FormError>}
+      <Button type="submit" variant="primary" disabled={busy || !body.trim()}>
+        {busy ? "Creating…" : "Create"}
+      </Button>
     </form>
   );
 }

@@ -2,6 +2,7 @@
  * The application log as the page sees it: report a line, read the log, show
  * the file. Moved out of `main.ts` with the comments it carried there.
  */
+import { errorMessage } from "@weaveforge/core";
 import { shell } from "electron";
 import { MAX_ENTRIES, type AppLog, type AppLogEntry } from "./app-log";
 import { CHANNELS, type AppLogPayload, type IpcResult } from "./channels";
@@ -61,7 +62,7 @@ export function registerMainAppLog(deps: { ipc: IpcSurface; appLog: AppLog }): v
    * envelope — makes the far side throw `new Error(undefined)`: a rejection with
    * no message, reported to the reader as a bare "Error". That is exactly what
    * this did on its first run. Every `call()`-wrapped channel answers with
-   * `{ ok, value }`; `preferenceRead` and `localApiState` show the shape.
+   * `{ ok, value }`; `preferenceWrite` and `localApiState` show the shape.
    */
   ipc.handle(CHANNELS.appRead, (): IpcResult<AppLogPayload> => {
     try {
@@ -86,7 +87,7 @@ export function registerMainAppLog(deps: { ipc: IpcSurface; appLog: AppLog }): v
       // decode: the message crosses as data, like every other refusal.
       return {
         ok: false,
-        message: cause instanceof Error ? cause.message : String(cause),
+        message: errorMessage(cause),
       };
     }
   });

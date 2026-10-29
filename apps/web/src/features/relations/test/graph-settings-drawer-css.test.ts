@@ -23,7 +23,7 @@ function rule(selector: string): string {
 
 test("the tab bar scrolls sideways instead of overflowing the drawer", () => {
   assert.match(rule(".graph-drawer-tabs"), /overflow-x:\s*auto/);
-  assert.match(rule(".graph-drawer-tab"), /flex:\s*1 0 auto/);
+  assert.match(rule(".graph-drawer-tabs > .wf-tab"), /flex:\s*1 0 auto/);
 });
 
 test("the backdrop leaves the title bar undimmed", () => {
@@ -31,13 +31,14 @@ test("the backdrop leaves the title bar undimmed", () => {
 });
 
 test("option buttons in the drawer fill its width", () => {
-  assert.match(rule(":root:root .graph-settings-drawer .seg"), /display:\s*flex/);
-  assert.match(rule(":root:root .graph-settings-drawer .seg > .seg-btn"), /flex:\s*1/);
+  assert.match(rule(":root:root .graph-settings-drawer .wf-seg"), /display:\s*flex/);
+  assert.match(rule(":root:root .graph-settings-drawer .wf-seg > button"), /flex:\s*1/);
 });
 
+// Section heads are catalogue folds (states.css), sized like every fold.
 test("every label in the drawer uses one size", () => {
   const size = /font-size:\s*([^;]+);/;
-  const sizes = [".graph-drawer-label", ".graph-slider-row", ".graph-settings-drawer label.graph-check", ".graph-drawer-section-head"]
+  const sizes = [".graph-drawer-label", ".graph-slider-row", ".graph-settings-drawer label.graph-check"]
     .map((s) => size.exec(rule(s))?.[1]?.trim());
   assert.equal(new Set(sizes).size, 1, `sizes differ: ${sizes.join(", ")}`);
 });

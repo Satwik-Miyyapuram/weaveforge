@@ -86,3 +86,29 @@ test("arxiv: preserves an upstream error status", async () => {
     restore();
   }
 });
+
+function failingBody(error: Error): Response {
+  return new Response(new ReadableStream({ start: (controller) => controller.error(error) }), { status: 200 });
+}
+
+test("arxiv: a body read cut off by the timeout is a 504, not a 500 (14-10)", async () => {
+  const timeout = new DOMException("The operation timed out.", "TimeoutError");
+  const { restore } = stubFetch(() => failingBody(timeout as unknown as Error));
+  try {
+    const res = await GET(new Request("http://localhost/api/arxiv?id_list=1706.03762"));
+    assert.equal(res.status, 504);
+    assert.equal(res.headers.get("cache-control"), "no-store");
+  } finally {
+    restore();
+  }
+});
+
+test("arxiv: a body read that fails otherwise is a 502", async () => {
+  const { restore } = stubFetch(() => failingBody(new Error("socket hang up")));
+  try {
+    const res = await GET(new Request("http://localhost/api/arxiv?id_list=1706.03762"));
+    assert.equal(res.status, 502);
+  } finally {
+    restore();
+  }
+});

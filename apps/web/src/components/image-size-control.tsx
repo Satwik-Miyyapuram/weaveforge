@@ -7,13 +7,17 @@ import {
   setImagePlacement,
 } from "@/lib/markdown-image-width";
 import type { MdAlign, MdCrop } from "@/lib/markdown-figure-alt";
+import { Button } from "@/components/button";
+import { ImageViewer } from "./image-viewer";
+import { SegmentedControl } from "./segmented-control";
 
 /**
  * Placing a picture from the read view.
  *
  * A click on a rendered image opens a small control under it: a slider for
  * the width as a share of the column, buttons for its side, and a crop as
- * four typed insets, one field per edge. The slider previews on the image itself as it moves; a
+ * four typed insets, one field per edge, with S / M / L / Full presets for the
+ * width and a way to open it full size (DA-104). The slider previews on the image itself as it moves; a
  * side moves it at once; a crop previews when its four numbers parse. Every
  * change writes `![alt left c=0,0,10,10|NN%]` into the source in one write —
  * the same tokens the renderer reads, so the picture keeps its placement in
@@ -22,6 +26,9 @@ import type { MdAlign, MdCrop } from "@/lib/markdown-figure-alt";
  * Which reference to rewrite is found by alt text and position, because by
  * the time a picture is on screen its target is a blob URL that says nothing
  * about the markdown behind it (`markdown-image-width.ts`).
+ *
+ * On a document that cannot be edited, a click opens the picture full size
+ * in the shared ImageViewer instead.
  */
 
 interface Target {
@@ -43,6 +50,25 @@ const EDGES = [
 ] as const;
 const NO_CROP = ["", "", "", ""];
 
+/** The width presets, as a percent of the column. */
+export const IMAGE_SIZES = [
+  { label: "S", value: 25 },
+  { label: "M", value: 50 },
+  { label: "L", value: 75 },
+  { label: "Full", value: 100 },
+] as const;
+
+/** The preset a width matches, or null for one the slider set. */
+export function sizeFor(percent: number): number | null {
+  return IMAGE_SIZES.find((size) => size.value === percent)?.value ?? null;
+}
+
+/** Every picture in the document, for the viewer to step through. */
+function documentImages(host: HTMLElement | null) {
+  const imgs = Array.from(host?.querySelectorAll<HTMLImageElement>("img.md-image") ?? []);
+  return { imgs, images: imgs.map((img) => ({ src: img.currentSrc || img.src, label: img.dataset.mdAlt ?? img.alt })) };
+}
+
 /** A percentage from an image's current rendered width against its column. */
 function currentPercent(img: HTMLImageElement): number {
   const column = img.parentElement?.clientWidth ?? 0;
@@ -62,8 +88,17 @@ export function ImageSizeControl({
 }) {
   const [target, setTarget] = useState<Target | null>(null);
   const [percent, setPercent] = useState(100);
+  // Whether the slider moved since the control opened. Until it does, the
+  // percent is only the rendered width, not a width to store.
+  const [widthMoved, setWidthMoved] = useState(false);
   const [cropEdges, setCropEdges] = useState<string[]>(NO_CROP);
   const hostRef = useRef<HTMLDivElement>(null);
+  const [viewing, setViewing] = useState<{ images: { src: string; label: string }[]; index: number } | null>(null);
+
+  const openViewer = useCallback((img: HTMLImageElement) => {
+    const { imgs, images } = documentImages(hostRef.current);
+    setViewing({ images, index: Math.max(0, imgs.indexOf(img)) });
+  }, []);
 
   const close = useCallback((restore: boolean) => {
     setTarget((current) => {
@@ -78,9 +113,13 @@ export function ImageSizeControl({
 
   const onClick = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
-      if (!onSave) return;
       const el = event.target as HTMLElement;
-      if (!(el instanceof HTMLImageElement) || !el.classList.contains("md-image")) {
+      const isImage = el instanceof HTMLImageElement && el.classList.contains("md-image");
+      if (!onSave) {
+        if (isImage) openViewer(el);
+        return;
+      }
+      if (!isImage) {
         // A click anywhere else in the document dismisses the control.
         if (!(el.closest(".image-size") instanceof HTMLElement)) close(false);
         return;
@@ -106,9 +145,10 @@ export function ImageSizeControl({
         },
       });
       setPercent(initial);
+      setWidthMoved(false);
       setCropEdges(parsed.crop ? parsed.crop.map(String) : NO_CROP);
     },
-    [body, close, onSave],
+    [body, close, onSave, openViewer],
   );
 
   // Escape puts the picture back; a body change from elsewhere drops a stale
@@ -128,6 +168,7 @@ export function ImageSizeControl({
 
   const preview = (next: number) => {
     setPercent(next);
+    setWidthMoved(true);
     if (target) target.img.style.width = `${next}%`;
   };
 
@@ -147,20 +188,14 @@ export function ImageSizeControl({
     align?: MdAlign | null;
   }) => {
     if (!target || !onSave) return;
-    // The slider's value is what the user set, whatever the picture started
-    // at; a full-width picture dragged to 40% used to snap back because the
-    // starting width decided whether the drag counted.
-    const chosen = next.width === undefined ? percent : next.width;
-    const width = chosen === null || chosen >= 100 ? null : `${chosen}%`;
-    const crop =
-      next.crop !== undefined
-        ? next.crop
-        : (cropParts(cropEdges) as MdCrop | null);
-    const rewritten = setImagePlacement(body, target.alt, target.ordinal, {
-      crop,
-      align: next.align !== undefined ? next.align : target.placement.align ?? null,
-      width,
+    const { crop, align, width } = resolveCommit(next, {
+      percent,
+      widthMoved,
+      cropEdges,
+      storedCrop: target.placement.crop,
+      storedAlign: target.placement.align,
     });
+    const rewritten = setImagePlacement(body, target.alt, target.ordinal, { crop, align, width });
     if (rewritten !== body) void onSave(rewritten);
     if (!crop) target.img.style.clipPath = "";
     if (!width || width === "100%") target.img.style.width = "";
@@ -199,20 +234,27 @@ export function ImageSizeControl({
             <span className="image-size-value">{percent}%</span>
           </label>
           <div className="image-size-row">
+            <span className="image-size-key">Size</span>
+            <SegmentedControl
+              label="Image size preset"
+              className="image-size-sides"
+              value={sizeFor(percent) === null ? null : String(percent)}
+              onChange={(size) => {
+                preview(Number(size));
+                commit({ width: Number(size) });
+              }}
+              options={IMAGE_SIZES.map((size) => ({ value: String(size.value), label: size.label, title: `${size.value}% of the column` }))}
+            />
+          </div>
+          <div className="image-size-row">
             <span className="image-size-key">Side</span>
-            <div className="seg image-size-sides" role="group" aria-label="Image side">
-              {(["left", "center", "right"] as const).map((side) => (
-                <button
-                  key={side}
-                  type="button"
-                  className={target.placement.align === side ? "seg-on" : undefined}
-                  aria-pressed={target.placement.align === side}
-                  onClick={() => commit({ align: side })}
-                >
-                  {SIDE_LABELS[side]}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              label="Image side"
+              className="image-size-sides"
+              value={target.placement.align ?? null}
+              onChange={(side) => commit({ align: side })}
+              options={(["left", "center", "right"] as const).map((side) => ({ value: side, label: SIDE_LABELS[side] }))}
+            />
           </div>
           <div className="image-size-row">
             <span className="image-size-key">Crop %</span>
@@ -234,7 +276,7 @@ export function ImageSizeControl({
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
-                        commit({ crop: cropParts(cropEdges) as MdCrop | null });
+                        commit({});
                       }
                     }}
                   />
@@ -243,15 +285,32 @@ export function ImageSizeControl({
             </div>
           </div>
           <div className="image-size-actions">
-            <button
-              type="button"
-              className="btn-secondary btn-sm"
+            <Button
+              size="sm"
+              onClick={() => {
+                const img = target.img;
+                close(true);
+                openViewer(img);
+              }}
+            >
+              Open full size
+            </Button>
+            <Button
+              size="sm"
               onClick={() => commit({ width: null, crop: null, align: null })}
             >
               Reset
-            </button>
+            </Button>
           </div>
         </div>
+      ) : null}
+      {viewing ? (
+        <ImageViewer
+          images={viewing.images}
+          index={viewing.index}
+          onIndex={(index) => setViewing((current) => (current ? { ...current, index } : current))}
+          onClose={() => setViewing(null)}
+        />
       ) : null}
     </div>
   );
@@ -269,13 +328,37 @@ function rawAltFor(body: string, alt: string, ordinal: number): string | null {
 }
 
 /**
- * Four crop insets out of the four fields, or `null` for no crop: every field
- * empty or zero, or one that does not parse. An empty field is a zero, so a
- * crop off one edge is one number, not four.
+ * Four crop insets out of the four fields; `null` for no crop (every field
+ * empty or zero) and `undefined` when a field does not parse or is out of
+ * range. An empty field is a zero, so a crop off one edge is one number.
  */
-function cropParts(edges: string[]): [number, number, number, number] | null {
+export function cropParts(edges: string[]): MdCrop | null | undefined {
   const parts = edges.map((edge) => (edge.trim() === "" ? 0 : Math.round(Number(edge))));
-  if (parts.some((n) => !Number.isFinite(n) || n < 0 || n >= 100)) return null;
+  if (parts.some((n) => !Number.isFinite(n) || n < 0 || n >= 100)) return undefined;
   if (parts.every((n) => n === 0)) return null;
-  return parts as [number, number, number, number];
+  return parts as MdCrop;
+}
+
+/**
+ * The placement a commit writes. `width` is `undefined` (keep the stored one)
+ * unless the slider moved or the caller named one: the slider starts at the
+ * rendered width, which is not a width the source asked for. An invalid crop
+ * field keeps the stored crop instead of reading as "no crop".
+ */
+export function resolveCommit(
+  next: { width?: number | null; crop?: MdCrop | null; align?: MdAlign | null },
+  state: {
+    percent: number;
+    widthMoved: boolean;
+    cropEdges: string[];
+    storedCrop: MdCrop | undefined;
+    storedAlign: MdAlign | undefined;
+  },
+): { crop: MdCrop | null; align: MdAlign | null; width: string | null | undefined } {
+  const chosen = next.width !== undefined ? next.width : state.widthMoved ? state.percent : undefined;
+  const width = chosen === undefined ? undefined : chosen === null || chosen >= 100 ? null : `${chosen}%`;
+  const typed = cropParts(state.cropEdges);
+  const crop = next.crop !== undefined ? next.crop : typed === undefined ? state.storedCrop ?? null : typed;
+  const align = next.align !== undefined ? next.align : state.storedAlign ?? null;
+  return { crop, align, width };
 }

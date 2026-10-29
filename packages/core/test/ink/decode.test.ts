@@ -106,3 +106,20 @@ test("vocabulary words include the parts of hyphenated terms", () => {
   const words = inkVocabularyWords(["Graph-prior module", "smith2021"]);
   for (const word of ["graphprior", "graph", "prior", "module", "smith2021"]) assert.ok(words.has(word), word);
 });
+
+test("a join is not offered over a next word that was itself joined (06-02)", () => {
+  // "for"+"gets" is taken (a vocabulary term), so the slot after "the" holds
+  // "forgets"; offering "thefor" there would drop "gets" from the line.
+  const line = decodeInkWords(
+    [w(["the"], [true], "thefor"), w(["for"], [true], "forgets"), w(["gets"], [true])],
+    ["forgets"],
+  );
+  assert.equal(line.text, "the forgets");
+  assert.ok(!line.alternatives?.some((alt) => alt.startsWith("thefor")), String(line.alternatives));
+  // An offer whose next word stands alone is still made.
+  const kept = decodeInkWords(
+    [w(["the"], [true], "thefor"), w(["for"], [true]), w(["gets"], [true])],
+    [],
+  );
+  assert.ok(kept.alternatives?.includes("thefor gets"), String(kept.alternatives));
+});

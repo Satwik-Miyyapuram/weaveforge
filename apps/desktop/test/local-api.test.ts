@@ -68,6 +68,12 @@ test("a path that leaves the folder never reaches disk", async () => {
   assert.equal(answer.status, 400);
 });
 
+// 37-03: a broken percent escape is the caller's mistake, a 400, not a throw.
+test("a malformed percent escape is a 400", async () => {
+  const answer = await routeLocalRequest(await vault(), ask({ url: "/vault/%E0%A4" }), TOKEN);
+  assert.equal(answer.status, 400);
+});
+
 test("a write lands in the folder", async () => {
   const session = await vault();
   const answer = await routeLocalRequest(

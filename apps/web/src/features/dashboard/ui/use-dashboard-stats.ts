@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { useProject } from "@/features/projects";
 import { formatError } from "@/lib/format-error";
@@ -45,9 +45,11 @@ function portsFromContainer(): DashboardStatsPorts {
   return getContainer().dashboard.statsPorts();
 }
 
+/** `getPorts` is the container's by default; tests pass their own. */
 export function useDashboardStats(
   cardTypes: readonly DashboardCardType[],
   supervisees: readonly Member[],
+  getPorts: () => DashboardStatsPorts = portsFromContainer,
 ) {
   const { current: project } = useProject();
   const projectId = project?.id ?? null;
@@ -61,7 +63,17 @@ export function useDashboardStats(
     () => cached?.supervision ?? null,
   );
 
+  // The key of the newest load. An older one that answers late — a project
+  // switched away from mid-load — must not paint over the newer one.
+  const latestKey = useRef(cacheKey);
+  // Read through a ref, not a dependency: a minified build inlines the default
+  // into the parameter list, so each render passes a new function, and as a
+  // dependency it reloaded the stats on every render, forever.
+  const getPortsRef = useRef(getPorts);
+  getPortsRef.current = getPorts;
+
   const loadStats = useCallback(async () => {
+    latestKey.current = cacheKey;
     if (!projectId) {
       setStats(EMPTY_STATS);
       setSupervision(null);
@@ -79,15 +91,18 @@ export function useDashboardStats(
     }
     setStatsError(null);
     try {
-      const result = await loadDashboardStats(portsFromContainer(), {
+      const result = await loadDashboardStats(getPortsRef.current(), {
         cardTypes,
         supervisees,
       });
+      if (latestKey.current !== cacheKey) return;
       const entry: StatsCacheEntry = {
         stats: result.stats,
         supervision: result.supervision,
       };
-      statsCache.set(cacheKey, entry);
+      // A partial result is shown but not kept: the next visit should try again
+      // rather than paint a failure from the cache as if it were the data.
+      if (!result.criticalError && !result.supervisionError) statsCache.set(cacheKey, entry);
       setStats(entry.stats);
       setSupervision(entry.supervision);
       if (result.criticalError) {
@@ -96,9 +111,9 @@ export function useDashboardStats(
         setStatsError(formatError(result.supervisionError));
       }
     } catch (err) {
-      setStatsError(formatError(err));
+      if (latestKey.current === cacheKey) setStatsError(formatError(err));
     } finally {
-      setStatsLoading(false);
+      if (latestKey.current === cacheKey) setStatsLoading(false);
     }
   }, [cacheKey, cardTypes, supervisees, projectId]);
 

@@ -1,10 +1,11 @@
-import { searchRevision, type SearchDoc } from "@weaveforge/core";
+import { errorMessage, searchRevision, type SearchDoc } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { SemanticIndex, type EmbedProgress } from "./semantic-index";
 import { WorkerEmbedder, supportsLocalEmbedding } from "../infrastructure/worker-embedder";
 import { vectorStore } from "../infrastructure/vector-store";
 import { planEmbeddingStart, targetEmbeddingModel } from "../infrastructure/embedding-models";
 import { desktop } from "@/lib/desktop/desktop-bridge";
+import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
 import { onFolderConnected } from "@/features/workspace/application/workspace-folder";
 import { SEMANTIC_CHANGED_EVENT } from "./semantic-events";
 
@@ -81,20 +82,13 @@ export function semanticSupported(): boolean {
 }
 
 export function semanticEnabled(): boolean {
-  try {
-    return localStorage.getItem(ENABLED_KEY) === "1";
-  } catch {
-    return false;
-  }
+  return readStored(ENABLED_KEY) === "1";
 }
 
+/** Storage disabled: the session still works, it just will not persist. */
 function rememberPreference(on: boolean): void {
-  try {
-    if (on) localStorage.setItem(ENABLED_KEY, "1");
-    else localStorage.removeItem(ENABLED_KEY);
-  } catch {
-    /* storage disabled; the session still works, it just will not persist */
-  }
+  if (on) writeStored(ENABLED_KEY, "1");
+  else removeStored(ENABLED_KEY);
 }
 
 export interface EnableOptions {
@@ -114,7 +108,7 @@ export async function enableSemanticSearch(options: EnableOptions = {}): Promise
   if (building) return building;
   building = run(options)
     .catch((error: unknown) => {
-      setStatus({ phase: "error", message: error instanceof Error ? error.message : String(error) });
+      setStatus({ phase: "error", message: errorMessage(error) });
       throw error;
     })
     .finally(() => {
@@ -209,15 +203,15 @@ async function run(options: EnableOptions): Promise<void> {
     return;
   } else {
     setStatus({ phase: "embedding", done: 0, total: 0 });
-    const building = semantic;
-    await building.build(docs, {
+    const current = semantic;
+    await current.build(docs, {
       onProgress: (progress) => {
         setStatus({ phase: "embedding", done: progress.done, total: progress.total });
         options.onProgress?.(progress);
       },
       // Saved partway so a restart resumes through `sync` instead of starting over.
       onCheckpoint: (partial) => {
-        if (building !== semantic) return;
+        if (current !== semantic) return;
         void vectorStore().set(projectId, { ...partial, revision });
         rememberPreference(true);
       },

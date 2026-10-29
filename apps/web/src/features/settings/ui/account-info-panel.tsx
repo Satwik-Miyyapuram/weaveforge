@@ -8,6 +8,12 @@ import { useState } from "react";
 import { formatError } from "@/lib/format-error";
 import { useCapability } from "@/deployment/capabilities";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
+
+/** The web app, where labs and sharing are managed. A self-hosted build names its own. */
+const WEB_APP_URL = /^https?:\/\//.test(process.env.NEXT_PUBLIC_APP_URL ?? "")
+  ? process.env.NEXT_PUBLIC_APP_URL!
+  : "https://app.weaveforge.org";
 
 function shortId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}…` : id;
@@ -34,6 +40,7 @@ export function AccountInfoPanel() {
   const [passwordBusy, setPasswordBusy] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [idCopied, setIdCopied] = useState(false);
 
   if (!user) return null;
 
@@ -46,6 +53,16 @@ export function AccountInfoPanel() {
   const displayRole = resolveDisplayRole(profile?.role ?? "standalone", { inLab, ownsOrg });
   const labName = activeMembership?.orgName ?? null;
   const hasEmailPassword = user.providers.includes("email");
+
+  async function copyId() {
+    if (!user) return;
+    try {
+      await navigator.clipboard.writeText(user.id);
+      setIdCopied(true);
+    } catch {
+      setIdCopied(false);
+    }
+  }
 
   async function changePassword(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -74,10 +91,11 @@ export function AccountInfoPanel() {
   // is not standalone *within* anything — the concept is absent, and printing
   // "Standalone — no lab" invites the reader to go looking for the lab screen
   // that this copy does not have either.
-  const rows: { label: string; value: string }[] = [
+  const rows: { label: string; value: string; copy?: () => void }[] = [
     { label: "Name", value: profile?.fullName ?? "—" },
     { label: "Email", value: user.email ?? profile?.email ?? "—" },
-    { label: "Account ID", value: shortId(user.id) },
+    // Shown short, copied whole: support asks for the full ID (DA-136).
+    { label: "Account ID", value: shortId(user.id), copy: () => void copyId() },
     ...(hasOrgs
       ? [
           {
@@ -93,20 +111,29 @@ export function AccountInfoPanel() {
   ];
 
   return (
-    <div id="settings-account" className="card add-form account-info-panel settings-anchor" style={{ marginBottom: "24px" }}>
+    <div id="settings-account" className="add-form account-info-panel settings-anchor" style={{ marginBottom: "24px" }}>
       <h3 className="settings-group">Account</h3>
       <p className="muted" style={{ margin: "4px 0 0" }}>
         {user.providers.includes("local")
           ? "This copy is working on your computer, with no account. Sign in to add a lab, sharing and another device."
           : hasOrgs
             ? "Signed-in identity — useful when switching between test accounts."
-            : "You are signed in. Labs and sharing are managed from the web app."}
+            : <>You are signed in. Labs and sharing are managed from the <a href={WEB_APP_URL} target="_blank" rel="noreferrer">web app</a>.</>}
       </p>
       <dl className="account-info-grid">
-        {rows.map(({ label, value }) => (
+        {rows.map(({ label, value, copy }) => (
           <div key={label} className="account-info-row">
             <dt>{label}</dt>
-            <dd>{value}</dd>
+            <dd>
+              {value}
+              {copy && (
+                <span className="account-id-copy">
+                  <Button size="sm" aria-label="Copy Account ID" onClick={copy}>
+                    {idCopied ? "Copied" : "Copy"}
+                  </Button>
+                </span>
+              )}
+            </dd>
           </div>
         ))}
         {/* The password is a row like the others. It used to sit below the
@@ -116,9 +143,9 @@ export function AccountInfoPanel() {
           <div className="account-info-row">
             <dt>Password</dt>
             <dd>
-              <button type="button" className="btn-secondary btn-sm" onClick={() => { setPasswordError(null); setPasswordSuccess(false); setPasswordOpen(true); }}>
+              <Button size="sm" onClick={() => { setPasswordError(null); setPasswordSuccess(false); setPasswordOpen(true); }}>
                 Change password
-              </button>
+              </Button>
             </dd>
           </div>
         )}
@@ -132,8 +159,8 @@ export function AccountInfoPanel() {
             {passwordError && <FormError>{passwordError}</FormError>}
             {passwordSuccess && <p className="success">Your login password was changed.</p>}
             <div className="button-row">
-              <button type="submit" className="btn-primary" disabled={passwordBusy}>{passwordBusy ? "Saving…" : "Change password"}</button>
-              <button type="button" className="btn-secondary btn-cancel" onClick={() => setPasswordOpen(false)} disabled={passwordBusy}>Cancel</button>
+              <Button type="submit" variant="primary" disabled={passwordBusy}>{passwordBusy ? "Saving…" : "Change password"}</Button>
+              <Button variant="cancel" onClick={() => setPasswordOpen(false)} disabled={passwordBusy}>Cancel</Button>
             </div>
           </form>
         </Modal>

@@ -4,9 +4,7 @@ import { WriteQueue } from "./write-queue";
 /**
  * The handful of settings that belong to the shell rather than to the app.
  *
- * Two of them, and both are here for the same reason: the renderer cannot keep
- * them. `sync-offer-shown` has to survive a reinstall-over-upgrade, or the
- * one-time offer stops being one-time; `vault-git` decides whether the folder is
+ * They are here because the renderer cannot keep them: `vault-git` decides whether the folder is
  * committed to, and a setting that decides that has to be answered before the
  * first mirror run rather than after it; `sync-target` decides which server the
  * app talks to, which is a question that has to be answered before there is a
@@ -14,13 +12,12 @@ import { WriteQueue } from "./write-queue";
  *
  * Deliberately *not* encrypted, and deliberately not in `secret-store.ts`. That
  * store exists to keep a credential from being readable at rest; a boolean
- * about a dismissed card and a server address are not credentials, and sealing
+ * about a git mirror and a server address are not credentials, and sealing
  * them would buy nothing while implying the file holds something it does not.
  * Secrets go through the keychain; preferences go in a plain file beside it.
  */
 
 export const PREFERENCE_NAMES = [
-  "sync-offer-shown",
   "sync-target",
   "vault-root",
   "vault-git",
@@ -36,8 +33,12 @@ export type PreferenceValue = string | boolean | null;
 
 const UNKNOWN_NAME = "That is not something this app remembers.";
 const BAD_VALUE = "A preference is a string, a boolean, or nothing.";
+const UNREADABLE = "The preferences file could not be read just now, so nothing was changed.";
 
-/** The file, injected so the rules can be tested without a disk or an app. */
+/**
+ * The file, injected so the rules can be tested without a disk or an app.
+ * `read` answers `null` for no file and throws when there is one it cannot read.
+ */
 export interface PreferenceFile {
   read(): Promise<string | null>;
   write(contents: string): Promise<void>;
@@ -57,7 +58,7 @@ export class PreferenceStore {
 
   async read(name: unknown): Promise<IpcResult<PreferenceValue>> {
     if (!isName(name)) return { ok: false, message: UNKNOWN_NAME };
-    const all = await this.load();
+    const all = await this.load().catch(() => ({}) as Record<string, unknown>);
     const value = all[name];
     // An unreadable or unexpected value reads as absent rather than as an
     // error: a preference file someone has edited by hand should cost them the
@@ -69,7 +70,14 @@ export class PreferenceStore {
     if (!isName(name)) return { ok: false, message: UNKNOWN_NAME };
     if (!isValue(value)) return { ok: false, message: BAD_VALUE };
     return this.writes.run(async () => {
-      const all = await this.load();
+      // A file that is there but cannot be read right now (locked, busy) is
+      // not an empty one: writing back only this key would wipe the rest (38-01).
+      let all: Record<string, unknown>;
+      try {
+        all = await this.load();
+      } catch {
+        return { ok: false, message: UNREADABLE };
+      }
       if (value === null) delete all[name];
       else all[name] = value;
       await this.file.write(`${JSON.stringify(all, null, 2)}\n`);
@@ -77,7 +85,10 @@ export class PreferenceStore {
     });
   }
 
-  /** Everything on file, or nothing if there is no file or it is not readable. */
+  /**
+   * Everything on file, or nothing if there is no file or its contents are not
+   * preferences. A file that cannot be read at all throws.
+   */
   private async load(): Promise<Record<string, unknown>> {
     const contents = await this.file.read();
     if (!contents) return {};
@@ -103,17 +114,18 @@ function isValue(value: unknown): value is PreferenceValue {
  * The preferences the page may write over IPC. The rest are the shell's own
  * (`vault-root`, `local-api`, the plan widget's) and written only from this
  * side; `vault-root` in particular decides which folder the shell serves files
- * from, so a page that could set it could point the shell anywhere. Reads stay
- * open for every known name: none of them is a credential.
+ * from, so a page that could set it could point the shell anywhere. The page
+ * reads none of them. Mirrored by `DesktopPreferenceName` in the web bridge,
+ * and a test holds the two equal.
  */
-const PAGE_WRITABLE: readonly PreferenceName[] = ["sync-offer-shown", "vault-git"];
+export const PAGE_WRITABLE = ["vault-git"] as const satisfies readonly PreferenceName[];
+export type PageWritablePreference = (typeof PAGE_WRITABLE)[number];
 
-/** The preferences as the page sees them: reads as-is, writes behind the list. */
-export function pagePreferences(store: Pick<PreferenceStore, "read" | "write">) {
+/** The preferences as the page sees them: writes behind the list, no reads. */
+export function pagePreferences(store: Pick<PreferenceStore, "write">) {
   return {
-    read: (name: unknown): Promise<IpcResult<PreferenceValue>> => store.read(name),
     write: async (name: unknown, value: unknown): Promise<IpcResult<null>> =>
-      isName(name) && PAGE_WRITABLE.includes(name)
+      isName(name) && (PAGE_WRITABLE as readonly PreferenceName[]).includes(name)
         ? store.write(name, value)
         : { ok: false, message: UNKNOWN_NAME },
   };

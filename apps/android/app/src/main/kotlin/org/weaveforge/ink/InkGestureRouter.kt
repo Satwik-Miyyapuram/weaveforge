@@ -35,8 +35,6 @@ data class PointerSample(
     val major: Float,
     val minor: Float,
     val size: Float,
-    val x: Float,
-    val y: Float,
 )
 
 /** What one event means for the pointer stream. */
@@ -66,10 +64,6 @@ data class GestureEvent(
     val pointers: List<PointerSample>,
     /** Which pointer the phase is about, for `POINTER_DOWN` / `POINTER_UP`. */
     val actionIndex: Int,
-    val actionId: Int,
-    val touchMajor: Float,
-    val touchMinor: Float,
-    val size: Float,
 )
 
 /**
@@ -232,24 +226,19 @@ class InkGestureRouter {
 
         // Geometry first, so a palm is rejected the moment it is recognised.
         //
-        // Over *every* pointer in the event, not just the action's — a palm is
-        // frequently not the pointer an action names (a finger pan that a palm joins
-        // names the palm, but a palm that joins a finger names whichever moved or
-        // arrived), and reading one index was how a resting hand went unnoticed.
+        // Every pointer is judged on its own contact, on every phase. A palm is
+        // often not the pointer an action names, and on a MOVE Android's no-arg
+        // `getTouchMajor()` is pointer 0's, not an aggregate, so a heel that joins
+        // second and then spreads was missed (42-01). Judging only the single
+        // largest pointer was no better: a thin 300x50 edge contact outranked a
+        // real palm and then failed the test itself.
         //
-        // On a MOVE the event-level aggregate is the better source, because that is
-        // what Android computes across the whole event and `actionIndex` is
-        // meaningless there. `InkGestureView.flatten` fills both, so the router reads
-        // whichever the phase can answer.
-        val largest = event.pointers.maxByOrNull { maxOf(it.major, it.minor) }
-        val major = if (event.phase == GesturePhase.MOVE) event.touchMajor else (largest?.major ?: 0f)
-        val minor = if (event.phase == GesturePhase.MOVE) event.touchMinor else (largest?.minor ?: 0f)
-        val size = if (event.phase == GesturePhase.MOVE) event.size else (largest?.size ?: 0f)
         // Parenthesised deliberately: `a > X && b > X || c > Y` reads as
         // `(a > X && b > X) || (c > Y)`, which is what is meant, but only because of
         // precedence rather than because it is written down.
-        val palmShaped =
-            (major > PALM_MAJOR_PX && minor > PALM_MAJOR_PX) || size > PALM_SIZE
+        val palmShaped = event.pointers.any {
+            (it.major > PALM_MAJOR_PX && it.minor > PALM_MAJOR_PX) || it.size > PALM_SIZE
+        }
 
         if (palmShaped) {
             absorbed = true

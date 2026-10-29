@@ -21,6 +21,13 @@ import numpy as np  # noqa: E402
 ROOT = Path(__file__).resolve().parent
 DEFAULT_OUT = ROOT.parent / "apps" / "web" / "public" / "showcase"
 
+
+def shown(path: Path) -> Path:
+    """The path relative to the repo when it is inside it; as given otherwise."""
+    resolved = path.resolve()
+    return resolved.relative_to(ROOT.parent) if resolved.is_relative_to(ROOT.parent) else path
+
+
 PALETTE = {
     "ink": "#2c3e50",
     "accent": "#3b5b8c",
@@ -261,7 +268,7 @@ def main() -> None:
             raise SystemExit(f"Unknown chart: {name}")
         dest = out_dir / f"{name}.png"
         CHARTS[name](dest)
-        print(f"  {dest.relative_to(ROOT.parent)}")
+        print(f"  {shown(dest)}")
     print(f"Wrote {len(names)} chart(s) to {out_dir}")
 
 

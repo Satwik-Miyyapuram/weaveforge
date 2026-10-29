@@ -1,14 +1,17 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { LOG_KINDS, type LogEntry, type LogKind } from "@weaveforge/core";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { LOG_KINDS, type LabSnapshot, type LogEntry, type LogKind } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { ConfirmDialog } from "@/components/confirm-dialog";
+import { removeLater, useHiddenKeys } from "@/lib/toast";
 import { Modal } from "@/components/modal";
+import { ChevronLeftIcon, ChevronRightIcon } from "@/components/view-icons";
 import { ScreenLoading } from "@/components/screen-loading";
 import { AddLogEntryForm } from "./add-log-entry-form";
+import { collapseAlert } from "./collapse-alert";
 import { Select } from "@/components/select";
-import { Markdown } from "@/components/markdown/markdown";
+import { LogMarkdown } from "./log-markdown";
+import { logImageUpload } from "./log-image-upload";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
@@ -21,6 +24,10 @@ import { formatError } from "@/lib/format-error";
 import { ScreenHead } from "@/components/screen-head";
 import { FormError } from "@/components/form-error";
 import { statusLabel } from "@/components/status-select";
+import { bestEffort, removeLogEntry } from "../application/log-side-effects";
+import { Button, IconButton } from "@/components/button";
+import { RowButton } from "@/components/controls";
+import { PastCheckIns } from "./past-check-ins";
 
 /**
  * Logbook screen. Presentation + view-state only; all data access goes through
@@ -30,14 +37,32 @@ export function LogbookScreen() {
   const [addOpen, setAddOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [kind, setKind] = useState<LogKind | null>(null);
 
   const loadEntries = useCallback(() => getContainer().logbook.loadEntries(), []);
   const { data, loading, error, reload: load } = useScreenData("logbook", loadEntries);
   const entries = data ?? emptyArray<LogEntry>();
+  const [checkIns, setCheckIns] = useState<LabSnapshot[]>([]);
+  const [checkInsError, setCheckInsError] = useState<string | null>(null);
+  const loadCheckIns = useCallback(async () => {
+    try {
+      setCheckIns(await getContainer().org.listMyLabSnapshots());
+      setCheckInsError(null);
+    } catch (err) {
+      // Offline or signed out: keep what was shown, and say why it is empty.
+      setCheckInsError(formatError(err));
+    }
+  }, []);
+  useEffect(() => {
+    void loadCheckIns();
+  }, [loadCheckIns]);
   const match = useScreenSearch(search, "log");
   const days = useMemo(
-    () => groupByDay(match(entries, (e) => e.id, (e) => `${e.kind} ${e.body}`)),
-    [entries, match],
+    () =>
+      groupByDay(
+        match(kind ? entries.filter((e) => e.kind === kind) : entries, (e) => e.id, (e) => `${e.kind} ${e.body}`),
+      ),
+    [entries, kind, match],
   );
 
   if (loading) {
@@ -50,21 +75,21 @@ export function LogbookScreen() {
         eyebrow={logEyebrow(entries)}
         search={entries.length > 0 ? { value: search, onChange: setSearch, label: "Search the log" } : undefined}
       >
-        <button type="button" className="btn-secondary log-publish" onClick={() => setPublishOpen(true)}>
-          Publish snapshot
-        </button>
-        <button className="btn-primary" onClick={() => setAddOpen(true)}>New entry</button>
+        <span className="log-publish">
+          <Button onClick={() => setPublishOpen(true)}>Send check-in</Button>
+        </span>
+        <Button variant="primary" onClick={() => setAddOpen(true)}>New entry</Button>
       </ScreenHead>
 
       {addOpen && (
-        <Modal title="Add a log entry" onClose={() => setAddOpen(false)}>
+        <Modal title="New entry" onClose={() => setAddOpen(false)}>
           <AddLogEntryForm onAdded={() => { setAddOpen(false); void load(); }} />
         </Modal>
       )}
 
       {publishOpen && (
-        <Modal title="Publish lab snapshot" onClose={() => setPublishOpen(false)}>
-          <PublishLabSnapshotForm onPublished={() => setPublishOpen(false)} />
+        <Modal title="Send check-in" onClose={() => setPublishOpen(false)}>
+          <PublishLabSnapshotForm onPublished={() => { setPublishOpen(false); void loadCheckIns(); }} />
         </Modal>
       )}
 
@@ -76,9 +101,9 @@ export function LogbookScreen() {
           title="No log entries yet"
           body="The logbook is the part you will be glad of in month seven: what you tried today, and what it told you. One line is enough to start."
           action={
-            <button type="button" className="btn-primary" onClick={() => setAddOpen(true)}>
+            <Button variant="primary" onClick={() => setAddOpen(true)}>
               New entry
-            </button>
+            </Button>
           }
         />
       )}
@@ -87,7 +112,7 @@ export function LogbookScreen() {
         <EmptyState
           variant="no-results"
           body="No entries match."
-          action={<ClearFiltersButton onClear={() => setSearch("")} />}
+          action={<ClearFiltersButton onClear={() => { setSearch(""); setKind(null); }} />}
         />
       )}
       {entries.length > 0 && (
@@ -109,7 +134,8 @@ export function LogbookScreen() {
           </ol>
           <aside className="log-side" aria-label="Logbook overview">
             <LogCalendar entries={entries} />
-            <LogKinds entries={entries} />
+            <LogKinds entries={entries} active={kind} onPick={setKind} />
+            <PastCheckIns snapshots={checkIns} error={checkInsError} />
           </aside>
         </div>
       )}
@@ -161,25 +187,34 @@ function PublishLabSnapshotForm({ onPublished }: { onPublished: () => void }) {
         />
       </label>
       {error && <FormError>{error}</FormError>}
-      <button type="submit" className="btn-primary" disabled={busy || !title.trim()}>
-        {busy ? "Publishing…" : "Publish"}
-      </button>
+      <Button type="submit" variant="primary" disabled={busy || !title.trim()}>
+        {busy ? "Sending…" : "Send check-in"}
+      </Button>
     </form>
   );
 }
 
 function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void }) {
   const [editing, setEditing] = useState(false);
-  /** Whether the delete confirmation is up. */
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const hidden = useHiddenKeys().has(logKey(entry.id));
   const { headline, rest } = splitHeadline(entry.body);
+  const collapsed = collapseAlert(headline, rest);
+  const [expanded, setExpanded] = useState(false);
 
-  async function remove() {
-    setConfirmOpen(false);
-    await getContainer().logbook.addLogEntry.remove(entry.id);
-    try { await getContainer().logbook.removeLog(entry); } catch { /* git sync best-effort */ }
-    await onChanged();
+  // Rule D-07: the entry goes at once; the delete runs when the Undo toast closes.
+  function remove() {
+    removeLater({
+      key: logKey(entry.id),
+      message: "Log entry deleted",
+      remove: async () => {
+        const problem = await removeLogEntry(getContainer().logbook, entry);
+        if (problem) throw new Error(problem);
+      },
+      onDeleted: onChanged,
+    });
   }
+
+  if (hidden) return null;
 
   if (editing) {
     return (
@@ -216,28 +251,38 @@ function LogItem({ entry, onChanged }: { entry: LogEntry; onChanged: () => void 
         menu={
           <EntityCardMenu
             shareable={false}
+            name={headline}
             deleteLabel="Delete log entry"
-            onDelete={() => setConfirmOpen(true)}
+            onDelete={remove}
             extraItems={[{ id: "edit", label: "Edit", onSelect: () => setEditing(true) }]}
           />
         }
       >
-        {rest && <Markdown className="log-body">{rest}</Markdown>}
+        {collapsed && !expanded ? (
+          <>
+            <LogMarkdown className="log-body">{collapsed.shown}</LogMarkdown>
+            <Button variant="ghost" size="sm" aria-expanded={false} onClick={() => setExpanded(true)}>
+              Show {collapsed.hidden} more
+            </Button>
+          </>
+        ) : (
+          rest && <LogMarkdown className="log-body">{rest}</LogMarkdown>
+        )}
       </EntityCard>
-
-      {confirmOpen && (
-        <ConfirmDialog
-          title="Delete this log entry?"
-          body={`The entry from ${entry.entryDate} goes away. Its text is not kept.`}
-          confirmLabel="Delete entry"
-          danger
-          onConfirm={() => void remove()}
-          onClose={() => setConfirmOpen(false)}
-        />
-      )}
     </>
   );
 }
+
+/** The note editor's placeholder for a log entry (DA-102). */
+const LOG_PLACEHOLDER = "Today I… (markdown supported)";
+
+/** Names the editor by its label: a `<label for>` cannot point at CodeMirror's content. */
+const labelEditor = (labelId: string) => (view: { contentDOM: HTMLElement }) => {
+  view.contentDOM.setAttribute("aria-labelledby", labelId);
+};
+
+/** The key a log entry hides under while its Undo toast shows. */
+const logKey = (id: string) => `log:${id}`;
 
 function EditLogForm({
   entry,
@@ -252,7 +297,11 @@ function EditLogForm({
   const [kind, setKind] = useState<LogKind>(entry.kind);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const useCollab = getContainer().collab.enabled();
+  // The note editor's stack for this entry, with its images under its own id (S-16).
+  const markdownEditing = useMemo(
+    () => ({ placeholder: LOG_PLACEHOLDER, imagePaste: logImageUpload(entry.id, setError) }),
+    [entry.id],
+  );
 
   /**
    * Autosave from the collaborative editor. Deliberately does *not* call
@@ -264,7 +313,7 @@ function EditLogForm({
     setBody(nextBody);
     const logbook = getContainer().logbook;
     const updated = await logbook.addLogEntry.update(entry.id, { body: nextBody, kind });
-    try { await logbook.pushLog(updated); } catch { /* git sync best-effort */ }
+    await bestEffort("Git push", () => logbook.pushLog(updated));
   }
 
   async function submit(e: React.FormEvent) {
@@ -274,7 +323,7 @@ function EditLogForm({
     try {
       const logbook = getContainer().logbook;
       const updated = await logbook.addLogEntry.update(entry.id, { body, kind });
-      try { await logbook.pushLog(updated); } catch { /* git sync best-effort */ }
+      await bestEffort("Git push", () => logbook.pushLog(updated));
       await onSaved();
     } catch (err) {
       setError(formatError(err));
@@ -286,24 +335,16 @@ function EditLogForm({
   return (
     <form className="add-form" onSubmit={submit}>
       <div className="field">
-        <label htmlFor={`body-${entry.id}`}>What did you do?</label>
-        {useCollab ? (
-          <CollabBodyHost
-            resourceType="log_entry"
-            resourceId={entry.id}
-            initialBody={body}
-            onSave={saveBody}
-            className="vault-body-input vault-codemirror"
-          />
-        ) : (
-          <textarea
-            id={`body-${entry.id}`}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={3}
-            required
-          />
-        )}
+        <label id={`body-${entry.id}`}>Edit entry</label>
+        <CollabBodyHost
+          resourceType="log_entry"
+          resourceId={entry.id}
+          initialBody={body}
+          onSave={saveBody}
+          markdownEditing={markdownEditing}
+          editorClassName="log-body-editor"
+          onViewCreated={labelEditor(`body-${entry.id}`)}
+        />
       </div>
       <div className="field">
         <label htmlFor={`kind-${entry.id}`}>Kind</label>
@@ -314,17 +355,17 @@ function EditLogForm({
         </Select>
       </div>
       {error && <FormError>{error}</FormError>}
-      <div className="card-foot edit-actions">
-        <button type="button" className="btn-ghost btn-cancel" onClick={onCancel} disabled={busy}>
+      <div className="card-foot edit-actions log-edit-bar">
+        <Button variant="cancel" onClick={onCancel} disabled={busy}>
           Cancel
-        </button>
+        </Button>
         {/* In collab mode the body is already persisted by the editor's
             autosave, so this button is about leaving the form — but it still
             submits, because the Kind select is not collaborative and would
             otherwise have no way to be saved at all. */}
-        <button className="btn-primary" disabled={busy}>
-          {busy ? "Saving…" : useCollab ? "Done" : "Save"}
-        </button>
+        <Button type="submit" variant="primary" disabled={busy}>
+          {busy ? "Saving…" : "Done"}
+        </Button>
       </div>
     </form>
   );
@@ -441,9 +482,9 @@ function LogCalendar({ entries }: { entries: readonly LogEntry[] }) {
   return (
     <div className="card log-calendar">
       <div className="log-calendar-top">
-        <button type="button" className="entity-icon-btn" aria-label="Previous month" onClick={() => step(-1)}>‹</button>
+        <IconButton label="Previous month" onClick={() => step(-1)}><ChevronLeftIcon /></IconButton>
         <h2>{month.toLocaleDateString(undefined, isCurrent ? { month: "long" } : { month: "long", year: "numeric" })}</h2>
-        <button type="button" className="entity-icon-btn" aria-label="Next month" disabled={isCurrent} onClick={() => step(1)}>›</button>
+        <IconButton label="Next month" disabled={isCurrent} onClick={() => step(1)}><ChevronRightIcon /></IconButton>
       </div>
       <div className="log-calendar-grid" role="group" aria-label={`Days logged this month: ${loggedThisMonth}`}>
         {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
@@ -460,35 +501,47 @@ function LogCalendar({ entries }: { entries: readonly LogEntry[] }) {
           const kinds = new Set(dayEntries.map((e) => e.kind));
           const names = dayEntries.map((e) => `${statusLabel(e.kind)}: ${splitHeadline(e.body).headline}`);
           return (
-            <button
-              key={ymd}
-              type="button"
-              className={["log-calendar-day", "is-logged", kinds.size > 1 ? "is-mixed" : "", today ? "is-today" : ""].filter(Boolean).join(" ")}
-              data-status={kinds.has("weekly") && kinds.size === 1 ? "weekly" : "daily"}
-              title={names.join("\n")}
-              aria-label={`${ymd}: ${names.join(", ")}`}
-              onClick={() => jump(ymd)}
-            >
-              {d}
-              {dayEntries.length > 1 && <b className="log-calendar-count">{dayEntries.length}</b>}
-            </button>
+            <RowButton key={ymd} title={names.join("\n")} aria-label={`${ymd}: ${names.join(", ")}`} onClick={() => jump(ymd)}>
+              <span
+                className={["log-calendar-day", "is-logged", kinds.size > 1 ? "is-mixed" : "", today ? "is-today" : ""].filter(Boolean).join(" ")}
+                data-status={kinds.has("weekly") && kinds.size === 1 ? "weekly" : "daily"}
+              >
+                {d}
+                {dayEntries.length > 1 && <b className="log-calendar-count">{dayEntries.length}</b>}
+              </span>
+            </RowButton>
           );
         })}
       </div>
+      <ul className="log-calendar-legend">
+        <li><span className="log-calendar-swatch" data-status="daily" aria-hidden="true" />Daily</li>
+        <li><span className="log-calendar-swatch" data-status="weekly" aria-hidden="true" />Weekly</li>
+        <li><span className="log-calendar-swatch is-today" aria-hidden="true" />Today</li>
+      </ul>
     </div>
   );
 }
 
-/** How many entries of each kind. */
-function LogKinds({ entries }: { entries: readonly LogEntry[] }) {
+/** How many entries of each kind; picking one shows only that kind (DA-111). */
+function LogKinds({
+  entries,
+  active,
+  onPick,
+}: {
+  entries: readonly LogEntry[];
+  active: LogKind | null;
+  onPick: (kind: LogKind | null) => void;
+}) {
   return (
     <div className="card log-kinds">
       <h2>Kinds</h2>
       <ul>
-        {LOG_KINDS.map((kind) => (
-          <li key={kind}>
-            <span className={`status status-${kind}`}>{statusLabel(kind)}</span>
-            <span className="log-kinds-count">{entries.filter((e) => e.kind === kind).length}</span>
+        {LOG_KINDS.map((k) => (
+          <li key={k}>
+            <RowButton current={active === k} aria-pressed={active === k} onClick={() => onPick(active === k ? null : k)}>
+              <span className={`status status-${k}`}>{statusLabel(k)}</span>
+              <span className="log-kinds-count">{entries.filter((e) => e.kind === k).length}</span>
+            </RowButton>
           </li>
         ))}
       </ul>

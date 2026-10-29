@@ -2,11 +2,11 @@
 
 import { InlineError } from "@/components/form-error";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { PAPER_STATUSES, isInkNoteBody, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
+import { PAPER_STATUSES, isEmptyPaperSummary, isInkNoteBody, titleFromFileName, type Paper, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { confirmRemovePaper } from "./remove-paper";
-import { formatError } from "@/lib/format-error";
+import { removePaper } from "./remove-paper";
+import { describeRejection, formatError } from "@/lib/format-error";
+import { logToApp } from "@/lib/error-report/app-log";
 import { BellIcon, BellOffIcon, CommentsIcon, DeleteIcon, OpenIcon } from "@/components/view-icons";
 import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
 import {
@@ -43,6 +43,8 @@ import { PaperIdentifiersEditor } from "./paper-identifiers-editor";
 import { RelatedPapersPanel } from "./related-papers-panel";
 import { TagEditor } from "./tag-editor";
 import { Modal, ModalActions } from "@/components/modal";
+import { Button, IconButton, IconLink } from "@/components/button";
+import { RowButton } from "@/components/controls";
 
 /** A paper note's three views, in the order the Editor's pane header lists them. */
 const NOTE_MODES = ["edit", "read", "ink"] as const;
@@ -80,6 +82,7 @@ export function PaperNote({
   onBack,
   onReplace,
   onChanged,
+  onDeleted = onChanged,
 }: {
   paper: Paper;
   readOnly?: boolean;
@@ -88,6 +91,8 @@ export function PaperNote({
   onBack: () => void;
   onReplace: (p: Paper) => void;
   onChanged: () => void;
+  /** After the delete commits, when the Undo toast closes. Defaults to `onChanged`. */
+  onDeleted?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   // Read, Edit or Ink, as in the Editor's pane header. A paper's note opens read.
@@ -123,7 +128,7 @@ export function PaperNote({
       cancelled = true;
     };
   }, [paper.id]);
-  const hasSummary = !!paper.summary && paper.summary !== "No summary yet.";
+  const hasSummary = !isEmptyPaperSummary(paper.summary);
   const canTrackCitations = Boolean(paper.doi || paper.arxivId);
   const preview = usePaperPreview(paper.id);
   const remoteReaderHref = useMemo(() => {
@@ -167,12 +172,14 @@ export function PaperNote({
       setSaveError(null);
       try {
         const papers = getContainer().papers;
-        const body = await materializePaperBlobImages(nextBody, paper.id, (id, blob, ext) =>
+        const { body, uploadError } = await materializePaperBlobImages(nextBody, paper.id, (id, blob, ext) =>
           papers.uploadImage(id, blob, ext),
         );
         const saved = await papers.updatePaper.setSummary(paper.id, body);
         if (modeRef.current === "read" || closedRef.current) await reconcileTags(body, saved);
         else pendingTagsRef.current = body;
+        // The text is saved; a failed upload is still said out loud.
+        if (uploadError) throw uploadError;
       } catch (err) {
         setSaveError(formatError(err));
       }
@@ -190,7 +197,12 @@ export function PaperNote({
       closedRef.current = true;
       const pending = pendingTagsRef.current;
       pendingTagsRef.current = null;
-      if (pending !== null) void reconcileTagsRef.current(pending).catch(() => undefined);
+      if (pending !== null) {
+        // The page is gone, so there is nowhere to show the error: log it.
+        void reconcileTagsRef.current(pending).catch((err) =>
+          logToApp({ level: "warn", source: "tags", message: "Could not update the note's tags on close", detail: describeRejection(err) }),
+        );
+      }
     },
     [],
   );
@@ -236,7 +248,7 @@ export function PaperNote({
     setTemplateChoiceOpen(false);
   }
 
-  const remove = () => confirmRemovePaper(paper, setBusy, onChanged);
+  const remove = () => removePaper(paper, { onHidden: onBack, onDeleted });
 
   async function toggleCitationTracking() {
     if (!canTrackCitations || trackingCitations == null) return;
@@ -303,12 +315,12 @@ export function PaperNote({
           {!readOnly && (
             // Without an identifier this opens the editor that adds one, rather
             // than sitting disabled with nowhere to go.
-            <button
-              type="button"
-              className={`record-action${trackingCitations ? " is-on" : ""}`}
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-pressed={canTrackCitations ? trackingCitations ?? false : undefined}
               onClick={() => (canTrackCitations ? void toggleCitationTracking() : setEditingIds(true))}
               disabled={trackingCitations == null || trackingBusy}
-              aria-pressed={canTrackCitations ? trackingCitations ?? false : undefined}
               title={
                 !canTrackCitations
                   ? "Add a DOI or arXiv ID to track citations"
@@ -319,46 +331,34 @@ export function PaperNote({
             >
               {canTrackCitations ? <BellIcon /> : <BellOffIcon />}
               <span>{trackingCitations ? "Watching" : "Watch"}</span>
-            </button>
+            </Button>
           )}
           {!readOnly && (
-            <Link className="record-action" href={`${WORKSPACE_PATH}?open=${encodeURIComponent(`paper:${paper.id}`)}`}>
+            <Button variant="ghost" size="sm" href={`${WORKSPACE_PATH}?open=${encodeURIComponent(`paper:${paper.id}`)}`}>
               <OpenIcon />
               <span>Open in editor</span>
-            </Link>
+            </Button>
           )}
-          <button
-            type="button"
-            className="record-action"
-            onClick={() => void copyCitation()}
-            title={`Copy the citation (${citationFormat})`}
-          >
+          <Button variant="ghost" size="sm" onClick={() => void copyCitation()} title={`Copy the citation (${citationFormat})`}>
             <QuoteIcon />
             <span>{copied ? "Copied" : "Cite"}</span>
-          </button>
+          </Button>
           {readerHref && (
-            <Link href={readerHref} className="record-action" title="Open in reader">
+            <Button variant="ghost" size="sm" href={readerHref} title="Open in reader">
               <PdfIcon />
               <span>{!remoteReaderHref && preview.kind === "page" ? "Web page" : "PDF"}</span>
-            </Link>
+            </Button>
           )}
           {!readOnly && (
             <ShareButton resourceType="paper" resourceId={paper.id} title={`Share: ${paper.title}`} showLabel />
           )}
-          <a href="#record-comments" className="btn-ghost wf-tool" aria-label="Comment" title="Comment">
+          <IconLink label="Comment" href="#record-comments">
             <CommentsIcon />
-          </a>
+          </IconLink>
           {!readOnly && (
-            <button
-              type="button"
-              className="record-action danger"
-              onClick={() => void remove()}
-              disabled={busy}
-              aria-label="Delete paper"
-              title="Delete"
-            >
+            <IconButton size="sm" tone="danger" label="Delete paper" tip="Delete" onClick={() => void remove()} disabled={busy}>
               <DeleteIcon />
-            </button>
+            </IconButton>
           )}
         </div>
       </nav>
@@ -380,14 +380,14 @@ export function PaperNote({
             // and a paper with a wrong one needs it corrected.
             <p className="record-hint">
               {canTrackCitations ? null : "No DOI or arXiv ID yet, so citation alerts can’t watch this paper. "}
-              <button type="button" className="link-btn" onClick={() => setEditingIds(true)}>
+              <Button variant="ghost" size="sm" onClick={() => setEditingIds(true)}>
                 {canTrackCitations ? "Edit DOI / arXiv ID" : "Add one"}
-              </button>
+              </Button>
             </p>
           ))}
       </header>
 
-      <div className={mode === "edit" ? "record-grid record-grid--editing" : "record-grid"}>
+      <div className="record-grid">
         <div className="record-main">
           <RecordSection
             label="Note"
@@ -407,9 +407,9 @@ export function PaperNote({
               readOnly ? (
                 <RecordEmpty>No note on this paper.</RecordEmpty>
               ) : (
-                <button type="button" className="record-note-empty" onClick={() => chooseMode("edit")}>
-                  Write what this paper is for, in your own words. #hashtags place it in the graph.
-                </button>
+                <RowButton onClick={() => chooseMode("edit")}>
+                  <span className="record-note-empty">Write what this paper is for, in your own words. #hashtags place it in the graph.</span>
+                </RowButton>
               )
             ) : (
               <div
@@ -426,14 +426,14 @@ export function PaperNote({
                 {mode === "edit" && (
                   <div className="summary-editor-bar">
                     <CitationFormatSelect value={citationFormat} onChange={setCitationFormat} />
-                    <button
-                      type="button"
-                      className="link-btn"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={reRenderTemplate}
                       title="Refresh generated metadata; your edits are preserved"
                     >
-                      Re-render template
-                    </button>
+                      Refresh paper details
+                    </Button>
                     <AttachImageButton editor={editorHandle} onError={setSaveError} />
                   </div>
                 )}
@@ -546,20 +546,18 @@ export function PaperNote({
             from a clean template — the latter discards the draft you have now.
           </p>
           <ModalActions>
-            <button
-              type="button"
-              className="btn-secondary btn-cancel"
+            <Button variant="cancel"
               onClick={() => setTemplateChoiceOpen(false)}
               autoFocus
             >
               Cancel
-            </button>
-            <button type="button" className="btn-secondary danger" onClick={() => applyTemplate("")}>
+            </Button>
+            <Button variant="danger" onClick={() => applyTemplate("")}>
               Replace
-            </button>
-            <button type="button" className="btn-primary" onClick={() => applyTemplate(editorHandle.current?.text() ?? paper.summary ?? "")}>
+            </Button>
+            <Button variant="primary" onClick={() => applyTemplate(editorHandle.current?.text() ?? paper.summary ?? "")}>
               Append
-            </button>
+            </Button>
           </ModalActions>
         </Modal>
       ) : null}

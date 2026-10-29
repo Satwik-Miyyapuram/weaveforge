@@ -9,6 +9,9 @@ import { isSupervisorRole } from "@weaveforge/core";
 import type { DashboardLayout, DashboardCardType } from "@weaveforge/core";
 import { registerDashboardUiCacheClear } from "@/lib/cache/clear-session-caches";
 import { ScreenLoader } from "@/components/weaveforge-loader";
+import { EmptyState } from "@/components/empty-state";
+import { NavIcon } from "@/app/nav-icon";
+import { Button } from "@/components/button";
 
 import {
   appendCardPair,
@@ -17,7 +20,7 @@ import {
   defaultLayout,
   finalizeDashboardLayout,
   layoutCacheKey,
-  mergeSupervisorCardsIfMissing,
+  initialDashboardLayout,
   syncDashboardLayouts,
 } from "../application/dashboard-layout";
 import { DashboardGrid } from "./dashboard-grid";
@@ -26,7 +29,14 @@ import { CardPickerSheet } from "./card-picker-sheet";
 import { useDashboardStats } from "./use-dashboard-stats";
 import { FormError } from "@/components/form-error";
 import { ScreenHead } from "@/components/screen-head";
+import { showToast } from "@/lib/toast";
+import { studentsOf } from "@/features/org/application/students-of";
 
+// Kept beside the repository memo on purpose (xapi-11): this holds the
+// *finalized* layout (supervisor defaults applied) and is read synchronously,
+// so a remount paints at once. The repository memo is async and holds the raw
+// layout; without this the loader would flash on every visit. It always
+// revalidates through the repository, and sign-out clears it.
 const layoutCache = new Map<string, DashboardLayout>();
 registerDashboardUiCacheClear(() => layoutCache.clear());
 
@@ -34,10 +44,7 @@ export function DashboardScreen() {
   const { current: project } = useProject();
   const projectId = project?.id;
   const { profile, team, loading: profileLoading } = useProfile();
-  const supervisees = useMemo(
-    () => team.filter((m) => m.id !== profile?.id),
-    [team, profile],
-  );
+  const supervisees = useMemo(() => studentsOf(profile?.id, team), [team, profile]);
   const isSupervisor = isSupervisorRole(profile?.role) && supervisees.length > 0;
 
   const [layout, setLayout] = useState<DashboardLayout | null>(null);
@@ -99,9 +106,7 @@ export function DashboardScreen() {
       try {
         const stored = await getContainer().dashboard.getLayout(projectId);
         if (!active) return;
-        const base = stored ?? defaultLayout(supervisorLayout);
-        const merged = supervisorLayout ? mergeSupervisorCardsIfMissing(base) : base;
-        const finalized = finalizeDashboardLayout(merged);
+        const finalized = initialDashboardLayout(stored, supervisorLayout);
         // A layout saved before the current default can carry holes beside its
         // cards, which packing upward does not close.
         const next = { ...finalized, lg: closeLayoutGaps(finalized.lg) };
@@ -186,9 +191,11 @@ export function DashboardScreen() {
   );
 
   const handleReset = useCallback(() => {
+    const before = layout;
     markDirty();
     setLayout(finalizeDashboardLayout(defaultLayout(isSupervisor)));
-  }, [isSupervisor, markDirty]);
+    if (before) showToast("Layout reset", { label: "Undo", run: () => setLayout(before) });
+  }, [isSupervisor, layout, markDirty]);
 
   const handleDone = useCallback(() => {
     setEditing(false);
@@ -231,6 +238,9 @@ export function DashboardScreen() {
           onAdd={() => setPickerOpen(true)}
         />
       </ScreenHead>
+      {editing && (
+        <p className="muted dashboard-edit-hint">Drag a card to move it, drag its corner to resize, or remove it with ✕. Done saves.</p>
+      )}
 
       {layoutLoading && <ScreenLoader status="Loading dashboard…" compact />}
       {layoutError && <FormError>{layoutError}</FormError>}
@@ -241,7 +251,17 @@ export function DashboardScreen() {
       )}
 
       {!layoutLoading && syncLayouts && syncLayouts.lg.length === 0 && !editing && (
-        <p className="muted dashboard-empty">No cards yet. Tap customize to add widgets.</p>
+        <EmptyState
+          variant="first-run"
+          icon={<NavIcon name="home" />}
+          title="No cards yet"
+          body="Pick what this dashboard shows: papers to read, recent log entries, milestones and more."
+          action={
+            <Button variant="primary" onClick={() => setEditing(true)}>
+              Customize
+            </Button>
+          }
+        />
       )}
 
       {showGrid && syncLayouts && project && (

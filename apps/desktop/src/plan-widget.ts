@@ -1,5 +1,6 @@
-import { planWidgetData, type FeedMilestone, type PlanWidgetData } from "@weaveforge/core";
+import { errorMessage, planWidgetData, type FeedMilestone, type PlanWidgetData } from "@weaveforge/core";
 import { milestoneToDomain, type MilestoneRow } from "@/features/plan/infrastructure/milestone-rows";
+import type { IpcResult } from "./channels";
 
 /**
  * The plan widget's pure half: what it reads, how the rows become the widget's
@@ -28,6 +29,25 @@ where m.deleted_at is null
 `;
 
 export type PlanWidgetRow = MilestoneRow & { project_name: string | null };
+
+/**
+ * Turns the widget on or off. The choice is saved first and nothing changes on
+ * screen if it cannot be, so the app's toggle never shows a state the next
+ * launch would not keep. A throw from either step comes back as a refusal.
+ */
+export async function switchPlanWidget(
+  on: boolean,
+  io: { save(on: boolean): Promise<IpcResult<null>>; apply(on: boolean): Promise<void> },
+): Promise<IpcResult<null>> {
+  try {
+    const saved = await io.save(on);
+    if (!saved.ok) return saved;
+    await io.apply(on);
+    return { ok: true, value: null };
+  } catch (err) {
+    return { ok: false, message: `Could not turn the desktop widget ${on ? "on" : "off"}: ${errorMessage(err)}` };
+  }
+}
 
 /** How many deadlines the widget has room for. */
 export const PLAN_WIDGET_LIMIT = 6;
@@ -61,16 +81,50 @@ export const WIDGET_PALETTE_KEYS = [
   "soon",
   "soon-ink",
 ] as const;
-export type WidgetPalette = Record<(typeof WIDGET_PALETTE_KEYS)[number], string>;
 
-/** A palette from the app with every key a `#rrggbb` colour, or null. */
+/** A length in px, as getComputedStyle prints it, between `min` and `max`. */
+const px = (min: number, max: number) => (v: string) =>
+  /^\d{1,3}(\.\d+)?px$/.test(v) && parseFloat(v) >= min && parseFloat(v) <= max;
+/** A computed box-shadow: `none`, or rgb()/rgba() colours and px offsets only. */
+const shadow = (v: string) =>
+  v.length <= 300 && (v === "none" || /^(rgba?\([\d.,\s]+\)|-?\d+(\.\d+)?px|inset|,|\s)+$/.test(v));
+
+/**
+ * The theme's shape, by the CSS variable each one sets (design D-27): card and
+ * control corners, border width, card and control shadows, font and text sizes.
+ * Optional, so a palette saved before these crossed over still paints.
+ */
+const WIDGET_SHAPE: Record<string, (v: string) => boolean> = {
+  radius: px(0, 999),
+  "radius-sm": px(0, 999),
+  bw: px(0, 8),
+  sh: shadow,
+  "sh-sm": shadow,
+  font: (v) => v.length <= 300 && /^[\w\s,"'-]+$/.test(v),
+  fs: px(8, 32),
+  "fs-sm": px(8, 32),
+};
+
+export type WidgetPalette = Record<(typeof WIDGET_PALETTE_KEYS)[number], string> & Record<string, string>;
+
+/**
+ * A palette from the app with every colour key a `#rrggbb` colour and every
+ * shape key it carries plain CSS of its kind, or null.
+ */
 export function cleanWidgetPalette(value: unknown): WidgetPalette | null {
   if (!value || typeof value !== "object") return null;
-  const out: Partial<WidgetPalette> = {};
+  const input = value as Record<string, unknown>;
+  const out: Record<string, string> = {};
   for (const key of WIDGET_PALETTE_KEYS) {
-    const colour = (value as Record<string, unknown>)[key];
+    const colour = input[key];
     if (typeof colour !== "string" || !/^#[0-9a-f]{6}$/i.test(colour)) return null;
     out[key] = colour.toLowerCase();
+  }
+  for (const [key, ok] of Object.entries(WIDGET_SHAPE)) {
+    if (!(key in input)) continue;
+    const v = input[key];
+    if (typeof v !== "string" || !ok(v)) return null;
+    out[key] = v;
   }
   return out as WidgetPalette;
 }
@@ -230,4 +284,17 @@ export function parseTaskbarCreated(stdout: string): number | null {
  */
 export function powershellArgs(script: string): string[] {
   return ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")];
+}
+
+/**
+ * Calls made while one is running share it rather than starting another.
+ * Opening the widget awaits a preference read before it makes the window, so
+ * two opens in that gap made two windows (38-06).
+ */
+export function singleFlight(work: () => Promise<void>): () => Promise<void> {
+  let running: Promise<void> | null = null;
+  return () =>
+    (running ??= work().finally(() => {
+      running = null;
+    }));
 }

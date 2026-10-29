@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 import { getContainer } from "@/bootstrap";
+import { announceAiProposalsChanged } from "@/lib/ai-proposals-changed";
+import { showToast } from "@/lib/toast";
 import { useProject } from "@/features/projects";
 import {
   activeWorkspaceFs,
@@ -36,9 +38,14 @@ export function FolderDraftInbox() {
         projectId,
       )
         .then((count) => {
-          if (count > 0) window.dispatchEvent(new Event("ai-proposals-changed"));
+          if (count > 0) announceAiProposalsChanged(getContainer().aiProposals);
         })
-        .catch(() => undefined);
+        .catch(() => {
+          // Drafts tried before the refused one may have landed; the refused
+          // one was written back to the folder for the next pass.
+          announceAiProposalsChanged(getContainer().aiProposals);
+          showToast("An AI suggestion could not be queued. It stays in the folder for the next import.");
+        });
     };
     pull();
     const offConnected = onFolderConnected(pull);

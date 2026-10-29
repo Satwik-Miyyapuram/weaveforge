@@ -4,9 +4,10 @@ import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import type { IBlobStore } from "@weaveforge/core";
+import { BlobNotFoundError, type IBlobStore } from "@weaveforge/core";
 
-import { LocalFirstBlobStore } from "../local-first-blob-store";
+import { withAppLogs } from "@/lib/error-report/test/capture-app-logs";
+import { keepFlushing, LocalFirstBlobStore } from "../local-first-blob-store";
 import type { LocalQuery } from "../pglite-client";
 
 const MIGRATIONS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../../../../db/migrations-local");
@@ -129,5 +130,90 @@ describe("the local-first blob store", () => {
     assert.match(urls[0] ?? "", /^data:/);
     assert.equal(urls[1], null);
     assert.equal((await store.fetchBlobs("paper-images", ["u/p/a.png", "u/p/b.png"])).size, 1);
+  });
+
+  it("says a blob stored nowhere is not found, and an unreachable server is not", async () => {
+    await assert.rejects(store.fetchBytes("vault-assets", "u/n/ink/none.inkb"), BlobNotFoundError);
+    server.up = false;
+    await assert.rejects(store.fetchBytes("vault-assets", "u/n/ink/none.inkb"), (err: unknown) =>
+      err instanceof Error && !(err instanceof BlobNotFoundError) && /offline/.test(err.message));
+  });
+  it("keeps a queued upload when this computer's copy cannot be read (09-07)", async () => {
+    online = false;
+    await store.upload("paper-images", "u/p/a.png", png());
+    let readsFail = true;
+    const flaky: LocalQuery = async (sql, params) => {
+      if (readsFail && /from local_blobs/.test(sql)) throw new Error("disk busy");
+      return run(sql, params);
+    };
+    const s2 = new LocalFirstBlobStore(flaky, server, () => true);
+    await s2.flush();
+    assert.equal(await s2.pending(), 1);
+    assert.equal(server.stored.size, 0);
+    readsFail = false;
+    await s2.flush();
+    assert.equal(await s2.pending(), 0);
+    assert.equal(server.stored.size, 1);
+  });
+
+  it("drops a queued upload whose local copy is gone (09-07)", async () => {
+    online = false;
+    await store.upload("paper-images", "u/p/a.png", png());
+    await run("delete from local_blobs", []);
+    online = true;
+    await store.flush();
+    assert.equal(await store.pending(), 0);
+    assert.equal(server.stored.size, 0);
+  });
+
+  it("logs a server read it falls back from (09-16)", async () => {
+    server.up = false;
+    await withAppLogs(async (logs) => {
+      assert.deepEqual(await store.signedUrls("paper-images", ["u/p/x.png"], 60), [null]);
+      assert.equal((await store.fetchBlobs("paper-images", ["u/p/x.png"])).size, 0);
+      assert.equal(logs.length, 2);
+      for (const log of logs) {
+        assert.equal(log.level, "warn");
+        assert.match(log.detail ?? "", /paper-images.*offline/);
+      }
+    });
+  });
+
+  it("logs nothing when the server is not asked (09-16)", async () => {
+    await store.upload("paper-images", "u/p/a.png", png(), "image/png");
+    await withAppLogs(async (logs) => {
+      await store.signedUrls("paper-images", ["u/p/a.png"], 60);
+      await store.fetchBlobs("paper-images", ["u/p/a.png"]);
+      assert.equal(logs.length, 0);
+    });
+  });
+
+  it("logs a send loop that fails instead of dropping it (09-19)", async () => {
+    const broken = new LocalFirstBlobStore(async (sql, params) => {
+      if (sql.includes("order by queued_at")) throw new Error("database closed");
+      return run(sql, params);
+    }, server);
+    await withAppLogs(async (logs) => {
+      await broken.upload("paper-images", "u/p/a.png", png(), "image/png");
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.equal(logs.length, 1);
+      assert.match(logs[0]!.detail ?? "", /database closed/);
+    });
+  });
+
+  it("logs a timed retry that fails (09-19)", async () => {
+    const g = globalThis as { window?: unknown };
+    g.window = { addEventListener() {}, removeEventListener() {}, setInterval: () => 0, clearInterval() {} };
+    try {
+      const failing = { flush: () => Promise.reject(new Error("database closed")) } as unknown as LocalFirstBlobStore;
+      await withAppLogs(async (logs) => {
+        keepFlushing(failing)();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(logs.length, 1);
+        assert.match(logs[0]!.detail ?? "", /database closed/);
+      });
+    } finally {
+      delete g.window;
+    }
   });
 });

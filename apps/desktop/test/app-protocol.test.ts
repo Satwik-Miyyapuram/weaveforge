@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
-import { appHeaders, contentTypeFor, isPageRequest, resolveAppFile } from "../src/app-protocol";
+import {
+  appHeaders,
+  canonicalAppUrl,
+  contentTypeFor,
+  isPageRequest,
+  resolveAppFile,
+} from "../src/app-protocol";
 
 /**
  * The rules for turning an `app://` request into a file in the bundle.
@@ -131,7 +137,8 @@ test("connect-src allows cache:, which the model cache needs", () => {
  * file: "app://models/…/config.json"` — which names this app's own proxy, so it
  * sends you to the handler rather than to the policy. This is the second time
  * this exact scheme was forgotten: `apps/web/next.config.mjs` already carries it
- * with a comment saying so.
+ * with a comment saying so. (The weights are now asked for same-origin, because
+ * `app:` is not CORS-enabled; see `modelCacheUrl`.)
  */
 test("connect-src allows app:, because the weights live on their own host", () => {
   const policy = appHeaders("text/html; charset=utf-8")["content-security-policy"] ?? "";
@@ -146,4 +153,17 @@ test("a missed page is told apart from a missed asset", () => {
   assert.equal(isPageRequest("app://weaveforge/_next/static/gone.js"), false);
   assert.equal(isPageRequest("app://weaveforge/icons/missing.png"), false);
   assert.equal(isPageRequest("not a url"), false);
+});
+
+test("a path with doubled slashes is sent to its collapsed form (E01)", () => {
+  // `//` reads as a protocol-relative URL to the client router, which threw.
+  assert.equal(canonicalAppUrl("app://weaveforge//"), "app://weaveforge/");
+  assert.equal(canonicalAppUrl("app://weaveforge///notes//x/"), "app://weaveforge/notes/x/");
+  assert.equal(canonicalAppUrl("app://weaveforge//notes/?page=a//b#c//d"), "app://weaveforge/notes/?page=a//b#c//d");
+});
+
+test("a clean path, or no URL at all, needs no redirect", () => {
+  assert.equal(canonicalAppUrl("app://weaveforge/"), null);
+  assert.equal(canonicalAppUrl("app://weaveforge/notes/?page=a//b"), null);
+  assert.equal(canonicalAppUrl("not a url"), null);
 });

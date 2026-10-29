@@ -7,6 +7,7 @@ import { Select } from "@/components/select";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import type { DashboardStats } from "../../application/build-dashboard-stats";
 import type { SupervisionStats } from "../../application/build-supervision-stats";
+import { Button } from "@/components/button";
 
 export interface CardRenderProps {
   stats: DashboardStats;
@@ -22,6 +23,7 @@ function ProgressTile({
   total,
   pct,
   href,
+  label,
   short,
   animateProgress,
 }: {
@@ -29,6 +31,8 @@ function ProgressTile({
   total: number;
   pct: number;
   href: string;
+  /** Says what is counted, when "done / total" alone would not. */
+  label?: ReactNode;
   short?: boolean;
   animateProgress?: boolean;
 }) {
@@ -46,9 +50,7 @@ function ProgressTile({
   return (
     <Link href={href} className="dashboard-stat-link">
       <div className="dashboard-stat-row">
-        <span className="dashboard-stat-count">
-          {done} / {total}
-        </span>
+        <span className="dashboard-stat-count">{label ?? `${done} / ${total}`}</span>
         <strong className="dashboard-stat-pct">{pct}%</strong>
       </div>
       {!short && (
@@ -88,9 +90,9 @@ function AttentionList({
       ))}
       {hidden > 0 && (
         <li className="dashboard-list-more">
-          <button type="button" className="dashboard-list-more-btn" onClick={() => setAll(true)}>
+          <Button variant="link" onClick={() => setAll(true)}>
             Show all ({items.length})
-          </button>
+          </Button>
         </li>
       )}
     </ul>
@@ -99,63 +101,48 @@ function AttentionList({
 
 type CardRenderer = (props: CardRenderProps) => ReactNode;
 
+/** A progress tile for one of the stats' progress figures, linking to its page. */
+function progressRenderer(key: "reading" | "report" | "plan", href: string): CardRenderer {
+  return function ProgressCard({ stats, item, contentReady }) {
+    const { done, total, pct } = stats[key];
+    return (
+      <ProgressTile
+        done={done}
+        total={total}
+        pct={pct}
+        href={href}
+        short={item.h < 2}
+        animateProgress={contentReady}
+      />
+    );
+  };
+}
+
 /** OCP: new cards register one renderer entry + one CardDef. */
 const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
-  "reading-progress": ({ stats, item, contentReady }) => (
-    <ProgressTile
-      done={stats.reading.done}
-      total={stats.reading.total}
-      pct={stats.reading.pct}
-      href="/papers"
-      short={item.h < 2}
-      animateProgress={contentReady}
-    />
-  ),
-  "report-progress": ({ stats, item, contentReady }) => (
-    <ProgressTile
-      done={stats.report.done}
-      total={stats.report.total}
-      pct={stats.report.pct}
-      href="/report"
-      short={item.h < 2}
-      animateProgress={contentReady}
-    />
-  ),
-  "plan-progress": ({ stats, item, contentReady }) => (
-    <ProgressTile
-      done={stats.plan.done}
-      total={stats.plan.total}
-      pct={stats.plan.pct}
-      href="/plan"
-      short={item.h < 2}
-      animateProgress={contentReady}
-    />
-  ),
-  // The big number is the finished count, so it is named wherever it shows:
-  // on a one-row tile the caption is hidden, and "0 running … 3" read as
-  // three of something unsaid.
-  "experiments-summary": ({ stats, item }) => (
-    <Link
-      href="/experiments"
-      className="dashboard-stat-link"
-      aria-label={`${stats.experiments.done} of ${stats.experiments.total} experiments done, ${stats.experiments.running} running`}
-    >
-      <div className="dashboard-stat-row">
-        <span className="dashboard-stat-count">
-          {stats.experiments.running} running · {stats.experiments.total} total
-        </span>
-        <strong className="dashboard-stat-pct">
-          {stats.experiments.done}
-          {item.h < 2 ? " done" : ""}
-        </strong>
-      </div>
-      {item.h >= 2 && (
-        <span className="dashboard-stat-caption dashboard-stat-footer">
-          {stats.experiments.done === 1 ? "experiment done" : "experiments done"}
-        </span>
-      )}
-    </Link>
-  ),
+  "reading-progress": progressRenderer("reading", "/papers"),
+  "report-progress": progressRenderer("report", "/report"),
+  "plan-progress": progressRenderer("plan", "/plan"),
+  // Reads like the other progress cards, and names what it counts (DA-127).
+  "experiments-summary": ({ stats, item, contentReady }) => {
+    const { done, total, pct, running } = stats.experiments;
+    return (
+      <ProgressTile
+        done={done}
+        total={total}
+        pct={pct}
+        href="/experiments"
+        label={
+          <>
+            {`${done} of ${total} done`}
+            <span className="dashboard-stat-extra">{` · ${running} running`}</span>
+          </>
+        }
+        short={item.h < 2}
+        animateProgress={contentReady}
+      />
+    );
+  },
   "needs-attention": ({ stats, item }) =>
     stats.attention.length === 0 ? (
       <p className="muted dashboard-card-empty">Nothing needs attention.</p>
@@ -240,11 +227,12 @@ const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
     const member = supervisees.find((m) => m.id === memberId);
     const summary = supervision?.roster.find((r) => r.member.id === memberId);
     if (!member || !summary) {
-      return <p className="muted dashboard-card-empty">Select a supervisee.</p>;
+      return <p className="muted dashboard-card-empty">Select a student.</p>;
     }
+    const picker = supervisees.length > 1 && onSuperviseeConfig;
     return (
       <div className="dashboard-supervisee">
-        {supervisees.length > 1 && onSuperviseeConfig ? (
+        {picker ? (
           <div
             className="dashboard-supervisee-select-wrap"
             onMouseDown={(e) => e.stopPropagation()}
@@ -255,7 +243,7 @@ const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
               className="dashboard-supervisee-select"
               value={memberId}
               onChange={(e) => onSuperviseeConfig(e.target.value)}
-              aria-label="Select supervisee"
+              aria-label="Select student"
             >
               {supervisees.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -264,23 +252,18 @@ const CARD_RENDERERS: Record<DashboardCardType, CardRenderer> = {
               ))}
             </Select>
           </div>
-        ) : (
-          <p className="dashboard-supervisee-name">
-            {member.fullName || member.email}
+        ) : null}
+        {/* The whole card opens the student (the link's ::after covers it). */}
+        <Link href={`/supervision?member=${member.id}`} className="dashboard-stat-link dashboard-supervisee-link">
+          {picker ? null : (
+            <p className="dashboard-supervisee-name">{member.fullName || member.email}</p>
+          )}
+          <p className="dashboard-card-meta">
+            Milestones: {summary.milestonesDone}/{summary.milestonesTotal}
           </p>
-        )}
-        <p className="dashboard-card-meta">
-          Milestones: {summary.milestonesDone}/{summary.milestonesTotal}
-        </p>
-        {summary.lastLogDate && (
-          <p className="muted dashboard-supervisee-meta">Last log: {summary.lastLogDate}</p>
-        )}
-        <Link
-          href={`/supervision?member=${member.id}`}
-          className="link-btn dashboard-view-full"
-          onClick={(e) => e.stopPropagation()}
-        >
-          View full →
+          {summary.lastLogDate && (
+            <p className="muted dashboard-supervisee-meta">Last log: {summary.lastLogDate}</p>
+          )}
         </Link>
       </div>
     );

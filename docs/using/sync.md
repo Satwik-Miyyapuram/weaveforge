@@ -121,7 +121,7 @@ What is left is shown file by file, and settled the way git settles it:
   copy, take the folder's, or keep both — the last imports the folder's copy as a
   second note named `… (from folder)` and discards nothing.
 
-**Or settle it in your editor.** "Write conflict markers" puts both copies into
+**Or settle it in your editor.** "Mark both in the file" puts both copies into
 the file, marked:
 
 ```

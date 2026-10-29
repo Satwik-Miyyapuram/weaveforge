@@ -1,7 +1,9 @@
 "use client";
 
+import { enumLabel } from "@/lib/enum-label";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { clusterMarks, type PlanTimeline } from "@/features/plan/application/plan-timeline";
+import { RowButton } from "@/components/controls";
 
 /** A mark's width plus a little air, in px: nearer marks fold into one. */
 const MARK_SPAN = 26;
@@ -52,22 +54,18 @@ export function PlanTimelineBar({
         <em>Today</em>
       </span>
       {clusters.map((c) => {
-        const names = c.marks.map((m) => `${m.title} (${m.status.replace("_", " ")})`);
+        const names = c.marks.map((m) => `${m.title} (${enumLabel("milestoneStatus", m.status)})`);
         return (
-          <button
-            key={c.marks[0]!.id}
-            type="button"
-            className="plan-mark"
-            style={{ left: `${c.at}%` }}
-            title={names.join("\n")}
-            aria-label={`Go to ${names.join(", ")}`}
-            onClick={() => onJump(c.marks[0]!.id)}
-          >
-            {c.marks.map((m) => (
-              <span key={m.id} className={`plan-mark--${m.status}`} data-status={m.status} />
-            ))}
-            {c.marks.length > 1 && <b className="plan-mark-count">{c.marks.length}</b>}
-          </button>
+          <span key={c.marks[0]!.id} className="plan-mark-slot" style={{ left: `${c.at}%` }}>
+            <RowButton title={names.join("\n")} aria-label={`Go to ${names.join(", ")}`} onClick={() => onJump(c.marks[0]!.id)}>
+              <span className="plan-mark">
+                {c.marks.map((m) => (
+                  <span key={m.id} className={`plan-mark--${m.status}`} data-status={m.status} />
+                ))}
+                {c.marks.length > 1 && <b className="plan-mark-count">{c.marks.length}</b>}
+              </span>
+            </RowButton>
+          </span>
         );
       })}
       <div className="plan-months" aria-hidden>

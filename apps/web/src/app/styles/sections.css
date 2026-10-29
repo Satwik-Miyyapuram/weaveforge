@@ -2,8 +2,8 @@
 .section-tree.nested {
   position: relative;
   margin: 4px 0 0;
-  padding: 0 0 0 9px;
-  gap: 5px;
+  padding: 0 0 0 8px;
+  gap: 4px;
 }
 .section-tree.nested::before {
   content: "";
@@ -30,41 +30,42 @@
   background: var(--line);
   pointer-events: none;
 }
-.section-item { display: grid; gap: 4px; min-width: 0; padding: 10px 12px; }
+.section-item { display: grid; gap: 4px; min-width: 0; padding: 12px 12px; }
 .section-tree:not(.nested) > .section-node > .section-item,
 .section-tree:not(.nested) > .section-node > .entity-card { width: 100%; }
 /* Nested sections shed chrome with depth so the outline stays legible even a
    few levels in: lighter fill, tighter padding, no heavy card shadow. */
 .section-item--nested,
 .entity-card.entity-card--nested.section-item {
-  padding: 8px 10px;
+  padding: 8px 12px;
   background: color-mix(in srgb, var(--surface2) 40%, transparent);
   box-shadow: none;
 }
-.section-head-toggle { flex: none; margin-top: 0; align-self: flex-start; }
-/* Tree chevrons share --control-sm with .list-toggle (no 44px override). */
-.section-head-toggle.list-toggle {
-  width: var(--control-sm);
-  height: var(--control-sm);
-  border-radius: var(--control-radius-sm);
-  box-shadow: none;
-}
+/* The chevron's slot: a small icon button, top-aligned with the title. */
+.section-head-toggle { display: inline-flex; flex: none; margin-top: 0; align-self: flex-start; }
+/* A leaf in the tree keeps the chevron's width, so every title starts at one x. */
+.section-head-toggle-spacer { flex: none; width: var(--control-sm); height: var(--control-sm); }
+/* One width for every value, so the select never moves the title. */
+/* Wide enough for "Not started" in the widest theme face (CRT cut it at 8.25rem). */
+.section-item .entity-card-status :is(.status-select, .custom-select-container) { width: 9rem; min-width: 0; }
+/* Done reads as done: a check and a quieter title, the card kept at full strength. */
+.section-item--done .entity-card-title { color: var(--muted); }
+.section-done-check { color: var(--s-good); }
+.section-rename-input { width: 100%; min-width: 0; font: inherit; }
 .section-item .summary,
-.entity-card .summary { margin-top: 2px; font-size: 0.8rem; line-height: 1.4; }
+.entity-card .summary { margin-top: 2px; font-size: var(--fs-sm); line-height: 1.4; }
 .section-item .summary-empty,
-.entity-card .summary-empty { margin-top: 0; font-size: 0.78rem; }
-.section-item .summary-editor,
-.entity-card .summary-editor { margin-top: 4px; }
+.entity-card .summary-empty { margin-top: 0; font-size: var(--fs-xs); }
 /* Outline cards: render markdown, clamp to a few lines like paper snippets. */
 .section-note-md-preview {
   margin-top: 4px;
   max-height: 4.6em;
   overflow: hidden;
-  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+  mask-image: linear-gradient(to bottom, var(--black) 70%, transparent);
 }
 .section-note-md-preview .markdown {
   max-width: none;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   line-height: 1.4;
 }
 .section-note-md-preview .markdown p,
@@ -73,7 +74,7 @@
 .section-note-md-preview .markdown h4,
 .section-note-md-preview .markdown h5 {
   margin: 4px 0 2px;
-  font-size: 0.85rem;
+  font-size: var(--fs);
 }
 .section-note-md-preview .md-image { display: none; }
 
@@ -82,28 +83,24 @@
   flex: none;
   width: auto;
   min-width: 8.25rem;
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   text-transform: capitalize;
   /* 6px, matching the panel below, not the pill this was. At 999px the control
      was a lozenge 28px tall, and the control and the list it opens disagreed
      about what shape they were: the panel had already come down to 6px (see
      `forms.css`) while the thing you press to open it stayed fully round. One
      control, one corner — the same argument that fix was made on. */
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   cursor: pointer;
 }
 .status-select.custom-select-container { width: auto; }
-.status-select .custom-select-button {
-  padding: 6px 12px;
+.status-select .wf-select {
+  padding: 8px 12px;
   min-height: var(--control-md);
-  border-radius: 6px;
-  gap: 6px;
-  font-size: 0.78rem;
+  border-radius: var(--r-sm);
+  gap: 8px;
+  font-size: var(--fs-xs);
   line-height: 1.2;
-}
-.status-select .custom-select-button .chev svg {
-  width: 14px;
-  height: 14px;
 }
 /* Menu must outgrow a narrow trigger — otherwise "Skimmed" letter-ladders. */
 /* The menu carries its instance class (see Select), so these target it
@@ -115,32 +112,27 @@
   min-width: max(100%, 8.5rem);
   width: max-content;
 }
-.custom-select-menu.status-select .custom-select-item,
-.status-select .custom-select-item {
-  white-space: nowrap;
-  overflow-wrap: normal;
-}
 
 /* Markdown body */
-.markdown p { margin: 6px 0; }
+.markdown p { margin: 8px 0; }
 /* Section page head (PhoneSectionDetail mock): status and word progress, then
    one toolbar row with the primary action first and Share + ⋯ at the end. */
-.section-note-status { display: flex; flex-direction: column; gap: 8px; margin: 0 0 10px; min-width: 0; }
-.section-note-status-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; min-width: 0; }
-.section-note-meta { flex: 1; font-size: 0.85rem; overflow-wrap: anywhere; }
+.section-note-status { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; min-width: 0; }
+.section-note-status-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; min-width: 0; }
+.section-note-meta { flex: 1; font-size: var(--fs); overflow-wrap: anywhere; }
 .section-note-progress { height: 8px; }
 .section-note-toolbar { flex-wrap: nowrap; }
 .section-note-toolbar .card-foot-right { flex: 0 0 auto; margin-left: auto; flex-wrap: nowrap; }
 @media (max-width: 480px) {
   /* One row at 375px: Edit and Comments keep their words, Share and ⋯ are icons. */
-  .section-note-toolbar { gap: 6px; }
-  .section-note-toolbar .comments-trigger-detail { padding-inline: 10px; }
+  .section-note-toolbar { gap: 8px; }
+
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.section-note-progress, .section-item-progress) {
   background: var(--surface2);
   border: var(--bw) solid var(--bw-line);
 }
 :root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.section-note-progress, .section-item-progress) > span { background: var(--chip-read); }
-:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .section-note-meta { font-family: var(--font-mono); font-size: 0.76rem; }
+:root:is([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) .section-note-meta { font-family: var(--font); font-size: var(--fs-xs); }
 /* Words written against the target, per section (PhoneSections mock). */
-.section-item-progress { height: 6px; margin: 2px 0 6px; }
+.section-item-progress { height: 6px; margin: 2px 0 8px; }

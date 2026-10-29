@@ -11,14 +11,12 @@ import type {
 } from "@weaveforge/core";
 import type { IDashboardLayoutRepository, DashboardLayout } from "@weaveforge/core";
 import type { ISupervisionRepository } from "@weaveforge/core";
-import type { PrefetchProjectUseCase } from "@/application/prefetch-project.use-case";
 import { fetchSuperviseeMilestonesAndLogs } from "@/features/dashboard/application/fetch-supervisee-data";
 
 export class DashboardFacade {
   constructor(
     private readonly deps: {
       layout: IDashboardLayoutRepository;
-      prefetch: PrefetchProjectUseCase;
       projectId: () => string | null;
       papers: IPaperRepository;
       sections: IReportSectionRepository;
@@ -40,14 +38,9 @@ export class DashboardFacade {
     return this.deps.layout.save(projectId, layout);
   }
 
-  prefetch() {
-    return this.deps.prefetch.execute();
-  }
-
   statsPorts() {
     const supervision = this.deps.supervision;
     return {
-      prefetch: () => this.deps.prefetch.execute(),
       listPapers: () => this.deps.papers.list(),
       listSections: () => this.deps.sections.list(),
       listMilestones: () =>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiTokenService } from "@/features/settings/infrastructure/api-token-service";
 import { bearerToken } from "@/lib/bearer-token";
-import { formatError, jsonBodyError } from "@/lib/format-error";
+import { formatError, formatErrorForResponse, jsonBodyError } from "@/lib/format-error";
 
 function authError(message: string, status = 401) {
   return NextResponse.json({ error: message }, { status });
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   } catch (err) {
     const message = formatError(err);
     const status = message === "Invalid session." ? 401 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ error: status === 500 ? formatErrorForResponse(err, "api-tokens") : message }, { status });
   }
 }
 
@@ -31,6 +31,9 @@ export async function POST(request: Request) {
     body = (await request.json()) as { name?: string; expiresInDays?: number | null };
   } catch (err) {
     return NextResponse.json({ error: jsonBodyError(err) }, { status: 400 });
+  }
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "Expected a JSON object body." }, { status: 400 });
   }
 
   try {
@@ -45,7 +48,7 @@ export async function POST(request: Request) {
         : message === "Token name is required."
           ? 400
           : 500;
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ error: status === 500 ? formatErrorForResponse(err, "api-tokens") : message }, { status });
   }
 }
 
@@ -68,6 +71,6 @@ export async function DELETE(request: Request) {
         : message === "Token not found."
           ? 404
           : 500;
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ error: status === 500 ? formatErrorForResponse(err, "api-tokens") : message }, { status });
   }
 }

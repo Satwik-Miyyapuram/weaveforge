@@ -10,7 +10,9 @@
  */
 
 import { useEffect } from "react";
-import type { InkColour } from "@weaveforge/core";
+import { clampInkZoom, inkZoomIn, inkZoomOut, type InkColour } from "@weaveforge/core";
+
+import { isEditableTarget } from "@/lib/editable-target";
 
 import type { InkWorkerMessage } from "../application/capture-protocol";
 import type { InkBarTool } from "./ink-bar";
@@ -19,8 +21,9 @@ import type { InkBarTool } from "./ink-bar";
 export interface InkShortcutsDeps {
   /** Tell the worker something (undo, clear the selection). */
   send: (message: InkWorkerMessage) => void;
-  /** The late, coalesced save. */
-  scheduleSave: () => void;
+  /** Undo and redo, the same as the bar's (§use-ink-page-history). */
+  onUndo: () => void;
+  onRedo: () => void;
   /** Choose the tool. */
   setTool: (tool: InkBarTool | "shape") => void;
   /** Cursor mode: the pen points instead of inking. */
@@ -50,7 +53,8 @@ export interface InkShortcutsDeps {
 export function useInkShortcuts(deps: InkShortcutsDeps) {
   const {
     send,
-    scheduleSave,
+    onUndo,
+    onRedo,
     setTool,
     onCursor,
     onColourChange,
@@ -67,14 +71,12 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return;
+      if (isEditableTarget(event.target)) return;
       if (event.metaKey || event.ctrlKey) {
         const key = event.key.toLowerCase();
         if (key === "z") {
           event.preventDefault();
-          send({ type: event.shiftKey ? "redo" : "undo" });
-          scheduleSave();
+          (event.shiftKey ? onRedo : onUndo)();
         } else if (event.shiftKey && key === "r") {
           event.preventDefault();
           recognise();
@@ -89,10 +91,10 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
           onExportSvg();
         } else if (key === "+" || key === "=" || event.code === "Equal" || event.code === "NumpadAdd" || event.key === "Add") {
           event.preventDefault();
-          setZoom((value: number) => Math.min(4, Math.max(0.5, value * 1.25)));
+          setZoom(inkZoomIn);
         } else if (key === "-" || key === "_" || event.code === "Minus" || event.code === "NumpadSubtract" || event.key === "Subtract") {
           event.preventDefault();
-          setZoom((value: number) => Math.min(4, Math.max(0.5, value / 1.25)));
+          setZoom(inkZoomOut);
         } else if (key === "0" || event.code === "Digit0" || event.code === "Numpad0") {
           event.preventDefault();
           setZoom(() => 1);
@@ -157,7 +159,8 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     send,
-    scheduleSave,
+    onUndo,
+    onRedo,
     setTool,
     onCursor,
     onColourChange,
@@ -183,9 +186,7 @@ export function useInkShortcuts(deps: InkShortcutsDeps) {
       else if (event.deltaMode === 2) dy *= 100;
       dy = Math.max(-200, Math.min(200, dy));
       const factor = Math.exp(-dy * 0.002);
-      setZoom((value: number) =>
-        Math.min(4, Math.max(0.5, value * factor)),
-      );
+      setZoom((value: number) => clampInkZoom(value * factor));
     };
     element.addEventListener("wheel", onWheel, { passive: false });
     return () => element.removeEventListener("wheel", onWheel);

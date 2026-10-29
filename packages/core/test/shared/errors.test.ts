@@ -15,7 +15,6 @@ import assert from "node:assert/strict";
 import {
   AddLogEntryUseCase,
   AiBrowserPairingRequiredError,
-  AiQueryDeniedError,
   CitationAlertTrackError,
   CommentValidationError,
   ConflictError,
@@ -95,7 +94,6 @@ const TAXONOMY: readonly (readonly [string, new (message: string) => Error, unkn
   ["ShareValidationError", ShareValidationError, ValidationError],
   ["ProjectValidationError", ProjectValidationError, ValidationError],
   ["MemberPermissionError", MemberPermissionError, PermissionError],
-  ["AiQueryDeniedError", AiQueryDeniedError, PermissionError],
   ["LibraryPinError", LibraryPinError, PermissionError],
   ["MetadataResolutionError", MetadataResolutionError, WeaveForgeError],
 ];
@@ -104,8 +102,7 @@ test("every legacy error class keeps its name and gains a typed branch", () => {
   for (const [name, Ctor, branch] of TAXONOMY) {
     const error = new Ctor("nope");
     assert.equal(error.name, name, `${name} lost its name`);
-    // Some decorate the message (`AiQueryDeniedError` prefixes "AI query denied:");
-    // what matters is that the caller's text survives.
+    // Some decorate the message; what matters is that the caller's text survives.
     assert.ok(error.message.includes("nope"), `${name} lost its message`);
     assert.ok(error instanceof branch, `${name} is not a ${(branch as { name: string }).name}`);
     assert.ok(error instanceof WeaveForgeError, `${name} is not a WeaveForgeError`);

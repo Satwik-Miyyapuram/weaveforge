@@ -6,6 +6,9 @@ import { desktop } from "@/lib/desktop/desktop-bridge";
 import { FormError } from "@/components/form-error";
 import { LocalApiTokenCreate, LocalApiTokenTable, useLocalApiState } from "@/components/local-api-tokens";
 import { McpClients } from "./mcp-clients";
+import { copyText } from "@/lib/clipboard";
+import { Button } from "@/components/button";
+import { Switch } from "@/components/controls";
 
 /**
  * Settings → AI → MCP and the local HTTP surface, desktop only.
@@ -40,16 +43,18 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
   return (
     <div
       id={sdk ? "settings-tokens" : "settings-ai"}
-      className="card add-form settings-anchor"
+      className="add-form settings-anchor"
       role="tabpanel"
       aria-labelledby={sdk ? "settings-tab-tokens" : "settings-tab-ai"}
     >
       <h3 className="settings-group">{sdk ? "Access tokens on this computer" : "AI & MCP"}</h3>
       {sdk ? (
         <p className="muted">
-          Tokens for the Python SDK (Experiments), Obsidian-style Notes REST routes and MCP clients.
-          Each gets only the permissions you tick. They reach this app over HTTP on this computer
-          only, so it has to be running. A token is shown once; only its hash is kept.
+          A token lets a program on this computer use this app: a training script logging runs to
+          Experiments (<code>pip install weaveforge</code>, then set <code>WEAVEFORGE_PROJECT</code> to
+          the project&rsquo;s name), another notes app reading your Notes, or an AI client. Each token can
+          do only what you tick, and works only while WeaveForge is open. It is shown once, when you
+          make it, so copy it then.
         </p>
       ) : (
         <p className="muted">
@@ -58,34 +63,35 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
         </p>
       )}
       {error && <FormError>{error}</FormError>}
-      <label className="field-inline">
-        <input
-          type="checkbox"
-          className="themed-check"
+      <div className="integration-enable">
+        <span>
+          {sdk ? "Let programs on this computer connect" : "Serve MCP"}
+          <small className="muted mono"> {state.url}</small>
+        </span>
+        <Switch
           checked={state.enabled}
+          label={sdk ? "Let programs on this computer connect" : "Serve MCP"}
           disabled={busy}
-          onChange={(e) => void setEnabled(e.target.checked)}
+          onChange={(on) => void setEnabled(on)}
         />
-        {sdk ? "Serve the local API" : "Serve MCP"} at {state.url}
-      </label>
+      </div>
       {!sdk && state.mcp && <McpClients state={state} onChange={setState} />}
       {state.enabled && !(!sdk && state.mcp) && (
         <>
           {!sdk && (
             <div className="ai-connection-value">
               <span><small>MCP endpoint</small><code>{mcpUrl}</code></span>
-              <button
-                type="button"
-                className="btn-secondary"
+              <Button
                 onClick={() =>
-                  void navigator.clipboard.writeText(mcpUrl).then(() => {
+                  void copyText(mcpUrl).then((ok) => {
+                    if (!ok) return;
                     setCopied(true);
                     window.setTimeout(() => setCopied(false), 1200);
                   })
                 }
               >
                 {copied ? "Copied" : "Copy"}
-              </button>
+              </Button>
             </div>
           )}
           {sdk ? (
@@ -94,7 +100,7 @@ export function LocalApiPanel({ purpose = "mcp" }: { purpose?: "mcp" | "sdk" }) 
               <LocalApiTokenCreate state={state} onChange={setState} />
             </>
           ) : (
-            <small className="muted">Create and revoke tokens in Settings → Access tokens.</small>
+            <small className="muted">Create and revoke tokens on <a href="#settings-tokens">Access tokens</a>.</small>
           )}
         </>
       )}

@@ -5,6 +5,7 @@ import { type PaperSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
 
 type RelatedHit = {
   title: string;
@@ -74,9 +75,9 @@ export function RelatedPapersPanel({ paper, onChanged }: { paper: PaperSummary; 
 
   return (
     <div className="related-papers">
-      <button type="button" className="btn-secondary" disabled={busy} onClick={() => void findRelated()}>
+      <Button disabled={busy} onClick={() => void findRelated()}>
         {busy ? "Finding…" : "Find related papers"}
-      </button>
+      </Button>
       {open && (
         <div className="related-papers-panel">
           {error && <FormError>{error}</FormError>}
@@ -108,18 +109,18 @@ export function RelatedPapersPanel({ paper, onChanged }: { paper: PaperSummary; 
                 )}
                 <div className="related-paper-actions">
                   {h.url && (
-                    <a
-                      className="link-btn"
+                    <Button variant="link"
+                     
                       href={h.url}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
                       Open paper
-                    </a>
+                    </Button>
                   )}
-                  <button type="button" className="link-btn" disabled={busy} onClick={() => void addHit(h)}>
+                  <Button variant="ghost" size="sm" disabled={busy} onClick={() => void addHit(h)}>
                     Add to library
-                  </button>
+                  </Button>
                 </div>
               </li>
             ))}

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatRelative } from "@/lib/format-date";
 import { useCallback, useEffect, useState } from "react";
 import { getContainer } from "@/bootstrap";
 import { useProject } from "@/features/projects";
@@ -10,9 +11,10 @@ import { ScreenHead } from "@/components/screen-head";
 import { EmptyState } from "@/components/empty-state";
 import { useScreenSearch } from "@/lib/hooks/use-screen-search";
 import { NavIcon } from "@/app/nav-icon";
-import Link from "next/link";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { formatError } from "@/lib/format-error";
+import { Button } from "@/components/button";
+import { RowButton } from "@/components/controls";
 
 function repoWebUrl(i: Integration): string {
   const { repo } = gitConnection(i);
@@ -107,13 +109,15 @@ export function GitScreen() {
         eyebrow="Code for the experiments"
         search={integration ? { value: search, onChange: setSearch, label: "Search commits" } : undefined}
       >
-        <Link className="btn-secondary" href="/settings">
-          Settings
-        </Link>
         {integration && (
-          <button type="button" className="btn-primary" onClick={() => void load(branch)} disabled={loading}>
+          <Button href="/settings">
+            Settings
+          </Button>
+        )}
+        {integration && (
+          <Button variant="primary" onClick={() => void load(branch)} disabled={loading}>
             {loading ? "Syncing…" : "Sync now"}
-          </button>
+          </Button>
         )}
       </ScreenHead>
       {loading && !integration && <ScreenLoader status="Loading git history…" />}
@@ -124,9 +128,9 @@ export function GitScreen() {
           title="No repository connected"
           body="Connect the repository your project lives in and this screen lists its branches and commits — so the code behind a result stays a click away from the result."
           action={
-            <Link className="btn-primary" href="/settings">
+            <Button variant="primary" href="/settings">
               Open settings
-            </Link>
+            </Button>
           }
         />
       )}
@@ -171,9 +175,9 @@ export function GitScreen() {
                         {c.date ? ` · ${shortDate(c.date)}` : ""}
                       </span>
                     </div>
-                    <button type="button" className="btn-secondary btn-sm" onClick={() => void track(c)}>
+                    <Button size="sm" onClick={() => void track(c)}>
                       Track
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -184,28 +188,19 @@ export function GitScreen() {
               <ul className="git-branch-list">
                 {branches.map((b) => (
                   <li key={b.name}>
-                    <button
-                      type="button"
-                      className={b.name === branch ? "git-branch is-active" : "git-branch"}
-                      aria-pressed={b.name === branch}
-                      onClick={() => void load(b.name)}
-                      disabled={loading}
-                    >
+                    <RowButton current={b.name === branch} onClick={() => void load(b.name)} disabled={loading}>
                       <span className="git-branch-swatch" aria-hidden="true" />
                       <span className="git-branch-name">{b.name}</span>
                       {b.name === integration.branch && <span className="git-branch-note">default</span>}
-                    </button>
+                    </RowButton>
                   </li>
                 ))}
               </ul>
-              <button
-                type="button"
-                className="btn-primary track-branch-btn"
-                onClick={() => void trackBranch()}
-                disabled={loading || tracking || !branch}
-              >
-                {tracking ? "Tracking…" : `Track ${branch} as experiment`}
-              </button>
+              <span className="track-branch-btn">
+                <Button variant="primary" onClick={() => void trackBranch()} disabled={loading || tracking || !branch}>
+                  {tracking ? "Tracking…" : `Track ${branch} as experiment`}
+                </Button>
+              </span>
               <p className="muted git-branches-note">A tracked branch shows up as an experiment, with its runs.</p>
             </aside>
           </div>
@@ -215,8 +210,7 @@ export function GitScreen() {
   );
 }
 
-/** A commit's day as the list shows it, e.g. "20 Sep". */
+/** A commit's time as the list shows it: "2h ago", or "20 Sep 2026" past a week. */
 function shortDate(iso: string): string {
-  const at = new Date(iso);
-  return Number.isNaN(at.getTime()) ? iso.slice(0, 10) : at.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  return formatRelative(iso) || iso.slice(0, 10);
 }

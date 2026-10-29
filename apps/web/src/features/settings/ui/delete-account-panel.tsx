@@ -6,6 +6,8 @@ import { Modal } from "@/components/modal";
 import { FormError } from "@/components/form-error";
 import { formatError } from "@/lib/format-error";
 import { authHeaders } from "@/lib/auth-headers";
+import { clearStoredAppearance } from "@/lib/theme/theme";
+import { Button } from "@/components/button";
 
 const CONFIRMATION = "DELETE_USER";
 
@@ -61,14 +63,7 @@ export function DeleteAccountPanel() {
       const payload = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(payload.error ?? "Deletion failed.");
 
-      try {
-        localStorage.removeItem("thesis.theme.light");
-        localStorage.removeItem("thesis.theme.dark");
-        localStorage.removeItem("thesis.mode");
-        localStorage.removeItem("thesis.controlSize");
-      } catch {
-        /* ignore */
-      }
+      clearStoredAppearance();
 
       await signOut();
       window.location.href = "/";
@@ -80,22 +75,22 @@ export function DeleteAccountPanel() {
   }
 
   return (
-    <div className="card add-form delete-account-panel">
+    <div className="add-form delete-account-panel">
       <h3 className="settings-group">Delete account</h3>
       <p className="muted">
         Permanently delete your account and all associated data (papers, experiments, images,
         settings). We email a one-time code to confirm it is you. This cannot be undone.
       </p>
-      <button
-        type="button"
-        className="link-btn danger"
+      <Button variant="danger"
+       
+        size="sm"
         onClick={() => {
           resetModal();
           setOpen(true);
         }}
       >
         Delete my account…
-      </button>
+      </Button>
 
       {open && (
         <Modal
@@ -112,14 +107,12 @@ export function DeleteAccountPanel() {
           </p>
 
           <div className="field">
-            <button
-              type="button"
-              className="btn-secondary"
+            <Button
               disabled={busy || sendingOtp}
               onClick={() => void sendOtp()}
             >
               {sendingOtp ? "Sending…" : otpSent ? "Resend code" : "Email me a confirmation code"}
-            </button>
+            </Button>
             {otpSent && emailHint && (
               <p className="muted" style={{ marginBottom: 0 }}>
                 Code sent to {emailHint}. Enter the 6-digit code (or paste the confirmation link).
@@ -156,15 +149,14 @@ export function DeleteAccountPanel() {
           </div>
 
           {error && <FormError>{error}</FormError>}
-          <button
-            type="button"
-            className="btn-primary"
+          <Button
+            variant="primary"
             style={{ background: "var(--danger)", borderColor: "var(--danger)" }}
             disabled={busy || sendingOtp || confirmation !== CONFIRMATION || !otp.trim()}
             onClick={() => void handleDelete()}
           >
             {busy ? "Deleting…" : "Delete my account permanently"}
-          </button>
+          </Button>
         </Modal>
       )}
     </div>

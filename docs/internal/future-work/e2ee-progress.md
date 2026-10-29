@@ -68,7 +68,7 @@ node scripts/seed-test-users.mjs
 ### Done
 
 - Generic `CollabBodyHost` + `CollaborativeMarkdownEditor` (vault, report, logbook)
-- `EncryptedYjsProvider` + Realtime + `crdt_updates` persistence
+- `RealtimeYjsProvider` + Realtime + `crdt_updates` persistence
 - **Yjs awareness** / presence strip in editor
 - **Snapshot compaction** via `snapshot_upto` + `CompactCrdtLogUseCase` (on editor close)
 - **Revoke → clear CRDT log** under new DEK epoch
@@ -155,7 +155,7 @@ Reset: `node scripts/delete-test-users.mjs && node scripts/seed-test-users.mjs`
 | Bootstrap | `apps/web/src/bootstrap.ts` |
 | Entity encryptor | `packages/core/src/features/crypto/application/entity-encryptor.ts` |
 | Blanket share | `packages/core/src/features/crypto/application/grant-blanket-key-access.use-case.ts` |
-| CRDT provider | `apps/web/src/features/collab/infrastructure/encrypted-yjs-provider.ts` |
+| CRDT provider | `apps/web/src/features/collab/infrastructure/realtime-yjs-provider.ts` |
 | LWW invalidation | `apps/web/src/lib/cache/project-lww-invalidator.ts` |
 | Share dialog | `apps/web/src/features/sharing/ui/share-dialog.tsx` |
 | Link share plan | removed from the repository |

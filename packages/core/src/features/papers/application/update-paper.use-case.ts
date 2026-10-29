@@ -45,9 +45,7 @@ export class UpdatePaperUseCase {
     return this.mutate(id, (p) => ({ ...p, title: trimmed }));
   }
 
-  /** Reader-authored summary; capped by word count to keep it an abstract, not a doc. */
-  static readonly SUMMARY_MAX_WORDS = 250;
-
+  /** Reader-authored summary. */
   async setSummary(id: string, summary: string): Promise<Paper> {
     const trimmed = summary.trim();
     return this.mutate(id, (p) => ({ ...p, summary: trimmed || undefined }));
@@ -77,7 +75,6 @@ export class UpdatePaperUseCase {
     return this.mutate(id, (p) => ({ ...p, doi, arxivId }));
   }
 
-  /** Replace the paper's tags (normalized). */
   /**
    * Remember where this paper's PDF came from.
    *
@@ -101,18 +98,9 @@ export class UpdatePaperUseCase {
     });
   }
 
-  async setTags(id: string, tags: string[]): Promise<Paper> {
-    return this.deps.tags.setManualTags(id, tags);
-  }
-
   /** Union the given tags into the paper's existing tags (idempotent). */
   async mergeTags(id: string, tags: string[], source: TagSource = "manual"): Promise<Paper> {
     return this.deps.tags.mergeTags(id, tags, source);
-  }
-
-  /** Remove a manually added tag; does not unlink Zotero/annotation sources. */
-  async removeManualTag(id: string, tagName: string): Promise<Paper> {
-    return this.deps.tags.removeManualTag(id, tagName);
   }
 
   /** Record an uploaded image's storage path on the paper. */
@@ -153,12 +141,6 @@ export class UpdatePaperUseCase {
     await this.deps.repository.save(updated);
     return updated;
   }
-}
-
-/** Word count used for the summary cap (shared with the UI's live counter). */
-export function countWords(text: string): number {
-  const t = text.trim();
-  return t ? t.split(/\s+/).length : 0;
 }
 
 /** Storage paths of a paper's attached images (kept in metadata.images). */

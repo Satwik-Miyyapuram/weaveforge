@@ -21,7 +21,10 @@ def _cmd_list(args: argparse.Namespace) -> int:
     from .container import connect
 
     c = connect(project=args.project)
-    rows = c.experiments.list()
+    try:
+        rows = c.experiments.list()
+    finally:
+        c.api.close()
     if not rows:
         print("No experiments.")
         return 0

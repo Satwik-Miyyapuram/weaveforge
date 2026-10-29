@@ -33,7 +33,7 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       if ((e.target as Element | null)?.closest?.("a[href]")) perfNavStart(location.pathname);
-      const link = (e.target as Element | null)?.closest?.<HTMLAnchorElement>("a.nav-link, a.sub-tab");
+      const link = (e.target as Element | null)?.closest?.<HTMLAnchorElement>("a.wf-nav");
       if (!link || !isPlainClick(e) || !canTransition()) return;
       const url = new URL(link.href, location.href);
       if (url.origin !== location.origin || url.pathname === location.pathname) return;

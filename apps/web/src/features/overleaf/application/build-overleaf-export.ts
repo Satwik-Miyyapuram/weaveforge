@@ -4,11 +4,11 @@ import {
   formatCitation,
   formatPaperCitation,
   markdownToLatex,
-  normalizeTitleKey,
   resolveCiteKey,
-  uniqueCiteKey,
+  uniqueFigureName,
 } from "@weaveforge/core";
 import type { CitationFormat } from "@weaveforge/core";
+import { buildCiteByTitle, collectCitedKeys, paperToBibtex } from "./bibtex-export";
 
 export interface OverleafExportOptions {
   /** Document title for `\title{}`. */
@@ -35,7 +35,7 @@ interface OverleafExportFile {
 }
 
 /** Binary figure to fetch from report-images and place under `figures/`. */
-interface OverleafExportImage {
+export interface OverleafExportImage {
   /** Storage path after `reportimg:` (ownerId/sectionId/file). */
   storagePath: string;
   /** Relative ZIP path, e.g. `figures/uuid.webp`. */
@@ -61,157 +61,43 @@ const SECTION_CMD = ["chapter", "section", "subsection", "subsubsection"] as con
  * answers this export writes. Re-exported here so callers that already import
  * them from the export keep working.
  */
-export { formatCitation, formatPaperCitation, resolveCiteKey };
+export { collectCitedKeys, formatCitation, formatPaperCitation, resolveCiteKey };
 export type { CitationFormat };
 
-/** Build title→cite-key map used by markdown→LaTeX wikilink conversion. */
-function buildCiteByTitle(
-  papers: readonly Paper[],
-): { citeByTitle: Map<string, string>; keyByPaperId: Map<string, string> } {
-  const used = new Set<string>();
-  const citeByTitle = new Map<string, string>();
-  const keyByPaperId = new Map<string, string>();
-  for (const p of papers) {
-    const key = uniqueCiteKey(p, used);
-    keyByPaperId.set(p.id, key);
-    const titleKey = normalizeTitleKey(p.title);
-    if (titleKey && !citeByTitle.has(titleKey)) citeByTitle.set(titleKey, key);
+/** Throw unless `path` is a plain relative ZIP entry name: no `..`, no leading `/`, no `\`. */
+export function assertSafeExportPath(path: string): void {
+  if (path.includes("..") || path.startsWith("/") || path.includes("\\")) {
+    throw new Error(`Refusing unsafe export path: ${path}`);
   }
-  return { citeByTitle, keyByPaperId };
 }
 
 /**
- * Escape a value for a braced BibTeX field.
- *
- * Unescaped `&`, `%`, `#`, `_` and `$` are the usual cause of an Overleaf build
- * failing on a bibliography rather than on the document — a paper titled
- * "Cost & Benefit" or "100% Recall" is enough to break the run.
- *
- * Braces are deliberately left alone when balanced: Zotero and Better BibTeX
- * emit `{BERT}` to protect capitalisation, and escaping that would corrupt the
- * rendered entry. Unbalanced braces cannot be parsed by biber, so those are
- * escaped instead.
+ * The export's files with `manifest.json` rewritten for figures whose blobs
+ * could not be loaded: they leave `files`, are listed under `missingFigures`
+ * and get a warning each. With none missing, `files` is returned as is.
  */
-function escapeBibField(value: string): string {
-  let depth = 0;
-  let balanced = true;
-  for (const ch of value) {
-    if (ch === "{") depth++;
-    else if (ch === "}" && --depth < 0) {
-      balanced = false;
-      break;
-    }
-  }
-  if (depth !== 0) balanced = false;
-
-  let out = "";
-  for (const ch of value) {
-    switch (ch) {
-      case "\\":
-        out += "\\textbackslash{}";
-        break;
-      case "~":
-        out += "\\textasciitilde{}";
-        break;
-      case "^":
-        out += "\\textasciicircum{}";
-        break;
-      case "&":
-      case "%":
-      case "#":
-      case "_":
-      case "$":
-        out += `\\${ch}`;
-        break;
-      case "{":
-      case "}":
-        out += balanced ? ch : `\\${ch}`;
-        break;
-      default:
-        out += ch;
-    }
-  }
-  return out;
+export function withMissingFigures(
+  files: readonly OverleafExportFile[],
+  missing: readonly OverleafExportImage[],
+): readonly OverleafExportFile[] {
+  if (missing.length === 0) return files;
+  const gone = new Set(missing.map((m) => m.zipPath));
+  return files.map((f) => {
+    if (f.path !== "manifest.json") return f;
+    const manifest = JSON.parse(f.contents) as { files: string[]; warnings: string[] };
+    const next = {
+      ...manifest,
+      files: manifest.files.filter((p) => !gone.has(p)),
+      missingFigures: [...gone],
+      warnings: [...manifest.warnings, ...missing.map((m) => missingFigureWarning(m))],
+    };
+    return { ...f, contents: JSON.stringify(next, null, 2) + "\n" };
+  });
 }
 
-/** `\cite{a,b}` — biblatex accepts a comma-separated key list in one command. */
-const CITE_RE = /\\cite\{([^}]*)\}/g;
-
-/**
- * Cite keys actually referenced by the generated body. Read back off the LaTeX
- * rather than tracked during the walk, so it stays correct however a citation
- * came to be emitted.
- */
-export function collectCitedKeys(latex: string): Set<string> {
-  const keys = new Set<string>();
-  for (const match of latex.matchAll(CITE_RE)) {
-    for (const raw of (match[1] ?? "").split(",")) {
-      const key = raw.trim();
-      if (key) keys.add(key);
-    }
-  }
-  return keys;
-}
-
-/** Venues that mean a proceedings entry rather than a journal one. */
-const PROCEEDINGS_RE =
-  /\b(proceedings|conference|conf\.?|workshop|symposium|congress|meeting)\b|\b(neurips|nips|icml|iclr|cvpr|iccv|eccv|aaai|ijcai|acl|emnlp|naacl|coling|sigir|kdd|www|chi|uist|siggraph|interspeech|icassp|miccai)\b/i;
-
-/**
- * Choose the entry type. Getting this wrong is the other common source of
- * Overleaf warnings: an `@article` with no `journal` makes biber complain about
- * a missing journaltitle, and conference papers filed as `@article` lose their
- * venue entirely because biblatex ignores `booktitle` on an article.
- */
-function bibEntryShape(paper: Paper): { type: string; venueField: string | null } {
-  const venue = paper.venue?.trim();
-  if (venue && PROCEEDINGS_RE.test(venue)) return { type: "inproceedings", venueField: "booktitle" };
-  if (venue) return { type: "article", venueField: "journal" };
-  // No venue: a preprint or something unpublished. `@misc` is the honest type
-  // and, unlike `@article`, does not warn about the missing journal.
-  return { type: "misc", venueField: null };
-}
-
-function paperToBibtex(paper: Paper, key: string): string {
-  if (paper.bibtex?.trim()) {
-    // Ensure the entry uses our stable key when possible.
-    return paper.bibtex.replace(/@(\w+)\{[^,]+,/, `@$1{${key},`);
-  }
-  const authors = paper.authors.length ? paper.authors.join(" and ") : "Unknown";
-  const { type, venueField } = bibEntryShape(paper);
-  const venue = paper.venue?.trim();
-  const arxivId = paper.arxivId?.trim().replace(/^arxiv:/i, "");
-  // `url` and `doi` are verbatim fields in biblatex — escaping them would break
-  // the link. They are trimmed and otherwise passed through untouched.
-  const url = paper.url?.trim() || (arxivId ? `https://arxiv.org/abs/${arxivId}` : "");
-
-  const fields = [
-    `  title = {${escapeBibField(paper.title)}}`,
-    `  author = {${escapeBibField(authors)}}`,
-    paper.year != null ? `  year = {${paper.year}}` : null,
-    venue && venueField ? `  ${venueField} = {${escapeBibField(venue)}}` : null,
-    paper.doi?.trim() ? `  doi = {${paper.doi.trim()}}` : null,
-    url ? `  url = {${url}}` : null,
-    // biblatex renders arXiv identifiers properly only with all three.
-    arxivId ? `  eprint = {${arxivId}}` : null,
-    arxivId ? "  eprinttype = {arxiv}" : null,
-    arxivId ? "  archivePrefix = {arXiv}" : null,
-    type === "misc" && !venue ? "  howpublished = {Preprint}" : null,
-  ].filter(Boolean);
-  return `@${type}{${key},\n${fields.join(",\n")}\n}`;
-}
-
-function uniqueFigureName(raw: string, used: Set<string>): string {
-  const safe = raw.replace(/[^A-Za-z0-9._-]+/g, "_") || "figure.bin";
-  let name = safe;
-  let n = 2;
-  while (used.has(name)) {
-    const dot = safe.lastIndexOf(".");
-    name = dot > 0 ? `${safe.slice(0, dot)}_${n}${safe.slice(dot)}` : `${safe}_${n}`;
-    n += 1;
-  }
-  used.add(name);
-  return name;
+/** The warning for a figure whose blob could not be loaded. */
+export function missingFigureWarning(img: OverleafExportImage): string {
+  return `Missing figure: ${img.zipPath} (could not load ${img.storagePath})`;
 }
 
 function walkSections(
@@ -237,15 +123,19 @@ function walkSections(
       const converted = markdownToLatex(s.notes, citeByTitle ? { citeByTitle } : undefined);
       warnings.push(...converted.warnings.map((w) => `Section "${s.title}": ${w}`));
       stats.equationsApprox += (s.notes.match(/\$/g) ?? []).length;
-      let latex = converted.latex;
+      const renamed = new Map<string, string>();
       for (const img of converted.images) {
         const fileName = uniqueFigureName(img.fileName, usedFigureNames);
-        if (fileName !== img.fileName) {
-          latex = latex.replaceAll(`figures/${img.fileName}`, `figures/${fileName}`);
-        }
+        renamed.set(img.fileName, fileName);
         images.push({ storagePath: img.path, zipPath: `figures/${fileName}` });
         stats.figures += 1;
       }
+      // One pass over whole `{figures/NAME}` references, so a rename never
+      // re-renames one made before it or rewrites inside a longer name.
+      const latex = converted.latex.replace(/\{figures\/([^}]+)\}/g, (ref, name: string) => {
+        const next = renamed.get(name);
+        return next === undefined ? ref : `{figures/${next}}`;
+      });
       if (latex) out.push(latex);
     } else if (!s.notes?.trim()) {
       out.push("% (no section notes)");

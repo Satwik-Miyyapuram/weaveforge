@@ -1,9 +1,9 @@
 /**
  * What the explorer may create, rename and move, and where.
  *
- * The rules are per root: Notes takes notes and folders (a folder
- * *is* a note with children); Report takes sections and nothing nested by
- * hand; Papers takes nothing — a paper arrives through import. They live here
+ * The rules are per root: Notes and its folders take notes and folders, and a
+ * note takes nothing (only a folder holds children); Report's sections nest,
+ * because that is the report's outline; Papers takes nothing — a paper arrives through import. They live here
  * as data rather than as conditions scattered through the panel, so the
  * panel asks one question per gesture and a test can read the table.
  */
@@ -59,14 +59,18 @@ export function rootOf(node: Pick<WorkspaceTreeNode, "key" | "kind" | "isMember"
   return ROOT_OF_KIND[node.kind] ?? null;
 }
 
-/** The kinds a draft under `node` may take; empty for Papers, lists and headings. A folder only goes under a folder. */
+/** The kinds a draft under `node` may take; empty for Papers, lists, headings and notes. */
 export function creatableUnder(
-  node: Pick<WorkspaceTreeNode, "key" | "kind" | "isMember" | "headingLevel"> & { children?: readonly unknown[] },
+  node: Pick<WorkspaceTreeNode, "key" | "kind" | "isMember" | "headingLevel" | "folder">,
 ): readonly CreateKind[] {
   const root = rootOf(node);
-  if (!root) return [];
-  const leafNote = isDocumentNode(node) && !node.children?.length;
-  return leafNote ? CREATABLE[root].filter((k) => k !== "folder") : CREATABLE[root];
+  if (!root || !holdsChildren(node, root)) return [];
+  return CREATABLE[root];
+}
+
+/** In Notes only the root row and folders hold children; a report section holds sections. */
+function holdsChildren(node: Pick<WorkspaceTreeNode, "kind" | "folder">, root: EditableRoot): boolean {
+  return root !== "notes" || !isDocumentNode(node);
 }
 
 /** The root a *kind* belongs to — the kind-only half of `rootOf`. */
@@ -90,14 +94,16 @@ export function creationKindFor(active: { kind: string } | undefined): CreateKin
 }
 
 /** Whether a row can be renamed in place: any note or section, never a root or a paper. */
-export function canRename(node: Pick<WorkspaceTreeNode, "key" | "kind" | "id" | "isMember" | "headingLevel">): boolean {
-  return Boolean(node.id) && rootOf(node) !== null && isDocumentNode(node);
+export function canRename(node: Pick<WorkspaceTreeNode, "key" | "kind" | "id" | "isMember" | "headingLevel" | "folder">): boolean {
+  return Boolean(node.id) && rootOf(node) !== null && (isDocumentNode(node) || node.folder === true);
 }
 
 /**
  * Where a "new file" from the head or `⌘N` lands: the folder of the document
  * on screen when that document lives under a root that takes the kind,
- * otherwise the top of Notes (or of Report, for a section).
+ * otherwise the top of Notes (or of Report, for a section). A note's parent
+ * counts only when it is in `folders`: a note nested under a note from before
+ * folders existed sends the new one to the top of Notes.
  *
  * Returns the parent id, `null` for the root, and which root — so the caller
  * knows whether the draft is a note or a section without a second lookup.
@@ -105,18 +111,19 @@ export function canRename(node: Pick<WorkspaceTreeNode, "key" | "kind" | "id" | 
 export function creationTarget(
   kind: CreateKind,
   active: { kind: string; id: string; parentId?: string } | undefined,
+  folders: ReadonlySet<string>,
 ): { root: EditableRoot; parentId: string | null } {
   const root: EditableRoot = kind === "section" ? "report" : "notes";
-  if (active && ROOT_OF_KIND[active.kind] === root) {
-    return { root, parentId: active.parentId ?? null };
+  if (active?.parentId && ROOT_OF_KIND[active.kind] === root) {
+    if (root !== "notes" || folders.has(active.parentId)) return { root, parentId: active.parentId };
   }
   return { root, parentId: null };
 }
 
 /**
- * Whether `source` may be dropped on `target`: same root, a real target (a
- * root row or a row of that root), and not the source itself or anything
- * beneath it — a drop there would loop the parent chain.
+ * Whether `source` may be dropped on `target`: same root, a target that holds
+ * children (a root row, a folder, a section), and not the source itself or
+ * anything beneath it — a drop there would loop the parent chain.
  */
 export function canDrop(
   source: WorkspaceTreeNode,
@@ -126,12 +133,13 @@ export function canDrop(
   if (!root || !source.id || rootOf(target) !== root) return false;
   if (target.key === source.key) return false;
   if (isDocumentNode(target) && !target.id) return false;
+  if (!holdsChildren(target, root)) return false;
   return !isDescendant(source, target);
 }
 
 /** The parent id a drop on `target` gives: `null` for the root row. */
 export function dropParentId(target: WorkspaceTreeNode): string | null {
-  return isDocumentNode(target) ? (target.id ?? null) : null;
+  return isDocumentNode(target) || target.folder ? (target.id ?? null) : null;
 }
 
 function isDescendant(ancestor: WorkspaceTreeNode, node: WorkspaceTreeNode): boolean {
@@ -171,18 +179,24 @@ export function draftIcon(kind: CreateKind): string {
 }
 
 /**
- * What a draft of each kind turns into, for the two questions the screen asks
- * while making one: whether the note is handwritten, and whether it is opened
- * once it exists. A folder is neither — it is made and left closed, because
- * nobody writes into a folder.
+ * What a draft of each kind turns into, for the questions the screen asks
+ * while making one: whether the note is handwritten, whether it is opened once
+ * it exists, and whether it is saved as a folder. A folder is made and left
+ * closed, because nobody writes into a folder.
  */
-const DRAFT_MAKES: Record<CreateKind, { ink: boolean; opens: boolean }> = {
-  note: { ink: false, opens: true },
-  folder: { ink: false, opens: false },
-  section: { ink: false, opens: true },
+export interface DraftMakes {
+  ink: boolean;
+  opens: boolean;
+  folder: boolean;
+}
+
+const DRAFT_MAKES: Record<CreateKind, DraftMakes> = {
+  note: { ink: false, opens: true, folder: false },
+  folder: { ink: false, opens: false, folder: true },
+  section: { ink: false, opens: true, folder: false },
 };
 
-export function draftMakes(kind: CreateKind): { ink: boolean; opens: boolean } {
+export function draftMakes(kind: CreateKind): DraftMakes {
   return DRAFT_MAKES[kind];
 }
 

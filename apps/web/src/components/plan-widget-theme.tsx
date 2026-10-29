@@ -29,7 +29,46 @@ function toHex(ctx: CanvasRenderingContext2D, background: string, colour: string
   return `#${Array.from(pixel.slice(0, 3), (part) => part.toString(16).padStart(2, "0")).join("")}`;
 }
 
-/** Sends the theme's colours to the desktop plan widget, so it matches the app. Renders nothing. */
+type Computed = Pick<CSSStyleDeclaration, "borderTopWidth" | "borderTopLeftRadius" | "boxShadow" | "fontFamily" | "fontSize">;
+
+/**
+ * A computed font stack with next/font's names made plain: "__Rubik_d5b2e6"
+ * becomes "Rubik" and its metric fallback face is dropped. The widget is a
+ * local page that has only its own bundled Rubik, so a hashed name would miss
+ * it and fall through to the system font (design D16).
+ */
+export function widgetFont(stack: string): string {
+  return stack
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => !/Fallback/.test(part))
+    .map((part) => {
+      const hashed = /^['"]?__(\w+?)_[0-9a-f]+['"]?$/.exec(part);
+      return hashed ? hashed[1]!.replace(/_/g, " ") : part;
+    })
+    .join(", ");
+}
+
+/**
+ * The theme's shape, by the widget variable each one sets (design D-27): what a
+ * card and a small control actually draw, the page font, and the body and
+ * small text sizes. Read off real elements, so a Flat theme sends no shadow and
+ * Poster sends its hard one.
+ */
+export function widgetShape(probe: { card: Computed; control: Computed; page: Computed; text: Computed; small: Computed }) {
+  return {
+    radius: probe.card.borderTopLeftRadius,
+    "radius-sm": probe.control.borderTopLeftRadius,
+    bw: probe.card.borderTopWidth,
+    sh: probe.card.boxShadow,
+    "sh-sm": probe.control.boxShadow,
+    font: widgetFont(probe.page.fontFamily),
+    fs: probe.text.fontSize,
+    "fs-sm": probe.small.fontSize,
+  };
+}
+
+/** Sends the theme's colours and shape to the desktop plan widget, so it matches the app. Renders nothing. */
 export function PlanWidgetTheme() {
   useEffect(() => {
     const bridge = desktop();
@@ -46,14 +85,38 @@ export function PlanWidgetTheme() {
         probe.style.color = `var(${variable})`;
         palette[key] = toHex(ctx, background, getComputedStyle(probe).color);
       }
-      probe.remove();
-      bridge.setPlanWidgetTheme?.(palette);
+      // A card and a small control, as the theme draws them; text sizes by role
+      // rather than off the control, whose size changes with its font in CRT.
+      const card = document.createElement("div");
+      card.className = "card";
+      const control = document.createElement("span");
+      control.className = "wf-btn wf-sm";
+      const small = document.createElement("span");
+      small.style.fontSize = "var(--fs-xs)";
+      probe.style.fontSize = "var(--fs)";
+      document.body.append(card, control, small);
+      const read = getComputedStyle;
+      bridge.setPlanWidgetTheme?.({ ...palette, ...widgetShape({
+        card: read(card), control: read(control), page: read(document.body), text: read(probe), small: read(small),
+      }) });
+      for (const el of [probe, card, control, small]) el.remove();
     };
-    // After the theme's variables have landed on the root.
-    const later = () => requestAnimationFrame(send);
+    // After the theme's variables have landed on the root. One frame at a
+    // time, cancelled on unmount so no probe runs on a page that has left.
+    let frame: number | null = null;
+    const later = () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        send();
+      });
+    };
     later();
     window.addEventListener(THEME_CHANGE_EVENT, later);
-    return () => window.removeEventListener(THEME_CHANGE_EVENT, later);
+    return () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      window.removeEventListener(THEME_CHANGE_EVENT, later);
+    };
   }, []);
   return null;
 }

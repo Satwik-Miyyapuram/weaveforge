@@ -1,9 +1,11 @@
 "use client";
 
+import { enumLabel } from "@/lib/enum-label";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Paper, PaperFieldDef, PaperFieldValueData, ReadingListTreeNode } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { AI_PROPOSALS_CHANGED_EVENT } from "@/lib/ai-proposals-changed";
 import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
 import { MultiSelect } from "@/components/multi-select";
@@ -15,16 +17,16 @@ import {
   flattenPaperRows,
   pendingFieldFills,
   pendingKey,
+  relationTitles,
   type ExtractionColumnId,
   type ExtractionRow,
   type PendingFieldFill,
 } from "../application/extraction-table";
 import { collectListIds } from "./list-ui";
 import { FormError } from "@/components/form-error";
-
-function collectSubtreeIds(node: ReadingListTreeNode): string[] {
-  return collectListIds([node]);
-}
+import { latestGate } from "@/lib/latest-gate";
+import { Button } from "@/components/button";
+import { Table } from "@/components/table";
 
 function isFillableField(def: PaperFieldDef): boolean {
   return def.kind === "text" || def.kind === "number" || def.kind === "select" || def.kind === "multi_select";
@@ -48,15 +50,20 @@ export function ExtractionTable({
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [promptFieldId, setPromptFieldId] = useState<string | null>(null);
+  // Reloads overlap (mount, each save, each proposals event): keep the newest.
+  const [beginReload] = useState(latestGate);
+  const titleById = useMemo(() => new Map(papers.map((p) => [p.id, p.title])), [papers]);
 
   const reload = useCallback(async () => {
-    const listIds = collectSubtreeIds(node);
+    const isCurrent = beginReload();
+    const listIds = collectListIds([node]);
     const [nextDefs, items, allValues, proposals] = await Promise.all([
       getContainer().paperFields.listPaperFieldDefs(),
       getContainer().readingLists.listItemsForLists(listIds),
       getContainer().paperFields.listPaperFieldValuesForProject(),
       getContainer().aiProposals.listPending(),
     ]);
+    if (!isCurrent()) return;
     const paperIds = items.flatMap((item) => (item.paperId ? [item.paperId] : []));
     setDefs(nextDefs);
     setRows(flattenPaperRows(papers, paperIds, allValues, nextDefs));
@@ -69,7 +76,7 @@ export function ExtractionTable({
       const missing = fieldCols.filter((c) => !kept.includes(c));
       return [...kept, ...missing];
     });
-  }, [node, papers]);
+  }, [node, papers, beginReload]);
 
   useEffect(() => {
     void reload().catch((err) => setError(formatError(err)));
@@ -77,8 +84,8 @@ export function ExtractionTable({
 
   useEffect(() => {
     const onChange = () => { void reload().catch((err) => setError(formatError(err))); };
-    window.addEventListener("ai-proposals-changed", onChange);
-    return () => window.removeEventListener("ai-proposals-changed", onChange);
+    window.addEventListener(AI_PROPOSALS_CHANGED_EVENT, onChange);
+    return () => window.removeEventListener(AI_PROPOSALS_CHANGED_EVENT, onChange);
   }, [reload]);
 
   const availableColumns = useMemo(() => {
@@ -173,10 +180,6 @@ export function ExtractionTable({
     }
   }
 
-  if (rows.length === 0) {
-    return <p className="muted">No papers in this list yet.</p>;
-  }
-
   return (
     <div className="extraction-table">
       <div className="extraction-table-toolbar">
@@ -190,12 +193,12 @@ export function ExtractionTable({
           ariaLabel="Table columns"
           options={availableColumns}
         />
-        <button type="button" className="link-btn" onClick={() => void copy("md")}>
+        <Button variant="ghost" size="sm" onClick={() => void copy("md")}>
           Copy markdown
-        </button>
-        <button type="button" className="link-btn" onClick={() => void copy("csv")}>
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => void copy("csv")}>
           Copy CSV
-        </button>
+        </Button>
         {msg && <span className="muted">{msg}</span>}
       </div>
       {listPendingCount > 0 && (
@@ -205,11 +208,10 @@ export function ExtractionTable({
         </p>
       )}
       {error && <FormError>{error}</FormError>}
-      <div className="extraction-table-scroll">
-        <table>
-          <thead>
-            <tr>
-              {columns.map((c) => {
+      <Table
+        scrollClassName="extraction-table-scroll"
+        empty="No papers in this list yet."
+        head={columns.map((c) => {
                 const fieldId = c.startsWith("field:") ? c.slice("field:".length) : null;
                 const def = fieldId ? defs.find((d) => d.id === fieldId) : null;
                 const fillable = def ? isFillableField(def) : false;
@@ -218,13 +220,11 @@ export function ExtractionTable({
                     <div className="extraction-th">
                       <span>{availableColumns.find((o) => o.value === c)?.label ?? c}</span>
                       {!readOnly && fillable && fieldId && (
-                        <button
-                          type="button"
-                          className="link-btn extraction-propose-btn"
+                        <Button variant="link" size="sm"
                           onClick={() => setPromptFieldId((cur) => (cur === fieldId ? null : fieldId))}
                         >
                           Propose fill
-                        </button>
+                        </Button>
                       )}
                     </div>
                     {promptFieldId === fieldId && fieldId && (
@@ -232,21 +232,18 @@ export function ExtractionTable({
                         <p className="muted">
                           Copies an agent prompt for your paired MCP session. Nothing is written until you approve each cell on AI review.
                         </p>
-                        <button
-                          type="button"
-                          className="btn-secondary btn-sm"
+                        <Button
+                          size="sm"
                           onClick={() => void copyProposePrompt(fieldId)}
                         >
                           Copy agent prompt
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </th>
                 );
               })}
-            </tr>
-          </thead>
-          <tbody>
+      >
             {rows.map((row) => (
               <tr key={row.paper.id}>
                 {columns.map((column) => {
@@ -268,7 +265,7 @@ export function ExtractionTable({
                           row={row}
                           column={column}
                           defs={defs}
-                          papers={papers}
+                          titleById={titleById}
                           disabled={busy || readOnly}
                           onSave={saveCell}
                         />
@@ -278,9 +275,7 @@ export function ExtractionTable({
                 })}
               </tr>
             ))}
-          </tbody>
-        </table>
-      </div>
+      </Table>
     </div>
   );
 }
@@ -289,20 +284,20 @@ function ExtractionCell({
   row,
   column,
   defs,
-  papers,
+  titleById,
   disabled,
   onSave,
 }: {
   row: ExtractionRow;
   column: ExtractionColumnId;
   defs: PaperFieldDef[];
-  papers: Paper[];
+  titleById: ReadonlyMap<string, string>;
   disabled: boolean;
   onSave: (paperId: string, fieldId: string, value: PaperFieldValueData | null) => void;
 }) {
   if (column === "title") return <span>{row.paper.title}</span>;
   if (column === "year") return <span>{row.paper.year ?? "—"}</span>;
-  if (column === "status") return <span>{row.paper.status.replace("_", " ")}</span>;
+  if (column === "status") return <span>{enumLabel("paperStatus", row.paper.status)}</span>;
 
   const fieldId = column.slice("field:".length);
   const def = defs.find((d) => d.id === fieldId);
@@ -315,9 +310,7 @@ function ExtractionCell({
         {value == null
           ? "—"
           : Array.isArray(value)
-            ? value
-                .map((id) => papers.find((p) => p.id === id)?.title ?? String(id))
-                .join(", ")
+            ? relationTitles(value, titleById)
             : String(value)}
       </span>
     );
@@ -347,9 +340,8 @@ function ExtractionCell({
           const checked = current.includes(opt);
           return (
             <label key={opt} className="paper-field-check">
-              <input
+              <input className="wf-check"
                 type="checkbox"
-                className="themed-check"
                 checked={checked}
                 disabled={disabled}
                 onChange={() => {

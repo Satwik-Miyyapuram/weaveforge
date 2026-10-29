@@ -30,13 +30,13 @@ export function EditorSettingsPanel() {
   return (
     <div
       id="settings-editor"
-      className="card add-form settings-anchor"
+      className="add-form settings-anchor"
       role="tabpanel"
       aria-labelledby="settings-tab-editor"
     >
       <h3 className="settings-group">Editor</h3>
       <p className="muted jump-to-meta">
-        How the editor behaves as you type. Stored in this browser alongside your theme.
+        How the editor behaves as you type. Stored on this device alongside your theme.
       </p>
 
       <label className="field">

@@ -121,6 +121,36 @@ test("a note that claims itself as its parent does not hang the tree", () => {
   assert.equal(notes.children[0]!.children.length, 0);
 });
 
+test("a two-note parent cycle keeps both notes and their children (28-07)", () => {
+  const { notes } = roots({
+    notes: [
+      { id: "a", title: "Alpha", parentId: "b" },
+      { id: "b", title: "Beta", parentId: "a" },
+      { id: "c", title: "Child", parentId: "a" },
+    ],
+  });
+
+  const ids = everyNode(notes.children).map((node) => node.id).sort();
+  assert.deepEqual(ids, ["a", "b", "c"]);
+  assert.deepEqual(notes.children.map((node) => node.id), ["a", "b"]);
+  assert.deepEqual(notes.children[0]!.children.map((node) => node.id), ["c"]);
+});
+
+test("a node hanging off a cycle nests normally (28-07)", () => {
+  const { notes } = roots({
+    notes: [
+      { id: "a", title: "Alpha", parentId: "c" },
+      { id: "b", title: "Beta", parentId: "a" },
+      { id: "c", title: "Gamma", parentId: "b" },
+      { id: "d", title: "Delta", parentId: "b" },
+    ],
+  });
+
+  assert.deepEqual(everyNode(notes.children).map((node) => node.id).sort(), ["a", "b", "c", "d"]);
+  const beta = everyNode(notes.children).find((node) => node.id === "b")!;
+  assert.ok(beta.children.some((node) => node.id === "d"));
+});
+
 test("a paper with no note is listed and flagged, never hidden", () => {
   const { papers } = roots({
     papers: [
@@ -219,6 +249,19 @@ test("a list nests under its parent list and carries the mirrored path", () => {
   // own title when the caller did not compute one.
   assert.equal(parent.path, "reading-lists/latent-spaces.list.md");
   assert.equal(parent.children[0]!.path, "reading-lists/latent-spaces/disentanglement.list.md");
+});
+
+test("a two-list parent cycle keeps both lists (28-07)", () => {
+  const tree = buildListsTree({
+    ...LISTS,
+    lists: [
+      { id: "x", title: "X", parentId: "y" },
+      { id: "y", title: "Y", parentId: "x" },
+    ],
+    items: [],
+  });
+  const ids = everyNode(tree).filter((node) => node.kind === "reading_list").map((node) => node.id).sort();
+  assert.deepEqual(ids, ["x", "y"]);
 });
 
 test("members hang off their list, papers first and each sorted by label", () => {

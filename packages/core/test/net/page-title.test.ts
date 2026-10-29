@@ -63,3 +63,13 @@ test("an image URL is recognised by its path, and nothing else is guessed", () =
   assert.equal(looksLikeImageUrl("https://a.example/a.png.html"), false);
   assert.equal(looksLikeImageUrl("not a url"), false);
 });
+
+// 01-08: one pass, so text an entity produces is never decoded a second time.
+test("an entity's output is not decoded again", () => {
+  assert.equal(decodeHtmlEntities("&#38;lt;"), "&lt;");
+  assert.equal(decodeHtmlEntities("&#x26;amp;"), "&amp;");
+  assert.equal(decodeHtmlEntities("&amp;#8212;"), "&#8212;");
+  assert.equal(decodeHtmlEntities("&amp;amp;"), "&amp;");
+  assert.equal(decodeHtmlEntities("&LT;b&GT; &Amp; &#39;x&#039; &apos;"), "<b> & 'x' '");
+  assert.equal(decodeHtmlEntities("&unknown; & alone"), "&unknown; & alone");
+});

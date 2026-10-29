@@ -421,3 +421,88 @@ def test_track_run_id_updates_same_experiment(monkeypatch):
         pass
     assert r3.id != r1.id
     assert len(c.experiments.list()) == 2
+
+
+def _figure_source(count):
+    """A source that hands back ``count`` rendered figures, named the way the
+    matplotlib source names them: from figure-0 on every call."""
+
+    class FigureSource:
+        id = "figs"
+
+        def available(self):
+            return True
+
+        def collect(self, ref):
+            return [
+                Artifact(name=f"figure-{i}.png", data=b"png-%d" % i, content_type="image/png")
+                for i in range(count)
+            ]
+
+    reg = SyncRegistry()
+    reg.register(FigureSource())
+    return reg
+
+
+def test_two_syncs_of_figures_do_not_overwrite_each_other(monkeypatch):
+    c = MemoryContainer()
+    monkeypatch.setattr("weaveforge.tracking.capture_git_state", lambda cwd=None: {})
+
+    with track("figs", container=c, registry=_figure_source(2)) as run:
+        run.sync("figs", None)
+        run.sync("figs", None)
+
+    # Storage upserts by name, so a repeated name replaces the earlier upload.
+    assert len(c.artifacts.uploaded) == 4
+    assert len(set(c.experiments.list()[0].artifacts)) == 4
+
+
+def test_unnamed_log_figure_and_a_sync_do_not_collide(monkeypatch):
+    c = MemoryContainer()
+    monkeypatch.setattr("weaveforge.tracking.capture_git_state", lambda cwd=None: {})
+
+    with track("figs", container=c, registry=_figure_source(2)) as run:
+        run.sync("figs", None)  # figure-0.png, figure-1.png
+        first = run.log_figure(FakeFigure())  # wanted figure-1.png as well
+        second = run.log_figure(FakeFigure())
+
+    assert len({first, second}) == 2
+    assert len(c.artifacts.uploaded) == 4
+    names = sorted(k.rsplit("/", 1)[-1] for k in c.artifacts.uploaded)
+    assert names == ["figure-0.png", "figure-1-2.png", "figure-1.png", "figure-2.png"]
+
+
+def test_an_explicit_name_still_replaces_its_earlier_upload(monkeypatch):
+    c = MemoryContainer()
+    monkeypatch.setattr("weaveforge.tracking.capture_git_state", lambda cwd=None: {})
+
+    with track("figs", container=c) as run:
+        a = run.log_figure(FakeFigure(), name="loss")
+        b = run.log_figure(FakeFigure(), name="loss")
+
+    # Naming a figure is how a user says "this is the latest loss plot".
+    assert a == b
+    assert len(c.artifacts.uploaded) == 1
+
+
+def test_a_deduplicated_name_without_an_extension_gets_a_suffix(monkeypatch):
+    c = MemoryContainer()
+    monkeypatch.setattr("weaveforge.tracking.capture_git_state", lambda cwd=None: {})
+
+    class Blobs:
+        id = "blobs"
+
+        def available(self):
+            return True
+
+        def collect(self, ref):
+            return [Artifact(name="weights", data=b"w", content_type="application/octet-stream")]
+
+    reg = SyncRegistry()
+    reg.register(Blobs())
+    with track("blobs", container=c, registry=reg) as run:
+        run.sync("blobs", None)
+        run.sync("blobs", None)
+
+    names = sorted(k.rsplit("/", 1)[-1] for k in c.artifacts.uploaded)
+    assert names == ["weights", "weights-2"]

@@ -20,15 +20,6 @@ import type {
 import type { IGraphSettingsRepository, GraphPersistedState } from "@weaveforge/core";
 import type { RemoveRelationUseCase } from "@weaveforge/core";
 import { buildListMembership, paperIdOfItem } from "@weaveforge/core";
-/**
- * The shape the graph builder takes, imported rather than restated.
- *
- * `build-graph-data` is the module that decides what a run contributes to the
- * canvas, so it owns the type too — a second declaration here would be a second
- * answer to what a run on the graph is, and the one that drifted would be the
- * one nobody noticed until a field stopped arriving.
- */
-
 
 export interface GraphScreenData {
   papers: Paper[];

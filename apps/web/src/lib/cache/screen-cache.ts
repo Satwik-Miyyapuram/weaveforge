@@ -16,6 +16,12 @@
  */
 
 import { SCREEN_REVALIDATE_AFTER_MS } from "./cache-policy";
+import {
+  idbClearScreenCaches,
+  idbClearScreenCachesForScreens,
+  idbGetScreenCache,
+  type CachedScreen,
+} from "./screen-cache-idb";
 
 export function screenCacheKey(projectId: string | null, screen: string): string {
   return `${projectId ?? "-"}|${screen}`;
@@ -56,12 +62,54 @@ export function clearScreenCachesForScreens(
   for (const screen of screens) {
     store.delete(`${prefix}${screen}`);
   }
-  void import("@/lib/cache/screen-cache-idb").then((m) =>
-    m.idbClearScreenCachesForScreens(projectId, screens),
-  );
+  const keys = screens.map((screen) => `${prefix}${screen}`);
+  trackIdbClear(keys, idbClearScreenCachesForScreens(projectId, screens));
 }
 
 export function clearAllScreenCaches(): void {
   store.clear();
-  void import("@/lib/cache/screen-cache-idb").then((m) => m.idbClearScreenCaches());
+  trackIdbClear(null, idbClearScreenCaches());
+}
+
+/**
+ * The stored-payload deletes finish after the in-memory ones. A restore that
+ * overlaps a delete of its key (or of every key) reads nothing, so it never
+ * paints a payload a write just made stale; the network load fills the screen.
+ */
+const clearingKeys = new Map<string, number>();
+let clearingAll = 0;
+const activeReads = new Set<{ key: string; stale: boolean }>();
+
+function trackIdbClear(keys: readonly string[] | null, done: Promise<unknown>): void {
+  for (const read of activeReads) {
+    if (keys == null || keys.includes(read.key)) read.stale = true;
+  }
+  if (keys == null) clearingAll += 1;
+  else for (const key of keys) clearingKeys.set(key, (clearingKeys.get(key) ?? 0) + 1);
+  void done
+    .catch(() => undefined)
+    .finally(() => {
+      if (keys == null) {
+        clearingAll -= 1;
+        return;
+      }
+      for (const key of keys) {
+        const left = (clearingKeys.get(key) ?? 1) - 1;
+        if (left > 0) clearingKeys.set(key, left);
+        else clearingKeys.delete(key);
+      }
+    });
+}
+
+/** The stored payload for `key`, or undefined when there is none or a delete of it overlaps the read. */
+export async function readPersistedScreen<T>(key: string): Promise<CachedScreen<T> | undefined> {
+  if (clearingAll > 0 || clearingKeys.has(key)) return undefined;
+  const read = { key, stale: false };
+  activeReads.add(read);
+  try {
+    const hit = await idbGetScreenCache<T>(key);
+    return read.stale ? undefined : hit;
+  } finally {
+    activeReads.delete(read);
+  }
 }

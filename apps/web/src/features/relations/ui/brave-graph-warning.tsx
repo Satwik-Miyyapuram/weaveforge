@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 
+import { readStored, writeStored } from "@/lib/safe-storage";
+import { Button } from "@/components/button";
+
 /**
  * Brave's fingerprint protection ("farbling") adds noise to canvas
  * `getImageData` readback. react-force-graph resolves clicks by reading a pixel
@@ -15,11 +18,15 @@ export function BraveGraphWarning() {
   useEffect(() => {
     const brave = (navigator as unknown as { brave?: { isBrave?: () => Promise<boolean> } }).brave;
     let alive = true;
-    brave?.isBrave?.().then((b) => {
-      if (!alive) return;
-      setIsBrave(b);
-      setDismissed(localStorage.getItem("thesis.graph.braveWarnDismissed") === "1");
-    });
+    brave?.isBrave?.().then(
+      (b) => {
+        if (!alive) return;
+        setIsBrave(b);
+        setDismissed(readStored("thesis.graph.braveWarnDismissed") === "1");
+      },
+      // A probe that fails tells us nothing: no warning.
+      () => {},
+    );
     return () => {
       alive = false;
     };
@@ -34,16 +41,16 @@ export function BraveGraphWarning() {
         clicks — nodes won&apos;t be selectable. Click the Brave <em>Shields</em> icon and set
         <em> Fingerprinting → Allow</em> (or lower Shields) for this site.
       </span>
-      <button
-        type="button"
-        className="link-btn"
+      <Button
+       
+        variant="ghost" size="sm"
         onClick={() => {
-          localStorage.setItem("thesis.graph.braveWarnDismissed", "1");
+          writeStored("thesis.graph.braveWarnDismissed", "1");
           setDismissed(true);
         }}
       >
         Dismiss
-      </button>
+      </Button>
     </div>
   );
 }

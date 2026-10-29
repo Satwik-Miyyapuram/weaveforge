@@ -25,6 +25,11 @@ export class VaultFacade {
     return this.deps.pages.list();
   }
 
+  /** Every note's title, from the summary read (no bodies, lists or pins). */
+  async pageTitles(): Promise<string[]> {
+    return (await this.deps.pages.listSummaries()).map((page) => page.title);
+  }
+
   get manageVaultPage() {
     return this.deps.manageVaultPage;
   }

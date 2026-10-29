@@ -1,7 +1,14 @@
 "use client";
 
+import { useId, useState } from "react";
 
 import { Modal, ModalActions } from "./modal";
+import { Button } from "@/components/button";
+
+/** Whether the confirm button may be pressed: nothing to type, or the typed text matches. */
+export function confirmReady(requireText: string | undefined, typed: string): boolean {
+  return !requireText || typed.trim() === requireText.trim();
+}
 
 /**
  * A confirmation the app draws, not the OS.
@@ -27,6 +34,7 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   danger = false,
   busy = false,
+  requireText,
   onConfirm,
   onClose,
 }: {
@@ -37,24 +45,44 @@ export function ConfirmDialog({
   /** Paint the confirm button as destructive (`--danger`). */
   danger?: boolean;
   busy?: boolean;
+  /** A name the user types before the button works (project delete, rule D-07). */
+  requireText?: string;
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  const [typed, setTyped] = useState("");
+  const inputId = useId();
+  const ready = confirmReady(requireText, typed);
   return (
     <Modal title={title} onClose={busy ? undefined : onClose} dismissible={!busy}>
       <p className="muted confirm-dialog-body">{body}</p>
+      {requireText ? (
+        <div className="field">
+          <label htmlFor={inputId}>
+            Type <strong>{requireText}</strong> to confirm
+          </label>
+          <input
+            id={inputId}
+            type="text"
+            value={typed}
+            autoComplete="off"
+            spellCheck={false}
+            disabled={busy}
+            onChange={(e) => setTyped(e.target.value)}
+          />
+        </div>
+      ) : null}
       <ModalActions>
-        <button type="button" className="btn-secondary" onClick={onClose} disabled={busy} autoFocus>
+        <Button onClick={onClose} disabled={busy} autoFocus>
           {cancelLabel}
-        </button>
-        <button
-          type="button"
-          className={danger ? "btn-primary btn-danger" : "btn-primary"}
+        </Button>
+        <Button
+          variant={danger ? "danger" : "primary"}
           onClick={onConfirm}
-          disabled={busy}
+          disabled={busy || !ready}
         >
           {busy ? "Working…" : confirmLabel}
-        </button>
+        </Button>
       </ModalActions>
     </Modal>
   );

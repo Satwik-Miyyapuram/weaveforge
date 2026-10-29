@@ -6,10 +6,10 @@
  * that cross, so the main process and the preload script are checked against
  * the same definition rather than against each other's memory.
  *
- * What crosses is deliberately plain: strings, numbers and an `ArrayBuffer`.
- * Electron structured-clones IPC payloads, so a `Uint8Array` view over a larger
- * buffer, a `Blob` or an `Error` would each arrive as something else — or not
- * at all.
+ * What crosses is deliberately plain: strings, numbers and bytes (an
+ * `ArrayBuffer`, or a `Uint8Array` for the vault's file bytes). Electron
+ * structured-clones IPC payloads, so a `Blob` or an `Error` would arrive as
+ * something else — or not at all.
  */
 
 export const CHANNELS = {
@@ -41,11 +41,10 @@ export const CHANNELS = {
   secretWrite: "weaveforge:secret-write",
   secretClear: "weaveforge:secret-clear",
   /**
-   * The shell's own settings: read one, keep one. What may be named and why
+   * The shell's own settings: keep one. What may be named and why
    * these live outside the renderer is `preference-store.ts`; these are only
    * the strings.
    */
-  preferenceRead: "weaveforge:preference-read",
   preferenceWrite: "weaveforge:preference-write",
   /**
    * One statement against the local database, answered with its rows.
@@ -78,7 +77,6 @@ export const CHANNELS = {
    */
   vaultChoose: "weaveforge:vault-choose",
   vaultRoot: "weaveforge:vault-root",
-  vaultForget: "weaveforge:vault-forget",
   vaultRead: "weaveforge:vault-read",
   vaultWrite: "weaveforge:vault-write",
   /**
@@ -105,12 +103,6 @@ export const CHANNELS = {
    */
   zoteroLocal: "weaveforge:zotero-local",
   /**
-   * Whether this computer has a TeX, and one compile with it.
-   *
-   * The app ships no TeX -- a full TeX Live is several gigabytes -- so the
-   * probe answers null on most machines and the feature stays hidden.
-   */
-  /**
    * Main -> renderer: rank these files against this query.
    *
    * The encoder lives in the window, so the MCP server has to ask for a
@@ -119,6 +111,12 @@ export const CHANNELS = {
    */
   semanticRank: "weaveforge:semantic-rank",
   semanticRanked: "weaveforge:semantic-ranked",
+  /**
+   * Whether this computer has a TeX, and one compile with it.
+   *
+   * The app ships no TeX -- a full TeX Live is several gigabytes -- so the
+   * probe answers null on most machines and the feature stays hidden.
+   */
   texProbe: "weaveforge:tex-probe",
   texCompile: "weaveforge:tex-compile",
   /** Mattermost sign-in in its own window; answers the session token, or null if closed. See `mattermost-signin.ts`. */
@@ -236,20 +234,18 @@ export interface ImagePayload {
   url: string;
 }
 
-/** The chosen workspace folder, or `null` when none is chosen yet. */
-export interface VaultRootPayload {
-  path: string;
-  /** Whether the folder already held a workspace when it was chosen. */
-  state: "empty" | "existing";
-}
-
-/** One entry of a folder listing, flattened for the wire. */
-export interface VaultEntryPayload {
-  path: string;
-  kind: "file" | "dir";
-  size: number;
-  modifiedAt: string;
-}
+/**
+ * Payloads the page also sees, defined once in the web bridge and named here
+ * as the shell's handlers know them (xipc-06).
+ */
+export type {
+  DesktopAppLog as AppLogPayload,
+  DesktopMenuGroup as MenuGroupPayload,
+  DesktopMenuItem as MenuItemPayload,
+  DesktopPlanWidget as PlanWidgetStatePayload,
+  DesktopVaultEntry as VaultEntryPayload,
+  DesktopVaultRoot as VaultRootPayload,
+} from "@/lib/desktop/desktop-bridge";
 
 /** What the page posts to the application log. The shell stamps the time. */
 export interface AppLogReportPayload {
@@ -257,46 +253,4 @@ export interface AppLogReportPayload {
   source: string;
   message: string;
   detail?: string;
-}
-
-/**
- * The application log as the page receives it.
- *
- * `text` is the entries already formatted — one line each, oldest first — so the
- * page can show them without a second parser and a second answer to "what does
- * a log line look like". `file` is where they are also written, so the reader
- * can open the same record in an editor.
- */
-export interface AppLogPayload {
-  file: string;
-  text: string;
-  /** False when the in-memory ring dropped older entries than `text` holds. */
-  complete: boolean;
-}
-
-/** One entry of the menu, as the page's menu bar draws it. */
-export interface MenuItemPayload {
-  id: string;
-  kind: "item" | "check" | "separator";
-  label: string;
-  /** The shortcut as the platform writes it (`Ctrl+Shift+I`), or null. */
-  accelerator: string | null;
-  enabled: boolean;
-  checked?: boolean;
-  /** Set when the entry only opens a route, so the page can navigate itself. */
-  route?: string;
-  /** A page action (`search`) the page runs itself. */
-  command?: string;
-}
-
-export interface MenuGroupPayload {
-  label: string;
-  items: MenuItemPayload[];
-}
-
-/** The plan widget, as the Settings panel sees it. */
-export interface PlanWidgetStatePayload {
-  /** False off Windows: the desktop placement is a Windows call. */
-  supported: boolean;
-  enabled: boolean;
 }

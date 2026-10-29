@@ -67,3 +67,11 @@ export function validEnvelope(value: unknown): value is RelayEnvelope {
   if (typeof envelope.iv !== "string" || typeof envelope.ciphertext !== "string") return false;
   return envelope.iv.length + envelope.ciphertext.length <= MAX_ENVELOPE_CHARS;
 }
+
+/**
+ * Whether a parsed body is a JSON object. `null` parses cleanly, and reading a
+ * field off it would turn a client mistake into a 500.
+ */
+export function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}

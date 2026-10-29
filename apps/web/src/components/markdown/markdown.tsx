@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { escapeHtml as escapeAttr } from "@/lib/escape-html";
+import { headingSlug } from "@/lib/heading-slug";
 import { parseMdImageAlt } from "@/lib/markdown-figure-alt";
 import {
   containsMath,
@@ -14,15 +15,6 @@ import {
  * code blocks are handled separately by Shiki in display mode.
  */
 const escapeHtml = escapeAttr;
-
-/** Slug for heading anchor ids (so `[[Note#Heading]]` can target them). */
-function headingSlug(text: string): string {
-  return text
-    .trim()
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 /** Resolve a `[[wikilink]]` target to a destination; unresolved = offer-to-create. */
 interface WikilinkResolution {
@@ -311,6 +303,15 @@ function renderTable(rows: readonly string[], options?: MarkdownRenderOptions): 
 }
 
 /** Render markdown prose (no fenced code blocks) to HTML. */
+/** Where the comment opened at `lines[from]`, column `column`, closes: just past its `-->`. */
+function commentEnd(lines: readonly string[], from: number, column: number): { line: number; column: number } | null {
+  for (let at = from; at < lines.length; at += 1) {
+    const close = lines[at]!.indexOf("-->", at === from ? column : 0);
+    if (close !== -1) return { line: at, column: close + 3 };
+  }
+  return null;
+}
+
 export function renderProseMarkdown(md: string, options?: MarkdownRenderOptions): string {
   const lines = md.replace(/\r\n/g, "\n").split("\n");
   const out: string[] = [];
@@ -332,7 +333,24 @@ export function renderProseMarkdown(md: string, options?: MarkdownRenderOptions)
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index]!;
     const trimmed = line.trim();
-    const singleLineDisplay = /^\$\$([\s\S]+)\$\$$/.exec(trimmed);
+    // A comment opening a line is the file's bookkeeping (the ink header, page
+    // markers, template regions), not prose: it renders as nothing. One that
+    // never closes is left as text, so it cannot swallow the rest of the note.
+    if (trimmed.startsWith("<!--")) {
+      const end = commentEnd(lines, index, line.indexOf("<!--") + 4);
+      if (end) {
+        const rest = lines[end.line]!.slice(end.column);
+        if (rest.trim() === "") {
+          index = end.line;
+        } else {
+          lines[end.line] = rest;
+          index = end.line - 1;
+        }
+        continue;
+      }
+    }
+    // The body may not contain `$$`: `$$a$$ and $$b$$` is two formulas, not one.
+    const singleLineDisplay = /^\$\$((?:(?!\$\$)[\s\S])+)\$\$$/.exec(trimmed);
     if (singleLineDisplay) {
       closeList();
       out.push(`<div class="math-display">${renderMath(singleLineDisplay[1]!, true, options?.mathRenderer)}</div>`);
@@ -464,6 +482,29 @@ export function Markdown({
 
 const FENCE_RE = /```([^\n]*)\n([\s\S]*?)```/g;
 
+/** One run of prose, or one fenced code block with its info string. */
+export type FenceSegment =
+  | { kind: "prose"; text: string }
+  | { kind: "fence"; info: string; code: string };
+
+/**
+ * Splits markdown into prose and fenced-code segments, in document order.
+ * Synchronous, so the async Shiki pass never holds a matcher across an await.
+ */
+export function splitFences(md: string): FenceSegment[] {
+  const segments: FenceSegment[] = [];
+  let lastIndex = 0;
+  const fence = fenceMatcher();
+  let match: RegExpExecArray | null;
+  while ((match = fence.exec(md)) !== null) {
+    if (match.index > lastIndex) segments.push({ kind: "prose", text: md.slice(lastIndex, match.index) });
+    segments.push({ kind: "fence", info: match[1] ?? "", code: match[2] ?? "" });
+    lastIndex = fence.lastIndex;
+  }
+  if (lastIndex < md.length) segments.push({ kind: "prose", text: md.slice(lastIndex) });
+  return segments;
+}
+
 /**
  * A fresh matcher per render. A `g` regex keeps its position on the regex
  * object, and the Shiki pass awaits between matches — so two renders in
@@ -482,24 +523,14 @@ function fenceMatcher(): RegExp {
  * pass with no async highlight round trip, such as the ink sheet's text layer.
  */
 export function renderMarkdownPlain(md: string, options?: MarkdownRenderOptions): string {
-  const parts: string[] = [];
-  let lastIndex = 0;
-  const fence = fenceMatcher();
-  let match: RegExpExecArray | null;
-  while ((match = fence.exec(md)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(renderProseMarkdown(md.slice(lastIndex, match.index), options));
-    }
-    const info = (match[1] ?? "").trim();
-    const lang = info.split(/\s+/)[0] ?? "";
-    const langAttr = lang ? ` data-lang="${escapeAttr(lang)}"` : "";
-    parts.push(`<pre class="md-code"${langAttr}><code>${escapeHtml(match[2] ?? "")}</code></pre>`);
-    lastIndex = fence.lastIndex;
-  }
-  if (lastIndex < md.length) {
-    parts.push(renderProseMarkdown(md.slice(lastIndex), options));
-  }
-  return parts.join("");
+  return splitFences(md)
+    .map((segment) => {
+      if (segment.kind === "prose") return renderProseMarkdown(segment.text, options);
+      const lang = segment.info.trim().split(/\s+/)[0] ?? "";
+      const langAttr = lang ? ` data-lang="${escapeAttr(lang)}"` : "";
+      return `<pre class="md-code"${langAttr}><code>${escapeHtml(segment.code)}</code></pre>`;
+    })
+    .join("");
 }
 
 /** Split markdown into prose and fenced-code segments for Shiki display. */
@@ -518,18 +549,12 @@ export async function renderMarkdownWithShiki(
   }
 
   const parts: string[] = [];
-  let lastIndex = 0;
-  const fence = fenceMatcher();
-  let match: RegExpExecArray | null;
-  while ((match = fence.exec(md)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(renderProseMarkdown(md.slice(lastIndex, match.index), options));
-    }
-    parts.push(await highlight(match[2] ?? "", match[1] ?? "", mode));
-    lastIndex = fence.lastIndex;
-  }
-  if (lastIndex < md.length) {
-    parts.push(renderProseMarkdown(md.slice(lastIndex), options));
+  for (const segment of splitFences(md)) {
+    parts.push(
+      segment.kind === "prose"
+        ? renderProseMarkdown(segment.text, options)
+        : await highlight(segment.code, segment.info, mode),
+    );
   }
   return parts.join("");
 }

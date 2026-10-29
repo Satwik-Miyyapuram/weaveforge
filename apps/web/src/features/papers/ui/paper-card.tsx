@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { PAPER_STATUSES, isPlaceholderTitle, titleFromFileName, type Paper, type PaperStatus, type PaperSummary } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { confirmRemovePaper } from "./remove-paper";
+import { paperKey, removePaper } from "./remove-paper";
 import { EntityCard } from "@/components/entity-card";
 import { EntityCardMenu } from "@/components/entity-card-menu";
 import { PaperCardThumbs } from "@/components/card-thumbs";
@@ -11,7 +11,7 @@ import { cardSnippet } from "@/lib/card-snippet";
 import { PinnedPaperBadge } from "@/features/sharing";
 import { ListPicker } from "@/features/reading-lists";
 import { StatusSelect } from "@/components/status-select";
-import { ConfirmDialog } from "@/components/confirm-dialog";
+import { removeLater } from "@/lib/toast";
 
 /** Compact paper card in the grid; clicking opens the full note page. */
 export function PaperCard({
@@ -28,7 +28,7 @@ export function PaperCard({
    * paints — title, authors, year, status, tags, note snippet — is on it. The
    * two things that are not (`metadata` for thumbnails, and the row the delete
    * needs) are resolved where they are used: `PaperCardThumbs` guards on the
-   * property, and `confirmRemovePaper` re-reads the full row.
+   * property, and `removePaper` re-reads the full row.
    */
   paper: PaperSummary | Paper;
   readOnly?: boolean;
@@ -39,7 +39,6 @@ export function PaperCard({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [unpinOpen, setUnpinOpen] = useState(false);
 
   async function changeStatus(status: PaperStatus) {
     setBusy(true);
@@ -50,17 +49,16 @@ export function PaperCard({
     }
   }
 
-  const remove = () => confirmRemovePaper(paper, setBusy, onChanged);
+  const remove = () => removePaper(paper, { onDeleted: onChanged });
 
-  async function unpin() {
-    setUnpinOpen(false);
-    setBusy(true);
-    try {
-      await getContainer().sharing.unpinShared("paper", paper.id);
-      onChanged();
-    } finally {
-      setBusy(false);
-    }
+  // Rule D-07: the list hides the card at once; the unpin runs when the Undo toast closes.
+  function unpin() {
+    removeLater({
+      key: paperKey(paper.id),
+      message: `"${paper.title}" removed from your library`,
+      remove: () => getContainer().sharing.unpinShared("paper", paper.id),
+      onDeleted: onChanged,
+    });
   }
 
   const authorsLine =
@@ -106,9 +104,10 @@ export function PaperCard({
             resourceType="paper"
             resourceId={paper.id}
             title={`Share: ${paper.title}`}
+            name={paper.title}
             deleteDisabled={busy}
             deleteLabel={isPinned ? "Remove from library" : "Delete paper"}
-            onDelete={isPinned ? () => setUnpinOpen(true) : readOnly ? undefined : () => void remove()}
+            onDelete={isPinned ? unpin : readOnly ? undefined : remove}
             extraItems={readOnly ? [] : [
               { id: "list", label: "Add to list", onSelect: () => {}, submenu: () => <ListPicker target={{ kind: "paper", id: paper.id }} /> },
             ]}
@@ -120,18 +119,6 @@ export function PaperCard({
         {snippet ? <p className="entity-card-snippet">{snippet}</p> : null}
         <PaperCardThumbs paper={paper} />
       </div>
-
-      {unpinOpen && (
-        <ConfirmDialog
-          title="Remove shared paper?"
-          body={`Remove “${paper.title}” from your library? The original will stay intact for ${sharedByName ?? "its owner"}.`}
-          confirmLabel="Remove from library"
-          danger
-          busy={busy}
-          onConfirm={() => void unpin()}
-          onClose={() => setUnpinOpen(false)}
-        />
-      )}
     </EntityCard>
   );
 }

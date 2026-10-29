@@ -291,6 +291,8 @@ export async function compileTex(
       engine: engine.kind,
     };
   } finally {
-    await fs.rm(root, { recursive: true, force: true }).catch(() => {});
+    await fs.rm(root, { recursive: true, force: true }).catch((error: unknown) => {
+      console.warn(`[tex] could not remove the build folder: ${String(error).slice(0, 300)}`);
+    });
   }
 }

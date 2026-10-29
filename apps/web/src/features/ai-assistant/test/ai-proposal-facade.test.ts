@@ -11,7 +11,7 @@ function draft(id = "proposal-1"): AiWriteProposal {
 test("review facade approves append-only drafts and records the audit", async () => {
   let item = draft(); const audits: string[] = []; let note = "Existing";
   const facade = new AiProposalFacade({
-    proposals: { async save(value) { item = value; }, async getById() { return item; }, async listPending() { return item.status === "pending" ? [item] : []; } },
+    proposals: { async save(value) { item = value; }, async getById() { return item; }, async listPending() { return item.status === "pending" ? [item] : []; }, async claimPending() { if (item.status !== "pending") return false; item = { ...item, status: "executing" }; return true; } },
     audit: { async save(record) { audits.push(record.action); } },
     executors: new AiProposalExecutorRegistry([{ kind: "append_paper_note", async execute(proposal) { note += `\n\n${proposal.content}`; return "accepted"; } }]),
     newId: () => "audit-1", now: () => "2026-07-15T00:01:00.000Z",
@@ -26,7 +26,7 @@ test("review facade approves append-only drafts and records the audit", async ()
 test("review facade rejects without calling a workspace writer", async () => {
   let item = draft(); let wrote = false; const audits: string[] = [];
   const facade = new AiProposalFacade({
-    proposals: { async save(value) { item = value; }, async getById() { return item; }, async listPending() { return [item]; } },
+    proposals: { async save(value) { item = value; }, async getById() { return item; }, async listPending() { return [item]; }, async claimPending() { return false; } },
     audit: { async save(record) { audits.push(record.action); } },
     executors: new AiProposalExecutorRegistry([{ kind: "append_paper_note", async execute() { wrote = true; return "accepted"; } }]),
     newId: () => "audit-2", now: () => "2026-07-15T00:01:00.000Z",
@@ -40,7 +40,8 @@ test("review facade rejects without calling a workspace writer", async () => {
 test("a batch approve counts the drafts whose target changed", async () => {
   const items = new Map([["a", draft("a")], ["b", draft("b")]]);
   const facade = new AiProposalFacade({
-    proposals: { async save(value) { items.set(value.id, value); }, async getById(id) { return items.get(id) ?? null; }, async listPending() { return [...items.values()].filter((i) => i.status === "pending"); } },
+    proposals: { async save(value) { items.set(value.id, value); }, async getById(id) { return items.get(id) ?? null; }, async listPending() { return [...items.values()].filter((i) => i.status === "pending"); },
+      async claimPending(id) { const i = items.get(id); if (i?.status !== "pending") return false; items.set(id, { ...i, status: "executing" }); return true; } },
     audit: { async save() {} },
     executors: new AiProposalExecutorRegistry([{ kind: "append_paper_note", async execute(proposal) { return proposal.id === "b" ? "conflicted" : "accepted"; } }]),
     newId: () => "audit-3", now: () => "2026-07-15T00:01:00.000Z",

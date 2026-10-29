@@ -22,6 +22,10 @@ import {
 import { DocumentModeSwitch } from "@/components/document-mode-switch";
 import { Breadcrumbs } from "./breadcrumbs";
 import { kindIcon, kindSuffix, kindTintClass, modesFor } from "./kind";
+import { followPointer } from "./follow-pointer";
+import { keyLabel, shortcutLabel } from "@/lib/shortcut-label";
+import { TabButton } from "@/components/controls";
+import { CloseButton, IconButton } from "@/components/button";
 
 export interface PaneActions {
   onActivate: (paneId: string, index: number) => void;
@@ -108,12 +112,7 @@ function PaneNodeView({ node, ...props }: PaneViewProps & { node: PaneNode }) {
               : (moveEvent.clientX - box.left) / box.width;
             props.onRatio(split, fraction);
           };
-          const up = () => {
-            window.removeEventListener("pointermove", move);
-            window.removeEventListener("pointerup", up);
-          };
-          window.addEventListener("pointermove", move);
-          window.addEventListener("pointerup", up);
+          followPointer(window, move);
         }}
       />
       <div className="pane-half" style={{ flex: `${1 - split.ratio} 1 0` }}>
@@ -168,43 +167,29 @@ function PaneLeafView({
           return (
             <div
               key={tabKey(tab)}
-              role="tab"
-              aria-selected={isActive}
-              tabIndex={isActive ? 0 : -1}
+              className="pane-tab-slot"
+              role="presentation"
               draggable
               onDragStart={(event) =>
                 event.dataTransfer.setData("application/x-weaveforge-tab", `${leaf.id}|${index}`)
               }
-              className={`pane-tab${isActive ? " is-active" : ""}`}
-              onClick={() => onActivate(leaf.id, index)}
               onAuxClick={(event) => {
                 // Middle-click closes, as every tabbed editor does.
                 if (event.button === 1) onClose(leaf.id, index);
               }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onActivate(leaf.id, index);
-                }
-              }}
             >
-              <span className={`pane-tab-icon ${tintClass(tab.kind)}`} aria-hidden="true">
-                <NavIcon name={kindIcon(tab.kind)} />
-              </span>
-              <span className="pane-tab-label">{labelFor(tab)}</span>
-              {suffix ? <span className="pane-tab-ext">{suffix}</span> : null}
-              <button
-                type="button"
-                className="pane-tab-close"
-                aria-label={`Close ${labelFor(tab)}`}
-                title={`Close ${labelFor(tab)}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onClose(leaf.id, index);
-                }}
+              <TabButton
+                selected={isActive}
+                tabIndex={isActive ? 0 : -1}
+                onClick={() => onActivate(leaf.id, index)}
               >
-                <CloseGlyph />
-              </button>
+                <span className={`pane-tab-icon ${tintClass(tab.kind)}`} aria-hidden="true">
+                  <NavIcon name={kindIcon(tab.kind)} />
+                </span>
+                <span className="pane-tab-label">{labelFor(tab)}</span>
+                {suffix ? <span className="pane-tab-ext">{suffix}</span> : null}
+              </TabButton>
+              <CloseButton size="sm" label={`Close ${labelFor(tab)}`} onClick={() => onClose(leaf.id, index)} />
             </div>
           );
         })}
@@ -232,15 +217,7 @@ function PaneLeafView({
             {leaf.tabs.length > 1 ? (
               <span className="pane-tab-count" aria-hidden="true">{leaf.tabs.length}</span>
             ) : null}
-            <button
-              type="button"
-              className="pane-tab-close"
-              aria-label={`Close ${labelFor(showing)}`}
-              title={`Close ${labelFor(showing)}`}
-              onClick={() => onClose(leaf.id, leaf.activeIndex)}
-            >
-              <CloseGlyph />
-            </button>
+            <CloseButton size="sm" label={`Close ${labelFor(showing)}`} onClick={() => onClose(leaf.id, leaf.activeIndex)} />
           </div>
         ) : null}
         <div className="pane-tab-actions">
@@ -266,35 +243,17 @@ function PaneLeafView({
               ))}
             </span>
           ) : null}
-          <button
-            type="button"
-            className="pane-action"
-            aria-label="Split right"
-            title="Split right"
-            onClick={() => onSplit(leaf.id, "row")}
-          >
+          <IconButton size="sm" label="Split right" onClick={() => onSplit(leaf.id, "row")}>
             <SplitGlyph direction="row" />
-          </button>
+          </IconButton>
           {onToggleFocus ? (
-            <button
-              type="button"
-              className="pane-action"
-              aria-label="Focus"
-              title="Focus: only the document (⌘⇧F)"
-              onClick={onToggleFocus}
-            >
+            <IconButton size="sm" label="Focus" tip={`Focus: only the document (${shortcutLabel("⌘⇧F")})`} onClick={onToggleFocus}>
               <FocusGlyph on={false} />
-            </button>
+            </IconButton>
           ) : null}
-          <button
-            type="button"
-            className="pane-action"
-            aria-label="Split down"
-            title="Split down"
-            onClick={() => onSplit(leaf.id, "column")}
-          >
+          <IconButton size="sm" label="Split down" onClick={() => onSplit(leaf.id, "column")}>
             <SplitGlyph direction="column" />
-          </button>
+          </IconButton>
         </div>
       </div>
 
@@ -361,7 +320,7 @@ function EmptyState() {
           <div className="pane-shortcut" key={command}>
             <dt>
               {chordKeys(table[command]).map((key, index) => (
-                <kbd key={`${command}-${index}`}>{key}</kbd>
+                <kbd key={`${command}-${index}`}>{keyLabel(key)}</kbd>
               ))}
             </dt>
             <dd>{SHORTCUT_LABEL[command]}</dd>
@@ -412,14 +371,6 @@ function tintClass(kind: string): string {
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).slice(0, 2);
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("") || "?";
-}
-
-function CloseGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-      <path d="M6 6l12 12M18 6 6 18" />
-    </svg>
-  );
 }
 
 function SplitGlyph({ direction }: { direction: "row" | "column" }) {

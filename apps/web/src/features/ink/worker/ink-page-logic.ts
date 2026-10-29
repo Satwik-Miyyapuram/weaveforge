@@ -10,6 +10,7 @@
  */
 
 import {
+  errorMessage,
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
   decodeInkChunk,
@@ -26,6 +27,7 @@ import type {
 import {
   InkPageBuffer,
   boundsOf,
+  boundsUnion,
   fromGeometry,
   type InkBounds,
 } from "../application/page-buffer";
@@ -48,6 +50,8 @@ export interface InkPageState {
   redone: HistoryStep[];
   selection: number[];
   loading: boolean;
+  /** The latest `load-page` that arrived while one was in flight (19-06). */
+  pendingLoad: Extract<InkWorkerMessage, { type: "load-page" }> | null;
   background: ImageBitmap | null;
 }
 
@@ -86,16 +90,26 @@ export function reportHistory(
   });
 }
 
-/** Load a page's bytes into the buffer and the renderer. */
+/**
+ * Load a page's bytes into the buffer and the renderer. A load that arrives
+ * while one is in flight waits; of several that wait, only the latest runs, so
+ * quick page turns end on the last page asked for (19-06).
+ *
+ * The page index moves with the page, only once it is decoded: until then
+ * saves and models still answer for the old page, and a page that fails to
+ * decode leaves the old one as it was (19-03).
+ */
 export async function loadPage(
   state: InkPageState,
   message: Extract<InkWorkerMessage, { type: "load-page" }>,
   post: (event: InkWorkerEvent) => void,
 ): Promise<void> {
-  if (state.loading) return;
+  if (state.loading) {
+    state.pendingLoad = message;
+    return;
+  }
   state.loading = true;
   try {
-    state.pageIndex = message.pageIndex;
     // The whole decode happens here, off the main thread, which is the reason the
     // protocol carries bytes rather than a parsed page.
     const model = message.chunk
@@ -115,14 +129,20 @@ export async function loadPage(
           strokes: [],
           lines: [],
         };
+    state.pageIndex = message.pageIndex;
     installPage(state, model, post, message.shown);
   } catch (error) {
     post({
       type: "error",
-      message: error instanceof Error ? error.message : String(error),
+      message: errorMessage(error),
     });
   } finally {
     state.loading = false;
+  }
+  const queued = state.pendingLoad;
+  if (queued) {
+    state.pendingLoad = null;
+    await loadPage(state, queued, post);
   }
 }
 
@@ -161,13 +181,16 @@ export async function savePage(
   requestId: number,
   post: (event: InkWorkerEvent, transfer?: Transferable[]) => void,
 ): Promise<void> {
+  // Taken with the page, before the encode yields: a load may move the index
+  // meanwhile, and the bytes belong to the page packed here (19-02).
+  const pageIndex = state.pageIndex;
   const page = state.buffer.toPage();
   const strokes = page.strokes.length;
   if (strokes === 0) {
     post({
       type: "page-saved",
       requestId,
-      pageIndex: state.pageIndex,
+      pageIndex,
       bytes: null,
       strokes,
       cleared: !state.loading,
@@ -179,7 +202,7 @@ export async function savePage(
     {
       type: "page-saved",
       requestId,
-      pageIndex: state.pageIndex,
+      pageIndex,
       bytes,
       strokes,
       cleared: false,
@@ -316,15 +339,7 @@ export function lasso(
     }
     if (inside * 2 < geometry.x.length) continue;
     chosen.push(candidate);
-    const b = geometry.bounds;
-    bounds = bounds
-      ? [
-          Math.min(bounds[0], b[0]),
-          Math.min(bounds[1], b[1]),
-          Math.max(bounds[2], b[2]),
-          Math.max(bounds[3], b[3]),
-        ]
-      : [b[0], b[1], b[2], b[3]];
+    bounds = boundsUnion(bounds, geometry.bounds);
   }
   state.selection = chosen;
   state.renderer?.setSelection(chosen, { x: 0, y: 0 });

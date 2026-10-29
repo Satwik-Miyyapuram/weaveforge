@@ -7,7 +7,9 @@
 
 import { useCallback, type Dispatch, type RefObject, type SetStateAction } from "react";
 
+import { clampInkZoom, type FigureGeometry } from "@weaveforge/core";
 import type { InkWorkerMessage } from "../application/capture-protocol";
+import type { PageStep } from "../application/ink-page-history";
 import { ERASER_SCREEN_RADIUS } from "./ink-page-pointer";
 
 type Point = { x: number; y: number };
@@ -18,6 +20,8 @@ export function useInkEditActions({
   scrollRef,
   setZoom,
   project,
+  takeStep,
+  restoreFigures,
 }: {
   send: (message: InkWorkerMessage) => void;
   scheduleSave: () => void;
@@ -25,6 +29,10 @@ export function useInkEditActions({
   setZoom: Dispatch<SetStateAction<number>>;
   /** Client px to page units, the host's projection; sizes the eraser at this zoom. */
   project: (clientX: number, clientY: number) => Point | null;
+  /** The next step off the page's undo log (§use-ink-page-history). */
+  takeStep: (direction: "undo" | "redo") => PageStep | null;
+  /** Put the page's figures back, without logging it. */
+  restoreFigures: (figures: readonly FigureGeometry[]) => void;
 }) {
   /** One finger dragged the page: scroll the other way, so the paper follows. */
   const onPan = useCallback((dx: number, dy: number) => {
@@ -33,7 +41,7 @@ export function useInkEditActions({
 
   /** Two fingers pinched: zoom, clamped like the wheel is. */
   const onPinch = useCallback((factor: number) => {
-    setZoom((value) => Math.min(4, Math.max(0.5, value * factor)));
+    setZoom((value) => clampInkZoom(value * factor));
   }, [setZoom]);
 
   const onErase = useCallback(
@@ -48,14 +56,22 @@ export function useInkEditActions({
     [project, scheduleSave, send],
   );
 
-  const onUndo = useCallback(() => {
-    send({ type: "undo" });
-    scheduleSave();
-  }, [scheduleSave, send]);
-  const onRedo = useCallback(() => {
-    send({ type: "redo" });
-    scheduleSave();
-  }, [scheduleSave, send]);
+  /** A stroke step is the worker's to undo; a figure step is put back here. */
+  const step = useCallback(
+    (direction: "undo" | "redo") => {
+      const next = takeStep(direction);
+      if (!next) return;
+      if (next === "stroke") {
+        send({ type: direction });
+        scheduleSave();
+      } else {
+        restoreFigures(direction === "undo" ? next.before : next.after);
+      }
+    },
+    [restoreFigures, scheduleSave, send, takeStep],
+  );
+  const onUndo = useCallback(() => step("undo"), [step]);
+  const onRedo = useCallback(() => step("redo"), [step]);
 
   return { onPan, onPinch, onErase, onUndo, onRedo };
 }

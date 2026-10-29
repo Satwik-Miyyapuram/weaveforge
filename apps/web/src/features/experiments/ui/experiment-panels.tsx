@@ -1,43 +1,36 @@
 "use client";
 
 import { experimentHref } from "../application/experiment-href";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { shortSha, type Experiment, type MetricPoint } from "@weaveforge/core";
-import { figureLabel } from "./figure-label";
+import { artifactItems } from "./artifact-items";
 import { getContainer } from "@/bootstrap";
 import { commitUrl } from "@/features/sync";
 import { formatMetricCell, MetricChart } from "./metric-chart";
 import { MetricGrid } from "./metric-grid";
+import { usePolledLoad } from "./use-polled-load";
 import { isAbsoluteUrl } from "../infrastructure/experiment-artifact-store";
 import { FormError } from "@/components/form-error";
+import { Chip } from "@/components/controls";
 import { ImageViewer } from "@/components/image-viewer";
 import { formatError } from "@/lib/format-error";
-
-function isImageUrl(url: string): boolean {
-  if (url.startsWith("data:")) return url.startsWith("data:image/");
-  try {
-    const path = new URL(url).pathname.toLowerCase();
-    return /\.(png|jpe?g|webp|gif|svg|avif)$/.test(path);
-  } catch {
-    return /\.(png|jpe?g|webp|gif|svg|avif)$/i.test(url.split("?")[0] ?? "");
-  }
-}
+import { warnOnce } from "@/lib/error-report/warn-once";
 
 export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number }) {
   const chips = [
-    exp.branch ? <span key="branch" className="git-chip"><em>branch</em> {exp.branch}</span> : null,
+    exp.branch ? <Chip key="branch"><em>branch</em> {exp.branch}</Chip> : null,
     exp.commitSha ? (
       commitUrl(exp.repoUrl, exp.commitSha) ? (
-        <a key="commit" className="git-chip link" href={commitUrl(exp.repoUrl, exp.commitSha)} target="_blank" rel="noreferrer">
-          <em>commit</em> {shortSha(exp.commitSha)} ↗
-        </a>
+        <Chip key="commit" href={commitUrl(exp.repoUrl, exp.commitSha) ?? ""} target="_blank" rel="noreferrer">
+          <em>commit</em> {shortSha(exp.commitSha)}
+        </Chip>
       ) : (
-        <span key="commit" className="git-chip"><em>commit</em> {shortSha(exp.commitSha)}</span>
+        <Chip key="commit"><em>commit</em> {shortSha(exp.commitSha)}</Chip>
       )
     ) : null,
     exp.repoUrl ? (
-      <a key="repo" className="git-chip link" href={exp.repoUrl} target="_blank" rel="noreferrer">repo ↗</a>
+      <Chip key="repo" href={exp.repoUrl} target="_blank" rel="noreferrer">repo</Chip>
     ) : null,
     exp.relatedPaper ? <RelatedPaper key="paper" paperId={exp.relatedPaper} /> : null,
   ].filter(Boolean);
@@ -48,7 +41,7 @@ export function ExpGitChips({ exp, limit }: { exp: Experiment; limit?: number })
   return (
     <div className={limit != null ? "git-chips chip-row--capped" : "git-chips"}>
       {shown}
-      {hidden > 0 ? <span className="git-chip chip-more">+{hidden}</span> : null}
+      {hidden > 0 ? <span className="chip-more">+{hidden}</span> : null}
     </div>
   );
 }
@@ -62,7 +55,7 @@ export function usePaperTitle(paperId: string | undefined): string | null {
     let alive = true;
     getContainer().experiments.getPaper(paperId)
       .then((p) => alive && setTitle(p?.title ?? null))
-      .catch(() => {});
+      .catch((err: unknown) => warnOnce("experiments", "linked paper title failed to load", err));
     return () => {
       alive = false;
     };
@@ -74,9 +67,9 @@ function RelatedPaper({ paperId }: { paperId: string }) {
   const title = usePaperTitle(paperId);
   if (!title) return null;
   return (
-    <span className="git-chip" title="Paper this run tests/implements">
+    <Chip title={`Paper this run tests/implements: ${title}`}>
       <em>paper</em> {title}
-    </span>
+    </Chip>
   );
 }
 
@@ -109,8 +102,11 @@ export function ExpMetricChips({ exp, limit }: { exp: Experiment; limit?: number
  * seven days regardless of what is asked for, so every figure broke a week
  * after upload.
  */
-function useArtifactUrls(entries: string[]): string[] {
-  const [resolved, setResolved] = useState<string[]>(() => entries.filter(isAbsoluteUrl));
+function useArtifactUrls(entries: string[]): (string | null)[] {
+  // One slot per entry, in order: absolute links are ready now, paths once signed.
+  const [resolved, setResolved] = useState<(string | null)[]>(() =>
+    entries.map((entry) => (isAbsoluteUrl(entry) ? entry : null)),
+  );
 
   // NUL separator, written as an escape: a literal NUL byte in the source makes
   // git treat this whole file as binary and hides it from grep.
@@ -124,7 +120,7 @@ function useArtifactUrls(entries: string[]): string[] {
     void getContainer()
       .experiments.artifactViewUrls(entries)
       .then((urls) => {
-        if (!cancelled) setResolved(urls.filter((u): u is string => Boolean(u)));
+        if (!cancelled) setResolved(urls);
       })
       .catch(() => {
         // Leave whatever resolved already rather than blanking the panel.
@@ -141,9 +137,7 @@ function useArtifactUrls(entries: string[]): string[] {
 }
 
 export function Artifacts({ urls: entries, detail = false }: { urls: string[]; detail?: boolean }) {
-  const urls = useArtifactUrls(entries);
-  const images = urls.filter(isImageUrl);
-  const links = urls.filter((u) => !isImageUrl(u));
+  const { images, links } = artifactItems(entries, useArtifactUrls(entries));
   // Detail: a uniform responsive grid of fixed-ratio tiles. The old
   // column-masonry gave every figure a different height (contain-fit) and
   // flowed column-major, which read as "images spilling onto the next line"
@@ -154,13 +148,13 @@ export function Artifacts({ urls: entries, detail = false }: { urls: string[]; d
     <div className="artifacts">
       {images.length > 0 && (
         <div className={thumbClass}>
-          {images.map((url, i) => (
+          {images.map(({ url, label }, i) => (
             <a
               key={url}
               href={url}
               target="_blank"
               rel="noreferrer"
-              title={figureLabel(url, i)}
+              title={label}
               className={detail ? "card artifact-card" : undefined}
               onClick={(e) => {
                 // Modified clicks keep the browser's own open-in-tab behaviour.
@@ -171,15 +165,15 @@ export function Artifacts({ urls: entries, detail = false }: { urls: string[]; d
               }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt={figureLabel(url, i)} loading="lazy" />
-              {detail && <span className="artifact-caption">{figureLabel(url, i)}</span>}
+              <img src={url} alt={label} loading="lazy" />
+              {detail && <span className="artifact-caption">{label}</span>}
             </a>
           ))}
         </div>
       )}
       {open !== null && (
         <ImageViewer
-          images={images.map((src, i) => ({ src, label: figureLabel(src, i) }))}
+          images={images.map(({ url, label }) => ({ src: url, label }))}
           index={open}
           onIndex={setOpen}
           onClose={() => setOpen(null)}
@@ -187,10 +181,10 @@ export function Artifacts({ urls: entries, detail = false }: { urls: string[]; d
       )}
       {links.length > 0 && (
         <div className="git-chips">
-          {links.map((url) => (
-            <a key={url} className="git-chip link" href={url} target="_blank" rel="noreferrer">
-              artifact ↗
-            </a>
+          {links.map(({ url, label }) => (
+            <Chip key={url} href={url} target="_blank" rel="noreferrer">
+              {label}
+            </Chip>
           ))}
         </div>
       )}
@@ -207,39 +201,19 @@ export function MetricCurves({
   live?: boolean;
   chartHeight?: number;
 }) {
-  const [points, setPoints] = useState<MetricPoint[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data: points, error: loadError } = usePolledLoad(
+    experimentId,
+    () => getContainer().experiments.metricHistory(experimentId),
+    live ? 5000 : null,
+  );
+  // A PostgREST refusal is a plain object; String() of it was "[object Object]".
+  const error = loadError ? formatError(loadError) : null;
   // The server has not been migrated to the function the curves read through.
   // Nothing on this device is wrong and a report would not help, so it is said
   // plainly rather than raised as an error.
-  const [serverBehind, setServerBehind] = useState(false);
+  const serverBehind = (loadError as { code?: unknown } | null)?.code === "PGRST202";
 
-  const fetchHistory = useCallback(() => {
-    return getContainer().experiments.metricHistory(experimentId)
-      .then(setPoints)
-      // A PostgREST refusal is a plain object; String() of it was "[object Object]".
-      .catch((e) => {
-        setError(formatError(e));
-        setServerBehind((e as { code?: unknown } | null)?.code === "PGRST202");
-      });
-  }, [experimentId]);
-
-  useEffect(() => {
-    let alive = true;
-    void fetchHistory().then(() => {
-      if (!alive) return;
-    });
-    return () => {
-      alive = false;
-    };
-  }, [fetchHistory]);
-
-  useEffect(() => {
-    if (!live) return;
-    const t = setInterval(() => { void fetchHistory(); }, 5000);
-    return () => clearInterval(t);
-  }, [live, fetchHistory]);
-
+  /** One stable series list per metric, so a chart only redraws when its data changes. */
   const byMetric = useMemo(() => {
     const groups = new Map<string, MetricPoint[]>();
     for (const p of points ?? []) {
@@ -247,8 +221,8 @@ export function MetricCurves({
       arr.push(p);
       groups.set(p.metric, arr);
     }
-    return [...groups.entries()];
-  }, [points]);
+    return [...groups.entries()].map(([metric, pts]) => ({ metric, series: [{ id: experimentId, points: pts }] }));
+  }, [points, experimentId]);
 
   if (error && serverBehind) return <p className="record-empty">{error}</p>;
   if (error) return <FormError>{error}</FormError>;
@@ -263,13 +237,8 @@ export function MetricCurves({
 
   return (
     <MetricGrid variant="detail">
-      {byMetric.map(([metric, pts]) => (
-        <MetricChart
-          key={metric}
-          metric={metric}
-          height={chartHeight}
-          series={[{ id: experimentId, points: pts }]}
-        />
+      {byMetric.map(({ metric, series }) => (
+        <MetricChart key={metric} metric={metric} height={chartHeight} series={series} />
       ))}
     </MetricGrid>
   );

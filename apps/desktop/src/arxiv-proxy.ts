@@ -11,7 +11,7 @@
  * `id_list` query travels upstream — the same bounds as the web route.
  */
 
-import type { ProxyFetch } from "./semantic-scholar-proxy";
+import { refuse, upstreamFailed, type ProxyFetch } from "./proxy-shared";
 
 export const ARXIV_PROXY_PATH = "/api/arxiv";
 const UPSTREAM = "https://export.arxiv.org/api/query";
@@ -20,13 +20,6 @@ const MAX_ID_LIST_CHARS = 4_000;
 
 export function isArxivProxyRequest(requestUrl: string): boolean {
   return new URL(requestUrl).pathname === ARXIV_PROXY_PATH;
-}
-
-function refuse(status: number, error: string): Response {
-  return new Response(JSON.stringify({ error }), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
 }
 
 export async function proxyArxiv(request: Request, fetchFn: ProxyFetch = fetch): Promise<Response> {
@@ -45,8 +38,8 @@ export async function proxyArxiv(request: Request, fetchFn: ProxyFetch = fetch):
       redirect: "error",
       signal: AbortSignal.timeout(10_000),
     });
-  } catch {
-    return refuse(502, "Upstream fetch failed");
+  } catch (error) {
+    return upstreamFailed("arxiv", error, 502, "Upstream fetch failed");
   }
   if (!upstream.ok) return refuse(502, `arXiv responded ${upstream.status}`);
 

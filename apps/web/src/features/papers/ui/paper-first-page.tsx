@@ -6,10 +6,10 @@ import { getReaderPdfByteCache } from "@/features/reader/application/resolve-pap
 import { folderRestored } from "@/features/workspace/application/workspace-folder";
 import { logToApp } from "@/lib/error-report/app-log";
 import { describeRejection } from "@/lib/format-error";
-import { siteOf, type PaperPreview } from "../application/paper-preview";
+import { PreviewCache, siteOf, type PaperPreview } from "../application/paper-preview";
 
 /** Previews already made, by paper id — a page drawn once is not drawn again. */
-const made = new Map<string, PaperPreview>();
+const made = new PreviewCache(48, (url) => URL.revokeObjectURL(url));
 
 /**
  * The paper's preview, from what is on this device only: opening a paper's
@@ -25,8 +25,8 @@ export function usePaperPreview(paperId: string): PaperPreview {
     if (known) return;
     let cancelled = false;
     void loadPreview(paperId).then((next) => {
-      if (next.kind !== "none") made.set(paperId, next);
-      if (!cancelled) setPreview(next);
+      const kept = made.remember(paperId, next);
+      if (!cancelled) setPreview(kept);
     });
     return () => {
       cancelled = true;

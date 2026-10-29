@@ -15,6 +15,7 @@ import {
   parsePaperHtmlDocument,
   type PaperHtmlPage,
 } from "../application/paper-html";
+import { PAPER_HTML_DB_NAME } from "./local-cache-names";
 import { sanitizePaperHtml } from "./sanitize-paper-html";
 
 export interface PaperHtmlStore {
@@ -50,7 +51,7 @@ class FolderPaperHtmlStore implements PaperHtmlStore {
   }
 }
 
-const DB_NAME = "weaveforge-paper-html";
+const DB_NAME = PAPER_HTML_DB_NAME;
 const STORE = "pages";
 
 function openDb(): Promise<IDBDatabase> {

@@ -12,11 +12,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { WORKSPACE_META_DIR } from "@weaveforge/core";
 import { CHANNELS } from "./channels";
+import { collectGarbage } from "./collect-garbage";
 import type { IpcSurface } from "./ipc-guard";
 import type { LocalClient } from "./local-db";
 import { LocalDbBackups, readBackup } from "./local-db-backup";
+import { dumpOnDisk } from "./local-db-tar";
 import { engineStartParams } from "./local-db-engine-params";
 import { LocalDbHost } from "./local-db-host";
+import { openWithRetry } from "./local-db-retry";
 import { databaseDirFor, relocateDatabaseOnce, StrandedDatabaseError } from "./local-db-location";
 import { prepareDataDir } from "./local-db-prepare";
 import { acquireDbLock, DatabaseInUseError, releaseDbLock } from "./local-db-lock";
@@ -80,14 +83,24 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
   // A crash skips `shutDownLocalDb`; a dead pid's lock is taken over anyway.
   process.on("exit", releaseLock);
 
-  /** Opens a directory and reads one row; the only honest test of "can it open". */
-  async function verifyDatabase(dir: string): Promise<boolean> {
+  /**
+   * The engine on `dir` with no extensions or row parsers: enough to check,
+   * dump or seed a data directory while moving it. `openEngine` is the one the
+   * app queries through.
+   */
+  async function createPlainEngine(dir: string, loadDataDir?: Blob): Promise<LocalClient> {
     prepareDataDir(dir);
     const { PGlite } = await import("@electric-sql/pglite");
-    const client = (await PGlite.create({
+    return (await PGlite.create({
       dataDir: dir,
+      ...(loadDataDir ? { loadDataDir } : {}),
       startParams: engineStartParams(PGlite.defaultStartParams),
     })) as unknown as LocalClient;
+  }
+
+  /** Opens a directory and reads one row; the only honest test of "can it open". */
+  async function verifyDatabase(dir: string): Promise<boolean> {
+    const client = await createPlainEngine(dir);
     try {
       await client.query("select 1");
       return true;
@@ -115,12 +128,7 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       workspaceMetaDir: metaDir,
       verify: verifyDatabase,
       dump: async (dir) => {
-        prepareDataDir(dir);
-        const { PGlite } = await import("@electric-sql/pglite");
-        const client = (await PGlite.create({
-          dataDir: dir,
-          startParams: engineStartParams(PGlite.defaultStartParams),
-        })) as unknown as LocalClient & {
+        const client = (await createPlainEngine(dir)) as LocalClient & {
           dumpDataDir?: (c: "gzip") => Promise<Blob>;
         };
         if (typeof client.dumpDataDir !== "function") {
@@ -131,24 +139,15 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
         return { bytes, close: () => client.close() };
       },
       load: async (targetDir, bytes) => {
-        const { PGlite } = await import("@electric-sql/pglite");
-        const client = (await PGlite.create({
-          dataDir: targetDir,
-          loadDataDir: bytes as Blob,
-          startParams: engineStartParams(PGlite.defaultStartParams),
-        })) as unknown as LocalClient;
+        const client = await createPlainEngine(targetDir, bytes as Blob);
         await client.close();
       },
     });
-    // Pointed at the workspace first so nothing below can touch the app copy.
-    storageDir = path.join(metaDir, "db");
     storageDir = databaseDirFor(appDbDir, metaDir);
     console.log(`[local-db] ${result.note}: ${storageDir}`);
     return storageDir;
   }
-  
-  
-  
+
   /**
    * Copies of the database, under the app's directory and under the workspace
    * folder's `.weaveforge/` when there is one; see `local-db-backup.ts`. Taken
@@ -169,7 +168,7 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
     prepareDataDir(dir);
     const { PGlite, types } = await import("@electric-sql/pglite");
     const { pgcrypto } = await import("@electric-sql/pglite/contrib/pgcrypto");
-    return (await PGlite.create({
+    const engine = await PGlite.create({
       dataDir: dir,
       extensions: { pgcrypto },
       // Rows cross to the renderer shaped as PostgREST would send them, and the
@@ -183,11 +182,16 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       },
       ...(loadDataDir ? { loadDataDir } : {}),
       startParams: engineStartParams(PGlite.defaultStartParams),
-    })) as unknown as LocalClient;
+    });
+    // Backups are written from the files on disk, not from PGlite's in-memory
+    // dump, which cost main several times the database's size (M02).
+    return Object.assign(engine, {
+      dumpTo: (file: string) => dumpOnDisk(engine, dir, file),
+    }) as unknown as LocalClient;
   }
   
   /**
-   * `openEngine`, with three attempts before it admits defeat.
+   * `openEngine`, with `OPEN_ATTEMPTS` attempts before it admits defeat.
    *
    * A local Postgres holds a lock on its data directory, and the two situations
    * that produce a *transient* failure are both ordinary here: reconnecting a
@@ -216,22 +220,13 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
   const OPEN_BACKOFF_MS = 500;
   const OPEN_BACKOFF_MAX_MS = 5000;
   
-  async function openEngineWithRetry(): Promise<LocalClient> {
-    let last: unknown;
-    for (let attempt = 0; attempt < OPEN_ATTEMPTS; attempt++) {
-      try {
-        return await openEngine();
-      } catch (cause) {
-        if (cause instanceof DatabaseInUseError) throw cause;
-        last = cause;
-        if (attempt < OPEN_ATTEMPTS - 1) {
-          const wait = Math.min(OPEN_BACKOFF_MS * 2 ** attempt, OPEN_BACKOFF_MAX_MS);
-          await new Promise((resolve) => setTimeout(resolve, wait));
-        }
-      }
-    }
-    console.warn(`[local-db] could not open after ${OPEN_ATTEMPTS} attempts: ${String(last)}`);
-    throw last;
+  function openEngineWithRetry(): Promise<LocalClient> {
+    return openWithRetry(() => openEngine(), {
+      attempts: OPEN_ATTEMPTS,
+      backoffMs: OPEN_BACKOFF_MS,
+      maxBackoffMs: OPEN_BACKOFF_MAX_MS,
+      giveUpOn: (cause) => cause instanceof DatabaseInUseError,
+    });
   }
   
   /**
@@ -260,6 +255,8 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       path.join(__dirname, "migrations-local"),
     ],
     dataDir: localDbDir,
+    // The engine's WASM and data bundle are dead once it is open; free them now.
+    opened: () => void collectGarbage(),
     open: async () => {
       // The folder is taken up in the background at boot and the answer decides
       // where the database is, so this waits for it.
@@ -288,7 +285,7 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       // The database exists, so a failure to open it here is a failure, not a
       // missing file -- and `recover` (below) answers a failure by throwing the
       // directory away and rebuilding from a backup, which is the most expensive
-      // thing this file can do. It is worth three patient attempts first: a lock
+      // thing this file can do. It is worth several patient attempts first: a lock
       // held by a process that is still exiting clears in about a second, and
       // must not cost the reader their afternoon.
       const client = await openEngineWithRetry();
@@ -300,9 +297,10 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
       if (cause instanceof StrandedDatabaseError) return null;
       // Another app has it open: nothing is broken, so nothing is moved.
       if (cause instanceof DatabaseInUseError) return null;
+      // The one line that says the open failed: the retry above does not.
       const latest = await localDbBackups.latest();
+      console.warn(`[local-db] open failed (${String(cause)}); ${latest ? "restoring from a backup" : "no backup to restore from"}`);
       if (!latest) return null;
-      console.warn(`[local-db] open failed (${String(cause)}); restoring from a backup`);
       // The engine that failed may still hold the directory. When it does, the
       // move waits for a process that has never opened it -- this one,
       // relaunched -- and that boot finds no directory and restores (above).
@@ -327,9 +325,9 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
   /** Write a backup if anything changed; never throws, never opens the database. */
   async function backUpLocalDb(): Promise<void> {
     try {
-      const blob = await localDb.snapshot();
-      if (!blob) return;
-      const written = await localDbBackups.take({ dumpDataDir: async () => blob });
+      const snapshot = await localDb.snapshot();
+      if (!snapshot) return;
+      const written = await localDbBackups.take(snapshot);
       if (written.length > 0) console.log(`[local-db] backed up to ${written.join(", ")}`);
     } catch (error) {
       console.warn(`[local-db] backup failed: ${String(error)}`);

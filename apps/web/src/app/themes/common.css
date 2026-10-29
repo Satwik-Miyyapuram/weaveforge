@@ -41,8 +41,22 @@
   --active-bg: var(--accent-soft);
   --active-fg: var(--accent);
   --accent-ink: var(--accent);
+  /* Every link reads this; themes tune --accent-ink, not links one by one. */
+  --link: var(--accent-ink);
   --clay: var(--s-warn);
   --danger: var(--s-danger);
+  --info: var(--s-info);
+  --success: var(--s-good);
+  /* Plain white and black, for marks drawn over images and fixed-paper surfaces. */
+  --white: #fff;
+  --black: #000;
+  /* A PDF page's own palette, the same in every theme: print ink on white, light ink on the dark page, the find mark. */
+  --page-ink: #111;
+  --page-ink-dark: #eee;
+  --page-margin-dark: #1f1f1f;
+  --page-find: #f5c400;
+  /* Ink on the bright step-progress marks, dark in every theme. */
+  --poster-ink: #12110f;
   --nav-bg: var(--surface);
   /* Touch press tint. Replaces the UA tap highlight, which ignores
    * border-radius; as a background on the element it follows the radius. */

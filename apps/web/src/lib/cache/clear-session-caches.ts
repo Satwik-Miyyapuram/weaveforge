@@ -1,13 +1,18 @@
 import { invalidateAllRepoCaches } from "@/lib/cache/project-lww-invalidator";
-import { clearAllScreenCaches } from "@/lib/cache/screen-cache";
+import { clearBlobFetchCache } from "@/lib/cache/blob-fetch-cache";
 import { clearLocalDeviceData } from "@/lib/desktop/clear-local-device-data";
+import { logToApp } from "@/lib/error-report/app-log";
+import { formatError } from "@/lib/format-error";
 
-let clearDashboardUiCaches: () => void = () => {};
 const sessionResetHooks: Array<() => void> = [];
 
-/** Register module-level dashboard caches to clear on logout. */
-export function registerDashboardUiCacheClear(fn: () => void): void {
-  clearDashboardUiCaches = fn;
+/**
+ * Register a module-level dashboard cache to clear on logout. Two modules call
+ * this; it kept one slot, so the first registration was lost and its cache
+ * outlived the account. It is now an ordinary reset hook.
+ */
+export function registerDashboardUiCacheClear(fn: () => void): () => void {
+  return registerSessionReset(fn);
 }
 
 /**
@@ -32,22 +37,18 @@ export function registerSessionReset(fn: () => void): () => void {
 
 /** Drop in-memory caches and wipe browser persistence so the next user starts clean. */
 export function clearSessionCaches(): void {
+  // Screen caches are cleared inside `invalidateAllRepoCaches`.
   invalidateAllRepoCaches();
-  clearAllScreenCaches();
-  clearDashboardUiCaches();
-  clearStartupSnapshotCache();
+  clearBlobFetchCache();
   // A copy, so a hook that disposes itself is not mutating the list being walked.
-  for (const reset of [...sessionResetHooks]) reset();
-  void clearLocalDeviceData();
-}
-
-/** Remove the cached startup snapshots (org/profile/settings) so nothing persists after sign-out. */
-function clearStartupSnapshotCache(): void {
-  try {
-    for (const key of Object.keys(localStorage)) {
-      if (key.startsWith("thesis.startup.")) localStorage.removeItem(key);
+  // One failing hook must not leave the ones after it holding the last user's data.
+  for (const reset of [...sessionResetHooks]) {
+    try {
+      reset();
+    } catch (err) {
+      logToApp({ level: "warn", source: "session", message: "A sign-out reset failed.", detail: formatError(err) });
     }
-  } catch {
-    /* best-effort */
   }
+  // Removes every `thesis.*` key, the startup snapshots among them.
+  void clearLocalDeviceData();
 }

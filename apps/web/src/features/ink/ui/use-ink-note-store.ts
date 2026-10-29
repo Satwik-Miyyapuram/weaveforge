@@ -15,6 +15,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { logToApp } from "@/lib/error-report/app-log";
+
 import { awaitInkWrites, trackInkWrite } from "../application/ink-pending-writes";
 import type { InkSave } from "./use-ink-worker-rpc";
 import {
@@ -59,6 +61,16 @@ export interface InkNoteStoreDeps {
 /** How long after the last stroke the page is written. */
 export const INK_SAVE_DELAY_MS = 1200;
 
+/** Shown when the sidecar load failed: no page is known, so nothing is saved. */
+export const INK_LOAD_FAILED =
+  "This note's ink could not be loaded, so nothing drawn here will be saved. Close and reopen the note to try again.";
+/** Shown when a page's save failed: what is on screen may not be stored. */
+export const INK_SAVE_FAILED =
+  "The last change to this note's ink could not be saved. Keep the note open and draw again to retry.";
+/** Shown when some pages failed to read: they show empty and are not saved. */
+export const INK_PAGES_UNREADABLE =
+  "Some pages could not be read. They show empty, and nothing drawn on them will be saved until the note is reopened.";
+
 export function useInkNoteStore(deps: InkNoteStoreDeps) {
   const {
     noteId,
@@ -95,13 +107,24 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     };
   }, [metaRef, pagesRef, textPagesRef]);
 
-  /** The body as the header and text layer now stand. */
+  /** Why the note's ink is not all there, or not all saved, when it is not. */
+  const [loadError, setLoadError] = useState<string | null>(null);
+  /** A save that failed: logged and shown, never dropped (21-18, 21-24). */
+  const reportSaveFailure = useCallback(
+    (err: unknown) => {
+      logToApp({ level: "error", source: "ink", message: `Could not save the ink of ${noteId}`, detail: String(err) });
+      setLoadError(INK_SAVE_FAILED);
+    },
+    [noteId],
+  );
+
+  /** The body as the header and text layer now stand. Never rejects: a failure is reported. */
   const saveBody = useCallback(async () => {
     if (!pagesRef.current || !onSave) return;
     const { meta, body: next } = noteBody();
     metaRef.current = meta;
-    await onSave(next);
-  }, [noteBody, onSave, metaRef, pagesRef]);
+    await onSave(next).catch(reportSaveFailure);
+  }, [noteBody, onSave, metaRef, pagesRef, reportSaveFailure]);
 
   /**
    * Bumped after each chunk write. The page list is a ref, so a written chunk
@@ -111,13 +134,17 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** The save is late and coalesced: one write after the last stroke settles. */
   const persistRef = useRef<() => Promise<void>>(async () => {});
+  /** Run the save; a failure is reported, never dropped (21-18). */
+  const runPersist = useCallback(() => {
+    persistRef.current().catch(reportSaveFailure);
+  }, [reportSaveFailure]);
   const scheduleSave = useCallback(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       saveTimer.current = null;
-      void persistRef.current();
+      runPersist();
     }, INK_SAVE_DELAY_MS);
-  }, []);
+  }, [runPersist]);
 
   /** Write the current page's chunk, then the body. */
   const persist = useCallback(async () => {
@@ -126,11 +153,14 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     if (!pages || !current) return;
     const write = (async () => {
       const saved = await requestSave();
-      if (saved.bytes) {
+      // A page whose chunk failed to read still has its strokes in the store;
+      // writing or removing it would lose them (18-01). The body is still saved.
+      const writable = !current.unreadable;
+      if (writable && saved.bytes) {
         await chunks.write(noteId, current.chunkId, saved.bytes);
         current.chunk = saved.bytes;
         setChunkVersion((v) => v + 1);
-      } else if (saved.cleared && saved.pageIndex === pageIndex && current.chunk) {
+      } else if (writable && saved.cleared && saved.pageIndex === pageIndex && current.chunk) {
         // The last stroke went: drop the stored page so it does not come back.
         await chunks.remove(noteId, current.chunkId);
         current.chunk = null;
@@ -155,21 +185,30 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     if (!saveTimer.current && !force) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = null;
-    void persistRef.current();
-  }, []);
+    runPersist();
+  }, [runPersist]);
   useEffect(() => () => flushSave(), [flushSave]);
 
-  /** Load the sidecar once; a note with nothing written gets one blank page. */
+  /**
+   * Load the sidecar once; a note with nothing written gets one blank page.
+   * A load that fails leaves the pages unknown, so nothing is saved (21-17).
+   */
   useEffect(() => {
     let live = true;
+    setLoadError(null);
     void awaitInkWrites(noteId)
       .then(() => loadInkPages(chunks, noteId, metaRef.current))
       .then((pages) => {
-      if (!live) return;
-      pagesRef.current = pages;
-      setPageCount(pages.length);
-      setPageIndex((index) => Math.min(index, pages.length - 1));
-    });
+        if (!live) return;
+        pagesRef.current = pages;
+        setPageCount(pages.length);
+        setPageIndex((index) => Math.min(index, pages.length - 1));
+        if (pages.some((page) => page.unreadable)) setLoadError(INK_PAGES_UNREADABLE);
+      })
+      .catch((err: unknown) => {
+        logToApp({ level: "error", source: "ink", message: `Could not load the ink of ${noteId}`, detail: String(err) });
+        if (live) setLoadError(INK_LOAD_FAILED);
+      });
     return () => {
       live = false;
     };
@@ -183,20 +222,24 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
    * `setPageIndex` has not been applied when the caller continues: a caller
    * that means to fill the new page has to name it.
    */
+  /** One blank page, with its text page, after the last (21-11). */
+  const pushBlankPage = useCallback(
+    (pages: InkStoredPage[]) => {
+      pages.push({ chunkId: newInkChunkId(), chunk: null, paper: metaRef.current.paper });
+      textPagesRef.current.push("");
+    },
+    [metaRef, textPagesRef],
+  );
+
   const appendPage = useCallback((): number => {
     const pages = pagesRef.current;
     if (!pages) return Math.max(0, pageCount - 1);
     flushSave();
-    pages.push({
-      chunkId: newInkChunkId(),
-      chunk: null,
-      paper: metaRef.current.paper,
-    });
-    textPagesRef.current.push("");
+    pushBlankPage(pages);
     setPageCount(pages.length);
     setPageIndex(pages.length - 1);
     return pages.length - 1;
-  }, [flushSave, metaRef, pageCount, pagesRef, setPageCount, setPageIndex, textPagesRef]);
+  }, [flushSave, pageCount, pagesRef, pushBlankPage, setPageCount, setPageIndex]);
 
   /**
    * Blank pages after the last until the note has `count`, staying put.
@@ -209,18 +252,11 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     (count: number) => {
       const pages = pagesRef.current;
       if (!pages || pages.length >= count) return;
-      while (pages.length < count) {
-        pages.push({
-          chunkId: newInkChunkId(),
-          chunk: null,
-          paper: metaRef.current.paper,
-        });
-        textPagesRef.current.push("");
-      }
+      while (pages.length < count) pushBlankPage(pages);
       setPageCount(pages.length);
       void saveBody();
     },
-    [metaRef, pagesRef, saveBody, setPageCount, textPagesRef],
+    [pagesRef, pushBlankPage, saveBody, setPageCount],
   );
 
   /** A new blank page after the last, in the note's order. */
@@ -248,5 +284,6 @@ export function useInkNoteStore(deps: InkNoteStoreDeps) {
     ensurePageCount,
     onAddPage,
     goToPage,
+    loadError,
   };
 }

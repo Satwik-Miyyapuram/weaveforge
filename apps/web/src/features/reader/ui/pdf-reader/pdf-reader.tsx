@@ -10,14 +10,14 @@ import {
   type CSSProperties,
 } from "react";
 import {
+  errorMessage,
   clampScale,
   readerKeyboardCommand,
   resolveTextAnchor,
   inkNoteWidthToPdfPoints,
   screenPointToPdf,
   translateInkPaths,
-  READER_MIN_SCALE,
-  READER_MAX_SCALE,
+  clampZoomFactor,
   type AnchorConfidence,
   type ReaderPageSize,
   type DocumentSearchMatch,
@@ -30,7 +30,7 @@ import type { InkColour, TextSelectionRange } from "@weaveforge/core";
 import {
   InkBar,
   INK_RENDER_COLOURS,
-  PageField,
+  PagePill,
   ViewMenu,
   MoreMenu,
   paletteHex,
@@ -51,6 +51,7 @@ import {
 import {
   draftFromTextSelection,
   draftTextBox,
+  textBoxFromRect,
 } from "../../application/draft-local-annotation";
 import {
   isDismissTap,
@@ -101,7 +102,6 @@ import type {
   PdfReaderProps,
 } from "./types";
 import {
-  CREATE_TOOL_HINTS,
   EMPTY_ANNOTATIONS,
 } from "./constants";
 import {
@@ -111,6 +111,12 @@ import {
   pageScopedLocus,
   textItemsFromContent,
 } from "./pdf-document";
+import { readStored, writeStored } from "@/lib/safe-storage";
+import { shortcutLabel } from "@/lib/shortcut-label";
+import { Button, IconButton } from "@/components/button";
+import { RowButton, Swatch, ToolButton } from "@/components/controls";
+import { ViewSwitch } from "@/components/view-switch";
+import { useRovingToolbar } from "@/lib/hooks/use-roving-toolbar";
 
 export function PdfReader({
   url,
@@ -153,6 +159,8 @@ export function PdfReader({
   // choices persist per user (`usePenPrefs`), the PDF toolbar's do not.
   const [penOpen, setPenOpen] = useState(inkRail);
   const [sideCollapsed, setSideCollapsed] = useState(readSideCollapsed);
+  // The annotate pill is one tab stop; arrows walk its tools (DA-120).
+  const roving = useRovingToolbar();
   // The writing page beside each PDF page is a setting, not the pen's: when it
   // followed the pen, every time the pen came out the pages halved and the
   // layout jumped from one page to two and back.
@@ -242,7 +250,6 @@ export function PdfReader({
     onAnnotationsChange,
     onActivity,
     applyPin,
-    selectedAnnId,
     setSelectedAnnId,
     clearPendingCreate,
   });
@@ -250,12 +257,11 @@ export function PdfReader({
     annError,
     setAnnError,
     createBusy,
-    updateLocal,
     pinLocal,
   } = actions;
   // Every local write goes through the undo stack, in read mode and ink mode.
   const inkUndo = useInkUndo(actions, annotations);
-  const { persistDraft, removeLocal, saveAnchor, reset: resetInkUndo } = inkUndo;
+  const { persistDraft, removeLocal, removeMany, saveAnchor, updateLocal, reset: resetInkUndo } = inkUndo;
   useEffect(() => resetInkUndo(), [url, resetInkUndo]);
   // Ctrl+Z/Y, Ctrl+F and Delete on the window, so they answer after a click on
   // the page or a rail button; skipped when focus sits in another pane.
@@ -464,9 +470,6 @@ export function PdfReader({
    */
   const inkEditable = penOpen;
 
-  /** What the armed tool will do on release. */
-  const toolHint = CREATE_TOOL_HINTS[createTool];
-
   const {
     penSeen,
     draftShape,
@@ -546,7 +549,7 @@ export function PdfReader({
     };
   }, [pendingTextBox, editingTextId, annotations]);
   const commitText = useCallback(
-    (text: string) => {
+    (text: string, rect?: [number, number, number, number]) => {
       if (pendingTextBox) {
         const { pageIndex, pageHeight, x, y, width, height } = pendingTextBox;
         setPendingTextBox(null);
@@ -556,9 +559,8 @@ export function PdfReader({
             pageIndex,
             pageHeight,
             text,
-            x,
-            y,
-            ...(width != null && height != null ? { width, height } : {}),
+            // The rect the box grew to while typing, else as it was drawn.
+            ...(rect ? textBoxFromRect(rect) : { x, y, ...(width != null && height != null ? { width, height } : {}) }),
           }),
         );
         return;
@@ -875,6 +877,15 @@ export function PdfReader({
     let isPinching = false;
     let baseScale = 1;
 
+    /** Draw the live zoom preview at most once a frame. */
+    const showPreview = () => {
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        setZoomPreview({ factor: accumulatedFactor, x: gestureFocus.x, y: gestureFocus.y });
+      });
+    };
+
     const finishPinch = () => {
       if (commitTimer != null) {
         window.clearTimeout(commitTimer);
@@ -914,22 +925,9 @@ export function PdfReader({
 
       // Negative dy zooms in (> 1), positive dy zooms out (< 1)
       const factorDelta = Math.exp(-dy * 0.002);
-      accumulatedFactor *= factorDelta;
+      accumulatedFactor = clampZoomFactor(accumulatedFactor * factorDelta, baseScale);
 
-      const minFactor = READER_MIN_SCALE / baseScale;
-      const maxFactor = READER_MAX_SCALE / baseScale;
-      accumulatedFactor = Math.min(maxFactor, Math.max(minFactor, accumulatedFactor));
-
-      if (rafId == null) {
-        rafId = requestAnimationFrame(() => {
-          rafId = null;
-          setZoomPreview({
-            factor: accumulatedFactor,
-            x: gestureFocus.x,
-            y: gestureFocus.y,
-          });
-        });
-      }
+      showPreview();
 
       if (commitTimer != null) {
         window.clearTimeout(commitTimer);
@@ -956,19 +954,8 @@ export function PdfReader({
       const ge = e as unknown as { scale?: number };
       if (!isPinching) return;
       const scaleVal = typeof ge.scale === "number" ? ge.scale : 1;
-      const minFactor = READER_MIN_SCALE / baseScale;
-      const maxFactor = READER_MAX_SCALE / baseScale;
-      accumulatedFactor = Math.min(maxFactor, Math.max(minFactor, scaleVal));
-      if (rafId == null) {
-        rafId = requestAnimationFrame(() => {
-          rafId = null;
-          setZoomPreview({
-            factor: accumulatedFactor,
-            x: gestureFocus.x,
-            y: gestureFocus.y,
-          });
-        });
-      }
+      accumulatedFactor = clampZoomFactor(scaleVal, baseScale);
+      showPreview();
     };
 
     const onGestureEnd = (e: Event) => {
@@ -1042,13 +1029,15 @@ export function PdfReader({
     setPage: viewport.setPage,
     onFigureTarget,
   });
+  // The two callbacks are stable; `refs` itself is a new object every render.
+  const { startPrefetch, stopPrefetch } = refs;
   useEffect(() => {
     if (!sideCollapsed && activeSideTab === "references") {
-      refs.startPrefetch();
+      startPrefetch();
     } else {
-      refs.stopPrefetch();
+      stopPrefetch();
     }
-  }, [sideCollapsed, activeSideTab, refs]);
+  }, [sideCollapsed, activeSideTab, startPrefetch, stopPrefetch]);
 
 
   const printAnnotationsOn = useCallback(
@@ -1449,7 +1438,7 @@ export function PdfReader({
     try {
       path = await getContainer().papers.uploadImage(paperId, file, ext);
     } catch (err) {
-      setAnnError(`The picture could not be uploaded: ${err instanceof Error ? err.message : String(err)}`);
+      setAnnError(`The picture could not be uploaded: ${errorMessage(err)}`);
       return;
     }
     await persistDraft(draftPicture({ path, pageIndex: pageNumber - 1, pageWidth, pageHeight, aspect }));
@@ -1463,6 +1452,23 @@ export function PdfReader({
       </div>
     );
   }
+
+  // The sidebar's tabs; both tab strips (narrow toolbar, wide sidebar) show these.
+  const sideTabs = [
+    { value: "outline" as const, label: "Outline", title: "Table of contents / outline" },
+    {
+      value: "references" as const,
+      label: refs.index.references.length
+        ? `References (${refs.index.references.length})`
+        : textAnnotationsCount > 0
+        ? `References (${textAnnotationsCount})`
+        : "References",
+      title: "Document references & citations",
+    },
+    ...(listed.length > 0 || canCreate
+      ? [{ value: "annotations" as const, label: listed.length ? `Annotations (${listed.length})` : "Annotations", title: "Annotations & highlights" }]
+      : []),
+  ];
 
   return (
     <div
@@ -1482,15 +1488,11 @@ export function PdfReader({
       }
     >
       {focus && (
-        <button
-          type="button"
-          className="focus-exit"
-          title="Exit focus (⌘⇧F)"
-          aria-label="Exit focus"
-          onClick={toggleFocus}
-        >
-          <FocusGlyph on />
-        </button>
+        <span className="focus-exit">
+          <IconButton label="Exit focus" tip={`Exit focus (${shortcutLabel("⌘⇧F")})`} size="sm" onClick={toggleFocus}>
+            <FocusGlyph on />
+          </IconButton>
+        </span>
       )}
       {locus && jump.status !== "idle" && (
         <div className={`pdf-reader-banner pdf-reader-banner--${jump.status}`} role="status">
@@ -1511,57 +1513,13 @@ export function PdfReader({
           Two free-floating wrapping bars read as scattered chrome. */}
       <div className="pdf-reader-chrome" data-phone-panel={phonePanel}>
         <div className="pdf-reader-tools">
-          <div className="ink-page-pill">
-            <button
-              type="button"
-              className="ink-tool ink-tool-icon-only"
-              onClick={() => viewport.setPage(viewport.page - 1)}
-              disabled={viewport.page <= 1}
-              title="Previous page"
-              aria-label="Previous page"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="m15 18-6-6 6-6" />
-              </svg>
-            </button>
-            <span className="ink-page-count" aria-label={`Page ${viewport.page} of ${Math.max(1, numPages)}`}>
-              <PageField page={viewport.page} pages={Math.max(1, numPages)} onGoToPage={viewport.setPage} />
-              <span className="ink-page-sep" aria-hidden="true">/</span>
-              <span className="ink-page-total">{Math.max(1, numPages)}</span>
-            </span>
-            <button
-              type="button"
-              className="ink-tool ink-tool-icon-only"
-              onClick={() => viewport.setPage(viewport.page + 1)}
-              disabled={viewport.page >= Math.max(1, numPages)}
-              title="Next page"
-              aria-label="Next page"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="m9 18 6-6-6-6" />
-              </svg>
-            </button>
-          </div>
+          <PagePill
+            page={viewport.page}
+            pages={Math.max(1, numPages)}
+            onPrevPage={() => viewport.setPage(viewport.page - 1)}
+            onNextPage={() => viewport.setPage(viewport.page + 1)}
+            onGoToPage={viewport.setPage}
+          />
           <ViewMenu
             zoomPercent={Math.round(viewport.renderScale * 100)}
             onZoomIn={viewport.zoomIn}
@@ -1584,61 +1542,22 @@ export function PdfReader({
             onMatches={(matches, active) => setFind({ matches, active })}
           />
           <MoreMenu onPrintPaper={(withComments) => void readerPrint.print(withComments)} />
-          {/* Wide screens switch tabs in the expanded sidebar; an empty group drew a stray box. */}
-          {(!penOpen || toolbarExtra) && (
-            <div className={`pdf-reader-group pdf-reader-more${toolbarExtra ? "" : " pdf-reader-narrow-only"}`}>
-              {!penOpen && (
-                <div className="seg pdf-reader-side-seg pdf-reader-narrow-only" role="tablist" aria-label="Sidebar view">
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={!sideCollapsed && activeSideTab === "outline"}
-                    className={!sideCollapsed && activeSideTab === "outline" ? "seg-on" : undefined}
-                    title="Table of contents / outline"
-                    onClick={() => selectSideTab("outline")}
-                  >
-                    Outline
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={!sideCollapsed && activeSideTab === "references"}
-                    className={!sideCollapsed && activeSideTab === "references" ? "seg-on" : undefined}
-                    title="Document references & citations"
-                    onClick={() => selectSideTab("references")}
-                  >
-                    {refs.index.references.length
-                      ? `References (${refs.index.references.length})`
-                      : textAnnotationsCount > 0
-                      ? `References (${textAnnotationsCount})`
-                      : "References"}
-                  </button>
-                  {(listed.length > 0 || canCreate) && (
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={!sideCollapsed && activeSideTab === "annotations"}
-                      className={!sideCollapsed && activeSideTab === "annotations" ? "seg-on" : undefined}
-                      title="Annotations & highlights"
-                      onClick={() => selectSideTab("annotations")}
-                    >
-                      {listed.length ? `Annotations (${listed.length})` : "Annotations"}
-                    </button>
-                  )}
-                </div>
-              )}
-              {toolbarExtra}
-            </div>
-          )}
-          <button
-            type="button"
-            className="btn-secondary btn-sm pdf-reader-focus-btn"
-            title="Focus (⌘⇧F)"
-            aria-label="Focus"
-            onClick={toggleFocus}
-          >
-            <FocusGlyph on={false} />
-          </button>
+          {/* Wide screens switch tabs in the expanded sidebar. */}
+          <div className={`pdf-reader-group pdf-reader-more${toolbarExtra ? "" : " pdf-reader-narrow-only"}`}>
+            <ViewSwitch
+              label="Sidebar view"
+              className="pdf-reader-side-seg pdf-reader-narrow-only"
+              value={sideCollapsed ? null : activeSideTab}
+              onChange={selectSideTab}
+              options={sideTabs}
+            />
+            {toolbarExtra}
+          </div>
+          <span className="pdf-reader-focus-btn">
+            <IconButton size="sm" label="Focus" tip={`Focus (${shortcutLabel("⌘⇧F")})`} onClick={toggleFocus}>
+              <FocusGlyph on={false} />
+            </IconButton>
+          </span>
         </div>
         {/* The ink note's own bar, not a copy of it: same tools, same swatches,
             same nibs, same fold and move handles. Select and the Insert tools
@@ -1665,7 +1584,8 @@ export function PdfReader({
           onDeleteSelection={() => {
             const doomed = [...lassoed];
             clearLasso();
-            for (const id of doomed) void removeLocal(id);
+            // One undo step for the whole selection.
+            void removeMany(doomed);
           }}
           onTool={(tool) => {
             // Switching tool ends the mark in progress, so the next stroke
@@ -1719,23 +1639,19 @@ export function PdfReader({
           is armed and what releasing will do. The pointer tool says more with
           the pen out than without it: with the pen away the ink is read-only,
           so it highlights text and nothing else. */}
-      {canCreate && toolHint && <p className="pdf-reader-tool-hint muted">{toolHint}</p>}
       {/* Phone only (PhoneReader mock): the colour, ink and annotation list sit
           in one pill above the tab bar, in thumb reach. The wide toolbar's own
           copies of these hide at the same width. */}
       {canCreate && (
-        <div className="pdf-reader-pill" role="toolbar" aria-label="Annotate">
+        <div className="pdf-reader-pill" role="toolbar" aria-label="Annotate" {...roving}>
           {!penOpen && (
-            <div className="pdf-reader-pill-colours" role="radiogroup" aria-label="Annotation colour">
+            <div className="pdf-reader-pill-colours" role="group" aria-label="Annotation colour">
               {quickColours.slice(0, 4).map((colour, i) => (
-                <button
+                <Swatch
                   key={colour}
-                  type="button"
-                  role="radio"
-                  aria-checked={pickedColor === colour}
-                  aria-label={`Colour ${colour}`}
-                  className="pdf-reader-pill-swatch"
-                  style={{ background: quickHexes[i] }}
+                  label={`Colour ${colour}`}
+                  colour={quickHexes[i]}
+                  selected={pickedColor === colour}
                   onClick={() => {
                     endInkGroup();
                     setCreateColor(colour);
@@ -1745,12 +1661,9 @@ export function PdfReader({
             </div>
           )}
           {!penOpen && <span className="pdf-reader-pill-sep" aria-hidden="true" />}
-          <button
-            type="button"
-            className={`btn-secondary btn-sm pdf-reader-icon-btn${penOpen ? " is-active" : ""}`}
-            aria-pressed={penOpen}
-            aria-label="Ink mode"
-            title="Ink mode"
+          <ToolButton
+            pressed={penOpen}
+            label="Ink mode"
             onClick={() => {
               endInkGroup();
               const next = !penOpen;
@@ -1761,34 +1674,32 @@ export function PdfReader({
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
               <path d="M4 20h4L19 9l-4-4L4 16z" />
             </svg>
-          </button>
+          </ToolButton>
           {!penOpen && (
-            <button
-              type="button"
-              className={`btn-secondary btn-sm pdf-reader-icon-btn${!sideCollapsed && activeSideTab === "annotations" ? " is-active" : ""}`}
-              aria-pressed={!sideCollapsed && activeSideTab === "annotations"}
-              aria-label={`Annotations${listed.length ? ` (${listed.length})` : ""}`}
-              title="Annotations"
+            <ToolButton
+              pressed={!sideCollapsed && activeSideTab === "annotations"}
+              label={`Annotations${listed.length ? ` (${listed.length})` : ""}`}
+              tip="Annotations"
               onClick={() => selectSideTab("annotations")}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                 <path d="M5 6h14M5 12h14M5 18h9" />
               </svg>
-            </button>
+            </ToolButton>
           )}
         </div>
       )}
       {annError && (
         <div className="pdf-reader-banner pdf-reader-banner--low" role="alert">
           {annError}{" "}
-          <button type="button" className="link-btn" onClick={() => setAnnError(null)}>
+          <Button variant="ghost" size="sm" onClick={() => setAnnError(null)}>
             Dismiss
-          </button>
+          </Button>
         </div>
       )}
       <div
         className={`pdf-reader-body${
-          !penOpen && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate)
+          outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate
             ? sideCollapsed
               ? " pdf-reader-body--rail"
               : " pdf-reader-body--outline"
@@ -1943,7 +1854,7 @@ export function PdfReader({
                 )}
                 {/* Inside the page, because it decorates the page's own text
                     layer rather than painting a sibling layer over it. */}
-                {pageSize && refs.enabled && refs.index.mentionsByPage.has(n) && pageItems.has(n) && (
+                {pageSize && refs.index.mentionsByPage.has(n) && pageItems.has(n) && (
                   <CitationTextLayer
                     mentions={refs.index.mentionsByPage.get(n)!}
                     items={pageItems.get(n)!}
@@ -1997,17 +1908,13 @@ export function PdfReader({
           ))}
         </div>
         </div>
-        {/* Writing is a full-width activity: with the pen bar up — whatever tool
-            it holds, the lasso included — the outline, the references and the
-            annotation list all stand down and the paper gets the room. Nothing
-            on a paper is picked up *from* the list; it is picked up on the page,
-            by drawing a loop round it. */}
+        {/* The side panel stays as the reader left it when the pen comes out:
+            hiding it moved the page under the pen. Focus gives the full width. */}
         {/* Collapsed, the whole column folds to one vertical tab that still
             says how many annotations wait behind it. */}
-        {!penOpen && sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
-          <button
-            type="button"
-            className="pdf-reader-side-rail"
+        {sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
+          <span className="pdf-reader-side-rail">
+          <RowButton
             aria-expanded={false}
             aria-label="Show the side panel"
             title="Show the side panel"
@@ -2024,58 +1931,26 @@ export function PdfReader({
                   : "References"
                 : `Annotations ${listed.length ? `(${listed.length})` : ""}`}
             </span>
-          </button>
+          </RowButton>
+          </span>
         )}
-        {!penOpen && !sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
+        {!sideCollapsed && (outline.length > 0 || refs.index.references.length > 0 || listed.length > 0 || canCreate) && (
           <div className="pdf-reader-side is-list-open">
             <div className="pdf-reader-side-header">
-              <div className="seg pdf-reader-side-seg" role="tablist" aria-label="Sidebar view">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeSideTab === "outline"}
-                  className={activeSideTab === "outline" ? "seg-on" : undefined}
-                  onClick={() => setActiveSideTab("outline")}
-                >
-                  Outline
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeSideTab === "references"}
-                  className={activeSideTab === "references" ? "seg-on" : undefined}
-                  onClick={() => setActiveSideTab("references")}
-                >
-                  {refs.index.references.length
-                    ? `References (${refs.index.references.length})`
-                    : textAnnotationsCount > 0
-                    ? `References (${textAnnotationsCount})`
-                    : "References"}
-                </button>
-                {(listed.length > 0 || canCreate) && (
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={activeSideTab === "annotations"}
-                    className={activeSideTab === "annotations" ? "seg-on" : undefined}
-                    onClick={() => setActiveSideTab("annotations")}
-                  >
-                    {listed.length ? `Annotations (${listed.length})` : "Annotations"}
-                  </button>
-                )}
-              </div>
-              <button
-                type="button"
-                className="btn-secondary btn-sm pdf-reader-icon-btn pdf-reader-side-collapse"
-                aria-expanded
-                aria-label="Hide the side panel"
-                title="Hide the side panel"
-                onClick={toggleSide}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M9 6l6 6-6 6" />
-                </svg>
-              </button>
+              <ViewSwitch
+                label="Sidebar view"
+                className="pdf-reader-side-seg"
+                value={activeSideTab}
+                onChange={setActiveSideTab}
+                options={sideTabs}
+              />
+              <span className="pdf-reader-side-collapse">
+                <IconButton size="sm" label="Hide the side panel" aria-expanded onClick={toggleSide}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M9 6l6 6-6 6" />
+                  </svg>
+                </IconButton>
+              </span>
             </div>
             {activeSideTab === "outline" ? (
               <ReaderOutline items={outline} onNavigate={(n) => viewport.setPage(n)} />
@@ -2151,17 +2026,10 @@ function syncPenParam(on: boolean) {
 const SIDE_COLLAPSED_KEY = "wf.reader.sideCollapsed";
 
 function readSideCollapsed(): boolean {
-  try {
-    return window.localStorage.getItem(SIDE_COLLAPSED_KEY) === "1";
-  } catch {
-    return false;
-  }
+  return readStored(SIDE_COLLAPSED_KEY) === "1";
 }
 
+/** Private mode or blocked storage: the panel simply forgets. */
 function writeSideCollapsed(collapsed: boolean) {
-  try {
-    window.localStorage.setItem(SIDE_COLLAPSED_KEY, collapsed ? "1" : "0");
-  } catch {
-    // Private mode or blocked storage: the panel simply forgets.
-  }
+  writeStored(SIDE_COLLAPSED_KEY, collapsed ? "1" : "0");
 }

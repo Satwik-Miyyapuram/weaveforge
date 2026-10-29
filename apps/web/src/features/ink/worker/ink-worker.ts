@@ -17,8 +17,9 @@
  * - the page's geometry ({@link InkPageBuffer}) and the R-tree over it
  *   ({@link InkStrokeIndex}), so a pick never costs the main thread a milisecond;
  * - the live stroke, with its predicted tail **replaced rather than committed**;
- * - packing a finished stroke with core's pressure-aware `packInkStroke` — the same
- *   function the sidecar uses, so what is drawn and what is stored cannot drift;
+ * - packing the stroke as it is drawn with core's `InkStrokePacker`, which only
+ *   ever appends points, so ink on the page never moves and lifting the pen
+ *   stores exactly the last frame drawn;
  * - a one-byte progress counter every frame, which is what the delegated trail
  *   reads to decide whether the worker is rendering behind (§6.2.6).
  *
@@ -30,9 +31,11 @@
  */
 
 import {
+  errorMessage,
   INK_A4_HEIGHT,
   INK_A4_WIDTH,
   INK_PACK_TOLERANCE,
+  InkStrokePacker,
   packInkStroke,
   type InkChunkCodec,
   type InkShape,
@@ -84,7 +87,7 @@ import { setBackground } from "./ink-background";
 export { pointInPolygon };
 
 /** The stroke being drawn: raw samples, with its predicted tail marked off. */
-interface LiveStroke {
+export interface LiveStroke {
   header: InkStrokeHeader;
   points: number[];
   pressures: number[];
@@ -97,6 +100,22 @@ interface LiveStroke {
    * The next real batch truncates back to here.
    */
   realSamples: number;
+  /** Samples arrived since the renderer last got this stroke; a frame without new ones repacks nothing (19-09). */
+  changed: boolean;
+  /** The real samples, packed as they arrive: what is drawn and what is saved. */
+  packer: InkStrokePacker;
+}
+
+/** A stroke the pen has just put down, with nothing in it yet. */
+export function newLiveStroke(header: InkStrokeHeader): LiveStroke {
+  return {
+    header,
+    points: [],
+    pressures: [],
+    realSamples: 0,
+    changed: true,
+    packer: new InkStrokePacker({ tolerance: INK_PACK_TOLERANCE }),
+  };
 }
 
 /** What the worker holds. Fields rather than a class: it is a process, not an object. */
@@ -139,6 +158,7 @@ const state = {
   returns: [] as ArrayBuffer[],
   /** Set while a `load-page` is in flight so two loads cannot interleave. */
   loading: false,
+  pendingLoad: null,
   /** The page's background image, kept here so a page install or a new renderer can re-apply it. */
   background: null as ImageBitmap | null,
   /** The theme's ink colours, kept so a renderer that comes up later draws in them. */
@@ -159,7 +179,7 @@ function post(event: InkWorkerEvent, transfer: Transferable[] = []): void {
  * object would be the same garbage the batched protocol exists to avoid, one thread
  * over. `realSamples` is what separates digitiser truth from prediction.
  */
-function appendSamples(stroke: LiveStroke, payload: InkSamplePayload): void {
+export function appendSamples(stroke: LiveStroke, payload: InkSamplePayload): void {
   const start = stroke.realSamples;
   const end = start + payload.count;
   stroke.points.length = end * 2;
@@ -169,9 +189,11 @@ function appendSamples(stroke: LiveStroke, payload: InkSamplePayload): void {
     stroke.points[(start + index) * 2] = x;
     stroke.points[(start + index) * 2 + 1] = y;
     stroke.pressures[start + index] = pressureByte(pressure);
+    stroke.packer.push(x, y, stroke.pressures[start + index]);
     index += 1;
   });
   stroke.realSamples = end;
+  stroke.changed = true;
 }
 
 /** Replace the predicted tail: truncate to the last real sample, then append. */
@@ -185,6 +207,7 @@ function replacePredictedTail(
     stroke.points.push(x, y);
     stroke.pressures.push(pressureByte(pressure));
   });
+  stroke.changed = true;
 }
 
 /** The pen reports 0–1; the page and the renderer hold a byte. */
@@ -192,34 +215,38 @@ function pressureByte(pressure: number): number {
   return Math.max(0, Math.min(255, Math.round(pressure * 255)));
 }
 
-/** The live stroke as the renderer takes it: typed arrays, packed to eliminate staircase noise and match commit curves. */
-function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
-  const rawPoints = stroke.points;
-  const rawPressures = stroke.pressures;
-  const packed =
-    rawPoints.length >= 4
-      ? packInkStroke(rawPoints, rawPressures, { tolerance: INK_PACK_TOLERANCE })
-      : null;
-  const points = packed && packed.points.length >= 2 ? packed.points : rawPoints;
-  const pressures =
-    packed && packed.pressures.length >= points.length / 2
-      ? packed.pressures
-      : rawPressures;
-  const count = points.length / 2;
+/**
+ * The live stroke as the renderer takes it.
+ *
+ * The real samples are what the packer has kept, which `commitStroke` saves as
+ * they are, so lifting the pen changes nothing on screen. The predicted tail is
+ * kept out of the packer and drawn after, as sampled.
+ */
+export function liveForRenderer(stroke: LiveStroke): InkLiveStroke {
+  const real = stroke.realSamples;
+  const { points, pressures } = stroke.packer.packed();
+  const realCount = points.length / 2;
+  const tail = stroke.points.length / 2 - real;
+  const count = realCount + tail;
   const x = new Float32Array(count);
   const y = new Float32Array(count);
   const pressure = new Uint8Array(count);
-  for (let i = 0; i < count; i += 1) {
+  for (let i = 0; i < realCount; i += 1) {
     x[i] = points[i * 2]!;
     y[i] = points[i * 2 + 1]!;
     pressure[i] = pressures[i] ?? 128;
+  }
+  for (let i = 0; i < tail; i += 1) {
+    x[realCount + i] = stroke.points[(real + i) * 2]!;
+    y[realCount + i] = stroke.points[(real + i) * 2 + 1]!;
+    pressure[realCount + i] = stroke.pressures[real + i] ?? 128;
   }
   return {
     header: stroke.header,
     x,
     y,
     pressure,
-    realCount: count,
+    realCount,
   };
 }
 
@@ -229,6 +256,8 @@ function commitStroke(stroke: LiveStroke): void {
   let raw: readonly number[] = stroke.points.slice(0, real * 2);
   let rawPressures: readonly number[] = stroke.pressures.slice(0, real);
   let shape: InkShape = "none";
+  // What was drawn live is what is saved, unless the mark is replaced below.
+  let packed = stroke.packer.packed();
   if (stroke.header.tool === "shape") {
     // The shape tool snaps on lift (§6.3): the mark is fitted here, once, and what
     // is stored is the fitted path with a flat pressure, so a rectangle is a
@@ -238,16 +267,15 @@ function commitStroke(stroke: LiveStroke): void {
       raw = snapped.points;
       rawPressures = new Array(raw.length / 2).fill(128);
       shape = snapped.shape;
+      packed = packInkStroke(raw, rawPressures, { tolerance: INK_PACK_TOLERANCE });
     }
   }
   // A single tap: preserve as a 2-point dot segment [x, y, x, y] so dots on 'i' or periods are not discarded
   if (raw.length === 2) {
     raw = [raw[0]!, raw[1]!, raw[0]!, raw[1]!];
     rawPressures = [rawPressures[0] ?? 128, rawPressures[0] ?? 128];
+    packed = packInkStroke(raw, rawPressures, { tolerance: INK_PACK_TOLERANCE });
   }
-  // No refit on lift and a sub-pixel pack tolerance: the saved stroke is the
-  // one the pen drew, not a smoothed redraw of it.
-  const packed = packInkStroke(raw, rawPressures, { tolerance: INK_PACK_TOLERANCE });
   if (packed.points.length < 4) return; // a dot or a slip of the pen: nothing to keep
   const index = state.buffer.append({
     points: packed.points,
@@ -301,18 +329,37 @@ function snapShape(
       ? fittedArrowPaths(geometry)
       : [fittedInkPath(geometry)];
   const flat: number[] = [];
-  for (const path of paths) for (const [x, y] of path) flat.push(x, y);
+  for (const path of paths) {
+    for (let i = 0; i < path.length; i += 1) {
+      const [x, y] = path[i]!;
+      if (i > 0) {
+        // Sample each straight edge as a pen would, so packing keeps the
+        // corners: the stroke is drawn as a curve, and a rectangle stored as
+        // its four corners would bow 2 mm off its edges.
+        const [px, py] = path[i - 1]!;
+        const steps = Math.floor(Math.hypot(x - px, y - py) / SNAP_EDGE_STEP);
+        for (let k = 1; k < steps; k += 1)
+          flat.push(px + ((x - px) * k) / steps, py + ((y - py) * k) / steps);
+      }
+      flat.push(x, y);
+    }
+  }
   return flat.length >= 4
     ? { points: flat, shape: recognised.fit.shape }
     : null;
 }
 
-/** One frame: draw, count it, hand buffers back, ask for the next. */
+/** Spacing, in 0.1 mm, a snapped shape's straight edges are sampled at: 1 mm. */
+const SNAP_EDGE_STEP = 10;
+
+/** One frame: draw, count it, hand buffers back, and ask for the next only mid-stroke (19-05). */
 function tick(): void {
   if (state.disposed) return;
   state.frame += 1;
-  if (state.live) state.renderer?.setLive(liveForRenderer(state.live));
-  else state.renderer?.setLive(null);
+  if (state.live?.changed) {
+    state.live.changed = false;
+    state.renderer?.setLive(liveForRenderer(state.live));
+  }
   state.renderer?.draw();
   post({
     type: "frame",
@@ -323,7 +370,9 @@ function tick(): void {
     const buffers = state.returns.splice(0, state.returns.length);
     post({ type: "samples-returned", buffers }, buffers);
   }
-  scope.requestAnimationFrame(tick);
+  // An idle page draws nothing new; the next message wakes the loop again.
+  if (state.live) scope.requestAnimationFrame(tick);
+  else state.running = false;
 }
 
 /** The loop runs only while there is something to draw. */
@@ -365,11 +414,13 @@ function startRenderer(delegating: boolean): void {
           // Everything is reconstructible from the page buffer, so recovery is
           // "re-upload", never "recover the user's data" (§6.2.9).
           state.renderer?.setStrokes(state.buffer.allStrokes());
+          if (state.live) state.live.changed = true;
+          ensureLoop();
         }
       },
     });
   } catch (error) {
-    reason = error instanceof Error ? error.message : String(error);
+    reason = errorMessage(error);
   }
   if (!renderer) {
     // The Canvas 2D path (§6.2.9): the same contract, drawn with paths. A canvas
@@ -378,7 +429,7 @@ function startRenderer(delegating: boolean): void {
     try {
       renderer = new CanvasInkRenderer({ canvas });
     } catch (error) {
-      reason += `; ${error instanceof Error ? error.message : String(error)}`;
+      reason += `; ${errorMessage(error)}`;
     }
   }
   if (!renderer) {
@@ -422,15 +473,10 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         break;
       }
       case "load-page":
-        void loadPage(state, message, post);
+        void loadPage(state, message, post).then(ensureLoop);
         break;
       case "stroke-begin": {
-        state.live = {
-          header: message.header,
-          points: [],
-          pressures: [],
-          realSamples: 0,
-        };
+        state.live = newLiveStroke(message.header);
         appendSamples(state.live, message.sample);
         ensureLoop();
         break;
@@ -468,7 +514,7 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
           .catch((error: unknown) =>
             post({
               type: "error",
-              message: error instanceof Error ? error.message : String(error),
+              message: errorMessage(error),
             }),
           )
           .finally(() => state.saving.delete(saving));
@@ -484,6 +530,8 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
         });
         break;
       case "replace-page":
+        // A page recognised before a page turn belongs to the old page (21-01).
+        if (message.pageIndex !== state.pageIndex) break;
         installPage(state, message.page, post);
         break;
       case "lasso":
@@ -558,7 +606,7 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
   } catch (error) {
     post({
       type: "error",
-      message: error instanceof Error ? error.message : String(error),
+      message: errorMessage(error),
     });
   } finally {
     // Buffers that were transferred belong to the worker until it hands them back.
@@ -570,5 +618,7 @@ scope.addEventListener("message", (event: MessageEvent<InkWorkerMessage>) => {
       const buffer = message.sample.buffer.buffer as ArrayBuffer;
       if (buffer.byteLength > 0) state.returns.push(buffer);
     }
+    // Every message may change what is on screen, or leave buffers to return.
+    ensureLoop();
   }
 });

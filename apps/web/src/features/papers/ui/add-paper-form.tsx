@@ -1,12 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { PAPER_STATUSES, parsePaperRef, type PaperRef, type PaperStatus } from "@weaveforge/core";
+import { enumLabel } from "@/lib/enum-label";
+import { useMemo, useRef, useState } from "react";
+import { PAPER_STATUSES, parsePaperRef, type Paper, type PaperRef, type PaperStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { Select } from "@/components/select";
-import { paperSourceNoteScaffold } from "../application/paper-source-note-scaffold";
+import { scaffoldNewPaperNote } from "../application/paper-source-note-scaffold";
 import { useSubmit } from "@/lib/hooks/use-submit";
 import { FormError } from "@/components/form-error";
+import { Button } from "@/components/button";
+import { formatError } from "@/lib/format-error";
+import type { PdfDropOutcome } from "../application/paper-from-pdf";
+import { addPdfFiles } from "./pdf-drop";
 
 
 type RefKind = Exclude<PaperRef["kind"], "bibliographic">;
@@ -35,12 +40,27 @@ const DETECTED_LABELS: Record<RefKind, string> = {
 
 const REF_ORDER: RefKind[] = ["url", "arxiv", "doi", "zotero"];
 
+/** The toast after Add paper: a duplicate is found, not added (E10). */
+export function addedPaperMessage(created: boolean): string {
+  return created ? "Paper added" : "Already in library";
+}
+
 /**
  * Add-paper form. UI only: it collects input and delegates to the AddPaper /
  * ImportPaper use-cases via the container. The import source (arXiv, DOI,
  * Zotero) is chosen here; the resolver picks the matching IMetadataSource.
  */
-export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
+export function AddPaperForm({
+  onAdded,
+  onPdfs,
+}: {
+  onAdded?: (paper: Paper, created: boolean) => void;
+  /** Offers a PDF picker; the outcomes are the caller's to announce. */
+  onPdfs?: (outcomes: PdfDropOutcome[]) => void;
+}) {
+  const pdfRef = useRef<HTMLInputElement>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [refKind, setRefKind] = useState<RefKind>("url");
   const [refValue, setRefValue] = useState("");
@@ -56,31 +76,35 @@ export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
 
   const { busy, error, submit } = useSubmit(async () => {
     const papers = getContainer().papers;
-    const paper = refValue.trim()
-      ? await papers.importPaper.fromRef({ kind: refKind, value: refValue.trim() }, status)
-      : await papers.addPaper.addManual({ title, status });
-    if (!paper.summary || paper.summary === "No summary yet.") {
-      const citeKey =
-        typeof paper.metadata?.["citeKey"] === "string"
-          ? paper.metadata["citeKey"]
-          : undefined;
-      const scaffold = paperSourceNoteScaffold({
-        title: paper.title,
-        authors: paper.authors,
-        year: paper.year,
-        venue: paper.venue,
-        doi: paper.doi,
-        citeKey,
-      });
-      await papers.updatePaper.setSummary(paper.id, scaffold);
+    const { paper, created } = refValue.trim()
+      ? await papers.importPaper.importRef({ kind: refKind, value: refValue.trim() }, status)
+      : await papers.addPaper.add({ title, status });
+    // A duplicate is the library's own paper: its note and Zotero item exist.
+    if (created) {
+      const saved = await scaffoldNewPaperNote(paper, papers.updatePaper);
+      // Zotero is its own facade now: the push is a bibliography concern, not a
+      // property of the shelf.
+      await getContainer().zotero.autoPush(saved);
     }
-    // Zotero is its own facade now: the push is a bibliography concern, not a
-    // property of the shelf.
-    await getContainer().zotero.autoPush(paper);
     setTitle("");
     setRefValue("");
-    onAdded?.();
+    onAdded?.(paper, created);
   });
+
+  async function pickPdfs(input: HTMLInputElement) {
+    const files = Array.from(input.files ?? []);
+    input.value = "";
+    if (files.length === 0 || !onPdfs) return;
+    setPdfBusy(true);
+    setPdfError(null);
+    try {
+      onPdfs(await addPdfFiles(files));
+    } catch (err) {
+      setPdfError(formatError(err));
+    } finally {
+      setPdfBusy(false);
+    }
+  }
 
   return (
     <form className="card add-form" onSubmit={submit}>
@@ -132,16 +156,41 @@ export function AddPaperForm({ onAdded }: { onAdded?: () => void }) {
           >
             {PAPER_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {s.replace("_", " ")}
+                {enumLabel("paperStatus", s)}
               </option>
             ))}
           </Select>
         </div>
       </div>
-      {error && <FormError>{error}</FormError>}
-      <button className="btn-primary" disabled={busy}>
+      {onPdfs && (
+        <div className="field">
+          <label htmlFor="pdfFile">…or add from a PDF</label>
+          {/* The native input stays for the label and screen readers; the
+              app's own button opens it, since no theme can restyle the
+              browser's "Choose files / No file chosen". */}
+          <input
+            ref={pdfRef}
+            id="pdfFile"
+            className="sr-only"
+            type="file"
+            accept="application/pdf,.pdf"
+            multiple
+            disabled={pdfBusy}
+            aria-describedby="pdfFileHint"
+            onChange={(e) => void pickPdfs(e.currentTarget)}
+          />
+          <div>
+            <Button size="sm" disabled={pdfBusy} onClick={() => pdfRef.current?.click()}>
+              {pdfBusy ? "Reading PDF…" : "Choose PDFs…"}
+            </Button>
+          </div>
+          <p id="pdfFileHint" className="muted field-hint">The DOI or title on its first page finds the paper. You can also drop PDFs on Papers.</p>
+        </div>
+      )}
+      {(pdfError ?? error) && <FormError>{pdfError ?? error}</FormError>}
+      <Button type="submit" variant="primary" disabled={busy}>
         {busy ? "Adding…" : "Add paper"}
-      </button>
+      </Button>
     </form>
   );
 }

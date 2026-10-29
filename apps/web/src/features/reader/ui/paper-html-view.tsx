@@ -12,6 +12,7 @@
 import { useMemo } from "react";
 import { buildPaperHtmlDocument, type PaperHtmlPage } from "../application/paper-html";
 import { useDarkPdf } from "./pdf-reader/use-dark-pdf";
+import { Button } from "@/components/button";
 
 export interface PaperHtmlViewProps {
   page: PaperHtmlPage;
@@ -40,23 +41,21 @@ export function PaperHtmlView({ page, toolbarExtra, onRemove }: PaperHtmlViewPro
           {host} ↗
         </a>
         <span className="paper-html-spacer" />
-        <button
-          type="button"
-          className="btn-secondary btn-sm"
+        <Button
+          size="sm"
           title="Print this page or save it as a PDF"
           onClick={() => printPaperHtml(page)}
         >
           Save as PDF…
-        </button>
+        </Button>
         {onRemove ? (
-          <button
-            type="button"
-            className="btn-secondary btn-sm"
+          <Button
+            size="sm"
             title="Forget this page and look for a PDF again"
             onClick={onRemove}
           >
             Remove page
-          </button>
+          </Button>
         ) : null}
         {toolbarExtra}
       </div>

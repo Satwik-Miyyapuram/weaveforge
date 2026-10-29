@@ -1,8 +1,11 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { getContainer } from "@/bootstrap";
+import { Button, IconButton } from "@/components/button";
 import { CommentsIcon } from "@/components/view-icons";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
+import { CommentsBadge } from "./comments-badge";
 import { NoteComments } from "./note-comments";
 
 /**
@@ -31,24 +34,39 @@ export function CommentsToggle({
 
   useDismissOnOutside(open, () => setOpen(false), wrapRef);
 
+  // The open-thread count, on the detail toggle only: a list of cards would
+  // ask the server once per card. Read again each time the sheet closes.
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!detail || open) return;
+    let alive = true;
+    getContainer().sharing.manageComments.list(resourceType, resourceId)
+      .then((all) => alive && setCount(all.filter((c) => !c.parentId && !c.resolvedAt).length))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [detail, open, resourceType, resourceId]);
+
+  const trigger = {
+    onClick: () => setOpen((v) => !v),
+    "aria-expanded": open,
+    "aria-controls": open ? panelId : undefined,
+  };
   return (
     <div className={`comments-toggle${detail ? " comments-toggle--detail" : ""}`} ref={wrapRef}>
-      <button
-        type="button"
-        className={
-          detail
-            ? "btn-secondary entity-icon-text-btn comments-trigger-detail"
-            : "entity-icon-btn"
-        }
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-controls={open ? panelId : undefined}
-        aria-label={label}
-        title={label}
-      >
-        <CommentsIcon size={detail ? 18 : 16} />
-        {detail ? <span>{open ? "Hide comments" : "Comments"}</span> : null}
-      </button>
+      {detail ? (
+        <Button size="sm" variant="ghost" aria-label={label} title={label} {...trigger}>
+          <CommentsIcon size={18} />
+          <span>{open ? "Hide comments" : "Comments"}</span>
+          <CommentsBadge count={count} />
+        </Button>
+      ) : (
+        <IconButton label={label} {...trigger}>
+          <CommentsIcon size={16} />
+          <CommentsBadge count={count} />
+        </IconButton>
+      )}
       {open && (
         <div id={panelId} className="comments-sheet" role="region" aria-label="Comments">
           <NoteComments embedded resourceType={resourceType} resourceId={resourceId} canComment={canComment} isOwner={isOwner} />

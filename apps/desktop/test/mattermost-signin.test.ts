@@ -1,6 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mattermostOrigin, postToMattermost, sessionTokenFrom, tokenWorks } from "../src/mattermost-signin";
+import { CHANNELS } from "../src/channels";
+import type { IpcSurface } from "../src/ipc-guard";
+import {
+  mattermostOrigin,
+  postToMattermost,
+  registerMattermostSignIn,
+  sessionTokenFrom,
+  tokenWorks,
+} from "../src/mattermost-signin";
 
 const ORIGIN = "https://mattermost.example.org";
 
@@ -45,4 +53,54 @@ test("mattermost post: sent from main to the server's posts endpoint", async () 
   assert.deepEqual(await postToMattermost(req, answer(403, "nope")), { status: 403, body: "nope" });
   await assert.rejects(postToMattermost({ ...req, serverUrl: "file:///x" }, answer(200)), /valid http/);
   await assert.rejects(postToMattermost({ ...req, token: 5 }, answer(200)), /token/);
+});
+
+/** The sign-in handler with the window step replaced, callable without Electron. */
+function signInHandler(signIn: (origin: string) => Promise<string | null>) {
+  const handlers = new Map<string, (...args: unknown[]) => unknown>();
+  const ipc: IpcSurface = {
+    handle: (channel, listener) => void handlers.set(channel, (...args) => listener({} as never, ...args)),
+    on: () => undefined,
+  };
+  registerMattermostSignIn({ ipc, mainWindow: () => null, signIn });
+  return (url: unknown) =>
+    handlers.get(CHANNELS.mattermostSignIn)!(url) as Promise<{ ok: boolean; value?: unknown; message?: string }>;
+}
+
+test("mattermost sign-in: a window that fails answers ok:false, and the next try opens again (xipc-09)", async () => {
+  let fail = true;
+  const opened: string[] = [];
+  const call = signInHandler(async (origin) => {
+    opened.push(origin);
+    if (fail) throw new Error("window crashed");
+    return "tok";
+  });
+  const first = await call(ORIGIN);
+  assert.equal(first.ok, false);
+  assert.match(first.message ?? "", /window crashed/);
+  fail = false;
+  assert.deepEqual(await call(ORIGIN), { ok: true, value: "tok" });
+  assert.deepEqual(opened, [ORIGIN, ORIGIN]);
+});
+
+test("mattermost sign-in: a non-Error failure still answers with a reason", async () => {
+  const reply = await signInHandler(() => Promise.reject("nope"))(ORIGIN);
+  assert.equal(reply.ok, false);
+  assert.match(reply.message ?? "", /Mattermost/);
+});
+
+test("mattermost sign-in: a second click joins the open window", async () => {
+  let release!: (t: string) => void;
+  let opened = 0;
+  const call = signInHandler(() => {
+    opened += 1;
+    return new Promise((resolve) => { release = resolve; });
+  });
+  const a = call(ORIGIN);
+  const b = call(ORIGIN);
+  await new Promise((r) => setImmediate(r));
+  release("tok");
+  assert.deepEqual(await a, { ok: true, value: "tok" });
+  assert.deepEqual(await b, { ok: true, value: "tok" });
+  assert.equal(opened, 1);
 });

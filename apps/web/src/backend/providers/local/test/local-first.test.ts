@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { withAppLogs } from "@/lib/error-report/test/capture-app-logs";
 import { routedClient } from "../local-first";
 import { localFirstAccount, setLocalFirstAccount } from "../local-first-marker";
 
@@ -67,6 +68,35 @@ describe("metric reads on the local-first client", () => {
     assert.deepEqual(both.data, [{ id: "a" }, { id: "b" }]);
     const one = await ends([{ id: "a" }], new Error("offline")).rpc("latest_metric_activity", {});
     assert.deepEqual(one.data, [{ id: "a" }]);
+  });
+
+  it("logs the end that failed instead of dropping it (09-15)", async () => {
+    await withAppLogs(async (logs) => {
+      await ends([{ id: "a" }], [{ id: "b" }]).rpc("latest_metric_activity", {});
+      assert.equal(logs.length, 0);
+
+      const { data } = await ends([{ step: 1 }], new Error("offline")).rpc("metric_history", {});
+      assert.deepEqual(data, [{ step: 1 }]);
+      assert.equal(logs.length, 1);
+      assert.equal(logs[0]!.level, "warn");
+      assert.match(logs[0]!.message, /server/);
+      assert.match(logs[0]!.detail ?? "", /metric_history.*offline/);
+    });
+  });
+
+  it("returns the server error when both ends fail and logs the local one it drops (09-15)", async () => {
+    await withAppLogs(async (logs) => {
+      const server = new Error("down");
+      const local = routedClient(
+        { rpc: async () => ({ data: null, error: new Error("locked") }) } as unknown as SupabaseClient,
+        { rpc: async () => ({ data: null, error: server }) } as unknown as SupabaseClient,
+      );
+      const { error } = await local.rpc("latest_metric_activity", {});
+      assert.equal(error, server);
+      assert.equal(logs.length, 1);
+      assert.match(logs[0]!.message, /this computer/);
+      assert.match(logs[0]!.detail ?? "", /latest_metric_activity.*locked/);
+    });
   });
 });
 

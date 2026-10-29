@@ -8,11 +8,11 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readdir } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { cachePathFor, isUpstreamHost, serveModelFile, type FetchLike } from "../src/model-cache";
+import { cachePathFor, isUpstreamHost, modelCacheUrl, serveModelFile, type FetchLike } from "../src/model-cache";
 
 const ROOT = path.join("C:", "cache", "models");
 
@@ -208,4 +208,119 @@ test("model cache: a failed download leaves no half file behind", async () => {
   // The directory is created only once there are bytes to write, so a refusal
   // leaves nothing at all rather than a `.part` a later read would trust.
   assert.deepEqual(await readdir(root), []);
+});
+
+// xlog-14: the bytes still reach the page when the rename fails, and the log says why.
+test("model cache: a rename that fails is logged, and the download is still served", async (t) => {
+  const warn = t.mock.method(console, "warn", () => undefined);
+  const root = await cacheRoot();
+  const file = cachePathFor(root, URL_UNDER_TEST)!;
+  // A non-empty folder where the file belongs: the read misses and the rename cannot land.
+  await mkdir(path.join(file, "blocker"), { recursive: true });
+  const scripted = upstream(() => new Response("{}", { status: 200 }));
+
+  const answer = await serveModelFile(root, URL_UNDER_TEST, scripted.fetchLike);
+
+  assert.equal(answer.status, 200);
+  assert.equal(await answer.text(), "{}");
+  assert.equal(warn.mock.callCount(), 1);
+  assert.match(String(warn.mock.calls[0]!.arguments[0]), /^\[models\] could not keep .*config\.json/);
+});
+
+test("model cache: a normal download logs nothing", async (t) => {
+  const warn = t.mock.method(console, "warn", () => undefined);
+  const root = await cacheRoot();
+  const answer = await serveModelFile(root, URL_UNDER_TEST, upstream(() => new Response("{}")).fetchLike);
+  assert.equal(answer.status, 200);
+  assert.equal(warn.mock.callCount(), 0);
+});
+
+test("model cache: two asks for one file at once download it once and share it (38-03)", async () => {
+  const root = await cacheRoot();
+  const scripted = upstream(() => new Response("weights", { status: 200 }));
+
+  const [a, b] = await Promise.all([
+    serveModelFile(root, URL_UNDER_TEST, scripted.fetchLike),
+    serveModelFile(root, URL_UNDER_TEST, scripted.fetchLike),
+  ]);
+
+  assert.deepEqual([a.status, b.status], [200, 200]);
+  assert.deepEqual([await a.text(), await b.text()], ["weights", "weights"]);
+  assert.equal(scripted.asked.length, 1, "one download, not two writing one .part");
+  const dir = path.dirname(cachePathFor(root, URL_UNDER_TEST)!);
+  assert.deepEqual(await readdir(dir), ["config.json"], "no temporary file left behind");
+
+  // Once done, the next ask is a fresh one (a later failure is not cached).
+  const again = await serveModelFile(path.join(root, "other"), URL_UNDER_TEST, scripted.fetchLike);
+  assert.equal(again.status, 200);
+  assert.equal(scripted.asked.length, 2);
+});
+
+test("model cache: a file declared too large is refused before its body is read (38-04)", async () => {
+  const root = await cacheRoot();
+  let bodyRead = false;
+  const huge = {
+    ok: true,
+    status: 200,
+    headers: new Headers({ "content-length": String(600 * 1024 * 1024) }),
+    arrayBuffer: async () => {
+      bodyRead = true;
+      return new ArrayBuffer(0);
+    },
+  } as unknown as Response;
+
+  const answer = await serveModelFile(root, URL_UNDER_TEST, async () => huge);
+
+  assert.equal(answer.status, 502);
+  assert.equal(bodyRead, false, "the body is never buffered");
+  assert.deepEqual(await readdir(root), []);
+});
+
+test("model cache: a missing or bad content-length still downloads (38-04)", async () => {
+  for (const length of [null, "abc"]) {
+    const root = await cacheRoot();
+    const headers = new Headers(length === null ? {} : { "content-length": length });
+    const reply = {
+      ok: true,
+      status: 200,
+      headers,
+      arrayBuffer: async () => new TextEncoder().encode("{}").buffer,
+    } as unknown as Response;
+    const answer = await serveModelFile(root, URL_UNDER_TEST, async () => reply);
+    assert.equal(answer.status, 200, `content-length ${String(length)}`);
+  }
+});
+
+test("model cache: the same-origin path names the same cached file as the model host", () => {
+  // The renderer at `app://weaveforge` cannot fetch `app://models` at all: a
+  // custom scheme is not CORS-enabled, so Chromium blocks it as cross-origin.
+  // The weights are asked for under the app's own origin instead.
+  const sameOrigin = modelCacheUrl("app://weaveforge/models/Xenova/m/resolve/main/config.json?x=1", "weaveforge");
+  assert.equal(sameOrigin, "app://models/Xenova/m/resolve/main/config.json?x=1");
+  assert.equal(cachePathFor(ROOT, sameOrigin!), path.join(ROOT, "Xenova", "m", "resolve", "main", "config.json"));
+  const direct = "app://models/Xenova/m/resolve/main/config.json";
+  assert.equal(modelCacheUrl(direct, "weaveforge"), direct);
+});
+
+test("model cache: only the models folder of the app's own host is a weights request", () => {
+  assert.equal(modelCacheUrl("app://weaveforge/settings/index.html", "weaveforge"), null);
+  assert.equal(modelCacheUrl("app://weaveforge/modelsx/a/config.json", "weaveforge"), null);
+  assert.equal(modelCacheUrl("app://weaveforge/models", "weaveforge"), null);
+  assert.equal(modelCacheUrl("app://elsewhere/models/a/config.json", "weaveforge"), null);
+});
+
+test("model cache: an encoded traversal under the same-origin path is still refused", () => {
+  const url = modelCacheUrl("app://weaveforge/models/a%2F..%2F..%2Fb", "weaveforge");
+  assert.equal(cachePathFor(ROOT, url!), null);
+});
+
+test("model cache: the same-origin path downloads the repository path, without the folder", async () => {
+  const root = await cacheRoot();
+  const scripted = upstream(() => new Response("{}", { status: 200 }));
+  const url = modelCacheUrl("app://weaveforge/models/Xenova/m/resolve/main/config.json", "weaveforge")!;
+
+  const answer = await serveModelFile(root, url, scripted.fetchLike);
+
+  assert.equal(answer.status, 200);
+  assert.deepEqual(scripted.asked, ["https://huggingface.co/Xenova/m/resolve/main/config.json"]);
 });

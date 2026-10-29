@@ -31,13 +31,15 @@ while read -r sha; do
   # A bot has no standing to certify anything — a sign-off is a statement about
   # who has the right to submit the work, and no person wrote this. Dependabot
   # also cannot add a trailer, and `dco` is a required check, so without this
-  # every dependency PR would be permanently blocked. GitHub gives every bot an
-  # address shaped `<name>[bot]@users.noreply.github.com`, which a person cannot
-  # register, so this is a bot rule rather than an opt-out.
+  # every dependency PR would be permanently blocked. A commit email is
+  # whatever the committer typed, so the `[bot]@` address only counts when GitHub
+  # says a bot opened the pull request (DCO_PR_AUTHOR_TYPE=Bot, set by CI).
   # Kept identical to `isBotAuthor` in scripts/lib/dco.mjs.
-  case "$author" in
-    *"[bot]@"*) continue ;;
-  esac
+  if [ "${DCO_PR_AUTHOR_TYPE:-}" = "Bot" ]; then
+    case "$author" in
+      *"[bot]@"*) continue ;;
+    esac
+  fi
 
   # The trailer has to name the author. A sign-off is a statement about who has
   # the right to submit the work, so one carrying somebody else's address

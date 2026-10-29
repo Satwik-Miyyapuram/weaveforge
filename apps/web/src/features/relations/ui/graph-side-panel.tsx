@@ -1,14 +1,20 @@
 "use client";
 
-import Link from "next/link";
+import { enumLabel, humanise } from "@/lib/enum-label";
 import { useEffect, useMemo, useState } from "react";
 import {
   type Paper, type PaperRelation, type RelationType, type ReportSection, type VaultPage } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { RELATION_COLORS, tagColor } from "../domain/graph-palette";
+import { noteTags, relatedConcepts as relatedConceptCounts } from "../application/graph-tags";
 import { Select } from "@/components/select";
+import { Button, CloseButton, IconButton } from "@/components/button";
+import { CloseIcon } from "@/components/view-icons";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
+import { removeRelationLater } from "./remove-relation";
+import { relationPhrase } from "./relation-phrase";
+import { Chip } from "@/components/controls";
 
 interface StoredAnnotation {
   text?: string;
@@ -26,6 +32,9 @@ interface StoredAnnotation {
  * are cut with an ellipsis, so a cut title cannot be mistaken for the whole
  * one.
  */
+/** Relations listed before "Show all n". */
+const RELATIONS_SHOWN = 8;
+
 function paperLabel(papers: Paper[], id: string, max = 40): string {
   const title = papers.find((p) => p.id === id)?.title;
   if (!title) return "a paper not in this view";
@@ -88,14 +97,10 @@ export function GraphSidePanel({
       <div className="graph-side-head">
         <span className="graph-side-chips">
           <span className="graph-side-kind">{kindLabel}</span>
-          {paper && <span className="status-pill">{paper.status.replace("_", " ")}</span>}
-          {section && <span className="status-pill">{section.status.replace("_", " ")}</span>}
+          {paper && <span className="status-pill">{enumLabel("paperStatus", paper.status)}</span>}
+          {section && <span className="status-pill">{humanise(section.status)}</span>}
         </span>
-        <button type="button" className="btn-ghost graph-side-close" onClick={onClose} aria-label="Close panel">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </button>
+        <CloseButton label="Close panel" onClick={onClose} />
       </div>
       {paper && (
         <PaperPanel
@@ -144,6 +149,7 @@ function PaperPanel({
   onSelectConcept: (name: string) => void;
 }) {
   const [linking, setLinking] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const touching = relations.filter((e) => e.fromPaper === paper.id || e.toPaper === paper.id);
 
   async function autoLinkPaper() {
@@ -163,9 +169,8 @@ function PaperPanel({
    * pixels wide, and one that sits off-screen whenever either end is out of
    * view. The panel already lists the relations, so the row carries the action.
    */
-  async function removeRelation(id: string) {
-    await getContainer().graph.removeRelation(id);
-    onRefresh();
+  function removeRelation(id: string) {
+    removeRelationLater(id, onRefresh);
   }
 
   return (
@@ -177,48 +182,53 @@ function PaperPanel({
       {paper.tags.length > 0 && (
         <div className="tag-chips">
           {paper.tags.map((t) => (
-            <button key={t} type="button" className="tag-chip tag-chip-btn" onClick={() => onSelectConcept(t)}>
+            <Chip key={t} onClick={() => onSelectConcept(t)}>
               #{t}
-            </button>
+            </Chip>
           ))}
         </div>
       )}
       <div className="graph-side-actions">
-        <Link href={`/papers?paper=${encodeURIComponent(paper.id)}`} className="btn-primary">
+        <Button variant="primary" href={`/papers?paper=${encodeURIComponent(paper.id)}`}>
           Open in Papers
-        </Link>
-        <button type="button" className="btn-secondary" onClick={() => void autoLinkPaper()} disabled={linking}>
+        </Button>
+        <Button onClick={() => void autoLinkPaper()} disabled={linking}>
           {linking ? "Linking…" : "Auto-link citations"}
-        </button>
+        </Button>
       </div>
       {touching.length > 0 && (
         <div className="graph-side-section">
           <div className="graph-side-label">Relations · {touching.length}</div>
           <ul className="graph-side-list">
-            {touching.slice(0, 8).map((e) => {
-              const otherId = e.fromPaper === paper.id ? e.toPaper : e.fromPaper;
+            {(showAll ? touching : touching.slice(0, RELATIONS_SHOWN)).map((e) => {
+              const outgoing = e.fromPaper === paper.id;
+              const otherId = outgoing ? e.toPaper : e.fromPaper;
               return (
                 <li key={e.id} className="graph-side-rel">
                   <span className="graph-side-rel-kind" style={{ borderColor: RELATION_COLORS[e.relation] }}>
-                    {e.relation.replace("_", " ")}
+                    {relationPhrase(e.relation, outgoing)}
                   </span>
-                  <button type="button" className="link-btn" onClick={() => onSelectPaper(otherId)}>
+                  <Button variant="link" onClick={() => onSelectPaper(otherId)}>
                     {paperLabel(papers, otherId)}
-                  </button>
+                  </Button>
                   {e.source === "auto" && <span className="muted"> (auto)</span>}
-                  <button
-                    type="button"
-                    className="link-btn graph-side-rel-remove"
-                    aria-label={`Delete relation with ${paperLabel(papers, otherId)}`}
-                    title="Delete relation"
-                    onClick={() => void removeRelation(e.id)}
-                  >
-                    ✕
-                  </button>
+                  <span className="graph-side-rel-remove">
+                    <CloseButton
+                      size="sm"
+                      label={`Delete relation with ${paperLabel(papers, otherId)}`}
+                      tip="Delete relation"
+                      onClick={() => removeRelation(e.id)}
+                    />
+                  </span>
                 </li>
               );
             })}
           </ul>
+          {touching.length > RELATIONS_SHOWN && (
+            <Button size="sm" variant="ghost" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll}>
+              {showAll ? "Show fewer" : `Show all ${touching.length}`}
+            </Button>
+          )}
         </div>
       )}
     </div>
@@ -232,10 +242,7 @@ function NotePanel({
   note: VaultPage;
   onSelectConcept: (name: string) => void;
 }) {
-  const tags = (note.body.match(/#[\p{L}\p{N}_-]+/gu) ?? []).map((t) =>
-    t.replace(/^#+/, "").toLowerCase(),
-  );
-  const uniqueTags = [...new Set(tags)];
+  const uniqueTags = noteTags(note);
 
   return (
     <div className="graph-side-body">
@@ -243,16 +250,16 @@ function NotePanel({
       {uniqueTags.length > 0 && (
         <div className="tag-chips">
           {uniqueTags.map((t) => (
-            <button key={t} type="button" className="tag-chip tag-chip-btn" onClick={() => onSelectConcept(t)}>
+            <Chip key={t} onClick={() => onSelectConcept(t)}>
               #{t}
-            </button>
+            </Chip>
           ))}
         </div>
       )}
       <div className="graph-side-actions">
-        <Link href={`/notes?page=${encodeURIComponent(note.id)}`} className="btn-primary">
+        <Button variant="primary" href={`/notes?page=${encodeURIComponent(note.id)}`}>
           Open in Notes
-        </Link>
+        </Button>
       </div>
     </div>
   );
@@ -265,9 +272,9 @@ function SectionPanel({ section }: { section: ReportSection }) {
       {section.sectionNo && <p className="muted">§ {section.sectionNo}</p>}
       <p className="muted">{section.wordCount} words</p>
       <div className="graph-side-actions">
-        <Link href={`/report?section=${encodeURIComponent(section.id)}`} className="btn-primary">
+        <Button variant="primary" href={`/report?section=${encodeURIComponent(section.id)}`}>
           Open in Report
-        </Link>
+        </Button>
       </div>
     </div>
   );
@@ -305,23 +312,10 @@ function ConceptPanel({
   const linkedNotes = notes.filter((n) => linkedNoteIds.includes(n.id));
   const linkedCount = linkedPapers.length + linkedNotes.length;
 
-  const relatedConcepts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const p of linkedPapers) {
-      for (const t of p.tags) {
-        if (t === name) continue;
-        counts.set(t, (counts.get(t) ?? 0) + 1);
-      }
-    }
-    for (const n of linkedNotes) {
-      const tags = (n.body.match(/#[\p{L}\p{N}_-]+/gu) ?? []).map((t) => t.replace(/^#+/, "").toLowerCase());
-      for (const t of tags) {
-        if (t === name) continue;
-        counts.set(t, (counts.get(t) ?? 0) + 1);
-      }
-    }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
-  }, [linkedPapers, linkedNotes, name]);
+  const relatedConcepts = useMemo(
+    () => relatedConceptCounts(name, linkedPapers, linkedNotes),
+    [linkedPapers, linkedNotes, name],
+  );
 
   const evidence = useMemo(() => {
     const out: { paper: Paper; ann: StoredAnnotation }[] = [];
@@ -370,9 +364,9 @@ function ConceptPanel({
       <h3 className="graph-side-title" style={{ color: tagColor(name) }}>#{name}</h3>
       <p className="muted">{linkedCount} item{linkedCount === 1 ? "" : "s"}</p>
       <div className="graph-side-actions">
-        <button type="button" className="btn-secondary" onClick={() => setMergeOpen((v) => !v)}>
+        <Button onClick={() => setMergeOpen((v) => !v)}>
           Merge alias…
-        </button>
+        </Button>
       </div>
       {mergeOpen && (
         <div className="graph-merge-box">
@@ -390,9 +384,9 @@ function ConceptPanel({
             ))}
           </Select>
           {error && <FormError>{error}</FormError>}
-          <button type="button" className="btn-primary" disabled={!mergeInto || busy} onClick={() => void merge()}>
+          <Button variant="primary" disabled={!mergeInto || busy} onClick={() => void merge()}>
             {busy ? "Merging…" : "Merge"}
-          </button>
+          </Button>
         </div>
       )}
       {linkedPapers.length > 0 && (
@@ -401,10 +395,10 @@ function ConceptPanel({
           <ul className="graph-side-list">
             {linkedPapers.map((p) => (
               <li key={p.id}>
-                <button type="button" className="link-btn" onClick={() => onSelectPaper(p.id)}>
+                <Button variant="link" onClick={() => onSelectPaper(p.id)}>
                   {p.title}
-                </button>
-                <span className="muted"> · {p.status.replace("_", " ")}</span>
+                </Button>
+                <span className="muted"> · {enumLabel("paperStatus", p.status)}</span>
               </li>
             ))}
           </ul>
@@ -416,9 +410,9 @@ function ConceptPanel({
           <ul className="graph-side-list">
             {linkedNotes.map((n) => (
               <li key={n.id}>
-                <button type="button" className="link-btn" onClick={() => onSelectNote(n.id)}>
+                <Button variant="link" onClick={() => onSelectNote(n.id)}>
                   {n.title}
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
@@ -429,9 +423,9 @@ function ConceptPanel({
           <div className="muted">Co-occurring</div>
           <div className="tag-chips">
             {relatedConcepts.map(([t, n]) => (
-              <button key={t} type="button" className="tag-chip tag-chip-btn" onClick={() => onSelectConcept(t)}>
+              <Chip key={t} onClick={() => onSelectConcept(t)}>
                 #{t} <span className="muted">({n})</span>
-              </button>
+              </Chip>
             ))}
           </div>
         </div>
@@ -444,9 +438,9 @@ function ConceptPanel({
               <li key={i} className="annotation">
                 {ann.color && <span className="annotation-swatch" style={{ background: ann.color }} aria-hidden />}
                 <div className="annotation-body">
-                  <button type="button" className="link-btn annotation-paper" onClick={() => onSelectPaper(p.id)}>
+                  <Button variant="link" size="sm" onClick={() => onSelectPaper(p.id)}>
                     {paperLabel(papers, p.id, 48)}
-                  </button>
+                  </Button>
                   {ann.text && <p className="annotation-text">{ann.text}</p>}
                   {ann.comment && <p className="annotation-comment">{ann.comment}</p>}
                 </div>
@@ -473,17 +467,9 @@ export function EdgeDetailPopover({
   onClose: () => void;
   onDeleted: () => void;
 }) {
-  const [busy, setBusy] = useState(false);
-
-  async function remove() {
-    setBusy(true);
-    try {
-      await getContainer().graph.removeRelation(edge.id);
-      onDeleted();
-      onClose();
-    } finally {
-      setBusy(false);
-    }
+  function remove() {
+    removeRelationLater(edge.id, onDeleted);
+    onClose();
   }
 
   return (
@@ -495,17 +481,15 @@ export function EdgeDetailPopover({
     >
       <div className="graph-edge-popover-head">
         <span className="legend-swatch" style={{ background: RELATION_COLORS[edge.relation as RelationType] }} />
-        <strong>{edge.relation.replace("_", " ")}</strong>
-        <button type="button" className="link-btn" onClick={onClose}>✕</button>
+        <strong>{enumLabel("relation", edge.relation)}</strong>
+        <IconButton label="Close panel" onClick={onClose}><CloseIcon /></IconButton>
       </div>
       <p className="muted graph-edge-popover-path">
         {paperLabel(papers, edge.fromPaper, 36)} → {paperLabel(papers, edge.toPaper, 36)}
       </p>
       {edge.note && <p>{edge.note}</p>}
       <p className="muted">Source: {edge.source}</p>
-      <button type="button" className="btn-secondary" disabled={busy} onClick={() => void remove()}>
-        {busy ? "Deleting…" : "Delete edge"}
-      </button>
+      <Button onClick={remove}>Delete relation</Button>
     </div>
   );
 }

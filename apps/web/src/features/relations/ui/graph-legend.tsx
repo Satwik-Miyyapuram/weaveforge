@@ -1,11 +1,12 @@
 "use client";
 
+import { enumLabel } from "@/lib/enum-label";
 import { useState } from "react";
 import { RELATION_TYPES, type GraphViewSettings, type RelationType } from "@weaveforge/core";
-import { ChevronIcon } from "@/components/chevron-icon";
 import { RELATION_COLORS, WIKILINK_COLOR, EXPERIMENT_LINK_COLOR } from "../domain/graph-palette";
 import { CLUSTER_PALETTE, RAMP_GRADIENT, UNCOLOURED } from "../application/node-colouring";
 import { NODE_COLOR_LABELS, useGraphColours } from "./graph-colours";
+import { FoldButton } from "@/components/controls";
 
 /** Modes that colour every node from the whole graph; kinds then show by shape alone. */
 const GRAPH_WIDE = new Set(["year", "degree", "cluster", "groups"]);
@@ -34,15 +35,9 @@ export function GraphLegend({
   const wide = GRAPH_WIDE.has(settings.colorBy);
   return (
     <div className="graph-legend-wrap">
-      <button
-        type="button"
-        className={`graph-legend-toggle btn-secondary${open ? " on" : ""}`}
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
+      <FoldButton expanded={open} onClick={() => setOpen((v) => !v)}>
         Legend
-        <ChevronIcon open={open} />
-      </button>
+      </FoldButton>
       {open && (
         <div className="graph-legend card">
           <div className="graph-legend-group">
@@ -90,7 +85,7 @@ export function GraphLegend({
             {RELATION_TYPES.map((t) => (
               <span key={t} className="legend-item">
                 <span className="legend-swatch" style={{ background: RELATION_COLORS[t as RelationType] }} />
-                {t.replace("_", " ")}
+                {enumLabel("relation", t)}
               </span>
             ))}
           </div>

@@ -1,5 +1,5 @@
 import { unzipSync } from "fflate";
-import { normalizeTitleKey, stripFrontmatter, stripKindSuffix, uniqueTitle } from "@weaveforge/core";
+import { mapLimit, normalizeTitleKey, stripFrontmatter, stripKindSuffix, uniqueTitle } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 
 export interface ImportResult {
@@ -8,6 +8,21 @@ export interface ImportResult {
   renamed: { from: string; to: string }[];
   skipped: number;
 }
+
+/** The slice of the vault facade an import uses. */
+export interface ImportVault {
+  /** Titles of the project's notes, for clash checks. */
+  pageTitles(): Promise<readonly string[]>;
+  manageVaultPage: {
+    add(input: { title: string; body?: string; parentId?: string; folder?: boolean }): Promise<{ id: string }>;
+  };
+}
+
+/**
+ * Notes added at once. Titles are already de-duplicated up front, so the adds
+ * are independent; the bound keeps a big vault from flooding the connection.
+ */
+const NOTE_ADD_CONCURRENCY = 4;
 
 /** Folder segments between the picked root and the file (drops root + filename). */
 function folderSegments(relativePath: string): string[] {
@@ -64,6 +79,7 @@ function rewriteWikilinks(body: string, renames: Map<string, string>): string {
 export async function importNotesFromFiles(
   files: File[],
   onProgress?: (done: number, total: number) => void,
+  vault: ImportVault = getContainer().vault,
 ): Promise<ImportResult> {
   const expanded: File[] = [];
   for (const f of files) {
@@ -74,13 +90,11 @@ export async function importNotesFromFiles(
     }
   }
 
-  const vault = getContainer().vault;
   const mdFiles = expanded.filter((f) => f.name.toLowerCase().endsWith(".md"));
   const skipped = expanded.length - mdFiles.length;
 
   // Seed the used-title set with existing project notes so imports don't clash.
-  const existing = await vault.loadScreenData();
-  const used = new Set<string>(existing.flat.map((p) => normalizeTitleKey(p.title)));
+  const used = new Set<string>((await vault.pageTitles()).map(normalizeTitleKey));
   const renamed: { from: string; to: string }[] = [];
   /** normalizeTitleKey(old) → new title (for wikilink rewrite). */
   const renameMap = new Map<string, string>();
@@ -106,6 +120,7 @@ export async function importNotesFromFiles(
     const page = await vault.manageVaultPage.add({
       title,
       parentId: parentKey ? folderIds.get(parentKey) : undefined,
+      folder: true,
     });
     folderIds.set(key, page.id);
   }
@@ -128,8 +143,10 @@ export async function importNotesFromFiles(
     });
   }
 
+  // Folders stay sequential above (children need their parent's id). Notes
+  // only point at folders, so they can go in parallel (34-24).
   let created = 0;
-  for (const item of planned) {
+  await mapLimit(planned, NOTE_ADD_CONCURRENCY, async (item) => {
     const { body, tags } = stripFrontmatter(item.raw);
     const withTags = tags.length ? `${body.trimEnd()}\n\n${tags.map((t) => `#${t}`).join(" ")}\n` : body;
     const rewritten = rewriteWikilinks(withTags, renameMap);
@@ -140,7 +157,7 @@ export async function importNotesFromFiles(
     });
     created += 1;
     onProgress?.(created, mdFiles.length);
-  }
+  });
 
   return { created, folders: folderIds.size, renamed, skipped };
 }

@@ -14,10 +14,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import {
-  inkPageBackground,
-  inkPageFigures,
-  withInkPageBackground,
-  withInkPageFigures,
+  errorMessage,
   type InkNoteMeta,
   type InkPage as InkPageModel,
   type InkRecogniser,
@@ -26,6 +23,7 @@ import {
 
 import {
   acceptLine,
+  pageTextAfterRecognition,
   recognisePage,
   recognisedPageFromModel,
   type RecognisedPage,
@@ -39,8 +37,8 @@ export interface InkRecognitionDeps {
   hints: () => Promise<InkRecognitionHints>;
   /** The worker's strokes for the current page. */
   requestModel: () => Promise<InkPageModel>;
-  /** Tell the worker the recognised page, geometry replaced. */
-  sendReplace: (page: InkPageModel) => void;
+  /** Tell the worker the recognised page `pageIndex`, geometry replaced. */
+  sendReplace: (page: InkPageModel, pageIndex: number) => void;
   /** The note's header, kept by the host; recognition writes two fields of it. */
   metaRef: { current: InkNoteMeta };
   /** The pages' text layers, written with the recognised text. */
@@ -73,6 +71,9 @@ export function useInkRecognition(deps: InkRecognitionDeps) {
   const [unavailable, setUnavailable] = useState<string | null>(null);
   const recognisedRef = useRef<RecognisedPage | null>(null);
   recognisedRef.current = recognised;
+  // The page on screen now, for a recognition that started on another (21-01).
+  const pageIndexRef = useRef(pageIndex);
+  pageIndexRef.current = pageIndex;
 
   /** A page the worker just loaded: its earlier run's lines, if it has any. */
   const onModelLoaded = useCallback(
@@ -94,18 +95,19 @@ export function useInkRecognition(deps: InkRecognitionDeps) {
 
   /**
    * A recognised page becomes the worker's page, the column's lines and the
-   * body's text. Recognition replaces the page's text; the background line
-   * and the figures are the host's, so both are re-applied over the new text.
+   * body's text. `prior` is the earlier run's text: only that gives way, so
+   * typed text on the page stays (E34).
+   * A result for a page the reader has left only writes that page's text: the
+   * worker and the column now hold another page (21-01).
    */
   const applyRecognised = useCallback(
-    (result: RecognisedPage, replace: boolean) => {
-      if (replace) sendReplace(result.page);
-      setRecognised(result);
-      const was = textPagesRef.current[pageIndex] ?? "";
-      textPagesRef.current[pageIndex] = withInkPageFigures(
-        withInkPageBackground(result.text, inkPageBackground(was)),
-        inkPageFigures(was),
-      );
+    (result: RecognisedPage, at: number, prior: string) => {
+      if (at === pageIndexRef.current) {
+        sendReplace(result.page, at);
+        setRecognised(result);
+      }
+      const was = textPagesRef.current[at] ?? "";
+      textPagesRef.current[at] = pageTextAfterRecognition(was, prior, result.text);
       metaRef.current = {
         ...metaRef.current,
         recognised: result.confidence,
@@ -113,12 +115,13 @@ export function useInkRecognition(deps: InkRecognitionDeps) {
       };
       scheduleSave();
     },
-    [metaRef, pageIndex, scheduleSave, sendReplace, textPagesRef],
+    [metaRef, scheduleSave, sendReplace, textPagesRef],
   );
 
   /** Recognise this page: the engine, line by line, then the post-match (§5.4). */
   const recognise = useCallback(async () => {
     if (recognising) return;
+    const at = pageIndex;
     setRecognising(true);
     setProgress(null);
     try {
@@ -138,21 +141,22 @@ export function useInkRecognition(deps: InkRecognitionDeps) {
         hints: workspaceHints,
         onProgress: (done, total) => setProgress(`line ${done} of ${total}`),
       });
-      applyRecognised(result, true);
+      const prior = model.lines.length > 0 ? recognisedPageFromModel(model, null).text : "";
+      applyRecognised(result, at, prior);
     } catch (error) {
-      setUnavailable(error instanceof Error ? error.message : String(error));
+      setUnavailable(errorMessage(error));
     } finally {
       setRecognising(false);
       setProgress(null);
     }
-  }, [applyRecognised, hints, recognising, recogniser, requestModel]);
+  }, [applyRecognised, hints, pageIndex, recognising, recogniser, requestModel]);
 
   /** A correction from the column: certain from now on. */
   const onAccept = useCallback(
     (index: number, text: string) => {
       const current = recognisedRef.current;
       if (!current) return;
-      applyRecognised(acceptLine(current, index, text), true);
+      applyRecognised(acceptLine(current, index, text), pageIndexRef.current, current.text);
     },
     [applyRecognised],
   );

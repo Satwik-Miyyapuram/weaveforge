@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
+import fsp, { mkdtemp, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import test from "node:test";
+import test, { mock } from "node:test";
 
 import {
   NodeWorkspaceFs,
@@ -12,10 +12,10 @@ import {
   WORKSPACE_SUBDIR,
 } from "../src/vault-folder";
 import {
+  MAX_VAULT_BLOB_BYTES,
   MAX_VAULT_BYTES,
   adoptRoot,
   currentRoot,
-  forgetRoot,
   listVaultFiles,
   newVaultSession,
   readVaultBytes,
@@ -149,6 +149,43 @@ test("listing gives one level, walking gives every file", async () => {
   assert.deepEqual(walked.sort(), ["notes/a.note.md", "notes/deep/b.note.md"]);
 });
 
+/** Make readdir refuse one folder as the OS would for a locked one. */
+function lockFolder(name: string) {
+  const readdir = fsp.readdir;
+  return mock.method(fsp, "readdir", (dir: string, ...rest: unknown[]) => {
+    if (path.basename(String(dir)) === name) {
+      return Promise.reject(Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" }));
+    }
+    return (readdir as (...a: unknown[]) => unknown)(dir, ...rest);
+  });
+}
+
+test("an unreadable folder is an error, not an empty one (38-10)", async (t) => {
+  const fs = new NodeWorkspaceFs(await tempDir());
+  await fs.writeFile("locked/a.note.md", "a");
+  t.after(() => mock.restoreAll());
+  lockFolder("locked");
+  await assert.rejects(() => fs.list("locked"), /EACCES/);
+  // A folder that is not there is still just empty.
+  assert.deepEqual(await fs.list("missing"), []);
+});
+
+test("an unreadable subfolder does not stop the walk (38-10)", async (t) => {
+  const fs = new NodeWorkspaceFs(await tempDir());
+  await fs.writeFile("notes/a.note.md", "a");
+  await fs.writeFile("notes/locked/b.note.md", "b");
+  await fs.writeFile("notes/open/c.note.md", "c");
+  t.after(() => mock.restoreAll());
+  lockFolder("locked");
+  const walked: string[] = [];
+  for await (const entry of fs.walk("")) walked.push(entry.path);
+  assert.deepEqual(walked.sort(), ["notes/a.note.md", "notes/open/c.note.md"]);
+  // The folder the walk starts from must be readable, though.
+  await assert.rejects(async () => {
+    for await (const _ of fs.walk("notes/locked")) void _;
+  }, /EACCES/);
+});
+
 test("bytes go through the byte channel unchanged", async () => {
   const session = newVaultSession();
   await adoptRoot(session, await tempDir());
@@ -276,18 +313,6 @@ test("an escaping path is a refusal with a reason, not a crash", async () => {
   assert.equal(result.ok, false);
 });
 
-test("forgetting the folder stops the writes but not the files", async () => {
-  const session = newVaultSession();
-  const root = await tempDir();
-  await adoptRoot(session, root);
-  await writeVaultFile(session, "a.note.md", "Body.");
-  forgetRoot(session);
-  assert.deepEqual(currentRoot(session), { ok: true, value: null });
-  assert.equal((await readVaultFile(session, "a.note.md")).ok, false);
-  // Still on disk: forgetting is the app looking away, not a delete.
-  assert.equal(await new NodeWorkspaceFs(root).readText("a.note.md"), "Body.");
-});
-
 test("listing answers entries the renderer can use", async () => {
   const session = newVaultSession();
   await adoptRoot(session, await tempDir());
@@ -302,13 +327,12 @@ test("listing answers entries the renderer can use", async () => {
 
 // ------------------------------------------------------------- remembering it
 
-test("choosing a folder remembers it; forgetting clears it", async () => {
+test("choosing a folder remembers it", async () => {
   const session = newVaultSession();
   const root = await tempDir();
   const seen: (string | null)[] = [];
   await adoptRoot(session, root, (value) => seen.push(value));
-  forgetRoot(session, (value) => seen.push(value));
-  assert.deepEqual(seen, [root, null]);
+  assert.deepEqual(seen, [root]);
 });
 
 test("a remembered folder is re-verified, not trusted", async () => {
@@ -357,4 +381,32 @@ test("remove takes one file and is never recursive", async () => {
   // A directory with something in it cannot be taken out from here.
   await writeVaultFile(session, "notes/b.note.md", "Body.");
   assert.equal((await removeVaultFile(session, "notes")).ok, false);
+});
+
+// 38-12: the text and byte channels share one sized read and one sized write,
+// each with its own cap, and the refusal names the cap that applied.
+test("each channel keeps its own cap, and the refusal names it", async () => {
+  const session = newVaultSession();
+  const written: string[] = [];
+  let size = 0;
+  session.fs = {
+    stat: async () => ({ size }),
+    readText: async () => "text",
+    readFile: async () => new Uint8Array([1]),
+    writeFile: async (at: string) => {
+      written.push(at);
+    },
+  } as unknown as NodeWorkspaceFs;
+
+  size = MAX_VAULT_BYTES + 1;
+  assert.match((await readVaultFile(session, "a.md") as { message: string }).message, /over 8 MB/);
+  assert.deepEqual(await readVaultBytes(session, "a.pdf"), { ok: true, value: new Uint8Array([1]) });
+
+  size = MAX_VAULT_BLOB_BYTES + 1;
+  assert.match((await readVaultBytes(session, "a.pdf") as { message: string }).message, /over 80 MB/);
+
+  const blob = new Uint8Array(MAX_VAULT_BLOB_BYTES + 1);
+  assert.match((await writeVaultBytes(session, "b.pdf", blob) as { message: string }).message, /over 80 MB/);
+  assert.deepEqual(await writeVaultBytes(session, "c.pdf", blob.subarray(1)), { ok: true, value: null });
+  assert.deepEqual(written, ["c.pdf"]);
 });

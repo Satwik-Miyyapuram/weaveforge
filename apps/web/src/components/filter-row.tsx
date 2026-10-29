@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 import { MultiSelect } from "@/components/multi-select";
+import { Button } from "./button";
+import { Chip } from "./controls";
 
 /** Chips drawn before the rest fold into "+N others", keeping the row short. */
 const SHOWN_CHIPS = 2;
@@ -51,14 +53,14 @@ export function FilterRow({ label, facets, children }: { label: string; facets: 
         <FilterChip key={c.key} label={c.label} onRemove={c.remove} />
       ))}
       {hidden.length > 0 && (
-        <span className="filter-chip filter-chip--more" title={hidden.map((c) => c.label).join(", ")}>
+        <Chip title={hidden.map((c) => c.label).join(", ")}>
           +{hidden.length} {hidden.length === 1 ? "other" : "others"}
-        </span>
+        </Chip>
       )}
       {chips.length > 0 && (
-        <button type="button" className="link-btn" onClick={() => shown.forEach((f) => f.onChange([]))}>
+        <Button variant="ghost" size="sm" onClick={() => shown.forEach((f) => f.onChange([]))}>
           Clear
-        </button>
+        </Button>
       )}
       {children}
     </div>
@@ -67,13 +69,8 @@ export function FilterRow({ label, facets, children }: { label: string; facets: 
 
 function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <span className="filter-chip">
-      <span className="filter-chip-label">{label}</span>
-      <button type="button" className="filter-chip-x" aria-label={`Remove filter ${label}`} onClick={onRemove}>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
-          <path d="M6 6l12 12M18 6L6 18" />
-        </svg>
-      </button>
-    </span>
+    <Chip onRemove={onRemove} removeLabel={`Remove filter ${label}`}>
+      {label}
+    </Chip>
   );
 }

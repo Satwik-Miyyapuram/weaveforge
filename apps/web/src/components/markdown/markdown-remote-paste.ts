@@ -22,7 +22,7 @@ import type { ImagePasteConfig } from "@/components/markdown/markdown-image-past
  */
 
 /** One http(s) address and nothing else. */
-const BARE_URL = /^https?:\/\/\S+$/;
+export const BARE_URL = /^https?:\/\/\S+$/;
 
 /** A name for a picture that arrived with no filename of its own. */
 function nameFromUrl(url: string): string {
@@ -34,10 +34,19 @@ function nameFromUrl(url: string): string {
   }
 }
 
-/** `[label](url)`, with the characters that would end the label early escaped. */
+/** Escapes the characters that would end a Markdown link label early. */
+export function escapeLinkLabel(label: string): string {
+  return label.replace(/\\/g, "\\\\").replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+}
+
+/** `[label](url)`, with the label folded onto one line and escaped. */
 function markdownLink(label: string, url: string): string {
-  const safe = label.replace(/[\r\n]+/g, " ").replace(/\\/g, "\\\\").replace(/\[/g, "\\[").replace(/\]/g, "\\]");
-  return `[${safe.trim()}](${url})`;
+  return `[${escapeLinkLabel(label.replace(/[\r\n]+/g, " ")).trim()}](${url})`;
+}
+
+/** The dimmed stand-in shown while a picture downloads. */
+function downloadingPlaceholder(name: string): string {
+  return `![Downloading ${imageAltFromFilename(name)}…]()`;
 }
 
 function describe(error: unknown): string {
@@ -90,22 +99,31 @@ function downloadImage(
   images: ImagePasteConfig,
 ): void {
   const name = nameFromUrl(url);
-  const placeholder = `![Downloading ${imageAltFromFilename(name)}…]()`;
+  const placeholder = downloadingPlaceholder(name);
   // Replace the URL with a placeholder rather than tracking it: the reader
   // asked for a picture, and leaving the address there implies it is the answer.
   view.dispatch({ changes: { from, to, insert: placeholder } });
   const id = trackPending(view, from, from + placeholder.length, { dim: true });
+  fetchIntoPending(view, id, url, name, images);
+}
 
+/**
+ * Downloads `url` into the pending region `id`. On failure the address is put
+ * back, because it is still the thing that was pasted and it still works. Only
+ * then is the reason worth saying.
+ */
+function fetchIntoPending(
+  view: EditorView,
+  id: number,
+  url: string,
+  name: string,
+  images: ImagePasteConfig,
+): void {
   void outboundFetch()
     .image(url)
-    .then(async (result) => {
-      const file = new File([result.blob], name, { type: result.blob.type });
-      return images.upload(file);
-    })
+    .then((result) => images.upload(new File([result.blob], name, { type: result.blob.type })))
     .then((markdown) => resolvePending(view, id, markdown))
     .catch((error: unknown) => {
-      // The link is put back, because it is still the thing that was pasted and
-      // it still works. Only then is the reason worth saying.
       resolvePending(view, id, url);
       images.onError?.(describe(error));
     });
@@ -141,13 +159,6 @@ function fetchTitle(view: EditorView, url: string, from: number, to: number): vo
  */
 export function insertRemoteImage(view: EditorView, url: string, images: ImagePasteConfig): void {
   const name = nameFromUrl(url);
-  const id = insertPending(view, `![Downloading ${imageAltFromFilename(name)}…]()`);
-  void outboundFetch()
-    .image(url)
-    .then((result) => images.upload(new File([result.blob], name, { type: result.blob.type })))
-    .then((markdown) => resolvePending(view, id, markdown))
-    .catch((error: unknown) => {
-      resolvePending(view, id, url);
-      images.onError?.(describe(error));
-    });
+  const id = insertPending(view, downloadingPlaceholder(name), { ownLine: true });
+  fetchIntoPending(view, id, url, name, images);
 }

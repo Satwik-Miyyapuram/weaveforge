@@ -8,13 +8,14 @@ export class InMemoryAnnotationQuotationTypeRepository
   implements IAnnotationQuotationTypeRepository
 {
   private readonly items = new Map<string, AnnotationQuotationType>();
+  private seq = 0;
 
   async save(input: SaveAnnotationQuotationTypeInput): Promise<AnnotationQuotationType> {
     const mapKey = `${input.paperId}:${input.annotationKey}`;
     const previous = this.items.get(mapKey);
     const now = new Date().toISOString();
     const row: AnnotationQuotationType = {
-      id: previous?.id ?? `quotation-type-${this.items.size + 1}`,
+      id: previous?.id ?? `quotation-type-${++this.seq}`,
       paperId: input.paperId,
       annotationKey: input.annotationKey,
       quotationType: input.quotationType,

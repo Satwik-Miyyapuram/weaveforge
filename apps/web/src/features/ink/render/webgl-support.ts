@@ -64,7 +64,12 @@ export function supportsWebglInk(
         : canvas instanceof HTMLCanvasElement
           ? canvas.ownerDocument.createElement("canvas")
           : canvas;
-    return Boolean(scratch.getContext("webgl2"));
+    const gl = scratch.getContext("webgl2") as WebGL2RenderingContext | null;
+    // Give the probe's context back at once: browsers cap live contexts and
+    // drop the oldest, which could be a renderer's. Never the real canvas's.
+    if (gl && scratch !== canvas)
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+    return Boolean(gl);
   } catch {
     return false;
   }

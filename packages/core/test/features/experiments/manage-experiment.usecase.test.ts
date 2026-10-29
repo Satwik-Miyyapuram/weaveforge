@@ -49,6 +49,20 @@ test("addArtifacts appends and ignores ones already there", async () => {
   assert.deepEqual(r.artifacts, ["u/e/loss.png", "u/e/acc.png"]);
 });
 
+test("addArtifacts adds a link repeated within one call once (02-13)", async () => {
+  const { uc: u } = uc();
+  const e = await u.add({ name: "x", artifacts: ["u/e/loss.png"] });
+  const r = await u.addArtifacts(e.id, ["u/e/acc.png", "u/e/acc.png", "u/e/loss.png", "u/e/f1.png", "u/e/acc.png"]);
+  assert.deepEqual(r.artifacts, ["u/e/loss.png", "u/e/acc.png", "u/e/f1.png"]);
+});
+
+test("addArtifacts with nothing new leaves the list as it was", async () => {
+  const { uc: u } = uc();
+  const e = await u.add({ name: "x", artifacts: ["u/e/loss.png"] });
+  assert.deepEqual((await u.addArtifacts(e.id, [])).artifacts, ["u/e/loss.png"]);
+  assert.deepEqual((await u.addArtifacts(e.id, ["u/e/loss.png"])).artifacts, ["u/e/loss.png"]);
+});
+
 test("shortSha truncates", () => {
   assert.equal(shortSha("a1b2c3d4e5f6"), "a1b2c3d");
   assert.equal(shortSha(undefined), undefined);

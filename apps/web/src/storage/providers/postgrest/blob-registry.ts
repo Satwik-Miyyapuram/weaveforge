@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { BlobObjectRecord, BlobTier, IBlobRegistry, RegisterBlobInput } from "@weaveforge/core";
+import type { BlobObjectRecord, IBlobRegistry, RegisterBlobInput } from "@weaveforge/core";
 import { rowToRecord, type BlobRow } from "@/storage/providers/blob-row";
-import { rows, run } from "@/backend/providers/postgrest/row-access";
+import { run } from "@/backend/providers/postgrest/row-access";
 
 /** Postgres `blob_objects` registry via PostgREST. */
 export class PostgrestBlobRegistry implements IBlobRegistry {
@@ -54,7 +54,9 @@ export class PostgrestBlobRegistry implements IBlobRegistry {
       tier: input.tier ?? "hot",
       size_bytes: input.sizeBytes,
       priority: input.priority ?? 50,
-    }));
+      // The row's key is a uuid; a path is unique per bucket. Without a target
+      // the upsert resolves on the key and a re-register is a 23505.
+    }, { onConflict: "bucket,path" }));
   }
 
   /**
@@ -85,23 +87,7 @@ export class PostgrestBlobRegistry implements IBlobRegistry {
     if (error) throw error;
   }
 
-  async setTier(bucket: string, path: string, tier: BlobTier, sizeBytes?: number): Promise<void> {
-    const patch: Record<string, unknown> = { tier };
-    if (sizeBytes !== undefined) patch.size_bytes = sizeBytes;
-    await run(this.db.from("blob_objects").update(patch).eq("bucket", bucket).eq("path", path));
-  }
-
   async remove(bucket: string, path: string): Promise<void> {
     await run(this.db.from("blob_objects").delete().eq("bucket", bucket).eq("path", path));
-  }
-
-  async listHot(): Promise<BlobObjectRecord[]> {
-    return (await rows<BlobRow>(this.db.from("blob_objects").select("*").eq("tier", "hot"))).map(rowToRecord);
-  }
-
-  async hotBytesTotal(): Promise<number> {
-    const { data, error } = await this.db.from("blob_objects").select("size_bytes").eq("tier", "hot");
-    if (error) throw error;
-    return (data as { size_bytes: number }[]).reduce((n, r) => n + Number(r.size_bytes), 0);
   }
 }

@@ -3,12 +3,12 @@
   z-index: 1;
   width: min(560px, 100%);
   display: grid;
-  gap: 18px;
+  gap: 16px;
   padding: 16px;
   background: var(--elev);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  border-radius: var(--r-card);
+  box-shadow: var(--e4);
   /* Do not use .card here — card stacking/overflow rules must not apply. */
 }
 /* Palette: no head, sits high so a growing result list extends downward. */
@@ -23,12 +23,12 @@
 .modal .list-add {
   border: none; background: none; box-shadow: none; padding: 0; margin: 0; gap: 16px;
 }
-.modal .form-foot { margin-top: 6px; padding-top: 2px; }
+.modal .form-foot { margin-top: 8px; padding-top: 2px; }
 .modal .add-form > .settings-group:first-child { display: none; }
 /* The one dialog footer (`ModalActions`). */
 .modal-actions {
-  display: flex; align-items: center; justify-content: flex-end; gap: 9px;
-  padding-top: 14px; border-top: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  padding-top: 16px; border-top: 1px solid var(--line);
 }
 
 /* ---- Header action cluster (Sync / Add / Filters live here) ---- */
@@ -38,20 +38,10 @@
 
 /* ---- Popover (per-page filters) ---- */
 .popover { position: relative; display: inline-flex; }
-.popover-trigger { display: inline-flex; align-items: center; gap: 6px; }
-.popover-trigger.on { border-color: var(--accent); }
-.popover-trigger--icon {
-  padding: 10px;
-  min-width: var(--control-lg);
-  min-height: var(--control-lg);
-  justify-content: center;
-  align-items: center;
-  gap: 4px;
-}
-.popover-trigger--icon svg { display: block; }
+
 .popover-badge {
-  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
-  background: var(--accent); color: var(--accent-fg); font-size: 0.72rem; line-height: 18px;
+  min-width: 18px; height: 18px; padding: 0 4px; border-radius: var(--r-pill);
+  background: var(--accent); color: var(--accent-fg); font-size: var(--fs-xs); line-height: 18px;
   text-align: center; font-weight: 600;
 }
 .popover-caret { opacity: 0.55; }
@@ -63,12 +53,12 @@
   min-width: min(260px, calc(100vw - 24px)); max-width: min(360px, calc(100vw - 24px));
   padding: 12px;
   display: grid; gap: 12px; overflow: visible;
-  background: var(--elev); border: 1px solid var(--border); border-radius: 12px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+  background: var(--elev); border: 1px solid var(--border); border-radius: var(--r-card);
+  box-shadow: var(--e3);
   /* Inline style sets position:fixed — never participate in flex layout while opening. */
   margin: 0;
 }
-.popover-panel .filters { margin: 0; gap: 10px; }
+.popover-panel .filters { margin: 0; gap: 12px; }
 
 /* Phone: dialogs and anchored panels become bottom sheets, palettes drop from the top. */
 @media (max-width: 900px) {
@@ -77,13 +67,13 @@
     width: 100%;
     max-height: 88dvh;
     overflow-y: auto;
-    border-radius: 14px 14px 0 0;
+    border-radius: var(--r-card) var(--r-card) 0 0;
     padding-bottom: calc(16px + env(safe-area-inset-bottom));
   }
   .modal-backdrop--palette { align-items: flex-start; padding: 0; }
   .modal--palette {
     max-height: 80dvh;
-    border-radius: 0 0 14px 14px;
+    border-radius: 0 0 var(--r-card) var(--r-card);
     padding: calc(12px + env(safe-area-inset-top)) 12px 12px;
   }
   .modal.quick-open { padding: env(safe-area-inset-top) 0 0; }
@@ -102,7 +92,7 @@
     max-width: none;
     max-height: 80dvh;
     overflow-y: auto;
-    border-radius: 14px 14px 0 0;
+    border-radius: var(--r-card) var(--r-card) 0 0;
     padding-bottom: calc(12px + env(safe-area-inset-bottom));
   }
 }
@@ -110,21 +100,21 @@
    panel's width. A portalled menu is no longer inside the panel, and its width
    comes from the measured trigger instead. */
 
-.member-picker { display: grid; gap: 10px; }
-.mp-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.member-picker { display: grid; gap: 12px; }
+.mp-filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
 .mp-filters .search-input { margin: 0; flex: 1 1 160px; }
 .mp-list { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto;
-  border: 1px solid var(--line); border-radius: 10px; }
+  border: 1px solid var(--line); border-radius: var(--r-control); }
 .mp-list li { border-bottom: 1px solid var(--line); }
 .mp-list li:last-child { border-bottom: none; }
-.mp-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; }
+.mp-row { display: flex; align-items: center; gap: 12px; padding: 8px 12px; cursor: pointer; }
 .mp-name { flex: 1; }
-.mp-role { font-size: 0.74rem; color: var(--muted); }
-.mp-empty { padding: 10px 12px; }
+.mp-role { font-size: var(--fs-xs); color: var(--muted); }
+.mp-empty { padding: 12px 12px; }
 
 .share-current, .share-add { display: grid; gap: 8px; }
-.share-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.share-row { display: flex; align-items: center; gap: 10px; }
+.share-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.share-row { display: flex; align-items: center; gap: 12px; }
 .share-name { flex: 1; }
 .share-access {
   flex: none;
@@ -133,40 +123,44 @@
   max-width: none;
 }
 .share-access.custom-select-container { width: auto; }
-.share-access .custom-select-button {
+.share-access .wf-select {
   min-height: 38px;
   padding: 8px 12px;
   white-space: nowrap;
 }
 .share-add-foot {
   display: flex;
-  gap: 10px;
-  align-items: center;
+  gap: 12px;
+  align-items: flex-end;
   flex-wrap: wrap;
 }
-.share-add-submit {
-  flex: none;
-  align-self: center;
-  white-space: nowrap;
-  min-height: 38px;
-  padding: 8px 16px;
-}
+.share-permission { margin: 0; }
+.share-permission-help { margin: 8px 0 0; font-size: var(--fs-xs); }
+.share-add-submit { display: inline-flex; flex: none; align-self: center; white-space: nowrap; }
 
 .comments-toggle { position: relative; flex: none; }
 .comments-toggle--detail { align-self: center; }
-.comments-trigger-detail {
-  min-height: 36px;
-  padding: 8px 14px;
-  gap: 8px;
-  font-size: 0.88rem;
-  font-weight: 500;
-  border-radius: 10px;
+
+/* Open-thread count, the same pill on every comments entry (D-25). */
+.comments-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-family: var(--font);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  line-height: 1;
 }
-.comments-trigger-detail > svg { flex: none; }
+.wf-icon > .comments-badge { margin-left: 2px; }
 .comments-toggle--detail .comments-sheet {
   width: min(calc(100vw - 28px), 420px);
   max-height: min(55vh, 420px);
-  padding: 14px;
+  padding: 16px;
 }
 .comments-sheet {
   position: absolute;
@@ -178,51 +172,40 @@
   overflow: auto;
   padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-card);
   background: var(--surface);
   box-shadow: var(--shadow);
 }
-.comments-empty { margin: 0; font-size: 0.85rem; }
-.comment-head { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; min-width: 0; }
-.comment-del {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-}
+.comments-empty { margin: 0; font-size: var(--fs); }
+.comment-head { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); min-width: 0; }
+
 .comment-author { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.comment-time { font-size: 0.74rem; margin-left: auto; flex: none; }
-.comment-add { display: grid; gap: 6px; justify-items: end; }
+.comment-time { font-size: var(--fs-xs); margin-left: auto; flex: none; }
+.comment-add { display: grid; gap: 8px; justify-items: end; }
 .comment-add textarea { min-height: 64px; }
-.comment-add .btn-primary { width: auto; }
+
 .shared-group { display: grid; gap: 8px; margin-bottom: 16px; }
 .shared-item { display: grid; gap: 8px; }
 .shared-item-link { display: grid; gap: 8px; color: inherit; text-decoration: none; }
 .shared-item-link:hover .card-title,
 .shared-item-link:hover .paper-card-title { text-decoration: underline; }
 .shared-item-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.shared-by-chip { font-size: 0.74rem; opacity: 0.85; }
+.shared-by-chip { font-size: var(--fs-xs); opacity: 0.85; }
 .shared-library-actions { display: inline-flex; align-items: center; gap: 8px; }
-.shared-library-msg { font-size: 0.74rem; }
-.org-setup-hint { font-size: 0.85rem; margin: 0; }
+.shared-library-msg { font-size: var(--fs-xs); }
+.org-setup-hint { font-size: var(--fs); margin: 0; }
 
 /* Experiment artifacts (figures uploaded to the experiment-artifacts bucket) */
 .artifacts { display: grid; gap: 12px; }
 /* Colour menu (§colour-menu): a swatch that opens the palette. The trigger is
    the swatch itself, sized like every other swatch, so nothing is clipped. */
-.colour-menu-trigger {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%;
-  background: none; cursor: pointer;
-}
-.colour-menu-trigger .colour-menu-current { width: 20px; height: 20px; }
-.colour-menu-trigger.on .colour-menu-current,
-.colour-menu-trigger:hover .colour-menu-current { transform: scale(1.1); }
+
 .popover-panel .colour-menu { display: grid; gap: 8px; padding: 2px; min-width: 0; }
 .colour-menu-row { display: grid; grid-template-columns: repeat(6, 24px); gap: 8px; }
-.colour-menu-row .ink-swatch { width: 24px; height: 24px; }
+
 .colour-menu-custom {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  font-size: 0.8rem; color: var(--muted); cursor: pointer;
+  font-size: var(--fs-sm); color: var(--muted); cursor: pointer;
   border-top: 1px solid var(--line); padding-top: 8px;
 }
 .colour-menu-custom input[type="color"] {
@@ -232,26 +215,18 @@
 /* The card overflow menu. `Popover`'s panel is a padded grid built for filter
    forms; a menu is a list of rows, so this resets the padding and lets each row
    own its own hit area. */
-.card-menu-trigger { width: 28px; height: 28px; }
+
 /* A menu sizes to its own rows. `Popover`'s panel has a 260px floor because it
    was built for filter forms; "Share / Add to list / Delete" needs about 168px,
    and the floor was what made the card menu look like a dialog. */
 .popover-panel:has(.card-menu-list, .menu-list) { padding: 4px; gap: 0; display: block; min-width: 0; }
 .card-menu-list, .menu-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; min-width: 168px; }
-.card-menu-item, .menu-item {
-  display: block; width: 100%; text-align: left;
-  background: none; border: 0; font: inherit; font-size: 0.85rem; color: var(--ink);
-  padding: 8px 10px; border-radius: 6px; cursor: pointer;
-}
-.card-menu-item:hover:not(:disabled), .menu-item:hover:not(:disabled) { background: var(--surface2); }
-.card-menu-item:disabled, .menu-item:disabled { opacity: 0.5; cursor: default; }
-.card-menu-item.danger, .menu-item.danger { color: var(--danger, #b3261e); }
 
 /* Filing a paper or a note into a list, from the card's menu. */
 .add-to-list-choices { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 2px; }
 .add-to-list-choice {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px; border-radius: 6px; cursor: pointer; min-height: var(--touch-min);
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 12px; border-radius: var(--r-sm); cursor: pointer; min-height: var(--touch-min);
 }
 .add-to-list-choice:hover { background: var(--surface2); }
 
@@ -260,32 +235,33 @@
    its own absolutely-positioned panel; the panel is `Popover`'s now, so those
    rules matched nothing and the rows rendered as bare links — which is what
    made the menu look broken beside the rest of the app. */
-.popover-panel:has(.header-link, .signout) { padding: 6px; gap: 2px; display: grid; min-width: 210px; }
-.popover-panel .header-link,
-.popover-panel .signout {
-  width: 100%; justify-content: flex-start; gap: 11px; min-height: 0;
-  padding: 9px 10px; border-radius: 8px; font-size: 0.86rem; color: var(--text);
+/* A panel that holds a menu lets the menu own the padding, so its rows are one
+   inset from the edge, not the card's 12px plus the menu's own. */
+.popover-panel:has(> .wf-menu) { padding: 0; gap: 0; display: block; min-width: 0; }
+.popover-panel .menu-row-value { margin-left: auto; color: var(--muted); }
+.account-menu-head {
+  display: grid; gap: 2px; padding: 8px 12px 12px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--line); min-width: 0;
 }
-.popover-panel .header-link svg,
-.popover-panel .signout svg { color: var(--muted); flex: none; }
-.popover-panel .header-link:hover,
-.popover-panel .signout:hover { background: var(--surface2); color: var(--text); }
-.popover-panel .header-link span,
-.popover-panel .signout span { display: inline; }
+.account-menu-head b { font-weight: 600; }
+.account-menu-head span { color: var(--muted); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-menu-head .account-menu-sync { font-size: var(--fs-xs); }
 /* The project panel is a `Popover` now, so it needs the same treatment as the
    other menus: the rows own their padding rather than the panel's card gap. */
-.popover-panel:has(.proj-menu-item) { padding: 4px; gap: 0; display: block; min-width: 220px; }/* The submenu that opens beside a menu row. It is absolutely positioned inside
+/* The account panel holds lab rows too once its flyout opens; it keeps its own look. */
+
+/* The submenu that opens beside a menu row. It is absolutely positioned inside
    the row, which is itself inside the `Popover` panel -- that panel is `fixed`,
    so it is the containing block, and the flyout lands beside the menu rather
    than under it. */
 .card-menu-row, .menu-row { position: relative; }
-.card-menu-item, .menu-item { display: flex; align-items: center; gap: 8px; width: 100%; }
+
 .card-menu-more, .menu-more { margin-left: auto; opacity: 0.55; }
 .card-menu-flyout, .menu-flyout {
   position: absolute; left: calc(100% + 6px); top: -4px; z-index: 20;
-  min-width: 208px; max-height: 320px; overflow-y: auto; padding: 6px;
-  background: var(--elev); border: 1px solid var(--border); border-radius: 12px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+  min-width: 208px; max-height: 320px; overflow-y: auto; padding: 8px;
+  background: var(--elev); border: 1px solid var(--border); border-radius: var(--r-card);
+  box-shadow: var(--e3);
 }
 /* Flip horizontally to the left when right screen edge is bounded */
 .card-menu-flyout[data-placement-x="left"],
@@ -303,7 +279,7 @@
   top: auto;
   bottom: -4px;
 }
-.card-menu-note { margin: 0 0 6px; font-size: 0.84rem; color: var(--muted); }
+.card-menu-note { margin: 0 0 8px; font-size: var(--fs-sm); color: var(--muted); }
 .card-menu-note.error { color: var(--danger, var(--accent)); }
 .card-menu-flyout .add-to-list-choices,
 .menu-flyout .add-to-list-choices { margin: 0; }
@@ -319,27 +295,16 @@
   gap: 12px;
   width: max-content;
   max-width: calc(100vw - 32px);
-  padding: 10px 10px 10px 16px;
+  padding: 12px 12px 12px 16px;
   border: var(--bw, 1px) solid var(--bw-line, var(--border));
   border-radius: var(--radius, 10px);
   background: var(--surface);
   color: var(--text);
-  box-shadow: var(--sh-card, 0 6px 24px rgb(0 0 0 / 0.18));
-  font-size: 14px;
+  box-shadow: var(--sh-card, var(--e3));
+  font-size: var(--fs);
 }
 .session-expired-text { line-height: 1.4; }
-.session-expired-dismiss {
-  flex: none;
-  width: 32px;
-  height: 32px;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-}
-.session-expired-dismiss:hover { filter: brightness(1.3); }
+.session-expired-banner > .wf-icon { flex: none; }
 @media (max-width: 767px) {
   .session-expired-banner { flex-wrap: wrap; width: calc(100vw - 32px); }
   .session-expired-text { flex: 1 1 100%; }
@@ -351,26 +316,21 @@
   overflow: auto;
   background: var(--surface);
 }
-.session-expired-close {
+.session-expired-overlay > .wf-icon {
   position: absolute;
   top: 12px;
   right: 16px;
   z-index: 1;
-  border: 0;
-  background: none;
-  font-size: 22px;
-  color: var(--muted);
-  cursor: pointer;
 }
 
 /* ------------------------------------------------ report this problem */
 
-.report-panel { display: grid; gap: 14px; max-width: 560px; }
+.report-panel { display: grid; gap: 16px; max-width: 560px; }
 .report-disclosure { margin-top: 16px; }
 .report-disclosure > summary { color: var(--muted); }
 .report-disclosure > .report-panel { margin-top: 12px; }
 
-.report-shown { margin: 0; display: grid; gap: 6px; }
+.report-shown { margin: 0; display: grid; gap: 8px; }
 .report-shown figcaption,
 .report-field > span,
 .report-attached-head > span {
@@ -381,7 +341,7 @@
 }
 .report-shown blockquote {
   margin: 0;
-  padding: 10px 12px;
+  padding: 12px 12px;
   border-inline-start: 3px solid var(--danger);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--danger) 7%, var(--surface));
@@ -392,7 +352,7 @@
   overflow: auto;
 }
 
-.report-field { display: grid; gap: 6px; }
+.report-field { display: grid; gap: 8px; }
 .report-field em { font-style: normal; font-weight: 400; }
 .report-field input,
 .report-field textarea { width: 100%; box-sizing: border-box; font: inherit; }
@@ -401,13 +361,13 @@
 .report-attached {
   display: grid;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 12px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface2);
 }
 .report-attached-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.report-attached-head .error-report-link { margin: 0; }
+.report-attached-head .wf-link { margin: 0; }
 .report-attached dl { margin: 0; display: grid; gap: 4px; font-size: 0.85em; }
 .report-attached dl > div { display: grid; grid-template-columns: 7.5em 1fr; gap: 8px; }
 .report-attached dt { color: var(--muted); }
@@ -426,48 +386,26 @@
 .report-privacy { margin: 0; font-size: 0.8em; color: var(--muted); }
 
 .report-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.report-actions a.btn-primary { text-decoration: none; }
+
 .report-hint { font-size: 0.8em; color: var(--muted); }
 .report-failed { margin: 0; font-size: 0.9em; color: var(--danger); }
 .report-sent { margin-top: 16px; }
 
 /* Shared with me: a type filter in the head, each sender a titled grid. */
-.shared-filter { display: inline-flex; gap: 2px; padding: 2px; border-radius: 10px; background: var(--surface-alt); }
-.shared-filter button {
-  padding: 6px 12px; border: 0; border-radius: 8px; background: none;
-  color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
-}
-.shared-filter button.active { background: var(--active-bg); color: var(--active-fg); }
-.shared-group { margin-bottom: 22px; }
-.shared-group-head { display: flex; align-items: center; gap: 10px; }
-.shared-group-count { font-size: 0.74rem; font-weight: 500; color: var(--muted); }
-.shared-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.shared-group { margin-bottom: 24px; }
+.shared-group-head { display: flex; align-items: center; gap: 12px; }
+.shared-group-count { font-size: var(--fs-xs); font-weight: 500; color: var(--muted); }
+.shared-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
 .shared-tags { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-.shared-kind, .shared-access { font-size: 0.7rem; padding: 1px 9px; border-radius: 999px; background: var(--pill); color: var(--text); }
+.shared-kind, .shared-access { font-size: var(--fs-micro); padding: 1px 8px; border-radius: var(--r-pill); background: var(--pill); color: var(--text); }
 
 /* Margin comments on a note (note-comments.tsx). */
-.note-comments-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  padding: 0;
-  font: inherit;
-  letter-spacing: inherit;
-  color: inherit;
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-.note-comments-toggle:hover { filter: brightness(1.15); }
-.note-comments-toggle .chev { margin-left: auto; }
 .note-comments-body { display: grid; gap: 12px; }
-.note-threads { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.note-threads { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .note-thread {
   display: grid;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 12px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -479,7 +417,7 @@
   margin: 0;
   padding-left: 8px;
   border-left: 3px solid var(--accent);
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   color: var(--muted);
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -488,39 +426,52 @@
 }
 .note-thread-quote.is-detached { border-left-color: var(--faint); text-decoration: line-through; }
 .note-comment { display: grid; gap: 2px; }
-.note-comment + .note-comment { padding-top: 6px; border-top: 1px dashed var(--border); }
-.note-comment .comment-del { margin-left: 0; }
-.note-comment-body { margin: 0; white-space: pre-wrap; font-size: 0.9rem; overflow-wrap: anywhere; }
-.note-thread-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
-.note-thread-actions .btn-primary { width: auto; }
-.note-comments-resolved {
-  justify-self: start;
-  padding: 0;
-  font: inherit;
-  font-size: 0.82rem;
-  color: var(--muted);
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-.note-comments-resolved:hover { filter: brightness(1.2); }
+.note-comment + .note-comment { padding-top: 8px; border-top: 1px dashed var(--border); }
+
+.note-comment-body { margin: 0; white-space: pre-wrap; font-size: var(--fs); overflow-wrap: anywhere; }
+.note-thread-actions { display: flex; justify-content: flex-end; align-items: center; gap: 12px; }
+
+.note-comments-body > .wf-fold { justify-self: start; }
+/* The pop is a small popover holding one ghost button, over the selection. */
 .note-comment-pop {
   position: fixed;
   z-index: var(--z-popover);
   transform: translate(-50%, calc(-100% - 6px));
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  font: inherit;
-  font-size: 0.82rem;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow);
-  cursor: pointer;
+  padding: 4px;
 }
-.note-comment-pop:hover { filter: brightness(1.1); }
 ::highlight(wf-comment) { background-color: color-mix(in srgb, var(--accent) 22%, transparent); }
 ::highlight(wf-comment-active) { background-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+/*
+ * Toasts (design D10): bottom-centre, above everything, at most three. The
+ * region itself takes no clicks, so it never blocks the page under it.
+ */
+.toast-region {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--s4) + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s2);
+  width: min(480px, calc(100vw - 2 * var(--s4)));
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  width: 100%;
+  padding: var(--s2) var(--s2) var(--s2) var(--s4);
+  background: var(--elev);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-overlay);
+  font-size: var(--fs);
+}
+.toast-message { flex: 1; min-width: 0; overflow-wrap: anywhere; }

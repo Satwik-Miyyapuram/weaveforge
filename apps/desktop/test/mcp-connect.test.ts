@@ -12,7 +12,7 @@ import { CHANNELS } from "../src/channels";
 import type { IpcSurface } from "../src/ipc-guard";
 import { hashLocalApiToken } from "../src/local-api-server";
 import type { LocalDbHost } from "../src/local-db-host";
-import { registerMainLocalApi } from "../src/main-local-api";
+import { readRankAnswer, registerMainLocalApi } from "../src/main-local-api";
 import { mcpLaunch, mcpPaths, readMcpConnection, writeMcpConnection } from "../src/mcp-connect";
 import { PreferenceStore } from "../src/preference-store";
 import { SecretStore } from "../src/secret-store";
@@ -30,7 +30,11 @@ function memoryFile() {
 }
 
 /** The handlers registerMainLocalApi installs, callable without Electron. */
-function shell(dir: string, variant?: string) {
+function shell(
+  dir: string,
+  variant?: string,
+  opts: { preferences?: PreferenceStore; preferenceStore?: () => PreferenceStore } = {},
+) {
   const handlers = new Map<string, (...args: unknown[]) => unknown>();
   const ipc: IpcSurface = {
     handle: (channel, listener) => void handlers.set(channel, (...args) => listener({} as never, ...args)),
@@ -42,7 +46,7 @@ function shell(dir: string, variant?: string) {
     decryptString: (b: Buffer) => b.toString(),
   };
   const secrets = new SecretStore(crypto, memoryFile());
-  const preferences = new PreferenceStore(memoryFile());
+  const preferences = opts.preferences ?? new PreferenceStore(memoryFile());
   const paths = mcpPaths(dir, variant, BRIDGE);
   const opened: string[] = [];
   const api = registerMainLocalApi({
@@ -50,7 +54,7 @@ function shell(dir: string, variant?: string) {
     vault: {} as VaultSession,
     localDb: {} as LocalDbHost,
     mainWindow: () => null,
-    preferenceStore: () => preferences,
+    preferenceStore: opts.preferenceStore ?? (() => preferences),
     secretStore: () => secrets,
     artifactRoot: path.join(dir, "artifacts"),
     mcpPaths: paths,
@@ -128,6 +132,35 @@ test("mcp connect: revoking the AI clients token in Access tokens deletes the fi
   assert.equal(fs.existsSync(paths.file), false);
 });
 
+test("local api: a revoke with no token id is refused and keeps every token (xipc-21)", async (t) => {
+  const { api, call, paths } = shell(home());
+  t.after(() => api.close());
+  const on = await call(CHANNELS.mcpConnect);
+  for (const bad of [123, null, undefined, "", { id: on.value.mcp.tokenId }]) {
+    const refused = await call(CHANNELS.localApiTokenRevoke, bad);
+    assert.equal(refused.ok, false, `revoke(${JSON.stringify(bad)}) was accepted`);
+    assert.match(refused.message!, /token/);
+  }
+  const state = await call(CHANNELS.localApiState);
+  assert.equal(state.value.tokens.length, 1);
+  assert.equal(fs.existsSync(paths.file), true);
+});
+
+test("semantic rank: the window's failure is logged once and answers null (xipc-16)", () => {
+  const logged: string[] = [];
+  const warn = (line: string) => void logged.push(line);
+  assert.equal(readRankAnswer(null, "encoder crashed", warn), null);
+  assert.equal(logged.length, 1);
+  assert.match(logged[0]!, /semantic.*encoder crashed/);
+
+  assert.deepEqual(readRankAnswer(["b", 7, "a"], undefined, warn), ["b", "a"]);
+  assert.equal(readRankAnswer(null, undefined, warn), null, "silence is an answer, not an error");
+  assert.equal(readRankAnswer("nope", 42, warn), null, "a reason that is not text is not logged");
+  assert.equal(logged.length, 1);
+  readRankAnswer(null, "x".repeat(5000), warn);
+  assert.ok(logged[1]!.length < 400, "a long reason is cut");
+});
+
 test("mcp connect: a file whose token is no longer live is replaced, not trusted", async (t) => {
   const { api, call, paths } = shell(home());
   t.after(() => api.close());
@@ -203,4 +236,43 @@ test("mcp connect: port taken by another program says so instead of looking conn
   assert.ok(fs.existsSync(paths.file), "the token file is still written for when the port frees");
   const later = await call(CHANNELS.localApiState);
   assert.match(later.value.reason, /Another program is using port 27123/, "reopening Settings still says why");
+});
+
+test("mcp connect: a connection file that cannot be written leaves no new token (37-20)", async (t) => {
+  const dir = home();
+  const { api, call, paths } = shell(dir);
+  t.after(() => api.close());
+  // A file where the folder should be makes every write under it fail.
+  fs.mkdirSync(path.dirname(paths.dir), { recursive: true });
+  fs.writeFileSync(paths.dir, "");
+  const on = await call(CHANNELS.mcpConnect);
+  assert.equal(on.ok, false);
+  assert.match(on.message!, /Could not write/);
+  assert.deepEqual((await call(CHANNELS.localApiState)).value.tokens, []);
+});
+
+test("local api: a preference that cannot be saved is reported, not swallowed (xipc-11)", async (t) => {
+  const failing = { read: async () => "{}", write: async () => Promise.reject(new Error("disk full")) };
+  const { api, call } = shell(home(), undefined, { preferences: new PreferenceStore(failing) });
+  t.after(() => api.close());
+  const on = await call(CHANNELS.localApiSet, true);
+  assert.equal(on.ok, false);
+  assert.ok(on.message);
+  const off = await call(CHANNELS.localApiSet, false);
+  assert.equal(off.ok, false);
+  assert.ok(off.message);
+});
+
+test("local api: a handler that throws answers { ok: false } (xipc-07)", async (t) => {
+  const { api, call } = shell(home(), undefined, {
+    preferenceStore: () => {
+      throw new Error("store gone");
+    },
+  });
+  t.after(() => api.close());
+  for (const channel of [CHANNELS.localApiState, CHANNELS.mcpConnect, CHANNELS.mcpDisconnect]) {
+    const answer = await call(channel);
+    assert.equal(answer.ok, false, channel);
+    assert.match(answer.message!, /store gone/, channel);
+  }
 });

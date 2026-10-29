@@ -6,12 +6,14 @@ import {
 import { getContainer } from "@/bootstrap";
 import { GENERATED_MCP_ENABLED } from "@/deployment/generated-registry";
 import { hasServerRoutes } from "@/deployment/capabilities";
-import type { AiSourceOption, McpTokenRecord } from "@/container/facades";
+import type { AiSourceOption } from "@/container/facades";
 import { Select } from "@/components/select";
 import { FormError } from "@/components/form-error";
-import { ConfirmDialog } from "@/components/confirm-dialog";
 import { formatError } from "@/lib/format-error";
 import { ChevronIcon } from "@/components/chevron-icon";
+import { logToApp } from "@/lib/error-report/app-log";
+import { Button } from "@/components/button";
+import { Switch } from "@/components/controls";
 
 const READ_LABELS: Record<AiReadCategory, string> = {
   paper_metadata: "Paper metadata and links",
@@ -48,11 +50,33 @@ const DEFAULT_AI_ACCESS: AiAccessSettings = {
   proposalKinds: [],
 };
 
-export function AiAccessPanel({ settings, onChange }: {
+type SessionStore = Pick<
+  ReturnType<typeof getContainer>["aiAssistant"],
+  "listActiveSessions" | "runningRelays" | "savePersistedSessions"
+>;
+
+/**
+ * Snapshot the running sessions (grant + secret + settings) to session-scoped
+ * storage so a reload can resume the relays until they expire. A failed save
+ * only costs that resume, so it is logged rather than shown.
+ */
+export function persistActiveSessions(ai: SessionStore): void {
+  const meta = new Map(ai.runningRelays().map((entry) => [entry.sessionId, entry]));
+  const list = ai.listActiveSessions().flatMap((session) => {
+    const extra = meta.get(session.grant.id);
+    return extra ? [{ session, secret: extra.secret, settings: extra.settings }] : [];
+  });
+  ai.savePersistedSessions(list).catch((err) =>
+    logToApp({ level: "warn", source: "ai-access", message: "Could not save active AI sessions", detail: String(err) }),
+  );
+}
+
+export function AiAccessPanel({ settings, onChange, onManageTokens }: {
   settings: UserSettings;
   onChange: (settings: UserSettings) => void;
+  /** MCP tokens live on Settings › Access tokens with every other kind (DA-132). */
+  onManageTokens: () => void;
 }) {
-  const encryptionUnlocked = true;
   const [sources, setSources] = useState<readonly AiSourceOption[]>([]);
   const [selectedSourceIds, setSelectedSourceIds] = useState<readonly string[]>([]);
   const [sourceScope, setSourceScope] = useState<"selected" | "enabled_categories">("selected");
@@ -62,10 +86,6 @@ export function AiAccessPanel({ settings, onChange }: {
   const [busy, setBusy] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [connection, setConnection] = useState<{ sessionId: string; secret: string } | null>(null);
-  const [mcpTokens, setMcpTokens] = useState<readonly McpTokenRecord[]>([]);
-  const [newMcpToken, setNewMcpToken] = useState<string | null>(null);
-  /** The MCP token awaiting a revoke confirmation, by id. */
-  const [revokingMcp, setRevokingMcp] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [rememberConnection, setRememberConnection] = useState(() => Boolean(getUserIntegrationField(settings, "mcp", "pairingSecret")));
   const access: AiAccessSettings = settings.aiAccess ?? DEFAULT_AI_ACCESS;
@@ -109,13 +129,13 @@ export function AiAccessPanel({ settings, onChange }: {
   }
 
   /*
-   * Guarded because the gate can close while the read is in flight. Locking
-   * encryption or switching AI access off clears the list synchronously, and
+   * Guarded because the gate can close while the read is in flight. Switching
+   * AI access off clears the list synchronously, and
    * without this the resolving promise puts it straight back — the panel then
    * shows the user's sources behind a gate that is shut.
    */
   useEffect(() => {
-    if (!access.enabled || !encryptionUnlocked) {
+    if (!access.enabled) {
       setSources([]);
       return;
     }
@@ -131,48 +151,14 @@ export function AiAccessPanel({ settings, onChange }: {
     return () => {
       current = false;
     };
-  }, [access.enabled, encryptionUnlocked]);
+  }, [access.enabled]);
 
-  /** `isCurrent` lets the caller drop a response that arrived after the gate closed. */
-  const loadMcpTokens = useCallback(async (isCurrent: () => boolean = () => true) => {
-    try {
-      const tokens = await getContainer().settings.mcpTokens.list();
-      if (isCurrent()) setMcpTokens(tokens);
-    } catch {
-      // Advisory list: a failed read leaves the last known set in place rather
-      // than blanking the panel, which says less than showing what it had.
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!access.enabled || !encryptionUnlocked) {
-      setMcpTokens([]);
-      return;
-    }
-    let current = true;
-    void loadMcpTokens(() => current);
-    return () => {
-      current = false;
-    };
-  }, [access.enabled, encryptionUnlocked, loadMcpTokens]);
-
-  // Snapshot the currently running sessions (grant + secret + settings) to
-  // session-scoped storage so a reload can resume the relays until they expire.
-  const persistSessions = useCallback(() => {
-    const ai = getContainer().aiAssistant;
-    const active = ai.listActiveSessions();
-    const meta = new Map(ai.runningRelays().map((entry) => [entry.sessionId, entry]));
-    const list = active.flatMap((session) => {
-      const extra = meta.get(session.grant.id);
-      return extra ? [{ session, secret: extra.secret, settings: extra.settings }] : [];
-    });
-    void ai.savePersistedSessions(list);
-  }, []);
+  const persistSessions = useCallback(() => persistActiveSessions(getContainer().aiAssistant), []);
 
   // Rehydrate persisted sessions after a reload: restore the grants and restart
   // their relays (skipping any already running and any past their TTL).
   useEffect(() => {
-    if (!access.enabled || !encryptionUnlocked) {
+    if (!access.enabled) {
       setSessionsReady(true);
       return;
     }
@@ -195,13 +181,16 @@ export function AiAccessPanel({ settings, onChange }: {
         // Persist is owned by the sessionsReady effect so we never race a later
         // startSession() write with this rehydrate snapshot.
       })
+      .catch((err) =>
+        logToApp({ level: "warn", source: "ai-access", message: "Could not resume AI sessions", detail: String(err) }),
+      )
       .finally(() => {
         if (!cancelled) setSessionsReady(true);
       });
     return () => { cancelled = true; };
     // Rehydrate once per enable/unlock — live policy push is the effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [access.enabled, encryptionUnlocked]);
+  }, [access.enabled]);
 
   // Push tightened AI access into any live relay without restarting the poll loop.
   useEffect(() => {
@@ -245,35 +234,6 @@ export function AiAccessPanel({ settings, onChange }: {
       setSessionError(formatError(err));
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function createMcpToken() {
-    setBusy(true);
-    setSessionError(null);
-    try {
-      const { plaintext, record } = await getContainer().settings.mcpTokens.create();
-      setNewMcpToken(plaintext);
-      if (record) setMcpTokens((current) => [record, ...current]);
-    } catch (err) {
-      setSessionError(formatError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function revokeMcpToken(id: string) {
-    setBusy(true);
-    setSessionError(null);
-    try {
-      await getContainer().settings.mcpTokens.revoke(id);
-      setMcpTokens((current) => current.filter((token) => token.id !== id));
-      setNewMcpToken(null);
-    } catch (err) {
-      setSessionError(formatError(err));
-    } finally {
-      setBusy(false);
-      setRevokingMcp(null);
     }
   }
 
@@ -324,20 +284,20 @@ export function AiAccessPanel({ settings, onChange }: {
           <h3 id="ai-access-title">AI assistant access</h3>
           <p>Connect a client such as Codex to only the research sources you choose. PDFs, keys, and account settings are never shared.</p>
         </div>
-        <button type="button" className={`toggle${access.enabled ? " on" : ""}`} role="switch" aria-checked={access.enabled} aria-label="Enable AI assistant access" onClick={() => setEnabled(!access.enabled)}><span className="knob" /></button>
+        <Switch checked={access.enabled} label="Enable AI assistant access" onChange={setEnabled} />
       </header>
       {access.enabled && (
         <>
           <section className="ai-section">
             <div className="ai-section-heading">
               <div><h4>Allow reading</h4><p>Only selected sources become available.</p></div>
-              <button type="button" className="link-btn" onClick={() => setAllRead(access.readCategories.length !== AI_READ_CATEGORIES.length)}>{access.readCategories.length === AI_READ_CATEGORIES.length ? "Clear all" : "Select all"}</button>
+              <Button variant="ghost" size="sm" onClick={() => setAllRead(access.readCategories.length !== AI_READ_CATEGORIES.length)}>{access.readCategories.length === AI_READ_CATEGORIES.length ? "Clear all" : "Select all"}</Button>
             </div>
             <div className="ai-permission-list ai-list-2col">
               {AI_READ_CATEGORIES.map((category) => (
                 <label className="ai-permission-row" key={category}>
                   <span>{READ_LABELS[category]}</span>
-                  <input className="themed-check" type="checkbox" checked={access.readCategories.includes(category)} onChange={() => toggleRead(category)} />
+                  <input className="wf-check" type="checkbox" checked={access.readCategories.includes(category)} onChange={() => toggleRead(category)} />
                 </label>
               ))}
             </div>
@@ -345,13 +305,13 @@ export function AiAccessPanel({ settings, onChange }: {
           <section className="ai-section">
             <div className="ai-section-heading">
               <div><h4>Allow proposals</h4><p>{access.proposalKinds.length ? `${access.proposalKinds.length} proposal types enabled — every change still needs your review` : "Every change needs your review first."}</p></div>
-              <button type="button" className="link-btn" onClick={() => setAllProposals(access.proposalKinds.length === 0)}>{access.proposalKinds.length ? "Clear all" : "Select all"}</button>
+              <Button variant="ghost" size="sm" onClick={() => setAllProposals(access.proposalKinds.length === 0)}>{access.proposalKinds.length ? "Clear all" : "Select all"}</Button>
             </div>
             <div className="ai-permission-list ai-list-2col">
               {AI_PROPOSAL_KINDS.map((kind) => (
                 <label className="ai-permission-row" key={kind}>
                   <span>{PROPOSAL_LABELS[kind]}{AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS.includes(kind) && <small>Unavailable until Zotero writing is enabled</small>}</span>
-                  <input className="themed-check" type="checkbox" checked={access.proposalKinds.includes(kind)} disabled={AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS.includes(kind)} onChange={() => toggleProposal(kind)} />
+                  <input className="wf-check" type="checkbox" checked={access.proposalKinds.includes(kind)} disabled={AI_CREDENTIAL_PROTECTED_PROPOSAL_KINDS.includes(kind)} onChange={() => toggleProposal(kind)} />
                 </label>
               ))}
             </div>
@@ -363,13 +323,11 @@ export function AiAccessPanel({ settings, onChange }: {
                 <ChevronIcon />
               </div>
             </summary>
-            <div className="ai-permission-list ai-list-2col">{AI_READ_CATEGORIES.map((category) => <label className="ai-permission-row" key={`dynamic-${category}`}><span>{READ_LABELS[category]}</span><input className="themed-check" type="checkbox" disabled={!access.readCategories.includes(category)} checked={(access.autoIncludeNewSourceCategories ?? []).includes(category)} onChange={() => toggleDynamic(category)} /></label>)}</div>
+            <div className="ai-permission-list ai-list-2col">{AI_READ_CATEGORIES.map((category) => <label className="ai-permission-row" key={`dynamic-${category}`}><span>{READ_LABELS[category]}</span><input className="wf-check" type="checkbox" disabled={!access.readCategories.includes(category)} checked={(access.autoIncludeNewSourceCategories ?? []).includes(category)} onChange={() => toggleDynamic(category)} /></label>)}</div>
           </details>
           <section className="ai-section ai-session-section">
-            <div className="ai-section-heading"><div><h4>Active access</h4><p>Sessions expire after 30 minutes and end when you revoke them.</p></div></div>
-            {!encryptionUnlocked && <FormError>Unlock encryption to select sources and start a session.</FormError>}
-            {encryptionUnlocked && (
-              <>
+            <div className="ai-section-heading"><div><h4>Active access</h4><p>Sessions end when the access duration below runs out, or when you revoke them.</p></div></div>
+            <>
                 <div className="field">
                   <label htmlFor="ai-workspace-name">Workspace name</label>
                   <input id="ai-workspace-name" value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} />
@@ -385,13 +343,11 @@ export function AiAccessPanel({ settings, onChange }: {
                     <option value="10080">1 week</option>
                   </Select>
                 </div>
-                <label className="ai-master-toggle"><span><strong>Remember this Codex connection on this device</strong><small>Stores only the pairing secret in your encrypted settings. Sessions still expire and require an unlocked browser.</small></span><input className="themed-check" type="checkbox" checked={rememberConnection} onChange={(event) => { setRememberConnection(event.target.checked); if (!event.target.checked) onChange(applyUserIntegrationFields(settings, "mcp", { pairingSecret: "" })); }} /></label>
+                <label className="ai-master-toggle"><span><strong>Remember this Codex connection on this device</strong><small>Stores only the pairing secret in your encrypted settings. Sessions still expire and require an unlocked browser.</small></span><input className="wf-check" type="checkbox" checked={rememberConnection} onChange={(event) => { setRememberConnection(event.target.checked); if (!event.target.checked) onChange(applyUserIntegrationFields(settings, "mcp", { pairingSecret: "" })); }} /></label>
                 <div className="ai-mcp-token-control">
-                  <div><strong>MCP token</strong><small>Create one token for this Codex plugin connection. It does not expire, is shown only once, and can be revoked here at any time.</small></div>
-                  <button type="button" className="btn-secondary" onClick={() => void createMcpToken()} disabled={busy}>{mcpTokens.length ? "Create replacement" : "Create MCP token"}</button>
+                  <div><strong>MCP token</strong><small>Codex signs in with an MCP token. Make, copy and revoke them on Settings › Access tokens.</small></div>
+                  <Button onClick={onManageTokens}>Manage MCP tokens</Button>
                 </div>
-                {newMcpToken && <div className="ai-connection-value"><span><small>New MCP token — copy it now</small><code>••••••••••••••••••••••••</code></span><button type="button" className="btn-secondary" onClick={() => copyConnection("token", newMcpToken)}>{copied === "token" ? "Copied" : "Copy"}</button></div>}
-                {mcpTokens.length > 0 && <div className="ai-token-list"><small>{mcpTokens.length} active MCP token{mcpTokens.length === 1 ? "" : "s"}</small>{mcpTokens.map((token) => <div className="ai-active-session" key={token.id}><span><strong>{token.name}</strong><small>{token.tokenPrefix} · {token.lastUsedAt ? `last used ${new Date(token.lastUsedAt).toLocaleDateString()}` : "not used yet"}</small></span><button type="button" className="link-btn danger" onClick={() => setRevokingMcp(token.id)} disabled={busy}>Revoke</button></div>)}</div>}
                 <div className="ai-source-scope">
                   <div>
                     <strong>Source access</strong>
@@ -406,62 +362,48 @@ export function AiAccessPanel({ settings, onChange }: {
                   sourceScope === "selected" && <>
                     <div className="ai-source-picker-toolbar">
                       <span>{selectedSourceIds.length} of {eligibleSources.length} selected</span>
-                      <span><button type="button" className="link-btn" onClick={() => setSelectedSourceIds(eligibleSources.map((source) => source.sourceId))}>Select all</button><button type="button" className="link-btn" onClick={() => setSelectedSourceIds([])}>Clear</button></span>
+                      <span><Button variant="ghost" size="sm" onClick={() => setSelectedSourceIds(eligibleSources.map((source) => source.sourceId))}>Select all</Button><Button variant="ghost" size="sm" onClick={() => setSelectedSourceIds([])}>Clear</Button></span>
                     </div>
                     <div className="ai-source-groups">
                       {Object.entries(sourcesByCategory).map(([category, categorySources]) => {
                         const allSelected = categorySources.every((source) => selectedSourceIds.includes(source.sourceId));
                         return <details className="ai-source-group" key={category}>
                           <summary><span><strong>{category}</strong><small>{categorySources.filter((source) => selectedSourceIds.includes(source.sourceId)).length} of {categorySources.length} selected</small></span><ChevronIcon /></summary>
-                          <div className="ai-source-group-actions"><button type="button" className="link-btn" onClick={() => setSelectedSourceIds((current) => allSelected ? current.filter((id) => !categorySources.some((source) => source.sourceId === id)) : [...new Set([...current, ...categorySources.map((source) => source.sourceId)])])}>{allSelected ? "Clear category" : "Select category"}</button></div>
+                          <div className="ai-source-group-actions"><Button variant="ghost" size="sm" onClick={() => setSelectedSourceIds((current) => allSelected ? current.filter((id) => !categorySources.some((source) => source.sourceId === id)) : [...new Set([...current, ...categorySources.map((source) => source.sourceId)])])}>{allSelected ? "Clear category" : "Select category"}</Button></div>
                           {categorySources.map((source) => <label className="ai-permission-row" key={source.sourceId}>
-                            <span>{source.label}</span><input className="themed-check" type="checkbox" checked={selectedSourceIds.includes(source.sourceId)} onChange={() => toggleSource(source.sourceId)} />
+                            <span>{source.label}</span><input className="wf-check" type="checkbox" checked={selectedSourceIds.includes(source.sourceId)} onChange={() => toggleSource(source.sourceId)} />
                           </label>)}
                         </details>;
                       })}
                     </div>
                   </>
                 )}
-                <button type="button" className="btn-secondary ai-start-access" onClick={() => void startSession()} disabled={busy || (sourceScope === "selected" ? selectedSourceIds.length === 0 : eligibleSources.length === 0)}>
+                <span className="ai-start-access"><Button onClick={() => void startSession()} disabled={busy || (sourceScope === "selected" ? selectedSourceIds.length === 0 : eligibleSources.length === 0)}>
                   {busy ? "Starting…" : `Start access for ${sourceScope === "selected" ? selectedSourceIds.length : eligibleSources.length} source${(sourceScope === "selected" ? selectedSourceIds.length : eligibleSources.length) === 1 ? "" : "s"}`}
-                </button>
+                </Button></span>
                 <FormError>{sessionError}</FormError>
-                {connection && <div className="ai-connection-details"><div className="ai-section-heading"><div><h4>Live Codex connection</h4><p>Copy this session ID and pairing secret into the local plugin. Use the MCP token you created above. Keep this page open and encryption unlocked.</p></div></div><div className="ai-connection-value"><span><small>Session ID</small><code>{connection.sessionId}</code></span><button type="button" className="btn-secondary" onClick={() => copyConnection("session", connection.sessionId)}>{copied === "session" ? "Copied" : "Copy"}</button></div><div className="ai-connection-value"><span><small>Pairing secret</small><code>••••••••••••••••••••••••••••••••</code></span><button type="button" className="btn-secondary" onClick={() => copyConnection("secret", connection.secret)}>{copied === "secret" ? "Copied" : "Copy"}</button></div></div>}
-              </>
-            )}
+                {connection && <div className="ai-connection-details"><div className="ai-section-heading"><div><h4>Live Codex connection</h4><p>Copy this session ID and pairing secret into the local plugin. Use the MCP token you created above. Keep this page open.</p></div></div><div className="ai-connection-value"><span><small>Session ID</small><code>{connection.sessionId}</code></span><Button onClick={() => copyConnection("session", connection.sessionId)}>{copied === "session" ? "Copied" : "Copy"}</Button></div><div className="ai-connection-value"><span><small>Pairing secret</small><code>••••••••••••••••••••••••••••••••</code></span><Button onClick={() => copyConnection("secret", connection.secret)}>{copied === "secret" ? "Copied" : "Copy"}</Button></div></div>}
+            </>
             {sessions.length > 0 && (
               <div className="ai-active-sessions">
                 {sessions.map((session) => (
                   <div className="ai-active-session" key={session.grant.id}>
                     <span><strong>{session.workspace.name}</strong><small>{session.grant.readable.length} source{session.grant.readable.length === 1 ? "" : "s"} · expires {new Date(session.grant.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></span>
-                    <button type="button" className="link-btn danger" onClick={() => {
+                    <Button variant="danger" size="sm" onClick={() => {
                       getContainer().aiAssistant.stopRelay(session.grant.id);
                       if (connection?.sessionId === session.grant.id) setConnection(null);
                       getContainer().aiAssistant.revokeSession(session.grant.id);
                       setSessions(getContainer().aiAssistant.listActiveSessions());
                       persistSessions();
-                    }}>Revoke now</button>
+                    }}>Revoke now</Button>
                   </div>
                 ))}
-                <button type="button" className="link-btn danger" onClick={revokeAll}>Disable all active AI access</button>
+                <Button variant="danger" size="sm" onClick={revokeAll}>Disable all active AI access</Button>
               </div>
             )}
           </section>
         </>
       )}
-
-      {/* The confirmation the app draws, in place of `window.confirm`. */}
-      {revokingMcp ? (
-        <ConfirmDialog
-          title="Revoke this MCP token?"
-          body="Any Codex connection using it will stop immediately."
-          confirmLabel="Revoke"
-          danger
-          busy={busy}
-          onConfirm={() => void revokeMcpToken(revokingMcp)}
-          onClose={() => setRevokingMcp(null)}
-        />
-      ) : null}
     </section>
   );
 }

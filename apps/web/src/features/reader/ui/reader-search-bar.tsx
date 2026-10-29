@@ -8,6 +8,8 @@ import {
   type DocumentSearchMatch,
 } from "@weaveforge/core";
 import { ChevronIcon } from "@/components/chevron-icon";
+import { shortcutLabel } from "@/lib/shortcut-label";
+import { Button, CloseButton, IconButton } from "@/components/button";
 
 interface ReaderSearchBarProps {
   pages: DocumentPageText[];
@@ -49,18 +51,16 @@ export function ReaderSearchBar({
 
   if (!open && !query.trim()) {
     return (
-      <button
-        type="button"
-        className="btn-secondary btn-sm pdf-reader-search-trigger"
+      <Button size="sm"
         onClick={() => setOpen(true)}
         aria-label="Find in document"
-        title="Find in document (⌘F / Ctrl+F)"
+        title={`Find in document (${shortcutLabel("⌘F")})`}
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
           <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4.2-4.2" />
         </svg>
         <span>Find</span>
-      </button>
+      </Button>
     );
   }
 
@@ -94,40 +94,23 @@ export function ReaderSearchBar({
           <span className="muted pdf-reader-search-count">
             {matches.length ? `${active < 0 ? 0 : active + 1}/${matches.length}` : "0/0"}
           </span>
-          <button
-            type="button"
-            className="pdf-reader-search-step"
-            disabled={!matches.length}
-            onClick={() => jump(-1)}
-            aria-label="Previous match"
-            title="Previous match (Shift+Enter)"
-          >
+          <IconButton size="sm" label="Previous match" tip="Previous match (Shift+Enter)" disabled={!matches.length} onClick={() => jump(-1)}>
             <ChevronIcon open size={14} />
-          </button>
-          <button
-            type="button"
-            className="pdf-reader-search-step"
-            disabled={!matches.length}
-            onClick={() => jump(1)}
-            aria-label="Next match"
-            title="Next match (Enter)"
-          >
+          </IconButton>
+          <IconButton size="sm" label="Next match" tip="Next match (Enter)" disabled={!matches.length} onClick={() => jump(1)}>
             <ChevronIcon size={14} />
-          </button>
+          </IconButton>
         </>
       )}
-      <button
-        type="button"
-        className="pdf-reader-search-close"
+      <CloseButton
+        size="sm"
+        label="Close search"
+        tip="Close (Escape)"
         onClick={() => {
           setQuery("");
           setOpen(false);
         }}
-        aria-label="Close search"
-        title="Close (Escape)"
-      >
-        ✕
-      </button>
+      />
     </div>
   );
 }

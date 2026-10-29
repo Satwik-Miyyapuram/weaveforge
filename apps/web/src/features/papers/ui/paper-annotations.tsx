@@ -6,16 +6,11 @@ import { getContainer } from "@/bootstrap";
 import { formatError } from "@/lib/format-error";
 import { Select } from "@/components/select";
 import { formatQuoteCiteClipboard } from "@/features/papers/application/sync-annotation-excerpts";
+import type { StoredZoteroAnnotation } from "../domain/zotero";
+import { Button } from "@/components/button";
+import { Chip } from "@/components/controls";
 
-interface StoredAnnotation {
-  key?: string;
-  kind?: "annotation" | "note";
-  text?: string;
-  comment?: string;
-  color?: string;
-  page?: string;
-  tags?: string[];
-}
+type StoredAnnotation = StoredZoteroAnnotation;
 
 /** Read-only list of Zotero PDF annotations cached on the paper (metadata.annotations). */
 export function PaperAnnotations({ paper, readOnly }: { paper: Paper; readOnly: boolean }) {
@@ -120,17 +115,17 @@ export function PaperAnnotations({ paper, readOnly }: { paper: Paper; readOnly: 
                   {a.tags && a.tags.length > 0 && (
                     <div className="tag-chips">
                       {a.tags.map((t) => (
-                        <span key={t} className="tag-chip">
+                        <Chip key={t}>
                           #{t}
-                        </span>
+                        </Chip>
                       ))}
                     </div>
                   )}
                   {(a.text || a.comment) && (
                     <div className="annotation-actions">
-                      <button type="button" className="link-btn" onClick={() => void copyCite(a)}>
+                      <Button variant="ghost" size="sm" onClick={() => void copyCite(a)}>
                         Copy quote + cite
-                      </button>
+                      </Button>
                       {a.key && !readOnly && (
                         <>
                           <Select
@@ -185,17 +180,17 @@ export function PaperAnnotations({ paper, readOnly }: { paper: Paper; readOnly: 
                   {a.tags && a.tags.length > 0 && (
                     <div className="tag-chips">
                       {a.tags.map((t) => (
-                        <span key={t} className="tag-chip">
+                        <Chip key={t}>
                           #{t}
-                        </span>
+                        </Chip>
                       ))}
                     </div>
                   )}
                   {(a.text || a.comment) && (
                     <div className="annotation-actions">
-                      <button type="button" className="link-btn" onClick={() => void copyCite(a)}>
+                      <Button variant="ghost" size="sm" onClick={() => void copyCite(a)}>
                         Copy quote + cite
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>

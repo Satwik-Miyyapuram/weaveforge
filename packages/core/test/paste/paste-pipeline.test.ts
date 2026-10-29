@@ -100,3 +100,19 @@ test("commas move only where the text is really quoted prose", () => {
   const json = '{"name":"Anna", "city":"Berg"}';
   assert.equal(applyCommaPlacement(json, "outside").text, json);
 });
+
+test("comma placement tracks straight-quote parity per line, in linear time (07-07)", () => {
+  // The second `",` sits after an even count of quotes on its line: no quotation is open.
+  assert.equal(applyCommaPlacement('say "a", b", c', "inside").text, 'say "a," b", c');
+  // An open quote on the line above does not reach the next line.
+  assert.equal(applyCommaPlacement('x "a\nb", c', "inside").text, 'x "a\nb", c');
+  assert.equal(applyCommaPlacement('x "a\ny "b", c', "inside").text, 'x "a\ny "b," c');
+  assert.equal(applyCommaPlacement('say "a," b', "outside").text, 'say "a", b');
+
+  const line = 'x", y '.repeat(40_000);
+  const started = performance.now();
+  const out = applyCommaPlacement(line, "inside").text;
+  assert.ok(performance.now() - started < 500);
+  // A match moves only when an odd count of quotes precedes it on the line.
+  assert.ok(out === 'x", y x," y '.repeat(20_000), out.slice(0, 40));
+});

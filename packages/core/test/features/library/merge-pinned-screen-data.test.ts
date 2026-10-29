@@ -38,6 +38,7 @@ function share(input: {
 
 const pin = (resourceId: string, ownerId = "alice") => ({
   id: `pin-${resourceId}`,
+  userId: "me",
   projectId: "proj",
   resourceType: "paper" as const,
   resourceId,
@@ -176,4 +177,46 @@ test("merge: a share that names a resource is granted even when it is not pinned
 
   assert.equal(merged.canComment.get("p9"), true);
   assert.equal(merged.canEdit.get("p9"), false);
+});
+
+test("merge: the same resource pinned twice is loaded and listed once (02-15)", async () => {
+  const loads: string[] = [];
+  const merged = await mergePinnedScreenData<Summary, Summary>({
+    resourceType: "paper",
+    owned: [],
+    pins: [pin("p9"), { ...pin("p9"), id: "pin-p9-again" }],
+    shares: [],
+    loadById: async (id) => {
+      loads.push(id);
+      return { id, title: id };
+    },
+  });
+  assert.deepEqual(loads, ["p9"]);
+  assert.deepEqual(merged.items.map((item) => item.id), ["p9"]);
+});
+
+test("merge: one pin that fails to load drops that pin, not the screen (02-15)", async () => {
+  const merged = await mergePinnedScreenData<Summary, Summary>({
+    resourceType: "paper",
+    owned: [{ id: "p1", title: "Owned" }],
+    pins: [pin("gone"), pin("p9")],
+    shares: [],
+    loadById: async (id) => {
+      if (id === "gone") throw new Error("permission denied");
+      return { id, title: id };
+    },
+  });
+  assert.deepEqual(merged.items.map((item) => item.id), ["p1", "p9"]);
+});
+
+test("a pin of a row the reader owns is not 'shared by' anyone (E13)", async () => {
+  const result = await merge({
+    owned: [{ id: "p1", title: "mine" }, { id: "p2", title: "a project row alice owns" }],
+    pins: [pin("p1", "me"), pin("p2")],
+    shares: [],
+  });
+  assert.deepEqual(result.items.map((x) => x.id), ["p1", "p2"]);
+  assert.equal(result.pinnedSharedBy.has("p1"), false);
+  assert.equal(result.pinnedSharedBy.get("p2"), "alice");
+  assert.equal(result.canEdit.has("p1"), false);
 });

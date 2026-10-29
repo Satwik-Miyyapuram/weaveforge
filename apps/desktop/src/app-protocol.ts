@@ -67,6 +67,28 @@ export function resolveAppFile(
 }
 
 /**
+ * The same URL with repeated slashes in its path collapsed, or `null` when the
+ * path is already clean (E01).
+ *
+ * `app://weaveforge//` resolves to the root index, but the client router reads
+ * a `//` path as a protocol-relative URL and throws, leaving a blank error
+ * screen. Redirecting to the collapsed path keeps a malformed deep link
+ * working. The query and fragment are left alone: a `//` there is data.
+ */
+export function canonicalAppUrl(requestUrl: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(requestUrl);
+  } catch {
+    return null;
+  }
+  const collapsed = url.pathname.replace(/\/{2,}/g, "/");
+  if (collapsed === url.pathname) return null;
+  url.pathname = collapsed;
+  return url.toString();
+}
+
+/**
  * Where the export put a segment prefetch file the client names with dots.
  *
  * Next 16 fetches `plan/__next.plan.__PAGE__.txt` but the static export writes
@@ -135,6 +157,11 @@ export function appHeaders(contentType: string): Record<string, string> {
  * carries `app://models` for the same reason and is the place to look for how the
  * web half words it; the browser build never reaches this host, which is why the
  * scheme only appears in this file.
+ *
+ * The policy was not the only gate: `app:` is not a CORS-enabled scheme, so
+ * Chromium blocked the cross-origin fetch anyway. The renderer now asks for
+ * `app://weaveforge/models/…`, same-origin, which the shell maps onto the same
+ * cache (`modelCacheUrl`); `app:` stays for the other `app:` hosts.
  *
  * **`cache:`** — Electron's Cache API, which Transformers.js uses to store model
  * files. A Cache API lookup is subject to `connect-src`, and a refused one

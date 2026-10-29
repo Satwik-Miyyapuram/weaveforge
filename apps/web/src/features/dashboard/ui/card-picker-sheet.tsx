@@ -4,6 +4,7 @@ import { Modal } from "@/components/modal";
 import { cardsForRole, type CardDef } from "../application/card-registry";
 import type { DashboardCardType } from "@weaveforge/core";
 import type { Role } from "@weaveforge/core";
+import { RowButton } from "@/components/controls";
 
 export function CardPickerSheet({
   role,
@@ -42,9 +43,9 @@ export function CardPickerSheet({
 function PickerRow({ def, onPick }: { def: CardDef; onPick: () => void }) {
   return (
     <li>
-      <button type="button" className="dashboard-picker-btn" onClick={onPick}>
+      <RowButton onClick={onPick}>
         {def.label}
-      </button>
+      </RowButton>
     </li>
   );
 }

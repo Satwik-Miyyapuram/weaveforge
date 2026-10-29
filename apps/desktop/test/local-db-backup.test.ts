@@ -17,8 +17,14 @@ function scratch(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "wf-backup-"));
 }
 
-function dumping(bytes: string) {
-  return { dumpDataDir: async () => new Blob([bytes]) };
+/** An engine stand-in that writes `bytes` as its dump, counting the dumps. */
+function dumping(bytes: string | Uint8Array, dumps: string[] = []) {
+  return {
+    dumpTo: async (file: string) => {
+      dumps.push(file);
+      await fs.promises.writeFile(file, bytes);
+    },
+  };
 }
 
 /** A clock that ticks one second per call, so names sort the way time does. */
@@ -128,4 +134,72 @@ test("backup: all lists every place's backups, newest first", async () => {
     await Promise.all(all.map(async (f) => (await readBackup(f)).text())),
     ["new", "old"],
   );
+});
+
+test("backup: the database is dumped once, and every other place gets a copy of that file", async () => {
+  const a = scratch();
+  const b = path.join(scratch(), "b");
+  const dumps: string[] = [];
+  const backups = new LocalDbBackups({ dirs: () => [a, b], now: ticking() });
+
+  const written = await backups.take(dumping("dumped", dumps));
+  assert.equal(written.length, 2);
+  assert.equal(dumps.length, 1, "the dump is the slow part; it is made once");
+  assert.ok(dumps[0]!.endsWith(".part"), "dumped beside, then renamed over");
+  for (const file of written) assert.equal(await (await readBackup(file)).text(), "dumped");
+  assert.deepEqual(
+    [a, b].flatMap((d) => fs.readdirSync(d)).filter((n) => n.endsWith(".part")),
+    [],
+  );
+});
+
+test("backup: when the first place cannot be written, the dump is made in the next", async () => {
+  const file = path.join(scratch(), "not-a-dir");
+  fs.writeFileSync(file, "");
+  const good = scratch();
+  const backups = new LocalDbBackups({ dirs: () => [path.join(file, "under"), good], now: ticking() });
+
+  const written = await backups.take(dumping("fallback"));
+  assert.equal(written.length, 1);
+  assert.ok(written[0]!.startsWith(good));
+  assert.equal(await (await readBackup(written[0]!)).text(), "fallback");
+});
+
+test("backup: a dump that fails part way leaves no backup and no draft", async () => {
+  const a = scratch();
+  const b = scratch();
+  const failing = {
+    dumpTo: async (file: string) => {
+      await fs.promises.writeFile(file, "half");
+      throw new Error("engine died");
+    },
+  };
+  const backups = new LocalDbBackups({ dirs: () => [a, b], now: ticking() });
+  assert.deepEqual(await backups.take(failing), []);
+  assert.deepEqual([...fs.readdirSync(a), ...fs.readdirSync(b)], []);
+});
+
+test("backup: with no place to write, nothing is dumped", async () => {
+  const dumps: string[] = [];
+  assert.deepEqual(await new LocalDbBackups({ dirs: () => [] }).take(dumping("x", dumps)), []);
+  assert.equal(dumps.length, 0);
+});
+
+test("backup: a large dump is copied byte for byte", async () => {
+  const big = new Uint8Array(8 * 1024 * 1024);
+  for (let i = 0; i < big.length; i++) big[i] = (i * 31) & 0xff;
+  const backups = new LocalDbBackups({ dirs: () => [scratch(), scratch()], now: ticking() });
+  const written = await backups.take(dumping(big));
+  assert.equal(written.length, 2);
+  for (const file of written) assert.ok(fs.readFileSync(file).equals(Buffer.from(big)));
+});
+
+test("backup: a backup is read back as a gzip blob backed by the file", async () => {
+  const dir = scratch();
+  const [file] = await new LocalDbBackups({ dirs: () => [dir], now: ticking() }).take(dumping("gz"));
+  const blob = await readBackup(file!);
+  assert.equal(blob.type, "application/gzip");
+  assert.equal(blob.size, 2);
+  assert.equal(await blob.text(), "gz");
+  await assert.rejects(readBackup(path.join(dir, "missing.tar.gz")));
 });

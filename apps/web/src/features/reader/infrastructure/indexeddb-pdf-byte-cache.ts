@@ -5,8 +5,9 @@
 
 import type { IPdfByteCache } from "@weaveforge/core";
 import { pickKeysToEvict } from "../application/pdf-cache-eviction";
+import { PDF_CACHE_DB_NAME } from "./local-cache-names";
 
-const DB_NAME = "weaveforge-pdf-cache";
+const DB_NAME = PDF_CACHE_DB_NAME;
 const STORE = "pdfs";
 const DB_VERSION = 1;
 
@@ -45,6 +46,25 @@ function waitForTransaction(tx: IDBTransaction): Promise<void> {
   });
 }
 
+/** Each row's key and age, walking a cursor so one row is in memory at a time. */
+function readAges(store: IDBObjectStore): Promise<{ key: string; updatedAt: number }[]> {
+  return new Promise((resolve, reject) => {
+    const ages: { key: string; updatedAt: number }[] = [];
+    const req = store.openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) {
+        resolve(ages);
+        return;
+      }
+      const row = cursor.value as CacheRow;
+      ages.push({ key: row.key, updatedAt: row.updatedAt });
+      cursor.continue();
+    };
+    req.onerror = () => reject(req.error ?? new Error("indexedDB cursor failed"));
+  });
+}
+
 export class IndexedDbPdfByteCache implements IPdfByteCache {
   constructor(private readonly maxEntries: number) {
     if (!Number.isInteger(maxEntries) || maxEntries < 1) {
@@ -71,15 +91,32 @@ export class IndexedDbPdfByteCache implements IPdfByteCache {
     }
   }
 
+  /** The key alone, so the row's bytes stay on disk. Callers only store fetched, non-empty bytes. */
+  async has(key: string): Promise<boolean> {
+    const db = await openDb();
+    try {
+      const tx = db.transaction(STORE, "readonly");
+      const found = await idbRequest(tx.objectStore(STORE).getKey(key));
+      await waitForTransaction(tx);
+      return found !== undefined;
+    } finally {
+      db.close();
+    }
+  }
+
   async set(key: string, bytes: ArrayBuffer): Promise<void> {
     const db = await openDb();
     try {
       const tx = db.transaction(STORE, "readwrite");
       const store = tx.objectStore(STORE);
       store.put({ key, bytes, updatedAt: Date.now() } satisfies CacheRow);
-      const all = (await idbRequest(store.getAll())) as CacheRow[];
-      for (const drop of pickKeysToEvict(all, this.maxEntries)) {
-        store.delete(drop);
+      // Count first: reading every row would load every cached PDF (22-04).
+      const count = await idbRequest(store.count());
+      if (count > this.maxEntries) {
+        const ages = await readAges(store);
+        for (const drop of pickKeysToEvict(ages, this.maxEntries)) {
+          store.delete(drop);
+        }
       }
       await waitForTransaction(tx);
     } finally {

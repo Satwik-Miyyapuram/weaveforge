@@ -5,6 +5,7 @@ import { PopoverLayer } from "../reference-popover-layer";
 import { ReferencePopover } from "../reference-popover";
 import { noticeFor } from "../../application/reference-notice";
 import type { useReaderReferences } from "./use-reader-references";
+import { TabButton } from "@/components/controls";
 
 interface ReferencePopoverHostProps {
   refs: ReturnType<typeof useReaderReferences>;
@@ -35,16 +36,12 @@ export function ReferencePopoverHost({ refs, onOpenInReader }: ReferencePopoverH
       {cited.length > 1 && (
         <div className="pdf-reader-ref-actions pdf-reader-ref-cluster" role="tablist" aria-label="Cited entries">
           {cited.map((e) => (
-            <button
+            <TabButton selected={e.index === entry.index}
               key={e.index}
-              type="button"
-              role="tab"
-              aria-selected={e.index === entry.index}
-              className={`pdf-reader-ref-action${e.index === entry.index ? " is-active" : ""}`}
               onClick={() => { setChosen(e.index); ensureResolved(e); }}
             >
               {e.label ?? `[${e.index}]`}
-            </button>
+            </TabButton>
           ))}
         </div>
       )}

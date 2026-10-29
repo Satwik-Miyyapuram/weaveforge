@@ -20,12 +20,16 @@ export const RELATION_COLORS: Record<RelationType, string> = {
   uses_method: "#9a7bb0",
 };
 
-export const STATUS_COLORS: Record<string, string> = {
+/** Each reading status's colour, by name, for code that knows which one it wants. */
+export const READING_STATUS_COLORS = {
   to_read: "#b9b2a6",
   reading: "#7c9885",
   read: "#5a7d8c",
   skimmed: "#c98a6b",
-};
+} as const;
+
+/** The same colours, looked up by a status read from data. */
+export const STATUS_COLORS: Record<string, string> = READING_STATUS_COLORS;
 
 export function tagColor(tag: string): string {
   let h = 0;

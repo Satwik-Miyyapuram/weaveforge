@@ -16,9 +16,10 @@
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { rowCounts, tableLoadOrder } from "./lib/pg-migrate.mjs";
+import { cutoverVerdict, rowCounts, rowFingerprintSql, tableLoadOrder } from "./lib/pg-migrate.mjs";
 
 import { loadMigrationEnv } from "./lib/load-env.mjs";
+import { pgTls } from "./lib/pg-tls.mjs";
 
 loadMigrationEnv(join(dirname(fileURLToPath(import.meta.url)), ".."));
 const require = createRequire(join(dirname(fileURLToPath(import.meta.url)), "../apps/web/package.json"));
@@ -62,16 +63,10 @@ if (!SOURCE_URL || !TARGET_URL) {
   process.exit(1);
 }
 
-function wantsTls(url) {
-  if (/sslmode=disable/.test(url)) return false;
-  if (/[?&]host=%2F|[?&]host=\//.test(url)) return false;
-  return !/@(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(url);
-}
-
 const clientFor = (url) =>
   new Client({
     connectionString: url,
-    ...(wantsTls(url) ? { ssl: { rejectUnauthorized: false } } : {}),
+    ...pgTls(url),
     statement_timeout: 0,
   });
 
@@ -114,11 +109,12 @@ async function fingerprint(client, table) {
   );
   if (pk.length === 0) return null;
 
-  const list = cols.map((c) => `"${c.column_name}"::text`).join(", ");
-  const order = pk.map((p) => `"${p.attname}"`).join(", ");
   const { rows } = await client.query(
-    `select md5(string_agg(concat_ws('|', ${list}), E'\\n' order by ${order})) as h
-     from "public"."${table}"`,
+    rowFingerprintSql(
+      table,
+      cols.map((c) => c.column_name),
+      pk.map((p) => p.attname),
+    ),
   );
   return rows[0].h;
 }
@@ -208,7 +204,8 @@ async function main() {
       limit 2`,
   );
 
-  if (owners.length === 2) {
+  const isolationProbed = owners.length === 2;
+  if (isolationProbed) {
     const [alice, bob] = owners;
     await target.query("begin");
     try {
@@ -240,11 +237,11 @@ async function main() {
   console.log("");
   for (const note of notes) console.log(`  · ${note}`);
 
-  if (failures.length) {
-    console.error(`\n✖ ${failures.length} check(s) failed. Do not cut over.\n`);
+  const verdict = cutoverVerdict(failures.length, isolationProbed);
+  if (verdict.ok) console.log(`\n${verdict.message}\n`);
+  else {
+    console.error(`\n${verdict.message}\n`);
     process.exitCode = 1;
-  } else {
-    console.log("\n✓ The target matches the source and isolates users. Safe to cut over.\n");
   }
 
   await source.end();

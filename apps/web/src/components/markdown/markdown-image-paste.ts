@@ -1,6 +1,6 @@
 "use client";
 
-import { EditorSelection } from "@codemirror/state";
+import { EditorSelection, type Text } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { imageAltFromFilename, looksLikeImageUrl } from "@weaveforge/core";
 import {
@@ -179,7 +179,7 @@ export function acceptImageFiles(
     // Inserted at the caret, which is the whole point: an image belongs where
     // the writer was, not at the end of the note the way the attach button used
     // to put it.
-    const id = insertPending(view, placeholderText(imageAltFromFilename(file.name)));
+    const id = insertPending(view, placeholderText(imageAltFromFilename(file.name)), { ownLine: true });
 
     void config
       .upload(file)
@@ -203,16 +203,26 @@ export interface ImagePasteOptions {
 }
 
 /**
+ * Where a dropped image goes: the nearer edge of the line under the pointer,
+ * so a drop never splits a word in two (E31). A drop is aimed at a line, not
+ * at a character; a paste still goes exactly at the caret.
+ */
+export function dropAnchor(doc: Text, pos: number): number {
+  const line = doc.lineAt(pos);
+  return pos - line.from <= line.to - pos ? line.from : line.to;
+}
+
+/**
  * The extension. Returns nothing when the host has no uploader, so a screen
  * that cannot store an image simply keeps the browser's own behaviour.
  */
 export function imagePaste(config: ImagePasteConfig | undefined, options: ImagePasteOptions = {}) {
   if (!config) return [];
 
-  /** Puts the caret where the pointer is, so a drop lands where it was dropped. */
+  /** Puts the caret on the line the pointer is on, at its nearer edge. */
   const caretAtDrop = (view: EditorView, event: DragEvent) => {
     const at = view.posAtCoords({ x: event.clientX, y: event.clientY });
-    if (at !== null) view.dispatch({ selection: EditorSelection.cursor(at) });
+    if (at !== null) view.dispatch({ selection: EditorSelection.cursor(dropAnchor(view.state.doc, at)) });
   };
 
   return [

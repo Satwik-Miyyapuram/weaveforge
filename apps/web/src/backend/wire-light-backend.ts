@@ -10,6 +10,7 @@ import { secretsStoreFor } from "./providers/secrets-store";
 import { PostgrestSelfProvisioner } from "@/features/org/infrastructure/postgrest-self-provisioner";
 import { isLocalMode, LocalAuthService } from "./providers/local/local-identity";
 import { localBackendParts } from "./providers/local/wire-local-backend";
+import { systemClock } from "@/lib/system";
 
 /**
  * Pre-disclaimer backend: auth + settings only.
@@ -50,7 +51,7 @@ export function wireLightBackend(config: BackendConfig = readBackendConfig()): L
   // first settings write, so on a build with no routes of its own it must not
   // reach for `/api/settings/credentials` either.
   const settingsRepository = new PostgrestSettingsRepository(db, session, secretsStoreFor(db));
-  const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository });
+  const manageSettings = new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock });
   return { auth, manageSettings, selfProvisioner: new PostgrestSelfProvisioner(db) };
 }
 
@@ -65,7 +66,7 @@ function wireLocalLightBackend(): LightBackend {
   const { settingsRepository } = localBackendParts();
   return {
     auth: new LocalAuthService(),
-    manageSettings: new ManageSettingsUseCaseClass({ repository: settingsRepository }),
+    manageSettings: new ManageSettingsUseCaseClass({ repository: settingsRepository, clock: systemClock }),
     selfProvisioner: { ensureProvisioned: async () => {} },
   };
 }

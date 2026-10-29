@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { GitAuthor, GitFileStatus, IWorkspaceGit, WorkspaceCommit } from "@weaveforge/core";
+import { GIT_OFF, type GitAuthor, type GitFileStatus, type IWorkspaceGit, type WorkspaceCommit } from "@weaveforge/core";
 
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -52,6 +52,18 @@ test("nothing is committed while the setting is off", async () => {
   const result = await commitVault("/vault", false, repo, async () => ({ kind: "own" }));
   assert.equal(result.committed, null);
   assert.deepEqual(repo.calls, []);
+});
+
+test("with the setting off, git is never started, not even to probe (M03)", async () => {
+  // Starting git costs seconds of main-thread time on Windows; on every
+  // folder sync, for a feature that is off by default, that was boot time.
+  let probed = 0;
+  const result = await commitVault("/vault", false, fakeGit(changed), async () => {
+    probed += 1;
+    return { kind: "own" };
+  });
+  assert.equal(probed, 0);
+  assert.equal(result.reason, GIT_OFF);
 });
 
 test("a folder inside someone else's repository is left alone, with a reason", async () => {
@@ -149,4 +161,46 @@ test("a git failure reads as git's own error, not the command and per-file warni
   );
   assert.equal(gitReason(error), 'error: open("project/papers/long.paper.md"): Filename too long fatal: adding files failed');
   assert.equal(gitReason(new Error("index.lock exists")), "index.lock exists");
+});
+
+// xlog-14: an empty history is quiet; a git that cannot read the history is logged.
+test("a repository with no commits has an empty history and logs nothing", async (t) => {
+  const warn = t.mock.method(console, "warn", () => undefined);
+  const root = mkdtempSync(path.join(tmpdir(), "wf-vault-git-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  execFileSync("git", ["-C", root, "init", "-q"]);
+  assert.deepEqual(await new NativeWorkspaceGit(root).log({ limit: 5 }), []);
+  assert.equal(warn.mock.callCount(), 0);
+});
+
+test("a history git cannot read is still empty, and the log says why", async (t) => {
+  const warn = t.mock.method(console, "warn", () => undefined);
+  const root = mkdtempSync(path.join(tmpdir(), "wf-vault-git-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  assert.deepEqual(await new NativeWorkspaceGit(path.join(root, "gone")).log({ limit: 5 }), []);
+  assert.equal(warn.mock.callCount(), 1);
+  assert.match(String(warn.mock.calls[0]!.arguments[0]), /^\[vault-git\] could not read the history: \S/);
+});
+
+// 38-05: with -z a rename is two records, the new path then the old one.
+test("a staged rename is one change under its new path, with no bogus entry", async (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), "wf-vault-git-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  execFileSync("git", ["-C", root, "init", "-q"]);
+  writeFileSync(path.join(root, "old-name.note.md"), "# A note long enough to keep its identity");
+  writeFileSync(path.join(root, "kept.note.md"), "# Kept");
+  execFileSync("git", ["-C", root, "add", "."]);
+  execFileSync("git", ["-C", root, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "old"]);
+  execFileSync("git", ["-C", root, "mv", "old-name.note.md", "new-name.note.md"]);
+  writeFileSync(path.join(root, "kept.note.md"), "# Kept, edited");
+
+  const status = await new NativeWorkspaceGit(root).status();
+
+  assert.deepEqual(
+    [...status].sort((a, b) => a.path.localeCompare(b.path)),
+    [
+      { path: "kept.note.md", state: "modified" },
+      { path: "new-name.note.md", state: "modified" },
+    ],
+  );
 });

@@ -26,6 +26,8 @@ import { dirname, join, basename } from "node:path";
 import { readFileSync, readdirSync } from "node:fs";
 
 import { loadMigrationEnv } from "./lib/load-env.mjs";
+import { pgTls } from "./lib/pg-tls.mjs";
+import { matchesOnly } from "./lib/migration-select.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 loadMigrationEnv(root);
@@ -41,13 +43,6 @@ if (!DATABASE_URL) {
 const MIGRATIONS = join(root, "db/migrations");
 const SELF_HOSTED = join(root, "db/migrations-self-hosted-postgres");
 const PREREQS = join(SELF_HOSTED, "0000_self_host_prereqs.sql");
-
-/** Same rule the preflight uses: TLS everywhere except a local socket or loopback. */
-function wantsTls(url) {
-  if (/sslmode=disable/.test(url)) return false;
-  if (/[?&]host=%2F|[?&]host=\//.test(url)) return false;
-  return !/@(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(url);
-}
 
 function sqlFilesIn(dir) {
   return readdirSync(dir)
@@ -81,7 +76,7 @@ async function applyFile(client, path) {
 async function main() {
   const client = new Client({
     connectionString: DATABASE_URL,
-    ...(wantsTls(DATABASE_URL) ? { ssl: { rejectUnauthorized: false } } : {}),
+    ...pgTls(DATABASE_URL),
     connectionTimeoutMillis: 15_000,
   });
 
@@ -122,7 +117,7 @@ async function main() {
 
     if (only) {
       const matches = [...sqlFilesIn(MIGRATIONS), ...sqlFilesIn(SELF_HOSTED)].filter((f) =>
-        basename(f).includes(only),
+        matchesOnly(basename(f), only),
       );
       if (matches.length === 0) {
         console.error(`\n✖ No migration matches "${only}".\n`);

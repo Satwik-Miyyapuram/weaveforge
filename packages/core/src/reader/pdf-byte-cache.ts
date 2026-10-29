@@ -2,6 +2,12 @@ import type { IPdfSourceResolver, PdfSourceHit, PdfSourcePaper } from "./pdf-sou
 
 export interface IPdfByteCache {
   get(key: string): Promise<ArrayBuffer | null>;
+  /**
+   * Whether bytes are held for `key`, without loading them. A presence check
+   * through `get` reads the whole PDF: a 29-paper library cost 125 MB at
+   * startup, held in each process until the next full GC.
+   */
+  has(key: string): Promise<boolean>;
   set(key: string, bytes: ArrayBuffer): Promise<void>;
   /**
    * Drop one entry.
@@ -36,6 +42,10 @@ export class InMemoryPdfByteCache implements IPdfByteCache {
     this.map.delete(key);
     this.map.set(key, hit);
     return hit;
+  }
+
+  async has(key: string): Promise<boolean> {
+    return (this.map.get(key)?.byteLength ?? 0) > 0;
   }
 
   async set(key: string, bytes: ArrayBuffer): Promise<void> {
@@ -75,8 +85,7 @@ export class PdfByteCacheResolver implements IPdfSourceResolver {
   }
 
   async resolve(paper: PdfSourcePaper): Promise<PdfSourceHit | null> {
-    const bytes = await this.cache.get(paper.id);
-    if (!bytes || bytes.byteLength === 0) return null;
+    if (!(await this.cache.has(paper.id))) return null;
     return { url: `cache://${encodeURIComponent(paper.id)}` };
   }
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { InlineError } from "@/components/form-error";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   extractHashtags,
@@ -9,7 +8,8 @@ import {
   type VaultPage,
 } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
-import { ConfirmDialog } from "@/components/confirm-dialog";
+import { deletedMessage, removeLater } from "@/lib/toast";
+import { noteKey } from "./note-key";
 import { readableText } from "@/lib/page-text";
 import { AttachImageButton } from "@/components/attach-image-button";
 import type { EditorHandle } from "@/components/editor-handle";
@@ -26,6 +26,9 @@ import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
 import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
 import { NoteTagEditor } from "./note-tag-editor";
+import { runNoteAction } from "./run-note-action";
+import { RowButton } from "@/components/controls";
+import { Button, IconButton, IconLink } from "@/components/button";
 
 /** A note's three views, in the order the Editor's pane header lists them. */
 const NOTE_MODES = ["edit", "read", "ink"] as const;
@@ -47,6 +50,7 @@ export function PageEditor({
   onBack,
   backlinks = [],
   onOpenPage,
+  focusTitle = false,
 }: {
   page: VaultPage;
   readOnly?: boolean;
@@ -56,15 +60,18 @@ export function PageEditor({
   notes?: { id: string; title: string }[];
   papers?: { id: string; title: string }[];
   sections?: { id: string; title: string }[];
-  onCreateNote?: (title: string) => void;
+  onCreateNote?: (title: string, opts?: { open?: boolean }) => void;
   resolveEmbed?: (title: string) => string | null;
   onChanged: () => void;
+  /** The note was deleted: leave it at once (the delete itself follows the Undo toast). */
   onDeleted: () => void;
   /** Back to the list; absent where the page is embedded rather than opened. */
   onBack?: () => void;
   /** Notes that [[wikilink]] here. */
   backlinks?: { id: string; title: string }[];
   onOpenPage?: (id: string) => void;
+  /** A note New note just made: focus and select the title to type over. */
+  focusTitle?: boolean;
 }) {
   const [title, setTitle] = useState(page.title);
   // Read, Edit or Ink, as in the Editor's pane header. A note opens read.
@@ -76,7 +83,6 @@ export function PageEditor({
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   /** Whether the delete confirmation is up. */
-  const [deleteOpen, setDeleteOpen] = useState(false);
   // Filled in while the editor is on screen, for the image button.
   const editorHandle = useRef<EditorHandle | null>(null);
   const { completions } = useCiteLinkCatalog();
@@ -88,7 +94,9 @@ export function PageEditor({
   }, [page.id, page.title]);
 
   useEffect(() => {
-    if (page.id) setMode("read");
+    // A note New note just made opens in Edit, where its title can be typed over.
+    if (page.id) setMode(focusTitle ? "edit" : "read");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a page change picks the mode
   }, [page.id]);
 
   // A handwritten note keeps its ink header and page markers in the body. Its
@@ -113,11 +121,13 @@ export function PageEditor({
       setSaveError(null);
       try {
         const vault = getContainer().vault;
-        const body = await materializeBlobImagesInBody(nextBody, page.id, (id, blob, ext) =>
+        const { body, uploadError } = await materializeBlobImagesInBody(nextBody, page.id, (id, blob, ext) =>
           vault.uploadAsset(id, blob, ext),
         );
         await vault.manageVaultPage.update(page.id, { body });
         if (modeRef.current === "read") await onChanged();
+        // The text is saved; a failed upload is still said out loud.
+        if (uploadError) throw uploadError;
       } catch (err) {
         setSaveError(formatError(err));
       }
@@ -144,11 +154,16 @@ export function PageEditor({
     }
   }
 
-  /** Deleting is asked in the app's own dialog; the button only opens it. */
-  async function remove() {
-    setDeleteOpen(false);
-    await getContainer().vault.manageVaultPage.remove(page.id);
-    onDeleted();
+  // Rule D-07: back to the list at once; the delete runs when the Undo toast
+  // closes, then the list reloads. A failed delete brings the note back with a toast.
+  function remove() {
+    removeLater({
+      key: noteKey(page.id),
+      message: deletedMessage(page.title, "Note"),
+      remove: () => getContainer().vault.manageVaultPage.remove(page.id),
+      onHidden: onDeleted,
+      onDeleted: onChanged,
+    });
   }
 
   /** The switch in the section head. Leaving Edit or Ink refreshes the list. */
@@ -184,28 +199,21 @@ export function PageEditor({
               note; Open in editor leaves for the full Editor with its tabs and
               sidebar. */}
           {!readOnly && !sharedPage && (
-            <Link className="record-action" href={editorHref}>
+            <Button variant="ghost" size="sm" href={editorHref}>
               <OpenIcon />
               <span>Open in editor</span>
-            </Link>
+            </Button>
           )}
           {!readOnly && !sharedPage && (
             <ShareButton resourceType="vault_page" resourceId={page.id} title={`Share: ${page.title}`} showLabel />
           )}
-          <a href="#record-comments" className="btn-ghost wf-tool" aria-label="Comment" title="Comment">
+          <IconLink label="Comment" href="#record-comments">
             <CommentsIcon />
-          </a>
+          </IconLink>
           {!sharedPage && !readOnly && (
-            <button
-              type="button"
-              className="record-action danger"
-              onClick={() => setDeleteOpen(true)}
-              disabled={busy}
-              aria-label="Delete note"
-              title="Delete"
-            >
+            <IconButton size="sm" tone="danger" label="Delete note" tip="Delete" onClick={remove} disabled={busy}>
               <DeleteIcon />
-            </button>
+            </IconButton>
           )}
         </div>
       </nav>
@@ -223,6 +231,8 @@ export function PageEditor({
               if (e.key === "Escape") setTitle(page.title);
             }}
             aria-label="Note title"
+            autoFocus={focusTitle}
+            onFocus={(e) => { if (focusTitle) e.currentTarget.select(); }}
           />
         ) : (
           <h1 className="record-title">{page.title}</h1>
@@ -230,7 +240,7 @@ export function PageEditor({
         <p className="record-mono record-meta">{meta}</p>
       </header>
 
-      <div className={view === "edit" ? "record-grid record-grid--editing" : "record-grid"}>
+      <div className="record-grid">
         <div className="record-main">
           <RecordSection
             label={ink ? "Pages" : "Text"}
@@ -246,9 +256,9 @@ export function PageEditor({
           >
             {view === "read" && !hasBody && !ink ? (
               canEditBody ? (
-                <button type="button" className="record-note-empty" onClick={() => chooseMode("edit")}>
-                  Nothing written yet. Start typing — #hashtags and [[wikilinks]] join this note to the graph.
-                </button>
+                <RowButton onClick={() => chooseMode("edit")}>
+                  <span className="record-note-empty">Nothing written yet. Start typing — #hashtags and [[wikilinks]] join this note to the graph.</span>
+                </RowButton>
               ) : (
                 <RecordEmpty>Nothing written yet.</RecordEmpty>
               )
@@ -272,7 +282,7 @@ export function PageEditor({
                   links={links}
                   completions={completions}
                   onSave={canEditBody ? saveBody : async () => undefined}
-                  onCreateNote={onCreateNote ? (t) => onCreateNote(t) : undefined}
+                  onCreateNote={onCreateNote}
                   resolveEmbed={resolveEmbed}
                   handleRef={editorHandle}
                   onError={setSaveError}
@@ -300,21 +310,21 @@ export function PageEditor({
                 ["Created", created || "—"],
                 edited && edited !== created ? ["Edited", edited] : null,
                 ["Words", String(words)],
-                ["Links out", String(linksOut)],
-                ["Linked from", String(backlinks.length)],
+                ["Links from here", String(linksOut)],
+                ["Links here", String(backlinks.length)],
                 tags.length > 0 ? ["Tags", tags.map((t) => `#${t}`).join(" ")] : null,
               ]}
             />
           </RecordSection>
 
-          <RecordSection label="Linked mentions" tag={backlinks.length > 0 ? String(backlinks.length) : "None"}>
+          <RecordSection label="Links here" tag={backlinks.length > 0 ? String(backlinks.length) : undefined}>
             {backlinks.length > 0 ? (
               <ul className="record-related">
                 {backlinks.map((it) => (
                   <li key={it.id}>
-                    <button type="button" className="record-related-title record-link-btn" onClick={() => onOpenPage?.(it.id)}>
-                      {it.title}
-                    </button>
+                    <Button variant="link" onClick={() => onOpenPage?.(it.id)}>
+                      <span className="record-related-title">{it.title}</span>
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -329,16 +339,6 @@ export function PageEditor({
         </aside>
       </div>
 
-      {deleteOpen && (
-        <ConfirmDialog
-          title="Delete this note?"
-          body={`“${page.title}” goes away, and so do the links that point at it. Its text is not kept.`}
-          confirmLabel="Delete note"
-          danger
-          onConfirm={() => void remove()}
-          onClose={() => setDeleteOpen(false)}
-        />
-      )}
     </article>
   );
 }

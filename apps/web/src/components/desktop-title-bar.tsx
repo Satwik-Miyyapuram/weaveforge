@@ -6,6 +6,9 @@ import { desktop, type DesktopMenuGroup, type DesktopMenuItem } from "@/lib/desk
 import { openSearchPalette } from "./jump-to-palette";
 import { THEME_CHANGE_EVENT } from "@/lib/theme/theme-events";
 import { WeaveForgeLogo } from "./weave-forge-logo";
+import { logToApp } from "@/lib/error-report/app-log";
+import { describeRejection } from "@/lib/format-error";
+import { MenuItemButton } from "./controls";
 
 /**
  * Set on `<html>` before the first paint by the layout's boot script, so the
@@ -14,7 +17,11 @@ import { WeaveForgeLogo } from "./weave-forge-logo";
  */
 export const TITLE_BAR_BOOT_SCRIPT = `try{var w=window.weaveforge;if(w&&w.platform!=="darwin"&&typeof w.menuModel==="function")document.documentElement.setAttribute("data-titlebar","")}catch(e){}`;
 
-/** The shell's menu shortcuts (Ctrl+,) ask the page through this; see `routeTo`. */
+/**
+ * The shell's menu shortcuts (Ctrl+,) ask the page through this; see `routeTo`.
+ * Same string as `PAGE_COMMAND_EVENT` in apps/desktop/src/app-menu.ts, checked
+ * by apps/desktop/test/app-menu.test.ts.
+ */
 const MENU_COMMAND_EVENT = "weaveforge:menu-command";
 
 function runCommand(command: string): void {
@@ -78,7 +85,14 @@ export function DesktopTitleBar() {
           if (model) document.documentElement.setAttribute("data-titlebar", "");
           else document.documentElement.removeAttribute("data-titlebar");
         })
-        .catch(() => undefined);
+        .catch((error: unknown) =>
+          logToApp({
+            level: "warn",
+            source: "title-bar",
+            message: "The window menu could not be loaded",
+            detail: describeRejection(error),
+          }),
+        );
     load();
     const stop = bridge.onMenuChange?.(load);
     return () => {
@@ -137,7 +151,16 @@ export function DesktopTitleBar() {
         runCommand(item.command);
         return;
       }
-      void desktop()?.invokeMenuItem?.(item.id).catch(() => undefined);
+      void desktop()
+        ?.invokeMenuItem?.(item.id)
+        .catch((error: unknown) =>
+          logToApp({
+            level: "warn",
+            source: "title-bar",
+            message: "A window menu entry failed",
+            detail: `${item.id}: ${describeRejection(error)}`,
+          }),
+        );
     },
     [close, router],
   );
@@ -242,12 +265,9 @@ export function DesktopTitleBar() {
       <nav className="title-bar-menus" aria-label="Application menu" role="menubar">
         {groups.map((group, index) => (
           <div key={group.label} className="title-bar-group">
-            <button
-              type="button"
-              role="menuitem"
+            <MenuItemButton
               aria-haspopup="menu"
               aria-expanded={open === index}
-              className={`title-bar-button${open === index ? " open" : ""}`}
               onClick={() => {
                 setActive(-1);
                 setOpen((at) => (at === index ? null : index));
@@ -260,7 +280,7 @@ export function DesktopTitleBar() {
               }}
             >
               {group.label}
-            </button>
+            </MenuItemButton>
             {open === index ? (
               <div ref={panelRef} className="popover-panel title-bar-menu" role="menu" aria-label={group.label}>
                 <ul className="card-menu-list">
@@ -269,19 +289,16 @@ export function DesktopTitleBar() {
                       <li key={item.id} role="separator" className="title-bar-sep" />
                     ) : (
                       <li key={item.id}>
-                        <button
-                          type="button"
-                          role={item.kind === "check" ? "menuitemcheckbox" : "menuitem"}
-                          aria-checked={item.kind === "check" ? item.checked === true : undefined}
+                        <MenuItemButton kind={item.kind === "check" ? "checkbox" : "item"} checked={item.checked === true}
                           disabled={!item.enabled}
                           aria-current={item.route && isHere(pathname, item.route) ? "page" : undefined}
-                          className={`card-menu-item title-bar-item${at === active ? " active" : ""}`}
+                          data-highlighted={at === active || undefined}
                           onPointerEnter={() => setActive(at)}
                           onClick={() => run(item)}
                         >
                           <span className="title-bar-item-label">{item.label}</span>
                           {item.accelerator ? <kbd className="title-bar-kbd">{item.accelerator}</kbd> : null}
-                        </button>
+                        </MenuItemButton>
                       </li>
                     ),
                   )}

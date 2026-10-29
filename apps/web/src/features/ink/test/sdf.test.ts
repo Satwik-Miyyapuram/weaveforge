@@ -14,6 +14,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import { INK_PACK_TOLERANCE, packInkStroke } from "@weaveforge/core";
 import {
   INK_MAX_BACKING_DIMENSION,
   INK_MAX_BACKING_PIXELS,
@@ -21,7 +22,6 @@ import {
   INK_AA_MARGIN_PX,
   INK_INSTANCE_FLOATS,
   INK_SEGMENT_SUBDIVISIONS,
-  capsuleHalfExtent,
   packStrokeInstances,
   radiusAt,
   strokeCurveAt,
@@ -29,54 +29,12 @@ import {
   strokeInstanceCount,
 } from "../render/ink-renderer";
 
-test("a zero-length segment becomes a dot, not a degenerate quad", () => {
-  const dot = capsuleHalfExtent(500, 500, 500, 500, 3, 1);
-  assert.equal(
-    dot.degenerate,
-    true,
-    "the caller can tell it had no direction to work with",
-  );
-  assert.equal(dot.length, 0);
-  assert.equal(dot.halfWidth, 4, "the nib plus the margin, both ways");
-  assert.equal(dot.halfHeight, 4);
-});
-
-test("a segment shorter than its own nib is also a dot", () => {
-  // Half a millimetre long with a 0.6 mm nib: the nib covers both ends, so the
-  // direction is meaningless and a square is the right quad.
-  const stub = capsuleHalfExtent(0, 0, 1, 0, 3, 1);
-  assert.equal(stub.degenerate, true);
-  assert.equal(stub.halfWidth, 4);
-});
-
-test("a real segment's quad is its box grown by the nib and the margin", () => {
-  const quad = capsuleHalfExtent(0, 0, 100, 0, 3, 1);
-  assert.equal(quad.degenerate, false);
-  assert.equal(quad.length, 100);
-  assert.equal(quad.halfWidth, 54, "half the segment plus nib plus margin");
-  assert.equal(quad.halfHeight, 4, "and the nib plus margin across");
-
-  const steep = capsuleHalfExtent(0, 0, 100, 100, 0, 1);
-  assert.equal(steep.halfWidth, 51);
-  assert.equal(steep.halfHeight, 51);
-});
-
 test("the AA margin is one device pixel, which is the overdraw lever", () => {
   assert.equal(INK_AA_MARGIN_PX, 1);
-  const tight = capsuleHalfExtent(0, 0, 100, 0, 3, INK_AA_MARGIN_PX);
-  const loose = capsuleHalfExtent(0, 0, 100, 0, 3, 4);
-  assert.ok(
-    loose.halfHeight > tight.halfHeight,
-    "a bigger margin is a bigger quad",
-  );
-  // §11.3.9's numbers: the margin is what makes adjacent quads overlap, so it is
-  // paid for on every segment. This is the assertion that the lever is where the
-  // code says it is.
-  assert.equal(loose.halfHeight - tight.halfHeight, 3);
 });
 
 test("the packer writes the subdivided spline, in the layout the shader reads", () => {
-  const out = new Float32Array(INK_INSTANCE_FLOATS * 8);
+  const out = new Float32Array(INK_INSTANCE_FLOATS * strokeInstanceCount(3));
   const written = packStrokeInstances(
     {
       x: Float32Array.from([0, 10, 20]),
@@ -198,25 +156,36 @@ test("every tool keeps its width: no pressure or speed taper", () => {
   for (let i = 0; i < 4; i += 1) assert.equal(radiusAt(stroke, i), 3);
 });
 
-test("a simplified box corner is drawn as a corner, with nothing past it", () => {
-  // What the save-time simplification leaves of a drawn box: one sample per
-  // corner, long spans between. Uniform Catmull-Rom hooks ~15 units past each
-  // corner here; the curve must stay inside the box and on its edges.
+test("a packed box is drawn as a box, with nothing visible past it", () => {
+  // A box traced at 150 mm/s (a sample every 0.6 mm) and packed as a stroke is
+  // saved. Kept as only its corners, the unfaded curve would bow 3 mm past the
+  // edges; packing puts samples back until the curve is within its tolerance
+  // of every one, so what is left is the corner's own rounding between two
+  // samples, measured under 1.5 units. Twice the tolerance, 0.24 mm, allows it.
+  const raw: number[] = [];
+  const corners = [[100, 500], [300, 500], [300, 650], [100, 650], [100, 500]];
+  for (let e = 0; e < 4; e += 1) {
+    const [ax, ay] = corners[e]!;
+    const [bx, by] = corners[e + 1]!;
+    const n = Math.round(Math.hypot(bx! - ax!, by! - ay!) / 6.25);
+    for (let k = 0; k < n; k += 1) raw.push(ax! + ((bx! - ax!) * k) / n, ay! + ((by! - ay!) * k) / n);
+  }
+  raw.push(100, 500);
+  const packed = packInkStroke(raw).points;
   const stroke = {
-    x: Float32Array.from([100, 300, 300, 100, 100]),
-    y: Float32Array.from([500, 500, 650, 650, 500]),
-    pressure: Uint8Array.from([128, 128, 128, 128, 128]),
+    x: Float32Array.from(packed.filter((_, i) => i % 2 === 0)),
+    y: Float32Array.from(packed.filter((_, i) => i % 2 === 1)),
+    pressure: new Uint8Array(packed.length / 2).fill(128),
     width: 6,
   };
-  for (let i = 0; i < 4; i += 1) {
-    for (let k = 0; k <= 10; k += 1) {
-      const p = strokeCurveAt(stroke, i, k / 10);
-      assert.ok(p.x >= 100 - 1e-6 && p.x <= 300 + 1e-6, `x inside: ${p.x}`);
-      assert.ok(p.y >= 500 - 1e-6 && p.y <= 650 + 1e-6, `y inside: ${p.y}`);
+  const slack = 2 * INK_PACK_TOLERANCE;
+  for (let i = 0; i + 1 < stroke.x.length; i += 1) {
+    for (let k = 0; k <= 32; k += 1) {
+      const p = strokeCurveAt(stroke, i, k / 32);
+      assert.ok(p.x >= 100 - slack && p.x <= 300 + slack, `x inside: ${p.x}`);
+      assert.ok(p.y >= 500 - slack && p.y <= 650 + slack, `y inside: ${p.y}`);
     }
   }
-  const mid = strokeCurveAt(stroke, 0, 0.5);
-  assert.ok(Math.abs(mid.y - 500) < 1e-6, "the top edge is straight");
 });
 
 test("a gentle turn keeps its tangent, so a curve is still a curve", () => {

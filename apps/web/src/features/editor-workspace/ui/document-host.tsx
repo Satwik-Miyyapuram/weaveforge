@@ -43,12 +43,34 @@ import type { EditorCitationFormat } from "@/lib/citation-format-preference";
 import type { DocumentMode, TabRef } from "../application/pane-tree";
 import { ImageSizeControl } from "@/components/image-size-control";
 import { documentKind, hasInkView, hasPdfView } from "./kind";
-import { LivePreview, useMdPreviewMode } from "./md-live-preview";
+import { useMdPreviewMode } from "@/lib/hooks/use-md-preview-mode";
+import { LivePreview } from "./md-live-preview";
 
 /** What the active renderer tells the pane about itself. */
 export interface DocumentMetrics {
   text?: string;
   cursor?: { line: number; col: number };
+}
+
+/**
+ * `sink`, called only when the text or the cursor differs from the last call.
+ * One keystroke reaches the editor's watchers as a doc change, a DOM input and
+ * a keyup; the pane re-renders its outline and status bar once, not three times.
+ */
+export function dedupeMetrics(sink: (metrics: DocumentMetrics) => void): (metrics: DocumentMetrics) => void {
+  let last: DocumentMetrics | undefined;
+  return (metrics) => {
+    if (
+      last &&
+      last.text === metrics.text &&
+      last.cursor?.line === metrics.cursor?.line &&
+      last.cursor?.col === metrics.cursor?.col
+    ) {
+      return;
+    }
+    last = metrics;
+    sink(metrics);
+  };
 }
 
 export interface DocumentLinks {
@@ -179,6 +201,14 @@ const LINK_ROUTES: Record<string, { param: string; kind: string }> = {
   "/report": { param: "section", kind: "report_section" },
 };
 
+/**
+ * A path on this origin. `//host` and `/\host` are protocol-relative: the
+ * browser reads them as another site, so the router must not take them.
+ */
+export function isInAppHref(href: string): boolean {
+  return href.startsWith("/") && href[1] !== "/" && href[1] !== "\\";
+}
+
 export function tabForHref(href: string | null): TabRef | null {
   if (!href) return null;
   const [path, query = ""] = href.split("?");
@@ -186,6 +216,15 @@ export function tabForHref(href: string | null): TabRef | null {
   if (!route) return null;
   const id = new URLSearchParams(query).get(route.param);
   return id ? { kind: route.kind, id } : null;
+}
+
+/**
+ * The body a surface opens on: the editor's live text when there is one, else
+ * the saved body. Switching from Edit to Ink mounts the sheet before the
+ * editor's save has landed, so the saved body is a step behind (E35).
+ */
+export function surfaceBody(saved: string, live: string | null): string {
+  return live ?? saved;
 }
 
 export function DocumentHost({
@@ -210,6 +249,7 @@ export function DocumentHost({
   // away the document and its undo history.
   const metricsRef = useRef(onMetrics);
   metricsRef.current = onMetrics;
+  const reportMetrics = useMemo(() => dedupeMetrics((metrics) => metricsRef.current?.(metrics)), []);
   // The same for the error sink and the create handler: the editing description
   // below is read once, when the stack is built.
   const errorRef = useRef(onError);
@@ -218,8 +258,7 @@ export function DocumentHost({
   createRef.current = onCreateNote;
 
   const watch = useCallback((view: EditorView) => {
-    const report = () =>
-      metricsRef.current?.({ text: view.state.doc.toString(), cursor: cursorAt(view) });
+    const report = () => reportMetrics({ text: view.state.doc.toString(), cursor: cursorAt(view) });
     report();
     // `input` is CodeMirror's own DOM event for "the document changed", and a
     // selection change arrives as a keyup or a mouseup next to it. Listening on
@@ -236,7 +275,7 @@ export function DocumentHost({
       view.dom.removeEventListener("mouseup", onInput);
       view.dom.removeEventListener("focus", onInput);
     };
-  }, []);
+  }, [reportMetrics]);
 
   // The live text, kept here as well as reported, because the preview below
   // reads it: a preview of the last save is a preview of half a minute ago.
@@ -260,9 +299,9 @@ export function DocumentHost({
   const onDocChange = useCallback((view: EditorView) => {
     const text = view.state.doc.toString();
     setLiveBody(text);
-    metricsRef.current?.({ text, cursor: cursorAt(view) });
-  }, []);
-  const [previewMode, choosePreview] = useMdPreviewMode();
+    reportMetrics({ text, cursor: cursorAt(view) });
+  }, [reportMetrics]);
+  const [previewMode] = useMdPreviewMode();
 
   const imagePaste = useMemo<ImagePasteConfig | undefined>(() => {
     const store = imageStore(tab.kind, tab.id);
@@ -300,7 +339,7 @@ export function DocumentHost({
       const anchor = (event.target as HTMLElement).closest("a[href]");
       if (!anchor || anchor.hasAttribute("data-create") || anchor.getAttribute("target")) return;
       const href = anchor.getAttribute("href") ?? "";
-      if (!href.startsWith("/")) return;
+      if (!isInAppHref(href)) return;
       const target = tabForHref(href);
       if (target && onOpenLink) {
         event.preventDefault();
@@ -359,7 +398,7 @@ export function DocumentHost({
     return (
       <InkHost
         noteId={tab.id}
-        body={body}
+        body={surfaceBody(body, liveBody)}
         deps={getContainer().ink}
         onSave={onSave}
         paperId={sheetPaperId}
@@ -371,7 +410,7 @@ export function DocumentHost({
     // Read mode of an ink note: the same sheet as Ink with the pen down, so
     // everything drawn on it — strokes, figures, diagrams, images — is there
     // to read. It takes no `onSave`: there is nothing to edit.
-    return <NoteReadView ink noteId={tab.id} body={body} paperId={sheetPaperId} />;
+    return <NoteReadView ink noteId={tab.id} body={surfaceBody(body, liveBody)} paperId={sheetPaperId} />;
   }
 
   if (renderer === "pdf" || renderer === "pdf_ink") {
@@ -411,7 +450,6 @@ export function DocumentHost({
   return (
     <LivePreview
       mode={previewMode}
-      onModeChange={choosePreview}
       liveBody={liveBody}
       savedBody={body}
       // The live preview is a read view too: a wikilink clicked there opens

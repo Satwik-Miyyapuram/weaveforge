@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { InMemoryReaderAnnotationRepository } from "../../src/testing/in-memory-reader-annotation-repository.js";
+import { ConflictError } from "../../src/shared/errors.js";
 
 test("InMemoryReaderAnnotationRepository creates, lists, updates, removes", async () => {
   const repo = new InMemoryReaderAnnotationRepository();
@@ -102,4 +103,28 @@ test("InMemoryReaderAnnotationRepository brings a removed mark back under its ol
   const back = await repo.create("paper-1", { ...draft, id: first.id });
   assert.equal(back.id, first.id);
   assert.deepEqual((await repo.list("paper-1")).map((a) => a.id), [first.id]);
+});
+
+const highlightDraft = {
+  type: "highlight" as const,
+  color: "#ffd400",
+  pageIndex: 0,
+  anchor: { zoteroPosition: { pageIndex: 0, rects: [[1, 2, 3, 4]] } },
+};
+
+test("a blank colour patch falls back to the default, like create (08-06)", async () => {
+  const repo = new InMemoryReaderAnnotationRepository();
+  const created = await repo.create("paper-1", { ...highlightDraft, color: "#ff6666" });
+  assert.equal((await repo.update(created.id, { color: "   " })).color, "#ffd400");
+  assert.equal((await repo.update(created.id, { color: " #5fb236 " })).color, "#5fb236");
+  assert.equal((await repo.update(created.id, { comment: "kept" })).color, "#5fb236");
+});
+
+test("create with the id of a live annotation throws (08-07)", async () => {
+  const repo = new InMemoryReaderAnnotationRepository();
+  const first = await repo.create("paper-1", { ...highlightDraft, text: "first" });
+  await assert.rejects(repo.create("paper-1", { ...highlightDraft, id: first.id }), ConflictError);
+  // On any paper: the id is the primary key.
+  await assert.rejects(repo.create("paper-2", { ...highlightDraft, id: first.id }), ConflictError);
+  assert.equal((await repo.list("paper-1"))[0]?.text, "first");
 });

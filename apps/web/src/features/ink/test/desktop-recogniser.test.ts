@@ -49,3 +49,22 @@ test("a line without words keeps its text and is capped under 1", async () => {
 function recognisers(recogniser: ReturnType<typeof createDesktopInkRecogniser>) {
   return recogniser.recognise([{ strokes: [], yBand: [0, 0] }], hints);
 }
+
+test("a bridge throw is not cached; a resolved answer is (18-07)", async () => {
+  let calls = 0;
+  const answers: (() => Promise<boolean>)[] = [
+    () => Promise.reject(new Error("bridge not ready")),
+    () => Promise.resolve(true),
+    () => Promise.resolve(false),
+  ];
+  const bridge = { inkAvailable: () => answers[calls++]!() } as unknown as DesktopBridge;
+  const recogniser = createDesktopInkRecogniser(() => bridge);
+  assert.equal(await recogniser.available(), false, "the throw reads as unavailable");
+  assert.equal(await recogniser.available(), true, "and the next call asks again");
+  assert.equal(await recogniser.available(), true, "the resolved answer is kept");
+  assert.equal(calls, 2);
+});
+
+test("no bridge is unavailable and asks nothing", async () => {
+  assert.equal(await createDesktopInkRecogniser(() => null).available(), false);
+});

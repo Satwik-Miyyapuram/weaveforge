@@ -1,10 +1,8 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth } from "@/features/auth";
 import { useProfile } from "@/features/org/ui/profile-provider";
 import { useProject } from "@/features/projects";
@@ -14,14 +12,13 @@ import { SubmenuFlyout } from "@/components/menu";
 import { isExplicitLabMembership, ROLE_LABELS, type Role } from "@weaveforge/core";
 import { ThemeToggle } from "./theme-toggle";
 import { accountLinks, type AccountLinkId } from "./account-links";
-import { LocalModeBadge } from "@/features/auth/ui/local-mode-badge";
-
-// Lazy: pulls the local database client, which only the desktop build has.
-const SyncStatusIndicator = dynamic(
-  () => import("@/features/offline-sync/ui/sync-status-indicator").then((m) => m.SyncStatusIndicator),
-  { ssr: false },
-);
-
+import { NavIcon } from "./nav-icon";
+import { useInbox } from "./use-inbox";
+import { MenuItemButton, MenuItemLink } from "@/components/controls";
+import { useLiveSync } from "@/features/offline-sync/ui/use-live-sync";
+import { syncStatus } from "@/features/offline-sync/domain/sync-status";
+import { desktop } from "@/lib/desktop/desktop-bridge";
+import { accountAttention } from "./account-attention";
 
 /** A person, for the account menu. The ellipsis said "more things"; this says
  *  whose things they are, which is what the menu contains. */
@@ -47,12 +44,6 @@ const GridIcon = () => (
   </svg>
 );
 
-const ShareIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="action-icon">
-    <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
-    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-  </svg>
-);
 const GearIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="action-icon">
     <circle cx="12" cy="12" r="3" />
@@ -74,9 +65,8 @@ const LogoutIcon = () => (
 );
 
 /**
- * Account actions (Supervise / Shared / Settings / Sign out). Rendered two ways:
- *  - `variant="list"` (default): labelled links, for a bar with the height.
- *  - `variant="menu"`: one "⋯" opening the same rows as a menu.
+ * Account actions (Supervise / Shared / Settings / Sign out), as a menu behind
+ * the person icon.
  *
  * The menu goes through `Popover` rather than its own absolutely-positioned
  * panel. It used to be `.header-menu { position: absolute; top: 100% }` inside
@@ -85,41 +75,31 @@ const LogoutIcon = () => (
  * flips it above the trigger when there is no room below, which is the drop-up
  * the sidebar needs and the drop-down the mobile top bar gets, from one rule.
  */
-export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" }) {
+export function HeaderActions({
+  inbox = true,
+  alone = false,
+}: {
+  /** The Inbox rows, where no sidebar shows them: the phone and the project picker. */
+  inbox?: boolean;
+  /** No project chip beside it (the collapsed rail): the plain icon button. */
+  alone?: boolean;
+}) {
   const { user, signOut } = useAuth();
   const { profile, memberships, activeOrgId, switchOrg } = useProfile();
   const { current, setProject } = useProject();
   const router = useRouter();
-  const [pendingProposals, setPendingProposals] = useState(0);
-  const [local, setLocal] = useState(false);
+  const pathname = usePathname();
+  const { links: inboxRows, local } = useInbox();
+  const live = useLiveSync();
+  const attention = accountAttention({ conflicts: live.conflictsCount, inbox: inboxRows, inboxInMenu: inbox });
+  // Sync runs on the desktop only; its state is words in the menu, not a dot.
+  const sync = desktop() ? syncStatus(live) : null;
   const labs = memberships ? memberships.filter(isExplicitLabMembership) : [];
 
-  useEffect(() => {
-    const read = () =>
-      void getContainer().aiProposals.pendingCount().then(setPendingProposals).catch(() => setPendingProposals(0));
-    // On mount the memoized count is what we want — three copies of this
-    // component mount as the breakpoint settles. On an explicit change event it
-    // is exactly what we do not want, so drop it first.
-    const refresh = () => {
-      getContainer().aiProposals.forgetPending();
-      read();
-    };
-    read();
-    // Read through the auth facade rather than the local backend provider: this
-    // component only needs the answer, and reaching for the provider is how a
-    // presentation file ends up knowing which backend a window was built with.
-    setLocal(getContainer().auth.isLocalMode());
-    window.addEventListener("ai-proposals-changed", refresh);
-    return () => window.removeEventListener("ai-proposals-changed", refresh);
-  }, []);
-
   if (!user) return null;
-  const canSupervise = !!profile && profile.role !== "masters";
 
   const ICONS: Record<AccountLinkId, () => React.JSX.Element> = {
     projects: GridIcon,
-    sharing: ShareIcon,
-    "ai-review": () => <></>,
     settings: GearIcon,
     docs: HelpIcon,
     signout: LogoutIcon,
@@ -127,8 +107,6 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
   };
   const TITLES: Partial<Record<AccountLinkId, string>> = {
     projects: "Projects",
-    sharing: canSupervise ? "Supervision & sharing" : "Shared with me and by me",
-    "ai-review": "Review AI suggestions",
     settings: "Settings",
     docs: "Documentation",
   };
@@ -137,10 +115,8 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
    * Rendered from `accountLinks`, so which entries exist — and which
    * deliberately do not — is decided in one tested place rather than in JSX.
    *
-   * A function of `close` because the two variants get their closer from
-   * different places: the list variant has no panel to shut, the menu variant's
-   * comes from `Popover`. An entry that navigates or acts has to close the menu
-   * itself — nothing else knows the click happened.
+   * A function of `close`, which comes from `Popover`. An entry that navigates
+   * or acts has to close the menu itself — nothing else knows the click happened.
    */
   const links = (close: () => void) => (
     <>
@@ -155,21 +131,23 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
           closeMenu={close}
         />
       )}
-      {accountLinks({
-        canSupervise,
-        hasProject: !!current,
-        pendingProposals,
-        local,
-      }).map((link) => {
+      {inbox &&
+        inboxRows.map((row) => (
+          <MenuItemLink key={row.key} href={row.path} onClick={close}>
+            <NavIcon name={row.icon} />
+            <span>{row.label}</span>
+            {row.badge !== undefined && <b className="nav-badge">{row.badge}</b>}
+          </MenuItemLink>
+        ))}
+      {accountLinks({ hasProject: !!current, local }).map((link) => {
         const Icon = ICONS[link.id];
 
         // Leaving offline mode is not signing out — there is no session to end.
         // It puts the sign-in screen back, and the local data stays where it is.
         if (link.id === "signin") {
           return (
-            <button
+            <MenuItemButton
               key={link.id}
-              className="signout"
               onClick={() => {
                 getContainer().auth.setLocalMode(false);
                 window.location.reload();
@@ -177,14 +155,14 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
               title="Sign in to sync this work with an account. What is on this computer stays here."
             >
               <Icon /><span>{link.label}</span>
-            </button>
+            </MenuItemButton>
           );
         }
         if (link.id === "signout") {
           return (
-            <button key={link.id} className="signout" onClick={() => void signOut()} title={user.email}>
+            <MenuItemButton key={link.id} onClick={() => void signOut()} title={user.email}>
               <Icon /><span>{link.label}</span>
-            </button>
+            </MenuItemButton>
           );
         }
         if (link.id === "projects") {
@@ -192,10 +170,8 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
           // is selected, so without this there is no way back from account routes
           // (/settings, /shared, /supervision) once a project is deselected.
           return (
-            <button
+            <MenuItemButton
               key={link.id}
-              type="button"
-              className="header-link"
               title={TITLES[link.id]}
               onClick={() => {
                 setProject(null);
@@ -204,56 +180,70 @@ export function HeaderActions({ variant = "list" }: { variant?: "list" | "menu" 
               }}
             >
               <Icon /><span>{link.label}</span>
-            </button>
-          );
-        }
-        if (link.id === "ai-review") {
-          return (
-            <Link key={link.id} href={link.href!} className="header-link ai-review-nav-link" title={TITLES[link.id]} onClick={close}>
-              <span>{link.label}</span><b>{link.badge}</b>
-            </Link>
+            </MenuItemButton>
           );
         }
         // External links open in a new tab — losing unsaved work to a
         // documentation link would be its own small betrayal.
         if (link.external) {
           return (
-            <a key={link.id} href={link.href} className="header-link" title={TITLES[link.id]} target="_blank" rel="noreferrer" onClick={close}>
+            <MenuItemLink key={link.id} href={link.href!} title={TITLES[link.id]} target="_blank" rel="noreferrer" onClick={close}>
               <Icon /><span>{link.label}</span>
-            </a>
+            </MenuItemLink>
           );
         }
         return (
-          <Link key={link.id} href={link.href!} className="header-link" title={TITLES[link.id]} onClick={close}>
+          <MenuItemLink key={link.id} href={link.href!} title={TITLES[link.id]} onClick={close}>
             <Icon /><span>{link.label}</span>
-          </Link>
+          </MenuItemLink>
         );
       })}
     </>
   );
-
-  if (variant === "list") {
-    return (
-      <div className="header-actions">
-        <LocalModeBadge />
-        <SyncStatusIndicator attentionOnly />
-        {links(() => {})}
-      </div>
-    );
-  }
 
   return (
     <Popover
       portal
       align="right"
       // The person icon says what it is; a caret beside it made the control look
-      // like a disclosure that folds, and animated on every open.
-      iconOnly
-      ariaLabel="Account"
-      triggerClassName="btn-secondary account-btn"
+      // like a disclosure that folds, and animated on every open. The chip's own
+      // secondary button, so the pair rests and lifts alike; alone, the icon button.
+      trigger={alone ? "icon" : "button"}
+      caret={false}
+      ariaLabel={attention.total > 0 ? `Account, ${attention.total} waiting` : "Account"}
       label={<UserIcon />}
+      count={attention.total}
     >
-      {links}
+      {(close) => (
+        <div className="wf-menu">
+          {/* Whose menu this is (DA-97); the trigger is only a person icon. */}
+          {(profile?.fullName || user.email) && (
+            <div className="account-menu-head">
+              {profile?.fullName && <b>{profile.fullName}</b>}
+              {user.email && <span>{user.email}</span>}
+              {sync && sync.state !== "conflict" && <span className="account-menu-sync">{sync.label}</span>}
+            </div>
+          )}
+          {/* What needs the person comes first; the icon's count is these. */}
+          {attention.rows.map((row) => (
+            <MenuItemButton
+              key={row.key}
+              onClick={() => {
+                close();
+                // Same-page push does not fire hashchange; setting the hash does, and Settings listens.
+                const [path, hash] = row.path.split("#");
+                if (hash && pathname === path) window.location.hash = hash;
+                else router.push(row.path);
+              }}
+            >
+              <NavIcon name={row.icon} />
+              <span>{row.label}</span>
+              <b className="nav-badge">{row.badge}</b>
+            </MenuItemButton>
+          ))}
+          {links(close)}
+        </div>
+      )}
     </Popover>
   );
 }
@@ -276,9 +266,7 @@ function OrgMenuSubmenu({
 
   return (
     <div className="menu-row card-menu-row" ref={rowRef}>
-      <button
-        type="button"
-        className="header-link menu-item card-menu-item"
+      <MenuItemButton
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -291,15 +279,15 @@ function OrgMenuSubmenu({
         <span className="card-menu-more menu-more" aria-hidden="true" style={{ marginLeft: "auto", opacity: 0.65 }}>
           ›
         </span>
-      </button>
+      </MenuItemButton>
       {open && (
-        <SubmenuFlyout anchorRef={rowRef} onClose={() => setOpen(false)}>
+        <SubmenuFlyout anchorRef={rowRef}>
           <div className="org-menu-flyout-list" style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: "200px" }}>
             {labs.map((m) => (
-              <button
+              <MenuItemButton
                 key={m.orgId}
-                type="button"
-                className={`proj-menu-item${m.orgId === activeOrgId ? " sel" : ""}`}
+                kind="radio"
+                checked={m.orgId === activeOrgId}
                 disabled={busy}
                 onClick={async () => {
                   if (m.orgId === activeOrgId || busy) return;
@@ -318,8 +306,7 @@ function OrgMenuSubmenu({
                   <span>{m.orgName}</span>
                   <span className="muted org-menu-role">{ROLE_LABELS[m.role]}</span>
                 </span>
-                {m.orgId === activeOrgId && <span className="check">✓</span>}
-              </button>
+              </MenuItemButton>
             ))}
           </div>
         </SubmenuFlyout>

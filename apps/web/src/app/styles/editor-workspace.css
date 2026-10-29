@@ -33,17 +33,17 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   height: 25px;
   padding-inline-end: 8px;
   color: var(--text);
-  font-size: 0.845rem;
+  font-size: var(--fs);
   /* The row has an `onClick`. It is a control, and it has to look like one.
      It carried the UA's arrow cursor, which made the most-clicked thing in the
      screen — the tree — read as static text. */
   cursor: pointer;
   user-select: none;
-  transition: background 0.1s;
+  transition: background var(--dur-fast);
 }
 
 .explorer-row:hover {
@@ -137,38 +137,11 @@
   color: inherit;
 }
 
-/*
- * The kind suffix. Shown on hover, focus and selection only: the icon and its
- * tint already say the kind, and 260px is too narrow to spend eight repeated
- * characters per row. It never truncates — the title does, which is why this
- * is `flex: none`.
- */
-.explorer-ext {
-  flex: none;
-  color: var(--faint);
-  font-family: var(--font-mono);
-  font-size: 0.68em;
-  letter-spacing: -0.01em;
-  opacity: 0;
-  transition: opacity 0.12s;
-}
-
-.explorer-row:hover .explorer-ext,
-.explorer-row:focus-visible .explorer-ext,
-.explorer-row.is-active .explorer-ext {
-  opacity: 1;
-}
-
-/* On a pointer that cannot hover the suffix would never appear at all. */
-@media (hover: none) {
-  .explorer-ext { opacity: 1; }
-}
-
 /* Git status ticks — the one place a user notices a note changed elsewhere. */
 .explorer-git {
   flex: none;
   font-family: var(--font-mono);
-  font-size: 0.66rem;
+  font-size: var(--fs-micro);
   font-weight: 600;
   line-height: 1;
 }
@@ -181,8 +154,8 @@
   flex: none;
   margin-inline-start: 2px;
   color: var(--faint);
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-family: var(--font);
+  font-size: var(--fs-micro);
 }
 
 /* "In 2 lists" on a Files row: membership is discoverable without opening the
@@ -192,8 +165,8 @@
   flex: none;
   margin-inline-start: auto;
   color: var(--faint);
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-family: var(--font);
+  font-size: var(--fs-micro);
 }
 
 .explorer-row:hover .explorer-in-lists,
@@ -211,13 +184,13 @@
   align-items: center;
   gap: 1px;
   height: 36px;
-  padding: 0 6px 0 12px;
+  padding: 0 8px 0 12px;
 }
 
 .explorer-title {
   margin-inline-end: auto;
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: var(--fs-micro);
   font-weight: 600;
   letter-spacing: 0.11em;
 }
@@ -232,13 +205,13 @@
 
 .explorer-filter {
   width: 100%;
-  padding: 6px 24px 6px 8px;
+  padding: 8px 24px 8px 8px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--r-control);
   background: var(--bg);
   color: var(--text);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
 }
 
 .explorer-filter::placeholder { color: var(--faint); }
@@ -252,19 +225,7 @@
   position: absolute;
   inset-inline-end: 12px;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 17px;
-  height: 17px;
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--faint);
-  cursor: pointer;
 }
-
-.explorer-filter-clear:hover { background: var(--surface2); color: var(--text); }
 
 .explorer-head-actions {
   display: flex;
@@ -272,25 +233,6 @@
   align-items: center;
   gap: 1px;
 }
-
-.explorer-action {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--faint);
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s;
-}
-
-.explorer-action:hover { background: var(--surface2); color: var(--text); }
-.explorer-action .nav-icon { width: 16px; height: 16px; }
-.explorer-action .vicon { width: 15px; height: 15px; }
 
 /* The scroll container. Sections stack from the top and the last one takes the
    remaining height, so a long Files list scrolls instead of pushing Reading
@@ -300,7 +242,7 @@
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  padding-block-end: 14px;
+  padding-block-end: 16px;
   overflow: auto;
   scrollbar-gutter: stable;
 }
@@ -321,50 +263,19 @@
   display: flex;
   align-items: center;
   height: 26px;
-  padding: 0 8px 0 6px;
+  padding: 0 8px 0 8px;
   position: sticky;
   inset-block-start: 0;
   z-index: var(--z-sticky);
   background: var(--surface);
 }
 
-.explorer-section-toggle {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  height: 26px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.66rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-align: start;
-  cursor: pointer;
-  user-select: none;
-}
-
-.explorer-section-toggle:hover { color: var(--text); }
-.explorer-section-toggle .chev { display: grid; place-items: center; width: 14px; height: 14px; }
-.explorer-section-toggle .chev svg { width: 12px; height: 12px; }
+.explorer-section-head > .wf-fold { flex: 1; min-width: 0; }
 
 .explorer-section-title {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-.explorer-section-count {
-  margin-inline-start: auto;
-  color: var(--faint);
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  font-weight: 500;
-  letter-spacing: 0;
 }
 
 .explorer-section-rows {
@@ -381,8 +292,8 @@
 }
 
 .explorer-section-empty {
-  padding: 4px 10px 6px;
-  font-size: 0.78rem;
+  padding: 4px 12px 8px;
+  font-size: var(--fs-xs);
 }
 
 .explorer-label {
@@ -393,16 +304,10 @@
 
 /* Offered rather than shown as a state: a paper with no note is normal. */
 .explorer-start-note {
+  display: inline-flex;
   flex: none;
   margin-inline-start: auto;
-  padding: 0 0.35rem;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.72rem;
   opacity: 0;
-  cursor: pointer;
 }
 
 .explorer-row:hover .explorer-start-note,
@@ -434,18 +339,12 @@
     inset-inline-end: 8px;
     top: 50%;
     transform: translateY(-50%);
-    background: var(--surface2); /* the hovered row's own fill */
     pointer-events: none;
   }
   .explorer-row:hover .explorer-start-note,
   .explorer-row:focus-within .explorer-start-note {
     pointer-events: auto;
   }
-}
-
-.explorer-start-note:hover {
-  border-color: var(--accent);
-  color: var(--accent-ink);
 }
 
 /*
@@ -495,23 +394,11 @@
 
 .explorer-show {
   position: absolute;
-  inset-block-start: 0;
+  inset-block-start: 6px;
   inset-inline-start: 0;
   z-index: 3;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 36px;
-  border: 0;
-  border-inline-end: 1px solid var(--border);
-  border-block-end: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--muted);
-  cursor: pointer;
 }
-
-.explorer-show:hover { color: var(--text); background: var(--surface2); }
 
 /* Phone: the explorer is a drawer over the document, not a column beside it
    (workspace-screen.tsx sets `.is-phone` below the desktop breakpoint). The
@@ -519,14 +406,14 @@
    rest stays visible so it is clear what is underneath. */
 .workspace-shell.is-phone {
   grid-template-columns: 0 minmax(0, 1fr);
-  /* The bottom nav floats over the last ~70px; without this it sat on the
-     status bar, so "Saved" was never visible on a phone. */
-  padding-block-end: calc(72px + env(safe-area-inset-bottom));
+  /* The bottom nav floats over the end of the screen; without this it sat on
+     the status bar, so "Saved" was never visible on a phone. */
+  padding-block-end: var(--nav-clear);
 }
 
 /* A 375px screen has no room for a second pane, and the two split buttons
    were taking the width the open tabs needed. */
-.workspace-shell.is-phone .pane-action[aria-label^="Split"] {
+.workspace-shell.is-phone .pane-tab-actions > .wf-btn[aria-label^="Split"] {
   display: none;
 }
 
@@ -536,17 +423,12 @@
   inset-inline-start: 0;
   z-index: 6;
   width: min(86vw, 340px);
-  box-shadow: 0 12px 32px color-mix(in srgb, #000 28%, transparent);
-}
-
-.workspace-shell.is-phone .explorer-show {
-  width: 36px;
-  height: 40px;
+  box-shadow: var(--e3);
 }
 
 .workspace-shell.is-phone.is-explorer-hidden .pane-root > .pane > .pane-tabs .pane-tab-scroll,
 .workspace-shell.is-phone.is-explorer-hidden .pane-root > .pane-split > .pane-half:first-child > .pane > .pane-tabs .pane-tab-scroll {
-  padding-inline-start: 36px;
+  padding-inline-start: 32px;
 }
 
 /* The strip's first tab starts past the handle, or the two overlap. */
@@ -581,29 +463,14 @@
   inset-inline-end: 16px;
   z-index: 55;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--muted);
   opacity: 0.55;
-  cursor: pointer;
-  transition: opacity 120ms ease;
+  transition: opacity var(--dur-base) ease;
 }
 
-.focus-exit:hover,
-.focus-exit:focus-visible { color: var(--text); opacity: 1; }
-
-/* The exit sits over the top-right corner; a bar that reaches it (the
-   editor's mode strip) leaves it room. */
-.workspace-shell.is-focus .md-live-choice { padding-inline-end: 44px; }
+.focus-exit:is(:hover, :focus-within) { opacity: 1; }
 
 @media (pointer: coarse) {
-  .focus-exit { width: 36px; height: 36px; opacity: 0.8; }
-  .workspace-shell.is-focus .md-live-choice { padding-inline-end: 52px; }
+  .focus-exit { opacity: 0.8; }
 }
 
 /* Ink in focus, OneNote's way: the toolbar row goes, and what a hand needs
@@ -625,17 +492,17 @@
   flex-direction: column;
   flex-wrap: nowrap;
   align-items: stretch;
-  gap: 6px;
+  gap: 8px;
   width: max-content;
   height: auto;
   margin: 0;
-  padding: 6px;
+  padding: 8px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--r-card);
   /* No backdrop-filter and no transform here: either would make the palette
      the containing block of the colour menu's `position: fixed` panel. */
   background: color-mix(in srgb, var(--surface) 94%, transparent);
-  box-shadow: 0 10px 30px rgb(0 0 0 / 22%);
+  box-shadow: var(--e3);
 }
 
 /* The eight docks. Edges centre along their axis (by auto margins, see
@@ -708,12 +575,10 @@
   flex-direction: row;
 }
 .ink-dock { position: relative; display: inline-flex; }
-.ink-bar-dock,
-.ink-bar-collapse { color: var(--muted); }
 /* The grip drags the palette: no browser panning on it, and a hand cursor. */
-.ink-bar-dock { cursor: grab; touch-action: none; }
+:root:root .ink-dock > .wf-tool { cursor: grab; touch-action: none; }
 .ink-palette[data-dragging] { transition: none; cursor: grabbing; }
-.ink-palette[data-dragging] .ink-bar-dock { cursor: grabbing; }
+:root:root .ink-palette[data-dragging] .ink-dock > .wf-tool { cursor: grabbing; }
 
 /* The selection halo the ink renderer draws under a selected stroke
    (`features/ink/ui/ink-strokes`), on whichever surface offers selection: the
@@ -746,9 +611,9 @@
 }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette:is([data-dock="top"], [data-dock="bottom"]) .ink-page-count {
   flex-direction: row;
-  gap: 3px;
+  gap: 4px;
   padding: 0 4px;
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   line-height: inherit;
 }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette:is([data-dock="top"], [data-dock="bottom"]) .ink-page-count .ink-page-sep {
@@ -763,39 +628,37 @@
 
 /* Targets for a pen held mid-air, not a mouse: 36px buttons, 26px swatches,
    and a little more air between them. */
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool { width: 36px; height: 36px; }
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool.ink-menu-trigger { width: auto; }
+:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .wf-tool { width: 36px; height: 36px; }
+:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-menu-insert > .wf-tool { width: auto; }
 /* Labelled buttons keep their text on one line instead of the 36px square. */
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool.ink-tool-text { width: auto; white-space: nowrap; }
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-zoom-pct { height: 36px; }
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-tool svg { width: 18px; height: 18px; }
+:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .wf-btn { white-space: nowrap; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-bar-group,
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill { gap: 4px; padding: 3px; border-radius: 10px; }
+:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill { gap: 4px; padding: 4px; border-radius: var(--r-control); }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill {
   width: 100%;
   max-width: 36px;
   box-sizing: border-box;
 }
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill .ink-tool {
+:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-page-pill .wf-tool {
   width: 28px;
   height: 28px;
 }
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-swatches { gap: 9px; padding: 8px 5px; }
-:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-swatch { width: 26px; height: 26px; }
+:is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-palette .ink-swatches { gap: 8px; padding: 8px 4px; }
+
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-bar .ink-page-count {
   flex-direction: column;
   gap: 0;
   padding: 4px 0;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   line-height: 1.1;
 }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-bar .ink-page-count .ink-page-sep { display: none; }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-bar .ink-page-count .ink-page-now { font-weight: 700; color: var(--text); }
 :is(.workspace-shell, .record-ink-focus, .pdf-reader).is-focus .ink-bar .ink-page-count .ink-page-total {
-  margin-top: 3px;
-  padding-top: 3px;
+  margin-top: 4px;
+  padding-top: 4px;
   border-top: 1px solid var(--border-strong);
-  font-size: 0.7rem;
+  font-size: var(--fs-micro);
 }
 :is(.workspace-shell, .record-ink-focus).is-focus .ink-bar .ink-menu { justify-content: center; }
 
@@ -834,23 +697,17 @@
   .explorer-row-actions { opacity: 1; }
 }
 
-.explorer-row-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
+/* In a 25px row the 28px icon button, lifting on hover, popped out and was cut
+   off. Here it is flat and fits the row: hover tints, nothing moves. */
+:root:root .explorer-row .explorer-row-actions > .wf-btn.wf-icon {
+  width: 22px; height: 22px; min-height: 0; min-width: 0; padding: 4px;
 }
 
-.explorer-row-action:hover { background: var(--surface3, var(--border)); color: var(--text); }
-.explorer-row-action .nav-icon { width: 14px; height: 14px; }
-.explorer-row-action .vicon { width: 13px; height: 13px; }
+:root:root .explorer-row .explorer-row-actions > .wf-btn.wf-icon svg { width: 16px; height: 16px; }
+
+:root:root .explorer-row .explorer-row-actions > .wf-btn.wf-icon:is(:hover, :active, [data-force~="hover"], [data-force~="press"]) {
+  translate: 0 0; box-shadow: none;
+}
 
 /* A draft row or a rename: the label is a text box, in the row's own type. */
 .explorer-row.is-draft { cursor: default; }
@@ -861,7 +718,7 @@
   height: 21px;
   padding: 0 4px;
   border: 1px solid var(--accent);
-  border-radius: 3px;
+  border-radius: var(--r-sm);
   background: var(--bg);
   color: var(--text);
   font: inherit;
@@ -871,8 +728,8 @@
 .explorer-problem {
   padding-block: 2px 4px;
   padding-inline-end: 8px;
-  color: var(--danger, #c0392b);
-  font-size: 0.72rem;
+  color: var(--danger);
+  font-size: var(--fs-xs);
   line-height: 1.3;
 }
 
@@ -966,49 +823,26 @@
    Tabs (§3.6)
    ---------------------------------------------------------------------- */
 
-.pane-tab {
-  position: relative;
+/* One open document: the tab (wf-tab) and its close (×) side by side. The
+   slot holds layout only; the look is the catalogue's. */
+.pane-tab-slot {
   display: flex;
   flex: none;
   align-items: center;
-  gap: 7px;
-  max-width: 200px;
+  gap: 2px;
+  /* Room for a typical name beside its always-shown extension. */
+  max-width: 256px;
   min-width: 0;
-  padding: 0 11px;
-  background: var(--surface);
-  color: var(--muted);
-  font-size: 0.815rem;
+  padding-inline-end: 4px;
   white-space: nowrap;
   border-inline-end: 1px solid var(--border);
-  /* A tab is clicked to switch documents: it has to answer the pointer. */
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s;
 }
 
-.pane-tab:hover {
-  background: var(--surface2);
-  color: var(--text);
-}
-
-/* The active document is marked by a 2px accent rule on the tab's top edge and
-   lifted onto the document's own background. */
-.pane-tab.is-active {
-  background: var(--bg);
-  color: var(--text);
-}
-
-.pane-tab.is-active::before {
-  content: "";
-  position: absolute;
-  inset-block-start: 0;
-  inset-inline: 0;
-  height: 2px;
-  background: var(--accent);
-}
-
-.pane-tab:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+.pane-tab-slot > .wf-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .pane-tab-icon {
@@ -1020,20 +854,20 @@
 
 .pane-tab-icon .nav-icon { width: 14px; height: 14px; }
 
-.pane-tab.is-active .pane-tab-icon { color: inherit; }
+.pane-tab-slot > .wf-tab[aria-selected="true"] .pane-tab-icon { color: inherit; }
 
 /* The suffix always shows here: two tabs can share a title, and the tab is the
    one place the path is gone entirely (§3.2). */
 .pane-tab-ext {
   flex: none;
-  margin-inline-start: -3px;
+  margin-inline-start: -4px;
   color: var(--faint);
   font-family: var(--font-mono);
   font-size: 0.68em;
   letter-spacing: -0.01em;
 }
 
-.pane-tab.is-active .pane-tab-ext { opacity: 0.75; }
+.pane-tab-slot > .wf-tab[aria-selected="true"] .pane-tab-ext { opacity: 0.75; }
 
 .pane-tab-label {
   overflow: hidden;
@@ -1047,7 +881,7 @@
 .pane-peers {
   display: flex;
   align-items: center;
-  margin-inline-end: 6px;
+  margin-inline-end: 8px;
 }
 
 .pane-peer {
@@ -1055,12 +889,12 @@
   place-items: center;
   width: 20px;
   height: 20px;
-  margin-inline-start: -6px;
+  margin-inline-start: -8px;
   border: 1.5px solid var(--surface);
   border-radius: 50%;
   background: var(--accent);
   color: var(--accent-fg);
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -1072,62 +906,17 @@
    ---------------------------------------------------------------------- */
 
 .pane-mode { margin-inline-end: 4px; }
+/* The View control and, in Split, its ⋯ for the side. */
+.view-control { display: inline-flex; align-items: center; gap: 2px; }
 
-/* The close control lives in a 16px slot that is the dirty dot until the tab
-   is hovered — the standard gesture, and it takes the permanent `×` off every
-   tab. */
-.pane-tab-close {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: inherit;
-  line-height: 1;
-  opacity: 0;
-  cursor: pointer;
-  transition: opacity 0.12s, background 0.12s;
-}
+/* The close shows on the active tab and the hovered one — the standard
+   gesture, and it takes the permanent `×` off every other tab. */
+.pane-tab-slot > .wf-btn { opacity: 0; }
 
-.pane-tab:hover .pane-tab-close,
-.pane-tab.is-active .pane-tab-close,
-.pane-tab-close:focus-visible {
+.pane-tab-slot:hover > .wf-btn,
+.pane-tab-slot:has(> .wf-tab[aria-selected="true"]) > .wf-btn,
+.pane-tab-slot > .wf-btn:focus-visible {
   opacity: 1;
-}
-
-.pane-tab-close:hover {
-  background: var(--surface2);
-  color: var(--text);
-}
-
-.pane-action {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--faint);
-  line-height: 1;
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s;
-}
-
-.pane-action:hover {
-  background: var(--surface2);
-  color: var(--text);
-}
-
-.pane-action:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
 }
 
 .pane-tab-actions {
@@ -1135,7 +924,7 @@
   flex: none;
   align-items: center;
   gap: 1px;
-  padding-inline: 7px;
+  padding-inline: 8px;
   border-inline-start: 1px solid var(--border);
 }
 
@@ -1146,13 +935,8 @@
   align-items: center;
   gap: 1px;
   margin-inline-end: 4px;
-  padding-inline-end: 5px;
+  padding-inline-end: 4px;
   border-inline-end: 1px solid var(--border);
-}
-
-.pane-tools .entity-icon-btn {
-  width: 26px;
-  height: 26px;
 }
 
 /* Resizing a picture from the read view. The host is the positioning context
@@ -1169,20 +953,20 @@
   position: absolute;
   z-index: 5;
   display: grid;
-  gap: 10px;
+  gap: 12px;
   width: 300px;
   max-width: calc(100% - 8px);
-  padding: 12px 14px;
+  padding: 12px 16px;
   background: var(--elev);
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--r-control);
   box-shadow: var(--shadow);
-  font-size: 0.85rem;
+  font-size: var(--fs);
 }
 
 /* Named as the other menus name a section: small and quiet. */
 .image-size-heading {
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   color: var(--muted);
 }
 
@@ -1191,12 +975,12 @@
   display: grid;
   grid-template-columns: 3.4rem minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .image-size-key {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
 }
 
 .image-size-row input[type="range"] {
@@ -1223,7 +1007,7 @@
   grid-column: 2 / -1;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 /* One edge: its letter, then its field. */
 .image-size-edge {
@@ -1235,18 +1019,18 @@
 .image-size-edge > span {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: var(--fs-micro);
 }
 .image-size-edge > input {
   width: 100%;
   min-width: 0;
-  padding: 4px 5px;
+  padding: 4px 4px;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-sm);
   background: var(--surface);
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   -moz-appearance: textfield;
 }
@@ -1288,26 +1072,11 @@
   list-style: none;
 }
 
-.quick-open-result {
+.quick-open-group-rows .wf-item {
   display: flex;
   align-items: baseline;
   gap: 0.6rem;
   width: 100%;
-  padding: 0.35rem 0.5rem;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text);
-  text-align: start;
-  /* A result is a `<button>`. It was styled as a static row. */
-  cursor: pointer;
-}
-
-.quick-open-result:hover { background: var(--surface2); }
-
-.quick-open-result.is-active {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
 }
 
 /* The kind column, so Notes, Papers, Lists and Report hits do not interleave
@@ -1325,16 +1094,16 @@
   font-weight: 500;
 }
 
-.quick-open-result.is-active .quick-open-title { color: inherit; }
+.quick-open-group-rows .wf-item[aria-selected="true"] .quick-open-title { color: inherit; }
 
 .quick-open-kind .nav-icon { width: 14px; height: 14px; }
-.quick-open-result.is-active .quick-open-kind { color: inherit; }
+.quick-open-group-rows .wf-item[aria-selected="true"] .quick-open-kind { color: inherit; }
 
 .quick-open-group {
   margin: 0;
   padding: 0.35rem 0.5rem 0.15rem;
   color: var(--faint);
-  font-size: 0.66rem;
+  font-size: var(--fs-micro);
   font-weight: 600;
   letter-spacing: 0.1em;
 }
@@ -1357,7 +1126,7 @@
 .quick-open-path {
   overflow: hidden;
   color: var(--faint);
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -1381,7 +1150,7 @@
   background: var(--bg);
   border-block-end: 1px solid var(--border);
   color: var(--faint);
-  font-size: 0.73rem;
+  font-size: var(--fs-xs);
   white-space: nowrap;
 }
 
@@ -1400,7 +1169,7 @@
    with an ellipsis instead of spilling over the next crumb, which on a phone
    printed "PDF" on top of the title. */
 .breadcrumb-plain,
-.breadcrumb-btn,
+.breadcrumbs .wf-link,
 .breadcrumb-current {
   min-width: 2ch;
   overflow: hidden;
@@ -1410,21 +1179,9 @@
 /* A folder crumb that cannot be opened is plain text, but it keeps the same
    padding as its neighbours: without it the separator touched the label
    ("Papers›Title"). */
-.breadcrumb-plain { padding: 2px 6px; }
+.breadcrumb-plain { padding: 2px 8px; }
 
-.breadcrumb-btn,
-.breadcrumb-current {
-  padding: 2px 6px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s;
-}
-
-.breadcrumb-btn:hover { background: var(--surface2); color: var(--text); }
+.breadcrumb-current { padding: 2px 8px; }
 
 /* The last crumb is where you already are, so it is the one crumb that is not
    a control: it renders as a plain span, takes no focus and answers no click.
@@ -1440,7 +1197,7 @@
   margin-inline-start: 1px;
   color: var(--faint);
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: var(--fs-micro);
 }
 
 /* The chevron points down by default; a crumb separator points right. */
@@ -1493,7 +1250,7 @@
   justify-content: center;
   height: 100%;
   gap: 8px;
-  padding: 34px;
+  padding: 32px;
   color: var(--muted);
   text-align: center;
 }
@@ -1505,7 +1262,7 @@
   height: 52px;
   margin-block-end: 8px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--r-card);
   background: var(--surface);
   color: var(--faint);
 }
@@ -1516,7 +1273,7 @@
   margin: 0;
   color: var(--text);
   font-family: var(--font-serif);
-  font-size: 1.08rem;
+  font-size: var(--fs-lg);
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -1524,17 +1281,17 @@
 .pane-empty-line {
   max-width: 44ch;
   margin: 0;
-  font-size: 0.845rem;
+  font-size: var(--fs);
   line-height: 1.62;
 }
 
 .pane-shortcuts {
   display: grid;
   grid-template-columns: auto auto;
-  gap: 8px 20px;
-  margin: 22px 0 0;
+  gap: 8px 24px;
+  margin: 24px 0 0;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   text-align: start;
 }
 
@@ -1545,7 +1302,7 @@
 .pane-shortcut dt {
   display: flex;
   justify-self: end;
-  gap: 3px;
+  gap: 4px;
 }
 
 .pane-shortcut dd { margin: 0; }
@@ -1557,11 +1314,11 @@
   height: 17px;
   padding: 0 4px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: var(--surface);
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: var(--fs-micro);
   line-height: 1;
 }
 
@@ -1614,6 +1371,12 @@
   flex: 1;
   min-height: 0;
 }
+/* The editor is a text field: it rings while it has focus, inset so the pane
+   edge does not clip it. */
+.md-live-host > .workspace-editor:focus-within {
+  outline: 3px solid var(--wf-focus, var(--accent));
+  outline-offset: -3px;
+}
 .md-live-pane {
   min-height: 0;
   min-width: 0;
@@ -1629,18 +1392,7 @@
 /* The pane's rendered body keeps the reading measure; the editor's half is
    already the writing measure. */
 .md-live-pane .document-read-body {
-  padding: 24px 30px 100px;
-}
-
-/* The choice: three small states, told apart by words. It sits at the top
-   of the editor's own half, out of the text's way, and it is the same in
-   both layouts. */
-.md-live-choice {
-  display: flex;
-  align-items: center;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  padding: 24px 32px 96px;
 }
 
 /* The rendered view is prose, so it gets the reading measure rather than the
@@ -1648,7 +1400,7 @@
 .document-read-body {
   max-width: var(--content-measure);
   margin-inline: auto;
-  padding: 40px 44px 150px;
+  padding: 48px 48px 144px;
 }
 
 /* A paper's PDF mode: the reader's paper half filling the pane, with its
@@ -1679,23 +1431,23 @@
   margin: 12px auto;
   text-align: start;
 }
-.paper-pdf-fetch-label { font-size: 0.82rem; color: var(--muted); }
+.paper-pdf-fetch-label { font-size: var(--fs-sm); color: var(--muted); }
 .paper-pdf-fetch-row { display: flex; gap: 8px; }
 .paper-pdf-fetch-row input {
   flex: 1;
   min-width: 0;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--r-control);
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: var(--fs);
 }
-.paper-pdf-fetch-error { margin: 0; font-size: 0.8rem; color: var(--s-danger); }
+.paper-pdf-fetch-error { margin: 0; font-size: var(--fs-sm); color: var(--s-danger); }
 /* "Find a free copy": the button, and the line saying what it found. */
-.paper-free-copy { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 8px auto 4px; }
-.paper-free-copy-status { margin: 0; max-width: 34rem; font-size: 0.8rem; color: var(--muted); }
+.paper-free-copy { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 8px auto 4px; }
+.paper-free-copy-status { margin: 0; max-width: 34rem; font-size: var(--fs-sm); color: var(--muted); }
 .paper-free-copy-status[role="alert"] { color: var(--s-danger); }
 
 /* A paper kept as a web page: a thin bar, then the sandboxed frame. */
@@ -1705,7 +1457,7 @@
   flex: 1;
   min-height: 0;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-control);
   overflow: hidden;
   background: var(--surface);
 }
@@ -1713,9 +1465,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
 }
 .paper-html-kind { font-weight: 600; }
 .paper-html-source {
@@ -1739,20 +1491,20 @@
   align-items: center;
   gap: 1px;
   height: 26px;
-  padding: 0 5px;
+  padding: 0 4px;
   overflow: hidden;
   background: var(--surface2);
   border-block-start: 1px solid var(--border);
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
 }
 
 .status-bar > * {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 8px;
-  border-radius: 5px;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
   white-space: nowrap;
 }
 
@@ -1784,10 +1536,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .explorer-row,
-  .pane-tab,
-  .breadcrumb-btn,
-  .explorer-action {
+  .explorer-row {
     transition: none !important;
   }
 }
@@ -1830,11 +1579,11 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 8px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  box-shadow: var(--e1);
   scrollbar-width: none;
 }
 
@@ -1848,57 +1597,8 @@
   gap: 2px;
   background: var(--chip);
   padding: 2px;
-  border-radius: 8px;
+  border-radius: var(--r-control);
   border: 1px solid var(--border);
-}
-
-.ink-tool {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 8px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: none;
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.78rem;
-  cursor: pointer;
-  user-select: none;
-  transition: all var(--dur-base) ease;
-}
-
-.ink-tool:hover {
-  background: var(--bg);
-  color: var(--text);
-}
-
-.ink-tool[aria-pressed="true"] {
-  background: var(--surface);
-  color: var(--accent-ink);
-  border-color: var(--border);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
-}
-
-.ink-tool:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.ink-tool-icon-only {
-  width: 28px;
-  padding: 0;
-}
-
-.ink-tool-hand {
-  font-size: 0.74rem;
-  padding: 0 8px;
-}
-
-.ink-action-recognise {
-  padding: 0 10px;
 }
 
 .ink-nib-dot {
@@ -1915,7 +1615,7 @@
 .ink-swatches {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   padding: 2px 4px;
 }
 
@@ -1923,16 +1623,18 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-family: var(--font);
+  font-size: var(--fs-xs);
+  font-weight: 500;
   color: var(--muted);
   background: var(--chip);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   border: 1px solid var(--border);
-  padding: 0 4px;
+  /* Room all round, so the page field and the zoom value never touch the edge. */
+  padding: var(--s1);
 }
 
-.ink-page-pill .ink-tool {
+:root:root .ink-page-pill .wf-tool {
   height: 24px;
   width: 24px;
   padding: 0;
@@ -1941,9 +1643,8 @@
 .ink-page-count {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   padding: 0 4px;
-  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -1974,65 +1675,13 @@
   gap: 1px;
   background: var(--panel, var(--surface));
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 12px 28px rgb(0 0 0 / 22%);
+  border-radius: var(--r-control);
+  box-shadow: var(--e3);
   /* The bar wraps, so the button can be at either end of a row; the shift is
      measured on open and keeps the list inside the bar's own box, which is the
      box `overflow: hidden` clips to. */
   transform: translateX(var(--ink-menu-shift, 0px));
 }
-
-.ink-menu-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  padding: 6px 8px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: 0.8rem;
-  text-align: left;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.ink-menu-item:hover,
-.ink-menu-item:focus-visible {
-  background: var(--chip);
-}
-
-.ink-menu-item kbd {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--muted);
-}
-
-.ink-swatch {
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border-radius: 50%;
-  border: 1.5px solid var(--border-strong);
-  cursor: pointer;
-  transition: transform var(--dur-base) ease, box-shadow var(--dur-base) ease;
-  flex-shrink: 0;
-}
-
-.ink-swatch[aria-pressed="true"] {
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
-  transform: scale(1.1);
-}
-
-.ink-swatch-text { --sw: var(--text); }
-.ink-swatch-accent { --sw: var(--accent); }
-.ink-swatch-warn { --sw: var(--s-warn); }
-.ink-swatch-good { --sw: var(--s-good); }
-.ink-swatch-info { --sw: var(--s-info); }
-.ink-swatch-danger { --sw: var(--s-danger); }
 
 /* The marker colours: the reader's eight, fixed hex in every theme, so a
    yellow highlight on a note is the yellow on a paper. The ink renderer reads
@@ -2046,24 +1695,6 @@
   --ink-pink: #e56eee;
   --ink-orange: #f19837;
   --ink-grey: #aaaaaa;
-}
-.ink-swatch-yellow { --sw: var(--ink-yellow); }
-.ink-swatch-red { --sw: var(--ink-red); }
-.ink-swatch-green { --sw: var(--ink-green); }
-.ink-swatch-blue { --sw: var(--ink-blue); }
-.ink-swatch-purple { --sw: var(--ink-purple); }
-.ink-swatch-pink { --sw: var(--ink-pink); }
-.ink-swatch-orange { --sw: var(--ink-orange); }
-.ink-swatch-grey { --sw: var(--ink-grey); }
-
-.ink-pen-only {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 0.74rem;
-  cursor: pointer;
-  user-select: none;
 }
 
 .ink-bar-spacer { flex: 1 1 auto; }
@@ -2131,12 +1762,12 @@
   top: 0;
   right: 3px;
   width: 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--scrollbar-thumb);
   opacity: 0;
   pointer-events: auto;
   cursor: default;
-  transition: opacity 0.25s ease, width var(--dur-base) ease, background var(--dur-base) ease;
+  transition: opacity var(--dur-slow) ease, width var(--dur-base) ease, background var(--dur-base) ease;
 }
 
 .overlay-scrollbar-track.is-visible .overlay-scrollbar-thumb,
@@ -2156,7 +1787,6 @@
     pointer-events: none !important;
   }
 }
-
 
 /*
  * The live layer: the one copy of the page being written on, rendered once
@@ -2231,7 +1861,6 @@
   position: relative;
   flex: none;
   border-radius: 2px;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
   background: var(--surface);
   transition: outline var(--dur-base) ease;
 }
@@ -2310,7 +1939,7 @@
   width: 16px;
   height: 16px;
   border: 1px solid var(--border-strong);
-  border-radius: 3px;
+  border-radius: var(--r-sm);
   background-color: var(--surface);
   flex-shrink: 0;
 }
@@ -2332,18 +1961,7 @@
   background-image: linear-gradient(var(--muted) 1px, transparent 1px);
   background-size: 100% 6px;
 }
-.ink-menu-paper .ink-menu-item { justify-content: flex-start; gap: 8px; }
-.ink-menu-item[aria-checked="true"] { font-weight: 600; }
 
-/*
- * The rail's ghosts: the page above and below the live one, in a continuous
- * scroll. A ghost is the sheet's own paper and image with none of the
- * machinery — inert, dimmed a hair so the eye finds the writing page, and
- * showing its number where a tab would.
- */
-.ink-ghost {
-  display: flex;
-}
 /* Read mode: the page's images are not things to drag off the sheet, and
    only the text underlay is there to select. */
 .ink-reader .ink-sheet img,
@@ -2366,16 +1984,15 @@
   display: block;
   pointer-events: none;
 }
-.ink-ghost .ink-ghost-label,
 .ink-reader .ink-ghost-label {
   position: absolute;
   top: 8px;
   inset-inline-end: 10px;
   color: var(--faint);
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-family: var(--font);
+  font-size: var(--fs-micro);
   background: color-mix(in srgb, var(--bg) 65%, transparent);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 1px 8px;
 }
 
@@ -2403,7 +2020,6 @@
 .ink-figure {
   pointer-events: none;
   background: color-mix(in srgb, var(--surface) 85%, transparent);
-  box-shadow: 0 1px 4px rgb(0 0 0 / 18%);
   border-radius: 2px;
 }
 .ink-figure.is-active {
@@ -2423,7 +2039,7 @@
 }
 /* The corners: dots where the page's own corner hit-test looks, so the eye
    finds what the hand is about to drag. Always drawn — 8 px of border
-   against paper, quieter than the figure's own shadow. */
+   against paper. */
 /* The selected figure's editor: over the canvas (z 1 in its dock), and
    transparent to the pointer except for the frame, its handles and the bar. */
 .ink-figure-editor {
@@ -2448,44 +2064,33 @@
   position: absolute;
   width: 12px;
   height: 12px;
-  margin: -6px 0 0 -6px;
+  /* Centred on its anchor; right and bottom handles are anchored by their far edge. */
+  --hx: -50%;
+  --hy: -50%;
+  translate: var(--hx) var(--hy);
   border-radius: 50%;
   border: 1.5px solid var(--accent);
   background: var(--surface);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
+  /* Flat: a theme's hard drop shadow reads as a second dot. */
+  box-shadow: none;
   pointer-events: auto;
   touch-action: none;
 }
-/* Handles at right/bottom are placed by their far edge; undo the margin. */
+/* Handles at right/bottom are placed by their far edge, so they shift outwards. */
 .ink-figure-handle[data-handle="ne"],
 .ink-figure-handle[data-handle="e"],
 .ink-figure-handle[data-handle="se"] {
-  margin-left: 0;
-  margin-right: -6px;
+  --hx: 50%;
 }
 .ink-figure-handle[data-handle="sw"],
 .ink-figure-handle[data-handle="s"],
 .ink-figure-handle[data-handle="se"] {
-  margin-top: 0;
-  margin-bottom: -6px;
+  --hy: 50%;
 }
 @media (pointer: coarse) {
   .ink-figure-handle {
     width: 18px;
     height: 18px;
-    margin: -9px 0 0 -9px;
-  }
-  .ink-figure-handle[data-handle="ne"],
-  .ink-figure-handle[data-handle="e"],
-  .ink-figure-handle[data-handle="se"] {
-    margin-left: 0;
-    margin-right: -9px;
-  }
-  .ink-figure-handle[data-handle="sw"],
-  .ink-figure-handle[data-handle="s"],
-  .ink-figure-handle[data-handle="se"] {
-    margin-top: 0;
-    margin-bottom: -9px;
   }
 }
 /* The crop tool: the whole picture dimmed under a bright kept rectangle. */
@@ -2571,79 +2176,55 @@
   align-items: center;
   display: flex;
   gap: 2px;
-  padding: 3px;
+  padding: 4px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: var(--surface);
-  box-shadow: 0 3px 12px rgb(0 0 0 / 22%);
+  box-shadow: var(--e2);
 }
-.ink-figure-button {
-  font-size: 0.68rem;
-  font-family: var(--font-mono);
-  color: var(--faint);
-  padding: 1px 8px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-}
-.ink-figure-button:hover {
-  background: color-mix(in srgb, var(--faint) 10%, transparent);
-}
-.ink-figure-button:disabled {
-  opacity: 0.4;
-  cursor: default;
-  background: none;
+.ink-figure-hint {
+  padding: 0 8px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
 }
 .ink-figure-sep {
   width: 1px;
   height: 14px;
-  margin: 0 3px;
+  margin: 0 4px;
   background: var(--border);
-}
-.ink-figure-button-icon {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 5px;
-}
-.ink-figure-button-remove {
-  color: var(--danger);
-}
-.ink-figure-button-remove:hover {
-  background: color-mix(in srgb, var(--danger) 14%, transparent);
 }
 
 .ink-text {
   min-height: 0;
   overflow-y: auto;
   scrollbar-gutter: stable;
-  padding: 12px 14px;
+  padding: 12px 16px;
   border-left: 1px solid var(--border);
   background: var(--surface);
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   line-height: 1.5;
 }
 
 .ink-text h4 {
   display: flex;
   align-items: center;
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   color: var(--faint);
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-family: var(--font);
+  font-size: var(--fs-micro);
   font-weight: 500;
   letter-spacing: 0.06em;
 }
 
 .ink-text h4 .ink-conf { margin-left: auto; letter-spacing: 0; text-transform: none; }
-.ink-text p { margin: 0 0 10px; }
+.ink-text p { margin: 0 0 12px; }
 .ink-text .ink-empty { color: var(--faint); }
 /* A line is a paragraph; unsure ones are dotted (§5.4), accepted ones plain. */
-.ink-text .ink-line { cursor: text; border-radius: 4px; padding: 2px 4px; margin: 0 -4px 8px; }
+.ink-text .ink-line { cursor: text; border-radius: var(--r-sm); padding: 2px 4px; margin: 0 -4px 8px; }
 .ink-text .ink-line:hover { background: var(--chip); }
 .ink-text .ink-line-unsure { border-bottom: 1px dotted var(--s-warn); }
 .ink-text .ink-line-sure { color: var(--text); }
-.ink-line-edit { margin: 0 0 10px; display: grid; gap: 6px; }
+.ink-line-edit { margin: 0 0 12px; display: grid; gap: 8px; }
 .ink-line-edit .themed-input { width: 100%; }
 .ink-alternatives { display: flex; flex-wrap: wrap; gap: 4px; }
 
@@ -2651,8 +2232,6 @@
   .ink-wrap { grid-template-columns: minmax(0, 1fr); }
   .ink-text { display: none; }
 }
-
-
 
 /* Ink sheet text layer: rendered markdown under the ink. Blocks keep the
    underlay's line rhythm (one row per source line, roughly) so the page flow
@@ -2676,7 +2255,7 @@
   padding: 0 0.6em;
   font-size: 0.9em;
   line-height: 1.6;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--text) 6%, transparent);
   white-space: pre-wrap;
   word-break: break-word;
@@ -2688,7 +2267,7 @@
    diagram keeps the size it was measured at and is zoomed as a whole to the
    sheet's text, so geometry and letters scale together. */
 .ink-sheet-text-underlay .md-mermaid {
-  font-size: 16px;
+  font-size: var(--fs-lg);
   line-height: normal;
   zoom: var(--ink-diagram-zoom, 1);
 }
@@ -2716,8 +2295,8 @@
   width: 100%;
   height: min(72vh, 1000px);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #e9e9e9;
+  border-radius: var(--r-control);
+  background: color-mix(in srgb, var(--black) 9%, var(--white));
 }
 
 /* -------------------------------------------------------------------------
@@ -2733,17 +2312,17 @@
     position: relative;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     min-width: 0;
-    padding: 0 6px 0 10px;
+    padding: 0 8px 0 12px;
     color: var(--text);
-    font-size: 0.815rem;
+    font-size: var(--fs-sm);
   }
-  .workspace-shell.is-explorer-hidden .pane-tab-switcher { padding-inline-start: 40px; }
+  .workspace-shell.is-explorer-hidden .pane-tab-switcher { padding-inline-start: 48px; }
   /* The shared Select, flattened into the tab bar. Scoped to the container
      and its trigger: the menu carries the same class and keeps its own look. */
   .custom-select-container.pane-tab-select { flex: 1; min-width: 0; width: auto; height: 100%; }
-  .pane-tab-select > .custom-select-button {
+  .pane-tab-select > .wf-select {
     height: 100%;
     padding: 0 4px 0 0;
     border: none;
@@ -2752,51 +2331,48 @@
     color: inherit;
     font: inherit;
   }
-  .pane-tab-select > .custom-select-button:focus { box-shadow: none; }
-  .pane-tab-select > .custom-select-button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .pane-tab-select > .wf-select:focus { box-shadow: none; }
+  .pane-tab-select > .wf-select:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   .pane-tab-count {
     flex: none;
     min-width: 18px;
-    padding: 0 5px;
-    border-radius: 999px;
+    padding: 0 4px;
+    border-radius: var(--r-pill);
     background: var(--surface2);
     color: var(--muted);
-    font-size: 0.7rem;
+    font-size: var(--fs-micro);
     line-height: 18px;
     text-align: center;
   }
-  .pane-tab-switcher .pane-tab-close { opacity: 1; width: 24px; height: 24px; }
+  /* Save state, words and the kind fit a phone; the rest ran off its edge. */
+  .status-bar-segment:is([data-segment="chars"], [data-segment="cursor"], [data-segment="encoding"], [data-segment="strokes"], [data-segment="pen"]) {
+    display: none;
+  }
 }
 
 /* The pen: one swatch carries the colour, the dot on it the nib. */
-.ink-pen-trigger .colour-menu-current {
-  width: 24px; height: 24px;
-  display: inline-flex; align-items: center; justify-content: center;
-}
+.ink-pen-pick .popover > .wf-swatch { display: inline-flex; align-items: center; justify-content: center; }
 .ink-pen-trigger-nib {
   display: block; border-radius: 50%;
   background: var(--surface);
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 25%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--black) 25%, transparent);
 }
 .ink-pen-menu .ink-bar-widths {
-  margin-top: 4px; padding-top: 6px;
+  margin-top: 4px; padding-top: 8px;
   border-top: 1px solid var(--border);
 }
 
 /* Quick colours: five swatches in the bar's own row, with room for the
    selected one's ring between them. */
-.ink-quick-colours { gap: 10px; padding: 2px 6px; }
+.ink-quick-colours { gap: 12px; padding: 2px 8px; }
 
 /* Insert: a labelled drop-down, apart from ⋯. */
 /* Portalled to <body> and fixed under its button: the reader's bar scrolls
    sideways and its chrome clips, so a list hung inside either was cut off. */
 
 /* The zoom pill reads like the page pill; its level resets to fit. */
-.ink-zoom-level {
-  border: 0; background: none; color: inherit; font: inherit;
-  min-width: 3.4em; justify-content: center; cursor: pointer;
-}
-.ink-zoom-level:hover { color: var(--text); }
+/* Room for "999%" and the caret, in same-width digits: zoom in stays put as the level changes. */
+:root:root .ink-zoom-pill .wf-btn { font-variant-numeric: tabular-nums; min-width: calc(4.5ch + 12px + var(--s5)); justify-content: center; }
 
 /* The ⋯ menu: sections split by a rule, chips for the one-of-n choices. */
 .ink-menu-more-list { min-width: 240px; gap: 0; }
@@ -2804,62 +2380,39 @@
 .ink-menu-section + .ink-menu-section { border-top: 1px solid var(--border); }
 .ink-menu-heading {
   padding: 2px 8px 4px;
-  font-size: 0.72rem; color: var(--muted);
+  font-size: var(--fs-xs); color: var(--muted);
 }
-.ink-menu-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 8px 2px; }
-.ink-menu-chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 8px;
-  border: 1px solid var(--border); border-radius: 6px;
-  background: none; color: var(--text);
-  font: inherit; font-size: 0.76rem; cursor: pointer;
-}
-.ink-menu-chip:hover { filter: brightness(1.05); background: var(--chip); }
-.ink-menu-chip[aria-checked="true"] {
-  background: var(--active-bg, var(--chip)); color: var(--active-fg, var(--text));
-  border-color: var(--text);
-}
-.ink-menu-check, .ink-menu-value { color: var(--muted); font-size: 0.76rem; }
+.ink-menu-chips { display: flex; flex-direction: column; gap: 1px; }
+
+.ink-menu-value { color: var(--muted); font-size: var(--fs-xs); }
 
 /* Insert and View: a bar button with a caret that opens a short list. */
-/* The shared tool rule makes .ink-tool a 32px square grid; a trigger carries
+/* The shared tool rule makes .wf-tool a 32px square grid; a trigger carries
    a caret beside its icon, so it widens and lays out in a row. */
-:root:root .ink-tool.ink-menu-trigger {
+:root:root .ink-menu-insert > .wf-tool {
   display: inline-flex; align-items: center; gap: 2px;
-  width: auto; padding: 0 4px 0 6px;
+  width: auto; padding: 0 4px 0 8px;
 }
-/* Recognise carries a label too: a row, as wide as its words, never wrapped. */
-:root:root .ink-tool.ink-action-recognise {
-  display: inline-flex; align-items: center; gap: 6px;
-  width: auto; flex: none; padding: 0 10px; white-space: nowrap;
-}
+/* Labelled bar buttons (Recognise, Copy) stay as wide as their words. */
+:root:root .ink-bar .wf-btn { flex: none; white-space: nowrap; }
 .ink-menu-caret { display: inline-flex; opacity: 0.6; }
-/* Zoom: − · 100% ▾ · +, the level a plain ghost button. */
-.ink-zoom { display: inline-flex; align-items: center; gap: 2px; flex: none; }
-.ink-zoom-pct {
-  display: inline-flex; align-items: center; justify-content: center; gap: 3px;
-  min-width: 3.7rem; height: 32px; padding: 0 4px 0 8px;
-  border: 1px solid transparent; border-radius: 6px;
-  background: transparent; color: var(--text);
-  font: inherit; font-size: 0.85rem; font-variant-numeric: tabular-nums;
-  white-space: nowrap; cursor: pointer;
-}
-.ink-zoom-pct:hover, .ink-zoom-pct[aria-expanded="true"] { background: var(--wf-hover, var(--chip)); }
-.ink-zoom-pct:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--wf-focus, var(--accent)); }
 .ink-menu-rule { margin: 4px 0; border: 0; border-top: 1px solid var(--border); }
 .ink-menu-insert-list, .ink-menu-view-list { min-width: 200px; }
-.ink-menu-insert-list .ink-menu-item,
-.ink-menu-view-list .ink-menu-item { justify-content: flex-start; gap: 8px; }
-.ink-menu-insert-list .ink-menu-item kbd,
-.ink-menu-view-list .ink-menu-item kbd { margin-left: auto; }
-.ink-menu-hint { margin: 4px 8px 2px; font-size: 0.72rem; color: var(--muted); white-space: normal; }
+
+.ink-menu-hint { margin: 4px 8px 2px; font-size: var(--fs-xs); color: var(--muted); white-space: normal; }
 /* The typed page number: as wide as three digits, no spinner. */
 .ink-page-input {
   width: 3ch; min-width: 2.4rem; padding: 0 2px;
-  border: 0; border-radius: 4px; background: color-mix(in srgb, var(--text) 8%, transparent);
+  border: 0; border-radius: var(--r-sm); background: color-mix(in srgb, var(--text) 8%, transparent);
   color: var(--text); font: inherit; text-align: center; font-variant-numeric: tabular-nums;
   appearance: textfield; -moz-appearance: textfield;
 }
+/* Beats the bold themes' input border: the number reads like the zoom value. */
+:root:root:root .ink-page-input { border: 0; }
+/* The pill's controls stand 24px tall, as the arrows do, so the page field and
+   the zoom value have room round them and read at the pill's own text size. */
+:root:root:root .ink-page-input { height: 24px; min-height: 0; box-sizing: border-box; }
+:root:root:root .ink-zoom-pill .wf-btn { height: 24px; min-height: 0; padding: 0 var(--s1); font-family: inherit; font-size: inherit; font-weight: inherit; }
 .ink-page-input::-webkit-inner-spin-button,
 .ink-page-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 

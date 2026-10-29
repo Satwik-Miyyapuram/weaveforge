@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
+import fsp, { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 
 import { FOLDER_DRAFTS_DIR, parseFolderDraft } from "@weaveforge/core";
 
@@ -259,6 +259,23 @@ test("search with a kind looks in each project's own folder and names each hit",
   assert.doesNotMatch(papersOnly.text, /alpha\.md/);
 });
 
+// 37-06: one page past the cap is cut, and the label says so instead of claiming the page whole.
+test("get_paper_text says when a single page is cut at the cap", async () => {
+  const { session, root } = await workspace();
+  await writeFile(
+    path.join(root, ".weaveforge/cache/pdf-text/proj/paper-1.json"),
+    JSON.stringify({ paperId: "paper-1", pages: [{ pageIndex: 0, text: "x".repeat(70_000) }, { pageIndex: 1, text: "short" }] }),
+  );
+  const out = await call(session, "get_paper_text", { ref: "paper-1", fromPage: 1 });
+  assert.match(out.text, /pages 1-1 of 2; page 1 cut at 60000 characters; next fromPage 2/);
+});
+
+test("get_paper_text does not call pages that fit cut", async () => {
+  const { session } = await workspace();
+  const out = await call(session, "get_paper_text", { ref: "paper-1", fromPage: 1 });
+  assert.doesNotMatch(out.text, /cut at/);
+});
+
 test("get_paper_text past the last page says how many there are", async () => {
   const { session } = await workspace();
   const out = await call(session, "get_paper_text", { ref: "paper-1", fromPage: 40 });
@@ -289,4 +306,23 @@ test("lists and long reads page instead of cutting off", async () => {
   const method = await callIn(session, "get_note", { ref: "a-2", heading: "method" });
   assert.match(method.text, /the method/);
   assert.doesNotMatch(method.text, /numbers|xxxx/);
+});
+
+test("one tool call walks each folder once; the next call sees edits (37-17)", async () => {
+  const { session, root } = await workspace();
+  const walked: string[] = [];
+  const real = fsp.readdir;
+  const spy = mock.method(fsp, "readdir", ((dir: string, ...rest: unknown[]) => {
+    walked.push(path.relative(root, String(dir)));
+    return (real as (...a: unknown[]) => unknown)(dir, ...rest);
+  }) as typeof fsp.readdir);
+  try {
+    // get_backlinks loads the notes for the lookup and again for the neighbours.
+    await call(session, "get_backlinks", { entry: "Ideas" });
+    assert.equal(walked.filter((d) => d === "notes").length, 1, walked.join(", "));
+  } finally {
+    spy.mock.restore();
+  }
+  await writeFile(path.join(root, "notes/ideas.note.md"), md({ "weaveforge-id": "note-1", "weaveforge-type": "vault_page", title: "Ideas renamed" }));
+  assert.match((await call(session, "get_note", { ref: "note-1" })).text, /Ideas renamed/);
 });

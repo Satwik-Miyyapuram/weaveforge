@@ -1,11 +1,11 @@
 "use client";
 
+import { humanise } from "@/lib/enum-label";
 import { Select } from "@/components/select";
 
 /** "not_started" reads "Not started". */
 export function statusLabel(status: string): string {
-  const words = status.replace(/_/g, " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
+  return humanise(status);
 }
 
 /** The one status pill, tinted from the shared status map on every card and page. */

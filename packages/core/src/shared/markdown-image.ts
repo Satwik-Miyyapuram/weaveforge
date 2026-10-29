@@ -136,30 +136,53 @@ export function replaceImageRefs(
   return out + body.slice(copied);
 }
 
-/** Upload every pasted `blob:` ref and rewrite it to a stored path. A stale
-    blob URL keeps its original ref: a broken image the user can see beats a
-    silent deletion from their own text. */
+/** The body with its blob refs rewritten, and why any upload failed. */
+export type MaterializedBody = { body: string; uploadError?: Error };
+
+/**
+ * Upload every pasted `blob:` ref and rewrite it to a stored path.
+ *
+ * A ref that cannot be uploaded keeps its original text: a broken image the
+ * user can see beats a silent deletion from their own text. A stale blob URL
+ * is the browser's loss and is kept quietly; a failed *upload* is reported in
+ * `uploadError`, so the caller can save the rest and still say so.
+ */
 export async function materializeBlobImages(
   body: string,
   ownerId: string,
   upload: (ownerId: string, blob: Blob, ext: string) => Promise<string>,
   prefix: string,
   normalize: (b: string) => string,
-): Promise<string> {
+): Promise<MaterializedBody> {
   const normalized = normalize(body);
   let result = normalized;
   const refs: ImageRef[] = [];
+  const failures: unknown[] = [];
   replaceImageRefs(normalized, /blob:/, (ref) => (refs.push(ref), null), true);
   for (const ref of refs) {
+    let blob: Blob;
     try {
       const res = await fetch(ref.head[0] + ref.rest);
       if (!res.ok) continue;
-      const blob = await res.blob();
-      const path = await upload(ownerId, blob, imageExtensionForMime(blob.type));
-      result = result.replace(ref.text, markdownImage(`${prefix}${path}`, ref.alt || "image"));
+      blob = await res.blob();
     } catch {
-      /* stale blob URL — keep the original ref */
+      continue; // stale blob URL: keep the original ref
+    }
+    try {
+      const path = await upload(ownerId, blob, imageExtensionForMime(blob.type));
+      // A function, so `$&`, `$$` and the like in the alt text are not expanded.
+      result = result.replace(ref.text, () => markdownImage(`${prefix}${path}`, ref.alt || "image"));
+    } catch (err) {
+      failures.push(err);
     }
   }
-  return result;
+  return { body: result, uploadError: uploadFailure(failures) };
+}
+
+function uploadFailure(failures: unknown[]): Error | undefined {
+  if (!failures.length) return undefined;
+  const first = failures[0];
+  const reason = first instanceof Error ? first.message : String(first);
+  const what = failures.length === 1 ? "An image could not be uploaded" : `${failures.length} images could not be uploaded`;
+  return new Error(`${what}: ${reason}`);
 }

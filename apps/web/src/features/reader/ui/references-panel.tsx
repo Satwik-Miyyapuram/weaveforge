@@ -3,6 +3,7 @@
 import React from "react";
 import type { ParsedReference, ReaderAnnotation } from "@weaveforge/core";
 import type { ResolvedReference } from "../application/reference-lookup";
+import { Button } from "@/components/button";
 
 export interface ReferencesPanelProps {
   references: readonly ParsedReference[];
@@ -78,23 +79,23 @@ export function ReferencesPanel({
                       <span className="pdf-reader-refs-title">{text}</span>
                       <span className="muted pdf-reader-refs-meta">
                         {page ? `p. ${page} · ` : ""}
-                        <a
-                          className="link-btn"
+                        <Button variant="link"
+                         
                           href={`https://scholar.google.com/scholar?q=${query}`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
                           Scholar ↗
-                        </a>
+                        </Button>
                         {" · "}
-                        <a
-                          className="link-btn"
+                        <Button variant="link"
+                         
                           href={`https://www.semanticscholar.org/search?q=${query}`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
                           Semantic Scholar ↗
-                        </a>
+                        </Button>
                       </span>
                     </span>
                   </li>
@@ -129,14 +130,12 @@ export function ReferencesPanel({
               : reference.title;
           return (
             <li key={`${reference.index}-${reference.page}`} className="pdf-reader-refs-item">
-              <button
-                type="button"
-                className="link-btn pdf-reader-refs-label"
+              <Button variant="link" size="sm"
                 onClick={() => onJumpToMention(reference)}
                 title={`Jump to where [${reference.index}] is cited`}
               >
                 {reference.label ?? `[${reference.index}]`}
-              </button>
+              </Button>
               <span className="pdf-reader-refs-body">
                 {title ? <span className="pdf-reader-refs-title">{title}</span> : null}
                 <span className="muted pdf-reader-refs-meta">

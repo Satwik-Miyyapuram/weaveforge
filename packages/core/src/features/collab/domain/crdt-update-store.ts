@@ -9,7 +9,8 @@ export interface CrdtUpdateRecord {
   projectId: string | null;
   epoch: number;
   payload: Uint8Array;
-  authorId: string;
+  /** Null once the author's account is deleted (migration 0143). */
+  authorId: string | null;
   createdAt: string;
 }
 
@@ -39,7 +40,6 @@ export interface ICrdtUpdateStore {
   }): Promise<CrdtUpdateRecord>;
   listAfter(resourceType: string, resourceId: string, afterId?: number): Promise<CrdtUpdateRecord[]>;
   deleteUpTo(resourceType: string, resourceId: string, uptoId: number): Promise<void>;
-  deleteAll(resourceType: string, resourceId: string): Promise<void>;
   countAfter(resourceType: string, resourceId: string, afterId?: number): Promise<number>;
   /**
    * Move the watermark and sweep what it now covers, **in one transaction**, and

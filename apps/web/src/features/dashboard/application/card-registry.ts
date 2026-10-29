@@ -50,6 +50,8 @@ export interface CardDef {
   defaultSizeSm: GridSize;
   minSize: GridSize;
   maxSize: GridSize;
+  /** A list that takes the rows its content needs while viewed (DA-128). */
+  fitContent?: boolean;
 }
 
 /* The three layouts every card is one of. Spelled out per card they read as
@@ -125,6 +127,8 @@ export const CARD_REGISTRY: readonly CardDef[] = [
     defaultSizeSm: { w: 4, h: 4 },
     minSize: { w: 4, h: 3 },
     maxSize: { w: 12, h: 6 },
+    // A log row (date over preview) is taller than a grid row.
+    fitContent: true,
   },
   {
     type: "library-snapshot",
@@ -151,6 +155,7 @@ export const CARD_REGISTRY: readonly CardDef[] = [
     deps: ["supervision"],
     minRole: "phd",
     ...TALL_PANEL,
+    fitContent: true,
   },
   {
     type: "team-attention",
@@ -159,10 +164,11 @@ export const CARD_REGISTRY: readonly CardDef[] = [
     deps: ["supervision"],
     minRole: "phd",
     ...PANEL,
+    fitContent: true,
   },
   {
     type: "supervisee-snapshot",
-    label: "Supervisee snapshot",
+    label: "Student snapshot",
     group: "Team",
     deps: ["supervision"],
     minRole: "phd",

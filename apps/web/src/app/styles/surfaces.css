@@ -16,9 +16,6 @@
   .paper-ids-editor,
   .paper-fields-manager,
   .artifact-card,
-  .artifact-thumbs a,
-  .image-thumb,
-  .card-thumb,
   .extraction-propose-panel,
   .metric-chart-plot,
   .linked-overleaf-section,
@@ -34,6 +31,12 @@
 ) {
   border-color: transparent;
   box-shadow: var(--e1), var(--rim);
+}
+
+/* Images sit flat on the page: borderless like the surfaces above, with no
+ * shadow at rest or on hover. */
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.artifact-thumbs a, .image-thumb, .card-thumb) {
+  border-color: transparent;
 }
 
 /* Confetti gives a card its colour partly through the edge, so the borderless
@@ -65,17 +68,13 @@
 
 /* Interactive cards animate between levels. Declared separately from the
    resting set so the transition is not paid for by static panels. */
-:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
-  .entity-card,
-  .paper-card,
-  .org-choice-card
-) {
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.entity-card, .paper-card) {
   border-color: transparent;
   box-shadow: var(--e1), var(--rim);
   transition:
-    box-shadow 0.18s var(--layout-ease),
-    transform 0.18s var(--layout-ease),
-    background 0.12s;
+    box-shadow var(--dur-base) var(--layout-ease),
+    transform var(--dur-base) var(--layout-ease),
+    background var(--dur-base);
 }
 
 /* Nested cards stay flat and recessed — a card inside a card that also lifts
@@ -97,24 +96,14 @@
 }
 
 /* ---- L2: interactive lift ---------------------------------------------- */
-:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
-  .entity-card[role="button"],
-  .paper-card[role="button"],
-  .org-choice-card,
-  .artifact-thumbs a
-):hover {
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.entity-card[role="presentation"], .paper-card[role="presentation"]):hover {
   border-color: transparent;
   background: var(--surface);
   box-shadow: var(--e2), var(--rim-strong);
   transform: translateY(-1px);
 }
 
-:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
-  .entity-card[role="button"],
-  .paper-card[role="button"],
-  .org-choice-card,
-  .artifact-thumbs a
-):active {
+:root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.entity-card[role="presentation"], .paper-card[role="presentation"]):active {
   box-shadow: var(--e1), var(--rim);
   transform: translateY(0);
 }
@@ -198,15 +187,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.entity-card, .paper-card, .org-choice-card) {
-    transition: box-shadow 0.18s var(--layout-ease);
+  :root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.entity-card, .paper-card) {
+    transition: box-shadow var(--dur-base) var(--layout-ease);
   }
-  :root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(
-    .entity-card[role="button"],
-    .paper-card[role="button"],
-    .org-choice-card,
-    .artifact-thumbs a
-  ):hover {
+  :root[data-surfaces="borderless"]:not([data-theme="brutal"], [data-theme="brutal-dark"], [data-theme="crt"]) :is(.entity-card[role="presentation"], .paper-card[role="presentation"]):hover {
     transform: none;
   }
 }

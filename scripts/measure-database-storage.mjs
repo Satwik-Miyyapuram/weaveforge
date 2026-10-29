@@ -13,20 +13,9 @@
  *   node scripts/measure-database-storage.mjs --json
  */
 
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import pg from "pg";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-
-function loadDatabaseUrl() {
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
-  const text = readFileSync(path.join(repoRoot, "secrets", ".env.migration"), "utf8");
-  const match = /^DATABASE_URL=(.*)$/m.exec(text);
-  if (!match) throw new Error("DATABASE_URL not found in secrets/.env.migration");
-  return match[1].trim().replace(/^["']|["']$/g, "");
-}
+import { loadDatabaseUrl } from "./lib/db-connection.mjs";
 
 const kb = (n) => `${(Number(n) / 1024).toFixed(0)} kB`;
 
@@ -38,9 +27,9 @@ async function main() {
     const { rows: tables } = await client.query(`
       select c.relname as table,
              pg_total_relation_size(c.oid)                       as total,
-             pg_table_size(c.oid) - coalesce(pg_relation_size(c.reltoastrelid), 0)
-               - coalesce((select pg_relation_size(t.reltoastrelid)
-                             from pg_class t where t.oid = c.reltoastrelid), 0) as heap,
+             -- pg_table_size includes the toast table and its index; take both out
+             -- so heap + indexes + toast = total.
+             pg_table_size(c.oid) - coalesce(pg_total_relation_size(c.reltoastrelid), 0) as heap,
              pg_indexes_size(c.oid)                              as indexes,
              coalesce(pg_total_relation_size(c.reltoastrelid), 0) as toast,
              c.reltuples::bigint                                  as est_rows

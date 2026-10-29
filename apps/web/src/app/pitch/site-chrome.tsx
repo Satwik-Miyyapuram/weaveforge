@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import s from "./scrolly.module.css";
 import { DARK_THEME_OPTIONS, LIGHT_THEME_OPTIONS } from "@/lib/theme/theme";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
+import { readStored, removeStored, writeStored } from "@/lib/safe-storage";
+import { MenuItemButton } from "@/components/controls";
+import { Button } from "@/components/button";
 
 /**
  * The pieces the pitch and the docs share: the brand mark, the theme and its
@@ -39,22 +42,16 @@ export function useSiteTheme(): [string, (next: string) => void] {
   const [theme, setTheme] = useState<string>(AUTO);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(THEME_KEY);
-      if (stored && THEME_IDS.has(stored)) setTheme(stored);
-    } catch {
-      /* storage blocked: the default look stands */
-    }
+    // Storage blocked: the default look stands.
+    const stored = readStored(THEME_KEY);
+    if (stored && THEME_IDS.has(stored)) setTheme(stored);
   }, []);
 
   const pick = useCallback((next: string) => {
     setTheme(next);
-    try {
-      if (next === AUTO) localStorage.removeItem(THEME_KEY);
-      else localStorage.setItem(THEME_KEY, next);
-    } catch {
-      /* storage blocked: the choice lasts until reload */
-    }
+    // Storage blocked: the choice lasts until reload.
+    if (next === AUTO) removeStored(THEME_KEY);
+    else writeStored(THEME_KEY, next);
     // CRT sets titles in a different face, so anything measured refits.
     requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
   }, []);
@@ -71,18 +68,16 @@ export function ThemePicker({ theme, onPick }: { theme: string; onPick: (theme: 
     setOpen(false);
   };
   const item = (id: string, label: string) => (
-    <button key={id} type="button" role="menuitemradio" aria-checked={theme === id} onClick={() => pick(id)}>
+    <MenuItemButton kind="radio" checked={theme === id} key={id} onClick={() => pick(id)}>
       {/* The swatch carries the theme's own attribute, so it is painted from
           that theme's tokens: its ground and its accent. */}
       <span className={s.swatch} data-theme={id === AUTO ? undefined : id} aria-hidden />
       {label}
-    </button>
+    </MenuItemButton>
   );
   return (
     <div className={s.picker} ref={boxRef}>
-      <button
-        type="button"
-        className={s["picker-btn"]}
+      <Button
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Theme: ${themeLabel(theme)}`}
@@ -90,7 +85,7 @@ export function ThemePicker({ theme, onPick }: { theme: string; onPick: (theme: 
       >
         <span className={s.swatch} data-theme={theme === AUTO ? undefined : theme} aria-hidden />
         <span className={s["picker-label"]}>{themeLabel(theme)}</span>
-      </button>
+      </Button>
       {open && (
         <div className={s["picker-menu"]} role="menu" aria-label="Theme">
           {item(AUTO, "Auto")}

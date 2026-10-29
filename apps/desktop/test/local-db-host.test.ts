@@ -265,9 +265,8 @@ test("local-db-host: a snapshot is taken only after a write, and only once per c
   const dumps: string[] = [];
   const client: LocalClient = {
     ...stub().client,
-    async dumpDataDir() {
-      dumps.push("dump");
-      return new Blob(["bytes"]);
+    async dumpTo(file) {
+      dumps.push(file);
     },
   };
   const host = new LocalDbHost({ open: async () => client, migrations: NO_MIGRATIONS, ...ELSEWHERE });
@@ -276,11 +275,30 @@ test("local-db-host: a snapshot is taken only after a write, and only once per c
   await host.query("select 1", []);
   assert.equal(await host.snapshot(), null, "a read changes nothing worth copying");
   await host.query("insert into t values (1)", []);
-  assert.ok(await host.snapshot());
+  await (await host.snapshot())!.dumpTo("one");
   assert.equal(await host.snapshot(), null, "nothing changed since");
   await host.query("  UPDATE t set x = 2", []);
-  assert.ok(await host.snapshot());
-  assert.equal(dumps.length, 2);
+  await (await host.snapshot())!.dumpTo("two");
+  assert.deepEqual(dumps, ["one", "two"]);
+});
+
+test("local-db-host: a dump that fails, or is never made, leaves the change to back up next time", async () => {
+  let fail = true;
+  const client: LocalClient = {
+    ...stub().client,
+    async dumpTo() {
+      if (fail) throw new Error("disk full");
+    },
+  };
+  const host = new LocalDbHost({ open: async () => client, migrations: NO_MIGRATIONS, ...ELSEWHERE });
+  await host.query("insert into t values (1)", []);
+
+  assert.ok(await host.snapshot(), "asked, but not dumped: no place to write");
+  const snap = await host.snapshot();
+  await assert.rejects(snap!.dumpTo("x"), /disk full/);
+  fail = false;
+  await (await host.snapshot())!.dumpTo("x");
+  assert.equal(await host.snapshot(), null);
 });
 
 test("local-db-host: a client that cannot dump is simply never backed up", async () => {
@@ -352,4 +370,46 @@ test("local-db-host: queries run as the account once the device is adopted", asy
 
   assert.doesNotMatch(claims[0]!, /acc01/);
   assert.match(claims.at(-1)!, /acc01/);
+});
+
+test("local-db-host: `opened` runs once, after the migrations, and not for a failed open (M03)", async () => {
+  const order: string[] = [];
+  const good = stub();
+  const host = new LocalDbHost({
+    ...ELSEWHERE,
+    open: async () => {
+      order.push("open");
+      return good.client;
+    },
+    migrations: NO_MIGRATIONS,
+    opened: () => order.push(`opened after ${good.calls.exec + good.calls.query} engine calls`),
+  });
+  await host.query("select 1", []);
+  await host.query("select 2", []);
+  assert.equal(order.length, 2);
+  assert.equal(order[0], "open");
+  assert.match(order[1]!, /^opened after [1-9]\d* engine calls$/);
+
+  let calls = 0;
+  const failing = new LocalDbHost({
+    ...ELSEWHERE,
+    open: async () => stub("weaveforge_migrations").client,
+    migrations: NO_MIGRATIONS,
+    opened: () => (calls += 1),
+  });
+  await failing.query("select 1", []);
+  assert.equal(calls, 0);
+});
+
+test("local-db-host: an `opened` that throws does not fail the open (M03)", async () => {
+  const host = new LocalDbHost({
+    ...ELSEWHERE,
+    open: async () => stub().client,
+    migrations: NO_MIGRATIONS,
+    opened: () => {
+      throw new Error("no gc here");
+    },
+  });
+  const result = await host.query("select 1", []);
+  assert.equal(result.ok, true);
 });

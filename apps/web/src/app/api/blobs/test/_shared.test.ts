@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { blobFailure, tieredBlobToken } from "../_shared";
 import { BlobAccessError } from "@/storage/server/blob-access";
 import { withNonTieredBlobProvider } from "@/storage/test/with-non-tiered-blob-provider";
+import { blobRegistryForToken } from "@/storage/server/blob-api";
+import { BLOB_SERVER_ENV, withEnv } from "@/storage/test/with-env";
 
 test("tieredBlobToken: 503 before it ever looks for a token", async () => {
   await withNonTieredBlobProvider(async () => {
@@ -58,4 +60,21 @@ test("blobFailure: a database fault is a 500 and does not leak the schema", asyn
   assert.doesNotMatch(body.error, /blob_objects/);
   assert.doesNotMatch(body.error, /row-level security/);
   assert.match(body.error, /42501/);
+});
+
+test("a missing deployment setting does not reach the response body (10-18)", async () => {
+  const err = await withEnv(
+    { ...BLOB_SERVER_ENV, NEXT_PUBLIC_SUPABASE_URL: undefined, NEXT_PUBLIC_SUPABASE_ANON_KEY: undefined },
+    () =>
+      blobRegistryForToken("tok", "uid-1").then(
+        () => null,
+        (e: unknown) => e,
+      ),
+  );
+  assert.ok(err instanceof Error);
+  const res = blobFailure(err);
+  assert.equal(res.status, 500);
+  const body = (await res.json()) as { error: string };
+  assert.doesNotMatch(body.error, /NEXT_PUBLIC|SUPABASE|postgres|anon/i);
+  assert.match(body.error, /not configured/i);
 });

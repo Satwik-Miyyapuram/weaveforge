@@ -3,10 +3,13 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useDismissOnOutside } from "@/lib/hooks/use-dismiss-on-outside";
+import { Button, IconButton } from "./button";
 import { ChevronIcon } from "./chevron-icon";
+import { ComboboxButton, Swatch } from "./controls";
 import { focusFirstControl, focusFirstField } from "./modal";
-
-const VIEWPORT_PAD = 12;
+import { VIEWPORT_PAD } from "./viewport-pad";
+/** What the trigger is drawn as; each maps to one button primitive. */
+type Trigger = "button" | "icon" | "swatch" | "select";
 
 /**
  * A button that opens an anchored panel (used for filters that we don't want
@@ -18,8 +21,9 @@ export function Popover({
   count,
   align = "left",
   ariaLabel,
-  iconOnly = false,
-  triggerClassName = "btn-secondary",
+  trigger = "button",
+  caret = true,
+  colour,
   portal = false,
   children,
 }: {
@@ -28,10 +32,19 @@ export function Popover({
   align?: "left" | "right";
   /** Accessible name when `label` is an icon. */
   ariaLabel?: string;
-  /** Compact icon trigger — hides the caret. */
-  iconOnly?: boolean;
-  /** Extra class on the trigger, for a trigger that is a swatch rather than a button. */
-  triggerClassName?: string;
+  /**
+   * What the trigger is drawn as: a secondary `button` with a caret, a square
+   * `icon` button, a colour `swatch` (painted with `colour`), or a `select`
+   * field. The icon and swatch take their name from `ariaLabel`.
+   */
+  trigger?: Trigger;
+  /**
+   * The `button` trigger's caret. Off for a button whose label is only an icon:
+   * it is named and tipped by `ariaLabel` instead.
+   */
+  caret?: boolean;
+  /** The swatch trigger's colour. */
+  colour?: string;
   /**
    * Render the panel into `<body>` instead of under the trigger.
    *
@@ -105,7 +118,9 @@ export function Popover({
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
     };
-  }, [open, align, portal, children]);
+    // `children` is left out on purpose: it is a new value on every parent
+    // render, and the ResizeObserver already re-places when the content resizes.
+  }, [open, align, portal]);
 
   // A portalled panel is outside `ref`, so it has to be named as "inside" too —
   // otherwise the mousedown that lands on an option closes the menu before the
@@ -117,32 +132,52 @@ export function Popover({
   useEffect(() => {
     if (!shown) return;
     const trigger = triggerRef.current;
-    // A click leaves focus on the panel so no row wears the keyboard ring; a key press enters the first row.
-    focusFirstField(panelRef.current, { buttons: !openedByPointer.current });
+    // A click leaves focus on the panel so no row wears the keyboard ring; a key
+    // press enters the row marked `data-autofocus` (the current choice), else the first.
+    const marked = openedByPointer.current ? null : panelRef.current?.querySelector<HTMLElement>("[data-autofocus]");
+    if (marked) marked.focus();
+    else focusFirstField(panelRef.current, { buttons: !openedByPointer.current });
     return () => trigger?.focus();
   }, [shown]);
 
+  // Shared by every trigger; the open state is `aria-expanded`.
+  const opens = {
+    ref: triggerRef,
+    "aria-haspopup": "dialog" as const,
+    "aria-controls": panelId,
+    onClick: (e: React.MouseEvent) => {
+      openedByPointer.current = e.detail > 0;
+      setOpen((v) => !v);
+    },
+  };
+  const badge = count ? <span className="popover-badge">{count}</span> : null;
+  // An icon or swatch has no words of its own; the primitive gives it a tooltip from `ariaLabel`.
+  const triggerButton =
+    trigger === "icon" ? (
+      <IconButton {...opens} aria-expanded={open} label={ariaLabel ?? ""}>
+        {label}
+        {badge}
+      </IconButton>
+    ) : trigger === "swatch" ? (
+      <Swatch {...opens} aria-expanded={open} label={ariaLabel ?? ""} colour={colour}>
+        {label}
+        {badge}
+      </Swatch>
+    ) : trigger === "select" ? (
+      <ComboboxButton {...opens} expanded={open} aria-label={ariaLabel}>
+        {label}
+        {badge}
+      </ComboboxButton>
+    ) : (
+      <Button {...opens} aria-expanded={open} aria-label={ariaLabel} title={caret ? undefined : ariaLabel}>
+        {label}
+        {badge}
+        {caret && <ChevronIcon open={open} className="popover-caret" />}
+      </Button>
+    );
   return (
     <div className="popover" ref={ref}>
-      <button
-        ref={triggerRef}
-        type="button"
-        className={`${triggerClassName} popover-trigger${open ? " on" : ""}${iconOnly ? " popover-trigger--icon" : ""}`}
-        aria-label={ariaLabel}
-        // An icon has no words of its own; the tooltip gives the pointer the name a screen reader gets.
-        title={iconOnly ? ariaLabel : undefined}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls={panelId}
-        onClick={(e) => {
-          openedByPointer.current = e.detail > 0;
-          setOpen((v) => !v);
-        }}
-      >
-        {label}
-        {count ? <span className="popover-badge">{count}</span> : null}
-        {!iconOnly && <ChevronIcon open={open} className="popover-caret" />}
-      </button>
+      {triggerButton}
       {open &&
         (() => {
           const panel = (

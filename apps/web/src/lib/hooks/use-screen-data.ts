@@ -3,12 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useProject } from "@/features/projects";
 import {
-  clearScreenCachesForScreens, getScreenCache, isScreenCacheFresh, screenCacheKey, setScreenCache, } from "@/lib/cache/screen-cache";
-import { idbGetScreenCache, idbSetScreenCache } from "@/lib/cache/screen-cache-idb";
+  clearScreenCachesForScreens, getScreenCache, isScreenCacheFresh, readPersistedScreen, screenCacheKey, setScreenCache, } from "@/lib/cache/screen-cache";
+import { idbSetScreenCache } from "@/lib/cache/screen-cache-idb";
+import { clearRepoCaches } from "@/lib/cache/project-lww-invalidator";
 import { perfNow, recordPerf, recordPerfSince } from "@/lib/perf";
-import { formatError } from "@/lib/format-error";
+import { formatError, isNetworkFailure } from "@/lib/format-error";
 import { logToApp } from "@/lib/error-report/app-log";
 import type { ScreenId } from "@/lib/screens";
+
+/** A PostgREST error body: the request log has it already. */
+function isPostgrestError(err: unknown): boolean {
+  return typeof err === "object" && err !== null && "code" in err && "details" in err && "hint" in err;
+}
 
 /**
  * Load screen data with stale-while-revalidate: show cached payload instantly on
@@ -66,7 +72,7 @@ export function useScreenData<T>(screen: ScreenId, load: () => Promise<T>) {
     let active = true;
     const startedAt = perfNow();
     const loadsAtStart = completedLoads.current;
-    void idbGetScreenCache<T>(cacheKey).then((cached) => {
+    void readPersistedScreen<T>(cacheKey).then((cached) => {
       recordPerfSince(`screen.${screen}.idb_ms`, startedAt);
       if (!active || cached == null) return;
       // A payload from a previous session is worth showing only while nothing
@@ -122,12 +128,15 @@ export function useScreenData<T>(screen: ScreenId, load: () => Promise<T>) {
       if (seq !== requestSeq.current) return;
       const message = formatError(err);
       // State alone is gone with the window; the log is what a report can read.
-      logToApp({
-        level: "error",
-        source: "screen",
-        message: `${screen} failed to load: ${message}`,
-        detail: err instanceof Error ? err.stack : undefined,
-      });
+      // Offline and PostgREST errors are logged by the request layer already.
+      if (!isNetworkFailure(err) && !isPostgrestError(err)) {
+        logToApp({
+          level: "error",
+          source: "screen",
+          message: `${screen} failed to load: ${message}`,
+          detail: err instanceof Error ? err.stack : undefined,
+        });
+      }
       setError(message);
     } finally {
       if (seq === requestSeq.current) setLoading(false);
@@ -143,9 +152,12 @@ export function useScreenData<T>(screen: ScreenId, load: () => Promise<T>) {
    * {@link SCREEN_REVALIDATE_AFTER_MS}, which is right for a tab switch and
    * wrong straight after this screen changed something itself: a write that
    * reaches the store by a path the write-watch does not see left the old
-   * payload "fresh", and the screen showed what had just been undone.
+   * payload "fresh", and the screen showed what had just been undone. The
+   * repository memo behind the loader is cleared too, or the reload would be
+   * answered from it.
    */
   const refresh = useCallback(async () => {
+    clearRepoCaches();
     clearScreenCachesForScreens(projectId, [screen]);
     await reload();
   }, [projectId, screen, reload]);

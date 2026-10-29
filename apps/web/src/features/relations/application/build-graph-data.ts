@@ -1,5 +1,4 @@
 import {
-  extractHashtags,
   extractWikilinks,
   normalizeTitleKey,
   type GraphExperimentEntry,
@@ -25,6 +24,7 @@ import {
   PAPER_COLOR,
 } from "../domain/graph-palette";
 import { recolourNodes } from "./node-colouring";
+import { noteTags } from "./graph-tags";
 import {
   effectiveRelationTypes,
   showConceptEdges,
@@ -82,10 +82,6 @@ export interface GraphBuildResult {
   neighbors: Map<string, Set<string>>;
   tagToPapers: Map<string, string[]>;
   tagToNotes: Map<string, string[]>;
-}
-
-function noteTags(note: Pick<VaultPage, "title" | "body">): string[] {
-  return extractHashtags(`${note.title}\n${note.body}`);
 }
 
 function paperColor(
@@ -267,11 +263,13 @@ export function buildGraphData(
       }
     }
     const tagList = [...visibleTags];
+    // One set per tag, built once, not once per pair.
+    const itemSets = new Map(tagList.map((t) => [t, new Set(itemsByTag.get(t) ?? [])]));
     for (let i = 0; i < tagList.length; i++) {
+      const a = tagList[i]!;
+      const setA = itemSets.get(a)!;
       for (let j = i + 1; j < tagList.length; j++) {
-        const a = tagList[i]!;
         const b = tagList[j]!;
-        const setA = new Set(itemsByTag.get(a) ?? []);
         const shared = (itemsByTag.get(b) ?? []).some((id) => setA.has(id));
         if (!shared) continue;
         links.push({

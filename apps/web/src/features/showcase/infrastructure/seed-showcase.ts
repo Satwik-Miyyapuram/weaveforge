@@ -31,7 +31,10 @@ import {
   SHOWCASE_RELATIONS,
   SHOWCASE_REPORT,
   SHOWCASE_SCREENING,
+  SHOWCASE_SUPERVISOR_COMMENTS,
   SHOWCASE_VAULT,
+  SHOWCASE_WIKI,
+  SHOWCASE_WIKI_ROOT,
   superviseeShowcase,
   type ShowcaseLogEntry,
   type ShowcaseMilestone,
@@ -40,6 +43,7 @@ import {
 /** Bucket paths match what the app writes, so the readers need no special case. */
 export const PAPER_IMAGE_BUCKET = "paper-images";
 export const EXPERIMENT_ARTIFACT_BUCKET = "experiment-artifacts";
+export const VAULT_ASSET_BUCKET = "vault-assets";
 const PAPER_IMAGE_PREFIX = "paperimg:";
 
 export interface ShowcaseBlobStore {
@@ -62,6 +66,12 @@ export interface SeedShowcaseResult {
   projectId: string;
   paperIds: Record<string, string>;
   counts: Record<string, number>;
+  /** Milestone title → id. */
+  milestoneIds: Record<string, string>;
+  /** Log entry `daysAgo` → id. */
+  logIds: Record<number, string>;
+  /** Reading list name → id. */
+  listIds: Record<string, string>;
 }
 
 type Db = SeedShowcaseOptions["db"];
@@ -89,12 +99,20 @@ function toBlob(png: Uint8Array | Blob): Blob {
   return png instanceof Blob ? png : new Blob([png as BlobPart], { type: "image/png" });
 }
 
-/** Drops any earlier copy of the project. Everything else cascades from projects. */
+/**
+ * Drops any earlier showcase copy of the project. Everything else cascades from
+ * projects. Only rows marked `is_showcase` go (migration 0146), so a user's own
+ * project with the same name is left alone.
+ */
 export async function resetShowcaseProject(db: Db, userId: string, name: string): Promise<string> {
-  const del = await db.from("projects").delete().eq("user_id", userId).eq("name", name);
+  const del = await db.from("projects").delete().eq("user_id", userId).eq("name", name).eq("is_showcase", true);
   if (del.error) throw new Error(`delete project: ${del.error.message}`);
   const row = must(
-    await db.from("projects").insert({ user_id: userId, name, color: SHOWCASE_PROJECT_COLOR }).select("id").single(),
+    await db
+      .from("projects")
+      .insert({ user_id: userId, name, color: SHOWCASE_PROJECT_COLOR, is_showcase: true })
+      .select("id")
+      .single(),
     "insert project",
   ) as { id: string };
   return row.id;
@@ -107,7 +125,7 @@ async function seedMilestonesAndLog(db: Db, userId: string, projectId: string, n
     "milestones",
     milestones.map((m) => {
       const id = milestoneIds.get(m.title)!;
-      const dependencies = (m.dependencies ?? []).map((d: any) => {
+      const dependencies = (m.dependencies ?? []).map((d) => {
         if (d.kind === "milestone" && !d.refId && d.label && milestoneIds.has(d.label)) {
           return { ...d, refId: milestoneIds.get(d.label) };
         }
@@ -127,10 +145,12 @@ async function seedMilestonesAndLog(db: Db, userId: string, projectId: string, n
     }),
     "id, title",
   );
+  const logIds: Record<number, string> = Object.fromEntries(log.map((e) => [e.daysAgo, crypto.randomUUID()]));
   await insertRows(
     db,
     "log_entries",
     log.map((e) => ({
+      id: logIds[e.daysAgo],
       user_id: userId,
       project_id: projectId,
       entry_date: dateDaysAgo(now, e.daysAgo),
@@ -139,7 +159,37 @@ async function seedMilestonesAndLog(db: Db, userId: string, projectId: string, n
       links: [],
     })),
   );
-  return ms;
+  return { milestones: ms, logIds };
+}
+
+/** What every section of the seed writes with, and the counts it reports. */
+interface SeedContext {
+  db: Db;
+  userId: string;
+  projectId: string;
+  now: Date;
+  store: ShowcaseBlobStore;
+  chart: SeedShowcaseOptions["chart"];
+  counts: Record<string, number>;
+}
+
+type PaperId = (title: string) => string;
+
+/** The fields every project-scoped row carries. */
+function owned(ctx: SeedContext) {
+  return { user_id: ctx.userId, project_id: ctx.projectId };
+}
+
+/** Key of a list item in the item index: one list, one paper. */
+function itemKey(list: string, paper: string): string {
+  return `${list}\u0000${paper}`;
+}
+
+/** The item for a list and paper, or an error naming both. */
+export function requireItem(itemIds: ReadonlyMap<string, string>, list: string, paper: string): string {
+  const id = itemIds.get(itemKey(list, paper));
+  if (!id) throw new Error(`showcase: missing item ${list}/${paper}`);
+  return id;
 }
 
 export async function seedShowcase(opts: SeedShowcaseOptions): Promise<SeedShowcaseResult> {
@@ -147,18 +197,53 @@ export async function seedShowcase(opts: SeedShowcaseOptions): Promise<SeedShowc
   const now = opts.now ?? new Date();
   const log = opts.log ?? (() => {});
   const projectName = opts.projectName ?? SHOWCASE_PROJECT_NAME;
-  const counts: Record<string, number> = {};
 
   const projectId = await resetShowcaseProject(db, userId, projectName);
   log(`project ${projectName} → ${projectId}`);
+  const ctx: SeedContext = { db, userId, projectId, now, store, chart, counts: {} };
 
   // Papers first: nearly everything else hangs off their ids.
+  const paperIds = await seedPapers(ctx);
+  const pid: PaperId = (title) => {
+    const id = paperIds[title];
+    if (!id) throw new Error(`showcase: unknown paper "${title}"`);
+    return id;
+  };
+  await seedFigures(ctx, pid);
+  await seedRelations(ctx, pid);
+  const lists = await seedReadingLists(ctx, pid);
+  await seedScreening(ctx, lists.itemIds);
+
+  const { milestones, logIds } = await seedMilestonesAndLog(db, userId, projectId, now, SHOWCASE_MILESTONES, SHOWCASE_LOG);
+  const milestoneIds = Object.fromEntries(milestones.map((m) => [m.title, m.id]));
+  ctx.counts.milestones = milestones.length;
+  ctx.counts.logEntries = SHOWCASE_LOG.length;
+
+  const experimentIds = await seedExperiments(ctx, pid);
+  const sectionIds = await seedReport(ctx);
+  await seedAnnotationLinks(ctx, pid, sectionIds);
+  await seedVault(ctx);
+  await seedFields(ctx, pid);
+  await seedCitationTracks(ctx, pid);
+  await seedPins(ctx, {
+    milestone: milestoneIds,
+    experiment: experimentIds,
+    report_section: sectionIds,
+    reading_list: lists.listIds,
+    paper: paperIds,
+  });
+
+  const { counts } = ctx;
+  log(`seeded ${Object.entries(counts).map(([k, v]) => `${k}=${v}`).join(" ")}`);
+  return { projectId, paperIds, counts, milestoneIds, logIds, listIds: lists.listIds };
+}
+
+async function seedPapers(ctx: SeedContext): Promise<Record<string, string>> {
   const paperRows = await insertRows<{ id: string; title: string }>(
-    db,
+    ctx.db,
     "papers",
     SHOWCASE_PAPERS.map((p) => ({
-      user_id: userId,
-      project_id: projectId,
+      ...owned(ctx),
       title: p.title,
       authors: p.authors,
       year: p.year,
@@ -171,7 +256,7 @@ export async function seedShowcase(opts: SeedShowcaseOptions): Promise<SeedShowc
       status: p.status,
       tags: p.tags,
       rating: p.rating ?? null,
-      read_at: p.readDaysAgo == null ? null : dateDaysAgo(now, p.readDaysAgo),
+      read_at: p.readDaysAgo == null ? null : dateDaysAgo(ctx.now, p.readDaysAgo),
       bibtex: p.bibtex ?? null,
       metadata: SHOWCASE_ANNOTATIONS[p.title] ? { annotations: SHOWCASE_ANNOTATIONS[p.title] } : {},
     })),
@@ -179,42 +264,41 @@ export async function seedShowcase(opts: SeedShowcaseOptions): Promise<SeedShowc
   );
   const paperIds: Record<string, string> = {};
   for (const r of paperRows) paperIds[r.title] = r.id;
-  counts.papers = paperRows.length;
-  const pid = (title: string) => {
-    const id = paperIds[title];
-    if (!id) throw new Error(`showcase: unknown paper "${title}"`);
-    return id;
-  };
+  ctx.counts.papers = paperRows.length;
+  return paperIds;
+}
 
-  // Figures: upload each chart and append a `paperimg:` block to the notes.
+/** Upload each chart and append a `paperimg:` block to the paper's notes. */
+async function seedFigures(ctx: SeedContext, pid: PaperId): Promise<void> {
   let figures = 0;
   for (const [title, list] of Object.entries(SHOWCASE_PAPER_FIGURES)) {
     const paperId = pid(title);
     const blocks: string[] = [];
     for (const [kind, alt] of list) {
-      const png = await chart(kind);
+      const png = await ctx.chart(kind);
       if (!png) continue;
-      const path = `${userId}/${paperId}/${kind}.png`;
-      await store.upload(PAPER_IMAGE_BUCKET, path, toBlob(png), "image/png");
+      const path = `${ctx.userId}/${paperId}/${kind}.png`;
+      await ctx.store.upload(PAPER_IMAGE_BUCKET, path, toBlob(png), "image/png");
       blocks.push(`![${alt}](${PAPER_IMAGE_PREFIX}${path})`);
       figures += 1;
     }
     if (blocks.length === 0) continue;
     const paper = SHOWCASE_PAPERS.find((p) => p.title === title)!;
-    const upd = await db
+    const upd = await ctx.db
       .from("papers")
       .update({ summary: `${paper.summary}\n\n${blocks.join("\n\n")}` })
       .eq("id", paperId);
     if (upd.error) throw new Error(`update paper figures: ${upd.error.message}`);
   }
-  counts.figures = figures;
+  ctx.counts.figures = figures;
+}
 
+async function seedRelations(ctx: SeedContext, pid: PaperId): Promise<void> {
   await insertRows(
-    db,
+    ctx.db,
     "paper_relations",
     SHOWCASE_RELATIONS.map(([from, to, relation, note]) => ({
-      user_id: userId,
-      project_id: projectId,
+      ...owned(ctx),
       from_paper: pid(from),
       to_paper: pid(to),
       relation,
@@ -222,20 +306,24 @@ export async function seedShowcase(opts: SeedShowcaseOptions): Promise<SeedShowc
       note: note ?? null,
     })),
   );
-  counts.relations = SHOWCASE_RELATIONS.length;
+  ctx.counts.relations = SHOWCASE_RELATIONS.length;
+}
 
-  // Reading lists: parents before children, then items, then screening.
+/** Reading lists, parents before children, each with its items. */
+async function seedReadingLists(
+  ctx: SeedContext,
+  pid: PaperId,
+): Promise<{ listIds: Record<string, string>; itemIds: Map<string, string> }> {
   const listIds: Record<string, string> = {};
-  const itemIds: Record<string, string> = {}; // `${list}\u0000${paper}` → item id
+  const itemIds = new Map<string, string>();
   let items = 0;
   for (const pass of [SHOWCASE_READING_LISTS.filter((l) => !l.parent), SHOWCASE_READING_LISTS.filter((l) => l.parent)]) {
     for (const [i, l] of pass.entries()) {
       const row = must(
-        await db
+        await ctx.db
           .from("reading_lists")
           .insert({
-            user_id: userId,
-            project_id: projectId,
+            ...owned(ctx),
             name: l.name,
             description: l.description ?? null,
             color: l.color,
@@ -247,8 +335,10 @@ export async function seedShowcase(opts: SeedShowcaseOptions): Promise<SeedShowc
         `insert reading list ${l.name}`,
       ) as { id: string };
       listIds[l.name] = row.id;
+      // Rows come back by paper id; name each by the title it was inserted for.
+      const titleById = new Map(l.papers.map((title) => [pid(title), title]));
       const inserted = await insertRows<{ id: string; paper_id: string }>(
-        db,
+        ctx.db,
         "reading_list_items",
         l.papers.map((title, j) => ({
           list_id: row.id,
@@ -259,33 +349,35 @@ export async function seedShowcase(opts: SeedShowcaseOptions): Promise<SeedShowc
         "id, paper_id",
       );
       for (const it of inserted) {
-        const title = Object.keys(paperIds).find((t) => paperIds[t] === it.paper_id)!;
-        itemIds[`${l.name}\u0000${title}`] = it.id;
+        const title = titleById.get(it.paper_id);
+        if (title) itemIds.set(itemKey(l.name, title), it.id);
       }
       items += inserted.length;
     }
   }
-  counts.readingLists = SHOWCASE_READING_LISTS.length;
-  counts.readingListItems = items;
+  ctx.counts.readingLists = SHOWCASE_READING_LISTS.length;
+  ctx.counts.readingListItems = items;
+  return { listIds, itemIds };
+}
 
+async function seedScreening(ctx: SeedContext, itemIds: ReadonlyMap<string, string>): Promise<void> {
   await insertRows(
-    db,
+    ctx.db,
     "screening_decisions",
     SHOWCASE_SCREENING.map((d) => ({
-      item_id: itemIds[`${d.list}\u0000${d.paper}`],
-      reviewer_id: userId,
+      item_id: requireItem(itemIds, d.list, d.paper),
+      reviewer_id: ctx.userId,
       stage: d.stage,
       state: d.state,
       reason: d.reason ?? null,
     })),
   );
-  counts.screeningDecisions = SHOWCASE_SCREENING.length;
+  ctx.counts.screeningDecisions = SHOWCASE_SCREENING.length;
+}
 
-  const milestones = await seedMilestonesAndLog(db, userId, projectId, now, SHOWCASE_MILESTONES, SHOWCASE_LOG);
-  counts.milestones = milestones.length;
-  counts.logEntries = SHOWCASE_LOG.length;
-
-  // Experiments, then artifacts and metric curves per experiment.
+/** Experiments, then each one's artifacts and metric curves. */
+async function seedExperiments(ctx: SeedContext, pid: PaperId): Promise<Record<string, string>> {
+  const { db, userId, now } = ctx;
   const experimentIds: Record<string, string> = {};
   let artifacts = 0;
   let metricPoints = 0;
@@ -294,8 +386,7 @@ export async function seedShowcase(opts: SeedShowcaseOptions): Promise<SeedShowc
       await db
         .from("experiments")
         .insert({
-          user_id: userId,
-          project_id: projectId,
+          ...owned(ctx),
           name: e.name,
           hypothesis: e.hypothesis ?? null,
           status: e.status,
@@ -319,10 +410,10 @@ export async function seedShowcase(opts: SeedShowcaseOptions): Promise<SeedShowc
 
     const paths: string[] = [];
     for (const [kind, file] of e.artifacts ?? []) {
-      const png = await chart(kind);
+      const png = await ctx.chart(kind);
       if (!png) continue;
       const path = `${userId}/${row.id}/${file}`;
-      await store.upload(EXPERIMENT_ARTIFACT_BUCKET, path, toBlob(png), "image/png");
+      await ctx.store.upload(EXPERIMENT_ARTIFACT_BUCKET, path, toBlob(png), "image/png");
       paths.push(path);
     }
     if (paths.length > 0) {
@@ -351,19 +442,21 @@ export async function seedShowcase(opts: SeedShowcaseOptions): Promise<SeedShowc
       metricPoints += points.length;
     }
   }
-  counts.experiments = SHOWCASE_EXPERIMENTS.length;
-  counts.artifacts = artifacts;
-  counts.metricPoints = metricPoints;
+  ctx.counts.experiments = SHOWCASE_EXPERIMENTS.length;
+  ctx.counts.artifacts = artifacts;
+  ctx.counts.metricPoints = metricPoints;
+  return experimentIds;
+}
 
-  // Report outline: parents before children, in the order listed.
+/** Report outline: parents before children, in the order listed. */
+async function seedReport(ctx: SeedContext): Promise<Record<string, string>> {
   const sectionIds: Record<string, string> = {};
   for (const [i, s] of SHOWCASE_REPORT.entries()) {
     const row = must(
-      await db
+      await ctx.db
         .from("report_sections")
         .insert({
-          user_id: userId,
-          project_id: projectId,
+          ...owned(ctx),
           section_no: s.section_no,
           title: s.title,
           parent_id: s.parent ? sectionIds[s.parent] : null,
@@ -380,105 +473,128 @@ export async function seedShowcase(opts: SeedShowcaseOptions): Promise<SeedShowc
     ) as { id: string };
     sectionIds[s.section_no] = row.id;
   }
-  counts.reportSections = SHOWCASE_REPORT.length;
+  ctx.counts.reportSections = SHOWCASE_REPORT.length;
+  return sectionIds;
+}
 
+/** Annotations pinned to report sections, and their quotation types. */
+async function seedAnnotationLinks(ctx: SeedContext, pid: PaperId, sectionIds: Record<string, string>): Promise<void> {
   await insertRows(
-    db,
+    ctx.db,
     "annotation_pins",
     SHOWCASE_ANNOTATION_PINS.map(([title, key, sectionNo]) => ({
-      user_id: userId,
-      project_id: projectId,
+      ...owned(ctx),
       paper_id: pid(title),
       annotation_key: key,
       report_section_id: sectionIds[sectionNo],
     })),
   );
   await insertRows(
-    db,
+    ctx.db,
     "annotation_quotation_types",
     SHOWCASE_QUOTATION_TYPES.map(([title, key, quotation_type]) => ({
-      user_id: userId,
-      project_id: projectId,
+      ...owned(ctx),
       paper_id: pid(title),
       annotation_key: key,
       quotation_type,
     })),
   );
-  counts.annotationPins = SHOWCASE_ANNOTATION_PINS.length;
+  ctx.counts.annotationPins = SHOWCASE_ANNOTATION_PINS.length;
+}
 
+async function seedVault(ctx: SeedContext): Promise<void> {
   await insertRows(
-    db,
+    ctx.db,
     "vault_pages",
-    SHOWCASE_VAULT.map((v, i) => ({ user_id: userId, project_id: projectId, title: v.title, body: v.body, sort_order: i })),
+    SHOWCASE_VAULT.map((v, i) => ({ ...owned(ctx), title: v.title, body: v.body, sort_order: i })),
   );
-  counts.vaultPages = SHOWCASE_VAULT.length;
+  ctx.counts.vaultPages = SHOWCASE_VAULT.length;
+  await seedWiki(ctx);
+}
 
-  // Custom paper fields and their values.
+/** A "Wiki" root with concept pages under it; one embeds a figure, uploaded where the editor puts pasted images. */
+async function seedWiki(ctx: SeedContext): Promise<void> {
+  const order = SHOWCASE_VAULT.length;
+  const [root] = await insertRows(ctx.db, "vault_pages", [
+    { ...owned(ctx), title: SHOWCASE_WIKI_ROOT.title, body: SHOWCASE_WIKI_ROOT.body, sort_order: order },
+  ]);
+  const rows = await insertRows(
+    ctx.db,
+    "vault_pages",
+    SHOWCASE_WIKI.map((w, i) => ({
+      ...owned(ctx),
+      title: w.title,
+      // Without the figure until it is uploaded, so a skipped chart leaves no broken embed.
+      body: w.body.replace("\n\n{{figure}}", ""),
+      parent_id: root!.id,
+      sort_order: i,
+    })),
+  );
+  for (const [i, w] of SHOWCASE_WIKI.entries()) {
+    if (!w.figure) continue;
+    const png = await ctx.chart(w.figure.kind);
+    if (!png) continue;
+    const pageId = rows[i]!.id;
+    const path = `${ctx.userId}/${pageId}/${w.figure.file}`;
+    await ctx.store.upload(VAULT_ASSET_BUCKET, path, toBlob(png), "image/png");
+    const body = w.body.replace("{{figure}}", `![${w.figure.alt}](vault:${path})`);
+    const upd = await ctx.db.from("vault_pages").update({ body }).eq("id", pageId);
+    if (upd.error) throw new Error(`update wiki figure: ${upd.error.message}`);
+  }
+  ctx.counts.wikiPages = SHOWCASE_WIKI.length;
+}
+
+/** Custom paper fields and their values. */
+async function seedFields(ctx: SeedContext, pid: PaperId): Promise<void> {
   let fieldValues = 0;
   for (const [i, f] of SHOWCASE_FIELDS.entries()) {
     const def = must(
-      await db
+      await ctx.db
         .from("paper_field_defs")
-        .insert({ user_id: userId, project_id: projectId, name: f.name, kind: f.kind, options: f.options ?? [], sort_order: i })
+        .insert({ ...owned(ctx), name: f.name, kind: f.kind, options: f.options ?? [], sort_order: i })
         .select("id")
         .single(),
       `insert field ${f.name}`,
     ) as { id: string };
     const rows = Object.entries(f.values).map(([title, value]) => ({
-      user_id: userId,
-      project_id: projectId,
+      ...owned(ctx),
       paper_id: pid(title),
       field_id: def.id,
       value,
     }));
-    await insertRows(db, "paper_field_values", rows);
+    await insertRows(ctx.db, "paper_field_values", rows);
     fieldValues += rows.length;
   }
-  counts.fieldDefs = SHOWCASE_FIELDS.length;
-  counts.fieldValues = fieldValues;
+  ctx.counts.fieldDefs = SHOWCASE_FIELDS.length;
+  ctx.counts.fieldValues = fieldValues;
+}
 
+async function seedCitationTracks(ctx: SeedContext, pid: PaperId): Promise<void> {
   await insertRows(
-    db,
+    ctx.db,
     "citation_alert_tracks",
     SHOWCASE_CITATION_TRACKS.map((title, i) => ({
-      user_id: userId,
-      project_id: projectId,
+      ...owned(ctx),
       paper_id: pid(title),
-      tracked_at: isoDaysAgo(now, 20 - i),
-      last_checked_at: isoDaysAgo(now, 1),
+      tracked_at: isoDaysAgo(ctx.now, 20 - i),
+      last_checked_at: isoDaysAgo(ctx.now, 1),
       seen_citing_ids: [],
     })),
   );
-  counts.citationTracks = SHOWCASE_CITATION_TRACKS.length;
+  ctx.counts.citationTracks = SHOWCASE_CITATION_TRACKS.length;
+}
 
-  const pinId = (type: string, name: string): string | undefined => {
-    switch (type) {
-      case "milestone":
-        return milestones.find((m) => m.title === name)?.id;
-      case "experiment":
-        return experimentIds[name];
-      case "report_section":
-        return sectionIds[name];
-      case "reading_list":
-        return listIds[name];
-      case "paper":
-        return paperIds[name];
-      default:
-        return undefined;
-    }
-  };
+/** Library pins, each resolved by type to an id seeded above; unknown names are skipped. */
+async function seedPins(ctx: SeedContext, idsByType: Record<string, Record<string, string>>): Promise<void> {
   await insertRows(
-    db,
+    ctx.db,
     "library_pins",
     SHOWCASE_PINS.flatMap((p) => {
-      const id = pinId(p.type, p.name);
-      return id ? [{ user_id: userId, owner_id: userId, project_id: projectId, resource_type: p.type, resource_id: id }] : [];
+      const id = idsByType[p.type]?.[p.name];
+      return id ? [{ ...owned(ctx), owner_id: ctx.userId, resource_type: p.type, resource_id: id }] : [];
     }),
   );
-  counts.libraryPins = SHOWCASE_PINS.length;
-
-  log(`seeded ${Object.entries(counts).map(([k, v]) => `${k}=${v}`).join(" ")}`);
-  return { projectId, paperIds, counts };
+  ctx.counts.libraryPins = SHOWCASE_PINS.length;
 }
 
 /** The lighter workspace a supervisee account gets: milestones and a logbook only. */
@@ -490,4 +606,92 @@ export async function seedSuperviseeShowcase(opts: Omit<SeedShowcaseOptions, "st
   await seedMilestonesAndLog(opts.db, opts.userId, projectId, now, data.milestones, data.log);
   opts.log?.(`supervisee ${opts.label}: project ${projectId}`);
   return projectId;
+}
+
+export interface SeedCollabOptions {
+  db: Db;
+  now?: Date;
+  researcherId: string;
+  supervisorId: string;
+  /** A fellow student who shares their plan with the researcher and gets a reading list back. */
+  peerId: string;
+  /** The researcher's ids, from `seedShowcase`. */
+  seeded: Pick<SeedShowcaseResult, "milestoneIds" | "logIds" | "listIds">;
+  log?: (line: string) => void;
+}
+
+const HOUR = 3_600_000;
+
+/**
+ * Supervision and sharing on top of the researcher's workspace: the
+ * supervisor's comment threads with the student's replies, and the shares
+ * between researcher, supervisor and peer.
+ *
+ * Comments have no foreign key to their resource, so threads from an earlier
+ * run stay on the old (deleted) rows and never show. Shares are unique per
+ * owner, recipient, type and resource, so each one is deleted before it is
+ * inserted again.
+ */
+export async function seedCollabShowcase(opts: SeedCollabOptions): Promise<void> {
+  const { db, researcherId, supervisorId, peerId, seeded } = opts;
+  const now = opts.now ?? new Date();
+  const threads = SHOWCASE_SUPERVISOR_COMMENTS;
+
+  const resourceId = (t: (typeof threads)[number]): string => {
+    const id = t.resource === "milestone" ? seeded.milestoneIds[String(t.target)] : seeded.logIds[Number(t.target)];
+    if (!id) throw new Error(`showcase: comment target ${t.resource} "${t.target}" was not seeded`);
+    return id;
+  };
+  // Oldest thread first, six hours apart; replies two hours after the comment before them.
+  const at = (i: number, step: number) => new Date(now.getTime() - (threads.length - i) * 6 * HOUR + step * 2 * HOUR).toISOString();
+
+  const roots = threads.map((t, i) => ({
+    id: crypto.randomUUID(),
+    author_id: supervisorId,
+    resource_type: t.resource,
+    resource_id: resourceId(t),
+    body: t.body,
+    created_at: at(i, 0),
+  }));
+  // Roots first: the insert trigger (0133) checks a reply's parent exists.
+  await insertRows(db, "comments", roots);
+  await insertRows(
+    db,
+    "comments",
+    threads.flatMap((t, i) =>
+      t.replies.map((body, j) => ({
+        author_id: researcherId,
+        resource_type: t.resource,
+        resource_id: roots[i]!.resource_id,
+        parent_id: roots[i]!.id,
+        body,
+        created_at: at(i, j + 1),
+      })),
+    ),
+  );
+  // The trigger clears resolved_at on insert, so closing is a separate update.
+  for (const [i, t] of threads.entries()) {
+    if (!t.resolved) continue;
+    const res = await db.from("comments").update({ resolved_at: at(i, t.replies.length + 1) }).eq("id", roots[i]!.id);
+    if (res.error) throw new Error(`resolve comment: ${res.error.message}`);
+  }
+
+  const firstList = Object.values(seeded.listIds)[0];
+  if (!firstList) throw new Error("showcase: no reading list to share");
+  const shares = [
+    { owner_id: researcherId, recipient_id: supervisorId, resource_type: "milestone", resource_id: null, access: "comment" },
+    { owner_id: peerId, recipient_id: researcherId, resource_type: "milestone", resource_id: null, access: "comment" },
+    { owner_id: researcherId, recipient_id: peerId, resource_type: "reading_list", resource_id: firstList, access: "view" },
+  ];
+  for (const s of shares) {
+    const del = await db
+      .from("shares")
+      .delete()
+      .eq("owner_id", s.owner_id)
+      .eq("recipient_id", s.recipient_id)
+      .eq("resource_type", s.resource_type);
+    if (del.error) throw new Error(`delete share: ${del.error.message}`);
+    await insertRows(db, "shares", [s]);
+  }
+  opts.log?.(`collab: ${roots.length} comment threads, ${shares.length} shares`);
 }

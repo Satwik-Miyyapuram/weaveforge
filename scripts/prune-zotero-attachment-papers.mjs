@@ -17,34 +17,16 @@
  *   node scripts/prune-zotero-attachment-papers.mjs --apply   # delete them
  *
  * Dry by default. A row is only ever a candidate when it has an
- * attachment-shaped title *and* carries no work of its own — no reader
- * annotations, no reading-list membership, no tags, no relations, no Zotero
- * annotations in its metadata. Anything a person has touched is reported and
- * left alone, whatever its title.
+ * attachment-shaped title *and* carries no work of its own: no row in any
+ * table with a foreign key to papers points at it, and its metadata holds no
+ * Zotero annotations. Anything a person has touched is reported and left
+ * alone, whatever its title. See `lib/zotero-attachment-prune.mjs`.
  */
 
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import pg from "pg";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(here, "..");
-
-function loadDatabaseUrl() {
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
-  const text = readFileSync(path.join(repoRoot, "secrets", ".env.migration"), "utf8");
-  const match = /^DATABASE_URL=(.*)$/m.exec(text);
-  if (!match) throw new Error("DATABASE_URL not found in secrets/.env.migration");
-  return match[1].trim().replace(/^["']|["']$/g, "");
-}
-
-/**
- * Titles Zotero gives its own attachments. Anchored, so a real paper whose
- * title merely contains "snapshot" is never matched.
- */
-const ATTACHMENT_TITLE =
-  "^(preprint pdf|full text pdf|submitted version|accepted version|snapshot|pdf|epub|full text)$";
+import { loadDatabaseUrl } from "./lib/db-connection.mjs";
+import { findAttachmentPapers } from "./lib/zotero-attachment-prune.mjs";
 
 const apply = process.argv.includes("--apply");
 
@@ -52,38 +34,19 @@ async function main() {
   const client = new pg.Client({ connectionString: loadDatabaseUrl() });
   await client.connect();
   try {
-    const { rows } = await client.query(
-      `select p.id, p.title, p.arxiv_id, p.doi,
-              (select count(*) from reader_annotations a where a.paper_id = p.id)  as annotations,
-              (select count(*) from reading_list_items i where i.paper_id = p.id)  as list_items,
-              (select count(*) from paper_tags t where t.paper_id = p.id)          as tags,
-              (select count(*) from paper_relations r
-                where r.from_paper = p.id or r.to_paper = p.id)                    as relations,
-              (p.metadata ? 'annotations')                                         as zotero_annotations
-         from papers p
-        where p.title ~* $1
-        order by p.title`,
-      [ATTACHMENT_TITLE],
+    const { removable, touched } = await findAttachmentPapers((sql, params) =>
+      client.query(sql, params),
     );
+    const found = removable.length + touched.length;
 
-    if (rows.length === 0) {
+    if (found === 0) {
       console.log("No attachment-shaped papers found — nothing to do.");
       return;
     }
 
-    const touched = rows.filter(
-      (r) =>
-        Number(r.annotations) > 0 ||
-        Number(r.list_items) > 0 ||
-        Number(r.tags) > 0 ||
-        Number(r.relations) > 0 ||
-        r.zotero_annotations,
-    );
-    const removable = rows.filter((r) => !touched.includes(r));
-
     const { rows: totalRows } = await client.query(`select count(*)::int n from papers`);
     console.log(
-      `${rows.length} attachment-shaped titles out of ${totalRows[0].n} papers\n`,
+      `${found} attachment-shaped titles out of ${totalRows[0].n} papers\n`,
     );
 
     for (const r of removable) {
@@ -93,16 +56,7 @@ async function main() {
     if (touched.length > 0) {
       console.log(`\n${touched.length} kept — these carry work despite the title:`);
       for (const r of touched) {
-        const why = [
-          Number(r.annotations) > 0 ? `${r.annotations} annotations` : null,
-          Number(r.list_items) > 0 ? `${r.list_items} list items` : null,
-          Number(r.tags) > 0 ? `${r.tags} tags` : null,
-          Number(r.relations) > 0 ? `${r.relations} relations` : null,
-          r.zotero_annotations ? "zotero annotations" : null,
-        ]
-          .filter(Boolean)
-          .join(", ");
-        console.log(`  ${String(r.title).padEnd(18)} ${why}`);
+        console.log(`  ${String(r.title).padEnd(18)} ${r.why}`);
       }
     }
 

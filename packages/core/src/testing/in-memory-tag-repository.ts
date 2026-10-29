@@ -20,10 +20,11 @@ export class InMemoryTagRepository implements ITagRepository {
   }
 
   async listWithCounts(): Promise<TagWithPaperCount[]> {
-    const tags = await this.list();
+    // Counting without the links would report every tag as unused.
     if (!this.paperTags) {
-      return tags.map((t) => ({ ...t, paperCount: 0 }));
+      throw new Error("InMemoryTagRepository needs paperTags to count papers");
     }
+    const tags = await this.list();
     const links = await this.paperTags.listAll();
     const counts = new Map<string, Set<string>>();
     for (const l of links) {

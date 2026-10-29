@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   EXPERIMENT_STATUSES, isStaleRunningExperiment, shortSha, type Experiment, type ExperimentStatus } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
+import { readStored, writeStored } from "@/lib/safe-storage";
 import { BackButton } from "@/components/back-button";
 import { ScreenLoader } from "@/components/weaveforge-loader";
 import { NoteComments, ShareButton } from "@/features/sharing";
@@ -26,6 +27,7 @@ import { Artifacts, MetricCurves, usePaperTitle } from "./experiment-panels";
 import { StatusSelect } from "@/components/status-select";
 import { FormError } from "@/components/form-error";
 import { ChevronIcon } from "@/components/chevron-icon";
+import { Button, IconButton, IconLink } from "@/components/button";
 
 
 export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
@@ -38,18 +40,12 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   // and replaces the whole screen. A failed upload must not do that.
   const [attachError, setAttachError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [asideOpen, setAsideOpen] = useState(() => {
-    try {
-      return sessionStorage.getItem("record-aside:shut") !== "1";
-    } catch {
-      return true;
-    }
-  });
+  const [asideOpen, setAsideOpen] = useState(
+    () => readStored("record-aside:shut", "session") !== "1",
+  );
   const toggleAside = () =>
     setAsideOpen((open) => {
-      try {
-        sessionStorage.setItem("record-aside:shut", open ? "1" : "0");
-      } catch {}
+      writeStored("record-aside:shut", open ? "1" : "0", "session");
       return !open;
     });
   const resultRef = useRef<HTMLParagraphElement>(null);
@@ -91,6 +87,14 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
 
   const [resultDraft, setResultDraft] = useState<string | null>(null);
   const [resultError, setResultError] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [cmdCopied, setCmdCopied] = useState(false);
+  async function copyRunCommand() {
+    if (!exp?.runCommand) return;
+    await navigator.clipboard.writeText(exp.runCommand);
+    setCmdCopied(true);
+    setTimeout(() => setCmdCopied(false), 2000);
+  }
   async function saveResult() {
     if (!exp || resultDraft === null) return;
     try {
@@ -104,7 +108,12 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
 
   async function setStatus(status: ExperimentStatus) {
     if (!exp) return;
-    setExp(await getContainer().experiments.manageExperiment.setStatus(exp.id, status));
+    try {
+      setExp(await getContainer().experiments.manageExperiment.setStatus(exp.id, status));
+      setStatusError(null);
+    } catch (err) {
+      setStatusError(formatError(err));
+    }
   }
 
   // Back where the reader came from, or to the list when the page was opened
@@ -145,7 +154,7 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
   const activity = [
     exp.finishedAt ? { at: recordDate(exp.finishedAt), what: `Marked ${exp.status}` } : null,
     exp.startedAt ? { at: recordDate(exp.startedAt), what: "Run started" } : null,
-    { at: recordDate(exp.createdAt), what: "Logged" },
+    { at: recordDate(exp.createdAt), what: "Created" },
   ].filter((e): e is { at: string; what: string } => e !== null && e.at !== "");
 
   return (
@@ -165,16 +174,17 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
           )}
           <div className="record-actions">
             <ShareButton resourceType="experiment" resourceId={exp.id} title={`Share: ${exp.name}`} showLabel />
-            <a href="#record-comments" className="btn-ghost wf-tool" aria-label="Comment" title="Comment">
+            <IconLink label="Comment" href="#record-comments">
               <CommentsIcon />
-            </a>
+            </IconLink>
           </div>
         </nav>
+        {statusError && <FormError>{statusError}</FormError>}
 
         <header className="record-head">
           <h1 className="record-title">{exp.name}</h1>
           {exp.hypothesis && <p className="record-by record-hypothesis">{exp.hypothesis}</p>}
-          {meta && <p className="record-mono record-meta">{meta}</p>}
+          {meta && !asideOpen && <p className="record-mono record-meta">{meta}</p>}
         </header>
 
         <div className={`record-grid${asideOpen ? "" : " record-grid--aside-shut"}`}>
@@ -205,9 +215,9 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
               label="Result"
               tag={
                 resultDraft === null ? (
-                  <button type="button" className="record-action" onClick={() => setResultDraft(exp.resultNote ?? "")}>
+                  <Button variant="ghost" size="sm" onClick={() => setResultDraft(exp.resultNote ?? "")}>
                     {exp.resultNote ? "Edit" : "Write result"}
-                  </button>
+                  </Button>
                 ) : undefined
               }
             >
@@ -226,8 +236,8 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
                     }}
                   />
                   <div className="exp-result-actions">
-                    <button type="button" className="btn-secondary" onClick={() => setResultDraft(null)}>Cancel</button>
-                    <button type="button" className="btn-primary" onClick={() => void saveResult()}>Save result</button>
+                    <Button onClick={() => setResultDraft(null)}>Cancel</Button>
+                    <Button variant="primary" onClick={() => void saveResult()}>Save result</Button>
                   </div>
                 </div>
               ) : exp.resultNote ? (
@@ -238,7 +248,14 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
             </RecordSection>
 
             {exp.runCommand && (
-              <RecordSection label="Run command">
+              <RecordSection
+                label="Run command"
+                tag={
+                  <Button size="sm" onClick={() => void copyRunCommand()}>
+                    {cmdCopied ? "Copied" : "Copy"}
+                  </Button>
+                }
+              >
                 <pre className="exp-run-cmd">{exp.runCommand}</pre>
               </RecordSection>
             )}
@@ -254,22 +271,17 @@ export function ExperimentDetailScreen({ id: idProp }: { id?: string }) {
           </div>
 
           <aside className="record-aside">
-            <button
-              type="button"
-              className="entity-icon-btn record-aside-toggle"
+            <IconButton label={asideOpen ? "Hide side panel" : "Show side panel"}
               onClick={toggleAside}
               aria-expanded={asideOpen}
-              aria-label={asideOpen ? "Hide side panel" : "Show side panel"}
-              title={asideOpen ? "Hide side panel" : "Show side panel"}
             >
               <ChevronIcon />
-            </button>
+            </IconButton>
             {asideOpen && (
             <>
             <RecordSection label="Record">
               <RecordFacts
                 rows={[
-                  ["Status", exp.status],
                   started ? ["Started", started] : null,
                   finished ? ["Finished", finished] : null,
                   exp.branch ? ["Branch", exp.branch] : null,

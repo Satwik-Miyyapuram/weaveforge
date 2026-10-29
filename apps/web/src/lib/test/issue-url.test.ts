@@ -38,3 +38,12 @@ test("reportMarkdown: the reader's steps and the page context are their own sect
   assert.match(body, /Route: `\/experiments\/`\n- Screen: Experiments › Metrics/);
   assert.doesNotMatch(body, /Platform/);
 });
+
+test("reportMarkdown: without its heading, for the server that adds its own (14-16)", () => {
+  assert.equal(reportMarkdown({ detail: "x", withHeading: false }), "x");
+  const input = { detail: "boom", steps: "1. Opened it", route: "/papers", logs: "err" };
+  assert.equal(
+    reportMarkdown({ ...input, withHeading: false }),
+    reportMarkdown(input).slice("### What happened\n\n".length),
+  );
+});

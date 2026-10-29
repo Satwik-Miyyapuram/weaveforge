@@ -10,7 +10,9 @@ export async function removeProjectFolder(fs: IWorkspaceFs, project: WorkspacePr
   const exact = projectDir(project);
   const tail = `--${idSuffix(project.id)}`;
   const dirs = (await fs.list("")).filter((s) => s.kind === "dir").map((s) => s.path.split("/").pop() ?? "");
-  const match = dirs.includes(exact) ? exact : dirs.filter((d) => d.endsWith(tail)).length === 1 ? dirs.find((d) => d.endsWith(tail))! : null;
+  const renamed = dirs.filter((d) => d.endsWith(tail));
+  // Two folders with the same suffix: neither is surely this project's.
+  const match = dirs.includes(exact) ? exact : renamed.length === 1 ? renamed[0]! : null;
   if (!match) return null;
   await fs.remove(match, { recursive: true });
   return match;

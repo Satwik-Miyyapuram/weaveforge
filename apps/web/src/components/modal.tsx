@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { CloseButton } from "./button";
 
 const FOCUSABLE = 'a[href],button:not([disabled]),textarea,input,select,[tabindex]:not([tabindex="-1"])';
 const FIELD =
@@ -153,9 +154,7 @@ export function Modal({
           <div className="modal-head">
             <h3 id={titleId}>{title}</h3>
             {dismissible && onClose ? (
-              <button type="button" className="link-btn modal-close" aria-label="Close" onClick={onClose}>
-                ✕
-              </button>
+              <CloseButton onClick={onClose} />
             ) : null}
           </div>
         ) : null}

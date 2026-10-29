@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 
 import {
+  errorMessage,
   decideVaultCommit,
   describeChanges,
   type GitAuthor,
@@ -69,10 +70,14 @@ export async function probeRepo(root: string): Promise<VaultRepoState> {
 /** Porcelain v1 status letters, reduced to the three states we report. */
 function parseStatus(stdout: string): GitFileStatus[] {
   const out: GitFileStatus[] = [];
-  for (const line of stdout.split("\0")) {
+  const records = stdout.split("\0");
+  for (let i = 0; i < records.length; i++) {
+    const line = records[i]!;
     if (line.length < 4) continue;
     const code = line.slice(0, 2);
     const file = line.slice(3);
+    // A rename or copy is followed by a second record: the original path.
+    if (code.includes("R") || code.includes("C")) i++;
     const state = code.includes("D") ? "deleted" : code.includes("?") || code.includes("A") ? "added" : "modified";
     out.push({ path: file, state });
   }
@@ -148,8 +153,13 @@ export class NativeWorkspaceGit implements IWorkspaceGit {
     if (options.path) args.push("--", options.path);
     try {
       return parseLog(await git(this.root, args));
-    } catch {
+    } catch (error) {
       // A repository with no commits yet has no log, which is not a failure.
+      // Anything else still reads as an empty history, but goes in the log.
+      const reason = gitReason(error);
+      if (!/does not have any commits yet/.test(reason)) {
+        console.warn(`[vault-git] could not read the history: ${reason.slice(0, 300)}`);
+      }
       return [];
     }
   }
@@ -196,7 +206,8 @@ export async function commitVault(
   repo: IWorkspaceGit = new NativeWorkspaceGit(root),
   probe: (root: string) => Promise<VaultRepoState> = probeRepo,
 ): Promise<{ committed: WorkspaceCommit | null; reason?: string }> {
-  const verdict = decideVaultCommit(enabled, await probe(root));
+  // Off means no git at all: starting one costs seconds of main-thread time on Windows.
+  const verdict = decideVaultCommit(enabled, enabled ? await probe(root) : { kind: "none" });
   if (!verdict.ok) return { committed: null, reason: verdict.reason };
 
   try {
@@ -211,7 +222,7 @@ export async function commitVault(
 
 /** Git's own error lines, not the command echo and per-file warnings around them. */
 export function gitReason(error: unknown): string {
-  const text = error instanceof Error ? error.message : "";
+  const text = errorMessage(error, "");
   const lines = text.split(/\r?\n/).filter((line) => /^(fatal|error):/.test(line));
   return lines.length > 0 ? lines.join(" ") : text.split(/\r?\n/)[0] || "Could not commit.";
 }

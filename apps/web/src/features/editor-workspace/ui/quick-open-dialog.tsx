@@ -4,9 +4,10 @@ import { useMemo, useState } from "react";
 
 import { Modal } from "@/components/modal";
 import { NavIcon } from "@/app/nav-icon";
-import { groupResults, quickOpenResults, titleOf } from "../application/quick-open";
+import { groupResults, isPickEnter, paintedOrder, quickOpenResults, titleOf } from "../application/quick-open";
 import type { WorkspaceTreeNode } from "../application/workspace-tree";
 import { kindIcon } from "./kind";
+import { OptionButton } from "@/components/controls";
 
 /**
  * The Ctrl/Cmd-P palette.
@@ -27,6 +28,8 @@ export function QuickOpenDialog({
   const [cursor, setCursor] = useState(0);
 
   const results = useMemo(() => quickOpenResults(documents, query), [documents, query]);
+  // The arrows walk the rows as painted (grouped), not in score order.
+  const painted = useMemo(() => paintedOrder(results), [results]);
   const active = Math.min(cursor, Math.max(results.length - 1, 0));
 
   return (
@@ -51,8 +54,8 @@ export function QuickOpenDialog({
             setCursor((c) => Math.max(c - 1, 0));
             return;
           }
-          if (event.key === "Enter") {
-            const picked = results[active];
+          if (isPickEnter(event)) {
+            const picked = painted[active];
             if (!picked) return;
             event.preventDefault();
             onPick(picked.node, { split: event.ctrlKey || event.metaKey });
@@ -64,9 +67,8 @@ export function QuickOpenDialog({
           <li className="muted quick-open-empty">Nothing matches “{query}”.</li>
         ) : (
           // Results are grouped by kind, in root order, so Notes, Papers,
-          // Lists and Report hits do not interleave. The flat index is kept
-          // for keyboard navigation — arrows walk the whole list, not a
-          // group at a time.
+          // Lists and Report hits do not interleave. The index is into the
+          // painted order, so arrows walk the whole list top to bottom.
           groupResults(results).map((group) => (
             <li key={group.kind} role="presentation">
               <p className="quick-open-group" aria-hidden="true">
@@ -74,14 +76,10 @@ export function QuickOpenDialog({
               </p>
               <ul className="quick-open-group-rows" role="presentation">
                 {group.results.map((result) => {
-                  const index = results.indexOf(result);
+                  const index = painted.indexOf(result);
                   return (
                     <li key={result.node.key} role="presentation">
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={index === active}
-                        className={`quick-open-result${index === active ? " is-active" : ""}`}
+                      <OptionButton selected={index === active}
                         onMouseEnter={() => setCursor(index)}
                         onClick={(event) =>
                           onPick(result.node, { split: event.ctrlKey || event.metaKey })
@@ -98,7 +96,7 @@ export function QuickOpenDialog({
                         <span className="quick-open-path">
                           {highlight(result.node.path, result.matched)}
                         </span>
-                      </button>
+                      </OptionButton>
                     </li>
                   );
                 })}

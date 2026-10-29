@@ -1,36 +1,53 @@
-.related-panel-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
+.related-panel-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 8px; }
 .related-panel-list a { color: var(--ink); text-decoration: none; }
 .related-panel-list a:hover { color: var(--accent-ink); text-decoration: underline; }
 
 /* ---- Wiki screen ---- */
 /* Wiki: drafting on the left, health on the right once there is room. */
 .wiki-lede { margin: -4px 0 16px; max-width: 70ch; }
-.wiki-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+/* Health holds the right column alone; Draft and Recently approved stack on
+   the left. The slack goes to the second row, so Recently approved sits right
+   under Draft instead of below the taller Health card. */
+.wiki-layout {
+  display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  grid-template-areas: "draft health" "recent health";
+  grid-template-rows: auto 1fr;
+  gap: 24px; align-items: start;
+}
 .wiki-layout > .card { margin: 0; }
-@media (max-width: 1000px) { .wiki-layout { grid-template-columns: minmax(0, 1fr); } }
+.wiki-draft { grid-area: draft; }
+.wiki-health { grid-area: health; }
+.wiki-recent { grid-area: recent; }
+@media (max-width: 699px) {
+  .wiki-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "draft" "health" "recent";
+    grid-template-rows: none;
+  }
+}
 .wiki-step { margin-top: 12px; }
-.wiki-step-head { display: flex; align-items: center; gap: 10px; }
+.wiki-step-head { display: flex; align-items: center; gap: 12px; }
 .wiki-step-title { flex: 1; min-width: 0; }
 .wiki-step-no {
   display: inline-grid; place-items: center; width: 22px; height: 22px; flex: none;
-  border-radius: 50%; background: var(--text); color: var(--bg); font-size: 0.74rem; font-weight: 700;
+  border-radius: 50%; background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: 700;
 }
-.wiki-step-count { font-size: 0.76rem; padding: 1px 9px; border-radius: 999px; background: var(--surface2); }
+.wiki-step-count { font-size: var(--fs-xs); padding: 1px 8px; border-radius: var(--r-pill); background: var(--surface2); }
 .wiki-plan-list { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
 /* A workspace can hold hundreds of sources; the list scrolls rather than
    pushing the button that acts on it off the screen. */
 .wiki-source-list { max-height: 260px; overflow-y: auto; padding-right: 4px; }
-.wiki-lint-list { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 6px; }
+.wiki-lint-list { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 8px; }
 .wiki-lint-list li {
-  font-size: 0.85rem;
-  padding-left: 10px;
+  font-size: var(--fs);
+  padding-left: 12px;
   /* Severity is carried by a left rule rather than by text colour alone, so it
      survives the themes that flatten colour contrast. */
   border-left: 3px solid var(--line);
 }
 .wiki-lint-list li[data-severity="error"] { border-left-color: var(--danger); }
 .wiki-lint-list li[data-severity="warning"] { border-left-color: var(--s-warn, var(--accent)); }
-.wiki-lint-list .link-btn { margin-left: 8px; font-size: 0.78rem; }
+.wiki-lint-list .wf-link { margin-left: 8px; }
 
 /* Merge preview: monospace so the merged markdown reads as the file it becomes. */
 .wiki-merge-preview {
@@ -39,17 +56,17 @@
   white-space: pre-wrap;
   word-break: break-word;
   font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   background: var(--surface2);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 10px;
+  padding: 12px;
   margin: 8px 0;
 }
 
 .related-papers { min-width: 0; }
 .related-papers-panel { margin-top: 8px; min-width: 0; }
-.related-papers-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 10px; }
+.related-papers-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 12px; }
 .related-papers-list li {
   border-bottom: 1px solid var(--line); padding-bottom: 8px;
   display: grid; gap: 4px; min-width: 0;
@@ -59,7 +76,7 @@
 }
 .related-paper-meta { margin: 0; overflow-wrap: anywhere; }
 .related-paper-url {
-  display: block; margin: 0; font-size: 0.78rem; color: var(--accent-ink);
+  display: block; margin: 0; font-size: var(--fs-xs); color: var(--accent-ink);
   overflow-wrap: anywhere; word-break: break-all;
 }
 a.related-paper-url:hover { text-decoration: underline; }
@@ -68,7 +85,7 @@ a.related-paper-url:hover { text-decoration: underline; }
 }
 
 /* Paper image attachments (expanded card view). */
-.paper-images { display: grid; gap: 8px; margin-top: 10px; justify-items: start; }
+.paper-images { display: grid; gap: 8px; margin-top: 12px; justify-items: start; }
 .image-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   gap: 8px; width: 100%;
@@ -84,7 +101,7 @@ a.related-paper-url:hover { text-decoration: underline; }
    extra vertical band. Below ~360px of card interior the thumbs wrap under. */
 .card-body-row {
   display: flex; align-items: flex-start; gap: 8px;
-  flex-wrap: wrap; margin-top: 6px;
+  flex-wrap: wrap; margin-top: 8px;
 }
 .card-body-row:empty { display: none; }
 .card-body-row > .entity-card-snippet,
@@ -92,24 +109,32 @@ a.related-paper-url:hover { text-decoration: underline; }
 .card-body-row > .card-thumbs { flex: 0 0 auto; margin-top: 0; }
 
 /* First-few image thumbnails on an entity card (papers, experiments). */
-.card-thumbs { display: flex; gap: 6px; margin-top: 8px; }
+.card-thumbs { display: flex; gap: 8px; margin-top: 8px; }
 .card-thumb {
   position: relative; flex: 0 0 auto;
-  width: 52px; height: 40px; border-radius: 6px; overflow: hidden;
+  width: 52px; height: 40px; border-radius: var(--r-sm); overflow: hidden;
   border: 1px solid var(--line); background: var(--neutral);
 }
 .card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.card-thumb-loading { position: absolute; inset: 0; background: var(--neutral); }
+.card-thumb-loading { position: absolute; inset: 0; background: var(--neutral); animation: card-thumb-pulse 1.2s ease-in-out infinite alternate; }
+.card-thumb-missing { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+@keyframes card-thumb-pulse { to { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) {
+  .card-thumb-loading { animation: none; }
+}
 .card-thumb-more {
   display: flex; align-items: center; justify-content: center;
-  font-size: 0.78rem; color: var(--muted); background: var(--chip);
+  font-size: var(--fs-xs); color: var(--muted); background: var(--chip);
 }
-/* Capped chip rows (tags, metrics, git) stay on a single line on a card; the
-   overflow is reported as a "+N" chip rather than wrapping. */
-.chip-row--capped { flex-wrap: nowrap; overflow: hidden; }
-/* A chip that must shrink ends in an ellipsis instead of spilling into the next. */
-.chip-row--capped > :is(*, .git-chip, .metric-chip, .tag-chip) { min-width: 0; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Capped chip rows (tags, metrics, git) show a few chips on a card and the rest
+   as a "+N" chip. The few wrap as whole chips: held to one line, every chip
+   shrank by a few pixels and each tag lost its last letters. */
+.chip-row--capped { flex-wrap: wrap; min-width: 0; }
+/* A chip longer than the whole line ends in an ellipsis instead of spilling.
+   It outranks `:root:root .wf-chip`, whose inline-flex ignores text-overflow. */
+:root:root .chip-row--capped > :is(*, .wf-chip) { min-width: 0; max-width: 100%; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip-row--capped > .chip-more { flex: none; }
+
 .chip-more { color: var(--muted); font-style: italic; flex: 0 0 auto; }
 .image-thumb .image-loading { position: absolute; inset: 0; }
 
@@ -128,56 +153,43 @@ a.related-paper-url:hover { text-decoration: underline; }
 }
 .summary-empty { margin: 0; font-style: italic; }
 
-/* Expandable summary editor, revealed by "Show more". */
-.summary-editor { display: grid; gap: 6px; margin-top: 8px; min-width: 0; max-width: 100%; }
-.summary-input {
-  width: 100%; max-width: 100%; padding: 10px 12px; font: inherit; color: var(--ink);
-  background: var(--input-bg); border: 1px solid var(--line); border-radius: var(--radius-sm);
-  outline: none; resize: vertical; min-height: 56px;
-  transition: border-color var(--dur-base), box-shadow var(--dur-base);
-}
-.summary-editor-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
-.summary-editor-foot .error { margin-right: auto; }
-
 /* Co-editing chrome: who else is in the document, and whether live sync is up.
    Both sit above the editor and must not push it around, so they are compact
    single lines rather than banners. */
-.summary-input-collab { display: grid; gap: 6px; min-width: 0; max-width: 100%; }
 .collab-presence, .collab-offline {
-  margin: 0; font-size: 0.82rem; line-height: 1.4;
+  margin: 0; font-size: var(--fs-sm); line-height: 1.4;
 }
 .collab-presence::before {
-  content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px;
+  content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 8px;
   border-radius: 50%; background: var(--accent); vertical-align: middle;
 }
 .collab-offline { color: var(--warn, var(--ink)); }
 /* Remote carets and name tags drawn by y-codemirror. */
 .cm-ySelectionCaret { position: relative; border-left: 1px solid; border-right: 1px solid; margin: 0 -1px; box-sizing: border-box; }
 .cm-ySelectionInfo {
-  position: absolute; top: -1.05em; left: -1px; font-size: 0.68rem; line-height: 1.1;
-  padding: 1px 4px; border-radius: 3px 3px 3px 0; white-space: nowrap;
-  color: #fff; opacity: 0.9; user-select: none; pointer-events: none;
+  position: absolute; top: -1.05em; left: -1px; font-size: var(--fs-micro); line-height: 1.1;
+  padding: 1px 4px; border-radius: var(--r-sm) var(--r-sm) var(--r-sm) 0; white-space: nowrap;
+  color: var(--white); opacity: 0.9; user-select: none; pointer-events: none;
 }
 
 /* Editor toolbar row: cite-format picker, template re-render, artifact picker (Phase C). */
 .summary-editor-bar {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
   padding-bottom: 2px;
 }
-.citation-format-select { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; white-space: nowrap; }
+.citation-format-select { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-sm); white-space: nowrap; }
 .citation-format-select .select { min-width: 0; }
 
 .brave-graph-warning {
   display: flex; align-items: flex-start; gap: 12px;
-  padding: 8px 12px; margin: 0 0 8px; border-radius: 10px;
+  padding: 8px 12px; margin: 0 0 8px; border-radius: var(--r-control);
   background: color-mix(in srgb, var(--danger) 12%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border));
-  font-size: 0.82rem; line-height: 1.4;
+  font-size: var(--fs-sm); line-height: 1.4;
 }
-.brave-graph-warning .link-btn { flex: none; white-space: nowrap; }
+.brave-graph-warning .wf-link { flex: none; white-space: nowrap; }
 .graph-focus-bar .brave-graph-warning { pointer-events: auto; }
 .import-row { grid-template-columns: 130px minmax(0, 1fr) 130px; }
-.link-btn.danger { color: var(--danger); }
 
 /*
  * Shared card chrome: a header row with the title on the left and the delete
@@ -185,18 +197,15 @@ a.related-paper-url:hover { text-decoration: underline; }
  * papers, report sections, and experiments so delete sits in the same place on
  * every card.
  */
-.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; min-width: 0; }
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
 /* Prefer word wraps; avoid letter-ladder when status sits beside the title. */
 .card-title {
   flex: 1 1 auto; min-width: 0; margin: 0;
   font-family: var(--font-serif); font-weight: 500;
-  font-size: 1.02rem; letter-spacing: -0.01em;
+  font-size: var(--fs-lg); letter-spacing: -0.01em;
   overflow-wrap: break-word; word-break: normal;
 }
-/* Pull back the link-btn's left padding so the delete text lines up with the
-   card title/body left edge above it. */
-.card-del { flex: none; margin-left: -4px; }
-.card-foot { display: flex; align-items: center; gap: 10px; }
+.card-foot { display: flex; align-items: center; gap: 12px; }
 
 /* Status pills — shared semantic ramp from themes/common.css (--st-* → --s-*).
    Domains: papers (to_read/reading/read/skimmed), experiments
@@ -204,8 +213,8 @@ a.related-paper-url:hover { text-decoration: underline; }
    done/blocked), report (not_started/drafting/review/done), log (daily/weekly).
    Do not invent one-off status hex; map new statuses onto --st-*. */
 .status {
-  flex: none; font-size: 0.72rem; text-transform: capitalize;
-  padding: 4px 10px; border-radius: 999px;
+  flex: none; font-size: var(--fs-xs); text-transform: capitalize;
+  padding: 4px 12px; border-radius: var(--r-pill);
   background: var(--st-neutral-bg); color: var(--st-neutral-fg);
   white-space: nowrap;
 }
@@ -215,33 +224,41 @@ a.related-paper-url:hover { text-decoration: underline; }
  * Grouped by ramp step rather than by feature: a paper, a report, an
  * experiment and a milestone each name their states differently, but a state
  * that means "in flight" has to look the same wherever it is shown. The
- * neutral rules are not redundant with `.status` — `custom-select-button`
- * takes a `status-*` class without it.
+ * neutral rules are not redundant with `.status`. A status select carries
+ * its value as `data-status` instead, and needs :root:root to beat the field
+ * fill in states.css.
  */
-.status-reading, .status-daily, .status-drafting, .status-running, .status-in_progress {
+.status-reading, .status-weekly, .status-drafting, .status-running, .status-in_progress {
   background: var(--st-info-bg); color: var(--st-info-fg);
 }
-.status-read, .status-done { background: var(--st-positive-bg); color: var(--st-positive-fg); }
+.status-read, .status-done, .status-daily { background: var(--st-positive-bg); color: var(--st-positive-fg); }
 .status-skimmed, .status-review { background: var(--st-warn-bg); color: var(--st-warn-fg); }
-.status-weekly, .status-not_started, .status-planned {
+.status-not_started, .status-planned {
   background: var(--st-neutral-bg); color: var(--st-neutral-fg);
 }
 .status-failed, .status-blocked { background: var(--st-danger-bg); color: var(--st-danger-fg); }
 .status-abandoned { background: var(--st-mute-bg); color: var(--st-mute-fg); }
+:root:root .wf-select:is([data-status="reading"], [data-status="weekly"], [data-status="drafting"], [data-status="running"], [data-status="in_progress"]) { background: var(--st-info-bg); color: var(--st-info-fg); }
+:root:root .wf-select:is([data-status="read"], [data-status="done"], [data-status="daily"]) { background: var(--st-positive-bg); color: var(--st-positive-fg); }
+:root:root .wf-select:is([data-status="skimmed"], [data-status="review"]) { background: var(--st-warn-bg); color: var(--st-warn-fg); }
+:root:root .wf-select:is([data-status="not_started"], [data-status="planned"]) { background: var(--st-neutral-bg); color: var(--st-neutral-fg); }
+:root:root .wf-select:is([data-status="failed"], [data-status="blocked"]) { background: var(--st-danger-bg); color: var(--st-danger-fg); }
+:root:root .wf-select[data-status="abandoned"] { background: var(--st-mute-bg); color: var(--st-mute-fg); }
 
 /* Logbook */
 .log-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 12px; }
 .log-item { display: grid; gap: 8px; }
-.log-head { display: flex; align-items: flex-start; gap: 10px; font-size: 0.8rem; }
-.log-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; flex: 1; min-width: 0; }
-.log-edit { flex: none; }
-.edit-actions { justify-content: flex-end; gap: 14px; }
+/* The card's padding frames an entry being edited; the form adds none. */
+.log-item > .add-form { margin: 0; }
+.edit-actions { justify-content: flex-end; gap: 16px; }
+/* Editing a long log entry keeps Cancel and Done in view (DA-109). */
+.log-edit-bar { position: sticky; bottom: 0; z-index: var(--z-sticky); background: var(--card-tint, var(--surface)); }
 .log-date { font-weight: 600; }
 /* The logbook as a timeline: a date gutter, a rule with a dot per day, the
    day's entries, and the month and kinds beside it on a wide screen. */
 .log-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
-.log-timeline { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 18px; }
-.log-day { position: relative; scroll-margin-top: calc(var(--titlebar-h, 0px) + 16px); display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 0 34px; }
+.log-timeline { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 16px; }
+.log-day { position: relative; scroll-margin-top: calc(var(--titlebar-h, 0px) + 16px); display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 0 32px; }
 .log-day::before {
   content: ""; position: absolute; left: 92px; top: 0; bottom: -18px; width: 1px; background: var(--line);
 }
@@ -252,69 +269,107 @@ a.related-paper-url:hover { text-decoration: underline; }
 }
 .log-day-mark { display: flex; flex-direction: column; align-items: flex-end; text-align: right; padding-top: 4px; }
 .log-day-mark strong { font-size: 1.8rem; line-height: 1; }
-.log-day-mark span { color: var(--muted); font-size: 0.78rem; }
+.log-day-mark span { color: var(--muted); font-size: var(--fs-xs); }
 .log-side { display: grid; gap: 16px; position: sticky; top: 16px; }
-.log-calendar h2, .log-kinds h2 { margin: 0 0 12px; font-size: 1.15rem; }
+.log-calendar h2, .log-kinds h2, .log-check-ins h2 { margin: 0 0 12px; font-size: var(--fs-h2); }
 .log-calendar-top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .log-calendar-top h2 { flex: 1; margin: 0; text-align: center; }
 .log-calendar-top button:disabled { opacity: 0.35; cursor: default; }
-.log-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
-.log-calendar-head { color: var(--muted); font-size: 0.72rem; }
+.log-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; text-align: center; }
+.log-calendar-head { color: var(--muted); font-size: var(--fs-xs); }
 .log-calendar-day {
-  display: grid; place-items: center; aspect-ratio: 1; font-size: 0.82rem; border-radius: 6px;
+  position: relative; display: grid; place-items: center; aspect-ratio: 1; font-size: var(--fs-sm); border-radius: var(--r-sm);
   border: 1px solid transparent;
 }
-button.log-calendar-day { position: relative; padding: 0; font: inherit; font-size: 0.82rem; color: inherit; cursor: pointer; }
-.log-calendar-day.is-logged { background: color-mix(in srgb, var(--accent) 22%, transparent); font-weight: 600; }
-.log-calendar-day.is-logged:hover { border-color: var(--text); }
-/* More than one entry that day: a count in the corner, headlines in the tooltip. */
+/* A logged day is a row button around its cell: the cell is the picture. */
+:root:root .log-calendar-grid > .wf-row { display: grid; padding: 0; }
+/* A logged day wears its kind's colour, the same map as the entry cards (DA-111). */
+.log-calendar-day.is-logged { background: color-mix(in srgb, var(--status-chip) 45%, transparent); font-weight: 600; }
+.log-calendar-day.is-logged.is-mixed {
+  background: linear-gradient(135deg, var(--chip-read, var(--s-good)) 50%, var(--chip-reading, var(--s-info)) 50%);
+}
+/* More than one entry that day: a count tucked in the corner, inside the
+   cell, and the headlines in the tooltip. */
 .log-calendar-count {
-  position: absolute; top: -6px; right: -6px; min-width: 15px; padding: 0 3px; border-radius: 8px;
-  background: var(--text); color: var(--bg); font-size: 0.6rem; line-height: 15px;
+  position: absolute; top: 2px; right: 3px; font-size: var(--fs-micro); font-weight: 700; line-height: 1;
 }
 .log-calendar-day.is-today { border-color: var(--accent); font-weight: 700; }
-.log-kinds ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.log-kinds li { display: flex; align-items: center; justify-content: space-between; }
-.log-kinds-count { color: var(--muted); font-size: 0.82rem; }
+.log-calendar-legend {
+  display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 12px 0 0; padding: 0; list-style: none;
+  color: var(--muted); font-size: var(--fs-xs);
+}
+.log-calendar-legend li { display: inline-flex; align-items: center; gap: 4px; }
+.log-calendar-swatch { width: 12px; height: 12px; border-radius: var(--r-sm); border: 1px solid transparent; }
+.log-calendar-swatch[data-status] { background: color-mix(in srgb, var(--status-chip) 45%, transparent); }
+.log-calendar-swatch.is-today { border-color: var(--accent); }
+.log-kinds ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+/* Each kind is a filter: the whole row toggles, pressed shows the filter is on. */
+.log-kinds li > .wf-row { justify-content: space-between; }
+.log-kinds-count { color: var(--muted); font-size: var(--fs-sm); }
+.log-check-ins ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.log-check-in { display: flex; align-items: center; gap: 8px; min-height: var(--control-sm); }
+.log-check-in-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-check-in time { font-size: var(--fs-sm); }
+/* Narrower, the overview leads the timeline: its cards side by side while
+   they fit, stacked on a phone. Past check-ins stay reachable (D24). */
 @media (max-width: 1100px) {
   .log-layout { grid-template-columns: minmax(0, 1fr); }
-  .log-side { display: none; }
+  .log-side { position: static; order: -1; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); align-items: start; }
 }
 @media (max-width: 640px) {
-  .log-day { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .log-day { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .log-day::before, .log-day::after { display: none; }
   .log-day-mark { flex-direction: row; align-items: baseline; gap: 8px; }
-  .log-day-mark strong { font-size: 1.3rem; }
+  .log-day-mark strong { font-size: var(--fs-h2); }
 }
-.log-body { margin: 0; white-space: pre-wrap; font-size: 0.95rem; }
+.log-body { margin: 0; white-space: pre-wrap; font-size: var(--fs-lg); }
+/* A log entry's editor, new or edited: the note editor in a field's frame. */
+.log-body-editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 12rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  background: var(--surface);
+  overflow: hidden;
+}
+.log-body-editor > .cm-editor { flex: 1; }
+.log-body-editor:focus-within {
+  outline: 3px solid var(--wf-focus, var(--accent));
+  outline-offset: -3px;
+}
 
 /* Report outline */
-.progress-card { margin: 16px 0; display: grid; gap: 10px; }
-.progress-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.88rem; }
-.progress-bar { height: 8px; background: var(--neutral); border-radius: 999px; overflow: hidden; }
-.progress-bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.3s ease; }
+.progress-card { margin: 16px 0; display: grid; gap: 12px; }
+.progress-top { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs); }
+.progress-bar { height: 8px; background: var(--neutral); border-radius: var(--r-pill); overflow: hidden; }
+.progress-bar > span { display: block; height: 100%; background: var(--accent); transition: width var(--dur-slow) ease; }
 /* Plan timeline: the track fills up to today, a mark per dated milestone sits
    on it, and month ticks run underneath. Positions come in as inline `left`. */
-.plan-pace { color: var(--muted); font-family: var(--font-mono); font-size: 0.78rem; }
-.plan-timeline { position: relative; height: 58px; margin: 22px 11px 0; }
-.plan-track { position: absolute; left: -11px; right: -11px; top: 7px; height: 10px; background: var(--surface2); border-radius: 999px; overflow: hidden; }
+.plan-pace { color: var(--muted); font-family: var(--font); font-size: var(--fs-xs); }
+.plan-timeline { position: relative; height: 58px; margin: 24px 12px 0; }
+.plan-track { position: absolute; left: -11px; right: -11px; top: 7px; height: 10px; background: var(--surface2); border-radius: var(--r-pill); overflow: hidden; }
 .plan-track > span { display: block; height: 100%; background: var(--accent); }
+/* A mark is a row button around its stripes; the slot places it on the track. */
+.plan-mark-slot { position: absolute; top: 1px; translate: -50% 0; display: inline-flex; }
+/* Outranks the catalogue's row padding, which pushed each dot below the track. */
+:root:root .plan-mark-slot > .wf-row { display: flex; padding: 0; min-height: 0; }
 .plan-mark {
-  position: absolute; top: 1px; width: 22px; height: 22px; min-height: 0; margin-left: -11px; padding: 0;
-  display: flex; align-items: stretch; overflow: visible; cursor: pointer;
+  position: relative; box-sizing: border-box; width: 22px; height: 22px;
+  display: flex; align-items: stretch; overflow: visible;
   border-radius: 50%; background: var(--surface); border: 2px solid var(--border-strong);
 }
 /* One stripe per milestone in the mark: a cluster shows every status it holds. */
 .plan-mark > span { flex: 1; min-width: 0; }
-.plan-mark > span:first-child { border-radius: 999px 0 0 999px; }
-.plan-mark > span:last-of-type { border-radius: 0 999px 999px 0; }
+.plan-mark > span:first-child { border-radius: var(--r-pill) 0 0 var(--r-pill); }
+.plan-mark > span:last-of-type { border-radius: 0 var(--r-pill) var(--r-pill) 0; }
 .plan-mark > span:only-of-type { border-radius: inherit; }
 .plan-mark-count {
-  position: absolute; top: -9px; right: -10px; min-width: 16px; padding: 0 3px;
-  border-radius: 999px; background: var(--text); color: var(--surface);
-  font: 600 0.62rem/16px var(--font-mono); text-align: center;
+  position: absolute; top: -9px; right: -10px; min-width: 16px; padding: 0 4px;
+  border-radius: var(--r-pill); background: var(--text); color: var(--surface);
+  font: 600 var(--fs-micro)/16px var(--font); text-align: center;
 }
-.plan-done-toggle { display: block; margin: 12px auto; }
+.plan-done-toggle { display: flex; justify-content: center; margin: 12px auto; }
 .card.is-jumped, .log-day.is-jumped .card { outline: 3px solid var(--accent); outline-offset: 3px; }
 .plan-mark--done { background: var(--chip-read, var(--accent)); }
 .plan-mark--in_progress { background: var(--chip-reading, var(--accent)); }
@@ -322,22 +377,24 @@ button.log-calendar-day { position: relative; padding: 0; font: inherit; font-si
 .plan-today { position: absolute; top: -8px; height: 40px; border-left: 2px dashed var(--text); }
 .plan-today > em {
   position: absolute; bottom: 100%; left: 0; transform: translateX(-50%);
-  font-style: normal; font-size: 0.72rem; font-weight: 600; white-space: nowrap;
-  padding: 1px 6px; border-radius: 4px; background: var(--text); color: var(--surface);
+  font-style: normal; font-size: var(--fs-xs); font-weight: 600; white-space: nowrap;
+  padding: 1px 8px; border-radius: var(--r-sm); background: var(--text); color: var(--surface);
 }
 .plan-months { position: absolute; left: 0; right: 0; top: 38px; height: 1em; }
-.plan-months > span { position: absolute; transform: translateX(-50%); font-family: var(--font-mono); font-size: 0.74rem; color: var(--muted); }
+.plan-months > span { position: absolute; transform: translateX(-50%); font-family: var(--font); font-size: var(--fs-xs); color: var(--muted); }
 .wiki-recent-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.wiki-recent-list li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.wiki-recent-list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .wiki-recent-list li:last-child { border-bottom: 0; }
 .wiki-recent-list a { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Phone Plan/Log: the tab names the page, search and add share one row, the calendar leads. */
-@media (max-width: 900px) {
-  :is(.plan-screen, .log-screen) .screen-title-block { display: none; }
+/* Tablet Plan/Log: search and add share one row under the title. On a phone
+   they follow every other screen, add full width under the search (DA-94). */
+@media (min-width: 480px) and (max-width: 900px) {
   :is(.plan-screen, .log-screen) .screen-actions { flex-wrap: nowrap; }
   :is(.plan-screen, .log-screen) .screen-actions > .search-input { flex: 1 1 auto; width: auto; min-width: 0; }
-  :is(.plan-screen, .log-screen) .screen-actions > .btn-primary { flex: 0 0 auto; }
+  :is(.plan-screen, .log-screen) .screen-actions > .wf-primary { flex: 0 0 auto; }
+}
+/* Phone Plan/Log: the calendar leads, past check-ins under it. */
+@media (max-width: 900px) {
   .log-publish { display: none; }
-  .log-side { display: block; position: static; order: -1; }
   .log-kinds { display: none; }
 }

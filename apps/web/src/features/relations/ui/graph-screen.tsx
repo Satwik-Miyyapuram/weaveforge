@@ -13,12 +13,15 @@ import { AddEdgeForm } from "./add-edge-form";
 import { BraveGraphWarning } from "./brave-graph-warning";
 import { GraphCanvas } from "./graph-canvas";
 import type { GNode } from "../application/build-graph-data";
+import { graphTagNames, notesTagged } from "../application/graph-tags";
 import { SettingsIcon } from "@/components/view-icons";
 import { ClearFiltersButton, EmptyState } from "@/components/empty-state";
 import { NavIcon } from "@/app/nav-icon";
 import { GraphLegend } from "./graph-legend";
 import { GraphSettingsDrawer } from "./graph-settings-drawer";
 import { GraphSidePanel } from "./graph-side-panel";
+import { useHiddenKeys } from "@/lib/toast";
+import { relationKey } from "./remove-relation";
 import { graphFilterCount } from "@weaveforge/core";
 import { experimentHref } from "@/features/experiments";
 import { useGraphPersistedState } from "../application/use-graph-persisted-state";
@@ -27,6 +30,9 @@ import { emptyArray, emptyMap } from "@/lib/empty";
 import type { GraphScreenData } from "@/container/facades";
 import { formatError } from "@/lib/format-error";
 import { FormError } from "@/components/form-error";
+import { Button, IconButton } from "@/components/button";
+import { Popover } from "@/components/popover";
+import { Menu } from "@/components/menu";
 
 /** Graph screen — data loading, view-state, and child presentation components. */
 export function GraphScreen() {
@@ -64,7 +70,10 @@ export function GraphScreen() {
   const papers = data?.papers ?? emptyArray<Paper>();
   const notes = data?.notes ?? emptyArray<VaultPage>();
   const sections = data?.sections ?? emptyArray<ReportSection>();
-  const edges = data?.relations ?? emptyArray<PaperRelation>();
+  const allEdges = data?.relations ?? emptyArray<PaperRelation>();
+  // A deleted relation leaves the graph while its Undo toast shows (D-07).
+  const hiddenKeys = useHiddenKeys();
+  const edges = useMemo(() => allEdges.filter((e) => !hiddenKeys.has(relationKey(e.id))), [allEdges, hiddenKeys]);
   const lists = data?.lists ?? emptyArray<ReadingList>();
   const membership = data?.membership ?? emptyMap<string, Set<string>>();
   const experiments = data?.experiments ?? emptyArray<GraphExperimentEntry>();
@@ -72,7 +81,6 @@ export function GraphScreen() {
   const [linkMsg, setLinkMsg] = useState<string | null>(null);
   const [focus, setFocus] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
-  const [composeMode, setComposeMode] = useState<"menu" | "edge">("menu");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
@@ -88,20 +96,10 @@ export function GraphScreen() {
     return () => { document.body.style.overflow = prev; };
   }, [focus]);
 
-  const allTags = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of papers) for (const t of p.tags) set.add(t);
-    for (const n of notes) {
-      const body = `${n.title}\n${n.body}`;
-      for (const m of body.match(/#[\p{L}\p{N}_-]+/gu) ?? []) {
-        set.add(m.replace(/^#+/, "").toLowerCase());
-      }
-    }
-    if (settings.includeListsAsConcepts !== false) {
-      for (const l of lists) set.add(l.name.toLowerCase());
-    }
-    return [...set].sort();
-  }, [papers, notes, lists, settings.includeListsAsConcepts]);
+  const allTags = useMemo(
+    () => graphTagNames(papers, notes, lists, settings.includeListsAsConcepts !== false),
+    [papers, notes, lists, settings.includeListsAsConcepts],
+  );
 
   const visiblePapers = useMemo(() => {
     if (selectedLists.length === 0 && selectedTags.length === 0) return papers;
@@ -119,13 +117,10 @@ export function GraphScreen() {
     return edges.filter((e) => shown.has(e.fromPaper) && shown.has(e.toPaper));
   }, [edges, visiblePapers]);
 
-  const visibleNotes = useMemo(() => {
-    if (selectedTags.length === 0) return notes;
-    return notes.filter((n) => {
-      const body = `${n.title}\n${n.body}`.toLowerCase();
-      return selectedTags.some((t) => body.includes(`#${t}`));
-    });
-  }, [notes, selectedTags]);
+  const visibleNotes = useMemo(
+    () => (selectedTags.length === 0 ? notes : notesTagged(notes, selectedTags)),
+    [notes, selectedTags],
+  );
 
   const hasGraphItems = papers.length > 0 || notes.length > 0 || sections.length > 0;
   const hasVisibleItems = visiblePapers.length > 0 || visibleNotes.length > 0 || sections.length > 0;
@@ -201,13 +196,16 @@ export function GraphScreen() {
       return;
     }
     if (node.kind === "paper" || node.paperId || !node.id.startsWith("tag:")) {
-      const paperId = node.paperId ?? node.id;
-      setSelectedPaperId(paperId);
-      setSelectedNoteId(null);
-      setSelectedSectionId(null);
-      setSelectedConcept(null);
-      setLocalSeed(paperId);
+      selectPaper(node.paperId ?? node.id);
     }
+  }
+
+  function selectPaper(paperId: string) {
+    setSelectedPaperId(paperId);
+    setSelectedNoteId(null);
+    setSelectedSectionId(null);
+    setSelectedConcept(null);
+    setLocalSeed(paperId);
   }
 
   function resetLocalGraph() {
@@ -239,14 +237,32 @@ export function GraphScreen() {
           : undefined
       }
     >
-      <button
-        className="btn-primary"
-        type="button"
-        disabled={linking}
-        onClick={() => { setComposeMode("menu"); setComposeOpen(true); }}
+      <Button
+        variant="primary"
+        disabled={linking || papers.length < 2}
+        title={papers.length < 2 ? "Add at least two papers to link them" : undefined}
+        onClick={() => setComposeOpen(true)}
       >
-        {linking ? "Linking…" : "+ Graph"}
-      </button>
+        {linking ? "Linking…" : "Link papers"}
+      </Button>
+      {/* Auto-link is occasional: one click away rather than a chooser in
+          front of Link papers (DA-71). */}
+      <Popover label="More" ariaLabel="More actions" align="right">
+        {(close) => (
+          <Menu
+            onClose={close}
+            items={[
+              {
+                id: "auto-link",
+                label: "Auto-link citations",
+                disabled: linking || papers.length === 0,
+                title: "Create citation links from paper bibliographies",
+                onSelect: () => void autoLink(),
+              },
+            ]}
+          />
+        )}
+      </Popover>
     </ScreenHead>
   );
 
@@ -297,19 +313,16 @@ export function GraphScreen() {
   const localBanner = localSeed ? (
     <div className="graph-local-banner">
       <span>Local graph · depth {localDepth}</span>
-      <button type="button" className="link-btn" onClick={resetLocalGraph}>
+      <Button variant="link" onClick={resetLocalGraph}>
         Show all
-      </button>
+      </Button>
     </div>
   ) : null;
 
   const settingsButton = (
-    <button
-      type="button"
-      className={`entity-icon-btn graph-stage-settings${drawerOpen ? " is-active" : ""}`}
-      aria-label="Graph settings"
+    <IconButton
+      label="Graph settings"
       aria-expanded={drawerOpen}
-      title="Graph settings"
       onClick={() => setDrawerOpen(true)}
     >
       <SettingsIcon />
@@ -318,7 +331,7 @@ export function GraphScreen() {
           {activeFilters}
         </span>
       )}
-    </button>
+    </IconButton>
   );
 
   const graphView = hasGraphItems ? (
@@ -327,9 +340,9 @@ export function GraphScreen() {
         <div className="graph-stage-bar">
           {settingsButton}
           {canvas && (
-            <button type="button" className="graph-focus-btn btn-secondary" onClick={() => setFocus(true)}>
-              Focus
-            </button>
+            <span className="graph-focus-btn">
+              <Button onClick={() => setFocus(true)}>Focus</Button>
+            </span>
           )}
         </div>
       )}
@@ -381,13 +394,7 @@ export function GraphScreen() {
             setSelectedConcept(null);
           }}
           onRefresh={load}
-          onSelectPaper={(id) => {
-            setSelectedPaperId(id);
-            setSelectedNoteId(null);
-            setSelectedSectionId(null);
-            setSelectedConcept(null);
-            setLocalSeed(id);
-          }}
+          onSelectPaper={selectPaper}
           onSelectNote={(id) => {
             setSelectedNoteId(id);
             setSelectedPaperId(null);
@@ -408,42 +415,14 @@ export function GraphScreen() {
   ) : null;
 
   const addEdgeModal = composeOpen && (
-    <Modal
-      title={composeMode === "edge" ? "Add edge" : "Graph actions"}
-      onClose={() => { setComposeOpen(false); setComposeMode("menu"); }}
-    >
-      {composeMode === "menu" ? (
-        <div className="org-modal-choices">
-          <button
-            type="button"
-            className="org-choice-card"
-            disabled={papers.length < 2}
-            onClick={() => setComposeMode("edge")}
-          >
-            <span className="org-choice-title">Add edge</span>
-            <p className="org-choice-desc">Manually link two papers with a relation.</p>
-          </button>
-          <button
-            type="button"
-            className="org-choice-card"
-            disabled={linking || papers.length === 0}
-            onClick={() => {
-              setComposeOpen(false);
-              setComposeMode("menu");
-              void autoLink();
-            }}
-          >
-            <span className="org-choice-title">Auto-link</span>
-            <p className="org-choice-desc">Create citation edges from paper bibliographies.</p>
-          </button>
-        </div>
-      ) : (
-        <AddEdgeForm
-          papers={papers}
-          onAdded={load}
-          onClose={() => { setComposeOpen(false); setComposeMode("menu"); }}
-        />
-      )}
+    <Modal title="Link papers" onClose={() => setComposeOpen(false)}>
+      <AddEdgeForm
+        papers={papers}
+        onAdded={(paperId) => {
+          void load();
+          selectPaper(paperId);
+        }}
+        onClose={() => setComposeOpen(false)} />
     </Modal>
   );
 
@@ -458,7 +437,7 @@ export function GraphScreen() {
           <div className="graph-focus-bar__row">
             {header}
             {settingsButton}
-            <button type="button" className="btn-secondary" onClick={() => setFocus(false)}>Exit focus</button>
+            <Button onClick={() => setFocus(false)}>Exit focus</Button>
           </div>
           <BraveGraphWarning />
         </div>
@@ -469,7 +448,20 @@ export function GraphScreen() {
         {graphView}
         {graphBelow}
         {!hasVisibleItems && (
-          <div className="empty gf-empty"><p>No items match the filter.</p></div>
+          <div className="gf-empty">
+            <EmptyState
+              variant="no-results"
+              body="No items match the filter."
+              action={
+                <ClearFiltersButton
+                  onClear={() => {
+                    setSelectedLists([]);
+                    setSelectedTags([]);
+                  }}
+                />
+              }
+            />
+          </div>
         )}
         {/* Focus mode has no room for the panel, so it keeps the floating
             legend it has always had; only the plain view gets `graphBelow`. */}
@@ -493,9 +485,9 @@ export function GraphScreen() {
           title="Nothing to link yet"
           body="The graph draws what is already connected: a note that cites a paper, a paper a run came from, a section a note ends up in. Add papers or notes first, and the links appear here as you make them."
           action={
-            <Link className="btn-secondary" href="/papers">
+            <Button href="/papers">
               Go to papers
-            </Link>
+            </Button>
           }
         />
       )}

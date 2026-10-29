@@ -1,7 +1,9 @@
 "use client";
 
-import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
+import { useId, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { tagTone } from "@/lib/tag-tone";
+import { Button } from "./button";
+import { Chip } from "./controls";
 
 /**
  * Shared entity list card chrome — papers, report sections, notes, experiments,
@@ -10,6 +12,8 @@ import { tagTone } from "@/lib/tag-tone";
  * Layout: [leading?] title ……… badge · status · actions · menu
  *         meta
  *         tags / body
+ * The controls float top-right and the title's text wraps around them, so a
+ * long title uses the full width below the controls (D09, E42).
  */
 const MAX_CARD_TAGS = 3;
 
@@ -54,6 +58,7 @@ export function EntityCard({
   menu?: ReactNode;
 }) {
   const interactive = Boolean(onActivate);
+  const titleId = useId();
   const shell = [
     "card",
     "entity-card",
@@ -70,55 +75,46 @@ export function EntityCard({
     e.stopPropagation();
   }
 
-  function onKeyDown(e: KeyboardEvent<HTMLElement>) {
-    if (!onActivate) return;
-    if (e.target !== e.currentTarget) return;
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      onActivate();
-    }
-  }
-
+  // The card is a click surface, not a button. The title stays plain text, so it
+  // wraps round the floated controls; keyboard and screen readers open the card
+  // through an empty link button named by the title (invisible to the mouse).
   return (
     <Tag
       id={id}
       className={shell}
       data-status={tone}
       data-tag-tone={tintTag ? tagTone(tintTag) : undefined}
-      role={interactive ? "button" : undefined}
-      tabIndex={interactive ? 0 : undefined}
+      role={interactive ? "presentation" : undefined}
       onClick={onActivate}
-      onKeyDown={interactive ? onKeyDown : undefined}
     >
       <div className="entity-card-head">
-        {leading}
-        {/* Controls float right so a long title wraps beside them, then runs full width. */}
-        <div className="entity-card-heading">
-          {hasControls && (
-            <div className="entity-card-actions" onClick={stop} onKeyDown={stop}>
-              {badge}
-              {status != null && <div className="entity-card-status">{status}</div>}
-              {actions}
-              {menu}
-            </div>
-          )}
-          <h3 className="entity-card-title">{title}</h3>
-        </div>
+        {leading != null && <div className="entity-card-lead">{leading}</div>}
+        {/* Before the title: a float only wraps text that comes after it. */}
+        {hasControls && (
+          <div className={menu ? "entity-card-controls entity-card-controls--menu" : "entity-card-controls"} onClick={stop} onKeyDown={stop}>
+            {badge}
+            {status != null && <div className="entity-card-status">{status}</div>}
+            {actions}
+            {menu}
+          </div>
+        )}
+        <h3 className="entity-card-title" id={onActivate ? titleId : undefined}>{title}</h3>
       </div>
+      {onActivate && <Button variant="link" aria-labelledby={titleId} onClick={(e) => { stop(e); onActivate(); }} />}
 
       {hasMeta && <p className="entity-card-meta">{meta}</p>}
 
       {tags && tags.length > 0 && (
         // A heavily tagged entity would otherwise wrap to three rows and push
-        // the body off-screen on a phone. One line, then a count.
+        // the body off-screen on a phone. A few tags, then a count.
         <div className="tag-chips chip-row--capped">
           {tags.slice(0, MAX_CARD_TAGS).map((t) => (
-            <span key={t} className="tag-chip">
+            <Chip key={t} title={`#${t}`}>
               #{t}
-            </span>
+            </Chip>
           ))}
           {tags.length > MAX_CARD_TAGS && (
-            <span className="tag-chip chip-more">+{tags.length - MAX_CARD_TAGS}</span>
+            <span className="chip-more">+{tags.length - MAX_CARD_TAGS}</span>
           )}
         </div>
       )}

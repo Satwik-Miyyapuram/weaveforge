@@ -58,6 +58,18 @@ export class PostgrestAiProposalStore implements IAiProposalStore {
     }));
   }
 
+  async claimPending(id: string): Promise<boolean> {
+    // One conditional update: of two callers, only one sees its row come back.
+    const { data, error } = await this.db
+      .from("ai_proposals")
+      .update({ status: "executing", updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("status", "pending")
+      .select("id");
+    if (error) throw error;
+    return (data ?? []).length === 1;
+  }
+
   async getById(id: string): Promise<AiWriteProposal | null> {
     const { data, error } = await this.db.from("ai_proposals").select(PROPOSAL_COLUMNS).eq("id", id).maybeSingle();
     if (error) throw error;

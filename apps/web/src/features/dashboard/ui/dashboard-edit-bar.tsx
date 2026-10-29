@@ -1,5 +1,7 @@
 "use client";
 
+import { Button, IconButton } from "@/components/button";
+
 function CustomizeIcon() {
   return (
     <svg
@@ -36,29 +38,23 @@ export function DashboardEditBar({
 }) {
   if (!editing) {
     return (
-      <button
-        type="button"
-        className="dashboard-customize-btn"
-        onClick={onCustomize}
-        aria-label="Customize dashboard"
-        title="Customize"
-      >
+      <IconButton label="Customize dashboard" tip="Customize" onClick={onCustomize}>
         <CustomizeIcon />
-      </button>
+      </IconButton>
     );
   }
 
   return (
     <div className="dashboard-edit-bar dashboard-edit-bar--editing">
-      <button type="button" className="btn-secondary" onClick={onAdd}>
+      <Button onClick={onAdd}>
         + Add card
-      </button>
-      <button type="button" className="btn-secondary" onClick={onReset}>
-        Reset default
-      </button>
-      <button type="button" className="btn-primary" onClick={onDone}>
+      </Button>
+      <Button onClick={onReset}>
+        Reset layout
+      </Button>
+      <Button variant="primary" onClick={onDone}>
         Done
-      </button>
+      </Button>
     </div>
   );
 }

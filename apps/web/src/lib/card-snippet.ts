@@ -1,3 +1,5 @@
+import { isEmptyPaperSummary } from "@weaveforge/core";
+
 /**
  * Plain-text preview of a markdown body, for entity list cards.
  *
@@ -10,6 +12,10 @@
  */
 export function cardSnippet(body: string, max = 180): string {
   const text = body
+    // Front matter, heading lines and table rows repeat the title or show as
+    // raw pipes on a card (DA-28); the first prose is what tells notes apart.
+    .replace(/^---\r?\n[^]*?\r?\n---[ \t]*(?:\r?\n|$)/, "")
+    .replace(/^[ \t]*(?:#{1,6}[ \t].*|\|.*)$/gm, "")
     // Comments (an ink page marker) and an image or comment cut off by a
     // preview's length limit are markup too.
     .replace(/<!--[^]*?(?:-->|$)/g, "")
@@ -19,6 +25,6 @@ export function cardSnippet(body: string, max = 180): string {
     .replace(/[#>*_`~]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (!text || text === "No summary yet.") return "";
+  if (isEmptyPaperSummary(text)) return "";
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { clearCacheStorage } from "@/lib/cache-storage";
+
 /**
  * Recovers from Next.js blank “Application error” pages caused by stale
  * service-worker precaches / build-id mismatches (common on Android TWA after
@@ -14,14 +16,7 @@ async function resetClientRuntimeCaches(): Promise<void> {
   } catch {
     /* best-effort */
   }
-  try {
-    if (typeof caches !== "undefined") {
-      const keys = await caches.keys();
-      await Promise.all(keys.map((k) => caches.delete(k)));
-    }
-  } catch {
-    /* best-effort */
-  }
+  await clearCacheStorage();
 }
 
 /** Clear WeaveForge local/session keys that can poison cold start after a crash. */
@@ -72,4 +67,28 @@ export function resetAppData(): void {
     clearThesisWebStorage();
     window.location.replace("/");
   })();
+}
+
+/** The warning both error screens show before `resetAppData`. */
+export const RESET_APP_DATA_CONFIRM =
+  "Reset app data? Offline copies of your work on this device will be deleted. This cannot be undone.";
+
+/**
+ * Whether this is the installed Android app.
+ *
+ * Kept here, not reused from `features/search/infrastructure/
+ * index-cache-policy`, because the error boundaries import it: a boundary has
+ * to render when the module that failed to load is exactly the one it would
+ * import, so it depends on nothing but this file. The tell is the same one
+ * that file uses: a trusted web activity is referred by its own
+ * `android-app://` scheme, the only signal that survives before the
+ * display-mode query matches.
+ */
+export function isAndroidApp(): boolean {
+  if (typeof document === "undefined") return false;
+  try {
+    return document.referrer.startsWith("android-app://");
+  } catch {
+    return false;
+  }
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { FormError } from "./form-error";
 import { Modal, ModalActions } from "./modal";
+import { Button } from "@/components/button";
 
 /**
  * A question the app draws, not the OS.
@@ -42,7 +43,8 @@ export function PromptDialog({
 }) {
   const [value, setValue] = useState(initialValue);
   const [problem, setProblem] = useState<string | null>(null);
-  const id = `${title.replace(/\s+/g, "-").toLowerCase()}-value`;
+  // Unique per dialog: a title-derived id collided when two prompts shared a title.
+  const id = useId();
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -73,12 +75,12 @@ export function PromptDialog({
         </label>
         <FormError>{problem}</FormError>
         <ModalActions>
-          <button type="button" className="btn-secondary btn-cancel" onClick={onClose}>
+          <Button variant="cancel" onClick={onClose}>
             Cancel
-          </button>
-          <button type="submit" className="btn-primary">
+          </Button>
+          <Button type="submit" variant="primary">
             {confirmLabel}
-          </button>
+          </Button>
         </ModalActions>
       </form>
     </Modal>

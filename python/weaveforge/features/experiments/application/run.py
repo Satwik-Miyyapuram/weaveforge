@@ -37,6 +37,10 @@ _MAX_BUFFERED = 20 * _FLUSH_EVERY
 #: retries failed *connections* up to three times, so the worst case is a small
 #: multiple of this, not this exactly.
 _AUTO_FLUSH_TIMEOUT = 10.0
+#: After each failed automatic flush in a row, the points logged before the
+#: next attempt double (``_FLUSH_EVERY`` times 2, 4, 8, ...), up to this factor.
+#: A server that stays down then costs a handful of timeouts, not one per point.
+_MAX_BACKOFF = 64
 _CONTENT_TYPES = {
     "png": "image/png",
     "jpg": "image/jpeg",
@@ -91,6 +95,15 @@ class Run:
         self._buffer: list[MetricPoint] = []
         self._last: dict[str, float] = {}
         self._fig_seq = 0
+        # Names already uploaded in this run. Storage upserts by name, so a name
+        # the run picked for the user (an unnamed figure, a synced one) must not
+        # land on one it already used; see :meth:`_unused_name`.
+        self._names: set[str] = set()
+        # Retry pacing for automatic flushes: total points logged, failures in
+        # a row, and the total at which the next attempt may run.
+        self._logged = 0
+        self._auto_failures = 0
+        self._retry_at = 0
 
     @property
     def id(self) -> str:
@@ -107,6 +120,7 @@ class Run:
         point = MetricPoint(self.id, name, int(step), float(value), wall)
         with self._lock:
             self._buffer.append(point)
+            self._logged += 1
             self._last[name] = float(value)
         # Outside the lock: the mirror is network I/O and must not serialise the
         # buffer, and it never holds anything this object owns.
@@ -141,6 +155,8 @@ class Run:
         fname = name or f"figure-{self._fig_seq}"
         if "." not in fname:
             fname = f"{fname}.{fmt}"
+        if name is None:
+            fname = self._unused_name(fname)
         ctype = _CONTENT_TYPES.get(fmt, "application/octet-stream")
         return self.log_bytes(fname, buf.getvalue(), ctype)
 
@@ -153,6 +169,7 @@ class Run:
                 "Use a run created via track()/track_experiment(), or pass log_artifact(url)."
             )
         url = self._uploader(self.id, name, data, content_type)
+        self._names.add(name)
         self.experiment = self._manage.add_artifacts(self.id, [url], existing=self.experiment)
         return url
 
@@ -192,8 +209,10 @@ class Run:
 
     def _ingest_series(self, series: Iterable[Any]) -> None:
         for s in series:
+            points = list(s.to_points(self.id))
             with self._lock:
-                self._buffer.extend(s.to_points(self.id))
+                self._buffer.extend(points)
+                self._logged += len(points)
                 if s.last_value is not None:
                     self._last[s.metric] = s.last_value
             self._flush_when_full()
@@ -203,24 +222,43 @@ class Run:
             if art.url:
                 self.log_artifact(art.url)
             elif art.data is not None:
-                self.log_bytes(art.name, art.data, art.content_type)
+                # A source names its files without knowing what the run already
+                # holds: the matplotlib source starts at figure-0 on every call.
+                self.log_bytes(self._unused_name(art.name), art.data, art.content_type)
+
+    def _unused_name(self, name: str) -> str:
+        """``name``, or ``name`` with ``-2``, ``-3``… before its extension when
+        this run has already uploaded a file under it.
+
+        A name the user passed is left alone: naming a figure is how they say
+        "replace the last one"."""
+        if name not in self._names:
+            return name
+        stem, dot, ext = name.rpartition(".")
+        if not dot:
+            stem, ext = name, ""
+        n = 2
+        while (candidate := f"{stem}-{n}{dot}{ext}") in self._names:
+            n += 1
+        return candidate
 
     def _flush_when_full(self) -> None:
-        """Flush once the buffer has reached the threshold.
+        """Flush once the buffer has reached the threshold and any backoff after
+        a failed automatic flush has passed.
 
         The length is read under the lock, but the decision is re-made inside
         :meth:`flush`: two threads can both see a full buffer, and the swap
         there is what guarantees only one of them sends it.
         """
         with self._lock:
-            full = len(self._buffer) >= _FLUSH_EVERY
+            full = len(self._buffer) >= _FLUSH_EVERY and self._logged >= self._retry_at
         if full:
             self._auto_flush()
 
     def _auto_flush(self) -> None:
         """A flush the training loop did not ask for. A server that is down for
-        a minute must not end the run: keep the points, warn once, and try again
-        at the next threshold. An explicit ``flush()`` still raises.
+        a minute must not end the run: keep the points, warn, and try again once
+        the backoff has passed (see ``_MAX_BACKOFF``). An explicit ``flush()`` still raises.
 
         The send is bounded by ``_AUTO_FLUSH_TIMEOUT`` so a server that has gone
         away cannot hold the training loop for the client's full 60s (times the
@@ -244,7 +282,12 @@ class Run:
 
         # stacklevel 5 keeps the attribution where the inline version had it:
         # best_effort, `attempt`, this method, _flush_when_full, log_metric.
-        best_effort("send metrics, will retry", attempt, stacklevel=5)
+        failed = best_effort("send metrics, will retry", attempt, stacklevel=5)
+        if failed is not None:
+            with self._lock:
+                self._auto_failures += 1
+                factor = min(2**self._auto_failures, _MAX_BACKOFF)
+                self._retry_at = self._logged + _FLUSH_EVERY * factor
 
     # --- lifecycle -------------------------------------------------------
     def flush(self, *, timeout: float | None = None) -> None:
@@ -270,17 +313,26 @@ class Run:
             except BaseException:
                 # Put the points back at the front, in order: they were never
                 # stored, and the caller that keeps the run alive
-                # (``_auto_flush``) intends to try again.
+                # (``_auto_flush``) intends to try again. The summary was not
+                # written either, so it goes back too.
                 with self._lock:
                     self._buffer[:0] = pending
+                self._restore_summary(summary)
                 raise
         if summary:
             try:
                 self.log_summary(dict(summary))
             except BaseException:
-                # Same reasoning for the folded summary values. A value logged
-                # while that write was in flight is newer and wins.
-                with self._lock:
-                    for name, value in summary.items():
-                        self._last.setdefault(name, value)
+                self._restore_summary(summary)
                 raise
+        # Everything sent: the server is back, so automatic flushes stop waiting.
+        with self._lock:
+            self._auto_failures = 0
+            self._retry_at = 0
+
+    def _restore_summary(self, summary: dict[str, float]) -> None:
+        """Put unsent summary values back. A value logged while the send was in
+        flight is newer and wins."""
+        with self._lock:
+            for name, value in summary.items():
+                self._last.setdefault(name, value)

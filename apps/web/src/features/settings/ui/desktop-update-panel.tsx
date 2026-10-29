@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { desktop, type DesktopUpdate } from "@/lib/desktop/desktop-bridge";
+import { Button } from "@/components/button";
 
 /**
  * Updates, for the desktop window only.
@@ -79,8 +80,8 @@ export function DesktopUpdatePanel() {
   if (!bridge) return null;
 
   return (
-    <div className="card settings-card">
-      <h2>Updates</h2>
+    <div className="add-form settings-card">
+      <h3 className="settings-group">Updates</h3>
       <p className="muted">
         The app itself updates from the web — whatever this window loads is the current
         version, the same as a browser tab. Only the desktop window is installed on this
@@ -104,9 +105,9 @@ export function DesktopUpdatePanel() {
             <b>Version {update.version} is available.</b> Downloading opens the release page
             in your browser; nothing is installed without you.
           </p>
-          <a className="btn-primary" href={update.url} target="_blank" rel="noreferrer">
+          <Button variant="primary" href={update.url} target="_blank" rel="noreferrer">
             Get {update.version}
-          </a>
+          </Button>
         </div>
       ) : (
         <p className="muted">
@@ -118,9 +119,9 @@ export function DesktopUpdatePanel() {
         </p>
       )}
 
-      <button type="button" className="btn-secondary" onClick={check} disabled={!checked}>
+      <Button onClick={check} disabled={!checked}>
         {checked ? "Check now" : "Checking…"}
-      </button>
+      </Button>
     </div>
   );
 }

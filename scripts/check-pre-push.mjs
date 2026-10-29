@@ -10,11 +10,14 @@
  * 5. Typecheck across all workspaces (typecheck)
  * 6. Linter (lint)
  * 7. Bundle budget (bundle:budget, when .next build exists)
+ * 8. Memory budgets (test:memory, ~5 s)
+ * 9. Design page guards (test:e2e:design: targets and overflow, D20 G5/G6)
  */
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { GENERATED_DOCS } from "./lib/generated-docs.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -31,8 +34,17 @@ function run(cmd, desc) {
 // 1. Purge any rogue desktop.ini files
 run("node scripts/clean-desktop-ini.mjs", "Cleaning rogue desktop.ini files");
 
-// 2. Ensure docs are fresh
+// 2. Ensure docs are fresh. The pre-commit hook normally keeps them current;
+// a commit made without it (commit-tree, a merge) is caught here and the
+// regenerated docs are committed. A push cannot pick up a commit made during
+// it, so the push stops and asks to be run again.
 run("npm run docs:generate", "Regenerating architecture docs");
+const docs = GENERATED_DOCS.join(" ");
+if (execSync(`git status --porcelain -- ${docs}`, { cwd: root, encoding: "utf8" }).trim()) {
+  run(`git commit -q -s -m "docs: regenerate generated blocks" -- ${docs}`, "Committing regenerated docs");
+  console.error("\n[pre-push] Docs were out of date and are now committed. Run git push again.");
+  process.exit(1);
+}
 run("npm run check:docs", "Verifying architecture docs freshness");
 
 // 3. DCO check against origin/main (or upstream)
@@ -57,5 +69,13 @@ run("npm run lint", "Running linter");
 if (existsSync(path.join(root, "apps/web/.next"))) {
   run("npm run bundle:budget", "Checking bundle budget");
 }
+
+// 8. Memory budgets: local database RSS and ink page open/close leaks
+run("npm run test:memory", "Checking memory budgets");
+
+// 9. Design page guards: targets and clipped text on planted pages, then on the
+// real screens when the e2e account is configured (the screen spec skips itself
+// otherwise).
+run("npm run test:e2e:design --workspace @weaveforge/web", "Checking design page guards (D20 G5/G6)");
 
 console.log("\n==> [pre-push] All offline pre-push checks PASSED cleanly!\n");
