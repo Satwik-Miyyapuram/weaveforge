@@ -12,6 +12,7 @@
  * 7. Bundle budget (bundle:budget, when .next build exists)
  * 8. Memory budgets (test:memory, ~5 s)
  * 9. Design page guards (test:e2e:design: targets and overflow, D20 G5/G6)
+ * 10. Rust gates (check:rust --local: fmt, clippy, nextest, doctest, deny; scripts/lib/rust-gates.mjs)
  */
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -77,5 +78,8 @@ run("npm run test:memory", "Checking memory budgets");
 // real screens when the e2e account is configured (the screen spec skips itself
 // otherwise).
 run("npm run test:e2e:design --workspace @weaveforge/web", "Checking design page guards (D20 G5/G6)");
+
+// 10. Rust gates for crates/, the same script CI runs.
+run("npm run check:rust -- --local", "Running Rust gates (offline; advisories run in CI)");
 
 console.log("\n==> [pre-push] All offline pre-push checks PASSED cleanly!\n");

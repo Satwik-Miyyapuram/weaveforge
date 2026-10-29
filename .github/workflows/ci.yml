@@ -7,8 +7,9 @@ on:
     # `feat/offline-first` is a long-lived integration branch that main is
     # protected from until it is finished, so the pull requests into it need
     # the same checks main's do — otherwise the branch merges to main in one
-    # untested lump.
-    branches: [main, feat/offline-first]
+    # untested lump. `feat/rust-port` is the same kind of branch for the Rust
+    # port (docs/plans/current/rust-port/plan.md).
+    branches: [main, feat/offline-first, feat/rust-port]
   # Nightly paused: burns private-repo Actions minutes and was red on Playwright.
   # Re-enable after billing/minutes are healthy:
   # schedule:
@@ -383,6 +384,31 @@ jobs:
           node scripts/check-dco.mjs
           "${{ github.event.pull_request.base.sha }}"
           "${{ github.event.pull_request.head.sha }}"
+
+  rust:
+    # Rust gates for crates/ (plan §4.5). The gate list lives once, in
+    # scripts/lib/rust-gates.mjs; pre-push runs the same script.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # Install the toolchain pinned in rust-toolchain.toml before the cache
+      # keys on `rustc -vV`.
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+
+      # Pinned so a new release cannot change gate behaviour without a repo change.
+      - name: Install cargo-nextest and cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.150,cargo-deny@0.20.2
+
+      - name: Rust gates (fmt, clippy, nextest, doctest, deny, advisories)
+        run: node scripts/check-rust.mjs
 
   python-sdk:
     runs-on: ubuntu-latest

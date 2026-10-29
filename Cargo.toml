@@ -1,0 +1,45 @@
+# WeaveForge Rust core. Plan: docs/plans/current/rust-port/plan.md (§4 rules, §6 layout).
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+license = "AGPL-3.0-only"
+repository = "https://github.com/Satwik-Miyyapuram/weaveforge"
+publish = false
+
+# Plan §4.2/§4.3: no unwrap/expect/panic in library code, every Result handled,
+# functions at most 70 lines (clippy.toml), unsafe only with a SAFETY comment.
+# wf-core additionally sets #![forbid(unsafe_code)] in its lib.rs.
+[workspace.lints.rust]
+unused_must_use = "deny"
+unused_results = "deny"
+missing_docs = "deny"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+undocumented_unsafe_blocks = "deny"
+too_many_lines = "deny"
+# Pedantic subset: silent numeric truncation and sign loss are data bugs.
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_sign_loss = "deny"
+cast_lossless = "deny"
+checked_conversions = "deny"
+must_use_candidate = "deny"
+needless_pass_by_value = "deny"
+redundant_closure_for_method_calls = "deny"
+semicolon_if_nothing_returned = "deny"
+
+[profile.release]
+# Assertions that protect user data stay on in release (plan §4.3).
+debug-assertions = false
+overflow-checks = true
