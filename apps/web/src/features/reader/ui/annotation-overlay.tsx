@@ -13,6 +13,7 @@ import {
   InkFigures,
   InkStrokes,
 } from "@/features/ink";
+import { isCommitEnter } from "@/lib/commit-enter";
 import { useBlobObjectUrls } from "@/lib/hooks/use-blob-object-urls";
 import { grownTextRect } from "../application/draft-local-annotation";
 import { projectPageAnnotationGeometry } from "../application/project-annotation-geometry";
@@ -353,7 +354,7 @@ export function TextBoxEditor({
       }}
       onBlur={(event) => finish(event.currentTarget)}
       onKeyDown={(event) => {
-        if (event.key === "Escape" || (event.key === "Enter" && !event.shiftKey)) {
+        if (event.key === "Escape" || (isCommitEnter(event) && !event.shiftKey)) {
           event.preventDefault();
           finish(event.currentTarget);
         }

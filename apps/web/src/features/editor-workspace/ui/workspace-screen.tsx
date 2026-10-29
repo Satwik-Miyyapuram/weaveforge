@@ -28,6 +28,7 @@ import {
   moveTab,
   hydrateTabModes,
   keepOpen,
+  focusedTabCount,
   layoutForCommand,
   openTab,
   openTabKeys,
@@ -608,7 +609,9 @@ export function WorkspaceScreen() {
   // plenty of keys on its way to handling them.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const command = commandForChord(event);
+      // Only a chord this screen acts on is claimed: a ⌘-number with no tab
+      // behind it falls through to the browser, which switches its own tabs.
+      const command = commandForChord(event, focusedTabCount(layoutRef.current));
       if (!command) return;
       if (isTypingTarget(event.target as HTMLElement | null)) return;
       event.preventDefault();

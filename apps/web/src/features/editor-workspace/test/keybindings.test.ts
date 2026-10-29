@@ -59,3 +59,34 @@ test("a form field swallows shortcuts; the editor surface does not", () => {
   assert.equal(isTypingTarget({ tagName: "DIV" }), false);
   assert.equal(isTypingTarget(null), false);
 });
+
+test("⌘1–⌘8 jump to that tab and ⌘9 to the last, as in a browser", () => {
+  assert.equal(commandForChord({ key: "1", ctrlKey: true }), "tab-1");
+  assert.equal(commandForChord({ key: "8", metaKey: true }), "tab-8");
+  assert.equal(commandForChord({ key: "9", ctrlKey: true }), "last-tab");
+  // ⌘0 is the host's "reset zoom"; a shifted digit is a symbol, not a tab.
+  assert.equal(commandForChord({ key: "0", ctrlKey: true }), null);
+  assert.equal(commandForChord({ key: "1", ctrlKey: true, shiftKey: true }), null);
+  assert.equal(commandForChord({ key: "1" }), null);
+  assert.equal(shortcutTable()["tab-1"], "⌘1");
+  assert.equal(shortcutTable()["last-tab"], "⌘9");
+});
+
+test("a tab-number chord the window has no tab for is not claimed", () => {
+  // Three tabs open: ⌘5 has nothing to jump to, so the browser keeps it.
+  assert.equal(commandForChord({ key: "5", ctrlKey: true }, 3), null);
+  assert.equal(commandForChord({ key: "3", ctrlKey: true }, 3), "tab-3");
+  // ⌘9 is the last tab, which exists whenever there is at least one.
+  assert.equal(commandForChord({ key: "9", ctrlKey: true }, 1), "last-tab");
+  assert.equal(commandForChord({ key: "9", ctrlKey: true }, 0), null);
+  assert.equal(commandForChord({ key: "1", ctrlKey: true }, 0), null);
+});
+
+test("⌘1–⌘9 are read by physical key, so AZERTY's symbol keys still work", () => {
+  // AZERTY: the "1" key is typed as "&" when Shift is up, and its code is Digit1.
+  assert.equal(commandForChord({ key: "&", code: "Digit1", ctrlKey: true }, 3), "tab-1");
+  assert.equal(commandForChord({ key: "é", code: "Digit2", metaKey: true }, 3), "tab-2");
+  assert.equal(commandForChord({ key: "ç", code: "Digit9", ctrlKey: true }, 2), "last-tab");
+  // Shift still means a symbol, not a tab, whatever the code says.
+  assert.equal(commandForChord({ key: "1", code: "Digit1", ctrlKey: true, shiftKey: true }, 3), null);
+});

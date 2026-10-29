@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { FolderIcon } from "@/components/view-icons";
+import { isCommitEnter } from "@/lib/commit-enter";
 import { NavIcon } from "@/app/nav-icon";
 
 import { draftIcon, type CreateKind } from "../application/explorer-edit";
@@ -72,7 +73,7 @@ export function InlineTitle({
       onBlur={() => finish(true)}
       onKeyDown={(event) => {
         event.stopPropagation();
-        if (event.key === "Enter") {
+        if (isCommitEnter(event)) {
           event.preventDefault();
           finish(true);
         } else if (event.key === "Escape") {

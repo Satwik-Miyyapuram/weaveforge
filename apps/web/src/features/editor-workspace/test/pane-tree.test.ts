@@ -9,6 +9,7 @@ import {
   closeTab,
   emptyLayout,
   focusPane,
+  focusedTabCount,
   hydrateTabModes,
   layoutForCommand,
   leaves,
@@ -341,4 +342,22 @@ test("closing a tab drops what was kept for it; switching keeps it (28-19)", () 
   const closed = closeTab(oneLeft, "pane-1", 1);
   assert.deepEqual(keepOpen(kept, openTabKeys(closed)), { "vault_page:a": 1 });
   assert.deepEqual(keepOpen({}, openTabKeys(emptyLayout())), {});
+});
+
+test("a tab-number chord activates that tab; one past the end does nothing", () => {
+  const three = activateTab(openTab(openTab(openTab(emptyLayout(), A), B), C), "pane-1", 1);
+  const pane = three.focusedPaneId;
+  assert.deepEqual(layoutForCommand(three, "tab-1"), activateTab(three, pane, 0));
+  assert.deepEqual(layoutForCommand(three, "tab-3"), activateTab(three, pane, 2));
+  assert.deepEqual(layoutForCommand(three, "last-tab"), activateTab(three, pane, 2));
+  // ⌘5 with three tabs open is a miss, not "the last one": that is ⌘9's job.
+  assert.equal(layoutForCommand(three, "tab-5"), three);
+  const empty = emptyLayout();
+  assert.equal(layoutForCommand(empty, "last-tab"), empty);
+});
+
+test("the focused pane's tab count is what a tab-number chord can reach", () => {
+  const three = openTab(openTab(openTab(emptyLayout(), A), B), C);
+  assert.equal(focusedTabCount(three), 3);
+  assert.equal(focusedTabCount(emptyLayout()), 0);
 });

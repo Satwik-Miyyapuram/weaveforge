@@ -336,12 +336,24 @@ export function keepOpen<T>(byKey: Record<string, T>, open: ReadonlySet<string>)
 }
 
 /** The pane chords: each acts on the focused pane's active tab. */
-export type PaneCommand = "split-right" | "close-tab" | "next-tab" | "previous-tab" | "toggle-mode";
+export type PaneCommand =
+  | "split-right"
+  | "close-tab"
+  | "next-tab"
+  | "previous-tab"
+  | "toggle-mode"
+  | `tab-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`
+  | "last-tab";
 
 /**
  * The layout after one pane chord. Pure, so the screen computes it once and
  * writes it once; a tab chord on an empty pane returns `layout` unchanged.
  */
+/** How many tabs the focused pane has: what a ⌘1–⌘9 chord can point at. */
+export function focusedTabCount(layout: PaneLayout): number {
+  return findLeaf(layout.root, layout.focusedPaneId)?.tabs.length ?? 0;
+}
+
 export function layoutForCommand(layout: PaneLayout, command: PaneCommand): PaneLayout {
   const pane = layout.focusedPaneId;
   if (command === "split-right") return splitPane(layout, pane, "row");
@@ -350,6 +362,12 @@ export function layoutForCommand(layout: PaneLayout, command: PaneCommand): Pane
   if (command === "close-tab") return closeTab(layout, pane, leaf.activeIndex);
   // `⌘E` is Split: the preview beside the document, and again to close it.
   if (command === "toggle-mode") return togglePreview(layout);
+  if (command === "last-tab") return activateTab(layout, pane, leaf.tabs.length - 1);
+  if (command.startsWith("tab-")) {
+    // A position past the last tab is a miss, not "the last one" (that is ⌘9).
+    const index = Number(command.slice("tab-".length)) - 1;
+    return index < leaf.tabs.length ? activateTab(layout, pane, index) : layout;
+  }
   // Cycling wraps: Ctrl-Tab on the last tab lands on the first.
   const step = command === "next-tab" ? 1 : -1;
   return activateTab(layout, pane, (leaf.activeIndex + step + leaf.tabs.length) % leaf.tabs.length);
