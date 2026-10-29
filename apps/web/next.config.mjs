@@ -197,7 +197,7 @@ const exportOnly = {
 
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@weaveforge/core"],
+  transpilePackages: ["@weaveforge/core", "@weaveforge/wasm"],
   ...(DESKTOP ? exportOnly : servedOnly),
   webpack: (config, { isServer, dev }) => {
     // @weaveforge/core is consumed as TypeScript source with ESM ".js" import
