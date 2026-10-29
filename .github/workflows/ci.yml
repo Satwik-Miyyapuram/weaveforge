@@ -102,8 +102,11 @@ jobs:
       - name: Run editor paste tests
         run: npm run test:e2e:editor
 
-      # @weaveforge/wasm imports the wasm-bindgen glue in packages/wf-wasm/pkg,
-      # which is build output (gitignored), so typecheck needs it built first.
+      # packages/wf-wasm/pkg is committed so the web and mobile builds need no
+      # Rust. Its stamp must match the Rust inputs before anything is built.
+      - name: Check the committed WASM package is fresh
+        run: npm run wasm:fresh
+
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
@@ -118,6 +121,11 @@ jobs:
 
       - name: Build the Rust core to WASM
         run: npm run build:wasm
+
+      # Glue, types and stamp must match exactly; the module may differ only in
+      # path separators (Windows vs Linux build).
+      - name: Check the rebuilt WASM package matches the committed one
+        run: npm run wasm:pkg
 
       - name: Run WASM package tests
         run: npm test --workspace @weaveforge/wasm

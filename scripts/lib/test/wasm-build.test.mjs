@@ -4,10 +4,13 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { cliVersion, lockedVersion } from "../wasm-build.mjs";
+import { WASM_INPUTS, cliVersion, inputDigest, lockedVersion, remapFlags, sameModule } from "../wasm-build.mjs";
+import { collectInputs } from "../wasm-inputs.mjs";
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -48,4 +51,89 @@ test("the Cargo.toml pin matches the Cargo.lock version in this repo", () => {
   assert.ok(pin, "Cargo.toml has no wasm-bindgen pin");
   const lock = readFileSync(path.join(repoRoot, "Cargo.lock"), "utf8");
   assert.equal(lockedVersion(lock, "wasm-bindgen"), pin[1]);
+});
+
+test("inputDigest ignores CRLF vs LF", () => {
+  assert.equal(inputDigest([{ path: "a", text: "x\r\ny" }]), inputDigest([{ path: "a", text: "x\ny" }]));
+});
+
+test("inputDigest ignores input order", () => {
+  const a = { path: "a", text: "1" };
+  const b = { path: "b", text: "2" };
+  assert.equal(inputDigest([a, b]), inputDigest([b, a]));
+});
+
+test("inputDigest treats backslash and slash paths alike", () => {
+  assert.equal(
+    inputDigest([{ path: "crates\\x.rs", text: "t" }]),
+    inputDigest([{ path: "crates/x.rs", text: "t" }]),
+  );
+});
+
+test("inputDigest changes when one byte changes", () => {
+  assert.notEqual(inputDigest([{ path: "a", text: "x" }]), inputDigest([{ path: "a", text: "y" }]));
+});
+
+test("inputDigest separates path from text", () => {
+  assert.notEqual(inputDigest([{ path: "ab", text: "c" }]), inputDigest([{ path: "a", text: "bc" }]));
+});
+
+test("inputDigest is 64 hex chars", () => {
+  assert.match(inputDigest([{ path: "a", text: "" }]), /^[0-9a-f]{64}$/);
+});
+
+test("remapFlags maps cargo home and repo root", () => {
+  assert.deepEqual(remapFlags("C:\\h\\.cargo", "C:\\repo"), [
+    "--remap-path-prefix=C:\\h\\.cargo=/cargo",
+    "--remap-path-prefix=C:\\repo=/weaveforge",
+  ]);
+});
+
+test("collectInputs finds the wasm crate and skips target", () => {
+  const paths = collectInputs(repoRoot).map((f) => f.path);
+  assert.ok(paths.includes("crates/wf-wasm/src/lib.rs"));
+  assert.ok(paths.includes("Cargo.lock"));
+  assert.ok(paths.every((p) => !p.includes("/target/")));
+  assert.ok(paths.every((p) => !p.includes("\\")));
+});
+
+test("collectInputs reads only files git tracks", () => {
+  // An untracked scratch file under crates/ is on this disk but not on CI, so
+  // hashing it would make a correct local stamp fail there.
+  // A git hook (pre-push runs these tests) exports GIT_DIR and friends. Left
+  // set, they point every git call below at the real repo, and `git init`
+  // there flips core.bare. Clear them so git finds the temp repo from cwd.
+  for (const key of Object.keys(process.env)) if (key.startsWith("GIT_")) delete process.env[key];
+  const tmp = mkdtempSync(path.join(tmpdir(), "wasm-inputs-"));
+  const git = (...args) => execFileSync("git", args, { cwd: tmp });
+  git("init", "-q");
+  for (const rel of WASM_INPUTS) {
+    const file = rel === "crates" ? "crates/x/src/lib.rs" : rel;
+    mkdirSync(path.dirname(path.join(tmp, file)), { recursive: true });
+    writeFileSync(path.join(tmp, file), rel);
+  }
+  git("add", "-A");
+  const before = collectInputs(tmp);
+  writeFileSync(path.join(tmp, "crates/x/src/lib.rs.bk"), "scratch");
+  const after = collectInputs(tmp);
+  assert.ok(after.every((f) => !f.path.endsWith(".bk")));
+  assert.equal(inputDigest(after), inputDigest(before));
+  rmSync(tmp, { recursive: true, force: true });
+});
+
+test("sameModule accepts identical bytes", () => {
+  assert.equal(sameModule(Buffer.from("abc"), Buffer.from("abc")), true);
+});
+
+test("sameModule treats backslash and slash as the same byte", () => {
+  // Windows builds write "/cargo\registry\..." where Linux writes "/cargo/registry/...".
+  assert.equal(sameModule(Buffer.from("/cargo\\registry\\x"), Buffer.from("/cargo/registry/x")), true);
+});
+
+test("sameModule rejects any other byte difference", () => {
+  assert.equal(sameModule(Buffer.from("abc"), Buffer.from("abd")), false);
+});
+
+test("sameModule rejects a length difference", () => {
+  assert.equal(sameModule(Buffer.from("abc"), Buffer.from("abcd")), false);
 });
