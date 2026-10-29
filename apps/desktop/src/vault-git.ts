@@ -51,6 +51,12 @@ const NO_AUTO_GC = ["-c", "maintenance.auto=false", "-c", "gc.auto=0"];
 // would otherwise prune unreachable objects older than two weeks.
 const FLAGS = ["-c", "core.longpaths=true", "-c", "core.autocrlf=false", "-c", "gc.pruneExpire=never"];
 
+/**
+ * Bounds for the background pack. Unbounded, git sizes its delta window and cache by the history and
+ * uses every core, so a first pack of a large vault can take gigabytes and stall the machine.
+ */
+const PACK_LIMITS = ["-c", "pack.windowMemory=256m", "-c", "pack.deltaCacheSize=128m", "-c", "pack.threads=2"];
+
 /** This machine's database, cache and lock under the folder root; never history. */
 const LOCAL_ONLY = "/.weaveforge/";
 
@@ -210,7 +216,7 @@ export class NativeWorkspaceGit implements IWorkspaceGit {
    * Best effort: a failed pack only goes in the log.
    */
   private packLoose(): void {
-    const child = spawn("git", [...FLAGS, "-C", this.root, "gc", "--auto", "--no-prune", "--quiet"], {
+    const child = spawn("git", [...FLAGS, ...PACK_LIMITS, "-C", this.root, "gc", "--auto", "--no-prune", "--quiet"], {
       detached: true,
       stdio: "ignore",
       windowsHide: true,
