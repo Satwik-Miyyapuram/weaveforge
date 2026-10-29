@@ -11,6 +11,17 @@
 export function coreInfo(): any;
 
 /**
+ * [`wf_core::search::fusion::fuse_rankings`]: distinct ids, best fused rank first.
+ * `k` defaults to [`RRF_K`]; `limit` of `None` or 0 means no limit.
+ *
+ * # Errors
+ *
+ * Fails if a list is malformed, has more than `MAX_FUSION_IDS` ids, or has a
+ * weight that is not finite and >= 0.
+ */
+export function fuseRankings(lists: any, k?: number | null, limit?: number | null): any;
+
+/**
  * [`wf_core::search::tokenizer::index_terms`]: what MiniSearch indexes for `text`.
  *
  * # Errors
@@ -19,6 +30,11 @@ export function coreInfo(): any;
  * `options` is not a valid `TokenizerOptions` object.
  */
 export function indexTerms(text: string, options: any): any;
+
+/**
+ * [`MAX_FUSION_IDS`] for JS.
+ */
+export function maxFusionIds(): number;
 
 /**
  * [`MAX_INDEX_TEXT_UTF16`] for JS, so the wrappers check the cap before the
@@ -51,12 +67,16 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly coreInfo: () => [number, number, number];
+    readonly fuseRankings: (a: any, b: number, c: number) => [number, number, number];
     readonly indexTerms: (a: number, b: number, c: any) => [number, number, number];
+    readonly maxFusionIds: () => number;
     readonly maxIndexTextUtf16: () => number;
     readonly parseQuery: (a: number, b: number) => [number, number, number];
     readonly tokenize: (a: number, b: number, c: any) => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+    readonly __wbindgen_exn_store: (a: number) => void;
+    readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __externref_table_dealloc: (a: number) => void;
     readonly __wbindgen_start: () => void;

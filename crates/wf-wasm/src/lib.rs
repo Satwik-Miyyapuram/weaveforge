@@ -10,8 +10,10 @@
 #![deny(unsafe_code)]
 
 use serde::Serialize;
+use std::num::NonZeroUsize;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::wasm_bindgen;
+use wf_core::search::fusion::{RRF_K, RankedList};
 use wf_core::search::js_text::utf16_len;
 use wf_core::search::tokenizer::{
     TokenizerOptions, index_terms as core_index_terms, tokenize as core_tokenize,
@@ -124,4 +126,64 @@ pub fn parse_query(query: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     debug_assert!(parsed.text.len() <= query.len() * 3);
     debug_assert!(parsed.modified_within_days.is_none_or(|d| d >= 1));
     to_js(&parsed)
+}
+
+/// Most ids one ranked list may carry into `fuseRankings` (about 1 Mi). Larger
+/// lists are an error; the TS wrapper checks before the ids cross into WASM.
+pub const MAX_FUSION_IDS: usize = 1 << 20;
+
+/// [`MAX_FUSION_IDS`] for JS.
+#[must_use]
+#[wasm_bindgen(js_name = maxFusionIds)]
+pub fn max_fusion_ids() -> usize {
+    MAX_FUSION_IDS
+}
+
+/// Reads the JS lists and checks each one's size and weight.
+fn fusion_input(lists: JsValue) -> Result<Vec<RankedList>, serde_wasm_bindgen::Error> {
+    let lists: Vec<RankedList> = serde_wasm_bindgen::from_value(lists)?;
+    for (index, list) in lists.iter().enumerate() {
+        if list.ids.len() > MAX_FUSION_IDS {
+            return Err(serde_wasm_bindgen::Error::new(format!(
+                "list {index} has {} ids; MAX_FUSION_IDS is {MAX_FUSION_IDS}",
+                list.ids.len()
+            )));
+        }
+        if !list.weight.is_finite() || list.weight < 0.0 {
+            return Err(serde_wasm_bindgen::Error::new(format!(
+                "list {index} weight {} must be finite and >= 0",
+                list.weight
+            )));
+        }
+    }
+    debug_assert!(lists.iter().all(|l| l.ids.len() <= MAX_FUSION_IDS));
+    debug_assert!(
+        lists
+            .iter()
+            .all(|l| l.weight.is_finite() && l.weight >= 0.0)
+    );
+    Ok(lists)
+}
+
+/// [`wf_core::search::fusion::fuse_rankings`]: distinct ids, best fused rank first.
+/// `k` defaults to [`RRF_K`]; `limit` of `None` or 0 means no limit.
+///
+/// # Errors
+///
+/// Fails if a list is malformed, has more than `MAX_FUSION_IDS` ids, or has a
+/// weight that is not finite and >= 0.
+#[wasm_bindgen(js_name = fuseRankings)]
+pub fn fuse_rankings(
+    lists: JsValue,
+    k: Option<u32>,
+    limit: Option<u32>,
+) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    let lists = fusion_input(lists)?;
+    let limit = limit
+        .and_then(|n| usize::try_from(n).ok())
+        .and_then(NonZeroUsize::new);
+    let fused = wf_core::search::fusion::fuse_rankings(&lists, k.unwrap_or(RRF_K), limit);
+    debug_assert!(fused.len() <= lists.iter().map(|l| l.ids.len()).sum::<usize>());
+    debug_assert!(limit.is_none_or(|n| fused.len() <= n.get()));
+    to_js(&fused)
 }

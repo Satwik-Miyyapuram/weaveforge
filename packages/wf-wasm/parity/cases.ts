@@ -3,8 +3,8 @@
  * PR that ports the function; delete it in the PR that deletes the TS copy.
  */
 import { readFileSync } from "node:fs";
-import { parseSearchQuery, processTerm, tokenize as tsTokenize } from "@weaveforge/core";
-import { coreInfo, indexTerms, parseQuery, tokenize, type TokenizerOptions } from "../src/index.js";
+import { fuseRankings as tsFuseRankings, parseSearchQuery, processTerm, tokenize as tsTokenize } from "@weaveforge/core";
+import { coreInfo, fuseRankings, indexTerms, parseQuery, tokenize, type TokenizerOptions } from "../src/index.js";
 import type { ParityCase } from "./harness.js";
 
 /** Input of the tokenizer cases: every text runs under one options object. */
@@ -50,9 +50,27 @@ const parseQueryCase: ParityCase<{ queries: string[] }, unknown[]> = {
   rust: ({ queries }) => queries.map(rustParse),
 };
 
+/** One fusion call: lists of ids, plus the options the call passes. */
+interface FusionRun {
+  lists: { items: string[]; weight?: number }[];
+  k?: number;
+  limit?: number;
+}
+
+/**
+ * The ids are lowercase ASCII letters, where localeCompare and code point
+ * order agree, so the Rust tie order (code point) matches the TS one.
+ */
+const fuseRankingsCase: ParityCase<{ runs: FusionRun[] }, string[][]> = {
+  name: "fuse-rankings",
+  ts: ({ runs }) => runs.map(({ lists, k, limit }) => tsFuseRankings(lists, (id) => id, { k, limit })),
+  rust: ({ runs }) => runs.map(({ lists, k, limit }) => fuseRankings(lists, (id) => id, { k, limit })),
+};
+
 export const CASES: ParityCase[] = [
   { name: "core-info", ts: tsCoreInfo, rust: () => coreInfo() },
   tokenizeCase as ParityCase,
   indexTermsCase as ParityCase,
   parseQueryCase as ParityCase,
+  fuseRankingsCase as ParityCase,
 ];

@@ -35,6 +35,7 @@ pub fn types() -> Types {
         .register::<wf_core::search::tokenizer::TokenizerOptions>()
         .register::<wf_core::search::query::SearchKind>()
         .register::<wf_core::search::query::ParsedQuery>()
+        .register::<wf_core::search::fusion::RankedList>()
 }
 
 /// Render the full bindings file.
