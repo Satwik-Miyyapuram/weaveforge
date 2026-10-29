@@ -33,6 +33,8 @@ pub fn types() -> Types {
     Types::default()
         .register::<wf_core::CoreInfo>()
         .register::<wf_core::search::tokenizer::TokenizerOptions>()
+        .register::<wf_core::search::query::SearchKind>()
+        .register::<wf_core::search::query::ParsedQuery>()
 }
 
 /// Render the full bindings file.

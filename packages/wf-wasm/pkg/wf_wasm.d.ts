@@ -27,6 +27,16 @@ export function indexTerms(text: string, options: any): any;
 export function maxIndexTextUtf16(): number;
 
 /**
+ * [`wf_core::search::query::parse_query`]: the query split into terms, phrases,
+ * exclusions and filters.
+ *
+ * # Errors
+ *
+ * Fails if `query` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ */
+export function parseQuery(query: string): any;
+
+/**
  * [`wf_core::search::tokenizer::tokenize`]: search terms of `text`, deduplicated.
  *
  * # Errors
@@ -43,6 +53,7 @@ export interface InitOutput {
     readonly coreInfo: () => [number, number, number];
     readonly indexTerms: (a: number, b: number, c: any) => [number, number, number];
     readonly maxIndexTextUtf16: () => number;
+    readonly parseQuery: (a: number, b: number) => [number, number, number];
     readonly tokenize: (a: number, b: number, c: any) => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

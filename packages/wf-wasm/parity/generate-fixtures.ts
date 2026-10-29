@@ -9,7 +9,7 @@
  * (phase-1-search.md, Unicode).
  */
 import { mkdirSync, writeFileSync } from "node:fs";
-import { processTerm, tokenize, type TokenizerOptions } from "@weaveforge/core";
+import { parseSearchQuery, processTerm, tokenize, type TokenizerOptions } from "@weaveforge/core";
 
 /** Every text runs under all 16 option combinations. */
 const TOKENIZER_TEXTS = [
@@ -39,6 +39,23 @@ const TOKENIZER_TEXTS = [
   "Café CAFE cafe",
 ];
 
+/**
+ * Queries in the grammar the TS knows. `type:`, `in:` and `modified:` are
+ * Rust-only (tested in crates/wf-core/tests/search_query.rs), so they stay out.
+ */
+const QUERIES = [
+  "", "   ", "Graph Neural", '"message passing" graphs',
+  'vae -baseline -"work in progress"', "kind:note path:Method tag:#vae latent",
+  "KIND:Paper Kind:PDF kind:bogus kind:note:extra", "path: tag: kind: tag:# tag:##x",
+  '- " -" -', '"unterminated phrase', '-"unterminated exclusion',
+  'a"b -a"b -a"" x"', '"" -"" "  " -"  "', 'path:""x" path:x"" path:"""',
+  'tag:"#Q" tag:""y" path:"Multi', "ΣΑΣ İstanbul ÉCOLE",
+  "\u{feff}word\u{a0}next\u{85}x\u{2028}y", "--double -- ---", "#hash term#",
+  'a "b c" d "e" -f g', "\u{212a}IND:note", "\tkind:log\n\"Deep Dive\"  -Old  ",
+  "kind:list kind:section kind:experiment kind:milestone kind:log kind:annotation",
+  "Café cafe CAFÉ", "VAE編碼器 x日y", "https://Ex.org/Été -foo.com",
+];
+
 /** Mask bits: 1 fold, 2 Arabic, 4 camelCase, 8 URLs (as in the Rust goldens). */
 function optionsFor(mask: number): Required<TokenizerOptions> {
   return {
@@ -64,6 +81,10 @@ for (const text of TOKENIZER_TEXTS) {
   // With the u flag, \p{Cs} matches only an unpaired surrogate.
   if (/\p{Cs}/u.test(text)) throw new Error(`lone surrogate in ${JSON.stringify(text)}`);
 }
+for (const query of QUERIES) {
+  if (/(^|\s|-)(type|in|modified):/i.test(query)) throw new Error(`Rust-only filter in ${JSON.stringify(query)}`);
+}
+write("parse-query", "queries.json", { queries: QUERIES }, QUERIES.map((q) => parseSearchQuery(q)));
 for (let mask = 0; mask < 16; mask += 1) {
   const options = optionsFor(mask);
   const input = { texts: TOKENIZER_TEXTS, options };

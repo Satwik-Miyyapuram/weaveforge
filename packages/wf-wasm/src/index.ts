@@ -18,10 +18,11 @@ import init, {
   maxIndexTextUtf16 as rawMaxIndexTextUtf16,
   tokenize as rawTokenize,
   indexTerms as rawIndexTerms,
+  parseQuery as rawParseQuery,
 } from "../pkg/wf_wasm.js";
-import type { CoreInfo, TokenizerOptions } from "./bindings.js";
+import type { CoreInfo, ParsedQuery, SearchKind, TokenizerOptions } from "./bindings.js";
 
-export type { CoreInfo, TokenizerOptions };
+export type { CoreInfo, ParsedQuery, SearchKind, TokenizerOptions };
 export { init, initSync };
 
 /** Facts about this core build, such as its version. */
@@ -29,7 +30,7 @@ export function coreInfo(): CoreInfo {
   return rawCoreInfo() as CoreInfo;
 }
 
-/** Largest text, in UTF-16 units, that `tokenize` and `indexTerms` accept (Rust `MAX_INDEX_TEXT_UTF16`). */
+/** Largest text, in UTF-16 units, that `tokenize`, `indexTerms` and `parseQuery` accept (Rust `MAX_INDEX_TEXT_UTF16`). */
 export function maxIndexTextUtf16(): number {
   return rawMaxIndexTextUtf16();
 }
@@ -52,4 +53,10 @@ export function tokenize(text: string, options: TokenizerOptions): string[] {
 export function indexTerms(text: string, options: TokenizerOptions): string[] {
   checkIndexText(text);
   return rawIndexTerms(text, options) as string[];
+}
+
+/** The query split into terms, phrases, exclusions and filters. Throws over MAX_INDEX_TEXT_UTF16 units. */
+export function parseQuery(query: string): ParsedQuery {
+  checkIndexText(query);
+  return rawParseQuery(query) as ParsedQuery;
 }

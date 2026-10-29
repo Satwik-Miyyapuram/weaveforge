@@ -6,7 +6,9 @@ import {
   indexTerms,
   initSync,
   maxIndexTextUtf16,
+  parseQuery,
   tokenize,
+  type ParsedQuery,
   type TokenizerOptions,
 } from "../src/index.js";
 
@@ -91,4 +93,30 @@ test("tokenize rejects malformed options", () => {
   assert.throws(bad({ foldDiacritics: true }), /missing field/);
   assert.throws(bad({ ...ALL_ON, tokenizeUrls: "yes" }));
   assert.throws(bad(undefined));
+});
+
+test("parseQuery returns every field, modifiedWithinDays included", () => {
+  const q: ParsedQuery = parseQuery('kind:note type:PDF "Deep Dive" -old path:Method in:x tag:#vae modified:2w modified:3d Latent');
+  assert.deepEqual(q, {
+    terms: ["latent"],
+    phrases: ["deep dive"],
+    exclude: ["old"],
+    kinds: ["note", "pdf"],
+    paths: ["method", "x"],
+    tags: ["vae"],
+    modifiedWithinDays: 3,
+    text: "deep dive latent",
+  });
+});
+
+test("parseQuery gives null, not a missing key, when there is no modified filter", () => {
+  const q = parseQuery("");
+  assert.ok("modifiedWithinDays" in q);
+  assert.equal(q.modifiedWithinDays, null);
+  assert.deepEqual(q, { terms: [], phrases: [], exclude: [], kinds: [], paths: [], tags: [], modifiedWithinDays: null, text: "" });
+});
+
+test("parseQuery rejects a query over MAX_INDEX_TEXT_UTF16 before WASM", () => {
+  const huge = "a".repeat(2 ** 24 + 1);
+  assert.throws(() => parseQuery(huge), (e: unknown) => e instanceof RangeError && /MAX_INDEX_TEXT_UTF16/.test(e.message));
 });

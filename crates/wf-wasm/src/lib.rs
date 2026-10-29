@@ -37,8 +37,8 @@ pub fn core_info() -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&wf_core::core_info())
 }
 
-/// Largest text, in UTF-16 code units, that `tokenize` and `indexTerms`
-/// accept (16 Mi units, 32 MiB as UTF-16). Larger input is an error, never
+/// Largest text, in UTF-16 code units, that `tokenize`, `indexTerms` and
+/// `parseQuery` accept (16 Mi units, 32 MiB as UTF-16). Larger input is an error, never
 /// truncated. The TS wrappers check it before the text crosses into WASM, since
 /// wasm-bindgen's copy would otherwise grow linear memory first; this check
 /// stays for direct callers. The core itself has no cap (phase-1-search.md, Limits).
@@ -52,11 +52,8 @@ pub fn max_index_text_utf16() -> usize {
     MAX_INDEX_TEXT_UTF16
 }
 
-/// Reads the JS options object and checks `text` against the cap.
-fn index_input(
-    text: &str,
-    options: JsValue,
-) -> Result<TokenizerOptions, serde_wasm_bindgen::Error> {
+/// Fails when `text` is over [`MAX_INDEX_TEXT_UTF16`] UTF-16 units.
+fn check_text(text: &str) -> Result<(), serde_wasm_bindgen::Error> {
     // Checked at compile time: a runtime `debug_assert!` on a const trips clippy's assertions_on_constants.
     const _: () = assert!(MAX_INDEX_TEXT_UTF16 > 0);
     // UTF-16 length never exceeds UTF-8 byte length, so short input skips the scan.
@@ -69,6 +66,18 @@ fn index_input(
         }
     }
     debug_assert!(utf16_len(text) <= MAX_INDEX_TEXT_UTF16);
+    debug_assert!(text.len() <= MAX_INDEX_TEXT_UTF16 * 3);
+    Ok(())
+}
+
+/// Reads the JS options object and checks `text` against the cap.
+fn index_input(
+    text: &str,
+    options: JsValue,
+) -> Result<TokenizerOptions, serde_wasm_bindgen::Error> {
+    check_text(text)?;
+    debug_assert!(utf16_len(text) <= MAX_INDEX_TEXT_UTF16);
+    debug_assert!(text.len() <= MAX_INDEX_TEXT_UTF16 * 3);
     serde_wasm_bindgen::from_value(options)
 }
 
@@ -100,4 +109,19 @@ pub fn index_terms(text: &str, options: JsValue) -> Result<JsValue, serde_wasm_b
     let terms = core_index_terms(text, &options);
     debug_assert!(terms.iter().all(|t| t.len() <= text.len() * 3));
     to_js(&terms)
+}
+
+/// [`wf_core::search::query::parse_query`]: the query split into terms, phrases,
+/// exclusions and filters.
+///
+/// # Errors
+///
+/// Fails if `query` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+#[wasm_bindgen(js_name = parseQuery)]
+pub fn parse_query(query: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
+    check_text(query)?;
+    let parsed = wf_core::search::query::parse_query(query);
+    debug_assert!(parsed.text.len() <= query.len() * 3);
+    debug_assert!(parsed.modified_within_days.is_none_or(|d| d >= 1));
+    to_js(&parsed)
 }
