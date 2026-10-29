@@ -85,8 +85,6 @@ fn limit_truncates_after_sorting() {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(256))]
-
     #[test]
     fn output_is_the_distinct_input_ids(
         a in proptest::collection::vec("[a-e]{1,2}", 0..12),
