@@ -146,6 +146,18 @@ test("connect-src allows app:, because the weights live on their own host", () =
   assert.match(connectSrc, /(^|\s)app:(\s|$)/, "the app protocol is allowed, not only 'self'");
 });
 
+/**
+ * The Overleaf Workshop viewer shows the compiled PDF as `<iframe src="blob:…">`.
+ * With no frame-src the policy falls back to default-src 'self' and the frame is
+ * refused. Only 'self' and blob: are allowed: no remote page may be framed.
+ */
+test("frame-src allows blob: for the Workshop PDF viewer, and nothing remote", () => {
+  const policy = appHeaders("text/html; charset=utf-8")["content-security-policy"] ?? "";
+  const frameSrc = /(?:^|;\s*)frame-src ([^;]+)/.exec(policy)?.[1]?.trim() ?? "";
+  assert.equal(frameSrc, "'self' blob:");
+  assert.match(policy, /frame-ancestors 'none'/, "being framed stays refused");
+});
+
 test("a missed page is told apart from a missed asset", () => {
   assert.equal(isPageRequest("app://weaveforge/org/"), true);
   assert.equal(isPageRequest("app://weaveforge/supervision"), true);

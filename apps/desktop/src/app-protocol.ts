@@ -183,6 +183,8 @@ const APP_CSP = [
   "worker-src 'self' blob:",
   "media-src 'self' blob: https:",
   "object-src 'none'",
+  // The Overleaf Workshop viewer frames the compiled PDF as a blob: URL.
+  "frame-src 'self' blob:",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
