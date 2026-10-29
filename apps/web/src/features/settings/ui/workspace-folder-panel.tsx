@@ -29,6 +29,8 @@ import { FormError } from "@/components/form-error";
 import { ProjectContext } from "@/features/projects";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/button";
+import { remoteSyncAvailable } from "@/features/workspace/application/folder-remote-sync";
+import { FolderRemoteSyncPanel } from "./folder-remote-sync-panel";
 
 const FolderConflictCard = dynamic(
   () => import("./folder-conflict-card").then((m) => m.FolderConflictCard),
@@ -309,6 +311,9 @@ export function WorkspaceFolderPanel() {
                 </li>
               ))}
             </ul>
+          )}
+          {hasShell && session.kind === "desktop" && remoteSyncAvailable() && (
+            <FolderRemoteSyncPanel onPulled={() => void folderHistory().then(setHistory, () => undefined)} />
           )}
         </>
       )}

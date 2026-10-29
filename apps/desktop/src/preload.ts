@@ -17,6 +17,7 @@ import type {
   DesktopUpdate,
   DesktopVaultEntry,
   DesktopVaultRoot,
+  DesktopVaultSync,
   DesktopTexCompileResult,
   DesktopTexTool,
   DesktopZoteroReply,
@@ -94,6 +95,7 @@ const bridge: DesktopBridge = {
   },
   commitVault: () => call<DesktopCommitResult>(CHANNELS.vaultCommit),
   vaultLog: (limit) => call<DesktopCommit[]>(CHANNELS.vaultLog, limit),
+  vaultSync: (action) => call<DesktopVaultSync>(CHANNELS.vaultSync, action),
   localApiState: () => call<DesktopLocalApi>(CHANNELS.localApiState),
   zoteroLocal: (url) => call<DesktopZoteroReply>(CHANNELS.zoteroLocal, url),
   readOverleafProject: (projectId, entryFile) =>

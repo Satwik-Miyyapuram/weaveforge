@@ -187,6 +187,12 @@ export interface DesktopBridge {
   commitVault(): Promise<DesktopCommitResult>;
   /** The folder's own commits, newest first; empty when it has no repository of its own. */
   vaultLog(limit: number): Promise<DesktopCommit[]>;
+  /**
+   * Sync the folder with the git remote set in Settings. The shell reads the
+   * URL and token from its own stores; `settings` only reports them (the token
+   * as `hasToken`). Rejects with a message fit to show. Absent on older shells.
+   */
+  vaultSync?(action: DesktopVaultSyncAction): Promise<DesktopVaultSync>;
   /** Whether the local HTTP surface is listening, and on what. */
   localApiState(): Promise<DesktopLocalApi>;
   /**
@@ -512,6 +518,21 @@ export interface DesktopLocalApi {
   reason?: string;
 }
 
+export type DesktopVaultSyncAction = "settings" | "status" | "connect" | "pull" | "push";
+
+/** Mirrors `GitRemoteStatus`, `GitPullResult` and `GitPushResult` in `@weaveforge/core`. */
+export interface DesktopVaultSync {
+  url: string | null;
+  hasToken: boolean;
+  status?: { url: string | null; branch: string; ahead: number; behind: number };
+  pull?:
+    | { kind: "up-to-date" }
+    | { kind: "fast-forward"; oid: string }
+    | { kind: "merged"; oid: string }
+    | { kind: "conflict"; files: readonly string[] };
+  push?: { kind: "pushed" } | { kind: "up-to-date" } | { kind: "rejected"; reason: string };
+}
+
 export interface DesktopCommit {
   oid: string;
   message: string;
@@ -537,15 +558,15 @@ export interface DesktopVaultEntry {
 /**
  * The secrets the page may name. Mirrored in `apps/desktop/src/secret-store.ts`
  * (`PAGE_WRITABLE`, held equal by its typecheck), which also keeps `local-api-token` for the shell alone, and lets the page
- * write but never read back `overleaf-token`.
+ * write but never read back `overleaf-token` or `git-sync-token`.
  */
-export type DesktopSecretName = "ai-provider" | "overleaf-token";
+export type DesktopSecretName = "ai-provider" | "overleaf-token" | "git-sync-token";
 
 /**
  * The shell preferences the page may write. Equal to `PAGE_WRITABLE` in
  * `apps/desktop/src/preference-store.ts`; a desktop test holds them equal.
  */
-export type DesktopPreferenceName = "vault-git";
+export type DesktopPreferenceName = "vault-git" | "vault-git-remote";
 export type DesktopPreferenceValue = string | boolean | null;
 
 export interface DesktopUpdate {

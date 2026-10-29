@@ -97,9 +97,9 @@ test("a file named like an ignored folder is synced; only paths through such a f
 });
 
 test("backslash paths from Windows are matched the same as slash paths", () => {
-  assert.equal(reasonFor("notes\node_modules\a.md"), "ignored-directory");
-  assert.equal(reasonFor("notes\.git\config"), "ignored-directory");
-  assert.equal(included("notes\a.md"), true);
+  assert.equal(reasonFor("notes\\node_modules\\a.md"), "ignored-directory");
+  assert.equal(reasonFor("notes\\.git\\config"), "ignored-directory");
+  assert.equal(included("notes\\a.md"), true);
 });
 
 test("a leading slash or ./ does not hide an ignored folder", () => {

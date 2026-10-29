@@ -21,6 +21,7 @@ export const PREFERENCE_NAMES = [
   "sync-target",
   "vault-root",
   "vault-git",
+  "vault-git-remote",
   "local-api",
   "plan-widget",
   "plan-widget-bounds",
@@ -115,10 +116,11 @@ function isValue(value: unknown): value is PreferenceValue {
  * (`vault-root`, `local-api`, the plan widget's) and written only from this
  * side; `vault-root` in particular decides which folder the shell serves files
  * from, so a page that could set it could point the shell anywhere. The page
- * reads none of them. Mirrored by `DesktopPreferenceName` in the web bridge,
+ * reads none of them. `vault-git-remote` is the folder's git remote URL, checked
+ * when it is used rather than when it is stored. Mirrored by `DesktopPreferenceName` in the web bridge,
  * and a test holds the two equal.
  */
-export const PAGE_WRITABLE = ["vault-git"] as const satisfies readonly PreferenceName[];
+export const PAGE_WRITABLE = ["vault-git", "vault-git-remote"] as const satisfies readonly PreferenceName[];
 export type PageWritablePreference = (typeof PAGE_WRITABLE)[number];
 
 /** The preferences as the page sees them: writes behind the list, no reads. */

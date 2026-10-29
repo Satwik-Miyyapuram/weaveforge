@@ -5,10 +5,18 @@
  * "keep a history of my folder and let me look at it" — staging areas,
  * branching, rebasing, and conflict resolution are a different product.
  *
- * There is deliberately no clone, push, pull, or merge: in-browser remotes need
- * a CORS proxy plus stored credentials, and merge needs a resolution UI. Both
- * are separate decisions, not implied by wanting local history.
+ * Remotes (connect, pull, push) are `IWorkspaceGitRemote` in `git-remote.ts`,
+ * kept apart so local history never implies talking to a server.
  */
+
+import {
+  DEFAULT_SYNC_BRANCH,
+  type GitPullResult,
+  type GitPushResult,
+  type GitRemoteConfig,
+  type GitRemoteStatus,
+  type IWorkspaceGitRemote,
+} from "./git-remote.js";
 
 export interface WorkspaceCommit {
   oid: string;
@@ -45,7 +53,7 @@ export interface IWorkspaceGit {
  * export, import — has to work with git switched off, so "no git" is a real
  * implementation rather than a null check at every call site.
  */
-export class NoOpWorkspaceGit implements IWorkspaceGit {
+export class NoOpWorkspaceGit implements IWorkspaceGit, IWorkspaceGitRemote {
   readonly kind = "none" as const;
 
   async isRepo(): Promise<boolean> {
@@ -71,7 +79,25 @@ export class NoOpWorkspaceGit implements IWorkspaceGit {
   async readAt(): Promise<Uint8Array | null> {
     return null;
   }
+
+  async remoteStatus(remote: GitRemoteConfig): Promise<GitRemoteStatus> {
+    return { url: null, branch: remote.branch ?? DEFAULT_SYNC_BRANCH, ahead: 0, behind: 0 };
+  }
+
+  async connect(): Promise<GitRemoteStatus> {
+    throw new Error(NO_HISTORY);
+  }
+
+  async pull(): Promise<GitPullResult> {
+    throw new Error(NO_HISTORY);
+  }
+
+  async push(): Promise<GitPushResult> {
+    throw new Error(NO_HISTORY);
+  }
 }
+
+const NO_HISTORY = "Syncing with a remote needs folder history switched on.";
 
 /** A commit message describing what changed, for the automatic mirror commits. */
 export function describeChanges(status: readonly GitFileStatus[]): string {

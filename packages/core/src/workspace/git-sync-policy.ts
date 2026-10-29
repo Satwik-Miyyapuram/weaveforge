@@ -4,8 +4,9 @@
  * The workspace is the user's notes, LaTeX and papers. Git history grows with
  * every byte it ever sees, so a folder synced as-is can turn into gigabytes of
  * build output, dependency trees and render caches. These rules gate what the
- * browser-side (isomorphic-git) commit path stages. The native commit path does
- * not use them yet.
+ * browser-side (isomorphic-git) commit path stages, and the desktop's native
+ * commit path (`apps/desktop/src/vault-git.ts`) applies the same rules before
+ * anything is committed or pushed to a remote.
  *
  * Kept separate from `IMPORT_LIMITS`: that cap is about what the app will read
  * in from a file; this one is about what git will store, and they can differ.
@@ -56,7 +57,7 @@ const IGNORED_FILE_SET = new Set(GIT_SYNC_IGNORED_FILES);
 /** Lowercased segments of a workspace path; both slash styles, no empty or `.` parts. */
 function segmentsOf(relPath: string): string[] {
   return relPath
-    .replace(/\/g, "/")
+    .replace(/\\/g, "/")
     .split("/")
     .map((segment) => segment.toLowerCase())
     .filter((segment) => segment !== "" && segment !== ".");

@@ -28,9 +28,9 @@ export interface IsomorphicWorkspaceGitOptions {
  * `isomorphic-git` is already a dependency (the Overleaf reader clones with it
  * server-side), so this adds a shim rather than a package.
  *
- * Local operations only — no clone, push, pull, or merge. Remotes need a CORS
- * proxy plus stored credentials, and merging needs a conflict UI; neither is
- * implied by wanting a history of your own folder.
+ * Local operations only — no clone, push, pull, or merge. Remotes from a
+ * browser need a CORS proxy plus stored credentials; remote sync is the desktop
+ * shell's (`IWorkspaceGitRemote` in `apps/desktop/src/vault-git.ts`).
  *
  * Commit scope: `git.commit` commits whatever the index holds, so every commit
  * first brings the index back in line with the sync policy. Entries the policy

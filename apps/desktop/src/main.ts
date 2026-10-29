@@ -31,6 +31,7 @@ import {
   readVaultFile,
   commitVaultFolder,
   logVaultFolder,
+  syncVaultFolder,
   removeVaultFile,
   restoreRoot,
   statVaultFile,
@@ -686,6 +687,20 @@ ipc.handle(CHANNELS.vaultCommit, async () => {
   return commitVaultFolder(vault, enabled.ok && enabled.value === true);
 });
 ipc.handle(CHANNELS.vaultLog, (_event, limit: unknown) => logVaultFolder(vault, limit));
+ipc.handle(CHANNELS.vaultSync, async (_event, action: unknown) => {
+  // URL and token come from the stores, never from the page, for the same reason
+  // as the commit switch above; the token never goes back to it.
+  const [enabled, url, token] = await Promise.all([
+    preferenceStore().read("vault-git"),
+    preferenceStore().read("vault-git-remote"),
+    secretStore().read("git-sync-token"),
+  ]);
+  return syncVaultFolder(vault, action, {
+    enabled: enabled.ok && enabled.value === true,
+    url: url.ok && typeof url.value === "string" ? url.value : null,
+    token: token.ok && typeof token.value === "string" && token.value ? token.value : null,
+  });
+});
 
 /**
  * The one thing `will-quit` waits for, and it is not allowed to wait forever.
