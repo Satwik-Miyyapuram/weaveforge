@@ -26,6 +26,14 @@ export type ParsedQuery = {
 	text: string,
 };
 
+/**  One arm's ranking: ids best first, and its relative influence. */
+export type RankedList = {
+	/**  Ids, best first. May repeat; every occurrence counts. */
+	ids: string[],
+	/**  Relative influence; finite and >= 0. */
+	weight: number | null,
+};
+
 /**  Every entity kind the workspace index covers (TS `SEARCH_KINDS`). */
 export type SearchKind = 
 /**  Note. */

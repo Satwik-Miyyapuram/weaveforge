@@ -88,9 +88,10 @@ const BACKSLASH = 0x5c;
 const SLASH = 0x2f;
 
 /**
- * Whether two builds of the module are the same. The only bytes that differ
- * between a Windows and a Linux build are path separators in the remapped panic
- * locations, and both are one byte, so a backslash counts as a slash.
+ * Whether two builds of the module are the same. A backslash counts as a slash,
+ * so a path separator in a remapped panic location never makes a difference.
+ * Only Linux builds are compared (scripts/check-wasm-pkg.mjs): a Windows build
+ * can also differ in code.
  * @param {Uint8Array} a committed module
  * @param {Uint8Array} b rebuilt module
  * @returns {boolean}

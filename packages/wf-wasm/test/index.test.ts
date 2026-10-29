@@ -3,14 +3,17 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   coreInfo,
+  fuseRankings,
   indexTerms,
   initSync,
+  maxFusionIds,
   maxIndexTextUtf16,
   parseQuery,
   tokenize,
   type ParsedQuery,
   type TokenizerOptions,
 } from "../src/index.js";
+import { fuseRankings as rawFuseRankings } from "../pkg/wf_wasm.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 initSync({ module: readFileSync(new URL("wf_wasm_bg.wasm", pkgDir)) });
@@ -38,7 +41,7 @@ test("every raw wasm export has a typed wrapper", () => {
   assert.ok(names.length > 0, "found no raw exports in wf_wasm.d.ts");
   const src = read(new URL("../src/index.ts", import.meta.url));
   for (const name of names) {
-    assert.match(src, new RegExp(`^export function ${name}\\(`, "m"), `no typed wrapper for ${name}`);
+    assert.match(src, new RegExp(`^export function ${name}(<[^>]*>)?\\(`, "m"), `no typed wrapper for ${name}`);
   }
 });
 
@@ -119,4 +122,90 @@ test("parseQuery gives null, not a missing key, when there is no modified filter
 test("parseQuery rejects a query over MAX_INDEX_TEXT_UTF16 before WASM", () => {
   const huge = "a".repeat(2 ** 24 + 1);
   assert.throws(() => parseQuery(huge), (e: unknown) => e instanceof RangeError && /MAX_INDEX_TEXT_UTF16/.test(e.message));
+});
+
+const self = (id: string) => id;
+
+test("maxFusionIds is 2^20", () => {
+  assert.equal(maxFusionIds(), 2 ** 20);
+});
+
+test("fuseRankings ranks an id both lists like above one only one list has", () => {
+  // a: 1/61 + 1/62, c: 1/63 + 1/61, b: 1/62.
+  assert.deepEqual(fuseRankings([{ items: ["a", "b", "c"] }, { items: ["c", "a"] }], self), ["a", "c", "b"]);
+  assert.deepEqual(fuseRankings([], self), []);
+  assert.deepEqual(fuseRankings([{ items: [] }], self), []);
+});
+
+test("fuseRankings returns the item from the first list an id appears in", () => {
+  const keyword = [{ id: "x", from: "keyword" }, { id: "y", from: "keyword" }];
+  const vector = [{ id: "y", from: "vector" }, { id: "z", from: "vector" }];
+  const fused = fuseRankings([{ items: keyword }, { items: vector }], (item) => item.id);
+  assert.deepEqual(fused, [
+    { id: "y", from: "keyword" },
+    { id: "x", from: "keyword" },
+    { id: "z", from: "vector" },
+  ]);
+  assert.equal(fused[0], keyword[1]);
+});
+
+test("fuseRankings applies weights, k and limit", () => {
+  assert.deepEqual(fuseRankings([{ items: ["x", "y"], weight: 0 }, { items: ["y", "x"] }], self), ["y", "x"]);
+  assert.deepEqual(fuseRankings([{ items: ["x", "y"], weight: 2 }, { items: ["y", "x"] }], self), ["x", "y"]);
+  // b gets 1/(k+2) + 1/(k+3): below a's 1/(k+1) at k = 0, above it at the default 60.
+  const twoArms = [{ items: ["a", "b"] }, { items: ["c", "d", "b"] }];
+  assert.deepEqual(fuseRankings(twoArms, self, { k: 0 }), ["a", "c", "b", "d"]);
+  assert.deepEqual(fuseRankings(twoArms, self), ["b", "a", "c", "d"]);
+  const list = [{ items: ["a", "b", "c"] }];
+  assert.deepEqual(fuseRankings(list, self, { limit: 2 }), ["a", "b"]);
+  assert.deepEqual(fuseRankings(list, self, { limit: 0 }), ["a", "b", "c"]);
+  assert.deepEqual(fuseRankings(list, self, { limit: 0xffff_ffff }), ["a", "b", "c"]);
+});
+
+test("fuseRankings counts every occurrence of a repeated id", () => {
+  // a: 1/61 + 1/63, b: 1/62.
+  assert.deepEqual(fuseRankings([{ items: ["a", "b", "a"] }], self), ["a", "b"]);
+});
+
+test("fuseRankings breaks ties on code point order, not localeCompare", () => {
+  // localeCompare puts "a" before "Z"; code point order puts "Z" (U+005A) first.
+  assert.deepEqual(fuseRankings([{ items: ["a"] }, { items: ["Z"] }], self), ["Z", "a"]);
+});
+
+test("fuseRankings rejects a bad k or limit before WASM", () => {
+  for (const bad of [-1, 1.5, Number.NaN, 2 ** 32, Number.POSITIVE_INFINITY]) {
+    assert.throws(() => fuseRankings([{ items: ["a"] }], self, { k: bad }), (e: unknown) => e instanceof RangeError && /^k /.test(e.message));
+    assert.throws(() => fuseRankings([{ items: ["a"] }], self, { limit: bad }), (e: unknown) => e instanceof RangeError && /^limit /.test(e.message));
+  }
+});
+
+test("fuseRankings rejects a weight that is negative or not finite", () => {
+  for (const weight of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.throws(() => fuseRankings([{ items: ["a"] }, { items: ["b"], weight }], self), /list 1 weight/);
+  }
+});
+
+test("fuseRankings rejects more than MAX_FUSION_IDS ids in total before identify runs", () => {
+  // Each list is under the cap; together they are one over it.
+  let calls = 0;
+  const half = () => ({ items: new Array<string>(2 ** 19).fill("a") });
+  const count = (id: string) => {
+    calls += 1;
+    return id;
+  };
+  const over = [half(), { items: ["b"] }, half()];
+  assert.throws(() => fuseRankings(over, count), (e: unknown) => e instanceof RangeError && /lists have 1048577 ids in total; MAX_FUSION_IDS is 1048576/.test(e.message));
+  assert.equal(calls, 0);
+  assert.equal(fuseRankings([half(), half()], self).length, 1);
+});
+
+test("fuseRankings raw export rejects more than MAX_FUSION_IDS ids in total", () => {
+  const ids = new Array<string>(2 ** 19 + 1).fill("a");
+  assert.throws(() => rawFuseRankings([{ ids, weight: 1 }, { ids, weight: 1 }]), /lists have 1048578 ids in total; MAX_FUSION_IDS is 1048576/);
+});
+
+test("index.ts does not re-export RankedList", () => {
+  // Its generated weight is `number | null`, but Rust rejects null; the wrapper's {items, weight?} is the public shape.
+  const src = read(new URL("../src/index.ts", import.meta.url));
+  assert.doesNotMatch(src, /export type \{[^}]*RankedList/);
 });
