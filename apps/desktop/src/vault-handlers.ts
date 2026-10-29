@@ -2,7 +2,6 @@ import type { WorkspaceCommit } from "@weaveforge/core";
 
 import type { IpcResult, VaultEntryPayload, VaultRootPayload } from "./channels";
 import { NodeWorkspaceFs, verifyRoot, workspaceRootFor } from "./vault-folder";
-import { syncOverleaf, type OverleafSyncDeps, type OverleafSyncReply } from "./overleaf-sync";
 import { commitVault, syncVault, vaultLog, type VaultSyncReply, type VaultSyncSettings } from "./vault-git";
 
 /**
@@ -309,20 +308,6 @@ export async function syncVaultFolder(
   if (!session.root) return { ok: false, message: NO_ROOT };
   try {
     return { ok: true, value: await syncVault(session.root.path, action, settings) };
-  } catch (error) {
-    return { ok: false, message: messageOf(error) };
-  }
-}
-
-/** The Overleaf links of the open folder; the token and links come from the shell's stores. */
-export async function syncOverleafFolder(
-  session: VaultSession,
-  request: unknown,
-  deps: Omit<OverleafSyncDeps, "vaultRoot">,
-): Promise<IpcResult<OverleafSyncReply>> {
-  if (!session.root) return { ok: false, message: NO_ROOT };
-  try {
-    return { ok: true, value: await syncOverleaf(request, { ...deps, vaultRoot: session.root.path }) };
   } catch (error) {
     return { ok: false, message: messageOf(error) };
   }

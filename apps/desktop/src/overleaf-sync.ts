@@ -27,7 +27,9 @@ import {
 
 import { OVERLEAF_PROJECT_ID, overleafGitUrl, parseOverleafProjectId } from "@/features/overleaf/domain/link-rules";
 
+import type { IpcResult } from "./channels";
 import { gitReason, NativeWorkspaceGit, redactAuth, serial } from "./vault-git";
+import type { VaultSession } from "./vault-handlers";
 
 export const OVERLEAF_SYNC_ACTIONS = ["list", "link", "unlink", "status", "pull", "push"] as const;
 export type OverleafSyncAction = (typeof OVERLEAF_SYNC_ACTIONS)[number];
@@ -176,5 +178,19 @@ export async function syncOverleaf(request: unknown, deps: OverleafSyncDeps): Pr
     });
   } catch (error) {
     throw new Error(redactAuth(gitReason(error), deps.token, USERNAME));
+  }
+}
+
+/** The IPC side: the open folder's Overleaf links; the token and links come from the shell's stores. */
+export async function syncOverleafFolder(
+  session: VaultSession,
+  request: unknown,
+  deps: Omit<OverleafSyncDeps, "vaultRoot">,
+): Promise<IpcResult<OverleafSyncReply>> {
+  if (!session.root) return { ok: false, message: "No workspace folder is chosen yet." };
+  try {
+    return { ok: true, value: await syncOverleaf(request, { ...deps, vaultRoot: session.root.path }) };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error && error.message ? error.message : "Overleaf sync failed." };
   }
 }

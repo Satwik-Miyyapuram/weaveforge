@@ -9,6 +9,7 @@ import {
   checkLinkFolder,
   parseLinks,
   syncOverleaf,
+  syncOverleafFolder,
   type OverleafLink,
   type OverleafSyncDeps,
 } from "../src/overleaf-sync";
@@ -179,4 +180,21 @@ test("errors never carry the token", async (t) => {
     assert.ok(!error.message.includes("olp_supersecret"), error.message);
     return true;
   });
+});
+
+test("the IPC handler needs an open folder and syncs inside it", async (t) => {
+  const { vault, deps } = setup(t);
+  const { vaultRoot: _unused, ...shellDeps } = deps;
+
+  const closed = await syncOverleafFolder({ root: null, fs: null }, { action: "list" }, shellDeps);
+  assert.deepEqual(closed, { ok: false, message: "No workspace folder is chosen yet." });
+
+  const open = { root: { path: vault, state: "empty" as const }, fs: null };
+  await syncOverleafFolder(open, { action: "link", projectId: ID, folder: "Overleaf/thesis" }, shellDeps);
+  const pulled = await syncOverleafFolder(open, { action: "pull", projectId: ID }, shellDeps);
+  assert.equal(pulled.ok && pulled.value.pull?.kind, "fast-forward");
+  assert.ok(existsSync(path.join(vault, "Overleaf", "thesis", "main.tex")));
+
+  const refused = await syncOverleafFolder(open, { action: "nope" }, shellDeps);
+  assert.deepEqual(refused, { ok: false, message: "That is not an Overleaf sync action." });
 });
