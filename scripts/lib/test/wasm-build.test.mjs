@@ -100,6 +100,10 @@ test("collectInputs finds the wasm crate and skips target", () => {
 test("collectInputs reads only files git tracks", () => {
   // An untracked scratch file under crates/ is on this disk but not on CI, so
   // hashing it would make a correct local stamp fail there.
+  // A git hook (pre-push runs these tests) exports GIT_DIR and friends. Left
+  // set, they point every git call below at the real repo, and `git init`
+  // there flips core.bare. Clear them so git finds the temp repo from cwd.
+  for (const key of Object.keys(process.env)) if (key.startsWith("GIT_")) delete process.env[key];
   const tmp = mkdtempSync(path.join(tmpdir(), "wasm-inputs-"));
   const git = (...args) => execFileSync("git", args, { cwd: tmp });
   git("init", "-q");
