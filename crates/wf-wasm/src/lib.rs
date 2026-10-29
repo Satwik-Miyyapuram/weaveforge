@@ -129,16 +129,26 @@ pub fn parse_query(query: &str) -> Result<JsValue, serde_wasm_bindgen::Error> {
     to_js(&parsed)
 }
 
-/// Reads the JS terms and checks their total length against [`MAX_INDEX_TEXT_UTF16`].
+/// UTF-16 units `terms` cost against [`MAX_INDEX_TEXT_UTF16`]: each term counts
+/// its length + 1, so many empty terms are capped too.
+fn excerpt_terms_cost(terms: &[String]) -> usize {
+    terms
+        .iter()
+        .map(|t| utf16_len(t).saturating_add(1))
+        .fold(0, usize::saturating_add)
+}
+
+/// Reads the JS terms and checks their cost against [`MAX_INDEX_TEXT_UTF16`].
 fn excerpt_terms(terms: JsValue) -> Result<Vec<String>, serde_wasm_bindgen::Error> {
     let terms: Vec<String> = serde_wasm_bindgen::from_value(terms)?;
-    let total: usize = terms.iter().map(|t| utf16_len(t)).sum();
+    let total = excerpt_terms_cost(&terms);
     if total > MAX_INDEX_TEXT_UTF16 {
         return Err(serde_wasm_bindgen::Error::new(format!(
-            "terms are {total} UTF-16 units in total; MAX_INDEX_TEXT_UTF16 is {MAX_INDEX_TEXT_UTF16}"
+            "terms need {total} UTF-16 units (length + 1 each); MAX_INDEX_TEXT_UTF16 is {MAX_INDEX_TEXT_UTF16}"
         )));
     }
-    debug_assert!(terms.iter().map(|t| utf16_len(t)).sum::<usize>() <= MAX_INDEX_TEXT_UTF16);
+    debug_assert!(excerpt_terms_cost(&terms) <= MAX_INDEX_TEXT_UTF16);
+    debug_assert!(terms.len() <= MAX_INDEX_TEXT_UTF16);
     debug_assert!(terms.iter().all(|t| t.len() <= MAX_INDEX_TEXT_UTF16 * 3));
     Ok(terms)
 }
@@ -150,8 +160,8 @@ fn excerpt_terms(terms: JsValue) -> Result<Vec<String>, serde_wasm_bindgen::Erro
 ///
 /// # Errors
 ///
-/// Fails if `body`, or all `terms` together, exceed `MAX_INDEX_TEXT_UTF16`
-/// UTF-16 units, or if `terms` is not an array of strings.
+/// Fails if `body` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `terms`
+/// do (each counting its length + 1), or if `terms` is not an array of strings.
 #[wasm_bindgen(js_name = buildExcerpt)]
 pub fn build_excerpt(
     body: &str,

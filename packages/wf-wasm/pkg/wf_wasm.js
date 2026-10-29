@@ -8,8 +8,8 @@
  *
  * # Errors
  *
- * Fails if `body`, or all `terms` together, exceed `MAX_INDEX_TEXT_UTF16`
- * UTF-16 units, or if `terms` is not an array of strings.
+ * Fails if `body` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `terms`
+ * do (each counting its length + 1), or if `terms` is not an array of strings.
  * @param {string} body
  * @param {any} terms
  * @param {number | null} [max_chars]

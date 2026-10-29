@@ -76,9 +76,10 @@ export function buildExcerpt(
 ): { text: string; highlights: ExcerptRange[] } {
   checkIndexText(body);
   const max = rawMaxIndexTextUtf16();
-  const total = terms.reduce((sum, term) => sum + term.length, 0);
+  // Each term counts its length + 1, so many empty terms are capped too.
+  const total = terms.reduce((sum, term) => sum + term.length + 1, 0);
   if (total > max) {
-    throw new RangeError(`terms are ${total} UTF-16 units in total; MAX_INDEX_TEXT_UTF16 is ${max}`);
+    throw new RangeError(`terms need ${total} UTF-16 units (length + 1 each); MAX_INDEX_TEXT_UTF16 is ${max}`);
   }
   checkU32("maxChars", options.maxChars);
   const raw = rawBuildExcerpt(body, terms, options.maxChars, options.singleLine) as {

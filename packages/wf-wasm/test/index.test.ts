@@ -252,16 +252,17 @@ test("buildExcerpt rejects a body over MAX_INDEX_TEXT_UTF16 before WASM", () => 
 });
 
 test("buildExcerpt rejects terms over MAX_INDEX_TEXT_UTF16 in total before WASM", () => {
-  // Each term is under the cap; together they are one over it.
-  const half = "a".repeat(2 ** 23);
-  const message = /^terms are 16777217 UTF-16 units in total; MAX_INDEX_TEXT_UTF16 is 16777216$/;
-  assert.throws(() => buildExcerpt("x", [half, half, "b"]), (e: unknown) => e instanceof RangeError && message.test(e.message));
+  // Each term counts its length + 1, so a flood of empty terms is capped too.
+  // Two of these fill the cap exactly; one more empty term is over it.
+  const half = "a".repeat(2 ** 23 - 1);
+  const message = /^terms need 16777217 UTF-16 units \(length \+ 1 each\); MAX_INDEX_TEXT_UTF16 is 16777216$/;
+  assert.throws(() => buildExcerpt("x", [half, half, ""]), (e: unknown) => e instanceof RangeError && message.test(e.message));
   assert.equal(buildExcerpt("x", [half, half]).text, "x");
 });
 
 test("buildExcerpt raw export rejects terms over MAX_INDEX_TEXT_UTF16 in total", () => {
-  const half = "a".repeat(2 ** 23);
-  assert.throws(() => rawBuildExcerpt("x", [half, half, "b"]), /terms are 16777217 UTF-16 units in total; MAX_INDEX_TEXT_UTF16 is 16777216/);
+  const half = "a".repeat(2 ** 23 - 1);
+  assert.throws(() => rawBuildExcerpt("x", [half, half, ""]), /terms need 16777217 UTF-16 units \(length \+ 1 each\); MAX_INDEX_TEXT_UTF16 is 16777216/);
   assert.throws(() => rawBuildExcerpt("x", "not an array"));
 });
 
