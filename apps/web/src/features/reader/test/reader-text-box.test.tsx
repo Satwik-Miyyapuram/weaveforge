@@ -94,3 +94,14 @@ test("the reader saves the grown rect of a new box", () => {
   assert.match(reader, /\(text: string, rect\?: \[number, number, number, number\]\)/);
   assert.match(reader, /textBoxFromRect\(rect\)/);
 });
+
+test("the Enter that confirms an IME composition does not save the box", () => {
+  const { area, calls } = editor();
+  const composing = { key: "Enter", shiftKey: false, preventDefault() {}, currentTarget: target("にほ", 48) };
+  act(() => area.props.onKeyDown({ ...composing, nativeEvent: { isComposing: true } }));
+  act(() => area.props.onKeyDown({ ...composing, keyCode: 229, nativeEvent: {} }));
+  assert.equal(calls.commit.length, 0);
+  act(() => area.props.onKeyDown({ ...composing, currentTarget: target("日本", 48), nativeEvent: {} }));
+  assert.equal(calls.commit.length, 1);
+  assert.equal(calls.commit[0]![0], "日本");
+});
