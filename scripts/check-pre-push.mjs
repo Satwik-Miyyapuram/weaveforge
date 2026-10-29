@@ -12,7 +12,7 @@
  * 7. Bundle budget (bundle:budget, when .next build exists)
  * 8. Memory budgets (test:memory, ~5 s)
  * 9. Design page guards (test:e2e:design: targets and overflow, D20 G5/G6)
- * 10. Rust gates (check:rust --local: fmt, clippy, nextest, doctest, deny; scripts/lib/rust-gates.mjs)
+ * 10. Rust gates (check:rust --local: fmt, clippy, nextest, doctest, bindings, deny; scripts/lib/rust-gates.mjs)
  */
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
