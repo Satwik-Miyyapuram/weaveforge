@@ -28,6 +28,14 @@ export function isApiTokenFormat(token: string): boolean {
   return token.startsWith(API_TOKEN_PREFIX) && token.length > API_TOKEN_PREFIX.length + 16;
 }
 
+/** Longest expiry a client may ask for: 100 years. */
+const MAX_EXPIRY_DAYS = 36_500;
+
+/** True for a valid expiry request: null/undefined (never) or 0..100 years in whole days. */
+export function isExpiryDays(days: unknown): days is number | null | undefined {
+  return days == null || (Number.isInteger(days) && (days as number) >= 0 && (days as number) <= MAX_EXPIRY_DAYS);
+}
+
 /** Map UI expiry choice to timestamptz (null = never). */
 export function expiryFromDays(days: number | null | undefined): string | null {
   if (days == null || days <= 0) return null;

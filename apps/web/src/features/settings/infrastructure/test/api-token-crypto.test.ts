@@ -4,6 +4,7 @@ import {
   API_TOKEN_PREFIX,
   expiryFromDays,
   generateApiToken,
+  isExpiryDays,
   hashApiToken,
   isApiTokenFormat,
 } from "../api-token-crypto.js";
@@ -34,4 +35,17 @@ test("expiryFromDays returns ISO date or null", () => {
 test("signAccessJwt is a three-part JWT", () => {
   const jwt = signAccessJwt("00000000-0000-4000-8000-000000000001", "test-secret");
   assert.match(jwt, /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+});
+
+test("isExpiryDays accepts never and whole days, nothing else", () => {
+  for (const ok of [null, undefined, 0, 7, 365, 36_500]) assert.equal(isExpiryDays(ok), true, String(ok));
+  for (const bad of ["30", -1, 1.5, Number.NaN, Infinity, 36_501, 1e9, true, {}]) {
+    assert.equal(isExpiryDays(bad), false, String(bad));
+  }
+});
+
+test("expiryFromDays lands the given number of days ahead", () => {
+  const iso = expiryFromDays(30)!;
+  const days = (new Date(iso).getTime() - Date.now()) / 86_400_000;
+  assert.ok(days > 29.9 && days <= 30, `got ${days}`);
 });
