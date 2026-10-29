@@ -4,10 +4,12 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { cliVersion, inputDigest, lockedVersion, remapFlags, sameModule } from "../wasm-build.mjs";
+import { WASM_INPUTS, cliVersion, inputDigest, lockedVersion, remapFlags, sameModule } from "../wasm-build.mjs";
 import { collectInputs } from "../wasm-inputs.mjs";
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -98,9 +100,21 @@ test("collectInputs finds the wasm crate and skips target", () => {
 test("collectInputs reads only files git tracks", () => {
   // An untracked scratch file under crates/ is on this disk but not on CI, so
   // hashing it would make a correct local stamp fail there.
-  const paths = collectInputs(repoRoot).map((f) => f.path);
-  assert.ok(paths.every((p) => !p.endsWith(".rs.bk") && !p.endsWith(".orig")));
-  assert.ok(!paths.includes("crates/wf-wasm/pkg"));
+  const tmp = mkdtempSync(path.join(tmpdir(), "wasm-inputs-"));
+  const git = (...args) => execFileSync("git", args, { cwd: tmp });
+  git("init", "-q");
+  for (const rel of WASM_INPUTS) {
+    const file = rel === "crates" ? "crates/x/src/lib.rs" : rel;
+    mkdirSync(path.dirname(path.join(tmp, file)), { recursive: true });
+    writeFileSync(path.join(tmp, file), rel);
+  }
+  git("add", "-A");
+  const before = collectInputs(tmp);
+  writeFileSync(path.join(tmp, "crates/x/src/lib.rs.bk"), "scratch");
+  const after = collectInputs(tmp);
+  assert.ok(after.every((f) => !f.path.endsWith(".bk")));
+  assert.equal(inputDigest(after), inputDigest(before));
+  rmSync(tmp, { recursive: true, force: true });
 });
 
 test("sameModule accepts identical bytes", () => {
