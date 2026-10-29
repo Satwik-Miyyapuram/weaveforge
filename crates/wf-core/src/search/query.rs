@@ -8,7 +8,10 @@ use crate::search::js_text::is_js_whitespace;
 pub const MAX_MODIFIED_DAYS: u32 = 36_500;
 
 /// Every entity kind the workspace index covers (TS `SEARCH_KINDS`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, specta::Type,
+)]
+#[serde(rename_all = "lowercase")]
 pub enum SearchKind {
     /// Note.
     Note,
@@ -87,7 +90,8 @@ pub enum Clause {
 }
 
 /// A parsed query (TS `ParsedQuery` plus `modified_within_days`).
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct ParsedQuery {
     /// Free terms.
     pub terms: Vec<String>,

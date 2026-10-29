@@ -1,0 +1,365 @@
+{
+  "input": {
+    "queries": [
+      "",
+      "   ",
+      "Graph Neural",
+      "\"message passing\" graphs",
+      "vae -baseline -\"work in progress\"",
+      "kind:note path:Method tag:#vae latent",
+      "KIND:Paper Kind:PDF kind:bogus kind:note:extra",
+      "path: tag: kind: tag:# tag:##x",
+      "- \" -\" -",
+      "\"unterminated phrase",
+      "-\"unterminated exclusion",
+      "a\"b -a\"b -a\"\" x\"",
+      "\"\" -\"\" \"  \" -\"  \"",
+      "path:\"\"x\" path:x\"\" path:\"\"\"",
+      "tag:\"#Q\" tag:\"\"y\" path:\"Multi",
+      "ΣΑΣ İstanbul ÉCOLE",
+      "﻿word nextx y",
+      "--double -- ---",
+      "#hash term#",
+      "a \"b c\" d \"e\" -f g",
+      "KIND:note",
+      "\tkind:log\n\"Deep Dive\"  -Old  ",
+      "kind:list kind:section kind:experiment kind:milestone kind:log kind:annotation",
+      "Café cafe CAFÉ",
+      "VAE編碼器 x日y",
+      "https://Ex.org/Été -foo.com"
+    ]
+  },
+  "expected": [
+    {
+      "terms": [],
+      "phrases": [],
+      "exclude": [],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": ""
+    },
+    {
+      "terms": [],
+      "phrases": [],
+      "exclude": [],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": ""
+    },
+    {
+      "terms": [
+        "graph",
+        "neural"
+      ],
+      "phrases": [],
+      "exclude": [],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": "graph neural"
+    },
+    {
+      "terms": [
+        "graphs"
+      ],
+      "phrases": [
+        "message passing"
+      ],
+      "exclude": [],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": "message passing graphs"
+    },
+    {
+      "terms": [
+        "vae"
+      ],
+      "phrases": [],
+      "exclude": [
+        "baseline",
+        "work in progress"
+      ],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": "vae"
+    },
+    {
+      "terms": [
+        "latent"
+      ],
+      "phrases": [],
+      "exclude": [],
+      "kinds": [
+        "note"
+      ],
+      "paths": [
+        "method"
+      ],
+      "tags": [
+        "vae"
+      ],
+      "text": "latent"
+    },
+    {
+      "terms": [],
+      "phrases": [],
+      "exclude": [],
+      "kinds": [
+        "paper",
+        "pdf"
+      ],
+      "paths": [],
+      "tags": [],
+      "text": ""
+    },
+    {
+      "terms": [],
+      "phrases": [],
+      "exclude": [],
+      "kinds": [],
+      "paths": [],
+      "tags": [
+        "",
+        "#x"
+      ],
+      "text": ""
+    },
+    {
+      "terms": [],
+      "phrases": [
+        "-"
+      ],
+      "exclude": [],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": "-"
+    },
+    {
+      "terms": [],
+      "phrases": [
+        "unterminated phrase"
+      ],
+      "exclude": [],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": "unterminated phrase"
+    },
+    {
+      "terms": [],
+      "phrases": [],
+      "exclude": [
+        "unterminated exclusion"
+      ],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": ""
+    },
+    {
+      "terms": [
+        "a\"b",
+        "x\""
+      ],
+      "phrases": [],
+      "exclude": [
+        "a\"b",
+        "a\""
+      ],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": "a\"b x\""
+    },
+    {
+      "terms": [],
+      "phrases": [],
+      "exclude": [],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": ""
+    },
+    {
+      "terms": [],
+      "phrases": [],
+      "exclude": [],
+      "kinds": [],
+      "paths": [
+        "\"x",
+        "x\"",
+        "\""
+      ],
+      "tags": [],
+      "text": ""
+    },
+    {
+      "terms": [],
+      "phrases": [],
+      "exclude": [],
+      "kinds": [],
+      "paths": [
+        "multi"
+      ],
+      "tags": [
+        "q",
+        "\"y"
+      ],
+      "text": ""
+    },
+    {
+      "terms": [
+        "σας",
+        "i̇stanbul",
+        "école"
+      ],
+      "phrases": [],
+      "exclude": [],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": "σας i̇stanbul école"
+    },
+    {
+      "terms": [
+        "word",
+        "nextx",
+        "y"
+      ],
+      "phrases": [],
+      "exclude": [],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": "word nextx y"
+    },
+    {
+      "terms": [],
+      "phrases": [],
+      "exclude": [
+        "-double",
+        "-",
+        "--"
+      ],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": ""
+    },
+    {
+      "terms": [
+        "#hash",
+        "term#"
+      ],
+      "phrases": [],
+      "exclude": [],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": "#hash term#"
+    },
+    {
+      "terms": [
+        "a",
+        "d",
+        "g"
+      ],
+      "phrases": [
+        "b c",
+        "e"
+      ],
+      "exclude": [
+        "f"
+      ],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": "a b c d e g"
+    },
+    {
+      "terms": [
+        "kind:note"
+      ],
+      "phrases": [],
+      "exclude": [],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": "kind:note"
+    },
+    {
+      "terms": [],
+      "phrases": [
+        "deep dive"
+      ],
+      "exclude": [
+        "old"
+      ],
+      "kinds": [
+        "log"
+      ],
+      "paths": [],
+      "tags": [],
+      "text": "deep dive"
+    },
+    {
+      "terms": [],
+      "phrases": [],
+      "exclude": [],
+      "kinds": [
+        "list",
+        "section",
+        "experiment",
+        "milestone",
+        "log",
+        "annotation"
+      ],
+      "paths": [],
+      "tags": [],
+      "text": ""
+    },
+    {
+      "terms": [
+        "café",
+        "cafe",
+        "café"
+      ],
+      "phrases": [],
+      "exclude": [],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": "café cafe café"
+    },
+    {
+      "terms": [
+        "vae編碼器",
+        "x日y"
+      ],
+      "phrases": [],
+      "exclude": [],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": "vae編碼器 x日y"
+    },
+    {
+      "terms": [
+        "https://ex.org/été"
+      ],
+      "phrases": [],
+      "exclude": [
+        "foo.com"
+      ],
+      "kinds": [],
+      "paths": [],
+      "tags": [],
+      "text": "https://ex.org/été"
+    }
+  ]
+}

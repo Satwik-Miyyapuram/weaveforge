@@ -4,6 +4,7 @@ export const memory: WebAssembly.Memory;
 export const coreInfo: () => [number, number, number];
 export const indexTerms: (a: number, b: number, c: any) => [number, number, number];
 export const maxIndexTextUtf16: () => number;
+export const parseQuery: (a: number, b: number) => [number, number, number];
 export const tokenize: (a: number, b: number, c: any) => [number, number, number];
 export const __wbindgen_malloc: (a: number, b: number) => number;
 export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

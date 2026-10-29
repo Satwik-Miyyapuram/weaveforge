@@ -6,6 +6,47 @@ export type CoreInfo = {
 	version: string,
 };
 
+/**  A parsed query (TS `ParsedQuery` plus `modified_within_days`). */
+export type ParsedQuery = {
+	/**  Free terms. */
+	terms: string[],
+	/**  Phrases. */
+	phrases: string[],
+	/**  Exclusions. */
+	exclude: string[],
+	/**  Kind filters. */
+	kinds: SearchKind[],
+	/**  Path filters. */
+	paths: string[],
+	/**  Tag filters. */
+	tags: string[],
+	/**  Smallest `modified:` window, if any. */
+	modifiedWithinDays: number | null,
+	/**  Terms and phrases in input order, joined by one space: what the ranker sees. */
+	text: string,
+};
+
+/**  Every entity kind the workspace index covers (TS `SEARCH_KINDS`). */
+export type SearchKind = 
+/**  Note. */
+"note" | 
+/**  Paper. */
+"paper" | 
+/**  List. */
+"list" | 
+/**  Section. */
+"section" | 
+/**  Experiment. */
+"experiment" | 
+/**  Milestone. */
+"milestone" | 
+/**  Log. */
+"log" | 
+/**  PDF. */
+"pdf" | 
+/**  Annotation. */
+"annotation";
+
 /**  Options for term normalization. Callers always pass them explicitly. */
 export type TokenizerOptions = {
 	/**  Fold é→e, ü→u. TS default: `true`. */

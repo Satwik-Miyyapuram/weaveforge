@@ -48,6 +48,26 @@ export function maxIndexTextUtf16() {
 }
 
 /**
+ * [`wf_core::search::query::parse_query`]: the query split into terms, phrases,
+ * exclusions and filters.
+ *
+ * # Errors
+ *
+ * Fails if `query` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units.
+ * @param {string} query
+ * @returns {any}
+ */
+export function parseQuery(query) {
+    const ptr0 = passStringToWasm0(query, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.parseQuery(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::search::tokenizer::tokenize`]: search terms of `text`, deduplicated.
  *
  * # Errors
@@ -169,7 +189,12 @@ function __wbg_get_imports() {
         __wbg_set_bea140a88be9b277: function(arg0, arg1, arg2) {
             arg0[arg1 >>> 0] = arg2;
         },
-        __wbindgen_generic_0000000000000001: function(arg0, arg1) {
+        __wbindgen_generic_0000000000000001: function(arg0) {
+            // Cast intrinsic for `F64 -> Externref`.
+            const ret = arg0;
+            return ret;
+        },
+        __wbindgen_generic_0000000000000002: function(arg0, arg1) {
             // Cast intrinsic for `Ref(String) -> Externref`.
             const ret = getStringFromWasm0(arg0, arg1);
             return ret;

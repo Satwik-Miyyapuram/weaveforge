@@ -3,8 +3,8 @@
  * PR that ports the function; delete it in the PR that deletes the TS copy.
  */
 import { readFileSync } from "node:fs";
-import { processTerm, tokenize as tsTokenize } from "@weaveforge/core";
-import { coreInfo, indexTerms, tokenize, type TokenizerOptions } from "../src/index.js";
+import { parseSearchQuery, processTerm, tokenize as tsTokenize } from "@weaveforge/core";
+import { coreInfo, indexTerms, parseQuery, tokenize, type TokenizerOptions } from "../src/index.js";
 import type { ParityCase } from "./harness.js";
 
 /** Input of the tokenizer cases: every text runs under one options object. */
@@ -34,8 +34,25 @@ const indexTermsCase: ParityCase<TextsInput, string[][]> = {
   rust: ({ texts, options }) => texts.map((t) => indexTerms(t, options)),
 };
 
+/**
+ * TS has no `modifiedWithinDays`, so the Rust side drops it when null. The
+ * fixtures hold only the grammar the TS knows (no `type:`, `in:`, `modified:`),
+ * so a non-null value is a meaning change and fails the comparison.
+ */
+function rustParse(query: string): unknown {
+  const { modifiedWithinDays, ...rest } = parseQuery(query);
+  return modifiedWithinDays === null ? rest : { ...rest, modifiedWithinDays };
+}
+
+const parseQueryCase: ParityCase<{ queries: string[] }, unknown[]> = {
+  name: "parse-query",
+  ts: ({ queries }) => queries.map((q) => parseSearchQuery(q)),
+  rust: ({ queries }) => queries.map(rustParse),
+};
+
 export const CASES: ParityCase[] = [
   { name: "core-info", ts: tsCoreInfo, rust: () => coreInfo() },
   tokenizeCase as ParityCase,
   indexTermsCase as ParityCase,
+  parseQueryCase as ParityCase,
 ];
