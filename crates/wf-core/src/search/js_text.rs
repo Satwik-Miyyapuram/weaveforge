@@ -22,8 +22,12 @@ pub const fn is_js_whitespace(ch: char) -> bool {
 }
 
 /// True for JS `\p{L}` or `\p{N}`. Not `char::is_alphabetic`, which also accepts marks.
+/// ASCII takes a fast path: only `[0-9A-Za-z]` are letters or numbers there.
 #[must_use]
 pub fn is_letter_or_number(ch: char) -> bool {
+    if ch.is_ascii() {
+        return ch.is_ascii_alphanumeric();
+    }
     matches!(
         ch.general_category_group(),
         GeneralCategoryGroup::Letter | GeneralCategoryGroup::Number
