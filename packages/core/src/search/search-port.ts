@@ -1,5 +1,3 @@
-import type { SearchExcerpt } from "./search-excerpt.js";
-
 /**
  * Search contracts. Types and interfaces only — the ranking library lives in
  * the web app so this package keeps its zero-dependency guarantee.
@@ -7,6 +5,18 @@ import type { SearchExcerpt } from "./search-excerpt.js";
  * The index is a projection of the workspace snapshot, not of the folder
  * mirror: the folder is optional, and search has to work without it.
  */
+
+export interface ExcerptRange {
+  start: number;
+  end: number;
+}
+
+export interface SearchExcerpt {
+  /** The snippet, with leading/trailing ellipses where it was cut. */
+  text: string;
+  /** Highlight ranges, as offsets into `text`. */
+  highlights: ExcerptRange[];
+}
 
 /** Every entity kind the workspace index covers. */
 export const SEARCH_KINDS = [

@@ -1,3 +1,5 @@
+// FROZEN: the TypeScript this script read was deleted in P1.8b. It cannot be
+// rerun; the golden tables it printed are now the spec.
 // Prints the golden table in tests/search_query.rs from the TypeScript.
 // Build core first (npm run build -w @weaveforge/core), then from the repo
 // root on Node 24 (ICU 78.2, Unicode 17.0), then rustfmt:

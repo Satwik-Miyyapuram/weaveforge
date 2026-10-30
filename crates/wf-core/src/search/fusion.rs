@@ -1,4 +1,4 @@
-//! Reciprocal rank fusion of ranked id lists. Port of `fuseRankings` in
+//! Reciprocal rank fusion of ranked id lists. Port of the TypeScript deleted in P1.8b, `fuseRankings` in
 //! `packages/core/src/search/rank-fusion.ts`; ties break on code point order
 //! of the id instead of `localeCompare`.
 

@@ -1,5 +1,5 @@
 //! Term normalization shared by indexing and querying: diacritic folding,
-//! lowercasing and CJK detection. Port of `packages/core/src/search/search-tokenizer.ts`.
+//! lowercasing and CJK detection. Port of the TypeScript deleted in P1.8b, `packages/core/src/search/search-tokenizer.ts`.
 
 use std::collections::HashSet;
 use std::ops::RangeInclusive;

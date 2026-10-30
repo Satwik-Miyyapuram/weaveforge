@@ -3,7 +3,6 @@ import {
   buildWikiGraph,
   HYBRID_VECTOR_WEIGHT,
   coveredHits,
-  fuseRankings,
   gateVectorHits,
   queryTermCount,
   stripStopwords,
@@ -26,6 +25,7 @@ import {
   type WorkspaceSnapshot,
 } from "@weaveforge/core";
 import { loadCore } from "@/lib/rust-core";
+import { indexTermsOf } from "../infrastructure/search-core";
 import { applySearchSettings, buildSearchIndex, createMiniSearchIndexFactory } from "../infrastructure/minisearch-index";
 import type { SemanticIndex } from "./semantic-index";
 import { idbGetSearchIndex } from "../infrastructure/search-index-idb";
@@ -378,14 +378,15 @@ export class WorkspaceSearch {
     // function words out, and a hit must match half of what is left. Measured
     // on 98 queries this is the difference between fusion hurting and helping
     // (see `hybrid-fusion.ts`).
+    const core = await loadCore();
     const content = stripStopwords(query);
     const fusedKeyword = coveredHits(
       content === query ? keyword : this.search(content, options),
-      queryTermCount(content),
+      queryTermCount(indexTermsOf(core, content)),
     ).map((hit) => known.get(hit.id) ?? hit);
 
     // Keyword first, so its excerpt is the one that survives fusion.
-    return fuseRankings(
+    return core.fuseRankings(
       [{ items: fusedKeyword }, { items: vectorHits, weight: HYBRID_VECTOR_WEIGHT }],
       (hit) => hit.id,
       { limit: options.limit ?? 30 },
@@ -470,7 +471,7 @@ export class WorkspaceSearch {
 
     const baseArm = new Map(base.map((hit) => [hit.id, hit.arm]));
     const byMeaning = new Map(vector.map((hit) => [hit.id, hit.score]));
-    const fused = fuseRankings([{ items: base }, { items: vector }], (hit) => hit.id, { limit: limit * 2 });
+    const fused = (await loadCore()).fuseRankings([{ items: base }, { items: vector }], (hit) => hit.id, { limit: limit * 2 });
     const results = fused.map((hit) => {
       const arms: RelatedArm[] = [];
       const found = baseArm.get(hit.id);

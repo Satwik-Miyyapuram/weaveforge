@@ -1,9 +1,8 @@
 /**
- * Every TS function that has a Rust replacement in flight. Add a case in the
- * PR that ports the function; delete it in the PR that deletes the TS copy.
+ * Every function the Rust port replaced. The fixtures are frozen goldens from the
+ * deleted TS; core-info alone still has a live reference.
  */
 import { readFileSync } from "node:fs";
-import { buildExcerpt as tsBuildExcerpt, fuseRankings as tsFuseRankings, parseSearchQuery, processTerm, tokenize as tsTokenize } from "@weaveforge/core";
 import { buildExcerpt, coreInfo, fuseRankings, indexTerms, parseQuery, tokenize, type TokenizerOptions } from "../src/index.js";
 import type { ParityCase } from "./harness.js";
 
@@ -13,7 +12,7 @@ interface TextsInput {
   options: TokenizerOptions;
 }
 
-/** The TS side of coreInfo: the workspace version, read from Cargo.toml. */
+/** The live reference for coreInfo: the workspace version, read from Cargo.toml. */
 function tsCoreInfo(): { version: string } {
   const cargo = readFileSync(new URL("../../../Cargo.toml", import.meta.url), "utf8");
   const version = cargo.match(/^version = "([^"]+)"/m)?.[1];
@@ -23,21 +22,18 @@ function tsCoreInfo(): { version: string } {
 
 const tokenizeCase: ParityCase<TextsInput, string[][]> = {
   name: "tokenize",
-  ts: ({ texts, options }) => texts.map((t) => tsTokenize(t, options)),
   rust: ({ texts, options }) => texts.map((t) => tokenize(t, options)),
 };
 
-/** TS has no indexTerms: MiniSearch runs tokenize, then processTerm on each. */
 const indexTermsCase: ParityCase<TextsInput, string[][]> = {
   name: "index-terms",
-  ts: ({ texts, options }) => texts.map((t) => tsTokenize(t, options).map((term) => processTerm(term, options))),
   rust: ({ texts, options }) => texts.map((t) => indexTerms(t, options)),
 };
 
 /**
- * TS has no `modifiedWithinDays`, so the Rust side drops it when null. The
- * fixtures hold only the grammar the TS knows (no `type:`, `in:`, `modified:`),
- * so a non-null value is a meaning change and fails the comparison.
+ * The goldens predate `modifiedWithinDays`, so the Rust side drops it when null.
+ * The fixtures hold only the old grammar (no `type:`, `in:`, `modified:`), so a
+ * non-null value is a meaning change and fails the comparison.
  */
 function rustParse(query: string): unknown {
   const { modifiedWithinDays, ...rest } = parseQuery(query);
@@ -46,7 +42,6 @@ function rustParse(query: string): unknown {
 
 const parseQueryCase: ParityCase<{ queries: string[] }, unknown[]> = {
   name: "parse-query",
-  ts: ({ queries }) => queries.map((q) => parseSearchQuery(q)),
   rust: ({ queries }) => queries.map(rustParse),
 };
 
@@ -57,13 +52,9 @@ interface FusionRun {
   limit?: number;
 }
 
-/**
- * The ids are lowercase ASCII letters, where localeCompare and code point
- * order agree, so the Rust tie order (code point) matches the TS one.
- */
+/** The ids are lowercase ASCII letters, so code point tie order matches the goldens. */
 const fuseRankingsCase: ParityCase<{ runs: FusionRun[] }, string[][]> = {
   name: "fuse-rankings",
-  ts: ({ runs }) => runs.map(({ lists, k, limit }) => tsFuseRankings(lists, (id) => id, { k, limit })),
   rust: ({ runs }) => runs.map(({ lists, k, limit }) => fuseRankings(lists, (id) => id, { k, limit })),
 };
 
@@ -75,17 +66,16 @@ interface ExcerptRun {
 }
 
 /**
- * Expected texts can hold a lone surrogate half where the window splits a
- * pair; the Rust side returns UTF-16 units, so the half survives and compares.
+ * Golden texts can hold a lone surrogate half where the window splits a pair; the
+ * Rust side returns UTF-16 units, so the half survives and compares.
  */
 const excerptCase: ParityCase<{ runs: ExcerptRun[] }, unknown[]> = {
   name: "excerpt",
-  ts: ({ runs }) => runs.map(({ body, terms, options }) => tsBuildExcerpt(body, terms, options)),
   rust: ({ runs }) => runs.map(({ body, terms, options }) => buildExcerpt(body, terms, options)),
 };
 
 export const CASES: ParityCase[] = [
-  { name: "core-info", ts: tsCoreInfo, rust: () => coreInfo() },
+  { name: "core-info", reference: tsCoreInfo, rust: () => coreInfo() },
   tokenizeCase as ParityCase,
   indexTermsCase as ParityCase,
   parseQueryCase as ParityCase,

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  excerptSegments,
   forgetSearchQuery,
   normalizeSearchHistory,
   rememberSearchQuery,
@@ -11,6 +10,7 @@ import {
 } from "@weaveforge/core";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/modal";
+import { excerptSegments } from "@/features/search/excerpt-segments";
 import { loadCiteLinkCatalog, type CiteCompletion } from "@/lib/hooks/use-cite-links";
 import { getContainer } from "@/bootstrap";
 import { useHybridSearchIndex } from "@/lib/hooks/use-search-index";

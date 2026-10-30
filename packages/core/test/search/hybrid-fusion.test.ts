@@ -28,7 +28,9 @@ describe("coveredHits", () => {
     assert.equal(coveredHits(hits, 1).length, 4);
   });
   it("counts distinct terms", () => {
-    assert.equal(queryTermCount("Residual residual networks"), 2);
+    assert.equal(queryTermCount(["residual", "residual", "networks"]), 2);
+    assert.equal(queryTermCount(["", "a"]), 1);
+    assert.equal(queryTermCount([]), 0);
   });
 });
 

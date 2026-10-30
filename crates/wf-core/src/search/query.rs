@@ -1,4 +1,4 @@
-//! Search query syntax. Port of `parseSearchQuery` in
+//! Search query syntax. Port of the TypeScript deleted in P1.8b, `parseSearchQuery` in
 //! `packages/core/src/search/search-query.ts`, plus `type:` (alias of
 //! `kind:`), `in:` (alias of `path:`) and `modified:<n><d|w|m|y>`.
 
