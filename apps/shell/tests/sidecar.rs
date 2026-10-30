@@ -305,6 +305,18 @@ async fn oversized_reply_kills() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn shutdown_after_internal_kill_is_not_clean() {
+    let mut cfg = config(&[]);
+    cfg.max_reply_bytes = 1000;
+    let s = Sidecar::spawn(cfg).unwrap();
+    assert_eq!(
+        s.call("big", json!({"n": 5000})).await,
+        Err(SidecarError::Exited)
+    );
+    assert!(!s.shutdown(Duration::from_secs(2)).await);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn bad_utf8_line_is_skipped() {
     let s = Sidecar::spawn(config(&[])).unwrap();
     assert_eq!(s.call("badutf8", Value::Null).await, Ok(json!("after-bad")));
