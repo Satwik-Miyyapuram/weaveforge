@@ -158,6 +158,7 @@ Brotli q9 per file is a proxy. The installer uses LZMA (NSIS/WiX).
 - **Left for 2.4.** These are not in the spike:
   - the Rust spawn and Job Object;
   - a cap on in-flight calls, and waiting for stdout `drain` (the Rust client bounds what it sends);
+  - `MAX_LINE` stops parsing, not buffering: readline holds the whole line first, so the Rust client must cap request size;
   - reset (`discard` throws);
   - periodic and quit-time backups (`LocalDbHost.snapshot` / `dumpTo` are never called);
   - the local API and MCP.

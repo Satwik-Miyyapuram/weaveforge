@@ -1,3 +1,4 @@
+import { Console } from "node:console";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -77,7 +78,13 @@ async function openEngine(dir: string): Promise<LocalClient> {
 
 async function main(): Promise<void> {
   // stdout is the protocol, so diagnostics go to stderr.
-  console.log = console.info = console.debug = (...a: unknown[]) => console.error(...a);
+  const toStderr = new Console({ stdout: process.stderr, stderr: process.stderr });
+  console.log = toStderr.log;
+  console.info = toStderr.info;
+  console.debug = toStderr.debug;
+  console.dir = toStderr.dir;
+  console.dirxml = toStderr.dirxml;
+  console.table = toStderr.table;
   const parsed = parseArgs(process.argv.slice(2));
   if (typeof parsed === "string") {
     process.stderr.write(`weaveforge-sidecar: ${parsed}\n`);
