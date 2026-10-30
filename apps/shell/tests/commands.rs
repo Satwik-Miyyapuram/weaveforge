@@ -215,6 +215,16 @@ async fn state_with_restart_respawns_once() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn state_after_restart_opens_the_new_database() {
+    let m = marker();
+    let arg = m.to_string_lossy().into_owned();
+    let db = restartable(&["--restart-marker", &arg, "--report-open"]);
+    let state = db.state().await.unwrap();
+    assert_eq!(state.restored_from.as_deref(), Some("opened"));
+    let _ = std::fs::remove_file(&m);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn concurrent_restart_requests_restart_once() {
     let m = marker();
     let log = m.with_extension("spawns");

@@ -111,7 +111,11 @@ impl LocalDb {
             return Ok(state);
         };
         // A failed restart is not transient: the state read next reports it (a failed spawn is stored).
-        let _ = self.restart(asked_by).await;
+        if self.restart(asked_by).await.is_ok() {
+            // The new sidecar opens lazily. Open it now (applying the move, restoring a backup) so the state
+            // says how that went; a failed open is reported in `failure`.
+            let _ = self.query("select 1".to_owned(), Vec::new()).await;
+        }
         self.read_state().await.map(|(state, _)| state)
     }
 

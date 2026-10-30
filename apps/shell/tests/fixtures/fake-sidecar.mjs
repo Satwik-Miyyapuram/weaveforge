@@ -7,6 +7,9 @@ const noRead = process.argv.includes("--no-read");
 const badState = process.argv.includes("--bad-state");
 const slowState = process.argv.includes("--slow-state");
 const resetRefuse = process.argv.includes("--reset-refuse");
+// Like the real sidecar's lazy open: once a query has run, the state reports where the database came from.
+const reportOpen = process.argv.includes("--report-open");
+let opened = false;
 const markerIndex = process.argv.indexOf("--restart-marker");
 const restartMarker = markerIndex >= 0 ? process.argv[markerIndex + 1] : null;
 
@@ -64,6 +67,7 @@ if (noRead) {
         reply({ id, ok: true, value: "x".repeat(params.n) });
         break;
       case "query":
+        opened = true;
         if (params.sql === "fail") {
           reply({ id, ok: false, error: "relation missing" });
         } else if (params.sql === "scalar") {
@@ -76,7 +80,12 @@ if (noRead) {
         break;
       case "state": {
         const send = () =>
-          reply({ id, ok: true, value: { failure: null, dataDir: "/fake", restoredFrom: null, restart: wantsRestart() } });
+          reply({ id, ok: true, value: {
+            failure: null,
+            dataDir: "/fake",
+            restoredFrom: reportOpen && opened ? "opened" : null,
+            restart: wantsRestart(),
+          } });
         if (badState) {
           reply({ id, ok: true, value: 42 });
         } else if (slowState) {
