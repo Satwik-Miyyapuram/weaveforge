@@ -7,7 +7,8 @@ use reqwest::Url;
 use reqwest::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
 
 use super::shared::{
-    Answer, Refusal, fetch_checked_hops, is_public_https_url, read_capped, refuse, upstream_failed,
+    Answer, Refusal, fetch_checked_hops, header_latin1, is_public_https_url, read_capped, refuse,
+    upstream_failed,
 };
 
 /// The path the page requests: `app://localhost/api/pdf-proxy`.
@@ -187,11 +188,8 @@ fn check_headers(response: &reqwest::Response, max: usize) -> Result<(), Refusal
             &format!("Upstream returned {}", status.as_u16()),
         ));
     }
-    let content_type = response
-        .headers()
-        .get(CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok());
-    if !is_pdf_content_type(content_type) {
+    let content_type = header_latin1(response.headers(), CONTENT_TYPE);
+    if !is_pdf_content_type(content_type.as_deref()) {
         return Err(refuse(415, "Upstream did not return a PDF"));
     }
     let declared = response

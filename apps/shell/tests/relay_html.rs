@@ -126,6 +126,22 @@ fn decodes_by_charset() {
         decode_html_bytes(&[0xff], Some("text/html; charset=utf-8")),
         "\u{FFFD}"
     );
+    // TextDecoder throws for the replacement-family labels, so the TS reads UTF-8.
+    for label in ["iso-2022-kr", "csiso2022kr", "iso-2022-cn", "hz-gb-2312"] {
+        assert_eq!(
+            decode_html_bytes(
+                "\u{e9}".as_bytes(),
+                Some(&format!("text/html; charset={label}"))
+            ),
+            "\u{e9}",
+            "{label}"
+        );
+    }
+    // "utf-16" is UTF-16LE in both TextDecoder and encoding_rs: ASCII "ab" is U+6261.
+    assert_eq!(
+        decode_html_bytes(b"ab", Some("text/html; charset=utf-16")),
+        "\u{6261}"
+    );
 }
 
 #[tokio::test]
@@ -259,6 +275,38 @@ async fn pdf_is_415() {
         body_text(&answer),
         r#"{"error":"Upstream did not return a web page"}"#
     );
+}
+
+/// fetch gives a 204/205 a null body; the TS answers "Upstream sent no body".
+#[tokio::test(flavor = "multi_thread")]
+async fn no_content_is_502() {
+    for status in [204, 205] {
+        let up = serve(vec![(
+            "/empty",
+            vec![response(status, &[("Content-Type", "text/html")], b"")],
+        )])
+        .await;
+        let answer = relay(&up.url("/empty"), 1024, FIVE).await;
+        assert_eq!(answer.status, 502, "{status}");
+        assert_eq!(body_text(&answer), r#"{"error":"Upstream sent no body"}"#);
+    }
+}
+
+/// fetch reads header bytes as latin1, so a non-ASCII parameter does not hide the type.
+#[tokio::test(flavor = "multi_thread")]
+async fn non_ascii_content_type_parameter_is_accepted() {
+    let up = serve(vec![(
+        "/page",
+        vec![response(
+            200,
+            &[("Content-Type", "text/html; x=\u{e9}")],
+            b"<p>hi</p>",
+        )],
+    )])
+    .await;
+    let answer = relay(&up.url("/page"), 1024, FIVE).await;
+    assert_eq!(answer.status, 200);
+    assert_eq!(body_text(&answer), "<p>hi</p>");
 }
 
 #[tokio::test(flavor = "multi_thread")]

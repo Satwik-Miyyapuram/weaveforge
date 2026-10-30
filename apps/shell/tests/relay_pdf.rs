@@ -37,9 +37,19 @@ fn pdf_request(query: &[(&str, &str)]) -> Url {
 
 #[test]
 fn allowlist_matches_the_ts_list() {
-    assert_eq!(PDF_PROXY_ALLOWED_HOSTS.len(), 35);
-    assert_eq!(PDF_PROXY_ALLOWED_HOSTS.first(), Some(&"arxiv.org"));
-    assert_eq!(PDF_PROXY_ALLOWED_HOSTS.last(), Some(&"link.springer.com"));
+    // The TS set is the source of truth: read it and compare every host, in order.
+    let ts = include_str!("../../web/src/features/reader/application/sanitize-reader-url.ts");
+    let start = ts.find("PDF_PROXY_ALLOWED_HOSTS = new Set([").unwrap();
+    let block = &ts[start..];
+    let block = &block[..block.find("]);").unwrap()];
+    let ts_hosts: Vec<&str> = block
+        .lines()
+        .map(str::trim)
+        .filter(|l| l.starts_with('"'))
+        .map(|l| l.trim_end_matches(',').trim_matches('"'))
+        .collect();
+    assert_eq!(ts_hosts.len(), 35);
+    assert_eq!(PDF_PROXY_ALLOWED_HOSTS, ts_hosts.as_slice());
 
     for raw in [
         "https://arxiv.org/pdf/1",
@@ -145,6 +155,30 @@ fn is_pdf_proxy_request_matches_only_the_exact_path() {
         let url = Url::parse(path).unwrap();
         assert!(!is_pdf_proxy_request(&url), "{path}");
     }
+}
+
+/// fetch reads header bytes as latin1, so a non-ASCII parameter does not hide the type.
+#[tokio::test(flavor = "multi_thread")]
+async fn non_ascii_content_type_parameter_is_accepted() {
+    let up = upstream::serve(vec![(
+        "/a.pdf",
+        vec![response(
+            200,
+            &[("Content-Type", "application/pdf; name=\u{e9}.pdf")],
+            b"%PDF-1.4 hello",
+        )],
+    )])
+    .await;
+    let answer = relay_pdf(
+        &client(),
+        &up.url("/a.pdf"),
+        &local_only,
+        PDF_PROXY_MAX_BYTES,
+        FIVE,
+    )
+    .await;
+    assert_eq!(answer.status, 200);
+    assert_eq!(answer.body, b"%PDF-1.4 hello".to_vec());
 }
 
 #[tokio::test(flavor = "multi_thread")]

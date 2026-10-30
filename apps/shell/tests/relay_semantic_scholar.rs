@@ -261,7 +261,10 @@ async fn retries_429_then_succeeds() {
 #[tokio::test(flavor = "multi_thread")]
 async fn gives_up_after_three_retries() {
     let up = upstream::serve(vec![("/graph/v1/r", vec![response(429, &[], b"slow")])]).await;
+    let started = Instant::now();
     let answer = run_get(&up, "/graph/v1/r", Duration::from_secs(5)).await;
+    // The waits grow: 10 + 20 + 30 ms. Equal waits would total only 30 ms.
+    assert!(started.elapsed() >= Duration::from_millis(60));
 
     assert_eq!(answer.status, 429);
     assert_eq!(answer.body, b"slow".to_vec());
@@ -303,9 +306,14 @@ async fn missing_content_type_is_json() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn redirect_is_502() {
-    let up = upstream::serve(vec![("/graph/v1/r", vec![redirect("/elsewhere")])]).await;
+    let up = upstream::serve(vec![
+        ("/graph/v1/r", vec![redirect("/elsewhere")]),
+        ("/elsewhere", vec![response(200, &[], b"ok")]),
+    ])
+    .await;
     let answer = run_get(&up, "/graph/v1/r", Duration::from_secs(5)).await;
 
+    assert_eq!(up.seen().len(), 1);
     assert_eq!(answer.status, 502);
     assert_eq!(
         answer.body,

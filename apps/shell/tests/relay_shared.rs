@@ -209,10 +209,7 @@ fn next_hop_rules() {
     assert_eq!(hop(0, 400, Some("/z")), Hop::Done);
     assert_eq!(hop(0, 299, Some("/z")), Hop::Done);
 
-    assert_eq!(
-        hop(0, 302, Some("http://[::1")),
-        Hop::Refuse(refuse(502, "Upstream fetch failed"))
-    );
+    assert_eq!(hop(0, 302, Some("http://[::1")), Hop::BadLocation);
 }
 
 type Routes = Vec<(&'static str, String)>;

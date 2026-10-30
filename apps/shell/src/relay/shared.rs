@@ -66,6 +66,17 @@ pub fn is_public_https_url(raw: &str) -> bool {
     }
 }
 
+/// A header's value as fetch reads it: each byte is one latin1 char, so non-ASCII bytes never hide the value.
+#[must_use]
+pub fn header_latin1(
+    headers: &reqwest::header::HeaderMap,
+    name: reqwest::header::HeaderName,
+) -> Option<String> {
+    headers
+        .get(name)
+        .map(|v| v.as_bytes().iter().map(|&b| char::from(b)).collect())
+}
+
 /// What to do after one hop's response.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Hop {
@@ -75,6 +86,8 @@ pub enum Hop {
     Done,
     /// Stop and answer with this.
     Refuse(Refusal),
+    /// The Location header is not a usable address: answer 502 and log why.
+    BadLocation,
 }
 
 /// The decision for hop number `hop` (0 for the first fetch) at address `at`.
@@ -94,7 +107,7 @@ pub fn next_hop(
         return Hop::Refuse(refuse(502, "Too many redirects"));
     }
     let Ok(next) = at.join(location) else {
-        return Hop::Refuse(refuse(502, "Upstream fetch failed"));
+        return Hop::BadLocation;
     };
     if !allowed(&next) {
         return Hop::Refuse(refuse(400, "Redirect target not allowed"));
@@ -156,9 +169,21 @@ pub async fn fetch_checked_hops(
         match next_hop(hop, &at, response.status().as_u16(), location, allowed) {
             Hop::Follow(next) => at = next,
             Hop::Refuse(refusal) => return Err(refusal),
+            Hop::BadLocation => return Err(bad_location(proxy, &at, location)),
             Hop::Done => return check_final(response, allowed),
         }
         hop += 1;
+    }
+}
+
+/// The 502 for a Location that does not parse, logged with the parse error.
+fn bad_location(proxy: &str, at: &reqwest::Url, location: Option<&str>) -> Refusal {
+    let location = location.unwrap_or_default().trim();
+    match at.join(location) {
+        Err(e) => upstream_failed(proxy, &e, 502, "Upstream fetch failed", &mut |l| {
+            eprintln!("{l}");
+        }),
+        Ok(_) => refuse(502, "Upstream fetch failed"),
     }
 }
 

@@ -7,7 +7,8 @@ use reqwest::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, HeaderMap, HeaderVal
 use tokio::time::{Instant, timeout_at};
 
 use super::shared::{
-    Answer, Refusal, fetch_checked_hops, is_public_https_url, read_capped, refuse, upstream_failed,
+    Answer, Refusal, fetch_checked_hops, header_latin1, is_public_https_url, read_capped, refuse,
+    upstream_failed,
 };
 
 /// Path the page requests.
@@ -60,8 +61,8 @@ pub fn decode_html_bytes(bytes: &[u8], content_type: Option<&str>) -> String {
     let head_bytes = bytes.get(..bytes.len().min(HEAD_BYTES)).unwrap_or(bytes);
     let head = encoding_rs::WINDOWS_1252.decode(head_bytes).0;
     let charset = charset_of(content_type, &head);
-    let encoding =
-        encoding_rs::Encoding::for_label(charset.as_bytes()).unwrap_or(encoding_rs::UTF_8);
+    let encoding = encoding_rs::Encoding::for_label_no_replacement(charset.as_bytes())
+        .unwrap_or(encoding_rs::UTF_8);
     encoding.decode_with_bom_removal(bytes).0.into_owned()
 }
 
@@ -122,12 +123,7 @@ pub async fn relay_html(
     if let Some(refusal) = page_refusal(&checked.response, max) {
         return Answer::from(refusal);
     }
-    let content_type = checked
-        .response
-        .headers()
-        .get(CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .map(str::to_string);
+    let content_type = header_latin1(checked.response.headers(), CONTENT_TYPE);
     let final_url = checked.url.as_str().to_string();
     match timeout_at(deadline, read_capped(checked.response, max)).await {
         Ok(Ok(Some(bytes))) => page_answer(&bytes, content_type.as_deref(), &final_url),
@@ -159,11 +155,12 @@ fn page_refusal(response: &reqwest::Response, max: usize) -> Option<Refusal> {
             &format!("Upstream returned {}", status.as_u16()),
         ));
     }
-    let content_type = response
-        .headers()
-        .get(CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok());
-    if !is_html_content_type(content_type) {
+    // fetch gives a 204/205 a null body, and the TS refuses it.
+    if status.as_u16() == 204 || status.as_u16() == 205 {
+        return Some(refuse(502, "Upstream sent no body"));
+    }
+    let content_type = header_latin1(response.headers(), CONTENT_TYPE);
+    if !is_html_content_type(content_type.as_deref()) {
         return Some(refuse(415, "Upstream did not return a web page"));
     }
     let declared = response

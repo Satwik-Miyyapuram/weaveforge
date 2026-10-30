@@ -118,6 +118,27 @@ async fn bare_question_mark_adds_no_search() {
     assert_eq!(up.seen()[0].target, "/api/blobs/x");
 }
 
+/// Like the TS, the ".." / "//" check reads the still-encoded path, so encoded
+/// separators travel as they are. The host stays fixed; the hosted app decides.
+#[tokio::test(flavor = "multi_thread")]
+async fn encoded_separators_travel_unchanged() {
+    let up = serve(vec![(
+        "/api/blobs/a%2F%2E%2E%2Fx",
+        vec![response(200, &[], b"")],
+    )])
+    .await;
+    let client = relay_client().unwrap();
+    let req = request(
+        "GET",
+        "app://localhost/api/blobs/a%2F%2E%2E%2Fx",
+        &[],
+        vec![],
+    );
+    let answer = proxy_blob(&client, &req, &base(&up), SHORT).await;
+    assert_eq!(answer.status, 200);
+    assert_eq!(up.seen()[0].target, "/api/blobs/a%2F%2E%2E%2Fx");
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn lowercase_post_is_accepted_and_body_is_bytes() {
     let up = serve(vec![("/api/blobs/up", vec![response(200, &[], b"")])]).await;
