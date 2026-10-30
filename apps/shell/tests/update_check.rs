@@ -6,8 +6,8 @@ mod upstream;
 
 use upstream::{Upstream, response, serve};
 use weaveforge_shell::update_check::{
-    Release, UPDATE_CHECK_FAILED, Update, Version, check_update_reply, fetch_releases,
-    find_update_at, is_newer, newest_release, parse_tag, parse_version,
+    MAX_RELEASES_BYTES, Release, UPDATE_CHECK_FAILED, Update, Version, check_update_reply,
+    fetch_releases, find_update_at, is_newer, newest_release, parse_tag, parse_version,
 };
 
 const NO_HOST: &str = "http://127.0.0.1:9/releases";
@@ -273,5 +273,24 @@ fn update_json() {
     assert_eq!(
         serde_json::to_string(&update).unwrap(),
         r#"{"version":"1.2.3","url":"u"}"#
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn fetch_not_json_fails() {
+    let (_up, url) = serve_releases(200, "not json").await;
+    assert_eq!(
+        fetch_releases(&url).await,
+        Err("releases: failed".to_string())
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn fetch_over_cap_fails() {
+    let body = format!("[{}]", " ".repeat(MAX_RELEASES_BYTES));
+    let (_up, url) = serve_releases(200, &body).await;
+    assert_eq!(
+        fetch_releases(&url).await,
+        Err("releases: failed".to_string())
     );
 }

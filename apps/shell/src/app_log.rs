@@ -200,10 +200,11 @@ impl AppLog {
     /// Takes the newest lines of the file into memory, skipping any already held.
     /// A missing or unreadable file restores nothing.
     pub fn restore_from_disk(&self) {
+        // Read under the lock, so a record in between cannot leave `bytes` stale.
+        let mut guard = self.lock();
         let Ok(text) = fs::read_to_string(&self.path) else {
             return;
         };
-        let mut guard = self.lock();
         let state = &mut *guard;
         let room = MAX_ENTRIES.saturating_sub(state.entries.len());
         let seen: HashSet<(String, String)> = state

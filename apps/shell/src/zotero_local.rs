@@ -77,6 +77,8 @@ pub async fn fetch_zotero_at(
     }
     let client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
+        // Node fetch ignores proxy settings, and a proxy cannot reach this computer's Zotero.
+        .no_proxy()
         .timeout(timeout)
         .build()
         .map_err(|_| NOT_ANSWERING.to_owned())?;
@@ -102,16 +104,19 @@ pub async fn fetch_zotero_at(
     })
 }
 
-/// The pager's headers, lower-cased; an empty or non-text value is skipped.
+/// The pager's headers, lower-cased. Repeated values are joined with ", " and read as
+/// Latin-1, as `Headers.get` does; an empty value is skipped.
 fn kept_headers(headers: &HeaderMap) -> BTreeMap<String, String> {
     let mut kept = BTreeMap::new();
     for name in KEEP_HEADERS {
-        let value = headers
-            .get(name)
-            .and_then(|v| v.to_str().ok())
-            .filter(|v| !v.is_empty());
-        if let Some(value) = value {
-            let _ = kept.insert(name.to_owned(), value.to_owned());
+        let values: Vec<String> = headers
+            .get_all(name)
+            .iter()
+            .map(|v| v.as_bytes().iter().map(|&b| char::from(b)).collect())
+            .collect();
+        let value = values.join(", ");
+        if !value.is_empty() {
+            let _ = kept.insert(name.to_owned(), value);
         }
     }
     kept

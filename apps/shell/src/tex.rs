@@ -10,6 +10,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use regex::Regex;
+use tokio::io::{AsyncRead, AsyncReadExt};
 
 use crate::fetch::is_js_space;
 
@@ -39,6 +40,8 @@ pub const PROBE_FAILED: &str = "Could not look for a LaTeX engine on this comput
 pub const NOT_A_PROJECT: &str = "That is not a project to compile.";
 /// Reason given when the build directory cannot be made.
 pub const NOT_STARTED: &str = "The compile could not be started.";
+/// Most the engine may print on each of stdout and stderr (TS `maxBuffer`); past it the compile fails.
+pub const MAX_OUTPUT_BYTES: usize = 32 * 1024 * 1024;
 
 /// Counter that keeps build directory names unique within a process.
 static BUILD_SEQ: AtomicU64 = AtomicU64::new(0);
@@ -228,10 +231,10 @@ pub fn parse_tex_log(log: &str, entry: &str) -> Vec<TexError> {
     errors
 }
 
-/// Builds the error for a located line; `None` when its line number overflows `u32`.
+/// Builds the error for a located line. A line number past `u32` is kept as `u32::MAX`.
 fn located_error(caps: &regex::Captures<'_>) -> Option<TexError> {
     let file = caps.get(1)?.as_str();
-    let line = caps.get(2)?.as_str().parse::<u32>().ok()?;
+    let line = caps.get(2)?.as_str().parse::<u32>().unwrap_or(u32::MAX);
     let message = caps.get(3)?.as_str().trim_matches(is_js_space);
     Some(TexError {
         file: file.strip_prefix("./").unwrap_or(file).to_string(),
@@ -369,7 +372,10 @@ pub async fn compile_tex_in(
     let (failed, output) = run_engine(tool, build.path(), &relative_entry).await;
     let stem = without_tex(&relative_entry);
     let file_log = read_text(&build.path().join(format!("{stem}.log")));
-    let log = tail(format!("{file_log}\n{output}").trim(), MAX_LOG_CHARS);
+    let log = tail(
+        format!("{file_log}\n{output}").trim_matches(is_js_space),
+        MAX_LOG_CHARS,
+    );
     let pdf = fs::read(build.path().join(format!("{stem}.pdf"))).ok();
     let ok = pdf.is_some() && !failed;
     let mut errors = parse_tex_log(&log, &relative_entry);
@@ -417,26 +423,64 @@ fn write_sources(root: &Path, files: &[TexSourceFile]) -> Result<(), String> {
 }
 
 /// Runs the engine in `dir`; answers whether it failed and its combined output.
+/// Output past [`MAX_OUTPUT_BYTES`] on either stream stops the engine (dropping the child kills it).
 async fn run_engine(tool: &TexTool, dir: &Path, entry: &str) -> (bool, String) {
     let mut cmd = tokio::process::Command::new(&tool.command);
     let _ = cmd
         .args(args_for(tool.kind, entry))
         .current_dir(dir)
         .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .kill_on_drop(true);
     hide_window(&mut cmd);
-    match tokio::time::timeout(COMPILE_TIMEOUT, cmd.output()).await {
+    let mut child = match cmd.spawn() {
+        Ok(child) => child,
+        Err(err) => return (true, format!("\n{err}")),
+    };
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+    let run = async move {
+        let (out, err) =
+            tokio::try_join!(read_stream(stdout, "stdout"), read_stream(stderr, "stderr"))?;
+        let status = child.wait().await.map_err(|e| e.to_string())?;
+        Ok::<_, String>((status.success(), out, err))
+    };
+    match tokio::time::timeout(COMPILE_TIMEOUT, run).await {
         Err(_) => (true, TIMED_OUT.to_string()),
-        Ok(Err(err)) => (true, format!("\n{err}")),
-        Ok(Ok(out)) => (
-            !out.status.success(),
+        Ok(Err(message)) => (true, format!("\n{message}")),
+        Ok(Ok((success, out, err))) => (
+            !success,
             format!(
                 "{}\n{}",
-                String::from_utf8_lossy(&out.stdout),
-                String::from_utf8_lossy(&out.stderr)
+                String::from_utf8_lossy(&out),
+                String::from_utf8_lossy(&err)
             ),
         ),
     }
+}
+
+/// Reads one output stream, failing once it passes [`MAX_OUTPUT_BYTES`] (Node's maxBuffer error text).
+async fn read_stream<R: AsyncRead + Unpin>(
+    stream: Option<R>,
+    name: &str,
+) -> Result<Vec<u8>, String> {
+    let mut bytes = Vec::new();
+    let Some(stream) = stream else {
+        return Ok(bytes);
+    };
+    let limit = u64::try_from(MAX_OUTPUT_BYTES)
+        .unwrap_or(u64::MAX)
+        .saturating_add(1);
+    let _ = stream
+        .take(limit)
+        .read_to_end(&mut bytes)
+        .await
+        .map_err(|e| e.to_string())?;
+    if bytes.len() > MAX_OUTPUT_BYTES {
+        return Err(format!("{name} maxBuffer length exceeded"));
+    }
+    Ok(bytes)
 }
 
 /// Reads a file as text, or `""` when it is missing.
@@ -452,6 +496,19 @@ fn without_tex(entry: &str) -> &str {
     match entry.get(at..) {
         Some(tail) if tail.eq_ignore_ascii_case(".tex") => entry.get(..at).unwrap_or(entry),
         _ => entry,
+    }
+}
+
+/// Makes one directory only its owner can enter (TS `mkdtemp` is 0700).
+fn create_private_dir(path: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        fs::DirBuilder::new().mode(0o700).create(path)
+    }
+    #[cfg(not(unix))]
+    {
+        fs::create_dir(path)
     }
 }
 
@@ -471,7 +528,7 @@ impl BuildDir {
                 "weaveforge-tex-{}-{nanos}-{seq}",
                 std::process::id()
             ));
-            match fs::create_dir(&path) {
+            match create_private_dir(&path) {
                 Ok(()) => return Ok(Self(path)),
                 Err(err) if err.kind() == ErrorKind::AlreadyExists => continue,
                 Err(err) => return Err(err),

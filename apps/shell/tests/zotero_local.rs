@@ -182,3 +182,28 @@ async fn nothing_listening() {
     let err = fetch_zotero_at(&raw, &origin, SHORT).await.unwrap_err();
     assert_eq!(err, NOT_ANSWERING);
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn repeated_header_joined_and_latin1() {
+    let up = serve(vec![(
+        "/api/x",
+        vec![response(
+            200,
+            &[("Backoff", "5"), ("Backoff", "6"), ("Content-Type", "é")],
+            b"[]",
+        )],
+    )])
+    .await;
+    let reply = fetch_zotero_at(up.url("/api/x").as_str(), up.base.as_str(), SHORT)
+        .await
+        .unwrap();
+    assert_eq!(
+        reply.headers.get("backoff").map(String::as_str),
+        Some("5, 6")
+    );
+    // UTF-8 bytes read one per char, as a fetch Headers object does.
+    assert_eq!(
+        reply.headers.get("content-type").map(String::as_str),
+        Some("\u{c3}\u{a9}")
+    );
+}

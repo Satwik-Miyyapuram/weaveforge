@@ -380,3 +380,55 @@ fn result_json() {
         })
     );
 }
+
+#[test]
+fn parse_line_number_past_u32_is_kept() {
+    assert_eq!(
+        parse_tex_log("main.tex:99999999999: boom", "main.tex"),
+        vec![error("main.tex", u32::MAX, "boom")]
+    );
+}
+
+/// An executable shell script standing in for the engine.
+#[cfg(unix)]
+fn fake_engine(dir: &TempDir, body: &str) -> TexTool {
+    use std::os::unix::fs::PermissionsExt;
+    let path = dir.path().join("engine.sh");
+    fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+    TexTool {
+        kind: TexEngine::Pdflatex,
+        command: path.to_string_lossy().into_owned(),
+        version: String::new(),
+    }
+}
+
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn compile_output_flood_is_stopped() {
+    let bin = TempDir::new();
+    let tmp = TempDir::new();
+    let tool = fake_engine(&bin, "exec head -c 40000000 /dev/zero");
+    let files = [file("main.tex", MINIMAL)];
+    let result = compile_tex_in(tmp.path(), &files, "main.tex", Some(&tool)).await;
+    assert!(!result.ok);
+    assert!(result.log.contains("stdout maxBuffer length exceeded"));
+    assert!(result.log.len() < 1_000);
+    assert!(tmp_is_empty(&tmp));
+}
+
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn build_dir_is_private() {
+    let bin = TempDir::new();
+    let tmp = TempDir::new();
+    let out = bin.path().join("mode.txt");
+    let tool = fake_engine(
+        &bin,
+        &format!("ls -ld . | cut -c1-10 > '{}'", out.display()),
+    );
+    let files = [file("main.tex", MINIMAL)];
+    let _ = compile_tex_in(tmp.path(), &files, "main.tex", Some(&tool)).await;
+    assert_eq!(fs::read_to_string(&out).unwrap().trim(), "drwx------");
+    assert!(tmp_is_empty(&tmp));
+}
