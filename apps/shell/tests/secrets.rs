@@ -353,3 +353,36 @@ fn shell_error_from_no_keychain_carries_the_text() {
         NO_KEYCHAIN_TEXT
     );
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_clear_sent_after_a_write_wins_even_when_neither_is_awaited() {
+    let store = mock();
+    let s = secrets(&store);
+    for i in 0..100 {
+        let value = format!("v{i}");
+        let write = s.queued(move |s| s.write("ai-provider", &value));
+        let clear = s.queued(|s| s.clear("ai-provider"));
+        let (w, c) = tokio::join!(write, clear);
+        assert_eq!(w, Ok(()));
+        assert_eq!(c, Ok(()));
+        assert_eq!(
+            s.read("ai-provider"),
+            Ok(None),
+            "round {i}: the clear must land last"
+        );
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn queued_returns_the_work_result_and_its_error() {
+    let s = secrets(&mock());
+    assert_eq!(s.queued(|s| s.write("ai-provider", "x")).await, Ok(()));
+    assert_eq!(
+        s.queued(|s| s.read("ai-provider")).await,
+        Ok(Some("x".to_owned()))
+    );
+    assert_eq!(
+        s.queued(|s| s.write("ai-provider", "")).await,
+        Err(SecretError::EmptyValue)
+    );
+}

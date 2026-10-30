@@ -45,6 +45,8 @@ pub enum SecretError {
 pub struct Secrets {
     store: Option<Arc<CredentialStore>>,
     service: String,
+    /// One write or clear at a time, in the order they were asked (the lock is FIFO).
+    writes: Arc<tokio::sync::Mutex<()>>,
 }
 
 impl Secrets {
@@ -54,7 +56,24 @@ impl Secrets {
         Self {
             store,
             service: service.into(),
+            writes: Arc::new(tokio::sync::Mutex::new(())),
         }
+    }
+
+    /// Runs `work` off the async runtime after every earlier queued call has finished, in the
+    /// order the calls were made, so a clear is never undone by a write sent just before it.
+    pub async fn queued<T: Send + 'static>(
+        &self,
+        work: impl FnOnce(&Secrets) -> Result<T, SecretError> + Send + 'static,
+    ) -> Result<T, SecretError> {
+        let turn = Arc::clone(&self.writes).lock_owned().await;
+        let secrets = self.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            let _turn = turn;
+            work(&secrets)
+        })
+        .await
+        .unwrap_or(Err(SecretError::Unreachable))
     }
 
     /// The stored value, or `None` when nothing is stored or it cannot be read.
@@ -153,8 +172,10 @@ pub async fn secret_read(
     secrets: tauri::State<'_, Secrets>,
     name: String,
 ) -> Result<Option<String>, ShellError> {
-    let secrets = secrets.inner().clone();
-    blocking(move || secrets.page_read(&name)).await
+    secrets
+        .queued(move |s| s.page_read(&name))
+        .await
+        .map_err(ShellError::from)
 }
 
 /// Stores a secret the page may write.
@@ -165,8 +186,10 @@ pub async fn secret_write(
     name: String,
     value: String,
 ) -> Result<(), ShellError> {
-    let secrets = secrets.inner().clone();
-    blocking(move || secrets.page_write(&name, &value)).await
+    secrets
+        .queued(move |s| s.page_write(&name, &value))
+        .await
+        .map_err(ShellError::from)
 }
 
 /// Forgets a secret the page may write.
@@ -176,16 +199,8 @@ pub async fn secret_clear(
     secrets: tauri::State<'_, Secrets>,
     name: String,
 ) -> Result<(), ShellError> {
-    let secrets = secrets.inner().clone();
-    blocking(move || secrets.page_clear(&name)).await
-}
-
-/// Runs a keychain call off the async runtime, since it can block on a prompt.
-async fn blocking<T: Send + 'static>(
-    work: impl FnOnce() -> Result<T, SecretError> + Send + 'static,
-) -> Result<T, ShellError> {
-    match tauri::async_runtime::spawn_blocking(work).await {
-        Ok(result) => Ok(result?),
-        Err(_) => Err(SecretError::Unreachable.into()),
-    }
+    secrets
+        .queued(move |s| s.page_clear(&name))
+        .await
+        .map_err(ShellError::from)
 }
