@@ -23,7 +23,10 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 // - P1.7b: 141,676 bytes (module 136,659 + glue 5,017), the CI Linux build.
 //   buildExcerpt adds wf-core's excerpt module plus serde for its result
 //   (~5 KB). 142 KB is the last search export's ceiling; P1.8 deletes TS, not WASM.
-export const WASM_GZIP_BUDGET = 142 * 1024;
+// - P1.7c: wasm-release opt-level "s" instead of "z" for speed: indexTerms on
+//   232k chars of prose takes 17 ms instead of 24 ms (TS: 37 ms) for ~1.8 KB
+//   more gzip. 144 KB keeps the Linux build clear of the line.
+export const WASM_GZIP_BUDGET = 144 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.
