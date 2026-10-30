@@ -12,5 +12,6 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+git2.workspace = true
 thiserror.workspace = true
 wf-core.workspace = true

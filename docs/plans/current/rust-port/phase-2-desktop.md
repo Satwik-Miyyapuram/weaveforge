@@ -17,7 +17,7 @@ React UI does not change: it reaches the shell only through
 | `ipcMain.handle` per channel, guarded by `ipc-guard.ts` | one `#[tauri::command]` per channel, typed by tauri-specta |
 | `app://` handler: the `dist/web` bundle, the `/api/*` relays of `app-relays.ts` (pdf, html, s2, arxiv, blob, account, overleaf), `app://models` and `app://artifacts` | one custom scheme (`register_asynchronous_uri_scheme_protocol`) that serves all four; Tauri's built-in frontend and asset protocols cannot |
 | `api-cors.ts` rewrites `Origin` for api.weaveforge.org | see Risks § Origin and CORS |
-| `node:fs`, the `git` CLI, Electron `safeStorage` | `wf-store` (std fs, gix); secrets in the shell through `keyring-core` and one store crate per platform (`windows-native-keyring-store`, `apple-native-keyring-store`, `dbus-secret-service-keyring-store`), not the `keyring` crate, which is a CLI since v4 |
+| `node:fs`, the `git` CLI, Electron `safeStorage` | `wf-store` (std fs, git2); secrets in the shell through `keyring-core` and one store crate per platform (`windows-native-keyring-store`, `apple-native-keyring-store`, `dbus-secret-service-keyring-store`), not the `keyring` crate, which is a CLI since v4 |
 | transformers.js in a worker for embeddings | `ort` in `wf-store` (native) |
 
 ## The contract stays one file
@@ -194,8 +194,9 @@ classified. None holds data the user cannot get back:
      could only run against stubs.
 9. **2.9** relays in the custom scheme (pdf, html, s2, arxiv, blob, account,
    overleaf), plus the `fetchTitle` and `fetchImage` commands.
-10. **2.10** git sync with gix (commit, log, remote sync), then Overleaf read
-    and sync.
+10. **2.10** git sync with git2 (commit, log, remote sync), then Overleaf read
+    and sync. git2 (libgit2, vendored), not gix: gix 0.90 cannot yet push over
+    https or merge into the worktree, both of which sync needs.
 11. **2.11** embeddings on `ort`.
 12. **2.12** the rest: TeX, Zotero, Mattermost, updates, app log, menu, title
     bar, plan widget, ink.
