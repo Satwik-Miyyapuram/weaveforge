@@ -48,10 +48,11 @@ Its costs are stated, not hidden:
 
 - **Size and memory.** A bundled Node adds about 70–90 MB to the installer and
   a second process to idle memory. Both count against the done-when numbers.
-- **Lifetime.** On Windows the sidecar is put in a Job Object that kills it
-  with the shell, including on a crash. An orphan would hold `acquireDbLock`
-  and the next start would fail with `DatabaseInUseError`. 2.4 adds a test for
-  this.
+- **Lifetime.** The sidecar exits when its stdin closes, which happens on
+  every OS when the shell exits or crashes. On Windows it is also put in a Job
+  Object that kills it with the shell. An orphan would hold `acquireDbLock` and
+  the next start would fail with `DatabaseInUseError`. 2.4 adds a test for this
+  that runs on Windows and on Linux CI.
 - **Signing.** The bundled `node.exe` is signed with the app.
 - **MCP launch.** `mcp-connect.ts` writes client configs that run the Electron
   exe with `ELECTRON_RUN_AS_NODE=1`. The Tauri build has no such exe, so the
@@ -68,10 +69,20 @@ and copies:
 - `preferences.json`
 - `models`, `artifacts`, the app log
 
+The copy runs only while the old dir's DB lock is free, so it never copies a
+live PGlite dir. It copies into a temp dir and renames it into place, so a
+crash leaves no half copy.
+
 It never deletes the old dir, because Electron stays one release (plan §9.3).
-`secrets.json` is sealed by Electron `safeStorage` (Chromium os_crypt), which
-`keyring` cannot read. The user will re-enter those secrets once, and the app
-says so. Web storage under the old `app://weaveforge` origin is not carried.
+A user who goes back to Electron after migrating would write to the old dir,
+and the Tauri build would never see those writes. To stop that silent fork,
+the migration writes a `migrated` marker into the old dir, and the last
+Electron release warns on start when it finds one.
+
+`secrets.json` is sealed by Electron `safeStorage` (Chromium os_crypt). It
+could be decrypted (DPAPI on Windows, a Keychain item on Mac), but it holds a
+few tokens, so the cost is not worth it. The user will re-enter those secrets
+once, and the app says so. Web storage under the old `app://weaveforge` origin is not carried.
 2.5 lists what the UI keeps there and proves nothing in that list is lost data.
 
 ## Steps (one PR each, into `feat/rust-port`)
@@ -120,9 +131,15 @@ says so. Web storage under the old `app://weaveforge` origin is not carried.
   `app://weaveforge`. A custom scheme on Windows is served as
   `http://<scheme>.localhost`, and on Mac/Linux as `<scheme>://localhost`.
   api.weaveforge.org checks `Origin`, and Tauri has no hook like Electron's
-  `webRequest` to rewrite it. 2.2 picks one of two options:
+  `webRequest` to rewrite it. `isApiHost` in `apps/desktop/src/api-cors.ts`
+  covers every `*.weaveforge.org` host, not only `api`, and includes the
+  realtime WebSocket (`realtimeUrl` in `apps/web/src/backend/config.ts`). A
+  custom scheme cannot proxy a WebSocket upgrade. Browsers apply no CORS to
+  WebSockets, so 2.2 checks whether realtime checks `Origin` on upgrade. 2.2
+  lists each host and picks one of two options for HTTP:
   - API calls go through the custom scheme, so the shell sends them with no
-    browser `Origin`. No server change.
+    browser `Origin`. No server change. The desktop build points the base
+    URLs at the scheme through build-time env, not a UI code change.
   - The server allow-list gains the Tauri origins. That is a production write,
     so it waits for the user.
 
