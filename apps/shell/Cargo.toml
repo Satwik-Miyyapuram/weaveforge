@@ -29,10 +29,27 @@ serde = { version = "=1.0.229", features = ["derive"] }
 specta = { version = "=2.0.0-rc.26", features = ["derive", "serde_json"] }
 specta-typescript = { version = "=0.0.13", features = ["serde"] }
 tauri-specta = { version = "=2.0.0-rc.26", features = ["derive", "typescript"] }
+# Error enums (plan §4.7); same pin as the root workspace.
+thiserror = "=2.0.21"
+# Secrets (step 2.8): keyring-core picks no store itself; the shell sets the
+# platform's native store at start, and tests use its mock store.
+keyring-core = "=1.0.1"
 
 [target.'cfg(windows)'.dependencies]
 # Same version process-wrap uses; only for the CREATE_NO_WINDOW flag type.
 windows = { version = "=0.62.2", default-features = false, features = ["Win32_System_Threading"] }
+# Windows Credential Manager store for keyring-core; search is not needed.
+windows-native-keyring-store = { version = "=1.1.0", default-features = false }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# macOS login keychain store for keyring-core.
+apple-native-keyring-store = { version = "=1.0.2", features = ["keychain"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# Secret Service (GNOME Keyring, KWallet) over libdbus. No transport crypto: the
+# session bus is local (as keyring v3's default), and the crypto features pull a
+# second RustCrypto major. Builds need libdbus-1-dev.
+dbus-secret-service-keyring-store = { version = "=1.0.1" }
 
 [dev-dependencies]
 tokio = { version = "=1.54.1", features = ["io-util", "macros", "process", "rt", "rt-multi-thread", "sync", "time"] }
