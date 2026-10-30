@@ -122,8 +122,9 @@ pub fn serve_file(
             if len_bytes > WHOLE_BYTES_MAX {
                 return Err(std::io::Error::from(std::io::ErrorKind::FileTooLarge));
             }
+            // Bounded by the length checked above, so a file growing mid-read stays capped.
             let mut body = Vec::new();
-            let _ = f.read_to_end(&mut body)?;
+            let _ = f.take(len_bytes).read_to_end(&mut body)?;
             headers.push(("accept-ranges", "bytes".to_owned()));
             Ok(Reply {
                 status: 200,
