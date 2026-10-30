@@ -4413,6 +4413,7 @@ dependencies = [
  "encoding_rs",
  "keyring-core",
  "process-wrap",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",
