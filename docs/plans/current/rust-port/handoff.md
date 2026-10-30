@@ -28,7 +28,7 @@ Phase 5 (server) is only a decision, made after phase 3: write the recommendatio
 ## Agents (§5 of the plan)
 
 - The main session (Opus) orchestrates: exact specs, gates, reads every diff, commits, opens and merges PRs into `feat/rust-port`.
-- Builders: Haiku `builder` agent, one exact spec on 1–3 files, tests first. At most 3 at once, separate files.
+- Builders: Haiku `builder` agent, one exact spec on 1–3 files, tests first. At most 3 at once, separate files. Lanes, file ownership, shared files and merge order: plan §5.1. Naming, units, errors, tests, docs and commit titles: plan §4.7.
 - Reviewer: **one persistent Opus agent** for the whole run. Spawn it once at the start (`Agent`, `subagent_type: general-purpose`, `model: opus`, name `rust-reviewer`), have it read plan.md, then send every PR diff to it with `SendMessage`. Never spawn a second one; only if it is gone, spawn it again the same way.
 
 ## Decisions (final, §9 of the plan)
