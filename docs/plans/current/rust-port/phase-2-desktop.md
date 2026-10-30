@@ -98,8 +98,8 @@ once, and the app says so. Web storage under the old `app://weaveforge` origin i
 3. **2.3** sidecar spike: bundled Node opens PGlite. Measure installer size and
    idle memory first. These decide whether the 510 MB and installer criteria
    can be met, so they come before the port.
-4. **2.4** sidecar port: local DB, local API, MCP (with the config rewrite),
-   Job Object, and the lock/orphan test.
+4. **2.4** sidecar port: local DB (reset, backups, restore), Job Object, and
+   the lock/orphan test with the real sidecar on Windows and Linux CI.
 5. **2.5** data migration from the Electron dir, plus the `apps/desktop`
    change that warns on the `migrated` marker (tested: marker present, warning
    shown). That change ships in the last Electron release, before or with the
@@ -108,6 +108,11 @@ once, and the app says so. Web storage under the old `app://weaveforge` origin i
    from `vault-folder.test.ts`.
 7. **2.7** vault commands, watch events, and the shim for them.
 8. **2.8** secrets (`keyring`) and preferences.
+   - **2.8b** local API and MCP in the sidecar, with the MCP config rewrite.
+     Moved here from 2.4: the API serves the vault (2.6/2.7), keeps its tokens
+     in the secret store and its switch in preferences (2.8), and asks the
+     window to rank (the `semanticRank` round trip). Before those exist it
+     could only run against stubs.
 9. **2.9** relays in the custom scheme (pdf, html, s2, arxiv, blob, account,
    overleaf), plus the `fetchTitle` and `fetchImage` commands.
 10. **2.10** git sync with gix (commit, log, remote sync), then Overleaf read
@@ -115,7 +120,11 @@ once, and the app says so. Web storage under the old `app://weaveforge` origin i
 11. **2.11** embeddings on `ort`.
 12. **2.12** the rest: TeX, Zotero, Mattermost, updates, app log, menu, title
     bar, plan widget, ink.
-13. **2.13** e2e on WebView2 (Windows) and WebKitGTK (Linux CI). Mac WebKit
+13. **2.13** inject the shim into the window and bundle the sidecar's files
+    (node, `main.mjs`, the PGlite runtime, migrations) as resources. Both wait
+    until here: an injected shim switches the UI to desktop mode, which needs
+    the whole bridge, and the bundle is first built for the installer
+    measurement. Then e2e on WebView2 (Windows) and WebKitGTK (Linux CI). Mac WebKit
     needs a Mac and is recorded as blocked. Then `baseline.mjs`, installer
     size, and the 1,039-passage embedding time.
 
@@ -161,7 +170,7 @@ Brotli q9 per file is a proxy. The installer uses LZMA (NSIS/WiX).
   - `MAX_LINE` stops parsing, not buffering: readline holds the whole line first, so the Rust client must cap request size;
   - reset (`discard` throws);
   - periodic and quit-time backups (`LocalDbHost.snapshot` / `dumpTo` are never called);
-  - the local API and MCP.
+  - the local API and MCP (moved to 2.8b).
 
 ## Risks
 
