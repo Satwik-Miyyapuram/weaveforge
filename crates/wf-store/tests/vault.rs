@@ -386,6 +386,32 @@ fn walk_visits_each_folder_once_even_through_links_back_to_the_root() {
 }
 
 #[test]
+fn walk_lists_files_under_their_real_path_even_when_a_link_sorts_first() {
+    let dir = TempDir::new();
+    put(&dir.path().join("notes/x.md"), b"x");
+    put(&dir.path().join("notes/deep/y.md"), b"y");
+    put(&dir.path().join("z/inner/f.md"), b"f");
+    fs::create_dir_all(dir.path().join("a")).unwrap();
+    // `alias` sorts before `notes`, and `a/link` before `z`: the links are met first.
+    let linked = make_dir_link(&dir.path().join("alias"), &dir.path().join("notes"))
+        && make_dir_link(
+            &dir.path().join("a").join("link"),
+            &dir.path().join("z").join("inner"),
+        );
+    if !linked {
+        eprintln!("skipped: this machine cannot create a directory link");
+        return;
+    }
+    let v = vault_in(&dir);
+    assert_eq!(
+        names(&v.walk("").unwrap()),
+        ["notes/deep/y.md", "notes/x.md", "z/inner/f.md"]
+    );
+    // A folder reached only through a link is still walked, under the link's name.
+    assert_eq!(names(&v.walk("a").unwrap()), ["a/link/f.md"]);
+}
+
+#[test]
 fn walk_stops_descending_below_the_depth_bound() {
     let dir = TempDir::new();
     let mut rel = String::new();

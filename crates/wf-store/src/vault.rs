@@ -6,7 +6,7 @@
 //! latest write; temp files a crash leaves behind are hidden from listings but not swept
 //! yet; and a file name near the filesystem's length limit cannot get a temp sibling.
 
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::ffi::OsString;
 use std::fs;
 use std::io;
@@ -216,10 +216,13 @@ impl Vault {
         Ok(out)
     }
 
-    /// Every file under a folder, depth-first in list order; subfolders that cannot be read are skipped.
+    /// Every file under a folder; subfolders that cannot be read are skipped.
     ///
-    /// Each real folder is entered once, so a link back up the tree cannot loop, and folders
-    /// more than [`WALK_DEPTH_MAX`] levels below `dir` are not entered.
+    /// Files reached without links come first, depth-first in list order; links to folders
+    /// are followed afterwards, in the order they were met. Each real folder is entered once,
+    /// so a file is listed under its real path when it has one, a link back up the tree
+    /// cannot loop, and a folder reached only through a link is listed under the link's
+    /// name. Folders more than [`WALK_DEPTH_MAX`] levels below `dir` are not entered.
     ///
     /// # Errors
     /// Only when the top folder itself cannot be listed.
@@ -230,9 +233,13 @@ impl Vault {
         if let Ok(real) = fs::canonicalize(&top) {
             let _ = seen.insert(real);
         }
+        let mut links = VecDeque::new();
         let mut out = Vec::new();
         for entry in entries {
-            self.collect(entry, 1, &mut seen, &mut out);
+            self.collect(entry, 1, &mut seen, &mut links, &mut out);
+        }
+        while let Some((link, depth)) = links.pop_front() {
+            self.enter(&link, depth, &mut seen, &mut links, &mut out);
         }
         Ok(out)
     }
@@ -278,19 +285,42 @@ impl Vault {
         Ok((safe, target))
     }
 
-    /// Append `entry` if it is a file, or every file under it if it is a folder `depth` levels
-    /// down that is within [`WALK_DEPTH_MAX`] and whose real path is not in `seen` yet.
+    /// Append `entry` if it is a file, queue it in `links` if it is a link to a folder, or
+    /// else walk the folder `depth` levels down.
     fn collect(
         &self,
         entry: Entry,
         depth: usize,
         seen: &mut HashSet<PathBuf>,
+        links: &mut VecDeque<(Entry, usize)>,
         out: &mut Vec<Entry>,
     ) {
         if entry.kind == EntryKind::File {
             out.push(entry);
             return;
         }
+        let is_link = self
+            .resolve(&entry.path)
+            .ok()
+            .and_then(|p| fs::symlink_metadata(p).ok())
+            .is_some_and(|meta| meta.file_type().is_symlink());
+        if is_link {
+            links.push_back((entry, depth));
+            return;
+        }
+        self.enter(&entry, depth, seen, links, out);
+    }
+
+    /// Collect every child of the folder `entry`, `depth` levels down, when that is within
+    /// [`WALK_DEPTH_MAX`] and its real path is not in `seen` yet.
+    fn enter(
+        &self,
+        entry: &Entry,
+        depth: usize,
+        seen: &mut HashSet<PathBuf>,
+        links: &mut VecDeque<(Entry, usize)>,
+        out: &mut Vec<Entry>,
+    ) {
         if depth > WALK_DEPTH_MAX {
             return;
         }
@@ -305,7 +335,7 @@ impl Vault {
             return;
         };
         for child in children {
-            self.collect(child, depth + 1, seen, out);
+            self.collect(child, depth + 1, seen, links, out);
         }
     }
 
