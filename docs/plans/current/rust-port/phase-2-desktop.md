@@ -147,6 +147,21 @@ once, and the app says so. Web storage under the old `app://weaveforge` origin i
     so it waits for the user.
 
   The first is the default.
+
+  **Settled in 2.2** (read-only probes, no server change):
+
+  | Request | Origin | Result |
+  | --- | --- | --- |
+  | API preflight | `https://app.localhost` (Windows) | 403 |
+  | API preflight | `app://localhost` (Linux, Mac) | 403 |
+  | API preflight | `app://weaveforge` (Electron) | 204 |
+  | Realtime upgrade | any, or none | 400 for all |
+
+  The API allow-list lives in `infra/oci/Caddyfile`. Realtime answers the same
+  for every `Origin`, so it does not check it and works from the Tauri window
+  as is. HTTP API calls take the default option: 2.9 routes them through the
+  custom scheme. Adding the two Tauri origins to the Caddy allow-list would
+  also work, but it is a production write and waits for the user.
 - **Dependencies.** Tauri brings many duplicate crate versions. They are kept
   out of the root workspace (2.2).
 - **Memory while building.** This machine has about 4 GB free. Shell builds
