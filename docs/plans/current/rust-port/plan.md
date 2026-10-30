@@ -169,7 +169,7 @@ Every crate, test, doc and commit in the port follows these. A spec that needs s
 
 | What | Rule | Example |
 |---|---|---|
-| Modules | one area per file, singular snake_case | `wf_store::vault`, `apps/shell/src/secrets.rs` |
+| Modules | one area per file, singular snake_case | `wf_store::vault`, `apps/shell/src/sidecar.rs` |
 | Error types | one enum per module area, named `<Area>Error`, derived with `thiserror` (workspace dep); variants say what failed, no `Error` suffix | `VaultError::Escape`, `RootError::NotAFolder` |
 | Error texts a person sees | copied word for word from the TypeScript they replace, pinned by a `*_texts_match_*` test | `"That is not a folder."` |
 | Errors at the IPC edge | every command returns `Result<_, ShellError>`; module errors convert with `From` | `impl From<VaultError> for ShellError` |
