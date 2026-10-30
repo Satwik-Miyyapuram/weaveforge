@@ -1,9 +1,14 @@
 import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import type { PdfIndexSource, SearchHit, WorkspaceSnapshot } from "@weaveforge/core";
 import { WorkspaceSearch } from "@/features/search/application/workspace-search";
 import { collapseToEntities, distinctRelated } from "@/features/search/application/collapse-to-entities";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+before(async () => {
+  await loadTestCore();
+});
 
 /**
  * `WorkspaceSearch` reaches IndexedDB for the PDF text store and the index
