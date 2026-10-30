@@ -17,7 +17,15 @@ fn dev_config(data: &Path) -> SidecarConfig {
     let repo =
         std::fs::canonicalize(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")).unwrap();
     let backups = data.parent().unwrap().join("local-db-backups");
-    sidecar_config(&SidecarSource::Dev { repo }, data, &backups)
+    sidecar_config(&SidecarSource::Dev { repo }, data, &backups, None)
+}
+
+/// Dev sidecar config that first copies the Electron data dir `old` into `data`'s parent.
+fn dev_config_from(data: &Path, old: &Path) -> SidecarConfig {
+    let repo =
+        std::fs::canonicalize(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")).unwrap();
+    let backups = data.parent().unwrap().join("local-db-backups");
+    sidecar_config(&SidecarSource::Dev { repo }, data, &backups, Some(old))
 }
 
 /// Whether the process with `pid` still runs.
@@ -174,4 +182,85 @@ async fn real_orphan_frees_the_database() {
     assert_eq!(state.failure, None);
     assert!(third.shutdown(Duration::from_secs(5)).await);
     let _ = std::fs::remove_dir_all(&parent);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "needs npm ci and npm run build:core; run with --ignored"]
+async fn real_sidecar_migrates_electron_data() {
+    let root = std::env::temp_dir().join(format!("wf-migrate-test-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let old = root.join("old");
+    let new_data = root.join("new").join("local-db");
+
+    let electron = LocalDb::new(
+        Sidecar::spawn(dev_config(&old.join("local-db"))),
+        old.join("local-db").to_string_lossy().into_owned(),
+    );
+    // DDL is refused for the app role, so the probe is a row written into the existing `sync_state` table.
+    assert!(
+        electron
+            .query("update sync_state set watermark = 5".to_owned(), Vec::new())
+            .await
+            .is_ok()
+    );
+    assert!(electron.shutdown(Duration::from_secs(15)).await);
+    std::fs::write(old.join("preferences.json"), r#"{"theme":"dark"}"#).unwrap();
+    std::fs::create_dir_all(old.join("models")).unwrap();
+    std::fs::write(old.join("models").join("m.bin"), b"abc").unwrap();
+
+    let fresh = LocalDb::new(
+        Sidecar::spawn(dev_config_from(&new_data, &old)),
+        new_data.to_string_lossy().into_owned(),
+    );
+    let rows = fresh
+        .query(
+            "select watermark::int as x from sync_state".to_owned(),
+            Vec::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(rows, vec![json!({"x": 5})]);
+    assert!(fresh.shutdown(Duration::from_secs(15)).await);
+
+    assert_eq!(
+        std::fs::read(root.join("new").join("preferences.json")).unwrap(),
+        std::fs::read(old.join("preferences.json")).unwrap()
+    );
+    assert_eq!(
+        std::fs::read(root.join("new").join("models").join("m.bin")).unwrap(),
+        b"abc"
+    );
+    assert!(old.join("migrated").exists());
+    assert!(root.join("new").join("migrated-from-electron").exists());
+    assert!(old.join("local-db").exists());
+    assert!(old.join("preferences.json").exists());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "needs npm ci and npm run build:core; run with --ignored"]
+async fn real_sidecar_reports_old_app_running() {
+    let root = std::env::temp_dir().join(format!("wf-busy-test-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let old = root.join("old");
+    let new_data = root.join("new").join("local-db");
+    std::fs::create_dir_all(old.join("local-db")).unwrap();
+    // A live holder that is not the sidecar; `at` is in the future so it cannot predate this boot.
+    let holder = format!(
+        r#"{{"pid":{},"app":"WeaveForge","at":"2100-01-01T00:00:00.000Z"}}"#,
+        std::process::id()
+    );
+    std::fs::write(old.join("local-db.lock"), holder).unwrap();
+
+    let fresh = LocalDb::new(
+        Sidecar::spawn(dev_config_from(&new_data, &old)),
+        new_data.to_string_lossy().into_owned(),
+    );
+    let state = fresh.state().await.unwrap();
+    let failure = state.failure.unwrap_or_default();
+    assert!(
+        failure.contains("old WeaveForge app is running"),
+        "failure: {failure}"
+    );
+    let _ = std::fs::remove_dir_all(&root);
 }

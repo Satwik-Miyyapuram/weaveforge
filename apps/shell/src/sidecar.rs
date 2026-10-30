@@ -18,7 +18,7 @@ use process_wrap::tokio::{ChildWrapper, CommandWrap, KillOnDrop};
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{ChildStderr, ChildStdin, ChildStdout};
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot, watch};
 
 /// The sidecar's own request line cap (`MAX_LINE` in apps/shell/sidecar/src/wire.ts, in UTF-16 units).
 /// A UTF-8 byte cap at or under it is always under it in UTF-16 units too.
@@ -26,6 +26,8 @@ pub const SIDECAR_MAX_LINE: usize = 32 * 1024 * 1024;
 
 /// How long an internal kill waits to reap the child.
 const REAP_TIMEOUT: Duration = Duration::from_secs(5);
+/// Prefix the sidecar puts on fatal stderr lines; `exit_reason` reads only these.
+const FATAL_PREFIX: &str = "weaveforge-sidecar: ";
 
 /// How to start the sidecar and how far to trust it.
 #[derive(Debug, Clone)]
@@ -80,12 +82,19 @@ impl std::error::Error for SidecarError {}
 
 type Reply = Result<Value, SidecarError>;
 
+/// Longest stderr line kept as the exit reason, in chars.
+const MAX_REASON_CHARS: usize = 500;
+
 /// State the reader task, the writer task and the callers share.
 struct Shared {
     pending: Mutex<HashMap<u64, oneshot::Sender<Reply>>>,
     closed: AtomicBool,
     next_id: AtomicU64,
     child: tokio::sync::Mutex<Option<Box<dyn ChildWrapper>>>,
+    /// The child's last stderr line, read by `exit_reason`.
+    last_stderr: Mutex<Option<String>>,
+    /// Set once stderr reaches EOF.
+    stderr_done: watch::Sender<bool>,
 }
 
 /// A running sidecar. Dropping it kills the child.
@@ -246,12 +255,15 @@ async fn write_requests(
     // All senders dropped: stdin drops here and the child sees EOF.
 }
 
-/// Forwards the child's stderr to ours.
-async fn forward_stderr(stderr: ChildStderr) {
+/// Forwards the child's stderr to ours and keeps its last line for `exit_reason`.
+async fn forward_stderr(shared: Arc<Shared>, stderr: ChildStderr) {
     let mut lines = BufReader::new(stderr).lines();
     while let Ok(Some(line)) = lines.next_line().await {
         eprintln!("sidecar: {line}");
+        *lock(&shared.last_stderr) = Some(line.chars().take(MAX_REASON_CHARS).collect());
     }
+    // Receivers may all be gone; the value still lands, so a later `exit_reason` sees it.
+    let _ = shared.stderr_done.send_replace(true);
 }
 
 /// Removes its id from `pending` when dropped: on timeout, on error, or when the caller's future is dropped.
@@ -323,12 +335,14 @@ impl Sidecar {
             closed: AtomicBool::new(false),
             next_id: AtomicU64::new(1),
             child: tokio::sync::Mutex::new(Some(child)),
+            last_stderr: Mutex::new(None),
+            stderr_done: watch::channel(false).0,
         });
         let (tx, rx) = mpsc::channel::<String>(max_in_flight);
         // Detached: each task ends on its own when its pipe closes or its queue closes.
         let _reader = runtime.spawn(read_replies(Arc::clone(&shared), stdout, max_reply_bytes));
         let _writer = runtime.spawn(write_requests(Arc::clone(&shared), stdin, rx));
-        let _errors = runtime.spawn(forward_stderr(stderr));
+        let _errors = runtime.spawn(forward_stderr(Arc::clone(&shared), stderr));
         Ok(Self {
             shared,
             writer: Mutex::new(Some(tx)),
@@ -397,6 +411,16 @@ impl Sidecar {
         lock(&self.shared.pending).len()
     }
 
+    /// The child's last stderr line, with `weaveforge-sidecar: ` stripped. Waits up to 1 s for stderr to
+    /// close first. Meant for after `Exited`, when the child has said why it stopped.
+    /// Only a line with the `weaveforge-sidecar: ` prefix counts; other output is log noise.
+    pub async fn exit_reason(&self) -> Option<String> {
+        let mut done = self.shared.stderr_done.subscribe();
+        let _ = tokio::time::timeout(Duration::from_secs(1), done.wait_for(|d| *d)).await;
+        let line = lock(&self.shared.last_stderr).clone()?;
+        line.strip_prefix(FATAL_PREFIX).map(str::to_owned)
+    }
+
     /// Stops accepting writes, closes stdin, waits up to `grace` for a clean exit, then kills.
     /// Returns true only when the sidecar exited by itself with status 0. Can take up to `grace`
     /// plus the reap wait of an internal kill already in progress (`REAP_TIMEOUT`), since both hold
@@ -412,5 +436,74 @@ impl Sidecar {
         let _ = child.start_kill();
         let _ = child.wait().await;
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
+    use super::*;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn exit_reason_is_last_stderr_line() {
+        let config = SidecarConfig {
+            program: PathBuf::from("node"),
+            args: vec![
+                OsString::from("-e"),
+                OsString::from(
+                    "process.stderr.write('weaveforge-sidecar: first\\nweaveforge-sidecar: the old app is running\\n'); process.exit(3)",
+                ),
+            ],
+            cwd: None,
+            call_timeout: Duration::from_secs(5),
+            max_in_flight: 8,
+            max_request_bytes: 4096,
+            max_reply_bytes: 1 << 20,
+        };
+        let s = Sidecar::spawn(config).unwrap();
+        assert_eq!(
+            s.call("state", Value::Null).await,
+            Err(SidecarError::Exited)
+        );
+        assert_eq!(
+            s.exit_reason().await.as_deref(),
+            Some("the old app is running")
+        );
+    }
+
+    fn node_config(script: &str) -> SidecarConfig {
+        SidecarConfig {
+            program: PathBuf::from("node"),
+            args: vec![OsString::from("-e"), OsString::from(script)],
+            cwd: None,
+            call_timeout: Duration::from_secs(5),
+            max_in_flight: 8,
+            max_request_bytes: 4096,
+            max_reply_bytes: 1 << 20,
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn exit_reason_ignores_unprefixed_last_line() {
+        let s = Sidecar::spawn(node_config(
+            "process.stderr.write('weaveforge-sidecar: earlier\\nready\\n'); process.exit(3)",
+        ))
+        .unwrap();
+        assert_eq!(
+            s.call("state", Value::Null).await,
+            Err(SidecarError::Exited)
+        );
+        assert_eq!(s.exit_reason().await, None);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn exit_reason_is_none_without_stderr() {
+        let s = Sidecar::spawn(node_config("process.exit(3)")).unwrap();
+        assert_eq!(
+            s.call("state", Value::Null).await,
+            Err(SidecarError::Exited)
+        );
+        assert_eq!(s.exit_reason().await, None);
     }
 }
