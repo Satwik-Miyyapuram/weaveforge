@@ -406,7 +406,7 @@ async fn stalled_body_is_504() {
         &up.url("/a.pdf"),
         &local_only,
         PDF_PROXY_MAX_BYTES,
-        Duration::from_millis(300),
+        Duration::from_millis(1000),
     )
     .await;
 
