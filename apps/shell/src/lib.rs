@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+pub mod commands;
 pub mod protocol;
 pub mod sidecar;
 
