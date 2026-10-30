@@ -77,6 +77,8 @@ fn is_public_v6(address: &str) -> bool {
     if g0 == 0x2001 && g1 == 0x0db8 {
         return false;
     }
+    // 2001::/23 (IETF protocol assignments). The TS isPublicIpv6 masks 0xff00 (only a /24);
+    // this is the correct /23 and refuses more, on purpose.
     if g0 == 0x2001 && (g1 & 0xfe00) == 0 {
         return false;
     }
