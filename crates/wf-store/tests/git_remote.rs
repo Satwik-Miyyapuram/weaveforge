@@ -12,7 +12,7 @@ use std::path::Path;
 use git2::{Oid, Repository};
 use wf_store::git::remote::{
     PULL_FIRST, PullOutcome, PushOutcome, RemoteConfig, RemoteStatus, describe_pull, describe_push,
-    pull, push, redact_secret, remote_status,
+    pull, push, redact_secret, redact_secret_for, rejection_reason, remote_status, token_may_go_to,
 };
 use wf_store::git::repo::{Author, FolderRepo};
 
@@ -465,4 +465,110 @@ fn detached_head_push_errors() {
         .unwrap();
     let error = push(&repo, &cfg(&url)).unwrap_err();
     assert!(error.to_string().contains("not on a branch"), "{error}");
+}
+
+#[test]
+fn token_goes_only_to_the_configured_https_host() {
+    let base = "https://github.com/a/b.git";
+    assert!(token_may_go_to(base, base));
+    assert!(token_may_go_to(base, "https://GitHub.com/other.git"));
+    assert!(token_may_go_to(
+        "https://user@github.com/a.git",
+        "https://github.com/a.git"
+    ));
+    assert!(!token_may_go_to(base, "https://evil.example/a/b.git"));
+    assert!(!token_may_go_to(base, "http://github.com/a/b.git"));
+    assert!(!token_may_go_to(base, "https://github.com:8443/a/b.git"));
+    assert!(!token_may_go_to(
+        "http://github.com/a/b.git",
+        "http://github.com/a/b.git"
+    ));
+    assert!(!token_may_go_to("not a url", "not a url"));
+    assert!(!token_may_go_to("", ""));
+}
+
+#[test]
+fn redact_secret_covers_custom_username() {
+    let text = "YWxpY2U6dG9rMTIz eC1hY2Nlc3MtdG9rZW46dG9rMTIz Z2l0OnRvazEyMw== tok123";
+    let out = redact_secret_for(text, Some("tok123"), Some("alice"));
+    assert_eq!(out, "*** *** *** ***");
+}
+
+#[test]
+fn pull_does_not_fetch_tags() {
+    let (_bare, url) = bare();
+    let (_dir, a) = folder();
+    save(&a, "a.md", "one", "a1");
+    let head = a.root().join(".git");
+    let git = Repository::open(a.root()).unwrap();
+    let commit = git.head().unwrap().peel(git2::ObjectType::Commit).unwrap();
+    let _ = git.tag_lightweight("v1", &commit, false).unwrap();
+    assert_eq!(push(&a, &cfg(&url)).unwrap(), PushOutcome::Pushed);
+    let mut direct = git.remote_anonymous(&url).unwrap();
+    direct.push(&["refs/tags/v1:refs/tags/v1"], None).unwrap();
+    assert!(head.exists());
+    let (_b, b) = clone_into(&url);
+    let git_b = Repository::open(b.root()).unwrap();
+    assert!(git_b.find_reference("refs/tags/v1").is_err());
+}
+
+#[cfg(unix)]
+#[test]
+fn pull_treats_dangling_symlink_as_collision() {
+    let (_bare, url) = bare();
+    let (_a_dir, a) = folder();
+    save(&a, "a.md", "one", "a1");
+    assert_eq!(push(&a, &cfg(&url)).unwrap(), PushOutcome::Pushed);
+    let (_b_dir, b) = clone_into(&url);
+    let link = b.root().join("b.md");
+    std::os::unix::fs::symlink("missing", &link).unwrap();
+    save(&a, "b.md", "two", "a2");
+    assert_eq!(push(&a, &cfg(&url)).unwrap(), PushOutcome::Pushed);
+    let outcome = pull(&b, &cfg(&url)).unwrap();
+    match outcome {
+        PullOutcome::Conflict { files } => assert!(files.contains(&"b.md".to_owned())),
+        other => panic!("expected conflict, got {other:?}"),
+    }
+    assert!(fs::symlink_metadata(&link).is_ok());
+}
+
+#[test]
+fn pull_reports_conflict_when_a_capped_local_edit_blocks_checkout() {
+    let (_bare, url) = bare();
+    let (_a_dir, a) = folder();
+    save(&a, "big.bin", "small", "a1");
+    assert_eq!(push(&a, &cfg(&url)).unwrap(), PushOutcome::Pushed);
+    let b_dir = TempDir::new();
+    let b = FolderRepo::new(b_dir.path()).with_max_file_bytes(10);
+    let _ = pull(&b, &cfg(&url)).unwrap();
+    write(b.root(), "big.bin", "a local edit well above the cap");
+    save(&a, "big.bin", "newer", "a2");
+    assert_eq!(push(&a, &cfg(&url)).unwrap(), PushOutcome::Pushed);
+    let outcome = pull(&b, &cfg(&url)).unwrap();
+    match outcome {
+        PullOutcome::Conflict { files } => assert!(files.contains(&"big.bin".to_owned())),
+        other => panic!("expected conflict, got {other:?}"),
+    }
+    assert_eq!(
+        fs::read_to_string(b.root().join("big.bin")).unwrap(),
+        "a local edit well above the cap"
+    );
+}
+
+#[test]
+fn push_reports_hook_refusal_text_not_pull_first() {
+    assert_eq!(rejection_reason("non-fast-forward"), PULL_FIRST);
+    assert_eq!(rejection_reason("fetch first"), PULL_FIRST);
+    assert_eq!(
+        rejection_reason("[rejected] main -> main (fetch first)"),
+        PULL_FIRST
+    );
+    assert_eq!(
+        rejection_reason("pre-receive hook declined"),
+        "The remote refused the push: pre-receive hook declined"
+    );
+    assert_eq!(
+        rejection_reason("protected branch"),
+        "The remote refused the push: protected branch"
+    );
 }

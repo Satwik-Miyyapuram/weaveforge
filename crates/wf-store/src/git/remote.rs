@@ -2,11 +2,13 @@
 
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeSet;
+use std::fs;
 
 use git2::build::CheckoutBuilder;
 use git2::{
-    Cred, ErrorCode, FetchOptions, Index, ObjectType, Oid, PushOptions, RemoteCallbacks,
-    Repository, Signature, Tree, TreeWalkMode, TreeWalkResult,
+    AutotagOption, CheckoutNotificationType, Cred, ErrorCode, FetchOptions, Index, Object,
+    ObjectType, Oid, PushOptions, RemoteCallbacks, RemoteRedirect, Repository, Signature, Tree,
+    TreeWalkMode, TreeWalkResult,
 };
 
 use crate::git::policy::{FileState, describe_changes};
@@ -23,6 +25,8 @@ pub const SYNC_AUTHOR: Author<'static> = Author {
 };
 /// Why a push was refused when the remote has commits this folder lacks.
 pub const PULL_FIRST: &str = "The remote has changes this folder does not. Pull first.";
+/// Most commits counted when comparing with the remote; a larger count reads as the cap.
+pub const WALK_CAP: usize = 100_000;
 
 /// Where to sync and how to sign in.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -97,7 +101,7 @@ pub fn remote_status(repo: &FolderRepo, config: &RemoteConfig) -> Result<RemoteS
             behind: 0,
         });
     }
-    status_inner(repo, config).map_err(|e| redact_error(e, config.token.as_deref()))
+    status_inner(repo, config).map_err(|e| redact_error(e, config))
 }
 
 fn status_inner(repo: &FolderRepo, config: &RemoteConfig) -> Result<RemoteStatus, RepoError> {
@@ -123,7 +127,7 @@ fn status_inner(repo: &FolderRepo, config: &RemoteConfig) -> Result<RemoteStatus
 /// # Errors
 /// When git cannot read or write the folder, or the remote cannot be reached.
 pub fn pull(repo: &FolderRepo, config: &RemoteConfig) -> Result<PullOutcome, RepoError> {
-    pull_inner(repo, config).map_err(|e| redact_error(e, config.token.as_deref()))
+    pull_inner(repo, config).map_err(|e| redact_error(e, config))
 }
 
 fn pull_inner(repo: &FolderRepo, config: &RemoteConfig) -> Result<PullOutcome, RepoError> {
@@ -145,7 +149,7 @@ fn pull_inner(repo: &FolderRepo, config: &RemoteConfig) -> Result<PullOutcome, R
     let theirs_files = tree_files(&r.find_commit(theirs)?.tree()?)?;
     let collisions: Vec<String> = theirs_files
         .difference(&head_files)
-        .filter(|path| repo.root().join(path).exists())
+        .filter(|path| fs::symlink_metadata(repo.root().join(path)).is_ok())
         .cloned()
         .collect();
     if !collisions.is_empty() {
@@ -169,7 +173,9 @@ fn head_branch(r: &Repository) -> Result<String, RepoError> {
 fn fast_forward(r: &Repository, theirs: Oid) -> Result<PullOutcome, RepoError> {
     let branch = head_branch(r)?;
     let target = r.find_commit(theirs)?;
-    r.checkout_tree(target.as_object(), Some(CheckoutBuilder::new().safe()))?;
+    if let Some(files) = checkout_safely(r, target.as_object())? {
+        return Ok(PullOutcome::Conflict { files });
+    }
     let _branch = r.reference(&branch, theirs, true, "sync: fast-forward")?;
     Ok(PullOutcome::FastForward {
         oid: theirs.to_string(),
@@ -187,7 +193,9 @@ fn merge_into_head(r: &Repository, ours: Oid, theirs: Oid) -> Result<PullOutcome
     }
     let tree_id = index.write_tree_to(r)?;
     let tree = r.find_tree(tree_id)?;
-    r.checkout_tree(tree.as_object(), Some(CheckoutBuilder::new().safe()))?;
+    if let Some(files) = checkout_safely(r, tree.as_object())? {
+        return Ok(PullOutcome::Conflict { files });
+    }
     let sig = Signature::now(SYNC_AUTHOR.name, SYNC_AUTHOR.email)?;
     let oid = r.commit(
         Some("HEAD"),
@@ -207,7 +215,7 @@ fn merge_into_head(r: &Repository, ours: Oid, theirs: Oid) -> Result<PullOutcome
 /// # Errors
 /// When git cannot read or write the folder, or the remote cannot be reached.
 pub fn push(repo: &FolderRepo, config: &RemoteConfig) -> Result<PushOutcome, RepoError> {
-    push_inner(repo, config).map_err(|e| redact_error(e, config.token.as_deref()))
+    push_inner(repo, config).map_err(|e| redact_error(e, config))
 }
 
 fn push_inner(repo: &FolderRepo, config: &RemoteConfig) -> Result<PushOutcome, RepoError> {
@@ -237,25 +245,27 @@ fn send(r: &Repository, config: &RemoteConfig) -> Result<PushOutcome, RepoError>
     let mut callbacks = callbacks(config);
     let _ = callbacks.push_update_reference(|_name, status| {
         if let Some(message) = status {
-            *refused.borrow_mut() = Some(message.to_owned());
+            *refused.borrow_mut() = Some(rejection_reason(message));
         }
         Ok(())
     });
     let mut options = PushOptions::new();
     let _ = options.remote_callbacks(callbacks);
+    let _ = options.follow_redirects(RemoteRedirect::None);
     let mut remote = r.find_remote(SYNC_REMOTE)?;
     let refspec = format!("{}:refs/heads/main", head_branch(r)?);
     let pushed = remote.push(&[refspec.as_str()], Some(&mut options));
-    if refused.borrow().is_some() {
+    let refusal = refused.borrow().clone();
+    if let Some(reason) = refusal {
         return Ok(PushOutcome::Rejected {
-            reason: PULL_FIRST.to_owned(),
+            reason: redact_secret_for(&reason, config.token.as_deref(), config.username.as_deref()),
         });
     }
     match pushed {
         Ok(()) => Ok(PushOutcome::Pushed),
         Err(error) => {
             let text = error.message().to_lowercase();
-            if text.contains("non-fast-forward") || text.contains("rejected") {
+            if text.contains("non-fast-forward") || text.contains("fetch first") {
                 Ok(PushOutcome::Rejected {
                     reason: PULL_FIRST.to_owned(),
                 })
@@ -299,11 +309,19 @@ pub fn describe_push(outcome: &PushOutcome) -> String {
 /// Removes a token from text before it is shown or logged (git echoes URLs and headers in errors).
 #[must_use]
 pub fn redact_secret(text: &str, secret: Option<&str>) -> String {
+    redact_secret_for(text, secret, None)
+}
+
+/// Like `redact_secret`, also covering the base64 form with the configured username.
+#[must_use]
+pub fn redact_secret_for(text: &str, secret: Option<&str>, username: Option<&str>) -> String {
     let Some(secret) = secret.filter(|s| !s.is_empty()) else {
         return text.to_owned();
     };
+    let mut users: Vec<&str> = username.filter(|u| !u.is_empty()).into_iter().collect();
+    users.extend(["x-access-token", "git"]);
     let mut out = text.to_owned();
-    for user in ["x-access-token", "git"] {
+    for user in users {
         let encoded = base64(format!("{user}:{secret}").as_bytes());
         out = out.replace(&encoded, "***");
     }
@@ -333,11 +351,44 @@ fn base64(bytes: &[u8]) -> String {
     out
 }
 
-fn redact_error(error: RepoError, token: Option<&str>) -> RepoError {
+fn redact_error(error: RepoError, config: &RemoteConfig) -> RepoError {
     match error {
-        RepoError::Git(message) => RepoError::Git(redact_secret(&message, token)),
+        RepoError::Git(message) => RepoError::Git(redact_secret_for(
+            &message,
+            config.token.as_deref(),
+            config.username.as_deref(),
+        )),
         other => other,
     }
+}
+
+/// True only when `asked_url` is on the configured https host; the token may only go there.
+#[must_use]
+pub fn token_may_go_to(config_url: &str, asked_url: &str) -> bool {
+    let (Some((scheme, host)), Some((asked_scheme, asked_host))) =
+        (split_url(config_url), split_url(asked_url))
+    else {
+        return false;
+    };
+    scheme == "https" && scheme == asked_scheme && host == asked_host
+}
+
+/// Lowercased scheme and host (with port) of `url`, userinfo dropped.
+fn split_url(url: &str) -> Option<(String, String)> {
+    let (scheme, rest) = url.split_once("://")?;
+    let authority = rest.split('/').next()?;
+    let host = authority.rsplit_once('@').map_or(authority, |(_, h)| h);
+    Some((scheme.to_lowercase(), host.to_lowercase()))
+}
+
+/// The one-line reason for a refused push; hook and protection messages are shown as given.
+#[must_use]
+pub fn rejection_reason(message: &str) -> String {
+    let lower = message.to_lowercase();
+    if lower.contains("non-fast-forward") || lower.contains("fetch first") {
+        return PULL_FIRST.to_owned();
+    }
+    format!("The remote refused the push: {}", message.trim())
 }
 
 /// Makes sure the folder is a repository with the sync remote pointing at `config.url`.
@@ -373,14 +424,18 @@ fn callbacks<'a>(config: &RemoteConfig) -> RemoteCallbacks<'a> {
         .username
         .clone()
         .unwrap_or_else(|| "x-access-token".to_owned());
+    let config_url = config.url.clone();
     let asked = Cell::new(0_u8);
     let mut callbacks = RemoteCallbacks::new();
-    let _ = callbacks.credentials(move |_url, _from, _allowed| {
+    let _ = callbacks.credentials(move |url, _from, _allowed| {
         let attempt = asked.get();
         asked.set(attempt.saturating_add(1));
         match &token {
             None => Err(git2::Error::from_str(
                 "The remote asked for a sign-in; add a token.",
+            )),
+            Some(_) if !token_may_go_to(&config_url, url) => Err(git2::Error::from_str(
+                "The remote asked for a sign-in from another host.",
             )),
             Some(_) if attempt > 0 => Err(git2::Error::from_str("The token was refused.")),
             Some(secret) => Cred::userpass_plaintext(&user, secret),
@@ -394,6 +449,9 @@ fn fetch(r: &Repository, config: &RemoteConfig) -> Result<Option<Oid>, RepoError
     let mut remote = r.find_remote(SYNC_REMOTE)?;
     let mut options = FetchOptions::new();
     let _ = options.remote_callbacks(callbacks(config));
+    let _ = options
+        .download_tags(AutotagOption::None)
+        .follow_redirects(RemoteRedirect::None);
     let refspec = format!("+refs/heads/{SYNC_BRANCH}:refs/remotes/{SYNC_REMOTE}/{SYNC_BRANCH}");
     remote.fetch(&[refspec.as_str()], Some(&mut options), None)?;
     match r.find_reference(&format!("refs/remotes/{SYNC_REMOTE}/{SYNC_BRANCH}")) {
@@ -428,7 +486,40 @@ fn head_oid(r: &Repository) -> Result<Option<Oid>, RepoError> {
 fn count_reachable(r: &Repository, from: Oid) -> Result<usize, RepoError> {
     let mut walk = r.revwalk()?;
     walk.push(from)?;
-    Ok(walk.collect::<Result<Vec<Oid>, git2::Error>>()?.len())
+    Ok(walk
+        .take(WALK_CAP)
+        .collect::<Result<Vec<Oid>, git2::Error>>()?
+        .len())
+}
+
+/// Checks out `target` without overwriting local work; `Some(paths)` lists what blocked it.
+fn checkout_safely(r: &Repository, target: &Object<'_>) -> Result<Option<Vec<String>>, RepoError> {
+    let blocked = RefCell::new(Vec::<String>::new());
+    let result = {
+        let mut builder = CheckoutBuilder::new();
+        let _ = builder
+            .safe()
+            .notify_on(CheckoutNotificationType::CONFLICT)
+            .notify(|_kind, path, _old, _new, _work| {
+                if let Some(path) = path {
+                    blocked
+                        .borrow_mut()
+                        .push(path.to_string_lossy().replace('\\', "/"));
+                }
+                true
+            });
+        r.checkout_tree(target, Some(&mut builder))
+    };
+    let mut files = blocked.into_inner();
+    match result {
+        Ok(()) => Ok(None),
+        Err(error) if error.code() == ErrorCode::Conflict || !files.is_empty() => {
+            files.sort();
+            files.dedup();
+            Ok(Some(files))
+        }
+        Err(error) => Err(error.into()),
+    }
 }
 
 /// Every blob path under `tree`, sorted.
