@@ -18,6 +18,9 @@ ignore = [
   # (glib-macros, gtk3-macros) use it, at compile time. Drop this once Tauri
   # moves off gtk-rs 0.18.
   { id = "RUSTSEC-2024-0370", reason = "proc-macro-error via gtk-rs 0.18 macros; build-time only, Linux only" },
+  # Unmaintained, not vulnerable. A compile-time proc macro used by specta (which
+  # tauri itself depends on) and tauri-specta. Drop once specta moves off it.
+  { id = "RUSTSEC-2024-0436", reason = "paste via specta; proc macro, build-time only, no fixed release" },
 ]
 
 [licenses]
