@@ -466,6 +466,8 @@ jobs:
     # strict bans must not inherit (phase-2-desktop.md, step 2.2). Linux
     # needs the WebKitGTK headers to compile it.
     runs-on: ubuntu-latest
+    # Bounds a real-sidecar test that hangs (it reads the helper's pid with no deadline).
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: apps/shell
@@ -480,6 +482,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24.14.1
+          cache: npm
+
+      - name: Install dependencies
+        working-directory: .
+        run: npm ci
+
+      - name: Build Core package
+        working-directory: .
+        run: npm run build:core
 
       - name: Install WebKitGTK build dependencies
         run: |
@@ -505,14 +516,19 @@ jobs:
       - name: Test
         run: cargo test --locked
 
+      - name: Real sidecar (database lock and orphan)
+        run: cargo test --locked --test launch -- --ignored
+
       - name: Dependency policy
         run: cargo deny --locked check
 
   shell-windows:
     # Windows-only shell code: the sidecar's Job Object (kill-on-close) and its
-    # orphan test run only here (phase-2-desktop.md, step 2.4). fmt and
-    # cargo-deny are platform-independent and stay in the Linux job.
+    # orphan test run only here (phase-2-desktop.md, step 2.4). The real-sidecar
+    # lock/orphan test runs here and in the Linux job. fmt and cargo-deny are
+    # platform-independent and stay in the Linux job.
     runs-on: windows-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: apps/shell
@@ -527,6 +543,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24.14.1
+          cache: npm
+
+      - name: Install dependencies
+        working-directory: .
+        run: npm ci
+
+      - name: Build Core package
+        working-directory: .
+        run: npm run build:core
 
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
@@ -538,6 +563,9 @@ jobs:
 
       - name: Test
         run: cargo test --locked
+
+      - name: Real sidecar (database lock and orphan)
+        run: cargo test --locked --test launch -- --ignored
 
   wasm-parity:
     # TS vs Rust on frozen goldens (plan P1.2). Node is pinned to the version
