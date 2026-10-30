@@ -47,6 +47,9 @@ encoding_rs = "=0.8.35"
 # Page titles for paste (step 2.9e): the same patterns as packages/core page-title.ts.
 # Already in the lock through tauri.
 regex = "=1.13.1"
+# Bytes cross the bridge as base64 text (vault PDFs, images, compiled PDFs): JSON
+# number arrays would be three to four times larger. Already in the lock through tauri.
+base64 = "=0.23.1"
 
 [target.'cfg(windows)'.dependencies]
 # Same version process-wrap uses; only for the CREATE_NO_WINDOW flag type.
