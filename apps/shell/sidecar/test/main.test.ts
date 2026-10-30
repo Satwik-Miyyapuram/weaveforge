@@ -121,6 +121,19 @@ test("sidecar answers query and stats, then exits 0 and releases the lock", { ti
     assert.deepEqual(first, { id: 1, ok: true, value: [{ n: 1 }] }, stderr());
     assert.ok(fs.existsSync(lock), "lock file should exist while the sidecar runs");
 
+    child.stdin!.write('{"id":3,"method":"query","params":{"sql":"select count(*) as n from (values (1),(2)) v"}}\n');
+    const count = await replyTo(lines, 3);
+    // int8 arrives as a number under the desktop parsers, as it does in Electron.
+    assert.deepEqual(count.value, [{ n: 2 }], stderr());
+
+    child.stdin!.write('{"id":4,"method":"query","params":{"sql":"select \'\\\\x01ff\'::bytea as b"}}\n');
+    const bytes = await replyTo(lines, 4);
+    assert.deepEqual(bytes.value, [{ b: { $bytes: "Af8=" } }], stderr());
+
+    child.stdin!.write('{"id":5,"method":"query","params":{"sql":"select $1::bytea as b","params":[{"$bytes":"AQI="}]}}\n');
+    const param = await replyTo(lines, 5);
+    assert.deepEqual(param.value, [{ b: { $bytes: "AQI=" } }], stderr());
+
     child.stdin!.write('{"id":2,"method":"stats"}\n');
     const second = await replyTo(lines, 2);
     assert.equal(second.ok, true, stderr());

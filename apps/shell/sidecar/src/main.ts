@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { errorMessage } from "@weaveforge/core";
 import type { LocalClient } from "../../../desktop/src/local-db";
 import { LocalDbHost } from "../../../desktop/src/local-db-host";
 import { acquireDbLock, DatabaseInUseError, releaseDbLock } from "../../../desktop/src/local-db-lock";
@@ -75,6 +76,8 @@ async function openEngine(dir: string): Promise<LocalClient> {
 }
 
 async function main(): Promise<void> {
+  // stdout is the protocol, so diagnostics go to stderr.
+  console.log = console.info = console.debug = (...a: unknown[]) => console.error(...a);
   const parsed = parseArgs(process.argv.slice(2));
   if (typeof parsed === "string") {
     process.stderr.write(`weaveforge-sidecar: ${parsed}\n`);
@@ -108,13 +111,23 @@ async function main(): Promise<void> {
   try {
     await serve(process.stdin, process.stdout, sidecarHandlers(host));
   } finally {
-    await host.close();
+    try {
+      await host.close();
+    } catch (e) {
+      process.stderr.write("weaveforge-sidecar: close failed: " + errorMessage(e) + "\n");
+      process.exitCode = 1;
+    }
     releaseDbLock(dataDir);
+    // Let the last replies reach the pipe before exiting.
+    await new Promise<void>((r) => process.stdout.write("", () => r()));
     // PGlite can keep handles alive, so exit explicitly.
     process.exit(process.exitCode ?? 0);
   }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
-  void main();
+  main().catch((e: unknown) => {
+    process.stderr.write("weaveforge-sidecar: " + errorMessage(e) + "\n");
+    process.exit(1);
+  });
 }

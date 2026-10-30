@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PassThrough } from "node:stream";
-import { handleLine, parseRequest, serve, type Handlers } from "../src/wire";
+import { decodeValue, encodeValue, handleLine, MAX_LINE, parseRequest, serve, type Handlers } from "../src/wire";
 
 test("parseRequest accepts a valid line", () => {
   assert.deepEqual(parseRequest('{"id":1,"method":"query","params":{"a":1}}'), {
@@ -142,4 +142,62 @@ test("serve resolves with nothing written when input is empty", async () => {
   input.end();
   await done;
   assert.deepEqual(chunks, []);
+});
+
+test("encodeValue tags bigint and bytes", () => {
+  assert.equal(
+    JSON.stringify({ a: 12n, b: new Uint8Array([1, 2, 255]) }, encodeValue),
+    '{"a":{"$bigint":"12"},"b":{"$bytes":"AQL/"}}',
+  );
+});
+
+test("decodeValue round-trips bigint and bytes", () => {
+  const json = JSON.stringify({ a: 12n, b: new Uint8Array([1, 2, 255]) }, encodeValue);
+  assert.deepEqual(JSON.parse(json, decodeValue), { a: 12n, b: new Uint8Array([1, 2, 255]) });
+});
+
+test("decodeValue leaves look-alike objects alone", () => {
+  for (const value of [{ $bigint: "1", x: 1 }, { $bigint: "1.5" }, { $bigint: 1 }, { $bytes: 3 }, ["$bytes"]]) {
+    assert.deepEqual(JSON.parse(JSON.stringify(value), decodeValue), value);
+  }
+});
+
+test("parseRequest decodes $bytes params", () => {
+  assert.deepEqual(parseRequest('{"id":1,"method":"m","params":[{"$bytes":"AQI="}]}'), {
+    id: 1,
+    method: "m",
+    params: [new Uint8Array([1, 2])],
+  });
+});
+
+test("serve encodes bigint values in replies", async () => {
+  const input = new PassThrough();
+  const { chunks, output } = collector();
+  const done = serve(input, output, { n: async () => ({ n: 5n }) });
+  input.end('{"id":1,"method":"n"}\n');
+  await done;
+  assert.ok(chunks[0]!.includes('"value":{"n":{"$bigint":"5"}}'));
+});
+
+test("serve replies with an error when a value cannot be serialised", async () => {
+  const input = new PassThrough();
+  const { chunks, output } = collector();
+  const cyclic: any = {};
+  cyclic.o = cyclic;
+  const done = serve(input, output, { c: async () => cyclic });
+  input.end('{"id":1,"method":"c"}\n');
+  await done;
+  assert.equal(chunks.length, 1);
+  const reply = JSON.parse(chunks[0]!);
+  assert.equal(reply.id, 1);
+  assert.equal(reply.ok, false);
+  assert.ok(reply.error.startsWith("reply not serialisable: "));
+});
+
+test("handleLine rejects lines over MAX_LINE without parsing", async () => {
+  assert.deepEqual(await handleLine("x".repeat(MAX_LINE + 1), {}), {
+    id: null,
+    ok: false,
+    error: "bad request: line too long",
+  });
 });

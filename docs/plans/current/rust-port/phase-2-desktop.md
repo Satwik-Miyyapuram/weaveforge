@@ -130,24 +130,37 @@ once, and the app says so. Web storage under the old `app://weaveforge` origin i
 
 ## 2.3 spike results
 
-Measured on Windows ARM64 with Node 24.14.1 (`node.exe` from the dev machine). The
-sidecar bundled with esbuild (PGlite external), then spawned, given one query, and
-left idle for 10 s. Private memory is from `Get-Process`, the same as in `baseline.mjs`.
+Measured on Windows ARM64 with Node 24.14.1, using `node apps/shell/sidecar/scripts/measure.mjs <out-dir>`.
+The script bundles the sidecar with esbuild (PGlite external), spawns it, runs one query, and
+leaves it idle for 10 s. Private memory comes from `Get-Process`, as in `baseline.mjs`. These are
+**ARM64 numbers only**. The shipping x64 `node.exe` is a different size, so 2.13 measures again on x64.
+Brotli q9 per file is a proxy. The installer uses LZMA (NSIS/WiX).
 
 | What | Raw | Brotli q9 (installer proxy) |
 | --- | --- | --- |
 | `node.exe` | 76.8 MB | 23.3 MB |
-| PGlite runtime (`pglite.wasm`, `.data`, `initdb`, `pgcrypto`, JS) | 18.1 MB | 5.5 MB |
+| PGlite runtime (`dist/` without source maps or other extensions) | 20.1 MB | 6.2 MB |
 | Sidecar bundle `main.mjs` | 0.02 MB | 0.01 MB |
-| Migrations | 0.4 MB | n/a |
-| **Total** | **95.3 MB** | **28.8 MB** |
+| Migrations | 0.4 MB | 0.1 MB |
+| **Total** | **97.3 MB** | **29.6 MB** |
 
-- **Memory.** Idle private is 265 MB (working set 183 MB). First query, which runs all
-  migrations on a new data dir, takes 3.6 s. That leaves about 245 MB for the shell and
+- **Memory.** Idle private is 266 MB (working set 184 MB). First query, which runs all
+  migrations on a new data dir, takes 3.2 s. That leaves about 244 MB for the shell and
   WebView2 under the 510 MB criterion. It is tight, so 2.13 measures the whole app,
   and phase 3 removes this process.
-- **Installer.** It adds about 29 MB compressed and 95 MB installed. Only the files above
+- **Installer.** It adds about 30 MB compressed and 97 MB installed. Only the files above
   ship. PGlite's other extensions and source maps are left out.
+- **Wire values.** `bytea` (Uint8Array) and any bigint do not fit in JSON. Under the desktop parsers,
+  `int8` arrives as a number, the same as in Electron. The wire tags them as
+  `{"$bigint":"<decimal>"}` and `{"$bytes":"<base64>"}`, in both directions, and the 2.4 shim decodes
+  them. A jsonb value that has exactly one of those shapes would be decoded too. That is accepted,
+  and no current table stores one.
+- **Left for 2.4.** These are not in the spike:
+  - the Rust spawn and Job Object;
+  - a cap on in-flight calls, and waiting for stdout `drain` (the Rust client bounds what it sends);
+  - reset (`discard` throws);
+  - periodic and quit-time backups (`LocalDbHost.snapshot` / `dumpTo` are never called);
+  - the local API and MCP.
 
 ## Risks
 
