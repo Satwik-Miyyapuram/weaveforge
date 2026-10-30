@@ -13,9 +13,14 @@ workspace = true
 
 [dependencies]
 serde.workspace = true
-specta.workspace = true
+# Only wf-bindings needs the TypeScript types; the shell pins another specta rc.
+specta = { workspace = true, optional = true }
 unicode-normalization.workspace = true
 unicode-properties.workspace = true
+
+[features]
+# Derives specta::Type on the IPC types, for wf-bindings.
+specta = ["dep:specta"]
 
 [dev-dependencies]
 proptest.workspace = true
