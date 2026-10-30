@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 pub mod commands;
 pub mod launch;
+pub mod prefs;
 pub mod protocol;
 pub mod sidecar;
 
