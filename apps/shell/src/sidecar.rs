@@ -392,14 +392,16 @@ impl Sidecar {
     }
 
     /// Stops accepting writes, closes stdin, waits up to `grace` for a clean exit, then kills.
-    /// Returns true when it exited by itself. Later calls get `Exited`.
+    /// Returns true only when the sidecar exited by itself with status 0. Can take up to `grace`
+    /// plus the reap wait of an internal kill already in progress (`REAP_TIMEOUT`), since both hold
+    /// the child lock. Later calls get `Exited`.
     pub async fn shutdown(&self, grace: Duration) -> bool {
         let _ = lock(&self.writer).take();
         let Some(mut child) = self.shared.child.lock().await.take() else {
             return false;
         };
-        if matches!(tokio::time::timeout(grace, child.wait()).await, Ok(Ok(_))) {
-            return true;
+        if let Ok(Ok(status)) = tokio::time::timeout(grace, child.wait()).await {
+            return status.success();
         }
         let _ = child.start_kill();
         let _ = child.wait().await;
