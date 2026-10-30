@@ -52,7 +52,7 @@ Sources: `docs/plans/speed-plan.md` and `docs/internal/design/memory-optimizatio
 | Embeddings | ~6 min in WASM | native `ort`, maybe NPU: 5–20× faster | time the same 1,039 passages |
 | PDF index tokenize | 223 ms | 3–10× faster, off the UI thread | `indexPdf` mark |
 | Ink parse | 83 ms / 50 pages | 3–10× faster | `ink:parse` mark |
-| Git sync | isomorphic-git / child process | in-process `gix`/`git2` | sync timing test |
+| Git sync | isomorphic-git / child process | in-process `git2` (libgit2) | sync timing test |
 | Installer size | Electron, ~100+ MB | Tauri, ~10–20 MB | file size |
 | iOS | online only | offline, local core | feature test |
 | Correctness | TS runtime errors | whole bug classes gone (see §3) | defect rate |
@@ -285,7 +285,7 @@ A new third-party crate goes in only after `cargo deny` passes (`multiple-versio
 ```
 crates/                        Cargo workspace
   wf-core       pure logic: search, parse (md, BibTeX, ink), merge, workspace model. No I/O. forbid(unsafe)
-  wf-store      native I/O: files, blobs, git (gix), Overleaf git bridge, embeddings (ort)
+  wf-store      native I/O: files, blobs, git (git2), Overleaf git bridge, embeddings (ort)
   wf-wasm       wf-core → WASM for the browser
   wf-bindings   one binary: writes bindings.ts from all specta types/commands
 apps/shell      Tauri 2 app: desktop + Android + iOS; plugins: stylus overlay (Kotlin), fs, git
