@@ -466,6 +466,8 @@ jobs:
     # strict bans must not inherit (phase-2-desktop.md, step 2.2). Linux
     # needs the WebKitGTK headers to compile it.
     runs-on: ubuntu-latest
+    # Bounds a real-sidecar test that hangs (it reads the helper's pid with no deadline).
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: apps/shell
@@ -526,6 +528,7 @@ jobs:
     # lock/orphan test runs here and in the Linux job. fmt and cargo-deny are
     # platform-independent and stay in the Linux job.
     runs-on: windows-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: apps/shell

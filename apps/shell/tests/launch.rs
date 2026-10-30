@@ -3,7 +3,7 @@
 
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
+use std::process::{Child, Stdio};
 use std::time::{Duration, Instant};
 
 use serde_json::json;
@@ -60,6 +60,16 @@ async fn dev_sidecar_opens_the_database() {
     let _ = std::fs::remove_dir_all(data.parent().unwrap());
 }
 
+/// Kills and reaps the helper when the test ends, also when it panics first.
+struct KillOnDrop(Child);
+
+impl Drop for KillOnDrop {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
 /// Runs as the helper for `real_orphan_frees_the_database`: opens the real sidecar on the data dir, prints its pid, sleeps.
 #[test]
 fn real_orphan_helper() {
@@ -94,18 +104,20 @@ async fn real_orphan_frees_the_database() {
     let data = parent.join("local-db");
 
     let exe = std::env::current_exe().unwrap();
-    let mut helper = std::process::Command::new(exe)
-        .args([
-            "real_orphan_helper",
-            "--exact",
-            "--nocapture",
-            "--test-threads=1",
-        ])
-        .env("WF_REAL_ORPHAN_DATA", &data)
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
-    let stdout = helper.stdout.take().unwrap();
+    let mut helper = KillOnDrop(
+        std::process::Command::new(exe)
+            .args([
+                "real_orphan_helper",
+                "--exact",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env("WF_REAL_ORPHAN_DATA", &data)
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
+    let stdout = helper.0.stdout.take().unwrap();
     let sidecar_pid = BufReader::new(stdout)
         .lines()
         .map_while(Result::ok)
@@ -126,8 +138,19 @@ async fn real_orphan_frees_the_database() {
     );
     let _ = second.shutdown(Duration::from_secs(5)).await;
 
-    helper.kill().unwrap();
-    let _ = helper.wait().unwrap();
+    // On Windows the Job Object hard-kills the sidecar with the helper, so its lock goes stale.
+    // Elsewhere the sidecar exits on stdin EOF and releases its lock, so kill it hard first to
+    // leave a stale lock (its exit on stdin EOF is what every clean shutdown here proves).
+    #[cfg(unix)]
+    assert!(
+        std::process::Command::new("kill")
+            .args(["-9", &sidecar_pid.to_string()])
+            .status()
+            .unwrap()
+            .success()
+    );
+    helper.0.kill().unwrap();
+    let _ = helper.0.wait().unwrap();
     let deadline = Instant::now() + Duration::from_secs(30);
     while alive(sidecar_pid) && Instant::now() < deadline {
         tokio::time::sleep(Duration::from_millis(100)).await;
