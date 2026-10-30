@@ -1,0 +1,26 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "WeaveForge",
+  "version": "0.1.0",
+  "identifier": "dev.weaveforge.desktop",
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "WeaveForge",
+        "url": "app://localhost/",
+        "useHttpsScheme": true,
+        "width": 1440,
+        "height": 900,
+        "minWidth": 900
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": ["icons/icon.png", "icons/icon.ico"]
+  }
+}

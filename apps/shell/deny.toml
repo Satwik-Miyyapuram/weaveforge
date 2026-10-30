@@ -1,0 +1,77 @@
+# cargo deny check for the Tauri shell. Same licence, source and advisory
+# policy as the root deny.toml; only the duplicate-version skips differ, and
+# they stay here so wf-core's graph remains strict (phase-2-desktop.md, 2.2).
+[graph]
+targets = [
+  "x86_64-pc-windows-msvc",
+  "aarch64-pc-windows-msvc",
+  "x86_64-unknown-linux-gnu",
+  "aarch64-apple-darwin",
+  "x86_64-apple-darwin",
+]
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = [
+  # Unmaintained, not vulnerable. Only the Linux GTK 0.18 macros
+  # (glib-macros, gtk3-macros) use it, at compile time. Drop this once Tauri
+  # moves off gtk-rs 0.18.
+  { id = "RUSTSEC-2024-0370", reason = "proc-macro-error via gtk-rs 0.18 macros; build-time only, Linux only" },
+]
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+unused-allowed-license = "allow"
+allow = [
+  "AGPL-3.0-only",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "BSL-1.0",
+  "CC0-1.0",
+  "ISC",
+  "MIT",
+  "MPL-2.0",
+  "Unicode-3.0",
+  "Unlicense",
+  "Zlib",
+]
+
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+allow-wildcard-paths = true
+skip = [
+  # Each entry is the older version, held back by the crate named. Remove an
+  # entry once its crates agree. Most come from Linux gtk-rs 0.18 (pinned by
+  # webkit2gtk 2.0, which Tauri 2 needs) or are build-time only.
+  { crate = "base64@0.21", reason = "swift-rs (macOS build helper of tauri) still on 0.21" },
+  { crate = "bitflags@1", reason = "webkit2gtk 2.0 / javascriptcore-rs (Linux webview) still on bitflags 1" },
+  { crate = "getrandom@0.3", reason = "tauri 2.12 on 0.3; uuid already on 0.4" },
+  { crate = "hashbrown@0.12", reason = "indexmap 1 via schemars 0.8 (tauri-utils config schema)" },
+  { crate = "indexmap@1", reason = "schemars 0.8 (tauri-utils config schema) still on indexmap 1" },
+  { crate = "heck@0.4", reason = "glib-macros 0.18 (Linux gtk-rs); build-time only" },
+  { crate = "miniz_oxide@0.8", reason = "png 0.18 (icon decoding) on 0.8; flate2 on 0.9" },
+  { crate = "proc-macro-crate@1", reason = "gtk3-macros 0.18 (Linux); build-time only" },
+  { crate = "proc-macro-crate@2", reason = "glib-macros 0.18 (Linux); build-time only" },
+  { crate = "toml@0.8", reason = "system-deps 6 (Linux build script for gtk-rs); build-time only" },
+  { crate = "toml_edit@0.19", reason = "proc-macro-crate 1 via gtk3-macros; build-time only" },
+  { crate = "toml_edit@0.20", reason = "proc-macro-crate 2 and toml 0.8 via gtk-rs; build-time only" },
+  { crate = "toml_datetime@0.6", reason = "old toml/toml_edit via gtk-rs build tooling; build-time only" },
+  { crate = "serde_spanned@0.6", reason = "toml 0.8 via system-deps; build-time only" },
+  { crate = "winnow@0.5", reason = "toml_edit 0.19/0.20 via gtk-rs build tooling; build-time only" },
+  { crate = "thiserror@1", reason = "gtk-rs 0.18 (glib, gio, cairo) and jni/ndk (Android) still on thiserror 1" },
+  { crate = "thiserror-impl@1", reason = "proc macro of thiserror 1, see above; build-time only" },
+  { crate = "syn@1", reason = "proc-macro-error 1 via gtk-rs 0.18 macros; build-time only" },
+  { crate = "syn@2", reason = "derive_more, glib/gtk3 macros and others still on syn 2; build-time only" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
