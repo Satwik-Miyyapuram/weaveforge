@@ -9,7 +9,7 @@
 use std::collections::{HashSet, VecDeque};
 use std::ffi::OsString;
 use std::fs;
-use std::io;
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
@@ -57,6 +57,14 @@ pub enum VaultError {
     /// message never reveals where the workspace lives on disk.
     #[error("Path escapes the workspace folder: {0}")]
     Escape(String),
+    /// The file holds more than `max` bytes; only `max + 1` were read.
+    #[error("{path} is over {max} bytes")]
+    TooLarge {
+        /// The relative path that was read.
+        path: String,
+        /// The cap it went over.
+        max: u64,
+    },
     /// The filesystem refused the operation.
     #[error("{op} {path}: {source}")]
     Io {
@@ -82,7 +90,7 @@ impl VaultError {
     pub fn io_kind(&self) -> Option<io::ErrorKind> {
         match self {
             Self::Io { source, .. } => Some(source.kind()),
-            Self::UnsafePath(_) | Self::Escape(_) => None,
+            Self::UnsafePath(_) | Self::Escape(_) | Self::TooLarge { .. } => None,
         }
     }
 }
@@ -114,6 +122,29 @@ impl Vault {
         fs::read(&target).map_err(|source| io_err("read", rel, source))
     }
 
+    /// The raw bytes of a file, refusing one over `max` bytes; reads at most `max + 1` bytes,
+    /// so a file that grows while it is read cannot exhaust memory.
+    ///
+    /// # Errors
+    /// Same as [`Vault::read_file`], plus [`VaultError::TooLarge`].
+    pub fn read_file_max(&self, rel: &str, max: u64) -> Result<Vec<u8>, VaultError> {
+        let target = self.resolve(rel)?;
+        let file = fs::File::open(&target).map_err(|source| io_err("read", rel, source))?;
+        let mut buf = Vec::new();
+        let _read = file
+            .take(max.saturating_add(1))
+            .read_to_end(&mut buf)
+            .map_err(|source| io_err("read", rel, source))?;
+        let too_large = u64::try_from(buf.len()).map_or(true, |len| len > max);
+        if too_large {
+            return Err(VaultError::TooLarge {
+                path: rel.to_owned(),
+                max,
+            });
+        }
+        Ok(buf)
+    }
+
     /// A file decoded as UTF-8 without a leading byte order mark, with invalid bytes
     /// replaced (matches `TextDecoder`).
     ///
@@ -121,8 +152,16 @@ impl Vault {
     /// Same as [`Vault::read_file`].
     pub fn read_text(&self, rel: &str) -> Result<String, VaultError> {
         let bytes = self.read_file(rel)?;
-        let body = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(&bytes);
-        Ok(String::from_utf8_lossy(body).into_owned())
+        Ok(decode_text(&bytes))
+    }
+
+    /// [`Vault::read_text`] for a file refusing one over `max` bytes; the byte order mark counts.
+    ///
+    /// # Errors
+    /// Same as [`Vault::read_file_max`].
+    pub fn read_text_max(&self, rel: &str, max: u64) -> Result<String, VaultError> {
+        let bytes = self.read_file_max(rel, max)?;
+        Ok(decode_text(&bytes))
     }
 
     /// Replace a file's bytes, creating parent folders; never leaves a torn file behind.
@@ -348,6 +387,12 @@ impl Vault {
         assert_inside(&self.root, &target, rel)?;
         Ok(target)
     }
+}
+
+/// UTF-8 text without a leading byte order mark; invalid bytes become U+FFFD.
+fn decode_text(bytes: &[u8]) -> String {
+    let body = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes);
+    String::from_utf8_lossy(body).into_owned()
 }
 
 fn io_err(op: &'static str, path: &str, source: io::Error) -> VaultError {
