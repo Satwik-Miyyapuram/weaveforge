@@ -11,6 +11,7 @@ pub mod launch;
 pub mod prefs;
 pub mod protocol;
 pub mod range;
+pub mod relay;
 pub mod secrets;
 pub mod sidecar;
 
