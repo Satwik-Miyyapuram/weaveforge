@@ -2,12 +2,6 @@ import MiniSearch, { type Options, type SearchResult } from "minisearch";
 import {
   effectiveFieldBoosts,
   kindMultiplier,
-  buildExcerpt,
-  isEmptyQuery,
-  isFilterOnly,
-  parseSearchQuery,
-  processTerm,
-  tokenize,
   MIN_PREFIX_LENGTH,
   SEARCH_FIELDS,
   documentBoost,
@@ -16,12 +10,13 @@ import {
   type IWorkspaceSearchIndex,
   type IWorkspaceSearchIndexFactory,
   type SearchDoc,
-  type ParsedQuery,
   type SearchHit,
   type SearchSettings,
   type SearchKind,
   type SearchQueryOptions,
 } from "@weaveforge/core";
+import type { ParsedQuery } from "@weaveforge/wasm";
+import { indexTermsOf, type SearchCore } from "./search-core";
 
 /**
  * BM25 index over the workspace snapshot. The only module that imports
@@ -34,8 +29,10 @@ import {
  * different schema is discarded rather than migrated: rebuilding costs a few
  * hundred milliseconds, whereas a subtly mismatched index returns wrong results
  * indefinitely with no visible symptom.
+ *
+ * 4: terms come from the Rust tokenizer (P1.8).
  */
-export const SEARCH_SCHEMA_VERSION = 3;
+export const SEARCH_SCHEMA_VERSION = 4;
 
 interface PersistedIndex {
   schemaVersion: number;
@@ -61,7 +58,18 @@ function storedFieldsOf(doc: SearchDoc): StoredFields {
   return out as StoredFields;
 }
 
-function miniSearchOptions(): Options<SearchDoc> {
+/** No terms: only filters, if any. */
+function isFilterOnly(parsed: ParsedQuery): boolean {
+  return parsed.text.length === 0;
+}
+
+/** Nothing to search or filter on. */
+function isEmptyQuery(parsed: ParsedQuery): boolean {
+  return isFilterOnly(parsed) && parsed.kinds.length === 0 && parsed.paths.length === 0 &&
+    parsed.tags.length === 0 && parsed.exclude.length === 0 && parsed.modifiedWithinDays === null;
+}
+
+function miniSearchOptions(core: SearchCore): Options<SearchDoc> {
   return {
     idField: "id",
     fields: [...SEARCH_FIELDS],
@@ -73,10 +81,10 @@ function miniSearchOptions(): Options<SearchDoc> {
       const value = (doc as unknown as Record<string, unknown>)[field];
       return Array.isArray(value) ? value.join(" ") : ((value as string) ?? "");
     },
-    // Shared with the query side: a term tokenized one way at index time and
-    // another at query time simply never matches.
-    tokenize: (text) => tokenize(text),
-    processTerm: (term) => processTerm(term),
+    // indexTermsOf already processes terms; MiniSearch also tokenizes queries with
+    // this, so index and query share one tokenizer or terms never match.
+    tokenize: (text) => indexTermsOf(core, text),
+    processTerm: (term) => term,
   };
 }
 
@@ -85,6 +93,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
   settings: SearchSettings | undefined;
 
   constructor(
+    private readonly core: SearchCore,
     private readonly engine: MiniSearch<SearchDoc>,
     public revision: string,
     private readonly stored: Map<string, StoredFields>,
@@ -142,7 +151,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
   }
 
   search(query: string, options: SearchQueryOptions = {}): readonly SearchHit[] {
-    const parsed = parseSearchQuery(query);
+    const parsed = this.core.parseQuery(query);
     if (isEmptyQuery(parsed)) return [];
 
     const limit = Math.max(1, Math.min(options.limit ?? 30, 200));
@@ -209,7 +218,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         terms: result.terms,
         queryTerms: result.queryTerms,
         excerpt: options.excerpts
-          ? buildExcerpt(fields.body ?? "", result.terms, { maxChars: 200 })
+          ? this.core.buildExcerpt(fields.body ?? "", result.terms, { maxChars: 200 })
           : undefined,
       };
     });
@@ -228,6 +237,12 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
   ): boolean {
     if (callerKinds && !callerKinds.has(fields.kind)) return false;
     if (queryKinds && !queryKinds.has(fields.kind)) return false;
+
+    // modified:Nd — updatedAt within the last N days.
+    if (parsed.modifiedWithinDays !== null) {
+      const since = Date.now() - parsed.modifiedWithinDays * 86_400_000;
+      if (!(Date.parse(fields.updatedAt) >= since)) return false;
+    }
 
     const path = (fields.path ?? "").toLowerCase();
     if (parsed.paths.length && !parsed.paths.every((needle) => path.includes(needle))) return false;
@@ -289,42 +304,46 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
   }
 }
 
-export const miniSearchIndexFactory: IWorkspaceSearchIndexFactory = {
-  create(docs: readonly SearchDoc[]): IWorkspaceSearchIndex {
-    const engine = new MiniSearch<SearchDoc>(miniSearchOptions());
-    const index = new MiniSearchWorkspaceIndex(engine, "", new Map());
-    index.replaceAll(docs);
-    return index;
-  },
+/** Factory bound to the Rust core that tokenizes and parses for this index. */
+export function createMiniSearchIndexFactory(core: SearchCore): IWorkspaceSearchIndexFactory {
+  return {
+    create(docs: readonly SearchDoc[]): IWorkspaceSearchIndex {
+      const engine = new MiniSearch<SearchDoc>(miniSearchOptions(core));
+      const index = new MiniSearchWorkspaceIndex(core, engine, "", new Map());
+      index.replaceAll(docs);
+      return index;
+    },
 
-  /**
-   * Rehydrate a cached index. Returns null — meaning "rebuild" — whenever the
-   * payload cannot be trusted: wrong schema, stale corpus, or malformed JSON.
-   * Failing closed here is the difference between a slow first query and a
-   * search box that quietly serves deleted documents.
-   */
-  load(serialized: string, revision: string): IWorkspaceSearchIndex | null {
-    try {
-      const payload = JSON.parse(serialized) as PersistedIndex;
-      if (payload.schemaVersion !== SEARCH_SCHEMA_VERSION) return null;
-      if (payload.revision !== revision) return null;
+    /**
+     * Rehydrate a cached index. Returns null — meaning "rebuild" — whenever the
+     * payload cannot be trusted: wrong schema, stale corpus, or malformed JSON.
+     * Failing closed here is the difference between a slow first query and a
+     * search box that quietly serves deleted documents.
+     */
+    load(serialized: string, revision: string): IWorkspaceSearchIndex | null {
+      try {
+        const payload = JSON.parse(serialized) as PersistedIndex;
+        if (payload.schemaVersion !== SEARCH_SCHEMA_VERSION) return null;
+        if (payload.revision !== revision) return null;
 
-      const engine = MiniSearch.loadJSON<SearchDoc>(payload.index, miniSearchOptions());
-      const stored = new Map<string, StoredFields>(Object.entries(payload.docs ?? {}));
-      return new MiniSearchWorkspaceIndex(engine, payload.revision, stored);
-    } catch {
-      return null;
-    }
-  },
-};
+        const engine = MiniSearch.loadJSON<SearchDoc>(payload.index, miniSearchOptions(core));
+        const stored = new Map<string, StoredFields>(Object.entries(payload.docs ?? {}));
+        return new MiniSearchWorkspaceIndex(core, engine, payload.revision, stored);
+      } catch {
+        return null;
+      }
+    },
+  };
+}
 
 /** Build an index and stamp it with the corpus revision. */
 export function buildSearchIndex(
+  core: SearchCore,
   docs: readonly SearchDoc[],
   revision: string,
   settings?: SearchSettings,
 ): IWorkspaceSearchIndex {
-  const index = miniSearchIndexFactory.create(docs) as MiniSearchWorkspaceIndex;
+  const index = createMiniSearchIndexFactory(core).create(docs) as MiniSearchWorkspaceIndex;
   index.revision = revision;
   index.settings = settings;
   return index;
