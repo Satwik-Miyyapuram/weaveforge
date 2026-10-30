@@ -200,8 +200,11 @@ fn save(file: &Path, map: &Map<String, Value>) -> io::Result<()> {
 pub async fn preference_write(
     prefs: tauri::State<'_, Prefs>,
     name: String,
-    value: Value,
+    value: crate::commands::Json,
 ) -> Result<(), ShellError> {
+    let value = serde_json::to_value(value).map_err(|e| ShellError {
+        message: format!("preference: bad value: {e}"),
+    })?;
     prefs
         .queued(move |p| p.page_write_json(&name, value))
         .await

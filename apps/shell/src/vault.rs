@@ -94,8 +94,8 @@ pub struct VaultEntry {
     pub path: String,
     /// File or folder.
     pub kind: EntryKindPayload,
-    /// Size in bytes.
-    #[specta(type = f64)]
+    /// Size in bytes (typed as a plain `number` for the page; files stay far below 2^53).
+    #[specta(type = u32)]
     pub size: u64,
     /// Last modification time, ISO-8601 UTC.
     pub modified_at: String,

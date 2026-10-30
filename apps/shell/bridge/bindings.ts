@@ -13,9 +13,206 @@ export const commands = {
 	dbState: () => typedError<DbState_Serialize, ShellError>(__TAURI_INVOKE("db_state")),
 	/**  Resets the local database. */
 	dbReset: () => typedError<null, ShellError>(__TAURI_INVOKE("db_reset")),
+	/**  Stores a preference the page may write; `null` removes it. */
+	preferenceWrite: (name: string, value: unknown) => typedError<null, ShellError>(__TAURI_INVOKE("preference_write", { name, value })),
+	/**  Reads a secret the page may read. */
+	secretRead: (name: string) => typedError<string | null, ShellError>(__TAURI_INVOKE("secret_read", { name })),
+	/**  Stores a secret the page may write. */
+	secretWrite: (name: string, value: string) => typedError<null, ShellError>(__TAURI_INVOKE("secret_write", { name, value })),
+	/**  Forgets a secret the page may write. */
+	secretClear: (name: string) => typedError<null, ShellError>(__TAURI_INVOKE("secret_clear", { name })),
+	/**
+	 *  The chosen workspace folder, or nothing when none is chosen.
+	 * 
+	 *  # Errors
+	 *  Never; the answer is always `Ok`.
+	 */
+	vaultRoot: () => typedError<VaultRoot | null, ShellError>(__TAURI_INVOKE("vault_root")),
+	/**
+	 *  Reads a text file in the chosen folder.
+	 * 
+	 *  # Errors
+	 *  No folder chosen, a refused path, or a file over the size cap.
+	 */
+	vaultRead: (path: string) => typedError<string | null, ShellError>(__TAURI_INVOKE("vault_read", { path })),
+	/**
+	 *  Writes a text file in the chosen folder.
+	 * 
+	 *  # Errors
+	 *  No folder chosen, a refused path, or contents over the size cap.
+	 */
+	vaultWrite: (path: string, contents: string) => typedError<null, ShellError>(__TAURI_INVOKE("vault_write", { path, contents })),
+	/**
+	 *  Reads a binary file in the chosen folder as base64.
+	 * 
+	 *  # Errors
+	 *  No folder chosen, a refused path, or a file over the size cap.
+	 */
+	vaultReadBytes: (path: string) => typedError<string | null, ShellError>(__TAURI_INVOKE("vault_read_bytes", { path })),
+	/**
+	 *  Writes a binary file in the chosen folder from base64.
+	 * 
+	 *  # Errors
+	 *  Invalid base64, no folder chosen, a refused path, or contents over the size cap.
+	 */
+	vaultWriteBytes: (path: string, bytes: string) => typedError<null, ShellError>(__TAURI_INVOKE("vault_write_bytes", { path, bytes })),
+	/**
+	 *  Lists a folder in the chosen folder; the root when `path` is absent.
+	 * 
+	 *  # Errors
+	 *  No folder chosen, a refused path, or a folder that cannot be read.
+	 */
+	vaultList: (path: string | null) => typedError<VaultEntry[], ShellError>(__TAURI_INVOKE("vault_list", { path })),
+	/**
+	 *  Metadata for one file or folder in the chosen folder.
+	 * 
+	 *  # Errors
+	 *  No folder chosen.
+	 */
+	vaultStat: (path: string) => typedError<VaultEntry | null, ShellError>(__TAURI_INVOKE("vault_stat", { path })),
+	/**
+	 *  Removes one file in the chosen folder.
+	 * 
+	 *  # Errors
+	 *  No folder chosen, a refused path, or a folder.
+	 */
+	vaultRemove: (path: string) => typedError<null, ShellError>(__TAURI_INVOKE("vault_remove", { path })),
+	/**
+	 *  Runs a sync action (settings, status, connect, pull or push) on the chosen folder.
+	 * 
+	 *  # Errors
+	 *  The reason to show the reader when the action is refused or git fails.
+	 */
+	vaultSync: (action: string) => typedError<VaultSyncReply_Serialize, ShellError>(__TAURI_INVOKE("vault_sync", { action })),
+	/**
+	 *  Mirrors the chosen folder into its history now, when history is on.
+	 * 
+	 *  # Errors
+	 *  The reason to show the reader when no folder is chosen.
+	 */
+	vaultCommit: () => typedError<CommitReply_Serialize, ShellError>(__TAURI_INVOKE("vault_commit")),
+	/**
+	 *  The chosen folder's commits, newest first.
+	 * 
+	 *  # Errors
+	 *  The reason to show the reader when no folder is chosen.
+	 */
+	vaultLog: (limit: number | null) => typedError<WorkspaceCommit[], ShellError>(__TAURI_INVOKE("vault_log", { limit })),
+	/**
+	 *  Fetches the page title of a pasted link from the public internet.
+	 * 
+	 *  # Errors
+	 *  Returns the sentence to show when the address is refused, unreachable or has no usable title.
+	 */
+	fetchTitle: (url: string) => typedError<TitleReply, ShellError>(__TAURI_INVOKE("fetch_title", { url })),
+	/**
+	 *  Fetches the image of a pasted link from the public internet.
+	 * 
+	 *  # Errors
+	 *  Returns the sentence to show when the address is refused, unreachable or not a supported image.
+	 */
+	fetchImage: (url: string) => typedError<ImageReply, ShellError>(__TAURI_INVOKE("fetch_image", { url })),
+	/**
+	 *  Probes for a LaTeX engine; `None` when there is none.
+	 * 
+	 *  # Errors
+	 *  Never: the Rust probe cannot fail, so the `Err` arm is kept for the Tauri wiring.
+	 */
+	texProbe: () => typedError<TexTool | null, ShellError>(__TAURI_INVOKE("tex_probe")),
+	/**
+	 *  Compiles a LaTeX project the page hands over, in a directory of its own.
+	 * 
+	 *  # Errors
+	 *  Never: a failed compile is reported inside the reply.
+	 */
+	texCompile: (files: TexSourceFile[], entryFile: string) => typedError<TexCompileReply_Serialize, ShellError>(__TAURI_INVOKE("tex_compile", { files, entryFile })),
+	/**
+	 *  Fetches a request from Zotero's local API on this computer.
+	 * 
+	 *  # Errors
+	 *  Returns a `ShellError` when the URL is not Zotero's local API or Zotero does not answer.
+	 */
+	zoteroLocal: (url: string) => typedError<ZoteroLocalReply, ShellError>(__TAURI_INVOKE("zotero_local", { url })),
+	/**
+	 *  Looks for a newer release; only a packaged build checks.
+	 * 
+	 *  # Errors
+	 *  Never in practice; the `Err` arm is kept for the Tauri wiring.
+	 */
+	updateCheck: () => typedError<Update | null, ShellError>(__TAURI_INVOKE("update_check")),
+	/**
+	 *  Records a line the page reported; always `Ok`, as the TS handler sends nothing back.
+	 * 
+	 *  # Errors
+	 *  Never: an invalid report is dropped silently.
+	 */
+	appLogReport: (report: AppLogReport_Deserialize) => typedError<null, ShellError>(__TAURI_INVOKE("app_log_report", { report })),
+	/**
+	 *  The application log, formatted for the panel.
+	 * 
+	 *  # Errors
+	 *  Never in practice; the `Err` arm is kept for the Tauri wiring.
+	 */
+	appLogRead: () => typedError<AppLogText, ShellError>(__TAURI_INVOKE("app_log_read")),
 };
 
 /* Types */
+/**  What a page reports; every field checked before use. */
+export type AppLogReport = AppLogReport_Serialize | AppLogReport_Deserialize;
+
+/**  What a page reports; every field checked before use. */
+export type AppLogReport_Deserialize = {
+	/**  `error`, `warn` or `info`; anything else is dropped. */
+	level: string,
+	/**  Where it came from; `renderer` when absent. */
+	source?: string | null,
+	/**  What happened; an empty message is dropped. */
+	message: string,
+	/**  Free-form context. */
+	detail?: string | null,
+};
+
+/**  What a page reports; every field checked before use. */
+export type AppLogReport_Serialize = {
+	/**  `error`, `warn` or `info`; anything else is dropped. */
+	level: string,
+	/**  Where it came from; `renderer` when absent. */
+	source: string | null,
+	/**  What happened; an empty message is dropped. */
+	message: string,
+	/**  Free-form context. */
+	detail: string | null,
+};
+
+/**  The log as the page reads it. */
+export type AppLogText = {
+	/**  Where the log file is. */
+	file: string,
+	/**  The entries, formatted for a person, oldest first. */
+	text: string,
+	/**  False when the in-memory log has dropped entries it once held. */
+	complete: boolean,
+};
+
+/**  The answer to a commit request (TS `{ commit, reason? }`). */
+export type CommitReply = CommitReply_Serialize | CommitReply_Deserialize;
+
+/**  The answer to a commit request (TS `{ commit, reason? }`). */
+export type CommitReply_Deserialize = {
+	/**  The new commit, if one was made. */
+	commit?: WorkspaceCommit | null,
+	/**  Why nothing was committed, if it was refused or failed. */
+	reason?: string | null,
+};
+
+/**  The answer to a commit request (TS `{ commit, reason? }`). */
+export type CommitReply_Serialize = {
+	/**  The new commit, if one was made. */
+	commit: WorkspaceCommit | null,
+	/**  Why nothing was committed, if it was refused or failed. */
+	reason?: string,
+};
+
 /**  The local database's health, as `DesktopLocalDbState` in apps/web/src/lib/desktop/desktop-bridge.ts. */
 export type DbState = DbState_Serialize | DbState_Deserialize;
 
@@ -39,10 +236,246 @@ export type DbState_Serialize = {
 	restoredFrom: string | null,
 };
 
+/**  Whether a listed entry is a file or a folder, as the page sees it. */
+export type EntryKindPayload = 
+/**  A regular file. */
+"file" | 
+/**  A folder. */
+"dir";
+
+/**  An image's bytes, its media type and the final URL it was read from. */
+export type ImageReply = {
+	/**  The body as standard base64 with padding. */
+	bytes: string,
+	/**  The lowercase media type. */
+	contentType: string,
+	/**  The final URL after redirects. */
+	url: string,
+};
+
+/**  Whether a chosen root is brand new or already holds a workspace. */
+export type RootKind = 
+/**  No meaningful files; safe to start a workspace here. */
+"empty" | 
+/**  Already a workspace we wrote. */
+"existing";
+
 /**  The error every command returns. The bridge shim throws `new Error(message)`. */
 export type ShellError = {
 	/**  Human-readable message, shown as-is by the UI. */
 	message: string,
+};
+
+/**  What a pull did, as the page sees it. */
+export type SyncPull = 
+/**  Nothing to bring in. */
+{ kind: "up-to-date" } | 
+/**  The folder moved forward to the remote's tip. */
+{ kind: "fast-forward"; 
+/**  The new tip. */
+oid: string } | 
+/**  The remote's changes were merged with the folder's. */
+{ kind: "merged"; 
+/**  The merge commit. */
+oid: string } | 
+/**  Files changed on both sides; nothing was written. */
+{ kind: "conflict"; 
+/**  The conflicting paths, sorted. */
+files: string[] };
+
+/**  What a push did, as the page sees it. */
+export type SyncPush = 
+/**  Commits were sent. */
+{ kind: "pushed" } | 
+/**  The remote already has every commit. */
+{ kind: "up-to-date" } | 
+/**  The remote refused the push. */
+{ kind: "rejected"; 
+/**  Why, in plain words. */
+reason: string };
+
+/**  The remote's status as the page sees it. */
+export type SyncStatus = SyncStatus_Serialize | SyncStatus_Deserialize;
+
+/**  The remote's status as the page sees it. */
+export type SyncStatus_Deserialize = {
+	/**  The remote URL, or none when the folder has no repository. */
+	url?: string | null,
+	/**  The branch synced. */
+	branch: string,
+	/**  Commits this folder has that the remote lacks. */
+	ahead: number,
+	/**  Commits the remote has that this folder lacks. */
+	behind: number,
+};
+
+/**  The remote's status as the page sees it. */
+export type SyncStatus_Serialize = {
+	/**  The remote URL, or none when the folder has no repository. */
+	url: string | null,
+	/**  The branch synced. */
+	branch: string,
+	/**  Commits this folder has that the remote lacks. */
+	ahead: number,
+	/**  Commits the remote has that this folder lacks. */
+	behind: number,
+};
+
+/**  A compile's outcome for the page: the PDF as base64. */
+export type TexCompileReply = TexCompileReply_Serialize | TexCompileReply_Deserialize;
+
+/**  A compile's outcome for the page: the PDF as base64. */
+export type TexCompileReply_Deserialize = {
+	/**  Whether a PDF was made and the engine did not fail. */
+	ok: boolean,
+	/**  The PDF as standard base64, when there is one. */
+	pdf?: string | null,
+	/**  The engine's output, tail-clipped. */
+	log: string,
+	/**  Where the compile went wrong, per file and line. */
+	errors: TexError[],
+	/**  The engine that ran, when one did. */
+	engine?: TexEngine | null,
+};
+
+/**  A compile's outcome for the page: the PDF as base64. */
+export type TexCompileReply_Serialize = {
+	/**  Whether a PDF was made and the engine did not fail. */
+	ok: boolean,
+	/**  The PDF as standard base64, when there is one. */
+	pdf: string | null,
+	/**  The engine's output, tail-clipped. */
+	log: string,
+	/**  Where the compile went wrong, per file and line. */
+	errors: TexError[],
+	/**  The engine that ran, when one did. */
+	engine: TexEngine | null,
+};
+
+/**  The engines worth trying, best first. */
+export type TexEngine = 
+/**  Decides how many passes the document needs, including bibliography passes. */
+"latexmk" | 
+/**  Self-contained; does the same job as latexmk. */
+"tectonic" | 
+/**  Single pass fallback; cross-references may be one compile behind. */
+"pdflatex";
+
+/**  One error from a TeX log. */
+export type TexError = {
+	/**  The file the error is in. */
+	file: string,
+	/**  1-based, or 0 when the engine did not say. */
+	line: number,
+	/**  The engine's reason. */
+	message: string,
+};
+
+/**  One source file the page sent. */
+export type TexSourceFile = {
+	/**  Path relative to the build directory. */
+	path: string,
+	/**  The file's text. */
+	content: string,
+};
+
+/**  An engine found on this machine. */
+export type TexTool = {
+	/**  Which engine this is. */
+	kind: TexEngine,
+	/**  The executable that was run. */
+	command: string,
+	/**  The first line of its `--version`, for the settings panel to show. */
+	version: string,
+};
+
+/**  A page title and the final URL it was read from. */
+export type TitleReply = {
+	/**  The page's `<title>`. */
+	title: string,
+	/**  The final URL after redirects. */
+	url: string,
+};
+
+/**  A newer release (TS `Update`). */
+export type Update = {
+	/**  `major.minor.patch`. */
+	version: string,
+	/**  The release page to open. */
+	url: string,
+};
+
+/**  One file or folder inside the workspace, as the page sees it. */
+export type VaultEntry = {
+	/**  Path relative to the workspace root, `/`-separated. */
+	path: string,
+	/**  File or folder. */
+	kind: EntryKindPayload,
+	/**  Size in bytes (typed as a plain `number` for the page; files stay far below 2^53). */
+	size: number,
+	/**  Last modification time, ISO-8601 UTC. */
+	modifiedAt: string,
+};
+
+/**  The chosen workspace folder as the page sees it. */
+export type VaultRoot = {
+	/**  Absolute path of the workspace folder. */
+	path: string,
+	/**  Whether that folder is new or already ours. */
+	state: RootKind,
+};
+
+/**  The answer to a sync action, as the page sees it. */
+export type VaultSyncReply = VaultSyncReply_Serialize | VaultSyncReply_Deserialize;
+
+/**  The answer to a sync action, as the page sees it. */
+export type VaultSyncReply_Deserialize = {
+	/**  The remote URL as stored, if any. */
+	url?: string | null,
+	/**  Whether a token is stored. */
+	hasToken: boolean,
+	/**  The remote's status, for `status` and `connect`. */
+	status?: SyncStatus_Deserialize | null,
+	/**  The pull's outcome, for `pull`. */
+	pull?: SyncPull | null,
+	/**  The push's outcome, for `push`. */
+	push?: SyncPush | null,
+};
+
+/**  The answer to a sync action, as the page sees it. */
+export type VaultSyncReply_Serialize = {
+	/**  The remote URL as stored, if any. */
+	url: string | null,
+	/**  Whether a token is stored. */
+	hasToken: boolean,
+	/**  The remote's status, for `status` and `connect`. */
+	status?: SyncStatus_Serialize,
+	/**  The pull's outcome, for `pull`. */
+	pull?: SyncPull,
+	/**  The push's outcome, for `push`. */
+	push?: SyncPush,
+};
+
+/**  One commit as the page sees it (TS `WorkspaceCommit`). */
+export type WorkspaceCommit = {
+	/**  Full 40-hex object id. */
+	oid: string,
+	/**  Author time as ISO 8601 with offset. */
+	authoredAt: string,
+	/**  Author name. */
+	author: string,
+	/**  First line of the message. */
+	message: string,
+};
+
+/**  What came back (TS `{status, body, headers}`). */
+export type ZoteroLocalReply = {
+	/**  HTTP status, as sent. */
+	status: number,
+	/**  Body as UTF-8 text. */
+	body: string,
+	/**  The kept response headers, names in lower case. */
+	headers: { [key in string]: string },
 };
 
 /* Tauri Specta runtime */
