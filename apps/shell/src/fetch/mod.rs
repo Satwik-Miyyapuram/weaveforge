@@ -5,3 +5,5 @@
 pub mod page_title;
 
 pub mod url_shape;
+
+pub mod paste;
