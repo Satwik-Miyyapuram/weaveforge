@@ -7,7 +7,7 @@
  * workspace folder and the promise that says it has been restored — as
  * functions, because both are decided after this is created.
  */
-import { app } from "electron";
+import { app, dialog } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import { WORKSPACE_META_DIR } from "@weaveforge/core";
@@ -25,6 +25,7 @@ import { prepareDataDir } from "./local-db-prepare";
 import { acquireDbLock, DatabaseInUseError, releaseDbLock } from "./local-db-lock";
 import { applyDeferredMove, claimRelaunch, clearRelaunch, moveAside } from "./local-db-reset";
 import { clearRestoreLeftovers, restoreNewestGood } from "./local-db-restore";
+import { showMigratedNotice } from "./migrated-notice";
 
 export interface MainLocalDbDeps {
   ipc: IpcSurface;
@@ -54,6 +55,14 @@ export function registerMainLocalDb(deps: MainLocalDbDeps): {
    * load it.
    */
   const appDbDir = path.join(app.getPath("userData"), "local-db");
+  // The new app copied this data dir: say so, so changes made here are not silently stranded.
+  void app.whenReady().then(() =>
+    showMigratedNotice(
+      app.getPath("userData"),
+      (options) => dialog.showMessageBox(options),
+      () => app.hasSingleInstanceLock(),
+    ),
+  );
   /**
    * Where the database lives: the workspace folder when a move has landed,
    * otherwise the app's own directory.

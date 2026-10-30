@@ -128,7 +128,13 @@ impl LocalDb {
             Err(e) => return Ok((self.down(e.message.clone()), None)),
         };
         match sidecar.call("state", Value::Null).await {
-            Err(e @ SidecarError::Exited) => Ok((self.down(ShellError::from(e).message), None)),
+            Err(e @ SidecarError::Exited) => {
+                let failure = match sidecar.exit_reason().await {
+                    Some(reason) => format!("local database stopped: {reason}"),
+                    None => ShellError::from(e).message,
+                };
+                Ok((self.down(failure), None))
+            }
             Err(e) => Err(ShellError::from(e)),
             Ok(reply) => {
                 let restart = asks_restart(&reply).then_some(generation);

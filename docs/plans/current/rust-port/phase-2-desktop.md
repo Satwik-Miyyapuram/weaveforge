@@ -85,6 +85,85 @@ few tokens, so the cost is not worth it. The user will re-enter those secrets
 once, and the app says so. Web storage under the old `app://weaveforge` origin is not carried.
 2.5 lists what the UI keeps there and proves nothing in that list is lost data.
 
+### How 2.5 does it
+
+- The sidecar runs the copy (`apps/shell/sidecar/src/migrate.ts`) before it
+  opens the database, when the shell passes `--migrate-from <Electron dir>`.
+  The shell passes it only for the bundled sidecar (`electron_data_dir`), so a
+  dev run never touches the installed app's data. Electron's dir is Tauri's
+  `config_dir()/WeaveForge` on every OS.
+- Copied: `local-db`, `local-db-backups`, `preferences.json`, `models`,
+  `artifacts`, `weaveforge.log`, `overleaf-git`. Each item is copied into
+  `<new>/.migrating`, and only once every copy succeeded is each one renamed
+  into place. `<old>/migrated` is written before the first rename, so from then
+  on Electron warns. A rerun copies every item again: one already in `<new>`
+  (from a crashed run, or written by the new app first) is moved aside to
+  `<new>/.pre-migration/<time>/`, never deleted, because Electron may have
+  changed its copy since. Only the rename step (milliseconds) can leave items
+  for an aside; a quit during the copy only leaves `.migrating`, which the
+  next run clears. Nothing cleans `.pre-migration`: each crash inside the rename
+  step adds one more copy, and the user may delete the folder once the new app
+  shows their data. `--migrate-from` must not be or contain the new dir.
+- Locks: Electron's `local-db`, and the workspace database
+  (`<vault-root>/.weaveforge/db`) when Electron's preferences name a folder.
+  If either is held by a live process, the sidecar exits with code 3 and asks
+  the user to close the old app and restart; the shell puts that last stderr
+  line in `db_state().failure`, so the user sees it. The next start tries
+  again. A stale lock is taken over as Electron does. Both markers are written
+  while the locks are still held.
+- Gap: the lock only proves Electron has its database open. Electron takes it
+  in `LocalDbHost` open, after `ensureDatabaseLocation`, so an Electron whose
+  database is not open yet (or failed to open) is not detected, and a move it
+  runs then could race the copy. Accepted: both apps are rarely started
+  together. If it bites, add a liveness check on Electron's single-instance
+  lock.
+- Markers: `<old>/migrated` (`{to, at}`) for the Electron warning, then
+  `<new>/migrated-from-electron` (`{from, at, copied, secretsLeftBehind}`),
+  written last and atomically; while it exists the copy never runs again. A
+  failed copy stops the sidecar (exit 1) instead of opening an empty
+  database, which would hide the user's data on every later start.
+- Electron (`apps/desktop/src/migrated-notice.ts`) shows a warning dialog on
+  start when the marker is there.
+- Not copied: the workspace database. It stays in the folder; **2.7** must
+  pass the workspace root to the sidecar and open the database there as
+  Electron does (`databaseDirFor`, `relocateDatabaseOnce`, workspace backups
+  under `.weaveforge`). The home-config fallback for the folder
+  (`readHomeConfig`) is not read during the copy; 2.7 handles it with the rest.
+- **2.8** reads preferences only after the sidecar has started (the copy has
+  run), and uses `secretsLeftBehind` to tell the user which tokens to re-enter.
+- The copy is TypeScript in the sidecar; phase 3 ports it to Rust with the
+  rest of the sidecar.
+- A large copy delays the first reply on the first start. The 60 s call
+  timeout does not kill the sidecar: early calls fail as transient and are
+  retried. Real risks: quitting mid-copy kills the sidecar after the 15 s
+  grace, and the next start copies everything again (staging is cleared); the
+  copy doubles disk use for backups and models, and a full disk fails it
+  (exit 1) on every start until space is freed. No free-space check yet.
+- A sidecar that exited (exit 3 or 1) is not respawned until the app restarts;
+  a retry from the reset screen belongs to the respawn follow-up.
+
+### Web storage left behind (2.5 inventory)
+
+Every `localStorage`, `sessionStorage` and IndexedDB use in `apps/web/src` was
+classified. None holds data the user cannot get back:
+
+- About 45 preferences (theme, layout, explorer state, filters, reader and ink
+  tool settings, last project, recent searches). Defaults rebuild them.
+- About 10 caches (screen cache, search index, embeddings, PDF text and bytes,
+  reference lookups, startup snapshot, graph state also kept in the
+  database). Each is rebuilt from the database or the network; embeddings
+  cost a re-index.
+- 3 secrets, all session-scoped (the wrapped MCP session, the Overleaf
+  workshop session id; the BYOK key is never in web storage). The user signs
+  in again.
+- One caveat: paper HTML saved by "free copy" without a workspace folder lives
+  only in IndexedDB (`weaveforge-paper-html`). It can be fetched again from
+  its URL unless the page is gone. With a folder it is a file under
+  `papers/html/`, which stays.
+- `wf.tags.deferredReconcile` queues tag-link updates that failed offline;
+  losing it means the links catch up on the next save of that note
+  (`note-tags.ts`).
+
 ## Steps (one PR each, into `feat/rust-port`)
 
 1. **2.1** this doc.
