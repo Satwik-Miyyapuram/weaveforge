@@ -17,7 +17,7 @@ React UI does not change: it reaches the shell only through
 | `ipcMain.handle` per channel, guarded by `ipc-guard.ts` | one `#[tauri::command]` per channel, typed by tauri-specta |
 | `app://` handler: the `dist/web` bundle, the `/api/*` relays of `app-relays.ts` (pdf, html, s2, arxiv, blob, account, overleaf), `app://models` and `app://artifacts` | one custom scheme (`register_asynchronous_uri_scheme_protocol`) that serves all four; Tauri's built-in frontend and asset protocols cannot |
 | `api-cors.ts` rewrites `Origin` for api.weaveforge.org | see Risks § Origin and CORS |
-| `node:fs`, the `git` CLI, Electron `safeStorage` | `wf-store` (std fs, gix, `keyring`) |
+| `node:fs`, the `git` CLI, Electron `safeStorage` | `wf-store` (std fs, gix); secrets in the shell through `keyring-core` and one store crate per platform (`windows-native-keyring-store`, `apple-native-keyring-store`, `dbus-secret-service-keyring-store`), not the `keyring` crate, which is a CLI since v4 |
 | transformers.js in a worker for embeddings | `ort` in `wf-store` (native) |
 
 ## The contract stays one file
@@ -186,7 +186,7 @@ classified. None holds data the user cannot get back:
 6. **2.6** `wf-store::vault`: root confinement and file ops, tests ported first
    from `vault-folder.test.ts`.
 7. **2.7** vault commands, watch events, and the shim for them.
-8. **2.8** secrets (`keyring`) and preferences.
+8. **2.8** secrets (`keyring-core` and the platform stores) and preferences.
    - **2.8b** local API and MCP in the sidecar, with the MCP config rewrite.
      Moved here from 2.4: the API serves the vault (2.6/2.7), keeps its tokens
      in the secret store and its switch in preferences (2.8), and asks the
@@ -314,3 +314,9 @@ Brotli q9 per file is a proxy. The installer uses LZMA (NSIS/WiX).
   out of the root workspace (2.2).
 - **Memory while building.** This machine has about 4 GB free. Shell builds
   run with `-j 4`.
+- **Linux secrets.** The Secret Service store talks to the session bus in a
+  plain session, with no transport encryption. Electron's `safeStorage`
+  (libsecret) negotiated an encrypted session. Only processes of the same
+  user reach that bus, and they can already query Secret Service, so this is
+  accepted. Builds need `libdbus-1-dev`; the app links `libdbus-1.so.3`, which
+  2.13 declares in the `.deb` and leaves out of the AppImage.
