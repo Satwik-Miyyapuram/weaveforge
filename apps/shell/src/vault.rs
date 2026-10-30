@@ -4,6 +4,7 @@ use std::fmt::Display;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use wf_store::root::{RootState, verify_root, workspace_root_for};
@@ -98,6 +99,23 @@ pub struct VaultEntry {
     pub size: u64,
     /// Last modification time, ISO-8601 UTC.
     pub modified_at: String,
+}
+
+/// The session the commands share. Clones share one session.
+#[derive(Clone, Default)]
+pub struct VaultState(Arc<Mutex<VaultSession>>);
+
+impl VaultState {
+    /// A shared session with no folder chosen.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// The session, recovered if a holder panicked (its state is a path, never half-written).
+    pub fn lock(&self) -> MutexGuard<'_, VaultSession> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+    }
 }
 
 /// The chosen workspace folder, held by the shell; the page never names its own root.

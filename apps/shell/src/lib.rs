@@ -7,6 +7,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 pub mod app_log;
+pub mod cmd_tools;
+pub mod cmd_vault;
 pub mod commands;
 pub mod fetch;
 pub mod git;
@@ -21,6 +23,7 @@ pub mod tex;
 pub mod update_check;
 pub mod vault;
 pub mod vault_search;
+pub mod vault_sync;
 pub mod zotero_local;
 
 /// Where the static web export lives: `WF_WEB_DIST` (debug builds only), else `web/` beside the binary.

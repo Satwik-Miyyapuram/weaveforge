@@ -37,6 +37,12 @@ fn shell_error(message: impl Into<String>) -> ShellError {
     }
 }
 
+impl From<String> for ShellError {
+    fn from(message: String) -> Self {
+        Self { message }
+    }
+}
+
 impl From<SidecarError> for ShellError {
     fn from(error: SidecarError) -> Self {
         match error {
