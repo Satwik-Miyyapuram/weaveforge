@@ -5,3 +5,13 @@
 pub mod address;
 
 pub mod shared;
+
+pub mod arxiv;
+
+pub mod blob;
+
+pub mod html;
+
+pub mod pdf;
+
+pub mod semantic_scholar;

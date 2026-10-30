@@ -398,3 +398,55 @@ async fn client_does_not_follow_by_itself() {
     let resp = relay_client().unwrap().get(target).send().await.unwrap();
     assert_eq!(resp.status().as_u16(), 302);
 }
+
+#[path = "common/upstream.rs"]
+mod upstream;
+
+#[tokio::test(flavor = "multi_thread")]
+async fn read_capped_keeps_the_cap_while_reading() {
+    use weaveforge_shell::relay::shared::read_capped;
+    let server = upstream::serve(vec![
+        ("/ten", vec![upstream::response(200, &[], b"0123456789")]),
+        // No content-length: the cap must still hold.
+        (
+            "/raw",
+            vec![upstream::Reply::Raw(
+                b"HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n0123456789AB".to_vec(),
+            )],
+        ),
+        ("/empty", vec![upstream::response(200, &[], b"")]),
+    ])
+    .await;
+    let client = relay_client().unwrap();
+    let get = |p: &str| client.get(server.url(p)).send();
+    assert_eq!(
+        read_capped(get("/ten").await.unwrap(), 10).await.unwrap(),
+        Some(b"0123456789".to_vec())
+    );
+    assert_eq!(
+        read_capped(get("/ten").await.unwrap(), 9).await.unwrap(),
+        None
+    );
+    assert_eq!(
+        read_capped(get("/raw").await.unwrap(), 11).await.unwrap(),
+        None
+    );
+    assert_eq!(
+        read_capped(get("/raw").await.unwrap(), 12).await.unwrap(),
+        Some(b"0123456789AB".to_vec())
+    );
+    assert_eq!(
+        read_capped(get("/empty").await.unwrap(), 0).await.unwrap(),
+        Some(Vec::new())
+    );
+}
+
+#[test]
+fn refusal_becomes_a_json_answer() {
+    use weaveforge_shell::relay::shared::Answer;
+    let answer = Answer::from(refuse(413, "PDF too large"));
+    assert_eq!(answer.status, 413);
+    assert_eq!(answer.header("Content-Type"), Some("application/json"));
+    assert_eq!(answer.header("x-missing"), None);
+    assert_eq!(answer.body, br#"{"error":"PDF too large"}"#.to_vec());
+}

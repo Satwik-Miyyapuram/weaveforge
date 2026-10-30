@@ -173,3 +173,68 @@ fn check_final(
     let url = response.url().clone();
     Ok(Checked { response, url })
 }
+
+/// One request from the page, as a relay sees it.
+#[derive(Debug, Clone)]
+pub struct RelayRequest {
+    /// The method, as the page sent it.
+    pub method: String,
+    /// The full `app://` address, query included.
+    pub url: reqwest::Url,
+    /// The page's request headers.
+    pub headers: reqwest::header::HeaderMap,
+    /// The body; empty for GET.
+    pub body: Vec<u8>,
+}
+
+/// A relay's answer to the page.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Answer {
+    /// HTTP status.
+    pub status: u16,
+    /// Header names in lower case, in the order they were set.
+    pub headers: Vec<(String, String)>,
+    /// The body bytes.
+    pub body: Vec<u8>,
+}
+
+impl Answer {
+    /// The first value of header `name` (compared in lower case).
+    #[must_use]
+    pub fn header(&self, name: &str) -> Option<&str> {
+        let name = name.to_ascii_lowercase();
+        self.headers
+            .iter()
+            .find(|(n, _)| *n == name)
+            .map(|(_, v)| v.as_str())
+    }
+}
+
+impl From<Refusal> for Answer {
+    fn from(refusal: Refusal) -> Self {
+        Self {
+            status: refusal.status,
+            headers: vec![("content-type".to_string(), "application/json".to_string())],
+            body: refusal.body().into_bytes(),
+        }
+    }
+}
+
+/// The body, or `None` once it passes `max` bytes. The cap holds while reading:
+/// content-length can be absent or wrong. Past the cap the response is dropped,
+/// which closes the connection.
+/// # Errors
+/// When the body breaks off or times out.
+pub async fn read_capped(
+    mut response: reqwest::Response,
+    max: usize,
+) -> Result<Option<Vec<u8>>, reqwest::Error> {
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await? {
+        if bytes.len().saturating_add(chunk.len()) > max {
+            return Ok(None);
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    Ok(Some(bytes))
+}
