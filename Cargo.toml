@@ -61,7 +61,7 @@ debug-assertions = false
 overflow-checks = true
 
 # "s", not "z": on 232k chars of prose, indexTerms runs in 17 ms instead of
-# 24 ms for ~1.8 KB more gzip (P1.7c). The size stays under the plan §4.5 budget.
+# 24 ms for ~3.2 KB more gzip (P1.7c). The size stays under the plan §4.5 budget.
 # Used only by scripts/build-wasm.mjs; inherits release's overflow checks.
 [profile.wasm-release]
 inherits = "release"
