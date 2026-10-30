@@ -1,36 +1,19 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, missing_docs)]
 //! Tests for `range::pick` and `range::serve_file`.
 
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+mod common;
 
+use std::path::{Path, PathBuf};
+
+use common::{TempDir, put};
 use weaveforge_shell::protocol::Reply;
 use weaveforge_shell::range::{PART_BYTES_MAX, Pick, WHOLE_BYTES_MAX, pick, serve_file};
 
-static DIRS: AtomicU64 = AtomicU64::new(0);
-
-/// A fresh directory under the system temp dir, removed on drop.
-struct TempDir(PathBuf);
-
-impl TempDir {
-    fn new() -> Self {
-        let n = DIRS.fetch_add(1, Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!("wf-range-test-{}-{n}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        Self(dir)
-    }
-
-    fn file(&self, name: &str, bytes: &[u8]) -> PathBuf {
-        let path = self.0.join(name);
-        std::fs::write(&path, bytes).unwrap();
-        path
-    }
-}
-
-impl Drop for TempDir {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
+/// Writes `bytes` to `name` inside `dir` and returns its path.
+fn file(dir: &TempDir, name: &str, bytes: &[u8]) -> PathBuf {
+    let path = dir.path().join(name);
+    put(&path, bytes);
+    path
 }
 
 fn part(start_byte: u64, end_byte: u64) -> Pick {
@@ -169,7 +152,7 @@ fn one_byte_body() {
 fn serve_whole_without_header() {
     let dir = TempDir::new();
     let data: Vec<u8> = (0u8..100).collect();
-    let file = dir.file("a.pdf", &data);
+    let file = file(&dir, "a.pdf", &data);
     let reply = serve(&file, None);
     assert_eq!(reply.status, 200);
     assert_eq!(reply.body, data);
@@ -186,7 +169,7 @@ fn serve_whole_without_header() {
 fn serve_part() {
     let dir = TempDir::new();
     let data: Vec<u8> = (0u8..100).collect();
-    let file = dir.file("a.pdf", &data);
+    let file = file(&dir, "a.pdf", &data);
     let reply = serve(&file, Some("bytes=10-19"));
     assert_eq!(reply.status, 206);
     assert_eq!(reply.body, data[10..=19].to_vec());
@@ -204,7 +187,7 @@ fn serve_part() {
 fn serve_suffix_part() {
     let dir = TempDir::new();
     let data: Vec<u8> = (0u8..100).collect();
-    let file = dir.file("a.pdf", &data);
+    let file = file(&dir, "a.pdf", &data);
     let reply = serve(&file, Some("bytes=-5"));
     assert_eq!(reply.status, 206);
     assert_eq!(reply.body, data[95..=99].to_vec());
@@ -219,7 +202,7 @@ fn serve_suffix_part() {
 fn serve_unsatisfiable_is_416() {
     let dir = TempDir::new();
     let data: Vec<u8> = (0u8..100).collect();
-    let file = dir.file("a.pdf", &data);
+    let file = file(&dir, "a.pdf", &data);
     let reply = serve(&file, Some("bytes=100-"));
     assert_eq!(reply.status, 416);
     assert!(reply.body.is_empty());
@@ -236,7 +219,7 @@ fn serve_unsatisfiable_is_416() {
 fn serve_malformed_is_whole() {
     let dir = TempDir::new();
     let data: Vec<u8> = (0u8..100).collect();
-    let file = dir.file("a.pdf", &data);
+    let file = file(&dir, "a.pdf", &data);
     let reply = serve(&file, Some("bytes=9-0"));
     assert_eq!(reply.status, 200);
     assert_eq!(reply.body, data);
@@ -245,7 +228,7 @@ fn serve_malformed_is_whole() {
 #[test]
 fn serve_empty_file() {
     let dir = TempDir::new();
-    let file = dir.file("empty.pdf", b"");
+    let file = file(&dir, "empty.pdf", b"");
     let whole = serve(&file, None);
     assert_eq!(whole.status, 200);
     assert!(whole.body.is_empty());
@@ -265,7 +248,7 @@ fn serve_caps_part_at_part_bytes_max() {
     let dir = TempDir::new();
     let total = PART_BYTES_MAX + 10;
     let data: Vec<u8> = (0..total).map(|i| u8::try_from(i % 251).unwrap()).collect();
-    let file = dir.file("big.bin", &data);
+    let file = file(&dir, "big.bin", &data);
 
     let reply = serve(&file, Some("bytes=0-"));
     assert_eq!(reply.status, 206);
@@ -297,14 +280,14 @@ fn serve_caps_part_at_part_bytes_max() {
 #[test]
 fn serve_missing_file_is_not_found() {
     let dir = TempDir::new();
-    let err = serve_file(&dir.0.join("missing.pdf"), None, content_type()).unwrap_err();
+    let err = serve_file(&dir.path().join("missing.pdf"), None, content_type()).unwrap_err();
     assert_eq!(err.kind(), std::io::ErrorKind::NotFound);
 }
 
 #[test]
 fn whole_read_over_whole_bytes_max_is_file_too_large() {
     let dir = TempDir::new();
-    let path = dir.0.join("huge.bin");
+    let path = dir.path().join("huge.bin");
     std::fs::File::create(&path)
         .unwrap()
         .set_len(WHOLE_BYTES_MAX + 1)
@@ -318,7 +301,7 @@ fn whole_read_over_whole_bytes_max_is_file_too_large() {
 #[test]
 fn ranged_read_of_a_file_over_whole_bytes_max_still_works() {
     let dir = TempDir::new();
-    let path = dir.0.join("huge.bin");
+    let path = dir.path().join("huge.bin");
     std::fs::File::create(&path)
         .unwrap()
         .set_len(WHOLE_BYTES_MAX + 1)
@@ -339,7 +322,7 @@ fn ranged_read_of_a_file_over_whole_bytes_max_still_works() {
 #[test]
 fn whole_read_at_exactly_whole_bytes_max_is_200() {
     let dir = TempDir::new();
-    let path = dir.0.join("edge.bin");
+    let path = dir.path().join("edge.bin");
     std::fs::File::create(&path)
         .unwrap()
         .set_len(WHOLE_BYTES_MAX)
@@ -353,7 +336,7 @@ fn whole_read_at_exactly_whole_bytes_max_is_200() {
 fn caller_content_length_and_content_range_are_dropped() {
     let dir = TempDir::new();
     let data: Vec<u8> = (0u8..10).collect();
-    let file = dir.file("ten.bin", &data);
+    let file = file(&dir, "ten.bin", &data);
     let mut headers = content_type();
     headers.push(("content-length", "999".to_owned()));
     headers.push(("Content-Range", "bytes 0-0/1".to_owned()));

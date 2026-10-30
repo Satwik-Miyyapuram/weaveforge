@@ -8,8 +8,10 @@ use std::sync::Arc;
 
 pub mod commands;
 pub mod launch;
+pub mod prefs;
 pub mod protocol;
 pub mod range;
+pub mod secrets;
 pub mod sidecar;
 
 /// Where the static web export lives: `WF_WEB_DIST` (debug builds only), else `web/` beside the binary.
