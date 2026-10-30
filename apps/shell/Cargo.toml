@@ -29,6 +29,8 @@ serde = { version = "=1.0.229", features = ["derive"] }
 specta = { version = "=2.0.0-rc.26", features = ["derive", "serde_json"] }
 specta-typescript = { version = "=0.0.13", features = ["serde"] }
 tauri-specta = { version = "=2.0.0-rc.26", features = ["derive", "typescript"] }
+# Vault, root confinement and search logic shared with the web build (plan §4.1).
+wf-store = { path = "../../crates/wf-store" }
 
 [target.'cfg(windows)'.dependencies]
 # Same version process-wrap uses; only for the CREATE_NO_WINDOW flag type.
