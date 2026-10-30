@@ -8,20 +8,12 @@ use weaveforge_shell::commands::LocalDb;
 use weaveforge_shell::launch::{SidecarSource, sidecar_config};
 use weaveforge_shell::sidecar::Sidecar;
 
-/// Drops the `\\?\` verbatim prefix Windows adds, which node cannot resolve as a module path.
-fn without_verbatim_prefix(path: PathBuf) -> PathBuf {
-    match path.to_string_lossy().strip_prefix(r"\\?\") {
-        Some(plain) => PathBuf::from(plain),
-        None => path,
-    }
-}
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "needs npm ci and npm run build:core; run with --ignored"]
 async fn dev_sidecar_opens_the_database() {
-    let canonical =
+    // Canonical, so `\\?\`-prefixed on Windows like Tauri's resource dir: sidecar_config must drop it.
+    let repo =
         std::fs::canonicalize(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")).unwrap();
-    let repo = without_verbatim_prefix(canonical);
     let data = std::env::temp_dir()
         .join(format!("wf-launch-test-{}", std::process::id()))
         .join("local-db");

@@ -82,6 +82,7 @@ test("decodeWire leaves values that are not tags unchanged", () => {
   for (const value of [
     { $bytes: 1 },
     { $bigint: "1.5" },
+    { $bytes: "not base64!" },
     { $bytes: "AQI=", x: 1 },
     {},
     "s",

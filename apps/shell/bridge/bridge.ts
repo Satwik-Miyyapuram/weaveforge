@@ -59,8 +59,15 @@ export function decodeWire(value: unknown): unknown {
   if (keys.length === 1) {
     const [key] = keys;
     const text = value[key!];
-    // Same tag rule as the sidecar's decodeValue, so the two sides agree on what a tag is.
-    if (key === "$bytes" && typeof text === "string") return fromBase64(text);
+    // Same tag rule as the sidecar's decodeValue, plus: bad base64 (e.g. a jsonb value that only looks like a tag)
+    // is left as a plain object instead of failing the whole query.
+    if (key === "$bytes" && typeof text === "string") {
+      try {
+        return fromBase64(text);
+      } catch {
+        // not a tag
+      }
+    }
     if (key === "$bigint" && typeof text === "string" && /^-?\d+$/.test(text))
       return BigInt(text);
   }

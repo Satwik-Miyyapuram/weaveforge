@@ -45,11 +45,27 @@ pub fn sidecar_source(resources: PathBuf) -> SidecarSource {
     SidecarSource::Bundled { resources }
 }
 
+/// `path` without the Windows `\\?\` verbatim prefix, which node cannot load modules from.
+/// Tauri's `resource_dir` has it on Windows, because it canonicalizes the exe path.
+#[must_use]
+pub fn without_verbatim_prefix(path: &Path) -> PathBuf {
+    let Some(text) = path.to_str() else {
+        return path.to_path_buf();
+    };
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{rest}"));
+    }
+    text.strip_prefix(r"\\?\")
+        .map_or_else(|| path.to_path_buf(), PathBuf::from)
+}
+
 /// The sidecar command for `source`, opening the database in `data_dir`.
 #[must_use]
 pub fn sidecar_config(source: &SidecarSource, data_dir: &Path) -> SidecarConfig {
+    let data_dir = without_verbatim_prefix(data_dir);
     let (program, args, cwd): (PathBuf, Vec<OsString>, PathBuf) = match source {
         SidecarSource::Dev { repo } => {
+            let repo = without_verbatim_prefix(repo);
             let args: Vec<OsString> = vec![
                 "--import".into(),
                 "tsx".into(),
@@ -61,10 +77,10 @@ pub fn sidecar_config(source: &SidecarSource, data_dir: &Path) -> SidecarConfig 
                 "--migrations".into(),
                 repo.join("db/migrations-local").into_os_string(),
             ];
-            (PathBuf::from("node"), args, repo.clone())
+            (PathBuf::from("node"), args, repo)
         }
         SidecarSource::Bundled { resources } => {
-            let dir = resources.join("sidecar");
+            let dir = without_verbatim_prefix(resources).join("sidecar");
             let program = dir.join(format!("node{}", std::env::consts::EXE_SUFFIX));
             let args: Vec<OsString> = vec![
                 dir.join("main.mjs").into_os_string(),
@@ -173,5 +189,44 @@ mod tests {
                 resources: PathBuf::from("res"),
             }
         );
+    }
+
+    #[test]
+    fn verbatim_prefix_is_dropped() {
+        assert_eq!(
+            without_verbatim_prefix(Path::new(r"\\?\C:\app")),
+            PathBuf::from(r"C:\app")
+        );
+        assert_eq!(
+            without_verbatim_prefix(Path::new(r"\\?\UNC\srv\share\app")),
+            PathBuf::from(r"\\srv\share\app")
+        );
+        assert_eq!(
+            without_verbatim_prefix(Path::new("res")),
+            PathBuf::from("res")
+        );
+    }
+
+    #[test]
+    fn node_gets_no_verbatim_paths() {
+        let verbatim = |p: &std::ffi::OsStr| p.to_string_lossy().starts_with(r"\\?\");
+        let sources = [
+            SidecarSource::Dev {
+                repo: PathBuf::from(r"\\?\C:\repo"),
+            },
+            SidecarSource::Bundled {
+                resources: PathBuf::from(r"\\?\C:\app"),
+            },
+        ];
+        for source in &sources {
+            let config = sidecar_config(source, Path::new(r"\\?\C:\data"));
+            assert!(!verbatim(config.program.as_os_str()));
+            assert!(!config.cwd.iter().any(|c| verbatim(c.as_os_str())));
+            assert!(
+                !config.args.iter().any(|a| verbatim(a)),
+                "{:?}",
+                config.args
+            );
+        }
     }
 }
