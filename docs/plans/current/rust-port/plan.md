@@ -161,6 +161,62 @@ Source: [TIGER_STYLE.md](https://github.com/tigerbeetle/tigerbeetle/blob/main/do
   - Merge main **into** `feat/rust-port` about weekly (only in that direction), so the final merge stays small.
   - Normal fixes keep landing on main the whole time.
 
+### 4.7 Conventions (one notation everywhere)
+
+Every crate, test, doc and commit in the port follows these. A spec that needs something not listed here adds it to this table first, in the same PR, so the next spec reuses it. Where a name is ported from TypeScript, the ported name wins over the general rule, so a grep finds both.
+
+**Rust code**
+
+| What | Rule | Example |
+|---|---|---|
+| Modules | one area per file, singular snake_case | `wf_store::vault`, `apps/shell/src/sidecar.rs` |
+| Error types | one enum per module area, named `<Area>Error`, derived with `thiserror` (a workspace dep at the root; `apps/shell` adds it as an orchestrator edit in the first lane that needs it); variants say what failed, no `Error` suffix | `VaultError::Escape`, `RootError::NotAFolder` |
+| Error texts a person sees | copied word for word from the TypeScript they replace, pinned by a `*_texts_match_*` test | `"That is not a folder."` |
+| Errors at the IPC edge | every command returns `Result<_, ShellError>`; module errors convert with `From` | `impl From<VaultError> for ShellError` |
+| Constants | SCREAMING_SNAKE, unit last, then `_MAX`/`_MIN` | `READ_BYTES_MAX`, `WATCH_DEBOUNCE_MS` |
+| Units | inside a crate, the §4.2 newtypes (`ByteLen(u64)`, `DurationMs(u64)`, defined once in `wf_core::units`, which the orchestrator adds in the prep PR before 2.7), `Duration` and `SystemTime`; bare `u64` with the unit last in the name only at the IPC edge | `size: ByteLen` inside, `size_bytes: u64` over IPC |
+| Paths | inside: `PathBuf`; across IPC: `/`-separated workspace-relative `String`, checked once by `wf_core::workspace::safe_workspace_path` | `"notes/a.md"` |
+| IPC shapes | match the Electron channel being replaced (field names, units, null vs missing), stated in the command's doc comment | `DbState` |
+| Commands | `#[tauri::command]` named `<area>_<verb>`; TS gets camelCase from tauri-specta | `vault_read` → `vaultRead` |
+| Events | `<area>:<event>`, payload a `specta::Type` struct | `vault:changed` |
+| Docs | `//!` on every module, `///` on every pub item; first line one sentence ending in a period; comments say why | |
+| Limits | every loop, queue, buffer and retry has a named constant (§4.3) | |
+
+**Tests**
+
+| What | Rule |
+|---|---|
+| Names | snake_case sentences of the behaviour, no `test_` prefix: `a_file_is_not_a_folder` |
+| Place | unit tests in a `#[cfg(test)] mod tests` at the end of the file; tests of the public API in `tests/<area>.rs` |
+| Shared helpers | one copy per crate in `tests/common/mod.rs` (temp dirs, fixtures); never copied into a second file |
+| Temp folders | the crate's `TempDir` helper (unique name, removed on drop); never a fixed path |
+| Platform skips | skip with a printed reason (`eprintln!`), never a silent pass |
+| Ported tests | keep the TS test's name as a comment above the Rust test |
+
+**Docs**
+
+- Plain English, short sentences, as in the existing phase docs.
+- Steps are written `2.6`, sections `§5.1`, files in backticks and repo-relative.
+- Numbers use a thousands comma (`1,039`), a space before units (`510 MB`, `8 MB`), an en dash for ranges (`3–4 weeks`).
+- Each phase doc has: Scope, Steps, Lanes, Done when, Risks.
+
+**Git**
+
+| What | Rule | Example |
+|---|---|---|
+| Branch | `rust/p<phase>-<step>-<slug>` | `rust/p2-6-vault` |
+| Worktree | scratchpad `wt-p<phase><step>` | `wt-p26` |
+| Commit and PR title | conventional commit, step last | `feat(store): vault root confinement and file ops (P2.6)` |
+| Scopes | `core`, `store`, `wasm`, `bindings`, `shell`, `sidecar`, `bridge`, `rust-port` (docs) | |
+
+**Known drift.** Names written before this section stay until their file is next touched; then the touching step fixes them. Listed so nobody copies them:
+- `SidecarError` in `apps/shell/src/sidecar.rs` writes `Display` by hand.
+- Constants with `MAX_` first: `MAX_IN_FLIGHT`, `MAX_REPLY_BYTES` (`apps/shell/src/launch.rs`), `SIDECAR_MAX_LINE`, `MAX_REASON_CHARS` (`apps/shell/src/sidecar.rs`), `MAX_INDEX_TEXT_UTF16`, `MAX_FUSION_IDS` (`crates/wf-wasm/src/lib.rs`). `MAX_MODIFIED_DAYS` in wf-core keeps its ported name.
+- Shell tests use fixed pid-based temp paths instead of a `TempDir` helper (`apps/shell/src/protocol.rs`, `apps/shell/tests/commands.rs`, `apps/shell/tests/launch.rs`).
+- `wf_store::vault::Entry::size` is a bare `u64`; 2.7 moves it to `ByteLen` when it maps `Entry` to IPC.
+- `UnsafePath` in `crates/wf-core/src/workspace.rs` is a struct with a hand-written `Display`, not a `thiserror` `<Area>Error` enum.
+- Commit titles before §4.7: "Rust port 2.5: …" (#567), "… (2.4f)" (#566), "(2.4c)" and "(2.4d)" without `P`.
+
 ## 5. Agent workflow (Haiku builders, Opus reviewer, orchestrator)
 
 | Role | Model | Does | Never does |
@@ -177,7 +233,44 @@ Source: [TIGER_STYLE.md](https://github.com/tigerbeetle/tigerbeetle/blob/main/do
 5. The orchestrator fixes findings, or sends them back to the builder with an exact spec.
 6. The orchestrator commits with DCO sign-off, pushes, and opens the PR against `feat/rust-port`. When CI is green and the reviewer has no open findings, the orchestrator squash-merges it into `feat/rust-port`. Never into main.
 
-**Parallelism:** at most 3 builders at once, each on separate files in its own worktree. The orchestrator does all merging.
+**Parallelism:** at most 3 builders at once, each on separate files in its own worktree. The orchestrator does all merging. The rules are in §5.1.
+
+### 5.1 Parallel lanes without conflicts
+
+A **lane** is one step (one PR) in flight: its own branch off the tip of `feat/rust-port`, its own worktree, and at most one builder working in it at a time. At most 3 lanes run at once.
+
+**Picking lanes.** Two steps run together only when neither needs the other's code. Each phase doc lists its steps in a Lanes table; a step starts when every step it needs is merged. A step that calls an API not merged yet waits; it is never built against a stub of another lane.
+
+**File ownership.** Every spec lists the files its builder may create or edit. A file belongs to at most one active lane. Before starting a builder, the orchestrator compares the spec's list with the other active lanes' lists and with their `git diff --name-only origin/feat/rust-port...HEAD`. Any overlap means the step waits. Each step puts its code in files of its own (§4.7: one area per file), and no step grows a file that another lane owns.
+
+**Shared files: builders never edit them.** The orchestrator makes these edits in the lane's branch, by hand, limited to the lines that step adds:
+
+| File | Shared because | How a lane changes it |
+|---|---|---|
+| root `Cargo.toml`, `apps/shell/Cargo.toml` | every member and dependency | orchestrator adds the line before the builder starts |
+| `Cargo.lock`, `apps/shell/Cargo.lock` | generated | never hand-merged: take `feat/rust-port`'s copy, re-resolve with `cargo metadata`, rerun the gates; if a lane's new dependency moved, pin it back with `cargo update -p <crate> --precise <tested version>` |
+| `crates/*/src/lib.rs`, `apps/shell/src/lib.rs` | module list, plugin setup | orchestrator adds the `pub mod` or `.plugin(...)` line |
+| `apps/shell/sidecar/src/main.ts` | the sidecar's request dispatch | orchestrator wires a lane's `api*.ts` handler in |
+| `crates/*/Cargo.toml`, `apps/shell/Cargo.toml` members | dependencies of a crate several lanes build in | orchestrator adds the line before the builder starts |
+| `crates/*/tests/common/mod.rs`, `apps/shell/tests/common/mod.rs` | the crate's one copy of test helpers (§4.7) | orchestrator adds a helper; builders only call them |
+| `apps/shell/src/commands.rs` `specta_builder()` | the one list of commands | orchestrator adds the step's names to `collect_commands!` |
+| `apps/shell/bridge/bindings.ts` | generated from that list | never hand-merged: regenerate with `WF_UPDATE_BINDINGS=1 cargo test --test commands` |
+| `apps/shell/src/protocol.rs` | the custom scheme's routing | relays live in their own modules; orchestrator adds the routing lines |
+| `apps/shell/tauri.conf.json`, capabilities | one config | orchestrator edits |
+| `deny.toml`, `apps/shell/deny.toml` | one policy | orchestrator edits, a reason per skip |
+| `handoff.md` § Progress, phase docs, plan §4.7 | one log, one notation | orchestrator edits (see Progress) |
+
+A new third-party crate goes in only after `cargo deny` passes (`multiple-versions = "deny"`). When more than one lane of a wave adds crates, the orchestrator adds all of them in one prep PR into `feat/rust-port` before the wave starts (one `cargo deny` run over the combined graph); lanes never add crates themselves.
+
+**Merging.** PRs merge into `feat/rust-port` one at a time, in the order they go green. After each merge, every other open lane merges `origin/feat/rust-port` into its branch (a merge, not a rebase, so no force push). The orchestrator resolves only the shared files above, regenerates lockfiles and bindings, and reruns the gates before that lane's PR may merge.
+
+**Progress.** Each PR adds its own `handoff.md` § Progress entry in its own branch, once its PR number is known and its counts are verified. Entries added in parallel conflict only as adjacent lines; keep both, in merge order.
+
+**Machine load.** Each lane builds in its own `target/`. With 3 lanes running, builders run cargo with `CARGO_BUILD_JOBS=2`. If memory runs short, drop to 2 lanes; never stop another lane's build.
+
+**Review.** The one reviewer gets each lane's diff when that lane is ready. Diffs queue; they are never batched across lanes.
+
+**Live state.** The orchestrator keeps the table of active lanes (step, branch, worktree, owned files) in its scratchpad. A new session rebuilds it from `git worktree list` and `gh pr list --base feat/rust-port`.
 
 **The persistent reviewer:**
 - Spawned **once** per session, at the start, with `Agent` (`subagent_type: general-purpose`, `model: opus`, name `rust-reviewer`). Its first prompt: read this plan (§4 rules, the current phase), then wait for diffs. It edits nothing. At each new phase, send it the phase number so it rereads that phase.
