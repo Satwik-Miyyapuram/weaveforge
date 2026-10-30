@@ -24,6 +24,9 @@ use tokio::sync::{mpsc, oneshot};
 /// A UTF-8 byte cap at or under it is always under it in UTF-16 units too.
 pub const SIDECAR_MAX_LINE: usize = 32 * 1024 * 1024;
 
+/// How long an internal kill waits to reap the child.
+const REAP_TIMEOUT: Duration = Duration::from_secs(5);
+
 /// How to start the sidecar and how far to trust it.
 #[derive(Debug, Clone)]
 pub struct SidecarConfig {
@@ -183,10 +186,13 @@ fn fail_all(shared: &Shared) {
     }
 }
 
-/// Kills the child if it is still held. Does nothing when `shutdown` already took it.
+/// Kills the child if it is still held, and reaps it so no zombie is left. Does nothing when `shutdown`
+/// already took it. The child stays in place: `wait` caches the exit status, so a later `shutdown` still sees it.
 async fn kill(shared: &Shared) {
     if let Some(child) = shared.child.lock().await.as_mut() {
         let _ = child.start_kill();
+        // Bounded: a kill that does not land must not hold the lock forever.
+        let _ = tokio::time::timeout(REAP_TIMEOUT, child.wait()).await;
     }
 }
 
