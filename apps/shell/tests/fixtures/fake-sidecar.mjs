@@ -24,6 +24,9 @@ if (noRead) {
       case "echo":
         reply({ id, ok: true, value: params });
         break;
+      case "cwd":
+        reply({ id, ok: true, value: process.cwd() });
+        break;
       case "slow":
         setTimeout(() => reply({ id, ok: true, value: params }), params.ms);
         break;

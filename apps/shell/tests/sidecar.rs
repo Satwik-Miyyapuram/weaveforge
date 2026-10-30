@@ -22,6 +22,7 @@ fn config(extra: &[&str]) -> SidecarConfig {
     SidecarConfig {
         program: PathBuf::from("node"),
         args,
+        cwd: None,
         call_timeout: Duration::from_secs(5),
         max_in_flight: 8,
         max_request_bytes: 4096,
@@ -107,6 +108,21 @@ async fn echo_round_trip() {
     let value = s.call("echo", params.clone()).await;
     assert_eq!(value, Ok(params));
     assert_eq!(s.in_flight(), 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn runs_in_the_given_cwd() {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    let mut cfg = config(&[]);
+    cfg.cwd = Some(dir.clone());
+    let sidecar = Sidecar::spawn(cfg).unwrap();
+    let reply = sidecar.call("cwd", Value::Null).await.unwrap();
+    let got = PathBuf::from(reply.as_str().unwrap());
+    assert_eq!(
+        std::fs::canonicalize(got).unwrap(),
+        std::fs::canonicalize(dir).unwrap()
+    );
+    assert!(sidecar.shutdown(Duration::from_secs(5)).await);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
