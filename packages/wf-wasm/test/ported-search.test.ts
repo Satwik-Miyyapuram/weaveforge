@@ -85,6 +85,9 @@ test("diacritics fold so cafe matches café", () => {
 // The TS test called foldDiacritics directly; harakat folding itself is pinned
 // by wf-core tests/search_text.rs. Through the pipeline the tokenizer splits on
 // the marks first (they are not letters), in the old TS as in Rust.
+// Known defect kept for parity, not the target: vowelled Arabic words cannot be
+// searched as words and foldArabicDiacritics does nothing here. Fix after the
+// port (handoff.md § After the port), then expect ["محمد"].
 test("arabic harakat split the word before folding, with or without the option", () => {
   const withMarks = "مُحَمَّد";
   for (const foldArabicDiacritics of [false, true]) {

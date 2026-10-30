@@ -64,6 +64,8 @@ Do not stop for anything else. Ask only for:
 
 Shortcuts 1–5 and the kensaku UI parts: §10 of the plan. Not before the port is on main.
 
+Search follow-up (found in P1.8b): the tokenizer splits vowelled Arabic at its harakat (`مُحَمَّد` → `م`, `ح`, `د`), so such words cannot be found as words and `foldArabicDiacritics` does nothing. Inherited from the TS and kept for parity. Fix: treat combining marks as word-internal before splitting, then fold; update the pinned test in `packages/wf-wasm/test/ported-search.test.ts`.
+
 ## Progress
 
 Update after every merged PR. A phase is done only when its **done when** is met, with the numbers.
