@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 pub mod search;
+pub mod units;
 pub mod workspace;
 
 /// Version of this core build, taken from Cargo at compile time.
@@ -11,7 +12,8 @@ pub const fn version() -> &'static str {
 }
 
 /// Facts about this core build that every shell can show.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct CoreInfo {
     /// Semver version of the core crate.

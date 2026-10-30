@@ -34,6 +34,8 @@ thiserror = "=2.0.21"
 # Secrets (step 2.8): keyring-core picks no store itself; the shell sets the
 # platform's native store at start, and tests use its mock store.
 keyring-core = "=1.0.1"
+# Vault, root confinement and search logic shared with the web build (plan §4.1).
+wf-store = { path = "../../crates/wf-store" }
 
 [target.'cfg(windows)'.dependencies]
 # Same version process-wrap uses; only for the CREATE_NO_WINDOW flag type.
