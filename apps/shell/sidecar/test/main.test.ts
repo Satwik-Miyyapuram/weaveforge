@@ -43,6 +43,20 @@ test("parseArgs names an unknown argument", () => {
   );
 });
 
+test("parseArgs reads an optional --migrate-from", () => {
+  const parsed = parseArgs(["--data-dir", "d", "--migrations", "m", "--backups", "b", "--migrate-from", "o"]);
+  assert.deepEqual(parsed, {
+    dataDir: path.resolve("d"),
+    migrations: [path.resolve("m")],
+    backupsDir: path.resolve("b"),
+    migrateFrom: path.resolve("o"),
+  });
+});
+
+test("parseArgs names a trailing --migrate-from with no value", () => {
+  assert.equal(parseArgs(["--data-dir", "d", "--migrations", "m", "--backups", "b", "--migrate-from"]), "--migrate-from needs a value");
+});
+
 test("query passes [] as params when none are given", async () => {
   const handlers = sidecarHandlers({
     host: {
@@ -164,7 +178,7 @@ test("sidecar exposes exactly query, reset, state and stats", () => {
 });
 
 /** Spawn the sidecar on `dataDir` and return it with a reader over its stdout lines. */
-function spawnSidecar(dataDir: string, backupsDir: string) {
+function spawnSidecar(dataDir: string, backupsDir: string, extraArgs: string[] = []) {
   const child = spawn(
     process.execPath,
     [
@@ -173,6 +187,7 @@ function spawnSidecar(dataDir: string, backupsDir: string) {
       "--migrations", migrations[0]!,
       "--migrations", migrations[1]!,
       "--backups", backupsDir,
+      ...extraArgs,
     ],
     { cwd: repoRoot, stdio: ["pipe", "pipe", "pipe"] },
   );
@@ -257,6 +272,29 @@ test("sidecar exits 3 when the database lock is held by a live process", { timeo
     assert.notEqual(stderr(), "");
   } finally {
     if (child.exitCode === null && child.signalCode === null) child.kill();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("sidecar exits 3 when the old app's database is held by a live process", { timeout: 180_000 }, async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "wf-sidecar-"));
+  const oldDir = path.join(tmp, "old");
+  fs.mkdirSync(path.join(oldDir, "local-db", "PG_VERSION"), { recursive: true });
+  fs.writeFileSync(path.join(oldDir, "preferences.json"), '{"theme":"dark"}');
+  const holder = spawn(process.execPath, ["-e", "setTimeout(()=>{},30000)"], { stdio: "ignore" });
+  fs.writeFileSync(
+    path.join(oldDir, "local-db.lock"),
+    JSON.stringify({ pid: holder.pid, app: "WeaveForge", at: new Date().toISOString() }),
+  );
+  const { child, exited, stderr } = spawnSidecar(path.join(tmp, "new", "local-db"), path.join(tmp, "backups"), ["--migrate-from", oldDir]);
+  try {
+    const code = await exited;
+    assert.equal(code, 3, stderr());
+    assert.ok(stderr().includes("old WeaveForge app is running"), stderr());
+    assert.equal(fs.existsSync(path.join(tmp, "new", "migrated-from-electron")), false);
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) child.kill();
+    holder.kill();
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
