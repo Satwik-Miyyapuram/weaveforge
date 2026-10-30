@@ -155,10 +155,6 @@ fn page_refusal(response: &reqwest::Response, max: usize) -> Option<Refusal> {
             &format!("Upstream returned {}", status.as_u16()),
         ));
     }
-    // fetch gives a 204/205 a null body, and the TS refuses it.
-    if status.as_u16() == 204 || status.as_u16() == 205 {
-        return Some(refuse(502, "Upstream sent no body"));
-    }
     let content_type = header_latin1(response.headers(), CONTENT_TYPE);
     if !is_html_content_type(content_type.as_deref()) {
         return Some(refuse(415, "Upstream did not return a web page"));
@@ -171,6 +167,10 @@ fn page_refusal(response: &reqwest::Response, max: usize) -> Option<Refusal> {
         .unwrap_or(0);
     if declared > u64::try_from(max).unwrap_or(u64::MAX) {
         return Some(refuse(413, "Page too large"));
+    }
+    // fetch gives a 204/205 a null body; the TS refuses it after the type and size checks.
+    if status.as_u16() == 204 || status.as_u16() == 205 {
+        return Some(refuse(502, "Upstream sent no body"));
     }
     None
 }

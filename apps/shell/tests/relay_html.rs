@@ -290,6 +290,18 @@ async fn no_content_is_502() {
         assert_eq!(answer.status, 502, "{status}");
         assert_eq!(body_text(&answer), r#"{"error":"Upstream sent no body"}"#);
     }
+    // The TS checks the type before the body, so a 204 that is not a page is 415.
+    let up = serve(vec![(
+        "/empty",
+        vec![response(204, &[("Content-Type", "text/plain")], b"")],
+    )])
+    .await;
+    let answer = relay(&up.url("/empty"), 1024, FIVE).await;
+    assert_eq!(answer.status, 415);
+    assert_eq!(
+        body_text(&answer),
+        r#"{"error":"Upstream did not return a web page"}"#
+    );
 }
 
 /// fetch reads header bytes as latin1, so a non-ASCII parameter does not hide the type.
