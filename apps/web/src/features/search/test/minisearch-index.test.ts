@@ -1,8 +1,15 @@
 import { emptyWorkspaceSnapshot as snapshot } from "@weaveforge/core/testing";
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { before } from "node:test";
 import { searchRevision, toPdfSearchDocs, toSearchDocs, type SearchDoc } from "@weaveforge/core";
-import { SEARCH_SCHEMA_VERSION, buildSearchIndex, miniSearchIndexFactory } from "../infrastructure/minisearch-index";
+import { SEARCH_SCHEMA_VERSION, buildSearchIndex, createMiniSearchIndexFactory } from "../infrastructure/minisearch-index";
+import type { RustCore } from "@/lib/rust-core";
+import { loadTestCore } from "@/lib/test/load-test-core";
+
+let core: RustCore;
+before(async () => {
+  core = await loadTestCore();
+});
 
 const note = (id: string, title: string, body = "") =>
   ({
@@ -41,7 +48,7 @@ function corpus(): SearchDoc[] {
 }
 
 function index(docs = corpus()) {
-  return buildSearchIndex(docs, searchRevision(docs));
+  return buildSearchIndex(core, docs, searchRevision(docs));
 }
 
 test("finds a note by a word in its body — impossible with title substring matching", () => {
@@ -110,9 +117,9 @@ test("hits carry the route so results are navigable", () => {
 test("serialize/load round-trips and keeps returning the same top hit", () => {
   const docs = corpus();
   const revision = searchRevision(docs);
-  const original = buildSearchIndex(docs, revision);
+  const original = buildSearchIndex(core, docs, revision);
 
-  const restored = miniSearchIndexFactory.load(original.serialize(), revision);
+  const restored = createMiniSearchIndexFactory(core).load(original.serialize(), revision);
 
   assert.ok(restored, "a matching revision should rehydrate");
   assert.equal(restored!.search("message passing")[0]!.entityId, "n2");
@@ -120,24 +127,24 @@ test("serialize/load round-trips and keeps returning the same top hit", () => {
 
 test("a stale revision is rejected so deleted documents cannot be served", () => {
   const docs = corpus();
-  const serialized = buildSearchIndex(docs, searchRevision(docs)).serialize();
+  const serialized = buildSearchIndex(core, docs, searchRevision(docs)).serialize();
 
   const shorter = docs.slice(0, 2);
-  assert.equal(miniSearchIndexFactory.load(serialized, searchRevision(shorter)), null);
+  assert.equal(createMiniSearchIndexFactory(core).load(serialized, searchRevision(shorter)), null);
 });
 
 test("a payload from another schema version is rejected", () => {
   const docs = corpus();
   const revision = searchRevision(docs);
-  const payload = JSON.parse(buildSearchIndex(docs, revision).serialize());
+  const payload = JSON.parse(buildSearchIndex(core, docs, revision).serialize());
   payload.schemaVersion = SEARCH_SCHEMA_VERSION + 1;
 
-  assert.equal(miniSearchIndexFactory.load(JSON.stringify(payload), revision), null);
+  assert.equal(createMiniSearchIndexFactory(core).load(JSON.stringify(payload), revision), null);
 });
 
 test("malformed cached JSON rebuilds instead of throwing", () => {
-  assert.equal(miniSearchIndexFactory.load("{not json", "1:x"), null);
-  assert.equal(miniSearchIndexFactory.load("{}", "1:x"), null);
+  assert.equal(createMiniSearchIndexFactory(core).load("{not json", "1:x"), null);
+  assert.equal(createMiniSearchIndexFactory(core).load("{}", "1:x"), null);
 });
 
 test("incremental add and remove update results", () => {
@@ -179,7 +186,7 @@ test("a well-linked document outranks an unlinked one on an equal match", () => 
   );
   const docs = base.map((doc) => (doc.entityId === "b" ? { ...doc, degree: 12 } : doc));
 
-  const hits = buildSearchIndex(docs, searchRevision(docs)).search("baseline");
+  const hits = buildSearchIndex(core, docs, searchRevision(docs)).search("baseline");
 
   assert.equal(hits[0]!.entityId, "b", "link degree should break an otherwise equal tie");
 });
@@ -230,21 +237,21 @@ test("a quoted phrase requires adjacency, not just both words", () => {
 
 test("diacritics fold, so an unaccented query finds accented text", () => {
   const docs = toSearchDocs(snapshot({ vaultPages: [note("d1", "Café notes", "Réunion at the café.")] }));
-  const hits = buildSearchIndex(docs, searchRevision(docs)).search("cafe");
+  const hits = buildSearchIndex(core, docs, searchRevision(docs)).search("cafe");
 
   assert.equal(hits[0]!.entityId, "d1");
 });
 
 test("CJK queries match without whitespace segmentation", () => {
   const docs = toSearchDocs(snapshot({ vaultPages: [note("c1", "变分自编码器", "变分自编码器的实现")] }));
-  const hits = buildSearchIndex(docs, searchRevision(docs)).search("编码");
+  const hits = buildSearchIndex(core, docs, searchRevision(docs)).search("编码");
 
   assert.equal(hits[0]!.entityId, "c1");
 });
 
 test("camelCase text is findable by its parts", () => {
   const docs = toSearchDocs(snapshot({ vaultPages: [note("k1", "Code", "call parseHTTPResponse here")] }));
-  const hits = buildSearchIndex(docs, searchRevision(docs)).search("response");
+  const hits = buildSearchIndex(core, docs, searchRevision(docs)).search("response");
 
   assert.equal(hits[0]!.entityId, "k1");
 });
@@ -273,10 +280,10 @@ test("field weights are user-tunable and change the ranking", () => {
   );
   const revision = searchRevision(docs);
 
-  const byDefault = buildSearchIndex(docs, revision).search("latent");
+  const byDefault = buildSearchIndex(core, docs, revision).search("latent");
   assert.equal(byDefault[0]!.entityId, "t1", "title normally wins");
 
-  const bodyHeavy = buildSearchIndex(docs, revision, {
+  const bodyHeavy = buildSearchIndex(core, docs, revision, {
     weights: { title: 1, body: 20 },
   }).search("latent");
   assert.equal(bodyHeavy[0]!.entityId, "t2", "raising the body weight should flip it");
@@ -296,7 +303,7 @@ test("a downranked kind sinks but is not removed", () => {
   );
   const revision = searchRevision(docs);
 
-  const sunk = buildSearchIndex(docs, revision, { downrankedKinds: ["note"] }).search("baseline");
+  const sunk = buildSearchIndex(core, docs, revision, { downrankedKinds: ["note"] }).search("baseline");
 
   assert.ok(sunk.some((hit) => hit.kind === "note"), "downranking must not exclude");
   assert.equal(sunk[0]!.kind, "paper", "the downranked kind should sort below");
@@ -330,7 +337,7 @@ function pdfDocs() {
 
 test("PDF page text is searchable and reports the page", () => {
   const docs = [...corpus(), ...pdfDocs()];
-  const hits = buildSearchIndex(docs, searchRevision(docs)).search("dot product");
+  const hits = buildSearchIndex(core, docs, searchRevision(docs)).search("dot product");
 
   assert.equal(hits[0]!.kind, "pdf");
   assert.equal(hits[0]!.page, 11);
@@ -339,7 +346,7 @@ test("PDF page text is searchable and reports the page", () => {
 
 test("PDF hits can be filtered out like any other kind", () => {
   const docs = [...corpus(), ...pdfDocs()];
-  const index = buildSearchIndex(docs, searchRevision(docs));
+  const index = buildSearchIndex(core, docs, searchRevision(docs));
 
   assert.ok(index.search("kind:pdf").every((hit) => hit.kind === "pdf"));
   assert.ok(index.search("recurrence", { kinds: ["paper"] }).every((hit) => hit.kind !== "pdf"));
@@ -348,8 +355,8 @@ test("PDF hits can be filtered out like any other kind", () => {
 test("a PDF page survives the cache round-trip with its page number", () => {
   const docs = [...corpus(), ...pdfDocs()];
   const revision = searchRevision(docs);
-  const restored = miniSearchIndexFactory.load(
-    buildSearchIndex(docs, revision).serialize(),
+  const restored = createMiniSearchIndexFactory(core).load(
+    buildSearchIndex(core, docs, revision).serialize(),
     revision,
   );
 
@@ -361,22 +368,46 @@ test("a filter-only query returns the best match even past the first limit*4 doc
   const docs = toSearchDocs(snapshot({ vaultPages: notes }));
   const last = docs.find((d) => d.entityId === "m19")!;
   (last as { degree?: number }).degree = 50;
-  const hits = buildSearchIndex(docs, "r").search("kind:note", { limit: 1 });
+  const hits = buildSearchIndex(core, docs, "r").search("kind:note", { limit: 1 });
   assert.equal(hits.length, 1);
   assert.equal(hits[0]!.id, last.id);
 });
 
 test("the snapshot round trip keeps every stored field in the same shape (27-16)", () => {
   const docs = corpus().map((d) => ({ ...d, degree: 3, path: "a/b", tags: ["x"], page: 2 }));
-  const first = buildSearchIndex(docs, "rev");
+  const first = buildSearchIndex(core, docs, "rev");
   const payload = JSON.parse(first.serialize()) as { docs: Record<string, Record<string, unknown>> };
   const doc = docs[0]!;
   assert.deepEqual(Object.keys(payload.docs[doc.id]!), [
     "kind", "entityId", "title", "href", "updatedAt", "degree", "path", "tags", "body", "page",
   ]);
   assert.equal(payload.docs[doc.id]!.body, doc.body);
-  const loaded = miniSearchIndexFactory.load(first.serialize(), "rev")!;
+  const loaded = createMiniSearchIndexFactory(core).load(first.serialize(), "rev")!;
   // MiniSearch reorders its term table on load, so compare the stored docs only.
   assert.deepEqual(JSON.parse(loaded.serialize()).docs, payload.docs);
   assert.deepEqual(loaded.hitById(doc.id), first.hitById(doc.id));
+});
+
+test("modified:Nd keeps only documents updated within N days", () => {
+  const docs = toSearchDocs(
+    snapshot({ vaultPages: [note("fresh", "Fresh", "zebra"), note("stale", "Stale", "zebra")] }),
+  ).map((doc) =>
+    doc.entityId === "fresh"
+      ? { ...doc, updatedAt: new Date(Date.now() - 2 * 86_400_000).toISOString() }
+      : { ...doc, updatedAt: "2020-01-01T00:00:00.000Z" },
+  );
+  const index = buildSearchIndex(core, docs, searchRevision(docs));
+
+  assert.deepEqual(index.search("zebra modified:7d").map((hit) => hit.entityId), ["fresh"]);
+  assert.deepEqual(index.search("modified:7d").map((hit) => hit.entityId), ["fresh"]);
+});
+
+test("a schema-3 cache is rebuilt", () => {
+  const docs = corpus();
+  const revision = searchRevision(docs);
+  const payload = JSON.parse(buildSearchIndex(core, docs, revision).serialize());
+  payload.schemaVersion = 3;
+
+  assert.equal(createMiniSearchIndexFactory(core).load(JSON.stringify(payload), revision), null);
+  assert.equal(SEARCH_SCHEMA_VERSION, 4);
 });

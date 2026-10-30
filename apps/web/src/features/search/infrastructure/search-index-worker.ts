@@ -5,6 +5,7 @@ import { projectStoredPdfTexts } from "../application/search-projection";
 import { buildSearchIndex } from "./minisearch-index";
 import { loadPdfTexts } from "./pdf-text-store";
 import { formatError } from "@/lib/format-error";
+import { loadCore } from "@/lib/rust-core";
 
 /**
  * Building the search index, off the main thread.
@@ -55,7 +56,7 @@ self.addEventListener("message", (event: MessageEvent<BuildIndexRequest>) => {
     try {
       const { docs, pdfPageCounts } = await project(request.snapshot, request.projectId);
       const revision = searchRevision(docs);
-      const index = buildSearchIndex(docs, revision, request.settings);
+      const index = buildSearchIndex(await loadCore(), docs, revision, request.settings);
 
       post({
         id: request.id,
