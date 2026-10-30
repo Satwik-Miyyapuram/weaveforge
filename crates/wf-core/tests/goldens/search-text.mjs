@@ -1,3 +1,5 @@
+// FROZEN: the TypeScript this script read was deleted in P1.8b. It cannot be
+// rerun; the golden tables it printed are now the spec.
 // Prints the golden tables in tests/search_text.rs from the TypeScript.
 // Run from the repo root on Node 24 (ICU 78.2, Unicode 17.0), then rustfmt:
 //   node crates/wf-core/tests/goldens/search-text.mjs

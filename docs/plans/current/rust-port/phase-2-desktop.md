@@ -100,7 +100,10 @@ once, and the app says so. Web storage under the old `app://weaveforge` origin i
    can be met, so they come before the port.
 4. **2.4** sidecar port: local DB, local API, MCP (with the config rewrite),
    Job Object, and the lock/orphan test.
-5. **2.5** data migration from the Electron dir.
+5. **2.5** data migration from the Electron dir, plus the `apps/desktop`
+   change that warns on the `migrated` marker (tested: marker present, warning
+   shown). That change ships in the last Electron release, before or with the
+   first Tauri release.
 6. **2.6** `wf-store::vault`: root confinement and file ops, tests ported first
    from `vault-folder.test.ts`.
 7. **2.7** vault commands, watch events, and the shim for them.
