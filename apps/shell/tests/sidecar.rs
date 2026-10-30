@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
-use weaveforge_shell::sidecar::{Sidecar, SidecarConfig, SidecarError};
+use weaveforge_shell::sidecar::{SIDECAR_MAX_LINE, Sidecar, SidecarConfig, SidecarError};
 
 fn fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/fake-sidecar.mjs")
@@ -25,6 +25,7 @@ fn config(extra: &[&str]) -> SidecarConfig {
         call_timeout: Duration::from_secs(5),
         max_in_flight: 8,
         max_request_bytes: 4096,
+        max_reply_bytes: 1 << 20,
     }
 }
 
@@ -240,6 +241,103 @@ async fn shutdown_kills_hung_child() {
     assert!(dies_within(pid, Duration::from_secs(3)).await);
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn invalid_config_rejected() {
+    let mut zero_in_flight = config(&[]);
+    zero_in_flight.max_in_flight = 0;
+    let mut zero_request = config(&[]);
+    zero_request.max_request_bytes = 0;
+    let mut huge_request = config(&[]);
+    huge_request.max_request_bytes = SIDECAR_MAX_LINE + 1;
+    let mut zero_reply = config(&[]);
+    zero_reply.max_reply_bytes = 0;
+    for cfg in [zero_in_flight, zero_request, huge_request, zero_reply] {
+        assert!(matches!(Sidecar::spawn(cfg), Err(SidecarError::Spawn(_))));
+    }
+}
+
+#[test]
+fn spawn_outside_runtime_errors() {
+    match Sidecar::spawn(config(&[])) {
+        Err(SidecarError::Spawn(m)) => assert!(m.contains("runtime"), "message: {m}"),
+        _ => panic!("expected a Spawn error outside a runtime"),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn dropped_call_frees_slot() {
+    let mut cfg = config(&[]);
+    cfg.max_in_flight = 1;
+    let s = Sidecar::spawn(cfg).unwrap();
+    let outer =
+        tokio::time::timeout(Duration::from_millis(200), s.call("noreply", Value::Null)).await;
+    assert!(outer.is_err());
+    assert_eq!(s.in_flight(), 0);
+    assert_eq!(s.call("echo", json!(1)).await, Ok(json!(1)));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn stuck_writer_times_out() {
+    let mut cfg = config(&["--no-read"]);
+    cfg.call_timeout = Duration::from_millis(500);
+    cfg.max_in_flight = 4;
+    cfg.max_request_bytes = 4 << 20;
+    let s = Sidecar::spawn(cfg).unwrap();
+    let big = "x".repeat(3 << 20);
+    let start = Instant::now();
+    assert_eq!(s.call("echo", json!(big)).await, Err(SidecarError::Timeout));
+    assert!(start.elapsed() < Duration::from_secs(3));
+    assert_eq!(s.in_flight(), 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn oversized_reply_kills() {
+    let mut cfg = config(&[]);
+    cfg.max_reply_bytes = 1000;
+    let s = Sidecar::spawn(cfg).unwrap();
+    let pid = s.pid().unwrap();
+    assert_eq!(
+        s.call("big", json!({"n": 5000})).await,
+        Err(SidecarError::Exited)
+    );
+    assert!(dies_within(pid, Duration::from_secs(3)).await);
+    assert_eq!(s.call("echo", json!(1)).await, Err(SidecarError::Exited));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn bad_utf8_line_is_skipped() {
+    let s = Sidecar::spawn(config(&[])).unwrap();
+    assert_eq!(s.call("badutf8", Value::Null).await, Ok(json!("after-bad")));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn shutdown_through_arc() {
+    let s = Arc::new(Sidecar::spawn(config(&[])).unwrap());
+    assert!(s.shutdown(Duration::from_secs(5)).await);
+    assert_eq!(s.call("echo", json!(1)).await, Err(SidecarError::Exited));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn cancel_mid_call_keeps_stream_clean() {
+    let mut cfg = config(&[]);
+    cfg.max_request_bytes = 4 << 20;
+    // The 2 MiB echo comes back too, so the reply cap must cover it.
+    cfg.max_reply_bytes = 4 << 20;
+    let s = Arc::new(Sidecar::spawn(cfg).unwrap());
+    let big = "x".repeat(2 << 20);
+    let task = tokio::spawn({
+        let s = Arc::clone(&s);
+        async move { s.call("echo", json!(big)).await }
+    });
+    tokio::time::sleep(Duration::from_millis(1)).await;
+    task.abort();
+    let _ = task.await;
+    let reply = tokio::time::timeout(Duration::from_secs(5), s.call("echo", json!("ok")))
+        .await
+        .unwrap();
+    assert_eq!(reply, Ok(json!("ok")));
+}
+
 #[test]
 fn orphan_helper() {
     if std::env::var_os("WF_ORPHAN_HELPER").is_none() {
@@ -270,6 +368,7 @@ fn orphan_dies_with_parent_stdin_eof() {
     assert_orphan_dies(pid, helper);
 }
 
+// CREATE_NO_WINDOW goes through CreationFlags because JobObject overwrites raw creation flags.
 #[cfg(windows)]
 #[test]
 fn orphan_dies_with_job_object() {
