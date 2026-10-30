@@ -8,10 +8,13 @@ use std::sync::Arc;
 
 pub mod protocol;
 
-/// Where the static web export lives: `WF_WEB_DIST`, else `web/` beside the binary.
+/// Where the static web export lives: `WF_WEB_DIST` (debug builds only), else `web/` beside the binary.
 fn web_root() -> PathBuf {
-    if let Some(dir) = std::env::var_os("WF_WEB_DIST").filter(|d| !d.is_empty()) {
-        return PathBuf::from(dir);
+    #[cfg(debug_assertions)]
+    {
+        if let Some(dir) = std::env::var_os("WF_WEB_DIST").filter(|d| !d.is_empty()) {
+            return PathBuf::from(dir);
+        }
     }
     if let Some(dir) = std::env::current_exe()
         .ok()
@@ -30,12 +33,14 @@ pub fn run() -> tauri::Result<()> {
             protocol::APP_SCHEME,
             move |_ctx, request, responder| {
                 let root = Arc::clone(&root);
+                let host = request.uri().host().map(str::to_owned);
                 let path = request.uri().path().to_owned();
                 let query = request.uri().query().map(str::to_owned);
                 // Disk reads stay off the webview thread.
                 let _task = tauri::async_runtime::spawn_blocking(move || {
                     responder.respond(to_response(protocol::respond(
                         &root,
+                        host.as_deref(),
                         &path,
                         query.as_deref(),
                     )));

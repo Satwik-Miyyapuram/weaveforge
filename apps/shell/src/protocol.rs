@@ -9,8 +9,13 @@ use std::path::{Path, PathBuf};
 /// The scheme the window is served on.
 pub const APP_SCHEME: &str = "app";
 
-/// Content-Security-Policy for HTML documents.
-pub const APP_CSP: &str = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' app://artifacts data: blob: https:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost app: cache: https: wss: http://localhost:* http://127.0.0.1:*; worker-src 'self' blob:; media-src 'self' blob: https:; frame-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+/// Hosts the window is served from: `localhost` (Linux, macOS) and `app.localhost` (Windows).
+pub const APP_HOSTS: [&str; 2] = ["localhost", "app.localhost"];
+
+/// Content-Security-Policy for HTML documents. Electron's policy, rewritten for the Tauri origins:
+/// IPC is `ipc://localhost` (Linux, macOS) or `https://ipc.localhost` (Windows); models and
+/// artifacts will be same-origin paths, so `app://…` and `cache:` are gone.
+pub const APP_CSP: &str = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' ipc: https://ipc.localhost https: wss: http://localhost:* http://127.0.0.1:*; worker-src 'self' blob:; media-src 'self' blob: https:; frame-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 
 /// One response: status, headers, body.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,12 +75,17 @@ pub fn resolve_app_file(
             }
             // Windows drive and stream prefixes, and NUL, never name a file here.
             s if s.contains([':', '\0']) => return None,
+            // Windows trims these from names, so `..%20` would reach the parent.
+            s if s.ends_with(['.', ' ']) => return None,
             s => kept.push(s),
         }
     }
     let mut joined = root.to_path_buf();
     for segment in &kept {
         joined.push(segment);
+    }
+    if !joined.starts_with(root) {
+        return None;
     }
     let candidates = if kept.is_empty() || relative.ends_with('/') {
         vec![joined.join("index.html")]
@@ -184,7 +194,10 @@ pub fn app_headers(content_type: &str) -> Vec<(&'static str, String)> {
 
 /// The response for a request path, reading from `root` on disk.
 #[must_use]
-pub fn respond(root: &Path, path: &str, query: Option<&str>) -> Reply {
+pub fn respond(root: &Path, host: Option<&str>, path: &str, query: Option<&str>) -> Reply {
+    if !host.is_some_and(|h| APP_HOSTS.contains(&h)) {
+        return not_found();
+    }
     if path.starts_with("/api/") {
         return not_found();
     }
@@ -477,18 +490,19 @@ mod tests {
     }
 
     #[test]
-    fn connect_src_allows_cache_and_web_sources() {
+    fn connect_src_allows_ipc_and_web_sources() {
         let tokens = csp_tokens("connect-src ");
-        for required in [
-            "cache:",
-            "app:",
-            "'self'",
-            "https:",
-            "wss:",
-            "ipc:",
-            "http://ipc.localhost",
-        ] {
+        for required in ["'self'", "ipc:", "https://ipc.localhost", "https:", "wss:"] {
             assert!(tokens.contains(&required), "missing {required}");
+        }
+    }
+
+    #[test]
+    fn csp_has_no_electron_only_sources() {
+        for token in APP_CSP.split([' ', ';']) {
+            assert_ne!(token, "cache:");
+            assert_ne!(token, "app:");
+            assert!(!token.starts_with("app://"), "electron source {token}");
         }
     }
 
@@ -524,6 +538,24 @@ mod tests {
     }
 
     #[test]
+    fn windows_trimmed_segments_refused() {
+        assert_eq!(resolve("/..%20"), None);
+        assert_eq!(resolve("/..%2e"), None);
+        assert_eq!(resolve("/%5c..%5csecrets"), None);
+        assert_eq!(resolve("/...."), None);
+        assert_eq!(resolve("/x."), None);
+        assert_eq!(resolve("/x%20"), None);
+    }
+
+    #[test]
+    fn directory_with_trailing_slash_still_resolves() {
+        assert_eq!(
+            resolve("/settings/"),
+            Some(join_pieces(root(), "settings/index.html"))
+        );
+    }
+
+    #[test]
     fn canonical_path_clean_is_none() {
         assert_eq!(canonical_path("/"), None);
         assert_eq!(canonical_path("/notes/"), None);
@@ -532,7 +564,7 @@ mod tests {
     #[test]
     fn respond_root_serves_index_with_csp() {
         let dir = bundle_with_404("root");
-        let r = respond(&dir, "/", None);
+        let r = respond(&dir, Some("localhost"), "/", None);
         assert_eq!(r.status, 200);
         assert_eq!(r.body, b"<p>home</p>".to_vec());
         assert!(header(&r, "content-security-policy").is_some());
@@ -542,7 +574,7 @@ mod tests {
     #[test]
     fn respond_script_has_js_type_and_no_csp() {
         let dir = bundle_with_404("script");
-        let r = respond(&dir, "/app.js", None);
+        let r = respond(&dir, Some("localhost"), "/app.js", None);
         assert_eq!(r.status, 200);
         assert_eq!(
             header(&r, "content-type"),
@@ -555,7 +587,7 @@ mod tests {
     #[test]
     fn respond_double_slash_redirects_with_query() {
         let dir = bundle_with_404("redirect-query");
-        let r = respond(&dir, "//notes//x/", Some("page=a//b"));
+        let r = respond(&dir, Some("localhost"), "//notes//x/", Some("page=a//b"));
         assert_eq!(r.status, 308);
         assert_eq!(header(&r, "location"), Some("/notes/x/?page=a//b"));
         assert!(r.body.is_empty());
@@ -565,7 +597,7 @@ mod tests {
     #[test]
     fn respond_double_slash_root_redirects() {
         let dir = bundle_with_404("redirect-root");
-        let r = respond(&dir, "//", None);
+        let r = respond(&dir, Some("localhost"), "//", None);
         assert_eq!(r.status, 308);
         assert_eq!(header(&r, "location"), Some("/"));
         let _ = std::fs::remove_dir_all(&dir);
@@ -574,7 +606,7 @@ mod tests {
     #[test]
     fn respond_missing_page_serves_404_page() {
         let dir = bundle_with_404("missing-page");
-        let r = respond(&dir, "/org/", None);
+        let r = respond(&dir, Some("localhost"), "/org/", None);
         assert_eq!(r.status, 404);
         assert_eq!(r.body, b"<p>lost</p>".to_vec());
         assert_eq!(header(&r, "content-type"), Some("text/html; charset=utf-8"));
@@ -584,7 +616,7 @@ mod tests {
     #[test]
     fn respond_missing_asset_is_bare_404() {
         let dir = bundle_with_404("missing-asset");
-        let r = respond(&dir, "/gone.js", None);
+        let r = respond(&dir, Some("localhost"), "/gone.js", None);
         assert_eq!(r.status, 404);
         assert!(r.body.is_empty());
         let _ = std::fs::remove_dir_all(&dir);
@@ -593,16 +625,35 @@ mod tests {
     #[test]
     fn respond_api_path_is_404_until_relays_exist() {
         let dir = bundle_with_404("api");
-        let r = respond(&dir, "/api/pdf", None);
+        let r = respond(&dir, Some("localhost"), "/api/pdf", None);
         assert_eq!(r.status, 404);
         assert!(r.body.is_empty());
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
+    fn respond_other_host_is_404() {
+        let dir = bundle_with_404("other-host");
+        let r = respond(&dir, Some("models"), "/", None);
+        assert_eq!(r.status, 404);
+        assert!(r.body.is_empty());
+        let r = respond(&dir, None, "/", None);
+        assert_eq!(r.status, 404);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn respond_windows_app_host_serves_index() {
+        let dir = bundle_with_404("windows-host");
+        let r = respond(&dir, Some("app.localhost"), "/", None);
+        assert_eq!(r.status, 200);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn respond_page_miss_without_404_page_is_bare_404() {
         let dir = temp_root("no-404-page");
-        let r = respond(&dir, "/org/", None);
+        let r = respond(&dir, Some("localhost"), "/org/", None);
         assert_eq!(r.status, 404);
         assert!(r.body.is_empty());
         let _ = std::fs::remove_dir_all(&dir);
