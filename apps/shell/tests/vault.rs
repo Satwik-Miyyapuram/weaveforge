@@ -7,14 +7,13 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use common::{TempDir, put};
 use weaveforge_shell::vault::{
-    BAD_ARGUMENT, EntryKindPayload, MAX_BLOB_BYTES, MAX_TEXT_BYTES, NO_ROOT, RootKind, VaultEntry,
-    VaultRoot, VaultSession, iso_utc, sweep_temp_files, too_large,
+    BAD_ARGUMENT, EntryKindPayload, MAX_BLOB_BYTES, MAX_TEXT_BYTES, NO_ROOT, RootKind, SWEEP_AGE,
+    VaultEntry, VaultRoot, VaultSession, iso_utc, sweep_temp_files, too_large,
 };
 use wf_store::root::{RootError, WORKSPACE_SUBDIR};
 use wf_store::vault::TEMP_SUFFIX;
 
 const HOUR: Duration = Duration::from_secs(3600);
-const SWEEP_AGE: Duration = Duration::from_secs(300);
 
 fn text(path: &Path) -> String {
     path.to_string_lossy().into_owned()
@@ -178,6 +177,17 @@ fn restore_refuses_nothing_and_keeps_the_earlier_root_on_failure() {
     let mut fresh = VaultSession::new();
     let kept_text = text(kept.path());
     assert_eq!(fresh.restore(Some(kept_text.as_str())), root);
+}
+
+#[test]
+fn forget_clears_the_root_and_refuses_reads() {
+    let dir = TempDir::new();
+    let mut session = session_at(dir.path());
+
+    session.forget();
+
+    assert_eq!(session.root(), None);
+    assert_eq!(session.read_text("a.md"), Err(NO_ROOT.to_owned()));
 }
 
 // 9. Text round trip
@@ -384,6 +394,11 @@ fn payloads_serialize_with_the_keys_the_page_reads() {
     .unwrap();
     assert_eq!(root["state"], "empty");
     assert_eq!(serde_json::to_value(EntryKindPayload::Dir).unwrap(), "dir");
+}
+
+#[test]
+fn sweep_age_is_five_minutes() {
+    assert_eq!(SWEEP_AGE, Duration::from_secs(300));
 }
 
 // 19. Temp sweep

@@ -19,7 +19,7 @@ pub const NO_ROOT: &str = "No workspace folder is chosen yet.";
 pub const BAD_ARGUMENT: &str = "That is not a path this folder can hold.";
 
 /// A temp file this old was left by a write that never finished, not one in progress.
-const SWEEP_AGE: Duration = Duration::from_secs(300);
+pub const SWEEP_AGE: Duration = Duration::from_secs(300);
 
 /// "That file is too large to open here (over 8 MB)." — cap shown in whole MiB.
 #[must_use]
@@ -143,11 +143,16 @@ impl VaultSession {
         Ok(Some(self.install(path.to_path_buf(), state)))
     }
 
-    /// Previous run's folder. None or "" → None. A failed adopt → None, and the session is left unchanged.
+    /// Previous run's folder. None or "" → None. A failed adopt → None and the session is left unchanged; the caller then clears the remembered folder.
     #[must_use]
     pub fn restore(&mut self, remembered: Option<&str>) -> Option<VaultRoot> {
         let path = remembered.filter(|p| !p.is_empty())?;
         self.adopt(Some(Path::new(path))).ok().flatten()
+    }
+
+    /// Drops the chosen folder; every operation then answers `NO_ROOT` until one is chosen again.
+    pub fn forget(&mut self) {
+        self.current = None;
     }
 
     /// Text over `MAX_TEXT_BYTES` → Err(too_large). Missing → Ok(None).
@@ -157,7 +162,7 @@ impl VaultSession {
     pub fn read_text(&self, rel: &str) -> Result<Option<String>, String> {
         let vault = self.vault()?;
         check_cap(vault, rel, MAX_TEXT_BYTES)?;
-        absent_is_none(vault.read_text(rel))
+        absent_is_none(vault.read_text_max(rel, MAX_TEXT_BYTES))
     }
 
     /// Same as `read_text` with `MAX_BLOB_BYTES`.
@@ -167,7 +172,7 @@ impl VaultSession {
     pub fn read_bytes(&self, rel: &str) -> Result<Option<Vec<u8>>, String> {
         let vault = self.vault()?;
         check_cap(vault, rel, MAX_BLOB_BYTES)?;
-        absent_is_none(vault.read_file(rel))
+        absent_is_none(vault.read_file_max(rel, MAX_BLOB_BYTES))
     }
 
     /// Utf-8 length over `MAX_TEXT_BYTES` → Err(too_large), and nothing is written.
@@ -315,6 +320,7 @@ fn absent_is_none<T>(result: Result<T, VaultError>) -> Result<Option<T>, String>
     match result {
         Ok(value) => Ok(Some(value)),
         Err(err) if err.io_kind() == Some(io::ErrorKind::NotFound) => Ok(None),
+        Err(VaultError::TooLarge { max, .. }) => Err(too_large(max)),
         Err(err) => Err(message(&err)),
     }
 }
