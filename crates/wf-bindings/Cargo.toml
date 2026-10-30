@@ -12,7 +12,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-wf-core.workspace = true
+wf-core = { workspace = true, features = ["specta"] }
 specta.workspace = true
 specta-serde.workspace = true
 specta-typescript.workspace = true

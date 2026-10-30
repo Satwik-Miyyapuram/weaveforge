@@ -9,7 +9,8 @@ use std::num::NonZeroUsize;
 pub const RRF_K: u32 = 60;
 
 /// One arm's ranking: ids best first, and its relative influence.
-#[derive(Clone, Debug, PartialEq, serde::Deserialize, specta::Type)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct RankedList {
     /// Ids, best first. May repeat; every occurrence counts.
