@@ -10,6 +10,7 @@ pub mod commands;
 pub mod launch;
 pub mod prefs;
 pub mod protocol;
+pub mod range;
 pub mod secrets;
 pub mod sidecar;
 pub mod vault;
