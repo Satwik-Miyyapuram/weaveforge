@@ -314,9 +314,7 @@ Brotli q9 per file is a proxy. The installer uses LZMA (NSIS/WiX).
   out of the root workspace (2.2).
 - **Memory while building.** This machine has about 4 GB free. Shell builds
   run with `-j 4`.
-- **Linux secrets.** The Secret Service store talks to the session bus in a
-  plain session, with no transport encryption. Electron's `safeStorage`
-  (libsecret) negotiated an encrypted session. Only processes of the same
-  user reach that bus, and they can already query Secret Service, so this is
-  accepted. Builds need `libdbus-1-dev`; the app links `libdbus-1.so.3`, which
+- **Linux secrets.** The Secret Service store negotiates an encrypted session
+  on the session bus (pure-Rust crypto, the `crypto-rust` feature), as
+  Electron's `safeStorage` (libsecret) did. Builds need `libdbus-1-dev`; the app links `libdbus-1.so.3`, which
   2.13 declares in the `.deb` and leaves out of the AppImage.

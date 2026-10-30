@@ -46,10 +46,10 @@ windows-native-keyring-store = { version = "=1.1.0", default-features = false }
 apple-native-keyring-store = { version = "=1.0.2", features = ["keychain"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-# Secret Service (GNOME Keyring, KWallet) over libdbus. No transport crypto: the
-# session bus is local (as keyring v3's default), and the crypto features pull a
-# second RustCrypto major. Builds need libdbus-1-dev.
-dbus-secret-service-keyring-store = { version = "=1.0.1" }
+# Secret Service (GNOME Keyring, KWallet) over libdbus, with an encrypted session
+# in pure-Rust crypto (the crate does not build without a crypto feature).
+# Builds need libdbus-1-dev.
+dbus-secret-service-keyring-store = { version = "=1.0.1", features = ["crypto-rust"] }
 
 [dev-dependencies]
 tokio = { version = "=1.54.1", features = ["io-util", "macros", "process", "rt", "rt-multi-thread", "sync", "time"] }
