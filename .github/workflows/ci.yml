@@ -79,6 +79,11 @@ jobs:
       - name: Run Sidecar tests
         run: npm run test:sidecar
 
+      # The Tauri bridge shim (window.weaveforge over typed commands) and the
+      # generated bindings it wraps.
+      - name: Run Bridge tests
+        run: npm run test:bridge
+
       # Schema and RLS, against the shipped migrations on an in-process
       # Postgres. It used to live in the opt-in job because it needed a live
       # project and two accounts; it needs neither now, so it runs on every PR.

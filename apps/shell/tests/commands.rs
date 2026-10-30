@@ -20,6 +20,7 @@ fn config(extra: &[&str]) -> SidecarConfig {
     SidecarConfig {
         program: PathBuf::from("node"),
         args,
+        cwd: None,
         call_timeout: Duration::from_secs(5),
         max_in_flight: 8,
         max_request_bytes: 4096,
