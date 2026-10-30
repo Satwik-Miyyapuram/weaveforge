@@ -208,14 +208,104 @@ test("a failed copy throws, publishes nothing, and a retry completes", () => {
   assert.deepEqual(out, { kind: "done", copied: [...ITEMS] });
 });
 
-test("resume: an item a crashed run already renamed is not copied again", () => {
+test("resume: an item already in new/ is replaced by the old copy and the new one kept aside", () => {
   const d = dirs();
-  seedOld(d.old);
-  write(path.join(d.new, "preferences.json"), '{"theme":"light"}');
+  write(path.join(d.old, "local-db", "x"), "fresh");
+  write(path.join(d.new, "local-db", "x"), "stale");
 
   const out = migrateFromElectron(opts(d));
-  assert.ok(out.kind === "done");
-  assert.equal(out.copied.includes("preferences.json"), false);
-  assert.ok(out.copied.includes("local-db"));
-  assert.equal(fs.readFileSync(path.join(d.new, "preferences.json"), "utf8"), '{"theme":"light"}');
+  assert.deepEqual(out, { kind: "done", copied: ["local-db"] });
+  assert.equal(fs.readFileSync(path.join(d.new, "local-db", "x"), "utf8"), "fresh");
+  const stamp = NOW.toISOString().replace(/[:.]/g, "-");
+  const aside = path.join(d.new, ".pre-migration", stamp, "local-db", "x");
+  assert.equal(fs.readFileSync(aside, "utf8"), "stale");
+});
+
+test("guard: new dir equal to, or inside, the old dir is refused", () => {
+  const d = dirs();
+  seedOld(d.old);
+  assert.throws(() => migrateFromElectron(opts(d, { newDir: d.old })), /must not be the old app's data dir/);
+  assert.throws(
+    () => migrateFromElectron(opts(d, { newDir: path.join(d.old, "sub") })),
+    /must not be the old app's data dir/,
+  );
+  assert.throws(
+    () => migrateFromElectron(opts(d, { newDir: path.join(d.old, "..x") })),
+    /must not be the old app's data dir/,
+  );
+  assert.equal(fs.existsSync(path.join(d.old, "sub")), false);
+});
+
+test("guard: a sibling of the old dir is allowed", () => {
+  const d = dirs();
+  const out = migrateFromElectron(opts(d, { newDir: `${d.old}-2` }));
+  assert.deepEqual(out, { kind: "nothing" });
+});
+
+test("publish rename fails: nothing is marked done, and a rerun converges", () => {
+  const d = dirs();
+  seedOld(d.old);
+  write(path.join(d.old, "local-db", "x"), "fresh");
+  const preferences = path.join(d.new, "preferences.json");
+  assert.throws(
+    () =>
+      migrateFromElectron(
+        opts(d, {
+          rename: (from, to) => {
+            if (to === preferences) throw new Error("rename failed");
+            fs.renameSync(from, to);
+          },
+        }),
+      ),
+    /rename failed/,
+  );
+  assert.equal(fs.existsSync(path.join(d.old, MIGRATED_MARKER)), true);
+  assert.equal(fs.existsSync(path.join(d.new, DONE_MARKER)), false);
+  assert.equal(fs.existsSync(path.join(d.old, "local-db.lock")), false);
+  assert.equal(fs.readFileSync(path.join(d.new, "local-db", "x"), "utf8"), "fresh");
+
+  const later = new Date("2026-10-30T09:00:00.000Z");
+  const out = migrateFromElectron(opts(d, { now: later }));
+  assert.deepEqual(out, { kind: "done", copied: [...ITEMS] });
+  assert.equal(
+    fs.readFileSync(preferences, "utf8"),
+    fs.readFileSync(path.join(d.old, "preferences.json"), "utf8"),
+  );
+  assert.equal(fs.readFileSync(path.join(d.new, "local-db", "x"), "utf8"), "fresh");
+  const stamp = later.toISOString().replace(/[:.]/g, "-");
+  const aside = path.join(d.new, ".pre-migration", stamp, "local-db");
+  assert.equal(fs.existsSync(path.join(aside, "PG_VERSION")), true);
+  assert.equal(fs.readFileSync(path.join(aside, "x"), "utf8"), "fresh");
+  assert.equal(fs.existsSync(path.join(d.new, ".migrating")), false);
+});
+
+test("aside rename fails: the existing item survives, and a rerun converges", () => {
+  const d = dirs();
+  seedOld(d.old);
+  write(path.join(d.old, "local-db", "x"), "fresh");
+  write(path.join(d.new, "local-db", "x"), "stale");
+  const asideRoot = path.join(d.new, ".pre-migration") + path.sep;
+  assert.throws(
+    () =>
+      migrateFromElectron(
+        opts(d, {
+          rename: (from, to) => {
+            if (to.startsWith(asideRoot)) throw new Error("aside failed");
+            fs.renameSync(from, to);
+          },
+        }),
+      ),
+    /aside failed/,
+  );
+  assert.equal(fs.readFileSync(path.join(d.new, "local-db", "x"), "utf8"), "stale");
+  assert.equal(fs.existsSync(path.join(d.new, DONE_MARKER)), false);
+  assert.equal(fs.existsSync(path.join(d.old, "local-db.lock")), false);
+
+  const later = new Date("2026-10-30T09:00:00.000Z");
+  const out = migrateFromElectron(opts(d, { now: later }));
+  assert.deepEqual(out, { kind: "done", copied: [...ITEMS] });
+  assert.equal(fs.readFileSync(path.join(d.new, "local-db", "x"), "utf8"), "fresh");
+  const stamp = later.toISOString().replace(/[:.]/g, "-");
+  const kept = path.join(d.new, ".pre-migration", stamp, "local-db", "x");
+  assert.equal(fs.readFileSync(kept, "utf8"), "stale");
 });

@@ -29,10 +29,13 @@ export interface MigrateOptions {
   now?: Date;
   /** Copies one item; tests pass a failing one. Default: fs.cpSync recursive, errorOnExist, force false, preserveTimestamps. */
   copy?: (from: string, to: string) => void;
+  /** Renames one path; tests pass a failing one. Default: fs.renameSync. */
+  rename?: (from: string, to: string) => void;
 }
 
 /** Copy Electron's data into the new dir once. Throws on an I/O failure (the caller must not open a database then). */
 export function migrateFromElectron(options: MigrateOptions): MigrateOutcome {
+  assertSeparate(options.oldDir, options.newDir);
   const { oldDir, newDir } = options;
   const now = options.now ?? new Date();
   if (fs.existsSync(path.join(newDir, DONE_MARKER))) return { kind: "already" };
@@ -48,12 +51,21 @@ export function migrateFromElectron(options: MigrateOptions): MigrateOutcome {
 
   // Markers are written while Electron is still locked out, so it cannot change its data unwarned in between.
   try {
-    const copied = stageAndPublish(oldDir, newDir, present, options.copy ?? defaultCopy);
-    fs.writeFileSync(path.join(oldDir, MIGRATED_MARKER), JSON.stringify({ to: newDir, at: now.toISOString() }));
+    const copy = options.copy ?? defaultCopy;
+    const copied = stageAndPublish(oldDir, newDir, present, copy, options.rename ?? fs.renameSync, now);
     writeDoneMarker(oldDir, newDir, now, copied);
     return { kind: "done", copied };
   } finally {
     for (const dir of locked) releaseDbLock(dir);
+  }
+}
+
+/** Refuses a new dir that is the old dir or inside it: the rename-aside step would move Electron's own data. */
+function assertSeparate(oldDir: string, newDir: string): void {
+  const rel = path.relative(path.resolve(oldDir), path.resolve(newDir));
+  const outside = rel === ".." || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel);
+  if (!outside) {
+    throw new Error("the new data dir must not be the old app's data dir or inside it");
   }
 }
 
@@ -98,22 +110,37 @@ function takeLocks(dirs: string[], now: Date): string[] | MigrateOutcome {
   return taken;
 }
 
-/** Copy the items into a staging dir, then rename them into place only once every copy succeeded. */
+/**
+ * Copy the items into a staging dir, then rename them into place only once every copy succeeded.
+ * An item already in newDir comes from a run that crashed before the done marker, or was written by the
+ * new app before migrating; Electron may have changed it since, so its current copy wins and the old one
+ * is kept aside, never deleted.
+ */
 function stageAndPublish(
   oldDir: string,
   newDir: string,
   present: readonly string[],
   copy: (from: string, to: string) => void,
+  rename: (from: string, to: string) => void,
+  now: Date,
 ): string[] {
   const staging = path.join(newDir, STAGING_DIR);
   fs.rmSync(staging, { recursive: true, force: true });
   fs.mkdirSync(staging, { recursive: true });
-  // An item already in newDir was renamed there by a run that crashed before the done marker.
-  const todo = present.filter((i) => !fs.existsSync(path.join(newDir, i)));
-  for (const item of todo) copy(path.join(oldDir, item), path.join(staging, item));
-  for (const item of todo) fs.renameSync(path.join(staging, item), path.join(newDir, item));
+  for (const item of present) copy(path.join(oldDir, item), path.join(staging, item));
+  // From the first rename on, Electron warns that its data has moved.
+  fs.writeFileSync(path.join(oldDir, MIGRATED_MARKER), JSON.stringify({ to: newDir, at: now.toISOString() }));
+  const aside = path.join(newDir, ".pre-migration", now.toISOString().replace(/[:.]/g, "-"));
+  for (const item of present) {
+    const existing = path.join(newDir, item);
+    if (fs.existsSync(existing)) {
+      fs.mkdirSync(aside, { recursive: true });
+      rename(existing, path.join(aside, item));
+    }
+    rename(path.join(staging, item), existing);
+  }
   fs.rmSync(staging, { recursive: true, force: true });
-  return todo;
+  return [...present];
 }
 
 /** Written last, atomically, so a crash before it means the next start copies again. */

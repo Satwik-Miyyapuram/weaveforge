@@ -45,7 +45,7 @@ function migrateOldData(oldDir: string, newDir: string): boolean {
     const outcome = migrateFromElectron({ oldDir, newDir });
     if (outcome.kind === "busy") {
       process.stderr.write(
-        `weaveforge-sidecar: the old WeaveForge app is running; close it so its data can be copied (${outcome.reason})\n`,
+        `weaveforge-sidecar: the old WeaveForge app is running; close it, then restart WeaveForge so its data can be copied (${outcome.reason})\n`,
       );
       process.exitCode = 3;
       return false;

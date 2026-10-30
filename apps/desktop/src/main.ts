@@ -68,7 +68,6 @@ import { realUpdater, startAutoUpdate } from "./auto-update";
 import { originOf, registerGuardedIpc, sameOrigin } from "./ipc-guard";
 import { runBoundedQuit } from "./quit";
 import { createAppLog, type AppLog } from "./app-log";
-import { showMigratedNotice } from "./migrated-notice";
 
 /**
  * The desktop shell.
@@ -752,8 +751,6 @@ if (!app.requestSingleInstanceLock()) {
     // stays shut.
     void localApiDoor.resume();
     planWidget.launch(createWindow);
-    // The new app copied this data dir: say so, so changes made here are not silently stranded.
-    void showMigratedNotice(app.getPath("userData"), (options) => dialog.showMessageBox(options));
     // Updates are fetched in the background and installed only when the reader
     // says so -- see `auto-update.ts` for why quitting is not consent on an
     // unsigned build. The older check-and-tell path stays for the menu entry

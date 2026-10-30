@@ -17,11 +17,16 @@ export function migratedNotice(userData: string): string | null {
   return `Your WeaveForge data was copied to the new WeaveForge app${whenOf(raw)}. Changes you make in this version stay here and do not reach the new app, so use the new app instead.`;
 }
 
-/** Shows the warning through `show` when the marker is there; returns whether it did. Never throws. */
+/**
+ * Shows the warning through `show` when the marker is there; returns whether it did. Never throws.
+ * Only the instance holding the single-instance lock shows it; a second launch quits.
+ */
 export async function showMigratedNotice(
   userData: string,
   show: (options: { type: "warning"; message: string; detail: string }) => Promise<unknown>,
+  isPrimary: () => boolean = () => true,
 ): Promise<boolean> {
+  if (!isPrimary()) return false;
   const detail = migratedNotice(userData);
   if (detail === null) return false;
   try {

@@ -95,14 +95,28 @@ once, and the app says so. Web storage under the old `app://weaveforge` origin i
 - Copied: `local-db`, `local-db-backups`, `preferences.json`, `models`,
   `artifacts`, `weaveforge.log`, `overleaf-git`. Each item is copied into
   `<new>/.migrating`, and only once every copy succeeded is each one renamed
-  into place. A rerun skips items already in place, so a crash mid-rename
-  converges.
+  into place. `<old>/migrated` is written before the first rename, so from then
+  on Electron warns. A rerun copies every item again: one already in `<new>`
+  (from a crashed run, or written by the new app first) is moved aside to
+  `<new>/.pre-migration/<time>/`, never deleted, because Electron may have
+  changed its copy since. Only the rename step (milliseconds) can leave items
+  for an aside; a quit during the copy only leaves `.migrating`, which the
+  next run clears. Nothing cleans `.pre-migration`: each crash inside the rename
+  step adds one more copy, and the user may delete the folder once the new app
+  shows their data. `--migrate-from` must not be or contain the new dir.
 - Locks: Electron's `local-db`, and the workspace database
   (`<vault-root>/.weaveforge/db`) when Electron's preferences name a folder.
   If either is held by a live process, the sidecar exits with code 3 and asks
-  the user to close the old app; the next start tries again. A stale lock is
-  taken over as Electron does. Both markers are written while the locks are
-  still held.
+  the user to close the old app and restart; the shell puts that last stderr
+  line in `db_state().failure`, so the user sees it. The next start tries
+  again. A stale lock is taken over as Electron does. Both markers are written
+  while the locks are still held.
+- Gap: the lock only proves Electron has its database open. Electron takes it
+  in `LocalDbHost` open, after `ensureDatabaseLocation`, so an Electron whose
+  database is not open yet (or failed to open) is not detected, and a move it
+  runs then could race the copy. Accepted: both apps are rarely started
+  together. If it bites, add a liveness check on Electron's single-instance
+  lock.
 - Markers: `<old>/migrated` (`{to, at}`) for the Electron warning, then
   `<new>/migrated-from-electron` (`{from, at, copied, secretsLeftBehind}`),
   written last and atomically; while it exists the copy never runs again. A
@@ -119,8 +133,14 @@ once, and the app says so. Web storage under the old `app://weaveforge` origin i
   run), and uses `secretsLeftBehind` to tell the user which tokens to re-enter.
 - The copy is TypeScript in the sidecar; phase 3 ports it to Rust with the
   rest of the sidecar.
-- A large database delays the first reply on the first start; the shell's 60 s
-  call timeout covers several GB on a local disk.
+- A large copy delays the first reply on the first start. The 60 s call
+  timeout does not kill the sidecar: early calls fail as transient and are
+  retried. Real risks: quitting mid-copy kills the sidecar after the 15 s
+  grace, and the next start copies everything again (staging is cleared); the
+  copy doubles disk use for backups and models, and a full disk fails it
+  (exit 1) on every start until space is freed. No free-space check yet.
+- A sidecar that exited (exit 3 or 1) is not respawned until the app restarts;
+  a retry from the reset screen belongs to the respawn follow-up.
 
 ### Web storage left behind (2.5 inventory)
 

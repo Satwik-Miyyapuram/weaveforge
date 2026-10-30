@@ -236,3 +236,31 @@ async fn real_sidecar_migrates_electron_data() {
     assert!(old.join("preferences.json").exists());
     let _ = std::fs::remove_dir_all(&root);
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "needs npm ci and npm run build:core; run with --ignored"]
+async fn real_sidecar_reports_old_app_running() {
+    let root = std::env::temp_dir().join(format!("wf-busy-test-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let old = root.join("old");
+    let new_data = root.join("new").join("local-db");
+    std::fs::create_dir_all(old.join("local-db")).unwrap();
+    // A live holder that is not the sidecar; `at` is in the future so it cannot predate this boot.
+    let holder = format!(
+        r#"{{"pid":{},"app":"WeaveForge","at":"2100-01-01T00:00:00.000Z"}}"#,
+        std::process::id()
+    );
+    std::fs::write(old.join("local-db.lock"), holder).unwrap();
+
+    let fresh = LocalDb::new(
+        Sidecar::spawn(dev_config_from(&new_data, &old)),
+        new_data.to_string_lossy().into_owned(),
+    );
+    let state = fresh.state().await.unwrap();
+    let failure = state.failure.unwrap_or_default();
+    assert!(
+        failure.contains("old WeaveForge app is running"),
+        "failure: {failure}"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}

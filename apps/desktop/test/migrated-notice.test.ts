@@ -67,3 +67,18 @@ test("a dialog that rejects is swallowed: still resolves true", async () => {
   });
   assert.equal(shown, true);
 });
+
+test("a second instance (not primary) with a marker: resolves false and the dialog is never shown", async () => {
+  const dir = freshDir("second-instance");
+  writeFileSync(path.join(dir, "migrated"), "{}");
+  let calls = 0;
+  const shown = await showMigratedNotice(
+    dir,
+    async () => {
+      calls += 1;
+    },
+    () => false,
+  );
+  assert.equal(shown, false);
+  assert.equal(calls, 0);
+});
