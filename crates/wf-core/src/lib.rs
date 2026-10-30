@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 pub mod search;
+pub mod units;
 pub mod workspace;
 
 /// Version of this core build, taken from Cargo at compile time.

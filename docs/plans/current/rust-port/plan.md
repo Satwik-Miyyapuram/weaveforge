@@ -174,7 +174,7 @@ Every crate, test, doc and commit in the port follows these. A spec that needs s
 | Error texts a person sees | copied word for word from the TypeScript they replace, pinned by a `*_texts_match_*` test | `"That is not a folder."` |
 | Errors at the IPC edge | every command returns `Result<_, ShellError>`; module errors convert with `From` | `impl From<VaultError> for ShellError` |
 | Constants | SCREAMING_SNAKE, unit last, then `_MAX`/`_MIN` | `READ_BYTES_MAX`, `WATCH_DEBOUNCE_MS` |
-| Units | inside a crate, the §4.2 newtypes (`ByteLen(u64)`, `DurationMs(u64)`, defined once in `wf_core::units`, which the orchestrator adds in the prep PR before 2.7), `Duration` and `SystemTime`; bare `u64` with the unit last in the name only at the IPC edge | `size: ByteLen` inside, `size_bytes: u64` over IPC |
+| Units | inside a crate, the §4.2 newtypes (`ByteLen(u64)`, `DurationMs(u64)`, defined once in `wf_core::units`, which the orchestrator adds in the prep PR before 2.7), `Duration` and `SystemTime`; bare `u64` with the unit last in the name only at the IPC edge. `apps/shell` cannot depend on `wf-core` (it pins specta `rc.26` through tauri-specta, the root pins `rc.27`), so the shell uses bare `u64` with the unit last everywhere | `size: ByteLen` inside, `size_bytes: u64` over IPC |
 | Paths | inside: `PathBuf`; across IPC: `/`-separated workspace-relative `String`, checked once by `wf_core::workspace::safe_workspace_path` | `"notes/a.md"` |
 | IPC shapes | match the Electron channel being replaced (field names, units, null vs missing), stated in the command's doc comment | `DbState` |
 | Commands | `#[tauri::command]` named `<area>_<verb>`; TS gets camelCase from tauri-specta | `vault_read` → `vaultRead` |
@@ -189,7 +189,7 @@ Every crate, test, doc and commit in the port follows these. A spec that needs s
 | Names | snake_case sentences of the behaviour, no `test_` prefix: `a_file_is_not_a_folder` |
 | Place | unit tests in a `#[cfg(test)] mod tests` at the end of the file; tests of the public API in `tests/<area>.rs` |
 | Shared helpers | one copy per crate in `tests/common/mod.rs` (temp dirs, fixtures); never copied into a second file |
-| Temp folders | the crate's `TempDir` helper (unique name, removed on drop); never a fixed path |
+| Temp folders | the crate's `TempDir` helper in `tests/common/mod.rs` (unique name, removed on drop; `apps/shell` has one too); never a fixed path |
 | Platform skips | skip with a printed reason (`eprintln!`), never a silent pass |
 | Ported tests | keep the TS test's name as a comment above the Rust test |
 
