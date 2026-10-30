@@ -1,4 +1,4 @@
-//! Result snippets around the densest cluster of matches. Port of
+//! Result snippets around the densest cluster of matches. Port of the TypeScript deleted in P1.8b,
 //! `buildExcerpt` in `packages/core/src/search/search-excerpt.ts`. Text and
 //! offsets are UTF-16 code units, like the TypeScript.
 

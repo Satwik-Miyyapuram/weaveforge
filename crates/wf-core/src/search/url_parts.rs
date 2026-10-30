@@ -1,4 +1,4 @@
-//! URL detection inside free text. Port of `urlParts` in
+//! URL detection inside free text. Port of the TypeScript deleted in P1.8b, `urlParts` in
 //! `packages/core/src/search/search-tokenizer.ts`.
 
 use crate::search::js_text::{is_js_whitespace, is_letter_or_number, utf16_len};
