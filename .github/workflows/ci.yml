@@ -74,6 +74,11 @@ jobs:
       - name: Run Desktop tests
         run: npm run test:desktop
 
+      # The phase-2 Node sidecar: its JSON-lines wire, and one real PGlite
+      # open through the desktop's local-db code (the Tauri shell spawns it).
+      - name: Run Sidecar tests
+        run: npm run test:sidecar
+
       # Schema and RLS, against the shipped migrations on an in-process
       # Postgres. It used to live in the opt-in job because it needed a live
       # project and two accounts; it needs neither now, so it runs on every PR.

@@ -128,6 +128,27 @@ once, and the app says so. Web storage under the old `app://weaveforge` origin i
 - Installer size measured.
 - 1,039 passages embedded in under a minute.
 
+## 2.3 spike results
+
+Measured on Windows ARM64 with Node 24.14.1 (`node.exe` from the dev machine). The
+sidecar bundled with esbuild (PGlite external), then spawned, given one query, and
+left idle for 10 s. Private memory is from `Get-Process`, the same as in `baseline.mjs`.
+
+| What | Raw | Brotli q9 (installer proxy) |
+| --- | --- | --- |
+| `node.exe` | 76.8 MB | 23.3 MB |
+| PGlite runtime (`pglite.wasm`, `.data`, `initdb`, `pgcrypto`, JS) | 18.1 MB | 5.5 MB |
+| Sidecar bundle `main.mjs` | 0.02 MB | 0.01 MB |
+| Migrations | 0.4 MB | n/a |
+| **Total** | **95.3 MB** | **28.8 MB** |
+
+- **Memory.** Idle private is 265 MB (working set 183 MB). First query, which runs all
+  migrations on a new data dir, takes 3.6 s. That leaves about 245 MB for the shell and
+  WebView2 under the 510 MB criterion. It is tight, so 2.13 measures the whole app,
+  and phase 3 removes this process.
+- **Installer.** It adds about 29 MB compressed and 95 MB installed. Only the files above
+  ship. PGlite's other extensions and source maps are left out.
+
 ## Risks
 
 - **Origin and CORS.** The UI, its CSP and the sign-in callback assume
