@@ -6,6 +6,7 @@
       "python-sdk",
       "dco",
       "rust",
+      "shell",
       "wasm-parity"
     ]
   },

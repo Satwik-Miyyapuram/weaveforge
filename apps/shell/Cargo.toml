@@ -1,0 +1,53 @@
+# WeaveForge desktop shell on Tauri 2. Design: docs/plans/current/rust-port/phase-2-desktop.md.
+# Its own workspace: Tauri brings many duplicate crate versions, and the root
+# workspace's cargo-deny bans must stay strict for wf-core (design § Steps 2.2).
+[workspace]
+
+[package]
+name = "weaveforge-shell"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+license = "AGPL-3.0-only"
+repository = "https://github.com/Satwik-Miyyapuram/weaveforge"
+publish = false
+
+[lib]
+name = "weaveforge_shell"
+
+# Exact pins, as in the root workspace: Tauri 2.x minor releases change behaviour.
+[dependencies]
+tauri = { version = "=2.12.5", features = [] }
+
+[build-dependencies]
+tauri-build = { version = "=2.7.4", features = [] }
+
+# Same rules as the root workspace (plan §4.2/§4.3).
+[lints.rust]
+unused_must_use = "deny"
+unused_results = "deny"
+missing_docs = "deny"
+unsafe_code = "forbid"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+undocumented_unsafe_blocks = "deny"
+too_many_lines = "deny"
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_sign_loss = "deny"
+cast_lossless = "deny"
+checked_conversions = "deny"
+must_use_candidate = "deny"
+needless_pass_by_value = "deny"
+redundant_closure_for_method_calls = "deny"
+semicolon_if_nothing_returned = "deny"
+
+[profile.release]
+debug-assertions = false
+overflow-checks = true
