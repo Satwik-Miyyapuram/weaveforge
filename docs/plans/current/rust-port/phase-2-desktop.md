@@ -181,6 +181,27 @@ Brotli q9 per file is a proxy. The installer uses LZMA (NSIS/WiX).
     so it waits for the user.
 
   The first is the default.
+
+  **Settled in 2.2** (read-only probes, no server change):
+
+  | Request | Origin | Result |
+  | --- | --- | --- |
+  | API preflight | `https://app.localhost` (Windows) | 403 |
+  | API preflight | `app://localhost` (Linux, Mac) | 403 |
+  | API preflight | `app://weaveforge` (Electron) | 204 |
+  | Realtime handshake (`apikey`, `vsn=1.0.0`) | each of the above, `https://evil.example`, or none | 101 for all |
+
+  The API allow-list lives in `infra/oci/Caddyfile`. Realtime accepts the
+  handshake from any `Origin`, a foreign one included, so it does not check it
+  and works from the Tauri window as is. HTTP API calls take the default
+  option: 2.9 routes them through the custom scheme. Adding the two Tauri
+  origins to the Caddy allow-list would also work, but it is a production write
+  and waits for the user.
+- **Custom scheme gaps.** The scheme answers only the hosts `localhost` and
+  `app.localhost`. Windows maps every host to `app.localhost`, so models and
+  artifacts will be same-origin paths, not `app://models` and `app://artifacts`.
+  It reads whole files and has no `Range` support. That is fine for the web
+  bundle, but 2.9 (PDF relays) and 2.11 (models) need `Range`.
 - **Dependencies.** Tauri brings many duplicate crate versions. They are kept
   out of the root workspace (2.2).
 - **Memory while building.** This machine has about 4 GB free. Shell builds
