@@ -3,3 +3,5 @@
 //! Ported from `apps/desktop/src/*-proxy.ts` and `proxy-shared.ts`.
 
 pub mod address;
+
+pub mod shared;
