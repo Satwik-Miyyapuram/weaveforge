@@ -13,8 +13,9 @@ pub const CALL_TIMEOUT: Duration = Duration::from_secs(60);
 pub const MAX_IN_FLIGHT: usize = 64;
 /// Longest sidecar reply line: big result sets are allowed, a runaway one kills the sidecar.
 pub const MAX_REPLY_BYTES: usize = 256 * 1024 * 1024;
-/// How long quitting waits for the sidecar to close the database.
-pub const SHUTDOWN_GRACE: Duration = Duration::from_secs(5);
+/// How long quitting waits for the sidecar to back up and close the database. Same as Electron's
+/// `QUIT_TIMEOUT_MS` (apps/desktop/src/quit.ts): the exit backup can be hundreds of MB.
+pub const SHUTDOWN_GRACE: Duration = Duration::from_secs(15);
 
 /// Where the sidecar's code comes from.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,10 +60,15 @@ pub fn without_verbatim_prefix(path: &Path) -> PathBuf {
         .map_or_else(|| path.to_path_buf(), PathBuf::from)
 }
 
-/// The sidecar command for `source`, opening the database in `data_dir`.
+/// The sidecar command for `source`, opening the database in `data_dir` and keeping its backups in `backups_dir`.
 #[must_use]
-pub fn sidecar_config(source: &SidecarSource, data_dir: &Path) -> SidecarConfig {
+pub fn sidecar_config(
+    source: &SidecarSource,
+    data_dir: &Path,
+    backups_dir: &Path,
+) -> SidecarConfig {
     let data_dir = without_verbatim_prefix(data_dir);
+    let backups_dir = without_verbatim_prefix(backups_dir);
     let (program, args, cwd): (PathBuf, Vec<OsString>, PathBuf) = match source {
         SidecarSource::Dev { repo } => {
             let repo = without_verbatim_prefix(repo);
@@ -72,6 +78,8 @@ pub fn sidecar_config(source: &SidecarSource, data_dir: &Path) -> SidecarConfig 
                 repo.join("apps/shell/sidecar/src/main.ts").into_os_string(),
                 "--data-dir".into(),
                 data_dir.as_os_str().to_owned(),
+                "--backups".into(),
+                backups_dir.as_os_str().to_owned(),
                 "--migrations".into(),
                 repo.join("db/migrations").into_os_string(),
                 "--migrations".into(),
@@ -86,6 +94,8 @@ pub fn sidecar_config(source: &SidecarSource, data_dir: &Path) -> SidecarConfig 
                 dir.join("main.mjs").into_os_string(),
                 "--data-dir".into(),
                 data_dir.as_os_str().to_owned(),
+                "--backups".into(),
+                backups_dir.as_os_str().to_owned(),
                 "--migrations".into(),
                 dir.join("migrations").into_os_string(),
                 "--migrations".into(),
@@ -115,6 +125,7 @@ mod tests {
         let config = sidecar_config(
             &SidecarSource::Dev { repo: repo.clone() },
             &PathBuf::from("data"),
+            &PathBuf::from("backups"),
         );
         assert_eq!(config.program, PathBuf::from("node"));
         assert_eq!(config.cwd, Some(repo.clone()));
@@ -124,6 +135,8 @@ mod tests {
             repo.join("apps/shell/sidecar/src/main.ts").into_os_string(),
             "--data-dir".into(),
             "data".into(),
+            "--backups".into(),
+            "backups".into(),
             "--migrations".into(),
             repo.join("db/migrations").into_os_string(),
             "--migrations".into(),
@@ -141,6 +154,7 @@ mod tests {
                 resources: res.clone(),
             },
             &PathBuf::from("data"),
+            &PathBuf::from("backups"),
         );
         assert_eq!(
             config.program,
@@ -151,12 +165,20 @@ mod tests {
             dir.join("main.mjs").into_os_string(),
             "--data-dir".into(),
             "data".into(),
+            "--backups".into(),
+            "backups".into(),
             "--migrations".into(),
             dir.join("migrations").into_os_string(),
             "--migrations".into(),
             dir.join("migrations-local").into_os_string(),
         ];
         assert_eq!(config.args, expected);
+    }
+
+    #[test]
+    fn shutdown_grace_covers_the_exit_backup() {
+        // Electron's QUIT_TIMEOUT_MS (apps/desktop/src/quit.ts): the backup and the close fit inside it.
+        assert_eq!(SHUTDOWN_GRACE, Duration::from_secs(15));
     }
 
     #[test]
@@ -170,7 +192,7 @@ mod tests {
             },
         ];
         for source in &sources {
-            let config = sidecar_config(source, &PathBuf::from("data"));
+            let config = sidecar_config(source, &PathBuf::from("data"), &PathBuf::from("backups"));
             assert_eq!(config.call_timeout, CALL_TIMEOUT);
             assert_eq!(config.max_in_flight, MAX_IN_FLIGHT);
             assert_eq!(config.max_request_bytes, SIDECAR_MAX_LINE);
@@ -219,7 +241,11 @@ mod tests {
             },
         ];
         for source in &sources {
-            let config = sidecar_config(source, Path::new(r"\\?\C:\data"));
+            let config = sidecar_config(
+                source,
+                Path::new(r"\\?\C:\data"),
+                Path::new(r"\\?\C:\backups"),
+            );
             assert!(!verbatim(config.program.as_os_str()));
             assert!(!config.cwd.iter().any(|c| verbatim(c.as_os_str())));
             assert!(

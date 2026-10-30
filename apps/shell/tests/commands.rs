@@ -3,6 +3,7 @@
 
 use std::ffi::OsString;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use serde_json::json;
@@ -36,6 +37,24 @@ fn shell_error(message: &str) -> ShellError {
     ShellError {
         message: message.to_owned(),
     }
+}
+
+static MARKERS: AtomicUsize = AtomicUsize::new(0);
+
+/// A marker path unique to this run; the fixture creates it to ask for a restart.
+fn marker() -> PathBuf {
+    let n = MARKERS.fetch_add(1, Ordering::Relaxed);
+    std::env::temp_dir().join(format!("wf-restart-{}-{n}", std::process::id()))
+}
+
+fn restartable(extra: &[&str]) -> LocalDb {
+    let cfg = config(extra);
+    LocalDb::new(Sidecar::spawn(cfg.clone()), "/d".to_owned()).restartable(cfg)
+}
+
+async fn pid(db: &LocalDb) -> u64 {
+    let rows = db.query("pid".into(), vec![]).await.unwrap();
+    rows[0]["pid"].as_u64().unwrap()
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -145,11 +164,129 @@ async fn state_busy_is_an_error() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn reset_not_supported() {
+async fn reset_refusal_is_verbatim() {
     assert_eq!(
-        db(&[]).reset().await,
-        Err(shell_error("reset is not supported yet"))
+        db(&["--reset-refuse"]).reset().await,
+        Err(shell_error("nothing to reset"))
     );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn reset_without_restart_keeps_the_sidecar() {
+    let m = marker();
+    std::fs::write(&m, "").unwrap();
+    let arg = m.to_string_lossy().into_owned();
+    let db = restartable(&["--restart-marker", &arg]);
+    let before = pid(&db).await;
+    assert_eq!(db.reset().await, Ok(()));
+    assert_eq!(pid(&db).await, before);
+    let _ = std::fs::remove_file(&m);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn reset_with_restart_respawns() {
+    let m = marker();
+    let arg = m.to_string_lossy().into_owned();
+    let db = restartable(&["--restart-marker", &arg]);
+    let before = pid(&db).await;
+    assert_eq!(db.reset().await, Ok(()));
+    assert!(m.exists());
+    let after = pid(&db).await;
+    assert_ne!(after, before);
+    let _ = std::fs::remove_file(&m);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn state_with_restart_respawns_once() {
+    let m = marker();
+    let arg = m.to_string_lossy().into_owned();
+    let db = restartable(&["--restart-marker", &arg]);
+    let before = pid(&db).await;
+    assert_eq!(
+        db.state().await,
+        Ok(DbState {
+            failure: None,
+            data_dir: "/fake".into(),
+            restored_from: None,
+        })
+    );
+    assert_ne!(pid(&db).await, before);
+    let _ = std::fs::remove_file(&m);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn state_after_restart_opens_the_new_database() {
+    let m = marker();
+    let arg = m.to_string_lossy().into_owned();
+    let db = restartable(&["--restart-marker", &arg, "--report-open"]);
+    let state = db.state().await.unwrap();
+    assert_eq!(state.restored_from.as_deref(), Some("opened"));
+    let _ = std::fs::remove_file(&m);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn concurrent_restart_requests_restart_once() {
+    let m = marker();
+    let log = m.with_extension("spawns");
+    let (m_arg, log_arg) = (
+        m.to_string_lossy().into_owned(),
+        log.to_string_lossy().into_owned(),
+    );
+    let db = restartable(&["--restart-marker", &m_arg, "--spawn-log", &log_arg]);
+    let (a, b) = tokio::join!(db.state(), db.reset());
+    assert!(a.is_ok(), "{a:?}");
+    assert_eq!(b, Ok(()));
+    let spawns = std::fs::read_to_string(&log).unwrap().lines().count();
+    assert_eq!(spawns, 2, "one start plus one restart");
+    let _ = std::fs::remove_file(&m);
+    let _ = std::fs::remove_file(&log);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn restart_needs_a_config() {
+    let m = marker();
+    let arg = m.to_string_lossy().into_owned();
+    let db = db(&["--restart-marker", &arg]);
+    assert_eq!(
+        db.reset().await,
+        Err(shell_error(
+            "local database: restart the app to finish the reset"
+        ))
+    );
+    let _ = std::fs::remove_file(&m);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn state_without_config_still_answers() {
+    let m = marker();
+    let arg = m.to_string_lossy().into_owned();
+    let db = db(&["--restart-marker", &arg]);
+    let state = db.state().await;
+    assert_eq!(state.map(|s| s.data_dir), Ok("/fake".to_owned()));
+    let _ = std::fs::remove_file(&m);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn failed_respawn_is_reported_in_state() {
+    let m = marker();
+    let arg = m.to_string_lossy().into_owned();
+    let mut bad = config(&[]);
+    bad.program = PathBuf::from("wf-no-such-program");
+    let db = LocalDb::new(
+        Sidecar::spawn(config(&["--restart-marker", &arg])),
+        "/d".to_owned(),
+    )
+    .restartable(bad);
+    let state = db.state().await.unwrap();
+    assert_eq!(state.data_dir, "/d");
+    assert!(
+        state
+            .failure
+            .as_deref()
+            .is_some_and(|f| f.starts_with("local database failed to start")),
+        "{state:?}"
+    );
+    let _ = std::fs::remove_file(&m);
 }
 
 #[test]
