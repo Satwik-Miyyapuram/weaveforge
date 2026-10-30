@@ -170,11 +170,11 @@ Every crate, test, doc and commit in the port follows these. A spec that needs s
 | What | Rule | Example |
 |---|---|---|
 | Modules | one area per file, singular snake_case | `wf_store::vault`, `apps/shell/src/sidecar.rs` |
-| Error types | one enum per module area, named `<Area>Error`, derived with `thiserror` (workspace dep); variants say what failed, no `Error` suffix | `VaultError::Escape`, `RootError::NotAFolder` |
+| Error types | one enum per module area, named `<Area>Error`, derived with `thiserror` (a workspace dep at the root; `apps/shell` adds it as an orchestrator edit in the first lane that needs it); variants say what failed, no `Error` suffix | `VaultError::Escape`, `RootError::NotAFolder` |
 | Error texts a person sees | copied word for word from the TypeScript they replace, pinned by a `*_texts_match_*` test | `"That is not a folder."` |
 | Errors at the IPC edge | every command returns `Result<_, ShellError>`; module errors convert with `From` | `impl From<VaultError> for ShellError` |
 | Constants | SCREAMING_SNAKE, unit last, then `_MAX`/`_MIN` | `READ_BYTES_MAX`, `WATCH_DEBOUNCE_MS` |
-| Units | sizes `u64` bytes; durations `Duration` inside, `_ms: u64` only at the IPC edge; times `SystemTime` inside | `Entry { size: u64, modified: SystemTime }` |
+| Units | inside a crate, the §4.2 newtypes (`ByteLen(u64)`, `DurationMs(u64)`), `Duration` and `SystemTime`; bare `u64` with the unit last in the name only at the IPC edge | `size: ByteLen` inside, `size_bytes: u64` over IPC |
 | Paths | inside: `PathBuf`; across IPC: `/`-separated workspace-relative `String`, checked once by `wf_core::workspace::safe_workspace_path` | `"notes/a.md"` |
 | IPC shapes | match the Electron channel being replaced (field names, units, null vs missing), stated in the command's doc comment | `DbState` |
 | Commands | `#[tauri::command]` named `<area>_<verb>`; TS gets camelCase from tauri-specta | `vault_read` → `vaultRead` |
@@ -209,7 +209,12 @@ Every crate, test, doc and commit in the port follows these. A spec that needs s
 | Commit and PR title | conventional commit, step last | `feat(store): vault root confinement and file ops (P2.6)` |
 | Scopes | `core`, `store`, `wasm`, `bindings`, `shell`, `sidecar`, `bridge`, `rust-port` (docs) | |
 
-**Known drift, fixed when the file is next touched:** `apps/shell/src/sidecar.rs` `SidecarError` writes `Display` by hand (move to `thiserror`); `wf_core::search::query::MAX_MODIFIED_DAYS` keeps its ported name; the 2.4f commit title used another form.
+**Known drift.** Names written before this section stay until their file is next touched; then the touching step fixes them. Listed so nobody copies them:
+- `SidecarError` in `apps/shell/src/sidecar.rs` writes `Display` by hand.
+- Constants with `MAX_` first: `MAX_IN_FLIGHT`, `MAX_REPLY_BYTES` (`apps/shell/src/launch.rs`), `SIDECAR_MAX_LINE`, `MAX_REASON_CHARS` (`apps/shell/src/sidecar.rs`), `MAX_INDEX_TEXT_UTF16`, `MAX_FUSION_IDS` (`crates/wf-wasm/src/lib.rs`). `MAX_MODIFIED_DAYS` in wf-core keeps its ported name.
+- Shell tests use fixed pid-based temp paths instead of a `TempDir` helper (`apps/shell/src/protocol.rs`, `apps/shell/tests/commands.rs`, `apps/shell/tests/launch.rs`).
+- `wf_store::vault::Entry::size` is a bare `u64`; 2.7 moves it to `ByteLen` when it maps `Entry` to IPC.
+- Commit titles before §4.7: "Rust port 2.5: …" (#567), "… (2.4f)" (#566), "(2.4c)" and "(2.4d)" without `P`.
 
 ## 5. Agent workflow (Haiku builders, Opus reviewer, orchestrator)
 
@@ -242,8 +247,10 @@ A **lane** is one step (one PR) in flight: its own branch off the tip of `feat/r
 | File | Shared because | How a lane changes it |
 |---|---|---|
 | root `Cargo.toml`, `apps/shell/Cargo.toml` | every member and dependency | orchestrator adds the line before the builder starts |
-| `Cargo.lock`, `apps/shell/Cargo.lock` | generated | never hand-merged: take `feat/rust-port`'s copy, then `cargo metadata` re-resolves |
+| `Cargo.lock`, `apps/shell/Cargo.lock` | generated | never hand-merged: take `feat/rust-port`'s copy, re-resolve with `cargo metadata`, rerun the gates; if a lane's new dependency moved, pin it back with `cargo update -p <crate> --precise <tested version>` |
 | `crates/*/src/lib.rs`, `apps/shell/src/lib.rs` | module list, plugin setup | orchestrator adds the `pub mod` or `.plugin(...)` line |
+| `crates/*/Cargo.toml`, `apps/shell/Cargo.toml` members | dependencies of a crate several lanes build in | orchestrator adds the line before the builder starts |
+| `crates/*/tests/common/mod.rs`, `apps/shell/tests/common/mod.rs` | the crate's one copy of test helpers (§4.7) | orchestrator adds a helper; builders only call them |
 | `apps/shell/src/commands.rs` `specta_builder()` | the one list of commands | orchestrator adds the step's names to `collect_commands!` |
 | `apps/shell/bridge/bindings.ts` | generated from that list | never hand-merged: regenerate with `WF_UPDATE_BINDINGS=1 cargo test --test commands` |
 | `apps/shell/src/protocol.rs` | the custom scheme's routing | relays live in their own modules; orchestrator adds the routing lines |
@@ -251,7 +258,7 @@ A **lane** is one step (one PR) in flight: its own branch off the tip of `feat/r
 | `deny.toml`, `apps/shell/deny.toml` | one policy | orchestrator edits, a reason per skip |
 | `handoff.md` § Progress, phase docs, plan §4.7 | one log, one notation | orchestrator edits (see Progress) |
 
-A new third-party crate goes in only after `cargo deny` passes (`multiple-versions = "deny"`), and two lanes never add dependencies in the same wave.
+A new third-party crate goes in only after `cargo deny` passes (`multiple-versions = "deny"`). When more than one lane of a wave adds crates, the orchestrator adds all of them in one prep PR into `feat/rust-port` before the wave starts (one `cargo deny` run over the combined graph); lanes never add crates themselves.
 
 **Merging.** PRs merge into `feat/rust-port` one at a time, in the order they go green. After each merge, every other open lane merges `origin/feat/rust-port` into its branch (a merge, not a rebase, so no force push). The orchestrator resolves only the shared files above, regenerates lockfiles and bindings, and reruns the gates before that lane's PR may merge.
 

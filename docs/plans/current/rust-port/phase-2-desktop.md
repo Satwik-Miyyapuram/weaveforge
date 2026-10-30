@@ -134,17 +134,18 @@ A step starts once the steps it needs are merged. Shared files (plan §5.1) are 
 
 | Step | Needs | Owns |
 |---|---|---|
-| 2.6 vault | none | `crates/wf-core/src/workspace.rs`, `crates/wf-store/src/{root,vault}.rs`, `crates/wf-store/tests/*` |
+| 2.6 vault | none | creates the `crates/wf-store` crate; `crates/wf-core/src/workspace.rs`, `crates/wf-store/src/{root,vault}.rs`, `crates/wf-store/tests/{root,vault}.rs` |
 | 2.7 vault commands, watch | 2.6 | new `apps/shell/src/vault.rs`, `apps/shell/tests/vault.rs`, `apps/shell/bridge/vault.ts` |
 | 2.8 secrets, preferences | none | new `apps/shell/src/{secrets,prefs}.rs`, their tests and bridge files |
 | 2.8b local API, MCP | 2.7, 2.8 | `apps/shell/sidecar/src/api*.ts` and their tests |
-| 2.9 relays | none | new `apps/shell/src/relay/*.rs` and their tests |
-| 2.10 git, Overleaf | none | new `crates/wf-store/src/git/*.rs` and tests, then `apps/shell/src/git.rs` |
-| 2.11 embeddings | none | new `crates/wf-store/src/embed.rs` and tests, `apps/shell/src/embed.rs` |
+| 2.9a `Range` requests | none | new `apps/shell/src/range.rs` and its tests (the scheme handler calls it; routing lines in `protocol.rs` are the orchestrator's) |
+| 2.9 relays | 2.9a | new `apps/shell/src/relay/*.rs` and their tests |
+| 2.10 git, Overleaf | 2.6 | new `crates/wf-store/src/git/*.rs` and tests, then `apps/shell/src/git.rs` |
+| 2.11 embeddings | 2.6, 2.9a | new `crates/wf-store/src/embed.rs` and tests, `apps/shell/src/embed.rs` |
 | 2.12 the rest | 2.8 | one PR per area (TeX, Zotero, Mattermost, updates, log, menu, title bar, plan widget, ink), each in its own files |
 | 2.13 shim, bundle, e2e | all above | runs alone |
 
-Waves of 3: 2.6, 2.8, 2.11 → 2.7, 2.9, 2.10 → 2.8b and the 2.12 areas, three at a time → 2.13. Phases 3 and 4 get the same table when they start.
+Waves of 3: 2.6, 2.8, 2.9a → 2.7, 2.9, 2.10, 2.11 (three at a time, the fourth starts when one merges) → 2.8b and the 2.12 areas, three at a time → 2.13. A wave whose steps add crates gets the prep PR of plan §5.1 first. Phases 3 and 4 get the same table when they start.
 
 ## Done when (plan § Phase 2)
 
