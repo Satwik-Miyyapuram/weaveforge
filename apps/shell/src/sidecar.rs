@@ -34,6 +34,8 @@ pub struct SidecarConfig {
     pub program: PathBuf,
     /// Arguments after the program (script path, flags).
     pub args: Vec<OsString>,
+    /// Working directory for the child; `None` keeps the shell's.
+    pub cwd: Option<PathBuf>,
     /// Longest wait for one reply.
     pub call_timeout: Duration,
     /// Most calls waiting for a reply at once; one more gets `Busy`.
@@ -107,9 +109,12 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 /// Builds the child command, wrapped so it dies with the shell.
-fn wrapped_command(program: PathBuf, args: Vec<OsString>) -> CommandWrap {
+fn wrapped_command(program: PathBuf, args: Vec<OsString>, cwd: Option<PathBuf>) -> CommandWrap {
     let mut wrap = CommandWrap::with_new(program, move |c| {
         let _ = c.args(&args);
+        if let Some(dir) = &cwd {
+            let _ = c.current_dir(dir);
+        }
         let _ = c.stdin(Stdio::piped());
         let _ = c.stdout(Stdio::piped());
         let _ = c.stderr(Stdio::piped());
@@ -296,12 +301,13 @@ impl Sidecar {
         let SidecarConfig {
             program,
             args,
+            cwd,
             call_timeout,
             max_in_flight,
             max_request_bytes,
             max_reply_bytes,
         } = config;
-        let mut child = wrapped_command(program, args)
+        let mut child = wrapped_command(program, args, cwd)
             .spawn()
             .map_err(|e| SidecarError::Spawn(e.to_string()))?;
         let pid = child.id();
