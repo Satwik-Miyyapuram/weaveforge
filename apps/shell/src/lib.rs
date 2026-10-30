@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+pub mod app_log;
 pub mod commands;
 pub mod fetch;
 pub mod git;
@@ -16,7 +17,11 @@ pub mod range;
 pub mod relay;
 pub mod secrets;
 pub mod sidecar;
+pub mod tex;
+pub mod update_check;
 pub mod vault;
+pub mod vault_search;
+pub mod zotero_local;
 
 /// Where the static web export lives: `WF_WEB_DIST` (debug builds only), else `web/` beside the binary.
 fn web_root() -> PathBuf {
