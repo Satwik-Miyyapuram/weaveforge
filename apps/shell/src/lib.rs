@@ -71,11 +71,14 @@ fn start_local_db(app: &tauri::AppHandle) {
     let db = match (paths.app_data_dir(), paths.resource_dir()) {
         (Ok(data), Ok(resources)) => {
             let data_dir = data.join("local-db");
-            let config = launch::sidecar_config(&launch::sidecar_source(resources), &data_dir);
+            let backups_dir = data.join("local-db-backups");
+            let config =
+                launch::sidecar_config(&launch::sidecar_source(resources), &data_dir, &backups_dir);
             // Sidecar::spawn needs a Tokio runtime; setup runs outside one.
             let sidecar =
-                tauri::async_runtime::block_on(async move { sidecar::Sidecar::spawn(config) });
+                tauri::async_runtime::block_on(async { sidecar::Sidecar::spawn(config.clone()) });
             commands::LocalDb::new(sidecar, data_dir.to_string_lossy().into_owned())
+                .restartable(config)
         }
         (Err(e), _) | (_, Err(e)) => commands::LocalDb::new(
             Err(sidecar::SidecarError::Spawn(e.to_string())),

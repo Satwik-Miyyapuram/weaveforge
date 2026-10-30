@@ -59,10 +59,15 @@ pub fn without_verbatim_prefix(path: &Path) -> PathBuf {
         .map_or_else(|| path.to_path_buf(), PathBuf::from)
 }
 
-/// The sidecar command for `source`, opening the database in `data_dir`.
+/// The sidecar command for `source`, opening the database in `data_dir` and keeping its backups in `backups_dir`.
 #[must_use]
-pub fn sidecar_config(source: &SidecarSource, data_dir: &Path) -> SidecarConfig {
+pub fn sidecar_config(
+    source: &SidecarSource,
+    data_dir: &Path,
+    backups_dir: &Path,
+) -> SidecarConfig {
     let data_dir = without_verbatim_prefix(data_dir);
+    let backups_dir = without_verbatim_prefix(backups_dir);
     let (program, args, cwd): (PathBuf, Vec<OsString>, PathBuf) = match source {
         SidecarSource::Dev { repo } => {
             let repo = without_verbatim_prefix(repo);
@@ -72,6 +77,8 @@ pub fn sidecar_config(source: &SidecarSource, data_dir: &Path) -> SidecarConfig 
                 repo.join("apps/shell/sidecar/src/main.ts").into_os_string(),
                 "--data-dir".into(),
                 data_dir.as_os_str().to_owned(),
+                "--backups".into(),
+                backups_dir.as_os_str().to_owned(),
                 "--migrations".into(),
                 repo.join("db/migrations").into_os_string(),
                 "--migrations".into(),
@@ -86,6 +93,8 @@ pub fn sidecar_config(source: &SidecarSource, data_dir: &Path) -> SidecarConfig 
                 dir.join("main.mjs").into_os_string(),
                 "--data-dir".into(),
                 data_dir.as_os_str().to_owned(),
+                "--backups".into(),
+                backups_dir.as_os_str().to_owned(),
                 "--migrations".into(),
                 dir.join("migrations").into_os_string(),
                 "--migrations".into(),
@@ -115,6 +124,7 @@ mod tests {
         let config = sidecar_config(
             &SidecarSource::Dev { repo: repo.clone() },
             &PathBuf::from("data"),
+            &PathBuf::from("backups"),
         );
         assert_eq!(config.program, PathBuf::from("node"));
         assert_eq!(config.cwd, Some(repo.clone()));
@@ -124,6 +134,8 @@ mod tests {
             repo.join("apps/shell/sidecar/src/main.ts").into_os_string(),
             "--data-dir".into(),
             "data".into(),
+            "--backups".into(),
+            "backups".into(),
             "--migrations".into(),
             repo.join("db/migrations").into_os_string(),
             "--migrations".into(),
@@ -141,6 +153,7 @@ mod tests {
                 resources: res.clone(),
             },
             &PathBuf::from("data"),
+            &PathBuf::from("backups"),
         );
         assert_eq!(
             config.program,
@@ -151,6 +164,8 @@ mod tests {
             dir.join("main.mjs").into_os_string(),
             "--data-dir".into(),
             "data".into(),
+            "--backups".into(),
+            "backups".into(),
             "--migrations".into(),
             dir.join("migrations").into_os_string(),
             "--migrations".into(),
@@ -170,7 +185,7 @@ mod tests {
             },
         ];
         for source in &sources {
-            let config = sidecar_config(source, &PathBuf::from("data"));
+            let config = sidecar_config(source, &PathBuf::from("data"), &PathBuf::from("backups"));
             assert_eq!(config.call_timeout, CALL_TIMEOUT);
             assert_eq!(config.max_in_flight, MAX_IN_FLIGHT);
             assert_eq!(config.max_request_bytes, SIDECAR_MAX_LINE);
@@ -219,7 +234,11 @@ mod tests {
             },
         ];
         for source in &sources {
-            let config = sidecar_config(source, Path::new(r"\\?\C:\data"));
+            let config = sidecar_config(
+                source,
+                Path::new(r"\\?\C:\data"),
+                Path::new(r"\\?\C:\backups"),
+            );
             assert!(!verbatim(config.program.as_os_str()));
             assert!(!config.cwd.iter().any(|c| verbatim(c.as_os_str())));
             assert!(

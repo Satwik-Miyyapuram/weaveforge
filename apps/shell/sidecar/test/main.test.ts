@@ -15,17 +15,21 @@ const migrations = [path.join(repoRoot, "db/migrations"), path.join(repoRoot, "d
 
 test("parseArgs reads a full valid argv", () => {
   assert.deepEqual(
-    parseArgs(["--data-dir", "d/db", "--migrations", "m1", "--migrations", "m2"]),
-    { dataDir: path.resolve("d/db"), migrations: [path.resolve("m1"), path.resolve("m2")] },
+    parseArgs(["--data-dir", "d/db", "--migrations", "m1", "--migrations", "m2", "--backups", "b"]),
+    { dataDir: path.resolve("d/db"), migrations: [path.resolve("m1"), path.resolve("m2")], backupsDir: path.resolve("b") },
   );
 });
 
 test("parseArgs names a missing --data-dir", () => {
-  assert.equal(parseArgs(["--migrations", "m1"]), "missing --data-dir");
+  assert.equal(parseArgs(["--migrations", "m1", "--backups", "b"]), "missing --data-dir");
 });
 
 test("parseArgs names a missing --migrations", () => {
-  assert.equal(parseArgs(["--data-dir", "d"]), "missing --migrations");
+  assert.equal(parseArgs(["--data-dir", "d", "--backups", "b"]), "missing --migrations");
+});
+
+test("parseArgs names a missing --backups", () => {
+  assert.equal(parseArgs(["--data-dir", "d", "--migrations", "m"]), "missing --backups");
 });
 
 test("parseArgs names a trailing flag with no value", () => {
@@ -34,23 +38,31 @@ test("parseArgs names a trailing flag with no value", () => {
 
 test("parseArgs names an unknown argument", () => {
   assert.equal(
-    parseArgs(["--data-dir", "d", "--migrations", "m", "--bogus"]),
+    parseArgs(["--data-dir", "d", "--migrations", "m", "--backups", "b", "--bogus"]),
     "unknown argument: --bogus",
   );
 });
 
 test("query passes [] as params when none are given", async () => {
   const handlers = sidecarHandlers({
-    query: async (sql, params) => ({ ok: true, value: [{ sql, params }] }),
-    state: () => ({ failure: null, dataDir: "d", restoredFrom: null }),
+    host: {
+      query: async (sql, params) => ({ ok: true, value: [{ sql, params }] }),
+      state: () => ({ failure: null, dataDir: "d", restoredFrom: null }),
+      reset: async () => ({ ok: true, value: null }),
+    },
+    restartWanted: () => false,
   });
   assert.deepEqual(await handlers.query!({ sql: "select 1" }), [{ sql: "select 1", params: [] }]);
 });
 
 test("query rejects bad params", async () => {
   const handlers = sidecarHandlers({
-    query: async () => ({ ok: true, value: [] }),
-    state: () => ({ failure: null, dataDir: "d", restoredFrom: null }),
+    host: {
+      query: async () => ({ ok: true, value: [] }),
+      state: () => ({ failure: null, dataDir: "d", restoredFrom: null }),
+      reset: async () => ({ ok: true, value: null }),
+    },
+    restartWanted: () => false,
   });
   for (const bad of ["x", null, {}, { sql: 1 }, { sql: "select 1", params: "a" }, { sql: "select 1", params: { 0: 1 } }]) {
     await assert.rejects(() => handlers.query!(bad), { message: "query needs { sql, params? }" });
@@ -59,35 +71,92 @@ test("query rejects bad params", async () => {
 
 test("query rejects with the host's message on failure", async () => {
   const handlers = sidecarHandlers({
-    query: async () => ({ ok: false, message: "nope" }),
-    state: () => ({ failure: null, dataDir: "d", restoredFrom: null }),
+    host: {
+      query: async () => ({ ok: false, message: "nope" }),
+      state: () => ({ failure: null, dataDir: "d", restoredFrom: null }),
+      reset: async () => ({ ok: true, value: null }),
+    },
+    restartWanted: () => false,
   });
   await assert.rejects(() => handlers.query!({ sql: "select 1" }), { message: "nope" });
 });
 
+test("state carries the restart flag", async () => {
+  let restart = false;
+  const handlers = sidecarHandlers({
+    host: {
+      query: async () => ({ ok: true, value: [] }),
+      state: () => ({ failure: null, dataDir: "d", restoredFrom: null }),
+      reset: async () => ({ ok: true, value: null }),
+    },
+    restartWanted: () => restart,
+  });
+  assert.deepEqual(await handlers.state!(undefined), { failure: null, dataDir: "d", restoredFrom: null, restart: false });
+  restart = true;
+  assert.deepEqual(await handlers.state!(undefined), { failure: null, dataDir: "d", restoredFrom: null, restart: true });
+});
+
+test("reset returns the restart flag when the host resets", async () => {
+  const handlers = sidecarHandlers({
+    host: {
+      query: async () => ({ ok: true, value: [] }),
+      state: () => ({ failure: null, dataDir: "d", restoredFrom: null }),
+      reset: async () => ({ ok: true, value: null }),
+    },
+    restartWanted: () => true,
+  });
+  assert.deepEqual(await handlers.reset!(undefined), { restart: true });
+});
+
+test("reset rejects with the host's message when the host refuses", async () => {
+  const handlers = sidecarHandlers({
+    host: {
+      query: async () => ({ ok: true, value: [] }),
+      state: () => ({ failure: null, dataDir: "d", restoredFrom: null }),
+      reset: async () => ({ ok: false, message: "nope" }),
+    },
+    restartWanted: () => false,
+  });
+  await assert.rejects(() => handlers.reset!(undefined), { message: "nope" });
+});
+
 test("stats reports a numeric pid and rss", async () => {
   const handlers = sidecarHandlers({
-    query: async () => ({ ok: true, value: [] }),
-    state: () => ({ failure: null, dataDir: "d", restoredFrom: null }),
+    host: {
+      query: async () => ({ ok: true, value: [] }),
+      state: () => ({ failure: null, dataDir: "d", restoredFrom: null }),
+      reset: async () => ({ ok: true, value: null }),
+    },
+    restartWanted: () => false,
   });
   const stats = (await handlers.stats!(undefined)) as { pid: number; rss: number };
   assert.equal(typeof stats.pid, "number");
   assert.equal(typeof stats.rss, "number");
 });
 
-test("sidecar exposes exactly query, state and stats", () => {
+test("sidecar exposes exactly query, reset, state and stats", () => {
   const handlers = sidecarHandlers({
-    query: async () => ({ ok: true, value: [] }),
-    state: () => ({ failure: null, dataDir: "d", restoredFrom: null }),
+    host: {
+      query: async () => ({ ok: true, value: [] }),
+      state: () => ({ failure: null, dataDir: "d", restoredFrom: null }),
+      reset: async () => ({ ok: true, value: null }),
+    },
+    restartWanted: () => false,
   });
-  assert.deepEqual(Object.keys(handlers), ["query", "state", "stats"]);
+  assert.deepEqual(Object.keys(handlers).sort(), ["query", "reset", "state", "stats"]);
 });
 
 /** Spawn the sidecar on `dataDir` and return it with a reader over its stdout lines. */
-function spawnSidecar(dataDir: string) {
+function spawnSidecar(dataDir: string, backupsDir: string) {
   const child = spawn(
     process.execPath,
-    ["--import", "tsx", mainSrc, "--data-dir", dataDir, "--migrations", migrations[0]!, "--migrations", migrations[1]!],
+    [
+      "--import", "tsx", mainSrc,
+      "--data-dir", dataDir,
+      "--migrations", migrations[0]!,
+      "--migrations", migrations[1]!,
+      "--backups", backupsDir,
+    ],
     { cwd: repoRoot, stdio: ["pipe", "pipe", "pipe"] },
   );
   let stderr = "";
@@ -110,11 +179,12 @@ async function replyTo(
   }
 }
 
-test("sidecar answers query and stats, then exits 0 and releases the lock", { timeout: 180_000 }, async () => {
+test("sidecar answers query and stats, backs up after a write, then exits 0 and releases the lock", { timeout: 180_000 }, async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "wf-sidecar-"));
   const dataDir = path.join(tmp, "db");
+  const backupsDir = path.join(tmp, "backups");
   const lock = dataDir + ".lock";
-  const { child, lines, exited, stderr } = spawnSidecar(dataDir);
+  const { child, lines, exited, stderr } = spawnSidecar(dataDir, backupsDir);
   try {
     child.stdin!.write('{"id":1,"method":"query","params":{"sql":"select 1 as n"}}\n');
     const first = await replyTo(lines, 1);
@@ -139,10 +209,17 @@ test("sidecar answers query and stats, then exits 0 and releases the lock", { ti
     assert.equal(second.ok, true, stderr());
     assert.ok((second.value as { rss: number }).rss > 0, stderr());
 
+    // `public` is not writable by the app role; a temp table is still a write.
+    child.stdin!.write('{"id":6,"method":"query","params":{"sql":"create temp table t(x int)"}}\n');
+    const write = await replyTo(lines, 6);
+    assert.equal(write.ok, true, stderr());
+
     child.stdin!.end();
     const code = await exited;
     assert.equal(code, 0, stderr());
     assert.equal(fs.existsSync(lock), false, stderr());
+    // The shutdown backup runs after the write, so one backup file exists.
+    assert.equal(fs.readdirSync(backupsDir).length, 1, stderr());
   } finally {
     if (child.exitCode === null && child.signalCode === null) child.kill();
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -156,7 +233,7 @@ test("sidecar exits 3 when the database lock is held by a live process", { timeo
     dataDir + ".lock",
     JSON.stringify({ pid: process.pid, app: "test", at: new Date().toISOString() }),
   );
-  const { child, exited, stderr } = spawnSidecar(dataDir);
+  const { child, exited, stderr } = spawnSidecar(dataDir, path.join(tmp, "backups"));
   try {
     const code = await exited;
     assert.equal(code, 3);

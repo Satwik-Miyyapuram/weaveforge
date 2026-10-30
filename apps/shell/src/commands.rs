@@ -1,10 +1,11 @@
 //! Tauri commands for the local database, served by the Node sidecar (design: phase-2-desktop.md § 2.4).
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use serde_json::Value;
 
-use crate::sidecar::{Sidecar, SidecarError};
+use crate::sidecar::{Sidecar, SidecarConfig, SidecarError};
 
 /// The error every command returns. The bridge shim throws `new Error(message)`.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
@@ -49,9 +50,18 @@ impl From<SidecarError> for ShellError {
     }
 }
 
+/// Whether a sidecar reply asks for the sidecar to be restarted.
+fn asks_restart(reply: &Value) -> bool {
+    reply.get("restart") == Some(&Value::Bool(true))
+}
+
 /// Tauri-managed handle to the sidecar. A failed spawn is kept, so every command can report it.
 pub struct LocalDb {
-    sidecar: Result<Sidecar, ShellError>,
+    sidecar: tokio::sync::RwLock<Result<Sidecar, ShellError>>,
+    config: Option<SidecarConfig>,
+    /// Bumped on every restart, only under the write lock: a restart asked for by a sidecar that is already
+    /// gone is skipped, so concurrent callers restart once.
+    generation: AtomicU64,
     data_dir: String,
 }
 
@@ -60,14 +70,25 @@ impl LocalDb {
     #[must_use]
     pub fn new(sidecar: Result<Sidecar, SidecarError>, data_dir: String) -> Self {
         Self {
-            sidecar: sidecar.map_err(ShellError::from),
+            sidecar: tokio::sync::RwLock::new(sidecar.map_err(ShellError::from)),
+            config: None,
+            generation: AtomicU64::new(0),
             data_dir,
         }
     }
 
+    /// Lets the handle respawn the sidecar from `config`. Only a restartable database can finish a reset
+    /// that needs a fresh sidecar.
+    #[must_use]
+    pub fn restartable(mut self, config: SidecarConfig) -> Self {
+        self.config = Some(config);
+        self
+    }
+
     /// Runs `sql` with `params` and returns the rows.
     pub async fn query(&self, sql: String, params: Vec<Value>) -> Result<Vec<Value>, ShellError> {
-        let sidecar = self.sidecar.as_ref().map_err(Clone::clone)?;
+        let sidecar = self.sidecar.read().await;
+        let sidecar = sidecar.as_ref().map_err(Clone::clone)?;
         let reply = sidecar
             .call("query", serde_json::json!({"sql": sql, "params": params}))
             .await
@@ -82,26 +103,80 @@ impl LocalDb {
     /// reported in `failure`; a transient error (busy, timeout, too large, an error reply) is returned as `Err`
     /// so the caller retries instead of showing the reset screen.
     pub async fn state(&self) -> Result<DbState, ShellError> {
-        let sidecar = match &self.sidecar {
+        let (state, restart) = self.read_state().await?;
+        let Some(asked_by) = restart else {
+            return Ok(state);
+        };
+        self.restart(asked_by).await?;
+        self.read_state().await.map(|(state, _)| state)
+    }
+
+    /// Reads the state and, when the sidecar asks to be restarted to finish a move, its generation.
+    async fn read_state(&self) -> Result<(DbState, Option<u64>), ShellError> {
+        let sidecar = self.sidecar.read().await;
+        let generation = self.generation.load(Ordering::Acquire);
+        let sidecar = match &*sidecar {
             Ok(sidecar) => sidecar,
-            Err(e) => return Ok(self.down(e.message.clone())),
+            Err(e) => return Ok((self.down(e.message.clone()), None)),
         };
         match sidecar.call("state", Value::Null).await {
-            Err(e @ SidecarError::Exited) => Ok(self.down(ShellError::from(e).message)),
+            Err(e @ SidecarError::Exited) => Ok((self.down(ShellError::from(e).message), None)),
             Err(e) => Err(ShellError::from(e)),
-            Ok(reply) => Ok(serde_json::from_value::<DbState>(reply)
-                .unwrap_or_else(|_| self.down("local database: bad state reply".to_owned()))),
+            Ok(reply) => {
+                let restart = asks_restart(&reply).then_some(generation);
+                let state = serde_json::from_value::<DbState>(reply)
+                    .unwrap_or_else(|_| self.down("local database: bad state reply".to_owned()));
+                Ok((state, restart))
+            }
         }
     }
 
-    /// Resets the database. The reset lifecycle lands in step 2.4d.
+    /// Replaces the sidecar of generation `asked_by` with a fresh one from the saved config; does nothing when it
+    /// was already replaced. A failed spawn is stored, as at startup.
+    async fn restart(&self, asked_by: u64) -> Result<(), ShellError> {
+        let Some(config) = &self.config else {
+            return Err(shell_error(
+                "local database: restart the app to finish the reset",
+            ));
+        };
+        let mut sidecar = self.sidecar.write().await;
+        if self.generation.load(Ordering::Acquire) != asked_by {
+            return Ok(());
+        }
+        if let Ok(old) = &*sidecar {
+            let _ = old.shutdown(crate::launch::SHUTDOWN_GRACE).await;
+        }
+        *sidecar = Sidecar::spawn(config.clone()).map_err(ShellError::from);
+        let _ = self.generation.fetch_add(1, Ordering::AcqRel);
+        sidecar.as_ref().map(|_| ()).map_err(Clone::clone)
+    }
+
+    /// Resets the database. A reset that can only finish in a fresh process restarts the sidecar, which then
+    /// applies it; the sidecar may be restarted by this call.
     pub async fn reset(&self) -> Result<(), ShellError> {
-        Err(shell_error("reset is not supported yet"))
+        let (reply, generation) = {
+            let sidecar = self.sidecar.read().await;
+            let generation = self.generation.load(Ordering::Acquire);
+            let sidecar = sidecar.as_ref().map_err(Clone::clone)?;
+            let reply = sidecar
+                .call("reset", Value::Null)
+                .await
+                .map_err(ShellError::from)?;
+            (reply, generation)
+        };
+        if !reply.is_object() {
+            return Err(shell_error("local database: bad reset reply"));
+        }
+        if asks_restart(&reply) {
+            self.restart(generation).await?;
+        }
+        Ok(())
     }
 
     /// Stops the sidecar, waiting up to `grace`. Returns whether it exited cleanly.
     pub async fn shutdown(&self, grace: Duration) -> bool {
-        match &self.sidecar {
+        let sidecar = self.sidecar.read().await;
+        match &*sidecar {
             Ok(sidecar) => sidecar.shutdown(grace).await,
             Err(_) => false,
         }

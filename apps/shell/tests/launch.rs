@@ -17,7 +17,8 @@ async fn dev_sidecar_opens_the_database() {
     let data = std::env::temp_dir()
         .join(format!("wf-launch-test-{}", std::process::id()))
         .join("local-db");
-    let config = sidecar_config(&SidecarSource::Dev { repo }, &data);
+    let backups = data.parent().unwrap().join("local-db-backups");
+    let config = sidecar_config(&SidecarSource::Dev { repo }, &data, &backups);
     let db = LocalDb::new(Sidecar::spawn(config), data.to_string_lossy().into_owned());
     let rows = db
         .query("select 1 as x".to_owned(), Vec::new())
