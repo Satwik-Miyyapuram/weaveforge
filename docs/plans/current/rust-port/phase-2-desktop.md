@@ -85,6 +85,65 @@ few tokens, so the cost is not worth it. The user will re-enter those secrets
 once, and the app says so. Web storage under the old `app://weaveforge` origin is not carried.
 2.5 lists what the UI keeps there and proves nothing in that list is lost data.
 
+### How 2.5 does it
+
+- The sidecar runs the copy (`apps/shell/sidecar/src/migrate.ts`) before it
+  opens the database, when the shell passes `--migrate-from <Electron dir>`.
+  The shell passes it only for the bundled sidecar (`electron_data_dir`), so a
+  dev run never touches the installed app's data. Electron's dir is Tauri's
+  `config_dir()/WeaveForge` on every OS.
+- Copied: `local-db`, `local-db-backups`, `preferences.json`, `models`,
+  `artifacts`, `weaveforge.log`, `overleaf-git`. Each item is copied into
+  `<new>/.migrating`, and only once every copy succeeded is each one renamed
+  into place. A rerun skips items already in place, so a crash mid-rename
+  converges.
+- Locks: Electron's `local-db`, and the workspace database
+  (`<vault-root>/.weaveforge/db`) when Electron's preferences name a folder.
+  If either is held by a live process, the sidecar exits with code 3 and asks
+  the user to close the old app; the next start tries again. A stale lock is
+  taken over as Electron does. Both markers are written while the locks are
+  still held.
+- Markers: `<old>/migrated` (`{to, at}`) for the Electron warning, then
+  `<new>/migrated-from-electron` (`{from, at, copied, secretsLeftBehind}`),
+  written last and atomically; while it exists the copy never runs again. A
+  failed copy stops the sidecar (exit 1) instead of opening an empty
+  database, which would hide the user's data on every later start.
+- Electron (`apps/desktop/src/migrated-notice.ts`) shows a warning dialog on
+  start when the marker is there.
+- Not copied: the workspace database. It stays in the folder; **2.7** must
+  pass the workspace root to the sidecar and open the database there as
+  Electron does (`databaseDirFor`, `relocateDatabaseOnce`, workspace backups
+  under `.weaveforge`). The home-config fallback for the folder
+  (`readHomeConfig`) is not read during the copy; 2.7 handles it with the rest.
+- **2.8** reads preferences only after the sidecar has started (the copy has
+  run), and uses `secretsLeftBehind` to tell the user which tokens to re-enter.
+- The copy is TypeScript in the sidecar; phase 3 ports it to Rust with the
+  rest of the sidecar.
+- A large database delays the first reply on the first start; the shell's 60 s
+  call timeout covers several GB on a local disk.
+
+### Web storage left behind (2.5 inventory)
+
+Every `localStorage`, `sessionStorage` and IndexedDB use in `apps/web/src` was
+classified. None holds data the user cannot get back:
+
+- About 45 preferences (theme, layout, explorer state, filters, reader and ink
+  tool settings, last project, recent searches). Defaults rebuild them.
+- About 10 caches (screen cache, search index, embeddings, PDF text and bytes,
+  reference lookups, startup snapshot, graph state also kept in the
+  database). Each is rebuilt from the database or the network; embeddings
+  cost a re-index.
+- 3 secrets, all session-scoped (the wrapped MCP session, the Overleaf
+  workshop session id; the BYOK key is never in web storage). The user signs
+  in again.
+- One caveat: paper HTML saved by "free copy" without a workspace folder lives
+  only in IndexedDB (`weaveforge-paper-html`). It can be fetched again from
+  its URL unless the page is gone. With a folder it is a file under
+  `papers/html/`, which stays.
+- `wf.tags.deferredReconcile` queues tag-link updates that failed offline;
+  losing it means the links catch up on the next save of that note
+  (`note-tags.ts`).
+
 ## Steps (one PR each, into `feat/rust-port`)
 
 1. **2.1** this doc.

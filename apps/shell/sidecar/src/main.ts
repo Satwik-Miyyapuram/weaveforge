@@ -6,24 +6,27 @@ import { errorMessage } from "@weaveforge/core";
 import type { LocalDbHost } from "../../../desktop/src/local-db-host";
 import { acquireDbLock, DatabaseInUseError, releaseDbLock } from "../../../desktop/src/local-db-lock";
 import { BACKUP_EVERY_MS, createLifecycle } from "./lifecycle";
+import { migrateFromElectron } from "./migrate";
 import { serve, type Handlers } from "./wire";
 
 /** Parsed command line. */
-export interface SidecarArgs { dataDir: string; migrations: string[]; backupsDir: string }
+export interface SidecarArgs { dataDir: string; migrations: string[]; backupsDir: string; migrateFrom?: string }
 
 /** `--data-dir <dir>` and `--backups <dir>` once (required), `--migrations <dir>` one or more times (at least one). */
 export function parseArgs(argv: readonly string[]): SidecarArgs | string {
   let dataDir: string | undefined;
   let backupsDir: string | undefined;
+  let migrateFrom: string | undefined;
   const migrations: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
-    if (arg === "--data-dir" || arg === "--migrations" || arg === "--backups") {
+    if (arg === "--data-dir" || arg === "--migrations" || arg === "--backups" || arg === "--migrate-from") {
       const value = argv[i + 1];
       if (value === undefined) return `${arg} needs a value`;
       i++;
       if (arg === "--data-dir") dataDir = path.resolve(value);
       else if (arg === "--backups") backupsDir = path.resolve(value);
+      else if (arg === "--migrate-from") migrateFrom = path.resolve(value);
       else migrations.push(path.resolve(value));
     } else {
       return `unknown argument: ${arg}`;
@@ -32,7 +35,29 @@ export function parseArgs(argv: readonly string[]): SidecarArgs | string {
   if (dataDir === undefined) return "missing --data-dir";
   if (migrations.length === 0) return "missing --migrations";
   if (backupsDir === undefined) return "missing --backups";
-  return { dataDir, migrations, backupsDir };
+  if (migrateFrom === undefined) return { dataDir, migrations, backupsDir };
+  return { dataDir, migrations, backupsDir, migrateFrom };
+}
+
+/** Copies Electron's data into `newDir` once; false when the sidecar must not open a database. */
+function migrateOldData(oldDir: string, newDir: string): boolean {
+  try {
+    const outcome = migrateFromElectron({ oldDir, newDir });
+    if (outcome.kind === "busy") {
+      process.stderr.write(
+        `weaveforge-sidecar: the old WeaveForge app is running; close it so its data can be copied (${outcome.reason})\n`,
+      );
+      process.exitCode = 3;
+      return false;
+    }
+    process.stderr.write(`[migrate] ${JSON.stringify(outcome)}\n`);
+    return true;
+  } catch (e) {
+    // Opening an empty database now would hide the user's data on every later start.
+    process.stderr.write("weaveforge-sidecar: copying the old app's data failed: " + errorMessage(e) + "\n");
+    process.exitCode = 1;
+    return false;
+  }
 }
 
 /** The calls the shell can make. */
@@ -82,8 +107,9 @@ async function main(): Promise<void> {
     process.exitCode = 2;
     return;
   }
-  const { dataDir, migrations, backupsDir } = parsed;
+  const { dataDir, migrations, backupsDir, migrateFrom } = parsed;
 
+  if (migrateFrom !== undefined && !migrateOldData(migrateFrom, path.dirname(dataDir))) return;
   fs.mkdirSync(path.dirname(dataDir), { recursive: true });
   try {
     // The lock stops a second process from writing the same PGlite files.
