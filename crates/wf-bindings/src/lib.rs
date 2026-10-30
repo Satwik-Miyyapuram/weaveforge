@@ -36,6 +36,7 @@ pub fn types() -> Types {
         .register::<wf_core::search::query::SearchKind>()
         .register::<wf_core::search::query::ParsedQuery>()
         .register::<wf_core::search::fusion::RankedList>()
+        .register::<wf_core::search::excerpt::ExcerptRange>()
 }
 
 /// Render the full bindings file.

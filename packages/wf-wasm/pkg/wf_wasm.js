@@ -1,6 +1,32 @@
 /* @ts-self-types="./wf_wasm.d.ts" */
 
 /**
+ * [`wf_core::search::excerpt::build_excerpt`]: a snippet of `body` around the
+ * densest cluster of `terms`, as `{ text, highlights }` where `text` is UTF-16
+ * code units (the TS wrapper turns them into a string, lone surrogates kept).
+ * `max_chars` defaults to 240 and `single_line` to true.
+ *
+ * # Errors
+ *
+ * Fails if `body` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `terms`
+ * do (each counting its length + 1), or if `terms` is not an array of strings.
+ * @param {string} body
+ * @param {any} terms
+ * @param {number | null} [max_chars]
+ * @param {boolean | null} [single_line]
+ * @returns {any}
+ */
+export function buildExcerpt(body, terms, max_chars, single_line) {
+    const ptr0 = passStringToWasm0(body, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.buildExcerpt(ptr0, len0, terms, isLikeNone(max_chars) ? Number.MAX_SAFE_INTEGER : (max_chars) >>> 0, isLikeNone(single_line) ? 0xFFFFFF : single_line ? 1 : 0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return takeFromExternrefTable0(ret[0]);
+}
+
+/**
  * [`wf_core::core_info`] as a plain JS object (`CoreInfo` in `bindings.ts`).
  *
  * # Errors
@@ -271,6 +297,11 @@ function __wbg_get_imports() {
         __wbindgen_generic_0000000000000002: function(arg0, arg1) {
             // Cast intrinsic for `Ref(String) -> Externref`.
             const ret = getStringFromWasm0(arg0, arg1);
+            return ret;
+        },
+        __wbindgen_generic_0000000000000003: function(arg0) {
+            // Cast intrinsic for `U64 -> Externref`.
+            const ret = BigInt.asUintN(64, arg0);
             return ret;
         },
         __wbindgen_init_externref_table: function() {

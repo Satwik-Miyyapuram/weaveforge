@@ -21,11 +21,12 @@ import init, {
   parseQuery as rawParseQuery,
   maxFusionIds as rawMaxFusionIds,
   fuseRankings as rawFuseRankings,
+  buildExcerpt as rawBuildExcerpt,
 } from "../pkg/wf_wasm.js";
-import type { CoreInfo, ParsedQuery, RankedList, SearchKind, TokenizerOptions } from "./bindings.js";
+import type { CoreInfo, ExcerptRange, ParsedQuery, RankedList, SearchKind, TokenizerOptions } from "./bindings.js";
 
 // RankedList stays internal: its generated `weight` allows null, which Rust rejects.
-export type { CoreInfo, ParsedQuery, SearchKind, TokenizerOptions };
+export type { CoreInfo, ExcerptRange, ParsedQuery, SearchKind, TokenizerOptions };
 export { init, initSync };
 
 /** Facts about this core build, such as its version. */
@@ -62,6 +63,35 @@ export function indexTerms(text: string, options: TokenizerOptions): string[] {
 export function parseQuery(query: string): ParsedQuery {
   checkIndexText(query);
   return rawParseQuery(query) as ParsedQuery;
+}
+
+/**
+ * A snippet of `body` around the densest cluster of `terms`, like `buildExcerpt`
+ * in @weaveforge/core. Offsets are UTF-16 units into `text`.
+ */
+export function buildExcerpt(
+  body: string,
+  terms: readonly string[],
+  options: { maxChars?: number; singleLine?: boolean } = {},
+): { text: string; highlights: ExcerptRange[] } {
+  checkIndexText(body);
+  const max = rawMaxIndexTextUtf16();
+  // Each term counts its length + 1, so many empty terms are capped too.
+  const total = terms.reduce((sum, term) => sum + term.length + 1, 0);
+  if (total > max) {
+    throw new RangeError(`terms need ${total} UTF-16 units (length + 1 each); MAX_INDEX_TEXT_UTF16 is ${max}`);
+  }
+  checkU32("maxChars", options.maxChars);
+  const raw = rawBuildExcerpt(body, terms, options.maxChars, options.singleLine) as {
+    text: number[];
+    highlights: ExcerptRange[];
+  };
+  // Chunks keep each spread under the engine's argument limit.
+  let text = "";
+  for (let i = 0; i < raw.text.length; i += 8192) {
+    text += String.fromCharCode(...raw.text.slice(i, i + 8192));
+  }
+  return { text, highlights: raw.highlights };
 }
 
 /** Most ids all lists together may pass to `fuseRankings` (Rust `MAX_FUSION_IDS`). */

@@ -13,16 +13,18 @@ pub const EXCERPT_DEFAULT_CHARS: usize = 240;
 const ELLIPSIS: u16 = 0x2026;
 
 /// A highlight, as UTF-16 offsets into `Excerpt::text`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, specta::Type)]
 pub struct ExcerptRange {
     /// First unit.
+    #[specta(type = u32)]
     pub start: usize,
     /// One past the last unit.
+    #[specta(type = u32)]
     pub end: usize,
 }
 
 /// A snippet with its highlights.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, serde::Serialize)]
 pub struct Excerpt {
     /// UTF-16 snippet, with a leading/trailing `…` (U+2026) where it was cut.
     pub text: Vec<u16>,

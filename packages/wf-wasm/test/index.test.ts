@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+  buildExcerpt,
   coreInfo,
   fuseRankings,
   indexTerms,
@@ -13,7 +14,7 @@ import {
   type ParsedQuery,
   type TokenizerOptions,
 } from "../src/index.js";
-import { fuseRankings as rawFuseRankings } from "../pkg/wf_wasm.js";
+import { buildExcerpt as rawBuildExcerpt, fuseRankings as rawFuseRankings } from "../pkg/wf_wasm.js";
 
 const pkgDir = new URL("../pkg/", import.meta.url);
 initSync({ module: readFileSync(new URL("wf_wasm_bg.wasm", pkgDir)) });
@@ -208,4 +209,66 @@ test("index.ts does not re-export RankedList", () => {
   // Its generated weight is `number | null`, but Rust rejects null; the wrapper's {items, weight?} is the public shape.
   const src = read(new URL("../src/index.ts", import.meta.url));
   assert.doesNotMatch(src, /export type \{[^}]*RankedList/);
+});
+
+test("buildExcerpt highlights each term in a short body", () => {
+  assert.deepEqual(buildExcerpt("Graph neural networks", ["GRAPH", "Networks"]), {
+    text: "Graph neural networks",
+    highlights: [
+      { start: 0, end: 5 },
+      { start: 13, end: 21 },
+    ],
+  });
+  assert.deepEqual(buildExcerpt("", ["x"]), { text: "", highlights: [] });
+});
+
+test("buildExcerpt keeps newlines only with singleLine false", () => {
+  const body = "line one\n\nline two";
+  assert.equal(buildExcerpt(body, ["two"]).text, "line one line two");
+  assert.equal(buildExcerpt(body, ["two"], { singleLine: false }).text, body);
+});
+
+test("buildExcerpt keeps a split surrogate half instead of U+FFFD", () => {
+  // The 40-unit window cuts through the emoji run, so one edge splits a pair.
+  const emoji = "\u{1f600}".repeat(30);
+  const { text, highlights } = buildExcerpt(`${emoji}hit${emoji}`, ["hit"], { maxChars: 40 });
+  assert.ok(!text.includes("�"));
+  // A lone surrogate survives (split emoji at the cut), like the TS original.
+  assert.match(text, /\p{Cs}/u);
+  assert.equal(highlights.length, 1);
+  assert.equal(text.slice(highlights[0]!.start, highlights[0]!.end), "hit");
+});
+
+test("buildExcerpt decodes a text longer than one 8192-unit chunk", () => {
+  const { text, highlights } = buildExcerpt("word ".repeat(20_000), ["word"], { maxChars: 50_000 });
+  assert.ok(text.length > 3 * 8192);
+  assert.ok(highlights.length > 1000);
+  for (const h of highlights) assert.equal(text.slice(h.start, h.end), "word");
+});
+
+test("buildExcerpt rejects a body over MAX_INDEX_TEXT_UTF16 before WASM", () => {
+  const huge = "a".repeat(2 ** 24 + 1);
+  assert.throws(() => buildExcerpt(huge, ["a"]), (e: unknown) => e instanceof RangeError && /MAX_INDEX_TEXT_UTF16/.test(e.message));
+});
+
+test("buildExcerpt rejects terms over MAX_INDEX_TEXT_UTF16 in total before WASM", () => {
+  // Each term counts its length + 1, so a flood of empty terms is capped too.
+  // Two of these fill the cap exactly; one more empty term is over it.
+  const half = "a".repeat(2 ** 23 - 1);
+  const message = /^terms need 16777217 UTF-16 units \(length \+ 1 each\); MAX_INDEX_TEXT_UTF16 is 16777216$/;
+  assert.throws(() => buildExcerpt("x", [half, half, ""]), (e: unknown) => e instanceof RangeError && message.test(e.message));
+  assert.equal(buildExcerpt("x", [half, half]).text, "x");
+});
+
+test("buildExcerpt raw export rejects terms over MAX_INDEX_TEXT_UTF16 in total", () => {
+  const half = "a".repeat(2 ** 23 - 1);
+  assert.throws(() => rawBuildExcerpt("x", [half, half, ""]), /terms need 16777217 UTF-16 units \(length \+ 1 each\); MAX_INDEX_TEXT_UTF16 is 16777216/);
+  assert.throws(() => rawBuildExcerpt("x", "not an array"));
+});
+
+test("buildExcerpt rejects a bad maxChars before WASM", () => {
+  for (const bad of [-1, 1.5, Number.NaN, 2 ** 32, Number.POSITIVE_INFINITY]) {
+    assert.throws(() => buildExcerpt("x", ["x"], { maxChars: bad }), (e: unknown) => e instanceof RangeError && /^maxChars /.test(e.message));
+  }
+  assert.equal(buildExcerpt("x", ["x"], { maxChars: 0xffff_ffff }).text, "x");
 });
