@@ -14,6 +14,9 @@ use crate::git::policy::{
 /// A lock this old is not a git still running.
 pub const STALE_LOCK_SECS: u64 = 5 * 60;
 
+/// The largest file version `read_at` returns; matches the TS maxBuffer.
+pub const MAX_READ_BYTES: u64 = 64 * 1024 * 1024;
+
 /// Who the automatic mirror commits are by.
 pub const MIRROR_AUTHOR: Author<'static> = Author {
     name: "WeaveForge",
@@ -126,15 +129,17 @@ fn write_excludes(repo: &Repository) -> Result<(), RepoError> {
 pub struct FolderRepo {
     root: PathBuf,
     max_file_bytes: u64,
+    max_read_bytes: u64,
 }
 
 impl FolderRepo {
-    /// A handle on `root` with the default size cap.
+    /// A handle on `root` with the default size caps.
     #[must_use]
     pub fn new(root: impl Into<PathBuf>) -> Self {
         Self {
             root: root.into(),
             max_file_bytes: MAX_FILE_BYTES,
+            max_read_bytes: MAX_READ_BYTES,
         }
     }
 
@@ -143,6 +148,15 @@ impl FolderRepo {
     pub fn with_max_file_bytes(self, max: u64) -> Self {
         Self {
             max_file_bytes: max,
+            ..self
+        }
+    }
+
+    /// Replaces the largest file version `read_at` returns.
+    #[must_use]
+    pub fn with_max_read_bytes(self, max: u64) -> Self {
+        Self {
+            max_read_bytes: max,
             ..self
         }
     }
@@ -219,8 +233,11 @@ impl FolderRepo {
         author: Author<'_>,
     ) -> Result<Option<Commit>, RepoError> {
         match self.stage_and_commit(message, author) {
-            Ok(false) => Ok(None),
-            Ok(true) => Ok(self.log(Some(1), None).into_iter().next()),
+            Ok(None) => Ok(None),
+            Ok(Some(oid)) => {
+                let repo = Repository::open(&self.root)?;
+                Ok(Some(to_commit(&repo.find_commit(oid)?)))
+            }
             Err(error) => Err(self.explain_failure(error)),
         }
     }
@@ -239,11 +256,19 @@ impl FolderRepo {
         let tree = repo.find_commit(oid).ok()?.tree().ok()?;
         let entry = tree.get_path(Path::new(file)).ok()?;
         let blob = entry.to_object(&repo).ok()?.into_blob().ok()?;
+        let size = u64::try_from(blob.size()).ok()?;
+        if size > self.max_read_bytes {
+            return None;
+        }
         Some(blob.content().to_vec())
     }
 
-    /// Stages permitted changes and commits them; `Ok(false)` when there is nothing to commit.
-    fn stage_and_commit(&self, message: &str, author: Author<'_>) -> Result<bool, RepoError> {
+    /// Stages permitted changes and commits them; `Ok(None)` when there is nothing to commit.
+    fn stage_and_commit(
+        &self,
+        message: &str,
+        author: Author<'_>,
+    ) -> Result<Option<Oid>, RepoError> {
         let repo = Repository::open(&self.root)?;
         write_excludes(&repo)?;
         let mut index = repo.index()?;
@@ -283,15 +308,15 @@ impl FolderRepo {
             Err(error) => return Err(error.into()),
         };
         match &parent {
-            Some(parent) if parent.tree_id() == tree_id => return Ok(false),
-            None if repo.find_tree(tree_id)?.is_empty() => return Ok(false),
+            Some(parent) if parent.tree_id() == tree_id => return Ok(None),
+            None if repo.find_tree(tree_id)?.is_empty() => return Ok(None),
             _ => {}
         }
         let sig = git2::Signature::now(author.name, author.email)?;
         let tree = repo.find_tree(tree_id)?;
         let parents: Vec<&git2::Commit<'_>> = parent.iter().collect();
-        let _oid = repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parents)?;
-        Ok(true)
+        let oid = repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parents)?;
+        Ok(Some(oid))
     }
 
     /// Names a stale `index.lock` when it blocks the commit; otherwise returns `error` as is.
@@ -325,7 +350,7 @@ impl FolderRepo {
         let repo = Repository::open(&self.root)?;
         let head = repo.head()?.peel_to_commit()?;
         let mut walk = repo.revwalk()?;
-        walk.set_sorting(Sort::TIME)?;
+        walk.set_sorting(Sort::TOPOLOGICAL | Sort::TIME)?;
         walk.push(head.id())?;
         let max = match limit {
             Some(0) | None => usize::MAX,

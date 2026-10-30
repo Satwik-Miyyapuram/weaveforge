@@ -360,12 +360,55 @@ fn log_is_newest_first_and_limited() {
     for msg in ["one", "two", "three"] {
         write(dir.path(), &format!("{msg}.md"), b"x");
         let _ = repo.commit_all(msg, me()).unwrap();
-        // Git's time sort needs distinct seconds to order commits.
-        std::thread::sleep(Duration::from_millis(1100));
     }
     assert_eq!(messages(&repo.log(None, None)), ["three", "two", "one"]);
     assert_eq!(repo.log(Some(2), None).len(), 2);
     assert_eq!(repo.log(Some(0), None).len(), 3);
+}
+
+#[test]
+fn log_orders_same_second_commits_child_first() {
+    for _ in 0..5 {
+        let dir = TempDir::new();
+        let repo = FolderRepo::new(dir.path());
+        repo.init().unwrap();
+        for msg in ["one", "two", "three"] {
+            write(dir.path(), &format!("{msg}.md"), b"x");
+            let _ = repo.commit_all(msg, me()).unwrap();
+        }
+        assert_eq!(messages(&repo.log(None, None)), ["three", "two", "one"]);
+    }
+}
+
+#[test]
+fn commit_all_returns_the_new_commit_without_sleep() {
+    let dir = TempDir::new();
+    let repo = FolderRepo::new(dir.path());
+    repo.init().unwrap();
+    write(dir.path(), "a.md", b"a");
+    let first = repo.commit_all("first", me()).unwrap().unwrap();
+    write(dir.path(), "b.md", b"b");
+    let second = repo.commit_all("second", me()).unwrap().unwrap();
+    assert_ne!(first.oid, second.oid);
+    assert_eq!(second.message, "second");
+    let raw = Repository::open(dir.path()).unwrap();
+    assert_eq!(
+        raw.head().unwrap().target().unwrap().to_string(),
+        second.oid
+    );
+}
+
+#[test]
+fn read_at_refuses_blob_over_cap() {
+    let dir = TempDir::new();
+    let repo = FolderRepo::new(dir.path());
+    repo.init().unwrap();
+    write(dir.path(), "f.txt", b"0123456789");
+    let c = repo.commit_all("ten", me()).unwrap().unwrap();
+    let capped = FolderRepo::new(dir.path()).with_max_read_bytes(9);
+    assert_eq!(capped.read_at(&c.oid, "f.txt"), None);
+    let fits = FolderRepo::new(dir.path()).with_max_read_bytes(10);
+    assert_eq!(fits.read_at(&c.oid, "f.txt"), Some(b"0123456789".to_vec()));
 }
 
 #[test]
@@ -375,13 +418,10 @@ fn log_filters_by_path() {
     repo.init().unwrap();
     write(dir.path(), "a.md", b"1");
     let c1 = repo.commit_all("c1", me()).unwrap().unwrap();
-    std::thread::sleep(Duration::from_millis(1100));
     write(dir.path(), "b.md", b"b");
     let _ = repo.commit_all("c2", me()).unwrap();
-    std::thread::sleep(Duration::from_millis(1100));
     write(dir.path(), "a.md", b"2");
     let c3 = repo.commit_all("c3", me()).unwrap().unwrap();
-    std::thread::sleep(Duration::from_millis(1100));
     assert_eq!(
         messages(&repo.log(None, Some("a.md"))),
         [c3.message.as_str(), c1.message.as_str()]
