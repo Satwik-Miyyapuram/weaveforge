@@ -7,6 +7,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 pub mod commands;
+pub mod fetch;
+pub mod git;
 pub mod launch;
 pub mod prefs;
 pub mod protocol;
