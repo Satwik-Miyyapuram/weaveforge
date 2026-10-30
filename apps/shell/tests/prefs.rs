@@ -419,8 +419,97 @@ fn pref_error_texts_are_exact() {
         PrefError::Unsaved.to_string(),
         "The preferences file could not be saved just now, so nothing was changed."
     );
+    assert_eq!(
+        PrefError::BadValue.to_string(),
+        "A preference is a string, a boolean, or nothing."
+    );
     const DESKTOP: &str = include_str!("../../desktop/src/preference-store.ts");
     assert!(DESKTOP.contains(&PrefError::UnknownName.to_string()));
+    assert!(DESKTOP.contains(&PrefError::Unreadable.to_string()));
+    assert!(DESKTOP.contains(&PrefError::BadValue.to_string()));
+}
+
+#[test]
+fn non_utf8_file_reads_none_and_a_write_replaces_it() {
+    let dir = TestDir::new();
+    fs::write(dir.file(), b"\xff\xfe{").unwrap();
+    let prefs = Prefs::new(dir.file());
+    assert_eq!(prefs.read("vault-git").unwrap(), None);
+    assert_eq!(
+        prefs.write("vault-git", Some(PrefValue::Flag(true))),
+        Ok(())
+    );
+    assert_eq!(json_of(&dir.file()), json!({"vault-git": true}));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_later_write_wins_even_when_neither_is_awaited() {
+    let dir = TestDir::new();
+    let prefs = Prefs::new(dir.file());
+    for round in 0..100 {
+        let write_true = prefs.queued(|p| p.page_write("vault-git", Some(PrefValue::Flag(true))));
+        let write_false = prefs.queued(|p| p.page_write("vault-git", Some(PrefValue::Flag(false))));
+        let (a, b) = tokio::join!(write_true, write_false);
+        assert_eq!(a, Ok(()), "round {round}");
+        assert_eq!(b, Ok(()), "round {round}");
+        assert_eq!(
+            prefs.read("vault-git").unwrap(),
+            Some(PrefValue::Flag(false)),
+            "round {round}"
+        );
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn queued_returns_the_work_result_and_its_error() {
+    let dir = TestDir::new();
+    let prefs = Prefs::new(dir.file());
+    assert_eq!(prefs.queued(|_| Ok(7)).await, Ok(7));
+    assert_eq!(
+        prefs.queued(|p| p.page_write("sync-target", None)).await,
+        Err(PrefError::UnknownName)
+    );
+}
+
+#[test]
+fn page_write_json_maps_json_values() {
+    let dir = TestDir::new();
+    let prefs = Prefs::new(dir.file());
+    assert_eq!(
+        prefs.page_write_json("vault-git-remote", json!("https://x")),
+        Ok(())
+    );
+    assert_eq!(
+        prefs.read("vault-git-remote").unwrap(),
+        Some(PrefValue::Text("https://x".to_owned()))
+    );
+    assert_eq!(prefs.page_write_json("vault-git", json!(true)), Ok(()));
+    assert_eq!(
+        prefs.read("vault-git").unwrap(),
+        Some(PrefValue::Flag(true))
+    );
+    assert_eq!(prefs.page_write_json("vault-git", Value::Null), Ok(()));
+    assert_eq!(prefs.read("vault-git").unwrap(), None);
+
+    prefs.page_write_json("vault-git", json!(true)).unwrap();
+    let before = fs::read(dir.file()).unwrap();
+    for value in [json!(1), json!(1.5), json!([]), json!({})] {
+        assert_eq!(
+            prefs.page_write_json("vault-git", value.clone()),
+            Err(PrefError::BadValue),
+            "value {value}"
+        );
+        assert_eq!(fs::read(dir.file()).unwrap(), before, "value {value}");
+    }
+
+    assert_eq!(
+        prefs.page_write_json("sync-target", json!(1)),
+        Err(PrefError::UnknownName)
+    );
+    assert_eq!(
+        prefs.page_write_json("nope", json!(true)),
+        Err(PrefError::UnknownName)
+    );
 }
 
 #[test]

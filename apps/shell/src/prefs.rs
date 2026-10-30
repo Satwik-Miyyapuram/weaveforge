@@ -42,6 +42,9 @@ pub enum PrefError {
     /// The name is not a known preference.
     #[error("That is not something this app remembers.")]
     UnknownName,
+    /// The value is not text, a flag, or null.
+    #[error("A preference is a string, a boolean, or nothing.")]
+    BadValue,
     /// The file exists but cannot be read.
     #[error("The preferences file could not be read just now, so nothing was changed.")]
     Unreadable,
@@ -55,6 +58,8 @@ pub enum PrefError {
 pub struct Prefs {
     file: PathBuf,
     lock: Arc<Mutex<()>>,
+    /// One page call at a time, in the order they were asked (the lock is FIFO).
+    queue: Arc<tokio::sync::Mutex<()>>,
 }
 
 impl Prefs {
@@ -64,6 +69,7 @@ impl Prefs {
         Self {
             file,
             lock: Arc::new(Mutex::new(())),
+            queue: Arc::new(tokio::sync::Mutex::new(())),
         }
     }
 
@@ -110,6 +116,36 @@ impl Prefs {
         }
         self.write(name, value)
     }
+
+    /// Runs `work` off the async runtime after every earlier queued call has finished, in the
+    /// order the calls were made, so a later write is never undone by an earlier one.
+    pub async fn queued<T: Send + 'static>(
+        &self,
+        work: impl FnOnce(&Prefs) -> Result<T, PrefError> + Send + 'static,
+    ) -> Result<T, PrefError> {
+        let turn = Arc::clone(&self.queue).lock_owned().await;
+        let prefs = self.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            let _turn = turn;
+            work(&prefs)
+        })
+        .await
+        .unwrap_or(Err(PrefError::Unsaved))
+    }
+
+    /// `page_write` for a JSON value from the page: text, a flag, or `null` (removes it).
+    pub fn page_write_json(&self, name: &str, value: Value) -> Result<(), PrefError> {
+        if !PAGE_WRITABLE.contains(&name) {
+            return Err(PrefError::UnknownName);
+        }
+        let mapped = match value {
+            Value::Null => None,
+            Value::String(text) => Some(PrefValue::Text(text)),
+            Value::Bool(flag) => Some(PrefValue::Flag(flag)),
+            _ => return Err(PrefError::BadValue),
+        };
+        self.page_write(name, mapped)
+    }
 }
 
 fn check_name(name: &str) -> Result<(), PrefError> {
@@ -120,17 +156,17 @@ fn check_name(name: &str) -> Result<(), PrefError> {
     }
 }
 
-/// Everything on file. A missing or corrupt file is empty, as is one whose folder is a file
-/// (Windows calls that not found, Linux not a directory); any other read error is returned.
+/// Everything on file. A missing, corrupt or non-UTF-8 file is empty, as is one whose folder is
+/// a file (Windows calls that not found, Linux not a directory); any other read error is returned.
 fn load(file: &Path) -> io::Result<Map<String, Value>> {
-    let text = match fs::read_to_string(file) {
-        Ok(text) => text,
+    let bytes = match fs::read(file) {
+        Ok(bytes) => bytes,
         Err(e) if matches!(e.kind(), ErrorKind::NotFound | ErrorKind::NotADirectory) => {
             return Ok(Map::new());
         }
         Err(e) => return Err(e),
     };
-    Ok(match serde_json::from_str::<Value>(&text) {
+    Ok(match serde_json::from_slice::<Value>(&bytes) {
         Ok(Value::Object(map)) => map,
         _ => Map::new(),
     })
@@ -164,12 +200,11 @@ fn save(file: &Path, map: &Map<String, Value>) -> io::Result<()> {
 pub async fn preference_write(
     prefs: tauri::State<'_, Prefs>,
     name: String,
-    value: Option<PrefValue>,
+    value: Value,
 ) -> Result<(), ShellError> {
-    let prefs = prefs.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || prefs.page_write(&name, value))
+    prefs
+        .queued(move |p| p.page_write_json(&name, value))
         .await
-        .unwrap_or(Err(PrefError::Unsaved))
         .map_err(ShellError::from)
 }
 
