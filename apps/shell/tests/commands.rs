@@ -74,11 +74,11 @@ async fn spawn_failure_is_reported() {
     );
     assert_eq!(
         db.state().await,
-        DbState {
+        Ok(DbState {
             failure: Some("local database failed to start: nope".into()),
             data_dir: "/d".into(),
             restored_from: None,
-        }
+        })
     );
     assert!(!db.shutdown(Duration::from_secs(1)).await);
 }
@@ -87,11 +87,11 @@ async fn spawn_failure_is_reported() {
 async fn state_passes_through() {
     assert_eq!(
         db(&[]).state().await,
-        DbState {
+        Ok(DbState {
             failure: None,
             data_dir: "/fake".into(),
             restored_from: None,
-        }
+        })
     );
 }
 
@@ -101,11 +101,11 @@ async fn state_after_stop() {
     assert!(db.shutdown(Duration::from_secs(5)).await);
     assert_eq!(
         db.state().await,
-        DbState {
+        Ok(DbState {
             failure: Some("local database stopped".into()),
             data_dir: "/d".into(),
             restored_from: None,
-        }
+        })
     );
 }
 
@@ -113,12 +113,34 @@ async fn state_after_stop() {
 async fn bad_state_reply() {
     assert_eq!(
         db(&["--bad-state"]).state().await,
-        DbState {
+        Ok(DbState {
             failure: Some("local database: bad state reply".into()),
             data_dir: "/d".into(),
             restored_from: None,
-        }
+        })
     );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn state_timeout_is_an_error() {
+    let mut cfg = config(&["--slow-state"]);
+    cfg.call_timeout = Duration::from_millis(200);
+    let db = LocalDb::new(Sidecar::spawn(cfg), "/d".to_owned());
+    assert_eq!(
+        db.state().await,
+        Err(shell_error("local database timed out"))
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn state_busy_is_an_error() {
+    let mut cfg = config(&["--slow-state"]);
+    cfg.max_in_flight = 1;
+    let db = LocalDb::new(Sidecar::spawn(cfg), "/d".to_owned());
+    let (a, b) = tokio::join!(db.state(), db.state());
+    let busy = Err(shell_error("local database is busy"));
+    assert!(a == busy || b == busy, "{a:?} {b:?}");
+    assert!(a.is_ok() || b.is_ok(), "{a:?} {b:?}");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

@@ -5,6 +5,7 @@ fn main() {
     println!("cargo:rerun-if-changed=windows-test.manifest");
     let msvc = std::env::var("CARGO_CFG_TARGET_ENV").is_ok_and(|v| v == "msvc");
     if msvc && let Ok(dir) = std::env::var("CARGO_MANIFEST_DIR") {
+        // Reaches integration tests (tests/*.rs) only, not lib unit tests: keep tests that load tauri in tests/.
         println!("cargo:rustc-link-arg-tests=/MANIFEST:EMBED");
         println!("cargo:rustc-link-arg-tests=/MANIFESTINPUT:{dir}\\windows-test.manifest");
     }

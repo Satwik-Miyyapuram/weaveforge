@@ -78,20 +78,23 @@ impl LocalDb {
         }
     }
 
-    /// The database's health. Never fails; a problem is reported in `failure`.
-    pub async fn state(&self) -> DbState {
+    /// The database's health. A database that cannot be used (spawn failed, sidecar gone, bad reply) is
+    /// reported in `failure`; a transient error (busy, timeout, too large, an error reply) is returned as `Err`
+    /// so the caller retries instead of showing the reset screen.
+    pub async fn state(&self) -> Result<DbState, ShellError> {
         let sidecar = match &self.sidecar {
             Ok(sidecar) => sidecar,
-            Err(e) => return self.down(e.message.clone()),
+            Err(e) => return Ok(self.down(e.message.clone())),
         };
         match sidecar.call("state", Value::Null).await {
-            Err(e) => self.down(ShellError::from(e).message),
-            Ok(reply) => serde_json::from_value::<DbState>(reply)
-                .unwrap_or_else(|_| self.down("local database: bad state reply".to_owned())),
+            Err(e @ SidecarError::Exited) => Ok(self.down(ShellError::from(e).message)),
+            Err(e) => Err(ShellError::from(e)),
+            Ok(reply) => Ok(serde_json::from_value::<DbState>(reply)
+                .unwrap_or_else(|_| self.down("local database: bad state reply".to_owned()))),
         }
     }
 
-    /// Resets the database. The reset lifecycle lands in step 2.4c.
+    /// Resets the database. The reset lifecycle lands in step 2.4d.
     pub async fn reset(&self) -> Result<(), ShellError> {
         Err(shell_error("reset is not supported yet"))
     }
@@ -145,7 +148,7 @@ fn json_row(row: Value) -> Result<Json, ShellError> {
 #[tauri::command]
 #[specta::specta]
 pub async fn db_state(db: tauri::State<'_, LocalDb>) -> Result<DbState, ShellError> {
-    Ok(db.state().await)
+    db.state().await
 }
 
 /// Resets the local database.
