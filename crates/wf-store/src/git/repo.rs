@@ -93,7 +93,7 @@ pub fn probe(root: &Path) -> RepoState {
 }
 
 /// Keeps the folder's `.git/info/exclude` holding every wanted line, leaving user lines alone.
-fn write_excludes(repo: &Repository) -> Result<(), RepoError> {
+pub(crate) fn write_excludes(repo: &Repository) -> Result<(), RepoError> {
     let info = repo.path().join("info");
     let file = info.join("exclude");
     let current = fs::read_to_string(&file).unwrap_or_default();
