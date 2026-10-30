@@ -257,13 +257,15 @@ impl Drop for PendingGuard<'_> {
 
 /// Queues the line for the writer task, then waits for the reply routed to `rx`.
 async fn send_and_wait(
-    sender: &mpsc::Sender<String>,
+    sender: mpsc::Sender<String>,
     line: String,
     rx: oneshot::Receiver<Reply>,
 ) -> Reply {
     if sender.send(line).await.is_err() {
         return Err(SidecarError::Exited);
     }
+    // A waiting call must not keep the writer open, or shutdown cannot close stdin.
+    drop(sender);
     rx.await.unwrap_or(Err(SidecarError::Exited))
 }
 
@@ -365,7 +367,7 @@ impl Sidecar {
         if self.shared.closed.load(Ordering::SeqCst) {
             return Err(SidecarError::Exited);
         }
-        match tokio::time::timeout(self.call_timeout, send_and_wait(&sender, line, rx)).await {
+        match tokio::time::timeout(self.call_timeout, send_and_wait(sender, line, rx)).await {
             Err(_) => Err(SidecarError::Timeout),
             Ok(reply) => reply,
         }

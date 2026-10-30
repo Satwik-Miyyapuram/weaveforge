@@ -318,6 +318,17 @@ async fn shutdown_through_arc() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn shutdown_during_call_is_clean() {
+    let s = Arc::new(Sidecar::spawn(config(&[])).unwrap());
+    let caller = Arc::clone(&s);
+    let call = tokio::spawn(async move { caller.call("slow", json!({"ms": 3000})).await });
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(s.shutdown(Duration::from_secs(2)).await);
+    // The fixture exits on EOF without answering, so the waiting call sees Exited.
+    assert_eq!(call.await.unwrap(), Err(SidecarError::Exited));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn cancel_mid_call_keeps_stream_clean() {
     let mut cfg = config(&[]);
     cfg.max_request_bytes = 4 << 20;
