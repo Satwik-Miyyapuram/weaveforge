@@ -73,6 +73,9 @@ skip = [
   { crate = "thiserror-impl@1", reason = "proc macro of thiserror 1, see above; build-time only" },
   { crate = "syn@1", reason = "proc-macro-error 1 via gtk-rs 0.18 macros; build-time only" },
   { crate = "syn@2", reason = "derive_more, glib/gtk3 macros and others still on syn 2; build-time only" },
+  { crate = "foreign-types@0.3", reason = "openssl 0.10 (native-tls for reqwest, Linux) on 0.3; core-graphics (macOS) on 0.5" },
+  { crate = "foreign-types-shared@0.1", reason = "foreign-types 0.3 via openssl, see above" },
+  { crate = "openssl-probe@0.1", reason = "git2 0.21 on 0.1; native-tls on 0.2" },
 ]
 
 [sources]
