@@ -5,7 +5,11 @@ use std::io::{Read, Seek, SeekFrom};
 use crate::protocol::Reply;
 
 /// Largest part one ranged reply carries. A longer request gets this much; the reader asks again.
-pub const MAX_PART_BYTES: u64 = 16 * 1024 * 1024;
+pub const PART_BYTES_MAX: u64 = 16 * 1024 * 1024;
+
+/// Largest file a reply without a `Range` header reads whole into memory. Larger files (models,
+/// big PDFs) must be read in ranges; a whole read of one fails with `ErrorKind::FileTooLarge`.
+pub const WHOLE_BYTES_MAX: u64 = 64 * 1024 * 1024;
 
 /// What a `Range` header asks of a body `len_bytes` long.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -98,18 +102,26 @@ fn digits(text: &str) -> Option<u64> {
     text.parse().ok()
 }
 
-/// The reply for `file`: 200 whole, 206 with the picked part (at most `MAX_PART_BYTES`), or 416.
+/// The reply for `file`: 200 whole, 206 with the picked part (at most `PART_BYTES_MAX`), or 416.
 /// `headers` are the headers a whole reply would carry (content type, CSP, …); they are kept on
-/// 200 and 206, and on 416 only `accept-ranges` and `content-range` are sent.
+/// 200 and 206, and on 416 only `accept-ranges` and `content-range` are sent. `content-length`
+/// and `content-range` in `headers` are dropped; the reply sets its own range headers.
+/// A whole read of a file over `WHOLE_BYTES_MAX` fails with `ErrorKind::FileTooLarge`.
 pub fn serve_file(
     file: &std::path::Path,
     header: Option<&str>,
     mut headers: Vec<(&'static str, String)>,
 ) -> std::io::Result<Reply> {
+    headers.retain(|(name, _)| {
+        !name.eq_ignore_ascii_case("content-length") && !name.eq_ignore_ascii_case("content-range")
+    });
     let mut f = std::fs::File::open(file)?;
     let len_bytes = f.metadata()?.len();
     match pick(header, len_bytes) {
         Pick::Whole => {
+            if len_bytes > WHOLE_BYTES_MAX {
+                return Err(std::io::Error::from(std::io::ErrorKind::FileTooLarge));
+            }
             let mut body = Vec::new();
             let _ = f.read_to_end(&mut body)?;
             headers.push(("accept-ranges", "bytes".to_owned()));
@@ -123,7 +135,7 @@ pub fn serve_file(
             start_byte,
             end_byte,
         } => {
-            let end_byte = end_byte.min(start_byte.saturating_add(MAX_PART_BYTES - 1));
+            let end_byte = end_byte.min(start_byte.saturating_add(PART_BYTES_MAX - 1));
             let count = end_byte - start_byte + 1;
             let _ = f.seek(SeekFrom::Start(start_byte))?;
             let mut body = Vec::new();

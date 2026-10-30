@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use weaveforge_shell::protocol::Reply;
-use weaveforge_shell::range::{MAX_PART_BYTES, Pick, pick, serve_file};
+use weaveforge_shell::range::{PART_BYTES_MAX, Pick, WHOLE_BYTES_MAX, pick, serve_file};
 
 static DIRS: AtomicU64 = AtomicU64::new(0);
 
@@ -261,28 +261,28 @@ fn serve_empty_file() {
 }
 
 #[test]
-fn serve_caps_part_at_max_part_bytes() {
+fn serve_caps_part_at_part_bytes_max() {
     let dir = TempDir::new();
-    let total = MAX_PART_BYTES + 10;
+    let total = PART_BYTES_MAX + 10;
     let data: Vec<u8> = (0..total).map(|i| u8::try_from(i % 251).unwrap()).collect();
     let file = dir.file("big.bin", &data);
 
     let reply = serve(&file, Some("bytes=0-"));
     assert_eq!(reply.status, 206);
-    assert_eq!(reply.body.len(), us(MAX_PART_BYTES));
-    assert_eq!(reply.body, data[..us(MAX_PART_BYTES)].to_vec());
+    assert_eq!(reply.body.len(), us(PART_BYTES_MAX));
+    assert_eq!(reply.body, data[..us(PART_BYTES_MAX)].to_vec());
     assert!(reply.headers.contains(&(
         "content-range",
-        format!("bytes 0-{}/{}", MAX_PART_BYTES - 1, total),
+        format!("bytes 0-{}/{}", PART_BYTES_MAX - 1, total),
     )));
 
     let reply = serve(&file, Some("bytes=5-"));
     assert_eq!(reply.status, 206);
-    assert_eq!(reply.body.len(), us(MAX_PART_BYTES));
-    assert_eq!(reply.body, data[5..us(5 + MAX_PART_BYTES)].to_vec());
+    assert_eq!(reply.body.len(), us(PART_BYTES_MAX));
+    assert_eq!(reply.body, data[5..us(5 + PART_BYTES_MAX)].to_vec());
     assert!(reply.headers.contains(&(
         "content-range",
-        format!("bytes 5-{}/{}", 5 + MAX_PART_BYTES - 1, total),
+        format!("bytes 5-{}/{}", 5 + PART_BYTES_MAX - 1, total),
     )));
 
     let reply = serve(&file, Some("bytes=-20"));
@@ -299,4 +299,103 @@ fn serve_missing_file_is_not_found() {
     let dir = TempDir::new();
     let err = serve_file(&dir.0.join("missing.pdf"), None, content_type()).unwrap_err();
     assert_eq!(err.kind(), std::io::ErrorKind::NotFound);
+}
+
+#[test]
+fn whole_read_over_whole_bytes_max_is_file_too_large() {
+    let dir = TempDir::new();
+    let path = dir.0.join("huge.bin");
+    std::fs::File::create(&path)
+        .unwrap()
+        .set_len(WHOLE_BYTES_MAX + 1)
+        .unwrap();
+    let err = serve_file(&path, None, content_type()).unwrap_err();
+    assert_eq!(err.kind(), std::io::ErrorKind::FileTooLarge);
+    let err = serve_file(&path, Some("bytes=abc"), content_type()).unwrap_err();
+    assert_eq!(err.kind(), std::io::ErrorKind::FileTooLarge);
+}
+
+#[test]
+fn ranged_read_of_a_file_over_whole_bytes_max_still_works() {
+    let dir = TempDir::new();
+    let path = dir.0.join("huge.bin");
+    std::fs::File::create(&path)
+        .unwrap()
+        .set_len(WHOLE_BYTES_MAX + 1)
+        .unwrap();
+    let reply = serve(&path, Some("bytes=0-9"));
+    assert_eq!(reply.status, 206);
+    assert_eq!(reply.body, vec![0u8; 10]);
+    assert!(reply.headers.contains(&(
+        "content-range",
+        format!("bytes 0-9/{}", WHOLE_BYTES_MAX + 1),
+    )));
+
+    let reply = serve(&path, Some("bytes=-4"));
+    assert_eq!(reply.status, 206);
+    assert_eq!(reply.body, vec![0u8; 4]);
+}
+
+#[test]
+fn whole_read_at_exactly_whole_bytes_max_is_200() {
+    let dir = TempDir::new();
+    let path = dir.0.join("edge.bin");
+    std::fs::File::create(&path)
+        .unwrap()
+        .set_len(WHOLE_BYTES_MAX)
+        .unwrap();
+    let reply = serve(&path, None);
+    assert_eq!(reply.status, 200);
+    assert_eq!(reply.body.len(), us(WHOLE_BYTES_MAX));
+}
+
+#[test]
+fn caller_content_length_and_content_range_are_dropped() {
+    let dir = TempDir::new();
+    let data: Vec<u8> = (0u8..10).collect();
+    let file = dir.file("ten.bin", &data);
+    let mut headers = content_type();
+    headers.push(("content-length", "999".to_owned()));
+    headers.push(("Content-Range", "bytes 0-0/1".to_owned()));
+
+    let reply = serve_file(&file, None, headers.clone()).unwrap();
+    assert_eq!(reply.status, 200);
+    assert!(
+        reply
+            .headers
+            .iter()
+            .all(|(name, _)| !name.eq_ignore_ascii_case("content-length"))
+    );
+    assert!(
+        reply
+            .headers
+            .iter()
+            .all(|(name, _)| !name.eq_ignore_ascii_case("content-range"))
+    );
+    assert!(
+        reply
+            .headers
+            .contains(&("content-type", "application/pdf".to_owned()))
+    );
+
+    let reply = serve_file(&file, Some("bytes=2-4"), headers).unwrap();
+    assert_eq!(reply.status, 206);
+    assert!(
+        reply
+            .headers
+            .iter()
+            .all(|(name, _)| !name.eq_ignore_ascii_case("content-length"))
+    );
+    let ranges: Vec<_> = reply
+        .headers
+        .iter()
+        .filter(|(name, _)| name.eq_ignore_ascii_case("content-range"))
+        .collect();
+    assert_eq!(ranges.len(), 1);
+    assert_eq!(ranges[0].1, "bytes 2-4/10");
+    assert!(
+        reply
+            .headers
+            .contains(&("content-type", "application/pdf".to_owned()))
+    );
 }
