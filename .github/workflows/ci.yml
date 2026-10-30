@@ -466,6 +466,11 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.1
+
       - name: Install WebKitGTK build dependencies
         run: |
           sudo apt-get update
@@ -492,6 +497,37 @@ jobs:
 
       - name: Dependency policy
         run: cargo deny --locked check
+
+  shell-windows:
+    # Windows-only shell code: the sidecar's Job Object (kill-on-close) and its
+    # orphan test run only here (phase-2-desktop.md, step 2.4). fmt and
+    # cargo-deny are platform-independent and stay in the Linux job.
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/shell
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.1
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/shell
+
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
 
   wasm-parity:
     # TS vs Rust on frozen goldens (plan P1.2). Node is pinned to the version
