@@ -212,7 +212,11 @@ async fn missing_content_type_is_octet_stream() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn redirect_is_502() {
-    let up = serve(vec![(DELETE, vec![redirect("https://example.invalid/")])]).await;
+    let up = serve(vec![
+        (DELETE, vec![redirect("/elsewhere")]),
+        ("/elsewhere", vec![response(200, &[], b"{}")]),
+    ])
+    .await;
     let client = relay_client().unwrap();
     let req = request(
         "POST",
@@ -222,6 +226,8 @@ async fn redirect_is_502() {
     );
     let answer = proxy_account(&client, &req, &base(&up), SHORT).await;
     assert_refusal(&answer, 502, "Upstream fetch failed");
+    // The redirect was not followed.
+    assert_eq!(up.seen().len(), 1);
 }
 
 #[tokio::test(flavor = "multi_thread")]

@@ -141,6 +141,11 @@ pub async fn vault_log(root: PathBuf, limit: usize) -> Vec<WorkspaceCommit> {
 ///
 /// Unlike TS, the probe runs inside the queue too; harmless, since probing only reads.
 ///
+/// Two accepted deviations from the TS: a timeout stops the wait but cannot kill git
+/// (git2 runs in-process), so a hung git keeps the queue busy until it ends; and a
+/// commit that times out while waiting for its turn is dropped, not run later. The
+/// next save commits everything, so nothing is lost.
+///
 /// # Errors
 /// `NO_ROOT` when no workspace folder is chosen.
 pub async fn commit_vault_folder(
@@ -164,7 +169,8 @@ pub async fn commit_vault_folder(
 fn reply_from(outcome: CommitOutcome) -> CommitReply {
     CommitReply {
         commit: outcome.commit.map(WorkspaceCommit::from),
-        reason: outcome.reason,
+        // The TS sends a reason only when it is non-empty.
+        reason: outcome.reason.filter(|r| !r.is_empty()),
     }
 }
 

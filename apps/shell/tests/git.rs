@@ -254,4 +254,7 @@ async fn commit_times_out() {
     assert_eq!(reply.reason.as_deref(), Some(GIT_TIMED_OUT));
 
     let _ = busy.await;
+    // The timed-out commit was dropped, not run once the queue freed up.
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert!(!dir.path().join(".git").exists());
 }
