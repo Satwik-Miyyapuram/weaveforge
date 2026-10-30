@@ -47,6 +47,8 @@ export function sidecarHandlers(db: {
         (p.params !== undefined && !Array.isArray(p.params))) {
         throw new Error("query needs { sql, params? }");
       }
+      // A deferred move is waiting for a fresh process: opening here would only fail and move again.
+      if (db.restartWanted()) throw new Error("local database: restarting");
       const r = await db.host.query(p.sql, p.params ?? []);
       if (r.ok) return r.value;
       throw new Error(r.message);

@@ -246,6 +246,39 @@ async fn restart_needs_a_config() {
     let _ = std::fs::remove_file(&m);
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn state_without_config_still_answers() {
+    let m = marker();
+    let arg = m.to_string_lossy().into_owned();
+    let db = db(&["--restart-marker", &arg]);
+    let state = db.state().await;
+    assert_eq!(state.map(|s| s.data_dir), Ok("/fake".to_owned()));
+    let _ = std::fs::remove_file(&m);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn failed_respawn_is_reported_in_state() {
+    let m = marker();
+    let arg = m.to_string_lossy().into_owned();
+    let mut bad = config(&[]);
+    bad.program = PathBuf::from("wf-no-such-program");
+    let db = LocalDb::new(
+        Sidecar::spawn(config(&["--restart-marker", &arg])),
+        "/d".to_owned(),
+    )
+    .restartable(bad);
+    let state = db.state().await.unwrap();
+    assert_eq!(state.data_dir, "/d");
+    assert!(
+        state
+            .failure
+            .as_deref()
+            .is_some_and(|f| f.starts_with("local database failed to start")),
+        "{state:?}"
+    );
+    let _ = std::fs::remove_file(&m);
+}
+
 #[test]
 fn db_state_is_camel_case() {
     let state = DbState {

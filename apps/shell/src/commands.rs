@@ -1,6 +1,6 @@
 //! Tauri commands for the local database, served by the Node sidecar (design: phase-2-desktop.md § 2.4).
 
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 use serde_json::Value;
@@ -62,6 +62,8 @@ pub struct LocalDb {
     /// Bumped on every restart, only under the write lock: a restart asked for by a sidecar that is already
     /// gone is skipped, so concurrent callers restart once.
     generation: AtomicU64,
+    /// Set by `shutdown`: a restart that was waiting must not spawn a sidecar while the app quits.
+    closed: AtomicBool,
     data_dir: String,
 }
 
@@ -73,6 +75,7 @@ impl LocalDb {
             sidecar: tokio::sync::RwLock::new(sidecar.map_err(ShellError::from)),
             config: None,
             generation: AtomicU64::new(0),
+            closed: AtomicBool::new(false),
             data_dir,
         }
     }
@@ -107,7 +110,8 @@ impl LocalDb {
         let Some(asked_by) = restart else {
             return Ok(state);
         };
-        self.restart(asked_by).await?;
+        // A failed restart is not transient: the state read next reports it (a failed spawn is stored).
+        let _ = self.restart(asked_by).await;
         self.read_state().await.map(|(state, _)| state)
     }
 
@@ -140,6 +144,9 @@ impl LocalDb {
             ));
         };
         let mut sidecar = self.sidecar.write().await;
+        if self.closed.load(Ordering::Acquire) {
+            return Err(shell_error("local database: closed"));
+        }
         if self.generation.load(Ordering::Acquire) != asked_by {
             return Ok(());
         }
@@ -175,6 +182,7 @@ impl LocalDb {
 
     /// Stops the sidecar, waiting up to `grace`. Returns whether it exited cleanly.
     pub async fn shutdown(&self, grace: Duration) -> bool {
+        self.closed.store(true, Ordering::Release);
         let sidecar = self.sidecar.read().await;
         match &*sidecar {
             Ok(sidecar) => sidecar.shutdown(grace).await,
@@ -256,6 +264,28 @@ pub fn export_bindings(path: &std::path::Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn no_restart_after_shutdown() {
+        let fixture = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/fake-sidecar.mjs");
+        let config = SidecarConfig {
+            program: "node".into(),
+            args: vec![fixture.into_os_string()],
+            cwd: None,
+            call_timeout: Duration::from_secs(5),
+            max_in_flight: 8,
+            max_request_bytes: 4096,
+            max_reply_bytes: 1 << 20,
+        };
+        let db = LocalDb::new(Sidecar::spawn(config.clone()), "/d".to_owned()).restartable(config);
+        assert!(db.shutdown(Duration::from_secs(5)).await);
+        assert_eq!(
+            db.restart(0).await,
+            Err(shell_error("local database: closed"))
+        );
+        assert_eq!(db.generation.load(Ordering::Acquire), 0);
+    }
 
     #[test]
     fn error_mapping() {

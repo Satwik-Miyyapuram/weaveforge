@@ -13,8 +13,9 @@ pub const CALL_TIMEOUT: Duration = Duration::from_secs(60);
 pub const MAX_IN_FLIGHT: usize = 64;
 /// Longest sidecar reply line: big result sets are allowed, a runaway one kills the sidecar.
 pub const MAX_REPLY_BYTES: usize = 256 * 1024 * 1024;
-/// How long quitting waits for the sidecar to close the database.
-pub const SHUTDOWN_GRACE: Duration = Duration::from_secs(5);
+/// How long quitting waits for the sidecar to back up and close the database. Same as Electron's
+/// `QUIT_TIMEOUT_MS` (apps/desktop/src/quit.ts): the exit backup can be hundreds of MB.
+pub const SHUTDOWN_GRACE: Duration = Duration::from_secs(15);
 
 /// Where the sidecar's code comes from.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -172,6 +173,12 @@ mod tests {
             dir.join("migrations-local").into_os_string(),
         ];
         assert_eq!(config.args, expected);
+    }
+
+    #[test]
+    fn shutdown_grace_covers_the_exit_backup() {
+        // Electron's QUIT_TIMEOUT_MS (apps/desktop/src/quit.ts): the backup and the close fit inside it.
+        assert_eq!(SHUTDOWN_GRACE, Duration::from_secs(15));
     }
 
     #[test]

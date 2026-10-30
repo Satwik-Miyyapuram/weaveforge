@@ -96,6 +96,23 @@ test("state carries the restart flag", async () => {
   assert.deepEqual(await handlers.state!(undefined), { failure: null, dataDir: "d", restoredFrom: null, restart: true });
 });
 
+test("query refuses while a restart is pending", async () => {
+  let queried = false;
+  const handlers = sidecarHandlers({
+    host: {
+      query: async () => {
+        queried = true;
+        return { ok: true, value: [] };
+      },
+      state: () => ({ failure: null, dataDir: "d", restoredFrom: null }),
+      reset: async () => ({ ok: true, value: null }),
+    },
+    restartWanted: () => true,
+  });
+  await assert.rejects(() => handlers.query!({ sql: "select 1" }), { message: "local database: restarting" });
+  assert.equal(queried, false);
+});
+
 test("reset returns the restart flag when the host resets", async () => {
   const handlers = sidecarHandlers({
     host: {
