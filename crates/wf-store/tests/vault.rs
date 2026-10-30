@@ -465,3 +465,88 @@ fn removing_a_link_to_a_folder_removes_the_link_not_the_folder() {
     assert!(fs::symlink_metadata(dir.path().join("alias")).is_err());
     assert_eq!(fs::read(dir.path().join("real/x.md")).unwrap(), b"x");
 }
+
+#[test]
+fn read_file_max_exact_cap_ok() {
+    let dir = TempDir::new();
+    let v = vault_in(&dir);
+    put(&dir.path().join("f.bin"), b"12345");
+    assert_eq!(v.read_file_max("f.bin", 5).unwrap(), b"12345".to_vec());
+}
+
+#[test]
+fn read_file_max_over_cap_refused() {
+    let dir = TempDir::new();
+    let v = vault_in(&dir);
+    put(&dir.path().join("f.bin"), b"123456");
+    let err = v.read_file_max("f.bin", 5).unwrap_err();
+    assert!(matches!(
+        &err,
+        VaultError::TooLarge { path, max } if path == "f.bin" && *max == 5
+    ));
+    assert_eq!(err.to_string(), "f.bin is over 5 bytes");
+}
+
+#[test]
+fn read_file_max_zero_cap() {
+    let dir = TempDir::new();
+    let v = vault_in(&dir);
+    put(&dir.path().join("empty.bin"), b"");
+    put(&dir.path().join("one.bin"), b"x");
+    assert_eq!(v.read_file_max("empty.bin", 0).unwrap(), Vec::<u8>::new());
+    assert!(matches!(
+        v.read_file_max("one.bin", 0),
+        Err(VaultError::TooLarge { .. })
+    ));
+}
+
+#[test]
+fn read_file_max_missing_is_not_found() {
+    let dir = TempDir::new();
+    let v = vault_in(&dir);
+    assert_eq!(
+        v.read_file_max("missing.bin", 5).unwrap_err().io_kind(),
+        Some(std::io::ErrorKind::NotFound)
+    );
+}
+
+#[test]
+fn read_file_max_refuses_unsafe_and_escape() {
+    let dir = TempDir::new();
+    let outside = TempDir::new();
+    let link = dir.path().join("away");
+    if !make_dir_link(&link, outside.path()) {
+        eprintln!("skipped: this machine cannot create a directory link");
+        return;
+    }
+    let v = vault_in(&dir);
+    assert!(matches!(
+        v.read_file_max("../x", 5),
+        Err(VaultError::UnsafePath(_))
+    ));
+    assert!(matches!(
+        v.read_file_max("away/x", 5),
+        Err(VaultError::Escape(_))
+    ));
+}
+
+#[test]
+fn read_text_max_strips_bom_and_caps() {
+    let dir = TempDir::new();
+    let v = vault_in(&dir);
+    put(&dir.path().join("bom.md"), b"\xEF\xBB\xBFhi");
+    assert_eq!(v.read_text_max("bom.md", 5).unwrap(), "hi");
+    assert!(matches!(
+        v.read_text_max("bom.md", 4),
+        Err(VaultError::TooLarge { .. })
+    ));
+}
+
+#[test]
+fn too_large_has_no_io_kind() {
+    let err = VaultError::TooLarge {
+        path: "f.bin".to_owned(),
+        max: 5,
+    };
+    assert_eq!(err.io_kind(), None);
+}

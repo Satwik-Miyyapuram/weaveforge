@@ -36,6 +36,11 @@ thiserror = "=2.0.21"
 keyring-core = "=1.0.1"
 # Vault, root confinement and search logic shared with the web build (plan §4.1).
 wf-store = { path = "../../crates/wf-store" }
+# Relays (step 2.9): the shell fetches papers, pages and APIs the page cannot reach.
+# Same reqwest tauri already locks. native-tls, not rustls: rustls's default
+# aws-lc-rs needs cmake and nasm to build; native-tls uses schannel on Windows,
+# Security.framework on macOS, and on Linux the OpenSSL git2 already vendors.
+reqwest = { version = "=0.13.5", default-features = false, features = ["native-tls-vendored"] }
 
 [target.'cfg(windows)'.dependencies]
 # Same version process-wrap uses; only for the CREATE_NO_WINDOW flag type.

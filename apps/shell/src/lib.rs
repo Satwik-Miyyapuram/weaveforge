@@ -11,8 +11,10 @@ pub mod launch;
 pub mod prefs;
 pub mod protocol;
 pub mod range;
+pub mod relay;
 pub mod secrets;
 pub mod sidecar;
+pub mod vault;
 
 /// Where the static web export lives: `WF_WEB_DIST` (debug builds only), else `web/` beside the binary.
 fn web_root() -> PathBuf {
