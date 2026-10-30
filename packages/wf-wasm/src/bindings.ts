@@ -6,6 +6,14 @@ export type CoreInfo = {
 	version: string,
 };
 
+/**  A highlight, as UTF-16 offsets into `Excerpt::text`. */
+export type ExcerptRange = {
+	/**  First unit. */
+	start: number,
+	/**  One past the last unit. */
+	end: number,
+};
+
 /**  A parsed query (TS `ParsedQuery` plus `modified_within_days`). */
 export type ParsedQuery = {
 	/**  Free terms. */

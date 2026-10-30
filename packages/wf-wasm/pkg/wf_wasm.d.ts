@@ -2,6 +2,19 @@
 /* eslint-disable */
 
 /**
+ * [`wf_core::search::excerpt::build_excerpt`]: a snippet of `body` around the
+ * densest cluster of `terms`, as `{ text, highlights }` where `text` is UTF-16
+ * code units (the TS wrapper turns them into a string, lone surrogates kept).
+ * `max_chars` defaults to 240 and `single_line` to true.
+ *
+ * # Errors
+ *
+ * Fails if `body` exceeds `MAX_INDEX_TEXT_UTF16` UTF-16 units, or `terms`
+ * do (each counting its length + 1), or if `terms` is not an array of strings.
+ */
+export function buildExcerpt(body: string, terms: any, max_chars?: number | null, single_line?: boolean | null): any;
+
+/**
  * [`wf_core::core_info`] as a plain JS object (`CoreInfo` in `bindings.ts`).
  *
  * # Errors
@@ -66,6 +79,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly buildExcerpt: (a: number, b: number, c: any, d: number, e: number) => [number, number, number];
     readonly coreInfo: () => [number, number, number];
     readonly fuseRankings: (a: any, b: number, c: number) => [number, number, number];
     readonly indexTerms: (a: number, b: number, c: any) => [number, number, number];

@@ -20,7 +20,10 @@ export const WASM_BUDGET_FILES = ["packages/wf-wasm/pkg/wf_wasm_bg.wasm", "packa
 //   got these from the JS engine for free; exact parity needs them. The .wasm
 //   loads lazily, not in first-load JS. 136 KB leaves ~11% for the query,
 //   fusion and excerpt exports (P1.4, P1.7).
-export const WASM_GZIP_BUDGET = 136 * 1024;
+// - P1.7b: 141,676 bytes (module 136,659 + glue 5,017), the CI Linux build.
+//   buildExcerpt adds wf-core's excerpt module plus serde for its result
+//   (~5 KB). 142 KB is the last search export's ceiling; P1.8 deletes TS, not WASM.
+export const WASM_GZIP_BUDGET = 142 * 1024;
 
 /**
  * Gzipped byte length of a module, with zlib's default options.

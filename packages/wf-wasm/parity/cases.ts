@@ -3,8 +3,8 @@
  * PR that ports the function; delete it in the PR that deletes the TS copy.
  */
 import { readFileSync } from "node:fs";
-import { fuseRankings as tsFuseRankings, parseSearchQuery, processTerm, tokenize as tsTokenize } from "@weaveforge/core";
-import { coreInfo, fuseRankings, indexTerms, parseQuery, tokenize, type TokenizerOptions } from "../src/index.js";
+import { buildExcerpt as tsBuildExcerpt, fuseRankings as tsFuseRankings, parseSearchQuery, processTerm, tokenize as tsTokenize } from "@weaveforge/core";
+import { buildExcerpt, coreInfo, fuseRankings, indexTerms, parseQuery, tokenize, type TokenizerOptions } from "../src/index.js";
 import type { ParityCase } from "./harness.js";
 
 /** Input of the tokenizer cases: every text runs under one options object. */
@@ -67,10 +67,28 @@ const fuseRankingsCase: ParityCase<{ runs: FusionRun[] }, string[][]> = {
   rust: ({ runs }) => runs.map(({ lists, k, limit }) => fuseRankings(lists, (id) => id, { k, limit })),
 };
 
+/** One excerpt call; `options` holds only the keys the call passes. */
+interface ExcerptRun {
+  body: string;
+  terms: string[];
+  options: { maxChars?: number; singleLine?: boolean };
+}
+
+/**
+ * Expected texts can hold a lone surrogate half where the window splits a
+ * pair; the Rust side returns UTF-16 units, so the half survives and compares.
+ */
+const excerptCase: ParityCase<{ runs: ExcerptRun[] }, unknown[]> = {
+  name: "excerpt",
+  ts: ({ runs }) => runs.map(({ body, terms, options }) => tsBuildExcerpt(body, terms, options)),
+  rust: ({ runs }) => runs.map(({ body, terms, options }) => buildExcerpt(body, terms, options)),
+};
+
 export const CASES: ParityCase[] = [
   { name: "core-info", ts: tsCoreInfo, rust: () => coreInfo() },
   tokenizeCase as ParityCase,
   indexTermsCase as ParityCase,
   parseQueryCase as ParityCase,
   fuseRankingsCase as ParityCase,
+  excerptCase as ParityCase,
 ];
