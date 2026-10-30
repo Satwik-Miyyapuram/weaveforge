@@ -48,6 +48,10 @@ pub const CJK_RANGES: [RangeInclusive<char>; 5] = [
 /// NFD, strip combining marks (and Arabic harakat if requested), then NFC.
 #[must_use]
 pub fn fold_diacritics(value: &str, include_arabic: bool) -> String {
+    // NFD and NFC are the identity on ASCII, which has no combining marks.
+    if value.is_ascii() {
+        return value.to_owned();
+    }
     let stripped: String = value
         .nfd()
         .filter(|ch| {
@@ -69,6 +73,10 @@ pub fn fold_diacritics(value: &str, include_arabic: bool) -> String {
 /// Normalization applied to a single term on both index and query sides.
 #[must_use]
 pub fn process_term(term: &str, options: &TokenizerOptions) -> String {
+    // On ASCII, folding is the identity and `to_ascii_lowercase` equals `to_lowercase`.
+    if term.is_ascii() {
+        return term.to_ascii_lowercase();
+    }
     let normalized = if options.fold_diacritics {
         fold_diacritics(term, options.fold_arabic_diacritics)
     } else {
@@ -78,6 +86,7 @@ pub fn process_term(term: &str, options: &TokenizerOptions) -> String {
     debug_assert!(
         !options.fold_diacritics || !lower.chars().any(|ch| COMBINING_MARKS.contains(&ch))
     );
+    debug_assert!(lower.len() <= normalized.len() * 3);
     lower
 }
 
@@ -95,6 +104,7 @@ pub const MIN_TOKEN_UTF16_LEN: usize = 2;
 pub fn tokenize(text: &str, options: &TokenizerOptions) -> Vec<String> {
     let mut out = Vec::new();
     let mut seen = HashSet::new();
+    let mut seen_raw: HashSet<&str> = HashSet::new();
     if text.is_empty() {
         return out;
     }
@@ -105,6 +115,11 @@ pub fn tokenize(text: &str, options: &TokenizerOptions) -> Vec<String> {
     }
     let raw_tokens = text.split(|ch: char| !(is_letter_or_number(ch) || ch == '_'));
     for raw in raw_tokens.filter(|raw| !raw.is_empty()) {
+        // A raw token's outputs depend only on the token and the options,
+        // so a repeat adds nothing `push_unique` would keep.
+        if !seen_raw.insert(raw) {
+            continue;
+        }
         if options.split_camel_case {
             for part in camel_case_parts(raw) {
                 push_unique(&mut out, &mut seen, part);
