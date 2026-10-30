@@ -25,7 +25,20 @@ fn reason_for(path: &str) -> SkipReason {
 #[test]
 fn the_size_cap_is_25_mb_and_the_ignore_lists_are_as_specified() {
     assert_eq!(MAX_FILE_BYTES, 25 * MB);
-    assert_eq!(IGNORED_DIRS.len(), 9);
+    assert_eq!(
+        IGNORED_DIRS,
+        [
+            ".git",
+            "node_modules",
+            "dist",
+            ".next",
+            ".cache",
+            "pdf-cache",
+            "__pycache__",
+            ".venv",
+            "coverage",
+        ]
+    );
     assert_eq!(IGNORED_FILES, ["desktop.ini"]);
     assert_eq!(
         IGNORED_EXTENSIONS,
