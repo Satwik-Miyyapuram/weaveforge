@@ -16,7 +16,7 @@ import {
   type SearchQueryOptions,
 } from "@weaveforge/core";
 import type { ParsedQuery } from "@weaveforge/wasm";
-import { indexTermsOf, type SearchCore } from "./search-core";
+import { excerptOf, indexTermsOf, type SearchCore } from "./search-core";
 
 /**
  * BM25 index over the workspace snapshot. The only module that imports
@@ -218,7 +218,7 @@ class MiniSearchWorkspaceIndex implements IWorkspaceSearchIndex {
         terms: result.terms,
         queryTerms: result.queryTerms,
         excerpt: options.excerpts
-          ? this.core.buildExcerpt(fields.body ?? "", result.terms, { maxChars: 200 })
+          ? excerptOf(this.core, fields.body ?? "", result.terms)
           : undefined,
       };
     });

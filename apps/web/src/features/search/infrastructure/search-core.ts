@@ -14,6 +14,16 @@ export const TOKENIZER_OPTIONS: TokenizerOptions = {
 
 /** Index terms of `text`, cut to the longest text Rust accepts rather than throwing. */
 export function indexTermsOf(core: SearchCore, text: string): string[] {
+  return core.indexTerms(capped(core, text), TOKENIZER_OPTIONS);
+}
+
+/** The longest prefix of `text` Rust accepts; longer text throws a RangeError there. */
+function capped(core: SearchCore, text: string): string {
   const max = core.maxIndexTextUtf16();
-  return core.indexTerms(text.length > max ? text.slice(0, max) : text, TOKENIZER_OPTIONS);
+  return text.length > max ? text.slice(0, max) : text;
+}
+
+/** A 200-character excerpt of `body` around `terms`, cut like `indexTermsOf`. */
+export function excerptOf(core: SearchCore, body: string, terms: readonly string[]): ReturnType<SearchCore["buildExcerpt"]> {
+  return core.buildExcerpt(capped(core, body), [...terms], { maxChars: 200 });
 }

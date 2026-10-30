@@ -155,9 +155,11 @@ export class WorkspaceSearch {
     if (supportsIndexWorker()) {
       try {
         return await this.buildViaWorker(snapshot, projectId);
-      } catch {
+      } catch (error) {
         // A worker that cannot start is not a reason to leave search broken;
-        // the in-thread path below still works, it merely blocks.
+        // the in-thread path below still works, it merely blocks. Say so, or a
+        // worker that never loads the WASM core goes unnoticed.
+        console.warn("Search index worker failed; indexing on the main thread", error);
       }
     }
 
