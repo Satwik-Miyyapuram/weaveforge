@@ -174,7 +174,7 @@ Every crate, test, doc and commit in the port follows these. A spec that needs s
 | Error texts a person sees | copied word for word from the TypeScript they replace, pinned by a `*_texts_match_*` test | `"That is not a folder."` |
 | Errors at the IPC edge | every command returns `Result<_, ShellError>`; module errors convert with `From` | `impl From<VaultError> for ShellError` |
 | Constants | SCREAMING_SNAKE, unit last, then `_MAX`/`_MIN` | `READ_BYTES_MAX`, `WATCH_DEBOUNCE_MS` |
-| Units | inside a crate, the §4.2 newtypes (`ByteLen(u64)`, `DurationMs(u64)`), `Duration` and `SystemTime`; bare `u64` with the unit last in the name only at the IPC edge | `size: ByteLen` inside, `size_bytes: u64` over IPC |
+| Units | inside a crate, the §4.2 newtypes (`ByteLen(u64)`, `DurationMs(u64)`, defined once in `wf_core::units`, which the orchestrator adds in the prep PR before 2.7), `Duration` and `SystemTime`; bare `u64` with the unit last in the name only at the IPC edge | `size: ByteLen` inside, `size_bytes: u64` over IPC |
 | Paths | inside: `PathBuf`; across IPC: `/`-separated workspace-relative `String`, checked once by `wf_core::workspace::safe_workspace_path` | `"notes/a.md"` |
 | IPC shapes | match the Electron channel being replaced (field names, units, null vs missing), stated in the command's doc comment | `DbState` |
 | Commands | `#[tauri::command]` named `<area>_<verb>`; TS gets camelCase from tauri-specta | `vault_read` → `vaultRead` |
@@ -214,6 +214,7 @@ Every crate, test, doc and commit in the port follows these. A spec that needs s
 - Constants with `MAX_` first: `MAX_IN_FLIGHT`, `MAX_REPLY_BYTES` (`apps/shell/src/launch.rs`), `SIDECAR_MAX_LINE`, `MAX_REASON_CHARS` (`apps/shell/src/sidecar.rs`), `MAX_INDEX_TEXT_UTF16`, `MAX_FUSION_IDS` (`crates/wf-wasm/src/lib.rs`). `MAX_MODIFIED_DAYS` in wf-core keeps its ported name.
 - Shell tests use fixed pid-based temp paths instead of a `TempDir` helper (`apps/shell/src/protocol.rs`, `apps/shell/tests/commands.rs`, `apps/shell/tests/launch.rs`).
 - `wf_store::vault::Entry::size` is a bare `u64`; 2.7 moves it to `ByteLen` when it maps `Entry` to IPC.
+- `UnsafePath` in `crates/wf-core/src/workspace.rs` is a struct with a hand-written `Display`, not a `thiserror` `<Area>Error` enum.
 - Commit titles before §4.7: "Rust port 2.5: …" (#567), "… (2.4f)" (#566), "(2.4c)" and "(2.4d)" without `P`.
 
 ## 5. Agent workflow (Haiku builders, Opus reviewer, orchestrator)
@@ -249,6 +250,7 @@ A **lane** is one step (one PR) in flight: its own branch off the tip of `feat/r
 | root `Cargo.toml`, `apps/shell/Cargo.toml` | every member and dependency | orchestrator adds the line before the builder starts |
 | `Cargo.lock`, `apps/shell/Cargo.lock` | generated | never hand-merged: take `feat/rust-port`'s copy, re-resolve with `cargo metadata`, rerun the gates; if a lane's new dependency moved, pin it back with `cargo update -p <crate> --precise <tested version>` |
 | `crates/*/src/lib.rs`, `apps/shell/src/lib.rs` | module list, plugin setup | orchestrator adds the `pub mod` or `.plugin(...)` line |
+| `apps/shell/sidecar/src/main.ts` | the sidecar's request dispatch | orchestrator wires a lane's `api*.ts` handler in |
 | `crates/*/Cargo.toml`, `apps/shell/Cargo.toml` members | dependencies of a crate several lanes build in | orchestrator adds the line before the builder starts |
 | `crates/*/tests/common/mod.rs`, `apps/shell/tests/common/mod.rs` | the crate's one copy of test helpers (§4.7) | orchestrator adds a helper; builders only call them |
 | `apps/shell/src/commands.rs` `specta_builder()` | the one list of commands | orchestrator adds the step's names to `collect_commands!` |

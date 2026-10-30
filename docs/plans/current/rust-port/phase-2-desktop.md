@@ -142,7 +142,7 @@ A step starts once the steps it needs are merged. Shared files (plan §5.1) are 
 | 2.9 relays | 2.9a | new `apps/shell/src/relay/*.rs` and their tests |
 | 2.10 git, Overleaf | 2.6 | new `crates/wf-store/src/git/*.rs` and tests, then `apps/shell/src/git.rs` |
 | 2.11 embeddings | 2.6, 2.9a | new `crates/wf-store/src/embed.rs` and tests, `apps/shell/src/embed.rs` |
-| 2.12 the rest | 2.8 | one PR per area (TeX, Zotero, Mattermost, updates, log, menu, title bar, plan widget, ink), each in its own files |
+| 2.12 the rest | 2.8 (none needs the 2.9 relays: Mattermost signs in through its own window) | one PR per area (TeX, Zotero, Mattermost, updates, log, menu, title bar, plan widget, ink), each in its own files |
 | 2.13 shim, bundle, e2e | all above | runs alone |
 
 Waves of 3: 2.6, 2.8, 2.9a → 2.7, 2.9, 2.10, 2.11 (three at a time, the fourth starts when one merges) → 2.8b and the 2.12 areas, three at a time → 2.13. A wave whose steps add crates gets the prep PR of plan §5.1 first. Phases 3 and 4 get the same table when they start.
