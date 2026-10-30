@@ -14,6 +14,7 @@ publish = false
 # Exact pins: specta is a release candidate and its API moves between rcs.
 [workspace.dependencies]
 wf-core = { path = "crates/wf-core" }
+wf-store = { path = "crates/wf-store" }
 serde = { version = "=1.0.229", features = ["derive"] }
 specta = { version = "=2.0.0-rc.27", features = ["derive"] }
 specta-serde = "=0.0.14"

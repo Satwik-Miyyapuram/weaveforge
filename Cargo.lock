@@ -459,6 +459,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "wf-store"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+ "wf-core",
+]
+
+[[package]]
 name = "wf-wasm"
 version = "0.1.0"
 dependencies = [
