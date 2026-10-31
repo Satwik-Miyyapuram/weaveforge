@@ -1,5 +1,7 @@
 //! What every relay shares: its error answer, its https rule, and redirect checking. Ported from apps/desktop/src/proxy-shared.ts.
 
+use std::time::Duration;
+
 use super::address;
 
 /// Most redirects a relay follows before giving up.
@@ -115,13 +117,42 @@ pub fn next_hop(
     Hop::Follow(next)
 }
 
+/// Longest a relay waits to connect upstream.
+pub const RELAY_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+/// Longest a relay waits between bytes upstream; no total timeout, so streams can run long.
+/// At least each route's own timeout, so a slow first byte meets the route's limit, not this one.
+pub const RELAY_READ_TIMEOUT: Duration = Duration::from_secs(120);
+
 /// A client that never follows redirects itself, so each hop can be checked.
 /// # Errors
 /// When reqwest cannot build the client (TLS backend failed to load).
 pub fn relay_client() -> Result<reqwest::Client, reqwest::Error> {
     reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(RELAY_CONNECT_TIMEOUT)
+        .read_timeout(RELAY_READ_TIMEOUT)
         .build()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn read_timeout_never_cuts_a_route_short() {
+        for route in [
+            crate::relay::blob::BLOB_TIMEOUT,
+            crate::relay::pdf::PDF_TIMEOUT,
+            crate::relay::html::HTML_TIMEOUT,
+        ] {
+            assert!(RELAY_READ_TIMEOUT >= route, "{route:?}");
+        }
+    }
+
+    #[test]
+    fn relay_client_builds() {
+        assert!(relay_client().is_ok());
+    }
 }
 
 /// A checked answer: the response and the address it came from.

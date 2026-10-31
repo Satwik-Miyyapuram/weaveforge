@@ -76,8 +76,8 @@
     "rollup:metrics": "node scripts/rollup-metric-chunks.mjs",
     "prune:metrics": "node scripts/prune-metric-series.mjs",
     "test:desktop": "npm run test --workspace @weaveforge/desktop",
-    "test:sidecar": "tsc -p apps/shell/sidecar/tsconfig.json && node --import tsx --test apps/shell/sidecar/test/*.test.ts",
-    "test:bridge": "tsc -p apps/shell/bridge/tsconfig.json && node --import tsx --test apps/shell/bridge/test/*.test.ts",
+    "test:sidecar": "tsc -p apps/shell/sidecar/tsconfig.json && node --import tsx --test apps/shell/sidecar/test/*.test.ts && node --test apps/shell/sidecar/scripts/stage.test.mjs",
+    "test:bridge": "node apps/shell/bridge/build-shim.mjs --check && tsc -p apps/shell/bridge/tsconfig.json && node --import tsx --test apps/shell/bridge/test/*.test.ts",
     "test:memory": "npm run test:memory --workspace @weaveforge/desktop && npm run test:memory --workspace @weaveforge/web",
     "build:desktop": "npm run build --workspace @weaveforge/desktop"
   },

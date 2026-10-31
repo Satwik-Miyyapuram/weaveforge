@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "active": true,
+    "resources": {
+      "target/stage/sidecar/": "sidecar/"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libdbus-1-3"]
+      }
+    }
+  }
+}

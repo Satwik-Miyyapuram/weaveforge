@@ -4,7 +4,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use git2::{DiffOptions, ErrorCode, IndexAddOption, Oid, Repository, Sort, Status, StatusOptions};
+use git2::{
+    DiffOptions, ErrorCode, IndexAddOption, Oid, Repository, RepositoryInitOptions, Sort, Status,
+    StatusOptions,
+};
 
 use crate::git::policy::{
     CommitAction, FileState, IGNORED_DIRS, IGNORED_EXTENSIONS, IGNORED_FILES, MAX_FILE_BYTES,
@@ -16,6 +19,9 @@ pub const STALE_LOCK_SECS: u64 = 5 * 60;
 
 /// The largest file version `read_at` returns; matches the TS maxBuffer.
 pub const MAX_READ_BYTES: u64 = 64 * 1024 * 1024;
+
+/// The branch a folder syncs when none is set.
+pub const DEFAULT_BRANCH: &str = "main";
 
 /// Who the automatic mirror commits are by.
 pub const MIRROR_AUTHOR: Author<'static> = Author {
@@ -130,6 +136,8 @@ pub struct FolderRepo {
     root: PathBuf,
     max_file_bytes: u64,
     max_read_bytes: u64,
+    git_dir: Option<PathBuf>,
+    branch: String,
 }
 
 impl FolderRepo {
@@ -140,7 +148,49 @@ impl FolderRepo {
             root: root.into(),
             max_file_bytes: MAX_FILE_BYTES,
             max_read_bytes: MAX_READ_BYTES,
+            git_dir: None,
+            branch: DEFAULT_BRANCH.to_owned(),
         }
+    }
+
+    /// Keeps the git data in `git_dir` instead of `<root>/.git`.
+    #[must_use]
+    pub fn with_git_dir(self, git_dir: impl Into<PathBuf>) -> Self {
+        Self {
+            git_dir: Some(git_dir.into()),
+            ..self
+        }
+    }
+
+    /// Syncs `branch` instead of `main`.
+    #[must_use]
+    pub fn with_branch(self, branch: impl Into<String>) -> Self {
+        Self {
+            branch: branch.into(),
+            ..self
+        }
+    }
+
+    /// The branch this folder syncs.
+    #[must_use]
+    pub fn branch(&self) -> &str {
+        &self.branch
+    }
+
+    /// Where the git data lives when it is outside the folder.
+    #[must_use]
+    pub fn git_dir(&self) -> Option<&Path> {
+        self.git_dir.as_deref()
+    }
+
+    /// Opens the repository, with the folder as its work tree when the git data is elsewhere.
+    pub(crate) fn open(&self) -> Result<Repository, git2::Error> {
+        let Some(git_dir) = &self.git_dir else {
+            return Repository::open(&self.root);
+        };
+        let repo = Repository::open(git_dir)?;
+        repo.set_workdir(&self.root, false)?;
+        Ok(repo)
     }
 
     /// Replaces the size cap.
@@ -170,6 +220,9 @@ impl FolderRepo {
     /// Whether the folder is its own repository.
     #[must_use]
     pub fn is_repo(&self) -> bool {
+        if self.git_dir.is_some() {
+            return self.open().is_ok();
+        }
         probe(&self.root) == RepoState::Own
     }
 
@@ -178,7 +231,21 @@ impl FolderRepo {
     /// # Errors
     /// When git cannot create the repository.
     pub fn init(&self) -> Result<(), RepoError> {
-        let _repo = Repository::init(&self.root)?;
+        let Some(git_dir) = &self.git_dir else {
+            let _repo = Repository::init(&self.root)?;
+            return Ok(());
+        };
+        // Created bare and switched to non-bare: libgit2 given a work tree
+        // elsewhere writes a `.git` link file into it, and the folder must
+        // stay free of git files. `open` points it at the folder each time.
+        let repo = Repository::init_opts(
+            git_dir,
+            RepositoryInitOptions::new()
+                .bare(true)
+                .mkpath(true)
+                .initial_head(&self.branch),
+        )?;
+        repo.config()?.set_bool("core.bare", false)?;
         Ok(())
     }
 
@@ -187,7 +254,7 @@ impl FolderRepo {
     /// # Errors
     /// When the repository cannot be read.
     pub fn status(&self) -> Result<Vec<FileChange>, RepoError> {
-        let repo = Repository::open(&self.root)?;
+        let repo = self.open()?;
         write_excludes(&repo)?;
         let mut options = StatusOptions::new();
         let options = options
@@ -235,7 +302,7 @@ impl FolderRepo {
         match self.stage_and_commit(message, author) {
             Ok(None) => Ok(None),
             Ok(Some(oid)) => {
-                let repo = Repository::open(&self.root)?;
+                let repo = self.open()?;
                 Ok(Some(to_commit(&repo.find_commit(oid)?)))
             }
             Err(error) => Err(self.explain_failure(error)),
@@ -251,7 +318,7 @@ impl FolderRepo {
     /// The bytes of `file` as it was at `oid`, or `None`.
     #[must_use]
     pub fn read_at(&self, oid: &str, file: &str) -> Option<Vec<u8>> {
-        let repo = Repository::open(&self.root).ok()?;
+        let repo = self.open().ok()?;
         let oid = Oid::from_str(oid).ok()?;
         let tree = repo.find_commit(oid).ok()?.tree().ok()?;
         let entry = tree.get_path(Path::new(file)).ok()?;
@@ -269,7 +336,7 @@ impl FolderRepo {
         message: &str,
         author: Author<'_>,
     ) -> Result<Option<Oid>, RepoError> {
-        let repo = Repository::open(&self.root)?;
+        let repo = self.open()?;
         write_excludes(&repo)?;
         let mut index = repo.index()?;
         index.remove_dir(Path::new(".weaveforge"), 0)?;
@@ -321,7 +388,7 @@ impl FolderRepo {
 
     /// Names a stale `index.lock` when it blocks the commit; otherwise returns `error` as is.
     fn explain_failure(&self, error: RepoError) -> RepoError {
-        let Ok(repo) = Repository::open(&self.root) else {
+        let Ok(repo) = self.open() else {
             return error;
         };
         let lock = repo.path().join("index.lock");
@@ -347,7 +414,7 @@ impl FolderRepo {
         limit: Option<usize>,
         path: Option<&str>,
     ) -> Result<Vec<Commit>, git2::Error> {
-        let repo = Repository::open(&self.root)?;
+        let repo = self.open()?;
         let head = repo.head()?.peel_to_commit()?;
         let mut walk = repo.revwalk()?;
         walk.set_sorting(Sort::TOPOLOGICAL | Sort::TIME)?;

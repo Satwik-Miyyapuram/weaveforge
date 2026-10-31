@@ -7,22 +7,26 @@
 //! Tests for the Overleaf link list: the folder rules, the link rules, the stored links and the list, link and unlink actions.
 mod common;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use common::TempDir;
 use serde_json::json;
+use weaveforge_shell::git::GitQueue;
 use weaveforge_shell::overleaf_links::{
     ALREADY_LINKED, BAD_FOLDER, BAD_PROJECT, FOLDER_TAKEN, NO_TOKEN, NOT_AN_ACTION, NOT_LINKED,
-    NOT_YET, OUTSIDE, OverleafLink, OverleafSyncReply, apply_link_action, check_link_folder,
-    inside_vault, overleaf_sync_with, parse_links,
+    OUTSIDE, OVERLEAF_BRANCH, OVERLEAF_GIT_URL, OverleafDeps, OverleafGit, OverleafLink,
+    OverleafSyncReply, apply_link_action, check_link_folder, inside_vault, overleaf_git_dir,
+    overleaf_sync_with, parse_links,
 };
 use weaveforge_shell::prefs::{PrefValue, Prefs};
 use weaveforge_shell::secrets::Secrets;
 use weaveforge_shell::vault::{NO_ROOT, VaultState};
+use weaveforge_shell::vault_sync::{SyncPull, SyncPush, SyncStatus};
 
 const ID: &str = "64f0c0ffee0123456789abcd";
 const OTHER: &str = "64f0c0ffee0123456789abce";
 const SERVICE: &str = "org.weaveforge.test";
+const TOKEN: &str = "olp_token";
 
 fn link(project_id: &str, folder: &str) -> OverleafLink {
     OverleafLink {
@@ -50,6 +54,8 @@ fn vault_at(dir: &Path) -> VaultState {
     vault
 }
 
+/// Runs with a throwaway git store and a remote that does not exist, so
+/// nothing a test does lands in the working directory.
 async fn run(
     prefs: &Prefs,
     secrets: &Secrets,
@@ -58,15 +64,63 @@ async fn run(
     project: Option<&str>,
     folder: Option<&str>,
 ) -> Result<OverleafSyncReply, String> {
-    overleaf_sync_with(
+    let store = TempDir::new();
+    let git = OverleafGit {
+        store: store.path().join("overleaf-git"),
+        remote_base: "unused-remote/".to_owned(),
+    };
+    run_with(prefs, secrets, vault, &git, action, project, folder).await
+}
+
+async fn run_with(
+    prefs: &Prefs,
+    secrets: &Secrets,
+    vault: &VaultState,
+    git: &OverleafGit,
+    action: &str,
+    project: Option<&str>,
+    folder: Option<&str>,
+) -> Result<OverleafSyncReply, String> {
+    let queue = GitQueue::default();
+    let deps = OverleafDeps {
         prefs,
         secrets,
         vault,
+        queue: &queue,
+    };
+    overleaf_sync_with(
+        &deps,
+        git,
         action.to_owned(),
         project.map(str::to_owned),
         folder.map(str::to_owned),
     )
     .await
+}
+
+/// A bare repo at `<remote>/<id>` whose `master` has one commit with `main.tex`.
+fn bare_remote_with_main(remote: &Path, id: &str) -> PathBuf {
+    let bare = remote.join(id);
+    let repo = git2::Repository::init_bare(&bare).expect("bare");
+    let blob = repo.blob(b"\\documentclass{article}\n").expect("blob");
+    let mut builder = repo.treebuilder(None).expect("builder");
+    let _ = builder.insert("main.tex", blob, 0o100_644).expect("insert");
+    let tree = repo
+        .find_tree(builder.write().expect("tree"))
+        .expect("find tree");
+    let sig = git2::Signature::now("WeaveForge", "test@example.com").expect("sig");
+    let _ = repo
+        .commit(Some("refs/heads/master"), &sig, &sig, "init", &tree, &[])
+        .expect("commit");
+    bare
+}
+
+/// How many commits the bare repo's `master` holds.
+fn master_commits(bare: &Path) -> usize {
+    let repo = git2::Repository::open_bare(bare).expect("open bare");
+    let mut walk = repo.revwalk().expect("revwalk");
+    walk.push_ref("refs/heads/master").expect("master");
+    walk.count()
 }
 
 #[cfg(unix)]
@@ -230,12 +284,12 @@ fn unlink_known_project_removes_only_it() {
 }
 
 #[test]
-fn status_pull_and_push_stop_before_git_on_a_linked_project() {
+fn status_pull_and_push_pass_the_link_check_on_a_linked_project() {
     let links = vec![link(ID, "Overleaf/thesis")];
     for action in ["status", "pull", "push"] {
         assert_eq!(
-            apply_link_action(&links, action, Some(ID), None).unwrap_err(),
-            NOT_YET,
+            apply_link_action(&links, action, Some(ID), None).unwrap(),
+            links,
             "{action}"
         );
         assert_eq!(
@@ -503,9 +557,139 @@ async fn pull_and_push_need_a_token_and_a_linked_project() {
         .unwrap_err();
     assert_eq!(status, NOT_LINKED);
 
-    let with_token = fresh_secrets(Some("olp_token"));
+    // No remote exists for this id, so git fails; the token must not leak into the reason.
+    let with_token = fresh_secrets(Some(TOKEN));
     let pulled = run(&prefs, &with_token, &vault, "pull", Some(ID), None)
         .await
         .unwrap_err();
-    assert_eq!(pulled, NOT_YET);
+    assert!(!pulled.is_empty());
+    assert!(!pulled.contains(TOKEN));
+}
+
+#[test]
+fn overleaf_git_dir_is_twelve_hex_then_the_project_id() {
+    let store = Path::new("store");
+    let dir = overleaf_git_dir(store, Path::new("vault"), "Overleaf/a", ID);
+    assert_eq!(
+        dir,
+        overleaf_git_dir(store, Path::new("vault"), "Overleaf/a", ID)
+    );
+    let name = dir.file_name().unwrap().to_string_lossy().into_owned();
+    let hash = name.strip_suffix(&format!("-{ID}.git")).unwrap();
+    assert_eq!(hash.len(), 12);
+    assert!(
+        hash.bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    );
+    assert_eq!(dir.parent(), Some(store));
+}
+
+#[test]
+fn overleaf_git_dir_differs_by_folder_and_by_root() {
+    let store = Path::new("store");
+    let base = overleaf_git_dir(store, Path::new("vault"), "Overleaf/a", ID);
+    assert_ne!(
+        base,
+        overleaf_git_dir(store, Path::new("vault"), "Overleaf/b", ID)
+    );
+    assert_ne!(
+        base,
+        overleaf_git_dir(store, Path::new("other"), "Overleaf/a", ID)
+    );
+    assert_ne!(
+        base,
+        overleaf_git_dir(store, Path::new("vault"), "Overleaf/a", OTHER)
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn overleaf_git_dir_ignores_the_verbatim_prefix() {
+    let plain = overleaf_git_dir(Path::new("s"), Path::new(r"C:\x"), "f", ID);
+    let verbatim = overleaf_git_dir(Path::new("s"), Path::new(r"\\?\C:\x"), "f", ID);
+    assert_eq!(plain, verbatim);
+}
+
+/// The hash Electron's `overleafGitDir` gave for each spelling of one root
+/// (`path.resolve` then SHA-256), so links made there keep their history.
+#[cfg(windows)]
+#[test]
+fn overleaf_git_dir_matches_electron_on_windows() {
+    let want = Path::new("s").join(format!("da792d47724e-{ID}.git"));
+    for root in [
+        r"C:\Users\a\Vault",
+        r"C:\Users\a\Vault\",
+        "C:/Users/a/Vault/",
+        r"\\?\C:\Users\a\Vault",
+    ] {
+        assert_eq!(
+            overleaf_git_dir(Path::new("s"), Path::new(root), "papers/thesis", ID),
+            want,
+            "{root}"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn overleaf_git_dir_matches_electron_on_unix() {
+    let want = Path::new("s").join(format!("591426e1bf40-{ID}.git"));
+    for root in ["/home/a/Vault", "/home/a/Vault/"] {
+        assert_eq!(
+            overleaf_git_dir(Path::new("s"), Path::new(root), "papers/thesis", ID),
+            want,
+            "{root}"
+        );
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn pull_then_push_then_status_round_trip_with_the_remote() {
+    let vault_dir = TempDir::new();
+    let dir = TempDir::new();
+    let remote = TempDir::new();
+    let store = TempDir::new();
+    let vault = vault_at(vault_dir.path());
+    let prefs = prefs_in(&dir);
+    let secrets = fresh_secrets(Some(TOKEN));
+    let _ = run(
+        &prefs,
+        &secrets,
+        &vault,
+        "link",
+        Some(ID),
+        Some("Overleaf/thesis"),
+    )
+    .await
+    .unwrap();
+    let bare = bare_remote_with_main(remote.path(), ID);
+    let git = OverleafGit {
+        store: store.path().to_path_buf(),
+        remote_base: format!("{}{}", remote.path().display(), std::path::MAIN_SEPARATOR),
+    };
+    assert_eq!(OVERLEAF_GIT_URL, "https://git.overleaf.com/");
+    assert_eq!(OVERLEAF_BRANCH, "master");
+    let folder = vault_dir.path().join("Overleaf").join("thesis");
+
+    let pulled = run_with(&prefs, &secrets, &vault, &git, "pull", Some(ID), None)
+        .await
+        .unwrap();
+    assert!(matches!(pulled.pull, Some(SyncPull::FastForward { .. })));
+    assert!(pulled.status.is_none() && pulled.push.is_none());
+    assert!(folder.join("main.tex").is_file());
+    assert!(!folder.join(".git").exists());
+
+    common::put(&folder.join("notes.tex"), b"% notes\n");
+    let pushed = run_with(&prefs, &secrets, &vault, &git, "push", Some(ID), None)
+        .await
+        .unwrap();
+    assert_eq!(pushed.push, Some(SyncPush::Pushed));
+    assert_eq!(master_commits(&bare), 2);
+
+    let status = run_with(&prefs, &secrets, &vault, &git, "status", Some(ID), None)
+        .await
+        .unwrap();
+    let status: SyncStatus = status.status.unwrap();
+    assert_eq!(status.branch, "master");
+    assert_eq!((status.ahead, status.behind), (0, 0));
 }

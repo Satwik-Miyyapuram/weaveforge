@@ -1,11 +1,19 @@
 //! The window's menu: the model the page's menu bar draws, and the actions its entries run.
 
+use std::path::Path;
 use std::sync::Mutex;
 
 use tauri::{Emitter as _, Manager as _, Runtime};
+use tauri_plugin_opener::OpenerExt as _;
+
+use crate::app_log::{AppLog, LogLevel};
+use crate::launch::without_verbatim_prefix;
+use crate::vault::VaultState;
 
 /// The DOM event the page listens for (`MENU_COMMAND_EVENT` in `desktop-title-bar.tsx`).
 pub const PAGE_COMMAND_EVENT: &str = "weaveforge:menu-command";
+/// The documentation site the Help menu's Documentation entry opens.
+pub const DOCS_URL: &str = "https://www.weaveforge.org/docs/";
 /// The Tauri event that asks the page to route (the page side is wired in 2.13).
 pub const MENU_ROUTE_EVENT: &str = "menu-route";
 /// The error for a menu entry that cannot run (unknown, a separator, or disabled).
@@ -31,9 +39,9 @@ pub trait MenuHost {
     fn workspace_root(&self) -> Option<String>;
     /// Open the folder picker to choose a new workspace folder (2.13 wires the native side).
     fn choose_workspace(&self);
-    /// Reveal the workspace folder in the system file explorer (2.13 wires the native side).
+    /// Reveal the workspace folder in the system file explorer.
     fn show_in_explorer(&self);
-    /// Open the documentation site in the browser (2.13 wires the native side).
+    /// Open the documentation site in the browser.
     fn open_docs(&self);
     /// Look for an app update (2.13 wires the native side).
     fn check_updates(&self);
@@ -76,6 +84,29 @@ pub enum MenuRole {
     Close,
     /// Quit the app.
     Quit,
+}
+
+/// The page command that runs an edit role in the page's editor, or `None` for a native role.
+#[must_use]
+pub fn edit_command(role: MenuRole) -> Option<&'static str> {
+    match role {
+        MenuRole::Undo => Some("edit-undo"),
+        MenuRole::Redo => Some("edit-redo"),
+        MenuRole::Cut => Some("edit-cut"),
+        MenuRole::Copy => Some("edit-copy"),
+        MenuRole::Paste => Some("edit-paste"),
+        MenuRole::SelectAll => Some("edit-select-all"),
+        MenuRole::Reload
+        | MenuRole::ResetZoom
+        | MenuRole::ZoomIn
+        | MenuRole::ZoomOut
+        | MenuRole::FullScreen
+        | MenuRole::DevTools
+        | MenuRole::Minimize
+        | MenuRole::Maximize
+        | MenuRole::Close
+        | MenuRole::Quit => None,
+    }
 }
 
 /// What kind of entry a menu item is, as the page draws it.
@@ -565,10 +596,26 @@ impl<R: Runtime> TauriMenuHost<R> {
         Self { window }
     }
 
-    fn exec_command(&self, command: &str) {
-        let _ = self
-            .window
-            .eval(format!("document.execCommand('{command}')"));
+    /// Open the workspace folder in the file explorer; `Err` when there is none or the OS refuses.
+    fn open_workspace_folder(&self) -> Result<(), String> {
+        let root = self
+            .workspace_root()
+            .ok_or_else(|| "There is no workspace folder to open.".to_owned())?;
+        let path = without_verbatim_prefix(Path::new(&root));
+        let text = path
+            .to_str()
+            .ok_or_else(|| "path is not valid UTF-8".to_owned())?;
+        self.window
+            .app_handle()
+            .opener()
+            .open_path(text, None::<&str>)
+            .map_err(|e| e.to_string())
+    }
+
+    fn log_failure(&self, message: &str, reason: &str) {
+        if let Some(log) = self.window.app_handle().try_state::<AppLog>() {
+            log.record(LogLevel::Warn, "menu", message, Some(reason));
+        }
     }
 
     fn step_zoom(&self, next: impl Fn(f64) -> f64) {
@@ -609,17 +656,21 @@ impl<R: Runtime> MenuHost for TauriMenuHost<R> {
         );
     }
 
-    /// Edit roles run through `execCommand`, a known gap: WebView2 blocks `execCommand('paste')`,
-    /// and focus may sit on the page's menu button. Behaviour kept as is; 2.13 moves the edit roles
-    /// into the page, which restores editor focus and runs the command or uses the clipboard API.
+    /// Edit roles go to the page as `edit-*` menu commands, since WebView2 blocks `execCommand('paste')`.
+    /// The other roles run natively against the window.
     fn role(&self, role: MenuRole) {
+        if let Some(command) = edit_command(role) {
+            self.page_command(command);
+            return;
+        }
         match role {
-            MenuRole::Undo => self.exec_command("undo"),
-            MenuRole::Redo => self.exec_command("redo"),
-            MenuRole::Cut => self.exec_command("cut"),
-            MenuRole::Copy => self.exec_command("copy"),
-            MenuRole::Paste => self.exec_command("paste"),
-            MenuRole::SelectAll => self.exec_command("selectAll"),
+            // Sent to the page above.
+            MenuRole::Undo
+            | MenuRole::Redo
+            | MenuRole::Cut
+            | MenuRole::Copy
+            | MenuRole::Paste
+            | MenuRole::SelectAll => {}
             MenuRole::Reload => {
                 let _ = self.window.eval("location.reload()");
             }
@@ -649,9 +700,13 @@ impl<R: Runtime> MenuHost for TauriMenuHost<R> {
         self.window.is_fullscreen().unwrap_or(false)
     }
 
-    /// `None` for now; 2.13 connects the vault's folder here.
+    /// The vault's folder, or `None` when no workspace is connected.
     fn workspace_root(&self) -> Option<String> {
-        None
+        self.window
+            .app_handle()
+            .try_state::<VaultState>()
+            .and_then(|vault| vault.lock().root())
+            .map(|root| root.path)
     }
 
     /// Sent to the page as a menu command; 2.13 wires the native side.
@@ -659,14 +714,24 @@ impl<R: Runtime> MenuHost for TauriMenuHost<R> {
         self.page_command("choose-workspace");
     }
 
-    /// Sent to the page as a menu command; 2.13 wires the native side.
+    /// Opens the workspace folder natively; a failure goes to the app log,
+    /// since the page cannot open a folder either.
     fn show_in_explorer(&self) {
-        self.page_command("show-in-explorer");
+        if let Err(reason) = self.open_workspace_folder() {
+            self.log_failure("The workspace folder could not be opened", &reason);
+        }
     }
 
-    /// Sent to the page as a menu command; 2.13 wires the native side.
+    /// Opens the docs in the browser; a failure goes to the app log.
     fn open_docs(&self) {
-        self.page_command("open-docs");
+        let opened = self
+            .window
+            .app_handle()
+            .opener()
+            .open_url(DOCS_URL, None::<&str>);
+        if let Err(error) = opened {
+            self.log_failure("The docs could not be opened", &error.to_string());
+        }
     }
 
     /// Sent to the page as a menu command; 2.13 wires the native side.

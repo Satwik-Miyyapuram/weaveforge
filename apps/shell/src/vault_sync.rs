@@ -302,7 +302,9 @@ fn base_reply(settings: &SyncSettings) -> VaultSyncReply {
     }
 }
 
-fn queued_reason(error: GitQueueError) -> String {
+/// The line to show when the git queue gave no result.
+#[must_use]
+pub fn queued_reason(error: GitQueueError) -> String {
     match error {
         GitQueueError::TimedOut => GIT_TIMED_OUT.to_owned(),
         GitQueueError::Panicked => git_reason(""),

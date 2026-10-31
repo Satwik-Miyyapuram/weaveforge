@@ -9,6 +9,9 @@ use std::sync::LazyLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+#[cfg(windows)]
+use process_wrap::tokio::JobObject;
+use process_wrap::tokio::{CommandWrap, KillOnDrop};
 use regex::Regex;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
@@ -275,34 +278,54 @@ pub fn tail(text: &str, max_units: usize) -> String {
     text.get(start..).unwrap_or("").to_string()
 }
 
-/// Hides the console window a child would otherwise open on Windows.
-#[cfg(windows)]
-fn hide_window(cmd: &mut tokio::process::Command) {
-    let _ = cmd.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
+/// Builds an engine command that dies with its whole process tree (Job Object or process group).
+fn engine_command(program: &str, args: Vec<String>, cwd: Option<&Path>) -> CommandWrap {
+    let cwd = cwd.map(Path::to_path_buf);
+    let mut wrap = CommandWrap::with_new(program, move |c| {
+        let _ = c.args(&args);
+        if let Some(dir) = &cwd {
+            let _ = c.current_dir(dir);
+        }
+        let _ = c.stdin(Stdio::null());
+        let _ = c.stdout(Stdio::piped());
+        let _ = c.stderr(Stdio::piped());
+    });
+    let _ = wrap.wrap(KillOnDrop);
+    #[cfg(windows)]
+    {
+        // JobObject overwrites raw creation flags, so CREATE_NO_WINDOW must go through CreationFlags.
+        let _ = wrap.wrap(process_wrap::tokio::CreationFlags(
+            windows::Win32::System::Threading::CREATE_NO_WINDOW,
+        ));
+        let _ = wrap.wrap(JobObject);
+    }
+    #[cfg(unix)]
+    {
+        // latexmk's children (pdflatex, biber) must die with it, not just the direct child.
+        let _ = wrap.wrap(process_wrap::tokio::ProcessGroup::leader());
+    }
+    wrap
 }
-
-/// Nothing to hide on other platforms.
-#[cfg(not(windows))]
-fn hide_window(_cmd: &mut tokio::process::Command) {}
 
 /// Asks one engine for its version. A missing or failing binary is `None`, not an error.
 #[must_use]
 pub async fn probe_engine(kind: TexEngine, command: &str) -> Option<TexTool> {
-    let mut cmd = tokio::process::Command::new(command);
-    let _ = cmd.arg("--version").stdin(Stdio::null()).kill_on_drop(true);
-    hide_window(&mut cmd);
-    let output = tokio::time::timeout(PROBE_TIMEOUT, cmd.output())
-        .await
-        .ok()?
+    let mut child = engine_command(command, vec!["--version".to_owned()], None)
+        .spawn()
         .ok()?;
-    if !output.status.success() {
+    let stdout = child.stdout().take();
+    let stderr = child.stderr().take();
+    let run = async move {
+        let (out, err) =
+            tokio::try_join!(read_stream(stdout, "stdout"), read_stream(stderr, "stderr"))?;
+        let status = child.wait().await.map_err(|e| e.to_string())?;
+        Ok::<_, String>((status.success(), out, err))
+    };
+    let (success, out, err) = tokio::time::timeout(PROBE_TIMEOUT, run).await.ok()?.ok()?;
+    if !success {
         return None;
     }
-    let raw = if output.stdout.is_empty() {
-        &output.stderr
-    } else {
-        &output.stdout
-    };
+    let raw = if out.is_empty() { &err } else { &out };
     let text = String::from_utf8_lossy(raw);
     let first = text
         .split('\n')
@@ -425,21 +448,13 @@ fn write_sources(root: &Path, files: &[TexSourceFile]) -> Result<(), String> {
 /// Runs the engine in `dir`; answers whether it failed and its combined output.
 /// Output past [`MAX_OUTPUT_BYTES`] on either stream stops the engine (dropping the child kills it).
 async fn run_engine(tool: &TexTool, dir: &Path, entry: &str) -> (bool, String) {
-    let mut cmd = tokio::process::Command::new(&tool.command);
-    let _ = cmd
-        .args(args_for(tool.kind, entry))
-        .current_dir(dir)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
-    hide_window(&mut cmd);
-    let mut child = match cmd.spawn() {
+    let spawned = engine_command(&tool.command, args_for(tool.kind, entry), Some(dir)).spawn();
+    let mut child = match spawned {
         Ok(child) => child,
         Err(err) => return (true, format!("\n{err}")),
     };
-    let stdout = child.stdout.take();
-    let stderr = child.stderr.take();
+    let stdout = child.stdout().take();
+    let stderr = child.stderr().take();
     let run = async move {
         let (out, err) =
             tokio::try_join!(read_stream(stdout, "stdout"), read_stream(stderr, "stderr"))?;
