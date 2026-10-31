@@ -275,6 +275,43 @@ A step starts once the steps it needs are merged. Shared files (plan §5.1) are 
 
 Waves of 3: 2.6, 2.8, 2.9a → 2.7, 2.9, 2.10, 2.11 (three at a time, the fourth starts when one merges) → 2.8b and the 2.12 areas, three at a time → 2.13. A wave whose steps add crates gets the prep PR of plan §5.1 first. Phases 3 and 4 get the same table when they start.
 
+### 2.11 design: embeddings on `ort`
+
+Goal: the same vectors transformers.js makes today, made natively, so stored
+indexes stay valid (same model id, no rebuild) and 1,039 passages take under a
+minute.
+
+- **Files.** The q8 files transformers.js already fetches, from the same cache
+  (`<app data>/models/<repo>/resolve/main/…`, `model_cache.rs`):
+  `onnx/model_quantized.onnx`, `tokenizer.json`, `config.json`. Weights already
+  on disk are reused; nothing is downloaded twice.
+- **Profiles.** The two in `embedding-models.ts`, by id: arctic-embed-m v1.5
+  (CLS pooling, query prefix "Represent this sentence for searching relevant
+  passages: ") and MiniLM-L6 (mean pooling, no prefix). Unknown id: mean, no
+  prefix, as `embeddingProfile`.
+- **Maths.** Tokenize with truncation at 512 and padding to the batch's
+  longest; feed `input_ids`, `attention_mask` and `token_type_ids` (zeros) when
+  the graph asks for them; pool CLS (row 0) or mask-weighted mean of
+  `last_hidden_state`; L2-normalize (a zero vector stays zero). Query text is
+  trimmed before the prefix, passage text is not (as `embedding-worker.ts`).
+  Batches of 32.
+- **`crates/wf-store/src/embed.rs`.** `Encoder::open(dir, profile)`,
+  `Encoder::embed(&mut self, texts, kind) -> Vec<Vec<f32>>`, plus the pure
+  pieces (`pool_cls`, `pool_mean`, `normalize`, `prepare`) tested without a
+  model. A model test runs only when `WF_EMBED_MODEL_DIR` is set: cosine ≥ 0.999
+  against vectors transformers.js made for the same sentences (fixture JSON).
+- **`apps/shell/src/embed.rs` (new).** Commands `embed_load { model } -> { dimensions }`
+  (fetches missing files through the model cache, emits `embedProgress`) and
+  `embed_texts { texts, kind } -> f32[][]` on a blocking thread. The session is
+  dropped after 5 idle minutes (`IDLE_EVICT_MS`).
+- **Web.** `native-embedder.ts` implements `IEmbedder` over those two commands;
+  `semantic-search.ts` picks it when the Tauri bridge is present, else
+  `WorkerEmbedder`. The web build keeps transformers.js.
+- **Crates (prep PR).** `ort` (pinned rc, `download-binaries`, static, no
+  default TLS beyond native-tls) and `tokenizers` 0.22 (no `progressbar`,
+  no `http`, `onig` off), behind one `cargo deny` run.
+- **Done-when.** An ignored test times 1,039 passages in release; under 60 s.
+
 ## Done when (plan § Phase 2)
 
 - The desktop tests pass against the Tauri build. Each step ports the tests
