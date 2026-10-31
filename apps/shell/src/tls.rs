@@ -39,7 +39,8 @@ mod tests {
 
     #[test]
     fn a_client_builds_with_the_roots() {
-        let client = with_roots(reqwest::Client::builder()).build();
+        // The phone path itself: on desktops `with_roots` changes nothing.
+        let client = reqwest::Client::builder().tls_certs_only(bundled_roots()).build();
         assert!(client.is_ok());
     }
 }
