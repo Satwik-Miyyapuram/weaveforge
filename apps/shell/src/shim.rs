@@ -78,7 +78,10 @@ mod tests {
         let rest = &script[info + marker.len()..];
         let json = &rest[..rest.find(";\n").expect("info ends")];
         let parsed: serde_json::Value = serde_json::from_str(json).expect("info is JSON");
-        assert_eq!(parsed, serde_json::json!({ "platform": "win32", "version": "1.2.3" }));
+        assert_eq!(
+            parsed,
+            serde_json::json!({ "platform": "win32", "version": "1.2.3" })
+        );
         let bundle = script.find(BRIDGE_BUNDLE).expect("bundle");
         assert!(guard < info && info < bundle);
         assert!(script.trim_end().ends_with('}'));
