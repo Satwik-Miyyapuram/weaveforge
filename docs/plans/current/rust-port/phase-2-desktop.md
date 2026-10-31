@@ -300,7 +300,7 @@ minute.
   pieces (`pool_cls`, `pool_mean`, `normalize`, `prepare`) tested without a
   model. A model test runs only when `WF_EMBED_MODEL_DIR` is set: cosine ≥ 0.999
   against vectors transformers.js made for the same sentences (fixture JSON).
-- **`apps/shell/src/embed.rs`.** Commands `embed_load { model } -> { dimensions }`
+- **`apps/shell/src/embed.rs` (new).** Commands `embed_load { model } -> { dimensions }`
   (fetches missing files through the model cache, emits `embedProgress`) and
   `embed_texts { texts, kind } -> f32[][]` on a blocking thread. The session is
   dropped after 5 idle minutes (`IDLE_EVICT_MS`).
