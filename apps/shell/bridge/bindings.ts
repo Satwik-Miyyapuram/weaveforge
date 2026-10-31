@@ -157,10 +157,20 @@ export const commands = {
 };
 
 /* Types */
-/**  What a page reports; every field checked before use. */
+/**
+ *  What a page reports; every field checked before use.
+ * 
+ *  Unlike TS `appReport`, a non-string `source` or `detail` fails to decode and the
+ *  line is dropped; the typed shim only ever sends strings or null.
+ */
 export type AppLogReport = AppLogReport_Serialize | AppLogReport_Deserialize;
 
-/**  What a page reports; every field checked before use. */
+/**
+ *  What a page reports; every field checked before use.
+ * 
+ *  Unlike TS `appReport`, a non-string `source` or `detail` fails to decode and the
+ *  line is dropped; the typed shim only ever sends strings or null.
+ */
 export type AppLogReport_Deserialize = {
 	/**  `error`, `warn` or `info`; anything else is dropped. */
 	level: string,
@@ -172,7 +182,12 @@ export type AppLogReport_Deserialize = {
 	detail?: string | null,
 };
 
-/**  What a page reports; every field checked before use. */
+/**
+ *  What a page reports; every field checked before use.
+ * 
+ *  Unlike TS `appReport`, a non-string `source` or `detail` fails to decode and the
+ *  line is dropped; the typed shim only ever sends strings or null.
+ */
 export type AppLogReport_Serialize = {
 	/**  `error`, `warn` or `info`; anything else is dropped. */
 	level: string,

@@ -6,8 +6,8 @@ use std::time::Duration;
 use reqwest::Url;
 use wf_store::git::policy::{CommitAction, RepoState, decide_commit};
 use wf_store::git::remote::{
-    PullOutcome, PushOutcome, RemoteConfig, RemoteStatus, SYNC_BRANCH, pull, push, redact_secret,
-    remote_status,
+    PullOutcome, PushOutcome, RemoteConfig, RemoteStatus, SYNC_BRANCH, pull, push,
+    redact_secret_for, remote_status,
 };
 use wf_store::git::repo::{FolderRepo, RepoError, probe};
 
@@ -207,7 +207,7 @@ fn non_empty(value: Option<String>) -> Option<String> {
 /// The reason to show the reader when the URL is refused.
 pub fn check_git_remote_url(raw: Option<&str>) -> Result<String, String> {
     let text = raw
-        .map(str::trim)
+        .map(|text| text.trim_matches(crate::fetch::is_js_space))
         .filter(|text| !text.is_empty())
         .ok_or_else(|| NO_URL.to_owned())?;
     let url = Url::parse(text).map_err(|_| "That is not a URL.".to_owned())?;
@@ -332,6 +332,7 @@ async fn run_op(
     timeout: Duration,
 ) -> Result<VaultSyncReply, String> {
     let token = config.token.clone();
+    let username = config.username.clone();
     let action = action.to_owned();
     match queue
         .run(timeout, move || {
@@ -340,9 +341,10 @@ async fn run_op(
         .await
     {
         Ok(Ok(reply)) => Ok(reply),
-        Ok(Err(error)) => Err(redact_secret(
+        Ok(Err(error)) => Err(redact_secret_for(
             &git_reason(&error.to_string()),
             token.as_deref(),
+            username.as_deref(),
         )),
         Err(queued) => Err(queued_reason(queued)),
     }
@@ -369,8 +371,14 @@ fn run_action(
 }
 
 /// The folder's path, if a folder is chosen.
-fn current_root(vault: &VaultState) -> Option<PathBuf> {
-    vault.lock().root().map(|root| PathBuf::from(root.path))
+///
+/// Locks in a blocking task: a file command may hold the lock through a long write.
+async fn current_root(vault: &VaultState) -> Option<PathBuf> {
+    let vault = vault.clone();
+    tokio::task::spawn_blocking(move || vault.lock().root().map(|root| PathBuf::from(root.path)))
+        .await
+        .ok()
+        .flatten()
 }
 
 /// Mirrors the chosen folder into its history now, when history is on.
@@ -383,7 +391,7 @@ pub async fn commit(
     prefs: &Prefs,
 ) -> Result<CommitReply, String> {
     let enabled = matches!(prefs.read("vault-git"), Ok(Some(PrefValue::Flag(true))));
-    commit_vault_folder(queue, current_root(vault), enabled, GIT_TIMEOUT).await
+    commit_vault_folder(queue, current_root(vault).await, enabled, GIT_TIMEOUT).await
 }
 
 /// The chosen folder's commits, newest first.
@@ -391,7 +399,9 @@ pub async fn commit(
 /// # Errors
 /// `NO_ROOT` when no folder is chosen.
 pub async fn log(vault: &VaultState, limit: Option<f64>) -> Result<Vec<WorkspaceCommit>, String> {
-    let root = current_root(vault).ok_or_else(|| NO_ROOT.to_owned())?;
+    let root = current_root(vault)
+        .await
+        .ok_or_else(|| NO_ROOT.to_owned())?;
     let value = limit
         .and_then(serde_json::Number::from_f64)
         .map(serde_json::Value::Number);
@@ -417,7 +427,7 @@ pub async fn vault_sync(
         .queued(move |s| Ok(read_settings(&stored, s)))
         .await
         .map_err(ShellError::from)?;
-    let root = current_root(vault.inner());
+    let root = current_root(vault.inner()).await;
     sync(
         queue.inner(),
         GIT_SYNC_OPS,

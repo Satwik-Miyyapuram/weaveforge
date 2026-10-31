@@ -112,15 +112,15 @@ fn native_store() -> Option<Arc<keyring_core::CredentialStore>> {
     #[cfg(windows)]
     let store = windows_native_keyring_store::Store::new()
         .ok()
-        .map(|s| s as Arc<keyring_core::CredentialStore>);
+        .map(|s| -> Arc<keyring_core::CredentialStore> { s });
     #[cfg(target_os = "macos")]
     let store = apple_native_keyring_store::keychain::Store::new()
         .ok()
-        .map(|s| s as Arc<keyring_core::CredentialStore>);
+        .map(|s| -> Arc<keyring_core::CredentialStore> { s });
     #[cfg(target_os = "linux")]
     let store = dbus_secret_service_keyring_store::Store::new()
         .ok()
-        .map(|s| s as Arc<keyring_core::CredentialStore>);
+        .map(|s| -> Arc<keyring_core::CredentialStore> { s });
     #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
     let store = None;
     store

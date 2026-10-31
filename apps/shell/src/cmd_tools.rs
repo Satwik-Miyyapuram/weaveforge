@@ -40,6 +40,9 @@ impl From<TexCompileResult> for TexCompileReply {
 }
 
 /// What a page reports; every field checked before use.
+///
+/// Unlike TS `appReport`, a non-string `source` or `detail` fails to decode and the
+/// line is dropped; the typed shim only ever sends strings or null.
 #[derive(Debug, Clone, serde::Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AppLogReport {
@@ -123,8 +126,8 @@ pub fn read_log(log: &AppLog) -> AppLogText {
 
 /// Compiles `files` with the best engine on this machine, or says why it cannot.
 ///
-/// A non-array project never gets here: serde rejects it first, and the page
-/// still shows `NOT_A_PROJECT` for that case.
+/// A non-array project never gets here: the typed shim only sends arrays, and
+/// serde rejects anything else before the command runs.
 pub async fn compile(files: Vec<TexSourceFile>, entry_file: String) -> TexCompileReply {
     TexCompileReply::from(compile_tex(&files, &entry_file).await)
 }
