@@ -14,6 +14,7 @@ workspace = true
 [dependencies]
 git2.workspace = true
 ort.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 tokenizers.workspace = true
 wf-core.workspace = true

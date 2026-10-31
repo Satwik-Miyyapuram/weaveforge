@@ -12,6 +12,7 @@ pub mod cmd_ink;
 pub mod cmd_tools;
 pub mod cmd_vault;
 pub mod commands;
+pub mod embed;
 pub mod fetch;
 pub mod git;
 pub mod host;
@@ -122,6 +123,7 @@ fn start_stores(app: &tauri::AppHandle) {
     let _ = app.manage(secrets);
     let _ = app.manage(app_log::AppLog::new(&logs, &home));
     let _ = app.manage(git::GitQueue::default());
+    let _ = app.manage(embed::EmbedSlot::default());
 }
 
 /// The event that carries folder-relative paths changed by other programs to the page.

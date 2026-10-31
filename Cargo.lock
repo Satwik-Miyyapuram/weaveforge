@@ -1652,6 +1652,7 @@ version = "0.1.0"
 dependencies = [
  "git2",
  "ort",
+ "serde_json",
  "thiserror",
  "tokenizers",
  "wf-core",

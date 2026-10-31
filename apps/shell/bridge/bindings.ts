@@ -223,6 +223,28 @@ export const commands = {
 	 */
 	inkHaptics: (message: InkHapticsMessage) => typedError<null, ShellError>(__TAURI_INVOKE("ink_haptics", { message })),
 	/**
+	 *  Loads `model` (`owner/name`) for embedding, downloading its files first when missing.
+	 * 
+	 *  # Errors
+	 *  `BAD_MODEL`, `NO_CLIENT`, `DOWNLOAD_FAILED`, a failed encoder open, or a vector size too large.
+	 */
+	embedLoad: (model: string) => typedError<EmbedInfo, ShellError>(__TAURI_INVOKE("embed_load", { model })),
+	/**
+	 *  Embeds texts with `model`, which `embed_load` must have loaded.
+	 * 
+	 *  # Errors
+	 *  `NOT_LOADED` when `model` is not loaded (never loaded, or dropped while idle), or the encoder's own message.
+	 */
+	embedTexts: (model: string, texts: string[], kind: EmbedKindArg) => typedError<((number | null)[])[], ShellError>(__TAURI_INVOKE("embed_texts", { model, texts, kind })),
+	/**
+	 *  Drops `model` now instead of waiting for it to go idle, after any load of it in flight.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Never; the `Err` arm is kept for the Tauri wiring.
+	 */
+	embedUnload: (model: string) => typedError<null, ShellError>(__TAURI_INVOKE("embed_unload", { model })),
+	/**
 	 *  The window's menu, as the page's menu bar draws it.
 	 * 
 	 *  # Errors
@@ -346,6 +368,19 @@ export type DbState_Serialize = {
 	/**  The backup this run's database was rebuilt from, when it was. */
 	restoredFrom: string | null,
 };
+
+/**  What the page learns about a loaded model. */
+export type EmbedInfo = {
+	/**  The length of each vector. */
+	dimensions: number,
+};
+
+/**  Which side of a retrieval pair the texts are on. */
+export type EmbedKindArg = 
+/**  A document passage. */
+"passage" | 
+/**  A search query. */
+"query";
 
 /**  Whether a listed entry is a file or a folder, as the page sees it. */
 export type EntryKindPayload = 
