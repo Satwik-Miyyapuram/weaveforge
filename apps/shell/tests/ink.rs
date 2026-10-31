@@ -744,3 +744,44 @@ async fn a_long_tool_name_is_cut_to_32_characters() {
     );
     recogniser.dispose();
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_haptics_burst_to_a_stalled_helper_leaves_room_for_a_request() {
+    let Fixture {
+        recogniser,
+        mut far,
+        ..
+    } = fixture(LONG, LONG);
+    let (available, mut helper) = tokio::join!(recogniser.haptics_available(), async {
+        let mut helper = connect(&mut far).await;
+        let _probe = helper.next().await;
+        helper
+            .say(json!({"id": 1, "type": "haptics", "available": true}))
+            .await;
+        helper
+    });
+    assert!(available);
+    // The helper reads nothing while the pen streams more than the pipe and the queue hold.
+    for _ in 0..5_000 {
+        recogniser.haptics(&InkHapticsMessage::Update {
+            pressure: 0.5,
+            velocity: 1.0,
+        });
+    }
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let (outcome, _) = tokio::join!(recogniser.recognise(request(1)), async {
+        // Bounded: if the request was refused, it never arrives.
+        tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                let message = helper.next().await;
+                if message["type"] == "recognise" {
+                    answer(&mut helper, &message).await;
+                    break;
+                }
+            }
+        })
+        .await
+    });
+    assert_eq!(outcome.unwrap().lines.len(), 1);
+    recogniser.dispose();
+}

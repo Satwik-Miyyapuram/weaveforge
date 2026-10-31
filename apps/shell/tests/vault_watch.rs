@@ -394,3 +394,21 @@ fn a_streamed_digest_matches_the_whole_buffer_digest() {
         content_digest(b"")
     );
 }
+
+#[test]
+fn something_unreadable_where_we_deleted_is_reported() {
+    let clock = Clock::new();
+    let mut w = watch();
+    w.note_self_remove("gone.md", clock.now());
+    w.saw_unreadable("gone.md", clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["gone.md"]);
+}
+
+#[test]
+fn an_unreadable_file_where_we_wrote_is_reported() {
+    let clock = Clock::new();
+    let mut w = watch();
+    w.note_self_write("a.md", ours(), clock.now());
+    w.saw_unreadable("a.md", clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["a.md"]);
+}

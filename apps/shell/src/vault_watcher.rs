@@ -234,19 +234,47 @@ fn handle_event(roots: &[PathBuf], shared: &Mutex<VaultWatch>, res: notify::Resu
         if is_ignored(&rel) {
             continue;
         }
-        // Only a path we wrote can be an echo; anything else is reported unread.
-        let expected = lock(shared).expects(&rel);
-        let current = if expected { digest_of(path) } else { None };
-        lock(shared).saw(&rel, current, Instant::now());
+        // Only a path we wrote can be an echo; anything else is reported unread,
+        // under the same lock so a write noted meanwhile is not mistaken for theirs.
+        {
+            let mut watch = lock(shared);
+            if !watch.expects(&rel) {
+                watch.saw(&rel, None, Instant::now());
+                continue;
+            }
+        }
+        // Hashed outside the lock: a large file must not stall the app's saves.
+        let found = digest_of(path);
+        let mut watch = lock(shared);
+        match found {
+            Found::Gone => watch.saw(&rel, None, Instant::now()),
+            Found::Unreadable => watch.saw_unreadable(&rel, Instant::now()),
+            Found::Digest(digest) => watch.saw(&rel, Some(digest), Instant::now()),
+        }
     }
 }
 
-/// The content digest of a regular file up to `DIGEST_MAX_BYTES`, or None otherwise.
-fn digest_of(path: &Path) -> Option<Digest> {
-    let meta = fs::symlink_metadata(path).ok()?;
+/// What is at a reported path now.
+enum Found {
+    /// Nothing: the path was removed.
+    Gone,
+    /// Something we cannot hash: a folder, a link, a file over the cap, or no access.
+    Unreadable,
+    /// A regular file with this content digest.
+    Digest(Digest),
+}
+
+/// The content digest of a regular file up to `DIGEST_MAX_BYTES`.
+fn digest_of(path: &Path) -> Found {
+    let meta = match fs::symlink_metadata(path) {
+        Ok(meta) => meta,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Found::Gone,
+        Err(_) => return Found::Unreadable,
+    };
     if !meta.is_file() || meta.len() > DIGEST_MAX_BYTES {
-        return None;
+        return Found::Unreadable;
     }
-    let mut file = fs::File::open(path).ok()?;
-    digest_reader(&mut file).ok()
+    fs::File::open(path)
+        .and_then(|mut file| digest_reader(&mut file))
+        .map_or(Found::Unreadable, Found::Digest)
 }

@@ -32,6 +32,8 @@ pub const INK_NOT_AVAILABLE: &str = "The Windows handwriting recogniser is not a
 pub const INK_TIMED_OUT: &str = "The handwriting recogniser did not answer in time.";
 /// Error text when the helper exits before answering.
 pub const INK_STOPPED: &str = "The handwriting recogniser stopped before answering.";
+/// Error text when the helper is too far behind to take another request.
+pub const INK_BUSY: &str = "The handwriting recogniser is busy. Try again in a moment.";
 /// Error text for requests cut off by `dispose`.
 pub const INK_DISPOSED: &str = "The handwriting recogniser was stopped.";
 /// Error text when the helper reports failure without a message.
@@ -410,6 +412,10 @@ impl InkRecogniser {
         if lock(&session.shared.state).haptics != Some(true) {
             return;
         }
+        // Haptics are best effort: keep half the queue free for recognise requests.
+        if session.outbox.capacity() < OUTBOX_CAPACITY / 2 {
+            return;
+        }
         if let Some(line) = haptics_line(message) {
             let _ = session.send(line);
         }
@@ -527,7 +533,12 @@ impl InkRecogniser {
         }
         if !session.send(body.to_string()) {
             let _ = lock(&session.shared.state).pending.remove(&id);
-            return Err(INK_STOPPED.to_owned());
+            let reason = if session.outbox.is_closed() {
+                INK_STOPPED
+            } else {
+                INK_BUSY
+            };
+            return Err(reason.to_owned());
         }
         match tokio::time::timeout(self.timeout, reply).await {
             Ok(Ok(outcome)) => outcome,

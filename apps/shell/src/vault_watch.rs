@@ -153,6 +153,14 @@ impl VaultWatch {
         std::mem::take(&mut self.pending).into_iter().collect()
     }
 
+    /// The filesystem reported `path`, but its contents could not be read (too big, not a
+    /// file, no access). It is not gone, so it can never be our echo: always reported.
+    pub fn saw_unreadable(&mut self, path: &str, now: Instant) {
+        let key = (self.normalize)(path);
+        let _ = self.mine.remove(&key);
+        self.saw(path, None, now);
+    }
+
     /// Drops anything pending and forgets all self-writes.
     pub fn stop(&mut self) {
         self.pending.clear();
