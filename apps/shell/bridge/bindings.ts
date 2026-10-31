@@ -154,6 +154,62 @@ export const commands = {
 	 *  Never in practice; the `Err` arm is kept for the Tauri wiring.
 	 */
 	appLogRead: () => typedError<AppLogText, ShellError>(__TAURI_INVOKE("app_log_read")),
+	/**
+	 *  The LaTeX source of one linked Overleaf project, cloned on this machine with the stored token.
+	 * 
+	 *  # Errors
+	 *  Returns the page-safe message when no token is stored, the id is invalid, or the clone or read fails.
+	 */
+	overleafRead: (projectId: string, entryFile: string) => typedError<OverleafSource, ShellError>(__TAURI_INVOKE("overleaf_read", { projectId, entryFile })),
+	/**
+	 *  Runs an Overleaf sync action on the chosen folder.
+	 * 
+	 *  # Errors
+	 *  The reason to show the reader when the action is refused or not yet available.
+	 */
+	overleafSync: (action: string, projectId: string | null, folder: string | null) => typedError<OverleafSyncReply, ShellError>(__TAURI_INVOKE("overleaf_sync", { action, projectId, folder })),
+	/**
+	 *  Opens the Mattermost sign-in window and answers the session token, or null if it was closed.
+	 * 
+	 *  # Errors
+	 *  The message the page shows; see `mattermost_sign_in_with`.
+	 */
+	mattermostSignIn: (serverUrl: string) => typedError<string | null, ShellError>(__TAURI_INVOKE("mattermost_sign_in", { serverUrl })),
+	/**
+	 *  Sends one Mattermost post from the shell.
+	 * 
+	 *  # Errors
+	 *  The message the page shows; see `post_with`.
+	 */
+	mattermostPost: (post: MattermostPost) => typedError<MattermostReply, ShellError>(__TAURI_INVOKE("mattermost_post", { post })),
+	/**
+	 *  The window's menu, as the page's menu bar draws it.
+	 * 
+	 *  # Errors
+	 *  Never fails today; the `Result` keeps the command's shape.
+	 */
+	menuModel: () => typedError<MenuGroup_Serialize[], ShellError>(__TAURI_INVOKE("menu_model")),
+	/**
+	 *  Run one menu entry by its id.
+	 * 
+	 *  # Errors
+	 *  Returns an error when the entry is unknown, a separator, or disabled.
+	 */
+	menuInvoke: (id: string) => typedError<null, ShellError>(__TAURI_INVOKE("menu_invoke", { id })),
+	/**
+	 *  Set the title bar's background and check its ink colour.
+	 * 
+	 *  # Errors
+	 *  Returns an error when either colour is not `#rrggbb`.
+	 */
+	titleBarColors: (background: string, ink: string) => typedError<null, ShellError>(__TAURI_INVOKE("title_bar_colors", { background, ink })),
+	/**
+	 *  Follow the page's focus mode: full screen on or off.
+	 * 
+	 *  # Errors
+	 *  Returns an error when the window refuses the change.
+	 */
+	windowFocus: (focus: boolean) => typedError<null, ShellError>(__TAURI_INVOKE("window_focus", { focus })),
 };
 
 /* Types */
@@ -266,6 +322,129 @@ export type ImageReply = {
 	contentType: string,
 	/**  The final URL after redirects. */
 	url: string,
+};
+
+/**  A Mattermost post as the page sends it. */
+export type MattermostPost = {
+	/**  The server's address, http or https. */
+	serverUrl: string,
+	/**  The session token from sign-in. */
+	token: string,
+	/**  The channel to post in. */
+	channelId: string,
+	/**  The message text. */
+	message: string,
+};
+
+/**  The server's answer to a post: its status, and the body only when it refused. */
+export type MattermostReply = {
+	/**  HTTP status. */
+	status: number,
+	/**  The error body, cut to 2000 chars; empty on success. */
+	body: string,
+};
+
+/**  A top-level menu and its entries (`DesktopMenuGroup`). */
+export type MenuGroup = MenuGroup_Serialize | MenuGroup_Deserialize;
+
+/**  A top-level menu and its entries (`DesktopMenuGroup`). */
+export type MenuGroup_Deserialize = {
+	/**  The group's name, as the menu bar shows it. */
+	label: string,
+	/**  The group's entries, in order. */
+	items: MenuItem_Deserialize[],
+};
+
+/**  A top-level menu and its entries (`DesktopMenuGroup`). */
+export type MenuGroup_Serialize = {
+	/**  The group's name, as the menu bar shows it. */
+	label: string,
+	/**  The group's entries, in order. */
+	items: MenuItem_Serialize[],
+};
+
+/**  One entry of a menu group, as the page's menu bar reads it (`DesktopMenuItem`). */
+export type MenuItem = MenuItem_Serialize | MenuItem_Deserialize;
+
+/**  What kind of entry a menu item is, as the page draws it. */
+export type MenuItemKind = 
+/**  A plain entry. */
+"item" | 
+/**  A checkable entry (none uses it yet). */
+"check" | 
+/**  A divider. */
+"separator";
+
+/**  One entry of a menu group, as the page's menu bar reads it (`DesktopMenuItem`). */
+export type MenuItem_Deserialize = {
+	/**  The id the page sends back to `menu_invoke`. */
+	id: string,
+	/**  Entry, check or separator. */
+	kind: MenuItemKind,
+	/**  The text the page shows. */
+	label: string,
+	/**  The shortcut as the platform writes it (`Ctrl+Shift+I`), or none. */
+	accelerator?: string | null,
+	/**  Whether the entry can be chosen. */
+	enabled: boolean,
+	/**  Set when the entry only opens a route. */
+	route?: string | null,
+	/**  A page action the page runs itself. */
+	command?: string | null,
+};
+
+/**  One entry of a menu group, as the page's menu bar reads it (`DesktopMenuItem`). */
+export type MenuItem_Serialize = {
+	/**  The id the page sends back to `menu_invoke`. */
+	id: string,
+	/**  Entry, check or separator. */
+	kind: MenuItemKind,
+	/**  The text the page shows. */
+	label: string,
+	/**  The shortcut as the platform writes it (`Ctrl+Shift+I`), or none. */
+	accelerator: string | null,
+	/**  Whether the entry can be chosen. */
+	enabled: boolean,
+	/**  Set when the entry only opens a route. */
+	route?: string,
+	/**  A page action the page runs itself. */
+	command?: string,
+};
+
+/**  One text file of the project. */
+export type OverleafFile = {
+	/**  Path from the project root, with `/` separators. */
+	path: string,
+	/**  The file's text, invalid bytes replaced. */
+	content: string,
+};
+
+/**  One Overleaf project linked to a vault folder. */
+export type OverleafLink = {
+	/**  The Overleaf project id. */
+	projectId: string,
+	/**  The vault-relative folder, with forward slashes. */
+	folder: string,
+};
+
+/**  What the page gets (DesktopOverleafSource in apps/web/src/lib/desktop/desktop-bridge.ts). */
+export type OverleafSource = {
+	/**  The Overleaf project id, as given. */
+	projectId: string,
+	/**  The entry file, normalised to a `/` path. */
+	entryFile: string,
+	/**  Every text file of the project. */
+	files: OverleafFile[],
+	/**  The project's page on Overleaf. */
+	overleafUrl: string,
+};
+
+/**  What the page reads back from an Overleaf sync action. */
+export type OverleafSyncReply = {
+	/**  The links after the action. */
+	links: OverleafLink[],
+	/**  Whether an Overleaf git token is stored. */
+	hasToken: boolean,
 };
 
 /**  Whether a chosen root is brand new or already holds a workspace. */
