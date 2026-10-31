@@ -82,10 +82,10 @@ async fn a_saved_artifact_is_served_on_both_url_forms() {
     let (web, data) = (TempDir::new(), TempDir::new());
     let routes = routes(&web, &data);
     let url = write_local_artifact(&routes.artifacts, "exp-1", "loss.png", b"png bytes").unwrap();
-    let path = url.strip_prefix("/artifacts").unwrap();
+    let path = url.strip_prefix("app://artifacts").unwrap();
     for uri in [
-        format!("app://localhost{url}"),
-        format!("http://app.localhost{url}"),
+        format!("app://localhost/artifacts{path}"),
+        format!("http://app.localhost/artifacts{path}"),
         format!("app://artifacts{path}"),
         format!("http://app.artifacts{path}"),
     ] {

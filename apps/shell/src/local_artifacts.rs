@@ -14,15 +14,17 @@ use crate::protocol::{Reply, content_type_for};
 /// Host the artifact URLs use.
 pub const ARTIFACT_HOST: &str = "artifacts";
 
-/// Prefix of every artifact URL this app records: `/artifacts/{experiment_id}/{folder}/{name}`.
-/// Same-origin, because Windows webviews cannot load a second `app://` host and the page CSP allows only `'self'`.
-pub const ARTIFACT_URL_PREFIX: &str = "/artifacts/";
+/// Prefix of every artifact URL this app records: `app://artifacts/{experiment_id}/{folder}/{name}`,
+/// as in Electron; the web app reads and syncs records by this prefix.
+pub const ARTIFACT_URL_PREFIX: &str = "app://artifacts/";
 
-/// Prefix the Electron app recorded; still served on the `artifacts` host.
-pub const LEGACY_URL_PREFIX: &str = "app://artifacts/";
+/// The same files on the app's own origin, `/artifacts/{experiment_id}/{folder}/{name}`, for
+/// Windows webviews, which cannot load a second `app://` host under the page's `'self'` CSP.
+pub const SAME_ORIGIN_PREFIX: &str = "/artifacts/";
 
 /// An artifact runs nothing and loads nothing: an HTML or SVG upload opened on the app's origin
-/// would otherwise run script next to the IPC bridge.
+/// would otherwise run script next to the IPC bridge. A PDF is served as a download
+/// (`application/octet-stream`, as in Electron), so no viewer runs under this policy.
 pub const ARTIFACT_CSP: &str =
     "sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'";
 

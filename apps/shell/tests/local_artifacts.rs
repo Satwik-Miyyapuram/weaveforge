@@ -7,7 +7,7 @@ use std::path::Path;
 
 use common::TempDir;
 use weaveforge_shell::local_artifacts::{
-    ARTIFACT_CSP, ARTIFACT_HOST, ARTIFACT_URL_PREFIX, LEGACY_URL_PREFIX, UNSAFE, is_safe_segment,
+    ARTIFACT_CSP, ARTIFACT_HOST, ARTIFACT_URL_PREFIX, SAME_ORIGIN_PREFIX, UNSAFE, is_safe_segment,
     serve_local_artifact, write_local_artifact,
 };
 use weaveforge_shell::protocol::Reply;
@@ -19,7 +19,7 @@ fn header<'a>(r: &'a Reply, name: &str) -> Option<&'a str> {
         .map(|(_, v)| v.as_str())
 }
 
-/// The path under the artifacts root: `/artifacts/exp/uuid/name` gives `/exp/uuid/name`.
+/// The URL path after the host: `app://artifacts/exp/uuid/name` gives `/exp/uuid/name`.
 fn url_path(url: &str) -> String {
     format!("/{}", url.strip_prefix(ARTIFACT_URL_PREFIX).unwrap())
 }
@@ -31,8 +31,9 @@ fn count_entries(dir: &Path) -> usize {
 #[test]
 fn artifact_host_and_prefix() {
     assert_eq!(ARTIFACT_HOST, "artifacts");
-    assert_eq!(ARTIFACT_URL_PREFIX, "/artifacts/");
-    assert_eq!(LEGACY_URL_PREFIX, "app://artifacts/");
+    // The web app selects and syncs records by this prefix; it must stay as Electron wrote it.
+    assert_eq!(ARTIFACT_URL_PREFIX, "app://artifacts/");
+    assert_eq!(SAME_ORIGIN_PREFIX, "/artifacts/");
 }
 
 // TS: "a saved artifact is served back from its URL"
@@ -185,4 +186,23 @@ fn ok_reply_is_sandboxed_and_loads_nothing() {
     assert!(directives.contains(&"sandbox"));
     assert!(directives.contains(&"default-src 'none'"));
     assert!(!csp.contains("script-src"));
+}
+
+#[test]
+fn pdf_is_a_sandboxed_download_as_in_electron() {
+    let dir = TempDir::new();
+    let url = write_local_artifact(dir.path(), "exp-1", "report.pdf", b"%PDF-1.7").unwrap();
+    let r = serve_local_artifact(dir.path(), &url_path(&url));
+    assert_eq!(r.status, 200);
+    assert_eq!(header(&r, "content-type"), Some("application/octet-stream"));
+    assert_eq!(header(&r, "content-security-policy"), Some(ARTIFACT_CSP));
+    assert_eq!(header(&r, "x-content-type-options"), Some("nosniff"));
+}
+
+#[test]
+fn svg_reply_is_sandboxed() {
+    let dir = TempDir::new();
+    let url = write_local_artifact(dir.path(), "exp-1", "plot.svg", b"<svg/>").unwrap();
+    let r = serve_local_artifact(dir.path(), &url_path(&url));
+    assert_eq!(header(&r, "content-security-policy"), Some(ARTIFACT_CSP));
 }
