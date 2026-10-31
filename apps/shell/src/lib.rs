@@ -14,6 +14,7 @@ pub mod cmd_vault;
 pub mod commands;
 pub mod fetch;
 pub mod git;
+pub mod host;
 pub mod ink;
 pub mod launch;
 pub mod local_artifacts;

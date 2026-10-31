@@ -9,7 +9,7 @@
 
 import { errorMessage } from "@weaveforge/core";
 import path from "node:path";
-import type { App, BrowserWindow, Shell } from "electron";
+import type { App, Shell } from "electron";
 
 import type { PreferenceStore } from "./preference-store";
 import type { SecretStore } from "./secret-store";
@@ -58,6 +58,12 @@ export function shellMcpDeps(app: App, shell: Shell, homeVariant: string | undef
   };
 }
 
+/** The part of a window the semantic rank uses: an Electron BrowserWindow, or the sidecar's stand-in. */
+export interface RankWindow {
+  isDestroyed(): boolean;
+  webContents: { send(channel: string, ...args: unknown[]): void };
+}
+
 /** What the local API needs from the shell. */
 export interface MainLocalApiDeps {
   /** The guarded IPC, already pinned to the app's origin. */
@@ -67,17 +73,19 @@ export interface MainLocalApiDeps {
   /** The local database the queries run against. */
   localDb: LocalDbHost;
   /** The window that holds the semantic encoder, when one is up. */
-  mainWindow: () => BrowserWindow | null;
+  mainWindow: () => RankWindow | null;
   /** Where the shell's preferences live. */
-  preferenceStore: () => PreferenceStore;
+  preferenceStore: () => Pick<PreferenceStore, "read" | "write">;
   /** Where the token lives. */
-  secretStore: () => SecretStore;
+  secretStore: () => Pick<SecretStore, "read" | "write" | "clear">;
   /** Folder SDK artifact uploads are written to. */
   artifactRoot: string;
   /** Where Connect writes the token file and the bridge. */
   mcpPaths: McpPaths;
   /** This app's binary, which runs the bridge as Node. */
   execPath: string;
+  /** False when the bridge runs on a real `node`, not this app's binary as Node. Default true. */
+  electron?: boolean;
   /** Stamped into the .mcpb manifest. */
   version: string;
   /** The OS handlers for a client's install link or file; never fed a URL the page chose. */
@@ -245,7 +253,7 @@ export function registerMainLocalApi(
         connected: saved !== null,
         ...(saved && { tokenId: saved.tokenId }),
         url: `${LOCAL_API_URL}/mcp`,
-        launch: mcpLaunch(deps.mcpPaths, deps.execPath),
+        launch: mcpLaunch(deps.mcpPaths, deps.execPath, deps.electron ?? true),
       },
       ...(localApi === null && startError && { reason: startError }),
       ...extra,
@@ -370,7 +378,7 @@ export function registerMainLocalApi(
   handle(CHANNELS.mcpOpenClient, async (_event, client: unknown) => {
     if (!MCP_OPEN_CLIENTS.includes(client as McpOpenClient)) return { ok: false, message: "Unknown client." };
     if (!(await savedMcp(await readTokens()))) return { ok: false, message: "Connect first." };
-    const launch = mcpLaunch(deps.mcpPaths, deps.execPath);
+    const launch = mcpLaunch(deps.mcpPaths, deps.execPath, deps.electron ?? true);
     if (client === "cursor") await deps.open.url(cursorInstallLink(launch));
     else if (client === "vscode") await deps.open.url(vscodeInstallLink(launch));
     else {
