@@ -445,6 +445,11 @@ Reviewers check every diff against `qol-rubric.md`; the number in brackets is th
 - An outside edit held because its note was open waits for the next folder event; schedule an auto-apply when the last hold on a held note is released (rubric 1, 3).
 - A file that moved again mid-apply keeps its old base, so its next plain folder edit reads as "both" and is held; record the applied digest as base instead (rubric 1).
 - The workspace side of an auto-apply has no compare-and-set: a workspace write to a closed note between preview and apply (server sync, an agent, a late editor flush) is overwritten. Compare the note's digest with the preview's before each update and hold it if it moved.
+- A note renamed or moved in the folder (same id, new path) is held like a copy. Tell a rename (old path gone) from a copy and take renames in without asking (rubric 1, 13).
+- A note held only because it is open looks like a conflict in the folder panel. Label it "held: open in editor" (rubric 13).
+- Nothing says outside edits were taken in. Show the applied count as a toast or a panel line (rubric 7, 13).
+- Every auto-apply run reads the whole folder. Preview only the changed paths, or back off while changes keep coming (rubric 8, 26).
+- If `claimImportedFile` fails after a create, the next run may create the note again (not verified). Claim first, or make the claim idempotent (rubric 1).
 - Held outside edits (removed, edited on both sides, no record of the app's write) still need a click on Review; offer keep-mine / take-theirs inline (rubric 1, 10).
 - Re-hash on every event: skip when size and mtime match the last digest (rubric 26).
 - The 2 s max wait can read a file still being written by a slow program.

@@ -57,12 +57,24 @@ function paths(entries: (ImportDiffEntry | JsonDiffEntry)[] | undefined): string
   return (entries ?? []).map(pathOf);
 }
 
-test("a created note the folder alone wrote is applied", () => {
+function seenNew(): SeenFile {
+  return { side: "folder", digest: "digest", newPath: true };
+}
+
+test("a created note the folder alone wrote at a new path is applied", () => {
   const { apply, held } = splitOutsideEdits(
-    diffOf([note("created", "a.md")], undefined, { "a.md": seenAs("folder") }),
+    diffOf([note("created", "a.md")], undefined, { "a.md": seenNew() }),
   );
   assert.deepEqual(paths(apply.entries), ["a.md"]);
   assert.equal(held.entries.length, 0);
+});
+
+test("a created note at a known path (its id was stripped) is held, not added twice", () => {
+  const { apply, held } = splitOutsideEdits(
+    diffOf([note("created", "a.md")], undefined, { "a.md": seenAs("folder") }),
+  );
+  assert.equal(apply.entries.length, 0);
+  assert.deepEqual(paths(held.entries), ["a.md"]);
 });
 
 test("an updated note the folder alone changed is applied", () => {
@@ -198,7 +210,7 @@ test("a JSON data file changed on both sides is held", () => {
 
 test("counts have all five keys and match each output; seen is carried to apply", () => {
   const seen = {
-    "new.md": seenAs("folder"),
+    "new.md": seenNew(),
     "up.md": seenAs("both"),
   };
   const { apply, held } = splitOutsideEdits(
@@ -251,7 +263,7 @@ test("applyOutsideEdits calls apply before settle with only the applyable part",
         [note("created", "new.md"), note("conflict", "c.md")],
         [row("created", "data/tags.json", "t1"), row("removed", "data/gone.json", "t2")],
         {
-          "new.md": seenAs("folder"),
+          "new.md": seenNew(),
           "data/tags.json": seenAs("folder"),
           "data/gone.json": seenAs("folder"),
         },
@@ -292,7 +304,7 @@ test("a throwing preview or apply rejects and skips settle", async () => {
   );
   await assert.rejects(
     applyOutsideEdits({
-      preview: async () => diffOf([note("created", "a.md")], undefined, { "a.md": seenAs("folder") }),
+      preview: async () => diffOf([note("created", "a.md")], undefined, { "a.md": seenNew() }),
       isOpen: () => false,
       apply: async () => {
         throw new Error("apply failed");

@@ -37,13 +37,18 @@ export function splitOutsideEdits(
   const takesIn = (action: ImportAction, path: string) =>
     action === "created" || (action === "updated" && !seen[path]?.newPath);
 
+  // A note "created" at a known path lost its id (a tool rewrote the
+  // frontmatter): taking it in would add a second copy of that note.
+  const noteTakesIn = (action: ImportAction, path: string) =>
+    takesIn(action, path) && (action !== "created" || seen[path]?.newPath === true);
+
   const apply: ImportDiffEntry[] = [];
   const held: ImportDiffEntry[] = [];
   for (const entry of diff.entries) {
     if (entry.action === "unchanged") continue;
     const id = entry.entity.id;
     const safe =
-      takesIn(entry.action, entry.entity.path) &&
+      noteTakesIn(entry.action, entry.entity.path) &&
       folderAlone(entry.entity.path) &&
       !(id && isOpen(id));
     (safe ? apply : held).push(entry);
