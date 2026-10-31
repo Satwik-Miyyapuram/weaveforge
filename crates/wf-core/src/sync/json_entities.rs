@@ -1,9 +1,6 @@
 //! Ports `packages/core/src/workspace/json-entities.ts`: the project's JSON data
 //! files (`relations.json`, `tags.json`, `reading-list-items.json`), parsed and
 //! diffed by id. Pure: the caller reads the files and applies the result.
-//!
-//! Divergence: `serde_json::Map` keeps keys sorted, so nested object key order
-//! is ignored when comparing rows, where `JSON.stringify` would see a reorder.
 
 use std::collections::{HashMap, HashSet};
 
@@ -172,10 +169,12 @@ fn same_json(a: &Value, b: &Value) -> bool {
         (Value::Array(x), Value::Array(y)) => {
             x.len() == y.len() && x.iter().zip(y).all(|(p, q)| same_json(p, q))
         }
+        // Maps keep file order, so a reordered nested object differs, as in its JSON text.
         (Value::Object(x), Value::Object(y)) => {
             x.len() == y.len()
                 && x.iter()
-                    .all(|(k, v)| y.get(k).is_some_and(|w| same_json(v, w)))
+                    .zip(y)
+                    .all(|((k, v), (j, w))| k == j && same_json(v, w))
         }
         _ => a == b,
     }

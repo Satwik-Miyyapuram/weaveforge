@@ -1,9 +1,6 @@
 //! Ports `packages/core/src/workspace/deserialize-workspace.ts`: reads the
 //! folder's markdown files into entities and diffs them against what is stored.
 //!
-//! Divergence: `fields` is a `serde_json::Map`, which keeps keys sorted, where the
-//! TypeScript keeps frontmatter order. The diff does not depend on that order.
-//!
 //! Divergence: the TypeScript looks directory names up on a plain object, so a
 //! folder named `constructor` or `__proto__` resolves to a prototype member. Here
 //! such a name is simply not a directory.

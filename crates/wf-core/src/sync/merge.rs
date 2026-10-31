@@ -2,7 +2,7 @@
 //! merge of rows. Missing keys read as JS `undefined`, which is `null` in
 //! conflicts and absent from the merged row.
 
-use std::collections::BTreeSet;
+use std::collections::HashSet;
 
 use serde_json::{Map, Value};
 
@@ -29,7 +29,7 @@ pub struct Conflict {
 pub struct MergeResult {
     /// The row with the server's values, overridden by local-only edits.
     pub merged: Map<String, Value>,
-    /// Conflicts, sorted by field name.
+    /// Conflicts in field order: local keys, then remote-only keys.
     pub conflicts: Vec<Conflict>,
 }
 
@@ -42,11 +42,13 @@ pub fn merge_rows(
 ) -> MergeResult {
     let mut merged = remote.clone();
     let mut conflicts = Vec::new();
-    let fields: BTreeSet<&str> = local
+    // The TS walks a Set of local keys then remote keys: first-seen order.
+    let mut seen = HashSet::new();
+    let fields = local
         .keys()
         .chain(remote.keys())
         .map(String::as_str)
-        .collect();
+        .filter(|field| seen.insert(*field));
 
     for field in fields {
         if RESERVED.contains(&field) {
@@ -127,7 +129,8 @@ fn set_field(merged: &mut Map<String, Value>, field: &str, value: Option<&Value>
             let _ = merged.insert(field.to_owned(), v.clone());
         }
         None => {
-            let _ = merged.remove(field);
+            // Keep the other keys where they are, as JS `delete` does.
+            let _ = merged.shift_remove(field);
         }
     }
 }

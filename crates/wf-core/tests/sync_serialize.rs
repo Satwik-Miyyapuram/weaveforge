@@ -233,6 +233,45 @@ fn manifest_stamps_schema_version_app_and_counts() {
 }
 
 #[test]
+fn manifest_bytes_match_json_stringify_in_written_key_order() {
+    let out = serialize_workspace(&snapshot(), &project());
+    let manifest_path = format!(
+        "{}/{WORKSPACE_META_DIR}/manifest.json",
+        project_dir(&project())
+    );
+    let expected = format!(
+        "{{\n  \"schemaVersion\": {WORKSPACE_SCHEMA_VERSION},\n  \"generatedAt\": \"{NOW}\",\n  \"app\": \"WeaveForge\",\n  \"counts\": {{\n    \"papers\": 0,\n    \"notes\": 0,\n    \"readingLists\": 0,\n    \"reportSections\": 0,\n    \"experiments\": 0,\n    \"milestones\": 0,\n    \"logEntries\": 0,\n    \"relations\": 0,\n    \"tags\": 0\n  }}\n}}\n"
+    );
+    assert_eq!(file(&out.files, &manifest_path), expected);
+}
+
+#[test]
+fn data_rows_keep_key_order_and_print_numbers_as_js_does() {
+    // JSON.stringify of {z:1.0,a:1e21,m:0.5,b:-0} with 2-space indent.
+    let row: Value =
+        serde_json::from_str(r#"{"z": 1.0, "a": 1e21, "m": 0.5, "b": -0.0, "n": [2.0]}"#)
+            .expect("row is JSON");
+    let Value::Object(row) = row else {
+        panic!("row is an object")
+    };
+    let out = serialize_workspace(
+        &WorkspaceSnapshot {
+            relations: vec![row],
+            ..snapshot()
+        },
+        &project(),
+    );
+    let relations = format!(
+        "{}/{WORKSPACE_META_DIR}/relations.json",
+        project_dir(&project())
+    );
+    assert_eq!(
+        file(&out.files, &relations),
+        "[\n  {\n    \"z\": 1,\n    \"a\": 1e+21,\n    \"m\": 0.5,\n    \"b\": 0,\n    \"n\": [\n      2\n    ]\n  }\n]\n"
+    );
+}
+
+#[test]
 fn empty_json_data_is_an_empty_array_with_a_newline() {
     let out = serialize_workspace(&snapshot(), &project());
     let relations = format!(

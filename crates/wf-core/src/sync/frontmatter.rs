@@ -11,7 +11,7 @@ const LINE_TERMINATORS: [char; 4] = ['\n', '\r', '\u{2028}', '\u{2029}'];
 /// A note split into its frontmatter map and the text after the fence.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParsedDocument {
-    /// Parsed `key: value` fields, sorted by key.
+    /// Parsed `key: value` fields, in file order.
     pub frontmatter: Map<String, Value>,
     /// Everything after the closing fence, or the whole input when there is no fence.
     pub body: String,
@@ -155,7 +155,7 @@ fn number_text(number: &serde_json::Number) -> String {
 }
 
 /// JS `String(n)` for finite and non-finite doubles.
-fn js_number(n: f64) -> String {
+pub(crate) fn js_number(n: f64) -> String {
     if n.is_nan() {
         return "NaN".to_owned();
     }

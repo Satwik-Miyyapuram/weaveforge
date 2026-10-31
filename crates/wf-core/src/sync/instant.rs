@@ -29,13 +29,11 @@ pub fn parse_instant(s: &str) -> Option<i64> {
         i += 3;
     }
     let mut ms = 0;
-    let mut has_fraction = false;
     // A fraction only follows seconds.
     if has_seconds && b.get(i) == Some(&b'.') {
         let (value, next) = fraction(b, i + 1)?;
         ms = value;
         i = next;
-        has_fraction = true;
     }
     if !(1..=12).contains(&month)
         || !(1..=31).contains(&day)
@@ -49,7 +47,7 @@ pub fn parse_instant(s: &str) -> Option<i64> {
     if hour == 24 && (minute != 0 || second != 0 || ms != 0) {
         return None;
     }
-    let offset = zone(b.get(i..)?, sep == b' ', has_fraction)?;
+    let offset = zone(b.get(i..)?, sep == b' ')?;
     // Day overflow rolls forward: day 30 of February is the first of March onward.
     let days = days_from_civil(year, month, 1) + day - 1;
     let clock = hour * 3_600_000 + minute * 60_000 + second * 1_000 + ms;
@@ -94,7 +92,7 @@ fn fraction(b: &[u8], start: usize) -> Option<(i64, usize)> {
 }
 
 /// Offset from UTC in minutes for the text after the clock, `None` if it is not a zone.
-fn zone(rest: &[u8], space_ok: bool, has_fraction: bool) -> Option<i64> {
+fn zone(rest: &[u8], space_ok: bool) -> Option<i64> {
     if rest.is_empty() || matches!(rest, [b'Z' | b'z']) {
         return Some(0);
     }
@@ -111,9 +109,8 @@ fn zone(rest: &[u8], space_ok: bool, has_fraction: bool) -> Option<i64> {
     };
     let body = z.get(1..)?;
     let (hh, mm) = match body.len() {
-        // A bare hour after a fraction is rejected by Date.parse, unless the
-        // clock is space-separated.
-        2 if !has_fraction || space_ok => (digits(body, 0, 2)?, 0),
+        // Date.parse takes a bare hour zone only in the space-separated form.
+        2 if space_ok => (digits(body, 0, 2)?, 0),
         4 => (digits(body, 0, 2)?, digits(body, 2, 2)?),
         5 if body.get(2) == Some(&b':') => (digits(body, 0, 2)?, digits(body, 3, 2)?),
         _ => return None,

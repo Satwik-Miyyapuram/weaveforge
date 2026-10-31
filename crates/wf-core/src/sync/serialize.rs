@@ -1,11 +1,14 @@
 //! Port of `packages/core/src/workspace/serialize-workspace.ts`: renders a workspace
 //! snapshot to the (path, content) files the folder mirror holds.
-//! Divergence: `serde_json::Map` sorts keys, so the manifest's keys (and any nested
-//! object) come out alphabetical where the TS keeps insertion order. Same data, different bytes.
 
 use std::collections::HashSet;
+use std::io;
 
+use serde::Serialize;
+use serde_json::ser::{Formatter, PrettyFormatter};
 use serde_json::{Number, Value, json};
+
+use crate::sync::frontmatter::js_number;
 
 use crate::search::js_text::is_js_whitespace;
 use crate::sync::blob_links::to_relative_blob_links;
@@ -470,12 +473,61 @@ fn rows(items: &[JsonRow]) -> Value {
     Value::Array(items.iter().cloned().map(Value::Object).collect())
 }
 
-/// Pretty JSON with a trailing newline, as the TS `stableJson`.
+/// Pretty JSON with a trailing newline, as the TS `stableJson`
+/// (`JSON.stringify(value, null, 2)`): key order kept, numbers printed as JS prints them.
 fn stable_json(value: &Value) -> String {
-    format!(
-        "{}\n",
-        serde_json::to_string_pretty(value).unwrap_or_default()
-    )
+    let mut out = Vec::new();
+    let mut ser =
+        serde_json::Serializer::with_formatter(&mut out, JsPretty(PrettyFormatter::new()));
+    if value.serialize(&mut ser).is_err() {
+        return "\n".to_owned();
+    }
+    format!("{}\n", String::from_utf8(out).unwrap_or_default())
+}
+
+/// serde's pretty layout (two spaces, `": "`), but doubles in JS form:
+/// `1` not `1.0`, `1e+21` not `1e21`.
+struct JsPretty<'a>(PrettyFormatter<'a>);
+
+impl Formatter for JsPretty<'_> {
+    fn write_f64<W: ?Sized + io::Write>(&mut self, writer: &mut W, value: f64) -> io::Result<()> {
+        writer.write_all(js_number(value).as_bytes())
+    }
+    fn begin_array<W: ?Sized + io::Write>(&mut self, writer: &mut W) -> io::Result<()> {
+        self.0.begin_array(writer)
+    }
+    fn end_array<W: ?Sized + io::Write>(&mut self, writer: &mut W) -> io::Result<()> {
+        self.0.end_array(writer)
+    }
+    fn begin_array_value<W: ?Sized + io::Write>(
+        &mut self,
+        writer: &mut W,
+        first: bool,
+    ) -> io::Result<()> {
+        self.0.begin_array_value(writer, first)
+    }
+    fn end_array_value<W: ?Sized + io::Write>(&mut self, writer: &mut W) -> io::Result<()> {
+        self.0.end_array_value(writer)
+    }
+    fn begin_object<W: ?Sized + io::Write>(&mut self, writer: &mut W) -> io::Result<()> {
+        self.0.begin_object(writer)
+    }
+    fn end_object<W: ?Sized + io::Write>(&mut self, writer: &mut W) -> io::Result<()> {
+        self.0.end_object(writer)
+    }
+    fn begin_object_key<W: ?Sized + io::Write>(
+        &mut self,
+        writer: &mut W,
+        first: bool,
+    ) -> io::Result<()> {
+        self.0.begin_object_key(writer, first)
+    }
+    fn begin_object_value<W: ?Sized + io::Write>(&mut self, writer: &mut W) -> io::Result<()> {
+        self.0.begin_object_value(writer)
+    }
+    fn end_object_value<W: ?Sized + io::Write>(&mut self, writer: &mut W) -> io::Result<()> {
+        self.0.end_object_value(writer)
+    }
 }
 
 /// The three data files and the manifest, under the project's `.weaveforge/`.
