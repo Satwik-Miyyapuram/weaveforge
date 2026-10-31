@@ -728,11 +728,9 @@ function seenFiles(
     const digest = baseDigest(text);
     const known = base[path] || undefined;
     const workspace = current[path] === undefined ? undefined : baseDigest(current[path]);
-    const side =
-      known === undefined && workspace === undefined
-        ? "folder"
-        : changedSide({ base: known, folder: digest, workspace });
-    seen[path] = { side, digest };
+    const newPath = known === undefined && workspace === undefined;
+    const side = newPath ? "folder" : changedSide({ base: known, folder: digest, workspace });
+    seen[path] = newPath ? { side, digest, newPath } : { side, digest };
   }
   return seen;
 }

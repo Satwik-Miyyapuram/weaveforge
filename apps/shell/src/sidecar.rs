@@ -261,25 +261,35 @@ fn serve_ask(link: &HostLink, n: u64, value: &Value) {
     let host = link.host.clone();
     let answers = link.answers.clone();
     let max = link.max_answer_bytes;
+    let refused = match (&method, &host) {
+        (None, _) => Some("bad ask"),
+        (Some(_), None) => Some("no host"),
+        (Some(_), Some(_)) => None,
+    };
     let permit = Arc::clone(&link.asks).try_acquire_owned().ok();
+    let (Some(method), Some(host), Some(permit), None) = (method, host, permit, refused) else {
+        // Answered here, with no task: a sidecar flooding asks it never reads cannot pile tasks up.
+        // A full answer queue drops the line; that sidecar is not reading anyway.
+        if let Some(tx) = answers.upgrade() {
+            let _ = tx.try_send(answer_line(
+                n,
+                Err(refused.unwrap_or("busy").to_owned()),
+                max,
+            ));
+        }
+        return;
+    };
     let ask_timeout = link.ask_timeout;
     // Detached: the task ends once its answer is queued or stdin has closed.
     let _answering = tokio::spawn(async move {
-        let result = match (method, host) {
-            (None, _) => Err("bad ask".to_owned()),
-            (Some(_), None) => Err("no host".to_owned()),
-            (Some(_), Some(_)) if permit.is_none() => Err("busy".to_owned()),
-            (Some(method), Some(host)) => {
-                // The permit moves into the blocking call, so a timed-out host still holds its slot.
-                let call = tokio::task::spawn_blocking(move || {
-                    let _permit = permit;
-                    host.ask(&method, params)
-                });
-                match tokio::time::timeout(ask_timeout, call).await {
-                    Err(_) => Err("host timed out".to_owned()),
-                    Ok(joined) => joined.unwrap_or_else(|_| Err("host failed".to_owned())),
-                }
-            }
+        // The permit moves into the blocking call, so a timed-out host still holds its slot.
+        let call = tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            host.ask(&method, params)
+        });
+        let result = match tokio::time::timeout(ask_timeout, call).await {
+            Err(_) => Err("host timed out".to_owned()),
+            Ok(joined) => joined.unwrap_or_else(|_| Err("host failed".to_owned())),
         };
         if let Some(tx) = answers.upgrade() {
             let _ = tx.send(answer_line(n, result, max)).await;
@@ -489,7 +499,11 @@ impl Sidecar {
             host,
             answers: tx.downgrade(),
             max_answer_bytes: max_request_bytes,
-            asks: Arc::new(tokio::sync::Semaphore::new(limits.max_open.max(1))),
+            asks: Arc::new(tokio::sync::Semaphore::new(
+                limits
+                    .max_open
+                    .clamp(1, tokio::sync::Semaphore::MAX_PERMITS),
+            )),
             ask_timeout: limits.timeout,
         };
         // Detached: each task ends on its own when its pipe closes or its queue closes.

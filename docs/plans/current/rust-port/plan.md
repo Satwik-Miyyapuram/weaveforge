@@ -441,7 +441,10 @@ Reviewers check every diff against `qol-rubric.md`; the number in brackets is th
 - Each auto-apply previews the whole folder; preview only the changed paths, and back off while edits keep coming (rubric 26).
 - `claimImportedFile` can claim a file that two notes point at; check for a duplicate before claiming.
 - `Sidecar::spawn_with_host` has no caller until 2.8b-2/3 wire the host.
-- The auto-apply folder check and the moved-since-preview base guard have no unit test; web tests cannot swap the container. Add a container override for tests.
+- The moved-since-preview base guard in `refreshMirrorBase` has no unit test; web tests cannot swap the container. Add a container override for tests.
+- An outside edit held because its note was open waits for the next folder event; schedule an auto-apply when the last hold on a held note is released (rubric 1, 3).
+- A file that moved again mid-apply keeps its old base, so its next plain folder edit reads as "both" and is held; record the applied digest as base instead (rubric 1).
+- The workspace side of an auto-apply has no compare-and-set: a workspace write to a closed note between preview and apply (server sync, an agent, a late editor flush) is overwritten. Compare the note's digest with the preview's before each update and hold it if it moved.
 - Held outside edits (removed, edited on both sides, no record of the app's write) still need a click on Review; offer keep-mine / take-theirs inline (rubric 1, 10).
 - Re-hash on every event: skip when size and mtime match the last digest (rubric 26).
 - The 2 s max wait can read a file still being written by a slow program.

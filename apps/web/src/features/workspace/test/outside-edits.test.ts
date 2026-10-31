@@ -93,6 +93,32 @@ test("an updated note with an unknown side is held; a created note with no recor
   assert.deepEqual(paths(noRecord.held.entries), ["n.md"]);
 });
 
+test("a copy at a new path that updates a known note is held; a new note at a new path applies", () => {
+  // e.g. "a copy.md" carrying a's id: the folder alone wrote it, but it would overwrite a.
+  const fresh: SeenFile = { side: "folder", digest: "digest", newPath: true };
+  const { apply, held } = splitOutsideEdits(
+    diffOf([note("updated", "a copy.md", "a"), note("created", "b.md", "b")], undefined, {
+      "a copy.md": fresh,
+      "b.md": fresh,
+    }),
+  );
+  assert.deepEqual(paths(apply.entries), ["b.md"]);
+  assert.deepEqual(paths(held.entries), ["a copy.md"]);
+});
+
+test("a JSON data file at a new path with an updated row is held whole", () => {
+  const fresh: SeenFile = { side: "folder", digest: "digest", newPath: true };
+  const { apply, held } = splitOutsideEdits(
+    diffOf(
+      [],
+      [row("updated", "data/tags copy.json", "t1"), row("created", "data/new.json", "n1")],
+      { "data/tags copy.json": fresh, "data/new.json": fresh },
+    ),
+  );
+  assert.deepEqual(paths(apply.json?.entries), ["data/new.json"]);
+  assert.deepEqual(paths(held.json?.entries), ["data/tags copy.json"]);
+});
+
 test("a removed note and a conflict note are held even when the folder alone changed them", () => {
   const { apply, held } = splitOutsideEdits(
     diffOf([note("removed", "r.md"), note("conflict", "c.md")], undefined, {

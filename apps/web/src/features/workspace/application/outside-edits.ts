@@ -19,6 +19,8 @@ import type {
 export interface SeenFile {
   side: ChangeSide;
   digest: string;
+  /** Neither the last agreement nor the workspace knows this path: a new file, or a copy of a known one. */
+  newPath?: boolean;
 }
 
 export type FolderDiff = ImportDiff & { json?: JsonDiff; seen?: Readonly<Record<string, SeenFile>> };
@@ -30,6 +32,10 @@ export function splitOutsideEdits(
 ): { apply: FolderDiff; held: FolderDiff } {
   const seen = diff.seen ?? {};
   const folderAlone = (path: string) => seen[path]?.side === "folder";
+  // An update from a path neither side knew is a copy carrying a known id
+  // ("a copy.md", a sync conflict file): taking it in would overwrite that note.
+  const takesIn = (action: ImportAction, path: string) =>
+    action === "created" || (action === "updated" && !seen[path]?.newPath);
 
   const apply: ImportDiffEntry[] = [];
   const held: ImportDiffEntry[] = [];
@@ -37,7 +43,7 @@ export function splitOutsideEdits(
     if (entry.action === "unchanged") continue;
     const id = entry.entity.id;
     const safe =
-      (entry.action === "created" || entry.action === "updated") &&
+      takesIn(entry.action, entry.entity.path) &&
       folderAlone(entry.entity.path) &&
       !(id && isOpen(id));
     (safe ? apply : held).push(entry);
@@ -51,7 +57,7 @@ export function splitOutsideEdits(
     // A file is taken in whole only if every one of its rows is created or updated.
     const blocked = new Set(
       rows
-        .filter((entry) => entry.action !== "created" && entry.action !== "updated")
+        .filter((entry) => !takesIn(entry.action, entry.path))
         .map((entry) => entry.path),
     );
     const takenIn = (path: string) => folderAlone(path) && !blocked.has(path);
