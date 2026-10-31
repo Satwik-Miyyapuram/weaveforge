@@ -522,7 +522,6 @@ Reviewers check every diff against `qol-rubric.md`; the number in brackets is th
 - Ban direct `reqwest::Client::new`/`builder` with clippy `disallowed-methods` so every client goes through `tls::with_roots`.
 - Phones skip local embeddings (`NO_EMBEDDINGS`); write down why and when to revisit.
 - `parseColour` in the ink bridge: test odd inputs (`#abc`, `rgb()`, named colours) against the old app.
-- Pin `@tauri-apps/cli` as a devDependency instead of `npx @tauri-apps/cli@2.12.4` in CI.
 - A failed phone sign-in (bad link, failed read) is only logged; emit an error event the page can show.
 - `phone_sources!` copies `appAllowedHosts` from the old gradle file by hand; test the two lists against each other, or generate one.
 - The ink bridge (`window.AndroidInkingBridge`) is visible to iframes too; limit it to the top frame (4.3b).
@@ -534,7 +533,6 @@ Reviewers check every diff against `qol-rubric.md`; the number in brackets is th
 - Device check: the deep-link plugin must not also emit the launch link as a new URL, or the code is exchanged twice.
 - When `InkLayers` fails, `load` returns early and skips the account picker and the widget route; catch only around the ink setup.
 - `GoogleAccountPicker.release` and the idempotent `install` have no Robolectric test.
-- CI builds the phone library with cargo and runs gradle with `-x rustBuildArm64Debug`, because that task calls `npm run tauri` and apps/shell has no package.json; a pinned CLI devDependency would let CI use `tauri android build` again.
 
 ## 11. Sources
 

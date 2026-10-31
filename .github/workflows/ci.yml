@@ -638,21 +638,25 @@ jobs:
       - name: Clippy (Android)
         run: cargo clippy --all-targets --locked --target aarch64-linux-android -- -D warnings
 
+      # The CLI is pinned in apps/shell/package.json. Gradle's Rust task calls
+      # `npm run tauri`, which writes the plugin and Wry glue into gen/android.
       - name: Generate the Android project
-        run: npx --yes @tauri-apps/cli@2.12.4 android init --ci
+        run: npm run tauri -- android init --ci
 
-      # Cargo builds the library and gradle skips its own Rust task: that task
-      # runs `npm run tauri`, and apps/shell has no package.json to hold it.
-      - name: Build the Rust library
+      - name: Debug APK
+        run: npm run tauri -- android build --debug --apk --target aarch64 --ci
+
+      # Fail loudly if the build left out a plugin's Android library.
+      - name: Check the Android plugin glue
         run: |
-          cargo build --lib --locked --target aarch64-linux-android
-          jni=gen/android/app/src/main/jniLibs/arm64-v8a
-          mkdir -p "$jni"
-          cp target/aarch64-linux-android/debug/libweaveforge_shell_lib.so "$jni/"
+          for plugin in tauri-plugin-ink tauri-plugin-deep-link; do
+            grep -q "$plugin" gen/android/tauri.settings.gradle \
+              || { echo "missing $plugin in tauri.settings.gradle"; exit 1; }
+          done
 
-      - name: Ink plugin unit tests and debug APK
+      - name: Ink plugin unit tests
         working-directory: apps/shell/gen/android
-        run: ./gradlew --no-daemon :tauri-plugin-ink:testDebugUnitTest :app:assembleArm64Debug -x rustBuildArm64Debug
+        run: ./gradlew --no-daemon :tauri-plugin-ink:testDebugUnitTest
 
   wasm-parity:
     # TS vs Rust on frozen goldens (plan P1.2). Node is pinned to the version
