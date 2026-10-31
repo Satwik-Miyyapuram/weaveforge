@@ -79,6 +79,9 @@ fn asks_restart(reply: &Value) -> bool {
 /// Gives the current `vault.root` params.
 pub type VaultRootSource = Arc<dyn Fn() -> Value + Send + Sync>;
 
+/// Takes a warning line, such as a restarted sidecar refusing the vault root.
+pub type WarnSink = Arc<dyn Fn(&str) + Send + Sync>;
+
 /// Tauri-managed handle to the sidecar. A failed spawn is kept, so every command can report it.
 pub struct LocalDb {
     sidecar: tokio::sync::RwLock<Result<Sidecar, ShellError>>,
@@ -88,6 +91,8 @@ pub struct LocalDb {
     vault_root: Option<VaultRootSource>,
     /// Orders `vault.root` sends, so a restart's send never lands after, and undoes, a newer folder's.
     vault_root_send: tokio::sync::Mutex<()>,
+    /// Gets the warnings a restart logs; stderr when unset.
+    warn: Option<WarnSink>,
     /// Bumped on every restart, only under the write lock: a restart asked for by a sidecar that is already
     /// gone is skipped, so concurrent callers restart once.
     generation: AtomicU64,
@@ -106,6 +111,7 @@ impl LocalDb {
             host: None,
             vault_root: None,
             vault_root_send: tokio::sync::Mutex::new(()),
+            warn: None,
             generation: AtomicU64::new(0),
             closed: AtomicBool::new(false),
             data_dir,
@@ -132,6 +138,13 @@ impl LocalDb {
     #[must_use]
     pub fn with_vault_root(mut self, source: VaultRootSource) -> Self {
         self.vault_root = Some(source);
+        self
+    }
+
+    /// Sends the warnings a restart logs to `sink`, such as the app log, instead of stderr.
+    #[must_use]
+    pub fn with_warn(mut self, sink: WarnSink) -> Self {
+        self.warn = Some(sink);
         self
     }
 
@@ -220,10 +233,14 @@ impl LocalDb {
         if let Some(source) = &self.vault_root
             && let Err(e) = self.send_vault_root(&**source).await
         {
-            eprintln!(
-                "[local-api] the restarted sidecar did not get the workspace folder: {}",
+            let line = format!(
+                "the restarted sidecar did not get the workspace folder: {}",
                 e.message
             );
+            match &self.warn {
+                Some(warn) => warn(&line),
+                None => eprintln!("[local-api] {line}"),
+            }
         }
         Ok(())
     }

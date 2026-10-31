@@ -266,6 +266,8 @@ fn start_local_db(app: &tauri::AppHandle) {
                 Some(source) => db.with_vault_root(source),
                 None => db,
             };
+            let log = app.clone();
+            let db = db.with_warn(Arc::new(move |line: &str| local_api::warn(&log, line)));
             match host {
                 Some(h) => db.with_host(h),
                 None => db,
@@ -278,12 +280,8 @@ fn start_local_db(app: &tauri::AppHandle) {
     };
     let _ = app.manage(db);
     let handle = app.clone();
-    // The root is read inside the task, so a folder chosen meanwhile is not overwritten with a stale one.
     let _task = tauri::async_runtime::spawn(async move {
-        let root = handle
-            .try_state::<vault::VaultState>()
-            .and_then(|vault| vault.lock().root());
-        local_api::forward_vault_root(&handle, root.as_ref()).await;
+        local_api::forward_vault_root(&handle).await;
     });
 }
 

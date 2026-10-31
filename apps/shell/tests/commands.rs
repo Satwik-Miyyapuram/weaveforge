@@ -226,8 +226,13 @@ async fn reset_with_restart_sends_the_vault_root_to_the_new_sidecar() {
 async fn reset_with_restart_succeeds_when_the_sidecar_refuses_the_vault_root() {
     let m = marker();
     let arg = m.to_string_lossy().into_owned();
+    let warned = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+    let sink = std::sync::Arc::clone(&warned);
     let db = restartable(&["--restart-marker", &arg])
-        .with_vault_root(std::sync::Arc::new(|| json!({"refuse": true})));
+        .with_vault_root(std::sync::Arc::new(|| json!({"refuse": true})))
+        .with_warn(std::sync::Arc::new(move |line: &str| {
+            sink.lock().unwrap().push(line.to_owned());
+        }));
     let (before, _) = root_seen(&db).await;
     assert_eq!(
         db.reset().await,
@@ -240,6 +245,11 @@ async fn reset_with_restart_succeeds_when_the_sidecar_refuses_the_vault_root() {
         root,
         serde_json::Value::Null,
         "the refused folder was not kept"
+    );
+    assert_eq!(
+        *warned.lock().unwrap(),
+        vec!["the restarted sidecar did not get the workspace folder: folder refused".to_owned()],
+        "the refusal goes to the warn sink"
     );
     let _ = std::fs::remove_file(&m);
 }

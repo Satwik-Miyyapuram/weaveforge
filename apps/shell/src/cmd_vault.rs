@@ -163,7 +163,7 @@ pub async fn vault_choose(
         for warning in &choice.warnings {
             crate::log_vault_warning(&app, warning, &root.path);
         }
-        crate::local_api::forward_vault_root(&app, Some(root)).await;
+        crate::local_api::forward_vault_root(&app).await;
     }
     Ok(choice.root)
 }

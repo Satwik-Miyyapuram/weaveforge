@@ -14,7 +14,7 @@ use crate::launch::without_verbatim_prefix;
 use crate::prefs::Prefs;
 use crate::secrets::Secrets;
 use crate::sidecar::SidecarHost;
-use crate::vault::VaultRoot;
+use crate::vault::{VaultRoot, VaultState};
 
 /// The folder whose `.mcpb` files `open.path` may open: `<home>/.weaveforge/mcp`, or `mcp-<variant>` for a dev build.
 #[must_use]
@@ -73,8 +73,10 @@ pub fn vault_root_params(root: Option<&VaultRoot>) -> Value {
     }
 }
 
-/// Tells the sidecar which vault folder is open; a failure is logged, never returned.
-pub async fn forward_vault_root(app: &tauri::AppHandle, root: Option<&VaultRoot>) {
+/// Tells the sidecar which vault folder is open; a failure is logged, never returned. The folder is read once
+/// earlier sends are done, so a stale one never lands after a newer one.
+pub async fn forward_vault_root(app: &tauri::AppHandle) {
+    let vault = app.try_state::<VaultState>().map(|v| v.inner().clone());
     let Some(db) = app.try_state::<LocalDb>() else {
         warn(
             app,
@@ -82,7 +84,11 @@ pub async fn forward_vault_root(app: &tauri::AppHandle, root: Option<&VaultRoot>
         );
         return;
     };
-    if let Err(e) = db.send_vault_root(|| vault_root_params(root)).await {
+    let root = || vault.as_ref().and_then(|v| v.lock().root());
+    if let Err(e) = db
+        .send_vault_root(|| vault_root_params(root().as_ref()))
+        .await
+    {
         let line = format!(
             "the local API did not get the workspace folder: {}",
             e.message
