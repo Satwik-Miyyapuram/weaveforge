@@ -126,11 +126,17 @@ impl VaultWatch {
             })
         });
         if echo {
-            // Kept, not removed: one save often arrives as several events.
+            // Kept, not removed: one save often arrives as several events. The file
+            // holds our bytes now, so an earlier view of it (half written) is not news.
+            let _ = self.pending.remove(&key);
+            if self.pending.is_empty() {
+                self.deadline = None;
+                self.first_pending = None;
+            }
             return;
         }
-        // The file no longer holds our bytes, so it is no longer ours.
-        let _ = self.mine.remove(&key);
+        // Not forgotten yet: a big save is first seen half written. Once reported
+        // (`flush`), the path is no longer ours.
         let _ = self.pending.insert(key);
         let first = *self.first_pending.get_or_insert(now);
         self.deadline = Some((now + self.quiet).min(first + MAX_WAIT));
@@ -150,7 +156,11 @@ impl VaultWatch {
         }
         self.deadline = None;
         self.first_pending = None;
-        std::mem::take(&mut self.pending).into_iter().collect()
+        let reported: Vec<String> = std::mem::take(&mut self.pending).into_iter().collect();
+        for key in &reported {
+            let _ = self.mine.remove(key);
+        }
+        reported
     }
 
     /// The filesystem reported `path`, but its contents could not be read (too big, not a

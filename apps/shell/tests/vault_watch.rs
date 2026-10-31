@@ -149,6 +149,42 @@ fn after_an_outside_edit_our_old_bytes_are_no_longer_an_echo() {
 }
 
 #[test]
+fn a_half_written_view_of_our_save_is_not_news_once_the_whole_save_lands() {
+    // Linux reports the create before a big write finishes: the first hash sees part of it.
+    let clock = Clock::new();
+    let mut w = watch();
+    w.note_self_write("big.pdf", ours(), clock.now());
+    w.saw("big.pdf", Some(content_digest(b"ou")), clock.now());
+    w.saw("big.pdf", Some(ours()), clock.now());
+    assert_eq!(quiet(&mut w, &clock), Vec::<String>::new());
+    assert_eq!(w.deadline(), None);
+}
+
+#[test]
+fn a_half_written_view_of_our_save_does_not_hide_a_change_to_another_file() {
+    let clock = Clock::new();
+    let mut w = watch();
+    w.saw("theirs.md", Some(theirs()), clock.now());
+    w.note_self_write("big.pdf", ours(), clock.now());
+    w.saw("big.pdf", None, clock.now());
+    w.saw("big.pdf", Some(ours()), clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["theirs.md"]);
+}
+
+#[test]
+fn an_outside_edit_that_ends_on_other_bytes_is_reported_after_a_view_of_ours() {
+    let clock = Clock::new();
+    let mut w = watch();
+    w.note_self_write("a.md", ours(), clock.now());
+    w.saw("a.md", Some(ours()), clock.now());
+    w.saw("a.md", Some(theirs()), clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["a.md"]);
+    // Reported, so no longer ours: our old bytes coming back are news too.
+    w.saw("a.md", Some(ours()), clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["a.md"]);
+}
+
+#[test]
 fn our_write_to_one_file_does_not_hide_a_change_to_another() {
     let clock = Clock::new();
     let mut w = watch();
