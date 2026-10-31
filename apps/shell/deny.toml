@@ -48,6 +48,12 @@ allow = [
   "Zlib",
 ]
 
+# Mozilla's CA list as data (CDLA-Permissive-2.0), used only by the build script of
+# ort-sys to download ONNX Runtime; it is not in the binary.
+[[licenses.exceptions]]
+crate = "webpki-root-certs"
+allow = ["CDLA-Permissive-2.0"]
+
 [licenses.private]
 ignore = true
 
@@ -60,7 +66,11 @@ skip = [
   # entry once its crates agree. Most come from Linux gtk-rs 0.18 (pinned by
   # webkit2gtk 2.0, which Tauri 2 needs) or are build-time only.
   { crate = "base64@0.21", reason = "swift-rs (macOS build helper of tauri) still on 0.21" },
+  { crate = "base64@0.13", reason = "spm_precompiled via tokenizers still on 0.13" },
   { crate = "bitflags@1", reason = "webkit2gtk 2.0 / javascriptcore-rs (Linux webview) still on bitflags 1" },
+  { crate = "darling@0.20", reason = "derive_builder via tokenizers; build-time only" },
+  { crate = "darling_core@0.20", reason = "darling 0.20, see above; build-time only" },
+  { crate = "darling_macro@0.20", reason = "darling 0.20, see above; build-time only" },
   { crate = "getrandom@0.3", reason = "tauri 2.12 on 0.3; uuid already on 0.4" },
   { crate = "hashbrown@0.12", reason = "indexmap 1 via schemars 0.8 (tauri-utils config schema)" },
   { crate = "indexmap@1", reason = "schemars 0.8 (tauri-utils config schema) still on indexmap 1" },
