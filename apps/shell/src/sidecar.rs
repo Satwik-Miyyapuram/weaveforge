@@ -235,8 +235,9 @@ async fn read_replies(shared: Arc<Shared>, stdout: ChildStdout, max_reply_bytes:
             }
         }
     }
-    fail_all(&shared);
+    // Killed first, so a waiter woken by the failure never sees the child still running.
     kill(&shared).await;
+    fail_all(&shared);
 }
 
 /// Owns stdin and writes each queued line whole, so a dropped caller cannot leave half a line.
@@ -247,8 +248,8 @@ async fn write_requests(
 ) {
     while let Some(line) = rx.recv().await {
         if stdin.write_all(line.as_bytes()).await.is_err() || stdin.flush().await.is_err() {
-            fail_all(&shared);
             kill(&shared).await;
+            fail_all(&shared);
             return;
         }
     }
