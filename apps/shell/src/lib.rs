@@ -7,6 +7,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 pub mod app_log;
+pub mod cmd_tools;
+pub mod cmd_vault;
 pub mod commands;
 pub mod fetch;
 pub mod git;
@@ -21,6 +23,7 @@ pub mod tex;
 pub mod update_check;
 pub mod vault;
 pub mod vault_search;
+pub mod vault_sync;
 pub mod zotero_local;
 
 /// Where the static web export lives: `WF_WEB_DIST` (debug builds only), else `web/` beside the binary.
@@ -46,6 +49,7 @@ pub fn run() -> tauri::Result<()> {
     let app = tauri::Builder::default()
         .invoke_handler(commands::specta_builder().invoke_handler())
         .setup(|app| {
+            start_stores(app.handle());
             start_local_db(app.handle());
             Ok(())
         })
@@ -74,6 +78,52 @@ pub fn run() -> tauri::Result<()> {
         }
     });
     Ok(())
+}
+
+/// Manages the preferences, keychain secrets, app log, git queue and the chosen vault folder.
+///
+/// A missing app folder leaves preferences and the log in the working directory; startup never aborts.
+fn start_stores(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    let paths = app.path();
+    let data = paths.app_data_dir().unwrap_or_default();
+    let logs = paths.app_log_dir().unwrap_or_else(|_| data.clone());
+    let home = paths
+        .home_dir()
+        .map(|h| h.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let prefs = prefs::Prefs::new(data.join("preferences.json"));
+    let vault = vault::VaultState::new();
+    let remembered = match prefs.read("vault-root") {
+        Ok(Some(prefs::PrefValue::Text(path))) => Some(path),
+        _ => None,
+    };
+    let _ = vault.lock().restore(remembered.as_deref());
+    let secrets = secrets::Secrets::new(native_store(), app.config().identifier.clone());
+    let _ = app.manage(prefs);
+    let _ = app.manage(vault);
+    let _ = app.manage(secrets);
+    let _ = app.manage(app_log::AppLog::new(&logs, &home));
+    let _ = app.manage(git::GitQueue::default());
+}
+
+/// This platform's keychain, or `None` when it cannot be opened.
+fn native_store() -> Option<Arc<keyring_core::CredentialStore>> {
+    #[cfg(windows)]
+    let store = windows_native_keyring_store::Store::new()
+        .ok()
+        .map(|s| -> Arc<keyring_core::CredentialStore> { s });
+    #[cfg(target_os = "macos")]
+    let store = apple_native_keyring_store::keychain::Store::new()
+        .ok()
+        .map(|s| -> Arc<keyring_core::CredentialStore> { s });
+    #[cfg(target_os = "linux")]
+    let store = dbus_secret_service_keyring_store::Store::new()
+        .ok()
+        .map(|s| -> Arc<keyring_core::CredentialStore> { s });
+    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
+    let store = None;
+    store
 }
 
 /// Starts the sidecar and manages its `LocalDb`. Any failure is reported through `db_state`, never aborts startup.

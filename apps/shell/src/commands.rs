@@ -37,6 +37,12 @@ fn shell_error(message: impl Into<String>) -> ShellError {
     }
 }
 
+impl From<String> for ShellError {
+    fn from(message: String) -> Self {
+        Self { message }
+    }
+}
+
 impl From<SidecarError> for ShellError {
     fn from(error: SidecarError) -> Self {
         match error {
@@ -255,7 +261,32 @@ pub async fn db_reset(db: tauri::State<'_, LocalDb>) -> Result<(), ShellError> {
 #[must_use]
 pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
-        db_query, db_state, db_reset
+        db_query,
+        db_state,
+        db_reset,
+        crate::prefs::preference_write,
+        crate::secrets::secret_read,
+        crate::secrets::secret_write,
+        crate::secrets::secret_clear,
+        crate::cmd_vault::vault_root,
+        crate::cmd_vault::vault_read,
+        crate::cmd_vault::vault_write,
+        crate::cmd_vault::vault_read_bytes,
+        crate::cmd_vault::vault_write_bytes,
+        crate::cmd_vault::vault_list,
+        crate::cmd_vault::vault_stat,
+        crate::cmd_vault::vault_remove,
+        crate::vault_sync::vault_sync,
+        crate::vault_sync::vault_commit,
+        crate::vault_sync::vault_log,
+        crate::fetch::remote::fetch_title,
+        crate::fetch::remote::fetch_image,
+        crate::cmd_tools::tex_probe,
+        crate::cmd_tools::tex_compile,
+        crate::cmd_tools::zotero_local,
+        crate::cmd_tools::update_check,
+        crate::cmd_tools::app_log_report,
+        crate::cmd_tools::app_log_read
     ])
 }
 
