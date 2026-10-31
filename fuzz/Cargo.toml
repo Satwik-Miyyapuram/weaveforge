@@ -1,0 +1,24 @@
+[package]
+name = "wf-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "AGPL-3.0-only"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "=0.4.10"
+wf-core = { path = "../crates/wf-core" }
+
+# Not part of the root workspace: cargo-fuzz needs nightly and its own lock.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "sync_parsers"
+path = "fuzz_targets/sync_parsers.rs"
+test = false
+doc = false
+bench = false

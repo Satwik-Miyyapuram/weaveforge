@@ -354,7 +354,7 @@ fn conflict_fields(result: &MergeResult) -> Vec<String> {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(256))]
+    #![proptest_config(ProptestConfig::default())]
 
     #[test]
     fn only_local_changed_takes_local_without_conflicts(base in row_strategy(), local in row_strategy()) {

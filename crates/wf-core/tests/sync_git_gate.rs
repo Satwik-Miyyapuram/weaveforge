@@ -112,7 +112,7 @@ fn a_bom_prefixed_file_gets_new_frontmatter_in_front_as_in_the_ts() {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(256))]
+    #![proptest_config(ProptestConfig::default())]
 
     #[test]
     fn stamping_twice_equals_stamping_once_or_both_none(

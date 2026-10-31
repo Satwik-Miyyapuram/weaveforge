@@ -294,7 +294,7 @@ fn meta_strategy() -> impl Strategy<Value = InkNoteMeta> {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(256))]
+    #![proptest_config(ProptestConfig::default())]
 
     #[test]
     fn body_round_trips_the_meta_and_the_text_minus_one_leading_newline(
