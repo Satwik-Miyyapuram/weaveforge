@@ -72,9 +72,13 @@ mod tests {
         let guard = script
             .find(r#"["https://app.localhost","app://localhost"].includes(globalThis.location.origin)"#)
             .expect("origin guard");
-        let info = script
-            .find(r#"globalThis.__WEAVEFORGE_SHELL__ = {"version":"1.2.3","platform":"win32"};"#)
-            .expect("shell info");
+        // Key order depends on serde_json's preserve_order feature, so compare the parsed value.
+        let marker = "globalThis.__WEAVEFORGE_SHELL__ = ";
+        let info = script.find(marker).expect("shell info");
+        let rest = &script[info + marker.len()..];
+        let json = &rest[..rest.find(";\n").expect("info ends")];
+        let parsed: serde_json::Value = serde_json::from_str(json).expect("info is JSON");
+        assert_eq!(parsed, serde_json::json!({ "platform": "win32", "version": "1.2.3" }));
         let bundle = script.find(BRIDGE_BUNDLE).expect("bundle");
         assert!(guard < info && info < bundle);
         assert!(script.trim_end().ends_with('}'));
