@@ -11,6 +11,12 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = ["git-https"]
+# git over https and ssh. Off on phones: vendored OpenSSL does not cross-build there
+# (phase 4 design, decision 1).
+git-https = ["git2/https", "git2/ssh", "git2/vendored-openssl"]
+
 [dependencies]
 git2.workspace = true
 ort.workspace = true

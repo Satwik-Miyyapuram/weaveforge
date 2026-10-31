@@ -10,11 +10,11 @@ use std::time::Duration;
 use common::TempDir;
 use keyring_core::CredentialStore;
 use serde_json::json;
-use weaveforge_shell::git::{CommitReply, GIT_TIMED_OUT, GitQueue};
-use weaveforge_shell::prefs::{PrefValue, Prefs};
-use weaveforge_shell::secrets::Secrets;
-use weaveforge_shell::vault::{NO_ROOT, VaultState};
-use weaveforge_shell::vault_sync::{
+use weaveforge_shell_lib::git::{CommitReply, GIT_TIMED_OUT, GitQueue};
+use weaveforge_shell_lib::prefs::{PrefValue, Prefs};
+use weaveforge_shell_lib::secrets::Secrets;
+use weaveforge_shell_lib::vault::{NO_ROOT, VaultState};
+use weaveforge_shell_lib::vault_sync::{
     NOT_AN_ACTION, SYNC_ACTIONS, SyncOps, SyncPull, SyncPush, SyncSettings, SyncStatus,
     VaultSyncReply, check_git_remote_url, commit, connect_remote, git_reason, log, read_settings,
     sync,

@@ -6,8 +6,8 @@ mod common;
 use std::path::{Path, PathBuf};
 
 use common::{TempDir, put};
-use weaveforge_shell::protocol::Reply;
-use weaveforge_shell::range::{
+use weaveforge_shell_lib::protocol::Reply;
+use weaveforge_shell_lib::range::{
     PART_BYTES_MAX, Pick, WHOLE_BYTES_MAX, pick, serve_file, serve_file_capped,
 };
 

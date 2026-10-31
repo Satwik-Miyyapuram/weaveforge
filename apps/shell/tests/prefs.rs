@@ -8,8 +8,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 
 use serde_json::{Value, json};
-use weaveforge_shell::commands::ShellError;
-use weaveforge_shell::prefs::{PAGE_WRITABLE, PREFERENCE_NAMES, PrefError, PrefValue, Prefs};
+use weaveforge_shell_lib::commands::ShellError;
+use weaveforge_shell_lib::prefs::{PAGE_WRITABLE, PREFERENCE_NAMES, PrefError, PrefValue, Prefs};
 
 static NEXT_DIR: AtomicU64 = AtomicU64::new(0);
 

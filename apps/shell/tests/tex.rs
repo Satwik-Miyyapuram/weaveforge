@@ -6,7 +6,7 @@ mod common;
 use std::fs;
 
 use common::TempDir;
-use weaveforge_shell::tex::{
+use weaveforge_shell_lib::tex::{
     COMPILE_FAILED, MAX_FILES, MAX_TOTAL_BYTES, NO_ENGINE, TOO_LARGE, TOO_MANY_FILES,
     TexCompileResult, TexEngine, TexError, TexSourceFile, TexTool, args_for, compile_tex_in,
     parse_tex_log, probe_engine, safe_relative, tail,

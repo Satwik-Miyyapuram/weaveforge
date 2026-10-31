@@ -4,11 +4,11 @@ mod common;
 
 use common::TempDir;
 use serde_json::json;
-use weaveforge_shell::app_log::{AppLog, AppLogEntry, LogLevel, MAX_ENTRIES};
-use weaveforge_shell::cmd_tools::{
+use weaveforge_shell_lib::app_log::{AppLog, AppLogEntry, LogLevel, MAX_ENTRIES};
+use weaveforge_shell_lib::cmd_tools::{
     AppLogReport, AppLogText, TexCompileReply, compile, format_log_line, read_log, report,
 };
-use weaveforge_shell::tex::{NO_ENGINE, TexCompileResult, TexEngine, TexError};
+use weaveforge_shell_lib::tex::{NO_ENGINE, TexCompileResult, TexEngine, TexError};
 
 const AT: &str = "2026-01-02T03:04:05.000Z";
 const HEAD: &str = "2026-01-02 03:04:05.000";

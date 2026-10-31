@@ -9,8 +9,8 @@ use std::time::{Duration, Instant};
 use reqwest::Url;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use upstream::{Reply, Upstream, redirect, response, serve};
-use weaveforge_shell::relay::account::{is_account_proxy_request, proxy_account};
-use weaveforge_shell::relay::shared::{Answer, RelayRequest, relay_client};
+use weaveforge_shell_lib::relay::account::{is_account_proxy_request, proxy_account};
+use weaveforge_shell_lib::relay::shared::{Answer, RelayRequest, relay_client};
 
 const SHORT: Duration = Duration::from_secs(5);
 const NO_HOST: &str = "http://127.0.0.1:9";

@@ -6,8 +6,8 @@ mod common;
 use std::fs::File;
 
 use common::{TempDir, put};
-use weaveforge_shell::protocol::{Reply, TOO_LARGE, respond};
-use weaveforge_shell::range::WHOLE_BYTES_MAX;
+use weaveforge_shell_lib::protocol::{Reply, TOO_LARGE, respond};
+use weaveforge_shell_lib::range::WHOLE_BYTES_MAX;
 
 fn header<'a>(r: &'a Reply, name: &str) -> Option<&'a str> {
     r.headers

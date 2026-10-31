@@ -10,12 +10,12 @@ use std::sync::{Arc, Mutex};
 
 use common::{TempDir, put};
 use serde_json::{Value, json};
-use weaveforge_shell::host::{
+use weaveforge_shell_lib::host::{
     HOST_URL_PREFIXES, Opener, PrefAccess, SecretAccess, ShellHost, WindowEvents,
 };
-use weaveforge_shell::launch::without_verbatim_prefix;
-use weaveforge_shell::prefs::PrefValue;
-use weaveforge_shell::sidecar::SidecarHost;
+use weaveforge_shell_lib::launch::without_verbatim_prefix;
+use weaveforge_shell_lib::prefs::PrefValue;
+use weaveforge_shell_lib::sidecar::SidecarHost;
 
 #[derive(Default)]
 struct FakePrefs(Mutex<HashMap<String, PrefValue>>);

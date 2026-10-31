@@ -62,8 +62,27 @@ fn web_root() -> PathBuf {
     PathBuf::from("web")
 }
 
+/// The phone entry point. Android and iOS start the app through the symbols Tauri's macro makes;
+/// the desktop starts it from `main.rs`.
+#[cfg(mobile)]
+#[allow(
+    unsafe_code,
+    missing_docs,
+    reason = "tauri::mobile_entry_point emits no_mangle and JNI glue without docs"
+)]
+mod mobile_entry {
+    /// Runs the app; a failed start is printed, as `main` does on desktops.
+    #[tauri::mobile_entry_point]
+    fn start() {
+        if let Err(error) = super::run() {
+            eprintln!("weaveforge: {error}");
+        }
+    }
+}
+
 /// Starts the shell window and blocks until it closes.
 pub fn run() -> tauri::Result<()> {
+    install_tls_provider();
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -106,6 +125,17 @@ pub fn run() -> tauri::Result<()> {
     });
     Ok(())
 }
+
+/// Phones build reqwest with `rustls-no-provider`, so its clients need a process-wide crypto
+/// provider before the first one is made. Desktops use the platform's TLS and need none.
+#[cfg(mobile)]
+fn install_tls_provider() {
+    // Err only means a provider is already installed, which is just as good.
+    let _ = rustls::crypto::ring::default_provider().install_default();
+}
+
+#[cfg(desktop)]
+const fn install_tls_provider() {}
 
 /// Manages the preferences, keychain secrets, app log, git queue and the chosen vault folder.
 ///
@@ -429,9 +459,13 @@ fn deliver_sign_in(app: &tauri::AppHandle, query: String) {
             &error.to_string(),
         );
     }
+    // Phone windows cannot be minimized.
+    #[cfg(desktop)]
+    let unminimize = |window: &tauri::WebviewWindow| window.unminimize();
+    #[cfg(mobile)]
+    let unminimize = |_: &tauri::WebviewWindow| Ok(());
     if let Some(window) = app.get_webview_window(MAIN_WINDOW)
-        && let Err(error) = window
-            .unminimize()
+        && let Err(error) = unminimize(&window)
             .and_then(|()| window.show())
             .and_then(|()| window.set_focus())
     {

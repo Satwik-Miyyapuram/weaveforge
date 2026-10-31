@@ -8,7 +8,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
 use tokio::time::timeout;
-use weaveforge_shell::auth_loopback::{
+use weaveforge_shell_lib::auth_loopback::{
     Reply, answer, callback_query, is_loopback_host, render, serve,
 };
 

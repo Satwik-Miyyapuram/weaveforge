@@ -10,12 +10,12 @@ use std::path::{Path, PathBuf};
 
 use common::{TempDir, put};
 use upstream::{Reply as Canned, Upstream, redirect, response, serve};
-use weaveforge_shell::model_cache::{
+use weaveforge_shell_lib::model_cache::{
     MAX_FILE_BYTES, MAX_HOPS, cache_path_for, is_cache_part, is_upstream_host, is_upstream_url,
     model_client, model_path, serve_model_file, serve_model_file_capped,
 };
-use weaveforge_shell::protocol::Reply as Answer;
-use weaveforge_shell::range::WHOLE_BYTES_MAX;
+use weaveforge_shell_lib::protocol::Reply as Answer;
+use weaveforge_shell_lib::range::WHOLE_BYTES_MAX;
 
 const NO_HOST: &str = "http://127.0.0.1:9";
 const CONFIG: &str = "/Xenova/all-MiniLM-L6-v2/resolve/main/config.json";

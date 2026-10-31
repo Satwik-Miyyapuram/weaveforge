@@ -7,9 +7,9 @@ use std::process::{Child, Stdio};
 use std::time::{Duration, Instant};
 
 use serde_json::json;
-use weaveforge_shell::commands::LocalDb;
-use weaveforge_shell::launch::{ApiArgs, SidecarSource, sidecar_config};
-use weaveforge_shell::sidecar::{Sidecar, SidecarConfig};
+use weaveforge_shell_lib::commands::LocalDb;
+use weaveforge_shell_lib::launch::{ApiArgs, SidecarSource, sidecar_config};
+use weaveforge_shell_lib::sidecar::{Sidecar, SidecarConfig};
 
 /// Local API args for a data dir: artifacts go next to it.
 fn api_args(data: &Path) -> ApiArgs {

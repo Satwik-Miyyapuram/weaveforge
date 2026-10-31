@@ -10,7 +10,7 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::time::Duration;
 
 use common::TempDir;
-use weaveforge_shell::vault_watcher::{
+use weaveforge_shell_lib::vault_watcher::{
     CANNOT_WATCH, ChangeSink, VaultWatcher, WatchSlot, is_ignored, relative_path,
 };
 use wf_store::vault::TEMP_SUFFIX;
