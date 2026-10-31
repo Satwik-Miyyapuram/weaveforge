@@ -9,7 +9,7 @@
   "plugins": {
     "deep-link": {
       "mobile": [
-        { "host": "app.weaveforge.org", "pathPrefix": ["/auth/app-callback"] }
+        { "scheme": ["https"], "host": "app.weaveforge.org", "pathPrefix": ["/auth/app-callback"], "appLink": true }
       ]
     }
   }

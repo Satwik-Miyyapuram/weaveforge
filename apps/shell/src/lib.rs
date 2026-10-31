@@ -385,7 +385,7 @@ fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     );
     let nav_app = app.clone();
     let popup_app = app.clone();
-    tauri::WebviewWindowBuilder::from_config(app, config)?
+    let builder = tauri::WebviewWindowBuilder::from_config(app, config)?
         .initialization_script(script)
         .on_navigation(move |url| {
             let stays = shim::main_window_keeps(url);
@@ -401,7 +401,23 @@ fn open_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
             }
             open_outside(&popup_app, &url);
             tauri::webview::NewWindowResponse::Deny
-        })
+        });
+    // A cold-start sign-in waits until the page (and the shim's listener) exists.
+    #[cfg(mobile)]
+    let builder = builder.on_page_load(|window, payload| {
+        use tauri::Manager as _;
+        if payload.event() != tauri::webview::PageLoadEvent::Finished {
+            return;
+        }
+        let app = window.app_handle();
+        let query = app
+            .try_state::<PendingSignIn>()
+            .and_then(|pending| pending.0.lock().ok().and_then(|mut slot| slot.take()));
+        if let Some(query) = query {
+            deliver_sign_in(app, query);
+        }
+    });
+    builder
         .build()
         .inspect_err(|error| {
             log_warn(
@@ -458,10 +474,16 @@ fn start_sign_in(app: &tauri::AppHandle) {
     });
 }
 
+/// A sign-in App Link that cold-started the app, held until the page has loaded.
+#[cfg(mobile)]
+#[derive(Default)]
+struct PendingSignIn(std::sync::Mutex<Option<String>>);
+
 /// Hands each sign-in App Link the OS opens to the page; phones have no loopback port.
-/// A link that cold-starts the app arrives before the page listens and is not replayed.
+/// A link that cold-starts the app is held and handed over once the page has loaded.
 #[cfg(mobile)]
 fn start_sign_in(app: &tauri::AppHandle) {
+    use tauri::Manager as _;
     use tauri_plugin_deep_link::DeepLinkExt as _;
     let handle = app.clone();
     // The listener lives as long as the app, so its id is never needed to remove it.
@@ -472,6 +494,20 @@ fn start_sign_in(app: &tauri::AppHandle) {
             }
         }
     });
+    match app.deep_link().get_current() {
+        Ok(Some(urls)) => {
+            if let Some(query) = auth_link::newest_callback_query(&urls) {
+                let _ = app.manage(PendingSignIn(std::sync::Mutex::new(Some(query))));
+            }
+        }
+        Ok(None) => {}
+        Err(error) => log_warn(
+            app,
+            "sign-in",
+            "The cold-start sign-in link was not read",
+            &error.to_string(),
+        ),
+    }
 }
 
 /// Hands a sign-in query to the page and brings the window forward, as Electron did.

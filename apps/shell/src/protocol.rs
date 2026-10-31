@@ -21,7 +21,8 @@ pub const APP_CSP: &str = "default-src 'self'; script-src 'self' 'unsafe-inline'
 
 /// The hosts a phone page may load sub-resources from: the old Android app's allow-list
 /// (`apps/android/app/build.gradle.kts`, `appAllowedHosts`), each with its subdomains, plus
-/// Hugging Face, where the page's own embedder fetches its model on phones.
+/// Hugging Face, where the page's own embedder fetches its model on phones, plus the paper-metadata
+/// APIs the page calls itself (OpenAlex, Crossref, arXiv, Zotero).
 macro_rules! phone_sources {
     () => {
         "https://weaveforge.org https://*.weaveforge.org https://supabase.co https://*.supabase.co \
@@ -30,7 +31,8 @@ macro_rules! phone_sources {
          https://*.googleapis.com https://google-analytics.com https://*.google-analytics.com \
          https://googletagmanager.com https://*.googletagmanager.com https://cloudflarestorage.com \
          https://*.cloudflarestorage.com https://huggingface.co https://*.huggingface.co \
-         https://*.hf.co"
+         https://*.hf.co https://api.openalex.org https://api.crossref.org https://export.arxiv.org \
+         https://api.zotero.org"
     };
 }
 
@@ -40,7 +42,7 @@ macro_rules! phone_sources {
 pub const PHONE_CSP: &str = concat!(
     "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: ",
     phone_sources!(),
-    "; font-src 'self' data:; connect-src 'self' ipc: https://ipc.localhost wss: ",
+    "; font-src 'self' data:; connect-src 'self' ipc: https://ipc.localhost wss://*.supabase.co wss://*.weaveforge.org ",
     phone_sources!(),
     "; worker-src 'self' blob:; media-src 'self' blob: ",
     phone_sources!(),
@@ -588,6 +590,7 @@ mod tests {
             for token in &tokens {
                 assert_ne!(*token, "https:", "{directive}");
                 assert_ne!(*token, "*", "{directive}");
+                assert_ne!(*token, "wss:", "{directive}");
                 assert!(
                     !token.contains("localhost:") && !token.contains("127.0.0.1"),
                     "{directive} {token}"
@@ -596,6 +599,8 @@ mod tests {
         }
         assert!(phone_tokens("connect-src ").contains(&"ipc:"));
         assert!(phone_tokens("connect-src ").contains(&"https://ipc.localhost"));
+        assert!(phone_tokens("connect-src ").contains(&"wss://*.supabase.co"));
+        assert!(phone_tokens("connect-src ").contains(&"https://api.openalex.org"));
     }
 
     #[test]

@@ -517,6 +517,19 @@ Reviewers check every diff against `qol-rubric.md`; the number in brackets is th
 - Folder mirror: treat read errors other than not-found as errors, and dedupe repeated paths.
 - Fuzz: add round-trip properties (parse then print then parse).
 
+**Phones (phase 4)**
+
+- Ban direct `reqwest::Client::new`/`builder` with clippy `disallowed-methods` so every client goes through `tls::with_roots`.
+- Phones skip local embeddings (`NO_EMBEDDINGS`); write down why and when to revisit.
+- `parseColour` in the ink bridge: test odd inputs (`#abc`, `rgb()`, named colours) against the old app.
+- Pin `@tauri-apps/cli` as a devDependency instead of `npx @tauri-apps/cli@2.12.4` in CI.
+- A failed phone sign-in (bad link, failed read) is only logged; emit an error event the page can show.
+- `phone_sources!` copies `appAllowedHosts` from the old gradle file by hand; test the two lists against each other, or generate one.
+- The ink bridge (`window.AndroidInkingBridge`) is visible to iframes too; limit it to the top frame (4.3b).
+- The old app turned on Safe Browsing for its WebView; check Tauri's WebView does too.
+- `tauri.android.conf.json` has no `frontendDist`; note in the shell README why phones load the hosted app.
+- Ink's one-time reload after load can land after a replayed cold-start sign-in; check on a device that the sign-in survives, else replay on the second `Finished`.
+
 ## 11. Sources
 
 - [Mozilla: autogenerating Rust-JS bindings with UniFFI](https://hacks.mozilla.org/2023/08/autogenerating-rust-js-bindings-with-uniffi/)

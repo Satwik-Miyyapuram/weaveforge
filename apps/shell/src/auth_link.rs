@@ -33,6 +33,12 @@ pub fn callback_query(url: &tauri::Url) -> Option<String> {
     Some(format!("?{query}"))
 }
 
+/// The sign-in query of the newest callback link among `urls`, if any.
+/// A cold start can hand over several links; the last one is the newest.
+pub fn newest_callback_query(urls: &[tauri::Url]) -> Option<String> {
+    urls.iter().rev().find_map(callback_query)
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::expect_used)]
@@ -101,6 +107,49 @@ mod tests {
         assert_eq!(
             q("https://app.weaveforge.org:443/auth/app-callback?code=a"),
             Some("?code=a".to_string())
+        );
+    }
+
+    fn urls(list: &[&str]) -> Vec<tauri::Url> {
+        list.iter()
+            .map(|s| tauri::Url::parse(s).expect("url"))
+            .collect()
+    }
+
+    #[test]
+    fn no_links_yield_no_query() {
+        assert_eq!(newest_callback_query(&[]), None);
+    }
+
+    #[test]
+    fn one_good_link_yields_its_query() {
+        let link = "https://app.weaveforge.org/auth/app-callback?code=abc&state=x";
+        assert_eq!(
+            newest_callback_query(&urls(&[link])),
+            callback_query(&tauri::Url::parse(link).expect("url"))
+        );
+    }
+
+    #[test]
+    fn the_last_good_link_is_the_newest() {
+        assert_eq!(
+            newest_callback_query(&urls(&[
+                "https://app.weaveforge.org/auth/app-callback?code=a",
+                "https://evil.example/auth/app-callback?code=x",
+                "https://app.weaveforge.org/auth/app-callback?code=b",
+            ])),
+            Some("?code=b".to_string())
+        );
+    }
+
+    #[test]
+    fn only_bad_links_yield_no_query() {
+        assert_eq!(
+            newest_callback_query(&urls(&[
+                "https://evil.example/auth/app-callback?code=a",
+                "http://app.weaveforge.org/auth/app-callback?code=b",
+            ])),
+            None
         );
     }
 }

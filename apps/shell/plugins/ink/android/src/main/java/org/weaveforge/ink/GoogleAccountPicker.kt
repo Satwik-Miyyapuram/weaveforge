@@ -33,13 +33,19 @@ class GoogleAccountPicker(private val activity: Activity) {
     private val credentials by lazy { CredentialManager.create(activity) }
     private val handler = Handler(Looper.getMainLooper())
     private var pending: PendingPick? = null
+    private var installed = false
 
+    /**
+     * Idempotent: a second call (activity recreated) would make WebView throw on the duplicate name.
+     */
     fun install(webView: WebView, appUrl: String) {
         val origin = GoogleSignInMessages.originOf(appUrl) ?: return
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
+        if (installed) return
         WebViewCompat.addWebMessageListener(webView, CHANNEL, setOf(origin)) { _, message, _, isMainFrame, reply ->
             if (isMainFrame && message.data == REQUEST) pick(reply)
         }
+        installed = true
     }
 
     /**
@@ -49,6 +55,17 @@ class GoogleAccountPicker(private val activity: Activity) {
     fun onResume() {
         val pick = pending ?: return
         handler.postDelayed({ if (pending === pick && pick.abandon()) pending = null }, RESUME_GRACE_MS)
+    }
+
+    /** Call when the activity is destroyed: drops the grace timer, the pending pick and the listener. */
+    fun release(webView: WebView) {
+        handler.removeCallbacksAndMessages(null)
+        pending?.abandon()
+        pending = null
+        if (installed && WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            WebViewCompat.removeWebMessageListener(webView, CHANNEL)
+        }
+        installed = false
     }
 
     private fun pick(reply: JavaScriptReplyProxy) {

@@ -598,11 +598,14 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # v4, as in android.yml: v3 fails asking for the retired 'tools' package.
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install Android NDK
         run: |
+          # Accept the licences first so the install cannot stop at a prompt.
+          yes | sdkmanager --licenses > /dev/null || true
           sdkmanager --install "ndk;${NDK_VERSION}"
           ndk="$ANDROID_HOME/ndk/${NDK_VERSION}"
           bin="$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin"
