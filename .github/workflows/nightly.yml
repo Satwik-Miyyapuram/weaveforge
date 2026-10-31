@@ -61,7 +61,7 @@ jobs:
 
       # Keeps the inputs found so far, so each run starts from the last corpus.
       - name: Restore the fuzz corpus
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: fuzz/corpus/sync_parsers
           key: fuzz-corpus-${{ github.run_id }}
@@ -73,6 +73,14 @@ jobs:
       - name: Fuzz the sync parsers for 20 minutes
         working-directory: fuzz
         run: cargo +nightly-2026-10-01 fuzz run sync_parsers -- -max_total_time=1200
+
+      # Saved even when a crash fails the job, so the grown corpus is not lost.
+      - name: Save the fuzz corpus
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: fuzz/corpus/sync_parsers
+          key: fuzz-corpus-${{ github.run_id }}
 
       - name: Keep crashes
         if: failure()

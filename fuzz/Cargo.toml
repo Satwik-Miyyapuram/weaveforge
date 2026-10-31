@@ -13,6 +13,8 @@ libfuzzer-sys = "=0.4.10"
 wf-core = { path = "../crates/wf-core" }
 
 # Not part of the root workspace: running cargo-fuzz needs nightly. Its lock is fuzz/Cargo.lock.
+# CI checks it with --locked: after a wf-core dependency bump, run
+# `cargo update -w --manifest-path fuzz/Cargo.toml`.
 [workspace]
 members = ["."]
 
