@@ -671,3 +671,91 @@ test("a failing semantic-ranked answer is logged, not left unhandled", async () 
   }
   assert.equal(warned.length, 1);
 });
+
+test("embedLoad passes the model and answers the dimensions", async () => {
+  const { cmds, calls } = fakeCommands({
+    embedLoad: { status: "ok", data: { dimensions: 384 } },
+  });
+  const result = await desktopShim(cmds, fakeEvents().events).embedLoad!("m");
+  assert.deepEqual(result, { dimensions: 384 });
+  assert.deepEqual(calls, [{ cmd: "embedLoad", args: ["m"] }]);
+});
+
+test("embedLoad rejects with the shell's message", async () => {
+  const { cmds } = fakeCommands({ embedLoad: error("no model") });
+  await assert.rejects(
+    () => desktopShim(cmds, fakeEvents().events).embedLoad!("m"),
+    (e: unknown) => e instanceof Error && e.message === "no model",
+  );
+});
+
+test("embedTexts passes the model, texts and kind and answers the rows", async () => {
+  const { cmds, calls } = fakeCommands({
+    embedTexts: { status: "ok", data: [[0.6, 0.8]] },
+  });
+  const rows = await desktopShim(cmds, fakeEvents().events).embedTexts!(
+    "m",
+    ["hello"],
+    "query",
+  );
+  assert.deepEqual(rows, [[0.6, 0.8]]);
+  assert.deepEqual(calls, [
+    { cmd: "embedTexts", args: ["m", ["hello"], "query"] },
+  ]);
+});
+
+test("embedTexts rejects with the shell's message when the model was dropped", async () => {
+  const { cmds } = fakeCommands({ embedTexts: error("The model is not loaded.") });
+  await assert.rejects(
+    desktopShim(cmds, fakeEvents().events).embedTexts!("m", ["a"], "query"),
+    (e: unknown) => e instanceof Error && e.message === "The model is not loaded.",
+  );
+});
+
+test("embedTexts rejects a row holding a value that is not a number", async () => {
+  const { cmds } = fakeCommands({
+    embedTexts: { status: "ok", data: [[0.6, 0.8], [0.1, null]] },
+  });
+  await assert.rejects(
+    desktopShim(cmds, fakeEvents().events).embedTexts!("m", ["a", "b"], "passage"),
+    (e: unknown) =>
+      e instanceof Error && e.message === "the model returned a value that is not a number",
+  );
+});
+
+test("embedUnload passes the model and resolves to nothing", async () => {
+  const { cmds, calls } = fakeCommands();
+  assert.equal(await desktopShim(cmds, fakeEvents().events).embedUnload!("m"), undefined);
+  assert.deepEqual(calls, [{ cmd: "embedUnload", args: ["m"] }]);
+});
+
+test("embedUnload rejects with the shell's message", async () => {
+  const { cmds } = fakeCommands({
+    embedUnload: { status: "error", error: { message: "boom" } },
+  });
+  await assert.rejects(desktopShim(cmds, fakeEvents().events).embedUnload!("m"), {
+    message: "boom",
+  });
+});
+
+test("onEmbedProgress forwards loaded, total and model, and stops on unsubscribe", async () => {
+  const { cmds } = fakeCommands();
+  const fake = fakeEvents();
+  const seen: [number, number, string][] = [];
+  const stop = desktopShim(cmds, fake.events).onEmbedProgress!((loaded, total, model) =>
+    seen.push([loaded, total, model]),
+  );
+  assert.deepEqual(
+    fake.listens.map((l) => l.event),
+    ["embedProgress"],
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+  fake.listens[0]!.handler({ loaded: 1, total: 4 });
+  fake.listens[0]!.handler({ model: 7, loaded: 1, total: 4 });
+  fake.listens[0]!.handler({ model: "m", loaded: 1, total: 4 });
+  stop();
+  stop();
+  fake.listens[0]!.handler({ model: "m", loaded: 2, total: 4 });
+  assert.deepEqual(seen, [[1, 4, "m"]]);
+  assert.equal(fake.unlistenCount(), 1);
+});
