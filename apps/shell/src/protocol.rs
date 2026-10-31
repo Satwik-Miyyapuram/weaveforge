@@ -19,6 +19,42 @@ pub const APP_HOSTS: [&str; 2] = ["localhost", "app.localhost"];
 /// artifacts will be same-origin paths, so `app://…` and `cache:` are gone.
 pub const APP_CSP: &str = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' ipc: https://ipc.localhost https: wss: http://localhost:* http://127.0.0.1:*; worker-src 'self' blob:; media-src 'self' blob: https:; frame-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 
+/// The hosts a phone page may load sub-resources from: the old Android app's allow-list
+/// (`apps/android/app/build.gradle.kts`, `appAllowedHosts`), each with its subdomains, plus
+/// Hugging Face, where the page's own embedder fetches its model on phones.
+macro_rules! phone_sources {
+    () => {
+        "https://weaveforge.org https://*.weaveforge.org https://supabase.co https://*.supabase.co \
+         https://google.com https://*.google.com https://gstatic.com https://*.gstatic.com \
+         https://googleusercontent.com https://*.googleusercontent.com https://googleapis.com \
+         https://*.googleapis.com https://google-analytics.com https://*.google-analytics.com \
+         https://googletagmanager.com https://*.googletagmanager.com https://cloudflarestorage.com \
+         https://*.cloudflarestorage.com https://huggingface.co https://*.huggingface.co \
+         https://*.hf.co"
+    };
+}
+
+/// `APP_CSP` for phones (phase 4, step 4.3b). The old app's `WebViewClient` blocked every
+/// sub-resource off its host allow-list; Tauri owns that client now, so the same list goes into
+/// `img-src`, `connect-src` and `media-src`. Phones have no sidecar, so no loopback source.
+pub const PHONE_CSP: &str = concat!(
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: ",
+    phone_sources!(),
+    "; font-src 'self' data:; connect-src 'self' ipc: https://ipc.localhost wss: ",
+    phone_sources!(),
+    "; worker-src 'self' blob:; media-src 'self' blob: ",
+    phone_sources!(),
+    "; frame-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+);
+
+/// The page CSP for this platform.
+#[cfg(desktop)]
+pub const PAGE_CSP: &str = APP_CSP;
+
+/// The page CSP for this platform.
+#[cfg(mobile)]
+pub const PAGE_CSP: &str = PHONE_CSP;
+
 /// Body of the 500 a file over `range::WHOLE_BYTES_MAX` gets when requested without a `Range`.
 pub const TOO_LARGE: &str =
     "This file is too large to load at once; ask for it in parts with a Range header.";
@@ -193,7 +229,7 @@ pub fn app_headers(content_type: &str) -> Vec<(&'static str, String)> {
         ),
     ];
     if content_type.starts_with("text/html") {
-        headers.push(("content-security-policy", APP_CSP.to_owned()));
+        headers.push(("content-security-policy", PAGE_CSP.to_owned()));
     }
     headers
 }
@@ -525,6 +561,77 @@ mod tests {
         assert!(!tokens.contains(&"*"));
         assert!(tokens.iter().all(|t| !t.contains(":/*")));
         assert!(!tokens.contains(&"cache:*"));
+    }
+
+    /// Splits `PHONE_CSP` into the tokens of one directive.
+    fn phone_tokens(directive: &str) -> Vec<&'static str> {
+        PHONE_CSP
+            .split(';')
+            .map(str::trim)
+            .find_map(|d| d.strip_prefix(directive))
+            .unwrap_or("")
+            .split_whitespace()
+            .collect()
+    }
+
+    #[test]
+    fn phone_csp_has_no_open_https_or_loopback() {
+        for directive in ["img-src ", "connect-src ", "media-src "] {
+            let tokens = phone_tokens(directive);
+            assert!(tokens.contains(&"'self'"), "{directive}");
+            assert!(tokens.contains(&"https://*.supabase.co"), "{directive}");
+            assert!(
+                tokens.contains(&"https://api.weaveforge.org")
+                    || tokens.contains(&"https://*.weaveforge.org"),
+                "{directive}"
+            );
+            for token in &tokens {
+                assert_ne!(*token, "https:", "{directive}");
+                assert_ne!(*token, "*", "{directive}");
+                assert!(
+                    !token.contains("localhost:") && !token.contains("127.0.0.1"),
+                    "{directive} {token}"
+                );
+            }
+        }
+        assert!(phone_tokens("connect-src ").contains(&"ipc:"));
+        assert!(phone_tokens("connect-src ").contains(&"https://ipc.localhost"));
+    }
+
+    #[test]
+    fn phone_csp_keeps_the_other_directives() {
+        for directive in [
+            "default-src ",
+            "script-src ",
+            "style-src ",
+            "font-src ",
+            "worker-src ",
+            "frame-src ",
+            "object-src ",
+            "frame-ancestors ",
+            "base-uri ",
+            "form-action ",
+        ] {
+            assert_eq!(
+                phone_tokens(directive),
+                csp_tokens(directive),
+                "{directive}"
+            );
+        }
+    }
+
+    #[test]
+    fn phone_sources_are_well_formed() {
+        for token in phone_tokens("img-src ").into_iter().skip(3) {
+            assert!(token.starts_with("https://"), "{token}");
+            assert!(!token.ends_with('/') && !token.contains(' '), "{token}");
+        }
+    }
+
+    #[cfg(desktop)]
+    #[test]
+    fn desktop_pages_keep_the_desktop_csp() {
+        assert_eq!(PAGE_CSP, APP_CSP);
     }
 
     #[test]
