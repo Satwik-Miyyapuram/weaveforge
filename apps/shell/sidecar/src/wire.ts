@@ -94,7 +94,7 @@ export interface Peer {
   ask(method: string, params?: unknown): Promise<unknown>;
   /** Sends a notice; nothing comes back. */
   emit(event: string, params?: unknown): void;
-  /** Settles the ask an answer line names. False when the line is not a well-formed answer. */
+  /** Settles the ask an answer line names. False when the line is over `MAX_LINE` or not a well-formed answer. */
   settleLine(line: string): boolean;
   /** Fails every waiting ask, and every later one, with `reason`. */
   closeAll(reason: string): void;
@@ -139,6 +139,7 @@ export function createPeer(output: { write(chunk: string): unknown }, options: P
       output.write(JSON.stringify({ event, params }, encodeValue) + "\n");
     },
     settleLine(line) {
+      if (line.length > MAX_LINE) return false;
       let raw: unknown;
       try {
         raw = JSON.parse(line, decodeValue);

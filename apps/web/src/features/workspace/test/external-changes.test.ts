@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import type { IWorkspaceFs } from "@weaveforge/core";
 import { MIRROR_MANIFEST_PATH } from "../application/mirror-manifest";
 import {
   AUTO_APPLY_DEBOUNCE_MS,
+  applyFolderImport,
+  autoApplyScheduled,
   chooseDesktopFolder,
   clearExternalChanges,
   closeFolder,
@@ -75,9 +78,33 @@ test("closing the folder cancels a waiting auto-apply", async (t) => {
   const shell = await connected();
   shell.changed(["notes/one.note.md"]);
   await settle();
+  assert.equal(autoApplyScheduled(), true);
   closeFolder();
-  await new Promise((resolve) => setTimeout(resolve, AUTO_APPLY_DEBOUNCE_MS + 200));
+  assert.equal(autoApplyScheduled(), false);
   assert.deepEqual(externalChanges(), []);
+});
+
+test("a listed path that changes again is taken in again", async (t) => {
+  t.after(closeFolder);
+  const shell = await connected();
+  shell.changed(["notes/one.note.md"]);
+  await settle();
+  await new Promise((resolve) => setTimeout(resolve, AUTO_APPLY_DEBOUNCE_MS + 200));
+  assert.equal(autoApplyScheduled(), false);
+  // Still listed from the first edit; the second edit must not be missed for that.
+  shell.changed(["notes/one.note.md"]);
+  await settle();
+  assert.equal(autoApplyScheduled(), true);
+});
+
+test("an apply for a folder no longer connected is refused", async (t) => {
+  t.after(closeFolder);
+  await connected();
+  const other = {} as IWorkspaceFs;
+  await assert.rejects(
+    applyFolderImport({ entries: [], counts: {} } as never, {}, { fs: other }),
+    /folder changed/,
+  );
 });
 
 test("the manifest changing is not somebody else's edit", async (t) => {

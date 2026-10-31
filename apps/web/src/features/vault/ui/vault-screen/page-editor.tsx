@@ -25,6 +25,7 @@ import { formatError } from "@/lib/format-error";
 import { useCiteLinkCatalog } from "@/lib/hooks/use-cite-links";
 import { WORKSPACE_PATH } from "@/lib/hooks/use-workspace-route";
 import { materializeBlobImagesInBody } from "../../lib/materialize-blob-images";
+import { holdOpenNotes } from "@/features/workspace/application/open-notes";
 import { NoteTagEditor } from "./note-tag-editor";
 import { runNoteAction } from "./run-note-action";
 import { RowButton } from "@/components/controls";
@@ -113,6 +114,8 @@ export function PageEditor({
   const view: NoteMode = canEditBody ? mode : "read";
   const hasBody = !!readBody.trim();
   const inkFocus = useInkFocus(view === "ink");
+  // While the body can be typed into, an outside edit to this note waits for review.
+  useEffect(() => (view === "read" ? undefined : holdOpenNotes([page.id])), [page.id, view]);
 
   /**
    * Every body write, from any mode — the host saves as it goes, the way it

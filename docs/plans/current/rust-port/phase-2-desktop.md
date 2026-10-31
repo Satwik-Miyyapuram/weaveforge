@@ -78,6 +78,9 @@ The shell side is a `SidecarHost` trait (`event`, and `ask` run on a blocking
 thread) passed to `Sidecar::spawn_with_host`. `spawn` keeps working with no
 host: its asks are answered `no host` and its events are dropped. An answer
 over the request cap is answered `answer too large` instead, so no ask hangs.
+The host answers at most `AskLimits::max_open` asks at once (64) and waits
+`AskLimits::timeout` (10 s) for each: one more is answered `busy`, a slower
+host `host timed out`, and an error too long for the line `error too large`.
 
 **The deps, one by one.**
 

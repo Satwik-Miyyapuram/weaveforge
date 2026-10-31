@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 use weaveforge_shell::sidecar::{
-    SIDECAR_MAX_LINE, Sidecar, SidecarConfig, SidecarError, SidecarHost,
+    AskLimits, SIDECAR_MAX_LINE, Sidecar, SidecarConfig, SidecarError, SidecarHost,
 };
 
 /// Records what the sidecar sent and answers by method name.
@@ -33,7 +33,7 @@ impl SidecarHost for TestHost {
             "err" => Err("refused".into()),
             "big" => Ok(Value::String("x".repeat(self.big))),
             "slow" => {
-                std::thread::sleep(Duration::from_millis(500));
+                std::thread::sleep(Duration::from_millis(3000));
                 Ok(Value::Null)
             }
             "hang" => {
@@ -460,7 +460,67 @@ fn orphan_dies_with_job_object() {
 /// Starts the fixture with `host` attached.
 fn hosted(host: &Arc<TestHost>, extra: &[&str]) -> Sidecar {
     let dyn_host: Arc<dyn SidecarHost> = host.clone();
-    Sidecar::spawn_with_host(config(extra), dyn_host).unwrap()
+    Sidecar::spawn_with_host(config(extra), dyn_host, AskLimits::default()).unwrap()
+}
+
+/// Starts the fixture with `host` attached, answering at most `max_open` asks, each within `timeout`.
+fn hosted_capped(host: Arc<dyn SidecarHost>, max_open: usize, timeout: Duration) -> Sidecar {
+    let limits = AskLimits { max_open, timeout };
+    Sidecar::spawn_with_host(config(&[]), host, limits).unwrap()
+}
+
+/// Blocks every `ask` until the test sends on the release channel.
+struct GatedHost {
+    release: Mutex<std::sync::mpsc::Receiver<()>>,
+}
+
+impl SidecarHost for GatedHost {
+    fn event(&self, _name: &str, _params: Value) {}
+
+    fn ask(&self, _method: &str, _params: Value) -> Result<Value, String> {
+        let _ = self.release.lock().unwrap().recv();
+        Ok(Value::Null)
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_hung_host_is_answered_host_timed_out() {
+    let (release, gate) = std::sync::mpsc::channel::<()>();
+    let host: Arc<dyn SidecarHost> = Arc::new(GatedHost {
+        release: Mutex::new(gate),
+    });
+    let s = hosted_capped(host, 8, Duration::from_millis(300));
+    let start = Instant::now();
+    let reply = s
+        .call("ask", json!({"method": "ok", "params": {}}))
+        .await
+        .unwrap();
+    assert!(start.elapsed() < Duration::from_secs(2));
+    assert_eq!(answer(&reply)["error"], json!("host timed out"));
+    let _ = release.send(());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn asks_over_the_cap_are_answered_busy() {
+    let (release, gate) = std::sync::mpsc::channel::<()>();
+    let host: Arc<dyn SidecarHost> = Arc::new(GatedHost {
+        release: Mutex::new(gate),
+    });
+    let s = Arc::new(hosted_capped(host, 1, Duration::from_secs(4)));
+    let first = {
+        let s = Arc::clone(&s);
+        tokio::spawn(async move { s.call("ask", json!({"method": "ok", "params": {}})).await })
+    };
+    // Give the first ask time to reach the host and hold the only slot.
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let second = s
+        .call("ask", json!({"method": "ok", "params": {}}))
+        .await
+        .unwrap();
+    assert_eq!(answer(&second)["error"], json!("busy"));
+    release.send(()).unwrap();
+    let first = first.await.unwrap().unwrap();
+    assert_eq!(answer(&first)["ok"], json!(true));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -582,7 +642,7 @@ async fn slow_host_does_not_block_replies() {
     tokio::time::sleep(Duration::from_millis(50)).await;
     let start = Instant::now();
     assert_eq!(s.call("echo", json!(1)).await, Ok(json!(1)));
-    assert!(start.elapsed() < Duration::from_millis(400));
+    assert!(start.elapsed() < Duration::from_millis(2000));
     let reply = slow.await.unwrap().unwrap();
     assert_eq!(answer(&reply)["ok"], json!(true));
 }

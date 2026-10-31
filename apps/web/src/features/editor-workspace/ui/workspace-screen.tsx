@@ -53,6 +53,7 @@ import { ExplorerPanel } from "./explorer-panel";
 import { creationKindFor, creationTarget, draftMakes, type Draft } from "../application/explorer-edit";
 import { readHidden, writeHidden } from "../application/explorer-state";
 import { FocusGlyph } from "@/components/focus-glyph";
+import { holdOpenNotes } from "@/features/workspace/application/open-notes";
 import { PaneView, openTabs } from "./pane-view";
 import { QuickOpenDialog } from "./quick-open-dialog";
 import { ShortcutsDialog } from "./shortcuts-dialog";
@@ -149,6 +150,12 @@ export function WorkspaceScreen() {
     return () => query.removeEventListener("change", sync);
   }, []);
   const hasOpenTab = openTabs(layout).length > 0;
+  // A note open here can hold typing not yet saved; an outside edit to it waits for review.
+  const openNoteIds = openTabs(layout)
+    .filter((tab) => tab.kind === "vault_page" || tab.kind === "ink_page")
+    .map((tab) => tab.id)
+    .join(" ");
+  useEffect(() => (openNoteIds ? holdOpenNotes(openNoteIds.split(" ")) : undefined), [openNoteIds]);
   useEffect(() => {
     if (phone && hasOpenTab) setExplorerHidden(true);
     // Only when the width crosses, or the first document arrives: the drawer

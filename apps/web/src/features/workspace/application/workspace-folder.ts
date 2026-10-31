@@ -52,7 +52,8 @@ import { activeProject, activeProjectOrNull } from "./active-project";
 import { readPreviewFolder } from "./folder-preview-read";
 import { jsonDiff } from "./folder-json-import";
 import { applyFolderImport } from "./folder-import-apply";
-import { applyOutsideEdits } from "./outside-edits";
+import { isNoteOpen } from "./open-notes";
+import { applyOutsideEdits, type FolderDiff, type SeenFile } from "./outside-edits";
 import {
   sanitizeArchiveEntries,
   stripArchiveRoot,
@@ -390,8 +391,8 @@ function watchForChanges(): void {
  * Somebody else's edits to the connected folder, by path.
  *
  * An edit made only in the folder is taken in a moment later with no click (`scheduleAutoApply`). What is
- * left here is what a person has to look at: an edit the app also changed, a removal, or a file the app
- * has no record of writing.
+ * left here is what a person has to look at: a file the app also changed, a removal, a file the app has
+ * no record of writing, or a note open in an editor.
  */
 let external = new Set<string>();
 const externalListeners = new Set<(paths: string[]) => void>();
@@ -399,6 +400,11 @@ const externalListeners = new Set<(paths: string[]) => void>();
 export const AUTO_APPLY_DEBOUNCE_MS = 800;
 let autoApplyTimer: ReturnType<typeof setTimeout> | null = null;
 let autoApplyRun: Promise<unknown> = Promise.resolve();
+
+/** Whether an auto-apply is waiting for its debounce; tests use it to see a close cancel one. */
+export function autoApplyScheduled(): boolean {
+  return autoApplyTimer !== null;
+}
 
 /** The paths changed outside the app since the last time they were cleared. */
 export function externalChanges(): string[] {
@@ -433,8 +439,9 @@ function announceExternal(): void {
 /**
  * Take the folder's own edits in a moment after they stop, with no click.
  *
- * Only an edit made in the folder alone goes in; one the app also changed, a removal, or a file the app
- * has no record of stays in the list for review. Runs one at a time, and never for a folder closed meanwhile.
+ * Only a file the folder alone changed goes in (`splitOutsideEdits`); the rest stays in the list for
+ * review. Runs one at a time; a run whose folder closed or changed meanwhile writes nothing, and a file
+ * that moved again after the preview keeps its old base, so the next look sees that edit too.
  */
 function scheduleAutoApply(): void {
   if (autoApplyTimer) clearTimeout(autoApplyTimer);
@@ -448,8 +455,8 @@ function scheduleAutoApply(): void {
       try {
         await applyOutsideEdits({
           preview: previewFolderImport,
-          base: async () => readMirrorBase(fs, projectDir(await activeProject())),
-          apply: (diff) => applyFolderImport(diff),
+          isOpen: isNoteOpen,
+          apply: (diff) => applyFolderImport(diff, {}, { fs, expected: seenDigests(diff) }),
           settle: (held) => {
             if (activeFs === fs) settleExternalChanges(held);
           },
@@ -460,6 +467,11 @@ function scheduleAutoApply(): void {
       }
     });
   }, AUTO_APPLY_DEBOUNCE_MS);
+}
+
+/** The digest the preview read for each file, so the apply can tell a file that moved since. */
+function seenDigests(diff: FolderDiff): Record<string, string> {
+  return Object.fromEntries(Object.entries(diff.seen ?? {}).map(([path, seen]) => [path, seen.digest]));
 }
 
 /**
@@ -532,6 +544,7 @@ function reportFolderChanges(paths: readonly string[]): void {
     const project = await activeProjectOrNull().catch(() => null);
     const base = fs && project ? await readMirrorBase(fs, projectDir(project)) : {};
     const beforeRead = external.size;
+    let outside = false;
     for (const path of candidates) {
       if (fs) {
         const text = await fs.readText(path).catch(() => null);
@@ -542,11 +555,11 @@ function reportFolderChanges(paths: readonly string[]): void {
       // Folder closed meanwhile: these belong to a folder no longer shown.
       if (activeFs !== fs) return;
       external.add(path);
+      outside = true;
     }
-    if (external.size !== beforeRead) {
-      announceExternal();
-      scheduleAutoApply();
-    }
+    if (external.size !== beforeRead) announceExternal();
+    // A path already listed can change again; that edit needs taking in too.
+    if (outside) scheduleAutoApply();
   })();
 }
 
@@ -573,7 +586,7 @@ export async function folderHistory(limit = 20): Promise<readonly WorkspaceCommi
  * in" direction, and seeing "12 updated, 1 conflict" before committing to it is
  * the whole point.
  */
-export async function previewFolderImport(): Promise<ImportDiff & { json: JsonDiff }> {
+export async function previewFolderImport(): Promise<FolderDiff & { json: JsonDiff }> {
   if (!activeFs) throw new Error("No folder is connected.");
 
   const project = await activeProject();
@@ -637,7 +650,7 @@ async function diffAgainstWorkspace(
   bases: Readonly<Record<string, VaultPageBase>> = {},
   /** The three JSON data files, when the caller has them. A ZIP has none. */
   jsonFiles: Record<string, string> = {},
-): Promise<ImportDiff & { json: JsonDiff }> {
+): Promise<FolderDiff & { json: JsonDiff }> {
   const snapshot = await getContainer().workspace.snapshot();
   const existing = [
     ...snapshot.vaultPages.map((page) => ({
@@ -696,7 +709,32 @@ async function diffAgainstWorkspace(
   // and they are shown in the same preview: one list of what would change, one
   // set of numbers.
   const json = await jsonDiff(jsonFiles, current, base, project);
-  return { entries, counts: addCounts(countActions(entries), json.counts), json };
+  const seen = seenFiles({ ...files, ...jsonFiles }, current, base);
+  return { entries, counts: addCounts(countActions(entries), json.counts), json, seen };
+}
+
+/**
+ * Who moved each folder file since the two sides last agreed, and the digest read now.
+ *
+ * A file neither the manifest nor the workspace knows is new in the folder: the folder alone made it.
+ */
+function seenFiles(
+  folder: Readonly<Record<string, string>>,
+  current: Readonly<Record<string, string>>,
+  base: Readonly<Record<string, string>>,
+): Record<string, SeenFile> {
+  const seen: Record<string, SeenFile> = {};
+  for (const [path, text] of Object.entries(folder)) {
+    const digest = baseDigest(text);
+    const known = base[path] || undefined;
+    const workspace = current[path] === undefined ? undefined : baseDigest(current[path]);
+    const side =
+      known === undefined && workspace === undefined
+        ? "folder"
+        : changedSide({ base: known, folder: digest, workspace });
+    seen[path] = { side, digest };
+  }
+  return seen;
 }
 
 

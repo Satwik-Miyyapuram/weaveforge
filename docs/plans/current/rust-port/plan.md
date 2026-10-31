@@ -435,7 +435,13 @@ Reviewers check every diff against `qol-rubric.md`; the number in brackets is th
 - No "folder not available: retry or choose another" screen when the remembered folder is missing (rubric 10).
 - `Choice.warnings` (for example a `WeaveForge/` folder nested in the pick) never reach the page; show them (rubric 7).
 - `forget` is not wired: add "Disconnect folder" in Settings (rubric 30).
-- Auto-applied outside edits can replace an unsaved in-app draft of the same note; check the editor's dirty state first and hold that note (rubric 2).
+- Every note open in an editor holds its outside edits, even with nothing unsaved; hold only notes with unsaved typing (rubric 2).
+- Taking outside edits in is silent; show "3 outside edits taken in" with an undo (rubric 7).
+- The review list does not say why each held edit was held (both changed, removed, open in an editor); show the reason per row (rubric 13).
+- Each auto-apply previews the whole folder; preview only the changed paths, and back off while edits keep coming (rubric 26).
+- `claimImportedFile` can claim a file that two notes point at; check for a duplicate before claiming.
+- `Sidecar::spawn_with_host` has no caller until 2.8b-2/3 wire the host.
+- The auto-apply folder check and the moved-since-preview base guard have no unit test; web tests cannot swap the container. Add a container override for tests.
 - Held outside edits (removed, edited on both sides, no record of the app's write) still need a click on Review; offer keep-mine / take-theirs inline (rubric 1, 10).
 - Re-hash on every event: skip when size and mtime match the last digest (rubric 26).
 - The 2 s max wait can read a file still being written by a slow program.

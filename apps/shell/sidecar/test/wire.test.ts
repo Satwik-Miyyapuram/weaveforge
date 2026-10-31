@@ -288,6 +288,16 @@ test("malformed answer lines are not answers", async () => {
   assert.equal(await p, "good");
 });
 
+test("an answer line over MAX_LINE is not parsed", async () => {
+  const { out } = lineSink();
+  const peer = createPeer(out);
+  const p = peer.ask("x");
+  const pad = " ".repeat(MAX_LINE);
+  assert.equal(peer.settleLine('{"answer":1,"ok":true,"value":"big"}' + pad), false);
+  assert.equal(peer.settleLine('{"answer":1,"ok":true,"value":"good"}'), true);
+  assert.equal(await p, "good");
+});
+
 test("an ask times out and a late answer is ignored", async () => {
   const { out } = lineSink();
   const peer = createPeer(out, { timeoutMs: 20 });

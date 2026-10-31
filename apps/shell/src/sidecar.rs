@@ -50,6 +50,25 @@ pub struct SidecarConfig {
     pub max_reply_bytes: usize,
 }
 
+/// How many of the sidecar's asks the host answers at once, and how long each may take.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AskLimits {
+    /// Most asks answered at once; one more is answered "busy".
+    pub max_open: usize,
+    /// Longest wait for the host; past it the ask is answered "host timed out".
+    pub timeout: Duration,
+}
+
+impl Default for AskLimits {
+    /// Matches the sidecar's own cap (64) and wait (10 s), so its asks rarely queue or outlive it.
+    fn default() -> Self {
+        Self {
+            max_open: 64,
+            timeout: Duration::from_secs(10),
+        }
+    }
+}
+
 /// Why a call failed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SidecarError {
@@ -98,6 +117,10 @@ struct HostLink {
     /// Weak, so a pending answer never keeps stdin open after `shutdown`.
     answers: mpsc::WeakSender<String>,
     max_answer_bytes: usize,
+    /// One permit per ask being answered; none left answers "busy".
+    asks: Arc<tokio::sync::Semaphore>,
+    /// Longest wait for the host before the ask is answered "host timed out".
+    ask_timeout: Duration,
 }
 
 /// Longest stderr line kept as the exit reason, in chars.
@@ -228,7 +251,7 @@ fn deliver_event(link: &HostLink, name: &str, params: Value) {
     }
 }
 
-/// Answers an ask in its own task, so the reader never waits on the host.
+/// Answers an ask in its own task, so the reader never waits on the host, within the link's `AskLimits`.
 fn serve_ask(link: &HostLink, n: u64, value: &Value) {
     let method = value
         .get("method")
@@ -238,15 +261,24 @@ fn serve_ask(link: &HostLink, n: u64, value: &Value) {
     let host = link.host.clone();
     let answers = link.answers.clone();
     let max = link.max_answer_bytes;
+    let permit = Arc::clone(&link.asks).try_acquire_owned().ok();
+    let ask_timeout = link.ask_timeout;
     // Detached: the task ends once its answer is queued or stdin has closed.
     let _answering = tokio::spawn(async move {
         let result = match (method, host) {
             (None, _) => Err("bad ask".to_owned()),
             (Some(_), None) => Err("no host".to_owned()),
+            (Some(_), Some(_)) if permit.is_none() => Err("busy".to_owned()),
             (Some(method), Some(host)) => {
-                tokio::task::spawn_blocking(move || host.ask(&method, params))
-                    .await
-                    .unwrap_or_else(|_| Err("host failed".to_owned()))
+                // The permit moves into the blocking call, so a timed-out host still holds its slot.
+                let call = tokio::task::spawn_blocking(move || {
+                    let _permit = permit;
+                    host.ask(&method, params)
+                });
+                match tokio::time::timeout(ask_timeout, call).await {
+                    Err(_) => Err("host timed out".to_owned()),
+                    Ok(joined) => joined.unwrap_or_else(|_| Err("host failed".to_owned())),
+                }
             }
         };
         if let Some(tx) = answers.upgrade() {
@@ -267,10 +299,17 @@ fn answer_line(n: u64, result: Result<Value, String>, max: usize) -> String {
                 line
             }
         }
-        Err(e) => format!(
-            "{{\"answer\":{n},\"ok\":false,\"error\":{}}}\n",
-            Value::String(e)
-        ),
+        Err(e) => {
+            let line = format!(
+                "{{\"answer\":{n},\"ok\":false,\"error\":{}}}\n",
+                Value::String(e)
+            );
+            if line.len() > max {
+                format!("{{\"answer\":{n},\"ok\":false,\"error\":\"error too large\"}}\n")
+            } else {
+                line
+            }
+        }
     }
 }
 
@@ -397,20 +436,22 @@ impl Drop for Sidecar {
 impl Sidecar {
     /// Starts the child. Must be called inside a Tokio runtime.
     pub fn spawn(config: SidecarConfig) -> Result<Self, SidecarError> {
-        Self::spawn_inner(config, None)
+        Self::spawn_inner(config, None, AskLimits::default())
     }
 
     /// Starts the child with a host that answers its asks and receives its events.
     pub fn spawn_with_host(
         config: SidecarConfig,
         host: Arc<dyn SidecarHost>,
+        limits: AskLimits,
     ) -> Result<Self, SidecarError> {
-        Self::spawn_inner(config, Some(host))
+        Self::spawn_inner(config, Some(host), limits)
     }
 
     fn spawn_inner(
         config: SidecarConfig,
         host: Option<Arc<dyn SidecarHost>>,
+        limits: AskLimits,
     ) -> Result<Self, SidecarError> {
         validate(&config)?;
         let runtime = tokio::runtime::Handle::try_current()
@@ -448,6 +489,8 @@ impl Sidecar {
             host,
             answers: tx.downgrade(),
             max_answer_bytes: max_request_bytes,
+            asks: Arc::new(tokio::sync::Semaphore::new(limits.max_open.max(1))),
+            ask_timeout: limits.timeout,
         };
         // Detached: each task ends on its own when its pipe closes or its queue closes.
         let _reader = runtime.spawn(read_replies(
@@ -644,6 +687,14 @@ mod tests {
         assert_eq!(
             answer_line(3, Ok(json!("x".repeat(100))), 50),
             answer_line(3, Err("answer too large".to_owned()), 50)
+        );
+    }
+
+    #[test]
+    fn answer_line_long_error_is_capped() {
+        assert_eq!(
+            answer_line(3, Err("x".repeat(100)), 60),
+            "{\"answer\":3,\"ok\":false,\"error\":\"error too large\"}\n"
         );
     }
 }

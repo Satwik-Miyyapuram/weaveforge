@@ -1,67 +1,70 @@
 /**
- * Outside edits (made in the connected folder by another program) are taken in
- * without asking only when the folder changed and the app did not. Anything
- * made on both sides, removed, or without a record of the app's last write
- * stays for a person to review.
+ * An outside edit (made in the connected folder by another program) is taken in
+ * without asking only when the folder alone changed that file since the two sides
+ * last agreed, and the note is not open in an editor. A JSON data file goes in
+ * whole or not at all. Everything else stays for a person to review: changes made
+ * on both sides (even when they merge cleanly), removals, files with no record of
+ * the last agreement, and open notes.
  */
-import type { ImportAction, ImportDiff, JsonDiff } from "@weaveforge/core";
+import type {
+  ChangeSide,
+  ImportAction,
+  ImportDiff,
+  ImportDiffEntry,
+  JsonDiff,
+  JsonDiffEntry,
+} from "@weaveforge/core";
 
-export type FolderDiff = ImportDiff & { json?: JsonDiff };
+/** What the preview saw of one folder file: who moved it since the sides last agreed, and its digest then. */
+export interface SeenFile {
+  side: ChangeSide;
+  digest: string;
+}
 
-type AnyEntry = { action: ImportAction; entity?: { path: string }; path?: string };
+export type FolderDiff = ImportDiff & { json?: JsonDiff; seen?: Readonly<Record<string, SeenFile>> };
 
 /** The part of a folder diff safe to take in without asking, and the part a person must see. */
 export function splitOutsideEdits(
   diff: FolderDiff,
-  base: Readonly<Record<string, string>>,
+  isOpen: (noteId: string) => boolean = () => false,
 ): { apply: FolderDiff; held: FolderDiff } {
-  const split = (entries: AnyEntry[]) => {
-    const apply: AnyEntry[] = [];
-    const held: AnyEntry[] = [];
-    for (const entry of entries) {
-      const path = entry.entity?.path ?? entry.path ?? "";
-      const hasBase = Boolean(base[path]);
-      if (entry.action === "created") {
-        (hasBase ? held : apply).push(entry);
-      } else if (entry.action === "updated") {
-        (hasBase ? apply : held).push(entry);
-      } else if (entry.action === "conflict" || entry.action === "removed") {
-        held.push(entry);
-      }
-    }
-    return { apply, held };
-  };
+  const seen = diff.seen ?? {};
+  const folderAlone = (path: string) => seen[path]?.side === "folder";
 
-  const notes = split(diff.entries as unknown as AnyEntry[]);
-  const applyOut: FolderDiff = {
-    ...diff,
-    entries: notes.apply as unknown as FolderDiff["entries"],
-    counts: countActions(notes.apply),
-  };
-  const heldOut: FolderDiff = {
-    ...diff,
-    entries: notes.held as unknown as FolderDiff["entries"],
-    counts: countActions(notes.held),
-  };
+  const apply: ImportDiffEntry[] = [];
+  const held: ImportDiffEntry[] = [];
+  for (const entry of diff.entries) {
+    if (entry.action === "unchanged") continue;
+    const id = entry.entity.id;
+    const safe =
+      (entry.action === "created" || entry.action === "updated") &&
+      folderAlone(entry.entity.path) &&
+      !(id && isOpen(id));
+    (safe ? apply : held).push(entry);
+  }
+
+  const applyOut: FolderDiff = { ...diff, entries: apply, counts: countActions(apply) };
+  const heldOut: FolderDiff = { ...diff, entries: held, counts: countActions(held) };
 
   if (diff.json) {
-    const data = split(diff.json.entries as unknown as AnyEntry[]);
-    applyOut.json = {
-      ...diff.json,
-      entries: data.apply as unknown as JsonDiff["entries"],
-      counts: countActions(data.apply),
-    } as JsonDiff;
-    heldOut.json = {
-      ...diff.json,
-      entries: data.held as unknown as JsonDiff["entries"],
-      counts: countActions(data.held),
-    } as JsonDiff;
+    const rows = diff.json.entries.filter((entry) => entry.action !== "unchanged");
+    // A file is taken in whole only if every one of its rows is created or updated.
+    const blocked = new Set(
+      rows
+        .filter((entry) => entry.action !== "created" && entry.action !== "updated")
+        .map((entry) => entry.path),
+    );
+    const takenIn = (path: string) => folderAlone(path) && !blocked.has(path);
+    const jsonApply: JsonDiffEntry[] = rows.filter((entry) => takenIn(entry.path));
+    const jsonHeld: JsonDiffEntry[] = rows.filter((entry) => !takenIn(entry.path));
+    applyOut.json = { ...diff.json, entries: jsonApply, counts: countActions(jsonApply) };
+    heldOut.json = { ...diff.json, entries: jsonHeld, counts: countActions(jsonHeld) };
   }
 
   return { apply: applyOut, held: heldOut };
 }
 
-function countActions(entries: AnyEntry[]): Record<ImportAction, number> {
+function countActions(entries: { action: ImportAction }[]): Record<ImportAction, number> {
   const counts: Record<ImportAction, number> = {
     created: 0,
     updated: 0,
@@ -76,7 +79,8 @@ function countActions(entries: AnyEntry[]): Record<ImportAction, number> {
 /** What `applyOutsideEdits` needs from the app. */
 export interface OutsideEditDeps {
   preview(): Promise<FolderDiff>;
-  base(): Promise<Readonly<Record<string, string>>>;
+  /** True for a note open in an editor: its edits wait for review rather than land under the cursor. */
+  isOpen(noteId: string): boolean;
   apply(diff: FolderDiff): Promise<unknown>;
   settle(held: FolderDiff): void;
 }
@@ -86,8 +90,7 @@ export async function applyOutsideEdits(
   deps: OutsideEditDeps,
 ): Promise<{ applied: number; held: number }> {
   const diff = await deps.preview();
-  const base = await deps.base();
-  const { apply, held } = splitOutsideEdits(diff, base);
+  const { apply, held } = splitOutsideEdits(diff, (noteId) => deps.isOpen(noteId));
 
   const applied = apply.entries.length + (apply.json?.entries.length ?? 0);
   if (applied > 0) await deps.apply(apply);
