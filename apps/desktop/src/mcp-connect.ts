@@ -30,7 +30,6 @@ export interface McpConnection {
   tokenId: string;
 }
 
-/** How an MCP client starts the bridge: the app's own binary, run as Node. */
 export interface McpLaunch {
   command: string;
   args: string[];
@@ -76,8 +75,12 @@ export async function removeMcpConnection(file: string): Promise<void> {
   await fs.rm(file, { force: true });
 }
 
-export function mcpLaunch(paths: McpPaths, execPath: string): McpLaunch {
-  const env: Record<string, string> = { ELECTRON_RUN_AS_NODE: "1" };
+/**
+ * How a client starts the bridge. Under Electron the app's own binary runs it
+ * as Node; the Tauri sidecar passes `electron = false` with its bundled `node`.
+ */
+export function mcpLaunch(paths: McpPaths, execPath: string, electron = true): McpLaunch {
+  const env: Record<string, string> = electron ? { ELECTRON_RUN_AS_NODE: "1" } : {};
   if (path.basename(paths.file) !== "mcp.json") env.WEAVEFORGE_MCP_FILE = paths.file;
   return { command: execPath, args: [path.join(paths.dir, MCP_BRIDGE_FILE)], env };
 }
