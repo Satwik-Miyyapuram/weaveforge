@@ -40,6 +40,26 @@ test("storage paths are unchanged inside the shell", () => {
   );
 });
 
+for (const crafted of [
+  "app://artifacts/../api/x",
+  "app://artifacts/%2e%2e/api/x",
+  "app://artifacts/a/b/../../x",
+  "app://artifacts/a/./b",
+  "app://artifacts/a/b",
+  "app://artifacts/a/b/c/d",
+  "app://artifacts/a//b",
+  "app://artifacts/a/b/c%2Fd",
+  "app://artifacts/a\\b/c/d",
+]) {
+  test(`inside the shell a crafted entry renders nothing: ${crafted}`, () => {
+    assert.equal(viewableArtifactUrl(crafted, true), null);
+  });
+}
+
+test("a crafted entry outside the shell is left to the app:// host", () => {
+  assert.equal(viewableArtifactUrl("app://artifacts/../x", false), "app://artifacts/../x");
+});
+
 test("the shell is detected by the Tauri internals global", () => {
   assert.equal(isTauriShell({}), false);
   assert.equal(isTauriShell({ __TAURI_INTERNALS__: {} }), true);
