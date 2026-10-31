@@ -88,15 +88,103 @@ export async function handleLine(line: string, handlers: Handlers): Promise<Wire
   }
 }
 
-/** Read requests from `input` and write replies to `output`, one JSON line each. */
+/** Asks and events the sidecar sends to the shell. */
+export interface Peer {
+  /** Asks the shell; resolves with its value, rejects with an Error carrying the shell's message. */
+  ask(method: string, params?: unknown): Promise<unknown>;
+  /** Sends a notice; nothing comes back. */
+  emit(event: string, params?: unknown): void;
+  /** Settles the ask an answer line names. False when the line is over `MAX_LINE` or not a well-formed answer. */
+  settleLine(line: string): boolean;
+  /** Fails every waiting ask, and every later one, with `reason`. */
+  closeAll(reason: string): void;
+}
+
+/** Limits for one peer. */
+export interface PeerOptions {
+  timeoutMs?: number; // default 10_000
+  maxInFlight?: number; // default 64
+}
+
+/** Default wait for one answer. */
+export const ASK_TIMEOUT_MS = 10_000;
+/** Default cap on asks waiting at once. */
+export const MAX_ASKS = 64;
+
+/** Makes a peer that asks the shell and sends it events over `output`. */
+export function createPeer(output: { write(chunk: string): unknown }, options: PeerOptions = {}): Peer {
+  const timeoutMs = options.timeoutMs ?? ASK_TIMEOUT_MS;
+  const maxInFlight = options.maxInFlight ?? MAX_ASKS;
+  const waiting = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }>();
+  let next = 1;
+  let closed: string | null = null;
+  return {
+    ask(method, params) {
+      if (closed !== null) return Promise.reject(new Error(closed));
+      if (waiting.size >= maxInFlight) return Promise.reject(new Error("too many asks"));
+      const n = next++;
+      return new Promise((resolve, reject) => {
+        output.write(JSON.stringify({ ask: n, method, params }, encodeValue) + "\n");
+        const timer = setTimeout(() => {
+          waiting.delete(n);
+          reject(new Error(`ask timed out: ${method}`));
+        }, timeoutMs);
+        // A waiting ask must not keep the process alive.
+        timer.unref?.();
+        waiting.set(n, { resolve, reject, timer });
+      });
+    },
+    emit(event, params) {
+      if (closed !== null) return;
+      output.write(JSON.stringify({ event, params }, encodeValue) + "\n");
+    },
+    settleLine(line) {
+      if (line.length > MAX_LINE) return false;
+      let raw: unknown;
+      try {
+        raw = JSON.parse(line, decodeValue);
+      } catch {
+        return false;
+      }
+      if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return false;
+      const obj = raw as Record<string, unknown>;
+      const { answer, ok } = obj;
+      if (typeof answer !== "number" || !Number.isSafeInteger(answer) || answer < 1) return false;
+      if (typeof ok !== "boolean") return false;
+      if (!ok && typeof obj.error !== "string") return false;
+      const w = waiting.get(answer);
+      if (w === undefined) return true;
+      waiting.delete(answer);
+      clearTimeout(w.timer);
+      if (ok) w.resolve(obj.value);
+      else w.reject(new Error(obj.error as string));
+      return true;
+    },
+    closeAll(reason) {
+      closed ??= reason;
+      for (const [n, w] of waiting) {
+        waiting.delete(n);
+        clearTimeout(w.timer);
+        w.reject(new Error(closed));
+      }
+    },
+  };
+}
+
+/** Read requests from `input` and write replies to `output`, one JSON line each. Answer lines go to `peer`. */
 export async function serve(
   input: NodeJS.ReadableStream,
   output: { write(chunk: string): unknown },
   handlers: Handlers,
+  peer?: Peer,
 ): Promise<void> {
   const pending = new Set<Promise<void>>();
   const rl = createInterface({ input, crlfDelay: Infinity });
   rl.on("line", (line) => {
+    if (peer && line.startsWith('{"answer":')) {
+      if (!peer.settleLine(line)) console.error("sidecar: bad answer line");
+      return;
+    }
     const job = handleLine(line, handlers).then((reply) => {
       if (reply === null) return;
       if (reply.ok && reply.value === undefined) reply.value = null;
@@ -113,5 +201,6 @@ export async function serve(
     void job.finally(() => pending.delete(job));
   });
   await new Promise<void>((resolve) => rl.once("close", resolve));
+  peer?.closeAll("shell closed");
   await Promise.all(pending);
 }

@@ -3,6 +3,8 @@
 //! Replies are routed by id, so calls can overlap. Every call is bounded by a timeout and a
 //! cap on calls in flight. The child is killed when the client drops, and on Windows a Job
 //! Object kills it if the shell dies without running `Drop`.
+//!
+//! The sidecar can also ask the shell for things and send it events; a `SidecarHost` answers them.
 
 use std::collections::HashMap;
 use std::ffi::OsString;
@@ -48,6 +50,25 @@ pub struct SidecarConfig {
     pub max_reply_bytes: usize,
 }
 
+/// How many of the sidecar's asks the host answers at once, and how long each may take.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AskLimits {
+    /// Most asks answered at once; one more is answered "busy".
+    pub max_open: usize,
+    /// Longest wait for the host; past it the ask is answered "host timed out".
+    pub timeout: Duration,
+}
+
+impl Default for AskLimits {
+    /// Matches the sidecar's own cap (64) and wait (10 s), so its asks rarely queue or outlive it.
+    fn default() -> Self {
+        Self {
+            max_open: 64,
+            timeout: Duration::from_secs(10),
+        }
+    }
+}
+
 /// Why a call failed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SidecarError {
@@ -81,6 +102,26 @@ impl std::fmt::Display for SidecarError {
 impl std::error::Error for SidecarError {}
 
 type Reply = Result<Value, SidecarError>;
+
+/// What the shell does for the sidecar: notices it sends, and questions it asks.
+pub trait SidecarHost: Send + Sync + 'static {
+    /// A notice from the sidecar. Runs on the reader task, so it must return quickly.
+    fn event(&self, name: &str, params: Value);
+    /// A question from the sidecar. Runs on a blocking thread; `Err` is sent back as the error text.
+    fn ask(&self, method: &str, params: Value) -> Result<Value, String>;
+}
+
+/// What the reader needs to serve asks and events.
+struct HostLink {
+    host: Option<Arc<dyn SidecarHost>>,
+    /// Weak, so a pending answer never keeps stdin open after `shutdown`.
+    answers: mpsc::WeakSender<String>,
+    max_answer_bytes: usize,
+    /// One permit per ask being answered; none left answers "busy".
+    asks: Arc<tokio::sync::Semaphore>,
+    /// Longest wait for the host before the ask is answered "host timed out".
+    ask_timeout: Duration,
+}
 
 /// Longest stderr line kept as the exit reason, in chars.
 const MAX_REASON_CHARS: usize = 500;
@@ -154,12 +195,25 @@ fn validate(config: &SidecarConfig) -> Result<(), SidecarError> {
     Err(SidecarError::Spawn(problem.to_owned()))
 }
 
-/// Turns one stdout line into the reply for its caller. Lines without a u64 id are logged.
-fn route_reply(shared: &Shared, line: &str) {
+/// Routes one stdout line: an event to the host, an ask to be answered, or a reply to its caller.
+fn route_line(shared: &Shared, link: &HostLink, line: &str) {
     let Some(value) = serde_json::from_str::<Value>(line).ok() else {
         eprintln!("sidecar: stray line: {line}");
         return;
     };
+    if let Some(name) = value.get("event").and_then(Value::as_str) {
+        let params = value.get("params").cloned().unwrap_or(Value::Null);
+        deliver_event(link, name, params);
+        return;
+    }
+    if let Some(ask) = value.get("ask") {
+        match ask.as_u64() {
+            Some(n) => serve_ask(link, n, &value),
+            None => eprintln!("sidecar: stray line: {line}"),
+        }
+        return;
+    }
+    // Lines without a u64 id are logged.
     let Some(id) = value.get("id").and_then(Value::as_u64) else {
         if value.get("id").is_some_and(Value::is_null)
             && value.get("ok").and_then(Value::as_bool) == Some(false)
@@ -190,6 +244,85 @@ fn route_reply(shared: &Shared, line: &str) {
     let _ = waiter.send(reply);
 }
 
+/// Hands a notice to the host. Without a host it is dropped.
+fn deliver_event(link: &HostLink, name: &str, params: Value) {
+    if let Some(host) = &link.host {
+        host.event(name, params);
+    }
+}
+
+/// Answers an ask in its own task, so the reader never waits on the host, within the link's `AskLimits`.
+fn serve_ask(link: &HostLink, n: u64, value: &Value) {
+    let method = value
+        .get("method")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let params = value.get("params").cloned().unwrap_or(Value::Null);
+    let host = link.host.clone();
+    let answers = link.answers.clone();
+    let max = link.max_answer_bytes;
+    let refused = match (&method, &host) {
+        (None, _) => Some("bad ask"),
+        (Some(_), None) => Some("no host"),
+        (Some(_), Some(_)) => None,
+    };
+    let permit = Arc::clone(&link.asks).try_acquire_owned().ok();
+    let (Some(method), Some(host), Some(permit), None) = (method, host, permit, refused) else {
+        // Answered here, with no task: a sidecar flooding asks it never reads cannot pile tasks up.
+        // A full answer queue drops the line; that sidecar is not reading anyway.
+        if let Some(tx) = answers.upgrade() {
+            let _ = tx.try_send(answer_line(
+                n,
+                Err(refused.unwrap_or("busy").to_owned()),
+                max,
+            ));
+        }
+        return;
+    };
+    let ask_timeout = link.ask_timeout;
+    // Detached: the task ends once its answer is queued or stdin has closed.
+    let _answering = tokio::spawn(async move {
+        // The permit moves into the blocking call, so a timed-out host still holds its slot.
+        let call = tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            host.ask(&method, params)
+        });
+        let result = match tokio::time::timeout(ask_timeout, call).await {
+            Err(_) => Err("host timed out".to_owned()),
+            Ok(joined) => joined.unwrap_or_else(|_| Err("host failed".to_owned())),
+        };
+        if let Some(tx) = answers.upgrade() {
+            let _ = tx.send(answer_line(n, result, max)).await;
+        }
+    });
+}
+
+/// The stdin line that answers ask `n`. `answer` is the first key, since the sidecar routes on that prefix.
+#[must_use]
+fn answer_line(n: u64, result: Result<Value, String>, max: usize) -> String {
+    match result {
+        Ok(v) => {
+            let line = format!("{{\"answer\":{n},\"ok\":true,\"value\":{v}}}\n");
+            if line.len() > max {
+                answer_line(n, Err("answer too large".to_owned()), max)
+            } else {
+                line
+            }
+        }
+        Err(e) => {
+            let line = format!(
+                "{{\"answer\":{n},\"ok\":false,\"error\":{}}}\n",
+                Value::String(e)
+            );
+            if line.len() > max {
+                format!("{{\"answer\":{n},\"ok\":false,\"error\":\"error too large\"}}\n")
+            } else {
+                line
+            }
+        }
+    }
+}
+
 /// Marks the client closed and fails every waiter with `Exited`. The only place that drains `pending`.
 fn fail_all(shared: &Shared) {
     // Set before draining so a caller that inserts after the drain sees it.
@@ -211,7 +344,12 @@ async fn kill(shared: &Shared) {
 }
 
 /// Reads replies until EOF or an oversized line, then fails every waiter and kills the child.
-async fn read_replies(shared: Arc<Shared>, stdout: ChildStdout, max_reply_bytes: usize) {
+async fn read_replies(
+    shared: Arc<Shared>,
+    stdout: ChildStdout,
+    max_reply_bytes: usize,
+    link: HostLink,
+) {
     let mut reader = BufReader::new(stdout);
     let mut buf = Vec::new();
     let limit = u64::try_from(max_reply_bytes)
@@ -227,7 +365,7 @@ async fn read_replies(shared: Arc<Shared>, stdout: ChildStdout, max_reply_bytes:
             }
             Ok(_) => {
                 let line = String::from_utf8_lossy(&buf);
-                route_reply(&shared, line.trim_end_matches(['\r', '\n']));
+                route_line(&shared, &link, line.trim_end_matches(['\r', '\n']));
             }
             Err(e) => {
                 eprintln!("sidecar: stdout read failed: {e}");
@@ -308,6 +446,23 @@ impl Drop for Sidecar {
 impl Sidecar {
     /// Starts the child. Must be called inside a Tokio runtime.
     pub fn spawn(config: SidecarConfig) -> Result<Self, SidecarError> {
+        Self::spawn_inner(config, None, AskLimits::default())
+    }
+
+    /// Starts the child with a host that answers its asks and receives its events.
+    pub fn spawn_with_host(
+        config: SidecarConfig,
+        host: Arc<dyn SidecarHost>,
+        limits: AskLimits,
+    ) -> Result<Self, SidecarError> {
+        Self::spawn_inner(config, Some(host), limits)
+    }
+
+    fn spawn_inner(
+        config: SidecarConfig,
+        host: Option<Arc<dyn SidecarHost>>,
+        limits: AskLimits,
+    ) -> Result<Self, SidecarError> {
         validate(&config)?;
         let runtime = tokio::runtime::Handle::try_current()
             .map_err(|_| SidecarError::Spawn("no Tokio runtime".to_owned()))?;
@@ -340,8 +495,24 @@ impl Sidecar {
             stderr_done: watch::channel(false).0,
         });
         let (tx, rx) = mpsc::channel::<String>(max_in_flight);
+        let link = HostLink {
+            host,
+            answers: tx.downgrade(),
+            max_answer_bytes: max_request_bytes,
+            asks: Arc::new(tokio::sync::Semaphore::new(
+                limits
+                    .max_open
+                    .clamp(1, tokio::sync::Semaphore::MAX_PERMITS),
+            )),
+            ask_timeout: limits.timeout,
+        };
         // Detached: each task ends on its own when its pipe closes or its queue closes.
-        let _reader = runtime.spawn(read_replies(Arc::clone(&shared), stdout, max_reply_bytes));
+        let _reader = runtime.spawn(read_replies(
+            Arc::clone(&shared),
+            stdout,
+            max_reply_bytes,
+            link,
+        ));
         let _writer = runtime.spawn(write_requests(Arc::clone(&shared), stdin, rx));
         let _errors = runtime.spawn(forward_stderr(Arc::clone(&shared), stderr));
         Ok(Self {
@@ -506,5 +677,38 @@ mod tests {
             Err(SidecarError::Exited)
         );
         assert_eq!(s.exit_reason().await, None);
+    }
+
+    #[test]
+    fn answer_line_ok_is_compact_json() {
+        assert_eq!(
+            answer_line(3, Ok(json!({"a": 1})), 1000),
+            "{\"answer\":3,\"ok\":true,\"value\":{\"a\":1}}\n"
+        );
+        assert!(answer_line(3, Ok(json!(1)), 1000).starts_with("{\"answer\":"));
+    }
+
+    #[test]
+    fn answer_line_escapes_error_text() {
+        assert_eq!(
+            answer_line(3, Err("a\"b".to_owned()), 1000),
+            "{\"answer\":3,\"ok\":false,\"error\":\"a\\\"b\"}\n"
+        );
+    }
+
+    #[test]
+    fn answer_line_too_large_is_an_error() {
+        assert_eq!(
+            answer_line(3, Ok(json!("x".repeat(100))), 50),
+            answer_line(3, Err("answer too large".to_owned()), 50)
+        );
+    }
+
+    #[test]
+    fn answer_line_long_error_is_capped() {
+        assert_eq!(
+            answer_line(3, Err("x".repeat(100)), 60),
+            "{\"answer\":3,\"ok\":false,\"error\":\"error too large\"}\n"
+        );
     }
 }
