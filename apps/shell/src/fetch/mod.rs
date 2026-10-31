@@ -8,6 +8,10 @@ pub mod url_shape;
 
 pub mod paste;
 
+pub mod remote;
+
+pub mod safe;
+
 /// True for the characters JavaScript's `\s` and `String.prototype.trim` treat as
 /// whitespace. Rust's `char::is_whitespace` differs (it has U+0085, lacks U+FEFF),
 /// so the ports of TS string code use this instead.
