@@ -120,11 +120,15 @@ impl VaultWatch {
     pub fn saw(&mut self, path: &str, current: Option<Digest>, now: Instant) {
         let key = (self.normalize)(path);
         let window = self.self_write_window;
-        let echo = self.mine.get(&key).is_some_and(|writes| {
-            writes.iter().any(|(written, digest)| {
+        // Only our newest save: bytes of an older one may be someone restoring it. A late
+        // event showing an older save just waits; the newest save's own event cancels it.
+        let echo = self
+            .mine
+            .get(&key)
+            .and_then(|writes| writes.last())
+            .is_some_and(|(written, digest)| {
                 now.saturating_duration_since(*written) <= window && current == *digest
-            })
-        });
+            });
         if echo {
             // Kept, not removed: one save often arrives as several events. The file
             // holds our bytes now, so an earlier view of it (half written) is not news.
@@ -137,6 +141,10 @@ impl VaultWatch {
         }
         // Not forgotten yet: a big save is first seen half written. Once reported
         // (`flush`), the path is no longer ours.
+        self.mark_pending(key, now);
+    }
+
+    fn mark_pending(&mut self, key: String, now: Instant) {
         let _ = self.pending.insert(key);
         let first = *self.first_pending.get_or_insert(now);
         self.deadline = Some((now + self.quiet).min(first + MAX_WAIT));
@@ -166,9 +174,10 @@ impl VaultWatch {
     /// The filesystem reported `path`, but its contents could not be read (too big, not a
     /// file, no access). It is not gone, so it can never be our echo: always reported.
     pub fn saw_unreadable(&mut self, path: &str, now: Instant) {
+        // Our saves are kept: a file held open a moment (antivirus, sync) is unreadable
+        // once, and a later event with our bytes still cancels the report.
         let key = (self.normalize)(path);
-        let _ = self.mine.remove(&key);
-        self.saw(path, None, now);
+        self.mark_pending(key, now);
     }
 
     /// Drops anything pending and forgets all self-writes.

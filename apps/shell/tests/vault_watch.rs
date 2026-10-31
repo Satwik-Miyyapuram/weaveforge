@@ -185,6 +185,53 @@ fn an_outside_edit_that_ends_on_other_bytes_is_reported_after_a_view_of_ours() {
 }
 
 #[test]
+fn an_older_save_put_back_by_someone_else_is_reported() {
+    // Save A1, save A2, then git checkout or another editor's undo restores A1.
+    let mut clock = Clock::new();
+    let mut w = watch();
+    w.note_self_write("a.md", content_digest(b"A1"), clock.now());
+    clock.advance(10);
+    w.note_self_write("a.md", content_digest(b"A2"), clock.now());
+    w.saw("a.md", Some(content_digest(b"A2")), clock.now());
+    w.saw("a.md", Some(content_digest(b"A1")), clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["a.md"]);
+}
+
+#[test]
+fn a_moment_unreadable_then_our_bytes_is_not_news() {
+    let clock = Clock::new();
+    let mut w = watch();
+    w.note_self_write("a.md", ours(), clock.now());
+    w.saw_unreadable("a.md", clock.now());
+    w.saw("a.md", Some(ours()), clock.now());
+    assert_eq!(quiet(&mut w, &clock), Vec::<String>::new());
+}
+
+#[test]
+fn a_cancelled_report_does_not_shorten_the_next_wait() {
+    let mut clock = Clock::new();
+    let mut w = VaultWatch::new(Box::new(|p: &str| p.to_string()), QUIET, SELF_WRITE_WINDOW);
+    w.note_self_write("big.pdf", ours(), clock.now());
+    w.saw("big.pdf", None, clock.now());
+    w.saw("big.pdf", Some(ours()), clock.now());
+    clock.advance(5_000);
+    w.saw("b.md", Some(theirs()), clock.now());
+    assert_eq!(w.deadline(), Some(clock.now() + QUIET));
+}
+
+#[test]
+fn a_cancelled_report_leaves_another_pending_deadline_alone() {
+    let clock = Clock::new();
+    let mut w = VaultWatch::new(Box::new(|p: &str| p.to_string()), QUIET, SELF_WRITE_WINDOW);
+    w.saw("theirs.md", Some(theirs()), clock.now());
+    let due = w.deadline();
+    w.note_self_write("big.pdf", ours(), clock.now());
+    w.saw("big.pdf", None, clock.now());
+    w.saw("big.pdf", Some(ours()), clock.now());
+    assert_eq!(w.deadline(), due);
+}
+
+#[test]
 fn our_write_to_one_file_does_not_hide_a_change_to_another() {
     let clock = Clock::new();
     let mut w = watch();
