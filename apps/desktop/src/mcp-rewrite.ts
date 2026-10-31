@@ -122,9 +122,16 @@ export async function rewriteMcpConfigFile(
   const tmp = `${target.file}.${process.pid}.${Date.now()}.tmp`;
   try {
     // Keep the first original only; later rewrites must not replace it.
-    await fs.writeFile(`${target.file}.weaveforge.bak`, original, { flag: "wx", mode }).catch((error: unknown) => {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-    });
+    const backup = `${target.file}.weaveforge.bak`;
+    const created = await fs.writeFile(backup, original, { flag: "wx", mode }).then(
+      () => true,
+      (error: unknown) => {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+        return false;
+      },
+    );
+    // umask can strip bits from the create mode; an older backup is left as it is.
+    if (created) await fs.chmod(backup, mode);
     await fs.writeFile(tmp, `${JSON.stringify(result.config, null, 2)}\n`, { mode });
     // umask can strip bits from the create mode, so set it exactly.
     await fs.chmod(tmp, mode);

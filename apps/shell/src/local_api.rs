@@ -14,7 +14,7 @@ use crate::launch::without_verbatim_prefix;
 use crate::prefs::Prefs;
 use crate::secrets::Secrets;
 use crate::sidecar::SidecarHost;
-use crate::vault::VaultRoot;
+use crate::vault::{VaultRoot, VaultState};
 
 /// The folder whose `.mcpb` files `open.path` may open: `<home>/.weaveforge/mcp`, or `mcp-<variant>` for a dev build.
 #[must_use]
@@ -73,19 +73,35 @@ pub fn vault_root_params(root: Option<&VaultRoot>) -> Value {
     }
 }
 
-/// Tells the sidecar which vault folder is open; a failure is logged, never returned.
-pub async fn forward_vault_root(app: &tauri::AppHandle, root: Option<&VaultRoot>) {
+/// Tells the sidecar which vault folder is open; a failure is logged, never returned. The folder is read once
+/// earlier sends are done, so a stale one never lands after a newer one.
+pub async fn forward_vault_root(app: &tauri::AppHandle) {
+    let vault = app.try_state::<VaultState>().map(|v| v.inner().clone());
     let Some(db) = app.try_state::<LocalDb>() else {
+        warn(
+            app,
+            "the local API did not get the workspace folder: no local database",
+        );
         return;
     };
-    if let Err(e) = db.call("vault.root", vault_root_params(root)).await
-        && let Some(log) = app.try_state::<AppLog>()
+    let root = || vault.as_ref().and_then(|v| v.lock().root());
+    if let Err(e) = db
+        .send_vault_root(|| vault_root_params(root().as_ref()))
+        .await
     {
         let line = format!(
             "the local API did not get the workspace folder: {}",
             e.message
         );
-        log.record(LogLevel::Warn, "local-api", &line, None);
+        warn(app, &line);
+    }
+}
+
+/// Logs a `local-api` warning to the app log, or to stderr before the log is managed.
+pub fn warn(app: &tauri::AppHandle, line: &str) {
+    match app.try_state::<AppLog>() {
+        Some(log) => log.record(LogLevel::Warn, "local-api", line, None),
+        None => eprintln!("[local-api] {line}"),
     }
 }
 

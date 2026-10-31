@@ -11,7 +11,8 @@ export interface LocalApiStartOptions {
   peer: Pick<Peer, "ask" | "emit">;
   localDb: LocalDbHost;
   artifactRoot: string;
-  bridge: string;
+  /** The bundled MCP bridge script; without it the startup resume and the config rewrite are skipped. */
+  bridge?: string;
   version: string;
   homeVariant?: string;
   home: string;
@@ -37,7 +38,7 @@ export interface LocalApiStart {
  * set) never rewrites editors' MCP configs.
  */
 export function startLocalApi(base: Handlers, o: LocalApiStartOptions): LocalApiStart {
-  const paths = mcpPaths(o.home, o.homeVariant, o.bridge);
+  const paths = mcpPaths(o.home, o.homeVariant, o.bridge ?? "");
   const { deps, handlers: apiHandlers } = sidecarApiDeps({
     peer: o.peer,
     localDb: o.localDb,
@@ -55,14 +56,24 @@ export function startLocalApi(base: Handlers, o: LocalApiStartOptions): LocalApi
     handlers[name] = handler;
   }
 
+  // Set by `close`; a `resume` that finishes after it is closed again.
+  let closing = false;
   // Not awaited here: asks are only answered once `serve` reads stdin.
   const ready = (async () => {
+    // An editor entry without the bridge would point at nothing, so skip the startup resume and the
+    // rewrite. A later toggle can still open the door; refusing it is a plan §10 item.
+    if (o.bridge === undefined || o.bridge === "") {
+      o.log("[local-api] not started: no --bridge");
+      return;
+    }
     try {
       // As Electron's main: opens the port only when the preference is on and a token is live.
       await api.resume();
+      if (closing) await api.close();
     } catch (e) {
       o.log("[local-api] " + errorMessage(e));
     }
+    if (closing) return;
     // Dev builds keep their own editor entries; only the installed app moves them.
     if (o.homeVariant !== undefined) return;
     try {
@@ -77,7 +88,9 @@ export function startLocalApi(base: Handlers, o: LocalApiStartOptions): LocalApi
     }
   })();
 
+  // Never awaits `ready`: its asks go unanswered once `serve` has ended.
   const close = async (): Promise<void> => {
+    closing = true;
     try {
       await api.close();
     } catch (e) {
