@@ -6,6 +6,8 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::range;
+
 /// The scheme the window is served on.
 pub const APP_SCHEME: &str = "app";
 
@@ -16,6 +18,10 @@ pub const APP_HOSTS: [&str; 2] = ["localhost", "app.localhost"];
 /// IPC is `ipc://localhost` (Linux, macOS) or `https://ipc.localhost` (Windows); models and
 /// artifacts will be same-origin paths, so `app://…` and `cache:` are gone.
 pub const APP_CSP: &str = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' ipc: https://ipc.localhost https: wss: http://localhost:* http://127.0.0.1:*; worker-src 'self' blob:; media-src 'self' blob: https:; frame-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+
+/// Body of the 500 a file over `range::WHOLE_BYTES_MAX` gets when requested without a `Range`.
+pub const TOO_LARGE: &str =
+    "This file is too large to load at once; ask for it in parts with a Range header.";
 
 /// One response: status, headers, body.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -192,9 +198,15 @@ pub fn app_headers(content_type: &str) -> Vec<(&'static str, String)> {
     headers
 }
 
-/// The response for a request path, reading from `root` on disk.
+/// The response for a request path, reading from `root` on disk. `range` is the request's `Range` header.
 #[must_use]
-pub fn respond(root: &Path, host: Option<&str>, path: &str, query: Option<&str>) -> Reply {
+pub fn respond(
+    root: &Path,
+    host: Option<&str>,
+    path: &str,
+    query: Option<&str>,
+    range: Option<&str>,
+) -> Reply {
     if !host.is_some_and(|h| APP_HOSTS.contains(&h)) {
         return not_found();
     }
@@ -213,11 +225,12 @@ pub fn respond(root: &Path, host: Option<&str>, path: &str, query: Option<&str>)
         };
     }
     if let Some(file) = resolve_app_file(root, path, &|p: &Path| p.is_file()) {
-        return match std::fs::read(&file) {
-            Ok(body) => Reply {
-                status: 200,
-                headers: app_headers(content_type_for(&file)),
-                body,
+        return match range::serve_file(&file, range, app_headers(content_type_for(&file))) {
+            Ok(reply) => reply,
+            Err(e) if e.kind() == std::io::ErrorKind::FileTooLarge => Reply {
+                status: 500,
+                headers: app_headers("text/plain; charset=utf-8"),
+                body: TOO_LARGE.as_bytes().to_vec(),
             },
             Err(_) => not_found(),
         };
@@ -564,7 +577,7 @@ mod tests {
     #[test]
     fn respond_root_serves_index_with_csp() {
         let dir = bundle_with_404("root");
-        let r = respond(&dir, Some("localhost"), "/", None);
+        let r = respond(&dir, Some("localhost"), "/", None, None);
         assert_eq!(r.status, 200);
         assert_eq!(r.body, b"<p>home</p>".to_vec());
         assert!(header(&r, "content-security-policy").is_some());
@@ -574,7 +587,7 @@ mod tests {
     #[test]
     fn respond_script_has_js_type_and_no_csp() {
         let dir = bundle_with_404("script");
-        let r = respond(&dir, Some("localhost"), "/app.js", None);
+        let r = respond(&dir, Some("localhost"), "/app.js", None, None);
         assert_eq!(r.status, 200);
         assert_eq!(
             header(&r, "content-type"),
@@ -587,7 +600,13 @@ mod tests {
     #[test]
     fn respond_double_slash_redirects_with_query() {
         let dir = bundle_with_404("redirect-query");
-        let r = respond(&dir, Some("localhost"), "//notes//x/", Some("page=a//b"));
+        let r = respond(
+            &dir,
+            Some("localhost"),
+            "//notes//x/",
+            Some("page=a//b"),
+            None,
+        );
         assert_eq!(r.status, 308);
         assert_eq!(header(&r, "location"), Some("/notes/x/?page=a//b"));
         assert!(r.body.is_empty());
@@ -597,7 +616,7 @@ mod tests {
     #[test]
     fn respond_double_slash_root_redirects() {
         let dir = bundle_with_404("redirect-root");
-        let r = respond(&dir, Some("localhost"), "//", None);
+        let r = respond(&dir, Some("localhost"), "//", None, None);
         assert_eq!(r.status, 308);
         assert_eq!(header(&r, "location"), Some("/"));
         let _ = std::fs::remove_dir_all(&dir);
@@ -606,7 +625,7 @@ mod tests {
     #[test]
     fn respond_missing_page_serves_404_page() {
         let dir = bundle_with_404("missing-page");
-        let r = respond(&dir, Some("localhost"), "/org/", None);
+        let r = respond(&dir, Some("localhost"), "/org/", None, None);
         assert_eq!(r.status, 404);
         assert_eq!(r.body, b"<p>lost</p>".to_vec());
         assert_eq!(header(&r, "content-type"), Some("text/html; charset=utf-8"));
@@ -616,7 +635,7 @@ mod tests {
     #[test]
     fn respond_missing_asset_is_bare_404() {
         let dir = bundle_with_404("missing-asset");
-        let r = respond(&dir, Some("localhost"), "/gone.js", None);
+        let r = respond(&dir, Some("localhost"), "/gone.js", None, None);
         assert_eq!(r.status, 404);
         assert!(r.body.is_empty());
         let _ = std::fs::remove_dir_all(&dir);
@@ -625,7 +644,7 @@ mod tests {
     #[test]
     fn respond_api_path_is_404_until_relays_exist() {
         let dir = bundle_with_404("api");
-        let r = respond(&dir, Some("localhost"), "/api/pdf", None);
+        let r = respond(&dir, Some("localhost"), "/api/pdf", None, None);
         assert_eq!(r.status, 404);
         assert!(r.body.is_empty());
         let _ = std::fs::remove_dir_all(&dir);
@@ -634,10 +653,10 @@ mod tests {
     #[test]
     fn respond_other_host_is_404() {
         let dir = bundle_with_404("other-host");
-        let r = respond(&dir, Some("models"), "/", None);
+        let r = respond(&dir, Some("models"), "/", None, None);
         assert_eq!(r.status, 404);
         assert!(r.body.is_empty());
-        let r = respond(&dir, None, "/", None);
+        let r = respond(&dir, None, "/", None, None);
         assert_eq!(r.status, 404);
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -645,7 +664,7 @@ mod tests {
     #[test]
     fn respond_windows_app_host_serves_index() {
         let dir = bundle_with_404("windows-host");
-        let r = respond(&dir, Some("app.localhost"), "/", None);
+        let r = respond(&dir, Some("app.localhost"), "/", None, None);
         assert_eq!(r.status, 200);
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -653,7 +672,7 @@ mod tests {
     #[test]
     fn respond_page_miss_without_404_page_is_bare_404() {
         let dir = temp_root("no-404-page");
-        let r = respond(&dir, Some("localhost"), "/org/", None);
+        let r = respond(&dir, Some("localhost"), "/org/", None, None);
         assert_eq!(r.status, 404);
         assert!(r.body.is_empty());
         let _ = std::fs::remove_dir_all(&dir);

@@ -403,6 +403,23 @@ fn fake_engine(dir: &TempDir, body: &str) -> TexTool {
     }
 }
 
+/// Compiles with a fake engine, retrying while the kernel says the new script is busy.
+///
+/// Another test thread can fork while `fake_engine` still holds the script open for writing; the
+/// child keeps that handle until it execs, and running the script then fails with ETXTBSY.
+#[cfg(unix)]
+async fn compile_fake(tmp: &TempDir, files: &[TexSourceFile], tool: &TexTool) -> TexCompileResult {
+    let mut result = compile_tex_in(tmp.path(), files, "main.tex", Some(tool)).await;
+    for _ in 0..20 {
+        if !result.log.contains("Text file busy") {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        result = compile_tex_in(tmp.path(), files, "main.tex", Some(tool)).await;
+    }
+    result
+}
+
 #[cfg(unix)]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn compile_output_flood_is_stopped() {
@@ -410,9 +427,13 @@ async fn compile_output_flood_is_stopped() {
     let tmp = TempDir::new();
     let tool = fake_engine(&bin, "exec head -c 40000000 /dev/zero");
     let files = [file("main.tex", MINIMAL)];
-    let result = compile_tex_in(tmp.path(), &files, "main.tex", Some(&tool)).await;
+    let result = compile_fake(&tmp, &files, &tool).await;
     assert!(!result.ok);
-    assert!(result.log.contains("stdout maxBuffer length exceeded"));
+    assert!(
+        result.log.contains("stdout maxBuffer length exceeded"),
+        "log: {}",
+        result.log
+    );
     assert!(result.log.len() < 1_000);
     assert!(tmp_is_empty(&tmp));
 }
@@ -428,7 +449,7 @@ async fn build_dir_is_private() {
         &format!("ls -ld . | cut -c1-10 > '{}'", out.display()),
     );
     let files = [file("main.tex", MINIMAL)];
-    let _ = compile_tex_in(tmp.path(), &files, "main.tex", Some(&tool)).await;
+    let _ = compile_fake(&tmp, &files, &tool).await;
     assert_eq!(fs::read_to_string(&out).unwrap().trim(), "drwx------");
     assert!(tmp_is_empty(&tmp));
 }

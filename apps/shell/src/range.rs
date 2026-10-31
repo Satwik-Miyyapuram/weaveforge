@@ -110,7 +110,17 @@ fn digits(text: &str) -> Option<u64> {
 pub fn serve_file(
     file: &std::path::Path,
     header: Option<&str>,
+    headers: Vec<(&'static str, String)>,
+) -> std::io::Result<Reply> {
+    serve_file_capped(file, header, headers, WHOLE_BYTES_MAX)
+}
+
+/// `serve_file` with the whole-read limit as a parameter (model weights may be read whole up to their own cap).
+pub fn serve_file_capped(
+    file: &std::path::Path,
+    header: Option<&str>,
     mut headers: Vec<(&'static str, String)>,
+    whole_max: u64,
 ) -> std::io::Result<Reply> {
     headers.retain(|(name, _)| {
         !name.eq_ignore_ascii_case("content-length") && !name.eq_ignore_ascii_case("content-range")
@@ -119,7 +129,7 @@ pub fn serve_file(
     let len_bytes = f.metadata()?.len();
     match pick(header, len_bytes) {
         Pick::Whole => {
-            if len_bytes > WHOLE_BYTES_MAX {
+            if len_bytes > whole_max {
                 return Err(std::io::Error::from(std::io::ErrorKind::FileTooLarge));
             }
             // Bounded by the length checked above, so a file growing mid-read stays capped.
