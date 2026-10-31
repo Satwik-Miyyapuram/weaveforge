@@ -4412,6 +4412,7 @@ dependencies = [
  "base64 0.23.1",
  "dbus-secret-service-keyring-store",
  "encoding_rs",
+ "git2",
  "keyring-core",
  "process-wrap",
  "regex",

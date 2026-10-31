@@ -17,6 +17,8 @@ name = "weaveforge_shell"
 
 # Exact pins, as in the root workspace: Tauri 2.x minor releases change behaviour.
 [dependencies]
+# Overleaf read (step 2.12c) clones with git2; same pin and features as the root workspace.
+git2 = { version = "=0.21.0", default-features = false, features = ["https", "ssh", "vendored-libgit2", "vendored-openssl"] }
 tauri = { version = "=2.12.5", features = [] }
 # Sidecar client (step 2.4): async child process, Job Object on Windows so the
 # sidecar dies with the shell. The std API of process-wrap never sets kill-on-close.
