@@ -5598,6 +5598,7 @@ dependencies = [
  "tauri-specta",
  "thiserror 2.0.21",
  "tokio",
+ "webpki-root-certs",
  "wf-core",
  "wf-store",
  "windows",

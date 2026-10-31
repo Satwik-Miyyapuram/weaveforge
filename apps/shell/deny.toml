@@ -48,8 +48,8 @@ allow = [
   "Zlib",
 ]
 
-# Mozilla's CA list as data (CDLA-Permissive-2.0), used only by the build script of
-# ort-sys to download ONNX Runtime; it is not in the binary.
+# Mozilla's CA list as data (CDLA-Permissive-2.0): the build script of ort-sys uses it
+# to download ONNX Runtime, and phones bundle it as their TLS roots (tls.rs).
 [[licenses.exceptions]]
 crate = "webpki-root-certs"
 allow = ["CDLA-Permissive-2.0"]

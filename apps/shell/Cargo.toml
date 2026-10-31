@@ -77,6 +77,9 @@ wf-store = { path = "../../crates/wf-store" }
 git2 = { version = "=0.21.0", default-features = false, features = ["vendored-libgit2"] }
 reqwest = { version = "=0.13.5", default-features = false, features = ["rustls-no-provider"] }
 rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std"] }
+# Mozilla's roots, checked by rustls: the default platform verifier needs JNI set-up on
+# Android. Already in the lock through ort-sys's build script.
+webpki-root-certs = "=1.0.11"
 wf-store = { path = "../../crates/wf-store", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
@@ -96,6 +99,8 @@ apple-native-keyring-store = { version = "=1.0.2", features = ["keychain"] }
 dbus-secret-service-keyring-store = { version = "=1.0.1", features = ["crypto-rust"] }
 
 [dev-dependencies]
+# tls.rs tests the phone roots on desktops too.
+webpki-root-certs = "=1.0.11"
 tokio = { version = "=1.54.1", features = ["io-util", "macros", "net", "process", "rt", "rt-multi-thread", "sync", "time"] }
 
 [build-dependencies]

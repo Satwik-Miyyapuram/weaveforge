@@ -14,6 +14,10 @@ pub mod cmd_ink;
 pub mod cmd_tools;
 pub mod cmd_vault;
 pub mod commands;
+#[cfg(desktop)]
+pub mod embed;
+#[cfg(mobile)]
+#[path = "embed_phone.rs"]
 pub mod embed;
 pub mod fetch;
 pub mod git;
@@ -36,6 +40,7 @@ pub mod secrets;
 pub mod shim;
 pub mod sidecar;
 pub mod tex;
+pub mod tls;
 pub mod update_check;
 pub mod vault;
 pub mod vault_choice;
