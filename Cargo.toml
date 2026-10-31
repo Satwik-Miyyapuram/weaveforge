@@ -26,6 +26,8 @@ serde-wasm-bindgen = "=0.6.5"
 # Search text rules (phase 1): NFD/NFC and general categories for \p{L}/\p{N}.
 unicode-normalization = "=0.1.26"
 unicode-properties = { version = "=0.1.4", default-features = false, features = ["general-category"] }
+# WHATWG URL parsing, the same rules as the JS `URL` class (already in the lock via git2).
+url = "=2.5.8"
 # Property tests (plan §4.4): 256 cases per commit. No fork/timeout features.
 proptest = { version = "=1.11.0", default-features = false, features = ["std"] }
 # Git sync (P2.10): libgit2, built from source on every platform. gix cannot yet push

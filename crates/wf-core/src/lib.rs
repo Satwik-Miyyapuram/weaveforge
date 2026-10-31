@@ -2,6 +2,8 @@
 #![forbid(unsafe_code)]
 
 pub mod search;
+pub mod storage;
+pub mod sync;
 pub mod units;
 pub mod workspace;
 

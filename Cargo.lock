@@ -1641,9 +1641,11 @@ version = "0.1.0"
 dependencies = [
  "proptest",
  "serde",
+ "serde_json",
  "specta",
  "unicode-normalization",
  "unicode-properties",
+ "url",
 ]
 
 [[package]]

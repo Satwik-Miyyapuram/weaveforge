@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc c0cdb4bc3bcb24378cc0670bbc6b43e892035db4394c5694c5fce18988ed1ab7 # shrinks to base = {"b": String("2026-01-01T10:00:00Z")}, local = {"b": String("2026-01-01 10:00:00+00")}
