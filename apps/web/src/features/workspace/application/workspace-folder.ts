@@ -51,6 +51,8 @@ import {
 import { activeProject, activeProjectOrNull } from "./active-project";
 import { readPreviewFolder } from "./folder-preview-read";
 import { jsonDiff } from "./folder-json-import";
+import { applyFolderImport } from "./folder-import-apply";
+import { applyOutsideEdits } from "./outside-edits";
 import {
   sanitizeArchiveEntries,
   stripArchiveRoot,
@@ -226,6 +228,8 @@ export function closeFolder(): void {
   unwatch = null;
   unwatchFolder?.();
   unwatchFolder = null;
+  if (autoApplyTimer) clearTimeout(autoApplyTimer);
+  autoApplyTimer = null;
   clearExternalChanges();
   clearPendingAssets();
 }
@@ -385,13 +389,16 @@ function watchForChanges(): void {
 /**
  * Somebody else's edits to the connected folder, by path.
  *
- * Reported, never applied. The panel's contract is that pulling changes back is
- * an explicit action with a diff shown first, and applying a folder edit blind
- * would overwrite whatever the workspace holds for that note with no way back
- * -- the three-way merge that would make it safe does not exist yet.
+ * An edit made only in the folder is taken in a moment later with no click (`scheduleAutoApply`). What is
+ * left here is what a person has to look at: an edit the app also changed, a removal, or a file the app
+ * has no record of writing.
  */
 let external = new Set<string>();
 const externalListeners = new Set<(paths: string[]) => void>();
+/** Wait after the last outside edit before taking edits in, so a burst of saves is read once. */
+export const AUTO_APPLY_DEBOUNCE_MS = 800;
+let autoApplyTimer: ReturnType<typeof setTimeout> | null = null;
+let autoApplyRun: Promise<unknown> = Promise.resolve();
 
 /** The paths changed outside the app since the last time they were cleared. */
 export function externalChanges(): string[] {
@@ -421,6 +428,38 @@ export function onExternalChange(listener: (paths: string[]) => void): () => voi
 function announceExternal(): void {
   // A listener's problem is its own; the folder still changed.
   notifyEach(externalListeners, "external-changes", externalChanges());
+}
+
+/**
+ * Take the folder's own edits in a moment after they stop, with no click.
+ *
+ * Only an edit made in the folder alone goes in; one the app also changed, a removal, or a file the app
+ * has no record of stays in the list for review. Runs one at a time, and never for a folder closed meanwhile.
+ */
+function scheduleAutoApply(): void {
+  if (autoApplyTimer) clearTimeout(autoApplyTimer);
+  autoApplyTimer = setTimeout(() => {
+    autoApplyTimer = null;
+    const fs = activeFs;
+    autoApplyRun = autoApplyRun.then(async () => {
+      // No check on `external` here: a settle from the run before may have cleared a path that changed
+      // while it ran, and this run's fresh preview is what finds it again.
+      if (!fs || activeFs !== fs) return;
+      try {
+        await applyOutsideEdits({
+          preview: previewFolderImport,
+          base: async () => readMirrorBase(fs, projectDir(await activeProject())),
+          apply: (diff) => applyFolderImport(diff),
+          settle: (held) => {
+            if (activeFs === fs) settleExternalChanges(held);
+          },
+        });
+      } catch (error) {
+        // The list keeps the paths, so the reader can still review them by hand.
+        logToApp({ level: "warn", source: "workspace-sync", message: "outside edits not taken in", detail: formatError(error) });
+      }
+    });
+  }, AUTO_APPLY_DEBOUNCE_MS);
 }
 
 /**
@@ -504,7 +543,10 @@ function reportFolderChanges(paths: readonly string[]): void {
       if (activeFs !== fs) return;
       external.add(path);
     }
-    if (external.size !== beforeRead) announceExternal();
+    if (external.size !== beforeRead) {
+      announceExternal();
+      scheduleAutoApply();
+    }
   })();
 }
 

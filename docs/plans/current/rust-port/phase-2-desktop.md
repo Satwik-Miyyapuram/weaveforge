@@ -59,6 +59,51 @@ Its costs are stated, not hidden:
   configs will point at the sidecar's `node` and the bridge script. On first
   run, configs that the old build wrote are rewritten.
 
+### How 2.8b does it
+
+`registerMainLocalApi` (`apps/desktop/src/main-local-api.ts`) already takes
+everything it touches as injected deps, so it runs in the sidecar unchanged.
+The sidecar supplies those deps, and the shell answers what only it can.
+
+**The wire goes both ways.** Today the shell asks and the sidecar answers.
+2.8b adds two sidecar → shell line kinds on stdout, next to the replies:
+
+- `{"ask":N,"method":"…","params":…}`: the sidecar needs an answer. The shell
+  answers on stdin with `{"answer":N,"ok":true,"value":…}` or
+  `{"answer":N,"ok":false,"error":"…"}`, with `answer` as the first key. An ask
+  times out after 10 s, at most 64 wait at once, and all fail when stdin closes.
+- `{"event":"…","params":…}`: a notice; nothing comes back.
+
+The shell side is a `SidecarHost` trait (`event`, and `ask` run on a blocking
+thread) passed to `Sidecar::spawn_with_host`. `spawn` keeps working with no
+host: its asks are answered `no host` and its events are dropped. An answer
+over the request cap is answered `answer too large` instead, so no ask hangs.
+
+**The deps, one by one.**
+
+| `MainLocalApiDeps` | In the sidecar |
+|---|---|
+| `ipc.handle(channel, fn)` | wire method `ipc:<channel>`; Rust commands (`local_api_state`, `local_api_set`, `local_api_token_create`, `local_api_token_revoke`, `mcp_connect`, `mcp_disconnect`, `mcp_open_client`) call it, and the shim gains the matching members |
+| `ipc.on("semanticRanked")` | wire method `ipc:semanticRanked`, called by the `semantic_ranked` command when the page answers |
+| `mainWindow().webContents.send("semanticRank")` | event `semanticRank`, which the shell emits to the window; no window means no ranking, as today |
+| `preferenceStore()`, `secretStore()` | asks `pref.read`/`pref.write`/`secret.read`/`secret.write`; the shell serves only the `local-api` preference and the `local-api-token` secret and refuses every other name |
+| `open.url`, `open.path` | asks `open.url`/`open.path`; the shell opens only `cursor:` and `vscode:` install links and an `.mcpb` file inside the MCP folder, and refuses anything else |
+| `vault` | a TS `VaultSession` on the root the shell sends with `vault.root` at start and after every folder pick |
+| `execPath`, `version` | the sidecar's own `node` and the shell's version, sent at start |
+
+Files the API writes reach the page through the Rust watcher, like any other
+outside edit.
+
+**MCP configs.** `mcpLaunch` now names the sidecar's `node` and the bridge
+script, without `ELECTRON_RUN_AS_NODE`. On first run, an entry in
+`~/.weaveforge/mcp.json` or a client config that still names the old Electron
+exe is rewritten to the new launch. Other entries are left alone.
+
+**Split.** 2.8b-1 the two-way wire (`wire.ts`, `sidecar.rs`, tests on both
+sides). 2.8b-2 the sidecar deps and `registerMainLocalApi` in `main.ts`.
+2.8b-3 the Rust host, the commands, rank forwarding and the shim members.
+2.8b-4 the MCP config rewrite.
+
 ## User data moves once
 
 Tauri's data dir follows the bundle identifier, not Electron's

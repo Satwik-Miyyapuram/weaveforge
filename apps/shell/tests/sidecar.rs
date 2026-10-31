@@ -5,11 +5,52 @@ use std::ffi::OsString;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
-use weaveforge_shell::sidecar::{SIDECAR_MAX_LINE, Sidecar, SidecarConfig, SidecarError};
+use weaveforge_shell::sidecar::{
+    SIDECAR_MAX_LINE, Sidecar, SidecarConfig, SidecarError, SidecarHost,
+};
+
+/// Records what the sidecar sent and answers by method name.
+#[derive(Default)]
+struct TestHost {
+    events: Mutex<Vec<(String, Value)>>,
+    asks: Mutex<Vec<(String, Value)>>,
+    big: usize,
+}
+
+impl SidecarHost for TestHost {
+    fn event(&self, name: &str, params: Value) {
+        self.events.lock().unwrap().push((name.to_owned(), params));
+    }
+
+    fn ask(&self, method: &str, params: Value) -> Result<Value, String> {
+        self.asks.lock().unwrap().push((method.to_owned(), params));
+        match method {
+            "ok" => Ok(json!({"x": 1})),
+            "err" => Err("refused".into()),
+            "big" => Ok(Value::String("x".repeat(self.big))),
+            "slow" => {
+                std::thread::sleep(Duration::from_millis(500));
+                Ok(Value::Null)
+            }
+            "hang" => {
+                std::thread::sleep(Duration::from_secs(2));
+                Ok(Value::Null)
+            }
+            _ => Err("unknown".into()),
+        }
+    }
+}
+
+/// Parses the answer line the shell wrote to the sidecar's stdin.
+fn answer(v: &Value) -> Value {
+    let raw = v.as_str().unwrap();
+    assert!(raw.starts_with("{\"answer\":"), "answer line: {raw}");
+    serde_json::from_str(raw).unwrap()
+}
 
 fn fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/fake-sidecar.mjs")
@@ -414,4 +455,151 @@ fn orphan_dies_with_job_object() {
     let args = format!("{}|--ignore-eof", fixture().display());
     let (pid, helper) = spawn_orphan_helper(&args);
     assert_orphan_dies(pid, helper);
+}
+
+/// Starts the fixture with `host` attached.
+fn hosted(host: &Arc<TestHost>, extra: &[&str]) -> Sidecar {
+    let dyn_host: Arc<dyn SidecarHost> = host.clone();
+    Sidecar::spawn_with_host(config(extra), dyn_host).unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ask_round_trip() {
+    let host = Arc::new(TestHost::default());
+    let s = hosted(&host, &[]);
+    let reply = s
+        .call(
+            "ask",
+            json!({"method": "ok", "params": {"name": "local-api"}}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        answer(&reply),
+        json!({"answer": 1, "ok": true, "value": {"x": 1}})
+    );
+    assert_eq!(
+        *host.asks.lock().unwrap(),
+        vec![("ok".to_owned(), json!({"name": "local-api"}))]
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ask_error_is_answered() {
+    let host = Arc::new(TestHost::default());
+    let s = hosted(&host, &[]);
+    let reply = s
+        .call("ask", json!({"method": "err", "params": {}}))
+        .await
+        .unwrap();
+    let a = answer(&reply);
+    assert_eq!(a["ok"], json!(false));
+    assert_eq!(a["error"], json!("refused"));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ask_without_host_is_answered_no_host() {
+    let s = Sidecar::spawn(config(&[])).unwrap();
+    let reply = s
+        .call("ask", json!({"method": "ok", "params": {}}))
+        .await
+        .unwrap();
+    let a = answer(&reply);
+    assert_eq!(a["ok"], json!(false));
+    assert_eq!(a["error"], json!("no host"));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ask_without_method_is_answered_bad_ask() {
+    let host = Arc::new(TestHost::default());
+    let s = hosted(&host, &[]);
+    let reply = s.call("badask", Value::Null).await.unwrap();
+    let a = answer(&reply);
+    assert_eq!(a["ok"], json!(false));
+    assert_eq!(a["error"], json!("bad ask"));
+    assert!(host.asks.lock().unwrap().is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn oversized_answer_is_answered_too_large() {
+    let host = Arc::new(TestHost {
+        big: 5000,
+        ..Default::default()
+    });
+    let s = hosted(&host, &[]);
+    let reply = s
+        .call("ask", json!({"method": "big", "params": {}}))
+        .await
+        .unwrap();
+    let a = answer(&reply);
+    assert_eq!(a["ok"], json!(false));
+    assert_eq!(a["error"], json!("answer too large"));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn event_reaches_host_before_the_reply() {
+    let host = Arc::new(TestHost::default());
+    let s = hosted(&host, &[]);
+    let r = s
+        .call(
+            "emit",
+            json!({"name": "semanticRank", "params": {"q": "a"}}),
+        )
+        .await;
+    assert_eq!(r, Ok(Value::Null));
+    assert_eq!(
+        *host.events.lock().unwrap(),
+        vec![("semanticRank".to_owned(), json!({"q": "a"}))]
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn event_without_host_is_dropped() {
+    let s = Sidecar::spawn(config(&[])).unwrap();
+    let r = s
+        .call("emit", json!({"name": "semanticRank", "params": {}}))
+        .await;
+    assert_eq!(r, Ok(Value::Null));
+    assert_eq!(s.call("echo", json!(1)).await, Ok(json!(1)));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn stray_ask_is_skipped() {
+    let s = Sidecar::spawn(config(&[])).unwrap();
+    assert_eq!(s.call("strayask", Value::Null).await, Ok(json!("after")));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn slow_host_does_not_block_replies() {
+    let host = Arc::new(TestHost::default());
+    let s = Arc::new(hosted(&host, &[]));
+    let caller = Arc::clone(&s);
+    let slow = tokio::spawn(async move {
+        caller
+            .call("ask", json!({"method": "slow", "params": {}}))
+            .await
+    });
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let start = Instant::now();
+    assert_eq!(s.call("echo", json!(1)).await, Ok(json!(1)));
+    assert!(start.elapsed() < Duration::from_millis(400));
+    let reply = slow.await.unwrap().unwrap();
+    assert_eq!(answer(&reply)["ok"], json!(true));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn shutdown_does_not_wait_for_a_pending_ask() {
+    let host = Arc::new(TestHost::default());
+    let s = Arc::new(hosted(&host, &[]));
+    let caller = Arc::clone(&s);
+    let hang = tokio::spawn(async move {
+        caller
+            .call("ask", json!({"method": "hang", "params": {}}))
+            .await
+    });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let start = Instant::now();
+    let _ = s.shutdown(Duration::from_secs(1)).await;
+    assert!(start.elapsed() < Duration::from_millis(1500));
+    assert!(hang.await.unwrap().is_err());
 }

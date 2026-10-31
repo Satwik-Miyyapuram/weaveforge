@@ -1,7 +1,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PassThrough } from "node:stream";
-import { decodeValue, encodeValue, handleLine, MAX_LINE, parseRequest, serve, type Handlers } from "../src/wire";
+import {
+  createPeer,
+  decodeValue,
+  encodeValue,
+  handleLine,
+  MAX_LINE,
+  parseRequest,
+  serve,
+  type Handlers,
+  type Peer,
+} from "../src/wire";
 
 test("parseRequest accepts a valid line", () => {
   assert.deepEqual(parseRequest('{"id":1,"method":"query","params":{"a":1}}'), {
@@ -200,4 +210,164 @@ test("handleLine rejects lines over MAX_LINE without parsing", async () => {
     ok: false,
     error: "bad request: line too long",
   });
+});
+
+/** Polls until `cond` holds, at most 100 turns. */
+async function until(cond: () => boolean): Promise<void> {
+  for (let i = 0; i < 100 && !cond(); i++) {
+    await new Promise((r) => setImmediate(r));
+  }
+}
+
+function lineSink() {
+  const lines: string[] = [];
+  return { lines, out: { write: (c: string) => { lines.push(c); return true; } } };
+}
+
+test("ask writes one ask line and resolves with the answer's value", async () => {
+  const { lines, out } = lineSink();
+  const peer: Peer = createPeer(out);
+  const p = peer.ask("pref.read", { name: "local-api" });
+  assert.deepEqual(lines, ['{"ask":1,"method":"pref.read","params":{"name":"local-api"}}\n']);
+  assert.equal(peer.settleLine('{"answer":1,"ok":true,"value":{"on":true}}'), true);
+  assert.deepEqual(await p, { on: true });
+});
+
+test("asks are numbered in order", async () => {
+  const { lines, out } = lineSink();
+  const peer = createPeer(out);
+  const a = peer.ask("m", 1);
+  const b = peer.ask("m", 2);
+  assert.equal(JSON.parse(lines[0]!).ask, 1);
+  assert.equal(JSON.parse(lines[1]!).ask, 2);
+  assert.equal(peer.settleLine('{"answer":2,"ok":true,"value":"two"}'), true);
+  assert.equal(peer.settleLine('{"answer":1,"ok":true,"value":"one"}'), true);
+  assert.equal(await a, "one");
+  assert.equal(await b, "two");
+});
+
+test("an answer value is decoded and ask params are encoded", async () => {
+  const { lines, out } = lineSink();
+  const peer = createPeer(out);
+  const p = peer.ask("m", { n: 7n });
+  assert.equal(lines[0], '{"ask":1,"method":"m","params":{"n":{"$bigint":"7"}}}\n');
+  peer.settleLine('{"answer":1,"ok":true,"value":{"$bigint":"5"}}');
+  assert.equal(await p, 5n);
+});
+
+test("an error answer rejects with the shell's message", async () => {
+  const { out } = lineSink();
+  const peer = createPeer(out);
+  const p = peer.ask("x");
+  assert.equal(peer.settleLine('{"answer":1,"ok":false,"error":"refused"}'), true);
+  await assert.rejects(p, { message: "refused" });
+});
+
+test("an answer nobody waits for is ignored", () => {
+  const { out } = lineSink();
+  const peer = createPeer(out);
+  assert.equal(peer.settleLine('{"answer":9,"ok":true}'), true);
+});
+
+test("malformed answer lines are not answers", async () => {
+  const { out } = lineSink();
+  const peer = createPeer(out);
+  const p = peer.ask("x");
+  for (const line of [
+    "nope",
+    "[]",
+    '{"answer":0,"ok":true}',
+    '{"answer":1.5,"ok":true}',
+    '{"answer":"1","ok":true}',
+    '{"answer":1}',
+    '{"answer":1,"ok":false}',
+  ]) {
+    assert.equal(peer.settleLine(line), false, line);
+  }
+  assert.equal(peer.settleLine('{"answer":1,"ok":true,"value":"good"}'), true);
+  assert.equal(await p, "good");
+});
+
+test("an ask times out and a late answer is ignored", async () => {
+  const { out } = lineSink();
+  const peer = createPeer(out, { timeoutMs: 20 });
+  await assert.rejects(peer.ask("slow.method"), { message: "ask timed out: slow.method" });
+  assert.equal(peer.settleLine('{"answer":1,"ok":true,"value":1}'), true);
+});
+
+test("too many asks are refused without writing", async () => {
+  const { lines, out } = lineSink();
+  const peer = createPeer(out, { maxInFlight: 1 });
+  const first = peer.ask("a");
+  await assert.rejects(peer.ask("b"), { message: "too many asks" });
+  assert.equal(lines.length, 1);
+  peer.settleLine('{"answer":1,"ok":true,"value":1}');
+  await first;
+  const third = peer.ask("c");
+  assert.equal(lines.length, 2);
+  peer.settleLine('{"answer":2,"ok":true,"value":3}');
+  assert.equal(await third, 3);
+});
+
+test("closeAll fails waiting and later asks", async () => {
+  const { lines, out } = lineSink();
+  const peer = createPeer(out);
+  const a = peer.ask("a");
+  const b = peer.ask("b");
+  peer.closeAll("shell closed");
+  await assert.rejects(a, { message: "shell closed" });
+  await assert.rejects(b, { message: "shell closed" });
+  await assert.rejects(peer.ask("c"), { message: "shell closed" });
+  assert.equal(lines.length, 2);
+  peer.emit("late");
+  assert.equal(lines.length, 2);
+  assert.doesNotThrow(() => peer.closeAll("again"));
+});
+
+test("emit writes an event line", () => {
+  const { lines, out } = lineSink();
+  const peer = createPeer(out);
+  peer.emit("semanticRank", { q: "a" });
+  peer.emit("ping");
+  assert.deepEqual(lines, ['{"event":"semanticRank","params":{"q":"a"}}\n', '{"event":"ping"}\n']);
+});
+
+test("serve routes answers to the peer and requests to handlers", async () => {
+  const input = new PassThrough();
+  const { chunks, output } = collector();
+  const peer = createPeer(output);
+  const handlers: Handlers = { needs: async () => peer.ask("pref.read") };
+  const done = serve(input, output, handlers, peer);
+  input.write('{"id":1,"method":"needs"}\n');
+  await until(() => chunks.length >= 1);
+  assert.equal(JSON.parse(chunks[0]!).ask, 1);
+  input.write('{"answer":1,"ok":true,"value":42}\n');
+  await until(() => chunks.length >= 2);
+  assert.equal(chunks.length, 2);
+  assert.deepEqual(JSON.parse(chunks[1]!), { id: 1, ok: true, value: 42 });
+  assert.ok(chunks.every((c) => !c.includes('"ok":false')));
+  input.end();
+  await done;
+});
+
+test("serve fails waiting asks when the shell closes stdin", async () => {
+  const input = new PassThrough();
+  const { chunks, output } = collector();
+  const peer = createPeer(output);
+  const handlers: Handlers = {
+    needs: async () => {
+      try {
+        return await peer.ask("x");
+      } catch (e) {
+        return (e as Error).message;
+      }
+    },
+  };
+  const done = serve(input, output, handlers, peer);
+  input.write('{"id":1,"method":"needs"}\n');
+  await until(() => chunks.length >= 1);
+  input.end();
+  await done;
+  assert.equal(chunks.length, 2);
+  assert.equal(JSON.parse(chunks[1]!).value, "shell closed");
 });

@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import { MIRROR_MANIFEST_PATH } from "../application/mirror-manifest";
 import {
+  AUTO_APPLY_DEBOUNCE_MS,
   chooseDesktopFolder,
   clearExternalChanges,
   closeFolder,
@@ -52,12 +53,31 @@ async function connected() {
   return shell;
 }
 
-test("a folder change outside the app is remembered, not applied", async (t) => {
+test("a folder change outside the app is remembered until it is taken in", async (t) => {
   t.after(closeFolder);
   const shell = await connected();
   shell.changed(["notes/one.note.md", "notes/two.note.md"]);
   await settle();
   assert.deepEqual(externalChanges(), ["notes/one.note.md", "notes/two.note.md"]);
+});
+
+test("an outside edit that cannot be taken in stays listed", async (t) => {
+  t.after(closeFolder);
+  const shell = await connected();
+  shell.changed(["notes/one.note.md"]);
+  await settle();
+  await new Promise((resolve) => setTimeout(resolve, AUTO_APPLY_DEBOUNCE_MS + 200));
+  assert.deepEqual(externalChanges(), ["notes/one.note.md"]);
+});
+
+test("closing the folder cancels a waiting auto-apply", async (t) => {
+  t.after(closeFolder);
+  const shell = await connected();
+  shell.changed(["notes/one.note.md"]);
+  await settle();
+  closeFolder();
+  await new Promise((resolve) => setTimeout(resolve, AUTO_APPLY_DEBOUNCE_MS + 200));
+  assert.deepEqual(externalChanges(), []);
 });
 
 test("the manifest changing is not somebody else's edit", async (t) => {

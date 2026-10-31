@@ -425,6 +425,24 @@ Reviewers check every diff against `qol-rubric.md`; the number in brackets is th
 - PDF artifacts download instead of opening in an in-app pdf.js view (rubric 18).
 - `serve_local_artifact` reads the whole file and ignores Range (`local_artifacts.rs:113`); use `range::serve_file` (rubric 28). The writer has no 25 MB cap and nothing is cleaned when an experiment is deleted (rubric 33).
 
+**Vault folder (from 2.7b and batch K reviews)**
+
+- A re-watch that fails after a refused pick is dropped silently; say the folder is no longer watched (rubric 13).
+- While adopting a new folder the old one is not watched for a moment; edits in that gap are missed.
+- The old watcher is joined while the vault lock is held; a slow join stalls every vault command.
+- A second folder pick while one is open reads like a cancel; return "busy" with a reason (rubric 13).
+- A `vault_write` racing an adopt is reported as an outside change.
+- No "folder not available: retry or choose another" screen when the remembered folder is missing (rubric 10).
+- `Choice.warnings` (for example a `WeaveForge/` folder nested in the pick) never reach the page; show them (rubric 7).
+- `forget` is not wired: add "Disconnect folder" in Settings (rubric 30).
+- Auto-applied outside edits can replace an unsaved in-app draft of the same note; check the editor's dirty state first and hold that note (rubric 2).
+- Held outside edits (removed, edited on both sides, no record of the app's write) still need a click on Review; offer keep-mine / take-theirs inline (rubric 1, 10).
+- Re-hash on every event: skip when size and mtime match the last digest (rubric 26).
+- The 2 s max wait can read a file still being written by a slow program.
+- The watch dies when the folder is renamed or the drive unplugged; detect and re-watch or say so (rubric 13).
+- No UI for the model store or the cache size (rubric 30).
+- Entries refused by the import (bad names, too big) vanish from the list without a reason (rubric 13).
+
 **Other**
 
 - Plan widget falls back to the first work area, not the primary one.
