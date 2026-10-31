@@ -122,6 +122,23 @@ export interface DesktopCommands {
   inkHapticsAvailable(): Promise<Result<boolean>>;
   inkHaptics(message: DesktopInkHaptics): Promise<Result<null>>;
   localApiCall(channel: string, args: unknown[]): Promise<Result<unknown>>;
+  embedLoad(model: string): Promise<Result<{ dimensions: number }>>;
+  embedTexts(
+    texts: string[],
+    kind: "passage" | "query",
+  ): Promise<Result<(number | null)[][]>>;
+}
+
+/** Vector rows with every value a number; Rust sends a non-finite float as null. */
+function finiteRows(rows: (number | null)[][]): number[][] {
+  return rows.map((row) =>
+    row.map((value) => {
+      if (value === null) {
+        throw new Error("the model returned a value that is not a number");
+      }
+      return value;
+    }),
+  );
 }
 
 /** Subscribes to a shell event; resolves to the way to stop listening. */
@@ -134,6 +151,9 @@ export const VAULT_CHANGED_EVENT = "vault-changed";
 
 /** The event the sidecar emits to ask for a semantic ranking: [id, query, candidates]. */
 export const SEMANTIC_RANK_EVENT = "semanticRank";
+
+/** The event the shell emits with `{ loaded, total }` while `embedLoad` fetches model files. */
+export const EMBED_PROGRESS_EVENT = "embedProgress";
 
 /** The Electron-era handler channels `local_api_call` forwards to (literals, as in apps/desktop/src/channels.ts). */
 export const LOCAL_API = {
@@ -160,6 +180,18 @@ function isSemanticRankPayload(
   );
 }
 
+/** Whether an `embedProgress` payload has numeric `loaded` and `total`. */
+function isEmbedProgressPayload(
+  payload: unknown,
+): payload is { loaded: number; total: number } {
+  return (
+    typeof payload === "object" &&
+    payload !== null &&
+    typeof (payload as { loaded?: unknown }).loaded === "number" &&
+    typeof (payload as { total?: unknown }).total === "number"
+  );
+}
+
 /** The desktop members this shim provides, as `window.weaveforge` expects them. */
 export type DesktopShim = Pick<
   DesktopBridge,
@@ -172,6 +204,9 @@ export type DesktopShim = Pick<
   | "disconnectMcp"
   | "openMcpClient"
   | "onSemanticRank"
+  | "embedLoad"
+  | "embedTexts"
+  | "onEmbedProgress"
   | "inkAvailable"
   | "inkHapticsAvailable"
   | "inkRecognise"
@@ -259,6 +294,32 @@ export function desktopShim(
         })
         .catch((error: unknown) => {
           console.warn("Semantic ranking will not run:", error);
+        });
+      return () => {
+        if (stopped) return;
+        stopped = true;
+        unlisten?.();
+        unlisten = null;
+      };
+    },
+    embedLoad: async (model) => unwrap(await cmds.embedLoad(model)),
+    embedTexts: async (texts, kind) =>
+      finiteRows(unwrap(await cmds.embedTexts(texts, kind))),
+    // Same unlisten rule as `onVaultChange`.
+    onEmbedProgress: (cb) => {
+      let stopped = false;
+      let unlisten: (() => void) | null = null;
+      void events
+        .listen(EMBED_PROGRESS_EVENT, (payload) => {
+          if (stopped || !isEmbedProgressPayload(payload)) return;
+          cb(payload.loaded, payload.total);
+        })
+        .then((stop) => {
+          if (stopped) stop();
+          else unlisten = stop;
+        })
+        .catch((error: unknown) => {
+          console.warn("Model download progress will not show up live:", error);
         });
       return () => {
         if (stopped) return;

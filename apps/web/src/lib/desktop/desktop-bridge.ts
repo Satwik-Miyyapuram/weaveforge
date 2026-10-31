@@ -262,6 +262,12 @@ export interface DesktopBridge {
       candidates: string[],
     ) => Promise<string[] | null> | string[] | null,
   ): () => void;
+  /** Loads a sentence encoder natively, downloading missing files once. Desktop shell only. */
+  embedLoad?(model: string): Promise<{ dimensions: number }>;
+  /** Embeds texts with the loaded encoder; vectors are unit length. */
+  embedTexts?(texts: string[], kind: "passage" | "query"): Promise<number[][]>;
+  /** Model files fetched so far while `embedLoad` runs; returns an unsubscribe. */
+  onEmbedProgress?(listener: (loaded: number, total: number) => void): () => void;
   compileTex(
     files: readonly { path: string; content: string }[],
     entryFile: string,

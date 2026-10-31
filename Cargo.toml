@@ -16,6 +16,7 @@ publish = false
 wf-core = { path = "crates/wf-core" }
 wf-store = { path = "crates/wf-store" }
 serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
 specta = { version = "=2.0.0-rc.27", features = ["derive"] }
 specta-serde = "=0.0.14"
 specta-typescript = "=0.0.14"

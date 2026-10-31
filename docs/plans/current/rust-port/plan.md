@@ -467,6 +467,13 @@ Reviewers check every diff against `qol-rubric.md`; the number in brackets is th
 - Plan widget falls back to the first work area, not the primary one.
 - Vault watcher: show a short "folder changed, N files reloaded" note (rubric 7).
 
+**Embeddings (2.11)**
+
+- transformers.js 4.3.0 cuts a long text after adding special tokens, so its closing `[SEP]` is lost. The native encoder (`crates/wf-store/src/embed.rs`) copies this so stored vectors stay comparable. If the index is ever rebuilt with the native encoder only, keep `[SEP]` (HF truncation) and re-embed.
+- `MAX_TOKENS` is a fixed 512, right for both known models. transformers.js uses each tokenizer's `model_max_length`; read it (or `max_position_embeddings`) per model before adding a model with a smaller limit.
+- The model id, pooling and query prefix live in both `crates/wf-store/src/embed.rs` and `apps/web/src/features/search/infrastructure/embedding-models.ts`. Pass them from the page or add a test that both lists agree (rubric 24).
+- The model download shows no progress, cannot resume and has no size cap; the model cache has no UI to list or clear it (rubric 11, 22, 33).
+
 ## 11. Sources
 
 - [Mozilla: autogenerating Rust-JS bindings with UniFFI](https://hacks.mozilla.org/2023/08/autogenerating-rust-js-bindings-with-uniffi/)

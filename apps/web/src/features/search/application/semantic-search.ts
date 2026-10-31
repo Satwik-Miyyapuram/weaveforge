@@ -1,7 +1,8 @@
 import { errorMessage, searchRevision, type SearchDoc } from "@weaveforge/core";
 import { getContainer } from "@/bootstrap";
 import { SemanticIndex, type EmbedProgress } from "./semantic-index";
-import { WorkerEmbedder, supportsLocalEmbedding } from "../infrastructure/worker-embedder";
+import { WorkerEmbedder, supportsLocalEmbedding, type WorkerEmbedderOptions } from "../infrastructure/worker-embedder";
+import { NativeEmbedder, nativeEmbedBridge } from "../infrastructure/native-embedder";
 import { vectorStore } from "../infrastructure/vector-store";
 import { planEmbeddingStart, targetEmbeddingModel } from "../infrastructure/embedding-models";
 import { desktop } from "@/lib/desktop/desktop-bridge";
@@ -20,13 +21,21 @@ import { SEMANTIC_CHANGED_EVENT } from "./semantic-events";
 
 const ENABLED_KEY = "thesis.search.semantic";
 
-let embedder: WorkerEmbedder | null = null;
+let embedder: WorkerEmbedder | NativeEmbedder | null = null;
 let semantic: SemanticIndex | null = null;
 let building: Promise<void> | null = null;
 /** The project the attached vectors describe; a switch must not keep them. */
 let semanticProject: string | null | undefined;
 /** A newer encoder embedding in the background while the old one serves. */
-let upgrade: { controller: AbortController; embedder: WorkerEmbedder } | null = null;
+let upgrade: { controller: AbortController; embedder: WorkerEmbedder | NativeEmbedder } | null = null;
+
+/** The desktop shell's native encoder when it has one; the web worker otherwise. */
+export function createEmbedder(options: WorkerEmbedderOptions): WorkerEmbedder | NativeEmbedder {
+  const bridge = nativeEmbedBridge();
+  return bridge
+    ? new NativeEmbedder(bridge, { model: options.model, onProgress: options.onProgress })
+    : new WorkerEmbedder(options);
+}
 
 /**
  * What the semantic arm is doing, for anyone who wants to show it.
@@ -146,7 +155,7 @@ async function run(options: EnableOptions): Promise<void> {
     embedder.dispose();
     embedder = null;
   }
-  embedder ??= new WorkerEmbedder({
+  embedder ??= createEmbedder({
     model: target.id,
     onProgress: (loaded, total) => {
       // A cached model reports its "download" too, instantly; past 100% the
@@ -250,7 +259,7 @@ async function serveWhileUpgrading(
   targetId: string,
 ): Promise<boolean> {
   if (stored.hashes === undefined && stored.revision !== revision) return false;
-  const previous = new WorkerEmbedder({ model: stored.model });
+  const previous = createEmbedder({ model: stored.model });
   try {
     await previous.load();
     const old = new SemanticIndex(previous);
@@ -283,9 +292,9 @@ async function serveWhileUpgrading(
  * it again and retries. Edits made during the build are caught by the sync
  * after the swap, which re-embeds only what changed.
  */
-async function upgradeInBackground(projectId: string | null, targetId: string, previous: WorkerEmbedder): Promise<void> {
+async function upgradeInBackground(projectId: string | null, targetId: string, previous: WorkerEmbedder | NativeEmbedder): Promise<void> {
   const controller = new AbortController();
-  const next = new WorkerEmbedder({ model: targetId });
+  const next = createEmbedder({ model: targetId });
   upgrade = { controller, embedder: next };
   const showProgress = (done: number, total: number) => {
     if (status.phase !== "ready" || upgrade?.embedder !== next) return;
