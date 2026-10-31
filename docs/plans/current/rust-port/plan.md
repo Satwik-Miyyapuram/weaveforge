@@ -529,6 +529,12 @@ Reviewers check every diff against `qol-rubric.md`; the number in brackets is th
 - The old app turned on Safe Browsing for its WebView; check Tauri's WebView does too.
 - `tauri.android.conf.json` has no `frontendDist`; note in the shell README why phones load the hosted app.
 - Ink's one-time reload after load can land after a replayed cold-start sign-in; check on a device that the sign-in survives, else replay on the second `Finished`.
+- The cold-start sign-in is handed over on the first page `Finished`, whatever URL finished; an offline error page or redirect hop takes it. Deliver only on an app-origin `Finished`, or let the page pull it with a `take_pending_sign_in` command after its listener is up.
+- `start_sign_in` stores the cold-start link after `open_main_window`; read and store it first so a fast page load cannot miss it.
+- Device check: the deep-link plugin must not also emit the launch link as a new URL, or the code is exchanged twice.
+- When `InkLayers` fails, `load` returns early and skips the account picker and the widget route; catch only around the ink setup.
+- `GoogleAccountPicker.release` and the idempotent `install` have no Robolectric test.
+- CI builds the phone library with cargo and runs gradle with `-x rustBuildArm64Debug`, because that task calls `npm run tauri` and apps/shell has no package.json; a pinned CLI devDependency would let CI use `tauri android build` again.
 
 ## 11. Sources
 
