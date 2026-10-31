@@ -81,6 +81,10 @@ rustls = { version = "=0.23.46", default-features = false, features = ["ring", "
 # Android. Already in the lock through ort-sys's build script.
 webpki-root-certs = "=1.0.11"
 wf-store = { path = "../../crates/wf-store", default-features = false }
+# The pen surface over the WebView (step 4.3a; plugins/ink).
+tauri-plugin-ink = { path = "plugins/ink" }
+# App Links for the sign-in return (auth_link.rs); 2.6.3 is the newest 2.x.
+tauri-plugin-deep-link = "=2.6.3"
 
 [target.'cfg(windows)'.dependencies]
 # Same version process-wrap uses; only for the CREATE_NO_WINDOW flag type.

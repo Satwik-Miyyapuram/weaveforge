@@ -5,5 +5,12 @@
     "android": {
       "minSdkVersion": 29
     }
+  },
+  "plugins": {
+    "deep-link": {
+      "mobile": [
+        { "host": "app.weaveforge.org", "pathPrefix": ["/auth/app-callback"] }
+      ]
+    }
   }
 }

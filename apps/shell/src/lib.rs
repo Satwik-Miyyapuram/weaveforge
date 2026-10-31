@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 pub mod app_log;
 pub mod app_route;
+pub mod auth_link;
 pub mod auth_loopback;
 pub mod cmd_ink;
 pub mod cmd_tools;
@@ -88,9 +89,16 @@ mod mobile_entry {
 /// Starts the shell window and blocks until it closes.
 pub fn run() -> tauri::Result<()> {
     install_tls_provider();
-    let app = tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_opener::init());
+    // The pen surface over the WebView (phase 4, step 4.3a); desktops ink in the web app.
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_ink::init());
+    // Sign-in returns through an App Link on phones (phase 4, step 4.5).
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_deep_link::init());
+    let app = builder
         .invoke_handler(commands::specta_builder().invoke_handler())
         .setup(|app| {
             start_stores(app.handle());
@@ -431,6 +439,7 @@ fn open_outside(app: &tauri::AppHandle, url: &tauri::Url) {
 }
 
 /// Listens for the sign-in redirect; a taken port is logged and sign-in falls back to pasting the link.
+#[cfg(desktop)]
 fn start_sign_in(app: &tauri::AppHandle) {
     let app = app.clone();
     let _task = tauri::async_runtime::spawn(async move {
@@ -445,6 +454,22 @@ fn start_sign_in(app: &tauri::AppHandle) {
                 "The sign-in listener did not start",
                 &error.to_string(),
             ),
+        }
+    });
+}
+
+/// Hands each sign-in App Link the OS opens to the page; phones have no loopback port.
+/// A link that cold-starts the app arrives before the page listens and is not replayed.
+#[cfg(mobile)]
+fn start_sign_in(app: &tauri::AppHandle) {
+    use tauri_plugin_deep_link::DeepLinkExt as _;
+    let handle = app.clone();
+    // The listener lives as long as the app, so its id is never needed to remove it.
+    let _listener = app.deep_link().on_open_url(move |event| {
+        for url in event.urls() {
+            if let Some(query) = auth_link::callback_query(&url) {
+                deliver_sign_in(&handle, query);
+            }
         }
     });
 }
