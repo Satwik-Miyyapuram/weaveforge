@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Lets the main window listen for shell events such as outside changes to the workspace folder.",
+  "windows": ["main"],
+  "permissions": ["core:event:default"]
+}

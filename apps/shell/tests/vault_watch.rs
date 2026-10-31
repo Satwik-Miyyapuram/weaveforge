@@ -3,7 +3,9 @@
 
 use std::time::{Duration, Instant};
 
-use weaveforge_shell::vault_watch::{QUIET, SELF_WRITE_WINDOW, VaultWatch};
+use weaveforge_shell::vault_watch::{
+    Digest, MAX_WAIT, QUIET, SELF_WRITE_WINDOW, VaultWatch, content_digest, digest_reader,
+};
 
 /// A fake clock: a fixed base instant plus an offset the test moves.
 struct Clock {
@@ -43,11 +45,21 @@ fn quiet(watch: &mut VaultWatch, clock: &Clock) -> Vec<String> {
     watch.flush(at)
 }
 
+/// The digest of the bytes this process wrote.
+fn ours() -> Digest {
+    content_digest(b"ours")
+}
+
+/// The digest of bytes someone else put in the file.
+fn theirs() -> Digest {
+    content_digest(b"theirs")
+}
+
 #[test]
 fn an_external_change_is_reported_once_things_go_quiet() {
     let clock = Clock::new();
     let mut w = watch();
-    w.saw("notes/one.note.md", clock.now());
+    w.saw("notes/one.note.md", Some(theirs()), clock.now());
     assert_eq!(
         Vec::<String>::new(),
         w.flush(clock.now()),
@@ -61,9 +73,9 @@ fn one_save_arriving_as_several_events_is_one_batch() {
     let clock = Clock::new();
     let mut w = watch();
     // An atomic save lands as a write, a rename, and a write again.
-    w.saw("a.md", clock.now());
-    w.saw("a.md", clock.now());
-    w.saw("a.md", clock.now());
+    w.saw("a.md", Some(theirs()), clock.now());
+    w.saw("a.md", Some(theirs()), clock.now());
+    w.saw("a.md", Some(theirs()), clock.now());
     assert_eq!(quiet(&mut w, &clock), vec!["a.md"]);
 }
 
@@ -71,8 +83,8 @@ fn one_save_arriving_as_several_events_is_one_batch() {
 fn several_files_changing_together_are_one_batch_sorted() {
     let clock = Clock::new();
     let mut w = watch();
-    w.saw("b.md", clock.now());
-    w.saw("a.md", clock.now());
+    w.saw("b.md", Some(theirs()), clock.now());
+    w.saw("a.md", Some(theirs()), clock.now());
     assert_eq!(quiet(&mut w, &clock), vec!["a.md", "b.md"]);
 }
 
@@ -80,39 +92,152 @@ fn several_files_changing_together_are_one_batch_sorted() {
 fn our_own_write_is_not_news() {
     let clock = Clock::new();
     let mut w = watch();
-    w.note_self_write("mirrored.md", clock.now());
-    w.saw("mirrored.md", clock.now());
+    w.note_self_write("mirrored.md", ours(), clock.now());
+    w.saw("mirrored.md", Some(ours()), clock.now());
     assert_eq!(Vec::<String>::new(), quiet(&mut w, &clock));
 }
 
 #[test]
-fn an_echo_is_forgiven_once_not_forever() {
+fn repeated_events_with_our_bytes_are_all_echoes() {
     let clock = Clock::new();
     let mut w = watch();
-    w.note_self_write("mirrored.md", clock.now());
-    w.saw("mirrored.md", clock.now());
-    // Somebody edits the file the mirror has just written. That is real news.
-    w.saw("mirrored.md", clock.now());
-    assert_eq!(quiet(&mut w, &clock), vec!["mirrored.md"]);
+    w.note_self_write("mirrored.md", ours(), clock.now());
+    w.saw("mirrored.md", Some(ours()), clock.now());
+    w.saw("mirrored.md", Some(ours()), clock.now());
+    assert_eq!(Vec::<String>::new(), quiet(&mut w, &clock));
 }
 
 #[test]
 fn a_change_long_after_our_write_is_reported() {
     let mut clock = Clock::new();
     let mut w = watch();
-    w.note_self_write("mirrored.md", clock.now());
+    w.note_self_write("mirrored.md", ours(), clock.now());
     clock.advance(500);
-    w.saw("mirrored.md", clock.now());
+    w.saw("mirrored.md", Some(ours()), clock.now());
     assert_eq!(quiet(&mut w, &clock), vec!["mirrored.md"]);
+}
+
+#[test]
+fn an_outside_edit_right_after_our_write_is_reported() {
+    let mut clock = Clock::new();
+    let mut w = watch();
+    w.note_self_write("mirrored.md", ours(), clock.now());
+    clock.advance(100);
+    w.saw("mirrored.md", Some(theirs()), clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["mirrored.md"]);
+}
+
+#[test]
+fn a_deleted_file_right_after_our_write_is_reported() {
+    let clock = Clock::new();
+    let mut w = watch();
+    w.note_self_write("mirrored.md", ours(), clock.now());
+    w.saw("mirrored.md", None, clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["mirrored.md"]);
+}
+
+#[test]
+fn after_an_outside_edit_our_old_bytes_are_no_longer_an_echo() {
+    let clock = Clock::new();
+    let mut w = watch();
+    w.note_self_write("mirrored.md", ours(), clock.now());
+    w.saw("mirrored.md", Some(theirs()), clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["mirrored.md"]);
+    // The entry was dropped with the outside edit, so our old bytes are news now.
+    w.saw("mirrored.md", Some(ours()), clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["mirrored.md"]);
+}
+
+#[test]
+fn a_half_written_view_of_our_save_is_not_news_once_the_whole_save_lands() {
+    // Linux reports the create before a big write finishes: the first hash sees part of it.
+    let clock = Clock::new();
+    let mut w = watch();
+    w.note_self_write("big.pdf", ours(), clock.now());
+    w.saw("big.pdf", Some(content_digest(b"ou")), clock.now());
+    w.saw("big.pdf", Some(ours()), clock.now());
+    assert_eq!(quiet(&mut w, &clock), Vec::<String>::new());
+    assert_eq!(w.deadline(), None);
+}
+
+#[test]
+fn a_half_written_view_of_our_save_does_not_hide_a_change_to_another_file() {
+    let clock = Clock::new();
+    let mut w = watch();
+    w.saw("theirs.md", Some(theirs()), clock.now());
+    w.note_self_write("big.pdf", ours(), clock.now());
+    w.saw("big.pdf", None, clock.now());
+    w.saw("big.pdf", Some(ours()), clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["theirs.md"]);
+}
+
+#[test]
+fn an_outside_edit_that_ends_on_other_bytes_is_reported_after_a_view_of_ours() {
+    let clock = Clock::new();
+    let mut w = watch();
+    w.note_self_write("a.md", ours(), clock.now());
+    w.saw("a.md", Some(ours()), clock.now());
+    w.saw("a.md", Some(theirs()), clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["a.md"]);
+    // Reported, so no longer ours: our old bytes coming back are news too.
+    w.saw("a.md", Some(ours()), clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["a.md"]);
+}
+
+#[test]
+fn an_older_save_put_back_by_someone_else_is_reported() {
+    // Save A1, save A2, then git checkout or another editor's undo restores A1.
+    let mut clock = Clock::new();
+    let mut w = watch();
+    w.note_self_write("a.md", content_digest(b"A1"), clock.now());
+    clock.advance(10);
+    w.note_self_write("a.md", content_digest(b"A2"), clock.now());
+    w.saw("a.md", Some(content_digest(b"A2")), clock.now());
+    w.saw("a.md", Some(content_digest(b"A1")), clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["a.md"]);
+}
+
+#[test]
+fn a_moment_unreadable_then_our_bytes_is_not_news() {
+    let clock = Clock::new();
+    let mut w = watch();
+    w.note_self_write("a.md", ours(), clock.now());
+    w.saw_unreadable("a.md", clock.now());
+    w.saw("a.md", Some(ours()), clock.now());
+    assert_eq!(quiet(&mut w, &clock), Vec::<String>::new());
+}
+
+#[test]
+fn a_cancelled_report_does_not_shorten_the_next_wait() {
+    let mut clock = Clock::new();
+    let mut w = VaultWatch::new(Box::new(|p: &str| p.to_string()), QUIET, SELF_WRITE_WINDOW);
+    w.note_self_write("big.pdf", ours(), clock.now());
+    w.saw("big.pdf", None, clock.now());
+    w.saw("big.pdf", Some(ours()), clock.now());
+    clock.advance(5_000);
+    w.saw("b.md", Some(theirs()), clock.now());
+    assert_eq!(w.deadline(), Some(clock.now() + QUIET));
+}
+
+#[test]
+fn a_cancelled_report_leaves_another_pending_deadline_alone() {
+    let clock = Clock::new();
+    let mut w = VaultWatch::new(Box::new(|p: &str| p.to_string()), QUIET, SELF_WRITE_WINDOW);
+    w.saw("theirs.md", Some(theirs()), clock.now());
+    let due = w.deadline();
+    w.note_self_write("big.pdf", ours(), clock.now());
+    w.saw("big.pdf", None, clock.now());
+    w.saw("big.pdf", Some(ours()), clock.now());
+    assert_eq!(w.deadline(), due);
 }
 
 #[test]
 fn our_write_to_one_file_does_not_hide_a_change_to_another() {
     let clock = Clock::new();
     let mut w = watch();
-    w.note_self_write("mine.md", clock.now());
-    w.saw("mine.md", clock.now());
-    w.saw("theirs.md", clock.now());
+    w.note_self_write("mine.md", ours(), clock.now());
+    w.saw("mine.md", Some(ours()), clock.now());
+    w.saw("theirs.md", Some(theirs()), clock.now());
     assert_eq!(quiet(&mut w, &clock), vec!["theirs.md"]);
 }
 
@@ -120,7 +245,7 @@ fn our_write_to_one_file_does_not_hide_a_change_to_another() {
 fn stopping_drops_what_was_pending() {
     let clock = Clock::new();
     let mut w = watch();
-    w.saw("a.md", clock.now());
+    w.saw("a.md", Some(theirs()), clock.now());
     w.stop();
     assert_eq!(Vec::<String>::new(), quiet(&mut w, &clock));
 }
@@ -148,9 +273,9 @@ fn a_self_write_spelled_differently_is_still_recognised_as_our_own() {
         Duration::from_millis(5),
         Duration::from_millis(100),
     );
-    w.note_self_write(".\\notes\\mine.md", clock.now());
-    w.saw("notes/mine.md", clock.now());
-    w.saw("notes/theirs.md", clock.now());
+    w.note_self_write(".\\notes\\mine.md", ours(), clock.now());
+    w.saw("notes/mine.md", Some(ours()), clock.now());
+    w.saw("notes/theirs.md", Some(theirs()), clock.now());
     assert_eq!(quiet(&mut w, &clock), vec!["notes/theirs.md"]);
 }
 
@@ -158,9 +283,9 @@ fn a_self_write_spelled_differently_is_still_recognised_as_our_own() {
 fn two_saws_300_ms_apart_report_both_once_at_the_second_deadline() {
     let mut clock = Clock::new();
     let mut w = VaultWatch::new(Box::new(|p: &str| p.to_string()), QUIET, SELF_WRITE_WINDOW);
-    w.saw("a.md", clock.now());
+    w.saw("a.md", Some(theirs()), clock.now());
     clock.advance(300);
-    w.saw("b.md", clock.now());
+    w.saw("b.md", Some(theirs()), clock.now());
     // The first saw's deadline has moved: first + 400 ms is still too early.
     clock.advance(100);
     assert_eq!(Vec::<String>::new(), w.flush(clock.now()));
@@ -173,24 +298,24 @@ fn two_saws_300_ms_apart_report_both_once_at_the_second_deadline() {
 fn same_path_twice_is_reported_once() {
     let clock = Clock::new();
     let mut w = VaultWatch::new(Box::new(|p: &str| p.to_string()), QUIET, SELF_WRITE_WINDOW);
-    w.saw("a.md", clock.now());
-    w.saw("a.md", clock.now());
+    w.saw("a.md", Some(theirs()), clock.now());
+    w.saw("a.md", Some(theirs()), clock.now());
     assert_eq!(quiet(&mut w, &clock), vec!["a.md"]);
 }
 
 #[test]
-fn self_write_then_saw_within_two_seconds_is_dropped_and_at_2_1_seconds_reported() {
+fn self_write_then_saw_within_ten_seconds_is_dropped_and_at_10_1_seconds_reported() {
     let mut clock = Clock::new();
     let mut w = VaultWatch::new(Box::new(|p: &str| p.to_string()), QUIET, SELF_WRITE_WINDOW);
-    w.note_self_write("a.md", clock.now());
-    clock.advance(1_999);
-    w.saw("a.md", clock.now());
+    w.note_self_write("a.md", ours(), clock.now());
+    clock.advance(9_900);
+    w.saw("a.md", Some(ours()), clock.now());
     assert_eq!(Vec::<String>::new(), quiet(&mut w, &clock));
 
     let mut w = VaultWatch::new(Box::new(|p: &str| p.to_string()), QUIET, SELF_WRITE_WINDOW);
-    w.note_self_write("a.md", clock.now());
-    clock.advance(2_100);
-    w.saw("a.md", clock.now());
+    w.note_self_write("a.md", ours(), clock.now());
+    clock.advance(10_100);
+    w.saw("a.md", Some(ours()), clock.now());
     assert_eq!(quiet(&mut w, &clock), vec!["a.md"]);
 }
 
@@ -202,16 +327,23 @@ fn normalize_is_applied_to_both_sides_of_a_self_write() {
         QUIET,
         SELF_WRITE_WINDOW,
     );
-    w.note_self_write("A\\b.md", clock.now());
-    w.saw("a/b.md", clock.now());
+    w.note_self_write("A\\b.md", ours(), clock.now());
+    w.saw("a/b.md", Some(ours()), clock.now());
     assert_eq!(Vec::<String>::new(), quiet(&mut w, &clock));
+}
+
+#[test]
+fn content_digest_tells_bytes_apart() {
+    assert_eq!(content_digest(b"abc"), content_digest(b"abc"));
+    assert_ne!(content_digest(b"a"), content_digest(b"b"));
+    assert_ne!(content_digest(b""), content_digest(b"\0"));
 }
 
 #[test]
 fn stop_drops_pending_and_clears_the_deadline() {
     let clock = Clock::new();
     let mut w = watch();
-    w.saw("a.md", clock.now());
+    w.saw("a.md", Some(theirs()), clock.now());
     assert!(w.deadline().is_some());
     w.stop();
     assert_eq!(w.deadline(), None);
@@ -226,7 +358,7 @@ fn deadline_is_none_after_a_flush_that_emptied_it() {
     let clock = Clock::new();
     let mut w = watch();
     assert_eq!(w.deadline(), None);
-    w.saw("a.md", clock.now());
+    w.saw("a.md", Some(theirs()), clock.now());
     assert_eq!(quiet(&mut w, &clock), vec!["a.md"]);
     assert_eq!(w.deadline(), None);
 }
@@ -235,10 +367,131 @@ fn deadline_is_none_after_a_flush_that_emptied_it() {
 fn deadline_moves_forward_on_each_saw() {
     let mut clock = Clock::new();
     let mut w = VaultWatch::new(Box::new(|p: &str| p.to_string()), QUIET, SELF_WRITE_WINDOW);
-    w.saw("a.md", clock.now());
+    w.saw("a.md", Some(theirs()), clock.now());
     assert_eq!(w.deadline(), Some(clock.now() + QUIET));
     clock.advance(300);
-    w.saw("b.md", clock.now());
+    w.saw("b.md", Some(theirs()), clock.now());
     assert_eq!(w.deadline(), Some(clock.now() + QUIET));
     assert!(w.deadline() > Some(clock.base + QUIET));
+}
+
+#[test]
+fn two_quick_saves_then_a_late_echo_of_the_first_are_not_news() {
+    let mut clock = Clock::new();
+    let mut w = watch();
+    let first = content_digest(b"first");
+    let second = content_digest(b"second");
+    w.note_self_write("a.md", first, clock.now());
+    clock.advance(10);
+    w.note_self_write("a.md", second, clock.now());
+    w.saw("a.md", Some(first), clock.now());
+    w.saw("a.md", Some(second), clock.now());
+    assert_eq!(quiet(&mut w, &clock), Vec::<String>::new());
+}
+
+#[test]
+fn an_outside_edit_after_two_quick_saves_is_reported() {
+    let mut clock = Clock::new();
+    let mut w = watch();
+    w.note_self_write("a.md", content_digest(b"first"), clock.now());
+    clock.advance(10);
+    w.note_self_write("a.md", content_digest(b"second"), clock.now());
+    w.saw("a.md", Some(theirs()), clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["a.md"]);
+}
+
+#[test]
+fn our_own_delete_is_not_news() {
+    let clock = Clock::new();
+    let mut w = watch();
+    w.note_self_remove("gone.md", clock.now());
+    w.saw("gone.md", None, clock.now());
+    assert_eq!(quiet(&mut w, &clock), Vec::<String>::new());
+}
+
+#[test]
+fn a_file_recreated_by_someone_else_after_our_delete_is_reported() {
+    let clock = Clock::new();
+    let mut w = watch();
+    w.note_self_remove("gone.md", clock.now());
+    w.saw("gone.md", Some(theirs()), clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["gone.md"]);
+}
+
+#[test]
+fn only_noted_paths_need_their_contents_read() {
+    let clock = Clock::new();
+    let mut w = watch();
+    assert!(!w.expects("a.md"));
+    w.note_self_write("a.md", ours(), clock.now());
+    assert!(w.expects("a.md"));
+    assert!(!w.expects("b.md"));
+    w.note_self_remove("c.md", clock.now());
+    assert!(w.expects("c.md"));
+}
+
+#[test]
+fn a_file_changing_without_pause_still_flushes_within_the_max_wait() {
+    let mut clock = Clock::new();
+    let mut w = VaultWatch::new(Box::new(|p: &str| p.to_string()), QUIET, SELF_WRITE_WINDOW);
+    let start = clock.now();
+    w.saw("log.txt", Some(theirs()), clock.now());
+    w.saw("note.md", Some(theirs()), clock.now());
+    let mut flushed = Vec::new();
+    for _ in 0..20 {
+        clock.advance(300);
+        flushed = w.flush(clock.now());
+        if !flushed.is_empty() {
+            break;
+        }
+        w.saw("log.txt", Some(theirs()), clock.now());
+    }
+    assert_eq!(flushed, vec!["log.txt", "note.md"]);
+    assert!(clock.now() <= start + MAX_WAIT + Duration::from_millis(300));
+    assert!(w.deadline().is_none());
+}
+
+#[test]
+fn the_max_wait_restarts_after_each_batch() {
+    let mut clock = Clock::new();
+    let mut w = VaultWatch::new(Box::new(|p: &str| p.to_string()), QUIET, SELF_WRITE_WINDOW);
+    w.saw("a.md", Some(theirs()), clock.now());
+    clock.advance(500);
+    assert_eq!(w.flush(clock.now()), vec!["a.md"]);
+    clock.advance(5_000);
+    w.saw("b.md", Some(theirs()), clock.now());
+    assert_eq!(w.deadline(), Some(clock.now() + QUIET));
+}
+
+#[test]
+fn a_streamed_digest_matches_the_whole_buffer_digest() {
+    let bytes: Vec<u8> = (0..300_000u32)
+        .map(|i| u8::try_from(i % 251).unwrap())
+        .collect();
+    assert_eq!(
+        digest_reader(&mut bytes.as_slice()).unwrap(),
+        content_digest(&bytes)
+    );
+    assert_eq!(
+        digest_reader(&mut [].as_slice()).unwrap(),
+        content_digest(b"")
+    );
+}
+
+#[test]
+fn something_unreadable_where_we_deleted_is_reported() {
+    let clock = Clock::new();
+    let mut w = watch();
+    w.note_self_remove("gone.md", clock.now());
+    w.saw_unreadable("gone.md", clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["gone.md"]);
+}
+
+#[test]
+fn an_unreadable_file_where_we_wrote_is_reported() {
+    let clock = Clock::new();
+    let mut w = watch();
+    w.note_self_write("a.md", ours(), clock.now());
+    w.saw_unreadable("a.md", clock.now());
+    assert_eq!(quiet(&mut w, &clock), vec!["a.md"]);
 }
