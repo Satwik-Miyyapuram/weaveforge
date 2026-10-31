@@ -338,12 +338,33 @@ fn accelerator_labels_follow_the_shortcut_label_rule() {
         Some("Ctrl+X")
     );
     assert_eq!(
+        item(&groups, "File", "Settings").accelerator.as_deref(),
+        Some("Ctrl+,")
+    );
+}
+
+#[test]
+#[cfg(windows)]
+fn redo_and_quit_use_electron_role_defaults_on_windows() {
+    let groups = menu_model(&FakeHost::default());
+    assert_eq!(
+        item(&groups, "Edit", "Redo").accelerator.as_deref(),
+        Some("Ctrl+Y")
+    );
+    assert_eq!(item(&groups, "File", "Quit").accelerator, None);
+}
+
+#[test]
+#[cfg(not(windows))]
+fn redo_and_quit_use_electron_role_defaults_elsewhere() {
+    let groups = menu_model(&FakeHost::default());
+    assert_eq!(
         item(&groups, "Edit", "Redo").accelerator.as_deref(),
         Some("Shift+Ctrl+Z")
     );
     assert_eq!(
-        item(&groups, "File", "Settings").accelerator.as_deref(),
-        Some("Ctrl+,")
+        item(&groups, "File", "Quit").accelerator.as_deref(),
+        Some("Ctrl+Q")
     );
 }
 

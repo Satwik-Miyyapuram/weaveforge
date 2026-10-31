@@ -321,6 +321,59 @@ async fn checkout_folder_is_gone_after_a_failed_clone() {
     assert_eq!(checkouts_left(), before);
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn refused_token_is_asked_once_and_never_echoed() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration;
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+    let _guard = CLONES.lock().await;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind");
+    let port = listener.local_addr().expect("addr").port();
+    let basic = Arc::new(AtomicUsize::new(0));
+    let seen = Arc::clone(&basic);
+    let server = tokio::spawn(async move {
+        while let Ok((stream, _)) = listener.accept().await {
+            let (read, mut write) = stream.into_split();
+            let mut lines = BufReader::new(read).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                if line.is_empty() {
+                    break;
+                }
+                if line
+                    .to_ascii_lowercase()
+                    .starts_with("authorization: basic ")
+                {
+                    let _ = seen.fetch_add(1, Ordering::SeqCst);
+                }
+            }
+            let reply = "HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"x\"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+            let _ = write.write_all(reply.as_bytes()).await;
+            let _ = write.shutdown().await;
+        }
+    });
+    let url = format!("http://127.0.0.1:{port}/abc123");
+    let result = tokio::time::timeout(
+        Duration::from_secs(15),
+        read_project(&url, "abc123", "main.tex", "tok-SECRET-123"),
+    )
+    .await
+    .expect("refused clone returns within 15 s");
+    server.abort();
+    let error = match result {
+        Err(error) => error,
+        Ok(_) => panic!("a 401 must not read"),
+    };
+    assert!(!error.contains("tok-SECRET-123"), "{error:?}");
+    assert_eq!(
+        basic.load(Ordering::SeqCst),
+        1,
+        "the token is offered exactly once"
+    );
+}
+
 // ---- overleaf_read_with and safe_error (overleaf-error.test.ts) ----
 
 #[test]
@@ -346,6 +399,27 @@ fn safe_error_is_bounded_to_500_characters() {
 fn safe_error_uses_the_ts_redacted_marker() {
     let safe = safe_error("bad token tok-123 refused", "tok-123");
     assert_eq!(safe, "bad token [redacted] refused");
+}
+
+#[test]
+fn url_credentials_go_even_when_the_url_is_inside_a_word() {
+    let cases = [
+        ("https://u:p@h/x", "https://h/x"),
+        ("url=https://u:p@h/x", "url=https://h/x"),
+        ("(https://u:p@h/x)", "(https://h/x)"),
+    ];
+    for (input, expected) in cases {
+        let safe = safe_error(input, "");
+        assert!(!safe.contains("u:p@"), "{input:?} -> {safe:?}");
+        assert_eq!(safe, expected, "{input:?}");
+    }
+}
+
+#[test]
+fn url_credential_strip_keeps_the_surrounding_text() {
+    let safe = safe_error("see HTTPS://u:p@h/x now, then ok", "");
+    // new URL() in the TS lowercases the scheme, and so does reqwest::Url.
+    assert_eq!(safe, "see https://h/x now, then ok");
 }
 
 #[test]

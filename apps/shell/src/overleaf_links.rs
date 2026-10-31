@@ -5,6 +5,7 @@ use std::path::{Component, Path, PathBuf};
 use serde_json::Value;
 
 use crate::commands::ShellError;
+use crate::fetch::is_js_space;
 use crate::prefs::{PrefValue, Prefs};
 use crate::secrets::Secrets;
 use crate::vault::{NO_ROOT, VaultState};
@@ -61,7 +62,7 @@ pub struct OverleafSyncReply {
 /// # Errors
 /// `BAD_FOLDER` when the folder breaks one of those rules.
 pub fn check_link_folder(raw: &str) -> Result<String, String> {
-    let folder = raw.trim().trim_end_matches('/');
+    let folder = raw.trim_matches(is_js_space).trim_end_matches('/');
     if folder.is_empty()
         || folder.encode_utf16().count() > 200
         || folder.starts_with('/')
@@ -103,13 +104,13 @@ fn stored_link(entry: &Value) -> Option<OverleafLink> {
 /// The path under `vault_root` that `folder` names, refused when it leaves the vault.
 ///
 /// # Errors
-/// `OUTSIDE` when the folder steps out of the vault, or an existing folder is a link out of it.
+/// `OUTSIDE` when the folder steps out of the vault, or an existing folder is a link out of it or to the vault itself.
 pub fn inside_vault(vault_root: &Path, folder: &str) -> Result<PathBuf, String> {
     let target = lexical_target(vault_root, folder).ok_or_else(|| OUTSIDE.to_owned())?;
     let real_root = std::fs::canonicalize(vault_root).map_err(|_| OUTSIDE.to_owned())?;
     // A folder that already exists may be a link out of the vault; follow it.
     match std::fs::canonicalize(&target) {
-        Ok(real) if !real.starts_with(&real_root) => Err(OUTSIDE.to_owned()),
+        Ok(real) if real == real_root || !real.starts_with(&real_root) => Err(OUTSIDE.to_owned()),
         _ => Ok(target),
     }
 }
@@ -222,7 +223,7 @@ fn inside(inner: &str, outer: &str) -> bool {
 
 /// The project id from a pasted id, project page or git URL; `None` for anything else.
 fn project_id_from(raw: &str) -> Option<String> {
-    let text = raw.trim();
+    let text = raw.trim_matches(is_js_space);
     if is_project_id(text) {
         return Some(text.to_owned());
     }
@@ -311,18 +312,42 @@ pub async fn overleaf_sync_with(
     project_id: Option<String>,
     folder: Option<String>,
 ) -> Result<OverleafSyncReply, String> {
+    // The vault lock, the keychain and the preference file all block; keep them off the runtime.
+    let (prefs, secrets, vault) = (prefs.clone(), secrets.clone(), vault.clone());
+    tokio::task::spawn_blocking(move || {
+        sync_blocking(
+            &prefs,
+            &secrets,
+            &vault,
+            &action,
+            project_id.as_deref(),
+            folder.as_deref(),
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The body of `overleaf_sync_with`, run on a blocking thread.
+fn sync_blocking(
+    prefs: &Prefs,
+    secrets: &Secrets,
+    vault: &VaultState,
+    action: &str,
+    project: Option<&str>,
+    folder: Option<&str>,
+) -> Result<OverleafSyncReply, String> {
     let root = vault_root(vault).ok_or_else(|| NO_ROOT.to_owned())?;
     let links = stored_links(prefs);
     let has_token = has_token(secrets);
-    let project = project_id.as_deref();
-    let next = match apply_link_action(&links, &action, project, folder.as_deref()) {
+    let next = match apply_link_action(&links, action, project, folder) {
         Err(reason) if reason == NOT_YET => {
             check_before_git(&root, &links, project, has_token)?;
             return Err(NOT_YET.to_owned());
         }
         other => other?,
     };
-    match action.as_str() {
+    match action {
         "link" => {
             if let Some(added) = next.last() {
                 let _ = inside_vault(&root, &added.folder)?;

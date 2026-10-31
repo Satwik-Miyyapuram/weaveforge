@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use tauri::Manager;
+use tokio::sync::watch;
 
 use crate::commands::ShellError;
 
@@ -26,6 +27,16 @@ const CHECK_TIMEOUT: Duration = Duration::from_secs(10);
 const POST_TIMEOUT: Duration = Duration::from_secs(15);
 /// Most characters of an error body the page gets.
 const REPLY_CHARS: usize = 2000;
+/// Bytes read from a refusal before it is cut; enough for `REPLY_CHARS` of any text.
+const ERROR_BODY_BYTES: usize = 8192;
+
+/// What a sign-in answers: the token, or the message the page shows.
+pub type SignInOutcome = Result<Option<String>, String>;
+/// The sign-in in flight, if any: a receiver that gets the outcome once it is known.
+pub type SignInSlot = std::sync::Mutex<Option<watch::Receiver<Option<SignInOutcome>>>>;
+
+/// The one sign-in at a time, shared by every caller (the TS `open ??=`).
+static IN_FLIGHT: SignInSlot = std::sync::Mutex::new(None);
 
 /// A Mattermost post as the page sends it.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -65,7 +76,8 @@ pub trait CookieSource {
 /// # Errors
 /// `BAD_SERVER_URL` when the text is not an http or https URL.
 pub fn check_server_url(raw: &str) -> Result<reqwest::Url, String> {
-    let url = reqwest::Url::parse(raw.trim()).map_err(|_| BAD_SERVER_URL.to_owned())?;
+    let url = reqwest::Url::parse(raw.trim_matches(crate::fetch::is_js_space))
+        .map_err(|_| BAD_SERVER_URL.to_owned())?;
     if !matches!(url.scheme(), "http" | "https") {
         return Err(BAD_SERVER_URL.to_owned());
     }
@@ -141,18 +153,70 @@ impl CookieSource for WindowCookies {
     }
 }
 
-/// Opens the server's login page in a fresh in-memory window.
+/// Opens the server's login page in a fresh in-memory window. Popups are denied: opening
+/// http(s) links in the browser waits for tauri 2.13's opener.
 fn open_window(app: &tauri::AppHandle, login: tauri::Url) -> Result<(), String> {
     tauri::WebviewWindowBuilder::new(app, SIGNIN_LABEL, tauri::WebviewUrl::External(login))
         .title(SIGNIN_TITLE)
         .inner_size(520.0, 760.0)
         .incognito(true)
+        .on_new_window(|_url, _features| tauri::webview::NewWindowResponse::Deny)
         .build()
         .map(|_| ())
         .map_err(|_| SIGN_IN_NOT_OPENED.to_owned())
 }
 
+/// The one sign-in at a time. A caller that finds one in flight waits for its outcome, and
+/// the first caller's run is the only one that runs. The slot is cleared on every exit.
+///
+/// # Errors
+/// Whatever `run` answers, or `SIGN_IN_NOT_OPENED` when the slot's lock is poisoned.
+pub async fn shared_sign_in<F, Fut>(slot: &SignInSlot, run: F) -> SignInOutcome
+where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = SignInOutcome>,
+{
+    // Check and claim the slot under one lock, so two callers cannot both start a run.
+    let claim = {
+        let mut held = slot.lock().map_err(|_| SIGN_IN_NOT_OPENED.to_owned())?;
+        match held.clone() {
+            Some(joined) => Err(joined),
+            None => {
+                let (tx, rx) = watch::channel(None);
+                *held = Some(rx);
+                Ok(tx)
+            }
+        }
+    };
+    let tx = match claim {
+        Ok(tx) => tx,
+        Err(mut joined) => {
+            return match joined.wait_for(Option::is_some).await {
+                Ok(outcome) => (*outcome).clone().unwrap_or(Ok(None)),
+                Err(_) => Ok(None),
+            };
+        }
+    };
+    let _clear = ClearSlot(slot);
+    let outcome = run().await;
+    let _ = tx.send_replace(Some(outcome.clone()));
+    outcome
+}
+
+/// Empties the sign-in slot when dropped, so an early return or a cancelled sign-in frees it.
+struct ClearSlot<'a>(&'a SignInSlot);
+
+impl Drop for ClearSlot<'_> {
+    fn drop(&mut self) {
+        match self.0.lock() {
+            Ok(mut slot) => *slot = None,
+            Err(poisoned) => *poisoned.into_inner() = None,
+        }
+    }
+}
+
 /// Signs in on the server's login page; answers the token, or None if the window closed first.
+/// A second caller gets the first caller's answer, whatever server it asked for.
 ///
 /// # Errors
 /// `BAD_SERVER_URL`, or `SIGN_IN_NOT_OPENED` when the window cannot be built.
@@ -161,6 +225,14 @@ pub async fn mattermost_sign_in_with(
     server_url: String,
 ) -> Result<Option<String>, String> {
     let server = check_server_url(&server_url)?;
+    shared_sign_in(&IN_FLIGHT, move || sign_in_window(app, server)).await
+}
+
+/// Opens the window for `server` (or joins one already open) and waits for its token.
+async fn sign_in_window(
+    app: &tauri::AppHandle,
+    server: reqwest::Url,
+) -> Result<Option<String>, String> {
     let login = server
         .join("/login")
         .ok()
@@ -194,6 +266,8 @@ pub async fn mattermost_sign_in_with(
 
 /// Sends one post from the shell, where the server's CORS policy does not apply.
 ///
+/// Empty token, channel or message are refused here, whereas TS lets the server refuse them.
+///
 /// # Errors
 /// `BAD_SERVER_URL`, `POST_NEEDS_FIELDS` for an empty field, or `SERVER_UNREACHABLE` on a network failure.
 pub async fn post_with(
@@ -219,15 +293,30 @@ pub async fn post_with(
         .await
         .map_err(|_| SERVER_UNREACHABLE.to_owned())?;
     let status = sent.status();
-    let text = if status.is_success() {
+    let body = if status.is_success() {
         String::new()
     } else {
-        sent.text().await.unwrap_or_default()
+        refusal_body(sent).await
     };
     Ok(MattermostReply {
         status: status.as_u16(),
-        body: text.chars().take(REPLY_CHARS).collect(),
+        body,
     })
+}
+
+/// The start of a refusal's body, read only as far as needed so a huge reply cannot stall the call.
+async fn refusal_body(mut reply: reqwest::Response) -> String {
+    let mut bytes: Vec<u8> = Vec::new();
+    while bytes.len() < ERROR_BODY_BYTES {
+        match reply.chunk().await {
+            Ok(Some(chunk)) => bytes.extend_from_slice(&chunk),
+            _ => break,
+        }
+    }
+    String::from_utf8_lossy(&bytes)
+        .chars()
+        .take(REPLY_CHARS)
+        .collect()
 }
 
 /// Opens the Mattermost sign-in window and answers the session token, or null if it was closed.

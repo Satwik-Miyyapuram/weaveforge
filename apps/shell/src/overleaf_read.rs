@@ -21,6 +21,8 @@ pub const SIZE_LIMIT: &str = "Overleaf project exceeds the supported text size l
 pub const UNSAFE_PATH: &str = "Overleaf checkout contained an unsafe path.";
 /// The start of the message when the entry file is missing; the file name follows it.
 pub const ENTRY_NOT_FOUND: &str = "Entry file not found: ";
+/// Shown when no free checkout folder name was found in 16 tries.
+pub const NO_CHECKOUT: &str = "Could not make a folder for the Overleaf checkout.";
 
 const MAX_FILES: usize = 250;
 const MAX_FILE_BYTES: u64 = 2_000_000;
@@ -57,17 +59,40 @@ pub struct OverleafSource {
 struct Checkout(PathBuf);
 
 impl Checkout {
-    fn new() -> Self {
+    /// A new, empty folder under the temp dir, created here so the name is ours before the clone.
+    fn create() -> Result<Self, String> {
         static SEQ: AtomicU64 = AtomicU64::new(0);
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |d| d.as_nanos());
-        let seq = SEQ.fetch_add(1, Ordering::Relaxed);
-        Self(std::env::temp_dir().join(format!(
-            "weaveforge-overleaf-{}-{nanos}-{seq}",
-            std::process::id()
-        )))
+        for _ in 0..16 {
+            let seq = SEQ.fetch_add(1, Ordering::Relaxed);
+            let path = std::env::temp_dir().join(format!(
+                "weaveforge-overleaf-{}-{nanos}-{seq}",
+                std::process::id()
+            ));
+            match dir_builder().create(&path) {
+                Ok(()) => return Ok(Self(path)),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+                Err(error) => return Err(error_text(error)),
+            }
+        }
+        Err(NO_CHECKOUT.to_owned())
     }
+}
+
+/// Owner-only on unix: the clone holds the token-bearing config.
+#[cfg(unix)]
+fn dir_builder() -> fs::DirBuilder {
+    use std::os::unix::fs::DirBuilderExt as _;
+    let mut builder = fs::DirBuilder::new();
+    let _ = builder.mode(0o700);
+    builder
+}
+
+#[cfg(not(unix))]
+fn dir_builder() -> fs::DirBuilder {
+    fs::DirBuilder::new()
 }
 
 impl Drop for Checkout {
@@ -130,16 +155,6 @@ fn clone_shallow(url: &str, token: &str, dest: &Path) -> Result<(), git2::Error>
     let mut builder = git2::build::RepoBuilder::new();
     let _ = builder.fetch_options(fetch);
     builder.clone(url, dest).map(|_| ())
-}
-
-/// Runs the blocking clone on its own thread; the caller removes the folder.
-async fn clone_into(url: &str, token: &str, dest: PathBuf) -> Result<(), String> {
-    let url = url.to_owned();
-    let token = token.to_owned();
-    tokio::task::spawn_blocking(move || clone_shallow(&url, &token, &dest))
-        .await
-        .map_err(error_text)?
-        .map_err(|error| git_text(&error))
 }
 
 /// The Overleaf id rule: letters, digits, `_` and `-` only, so it is safe in a clone URL.
@@ -251,10 +266,24 @@ pub async fn read_project(
     if !is_project_id(project_id) {
         return Err(INVALID_PROJECT_ID.to_owned());
     }
-    let checkout = Checkout::new();
-    clone_into(url, token, checkout.0.clone()).await?;
+    let (url, token) = (url.to_owned(), token.to_owned());
+    let (id, entry) = (project_id.to_owned(), normalise_entry(entry_file));
+    // Clone, collect and the checkout's drop all run on the blocking pool, not the async thread.
+    tokio::task::spawn_blocking(move || read_blocking(&url, &token, &id, entry))
+        .await
+        .map_err(error_text)?
+}
+
+/// The blocking half of read_project; the checkout folder is removed before this returns.
+fn read_blocking(
+    url: &str,
+    token: &str,
+    project_id: &str,
+    entry: String,
+) -> Result<OverleafSource, String> {
+    let checkout = Checkout::create()?;
+    clone_shallow(url, token, &checkout.0).map_err(|error| git_text(&error))?;
     let files = collect_text_files(&checkout.0)?;
-    let entry = normalise_entry(entry_file);
     if !files.iter().any(|file| file.path == entry) {
         return Err(format!("{ENTRY_NOT_FOUND}{entry}"));
     }
@@ -281,23 +310,36 @@ pub fn safe_error(message: &str, token: &str) -> String {
         .collect()
 }
 
-/// Each `http(s)://` word loses its username and password; one that does not parse becomes `[redacted-url]`.
+/// Each `http(s)://` run loses its username and password, as the TS regex does: from the scheme to the next whitespace.
 fn strip_url_credentials(text: &str) -> String {
     text.split_inclusive(char::is_whitespace)
         .map(|piece| {
             let word = piece.trim_end();
             let gap = piece.get(word.len()..).unwrap_or("");
-            format!("{}{gap}", clean_url(word))
+            match scheme_start(word) {
+                Some(at) => format!(
+                    "{}{}{gap}",
+                    word.get(..at).unwrap_or(""),
+                    clean_url(word.get(at..).unwrap_or(""))
+                ),
+                None => format!("{word}{gap}"),
+            }
         })
         .collect()
 }
 
-fn clean_url(word: &str) -> String {
+/// Byte offset of the first `http://` or `https://` in `word`, ignoring ASCII case.
+fn scheme_start(word: &str) -> Option<usize> {
     let lower = word.to_ascii_lowercase();
-    if !(lower.starts_with("http://") || lower.starts_with("https://")) {
-        return word.to_owned();
-    }
-    match reqwest::Url::parse(word) {
+    ["http://", "https://"]
+        .into_iter()
+        .filter_map(|scheme| lower.find(scheme))
+        .min()
+}
+
+/// `url` (which starts with a scheme) with its credentials removed; one that does not parse becomes `[redacted-url]`.
+fn clean_url(url: &str) -> String {
+    match reqwest::Url::parse(url) {
         Ok(mut url) => {
             let _ = url.set_username("");
             let _ = url.set_password(None);

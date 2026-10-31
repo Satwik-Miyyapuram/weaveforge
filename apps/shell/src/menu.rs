@@ -250,7 +250,7 @@ fn file_entries(host: &impl MenuHost) -> Vec<Entry> {
     let mut entries = workspace_entries(host);
     entries.push(Entry::route("Settings", "/settings", Some("Ctrl+,")));
     entries.push(Entry::separator());
-    entries.push(Entry::role("Quit", MenuRole::Quit, Some("Alt+F4")));
+    entries.push(Entry::role("Quit", MenuRole::Quit, QUIT_ACCELERATOR));
     entries
 }
 
@@ -303,10 +303,23 @@ fn folder_name(root: &str) -> &str {
     if name.is_empty() { root } else { name }
 }
 
+/// Electron's redo role shortcut: `Control+Y` on Windows, `Shift+Control+Z` elsewhere.
+#[cfg(windows)]
+const REDO_ACCELERATOR: &str = "Control+Y";
+/// Electron's redo role shortcut: `Control+Y` on Windows, `Shift+Control+Z` elsewhere.
+#[cfg(not(windows))]
+const REDO_ACCELERATOR: &str = "Shift+Control+Z";
+/// Electron's quit role has no shortcut on Windows; Linux uses `Control+Q`.
+#[cfg(windows)]
+const QUIT_ACCELERATOR: Option<&str> = None;
+/// Electron's quit role has no shortcut on Windows; Linux uses `Control+Q`.
+#[cfg(not(windows))]
+const QUIT_ACCELERATOR: Option<&str> = Some("Control+Q");
+
 fn edit_entries() -> Vec<Entry> {
     vec![
         Entry::role("Undo", MenuRole::Undo, Some("CommandOrControl+Z")),
-        Entry::role("Redo", MenuRole::Redo, Some("Shift+CommandOrControl+Z")),
+        Entry::role("Redo", MenuRole::Redo, Some(REDO_ACCELERATOR)),
         Entry::separator(),
         Entry::role("Cut", MenuRole::Cut, Some("CommandOrControl+X")),
         Entry::role("Copy", MenuRole::Copy, Some("CommandOrControl+C")),
@@ -596,6 +609,9 @@ impl<R: Runtime> MenuHost for TauriMenuHost<R> {
         );
     }
 
+    /// Edit roles run through `execCommand`, a known gap: WebView2 blocks `execCommand('paste')`,
+    /// and focus may sit on the page's menu button. Behaviour kept as is; 2.13 moves the edit roles
+    /// into the page, which restores editor focus and runs the command or uses the clipboard API.
     fn role(&self, role: MenuRole) {
         match role {
             MenuRole::Undo => self.exec_command("undo"),

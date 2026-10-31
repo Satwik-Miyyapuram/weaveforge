@@ -287,6 +287,24 @@ fn inside_vault_refuses_a_symlink_escape() {
     );
 }
 
+#[test]
+fn inside_vault_refuses_a_link_to_the_vault_itself() {
+    let vault = TempDir::new();
+    if let Err(why) = make_dir_link(vault.path(), &vault.path().join("Overleaf")) {
+        eprintln!("skipping link-to-root case, cannot create a symlink: {why}");
+        return;
+    }
+    assert_eq!(inside_vault(vault.path(), "Overleaf").unwrap_err(), OUTSIDE);
+}
+
+#[test]
+fn link_folders_trim_js_whitespace() {
+    assert_eq!(
+        check_link_folder("\u{feff}\u{a0}Overleaf/thesis\u{2028}").unwrap(),
+        "Overleaf/thesis"
+    );
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn link_then_list_shows_the_link_and_it_persists() {
     let vault_dir = TempDir::new();
