@@ -49,17 +49,15 @@ pub const QUIET: Duration = Duration::from_millis(400);
 /// The longest a change waits: a file written without pause must not hold back the rest.
 pub const MAX_WAIT: Duration = Duration::from_millis(2_000);
 
-/// How many recent writes per path are kept, so a late echo of an earlier save still matches.
-const RECENT_WRITES: usize = 8;
-
 /// Collects watcher reports and releases them as one batch once things go quiet.
 pub struct VaultWatch {
     normalize: Box<dyn Fn(&str) -> String + Send>,
     quiet: Duration,
     self_write_window: Duration,
-    /// Normalized path -> this process's recent writes to it, oldest first: when, and the
-    /// digest of what it wrote (None for a delete).
-    mine: HashMap<String, Vec<(Instant, Option<Digest>)>>,
+    /// Normalized path -> this process's newest write to it: when, and the digest of what
+    /// it wrote (None for a delete). Older saves are not kept: their bytes coming back
+    /// may be someone restoring them.
+    mine: HashMap<String, (Instant, Option<Digest>)>,
     pending: BTreeSet<String>,
     deadline: Option<Instant>,
     /// When the oldest pending path arrived; bounds the wait by `MAX_WAIT`.
@@ -103,17 +101,11 @@ impl VaultWatch {
 
     fn note(&mut self, path: &str, digest: Option<Digest>, now: Instant) {
         let key = (self.normalize)(path);
-        let writes = self.mine.entry(key).or_default();
-        writes.push((now, digest));
-        if writes.len() > RECENT_WRITES {
-            let _ = writes.remove(0);
-        }
+        let _ = self.mine.insert(key, (now, digest));
         // Swept here: the map only grows while the app is writing.
         let window = self.self_write_window;
-        self.mine.retain(|_, writes| {
-            writes.retain(|(when, _)| now.saturating_duration_since(*when) <= window);
-            !writes.is_empty()
-        });
+        self.mine
+            .retain(|_, (when, _)| now.saturating_duration_since(*when) <= window);
     }
 
     /// The filesystem reported `path` at `now`; `current` is its digest, None if gone.
@@ -122,13 +114,9 @@ impl VaultWatch {
         let window = self.self_write_window;
         // Only our newest save: bytes of an older one may be someone restoring it. A late
         // event showing an older save just waits; the newest save's own event cancels it.
-        let echo = self
-            .mine
-            .get(&key)
-            .and_then(|writes| writes.last())
-            .is_some_and(|(written, digest)| {
-                now.saturating_duration_since(*written) <= window && current == *digest
-            });
+        let echo = self.mine.get(&key).is_some_and(|(written, digest)| {
+            now.saturating_duration_since(*written) <= window && current == *digest
+        });
         if echo {
             // Kept, not removed: one save often arrives as several events. The file
             // holds our bytes now, so an earlier view of it (half written) is not news.
@@ -172,7 +160,7 @@ impl VaultWatch {
     }
 
     /// The filesystem reported `path`, but its contents could not be read (too big, not a
-    /// file, no access). It is not gone, so it can never be our echo: always reported.
+    /// file, no access). Reported unless a later event shows our newest bytes.
     pub fn saw_unreadable(&mut self, path: &str, now: Instant) {
         // Our saves are kept: a file held open a moment (antivirus, sync) is unreadable
         // once, and a later event with our bytes still cancels the report.
