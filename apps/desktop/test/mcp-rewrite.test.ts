@@ -204,6 +204,30 @@ test("rewriteMcpConfigFile rewrites a real file and leaves no tmp file", async (
   }
 });
 
+// Mode bits mean nothing on Windows, so these run on POSIX only.
+for (const mode of [0o600, 0o640]) {
+  test(
+    `rewriteMcpConfigFile keeps file mode ${mode.toString(8)} on the config and its .weaveforge.bak`,
+    { skip: process.platform === "win32" },
+    async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wf-mcp-rw-"));
+      try {
+        const file = path.join(dir, "mcp.json");
+        fs.writeFileSync(file, JSON.stringify({ mcpServers: { wf: DEV_OLD } }));
+        fs.chmodSync(file, mode);
+
+        assert.equal(await rewriteMcpConfigFile({ file, key: "mcpServers" }, LAUNCH), "changed");
+
+        assert.deepEqual(JSON.parse(fs.readFileSync(file, "utf8")), { mcpServers: { wf: REWRITTEN } });
+        assert.equal(fs.statSync(file).mode & 0o777, mode);
+        assert.equal(fs.statSync(`${file}.weaveforge.bak`).mode & 0o777, mode);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
+}
+
 test("rewriteMcpConfigFile keeps the original text in a .weaveforge.bak and never overwrites it", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wf-mcp-rw-"));
   try {

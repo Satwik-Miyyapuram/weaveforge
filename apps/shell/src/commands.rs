@@ -1,11 +1,12 @@
 //! Tauri commands for the local database, served by the Node sidecar (design: phase-2-desktop.md § 2.4).
 
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 use serde_json::Value;
 
-use crate::sidecar::{Sidecar, SidecarConfig, SidecarError};
+use crate::sidecar::{AskLimits, Sidecar, SidecarConfig, SidecarError, SidecarHost};
 
 /// The error every command returns. The bridge shim throws `new Error(message)`.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
@@ -56,6 +57,17 @@ impl From<SidecarError> for ShellError {
     }
 }
 
+/// Spawns the sidecar, with `host` when one is set so its asks keep working.
+fn spawn(
+    config: SidecarConfig,
+    host: Option<&Arc<dyn SidecarHost>>,
+) -> Result<Sidecar, SidecarError> {
+    match host {
+        Some(host) => Sidecar::spawn_with_host(config, Arc::clone(host), AskLimits::default()),
+        None => Sidecar::spawn(config),
+    }
+}
+
 /// Whether a sidecar reply asks for the sidecar to be restarted.
 fn asks_restart(reply: &Value) -> bool {
     reply.get("restart") == Some(&Value::Bool(true))
@@ -65,6 +77,7 @@ fn asks_restart(reply: &Value) -> bool {
 pub struct LocalDb {
     sidecar: tokio::sync::RwLock<Result<Sidecar, ShellError>>,
     config: Option<SidecarConfig>,
+    host: Option<Arc<dyn SidecarHost>>,
     /// Bumped on every restart, only under the write lock: a restart asked for by a sidecar that is already
     /// gone is skipped, so concurrent callers restart once.
     generation: AtomicU64,
@@ -80,6 +93,7 @@ impl LocalDb {
         Self {
             sidecar: tokio::sync::RwLock::new(sidecar.map_err(ShellError::from)),
             config: None,
+            host: None,
             generation: AtomicU64::new(0),
             closed: AtomicBool::new(false),
             data_dir,
@@ -92,6 +106,20 @@ impl LocalDb {
     pub fn restartable(mut self, config: SidecarConfig) -> Self {
         self.config = Some(config);
         self
+    }
+
+    /// Respawns the sidecar with this host, so its asks keep working after a restart.
+    #[must_use]
+    pub fn with_host(mut self, host: Arc<dyn SidecarHost>) -> Self {
+        self.host = Some(host);
+        self
+    }
+
+    /// Calls the sidecar's `method` with `params` and returns its reply.
+    pub async fn call(&self, method: &str, params: Value) -> Result<Value, ShellError> {
+        let sidecar = self.sidecar.read().await;
+        let sidecar = sidecar.as_ref().map_err(Clone::clone)?;
+        sidecar.call(method, params).await.map_err(ShellError::from)
     }
 
     /// Runs `sql` with `params` and returns the rows.
@@ -169,7 +197,7 @@ impl LocalDb {
         if let Ok(old) = &*sidecar {
             let _ = old.shutdown(crate::launch::SHUTDOWN_GRACE).await;
         }
-        *sidecar = Sidecar::spawn(config.clone()).map_err(ShellError::from);
+        *sidecar = spawn(config.clone(), self.host.as_ref()).map_err(ShellError::from);
         let _ = self.generation.fetch_add(1, Ordering::AcqRel);
         sidecar.as_ref().map(|_| ()).map_err(Clone::clone)
     }
@@ -243,6 +271,57 @@ fn json_row(row: Value) -> Result<Json, ShellError> {
     serde_json::from_value(row).map_err(|_| shell_error("local database: bad reply"))
 }
 
+/// The local-API channels the page may call, as in apps/desktop/src/channels.ts.
+pub const LOCAL_API_CHANNELS: &[&str] = &[
+    "weaveforge:local-api-state",
+    "weaveforge:local-api-set",
+    "weaveforge:local-api-token-create",
+    "weaveforge:local-api-token-revoke",
+    "weaveforge:mcp-connect",
+    "weaveforge:mcp-disconnect",
+    "weaveforge:mcp-open-client",
+    "weaveforge:semantic-ranked",
+];
+
+/// Refuses a channel the page may not call, before the sidecar is touched.
+fn check_channel(channel: &str) -> Result<(), ShellError> {
+    if LOCAL_API_CHANNELS.contains(&channel) {
+        Ok(())
+    } else {
+        Err(shell_error("channel not allowed"))
+    }
+}
+
+/// Unwraps a sidecar `{ ok, value | message }` reply; any other reply passes through unchanged.
+fn ipc_reply(reply: Value) -> Result<Value, ShellError> {
+    match reply.get("ok").and_then(Value::as_bool) {
+        Some(true) => Ok(reply.get("value").cloned().unwrap_or(Value::Null)),
+        Some(false) => Err(shell_error(
+            reply
+                .get("message")
+                .and_then(Value::as_str)
+                .unwrap_or("local API call failed"),
+        )),
+        None => Ok(reply),
+    }
+}
+
+/// Calls a local-API channel in the sidecar, as `ipcRenderer.invoke` did under Electron.
+#[tauri::command]
+#[specta::specta]
+pub async fn local_api_call(
+    db: tauri::State<'_, LocalDb>,
+    channel: String,
+    args: Vec<Json>,
+) -> Result<Json, ShellError> {
+    check_channel(&channel)?;
+    let args = json_params(args)?;
+    let reply = db
+        .call(&format!("ipc:{channel}"), Value::Array(args))
+        .await?;
+    json_row(ipc_reply(reply)?)
+}
+
 /// Reports the local database's health.
 #[tauri::command]
 #[specta::specta]
@@ -264,6 +343,7 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         db_query,
         db_state,
         db_reset,
+        local_api_call,
         crate::prefs::preference_write,
         crate::secrets::secret_read,
         crate::secrets::secret_write,
@@ -356,5 +436,84 @@ mod tests {
         assert_eq!(msg(SidecarError::Timeout), "local database timed out");
         assert_eq!(msg(SidecarError::Exited), "local database stopped");
         assert_eq!(msg(SidecarError::Remote("m".into())), "m");
+    }
+
+    #[test]
+    fn ipc_reply_ok_with_value() {
+        let reply = serde_json::json!({"ok": true, "value": [1]});
+        assert_eq!(ipc_reply(reply), Ok(serde_json::json!([1])));
+    }
+
+    #[test]
+    fn ipc_reply_ok_without_value_is_null() {
+        let reply = serde_json::json!({"ok": true});
+        assert_eq!(ipc_reply(reply), Ok(Value::Null));
+    }
+
+    #[test]
+    fn ipc_reply_error_with_message() {
+        let reply = serde_json::json!({"ok": false, "message": "m"});
+        assert_eq!(ipc_reply(reply), Err(shell_error("m")));
+    }
+
+    #[test]
+    fn ipc_reply_error_without_message() {
+        let reply = serde_json::json!({"ok": false});
+        assert_eq!(ipc_reply(reply), Err(shell_error("local API call failed")));
+    }
+
+    #[test]
+    fn ipc_reply_null_passes_through() {
+        assert_eq!(ipc_reply(Value::Null), Ok(Value::Null));
+    }
+
+    #[test]
+    fn ipc_reply_object_without_ok_passes_through() {
+        let reply = serde_json::json!({"value": 1});
+        assert_eq!(ipc_reply(reply.clone()), Ok(reply));
+    }
+
+    #[test]
+    fn ipc_reply_string_ok_passes_through() {
+        let reply = serde_json::json!({"ok": "true", "value": 1});
+        assert_eq!(ipc_reply(reply.clone()), Ok(reply));
+    }
+
+    #[test]
+    fn check_channel_accepts_every_listed_channel() {
+        for channel in LOCAL_API_CHANNELS {
+            assert_eq!(check_channel(channel), Ok(()));
+        }
+    }
+
+    #[test]
+    fn check_channel_refuses_unlisted_channels() {
+        for channel in [
+            "weaveforge:vault-read",
+            "",
+            "ipc:weaveforge:local-api-state",
+            "WEAVEFORGE:LOCAL-API-STATE",
+        ] {
+            assert_eq!(
+                check_channel(channel),
+                Err(shell_error("channel not allowed"))
+            );
+        }
+    }
+
+    #[test]
+    fn local_api_channels_are_eight_unique() {
+        assert_eq!(LOCAL_API_CHANNELS.len(), 8);
+        let unique: std::collections::BTreeSet<_> = LOCAL_API_CHANNELS.iter().collect();
+        assert_eq!(unique.len(), LOCAL_API_CHANNELS.len());
+    }
+
+    #[tokio::test]
+    async fn call_on_failed_spawn_returns_stored_error() {
+        let db = LocalDb::new(Err(SidecarError::Spawn("x".into())), "/d".to_owned());
+        assert_eq!(
+            db.call("ipc:weaveforge:local-api-state", Value::Null).await,
+            Err(shell_error("local database failed to start: x"))
+        );
     }
 }

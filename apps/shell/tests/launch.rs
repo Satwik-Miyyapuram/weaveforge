@@ -8,8 +8,16 @@ use std::time::{Duration, Instant};
 
 use serde_json::json;
 use weaveforge_shell::commands::LocalDb;
-use weaveforge_shell::launch::{SidecarSource, sidecar_config};
+use weaveforge_shell::launch::{ApiArgs, SidecarSource, sidecar_config};
 use weaveforge_shell::sidecar::{Sidecar, SidecarConfig};
+
+/// Local API args for a data dir: artifacts go next to it.
+fn api_args(data: &Path) -> ApiArgs {
+    ApiArgs {
+        artifacts: data.parent().unwrap().join("artifacts"),
+        app_version: "0.0.0-test".to_owned(),
+    }
+}
 
 /// Dev sidecar config for a data dir; backups go next to it.
 fn dev_config(data: &Path) -> SidecarConfig {
@@ -17,7 +25,13 @@ fn dev_config(data: &Path) -> SidecarConfig {
     let repo =
         std::fs::canonicalize(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")).unwrap();
     let backups = data.parent().unwrap().join("local-db-backups");
-    sidecar_config(&SidecarSource::Dev { repo }, data, &backups, None)
+    sidecar_config(
+        &SidecarSource::Dev { repo },
+        data,
+        &backups,
+        &api_args(data),
+        None,
+    )
 }
 
 /// Dev sidecar config that first copies the Electron data dir `old` into `data`'s parent.
@@ -25,7 +39,13 @@ fn dev_config_from(data: &Path, old: &Path) -> SidecarConfig {
     let repo =
         std::fs::canonicalize(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")).unwrap();
     let backups = data.parent().unwrap().join("local-db-backups");
-    sidecar_config(&SidecarSource::Dev { repo }, data, &backups, Some(old))
+    sidecar_config(
+        &SidecarSource::Dev { repo },
+        data,
+        &backups,
+        &api_args(data),
+        Some(old),
+    )
 }
 
 /// Whether the process with `pid` still runs.

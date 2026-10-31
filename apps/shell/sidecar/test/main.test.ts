@@ -57,6 +57,30 @@ test("parseArgs names a trailing --migrate-from with no value", () => {
   assert.equal(parseArgs(["--data-dir", "d", "--migrations", "m", "--backups", "b", "--migrate-from"]), "--migrate-from needs a value");
 });
 
+test("parseArgs reads the app flags", () => {
+  assert.deepEqual(
+    parseArgs(["--data-dir", "d", "--migrations", "m", "--backups", "b", "--artifacts", "a", "--bridge", "br.mjs", "--app-version", "1.2.3", "--home-variant", "dev"]),
+    {
+      dataDir: path.resolve("d"),
+      migrations: [path.resolve("m")],
+      backupsDir: path.resolve("b"),
+      artifacts: path.resolve("a"),
+      bridge: path.resolve("br.mjs"),
+      appVersion: "1.2.3",
+      homeVariant: "dev",
+    },
+  );
+});
+
+test("parseArgs names a trailing --home-variant with no value", () => {
+  assert.equal(parseArgs(["--data-dir", "d", "--migrations", "m", "--backups", "b", "--home-variant"]), "--home-variant needs a value");
+});
+
+test("parseArgs leaves the app fields out when their flags are absent", () => {
+  const parsed = parseArgs(["--data-dir", "d", "--migrations", "m", "--backups", "b"]) as object;
+  for (const key of ["artifacts", "bridge", "appVersion", "homeVariant"]) assert.equal(key in parsed, false);
+});
+
 test("query passes [] as params when none are given", async () => {
   const handlers = sidecarHandlers({
     host: {

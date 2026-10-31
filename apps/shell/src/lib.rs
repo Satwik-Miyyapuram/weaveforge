@@ -17,6 +17,7 @@ pub mod git;
 pub mod host;
 pub mod ink;
 pub mod launch;
+pub mod local_api;
 pub mod local_artifacts;
 pub mod mattermost;
 pub mod menu;
@@ -61,6 +62,7 @@ fn web_root() -> PathBuf {
 pub fn run() -> tauri::Result<()> {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(commands::specta_builder().invoke_handler())
         .setup(|app| {
             start_stores(app.handle());
@@ -225,12 +227,34 @@ fn start_local_db(app: &tauri::AppHandle) {
                 .config_dir()
                 .ok()
                 .and_then(|c| launch::electron_data_dir(&source, &c));
-            let config = launch::sidecar_config(&source, &data_dir, &backups_dir, old.as_deref());
+            let api = launch::ApiArgs {
+                artifacts: data.join("artifacts"),
+                app_version: app.package_info().version.to_string(),
+            };
+            let config =
+                launch::sidecar_config(&source, &data_dir, &backups_dir, &api, old.as_deref());
+            let home = paths.home_dir().unwrap_or_default();
+            let host = local_api::shell_host(
+                app,
+                local_api::mcp_dir(&home, launch::home_variant(&source)),
+            );
             // Sidecar::spawn needs a Tokio runtime; setup runs outside one.
-            let sidecar =
-                tauri::async_runtime::block_on(async { sidecar::Sidecar::spawn(config.clone()) });
-            commands::LocalDb::new(sidecar, data_dir.to_string_lossy().into_owned())
-                .restartable(config)
+            let sidecar = tauri::async_runtime::block_on(async {
+                match &host {
+                    Some(h) => sidecar::Sidecar::spawn_with_host(
+                        config.clone(),
+                        Arc::clone(h),
+                        sidecar::AskLimits::default(),
+                    ),
+                    None => sidecar::Sidecar::spawn(config.clone()),
+                }
+            });
+            let db = commands::LocalDb::new(sidecar, data_dir.to_string_lossy().into_owned())
+                .restartable(config);
+            match host {
+                Some(h) => db.with_host(h),
+                None => db,
+            }
         }
         (Err(e), _) | (_, Err(e)) => commands::LocalDb::new(
             Err(sidecar::SidecarError::Spawn(e.to_string())),
@@ -238,6 +262,13 @@ fn start_local_db(app: &tauri::AppHandle) {
         ),
     };
     let _ = app.manage(db);
+    let root = app
+        .try_state::<vault::VaultState>()
+        .and_then(|vault| vault.lock().root());
+    let handle = app.clone();
+    let _task = tauri::async_runtime::spawn(async move {
+        local_api::forward_vault_root(&handle, root.as_ref()).await;
+    });
 }
 
 /// Closes the sidecar's stdin and waits up to `SHUTDOWN_GRACE` for it to exit.
