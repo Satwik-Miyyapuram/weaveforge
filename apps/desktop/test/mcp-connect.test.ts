@@ -12,7 +12,7 @@ import { CHANNELS } from "../src/channels";
 import type { IpcSurface } from "../src/ipc-guard";
 import { hashLocalApiToken } from "../src/local-api-server";
 import type { LocalDbHost } from "../src/local-db-host";
-import { readRankAnswer, registerMainLocalApi } from "../src/main-local-api";
+import { readRankAnswer, registerMainLocalApi, type RankWindow } from "../src/main-local-api";
 import { mcpLaunch, mcpPaths, readMcpConnection, writeMcpConnection } from "../src/mcp-connect";
 import { PreferenceStore } from "../src/preference-store";
 import { SecretStore } from "../src/secret-store";
@@ -33,7 +33,12 @@ function memoryFile() {
 function shell(
   dir: string,
   variant?: string,
-  opts: { preferences?: PreferenceStore; preferenceStore?: () => PreferenceStore } = {},
+  opts: {
+    preferences?: PreferenceStore;
+    preferenceStore?: () => PreferenceStore;
+    electron?: boolean;
+    mainWindow?: () => RankWindow | null;
+  } = {},
 ) {
   const handlers = new Map<string, (...args: unknown[]) => unknown>();
   const ipc: IpcSurface = {
@@ -53,12 +58,13 @@ function shell(
     ipc,
     vault: {} as VaultSession,
     localDb: {} as LocalDbHost,
-    mainWindow: () => null,
+    mainWindow: opts.mainWindow ?? (() => null),
     preferenceStore: opts.preferenceStore ?? (() => preferences),
     secretStore: () => secrets,
     artifactRoot: path.join(dir, "artifacts"),
     mcpPaths: paths,
     execPath: "/apps/WeaveForge.exe",
+    electron: opts.electron,
     version: "9.9.9",
     open: { url: async (url) => void opened.push(url), path: async (file) => (opened.push(file), "") },
   });
@@ -275,4 +281,38 @@ test("local api: a handler that throws answers { ok: false } (xipc-07)", async (
     assert.equal(answer.ok, false, channel);
     assert.match(answer.message!, /store gone/, channel);
   }
+});
+
+test("mcpLaunch under Electron runs the app as Node", () => {
+  const paths = mcpPaths(home(), undefined, BRIDGE);
+  assert.deepEqual(mcpLaunch(paths, "/x/WeaveForge"), {
+    command: "/x/WeaveForge",
+    args: [path.join(paths.dir, "weaveforge-mcp.mjs")],
+    env: { ELECTRON_RUN_AS_NODE: "1" },
+  });
+});
+
+test("mcpLaunch for the sidecar sets no Electron flag", () => {
+  const paths = mcpPaths(home(), undefined, BRIDGE);
+  assert.deepEqual(mcpLaunch(paths, "/x/node", false), {
+    command: "/x/node",
+    args: [path.join(paths.dir, "weaveforge-mcp.mjs")],
+    env: {},
+  });
+});
+
+test("the sidecar launch keeps the variant file", () => {
+  const paths = mcpPaths(home(), "dev", BRIDGE);
+  assert.deepEqual(mcpLaunch(paths, "/x/node", false).env, { WEAVEFORGE_MCP_FILE: paths.file });
+});
+
+test("mcp open client: the sidecar's cursor link carries no Electron flag", async (t) => {
+  const window = { isDestroyed: () => false, webContents: { send: () => {} } };
+  const { api, call, paths, opened } = shell(home(), "dev", { electron: false, mainWindow: () => window });
+  t.after(() => api.close());
+  await call(CHANNELS.mcpConnect);
+  assert.equal((await call(CHANNELS.mcpOpenClient, "cursor")).ok, true);
+  const config = JSON.parse(Buffer.from(new URL(opened[0]!).searchParams.get("config")!, "base64").toString());
+  assert.equal("ELECTRON_RUN_AS_NODE" in config.env, false);
+  assert.deepEqual(config, mcpLaunch(paths, "/apps/WeaveForge.exe", false));
 });

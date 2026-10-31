@@ -26,6 +26,9 @@ export interface UpdatePaperDeps {
 }
 
 export class UpdatePaperUseCase {
+  /** Tail of the update queue per paper id; see `mutate`. */
+  private readonly queues = new Map<string, Promise<unknown>>();
+
   constructor(private readonly deps: UpdatePaperDeps) {}
 
   async setStatus(id: string, status: PaperStatus): Promise<Paper> {
@@ -128,7 +131,27 @@ export class UpdatePaperUseCase {
     await this.deps.repository.delete(id);
   }
 
-  private async mutate(
+  /**
+   * Updates to one paper run one after another. Two at once (a note save and a
+   * status change) each read the row, and the later save wrote the earlier,
+   * stale row back over the other's change. Different papers never wait.
+   */
+  private mutate(id: string, change: (p: Paper) => Paper): Promise<Paper> {
+    const previous = this.queues.get(id) ?? Promise.resolve();
+    const run = previous.then(() => this.apply(id, change));
+    // The tail never rejects, so one failed update does not block the next.
+    const tail = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.queues.set(id, tail);
+    void tail.then(() => {
+      if (this.queues.get(id) === tail) this.queues.delete(id);
+    });
+    return run;
+  }
+
+  private async apply(
     id: string,
     change: (p: Paper) => Paper,
   ): Promise<Paper> {

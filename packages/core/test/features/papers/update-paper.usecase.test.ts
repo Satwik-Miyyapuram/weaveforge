@@ -158,3 +158,87 @@ test("setTitle collapses whitespace and refuses a blank title", async () => {
   assert.equal(saved.title, "Attention Is All You Need");
   await assert.rejects(update.setTitle(paper.id, "   "), /needs a title/);
 });
+
+/** Parks the next `getById(id)` until `release()`; resolves `reached` when it is parked. */
+function gateGetById(repo: InMemoryPaperRepository, id: string) {
+  const original = repo.getById.bind(repo);
+  let release!: () => void;
+  const open = new Promise<void>((r) => (release = r));
+  let reached!: () => void;
+  const parked = new Promise<void>((r) => (reached = r));
+  let armed = true;
+  repo.getById = async (wanted: string) => {
+    if (armed && wanted === id) {
+      armed = false;
+      reached();
+      await open;
+    }
+    return original(wanted);
+  };
+  return { release, parked };
+}
+
+test("a note save and a status change at once both survive", async () => {
+  const { repo, add, update } = setup();
+  const p = await add.addManual({ title: "VAE", status: "to_read" });
+  const gate = gateGetById(repo, p.id);
+  const summary = update.setSummary(p.id, "my note");
+  await gate.parked;
+  const status = update.setStatus(p.id, "read");
+  gate.release();
+  await Promise.all([summary, status]);
+  const stored = await repo.getById(p.id);
+  assert.equal(stored?.status, "read");
+  assert.equal(stored?.summary, "my note");
+});
+
+test("a status change returns the row with the earlier note", async () => {
+  const { repo, add, update } = setup();
+  const p = await add.addManual({ title: "VAE", status: "to_read" });
+  const gate = gateGetById(repo, p.id);
+  const summary = update.setSummary(p.id, "my note");
+  await gate.parked;
+  const status = update.setStatus(p.id, "read");
+  gate.release();
+  const [, returned] = await Promise.all([summary, status]);
+  assert.equal(returned.status, "read");
+  assert.equal(returned.summary, "my note");
+});
+
+test("updates to different papers do not wait for each other", async () => {
+  const { repo, add, update } = setup();
+  const a = await add.addManual({ title: "A" });
+  const b = await add.addManual({ title: "B" });
+  const gate = gateGetById(repo, a.id);
+  const pending = update.setSummary(a.id, "held");
+  await gate.parked;
+  const other = await update.setStatus(b.id, "read");
+  assert.equal(other.status, "read");
+  gate.release();
+  assert.equal((await pending).summary, "held");
+});
+
+test("a failed update does not block the next one", async () => {
+  const { repo, add, update } = setup();
+  await assert.rejects(update.setTitle("missing-id", "x"), /No paper/);
+  await assert.rejects(update.setTitle("missing-id", "y"), /No paper/);
+  const p = await add.addManual({ title: "VAE", status: "to_read" });
+  const original = repo.getById.bind(repo);
+  let calls = 0;
+  repo.getById = async (wanted: string) => {
+    if (calls++ === 0) throw new Error("disk");
+    return original(wanted);
+  };
+  await assert.rejects(update.setStatus(p.id, "read"), /disk/);
+  const next = await update.setStatus(p.id, "read");
+  assert.equal(next.status, "read");
+});
+
+test("the queue empties after the last update", async () => {
+  const { add, update } = setup();
+  const p = await add.addManual({ title: "VAE" });
+  await update.setStatus(p.id, "read");
+  await new Promise((r) => setImmediate(r));
+  const queues = (update as unknown as { queues: Map<string, unknown> }).queues;
+  assert.equal(queues.size, 0);
+});
