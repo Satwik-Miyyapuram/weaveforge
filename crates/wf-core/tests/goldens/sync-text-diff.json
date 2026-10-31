@@ -1,0 +1,1371 @@
+{
+ "diff": [
+  {
+   "ours": "",
+   "theirs": "",
+   "body": {
+    "lines": [
+     {
+      "op": "same",
+      "text": ""
+     }
+    ],
+    "hunks": []
+   },
+   "merged": [
+    [
+     {},
+     ""
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     ""
+    ],
+    [
+     {
+      "0": "both"
+     },
+     ""
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     ""
+    ],
+    [
+     {
+      "1": "both"
+     },
+     ""
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     ""
+    ]
+   ],
+   "markers": ""
+  },
+  {
+   "ours": "a",
+   "theirs": "",
+   "body": {
+    "lines": [
+     {
+      "op": "ours",
+      "text": "a"
+     },
+     {
+      "op": "theirs",
+      "text": ""
+     }
+    ],
+    "hunks": [
+     {
+      "index": 0,
+      "ours": [
+       "a"
+      ],
+      "theirs": [
+       ""
+      ]
+     }
+    ]
+   },
+   "merged": [
+    [
+     {},
+     "a"
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     ""
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "a\n"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     "a"
+    ],
+    [
+     {
+      "1": "both"
+     },
+     "a"
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     "a"
+    ]
+   ],
+   "markers": "<<<<<<< this app\na\n=======\n\n>>>>>>> the folder"
+  },
+  {
+   "ours": "",
+   "theirs": "a",
+   "body": {
+    "lines": [
+     {
+      "op": "ours",
+      "text": ""
+     },
+     {
+      "op": "theirs",
+      "text": "a"
+     }
+    ],
+    "hunks": [
+     {
+      "index": 0,
+      "ours": [
+       ""
+      ],
+      "theirs": [
+       "a"
+      ]
+     }
+    ]
+   },
+   "merged": [
+    [
+     {},
+     ""
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     "a"
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "\na"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     ""
+    ],
+    [
+     {
+      "1": "both"
+     },
+     ""
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     ""
+    ]
+   ],
+   "markers": "<<<<<<< this app\n\n=======\na\n>>>>>>> the folder"
+  },
+  {
+   "ours": "a",
+   "theirs": "a",
+   "body": {
+    "lines": [
+     {
+      "op": "same",
+      "text": "a"
+     }
+    ],
+    "hunks": []
+   },
+   "merged": [
+    [
+     {},
+     "a"
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     "a"
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "a"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     "a"
+    ],
+    [
+     {
+      "1": "both"
+     },
+     "a"
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     "a"
+    ]
+   ],
+   "markers": "a"
+  },
+  {
+   "ours": "a\nb\nc",
+   "theirs": "a\nb\nc",
+   "body": {
+    "lines": [
+     {
+      "op": "same",
+      "text": "a"
+     },
+     {
+      "op": "same",
+      "text": "b"
+     },
+     {
+      "op": "same",
+      "text": "c"
+     }
+    ],
+    "hunks": []
+   },
+   "merged": [
+    [
+     {},
+     "a\nb\nc"
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     "a\nb\nc"
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "a\nb\nc"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     "a\nb\nc"
+    ],
+    [
+     {
+      "1": "both"
+     },
+     "a\nb\nc"
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     "a\nb\nc"
+    ]
+   ],
+   "markers": "a\nb\nc"
+  },
+  {
+   "ours": "a\nb\nc",
+   "theirs": "a\nx\nc",
+   "body": {
+    "lines": [
+     {
+      "op": "same",
+      "text": "a"
+     },
+     {
+      "op": "ours",
+      "text": "b"
+     },
+     {
+      "op": "theirs",
+      "text": "x"
+     },
+     {
+      "op": "same",
+      "text": "c"
+     }
+    ],
+    "hunks": [
+     {
+      "index": 0,
+      "ours": [
+       "b"
+      ],
+      "theirs": [
+       "x"
+      ]
+     }
+    ]
+   },
+   "merged": [
+    [
+     {},
+     "a\nb\nc"
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     "a\nx\nc"
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "a\nb\nx\nc"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     "a\nb\nc"
+    ],
+    [
+     {
+      "1": "both"
+     },
+     "a\nb\nc"
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     "a\nb\nc"
+    ]
+   ],
+   "markers": "a\n<<<<<<< this app\nb\n=======\nx\n>>>>>>> the folder\nc"
+  },
+  {
+   "ours": "a\nb\nc",
+   "theirs": "a\nc",
+   "body": {
+    "lines": [
+     {
+      "op": "same",
+      "text": "a"
+     },
+     {
+      "op": "ours",
+      "text": "b"
+     },
+     {
+      "op": "same",
+      "text": "c"
+     }
+    ],
+    "hunks": [
+     {
+      "index": 0,
+      "ours": [
+       "b"
+      ],
+      "theirs": []
+     }
+    ]
+   },
+   "merged": [
+    [
+     {},
+     "a\nb\nc"
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     "a\nc"
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "a\nb\nc"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     "a\nb\nc"
+    ],
+    [
+     {
+      "1": "both"
+     },
+     "a\nb\nc"
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     "a\nb\nc"
+    ]
+   ],
+   "markers": "a\n<<<<<<< this app\nb\n=======\n>>>>>>> the folder\nc"
+  },
+  {
+   "ours": "a\nc",
+   "theirs": "a\nb\nc",
+   "body": {
+    "lines": [
+     {
+      "op": "same",
+      "text": "a"
+     },
+     {
+      "op": "theirs",
+      "text": "b"
+     },
+     {
+      "op": "same",
+      "text": "c"
+     }
+    ],
+    "hunks": [
+     {
+      "index": 0,
+      "ours": [],
+      "theirs": [
+       "b"
+      ]
+     }
+    ]
+   },
+   "merged": [
+    [
+     {},
+     "a\nc"
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     "a\nb\nc"
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "a\nb\nc"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     "a\nc"
+    ],
+    [
+     {
+      "1": "both"
+     },
+     "a\nc"
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     "a\nc"
+    ]
+   ],
+   "markers": "a\n<<<<<<< this app\n=======\nb\n>>>>>>> the folder\nc"
+  },
+  {
+   "ours": "a\r\nb\r\nc",
+   "theirs": "a\nb\nc",
+   "body": {
+    "lines": [
+     {
+      "op": "same",
+      "text": "a"
+     },
+     {
+      "op": "same",
+      "text": "b"
+     },
+     {
+      "op": "same",
+      "text": "c"
+     }
+    ],
+    "hunks": []
+   },
+   "merged": [
+    [
+     {},
+     "a\nb\nc"
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     "a\nb\nc"
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "a\nb\nc"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     "a\nb\nc"
+    ],
+    [
+     {
+      "1": "both"
+     },
+     "a\nb\nc"
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     "a\nb\nc"
+    ]
+   ],
+   "markers": "a\r\nb\r\nc"
+  },
+  {
+   "ours": "a\rb",
+   "theirs": "a\nb",
+   "body": {
+    "lines": [
+     {
+      "op": "same",
+      "text": "a"
+     },
+     {
+      "op": "same",
+      "text": "b"
+     }
+    ],
+    "hunks": []
+   },
+   "merged": [
+    [
+     {},
+     "a\nb"
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     "a\nb"
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "a\nb"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     "a\nb"
+    ],
+    [
+     {
+      "1": "both"
+     },
+     "a\nb"
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     "a\nb"
+    ]
+   ],
+   "markers": "a\rb"
+  },
+  {
+   "ours": "x\ny",
+   "theirs": "p\nq",
+   "body": {
+    "lines": [
+     {
+      "op": "ours",
+      "text": "x"
+     },
+     {
+      "op": "ours",
+      "text": "y"
+     },
+     {
+      "op": "theirs",
+      "text": "p"
+     },
+     {
+      "op": "theirs",
+      "text": "q"
+     }
+    ],
+    "hunks": [
+     {
+      "index": 0,
+      "ours": [
+       "x",
+       "y"
+      ],
+      "theirs": [
+       "p",
+       "q"
+      ]
+     }
+    ]
+   },
+   "merged": [
+    [
+     {},
+     "x\ny"
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     "p\nq"
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "x\ny\np\nq"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     "x\ny"
+    ],
+    [
+     {
+      "1": "both"
+     },
+     "x\ny"
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     "x\ny"
+    ]
+   ],
+   "markers": "<<<<<<< this app\nx\ny\n=======\np\nq\n>>>>>>> the folder"
+  },
+  {
+   "ours": "a\nb\nc\nd\ne",
+   "theirs": "a\nB\nc\nD\ne",
+   "body": {
+    "lines": [
+     {
+      "op": "same",
+      "text": "a"
+     },
+     {
+      "op": "ours",
+      "text": "b"
+     },
+     {
+      "op": "theirs",
+      "text": "B"
+     },
+     {
+      "op": "same",
+      "text": "c"
+     },
+     {
+      "op": "ours",
+      "text": "d"
+     },
+     {
+      "op": "theirs",
+      "text": "D"
+     },
+     {
+      "op": "same",
+      "text": "e"
+     }
+    ],
+    "hunks": [
+     {
+      "index": 0,
+      "ours": [
+       "b"
+      ],
+      "theirs": [
+       "B"
+      ]
+     },
+     {
+      "index": 1,
+      "ours": [
+       "d"
+      ],
+      "theirs": [
+       "D"
+      ]
+     }
+    ]
+   },
+   "merged": [
+    [
+     {},
+     "a\nb\nc\nd\ne"
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     "a\nB\nc\nd\ne"
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "a\nb\nB\nc\nd\ne"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     "a\nb\nc\nD\ne"
+    ],
+    [
+     {
+      "1": "both"
+     },
+     "a\nb\nc\nd\nD\ne"
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     "a\nb\nc\nd\ne"
+    ]
+   ],
+   "markers": "a\n<<<<<<< this app\nb\n=======\nB\n>>>>>>> the folder\nc\n<<<<<<< this app\nd\n=======\nD\n>>>>>>> the folder\ne"
+  },
+  {
+   "ours": "one\ntwo\nthree\n",
+   "theirs": "one\nthree\nfour\n",
+   "body": {
+    "lines": [
+     {
+      "op": "same",
+      "text": "one"
+     },
+     {
+      "op": "ours",
+      "text": "two"
+     },
+     {
+      "op": "same",
+      "text": "three"
+     },
+     {
+      "op": "theirs",
+      "text": "four"
+     },
+     {
+      "op": "same",
+      "text": ""
+     }
+    ],
+    "hunks": [
+     {
+      "index": 0,
+      "ours": [
+       "two"
+      ],
+      "theirs": []
+     },
+     {
+      "index": 1,
+      "ours": [],
+      "theirs": [
+       "four"
+      ]
+     }
+    ]
+   },
+   "merged": [
+    [
+     {},
+     "one\ntwo\nthree\n"
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     "one\nthree\n"
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "one\ntwo\nthree\n"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     "one\ntwo\nthree\nfour\n"
+    ],
+    [
+     {
+      "1": "both"
+     },
+     "one\ntwo\nthree\nfour\n"
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     "one\ntwo\nthree\n"
+    ]
+   ],
+   "markers": "one\n<<<<<<< this app\ntwo\n=======\n>>>>>>> the folder\nthree\n<<<<<<< this app\n=======\nfour\n>>>>>>> the folder\n"
+  },
+  {
+   "ours": "same\n",
+   "theirs": "same",
+   "body": {
+    "lines": [
+     {
+      "op": "same",
+      "text": "same"
+     },
+     {
+      "op": "ours",
+      "text": ""
+     }
+    ],
+    "hunks": [
+     {
+      "index": 0,
+      "ours": [
+       ""
+      ],
+      "theirs": []
+     }
+    ]
+   },
+   "merged": [
+    [
+     {},
+     "same\n"
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     "same"
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "same\n"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     "same\n"
+    ],
+    [
+     {
+      "1": "both"
+     },
+     "same\n"
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     "same\n"
+    ]
+   ],
+   "markers": "same\n<<<<<<< this app\n\n=======\n>>>>>>> the folder"
+  },
+  {
+   "ours": "a\nb\na\nb",
+   "theirs": "b\na\nb\na",
+   "body": {
+    "lines": [
+     {
+      "op": "ours",
+      "text": "a"
+     },
+     {
+      "op": "same",
+      "text": "b"
+     },
+     {
+      "op": "same",
+      "text": "a"
+     },
+     {
+      "op": "same",
+      "text": "b"
+     },
+     {
+      "op": "theirs",
+      "text": "a"
+     }
+    ],
+    "hunks": [
+     {
+      "index": 0,
+      "ours": [
+       "a"
+      ],
+      "theirs": []
+     },
+     {
+      "index": 1,
+      "ours": [],
+      "theirs": [
+       "a"
+      ]
+     }
+    ]
+   },
+   "merged": [
+    [
+     {},
+     "a\nb\na\nb"
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     "b\na\nb"
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "a\nb\na\nb"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     "a\nb\na\nb\na"
+    ],
+    [
+     {
+      "1": "both"
+     },
+     "a\nb\na\nb\na"
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     "a\nb\na\nb"
+    ]
+   ],
+   "markers": "<<<<<<< this app\na\n=======\n>>>>>>> the folder\nb\na\nb\n<<<<<<< this app\n=======\na\n>>>>>>> the folder"
+  },
+  {
+   "ours": "a\n\n\nb",
+   "theirs": "a\nb",
+   "body": {
+    "lines": [
+     {
+      "op": "same",
+      "text": "a"
+     },
+     {
+      "op": "ours",
+      "text": ""
+     },
+     {
+      "op": "ours",
+      "text": ""
+     },
+     {
+      "op": "same",
+      "text": "b"
+     }
+    ],
+    "hunks": [
+     {
+      "index": 0,
+      "ours": [
+       "",
+       ""
+      ],
+      "theirs": []
+     }
+    ]
+   },
+   "merged": [
+    [
+     {},
+     "a\n\n\nb"
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     "a\nb"
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "a\n\n\nb"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     "a\n\n\nb"
+    ],
+    [
+     {
+      "1": "both"
+     },
+     "a\n\n\nb"
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     "a\n\n\nb"
+    ]
+   ],
+   "markers": "a\n<<<<<<< this app\n\n\n=======\n>>>>>>> the folder\nb"
+  },
+  {
+   "ours": "<<<<<<< this app\nx\n=======\ny\n>>>>>>> the folder",
+   "theirs": "z",
+   "body": {
+    "lines": [
+     {
+      "op": "ours",
+      "text": "<<<<<<< this app"
+     },
+     {
+      "op": "ours",
+      "text": "x"
+     },
+     {
+      "op": "ours",
+      "text": "======="
+     },
+     {
+      "op": "ours",
+      "text": "y"
+     },
+     {
+      "op": "ours",
+      "text": ">>>>>>> the folder"
+     },
+     {
+      "op": "theirs",
+      "text": "z"
+     }
+    ],
+    "hunks": [
+     {
+      "index": 0,
+      "ours": [
+       "<<<<<<< this app",
+       "x",
+       "=======",
+       "y",
+       ">>>>>>> the folder"
+      ],
+      "theirs": [
+       "z"
+      ]
+     }
+    ]
+   },
+   "merged": [
+    [
+     {},
+     "<<<<<<< this app\nx\n=======\ny\n>>>>>>> the folder"
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     "z"
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "<<<<<<< this app\nx\n=======\ny\n>>>>>>> the folder\nz"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     "<<<<<<< this app\nx\n=======\ny\n>>>>>>> the folder"
+    ],
+    [
+     {
+      "1": "both"
+     },
+     "<<<<<<< this app\nx\n=======\ny\n>>>>>>> the folder"
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     "<<<<<<< this app\nx\n=======\ny\n>>>>>>> the folder"
+    ]
+   ],
+   "markers": "<<<<<<< this app\n<<<<<<< this app\nx\n=======\ny\n>>>>>>> the folder\n=======\nz\n>>>>>>> the folder"
+  },
+  {
+   "ours": "héllo\n日本",
+   "theirs": "hello\n日本",
+   "body": {
+    "lines": [
+     {
+      "op": "ours",
+      "text": "héllo"
+     },
+     {
+      "op": "theirs",
+      "text": "hello"
+     },
+     {
+      "op": "same",
+      "text": "日本"
+     }
+    ],
+    "hunks": [
+     {
+      "index": 0,
+      "ours": [
+       "héllo"
+      ],
+      "theirs": [
+       "hello"
+      ]
+     }
+    ]
+   },
+   "merged": [
+    [
+     {},
+     "héllo\n日本"
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     "hello\n日本"
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "héllo\nhello\n日本"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     "héllo\n日本"
+    ],
+    [
+     {
+      "1": "both"
+     },
+     "héllo\n日本"
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     "héllo\n日本"
+    ]
+   ],
+   "markers": "<<<<<<< this app\nhéllo\n=======\nhello\n>>>>>>> the folder\n日本"
+  },
+  {
+   "ours": "a\nb",
+   "theirs": "a\nb\n",
+   "body": {
+    "lines": [
+     {
+      "op": "same",
+      "text": "a"
+     },
+     {
+      "op": "same",
+      "text": "b"
+     },
+     {
+      "op": "theirs",
+      "text": ""
+     }
+    ],
+    "hunks": [
+     {
+      "index": 0,
+      "ours": [],
+      "theirs": [
+       ""
+      ]
+     }
+    ]
+   },
+   "merged": [
+    [
+     {},
+     "a\nb"
+    ],
+    [
+     {
+      "0": "theirs"
+     },
+     "a\nb\n"
+    ],
+    [
+     {
+      "0": "both"
+     },
+     "a\nb\n"
+    ],
+    [
+     {
+      "0": "ours",
+      "1": "theirs"
+     },
+     "a\nb"
+    ],
+    [
+     {
+      "1": "both"
+     },
+     "a\nb"
+    ],
+    [
+     {
+      "5": "theirs"
+     },
+     "a\nb"
+    ]
+   ],
+   "markers": "a\nb\n<<<<<<< this app\n=======\n\n>>>>>>> the folder"
+  }
+ ],
+ "ceiling": {
+  "hunks": 1,
+  "lines": 4001,
+  "oursFirst": {
+   "op": "ours",
+   "text": "o0"
+  }
+ },
+ "hasMarkers": [
+  [
+   "",
+   false
+  ],
+  [
+   "a",
+   false
+  ],
+  [
+   "<<<<<<< this app\nx",
+   false
+  ],
+  [
+   "<<<<<<< this app\nx\n>>>>>>> the folder",
+   true
+  ],
+  [
+   "<<<<<<< HEAD\na\n=======\nb\n>>>>>>> main",
+   true
+  ],
+  [
+   "<<<<<<<\n>>>>>>>",
+   true
+  ],
+  [
+   "<<<<<<<x\n>>>>>>>",
+   false
+  ],
+  [
+   "<<<<<<< a\r\n>>>>>>> b",
+   true
+  ],
+  [
+   "Title\n=======\n",
+   false
+  ],
+  [
+   ">>>>>>> x\n<<<<<<< y",
+   false
+  ],
+  [
+   "  <<<<<<< x\n>>>>>>> y",
+   false
+  ],
+  [
+   "<<<<<<<\t\n>>>>>>>\t",
+   true
+  ],
+  [
+   "<<<<<<<< x\n>>>>>>>> y",
+   false
+  ],
+  [
+   "<<<<<<< this appX\n>>>>>>> the folderY",
+   true
+  ]
+ ]
+}

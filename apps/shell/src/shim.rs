@@ -73,7 +73,7 @@ mod tests {
             .find(r#"["https://app.localhost","app://localhost"].includes(globalThis.location.origin)"#)
             .expect("origin guard");
         let info = script
-            .find(r#"globalThis.__WEAVEFORGE_SHELL__ = {"platform":"win32","version":"1.2.3"};"#)
+            .find(r#"globalThis.__WEAVEFORGE_SHELL__ = {"version":"1.2.3","platform":"win32"};"#)
             .expect("shell info");
         let bundle = script.find(BRIDGE_BUNDLE).expect("bundle");
         assert!(guard < info && info < bundle);
